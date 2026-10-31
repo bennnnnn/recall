@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import replace
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
@@ -21,7 +21,6 @@ from app.modules.math.schemas import (
     RightTriangleGeometryInput,
     SectorGeometryBlockSpec,
     SectorInput,
-    SolidGeometryInput,
     SquareGeometryInput,
     TrapezoidGeometryBlockSpec,
     TrapezoidInput,
@@ -30,6 +29,7 @@ from app.modules.math.schemas import (
     TriangleSidesGeometryBlockSpec,
     TriangleSidesInput,
 )
+from app.modules.math.solve.geometry import answer_is_rounded
 from app.modules.math.tools.block.answer_text import format_quantity
 from app.modules.math.tools.block.canonical import _diagram_block, finish_with_answer
 from app.services.solving import VerifiedMathBlock
@@ -37,7 +37,11 @@ from app.services.workout import Workout, math_line, render_workout
 
 
 def _finish_geometry(
-    intent: MathIntent, lines: list[str], spec: object, answer: str | None = None
+    intent: MathIntent,
+    lines: list[str],
+    spec: object,
+    answer: str | None = None,
+    result: BaseModel | None = None,
 ) -> VerifiedMathBlock:
     # Dimensions are enough to draw the shape, but not to choose a measurement.
     # Keep the native diagram while leaving the answer empty; the direct layer
@@ -60,6 +64,9 @@ def _finish_geometry(
             display_answer = format_quantity(answer, intent.unit)
         elif intent.wants_angle:
             display_answer = answer
+        # A root or π shown to a few places is that rounding, not the value: the card says so.
+        if display_answer and answer_is_rounded(answer, result):
+            display_answer = rf"\approx {display_answer}"
     return _diagram_block(lines, spec, answer, display_answer=display_answer)
 
 
@@ -118,7 +125,7 @@ def _verified_block_rectangle(
         answer = f"{rect_geo.area:g}"
     else:
         answer = None
-    return _finish_geometry(intent, lines, spec, answer)
+    return _finish_geometry(intent, lines, spec, answer, rect_geo)
 
 
 def _verified_block_square(
@@ -156,40 +163,8 @@ def _verified_block_square(
         answer = square_geo.diagonal
     elif intent.wants_area:
         answer = square_geo.area
-    return _finish_geometry(intent, lines, spec, f"{answer:g}" if answer is not None else None)
-
-
-def _verified_block_solid(
-    intent: MathIntent, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock | None:
-    if intent.solid_shape is None:
-        return None
-    geo = math_solve.solid_geometry(
-        SolidGeometryInput(
-            shape=intent.solid_shape,
-            width=intent.width,
-            height=intent.height,
-            depth=intent.depth,
-            side=intent.side,
-            radius=intent.radius,
-            unit=intent.unit,
-        )
-    )
-    lines.append(
-        f"Solid ({geo.shape}): volume={geo.labels['volume']} "
-        f"surface_area={geo.labels['surface_area']}"
-    )
-    for key, value in geo.labels.items():
-        if key in {"volume", "surface_area"}:
-            continue
-        lines.append(f"{key}={value}")
-    if not (intent.wants_volume or intent.wants_surface_area):
-        return VerifiedMathBlock(text="\n".join(lines))
-    if intent.wants_surface_area and not intent.wants_volume:
-        answer, unit = geo.labels["surface_area"].rsplit(" ", 1)
-    else:
-        answer, unit = geo.labels["volume"].rsplit(" ", 1)
-    return finish_with_answer(lines, format_quantity(answer, unit))
+    shown = f"{answer:g}" if answer is not None else None
+    return _finish_geometry(intent, lines, spec, shown, square_geo)
 
 
 def _verified_block_circle(
@@ -266,7 +241,7 @@ def _verified_block_circle(
         circle_answer = math_solve.format_geometry_decimal(circle_geo.area)
     else:
         circle_answer = None
-    return _finish_geometry(intent, lines, circle_spec, circle_answer)
+    return _finish_geometry(intent, lines, circle_spec, circle_answer, circle_geo)
 
 
 def _verified_block_triangle(
@@ -293,9 +268,8 @@ def _verified_block_triangle(
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
-    return _finish_geometry(
-        intent, lines, tri_spec, f"{tri_geo.area:g}" if intent.wants_area else None
-    )
+    area = f"{tri_geo.area:g}" if intent.wants_area else None
+    return _finish_geometry(intent, lines, tri_spec, area, tri_geo)
 
 
 def _verified_block_right_triangle(
@@ -339,7 +313,7 @@ def _verified_block_right_triangle(
         answer = f"{rt_geo.hypotenuse:g}"
     if intent.wants_perimeter:
         answer = f"{rt_geo.base + rt_geo.height + rt_geo.hypotenuse:g}"
-    return _finish_geometry(intent, lines, rt_spec, answer)
+    return _finish_geometry(intent, lines, rt_spec, answer, rt_geo)
 
 
 def _verified_block_triangle_sides(
@@ -423,9 +397,8 @@ def _verified_block_triangle_sides(
         quantity = tri_geo.perimeter
     elif intent.wants_area:
         quantity = tri_geo.area
-    return _finish_geometry(
-        intent, lines, tri_spec, f"{quantity:g}" if quantity is not None else None
-    )
+    shown = f"{quantity:g}" if quantity is not None else None
+    return _finish_geometry(intent, lines, tri_spec, shown, tri_geo)
 
 
 def _verified_block_trapezoid(
@@ -458,9 +431,8 @@ def _verified_block_trapezoid(
         labels=trap_geo.labels,
     )
     lines.append("area = (top + bottom) / 2 \\times height")
-    return _finish_geometry(
-        intent, lines, trap_spec, f"{trap_geo.area:g}" if intent.wants_area else None
-    )
+    area = f"{trap_geo.area:g}" if intent.wants_area else None
+    return _finish_geometry(intent, lines, trap_spec, area, trap_geo)
 
 
 def _verified_block_parallelogram(
@@ -496,7 +468,8 @@ def _verified_block_parallelogram(
         answer = para_geo.perimeter
     elif intent.wants_area:
         answer = para_geo.area
-    return _finish_geometry(intent, lines, para_spec, f"{answer:g}" if answer is not None else None)
+    shown = f"{answer:g}" if answer is not None else None
+    return _finish_geometry(intent, lines, para_spec, shown, para_geo)
 
 
 def _verified_block_sector(
@@ -529,4 +502,4 @@ def _verified_block_sector(
         answer = f"{sector_geo.area:g}"
     elif intent.wants_arc_length:
         answer = math_solve.format_geometry_decimal(sector_geo.arc_length)
-    return _finish_geometry(intent, lines, sector_spec, answer)
+    return _finish_geometry(intent, lines, sector_spec, answer, sector_geo)

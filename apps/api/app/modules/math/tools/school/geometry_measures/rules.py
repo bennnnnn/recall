@@ -20,6 +20,17 @@ _DEGREES = rf"\s*(?:°|degrees?|deg)(?![A-Za-z0-9])(?!\s+(?!{_REQUEST_WORD})[A-Z
 _IS = r"\s*(?:of\s+|is\s+|=\s*|:\s*)?"
 _UNIT = r"(?:\s*(mm|cm|km|m|in|ft))?"
 _POINT = rf"\(\s*{_N}\s*,\s*{_N}\s*\)"
+# A point with its label: "the point P(3, 10)", "P'(7, 2)", "(7, 2)".
+_LABELLED = rf"(?:the\s+point\s+)?(?:[A-Za-z][\'\u2019\u2032]*\s*)?{_POINT}"
+# One point and its image under a reflection, in the ways a book states it.
+_IMAGE = (
+    rf"(?:\bimage\s+of\s+{_LABELLED}\s+(?:is|=|was|will\s+be)\s+{_LABELLED}"
+    rf"|{_LABELLED}\s+(?:is|was)\s+(?:reflected|mapped|sent|taken)\s+(?:on)?to\s+{_LABELLED}"
+    rf"|\b(?:maps?|takes?|sends?|reflects?|carries)\s+{_LABELLED}\s+(?:on)?to\s+{_LABELLED})"
+)
+_REFLECTION_LINE = (
+    r"\b(?:(?:line|axis)\s+of\s+(?:the\s+)?reflection|(?:mirror|reflection|reflecting)\s+line)\b"
+)
 
 _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -168,6 +179,12 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"(?:the\s+line\s+)?y\s*=\s*([^,;?]+)",
             re.I,
         ),
+    ),
+    # The line of reflection that takes a point to its image is the perpendicular bisector
+    # of the two: "the image of P(3, 10) is P'(7, 2); find the line of reflection".
+    (
+        "reflection_line",
+        re.compile(rf"{_IMAGE}.*?{_REFLECTION_LINE}|{_REFLECTION_LINE}.*?{_IMAGE}", re.I),
     ),
     (
         "perpendicular_bisector",

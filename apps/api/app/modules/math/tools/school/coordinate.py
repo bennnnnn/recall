@@ -39,6 +39,28 @@ def _linear_abc(cleaned: str) -> tuple[float, float, float] | None:
     return a, b, c
 
 
+# The line through two points is the one asked only when the question puts both points on
+# it ("through", "joining", "line AB") and relates the line to them in no other way: the
+# perpendicular bisector of the two, the mirror taking one to the other, a parallel line.
+_ON_THE_LINE = re.compile(
+    r"\b(?:through|pass(?:es|ing)?|join(?:s|ing)?|connect(?:s|ing)?|contain(?:s|ing)?|between"
+    r"|via|lies?\s+on)\b",
+    re.IGNORECASE,
+)
+_NAMED_BY_POINTS = re.compile(r"\bline\s+[A-Z]{2}\b")
+_OTHER_LINE = re.compile(
+    r"\b(?:perpendicular|parallel|bisect\w*|reflect\w*|mirror|image|tangent|normal|median"
+    r"|altitude|symmetr\w*|rotat\w*|translat\w*|circle|diameter|radius|equidistant)\b",
+    re.IGNORECASE,
+)
+
+
+def _line_through_asked(cleaned: str) -> bool:
+    if _OTHER_LINE.search(cleaned):
+        return False
+    return bool(_ON_THE_LINE.search(cleaned) or _NAMED_BY_POINTS.search(cleaned))
+
+
 def extract_coord_formulas(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     points = literal_math_tuples(cleaned, "(", ")")
@@ -48,6 +70,8 @@ def extract_coord_formulas(cleaned: str) -> MathIntent | None:
         if word_index(lower, "distance") != -1:
             return None
         if "line" not in lower and "equation" not in lower:
+            return None
+        if not _line_through_asked(cleaned):
             return None
         (x1, y1), (x2, y2) = (points[0][0], points[0][1]), (points[1][0], points[1][1])
         return MathIntent(

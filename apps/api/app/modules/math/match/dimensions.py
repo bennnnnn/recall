@@ -195,6 +195,33 @@ def number_after(text: str, label: str) -> float | None:
     return float(m.group(0)) if m else None
 
 
+# A number that is only the start of a measure: ``50√2`` is not 50, ``3π`` not 3, ``1/2``
+# not 1, ``2^3`` not 2; and ``√2`` is not 2.
+_UNREAD_AFTER = re.compile(r"\s*(?:\u221a|sqrt|\u03c0|\\pi\b|pi\b|/\s*\d|\^|\*\*)", re.IGNORECASE)
+_UNREAD_BEFORE = re.compile(r"(?:\u221a|sqrt)\s*[({]?\s*$", re.IGNORECASE)
+
+
+def measure_after(text: str, label: str) -> float | None:
+    """The measure stated after ``label``, read whole, or None.
+
+    A slant height is not the height, and a number written with a root, π, a fraction
+    bar or a power is not the number before it: a reader that took ``slant height
+    50√2`` as a height of 50 answered a pyramid it had not read.
+    """
+    lower = text.lower()
+    idx = lower.find(label)
+    while idx != -1 and lower[:idx].rstrip().endswith("slant"):
+        idx = lower.find(label, idx + len(label))
+    if idx == -1:
+        return None
+    m = DECIMAL_LITERAL.search(text, idx + len(label))
+    if m is None:
+        return None
+    if _UNREAD_AFTER.match(text, m.end()) or _UNREAD_BEFORE.search(text, 0, m.start()):
+        return None
+    return float(m.group(0))
+
+
 def two_numbers_after(text: str, label: str) -> tuple[float, float] | None:
     """``legs 3 and 4`` / ``legs 3, 4`` → (3, 4). Linear ``find`` + digit scan."""
     lower = text.lower()

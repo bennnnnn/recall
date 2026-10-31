@@ -390,7 +390,9 @@ def _format_direct_math_body(
             format_direct_geometry_working,
         )
 
-        working = format_direct_geometry_working(verified.geometry_request, fences[0], answer)
+        working = format_direct_geometry_working(
+            verified.geometry_request, fences[0], answer, display_answer.startswith("\\approx")
+        )
         prefix = f"{working}\n\n" if working else ""
         return (
             f"{prefix}```answer\n{display_answer}\n```\n\n"
@@ -406,7 +408,8 @@ def _format_direct_math_body(
     # lets the streaming client close and render this fence immediately.
     from app.modules.math.tools.direct_geometry_working import format_direct_solid_working
 
-    solid_working = format_direct_solid_working(verified.geometry_request, answer)
+    rounded = display_answer.startswith("\\approx")
+    solid_working = format_direct_solid_working(verified.geometry_request, answer, rounded)
     prefix = f"{solid_working}\n\n" if solid_working else ""
     from app.modules.math.tools.direct_teaching import prepend_teaching_fence
 

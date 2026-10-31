@@ -19,6 +19,7 @@ from app.modules.math.match.dimensions import (
     first_dim_triple,
     geometry_dim_context,
     has_draw_shape,
+    measure_after,
     number_after,
     two_numbers_after,
 )
@@ -75,6 +76,7 @@ __all__ = [
     "integral_bounds",
     "looks_like_math_expr",
     "matrix_signal",
+    "measure_after",
     "needs_symbolic",
     "number_after",
     "number_theory_signal",

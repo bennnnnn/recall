@@ -41,7 +41,7 @@ def _reply(query: str) -> str:
         (
             "Find the diagonal of a square side 4",
             r"$d = s\sqrt{2}$",
-            r"$d = 4\sqrt{2} = 5.6569$",
+            r"$d = 4\sqrt{2} \approx 5.6569$",
         ),
         (
             "Find the area of a triangle base 6 height 5",

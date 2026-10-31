@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.school.geometry_measures.working import _n, _Solved
-from app.services.workout import math_line
+from app.services.workout import math_line, text_line
 
 
 def _signed(value: float, name: str) -> str:
@@ -153,10 +155,10 @@ def _perpendicular_bisector(numbers: list[float], words: list[str]) -> _Solved |
     mx, my = (x1 + x2) / 2, (y1 + y2) / 2
     rows = [math_line(rf"M = \left({latex(mx)}, {latex(my)}\right)", "midpoint")]
     if y1 == y2:
-        rows.append(math_line("the segment is horizontal, so the bisector is vertical"))
+        rows.append(text_line("the segment is horizontal, so the bisector is vertical"))
         answer = f"x = {latex(mx)}"
     elif x1 == x2:
-        rows.append(math_line("the segment is vertical, so the bisector is horizontal"))
+        rows.append(text_line("the segment is vertical, so the bisector is horizontal"))
         answer = f"y = {latex(my)}"
     else:
         slope = (y2 - y1) / (x2 - x1)
@@ -180,4 +182,27 @@ def _perpendicular_bisector(numbers: list[float], words: list[str]) -> _Solved |
         (math_line(r"y - y_M = m_{\perp}(x - x_M)", "Through the midpoint, perpendicular"),),
         tuple(rows),
         answer,
+    )
+
+
+def _reflection_line(numbers: list[float], words: list[str]) -> _Solved | None:
+    """The mirror that takes a point to its image: the perpendicular bisector of the two."""
+    bisector = _perpendicular_bisector(numbers, words)
+    if bisector is None:
+        return None
+    x1, y1, x2, y2 = numbers
+    return replace(
+        bisector,
+        given=(
+            math_line(rf"P = ({_n(x1)}, {_n(y1)})", "the point"),
+            math_line(rf"P' = ({_n(x2)}, {_n(y2)})", "its image"),
+        ),
+        find=(math_line(r"\text{the line of reflection}"),),
+        formula=(
+            math_line(
+                r"\text{line of reflection} = \text{perpendicular bisector of } PP'",
+                "every point on the mirror is as far from P as from P'",
+            ),
+            *bisector.formula,
+        ),
     )

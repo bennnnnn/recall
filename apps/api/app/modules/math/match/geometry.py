@@ -8,7 +8,7 @@ from itertools import pairwise
 from app.modules.math.match.dimensions import (
     first_dim_pair,
     first_dim_triple,
-    number_after,
+    measure_after,
     two_numbers_after,
 )
 from app.modules.math.schemas.operations import SolidShape
@@ -26,9 +26,9 @@ _SOLID_ALGEBRA_PHRASES = (
 
 def trapezoid_dimensions(text: str) -> tuple[float, float, float] | None:
     """Read either ``top/bottom/height`` or natural ``bases a and b`` dimensions."""
-    top = number_after(text, "top")
-    bottom = number_after(text, "bottom")
-    height = number_after(text, "height")
+    top = measure_after(text, "top")
+    bottom = measure_after(text, "bottom")
+    height = measure_after(text, "height")
     if top is not None and bottom is not None and height is not None:
         return top, bottom, height
     if height is None:
@@ -151,14 +151,14 @@ def parse_solid(cleaned: str) -> SolidParse | None:
         return None
     triple = first_dim_triple(cleaned)
     pair = first_dim_pair(cleaned)
-    side = number_after(cleaned, "side") or number_after(cleaned, "edge")
-    radius = number_after(cleaned, "radius")
-    diameter = number_after(cleaned, "diameter")
-    height = number_after(cleaned, "height")
-    length = number_after(cleaned, "length")
-    width = number_after(cleaned, "width")
-    depth = number_after(cleaned, "depth")
-    base = number_after(cleaned, "base")
+    side = measure_after(cleaned, "side") or measure_after(cleaned, "edge")
+    radius = measure_after(cleaned, "radius")
+    diameter = measure_after(cleaned, "diameter")
+    height = measure_after(cleaned, "height")
+    length = measure_after(cleaned, "length")
+    width = measure_after(cleaned, "width")
+    depth = measure_after(cleaned, "depth")
+    base = measure_after(cleaned, "base")
     if diameter is not None and radius is None:
         radius = diameter / 2.0
     width_v = width

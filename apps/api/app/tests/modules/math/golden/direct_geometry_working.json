@@ -111,7 +111,7 @@
     "kind": "square",
     "quantity": "diagonal",
     "prompt": "Find the diagonal of a square side 4",
-    "reply": "**Given**  \n$s = 4\\,\\mathrm{units}$ — side length\n\n**Find**  \n$d$ — diagonal\n\n**Formula**  \n$d^2 = s^2 + s^2$ — Pythagorean theorem  \n$d = s\\sqrt{2}$\n\n**Substitution**  \n$d = 4\\sqrt{2} = 5.6569$\n\n**Answer**\n\n```answer\n5.6569\\ \\mathrm{units}\n```\n\n```geometry\n{\"type\":\"square\",\"width\":4.0,\"height\":4.0,\"side\":4.0,\"unit\":\"units\",\"show_diagonal\":true,\"show_angle\":false,\"show_area\":false,\"show_perimeter\":false,\"show_ticks\":true,\"diagonal\":5.6569,\"angle_deg\":null,\"area\":16.0,\"perimeter\":16.0,\"labels\":{\"side\":\"4 units\",\"diagonal\":\"5.66 units\",\"area\":\"16 units\\u00b2\",\"perimeter\":\"16 units\"}}\n```\n"
+    "reply": "**Given**  \n$s = 4\\,\\mathrm{units}$ — side length\n\n**Find**  \n$d$ — diagonal\n\n**Formula**  \n$d^2 = s^2 + s^2$ — Pythagorean theorem  \n$d = s\\sqrt{2}$\n\n**Substitution**  \n$d = 4\\sqrt{2} \\approx 5.6569$\n\n**Answer**\n\n```answer\n\\approx 5.6569\\ \\mathrm{units}\n```\n\n```geometry\n{\"type\":\"square\",\"width\":4.0,\"height\":4.0,\"side\":4.0,\"unit\":\"units\",\"show_diagonal\":true,\"show_angle\":false,\"show_area\":false,\"show_perimeter\":false,\"show_ticks\":true,\"diagonal\":5.6569,\"angle_deg\":null,\"area\":16.0,\"perimeter\":16.0,\"labels\":{\"side\":\"4 units\",\"diagonal\":\"5.66 units\",\"area\":\"16 units\\u00b2\",\"perimeter\":\"16 units\"}}\n```\n"
   },
   {
     "kind": "triangle",
@@ -159,7 +159,7 @@
     "kind": "triangle_sides",
     "quantity": "area",
     "prompt": "What is the area of a triangle with sides 5, 6 and 7 cm?",
-    "reply": "**Given**  \n$a = 5\\,\\mathrm{cm}$ — side  \n$b = 6\\,\\mathrm{cm}$ — side  \n$c = 7\\,\\mathrm{cm}$ — side\n\n**Find**  \n$A$ — area\n\n**Formula**  \n$s = \\frac{a+b+c}{2}$ — Heron's formula  \n$A = \\sqrt{s(s-a)(s-b)(s-c)}$\n\n**Substitution**  \n$s = \\frac{5+6+7}{2} = 9$  \n$A = \\sqrt{9(9-5)(9-6)(9-7)} = \\sqrt{9 \\cdot 4 \\cdot 3 \\cdot 2} = \\sqrt{216} = 14.6969$\n\n**Answer**\n\n```answer\n14.6969\\ \\mathrm{cm}^{2}\n```\n\n```geometry\n{\"type\":\"triangle_sides\",\"a\":5.0,\"b\":6.0,\"c\":7.0,\"relative_lengths\":false,\"unit\":\"cm\",\"show_labels\":true,\"show_ticks\":true,\"show_altitude\":false,\"show_median\":false,\"show_angle\":true,\"area\":14.6969,\"perimeter\":18.0,\"labels\":{\"a\":\"5 cm\",\"b\":\"6 cm\",\"c\":\"7 cm\",\"area\":\"14.7 cm\\u00b2\",\"perimeter\":\"18 cm\",\"angle_a\":\"44.4\\u00b0\",\"angle_b\":\"57.1\\u00b0\",\"angle_c\":\"78.5\\u00b0\"}}\n```\n"
+    "reply": "**Given**  \n$a = 5\\,\\mathrm{cm}$ — side  \n$b = 6\\,\\mathrm{cm}$ — side  \n$c = 7\\,\\mathrm{cm}$ — side\n\n**Find**  \n$A$ — area\n\n**Formula**  \n$s = \\frac{a+b+c}{2}$ — Heron's formula  \n$A = \\sqrt{s(s-a)(s-b)(s-c)}$\n\n**Substitution**  \n$s = \\frac{5+6+7}{2} = 9$  \n$A = \\sqrt{9(9-5)(9-6)(9-7)} = \\sqrt{9 \\cdot 4 \\cdot 3 \\cdot 2} = \\sqrt{216} \\approx 14.6969$\n\n**Answer**\n\n```answer\n\\approx 14.6969\\ \\mathrm{cm}^{2}\n```\n\n```geometry\n{\"type\":\"triangle_sides\",\"a\":5.0,\"b\":6.0,\"c\":7.0,\"relative_lengths\":false,\"unit\":\"cm\",\"show_labels\":true,\"show_ticks\":true,\"show_altitude\":false,\"show_median\":false,\"show_angle\":true,\"area\":14.6969,\"perimeter\":18.0,\"labels\":{\"a\":\"5 cm\",\"b\":\"6 cm\",\"c\":\"7 cm\",\"area\":\"14.7 cm\\u00b2\",\"perimeter\":\"18 cm\",\"angle_a\":\"44.4\\u00b0\",\"angle_b\":\"57.1\\u00b0\",\"angle_c\":\"78.5\\u00b0\"}}\n```\n"
   },
   {
     "kind": "triangle_sides",
@@ -195,25 +195,25 @@
     "kind": "circle",
     "quantity": "area",
     "prompt": "Find the area of a circle radius 3",
-    "reply": "**Given**  \n$r = 3\\,\\mathrm{units}$ — radius\n\n**Find**  \n$A$ — area\n\n**Formula**  \n$A = \\pi r^2$ — Circle area\n\n**Substitution**  \n$A = \\pi(3)^2 = 9\\pi \\approx 28.27$\n\n**Answer**\n\n```answer\n28.27\\ \\mathrm{units}^{2}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":3.0,\"unit\":\"units\",\"show_labels\":true,\"show_diameter\":false,\"show_area\":true,\"show_circumference\":false,\"diameter\":6.0,\"area\":28.2743,\"circumference\":18.8496,\"labels\":{\"radius\":\"3 units\",\"diameter\":\"6 units\",\"area\":\"28.27 units\\u00b2\",\"circumference\":\"18.85 units\"}}\n```\n"
+    "reply": "**Given**  \n$r = 3\\,\\mathrm{units}$ — radius\n\n**Find**  \n$A$ — area\n\n**Formula**  \n$A = \\pi r^2$ — Circle area\n\n**Substitution**  \n$A = \\pi(3)^2 = 9\\pi \\approx 28.27$\n\n**Answer**\n\n```answer\n\\approx 28.27\\ \\mathrm{units}^{2}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":3.0,\"unit\":\"units\",\"show_labels\":true,\"show_diameter\":false,\"show_area\":true,\"show_circumference\":false,\"diameter\":6.0,\"area\":28.2743,\"circumference\":18.8496,\"labels\":{\"radius\":\"3 units\",\"diameter\":\"6 units\",\"area\":\"28.27 units\\u00b2\",\"circumference\":\"18.85 units\"}}\n```\n"
   },
   {
     "kind": "circle",
     "quantity": "area",
     "prompt": "What is the area of a circle with diameter 10 cm?",
-    "reply": "**Given**  \n$d = 10\\,\\mathrm{cm}$ — diameter\n\n**Find**  \n$A$ — area\n\n**Formula**  \n$A = \\pi r^2$ — Circle area  \n$r = \\frac{d}{2}$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$A = \\pi(5)^2 = 25\\pi \\approx 78.54$\n\n**Answer**\n\n```answer\n78.54\\ \\mathrm{cm}^{2}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":5.0,\"unit\":\"cm\",\"show_labels\":true,\"show_diameter\":true,\"show_area\":true,\"show_circumference\":false,\"diameter\":10.0,\"area\":78.5398,\"circumference\":31.4159,\"labels\":{\"radius\":\"5 cm\",\"diameter\":\"10 cm\",\"area\":\"78.54 cm\\u00b2\",\"circumference\":\"31.42 cm\"}}\n```\n"
+    "reply": "**Given**  \n$d = 10\\,\\mathrm{cm}$ — diameter\n\n**Find**  \n$A$ — area\n\n**Formula**  \n$A = \\pi r^2$ — Circle area  \n$r = \\frac{d}{2}$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$A = \\pi(5)^2 = 25\\pi \\approx 78.54$\n\n**Answer**\n\n```answer\n\\approx 78.54\\ \\mathrm{cm}^{2}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":5.0,\"unit\":\"cm\",\"show_labels\":true,\"show_diameter\":true,\"show_area\":true,\"show_circumference\":false,\"diameter\":10.0,\"area\":78.5398,\"circumference\":31.4159,\"labels\":{\"radius\":\"5 cm\",\"diameter\":\"10 cm\",\"area\":\"78.54 cm\\u00b2\",\"circumference\":\"31.42 cm\"}}\n```\n"
   },
   {
     "kind": "circle",
     "quantity": "circumference",
     "prompt": "Find the circumference of a circle radius 3",
-    "reply": "**Given**  \n$r = 3\\,\\mathrm{units}$ — radius\n\n**Find**  \n$C$ — circumference\n\n**Formula**  \n$C = 2\\pi r$ — Circle circumference\n\n**Substitution**  \n$C = 2\\pi(3) = 6\\pi \\approx 18.85$\n\n**Answer**\n\n```answer\n18.85\\ \\mathrm{units}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":3.0,\"unit\":\"units\",\"show_labels\":true,\"show_diameter\":false,\"show_area\":false,\"show_circumference\":true,\"diameter\":6.0,\"area\":28.2743,\"circumference\":18.8496,\"labels\":{\"radius\":\"3 units\",\"diameter\":\"6 units\",\"area\":\"28.27 units\\u00b2\",\"circumference\":\"18.85 units\"}}\n```\n"
+    "reply": "**Given**  \n$r = 3\\,\\mathrm{units}$ — radius\n\n**Find**  \n$C$ — circumference\n\n**Formula**  \n$C = 2\\pi r$ — Circle circumference\n\n**Substitution**  \n$C = 2\\pi(3) = 6\\pi \\approx 18.85$\n\n**Answer**\n\n```answer\n\\approx 18.85\\ \\mathrm{units}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":3.0,\"unit\":\"units\",\"show_labels\":true,\"show_diameter\":false,\"show_area\":false,\"show_circumference\":true,\"diameter\":6.0,\"area\":28.2743,\"circumference\":18.8496,\"labels\":{\"radius\":\"3 units\",\"diameter\":\"6 units\",\"area\":\"28.27 units\\u00b2\",\"circumference\":\"18.85 units\"}}\n```\n"
   },
   {
     "kind": "circle",
     "quantity": "circumference",
     "prompt": "find the circumference of a circle diameter 7 m",
-    "reply": "**Given**  \n$d = 7\\,\\mathrm{m}$ — diameter\n\n**Find**  \n$C$ — circumference\n\n**Formula**  \n$C = \\pi d$ — Circle circumference\n\n**Substitution**  \n$C = \\pi(7) = 7\\pi \\approx 21.99$\n\n**Answer**\n\n```answer\n21.99\\ \\mathrm{m}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":3.5,\"unit\":\"m\",\"show_labels\":true,\"show_diameter\":true,\"show_area\":false,\"show_circumference\":true,\"diameter\":7.0,\"area\":38.4845,\"circumference\":21.9911,\"labels\":{\"radius\":\"3.5 m\",\"diameter\":\"7 m\",\"area\":\"38.48 m\\u00b2\",\"circumference\":\"21.99 m\"}}\n```\n"
+    "reply": "**Given**  \n$d = 7\\,\\mathrm{m}$ — diameter\n\n**Find**  \n$C$ — circumference\n\n**Formula**  \n$C = \\pi d$ — Circle circumference\n\n**Substitution**  \n$C = \\pi(7) = 7\\pi \\approx 21.99$\n\n**Answer**\n\n```answer\n\\approx 21.99\\ \\mathrm{m}\n```\n\n```geometry\n{\"type\":\"circle\",\"radius\":3.5,\"unit\":\"m\",\"show_labels\":true,\"show_diameter\":true,\"show_area\":false,\"show_circumference\":true,\"diameter\":7.0,\"area\":38.4845,\"circumference\":21.9911,\"labels\":{\"radius\":\"3.5 m\",\"diameter\":\"7 m\",\"area\":\"38.48 m\\u00b2\",\"circumference\":\"21.99 m\"}}\n```\n"
   },
   {
     "kind": "circle",
@@ -225,19 +225,19 @@
     "kind": "sector",
     "quantity": "area",
     "prompt": "Find the area of a sector with radius 4 cm and angle 90 degrees",
-    "reply": "**Given**  \n$r = 4\\,\\mathrm{cm}$ — radius  \n$\\theta = 90^\\circ$ — central angle\n\n**Find**  \n$A$ — sector area\n\n**Formula**  \n$A = \\frac{\\theta}{360^\\circ}\\pi r^2$ — Sector area\n\n**Substitution**  \n$A = \\frac{90^\\circ}{360^\\circ}\\pi(4)^2 \\approx 12.5664$\n\n**Answer**\n\n```answer\n12.5664\\ \\mathrm{cm}^{2}\n```\n\n```geometry\n{\"type\":\"sector\",\"radius\":4.0,\"angle_deg\":90.0,\"unit\":\"cm\",\"show_labels\":true,\"arc_length\":6.2832,\"area\":12.5664,\"labels\":{\"radius\":\"4 cm\",\"angle\":\"90\\u00b0\",\"arc_length\":\"6.28 cm\",\"area\":\"12.57 cm\\u00b2\"}}\n```\n"
+    "reply": "**Given**  \n$r = 4\\,\\mathrm{cm}$ — radius  \n$\\theta = 90^\\circ$ — central angle\n\n**Find**  \n$A$ — sector area\n\n**Formula**  \n$A = \\frac{\\theta}{360^\\circ}\\pi r^2$ — Sector area\n\n**Substitution**  \n$A = \\frac{90^\\circ}{360^\\circ}\\pi(4)^2 \\approx 12.5664$\n\n**Answer**\n\n```answer\n\\approx 12.5664\\ \\mathrm{cm}^{2}\n```\n\n```geometry\n{\"type\":\"sector\",\"radius\":4.0,\"angle_deg\":90.0,\"unit\":\"cm\",\"show_labels\":true,\"arc_length\":6.2832,\"area\":12.5664,\"labels\":{\"radius\":\"4 cm\",\"angle\":\"90\\u00b0\",\"arc_length\":\"6.28 cm\",\"area\":\"12.57 cm\\u00b2\"}}\n```\n"
   },
   {
     "kind": "sector",
     "quantity": "arc_length",
     "prompt": "Find the arc length of a sector with radius 4 cm and angle 90 degrees",
-    "reply": "**Given**  \n$r = 4\\,\\mathrm{cm}$ — radius  \n$\\theta = 90^\\circ$ — central angle\n\n**Find**  \n$L$ — arc length\n\n**Formula**  \n$L = \\frac{\\theta}{360^\\circ}(2\\pi r)$ — Arc length\n\n**Substitution**  \n$L = \\frac{90^\\circ}{360^\\circ}(2\\pi \\times 4) \\approx 6.28$\n\n**Answer**\n\n```answer\n6.28\\ \\mathrm{cm}\n```\n\n```geometry\n{\"type\":\"sector\",\"radius\":4.0,\"angle_deg\":90.0,\"unit\":\"cm\",\"show_labels\":true,\"arc_length\":6.2832,\"area\":12.5664,\"labels\":{\"radius\":\"4 cm\",\"angle\":\"90\\u00b0\",\"arc_length\":\"6.28 cm\",\"area\":\"12.57 cm\\u00b2\"}}\n```\n"
+    "reply": "**Given**  \n$r = 4\\,\\mathrm{cm}$ — radius  \n$\\theta = 90^\\circ$ — central angle\n\n**Find**  \n$L$ — arc length\n\n**Formula**  \n$L = \\frac{\\theta}{360^\\circ}(2\\pi r)$ — Arc length\n\n**Substitution**  \n$L = \\frac{90^\\circ}{360^\\circ}(2\\pi \\times 4) \\approx 6.28$\n\n**Answer**\n\n```answer\n\\approx 6.28\\ \\mathrm{cm}\n```\n\n```geometry\n{\"type\":\"sector\",\"radius\":4.0,\"angle_deg\":90.0,\"unit\":\"cm\",\"show_labels\":true,\"arc_length\":6.2832,\"area\":12.5664,\"labels\":{\"radius\":\"4 cm\",\"angle\":\"90\\u00b0\",\"arc_length\":\"6.28 cm\",\"area\":\"12.57 cm\\u00b2\"}}\n```\n"
   },
   {
     "kind": "sector",
     "quantity": "arc_length",
     "prompt": "arc length of a circle sector radius 6 angle 60",
-    "reply": "**Given**  \n$r = 6\\,\\mathrm{units}$ — radius  \n$\\theta = 60^\\circ$ — central angle\n\n**Find**  \n$L$ — arc length\n\n**Formula**  \n$L = \\frac{\\theta}{360^\\circ}(2\\pi r)$ — Arc length\n\n**Substitution**  \n$L = \\frac{60^\\circ}{360^\\circ}(2\\pi \\times 6) \\approx 6.28$\n\n**Answer**\n\n```answer\n6.28\\ \\mathrm{units}\n```\n\n```geometry\n{\"type\":\"sector\",\"radius\":6.0,\"angle_deg\":60.0,\"unit\":\"units\",\"show_labels\":true,\"arc_length\":6.2832,\"area\":18.8496,\"labels\":{\"radius\":\"6 units\",\"angle\":\"60\\u00b0\",\"arc_length\":\"6.28 units\",\"area\":\"18.85 units\\u00b2\"}}\n```\n"
+    "reply": "**Given**  \n$r = 6\\,\\mathrm{units}$ — radius  \n$\\theta = 60^\\circ$ — central angle\n\n**Find**  \n$L$ — arc length\n\n**Formula**  \n$L = \\frac{\\theta}{360^\\circ}(2\\pi r)$ — Arc length\n\n**Substitution**  \n$L = \\frac{60^\\circ}{360^\\circ}(2\\pi \\times 6) \\approx 6.28$\n\n**Answer**\n\n```answer\n\\approx 6.28\\ \\mathrm{units}\n```\n\n```geometry\n{\"type\":\"sector\",\"radius\":6.0,\"angle_deg\":60.0,\"unit\":\"units\",\"show_labels\":true,\"arc_length\":6.2832,\"area\":18.8496,\"labels\":{\"radius\":\"6 units\",\"angle\":\"60\\u00b0\",\"arc_length\":\"6.28 units\",\"area\":\"18.85 units\\u00b2\"}}\n```\n"
   },
   {
     "kind": "cube",
@@ -267,37 +267,37 @@
     "kind": "cylinder",
     "quantity": "volume",
     "prompt": "Find the volume of a cylinder radius 3 height 5 cm",
-    "reply": "**Given**  \n$r = 3\\,\\mathrm{cm}$ — radius  \n$h = 5\\,\\mathrm{cm}$ — height\n\n**Find**  \n$V$ — volume\n\n**Formula**  \n$V = \\pi r^2h$ — Cylinder volume\n\n**Substitution**  \n$V = \\pi(3)^2(5) \\approx 141.37\\ \\mathrm{cm}^{3}$\n\n**Answer**\n\n```answer\n141.37\\ \\mathrm{cm}^{3}\n```\n"
+    "reply": "**Given**  \n$r = 3\\,\\mathrm{cm}$ — radius  \n$h = 5\\,\\mathrm{cm}$ — height\n\n**Find**  \n$V$ — volume\n\n**Formula**  \n$V = \\pi r^2h$ — Cylinder volume\n\n**Substitution**  \n$V = \\pi(3)^2(5) \\approx 141.37\\ \\mathrm{cm}^{3}$\n\n**Answer**\n\n```answer\n\\approx 141.37\\ \\mathrm{cm}^{3}\n```\n"
   },
   {
     "kind": "cylinder",
     "quantity": "surface_area",
     "prompt": "Find the surface area of a cylinder with radius 2 and height 7 cm",
-    "reply": "**Given**  \n$r = 2\\,\\mathrm{cm}$ — radius  \n$h = 7\\,\\mathrm{cm}$ — height\n\n**Find**  \n$S$ — surface area\n\n**Formula**  \n$S = 2\\pi r(r+h)$ — Closed cylinder surface area\n\n**Substitution**  \n$S = 2\\pi(2)(2+7) \\approx 113.1\\ \\mathrm{cm}^{2}$\n\n**Answer**\n\n```answer\n113.1\\ \\mathrm{cm}^{2}\n```\n"
+    "reply": "**Given**  \n$r = 2\\,\\mathrm{cm}$ — radius  \n$h = 7\\,\\mathrm{cm}$ — height\n\n**Find**  \n$S$ — surface area\n\n**Formula**  \n$S = 2\\pi r(r+h)$ — Closed cylinder surface area\n\n**Substitution**  \n$S = 2\\pi(2)(2+7) \\approx 113.1\\ \\mathrm{cm}^{2}$\n\n**Answer**\n\n```answer\n\\approx 113.1\\ \\mathrm{cm}^{2}\n```\n"
   },
   {
     "kind": "cone",
     "quantity": "volume",
     "prompt": "Find the volume of a cone radius 3 height 4 cm",
-    "reply": "**Given**  \n$r = 3\\,\\mathrm{cm}$ — radius  \n$h = 4\\,\\mathrm{cm}$ — height\n\n**Find**  \n$V$ — volume\n\n**Formula**  \n$V = \\frac{1}{3}\\pi r^2h$ — Cone volume\n\n**Substitution**  \n$V = \\frac{1}{3}\\pi(3)^2(4) \\approx 37.7\\ \\mathrm{cm}^{3}$\n\n**Answer**\n\n```answer\n37.7\\ \\mathrm{cm}^{3}\n```\n"
+    "reply": "**Given**  \n$r = 3\\,\\mathrm{cm}$ — radius  \n$h = 4\\,\\mathrm{cm}$ — height\n\n**Find**  \n$V$ — volume\n\n**Formula**  \n$V = \\frac{1}{3}\\pi r^2h$ — Cone volume\n\n**Substitution**  \n$V = \\frac{1}{3}\\pi(3)^2(4) \\approx 37.7\\ \\mathrm{cm}^{3}$\n\n**Answer**\n\n```answer\n\\approx 37.7\\ \\mathrm{cm}^{3}\n```\n"
   },
   {
     "kind": "cone",
     "quantity": "surface_area",
     "prompt": "Find the surface area of a cone radius 5 height 12 m",
-    "reply": "**Given**  \n$r = 5\\,\\mathrm{m}$ — radius  \n$h = 12\\,\\mathrm{m}$ — height\n\n**Find**  \n$S$ — surface area\n\n**Formula**  \n$l = \\sqrt{r^2+h^2}$ — Cone surface area  \n$S = \\pi r(r+l)$\n\n**Substitution**  \n$l = \\sqrt{5^2+12^2} = 13$  \n$S = \\pi(5)(5+13) \\approx 282.74\\ \\mathrm{m}^{2}$\n\n**Answer**\n\n```answer\n282.74\\ \\mathrm{m}^{2}\n```\n"
+    "reply": "**Given**  \n$r = 5\\,\\mathrm{m}$ — radius  \n$h = 12\\,\\mathrm{m}$ — height\n\n**Find**  \n$S$ — surface area\n\n**Formula**  \n$l = \\sqrt{r^2+h^2}$ — Cone surface area  \n$S = \\pi r(r+l)$\n\n**Substitution**  \n$l = \\sqrt{5^2+12^2} = 13$  \n$S = \\pi(5)(5+13) \\approx 282.74\\ \\mathrm{m}^{2}$\n\n**Answer**\n\n```answer\n\\approx 282.74\\ \\mathrm{m}^{2}\n```\n"
   },
   {
     "kind": "sphere",
     "quantity": "volume",
     "prompt": "Find the volume of a sphere radius 3 cm",
-    "reply": "**Given**  \n$r = 3\\,\\mathrm{cm}$ — radius\n\n**Find**  \n$V$ — volume\n\n**Formula**  \n$V = \\frac{4}{3}\\pi r^3$ — Sphere volume\n\n**Substitution**  \n$V = \\frac{4}{3}\\pi(3)^3 \\approx 113.1\\ \\mathrm{cm}^{3}$\n\n**Answer**\n\n```answer\n113.1\\ \\mathrm{cm}^{3}\n```\n"
+    "reply": "**Given**  \n$r = 3\\,\\mathrm{cm}$ — radius\n\n**Find**  \n$V$ — volume\n\n**Formula**  \n$V = \\frac{4}{3}\\pi r^3$ — Sphere volume\n\n**Substitution**  \n$V = \\frac{4}{3}\\pi(3)^3 \\approx 113.1\\ \\mathrm{cm}^{3}$\n\n**Answer**\n\n```answer\n\\approx 113.1\\ \\mathrm{cm}^{3}\n```\n"
   },
   {
     "kind": "sphere",
     "quantity": "surface_area",
     "prompt": "calculate the surface area of a sphere with radius 1.5 m",
-    "reply": "**Given**  \n$r = 1.5\\,\\mathrm{m}$ — radius\n\n**Find**  \n$S$ — surface area\n\n**Formula**  \n$S = 4\\pi r^2$ — Sphere surface area\n\n**Substitution**  \n$S = 4\\pi(1.5)^2 \\approx 28.27\\ \\mathrm{m}^{2}$\n\n**Answer**\n\n```answer\n28.27\\ \\mathrm{m}^{2}\n```\n"
+    "reply": "**Given**  \n$r = 1.5\\,\\mathrm{m}$ — radius\n\n**Find**  \n$S$ — surface area\n\n**Formula**  \n$S = 4\\pi r^2$ — Sphere surface area\n\n**Substitution**  \n$S = 4\\pi(1.5)^2 \\approx 28.27\\ \\mathrm{m}^{2}$\n\n**Answer**\n\n```answer\n\\approx 28.27\\ \\mathrm{m}^{2}\n```\n"
   },
   {
     "kind": "pyramid",

@@ -160,7 +160,7 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
     ):
         return None
     dims = mtm.first_dim_pair(cleaned)
-    side = mtm.number_after(cleaned, "side") or mtm.number_after(cleaned, "edge")
+    side = mtm.measure_after(cleaned, "side") or mtm.measure_after(cleaned, "edge")
     if side is None and dims is not None and dims[0] == dims[1]:
         side = dims[0]
     if side is not None:
@@ -237,7 +237,7 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     wants_circumference = "circumference" in lower
     radius = _given_number(cleaned, "radius")
     if radius is not None:
-        chord = mtm.number_after(cleaned, "chord")
+        chord = mtm.measure_after(cleaned, "chord")
         return MathIntent(
             kind="circle",
             radius=radius,
@@ -436,9 +436,9 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    base = mtm.number_after(cleaned, "base")
-    height = mtm.number_after(cleaned, "height")
-    side = mtm.number_after(cleaned, "side")
+    base = mtm.measure_after(cleaned, "base")
+    height = mtm.measure_after(cleaned, "height")
+    side = mtm.measure_after(cleaned, "side")
     if "perimeter" in lower and side is None:
         return None
     if base is not None and height is not None:
@@ -485,10 +485,10 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    radius = mtm.number_after(cleaned, "radius")
+    radius = mtm.measure_after(cleaned, "radius")
     if radius is None:
-        radius = mtm.number_after(cleaned, "r=")
-    angle = mtm.number_after(cleaned, "angle")
+        radius = mtm.measure_after(cleaned, "r=")
+    angle = mtm.measure_after(cleaned, "angle")
     if angle is None:
         deg_at = cleaned.find("°")
         if deg_at == -1:
@@ -565,8 +565,8 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    base_n = mtm.number_after(cleaned, "base")
-    height_n = mtm.number_after(cleaned, "height")
+    base_n = mtm.measure_after(cleaned, "base")
+    height_n = mtm.measure_after(cleaned, "height")
     if base_n is not None and height_n is not None and "triangle" in lower:
         return MathIntent(
             kind="triangle",
