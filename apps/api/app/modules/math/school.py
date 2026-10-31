@@ -395,8 +395,15 @@ def _a_plus_bi(value: Any) -> str | None:
     size = abs(imaginary)
     if size.could_extract_minus_sign():  # 3·sin(30) is negative and prints as one
         return None
-    coefficient = "" if size == 1 else f"{latex(size)} "
-    return f"{latex(real)} {'-' if imaginary < 0 else '+'} {coefficient}i"
+    if size == 1:
+        coefficient = ""
+    elif size.is_Add:  # (1 + √2)i, never 1 + √2 i
+        coefficient = rf"\left({latex(size)}\right) "
+    else:
+        coefficient = f"{latex(size)} "
+    # A sum for a is grouped too, so a and b each read as one number.
+    first = rf"\left({latex(real)}\right)" if real.is_Add else latex(real)
+    return f"{first} {'-' if imaginary < 0 else '+'} {coefficient}i"
 
 
 def taylor_series(

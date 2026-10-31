@@ -203,7 +203,9 @@ def _number_first(value: Any) -> tuple[int, float, str]:
 
 def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
     """Render a verified simplification and preserve the original domain."""
-    from sympy import Eq, Symbol, latex, preorder_traversal, solve
+    from sympy import Symbol, latex, preorder_traversal
+
+    from app.modules.math.solve.real_reading import real_zeros
 
     names = math_solve.guess_variables(intent.expr or "") or [intent.variable]
     original = math_solve.parse_expression(intent.expr or "", names, evaluate=False)
@@ -225,9 +227,10 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
             if sym not in getattr(denominator, "free_symbols", set()):
                 continue
             with sympy_decline():  # one unsolved symbolic factor is non-fatal
-                for value in solve(Eq(denominator, 0), sym):
-                    # School algebra is over the reals: x³ - 1 = 0 excludes 1 alone.
-                    if value.is_real is not False and value not in excluded_values:
+                # Over the reals, as the card reads: x³ - 1 = 0 excludes 1 alone, and
+                # ∛x + 1 = 0 excludes -1.
+                for value in real_zeros(denominator, sym):
+                    if value not in excluded_values:
                         excluded_values.append(value)
         for value in sorted(excluded_values, key=_number_first):
             if getattr(value, "is_Symbol", False):

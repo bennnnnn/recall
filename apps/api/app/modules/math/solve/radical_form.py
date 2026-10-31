@@ -71,8 +71,14 @@ def _radical_product(factors: tuple[Any, ...]) -> Any:
         if part:
             radicands.setdefault(index, []).append(factor.base**part)
     roots = [
-        Pow(Mul(*parts), Rational(1, index), evaluate=False)
+        Pow(_in_order(parts), Rational(1, index), evaluate=False)
         for index, parts in sorted(radicands.items())
     ]
     pieces = [*outside, *roots]
     return pieces[0] if len(pieces) == 1 else Mul(*pieces, evaluate=False)
+
+
+def _in_order(parts: list[Any]) -> Any:
+    """Numbers first, then letters alphabetically: ``√(3xy)``, never ``√(y x)``."""
+    ordered = sorted(parts, key=lambda part: (not part.is_number, str(part)))
+    return ordered[0] if len(ordered) == 1 else Mul(*ordered, evaluate=False)

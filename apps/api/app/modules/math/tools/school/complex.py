@@ -8,13 +8,14 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
+from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.text_match import word_index
 
 # ``i^23`` is a power of the imaginary unit, as in ``(1 + i)/(1 - i)``; read as a
 # letter it was left unsimplified behind a verified card.
-_POWER_OF_I = re.compile(r"(?<![a-z])i\s*\^\s*\(?\s*-?\d")
+_POWER_OF_I = re.compile(r"(?<![A-Za-z_])i\s*\^\s*\(?\s*-?\d")
 # "and write in the form a + bi:", "in standard form a+bi": the answer's shape, said of
 # a complex number. The clause is no part of the expression.
 _FORM_CLAUSE = re.compile(
@@ -25,7 +26,15 @@ _FORM_CLAUSE = re.compile(
 )
 # "a complex fraction" is a fraction of fractions, not a complex number.
 _COMPLEX_WORDS = re.compile(r"\bcomplex\b(?!\s+fractions?\b)|\bimaginary\b", re.IGNORECASE)
-_LONE_I = re.compile(r"(?<![A-Za-z])i(?![A-Za-z])")
+# ``x_i`` is a name with a subscript, never a product with i.
+_LONE_I = re.compile(r"(?<![A-Za-z_])i(?![A-Za-z_0-9])")
+_SUBSCRIPT_I = re.compile(r"_\s*[{(]?\s*i\b")
+_NAME = re.compile(r"[A-Za-z_][A-Za-z_0-9]*")
+_POWER = r"(?:\s*\^\s*\(?\s*-?\d+\s*\)?)?"
+_AFTER_I = re.compile(rf"{_POWER}\s*\*?\s*")
+_BEFORE_I = re.compile(rf"([A-Za-z_][A-Za-z_0-9]*){_POWER}\s*\*?\s*$")
+# Function names and constants are not letters a product with i could be in.
+_NOT_LETTERS = frozenset({"i", "pi", "e", "E", "I", "cbrt", *MATH_FUNCTION_NAMES})
 
 
 def without_form_clause(text: str) -> str:
@@ -34,15 +43,33 @@ def without_form_clause(text: str) -> str:
 
 
 def imaginary_unit_meant(text: str, expression: str) -> bool:
-    """A bare i in ``expression`` is the imaginary unit: the question is about complex
-    numbers (it names them, asks for a + bi, or raises i to a power)."""
-    if _LONE_I.search(expression) is None:
+    """A bare i in ``expression`` is the imaginary unit.
+
+    Only with a cue: the question names complex or imaginary numbers or asks for a + bi,
+    or i is the only letter (``i^320 - 5i^121``). Never a subscript (``x_i``) and never
+    in a product with another letter (``i^2 R``, the current through a resistor)."""
+    if (
+        _LONE_I.search(expression) is None
+        or _SUBSCRIPT_I.search(expression)
+        or _times_a_letter(expression)
+    ):
         return False
-    return bool(
-        _FORM_CLAUSE.search(text)
-        or _COMPLEX_WORDS.search(text)
-        or _POWER_OF_I.search(f"{text} {expression}".lower())
-    )
+    if _FORM_CLAUSE.search(text) or _COMPLEX_WORDS.search(text):
+        return True
+    return all(name in _NOT_LETTERS for name in _NAME.findall(expression))
+
+
+def _times_a_letter(expression: str) -> bool:
+    """i beside another letter in one product: ``i^2 R``, ``R*i``, ``x i``."""
+    for lone in _LONE_I.finditer(expression):
+        after = _AFTER_I.match(expression, lone.end())
+        following = _NAME.match(expression, after.end() if after else lone.end())
+        if following is not None and following.group() not in _NOT_LETTERS:
+            return True
+        preceding = _BEFORE_I.search(expression[: lone.start()])
+        if preceding is not None and preceding.group(1) not in _NOT_LETTERS:
+            return True
+    return False
 
 
 def _complex_op(lower: str) -> str | None:
@@ -58,6 +85,7 @@ def _complex_op(lower: str) -> str | None:
 
 
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
+    asked = cleaned
     form_asked = _FORM_CLAUSE.search(cleaned) is not None
     cleaned = without_form_clause(cleaned)
     lower = cleaned.lower()
@@ -100,6 +128,7 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
             "polar form of",
             "polar form",
             "polar of",
+            "the complex number",
             "complex",
         ):
             if expr.lower().startswith(prefix + " "):
@@ -109,6 +138,10 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
             break
     if op is None and not mtm.looks_like_math_expr(expr):  # "Solve over the complex numbers"
         return None
+    if (_LONE_I.search(expr) or _SUBSCRIPT_I.search(expr)) and not imaginary_unit_meant(
+        asked, expr
+    ):
+        return None  # "x_i^2 + 2x_i", "i^2 R + i^2 r": i is a letter there
     return MathIntent(kind="complex", school_op=op or "eval", expr=expr, operation="solve")
 
 

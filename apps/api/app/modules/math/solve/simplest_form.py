@@ -6,11 +6,14 @@ the principal complex branch that is not the book's: ``∛(162x⁵)/∛(3x²)`` 
 factored. Three rules, each one for every expression of its kind:
 
 - An odd root of a real number is the real root (``∛(-8) = -2``). The radicals are
-  combined as if every letter were positive, and that form is kept only when it agrees
-  with the expression, read with real odd roots, at sample points on both sides of zero.
+  combined as if every letter were positive, and that form is kept only when it equals
+  the expression for every real value of its letters (``real_reading.agrees_on_reals``);
+  otherwise SymPy's own form stands.
 - A rational expression is in lowest terms: no factor is left common to the numerator
   and the denominator.
-- A polynomial is its collected terms unless the factored form is genuinely shorter.
+- A sum of polynomial terms is its collected terms, as long as collecting them is no
+  longer than what was written: ``(x+1)² - 1`` is ``x² + 2x``, while ``(x+1)¹⁰ - 1`` and a
+  product the student wrote keep SymPy's form.
 
 Length alone does not decide: ``1/x + 1/(x+1)`` as one fraction is longer, and it is the
 book's answer.
@@ -18,11 +21,9 @@ book's answer.
 
 from __future__ import annotations
 
-import math
 from typing import Any
 
 from sympy import (
-    Abs,
     Dummy,
     Expr,
     Pow,
@@ -38,9 +39,7 @@ from sympy import (
 )
 
 from app.modules.math.solve.radical_form import book_radicals_latex, has_radical
-
-# Off the integers and off the points a textbook expression is undefined at (0, ±1, 2).
-_SAMPLES = (-2.37, -1.29, -0.61, 0.47, 1.73, 3.11)
+from app.modules.math.solve.real_reading import agrees_on_reals
 
 
 def simplest_form(parsed: Any) -> tuple[Any, str | None]:
@@ -83,61 +82,7 @@ def _real_root_form(parsed: Expr, result: Expr) -> Expr:
     candidate = simplify(_real_odd_roots(parsed).subs(positive)).subs(back)
     if count_ops(candidate) > count_ops(result) or candidate == result:
         return result
-    return candidate if _agrees(parsed, candidate, symbols) else result
-
-
-def _agrees(original: Expr, candidate: Expr, symbols: list[Any]) -> bool:
-    """Equal wherever the original is defined, read with real odd roots."""
-    compared = 0
-    for index in range(len(_SAMPLES)):
-        point = {
-            symbol: _SAMPLES[(index + offset) % len(_SAMPLES)] + 0.11 * offset
-            for offset, symbol in enumerate(symbols)
-        }
-        expected = _real_value(original, point)
-        if expected is None:
-            continue
-        got = _real_value(candidate, point)
-        if got is None or not math.isclose(expected, got, rel_tol=1e-9, abs_tol=1e-9):
-            return False
-        compared += 1
-    return compared >= 2
-
-
-def _real_value(node: Any, point: dict[Any, float]) -> float | None:
-    """The value with real odd roots; None where it is undefined or not a real number."""
-    try:
-        value = _evaluate(node, point)
-    except (ArithmeticError, ValueError, TypeError):
-        return None
-    return value if value is not None and math.isfinite(value) else None
-
-
-def _evaluate(node: Any, point: dict[Any, float]) -> float | None:
-    if node.is_Symbol:
-        return point[node]
-    if node.is_Pow:
-        base = _evaluate(node.base, point)
-        if base is None or not node.exp.is_Rational:
-            return None
-        p, q = int(node.exp.p), int(node.exp.q)
-        if q == 1:
-            return float(base**p)
-        if base < 0 and q % 2 == 0:
-            return None
-        root = math.copysign(abs(base) ** (1 / q), base)
-        return float(root**p)
-    if node.is_Add or node.is_Mul:
-        values = [_evaluate(arg, point) for arg in node.args]
-        if any(value is None for value in values):
-            return None
-        return math.fsum(values) if node.is_Add else math.prod(values)  # type: ignore[arg-type]
-    if isinstance(node, Abs):
-        inner = _evaluate(node.args[0], point)
-        return None if inner is None else abs(inner)
-    if node.is_number and node.is_extended_real:
-        return float(node)
-    return None
+    return candidate if agrees_on_reals(parsed, candidate) else result
 
 
 def _lowest_terms(expr: Expr) -> Expr:
@@ -153,7 +98,7 @@ def _lowest_terms(expr: Expr) -> Expr:
 
 def _collected_polynomial(parsed: Expr, chosen: Expr) -> Expr:
     symbols = sorted(parsed.free_symbols, key=str)
-    if not symbols or not parsed.is_polynomial(*symbols):
+    if not symbols or not parsed.is_Add or not parsed.is_polynomial(*symbols):
         return chosen
     collected = expand(parsed)
-    return collected if count_ops(collected) <= count_ops(chosen) else chosen
+    return collected if count_ops(collected) <= count_ops(parsed) else chosen
