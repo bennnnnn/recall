@@ -7,6 +7,12 @@ scripts/mypy_strict_baseline.json: a new error fails with its file:line, and a f
 errors than recorded fails until the baseline is lowered, so the count only falls. A package
 that reaches none fails until it joins the strict overrides, where `uv run mypy` holds it.
 
+A suppression is no fix: each `# type: ignore` in a ratcheted package counts as one error of its
+file, and a whole-file escape (`# mypy:` inline settings, a `# type: ignore` on a line of its own,
+an `ignore_errors` or `disable_error_code` override in pyproject.toml) fails outright in any reply
+package. A renamed or split file is new to the baseline: --update records it while its package's
+total does not grow.
+
 Usage (from apps/api, in its virtualenv):
   uv run python ../../scripts/check_mypy_strict.py            check
   uv run python ../../scripts/check_mypy_strict.py --update   after a fix: lower the recorded
@@ -19,6 +25,7 @@ import json
 import re
 import subprocess
 import sys
+import tokenize
 import tomllib
 from collections import Counter
 from pathlib import Path
@@ -35,6 +42,10 @@ PACKAGES = (
     "app.modules.physics",
 )
 _ERROR = re.compile(r"^(app/[^:]+\.py):(\d+): error: (.*)$")
+_IGNORE = re.compile(r"#\s*type:\s*ignore\b")
+_INLINE_CONFIG = re.compile(r"#\s*mypy:")
+# pyproject keys that switch checking off for a module rather than type it.
+_ESCAPES = ("ignore_errors", "disable_error_code")
 
 
 def strict_packages() -> set[str]:
@@ -82,6 +93,71 @@ def strict_errors(packages: list[str]) -> dict[str, list[str]]:
     return found
 
 
+def package_files(package: str) -> list[Path]:
+    return sorted((API / package.replace(".", "/")).rglob("*.py"))
+
+
+def _comments(path: Path) -> list[tuple[int, str, bool]]:
+    """(line, comment, whether the comment is the line's only content) for each comment."""
+    found: list[tuple[int, str, bool]] = []
+    with path.open("rb") as handle:
+        for token in tokenize.tokenize(handle.readline):
+            if token.type == tokenize.COMMENT:
+                alone = token.line[: token.start[1]].strip() == ""
+                found.append((token.start[0], token.string, alone))
+    return found
+
+
+def measure(packages: list[str]) -> dict[str, list[str]]:
+    """file -> what counts against it: its strict errors and each `# type: ignore`."""
+    found = strict_errors(packages)
+    for package in packages:
+        for path in package_files(package):
+            relative = path.relative_to(API).as_posix()
+            for line, comment, _alone in _comments(path):
+                if _IGNORE.search(comment):
+                    found.setdefault(relative, []).append(
+                        f"{relative}:{line}: suppressed, so counted: {comment}"
+                    )
+    return found
+
+
+def bypasses() -> list[str]:
+    """Ways a reply package's file stops being checked at all; each fails outright."""
+    problems: list[str] = []
+    for package in PACKAGES:
+        for path in package_files(package):
+            relative = path.relative_to(API).as_posix()
+            for line, comment, alone in _comments(path):
+                if _INLINE_CONFIG.search(comment):
+                    problems.append(f"{relative}:{line}: `{comment}` changes mypy for the file")
+                elif alone and _IGNORE.search(comment):
+                    problems.append(f"{relative}:{line}: a `# type: ignore` alone on its line")
+    config = tomllib.loads((API / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["mypy"]
+    sections = [("[tool.mypy]", config, ["app"])] + [
+        (f"override {override.get('module')}", override, _modules(override))
+        for override in config.get("overrides", [])
+    ]
+    for name, section, modules in sections:
+        escapes = [key for key in _ESCAPES if section.get(key)]
+        reached = [
+            module
+            for module in modules
+            for package in PACKAGES
+            if package.startswith(module.rstrip(".*")) or module.startswith(package)
+        ]
+        if escapes and reached:
+            problems.append(f"pyproject.toml {name}: {', '.join(escapes)} reaches {reached[0]}")
+    return problems
+
+
+def _modules(override: dict[str, object]) -> list[str]:
+    modules = override.get("module", [])
+    if isinstance(modules, str):
+        return [modules]
+    return [str(module) for module in modules] if isinstance(modules, list) else []
+
+
 def load_baseline() -> dict[str, int]:
     files: dict[str, int] = json.loads(BASELINE.read_text(encoding="utf-8"))["files"]
     return files
@@ -93,18 +169,24 @@ def package_of(path: str) -> str:
 
 def check() -> int:
     packages = ratcheted()
-    found = strict_errors(packages)
+    found = measure(packages)
     counts = Counter({path: len(lines) for path, lines in found.items()})
     recorded = load_baseline()
-    problems: list[str] = []
+    problems = bypasses()
     for path in sorted(set(counts) | set(recorded)):
         now, was = counts[path], recorded.get(path, 0)
         if package_of(path) not in packages:
             continue
         if now > was:
+            moved = ""
+            if path not in recorded and not _package_grew(package_of(path), counts, recorded):
+                moved = (
+                    f"\n  If it was renamed or split from a recorded file ({package_of(path)}'s "
+                    "total did not grow), run this script with --update to record it."
+                )
             problems.append(
                 f"{path}: {now} strict type errors, {was} recorded. Type the new code; "
-                "the file's errors are:\n    " + "\n    ".join(found[path])
+                "the file's errors are:\n    " + "\n    ".join(found[path]) + moved
             )
         elif now < was:
             problems.append(
@@ -126,18 +208,34 @@ def check() -> int:
 
 def update() -> int:
     packages = ratcheted()
-    counts = {path: len(lines) for path, lines in strict_errors(packages).items()}
+    counts = Counter({path: len(lines) for path, lines in measure(packages).items()})
     recorded = load_baseline()
     kept = {
         path: min(counts[path], was)
         for path, was in recorded.items()
         if counts.get(path) and package_of(path) in packages
     }
+    refused: list[str] = []
+    for path in sorted(set(counts) - set(recorded)):
+        if _package_grew(package_of(path), counts, recorded):
+            refused.append(f"{path}: {counts[path]} errors")
+        else:
+            kept[path] = counts[path]  # a renamed or split file: its package's total held
+    if refused:
+        print("Not recorded: new errors in a package whose total grew. Type them first:")
+        print("\n".join(f"  {line}" for line in refused))
+        return 1
     print(f"Recorded files with strict errors: {len(recorded)} -> {len(kept)}.")
     document = json.loads(BASELINE.read_text(encoding="utf-8"))
     document["files"] = dict(sorted(kept.items()))
     BASELINE.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
     return 0
+
+
+def _package_grew(package: str, counts: Counter[str], recorded: dict[str, int]) -> bool:
+    now = sum(n for path, n in counts.items() if package_of(path) == package)
+    was = sum(n for path, n in recorded.items() if package_of(path) == package)
+    return now > was
 
 
 def main(argv: list[str]) -> int:
