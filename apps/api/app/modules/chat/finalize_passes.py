@@ -31,6 +31,16 @@ from app.core.config import Settings
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
+from app.modules.chat.finalize_contracts import (
+    CARD_PASSES,
+    EFFECT,
+    EVERY_OTHER,
+    FENCE_READERS,
+    SERVER_MEDIA,
+    STOPPED_REPLY_PASSES,
+    TEXT,
+    PassKind,
+)
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
     add_settings_card,
@@ -142,6 +152,14 @@ class FinalizePass:
     # check, a URL that loads by itself, the prompt's own words). A fallback text runs
     # it too, and when it fails there this strip stands in, never the text it cleans.
     closed: Callable[[str], str] | None = None
+    # Declared by every pass in FINALIZE_PASSES; test_finalize_passes holds the order to them.
+    kind: PassKind | None = None
+    after: frozenset[str] = frozenset()
+    before: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        if self.kind not in (None, TEXT, EFFECT):
+            raise ValueError(f"pass {self.name!r}: kind is TEXT or EFFECT, not {self.kind!r}")
 
 
 # A failed subject pass recovers its subject's fences (no model answer card
@@ -154,22 +172,67 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         "control_tokens",
         lambda s: strip_control_tokens(s.text, s.ctx.user_message_content or ""),
         FALL_BACK,
+        kind=TEXT,
+        before=EVERY_OTHER,
     ),
     # Before the fence repair below can close it for the reminder pass.
-    FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
-    FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK, closed=drop_check_lines),
+    FinalizePass(
+        "drop_cut_reminder_fence",
+        lambda s: drop_cut_reminder_fence(s.text),
+        FALL_BACK,
+        kind=TEXT,
+        before=frozenset({"close_fences"}),
+    ),
+    # Model text before any server card is added to it.
+    FinalizePass(
+        "prepare_model_reply",
+        prepare_model_reply,
+        FALL_BACK,
+        closed=drop_check_lines,
+        kind=TEXT,
+        before=CARD_PASSES | {"server_answer_cards", "settings_card", "money_card"},
+    ),
     # Before a subject lands its card under the reply's Answer heading.
-    FinalizePass("answer_labels", lambda s: one_answer_label(s.text), FALL_BACK),
-    FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), FALL_BACK),
-    FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK, closed=drop_media_lines),
-    FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
-    FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
-    FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), OnError(log_as="meta_notes")),
+    FinalizePass(
+        "answer_labels",
+        lambda s: one_answer_label(s.text),
+        FALL_BACK,
+        kind=TEXT,
+        before=CARD_PASSES,
+    ),
+    FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), FALL_BACK, kind=TEXT),
+    # A changed reply commits; before the server's own pictures and chips are added.
+    FinalizePass(
+        "untrusted_media",
+        neutralize_untrusted_media,
+        FALL_BACK,
+        closed=drop_media_lines,
+        kind=EFFECT,
+        before=SERVER_MEDIA,
+    ),
+    # After untrusted_media, whose image-made links are no source claims.
+    FinalizePass(
+        "search_links",
+        unlink_unretrieved_links,
+        OnError(log_as="search_links"),
+        kind=TEXT,
+        after=frozenset({"untrusted_media"}),
+    ),
+    FinalizePass(
+        "generic_closer", strip_generic_closer, OnError(log_as="generic_closer"), kind=TEXT
+    ),
+    FinalizePass(
+        "meta_notes",
+        lambda s: unwrap_meta_notes(s.text),
+        OnError(log_as="meta_notes"),
+        kind=TEXT,
+    ),
     FinalizePass(
         "prompt_leaks",
         drop_prompt_leaks_pass,
         OnError(log_as="prompt_leaks"),
         closed=drop_prompt_lines,
+        kind=TEXT,
     ),
     FinalizePass(
         "turn_meta",
@@ -177,88 +240,98 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
             s.text, s.ctx.user_message_content or "", local_today(s.ctx.user_timezone)
         ),
         OnError(log_as="turn_meta"),
+        kind=TEXT,
     ),
-    FinalizePass("lesson_again", keep_to_lesson_again_pass, OnError(log_as="lesson_again")),
-    FinalizePass("emoji_use", place_reply_emoji, OnError(log_as="emoji_use")),
-    FinalizePass("answer_photo", attach_answer_photo, FALL_BACK),
-    FinalizePass("reply_picture", attach_reply_picture, FALL_BACK),
+    FinalizePass(
+        "lesson_again", keep_to_lesson_again_pass, OnError(log_as="lesson_again"), kind=TEXT
+    ),
+    FinalizePass("emoji_use", place_reply_emoji, OnError(log_as="emoji_use"), kind=TEXT),
+    # A linked photo commits the text, so a later failure keeps its marker.
+    FinalizePass("answer_photo", attach_answer_photo, FALL_BACK, kind=EFFECT),
+    # After the answer photo's pass, which sets the list the picture joins.
+    FinalizePass(
+        "reply_picture",
+        attach_reply_picture,
+        FALL_BACK,
+        kind=EFFECT,
+        after=frozenset({"answer_photo"}),
+    ),
     FinalizePass(
         "chemistry_fences",
         check_chemistry_fences,
         OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_chemistry_fences),
+        kind=TEXT,
     ),
     FinalizePass(
         "physics_fences",
         check_physics_fences,
         OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_physics_fences),
+        kind=TEXT,
     ),
     FinalizePass(
         "math_fences",
         check_math_fences,
         OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_math_fences),
+        kind=EFFECT,  # the status callback: "checking", then "finishing"
     ),
     # After the maths pass: it strips a ```graph that no solver wrote.
-    FinalizePass("formula_charts", draw_formula_charts, OnError(log_as="formula_charts")),
-    FinalizePass("server_answer_cards", mark_server_cards, FALL_BACK),
-    FinalizePass("unverified_notes", append_unverified_notes, FALL_BACK),
-    FinalizePass("working_check", check_working, FALL_BACK),
+    FinalizePass(
+        "formula_charts",
+        draw_formula_charts,
+        OnError(log_as="formula_charts"),
+        kind=TEXT,
+        after=frozenset({"math_fences"}),
+    ),
+    FinalizePass("server_answer_cards", mark_server_cards, FALL_BACK, kind=TEXT),
+    FinalizePass("unverified_notes", append_unverified_notes, FALL_BACK, kind=TEXT),
+    FinalizePass("working_check", check_working, FALL_BACK, kind=TEXT),
     # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
-    FinalizePass("claim_check", cut_unsupported_claims, OnError(log_as="claim_check")),
-    FinalizePass("text_plots", strip_text_plots, FALL_BACK),
-    FinalizePass("solve_markers", strip_solve_markers, FALL_BACK),
+    FinalizePass(
+        "claim_check",
+        cut_unsupported_claims,
+        OnError(log_as="claim_check"),
+        kind=EFFECT,  # a model call that adds to the turn's usage, and a status
+        before=frozenset({"search_sources"}),
+    ),
+    FinalizePass("text_plots", strip_text_plots, FALL_BACK, kind=TEXT),
+    FinalizePass("solve_markers", strip_solve_markers, FALL_BACK, kind=TEXT),
     FinalizePass(
         "chemistry_enrich",
         enrich_chemistry_fences,
         OnError(log_as="enrich_chemistry_fences"),
+        kind=TEXT,
     ),
-    FinalizePass("settings_card", add_settings_card, FALL_BACK),
-    FinalizePass("money_card", attach_money_card, FALL_BACK),
-    FinalizePass("request_sections", divide_request_sections, FALL_BACK),
-    FinalizePass("search_sources", add_search_sources, FALL_BACK),
-    FinalizePass("instant_usage", record_instant_usage, FALL_BACK),
-    # Layout, last, so it never interferes with fence parsing.
-    FinalizePass("close_fences", close_open_fences, FALL_BACK),
+    FinalizePass("settings_card", add_settings_card, FALL_BACK, kind=EFFECT),
+    FinalizePass("money_card", attach_money_card, FALL_BACK, kind=EFFECT),
+    FinalizePass("request_sections", divide_request_sections, FALL_BACK, kind=TEXT),
+    FinalizePass("search_sources", add_search_sources, FALL_BACK, kind=EFFECT),
+    FinalizePass("instant_usage", record_instant_usage, FALL_BACK, kind=EFFECT),
+    # Layout, after the passes that read the model's fences as it wrote them.
+    FinalizePass("close_fences", close_open_fences, FALL_BACK, kind=TEXT, after=FENCE_READERS),
     # After the closer: a card the model left open is read once it is closed.
-    FinalizePass("clarify_card", settle_clarify, FALL_BACK),
-    FinalizePass("requested_json", check_requested_json, OnError(log_as="requested_json")),
-    FinalizePass("recipient_placeholders", strip_recipient_placeholders, FALL_BACK),
-    FinalizePass("prose", normalize_prose, FALL_BACK),
-    FinalizePass("mermaid_and_places", sanitize_fences, FALL_BACK),
-    FinalizePass("proper_case", restore_case, FALL_BACK),
-    FinalizePass("presentation", present_markdown, FALL_BACK),
-    FinalizePass("clock", fix_clock, FALL_BACK),
-)
-
-
-# After the user's Stop the reply is what they saw: only the passes that remove
-# or neutralize model text (forged checks, untrusted media, scaffolding) or lay it
-# out run. A pass that adds server text (a verified card, a note, source chips, a
-# 3D model, a clock) would grow a stopped answer, and a new pass is left out
-# until it is listed here.
-STOPPED_REPLY_PASSES = frozenset(
-    {
-        "control_tokens",
-        "drop_cut_reminder_fence",
-        "prepare_model_reply",
-        "answer_labels",
-        "untrusted_media",
-        "meta_notes",
-        "prompt_leaks",
-        "emoji_use",
-        "answer_photo",
-        "server_answer_cards",
-        "text_plots",
-        "solve_markers",
-        "instant_usage",
-        "close_fences",
+    FinalizePass(
         "clarify_card",
-        "recipient_placeholders",
+        settle_clarify,
+        FALL_BACK,
+        kind=EFFECT,
+        after=frozenset({"close_fences"}),
+    ),
+    FinalizePass(
+        "requested_json", check_requested_json, OnError(log_as="requested_json"), kind=TEXT
+    ),
+    FinalizePass("recipient_placeholders", strip_recipient_placeholders, FALL_BACK, kind=TEXT),
+    # After all fence enrichment, so it never interferes with fence parsing.
+    FinalizePass(
         "prose",
-        "mermaid_and_places",
-        "proper_case",
-        "request_sections",
-        "presentation",
-    }
+        normalize_prose,
+        FALL_BACK,
+        kind=TEXT,
+        after=FENCE_READERS | SERVER_MEDIA | {"close_fences", "settings_card", "money_card"},
+    ),
+    FinalizePass("mermaid_and_places", sanitize_fences, FALL_BACK, kind=TEXT),
+    FinalizePass("proper_case", restore_case, FALL_BACK, kind=TEXT),
+    FinalizePass("presentation", present_markdown, FALL_BACK, kind=TEXT),
+    FinalizePass("clock", fix_clock, FALL_BACK, kind=TEXT),
 )
 
 

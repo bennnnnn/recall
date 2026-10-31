@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -12,6 +12,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat import finalize_passes
+from app.modules.chat.finalize_contracts import EVERY_OTHER, STOPPED_REPLY_PASSES
 from app.modules.chat.finalize_passes import (
     FALL_BACK,
     FinalizePass,
@@ -140,6 +141,97 @@ def test_the_passes_run_in_one_declared_order() -> None:
     }
 
 
+def _contract_problems(passes: tuple[FinalizePass, ...]) -> list[str]:
+    """What an order breaks of its passes' own declared kinds and contracts."""
+    index = {finalize_pass.name: i for i, finalize_pass in enumerate(passes)}
+    problems: list[str] = []
+    for i, finalize_pass in enumerate(passes):
+        name = finalize_pass.name
+        if finalize_pass.kind is None:
+            problems.append(f"{name}: declare kind=TEXT or kind=EFFECT")
+        if finalize_pass.before == EVERY_OTHER and i != 0:
+            problems.append(f"{name} must come first")
+        for other, must_follow in [
+            *((other, True) for other in sorted(finalize_pass.after)),
+            *((other, False) for other in sorted(finalize_pass.before - {"*"})),
+        ]:
+            if other not in index:
+                problems.append(f"{name}: no pass named {other!r}")
+            elif must_follow and index[other] > i:
+                problems.append(f"{name} must run after {other}")
+            elif not must_follow and index[other] < i:
+                problems.append(f"{name} must run before {other}")
+    return problems
+
+
+def test_the_order_keeps_every_declared_kind_and_contract() -> None:
+    assert _contract_problems(finalize_passes.FINALIZE_PASSES) == []
+
+
+def test_a_pass_that_breaks_a_contract_is_named() -> None:
+    def run(state: FinalizeState) -> str:
+        return state.text
+
+    passes = (
+        FinalizePass("reader", run, FALL_BACK, kind="text", after=frozenset({"closer"})),
+        FinalizePass("closer", run, FALL_BACK),
+        FinalizePass("first", run, FALL_BACK, kind="text", before=EVERY_OTHER),
+        FinalizePass("chips", run, FALL_BACK, kind="effect", before=frozenset({"gone"})),
+        FinalizePass("late", run, FALL_BACK, kind="text", before=frozenset({"reader"})),
+    )
+    assert _contract_problems(passes) == [
+        "reader must run after closer",
+        "closer: declare kind=TEXT or kind=EFFECT",
+        "first must come first",
+        "chips: no pass named 'gone'",
+        "late must run before reader",
+    ]
+
+
+def test_a_kind_that_is_neither_text_nor_effect_is_refused_when_declared() -> None:
+    def run(state: FinalizeState) -> str:
+        return state.text
+
+    with pytest.raises(ValueError, match="pass 'chips': kind is TEXT or EFFECT, not 'side'"):
+        FinalizePass("chips", run, FALL_BACK, kind=cast(Any, "side"))
+
+
+def test_the_effect_passes_are_the_ones_that_change_the_turn() -> None:
+    # Each writes outside the text it returns: the committed text, a photo's link, the
+    # chips, the usage, the status callback, or a model call.
+    effects = {
+        name for name, finalize_pass in _REAL_PASSES.items() if finalize_pass.kind == "effect"
+    }
+    assert effects == {
+        "untrusted_media",
+        "answer_photo",
+        "reply_picture",
+        "settings_card",
+        "money_card",
+        "search_sources",
+        "instant_usage",
+        "clarify_card",
+        "math_fences",
+        "claim_check",
+    }
+
+
+def test_the_safety_passes_come_before_every_other_effect() -> None:
+    """Stricter than #2153 needs, on purpose. Its fallback replays any safety pass the
+    committed text missed, so the order is not what keeps a saved reply safe. This rule
+    keeps every effect working on text the safety passes already cleaned: no photo is
+    linked, no chip written, no status sent and no model asked about a reply that still
+    holds a planted link or the prompt's words. A safety pass may itself commit."""
+    order = list(_REAL_PASSES)
+    safety = [order.index(name) for name, item in _REAL_PASSES.items() if item.closed]
+    effects = [
+        order.index(name)
+        for name, item in _REAL_PASSES.items()
+        if item.kind == "effect" and item.closed is None
+    ]
+    assert max(safety) < min(effects)
+
+
 @pytest.mark.asyncio
 async def test_a_fall_back_failure_stops_the_passes_and_persists_the_safe_raw_reply(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
@@ -257,7 +349,7 @@ def test_the_safety_passes_are_declared_and_run_on_a_stopped_reply_too() -> None
     safety = {name for name, finalize_pass in _REAL_PASSES.items() if finalize_pass.closed}
     assert safety == {"prepare_model_reply", "untrusted_media", "prompt_leaks"}
     # What a fallback must clean, a stopped reply needs cleaned as well.
-    assert safety <= finalize_passes.STOPPED_REPLY_PASSES
+    assert safety <= STOPPED_REPLY_PASSES
 
 
 @pytest.mark.asyncio

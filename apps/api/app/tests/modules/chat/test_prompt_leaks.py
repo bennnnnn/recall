@@ -6,7 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.modules.chat.finalize_passes import FINALIZE_PASSES, STOPPED_REPLY_PASSES
+from app.modules.chat.finalize_contracts import STOPPED_REPLY_PASSES
+from app.modules.chat.finalize_passes import FINALIZE_PASSES
 from app.modules.chat.prompt_leaks import drop_prompt_leaks, drop_prompt_leaks_pass
 
 ANSWER = "For a first investment, a low-cost index fund is a sound start."

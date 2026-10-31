@@ -272,6 +272,30 @@ for presentation and the post-turn jobs, not for reading.
 
 ### ST-06 — Finalize passes declare their order and their kind
 
+**Status: done (declarations).** Every pass in `finalize_passes.FINALIZE_PASSES` declares
+`kind` and the contracts its comments and docstrings used to hold, as `after` / `before`
+(`EVERY_OTHER` for the first pass); the vocabulary and `STOPPED_REPLY_PASSES` live in
+`finalize_contracts.py`. `TEXT` only returns the reply (SymPy pool work included); `EFFECT`
+writes anything outside it: ctx/outcome fields, the committed text, usage counters, the status
+callback, Redis or the database, or a model call. 10 passes are effects (`untrusted_media`,
+`answer_photo`, `reply_picture`, `math_fences` (status), `claim_check` (model call, usage,
+status), `settings_card`, `money_card`, `search_sources`, `instant_usage`, `clarify_card`), 30
+are text. 12 passes declare contracts: `control_tokens` first; `drop_cut_reminder_fence` before
+`close_fences`; `prepare_model_reply` and `answer_labels` before the passes that land a card;
+`untrusted_media` before the server's photo, picture and chips; `search_links` after
+`untrusted_media`; `reply_picture` after `answer_photo`; `formula_charts` after `math_fences`;
+`claim_check` before `search_sources`; `close_fences` after the passes that read the model's
+fences; `clarify_card` after `close_fences`; `prose` after all fence enrichment (the fence
+readers, the server's media, the settings and money cards, the closer). `test_finalize_passes`
+holds the order to them, names a pass with no kind or a contract naming no pass, pins the
+effect passes, and keeps every safety pass (#2153 `closed=`) ahead of every other effect, a
+rule stricter than #2153's fallback needs, on purpose: every effect works on cleaned text.
+`FinalizePass` refuses a kind that is neither at construction. Nothing reorders and nothing
+behaves differently: the decision diff printed "no decision changed". The reason for a contract
+stays in the comment above its pass; the pinned order in
+`test_the_passes_run_in_one_declared_order` is the list a new pass joins. Still open: the
+"log and continue" default for text passes, a behaviour change on failure, in its own PR.
+
 - **Problem:** the order of the 34 passes is a tuple. The contracts between them ("before the fence
   repair below can close it", "before a subject lands its card") are comments. Text passes and
   passes with side effects (photos, chips, settings and money cards, instant usage) are mixed, and
