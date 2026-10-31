@@ -69,6 +69,7 @@ from app.modules.money.block import (
     MONEY_RATES_MISSING,
     MONEY_REPLY_RULES,
     MONEY_STANDING_HEADER,
+    MONEY_WORKED_RULES,
 )
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.web_search.detection import needs_web_search
@@ -103,6 +104,8 @@ HINTS: dict[str, str] = {
     # Any money turn; its reply rules; asking for the rate; no checked average for "rates now".
     "money": MONEY_HEADER,
     "money_reply": MONEY_REPLY_RULES,
+    # A lesson's money problem, every number its own: laid out Given / Formula / Answer.
+    "money_worked": MONEY_WORKED_RULES,
     # A turn about the chat's earlier loan: its figures, worked by the app.
     "money_standing": MONEY_STANDING_HEADER,
     "money_ask_rate": MONEY_RATE_MISSING,

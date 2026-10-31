@@ -1,5 +1,6 @@
-"""A lesson's money problem is laid out for the student; anyone's own money keeps the short
-reply (2026-10-31: two Grade 11-12 questions got two lines over a calculator card)."""
+"""A lesson's money problem is laid out for the student only when every number in it is
+the question's own; anyone's own money, advice and choices keep the short reply
+(2026-10-31: two Grade 11-12 questions got two lines over a calculator card)."""
 
 from __future__ import annotations
 
@@ -8,42 +9,99 @@ import pytest
 from app.modules.money.block import MONEY_REPLY_RULES, MONEY_WORKED_RULES, money_block
 from app.modules.money.read import read_money_request
 from app.modules.money.solve import work
-from app.modules.money.worked_problem import is_worked_problem
+from app.modules.money.worked_problem import is_worked_problem, lays_out_working
 
 
 @pytest.mark.parametrize(
     "text",
     [
         "Ato Alula deposited Birr 3,000 in a saving account that pays 6% interest rate per "
-        "year, compounded quarterly. What is the amount of interest obtained at the end of "
-        "seven years?",
-        "Moges wants to buy a house that costs Birr 250,000. He has saved Birr 50,000 which "
-        "he will use as a deposit. What will his monthly payment be?",
+        "year. What is the amount at the end of 7 years?",
         "Sara invests $2,000 at 5% compounded annually. How much will she have after 6 years?",
         "A man borrows $12,000 at 9% for 4 years. Find his monthly payment.",
-        "The company took a loan of $500,000 at 8% over 10 years. What is the payment?",
-        "Calculate the monthly payment on a loan of $20,000 at 6% for 5 years.",
+        "A loan of $20,000 at 6% for 5 years. What is the monthly payment?",
+        "Tom has a credit card balance of $3,000 at 18% APR and pays $100 a month. How long "
+        "until it is paid off?",
+        # A textbook's "you" is the reader's exercise, not the asker's own money.
+        "Suppose you borrow $10,000 at 5% for 3 years. What is your monthly payment?",
+        "If you deposit $1,000 at 6% compounded monthly for 5 years, how much will you have?",
+        # Who is in it never decides: a brand states its numbers like a book.
+        "Chase offers a car loan at 7% for $30,000 over 5 years. What's the payment?",
+        # "which" opening a clause is no choice.
+        "Moges wants to buy a house. He has saved Birr 50,000 which he will use as a deposit. "
+        "What will his monthly payment be?",
     ],
 )
-def test_a_lessons_money_problem_is_worked(text: str) -> None:
+def test_a_number_to_work_out_is_a_worked_problem(text: str) -> None:
     assert is_worked_problem(text)
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        "What's the monthly payment on a $300,000 mortgage at 6.5% for 30 years?",
+        "My sister wants to buy a house for $400,000 at 6.5% for 30 years. What would her "
+        "payment be?",
+        "Abebe from work asked me what a $20,000 car loan at 7% for 5 years costs",
         "I have $5,000 on my credit card at 22% APR and pay $200 a month. How long?",
-        "If I save $500 a month at 5% for 10 years how much will I have?",
-        "My friend Sara wants a $20,000 car loan at 7%, what would she pay?",
-        "Should we refinance our $250k mortgage from 7% to 6%?",
-        "How much would you pay on a $10,000 loan at 5% over 3 years?",
-        "What deposits do banks pay 5% on?",
-        "If rates fall to 5%, what's a $400k mortgage payment?",
+        "Our company took a loan of $500,000 at 8% over 10 years. What is the payment?",
+        "A customer at my shop wants a $5,000 loan at 10% for 2 years. Payment?",
+        "Find the best savings rate for $10,000",
+        "The business has a $500,000 loan at 8% over 10 years. Should the owner refinance?",
+        "John wants to refinance his $250k mortgage at 7% to 6%, what's his new payment?",
+        "Compare a 15 year and 30 year mortgage on $300k at 6%",
+        "Which is better, a 15-year at 5.5% or a 30-year at 6.25% on $400,000?",
+        "Netflix wants $15/month; savings at 5%",
     ],
 )
-def test_anyones_own_money_or_a_bare_question_is_not(text: str) -> None:
+def test_own_money_advice_or_no_ask_is_not(text: str) -> None:
     assert not is_worked_problem(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "laid_out"),
+    [
+        # Every value read from the question.
+        (
+            "Ato Alula deposited Birr 3,000 in a saving account that pays 6% interest rate "
+            "per year. What is the amount at the end of 7 years?",
+            True,
+        ),
+        ("Car loan $25,000 at 7% for 5 years, find monthly payment", True),
+        # A term the app assumed would look like the book's own.
+        (
+            "Ato Alula deposited Birr 3,000 in a saving account at 6% a year. What is the amount?",
+            False,
+        ),
+        # Compounding it names that the numbers (monthly) do not use.
+        (
+            "Ato Alula deposited Birr 3,000 in a saving account that pays 6% interest rate "
+            "per year, compounded quarterly. What is the amount at the end of 7 years?",
+            False,
+        ),
+        # A stated sum the numbers never use: 50,000 down, worked as a 250,000 loan.
+        (
+            "Moges wants to buy a house that costs Birr 250,000. He has saved Birr 50,000 "
+            "which he will use as a deposit, and will finance the rest of the cost by taking "
+            "out a loan, amortized over 30 years, at an annual interest rate of 7%. What will "
+            "his monthly payment be?",
+            False,
+        ),
+    ],
+)
+def test_the_layout_needs_every_number_from_the_question(text: str, laid_out: bool) -> None:
+    request = read_money_request(text)
+    assert request is not None
+    assert lays_out_working(text, request, work(request, None)) is laid_out
+
+
+def test_a_recurring_deposit_read_as_one_sum_is_not_worked() -> None:
+    # "Rs 10,000 in a recurring deposit" was worked as a lump sum.
+    lump = "Rahul deposited Rs 10,000 in a recurring deposit at 7% for 3 years. Find the value."
+    assert read_money_request(lump) is None
+    monthly = read_money_request(
+        "Rahul pays Rs 1,000 a month into a recurring deposit at 7% for 3 years. Find the value."
+    )
+    assert monthly is not None and monthly.values["deposit"] == 1000
 
 
 def test_the_block_asks_a_worked_problem_for_its_working() -> None:

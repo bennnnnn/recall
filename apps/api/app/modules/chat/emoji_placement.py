@@ -12,8 +12,11 @@ here:
 
 A worked maths, physics or chemistry solution (Given, Find, Substitution, Answer…) has
 none at any setting: the prompt says so, and at "Lots" its headings still got them. Nor
-does any answer to a school exercise, or a turn a subject's solver read: at "Lots" a
-textbook's answers ended "**D. Milk** … 💧" and "**Birr 1,551.67**. 💰" (2026-10-31).
+does the answer to a school exercise in a textbook's own shape: at "Lots" a book's answers
+ended "**D. Milk** … 💧" (2026-10-31). Only when the whole message is that exercise and
+the user wrote no emoji: "Calculate the tip on $80 at 20% 🍕" or a maths part beside
+other requests keeps the user's setting, and a solver that only read a message decides
+nothing.
 
 Fences (code, cards, the clarify card's options), inline code and table rows are never
 touched, nor is a lesson (its 🐍 and 🎉 are the lesson's own) or server text.
@@ -27,8 +30,9 @@ from typing import TYPE_CHECKING
 
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.prompt_constants.routing import EMOJI
-from app.modules.chat.prompt_constants.school_question import is_school_exercise
+from app.modules.chat.prompt_constants.school_question import in_textbook_form
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
+from app.modules.chat.turn_prep.intents import plan_turn
 from app.services.md_fence_scan import line_fences
 
 if TYPE_CHECKING:
@@ -251,9 +255,9 @@ def place_reply_emoji(state: FinalizeState) -> str:
     asked = state.ctx.user_message_content or ""
     user_wrote_emoji = EMOJI.search(asked) is not None
     homework = (
-        state.ctx.verified_subject is not None
-        or state.ctx.unverified_subject is not None
-        or is_school_exercise(asked)
+        not user_wrote_emoji
+        and in_textbook_form(asked)
+        and not plan_turn(asked, chemistry_enabled=state.settings.chemistry_enabled).multi
     )
     return place_emoji(
         text, state.ctx.user.emoji_use, user_wrote_emoji=user_wrote_emoji, homework=homework

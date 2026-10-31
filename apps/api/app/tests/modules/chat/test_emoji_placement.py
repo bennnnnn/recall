@@ -79,19 +79,11 @@ def test_what_a_few_leaves_alone(text: str) -> None:
     assert place_emoji(text, "some", user_wrote_emoji=False) == text
 
 
-def _state(
-    text: str,
-    level: str | None,
-    *,
-    said: str = "hi",
-    server: bool = False,
-    subject: str | None = None,
-) -> Any:
+def _state(text: str, level: str | None, *, said: str = "hi", server: bool = False) -> Any:
     user = SimpleNamespace(emoji_use=level) if level else None
-    ctx = SimpleNamespace(
-        user=user, user_message_content=said, verified_subject=None, unverified_subject=subject
-    )
-    return cast(Any, SimpleNamespace(text=text, ctx=ctx, server_text=server))
+    ctx = SimpleNamespace(user=user, user_message_content=said)
+    settings = SimpleNamespace(chemistry_enabled=True)
+    return cast(Any, SimpleNamespace(text=text, ctx=ctx, server_text=server, settings=settings))
 
 
 def test_the_pass_reads_the_users_setting_and_message() -> None:
@@ -103,26 +95,33 @@ def test_the_pass_reads_the_users_setting_and_message() -> None:
     assert place_reply_emoji(_state(line, None)) == line
 
 
-# A textbook's answers at "Lots" (2026-10-31): homework has no emoji at any setting.
+# A textbook's answers at "Lots" (2026-10-31): a whole message that is an exercise in a
+# textbook's own form gets no emoji at any setting; everything else keeps the setting.
 _EXERCISE = "Which of the following is a mixture?\nA. Water\nB. Salt\nC. Sugar\nD. Milk"
+_BLANK = "The process by which plants make food is called ________."
 
 
 @pytest.mark.parametrize(
-    ("reply", "said", "subject", "kept"),
+    ("reply", "said", "kept"),
     [
-        ("**D. Milk** — a mixture of water and fats. 💧", _EXERCISE, None,
+        ("💧 **D. Milk** — a mixture of water and fats.", _EXERCISE,
          "**D. Milk** — a mixture of water and fats."),
-        ("The interest is **Birr 1,551.67**. 💰", "Ato Alula deposited Birr 3,000 …", "math",
-         "The interest is **Birr 1,551.67**."),
-        # Anyone's own chat at "Lots" keeps them.
-        ("Have a great trip! 🌍✈️", "any tips for my trip to Rome?", None,
-         "Have a great trip! 🌍✈️"),
+        ("🌱 **Photosynthesis**", _BLANK, "**Photosynthesis**"),
+        # The user wrote one: the reply may too.
+        ("🍕 **Tip:** $16", "Calculate the tip on $80 at 20% 🍕", "🍕 **Tip:** $16"),
+        ("💶 **About 92 EUR**", "Convert 100 USD to euros 💶", "💶 **About 92 EUR**"),
+        # Everyday maths, a plan, a trip: not a textbook's form.
+        ("🧮 **12**", "What's 15% of 80?", "🧮 **12**"),
+        ("🚗 **About 4 hours**", "Estimate how long a road trip from LA to Vegas takes",
+         "🚗 **About 4 hours**"),
+        ("🌍 **Book early**", "any tips for my trip to Rome?", "🌍 **Book early**"),
+        # An exercise beside another request: the reply is not all homework.
+        ("☀️ **Sunny**", _EXERCISE + "\n\nAlso, what's the weather in Paris today?",
+         "☀️ **Sunny**"),
     ],
 )  # fmt: skip
-def test_homework_has_no_emoji_at_any_setting(
-    reply: str, said: str, subject: str | None, kept: str
-) -> None:
-    assert place_reply_emoji(_state(reply, "more", said=said, subject=subject)) == kept
+def test_only_a_whole_textbook_exercise_drops_emoji(reply: str, said: str, kept: str) -> None:
+    assert place_reply_emoji(_state(reply, "more", said=said)) == kept
 
 
 # Every case the phone's twin (features/chat/model/emojiPlacement.ts) reads too: the

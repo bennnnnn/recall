@@ -248,6 +248,15 @@ def has_nothing_to_look_up(query: str) -> bool:
     # osmosis with an example".
     if is_school_exercise(text) and mentions_science(text) and not names_or_news(text):
         return True
+    return in_textbook_form(text)
+
+
+def in_textbook_form(query: str) -> bool:
+    """An exercise only a textbook prints this way: options to choose from, an assertion and
+    its reason, a blank to fill, an assessment code; never anyone's own matter."""
+    text = query.strip()
+    if anyones(text):
+        return False
     return bool(
         _choice(text) or _ASSERTION.search(text) or _BLANK.search(text) or _CODE.search(text)
     )

@@ -109,6 +109,11 @@ _HOMEWORK_INTEREST = re.compile(
     r"\b(?:simple|compound)\s+interest\b|\bcompounded\s+(?:annually|yearly|every\s+year)\b",
     re.I,
 )
+# A recurring deposit pays in every month: "Rs 10,000 in a recurring deposit" read as one
+# lump sum worked the wrong account (2026-10-31). Savings that says so must read a monthly
+# deposit, or it is not worked.
+_RECURRING = re.compile(r"\brecurring\s+deposits?\b|\binstal+ments?\b", re.I)
+_RD = re.compile(r"\bRDs?\b")
 _CURRENCIES = {
     "$": "USD",
     "dollar": "USD",
@@ -205,6 +210,9 @@ def read_money_request(text: str) -> MoneyRequest | None:
     values.update(_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
+    recurring = _RECURRING.search(text) is not None or _RD.search(text) is not None
+    if found.family == "savings" and recurring and "deposit" not in values:
+        return None
     price, down = _price_and_down(found, amounts, share)
     return MoneyRequest(
         found,
@@ -238,6 +246,11 @@ def _rate(text: str) -> float | None:
         if not _is_share_down(text, match):
             return float(match.group(1))
     return None
+
+
+def stated_sums(text: str) -> list[float]:
+    """Every sum of money the message states, in order."""
+    return [item.value for item in _amounts(text)]
 
 
 def _rates_given(text: str) -> int:
