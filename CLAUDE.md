@@ -294,8 +294,9 @@ that must be declined. `stem_sweep.py` runs each through the real chat path, che
 answer card's number (1%, any unit of the same kind; maths answers are judged by SymPy alone in
 `stem_math_judge.py`), the reply's Given/Find/Formula/Substitution/Answer shape, and validates
 every `simulation` and `graph` fence. `test_stem_sweep.py` fails on a wrong number, a misread
-turn, a reply out of shape or a broken picture, and holds coverage floors (questions answered,
-pictures drawn) that only go up: raise the floor when a change answers more. Physics, maths and
+turn, a reply out of shape or a broken picture, and holds coverage question by question:
+`stem_snapshot.json` names every entry each subject answers and draws, so one answered fewer
+fails even when another is answered more (`UPDATE_STEM_SNAPSHOT=1` records a change). Physics, maths and
 chemistry each have a folder (physics `holdout.json` is questions written after the fixes, kept
 honest). An entry with a `gap` is a strict expected failure until the fix deletes the line;
 `shared` names the peer subject that owns a law both use (gases, Q = mcΔT and half-lives are

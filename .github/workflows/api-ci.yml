@@ -12,6 +12,8 @@ on:
       - "docs/fixtures/**"
       - "scripts/check_file_sizes.py"
       - "scripts/file_size_baseline.json"
+      - "scripts/check_mypy_strict.py"
+      - "scripts/mypy_strict_baseline.json"
       - ".github/workflows/api-ci.yml"
   # Every pull request, so the required checks always report. The jobs skip
   # themselves when nothing they check changed (a skipped job counts as passed).
@@ -48,7 +50,7 @@ jobs:
         run: |
           run=true
           if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
-            echo "$files" | grep -qE '^(apps/api/|docs/fixtures/|scripts/(check_file_sizes\.py|file_size_baseline\.json)$|\.github/workflows/api-ci\.yml$)' || run=false
+            echo "$files" | grep -qE '^(apps/api/|docs/fixtures/|scripts/(check_file_sizes\.py|file_size_baseline\.json|check_mypy_strict\.py|mypy_strict_baseline\.json)$|\.github/workflows/api-ci\.yml$)' || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
@@ -108,6 +110,10 @@ jobs:
 
       - name: Mypy
         run: uv run mypy
+
+      # The reply packages' strict errors only fall (docs/STRUCTURE_TICKETS.md ST-02).
+      - name: Mypy strict ratchet
+        run: uv run python ../../scripts/check_mypy_strict.py
 
       - name: Migrate test database
         run: uv run alembic upgrade head

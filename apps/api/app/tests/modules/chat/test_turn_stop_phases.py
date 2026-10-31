@@ -30,7 +30,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
 from app.gateways import mock_llm, storage_gateway
 from app.models.orm import Message, User
-from app.modules.chat import finalize_registry, stream_entry, ws_api
+from app.modules.chat import finalize_registry, stream_entry, turn_load, turn_settle, ws_api
 from app.modules.chat import stream_pipeline as pipeline
 from app.repositories import usage as usage_repo
 from app.services.quota import get_daily_usage, utc_today
@@ -241,7 +241,7 @@ def _held_load(monkeypatch: pytest.MonkeyPatch) -> tuple[asyncio.Event, asyncio.
     with an attachment), long enough for a Stop tapped right after Send.
     """
     reached, release = asyncio.Event(), asyncio.Event()
-    load = stream_entry.load_new_turn
+    load = turn_load.load_new_turn
 
     async def held(*args: Any, **kwargs: Any) -> Any:
         reached.set()
@@ -305,7 +305,7 @@ async def test_ws_stop_after_stream_end_still_sends_done(
     """Regression: a Stop that crossed ``stream_end`` on the wire cancelled the wait on
     the reply's commit, so ``done`` never came: the phone kept the reply under a local
     id (feedback on it never saved) and got no follow-up questions."""
-    commit = pipeline.finalize_stream_turn_db
+    commit = turn_settle.finalize_stream_turn_db
     saving = asyncio.Event()
 
     async def slow_commit(*args: Any, **kwargs: Any) -> None:

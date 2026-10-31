@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.modules.conversation import chats_repository as chats_repo
+from app.modules.conversation import messages_repository as messages_repo
 from app.tests.api_support import api_user, app_with_user
 
 
@@ -400,12 +401,9 @@ async def test_delete_if_empty_keeps_a_chat_with_messages(messages: int, deleted
     user = MagicMock()
     user.id = uuid4()
     with (
-        patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)),
-        patch("app.modules.conversation.chats_repository.forget_chat"),
-        patch(
-            "app.modules.conversation.messages_repository.count_for_chat",
-            AsyncMock(return_value=messages),
-        ),
+        patch.object(chats_repo, "get_by_id", AsyncMock(return_value=chat)),
+        patch.object(chats_repo, "forget_chat"),
+        patch.object(messages_repo, "count_for_chat", AsyncMock(return_value=messages)),
     ):
         await chats_service.delete_chat(session, user, uuid4(), settings=Settings(), if_empty=True)
     assert session.delete.await_count == (1 if deleted else 0)
@@ -441,7 +439,7 @@ async def test_delete_chat_keeps_library_attachments():
     settings = Settings()
 
     with (
-        patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)),
+        patch.object(chats_repo, "get_by_id", AsyncMock(return_value=chat)),
         patch(
             "app.modules.attachments.lifecycle.detach_attachments_for_messages",
             AsyncMock(return_value=["user/file"]),

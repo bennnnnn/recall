@@ -46,7 +46,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
 from app.gateways import storage_gateway
 from app.models.orm import Memory, TodoItem, User
-from app.modules.chat import stream_api, ws_api, ws_turn
+from app.modules.chat import stream_api, stream_events, ws_api, ws_turn
 from app.modules.images import search as image_search
 from app.services.quota import tokens as quota_tokens
 
@@ -338,7 +338,7 @@ async def turns(
             _IN_PLACE_OF_LUA.reset(token)
 
     monkeypatch.setattr(quota_tokens, "_reserve_up_to_watched", reserve_in_place_of_lua)
-    build_token_event = stream_api.build_token_event
+    build_token_event = stream_events.build_token_event
 
     def first_token_stops_the_count(content: str) -> dict[str, Any]:
         trips.counting = False

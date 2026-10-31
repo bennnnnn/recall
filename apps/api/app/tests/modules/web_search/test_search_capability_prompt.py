@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 from app.core.config import Settings
 from app.modules.chat.prompt_constants import PHOTO_LOOKUP_HINT
-from app.modules.chat.prompt_sections import lookup_hints
+from app.modules.chat.prompt_context_hints import lookup_hints
 from app.modules.web_search import WEB_SEARCH_HINT
 
 

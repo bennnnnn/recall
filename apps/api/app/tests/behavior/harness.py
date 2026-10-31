@@ -264,6 +264,9 @@ def battery_settings() -> Settings:
         # Coverage, not speed: a busy CI machine must not turn a 0.7s solve
         # into an unanswered turn at the production 5s limit.
         stem_solve_timeout_seconds=30.0,
+        # The same for the turn's one reading: a slow read is a declined question, and the
+        # STEM snapshot holds every answered question by name.
+        subject_read_timeout_seconds=30.0,
         chemistry_enabled=True,
         mcp_tool_loop_enabled=True,
         attachments_enabled=False,
