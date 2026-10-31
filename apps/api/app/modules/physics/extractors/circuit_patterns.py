@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.stated_values import ordered_values, positioned_values
+from app.modules.physics.extractors.counted_parts import counted_resistors, resistances
+from app.modules.physics.extractors.stated_values import positioned_values
 from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
-from app.services.number_text import count_word_pattern, number_word_value
 
 _CIRCUIT_CUES = (
     "ohm",
@@ -113,35 +113,33 @@ _RESISTOR_LIST_RE = re.compile(
 )
 
 
-# "three 9 Ω resistors", "two identical 10 ohm resistors": one value, stated once.
-_COUNTED_RESISTORS_RE = re.compile(
-    rf"\b({count_word_pattern(low=2, high=6)})\s+(?:identical\s+|equal\s+)?"
-    r"(\d+(?:\.\d+)?)\s*(?:ohms?|Ω)\s+resistors\b",
-    re.IGNORECASE,
-)
 _MAX_COUNTED_RESISTORS = 6
 
 
-def counted_resistors(text: str) -> tuple[int, float] | None:
-    """(count, value) of identical resistors named by a count word, or None."""
-    found = list(_COUNTED_RESISTORS_RE.finditer(text))
-    if len(found) != 1:
-        return None
-    # The pattern reads only count words, so the value is always there.
-    return number_word_value(found[0].group(1)) or 0, float(found[0].group(2))
+# "each with a resistance of 10 Ω", "lamps of resistance 6 Ω" state a resistance; they do
+# not ask for one.
+_STATED_RESISTANCE_RE = re.compile(
+    r"\b(?:a|an|the\s+same|of|with(?:\s+a)?)\s+resistance\s+(?:of\s+)?(?=\d)"
+)
+
+
+def network_asks(lower: str) -> tuple[bool, bool]:
+    """Whether a network question asks for a current, and whether for a resistance."""
+    asks_current = re.search(r"\bcurrents?\b", lower) is not None
+    unstated = _STATED_RESISTANCE_RE.sub(" ", lower)
+    return asks_current, re.search(r"\bresistances?\b", unstated) is not None
 
 
 def resistor_values(text: str) -> list[float]:
     """Every resistance in a network, however the units are distributed.
 
-    A count word repeats its value: "three 9 Ω resistors" are 9, 9 and 9 Ω.
+    A count repeats its value: "three 9 Ω resistors" are 9, 9 and 9 Ω.
     Read as one 9 Ω resistor, a parallel bank across 6 V drew 0.667 A, not 2 A.
     """
     counted = counted_resistors(text)
     if counted is not None:
         count, value = counted
-        others = ordered_values(text, OHM_PATTERN)
-        if len(others) != 1:
+        if len(resistances(text)) != 1:
             # Other resistors beside the counted ones: a network this does not read.
             return []
         return [value] * count

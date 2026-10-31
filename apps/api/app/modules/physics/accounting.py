@@ -102,6 +102,11 @@ def _params(intent: PhysicsIntent) -> list[_Param]:
     return params
 
 
+def param_readings(intent: PhysicsIntent) -> list[tuple[str, float | None]]:
+    """Each bound value's dimension and SI value."""
+    return [(param.dimension, param.si) for param in _params(intent)]
+
+
 def _in_si(value: float, dimension: str, key: str, unit: str) -> float | None:
     if dimension == ANGLE:
         return value if unit.lower().startswith("rad") else math.radians(value)

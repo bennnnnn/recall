@@ -19,10 +19,11 @@ from app.modules.physics.extractors.circuit_patterns import (
     _TERMINAL_ASK_RE,
     _VOLT_PATTERN,
     _WATT_PATTERN,
-    counted_resistors,
+    network_asks,
     resistor_values,
     without_resistor_names,
 )
+from app.modules.physics.extractors.counted_parts import counted_resistors
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
@@ -105,8 +106,7 @@ def _network_intent(
     series = "series" in lower
     # "Find the current" with a supply voltage is Ohm's law on the
     # equivalent resistance. Answering the resistance sum is a different law.
-    asks_current = re.search(r"\bcurrents?\b", lower) is not None
-    asks_resistance = re.search(r"\bresistances?\b", lower) is not None
+    asks_current, asks_resistance = network_asks(lower)
     if asks_current and not asks_resistance:
         if not _WHOLE_CURRENT_ASK.search(lower) or _METER_READING.search(lower):
             return None

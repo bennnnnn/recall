@@ -372,6 +372,16 @@ async def test_it_in_a_thread_is_solved_from_that_expression(
         ("what is 25% of 80 plus 10", "30"),
         ("what is 25% of 80 minus 5", "15"),
         ("what is 10% of 10% of 500", "5"),
+        # A number taken from or added to the percent before it is said: it used to verify 20.
+        ("what is obtained by subtracting 5 from 25% of 80", "15"),
+        ("subtract 5 from 25% of 80", "15"),
+        ("take 5 away from 25% of 80", "15"),
+        ("what is 5 less than 25% of 80", "15"),
+        ("what is 5 subtracted from 25% of 80", "15"),
+        ("add 5 to 25% of 80", "25"),
+        # A number alone before the percent is its setting.
+        ("in 2024, what was 25% of 80", "20"),
+        ("what is 5 more than 25% of 80", "25"),
         ("solve 2x = 1,000", "x = 500"),
         # Unchanged neighbours.
         ("what is 25% of 80", "20"),
@@ -392,6 +402,14 @@ async def test_a_percent_or_arithmetic_request_is_read_whole(text: str, answer: 
         "what is 15% of 80 plus tax of 8%",
         "what is 20% of 80 and then double it",
         "what is 5 + 20% of 80",
+        # Before the percent: an operation with no number, a second term, another number.
+        "subtract 25% of 80 from the total",
+        "subtract 5 from 25% of 80 plus 10",
+        "what is twice 25% of 80",
+        "what is 5 times 25% of 80",
+        # Not a percent at all, and no other reader takes "from" in either order.
+        "subtract 5 from the total",
+        "take bus 5 from stop 25 and get off after 2 stops",
     ],
 )
 async def test_a_percent_request_it_cannot_read_whole_is_not_verified(text: str) -> None:

@@ -13,6 +13,7 @@ from app.modules.math.tools.school._parse import (
     _count_char,
     _exactly_n_numbers,
 )
+from app.modules.math.tools.school.percent_terms import leading_addend
 from app.services.number_text import (
     DECIMAL,
     DECIMAL_LITERAL,
@@ -60,6 +61,9 @@ def _extract_percent_of(cleaned: str) -> MathIntent | None:
     if _OPERATION_BEFORE.search(cleaned[: rate_m.start()]):
         # "5 + 20% of 80": the percent is one term of a larger sum.
         return None
+    readable, leading = leading_addend(cleaned, rate_m.start())
+    if not readable:
+        return None
     rate = finite_match_value(rate_m)
     if rate is None:
         return None
@@ -84,9 +88,12 @@ def _extract_percent_of(cleaned: str) -> MathIntent | None:
         break
     if base is None or len(rates) > 4:
         return None
-    addend: float | None = None
+    addend = leading
     added = _CHAIN_ADDEND.match(cleaned, position)
     if added is not None:
+        if leading is not None:
+            # "Subtract 5 from 25% of 80 plus 10": two terms beside the percent.
+            return None
         amount = float(added.group(2))
         addend = -amount if added.group(1).lower() in {"minus", "-", "\u2212"} else amount
         position = added.end()

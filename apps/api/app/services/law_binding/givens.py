@@ -57,6 +57,9 @@ def scan_givens(text: str, units: UnitTable) -> list[Given]:
         except ValueError:
             continue
         unit = units.at(text, end)
+        if unit is None and text[end : end + 1] == "-" and text[end + 1 : end + 2].isalpha():
+            # "a 10-ohm resistor", "a 60-watt bulb": the unit joined by a hyphen.
+            unit = units.at(text, end + 1)
         if unit is None:
             # "from 0 to 20 m/s", "between 2 and 5 m": the unit after the
             # range's second number is the first number's too.
