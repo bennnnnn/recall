@@ -114,7 +114,10 @@ def figures(worked: Worked) -> Figures | None:
     term = span.low
     while term <= span.high + 1e-9:
         values = {**worked.values, name: term}
-        outputs = {out.name: output_value(out.expression, values) for out in product.outputs}
+        outputs = {
+            name: output_value(expression, values)
+            for name, expression in worked.expressions().items()
+        }
         by_term[term] = {key: value for key, value in outputs.items() if value is not None}
         term += step
     return Figures(name, by_term)

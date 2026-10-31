@@ -29,7 +29,14 @@ import re
 from dataclasses import dataclass
 from functools import partial
 
-from app.modules.money.read import DURATION, PERCENT, bare_year, read_sum, sum_phrase
+from app.modules.money.read import (
+    DURATION,
+    PERCENT,
+    bare_year,
+    count_value,
+    read_sum,
+    sum_phrase,
+)
 
 _MAX_CHARS = 200
 _PCT = rf"(?<![\w.]){PERCENT}"
@@ -122,7 +129,7 @@ class Change:
 
     def take_term(self, match: re.Match[str], saving: bool) -> str:
         self.clash = self.clash or self.term is not None
-        self.term = (float(match["n"]), match["unit"])
+        self.term = (count_value(match["n"]), match["unit"])
         self.saving_term = saving
         return " " * len(match.group(0))
 

@@ -59,12 +59,29 @@ no used-car average and got no numbers at all, where the new-car average had wor
 - **Card payoff**: balance, APR, monthly payment → months to pay off, total interest. A payment
   at or below the first month's interest never pays it off, and the card says so.
 - **Savings**: starting amount, monthly deposit, annual rate, years → final balance, total
-  deposited, interest earned.
+  deposited, interest earned. Interest compounds as often as the request says ("compounded
+  quarterly", "with semi-annual compounding", "compounded daily"): a setting of the row
+  (`Product.settings`, `per_year`), not a slider, written into the card's trees as a number
+  (`Product.outputs_at`), monthly when it says none, and the block names it so the reply
+  does. A start grows (1 + rate/n)^(n·years); a deposit made each month grows by the month's
+  share of that. A frequency with no count a year ("continuously", "bi-monthly", "every 2
+  months"), two that disagree, or a loan or card compounded other than monthly is left to
+  the model (`compounding.py`; live 2026-10-31, "compounded quarterly" was worked monthly).
 - **Investing** (invest, investing, investment, retirement): the same inputs and results as
   savings, with no average looked up: a market's return has no bank average to judge it by.
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
-and the reply says it assumed one. A rate they didn't give comes from today's average when there
+and the reply says it assumed one. A term in words is read as in digits ("seven years",
+"twenty-five years", "two and a half years"), by the first ask, the follow-up grammar and the
+two-line loan alike; a currency named before its sum ("Birr 3,000", "USD 500") marks it as money.
+
+Which sum is the loan (`loan_sums.py`; live 2026-10-31, a house that "costs Birr 250,000" with
+"Birr 50,000 which he will use as a deposit" was worked as a 250,000 loan): the price less the
+sum put down, said as a down payment or a deposit, also in a clause after it ("which he will
+use as a deposit"), or by borrowing "the rest" ("the remainder", "the difference") of two sums.
+A sum said to be borrowed ("borrow 20k", "owe 250k", "a 300k mortgage") is the loan beside any
+other. Two sums, one said to be a price and none said to be borrowed ("costs 250,000 and I
+have 50,000 saved"), name no loan, and none is assumed: the model answers. A rate they didn't give comes from today's average when there
 is one; otherwise the model asks for it.
 
 ## Follow-ups

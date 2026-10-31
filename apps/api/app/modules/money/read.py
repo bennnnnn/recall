@@ -21,11 +21,24 @@ import re
 from dataclasses import dataclass, field
 
 from app.modules.money.catalog import PRODUCTS, Product
+from app.modules.money.compounding import UNKNOWN, compounding_per_year
 from app.modules.money.kinds import named_variant
+from app.modules.money.loan_sums import LoanSums, Sum, loan_sums, rest_is_borrowed
+from app.services.number_text import NUMBER_WORDS, count_word_pattern
 
-# A percent and a length of time, as ``change_line`` reads them too.
+# A count in words, as a book writes a term: "seven", "twenty-five", "two and a half".
+_TENS = "|".join(word for word, value in NUMBER_WORDS.items() if value >= 20)
+_ONES = count_word_pattern(low=1, high=9)
+_SPELLED = (
+    rf"(?:(?:{_TENS})(?:[\s-](?:{_ONES}))?|{count_word_pattern(low=1, high=19)})"
+    r"(?:\sand\sa\shalf)?"
+)
+# A percent and a length of time, as ``change_line`` and ``purchase`` read them too; the
+# count of a length of time is ``count_value``'s.
 PERCENT = r"(?P<pct>\d{1,3}(?:\.\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
-DURATION = r"(?P<n>\d{1,3}(?:\.\d{1,2})?)\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
+DURATION = (
+    rf"(?P<n>\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
+)
 _RATE = re.compile(PERCENT, re.I)
 _TERM = re.compile(rf"\b{DURATION}", re.I)
 _AMOUNT = re.compile(
@@ -39,6 +52,8 @@ CURRENCY_WORDS = (
     r"shillings?|kes|yen|jpy|cad|aud"
 )
 _CURRENCY_WORD = re.compile(rf"\s?({CURRENCY_WORDS})\b", re.I)
+# A currency named before its sum, as many countries write it: "Birr 3,000", "USD 500".
+_CURRENCY_BEFORE = re.compile(rf"\b(?:{CURRENCY_WORDS})\s?$", re.I)
 
 
 def sum_phrase(name: str) -> str:
@@ -52,6 +67,12 @@ def sum_phrase(name: str) -> str:
 _MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
 _DOWN_AFTER = re.compile(r"\s?(?:down\b|as\s(?:a\s)?down\s?payment\b)", re.I)
+# A sum put toward the price in a clause after it: "50,000 which he will use as a deposit",
+# "50k as the down payment". A loan's deposit is its down payment.
+_DOWN_CLAUSE = re.compile(
+    r"[^\d.;!?]{0,40}?\bas\s(?:a|an|the|his|her|their|my|our|your)\s(?:deposit|down\s?payment)\b",
+    re.I,
+)
 _YEAR = re.compile(r"(?:19|20)\d{2}")
 # A percent that is a share of the price put down: "20% down", "a down payment of 20%",
 # "down payment 20%", "putting down 20%". Not a rate beside a sum down ("at 7% down
@@ -104,6 +125,20 @@ _RATES_QUESTION = re.compile(
 )
 # "a 250000 mortgage": a bare number right before what it buys is its price.
 _PRODUCT_AFTER = re.compile(r"\s?(?:mortgage|house|home|condo|car|loan|balance)\b", re.I)
+# What a sum is said to be: borrowed ("borrow 20k", "owe 250k", "a 200k loan"), or what the
+# thing costs ("costs 250,000", "a 400k house").
+_LOAN_BEFORE = re.compile(
+    r"\b(?:borrow(?:s|ed|ing)?|owe[sd]?|owing|loan(?:\samount)?(?:\s(?:of|is))?|"
+    r"financ(?:e|es|ed|ing))\s?$",
+    re.I,
+)
+_LOAN_AFTER = re.compile(r"\s?(?:loan|mortgage)\b", re.I)
+_PRICE_BEFORE = re.compile(
+    r"\b(?:costs?|costing|priced\sat|price(?:\s(?:of|is|tag\sof))?|worth|sells?\sfor|"
+    r"selling\sfor|valued\sat)\s?$",
+    re.I,
+)
+_GOODS_AFTER = re.compile(r"\s?(?:house|home|condo|car|truck|suv|vehicle|apartment|flat)\b", re.I)
 # Yearly simple or compound interest is a school exercise maths works (math.school).
 _HOMEWORK_INTEREST = re.compile(
     r"\b(?:simple|compound)\s+interest\b|\bcompounded\s+(?:annually|yearly|every\s+year)\b",
@@ -168,14 +203,18 @@ class MoneyRequest:
     # How many rates the line gave: a down payment is worked after one only, so a line
     # read wrong ("20% down … 6%") never carries into a worked follow-up.
     rates_given: int = 0
+    # Settings the request fixed (``Product.settings``): "compounded quarterly" is
+    # ``per_year`` 4. One it left out takes the product's usual value.
+    settings: dict[str, float] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class _Amount:
-    value: float
-    monthly: bool
-    down: bool
-    start: bool
+def count_value(text: str) -> float:
+    """A duration's count, in digits or words: "3.5", "seven", "twenty-five", "two and a half"."""
+    words = text.lower().replace("-", " ").split()
+    if not words or words[0] not in NUMBER_WORDS:
+        return float(text)
+    half = words[-3:] == ["and", "a", "half"]
+    return sum(NUMBER_WORDS[word] for word in words[: -3 if half else None]) + 0.5 * half
 
 
 def bare_year(text: str) -> bool:
@@ -201,20 +240,35 @@ def read_money_request(text: str) -> MoneyRequest | None:
         return None
     if rate is None and not _FINANCE.search(_RATE_OF_A_QUANTITY.sub(" ", text)):
         return None
-    values = _values(found, rate, amounts, share)
+    settings = _settings(found, text)
+    if settings is None:
+        return None
+    loan = loan_sums(amounts, share, rest_is_borrowed(text)) if found.family == "loan" else None
+    values = _values(found, rate, amounts, loan)
     values.update(_term(found, text))
     if not any(name in values for name in _principal_names(found)):
         return None
-    price, down = _price_and_down(found, amounts, share)
     return MoneyRequest(
         found,
         values,
         currency,
         variant=variant,
-        price=price,
-        down=down,
+        price=loan.price if loan else None,
+        down=loan.down if loan else None,
         rates_given=_rates_given(text),
+        settings=settings,
     )
+
+
+def _settings(product: Product, text: str) -> dict[str, float] | None:
+    """The settings ``text`` fixes; None when it says one the product cannot work: savings
+    "compounded continuously", or a loan compounded other than monthly."""
+    per_year = compounding_per_year(text)
+    if per_year is None:
+        return {}
+    if "per_year" in product.settings:
+        return None if per_year == UNKNOWN else {"per_year": per_year}
+    return {} if per_year == 12 else None
 
 
 def named_product(text: str) -> Product | None:
@@ -260,23 +314,26 @@ def _is_share_down(text: str, match: re.Match[str]) -> bool:
     return bool(_SHARE_DOWN_AFTER.match(text, match.end()) or _SHARE_DOWN_BEFORE.search(before))
 
 
-def _amounts(text: str) -> list[_Amount]:
+def _amounts(text: str) -> list[Sum]:
     """Every sum of money in the message, in order, with what its neighbours say it is."""
-    found: list[_Amount] = []
+    found: list[Sum] = []
     for match in _AMOUNT.finditer(text):
         after = text[match.end() : match.end() + 24]
         if _RATE.match(text, match.start("num")) or _TERM.match(text, match.start("num")):
             continue
         word = _CURRENCY_WORD.match(after)
+        at = match.start("sym") if match.group("sym") else match.start("num")
+        lead = text[max(0, at - 40) : at]
+        named = None if match.group("sym") else _CURRENCY_BEFORE.search(lead)
+        before = (lead[: named.start()] if named else lead)[-24:]
         marked = bool(
             match.group("sym")
             or match.group("mult")
             or word
+            or named
             or "," in match["num"]
             or _PRODUCT_AFTER.match(after)
         )
-        at = match.start("sym") if match.group("sym") else match.start("num")
-        before = text[max(0, at - 24) : at]
         if not marked and _MONEY_BEFORE.search(before) is None:
             continue
         if match.group("mult") and not _is_multiplier(text, match):
@@ -286,12 +343,18 @@ def _amounts(text: str) -> list[_Amount]:
         if match.group("mult"):
             number *= _MULTIPLIERS[match["mult"].lower()]
         rest = after[word.end() :] if word else after
+        clause = text[match.end() + (word.end() if word else 0) : match.end() + 64]
         found.append(
-            _Amount(
+            Sum(
                 value=number,
                 monthly=_MONTHLY.match(rest) is not None,
-                down=_DOWN.search(before) is not None or _DOWN_AFTER.match(rest) is not None,
+                down=_DOWN.search(before) is not None
+                or _DOWN_AFTER.match(rest) is not None
+                or _DOWN_CLAUSE.match(clause) is not None,
                 start=_START.search(before) is not None,
+                loan=_LOAN_BEFORE.search(before) is not None or _LOAN_AFTER.match(rest) is not None,
+                price=_PRICE_BEFORE.search(before) is not None
+                or _GOODS_AFTER.match(rest) is not None,
             )
         )
     return found
@@ -381,18 +444,16 @@ def _principal_names(product: Product) -> tuple[str, ...]:
 
 
 def _values(
-    product: Product, rate: float | None, amounts: list[_Amount], share: float | None
+    product: Product, rate: float | None, amounts: list[Sum], loan: LoanSums | None
 ) -> dict[str, float]:
     values: dict[str, float] = {}
     if rate is not None:
         values["apr" if product.family == "card_payoff" else "rate"] = rate
     once = [item for item in amounts if not item.monthly]
     monthly = [item for item in amounts if item.monthly]
-    if product.family == "loan":
-        first = next((item.value for item in once if not item.down), None)
-        down = _down(once, first, share) or 0.0
-        if first is not None and first > down:
-            values["amount"] = first - down
+    if loan is not None:
+        if loan.amount is not None:
+            values["amount"] = loan.amount
     elif product.family == "card_payoff":
         if once:
             values["balance"] = once[0].value
@@ -409,32 +470,10 @@ def _values(
     return values
 
 
-def _down(once: list[_Amount], first: float | None, share: float | None) -> float | None:
-    """The sum down: said ("3000 down"), else a share of the first sum ("20% down")."""
-    said = next((item.value for item in once if item.down), None)
-    if said is None and share is not None and first is not None:
-        return first * share / 100
-    return said
-
-
-def _price_and_down(
-    product: Product, amounts: list[_Amount], share: float | None
-) -> tuple[float | None, float | None]:
-    """A loan's price and its down payment, when the message gives a sum with money down
-    ("14000 with 3000 down", "a 400k house with 20% down"). Any other sum may be a loan,
-    a balance or an equity line ("a 400k home, refinancing at 6%"): no price."""
-    once = [item for item in amounts if not item.monthly]
-    first = next((item.value for item in once if not item.down), None)
-    if product.family != "loan" or first is None:
-        return None, None
-    down = _down(once, first, share)
-    return (first, down) if down is not None and 0 < down < first else (None, None)
-
-
 def _term(product: Product, text: str) -> dict[str, float]:
     """The term the message gives, in the product's own unit (a car loan counts months)."""
     match = _TERM.search(text)
-    return term_in(product, float(match["n"]), match["unit"]) if match is not None else {}
+    return term_in(product, count_value(match["n"]), match["unit"]) if match is not None else {}
 
 
 def term_in(product: Product, number: float, unit: str) -> dict[str, float]:

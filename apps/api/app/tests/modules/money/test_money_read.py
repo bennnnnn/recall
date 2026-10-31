@@ -287,3 +287,117 @@ def test_a_sum_in_any_spelling_is_still_money(text: str, amount: float) -> None:
 )
 def test_a_rate_of_a_quantity_is_no_interest_rate(text: str) -> None:
     assert read_money_request(text) is None
+
+
+# 2026-10-31, the Ethiopian grade 11 and 12 books.
+_ALULA = (
+    "Ato Alula deposited Birr 3,000 in a saving account that pays 6% interest rate per year, "
+    "compounded quarterly. What is the amount of interest obtained at the end of seven years? "
+    "(No deposit or withdrawal is made in these seven years)"
+)
+_MOGES = (
+    "Moges wants to buy a house that costs Birr 250,000. He has saved Birr 50,000 which he "
+    "will use as a deposit, and will finance the rest of the cost by taking out a loan. The "
+    "loan is to be paid back in equal monthly instalments, amortized over 30 years, at an "
+    "annual interest rate of 7%. What will his monthly payment be?"
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "term"),
+    [
+        (_ALULA, {"years": 7}),
+        ("car loan 20000 at 6% for five years", {"months": 60}),
+        ("mortgage of 300k at 6% over twenty-five years", {"years": 25}),
+        ("borrow 10000 at 8% for two and a half years", {"years": 2.5}),
+        ("personal loan of 5000 at 12% for eighteen months", {"months": 18}),
+        ("car loan 20000 at 6% for 5 years", {"months": 60}),
+    ],
+)
+def test_a_term_in_words_is_read_as_in_digits(text: str, term: dict[str, float]) -> None:
+    request = read_money_request(text)
+    assert request is not None
+    assert {name: request.values[name] for name in term} == term
+
+
+@pytest.mark.parametrize(
+    ("text", "settings"),
+    [
+        (_ALULA, {"per_year": 4}),
+        ("I have $5000 in savings at 4% compounded semi-annually for 10 years", {"per_year": 2}),
+        ("save 200 a month at 5% with quarterly compounding for 10 years", {"per_year": 4}),
+        ("savings account with 1000 at 3% compounded daily for 5 years", {"per_year": 365}),
+        ("savings of 1000 at 3% compounded monthly for 5 years", {"per_year": 12}),
+        ("deposit 100 every month, compounded quarterly at 5% for 3 years", {"per_year": 4}),
+        ("invest 1000 at 7% compounded twice a year for 20 years", {"per_year": 2}),
+        # Saying none is the usual monthly; a loan compounded monthly is what loans are.
+        ("if I save 200 a month at 4.5% for 10 years how much will I have", {}),
+        ("car loan 30000 at 6% compounded monthly for 5 years", {}),
+    ],
+)
+def test_the_compounding_said_is_the_requests(text: str, settings: dict[str, float]) -> None:
+    request = read_money_request(text)
+    assert request is not None and request.settings == settings
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A frequency no count a year writes is never worked as monthly.
+        "savings of 1000 at 3% compounded continuously for 5 years",
+        "savings of 1000 at 3% compounded every 2 months for 5 years",
+        "save 1000 at 3% compounded bi-monthly for 5 years",
+        # Two frequencies compared: no one of them is the request's.
+        "savings of 1000: is 5% compounded quarterly better than 4.9% compounded monthly?",
+        # A loan or a card is worked monthly only.
+        "car loan 30000 at 6% compounded quarterly for 5 years",
+        "credit card balance 5000 at 22% apr compounded daily, paying 200 a month",
+    ],
+)
+def test_a_compounding_the_product_cannot_work_is_left(text: str) -> None:
+    assert read_money_request(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "amount", "price", "down"),
+    [
+        (_MOGES, 200000, 250000, 50000),
+        ("The car costs $30,000. She pays $5,000 and borrows the rest at 6% for 5 years", 25000, 30000, 5000),
+        ("a house priced at 400k; we put in 80k and finance the remainder at 6.5% over 30 years", 320000, 400000, 80000),
+        ("a 250k house, 50k of it as a deposit, mortgage at 7% for 30 years", 200000, 250000, 50000),
+        # A sum said to be borrowed is the loan, whatever else is named.
+        ("I have a 400k home and owe 250k at 6%", 250000, None, None),
+        ("borrow 20k to buy a 30k car at 6%", 20000, None, None),
+        ("borrow 20k and pay the rest in cash for a 30k car at 6%", 20000, None, None),
+        ("I make 80k a year, what's the payment on a 300k mortgage at 6%?", 300000, None, None),
+        # As before: one sum, or money down said outright.
+        ("car loan 25000 with 5000 down 6.9% apr 60 months", 20000, 25000, 5000),
+        ("mortgage on a 400k house, 50k down 6.5% for 30 years", 350000, 400000, 50000),
+        ("personal loan of 20000 at 10% with a 500 upfront fee", 20000, None, None),
+    ],
+)  # fmt: skip
+def test_the_loan_is_the_sum_borrowed(
+    text: str, amount: float, price: float | None, down: float | None
+) -> None:
+    request = read_money_request(text)
+    assert request is not None
+    assert (request.values["amount"], request.price, request.down) == (amount, price, down)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A price and another sum, and nothing says which is borrowed: no loan is assumed.
+        "The house costs 250,000 and I have 50,000 saved, mortgage at 7% for 30 years",
+        "a car worth 30,000, I have 8,000, car loan at 6% for 5 years, monthly payment?",
+        "my salary is 60k, buying a 25k car at 7% over 5 years, what's the payment",
+    ],
+)
+def test_a_loan_the_message_never_names_is_not_assumed(text: str) -> None:
+    assert read_money_request(text) is None
+
+
+def test_a_currency_named_before_its_sum_is_money() -> None:
+    request = read_money_request("car loan of Birr 300000 at 12% for 5 years")
+    assert request is not None
+    assert (request.values["amount"], request.currency) == (300000, "ETB")

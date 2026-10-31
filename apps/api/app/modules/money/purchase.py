@@ -44,6 +44,7 @@ from app.modules.money.read import (
     PERCENT,
     MoneyRequest,
     bare_year,
+    count_value,
     read_sum,
     sum_phrase,
     term_in,
@@ -210,7 +211,7 @@ def purchase_request(line: str, before: Sequence[str]) -> MoneyRequest | None:
     if match["pct"] is not None:
         values[rate_name(product)] = float(match["pct"])
     if match["n"] is not None:
-        values.update(term_in(product, float(match["n"]), match["unit"]))
+        values.update(term_in(product, count_value(match["n"]), match["unit"]))
     variant = named_variant(product, before[0])
     return MoneyRequest(
         product,

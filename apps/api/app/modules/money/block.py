@@ -81,6 +81,15 @@ _INPUT_WORDS = {
     "start": "starting amount",
     "deposit": "monthly deposit",
 }
+# How often savings compound (``per_year``), in the reply's words.
+_COMPOUNDING_WORDS = {
+    1: "yearly",
+    2: "twice a year",
+    4: "quarterly",
+    12: "monthly",
+    52: "weekly",
+    365: "daily",
+}
 _OUTPUT_WORDS = {
     "payment": "monthly payment",
     "interest": "total interest",
@@ -182,6 +191,11 @@ def _inputs(product: Product, worked: Worked) -> list[str]:
         if item.name in worked.assumed:
             text += " (assumed: the user did not say)"
         parts.append(text)
+    if "per_year" in product.settings:
+        per_year = worked.settings.get("per_year", product.settings["per_year"])
+        times = _COMPOUNDING_WORDS[int(per_year)]
+        said = "" if "per_year" in worked.settings else " (assumed: the user did not say)"
+        parts.append(f"interest compounded {times}{said}")
     return parts
 
 
@@ -213,7 +227,7 @@ def standing_block(
     lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
     lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
     for term, outputs in others.items():
-        at = Worked(product, worked.values, (), dict(outputs))
+        at = Worked(product, worked.values, (), dict(outputs), worked.settings)
         words = _INPUT_WORDS.get(term_name(product) or "", "term")
         lines.append(f"With {words} {term:g}: " + "; ".join(_outputs(product, at)) + ".")
     return "\n".join(lines)
