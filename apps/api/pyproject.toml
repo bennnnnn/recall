@@ -151,6 +151,8 @@ module = [
     "app.modules.memory.*",
     "app.modules.chat",
     "app.modules.chat.*",
+    "app.modules.conversation",
+    "app.modules.conversation.*",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

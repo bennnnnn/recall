@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.image_search_gateway import ImageSearchHit
 from app.gateways.storage_gateway import PresignedUpload, UnconfiguredStorageGateway
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.images.search import (
     ImageSearchError,
     photos_for_answer,

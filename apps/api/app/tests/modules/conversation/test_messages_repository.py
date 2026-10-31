@@ -9,7 +9,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_create_message(fake_session):
     """create should add, commit, refresh, and return the message."""
-    from app.modules.chat.messages_repository import create
+    from app.modules.conversation.messages_repository import create
 
     chat_id = uuid4()
     user_id = uuid4()
@@ -31,7 +31,7 @@ async def test_create_message(fake_session):
 @pytest.mark.asyncio
 async def test_count_for_chat(fake_session):
     """count_for_chat should return the count of messages."""
-    from app.modules.chat.messages_repository import count_for_chat
+    from app.modules.conversation.messages_repository import count_for_chat
 
     chat_id = uuid4()
     mock_result = MagicMock()
@@ -47,7 +47,7 @@ async def test_count_for_chat(fake_session):
 @pytest.mark.asyncio
 async def test_get_last_user(fake_session):
     """get_last_user should return the most recent user message."""
-    from app.modules.chat.messages_repository import get_last_user
+    from app.modules.conversation.messages_repository import get_last_user
 
     chat_id = uuid4()
     mock_message = MagicMock()
@@ -64,7 +64,7 @@ async def test_get_last_user(fake_session):
 @pytest.mark.asyncio
 async def test_set_feedback(fake_session):
     """set_feedback should update the feedback field of a message."""
-    from app.modules.chat.messages_repository import set_feedback
+    from app.modules.conversation.messages_repository import set_feedback
 
     msg_id = uuid4()
     chat_id = uuid4()
@@ -83,7 +83,7 @@ async def test_set_feedback(fake_session):
 @pytest.mark.asyncio
 async def test_set_feedback_leaves_a_user_message_unrated(fake_session):
     """Only a reply is rated: a user message comes back unchanged and nothing is written."""
-    from app.modules.chat.messages_repository import set_feedback
+    from app.modules.conversation.messages_repository import set_feedback
 
     mock_message = MagicMock(role="user", feedback=None)
     mock_result = MagicMock()
@@ -116,7 +116,7 @@ async def test_rating_a_user_message_is_refused(fake_session, fake_redis):
 
 @pytest.mark.asyncio
 async def test_update_content(fake_session):
-    from app.modules.chat.messages_repository import update_content
+    from app.modules.conversation.messages_repository import update_content
 
     mock_message = MagicMock()
     result = await update_content(fake_session, mock_message, "new body")
@@ -131,7 +131,7 @@ async def test_update_content(fake_session):
 async def test_list_user_contents_since_sql_is_user_only():
     from sqlalchemy.dialects import postgresql
 
-    from app.modules.chat.messages_repository import list_user_contents_since
+    from app.modules.conversation.messages_repository import list_user_contents_since
 
     session = AsyncMock()
     captured: dict = {}
@@ -158,7 +158,7 @@ async def test_list_user_contents_since_sql_is_user_only():
 async def test_count_for_chat_uses_scalar():
     from unittest.mock import MagicMock
 
-    from app.modules.chat import messages_repository as messages_repo
+    from app.modules.conversation import messages_repository as messages_repo
 
     session = AsyncMock()
     # scalar_one is a sync call on the execute result

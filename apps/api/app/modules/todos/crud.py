@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
-from app.modules.chat import history as chat_history
+from app.modules.conversation import history as chat_history
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.recurrence import (

@@ -129,7 +129,7 @@ async def retime_untapped_card(
     A card only goes from untapped to saved after that read, so when the reply there holds
     no untapped add card, the saved chat holds none either and nothing is read again.
     """
-    from app.modules.chat import history as chat_history
+    from app.modules.conversation import history as chat_history
 
     if window is not None and not _untapped_adds(
         _reply_before_last_message(list(window)[-_RECENT:]) or ""

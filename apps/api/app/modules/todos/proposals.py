@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import resolve_timezone
 from app.exceptions import DomainError
+from app.modules.conversation import service as conversation_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.models import TodoItem
 from app.modules.todos.recurrence import completed_fields, next_recurring_due
@@ -273,10 +274,7 @@ def mark_saved(content: str, proposal_id: str) -> str:
 
 
 async def _mark_saved_in_chat(session: AsyncSession, chat_id: UUID, proposal_id: str) -> None:
-    # Here, not at the top: chat's service loads the stream's modules, which read to-dos.
-    from app.modules.chat import service as chat_service
-
-    await chat_service.edit_recent_reply(
+    await conversation_service.edit_recent_reply(
         session,
         chat_id,
         containing=proposal_id,

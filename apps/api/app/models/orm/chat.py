@@ -66,7 +66,7 @@ class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
         # Composite (chat_id, created_at, id) serves the tuple-cursor
-        # pagination queries in modules/chat/messages_repository.py, which order by
+        # pagination queries in modules/conversation/messages_repository.py, which order by
         # (created_at DESC, id DESC) and filter on (created_at, id) — the
         # id tiebreaker makes the sort stable when two messages share a
         # millisecond timestamp. See migration 0063.

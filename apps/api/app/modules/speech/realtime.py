@@ -321,7 +321,7 @@ async def execute_realtime_tool(
     user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> dict:
-    from app.modules.chat import history as chat_history
+    from app.modules.conversation import history as chat_history
     from app.modules.speech.live_talk_tools import execute_tool
 
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:

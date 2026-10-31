@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.chat import chats_repository as chats_repo
+from app.modules.conversation import chats_repository as chats_repo
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.offer_reply import accepted_offer_in, accepted_reminder_offer
 from app.modules.todos.reminder_fences import materialize_reminder_fences
@@ -319,7 +319,7 @@ def test_a_request_ends_at_its_sentence(text: str, title: str) -> None:
 )
 async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, asked, answer, saved):
     """Live 2026-10-25: asked "When should I remind you?", "7pm tomorrow" saved nothing."""
-    from app.modules.chat import messages_repository as messages_repo
+    from app.modules.conversation import messages_repository as messages_repo
 
     user = await users_repo.create(
         db_session,
@@ -357,7 +357,7 @@ async def test_the_answer_to_when_finishes_the_add(db_session, fake_redis, asked
 @pytest.mark.asyncio
 async def test_a_question_about_something_else_is_no_when(db_session, fake_redis):
     """After "remind me to study", "When is your exam?" asks about the exam."""
-    from app.modules.chat import messages_repository as messages_repo
+    from app.modules.conversation import messages_repository as messages_repo
     from app.modules.todos.spoken_clauses import answered_when
 
     user = await users_repo.create(
@@ -418,7 +418,7 @@ def test_a_reminder_block_closed_as_a_tag_keeps_the_reply_after_it(reply: str, k
 async def test_a_time_after_another_question_finishes_nothing(
     db_session, asked_for: str, question: str
 ) -> None:
-    from app.modules.chat import messages_repository as messages_repo
+    from app.modules.conversation import messages_repository as messages_repo
     from app.modules.todos.spoken_clauses import answered_when
 
     user = await users_repo.create(

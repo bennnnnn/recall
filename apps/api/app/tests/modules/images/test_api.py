@@ -16,7 +16,7 @@ from app.core.deps import get_settings_dep
 from app.gateways.storage_gateway import LocalStorageGateway, PresignedUpload
 from app.main import create_app
 from app.models.orm import Chat, Message, User
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.images import api as images_api
 from app.modules.images.schemas import ImageGenerateIn
 
@@ -59,7 +59,7 @@ def test_generate_image_stops_at_each_plans_daily_cap(quota_clock, plan, cap):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chat_history.get_chat",
+            "app.modules.images.generation.history.get_chat",
             AsyncMock(return_value=MagicMock()),
         ),
         patch(
@@ -86,7 +86,7 @@ def test_generate_image_quota_exhausted(quota_clock):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chat_history.get_chat",
+            "app.modules.images.generation.history.get_chat",
             AsyncMock(return_value=MagicMock()),
         ),
     ):
@@ -118,7 +118,7 @@ def test_generate_image_rejects_oversized_result(quota_clock):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chat_history.get_chat",
+            "app.modules.images.generation.history.get_chat",
             AsyncMock(return_value=chat),
         ),
         patch(
@@ -192,7 +192,7 @@ def test_generate_image_success():
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chat_history.get_chat",
+            "app.modules.images.generation.history.get_chat",
             AsyncMock(return_value=chat),
         ),
         patch(
@@ -301,7 +301,7 @@ def test_generate_image_deletes_storage_when_persist_fails(quota_clock):
     with (
         patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.modules.images.generation.chat_history.get_chat",
+            "app.modules.images.generation.history.get_chat",
             AsyncMock(return_value=chat),
         ),
         patch(

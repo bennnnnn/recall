@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from app.core.db import SessionLocal
-from app.modules.chat import history as chat_history
+from app.modules.conversation import history as chat_history
 from app.modules.images.gen_intent import (
     extract_image_gen_prompt,
     has_non_image_subject,

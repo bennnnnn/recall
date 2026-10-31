@@ -35,7 +35,7 @@ async def test_saved_messages_remain_readable_when_title_backfill_fails(failure_
         patch("app.modules.chat.service.finalize_registry.wait_for_inflight_stream", AsyncMock()),
         patch("app.modules.chat.service.finalize_registry.wait_for_pending_finalize", AsyncMock()),
         patch(
-            "app.modules.chat.service.messages_repo.list_page",
+            "app.modules.conversation.messages_repository.list_page",
             AsyncMock(return_value=(rows, False)),
         ),
         patch("app.modules.chat.service.jobs.enqueue", enqueue),

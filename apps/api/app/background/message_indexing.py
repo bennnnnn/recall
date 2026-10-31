@@ -7,7 +7,8 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
-from app.modules.chat import history_rag as chat_history_rag
+from app.modules.conversation import history_rag as chat_history_rag
+from app.modules.memory.switch import memory_switch_on
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ async def index_message_job(settings: Settings, payload: dict[str, Any]) -> None
         user_id=user_id,
         chat_id=chat_id,
         assistant_message_id=assistant_message_id,
+        memory_on=memory_switch_on,
     )
     if count:
         logger.info(

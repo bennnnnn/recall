@@ -26,14 +26,15 @@ _ROOTS = frozenset({"app.services.mcp"})
 
 # Upward imports, each with why it stays. Take one off when its import goes.
 _UPWARD = {
-    ("modules.account", "modules.chat"): "the export reads the chats; deletion removes them",
-    ("modules.attachments", "modules.chat"): "a file's message is checked through chat.history",
-    ("modules.images", "modules.chat"): "a picture or photo turn saves through chat.turn_record",
+    ("modules.account", "modules.chat"): "deletion drops chat's cached follow-up questions",
+    ("modules.images", "modules.chat"): "a picture turn sets off chat's post-turn jobs; a cut cue",
     ("modules.math", "modules.chat"): "a follow-up reads chat's light-turn cue",
-    ("modules.memory", "modules.chat"): "the backlog reads user lines; forgetting drops snippets",
     ("modules.physics", "modules.chat"): "a direct reply is presented as chat presents one",
-    ("modules.speech", "modules.chat"): "a voice turn saves through chat.turn_record",
-    ("modules.todos", "modules.chat"): "a to-do names its chat; a tapped card edits its reply",
+    (
+        "modules.speech",
+        "modules.chat",
+    ): "a voice turn sets off chat's post-turn jobs and presentation",
+    ("modules.todos", "modules.chat"): "a to-do reads chat's confirmation and locale cues",
     ("modules.web_search", "modules.chat"): "search detection reads chat's turn cues",
     ("services.quota", "modules.billing"): "a daily budget is the plan's number (entitlements)",
     ("services.subject_solving", "modules.chat"): "the dispatcher reads chat's code cue",

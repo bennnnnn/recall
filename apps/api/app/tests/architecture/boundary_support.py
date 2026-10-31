@@ -58,7 +58,7 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.repositories.attachment_chunks",
     "app.repositories.attachments",
     "app.repositories.calendar_connections",
-    # Chat's own tables: chat.history reads them for other modules (audit ARCH-08).
+    # Conversation's tables: conversation.history reads them for other modules (ARCH-08).
     "app.repositories.chats",
     "app.repositories.gmail_connections",
     "app.repositories.memories",

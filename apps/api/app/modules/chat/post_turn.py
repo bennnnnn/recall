@@ -22,7 +22,7 @@ from redis.asyncio import Redis
 from app.core import jobs
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
-from app.models.orm import User
+from app.models.orm import Message, User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
 from app.modules.chat.prompt_constants.lesson_flow import lesson_step
 from app.modules.chat.titles import title_job_key
@@ -317,3 +317,36 @@ async def enqueue_saved_turn_jobs(redis: Redis, settings: Settings, saved: Saved
             logger.warning(
                 "Post-turn job %s not queued chat_id=%s", job.name, saved.chat_id, exc_info=result
             )
+
+
+async def finish_turn(
+    redis: Redis,
+    settings: Settings,
+    *,
+    user: User,
+    chat_id: UUID,
+    user_message: str,
+    assistant: Message | None,
+    prior_count: int,
+    run_title: bool | None = None,
+) -> None:
+    """After a turn chat did not stream committed (conversation's ``turn_record`` saved it):
+    its title, memory, indexing and compression jobs.
+
+    ``run_title`` defaults to a typed turn's rule, the chat's first turn. Never raises:
+    the turn is saved.
+    """
+    saved = SavedTurn(
+        user_id=user.id,
+        chat_id=chat_id,
+        user=user,
+        user_message=user_message,
+        assistant_text=assistant.content if assistant is not None else "",
+        assistant_message_id=assistant.id if assistant is not None else None,
+        prior_count=prior_count,
+        run_title=prior_count == 0 if run_title is None else run_title,
+    )
+    try:
+        await enqueue_saved_turn_jobs(redis, settings, saved)
+    except Exception:
+        logger.exception("Post-turn jobs not queued chat_id=%s", chat_id)

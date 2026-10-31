@@ -13,7 +13,7 @@ from app.modules.attachments import chunks_repository as attachment_chunks
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.attachments import workflow as attachment_workflow
-from app.modules.chat import chats_repository as chats
+from app.modules.conversation import chats_repository as chats
 from app.repositories import users
 
 

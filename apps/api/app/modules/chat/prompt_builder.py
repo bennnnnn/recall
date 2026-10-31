@@ -11,7 +11,6 @@ from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.models.orm import Chat, User
 from app.modules.attachments import service as attachments_service
-from app.modules.chat import history_rag as chat_history_rag_service
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_format import render_rules
 from app.modules.chat.prompt_inject import append_after_history, inject_before_last_user
@@ -41,6 +40,7 @@ from app.modules.chat.turn_prep.followups import (
     read_prompt_inputs,
     role_content_dicts,
 )
+from app.modules.conversation import history_rag as chat_history_rag_service
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.memory.switch import memory_switch_on

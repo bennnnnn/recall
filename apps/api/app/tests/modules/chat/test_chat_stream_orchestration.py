@@ -8,8 +8,8 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.stream_signals import StreamAttempt
-from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.conversation import chats_repository, messages_repository
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
 )

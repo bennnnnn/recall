@@ -6,13 +6,13 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.chat.chats_repository import RECENCY_BUCKETS, group_by_recency
+from app.modules.conversation.chats_repository import RECENCY_BUCKETS, group_by_recency
 
 
 @pytest.mark.asyncio
 async def test_create_chat(fake_session):
     """create should add, commit, refresh, and return the chat."""
-    from app.modules.chat.chats_repository import create
+    from app.modules.conversation.chats_repository import create
 
     await create(fake_session, user_id=uuid4(), model="free-chat")
 
@@ -24,7 +24,7 @@ async def test_create_chat(fake_session):
 @pytest.mark.asyncio
 async def test_get_by_id_returns_chat(fake_session):
     """get_by_id should return a chat via scalar_one_or_none."""
-    from app.modules.chat.chats_repository import get_by_id
+    from app.modules.conversation.chats_repository import get_by_id
 
     mock_chat = MagicMock()
     mock_result = MagicMock()
@@ -39,7 +39,7 @@ async def test_get_by_id_returns_chat(fake_session):
 @pytest.mark.asyncio
 async def test_list_for_user_returns_chats(fake_session):
     """list_for_user should return a list of chats with messages."""
-    from app.modules.chat.chats_repository import list_for_user
+    from app.modules.conversation.chats_repository import list_for_user
 
     mock_chat = MagicMock()
     mock_scalars = MagicMock()
@@ -56,7 +56,7 @@ async def test_list_for_user_returns_chats(fake_session):
 @pytest.mark.asyncio
 async def test_set_title(fake_session):
     """set_title should update title, commit, and refresh."""
-    from app.modules.chat.chats_repository import set_title
+    from app.modules.conversation.chats_repository import set_title
 
     mock_chat = MagicMock()
 
@@ -70,7 +70,7 @@ async def test_set_title(fake_session):
 @pytest.mark.asyncio
 async def test_set_pinned(fake_session):
     """set_pinned commits and refreshes the returned database state."""
-    from app.modules.chat.chats_repository import set_pinned
+    from app.modules.conversation.chats_repository import set_pinned
 
     mock_chat = MagicMock()
 
@@ -85,7 +85,7 @@ def test_group_by_recency_last_7_days():
     """Chats from 2-7 days ago land in last_7_days."""
     from datetime import timedelta
 
-    from app.modules.chat.chats_repository import group_by_recency
+    from app.modules.conversation.chats_repository import group_by_recency
 
     now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
     chat = MagicMock()
@@ -102,7 +102,7 @@ def test_group_by_recency_this_month():
     """Chats from earlier this month (but not last 7 days) land in this_month."""
     from datetime import timedelta
 
-    from app.modules.chat.chats_repository import group_by_recency
+    from app.modules.conversation.chats_repository import group_by_recency
 
     now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
     chat = MagicMock()
@@ -115,7 +115,7 @@ def test_group_by_recency_this_month():
 
 def test_group_by_recency_mixed():
     """Chats from different time periods should be split correctly."""
-    from app.modules.chat.chats_repository import group_by_recency
+    from app.modules.conversation.chats_repository import group_by_recency
 
     now = datetime(2026, 6, 28, 15, 0, 0, tzinfo=UTC)
     today_chat = MagicMock()
@@ -134,7 +134,7 @@ def test_group_by_recency_mixed():
 
 def test_group_by_recency_uses_user_timezone():
     """Local yesterday must not appear under Today when UTC date already rolled forward."""
-    from app.modules.chat.chats_repository import group_by_recency
+    from app.modules.conversation.chats_repository import group_by_recency
 
     # Sunday 2pm in Los Angeles
     now = datetime(2026, 6, 28, 21, 0, 0, tzinfo=UTC)
@@ -158,7 +158,7 @@ def test_recent_chat_cache_forgets_chats_nobody_reads_again(monkeypatch):
     import time
 
     from app.models.orm import Chat
-    from app.modules.chat import chats_repository as chats_repo
+    from app.modules.conversation import chats_repository as chats_repo
 
     chats_repo._chat_cache.clear()
     now = [time.monotonic()]

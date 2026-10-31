@@ -15,15 +15,14 @@ from app.models.orm import Chat, User
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
 from app.modules.attachments import rag as attachment_rag_service
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import history_rag as chat_history_rag_service
-from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.context_window import (
     UNSUMMARIZED_GAP_MAX_MESSAGES,
     messages_within_token_budget,
     unsummarized_gap_bounds,
 )
 from app.modules.chat.prompt_constants import is_broad_self_question
+from app.modules.conversation import history as conversation_history
+from app.modules.conversation import history_rag as chat_history_rag_service
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope
@@ -138,9 +137,13 @@ class _ContextReads:
             return self.recent_messages
         if not pooled:
             async with SessionLocal() as s:
-                return await messages_repo.list_recent(s, self.chat_id, limit=self.recent_limit)
+                return await conversation_history.recent_messages(
+                    s, self.chat_id, limit=self.recent_limit
+                )
         async with self.db_slots, SessionLocal() as s:
-            return await messages_repo.list_recent(s, self.chat_id, limit=self.recent_limit)
+            return await conversation_history.recent_messages(
+                s, self.chat_id, limit=self.recent_limit
+            )
 
     async def memory_block(self) -> str:
         async with self.db_slots, SessionLocal() as s:
@@ -294,7 +297,7 @@ async def _load_context_blocks(
         return await _slim_memory_blocks(reads, chat)
     if chat is None:
         async with SessionLocal() as s:
-            chat = await chats_repo.get_by_id(s, chat_id, user.id)
+            chat = await conversation_history.get_chat(s, chat_id, user.id)
     return await _full_blocks(reads, chat)
 
 
@@ -346,7 +349,7 @@ async def _load_unsummarized_gap(
             async with SessionLocal() as session:
                 total = prior_count
                 if total is None:
-                    total = await messages_repo.count_for_chat(session, chat_id)
+                    total = await conversation_history.message_count(session, chat_id)
                 bounds = unsummarized_gap_bounds(
                     total=total,
                     summarized=summarized,
@@ -354,12 +357,8 @@ async def _load_unsummarized_gap(
                 )
                 if bounds is not None:
                     _offset, count = bounds
-                    older = await messages_repo.list_before(
-                        session,
-                        chat_id,
-                        before_created_at=created_at,
-                        before_id=oldest_id,
-                        limit=count,
+                    older = await conversation_history.messages_before(
+                        session, chat_id, oldest, limit=count
                     )
     return messages_within_token_budget(
         [*older, *dropped],

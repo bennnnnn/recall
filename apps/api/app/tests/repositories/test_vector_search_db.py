@@ -18,8 +18,8 @@ from sqlalchemy import select
 
 from app.core.config import Settings
 from app.models.orm import Memory, Message, MessageChunk
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import chunks_repository as chunks_repo
+from app.modules.conversation import chats_repository as chats_repo
+from app.modules.conversation import chunks_repository as chunks_repo
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.erase import purge_fact_chunks
 from app.modules.memory.selection import select_memories_semantic

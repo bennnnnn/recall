@@ -49,15 +49,21 @@ async def test_update_message_email_rewrites_assistant_fence() -> None:
     message.role = "assistant"
     message.content = "Here you go.\n```email\nTo: a@b.com\nSubject: Hi\n\nHello\n```\n"
 
-    async def _update(_session: object, msg: MagicMock, content: str) -> MagicMock:
+    async def _update(
+        _session: object, msg: MagicMock, content: str, *, commit: bool = True
+    ) -> MagicMock:
         msg.content = content
         return msg
 
     with (
         patch("app.modules.chat.service.get_chat", AsyncMock()),
-        patch("app.modules.chat.service.messages_repo.get_by_id", AsyncMock(return_value=message)),
         patch(
-            "app.modules.chat.service.messages_repo.update_content", AsyncMock(side_effect=_update)
+            "app.modules.conversation.messages_repository.get_by_id",
+            AsyncMock(return_value=message),
+        ),
+        patch(
+            "app.modules.conversation.messages_repository.update_content",
+            AsyncMock(side_effect=_update),
         ) as update,
     ):
         result = await update_message_email(
@@ -85,7 +91,10 @@ async def test_update_message_email_rejects_user_role() -> None:
     message.content = "```email\nTo: a@b.com\nSubject: Hi\n\nHello\n```\n"
     with (
         patch("app.modules.chat.service.get_chat", AsyncMock()),
-        patch("app.modules.chat.service.messages_repo.get_by_id", AsyncMock(return_value=message)),
+        patch(
+            "app.modules.conversation.messages_repository.get_by_id",
+            AsyncMock(return_value=message),
+        ),
         pytest.raises(ChatsError) as exc,
     ):
         await update_message_email(
@@ -108,7 +117,10 @@ async def test_update_message_email_requires_email_fence() -> None:
     message.content = "No draft here."
     with (
         patch("app.modules.chat.service.get_chat", AsyncMock()),
-        patch("app.modules.chat.service.messages_repo.get_by_id", AsyncMock(return_value=message)),
+        patch(
+            "app.modules.conversation.messages_repository.get_by_id",
+            AsyncMock(return_value=message),
+        ),
         pytest.raises(ChatsError) as exc,
     ):
         await update_message_email(
@@ -129,7 +141,9 @@ async def test_update_message_email_requires_email_fence() -> None:
 async def test_update_message_email_404_when_missing() -> None:
     with (
         patch("app.modules.chat.service.get_chat", AsyncMock()),
-        patch("app.modules.chat.service.messages_repo.get_by_id", AsyncMock(return_value=None)),
+        patch(
+            "app.modules.conversation.messages_repository.get_by_id", AsyncMock(return_value=None)
+        ),
         patch(
             "app.modules.chat.service.finalize_registry.wait_for_pending_finalize",
             AsyncMock(),

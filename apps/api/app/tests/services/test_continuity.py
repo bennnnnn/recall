@@ -86,11 +86,11 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
         patch("app.modules.attachments.rag.SessionLocal", _Session),
         patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
-            "app.modules.chat.prompt_context.messages_repo.count_for_chat",
+            "app.modules.conversation.messages_repository.count_for_chat",
             AsyncMock(return_value=100),
         ),
         patch(
-            "app.modules.chat.prompt_context.messages_repo.list_before",
+            "app.modules.conversation.messages_repository.list_before",
             AsyncMock(return_value=[gap_row]),
         ) as list_before,
         patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
@@ -151,11 +151,11 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
         patch("app.modules.attachments.rag.SessionLocal", _Session),
         patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
-            "app.modules.chat.prompt_context.messages_repo.count_for_chat",
+            "app.modules.conversation.messages_repository.count_for_chat",
             AsyncMock(return_value=20),
         ),
         patch(
-            "app.modules.chat.prompt_context.messages_repo.list_before",
+            "app.modules.conversation.messages_repository.list_before",
             AsyncMock(return_value=[]),
         ),
         patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
@@ -231,11 +231,11 @@ async def test_continue_after_a_cut_long_reply_keeps_that_reply_whole():
         patch("app.modules.attachments.rag.SessionLocal", _Session),
         patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
-            "app.modules.chat.prompt_context.messages_repo.count_for_chat",
+            "app.modules.conversation.messages_repository.count_for_chat",
             AsyncMock(return_value=3),
         ),
         patch(
-            "app.modules.chat.prompt_context.messages_repo.list_before",
+            "app.modules.conversation.messages_repository.list_before",
             AsyncMock(return_value=[]),
         ),
         patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),

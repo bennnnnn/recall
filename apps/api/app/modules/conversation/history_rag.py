@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -14,12 +15,11 @@ from app.core import presence_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
-from app.models.orm import Message, MessageChunk
-from app.modules.attachments.rag import chunk_text
-from app.modules.chat import chunks_repository as chunks_repo
-from app.modules.chat import messages_repository as messages_repo
-from app.modules.memory.switch import memory_switch_on
+from app.models.orm import Message, MessageChunk, User
+from app.modules.conversation import chunks_repository as chunks_repo
+from app.modules.conversation import messages_repository as messages_repo
 from app.repositories import users as users_repo
+from app.services.chunking import chunk_text
 from app.services.prompt_safety import text_before_attachment_markers, wrap_earlier_chats
 
 logger = logging.getLogger(__name__)
@@ -147,19 +147,22 @@ async def index_turn_messages(
     user_id: UUID,
     chat_id: UUID,
     assistant_message_id: UUID,
+    memory_on: Callable[[User], bool],
 ) -> int:
     """Index the finalized assistant row and the latest user message, then warm empty corpora.
 
     Both lines go in one embedding request and one transaction. When the embedder
     fails, ``HistoryEmbeddingUnavailable`` reaches the job, which retries later.
-    Memory off means no personal recall, so nothing is indexed while it is off.
+    Memory off means no personal recall, so nothing is indexed while it is off:
+    ``memory_on`` is memory's switch, which the job passes in (memory reads this
+    module, so this module does not import memory).
     """
     if not settings.chat_history_rag_enabled:
         return 0
 
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
-        if user is None or not memory_switch_on(user):
+        if user is None or not memory_on(user):
             return 0
         has_chunks = await chunks_repo.has_chunks_for_user(session, user_id)
         assistant = await messages_repo.get_by_id(session, assistant_message_id, chat_id)

@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.background import data_retention_scheduler
 from app.core.config import Settings
 from app.models.orm import Chat, Message, UsageDaily
-from app.modules.chat import chats_repository as chats_repo
+from app.modules.conversation import chats_repository as chats_repo
 from app.repositories import usage as usage_repo
 from app.repositories import users as users_repo
 
@@ -75,7 +75,9 @@ async def test_a_cycle_deletes_in_batches_until_a_short_one_or_the_budget() -> N
     drafts = AsyncMock(side_effect=[10, 10, 10, 10])
     usage = AsyncMock(side_effect=[3])
     with (
-        patch.object(data_retention_scheduler.chat_service, "delete_abandoned_drafts", drafts),
+        patch.object(
+            data_retention_scheduler.conversation_service, "delete_abandoned_drafts", drafts
+        ),
         patch.object(data_retention_scheduler.usage_repo, "delete_before", usage),
     ):
         deleted = await data_retention_scheduler.run_retention(
@@ -91,7 +93,9 @@ async def test_a_cycle_deletes_in_batches_until_a_short_one_or_the_budget() -> N
 @pytest.mark.asyncio
 async def test_a_lost_lock_stops_the_cycle() -> None:
     drafts = AsyncMock(return_value=10)
-    with patch.object(data_retention_scheduler.chat_service, "delete_abandoned_drafts", drafts):
+    with patch.object(
+        data_retention_scheduler.conversation_service, "delete_abandoned_drafts", drafts
+    ):
         deleted = await data_retention_scheduler.run_retention(
             Settings(), AsyncMock(return_value=False)
         )

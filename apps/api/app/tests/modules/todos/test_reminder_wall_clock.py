@@ -14,7 +14,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.chat import chats_repository as chats_repo
+from app.modules.conversation import chats_repository as chats_repo
 from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.reminder_fences import materialize_reminder_fences
 from app.repositories import users as users_repo
