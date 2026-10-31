@@ -76,8 +76,8 @@ def _quietly(note: Any) -> Any:
             return
         try:
             note(trace, *args, **kwargs)
-        except Exception:
-            logger.debug("turn trace note %s failed", note.__name__, exc_info=True)
+        except Exception as exc:
+            logger.info("turn trace note %s failed (%s)", note.__name__, type(exc).__name__)
 
     return run
 
