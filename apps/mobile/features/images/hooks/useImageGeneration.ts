@@ -2,7 +2,6 @@ import {
   useCallback,
   useRef,
   useState,
-  type Dispatch,
   type MutableRefObject,
   type SetStateAction,
 } from "react";

@@ -2092,3 +2092,41 @@ describe("a photo or file deleted from Library", () => {
     expect(current.messages).toHaveLength(4);
   });
 });
+
+describe("the thread's one owner", () => {
+  afterEach(async () => { await cleanup(); });
+  const row = { id: "early", role: "user" as const, content: "painted early", model: null, created_at: "now" };
+
+  /** A writer whose layout effect runs before useChat's own: a child's runs first. */
+  function EarlyWriter({ editThread }: { editThread: ReturnType<typeof useChat>["editThread"] }) {
+    React.useLayoutEffect(() => { editThread((rows) => [...rows, row], "cached_paint"); }, [editThread]);
+    return null;
+  }
+  function Owner() {
+    const chat = useChat("token", "chat-1", { onError });
+    React.useLayoutEffect(() => { current = chat; });
+    return <EarlyWriter editThread={chat.editThread} />;
+  }
+
+  it("keeps an edit made before its first layout effect, instead of dropping it", async () => {
+    await render(<Owner />);
+    expect(current.messages).toEqual([row]);
+  });
+
+  it("hands out no raw setter for the thread, under any name", async () => {
+    let setter: unknown;
+    function Control() {
+      const [, set] = React.useState(0);
+      React.useLayoutEffect(() => { setter = set; }, [set]);
+      return null;
+    }
+    await render(<><Probe chatId="chat-1" /><Control /></>);
+    // React's setters share one name; the check would see a setter useChat handed out.
+    const setterName = (setter as { name: string }).name;
+    expect(setterName).toMatch(/dispatch/i);
+    const raw = Object.entries(current).filter(
+      ([, value]) => typeof value === "function" && (value as { name: string }).name === setterName,
+    );
+    expect(raw).toEqual([]);
+  });
+});

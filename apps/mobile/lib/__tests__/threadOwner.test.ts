@@ -11,7 +11,9 @@ declare const __dirname: string;
 
 const ROOT = ts.sys.resolvePath(`${__dirname}/../..`);
 const OWNERS = ["features/chat/hooks/useChat.ts", "features/chat/model/chatTurnEffects.ts"];
-const SETTER = /\bsetMessages\b|SetStateAction<Message\[\]>>/;
+// The setter by name, a setter for a list of messages under any name, and a second list held
+// in React state. (useChat.test.tsx checks the hook hands out no setter under any key.)
+const SETTER = /\bsetMessages\b|Dispatch<SetStateAction<(readonly )?Message\[\]>>|useState<(readonly )?Message\[\]>/;
 
 function productionFiles(): string[] {
   return ["app", "components", "contexts", "features", "hooks", "lib", "ui"]
