@@ -67,6 +67,8 @@ _OPENING = re.compile(
     r"|calculate|determine|estimate|predict|give\s+reasons?\s+(?:why|for\s+the)"
     r"|complete\s+the\s+(?:table|following)|verify\s+(?:whether|that|the)"
     r"|write\s+(?:down\s+)?the\s+(?:formulae?|chemical|balanced|electronic|symbols?|correct)"
+    # "Write one equation each for…", "Write a balanced equation for…".
+    r"|write\s+(?:down\s+)?(?:an?|one|two|three)\s+(?:\w+\s+){0,2}(?:equations?|formulae?)"
     r"|write\s+a\s+short\s+note\s+on|give\s+an\s+account\s+of|mention\s+(?:two|three|any|the)"
     r"|what\s+is\s+meant\s+by|(?:change|correct|rewrite|punctuate)\s+the\s+following"
     r"|use\s+the\s+following\s+words|name\s+the\s+following|give\s+reasons?(?=\s*:)|outline\s+the"
@@ -97,7 +99,8 @@ _QUANTITY = re.compile(
 )
 _COMPUTE = re.compile(r"\b(?:calculate|compute|find|determine|work\s+out)\b", re.IGNORECASE)
 _CLOSING = re.compile(
-    r"[.?!]\s*(?:explain(?:\s+why)?|justify|discuss|(?:give|specify)\s+reasons?)\s*[.?!]?\s*$",
+    r"[.?!]\s*(?:explain(?:\s+why)?|justify|discuss|(?:give|specify)\s+reasons?)"
+    r"(?P<yours>\s+(?:for\s+)?your\s+answer)?\s*[.?!]?\s*$",
     re.IGNORECASE,
 )
 _TEXTBOOK = re.compile(
@@ -120,16 +123,35 @@ WORK_FIRST = (
     "never write a number before you have worked it out, and never think aloud (no "
     "'actually', 'wait' or 'let me recheck')."
 )
+# Told "stay at that level" and "no specialist detail", a Class 10 book's "Which signals
+# are disrupted by a spinal cord injury?" got spinal tracts and T1-L2 outflow, and "the
+# function of receptors" myasthenia gravis (2026-10-30): a depth the model reads from the
+# question alone needs its edge named.
+TEXTBOOK_DEPTH = (
+    "Go only as deep as a school textbook does: use the terms the question uses or a "
+    "textbook would, and no clinical, research or university detail (named pathways, "
+    "receptors, diseases, molecular mechanisms, bonding theory) unless the question asks "
+    "for it; no side claim you are unsure of."
+)
+# A factual question may be an adult's ("How do mRNA vaccines work?"): its depth follows its
+# own words, and only a question in a school book's words is held to a school book's.
+MATCHED_DEPTH = (
+    "Go as deep as the question's own words: a question worded like a school book's gets a "
+    "school book's answer, with no clinical, research or university detail (named pathways, "
+    "receptors, diseases, molecular mechanisms) it did not ask for; one in specialist words "
+    "may get a specialist's. No side claim you are unsure of."
+)
 SCHOOL_QUESTION_NOTE = (
     "This message is a school exercise. Answer it as the textbook expects, for the "
     "student who asked, at the level the question is written, from what the textbook "
     "teaches: open with the answer itself in plain words, using "
     "the textbook's terms, then a short reason or two to four everyday examples. "
     + WORK_FIRST
-    + " Stay at "
-    "that level: no university detail, history or regional trivia it did not ask for, and "
-    "no side claim you are unsure of. Take the question as written: never call it a trick "
-    "or a riddle, never dispute its wording, its options or the textbook, and never ask "
+    + " "
+    + TEXTBOOK_DEPTH
+    + " No history or regional trivia it did not ask for. Take the question as written: "
+    "never call it a trick or a riddle, never dispute its wording, its options or the "
+    "textbook, and never ask "
     "where it came from. Answer every part it asks, in order. End when the answer is "
     "complete, with no offer of more."
 )
@@ -141,10 +163,9 @@ _CHOICE_NOTE = (
 FACTUAL_QUESTION_NOTE = (
     "This is a factual question. Give the standard answer a good textbook gives, first, "
     "in plain words at the level the question is asked, then a short reason or a few "
-    "examples. " + WORK_FIRST + " Take the question as written: never open by disputing "
-    "it, correcting its wording or calling it a trick, and keep to what it asks: no "
-    "specialist detail or side claims you are unsure of. End when the answer is complete, "
-    "with no offer of more."
+    "examples. " + WORK_FIRST + " " + MATCHED_DEPTH + " Take the question as written: "
+    "never open by disputing it, correcting its wording or calling it a trick, and keep to "
+    "what it asks. End when the answer is complete, with no offer of more."
 )
 
 
@@ -185,13 +206,22 @@ def _choice(text: str) -> bool:
     )
 
 
+def _closes_as_exercise(text: str) -> bool:
+    """An exercise's closing order ("… Explain."). "Explain your answer." closes anyone's
+    opinion too ("Was Napoleon a good leader? Explain your answer."): only about science."""
+    closing = _CLOSING.search(text)
+    if closing is None or len(text.split()) < 8:
+        return False
+    return closing.group("yours") is None or mentions_science(text)
+
+
 def is_school_exercise(query: str) -> bool:
     text = query.strip()
     if _choice(text):
         return True
     if anyones(text):
         return False
-    if _CODE.search(text) or (_CLOSING.search(text) and len(text.split()) >= 8):
+    if _CODE.search(text) or _closes_as_exercise(text):
         return True
     if _TEXTBOOK.search(text) or _ASSERTION.search(text) or _BLANK.search(text):
         return True
