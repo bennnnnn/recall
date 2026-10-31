@@ -53,6 +53,10 @@ class RoutingLanes:
     # (docs/MODEL_READER.md, measured offline). Another company's model than the one the
     # translated test corpus was written with, so the measurement is not its own echo. JSON.
     reader_translation: str
+    # The second, independent translation: a third company's model. A meaning a number
+    # check cannot see ("not", "each", which value is which) is kept only when both
+    # translations read to the same solve. JSON.
+    reader_translation_check: str
 
 
 ROUTING = RoutingLanes(
@@ -69,4 +73,5 @@ ROUTING = RoutingLanes(
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
     reader_translation="qwen-3.7-flash",
+    reader_translation_check="gpt-6-luna",
 )

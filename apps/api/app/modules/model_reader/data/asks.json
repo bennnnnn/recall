@@ -1,0 +1,1632 @@
+{
+  "_doc": "What a question asks, by language: the words that mark an ask, and the words that name a quantity's kind (lowercase). The kind named nearest an ask word, in its sentence, is what the question asks; a translation must ask the same kind. A word that names more than one kind (Amharic ኃይል: force, energy or power) lists each. docs/MODEL_READER.md. \"unnamed\" is a word for a quantity that names no kind (\"amount\", \"كمية\", \"መጠን\"): an ask the tables cannot read.",
+  "en": {
+    "markers": [
+      "what",
+      "which",
+      "how",
+      "find",
+      "calculate",
+      "determine",
+      "compute",
+      "work out",
+      "estimate"
+    ],
+    "classes": {
+      "length": [
+        "how far",
+        "how high",
+        "how deep",
+        "how tall",
+        "how long is",
+        "how long was",
+        "how long are",
+        "distance",
+        "displacement",
+        "length",
+        "height",
+        "range",
+        "depth",
+        "radius",
+        "wavelength",
+        "altitude",
+        "width",
+        "breadth",
+        "focal length"
+      ],
+      "time": [
+        "how long does",
+        "how long will",
+        "how long did",
+        "how long would",
+        "how long until",
+        "how long before",
+        "how long it",
+        "how long to",
+        "how long for",
+        "how much time",
+        "time",
+        "duration",
+        "period"
+      ],
+      "speed": [
+        "how fast",
+        "how quickly",
+        "speed",
+        "velocity"
+      ],
+      "acceleration": [
+        "acceleration",
+        "deceleration"
+      ],
+      "mass": [
+        "how heavy",
+        "how many grams",
+        "how many kilograms",
+        "mass"
+      ],
+      "weight": [
+        "weight"
+      ],
+      "force": [
+        "force",
+        "tension",
+        "friction",
+        "thrust"
+      ],
+      "energy": [
+        "energy",
+        "work",
+        "heat",
+        "potential energy"
+      ],
+      "current": [
+        "current"
+      ],
+      "voltage": [
+        "voltage",
+        "potential difference",
+        "emf",
+        "electromotive force",
+        "cell potential",
+        "electric potential",
+        "potential"
+      ],
+      "resistance": [
+        "resistance"
+      ],
+      "amount": [
+        "how many moles",
+        "moles",
+        "amount of substance",
+        "number of moles"
+      ],
+      "concentration": [
+        "concentration",
+        "molarity",
+        "solubility",
+        "molality"
+      ],
+      "volume": [
+        "volume"
+      ],
+      "temperature": [
+        "how hot",
+        "temperature"
+      ],
+      "pressure": [
+        "pressure"
+      ],
+      "density": [
+        "density"
+      ],
+      "frequency": [
+        "frequency"
+      ],
+      "charge": [
+        "charge"
+      ],
+      "ph": [
+        "ph"
+      ],
+      "percent": [
+        "percentage"
+      ],
+      "area": [
+        "area"
+      ],
+      "angle": [
+        "angle"
+      ],
+      "momentum": [
+        "momentum"
+      ],
+      "molar_mass": [
+        "molar mass"
+      ],
+      "field": [
+        "field strength",
+        "field"
+      ],
+      "unnamed": [
+        "amount"
+      ],
+      "oxidation": [
+        "oxidation state",
+        "oxidation number"
+      ],
+      "exponent": [
+        "raised to",
+        "to the power"
+      ],
+      "power|exponent": [
+        "power"
+      ],
+      "efficiency": [
+        "efficiency"
+      ]
+    }
+  },
+  "es": {
+    "markers": [
+      "qué",
+      "cuál",
+      "cuáles",
+      "cuánto",
+      "cuánta",
+      "cuántos",
+      "cuántas",
+      "cómo",
+      "calcula",
+      "calcule",
+      "calcular",
+      "halla",
+      "halle",
+      "hallar",
+      "determina",
+      "determine",
+      "encuentra",
+      "encuentre"
+    ],
+    "classes": {
+      "length": [
+        "qué tan lejos",
+        "a qué altura",
+        "distancia",
+        "desplazamiento",
+        "longitud",
+        "altura",
+        "alcance",
+        "profundidad",
+        "radio",
+        "ancho",
+        "anchura",
+        "distancia focal"
+      ],
+      "time": [
+        "cuánto tarda",
+        "cuánto tardará",
+        "cuánto tiempo",
+        "tiempo",
+        "duración",
+        "periodo",
+        "período"
+      ],
+      "speed": [
+        "qué tan rápido",
+        "velocidad",
+        "rapidez"
+      ],
+      "acceleration": [
+        "aceleración",
+        "desaceleración"
+      ],
+      "mass": [
+        "cuántos gramos",
+        "cuántos kilogramos",
+        "masa"
+      ],
+      "weight": [
+        "peso"
+      ],
+      "force": [
+        "fuerza",
+        "fricción",
+        "rozamiento"
+      ],
+      "energy": [
+        "energía",
+        "trabajo",
+        "calor",
+        "cantidad de calor"
+      ],
+      "power": [
+        "potencia"
+      ],
+      "current": [
+        "corriente"
+      ],
+      "voltage": [
+        "voltaje",
+        "diferencia de potencial",
+        "tensión eléctrica",
+        "potencial"
+      ],
+      "resistance": [
+        "resistencia"
+      ],
+      "amount": [
+        "cuántos moles",
+        "moles",
+        "cantidad de sustancia",
+        "número de moles"
+      ],
+      "concentration": [
+        "concentración",
+        "molaridad",
+        "solubilidad",
+        "molalidad"
+      ],
+      "volume": [
+        "volumen"
+      ],
+      "temperature": [
+        "temperatura"
+      ],
+      "pressure": [
+        "presión"
+      ],
+      "density": [
+        "densidad"
+      ],
+      "frequency": [
+        "frecuencia"
+      ],
+      "charge": [
+        "carga"
+      ],
+      "ph": [
+        "ph"
+      ],
+      "percent": [
+        "porcentaje"
+      ],
+      "area": [
+        "área",
+        "superficie"
+      ],
+      "angle": [
+        "ángulo"
+      ],
+      "momentum": [
+        "momento lineal",
+        "cantidad de movimiento",
+        "ímpetu"
+      ],
+      "molar_mass": [
+        "masa molar"
+      ],
+      "field": [
+        "campo"
+      ],
+      "current|field": [
+        "intensidad"
+      ],
+      "force|voltage": [
+        "tensión"
+      ],
+      "unnamed": [
+        "cantidad"
+      ],
+      "oxidation": [
+        "estado de oxidación",
+        "número de oxidación"
+      ],
+      "exponent": [
+        "elevado"
+      ],
+      "efficiency": [
+        "eficiencia",
+        "rendimiento"
+      ]
+    }
+  },
+  "fr": {
+    "markers": [
+      "quel",
+      "quelle",
+      "quels",
+      "quelles",
+      "combien",
+      "comment",
+      "calculez",
+      "calculer",
+      "calcule",
+      "trouvez",
+      "trouver",
+      "déterminez",
+      "déterminer"
+    ],
+    "classes": {
+      "length": [
+        "à quelle distance",
+        "à quelle hauteur",
+        "distance",
+        "déplacement",
+        "longueur",
+        "hauteur",
+        "portée",
+        "profondeur",
+        "rayon",
+        "largeur",
+        "distance focale"
+      ],
+      "time": [
+        "combien de temps",
+        "temps",
+        "durée",
+        "période"
+      ],
+      "speed": [
+        "vitesse"
+      ],
+      "acceleration": [
+        "accélération",
+        "décélération"
+      ],
+      "mass": [
+        "masse"
+      ],
+      "weight": [
+        "poids"
+      ],
+      "force": [
+        "force",
+        "frottement"
+      ],
+      "energy": [
+        "énergie",
+        "travail",
+        "chaleur",
+        "quantité de chaleur"
+      ],
+      "current": [
+        "courant"
+      ],
+      "voltage": [
+        "tension électrique",
+        "différence de potentiel",
+        "potentiel"
+      ],
+      "resistance": [
+        "résistance"
+      ],
+      "amount": [
+        "moles",
+        "quantité de matière",
+        "nombre de moles"
+      ],
+      "concentration": [
+        "concentration",
+        "molarité",
+        "solubilité",
+        "molalité"
+      ],
+      "volume": [
+        "volume"
+      ],
+      "temperature": [
+        "température"
+      ],
+      "pressure": [
+        "pression"
+      ],
+      "density": [
+        "masse volumique",
+        "densité"
+      ],
+      "frequency": [
+        "fréquence"
+      ],
+      "charge": [
+        "charge"
+      ],
+      "ph": [
+        "ph"
+      ],
+      "percent": [
+        "pourcentage"
+      ],
+      "area": [
+        "aire",
+        "surface"
+      ],
+      "angle": [
+        "angle"
+      ],
+      "momentum": [
+        "quantité de mouvement"
+      ],
+      "molar_mass": [
+        "masse molaire"
+      ],
+      "field": [
+        "champ"
+      ],
+      "current|field": [
+        "intensité"
+      ],
+      "force|voltage": [
+        "tension"
+      ],
+      "unnamed": [
+        "quantité"
+      ],
+      "oxidation": [
+        "degré d'oxydation",
+        "nombre d'oxydation",
+        "état d'oxydation"
+      ],
+      "exponent": [
+        "élevé à la puissance"
+      ],
+      "power|exponent": [
+        "puissance"
+      ],
+      "efficiency": [
+        "rendement",
+        "efficacité"
+      ]
+    }
+  },
+  "pt": {
+    "markers": [
+      "qual",
+      "quais",
+      "quanto",
+      "quanta",
+      "quantos",
+      "quantas",
+      "como",
+      "calcule",
+      "calcular",
+      "determine",
+      "encontre"
+    ],
+    "classes": {
+      "length": [
+        "distância",
+        "deslocamento",
+        "comprimento",
+        "altura",
+        "profundidade",
+        "raio",
+        "alcance"
+      ],
+      "time": [
+        "quanto tempo",
+        "tempo",
+        "duração",
+        "período"
+      ],
+      "speed": [
+        "velocidade",
+        "rapidez"
+      ],
+      "acceleration": [
+        "aceleração",
+        "desaceleração"
+      ],
+      "mass": [
+        "massa"
+      ],
+      "weight": [
+        "peso"
+      ],
+      "force": [
+        "força",
+        "atrito"
+      ],
+      "energy": [
+        "energia",
+        "trabalho",
+        "calor",
+        "quantidade de calor"
+      ],
+      "power": [
+        "potência"
+      ],
+      "current": [
+        "corrente"
+      ],
+      "voltage": [
+        "tensão",
+        "voltagem",
+        "diferença de potencial"
+      ],
+      "resistance": [
+        "resistência"
+      ],
+      "amount": [
+        "mols",
+        "quantidade de matéria",
+        "número de mols"
+      ],
+      "concentration": [
+        "concentração",
+        "molaridade",
+        "solubilidade"
+      ],
+      "volume": [
+        "volume"
+      ],
+      "temperature": [
+        "temperatura"
+      ],
+      "pressure": [
+        "pressão"
+      ],
+      "density": [
+        "densidade"
+      ],
+      "frequency": [
+        "frequência"
+      ],
+      "charge": [
+        "carga"
+      ],
+      "percent": [
+        "porcentagem",
+        "percentagem"
+      ],
+      "area": [
+        "área"
+      ],
+      "angle": [
+        "ângulo"
+      ],
+      "momentum": [
+        "quantidade de movimento",
+        "momento linear"
+      ],
+      "molar_mass": [
+        "massa molar"
+      ],
+      "field": [
+        "campo"
+      ],
+      "current|field": [
+        "intensidade"
+      ],
+      "unnamed": [
+        "quantidade"
+      ],
+      "oxidation": [
+        "número de oxidação",
+        "estado de oxidação"
+      ],
+      "exponent": [
+        "elevado"
+      ],
+      "efficiency": [
+        "eficiência",
+        "rendimento"
+      ]
+    }
+  },
+  "it": {
+    "markers": [
+      "qual",
+      "quale",
+      "quali",
+      "quanto",
+      "quanta",
+      "quanti",
+      "quante",
+      "come",
+      "calcola",
+      "calcolare",
+      "determina",
+      "trova"
+    ],
+    "classes": {
+      "length": [
+        "distanza",
+        "spostamento",
+        "lunghezza",
+        "altezza",
+        "profondità",
+        "raggio",
+        "gittata"
+      ],
+      "time": [
+        "quanto tempo",
+        "tempo",
+        "durata",
+        "periodo"
+      ],
+      "speed": [
+        "velocità"
+      ],
+      "acceleration": [
+        "accelerazione",
+        "decelerazione"
+      ],
+      "mass": [
+        "massa"
+      ],
+      "weight": [
+        "peso"
+      ],
+      "force": [
+        "forza",
+        "attrito"
+      ],
+      "energy": [
+        "energia",
+        "lavoro",
+        "calore",
+        "quantità di calore"
+      ],
+      "power": [
+        "potenza"
+      ],
+      "current": [
+        "corrente"
+      ],
+      "voltage": [
+        "differenza di potenziale",
+        "voltaggio"
+      ],
+      "resistance": [
+        "resistenza"
+      ],
+      "amount": [
+        "moli",
+        "quantità di sostanza"
+      ],
+      "concentration": [
+        "concentrazione",
+        "molarità",
+        "solubilità"
+      ],
+      "volume": [
+        "volume"
+      ],
+      "temperature": [
+        "temperatura"
+      ],
+      "pressure": [
+        "pressione"
+      ],
+      "density": [
+        "densità"
+      ],
+      "frequency": [
+        "frequenza"
+      ],
+      "charge": [
+        "carica"
+      ],
+      "percent": [
+        "percentuale"
+      ],
+      "area": [
+        "area",
+        "superficie"
+      ],
+      "angle": [
+        "angolo"
+      ],
+      "momentum": [
+        "quantità di moto"
+      ],
+      "molar_mass": [
+        "massa molare"
+      ],
+      "field": [
+        "campo"
+      ],
+      "current|field": [
+        "intensità"
+      ],
+      "force|voltage": [
+        "tensione"
+      ],
+      "unnamed": [
+        "quantità"
+      ],
+      "oxidation": [
+        "numero di ossidazione",
+        "stato di ossidazione"
+      ],
+      "exponent": [
+        "elevato"
+      ],
+      "efficiency": [
+        "efficienza",
+        "rendimento"
+      ]
+    }
+  },
+  "de": {
+    "markers": [
+      "wie",
+      "was",
+      "welche",
+      "welcher",
+      "welches",
+      "berechne",
+      "berechnen",
+      "bestimme",
+      "bestimmen",
+      "ermittle",
+      "finde"
+    ],
+    "classes": {
+      "length": [
+        "wie weit",
+        "wie hoch",
+        "strecke",
+        "entfernung",
+        "abstand",
+        "länge",
+        "höhe",
+        "tiefe",
+        "radius",
+        "reichweite"
+      ],
+      "time": [
+        "wie lange",
+        "zeit",
+        "dauer",
+        "periode"
+      ],
+      "speed": [
+        "wie schnell",
+        "geschwindigkeit"
+      ],
+      "acceleration": [
+        "beschleunigung",
+        "verzögerung"
+      ],
+      "mass": [
+        "masse"
+      ],
+      "weight": [
+        "gewicht"
+      ],
+      "force": [
+        "kraft",
+        "reibung"
+      ],
+      "energy": [
+        "energie",
+        "arbeit",
+        "wärme"
+      ],
+      "power": [
+        "leistung"
+      ],
+      "current": [
+        "stromstärke",
+        "strom"
+      ],
+      "voltage": [
+        "spannung"
+      ],
+      "resistance": [
+        "widerstand"
+      ],
+      "amount": [
+        "stoffmenge"
+      ],
+      "concentration": [
+        "konzentration",
+        "löslichkeit"
+      ],
+      "volume": [
+        "volumen"
+      ],
+      "temperature": [
+        "temperatur"
+      ],
+      "pressure": [
+        "druck"
+      ],
+      "density": [
+        "dichte"
+      ],
+      "frequency": [
+        "frequenz"
+      ],
+      "charge": [
+        "ladung"
+      ],
+      "percent": [
+        "prozentsatz",
+        "anteil"
+      ],
+      "area": [
+        "fläche",
+        "flächeninhalt"
+      ],
+      "angle": [
+        "winkel"
+      ],
+      "momentum": [
+        "impuls"
+      ],
+      "molar_mass": [
+        "molare masse"
+      ],
+      "field": [
+        "feld",
+        "feldstärke"
+      ],
+      "unnamed": [
+        "menge"
+      ],
+      "oxidation": [
+        "oxidationszahl",
+        "oxidationsstufe"
+      ],
+      "exponent": [
+        "hoch"
+      ],
+      "efficiency": [
+        "wirkungsgrad"
+      ]
+    }
+  },
+  "ru": {
+    "markers": [
+      "какой",
+      "какая",
+      "какое",
+      "какую",
+      "каков",
+      "какова",
+      "каково",
+      "сколько",
+      "чему",
+      "найдите",
+      "найти",
+      "определите",
+      "определить",
+      "вычислите",
+      "вычислить",
+      "рассчитайте"
+    ],
+    "classes": {
+      "length": [
+        "расстояни",
+        "перемещени",
+        "длин",
+        "высот",
+        "глубин",
+        "радиус",
+        "дальност"
+      ],
+      "time": [
+        "время",
+        "продолжительност",
+        "период"
+      ],
+      "speed": [
+        "скорост"
+      ],
+      "acceleration": [
+        "ускорени"
+      ],
+      "mass": [
+        "масс"
+      ],
+      "weight": [
+        "вес"
+      ],
+      "force": [
+        "силу",
+        "сила",
+        "натяжени",
+        "трени"
+      ],
+      "energy": [
+        "энерги",
+        "работ",
+        "количество теплоты"
+      ],
+      "power": [
+        "мощност"
+      ],
+      "current": [
+        "сила тока",
+        "силу тока",
+        "ток"
+      ],
+      "voltage": [
+        "напряжени"
+      ],
+      "resistance": [
+        "сопротивлени"
+      ],
+      "amount": [
+        "количество вещества"
+      ],
+      "concentration": [
+        "концентраци",
+        "молярност",
+        "растворимост"
+      ],
+      "volume": [
+        "объём",
+        "объем"
+      ],
+      "temperature": [
+        "температур"
+      ],
+      "pressure": [
+        "давлени"
+      ],
+      "density": [
+        "плотност"
+      ],
+      "frequency": [
+        "частот"
+      ],
+      "charge": [
+        "заряд"
+      ],
+      "area": [
+        "площад"
+      ],
+      "angle": [
+        "угол"
+      ],
+      "momentum": [
+        "импульс"
+      ],
+      "molar_mass": [
+        "молярн"
+      ],
+      "field": [
+        "напряжённость",
+        "поле"
+      ],
+      "unnamed": [
+        "количество"
+      ],
+      "oxidation": [
+        "степень окисления"
+      ],
+      "exponent": [
+        "в степени"
+      ],
+      "efficiency": [
+        "кпд",
+        "коэффициент полезного действия"
+      ]
+    }
+  },
+  "tr": {
+    "markers": [
+      "nedir",
+      "ne kadar",
+      "kaç",
+      "hangi",
+      "hesaplayınız",
+      "hesaplayın",
+      "hesapla",
+      "bulunuz",
+      "bulun",
+      "bul"
+    ],
+    "classes": {
+      "length": [
+        "mesafe",
+        "uzaklık",
+        "yer değiştirme",
+        "uzunluk",
+        "yükseklik",
+        "derinlik",
+        "yarıçap",
+        "menzil"
+      ],
+      "time": [
+        "zaman",
+        "süre",
+        "periyot"
+      ],
+      "speed": [
+        "hız"
+      ],
+      "acceleration": [
+        "ivme"
+      ],
+      "mass": [
+        "kütle"
+      ],
+      "weight": [
+        "ağırlık"
+      ],
+      "force": [
+        "kuvvet",
+        "sürtünme"
+      ],
+      "energy": [
+        "enerji",
+        "yapılan iş",
+        "ısı"
+      ],
+      "power": [
+        "güç"
+      ],
+      "current": [
+        "akım"
+      ],
+      "voltage": [
+        "gerilim",
+        "potansiyel fark"
+      ],
+      "resistance": [
+        "direnç"
+      ],
+      "amount": [
+        "mol sayısı"
+      ],
+      "concentration": [
+        "derişim",
+        "konsantrasyon",
+        "molarite",
+        "çözünürlük"
+      ],
+      "volume": [
+        "hacim"
+      ],
+      "temperature": [
+        "sıcaklık"
+      ],
+      "pressure": [
+        "basınç"
+      ],
+      "density": [
+        "yoğunluk"
+      ],
+      "frequency": [
+        "frekans"
+      ],
+      "charge": [
+        "yük"
+      ],
+      "area": [
+        "alan"
+      ],
+      "angle": [
+        "açı"
+      ],
+      "momentum": [
+        "momentum"
+      ],
+      "molar_mass": [
+        "molar kütle",
+        "mol kütlesi"
+      ],
+      "field": [
+        "alan şiddeti"
+      ],
+      "unnamed": [
+        "miktar"
+      ],
+      "oxidation": [
+        "yükseltgenme basamağı"
+      ],
+      "exponent": [
+        "kuvveti"
+      ],
+      "efficiency": [
+        "verim"
+      ]
+    }
+  },
+  "ar": {
+    "markers": [
+      "ما",
+      "ماذا",
+      "كم",
+      "أوجد",
+      "اوجد",
+      "احسب",
+      "جد",
+      "حدد",
+      "أوجدي",
+      "احسبي",
+      "بكم"
+    ],
+    "classes": {
+      "length": [
+        "مسافة",
+        "المسافة",
+        "إزاحة",
+        "الإزاحة",
+        "طول",
+        "الطول",
+        "ارتفاع",
+        "الارتفاع",
+        "عمق",
+        "العمق",
+        "نصف القطر",
+        "مدى",
+        "المدى",
+        "الطول الموجي",
+        "البعد البؤري",
+        "عرض",
+        "العرض"
+      ],
+      "time": [
+        "زمن",
+        "الزمن",
+        "وقت",
+        "الوقت",
+        "مدة",
+        "المدة",
+        "الدور",
+        "كم يستغرق",
+        "يستغرق",
+        "دوره",
+        "دورها",
+        "الزمن الدوري"
+      ],
+      "speed": [
+        "سرعة",
+        "السرعة",
+        "سرعته",
+        "سرعتها"
+      ],
+      "acceleration": [
+        "تسارع",
+        "التسارع",
+        "عجلة",
+        "العجلة"
+      ],
+      "mass": [
+        "كتلة",
+        "الكتلة",
+        "كتلته",
+        "كتلتها"
+      ],
+      "weight": [
+        "وزن",
+        "الوزن"
+      ],
+      "force": [
+        "قوة",
+        "القوة",
+        "الشد",
+        "الاحتكاك"
+      ],
+      "energy": [
+        "طاقة",
+        "الطاقة",
+        "شغل",
+        "الشغل",
+        "حرارة",
+        "الحرارة",
+        "كمية الحرارة"
+      ],
+      "power": [
+        "قدرة",
+        "القدرة"
+      ],
+      "current": [
+        "تيار",
+        "التيار"
+      ],
+      "voltage": [
+        "فرق الجهد",
+        "الجهد",
+        "جهد",
+        "جهد الخلية"
+      ],
+      "resistance": [
+        "مقاومة",
+        "المقاومة"
+      ],
+      "amount": [
+        "عدد المولات",
+        "مولات",
+        "المولات",
+        "عدد مولات"
+      ],
+      "concentration": [
+        "تركيز",
+        "التركيز",
+        "المولارية",
+        "ذائبية",
+        "الذائبية",
+        "الذوبانية"
+      ],
+      "volume": [
+        "حجم",
+        "الحجم"
+      ],
+      "temperature": [
+        "درجة الحرارة",
+        "درجة حرارة",
+        "درجة حرارت"
+      ],
+      "pressure": [
+        "ضغط",
+        "الضغط"
+      ],
+      "density": [
+        "كثافة",
+        "الكثافة"
+      ],
+      "frequency": [
+        "تردد",
+        "التردد"
+      ],
+      "charge": [
+        "شحنة",
+        "الشحنة"
+      ],
+      "ph": [
+        "ph",
+        "الأس الهيدروجيني"
+      ],
+      "percent": [
+        "النسبة المئوية",
+        "نسبة"
+      ],
+      "area": [
+        "مساحة",
+        "المساحة"
+      ],
+      "angle": [
+        "زاوية",
+        "الزاوية"
+      ],
+      "momentum": [
+        "زخم",
+        "الزخم",
+        "كمية الحركة"
+      ],
+      "molar_mass": [
+        "الكتلة المولية",
+        "كتلة مولية",
+        "الكتلة المولارية"
+      ],
+      "field": [
+        "مجال",
+        "المجال"
+      ],
+      "unnamed": [
+        "مقدار",
+        "كمية"
+      ],
+      "oxidation": [
+        "عدد التأكسد",
+        "حالة التأكسد"
+      ],
+      "exponent": [
+        "مرفوعا",
+        "مرفوع"
+      ],
+      "efficiency": [
+        "كفاءة",
+        "الكفاءة",
+        "المردود"
+      ]
+    }
+  },
+  "hi": {
+    "markers": [
+      "क्या",
+      "कितना",
+      "कितनी",
+      "कितने",
+      "ज्ञात",
+      "निकालिए",
+      "निकालें",
+      "बताइए",
+      "कैसे",
+      "गणना",
+      "कौन",
+      "कौन-सा",
+      "कौनसा",
+      "कौन-सी"
+    ],
+    "classes": {
+      "length": [
+        "दूरी",
+        "विस्थापन",
+        "लंबाई",
+        "लम्बाई",
+        "ऊँचाई",
+        "ऊंचाई",
+        "गहराई",
+        "त्रिज्या",
+        "परास",
+        "तरंगदैर्ध्य",
+        "चौड़ाई",
+        "फोकस दूरी",
+        "कितनी दूर",
+        "दूर"
+      ],
+      "time": [
+        "समय",
+        "अवधि",
+        "आवर्तकाल",
+        "कितनी देर"
+      ],
+      "speed": [
+        "चाल",
+        "वेग"
+      ],
+      "acceleration": [
+        "त्वरण",
+        "मंदन"
+      ],
+      "mass": [
+        "द्रव्यमान"
+      ],
+      "weight": [
+        "भार",
+        "वजन",
+        "वज़न"
+      ],
+      "force": [
+        "बल",
+        "तनाव",
+        "घर्षण"
+      ],
+      "energy": [
+        "ऊर्जा",
+        "कार्य",
+        "ऊष्मा",
+        "ऊष्मा की मात्रा"
+      ],
+      "power": [
+        "शक्ति",
+        "सामर्थ्य"
+      ],
+      "current": [
+        "धारा"
+      ],
+      "voltage": [
+        "वोल्टता",
+        "विभवांतर",
+        "विभवान्तर",
+        "वोल्टेज",
+        "विभव",
+        "सेल विभव"
+      ],
+      "resistance": [
+        "प्रतिरोध"
+      ],
+      "amount": [
+        "मोलों की संख्या",
+        "मोल की संख्या",
+        "कितने मोल"
+      ],
+      "concentration": [
+        "सांद्रता",
+        "मोलरता",
+        "विलेयता"
+      ],
+      "volume": [
+        "आयतन"
+      ],
+      "temperature": [
+        "तापमान"
+      ],
+      "pressure": [
+        "दाब",
+        "दबाव"
+      ],
+      "density": [
+        "घनत्व"
+      ],
+      "frequency": [
+        "आवृत्ति"
+      ],
+      "charge": [
+        "आवेश"
+      ],
+      "ph": [
+        "ph",
+        "पीएच"
+      ],
+      "percent": [
+        "प्रतिशत"
+      ],
+      "area": [
+        "क्षेत्रफल"
+      ],
+      "angle": [
+        "कोण"
+      ],
+      "momentum": [
+        "संवेग"
+      ],
+      "molar_mass": [
+        "मोलर द्रव्यमान",
+        "मोलर भार"
+      ],
+      "field": [
+        "क्षेत्र की तीव्रता"
+      ],
+      "unnamed": [
+        "मात्रा"
+      ],
+      "oxidation": [
+        "ऑक्सीकरण अवस्था",
+        "ऑक्सीकरण संख्या"
+      ],
+      "exponent": [
+        "घात"
+      ],
+      "efficiency": [
+        "दक्षता"
+      ]
+    }
+  },
+  "am": {
+    "markers": [
+      "ስንት",
+      "ምን ያህል",
+      "ምንድን",
+      "ምንድነው",
+      "ምን",
+      "አስላ",
+      "አስሉ",
+      "አስሉት",
+      "ፈልግ",
+      "ፈልጉ",
+      "ይፈልጉ",
+      "አግኝ",
+      "አግኙ",
+      "ያግኙ",
+      "ያሰሉ",
+      "ያስሉ",
+      "አሰሉ",
+      "ይወስኑ",
+      "ወስን"
+    ],
+    "classes": {
+      "length": [
+        "ርቀት",
+        "ርዝመት",
+        "ከፍታ",
+        "ጥልቀት",
+        "ራዲየስ"
+      ],
+      "time": [
+        "ጊዜ"
+      ],
+      "acceleration": [
+        "የፍጥነት ለውጥ መጠን",
+        "አክስለሬሽን",
+        "ፍጥነት መጨመር",
+        "ይፋጠ",
+        "መፋጠን"
+      ],
+      "mass": [
+        "ግዝፈት",
+        "ማስ"
+      ],
+      "weight": [
+        "ክብደት"
+      ],
+      "force|energy|power": [
+        "ኃይል",
+        "ሃይል"
+      ],
+      "energy": [
+        "ጉልበት",
+        "ኢነርጂ",
+        "ሙቀት መጠን",
+        "ሥራ ይሠራል",
+        "ስራ ይሰራል",
+        "የተሠራው ሥራ",
+        "የሚሠራው ሥራ"
+      ],
+      "power": [
+        "ፓወር"
+      ],
+      "current": [
+        "ጅረት",
+        "ከረንት"
+      ],
+      "voltage": [
+        "ቮልቴጅ",
+        "አቅም ልዩነት"
+      ],
+      "resistance": [
+        "ተቃውሞ",
+        "ሬዚስታንስ"
+      ],
+      "amount": [
+        "የሞል ብዛት",
+        "ሞሎች"
+      ],
+      "concentration": [
+        "ክምችት",
+        "ሞላሪቲ",
+        "ኮንሰንትሬሽን",
+        "ሞላሊቲ",
+        "መሟሟት"
+      ],
+      "volume": [
+        "ይዘት",
+        "ቮልዩም"
+      ],
+      "temperature": [
+        "የሙቀት መጠን",
+        "ሙቀት"
+      ],
+      "pressure": [
+        "ግፊት"
+      ],
+      "density": [
+        "ጥግግት",
+        "ዴንሲቲ"
+      ],
+      "frequency": [
+        "ድግግሞሽ",
+        "ፍሪኩዌንሲ"
+      ],
+      "charge": [
+        "ቻርጅ",
+        "ኤሌክትሪክ ክፍያ"
+      ],
+      "ph": [
+        "ph",
+        "ፒኤች"
+      ],
+      "percent": [
+        "መቶኛ",
+        "በመቶ"
+      ],
+      "angle": [
+        "ማዕዘን"
+      ],
+      "momentum": [
+        "ሞመንተም"
+      ],
+      "molar_mass": [
+        "ሞላር ክብደት",
+        "ሞላር ማስ"
+      ],
+      "field": [
+        "መስክ"
+      ],
+      "speed|acceleration": [
+        "ፍጥነት"
+      ],
+      "voltage|power": [
+        "አቅም"
+      ],
+      "length|area": [
+        "ስፋት"
+      ],
+      "force": [
+        "ውጥረት"
+      ],
+      "unnamed": [
+        "መጠን"
+      ],
+      "oxidation": [
+        "የኦክሲዴሽን ቁጥር",
+        "ኦክሲዴሽን"
+      ],
+      "exponent": [
+        "ኃይል ከፍ"
+      ],
+      "efficiency": [
+        "ቅልጥፍና",
+        "ውጤታማነት"
+      ]
+    }
+  }
+}

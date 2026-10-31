@@ -1,0 +1,14 @@
+{
+  "_doc": "Words after a temperature that put it below zero, by language (lowercase).",
+  "en": ["below zero", "below freezing"],
+  "es": ["bajo cero"],
+  "fr": ["sous zéro", "en dessous de zéro"],
+  "pt": ["abaixo de zero"],
+  "it": ["sotto zero"],
+  "de": ["unter null"],
+  "tr": ["sıfırın altında"],
+  "ru": ["ниже нуля"],
+  "am": ["ከዜሮ በታች"],
+  "ar": ["تحت الصفر"],
+  "hi": ["शून्य से नीचे"]
+}

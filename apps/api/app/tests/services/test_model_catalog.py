@@ -326,6 +326,7 @@ def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
         lanes.word_problems,
         lanes.math_extract,
         lanes.reader_translation,
+        lanes.reader_translation_check,
     ):
         assert model_catalog.get(structured).json_mode, structured
     assert model_catalog.get(lanes.titles).context_tokens > 0

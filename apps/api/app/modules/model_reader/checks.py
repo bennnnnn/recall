@@ -49,15 +49,24 @@ def normalized(text: str) -> str:
     return plain_text(text).lower()
 
 
+# A run of thousands: every mark of one kind, three digits after each.
+_GROUPED = re.compile(r"-?[1-9]\d{0,2}(?:([.,])\d{3})(?:\1\d{3})*")
+
+
 def readings(number: str) -> set[float]:
-    """The values one written number may mean: "3,5" is 3.5 or 35; "3,000" is 3000."""
+    """The values one written number may mean. A mark is a decimal mark, or a thousands
+    mark only when exactly three digits follow it: "3,5" is 3.5, "1.5" is 1.5, "1.200" is
+    1.2 or 1200, "1.200,5" is 1200.5. A mark is never just dropped, so "3,5" is never 35."""
     found: set[float] = set()
-    plain = number.replace(",", "")
-    for candidate in {plain, number.replace(",", "."), number.replace(".", "").replace(",", ".")}:
-        try:
-            found.add(float(candidate))
-        except ValueError:
-            continue
+    if _GROUPED.fullmatch(number):
+        found.add(float(re.sub(r"[.,]", "", number)))
+    marks = [char for char in number if char in ".,"]
+    if marks and marks[-1] not in marks[:-1]:
+        head, _, tail = number.rpartition(marks[-1])
+        if not marks[:-1] or _GROUPED.fullmatch(head):
+            found.add(float(re.sub(r"[.,]", "", head) + "." + tail))
+    elif not marks:
+        found.add(float(number))
     return found
 
 

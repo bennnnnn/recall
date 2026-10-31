@@ -43,13 +43,9 @@ from pydantic import BaseModel, Field
 from app.core.config import Settings
 from app.models.model_catalog import CATALOG
 from app.models.routing_lanes import ROUTING
-from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.model_reader.checks import normalized, values_in
 from app.modules.model_reader.schemas import ModelRead
 from app.modules.model_reader.service import read_with_model
-from app.modules.model_reader.translation import Translated, english_for_patterns
-from app.modules.physics import PHYSICS_UNITS
-from app.services.law_binding.units import UnitTable
 from app.tests.behavior.stem_sweep import (
     SUBJECT_NAMES,
     Entry,
@@ -107,10 +103,6 @@ class Row:
     model_wrong: bool = False
     both_card: str | None = None
     both_wrong: bool = False
-    # Translate, then read with the patterns: the English kept, and the patterns' card on it.
-    back: Translated | None = None
-    back_card: str | None = None
-    back_wrong: bool = False
 
 
 @dataclass
@@ -144,25 +136,7 @@ class Tally:
             f"{wrong('regex_wrong')}/{wrong('model_wrong')}/{wrong('both_wrong')} | "
             f"read p50 {p50 / 1000:.2f}s p95 {p95 / 1000:.2f}s | ${cost:.2f}/1k turns"
         )
-        backs = [row.back for row in rows if row.back is not None]
-        if not backs:
-            return line
-        kept = sum(1 for back in backs if back.english is not None)
-        times = sorted(back.ms for back in backs)
-        price = _prices(ROUTING.reader_translation)
-        cost = (
-            1000
-            * sum(back.input_tokens * price[0] + back.output_tokens * price[1] for back in backs)
-            / len(backs)
-            / 1e6
-        )
-        return (
-            f"{line}\n{'':<16} translate+patterns reach {reach('back_card'):>8} wrong "
-            f"{wrong('back_wrong')} | kept {kept}/{len(backs)} | translate p50 "
-            f"{statistics.median(times) / 1000:.2f}s p95 "
-            f"{times[min(len(times) - 1, int(0.95 * len(times)))] / 1000:.2f}s | "
-            f"${cost:.3f}/1k turns"
-        )
+        return line
 
 
 def _prices(alias: str = ROUTING.math_extract) -> tuple[float, float]:
@@ -234,22 +208,6 @@ def _same_card(first: str, second: str) -> bool:
 async def _model(row: Row, settings: Settings, gate: asyncio.Semaphore) -> None:
     async with gate:
         row.model = await read_with_model(row.entry.prompt, settings)
-
-
-async def _translate_back(
-    row: Row, settings: Settings, gate: asyncio.Semaphore, tables: tuple[UnitTable, ...]
-) -> None:
-    async with gate:
-        row.back = await english_for_patterns(row.entry.prompt, settings, tables)
-
-
-async def _patterns_on_english(row: Row) -> None:
-    """Today's turn on the kept English, judged as the sweep judges it."""
-    if row.back is None or row.back.english is None:
-        return
-    english = Row(row.subject, row.lang, _with_prompt(row.entry, row.back.english))
-    await _regex(english)
-    row.back_card, row.back_wrong = english.regex_card, english.regex_wrong
 
 
 def _finish(row: Row, settings: Settings) -> None:
@@ -379,13 +337,7 @@ async def run(
     set_sympy_executor(ThreadSympyExecutor(max_workers=_CONCURRENCY + 1))
     gate = asyncio.Semaphore(_CONCURRENCY)
     await asyncio.gather(*(_model(row, settings, gate) for row in rows))
-    # Translate, then read with the patterns: only questions not written in English.
-    foreign = [row for row in rows if row.lang not in {"en", "holdout", "book"}]
-    tables = (PHYSICS_UNITS, CHEMISTRY_UNITS)
-    await asyncio.gather(*(_translate_back(row, settings, gate, tables) for row in foreign))
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
-    for row in foreign:
-        await _patterns_on_english(row)
     for row in rows:
         _finish(row, settings)
     order = ["en", "holdout", *[lang for lang in langs if lang != "en"], "book"]
@@ -420,10 +372,6 @@ def _dump(rows: list[Row], path: Path) -> None:
                         "model_wrong": row.model_wrong,
                         "both_card": row.both_card,
                         "both_wrong": row.both_wrong,
-                        "english": row.back.english if row.back else None,
-                        "back_reason": row.back.reason if row.back else None,
-                        "back_card": row.back_card,
-                        "back_wrong": row.back_wrong,
                     },
                     ensure_ascii=False,
                 )
