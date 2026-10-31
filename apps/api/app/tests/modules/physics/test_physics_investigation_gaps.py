@@ -231,6 +231,9 @@ def test_optics_laws_answer_the_investigation_questions(
         "away. Find the magnification.",
         "A convex lens forms an upright image 30 cm from the lens of an object 10 cm away. "
         "Find the magnification.",
+        # Heights are no distances: a Grade 10 book's 5 cm object and 25 cm image (-5).
+        "The height of an object is 5 cm and the height of its image in a concave mirror is "
+        "25 cm high. What is the magnification of the image?",
         # Second review: "biconcave", power to focal length, and lenses in contact.
         "An object is 30 cm from a biconcave lens of focal length 15 cm. Find the image distance.",
         "A concave lens has power 2.5 D. Find its focal length.",
