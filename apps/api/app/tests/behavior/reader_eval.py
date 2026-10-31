@@ -44,8 +44,8 @@ from app.modules.turn_reading.service import read_with_model
 from app.tests.behavior.stem_sweep import (
     SUBJECT_NAMES,
     Entry,
-    card_values,
     check_answer,
+    latex_to_plain,
     load,
     run_entry,
 )
@@ -166,12 +166,14 @@ def _judge(row: Row, card: str | None) -> bool:
     return any(problem.kind == "wrong" for problem in problems)
 
 
-def _same_value(first: str, second: str) -> bool:
-    one = card_values(f"```answer\n{first}\n```")
-    two = card_values(f"```answer\n{second}\n```")
-    if not one or not two:
-        return first.strip() == second.strip()
-    return abs(one[0][0] - two[0][0]) <= 1e-6 * max(abs(one[0][0]), abs(two[0][0]), 1e-12)
+def _same_card(first: str, second: str) -> bool:
+    """The same card, spacing aside. Two operations may write one value two ways ("8 cm",
+    "0.08 m"); that counts as no agreement, which can only cost a card, never add one."""
+
+    def plain(card: str) -> str:
+        return "".join(latex_to_plain(card).split()).replace("\\,", "")
+
+    return plain(first) == plain(second)
 
 
 async def _model(row: Row, settings: Settings, gate: asyncio.Semaphore) -> None:
@@ -183,14 +185,17 @@ def _finish(row: Row, settings: Settings) -> None:
     read = row.model
     if read is not None and read.reason == "ok" and read.intent is not None and read.subject:
         row.model_card = _solved(read.subject, read.intent, settings)
-        # A card read as another subject is the model's misread of this one.
-        if read.subject != row.subject and row.entry.shared != read.subject:
-            row.model_wrong = row.model_card is not None
-        else:
-            row.model_wrong = _judge(row, row.model_card)
-    if row.regex_card and row.model_card and _same_value(row.regex_card, row.model_card):
-        row.both_card = row.model_card
-        row.both_wrong = row.model_wrong
+    _judge_row(row)
+
+
+def _judge_row(row: Row) -> None:
+    """Judge the model's card by its value, whichever subject's law gave it (gas laws are
+    physics', and a chemistry question may be read there); and keep the patterns' card,
+    the one a student would see, only when the model's is the same card."""
+    row.model_wrong = _judge(row, row.model_card)
+    if row.regex_card and row.model_card and _same_card(row.regex_card, row.model_card):
+        row.both_card = row.regex_card
+        row.both_wrong = row.regex_wrong
 
 
 # --- corpora -----------------------------------------------------------------------
@@ -222,7 +227,12 @@ def _with_prompt(entry: Entry, prompt: str) -> Entry:
 
 
 async def run(
-    langs: list[str], subjects: list[str], limit: int | None, seed: int, call_seconds: float
+    langs: list[str],
+    subjects: list[str],
+    limit: int | None,
+    seed: int,
+    call_seconds: float,
+    dump: Path | None = None,
 ) -> None:
     from app.core.sympy_executor import set_sympy_executor
     from app.tests.sympy_support import ThreadSympyExecutor
@@ -250,6 +260,39 @@ async def run(
     for row in rows:
         _finish(row, settings)
     _report(rows, langs, subjects)
+    if dump is not None:
+        _dump(rows, dump)
+
+
+def _dump(rows: list[Row], path: Path) -> None:
+    """Every row as one JSON line: ids, cards and reasons, for reading the misses."""
+    with path.open("w") as out:
+        for row in rows:
+            read = row.model
+            out.write(
+                json.dumps(
+                    {
+                        "lang": row.lang,
+                        "subject": row.subject,
+                        "id": row.entry.id,
+                        "expect": row.entry.expect,
+                        "regex_card": row.regex_card,
+                        "regex_wrong": row.regex_wrong,
+                        "model_subject": read.subject if read else None,
+                        "model_op": read.op if read else None,
+                        "reason": read.reason if read else None,
+                        "ms": read.ms if read else None,
+                        "input_tokens": read.input_tokens if read else 0,
+                        "output_tokens": read.output_tokens if read else 0,
+                        "model_card": row.model_card,
+                        "model_wrong": row.model_wrong,
+                        "both_card": row.both_card,
+                        "both_wrong": row.both_wrong,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
 
 
 def _report(rows: list[Row], langs: list[str], subjects: list[str]) -> None:
@@ -373,6 +416,32 @@ async def translate(per_subject: int, seed: int) -> None:
         )
 
 
+def rejudge(path: Path) -> None:
+    """The report again from a ``--dump``, judged afresh, with no model call."""
+    entries = {(subject, entry.id): entry for subject in SUBJECT_NAMES for entry in load(subject)}
+    rows: list[Row] = []
+    for line in path.read_text().splitlines():
+        item = json.loads(line)
+        entry = entries.get((item["subject"], item["id"]))
+        if entry is None:
+            continue
+        row = Row(item["subject"], item["lang"], entry, item["regex_card"], item["regex_wrong"])
+        row.model = ModelRead(
+            item["model_subject"],
+            item["model_op"],
+            None,
+            item["reason"],
+            item["ms"] or 0.0,
+            item.get("input_tokens", 0),
+            item.get("output_tokens", 0),
+        )
+        row.model_card = item["model_card"]
+        _judge_row(row)
+        rows.append(row)
+    langs = sorted({row.lang for row in rows}, key=lambda lang: (lang != "en", lang))
+    _report(rows, langs, list(SUBJECT_NAMES))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -384,20 +453,25 @@ def main() -> None:
     # Each call's limit: production's is ``model_reader_timeout_seconds``; this measures
     # how long reads take, so it waits longer and reports p50/p95.
     run_parser.add_argument("--timeout", type=float, default=5.0)
+    run_parser.add_argument("--dump", type=Path, help="write every row as a JSON line here")
     books_parser = commands.add_parser("books")
     books_parser.add_argument("path", type=Path)
     books_parser.add_argument("--timeout", type=float, default=5.0)
+    rejudge_parser = commands.add_parser("rejudge")
+    rejudge_parser.add_argument("dump", type=Path)
     translate_parser = commands.add_parser("translate")
     translate_parser.add_argument("--per-subject", type=int, default=40)
     translate_parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
     if args.command == "run":
         langs, subjects = args.langs.split(","), args.subjects.split(",")
-        asyncio.run(run(langs, subjects, args.limit, args.seed, args.timeout))
+        asyncio.run(run(langs, subjects, args.limit, args.seed, args.timeout, args.dump))
     elif args.command == "books":
         files = sorted(args.path.glob("*.json"))
         items = [item for file in files for item in json.loads(file.read_text())]
         asyncio.run(books(items, args.timeout))
+    elif args.command == "rejudge":
+        rejudge(args.dump)
     else:
         asyncio.run(translate(args.per_subject, args.seed))
 

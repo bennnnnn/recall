@@ -159,6 +159,64 @@ live turns in the per-turn `turn_trace` line, op ids only.
   it on its own questions for two weeks, and the STEM snapshot (`stem_snapshot.json`)
   holds every answered entry.
 
+## Results (2026-10-31)
+
+`reader_eval run` on the whole STEM corpus in English and a 40-per-subject sample translated
+into Amharic, Spanish, French, Arabic and Hindi (595 kept: every number survived), each call
+allowed 5 s (10 of about 4,400 calls timed out). Reach is cards on questions that have a
+worked answer; wrong is cards whose value is not the worked answer, or any card on a
+question that should get none.
+
+| Subject | Language | Questions | Patterns: reach / wrong | Model: reach / wrong | Both agree: reach / wrong |
+|---|---|---|---|---|---|
+| Physics | English | 627 | 610 / 0 | 226 / 26 | 197 / 0 |
+| Chemistry | English | 212 | 204 / 0 | 35 / 9 | 7 / 0 |
+| Maths | English | 380 | 368 / 0 | 170 / 26 | 122 / 0 |
+| Physics | 5 others | 200 | 6 / 1 | 82 / 7 | 1 / 0 |
+| Chemistry | 5 others | 200 | 8 / 0 | 30 / 6 | 3 / 0 |
+| Maths | 5 others | 195 | 42 / 1 | 70 / 13 | 24 / 0 |
+
+- **Latency:** the two calls take 2.1–2.4 s at the median and 2.8–3.3 s at p95; the 1.5 s
+  per call in the plan would drop about half the reads.
+- **Cost:** $0.13–0.17 per 1,000 turns at Luna's prices.
+- **Ethiopian textbook sets** (429 questions, answers in prose, so reach only): the model
+  read gave 65 cards (maths 47 of 141, physics 13 of 134, chemistry 5 of 154).
+
+### What the numbers say
+
+- **The model read alone is not safe.** 11–26% of its English cards are wrong and 9–20% in
+  the other languages; the patterns give no wrong card on this corpus.
+- **Both-must-agree is safe and useless here.** It gave no wrong card, but it can only remove
+  pattern cards, and on this corpus the patterns have none to remove: it costs two thirds
+  of English reach. Its worth is catching a pattern's wrong card in real traffic, which the
+  shadow line measures and this corpus cannot.
+- **In other languages the model reads what the patterns cannot** (physics 41% against 3%,
+  chemistry 15% against 4%, maths 36% against 22%), but at a wrong-card rate the decision
+  rule refuses.
+
+### The wrong cards, by class (each fixed for every law, not per question)
+
+1. **A law whose condition the question breaks:** water mixed with alcohol, milk or mercury
+   read as the water-mixing law; English binders refuse these with each law's `excludes`,
+   which the canonical sentence drops. Next: each law's conditions on its menu line, and
+   its `excludes` checked against the original question too.
+2. **A unit read at another scale:** "8 cm" read as 8 m, so the photon came out 10⁻³³ J.
+   Next: the unit written after the number in a quote must be the read's unit, when the
+   subject's unit table reads one there.
+3. **A task the read cannot express:** "check my work" read as "solve", "slope at x = 1"
+   read as the derivative. Next: maths' typed read gets a `none` for every task outside its
+   shapes, and the menu says so.
+4. **Another law:** a Kepler period, a discharge time. These are what both-must-agree
+   exists for.
+
+### Recommendation
+
+Keep every pattern reader. Keep `model_reader_shadow_enabled` off by default and turn it on
+for a share of production traffic once the per-turn trace ships, to measure agreement and
+catch pattern mistakes on real questions. Fix the three classes above, raise the per-call
+budget to the measured p95 for shadow use, and run `reader_eval` again; offer model reads
+in another language only when its wrong cards fall to about 1% of its cards.
+
 ## Not doing
 
 - No model writes a verified answer, a formula or a number the reply shows: the solvers do.
