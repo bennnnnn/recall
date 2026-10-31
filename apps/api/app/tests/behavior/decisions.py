@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import collections
 import json
 import sys
 import time
@@ -140,9 +141,17 @@ def main() -> None:
     diff_args.add_argument("before", type=Path)
     diff_args.add_argument("after", type=Path)
     diff_args.add_argument("--limit", type=int, default=20, help="turns shown per field")
+    diff_args.add_argument(
+        "--added",
+        action="append",
+        default=[],
+        help="a field the change adds to the trace: no turn has it before; its values are listed",
+    )
     args = parser.parse_args()
     if args.command == "diff":
-        changed = diff(_read(args.before), _read(args.after))
+        before, after = _read(args.before), _read(args.after)
+        print(report_added(before, after, args.added))
+        changed = diff(before, _without(after, args.added))
         print(report(changed, limit=args.limit))
         sys.exit(1 if changed else 0)
     from app.core.sympy_executor import set_sympy_executor
@@ -156,6 +165,39 @@ def main() -> None:
     args.out.write_text(json.dumps(found, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     counts = ", ".join(f"{corpus} {len(turns)}" for corpus, turns in found.items())
     print(f"{counts} turns in {time.monotonic() - started:.0f}s -> {args.out}")
+
+
+def report_added(
+    before: Mapping[str, Mapping[str, Mapping[str, Any]]],
+    after: Mapping[str, Mapping[str, Mapping[str, Any]]],
+    fields: Iterable[str],
+) -> str:
+    """Each added field's values over the turns, and any turn that had it before (an error:
+    an added field is new on every turn)."""
+    lines = []
+    for field in fields:
+        had = sum(field in record for turns in before.values() for record in turns.values())
+        values = collections.Counter(
+            _shown(record.get(field)) for turns in after.values() for record in turns.values()
+        )
+        shown = ", ".join(f"{value} ×{count}" for value, count in values.most_common())
+        lines.append(
+            f"added {field}: {shown}" + (f" (ERROR: {had} turns had it before)" if had else "")
+        )
+    return "\n".join(lines)
+
+
+def _without(
+    found: Mapping[str, Mapping[str, Mapping[str, Any]]], fields: Iterable[str]
+) -> dict[str, dict[str, dict[str, Any]]]:
+    dropped = set(fields)
+    return {
+        corpus: {
+            turn: {key: value for key, value in record.items() if key not in dropped}
+            for turn, record in turns.items()
+        }
+        for corpus, turns in found.items()
+    }
 
 
 def _read(path: Path) -> dict[str, dict[str, dict[str, Any]]]:

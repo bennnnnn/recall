@@ -27,9 +27,9 @@ from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER, mult
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.chat.prompt_sections import part_shape_hints
 from app.modules.chat.tool_loop.parts import live_parts, open_parts, searchable_parts
-from app.modules.chat.turn_plan import TurnPart, TurnPlan
 from app.modules.chat.turn_prep.clauses import points_back, request_clauses
 from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.turn_reading.plan import TurnPart, TurnPlan
 from app.modules.web_search import WebSearchAdapter
 
 

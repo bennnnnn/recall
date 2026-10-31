@@ -70,7 +70,6 @@ from app.modules.chat.prompt_profile import (
     format_user_profile_block,
     should_include_profile_email,
 )
-from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import FollowupSubject
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
@@ -88,6 +87,7 @@ from app.modules.turn_reading.personal import (
     is_career_personal_question,
     is_personal_disclosure_turn,
 )
+from app.modules.turn_reading.plan import TurnPlan
 from app.modules.turn_reading.profile_ask import (
     is_profile_fact_question,
     is_profile_recall_pushback,

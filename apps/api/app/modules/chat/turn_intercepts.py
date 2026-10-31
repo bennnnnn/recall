@@ -317,9 +317,9 @@ async def try_image_lookup_for_turn(
 
 def reply_picture_prompt(content: str, settings: Settings) -> str | None:
     """What to draw for the picture part of a multi-part message, if it has one."""
-    from app.modules.chat.turn_prep.intents import plan_turn
+    from app.modules.chat.turn_prep.reading import plan_of
 
-    plan = plan_turn(content, chemistry_enabled=settings.chemistry_enabled)
+    plan = plan_of(content, settings)
     asked = plan.of_kind("image") if plan.multi else ()
     return extract_image_gen_prompt(request_body(asked[0].text)) if asked else None
 

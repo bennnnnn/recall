@@ -2,6 +2,7 @@
 
 The pure readers chat's prompt used to keep beside its copy (structure ticket ST-04): a
 confirmation, a light turn, a locale cue, code, a chart, a lesson step, a school exercise.
+``turn`` holds the turn's reading, built once from them (ST-05), and ``plan`` its requests.
 Nothing here reaches a database, a cache, the network or a model, and nothing here is
 prompt text; chat's ``prompt_constants`` keeps the copy these readers choose between.
 Every module, chat included, imports a reader from here and never through chat.
@@ -23,6 +24,7 @@ _MODULE_EXPORTS = (
     "lesson_flow",
     "locale_cues",
     "personal",
+    "plan",
     "practice",
     "profile_ask",
     "question_kinds",
@@ -31,6 +33,7 @@ _MODULE_EXPORTS = (
     "school_question",
     "stuck",
     "teaching",
+    "turn",
     "visuals",
     "writing",
     "writing_kind",

@@ -15,20 +15,20 @@ from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.modules import web_search as web_search_service
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
-from app.modules.chat.turn_plan import TurnPlan
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
     resolve_subject_followup,
     role_content_dicts,
 )
 from app.modules.chat.turn_prep.instant import location_not_set_reply
-from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
+from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
+from app.modules.turn_reading.plan import TurnPlan
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
 )
@@ -91,7 +91,7 @@ async def gather_and_inject(
     if money:
         return Augmentation(prompt_messages)
     mode = identity.mode
-    plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
+    plan = plan_of(request.content, settings)
     detected_subject = await read_subject(
         _mixed_solve(plan) or request.content,
         settings,

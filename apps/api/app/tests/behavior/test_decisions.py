@@ -67,3 +67,17 @@ def test_the_diff_groups_changed_turns_by_field() -> None:
     shown = decisions.report(changed, limit=1)
     assert shown.startswith("4 turns changed, in 3 fields")
     assert decisions.report({}, limit=1) == "no decision changed"
+
+
+def test_a_field_a_change_adds_is_listed_not_counted_as_changed() -> None:
+    before: dict[str, dict[str, dict[str, Any]]] = {"sweep": {"s1": {"route": "auto.everyday"}}}
+    after: dict[str, dict[str, dict[str, Any]]] = {
+        "sweep": {"s1": {"route": "auto.everyday", "plan_reason": "one_request"}}
+    }
+
+    assert decisions.diff(before, decisions._without(after, ["plan_reason"])) == {}
+    assert decisions.report_added(before, after, ["plan_reason"]) == (
+        'added plan_reason: "one_request" ×1'
+    )
+    # A field one turn already had is no addition.
+    assert "ERROR: 1 turns had it before" in decisions.report_added(after, after, ["plan_reason"])

@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
-from app.modules.chat.turn_prep.intents import plan_turn
+from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.turn_reading.routing import EMOJI
 from app.modules.turn_reading.school_question import in_textbook_form
 from app.services.md_fence_scan import line_fences
@@ -257,7 +257,7 @@ def place_reply_emoji(state: FinalizeState) -> str:
     homework = (
         not user_wrote_emoji
         and in_textbook_form(asked)
-        and not plan_turn(asked, chemistry_enabled=state.settings.chemistry_enabled).multi
+        and not plan_of(asked, state.settings).multi
     )
     return place_emoji(
         text, state.ctx.user.emoji_use, user_wrote_emoji=user_wrote_emoji, homework=homework

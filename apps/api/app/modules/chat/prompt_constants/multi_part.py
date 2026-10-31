@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from app.modules.chat.turn_plan import PartKind, TurnPlan
+from app.modules.turn_reading.plan import PartKind, TurnPlan
 
 MULTI_PART_MARKER = "This message asks for more than one thing."
 

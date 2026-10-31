@@ -14,7 +14,7 @@ from app.core.config import Settings, get_settings
 from app.gateways.mcp import registry as mcp_registry
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
-from app.modules.chat.tool_loop.parts import live_parts, open_parts, turn_plan
+from app.modules.chat.tool_loop.parts import live_parts, open_parts
 
 
 def last_user_content(messages: list[dict[str, Any]]) -> str:
@@ -231,7 +231,9 @@ def _tools_for_user(
         for tool in mcp_registry.build_openai_tools()
         if (tool.get("function") or {}).get("name") not in skip_tools
     ]
-    if not settings.image_search_enabled or turn_plan(user_text, settings).multi:
+    from app.modules.chat.turn_prep.reading import plan_of
+
+    if not settings.image_search_enabled or plan_of(user_text, settings).multi:
         # A photo ends the turn, and a message with more than one request must
         # still get its other answers: its photo comes above the reply instead.
         tools = [t for t in tools if (t.get("function") or {}).get("name") != "search_image"]
