@@ -10,6 +10,7 @@ from typing import Any, cast
 import pytest
 
 from app.modules.chat.emoji_placement import join_split_emoji, place_emoji, place_reply_emoji
+from app.modules.chat.prompt_constants.routing import EMOJI
 
 # "What are the benefits of drinking water" at "A few", as the model wrote it.
 _LIVE = (
@@ -204,3 +205,22 @@ def test_one_answer_heading_alone_is_not_a_worked_solution() -> None:
 def test_answer_and_check_out_labels_are_no_worked_solution() -> None:
     reply = "🎯 **Answer:** Paris is the capital of France 🇫🇷.\n📌 **Check out** the Louvre."
     assert place_emoji(reply, "more", user_wrote_emoji=False) == reply
+
+
+@pytest.mark.parametrize(
+    ("text", "emoji"),
+    [
+        # 2026-10-31: "⏳" stayed in a homework reply the emoji rule had emptied.
+        ("⏳", True),
+        ("⌛", True),
+        ("⌚", True),
+        ("⏰", True),
+        ("⏩", True),
+        # Maths and chemistry symbols beside them are text.
+        ("⌊x⌋ + ⌈x⌉", False),
+        ("A → B", False),
+        ("x ≤ 3", False),
+    ],
+)
+def test_clock_and_media_emoji_are_emoji_and_brackets_are_not(text: str, emoji: bool) -> None:
+    assert bool(EMOJI.search(text)) is emoji
