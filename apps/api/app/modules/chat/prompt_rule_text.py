@@ -11,9 +11,12 @@ from __future__ import annotations
 import importlib
 import pkgutil
 from functools import cache
+from types import ModuleType
 
+from app.modules import turn_reading
 from app.modules.chat import prompt_constants
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
+from app.modules.chemistry import reply_policy as chemistry_reply_policy
 
 # A rule is a sentence or more; a short constant is a label or a word list.
 _MIN_RULE = 40
@@ -29,12 +32,33 @@ def _strings(value: object) -> list[str]:
     return []
 
 
+# Where the rules' words live: chat's copy, the readers that left it (structure ticket
+# ST-04: their word lists still read as the prompt's), and chemistry's fence hint, which
+# went to its subject. Read by module name, as one package was before.
+_RULE_HOMES = (prompt_constants, turn_reading)
+_BESIDE = {"visuals": (chemistry_reply_policy,)}
+
+
+def _rule_modules() -> list[ModuleType]:
+    homes = {
+        home: {info.name for info in pkgutil.iter_modules(home.__path__)} for home in _RULE_HOMES
+    }
+    modules: list[ModuleType] = []
+    for name in sorted(set().union(*homes.values())):
+        modules += [
+            importlib.import_module(f"{home.__name__}.{name}")
+            for home, names in homes.items()
+            if name in names
+        ]
+        modules += _BESIDE.get(name, ())
+    return modules
+
+
 @cache
 def prompt_rule_text() -> str:
     """Every fixed rule the chat prompt may carry, joined."""
     rules: list[str] = []
-    for info in pkgutil.iter_modules(prompt_constants.__path__):
-        module = importlib.import_module(f"{prompt_constants.__name__}.{info.name}")
+    for module in _rule_modules():
         for name, value in vars(module).items():
             if name.isupper() or (name.startswith("_") and name.lstrip("_").isupper()):
                 rules += _strings(value)

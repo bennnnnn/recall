@@ -23,7 +23,7 @@ import sys
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO
 
@@ -210,7 +210,7 @@ def _color(enabled: bool, code: str, text: str) -> str:
 
 def format_hit(hit: Hit, *, color: bool) -> str:
     tone = "31" if hit.status >= 500 else "33"
-    stamp = datetime.now(tz=UTC).strftime("%H:%M:%S")
+    stamp = datetime.now(tz=timezone.utc).strftime("%H:%M:%S")
     bits = [f"{hit.method} {hit.path}", str(hit.status)]
     if hit.duration:
         bits.append(hit.duration)

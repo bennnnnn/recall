@@ -201,6 +201,12 @@ dispatcher import no chat. The decision diff over 5,048 corpus turns printed "no
 changed". The #2151 cycle baseline did not move: its 50-module cycle lies wholly inside
 maths and has no chat edge.
 
+The leak pass's rules (`prompt_rule_text`) read the moved constants from their new homes, so
+every rule string is the same (162) and so are the 4-grams within each (13,922;
+`test_prompt_rule_text.py` holds both). Only the order the rules are joined in changed, which
+moves 88 of the 14,393 grams that straddle two adjacent rules. Taking the readers' word lists
+out of the leak grams, or not counting grams across rules, is a behaviour change for its own PR.
+
 Left in `prompt_constants`: `shared_numbers.py` (its hint reads the same private regexes as
 its reader; split it with the copy-selection work) and `reactions.clock_is_relevant` (a
 prompt decision that reads `reply_meta`). Still upward: account, images, physics and speech,
