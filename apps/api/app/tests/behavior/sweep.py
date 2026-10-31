@@ -50,6 +50,7 @@ from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat import messages_repository
 from app.modules.chat.chart_sanitize import chart_is_drawable
 from app.modules.chat.finalize_passes import enrich_final_content
+from app.modules.chat.prompt_constants.routing import EMOJI
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -132,6 +133,8 @@ LOOKALIKE_HINTS = {
     # A "hi" after a question is a new greeting, not one more of a run.
     "greeting lookalike": "greeting_again",
     "money lookalike": "money",
+    # Someone's own money, advice, a choice, or a number the app assumed: the short reply.
+    "money everyday": "money_worked",
     # "thanks" or "how do I bake bread?" after a loan's card is not about the loan.
     "money standing lookalike": "money_standing",
     # A money follow-up the server leaves to the model: a new price, a percent down, a card
@@ -147,7 +150,13 @@ LOOKALIKE_HINTS = {
 }
 # A loan, card or savings ask, or a what-if that changes the one before it ("what if i only
 # do 3 years instead"): the server works its numbers, so the turn carries the money block.
-MONEY_AREAS = {"money"}
+MONEY_AREAS = {"money", "money lesson", "money everyday"}
+# A lesson's money problem whose every number is the question's: laid out for the student.
+MONEY_LESSON_AREAS = {"money lesson"}
+# The answer to a whole exercise in a textbook's own form has no emoji at any setting; a
+# message that only looks like one (a tip with 🍕, a conversion, a trip) keeps the setting.
+EMOJI_FREE_AREAS = {"emoji homework"}
+EMOJI_KEPT_AREAS = {"emoji lookalike"}
 # A "yes" or "what about 15 years?" about the chat's earlier loan that no card answers: the
 # model reads the loan's figures, worked by the app.
 MONEY_STANDING_AREAS = {"money standing"}
@@ -506,6 +515,12 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
             problems.append(f"given the {unwanted!r} hint")
         if entry.area in MONEY_AREAS and "money" not in route.hints:
             problems.append("numbers not worked by the server (no money block)")
+        if entry.area in MONEY_LESSON_AREAS and "money_worked" not in route.hints:
+            problems.append("a lesson's money problem not laid out for the student")
+        if entry.area in EMOJI_FREE_AREAS and EMOJI.search(final):
+            problems.append("emoji left in a textbook exercise's answer")
+        if entry.area in EMOJI_KEPT_AREAS and EMOJI.search(entry.reply) and not EMOJI.search(final):
+            problems.append("emoji the user's setting keeps were removed")
         if entry.area in MONEY_STANDING_AREAS and "money_standing" not in route.hints:
             problems.append("the earlier loan's figures not given")
     elif expect == "instant" and not route.instant:

@@ -7,6 +7,21 @@ from typing import Any
 _EXACT_LATEX_DECIMAL_THRESHOLD = 40
 
 
+def without_unit_factors(expr: Any) -> Any:
+    """``1/(x - 2)`` parses unevaluated as ``1·(x - 2)⁻¹``, printed ``1 \\frac{1}{x - 2}``,
+    which reads as a mixed number. The typed expression has no factor 1."""
+    if not any(getattr(expr, kind, False) for kind in ("is_Add", "is_Mul", "is_Pow")):
+        return expr  # a leaf, a function, or the tuple ``2, 3`` parses to
+    args = [without_unit_factors(arg) for arg in expr.args]
+    if expr.is_Mul:
+        args = [arg for arg in args if arg != 1] or [expr.args[0]]
+        if len(args) == 1:
+            return args[0]
+    if args == list(expr.args):
+        return expr
+    return expr.func(*args, evaluate=False)
+
+
 def derivative_latex(expr: Any) -> str:
     """A derivative as a textbook writes it.
 

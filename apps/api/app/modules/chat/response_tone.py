@@ -42,7 +42,8 @@ DEFAULT_EMOJI_USE: EmojiUse = "some"
 # Where an emoji never goes, whatever the setting: it would break what is read there.
 _EMOJI_NEVER = (
     "Never in a number, maths, code, a fenced card, a worked maths, physics or chemistry "
-    "solution, a draft the user will send, or a reply about something painful."
+    "solution, an answer to a school exercise, a draft the user will send, or a reply "
+    "about something painful."
 )
 
 # A saved "prefers replies without emojis" outranked "more" (2026-10-24): the setting decides.

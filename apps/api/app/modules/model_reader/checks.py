@@ -14,14 +14,14 @@ import re
 import unicodedata
 from collections.abc import Iterable
 
-from app.modules.turn_reading.schemas import LawRead, Reason
+from app.modules.model_reader.schemas import LawRead, Reason
 
 _SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
 _SUPERSCRIPT_RUN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+")
 _SPACE = re.compile(r"\s+")
-# One number as written: "3", "3.5", "3,5", "-2". A digit right after a letter belongs to
+# One number as written: "3", "3.5", "3,5", ".5", "-2". A digit right after a letter belongs to
 # a name ("H2O", "v0", "m1"), and one after "^" is a power ("m/s^2"), not a stated value.
-_NUMBER = re.compile(r"(?<![A-Za-z\d.,^])-?\d+(?:[.,]\d+)*")
+_NUMBER = re.compile(r"(?<![A-Za-z\d.,^])-?(?:\d+(?:[.,]\d+)*|[.,]\d+)")
 # "3 x 10^8" (a times sign or an x), "3*10^8", "3e8": one value.
 _POWER = re.compile(r"(-?\d+(?:[.,]\d+)?)\s?(?:[\u00d7x*\u00b7]\s?10\^|e)(-?\d+)", re.IGNORECASE)
 
@@ -64,6 +64,28 @@ def _written_in(value: float, quote: str) -> bool:
     return any(math.isclose(value, seen, rel_tol=1e-9, abs_tol=1e-12) for seen in values_in(quote))
 
 
+def _numbers_written(quote: str) -> int:
+    """How many values ``quote`` writes: "3 x 10^8 m/s" is one."""
+    powers = len(_POWER.findall(quote))
+    return powers + len(_NUMBER.findall(_POWER.sub(" ", quote)))
+
+
+def _own_spans(text: str, quotes: list[str]) -> list[tuple[int, int]] | None:
+    """A place in the message for each quote, no two overlapping; None when the quotes
+    share words (two values read from one stretch of the message)."""
+    taken: list[tuple[int, int]] = []
+    for quote in quotes:
+        start = text.find(quote)
+        while start != -1 and any(
+            start < end and begin < start + len(quote) for begin, end in taken
+        ):
+            start = text.find(quote, start + 1)
+        if start == -1:
+            return None
+        taken.append((start, start + len(quote)))
+    return taken
+
+
 def _covered(text: str, quotes: Iterable[str]) -> list[tuple[int, int]]:
     spans: list[tuple[int, int]] = []
     for quote in quotes:
@@ -86,6 +108,12 @@ def check_read(message: str, read: LawRead) -> Reason:
             return "quote_missing"
         if not _written_in(given.value, quote):
             return "value_not_in_quote"
+        # One value per quote, each from its own words: a quote of the whole message lets
+        # any value fill any input.
+        if _numbers_written(quote) != 1:
+            return "quote_not_one_value"
+    if _own_spans(text, [quote for _, quote in givens]) is None:
+        return "quotes_overlap"
     if any(quote and quote not in text for quote in unused):
         return "quote_missing"
     spans = _covered(text, [quote for _, quote in givens] + unused)

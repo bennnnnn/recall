@@ -111,6 +111,20 @@ _DECLINE = re.compile(
     re.IGNORECASE,
 )
 _ION_WORD = re.compile(r"\bions?\b|\b\w+ide\b", re.IGNORECASE)
+# Some of the electrons, not all, as the question asks them: valence, unpaired, outer,
+# bonding, d-electrons. Read as the atom's count, "electrons in its valence shell" of Ga was
+# certified 31 and "unpaired electrons in Cr3+" 21 (2026-10-30, Ethiopian Grade 9 and 11
+# chemistry books). Said of a given ("3 electrons in its outermost shell. What is its
+# valency?") it is a fact the reader uses.
+_SOME_ELECTRONS = re.compile(
+    r"\b(?:valence|unpaired|paired|outer(?:most)?|inner(?:most)?|core|bonding|non-?bonding"
+    r"|lone)\b|\b[spdf](?:\s*-)?\s*electrons\b",
+    re.IGNORECASE,
+)
+# A sentence that asks: it ends on "?" or opens with an order. Split first, then read each
+# one, so a long run of spaces is read once, never once per position.
+_SENTENCE_END = re.compile(r"(?<=[.?!\n])")
+_ORDER = re.compile(r"(?:how\s+many|find|state)\b", re.IGNORECASE)
 _ATOM = re.compile(r"\batom\b(?!ic)", re.IGNORECASE)
 _SHELL_RULE_LAST = 20
 # One number a one-line law already reads ("how many neutrons in carbon-14", "the charge
@@ -192,6 +206,14 @@ def _species(text: str) -> set[str]:
     return found | {f"{name}" for name in _named_elements(text)} if found else found
 
 
+def _asked_sentences(text: str) -> list[str]:
+    return [
+        sentence
+        for sentence in _SENTENCE_END.split(text)
+        if sentence.rstrip().endswith("?") or _ORDER.match(sentence.lstrip())
+    ]
+
+
 def _named_elements(text: str) -> set[str]:
     words = re.findall(r"[A-Za-z]+", text)
     return {ELEMENT_NAMES[word.lower()] for word in words if word.lower() in ELEMENT_NAMES}
@@ -200,6 +222,8 @@ def _named_elements(text: str) -> set[str]:
 def extract_atom_particles(text: str) -> ChemistryIntent | None:
     """One atom or ion: the facts given, and the quantities asked that were not."""
     if _PARTICLE.search(text) is None or _DECLINE.search(text) or _PHYSICS.search(text):
+        return None
+    if any(_SOME_ELECTRONS.search(asked) for asked in _asked_sentences(text)):
         return None
     params: dict[str, float] = {}
     changed = _gain_loss(text)

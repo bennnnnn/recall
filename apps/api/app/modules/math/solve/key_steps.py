@@ -22,6 +22,7 @@ from sympy import (
 )
 
 from app.modules.math.solve.declines import declines, sympy_decline
+from app.modules.math.solve.display import without_unit_factors
 from app.modules.math.solve.root_latex import expr_equal
 
 
@@ -60,14 +61,13 @@ _UNIT_FACTOR = re.compile(r"(?<![\d.}])1 \\cdot ")
 def written_side(text: str, variables: list[str]) -> tuple[Any, str] | None:
     """A side as the student typed it: ``3(x-2)+4``, not SymPy's ``3x - 2``.
 
-    The parse is unevaluated and printed in the typed order, so Given shows
-    the problem the student wrote; a change of base prints as its written base.
-    """
+    Parsed unevaluated and printed in the typed order, so Given shows the problem the
+    student wrote: a change of base in its written base, ``1/x`` with no factor 1."""
     from app.modules.math.solve.parse import parse_expression
 
     with sympy_decline() as declined:
         expr = parse_expression(text, variables, real=True, evaluate=False)
-        tex = str(latex(expr, order="none"))
+        tex = str(latex(without_unit_factors(expr), order="none"))
     if declined:
         return None
     return expr, _UNIT_FACTOR.sub("", tex)

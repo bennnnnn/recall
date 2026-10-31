@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from itertools import pairwise
 
 from app.modules.math.match.dimensions import (
     first_dim_pair,
     first_dim_triple,
-    number_after,
+    measure_after,
     two_numbers_after,
 )
 from app.modules.math.schemas.operations import SolidShape
@@ -26,9 +27,9 @@ _SOLID_ALGEBRA_PHRASES = (
 
 def trapezoid_dimensions(text: str) -> tuple[float, float, float] | None:
     """Read either ``top/bottom/height`` or natural ``bases a and b`` dimensions."""
-    top = number_after(text, "top")
-    bottom = number_after(text, "bottom")
-    height = number_after(text, "height")
+    top = measure_after(text, "top")
+    bottom = measure_after(text, "bottom")
+    height = measure_after(text, "height")
     if top is not None and bottom is not None and height is not None:
         return top, bottom, height
     if height is None:
@@ -62,6 +63,28 @@ def _solid_word_index(lower: str, stem: str) -> int:
         if before_ok and after_ok:
             return idx
         start = idx + 1
+
+
+# The question sets π's value ("use π = 22/7", "take π as 3.14") or asks for the answer
+# in π ("in terms of π", "leave your answer in π", "the exact area"). A card worked with
+# π itself to two places answers neither.
+_PI = r"(?:\u03c0|\\pi\b|\bpi\b)"
+_PI_VALUE = re.compile(
+    rf"{_PI}\s*(?:=|\u2248|as\b|to\s+be\b)|\b(?:use|using|take|taking)\s+{_PI}", re.IGNORECASE
+)
+_PI_FORM = re.compile(
+    rf"\bin\s+terms\s+of\s+{_PI}|\bleave\s+(?:your\s+|the\s+)?answers?\s+in\s+"
+    rf"(?:terms\s+of\s+)?{_PI}|\bexact\s+(?:answer|value|form|area|volume|length)\b",
+    re.IGNORECASE,
+)
+
+
+def pi_value_set(text: str) -> bool:
+    return _PI_VALUE.search(text) is not None
+
+
+def pi_form_or_value_set(text: str) -> bool:
+    return _PI_VALUE.search(text) is not None or _PI_FORM.search(text) is not None
 
 
 def classify_solid_shape(lower: str) -> SolidShape | None:
@@ -138,6 +161,8 @@ def parse_solid(cleaned: str) -> SolidParse | None:
     shape = classify_solid_shape(lower)
     if shape is None:
         return None
+    if pi_form_or_value_set(cleaned):
+        return None
     if geometry_deferred_for_algebra(lower):
         return None
     padded = f" {lower} "
@@ -151,14 +176,14 @@ def parse_solid(cleaned: str) -> SolidParse | None:
         return None
     triple = first_dim_triple(cleaned)
     pair = first_dim_pair(cleaned)
-    side = number_after(cleaned, "side") or number_after(cleaned, "edge")
-    radius = number_after(cleaned, "radius")
-    diameter = number_after(cleaned, "diameter")
-    height = number_after(cleaned, "height")
-    length = number_after(cleaned, "length")
-    width = number_after(cleaned, "width")
-    depth = number_after(cleaned, "depth")
-    base = number_after(cleaned, "base")
+    side = measure_after(cleaned, "side") or measure_after(cleaned, "edge")
+    radius = measure_after(cleaned, "radius")
+    diameter = measure_after(cleaned, "diameter")
+    height = measure_after(cleaned, "height")
+    length = measure_after(cleaned, "length")
+    width = measure_after(cleaned, "width")
+    depth = measure_after(cleaned, "depth")
+    base = measure_after(cleaned, "base")
     if diameter is not None and radius is None:
         radius = diameter / 2.0
     width_v = width

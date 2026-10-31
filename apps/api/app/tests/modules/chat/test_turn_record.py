@@ -23,6 +23,7 @@ from app.modules.chat import messages_repository, post_turn, turn_record
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.speech.live_talk import persist_live_talk_turn
 from app.repositories import users as users_repo
+from app.services import quota as quota_service
 from app.tests.fakes import fake_session, make_user, redis_mock
 
 _USER = UUID(int=1)
@@ -42,9 +43,7 @@ async def _queued(run: Any) -> list[tuple[str, dict[str, str]]]:
 
     with (
         patch("app.core.jobs.enqueue", enqueue),
-        patch.object(
-            post_turn.quota_service, "global_spend_exceeded", AsyncMock(return_value=False)
-        ),
+        patch.object(quota_service, "global_spend_exceeded", AsyncMock(return_value=False)),
     ):
         await run()
     return calls

@@ -16,8 +16,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.gateways import litellm_gateway
+from app.gateways.mcp import registry as mcp_registry
 from app.modules.chat import tool_loop
-from app.modules.chat.tool_loop import calls, rounds
 from app.modules.math.tool_check import asks_for_an_earlier_curve, tool_call_matches_user_text
 
 from .tool_loop_support import settings
@@ -52,10 +53,8 @@ async def _run(prompt: str, *results: tuple[dict[str, Any], dict[str, Any]]) -> 
         side_effect=[MagicMock(content="Sampled 96 points", data=data) for _args, data in results]
     )
     with (
-        patch.object(
-            rounds.litellm_gateway, "complete_with_tools", _round(*(a for a, _ in results))
-        ),
-        patch.object(calls.mcp_registry, "invoke_validated", invoke),
+        patch.object(litellm_gateway, "complete_with_tools", _round(*(a for a, _ in results))),
+        patch.object(mcp_registry, "invoke_validated", invoke),
         patch("app.core.sympy_executor.run_sympy", _inline),
     ):
         out, verified, _terminal, _hits = await tool_loop.run_tool_rounds(

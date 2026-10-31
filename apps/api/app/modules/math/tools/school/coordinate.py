@@ -8,6 +8,7 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
+from app.modules.math.response_intent import strip_ask_frame
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _exactly_n_numbers
@@ -39,6 +40,73 @@ def _linear_abc(cleaned: str) -> tuple[float, float, float] | None:
     return a, b, c
 
 
+# A question about two points is read whole: with the points and their labels taken out,
+# every word left must belong to the ask. "The line through (1, 2) and (3, 4) is shifted
+# 3 units to the right", "the line 2 units above it", "the line through the origin and
+# their midpoint" or "its x-intercept" leave words the ask has no place for.
+_POINT = re.compile(
+    r"(?:\b[A-Za-z][\'\u2019\u2032]?\s*)?\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)"
+)
+_ASK_WORDS = frozenset(
+    """
+    a an the find calculate compute determine write give state work out what s is are of and
+    points point two segment line straight through thru joining joins join joined passing
+    passes pass going goes connecting connects connect containing contains between from to its
+    with where whose given if that which coordinates coordinate plane grid on in units unit
+    endpoints end ends please explain show working steps step by hint only how why formula
+    method briefly me
+    """.split()
+)
+_OP_WORDS = {
+    "line": frozenset({"equation"}),
+    "distance": frozenset({"distance", "how", "far", "apart", "length"}),
+    "midpoint": frozenset({"midpoint", "mid"}),
+    "slope": frozenset({"slope", "gradient"}),
+}
+# The form the card is written in may be asked for; any other form may not.
+_CARD_FORM = re.compile(
+    r"\bin\s+(?:the\s+)?(?:slope|gradient)[- ]intercept\s+form\b"
+    r"|\bin\s+(?:the\s+)?(?:form\s+)?y\s*=\s*mx\s*\+\s*[bc](?:\s+form)?\b",
+    re.IGNORECASE,
+)
+# A line named by its two labelled points: "the line through P and P'", "line AB".
+_BY_LABELS = re.compile(
+    r"\bline\s+(?:(?:through|thru|joining|connecting|passing\s+through)\s+)?([A-Z])"
+    r"[\'\u2019\u2032]?\s*(?:and\s+)?([A-Z])[\'\u2019\u2032]?(?![A-Za-z])"
+)
+# How a labelled point came to be: "the image of P(3, 10) under reflection in line L is
+# P'(7, 2)". The coordinates are stated, so the line through P and P' is that line.
+_POINT_STORY = frozenset(
+    "image under reflection reflected reflecting rotation rotated translation translated "
+    "mapped maps onto mirror".split()
+)
+
+
+def _read_whole(cleaned: str, op: str) -> bool:
+    framed = strip_ask_frame(cleaned)
+    if op == "line":
+        framed = _CARD_FORM.sub(" ", framed)
+    labels: list[str] = []
+
+    def blank(point: re.Match[str]) -> str:
+        if point.group(0)[0].isalpha():
+            labels.append(point.group(0)[0])
+        return " "
+
+    rest = _POINT.sub(blank, framed)
+    words = _ASK_WORDS | _OP_WORDS[op]
+    by_labels = _BY_LABELS.search(rest)
+    if op == "line" and by_labels and set(by_labels.groups()) == set(labels):
+        words |= _POINT_STORY
+    named = "".join(labels).lower()  # "the distance AB" names it by its points
+    return all(
+        token.lower() in words
+        or (len(token) <= 3 and token.isupper())  # labels: "midpoint M", "where A is", "AB"
+        or (len(token) > 1 and token.lower() == named)
+        for token in re.findall(r"[A-Za-z]+|\d+", rest)
+    )
+
+
 def extract_coord_formulas(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     points = literal_math_tuples(cleaned, "(", ")")
@@ -48,6 +116,8 @@ def extract_coord_formulas(cleaned: str) -> MathIntent | None:
         if word_index(lower, "distance") != -1:
             return None
         if "line" not in lower and "equation" not in lower:
+            return None
+        if not _read_whole(cleaned, "line"):
             return None
         (x1, y1), (x2, y2) = (points[0][0], points[0][1]), (points[1][0], points[1][1])
         return MathIntent(
@@ -96,7 +166,7 @@ def _extract_coord_intent(cleaned: str) -> MathIntent | None:
     if op == "distance" and re.search(r"\b(?:sphere|spherical|geodesic)\b", lower):
         return None
     pts = _two_points(cleaned)
-    if pts is None:
+    if pts is None or not _read_whole(cleaned, op):
         return None
     (x1, y1), (x2, y2) = pts
     return MathIntent(
@@ -267,7 +337,8 @@ def _coordinate_working(
             return None
     else:
         return None
-    if value is not None and f"{float(value):g}" != answer:
+    worked = {"distance": math_school.coord_distance, "slope": math_school.coord_slope}.get(op)
+    if worked is not None and worked(*first, *second) != answer:
         return None
     return render_workout(
         Workout(given=given, find=(find,), formula=(formula,), substitution=substitution),

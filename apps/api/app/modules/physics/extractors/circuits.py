@@ -71,6 +71,25 @@ def _network_equivalent(values: list[float], *, series: bool) -> float | None:
     return 1.0 / sum(1.0 / value for value in values)
 
 
+# What a network's total answers: the whole circuit, never one resistor's share. "the
+# current the 3 Ω resistor draws" and "the p.d. across the 50 Ω resistor" got the network's
+# total; a list of one-resistor phrasings is never complete, so the whole is what is named.
+_WHOLE_RESISTANCE_ASK = re.compile(
+    r"\b(?:total|equivalent|combined|effective|net|overall)\s+resistance"
+    r"|\bresistance\s+of\s+the\s+(?:combination|circuit|network|arrangement|whole)"
+    r"|\bresistance\s*(?:[.?!]|$)|\b(?:the\s+)?(?:total|equivalent)\s*(?:[.?!,]|$)"
+)
+_WHOLE_CURRENT_ASK = re.compile(
+    r"\btotal\s+current|\b(?:main|circuit|supply|line)\s+current"
+    r"|\bcurrent\s+(?:drawn\s+|taken\s+)?(?:from|supplied\s+by|delivered\s+by|out\s+of"
+    r"|in|through|round|around)\s+the\s+(?:battery|cell|supply|source|mains|circuit|network"
+    r"|combination)\b|\bcurrent\s*(?:[.?!]|$)"
+    r"|\bcurrent\s+(?:flows|is\s+drawn|is\s+supplied|passes)\s*(?:[.?!]|$)"
+)
+# A meter's reading is a voltage across part of the circuit, not the supply's.
+_METER_READING = re.compile(r"\bvoltmeter|\breads?\b|\breading")
+
+
 def _network_intent(
     lower: str,
     network: list[float],
@@ -89,6 +108,8 @@ def _network_intent(
     asks_current = re.search(r"\bcurrents?\b", lower) is not None
     asks_resistance = re.search(r"\bresistances?\b", lower) is not None
     if asks_current and not asks_resistance:
+        if not _WHOLE_CURRENT_ASK.search(lower) or _METER_READING.search(lower):
+            return None
         # Every resistor stays a parameter, so the working and the schematic
         # show the network the user described, not one equivalent resistor.
         if len(volts) != 1 or amps or _network_equivalent(network, series=series) is None:
@@ -106,6 +127,8 @@ def _network_intent(
             },
             operation="solve",
         )
+    if not _WHOLE_RESISTANCE_ASK.search(lower):
+        return None
     return PhysicsIntent(
         kind="circuit",
         physics_op="series_resistance" if series else "parallel_resistance",
@@ -113,6 +136,28 @@ def _network_intent(
         physics_units={f"R{n}": "ohm" for n in range(1, len(network) + 1)},
         operation="solve",
     )
+
+
+def _ohm_givens(
+    cleaned: str,
+    volts: list[tuple[float, str]],
+    amps: list[tuple[float, str]],
+    ohms: list[tuple[float, str]],
+) -> tuple[dict[str, float], dict[str, str]] | None:
+    """The one V, I and R stated, each with its unit; None when one quantity has two values
+    ("a 48 V battery … the voltmeter reads 9 V"): which one a law takes is a guess."""
+    params: dict[str, float] = {}
+    units: dict[str, str] = {}
+    for key, found, unit in (("V", volts, "volt"), ("I", amps, "ampere"), ("R", ohms, "ohm")):
+        if len({value for value, _ in found}) > 1:
+            return None
+        if found:
+            params[key] = found[0][0]
+            units[key] = unit
+        elif (prefixed := _prefixed_value(cleaned, key)) is not None:
+            # "2 mA", "4.7 kΩ": the unit is kept, and the solver works in SI.
+            params[key], units[key] = prefixed
+    return params, units
 
 
 def _readable_circuit_text(cleaned: str) -> str | None:
@@ -201,15 +246,10 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     if len(network) >= 2 and ("series" in lower or "parallel" in lower):
         return _network_intent(lower, network, counted, volts, amps)
 
-    params: dict[str, float] = {}
-    units: dict[str, str] = {}
-    for key, found, unit in (("V", volts, "volt"), ("I", amps, "ampere"), ("R", ohms, "ohm")):
-        if found:
-            params[key] = found[0][0]
-            units[key] = unit
-        elif (prefixed := _prefixed_value(cleaned, key)) is not None:
-            # "2 mA", "4.7 kΩ": the unit is kept, and the solver works in SI.
-            params[key], units[key] = prefixed
+    read = _ohm_givens(cleaned, volts, amps, ohms)
+    if read is None:
+        return None
+    params, units = read
 
     # --- terminal voltage: V = emf - I r ---------------------------------
     # Only when the question says both that there *is* an internal resistance

@@ -14,20 +14,22 @@ import logging
 import time
 from functools import lru_cache
 
-from app.core.blocking import run_blocking
 from app.core.config import Settings
+from app.core.sympy_executor import get_sympy_executor, run_sympy
 from app.models.routing_lanes import ROUTING
 from app.modules.chemistry.model_read import chemistry_menu, chemistry_read_intent
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
+from app.modules.model_reader.checks import check_read
+from app.modules.model_reader.prompts import law_prompt, route_prompt
+from app.modules.model_reader.schemas import MATH_TASKS, LawRead, ModelRead, Reason, RouteRead
 from app.modules.physics.model_read import physics_menu, physics_read_intent
-from app.modules.turn_reading.checks import check_read
-from app.modules.turn_reading.prompts import law_prompt, route_prompt
-from app.modules.turn_reading.schemas import MATH_TASKS, LawRead, ModelRead, Reason, RouteRead
 from app.services.law_binding.model_read import Stated
 
 logger = logging.getLogger(__name__)
 
 _MAX_INPUT_CHARS = 1500
+# The binder reads one short English sentence: far below any solve.
+_BIND_SECONDS = 2.0
 
 
 @lru_cache(maxsize=1)
@@ -50,6 +52,7 @@ async def _ask[T: LawRead | RouteRead](
         timeout_seconds=settings.model_reader_timeout_seconds,
         usage=usage,
         allow_fallback=False,
+        quiet_timeout=True,
     )
 
 
@@ -78,7 +81,13 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
             task = MATH_TASKS.get(route.kind or "")
             if task is None:
                 return done("math", None, None, "other_task")
-            intent = await llm_extract_math_intent(question, settings, usage=usage)
+            intent = await llm_extract_math_intent(
+                question,
+                settings,
+                usage=usage,
+                timeout_seconds=settings.model_reader_timeout_seconds,
+                alone=True,
+            )
             if intent is None:
                 return done("math", None, None, "no_read")
             kind, operation = task
@@ -99,15 +108,24 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
         if checked != "ok":
             return done(route.subject, read.op, None, checked)
         stated = [Stated(given.name, given.value, given.unit, given.quote) for given in read.givens]
-        # The binder reads server-written English: off the loop, in its own small pool.
+        # The binder is a subject reader: in the SymPy pool (CLAUDE.md rule 7), and only
+        # with a slot to spare, so a shadow read never makes the turn's own solve wait.
+        free = get_sympy_executor().free_slots()
+        if free is not None and free < 2:
+            return done(route.subject, read.op, None, "pool_busy")
         bound: object | None
         if route.subject == "physics":
-            bound = await run_blocking(
-                "model_reads", physics_read_intent, read.op, stated, question
+            bound = await run_sympy(
+                physics_read_intent, read.op, stated, question, timeout=_BIND_SECONDS
             )
         else:
-            bound = await run_blocking(
-                "model_reads", chemistry_read_intent, read.op, stated, read.formula, question
+            bound = await run_sympy(
+                chemistry_read_intent,
+                read.op,
+                stated,
+                read.formula,
+                question,
+                timeout=_BIND_SECONDS,
             )
         if bound is None:
             return done(route.subject, read.op, None, "binder_disagrees")

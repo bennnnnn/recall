@@ -1,5 +1,6 @@
 """Closed literal solids retain the exact verified quantity without narration."""
 
+import re
 from collections.abc import AsyncGenerator
 from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -55,7 +56,10 @@ async def test_each_closed_solid_emits_one_exact_answer_without_model(
         heading in reply
         for heading in ("**Find**", "**Formula**", "**Substitution**", "**Answer**")
     )
-    assert reply.endswith(f"```answer\n{expected}\n```\n")
+    # A measure with π in it is shown rounded, and its card says so.
+    rounded = shape.split()[0] in {"cylinder", "cone", "sphere"}
+    card = rf"\approx {expected}" if rounded else expected
+    assert reply.endswith(f"```answer\n{card}\n```\n")
     assert reply.count("```answer") == 1
     assert (
         validate_math_fences(reply, verified=verified).strip()
@@ -108,7 +112,8 @@ def test_units_and_existing_numeric_precision_are_preserved(query: str, answer: 
     reply = maybe_direct_math_reply(verified, query)
     assert reply is not None
     assert "**Formula**" in reply and "**Substitution**" in reply
-    assert reply.endswith(f"```answer\n{answer}\n```\n")
+    card = rf"\approx {answer}" if re.search("cylinder|cone|sphere", query) else answer
+    assert reply.endswith(f"```answer\n{card}\n```\n")
 
 
 @pytest.mark.parametrize("shape,volume,surface", _MATRIX)

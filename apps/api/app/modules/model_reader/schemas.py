@@ -64,9 +64,12 @@ Reason = Literal[
     "quote_missing",
     "number_unaccounted",
     "value_not_in_quote",
+    "quote_not_one_value",
+    "quotes_overlap",
     "binder_disagrees",
     "other_task",
     "kind_mismatch",
+    "pool_busy",
     "failed",
 ]
 

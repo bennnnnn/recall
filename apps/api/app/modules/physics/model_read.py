@@ -49,7 +49,7 @@ def physics_read_intent(
     values: dict[str, tuple[float, str]] = {}
     for item in stated:
         variable = variables.get(item.name)
-        found = None if variable is None else written(item, variable, PHYSICS_UNITS)
+        found = None if variable is None else written(item, variable, PHYSICS_UNITS, message)
         if found is None or item.name in values:
             return None
         values[item.name] = found

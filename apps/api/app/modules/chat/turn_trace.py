@@ -55,7 +55,7 @@ class TurnTrace:
     passes_changed: list[tuple[str, int]] = field(default_factory=list)
     passes_failed: list[str] = field(default_factory=list)
     # The model reader's shadow read (``turn_prep.model_read_shadow``): its task, and the
-    # ``turn_reading.schemas.ModelRead`` it set when it finished.
+    # ``model_reader.schemas.ModelRead`` it set when it finished.
     model_read_task: Any = None
     model_read: Any = None
     emitted: bool = False
@@ -181,7 +181,7 @@ def _model_read(trace: TurnTrace, solver: Mapping[str, Any] | None) -> dict[str,
 
 
 def _shadow_fields(read: Any, solver: Mapping[str, Any] | None) -> dict[str, Any]:
-    from app.modules.turn_reading.schemas import verdict
+    from app.modules.model_reader.schemas import verdict
 
     regex_subject = solver.get("verified") if solver else None
     regex_op = solver.get("op") if solver else None
