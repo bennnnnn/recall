@@ -91,7 +91,7 @@
   "features/chat/hooks/useComposerFieldLayout.ts::useComposerFieldLayout": 172,
   "features/chat/hooks/useMathKeyboardInsert.ts::useMathKeyboardInsert": 303,
   "features/chat/model/wsTransport.ts::ChatWsTransport.connect": 133,
-  "features/chat/screens/ChatScreen.tsx::ChatScreen": 480,
+  "features/chat/screens/ChatScreen.tsx::ChatScreen": 354,
   "features/drafts/components/EmailCard.tsx::EmailCard": 179,
   "features/images/components/DotSnakePlay.tsx::DotSnakePlay": 115,
   "features/images/components/ImageGenPlaceholder.tsx::ImageGenPlaceholder": 110,

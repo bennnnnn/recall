@@ -6,7 +6,7 @@ import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { ChatShareSheet } from "@/features/chat/components/ChatShareSheet";
 import type { Message } from "@/lib/api";
 
-type Props = {
+export type ChatScreenMenuSheetsProps = {
   menuVisible: boolean;
   /** The header ⋮ button the menu drops from. */
   menuAnchorRef: RefObject<View | null>;
@@ -51,7 +51,7 @@ export function ChatScreenMenuSheets({
   shareVisible,
   onCloseShare,
   loadShareMessages,
-}: Props) {
+}: ChatScreenMenuSheetsProps) {
   return (
     <>
       <ChatActionsMenu
