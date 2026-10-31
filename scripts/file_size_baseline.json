@@ -110,8 +110,8 @@
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/physics/catalog/optics.py": {
-      "lines": 862,
-      "why": "Exception: One `SPECS` table of law declarations (856 lines of data)"
+      "lines": 579,
+      "why": "Exception: One `SPECS` table of law declarations (573 lines of data; wave optics is wave_optics.py)"
     },
     "apps/api/app/modules/physics/catalog/quantum.py": {
       "lines": 569,

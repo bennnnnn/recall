@@ -97,90 +97,25 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Lens-power formula",
         "P",
         base_latex="P = \\frac{1}{f}",
-        variables=(var("focal", "f", "meter"),),
+        # Only a length called the focal length is f: a myopic eye's far point
+        # of 80 cm was certified +1.25 D (the lens is concave, -1.25 D).
+        variables=(
+            var(
+                "focal",
+                "f",
+                "meter",
+                words=("focal length", "focal", "f =", "f="),
+                needs_words=True,
+            ),
+        ),
         binding=Binding(
             asks=("power",),
             result=("1 / meter",),
             inputs=(frozenset({"focal"}),),
             cues=("lens", "magnifying glass", "magnifier", "spectacles", "eyeglass"),
-        ),
-    ),
-    formula(
-        "double_slit_fringe_spacing",
-        "optics",
-        "Double-slit interference",
-        "\\Delta y",
-        base_latex="\\Delta y = \\frac{\\lambda L}{d}",
-        assumptions=("the screen is far from the slits compared with their separation",),
-        # Three lengths, each named: the slits' separation, the screen's
-        # distance, and the light's wavelength.
-        variables=(
-            var(
-                "L",
-                "L",
-                "meter",
-                words=("screen", "to the screen", "away"),
-                needs_words=True,
-            ),
-            var(
-                "d",
-                "d",
-                "meter",
-                words=("slits", "slit separation", "apart", "separated by"),
-                needs_words=True,
-            ),
-            var("wavelength", r"\lambda", "meter", words=("wavelength", "light"), needs_words=True),
-        ),
-        binding=Binding(
-            asks=(
-                "fringe spacing",
-                "fringe separation",
-                "fringe width",
-                "spacing between the fringes",
-                "spacing between fringes",
-                "distance between the fringes",
-                "distance between adjacent",
-                "separation of the fringes",
-                "spacing of the fringes",
-            ),
-            result=("meter",),
-            inputs=(frozenset({"L", "d", "wavelength"}),),
-            cues=("double slit", "double-slit", "two slits", "young"),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "diffraction_central_width",
-        "optics",
-        "Single-slit diffraction",
-        "w",
-        base_latex="w = \\frac{2\\lambda L}{a}",
-        variables=(
-            var("L", "L", "meter"),
-            var("d", "a", "meter"),
-            var("wavelength", r"\lambda", "meter"),
-        ),
-    ),
-    formula(
-        "malus_intensity",
-        "optics",
-        "Malus's law",
-        "I",
-        base_latex="I = I_0\\cos^2\\theta",
-        variables=(
-            var("angle", r"\theta", dimensionless=True),
-            var("intensity0", "I_0", "watt / meter ** 2"),
-        ),
-    ),
-    formula(
-        "brewster_angle",
-        "optics",
-        "Brewster's law",
-        "\\theta_B",
-        base_latex="\\tan\\theta_B = \\frac{n_2}{n_1}",
-        variables=(
-            var("n1", "n_1", dimensionless=True),
-            var("n2", "n_2", dimensionless=True),
+            # A diverging lens's power is negative, and so is a short-sighted eye's:
+            # its sign is the convention an unsigned focal length leaves unstated.
+            excludes=("concave", "diverging", "myopi", "short-sight", "short sight", "near-sight"),
         ),
     ),
     formula(
@@ -255,49 +190,6 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     formula(
-        "grating_angle",
-        "optics",
-        "Diffraction-grating equation",
-        r"\theta",
-        base_latex=r"d\sin\theta = n\lambda",
-        expression="asin(order*wavelength*line_density)*180/pi",
-        variants=(
-            FormulaVariant(
-                present=frozenset({"d"}),
-                expression="asin(order*wavelength/d)*180/pi",
-            ),
-        ),
-        variables=(
-            var("d", "d", "meter", words=("spacing", "separation", "lines are")),
-            var("line_density", "N", "1 / meter"),
-            var(
-                "order",
-                "n",
-                dimensionless=True,
-                words=("order",),
-                implied=(
-                    ("first order", 1.0),
-                    ("first-order", 1.0),
-                    ("second order", 2.0),
-                    ("second-order", 2.0),
-                    ("third order", 3.0),
-                    ("third-order", 3.0),
-                ),
-            ),
-            var("wavelength", r"\lambda", "meter", words=("wavelength", "light")),
-        ),
-        binding=Binding(
-            asks=("angle",),
-            result=("degree",),
-            inputs=(
-                frozenset({"line_density", "order", "wavelength"}),
-                frozenset({"d", "order", "wavelength"}),
-            ),
-            cues=("grating",),
-            nonnegative=True,
-        ),
-    ),
-    formula(
         "mirror_focal_length",
         "optics",
         "Spherical-mirror focal length",
@@ -333,147 +225,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("magnification",),
             result=("dimensionless",),
             inputs=(frozenset({"d_img", "d_obj"}),),
-            # A virtual image's distance carries the other sign. A telescope's
-            # two focal lengths are not an object and an image.
-            excludes=("virtual", "telescope", "eyepiece", "objective"),
-        ),
-    ),
-    formula(
-        "bragg_wavelength",
-        "optics",
-        "Bragg's law",
-        r"\lambda",
-        base_latex=r"n\lambda = 2d\sin\theta",
-        expression="2*d*sin(angle_bragg)/order",
-        variables=(
-            var("angle_bragg", r"\theta", dimensionless=True),
-            var("d", "d", "meter", words=("spacing", "separation", "apart", "planes")),
-            var(
-                "order",
-                "n",
-                dimensionless=True,
-                words=("order",),
-                needs_words=True,
-                implied=(
-                    ("first order", 1.0),
-                    ("first-order", 1.0),
-                    ("second order", 2.0),
-                    ("second-order", 2.0),
-                    ("third order", 3.0),
-                    ("third-order", 3.0),
-                ),
+            # A virtual or erect image's distance carries the other sign (a convex mirror's
+            # and a concave lens's always do). Heights (certified -5 for 5 cm and 25 cm) and
+            # a telescope's two focal lengths are not an object's and an image's distances.
+            excludes=(
+                *("virtual", "erect", "upright", "behind the mirror", "same side", "diverging"),
+                *("telescope", "eyepiece", "objective", "height", "tall", "high"),
             ),
-        ),
-        binding=Binding(
-            asks=("wavelength",),
-            result=("meter",),
-            inputs=(frozenset({"angle_bragg", "d", "order"}),),
-            cues=("bragg",),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "bragg_spacing",
-        "optics",
-        "Bragg's law",
-        "d",
-        base_latex=r"n\lambda = 2d\sin\theta",
-        expression="order*wavelength/(2*sin(angle_bragg))",
-        variables=(
-            var("angle_bragg", r"\theta", dimensionless=True),
-            var(
-                "order",
-                "n",
-                dimensionless=True,
-                words=("order",),
-                needs_words=True,
-                implied=(
-                    ("first order", 1.0),
-                    ("first-order", 1.0),
-                    ("second order", 2.0),
-                    ("second-order", 2.0),
-                    ("third order", 3.0),
-                    ("third-order", 3.0),
-                ),
-            ),
-            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
-        ),
-        binding=Binding(
-            asks=("spacing", "separation", "plane spacing", "interplanar spacing"),
-            result=("meter",),
-            inputs=(frozenset({"angle_bragg", "order", "wavelength"}),),
-            cues=("bragg",),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "thin_film_constructive",
-        "optics",
-        "Thin-film constructive interference",
-        "t",
-        base_latex=r"2nt = \left(m+\frac{1}{2}\right)\lambda",
-        assumptions=("normal incidence, a phase change at exactly one surface",),
-        expression="(order+0.5)*wavelength/(2*n_index)",
-        variables=(
-            var("order", "m", dimensionless=True, words=("order",), needs_words=True),
-            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
-            var("n_index", "n", dimensionless=True, words=("index",), needs_words=True),
-        ),
-        binding=Binding(
-            asks=("thickness",),
-            result=("meter",),
-            inputs=(frozenset({"n_index", "order", "wavelength"}),),
-            cues=("constructive",),
-            excludes=("destructive",),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "thin_film_destructive",
-        "optics",
-        "Thin-film destructive interference",
-        "t",
-        base_latex=r"2nt = m\lambda",
-        assumptions=("normal incidence, a phase change at exactly one surface",),
-        expression="order*wavelength/(2*n_index)",
-        variables=(
-            var("order", "m", dimensionless=True, words=("order",), needs_words=True),
-            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
-            var("n_index", "n", dimensionless=True, words=("index",), needs_words=True),
-        ),
-        binding=Binding(
-            asks=("thickness",),
-            result=("meter",),
-            inputs=(frozenset({"n_index", "order", "wavelength"}),),
-            cues=("destructive",),
-            excludes=("constructive",),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "rayleigh_angle",
-        "optics",
-        "Rayleigh criterion",
-        r"\theta",
-        base_latex=r"\theta = 1.22\frac{\lambda}{D}",
-        assumptions=("a circular aperture",),
-        expression="1.22*wavelength/aperture_diameter",
-        variables=(
-            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
-            var(
-                "aperture_diameter",
-                "D",
-                "meter",
-                words=("diameter",),
-                needs_words=True,
-            ),
-        ),
-        binding=Binding(
-            asks=("angle", "angular separation", "rayleigh criterion"),
-            result=("radian",),
-            inputs=(frozenset({"aperture_diameter", "wavelength"}),),
-            cues=("rayleigh",),
-            nonnegative=True,
         ),
     ),
     formula(
@@ -494,7 +252,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"p1", "p2"}),),
             cues=("in contact",),
             interchangeable=("p1", "p2"),
-            excludes=("telescope",),
+            excludes=("telescope", "diverging"),  # a concave lens's power is negative
             nonnegative=True,
         ),
     ),
@@ -625,47 +383,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("dimensionless",),
             inputs=(frozenset({"angle_aperture", "n_index"}),),
             cues=("numerical aperture",),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "grating_resolving_power",
-        "optics",
-        "Grating resolving power",
-        "R",
-        base_latex=r"R = mN",
-        assumptions=("a diffraction grating",),
-        expression="order*n_lines",
-        variables=(
-            var(
-                "order",
-                "m",
-                dimensionless=True,
-                words=("order",),
-                needs_words=True,
-                # "second order" states m the same way the grating angle already reads it.
-                implied=(
-                    ("first order", 1.0),
-                    ("first-order", 1.0),
-                    ("second order", 2.0),
-                    ("second-order", 2.0),
-                    ("third order", 3.0),
-                    ("third-order", 3.0),
-                ),
-            ),
-            var(
-                "n_lines",
-                "N",
-                dimensionless=True,
-                words=("lines", "slits", "rulings"),
-                needs_words=True,
-            ),
-        ),
-        binding=Binding(
-            asks=("resolving power",),
-            result=("dimensionless",),
-            inputs=(frozenset({"n_lines", "order"}),),
-            cues=("resolving power",),
             nonnegative=True,
         ),
     ),
@@ -843,7 +560,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # A lens's power in dioptres is one over its focal length in metres.
     formula(
         "focal_from_power",
         "optics",
@@ -856,6 +572,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("focal length",),
             result=("meter",),
             inputs=(frozenset({"lens_power"}),),
+            excludes=("diverging",),  # a concave lens's focal length is negative
             nonnegative=True,
         ),
     ),
