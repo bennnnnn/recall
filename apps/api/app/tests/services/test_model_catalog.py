@@ -321,7 +321,12 @@ def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
     fallback = model_catalog.get(model_catalog.structured_fallback_alias())
     assert fallback.json_mode
     assert fallback.id not in selectable
-    for structured in (lanes.background, lanes.word_problems, lanes.math_extract):
+    for structured in (
+        lanes.background,
+        lanes.word_problems,
+        lanes.math_extract,
+        lanes.reader_translation,
+    ):
         assert model_catalog.get(structured).json_mode, structured
     assert model_catalog.get(lanes.titles).context_tokens > 0
 

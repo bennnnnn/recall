@@ -49,6 +49,10 @@ class RoutingLanes:
     # candidate (number grounding and SymPy check it). JSON mode.
     word_problems: str
     math_extract: str
+    # A question in another language put into English for the pattern readers
+    # (docs/MODEL_READER.md, measured offline). Another company's model than the one the
+    # translated test corpus was written with, so the measurement is not its own echo. JSON.
+    reader_translation: str
 
 
 ROUTING = RoutingLanes(
@@ -64,4 +68,5 @@ ROUTING = RoutingLanes(
     titles="title-model",
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
+    reader_translation="qwen-3.7-flash",
 )

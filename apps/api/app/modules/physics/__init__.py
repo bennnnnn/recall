@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from app.modules.physics.extract import (
         needs_physics as needs_physics,
     )
+    from app.modules.physics.givens import PHYSICS_UNITS as PHYSICS_UNITS
     from app.modules.physics.reply_policy import (
         PHYSICS_REPLY_POLICY as PHYSICS_REPLY_POLICY,
     )
@@ -52,6 +53,8 @@ _EXPORTS = {
     "needs_physics": ("extract", "needs_physics"),
     "physics_prompt_hints": ("reply_policy", "physics_prompt_hints"),
     "solve_physics": ("solver", "solve_physics"),
+    # The unit spellings physics reads after a number (the model reader's translation check).
+    "PHYSICS_UNITS": ("givens", "PHYSICS_UNITS"),
 }
 
 __all__ = list(_EXPORTS)

@@ -43,9 +43,13 @@ from pydantic import BaseModel, Field
 from app.core.config import Settings
 from app.models.model_catalog import CATALOG
 from app.models.routing_lanes import ROUTING
+from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.model_reader.checks import normalized, values_in
 from app.modules.model_reader.schemas import ModelRead
 from app.modules.model_reader.service import read_with_model
+from app.modules.model_reader.translation import Translated, english_for_patterns
+from app.modules.physics import PHYSICS_UNITS
+from app.services.law_binding.units import UnitTable
 from app.tests.behavior.stem_sweep import (
     SUBJECT_NAMES,
     Entry,
@@ -103,6 +107,10 @@ class Row:
     model_wrong: bool = False
     both_card: str | None = None
     both_wrong: bool = False
+    # Translate, then read with the patterns: the English kept, and the patterns' card on it.
+    back: Translated | None = None
+    back_card: str | None = None
+    back_wrong: bool = False
 
 
 @dataclass
@@ -130,16 +138,35 @@ class Tally:
             / max(len(reads), 1)
             / 1e6
         )
-        return (
+        line = (
             f"{label:<16} n={len(rows):<4} reach regex {reach('regex_card'):>8} "
             f"model {reach('model_card'):>8} both {reach('both_card'):>8} | wrong "
             f"{wrong('regex_wrong')}/{wrong('model_wrong')}/{wrong('both_wrong')} | "
             f"read p50 {p50 / 1000:.2f}s p95 {p95 / 1000:.2f}s | ${cost:.2f}/1k turns"
         )
+        backs = [row.back for row in rows if row.back is not None]
+        if not backs:
+            return line
+        kept = sum(1 for back in backs if back.english is not None)
+        times = sorted(back.ms for back in backs)
+        price = _prices(ROUTING.reader_translation)
+        cost = (
+            1000
+            * sum(back.input_tokens * price[0] + back.output_tokens * price[1] for back in backs)
+            / len(backs)
+            / 1e6
+        )
+        return (
+            f"{line}\n{'':<16} translate+patterns reach {reach('back_card'):>8} wrong "
+            f"{wrong('back_wrong')} | kept {kept}/{len(backs)} | translate p50 "
+            f"{statistics.median(times) / 1000:.2f}s p95 "
+            f"{times[min(len(times) - 1, int(0.95 * len(times)))] / 1000:.2f}s | "
+            f"${cost:.3f}/1k turns"
+        )
 
 
-def _prices() -> tuple[float, float]:
-    entry = next(item for item in CATALOG if item.id == ROUTING.math_extract)
+def _prices(alias: str = ROUTING.math_extract) -> tuple[float, float]:
+    entry = next(item for item in CATALOG if item.id == alias)
     return entry.input_price_per_m or 0.0, entry.output_price_per_m or 0.0
 
 
@@ -207,6 +234,22 @@ def _same_card(first: str, second: str) -> bool:
 async def _model(row: Row, settings: Settings, gate: asyncio.Semaphore) -> None:
     async with gate:
         row.model = await read_with_model(row.entry.prompt, settings)
+
+
+async def _translate_back(
+    row: Row, settings: Settings, gate: asyncio.Semaphore, tables: tuple[UnitTable, ...]
+) -> None:
+    async with gate:
+        row.back = await english_for_patterns(row.entry.prompt, settings, tables)
+
+
+async def _patterns_on_english(row: Row) -> None:
+    """Today's turn on the kept English, judged as the sweep judges it."""
+    if row.back is None or row.back.english is None:
+        return
+    english = Row(row.subject, row.lang, _with_prompt(row.entry, row.back.english))
+    await _regex(english)
+    row.back_card, row.back_wrong = english.regex_card, english.regex_wrong
 
 
 def _finish(row: Row, settings: Settings) -> None:
@@ -284,7 +327,7 @@ def _book_rows(items: list[dict[str, Any]]) -> tuple[list[Row], int]:
             expect="answer",
             answers=(answer,),
         )
-        rows.append(Row(subject, "book", entry))
+        rows.append(Row(subject, f"book-{item['lang']}" if item.get("lang") else "book", entry))
     return rows, len(items) - len(rows)
 
 
@@ -336,10 +379,17 @@ async def run(
     set_sympy_executor(ThreadSympyExecutor(max_workers=_CONCURRENCY + 1))
     gate = asyncio.Semaphore(_CONCURRENCY)
     await asyncio.gather(*(_model(row, settings, gate) for row in rows))
+    # Translate, then read with the patterns: only questions not written in English.
+    foreign = [row for row in rows if row.lang not in {"en", "holdout", "book"}]
+    tables = (PHYSICS_UNITS, CHEMISTRY_UNITS)
+    await asyncio.gather(*(_translate_back(row, settings, gate, tables) for row in foreign))
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
+    for row in foreign:
+        await _patterns_on_english(row)
     for row in rows:
         _finish(row, settings)
     order = ["en", "holdout", *[lang for lang in langs if lang != "en"], "book"]
+    order += sorted({row.lang for row in rows} - set(order))
     _report(rows, [lang for lang in order if any(row.lang == lang for row in rows)], subjects)
     if dump is not None:
         _dump(rows, dump)
@@ -370,6 +420,10 @@ def _dump(rows: list[Row], path: Path) -> None:
                         "model_wrong": row.model_wrong,
                         "both_card": row.both_card,
                         "both_wrong": row.both_wrong,
+                        "english": row.back.english if row.back else None,
+                        "back_reason": row.back.reason if row.back else None,
+                        "back_card": row.back_card,
+                        "back_wrong": row.back_wrong,
                     },
                     ensure_ascii=False,
                 )
@@ -399,6 +453,13 @@ def _report(rows: list[Row], langs: list[str], subjects: list[str]) -> None:
 
 
 # --- translate ---------------------------------------------------------------------
+
+
+_TRANSLATE_PROMPT = (
+    "Translate the student's question into {language}, as a textbook in that language would "
+    "write it. Keep every number and unit value exactly; write units the way that language's "
+    'textbooks do. Return JSON {{"text": "<translation>"}}.'
+)
 
 
 class _Translation(BaseModel):
@@ -435,12 +496,7 @@ async def translate(per_subject: int, seed: int) -> None:
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            f"Translate the student's question into {language}, as a "
-                            "textbook in that language would write it. Keep every number "
-                            "and unit value exactly; write units the way that language's "
-                            'textbooks do. Return JSON {"text": "<translation>"}.'
-                        ),
+                        "content": _TRANSLATE_PROMPT.format(language=language),
                     },
                     {"role": "user", "content": entry.prompt},
                 ],
@@ -462,6 +518,39 @@ async def translate(per_subject: int, seed: int) -> None:
         print(
             f"{lang}: kept {len(kept)}, dropped {len(found) - len(kept)} (a number did not survive)"
         )
+
+
+async def translate_books(items: list[dict[str, Any]], lang: str) -> list[dict[str, Any]]:
+    """The textbook questions with one clear value, in ``lang`` (the corpus builder's model),
+    kept only when every number survives: for the books row in that language."""
+    from app.gateways.structured_completion import complete_structured
+
+    settings = Settings()
+    language = LANGUAGES[lang]
+    gate = asyncio.Semaphore(_CONCURRENCY)
+    wanted = [item for item in items if _book_answer(str(item.get("expected", "")))]
+
+    async def one(item: dict[str, Any]) -> dict[str, Any] | None:
+        async with gate:
+            done = await complete_structured(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[
+                    {"role": "system", "content": _TRANSLATE_PROMPT.format(language=language)},
+                    {"role": "user", "content": str(item["question"])},
+                ],
+                schema=_Translation,
+                max_tokens=600,
+                timeout_seconds=30,
+            )
+        if done is None or _numbers(done.text) != _numbers(str(item["question"])):
+            return None
+        return {**item, "question": done.text, "lang": lang}
+
+    found = await asyncio.gather(*(one(item) for item in wanted))
+    kept = [item for item in found if item is not None]
+    print(f"{lang}: kept {len(kept)} of {len(wanted)} (a number did not survive)")
+    return kept
 
 
 def rejudge(path: Path) -> None:
@@ -494,6 +583,12 @@ def rejudge(path: Path) -> None:
     _report(rows, langs, list(SUBJECT_NAMES))
 
 
+def _read_sets(path: Path) -> list[dict[str, Any]]:
+    """Question sets: a folder of JSON files, or one file."""
+    files = sorted(path.glob("*.json")) if path.is_dir() else [path]
+    return [item for file in files for item in json.loads(file.read_text())]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -507,27 +602,28 @@ def main() -> None:
     run_parser.add_argument("--timeout", type=float, default=5.0)
     run_parser.add_argument("--dump", type=Path, help="write every row as a JSON line here")
     # Textbook sets ({id, subject, question, expected}): the ones whose answer is one value.
-    run_parser.add_argument("--books", type=Path, help="a folder of textbook question sets")
+    run_parser.add_argument(
+        "--books", type=Path, action="append", help="textbook question sets (folder or file)"
+    )
     rejudge_parser = commands.add_parser("rejudge")
     rejudge_parser.add_argument("dump", type=Path)
+    books_parser = commands.add_parser("translate-books")
+    books_parser.add_argument("path", type=Path)
+    books_parser.add_argument("--lang", default="am", choices=sorted(LANGUAGES))
+    books_parser.add_argument("--out", type=Path, required=True)
     translate_parser = commands.add_parser("translate")
     translate_parser.add_argument("--per-subject", type=int, default=40)
     translate_parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
     if args.command == "run":
         langs, subjects = args.langs.split(","), args.subjects.split(",")
-        books = (
-            [
-                item
-                for file in sorted(args.books.glob("*.json"))
-                for item in json.loads(file.read_text())
-            ]
-            if args.books
-            else None
-        )
+        books = [item for path in args.books or [] for item in _read_sets(path)] or None
         asyncio.run(run(langs, subjects, args.limit, args.seed, args.timeout, args.dump, books))
     elif args.command == "rejudge":
         rejudge(args.dump)
+    elif args.command == "translate-books":
+        kept = asyncio.run(translate_books(_read_sets(args.path), args.lang))
+        args.out.write_text(json.dumps(kept, ensure_ascii=False, indent=1) + "\n")
     else:
         asyncio.run(translate(args.per_subject, args.seed))
 

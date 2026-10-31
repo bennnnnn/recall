@@ -26,15 +26,38 @@ _NUMBER = re.compile(r"(?<![A-Za-z\d.,^])-?(?:\d+(?:[.,]\d+)*|[.,]\d+)")
 _POWER = re.compile(r"(-?\d+(?:[.,]\d+)?)\s?(?:[\u00d7x*\u00b7]\s?10\^|e)(-?\d+)", re.IGNORECASE)
 
 
-def normalized(text: str) -> str:
-    """``text`` with every digit ASCII, superscript powers as ``^n``, spaces single, and
-    lowercase."""
+# Arabic's own decimal point and thousands mark.
+_ARABIC_SEPARATORS = str.maketrans({"\u066b": ".", "\u066c": ","})
+_THOUSANDS = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?")
+# The value patterns, for the translation check (``translation``).
+VALUE = _NUMBER
+POWER = _POWER
+
+
+def plain_text(text: str) -> str:
+    """``text`` with every digit ASCII, Arabic separators as "." and ",", superscript powers
+    as ``^n`` and spaces single; case kept, as unit symbols need it."""
     text = _SUPERSCRIPT_RUN.sub(lambda run: "^" + run.group(0).translate(_SUPERSCRIPTS), text)
     digits = "".join(
         str(unicodedata.digit(char)) if char.isdigit() and not char.isascii() else char
-        for char in text
+        for char in text.translate(_ARABIC_SEPARATORS)
     )
-    return _SPACE.sub(" ", unicodedata.normalize("NFKC", digits)).strip().lower()
+    return _SPACE.sub(" ", unicodedata.normalize("NFKC", digits)).strip()
+
+
+def normalized(text: str) -> str:
+    """``plain_text`` in lowercase: how quotes are matched against the message."""
+    return plain_text(text).lower()
+
+
+def value_of(number: str) -> float | None:
+    """The one value a written number means: "3,000" is 3000, "3,5" is 3.5, ".5" is 0.5."""
+    if _THOUSANDS.fullmatch(number):
+        number = number.replace(",", "")
+    try:
+        return float(number.replace(",", "."))
+    except ValueError:
+        return None
 
 
 def _readings(number: str) -> set[float]:
