@@ -115,8 +115,14 @@ def test_done_while_the_commit_runs_has_no_id_and_says_persisting() -> None:
 
 
 def test_done_leaves_out_empty_fields() -> None:
-    outcome = TurnOutcome(message_id="", final_content="", memory_hints=[], search_sources=[])
+    outcome = TurnOutcome(message_id="", final_content=None, memory_hints=[], search_sources=[])
     assert DoneEvent.from_outcome(outcome).model_dump() == {"type": "done"}
+
+
+def test_done_carries_an_emptied_reply() -> None:
+    # None is "settle what you streamed"; "" is a fallback its safety passes emptied.
+    payload = DoneEvent.from_outcome(TurnOutcome(final_content="")).model_dump()
+    assert payload == {"type": "done", "final_content": ""}
 
 
 def test_related_prompts_event_shape() -> None:

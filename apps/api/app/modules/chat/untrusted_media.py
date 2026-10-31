@@ -26,6 +26,7 @@ images itself while a reply streams (``apps/mobile/lib/images/imageUriPolicy.ts`
 from __future__ import annotations
 
 import html
+import json
 import re
 import string
 from typing import TYPE_CHECKING
@@ -34,7 +35,7 @@ from urllib.parse import urlsplit
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.inline_code import escaped_at, read_inline_code_span
 from app.modules.chat.markdown_regions import map_prose_outside_fences
-from app.services.md_fence_scan import has_closed_fence, strip_closed_fences
+from app.services.md_fence_scan import iter_fences
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -74,26 +75,53 @@ def drop_media_lines(text: str) -> str:
     a chip goes, in code too, and so does any ``sources`` fence. A Recall attachment
     marker alone on its line stays."""
     kept: list[str] = []
-    in_sources = False
-    for line in text.split("\n"):
-        marker = line.strip()
-        if in_sources:
-            in_sources = not marker.startswith(("```", "~~~"))
-            continue
-        if marker.lower().startswith(("```sources", "~~~sources")):
-            in_sources = True
-            continue
+    for line in without_source_fences(text).split("\n"):
         lower = line.lower()
         loads = "![" in line or "<img" in lower or _IMAGE_MARKER_HEAD.lower() in lower
-        if not loads or _ATTACHMENT_MARKER.fullmatch(marker):
+        if not loads or _ATTACHMENT_MARKER.fullmatch(line.strip()):
             kept.append(line)
     return "\n".join(kept)
 
 
+def without_source_fences(text: str) -> str:
+    """No closed fence the phone makes favicon chips of: a ``sources`` one, however it
+    is spelled, or an unlabeled one whose body reads as source rows
+    (``apps/mobile/lib/searchSources.ts``)."""
+    if "```" not in text and "~~~" not in text:
+        return text
+    pieces: list[str] = []
+    cursor = 0
+    for fence in iter_fences(text):
+        body = text[fence.body_start : fence.body_end]
+        unlabeled = not fence.opener.info.strip()
+        if fence.closed and (fence.lang == "sources" or (unlabeled and _source_rows(body))):
+            pieces.append(text[cursor : fence.start])
+            cursor = fence.end
+    if not cursor:
+        return text
+    pieces.append(text[cursor:])
+    return "".join(pieces).rstrip()
+
+
+def _source_rows(body: str) -> bool:
+    """A JSON list with a row that has a title or a URL: what the phone reads as chips."""
+    if not body.lstrip().startswith("["):
+        return False
+    try:
+        rows = json.loads(body)
+    except (ValueError, RecursionError):
+        return False
+    return isinstance(rows, list) and any(
+        isinstance(row, dict)
+        and any(str(row[key]).strip() for key in ("title", "url") if row.get(key) is not None)
+        for row in rows
+    )
+
+
 def neutralize_media(text: str, *, searched: bool) -> str:
     """See the module docstring. ``searched``: the server's chips replace any sources fence."""
-    if not searched and has_closed_fence(text, "sources"):
-        text = strip_closed_fences(text, "sources").rstrip()
+    if not searched:
+        text = without_source_fences(text)
     if "[Image:" not in text and "![" not in text and "<img" not in text.lower():
         return text
     definitions: dict[str, str] = {}

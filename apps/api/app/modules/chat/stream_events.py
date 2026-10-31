@@ -256,7 +256,8 @@ class DoneEvent(BaseModel):
             event["daily_limit"] = str(self.usage.daily_limit)
         if self.search_sources:
             event["search_sources"] = json.dumps(self.search_sources)
-        if self.final_content:
+        # Empty is sent too: a fallback its safety passes emptied replaces the streamed text.
+        if self.final_content is not None:
             event["final_content"] = self.final_content
         if self.resolved_model:
             event["resolved_model"] = self.resolved_model

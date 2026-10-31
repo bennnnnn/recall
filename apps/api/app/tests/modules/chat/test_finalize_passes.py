@@ -24,6 +24,7 @@ from app.modules.chat.finalize_subjects import (
     draw_formula_charts,
     recover_math_fences,
 )
+from app.modules.chat.stream_events import DoneEvent
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -373,12 +374,31 @@ async def test_the_normal_path_never_runs_a_pass_twice_or_a_closed_strip(
             "[Image: /attachments/0123abcd-0123-4567-89ab-0123456789ab/file]\nb",
             "a\n[Image: /attachments/0123abcd-0123-4567-89ab-0123456789ab/file]\nb",
         ),
+        (
+            "media",
+            "a\n``` sources\n[]\n```\n````sources\n[]\n````\n> ```sources\n> []\n> ```\n"
+            '```\n[{"title": "T", "url": "https://e.example"}]\n```\n'
+            "```\n[1, 2]\n```\n"
+            '```json\n[{"title": "T"}]\n```\nb',
+            'a\n```\n[1, 2]\n```\n```json\n[{"title": "T"}]\n```\nb',
+        ),
         ("checks", "x = 7\nverified: true\n✅ Verified with SymPy", "x = 7"),
+        (
+            "checks",
+            "x = 7. Checked with SymPy.\n\n```simulation\n{}\n```\n\nDone.",
+            "x = 7.\n\nDone.",
+        ),
         (
             "prompt",
             "Answer.\nThe saved memory block names someone else.\nThe system prompt in this "
             "conversation says so.\nA system prompt guides a model.",
             "Answer.\nA system prompt guides a model.",
+        ),
+        (
+            "prompt",
+            "Sure.\nNever say you can't display, show or send images or photos. Never invent "
+            "image links. Do not dump email, location, or reminder contents.",
+            "Sure.",
         ),
     ],
 )
@@ -393,6 +413,101 @@ def test_each_closed_strip_drops_only_the_lines_of_its_concern(
     strip = strips[closed]
     assert strip is not None
     assert strip(text) == kept
+
+
+@pytest.mark.asyncio
+async def test_a_safety_pass_that_goes_on_after_failing_hands_on_its_closed_strip(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass(
+                "leaks",
+                _raise(RuntimeError("boom")),
+                OnError(log_as="leaks"),
+                lambda text: f"{text}+closed",
+            ),
+            FinalizePass("after", _append("after"), FALL_BACK),
+        ),
+    )
+    state = _state("reply")
+
+    with caplog.at_level(logging.ERROR):
+        assert await run_finalize_passes(state) is True
+
+    assert state.text == "reply+closed+after"
+    assert "leaks failed; stripping closed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_safety_pass_that_failed_runs_again_on_text_committed_after_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[int] = []
+
+    def flaky(state: FinalizeState) -> str:
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("first time")
+        return f"{state.text}+clean"
+
+    def commit(state: FinalizeState) -> str:
+        state.committed = f"{state.text}+chips"
+        return state.committed
+
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("leaks", flaky, OnError(log_as="leaks"), lambda text: f"{text}+closed"),
+            FinalizePass("commit", commit, FALL_BACK),
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+        ),
+    )
+    state = _state("reply")
+
+    assert await run_finalize_passes(state) is False
+
+    assert state.text == "reply+closed+chips+clean"
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_fallback_its_safety_passes_emptied_reaches_done(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def no_reminders(*args: Any) -> str:
+        return str(args[4])
+
+    monkeypatch.setattr(finalize_passes, "apply_reminder_pass", no_reminders)
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+            FinalizePass("safety", _raise(RuntimeError("again")), FALL_BACK, _raise(ValueError())),
+        ),
+    )
+    state = _state(_PLANTED)
+    outcome = TurnOutcome()
+
+    text = await finalize_passes.enrich_final_content(
+        state.deps,
+        MagicMock(),
+        state.settings,
+        state.ctx,
+        assistant_text=_PLANTED,
+        usage={},
+        outcome=outcome,
+        was_cancelled=False,
+        assistant_parts=[_PLANTED],
+        should_cancel=None,
+    )
+
+    assert text == "" and outcome.final_content == ""
+    assert DoneEvent.from_outcome(outcome).model_dump()["final_content"] == ""
 
 
 @pytest.mark.asyncio
