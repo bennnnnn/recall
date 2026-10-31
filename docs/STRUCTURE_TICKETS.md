@@ -272,6 +272,23 @@ for presentation and the post-turn jobs, not for reading.
 
 ### ST-06 — Finalize passes declare their order and their kind
 
+**Status: done (declarations).** Every pass in `finalize_passes.FINALIZE_PASSES` declares
+`kind` (`TEXT`: returns the reply and changes nothing else; `EFFECT`: also commits the text,
+links a photo or writes the chips or the usage) and the contracts its comments used to hold, as
+`after` / `before` (`EVERY_OTHER` for the first pass). 8 passes are effects (`untrusted_media`,
+`answer_photo`, `reply_picture`, `settings_card`, `money_card`, `search_sources`,
+`instant_usage`, `clarify_card`), 32 are text. The 10 contracts: `control_tokens` first;
+`drop_cut_reminder_fence` before `close_fences`; `prepare_model_reply` and `answer_labels` before
+the passes that land a card; `reply_picture` after `answer_photo`; `formula_charts` after
+`math_fences`; `claim_check` before `search_sources`; `close_fences` and `prose` after the passes
+that read the model's fences; `clarify_card` after `close_fences`. `test_finalize_passes` holds
+the order to them, fails a pass with no kind or a contract naming no pass, pins which passes are
+effects, and checks every safety pass (#2153 `closed=`) runs before every other effect. Nothing
+reorders and nothing behaves differently: the decision diff over the corpora printed "no decision
+changed". The reason for a contract stays in the comment above its pass; the pinned order in
+`test_the_passes_run_in_one_declared_order` is the list a new pass joins. Still open: the
+"log and continue" default for text passes, a behaviour change on failure, in its own PR.
+
 - **Problem:** the order of the 34 passes is a tuple. The contracts between them ("before the fence
   repair below can close it", "before a subject lands its card") are comments. Text passes and
   passes with side effects (photos, chips, settings and money cards, instant usage) are mixed, and

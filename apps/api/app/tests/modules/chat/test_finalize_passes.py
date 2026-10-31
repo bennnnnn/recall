@@ -140,6 +140,81 @@ def test_the_passes_run_in_one_declared_order() -> None:
     }
 
 
+def _contract_problems(passes: tuple[FinalizePass, ...]) -> list[str]:
+    """What an order breaks of its passes' own declared kinds and contracts."""
+    index = {finalize_pass.name: i for i, finalize_pass in enumerate(passes)}
+    problems: list[str] = []
+    for i, finalize_pass in enumerate(passes):
+        name = finalize_pass.name
+        if finalize_pass.kind is None:
+            problems.append(f"{name}: declare kind=TEXT or kind=EFFECT")
+        if finalize_pass.before == finalize_passes.EVERY_OTHER and i != 0:
+            problems.append(f"{name} must come first")
+        for other, must_follow in [
+            *((other, True) for other in sorted(finalize_pass.after)),
+            *((other, False) for other in sorted(finalize_pass.before - {"*"})),
+        ]:
+            if other not in index:
+                problems.append(f"{name}: no pass named {other!r}")
+            elif must_follow and index[other] > i:
+                problems.append(f"{name} must run after {other}")
+            elif not must_follow and index[other] < i:
+                problems.append(f"{name} must run before {other}")
+    return problems
+
+
+def test_the_order_keeps_every_declared_kind_and_contract() -> None:
+    assert _contract_problems(finalize_passes.FINALIZE_PASSES) == []
+
+
+def test_a_pass_that_breaks_a_contract_is_named() -> None:
+    def run(state: FinalizeState) -> str:
+        return state.text
+
+    passes = (
+        FinalizePass("reader", run, FALL_BACK, kind="text", after=frozenset({"closer"})),
+        FinalizePass("closer", run, FALL_BACK),
+        FinalizePass("first", run, FALL_BACK, kind="text", before=finalize_passes.EVERY_OTHER),
+        FinalizePass("chips", run, FALL_BACK, kind="effect", before=frozenset({"gone"})),
+    )
+    assert _contract_problems(passes) == [
+        "reader must run after closer",
+        "closer: declare kind=TEXT or kind=EFFECT",
+        "first must come first",
+        "chips: no pass named 'gone'",
+    ]
+
+
+def test_the_effect_passes_are_the_ones_that_change_the_turn() -> None:
+    # Each commits the text, links a photo, or writes the chips or the usage.
+    effects = {
+        name for name, finalize_pass in _REAL_PASSES.items() if finalize_pass.kind == "effect"
+    }
+    assert effects == {
+        "untrusted_media",
+        "answer_photo",
+        "reply_picture",
+        "settings_card",
+        "money_card",
+        "search_sources",
+        "instant_usage",
+        "clarify_card",
+    }
+
+
+def test_the_safety_passes_come_before_every_other_effect() -> None:
+    """A fallback replays the safety passes on committed text (#2153); none commits before one
+    runs except a safety pass itself."""
+    order = list(_REAL_PASSES)
+    safety = [order.index(name) for name, item in _REAL_PASSES.items() if item.closed]
+    effects = [
+        order.index(name)
+        for name, item in _REAL_PASSES.items()
+        if item.kind == "effect" and item.closed is None
+    ]
+    assert max(safety) < min(effects)
+
+
 @pytest.mark.asyncio
 async def test_a_fall_back_failure_stops_the_passes_and_persists_the_safe_raw_reply(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
