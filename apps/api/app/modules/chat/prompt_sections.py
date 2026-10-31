@@ -48,30 +48,12 @@ from app.modules.chat.prompt_constants import (
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
     WEB_SEARCH_OFF_HINT,
-    active_lesson_step,
-    greeting_run,
     is_bare_writing_line,
-    is_brevity_request,
-    is_capabilities_question,
-    is_career_personal_question,
-    is_correction,
-    is_learning_plan_request,
-    is_personal_disclosure_turn,
-    is_profile_fact_question,
-    is_profile_recall_pushback,
-    is_short_confirmation,
-    is_social_opener,
-    is_standing_preference,
-    is_teaching_request,
     learning_plan_daily_contract,
-    names_a_setting,
-    outline_awaits_pick,
     programming_lesson_contract,
     repeated_greeting_hint,
-    reply_length,
     writing_format_hint,
 )
-from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
 from app.modules.chat.prompt_context_hints import integration_hints, lookup_hints, slim_geo_hints
@@ -94,6 +76,28 @@ from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT
+from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
+from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
+from app.modules.turn_reading.length import is_brevity_request, reply_length
+from app.modules.turn_reading.lesson_flow import (
+    active_lesson_step,
+    lesson_after_gap,
+    outline_awaits_pick,
+)
+from app.modules.turn_reading.personal import (
+    is_career_personal_question,
+    is_personal_disclosure_turn,
+)
+from app.modules.turn_reading.profile_ask import (
+    is_profile_fact_question,
+    is_profile_recall_pushback,
+)
+from app.modules.turn_reading.routing import is_short_confirmation
+from app.modules.turn_reading.teaching import (
+    is_learning_plan_request,
+    is_standing_preference,
+    is_teaching_request,
+)
 from app.services import locale as locale_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question

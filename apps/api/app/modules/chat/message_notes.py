@@ -14,13 +14,13 @@ from typing import Any
 
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs
-from app.modules.chat.prompt_constants.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.chat.prompt_constants.reply_missed import reply_how_hint, reply_missed_hint
 from app.modules.chat.prompt_constants.school_question import question_hint
 from app.modules.chat.prompt_constants.shared_numbers import shared_numbers_hint
-from app.modules.chat.prompt_constants.teaching import is_teaching_request
 from app.modules.chat.reply_language import reply_language_hint
 from app.modules.chat.response_tone import emoji_note
+from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
+from app.modules.turn_reading.teaching import is_teaching_request
 
 
 def _own_way(query: str, exchange: list[Any], pairs: Sequence[tuple[str, str]]) -> bool:

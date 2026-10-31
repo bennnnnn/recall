@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
 from app.models.model_catalog import estimate_cost_usd  # noqa: E402
-from app.modules.chat.prompt_constants import lesson_step  # noqa: E402
+from app.modules.turn_reading.lesson_flow import lesson_step  # noqa: E402
 from app.tests.behavior.cases import CASES, CATEGORIES, Case  # noqa: E402
 
 TIMEZONE = "Africa/Nairobi"

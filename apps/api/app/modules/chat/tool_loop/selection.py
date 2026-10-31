@@ -160,7 +160,7 @@ def _needs_non_web_tool(
     sympy_on = "sympy" not in skip_tools
     if sympy_on and leftover_math_after_verified(text):
         return True
-    from app.modules.chat import has_code_syntax
+    from app.modules.turn_reading.coding import has_code_syntax
 
     math_on = sympy_on and (settings is None or settings.math_tools_enabled)
     # A pasted traceback or loop is code to read, not an equation for SymPy.

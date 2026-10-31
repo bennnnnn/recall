@@ -22,7 +22,6 @@ from app.models.orm import Attachment, Chat, User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.model_routing.thinking import thinking_level
-from app.modules.chat.prompt_constants import active_lesson_step
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.attachments import _process_attachments
 from app.modules.chat.turn_prep.context import (
@@ -41,6 +40,7 @@ from app.modules.chat.turn_prep.persist import (
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_prep.vision import inject_turn_images
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.services.prompt_safety import messages_have_attachment_marker
 
 logger = logging.getLogger(__name__)

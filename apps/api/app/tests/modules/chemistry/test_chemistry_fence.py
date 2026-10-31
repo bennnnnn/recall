@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants.visuals import CHEMISTRY_FENCE_HINT
 from app.modules.chemistry import fence as chemistry_fence
+from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 
 
 def test_enrich_valid_smiles_canonicalizes() -> None:

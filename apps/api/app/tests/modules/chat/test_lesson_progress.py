@@ -8,14 +8,10 @@ import pytest
 from app.core.config import Settings
 from app.modules.chat.lesson_progress import lesson_progress
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
-from app.modules.chat.prompt_constants.lesson_flow import (
-    lesson_after_gap,
-    lesson_continue_hint,
-    lesson_titles,
-    teach_subject,
-)
+from app.modules.chat.prompt_constants.lesson_flow import lesson_continue_hint
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.chat.turn_prep.context import StreamContext
+from app.modules.turn_reading.lesson_flow import lesson_after_gap, lesson_titles, teach_subject
 
 NOW = datetime(2026, 10, 18, 12, tzinfo=UTC)
 

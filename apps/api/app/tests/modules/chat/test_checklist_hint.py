@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants import (
-    CHECKLIST_FORMAT_HINT,
-    HOWTO_FORMAT_HINT,
-    is_checklist_request,
-)
+from app.modules.chat.prompt_constants import CHECKLIST_FORMAT_HINT, HOWTO_FORMAT_HINT
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.turn_reading.checklist import is_checklist_request
 
 
 @pytest.mark.parametrize(

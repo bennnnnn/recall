@@ -53,7 +53,7 @@ def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) 
     the offer and is read as its own words. A reply holding code offers code ("Should I
     add a reminder field to the form?"), whatever its words.
     """
-    from app.modules.chat import is_short_confirmation
+    from app.modules.turn_reading.routing import is_short_confirmation
 
     if not user_text or not prior_assistant or not is_short_confirmation(user_text):
         return None

@@ -79,7 +79,7 @@ async def read_turn_message(
     pays only for what changed.
     """
     from app.modules.chat.model_routing.route import last_user_turn
-    from app.modules.chat.prompt_constants import active_lesson_step
+    from app.modules.turn_reading.lesson_flow import active_lesson_step
     from app.services.problem_followup import message_role_content
 
     earlier = list(recent)

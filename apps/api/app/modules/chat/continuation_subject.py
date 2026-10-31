@@ -12,8 +12,8 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.core.readings import reading
-from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
-from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
+from app.modules.turn_reading.routing import is_lightweight_chat_turn
+from app.modules.turn_reading.writing_kind import is_writing_deliverable_request
 from app.services.problem_followup import adjacent_problem, message_role_content
 from app.services.text_normalize import collapse_ws
 
@@ -212,7 +212,7 @@ def classify_presentation_subject(text: str | None) -> str | None:
     """
     if not text or not text.strip():
         return None
-    from app.modules.chat.prompt_constants.coding import has_code_syntax
+    from app.modules.turn_reading.coding import has_code_syntax
     from app.services.subject_solving import detect_subject
 
     subject = detect_subject(text)

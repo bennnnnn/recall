@@ -24,17 +24,12 @@ from app.modules.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
-    has_code_syntax,
-    is_programming_turn,
 )
-from app.modules.chat.prompt_constants.coding import (
-    CODE_DEBUG_HINT,
-    CODE_EXPLAIN_HINT,
-    code_question_kind,
-)
+from app.modules.chat.prompt_constants.coding import CODE_DEBUG_HINT, CODE_EXPLAIN_HINT
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.conversation import chats_repository, messages_repository
 from app.modules.math.reply_policy import MATH_INTENT_HINT
+from app.modules.turn_reading.coding import code_question_kind, has_code_syntax, is_programming_turn
 from app.services.subject_solving import detect_subject
 from app.tests.modules.chat.chat_test_support import system_prompt
 

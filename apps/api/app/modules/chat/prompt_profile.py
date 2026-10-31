@@ -10,7 +10,7 @@ import re
 
 from app.models.orm import User
 from app.modules.account import profile as profile_service
-from app.modules.chat.prompt_constants import is_email_or_message_request
+from app.modules.turn_reading.writing_kind import is_email_or_message_request
 from app.services import prompt_safety
 
 # Account email is PII — only inject when the turn clearly needs it.

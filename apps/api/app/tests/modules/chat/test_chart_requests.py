@@ -11,15 +11,16 @@ import time
 
 import pytest
 
-from app.modules.chat.prompt_constants.chart import (
-    CHART_FORMAT_HINT,
+from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT
+from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.math.tools.extract import extract_math_intent
+from app.modules.math.tools.graph_followup import resolve_graph_followup
+from app.modules.turn_reading.chart import (
     chart_followup_data,
     chart_names_no_curve,
     chart_of_public_facts,
     is_chart_question,
 )
-from app.modules.chat.prompt_format import _style_format_hints
-from app.modules.math.tools.graph_followup import resolve_graph_followup
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
 
@@ -72,7 +73,7 @@ from app.services.subject_solving import detect_subject
 def test_a_chart_asked_for_in_other_words_is_a_chart(text: str) -> None:
     assert is_chart_question(text)
     # Maths reads no curve in it, so the chart contract owns the turn.
-    assert chart_names_no_curve(text)
+    assert chart_names_no_curve(text, extract_math_intent)
     assert detect_subject(text) is None
 
 

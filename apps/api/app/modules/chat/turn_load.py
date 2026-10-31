@@ -22,13 +22,13 @@ from app.models import model_catalog
 from app.models.orm import Chat, User
 from app.modules.chat.finalize_registry import wait_for_pending_finalize
 from app.modules.chat.model_routing.route import last_user_turn
-from app.modules.chat.prompt_constants import active_lesson_step
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
 from app.modules.chat.turn_prep.reading import read_turn_message
 from app.modules.chat.turn_settle import seed_usage_from_db
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.services import model_health
 
 logger = logging.getLogger(__name__)

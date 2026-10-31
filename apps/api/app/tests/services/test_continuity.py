@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.prompt_constants.routing import recalls_earlier_conversation
+from app.modules.turn_reading.personal import recalls_earlier_conversation
 
 
 @pytest.mark.parametrize(

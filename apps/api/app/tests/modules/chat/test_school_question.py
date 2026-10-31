@@ -322,7 +322,7 @@ def test_a_books_words_are_no_news(query: str) -> None:
     ],
 )
 def test_a_changing_or_everyday_question_keeps_its_search_and_lane(query: str) -> None:
-    from app.modules.chat.prompt_constants.school_question import (
+    from app.modules.turn_reading.school_question import (
         has_nothing_to_look_up,
         needs_reasoned_choice,
     )

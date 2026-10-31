@@ -20,9 +20,9 @@ from app.modules.chat.context_window import (
     messages_within_token_budget,
     unsummarized_gap_bounds,
 )
-from app.modules.chat.prompt_constants import is_broad_self_question
 from app.modules.conversation import history as conversation_history
 from app.modules.conversation import history_rag as chat_history_rag_service
+from app.modules.turn_reading.routing import is_broad_self_question
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope

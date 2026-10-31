@@ -134,11 +134,9 @@ def test_compact_week_plan_uses_detailed_learning_plan_not_plain_prose():
 
 
 def test_compact_spanish_week_plan_uses_detailed_learning_plan():
-    from app.modules.chat.prompt_constants import (
-        LEARNING_PLAN_HINT,
-        is_howto_question,
-        is_learning_plan_request,
-    )
+    from app.modules.chat.prompt_constants import LEARNING_PLAN_HINT
+    from app.modules.turn_reading.format import is_howto_question
+    from app.modules.turn_reading.teaching import is_learning_plan_request
 
     query = "Dame un plan de 4 semanas para aprender español"
     assert is_howto_question(query)
@@ -226,11 +224,9 @@ def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
 
 
 def test_clarification_hint_asks_once_when_purpose_or_data_missing():
-    from app.modules.chat.prompt_constants import (
-        CLARIFICATION_HINT,
-        is_underspecified_writing_request,
-    )
+    from app.modules.chat.prompt_constants import CLARIFICATION_HINT
     from app.modules.chat.prompt_constants.writing import EMAIL_ASK_PURPOSE_HINT, EMAIL_DRAFT_HINT
+    from app.modules.turn_reading.writing_purpose import is_underspecified_writing_request
 
     assert "escribeme un correo" in CLARIFICATION_HINT
     assert "LinkedIn" in CLARIFICATION_HINT
@@ -249,7 +245,7 @@ def test_clarification_hint_asks_once_when_purpose_or_data_missing():
 
 
 def test_writing_request_kinds_cover_each_output_shape():
-    from app.modules.chat.prompt_constants import writing_request_kind
+    from app.modules.turn_reading.writing_kind import writing_request_kind
 
     cases = {
         "Write me an email about taking Friday off": "email",
@@ -352,7 +348,7 @@ def test_writing_request_kinds_cover_each_output_shape():
 
 
 def test_bare_drafts_ask_once_but_supplied_purpose_drafts_now():
-    from app.modules.chat.prompt_constants import is_underspecified_writing_request
+    from app.modules.turn_reading.writing_purpose import is_underspecified_writing_request
 
     assert is_underspecified_writing_request("Message to my friend")
     assert is_underspecified_writing_request("write me an email")
@@ -529,7 +525,7 @@ def test_explicit_table_request_survives_short_and_compact_styles():
 
 
 def test_translation_and_proofreading_do_not_load_private_rich_context():
-    from app.modules.chat.prompt_constants import needs_rich_context
+    from app.modules.turn_reading.personal import needs_rich_context
 
     assert not needs_rich_context("Translate 'hello' into Spanish")
     assert not needs_rich_context("Is this sentence correct?")
@@ -547,11 +543,8 @@ def test_universal_baseline_bans_invented_tables_and_hooks():
 
 
 def test_compact_quote_turn_uses_blockquote_not_plain_prose():
-    from app.modules.chat.prompt_constants import (
-        COMPACT_RESPONSE_FORMAT_HINT,
-        QUOTE_FORMAT_HINT,
-        is_quote_question,
-    )
+    from app.modules.chat.prompt_constants import COMPACT_RESPONSE_FORMAT_HINT, QUOTE_FORMAT_HINT
+    from app.modules.turn_reading.format import is_quote_question
 
     query = "Give me a famous quote by Maya Angelou about courage, with attribution."
     assert is_quote_question(query)
@@ -586,8 +579,8 @@ def test_compact_quote_turn_uses_blockquote_not_plain_prose():
     ],
 )
 def test_is_capabilities_question(text, expected):
-    from app.modules.chat.prompt_constants import (
-        is_capabilities_question,
+    from app.modules.turn_reading.capabilities import is_capabilities_question
+    from app.modules.turn_reading.writing_kind import (
         is_email_or_message_request,
         writing_request_kind,
     )
@@ -604,9 +597,9 @@ def test_capabilities_overview_skips_email_draft_contract():
         CLARIFICATION_HINT,
         COPY_DELIVERABLE_HINT,
         FORMAT_CONTRACT,
-        is_capabilities_question,
     )
     from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
+    from app.modules.turn_reading.capabilities import is_capabilities_question
 
     query = "What can you help me with? Give a few concrete examples."
     assert is_capabilities_question(query)
@@ -638,13 +631,13 @@ def test_capabilities_overview_skips_email_draft_contract():
     ],
 )
 def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
-    from app.modules.chat.prompt_constants import (
-        NON_DRAFT_TURN_HINT,
+    from app.modules.chat.prompt_constants import NON_DRAFT_TURN_HINT
+    from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
+    from app.modules.chat.prompt_format import _style_format_hints
+    from app.modules.turn_reading.writing_kind import (
         is_email_or_message_request,
         writing_request_kind,
     )
-    from app.modules.chat.prompt_constants.writing import EMAIL_DRAFT_HINT
-    from app.modules.chat.prompt_format import _style_format_hints
 
     assert writing_request_kind(query) is None
     assert not is_email_or_message_request(query)
@@ -677,9 +670,9 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
         FORMAT_CONTRACT,
         PERSONAL_DISCLOSURE_HINT,
         SHORT_RESPONSE_FORMAT_HINT,
-        is_personal_disclosure_turn,
     )
     from app.modules.chat.prompt_format import _style_format_hints
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     query = "I work at Uber but I want to change to Google"
     assert is_personal_disclosure_turn(query)
@@ -713,7 +706,7 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
     ],
 )
 def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
-    from app.modules.chat.prompt_constants import is_personal_disclosure_turn
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     assert not is_personal_disclosure_turn(query)
 
@@ -728,13 +721,13 @@ def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
     ],
 )
 def test_collective_implicit_requests_are_not_personal_disclosures(query):
-    from app.modules.chat.prompt_constants import is_personal_disclosure_turn
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     assert not is_personal_disclosure_turn(query)
 
 
 @pytest.mark.parametrize("query", ["We moved to Boston", "We work in healthcare"])
 def test_collective_personal_facts_remain_disclosures(query):
-    from app.modules.chat.prompt_constants import is_personal_disclosure_turn
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     assert is_personal_disclosure_turn(query)

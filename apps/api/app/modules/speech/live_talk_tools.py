@@ -17,8 +17,8 @@ from app.gateways.mcp.base import ToolContext
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.account import profile as profile_service
-from app.modules.chat import is_lightweight_chat_turn
 from app.modules.memory.switch import memory_switch_on
+from app.modules.turn_reading.routing import is_lightweight_chat_turn
 from app.modules.web_search import TurnTavilyBudget, WebSearchAdapter
 from app.services.prompt_safety import wrap_untrusted
 

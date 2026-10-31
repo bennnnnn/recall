@@ -9,8 +9,9 @@ from app.modules.chat.prompt_constants import (
     CLARIFY_CARD_HINT,
     COMPARISON_FORMAT_HINT,
 )
-from app.modules.chat.prompt_constants.clarify import RANKING_FORMAT_HINT, names_its_purpose
+from app.modules.chat.prompt_constants.clarify import RANKING_FORMAT_HINT
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.turn_reading.clarify import names_its_purpose
 
 
 def _hints(query: str, *, multi: bool = False) -> list[str]:

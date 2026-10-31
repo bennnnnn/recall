@@ -19,8 +19,9 @@ from __future__ import annotations
 from .boundary_support import _import_cycles, _import_graph, _module_imports
 
 _SUBJECTS = frozenset({"math", "physics", "chemistry"})
-# The dispatcher sits over the subjects it sends a message to, under chat.
-_LAYER_OF = {"services.subject_solving": 2}
+# The dispatcher sits over the subjects it sends a message to, under chat. The readers of a
+# message are leaves: they import only services, so a subject may ask them too (ST-04).
+_LAYER_OF = {"services.subject_solving": 2, "modules.turn_reading": 0}
 # A composition root wires every module together (test_outside_modules.py).
 _ROOTS = frozenset({"app.services.mcp"})
 
@@ -28,16 +29,12 @@ _ROOTS = frozenset({"app.services.mcp"})
 _UPWARD = {
     ("modules.account", "modules.chat"): "deletion drops chat's cached follow-up questions",
     ("modules.images", "modules.chat"): "a picture turn sets off chat's post-turn jobs; a cut cue",
-    ("modules.math", "modules.chat"): "a follow-up reads chat's light-turn cue",
     ("modules.physics", "modules.chat"): "a direct reply is presented as chat presents one",
     (
         "modules.speech",
         "modules.chat",
     ): "a voice turn sets off chat's post-turn jobs and presentation",
-    ("modules.todos", "modules.chat"): "a to-do reads chat's confirmation and locale cues",
-    ("modules.web_search", "modules.chat"): "search detection reads chat's turn cues",
     ("services.quota", "modules.billing"): "a daily budget is the plan's number (entitlements)",
-    ("services.subject_solving", "modules.chat"): "the dispatcher reads chat's code cue",
 }
 
 
