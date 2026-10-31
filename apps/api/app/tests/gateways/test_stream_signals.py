@@ -333,6 +333,59 @@ async def test_a_slow_opening_counts_against_the_first_text_cap() -> None:
     assert time.monotonic() - started < 2.0
 
 
+def _opens_after(seconds: float, provider: FakeStream) -> Any:
+    async def opening(**_kwargs: Any) -> FakeStream:
+        await asyncio.sleep(seconds)
+        return provider
+
+    return opening
+
+
+def _steps(*steps: Any) -> AsyncMock:
+    queue = list(steps)
+
+    async def acompletion(**kwargs: Any) -> FakeStream:
+        step = queue.pop(0)
+        return await step(**kwargs) if callable(step) else step
+
+    return AsyncMock(side_effect=acompletion)
+
+
+@pytest.mark.asyncio
+async def test_the_last_model_waits_out_a_slow_opening() -> None:
+    # No backup: a stream that opens past the connect timeout is a slow reply,
+    # not a failed one (it left round-5 textbook replies empty).
+    fake = _steps(_opens_after(1.3, _ready(chunk(content="Inertia resists change."))))
+    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=5)
+    reply = await _reply("smart-chat", [], fake, settings)
+    assert reply == "smart-chat: Inertia resists change."
+
+
+@pytest.mark.asyncio
+async def test_a_slow_opening_with_a_backup_still_gives_way_at_the_connect_timeout() -> None:
+    slow = _opens_after(3, _ready(chunk(content="late")))
+    fake = _steps(slow, _ready(chunk(content="Inertia resists change.")))
+    settings = _fast_caps(
+        chat_stream_connect_timeout_seconds=1,
+        chat_stream_timeout_seconds=5,
+        chat_stream_first_content_timeout_seconds=30,
+    )
+    started = time.monotonic()
+    reply = await _reply("smart-chat", ["glm-5.2"], fake, settings)
+    assert reply == "glm-5.2: Inertia resists change."
+    assert time.monotonic() - started < 2.0
+
+
+@pytest.mark.asyncio
+async def test_the_last_model_still_gives_up_on_a_stream_that_never_opens() -> None:
+    fake = _steps(_opens_after(5, _ready(chunk(content="never"))))
+    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=2)
+    started = time.monotonic()
+    with pytest.raises(litellm_gateway.ModelUnavailableError):
+        await _reply("smart-chat", [], fake, settings)
+    assert 1.8 < time.monotonic() - started < 3.0
+
+
 @pytest.mark.asyncio
 async def test_a_thinking_model_is_not_capped_once_it_streams_reasoning() -> None:
     # Reasoning for well past the cap, then the answer: the same model answers.
