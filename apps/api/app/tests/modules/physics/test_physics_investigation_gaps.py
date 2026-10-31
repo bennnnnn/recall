@@ -196,10 +196,33 @@ def test_optics_laws_answer_the_investigation_questions(
         # A diverging lens is outside these laws.
         "A 4 cm tall object is 15 cm in front of a diverging lens of focal length 10 cm. "
         "how tall is the image?",
+        # A convex mirror diverges too: it was certified 30 cm (the image is 6 cm behind).
+        "An object is placed at a distance of 10 cm from a convex mirror of focal length "
+        "15 cm. Find the position and nature of the image.",
+        "A 2 m tall person stands in front of a convex mirror of focal length 1 m, 3 m away. "
+        "Where is the image?",
+        # A far point is not a focal length: it was certified +1.25 D (the lens is concave).
+        "The far point of a myopic person is 80 cm in front of the eye. What is the nature "
+        "and power of the lens required to correct the problem?",
+        "The near point of a hypermetropic eye is 1 m. What is the power of the lens "
+        "required to correct this defect?",
+        # A concave lens's power is negative.
+        "Find the power of a concave lens of focal length 2 m.",
     ],
 )
 def test_optics_laws_decline_what_they_cannot_read_whole(text: str) -> None:
     assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("What is the power of a lens with a focal length of 25 cm?", 4.0),
+        ("A convex lens has f = 50 cm. What is its power?", 2.0),
+    ],
+)
+def test_lens_power_reads_a_length_called_the_focal_length(text: str, value: float) -> None:
+    _assert_answer(text, "lens_power", value, "D")
 
 
 # --- forces and motion ------------------------------------------------------

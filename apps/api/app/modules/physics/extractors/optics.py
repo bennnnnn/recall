@@ -129,8 +129,10 @@ def _reflection_intent(cleaned: str) -> PhysicsIntent | None:
     )
 
 
+# A diverging element: a concave lens and a convex mirror alike. Read as
+# converging, a convex mirror's 10 cm object at f = 15 cm was certified 30 cm.
 _DIVERGING_RE = re.compile(
-    r"\bdiverging\b|\bconcave\s+lens\b|\bvirtual\s+image\b|\bnegative\s+focal\b",
+    r"\bdiverging\b|\bconcave\s+lens|\bconvex\s+mirror|\bvirtual\s+image\b|\bnegative\s+focal\b",
     re.IGNORECASE,
 )
 
