@@ -108,7 +108,7 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
     """
     if not prior_user_messages or not _is_fragment(text):
         return None
-    from app.modules.chat import is_lightweight_chat_turn
+    from app.modules.turn_reading.routing import is_lightweight_chat_turn
 
     if is_lightweight_chat_turn(" ".join(text.split())):
         return None

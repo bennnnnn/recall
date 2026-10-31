@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants import is_practice_request
+from app.modules.turn_reading.practice import is_practice_request
 
 
 @pytest.mark.parametrize(

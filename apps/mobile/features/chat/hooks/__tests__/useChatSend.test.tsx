@@ -182,7 +182,7 @@ function Probe({
     streaming,
     sendMessage,
     sendStart,
-    setMessages,
+    editThread: setMessages,
     messages,
     selectedModel: "free-chat",
     updateUser,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants import is_walkthrough_request
+from app.modules.turn_reading.teaching import is_walkthrough_request
 
 
 @pytest.mark.parametrize(

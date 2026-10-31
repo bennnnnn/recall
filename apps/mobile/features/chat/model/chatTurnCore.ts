@@ -8,6 +8,7 @@ import type { TurnUsage } from "@/features/chat/model/socketReduce";
 import type { ChatTurnOutcomeProperties } from "@/features/chat/model/latencyReporter";
 import type { DroppedTurnResult } from "@/features/chat/model/turnReconcile";
 import type { ChatWsFallbackSignal, ChatWsTransport, WsSendFallback } from "@/features/chat/model/wsTransport";
+import type { ThreadEditSource, ThreadUpdate } from "@/features/chat/model/threadEdit";
 
 /**
  * The chat turn as one state machine (code-health audit CLAR-04): a send or regenerate
@@ -81,7 +82,9 @@ export type ChatTurnEvent =
   | { type: "send_failed"; error: unknown; ttftTurnId: string | null }
   | { type: "regenerate_failed"; error?: unknown }
   | { type: "dropped_turn"; follow: DroppedTurnFollow; result: DroppedTurnResult }
-  | { type: "rejected_draft_restored" };
+  | { type: "rejected_draft_restored" }
+  /** Any other change to the thread on screen (threadEdit.ts names every writer). */
+  | { type: "thread_edit"; source: ThreadEditSource; update: ThreadUpdate };
 
 export type ChatTurnCommand =
   | { type: "messages"; update: (previous: Message[]) => Message[] }

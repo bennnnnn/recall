@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat.prompt_constants.coding import has_code_syntax
-from app.modules.chat.prompt_constants.conversation import is_social_opener
+from app.modules.turn_reading.coding import has_code_syntax
+from app.modules.turn_reading.conversation import is_social_opener
 
 # The asker: "I", "my", "me". Not "(i)", a part's label, a book's "we observe", or the
 # "I" of World War I, Charles I or a grammar exercise's example sentence.

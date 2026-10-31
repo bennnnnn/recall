@@ -10,7 +10,7 @@ from typing import Any, cast
 import pytest
 
 from app.modules.chat.emoji_placement import join_split_emoji, place_emoji, place_reply_emoji
-from app.modules.chat.prompt_constants.routing import EMOJI
+from app.modules.turn_reading.routing import EMOJI
 
 # "What are the benefits of drinking water" at "A few", as the model wrote it.
 _LIVE = (

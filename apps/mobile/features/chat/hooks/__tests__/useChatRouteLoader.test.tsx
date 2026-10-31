@@ -98,7 +98,7 @@ function Probe() {
     } as never,
     chatId: null,
     setChatId,
-    setMessages,
+    editThread: setMessages,
     messages: [],
     streaming: false,
     stopGeneration: jest.fn(),
@@ -204,7 +204,7 @@ describe("useChatRouteLoader", () => {
         } as never,
         chatId: "open-1",
         setChatId,
-        setMessages,
+        editThread: setMessages,
         messages: [
           {
             id: "u1",
@@ -239,7 +239,7 @@ describe("useChatRouteLoader", () => {
     expect(stopGeneration).not.toHaveBeenCalled();
     expect(mockHandleFirstReply).toHaveBeenCalled();
     expect(setChatId).toHaveBeenCalledWith(null);
-    expect(setMessages).toHaveBeenCalledWith([]);
+    expect(setMessages).toHaveBeenCalledWith([], "view_cleared");
     expect(setParams).toHaveBeenCalledWith({ chatId: undefined });
   });
 
@@ -264,7 +264,7 @@ describe("useChatRouteLoader", () => {
         } as never,
         chatId: "open-1",
         setChatId,
-        setMessages,
+        editThread: setMessages,
         messages: [
           {
             id: "u1",
@@ -325,7 +325,7 @@ function useRouteProbe(routeId: string, token: string, streaming: boolean) {
     token, routeChatId: routeId, routeHighlightMessage: undefined,
     router: { setParams: jest.fn() } as never,
     draft: routeDraft as never,
-    chatId, setChatId: updateChatId, messages, setMessages: updateMessages,
+    chatId, setChatId: updateChatId, messages, editThread: updateMessages,
     streaming, stopGeneration: jest.fn(), listRef: { current: null },
     showActionBanner: banner, t: translate,
   });

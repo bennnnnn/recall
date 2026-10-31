@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat.prompt_constants.teaching import programming_tag
+from app.modules.turn_reading.teaching import programming_tag
 from app.services.text_normalize import collapse_ws
 
 _DAY_COUNT = re.compile(r"\b(\d{1,3})[\s-]?days?\b", re.IGNORECASE)

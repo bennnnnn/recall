@@ -75,7 +75,7 @@ def is_profile_fact_question(text: str) -> bool:
     asks = _PROFILE_QUESTION_LEAD.match(cleaned) or cleaned.endswith("?")
     if words > _PROFILE_QUESTION_WORDS or (words > _PROFILE_PHRASE_WORDS and not asks):
         return False
-    from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
+    from app.modules.turn_reading.writing_kind import writing_request_kind
 
     if writing_request_kind(cleaned) is not None:
         return False

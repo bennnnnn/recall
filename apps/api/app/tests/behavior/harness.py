@@ -73,6 +73,7 @@ from app.modules.money.block import (
     MONEY_WORKED_RULES,
 )
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
+from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search.detection import needs_web_search
 from app.services.mcp import setup_mcp_adapters
 from app.services.solving import VerifiedPhysicsBlock
@@ -364,7 +365,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         settings,
         prior_user=prior_user,
         prior_model=prior_model,
-        lesson_active=pc.active_lesson_step(rows) is not None,
+        lesson_active=active_lesson_step(rows) is not None,
     )
 
     # "can u show me both" after a shape answer: the intercept lets chemistry draw the

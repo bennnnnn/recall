@@ -15,6 +15,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { shareFailureKey } from "@/lib/shareUnavailable";
 import { useLatestRef } from "@/lib/latestRef";
+import type { EditThread } from "@/features/chat/model/threadEdit";
 
 type Options = {
   token: string | null;
@@ -26,7 +27,7 @@ type Options = {
   archived: boolean;
   setArchived: React.Dispatch<React.SetStateAction<boolean>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  editThread: EditThread;
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 
@@ -40,7 +41,7 @@ export function useChatActions({
   archived,
   setArchived,
   setChatTitle,
-  setMessages,
+  editThread,
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
@@ -67,25 +68,26 @@ export function useChatActions({
   const handleFeedback = useCallback(
     (messageId: string, next: "up" | "down" | null) => {
       let previous: "up" | "down" | null = null;
-      setMessages((prev) =>
-        prev.map((mm) => {
-          if (mm.id !== messageId) return mm;
-          previous = mm.feedback ?? null;
-          return { ...mm, feedback: next };
-        }),
+      editThread(
+        (prev) =>
+          prev.map((mm) => {
+            if (mm.id !== messageId) return mm;
+            previous = mm.feedback ?? null;
+            return { ...mm, feedback: next };
+          }),
+        "feedback",
       );
       if (token && chatId && isServerMessageId(messageId)) {
         void api.setMessageFeedback(token, chatId, messageId, next).catch(() => {
-          setMessages((prev) =>
-            prev.map((mm) =>
-              mm.id === messageId ? { ...mm, feedback: previous } : mm,
-            ),
+          editThread(
+            (prev) => prev.map((mm) => (mm.id === messageId ? { ...mm, feedback: previous } : mm)),
+            "feedback",
           );
           reportRecoverableError(feedback, t("chat.feedback_failed"));
         });
       }
     },
-    [token, chatId, setMessages, feedback, t],
+    [token, chatId, editThread, feedback, t],
   );
 
   const handleSaveEmailDraft = useCallback(
@@ -109,10 +111,9 @@ export function useChatActions({
           subject: draft.subject,
           body: draft.body,
         });
-        setMessages((prev) =>
-          prev.map((mm) =>
-            mm.id === messageId ? { ...mm, content: updated.content } : mm,
-          ),
+        editThread(
+          (prev) => prev.map((mm) => (mm.id === messageId ? { ...mm, content: updated.content } : mm)),
+          "email_draft_saved",
         );
         void patchCachedChatMessage(chatId, messageId, { content: updated.content });
         return true;
@@ -127,7 +128,7 @@ export function useChatActions({
       });
       return saving;
     },
-    [token, chatId, setMessages, feedback, t, messagesRef],
+    [token, chatId, editThread, feedback, t, messagesRef],
   );
 
   /**

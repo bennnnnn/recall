@@ -147,7 +147,7 @@ def _subject_of_text(
     text: str, has_image_attachment: bool, chemistry_enabled: bool
 ) -> SubjectName | None:
     """``detect_subject`` for a line with no image extract: a reading (``core/readings``)."""
-    from app.modules.chat import has_code_syntax
+    from app.modules.turn_reading.coding import has_code_syntax
 
     # Pasted code is not a problem to solve: `for (int i = 1; i <= 3; i++)` is a
     # loop, and `n * 2` inside `nums.map` is not algebra.
@@ -187,11 +187,12 @@ def _subject_of_text(
     if chemistry_enabled and _chemistry_shaped(text):
         return "chemistry"
     if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
-        from app.modules.chat import chart_names_no_curve
+        from app.modules.math.tools.extract import extract_math_intent
+        from app.modules.turn_reading.chart import chart_names_no_curve
 
         # A scatter plot of the user's own numbers is a chart, not an unverified maths
         # turn whose note forbids drawing it ("Here's your scatter plot", and none).
-        return None if chart_names_no_curve(text) else "math"
+        return None if chart_names_no_curve(text, extract_math_intent) else "math"
     if not chemistry_enabled:
         return None
     from app.modules.chemistry.request import is_chemistry_question
@@ -338,9 +339,9 @@ async def _augment_chemistry(
     )
     if not settings.chemistry_enabled:
         return SubjectAugmentation(None, None, None)
-    from app.modules.chat import attach_chemistry_fence_hint
     from app.modules.chemistry.context import build_chemistry_augmentation
     from app.modules.chemistry.reading import chemistry_text_for_solve
+    from app.modules.chemistry.reply_policy import attach_chemistry_fence_hint
 
     block, verified, declined = await build_chemistry_augmentation(
         chemistry_text_for_solve(user_content), settings, redis=redis

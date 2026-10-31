@@ -23,11 +23,10 @@ from app.modules.chat.prompt_constants import (
     PERSONAL_DISCLOSURE_HINT,
     STANDING_PREFERENCE_HINT,
     TEACHING_HINT,
-    is_standing_preference,
-    is_teaching_request,
 )
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.conversation import chats_repository, messages_repository
+from app.modules.turn_reading.teaching import is_standing_preference, is_teaching_request
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 TEACHING_PREFERENCE = (

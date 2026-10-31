@@ -22,7 +22,7 @@ async function setup(initial: Message[] = range(960, 999), more = true) {
     const [messages, setMessages] = useState(initial);
     const [hasMoreOlder, setHasMoreOlder] = useState(more);
     const paging = useChatPaging({
-      token: "token", chatId: "chat-1", chatLoading: false, messages, setMessages, hasMoreOlder, setHasMoreOlder,
+      token: "token", chatId: "chat-1", chatLoading: false, messages, editThread: setMessages, hasMoreOlder, setHasMoreOlder,
       viewRef, activeChatRef, showActionBanner: banner, t: (key) => key,
     });
     return { paging, messages, hasMoreOlder };

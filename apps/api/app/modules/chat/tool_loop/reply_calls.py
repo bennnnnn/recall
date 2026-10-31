@@ -23,15 +23,15 @@ from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
-from app.modules.chat.prompt_constants.coding import has_code_syntax
-from app.modules.chat.prompt_constants.conversation import is_social_opener
-from app.modules.chat.prompt_constants.school_question import has_nothing_to_look_up
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
+from app.modules.turn_reading.coding import has_code_syntax
+from app.modules.turn_reading.conversation import is_social_opener
+from app.modules.turn_reading.school_question import has_nothing_to_look_up
 from app.modules.web_search import TurnTavilyBudget, web_search_skip
 from app.services.time_context import is_remote_time_question
 

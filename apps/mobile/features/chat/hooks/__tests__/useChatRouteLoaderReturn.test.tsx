@@ -43,7 +43,7 @@ function Probe({ route, streaming = false }: { route: string; streaming?: boolea
   const [messages, setMessages] = useState<Message[]>([]);
   useChatRouteLoader({
     token: "token", routeChatId: route, routeHighlightMessage: undefined, router, draft,
-    chatId, setChatId, setMessages, messages, streaming, stopGeneration: jest.fn(),
+    chatId, setChatId, editThread: setMessages, messages, streaming, stopGeneration: jest.fn(),
     listRef: { current: null }, showActionBanner: jest.fn(), t: (key) => key,
   });
   return <Text testID="thread">{messages.map((m) => m.content).join("|")}</Text>;

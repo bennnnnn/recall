@@ -1,7 +1,7 @@
-"""Chat prompt strings and turn classifiers.
+"""Chat prompt copy: the hints, notes and contracts a reply's prompt is built from.
 
-Split by domain (math, format, teaching, …). Import from this package the
-same way as the old ``prompt_constants`` module.
+Split by domain (math, format, teaching, …). What a message says (the readers that
+pick which copy a turn gets) is ``modules/turn_reading`` (structure ticket ST-04).
 """
 
 from app.modules.chat.prompt_constants.capabilities import (
@@ -9,37 +9,24 @@ from app.modules.chat.prompt_constants.capabilities import (
     PHOTO_LOOKUP_HINT,
     SETTINGS_ASK_REMINDER,
     SETTINGS_IN_APP_HINT,
-    is_capabilities_question,
-    names_a_setting,
 )
-from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT, is_chart_question
-from app.modules.chat.prompt_constants.checklist import (
-    CHECKLIST_FORMAT_HINT,
-    is_checklist_request,
-)
+from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT
+from app.modules.chat.prompt_constants.checklist import CHECKLIST_FORMAT_HINT
 from app.modules.chat.prompt_constants.clarify import CLARIFY_CARD_HINT
 from app.modules.chat.prompt_constants.coding import (
     CODE_INK_REMINDER,
     code_question_hint,
-    has_code_syntax,
-    is_programming_turn,
 )
 from app.modules.chat.prompt_constants.conversation import (
     CONTINUE_HINT,
     CORRECTION_HINT,
     REPEATED_GREETING_HINT,
-    greeting_run,
-    is_correction,
-    is_social_opener,
     repeated_greeting_hint,
 )
 from app.modules.chat.prompt_constants.diagrams import (
     DIAGRAM_KIND_HINT,
     MERMAID_FORMAT_HINT,
     SEQUENCE_FORMAT_HINT,
-    is_diagram_kind_question,
-    is_mermaid_question,
-    is_sequence_diagram_question,
     mermaid_format_hint,
 )
 from app.modules.chat.prompt_constants.format import (
@@ -55,12 +42,6 @@ from app.modules.chat.prompt_constants.format import (
     STEPS_FORMAT_HINT,
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
-    is_callout_question,
-    is_comparison_question,
-    is_howto_question,
-    is_quote_question,
-    is_structured_comparison_question,
-    is_task_howto,
 )
 from app.modules.chat.prompt_constants.grounding import (
     FACT_GROUNDING_HINT,
@@ -71,17 +52,9 @@ from app.modules.chat.prompt_constants.length import (
     BREVITY_REQUEST_HINT,
     MIXED_LENGTH_HINT,
     STYLE_HINTS,
-    ReplyLength,
-    is_brevity_request,
-    reply_length,
-)
-from app.modules.chat.prompt_constants.lesson_flow import (
-    active_lesson_step,
-    lesson_step,
-    outline_awaits_pick,
 )
 from app.modules.chat.prompt_constants.math import MATH_FENCE_SAFETY_HINT
-from app.modules.chat.prompt_constants.practice import QUIZ_FORMAT_HINT, is_practice_request
+from app.modules.chat.prompt_constants.practice import QUIZ_FORMAT_HINT
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
@@ -92,26 +65,11 @@ from app.modules.chat.prompt_constants.privacy import (
     PRIVACY_HINT,
     PROFILE_FACT_HINT,
 )
-from app.modules.chat.prompt_constants.profile_ask import (
-    is_profile_fact_question,
-    is_profile_recall_pushback,
-    profile_question_to_answer,
-)
 from app.modules.chat.prompt_constants.routing import (
     CONFIRM_FOLLOW_THROUGH_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     NEW_PROBLEM_HINT,
     PERSONAL_DISCLOSURE_HINT,
-    is_broad_self_question,
-    is_career_personal_question,
-    is_lightweight_chat_turn,
-    is_personal_advice_question,
-    is_personal_disclosure_turn,
-    is_short_confirmation,
-    is_short_reply,
-    needs_rich_context,
-    prior_looks_like_offer,
-    recalls_earlier_conversation,
 )
 from app.modules.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT
 from app.modules.chat.prompt_constants.teaching import (
@@ -119,10 +77,6 @@ from app.modules.chat.prompt_constants.teaching import (
     STANDING_PREFERENCE_HINT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
-    is_learning_plan_request,
-    is_standing_preference,
-    is_teaching_request,
-    is_walkthrough_request,
     programming_lesson_contract,
 )
 from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT
@@ -132,25 +86,15 @@ from app.modules.chat.prompt_constants.visuals import (
     IMAGE_GEN_UNAVAILABLE_HINT,
     VISUALIZATION_HINTS,
     WHERE_IS_PHOTO_HINT,
-    attach_chemistry_fence_hint,
-    where_is_place,
 )
 from app.modules.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
     NON_DRAFT_TURN_HINT,
     WRITING_LINE_HINT,
-    could_continue_draft,
-    draft_followup,
     draft_followup_hint,
     is_bare_writing_line,
     writing_format_hint,
 )
-from app.modules.chat.prompt_constants.writing_kind import (
-    is_email_or_message_request,
-    is_writing_deliverable_request,
-    writing_request_kind,
-)
-from app.modules.chat.prompt_constants.writing_purpose import is_underspecified_writing_request
 
 __all__ = [
     "ADVICE_PERSONALIZE_HINT",
@@ -212,62 +156,12 @@ __all__ = [
     "WEB_SEARCH_OFF_HINT",
     "WHERE_IS_PHOTO_HINT",
     "WRITING_LINE_HINT",
-    "ReplyLength",
-    "active_lesson_step",
-    "attach_chemistry_fence_hint",
     "code_question_hint",
-    "could_continue_draft",
-    "draft_followup",
     "draft_followup_hint",
-    "greeting_run",
-    "has_code_syntax",
     "is_bare_writing_line",
-    "is_brevity_request",
-    "is_broad_self_question",
-    "is_callout_question",
-    "is_capabilities_question",
-    "is_career_personal_question",
-    "is_chart_question",
-    "is_checklist_request",
-    "is_comparison_question",
-    "is_correction",
-    "is_diagram_kind_question",
-    "is_email_or_message_request",
-    "is_howto_question",
-    "is_learning_plan_request",
-    "is_lightweight_chat_turn",
-    "is_mermaid_question",
-    "is_personal_advice_question",
-    "is_personal_disclosure_turn",
-    "is_practice_request",
-    "is_profile_fact_question",
-    "is_profile_recall_pushback",
-    "is_programming_turn",
-    "is_quote_question",
-    "is_sequence_diagram_question",
-    "is_short_confirmation",
-    "is_short_reply",
-    "is_social_opener",
-    "is_standing_preference",
-    "is_structured_comparison_question",
-    "is_task_howto",
-    "is_teaching_request",
-    "is_underspecified_writing_request",
-    "is_walkthrough_request",
-    "is_writing_deliverable_request",
     "learning_plan_daily_contract",
-    "lesson_step",
     "mermaid_format_hint",
-    "names_a_setting",
-    "needs_rich_context",
-    "outline_awaits_pick",
-    "prior_looks_like_offer",
-    "profile_question_to_answer",
     "programming_lesson_contract",
-    "recalls_earlier_conversation",
     "repeated_greeting_hint",
-    "reply_length",
-    "where_is_place",
     "writing_format_hint",
-    "writing_request_kind",
 ]

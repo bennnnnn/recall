@@ -186,6 +186,32 @@ baseline did not move: its cycles are file-level ones inside the subjects and ch
 
 ### ST-04 — `turn_reading`: the text cues out of chat's prompt constants
 
+**Status: done.** `modules/turn_reading/` holds the readers from 25 `prompt_constants` files: seven
+moved whole (`locale_cues`, `stuck`, `profile_ask`, `question_kinds`, `writing_kind`,
+`writing_locales`, `writing_purpose`) and 18 split, the readers out and the copy kept
+(`routing`, `coding`, `chart`, `teaching`, `visuals`, `lesson_flow`, `school_question`, …);
+the personal and advice readers became `personal.py`. Two size exceptions left the baseline
+(`prompt_constants/routing.py` 561 → 31 lines, `teaching.py` 597 → 175).
+It imports only services, so the direction test places it with the leaves (`_LAYER_OF`) and
+a subject may ask it. `chart_names_no_curve` takes maths' reader as an argument (the
+dispatcher passes it) instead of importing maths, and the chemistry fence hint moved to
+`chemistry/reply_policy.py`, beside chemistry's other prompt hints. Chat no longer exports
+any reader. Four upward edges left `_UPWARD`: maths, to-dos, web search and the subject
+dispatcher import no chat. The decision diff over 5,048 corpus turns printed "no decision
+changed". The #2151 cycle baseline did not move: its 50-module cycle lies wholly inside
+maths and has no chat edge.
+
+The leak pass's rules (`prompt_rule_text`) read the moved constants from their new homes, so
+every rule string is the same (162) and so are the 4-grams within each (13,922;
+`test_prompt_rule_text.py` holds both). Only the order the rules are joined in changed, which
+moves 88 of the 14,393 grams that straddle two adjacent rules. Taking the readers' word lists
+out of the leak grams, or not counting grams across rules, is a behaviour change for its own PR.
+
+Left in `prompt_constants`: `shared_numbers.py` (its hint reads the same private regexes as
+its reader; split it with the copy-selection work) and `reactions.clock_is_relevant` (a
+prompt decision that reads `reply_meta`). Still upward: account, images, physics and speech,
+for presentation and the post-turn jobs, not for reading.
+
 - **Problem:** subjects and other modules import chat to read the user's words:
   - `todos/offer_reply.py:56` and `web_search/chat_bound.py:28` take `is_short_confirmation`;
   - `math/followup.py:111` and `speech/live_talk_tools.py:20` take `is_lightweight_chat_turn`;
@@ -304,6 +330,14 @@ baseline did not move: its cycles are file-level ones inside the subjects and ch
   function-size baseline drops.
 - **Conflicts:** #2159 (`features/chat/model/wsTransport.ts`, `sse.ts`, `useChat.test.tsx`).
 - **Risk:** medium (stream edge cases: Stop, regenerate, reconnect). **Size:** L.
+
+**Status: done (thread owner half).** Every other writer of the thread changes it through
+`editThread(update, source)`, a `thread_edit` step of the turn reducer
+(`features/chat/model/threadEdit.ts` names the 15 sources; `useThreadEdits` builds the writer and
+handles a deleted attachment). The picture and live-talk hooks name their own source, so they need
+no import from chat. `lib/__tests__/threadOwner.test.ts` holds that only `useChat` and the
+reducer's command runner touch the setter, and that no other file holds a setter for a list of
+messages. The `ChatScreen` split by concern is still to do: its function is unchanged at 480 lines.
 
 ### ST-09 — Feature code out of `lib/`; fences read only the registry
 

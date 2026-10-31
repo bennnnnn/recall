@@ -43,6 +43,7 @@ import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 import { useLatestRef } from "@/lib/latestRef";
 import { useViewOwner } from "@/lib/viewOwner";
+import type { EditThread } from "@/features/chat/model/threadEdit";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
@@ -55,7 +56,8 @@ type Options = {
   draft: DraftChat;
   chatId: string | null;
   setChatId: React.Dispatch<React.SetStateAction<string | null>>;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  /** Changes the thread on screen; useChat owns it. */
+  editThread: EditThread;
   messages: Message[];
   streaming: boolean;
   /** Latest image-gen in-flight flag — AppState/focus closures must not snapshot it. */
@@ -74,7 +76,7 @@ export function useChatRouteLoader({
   draft,
   chatId,
   setChatId,
-  setMessages,
+  editThread,
   messages,
   streaming,
   imageGeneratingRef,
@@ -137,7 +139,7 @@ export function useChatRouteLoader({
     setPinned(chat.pinned);
     setArchived(Boolean(chat.archived));
   }, []);
-  const paging = useChatPaging({ token, chatId, chatLoading, messages, setMessages, hasMoreOlder, setHasMoreOlder,
+  const paging = useChatPaging({ token, chatId, chatLoading, messages, editThread, hasMoreOlder, setHasMoreOlder,
     viewRef, activeChatRef, showActionBanner, t });
   const { resetPaging, hasMoreNewer } = paging;
   useEffect(() => () => {
@@ -201,7 +203,7 @@ export function useChatRouteLoader({
       setChatTitle(null);
       setPinned(false);
       setArchived(false);
-      setMessages([]);
+      editThread([], "view_cleared");
       setHasMoreOlder(false);
       setChatLoading(false);
       if (routeChatId != null) {
@@ -213,7 +215,7 @@ export function useChatRouteLoader({
       resetPaging,
       routeChatId,
       router,
-      setMessages,
+      editThread,
       setChatId,
     ],
   );
@@ -239,7 +241,7 @@ export function useChatRouteLoader({
         if (stale()) return;
         setChatId(chat.id);
         applyMetadata(revision === getChatMutationRevision(openChatId) ? chat : getCachedChat(openChatId));
-        setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
+        editThread((prev) => mergeLocalAttachmentUris(prev, page.messages), "page_refresh");
         setHasMoreOlder(page.has_more);
         const fetchedAt = Date.now();
         noteChatPageRead(openChatId, fetchedAt);
@@ -248,7 +250,7 @@ export function useChatRouteLoader({
         /* keep existing messages on silent refetch failure */
       }
     },
-    [token, session, owns, activeChatRef, messagesRef, setChatId, setMessages, applyMetadata, turnBusy, hasMoreNewer],
+    [token, session, owns, activeChatRef, messagesRef, setChatId, editThread, applyMetadata, turnBusy, hasMoreNewer],
   );
 
   useEffect(() => {
@@ -346,7 +348,7 @@ export function useChatRouteLoader({
           setChatTitle(null);
           setPinned(false);
           setArchived(false);
-          setMessages([]);
+          editThread([], "view_cleared");
           setHasMoreOlder(false);
         }
         return;
@@ -362,7 +364,7 @@ export function useChatRouteLoader({
       }
       const showCachedPage = (cached: CachedChatPage | null, listed = getCachedChat(openChatId)) => {
         setChatId(openChatId);
-        setMessages((prev) => paintCachedThread(prev, cached?.messages ?? []));
+        editThread((prev) => paintCachedThread(prev, cached?.messages ?? []), "cached_paint");
         setChatTitle(null);
         setPinned(false);
         setArchived(false);
@@ -408,7 +410,7 @@ export function useChatRouteLoader({
         applyMetadata(currentChat);
         // A turn that went out before the page may be in it: merge once nothing of it is on screen, else reread later.
         if (read.release() || !addedSincePaint(messagesRef.current, page.messages, painted)) {
-          setMessages((prev) => mergeOpenedPage(prev, page.messages, painted));
+          editThread((prev) => mergeOpenedPage(prev, page.messages, painted), "opened_page");
           setHasMoreOlder(page.has_more);
           const fetchedAt = Date.now();
           noteChatPageRead(openChatId, fetchedAt);

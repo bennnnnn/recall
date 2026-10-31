@@ -327,8 +327,8 @@ def test_one_sentence_skips_chart_and_compare_layout():
         CHART_FORMAT_HINT,
         COMPACT_RESPONSE_FORMAT_HINT,
         COMPARISON_FORMAT_HINT,
-        is_brevity_request,
     )
+    from app.modules.turn_reading.length import is_brevity_request
 
     query = "In one sentence, make a bar chart of monthly rainfall"
     assert is_brevity_request(query)
@@ -354,7 +354,8 @@ def test_one_sentence_skips_chart_and_compare_layout():
 
 
 def test_shorter_preserves_fact_guardrail():
-    from app.modules.chat.prompt_constants import BREVITY_REQUEST_HINT, is_brevity_request
+    from app.modules.chat.prompt_constants import BREVITY_REQUEST_HINT
+    from app.modules.turn_reading.length import is_brevity_request
 
     assert is_brevity_request("Shorter.")
     assert "never drop or blur factual details" in BREVITY_REQUEST_HINT
@@ -362,11 +363,8 @@ def test_shorter_preserves_fact_guardrail():
 
 
 def test_sequence_diagram_uses_sequence_hint_not_flowchart():
-    from app.modules.chat.prompt_constants import (
-        MERMAID_FORMAT_HINT,
-        SEQUENCE_FORMAT_HINT,
-        is_sequence_diagram_question,
-    )
+    from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT, SEQUENCE_FORMAT_HINT
+    from app.modules.turn_reading.diagrams import is_sequence_diagram_question
 
     query = "sequence diagram of HTTP request"
     assert is_sequence_diagram_question(query)
@@ -387,8 +385,8 @@ def test_casual_tea_vs_coffee_skips_code_card_compare():
     from app.modules.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,
         COMPARISON_FORMAT_HINT,
-        is_structured_comparison_question,
     )
+    from app.modules.turn_reading.format import is_structured_comparison_question
 
     query = "tea versus coffee"
     assert is_structured_comparison_question(query) is False

@@ -40,7 +40,7 @@ function Probe({ chatId = "chat-1", token = "token", pinned = false, archived = 
 }) {
   const value = useChatActions({
     token, chatId, chatTitle: "Old title", messages: [], pinned, archived,
-    setPinned, setArchived, setChatTitle, setMessages: jest.fn(), t: (key) => key,
+    setPinned, setArchived, setChatTitle, editThread: jest.fn(), t: (key) => key,
   });
   React.useLayoutEffect(() => { actions = value; });
   return <Text>Actions</Text>;

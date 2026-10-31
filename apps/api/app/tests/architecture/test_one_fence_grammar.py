@@ -24,14 +24,14 @@ _ALLOWED = {
     "gateways/model_output.py": (
         "a whole model reply wrapped in one ```json fence, read before any markdown scan"
     ),
-    "modules/chat/prompt_constants/coding.py": (
+    "modules/turn_reading/coding.py": (
         "the user's message: a closer glued to the last code line still ends the code, "
         "so the question after it is read"
     ),
-    "modules/chat/prompt_constants/chart.py": _USER_CUE,
-    "modules/chat/prompt_constants/diagrams.py": _USER_CUE,
-    "modules/chat/prompt_constants/teaching.py": _USER_CUE,
-    "modules/chat/prompt_constants/visuals.py": _USER_CUE,
+    "modules/turn_reading/chart.py": _USER_CUE,
+    "modules/turn_reading/diagrams.py": _USER_CUE,
+    "modules/turn_reading/teaching.py": _USER_CUE,
+    "modules/turn_reading/visuals.py": _USER_CUE,
     "modules/web_search/patterns.py": _USER_CUE,
     "modules/chat/model_routing/route.py": (
         "the user's message: a ``` opening a line is code, ```print(1)``` on one line too"

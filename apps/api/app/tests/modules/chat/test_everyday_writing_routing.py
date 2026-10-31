@@ -14,10 +14,7 @@ from app.modules.chat.prompt_constants import (
     FORMAT_CONTRACT,
     NON_DRAFT_TURN_HINT,
     WRITING_LINE_HINT,
-    draft_followup,
     draft_followup_hint,
-    is_underspecified_writing_request,
-    writing_request_kind,
 )
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
@@ -28,6 +25,9 @@ from app.modules.chat.prompt_constants.writing import (
     TRANSLATION_FORMAT_HINT,
 )
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.turn_reading.writing import draft_followup
+from app.modules.turn_reading.writing_kind import writing_request_kind
+from app.modules.turn_reading.writing_purpose import is_underspecified_writing_request
 
 _TEXT_DRAFT = "```message\nHi Sam, I'm running about 15 minutes late. Sorry!\n```"
 _EMAIL_DRAFT = "```email\nSubject: Sick day\n\nHi Maria,\n\nI'm taking a sick day today.\n```"
@@ -356,7 +356,7 @@ def test_drafts_are_signed_with_the_users_name_never_a_placeholder() -> None:
     ],
 )
 def test_profile_fact_question_is_a_short_ask(text: str, asks: bool) -> None:
-    from app.modules.chat.prompt_constants.profile_ask import is_profile_fact_question
+    from app.modules.turn_reading.profile_ask import is_profile_fact_question
 
     assert is_profile_fact_question(text) is asks
 

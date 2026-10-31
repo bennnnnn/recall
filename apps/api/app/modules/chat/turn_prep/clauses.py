@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass
 from enum import IntEnum
 
-from app.modules.chat.prompt_constants.coding import has_code_syntax
+from app.modules.turn_reading.coding import has_code_syntax
 from app.services.text_normalize import collapse_ws
 
 

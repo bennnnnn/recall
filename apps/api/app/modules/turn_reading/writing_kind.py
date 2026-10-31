@@ -6,7 +6,7 @@ only to decide whether a draft should load profile context.
 
 import re
 
-from app.modules.chat.prompt_constants.writing_locales import locale_draft_kind
+from app.modules.turn_reading.writing_locales import locale_draft_kind
 from app.services.text_normalize import collapse_ws
 
 # The words that name what an email or message is for may stand between the

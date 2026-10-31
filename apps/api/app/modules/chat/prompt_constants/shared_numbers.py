@@ -20,8 +20,8 @@ import logging
 import re
 from dataclasses import dataclass
 
-from app.modules.chat.prompt_constants.routing import is_personal_disclosure_turn
-from app.modules.chat.prompt_constants.teaching import is_standing_preference
+from app.modules.turn_reading.personal import is_personal_disclosure_turn
+from app.modules.turn_reading.teaching import is_standing_preference
 
 logger = logging.getLogger(__name__)
 

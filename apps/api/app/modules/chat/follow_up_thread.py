@@ -25,7 +25,7 @@ from app.modules.chat.continuation_subject import (
 )
 from app.modules.chat.follow_up_ground import works_the_problem
 from app.modules.chat.follow_up_words import topic_words
-from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
+from app.modules.turn_reading.routing import is_lightweight_chat_turn
 from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws, straighten_apostrophes

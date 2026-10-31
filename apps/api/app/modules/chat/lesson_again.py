@@ -19,12 +19,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.modules.chat.prompt_constants.lesson_flow import (
-    active_lesson_step,
-    lesson_after_gap,
-    lesson_titles,
-)
-from app.modules.chat.prompt_constants.teaching import is_teaching_request
+from app.modules.turn_reading.lesson_flow import active_lesson_step, lesson_after_gap, lesson_titles
+from app.modules.turn_reading.teaching import is_teaching_request
 from app.services.md_fence_scan import iter_fences
 from app.services.text_normalize import straighten_apostrophes
 

@@ -10,19 +10,16 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants import (
-    NON_DRAFT_TURN_HINT,
-    draft_followup,
-    draft_followup_hint,
-    is_underspecified_writing_request,
-    writing_request_kind,
-)
+from app.modules.chat.prompt_constants import NON_DRAFT_TURN_HINT, draft_followup_hint
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
     SOCIAL_DRAFT_HINT,
 )
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.turn_reading.writing import draft_followup
+from app.modules.turn_reading.writing_kind import writing_request_kind
+from app.modules.turn_reading.writing_purpose import is_underspecified_writing_request
 
 
 def _hints(text: str, prior: list[tuple[str, str]] | None = None) -> list[str]:

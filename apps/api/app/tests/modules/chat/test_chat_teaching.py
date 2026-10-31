@@ -17,18 +17,19 @@ from app.modules.chat.prompt_constants import (
     STEPS_FORMAT_HINT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
-    active_lesson_step,
-    is_learning_plan_request,
-    is_lightweight_chat_turn,
-    is_teaching_request,
     learning_plan_daily_contract,
-    lesson_step,
-    outline_awaits_pick,
     programming_lesson_contract,
 )
 from app.modules.chat.prompt_constants.lesson_flow import OUTLINE_PICK_HINT, lesson_continue_hint
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.conversation import chats_repository, messages_repository
+from app.modules.turn_reading.lesson_flow import (
+    active_lesson_step,
+    lesson_step,
+    outline_awaits_pick,
+)
+from app.modules.turn_reading.routing import is_lightweight_chat_turn
+from app.modules.turn_reading.teaching import is_learning_plan_request, is_teaching_request
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 LESSON_ONE = (

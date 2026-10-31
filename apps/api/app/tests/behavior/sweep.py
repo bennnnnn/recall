@@ -49,7 +49,6 @@ from app.models.orm import User
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.chart_sanitize import chart_is_drawable
 from app.modules.chat.finalize_passes import enrich_final_content
-from app.modules.chat.prompt_constants.routing import EMOJI
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -57,6 +56,7 @@ from app.modules.conversation import messages_repository
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import NEED_A_TIME
+from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case

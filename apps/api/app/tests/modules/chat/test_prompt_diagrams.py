@@ -8,9 +8,9 @@ from app.modules.chat.prompt_constants import (
     DIAGRAM_KIND_HINT,
     MERMAID_FORMAT_HINT,
     SEQUENCE_FORMAT_HINT,
-    is_chart_question,
     mermaid_format_hint,
 )
+from app.modules.turn_reading.chart import is_chart_question
 
 
 @pytest.mark.parametrize(

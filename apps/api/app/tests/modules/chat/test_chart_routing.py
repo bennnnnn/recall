@@ -10,8 +10,10 @@ from __future__ import annotations
 import pytest
 
 from app.modules.chat.prompt_constants import CHART_FORMAT_HINT
-from app.modules.chat.prompt_constants.chart import CHART_SHAPES, chart_names_no_curve
+from app.modules.chat.prompt_constants.chart import CHART_SHAPES
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.math.tools.extract import extract_math_intent
+from app.modules.turn_reading.chart import chart_names_no_curve
 from app.services.subject_solving import detect_subject
 
 DATA_CHARTS = (
@@ -42,7 +44,7 @@ CURVES = (
 
 @pytest.mark.parametrize("text", DATA_CHARTS)
 def test_a_chart_of_data_is_not_maths_and_gets_the_chart_contract(text: str) -> None:
-    assert chart_names_no_curve(text)
+    assert chart_names_no_curve(text, extract_math_intent)
     assert detect_subject(text) is None
     hints = _style_format_hints(query_text=text, is_day_plan=False, minimal_personal_context=False)
     assert CHART_FORMAT_HINT in hints
@@ -50,14 +52,14 @@ def test_a_chart_of_data_is_not_maths_and_gets_the_chart_contract(text: str) -> 
 
 @pytest.mark.parametrize("text", NOT_CHARTS)
 def test_box_plot_words_that_ask_for_no_chart_get_no_contract(text: str) -> None:
-    assert not chart_names_no_curve(text)
+    assert not chart_names_no_curve(text, extract_math_intent)
     hints = _style_format_hints(query_text=text, is_day_plan=False, minimal_personal_context=False)
     assert CHART_FORMAT_HINT not in hints
 
 
 @pytest.mark.parametrize("text", CURVES)
 def test_a_curve_stays_maths(text: str) -> None:
-    assert not chart_names_no_curve(text)
+    assert not chart_names_no_curve(text, extract_math_intent)
     assert detect_subject(text) == "math"
 
 

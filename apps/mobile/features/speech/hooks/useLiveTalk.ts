@@ -3,7 +3,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type Dispatch,
   type MutableRefObject,
   type SetStateAction,
 } from "react";
@@ -43,7 +42,8 @@ type Options = {
   chatId: string | null;
   /** The open chat's id, or a new chat made the open one; null when none could be made. */
   ensureChatId: () => Promise<string | null>;
-  setMessages: Dispatch<SetStateAction<Message[]>>;
+  /** Changes the thread on screen, which the chat owns: live talk's turns, named "live_talk". */
+  editThread: (update: SetStateAction<Message[]>, source: "live_talk") => void;
   isOffline: boolean;
   onUpgrade: () => void;
   onScrollToLatest: () => void;
@@ -79,7 +79,7 @@ export function useLiveTalk({
   token,
   chatId,
   ensureChatId,
-  setMessages,
+  editThread,
   isOffline,
   onUpgrade,
   onScrollToLatest,
@@ -136,9 +136,9 @@ export function useLiveTalk({
   const applyEvent = useCallback(
     (event: LiveTalkSpeakEvent, turnId = turnIdRef.current) => {
       if (!turnId) return;
-      setMessages((prev) => applyLiveTalkChatEvent(prev, turnId, event));
+      editThread((prev) => applyLiveTalkChatEvent(prev, turnId, event), "live_talk");
     },
-    [setMessages],
+    [editThread],
   );
 
   const captureCurrentTurn = useCallback((): CompletedTurn | null => {

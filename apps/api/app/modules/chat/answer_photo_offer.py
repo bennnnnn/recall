@@ -10,19 +10,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.modules.chat.continuation_subject import works_on_last_reply
-from app.modules.chat.prompt_constants import (
-    is_bare_writing_line,
-    is_lightweight_chat_turn,
-    is_programming_turn,
-    is_social_opener,
-)
-from app.modules.chat.prompt_constants.answer_subject import asked_about_subject, subject_photo_hint
-from app.modules.chat.prompt_constants.school_question import is_school_exercise
-from app.modules.chat.prompt_constants.visuals import (
-    ANSWER_PHOTO_HINT,
-    WHERE_IS_PHOTO_HINT,
-    where_is_place,
-)
+from app.modules.chat.prompt_constants import is_bare_writing_line
+from app.modules.chat.prompt_constants.answer_subject import subject_photo_hint
+from app.modules.chat.prompt_constants.visuals import ANSWER_PHOTO_HINT, WHERE_IS_PHOTO_HINT
+from app.modules.turn_reading.answer_subject import asked_about_subject
+from app.modules.turn_reading.coding import is_programming_turn
+from app.modules.turn_reading.conversation import is_social_opener
+from app.modules.turn_reading.routing import is_lightweight_chat_turn
+from app.modules.turn_reading.school_question import is_school_exercise
+from app.modules.turn_reading.visuals import where_is_place
 
 if TYPE_CHECKING:
     from app.modules.chat.prompt_format import StyleTurn
