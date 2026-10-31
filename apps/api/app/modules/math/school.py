@@ -301,8 +301,18 @@ def evaluate_trig_degrees(func: str, degrees: float) -> str:
 
 
 def coord_distance(x1: float, y1: float, x2: float, y2: float) -> str:
-    d = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-    return f"{d:g}"
+    """``5``, or ``2 \\sqrt{2} \\approx 2.828``: a root shown to places is said to be one."""
+    from sympy import latex, nsimplify, sqrt
+
+    d = sqrt((nsimplify(x2) - nsimplify(x1)) ** 2 + (nsimplify(y2) - nsimplify(y1)) ** 2)
+    if d.is_Rational:
+        return _plain_number(float(d))
+    return rf"{latex(d)} \approx {float(d):.4g}"
+
+
+def _plain_number(value: float) -> str:
+    """A terminating value as written, never in e-notation."""
+    return f"{value:.6f}".rstrip("0").rstrip(".") or "0"
 
 
 def coord_midpoint(x1: float, y1: float, x2: float, y2: float) -> str:
@@ -312,7 +322,11 @@ def coord_midpoint(x1: float, y1: float, x2: float, y2: float) -> str:
 def coord_slope(x1: float, y1: float, x2: float, y2: float) -> str:
     if x2 == x1:
         return r"\text{undefined}"
-    return f"{(y2 - y1) / (x2 - x1):g}"
+    from sympy import latex, nsimplify
+
+    # 1/3 is \frac{1}{3}, not a rounded 0.333333.
+    slope = (nsimplify(y2) - nsimplify(y1)) / (nsimplify(x2) - nsimplify(x1))
+    return str(latex(slope))
 
 
 def vector_magnitude(vec: list[float]) -> str:

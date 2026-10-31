@@ -54,6 +54,10 @@ PROMPTS: dict[str, str] = {
     "triangle_vertices": "area of a triangle with vertices (0, 0), (4, 0) and (0, 3)",
     "perpendicular_gradient": "gradient of a line perpendicular to y = 2x + 1",
     "perpendicular_bisector": "equation of the perpendicular bisector of (1, 2) and (5, 6)",
+    "reflection_line": (
+        "In a reflection, the image of the point P(3, 10) is P'(7, 2). "
+        "Find the equation of the line of reflection."
+    ),
     "sine_rule": "in triangle ABC, A = 40 degrees, B = 60 degrees, a = 10, find b",
     "right_angle_from_sides": (
         "in a right triangle the opposite side is 5 and the hypotenuse is 10, find the angle"
