@@ -92,3 +92,25 @@ def test_working_note_is_none_when_the_working_adds_up() -> None:
 )
 def test_is_worked_solution(reply: str, worked: bool) -> None:
     assert is_worked_solution(reply) is worked
+
+
+# A Grade 10 long-jump answer (2026-10-30): t = 3.5/9.8 = 0.36 s, then 2 x 0.36 = 0.71 s
+# with the unrounded 0.357 carried. Flagged "0.72, not 0.71", it told a student a right
+# answer was broken.
+def test_a_line_built_on_a_rounded_result_carries_its_rounding() -> None:
+    reply = "$t = \\frac{3.5}{9.8}$\n$t = 0.36\\ \\text{s}$\n\n$t_{flight} = 2 \\times 0.36 = 0.71$"
+    assert wrong_steps(reply) == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A given is exact as written: only an earlier result is rounded.
+        "$3.2 \\times 4.5 = 14.8$",
+        # The earlier result's rounding is not enough to reach a real slip.
+        "$t = 0.36$\n$2 \\times 0.36 = 0.75$",
+        "$x = 4.5$\n$3.2 \\times 4.5 = 14.8$",
+    ],
+)
+def test_a_slip_beyond_the_carried_rounding_is_still_one(reply: str) -> None:
+    assert wrong_steps(reply)

@@ -233,6 +233,30 @@ def _prefix_shift(value: float, shown: float) -> bool:
     )
 
 
+# A decimal the working wrote, rounded as shown: 0.36 stands for anything in 0.355-0.365.
+_DECIMAL = re.compile(r"(?<![\d.])\d+\.(\d+)(?:e([-+]?\d+))?")
+
+
+def _carried_rounding(left: str, value: float, results: set[str]) -> float:
+    """How far the left side can move when each earlier result on it is off by half its
+    last place.
+
+    A line built on a rounded result carries that rounding: "2 * 0.36 = 0.71" is right when
+    0.36 was 0.357, and was flagged "0.72, not 0.71" (2026-10-30, a long-jump answer). A
+    given is exact as written: "3.2 * 4.5 = 14.8" is still a slip."""
+    carried = 0.0
+    for match in _DECIMAL.finditer(left):
+        if match.group(0) not in results:
+            continue
+        power = int(match.group(2) or 0)
+        half = 0.5 * 10.0 ** (power - len(match.group(1)))
+        number = float(match.group(0))
+        moved = _evaluate(f"{left[: match.start()]}({number + half!r}){left[match.end() :]}")
+        if moved is not None:
+            carried += abs(moved - value)
+    return carried
+
+
 def _is_wrong(value: float, shown: float, rounding: float, approximate: bool) -> bool:
     if _prefix_shift(value, shown):
         return False
@@ -244,6 +268,8 @@ def _is_wrong(value: float, shown: float, rounding: float, approximate: bool) ->
 def wrong_steps(reply: str) -> list[WrongStep]:
     """The steps in ``reply`` whose arithmetic does not hold, in reading order."""
     found: list[WrongStep] = []
+    # Every number the working has shown as a result so far ("t = 0.36"): rounded.
+    results: set[str] = set()
     prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
     for match in _INLINE_MATH.finditer(prose):
         segment = match.group(1)
@@ -252,6 +278,8 @@ def wrong_steps(reply: str) -> list[WrongStep]:
         for index in range(len(parts) - 1):
             left_tex, right_tex = parts[index].strip(), parts[index + 1].strip()
             left, right = _plain(left_tex), _plain(right_tex)
+            if right is not None and _shown_number(right) is not None:
+                results.add(right)
             if left is None or right is None or left == right:
                 continue
             # Arithmetic only: "7200 m = 7.2 km" restates a value in another unit.
@@ -263,7 +291,8 @@ def wrong_steps(reply: str) -> list[WrongStep]:
             if shown is None or value is None:
                 continue
             approximate = relations[index] != "="
-            if _is_wrong(value, shown[0], shown[1], approximate):
+            rounding = shown[1] + _carried_rounding(left, value, results - {right})
+            if _is_wrong(value, shown[0], rounding, approximate):
                 found.append(WrongStep(left_tex, right_tex, value))
     return found
 
