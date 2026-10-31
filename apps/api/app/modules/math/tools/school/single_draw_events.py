@@ -278,14 +278,21 @@ def card_event(text: str) -> DrawEvent | None:
     return DrawEvent(favourable, 52, "cards", negated, cards=codes)
 
 
-_BOTH = re.compile(r"\s+(?:that|which)\s+is\s+(?:also\s+)?", re.IGNORECASE)
+# What joins the two kinds of one card ("a black card that is a king"), read as words: no
+# pattern scans a run of spaces.
+_JOINS = (["that", "is"], ["which", "is"], ["that", "is", "also"], ["which", "is", "also"])
+
+
+def _joins_both(between: str) -> bool:
+    edged = between[:1].isspace() and between[-1:].isspace()
+    return edged and between.lower().split() in _JOINS
 
 
 def _both_kinds(question: str, events: list[re.Match[str]]) -> DrawEvent | None:
     """ "A black card that is a king": one card of both kinds, the black kings."""
     if len(events) != 2 or any(event.group(1) for event in events):
         return None
-    if _BOTH.fullmatch(question, events[0].end(), events[1].start()) is None:
+    if not _joins_both(question[events[0].end() : events[1].start()]):
         return None
     parts = [
         [part for part in _CARD_PART.finditer(event.group(2)) if any(part.groups()[1:])]
