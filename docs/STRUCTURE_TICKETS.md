@@ -72,6 +72,20 @@ Each ticket's PR runs these before and after and shows the diff is empty:
 
 ### ST-00 — The decision diff: one trace per sweep turn, compared before and after
 
+**Status: done.** Run it on main and on the change, then compare:
+
+```
+cd apps/api
+uv run python -m app.tests.behavior.decisions dump /tmp/before.json   # on main
+uv run python -m app.tests.behavior.decisions dump /tmp/after.json    # on the change
+uv run python -m app.tests.behavior.decisions diff /tmp/before.json /tmp/after.json
+```
+
+A dump covers 5,048 turns (battery 292, sweep 3,060, chemistry 320, maths 543, physics 833) in
+about two minutes; `diff` prints "no decision changed" or the changed turns grouped by field, and
+exits 1. `--corpus` and `--only` narrow a dump. Two dumps of one commit are identical
+(`tests/behavior/test_decisions.py`).
+
 - **Problem:** the behaviour harness (`tests/behavior/harness.py:329` `route_case`) runs a turn
   "the way `stream_entry` runs it" without calling `stream_entry`, so no `turn_trace` is begun or
   emitted. The STEM sweep and battery check outcomes (a card, a route), not the decisions behind

@@ -300,6 +300,13 @@ honest). An entry with a `gap` is a strict expected failure until the fix delete
 `shared` names the peer subject that owns a law both use (gases, Q = mcΔT and half-lives are
 physics'). `uv run python -m app.tests.behavior.stem_sweep math --show`.
 
+**Decision diff:** what each battery, behaviour-sweep and STEM turn decided, as its `turn_trace`
+record holds it (route reason, plan, prompt rules, tools, the checked subject and its operation,
+the money product, the finalize passes that changed the text), timings dropped.
+`uv run python -m app.tests.behavior.decisions dump before.json` on main and `… dump after.json`
+on a change, then `… diff before.json after.json`: a change meant to alter no behaviour
+(docs/STRUCTURE_TICKETS.md) shows "no decision changed". About two minutes for ~5,000 turns.
+
 **LaTeX on screen:** no reply may show LaTeX source. `docs/fixtures/latex_commands.json` lists every
 command the phone draws (inline by its native renderer, display maths by MathJax);
 `apps/mobile/lib/math/__tests__/latexCoverage.test.ts` writes it and renders every entry both ways
