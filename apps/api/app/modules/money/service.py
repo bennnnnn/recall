@@ -42,6 +42,7 @@ from app.modules.money.rates import MarketRate, current_average
 from app.modules.money.read import MoneyRequest, read_money_request
 from app.modules.money.solve import Worked, rate_name, work
 from app.modules.money.standing import COMMON_TERMS, about_the_loan, figures
+from app.modules.money.worked_problem import is_worked_problem
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,8 @@ async def prepare_money_turn(
         average = await _average(request, lookup, stand_in, _PROMPT_WAIT_SECONDS)
     worked = None if request.rates_only else work(request, average.value if average else None)
     shown = card_values(last_reply).get(rate_name(product)) if request.changed else None
-    block = money_block(request, worked, average, shown_rate=shown)
+    lesson = not request.changed and is_worked_problem(text)
+    block = money_block(request, worked, average, shown_rate=shown, worked_problem=lesson)
     return MoneyTurn(request, worked, block, average, lookup, stand_in)
 
 

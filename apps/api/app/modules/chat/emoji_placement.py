@@ -11,7 +11,9 @@ here:
 - ``more``: as written.
 
 A worked maths, physics or chemistry solution (Given, Find, Substitution, Answer…) has
-none at any setting: the prompt says so, and at "Lots" its headings still got them.
+none at any setting: the prompt says so, and at "Lots" its headings still got them. Nor
+does any answer to a school exercise, or a turn a subject's solver read: at "Lots" a
+textbook's answers ended "**D. Milk** … 💧" and "**Birr 1,551.67**. 💰" (2026-10-31).
 
 Fences (code, cards, the clarify card's options), inline code and table rows are never
 touched, nor is a lesson (its 🐍 and 🎉 are the lesson's own) or server text.
@@ -25,6 +27,7 @@ from typing import TYPE_CHECKING
 
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.prompt_constants.routing import EMOJI
+from app.modules.chat.prompt_constants.school_question import is_school_exercise
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
 from app.services.md_fence_scan import line_fences
 
@@ -189,12 +192,15 @@ def _is_worked_solution(text: str) -> bool:
     return len(names) >= 2 and bool(names & {"given", "formula", "substitution"})
 
 
-def place_emoji(text: str, level: str | None, *, user_wrote_emoji: bool) -> str:
-    """``text`` with its emoji where ``level`` puts them; a worked solution has none."""
+def place_emoji(
+    text: str, level: str | None, *, user_wrote_emoji: bool, homework: bool = False
+) -> str:
+    """``text`` with its emoji where ``level`` puts them; a worked solution, or any reply
+    to ``homework``, has none."""
     level = level if level in {"off", "some", "more"} else DEFAULT_EMOJI_USE
     if not EMOJI.search(text) or (_LESSON.search(text) and level != "off"):
         return text
-    if _is_worked_solution(text):
+    if homework or _is_worked_solution(text):
         level, user_wrote_emoji = "off", False
     if level == "more" or (level == "off" and user_wrote_emoji):
         return text
@@ -242,5 +248,13 @@ def place_reply_emoji(state: FinalizeState) -> str:
     text = join_split_emoji(state.text)
     if state.ctx.user is None:
         return text
-    user_wrote_emoji = EMOJI.search(state.ctx.user_message_content or "") is not None
-    return place_emoji(text, state.ctx.user.emoji_use, user_wrote_emoji=user_wrote_emoji)
+    asked = state.ctx.user_message_content or ""
+    user_wrote_emoji = EMOJI.search(asked) is not None
+    homework = (
+        state.ctx.verified_subject is not None
+        or state.ctx.unverified_subject is not None
+        or is_school_exercise(asked)
+    )
+    return place_emoji(
+        text, state.ctx.user.emoji_use, user_wrote_emoji=user_wrote_emoji, homework=homework
+    )

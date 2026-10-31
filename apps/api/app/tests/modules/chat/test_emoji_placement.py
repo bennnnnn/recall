@@ -79,9 +79,18 @@ def test_what_a_few_leaves_alone(text: str) -> None:
     assert place_emoji(text, "some", user_wrote_emoji=False) == text
 
 
-def _state(text: str, level: str | None, *, said: str = "hi", server: bool = False) -> Any:
+def _state(
+    text: str,
+    level: str | None,
+    *,
+    said: str = "hi",
+    server: bool = False,
+    subject: str | None = None,
+) -> Any:
     user = SimpleNamespace(emoji_use=level) if level else None
-    ctx = SimpleNamespace(user=user, user_message_content=said)
+    ctx = SimpleNamespace(
+        user=user, user_message_content=said, verified_subject=None, unverified_subject=subject
+    )
     return cast(Any, SimpleNamespace(text=text, ctx=ctx, server_text=server))
 
 
@@ -92,6 +101,28 @@ def test_the_pass_reads_the_users_setting_and_message() -> None:
     # Server text, or no user to read a setting from, is left as it is.
     assert place_reply_emoji(_state(line, "off", server=True)) == line
     assert place_reply_emoji(_state(line, None)) == line
+
+
+# A textbook's answers at "Lots" (2026-10-31): homework has no emoji at any setting.
+_EXERCISE = "Which of the following is a mixture?\nA. Water\nB. Salt\nC. Sugar\nD. Milk"
+
+
+@pytest.mark.parametrize(
+    ("reply", "said", "subject", "kept"),
+    [
+        ("**D. Milk** — a mixture of water and fats. 💧", _EXERCISE, None,
+         "**D. Milk** — a mixture of water and fats."),
+        ("The interest is **Birr 1,551.67**. 💰", "Ato Alula deposited Birr 3,000 …", "math",
+         "The interest is **Birr 1,551.67**."),
+        # Anyone's own chat at "Lots" keeps them.
+        ("Have a great trip! 🌍✈️", "any tips for my trip to Rome?", None,
+         "Have a great trip! 🌍✈️"),
+    ],
+)  # fmt: skip
+def test_homework_has_no_emoji_at_any_setting(
+    reply: str, said: str, subject: str | None, kept: str
+) -> None:
+    assert place_reply_emoji(_state(reply, "more", said=said, subject=subject)) == kept
 
 
 # Every case the phone's twin (features/chat/model/emojiPlacement.ts) reads too: the

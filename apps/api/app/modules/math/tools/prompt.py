@@ -53,6 +53,15 @@ NOTHING_TO_GRAPH = (
     "of points, no Mermaid diagram, and no ```graph fence."
 )
 
+# The server's reader missed the expression; the question is still the user's to answer.
+UNREAD_EVALUATION_NOTE = (
+    "The app's solver could not read the expression to evaluate, so nothing here is "
+    "verified. Answer the whole question yourself, working it in full; ask the user to "
+    "rewrite it only if you cannot tell what expression they mean. Never answer only the "
+    "given assignment, and do not claim a verified result.\n\n"
+    f"{MATH_REPLY_POLICY}"
+)
+
 VERIFIED_MATH_REPLY_HINT = (
     "Reply guidance for this request: The solver working above is supporting data, "
     "not a request to explain every step. "
@@ -256,16 +265,9 @@ def read_math_request(
         # an evaluation request, but could not parse the requested expression.
         # Do not let a word-problem or LLM fallback certify only the easy
         # binding (for example x=-5) while silently dropping malformed x^2.
-        return MathReading(
-            user_content,
-            note=(
-                "The assignment was readable, but the expression to evaluate was not. "
-                "Ask the user to rewrite the expression; do not solve only the given "
-                "assignment or claim a verified result.\n\n"
-                f"{MATH_REPLY_POLICY}"
-            ),
-            answered=True,
-        )
+        # The parser's miss is not the user's: "Express z = 1 - i√3 in polar form
+        # and evaluate z^10" was answered "Could you rewrite it?" (2026-10-31).
+        return MathReading(user_content, note=UNREAD_EVALUATION_NOTE, answered=True)
     if bare_answer(user_content):
         return MathReading(user_content, note=BARE_ANSWER_NOTE, answered=True)
     return MathReading(user_content)
