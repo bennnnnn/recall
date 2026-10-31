@@ -181,63 +181,54 @@ live turns in the per-turn `turn_trace` line, op ids only.
   it on its own questions for two weeks, and the STEM snapshot (`stem_snapshot.json`)
   holds every answered entry.
 
-## Results (2026-10-31)
+## Results (2026-10-31, second round)
 
-`reader_eval run` on the whole STEM corpus in English and a 40-per-subject sample translated
-into Amharic, Spanish, French, Arabic and Hindi (595 kept: every number survived), each call
-allowed 5 s (10 of about 4,400 calls timed out). Reach is cards on questions that have a
-worked answer; wrong is cards whose value is not the worked answer, or any card on a
-question that should get none.
+`reader_eval run --timeout 3.5 --books <Ethiopian sets>` after the checks above. Reach is
+cards on questions that have a worked answer; wrong is cards whose value is not the worked
+answer, or any card on a question that should get none. Rows apart from the corpus the
+patterns were built on: the physics `holdout.json`, and the Ethiopian Ministry of Education
+textbook questions whose book answer is one value (46 of 429; the 383 others are prose,
+parts or choices and are skipped), judged at 1% in any unit of the answer's kind.
 
-| Subject | Language | Questions | Patterns: reach / wrong | Model: reach / wrong | Both agree: reach / wrong |
-|---|---|---|---|---|---|
-| Physics | English | 627 | 610 / 0 | 226 / 26 | 197 / 0 |
-| Chemistry | English | 212 | 204 / 0 | 35 / 9 | 7 / 0 |
-| Maths | English | 380 | 368 / 0 | 170 / 26 | 122 / 0 |
-| Physics | 5 others | 200 | 6 / 1 | 82 / 7 | 1 / 0 |
-| Chemistry | 5 others | 200 | 8 / 0 | 30 / 6 | 3 / 0 |
-| Maths | 5 others | 195 | 42 / 1 | 70 / 13 | 24 / 0 |
+| Rows | Questions | Patterns: reach / wrong | Model: reach / wrong | Both agree: reach / wrong |
+|---|---|---|---|---|
+| Physics, English corpus | 544 | 527 / 0 | 155 / 6 | 144 / 0 |
+| Chemistry, English corpus | 212 | 204 / 0 | 31 / 6 | 8 / 0 |
+| Maths, English corpus | 380 | 368 / 0 | 105 / 5 | 99 / 0 |
+| Physics, holdout | 83 | 83 / 0 | 31 / 0 | 30 / 0 |
+| Textbooks, physics | 26 | 13 / 2* | 4 / 1* | 4 / 1* |
+| Textbooks, maths and chemistry | 20 | 3 / 0 | 3 / 0 | 3 / 0 |
+| Physics, am es fr ar hi | 200 | 6 / 1 | 69 / 5 | 1 / 0 |
+| Chemistry, am es fr ar hi | 200 | 8 / 0 | 26 / 4 | 3 / 0 |
+| Maths, am es fr ar hi | 195 | 38 / 1 | 42 / 1 | 18 / 0 |
 
-- **Latency:** the two calls take 2.1–2.4 s at the median and 2.8–3.3 s at p95; the 1.5 s
-  per call in the plan would drop about half the reads.
-- **Cost:** $0.13–0.17 per 1,000 turns at Luna's prices.
-- **Ethiopian textbook sets** (429 questions, answers in prose, so reach only): the model
-  read gave 65 cards (maths 47 of 141, physics 13 of 134, chemistry 5 of 154).
+\* One is the judge, not a misread: a 2 K temperature change against the book's 2 °C. The
+other pattern card is 98.33 °F where the book rounds 37 °C to 98.6 °F.
+
+- **The checks cut the model's wrong cards** from 61 to 17 in English and from 26 to 10 in
+  the other languages, at the cost of reach (the model now declines a read it cannot
+  quote, scale or condition).
+- **Latency:** p50 2.0–2.4 s for physics and chemistry (two calls) and 1.0 s for maths
+  (a maths read the first call routes away needs no second); p95 2.5–4.2 s.
+- **Cost:** $0.10–0.25 per 1,000 reads.
 
 ### What the numbers say
 
-- **The model read alone is not safe.** 11–26% of its English cards are wrong and 9–20% in
-  the other languages; the patterns give no wrong card on this corpus.
-- **Both-must-agree is safe and useless here.** It gave no wrong card, but it can only remove
-  pattern cards, and on this corpus the patterns have none to remove: it costs two thirds
-  of English reach. Its worth is catching a pattern's wrong card in real traffic, which the
-  shadow line measures and this corpus cannot.
-- **In other languages the model reads what the patterns cannot** (physics 41% against 3%,
-  chemistry 15% against 4%, maths 36% against 22%), but at a wrong-card rate the decision
-  rule refuses.
-
-### The wrong cards, by class (each fixed for every law, not per question)
-
-1. **A law whose condition the question breaks:** water mixed with alcohol, milk or mercury
-   read as the water-mixing law; English binders refuse these with each law's `excludes`,
-   which the canonical sentence drops. Next: each law's conditions on its menu line, and
-   its `excludes` checked against the original question too.
-2. **A unit read at another scale:** "8 cm" read as 8 m, so the photon came out 10⁻³³ J.
-   Next: the unit written after the number in a quote must be the read's unit, when the
-   subject's unit table reads one there.
-3. **A task the read cannot express:** "check my work" read as "solve", "slope at x = 1"
-   read as the derivative. Next: maths' typed read gets a `none` for every task outside its
-   shapes, and the menu says so.
-4. **Another law:** a Kepler period, a discharge time. These are what both-must-agree
-   exists for.
+- **The model read alone is still not safe:** 4–19% of its English cards and 2–15% of its
+  other-language cards are wrong; the patterns give none on the corpus, the holdout or the
+  textbooks.
+- **Both-must-agree gave no wrong card a pattern did not also give,** but on these rows it
+  only removes pattern cards (two thirds of English reach), so it is no use as a gate yet.
+- **In other languages the model reads what the patterns cannot** (physics 69 against 6,
+  chemistry 26 against 8, maths 42 against 38), at a wrong rate the decision rule refuses
+  except in maths (1 of 42).
 
 ### Recommendation
 
-Keep every pattern reader. Keep `model_reader_shadow_enabled` off by default and turn it on
-for a share of production traffic once the per-turn trace ships, to measure agreement and
-catch pattern mistakes on real questions. Fix the three classes above, raise the per-call
-budget to the measured p95 for shadow use, and run `reader_eval` again; offer model reads
-in another language only when its wrong cards fall to about 1% of its cards.
+Keep every pattern reader. Ship nothing to users from this yet. Turn the shadow on for a
+sample of STEM turns once this merges, to measure agreement on real questions and catch
+pattern mistakes. The next candidate is maths in other languages (1 wrong in 42): measure
+it on a larger translated sample before offering it.
 
 ## Not doing
 
