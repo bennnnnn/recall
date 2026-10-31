@@ -167,6 +167,8 @@ textbook sets used in the live rounds (read from a path; not copied into the rep
 translated copy (Amharic, Spanish, French, Arabic, Hindi) whose every number is checked to
 survive translation.
 
+`reader_translate.py` measures the translation path ("Translate, then the patterns").
+
 Shadow mode (`model_reader_shadow_enabled`, off by default) records the same comparison on
 live turns in the per-turn `turn_trace` line, op ids only.
 
@@ -233,47 +235,86 @@ it on a larger translated sample before offering it.
 ## Translate, then the patterns (2026-10-31)
 
 A third path for other languages: a small model (`ROUTING.reader_translation`) puts the
-question into English, `modules/model_reader/translation.py` checks the English, and the
-pattern readers read it as if an English speaker had asked. The check refuses an English
-whose numbers differ from the original's, that keeps a decimal comma or an unresolved
-thousands dot, or whose units changed (a unit word in another script may become its
-symbol). Only the read uses the English; the reply is still written in the user's language.
+question into English, the server checks the English against the original, and the
+pattern readers read it as if an English speaker had asked. Only the read uses the
+English; the reply is still written in the user's language. Offline only: nothing here
+runs on a user's turn, and a runtime path must check the spend cap (`quota_service.
+global_spend_exceeded`) before either model call, as the shadow read does.
 
-`reader_eval run --langs am,es,fr,ar,hi --timeout 3.5 --books <Amharic textbook sets>`:
+### What the check guarantees, and what it does not
 
-| Rows | Questions | Patterns on the original | Model typed read | Translate, then patterns |
-|---|---|---|---|---|
-| Physics, am es fr ar hi | 200 | 6 / 1 | 71 / 6 | 171 / 2 |
-| Chemistry, am es fr ar hi | 200 | 8 / 0 | 24 / 4 | 154 / 1 |
-| Maths, am es fr ar hi | 195 | 38 / 1 | 43 / 1 | 165 / 1 |
-| Textbooks in Amharic, physics | 26 | 0 / 0 | 5 / 1* | 11 / 1* |
-| Textbooks in Amharic, maths and chemistry | 20 | 3 / 0 | 2 / 0 | 3 / 0 |
+`modules/model_reader/translation.py` keeps an English only when:
 
-Reach / wrong as above. \* The 2 K against 2 °C judge artifact.
+- **every original value is in it, with its sign, and nothing else is.** The server reads
+  the original itself, in its own language's notation (`notation.py`): one value per
+  number (Spanish "3,5" is 3.5; French "1 200" is 1200; Arabic's own marks; Ethiopic
+  numerals added up, two hundred is 2 x 100). A number its language writes two ways has
+  no value and the translation is declined (Spanish "1.200" is 1200 in Spain and 1.2 in
+  Mexico). The English is read strictly: "." is the decimal mark, "," only before three
+  digits. A sign is a minus sign or words ("5 °C bajo cero").
+- **each value keeps its unit at the same scale.** A unit word in the original ("120
+  ሜትር", "500 غرام", "120 metros") must come back as that unit; a word the tables do not
+  know is a count's noun ("5 cars") and must come back with no unit. Never "any unit".
+- **it asks for a kind of quantity the original asks for.** The ask tables name, per
+  language, the words that ask and the words that name a kind of quantity; each ask is
+  the kind named beside its ask word ("how many grams" asks a mass). Every ask on either
+  side must be one the other side could make: "how far" against "how long" is refused,
+  Amharic "ፍጥነት" (a speed or an acceleration) against "acceleration" kept. An original
+  whose ask the tables cannot read, or that names no kind ("how much water", "كمية"), is
+  refused when the English asks for one.
 
-- **Kept:** 561 of 595 translations pass the check (units changed 15, numbers changed 13,
-  numbers left in another notation 4, no translation 2).
-- **Latency:** translation p50 0.74–0.95 s, p95 at most 1.7 s (one call, beside the history
-  load). **Cost:** $0.009–0.013 per 1,000 turns ($0.016–0.020 for textbook-length questions).
-- **The four wrong cards:** two are meaning drift in translation (Amharic "how far" became
-  "how long"; Arabic "amount of water" read as moles where the question wants grams). Two
-  are English pattern misreads an English speaker can hit as well: "two resistors, each
-  10 Ω, in parallel across 5 V" read as one resistor, and "subtracting 5 from 25% of 80"
-  answered 25% of 80.
-- **Before the English-notation check** the same run gave 12 wrong cards: a decimal comma
-  kept in the English (4,6; 1,8×10^-10) or Spanish 1.200 read as 1.2.
-- **Hand check** of 100 random translations (20 per language): 2 meaning drifts (one
-  harmless), 2 decimal-comma hazards (now refused), no negation or comparison flipped.
+The unit, ask and sign words are data (`modules/model_reader/data/*.json`): the app's nine
+locales and the corpus's Arabic and Hindi. Adding a language is adding its words.
+
+It does **not** make the English the same question. A translation may still drop a
+"not", an "each" or a "twice", or swap which value is which: none of those changes a
+number, a unit or the kind asked. The review's 31 probes show it: every number, unit,
+sign and ask case is now caught, and the five meaning-only cases pass the check. Those
+are what a **second translation** is for: another company's model
+(`ROUTING.reader_translation_check`) translates too, and a card is kept only when both
+Englishes pass and read to the same solve (the same operation and the same card).
+
+The ask check reads the original with fixed tables rather than asking the translator to
+return the asked quantity: a field from the same call that drifted would agree with its
+own English, so it could not catch the drift; the tables never see the model's output.
+
+### Results
+
+`reader_translate run --books <Amharic textbook sets>`, then `recheck` after the review
+fixes (with the pattern fixes of #2172; 5 languages, 595 questions, plus 46 textbook
+questions in Amharic). Cards / wrong:
+
+| Rows | Patterns on the original | Numbers and units | + ask | + ask, strict | + second translation agrees |
+|---|---|---|---|---|---|
+| Physics (200) | 6 / 1 | 174 / 1 | 174 / 1 | 173 / 0 | 160 / 0 |
+| Chemistry (200) | 8 / 0 | 170 / 1 | 169 / 1 | 164 / 0 | 158 / 0 |
+| Maths (195) | 38 / 1 | 164 / 0 | 161 / 0 | 161 / 0 | 150 / 0 |
+| Textbooks in Amharic (46) | 3 / 0 | 13 / 1* | 13 / 1* | 13 / 1* | 12 / 1* |
+
+\* The 2 K against 2 °C judge artifact.
+
+- **The two wrong cards the ask check removes** are the meaning drifts found before:
+  Amharic "how far ahead" became "how long", and Arabic "how much water" (no kind named)
+  became moles. It costs 10 cards of 508.
+- **The second translation** costs 30 more cards (6%) and removes no wrong card here once
+  #2172 is in; before it, it caught one (two resistors "each 10 Ω": one model's English
+  hit the English pattern bug, the other's did not). Its value is the meaning changes the
+  check cannot see, which this corpus (built by one model, translated back by two) barely
+  contains.
+- **Time and cost:** `qwen-3.7-flash` p50 0.86 s, p95 1.34 s, $0.011 per 1,000 turns;
+  `gpt-6-luna` p50 1.11 s, p95 1.55 s, $0.039. The two run side by side.
+- **Caveat:** the ask tables were filled from this corpus's own refusals (a kind for molar
+  mass, a field's strength, "how many grams" asking a mass, ...). The reach under "ask" is
+  measured on the data that shaped the tables; the wrong cards are not. A held-out set of
+  questions written after this round is the next measurement.
 
 ### Recommendation for other languages
 
-Translate, then the patterns: 2–6× the model read's reach at a tenth of its wrong rate, for
-a twentieth of its cost and under half its latency. Not yet at the English bar (4 wrong
-cards against 490 answered; the patterns give none in English). Next: fix the two English
-pattern classes (several equal parts given once; an operation applied to a percentage
-phrase) for English and translations at once, add a check that the English keeps the
-question's ask (how far, how long, what mass), then run it in shadow on live non-English
-STEM turns before any user sees it.
+Translate, then the patterns, with the strict check: 498 of 595 corpus questions
+answered and no wrong card, where the patterns on the original answer 52. Run it in
+shadow on live non-English STEM turns with the second translation recorded beside it,
+and decide on the second translation from what live traffic shows: it costs 6% of reach
+and has caught one English pattern bug, no translation error, so far.
 
 ## Not doing
 

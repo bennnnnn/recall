@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from typing import Any
 
 _DATA = Path(__file__).with_name("data")
 # Languages whose words take attached prefixes and suffixes ("የመኪናው ፍጥነት", "سرعته",
@@ -40,8 +41,9 @@ _ASK_REACH = 60
 
 
 @cache
-def _table(name: str) -> dict[str, object]:
-    loaded: dict[str, object] = json.loads((_DATA / f"{name}.json").read_text(encoding="utf-8"))
+def _table(name: str) -> dict[str, Any]:
+    """One data file, its notes ("_doc") left out. Its shape is the file's own."""
+    loaded: dict[str, Any] = json.loads((_DATA / f"{name}.json").read_text(encoding="utf-8"))
     return {key: value for key, value in loaded.items() if not key.startswith("_")}
 
 
@@ -68,7 +70,7 @@ def _alternation(words: list[str]) -> str:
 def below_zero_words(language: str) -> re.Pattern[str]:
     """Words right after a value (up to two more words of its unit) that make it negative."""
     table = _table("below_zero")
-    words = [*table.get("en", []), *table.get(language, [])]  # type: ignore[misc]
+    words = [*table.get("en", []), *table.get(language, [])]
     return re.compile(rf"\A\s*(?:\S+\s+){{0,2}}?(?:{_alternation(words)})(?!\w)", re.IGNORECASE)
 
 
@@ -76,7 +78,7 @@ def below_zero_words(language: str) -> re.Pattern[str]:
 def _unit_words(language: str) -> tuple[re.Pattern[str], dict[str, str]]:
     meaning: dict[str, str] = {}
     for unit, by_language in _table("units").items():
-        entry: dict[str, list[str]] = by_language  # type: ignore[assignment]
+        entry: dict[str, list[str]] = by_language
         for word in [*entry.get("*", []), *entry.get(language, [])]:
             meaning[word.lower()] = unit
     attached = language in _ATTACHED_SUFFIX
@@ -94,7 +96,7 @@ def _unit_words(language: str) -> tuple[re.Pattern[str], dict[str, str]]:
 
 @cache
 def _unit_kinds() -> dict[str, str]:
-    return {unit: str(entry["kind"]) for unit, entry in _table("units").items()}  # type: ignore[index]
+    return {unit: str(entry["kind"]) for unit, entry in _table("units").items()}
 
 
 def unit_word_at(text: str, end: int, language: str) -> tuple[str, int] | None:
