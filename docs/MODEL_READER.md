@@ -303,7 +303,7 @@ own English, so it could not catch the drift; the tables never see the model's o
   test in `test_reader_translate.py`): all 40 kept and answered right with live
   translations, 39 when the two models must agree.
 - **The ask check** removes the one remaining wrong card ("how far ahead" became "how
-  long") for 3 cards of 499.
+  long") for 11 cards of 499 (4 lenient, 7 more strict).
 - **The second translation** costs 30 more cards (6%) and removed no wrong card here; it
   is kept for the meaning changes the check cannot see.
 - **Time and cost:** `qwen-3.7-flash` p50 0.87 s, p95 1.29 s, $0.011 per 1,000 turns;
