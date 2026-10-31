@@ -56,6 +56,7 @@ from app.modules.chat.turn_resources import (
     wrap_stream_status,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.chat.turn_trace import traced_turn
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,7 @@ def _regenerate_images(
     )
 
 
+@traced_turn("new")
 async def stream_chat_response(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -239,6 +241,7 @@ async def stream_chat_response(
             await _end_new_turn(ctx, chat_id)
 
 
+@traced_turn("regenerate")
 async def stream_regenerate_response(
     deps: ChatTurnDeps,
     redis: Redis,

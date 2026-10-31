@@ -25,6 +25,18 @@ MONEY_REPLY_RULES = (
     "note with today's average rate: do not write your own calculator, scenario table, "
     "chart or market-rate note, and do not state any average or market rate yourself."
 )
+# A lesson's money problem (``worked_problem``): the working a student hands in.
+MONEY_WORKED_RULES = (
+    "This is a worked problem from a lesson: lay the answer out for the student. **Given**: "
+    "the values from the question. **Formula**: the standard formula the result comes "
+    "from, in LaTeX. **Substitution**: that formula with the given values put in. "
+    "**Answer**: the result, in words that answer the question. Copy every number from "
+    "Inputs and Results exactly; never work out an intermediate value or a result "
+    "yourself. Say which values were assumed. Under your reply the app adds a calculator "
+    "card with sliders and, when it found one, a note with today's average rate: do not "
+    "write your own calculator, scenario table, chart or market-rate note, and do not "
+    "state any average or market rate yourself."
+)
 MONEY_FOLLOW_UP = (
     "This message changes the user's earlier request: {changes}. The inputs and results "
     "below already include the change and are this turn's answer; never work the change "
@@ -81,6 +93,15 @@ _INPUT_WORDS = {
     "start": "starting amount",
     "deposit": "monthly deposit",
 }
+# How often savings compound (``per_year``), in the reply's words.
+_COMPOUNDING_WORDS = {
+    1: "yearly",
+    2: "twice a year",
+    4: "quarterly",
+    12: "monthly",
+    52: "weekly",
+    365: "daily",
+}
 _OUTPUT_WORDS = {
     "payment": "monthly payment",
     "interest": "total interest",
@@ -97,6 +118,7 @@ def money_block(
     average: MarketRate | None,
     *,
     shown_rate: float | None = None,
+    worked_problem: bool = False,
 ) -> str:
     product = request.product
     kind = " ".join(word for word in (request.variant, product.key.replace("_", " ")) if word)
@@ -126,7 +148,7 @@ def money_block(
                 rate=percent_text(rate), shown=percent_text(shown_rate), name=average.name
             )
         )
-    lines.append(MONEY_REPLY_RULES)
+    lines.append(MONEY_WORKED_RULES if worked_problem else MONEY_REPLY_RULES)
     return "\n".join(lines)
 
 
@@ -182,6 +204,11 @@ def _inputs(product: Product, worked: Worked) -> list[str]:
         if item.name in worked.assumed:
             text += " (assumed: the user did not say)"
         parts.append(text)
+    if "per_year" in product.settings:
+        per_year = worked.settings.get("per_year", product.settings["per_year"])
+        times = _COMPOUNDING_WORDS[int(per_year)]
+        said = "" if "per_year" in worked.settings else " (assumed: the user did not say)"
+        parts.append(f"interest compounded {times}{said}")
     return parts
 
 
@@ -213,7 +240,7 @@ def standing_block(
     lines.append("Inputs: " + "; ".join(_inputs(product, worked)) + ".")
     lines.append("Results: " + "; ".join(_outputs(product, worked)) + ".")
     for term, outputs in others.items():
-        at = Worked(product, worked.values, (), dict(outputs))
+        at = Worked(product, worked.values, (), dict(outputs), worked.settings)
         words = _INPUT_WORDS.get(term_name(product) or "", "term")
         lines.append(f"With {words} {term:g}: " + "; ".join(_outputs(product, at)) + ".")
     return "\n".join(lines)

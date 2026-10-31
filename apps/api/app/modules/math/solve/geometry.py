@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 
+from pydantic import BaseModel
+
 from app.modules.math.schemas import (
     CircleGeometryInput,
     CircleGeometryResult,
@@ -35,6 +37,52 @@ _ANGLE_INT_TOL_DEG = 0.11
 def format_geometry_decimal(value: float, places: int = 2) -> str:
     """Round for display without turning 20.2 into 20.20 or 20 into 20.00."""
     return f"{value:.{places}f}".rstrip("0").rstrip(".") or "0"
+
+
+def measure_text(value: float) -> str:
+    """A measure as a card writes it: to at most 4 places, never in e-notation."""
+    return format_geometry_decimal(value, 4)
+
+
+def _rounded(**measures: float) -> frozenset[str]:
+    """The measures a result holds only to 4 places: a root, π, a third."""
+    return frozenset(
+        name
+        for name, value in measures.items()
+        if not math.isclose(round(value, 4), value, rel_tol=1e-12, abs_tol=1e-12)
+    )
+
+
+def answer_is_rounded(answer: str, result: BaseModel | None) -> bool:
+    """True when ``answer`` shows a measure of ``result`` rounded rather than exactly."""
+    if result is None:
+        return False
+    try:
+        shown = float(answer)
+    except ValueError:
+        return False
+    rounded: frozenset[str] = getattr(result, "rounded", frozenset())
+    for name in type(result).model_fields:
+        value = getattr(result, name)
+        if not isinstance(value, float) or answer not in (
+            f"{value:g}",
+            format_geometry_decimal(value),
+            measure_text(value),
+        ):
+            continue
+        return name in rounded or not math.isclose(shown, value, rel_tol=1e-12, abs_tol=1e-12)
+    # A sum of measures (a perimeter with its hypotenuse) is as rounded as any part of it.
+    return bool(rounded)
+
+
+def angle_list(result: TriangleSidesResult, *, given: bool) -> str:
+    """``120°, ≈ 38.2°, ≈ 21.8°``: a rounded angle says so, a given one is exact."""
+    return ", ".join(
+        rf"\approx {result.labels[name]}"
+        if name in result.rounded and not given
+        else result.labels[name]
+        for name in ("angle_a", "angle_b", "angle_c")
+    )
 
 
 def format_degree_label(deg: float) -> str:
@@ -78,6 +126,7 @@ def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:
         "perimeter": f"{perimeter:g} {unit}",
     }
     return RectangleGeometryResult(
+        rounded=_rounded(diagonal=diagonal, area=area, perimeter=perimeter),
         width=w,
         height=h,
         unit=unit,
@@ -102,6 +151,7 @@ def square_geometry(data: SquareGeometryInput) -> SquareGeometryResult:
         "perimeter": f"{perimeter:g} {unit}",
     }
     return SquareGeometryResult(
+        rounded=_rounded(diagonal=diagonal, area=area, perimeter=perimeter),
         side=s,
         unit=unit,
         diagonal=round(diagonal, 4),
@@ -185,12 +235,13 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         raise SolveServiceError(f"unsupported solid {shape}")
 
     uses_pi = shape in {"cylinder", "cone", "sphere"}
-    volume_text = format_geometry_decimal(volume) if uses_pi else f"{volume:g}"
-    surface_text = format_geometry_decimal(surface) if uses_pi else f"{surface:g}"
+    volume_text = format_geometry_decimal(volume) if uses_pi else measure_text(volume)
+    surface_text = format_geometry_decimal(surface) if uses_pi else measure_text(surface)
     vol_label = f"{volume_text} {unit}³"
     sa_label = f"{surface_text} {unit}²"
     labels = {**extra, "volume": vol_label, "surface_area": sa_label}
     return SolidGeometryResult(
+        rounded=_rounded(volume=volume, surface_area=surface),
         shape=shape,
         volume=round(volume, 4),
         surface_area=round(surface, 4),
@@ -209,6 +260,7 @@ def triangle_geometry(data: TriangleGeometryInput) -> TriangleGeometryResult:
         "area": f"{area:g} {unit}²",
     }
     return TriangleGeometryResult(
+        rounded=_rounded(area=area),
         base=b,
         height=h,
         unit=unit,
@@ -234,6 +286,7 @@ def right_triangle_geometry(data: RightTriangleGeometryInput) -> RightTriangleGe
         "angle_at_height": format_degree_label(angle_at_height),
     }
     return RightTriangleGeometryResult(
+        rounded=_rounded(hypotenuse=hypotenuse, area=area),
         base=b,
         height=h,
         unit=unit,
@@ -256,6 +309,7 @@ def circle_geometry(data: CircleGeometryInput) -> CircleGeometryResult:
         "circumference": f"{format_geometry_decimal(circumference)} {unit}",
     }
     return CircleGeometryResult(
+        rounded=_rounded(diameter=diameter, area=area, circumference=circumference),
         radius=r,
         unit=unit,
         diameter=round(diameter, 4),
@@ -285,7 +339,15 @@ def triangle_sides_geometry(data: TriangleSidesInput) -> TriangleSidesResult:
         "angle_b": format_degree_label(angle_b),
         "angle_c": format_degree_label(angle_c),
     }
+    # An angle label to a tenth (38.2°) or the nearest degree is a rounding unless exact.
+    shown_angles = {"angle_a": angle_a, "angle_b": angle_b, "angle_c": angle_c}
+    angles_rounded = {
+        name
+        for name, angle in shown_angles.items()
+        if not math.isclose(float(labels[name].rstrip("°")), angle, abs_tol=1e-9)
+    }
     return TriangleSidesResult(
+        rounded=_rounded(area=area, perimeter=perimeter) | angles_rounded,
         a=a,
         b=b,
         c=c,
@@ -309,6 +371,7 @@ def trapezoid_geometry(data: TrapezoidInput) -> TrapezoidResult:
         "area": f"{area:g} {unit}²",
     }
     return TrapezoidResult(
+        rounded=_rounded(area=area),
         top=data.top,
         bottom=data.bottom,
         height=data.height,
@@ -330,6 +393,7 @@ def parallelogram_geometry(data: ParallelogramInput) -> ParallelogramResult:
         "perimeter": f"{perimeter:g} {unit}",
     }
     return ParallelogramResult(
+        rounded=_rounded(area=area, perimeter=perimeter),
         base=data.base,
         height=data.height,
         side=data.side,
@@ -353,6 +417,7 @@ def sector_geometry(data: SectorInput) -> SectorResult:
         "area": f"{format_geometry_decimal(area)} {unit}²",
     }
     return SectorResult(
+        rounded=_rounded(arc_length=arc_length, area=area),
         radius=r,
         angle_deg=theta_deg,
         unit=unit,

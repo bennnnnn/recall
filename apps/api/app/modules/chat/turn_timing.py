@@ -31,6 +31,14 @@ class TurnTimingTracker:
         if self._first_token_ms is None:
             self._first_token_ms = self._elapsed_ms()
 
+    def milestones(self) -> dict[str, float | None]:
+        """When the prompt was ready and the first token streamed (the turn's trace)."""
+        prompt_ready, first_token = self._prompt_ready_ms, self._first_token_ms
+        return {
+            "prep_ms": round(prompt_ready, 1) if prompt_ready is not None else None,
+            "first_token_ms": round(first_token, 1) if first_token is not None else None,
+        }
+
     def log_summary(
         self,
         *,

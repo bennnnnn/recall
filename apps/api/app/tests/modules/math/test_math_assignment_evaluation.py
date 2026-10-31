@@ -68,5 +68,16 @@ def test_a_value_already_stated_is_not_solved_again(query: str) -> None:
     assert extract_math_intent(query) is None
 
 
+@pytest.mark.asyncio
+async def test_a_parser_miss_is_answered_not_sent_back() -> None:
+    # 2026-10-31: a clear Grade 11 question got "Could you rewrite it?".
+    query = "Express z = 1 - i√3 in polar form and evaluate z^10."
+    note, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is None and note is not None
+    assert "Answer the whole question yourself" in note
+    assert "do not claim a verified result" in note
+    assert "Ask the user to rewrite" not in note
+
+
 def test_assignment_detector_is_bounded() -> None:
     assert not has_assignment_evaluation_request("x=5. " + " " * 1000 + "Evaluate x^2")

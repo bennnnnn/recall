@@ -113,7 +113,7 @@ async def _stream_tokens_sse(
     ``queue_factory`` makes the queue the producer fills; a test passes one that holds a
     token, never by replacing ``asyncio.Queue`` for the whole process.
     """
-    with bound_log_ids(chat_id=chat_id, user_id=user_id, turn=new_turn_id()):
+    with bound_log_ids(chat_id=chat_id, user_id=user_id, turn=new_turn_id(), transport="sse"):
         # Closed with this generator: a client gone at ``start`` settles its claim there.
         async with aclosing(
             _turn_sse_lines(

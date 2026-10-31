@@ -9,13 +9,20 @@ from pydantic import BaseModel, Field, model_validator
 from app.modules.math.schemas.operations import SolidShape
 
 
+class MeasuredResult(BaseModel):
+    """A solved figure. ``rounded`` names the measures held only to 4 places (a root, π, a
+    third), so a card can say ≈ rather than show a rounding as the value itself."""
+
+    rounded: frozenset[str] = frozenset()
+
+
 class RectangleGeometryInput(BaseModel):
     width: float = Field(gt=0, le=1_000_000)
     height: float = Field(gt=0, le=1_000_000)
     unit: str = Field(default="cm", max_length=16)
 
 
-class RectangleGeometryResult(BaseModel):
+class RectangleGeometryResult(MeasuredResult):
     width: float
     height: float
     unit: str
@@ -31,7 +38,7 @@ class SquareGeometryInput(BaseModel):
     unit: str = Field(default="cm", max_length=16)
 
 
-class SquareGeometryResult(BaseModel):
+class SquareGeometryResult(MeasuredResult):
     side: float
     unit: str
     diagonal: float
@@ -50,7 +57,7 @@ class SolidGeometryInput(BaseModel):
     unit: str = Field(default="cm", max_length=16)
 
 
-class SolidGeometryResult(BaseModel):
+class SolidGeometryResult(MeasuredResult):
     shape: SolidShape
     volume: float
     surface_area: float
@@ -64,7 +71,7 @@ class TriangleGeometryInput(BaseModel):
     unit: str = Field(default="cm", max_length=16)
 
 
-class TriangleGeometryResult(BaseModel):
+class TriangleGeometryResult(MeasuredResult):
     base: float
     height: float
     unit: str
@@ -78,7 +85,7 @@ class RightTriangleGeometryInput(BaseModel):
     unit: str = Field(default="cm", max_length=16)
 
 
-class RightTriangleGeometryResult(BaseModel):
+class RightTriangleGeometryResult(MeasuredResult):
     base: float
     height: float
     unit: str
@@ -92,7 +99,7 @@ class CircleGeometryInput(BaseModel):
     unit: str = Field(default="cm", max_length=16)
 
 
-class CircleGeometryResult(BaseModel):
+class CircleGeometryResult(MeasuredResult):
     radius: float
     unit: str
     diameter: float
@@ -120,7 +127,7 @@ class TriangleSidesInput(BaseModel):
         return self
 
 
-class TriangleSidesResult(BaseModel):
+class TriangleSidesResult(MeasuredResult):
     a: float
     b: float
     c: float
@@ -141,7 +148,7 @@ class TrapezoidInput(BaseModel):
     unit: str = Field(default="cm", max_length=16)
 
 
-class TrapezoidResult(BaseModel):
+class TrapezoidResult(MeasuredResult):
     top: float
     bottom: float
     height: float
@@ -165,7 +172,7 @@ class ParallelogramInput(BaseModel):
         return self
 
 
-class ParallelogramResult(BaseModel):
+class ParallelogramResult(MeasuredResult):
     base: float
     height: float
     side: float
@@ -181,7 +188,7 @@ class SectorInput(BaseModel):
     unit: str = Field(default="cm", max_length=16)
 
 
-class SectorResult(BaseModel):
+class SectorResult(MeasuredResult):
     radius: float
     angle_deg: float
     unit: str

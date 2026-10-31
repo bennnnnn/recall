@@ -92,3 +92,85 @@ def test_working_note_is_none_when_the_working_adds_up() -> None:
 )
 def test_is_worked_solution(reply: str, worked: bool) -> None:
     assert is_worked_solution(reply) is worked
+
+
+# A Grade 10 long-jump answer (2026-10-30): t = 3.5/9.8 = 0.36 s, then 2 x 0.36 = 0.71 s
+# with the unrounded 0.357 carried. Flagged "0.72, not 0.71", it told a student a right
+# answer was broken.
+def test_a_line_built_on_a_rounded_result_carries_its_rounding() -> None:
+    reply = "$t = \\frac{3.5}{9.8}$\n$t = 0.36\\ \\text{s}$\n\n$t_{flight} = 2 \\times 0.36 = 0.71$"
+    assert wrong_steps(reply) == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A given is exact as written: only an earlier result is rounded.
+        "$3.2 \\times 4.5 = 14.8$",
+        # The earlier result's rounding is not enough to reach a real slip.
+        "$t = 0.36$\n$2 \\times 0.36 = 0.75$",
+        "$x = 4.5$\n$3.2 \\times 4.5 = 14.8$",
+    ],
+)
+def test_a_slip_beyond_the_carried_rounding_is_still_one(reply: str) -> None:
+    assert wrong_steps(reply)
+
+
+# Review: a given is exact, and so is an exact result; only a rounded one carries slack.
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "**Given** $m = 3.2\\ \\text{kg}$ $a = 4.5$ $F = 3.2 \\times 4.5 = 14.8$",
+        "**Given** $I = 0.2\\ \\text{A}$ $R = 12 / 0.2 = 55$",
+        "$I = 6/30 = 0.2$ then $R = 12/0.2 = 55$",
+        "$v = 2.5$ $KE = 0.5 \\times 4 \\times 2.5^2 = 13.0$",
+    ],
+)
+def test_a_given_or_exact_result_carries_no_rounding(reply: str) -> None:
+    assert wrong_steps(reply)
+
+
+def test_a_name_solved_then_rounded_carries_its_rounding() -> None:
+    reply = "$t = \\frac{3.5}{9.8}$\n$t = 0.36\\ \\text{s}$\n$t_{f} = 2 \\times 0.36 = 0.71$"
+    assert wrong_steps(reply) == []
+
+
+# Second review: a step is checked against the exact value an earlier rounded result had,
+# and a result is rounded only when it is within half its last place of that value.
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "$t = \\frac{3.5}{9.8} = 0.357 \\approx 0.36$ then $2 \\times 0.36 = 0.71$",
+        "$t = \\frac{3.5}{9.8} = 0.357$\n$= 0.36$ then $2 \\times 0.36 = 0.71$",
+    ],
+)
+def test_a_rounding_chain_carries_its_exact_value(reply: str) -> None:
+    assert wrong_steps(reply) == []
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # 36 on the shown 0.3, 34.3 on the exact 2/7: 40 is neither.
+        "$t = 2/7 = 0.3$ then $d = 120 \\times 0.3 = 40$",
+        "$x = 1/3 = 0.3$ then $1000 \\times 0.3 = 349$",
+        # A name reused in a later part holds a new value, not a rounding of the old one.
+        "$I = \\frac{6}{20}$ $I = 0.3$ part b $I = 0.2$ then $R = 12/0.2 = 55$",
+    ],
+)
+def test_a_slip_on_a_rounded_result_is_still_one(reply: str) -> None:
+    assert wrong_steps(reply)
+
+
+# Third review: only a decimal result is carried, never a whole number or an exponent, and
+# a later given with the same digits is that given.
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "$n = 9/4 = 2$ then $m = 2\\ \\text{kg}$ $F = 2 \\times 4.5 = 10$",
+        "$n = 9/4 = 2$ then $0.5 \\times 4 \\times 3^2 = 23.7$",
+        "$t = 1/3 = 0.3$ part b $\\mu = 0.3$ then $0.3 \\times 50 = 16.7$",
+    ],
+)
+def test_a_carried_value_stays_with_its_own_result(reply: str) -> None:
+    assert wrong_steps(reply)

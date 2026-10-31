@@ -59,12 +59,54 @@ no used-car average and got no numbers at all, where the new-car average had wor
 - **Card payoff**: balance, APR, monthly payment → months to pay off, total interest. A payment
   at or below the first month's interest never pays it off, and the card says so.
 - **Savings**: starting amount, monthly deposit, annual rate, years → final balance, total
-  deposited, interest earned.
+  deposited, interest earned. Interest compounds as often as the request says ("compounded
+  quarterly", "with semi-annual compounding", "compounded daily"): a setting of the row
+  (`Product.settings`, `per_year`), not a slider, written into the card's trees as a number
+  (`Product.outputs_at`), monthly when it says none, and the block names it so the reply
+  does. A start grows (1 + rate/n)^(n·years); a deposit made each month grows by the month's
+  share of that. Each compounding word is read with what follows it ("compounded per
+  quarter", "on a quarterly basis") or the one word before it ("semi annual compounding");
+  spaces and hyphens are one. Any compounding word whose frequency isn't read so
+  ("continuously", "compounded and paid quarterly", a bare "compounded"), two that disagree,
+  or a loan compounded other than monthly is left to the model, never worked as monthly; a
+  card's APR is charged by the month however it compounds (`compounding.py`; live
+  2026-10-31, "compounded quarterly" was worked monthly).
 - **Investing** (invest, investing, investment, retirement): the same inputs and results as
   savings, with no average looked up: a market's return has no bank average to judge it by.
 
+**One value per slot.** A request is worked only from what it says once, read whole: one
+sum for each input, one rate, one term, one money down, one compounding. Two rates or two
+terms (a comparison, a refinance, "15 or 30 years"), two sums for one input, a sum the reader
+cannot read whole ("5 lakh", "1.2 billion"; digits are read in every grouping: "250,000.50",
+"250.000,50", "5,00,000"), a deposit paid each week, or a compounding word it cannot read
+give no worked numbers and no card: the model answers. "N% down" is always the share of the
+price put down, never the rate; a plan's name ("401k", "529 plan") is no sum; interest said
+to be simple ("if interest is simple", "no compounding", "I = PRT") is left to maths.
+
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
-and the reply says it assumed one. A rate they didn't give comes from today's average when there
+and the reply says it assumed one. A term in words is read as in digits ("seven years",
+"twenty-five years", "two and a half years"), by the first ask, the follow-up grammar and the
+two-line loan alike (`phrases.py`). A length of time that is no term is left out: an age, time
+gone by or a gap ("thirty years old", "ten years ago", "five years apart", "been paying for
+three years", "twelve months of payments", "the past 2 years"). A currency named before its sum ("Birr 3,000", "USD 500")
+marks it as money; an exchange rate ("USD 1 = ETB 57", "57 birr to the dollar"), a note or
+coin ("Birr 500 notes") and the same sum said again ("that's about USD 21,600") are no sum
+(`sums.py`).
+
+Which sum is the loan (`loan_sums.py`; live 2026-10-31, a house that "costs Birr 250,000" with
+"Birr 50,000 which he will use as a deposit" was worked as a 250,000 loan):
+
+- A sum said to be borrowed or owed ("borrow 20k", "still owe 20k") is the loan as it stands;
+  money put down came off it already.
+- Otherwise the price less the sum put down, said as a down payment or a deposit, also in a
+  clause after it ("which he will use as a deposit"; not a deposit with a landlord, a bank or
+  a booking), or as paid toward it when "the rest" is borrowed ("she pays $5,000 and borrows
+  the rest").
+- One sum named as the loan ("a $15,000 car loan", "a 300k mortgage") beside others is the loan.
+- Two sums, one said to be a price and none borrowed or named a loan ("costs 250,000 and I have
+  50,000 saved", "the difference between a $300,000 house and a $350,000 house"), name no loan,
+  and none is assumed: the model answers. An income ("my salary is $90,000", "I make 80k a
+  year") is never a candidate. A rate they didn't give comes from today's average when there
 is one; otherwise the model asks for it.
 
 ## Follow-ups

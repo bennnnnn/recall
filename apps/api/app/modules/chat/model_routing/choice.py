@@ -18,6 +18,7 @@ from app.modules.billing.plan import (
     pick_cheapest_from_pool,
 )
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
+from app.modules.chat.turn_trace import note_route
 
 if TYPE_CHECKING:
     from app.models.orm import User
@@ -51,6 +52,7 @@ def resolve_user_model(
             unhealthy=unhealthy,
         )
         return _everyday_for_plan(user, settings, routed, pool, unhealthy)
+    note_route("single_model" if len(pool) == 1 else "cheapest")
     if len(pool) == 1:
         return pool[0]
     return pick_cheapest_from_pool(pool, settings)
@@ -92,6 +94,7 @@ def resolve_user_model_override(
     if is_explicit_pick(model_alias):
         if model_alias not in override_pool(user, settings):
             raise UnknownModelOverrideError(model_alias)
+        note_route("explicit_pick")
         return model_alias
     return resolve_user_model(
         user,
@@ -125,12 +128,14 @@ def resolve_regenerate_model(
     if is_explicit_pick(model_alias):
         if model_alias not in pool:
             raise UnknownModelOverrideError(model_alias)
+        note_route("explicit_pick")
         return model_alias
     if (
         prior_assistant_model
         and prior_assistant_model != AUTO_ALIAS
         and prior_assistant_model in pool
     ):
+        note_route("regenerate_same")
         # "Try again" on Pro after a cheap everyday reply (an older chat, or a fallback)
         # gets Pro's everyday model.
         if not is_auto_enabled(user):

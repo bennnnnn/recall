@@ -195,6 +195,71 @@ def number_after(text: str, label: str) -> float | None:
     return float(m.group(0)) if m else None
 
 
+# Between a measure's name and its number only these may stand: "radius of 3", "the
+# height of the cylinder is 10", "the radius of its base is 3 cm", "side length 5",
+# "radius r = 3". "height is twice its radius of 3" names no height.
+_LINK_WORDS = frozenset(
+    """
+    of is are was = : equals equal to its the a an base length measures measure measuring
+    r h d l w b s cylinder cone sphere hemisphere pyramid prism cuboid box cube solid circle
+    triangle rectangle square parallelogram trapezoid trapezium rhombus kite sector figure shape
+    """.split()
+)
+_NUMBER = re.compile(r"(?<![\d.,])(?:\d+(?:\.\d+)?|\.\d+)")
+# A number that is only the start of a measure: 50√2, 5 root 3, 3π, 1/2, 1½, 2,5, 3 x 10²,
+# 2^3, 4e5.
+_GLUED_AFTER = re.compile(
+    r"[\u00bc-\u00be\u2150-\u215e\u00b2\u00b3\u00b9\u2070-\u2079]|,\d|[eE][+-]?\d"
+)
+_SPACED_AFTER = re.compile(
+    r"\u221a|sqrt|root|\u03c0|\\pi\b|pi\b|/\s*\d|\^|\*\*|[x\u00d7*\u00b7]\s*\d", re.IGNORECASE
+)
+_ROOT_SIGNS = ("\u221a", "sqrt", "root")
+
+
+def _after_root(before: str) -> bool:
+    """``√2``, ``sqrt(2)``, ``root 3``: the number is under a root sign."""
+    stripped = before.rstrip()
+    if stripped.endswith(("(", "{")):
+        stripped = stripped[:-1].rstrip()
+    return stripped.lower().endswith(_ROOT_SIGNS)
+
+
+def _slanted(before: str) -> bool:
+    """A slant height or slant-height is not the solid's height."""
+    return before.rstrip(" \t\n-").endswith("slant")
+
+
+def measure_after(text: str, label: str) -> float | None:
+    """The measure stated right after ``label``, read whole, or None.
+
+    The number must follow its name with only linking words between (never the next
+    number anywhere: "radius ½ m and height 4 m" has no radius 4), and the whole
+    number must be read: a root, π, a fraction, a decimal comma or a power after it
+    means the measure is not that number. A slant height is not the height, so a
+    reader that took "slant height 50√2" as a height of 50 now declines.
+    """
+    lower = text.lower()
+    for name in re.finditer(rf"(?<![a-z]){re.escape(label)}(?![a-z])", lower):
+        if _slanted(lower[: name.start()]):
+            continue
+        number = _NUMBER.search(text, name.end())
+        if number is None:
+            return None
+        between = re.findall(r"[a-z]+|[^\sa-z]", lower[name.end() : number.start()])
+        if not all(word in _LINK_WORDS for word in between):
+            return None
+        rest = text[number.end() :]
+        if (
+            _GLUED_AFTER.match(rest)
+            or _SPACED_AFTER.match(rest.lstrip())
+            or _after_root(text[: number.start()])
+        ):
+            return None
+        return float(number.group(0))
+    return None
+
+
 def two_numbers_after(text: str, label: str) -> tuple[float, float] | None:
     """``legs 3 and 4`` / ``legs 3, 4`` → (3, 4). Linear ``find`` + digit scan."""
     lower = text.lower()

@@ -136,6 +136,12 @@ class _JsonFormatter(logging.Formatter):
             payload["path"] = path
             payload["status"] = status
             payload["duration_ms"] = duration_ms
+        trace = getattr(record, "turn_trace", None)
+        if isinstance(trace, dict):
+            # A chat turn's decisions (``modules/chat/turn_trace``): fields, not a string.
+            payload["event"] = "turn_trace"
+            payload["msg"] = "turn_trace"
+            payload["trace"] = trace
         if record.exc_text:
             payload["exc"] = record.exc_text
         elif record.exc_info:
