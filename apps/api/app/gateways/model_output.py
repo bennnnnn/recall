@@ -16,7 +16,8 @@ _LATEX_ON_JSON_ESCAPES = frozenset(
     {
         *("bar", "begin", "beta", "binom", "bmod", "boxed"),
         *("forall", "frac"),
-        *("nabla", "neg", "neq", "not", "nu"),
+        *("nabla", "ne", "neg", "neq", "nexists", "ngeq", "ni", "nleq", "nmid", "not", "notin"),
+        "nu",
         *("rangle", "rceil", "rfloor", "rho", "right", "rightarrow"),
         *("tan", "tanh", "tau", "text", "textbf", "textit", "textrm", "tfrac", "theta"),
         *("tilde", "times", "triangle"),
