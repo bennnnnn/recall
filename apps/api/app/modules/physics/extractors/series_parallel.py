@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.circuit_patterns import resistor_values
+from app.modules.physics.extractors.circuit_patterns import network_asks, resistor_values
 from app.modules.physics.schemas import PhysicsIntent
 
 _IN_SERIES_WITH = re.compile(r"\bin\s+series\s+with\b", re.IGNORECASE)
@@ -49,8 +49,7 @@ def series_parallel_intent(
     resistances = [*single, *group]
     params = {f"R{n}": value for n, value in enumerate(resistances, start=1)}
     units = {f"R{n}": "ohm" for n in range(1, len(resistances) + 1)}
-    asks_current = re.search(r"\bcurrents?\b", lower) is not None
-    asks_resistance = re.search(r"\bresistances?\b", lower) is not None
+    asks_current, asks_resistance = network_asks(lower)
     if asks_current and not asks_resistance:
         if len(volts) != 1 or amps:
             return None
