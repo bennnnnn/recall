@@ -177,18 +177,21 @@ export class ChatWsTransport {
     return this.socket !== null && Date.now() < this.followUpsUntil;
   }
 
+  /** A socket that names itself, so the API's lines for this connection and the crumb an
+   * outage it meets leaves can be found by one id. */
+  private openNamedSocket(): { socket: WebSocket; requestId: string } {
+    const requestId = newRequestId();
+    const create = this.options.createSocket ?? ((url: string) => new WebSocket(url));
+    return { socket: create(withRequestId(this.options.url, requestId)), requestId };
+  }
+
   connect(): Promise<void> {
     if (this.closed || this.shouldUseSse() || this.isOpen()) {
       return Promise.resolve();
     }
     if (this.connectPromise) return this.connectPromise;
 
-    // Each connection names itself, so the API's lines for this socket can be found; an
-    // outage it meets leaves a crumb with that id for the next report.
-    const requestId = newRequestId();
-    const socket = (this.options.createSocket ?? ((url) => new WebSocket(url)))(
-      withRequestId(this.options.url, requestId),
-    );
+    const { socket, requestId } = this.openNamedSocket();
     this.socket = socket;
     this.answersPing = false;
     // An outage this socket meets (refused, dropped, or the server's `unavailable` frame and
