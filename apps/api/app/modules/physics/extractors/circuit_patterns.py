@@ -160,12 +160,22 @@ _UNKNOWN_RESISTOR_RE = re.compile(r"\b[Rr]esistors?\s+R\b(?!\s*[=_\d])|\bunknown
 _VALUED_R_RE = re.compile(r"\bR\s*(?:=|is\b|of\b)")
 # A place that introduces a resistor: "a 6 Ω", "another 6 Ω".
 _INTRODUCES_RE = re.compile(r"\b(?:a|an|another|one)\s+$", re.IGNORECASE)
-# Between two values of one list: "6 Ω, 6 Ω and 3 Ω", "a 6 Ω and a 6 Ω resistor".
-_LIST_JOIN_RE = re.compile(
-    r"\s*(?:\u03a9|\u03c9|ohms?)?\s*(?:resistors?)?\s*(?:,|,?\s*and|,?\s*or)\s*"
-    r"(?:a|an|the|another)?\s*",
-    re.IGNORECASE,
-)
+# Between two values of one list: "6 Ω, 6 Ω and 3 Ω", "a 6 Ω and a 6 Ω resistor". Read as
+# words, so no pattern scans a long run of spaces.
+_LIST_WORD_RE = re.compile(r",|[^\s,]+")
+_LIST_UNITS = frozenset({"\u03a9", "\u03c9", "ohm", "ohms"})
+_LIST_JOINERS = ([","], [",", "and"], ["and"], [",", "or"], ["or"])
+
+
+def _joins_list(between: str) -> bool:
+    words = _LIST_WORD_RE.findall(between.lower())
+    if words[:1] and words[0] in _LIST_UNITS:
+        words = words[1:]
+    if words[:1] in (["resistor"], ["resistors"]):
+        words = words[1:]
+    if words[-1:] in (["a"], ["an"], ["the"], ["another"]):
+        words = words[:-1]
+    return words in _LIST_JOINERS
 
 
 def _stated_resistances(text: str) -> list[float]:
@@ -182,7 +192,7 @@ def _stated_resistances(text: str) -> list[float]:
     ends = [_value_end(text, start) for start in starts]
     group = [0] * len(found)
     for index in range(1, len(found)):
-        joined = _LIST_JOIN_RE.fullmatch(text[ends[index - 1] : starts[index]])
+        joined = _joins_list(text[ends[index - 1] : starts[index]])
         group[index] = group[index - 1] if joined else group[index - 1] + 1
     for value in set(values):
         places = [index for index, other in enumerate(values) if other == value]
