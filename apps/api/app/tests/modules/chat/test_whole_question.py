@@ -297,3 +297,23 @@ def test_review_cases(question: str, answer: str, kept: bool) -> None:
 )
 def test_time_and_map_coordinates_stay_location_questions(question: str) -> None:
     assert is_geo_query(question)
+
+
+@pytest.mark.parametrize(
+    ("question", "answer", "kept"),
+    [
+        # Values asked, an expression given: a factorisation is no list of zeros.
+        (
+            "Find all the rational zeros of f(x) = x^5 + 8x^4 + 20x^3 + 9x^2 - 27x - 27",
+            r"\left(x + 3\right)^{2} \left(x^{3} + 2 x^{2} - x - 3\right)",
+            False,
+        ),
+        ("Find the roots of x^2 - 5x + 6 = 0.", "x = 2, x = 3", True),
+        ("Solve the system x + y = 3, x - y = 1.", "x = 2, y = 1", True),
+        ("Solve |x - 2| < 3.", "-1 < x < 5", True),
+        ("Solve for x in terms of y: 2x + y = 4.", r"x = \frac{4 - y}{2}", True),
+        ("Find the cube root of 27a^3 + 54a^2b + 36ab^2 + 8b^3.", "3a + 2b", True),
+    ],
+)
+def test_values_asked_are_values(question: str, answer: str, kept: bool) -> None:
+    assert answers_the_question(question, answer) is kept

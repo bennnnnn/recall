@@ -87,6 +87,17 @@ _QUALIFIED_SOLUTIONS = re.compile(
     r"(?:zeros?|roots?|solutions?|values?|numbers?)",
     re.IGNORECASE,
 )
+# Values asked: "Find all the rational zeros of f(x) = …" got a factorisation (2026-10-31).
+# "the cube root of …" is an operation, not an equation's roots.
+_ASKS_VALUES = re.compile(
+    r"\bzeros?\b|(?<!square )(?<!cube )(?<!fourth )\broots?\b"
+    r"|\bsolutions?\s+(?:of|to|set|for)\b|\bsolve\b",
+    re.IGNORECASE,
+)
+# What a value is stated with: "x = 2", "x ≈ 0.739".
+_RELATION = re.compile(r"=|\\approx|≈")
+_IN_TERMS_OF = re.compile(r"\bin\s+terms\s+of\b|\bfactori[sz]", re.IGNORECASE)
+_INEQUALITY = re.compile(r"<|>|\\[lg]eq?\b|\\in\b|≤|≥")
 _NOT_RATIONAL = re.compile(r"\d\.\d{3,}|\\sqrt|(?<![a-zA-Z\\])i(?![a-zA-Z])")
 
 
@@ -112,7 +123,23 @@ def answers_the_question(question: str, answer: str) -> bool:
             _ASKS_AN_EQUATION.search(question) and "=" not in answer and not _ARROW.search(answer)
         )
         and not (_QUALIFIED_SOLUTIONS.search(question) and _NOT_RATIONAL.search(answer))
+        and not _expression_for_values(question, answer)
     )
+
+
+def _expression_for_values(question: str, answer: str) -> bool:
+    """Values asked (zeros, roots, solutions) and an expression given: a bare one, or a
+    value with the variable it solves for still in it. "y = 4 - 2x/3" for "solve for y" is
+    a value."""
+    if not _ASKS_VALUES.search(_asked(question)) or _IN_TERMS_OF.search(question):
+        return False
+    if _INEQUALITY.search(answer):
+        return False
+    stated = _RELATION.split(answer)
+    if len(stated) == 1:
+        return _FREE_VARIABLE.search(_right_side(answer)) is not None
+    named = set(_FREE_VARIABLE.findall(_right_side(stated[-2].split(",")[-1])))
+    return bool(named & set(_FREE_VARIABLE.findall(_right_side(stated[-1]))))
 
 
 def _right_side(answer: str) -> str:
