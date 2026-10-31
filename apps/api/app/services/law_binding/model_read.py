@@ -54,7 +54,9 @@ class OpCard:
         )
         needs = f"; only for: {' / '.join(self.needs)}" if self.needs else ""
         not_for = f"; never for: {' / '.join(self.not_for)}" if self.not_for else ""
-        return f"{self.op}: finds the {self.finds}; inputs {names}{needs}{not_for}"
+        # "how many moles" asks by itself; "range" is a thing found.
+        finds = self.finds if self.finds.split()[0] in _QUESTION_WORDS else f"the {self.finds}"
+        return f"{self.op}: answers {finds}; inputs {names}{needs}{not_for}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,7 +116,7 @@ def _spelling(table: UnitTable, expression: str) -> str | None:
     return nearest
 
 
-_QUOTED_NUMBER = re.compile(r"(?<![\w.,])-?\d+(?:[.,]\d+)?")
+_QUOTED_NUMBER = re.compile(r"(?<![\w.,])-?(?:\d+(?:[.,]\d+)?|[.,]\d+)")
 
 
 def _ascii_digits(text: str) -> str:
@@ -124,17 +126,23 @@ def _ascii_digits(text: str) -> str:
     )
 
 
-def _quoted_unit(stated: Stated, table: UnitTable) -> str | None:
-    """The unit written right after the value in its quote, as a Pint expression; None
-    when the quote writes none the table reads (or not in this subject's script)."""
-    text = _ascii_digits(stated.quote)
-    for number in _QUOTED_NUMBER.finditer(text):
+def _quoted_unit(stated: Stated, table: UnitTable, message: str = "") -> str | None:
+    """The unit the message writes right after the value its quote states, as a Pint
+    expression; None when it writes none the table reads (or not in this script). The
+    message is read past the quote, so a quote of the number alone ("300" of "300 cm")
+    still has its unit checked."""
+    quote = _ascii_digits(stated.quote)
+    text = _ascii_digits(message)
+    start = text.find(quote) if quote and text else -1
+    if start == -1:
+        text, start = quote, 0
+    for number in _QUOTED_NUMBER.finditer(quote):
         try:
             seen = float(number.group(0).replace(",", "."))
         except ValueError:
             continue
         if math.isclose(seen, stated.value, rel_tol=1e-9, abs_tol=1e-12):
-            found = table.at(text, number.end())
+            found = table.at(text, start + number.end())
             return None if found is None else found[1]
     return None
 
@@ -150,7 +158,9 @@ def _same_scale(first: str, second: str) -> bool:
     )
 
 
-def written(stated: Stated, variable: VariableSpec, table: UnitTable) -> tuple[float, str] | None:
+def written(
+    stated: Stated, variable: VariableSpec, table: UnitTable, message: str = ""
+) -> tuple[float, str] | None:
     """The value and a unit spelling the table reads, for one stated value; None when
     the unit is not one of the input's kind, or not the unit its quote writes ("8 cm"
     read as 8 m)."""
@@ -168,7 +178,7 @@ def written(stated: Stated, variable: VariableSpec, table: UnitTable) -> tuple[f
     expression = table.expression(unit) if unit else None
     if expression is None:
         expression = unit
-    quoted = _quoted_unit(stated, table) if stated.quote else None
+    quoted = _quoted_unit(stated, table, message) if stated.quote else None
     if quoted is not None and not (expression and _same_scale(quoted, expression)):
         return None
     reading = unit_dimension(expression) if expression else None

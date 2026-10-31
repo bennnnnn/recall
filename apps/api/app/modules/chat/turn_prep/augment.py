@@ -88,7 +88,6 @@ async def gather_and_inject(
 
     A money turn (``turn_prep.money``) has its numbers worked already: no subject solve.
     """
-    start_model_read_shadow(request.content, settings)
     if money:
         return Augmentation(prompt_messages)
     mode = identity.mode
@@ -99,6 +98,8 @@ async def gather_and_inject(
         has_image_attachment=request.has_image_attachment,
         image_math_extract=request.image_math_extract,
     )
+    if instant_reply is None:
+        start_model_read_shadow(request.content, settings, redis, subject=detected_subject)
     needs_math, needs_search, needs_chem = _turn_needs(
         request, settings, prompt_messages, followup, plan, detected_subject
     )

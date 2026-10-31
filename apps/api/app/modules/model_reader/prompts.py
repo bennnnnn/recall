@@ -33,7 +33,7 @@ Maths kinds: {maths}, other"""
 _LAW = """Read a student's {subject} question (in any language) into ONE law from the list
 below and the values the question states.
 
-Laws (id: what it finds; its inputs as name (symbol, SI unit)):
+Laws (id: what it answers; its inputs as name (symbol, SI unit)):
 {laws}
 
 Return JSON only:

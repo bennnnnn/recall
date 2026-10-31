@@ -85,3 +85,10 @@ def test_the_menu_is_every_bound_law_by_kind() -> None:
     assert {card.op for cards in menu.values() for card in cards} == {
         law.spec.id for law in LAWS if law.spec.binding is not None
     }
+
+
+def test_the_substance_must_be_the_messages_own() -> None:
+    stated = [Stated("concentration", 0.01, "mol/L", "0.01 M")]
+    message = "What is the pH of 0.01 M hydrochloric acid?"
+    assert chemistry_read_intent("strong_acid_ph", stated, "HCl", message) is not None
+    assert chemistry_read_intent("strong_acid_ph", stated, "HBr", message) is None

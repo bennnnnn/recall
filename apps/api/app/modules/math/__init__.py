@@ -66,7 +66,7 @@ _MODULE_EXPORTS = (
     # The subject dispatcher (services/subject_solving): direct replies and curve points.
     "tools.direct",
     "tools.extract",
-    # The model reader (modules/turn_reading) keeps maths' own typed read.
+    # The model reader (modules/model_reader) keeps maths' own typed read.
     "tools.llm_extract",
     "tools.prompt",
     "tools.school.curve_points",

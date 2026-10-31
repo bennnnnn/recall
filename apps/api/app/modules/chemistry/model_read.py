@@ -13,7 +13,8 @@ from functools import lru_cache
 
 from app.modules.chemistry.binding import bind_chemistry_intent, prepare
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
-from app.modules.chemistry.laws import LAWS, ChemistryLaw
+from app.modules.chemistry.law_record import ChemistryLaw
+from app.modules.chemistry.laws import LAWS
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.services.law_binding.model_read import (
@@ -76,12 +77,16 @@ def chemistry_read_intent(
     if law.species is not None:
         if not formula or not set(formula) <= _FORMULA_CHARACTERS or len(formula) > 40:
             return None
+        # The substance must be the message's own: its formula or its name, as the chemistry
+        # reader finds them (water is H2O), never one the model brought.
+        if message and formula not in prepare(message).species:
+            return None
         about = f" of {formula}"
     variables = {variable.name: variable for variable in law.spec.variables if variable.visible}
     values: dict[str, tuple[float, str]] = {}
     for item in stated:
         variable = variables.get(item.name)
-        found = None if variable is None else written(item, variable, CHEMISTRY_UNITS)
+        found = None if variable is None else written(item, variable, CHEMISTRY_UNITS, message)
         if found is None or item.name in values:
             return None
         values[item.name] = found

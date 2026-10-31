@@ -82,53 +82,75 @@ characters).
 A read that fails any check gives no verified card; the turn goes on exactly as it does
 today when the patterns find nothing.
 
-1. **Closed choices:** the op is on the menu; every given names one of the op's inputs.
+1. **Closed choices:** the op is on the menu; every given names one of the op's inputs. A
+   maths question is routed to one task the typed read can express, or `other`, which
+   declines (checking someone's work, a value at a point, a word problem); the read must be
+   the task it was routed as.
 2. **Quoted, not invented:** each quote appears verbatim in the message (whitespace and
    case normalised, every Unicode digit read as its ASCII digit, so Arabic-Indic and
    Devanagari numerals count); the value is a number written in its quote (`3 × 10⁸`,
-   `3e8` and `3,5` included).
+   `3e8`, `3,5` and `.5` included); each given's quote writes exactly one value, and no two
+   givens' quotes share words.
 3. **Every number accounted for:** each number in the message falls inside some given's or
    `unused` quote. A value the model dropped is a misread, not a smaller question.
-4. **Dimensions:** the unit parses in the subject's `UnitTable` and its dimension is the
-   input's (`services/law_binding/units.dimension_of`).
-5. **Solvable inputs:** the given names, with the inputs the subject fills itself (g, the
+4. **Units at their scale:** the unit parses in the subject's `UnitTable`, its dimension is
+   the input's, and where the message writes a unit right after the value, it is the read's
+   unit at the same scale ("300 cm" read as metres fails, whatever the quote holds).
+5. **The message's own conditions:** a word the law's binding excludes ("falls" for an
+   average speed) rules the law out, as the binder does for the student's own words, and a
+   law about water alone needs a message that names only water. A law about one substance
+   needs one the message names (its formula, or a name the chemistry reader knows). Each
+   menu line shows the model the law's "only for" and "never for" words too.
+6. **Solvable inputs:** the given names, with the inputs the subject fills itself (g, the
    named planet's mass, water's specific heat), are one of the binding's input sets.
-6. **Same answer from the deterministic reader:** phase 1 renders the checked read as one
+7. **Same answer from the deterministic reader:** phase 1 renders the checked read as one
    canonical English question ("What is the impact speed? Given: initial height 7.5 m,
-   …") and reads that with today's binder, which fills fallbacks, converts units and
-   builds the intent exactly as it does for an English question; the bound op and
-   parameters must equal the read's. A contract test renders every bindable operation
-   this way and holds which ones read back (`round trip`); an operation that does not
-   read back is not model-readable yet, by name.
+   …") and reads that with today's binder, in the SymPy pool like every subject reader,
+   which fills fallbacks, converts units and builds the intent exactly as it does for an
+   English question; the bound op and parameters must equal the read's. A contract test
+   renders every bindable operation this way and holds which ones read back (`round
+   trip`); an operation that does not read back is not model-readable yet, by name.
 
 Phase 2, only if phase 1 measures well, builds the intent straight from the checked read
 and retires the canonical sentence.
 
 ### Where it lives
 
-`modules/turn_reading/` (the module the structure plan's ticket ST-04 names, PR #2162), below
-chat and above the subjects: the two calls, the checks, and the comparison with the
-pattern read. Each subject owns its menu and its read-to-intent step behind its package
-exports, the first piece of the `SubjectAdapter` the review asks for (finding 6).
+`modules/model_reader/`, below chat and above the subjects: the two calls, the checks,
+and the comparison with the pattern read. It is not ST-04's `turn_reading`, which holds
+pure readers of a message (no I/O, no prompts) that the subjects themselves import; a
+module that calls a model and imports the subjects' menus would make that a cycle. Each
+subject owns its menu and its read-to-intent step behind its package exports, the first
+piece of the `SubjectAdapter` the review asks for (finding 6).
 
 ### Model, time and cost
 
 - Alias: the existing `ROUTING.math_extract` lane (`gpt-6-luna`, JSON mode, "the maths read
   when the rules find none"); a dedicated `reader` lane only if the measurement picks a
   different model. Product aliases only, as everywhere.
-- Time: 1.5 s per call, 3 s in all. In shadow mode the read runs beside the turn and is
-  never awaited past the turn's own end.
-- Cost: about 3,000 input and 200 output tokens per read, about $0.40 per 1,000 turns at
-  Luna's prices; measured below.
+- Time: 3.5 s per call (the measured p95 of a call), the maths read included, with no
+  fallback model; a timeout is logged at info, never as an error report. Nothing awaits
+  the shadow read: the turn's trace line says `pending`, and the read logs its own
+  `turn_model_read` line when it finishes.
+- Shadow scope and cost: only turns the subject read calls maths, physics or chemistry, with
+  no instant reply, and a share of those (`model_reader_shadow_rate`, 10%); none at the
+  day's spend cap. About 1,500 input and 70 output tokens per read, $0.13–0.17 per 1,000
+  reads at Luna's prices (measured below). Turns in other languages the subject read misses
+  are not shadowed until a gate exists that reads any language.
 
 ### Failure modes and what each costs
 
-| Failure | Effect |
+| Failure | Caught by |
 |---|---|
-| Timeout, provider error, invalid JSON | no read; the pattern read stands |
-| Wrong op, right numbers | caught by the dimension and input-set checks, or by the binder disagreeing |
-| Invented or dropped number | caught by the quote and every-number checks |
-| A value read with the wrong input of the same dimension (u for v) | the hard case: the canonical sentence carries the input's own words, and both-must-agree mode (below) refuses any disagreement |
+| Timeout, provider error, invalid JSON | nothing to catch: no read, the pattern read stands |
+| A law not on the kind's menu, or a maths task the read cannot express | closed choices (check 1) |
+| An invented number, a dropped one, a value read from the wrong words | quotes and every number (checks 2–3) |
+| Two values swapped under quotes that span both | one value per quote, quotes apart (check 2) |
+| A unit read at another scale ("8 cm" as 8 m) | units at their scale (check 4), where the message writes a unit the subject's table reads |
+| A law whose condition the message breaks (water mixed with alcohol) | the message's own conditions (check 5), in the binder's language; elsewhere only the menu's words |
+| A substance the message never names | check 5 |
+| A value read into the wrong input of the same dimension (u for v) | not always: the canonical sentence carries the input's own words; both-must-agree refuses a disagreement |
+| Another law whose inputs fit (a Kepler period for another orbit) | not by these checks: both-must-agree |
 | Prompt injection in the question | the model can only choose menu ids and quote the message; nothing it writes reaches the reply |
 
 ## Measurement

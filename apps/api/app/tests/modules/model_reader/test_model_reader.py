@@ -1,5 +1,9 @@
 """The model reader: the server's checks, the two calls, and the verdict (docs/MODEL_READER.md).
 
+The review's four wrong reads (2026-10-31) are cases here: a unit read at another scale, two
+values swapped under quotes of the whole message, a substance the message never names, and
+a number written with a leading decimal point.
+
 The model is faked at the gateway (``structured_completion.complete_structured``); every
 check and binder runs for real.
 """
@@ -14,15 +18,15 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.gateways import litellm_gateway, structured_completion
 from app.modules.math.tools.llm_extract import LLMMathExtract
-from app.modules.turn_reading.checks import check_read, normalized, values_in
-from app.modules.turn_reading.schemas import (
+from app.modules.model_reader.checks import check_read, normalized, values_in
+from app.modules.model_reader.schemas import (
     GivenRead,
     LawRead,
     ModelRead,
     RouteRead,
     verdict,
 )
-from app.modules.turn_reading.service import read_with_model
+from app.modules.model_reader.service import read_with_model
 
 _SPEED = "A car travels 120 m in 8 s. What is its average speed?"
 
@@ -87,6 +91,34 @@ def test_a_number_the_read_dropped_is_a_misread() -> None:
     assert check_read(_SPEED, read) == "number_unaccounted"
 
 
+def test_a_number_with_a_leading_decimal_point_is_a_number() -> None:
+    text = "A cart goes .5 km in 8 s. Find its average speed."
+    read = LawRead(op="rate_speed", givens=[GivenRead(name="t", value=8, unit="s", quote="8 s")])
+    assert check_read(text, read) == "number_unaccounted"
+
+
+def test_quotes_of_the_whole_message_cannot_swap_values() -> None:
+    read = _speed_read(
+        givens=[
+            GivenRead(name="d", value=8, unit="m", quote=_SPEED),
+            GivenRead(name="t", value=120, unit="s", quote=_SPEED),
+        ]
+    )
+    assert check_read(_SPEED, read) == "quote_not_one_value"
+
+
+def test_two_values_cannot_come_from_one_place() -> None:
+    text = "Each side is 4 m. Find the area."
+    read = LawRead(
+        op="x",
+        givens=[
+            GivenRead(name="a", value=4, unit="m", quote="4 m"),
+            GivenRead(name="b", value=4, unit="m", quote="4 m"),
+        ],
+    )
+    assert check_read(text, read) == "quotes_overlap"
+
+
 def test_a_number_listed_as_unused_is_accounted_for() -> None:
     text = "Question 3. " + _SPEED
     assert check_read(text, _speed_read()) == "number_unaccounted"
@@ -134,7 +166,7 @@ def _fake(replies: list[BaseModel | None]) -> Any:
 
 @pytest.mark.asyncio
 async def test_a_physics_question_reads_to_the_binders_intent(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, thread_sympy_executor: None
 ) -> None:
     fake = _fake([RouteRead(subject="physics", kind="kinematics"), _speed_read()])
     monkeypatch.setattr(structured_completion, "complete_structured", fake)
@@ -192,7 +224,10 @@ async def test_a_physics_question_reads_to_the_binders_intent(
     ],
 )
 async def test_a_read_that_fails_a_check_gives_no_intent(
-    monkeypatch: pytest.MonkeyPatch, replies: list[BaseModel | None], reason: str
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+    replies: list[BaseModel | None],
+    reason: str,
 ) -> None:
     monkeypatch.setattr(structured_completion, "complete_structured", _fake(replies))
     read = await read_with_model(_SPEED, Settings())
@@ -230,6 +265,62 @@ async def test_a_maths_read_must_be_the_task_it_was_routed_as(
     read = await read_with_model("Solve 2x + 3 = 11", Settings())
     assert read.reason == reason
     assert (read.intent is not None) is (reason == "ok")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("quote", ["300", "300 cm"])
+async def test_a_unit_read_at_another_scale_than_the_message_writes_binds_nothing(
+    monkeypatch: pytest.MonkeyPatch, thread_sympy_executor: None, quote: str
+) -> None:
+    reads: list[BaseModel | None] = [
+        RouteRead(subject="physics", kind="kinematics"),
+        LawRead(
+            op="rate_speed",
+            givens=[
+                GivenRead(name="d", value=300, unit="m", quote=quote),
+                GivenRead(name="t", value=8, unit="s", quote="8 s"),
+            ],
+        ),
+    ]
+    monkeypatch.setattr(structured_completion, "complete_structured", _fake(reads))
+    read = await read_with_model(
+        "A toy car rolls 300 cm in 8 s. Find its average speed.", Settings()
+    )
+    assert read.reason == "binder_disagrees" and read.intent is None
+
+
+@pytest.mark.asyncio
+async def test_a_substance_the_message_never_names_binds_nothing(
+    monkeypatch: pytest.MonkeyPatch, thread_sympy_executor: None
+) -> None:
+    from app.modules.chemistry.model_read import chemistry_menu
+
+    kind = next(
+        kind
+        for kind, cards in chemistry_menu().items()
+        if any(c.op == "strong_acid_ph" for c in cards)
+    )
+    message = "What is the pH of 0.01 M HCl?"
+
+    def law(formula: str) -> LawRead:
+        return LawRead(
+            op="strong_acid_ph",
+            givens=[GivenRead(name="concentration", value=0.01, unit="mol/L", quote="0.01 M")],
+            formula=formula,
+        )
+
+    monkeypatch.setattr(
+        structured_completion,
+        "complete_structured",
+        _fake([RouteRead(subject="chemistry", kind=kind), law("HBr")]),
+    )
+    assert (await read_with_model(message, Settings())).reason == "binder_disagrees"
+    monkeypatch.setattr(
+        structured_completion,
+        "complete_structured",
+        _fake([RouteRead(subject="chemistry", kind=kind), law("HCl")]),
+    )
+    assert (await read_with_model(message, Settings())).reason == "ok"
 
 
 @pytest.mark.asyncio
