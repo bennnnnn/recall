@@ -118,7 +118,7 @@ _ION_WORD = re.compile(r"\bions?\b|\b\w+ide\b", re.IGNORECASE)
 # valency?") it is a fact the reader uses.
 _SOME_ELECTRONS = re.compile(
     r"\b(?:valence|unpaired|paired|outer(?:most)?|inner(?:most)?|core|bonding|non-?bonding"
-    r"|lone)\b|\b[spdf]\s*-?\s*electrons\b",
+    r"|lone)\b|\b[spdf](?:\s*-)?\s*electrons\b",
     re.IGNORECASE,
 )
 # A sentence that asks: it ends on "?" or opens with an order. Split first, then read each
