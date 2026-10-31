@@ -23,6 +23,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import role_content_dicts
+from app.modules.chat.turn_trace import emit_turn_trace
 from app.modules.chemistry.shape_followup import (
     could_ask_a_shape,
     is_show_line,
@@ -84,10 +85,12 @@ async def _starting(
 
 
 def _record(outcome: TurnOutcome | None, message: Message, default_model: str) -> None:
+    """A photo or a picture is the turn's reply: the turn ends here, and its trace too."""
     if outcome is not None:
         outcome.message_id = str(message.id)
         outcome.final_content = message.content
         outcome.resolved_model = message.model or default_model
+    emit_turn_trace(None, outcome=outcome, path="intercept")
 
 
 async def _image_gen_prompt(

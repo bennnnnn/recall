@@ -81,6 +81,7 @@ from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.turn_trace import note_pass, note_pass_failed
 from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
 from app.modules.chat.worked_lead import drop_guessed_lead
 
@@ -266,8 +267,11 @@ async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
     started = time.perf_counter()
     try:
         text = finalize_pass.run(state)
-        return text if isinstance(text, str) else await text
+        done = text if isinstance(text, str) else await text
+        note_pass(finalize_pass.name, state.text, done)
+        return done
     except Exception as exc:
+        note_pass_failed(finalize_pass.name)
         if finalize_pass.closed is not None:
             state.failed_safety.add(finalize_pass.name)
         if on_error.log_as is None:
