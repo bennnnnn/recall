@@ -230,6 +230,51 @@ sample of STEM turns once this merges, to measure agreement on real questions an
 pattern mistakes. The next candidate is maths in other languages (1 wrong in 42): measure
 it on a larger translated sample before offering it.
 
+## Translate, then the patterns (2026-10-31)
+
+A third path for other languages: a small model (`ROUTING.reader_translation`) puts the
+question into English, `modules/model_reader/translation.py` checks the English, and the
+pattern readers read it as if an English speaker had asked. The check refuses an English
+whose numbers differ from the original's, that keeps a decimal comma or an unresolved
+thousands dot, or whose units changed (a unit word in another script may become its
+symbol). Only the read uses the English; the reply is still written in the user's language.
+
+`reader_eval run --langs am,es,fr,ar,hi --timeout 3.5 --books <Amharic textbook sets>`:
+
+| Rows | Questions | Patterns on the original | Model typed read | Translate, then patterns |
+|---|---|---|---|---|
+| Physics, am es fr ar hi | 200 | 6 / 1 | 71 / 6 | 171 / 2 |
+| Chemistry, am es fr ar hi | 200 | 8 / 0 | 24 / 4 | 154 / 1 |
+| Maths, am es fr ar hi | 195 | 38 / 1 | 43 / 1 | 165 / 1 |
+| Textbooks in Amharic, physics | 26 | 0 / 0 | 5 / 1* | 11 / 1* |
+| Textbooks in Amharic, maths and chemistry | 20 | 3 / 0 | 2 / 0 | 3 / 0 |
+
+Reach / wrong as above. \* The 2 K against 2 °C judge artifact.
+
+- **Kept:** 561 of 595 translations pass the check (units changed 15, numbers changed 13,
+  numbers left in another notation 4, no translation 2).
+- **Latency:** translation p50 0.74–0.95 s, p95 at most 1.7 s (one call, beside the history
+  load). **Cost:** $0.009–0.013 per 1,000 turns ($0.016–0.020 for textbook-length questions).
+- **The four wrong cards:** two are meaning drift in translation (Amharic "how far" became
+  "how long"; Arabic "amount of water" read as moles where the question wants grams). Two
+  are English pattern misreads an English speaker can hit as well: "two resistors, each
+  10 Ω, in parallel across 5 V" read as one resistor, and "subtracting 5 from 25% of 80"
+  answered 25% of 80.
+- **Before the English-notation check** the same run gave 12 wrong cards: a decimal comma
+  kept in the English (4,6; 1,8×10^-10) or Spanish 1.200 read as 1.2.
+- **Hand check** of 100 random translations (20 per language): 2 meaning drifts (one
+  harmless), 2 decimal-comma hazards (now refused), no negation or comparison flipped.
+
+### Recommendation for other languages
+
+Translate, then the patterns: 2–6× the model read's reach at a tenth of its wrong rate, for
+a twentieth of its cost and under half its latency. Not yet at the English bar (4 wrong
+cards against 490 answered; the patterns give none in English). Next: fix the two English
+pattern classes (several equal parts given once; an operation applied to a percentage
+phrase) for English and translations at once, add a check that the English keeps the
+question's ask (how far, how long, what mass), then run it in shadow on live non-English
+STEM turns before any user sees it.
+
 ## Not doing
 
 - No model writes a verified answer, a formula or a number the reply shows: the solvers do.
