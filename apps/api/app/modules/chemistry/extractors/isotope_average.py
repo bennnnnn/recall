@@ -9,11 +9,10 @@ the question gives beats the table, however it is given: in its isotope's own cl
 order ("are 10 and 11 respectively", "with abundances of 75% and 25%"), or as a table whose
 header line names its columns.
 
-Only what is certainly an input is read. A value the question quotes as the answer ("Show
-that its relative atomic mass is 10.8", "compare it with 10.81 u", "[Ans. 10.8 amu]") is
-never one, and a question that states the average itself asks something else. A number in
-grams or g/mol is a sample's or a molar mass. Masses are stated for every isotope or for
-none: one stray number beside the last isotope is a misreading, not a mass.
+Only what is certainly an input is read, and only when the question asks the average and
+nothing else (``isotope_question``). A number counted in grams, g/mol, moles or atoms is a
+sample's, never an isotope's mass. Masses are stated for every isotope or for none: one stray
+number beside the last isotope is a misreading, not a mass.
 """
 
 from __future__ import annotations
@@ -21,7 +20,13 @@ from __future__ import annotations
 import re
 
 from app.modules.chemistry.elements import BY_SYMBOL
-from app.modules.chemistry.extractors.parsing import _N
+from app.modules.chemistry.extractors.isotope_question import (
+    NUMBER,
+    NUMBER_RE,
+    asks_only_the_average,
+    states_the_average,
+    without_quoted,
+)
 from app.modules.chemistry.isotopes import ISOTOPE_MASSES
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import ELEMENT_NAMES
@@ -36,54 +41,45 @@ _ISOTOPE = re.compile(
     r"|\b(?P<element>[A-Z][a-z]?|[A-Za-z]{3,})-(?P<after>\d{1,3})\b"
 )
 
-# A whole number, never a prefix of one: "6.01" is not read out of "6.015".
-_NUMBER = rf"{_N}(?!\d|\.\d)"
 # Case matters: "235U" is uranium, not 235 u.
 _UNIT = r"(?:u|amu|Da)\b"
-# Grams, kilograms or g/mol: a sample's mass or a molar mass, never an isotope's.
-_GRAMS = r"(?!\s*[km]?g\b)"
-# "mass" or "masses", never "mass number".
-_MASS_WORD = r"(?i:\b(?:atomic\s+|isotopic\s+)?mass(?:es)?\b)(?!\s+(?i:numbers?)\b)"
+# Counted in grams, g/mol, moles or particles: a sample or a molar mass, never an isotope's.
+_NOT_A_MASS = (
+    r"(?!\s*(?i:[km]?g|grams?|kilograms?|mol|moles?|atoms?|molecules?|particles?|ions?"
+    r"|nuclei|formula\s+units?)\b)"
+)
+# A mass noun, never "mass number": "mass", "masses", "isotopic mass", "atomic masses".
+_MASS_NOUN = (
+    r"(?i:\b(?:relative\s+)?(?:atomic\s+|isotopic\s+)?mass(?:es)?\b)(?!\s+(?i:numbers?)\b)"
+)
 
-_NUMBER_RE = re.compile(_NUMBER)
-_PERCENT = re.compile(r"\s*%")
-_ABUNDANCE = re.compile(rf"({_NUMBER})\s*%")
+_ABUNDANCE = re.compile(rf"({NUMBER})\s*%")
 # "34.969 u", or a number the text calls a mass: "a mass of 34.97", "with mass 6.015 amu".
 _STATED_MASS = re.compile(
-    rf"{_MASS_WORD}\s*(?:(?i:of|is|=|:|equal\s+to)\s*)?({_NUMBER}){_GRAMS}(?:\s*{_UNIT})?"
-    rf"|({_NUMBER})\s*{_UNIT}"
+    rf"{_MASS_NOUN}\s*(?:(?i:of|is|=|:|equal\s+to)\s*)?({NUMBER}){_NOT_A_MASS}(?:\s*{_UNIT})?"
+    rf"|({NUMBER})\s*{_UNIT}"
 )
 
 # One value of a list, with its percent sign or unit if written.
-_ITEM = re.compile(rf"({_NUMBER})(?:\s*(%|{_UNIT}))?{_GRAMS}")
+_ITEM = re.compile(rf"({NUMBER})(?:\s*(%|{_UNIT}))?{_NOT_A_MASS}")
 # Values for every isotope at once: "10 and 11", "34.97 u, 36.97 u", "75%, 20% and 5%".
 _LIST = re.compile(
     rf"(?<![\w.^-]){_ITEM.pattern}(?:(?:\s*,\s*(?:and\s+)?|\s+and\s+){_ITEM.pattern})+"
 )
 _RESPECTIVELY = re.compile(r"\s*\)?\s*,?\s*(?i:respectively)\b")
 _LIST_LEAD = re.compile(r"(?i:\b(?:masses|abundances))\s*(?:(?i:of|are|:|=)\s*)?$")
-# The last of these before a list says what its numbers are: "whose mass numbers are 35
-# and 37 respectively" lists mass numbers, though the sentence also says "atomic mass".
-_LIST_NOUN = re.compile(
-    r"(?i:\b(?P<number>mass\s+numbers?)\b|\b(?P<mass>mass(?:es)?)\b"
-    r"|\b(?P<other>abundances?|neutrons?|protons?|electrons?|ratios?|percent(?:ages?)?)\b)"
+_MASS_NOUN_RE = re.compile(_MASS_NOUN)
+# Between a mass noun and its list only words naming the isotopes may stand: "The atomic
+# masses of the two stable isotopes of boron, 10B (20%) and 11B (80%) are 10 and 11". Any
+# other word ("nucleon numbers", "A =", "neutrons") makes the list something else.
+_BRIDGE_WORDS = frozenset(
+    {"of", "the", "a", "an", "two", "three", "four", "both", "these", "its", "their", "stable"}
+    | {"natural", "naturally", "occurring", "isotope", "isotopes", "and", "are", "is", "were"}
+    | {"have", "has", "approximately"}
 )
+_PARENTHETICAL = re.compile(r"\([^()]*\)")
 # A sentence or a clause ends at a full stop, question mark or semicolon no digit follows.
 _CLAUSE_END = re.compile(r"[.?!;](?!\d)|\n")
-
-# A value quoted as the answer, from its cue to the end of the sentence.
-_QUOTED = re.compile(
-    r"(?i:\b(?:show|verify|prove|check|confirm)\s+that\b|\bcompare|\baccepted\b|\bactual\b"
-    r"|\bexpected\b|\bknown\b|\bstandard\b|\bperiodic\s+table\b|\bans(?:wer)?\b\.?"
-    r"|\bclose\s+to\b|\bshould\s+be\b|\b(?:says?|said|got|gets|claims?|thinks?)\b)"
-    r"[^\]\n]*?(?:[.?!;](?!\d)|\]|$)",
-    re.MULTILINE,
-)
-# The average itself, stated: then the question asks for something else (an isotope's mass).
-_STATED_AVERAGE = re.compile(
-    r"(?i:\b(?:average|relative|mean)\s+atomic\s+(?:mass|weight)\b(?:\s+of\s+(?:the\s+)?\w+)?)"
-    rf"\s*(?i:is|=|:|was|of)\s*(?i:about\s+|approximately\s+)?{_NUMBER}(?![A-Za-z%])"
-)
 
 # A table's header line, which names its columns in order.
 _COLUMN = re.compile(
@@ -111,17 +107,6 @@ def _blank(text: str, start: int, end: int) -> str:
     return text[:start] + " " * (end - start) + text[end:]
 
 
-def _without_quoted(text: str, isotopes: list[tuple[str, int, int, int]]) -> str:
-    """The text with every number a quoted answer holds blanked; isotopes and percents stay."""
-    tokens = [(start, end) for _, _, start, end in isotopes]
-    for quoted in _QUOTED.finditer(text):
-        for number in _NUMBER_RE.finditer(text, quoted.start(), quoted.end()):
-            isotope = any(start <= number.start() < end for start, end in tokens)
-            if not isotope and not _PERCENT.match(text, number.end()):
-                text = _blank(text, number.start(), number.end())
-    return text
-
-
 def _one_abundance(segment: str) -> float | None:
     values = [float(match.group(1)) for match in _ABUNDANCE.finditer(segment)]
     return values[0] if len(values) == 1 else None
@@ -137,12 +122,26 @@ def _clause_before(text: str, start: int) -> str:
     return text[ends[-1] if ends else 0 : start]
 
 
-def _lists(text: str, count: int) -> tuple[list[float] | None, list[float] | None, str]:
+def _names_masses(lead: str, symbol: str) -> bool:
+    """Whether a mass noun leads the list, past only words naming the isotopes."""
+    nouns = list(_MASS_NOUN_RE.finditer(lead))
+    if not nouns:
+        return False
+    bridge = _PARENTHETICAL.sub(" ", _ISOTOPE.sub(" ", lead[nouns[-1].end() :]))
+    if re.sub(r"[A-Za-z\s,^]", "", bridge):
+        return False
+    known = _BRIDGE_WORDS | {symbol.lower(), BY_SYMBOL[symbol].name.lower()}
+    return all(word.lower() in known for word in re.findall(r"[A-Za-z]+", bridge))
+
+
+def _lists(
+    text: str, count: int, symbol: str
+) -> tuple[list[float] | None, list[float] | None, str]:
     """Masses and abundances given as lists in the isotopes' order, and the text without them.
 
     A list counts only when it names every isotope and says it is theirs: "respectively"
     follows it, or "masses" or "abundances" leads it. Percent signs make it the abundances;
-    bare numbers or units, the masses, when the last quantity named before it is a mass.
+    bare numbers or units, the masses, when a mass noun leads them (``_names_masses``).
     """
     masses: list[float] | None = None
     abundances: list[float] | None = None
@@ -156,10 +155,9 @@ def _lists(text: str, count: int) -> tuple[list[float] | None, list[float] | Non
             continue
         values = [float(item.group(1)) for item in items]
         signs = {item.group(2) == "%" for item in items}
-        nouns = [noun.lastgroup for noun in _LIST_NOUN.finditer(lead)]
         if signs == {True} and abundances is None:
             abundances = values
-        elif signs == {False} and masses is None and nouns[-1:] == ["mass"]:
+        elif signs == {False} and masses is None and _names_masses(lead, symbol):
             masses = values
         else:
             continue
@@ -182,7 +180,7 @@ def _table(
     if not above:
         return None
     columns = [match.lastgroup for match in _COLUMN.finditer(above[-1])]
-    if "mass" not in columns or "abundance" not in columns:
+    if columns.count("mass") != 1 or columns.count("abundance") != 1:
         return None
     masses: list[float] = []
     abundances: list[float] = []
@@ -192,7 +190,7 @@ def _table(
             return None
         line_end = text.find("\n", end)
         row = text[end : len(text) if line_end < 0 else line_end]
-        values = [float(match.group()) for match in _NUMBER_RE.finditer(row)]
+        values = [float(match.group()) for match in NUMBER_RE.finditer(row)]
         if len(values) != len(columns):
             return None
         masses.append(values[columns.index("mass")])
@@ -209,8 +207,9 @@ def extract_average_atomic_mass(text: str) -> ChemistryIntent | None:
     isotopes = _isotopes(text)
     if len(isotopes) < 2 or len({symbol for symbol, *_ in isotopes}) != 1:
         return None
-    read = _without_quoted(text, isotopes)
-    if _STATED_AVERAGE.search(read):
+    spans = [(start, end) for _, _, start, end in isotopes]
+    read = without_quoted(text, spans)
+    if states_the_average(read) or not asks_only_the_average(read, spans):
         return None
     table = _table(read, isotopes)
     listed_masses: list[float] | None
@@ -219,7 +218,7 @@ def extract_average_atomic_mass(text: str) -> ChemistryIntent | None:
         listed_masses, listed_abundances = table
         read = " " * len(read)
     else:
-        listed_masses, listed_abundances, read = _lists(read, len(isotopes))
+        listed_masses, listed_abundances, read = _lists(read, len(isotopes), isotopes[0][0])
     abundances: dict[str, float] = {}
     masses: dict[str, float] = {}
     stated_count = 0

@@ -105,11 +105,6 @@ def test_a_stated_isotope_mass_beats_the_table(
             "A(Li) = 6.941 u",
         ),
         (
-            "Boron has isotopes 10B (19.9%) and 11B (80.1%). Find the average atomic mass of "
-            "boron, and the moles in a sample whose mass is 10.8 g.",
-            "A(B) = 10.81 u",
-        ),
-        (
             "Lithium has two isotopes, 6Li (7.59%) and 7Li (92.41%), with molar masses 6.015 "
             "g/mol and 7.016 g/mol respectively. Calculate the average atomic mass of lithium.",
             "A(Li) = 6.940 u",
@@ -154,12 +149,6 @@ def test_a_stated_isotope_mass_beats_the_table(
             "79.9 u.",
             "A(Br) = 79.90 u",
         ),
-        # main
-        (
-            "Quick one for my kid's homework: chlorine is 35Cl at 75.8% and 37Cl at 24.2%, she "
-            "says the atomic mass is 35.5 - is that right?",
-            "A(Cl) = 35.45 u",
-        ),
         # The average stated: the question asks for an isotope's mass instead.
         (
             "Gallium has two isotopes: 69Ga (60.11%, 68.926 u) and 71Ga (39.89%). If the average "
@@ -180,15 +169,25 @@ def test_a_quoted_answer_or_a_sample_is_never_an_isotope_mass(
     ("question", "answer"),
     [
         (
-            "The relative atomic mass of chlorine is found from 35Cl and 37Cl, whose mass numbers "
-            "are 35 and 37 respectively, with abundances of 75.77% and 24.23% respectively.",
+            "Find the average atomic mass of chlorine from 35Cl and 37Cl, whose mass numbers are "
+            "35 and 37 respectively, with abundances of 75.77% and 24.23% respectively.",
             "A(Cl) = 35.45 u",
         ),
         (
-            "To calculate the atomic mass of magnesium, note that 24Mg, 25Mg and 26Mg have mass "
-            "numbers 24, 25 and 26 respectively and abundances of 78.99%, 10.00% and 11.01% "
-            "respectively.",
+            "Find the atomic mass of magnesium: 24Mg, 25Mg and 26Mg have mass numbers 24, 25 and "
+            "26 respectively and abundances of 78.99%, 10.00% and 11.01% respectively.",
             "A(Mg) = 24.31 u",
+        ),
+        # Any noun but a mass's before the list: nucleon numbers, A.
+        (
+            "Find the atomic mass of chlorine: 35Cl and 37Cl, with nucleon numbers 35 and 37 "
+            "respectively, have abundances 75.77% and 24.23% respectively.",
+            "A(Cl) = 35.45 u",
+        ),
+        (
+            "Find the atomic mass of chlorine: 35Cl and 37Cl, with A = 35 and 37 respectively, "
+            "have abundances of 75.77% and 24.23% respectively.",
+            "A(Cl) = 35.45 u",
         ),
         (
             "Silicon has three isotopes, 28Si, 29Si and 30Si, with masses 27.977, 28.976 and "
@@ -200,6 +199,67 @@ def test_a_quoted_answer_or_a_sample_is_never_an_isotope_mass(
 )
 def test_a_list_is_masses_only_when_it_says_so(question: str, answer: str) -> None:
     assert _answer(question) == answer
+
+
+# The reader certifies the average only when it is the whole ask: a question that states the
+# element's atomic mass (in any wording) asks something else, as does one that also asks for
+# moles, a composition, an explanation or an isotope's mass or abundance (PR review round 2;
+# "main" marks those wrong before this reader).
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Boron, whose isotopes are 10B (10.013 u, 19.9%) and 11B (80.1%), has an atomic mass of "
+        "10.81. What is the mass of the other isotope?",
+        "Boron-10 (10.013 u, 19.9%) and boron-11 (80.1%) give boron an atomic mass of 10.81; "
+        "find the mass of the heavier isotope.",
+        "Boron-10 (10.013 amu, 19.9%) and boron-11 (80.1%) give boron an atomic mass of 10.81 "
+        "amu; find the mass of the heavier isotope.",
+        "Boron-10 (10.013 u, 19.9%) and boron-11 (80.1%) give boron a relative atomic mass of "
+        "10.81; find the mass of the heavier isotope.",
+        "Lithium is 6Li (6.015 u, 7.59%) and 7Li (92.41%), so its atomic mass is 6.94. What is "
+        "the mass of the other isotope?",
+        "If lithium, made of 6Li (6.015 u, 7.59%) and 7Li (92.41%), has an atomic mass of "
+        "6.941 u, what is the mass of the heavier isotope?",
+        "Magnesium is 24Mg (23.985 u, 78.99%), 25Mg (24.986 u, 10.00%) and 26Mg (11.01%), and "
+        "its atomic mass is 24.31. Find the mass of the heaviest isotope.",
+        "Copper has an atomic mass of 63.55 u. Its isotopes 63Cu and 65Cu have masses 62.93 u "
+        "and 64.93 u. Find the percent abundance of each isotope.",
+        "The atomic mass of boron is 10.81. If 10B (10.013 u) is x% and 11B (11.009 u) is the "
+        "rest, find x.",
+        # A count of moles or atoms is never an isotope's mass, and is another ask.
+        "Boron is 10B (10.013 u, 19.9%) and 11B (80.1%), find (a) its average atomic mass and "
+        "(b) the mass of 11 mol of boron.",
+        "Boron is 10B (10.013 u, 19.9%) and 11B (80.1%), find its average atomic mass and the "
+        "mass of 11 atoms.",
+        "Boron has isotopes 10B (19.9%) and 11B (80.1%). Find the average atomic mass of boron, "
+        "and the moles in a sample whose mass is 10.8 g.",
+        "Boron is 10B (19.9%) and 11B (80.1%). Find the average atomic mass, and the moles in a "
+        "sample whose mass is 10.8 grams.",
+        "(a) Calculate the average atomic mass of boron from 10B (19.9%) and 11B (80.1%). "
+        "(b) How many moles of boron atoms are in 21.6 g of boron?",
+        "Silicon has 28Si (92.23%), 29Si (4.67%) and 30Si (3.10%). (a) Find its average atomic "
+        "mass. (b) How many atoms are in 28.09 g of silicon?",
+        "Copper is 63Cu (62.93 u, 69.15%) and 65Cu (64.93 u, 30.85%): (a) find the average "
+        "atomic mass; (b) a student claims it is 64 u, explain the error.",
+        # main: only A(Cl) answered a percent composition.
+        "Calculate the percent composition by mass of chlorine in NaCl, using the atomic mass "
+        "of chlorine from 35Cl (75.77%) and 37Cl (24.23%).",
+        # Comparing the isotopes asks more than the average (and quotes no value).
+        "Compare the isotopes 10B (10 u, 20%) and 11B (11 u, 80%) and find the average atomic "
+        "mass.",
+        # main: a claim to check, not the average to work out.
+        "Quick one for my kid's homework: chlorine is 35Cl at 75.8% and 37Cl at 24.2%, she says "
+        "the atomic mass is 35.5 - is that right?",
+        # No ask at all.
+        "The relative atomic mass of chlorine is found from 35Cl and 37Cl, whose mass numbers "
+        "are 35 and 37 respectively, with abundances of 75.77% and 24.23% respectively.",
+        # A table with two mass columns.
+        "Isotope Abundance(%) Mass defect (u) Atomic mass (u)\n10B 19.9 0.0696 10.013\n"
+        "11B 80.1 0.0818 11.009\nFind the average atomic mass of boron.",
+    ],
+)
+def test_the_average_is_certified_only_as_the_whole_ask(question: str) -> None:
+    assert _answer(question) is None
 
 
 # Four figures, as a table of atomic masses gives, never more places than the stated masses:
