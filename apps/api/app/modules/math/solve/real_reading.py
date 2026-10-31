@@ -14,6 +14,7 @@ established and the rewrite is refused.
 from __future__ import annotations
 
 import itertools
+import logging
 import math
 from typing import Any
 
@@ -32,6 +33,8 @@ from sympy import (
     together,
 )
 
+logger = logging.getLogger(__name__)
+
 _SAMPLES = (-2.37, -1.29, -0.61, 0.47, 1.73, 3.11)
 # Past these the check is not worth its time; SymPy's own form stands.
 _MAX_DEGREE = 6
@@ -44,7 +47,8 @@ def agrees_on_reals(original: Any, candidate: Any) -> bool:
     cannot establish (a sign it cannot place, a check past its bounds) is a no."""
     try:
         return _agrees(original, candidate)
-    except Exception:
+    except Exception as exc:
+        logger.info("real reading not established (%s); keeping SymPy's form", type(exc).__name__)
         return False
 
 
@@ -196,9 +200,10 @@ def _evaluate(node: Any, point: dict[Any, float]) -> float | None:
         return float(root**p)
     if node.is_Add or node.is_Mul:
         values = [_evaluate(arg, point) for arg in node.args]
-        if any(value is None for value in values):
+        known = [value for value in values if value is not None]
+        if len(known) != len(values):
             return None
-        return math.fsum(values) if node.is_Add else math.prod(values)  # type: ignore[arg-type]
+        return math.fsum(known) if node.is_Add else math.prod(known)
     if isinstance(node, Abs):
         inner = _evaluate(node.args[0], point)
         return None if inner is None else abs(inner)
@@ -224,7 +229,8 @@ def real_zeros(expression: Any, symbol: Any) -> list[Any] | None:
         return [value for value in solve(Eq(expression, 0), symbol) if value.is_real is not False]
     try:
         return _odd_root_zeros(expression, symbol, radicals)
-    except Exception:  # not established is not "no zeros"
+    except Exception as exc:  # not established is not "no zeros"
+        logger.info("real zeros not established (%s)", type(exc).__name__)
         return None
 
 

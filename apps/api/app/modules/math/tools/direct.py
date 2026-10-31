@@ -156,6 +156,13 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
     )
 
 
+def _without_form_clause(text: str) -> str:
+    """The request without "in the form a + bi": a stated form is no leftover request."""
+    from app.modules.math.tools.school.complex import without_form_clause
+
+    return without_form_clause(text)
+
+
 def can_direct_verified_math_reply(
     verified: VerifiedMathBlock,
     user_text: str,
@@ -246,7 +253,6 @@ def can_direct_verified_math_reply(
     from app.modules.math.tools.direct_solids import solid_direct_request
     from app.modules.math.tools.direct_statistics import statistics_direct_request
     from app.modules.math.tools.direct_units import unit_direct_request
-    from app.modules.math.tools.school.complex import without_form_clause
     from app.modules.math.tools.school.probability import binomial_trials_direct_request
 
     trials_request = binomial_trials_direct_request(user_text)
@@ -299,7 +305,7 @@ def can_direct_verified_math_reply(
         or unit_request
         or solid_request
         or calculus_request
-    ) and leftover_non_math_request(strip_teaching_signals(without_form_clause(user_text))):
+    ) and leftover_non_math_request(strip_teaching_signals(_without_form_clause(user_text))):
         if not (verified_request_text and is_part_change(user_text)):
             return False
     answer = (verified.canonical_answer or "").strip()
