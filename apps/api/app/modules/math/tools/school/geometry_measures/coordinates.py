@@ -185,7 +185,7 @@ def _perpendicular_bisector(numbers: list[float], words: list[str]) -> _Solved |
     )
 
 
-def _reflection_line(numbers: list[float], words: list[str]) -> _Solved | None:
+def reflection_line(numbers: list[float], words: list[str]) -> _Solved | None:
     """The mirror that takes a point to its image: the perpendicular bisector of the two."""
     bisector = _perpendicular_bisector(numbers, words)
     if bisector is None:
