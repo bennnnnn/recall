@@ -19,11 +19,11 @@ from app.modules.physics.extractors.circuit_patterns import (
     _TERMINAL_ASK_RE,
     _VOLT_PATTERN,
     _WATT_PATTERN,
-    counted_resistors,
     network_asks,
     resistor_values,
     without_resistor_names,
 )
+from app.modules.physics.extractors.counted_parts import counted_resistors
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )

@@ -402,7 +402,7 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
     from app.modules.physics.bodies import SCHOOL_GRAVITY, names_body_without_school_gravity
     from app.modules.physics.catalog import formula_spec
-    from app.modules.physics.extractors.counted_parts import accounts_for_counted_parts
+    from app.modules.physics.counted import accounts_for_counted_items
 
     params = intent.physics_params or {}
     if intent.kind == "suvat":
@@ -442,8 +442,8 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
             intent = intent.model_copy(update={"physics_params": params, "physics_units": units})
     if competing_given(intent, request.text) is not None:
         return None
-    if not accounts_for_counted_parts(intent.physics_op, request.text):
-        # "Two 1.5 V cells", "two resistors, each 10 Ω": one value for several parts.
+    if not accounts_for_counted_items(intent, request.text):
+        # "Two 5 kg blocks", "two resistors, each 10 Ω": one value for several items.
         return None
     asked = asked_dimensions(request.text)
     unit = asked_unit(request.text)

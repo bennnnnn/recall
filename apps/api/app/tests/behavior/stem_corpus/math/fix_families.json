@@ -56,6 +56,8 @@
   {"id": "xd18", "area": "D", "prompt": "what is 5 more than 25% of 80", "expect": "answer", "check": ["num", "25"]},
   {"id": "xd19", "area": "D", "prompt": "subtract 25% of 80 from the total", "expect": "decline", "note": "the total is unsaid; it verified 20"},
   {"id": "xd20", "area": "D", "prompt": "subtract 5 from 25% of 80 plus 10", "expect": "decline", "note": "two terms beside the percent"},
+  {"id": "xd21", "area": "D", "prompt": "Is 15 less than 25% of 80?", "expect": "decline", "note": "a comparison, not a sum: it verified 5"},
+  {"id": "xd22", "area": "D", "prompt": "halve 25% of 80", "expect": "decline", "note": "an operation outside the allowlist: it verified 20"},
   {"id": "xe1", "area": "E", "prompt": "5/0", "expect": "answer", "check": ["regex", "undefined|not defined|does not exist|cannot"]},
   {"id": "xe2", "area": "E", "prompt": "what is 1/0", "expect": "answer", "check": ["regex", "undefined|not defined|does not exist|cannot"]},
   {"id": "xe3", "area": "E", "prompt": "ln(0)", "expect": "answer", "check": ["regex", "undefined|not defined|does not exist|-\\s*\\\\infty|infinity"]},

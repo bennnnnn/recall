@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.physics.extractors.counted_parts import CountedPart, counted_parts
+from app.modules.physics.extractors.counted_parts import counted_items
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 
@@ -117,20 +117,30 @@ def test_counts_that_name_no_shared_value_read_as_before(text: str, answer: str)
 
 
 @pytest.mark.parametrize(
-    "text,parts",
+    "text,items",
     [
-        ("each of the two resistors is 10 Ω", [CountedPart("resistor", 2, 10.0)]),
-        ("two resistors of 10 Ω each", [CountedPart("resistor", 2, 10.0)]),
-        ("three identical resistors of 6 ohms", [CountedPart("resistor", 3, 6.0)]),
-        ("2 identical 4.5 V batteries", [CountedPart("cell", 2, 4.5)]),
-        ("both capacitors are 5 µF", [CountedPart("capacitor", 2, None)]),
-        ("two resistors of 4 Ω and 6 Ω", [CountedPart("resistor", 2, None)]),
-        ("resistors of 10 Ω each", [CountedPart("resistor", None, None)]),
-        ("each of the two wires is 3 m long", []),
+        ("each of the two resistors is 10 Ω", [("resistors", 2, [(10.0, "Ω")])]),
+        ("two resistors of 10 Ω each", [("resistors", 2, [(10.0, "Ω")])]),
+        ("three identical resistors of 6 ohms", [("resistors", 3, [(6.0, "ohms")])]),
+        ("two 500 mΩ resistors", [("resistors", 2, [(500.0, "mΩ")])]),
+        ("two 5 kg blocks", [("blocks", 2, [(5.0, "kg")])]),
+        ("two heaters each rated 2 kW", [("heaters", 2, [(2.0, "kW")])]),
+        ("both capacitors are 5 µF", [("capacitors", 2, [])]),
+        ("two resistors of 4 Ω and 6 Ω", [("resistors", 2, [])]),
+        ("resistors of 10 Ω each", [("", None, [(10.0, "Ω")])]),
+        ("Each resistor is 10 Ω. Two of them are in parallel.", [("of them", 2, [(10.0, "Ω")])]),
+        # A rate is no item: "3 hours each day".
+        ("a 100 W bulb is on for 3 hours each day for 2 days", []),
+        # "each are connected across 12 V": 12 V is the supply's, not each lamp's.
+        ("two lamps of 6 Ω each are connected across 12 V", [("lamps", 2, [(6.0, "Ω")])]),
         ("the 2 Ω and 3 Ω resistors", []),
     ],
 )
-def test_counted_parts_reads_the_count_and_the_shared_value(
-    text: str, parts: list[CountedPart]
+def test_counted_items_reads_the_count_and_the_value_for_each(
+    text: str, items: list[tuple[str, int | None, list[tuple[float, str]]]]
 ) -> None:
-    assert counted_parts(text) == parts
+    read = [
+        (item.noun, item.count, [(given.value, given.unit) for given in item.each])
+        for item in counted_items(text)
+    ]
+    assert read == items

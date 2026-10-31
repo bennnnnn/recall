@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.counted_parts import counted_parts, stated_values
+from app.modules.physics.extractors.counted_parts import counted_resistors, resistances
 from app.modules.physics.extractors.stated_values import positioned_values
 from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 
@@ -116,17 +116,11 @@ _RESISTOR_LIST_RE = re.compile(
 _MAX_COUNTED_RESISTORS = 6
 
 
-def counted_resistors(text: str) -> tuple[int, float] | None:
-    """(count, value) of resistors stated once for all of them ("three 9 Ω resistors",
-    "two resistors, each 10 Ω"), or None."""
-    found = [counted for counted in counted_parts(text) if counted.part == "resistor"]
-    if len(found) != 1 or found[0].count is None or found[0].each is None:
-        return None
-    return found[0].count, found[0].each
-
-
-# "each with a resistance of 10 Ω" states a resistance; it does not ask for one.
-_STATED_RESISTANCE_RE = re.compile(r"\b(?:a|an|the\s+same)\s+resistance\s+of\s+(?=\d)")
+# "each with a resistance of 10 Ω", "lamps of resistance 6 Ω" state a resistance; they do
+# not ask for one.
+_STATED_RESISTANCE_RE = re.compile(
+    r"\b(?:a|an|the\s+same|of|with(?:\s+a)?)\s+resistance\s+(?:of\s+)?(?=\d)"
+)
 
 
 def network_asks(lower: str) -> tuple[bool, bool]:
@@ -145,7 +139,7 @@ def resistor_values(text: str) -> list[float]:
     counted = counted_resistors(text)
     if counted is not None:
         count, value = counted
-        if len(stated_values(text, "resistor")) != 1:
+        if len(resistances(text)) != 1:
             # Other resistors beside the counted ones: a network this does not read.
             return []
         return [value] * count
