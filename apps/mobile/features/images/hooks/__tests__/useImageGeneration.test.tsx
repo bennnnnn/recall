@@ -36,7 +36,7 @@ describe("image generation queued state and cancellation", () => {
     const sides = host();
     const rendered = await renderHook(() => useImageGeneration({
       token: "tok", ...sides,
-      setMessages: (update) => { updates.push(update); },
+      editThread: (update) => { updates.push(update); },
       streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onScrollToLatest: jest.fn(),
       newMessageCountRef: count, t: (key) => key,
     }));
@@ -165,7 +165,7 @@ describe("image generation submit steps", () => {
     const updates: React.SetStateAction<Message[]>[] = [];
     const options = {
       token: "tok" as string | null, ...host(),
-      setMessages: (update: React.SetStateAction<Message[]>) => { updates.push(update); },
+      editThread: (update: React.SetStateAction<Message[]>) => { updates.push(update); },
       streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onOfflineBlocked: jest.fn(), onScrollToLatest: jest.fn(),
       newMessageCountRef: { current: 0 }, t: (key: string) => key,
       ...overrides,
@@ -354,7 +354,7 @@ describe("image generation under the composer's painted bubble", () => {
     const count = { current: 1 };
     const options = {
       token: "tok" as string | null, ...host(),
-      setMessages: (update: React.SetStateAction<Message[]>) => { updates.push(update); },
+      editThread: (update: React.SetStateAction<Message[]>) => { updates.push(update); },
       streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onOfflineBlocked: jest.fn(), onScrollToLatest: jest.fn(),
       newMessageCountRef: count, t: (key: string) => key,
       ...overrides,

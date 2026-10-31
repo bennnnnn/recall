@@ -435,6 +435,12 @@ export function reduceChatTurn(state: ChatTurnState, event: ChatTurnEvent, now: 
     case "unconfirmed_reply":
       onUnconfirmedReply(s, out, now);
       break;
+    case "thread_edit": {
+      // The turn itself is unchanged; edits reach the list in the order they arrive.
+      const { update } = event;
+      out.push({ type: "messages", update: typeof update === "function" ? update : () => update });
+      break;
+    }
   }
   return { state: s, commands: out };
 }

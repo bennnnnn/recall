@@ -44,7 +44,8 @@ type Options = {
    * photo's upload).
    */
   describeFailure: (message: string, code: string | undefined, error: unknown) => ImageGenFailureText;
-  setMessages: Dispatch<SetStateAction<Message[]>>;
+  /** Changes the thread on screen, which the chat owns: the picture turn's bubbles, named "image_turn". */
+  editThread: (update: SetStateAction<Message[]>, source: "image_turn") => void;
   streaming: boolean;
   isOffline: boolean;
   onOpenUpgrade: () => void;
@@ -79,7 +80,7 @@ export function useImageGeneration({
   ensureChatId,
   uploadReference,
   describeFailure,
-  setMessages,
+  editThread,
   streaming,
   isOffline,
   onOpenUpgrade,
@@ -109,7 +110,7 @@ export function useImageGeneration({
       /** A painted bubble with nothing to draw under it goes, and its draft comes back. */
       const giveBack = () => {
         if (!adoptedId) return;
-        setMessages((prev) => prev.filter((row) => row.id !== adoptedId));
+        editThread((prev) => prev.filter((row) => row.id !== adoptedId), "image_turn");
         newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
         input.onPersistenceFailure?.();
       };
@@ -146,7 +147,7 @@ export function useImageGeneration({
       const priorUserId = optimisticUserIdRef.current;
       const optimisticUserId = adoptedId ?? priorUserId ?? `local-img-${Date.now()}`;
       optimisticUserIdRef.current = optimisticUserId;
-      setMessages((prev) => {
+      editThread((prev) => {
         const retrySameTurn =
           !adoptedId &&
           hasImageGenFailedAssistant(prev) &&
@@ -180,7 +181,7 @@ export function useImageGeneration({
             created_at: createdAt,
           },
         ];
-      });
+      }, "image_turn");
       // The composer counted its own bubble when it painted it.
       const addedRows = adoptedId ? 1 : priorUserId ? 0 : 2;
       newMessageCountRef.current += addedRows;
@@ -191,12 +192,9 @@ export function useImageGeneration({
           ? await input.persistenceReady.catch(() => false)
           : true;
         if (!persistenceReady) {
-          setMessages((prev) =>
-            prev.filter(
-              (row) =>
-                row.id !== optimisticUserId &&
-                row.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
-            ),
+          editThread(
+            (prev) => prev.filter((row) => row.id !== optimisticUserId && row.id !== IMAGE_GEN_PENDING_ASSISTANT_ID),
+            "image_turn",
           );
           if (adoptedId || !priorUserId) {
             newMessageCountRef.current = Math.max(
@@ -219,7 +217,7 @@ export function useImageGeneration({
 
         const activeChatId = await ensureChatId();
         if (!activeChatId) {
-          setMessages((prev) => applyImageGenFailure(prev, "failed", t("chat.error_generic")));
+          editThread((prev) => applyImageGenFailure(prev, "failed", t("chat.error_generic")), "image_turn");
           return;
         }
         const referenceIds = input.referenceAttachment
@@ -244,12 +242,12 @@ export function useImageGeneration({
           { signal: abort.signal },
         );
         if (abort.signal.aborted) throw new Error("Image request cancelled");
-        setMessages((prev) => {
+        editThread((prev) => {
           const without = prev.filter(
             (m) => m.id !== optimisticUserId && m.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
           );
           return [...without, result.user_message, result.assistant_message];
-        });
+        }, "image_turn");
         emitAppEvent("attachmentAdded", { chatId: activeChatId });
         optimisticUserIdRef.current = null;
         lastSubmitRef.current = null;
@@ -258,18 +256,18 @@ export function useImageGeneration({
         const canceled = userCancelRef.current;
         userCancelRef.current = false;
         if (canceled) {
-          setMessages((prev) => applyImageGenFailure(prev, "canceled"));
+          editThread((prev) => applyImageGenFailure(prev, "canceled"), "image_turn");
           return;
         }
         if (error instanceof ApiRequestError && error.status === 403) {
-          setMessages((prev) => applyImageGenFailure(prev, "failed"));
+          editThread((prev) => applyImageGenFailure(prev, "failed"), "image_turn");
           onOpenUpgrade();
           return;
         }
         const message = error instanceof Error ? error.message : t("common.error");
         const code = error instanceof ApiRequestError ? (error.code ?? undefined) : undefined;
         const failure = describeFailure(message, code, error);
-        setMessages((prev) => applyImageGenFailure(prev, "failed", failure.message, !failure.retryable));
+        editThread((prev) => applyImageGenFailure(prev, "failed", failure.message, !failure.retryable), "image_turn");
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
         generatingRef.current = false;
@@ -282,7 +280,7 @@ export function useImageGeneration({
       ensureChatId,
       uploadReference,
       describeFailure,
-      setMessages,
+      editThread,
       newMessageCountRef,
       onScrollToLatest,
       onOpenUpgrade,

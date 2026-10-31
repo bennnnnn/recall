@@ -468,3 +468,26 @@ describe("dropped connections", () => {
     expect(kept.messages).toEqual([expect.objectContaining({ content: "New" })]);
   });
 });
+
+describe("thread edits", () => {
+  const older = answer("older", "older answer");
+
+  it.each([
+    ["at rest", idle()],
+    ["while a reply streams", streaming({ draft: { content: "Hal" } })],
+    ["while it finalizes", idle({ phase: "finalizing" })],
+  ])("an edit %s changes the list only, in the order edits arrive", (_name, state) => {
+    const run = play(state, [
+      { type: "thread_edit", source: "older_page", update: (rows) => [older, ...rows] },
+      { type: "thread_edit", source: "feedback", update: (rows) => rows.map((row) => ({ ...row, feedback: "up" as const })) },
+    ], [bubble]);
+    expect(run.messages).toEqual([{ ...older, feedback: "up" }, { ...bubble, feedback: "up" }]);
+    expect(run.state).toEqual(state);
+    expect(run.commands.map((command) => command.type)).toEqual(["messages", "messages"]);
+  });
+
+  it("a new list replaces the thread as it is", () => {
+    const run = play(idle(), [{ type: "thread_edit", source: "view_cleared", update: [] }], [bubble, older]);
+    expect(run.messages).toEqual([]);
+  });
+});

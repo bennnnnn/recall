@@ -74,7 +74,7 @@ const mockAsyncNoop = async () => {};
 let mockMessages: { id: string }[] = [];
 
 const mockChat = {
-  setMessages: mockNoop,
+  editThread: mockNoop,
   streaming: false,
   finalizing: false,
   sendingMessageId: null,

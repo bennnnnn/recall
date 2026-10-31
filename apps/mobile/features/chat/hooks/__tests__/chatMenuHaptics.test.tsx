@@ -104,7 +104,7 @@ function HeaderMenu() {
     archived: false,
     setArchived: jest.fn(),
     setChatTitle: jest.fn(),
-    setMessages: jest.fn(),
+    editThread: jest.fn(),
     t: (key) => key,
   });
   useLayoutEffect(() => { actions = result; });

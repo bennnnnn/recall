@@ -331,6 +331,14 @@ for presentation and the post-turn jobs, not for reading.
 - **Conflicts:** #2159 (`features/chat/model/wsTransport.ts`, `sse.ts`, `useChat.test.tsx`).
 - **Risk:** medium (stream edge cases: Stop, regenerate, reconnect). **Size:** L.
 
+**Status: done (thread owner half).** Every other writer of the thread changes it through
+`editThread(update, source)`, a `thread_edit` step of the turn reducer
+(`features/chat/model/threadEdit.ts` names the 15 sources; `useThreadEdits` builds the writer and
+handles a deleted attachment). The picture and live-talk hooks name their own source, so they need
+no import from chat. `lib/__tests__/threadOwner.test.ts` holds that only `useChat` and the
+reducer's command runner touch the setter, and that no other file holds a setter for a list of
+messages. The `ChatScreen` split by concern is still to do: its function is unchanged at 480 lines.
+
 ### ST-09 — Feature code out of `lib/`; fences read only the registry
 
 - **Problem:** `lib/` has 155 flat files, about 35 of them feature code (billing, notifications,

@@ -6,6 +6,7 @@ import { discardDraftAttachment, type PendingAttachment } from "@/features/attac
 import { shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import type { Message } from "@/lib/api";
+import type { EditThread } from "@/features/chat/model/threadEdit";
 
 /** One send, from the tap that started it. */
 export type SendTurn = {
@@ -21,7 +22,7 @@ export type SendTurn = {
 
 type Options = {
   token: string | null;
-  setMessages: Dispatch<SetStateAction<Message[]>>;
+  editThread: EditThread;
   newMessageCountRef: MutableRefObject<number>;
   pendingAttachmentRef: MutableRefObject<PendingAttachment | null>;
   setPendingAttachment: (value: PendingAttachment | null) => void;
@@ -39,7 +40,7 @@ type Options = {
  */
 export function useRestoreFailedSend({
   token,
-  setMessages,
+  editThread,
   newMessageCountRef,
   pendingAttachmentRef,
   setPendingAttachment,
@@ -68,7 +69,7 @@ export function useRestoreFailedSend({
         return;
       }
       setPendingOutboundId(null);
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      editThread((prev) => prev.filter((m) => m.id !== optimisticId), "failed_send_withdrawn");
       newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
       if (turn.leavesComposer) {
         // Nothing of the composer's went: only the bubble comes back.
@@ -85,7 +86,7 @@ export function useRestoreFailedSend({
       setSendPhase("idle");
     },
     [
-      stashFailedDraftForThread, stashAttachmentForThread, setMessages, newMessageCountRef, getThreadKey,
+      stashFailedDraftForThread, stashAttachmentForThread, editThread, newMessageCountRef, getThreadKey,
       pendingAttachmentRef, inputRef, setInput, setPendingAttachment, token, setPendingOutboundId,
       sendInFlightRef, setSendPhase, feedback, t,
     ],

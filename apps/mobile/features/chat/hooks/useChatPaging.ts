@@ -14,6 +14,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { writeCachedChatMessages } from "@/features/chat/model/messageCache";
 import { mergeLocalAttachmentUris } from "@/features/chat/model/messageMerge";
+import type { EditThread } from "@/features/chat/model/threadEdit";
 
 const SERVER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,7 +23,7 @@ type Options = {
   chatId: string | null;
   chatLoading: boolean;
   messages: Message[];
-  setMessages: Dispatch<SetStateAction<Message[]>>;
+  editThread: EditThread;
   hasMoreOlder: boolean;
   setHasMoreOlder: Dispatch<SetStateAction<boolean>>;
   /** The route loader's view: a read that finishes after it moved on is dropped. */
@@ -40,7 +41,7 @@ type Options = {
  * a window first goes back to the newest page (`jumpToLatest`).
  */
 export function useChatPaging({
-  token, chatId, chatLoading, messages, setMessages, hasMoreOlder, setHasMoreOlder,
+  token, chatId, chatLoading, messages, editThread, hasMoreOlder, setHasMoreOlder,
   viewRef, activeChatRef, showActionBanner, t,
 }: Options) {
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -69,11 +70,11 @@ export function useChatPaging({
     try {
       const page = await api.listMessages(read.token, read.chatId, { limit: MESSAGE_PAGE_SIZE, before: oldest.id });
       if (!read.isCurrent()) return;
-      setMessages((prev) => {
+      editThread((prev) => {
         if (!read.inView()) return prev;
         const knownIds = new Set(prev.map((message) => message.id));
         return [...page.messages.filter((message) => !knownIds.has(message.id)), ...prev];
-      });
+      }, "older_page");
       setHasMoreOlder(page.has_more);
     } catch {
       if (read.isCurrent()) showActionBanner(t("common.error"), "alert-circle");
@@ -83,7 +84,7 @@ export function useChatPaging({
         setLoadingOlder(false);
       }
     }
-  }, [begin, chatLoading, hasMoreOlder, messages, setMessages, setHasMoreOlder, showActionBanner, t]);
+  }, [begin, chatLoading, hasMoreOlder, messages, editThread, setHasMoreOlder, showActionBanner, t]);
 
   const loadNewerMessages = useCallback(async () => {
     const newest = messages.at(-1);
@@ -94,11 +95,11 @@ export function useChatPaging({
     try {
       const page = await api.listMessages(read.token, read.chatId, { limit: MESSAGE_PAGE_SIZE, after: newest.id });
       if (!read.isCurrent()) return;
-      setMessages((prev) => {
+      editThread((prev) => {
         if (!read.inView()) return prev;
         const knownIds = new Set(prev.map((message) => message.id));
         return [...prev, ...page.messages.filter((message) => !knownIds.has(message.id))];
-      });
+      }, "newer_page");
       setHasMoreNewer(page.has_more_after === true);
     } catch {
       if (read.isCurrent()) showActionBanner(t("common.error"), "alert-circle");
@@ -108,7 +109,7 @@ export function useChatPaging({
         setLoadingNewer(false);
       }
     }
-  }, [begin, chatLoading, hasMoreNewer, messages, setMessages, showActionBanner, t]);
+  }, [begin, chatLoading, hasMoreNewer, messages, editThread, showActionBanner, t]);
 
   /** Show the window around `messageId`; false when it could not be read. */
   const openAround = useCallback(async (messageId: string): Promise<boolean> => {
@@ -117,7 +118,7 @@ export function useChatPaging({
     try {
       const page = await api.listMessages(read.token, read.chatId, { limit: MESSAGE_PAGE_SIZE, around: messageId });
       if (!read.isCurrent() || page.messages.length === 0) return false;
-      setMessages(page.messages);
+      editThread(page.messages, "window_around");
       setHasMoreOlder(page.has_more);
       setHasMoreNewer(page.has_more_after === true);
       return true;
@@ -127,7 +128,7 @@ export function useChatPaging({
     } finally {
       if (read.isCurrent()) requestRef.current = null;
     }
-  }, [begin, setMessages, setHasMoreOlder, showActionBanner, t]);
+  }, [begin, editThread, setHasMoreOlder, showActionBanner, t]);
 
   /** Back from a window to the newest page (a send goes to the end of the thread). */
   const jumpToLatest = useCallback(async (): Promise<void> => {
@@ -136,7 +137,7 @@ export function useChatPaging({
     try {
       const page = await api.listMessages(read.token, read.chatId, { limit: MESSAGE_PAGE_SIZE });
       if (!read.isCurrent()) return;
-      setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
+      editThread((prev) => mergeLocalAttachmentUris(prev, page.messages), "latest_page");
       setHasMoreOlder(page.has_more);
       setHasMoreNewer(false);
       void writeCachedChatMessages(read.chatId, page.messages, page.has_more);
@@ -145,7 +146,7 @@ export function useChatPaging({
     } finally {
       if (read.isCurrent()) requestRef.current = null;
     }
-  }, [begin, setMessages, setHasMoreOlder, showActionBanner, t]);
+  }, [begin, editThread, setHasMoreOlder, showActionBanner, t]);
 
   /** A new view (another chat, New chat): nothing in flight belongs to it. */
   const resetPaging = useCallback(() => {

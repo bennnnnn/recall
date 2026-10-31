@@ -174,7 +174,7 @@ describe("useChat transport lifecycle", () => {
     );
     await render(<Probe chatId="a" />);
     const previous = { id: "saved", role: "assistant" as const, content: "previous answer", model: null, created_at: "now" };
-    await act(async () => { current.setMessages([previous]); });
+    await act(async () => { current.editThread([previous], "page_refresh"); });
     await act(async () => {
       const sending = current.regenerateResponse();
       FakeSocket.instances[0].onerror();
@@ -243,7 +243,7 @@ describe("useChat transport lifecycle", () => {
     await render(<Probe chatId="a" />);
     const socket = await openSocket();
     const previous = { id: "saved", role: "assistant" as const, content: "previous answer", model: null, created_at: "now" };
-    await act(async () => { current.setMessages([previous]); });
+    await act(async () => { current.editThread([previous], "page_refresh"); });
     await act(async () => {
       await current.regenerateResponse();
       jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS);
@@ -863,10 +863,10 @@ describe("useChat transport lifecycle", () => {
     const attachmentIds = ["uploaded-id"];
     const clientGeo = { label: "Original location", latitude: 1, longitude: 2 };
     await act(async () => {
-      current.setMessages([{
+      current.editThread([{
         id: "composer-optimistic", role: "user", content: "attachment question",
         model: null, created_at: new Date().toISOString(),
-      }]);
+      }], "page_refresh");
       await current.sendMessage("attachment question", {
         skipUserBubble: true, trackSendingMessageId: "composer-optimistic",
         attachmentIds, clientGeo, localFileUri: "file:///original.pdf",
@@ -1060,7 +1060,7 @@ describe("useChat transport lifecycle", () => {
     async function paint(row = bubble) {
       let dots: DotsTicket | null = null;
       await act(async () => {
-        current.setMessages([row]);
+        current.editThread([row], "page_refresh");
         dots = current.sendStart.beginDots();
       });
       return dots as DotsTicket | null;
@@ -1211,7 +1211,7 @@ describe("useChat transport lifecycle", () => {
       let settled = false;
       let waiting!: Promise<void>;
       await act(async () => {
-        current.setMessages((rows) => [...rows, next]);
+        current.editThread((rows) => [...rows, next], "page_refresh");
         expect(current.sendStart.beginDots()).toBeNull();
         waiting = current.sendStart.whenReplySettled("local-2").then(() => { settled = true; });
       });
@@ -1345,7 +1345,7 @@ describe("useChat transport lifecycle", () => {
       await act(async () => { socket.emit({ type: "stream_end" }); });
       let waiting!: Promise<void>;
       await act(async () => {
-        current.setMessages((rows) => [...rows, next]);
+        current.editThread((rows) => [...rows, next], "page_refresh");
         waiting = current.sendStart.whenReplySettled("local-2");
       });
       await act(async () => { jest.advanceTimersByTime(REPLY_SAVE_GRACE_MS); });
@@ -1407,10 +1407,10 @@ describe("useChat transport lifecycle", () => {
       await render(<Probe chatId="a" />);
       const socket = await openSocket();
       await act(async () => {
-        current.setMessages([
+        current.editThread([
           { id: "u1", role: "user", content: "q1", model: null, created_at: "t1" },
           { id: "r1", role: "assistant", content: "old answer", model: null, created_at: "t2" },
-        ]);
+        ], "page_refresh");
       });
       await act(async () => {
         current.beginRegenerateUi();
@@ -1422,7 +1422,7 @@ describe("useChat transport lifecycle", () => {
       });
       let waiting!: Promise<void>;
       await act(async () => {
-        current.setMessages((rows) => [...rows, next]);
+        current.editThread((rows) => [...rows, next], "page_refresh");
         waiting = current.sendStart.whenReplySettled("local-2");
       });
       await act(async () => {
@@ -2077,7 +2077,7 @@ describe("a photo or file deleted from Library", () => {
 
   it("leaves the open chat the way it left the server's copy", async () => {
     await render(<Probe chatId="chat-1" />);
-    await act(async () => { current.setMessages(thread()); });
+    await act(async () => { current.editThread(thread(), "page_refresh"); });
     await act(async () => { emitAppEvent("attachmentDeleted", { attachmentId: OTHER, chatId: "chat-1" }); });
     // The picture was the whole reply: the server deleted the row.
     expect(current.messages.map((message) => message.id)).toEqual(["u1", "a1", "u2"]);
@@ -2087,7 +2087,7 @@ describe("a photo or file deleted from Library", () => {
 
   it("leaves another chat's list alone", async () => {
     await render(<Probe chatId="chat-2" />);
-    await act(async () => { current.setMessages(thread()); });
+    await act(async () => { current.editThread(thread(), "page_refresh"); });
     await act(async () => { emitAppEvent("attachmentDeleted", { attachmentId: OTHER, chatId: "chat-1" }); });
     expect(current.messages).toHaveLength(4);
   });
