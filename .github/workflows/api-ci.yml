@@ -140,16 +140,27 @@ jobs:
               -c "CREATE DATABASE recall_test_gw$i TEMPLATE recall_test"
           done
 
-      # Every test but the sweeps, one worker per core (Actions bills job minutes, and the
-      # serial run took 25-30 of them). Coverage is combined across the workers.
+      # Every test but the sweeps, one worker per core: the serial run took 20-30 minutes.
+      # A worker shares the machine with three others, so the hang limit is three minutes.
+      # About 45 assertions measure wall time and were written for a run on its own: a test
+      # that fails here runs again alone and must pass there, and the run is flagged. A test
+      # that fails alone fails the job.
       - name: Pytest
         env:
           VIRTUAL_ENV: ""
           HYPOTHESIS_PROFILE: ci
           RECALL_TEST_DB_PER_WORKER: "1"
-        run: >-
-          uv run pytest -n "$WORKERS" --dist loadfile --ignore=app/tests/behavior
-          --cov=app --cov-report=term-missing --cov-fail-under=80
+        run: |
+          uv run pytest -n "$WORKERS" --dist loadfile --ignore=app/tests/behavior \
+            --timeout=180 --cov=app --cov-report= && exit 0
+          echo "::warning title=Rerun alone::tests that failed under $WORKERS workers ran again on their own"
+          uv run pytest --last-failed --last-failed-no-failures none --ignore=app/tests/behavior \
+            --cov=app --cov-append --cov-report=
+
+      # Coverage of the workers combined (and of any rerun), checked on its own so a rerun
+      # never hides a fall below the floor.
+      - name: Coverage
+        run: uv run coverage report --show-missing --fail-under=80
 
   # The behaviour and STEM sweeps (app/tests/behavior), on their own runner and only when
   # what they read changed. They fake the database and Redis, so no services start.
