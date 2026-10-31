@@ -432,7 +432,7 @@ def resolve_alias_in_pool(
         lesson_active=lesson_active,
         settings=settings,
     )
-    note_route(f"auto:{reason}")
+    note_route(f"auto.{reason}")
     return pick_preferred_tier(preferred, usable)
 
 

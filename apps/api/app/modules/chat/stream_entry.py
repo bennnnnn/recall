@@ -56,16 +56,9 @@ from app.modules.chat.turn_resources import (
     wrap_stream_status,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.modules.chat.turn_trace import begin_turn_trace
+from app.modules.chat.turn_trace import traced_turn
 
 logger = logging.getLogger(__name__)
-
-
-def _begin_turn(kind: str) -> None:
-    """A fresh set of readings and a fresh trace (``turn_trace``) for the turn running in
-    this context."""
-    readings.begin_turn()
-    begin_turn_trace(kind)
 
 
 async def _reserve_new_turn(
@@ -125,6 +118,7 @@ def _regenerate_images(
     )
 
 
+@traced_turn("new")
 async def stream_chat_response(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -154,7 +148,7 @@ async def stream_chat_response(
     content = content.strip()
     if not content and not attachment_ids:
         raise ChatNotFoundError("Message cannot be empty.")
-    _begin_turn("new")
+    readings.begin_turn()
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
@@ -247,6 +241,7 @@ async def stream_chat_response(
             await _end_new_turn(ctx, chat_id)
 
 
+@traced_turn("regenerate")
 async def stream_regenerate_response(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -264,7 +259,7 @@ async def stream_regenerate_response(
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
 ) -> AsyncIterator[str]:
-    _begin_turn("regenerate")
+    readings.begin_turn()
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)

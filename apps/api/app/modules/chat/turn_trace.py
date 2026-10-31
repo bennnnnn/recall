@@ -16,16 +16,17 @@ and a note or the line itself can never fail the turn.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import re
 import time
 from asyncio import CancelledError
 from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from app.core.log_context import current_log_ids
 
@@ -35,8 +36,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# An alias, an operation id, a rule or pass name: nothing a person wrote matches this.
-_TOKEN = re.compile(r"[A-Za-z0-9_.:\-/]{1,80}")
+# An alias, an operation id, a rule or pass name: letters, digits, ``_``, ``-`` and ``.``.
+# No space, ``:``, ``/`` or ``@``: no sentence, URL or address passes.
+_TOKEN = re.compile(r"[A-Za-z0-9_.\-]{1,64}")
 _MAX_NAMES = 64
 
 
@@ -131,16 +133,6 @@ def note_pass_failed(trace: TurnTrace, name: str) -> None:
         trace.passes_failed.append(_token(name) or "unknown")
 
 
-def rule_name(table: str, index: int, render: object, applies: object) -> str:
-    """A prompt rule's name: its table, its place there, and its function when one names
-    it (a lambda or ``_always`` says nothing the place does not)."""
-    for function in (render, applies):
-        name = getattr(function, "__name__", "")
-        if name and name not in {"<lambda>", "_always"}:
-            return f"{table}.{index}:{name}"
-    return f"{table}.{index}"
-
-
 def _solver(ctx: StreamContext) -> dict[str, Any]:
     """The subject that answered with a checked card, and the operation it ran."""
     block = ctx.verified_subject
@@ -232,6 +224,40 @@ def turn_record(
         if ctx.timing is not None:
             record.update(ctx.timing.milestones())
     return record
+
+
+def traced_turn[**P](
+    kind: str,
+) -> Callable[[Callable[P, AsyncIterator[str]]], Callable[P, AsyncIterator[str]]]:
+    """A turn's stream (``stream_entry``), traced: its line is logged once, by the time the
+    stream ends. A turn refused or cancelled before its reply streamed (quota, consent, an
+    intercept's error, a Stop during preparation) logs ``path=prep`` and how it ended."""
+
+    def wrap(stream: Callable[P, AsyncIterator[str]]) -> Callable[P, AsyncIterator[str]]:
+        @functools.wraps(stream)
+        async def run(*args: P.args, **kwargs: P.kwargs) -> AsyncIterator[str]:
+            begin_turn_trace(kind)
+            tokens = stream(*args, **kwargs)
+            failure: BaseException | None = None
+            try:
+                async for token in tokens:
+                    yield token
+            except BaseException as exc:
+                failure = exc
+                raise
+            finally:
+                try:
+                    # Closed here, not when collected: its locks and saves end with it.
+                    close = getattr(tokens, "aclose", None)
+                    if close is not None:
+                        await close()
+                finally:
+                    outcome = cast("TurnOutcome | None", kwargs.get("outcome"))
+                    emit_turn_trace(None, outcome=outcome, failure=failure, path="prep")
+
+        return run
+
+    return wrap
 
 
 def emit_turn_trace(

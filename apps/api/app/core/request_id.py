@@ -47,7 +47,7 @@ def route_path(scope: Scope) -> str:
     return template if isinstance(template, str) else str(scope.get("path", ""))
 
 
-def _client_request_id(scope: Scope) -> str | None:
+def client_request_id(scope: Scope) -> str | None:
     """The client's id: its header, or on a WebSocket a ``request_id`` query parameter,
     since a browser socket cannot set headers."""
     header = Headers(scope=scope).get(REQUEST_ID_HEADER)
@@ -78,7 +78,7 @@ class RequestIdMiddleware:
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return
-        request_id = _normalize_request_id(_client_request_id(scope))
+        request_id = _normalize_request_id(client_request_id(scope))
         scope.setdefault("state", {})["request_id"] = request_id
         token = request_id_context.set(request_id)
         started = time.perf_counter()

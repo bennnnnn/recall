@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from collections.abc import Iterator
 from typing import Any
 from unittest.mock import MagicMock
@@ -15,13 +16,19 @@ import pytest
 from app.core.config import Settings
 from app.core.log_context import bound_log_ids
 from app.core.logging import _JsonFormatter
-from app.core.request_id import _client_request_id
+from app.core.request_id import client_request_id
 from app.models import model_catalog
 from app.modules.chat import stream_pipeline, turn_trace
 from app.modules.chat.finalize_passes import FALL_BACK, FinalizePass, FinalizeState, OnError
 from app.modules.chat.finalize_passes import _run_pass as run_pass
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
-from app.modules.chat.prompt_format import PromptRule, render_rules
+from app.modules.chat.prompt_format import HINT_RULES, PromptRule, render_rules
+from app.modules.chat.prompt_sections import (
+    CONTEXT_SECTIONS,
+    NEARBY_CONTRACTS,
+    STABLE_SECTIONS,
+    TURN_SECTIONS,
+)
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import (
@@ -109,9 +116,9 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
 ) -> None:
     caplog.set_level(logging.INFO, logger=turn_trace.__name__)
     begin_turn_trace("new")
-    note_route("auto:math")
+    note_route("auto.math")
     note_plan(["ask", "solve"])
-    note_prompt_rule("hints.6:_format_pack")
+    note_prompt_rule("hints.format_pack")
     note_tool("web_search")
     note_tool("web_search")
     note_pass("prose", _SECRET, _SECRET + "!")
@@ -126,7 +133,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
     assert plain_record(trace)
     assert "hunter2" not in record.getMessage()
     assert json.loads(record.getMessage().removeprefix("turn_trace ")) == trace
-    assert trace["route"] == "auto:math"
+    assert trace["route"] == "auto.math"
     assert trace["plan"] == ["ask", "solve"]
     assert trace["tools"] == {"web_search": 2}
     assert trace["passes_changed"] == [["prose", 1]]
@@ -156,7 +163,7 @@ def test_a_tool_with_an_odd_name_is_counted_as_unknown() -> None:
 
 
 def test_notes_outside_a_turn_go_nowhere() -> None:
-    note_route("auto:math")
+    note_route("auto.math")
     note_tool("web_search")
     assert current_turn_trace() is None
 
@@ -209,20 +216,50 @@ async def test_a_closing_turn_says_how_it_ended(
     assert (trace["outcome"], trace["error"]) == (outcome, error)
 
 
-def _named_render(_turn: object) -> list[str]:
-    return ["a rule's text"]
-
-
-def test_each_prompt_rule_that_adds_text_is_named() -> None:
+def test_each_prompt_rule_that_adds_text_is_named_by_its_table() -> None:
     trace = begin_turn_trace("new")
     rules: tuple[PromptRule[object], ...] = (
-        PromptRule(lambda _t: True, _named_render),
-        PromptRule(lambda _t: True, lambda _t: []),
-        PromptRule(lambda _t: False, _named_render),
-        PromptRule(lambda _t: True, lambda _t: ("text",)),
+        PromptRule(lambda _t: True, lambda _t: ["a rule's text"], name="first"),
+        PromptRule(lambda _t: True, lambda _t: [], name="empty"),
+        PromptRule(lambda _t: False, lambda _t: ["never"], name="skipped"),
+        PromptRule(lambda _t: True, lambda _t: ("text",), name="last"),
     )
     assert render_rules(rules, object(), table="hints") == ["a rule's text", "text"]
-    assert trace.prompt_rules == ["hints.0:_named_render", "hints.3"]
+    assert trace.prompt_rules == ["hints.first", "hints.last"]
+
+
+@pytest.mark.parametrize(
+    "rules", [HINT_RULES, STABLE_SECTIONS, TURN_SECTIONS, CONTEXT_SECTIONS, NEARBY_CONTRACTS]
+)
+def test_every_prompt_rule_has_a_name_of_its_own_in_its_table(
+    rules: tuple[PromptRule[Any], ...],
+) -> None:
+    """The name, not the place: a rule added above another leaves the other's name.
+    (The text and order the rules render are pinned byte for byte by test_prompt_golden.)"""
+    names = [rule.name for rule in rules]
+    assert len(set(names)) == len(names)
+    assert all(re.fullmatch(r"[a-z][a-z0-9_]*", name) for name in names)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "https://evil.example/x?q=1",
+        "evil.example/collect",
+        "me@example.com",
+        "two words",
+        "auto:math",
+        "line\nbreak",
+        "x" * 65,
+        "",
+    ],
+)
+def test_no_url_address_sentence_or_long_string_is_an_identifier(value: str) -> None:
+    trace = begin_turn_trace("new")
+    note_route(value)
+    note_tool(value)
+    assert trace.route is None
+    assert dict(trace.tools) == {"unknown": 1}
 
 
 def _state(text: str) -> FinalizeState:
@@ -258,7 +295,7 @@ async def test_a_finalize_pass_is_traced_when_it_changes_the_text_or_fails() -> 
 @pytest.mark.parametrize(
     "alias, content, pool, route",
     [
-        ("auto", "Teach me fractions", None, "auto:teaching"),
+        ("auto", "Teach me fractions", None, "auto.teaching"),
         ("fast", "hi", None, "mode_fast"),
         ("free-chat", "hi", ["free-chat"], "picked"),
     ],
@@ -294,7 +331,7 @@ def test_a_socket_may_name_its_request_in_the_query(
     scope_type: str, headers: list[tuple[bytes, bytes]], query: bytes, expected: str | None
 ) -> None:
     scope = {"type": scope_type, "headers": headers, "query_string": query}
-    assert _client_request_id(scope) == expected
+    assert client_request_id(scope) == expected
 
 
 def test_a_turn_a_photo_or_picture_answered_is_logged_when_its_reply_is_recorded(

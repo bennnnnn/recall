@@ -362,24 +362,26 @@ async def _close_turn(
     ctx: StreamContext, outcome: TurnOutcome | None, failure: BaseException | None
 ) -> None:
     """Whatever happened: the user's row has saved (or failed loudly), and the turn's
-    timing and its trace are logged."""
-    if ctx.user_message_persist is not None:
-        try:
-            await await_user_message_persist(ctx)
-        except Exception:
-            logger.exception(
-                "User message persist failed chat_id=%s",
-                ctx.chat_id,
+    timing and its trace are logged (the trace even when a second cancel ends the wait)."""
+    try:
+        if ctx.user_message_persist is not None:
+            try:
+                await await_user_message_persist(ctx)
+            except Exception:
+                logger.exception(
+                    "User message persist failed chat_id=%s",
+                    ctx.chat_id,
+                )
+        if ctx.timing is not None:
+            ctx.timing.log_summary(
+                user_id=ctx.user_id,
+                chat_id=ctx.chat_id,
+                model=ctx.model,
+                lightweight=ctx.lightweight_turn,
+                content_chars=len(ctx.user_message_content or ""),
             )
-    if ctx.timing is not None:
-        ctx.timing.log_summary(
-            user_id=ctx.user_id,
-            chat_id=ctx.chat_id,
-            model=ctx.model,
-            lightweight=ctx.lightweight_turn,
-            content_chars=len(ctx.user_message_content or ""),
-        )
-    emit_turn_trace(ctx, outcome=outcome, failure=failure)
+    finally:
+        emit_turn_trace(ctx, outcome=outcome, failure=failure)
 
 
 async def stream_and_finalize(
