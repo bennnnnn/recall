@@ -65,6 +65,9 @@ def _covered(outcomes: list[Outcome]) -> dict[str, list[str]]:
 
 
 @pytest.mark.asyncio
+# One test reads a whole subject's corpus (physics: 833 turns, ~15 s locally): the suite's
+# 60 s hang limit is for one turn, and a loaded CI runner under coverage passed it (2026-10-31).
+@pytest.mark.timeout(600)
 @pytest.mark.parametrize("subject", SUBJECTS)
 async def test_stem_coverage_matches_its_snapshot(
     subject: str, thread_sympy_executor: None
