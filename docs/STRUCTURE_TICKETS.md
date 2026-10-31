@@ -184,6 +184,8 @@ exits 1. `--corpus` and `--only` narrow a dump. Two dumps of one commit are iden
     confirmations, lightweight turns, locale cues, code syntax, the emoji pattern.
   - `prompt_constants/` keeps only prompt copy.
   - Other modules import `turn_reading`, never chat.
+  - The model reader (`docs/MODEL_READER.md`) is not a pure reader: it calls a model and reads
+    the subjects' menus, so it lives in `modules/model_reader/`, never here.
 - **Seam:** the place ST-05's arbiter lives, and the one list of "what a message says" other
   modules may ask.
 - **Proof:** the decision diff is unchanged, and the #2151 cycle baseline shrinks again (the 50-module
