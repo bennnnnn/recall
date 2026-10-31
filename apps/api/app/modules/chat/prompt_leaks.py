@@ -20,6 +20,7 @@ parts or prompt writing, or whose message asks about language models or Recall's
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Set as AbstractSet
 from functools import cache
@@ -31,6 +32,8 @@ from app.services.text_normalize import straighten_apostrophes
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
+
+logger = logging.getLogger(__name__)
 
 # Labels and wrappers only Recall's prompt writes.
 _PROMPT_LABEL = re.compile(
@@ -91,6 +94,27 @@ def drop_prompt_leaks_pass(state: FinalizeState) -> str:
     if state.server_text:
         return state.text
     return drop_prompt_leaks(state.text, *_recent_user_lines(state), rules=_rule_grams())
+
+
+def drop_prompt_lines(text: str) -> str:
+    """What stands in when the pass fails: every line with a sentence that names a part
+    of the prompt or copies one of its rules goes, in code and quotes too."""
+    try:
+        rules: AbstractSet[str] = _rule_grams()
+    except Exception:
+        logger.exception("prompt rules unreadable; dropping only lines that name its parts")
+        rules = frozenset()
+    return "\n".join(line for line in text.split("\n") if not _leaking_line(line, rules))
+
+
+def _leaking_line(line: str, rules: AbstractSet[str]) -> bool:
+    lead = _LEAD.match(line.lstrip(" \t>#|"))
+    body = line.lstrip(" \t>#|")[lead.end() if lead else 0 :]
+    for sentence in _SENTENCE_BREAK.split(body):
+        prose = straighten_apostrophes(_INLINE_CODE.sub(" ", sentence))
+        if _leaks(prose) or (rules and _copies(prose, rules)):
+            return True
+    return False
 
 
 @cache

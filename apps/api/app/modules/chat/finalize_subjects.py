@@ -10,6 +10,7 @@ and the reply gets the notes and the working check an unverified answer needs.
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, TypeGuard
 
 from app.core import sympy_executor
@@ -42,6 +43,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# A line that may say a result was checked, for when reading its claims fails.
+_CHECK_WORDS = re.compile(r"checked|confirmed|sympy|[✅✔☑✓]", re.IGNORECASE)
+
 
 def fallback_text(raw: str, *, server_text: bool) -> str:
     """What persists when finalizing fails: never a check the server did not write."""
@@ -51,8 +55,22 @@ def fallback_text(raw: str, *, server_text: bool) -> str:
         return strip_forged_verified_markers(raw)
     except Exception:
         logger.exception("answer-card fallback failed; dropping marker lines")
-        lines = raw.split("\n")
-        return "\n".join(line for line in lines if "verified" not in line.lower())
+        return _without_marker_lines(raw)
+
+
+def _without_marker_lines(text: str) -> str:
+    return "\n".join(line for line in text.split("\n") if "verified" not in line.lower())
+
+
+def drop_check_lines(text: str) -> str:
+    """What stands in when preparing the model's reply fails: no line that could carry
+    a check marker, none of its own check claims and none of its own scenes."""
+    text = _without_marker_lines(text)
+    try:
+        return strip_model_simulation_fences(strip_verification_claims(text))
+    except Exception:
+        logger.exception("check-claim strip failed; dropping lines that name a check")
+        return "\n".join(line for line in text.split("\n") if not _CHECK_WORDS.search(line))
 
 
 def prepare_model_reply(state: FinalizeState) -> str:
