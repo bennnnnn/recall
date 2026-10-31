@@ -43,7 +43,6 @@ from app.modules.math.tools.block.geometry import (
     _verified_block_rectangle,
     _verified_block_right_triangle,
     _verified_block_sector,
-    _verified_block_solid,
     _verified_block_square,
     _verified_block_trapezoid,
     _verified_block_triangle,
@@ -58,6 +57,7 @@ from app.modules.math.tools.block.graph import (
 from app.modules.math.tools.block.limits import _verified_block_limit
 from app.modules.math.tools.block.matrix import _verified_block_matrix
 from app.modules.math.tools.block.series import _verified_block_series
+from app.modules.math.tools.block.solid import _verified_block_solid
 from app.modules.math.tools.block.statistics import _verified_block_statistics
 from app.modules.math.tools.block.word import _verified_block_word_problem
 from app.modules.math.tools.block.work import _verified_block_work_check

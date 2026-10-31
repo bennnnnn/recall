@@ -299,6 +299,19 @@
   }
  },
  {
+  "op": "reflection_line",
+  "prompt": "In a reflection, the image of the point P(3, 10) is P'(7, 2). Find the equation of the line of reflection.",
+  "block": {
+   "text": "$M = \\left(5, 6\\right)$\n$m = \\frac{2 - 10}{7 - 3} = -2, \\quad m_{\\perp} = \\frac{1}{2}$\n$y - 6 = \\frac{1}{2}\\left(x - 5\\right)$\nVerified result: y = \\frac{1}{2} x + \\frac{7}{2}",
+   "canonical_fence": {
+    "type": "answer",
+    "content": "y = \\frac{1}{2} x + \\frac{7}{2}"
+   },
+   "canonical_answer": "y = \\frac{1}{2} x + \\frac{7}{2}",
+   "worked_reply": "**Given**  \n$P = (3, 10)$ — the point  \n$P' = (7, 2)$ — its image\n\n**Find**  \n$\\text{the line of reflection}$\n\n**Formula**  \n$\\text{line of reflection} = \\text{perpendicular bisector of } PP'$ — every point on the mirror is as far from P as from P'  \n$y - y_M = m_{\\perp}(x - x_M)$ — Through the midpoint, perpendicular\n\n**Substitution**  \n$M = \\left(5, 6\\right)$ — midpoint  \n$m = \\frac{2 - 10}{7 - 3} = -2, \\quad m_{\\perp} = \\frac{1}{2}$  \n$y - 6 = \\frac{1}{2}\\left(x - 5\\right)$\n\n**Answer**\n\n```answer\ny = \\frac{1}{2} x + \\frac{7}{2}\n```\n"
+  }
+ },
+ {
   "op": "sine_rule",
   "prompt": "in triangle ABC, A = 40 degrees, B = 60 degrees, a = 10, find b",
   "block": {

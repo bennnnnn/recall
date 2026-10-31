@@ -355,7 +355,7 @@ _PRESENTATION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?explain\s+",
         r"\b(?:do\s+not|don't|dont|without)\s+(?:give|giving|tell|telling|reveal|revealing|show|showing)(?:\s+me)?\s+(?:the|either|any)?\s*(?:answer|solution|roots?)\b",
         r"\b(?:help)(?:\s+me)?\s+without\s+giving\s+it\s+away\b",
-        r"\b(?:please\s+)?(?:show|give)(?:\s+me)?\s+(?:all|every|each|the)?\s*(?:steps?|work|working)\b",
+        r"\b(?:please\s+)?(?:show|give)(?:\s+me)?\s+(?:all|every|each|the|your)?\s*(?:steps?|work|working)\b",
         r"\b(?:walk)(?:\s+me)?\s+through(?:\s+it)?\b",
         r"\b(?:step[ -]?by[ -]?step)\b",
         r"\b(?:(?:final|just|only)\s+(?:the\s+)?(?:answer|result)|(?:answer|result)\s+only)\b",
@@ -368,6 +368,8 @@ _PRESENTATION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"\b(?:give|show)(?:\s+me)?\s+(?:one|a|the)?\s*(?:hint|nudge|clue)(?:\s+for)?\b",
         r"\b(?:do\s+not|don't|dont)\s+(?:use\s+)?(?:the\s+)?(?:quadratic\s+formula|factor(?:ing)?|factorisation|substitution|elimination)(?:\s+(?:it|this))?\b",
         r"\b(?:using|use|with|by)\s+(?:the\s+)?(?:quadratic\s+formula|factoring|factorisation|substitution|elimination)\b",
+        # "Use the distance formula to find ...": the method a coordinate answer is worked by.
+        r"\b(?:using|use|with|by|apply|applying)\s+(?:the\s+)?(?:distance|slope|gradient|midpoint)\s+formula(?:\s+to)?\b",
         r"\b(?:keep)\s+(?:the\s+)?(?:variable|x)\s+lowercase(?:\s+in\s+the\s+final\s+answer)?\b",
         # Asking for the answer to be checked is presentation: the solve still runs.
         r"\b(?:and\s+)?(?:double[- ]check|check|verify|confirm|prove)\s+(?:it|that|this|"
@@ -379,6 +381,50 @@ _PRESENTATION_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
         r"\b(?:and\s+)?(?:double[- ]check|check|verify)[ .!?]*$",
     )
 )
+
+
+# The frame around a question that never changes what it asks: a polite or casual opener
+# ("Can you", "Hey,", "I need", "Help me"), an actor's name before what they do ("Kebede
+# throws two dice", "John draws a card"), and how the answer should be written ("in
+# simplest form", "Express your answer as a fraction", "Round to the nearest tenth",
+# "in units"). Units and rounding are frame only for answers that have neither a unit nor
+# a precision to choose (a probability, a coordinate line), so readers opt in by calling
+# ``strip_ask_frame``; the presentation patterns above apply to every reader. An answer
+# asked in terms of π is never frame: the card would be worked with π itself.
+_OPENER = (
+    r"(?:hey|hi|hello|ok|okay|so|please|(?:can|could|would|will)\s+(?:you|u)|can\s+i\s+(?:get|have)"
+    r"|i\s+(?:need|want)(?:\s+to\s+(?:know|find|get))?|help\s+me(?:\s+to)?|tell\s+me|quick\s+question)"
+)
+_ASK_FRAME_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        rf"(?:^|(?<=[.?!]\s)){_OPENER}\b[,:!]?(?:\s+{_OPENER}\b[,:!]?)*\s*",
+        r"\b(?:express|give|write|leave|state|present)\s+(?:your|the)\s+answers?\s+"
+        r"(?:as|in)\b(?![^.?!]*(?:\u03c0|\\pi|\bpi\b))[^.?!]*",
+        r"\b(?:in|to)\s+(?:its\s+|the\s+)?(?:simplest|lowest)\s+(?:form|terms)\b",
+        r"\b(?:round(?:ed)?|correct)\s+(?:your\s+answer\s+|it\s+)?to\s+(?:the\s+nearest\s+"
+        r"(?:tenth|hundredth|thousandth|whole(?:\s+number)?|integer|unit)|\d+\s+(?:decimal\s+places?"
+        r"|significant\s+figures?))\b",
+        r"\bin\s+(?:units|cm|centimet(?:er|re)s|mm|millimet(?:er|re)s|met(?:er|re)s|km|inches"
+        r"|feet|ft)\b",
+    )
+)
+# A name before what its owner does: "Abebe rolls", "John draws". Not a number word or a
+# question word: "Two rolls of a die", "What draws ..." keep theirs.
+_ACTOR = re.compile(
+    r"\b(?!(?:One|Two|Three|Four|Five|Six|The|A|An|What|Which|Each|Every|This|That|It|He|She"
+    r"|They|You|We|If|When|Then|Find)\b)[A-Z][a-z]+\s+(?=(?:rolls|throws|tosses|draws|picks"
+    r"|selects|chooses|takes|flips|spins|rolled|threw|tossed|drew|picked|selected|chose|took"
+    r"|flipped|spun)\b)"
+)
+
+
+def strip_ask_frame(text: str) -> str:
+    """The question without its frame: openers, actors, answer format and presentation."""
+    result = _ACTOR.sub("", text)
+    for pattern in _ASK_FRAME_PATTERNS:
+        result = pattern.sub(" ", result)
+    return strip_math_response_wrappers(result)
 
 
 def strip_math_response_wrappers(text: str) -> str:

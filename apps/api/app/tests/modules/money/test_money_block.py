@@ -65,3 +65,18 @@ def test_a_follow_up_is_told_the_numbers_already_include_its_change() -> None:
     assert f"{lead}yearly rate 6%; term in months 48." in money_block(both, work(both, None), None)
     first = read_money_request(earlier[0])
     assert first is not None and lead not in money_block(first, work(first, None), None)
+
+
+def test_the_block_says_how_often_savings_compound() -> None:
+    """2026-10-31: "compounded quarterly" was worked monthly; the block now says which."""
+    said = read_money_request(
+        "Birr 3,000 in a saving account at 6% per year, compounded quarterly, for seven years"
+    )
+    assert said is not None
+    block = money_block(said, work(said, None), None)
+    assert "term in years 7; interest compounded quarterly." in block
+    assert "final balance 4,551.67" in block and "total interest 1,551.67" in block
+    usual = MoneyRequest(product("savings"), {"start": 1000, "rate": 4, "years": 5})
+    assert "interest compounded monthly (assumed: the user did not say)" in money_block(
+        usual, work(usual, None), None
+    )

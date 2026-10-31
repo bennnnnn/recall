@@ -315,6 +315,9 @@ def test_a_first_ask_is_no_follow_up() -> None:
         ("what about over 4 years", None, (4, "years")),
         ("hmm what if i only do 3 years instead", None, (3, "years")),
         ("what about a 15 year mortgage at 5.5%", 5.5, (15, "year")),
+        # A count in words, as a book writes it (2026-10-31).
+        ("what if seven years instead", None, (7, "years")),
+        ("what about twenty-five years", None, (25, "years")),
     ],
 )
 def test_the_grammar_reads_a_term_and_a_rate(

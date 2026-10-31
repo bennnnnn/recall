@@ -60,6 +60,7 @@ from app.modules.chat.turn_prep.context import (
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.request import TurnRequest
+from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
@@ -69,6 +70,7 @@ from app.modules.money.block import (
     MONEY_RATES_MISSING,
     MONEY_REPLY_RULES,
     MONEY_STANDING_HEADER,
+    MONEY_WORKED_RULES,
 )
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.web_search.detection import needs_web_search
@@ -103,6 +105,8 @@ HINTS: dict[str, str] = {
     # Any money turn; its reply rules; asking for the rate; no checked average for "rates now".
     "money": MONEY_HEADER,
     "money_reply": MONEY_REPLY_RULES,
+    # A lesson's money problem, every number its own: laid out Given / Formula / Answer.
+    "money_worked": MONEY_WORKED_RULES,
     # A turn about the chat's earlier loan: its figures, worked by the app.
     "money_standing": MONEY_STANDING_HEADER,
     "money_ask_rate": MONEY_RATE_MISSING,
@@ -198,6 +202,11 @@ class Route:
     history_rag: bool = False
     # The scenes a verified block appends under a model-written reply, as fences.
     server_pictures: str = ""
+    # What the turn decided, as production records it (``turn_trace``): the trace keeps
+    # collecting while the caller runs the reply's finalize step. ``decisions.py`` reads
+    # both to diff a change's decisions against main's.
+    trace: TurnTrace | None = None
+    context: Any = None
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -255,6 +264,9 @@ def battery_settings() -> Settings:
         # Coverage, not speed: a busy CI machine must not turn a 0.7s solve
         # into an unanswered turn at the production 5s limit.
         stem_solve_timeout_seconds=30.0,
+        # The same for the turn's one reading: a slow read is a declined question, and the
+        # STEM snapshot holds every answered question by name.
+        subject_read_timeout_seconds=30.0,
         chemistry_enabled=True,
         mcp_tool_loop_enabled=True,
         attachments_enabled=False,
@@ -328,6 +340,7 @@ def _hints_in(system: str, case: Case) -> set[str]:
 
 async def route_case(case: Case, settings: Settings | None = None) -> Route:
     settings = settings or battery_settings()
+    trace = begin_turn_trace("new")
     user = User(
         id=uuid4(),
         name=USER_NAME,
@@ -494,6 +507,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
         history_rag=bool(loaded.get("history_rag")),
         server_pictures=_server_pictures(verified),
+        trace=trace,
+        context=ctx,
     )
 
 

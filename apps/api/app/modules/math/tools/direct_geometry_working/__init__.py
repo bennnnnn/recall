@@ -58,18 +58,29 @@ _WORKINGS: dict[tuple[GeometryShape, GeometryQuantity], Working] = {
 
 
 def format_direct_geometry_working(
-    request: GeometryRequest | None, spec: Mapping[str, object], answer: str
+    request: GeometryRequest | None,
+    spec: Mapping[str, object],
+    answer: str,
+    approximate: bool = False,
 ) -> str | None:
-    """Lay out one verified measurement from its figure, without recomputing it."""
+    """Lay out one verified measurement from its figure, without recomputing it.
+
+    A rounded answer (the root of 34 as 5.831) ends its working with ≈, as its card does."""
     result = answer.strip()
     working = None if request is None else _WORKINGS.get((request.kind, request.quantity))
     if request is None or working is None or not result:
         return None
-    return working(request, spec, result)
+    laid_out = working(request, spec, result)
+    if laid_out is None or not approximate:
+        return laid_out
+    head, equals, tail = laid_out.rpartition(f"= {result}")
+    return f"{head}\\approx {result}{tail}" if equals else laid_out
 
 
-def format_direct_solid_working(request: GeometryRequest | None, answer: str) -> str | None:
+def format_direct_solid_working(
+    request: GeometryRequest | None, answer: str, approximate: bool = False
+) -> str | None:
     """The same layout for a solid, whose measures travel on the request."""
     if request is None or request.solid is None:
         return None
-    return format_direct_geometry_working(request, request.solid.model_dump(), answer)
+    return format_direct_geometry_working(request, request.solid.model_dump(), answer, approximate)

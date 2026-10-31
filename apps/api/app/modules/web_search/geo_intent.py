@@ -25,6 +25,7 @@ from app.modules.web_search.patterns import (
     non_geographic_nearest,
 )
 from app.modules.web_search.place_answer import LOCATION_ASK_OPENING
+from app.modules.web_search.weather import is_worked_problem
 
 _LOCATIONLESS_WEATHER = re.compile(
     r"^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+like)?"
@@ -109,6 +110,8 @@ def is_distance_query(text: str) -> bool:
 
 def is_geo_query(text: str) -> bool:
     """Any query that needs the user's location — places OR distance. Venue-agnostic."""
+    if is_worked_problem(text):
+        return False
     return is_proximity_query(text) or is_distance_query(text) or is_local_weather_query(text)
 
 

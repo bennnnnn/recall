@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.stated_values import ordered_values, positioned_values
 from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 from app.services.number_text import count_word_pattern, number_word_value
 
@@ -148,7 +148,65 @@ def resistor_values(text: str) -> list[float]:
     listed = _RESISTOR_LIST_RE.search(text)
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
-    return [value for value, _ in ordered_values(text, OHM_PATTERN)]
+    if _UNKNOWN_RESISTOR_RE.search(text) and not _VALUED_R_RE.search(text):
+        # "a 3 Ω resistor and a resistor R": the network's total is not the known ones'.
+        return []
+    return _stated_resistances(text)
+
+
+# A resistor the question has not valued: "a resistor R", "an unknown resistor"; not "a
+# resistor R of 6 Ω" or "R = 4 Ω".
+_UNKNOWN_RESISTOR_RE = re.compile(r"\b[Rr]esistors?\s+R\b(?!\s*[=_\d])|\bunknown\s+resist")
+_VALUED_R_RE = re.compile(r"\bR\s*(?:=|is\b|of\b)")
+# A place that introduces a resistor: "a 6 Ω", "another 6 Ω".
+_INTRODUCES_RE = re.compile(r"\b(?:a|an|another|one)\s+$", re.IGNORECASE)
+# Between two values of one list: "6 Ω, 6 Ω and 3 Ω", "a 6 Ω and a 6 Ω resistor". Read as
+# words, so no pattern scans a long run of spaces.
+_LIST_WORD_RE = re.compile(r",|[^\s,]+")
+_LIST_UNITS = frozenset({"\u03a9", "\u03c9", "ohm", "ohms"})
+_LIST_JOINERS = ([","], [",", "and"], ["and"], [",", "or"], ["or"])
+
+
+def _joins_list(between: str) -> bool:
+    words = _LIST_WORD_RE.findall(between.lower())
+    if words[:1] and words[0] in _LIST_UNITS:
+        words = words[1:]
+    if words[:1] in (["resistor"], ["resistors"]):
+        words = words[1:]
+    if words[-1:] in (["a"], ["an"], ["the"], ["another"]):
+        words = words[:-1]
+    return words in _LIST_JOINERS
+
+
+def _stated_resistances(text: str) -> list[float]:
+    """Each resistance stated, or none when one may be named twice.
+
+    A value stated in two places is two resistors only when each place introduces one
+    ("a 6 Ω resistor … another 6 Ω resistor"), or when both are in one list ("the 6 Ω,
+    6 Ω and 3 Ω resistors"). Anywhere else the second place may name the first: "the p.d.
+    across the 50 Ω resistor", "R1 (50 Ω)", "which resistor, 50 Ω or 100 Ω" each added a
+    resistor to a certified total (2026-10-30, a Grade 10 physics book and its reviews)."""
+    found = positioned_values(text, OHM_PATTERN)
+    values = [value for _, value, _ in found]
+    starts = [start for start, _, _ in found]
+    ends = [_value_end(text, start) for start in starts]
+    group = [0] * len(found)
+    for index in range(1, len(found)):
+        joined = _joins_list(text[ends[index - 1] : starts[index]])
+        group[index] = group[index - 1] if joined else group[index - 1] + 1
+    for value in set(values):
+        places = [index for index, other in enumerate(values) if other == value]
+        if len({group[index] for index in places}) < 2:
+            continue
+        if not all(_INTRODUCES_RE.search(text[max(0, starts[i] - 10) : starts[i]]) for i in places):
+            return []
+    return values
+
+
+def _value_end(text: str, start: int) -> int:
+    """Where the number at ``start`` ends (its unit is part of the join that follows)."""
+    match = re.match(r"\d+(?:\.\d+)?", text[start:])
+    return start + (match.end() if match else 0)
 
 
 # "R1 = 10 Ω", "R_2=20Ω": a resistor's name before its value, a given and not algebra.

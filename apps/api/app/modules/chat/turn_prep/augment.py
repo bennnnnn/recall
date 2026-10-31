@@ -26,6 +26,7 @@ from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
+from app.modules.chat.whole_question import whole_question_fetch
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
 from app.modules.web_search.subject import (
@@ -119,6 +120,7 @@ async def gather_and_inject(
         fetched = await _fetch_subject_with_priors(
             request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
         )
+    fetched = whole_question_fetch(request.content, fetched)
     return Augmentation(
         prompt_messages=inject_subject_block(prompt_messages, fetched.subject_block),
         verified_subject=fetched.verified,

@@ -9,7 +9,7 @@ is nothing to work, and the model asks for it.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.modules.money.catalog import Product
 from app.modules.money.read import MoneyRequest
@@ -29,6 +29,12 @@ class Worked:
     assumed: tuple[str, ...]
     # None is no number: a card payment that never clears the balance.
     outputs: dict[str, float | None]
+    # The request's settings (``Product.settings``): how often savings compound.
+    settings: dict[str, float] = field(default_factory=dict)
+
+    def expressions(self) -> dict[str, str]:
+        """Each output's formula with the settings written in, as the card sends it."""
+        return {item.name: item.expression for item in self.product.outputs_at(self.settings)}
 
 
 def rate_name(product: Product) -> str:
@@ -52,9 +58,12 @@ def work(request: MoneyRequest, average: float | None) -> Worked | None:
         assumed.append(rate)
     if any(item.name not in values for item in product.inputs):
         return None
-    outputs = {item.name: output_value(item.expression, values) for item in product.outputs}
+    settings = dict(request.settings)
+    outputs = {
+        item.name: output_value(item.expression, values) for item in product.outputs_at(settings)
+    }
     ordered = tuple(item.name for item in product.inputs if item.name in assumed)
-    return Worked(product, values, ordered, outputs)
+    return Worked(product, values, ordered, outputs, settings)
 
 
 def output_value(expression: str, values: dict[str, float]) -> float | None:

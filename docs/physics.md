@@ -437,8 +437,9 @@ It also checks the reply's Given / Find / Formula / Substitution / Answer order,
 calculator notation and an invented zero given, and validates every `simulation` and `graph`
 fence against the schema and its own bounds. `test_stem_sweep.py` fails on a wrong number, a
 misread turn (a physics question answered as math, or hijacked by a location or settings
-reply), a reply out of shape or a broken picture. It holds two floors that only go up: 574 of
-597 answered, and 162 of 163 with the picture a student would want. Only a
+reply), a reply out of shape or a broken picture. It holds coverage entry by entry
+(`stem_snapshot.json`): 609 of 625 answered, and 193 of 194 with the picture a student would
+want. Only a
 `projectile_motion` scene beside a path graph (x–y or height–time) counts as the same
 picture twice; a v–t graph beside a fall says something the fall does not.
 
