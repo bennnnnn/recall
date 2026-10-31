@@ -181,6 +181,55 @@ live turns in the per-turn `turn_trace` line, op ids only.
   it on its own questions for two weeks, and the STEM snapshot (`stem_snapshot.json`)
   holds every answered entry.
 
+## Results (2026-10-31, second round)
+
+`reader_eval run --timeout 3.5 --books <Ethiopian sets>` after the checks above. Reach is
+cards on questions that have a worked answer; wrong is cards whose value is not the worked
+answer, or any card on a question that should get none. Rows apart from the corpus the
+patterns were built on: the physics `holdout.json`, and the Ethiopian Ministry of Education
+textbook questions whose book answer is one value (46 of 429; the 383 others are prose,
+parts or choices and are skipped), judged at 1% in any unit of the answer's kind.
+
+| Rows | Questions | Patterns: reach / wrong | Model: reach / wrong | Both agree: reach / wrong |
+|---|---|---|---|---|
+| Physics, English corpus | 544 | 527 / 0 | 155 / 6 | 144 / 0 |
+| Chemistry, English corpus | 212 | 204 / 0 | 31 / 6 | 8 / 0 |
+| Maths, English corpus | 380 | 368 / 0 | 105 / 5 | 99 / 0 |
+| Physics, holdout | 83 | 83 / 0 | 31 / 0 | 30 / 0 |
+| Textbooks, physics | 26 | 13 / 2* | 4 / 1* | 4 / 1* |
+| Textbooks, maths and chemistry | 20 | 3 / 0 | 3 / 0 | 3 / 0 |
+| Physics, am es fr ar hi | 200 | 6 / 1 | 69 / 5 | 1 / 0 |
+| Chemistry, am es fr ar hi | 200 | 8 / 0 | 26 / 4 | 3 / 0 |
+| Maths, am es fr ar hi | 195 | 38 / 1 | 42 / 1 | 18 / 0 |
+
+\* One is the judge, not a misread: a 2 K temperature change against the book's 2 °C. The
+other pattern card is 98.33 °F where the book rounds 37 °C to 98.6 °F.
+
+- **The checks cut the model's wrong cards** from 61 to 17 in English and from 26 to 10 in
+  the other languages, at the cost of reach (the model now declines a read it cannot
+  quote, scale or condition).
+- **Latency:** p50 2.0–2.4 s for physics and chemistry (two calls) and 1.0 s for maths
+  (a maths read the first call routes away needs no second); p95 2.5–4.2 s.
+- **Cost:** $0.10–0.25 per 1,000 reads.
+
+### What the numbers say
+
+- **The model read alone is still not safe:** 4–19% of its English cards and 2–15% of its
+  other-language cards are wrong; the patterns give none on the corpus, the holdout or the
+  textbooks.
+- **Both-must-agree gave no wrong card a pattern did not also give,** but on these rows it
+  only removes pattern cards (two thirds of English reach), so it is no use as a gate yet.
+- **In other languages the model reads what the patterns cannot** (physics 69 against 6,
+  chemistry 26 against 8, maths 42 against 38), at a wrong rate the decision rule refuses
+  except in maths (1 of 42).
+
+### Recommendation
+
+Keep every pattern reader. Ship nothing to users from this yet. Turn the shadow on for a
+sample of STEM turns once this merges, to measure agreement on real questions and catch
+pattern mistakes. The next candidate is maths in other languages (1 wrong in 42): measure
+it on a larger translated sample before offering it.
+
 ## Not doing
 
 - No model writes a verified answer, a formula or a number the reply shows: the solvers do.
