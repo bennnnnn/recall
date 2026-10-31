@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.stated_values import ordered_values, positioned_values
 from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 from app.services.number_text import count_word_pattern, number_word_value
 
@@ -148,7 +148,31 @@ def resistor_values(text: str) -> list[float]:
     listed = _RESISTOR_LIST_RE.search(text)
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
-    return [value for value, _ in ordered_values(text, OHM_PATTERN)]
+    if _UNKNOWN_RESISTOR_RE.search(text):
+        # "a 3 Ω resistor and a resistor R": the network's total is not the known ones'.
+        return []
+    return _stated_resistances(text)
+
+
+# A resistor the question has not valued: "a resistor R", "an unknown resistor".
+_UNKNOWN_RESISTOR_RE = re.compile(r"\b[Rr]esistors?\s+R\b(?!\s*[=_\d])|\bunknown\s+resist")
+# "the potential difference across the 50 Ω resistor": a resistor named again.
+_NAMED_AGAIN_RE = re.compile(r"\b(?:the|that|this)\s+$", re.IGNORECASE)
+
+
+def _stated_resistances(text: str) -> list[float]:
+    """Each resistance stated, once: "the 50 Ω resistor" after "a 50 Ω resistor" is the
+    same resistor. Counted twice, a 50 Ω and 100 Ω series pair was certified 200 Ω, and a
+    3 Ω resistor beside an unknown R 6 Ω (2026-10-30, a Grade 10 physics book)."""
+    found = positioned_values(text, OHM_PATTERN)
+    values = [value for _, value, _ in found]
+    return [
+        value
+        for start, value, _ in found
+        if not (
+            values.count(value) > 1 and _NAMED_AGAIN_RE.search(text[max(0, start - 12) : start])
+        )
+    ]
 
 
 # "R1 = 10 Ω", "R_2=20Ω": a resistor's name before its value, a given and not algebra.

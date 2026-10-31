@@ -157,13 +157,15 @@ def find_value_with_specific_unit(
     ``whole_words`` matches a keyword only as a word: ``in`` is not the start of
     ``inductor``.
     """
-    matches = list(
-        re.finditer(
+    matches = [
+        m
+        for m in re.finditer(
             rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
-    )
+        if not part_label(text, m)
+    ]
     if not matches:
         return None
 
@@ -212,6 +214,16 @@ def labeled_value(text: str, label: str, unit: str) -> tuple[float, str] | None:
     return float(match.group(1)), match.group(2)
 
 
+def part_label(text: str, match: re.Match[str]) -> bool:
+    """A one-letter unit closed by ")" outside any bracket is the next part's label: "…
+    9.7, 12.6 a) Draw the circuit" read as 12.6 A certified a 12 V bulb's resistance as
+    0.952 Ω (2026-10-30). "a current (2 A)" keeps its unit."""
+    if len(match.group(2)) != 1 or not text.startswith(")", match.end()):
+        return False
+    before = text[: match.start()]
+    return before.rfind("(") <= before.rfind(")")
+
+
 def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     """Every number carrying one of these units, left to right.
 
@@ -226,6 +238,7 @@ def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
             text,
             re.IGNORECASE,
         )
+        if not part_label(text, m)
     ]
 
 
@@ -242,4 +255,5 @@ def positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, st
             text,
             re.IGNORECASE,
         )
+        if not part_label(text, m)
     ]

@@ -115,6 +115,28 @@ def _network_intent(
     )
 
 
+def _ohm_givens(
+    cleaned: str,
+    volts: list[tuple[float, str]],
+    amps: list[tuple[float, str]],
+    ohms: list[tuple[float, str]],
+) -> tuple[dict[str, float], dict[str, str]] | None:
+    """The one V, I and R stated, each with its unit; None when one quantity has two values
+    ("a 48 V battery … the voltmeter reads 9 V"): which one a law takes is a guess."""
+    params: dict[str, float] = {}
+    units: dict[str, str] = {}
+    for key, found, unit in (("V", volts, "volt"), ("I", amps, "ampere"), ("R", ohms, "ohm")):
+        if len({value for value, _ in found}) > 1:
+            return None
+        if found:
+            params[key] = found[0][0]
+            units[key] = unit
+        elif (prefixed := _prefixed_value(cleaned, key)) is not None:
+            # "2 mA", "4.7 kΩ": the unit is kept, and the solver works in SI.
+            params[key], units[key] = prefixed
+    return params, units
+
+
 def _readable_circuit_text(cleaned: str) -> str | None:
     """The question as the readers below take it: without its "R1 =" labels. None for
     a circuit this does not read (a blocked shape, a network wired by name, algebra)."""
@@ -201,15 +223,10 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     if len(network) >= 2 and ("series" in lower or "parallel" in lower):
         return _network_intent(lower, network, counted, volts, amps)
 
-    params: dict[str, float] = {}
-    units: dict[str, str] = {}
-    for key, found, unit in (("V", volts, "volt"), ("I", amps, "ampere"), ("R", ohms, "ohm")):
-        if found:
-            params[key] = found[0][0]
-            units[key] = unit
-        elif (prefixed := _prefixed_value(cleaned, key)) is not None:
-            # "2 mA", "4.7 kΩ": the unit is kept, and the solver works in SI.
-            params[key], units[key] = prefixed
+    read = _ohm_givens(cleaned, volts, amps, ohms)
+    if read is None:
+        return None
+    params, units = read
 
     # --- terminal voltage: V = emf - I r ---------------------------------
     # Only when the question says both that there *is* an internal resistance
