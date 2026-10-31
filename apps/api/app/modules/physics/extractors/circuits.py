@@ -71,6 +71,12 @@ def _network_equivalent(values: list[float], *, series: bool) -> float | None:
     return 1.0 / sum(1.0 / value for value in values)
 
 
+_ONE_RESISTOR_ASK = re.compile(
+    r"\b(?:across|through|in|by)\s+(?:the|each)\s+\d+(?:\.\d+)?\s*(?:\u03a9|\u03c9|ohms?)"
+)
+_TOTAL_RESISTANCE_ASK = re.compile(r"\b(?:total|equivalent|combined|effective|net)\s+resistance")
+
+
 def _network_intent(
     lower: str,
     network: list[float],
@@ -82,6 +88,10 @@ def _network_intent(
     a stated supply drives through them."""
     stated = 1 if counted is not None else len(network)
     if stated > _MAX_NETWORK_RESISTORS or len(network) > _MAX_COUNTED_RESISTORS:
+        return None
+    # "Find the p.d. across the 50 Ω resistor": one resistor's share, which the network's
+    # total (certified 150 Ω) does not answer, unless the total is asked too.
+    if _ONE_RESISTOR_ASK.search(lower) and not _TOTAL_RESISTANCE_ASK.search(lower):
         return None
     series = "series" in lower
     # "Find the current" with a supply voltage is Ohm's law on the

@@ -238,8 +238,8 @@ _DECIMAL = re.compile(r"(?<![\d.])\d+\.(\d+)(?:e([-+]?\d+))?")
 
 
 def _carried_rounding(left: str, value: float, results: set[str]) -> float:
-    """How far the left side can move when each earlier result on it is off by half its
-    last place.
+    """How far the left side can move when each earlier rounded result on it is off by half
+    its last place.
 
     A line built on a rounded result carries that rounding: "2 * 0.36 = 0.71" is right when
     0.36 was 0.357, and was flagged "0.72, not 0.71" (2026-10-30, a long-jump answer). A
@@ -265,11 +265,40 @@ def _is_wrong(value: float, shown: float, rounding: float, approximate: bool) ->
     return difference > rounding * (1 + 1e-9) and difference > slack
 
 
+# A name a step solves for: t, v_1, t_{\text{flight}}.
+_NAME = re.compile(r"[A-Za-z](?:_\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|_\w)?")
+
+
+def _note_rounded(
+    left_tex: str,
+    left: str | None,
+    right: str | None,
+    rounded: set[str],
+    worked: dict[str, float],
+) -> None:
+    """Record a result shown rounded: a step's exact value written to fewer places. A given
+    ("m = 3.2") and an exact result ("6/30 = 0.2") are exact as written."""
+    shown = _shown_number(right) if right is not None else None
+    exact: float | None = None
+    if left is not None and _OPERATOR.search(left.lstrip("-+")):
+        exact = _evaluate(left)
+    elif left is None and right is not None and _NAME.fullmatch(name := left_tex.replace(" ", "")):
+        if shown is None:
+            if (value := _evaluate(right)) is not None:
+                worked[name] = value
+            return
+        exact = worked.get(name)
+    if exact is not None and shown is not None and not math.isclose(exact, shown[0], rel_tol=1e-9):
+        rounded.add(right or "")
+
+
 def wrong_steps(reply: str) -> list[WrongStep]:
     """The steps in ``reply`` whose arithmetic does not hold, in reading order."""
     found: list[WrongStep] = []
-    # Every number the working has shown as a result so far ("t = 0.36"): rounded.
-    results: set[str] = set()
+    # A number an earlier step rounded ("3.5/9.8 = 0.36", or "t = 3.5/9.8" and then
+    # "t = 0.36"), and each name's exact value from its expression.
+    rounded: set[str] = set()
+    worked: dict[str, float] = {}
     prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
     for match in _INLINE_MATH.finditer(prose):
         segment = match.group(1)
@@ -278,8 +307,7 @@ def wrong_steps(reply: str) -> list[WrongStep]:
         for index in range(len(parts) - 1):
             left_tex, right_tex = parts[index].strip(), parts[index + 1].strip()
             left, right = _plain(left_tex), _plain(right_tex)
-            if right is not None and _shown_number(right) is not None:
-                results.add(right)
+            _note_rounded(left_tex, left, right, rounded, worked)
             if left is None or right is None or left == right:
                 continue
             # Arithmetic only: "7200 m = 7.2 km" restates a value in another unit.
@@ -291,7 +319,7 @@ def wrong_steps(reply: str) -> list[WrongStep]:
             if shown is None or value is None:
                 continue
             approximate = relations[index] != "="
-            rounding = shown[1] + _carried_rounding(left, value, results - {right})
+            rounding = shown[1] + _carried_rounding(left, value, rounded - {right})
             if _is_wrong(value, shown[0], rounding, approximate):
                 found.append(WrongStep(left_tex, right_tex, value))
     return found

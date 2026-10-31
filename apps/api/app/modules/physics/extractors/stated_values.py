@@ -215,13 +215,19 @@ def labeled_value(text: str, label: str, unit: str) -> tuple[float, str] | None:
 
 
 def part_label(text: str, match: re.Match[str]) -> bool:
-    """A one-letter unit closed by ")" outside any bracket is the next part's label: "…
-    9.7, 12.6 a) Draw the circuit" read as 12.6 A certified a 12 V bulb's resistance as
-    0.952 Ω (2026-10-30). "a current (2 A)" keeps its unit."""
-    if len(match.group(2)) != 1 or not text.startswith(")", match.end()):
+    """A one-letter unit closed by ")" outside any bracket, with the next part's label after
+    it, is that part's label: "… 9.7, 12.6 a) Draw the circuit … b) Copy" read as 12.6 A
+    certified a 12 V bulb's resistance as 0.952 Ω (2026-10-30). "a current (2 A)" and
+    "supplies 3 A) to the lamp" keep their unit."""
+    unit = match.group(2).lower()
+    if len(unit) != 1 or not text.startswith(")", match.end()):
         return False
     before = text[: match.start()]
-    return before.rfind("(") <= before.rfind(")")
+    if before.rfind("(") > before.rfind(")"):
+        return False
+    following = ("ii", "j") if unit == "i" else (chr(ord(unit) + 1),)
+    after = text[match.end() :]
+    return any(re.search(rf"(?<![\w(]){label}\)", after, re.IGNORECASE) for label in following)
 
 
 def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:

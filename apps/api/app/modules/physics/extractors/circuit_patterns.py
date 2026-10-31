@@ -148,16 +148,22 @@ def resistor_values(text: str) -> list[float]:
     listed = _RESISTOR_LIST_RE.search(text)
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
-    if _UNKNOWN_RESISTOR_RE.search(text):
+    if _UNKNOWN_RESISTOR_RE.search(text) and not _VALUED_R_RE.search(text):
         # "a 3 Ω resistor and a resistor R": the network's total is not the known ones'.
         return []
     return _stated_resistances(text)
 
 
-# A resistor the question has not valued: "a resistor R", "an unknown resistor".
+# A resistor the question has not valued: "a resistor R", "an unknown resistor"; not "a
+# resistor R of 6 Ω" or "R = 4 Ω".
 _UNKNOWN_RESISTOR_RE = re.compile(r"\b[Rr]esistors?\s+R\b(?!\s*[=_\d])|\bunknown\s+resist")
-# "the potential difference across the 50 Ω resistor": a resistor named again.
-_NAMED_AGAIN_RE = re.compile(r"\b(?:the|that|this)\s+$", re.IGNORECASE)
+_VALUED_R_RE = re.compile(r"\bR\s*(?:=|is\b|of\b)")
+# "the potential difference across the 50 Ω resistor": a resistor named again. "In
+# parallel with the 6 Ω resistor" may be another one.
+_NAMED_AGAIN_RE = re.compile(
+    r"\b(?:across|through|in|by|on|over|of)\s+(?:the|that|this)\s+(?:[^.;?]{0,40}\band\s+the\s+)?$",
+    re.IGNORECASE,
+)
 
 
 def _stated_resistances(text: str) -> list[float]:
@@ -170,7 +176,7 @@ def _stated_resistances(text: str) -> list[float]:
         value
         for start, value, _ in found
         if not (
-            values.count(value) > 1 and _NAMED_AGAIN_RE.search(text[max(0, start - 12) : start])
+            values.count(value) > 1 and _NAMED_AGAIN_RE.search(text[max(0, start - 72) : start])
         )
     ]
 

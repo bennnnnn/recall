@@ -114,3 +114,22 @@ def test_a_line_built_on_a_rounded_result_carries_its_rounding() -> None:
 )
 def test_a_slip_beyond_the_carried_rounding_is_still_one(reply: str) -> None:
     assert wrong_steps(reply)
+
+
+# Review: a given is exact, and so is an exact result; only a rounded one carries slack.
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "**Given** $m = 3.2\\ \\text{kg}$ $a = 4.5$ $F = 3.2 \\times 4.5 = 14.8$",
+        "**Given** $I = 0.2\\ \\text{A}$ $R = 12 / 0.2 = 55$",
+        "$I = 6/30 = 0.2$ then $R = 12/0.2 = 55$",
+        "$v = 2.5$ $KE = 0.5 \\times 4 \\times 2.5^2 = 13.0$",
+    ],
+)
+def test_a_given_or_exact_result_carries_no_rounding(reply: str) -> None:
+    assert wrong_steps(reply)
+
+
+def test_a_name_solved_then_rounded_carries_its_rounding() -> None:
+    reply = "$t = \\frac{3.5}{9.8}$\n$t = 0.36\\ \\text{s}$\n$t_{f} = 2 \\times 0.36 = 0.71$"
+    assert wrong_steps(reply) == []

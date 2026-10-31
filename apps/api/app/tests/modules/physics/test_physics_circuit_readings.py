@@ -72,3 +72,41 @@ def test_a_bracketed_unit_is_still_a_unit() -> None:
     answer = _answer("A current (2 A) flows through a 6 Ω resistor. Find the voltage.")
     assert answer is not None
     assert answer_number(answer) == pytest.approx(12.0)
+
+
+# Review of the first fix: each was certified, or declined, wrongly.
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        # "with the 6 Ω resistor" may be another one: 6 ∥ 6 ∥ 3 is 1.5 Ω.
+        (
+            "A 6 Ω resistor is connected in parallel with the 6 Ω resistor and the 3 Ω "
+            "resistor of the circuit. Find the equivalent resistance.",
+            1.5,
+        ),
+        # A one-letter unit before ")" with no next part after it is still a unit.
+        ("A force of 10 N) acts on a 2 kg mass. Find the acceleration.", 5.0),
+        # "a resistor R of 6 Ω" is valued.
+        ("A resistor R of 6 Ω and a 3 Ω resistor are in series. Find the total resistance.", 9.0),
+    ],
+)
+def test_review_cases_keep_their_card(text: str, value: float) -> None:
+    answer = _answer(text)
+    assert answer is not None, text
+    assert answer_number(answer) == pytest.approx(value), answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # One resistor's share is not the network's total (certified 150 Ω, 3 A, 5 A).
+        "A 50 Ω and a 100 Ω resistor are in series with a 12 V battery. Find the p.d. across "
+        "the 50 Ω resistor.",
+        "A 6 Ω and a 3 Ω resistor are in parallel across 6 V. Find the current through the "
+        "3 Ω resistor.",
+        "A 4 Ω and a 6 Ω resistor are in parallel across 12 V. Find the current in the 6 Ω "
+        "resistor.",
+    ],
+)
+def test_one_resistors_share_is_no_network_total(text: str) -> None:
+    assert _answer(text) is None
