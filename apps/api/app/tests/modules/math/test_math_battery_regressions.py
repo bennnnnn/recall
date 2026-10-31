@@ -662,7 +662,10 @@ def test_a_circle_without_a_numeric_radius_declines_quietly(
         ("in triangle ABC, a = 3, b = 4, C = 90 degrees, find c", "5"),
         ("a triangle has sides 7, 8 and 9, find the smallest angle", r"\approx 48.2^\circ"),
         ("area of a triangle with sides 5, 6 and 7", "14.6969"),
-        ("find the angles of a triangle with sides 5, 6 and 7", "44.4°, 57.1°, 78.5°"),
+        (
+            "find the angles of a triangle with sides 5, 6 and 7",
+            r"\approx 44.4°, \approx 57.1°, \approx 78.5°",
+        ),
         ("draw a triangle with angles 120, 40 and 20", "120°, 40°, 20°"),
         # Decimals before: exact surds now.
         (

@@ -44,6 +44,7 @@ from app.modules.physics.catalog.spring import SPECS as SPRING
 from app.modules.physics.catalog.suvat import SPECS as SUVAT
 from app.modules.physics.catalog.thermal import SPECS as THERMAL
 from app.modules.physics.catalog.torque import SPECS as TORQUE
+from app.modules.physics.catalog.wave_optics import SPECS as WAVE_OPTICS
 from app.modules.physics.catalog.waves import SPECS as WAVES
 from app.services.law_binding.spec import (
     FormulaSpec,
@@ -99,6 +100,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     INDUCTANCE_AC,
     WAVES,
     OPTICS,
+    WAVE_OPTICS,
     THERMAL,
     GAS_LAWS,
     HEAT,

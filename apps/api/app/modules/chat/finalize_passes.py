@@ -5,7 +5,9 @@ it changed. Its ``on_error`` says what an exception in it does:
 
 - ``FALL_BACK`` (most passes): the passes stop and the reply is the last
   committed text, the text as of the last side effect (a linked photo, source
-  chips), or the raw reply made safe when nothing was committed (ES-03).
+  chips), or the raw reply made safe when nothing was committed (ES-03). Either
+  way the safety passes that text has not been through then run on it, each
+  failing closed (``FinalizePass.closed``).
 - ``OnError(log_as=step)``: the failure is logged as ``step`` (a timeout as a
   warning, any other failure captured) and the next pass gets the failed pass's
   input.
@@ -21,12 +23,13 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.modules.chat.claim_check import cut_unsupported_claims
+from app.modules.chat.control_tokens import strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
@@ -42,6 +45,7 @@ from app.modules.chat.finalize_subjects import (
     check_physics_fences,
     check_working,
     draw_formula_charts,
+    drop_check_lines,
     enrich_chemistry_fences,
     fallback_text,
     mark_server_cards,
@@ -69,7 +73,7 @@ from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.lesson_again import keep_to_lesson_again_pass
 from app.modules.chat.meta_notes import unwrap_meta_notes
-from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass
+from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
@@ -77,7 +81,8 @@ from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.chat.untrusted_media import neutralize_untrusted_media
+from app.modules.chat.turn_trace import note_pass, note_pass_failed
+from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
 from app.modules.chat.worked_lead import drop_guessed_lead
 
 logger = logging.getLogger(__name__)
@@ -104,6 +109,8 @@ class FinalizeState:
     user_stopped: bool = False
     # Tells the client what a slow pass is doing while the reply waits on it.
     on_status: StreamStatusFn | None = None
+    # Safety passes that raised: whatever commits after them, a fallback runs them again.
+    failed_safety: set[str] = field(default_factory=set)
 
     @property
     def server_text(self) -> bool:
@@ -131,6 +138,10 @@ class FinalizePass:
     name: str
     run: Callable[[FinalizeState], str | Awaitable[str]]
     on_error: OnError
+    # Set on a safety pass, one that removes what no saved reply may keep (a forged
+    # check, a URL that loads by itself, the prompt's own words). A fallback text runs
+    # it too, and when it fails there this strip stands in, never the text it cleans.
+    closed: Callable[[str], str] | None = None
 
 
 # A failed subject pass recovers its subject's fences (no model answer card
@@ -138,17 +149,28 @@ class FinalizePass:
 _SUBJECT_FENCES_STEP = "validate_math_fences"
 
 FINALIZE_PASSES: tuple[FinalizePass, ...] = (
+    # First: no other pass reads a leaked end-of-turn token as the reply's text.
+    FinalizePass(
+        "control_tokens",
+        lambda s: strip_control_tokens(s.text, s.ctx.user_message_content or ""),
+        FALL_BACK,
+    ),
     # Before the fence repair below can close it for the reminder pass.
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
-    FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
+    FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK, closed=drop_check_lines),
     # Before a subject lands its card under the reply's Answer heading.
     FinalizePass("answer_labels", lambda s: one_answer_label(s.text), FALL_BACK),
     FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), FALL_BACK),
-    FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
+    FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK, closed=drop_media_lines),
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), OnError(log_as="meta_notes")),
-    FinalizePass("prompt_leaks", drop_prompt_leaks_pass, OnError(log_as="prompt_leaks")),
+    FinalizePass(
+        "prompt_leaks",
+        drop_prompt_leaks_pass,
+        OnError(log_as="prompt_leaks"),
+        closed=drop_prompt_lines,
+    ),
     FinalizePass(
         "turn_meta",
         lambda s: without_turn_meta(
@@ -215,6 +237,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
 # until it is listed here.
 STOPPED_REPLY_PASSES = frozenset(
     {
+        "control_tokens",
         "drop_cut_reminder_fence",
         "prepare_model_reply",
         "answer_labels",
@@ -244,14 +267,23 @@ async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
     started = time.perf_counter()
     try:
         text = finalize_pass.run(state)
-        return text if isinstance(text, str) else await text
+        done = text if isinstance(text, str) else await text
+        note_pass(finalize_pass.name, state.text, done)
+        return done
     except Exception as exc:
+        note_pass_failed(finalize_pass.name)
+        if finalize_pass.closed is not None:
+            state.failed_safety.add(finalize_pass.name)
         if on_error.log_as is None:
             raise
+        # A safety pass fails closed: its strip goes on, never the text it cleans.
+        kept = "stripping closed" if finalize_pass.closed else "keeping raw assistant text"
         if isinstance(exc, TimeoutError):
-            logger.warning("%s timed out; keeping raw assistant text", on_error.log_as)
+            logger.warning("%s timed out; %s", on_error.log_as, kept)
         else:
-            logger.exception("%s failed; keeping raw assistant text", on_error.log_as)
+            logger.exception("%s failed; %s", on_error.log_as, kept)
+        if finalize_pass.closed is not None:
+            return finalize_pass.closed(state.text)
         return on_error.rewrite(state) if on_error.rewrite is not None else state.text
     finally:
         elapsed_ms = (time.perf_counter() - started) * 1000
@@ -261,19 +293,53 @@ async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
 async def run_finalize_passes(state: FinalizeState) -> bool:
     """Every pass in order (a stopped reply's own list). False when one failed and
     the text fell back."""
+    # How many passes the committed text has been through: its fallback runs the
+    # safety passes from there on, and any that failed before.
+    passed = 0
     try:
-        for finalize_pass in FINALIZE_PASSES:
+        for index, finalize_pass in enumerate(FINALIZE_PASSES):
             if state.user_stopped and finalize_pass.name not in STOPPED_REPLY_PASSES:
                 continue
-            state.text = await _run_pass(finalize_pass, state)
+            committed = state.committed
+            try:
+                state.text = await _run_pass(finalize_pass, state)
+            finally:
+                if state.committed is not committed:
+                    passed = index + 1
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting the last committed text")
         if state.committed is None:
             state.committed = fallback_text(state.raw, server_text=state.server_text)
             state.ctx.answer_photo_ids = []
+        unclean = tuple(
+            finalize_pass
+            for index, finalize_pass in enumerate(FINALIZE_PASSES)
+            if index >= passed or finalize_pass.name in state.failed_safety
+        )
+        state.committed = await _made_safe(state, state.committed, unclean)
         state.text = state.committed
         return False
     return True
+
+
+async def _made_safe(state: FinalizeState, text: str, passes: tuple[FinalizePass, ...]) -> str:
+    """``text`` through each safety pass in ``passes``; one that fails there gives way
+    to its closed strip, and a strip that fails too leaves nothing."""
+    for finalize_pass in passes:
+        if finalize_pass.closed is None:
+            continue
+        state.text = text
+        try:
+            cleaned = finalize_pass.run(state)
+            text = cleaned if isinstance(cleaned, str) else await cleaned
+        except Exception:
+            logger.exception("%s failed on the fallback text; stripping closed", finalize_pass.name)
+            try:
+                text = finalize_pass.closed(text)
+            except Exception:
+                logger.exception("%s closed strip failed; saving no text", finalize_pass.name)
+                return ""
+    return text
 
 
 async def enrich_final_content(
@@ -311,7 +377,7 @@ async def enrich_final_content(
         user_stopped=user_stopped,
         on_status=on_status,
     )
-    enriched = await run_finalize_passes(state)
+    await run_finalize_passes(state)
     # Last, on the finished text: no later pass can fail and lose its card.
     text = (
         state.text
@@ -320,13 +386,13 @@ async def enrich_final_content(
     )
 
     # One write: done.final_content must equal the string we persist. Skip on
-    # an unchanged normal turn so done payloads stay small. After a failure the
-    # client settles what it streamed unless done carries the text, so a
-    # stripped forged marker (or a marked instant card) is sent back, but an
-    # empty fallback never blanks the reply.
+    # an unchanged normal turn so done payloads stay small. The client settles
+    # what it streamed unless done carries the text, so any text that differs
+    # (a stripped forged marker, a marked instant card, a reply its safety passes
+    # emptied) is always sent back, an empty one included.
     if outcome is not None:
         if was_cancelled and text:
             outcome.final_content = text
-        elif text != assistant_text and (text or enriched):
+        elif text != assistant_text:
             outcome.final_content = text
     return text

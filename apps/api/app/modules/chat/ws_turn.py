@@ -280,7 +280,7 @@ async def run_chat_stream(
     """
     cancel_event.clear()
     outcome = TurnOutcome()
-    with bound_log_ids(chat_id=chat_id, turn=new_turn_id()):
+    with bound_log_ids(chat_id=chat_id, turn=new_turn_id(), transport="ws"):
         try:
             started = await safe_send_json(websocket, build_start_event())
         except BaseException:

@@ -46,6 +46,13 @@ CELSIUS_KEYS = frozenset({"temperature_c"})
 ADDITIVE_OPS = frozenset(
     {"bond_enthalpy", "cell_potential", "dalton", "formation_enthalpy", "hess"}
 )
+# An average atomic mass is a mean of the isotope masses weighted by abundances that add to
+# 100%. An abundance moves it only by its share of the masses' spread, a few u, so the
+# abundances never cut it to their figures (75% does not make chlorine 35 u). It has the four
+# figures a table of atomic masses gives, but no more decimal places than its least precise
+# stated mass; whole-number masses are mass numbers, exact, so their mean is exact: boron's
+# 10 and 11 at 20% and 80% average to 10.8.
+WEIGHTED_MEAN_OPS = frozenset({"average_atomic_mass"})
 
 # Units an extractor converts between. A converted value keeps its typed literal's figures.
 _CONVERTIBLE = (
@@ -184,7 +191,9 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
     # A concentration from a typed pH has as many figures as the pH has decimals.
     measured_figures = figures or log_places
     answer = min(max(min(measured_figures), MIN_FIGURES), MAX_FIGURES) if measured_figures else None
-    if intent.chemistry_op in ADDITIVE_OPS:
+    if intent.chemistry_op in WEIGHTED_MEAN_OPS:
+        answer, decimals = _weighted_mean_precision(intent, forms)
+    elif intent.chemistry_op in ADDITIVE_OPS:
         decimals = min(places, default=None)
     else:
         # Every given limits a pH: pKa 4.756 + log10(0.20 / 0.10) keeps the ratio's two places.
@@ -198,6 +207,17 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             "converted": converted,
         }
     )
+
+
+def _weighted_mean_precision(
+    intent: ChemistryIntent, forms: dict[float, list[str]]
+) -> tuple[int | None, int | None]:
+    """(figures, decimals) of a weighted mean of the masses in ``params``."""
+    typed = [forms.get(value, []) for value in intent.params.values()]
+    places = [decimals_of(form) for forms_of in typed for form in forms_of]
+    if all(typed) and not any(places):
+        return None, None
+    return MAX_FIGURES, min((place for place in places if place), default=None)
 
 
 @dataclass(frozen=True, slots=True)

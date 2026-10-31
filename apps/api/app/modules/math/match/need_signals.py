@@ -17,7 +17,7 @@ from app.modules.math.match.dimensions import (
     first_dim_pair,
     geometry_dim_context,
     has_draw_shape,
-    number_after,
+    measure_after,
     two_numbers_after,
 )
 from app.modules.math.match.discrete import (
@@ -75,7 +75,8 @@ def has_digit(text: str) -> bool:
 
 
 def _base_and_height(cleaned: str) -> bool:
-    return number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
+    base, height = measure_after(cleaned, "base"), measure_after(cleaned, "height")
+    return base is not None and height is not None
 
 
 def named_rectangle(cleaned: str, lower: str) -> bool:
@@ -104,8 +105,8 @@ def shape_with_measures(cleaned: str, lower: str) -> bool:
     if (
         "sector" in lower
         and any(k in lower for k in ("circle", "radius", "pie", "arc"))
-        and number_after(cleaned, "radius") is not None
-        and number_after(cleaned, "angle") is not None
+        and measure_after(cleaned, "radius") is not None
+        and measure_after(cleaned, "angle") is not None
     ):
         return True
     if triangle_sides_signal(cleaned) is not None or triangle_angles_signal(cleaned) is not None:
@@ -126,8 +127,8 @@ def shape_with_measures(cleaned: str, lower: str) -> bool:
         and "sector" not in lower
         and "pie slice" not in lower
         and (
-            number_after(cleaned, "radius") is not None
-            or number_after(cleaned, "diameter") is not None
+            measure_after(cleaned, "radius") is not None
+            or measure_after(cleaned, "diameter") is not None
         )
     ):
         return True

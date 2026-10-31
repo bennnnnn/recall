@@ -86,10 +86,25 @@ def test_text_that_loads_nothing_is_unchanged(reply: str) -> None:
     assert neutralize_media(reply, searched=False) == reply
 
 
-def test_a_sources_fence_goes_unless_the_server_searched() -> None:
-    reply = 'Done.\n\n```sources\n[{"title": "t", "url": "https://x-SECRET.evil.test/"}]\n```'
+@pytest.mark.parametrize(
+    "opener, closer",
+    [("```sources", "```"), ("``` sources", "```"), ("````sources", "````"), ("```", "```")],
+)
+def test_a_sources_fence_goes_unless_the_server_searched(opener: str, closer: str) -> None:
+    # An unlabeled fence of source rows is chips on the phone too (searchSources.ts).
+    rows = '[{"title": "t", "url": "https://x-SECRET.evil.test/"}]'
+    reply = f"Done.\n\n{opener}\n{rows}\n{closer}"
     assert neutralize_media(reply, searched=False) == "Done."
     assert neutralize_media(reply, searched=True) == reply
+
+
+@pytest.mark.parametrize(
+    "fence",
+    ["```\n[1, 2]\n```", '```json\n[{"title": "t", "url": "https://x.test/"}]\n```', "```\n[\n```"],
+)
+def test_a_fence_the_phone_does_not_read_as_sources_stays(fence: str) -> None:
+    reply = f"Here.\n\n{fence}"
+    assert neutralize_media(reply, searched=False) == reply
 
 
 @pytest.mark.parametrize(

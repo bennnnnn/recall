@@ -160,7 +160,7 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
     ):
         return None
     dims = mtm.first_dim_pair(cleaned)
-    side = mtm.number_after(cleaned, "side") or mtm.number_after(cleaned, "edge")
+    side = mtm.measure_after(cleaned, "side") or mtm.measure_after(cleaned, "edge")
     if side is None and dims is not None and dims[0] == dims[1]:
         side = dims[0]
     if side is not None:
@@ -204,13 +204,9 @@ def _given_number(cleaned: str, label: str) -> float | None:
     with circumference 31.4" the 31.4 is the circumference, and reading it
     as the radius answered a different circle.
     """
-    found = re.search(
-        rf"\b{label}\s*(?:of\s+|is\s+|=\s*|:\s*|equal\s+to\s+|equals\s+)?"
-        r"(-?\d+(?:\.\d+)?|-?\.\d+)",
-        cleaned,
-        re.IGNORECASE,
-    )
-    return float(found.group(1)) if found else None
+    from app.modules.math import match as mtm
+
+    return mtm.measure_after(cleaned, label)
 
 
 def _extract_circle_intent(cleaned: str) -> MathIntent | None:
@@ -233,11 +229,13 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     if re.search(r"\bsemi-?circle|\bhalf\s+(?:a\s+)?circle", lower):
         # A semicircle is half of this circle's area, not all of it.
         return None
+    if mtm.pi_form_or_value_set(cleaned):
+        return None  # "in terms of π", "use π = 22/7": not what a card to two places shows
     wants_area = "area" in lower
     wants_circumference = "circumference" in lower
     radius = _given_number(cleaned, "radius")
     if radius is not None:
-        chord = mtm.number_after(cleaned, "chord")
+        chord = mtm.measure_after(cleaned, "chord")
         return MathIntent(
             kind="circle",
             radius=radius,
@@ -436,9 +434,9 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    base = mtm.number_after(cleaned, "base")
-    height = mtm.number_after(cleaned, "height")
-    side = mtm.number_after(cleaned, "side")
+    base = mtm.measure_after(cleaned, "base")
+    height = mtm.measure_after(cleaned, "height")
+    side = mtm.measure_after(cleaned, "side")
     if "perimeter" in lower and side is None:
         return None
     if base is not None and height is not None:
@@ -483,12 +481,12 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
         return None
     if "sector" in lower and not any(k in lower for k in ("circle", "radius", "pie", "arc")):
         return None
-    if mtm.geometry_deferred_for_algebra(lower):
+    if mtm.geometry_deferred_for_algebra(lower) or mtm.pi_form_or_value_set(cleaned):
         return None
-    radius = mtm.number_after(cleaned, "radius")
+    radius = mtm.measure_after(cleaned, "radius")
     if radius is None:
-        radius = mtm.number_after(cleaned, "r=")
-    angle = mtm.number_after(cleaned, "angle")
+        radius = mtm.measure_after(cleaned, "r=")
+    angle = mtm.measure_after(cleaned, "angle")
     if angle is None:
         deg_at = cleaned.find("°")
         if deg_at == -1:
@@ -565,8 +563,8 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    base_n = mtm.number_after(cleaned, "base")
-    height_n = mtm.number_after(cleaned, "height")
+    base_n = mtm.measure_after(cleaned, "base")
+    height_n = mtm.measure_after(cleaned, "height")
     if base_n is not None and height_n is not None and "triangle" in lower:
         return MathIntent(
             kind="triangle",

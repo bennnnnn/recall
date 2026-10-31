@@ -9,7 +9,7 @@ returns the worked layout (Given, Find, Formula, Substitution) and the answer:
 - angle facts: the third angle, isosceles triangles, supplements and complements,
   the number of sides from an angle
 - the sine rule; right-triangle trigonometry; a ladder against a wall
-- circles, lines and triangles on coordinates
+- circles, lines and triangles on coordinates; the line of reflection taking a point to its image
 
 Before this, "the radius of a circle with circumference 31.4" was read as a
 circle of radius 31.4, and "the area of a semicircle" was a whole circle's.
@@ -39,6 +39,7 @@ from app.modules.math.tools.school.geometry_measures.coordinates import (
     _perpendicular_bisector,
     _perpendicular_gradient,
     _triangle_vertices,
+    reflection_line,
 )
 from app.modules.math.tools.school.geometry_measures.polygons import (
     _complement,
@@ -91,6 +92,7 @@ _SOLVERS: dict[str, Callable[[list[float], list[str]], _Solved | None]] = {
     "circle_equation": _circle_equation,
     "triangle_vertices": _triangle_vertices,
     "perpendicular_bisector": _perpendicular_bisector,
+    "reflection_line": reflection_line,
     "sine_rule": _sine_rule,
     "right_angle_from_sides": _right_angle_from_sides,
     "right_side_from_angle": _right_side_from_angle,

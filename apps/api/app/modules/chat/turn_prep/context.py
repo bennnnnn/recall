@@ -35,6 +35,7 @@ from app.modules.chat.turn_prep.request import (
     resolve_client_geo,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.chat.turn_trace import note_plan
 from app.repositories import users as users_repo
 from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service
@@ -397,6 +398,7 @@ async def build_stream_prompt_context(
     stats = PromptStats()
     # More than one request: each is answered (``intents``), and the prompt says how.
     plan = plan_turn(request.content, chemistry_enabled=settings.chemistry_enabled)
+    note_plan(part.kind for part in plan.parts)
     # Phase A: prompt + instant-reply + fallback-health share no data.
     prompt_messages, instant_reply, (fallback_models, half_open), extras = await gather_or_cancel(
         build_prompt_messages(

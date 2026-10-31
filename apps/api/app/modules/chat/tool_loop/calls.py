@@ -25,6 +25,7 @@ from app.modules.chat.tool_loop.results import (
     _canonical_answer_from_tool_result,
     _canonical_from_tool_result,
 )
+from app.modules.chat.turn_trace import note_tool
 from app.modules.math.text_plot import is_curve_fence
 from app.modules.math.tools.extract import trig_domain_would_be_dropped
 
@@ -231,6 +232,7 @@ async def _run_call(turn: CallRound, name: str, raw_args: Any, collected: ToolRe
     phase = _status_for_tool(name) if name else None
     if turn.on_status is not None and phase is not None:
         await turn.on_status(phase, _status_detail_for_tool(name, raw_args))
+    note_tool(name)
     result = await mcp_registry.invoke_validated(name, raw_args, turn.ctx)
     content = result.content if result else f"Unknown tool: {name}"
     fence = _canonical_from_tool_result(result) if result else None

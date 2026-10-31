@@ -55,7 +55,9 @@ class LlmSettings(BaseModel):
     # the chatprep lock, RAM, and the OpenRouter meter indefinitely.
     chat_stream_max_seconds: int = 600
     # Fail fast when the provider never opens an SSE stream (separate from read
-    # timeout), soon enough for the model fallback chain to help.
+    # timeout), soon enough for the model fallback chain to help. The last model in
+    # the chain waits the idle timeout above instead: with no backup, failing at 5 s
+    # left a slow-opening reply empty.
     chat_stream_connect_timeout_seconds: int = 5
     # A paid reasoning lane may think silently before its first token. When a
     # fallback exists, an attempt that has sent neither text nor reasoning after

@@ -178,9 +178,32 @@ def extract_math_intent(text: str) -> MathIntent | None:
         intent = _heard_math_intent(text) or intent
     if intent is None or _numeric_statement(text, intent):
         return None
+    if intent.kind == "complex":
+        return _letter_i_reading(text, intent)
     if intent.kind == "point":
         intent.plot_point = literal_plot_point(text)
     return intent
+
+
+def _letter_i_reading(text: str, intent: MathIntent) -> MathIntent | None:
+    """A complex reading checked against the whole message. A reader may see one sentence
+    of it: "Let i be the interest rate. Simplify 1000(1+i)^2 - 1000" made -1000 + 2000i.
+    Where the message says i is a rate, an index or a vector, i is a letter."""
+    from app.modules.math.tools.school.complex import imaginary_unit_meant, lone_i
+
+    expression = intent.expr or ""
+    if not lone_i(expression) or imaginary_unit_meant(text, expression):
+        return intent
+    if intent.school_op not in {"eval", "expand"}:
+        return None
+    reread = MathIntent(
+        kind="calculus",
+        expr=expression,
+        operation="expand" if intent.school_op == "expand" else "simplify",
+        variable="i",
+    )
+    reread._request_text = intent._request_text
+    return reread
 
 
 def _heard_math_intent(text: str) -> MathIntent | None:

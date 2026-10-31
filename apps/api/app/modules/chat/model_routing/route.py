@@ -22,6 +22,7 @@ from app.modules.billing.plan import (
 )
 from app.modules.chat.model_routing.physics import physics_route
 from app.modules.chat.model_routing.signals import SMART_TRIGGERS, needs_strong_model
+from app.modules.chat.turn_trace import note_route
 
 _FOLLOWUP_MAX_CHARS = 120
 # Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.
@@ -217,13 +218,18 @@ def _should_inherit_smart(
 
 def _route_current_line(content: str, settings: Settings | None = None) -> str:
     """Score this message alone — no prior-turn inherit."""
+    return _routed_line(content, settings)[0]
+
+
+def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, str]:
+    """``_route_current_line``'s alias and why it was chosen (the turn's trace)."""
     text = content.lower()
     smart = model_catalog.auto_smart_alias()
     fast = model_catalog.auto_fast_alias()
     if len(content) >= _LONG_MESSAGE_CHARS:
-        return smart
+        return smart, "long_message"
     if _CODE_FENCE.search(content):
-        return smart
+        return smart, "code"
     # Tutoring is structured by a strict prompt contract and is latency-sensitive:
     # a learner should not wait on a silent reasoning model before every small
     # step. The fast lane (then Gemini Flash) followed the lesson contract in
@@ -236,7 +242,7 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     )
 
     if is_learning_plan_request(content) or is_teaching_request(content):
-        return fast
+        return fast, "teaching"
     # A request whose task is to *format* a small example as a Markdown table
     # is not a deep architecture/trade-off analysis. The column label
     # "Main tradeoff" previously tripped the generic smart cue and sent this
@@ -244,14 +250,14 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     if "markdown table" in text and any(
         cue in text for cue in ("create ", "show ", "give me ", "make ")
     ):
-        return fast
+        return fast, "table_layout"
     if any(trigger in text for trigger in SMART_TRIGGERS):
-        return smart
+        return smart, "smart_trigger"
     from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
 
     # A tweet or an email about a migration is writing, not the migration.
     if needs_strong_model(content) and not is_writing_deliverable_request(content):
-        return smart
+        return smart, "strong_task"
     from app.services.subject_solving import detect_subject
 
     # The lane follows the subject whose solver answers the line (code-health audit
@@ -264,22 +270,22 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
     # An exercise's option or verdict, reasoned before it is written (school_question);
     # a maths one keeps the maths lane below.
     if subject != "math" and needs_reasoned_choice(content):
-        return smart
+        return smart, "reasoned_choice"
     if subject == "chemistry":
-        return fast
+        return fast, "chemistry"
     if subject != "math":
         physics_alias = physics_route(content, fast=fast, smart=smart, settings=settings)
         if physics_alias is not None:
-            return physics_alias
+            return physics_alias, "physics"
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
     # strong model: a fast model's steps disagreed with the verified answer.
     from app.modules.chat.model_routing.rate_problems import is_multi_step_rate_problem
 
     if is_multi_step_rate_problem(content):  # catch-up, meet, together: the maths lane won't think
-        return smart
+        return smart, "rate_problem"
     if subject == "math" and not _verified_math_stays_fast(content):
-        return model_catalog.auto_math_alias()
-    return fast
+        return model_catalog.auto_math_alias(), "math"
+    return fast, "math_verified" if subject == "math" else "everyday"
 
 
 def route_chat_model(
@@ -295,16 +301,34 @@ def route_chat_model(
     Lessons stay on the low-latency tier. "That's wrong" after an answer goes to
     the thinking tier; otherwise a short continuation of a smart turn inherits it.
     """
+    return routed_chat_model(
+        content,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
+        settings=settings,
+    )[0]
+
+
+def routed_chat_model(
+    content: str,
+    *,
+    prior_user: str | None = None,
+    prior_model: str | None = None,
+    lesson_active: bool = False,
+    settings: Settings | None = None,
+) -> tuple[str, str]:
+    """``route_chat_model``'s alias and a short code saying why (the turn's trace)."""
     from app.modules.chat.model_routing.thinking import is_answer_dispute
 
     smart = model_catalog.auto_smart_alias()
     if lesson_active:
-        return model_catalog.auto_fast_alias()
+        return model_catalog.auto_fast_alias(), "lesson"
     if prior_user and is_answer_dispute(content):
-        return smart
-    preferred = _route_current_line(content, settings)
+        return smart, "dispute"
+    preferred, reason = _routed_line(content, settings)
     if preferred == smart:
-        return smart
+        return smart, reason
     if (
         prior_user
         and prior_user.strip()
@@ -312,9 +336,9 @@ def route_chat_model(
     ):
         math = model_catalog.auto_math_alias()
         if prior_model == math or _route_current_line(prior_user, settings) == math:
-            return math
-        return smart
-    return preferred
+            return math, "inherit_math"
+        return smart, "inherit_smart"
+    return preferred, reason
 
 
 def message_needs_thinking(
@@ -389,21 +413,26 @@ def resolve_alias_in_pool(
     with JSON mode (``_usable_pool``).
     """
     if not pool:
+        note_route("no_pool")
         return model_catalog.auto_fast_alias()
     if alias not in _MODES:
+        note_route("picked" if alias in pool else "picked_unavailable")
         return alias if alias in pool else pick_cheapest_from_pool(pool, settings)
     usable = _usable_pool(pool, unhealthy, content)
     if alias == "fast":
+        note_route("mode_fast")
         return pick_fast_from_pool(usable)
     if alias == "smart":
+        note_route("mode_smart")
         return pick_smart_from_pool(usable)
-    preferred = route_chat_model(
+    preferred, reason = routed_chat_model(
         content,
         prior_user=prior_user,
         prior_model=prior_model,
         lesson_active=lesson_active,
         settings=settings,
     )
+    note_route(f"auto.{reason}")
     return pick_preferred_tier(preferred, usable)
 
 

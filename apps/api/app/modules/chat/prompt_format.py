@@ -92,21 +92,33 @@ from app.modules.chat.prompt_constants.visuals import (
     is_image_generation_mention,
 )
 from app.modules.chat.prompt_subjects import subject_closing_hints, subject_presentation_hints
+from app.modules.chat.turn_trace import note_prompt_rule
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.subject_solving import detect_subject
 
 
 @dataclass(frozen=True)
 class PromptRule[T]:
-    """An ordered prompt rule: when it applies to a turn, the text it adds."""
+    """An ordered prompt rule: when it applies to a turn, the text it adds, and the name
+    a turn's trace calls it (``turn_trace``), unique in its table."""
 
     applies: Callable[[T], bool]
     render: Callable[[T], Sequence[str]]
+    name: str
 
 
-def render_rules[T](rules: Sequence[PromptRule[T]], turn: T) -> list[str]:
-    """Every applying rule's text, in table order."""
-    return [text for rule in rules if rule.applies(turn) for text in rule.render(turn)]
+def render_rules[T](rules: Sequence[PromptRule[T]], turn: T, *, table: str = "rules") -> list[str]:
+    """Every applying rule's text, in table order; the turn's trace names each one that
+    added text (``table.name``)."""
+    texts: list[str] = []
+    for rule in rules:
+        if not rule.applies(turn):
+            continue
+        added = rule.render(turn)
+        if added:
+            note_prompt_rule(f"{table}.{rule.name}")
+        texts.extend(added)
+    return texts
 
 
 def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str | None:
@@ -320,57 +332,80 @@ def _may_ask_with_card(turn: StyleTurn) -> bool:
 
 
 HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
-    PromptRule(_always, _hints(CLARIFICATION_HINT, PRIVACY_HINT)),
-    PromptRule(_may_ask_with_card, _hints(CLARIFY_CARD_HINT)),
+    PromptRule(_always, _hints(CLARIFICATION_HINT, PRIVACY_HINT), name="clarify_and_privacy"),
+    PromptRule(_may_ask_with_card, _hints(CLARIFY_CARD_HINT), name="clarify_card"),
     # A proofread is a writing request too; it only has no draft fence.
     PromptRule(
         lambda t: bool(t.query) and t.writing is None and t.writing_kind != "edit" and not t.multi,
         _hints(NON_DRAFT_TURN_HINT),
+        name="non_draft_turn",
     ),
-    PromptRule(_asks(is_short_confirmation), _hints(CONFIRM_FOLLOW_THROUGH_HINT, CONFIRMED_HINT)),
-    PromptRule(_asks(is_day_planning_question), _day_planning),
-    PromptRule(lambda t: t.minimal_personal_context, _hints(BROAD_SELF_ANSWER_HINT)),
-    PromptRule(_always, _format_pack),
-    PromptRule(lambda t: bool(t.lesson_hint), lambda t: _present(t.lesson_hint)),
+    PromptRule(
+        _asks(is_short_confirmation),
+        _hints(CONFIRM_FOLLOW_THROUGH_HINT, CONFIRMED_HINT),
+        name="confirmation_follow_through",
+    ),
+    PromptRule(_asks(is_day_planning_question), _day_planning, name="day_planning"),
+    PromptRule(
+        lambda t: t.minimal_personal_context,
+        _hints(BROAD_SELF_ANSWER_HINT),
+        name="broad_self_answer",
+    ),
+    PromptRule(_always, _format_pack, name="format_pack"),
+    PromptRule(
+        lambda t: bool(t.lesson_hint), lambda t: _present(t.lesson_hint), name="lesson_hint"
+    ),
     # A real photo above an answer about something to see.
-    PromptRule(offers_answer_photo, answer_photo_hints),
+    PromptRule(offers_answer_photo, answer_photo_hints, name="answer_photo"),
     PromptRule(
         _asks(is_image_generation_mention),
         lambda t: [
             IMAGE_GEN_HONESTY_HINT if t.image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
         ],
+        name="image_generation_honesty",
     ),
     PromptRule(
         _always,
         lambda t: subject_presentation_hints(t.subject, short=t.compact),
+        name="subject_presentation",
     ),
     # A length cap; a cap on one part and detail on another (``length.reply_length``).
     # A multi-part message scopes a cap to its request in the multi-part contract.
-    PromptRule(lambda t: not t.multi and t.length == "brief", _hints(BREVITY_REQUEST_HINT)),
-    PromptRule(lambda t: t.length == "mixed", _hints(MIXED_LENGTH_HINT)),
+    PromptRule(
+        lambda t: not t.multi and t.length == "brief", _hints(BREVITY_REQUEST_HINT), name="brevity"
+    ),
+    PromptRule(lambda t: t.length == "mixed", _hints(MIXED_LENGTH_HINT), name="mixed_length"),
     # Specialized translation/prose hints already own the shape; the copy-fence
     # contract would tell the model to wrap an article in ```copy. A translated
     # draft is still a draft.
     PromptRule(
         lambda t: bool(t.revision_fence) or t.writing_kind not in {"translation", "prose"},
         _hints(COPY_DELIVERABLE_HINT),
+        name="copy_deliverable",
     ),
     PromptRule(
         lambda t: bool(t.query) and not t.revision_fence and is_bare_writing_line(t.query),
         _hints(WRITING_LINE_HINT),
+        name="writing_line",
     ),
     # Keep requested detail last, after general layout and tutoring hints.
-    PromptRule(_always, lambda t: subject_closing_hints(t.subject)),
+    PromptRule(_always, lambda t: subject_closing_hints(t.subject), name="subject_closing"),
     # After the subject policy, which forbids added examples: "one more" is a
     # request for exactly that, not for the last answer again.
-    PromptRule(_asks(is_new_problem_request), _hints(NEW_PROBLEM_HINT)),
+    PromptRule(_asks(is_new_problem_request), _hints(NEW_PROBLEM_HINT), name="new_problem"),
     # Turn-derived hard contracts come after generic format/math/copy guidance
     # so smaller models cannot treat exact day coverage or a tagged example as
     # an optional style preference.
     PromptRule(
-        lambda t: t.learning_plan, lambda t: _present(learning_plan_daily_contract(t.query))
+        lambda t: t.learning_plan,
+        lambda t: _present(learning_plan_daily_contract(t.query)),
+        name="learning_plan_contract",
     ),
-    PromptRule(lambda t: t.teaching, lambda t: _present(programming_lesson_contract(t.query))),
+    PromptRule(
+        lambda t: t.teaching,
+        lambda t: _present(programming_lesson_contract(t.query)),
+        name="programming_lesson_contract",
+    ),
 )
 
 
@@ -458,4 +493,4 @@ def _style_format_hints(
         image_search_enabled=image_search_enabled,
         multi=multi,
     )
-    return render_rules(HINT_RULES, turn)
+    return render_rules(HINT_RULES, turn, table="hints")

@@ -22,7 +22,6 @@ from typing import Any
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
 from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
@@ -41,7 +40,6 @@ from app.modules.chat.prompt_constants import (
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     PERSONAL_DISCLOSURE_HINT,
-    PHOTO_LOOKUP_HINT,
     PROFILE_FACT_HINT,
     SETTINGS_ASK_REMINDER,
     SETTINGS_IN_APP_HINT,
@@ -76,6 +74,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.lesson_flow import lesson_after_gap
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
+from app.modules.chat.prompt_context_hints import integration_hints, lookup_hints, slim_geo_hints
 from app.modules.chat.prompt_format import (
     PromptRule,
     _layout_format_hint,
@@ -201,7 +200,7 @@ def _style_hints(turn: PromptTurn) -> list[str]:
 
 
 def _integrations(turn: PromptTurn) -> list[str]:
-    return _integration_hints(
+    return integration_hints(
         settings=turn.settings,
         query_text=turn.query_text,
         local_tz=turn.local_tz,
@@ -266,7 +265,9 @@ def _advice(turn: PromptTurn) -> list[str]:
 # cache only a marked prefix. A section goes here only when its text never depends on
 # the turn (its kind, its words, the clock or what was loaded for it).
 STABLE_SECTIONS: tuple[PromptSection, ...] = (
-    PromptSection(_always, lambda _t: ["You are Recall, a helpful personal AI assistant."]),
+    PromptSection(
+        _always, lambda _t: ["You are Recall, a helpful personal AI assistant."], name="identity"
+    ),
     PromptSection(
         _always,
         lambda t: [
@@ -274,12 +275,19 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
             response_tone_service.emoji_hint(t.user.emoji_use),
             TONE_FORMAT_GUARD,
         ],
+        name="tone",
     ),
     # "Bo" or "gd" may be a typo, another language or a half-typed message: the
     # model, which sees the conversation, decides; no word list or length gate.
-    PromptSection(_always, lambda _t: [UNCLEAR_MESSAGE_HINT, SETTINGS_IN_APP_HINT]),
-    PromptSection(_always, lambda t: _present(custom_instructions_block(t.user))),
-    PromptSection(_always, lambda t: _present(locale_service.locale_system_hint(t.user.locale))),
+    PromptSection(
+        _always, lambda _t: [UNCLEAR_MESSAGE_HINT, SETTINGS_IN_APP_HINT], name="unclear_message"
+    ),
+    PromptSection(
+        _always, lambda t: _present(custom_instructions_block(t.user)), name="custom_instructions"
+    ),
+    PromptSection(
+        _always, lambda t: _present(locale_service.locale_system_hint(t.user.locale)), name="locale"
+    ),
 )
 
 
@@ -299,24 +307,28 @@ def _social_hint(turn: PromptTurn) -> str:
 # summary (rewritten every few turns of a long chat). Nothing here may change from one
 # turn of a kind to the next: the history after it is cached only behind it.
 TURN_SECTIONS: tuple[PromptSection, ...] = (
-    PromptSection(_always, lambda t: [t.length_hint]),
+    PromptSection(_always, lambda t: [t.length_hint], name="length"),
     # Lightweight/chit-chat turns skipped the math guardrails entirely,
     # so incidental `$...$` rendered as raw ```latex. A two-line fence
     # safety hint is enough — not the full math pack.
     PromptSection(
         lambda t: t.lightweight,
         lambda t: [_social_hint(t), SHORT_RESPONSE_FORMAT_HINT, MATH_FENCE_SAFETY_HINT],
+        name="lightweight_social",
     ),
-    PromptSection(lambda t: not t.lightweight, _style_hints),
+    PromptSection(lambda t: not t.lightweight, _style_hints, name="style_hints"),
     # A fact that may have changed is looked up or offered, never guessed.
-    PromptSection(lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT]),
+    PromptSection(
+        lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT], name="fact_grounding"
+    ),
     PromptSection(
         # The user's own choice, not a server without search: only then point to Settings.
         lambda t: not t.lightweight and t.user.web_search_enabled is False,
         lambda _t: [WEB_SEARCH_OFF_HINT],
+        name="web_search_off",
     ),
-    PromptSection(lambda t: not t.slim, lambda t: lookup_hints(t.settings)),
-    PromptSection(_always, _profile),
+    PromptSection(lambda t: not t.slim, lambda t: lookup_hints(t.settings), name="lookup_hints"),
+    PromptSection(_always, _profile, name="profile"),
     # M8: inject the rolling summary even on the slim path. A slim long thread
     # (lightweight / not rich_context) still drops everything older than the
     # recent window from the prompt — without the summary the model loses all
@@ -327,6 +339,7 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: [
             wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{t.summary}")
         ],
+        name="summary",
     ),
 )
 
@@ -342,21 +355,38 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: [
             time_context_service.format_now_awareness(t.local_tz, t.user.locale, t.query_text)
         ],
+        name="clock",
     ),
-    PromptSection(lambda t: not t.slim, _integrations),
+    PromptSection(lambda t: not t.slim, _integrations, name="integrations"),
     # "Coffee near me" is a slim turn, yet it needs the place and the places layout.
     PromptSection(
-        lambda t: t.slim, lambda t: slim_geo_hints(t.settings, t.query_text, t.prompt_location)
+        lambda t: t.slim,
+        lambda t: slim_geo_hints(t.settings, t.query_text, t.prompt_location),
+        name="slim_geo",
     ),
-    PromptSection(lambda t: t.slim and t.recall_memory, _slim_memory),
-    PromptSection(_gives_advice, _advice),
-    PromptSection(_always, memory_notes),
-    PromptSection(_always, lambda t: message_notes(t.query, t.exchange, t.user, t.memory_block)),
+    PromptSection(lambda t: t.slim and t.recall_memory, _slim_memory, name="slim_memory"),
+    PromptSection(_gives_advice, _advice, name="advice"),
+    PromptSection(_always, memory_notes, name="memory_notes"),
     PromptSection(
-        lambda t: t.followup == "math", lambda _t: [MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT]
+        _always,
+        lambda t: message_notes(t.query, t.exchange, t.user, t.memory_block),
+        name="message_notes",
     ),
-    PromptSection(lambda t: t.followup == "chemistry", lambda _t: [CHEMISTRY_FOLLOWUP_HINT]),
-    PromptSection(lambda t: t.followup == "physics", lambda _t: [PHYSICS_FOLLOWUP_HINT]),
+    PromptSection(
+        lambda t: t.followup == "math",
+        lambda _t: [MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT],
+        name="math_followup",
+    ),
+    PromptSection(
+        lambda t: t.followup == "chemistry",
+        lambda _t: [CHEMISTRY_FOLLOWUP_HINT],
+        name="chemistry_followup",
+    ),
+    PromptSection(
+        lambda t: t.followup == "physics",
+        lambda _t: [PHYSICS_FOLLOWUP_HINT],
+        name="physics_followup",
+    ),
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise
     # tempt the model into an unsolicited plan even though no task was asked.
@@ -367,6 +397,7 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
             and not is_standing_preference(t.query)
         ),
         lambda _t: [PERSONAL_DISCLOSURE_HINT],
+        name="personal_disclosure",
     ),
 )
 
@@ -403,98 +434,39 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(
         lambda t: bool(t.query) and not t.multi and is_learning_plan_request(t.query),
         lambda t: _present(learning_plan_daily_contract(t.query)),
+        name="learning_plan_contract",
     ),
     PromptSection(
         lambda t: bool(t.query) and not t.multi and is_teaching_request(t.query),
         lambda t: _present(programming_lesson_contract(t.query)),
+        name="programming_lesson_contract",
     ),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
     PromptSection(
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),
         lambda _t: [CODE_INK_REMINDER],
+        name="code_ink",
     ),
     # The message after a clarify card: the picks, a skip, or something typed instead.
-    PromptSection(_after_card, lambda t: _present(_card_reply(t))),
+    PromptSection(_after_card, lambda t: _present(_card_reply(t)), name="card_reply"),
     # "continue" resumes the last reply; it does not start over or recap.
-    PromptSection(_resumes, lambda _t: [CONTINUE_HINT]),
+    PromptSection(_resumes, lambda _t: [CONTINUE_HINT], name="continue"),
     # "no, I said I'm vegetarian": the correction wins over what the last reply assumed.
     PromptSection(
         lambda t: bool(t.query) and _replied(t) and is_correction(t.query),
         lambda _t: [CORRECTION_HINT],
+        name="correction",
     ),
     # "Use the pro model by default": no card; the reply says where, not "done".
-    PromptSection(lambda t: names_a_setting(t.query_text), lambda _t: [SETTINGS_ASK_REMINDER]),
+    PromptSection(
+        lambda t: names_a_setting(t.query_text),
+        lambda _t: [SETTINGS_ASK_REMINDER],
+        name="settings_ask",
+    ),
     # Asked-for JSON is checked at finalize (``json_output``); say the shape up front.
-    PromptSection(lambda t: is_json_request(t.query_text), lambda _t: [JSON_OUTPUT_HINT]),
+    PromptSection(
+        lambda t: is_json_request(t.query_text), lambda _t: [JSON_OUTPUT_HINT], name="json_output"
+    ),
     # Last, closest to the user turn: what the reply must hold.
-    PromptSection(lambda t: t.multi, _multi_part),
+    PromptSection(lambda t: t.multi, _multi_part, name="multi_part"),
 )
-
-
-def _geo_hints(query_text: str | None, prompt_location: str | None) -> list[str]:
-    """Layout and location for a nearby, distance or local-weather question."""
-    if not query_text:
-        return []
-    parts: list[str] = []
-    if web_search_service.is_ambiguous_local_places_query(query_text):
-        parts.append(web_search_service.AMBIGUOUS_NEARBY_HINT)
-    elif web_search_service.is_places_list_query(query_text):
-        parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
-    elif web_search_service.is_distance_query(query_text):
-        parts.append(web_search_service.GEO_DISTANCE_HINT)
-    if prompt_location and web_search_service.is_geo_query(query_text):
-        parts.append(web_search_service.GEO_ACTIVE_LOCATION_HINT)
-    return parts
-
-
-def slim_geo_hints(
-    settings: Settings, query_text: str | None, prompt_location: str | None
-) -> list[str]:
-    """A slim turn has no profile block, so it states the location the hints point to."""
-    if not settings.web_search_enabled or not query_text:
-        return []
-    if not web_search_service.is_geo_query(query_text):
-        return []
-    parts = [f"The user's current location: {prompt_location}."] if prompt_location else []
-    return parts + _geo_hints(query_text, prompt_location)
-
-
-def lookup_hints(settings: Settings) -> list[str]:
-    """What a rich turn may look up: the web and real photos. Fixed text, one per flag."""
-    parts: list[str] = []
-    if settings.web_search_enabled:
-        parts.append(web_search_service.WEB_SEARCH_HINT)
-    if settings.image_search_enabled:
-        parts.append(PHOTO_LOOKUP_HINT)
-    return parts
-
-
-def _integration_hints(
-    *,
-    settings: Settings,
-    query_text: str | None,
-    local_tz: str,
-    user_locale: str | None,
-    location_for_context: str | None,
-    prompt_location: str | None,
-    memory_block: str,
-    attachment_rag_block: str,
-    todos_section: str | None,
-    chat_history_rag_block: str = "",
-) -> list[str]:
-    """Time / place / memory / todos context (the summary and ``lookup_hints`` are
-    their own sections)."""
-    parts: list[str] = [
-        time_context_service.format_time_context(local_tz, user_locale, location_for_context)
-    ]
-    if settings.web_search_enabled:
-        parts.extend(_geo_hints(query_text, prompt_location))
-    if memory_block:
-        parts.append(wrap_saved_memory(memory_block))
-    if attachment_rag_block:
-        parts.append(attachment_rag_block)
-    if todos_section:
-        parts.append(wrap_untrusted("schedule", todos_section, first_party=True))
-    if chat_history_rag_block:
-        parts.append(chat_history_rag_block)
-    return parts

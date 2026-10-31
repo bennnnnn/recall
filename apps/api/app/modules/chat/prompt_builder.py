@@ -254,10 +254,10 @@ def _assemble(
     kept beside the user turn."""
     # A subject's reply policy stated twice keeps its copy closest to the user turn.
     stable, rules, context, nearby = last_policy_parts(
-        render_rules(STABLE_SECTIONS, turn),
-        render_rules(TURN_SECTIONS, turn),
-        render_rules(CONTEXT_SECTIONS, turn),
-        render_rules(NEARBY_CONTRACTS, turn),
+        render_rules(STABLE_SECTIONS, turn, table="stable"),
+        render_rules(TURN_SECTIONS, turn, table="turn"),
+        render_rules(CONTEXT_SECTIONS, turn, table="context"),
+        render_rules(NEARBY_CONTRACTS, turn, table="nearby"),
     )
     messages = [
         *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, rules)),

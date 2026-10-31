@@ -27,7 +27,10 @@ describe("api connectivity", () => {
     // Not liveness (/health answers 200 with the database down), and an AbortSignal.
     expect(mockFetch).toHaveBeenCalledWith(
       "http://test.local/health/dependencies",
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        headers: { "X-Request-ID": expect.stringMatching(/^[A-Za-z0-9_-]{1,64}$/) },
+      }),
     );
   });
 

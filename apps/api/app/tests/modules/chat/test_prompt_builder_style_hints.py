@@ -567,9 +567,9 @@ def test_quote_query_gets_blockquote_layout():
 
 def test_integration_hints_wraps_todos_section():
     from app.core.config import Settings
-    from app.modules.chat.prompt_sections import _integration_hints
+    from app.modules.chat.prompt_context_hints import integration_hints
 
-    parts = _integration_hints(
+    parts = integration_hints(
         settings=Settings(
             web_search_enabled=False,
         ),

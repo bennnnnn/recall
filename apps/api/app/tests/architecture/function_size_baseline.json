@@ -1,6 +1,6 @@
 {
-  "gateways/litellm_gateway.py::_stream_chat_once": 110,
-  "gateways/litellm_gateway.py::stream_chat_completion": 117,
+  "gateways/litellm_gateway.py::_stream_chat_once": 105,
+  "gateways/litellm_gateway.py::stream_chat_completion": 114,
   "modules/account/export.py::_iter_export_json": 149,
   "modules/chat/prompt_builder.py::build_prompt_messages": 107,
   "modules/chat/stream_api.py::_turn_sse_lines": 158,
@@ -37,7 +37,7 @@
   "modules/memory/llm.py::revise_memory_facts": 112,
   "modules/memory/writes_repository.py::apply_fact_ops": 111,
   "modules/physics/block.py::_build_physics_block": 135,
-  "modules/physics/extractors/circuits.py::_extract_circuit_intent": 184,
+  "modules/physics/extractors/circuits.py::_extract_circuit_intent": 179,
   "modules/physics/extractors/friction.py::_extract_friction_intent": 150,
   "modules/physics/extractors/gravitation.py::_extract_gravitation_intent": 103,
   "modules/physics/extractors/kinematics.py::_extract_kinematics_intent": 174,

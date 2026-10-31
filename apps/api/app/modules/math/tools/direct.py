@@ -27,6 +27,7 @@ from app.modules.math.tools.lesson import (
     wants_math_explanation,
     with_requested_check,
 )
+from app.modules.math.tools.school.complex import without_form_clause
 from app.services.solving import VerifiedMathBlock
 
 # Polite glue around a closed compute; two more English words ("tell joke") keep the LLM.
@@ -298,7 +299,7 @@ def can_direct_verified_math_reply(
         or unit_request
         or solid_request
         or calculus_request
-    ) and leftover_non_math_request(strip_teaching_signals(user_text)):
+    ) and leftover_non_math_request(strip_teaching_signals(without_form_clause(user_text))):
         if not (verified_request_text and is_part_change(user_text)):
             return False
     answer = (verified.canonical_answer or "").strip()
@@ -390,7 +391,9 @@ def _format_direct_math_body(
             format_direct_geometry_working,
         )
 
-        working = format_direct_geometry_working(verified.geometry_request, fences[0], answer)
+        working = format_direct_geometry_working(
+            verified.geometry_request, fences[0], answer, display_answer.startswith("\\approx")
+        )
         prefix = f"{working}\n\n" if working else ""
         return (
             f"{prefix}```answer\n{display_answer}\n```\n\n"
@@ -406,7 +409,8 @@ def _format_direct_math_body(
     # lets the streaming client close and render this fence immediately.
     from app.modules.math.tools.direct_geometry_working import format_direct_solid_working
 
-    solid_working = format_direct_solid_working(verified.geometry_request, answer)
+    rounded = display_answer.startswith("\\approx")
+    solid_working = format_direct_solid_working(verified.geometry_request, answer, rounded)
     prefix = f"{solid_working}\n\n" if solid_working else ""
     from app.modules.math.tools.direct_teaching import prepend_teaching_fence
 
