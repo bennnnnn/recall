@@ -71,3 +71,16 @@ def test_an_asked_value_past_the_usual_range_widens_it() -> None:
     spec = _spec(calculator_fence(_worked("mortgage", amount=300000, rate=1, years=50), None, ""))
     years = next(control for control in spec.controls if control.name == "years")
     assert years.max == 50
+
+
+def test_a_quarterly_card_writes_its_compounding_into_the_trees() -> None:
+    """The phone's trees name only sliders: "per_year" is written in as the number 4."""
+    request = MoneyRequest(
+        product("savings"), {"start": 3000, "rate": 6, "years": 7}, settings={"per_year": 4}
+    )
+    worked = work(request, None)
+    assert worked is not None
+    text = calculator_fence(worked, None, "ETB")
+    spec = _spec(text)
+    assert "per_year" not in (text or "")
+    assert [control.name for control in spec.controls] == ["start", "deposit", "rate", "years"]

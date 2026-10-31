@@ -6,13 +6,16 @@ with them and the phone redraws the card from the same trees (docs/money.md). No
 else branches on a product's name, so a new product is a new row, and a kind of one
 priced apart (a used car) is a ``Variant`` on its row.
 
-Rates are yearly percentages (``rate`` 6.5 is 6.5 %), compounded monthly, and payments
-are monthly.
+Rates are yearly percentages (``rate`` 6.5 is 6.5 %) and payments and deposits are
+monthly. Loans and cards compound monthly; savings compound as often as the request says
+(``per_year``, a setting: no slider moves it), monthly when it says nothing.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 Format = Literal["money", "percent", "years", "months", "number"]
@@ -117,9 +120,24 @@ class Product:
     # The product this one works as, judged by another average: a follow-up moving from one
     # to the other ("what if I invest for 20 years" after saving) is no switch.
     twin: str = ""
+    # Terms a request fixes that no slider moves, with their usual values: how many times a
+    # year savings compound. The outputs name them; ``outputs_at`` writes them in as numbers,
+    # so a card's trees name only its sliders.
+    settings: dict[str, float] = field(default_factory=dict)
 
     def input(self, name: str) -> Input | None:
         return next((item for item in self.inputs if item.name == name), None)
+
+    def outputs_at(self, settings: Mapping[str, float] | None = None) -> tuple[Output, ...]:
+        """The outputs with every setting written in: the request's, else the usual one."""
+        fixed = {**self.settings, **(settings or {})}
+        if not fixed:
+            return self.outputs
+        named = re.compile(r"\b(" + "|".join(map(re.escape, fixed)) + r")\b")
+        return tuple(
+            replace(item, expression=named.sub(lambda m: f"{fixed[m[1]]:g}", item.expression))
+            for item in self.outputs
+        )
 
     def variant(self, key: str) -> Variant | None:
         return next((item for item in self.variants if item.key == key), None)
@@ -157,9 +175,13 @@ _CARD_MONTHS = (
     f"((-log(1 - {_CARD_R}*balance/payment)/log(1 + {_CARD_R}) if apr > 0 else balance/payment)"
     f" if payment > balance*{_CARD_R} else 1/0)"
 )
-_GROWTH = f"(1 + {_MONTHLY})**(years*12)"
+# Savings grow by one month's share of ``per_year`` compoundings a month: 4 a year is
+# (1 + rate/400) a quarter, so a start grows (1 + rate/400)**(4*years), and a deposit
+# made each month earns the same growth for the months it is in.
+_STEP = "(1 + rate/(100*per_year))**(per_year/12)"
+_GROWTH = f"({_STEP})**(years*12)"
 _SAVED = (
-    f"(start*{_GROWTH} + (deposit*({_GROWTH} - 1)/{_MONTHLY} if rate > 0 else deposit*years*12))"
+    f"(start*{_GROWTH} + (deposit*({_GROWTH} - 1)/({_STEP} - 1) if rate > 0 else deposit*years*12))"
 )
 
 # --- Inputs ---------------------------------------------------------------------------
@@ -290,6 +312,7 @@ PRODUCTS: tuple[Product, ...] = (
         outputs=_SAVINGS_OUTPUTS,
         defaults={"start": 0, "deposit": 0, "years": 10},
         lookup=RateLookup("savings account interest rate (APY)", (0.01, 10.0), 60),
+        settings={"per_year": 12},
     ),
     # Money put into a market, not a bank. "If I invest $200 a month at 7%" was a savings
     # account, and its note said "7% is not a realistic savings account interest rate
@@ -304,6 +327,7 @@ PRODUCTS: tuple[Product, ...] = (
         outputs=_SAVINGS_OUTPUTS,
         defaults={"start": 0, "deposit": 0, "years": 10},
         twin="savings",
+        settings={"per_year": 12},
     ),
 )
 
