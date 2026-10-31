@@ -9,8 +9,8 @@
  * drop functions back under the limit.
  *
  * A function is named by where it sits: `ChatScreen`, `ChatScreen.onSend`,
- * `ChatScreen.useEffect()`, `Store.load`. Two with one name in one file are recorded at
- * the longer.
+ * `ChatScreen.useEffect()`, `Store.load`. Long ones sharing a name in one file are
+ * numbered in source order (`useEffect()`, `useEffect()#2`), each held at its own length.
  */
 import * as ts from "typescript";
 
@@ -82,13 +82,28 @@ function functionLengths(source: ts.SourceFile): [string, number][] {
   return found;
 }
 
+/**
+ * Name -> lines for the functions over the limit, in source order. Long functions that
+ * share a name are numbered (`useEffect()`, `useEffect()#2`) so each one is held; short
+ * ones never take a number, so adding a small effect renames nothing.
+ */
+function overLimit(lengths: [string, number][]): Record<string, number> {
+  const seen: Record<string, number> = {};
+  const long: Record<string, number> = {};
+  for (const [name, lines] of lengths) {
+    if (lines <= LIMIT) continue;
+    seen[name] = (seen[name] ?? 0) + 1;
+    long[seen[name] === 1 ? name : `${name}#${seen[name]}`] = lines;
+  }
+  return long;
+}
+
 /** `file::qualified.name` -> lines, for every production function over the limit. */
 function longFunctions(): Record<string, number> {
   const sizes: Record<string, number> = {};
   for (const file of productionFiles()) {
-    for (const [name, lines] of functionLengths(parseSource(file))) {
-      const key = `${relative(file)}::${name}`;
-      if (lines > LIMIT) sizes[key] = Math.max(lines, sizes[key] ?? 0);
+    for (const [name, lines] of Object.entries(overLimit(functionLengths(parseSource(file))))) {
+      sizes[`${relative(file)}::${name}`] = lines;
     }
   }
   return sizes;
@@ -126,6 +141,20 @@ describe("function sizes", () => {
       ["Row", 1],
       ["Store.load", 1],
     ]);
+  });
+
+  it("holds each long function that shares a name", () => {
+    const lengths: [string, number][] = [
+      ["Screen.useEffect()", 140],
+      ["Screen.useEffect()", 3],
+      ["Screen.useEffect()", 120],
+      ["Screen", 300],
+    ];
+    expect(overLimit(lengths)).toEqual({
+      "Screen.useEffect()": 140,
+      "Screen.useEffect()#2": 120,
+      Screen: 300,
+    });
   });
 
   it(`lets no function over ${LIMIT} lines join or grow`, () => {

@@ -1,11 +1,17 @@
 /**
  * Structural guard: a catch that drops its error may only grow rarer.
  *
- * An empty `catch {}` (or one holding only a comment) and an empty `.catch(() => {})`
- * throw the failure away: nothing reaches Sentry or the console, and the screen quietly
- * does something else. Today's are counted per file in `emptyCatchBaseline.json`; no file
- * may gain one. Report the error (`captureException`, a warning), or say in code what the
- * fallback is. After removing one, rerun with `UPDATE_EMPTY_CATCHES=1` to lower the count.
+ * These throw the failure away: nothing reaches Sentry or the console, and the screen
+ * quietly does something else.
+ * - an empty `catch {}`, or one holding only a comment;
+ * - a promise rejection handler (`.catch(h)`, or the second argument of `.then(ok, h)`)
+ *   that does nothing: `() => {}`, `() => undefined`, `(_e) => void 0`, a body of bare
+ *   `return;`, `noop`, or a function this file declares that does nothing.
+ * A handler that returns a value, even `() => null`, states a fallback and is not counted.
+ *
+ * Today's are counted per file in `emptyCatchBaseline.json`; no file may gain one. Report
+ * the error (`captureException`, a warning), or say in code what the fallback is. After
+ * removing one, rerun with `UPDATE_EMPTY_CATCHES=1` to lower the count.
  */
 import * as ts from "typescript";
 
@@ -21,24 +27,72 @@ declare const __dirname: string;
 
 const BASELINE = `${__dirname}/emptyCatchBaseline.json`;
 
-function isEmptyHandler(node: ts.Expression | undefined): boolean {
-  if (!node || !(ts.isArrowFunction(node) || ts.isFunctionExpression(node))) return false;
-  return ts.isBlock(node.body) && node.body.statements.length === 0;
+/** Library no-ops a handler may be named by (`noop`, `_.noop`). */
+const NO_OP_NAMES = new Set(["noop"]);
+
+/** `undefined` or `void x`: an expression that is nothing. */
+function isNothing(node: ts.Expression): boolean {
+  if (ts.isParenthesizedExpression(node)) return isNothing(node.expression);
+  return (ts.isIdentifier(node) && node.text === "undefined") || ts.isVoidExpression(node);
 }
 
-/** Empty catch clauses and empty `.catch(handler)` calls in `source`. */
+/** A function whose body does nothing: empty, bare returns, or an expression that is nothing. */
+function doesNothing(node: ts.Node): boolean {
+  if (!(ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node))) {
+    return false;
+  }
+  const body = node.body;
+  if (!body) return false;
+  if (!ts.isBlock(body)) return isNothing(body);
+  return body.statements.every(
+    (statement) =>
+      ts.isReturnStatement(statement) &&
+      (statement.expression === undefined || isNothing(statement.expression)),
+  );
+}
+
+/** Names this file gives to functions that do nothing (`const ignore = () => undefined`). */
+function localNoOps(source: ts.SourceFile): Set<string> {
+  const names = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && node.name && doesNothing(node)) names.add(node.name.text);
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      doesNothing(node.initializer)
+    ) {
+      names.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return names;
+}
+
+function isNoOpHandler(node: ts.Expression | undefined, noOps: Set<string>): boolean {
+  if (!node) return false;
+  if (ts.isIdentifier(node)) return NO_OP_NAMES.has(node.text) || noOps.has(node.text);
+  if (ts.isPropertyAccessExpression(node)) return NO_OP_NAMES.has(node.name.text);
+  return doesNothing(node);
+}
+
+/** The rejection handler of `p.catch(h)` or `p.then(ok, h)`, if `node` is one of those calls. */
+function rejectionHandler(node: ts.Node): ts.Expression | undefined {
+  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return undefined;
+  const method = node.expression.name.text;
+  if (method === "catch") return node.arguments[0];
+  if (method === "then") return node.arguments[1];
+  return undefined;
+}
+
+/** Empty catch clauses and do-nothing rejection handlers in `source`. */
 function emptyCatches(source: ts.SourceFile): number {
+  const noOps = localNoOps(source);
   let count = 0;
   const visit = (node: ts.Node): void => {
     if (ts.isCatchClause(node) && node.block.statements.length === 0) count += 1;
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.name.text === "catch" &&
-      isEmptyHandler(node.arguments[0])
-    ) {
-      count += 1;
-    }
+    if (isNoOpHandler(rejectionHandler(node), noOps)) count += 1;
     ts.forEachChild(node, visit);
   };
   visit(source);
@@ -63,22 +117,33 @@ describe("empty catches", () => {
   );
 
   it("counts only catches that drop the error", () => {
-    const source = ts.createSourceFile(
-      "x.ts",
-      [
-        "try { a(); } catch {}",
-        "try { a(); } catch (error) { /* ignored */ }",
-        "load().catch(() => {});",
-        "load().catch(function () {});",
-        "try { a(); } catch (error) { captureException(error); }",
-        "try { a(); } catch { return null; }",
-        "load().catch((error) => report(error));",
-        "load().catch(report);",
-      ].join("\n"),
-      ts.ScriptTarget.Latest,
-      true,
-    );
-    expect(emptyCatches(source)).toBe(4);
+    const parse = (lines: string[]): ts.SourceFile =>
+      ts.createSourceFile("x.ts", lines.join("\n"), ts.ScriptTarget.Latest, true);
+    const dropped = [
+      "try { a(); } catch {}",
+      "try { a(); } catch (error) { /* ignored */ }",
+      "load().catch(() => {});",
+      "load().catch(async () => {});",
+      "load().catch(function () {});",
+      "load().catch(() => undefined);",
+      "load().catch((_e) => void 0);",
+      "load().catch(() => { return; });",
+      "load().catch(noop);",
+      "load().catch(_.noop);",
+      "load().then(show, () => {});",
+      "const ignore = () => undefined; load().catch(ignore);",
+    ];
+    const kept = [
+      "try { a(); } catch (error) { captureException(error); }",
+      "try { a(); } catch { return null; }",
+      "load().catch((error) => report(error));",
+      "load().catch(report);",
+      "load().catch(() => null);",
+      "load().then(show);",
+      "load().then(() => {});",
+    ];
+    expect(emptyCatches(parse(dropped))).toBe(dropped.length);
+    expect(emptyCatches(parse(kept))).toBe(0);
   });
 
   it("lets no file gain one", () => {
