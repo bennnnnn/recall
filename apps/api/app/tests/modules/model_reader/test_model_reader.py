@@ -48,7 +48,7 @@ def _speed_read(**changes: Any) -> LawRead:
 @pytest.mark.parametrize(
     ("text", "plain"),
     [
-        ("٣٫٥ m", "3٫5 m"),  # Arabic-Indic digits read as ASCII
+        ("٣٫٥ m", "3.5 m"),  # Arabic-Indic digits and decimal point read as ASCII
         ("१२० मीटर", "120 मीटर"),  # Devanagari
         ("３ m", "3 m"),  # full-width
         ("3 × 10⁸ m/s", "3 × 10^8 m/s"),

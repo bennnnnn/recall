@@ -28,7 +28,6 @@ _POWER = re.compile(r"(-?\d+(?:[.,]\d+)?)\s?(?:[\u00d7x*\u00b7]\s?10\^|e)(-?\d+)
 
 # Arabic's own decimal point and thousands mark.
 _ARABIC_SEPARATORS = str.maketrans({"\u066b": ".", "\u066c": ","})
-_THOUSANDS = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?")
 # The value patterns, for the translation check (``translation``).
 VALUE = _NUMBER
 POWER = _POWER
@@ -50,17 +49,7 @@ def normalized(text: str) -> str:
     return plain_text(text).lower()
 
 
-def value_of(number: str) -> float | None:
-    """The one value a written number means: "3,000" is 3000, "3,5" is 3.5, ".5" is 0.5."""
-    if _THOUSANDS.fullmatch(number):
-        number = number.replace(",", "")
-    try:
-        return float(number.replace(",", "."))
-    except ValueError:
-        return None
-
-
-def _readings(number: str) -> set[float]:
+def readings(number: str) -> set[float]:
     """The values one written number may mean: "3,5" is 3.5 or 35; "3,000" is 3000."""
     found: set[float] = set()
     plain = number.replace(",", "")
@@ -76,10 +65,10 @@ def values_in(quote: str) -> set[float]:
     """Every value ``quote`` writes, powers of ten included."""
     found: set[float] = set()
     for power in _POWER.finditer(quote):
-        for mantissa in _readings(power.group(1)):
+        for mantissa in readings(power.group(1)):
             found.add(mantissa * 10 ** int(power.group(2)))
     for number in _NUMBER.finditer(quote):
-        found |= _readings(number.group(0))
+        found |= readings(number.group(0))
     return found
 
 

@@ -26,6 +26,11 @@ _TABLES = (PHYSICS_UNITS, CHEMISTRY_UNITS)
         ("٣٫٥ كغ من الماء", "3.5 kg of water", "ok"),
         ("La luz viaja a 3 × 10⁸ m/s.", "Light travels at 3 × 10^8 m/s.", "ok"),
         ("Un coche recorre 3,000 m.", "A car travels 3000 m.", "ok"),
+        # Written the English way: a decimal point, and a thousands dot resolved.
+        ("Una masa de 4,6 g", "A mass of 4.6 g", "ok"),
+        ("Una masa de 4,6 g", "A mass of 4,6 g", "numbers_not_english"),
+        ("La media de 1.200 y 1.500", "The mean of 1200 and 1500", "ok"),
+        ("La media de 1.200 y 1.500", "The mean of 1.200 and 1.500", "numbers_changed"),
         # A unit at another scale, a changed or added number, a unit from nowhere.
         ("Un coche recorre 120 m en 8 s.", "A car travels 120 cm in 8 s.", "units_changed"),
         ("Un coche recorre 120 m en 8 s.", "A car travels 120 m in 9 s.", "numbers_changed"),
