@@ -3,8 +3,8 @@
 A script, not a test: it calls the real model through the gateway (``apps/api/.env``).
 
     uv run python -m app.tests.behavior.reader_eval translate --per-subject 40
-    uv run python -m app.tests.behavior.reader_eval run --langs en,am,es,fr,ar,hi
-    uv run python -m app.tests.behavior.reader_eval books <sets dir>
+    uv run python -m app.tests.behavior.reader_eval run --books <sets dir> --dump rows.jsonl
+    uv run python -m app.tests.behavior.reader_eval rejudge rows.jsonl
 
 ``run`` reads every STEM corpus entry (and each translated copy) three ways and judges
 each card with the sweep's own checks (``stem_sweep.check_answer``):
@@ -15,10 +15,12 @@ each card with the sweep's own checks (``stem_sweep.check_answer``):
 
 It prints, per subject and language: reach (cards on questions that have an answer),
 wrong cards (a value the worked answer is not, or a number for a question with none),
-the read's latency p50/p95, and tokens and cost per 1,000 turns. ``books`` runs the
-Ethiopian textbook sets from a path (their answers are prose, so it counts reach and
-agreement only). ``translate`` writes ``reader_corpus/<lang>.json``, keeping a translation
-only when every number survives it.
+the read's latency p50/p95, and tokens and cost per 1,000 turns. Two rows are held out
+from the corpus the patterns were built on: the physics ``holdout.json`` (questions written
+after the fixes) and, with ``--books``, textbook sets read from a path, judged on the
+questions whose book answer is one value (1%, any unit of its kind; prose is skipped and
+counted). ``translate`` writes ``reader_corpus/<lang>.json``, keeping a translation only
+when every number survives it.
 """
 
 from __future__ import annotations
@@ -27,12 +29,15 @@ import argparse
 import asyncio
 import json
 import random
+import re
 import statistics
 import sys
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pint
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings
@@ -59,6 +64,29 @@ LANGUAGES = {
     "hi": "Hindi",
 }
 _CONCURRENCY = 6
+# Physics questions written after the fixes: the patterns were not tuned on them.
+_HOLDOUT = Path(__file__).with_name("stem_corpus") / "physics" / "holdout.json"
+_BOOK_SUBJECTS = {"physics": "physics", "chemistry": "chemistry", "maths": "math", "math": "math"}
+# A book answer that is one value: "3000 N", "98.6 °F", "x = 2", "17", "5.8 x 10^7 m".
+_CLEAR_ANSWER = re.compile(
+    r"^(?:about |approximately |\u2248 ?)?(?:[a-z][\w()]* ?= ?)?"
+    r"(?P<number>-?\d+(?:\.\d+)?)(?: ?[x\u00d7] ?10\^(?P<power>-?\d+))?"
+    r"(?: ?(?P<unit>[a-z\u00b0%\u03a9\u00b5][a-z\u00b0%\u03a9\u00b5/^\d\u00b7*-]{0,11}))? ?\.?$",
+    re.IGNORECASE,
+)
+_UNITS = pint.UnitRegistry()
+_SUPERSCRIPT_POWER = re.compile("[\u2070\u00b9\u00b2\u00b3\u2074-\u2079\u207b]+")
+_FROM_SUPERSCRIPT = str.maketrans(
+    "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207b", "0123456789-"
+)
+
+
+def _caret_power(match: re.Match[str]) -> str:
+    return "^" + match.group(0).translate(_FROM_SUPERSCRIPT)
+
+
+_DASHES = str.maketrans({"\u2013": "-", "\u2212": "-"})
+_THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}\b)")
 
 
 @dataclass
@@ -220,6 +248,46 @@ def _translated(lang: str) -> list[tuple[str, Entry]]:
     return found
 
 
+def _book_answer(expected: str) -> tuple[float, str] | None:
+    """The one value a book's answer states, or None for an answer in prose, in parts,
+    or as a choice. Only the text before the first bracket (its working) is read."""
+    # The working follows in brackets after a space; "z = 2(cos …)" is no plain value.
+    head = expected.split(" (")[0].strip().translate(_DASHES)
+    head = _THOUSANDS.sub(
+        "", unicodedata.normalize("NFKC", _SUPERSCRIPT_POWER.sub(_caret_power, head))
+    )
+    found = _CLEAR_ANSWER.match(head)
+    if found is None:
+        return None
+    unit = found["unit"] or ""
+    if unit:
+        # Only a unit the judge reads: "42 students" is a count it cannot compare.
+        try:
+            _UNITS.Unit(unit.replace("\u00b0", "degree").replace("^", "**"))
+        except Exception:
+            return None
+    return float(found["number"]) * 10 ** int(found["power"] or 0), unit
+
+
+def _book_rows(items: list[dict[str, Any]]) -> tuple[list[Row], int]:
+    """A row for each textbook question whose answer is one value; how many were skipped."""
+    rows: list[Row] = []
+    for item in items:
+        subject = _BOOK_SUBJECTS.get(str(item.get("subject", "")).lower())
+        answer = _book_answer(str(item.get("expected", "")))
+        if subject is None or answer is None:
+            continue
+        entry = Entry(
+            id=str(item["id"]),
+            area="book",
+            prompt=str(item["question"]),
+            expect="answer",
+            answers=(answer,),
+        )
+        rows.append(Row(subject, "book", entry))
+    return rows, len(items) - len(rows)
+
+
 def _with_prompt(entry: Entry, prompt: str) -> Entry:
     from dataclasses import replace
 
@@ -233,20 +301,28 @@ async def run(
     seed: int,
     call_seconds: float,
     dump: Path | None = None,
+    books: list[dict[str, Any]] | None = None,
 ) -> None:
     from app.core.sympy_executor import set_sympy_executor
     from app.tests.sympy_support import ThreadSympyExecutor
 
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     settings = Settings(model_reader_timeout_seconds=call_seconds)
-    rows: list[Row] = []
+    holdout = {item["id"] for item in json.loads(_HOLDOUT.read_text())}
+    rows, skipped = _book_rows(books or [])
+    if books:
+        print(f"books: {len(rows)} questions with one clear value, {skipped} skipped (prose)")
+    rows = [row for row in rows if row.subject in subjects]
     for lang in langs:
         if lang == "en":
             for subject in subjects:
                 entries = [entry for entry in load(subject) if not entry.history]
                 if limit:
                     entries = _sample(entries, min(limit, len(entries)), seed)
-                rows += [Row(subject, "en", entry) for entry in entries]
+                rows += [
+                    Row(subject, "holdout" if entry.id in holdout else "en", entry)
+                    for entry in entries
+                ]
         else:
             rows += [
                 Row(subject, lang, entry)
@@ -259,7 +335,8 @@ async def run(
     await asyncio.gather(*(_model(row, settings, gate) for row in rows))
     for row in rows:
         _finish(row, settings)
-    _report(rows, langs, subjects)
+    order = ["en", "holdout", *[lang for lang in langs if lang != "en"], "book"]
+    _report(rows, [lang for lang in order if any(row.lang == lang for row in rows)], subjects)
     if dump is not None:
         _dump(rows, dump)
 
@@ -276,6 +353,7 @@ def _dump(rows: list[Row], path: Path) -> None:
                         "subject": row.subject,
                         "id": row.entry.id,
                         "expect": row.entry.expect,
+                        "answers": [list(answer) for answer in row.entry.answers],
                         "regex_card": row.regex_card,
                         "regex_wrong": row.regex_wrong,
                         "model_subject": read.subject if read else None,
@@ -314,40 +392,6 @@ def _report(rows: list[Row], langs: list[str], subjects: list[str]) -> None:
             f"  model wrong {row.lang} {row.subject}:{row.entry.id} "
             f"op={read.op if read else None} card={row.model_card!r}"
         )
-
-
-# --- books -------------------------------------------------------------------------
-
-
-async def books(items: list[dict[str, Any]], call_seconds: float) -> None:
-    """Reach and agreement on the Ethiopian textbook sets (answers are prose)."""
-    settings = Settings(model_reader_timeout_seconds=call_seconds)
-    gate = asyncio.Semaphore(_CONCURRENCY)
-    subject_of = {"physics": "physics", "chemistry": "chemistry", "maths": "math", "math": "math"}
-    reads: list[tuple[dict[str, Any], ModelRead]] = []
-
-    async def one(item: dict[str, Any]) -> None:
-        async with gate:
-            reads.append((item, await read_with_model(item["question"], settings)))
-
-    await asyncio.gather(*(one(item) for item in items))
-    cards = 0
-    by_subject: dict[str, list[int]] = {}
-    for item, read in reads:
-        subject = subject_of.get(str(item.get("subject", "")).lower(), "")
-        card = (
-            _solved(read.subject, read.intent, settings)
-            if read.reason == "ok" and read.intent is not None and read.subject
-            else None
-        )
-        counts = by_subject.setdefault(subject, [0, 0, 0])
-        counts[0] += 1
-        counts[1] += card is not None
-        counts[2] += card is not None and read.subject == subject
-        cards += card is not None
-    print(f"books: {len(reads)} questions, {cards} model cards")
-    for subject, (n, carded, same) in sorted(by_subject.items()):
-        print(f"  {subject or '?':<10} n={n:<4} cards {carded} (in its own subject {same})")
 
 
 # --- translate ---------------------------------------------------------------------
@@ -423,6 +467,9 @@ def rejudge(path: Path) -> None:
     for line in path.read_text().splitlines():
         item = json.loads(line)
         entry = entries.get((item["subject"], item["id"]))
+        if entry is None and item["lang"] == "book":
+            answers = tuple((float(value), str(unit)) for value, unit in item.get("answers", []))
+            entry = Entry(item["id"], "book", "", "answer", answers=answers)
         if entry is None:
             continue
         row = Row(item["subject"], item["lang"], entry, item["regex_card"], item["regex_wrong"])
@@ -438,7 +485,8 @@ def rejudge(path: Path) -> None:
         row.model_card = item["model_card"]
         _judge_row(row)
         rows.append(row)
-    langs = sorted({row.lang for row in rows}, key=lambda lang: (lang != "en", lang))
+    order = ["en", "holdout", *sorted(LANGUAGES), "book"]
+    langs = [lang for lang in order if any(row.lang == lang for row in rows)]
     _report(rows, langs, list(SUBJECT_NAMES))
 
 
@@ -454,9 +502,8 @@ def main() -> None:
     # how long reads take, so it waits longer and reports p50/p95.
     run_parser.add_argument("--timeout", type=float, default=5.0)
     run_parser.add_argument("--dump", type=Path, help="write every row as a JSON line here")
-    books_parser = commands.add_parser("books")
-    books_parser.add_argument("path", type=Path)
-    books_parser.add_argument("--timeout", type=float, default=5.0)
+    # Textbook sets ({id, subject, question, expected}): the ones whose answer is one value.
+    run_parser.add_argument("--books", type=Path, help="a folder of textbook question sets")
     rejudge_parser = commands.add_parser("rejudge")
     rejudge_parser.add_argument("dump", type=Path)
     translate_parser = commands.add_parser("translate")
@@ -465,11 +512,16 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "run":
         langs, subjects = args.langs.split(","), args.subjects.split(",")
-        asyncio.run(run(langs, subjects, args.limit, args.seed, args.timeout, args.dump))
-    elif args.command == "books":
-        files = sorted(args.path.glob("*.json"))
-        items = [item for file in files for item in json.loads(file.read_text())]
-        asyncio.run(books(items, args.timeout))
+        books = (
+            [
+                item
+                for file in sorted(args.books.glob("*.json"))
+                for item in json.loads(file.read_text())
+            ]
+            if args.books
+            else None
+        )
+        asyncio.run(run(langs, subjects, args.limit, args.seed, args.timeout, args.dump, books))
     elif args.command == "rejudge":
         rejudge(args.dump)
     else:
