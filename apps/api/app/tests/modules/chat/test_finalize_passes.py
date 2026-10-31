@@ -74,6 +74,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         for finalize_pass in finalize_passes.FINALIZE_PASSES
     ]
     assert [name for name, *_ in order] == [
+        "control_tokens",
         "drop_cut_reminder_fence",
         "prepare_model_reply",
         "answer_labels",

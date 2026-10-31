@@ -55,3 +55,25 @@ def test_the_photo_extract_keeps_the_latex_in_its_transcription() -> None:
 def test_unwrapping_takes_the_fence_and_its_tag_only() -> None:
     assert unwrap_model_fence("```text\nPage one\n```", "text") == "Page one"
     assert unwrap_model_fence("no fence here", "text") == "no fence here"
+
+
+# A Grade 10 round's follow-up read "$30^\text{ extdegree}$": a command off the list,
+# written with one backslash, decoded "\t" as a tab (2026-10-30).
+@pytest.mark.parametrize(
+    ("raw", "decoded"),
+    [
+        (
+            r'{"q": "What if the angle was $30^\textdegree$?"}',
+            "What if the angle was $30^\\textdegree$?",
+        ),
+        (
+            r'{"q": "$\boldsymbol{F}$ and $\rightharpoonup$"}',
+            "$\\boldsymbol{F}$ and $\\rightharpoonup$",
+        ),
+        # Outside maths, and before a word, a JSON escape is still one.
+        (r'{"q": "cost $5 and\nthen $6"}', "cost $5 and\nthen $6"),
+        (r'{"q": "line one\tline two"}', "line one\tline two"),
+    ],
+)
+def test_a_command_inside_maths_keeps_its_backslash(raw: str, decoded: str) -> None:
+    assert parse_model_json(raw) == {"q": decoded}
