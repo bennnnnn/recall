@@ -25,7 +25,7 @@ async def test_topic_service_skips_when_title_none():
             "generate_title",
             AsyncMock(return_value=None),
         ),
-        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
+        patch("app.modules.conversation.chats_repository.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_not_awaited()
@@ -48,7 +48,7 @@ async def test_topic_service_scopes_chat_by_user_id():
             "generate_title",
             AsyncMock(return_value="Fresh title"),
         ),
-        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
+        patch("app.modules.conversation.chats_repository.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(
             Settings(), chat_id, "hi", "hello", user_id=other_user_id
@@ -74,7 +74,7 @@ async def test_topic_service_saves_when_title_returned():
             "generate_title",
             AsyncMock(return_value="Cool chat title"),
         ),
-        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
+        patch("app.modules.conversation.chats_repository.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_awaited_once()
@@ -93,7 +93,7 @@ async def test_topic_service_rejects_boring_title():
             "generate_title",
             AsyncMock(return_value="New chat"),
         ),
-        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
+        patch("app.modules.conversation.chats_repository.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
     mock_set.assert_not_awaited()
@@ -126,7 +126,7 @@ async def test_topic_service_skips_when_chat_already_titled():
             "generate_title",
             AsyncMock(return_value="Fresh title"),
         ) as mock_gen,
-        patch.object(topic_service.chats_repo, "set_title_if_empty", mock_set),
+        patch("app.modules.conversation.chats_repository.set_title_if_empty", mock_set),
     ):
         applied = await topic_service.generate_chat_title(
             Settings(), uuid4(), "hi", "hello", user_id=_OWNER
@@ -171,7 +171,7 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
             "generate_title",
             AsyncMock(side_effect=fake_generate),
         ),
-        patch.object(topic_service.chats_repo, "set_title_if_empty", AsyncMock()),
+        patch("app.modules.conversation.chats_repository.set_title_if_empty", AsyncMock()),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello", user_id=_OWNER)
 

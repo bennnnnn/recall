@@ -27,7 +27,7 @@ def test_create_chat():
     chat.updated_at = datetime(2024, 1, 1)
 
     app = app_with_user(user)
-    with patch("app.modules.chat.service.chats_repo.create", AsyncMock(return_value=chat)):
+    with patch("app.modules.conversation.chats_repository.create", AsyncMock(return_value=chat)):
         client = TestClient(app)
         r = client.post(
             "/chats", headers={"Authorization": "Bearer tok"}, json={"model": "free-chat"}
@@ -53,7 +53,7 @@ def test_create_chat_ignores_retired_project_id():
     chat.updated_at = datetime(2024, 1, 1)
 
     with patch(
-        "app.modules.chat.service.chats_repo.create", AsyncMock(return_value=chat)
+        "app.modules.conversation.chats_repository.create", AsyncMock(return_value=chat)
     ) as create:
         client = TestClient(app)
         response = client.post(
@@ -73,12 +73,12 @@ def test_list_chats():
 
     with (
         patch(
-            "app.modules.chat.service.chats_repo.list_recent_page",
+            "app.modules.conversation.chats_repository.list_recent_page",
             AsyncMock(return_value=(empty_list, None)),
         ),
-        patch("app.modules.chat.service.chats_repo.list_pinned", AsyncMock(return_value=[])),
+        patch("app.modules.conversation.chats_repository.list_pinned", AsyncMock(return_value=[])),
         patch(
-            "app.modules.chat.service.chats_repo.list_archived_page",
+            "app.modules.conversation.chats_repository.list_archived_page",
             AsyncMock(return_value=(empty_list, None)),
         ),
     ):
@@ -104,12 +104,12 @@ def test_list_chats_answers_an_unchanged_list_with_304():
     app = app_with_user(user)
     with (
         patch(
-            "app.modules.chat.service.chats_repo.list_recent_page",
+            "app.modules.conversation.chats_repository.list_recent_page",
             AsyncMock(return_value=([], None)),
         ),
-        patch("app.modules.chat.service.chats_repo.list_pinned", AsyncMock(return_value=[])),
+        patch("app.modules.conversation.chats_repository.list_pinned", AsyncMock(return_value=[])),
         patch(
-            "app.modules.chat.service.chats_repo.list_archived_page",
+            "app.modules.conversation.chats_repository.list_archived_page",
             AsyncMock(return_value=([], None)),
         ),
     ):
@@ -151,15 +151,15 @@ def test_list_chats_never_overlaps_ops_on_one_session():
 
     with (
         patch(
-            "app.modules.chat.service.chats_repo.list_recent_page",
+            "app.modules.conversation.chats_repository.list_recent_page",
             AsyncMock(side_effect=tracked("dated", ([], None))),
         ),
         patch(
-            "app.modules.chat.service.chats_repo.list_pinned",
+            "app.modules.conversation.chats_repository.list_pinned",
             AsyncMock(side_effect=tracked("pinned", [])),
         ),
         patch(
-            "app.modules.chat.service.chats_repo.list_archived_page",
+            "app.modules.conversation.chats_repository.list_archived_page",
             AsyncMock(side_effect=tracked("archived", ([], None))),
         ),
     ):
@@ -173,7 +173,7 @@ def test_list_chats_never_overlaps_ops_on_one_session():
 def test_get_chat_not_found():
     user = api_user()
     app = app_with_user(user)
-    with patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.get(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -222,9 +222,9 @@ def test_list_messages_enqueues_topic_backfill():
     asst_msg.created_at = datetime(2024, 1, 1)
 
     with (
-        patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.modules.chat.service.messages_repo.list_page",
+            "app.modules.conversation.messages_repository.list_page",
             AsyncMock(return_value=([user_msg, asst_msg], False)),
         ),
         patch("app.modules.chat.service.jobs.enqueue", AsyncMock()) as enqueue_job,
@@ -288,7 +288,7 @@ def test_rename_chat_rejects_blank_title():
     chat = MagicMock()
     chat.id = chat_id
 
-    with patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=chat)):
+    with patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)):
         client = TestClient(app)
         r = client.patch(
             f"/chats/{chat_id}",
@@ -383,7 +383,7 @@ def test_router_delete_chat_404():
     user.id = uuid4()
     app = _app_with_user(user)
 
-    with patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.delete(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -400,10 +400,11 @@ async def test_delete_if_empty_keeps_a_chat_with_messages(messages: int, deleted
     user = MagicMock()
     user.id = uuid4()
     with (
-        patch.object(chats_service.chats_repo, "get_by_id", AsyncMock(return_value=chat)),
-        patch.object(chats_service.chats_repo, "forget_chat"),
-        patch.object(
-            chats_service.messages_repo, "count_for_chat", AsyncMock(return_value=messages)
+        patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.conversation.chats_repository.forget_chat"),
+        patch(
+            "app.modules.conversation.messages_repository.count_for_chat",
+            AsyncMock(return_value=messages),
         ),
     ):
         await chats_service.delete_chat(session, user, uuid4(), settings=Settings(), if_empty=True)
@@ -440,7 +441,7 @@ async def test_delete_chat_keeps_library_attachments():
     settings = Settings()
 
     with (
-        patch.object(chats_service.chats_repo, "get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)),
         patch(
             "app.modules.attachments.lifecycle.detach_attachments_for_messages",
             AsyncMock(return_value=["user/file"]),

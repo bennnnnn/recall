@@ -18,10 +18,10 @@ from sqlalchemy import select
 
 from app.core.config import Settings
 from app.models.orm import Chat
-from app.modules.conversation import chats_repository as chats_repo
 from app.modules.chat import post_turn
-from app.modules.conversation import messages_repository, turn_record
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.conversation import chats_repository as chats_repo
+from app.modules.conversation import history, messages_repository, turn_record
 from app.modules.speech.live_talk import persist_live_talk_turn
 from app.repositories import users as users_repo
 from app.tests.fakes import fake_session, make_user, redis_mock
@@ -96,7 +96,7 @@ async def _voice() -> None:
 
 async def _picture() -> None:
     # As images.generation and images.search finish a turn that saved the user's message.
-    await turn_record.finish_turn(
+    await post_turn.finish_turn(
         AsyncMock(),
         _SETTINGS,
         user=make_user(id=_USER, memory_enabled=True),
@@ -150,4 +150,4 @@ async def test_a_message_saved_for_a_turn_moves_the_chat_up(db_session) -> None:
         select(Chat.updated_at).where(Chat.id == chat.id).execution_options(populate_existing=True)
     )
     assert moved is not None and moved > long_ago + timedelta(days=2)
-    assert await turn_record.count_messages(db_session, chat.id) == 1
+    assert await history.message_count(db_session, chat.id) == 1

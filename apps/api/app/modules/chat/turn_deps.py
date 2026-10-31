@@ -328,6 +328,11 @@ class _ConversationMessages:
     delete_message = staticmethod(conversation_service.delete_message)
 
 
+# One of each, so two turns' default deps compare equal.
+CONVERSATION_CHATS = _ConversationChats()
+CONVERSATION_MESSAGES = _ConversationMessages()
+
+
 class WebSearchFences(Protocol):
     """Source chips and the places card under a searched reply."""
 
@@ -385,8 +390,8 @@ def default_deps() -> ChatTurnDeps:
     return ChatTurnDeps(
         session_factory=SessionLocal,
         users=users,
-        chats=_ConversationChats(),
-        messages=_ConversationMessages(),
+        chats=CONVERSATION_CHATS,
+        messages=CONVERSATION_MESSAGES,
         usage=usage,
         quota=quota,
         plan=plan,

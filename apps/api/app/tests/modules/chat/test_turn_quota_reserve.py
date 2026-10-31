@@ -18,9 +18,9 @@ from app.core.config import Settings
 from app.core.spend_counter import spend_key
 from app.exceptions import QuotaExceededError, RedisUnavailableError, SpendCapReachedError
 from app.modules.chat import stream_entry, turn_load, turn_resources
-from app.modules.conversation import chats_repository, messages_repository
 from app.modules.chat.stream_events import error_payload_for_exception
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.conversation import chats_repository, messages_repository
 from app.services import quota as quota_service
 from app.services.quota import CHAT_SPEND_CAP_MESSAGE
 from app.services.quota import tokens as quota_tokens

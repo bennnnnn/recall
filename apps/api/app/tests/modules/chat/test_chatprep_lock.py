@@ -13,9 +13,9 @@ from app.core import redis_lock
 from app.core.config import Settings
 from app.exceptions import ChatBusyError
 from app.modules.chat import stream_entry, turn_resources
-from app.modules.conversation import chats_repository, messages_repository
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.stream_events import error_payload_for_exception
+from app.modules.conversation import chats_repository, messages_repository
 from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
 from app.tests.modules.chat.chat_test_support import turn_deps

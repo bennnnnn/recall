@@ -140,6 +140,23 @@ exits 1. `--corpus` and `--only` narrow a dump. Two dumps of one commit are iden
 
 ### ST-03 — `conversation`: chats, messages and turn records below chat
 
+**Status: done (storage half).** `modules/conversation/` owns the three repositories (private),
+`history` (reads), `service` (writes), `turn_record` (a turn chat did not stream) and
+`history_rag`. Chat reads and writes through those operations (`turn_deps` adapts them to
+`ChatsRepo`/`MessagesRepo`), and `finish_turn` moved into chat's `post_turn.py`. Two edges
+left `_UPWARD`: attachments and memory now import only conversation. `history_rag` gets
+memory's switch from its job (`background/message_indexing.py`) instead of importing memory,
+and `chunk_text` moved to `services/chunking.py`: both would otherwise make a
+conversation ↔ memory or conversation ↔ attachments cycle. The decision diff over 5,048
+corpus turns printed "no decision changed".
+
+Still upward, for reasons this ticket does not own: account (deleting an account drops
+chat's cached follow-up questions), images and speech (a non-streamed turn sets off chat's
+post-turn jobs; images also reads a cut cue, speech chat's presentation), and to-dos (chat's
+confirmation and locale cues). The cues are ST-04's; the post-turn jobs need a seam of their
+own. Chat's lazy `__getattr__` stays while modules import those cues. The #2151 cycle
+baseline did not move: its cycles are file-level ones inside the subjects and chat.
+
 - **Problem:** six modules use chat as their message repository. `chat.history` is imported by
   `account/export.py:35`, `attachments/workflow.py:36`, `images/{generation,intent,search,turn_references}.py`,
   `memory/extract_backlog.py:17`, `speech/{live_talk,realtime}.py` and `todos/{card_retime,crud,spoken_clauses}.py`.

@@ -19,8 +19,8 @@ from app.models.orm import Message, MessageChunk, User
 from app.modules.conversation import chunks_repository as chunks_repo
 from app.modules.conversation import messages_repository as messages_repo
 from app.repositories import users as users_repo
+from app.services.chunking import chunk_text
 from app.services.prompt_safety import text_before_attachment_markers, wrap_earlier_chats
-from app.services.text_chunks import chunk_text
 
 logger = logging.getLogger(__name__)
 

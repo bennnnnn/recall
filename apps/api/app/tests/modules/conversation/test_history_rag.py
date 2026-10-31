@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+
+from app.core.config import Settings
 from app.modules.conversation.history_rag import (
     HistoryEmbeddingUnavailable,
     embed_query_for_prompt,
@@ -16,9 +18,8 @@ from app.modules.conversation.history_rag import (
     prepare_message_text,
     retrieve_for_prompt,
 )
-
-from app.core.config import Settings
-from app.modules.attachments.rag import chunk_text
+from app.modules.memory.switch import memory_switch_on
+from app.services.chunking import chunk_text
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 
@@ -249,7 +250,7 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
     user.id = uuid4()
     with (
         patch("app.modules.chat.prompt_context.SessionLocal", _session_cm()),
-        patch("app.modules.chat.prompt_context.messages_repo.list_recent", fast_recent),
+        patch("app.modules.conversation.messages_repository.list_recent", fast_recent),
         patch(
             "app.modules.conversation.history_rag.embed_query_for_prompt",
             slow_embed,
@@ -427,7 +428,8 @@ async def test_a_failed_piece_stores_nothing_and_the_job_retries():
         patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch("app.modules.conversation.history_rag.embedding_gateway.embed_many", _embed_many),
         patch(
-            "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages", AsyncMock()
+            "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages",
+            AsyncMock(),
         ) as replace_mock,
         pytest.raises(HistoryEmbeddingUnavailable),
     ):
@@ -495,6 +497,7 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
             user_id=user_id,
             chat_id=chat_id,
             assistant_message_id=assistant.id,
+            memory_on=memory_switch_on,
         )
 
     if not memory_on:

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
+
 from app.modules.conversation.chats_repository import RECENCY_BUCKETS, group_by_recency
 
 

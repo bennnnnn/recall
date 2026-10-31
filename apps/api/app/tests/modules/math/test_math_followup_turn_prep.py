@@ -11,13 +11,13 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
-from app.modules.conversation import messages_repository
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.chat.turn_prep.context import build_stream_prompt_context
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_prep.prepare import prepare_chat_turn
 from app.modules.chat.turn_prep.request import TurnRequest
+from app.modules.conversation import messages_repository
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.tests.fakes import redis_mock

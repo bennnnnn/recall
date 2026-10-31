@@ -16,7 +16,6 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.conversation import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     CODE_INK_REMINDER,
@@ -34,6 +33,7 @@ from app.modules.chat.prompt_constants.coding import (
     code_question_kind,
 )
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.conversation import chats_repository, messages_repository
 from app.modules.math.reply_policy import MATH_INTENT_HINT
 from app.services.subject_solving import detect_subject
 from app.tests.modules.chat.chat_test_support import system_prompt

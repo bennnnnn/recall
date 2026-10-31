@@ -30,7 +30,10 @@ _UPWARD = {
     ("modules.images", "modules.chat"): "a picture turn sets off chat's post-turn jobs; a cut cue",
     ("modules.math", "modules.chat"): "a follow-up reads chat's light-turn cue",
     ("modules.physics", "modules.chat"): "a direct reply is presented as chat presents one",
-    ("modules.speech", "modules.chat"): "a voice turn sets off chat's post-turn jobs and presentation",
+    (
+        "modules.speech",
+        "modules.chat",
+    ): "a voice turn sets off chat's post-turn jobs and presentation",
     ("modules.todos", "modules.chat"): "a to-do reads chat's confirmation and locale cues",
     ("modules.web_search", "modules.chat"): "search detection reads chat's turn cues",
     ("services.quota", "modules.billing"): "a daily budget is the plan's number (entitlements)",

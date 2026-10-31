@@ -54,7 +54,7 @@ async def test_persist_user_turn_rolls_back_its_own_transaction_on_a_failed_writ
     enqueue = AsyncMock()
     with (
         patch(f"{_MODULE}.SessionLocal", _session_local(session)),
-        patch(f"{_MODULE}.messages_repo.create", create),
+        patch("app.modules.conversation.messages_repository.create", create),
         patch("app.modules.attachments.repository.link_to_message", link),
         patch("app.modules.attachments.repository.get_by_ids", rows),
         patch(f"{_MODULE}.attachments_service.enqueue_index_jobs", enqueue),
@@ -102,13 +102,17 @@ async def test_persist_user_turn_reads_what_the_caller_left_out_and_queues_its_d
     with (
         patch(f"{_MODULE}.SessionLocal", _session_local(session)),
         patch(f"{_MODULE}.users_repo.get_by_id", AsyncMock(return_value=user)),
-        patch(f"{_MODULE}.chats_repo.get_by_id", AsyncMock(return_value=chat)),
-        patch(f"{_MODULE}.messages_repo.count_for_chat", AsyncMock(return_value=4)),
-        patch(f"{_MODULE}.messages_repo.list_recent", AsyncMock(return_value=[])),
+        patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.modules.conversation.messages_repository.count_for_chat", AsyncMock(return_value=4)
+        ),
+        patch(
+            "app.modules.conversation.messages_repository.list_recent", AsyncMock(return_value=[])
+        ),
         patch(f"{_MODULE}.classify_turn_mode", return_value=mode),
         patch(f"{_MODULE}.model_choice.resolve_user_model_override", return_value="smart-chat"),
         patch(
-            f"{_MODULE}.messages_repo.create",
+            "app.modules.conversation.messages_repository.create",
             AsyncMock(return_value=SimpleNamespace(id=turn.message_id)),
         ) as create,
         patch("app.modules.attachments.repository.link_to_message", AsyncMock(return_value=1)),

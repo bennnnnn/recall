@@ -5,7 +5,6 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.conversation import chats_repository, messages_repository
 from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.prompt_constants import (
@@ -38,6 +37,7 @@ from app.modules.chat.prompt_profile import (
     should_include_profile_email,
 )
 from app.modules.chat.turn_prep import resolve_client_geo
+from app.modules.conversation import chats_repository, messages_repository
 from app.services.locale import locale_system_hint
 from app.tests.fakes import FakeSessionCM, make_user
 from app.tests.modules.chat.chat_test_support import system_prompt
@@ -1402,7 +1402,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
         patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch(
-            "app.modules.chat.prompt_context.chats_repo.get_by_id",
+            "app.modules.conversation.chats_repository.get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1461,7 +1461,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
         patch("app.modules.attachments.rag.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch(
-            "app.modules.chat.prompt_context.chats_repo.get_by_id",
+            "app.modules.conversation.chats_repository.get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(

@@ -20,8 +20,8 @@ from app.modules.attachments import ocr_allowance
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import ExtractedText, ExtractTimeoutError
 from app.modules.attachments.content_types import EXTRACTABLE_CONTENT_TYPES
+from app.services.chunking import chunk_text
 from app.services.prompt_safety import wrap_untrusted
-from app.services.text_chunks import chunk_text
 
 logger = logging.getLogger(__name__)
 

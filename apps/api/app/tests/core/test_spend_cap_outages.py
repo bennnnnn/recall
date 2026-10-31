@@ -130,7 +130,7 @@ GATES: dict[str, _Gate] = {
         redis_at=("app.modules.images.generation.get_redis_client",),
         stubs=(
             (
-                "app.modules.images.generation.chat_history.get_chat",
+                "app.modules.images.generation.history.get_chat",
                 AsyncMock(return_value=MagicMock()),
             ),
         ),

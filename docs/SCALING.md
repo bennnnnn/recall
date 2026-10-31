@@ -37,7 +37,7 @@ Everything a turn or a request must agree on across machines lives in Redis or P
 | State | Where | Effect with N app machines |
 |---|---|---|
 | Last loaded user row, 5 min, checked against Redis | `core/user_cache.py` | Every committed write to a user row (plan change from the RevenueCat webhook, a settings or memory change, consent) stores a new `usergen:{user}`; every request and chat frame reads it with its token check and loads the row again when its copy is older. A write whose generation Redis refuses answers 503 (it is saved; making it again publishes, and the phone does not retry a 503 by itself); a missing key starts a fresh generation, never one an old copy was stored under. A SQL edit to `users` needs `DEL usergen:<id>` (PRODUCTION.md §2); otherwise, and after a machine dies between a commit and its publish, a copy can lag for up to 5 min. Consent is re-read from the row before a turn is refused. |
-| A chat created here, 120 s | `modules/chat/chats_repository.py` (`_chat_cache`) | The send right after "new chat" skips a query. If the chat is deleted through another machine, this machine still starts a turn for it for up to 120 s, which then fails when it saves. |
+| A chat created here, 120 s | `modules/conversation/chats_repository.py` (`_chat_cache`) | The send right after "new chat" skips a query. If the chat is deleted through another machine, this machine still starts a turn for it for up to 120 s, which then fails when it saves. |
 | Open chat sockets per user (5) | `modules/chat/ws_limits.py` | A user can hold 5 per machine, N×5 in all. The frame budget and idle timeout are per socket, so they are exact. |
 | SymPy process pool (3 workers, 2 s slot wait, one slot per user) | `core/sympy_executor.py` | Capacity grows with machines (3 per machine); a maths turn that waits more than 2 s for a slot on its machine is answered unverified. A user holds at most one slot per machine, so one account's pathological expressions cannot take all three. A worker is killed only when a solve overruns; a Stop lets the solve finish first. Every turn also reads its message there once (`core/readings.py`, a few milliseconds; `subject_read_timeout_seconds` 3 s, after which the turn reads no subject and the model answers unverified). |
 | In-flight turns, their Stop, the finalize task that saves the reply, the post-turn enqueue, follow-up questions | `modules/chat/` background tasks (`core/background_tasks.py`) | A machine that dies without the stop signal (OOM, host loss) loses the replies it had not saved yet; its `chatprep` lock and `chatfinal` marker expire within 30 s. |
@@ -94,7 +94,7 @@ plugs in.
 4. **Share or invalidate the chat cache** once 120 s of a deleted chat on another machine
    matters: check a Redis generation per chat on read, as `core/user_cache.py` does for
    user rows (the `core/cache_generation.py` pattern). Seam:
-   `modules/chat/chats_repository.py` (`peek_recent_chat` / `forget_chat`).
+   `modules/conversation/chats_repository.py` (`peek_recent_chat` / `forget_chat`).
 5. **Count chat sockets per user in Redis** if N×5 is too many: an expiring counter or set
    per user, refreshed while the socket lives. Seam: `modules/chat/ws_limits.py`
    (`user_socket_slot`).

@@ -7,6 +7,7 @@ import pytest
 
 from app.background.message_indexing import index_message_job
 from app.core.config import Settings
+from app.modules.memory.switch import memory_switch_on
 from app.tests.fakes import redis_mock
 
 
@@ -33,6 +34,8 @@ async def test_index_message_job_calls_index_turn():
     assert kwargs["user_id"] == user_id
     assert kwargs["chat_id"] == chat_id
     assert kwargs["assistant_message_id"] == assistant_id
+    # Memory off indexes nothing: the job hands conversation memory's own switch.
+    assert kwargs["memory_on"] is memory_switch_on
 
 
 @pytest.mark.asyncio

@@ -6,7 +6,8 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.attachments.content import ExtractedText
-from app.modules.attachments.rag import chunk_text, index_attachment, retrieve_for_prompt
+from app.modules.attachments.rag import index_attachment, retrieve_for_prompt
+from app.services.chunking import chunk_text
 
 
 def _session_cm():

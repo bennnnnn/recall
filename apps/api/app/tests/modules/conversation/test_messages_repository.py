@@ -129,8 +129,9 @@ async def test_update_content(fake_session):
 
 @pytest.mark.asyncio
 async def test_list_user_contents_since_sql_is_user_only():
-    from app.modules.conversation.messages_repository import list_user_contents_since
     from sqlalchemy.dialects import postgresql
+
+    from app.modules.conversation.messages_repository import list_user_contents_since
 
     session = AsyncMock()
     captured: dict = {}
