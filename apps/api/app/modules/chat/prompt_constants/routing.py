@@ -130,11 +130,8 @@ def prior_looks_like_offer(prior_assistant: str | None) -> bool:
     return lesson_step(prior_assistant) is not None
 
 
-# Emoji, flags and their joiners. "hi 👋" is the same greeting as "hi".
-# Skin tones (U+1F3FB-1F3FF) sit inside U+1F300-1FAFF. The watch, hourglasses, keyboard and
-# media buttons are the emoji of U+2300-23FF (⏳ stayed in a homework reply); its floor and
-# ceiling brackets are maths. Escapes, not literal characters, so the pattern reads the same
-# to the regex engine and to scanners.
+# Emoji, flags, joiners ("hi 👋" is "hi"); of U+2300-23FF only the watch, hourglasses, keyboard
+# and media buttons (⏳ stayed in homework), never maths brackets. Escapes, not characters.
 EMOJI = re.compile(
     r"[\U0001f1e6-\U0001f1ff\U0001f300-\U0001faff\u2600-\u27bf\u2b00-\u2bff\ufe0f\u200d"
     r"\u231a\u231b\u2328\u23cf\u23e9-\u23f3\u23f8-\u23fa]+"
