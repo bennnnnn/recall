@@ -284,13 +284,18 @@ for presentation and the post-turn jobs, not for reading.
   - `plan_reason` is on the turn's trace line. Decision diff over the five corpora: no
     decision changed (`--added plan_reason`: one_request ×5,006, several_requests ×42). In
     those corpora every `plan_of` call read the turn's own reading.
-  - **Precedence question, kept as today:** the tool loop (`tool_loop/selection.py`,
-    `forced_search.py`, `reply_calls.py` through `open_parts`) plans
-    `last_user_content(messages)`, the prompt's last user line, stripped. That is the turn's
-    message on most turns, but not when the message has surrounding whitespace or the prompt
-    rewrites the line; those calls fall back to planning their own text, as before. The
-    behaviour harness does not run the tool rounds, so a later step should pass the turn's
-    reading down instead of the line, in a behaviour PR of its own.
+  - **Precedence question, kept as today:** where the tool loop is not handed the user's
+    own words it plans `last_user_content(messages)`, the prompt's last user line, stripped,
+    which can also carry attached file text: `tool_loop/forced_search.py`,
+    `tool_loop/reply_calls.py`, and `tool_loop/rounds.py` when its caller passes no
+    `user_text` (and the round context's `user_text`). That is the turn's message on most
+    turns; when it is not, those calls plan their own text, as before. (`selection.py`'s
+    `_tools_for_user` gets the caller's text and reads the turn's reading.) The behaviour
+    harness does not run the tool rounds, so passing the turn's reading down instead of the
+    line is a behaviour PR of its own.
+  - A plan the pool read before a later read gave up stands (`read_turn` asks the kept
+    `plan_turn` reading first, as `@reading` does); only a message the pool never planned
+    is `read_declined`.
 
 ### ST-06 — Finalize passes declare their order and their kind
 

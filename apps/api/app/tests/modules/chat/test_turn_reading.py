@@ -21,6 +21,7 @@ from app.core.readings import begin_turn, read_off_loop
 from app.core.sympy_executor import set_sympy_executor
 from app.modules.chat.related_questions import follow_up_topic
 from app.modules.chat.turn_prep.followups import read_prompt_inputs
+from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.reading import plan_of, read_turn, read_turn_message
 from app.modules.math.tools.prompt import build_math_augmentation
 from app.modules.physics.prompt import build_physics_augmentation
@@ -177,3 +178,50 @@ def test_outside_a_turn_a_plan_is_read_from_its_text() -> None:
     plan = contextvars.Context().run(plan_of, "tell me a joke", Settings())
 
     assert plan.texts() == ("tell me a joke",)
+
+
+def _gives_up() -> bool:
+    raise RuntimeError("the pool read gave up")
+
+
+async def test_a_plan_read_before_a_read_gave_up_is_kept() -> None:
+    two = "switch to dark mode and tell me a joke"
+    begin_turn()
+    await read_off_loop(plan_turn, two, chemistry_enabled=True, timeout=3)
+    # A later pool read gives up: the turn's readings decline from here on.
+    assert await read_off_loop(_gives_up, timeout=3) is None
+
+    reading = read_turn(two, Settings())
+
+    # The plan the pool already read stands, as plan_turn's own memo answers it.
+    assert reading.plan.multi and reading.plan_reason == "several_requests"
+    assert plan_of(two, Settings()).multi
+
+
+async def test_a_regenerate_turn_reads_its_own_plan() -> None:
+    settings = Settings()
+    begin_turn()
+    await read_turn_message("switch to dark mode and tell me a joke", [], settings)
+    # The next turn regenerates another message: it reads that one, not the last turn's.
+    begin_turn()
+    await read_turn_message("solve 2x + 3 = 7", [], settings)
+
+    reading = current_turn_reading()
+    assert reading is not None and reading.text == "solve 2x + 3 = 7"
+    assert not reading.plan.multi
+    assert plan_of("solve 2x + 3 = 7", settings) is reading.plan
+
+
+async def test_another_text_inside_a_turn_plans_itself() -> None:
+    settings = Settings()
+    two = "switch to dark mode and tell me a joke"
+    begin_turn()
+    await read_turn_message(two, [], settings)
+    # Another line (an earlier one, a part) is read in the pool like any reading.
+    await read_off_loop(plan_turn, "tell me a joke", chemistry_enabled=True, timeout=3)
+
+    other = plan_of("tell me a joke", settings)
+
+    reading = current_turn_reading()
+    assert reading is not None and other is not reading.plan
+    assert other.texts() == ("tell me a joke",)

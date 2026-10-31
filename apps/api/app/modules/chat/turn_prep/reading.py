@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.core.config import Settings
-from app.core.readings import first_read, read_off_loop, readings_declined
+from app.core.readings import first_read, kept_reading, read_off_loop, readings_declined
 from app.modules.turn_reading.plan import TurnPlan, single_plan
 from app.modules.turn_reading.turn import (
     PlanReason,
@@ -39,12 +39,16 @@ def read_turn(content: str, settings: Settings) -> TurnReading:
     kept = current_turn_reading()
     if kept is not None and kept.reads(content, chemistry_enabled=chemistry):
         return kept
+    # The pool's plan of the message first, as ``@reading`` answers: a later read that gave
+    # up does not undo a plan already read.
+    kept_plan = kept_reading(plan_turn, content, chemistry_enabled=chemistry)
     reason: PlanReason
-    if readings_declined():
-        # The pool gave up: the whole message is one request, as ``plan_turn`` declines.
+    if kept_plan is None and readings_declined():
+        # The pool gave up before planning it: the whole message is one request, as
+        # ``plan_turn`` declines, and nothing plans it on the loop.
         plan, reason = single_plan(content), "read_declined"
     else:
-        plan = plan_turn(content, chemistry_enabled=chemistry)
+        plan = kept_plan or plan_turn(content, chemistry_enabled=chemistry)
         reason = "several_requests" if plan.multi else "one_request"
     reading = TurnReading(content, chemistry, plan, reason)
     keep_turn_reading(reading)
