@@ -8,6 +8,11 @@ from typing import Any
 from app.modules.chat.clarify_turn import follows_card
 from app.modules.memory import is_food_or_diet_query
 from app.modules.turn_reading.capabilities import is_capabilities_question
+from app.modules.turn_reading.personal import (
+    is_career_personal_question,
+    is_personal_advice_question,
+    needs_rich_context,
+)
 from app.modules.turn_reading.profile_ask import (
     is_profile_fact_question,
     is_profile_recall_pushback,
@@ -15,11 +20,8 @@ from app.modules.turn_reading.profile_ask import (
 )
 from app.modules.turn_reading.routing import (
     is_broad_self_question,
-    is_career_personal_question,
     is_lightweight_chat_turn,
-    is_personal_advice_question,
     is_short_reply,
-    needs_rich_context,
 )
 from app.modules.turn_reading.teaching import is_teaching_request
 from app.modules.turn_reading.writing import draft_followup

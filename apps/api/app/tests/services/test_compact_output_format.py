@@ -525,7 +525,7 @@ def test_explicit_table_request_survives_short_and_compact_styles():
 
 
 def test_translation_and_proofreading_do_not_load_private_rich_context():
-    from app.modules.turn_reading.routing import needs_rich_context
+    from app.modules.turn_reading.personal import needs_rich_context
 
     assert not needs_rich_context("Translate 'hello' into Spanish")
     assert not needs_rich_context("Is this sentence correct?")
@@ -672,7 +672,7 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
         SHORT_RESPONSE_FORMAT_HINT,
     )
     from app.modules.chat.prompt_format import _style_format_hints
-    from app.modules.turn_reading.routing import is_personal_disclosure_turn
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     query = "I work at Uber but I want to change to Google"
     assert is_personal_disclosure_turn(query)
@@ -706,7 +706,7 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
     ],
 )
 def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
-    from app.modules.turn_reading.routing import is_personal_disclosure_turn
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     assert not is_personal_disclosure_turn(query)
 
@@ -721,13 +721,13 @@ def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
     ],
 )
 def test_collective_implicit_requests_are_not_personal_disclosures(query):
-    from app.modules.turn_reading.routing import is_personal_disclosure_turn
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     assert not is_personal_disclosure_turn(query)
 
 
 @pytest.mark.parametrize("query", ["We moved to Boston", "We work in healthcare"])
 def test_collective_personal_facts_remain_disclosures(query):
-    from app.modules.turn_reading.routing import is_personal_disclosure_turn
+    from app.modules.turn_reading.personal import is_personal_disclosure_turn
 
     assert is_personal_disclosure_turn(query)

@@ -9,9 +9,9 @@ from app.core.config import Settings
 from app.modules.turn_reading.chart import chart_of_public_facts
 from app.modules.turn_reading.coding import has_code_syntax
 from app.modules.turn_reading.locale_cues import has_locale_cue
+from app.modules.turn_reading.personal import is_personal_disclosure_turn
 from app.modules.turn_reading.routing import (
     is_lightweight_chat_turn,
-    is_personal_disclosure_turn,
     is_short_confirmation,
     prior_looks_like_offer,
 )

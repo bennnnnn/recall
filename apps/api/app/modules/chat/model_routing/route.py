@@ -159,11 +159,8 @@ def _leading_followup_verb(lowered: str) -> bool:
 def _looks_like_smart_continuation(content: str) -> bool:
     """True when this line continues the prior hard turn, not a new topic."""
     from app.modules.chat.continuation_subject import is_pure_continuation
-    from app.modules.turn_reading.routing import (
-        is_lightweight_chat_turn,
-        is_personal_advice_question,
-        is_short_confirmation,
-    )
+    from app.modules.turn_reading.personal import is_personal_advice_question
+    from app.modules.turn_reading.routing import is_lightweight_chat_turn, is_short_confirmation
     from app.modules.turn_reading.writing_kind import is_writing_deliverable_request
     from app.services.day_planning import is_day_planning_question
     from app.services.text_normalize import collapse_ws

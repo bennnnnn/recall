@@ -31,12 +31,8 @@ from app.modules.chat.prompt_profile import (
 from app.modules.chat.turn_prep import resolve_client_geo
 from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 from app.modules.conversation import chats_repository, messages_repository
-from app.modules.turn_reading.routing import (
-    is_broad_self_question,
-    is_lightweight_chat_turn,
-    is_personal_advice_question,
-    needs_rich_context,
-)
+from app.modules.turn_reading.personal import is_personal_advice_question, needs_rich_context
+from app.modules.turn_reading.routing import is_broad_self_question, is_lightweight_chat_turn
 from app.modules.turn_reading.writing_kind import is_writing_deliverable_request
 from app.services.locale import locale_system_hint
 from app.tests.fakes import FakeSessionCM, make_user

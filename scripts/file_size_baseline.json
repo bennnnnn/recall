@@ -5,14 +5,6 @@
       "lines": 539,
       "why": "Over 500 before the standards; one algorithm, held to its twin by docs/fixtures/presentation_cases.json (ES-06); split by responsibility after the ticketed files"
     },
-    "apps/api/app/modules/chat/prompt_constants/routing.py": {
-      "lines": 561,
-      "why": "Exception: Prompt copy (53% text), same rule; review if the functions pass 250 lines"
-    },
-    "apps/api/app/modules/chat/prompt_constants/teaching.py": {
-      "lines": 597,
-      "why": "Exception: Prompt copy (59% text), same rule"
-    },
     "apps/api/app/modules/chemistry/catalog.py": {
       "lines": 530,
       "why": "Exception: The one operation list (CLAUDE.md names it so)"

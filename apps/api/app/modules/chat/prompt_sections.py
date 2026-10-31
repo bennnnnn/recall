@@ -84,15 +84,15 @@ from app.modules.turn_reading.lesson_flow import (
     lesson_after_gap,
     outline_awaits_pick,
 )
+from app.modules.turn_reading.personal import (
+    is_career_personal_question,
+    is_personal_disclosure_turn,
+)
 from app.modules.turn_reading.profile_ask import (
     is_profile_fact_question,
     is_profile_recall_pushback,
 )
-from app.modules.turn_reading.routing import (
-    is_career_personal_question,
-    is_personal_disclosure_turn,
-    is_short_confirmation,
-)
+from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.turn_reading.teaching import (
     is_learning_plan_request,
     is_standing_preference,

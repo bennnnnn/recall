@@ -84,8 +84,9 @@ from app.modules.turn_reading.format import (
     is_task_howto,
 )
 from app.modules.turn_reading.length import ReplyLength, is_brevity_request, reply_length
+from app.modules.turn_reading.personal import is_personal_disclosure_turn
 from app.modules.turn_reading.practice import is_practice_request
-from app.modules.turn_reading.routing import is_personal_disclosure_turn, is_short_confirmation
+from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.turn_reading.teaching import (
     is_learning_plan_request,
     is_standing_preference,

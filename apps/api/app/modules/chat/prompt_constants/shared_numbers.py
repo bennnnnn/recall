@@ -20,7 +20,7 @@ import logging
 import re
 from dataclasses import dataclass
 
-from app.modules.turn_reading.routing import is_personal_disclosure_turn
+from app.modules.turn_reading.personal import is_personal_disclosure_turn
 from app.modules.turn_reading.teaching import is_standing_preference
 
 logger = logging.getLogger(__name__)

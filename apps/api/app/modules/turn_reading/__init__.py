@@ -22,6 +22,7 @@ _MODULE_EXPORTS = (
     "length",
     "lesson_flow",
     "locale_cues",
+    "personal",
     "practice",
     "profile_ask",
     "question_kinds",

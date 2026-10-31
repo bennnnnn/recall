@@ -189,7 +189,9 @@ baseline did not move: its cycles are file-level ones inside the subjects and ch
 **Status: done.** `modules/turn_reading/` holds the readers from 25 `prompt_constants` files: seven
 moved whole (`locale_cues`, `stuck`, `profile_ask`, `question_kinds`, `writing_kind`,
 `writing_locales`, `writing_purpose`) and 18 split, the readers out and the copy kept
-(`routing`, `coding`, `chart`, `teaching`, `visuals`, `lesson_flow`, `school_question`, …).
+(`routing`, `coding`, `chart`, `teaching`, `visuals`, `lesson_flow`, `school_question`, …);
+the personal and advice readers became `personal.py`. Two size exceptions left the baseline
+(`prompt_constants/routing.py` 561 → 31 lines, `teaching.py` 597 → 175).
 It imports only services, so the direction test places it with the leaves (`_LAYER_OF`) and
 a subject may ask it. `chart_names_no_curve` takes maths' reader as an argument (the
 dispatcher passes it) instead of importing maths, and the chemistry fence hint moved to

@@ -17,7 +17,8 @@ from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.follow_up_repeats import repeats_earlier
 from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
 from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD, topic_words
-from app.modules.turn_reading.routing import is_lightweight_chat_turn, is_personal_disclosure_turn
+from app.modules.turn_reading.personal import is_personal_disclosure_turn
+from app.modules.turn_reading.routing import is_lightweight_chat_turn
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.md_fence_scan import iter_fences, read_fence_marker
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
