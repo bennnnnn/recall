@@ -221,7 +221,7 @@ async def stream_chat_completion(
             if has_next:
                 logger.warning("Chat stream %s unavailable; trying %s", alias, aliases[index + 1])
                 continue
-            if _try_again(aliases, alias, exc):
+            if _try_again(aliases, exc, attempt, settings, stream_meta):
                 continue
             failed = exc.failed_alias or alias
             if stream_meta is not None:
@@ -232,12 +232,32 @@ async def stream_chat_completion(
         raise last_error
 
 
-def _try_again(aliases: list[str], alias: str, exc: ModelUnavailableError) -> bool:
+# A reply the provider ended itself, at the length limit or a filter: the same request
+# ends the same way.
+_FINAL_FINISH_REASONS = frozenset({"length", "max_tokens", "content_filter"})
+# A retry gives a reply that never got going a second chance, not a second full reply.
+_NO_RETRY_CAUSES = frozenset({REQUEST_FAULT, "rate_limit"})
+
+
+def _try_again(
+    aliases: list[str],
+    exc: ModelUnavailableError,
+    attempt: StreamAttempt,
+    settings: Settings,
+    stream_meta: dict[str, str] | None,
+) -> bool:
     """The last model failed before any text: it is tried once more (appended to
-    ``aliases``), unless the provider refused the request itself, which a retry repeats.
-    A user who enabled one model has no backup, and one empty or stalled stream left the
-    reply empty ("That model isn't responding")."""
-    if exc.cause == REQUEST_FAULT or (len(aliases) > 1 and aliases[-2] == alias):
+    ``aliases``). A user who enabled one model has no backup, and one empty or stalled
+    stream left the reply empty ("That model isn't responding"). Not when the provider
+    refused or rate-limited the request, ended the reply itself, or the attempt already
+    took longer than a stream that never starts can (a retry would only double the wait)."""
+    alias = attempt.alias
+    if exc.cause in _NO_RETRY_CAUSES or (len(aliases) > 1 and aliases[-2] == alias):
+        return False
+    if stream_meta is not None and stream_meta.get("finish_reason") in _FINAL_FINISH_REASONS:
+        return False
+    stalled_start = _open_wait(settings, has_next=False) + settings.chat_stream_timeout_seconds
+    if (attempt.elapsed_ms or 0) > stalled_start * 1000:
         return False
     logger.warning("Chat stream %s answered nothing; trying it once more", alias)
     aliases.append(alias)

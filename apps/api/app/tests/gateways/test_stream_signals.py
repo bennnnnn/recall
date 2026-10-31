@@ -409,6 +409,39 @@ async def test_the_last_backup_is_tried_once_more_and_no_more() -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_reply_the_provider_cut_off_is_not_tried_again() -> None:
+    # Reasoning to the length limit ends the same way with the same request.
+    cut = chunk(reasoning="step")
+    cut.choices[0].finish_reason = "length"
+    fake = _chain(_ready(cut), _ready(chunk(content="never asked")))
+    with pytest.raises(litellm_gateway.ModelUnavailableError):
+        await _reply("smart-chat", [], fake, _fast_caps())
+    assert fake.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_a_rate_limited_request_is_not_tried_again() -> None:
+    limited = Exception("slow down")
+    limited.status_code = 429  # type: ignore[attr-defined]
+    fake = AsyncMock(side_effect=limited)
+    with pytest.raises(litellm_gateway.ModelUnavailableError):
+        await _reply("smart-chat", [], fake, _fast_caps())
+    assert fake.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_an_attempt_that_ran_long_is_not_tried_again() -> None:
+    # Past the longest a stream that never starts can take, a retry only doubles the wait.
+    # Reasoning for 2.4 s and no text, where a stalled start gives up at 1 s open + 1 s idle.
+    thinking = [chunk(reasoning="step") for _ in range(6)]
+    fake = _chain(_ready(*thinking, delay=0.4), _ready(chunk(content="late")))
+    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=1)
+    with pytest.raises(litellm_gateway.ModelUnavailableError):
+        await _reply("smart-chat", [], fake, settings)
+    assert fake.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_a_refused_request_is_not_tried_again() -> None:
     refused = Exception("bad request")
     refused.status_code = 400  # type: ignore[attr-defined]
