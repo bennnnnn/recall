@@ -140,7 +140,11 @@ _SUBJECT_FENCES_STEP = "validate_math_fences"
 
 FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     # First: no other pass reads a leaked end-of-turn token as the reply's text.
-    FinalizePass("control_tokens", lambda s: strip_control_tokens(s.text), FALL_BACK),
+    FinalizePass(
+        "control_tokens",
+        lambda s: strip_control_tokens(s.text, s.ctx.user_message_content or ""),
+        FALL_BACK,
+    ),
     # Before the fence repair below can close it for the reminder pass.
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
     FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),

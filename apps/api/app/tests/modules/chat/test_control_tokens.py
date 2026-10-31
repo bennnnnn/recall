@@ -57,6 +57,48 @@ def test_quoted_tokens_and_look_alikes_stay(reply: str) -> None:
     assert strip_control_tokens(reply) == reply
 
 
+_SHARES = "Allocate a profit of Birr 21,400 in the ratio 1/3 : 2/5 : 2/7."
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # 2026-10-31, Grade 11: the answer, then a turn end, then the model's own notes.
+        (
+            "The partners receive **Birr 7,009.35** and **Birr 8,401.87**. </|assistant|> "
+            "(Don't include the corruption artifact)\n el if (rounded amounts) total? compute "
+            "sum rounded: 7009.35+8401.87=15411.22",
+            "The partners receive **Birr 7,009.35** and **Birr 8,401.87**.",
+        ),
+        (
+            "Each gets 7,000 Birr.<|im_end|>\n<|im_start|>assistant\nWait, recheck.",
+            "Each gets 7,000 Birr.",
+        ),
+        # A token mid-prose that ends nothing still goes.
+        ("Shares: <|im_start|>7,000 and 8,400.", "Shares: 7,000 and 8,400."),
+        # A token closing a card is stripped, the card kept.
+        ("```answer\n7000<|im_end|>\n```\nDone.", "```answer\n7000\n```\nDone."),
+        # Quoted code keeps its tokens even here.
+        ("Use `<|im_end|>` here.\n", "Use `<|im_end|>` here.\n"),
+    ],
+)
+def test_unasked_tokens_end_the_reply_at_a_turn_end(reply: str, kept: str) -> None:
+    assert strip_control_tokens(reply, _SHARES) == kept
+
+
+@pytest.mark.parametrize(
+    "asked",
+    [
+        "What does <|im_end|> mean in ChatML?",
+        "Explain the special tokens in a chat template",
+        "how does the tokenizer mark the end of a document",
+    ],
+)
+def test_a_reply_about_tokens_keeps_them_in_prose(asked: str) -> None:
+    reply = "The **<|endoftext|>** token marks the end of a document. Then training goes on."
+    assert strip_control_tokens(reply, asked) == reply
+
+
 async def _stream(tokens: list[str]) -> AsyncIterator[str]:
     for token in tokens:
         yield token

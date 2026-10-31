@@ -27,6 +27,14 @@ _RUN = re.compile(rf"({_TOKEN})(?:\s*\1){{2,}}")
 _ENDING = re.compile(rf"(?:{_TOKEN})\s*\Z")
 _INLINE_CODE = re.compile(r"``[^\n]*?``|`[^`\n]*`")
 _BLANK_RUN = re.compile(r"\n(?:[ \t]*\n){2,}")
+# A token that ends a turn: past it the model writes notes to itself (2026-10-31: a Grade 11
+# answer ran on after "</|assistant|>" into "el if (rounded amounts) total? compute…").
+_TURN_END = re.compile(
+    rf"</\|[a-z_]{{2,24}}\|>|<\|(?:im_end|eot_id|eom_id|endoftext|end)\|>"
+    rf"|<{_BAR}end[^{_BAR}\n]{{0,36}}{_BAR}>"
+)
+# A message about chat templates, whose reply may write the tokens on purpose.
+_TEMPLATE_TALK = re.compile(r"<\||\|>|\btokens?\b|\btemplates?\b|chatml|tokeni[sz]", re.IGNORECASE)
 
 
 def _reply_parts(text: str) -> list[tuple[str, bool]]:
@@ -46,18 +54,42 @@ def _outside_inline_code(piece: str) -> str:
     return _INLINE_CODE.sub(lambda code: " " * len(code.group(0)), piece)
 
 
-def strip_control_tokens(text: str) -> str:
+def strip_control_tokens(text: str, asked: str | None = None) -> str:
     """``text`` without a leak's control tokens and the blank lines a run of them leaves;
-    a reply that only quotes them, or writes them in code, is left as it is."""
+    a reply that only quotes them, or writes them in code, is left as it is.
+
+    ``asked`` is the user's message. When it says nothing of tokens or templates, no token
+    in the reply's own text was written on purpose: each goes, and the reply ends at the
+    first turn-ending one in its prose. Unknown (None), only a leak's shape is acted on."""
     if CONTROL_TOKEN.search(text) is None:
         return text
+    ends_line = text.endswith("\n")
+    unasked = asked is not None and _TEMPLATE_TALK.search(asked) is None
+    if unasked:
+        text = _cut_at_turn_end(text)
     parts = _reply_parts(text)
     own_text = [_outside_inline_code(piece) for piece, own in parts if own]
     visible = "\n".join(own_text)
-    if _RUN.search(visible) is None and not any(_ENDING.search(piece) for piece in own_text):
+    shaped = _RUN.search(visible) is not None or any(_ENDING.search(p) for p in own_text)
+    if not (shaped or unasked):
         return text
     cleaned = "".join(_strip_piece(piece) if own else piece for piece, own in parts)
-    return cleaned.rstrip() + ("\n" if text.endswith("\n") else "")
+    return cleaned.rstrip() + ("\n" if ends_line else "")
+
+
+def _cut_at_turn_end(text: str) -> str:
+    """``text`` up to the first turn-ending token in its prose; a card or quoted code keeps
+    what it holds (a token closing a card is stripped there, not cut at)."""
+    cursor = 0
+    for fence in [*iter_fences(text), None]:
+        end = len(text) if fence is None else fence.body_start
+        turn_end = _TURN_END.search(_outside_inline_code(text[cursor:end]))
+        if turn_end is not None:
+            return text[: cursor + turn_end.start()]
+        if fence is None:
+            break
+        cursor = fence.body_end
+    return text
 
 
 def _strip_piece(piece: str) -> str:
