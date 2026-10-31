@@ -49,9 +49,7 @@ _NOT_A_MASS = (
     r"|nuclei|formula\s+units?)\b)"
 )
 # A mass noun, never "mass number": "mass", "masses", "isotopic mass", "atomic masses".
-_MASS_NOUN = (
-    r"(?i:\b(?:relative\s+)?(?:atomic\s+|isotopic\s+)?mass(?:es)?\b)(?!\s+(?i:numbers?)\b)"
-)
+_MASS_NOUN = r"(?i:\b(?:relative\s+)?(?:atomic\s+|isotopic\s+)?mass(?:es)?\b)(?!\s+(?i:numbers?)\b)"
 
 _ABUNDANCE = re.compile(rf"({NUMBER})\s*%")
 # "34.969 u", or a number the text calls a mass: "a mass of 34.97", "with mass 6.015 amu".
