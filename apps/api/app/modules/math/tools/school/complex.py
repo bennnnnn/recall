@@ -8,7 +8,6 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
-from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.text_match import word_index
@@ -26,50 +25,43 @@ _FORM_CLAUSE = re.compile(
 )
 # "a complex fraction" is a fraction of fractions, not a complex number.
 _COMPLEX_WORDS = re.compile(r"\bcomplex\b(?!\s+fractions?\b)|\bimaginary\b", re.IGNORECASE)
+# "where i is the imaginary unit": a definition, no part of the expression.
+_UNIT_CLAUSE = re.compile(
+    r"[,;]?\s*\b(?:where|with|given)\s+i\s*(?:is|=|denotes)\s*(?:the\s+)?"
+    r"(?:imaginary\s+unit|√\s*\(?\s*-\s*1\s*\)?|sqrt\s*\(\s*-\s*1\s*\))",
+    re.IGNORECASE,
+)
 # ``x_i`` is a name with a subscript, never a product with i.
 _LONE_I = re.compile(r"(?<![A-Za-z_])i(?![A-Za-z_0-9])")
 _SUBSCRIPT_I = re.compile(r"_\s*[{(]?\s*i\b")
-_NAME = re.compile(r"[A-Za-z_][A-Za-z_0-9]*")
-_POWER = r"(?:\s*\^\s*\(?\s*-?\d+\s*\)?)?"
-_AFTER_I = re.compile(rf"{_POWER}\s*\*?\s*")
-_BEFORE_I = re.compile(rf"([A-Za-z_][A-Za-z_0-9]*){_POWER}\s*\*?\s*$")
-# Function names and constants are not letters a product with i could be in.
-_NOT_LETTERS = frozenset({"i", "pi", "e", "E", "I", "cbrt", *MATH_FUNCTION_NAMES})
+# Positive evidence that i is an index or a quantity, not the imaginary unit: a running
+# index (for i = 1 to n, Σ, over i, the i-th), unit vectors i and j, or a circuit's current.
+_INDEX_OR_QUANTITY = re.compile(
+    r"\bfor\s+(?:each\s+|every\s+|all\s+)?i\b|\bi\s*=\s*\d|\bover\s+i\b|[Σ∑]"
+    r"|\bi\s*-?\s*th\b|\bith\b|\bunit\s+vectors?\b"
+    r"|\b(?:currents?|circuits?|resistors?|resistances?|ohms?|amperes?|amps?|volts?|voltages?)\b"
+    r"|\b(?:let|where)\s+i\s+(?:be|is|denotes?)\b(?!\s+(?:the\s+)?imaginary)",
+    re.IGNORECASE,
+)
 
 
 def without_form_clause(text: str) -> str:
-    """The request without "in the form a + bi": a complex answer is printed in that form."""
-    return " ".join(_FORM_CLAUSE.sub(" ", text).split())
+    """The request without "in the form a + bi" or "where i is the imaginary unit": a
+    complex answer is printed in that form, and the clause is no part of the expression."""
+    return " ".join(_UNIT_CLAUSE.sub(" ", _FORM_CLAUSE.sub(" ", text)).split())
 
 
 def imaginary_unit_meant(text: str, expression: str) -> bool:
-    """A bare i in ``expression`` is the imaginary unit.
+    """A bare i in ``expression`` is the imaginary unit, as it is in every school book.
 
-    Only with a cue: the question names complex or imaginary numbers or asks for a + bi,
-    or i is the only letter (``i^320 - 5i^121``). Never a subscript (``x_i``) and never
-    in a product with another letter (``i^2 R``, the current through a resistor)."""
-    if (
-        _LONE_I.search(expression) is None
-        or _SUBSCRIPT_I.search(expression)
-        or _times_a_letter(expression)
-    ):
+    It is a letter only on positive evidence: a subscript (``x_i``), a running index
+    ("for i = 1 to n", Σ, "the i-th"), unit vectors, or a circuit's current. A word that
+    names complex numbers or asks for a + bi settles it the other way."""
+    if _LONE_I.search(expression) is None or _SUBSCRIPT_I.search(expression):
         return False
     if _FORM_CLAUSE.search(text) or _COMPLEX_WORDS.search(text):
         return True
-    return all(name in _NOT_LETTERS for name in _NAME.findall(expression))
-
-
-def _times_a_letter(expression: str) -> bool:
-    """i beside another letter in one product: ``i^2 R``, ``R*i``, ``x i``."""
-    for lone in _LONE_I.finditer(expression):
-        after = _AFTER_I.match(expression, lone.end())
-        following = _NAME.match(expression, after.end() if after else lone.end())
-        if following is not None and following.group() not in _NOT_LETTERS:
-            return True
-        preceding = _BEFORE_I.search(expression[: lone.start()])
-        if preceding is not None and preceding.group(1) not in _NOT_LETTERS:
-            return True
-    return False
+    return _INDEX_OR_QUANTITY.search(text) is None
 
 
 def _complex_op(lower: str) -> str | None:
@@ -104,6 +96,9 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     if mtm.has_equation(cleaned) and "solve" in lower:
         return None
     expr = cleaned.strip().rstrip("?.!").rstrip()
+    # "Expand (x+3i)^2": the requested operation, in complex numbers.
+    if op is None and expr.lower().startswith("expand "):
+        op, expr = "expand", expr[len("expand ") :].lstrip()
     while True:
         for prefix in (
             "what is",
@@ -161,7 +156,9 @@ def _verified_block_complex(
     elif intent.school_op == "polar":
         answer = math_formulas.complex_polar(intent.expr)
     else:
-        answer = math_school.evaluate_complex(intent.expr)
+        answer = math_school.evaluate_complex(intent.expr, expanded=intent.school_op == "expand")
+        if math_school.restates_complex(intent.expr, answer):
+            return None  # a card equal to the question certifies nothing
     lines.append(f"Result: {answer}")
     working = _binomial_working(intent.expr) if intent.school_op == "eval" else None
     if working is None:

@@ -26,7 +26,6 @@ from typing import Any
 from sympy import (
     Dummy,
     Expr,
-    Pow,
     cancel,
     count_ops,
     expand,
@@ -39,7 +38,7 @@ from sympy import (
 )
 
 from app.modules.math.solve.radical_form import book_radicals_latex, has_radical
-from app.modules.math.solve.real_reading import agrees_on_reals
+from app.modules.math.solve.real_reading import agrees_on_reals, real_odd_roots
 
 
 def simplest_form(parsed: Any) -> tuple[Any, str | None]:
@@ -59,27 +58,13 @@ def simplest_form(parsed: Any) -> tuple[Any, str | None]:
     return chosen, (None if chosen == result else latex(chosen))
 
 
-def _real_odd_roots(expr: Any) -> Any:
-    """``(-8x⁶)^(1/3)`` as ``-(8x⁶)^(1/3)``: an odd root keeps the radicand's sign."""
-    return expr.replace(
-        lambda node: (
-            node.is_Pow
-            and node.exp.is_Rational
-            and not node.exp.is_Integer
-            and node.exp.q % 2 == 1
-            and node.base.could_extract_minus_sign()
-        ),
-        lambda node: (-1) ** node.exp.p * Pow(-node.base, node.exp),
-    )
-
-
 def _real_root_form(parsed: Expr, result: Expr) -> Expr:
     if not has_radical(parsed):
         return result
     symbols = sorted(parsed.free_symbols, key=str)
     positive = {symbol: Dummy(str(symbol), positive=True) for symbol in symbols}
     back = {dummy: symbol for symbol, dummy in positive.items()}
-    candidate = simplify(_real_odd_roots(parsed).subs(positive)).subs(back)
+    candidate = simplify(real_odd_roots(parsed).subs(positive)).subs(back)
     if count_ops(candidate) > count_ops(result) or candidate == result:
         return result
     return candidate if agrees_on_reals(parsed, candidate) else result

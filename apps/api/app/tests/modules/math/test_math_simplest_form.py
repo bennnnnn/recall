@@ -144,8 +144,12 @@ def test_written_side_shows_a_unit_fraction_as_typed(typed: str, shown: str) -> 
         ("3+4i", "3 + 4 i"),
         ("(1+i)^2", "2 i"),
         ("i^2", "-1"),
-        # 3·sin(30) is negative; it is not split into a sign and a size.
-        ("2+3i*sin(30)", r"2 + 3 i \sin{\left(30 \right)}"),
+        # 3·sin(30) is a negative number printed bare: its sign stays inside it.
+        ("2+3i*sin(30)", r"2 + 3 \sin{\left(30 \right)} i"),
+        # √3 - 1 is positive, though it prints starting with a minus.
+        ("(sqrt(3)+i)(1-i)", r"\left(1 + \sqrt{3}\right) - \left(\sqrt{3} - 1\right) i"),
+        # An odd root is the real root here too.
+        ("(-8)^(1/3) + 2i", "-2 + 2 i"),
         # A sum for a or b is grouped: 2 + (1 + √2)i, never 2 + 1 + √2 i.
         ("(2+i) + sqrt(2)*i", r"2 + \left(1 + \sqrt{2}\right) i"),
         ("(1+2i)(sqrt(3)+i)", r"\left(\sqrt{3} - 2\right) + \left(1 + 2 \sqrt{3}\right) i"),
@@ -223,9 +227,9 @@ def test_llm_simplification_about_complex_numbers_is_complex_arithmetic(
             "Simplify the complex expression x^2 + 2x",
             MathIntent(kind="calculus", expr="x^2 + 2*x", operation="simplify"),
         ),
-        # i in a product with another letter is a quantity: the current in i²R.
+        # A circuit's current.
         (
-            "Simplify i^2 R + i^2 r",
+            "Simplify i^2 R + i^2 r, where i is the current in the circuit",
             MathIntent(kind="calculus", expr="i**2*R + i**2*r", operation="simplify"),
         ),
         (
@@ -297,8 +301,16 @@ async def test_llm_extract_reads_i_as_the_imaginary_unit(
         ("Express sqrt(-9) + 2 in standard form a+bi", True),
         # The same rule on the reader's own path.
         ("Simplify x_i^2 + 2x_i", False),
-        ("Simplify i^2 R + i^2 r", False),
-        ("Simplify (3i + 4j) - (i - 2j)", False),
+        ("Simplify (3i+4j)^2 for unit vectors i and j", False),
+        ("Simplify i^2 R + i^2 r where i is the current in the circuit", False),
+        # i is the imaginary unit by default, beside other letters too.
+        ("Simplify i^2 R + i^2 r", True),
+        ("Simplify (x+3i)(x-3i)", True),
+        ("Simplify (a+2i)(a-2i)", True),
+        ("Simplify (a+b i)(a-b i)", True),
+        ("Simplify (1+i)/(1-i)+x", True),
+        ("Simplify (cos(x) + i sin(x))^2", True),
+        ("Expand (x+3i)^2 where i is the imaginary unit", True),
     ],
 )
 def test_reader_takes_i_as_imaginary_only_with_a_cue(query: str, complex_kind: bool) -> None:
@@ -330,3 +342,77 @@ def test_excluded_values_read_odd_roots_as_the_card_does(expression: str, exclud
 def test_excluded_values_of_an_odd_root_card_and_its_answer() -> None:
     assert simplify_expression("(cbrt(x^2) - 1)/(cbrt(x)+1)", "x").latex == r"\sqrt[3]{x} - 1"
     assert simplify_expression("(x^(2/3) - 4)/(x^(1/3)+2)", "x").latex == r"\sqrt[3]{x} - 2"
+
+
+@pytest.mark.parametrize(
+    ("query", "answer"),
+    [
+        ("Simplify (x+3i)(x-3i)", "x^{2} + 9"),
+        ("Simplify (a+2i)(a-2i)", "a^{2} + 4"),
+        ("Simplify (a+b i)(a-b i)", "a^{2} + b^{2}"),
+        ("Simplify (1+i)/(1-i)+x", "x + i"),
+        ("Simplify (cos(x) + i sin(x))^2", "e^{2 i x}"),
+        ("Simplify i^2 R + i^2 r", "- R - r"),
+        ("Write (-8)^(1/3) + 2i in the form a + bi", "-2 + 2 i"),
+        # The requested operation, in complex numbers.
+        ("Expand (x+3i)^2 where i is the imaginary unit", "x^{2} + 6 i x - 9"),
+        ("Expand (x+3i)^2", "x^{2} + 6 i x - 9"),
+    ],
+)
+def test_complex_cards_main_got_right_stay_right(query: str, answer: str) -> None:
+    intent = extract_math_intent(query)
+    assert intent is not None and intent.kind == "complex"
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None and block.canonical_answer == answer
+
+
+def test_complex_card_never_restates_the_question() -> None:
+    assert math_school.restates_complex("(x+3i)^2", r"\left(x + 3 i\right)^{2}")
+    assert not math_school.restates_complex("3+4i", "3 + 4 i")
+
+
+@pytest.mark.parametrize(
+    ("expression", "excluded"),
+    [
+        # Odd roots of any argument, solved as real roots.
+        ("(cbrt(4x^2)-4)/(cbrt(2x)+2)", r"x \ne -4"),
+        ("1/(cbrt(x-1)+2)", r"x \ne -7"),
+        ("1/(cbrt(x)+cbrt(x+1))", r"x \ne - \frac{1}{2}"),
+        ("1/(cbrt(x)-cbrt(2-x))", r"x \ne 1"),
+    ],
+)
+def test_excluded_values_of_odd_roots_of_any_argument(expression: str, excluded: str) -> None:
+    intent = MathIntent(kind="calculus", expr=expression, operation="simplify", variable="x")
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None
+    assert f"${excluded}$ — excluded by the original expression" in (block.direct_reply or "")
+
+
+@pytest.mark.parametrize(
+    ("expression", "note"),
+    [("sqrt(x^2)", True), ("cbrt(x^2)", False), ("abs(x)/x", False)],
+)
+def test_absolute_value_note_only_under_a_square_root(expression: str, note: bool) -> None:
+    intent = MathIntent(kind="calculus", expr=expression, operation="simplify", variable="x")
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None
+    assert ("principal square root is never negative" in (block.direct_reply or "")) is note
+
+
+@pytest.mark.parametrize(
+    ("expression", "simplest"),
+    [
+        # Irrational cut points are found numerically; the rewrite is still checked.
+        ("cbrt(-8)*sqrt((x-sqrt(2))^2)", r"- 2 \left|{x - \sqrt{2}}\right|"),
+        ("cbrt(x^3)*abs(x^2-pi)", r"x \left|{x^{2} - \pi}\right|"),
+        ("cbrt(8x^3)/abs(x-sqrt(2))", r"\frac{2 x}{\left|{x - \sqrt{2}}\right|}"),
+        ("cbrt(x^3)*abs(x-sqrt(2))", r"x \left|{x - \sqrt{2}}\right|"),
+        # Past the check's bounds, SymPy's own form stands.
+        (
+            "cbrt(x^3)*sqrt(x^12 - 7*x^5 + 3*x - 1)",
+            r"\sqrt{x^{12} - 7 x^{5} + 3 x - 1} \sqrt[3]{x^{3}}",
+        ),
+    ],
+)
+def test_real_reading_check_never_fails_the_card(expression: str, simplest: str) -> None:
+    assert simplify_expression(expression, "x").latex == simplest

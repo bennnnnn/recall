@@ -106,8 +106,12 @@ def _simplify(
     out = math_solve.simplify_expression(expr, intent.variable)
     if not out.solved:
         return _no_closed_form(out, lines)
-    block = _finish_operation(out, lines, out.latex)
-    return replace(block, direct_reply=_simplification_direct_reply(intent, out.latex))
+    reply = _simplification_direct_reply(intent, out.latex)
+    if reply is None:
+        # A value the simplification cancelled may be one the question excludes, and
+        # which it is cannot be worked out: certify nothing.
+        return _no_closed_form(out, lines)
+    return replace(_finish_operation(out, lines, out.latex), direct_reply=reply)
 
 
 def _factor(
@@ -201,16 +205,16 @@ def _number_first(value: Any) -> tuple[int, float, str]:
     return (1, 0.0, str(value))
 
 
-def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
-    """Render a verified simplification and preserve the original domain."""
-    from sympy import Symbol, latex, preorder_traversal
+def _simplification_direct_reply(intent: MathIntent, answer: str) -> str | None:
+    """Render a verified simplification and preserve the original domain; None when the
+    excluded values cannot be worked out."""
+    from sympy import Abs, Symbol, latex, preorder_traversal
 
     from app.modules.math.solve.real_reading import real_zeros
 
     names = math_solve.guess_variables(intent.expr or "") or [intent.variable]
     original = math_solve.parse_expression(intent.expr or "", names, evaluate=False)
     display_original = math_solve.parse_expression(intent.expr or "", names)
-    parsed = math_solve.parse_expression(intent.expr or "", names, real=True)
     restrictions: list[str] = []
     seen_symmetric: set[tuple[str, str]] = set()
     denominator_bases = [
@@ -229,9 +233,10 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
             with sympy_decline():  # one unsolved symbolic factor is non-fatal
                 # Over the reals, as the card reads: x³ - 1 = 0 excludes 1 alone, and
                 # ∛x + 1 = 0 excludes -1.
-                for value in real_zeros(denominator, sym):
-                    if value not in excluded_values:
-                        excluded_values.append(value)
+                zeros = real_zeros(denominator, sym)
+                if zeros is None:
+                    return None
+                excluded_values += [value for value in zeros if value not in excluded_values]
         for value in sorted(excluded_values, key=_number_first):
             if getattr(value, "is_Symbol", False):
                 first, second = sorted((str(sym), str(value)))
@@ -246,7 +251,11 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
     steps = [math_line(f"{shown} = {answer}", "simplify")]
     if restrictions:
         steps.append(math_line(r",\; ".join(restrictions), "excluded by the original expression"))
-    elif "Abs(" in str(parsed):
+    elif r"\left|" in answer and any(
+        isinstance(node, Abs) or (node.is_Pow and node.exp.is_Rational and node.exp.q % 2 == 0)
+        for node in preorder_traversal(original.doit())
+    ):
+        # Only a square root or an absolute value the student wrote explains |x|.
         steps.append(
             text_line("a principal square root is never negative, so keep the absolute value")
         )

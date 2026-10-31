@@ -375,35 +375,23 @@ def _imaginary_unit_to_sympy(expr: str) -> str:
     return "".join(out)
 
 
-def evaluate_complex(expr: str) -> str:
-    parsed = parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
-    value = simplify(parsed)
+def evaluate_complex(expr: str, *, expanded: bool = False) -> str:
+    """The value, odd roots read as real roots like everywhere else (∛(-8) = -2)."""
+    from app.modules.math.solve.complex_form import a_plus_bi
+    from app.modules.math.solve.real_reading import real_odd_roots
+
+    parsed = real_odd_roots(parse_expression(_imaginary_unit_to_sympy(expr), ["x"]))
+    value = expand(parsed) if expanded else simplify(parsed)
     if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
         return UNDEFINED_LATEX
-    return _a_plus_bi(value) or str(latex(value))
+    return a_plus_bi(value) or str(latex(value))
 
 
-def _a_plus_bi(value: Any) -> str | None:
-    """A complex number as a + bi, the real part first.
+def restates_complex(expr: str, answer: str) -> bool:
+    """The complex answer is the question as typed, so it certifies nothing."""
+    from app.modules.math.solve.complex_form import restates
 
-    SymPy prints ``\\frac{5 i}{2} - \\frac{1}{2}`` for -1/2 + 5i/2."""
-    if getattr(value, "free_symbols", None) or not getattr(value, "is_number", False):
-        return None
-    real, imaginary = value.as_real_imag()
-    if real == 0 or imaginary == 0 or not (real.is_comparable and imaginary.is_comparable):
-        return None
-    size = abs(imaginary)
-    if size.could_extract_minus_sign():  # 3·sin(30) is negative and prints as one
-        return None
-    if size == 1:
-        coefficient = ""
-    elif size.is_Add:  # (1 + √2)i, never 1 + √2 i
-        coefficient = rf"\left({latex(size)}\right) "
-    else:
-        coefficient = f"{latex(size)} "
-    # A sum for a is grouped too, so a and b each read as one number.
-    first = rf"\left({latex(real)}\right)" if real.is_Add else latex(real)
-    return f"{first} {'-' if imaginary < 0 else '+'} {coefficient}i"
+    return restates(_imaginary_unit_to_sympy(expr), answer)
 
 
 def taylor_series(
