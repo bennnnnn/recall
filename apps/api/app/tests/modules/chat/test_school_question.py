@@ -325,3 +325,45 @@ def test_a_changing_or_everyday_question_keeps_its_search_and_lane(query: str) -
 
     assert not has_nothing_to_look_up(query)
     assert not needs_reasoned_choice(query)
+
+
+# NCERT Class 10 (2026-10-30): "pH" read as a camel-cased identifier, "What will happen if"
+# as a forecast, and "Explain your answer." went unread, so these got no note at all.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Fresh milk has a pH of 6. How do you think the pH will change as it turns into curd? "
+        "Explain your answer.",
+        "Why does a solution of pH 2 have more hydrogen ions than one of pH 6?",
+        "What will happen if we kill all the organisms in one trophic level?",
+        "What role does mRNA play in making proteins?",
+    ],
+)
+def test_a_books_science_words_and_hypotheticals_get_a_note(query: str) -> None:
+    assert question_hint(query) is not None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Why does useState not update right away?",
+        "What does getUserById return when the row is missing?",
+        "What will happen to Bitcoin after the halving?",
+        "What will happen in the election?",
+        "What will happen if I quit my job?",
+    ],
+)
+def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:
+    assert question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "A ball of mass 2 kg falls from 10 m. Does it gain or lose energy? Explain your answer.",
+        "Is sound a longitudinal wave? Justify your answer.",
+        "Can a metal displace hydrogen from water? Give reasons for your answer.",
+    ],
+)
+def test_an_exercise_closing_on_your_answer_is_an_exercise(query: str) -> None:
+    assert school_question_hint(query) is not None

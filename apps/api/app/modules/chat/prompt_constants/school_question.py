@@ -97,7 +97,8 @@ _QUANTITY = re.compile(
 )
 _COMPUTE = re.compile(r"\b(?:calculate|compute|find|determine|work\s+out)\b", re.IGNORECASE)
 _CLOSING = re.compile(
-    r"[.?!]\s*(?:explain(?:\s+why)?|justify|discuss|(?:give|specify)\s+reasons?)\s*[.?!]?\s*$",
+    r"[.?!]\s*(?:explain(?:\s+why)?|justify|discuss|(?:give|specify)\s+reasons?)"
+    r"(?:\s+(?:for\s+)?your\s+answer)?\s*[.?!]?\s*$",
     re.IGNORECASE,
 )
 _TEXTBOOK = re.compile(
@@ -120,16 +121,27 @@ WORK_FIRST = (
     "never write a number before you have worked it out, and never think aloud (no "
     "'actually', 'wait' or 'let me recheck')."
 )
+# Told "stay at that level" and "no specialist detail", a Class 10 book's "Which signals
+# are disrupted by a spinal cord injury?" got spinal tracts and T1-L2 outflow, and "the
+# function of receptors" myasthenia gravis (2026-10-30): a depth the model reads from the
+# question alone needs its edge named.
+TEXTBOOK_DEPTH = (
+    "Go only as deep as a school textbook does: use the terms the question uses or a "
+    "textbook would, and no clinical, research or university detail (named pathways, "
+    "receptors, diseases, molecular mechanisms, bonding theory) unless the question asks "
+    "for it; no side claim you are unsure of."
+)
 SCHOOL_QUESTION_NOTE = (
     "This message is a school exercise. Answer it as the textbook expects, for the "
     "student who asked, at the level the question is written, from what the textbook "
     "teaches: open with the answer itself in plain words, using "
     "the textbook's terms, then a short reason or two to four everyday examples. "
     + WORK_FIRST
-    + " Stay at "
-    "that level: no university detail, history or regional trivia it did not ask for, and "
-    "no side claim you are unsure of. Take the question as written: never call it a trick "
-    "or a riddle, never dispute its wording, its options or the textbook, and never ask "
+    + " "
+    + TEXTBOOK_DEPTH
+    + " No history or regional trivia it did not ask for. Take the question as written: "
+    "never call it a trick or a riddle, never dispute its wording, its options or the "
+    "textbook, and never ask "
     "where it came from. Answer every part it asks, in order. End when the answer is "
     "complete, with no offer of more."
 )
@@ -141,10 +153,9 @@ _CHOICE_NOTE = (
 FACTUAL_QUESTION_NOTE = (
     "This is a factual question. Give the standard answer a good textbook gives, first, "
     "in plain words at the level the question is asked, then a short reason or a few "
-    "examples. " + WORK_FIRST + " Take the question as written: never open by disputing "
-    "it, correcting its wording or calling it a trick, and keep to what it asks: no "
-    "specialist detail or side claims you are unsure of. End when the answer is complete, "
-    "with no offer of more."
+    "examples. " + WORK_FIRST + " " + TEXTBOOK_DEPTH + " Take the question as written: "
+    "never open by disputing it, correcting its wording or calling it a trick, and keep to "
+    "what it asks. End when the answer is complete, with no offer of more."
 )
 
 
