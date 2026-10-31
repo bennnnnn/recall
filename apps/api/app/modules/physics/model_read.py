@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from functools import lru_cache
 
-from app.modules.physics.binding import bind_physics_intent
+from app.modules.physics.binding import bind_physics_intent, ruled_out
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.modules.physics.schemas import PhysicsIntent
@@ -35,11 +35,15 @@ def physics_menu() -> dict[str, tuple[OpCard, ...]]:
     return {kind: tuple(cards) for kind, cards in menu.items()}
 
 
-def physics_read_intent(op: str, stated: Sequence[Stated]) -> PhysicsIntent | None:
+def physics_read_intent(
+    op: str, stated: Sequence[Stated], message: str = ""
+) -> PhysicsIntent | None:
     """The intent a model's read of ``op`` binds to, or None when the binder reads it
-    differently: another law, another value, or nothing."""
+    differently (another law, another value, nothing) or the ``message`` itself rules
+    the law out, as it would for the binder (water mixed with alcohol, a word the law
+    excludes)."""
     spec = CATALOG.get(op)
-    if spec is None or spec.binding is None:
+    if spec is None or spec.binding is None or (message and ruled_out(spec, message)):
         return None
     variables = {variable.name: variable for variable in spec.variables if variable.visible}
     values: dict[str, tuple[float, str]] = {}

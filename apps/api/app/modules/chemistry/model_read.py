@@ -11,13 +11,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 from functools import lru_cache
 
-from app.modules.chemistry.binding import bind_chemistry_intent
+from app.modules.chemistry.binding import bind_chemistry_intent, prepare
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.laws import LAWS, ChemistryLaw
+from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.services.law_binding.model_read import (
     OpCard,
     Stated,
+    excluded,
     op_card,
     renderings,
     same_values,
@@ -53,14 +55,22 @@ def chemistry_needs_formula(op: str) -> bool:
     return law is not None and law.species is not None
 
 
+def _ruled_out(law: ChemistryLaw, message: str) -> bool:
+    """The message's own words rule the law out, as they would for the binder: a word its
+    binding excludes, or an equation for a law that reads none."""
+    if law.no_equation and EQUATION_RE.search(message):
+        return True
+    return excluded(law.spec.binding, prepare(message).text.lower())
+
+
 def chemistry_read_intent(
-    op: str, stated: Sequence[Stated], formula: str | None = None
+    op: str, stated: Sequence[Stated], formula: str | None = None, message: str = ""
 ) -> ChemistryIntent | None:
     """The intent a model's read of the law ``op`` (its menu id) binds to, or None when
-    the binder reads it differently: another law, another value, another substance, or
-    nothing."""
+    the binder reads it differently (another law, value or substance, or nothing) or the
+    ``message`` itself rules the law out."""
     law = _laws().get(op)
-    if law is None:
+    if law is None or (message and _ruled_out(law, message)):
         return None
     about = ""
     if law.species is not None:

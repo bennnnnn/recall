@@ -12,7 +12,8 @@ import pytest
 from pydantic import BaseModel
 
 from app.core.config import Settings
-from app.gateways import structured_completion
+from app.gateways import litellm_gateway, structured_completion
+from app.modules.math.tools.llm_extract import LLMMathExtract
 from app.modules.turn_reading.checks import check_read, normalized, values_in
 from app.modules.turn_reading.schemas import (
     GivenRead,
@@ -163,6 +164,19 @@ async def test_a_physics_question_reads_to_the_binders_intent(
             "number_unaccounted",
         ),
         (
+            # 120 m read as 120 cm: the quote writes another scale.
+            [
+                RouteRead(subject="physics", kind="kinematics"),
+                _speed_read(
+                    givens=[
+                        GivenRead(name="d", value=120, unit="cm", quote="120 m"),
+                        GivenRead(name="t", value=8, unit="s", quote="8 s"),
+                    ]
+                ),
+            ],
+            "binder_disagrees",
+        ),
+        (
             # The units are swapped: the binder cannot take a time in metres.
             [
                 RouteRead(subject="physics", kind="kinematics"),
@@ -183,6 +197,39 @@ async def test_a_read_that_fails_a_check_gives_no_intent(
     monkeypatch.setattr(structured_completion, "complete_structured", _fake(replies))
     read = await read_with_model(_SPEED, Settings())
     assert read.reason == reason and read.intent is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("route", "extract", "reason"),
+    [
+        # A task the typed read cannot express is refused, never read as the nearest one.
+        (RouteRead(subject="math", kind="other"), None, "other_task"),
+        (RouteRead(subject="math", kind="prove"), None, "other_task"),
+        # Routed as a derivative, read as an equation: not the task asked.
+        (
+            RouteRead(subject="math", kind="differentiate"),
+            LLMMathExtract(found=True, kind="equation", lhs="2*x+3", rhs="11"),
+            "kind_mismatch",
+        ),
+        (
+            RouteRead(subject="math", kind="solve_equation"),
+            LLMMathExtract(found=True, kind="equation", lhs="2*x+3", rhs="11"),
+            "ok",
+        ),
+    ],
+)
+async def test_a_maths_read_must_be_the_task_it_was_routed_as(
+    monkeypatch: pytest.MonkeyPatch,
+    route: RouteRead,
+    extract: LLMMathExtract | None,
+    reason: str,
+) -> None:
+    monkeypatch.setattr(structured_completion, "complete_structured", _fake([route]))
+    monkeypatch.setattr(litellm_gateway, "complete_structured", _fake([extract]))
+    read = await read_with_model("Solve 2x + 3 = 11", Settings())
+    assert read.reason == reason
+    assert (read.intent is not None) is (reason == "ok")
 
 
 @pytest.mark.asyncio

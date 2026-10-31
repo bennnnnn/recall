@@ -10,8 +10,25 @@ from pydantic import BaseModel, Field
 Subject = Literal["physics", "chemistry", "math", "none"]
 
 
+# The maths tasks the typed read (``math.tools.llm_extract``) can express, and ``other``
+# for every task it cannot: checking someone's work, a value at a point, a word problem.
+MATH_TASKS: dict[str, tuple[str, str | None]] = {
+    "solve_equation": ("equation", None),
+    "solve_system": ("system", None),
+    "solve_inequality": ("inequality", None),
+    "simplify": ("calculus", "simplify"),
+    "factor": ("calculus", "factor"),
+    "expand": ("calculus", "expand"),
+    "differentiate": ("calculus", "differentiate"),
+    "integrate": ("calculus", "integrate"),
+    "limit": ("limit", None),
+    "graph": ("graph", None),
+}
+
+
 class RouteRead(BaseModel):
-    """The first call: which subject the question is in, and which kind of law."""
+    """The first call: which subject the question is in, and which kind of law (for maths,
+    which task, or ``other``)."""
 
     subject: Subject = "none"
     kind: str | None = Field(default=None, max_length=40)
@@ -48,6 +65,8 @@ Reason = Literal[
     "number_unaccounted",
     "value_not_in_quote",
     "binder_disagrees",
+    "other_task",
+    "kind_mismatch",
     "failed",
 ]
 

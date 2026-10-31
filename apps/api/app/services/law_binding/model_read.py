@@ -11,11 +11,14 @@ question left out (g, a named planet's mass) as it does for a student's own word
 from __future__ import annotations
 
 import math
+import re
+import unicodedata
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 
-from app.services.law_binding.spec import FormulaSpec, VariableSpec
+from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec
 from app.services.law_binding.units import ANGLE, UnitTable, dimension_of, unit_dimension
+from app.services.law_binding.words import word_pattern
 
 _QUESTION_WORDS = frozenset({"how", "what", "which", "when", "where", "why"})
 # The angle spellings a model may write, and the one the questions are written with.
@@ -34,28 +37,35 @@ class InputCard:
 
 @dataclass(frozen=True, slots=True)
 class OpCard:
-    """One law as a reader sees it: what it finds and the inputs it is given."""
+    """One law as a reader sees it: what it finds, the inputs it is given, the situation
+    it needs and the words that rule it out (its binding's cues and excludes)."""
 
     op: str
     kind: str
     finds: str
     inputs: tuple[InputCard, ...]
+    needs: tuple[str, ...] = ()
+    not_for: tuple[str, ...] = ()
 
     def line(self) -> str:
         names = ", ".join(
             f"{card.name} ({card.symbol}{', ' + card.unit if card.unit else ''})"
             for card in self.inputs
         )
-        return f"{self.op}: finds the {self.finds}; inputs {names}"
+        needs = f"; only for: {' / '.join(self.needs)}" if self.needs else ""
+        not_for = f"; never for: {' / '.join(self.not_for)}" if self.not_for else ""
+        return f"{self.op}: finds the {self.finds}; inputs {names}{needs}{not_for}"
 
 
 @dataclass(frozen=True, slots=True)
 class Stated:
-    """One value a reader found: the input it fills, the number, the unit as written."""
+    """One value a reader found: the input it fills, the number, the unit it claims, and
+    the message's own words that state it (``quote``)."""
 
     name: str
     value: float
     unit: str = ""
+    quote: str = ""
 
 
 def op_card(spec: FormulaSpec) -> OpCard | None:
@@ -67,7 +77,18 @@ def op_card(spec: FormulaSpec) -> OpCard | None:
         for variable in spec.variables
         if variable.visible
     )
-    return OpCard(spec.id, spec.kind, spec.binding.asks[0], inputs)
+    binding = spec.binding
+    return OpCard(
+        spec.id, spec.kind, binding.asks[0], inputs, binding.cues[:3], binding.excludes[:4]
+    )
+
+
+def excluded(binding: Binding | None, lower: str) -> bool:
+    """A word the law's binding excludes is in the message: the binder would refuse the
+    law for the student's own words, so it refuses the read of them too."""
+    return binding is not None and any(
+        word_pattern(word).search(lower) for word in binding.excludes
+    )
 
 
 def _plain_symbol(symbol: str) -> str:
@@ -93,9 +114,46 @@ def _spelling(table: UnitTable, expression: str) -> str | None:
     return nearest
 
 
+_QUOTED_NUMBER = re.compile(r"(?<![\w.,])-?\d+(?:[.,]\d+)?")
+
+
+def _ascii_digits(text: str) -> str:
+    return "".join(
+        str(unicodedata.digit(char)) if char.isdigit() and not char.isascii() else char
+        for char in text
+    )
+
+
+def _quoted_unit(stated: Stated, table: UnitTable) -> str | None:
+    """The unit written right after the value in its quote, as a Pint expression; None
+    when the quote writes none the table reads (or not in this subject's script)."""
+    text = _ascii_digits(stated.quote)
+    for number in _QUOTED_NUMBER.finditer(text):
+        try:
+            seen = float(number.group(0).replace(",", "."))
+        except ValueError:
+            continue
+        if math.isclose(seen, stated.value, rel_tol=1e-9, abs_tol=1e-12):
+            found = table.at(text, number.end())
+            return None if found is None else found[1]
+    return None
+
+
+def _same_scale(first: str, second: str) -> bool:
+    one, two = unit_dimension(first), unit_dimension(second)
+    if one is None or two is None:
+        return False
+    return (
+        one[0] == two[0]
+        and math.isclose(one[1], two[1], rel_tol=1e-9)
+        and math.isclose(one[2], two[2], abs_tol=1e-9)
+    )
+
+
 def written(stated: Stated, variable: VariableSpec, table: UnitTable) -> tuple[float, str] | None:
     """The value and a unit spelling the table reads, for one stated value; None when
-    the unit is not one of the input's kind."""
+    the unit is not one of the input's kind, or not the unit its quote writes ("8 cm"
+    read as 8 m)."""
     unit = stated.unit.strip()
     if _is_angle(variable):
         if unit in _DEGREES or (not unit and abs(stated.value) > 2 * math.pi):
@@ -110,6 +168,9 @@ def written(stated: Stated, variable: VariableSpec, table: UnitTable) -> tuple[f
     expression = table.expression(unit) if unit else None
     if expression is None:
         expression = unit
+    quoted = _quoted_unit(stated, table) if stated.quote else None
+    if quoted is not None and not (expression and _same_scale(quoted, expression)):
+        return None
     reading = unit_dimension(expression) if expression else None
     wanted = unit_dimension(variable.dimension)
     if reading is None or wanted is None or reading[0] != wanted[0] or reading[0] == ANGLE:

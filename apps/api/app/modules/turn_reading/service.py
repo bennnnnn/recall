@@ -22,7 +22,7 @@ from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.modules.physics.model_read import physics_menu, physics_read_intent
 from app.modules.turn_reading.checks import check_read
 from app.modules.turn_reading.prompts import law_prompt, route_prompt
-from app.modules.turn_reading.schemas import LawRead, ModelRead, Reason, RouteRead
+from app.modules.turn_reading.schemas import MATH_TASKS, LawRead, ModelRead, Reason, RouteRead
 from app.services.law_binding.model_read import Stated
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ _MAX_INPUT_CHARS = 1500
 
 @lru_cache(maxsize=1)
 def _route_prompt() -> str:
-    return route_prompt(physics_menu(), chemistry_menu())
+    return route_prompt(physics_menu(), chemistry_menu(), list(MATH_TASKS))
 
 
 async def _ask[T: LawRead | RouteRead](
@@ -75,9 +75,17 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
         if route.subject == "none":
             return done(None, None, None, "not_subject")
         if route.subject == "math":
+            task = MATH_TASKS.get(route.kind or "")
+            if task is None:
+                return done("math", None, None, "other_task")
             intent = await llm_extract_math_intent(question, settings, usage=usage)
-            kind = getattr(intent, "kind", None)
-            return done("math", kind, intent, "ok" if intent is not None else "no_read")
+            if intent is None:
+                return done("math", None, None, "no_read")
+            kind, operation = task
+            # The typed read must be the task the question was routed as, never a near one.
+            if intent.kind != kind or (operation is not None and intent.operation != operation):
+                return done("math", intent.kind, None, "kind_mismatch")
+            return done("math", intent.kind, intent, "ok")
         menu = physics_menu() if route.subject == "physics" else chemistry_menu()
         cards = menu.get(route.kind or "")
         if not cards:
@@ -90,14 +98,16 @@ async def read_with_model(text: str, settings: Settings) -> ModelRead:
         checked = check_read(question, read)
         if checked != "ok":
             return done(route.subject, read.op, None, checked)
-        stated = [Stated(given.name, given.value, given.unit) for given in read.givens]
+        stated = [Stated(given.name, given.value, given.unit, given.quote) for given in read.givens]
         # The binder reads server-written English: off the loop, in its own small pool.
         bound: object | None
         if route.subject == "physics":
-            bound = await run_blocking("model_reads", physics_read_intent, read.op, stated)
+            bound = await run_blocking(
+                "model_reads", physics_read_intent, read.op, stated, question
+            )
         else:
             bound = await run_blocking(
-                "model_reads", chemistry_read_intent, read.op, stated, read.formula
+                "model_reads", chemistry_read_intent, read.op, stated, read.formula, question
             )
         if bound is None:
             return done(route.subject, read.op, None, "binder_disagrees")
