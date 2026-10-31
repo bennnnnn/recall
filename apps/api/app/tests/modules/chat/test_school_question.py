@@ -351,10 +351,29 @@ def test_a_books_science_words_and_hypotheticals_get_a_note(query: str) -> None:
         "What will happen to Bitcoin after the halving?",
         "What will happen in the election?",
         "What will happen if I quit my job?",
+        # Review: a forecast, a product and research that changes keep their search.
+        "What will happen if the volcano erupts again?",
+        "What will happen if the gold price drops?",
+        "Is the iPhone 17 screen more reflective than the 16?",
+        "Are mRNA vaccines linked to heart inflammation?",
+        "Why is xValue undefined after the loop?",
+        "What is a uFunc in numpy?",
+        "How do I update iOS on my phone?",
     ],
 )
 def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:
     assert question_hint(query) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Was Napoleon a good leader? Explain your answer.",
+        "Is coffee bad for you? Explain your answer.",
+    ],
+)
+def test_an_opinion_closing_on_your_answer_is_no_exercise(query: str) -> None:
+    assert school_question_hint(query) is None
 
 
 @pytest.mark.parametrize(

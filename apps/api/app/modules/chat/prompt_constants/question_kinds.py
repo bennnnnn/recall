@@ -59,8 +59,8 @@ TASTE = re.compile(
 )
 # What changes, so no textbook holds it: news, prices, forecasts, people in office, travel.
 # Each word is the changing sense only: "the current" of a circuit, "the cost of fencing a
-# field", "the first President" and "What will happen if we remove all the decomposers?"
-# are a book's.
+# field", "the first President" and a book's hypothetical ("What will happen if we remove
+# all the decomposers?") are no news; "What will happen if the volcano erupts?" is.
 CURRENT = re.compile(
     r"\b(?:currently|current\s+(?:events?|news|affairs|price|status|president|ceo|rate|score"
     r"|weather|state\s+of)|right\s+now|as\s+of\s+now|today|latest\s+(?:news|version|model"
@@ -71,7 +71,7 @@ CURRENT = re.compile(
     r"|will\s+it\s+(?:rain|snow)|buy|cheapest|cheaper|tomorrow|tonight|yesterday|this\s+weekend"
     r"|next\s+(?:week|month|year|quarter|monday|tuesday|wednesday|thursday|friday|saturday"
     r"|sunday)|on\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
-    r"|who\s+won|won\s+the|will\s+(?:win|hit|happen(?!\s+if\b)|crash|do)|by\s+20\d\d|in\s+20[2-9]\d"
+    r"|who\s+won|won\s+the|will\s+(?:win|hit|happen(?!\s+if\s+(?:we|you|one|all|some|any|a|an)\b)|crash|do)|by\s+20\d\d|in\s+20[2-9]\d"
     r"|inflation|bitcoin|crypto\w*|elections?|super\s*bowl|world\s+(?:cup|series)|nba|fed"
     r"|rate\s+cut|mortgages?|taxes|tax\s+(?:return|rate)s?|drive\s+from|driving\s+to|commute"
     r"|hotels?|vacation|what\s+happened\s+to|going\s+on\s+with|erupting|variant"
@@ -84,11 +84,12 @@ CURRENT = re.compile(
 )
 # Code, an error, a system or a programming word: a developer's question, whatever its shape.
 # A chemical formula (NaHCO3, CuSO4) and a unit (kHz) are camel-cased words too, and no code;
-# so is a science term with a one-letter prefix (pH, mRNA, eV, pKa): an identifier's lower
-# case runs two letters or more (getUser, useState).
+# so is a science term, lower case then capitals to its end (pH, mRNA, siRNA, eV, pKa). A
+# name runs on in lower case after its capital: getUser, iPhone, jQuery, eBay.
 CODE_TALK = re.compile(
     r"`|\b(?![A-Z][a-z]?\d*(?:[A-Z][a-z]?\d*)+\b|[kmMGµ][A-Z]\w?\b)"
-    r"(?:[a-z]{2,}[A-Z]\w*|[A-Z][a-z]+[A-Z]\w*)\b"
+    r"(?:[a-z]+[A-Z](?![A-Z]*[a-z]?\b)\w*|[A-Z][a-z]+[A-Z]\w*)\b"
+    r"|\b(?:iOS|iPadOS|macOS|watchOS|tvOS|visionOS)\b"
     r"|\b(?i:error|exception|code|javascript|typescript|python|java|sql|api|bug|compile\w*"
     r"|emails?|tweets?|nginx|ssh|servers?|deploy\w*|database|repo|git|github|docker"
     r"|kubernetes|linux|regex|css|html|npm|frontend|backend|postgres\w*|mysql|mongo\w*|redis"
@@ -98,7 +99,7 @@ CODE_TALK = re.compile(
 # Health advice for someone, which changes with the person and the research.
 _ADVICE = re.compile(
     r"\b(?:fasting|keto|diabetics?|supplements?|dosage|medications?|side\s+effects|warfarin"
-    r"|ozempic|weight\s+loss|seed\s+oils?)\b",
+    r"|ozempic|weight\s+loss|seed\s+oils?|vaccines?)\b",
     re.I,
 )
 # How someone feels: "Is it normal to feel anxious before a job interview?"

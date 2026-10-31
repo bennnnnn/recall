@@ -98,7 +98,7 @@ _QUANTITY = re.compile(
 _COMPUTE = re.compile(r"\b(?:calculate|compute|find|determine|work\s+out)\b", re.IGNORECASE)
 _CLOSING = re.compile(
     r"[.?!]\s*(?:explain(?:\s+why)?|justify|discuss|(?:give|specify)\s+reasons?)"
-    r"(?:\s+(?:for\s+)?your\s+answer)?\s*[.?!]?\s*$",
+    r"(?P<yours>\s+(?:for\s+)?your\s+answer)?\s*[.?!]?\s*$",
     re.IGNORECASE,
 )
 _TEXTBOOK = re.compile(
@@ -131,6 +131,14 @@ TEXTBOOK_DEPTH = (
     "receptors, diseases, molecular mechanisms, bonding theory) unless the question asks "
     "for it; no side claim you are unsure of."
 )
+# A factual question may be an adult's ("How do mRNA vaccines work?"): its depth follows its
+# own words, and only a question in a school book's words is held to a school book's.
+MATCHED_DEPTH = (
+    "Go as deep as the question's own words: a question worded like a school book's gets a "
+    "school book's answer, with no clinical, research or university detail (named pathways, "
+    "receptors, diseases, molecular mechanisms) it did not ask for; one in specialist words "
+    "may get a specialist's. No side claim you are unsure of."
+)
 SCHOOL_QUESTION_NOTE = (
     "This message is a school exercise. Answer it as the textbook expects, for the "
     "student who asked, at the level the question is written, from what the textbook "
@@ -153,7 +161,7 @@ _CHOICE_NOTE = (
 FACTUAL_QUESTION_NOTE = (
     "This is a factual question. Give the standard answer a good textbook gives, first, "
     "in plain words at the level the question is asked, then a short reason or a few "
-    "examples. " + WORK_FIRST + " " + TEXTBOOK_DEPTH + " Take the question as written: "
+    "examples. " + WORK_FIRST + " " + MATCHED_DEPTH + " Take the question as written: "
     "never open by disputing it, correcting its wording or calling it a trick, and keep to "
     "what it asks. End when the answer is complete, with no offer of more."
 )
@@ -196,13 +204,22 @@ def _choice(text: str) -> bool:
     )
 
 
+def _closes_as_exercise(text: str) -> bool:
+    """An exercise's closing order ("… Explain."). "Explain your answer." closes anyone's
+    opinion too ("Was Napoleon a good leader? Explain your answer."): only about science."""
+    closing = _CLOSING.search(text)
+    if closing is None or len(text.split()) < 8:
+        return False
+    return closing.group("yours") is None or mentions_science(text)
+
+
 def is_school_exercise(query: str) -> bool:
     text = query.strip()
     if _choice(text):
         return True
     if anyones(text):
         return False
-    if _CODE.search(text) or (_CLOSING.search(text) and len(text.split()) >= 8):
+    if _CODE.search(text) or _closes_as_exercise(text):
         return True
     if _TEXTBOOK.search(text) or _ASSERTION.search(text) or _BLANK.search(text):
         return True
