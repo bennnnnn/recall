@@ -92,6 +92,7 @@ from app.modules.chat.prompt_constants.visuals import (
     is_image_generation_mention,
 )
 from app.modules.chat.prompt_subjects import subject_closing_hints, subject_presentation_hints
+from app.modules.chat.turn_trace import note_prompt_rule, rule_name
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.subject_solving import detect_subject
 
@@ -104,9 +105,18 @@ class PromptRule[T]:
     render: Callable[[T], Sequence[str]]
 
 
-def render_rules[T](rules: Sequence[PromptRule[T]], turn: T) -> list[str]:
-    """Every applying rule's text, in table order."""
-    return [text for rule in rules if rule.applies(turn) for text in rule.render(turn)]
+def render_rules[T](rules: Sequence[PromptRule[T]], turn: T, *, table: str = "rules") -> list[str]:
+    """Every applying rule's text, in table order; the turn's trace names each one that
+    added text (``table.index:function``)."""
+    texts: list[str] = []
+    for index, rule in enumerate(rules):
+        if not rule.applies(turn):
+            continue
+        added = rule.render(turn)
+        if added:
+            note_prompt_rule(rule_name(table, index, rule.render, rule.applies))
+        texts.extend(added)
+    return texts
 
 
 def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str | None:
@@ -458,4 +468,4 @@ def _style_format_hints(
         image_search_enabled=image_search_enabled,
         multi=multi,
     )
-    return render_rules(HINT_RULES, turn)
+    return render_rules(HINT_RULES, turn, table="hints")

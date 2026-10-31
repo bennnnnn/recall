@@ -1,9 +1,10 @@
 """Attach a request ID to every HTTP response for log correlation.
 
-The client may supply an ``X-Request-ID`` header; we accept it only if it
-matches a strict allowlist regex (``^[A-Za-z0-9_-]{1,64}$``) so a malicious
-or malformed value cannot pollute logs (CRLF injection, log injection via
-long values, etc.). Otherwise we generate a fresh UUID4.
+The client may supply an ``X-Request-ID`` header (on a WebSocket, also a
+``request_id`` query parameter); we accept it only if it matches a strict
+allowlist regex (``^[A-Za-z0-9_-]{1,64}$``) so a malicious or malformed value
+cannot pollute logs (CRLF injection, log injection via long values, etc.).
+Otherwise we generate a fresh UUID4.
 
 The chosen ID is exposed to handlers via ``request.state.request_id`` and to
 loggers via the ``request_id_context`` contextvar, which the logging
@@ -15,6 +16,7 @@ from __future__ import annotations
 import contextvars
 import re
 import time
+from urllib.parse import parse_qs
 from uuid import uuid4
 
 from starlette.datastructures import Headers, MutableHeaders
@@ -45,6 +47,17 @@ def route_path(scope: Scope) -> str:
     return template if isinstance(template, str) else str(scope.get("path", ""))
 
 
+def _client_request_id(scope: Scope) -> str | None:
+    """The client's id: its header, or on a WebSocket a ``request_id`` query parameter,
+    since a browser socket cannot set headers."""
+    header = Headers(scope=scope).get(REQUEST_ID_HEADER)
+    if header or scope["type"] != "websocket":
+        return header
+    query = parse_qs(scope.get("query_string", b"").decode("latin-1"))
+    values = query.get("request_id")
+    return values[0] if values else None
+
+
 def _normalize_request_id(raw: str | None) -> str:
     """Return a valid request ID, generating one if *raw* is missing/invalid."""
     if raw and _CLIENT_REQUEST_ID_RE.fullmatch(raw):
@@ -65,7 +78,7 @@ class RequestIdMiddleware:
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return
-        request_id = _normalize_request_id(Headers(scope=scope).get(REQUEST_ID_HEADER))
+        request_id = _normalize_request_id(_client_request_id(scope))
         scope.setdefault("state", {})["request_id"] = request_id
         token = request_id_context.set(request_id)
         started = time.perf_counter()

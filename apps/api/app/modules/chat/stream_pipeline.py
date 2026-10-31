@@ -37,6 +37,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources
 from app.modules.chat.turn_settle import finalize_stream_turn_db
+from app.modules.chat.turn_trace import emit_turn_trace
 from app.modules.images.answer_photo import AnswerPhoto
 from app.services import quota as quota_service
 
@@ -357,9 +358,11 @@ async def _settle_reply(
     await await_ignoring_cancel(persist_reply())
 
 
-async def _close_turn(ctx: StreamContext) -> None:
+async def _close_turn(
+    ctx: StreamContext, outcome: TurnOutcome | None, failure: BaseException | None
+) -> None:
     """Whatever happened: the user's row has saved (or failed loudly), and the turn's
-    timing is logged."""
+    timing and its trace are logged."""
     if ctx.user_message_persist is not None:
         try:
             await await_user_message_persist(ctx)
@@ -376,6 +379,7 @@ async def _close_turn(ctx: StreamContext) -> None:
             lightweight=ctx.lightweight_turn,
             content_chars=len(ctx.user_message_content or ""),
         )
+    emit_turn_trace(ctx, outcome=outcome, failure=failure)
 
 
 async def stream_and_finalize(
@@ -394,6 +398,7 @@ async def stream_and_finalize(
     still saves the part already streamed."""
     usage: dict[str, int] = {}
     accum = StreamAccum()
+    failure: BaseException | None = None
     try:
         try:
             async for token in _produce_reply(
@@ -445,5 +450,8 @@ async def stream_and_finalize(
             resources=resources,
             on_status=on_status,
         )
+    except BaseException as exc:
+        failure = exc
+        raise
     finally:
-        await _close_turn(ctx)
+        await _close_turn(ctx, outcome, failure)
