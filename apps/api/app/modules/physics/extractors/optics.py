@@ -16,6 +16,7 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.optics_laws import NAMED_OPTICS_LAWS, image_distance
 from app.modules.physics.extractors.unit_patterns import NUMBER
+from app.modules.physics.optic_elements import diverging_element
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.text_match import has_equation
@@ -129,14 +130,6 @@ def _reflection_intent(cleaned: str) -> PhysicsIntent | None:
     )
 
 
-# A diverging element: a concave lens and a convex mirror alike. Read as
-# converging, a convex mirror's 10 cm object at f = 15 cm was certified 30 cm.
-_DIVERGING_RE = re.compile(
-    r"\bdiverging\b|\bconcave\s+lens|\bconvex\s+mirror|\bvirtual\s+image\b|\bnegative\s+focal\b",
-    re.IGNORECASE,
-)
-
-
 def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not has_cue(lower, _OPTICS_CUES):
@@ -144,7 +137,7 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
     without_index_assignments = re.sub(r"\bn[12]\s*=\s*" + NUMBER, "", cleaned, flags=re.I)
     if has_equation(strip_param_assignments(without_index_assignments)):
         return None
-    if _DIVERGING_RE.search(cleaned):
+    if diverging_element(cleaned):
         return None
     # The catalog owns a microscope and the lens-maker equation. This reader
     # would treat "objective" as an object distance.

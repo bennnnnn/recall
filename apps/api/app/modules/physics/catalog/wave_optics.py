@@ -1,4 +1,4 @@
-"""Verified wave optics: interference, diffraction, polarization and Bragg reflection."""
+"""Verified wave optics: interference, thin films, diffraction, resolution, polarization, Bragg."""
 
 from __future__ import annotations
 
@@ -191,6 +191,117 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter",),
             inputs=(frozenset({"angle_bragg", "order", "wavelength"}),),
             cues=("bragg",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "thin_film_constructive",
+        "optics",
+        "Thin-film constructive interference",
+        "t",
+        base_latex=r"2nt = \left(m+\frac{1}{2}\right)\lambda",
+        assumptions=("normal incidence, a phase change at exactly one surface",),
+        expression="(order+0.5)*wavelength/(2*n_index)",
+        variables=(
+            var("order", "m", dimensionless=True, words=("order",), needs_words=True),
+            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
+            var("n_index", "n", dimensionless=True, words=("index",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("thickness",),
+            result=("meter",),
+            inputs=(frozenset({"n_index", "order", "wavelength"}),),
+            cues=("constructive",),
+            excludes=("destructive",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "thin_film_destructive",
+        "optics",
+        "Thin-film destructive interference",
+        "t",
+        base_latex=r"2nt = m\lambda",
+        assumptions=("normal incidence, a phase change at exactly one surface",),
+        expression="order*wavelength/(2*n_index)",
+        variables=(
+            var("order", "m", dimensionless=True, words=("order",), needs_words=True),
+            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
+            var("n_index", "n", dimensionless=True, words=("index",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("thickness",),
+            result=("meter",),
+            inputs=(frozenset({"n_index", "order", "wavelength"}),),
+            cues=("destructive",),
+            excludes=("constructive",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "rayleigh_angle",
+        "optics",
+        "Rayleigh criterion",
+        r"\theta",
+        base_latex=r"\theta = 1.22\frac{\lambda}{D}",
+        assumptions=("a circular aperture",),
+        expression="1.22*wavelength/aperture_diameter",
+        variables=(
+            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
+            var(
+                "aperture_diameter",
+                "D",
+                "meter",
+                words=("diameter",),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("angle", "angular separation", "rayleigh criterion"),
+            result=("radian",),
+            inputs=(frozenset({"aperture_diameter", "wavelength"}),),
+            cues=("rayleigh",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "grating_resolving_power",
+        "optics",
+        "Grating resolving power",
+        "R",
+        base_latex=r"R = mN",
+        assumptions=("a diffraction grating",),
+        expression="order*n_lines",
+        variables=(
+            var(
+                "order",
+                "m",
+                dimensionless=True,
+                words=("order",),
+                needs_words=True,
+                # "second order" states m the same way the grating angle already reads it.
+                implied=(
+                    ("first order", 1.0),
+                    ("first-order", 1.0),
+                    ("second order", 2.0),
+                    ("second-order", 2.0),
+                    ("third order", 3.0),
+                    ("third-order", 3.0),
+                ),
+            ),
+            var(
+                "n_lines",
+                "N",
+                dimensionless=True,
+                words=("lines", "slits", "rulings"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("resolving power",),
+            result=("dimensionless",),
+            inputs=(frozenset({"n_lines", "order"}),),
+            cues=("resolving power",),
             nonnegative=True,
         ),
     ),
