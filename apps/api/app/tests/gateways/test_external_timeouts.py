@@ -113,6 +113,7 @@ async def test_google_cert_fetch_uses_a_short_timeout(
     assert session.timeouts == [expected]
 
 
+@pytest.mark.wall_clock
 async def test_google_verify_gives_up_when_the_fetch_thread_stalls(google_session: Any) -> None:
     google_session(_RecordingSession(status=200, delay=1.5))
     settings = Settings(google_client_id="cid", google_auth_timeout_seconds=0.2)

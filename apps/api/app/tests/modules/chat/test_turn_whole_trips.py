@@ -8,8 +8,9 @@ searches, SQL statements, pool checkouts, transactions and Redis round trips (a
 pipeline or a Lua script is one). The model, the embedder and the searches are fakes
 at their provider seams, with mock mode off, so every call production makes is seen.
 
-No timing: counts only, so it cannot flake. Each ceiling is the count when it was
-set. A change that lowers a count lowers its ceiling in the same change, so it stays
+No timing assertions: counts only. The memory read's wait for its query embedding is the
+one wait inside what is counted, so the harness gives it 30 s (past it the read matches by
+words and makes round trips of its own). Each ceiling is the count when it was set. A change that lowers a count lowers its ceiling in the same change, so it stays
 down. A change that raises one fails here: make the new call unnecessary, or raise
 the ceiling and say why in the change's description. ``pytest -s`` prints each
 part's calls, statements and Redis commands with the code that sent them.
@@ -435,6 +436,9 @@ async def harness(
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(tmp_path))
     # Production runs with the global spend cap on; a turn and each job read it.
     monkeypatch.setenv("DAILY_GLOBAL_SPEND_USD", "1000")
+    # The memory read's wait for its query embedding (0.75 s in production): past it the
+    # read matches facts by words, with round trips of its own, as a loaded CI run showed.
+    monkeypatch.setenv("MEMORY_QUERY_EMBED_TIMEOUT_SECONDS", "30")
     get_settings.cache_clear()
     storage_gateway._gateway_cache = None
     settings = get_settings()
@@ -589,6 +593,10 @@ async def _turns(harness: _Harness) -> dict[str, _Seen]:
     return seen
 
 
+# Every kind of turn end to end, then its jobs: the suite's longest test, and on a CI worker
+# sharing the machine with three others it ran past the one-minute hang limit. It counts and
+# never times, so a longer limit changes no result.
+@pytest.mark.timeout(240)
 async def test_each_kind_of_turn_stays_under_its_ceilings_to_its_last_job(
     harness: _Harness,
 ) -> None:

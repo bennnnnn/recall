@@ -41,6 +41,7 @@ async def test_each_migration_transaction_gets_the_local_timeouts() -> None:
     assert (lock, statement, again) == ("5s", "4min", "5s")
 
 
+@pytest.mark.wall_clock
 async def test_an_alter_behind_a_held_lock_fails_fast() -> None:
     table = f"migration_probe_{uuid4().hex[:12]}"
     holder_engine, migrating = _engine(), _engine()

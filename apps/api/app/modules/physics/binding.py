@@ -32,6 +32,7 @@ from app.services.law_binding.fit import (
     only_strongest_fit,
     read_question,
 )
+from app.services.law_binding.model_read import excluded
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import dimension_of
 
@@ -91,7 +92,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     only_water = names_only_water(lower)
     # "The mirror is convex": a law that excludes a diverging element excludes it, however
     # the question words it.
-    excluded = f"{lower} diverging" if diverging_element(lower) else lower
+    excluded = _with_markers(lower)
     named = [
         (spec, spec, strength)
         for spec in _bindable()
@@ -130,6 +131,21 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         )
     except ValueError:
         return None
+
+
+def _with_markers(lower: str) -> str:
+    """The question as the excludes read it: a convex mirror or a concave lens, however it
+    is worded, is marked "diverging"."""
+    return f"{lower} diverging" if diverging_element(lower) else lower
+
+
+def ruled_out(spec: FormulaSpec, text: str) -> bool:
+    """The question's own words rule this law out, as the binder reads them: more than
+    water named for a law about water alone, or a word its binding excludes."""
+    lower = text.lower()
+    if spec.id in WATER_ONLY and not names_only_water(lower):
+        return True
+    return excluded(spec.binding, _with_markers(lower))
 
 
 @lru_cache(maxsize=1)

@@ -423,6 +423,7 @@ async def test_photo_fetch_names_itself_and_asks_for_plain_bytes():
     assert headers["Accept-Encoding"] == "identity"
 
 
+@pytest.mark.wall_clock
 async def test_candidates_are_fetched_side_by_side_and_a_slow_host_waits_for_none() -> None:
     import asyncio
     import time

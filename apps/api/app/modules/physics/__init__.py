@@ -70,4 +70,5 @@ def __getattr__(name: str) -> Any:
 # Seams the chat turn uses: question detection, follow-ups, and post-stream fences.
 # The subject registry (services.subject_solving) builds the verified block
 # through ``prompt`` and the direct reply through ``direct``.
-_MODULE_EXPORTS = ("direct", "extract", "fence", "followup", "prompt")
+# ``model_read``: the laws a model reader chooses from, and the intent its read binds to.
+_MODULE_EXPORTS = ("direct", "extract", "fence", "followup", "model_read", "prompt")

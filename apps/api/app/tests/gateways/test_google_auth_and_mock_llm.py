@@ -87,6 +87,7 @@ def test_think_stripper_strips_long_closed_block() -> None:
     assert s.feed(f"{open_tag}{inner}{close_tag}24") + s.flush() == "24"
 
 
+@pytest.mark.wall_clock
 def test_think_stripper_reads_a_streamed_think_block_once() -> None:
     """Each chunk is searched for the close, not the whole held block again: a 60,000-
     character block streamed a character at a time took 0.7 s of event loop (now ~50 ms)."""

@@ -29,6 +29,7 @@ def _warm_lazy_imports() -> None:
     assert balance_equation("H2 + O2 -> H2O").balanced
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "text",
     [
@@ -245,6 +246,7 @@ def test_intent_collections_are_bounded() -> None:
         )
 
 
+@pytest.mark.wall_clock
 async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPatch) -> None:
     async def slow_lookup(name: str, redis: object | None = None) -> object:
         await asyncio.sleep(5)
@@ -260,6 +262,7 @@ async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPat
     assert time.perf_counter() - start < 1.0
 
 
+@pytest.mark.wall_clock
 async def test_a_slow_solve_is_stopped_and_declined(monkeypatch: pytest.MonkeyPatch) -> None:
     """The solve runs in the SymPy pool under the solve timeout. It used to run on the
     event loop with no limit, so one pathological question held every request."""

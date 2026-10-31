@@ -919,6 +919,7 @@ async def test_a_new_topic_two_lines_after_a_problem_gets_its_own_follow_ups() -
     ]
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "paste",
     [

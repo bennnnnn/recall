@@ -15,6 +15,7 @@ from app.modules.math.tools.extract import extract_math_intent
 from app.services.solving import SolveServiceError
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "expr",
     ["9^9^8", "9**9**9", "2^(10^8)", "2^(-10^8)", "x^(9^9^9)", "(10^6)!", "10^20000", "3 * 7^7^7"],
@@ -45,6 +46,7 @@ def test_a_hundred_factorial_is_within_the_limit() -> None:
     assert len(str(parse_expression("100!"))) == 158
 
 
+@pytest.mark.wall_clock
 def test_the_graph_reader_declines_a_power_tower_at_once() -> None:
     start = time.perf_counter()
     intent = extract_math_intent("graph 2y = 9^9^8 + x")

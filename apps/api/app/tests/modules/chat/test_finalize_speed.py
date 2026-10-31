@@ -77,6 +77,7 @@ def _state(text: str) -> FinalizeState:
     )
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("name", _REPLIES)
 async def test_every_finalize_pass_together_stays_fast_on_a_hostile_reply(
     name: str, monkeypatch: pytest.MonkeyPatch

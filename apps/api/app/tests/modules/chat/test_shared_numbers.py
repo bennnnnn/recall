@@ -144,6 +144,7 @@ def test_a_personal_disclosure_keeps_its_own_note() -> None:
     assert shared_numbers_hint(text) is None
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "text",
     [
