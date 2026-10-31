@@ -27,6 +27,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.modules.chat.claim_check import cut_unsupported_claims
+from app.modules.chat.control_tokens import strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
@@ -138,6 +139,8 @@ class FinalizePass:
 _SUBJECT_FENCES_STEP = "validate_math_fences"
 
 FINALIZE_PASSES: tuple[FinalizePass, ...] = (
+    # First: no other pass reads a leaked end-of-turn token as the reply's text.
+    FinalizePass("control_tokens", lambda s: strip_control_tokens(s.text), FALL_BACK),
     # Before the fence repair below can close it for the reminder pass.
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
     FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
@@ -215,6 +218,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
 # until it is listed here.
 STOPPED_REPLY_PASSES = frozenset(
     {
+        "control_tokens",
         "drop_cut_reminder_fence",
         "prepare_model_reply",
         "answer_labels",
