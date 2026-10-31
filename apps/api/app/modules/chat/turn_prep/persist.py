@@ -21,13 +21,13 @@ from app.models.orm import Chat, User
 from app.modules.attachments import rag as attachment_rag
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.model_routing.route import last_user_turn
 from app.modules.chat.turn_prep.mode import _TurnMode, classify_turn_mode
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.conversation import history as conversation_history
+from app.modules.conversation import service as conversation_service
 from app.repositories import users as users_repo
 
 
@@ -136,17 +136,17 @@ async def _read_missing(session: AsyncSession, turn: UserTurn, settings: Setting
         turn.user = user
     chat = turn.chat
     if chat is None:
-        chat = await chats_repo.get_by_id(session, turn.chat_id, turn.user_id)
+        chat = await conversation_history.get_chat(session, turn.chat_id, turn.user_id)
         if chat is None:
             raise ChatNotFoundError("Chat not found.")
         turn.chat = chat
     turn.model = turn_model(turn, user, settings)
     if turn.prior_count is None:
-        turn.prior_count = await messages_repo.count_for_chat(session, turn.chat_id)
+        turn.prior_count = await conversation_history.message_count(session, turn.chat_id)
     if turn.turn_mode is None:
         recent = turn.recent_messages
         if recent is None:
-            recent = await messages_repo.list_recent(
+            recent = await conversation_history.recent_messages(
                 session, turn.chat_id, limit=settings.recent_message_window
             )
         turn.turn_mode = classify_turn_mode(recent, turn.content)
@@ -157,7 +157,7 @@ async def _insert_and_link(
     session: AsyncSession, turn: UserTurn, user: User, settings: Settings
 ) -> list[str]:
     """The row and its links, uncommitted. Returns the attachment ids to index."""
-    message = await messages_repo.create(
+    message = await conversation_service.create_message(
         session,
         chat_id=turn.chat_id,
         user_id=user.id,

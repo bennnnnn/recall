@@ -264,6 +264,7 @@ def test_last_user_turn_returns_newest_user_line() -> None:
     assert last_user_turn([]) == (None, None)
 
 
+@pytest.mark.wall_clock
 def test_code_fence_detection_is_linear_time_not_quadratic():
     """SECURITY FIX (CodeQL: polynomial regex on uncontrolled data). The
     first version's fence pattern used `\\s*` for leading whitespace, which

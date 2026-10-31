@@ -8,7 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules import todos as todos_service
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt

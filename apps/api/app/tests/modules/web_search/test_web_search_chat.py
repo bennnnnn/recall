@@ -4,8 +4,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.conversation import chats_repository, messages_repository
 from app.modules.web_search.formatting import WEB_SEARCH_HINT
 from app.tests.modules.chat.chat_test_support import system_prompt
 

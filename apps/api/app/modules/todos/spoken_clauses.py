@@ -74,7 +74,7 @@ async def pending_add(
     that named its day. Otherwise any add without a clock that asked for a reminder in so
     many words ("remind me to …"): "add a daily digest to my flask app" is code.
     """
-    from app.modules.chat import history as chat_history
+    from app.modules.conversation import history as chat_history
 
     rows = await chat_history.recent_messages(session, chat_id, limit=8)
     skipped_current = False

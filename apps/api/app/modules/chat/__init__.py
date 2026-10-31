@@ -1,9 +1,10 @@
 """Chat — history over HTTP and the streamed turn (WebSocket and SSE).
 
-``api`` / ``service`` serve ``/chats``. ``ws_api`` (preferred, supports stop)
-and ``stream_api`` (SSE fallback) carry a turn: both call ``stream_entry`` with
-``turn_deps.default_deps()``, and ``turn_prep`` → ``stream_pipeline`` →
-``post_turn`` are the stages behind it (CLAUDE.md, "The chat loop").
+``api`` / ``service`` serve ``/chats`` over the rows ``modules/conversation`` keeps.
+``ws_api`` (preferred, supports stop) and ``stream_api`` (SSE fallback) carry a turn:
+both call ``stream_entry`` with ``turn_deps.default_deps()``, and ``turn_prep`` →
+``stream_pipeline`` → ``post_turn`` are the stages behind it (CLAUDE.md, "The chat
+loop").
 
 The package stays lazy. Other modules import a few small helpers from here —
 turn cues, reply presentation, stream status — and that must not load the
@@ -17,6 +18,9 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from app.modules.chat.post_turn import (
+        finish_turn as finish_turn,
+    )
     from app.modules.chat.presentation import (
         present_assistant_markdown as present_assistant_markdown,
     )
@@ -82,6 +86,7 @@ _EXPORTS = {
     "StreamStatusFn": ("stream_status", "StreamStatusFn"),
     "clip_status_detail": ("stream_status", "clip_status_detail"),
     "cuts_after_picture": ("turn_prep.intents", "cuts_after_picture"),
+    "finish_turn": ("post_turn", "finish_turn"),
     "has_code_syntax": ("prompt_constants.coding", "has_code_syntax"),
     "chart_names_no_curve": ("prompt_constants.chart", "chart_names_no_curve"),
     "chart_of_public_facts": ("prompt_constants.chart", "chart_of_public_facts"),
@@ -98,13 +103,10 @@ _EXPORTS = {
 }
 _MODULE_EXPORTS = (
     "compaction",
-    "history",
-    "history_rag",
     "service",
     "stream_entry",
     "stream_pipeline",
     "titles",
-    "turn_record",
     "turn_resources",
 )
 

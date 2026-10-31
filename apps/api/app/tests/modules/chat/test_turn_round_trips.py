@@ -12,8 +12,11 @@ user message's save, which the first token waits for. The app has one fake Redis
 as production has one Redis: a user-row write publishes its generation where the
 next token check reads it (``core/user_cache``).
 
-No timing: counts only, so it cannot flake. Each ceiling is the count when it was
-set. A change that lowers a count lowers its ceiling here in the same change, so
+No timing assertions: counts only. One wait sits inside what is counted: the memory
+read waits 0.75 s for its query's embedding, then matches facts by words instead, which
+makes round trips of its own. A loaded CI machine ran past it (8 statements, not 7), so
+the fixture gives the wait 30 s and fails a turn whose memory read fell back. Each
+ceiling is the count when it was set. A change that lowers a count lowers its ceiling here in the same change, so
 it stays down. A change that raises one fails this test: make the new round trip
 unnecessary, overlap it with one already made, or, when it is worth the time,
 raise the ceiling and say why in the change's description.
@@ -266,6 +269,25 @@ def _count(trips: _Trips, field: str) -> Any:
     return record
 
 
+def _count_embed_fallbacks(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Each read that waited for its query's embedding and got none. Mock mode embeds every
+    query, so here only a wait that ran out returns none, and that read matches by words."""
+    from app.gateways import embedding_gateway
+
+    fallbacks: list[str] = []
+    embed = embedding_gateway.get_or_embed_query
+
+    async def counted(*args: Any, **kwargs: Any) -> list[float] | None:
+        vector = await embed(*args, **kwargs)
+        query = args[2] if len(args) > 2 else kwargs.get("query", "")
+        if vector is None and str(query).strip():
+            fallbacks.append("query embedding missing")
+        return vector
+
+    monkeypatch.setattr(embedding_gateway, "get_or_embed_query", counted)
+    return fallbacks
+
+
 @pytest.fixture
 async def turns(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, user_generation_redis: Any
@@ -277,9 +299,13 @@ async def turns(
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(tmp_path))
     # Production runs with the global spend cap on; a turn reads it.
     monkeypatch.setenv("DAILY_GLOBAL_SPEND_USD", "1000")
+    # The memory read's wait for its query embedding: past it the read matches by words and
+    # counts more round trips than the turn makes (see the module docstring).
+    monkeypatch.setenv("MEMORY_QUERY_EMBED_TIMEOUT_SECONDS", "30")
     get_settings.cache_clear()
     storage_gateway._gateway_cache = None
     settings = get_settings()
+    fallbacks = _count_embed_fallbacks(monkeypatch)
     # The client user-row writes publish to (conftest) is the app's Redis too.
     fake = user_generation_redis
     core_redis.get_redis_client.cache_clear()
@@ -357,6 +383,7 @@ async def turns(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
             yield _Turns(client, token, user_id, fake, trips)
+        assert not fallbacks, "a read's query embedding ran out; it matched facts by words"
     finally:
         await drain_background_tasks()
         for name, listener in listeners:

@@ -14,7 +14,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.redis import get_redis_client
-from app.modules.chat import history as chat_history
+from app.modules.conversation import history as chat_history
 from app.modules.memory.text import memory_extract_user_text
 from app.services.text_normalize import cap_text_head_tail
 

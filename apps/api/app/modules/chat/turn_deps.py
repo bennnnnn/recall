@@ -28,9 +28,9 @@ from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
-from app.modules.chat import chats_repository as chats
-from app.modules.chat import messages_repository as messages
 from app.modules.chat.model_routing import choice as model_choice
+from app.modules.conversation import history as conversation_history
+from app.modules.conversation import service as conversation_service
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.modules.math import fence as math_fence
@@ -309,6 +309,30 @@ class _PackageTodos:
     materialize_reminder_fences: Callable[..., Coroutine[Any, Any, tuple[str, int]]]
 
 
+class _ConversationChats:
+    """``ChatsRepo`` over conversation's operations: its repositories stay inside it."""
+
+    peek_recent_chat = staticmethod(conversation_history.peek_recent_chat)
+    get_by_id = staticmethod(conversation_history.get_chat)
+    touch_by_id = staticmethod(conversation_service.touch_chat)
+
+
+class _ConversationMessages:
+    """``MessagesRepo`` over conversation's operations."""
+
+    create = staticmethod(conversation_service.create_message)
+    list_recent = staticmethod(conversation_history.recent_messages)
+    count_for_chat = staticmethod(conversation_history.message_count)
+    get_by_id = staticmethod(conversation_history.message_in_chat)
+    get_last_user = staticmethod(conversation_history.last_user_message)
+    delete_message = staticmethod(conversation_service.delete_message)
+
+
+# One of each, so two turns' default deps compare equal.
+CONVERSATION_CHATS = _ConversationChats()
+CONVERSATION_MESSAGES = _ConversationMessages()
+
+
 class WebSearchFences(Protocol):
     """Source chips and the places card under a searched reply."""
 
@@ -366,8 +390,8 @@ def default_deps() -> ChatTurnDeps:
     return ChatTurnDeps(
         session_factory=SessionLocal,
         users=users,
-        chats=chats,
-        messages=messages,
+        chats=CONVERSATION_CHATS,
+        messages=CONVERSATION_MESSAGES,
         usage=usage,
         quota=quota,
         plan=plan,

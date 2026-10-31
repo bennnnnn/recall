@@ -191,6 +191,7 @@ def test_graph_it_after_data_is_a_chart_not_a_question_about_a_function() -> Non
     assert resolve_graph_followup("graph it", ["hello there"]) == ("graph it", True)
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "text",
     [

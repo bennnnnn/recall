@@ -20,6 +20,7 @@ from app.modules.attachments import ocr_allowance
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import ExtractedText, ExtractTimeoutError
 from app.modules.attachments.content_types import EXTRACTABLE_CONTENT_TYPES
+from app.services.chunking import chunk_text
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -104,30 +105,6 @@ _RAG_MISS_NOTE = (
 
 # Foreground TTFT path — match memory's live-embed budget.
 _RAG_EMBED_TIMEOUT_SECONDS = 2.0
-
-
-def chunk_text(text: str, *, chunk_chars: int = 900, overlap: int = 120) -> list[str]:
-    # Guard against a misconfigured overlap >= chunk_chars: `start` would
-    # never advance past the previous chunk's start, spinning forever on a
-    # long document (pure CPU loop in the background indexing worker, no
-    # await to time out on). Shipped defaults (900/120) are safe; this is a
-    # footgun guard for a bad config value, not a correctness fix for today.
-    if overlap >= chunk_chars:
-        overlap = max(0, chunk_chars - 1)
-    cleaned = " ".join(text.split())
-    if not cleaned:
-        return []
-    if len(cleaned) <= chunk_chars:
-        return [cleaned]
-    chunks: list[str] = []
-    start = 0
-    while start < len(cleaned):
-        end = min(len(cleaned), start + chunk_chars)
-        chunks.append(cleaned[start:end])
-        if end >= len(cleaned):
-            break
-        start = max(0, end - overlap)
-    return chunks
 
 
 def is_indexable_attachment(row: Attachment) -> bool:

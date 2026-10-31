@@ -10,8 +10,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.attachments.rag import chunk_text
-from app.modules.chat.history_rag import (
+from app.modules.conversation.history_rag import (
     HistoryEmbeddingUnavailable,
     embed_query_for_prompt,
     index_message,
@@ -19,6 +18,8 @@ from app.modules.chat.history_rag import (
     prepare_message_text,
     retrieve_for_prompt,
 )
+from app.modules.memory.switch import memory_switch_on
+from app.services.chunking import chunk_text
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 
@@ -55,20 +56,20 @@ def _session_cm():
 async def test_retrieve_for_prompt_degrades_on_db_error():
     settings = Settings(chat_history_rag_enabled=True, mock_llm_enabled=True)
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.get_or_embed_query",
+            "app.modules.conversation.history_rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.search_semantic",
+            "app.modules.conversation.history_rag.chunks_repo.search_semantic",
             AsyncMock(side_effect=RuntimeError("db exploded")),
         ),
-        patch("app.modules.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.modules.conversation.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings,
@@ -82,13 +83,13 @@ async def test_retrieve_for_prompt_degrades_on_db_error():
 async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
     embed_mock = AsyncMock(return_value=[0.1] * 1536)
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.get_or_embed_query",
+            "app.modules.conversation.history_rag.embedding_gateway.get_or_embed_query",
             embed_mock,
         ),
     ):
@@ -104,7 +105,7 @@ async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
 @pytest.mark.asyncio
 async def test_retrieve_for_prompt_disabled_or_empty_query():
     with patch(
-        "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+        "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
         AsyncMock(),
     ) as probe:
         assert (
@@ -132,17 +133,17 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
     row.text = "User: we picked the blue couch"
     exclude = {uuid4()}
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.get_or_embed_query",
+            "app.modules.conversation.history_rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[0.1] * 8),
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.search_semantic",
+            "app.modules.conversation.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
     ):
@@ -162,13 +163,13 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
 @pytest.mark.asyncio
 async def test_embed_query_for_prompt_degrades_on_timeout():
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.get_or_embed_query",
+            "app.modules.conversation.history_rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=None),
         ),
     ):
@@ -202,17 +203,17 @@ async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
     exclude = {uuid4()}
     embed = AsyncMock(return_value=[0.1] * 8)
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.get_or_embed_query",
+            "app.modules.conversation.history_rag.embedding_gateway.get_or_embed_query",
             embed,
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.search_semantic",
+            "app.modules.conversation.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
     ):
@@ -249,9 +250,9 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
     user.id = uuid4()
     with (
         patch("app.modules.chat.prompt_context.SessionLocal", _session_cm()),
-        patch("app.modules.chat.prompt_context.messages_repo.list_recent", fast_recent),
+        patch("app.modules.conversation.messages_repository.list_recent", fast_recent),
         patch(
-            "app.modules.chat.history_rag.embed_query_for_prompt",
+            "app.modules.conversation.history_rag.embed_query_for_prompt",
             slow_embed,
         ),
     ):
@@ -320,13 +321,13 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
     with (
         patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
         patch("app.modules.chat.prompt_context.SessionLocal", _session_cm()),
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
-        patch("app.modules.chat.history_rag.chunks_repo.has_chunks_for_user", probe),
-        patch("app.modules.chat.history_rag.embedding_gateway.get_or_embed_query", embed),
+        patch("app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user", probe),
+        patch("app.modules.conversation.history_rag.embedding_gateway.get_or_embed_query", embed),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.search_semantic",
+            "app.modules.conversation.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
     ):
@@ -380,13 +381,13 @@ async def test_index_message_uses_short_lived_session():
         return [[0.1] * 1536 for _ in texts]
 
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _cm),
+        patch("app.modules.conversation.history_rag.SessionLocal", _cm),
         patch(
-            "app.modules.chat.history_rag.embedding_gateway.embed_many",
+            "app.modules.conversation.history_rag.embedding_gateway.embed_many",
             _embed,
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.replace_chunks_of_messages",
+            "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages",
             AsyncMock(),
         ) as replace_mock,
     ):
@@ -424,10 +425,11 @@ async def test_a_failed_piece_stores_nothing_and_the_job_retries():
         return [None if text == pieces[1] else [0.5] * 1536 for text in texts]
 
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
-        patch("app.modules.chat.history_rag.embedding_gateway.embed_many", _embed_many),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.embedding_gateway.embed_many", _embed_many),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.replace_chunks_of_messages", AsyncMock()
+            "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages",
+            AsyncMock(),
         ) as replace_mock,
         pytest.raises(HistoryEmbeddingUnavailable),
     ):
@@ -460,33 +462,33 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
     older.created_at = datetime(2026, 1, 1, tzinfo=UTC)
 
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.modules.chat.history_rag.users_repo.get_by_id",
+            "app.modules.conversation.history_rag.users_repo.get_by_id",
             AsyncMock(return_value=account),
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.has_chunks_for_user",
+            "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.chat.history_rag.messages_repo.get_by_id",
+            "app.modules.conversation.history_rag.messages_repo.get_by_id",
             AsyncMock(return_value=assistant),
         ),
         patch(
-            "app.modules.chat.history_rag.messages_repo.get_last_user",
+            "app.modules.conversation.history_rag.messages_repo.get_last_user",
             AsyncMock(return_value=user_msg),
         ),
         patch(
-            "app.modules.chat.history_rag._embed_and_store",
+            "app.modules.conversation.history_rag._embed_and_store",
             AsyncMock(side_effect=lambda _settings, _user, messages: len(messages)),
         ) as index_one,
         patch(
-            "app.modules.chat.history_rag.messages_repo.list_recent_for_user",
+            "app.modules.conversation.history_rag.messages_repo.list_recent_for_user",
             AsyncMock(return_value=[user_msg, assistant, older]),
         ),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.indexed_message_ids",
+            "app.modules.conversation.history_rag.chunks_repo.indexed_message_ids",
             AsyncMock(return_value=set()),
         ),
     ):
@@ -495,6 +497,7 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
             user_id=user_id,
             chat_id=chat_id,
             assistant_message_id=assistant.id,
+            memory_on=memory_switch_on,
         )
 
     if not memory_on:
@@ -532,9 +535,9 @@ async def test_retrieved_snippets_carry_the_day_they_were_said():
     row.text = "User: we picked Neon over Supabase"
     row.created_at = datetime(2026, 5, 3, tzinfo=UTC)
     with (
-        patch("app.modules.chat.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.modules.chat.history_rag.chunks_repo.search_semantic",
+            "app.modules.conversation.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ),
     ):

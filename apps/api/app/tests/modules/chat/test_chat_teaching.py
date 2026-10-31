@@ -7,7 +7,6 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat import chats_repository, messages_repository
 from app.modules.chat.prompt_builder import build_prompt_messages
 from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -29,6 +28,7 @@ from app.modules.chat.prompt_constants import (
 )
 from app.modules.chat.prompt_constants.lesson_flow import OUTLINE_PICK_HINT, lesson_continue_hint
 from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.conversation import chats_repository, messages_repository
 from app.tests.modules.chat.chat_test_support import system_prompt
 
 LESSON_ONE = (

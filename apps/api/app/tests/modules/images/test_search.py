@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.image_search_gateway import ImageSearchHit
 from app.gateways.storage_gateway import PresignedUpload, UnconfiguredStorageGateway
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.images.search import (
     ImageSearchError,
     photos_for_answer,
@@ -423,6 +423,7 @@ async def test_photo_fetch_names_itself_and_asks_for_plain_bytes():
     assert headers["Accept-Encoding"] == "identity"
 
 
+@pytest.mark.wall_clock
 async def test_candidates_are_fetched_side_by_side_and_a_slow_host_waits_for_none() -> None:
     import asyncio
     import time

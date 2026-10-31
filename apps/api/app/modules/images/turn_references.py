@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import Attachment, Message
 from app.modules.attachments import service as attachments_service
 from app.modules.attachments.service import is_image_content_type
-from app.modules.chat import history as chat_history
+from app.modules.conversation import history as chat_history
 from app.modules.images.intent import image_reference_ids
 
 

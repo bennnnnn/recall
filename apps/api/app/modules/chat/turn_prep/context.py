@@ -16,8 +16,6 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models import model_catalog
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import messages_repository as messages_repo
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
 from app.modules.chat.turn_prep.augment import Augmentation, augment_after_prompt
 from app.modules.chat.turn_prep.instant import (
@@ -36,6 +34,7 @@ from app.modules.chat.turn_prep.request import (
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import note_plan
+from app.modules.conversation import history as conversation_history
 from app.repositories import users as users_repo
 from app.services import model_health as model_health_service
 from app.services import time_context as time_context_service
@@ -274,13 +273,15 @@ async def _load_turn_identity(request: TurnRequest, settings: Settings) -> TurnI
                 if user is None:
                     raise ChatNotFoundError("User not found.")
             if chat is None:
-                chat = await chats_repo.get_by_id(session, request.chat_id, request.user_id)
+                chat = await conversation_history.get_chat(
+                    session, request.chat_id, request.user_id
+                )
                 if chat is None:
                     raise ChatNotFoundError("Chat not found.")
             if mode is None:
                 recent = request.recent_messages
                 if recent is None:
-                    recent = await messages_repo.list_recent(
+                    recent = await conversation_history.recent_messages(
                         session, request.chat_id, limit=settings.recent_message_window
                     )
                 mode = classify_turn_mode(recent, request.content)

@@ -301,6 +301,7 @@ def _ready(*chunks: SimpleNamespace, delay: float = 0.0) -> FakeStream:
     return provider
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_silent_everyday_model_gives_way_after_the_first_text_cap() -> None:
     silent = FakeStream([])  # opens, then never sends a chunk
@@ -312,6 +313,7 @@ async def test_a_silent_everyday_model_gives_way_after_the_first_text_cap() -> N
     assert time.monotonic() - started < 2.0
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_slow_opening_counts_against_the_first_text_cap() -> None:
     async def hangs(**_kwargs: Any) -> FakeStream:
@@ -361,6 +363,7 @@ async def test_the_last_model_waits_out_a_slow_opening() -> None:
     assert reply == "smart-chat: Inertia resists change."
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_slow_opening_with_a_backup_still_gives_way_at_the_connect_timeout() -> None:
     slow = _opens_after(3, _ready(chunk(content="late")))
@@ -376,6 +379,7 @@ async def test_a_slow_opening_with_a_backup_still_gives_way_at_the_connect_timeo
     assert time.monotonic() - started < 2.0
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_the_last_model_still_gives_up_on_a_stream_that_never_opens() -> None:
     # Tried twice, each waiting the idle timeout, then the turn fails.
@@ -469,6 +473,7 @@ async def test_a_paid_reasoning_model_streaming_its_reasoning_is_not_abandoned()
     assert reply == "smart-chat: So x = 4."
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_silent_paid_reasoning_model_gives_way_after_its_cap() -> None:
     fake = _chain(FakeStream([]), _ready(chunk(content="So x = 4.")))
@@ -478,6 +483,7 @@ async def test_a_silent_paid_reasoning_model_gives_way_after_its_cap() -> None:
     assert time.monotonic() - started < 2.0
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_silent_thinking_model_gives_way_after_the_first_thought_cap() -> None:
     fake = _chain(FakeStream([]), _ready(chunk(content="The answer is 4.")))

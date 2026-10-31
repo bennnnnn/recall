@@ -41,6 +41,7 @@ async def _queued_entry(redis: Any, job_type: str) -> str:
     return str(entry_id)
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "behaviour, expected_calls, expected_dlq",
     [

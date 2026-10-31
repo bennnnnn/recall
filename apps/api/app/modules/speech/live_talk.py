@@ -14,8 +14,9 @@ from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.billing import can_use
-from app.modules.chat import history as chat_history
-from app.modules.chat import needs_generated_title, present_assistant_markdown, turn_record
+from app.modules.chat import finish_turn, needs_generated_title, present_assistant_markdown
+from app.modules.conversation import history as chat_history
+from app.modules.conversation import turn_record
 from app.modules.memory.switch import memory_switch_on
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
@@ -357,7 +358,7 @@ async def persist_live_talk_turn(
             if chat is None:
                 logger.warning("Live talk persist skipped; chat missing chat_id=%s", chat_id)
                 return None, None
-            prior_count = await turn_record.count_messages(session, chat_id)
+            prior_count = await chat_history.message_count(session, chat_id)
             if should_write_user:
                 user_message = await turn_record.add_turn_message(
                     session, chat_id=chat_id, user_id=user.id, role="user", content=user_content
@@ -385,7 +386,7 @@ async def persist_live_talk_turn(
 
     if enqueue_jobs and prior_count is not None:
         # A typed turn's jobs, by the same rules (code-health audit ARCH-08).
-        await turn_record.finish_turn(
+        await finish_turn(
             redis,
             settings,
             user=user,

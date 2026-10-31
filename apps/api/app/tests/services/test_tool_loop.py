@@ -262,6 +262,7 @@ async def test_tool_loop_caps_calls_per_round(web_search_registered):
     assert len(skipped) == 2
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_tool_loop_invoke_timeout_skips_remaining(web_search_registered):
     messages = [{"role": "user", "content": "search"}]

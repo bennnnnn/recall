@@ -181,7 +181,7 @@ async def delete_all_for_user(
     await session.execute(delete(MemoryArea).where(MemoryArea.user_id == user_id))
     # With every fact gone, past-chat recall must not repeat any of them. Here, not at
     # the top: chat's history index loads modules that read memory.
-    from app.modules.chat import history_rag
+    from app.modules.conversation import history_rag
 
     await history_rag.forget_all_snippets(session, user_id)
     if commit:

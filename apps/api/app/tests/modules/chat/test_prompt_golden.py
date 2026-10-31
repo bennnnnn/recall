@@ -129,11 +129,11 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
             side_effect=RuntimeError("probe") if case["has_chunks"] == "error" else None,
             return_value=case["has_chunks"],
         ),
-        "app.modules.chat.prompt_context.messages_repo.count_for_chat": AsyncMock(
+        "app.modules.conversation.messages_repository.count_for_chat": AsyncMock(
             return_value=case["total"]
         ),
-        "app.modules.chat.prompt_context.messages_repo.list_before": AsyncMock(return_value=older),
-        "app.modules.chat.history_rag.retrieve_for_prompt": AsyncMock(
+        "app.modules.conversation.messages_repository.list_before": AsyncMock(return_value=older),
+        "app.modules.conversation.history_rag.retrieve_for_prompt": AsyncMock(
             return_value=case["history_rag_block"]
         ),
     }

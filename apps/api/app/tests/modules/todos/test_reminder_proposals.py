@@ -11,8 +11,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.modules.chat import chats_repository as chats_repo
-from app.modules.chat import messages_repository as messages_repo
+from app.modules.conversation import chats_repository as chats_repo
+from app.modules.conversation import messages_repository as messages_repo
 from app.modules.todos import proposals, write_log
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.models import TodoItem

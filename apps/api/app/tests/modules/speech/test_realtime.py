@@ -11,7 +11,7 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.gateways import openai_speech_gateway
 from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
-from app.modules.chat import chats_repository
+from app.modules.conversation import chats_repository
 from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.modules.speech.realtime import _realtime_instructions
 from app.tests.api_support import api_user

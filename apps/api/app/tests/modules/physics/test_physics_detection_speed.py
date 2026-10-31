@@ -102,6 +102,7 @@ def test_every_physics_pattern_is_linear_on_adversarial_text() -> None:
     assert not slow, "quadratic physics patterns:\n" + "\n".join(slow)
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("name", _NAMES)
 def test_detection_cost_does_not_grow_with_the_paste(name: str) -> None:
     _clear_caches()
@@ -109,6 +110,7 @@ def test_detection_cost_does_not_grow_with_the_paste(name: str) -> None:
     assert elapsed < _CALL_BUDGET_SECONDS, f"{name}: {elapsed:.2f}s"
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("name", _NAMES)
 def test_extraction_at_its_cap_stays_cheap(name: str) -> None:
     _clear_caches()
@@ -116,6 +118,7 @@ def test_extraction_at_its_cap_stays_cheap(name: str) -> None:
     assert elapsed < _CALL_BUDGET_SECONDS, f"{name}: {elapsed:.2f}s"
 
 
+@pytest.mark.wall_clock
 def test_a_pasted_report_is_not_physics_and_does_not_stall() -> None:
     report = _repeat(_REPORT, 3_000)
     _clear_caches()
@@ -159,6 +162,7 @@ def test_each_caller_gets_its_own_intent() -> None:
     assert second.physics_params["h0"] == 20
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("run", [",", ", ", ". ", " = "])
 def test_punctuation_between_a_label_and_its_value_stays_linear(run: str) -> None:
     # Each comma once doubled the label-gap fullmatch: 40 would have taken days.

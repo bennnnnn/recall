@@ -32,7 +32,7 @@ from app.models.orm import (
 )
 from app.modules import memory as memory_service
 from app.modules.attachments import service as attachments_service
-from app.modules.chat import history as chat_history
+from app.modules.conversation import history as chat_history
 from app.modules.suggestions import service as suggestions_service
 from app.modules.todos import service as todos_service
 from app.repositories import product_events as product_events_repo

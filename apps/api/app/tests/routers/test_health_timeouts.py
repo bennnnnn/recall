@@ -46,6 +46,7 @@ class _Redis:
         return True
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "db_delay, redis_delay, expected_status, expected_body",
     [
@@ -74,6 +75,7 @@ async def test_ready_bounds_each_dependency_check(
     assert elapsed < _STALL_S / 2
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "redis_delay, expected_status",
     [(0.0, 200), (_STALL_S, 503)],

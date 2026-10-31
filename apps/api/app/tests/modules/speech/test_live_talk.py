@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat import messages_repository
+from app.modules.conversation import messages_repository
 from app.modules.speech.live_talk import (
     LiveTalkSessionContext,
     build_realtime_instructions,

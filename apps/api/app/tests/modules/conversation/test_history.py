@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.chat import chats_repository, history
+from app.modules.conversation import chats_repository, history
 from app.tests.fakes import fake_session
 
 

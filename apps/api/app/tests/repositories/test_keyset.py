@@ -5,13 +5,15 @@ from __future__ import annotations
 import json
 from base64 import urlsafe_b64encode
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
 from app.repositories.keyset import InvalidCursorError, decode_cursor, encode_cursor, page_of
 
 _AT = datetime(2026, 10, 1, 9, 30, tzinfo=UTC)
+# A fixed id: a parameter made at collection time must be the same in every xdist worker.
+_ID = str(UUID("0b6c2d4e-8f10-4a2b-9c3d-5e6f7a8b9c0d"))
 
 
 def test_keyset_cursor_round_trips() -> None:
@@ -35,9 +37,9 @@ def _raw(values: object) -> str:
         "not-a-cursor",
         "",
         _raw([]),
-        _raw(["yesterday", str(uuid4())]),
+        _raw(["yesterday", _ID]),
         _raw([_AT.isoformat(), "not-an-id"]),
-        _raw([_AT.replace(tzinfo=None).isoformat(), str(uuid4())]),
+        _raw([_AT.replace(tzinfo=None).isoformat(), _ID]),
         _raw([_AT.isoformat()]),
         _raw({"at": _AT.isoformat()}),
     ],

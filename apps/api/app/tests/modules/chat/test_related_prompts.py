@@ -343,7 +343,7 @@ async def test_reopen_reads_the_cache_and_does_not_call_the_model(fake_redis) ->
         patch("app.modules.chat.service.finalize_registry.wait_for_inflight_stream", AsyncMock()),
         patch("app.modules.chat.service.finalize_registry.wait_for_pending_finalize", AsyncMock()),
         patch(
-            "app.modules.chat.service.messages_repo.list_page",
+            "app.modules.conversation.messages_repository.list_page",
             AsyncMock(return_value=(_page_rows(assistant_id), False)),
         ),
         patch(
@@ -919,6 +919,7 @@ async def test_a_new_topic_two_lines_after_a_problem_gets_its_own_follow_ups() -
     ]
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "paste",
     [
