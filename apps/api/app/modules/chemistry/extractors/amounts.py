@@ -13,7 +13,6 @@ from app.modules.chemistry.extractors.parsing import (
     _search,
 )
 from app.modules.chemistry.formula import parse_formula
-from app.modules.chemistry.isotopes import ISOTOPE_MASSES
 from app.modules.chemistry.request import (
     CHEMICAL_FORMULA,
     EQUATION_RE,
@@ -476,79 +475,6 @@ def _extract_element_mass(text: str) -> ChemistryIntent | None:
             "atomic_mass": BY_SYMBOL[element].mass,
             "molar_mass": molar_mass(formula),
         },
-    )
-
-
-_AVERAGE_ASK = re.compile(
-    r"\b(?:(?:average|relative|mean)\s+)?atomic\s+(?:mass|weight)\b", re.IGNORECASE
-)
-
-
-# "35Cl", "Cl-35" or "chlorine-35".
-_ISOTOPE = re.compile(
-    r"(?<![A-Za-z0-9.])(?P<before>\d{1,3})(?P<symbol>[A-Z][a-z]?)(?![a-z])"
-    r"|\b(?P<element>[A-Z][a-z]?|[A-Za-z]{3,})-(?P<after>\d{1,3})\b"
-)
-
-
-_ABUNDANCE = re.compile(rf"({_N})\s*%")
-
-
-_STATED_MASS = re.compile(rf"({_N})\s*(?:u|amu|Da)\b")
-
-
-def _isotopes(text: str) -> list[tuple[str, int, int, int]]:
-    """Each isotope written in the text: (symbol, mass number, start, end)."""
-    found: list[tuple[str, int, int, int]] = []
-    for match in _ISOTOPE.finditer(text):
-        token = match.group("symbol") or match.group("element")
-        symbol = token if token in BY_SYMBOL else ELEMENT_NAMES.get(token.lower())
-        number = int(match.group("before") or match.group("after"))
-        if symbol is None or number < BY_SYMBOL[symbol].number:
-            return []
-        found.append((symbol, number, match.start(), match.end()))
-    return found
-
-
-def _one(pattern: re.Pattern[str], segment: str) -> float | None:
-    values = [float(match.group(1)) for match in pattern.finditer(segment)]
-    return values[0] if len(values) == 1 else None
-
-
-def _extract_average_atomic_mass(text: str) -> ChemistryIntent | None:
-    """Isotopes with their abundances: Σ mass × abundance / 100.
-
-    Each isotope's abundance (and its mass, if stated) is written after it, up to the next
-    isotope: "35Cl (34.969 u, 75.77%) and 37Cl (36.966 u, 24.23%)". An unstated mass comes
-    from the isotope table.
-    """
-    if not _AVERAGE_ASK.search(text):
-        return None
-    isotopes = _isotopes(text)
-    if len(isotopes) < 2 or len({symbol for symbol, *_ in isotopes}) != 1:
-        return None
-    ends = [start for _, _, start, _ in isotopes[1:]] + [len(text)]
-    abundances: dict[str, float] = {}
-    masses: dict[str, float] = {}
-    for (symbol, number, _start, end), stop in zip(isotopes, ends, strict=True):
-        segment = text[end:stop]
-        abundance = _one(_ABUNDANCE, segment)
-        mass = _one(_STATED_MASS, segment)
-        if mass is None:
-            mass = ISOTOPE_MASSES.get((symbol, number))
-        label = f"{symbol}-{number}"
-        if abundance is None or mass is None or label in abundances:
-            return None
-        abundances[label] = abundance
-        masses[label] = mass
-    if abs(sum(abundances.values()) - 100) > 0.1:
-        return None
-    return ChemistryIntent(
-        kind="amounts",
-        chemistry_op="average_atomic_mass",
-        target=isotopes[0][0],
-        species=abundances,
-        params=masses,
     )
 
 
