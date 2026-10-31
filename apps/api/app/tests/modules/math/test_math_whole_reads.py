@@ -280,6 +280,7 @@ _ADVERSARIAL = [
 ]
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("text", _ADVERSARIAL)
 def test_the_whole_readers_stay_linear_on_a_long_run(text: str) -> None:
     from app.modules.math.tools.school.coordinate import _extract_coord_intent

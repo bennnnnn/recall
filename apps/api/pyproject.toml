@@ -78,6 +78,11 @@ addopts = ["--import-mode=importlib"]
 # A test that hangs fails after a minute, with every thread's stack, instead of holding
 # CI until the job's limit (code-health audit TEST-09).
 timeout = 60
+markers = [
+    # Asserts on the wall clock: CI runs it alone, after the parallel run
+    # (app/tests/architecture/test_wall_clock_marks.py keeps every such test marked).
+    "wall_clock: asserts on elapsed time; runs alone in CI",
+]
 # A coroutine nobody awaited, or an exception raised where nothing could catch it, is a
 # bug the test would otherwise pass over.
 filterwarnings = [

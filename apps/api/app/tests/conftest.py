@@ -35,12 +35,16 @@ os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
 
 # Under pytest-xdist (CI runs ``-n``) each worker gets its own database and Redis index,
 # which CI copies from the migrated one: two runs sharing a database held each other's rows
-# and locks, and one hung at 94% with sessions "idle in transaction" (2026-10-31). Opt-in,
-# so a local ``-n`` run against one development database is never silently redirected.
+# and locks, and one hung at 94% with sessions "idle in transaction" (2026-10-31). A ``-n``
+# run without them is refused (``pytest_configure``): it would point every worker at one
+# shared development database.
+_PER_WORKER = os.environ.get("RECALL_TEST_DB_PER_WORKER") == "1"
 _XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER", "")
-if _XDIST_WORKER.startswith("gw") and os.environ.get("RECALL_TEST_DB_PER_WORKER") == "1":
-    _database, _, _query = os.environ["DATABASE_URL"].partition("?")
-    os.environ["DATABASE_URL"] = f"{_database}_{_XDIST_WORKER}" + (f"?{_query}" if _query else "")
+if _XDIST_WORKER.startswith("gw") and _PER_WORKER:
+    if "DATABASE_URL" in os.environ:  # the sweeps job fakes the database and sets none
+        _database, _, _query = os.environ["DATABASE_URL"].partition("?")
+        _query = f"?{_query}" if _query else ""
+        os.environ["DATABASE_URL"] = f"{_database}_{_XDIST_WORKER}{_query}"
     _redis = os.environ.get("REDIS_URL", "redis://localhost:6379").rstrip("/")
     _redis_base, _, _redis_index = _redis.rpartition("/")
     _redis = _redis_base if _redis_index.isdigit() else _redis
@@ -78,6 +82,17 @@ loop_guard.install()
 
 
 _REAL_CONNECT: dict[str, object] = {}
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """A ``-n`` run needs a database per worker (above), or every worker writes to one."""
+    if getattr(config.option, "numprocesses", None) and not _PER_WORKER:
+        pytest.exit(
+            "pytest -n needs a database per worker: CI copies one for each and sets "
+            "RECALL_TEST_DB_PER_WORKER=1. Locally, run without -n (the development "
+            "database is shared).",
+            returncode=4,
+        )
 
 
 @pytest.fixture(autouse=True)

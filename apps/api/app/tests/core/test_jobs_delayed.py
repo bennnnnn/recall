@@ -30,6 +30,7 @@ def test_retries_back_off_to_about_fifty_minutes_in_all():
     assert delayed.retry_delay_s(2, lambda: 1.0) == pytest.approx(18.0)
 
 
+@pytest.mark.wall_clock
 async def test_two_workers_moving_at_once_re_add_an_entry_once(fake_redis: Any) -> None:
     await delayed.schedule(fake_redis, {"type": "t", "payload": "{}"}, delay_s=0)
     moved = await asyncio.gather(
@@ -40,6 +41,7 @@ async def test_two_workers_moving_at_once_re_add_an_entry_once(fake_redis: Any) 
     assert await fake_redis.xlen(jobs.JOBS_STREAM) == 1
 
 
+@pytest.mark.wall_clock
 async def test_an_entry_waits_until_it_is_due(fake_redis: Any) -> None:
     now = time.time()
     await delayed.schedule(fake_redis, {"type": "t", "payload": "{}"}, delay_s=60, now=now)

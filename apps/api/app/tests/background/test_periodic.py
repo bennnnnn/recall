@@ -67,6 +67,7 @@ async def test_stop_periodic_cancels_running_loop():
     assert "cancel-me" not in periodic._heartbeats
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_started_periodic_unhealthy_when_heartbeat_stale():
     settings = Settings()

@@ -115,6 +115,7 @@ def test_what_holds_no_chart_is_not_one(body: str) -> None:
     assert loose_chart_json(body) is None
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize(
     "body",
     ["{" * 5999, "[" * 5999, "bar" + " " * 5990 + "x", "pie chart" + " " * 5980 + ":x"],

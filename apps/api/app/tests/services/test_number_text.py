@@ -84,6 +84,7 @@ def test_fold_scientific_leaves_other_text(text: str, style: str) -> None:
     assert fold_scientific(text, style=style) == text  # type: ignore[arg-type]
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("head", ["10^", "2 x 10 ^", "2 x 10^{"])
 @pytest.mark.parametrize("style", ["e", "product"])
 def test_fold_scientific_stays_linear_on_a_pasted_run_of_spaces(head: str, style: str) -> None:
@@ -127,6 +128,7 @@ def test_bounded_decimal_may_read_a_short_exponent() -> None:
     assert not re.fullmatch(bounded_decimal(24, exponent_digits=4), "2.5e12345")
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("pattern", [TEXT_NUMBER, bounded_decimal(24)])
 def test_a_failed_search_stays_linear_on_a_pasted_digit_run(pattern: str) -> None:
     text = "9" * 50_000 + " km"

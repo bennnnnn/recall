@@ -58,6 +58,7 @@ def _r2(*, failing: frozenset[str] = frozenset()) -> R2StorageGateway:
         return R2StorageGateway(Settings())
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_failed_r2_delete_stays_queued_and_backs_off(fake_redis):
     await attachment_lifecycle.enqueue_failed_storage_deletes([])
