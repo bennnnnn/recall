@@ -15,7 +15,8 @@ from __future__ import annotations
 import re
 
 from app.modules.chat.prompt_builder import SubjectFetch
-from app.services.question_parts import asks_more_parts
+from app.services.question_parts import labelled_parts
+from app.services.solving import VerifiedSolveBlock
 
 # A reaction: "→", "->", "⟶", "=>" between two sides.
 _ARROW = re.compile(r"→|⟶|->|=>|⇌")
@@ -59,10 +60,11 @@ _ASKS_TO_SOLVE = re.compile(
     r"\bsolve|\bsolutions?\b|\bconsistent\b|\bsatisf|\bfor\s+which\s+values?|\broots?\b",
     re.IGNORECASE,
 )
-# A size that is never negative: "the length of the radius", "how long", "how many".
+# A size that is never negative: "the length of the radius", "how many". Not a speed or an
+# oxidation number: a card may give a velocity or a charge its sign.
 _MAGNITUDE_ASK = re.compile(
-    r"\b(?:length|radius|diameter|side|height|width|depth|distance|perimeter|area|volume"
-    r"|mass|speed|age|number\s+of)\b|\bhow\s+(?:long|far|many|much|tall|wide|high|old)\b",
+    r"\b(?:length|radius|diameter|side|perimeter|area|volume|mass|age)\b"
+    r"|\bhow\s+(?:long|far|many|tall|wide|high|old)\b",
     re.IGNORECASE,
 )
 _SIGNED = re.compile(r"\\pm|±|(?:^|[=(,\s])-\s*\d")
@@ -76,7 +78,8 @@ _ASKS_A_PROOF = re.compile(
 _AT_A_POINT = re.compile(
     r"\b(?:at|when|where)\s+(?:the\s+point\s+)?(?:[a-z]\s*=\s*-?\d|\(\s*-?\d)", re.IGNORECASE
 )
-_FREE_VARIABLE = re.compile(r"(?<![a-zA-Z\\])[a-z](?![a-zA-Z])")
+# A variable left in a value; e and i are constants.
+_FREE_VARIABLE = re.compile(r"(?<![a-zA-Z\\])[a-df-hj-z](?![a-zA-Z])")
 _ASKS_AN_EQUATION = re.compile(r"\bequation\s+of\b", re.IGNORECASE)
 # Solutions of a kind: "the rational zeros", "integer solutions".
 _QUALIFIED_SOLUTIONS = re.compile(
@@ -96,10 +99,18 @@ def answers_the_question(question: str, answer: str) -> bool:
         answers_whole_question(question, answer)
         and not _restates(question, answer)
         and not (_SOLUTION_VERDICT.search(answer) and not _ASKS_TO_SOLVE.search(question))
-        and not (_MAGNITUDE_ASK.search(question) and _SIGNED.search(answer))
+        and not (
+            _MAGNITUDE_ASK.search(_asked(question)) and _SIGNED.search(answer.rsplit("=", 1)[-1])
+        )
         and not _ASKS_A_PROOF.search(question)
-        and not (_AT_A_POINT.search(question) and _FREE_VARIABLE.search(_right_side(answer)))
-        and not (_ASKS_AN_EQUATION.search(question) and "=" not in answer)
+        and not (
+            _AT_A_POINT.search(question)
+            and not _ASKS_AN_EQUATION.search(question)
+            and _FREE_VARIABLE.search(_right_side(answer))
+        )
+        and not (
+            _ASKS_AN_EQUATION.search(question) and "=" not in answer and not _ARROW.search(answer)
+        )
         and not (_QUALIFIED_SOLUTIONS.search(question) and _NOT_RATIONAL.search(answer))
     )
 
@@ -107,16 +118,43 @@ def answers_the_question(question: str, answer: str) -> bool:
 def _right_side(answer: str) -> str:
     """What the answer gives: after its last "=", without LaTeX commands or units."""
     value = answer.rsplit("=", 1)[-1]
-    return re.sub(r"\\[a-zA-Z]+(?:\{[^{}]*\})?|\{|\}", " ", value)
+    # Units and command names go, never a command's argument: \frac{y}{2} keeps its y.
+    value = re.sub(r"\\(?:mathrm|text|operatorname)\s*\{[^{}]*\}", " ", value)
+    return re.sub(r"\\[a-zA-Z]+|\{|\}", " ", value)
+
+
+# The sentences that ask: "… Find its acceleration.", "What is the radius?"
+_ASKED_SENTENCE = re.compile(
+    r"[^.?!\n]*\?|(?:^|(?<=[.!\n]))\s*(?:find|calculate|determine|state|give|work\s+out"
+    r"|how|what|which)\b[^.?!\n]*",
+    re.IGNORECASE,
+)
+
+
+def _asked(question: str) -> str:
+    """The sentences of ``question`` that ask, or the whole of it when none does."""
+    asked = " ".join(match.group(0) for match in _ASKED_SENTENCE.finditer(question))
+    return asked or question
 
 
 def _restates(question: str, answer: str) -> bool:
-    """A piece of ``answer`` is a piece of ``question`` as written: "the cube root of
-    27a^3 + 54a^2b + …" certified the expression itself, and "a x b if a = 3i - 2j + 5k"
-    the givens."""
+    """Every expression in ``answer`` is one in ``question`` as written: "the cube root of
+    27a^3 + 54a^2b + …" certified the expression itself. A number with its unit is never a
+    restatement: it may confirm the asker's own ("I got 19.8 m/s. Am I right?")."""
     asked = _squashed(question)
-    pieces = [_squashed(piece) for piece in re.split(r",|\\quad|\n", answer)]
-    return any(len(piece) >= 4 and piece in asked for piece in pieces)
+    pieces = [_squashed(piece) for piece in _ANSWER_PIECES.split(answer)]
+    expressions = [piece for piece in pieces if _EXPRESSION.search(piece)]
+    return bool(expressions) and all(
+        re.search(rf"(?<![0-9.]){re.escape(piece)}(?![0-9a-z/^])", asked) for piece in expressions
+    )
+
+
+# Terms joined by an operator, a letter on one side: "27a3+54a2b", "x2-4".
+_EXPRESSION = re.compile(r"[0-9a-z]\s*[+\-*]\s*[0-9a-z]")
+
+
+# Between the pieces of an answer: a comma (not LaTeX's thin space "\,"), ";", "\quad", a line.
+_ANSWER_PIECES = re.compile(r"(?<!\\),|;|\\quad|\n")
 
 
 def _squashed(text: str) -> str:
@@ -129,15 +167,18 @@ def _squashed(text: str) -> str:
 def answers_whole_question(question: str, answer: str) -> bool:
     """``answer`` is all ``question`` asks: no second reaction, every part answered, and
     one of its options when it gives some."""
-    if len(_ARROW.findall(question)) >= 2:
+    # Several reactions and an equation for an answer: options or parts to balance, never
+    # one. Reactions a Hess's law question gives are its data.
+    if len(_ARROW.findall(question)) >= 2 and _ARROW.search(answer):
         return False
     choices = labelled_choices(question)
+    pieces = [piece for piece in _ANSWER_PIECES.split(answer) if piece.strip()]
     if not choices:
-        return not asks_more_parts(question, answer)
+        return labelled_parts(question) <= max(len(pieces), 1)
     if _are_options(choices):
         return any(_same_choice(answer, choice) for choice in choices)
-    # Parts: one line of the answer for each.
-    return len([line for line in answer.splitlines() if line.strip()]) >= len(choices)
+    # Parts: one piece of the answer for each ("v = 20 m/s; s = 100 m").
+    return len(pieces) >= len(choices)
 
 
 def _are_options(choices: list[str]) -> bool:
@@ -146,17 +187,44 @@ def _are_options(choices: list[str]) -> bool:
 
 
 def _same_choice(answer: str, choice: str) -> bool:
-    """The answer states this option: its number, or its words. An equation is no number."""
-    plain_answer = _MARKUP.sub("", answer).lower()
-    plain_choice = _MARKUP.sub("", choice).lower().strip()
-    if not plain_choice:
-        return False
-    if _NUMBER.fullmatch(plain_choice.split()[0]):
-        if _ARROW.search(plain_answer):
+    """The answer states this option: its value (2% apart, "98 g/mol" for 98.07), or its
+    words. An equation is no number."""
+    chosen = _leading_value(choice)
+    if chosen is not None:
+        if _ARROW.search(answer):
             return False
-        answered = _NUMBER.findall(plain_answer.split("=")[-1])
-        return bool(answered) and float(answered[-1]) == float(plain_choice.split()[0])
-    return plain_choice in plain_answer
+        given = _leading_value(_right_side(answer) if "=" in answer else answer)
+        return given is not None and abs(given - chosen) <= 0.02 * max(abs(chosen), 1e-9)
+    plain_choice = _MARKUP.sub("", choice).lower().strip()
+    return bool(plain_choice) and plain_choice in _MARKUP.sub("", answer).lower()
+
+
+_FRACTION = re.compile(r"\\[dt]?frac\s*\{\s*(-?[\d.]+)\s*\}\s*\{\s*(-?[\d.]+)\s*\}")
+_LEADING = re.compile(
+    r"^\s*(-?\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?"
+    r"(?:\s*(?:\\times|\u00d7|x|\*)\s*10\s*\^\s*\{?\s*(-?\d+)\s*\}?)?"
+)
+
+
+def _leading_value(text: str) -> float | None:
+    """The number a text opens with: "2 x 10^5 J", "\\frac{1}{2}", "78.54 cm²", "1/2"."""
+    plain = _FRACTION.sub(r"\1/\2", text).replace("$", "").replace(",", "")
+    match = _LEADING.match(plain)
+    if match is None:
+        return None
+    value = float(match.group(1))
+    if match.group(2):
+        value /= float(match.group(2)) or 1.0
+    if match.group(3):
+        value *= 10.0 ** int(match.group(3))
+    return value
+
+
+def answers_with(question: str, verified: VerifiedSolveBlock) -> bool:
+    """A verified block may stand for ``question``: it answers what is asked, or carries no
+    answer line to judge (a diagram)."""
+    answer = verified.display_answer or verified.canonical_answer or ""
+    return not answer or answers_the_question(question, answer)
 
 
 def whole_question_fetch(question: str, fetched: SubjectFetch) -> SubjectFetch:
@@ -165,8 +233,7 @@ def whole_question_fetch(question: str, fetched: SubjectFetch) -> SubjectFetch:
     verified = fetched.verified
     if verified is None or fetched.direct_text is not None:
         return fetched
-    answer = verified.display_answer or verified.canonical_answer or ""
-    if not answer or answers_the_question(question, answer):
+    if answers_with(question, verified):
         return fetched
     return SubjectFetch(
         subject_block=None,

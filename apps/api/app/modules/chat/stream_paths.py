@@ -36,6 +36,7 @@ from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
+from app.modules.chat.whole_question import answers_with
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 from app.services.solving import VerifiedMathBlock
 
@@ -165,7 +166,9 @@ def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:
     """What the tool rounds found becomes the turn's: the messages the stream reads,
     a verified block, a terminal picture, search sources the prompt path lacked."""
     ctx.prompt_messages, tool_verified, terminal_image, tool_search_hits = rounds
-    if tool_verified is not None:
+    # The model's own tool call is held to the question too: a card the gate dropped from
+    # the server's solve never comes back through it.
+    if tool_verified is not None and answers_with(ctx.user_message_content or "", tool_verified):
         ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id

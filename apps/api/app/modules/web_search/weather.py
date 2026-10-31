@@ -68,12 +68,19 @@ _TEMPERATURE_UNIT = re.compile(r"\b(?:fahrenheit|celsius|kelvin)\b", re.IGNORECA
 # is: "a 2.50 L container of 175 g of argon at 10.0 atm: what is the temperature?", "How far
 # from the foot of the 18 meters tree…" and "the points closest to (0, 2)" each asked for the
 # user's city (2026-10-30, Ethiopian chemistry and maths books).
+# Measurements, never time: "the next 24 hours", "walk 2 km in 30 minutes" ask a forecast or a
+# place.
 _MEASURED = re.compile(
-    r"\d(?:\.\d+)?\s*(?:mL|L|g|kg|mg|mol|atm|kPa|Pa|mmHg|torr|K|J|kJ|N|W|V|A|m|cm|km|s"
-    r"|m/s|Hz|°\s*[CF]|(?:kilo|centi|milli)?met(?:er|re)s?|grams?|liters?|litres?|seconds?"
-    r"|minutes?|hours?|miles?|feet|foot)(?![A-Za-z])"
+    r"\d(?:\.\d+)?\s*(?:mL|L|g|kg|mg|mol|atm|kPa|Pa|mmHg|torr|K|J|kJ|N|W|V|A|m|cm|km|m/s|Hz"
+    r"|°\s*[CF]|(?:kilo|centi|milli)?met(?:er|re)s?|grams?|liters?|litres?|miles?|feet|foot)"
+    r"(?![A-Za-z])"
 )
-_COORDINATES = re.compile(r"\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)")
+# Coordinates of a maths object: "the point (0, 2)", not "weather near (40.7, -74.0)".
+_COORDINATES = re.compile(
+    r"\b(?:points?|curve|graph|line|vertex|centre|center)\b[^.?!]{0,30}"
+    r"\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)",
+    re.IGNORECASE,
+)
 _FUNCTION = re.compile(r"\b[a-zA-Z]\s*\(\s*[a-z]\s*\)\s*=")
 
 

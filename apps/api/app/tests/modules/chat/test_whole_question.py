@@ -227,3 +227,73 @@ def test_a_result_that_answers_the_question_stays(question: str, answer: str) ->
 )
 def test_a_worked_problem_never_asks_where_the_user_is(question: str, local: bool) -> None:
     assert is_geo_query(question) is local
+
+
+# Review: each was a correct card dropped, or a wrong one kept.
+@pytest.mark.parametrize(
+    ("question", "answer", "kept"),
+    [
+        # A size word in a given is no size asked.
+        (
+            "A 2 kg mass moving at 6 m/s comes to rest in 3 s. Find its acceleration.",
+            r"-2\,\mathrm{m/s^2}",
+            True,
+        ),
+        # An option read as its value, within 2%.
+        (
+            "Which is the energy? a) 2 × 10^5 J b) 4 × 10^5 J c) 6 J d) 8 J",
+            r"2 \times 10^{5}\,\mathrm{J}",
+            True,
+        ),
+        (
+            "Area of a circle of radius 5 cm? a) 78.54 cm² b) 31.4 cm² c) 25 cm² d) 10 cm²",
+            r"78.54\,\mathrm{cm}^{2}",
+            True,
+        ),
+        ("Solve 2x = 1. a) 1/2 b) 2 c) 1 d) 0", r"x = \frac{1}{2}", True),
+        (
+            "Molar mass of H2SO4? a) 98 g/mol b) 49 g/mol c) 100 g/mol d) 64 g/mol",
+            r"98.07\,\mathrm{g/mol}",
+            True,
+        ),
+        # Roman-numeral parts answered piece by piece.
+        (
+            "A car accelerates at 2 m/s^2 from 0 for 5 s. Find (i) the final velocity (ii) the distance.",
+            r"v = 10\,\mathrm{m/s};\quad s = 25\,\mathrm{m}",
+            True,
+        ),
+        # A reaction is an equation.
+        (
+            "Balance the chemical equation of the combustion of methane: CH4 + O2 → CO2 + H2O",
+            "CH₄ + 2 O₂ → CO₂ + 2 H₂O",
+            True,
+        ),
+        # e is a constant.
+        ("Find the slope of the tangent to y = e^x at x = 1.", "e", True),
+        # A value with the variable still in it, inside a fraction.
+        (
+            "Find the x-coordinate where y = 2x - 6 crosses the x-axis.",
+            r"x = \frac{y}{2} + 3",
+            False,
+        ),
+        # A confirmation repeats the asker's number.
+        (
+            "A ball is dropped from 20 m. I got 19.8 m/s for its impact speed. Am I right?",
+            r"19.8\,\mathrm{m/s}",
+            True,
+        ),
+    ],
+)
+def test_review_cases(question: str, answer: str, kept: bool) -> None:
+    assert answers_the_question(question, answer) is kept
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How far is the nearest hospital? I can walk 2 km in 30 minutes",
+        "weather near (40.7, -74.0)",
+    ],
+)
+def test_time_and_map_coordinates_stay_location_questions(question: str) -> None:
+    assert is_geo_query(question)
