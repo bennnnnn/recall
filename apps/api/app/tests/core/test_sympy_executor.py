@@ -213,6 +213,7 @@ async def test_restarted_worker_warms_outside_the_solve_timeout():
         executor.shutdown()
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_timeout_returns_quickly():
     """The timeout must fire at the configured deadline, not wait for the
@@ -367,6 +368,7 @@ async def test_timeout_excludes_queue_wait():
         executor.shutdown()
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_queue_wait_fails_closed_without_killing_occupant():
     """Interactive math must not wait 60s for a busy slot — fail closed so
@@ -385,6 +387,7 @@ async def test_queue_wait_fails_closed_without_killing_occupant():
         executor.shutdown()
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_two_workers_run_in_parallel():
     """Two slots must overlap; they must not serialize behind one 5s budget."""
@@ -403,6 +406,7 @@ async def test_two_workers_run_in_parallel():
         executor.shutdown()
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_timeout_does_not_kill_sibling_slot():
     """A timeout on one slot must not BrokenProcessPool a sibling solve."""
@@ -511,6 +515,7 @@ raise SystemExit(3)
 """
 
 
+@pytest.mark.wall_clock
 def test_worker_exits_when_its_parent_pid_changes_even_if_the_pipe_stays_open():
     """Backstop for the parent pipe: a re-parented worker exits within ~1 s."""
     started = time.monotonic()

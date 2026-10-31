@@ -56,6 +56,7 @@ def test_a_status_carries_how_long_its_phase_has_run() -> None:
     }
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_thinking_is_sent_once_with_how_long_the_model_has_worked() -> None:
     statuses = Statuses()

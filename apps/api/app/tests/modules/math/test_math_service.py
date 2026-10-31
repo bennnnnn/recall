@@ -42,6 +42,7 @@ def test_normalize_latex_frac_and_abs() -> None:
     assert math_solve.normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
 
+@pytest.mark.wall_clock
 @pytest.mark.parametrize("tail", ["x", r"\frac{1}{x}", "½x"])
 def test_mixed_number_patterns_stay_linear_on_long_digit_runs(tail: str) -> None:
     """CodeQL: polynomial regex on uncontrolled data. A whole part of unbounded length

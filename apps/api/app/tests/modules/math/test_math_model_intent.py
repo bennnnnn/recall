@@ -72,6 +72,7 @@ async def test_the_outcome_is_todays(
     assert got is expected
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_word_problem_does_not_wait_for_the_extraction(
     monkeypatch: pytest.MonkeyPatch,
@@ -85,6 +86,7 @@ async def test_a_word_problem_does_not_wait_for_the_extraction(
     assert calls["extract_cancelled"] is True
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_the_extraction_no_longer_waits_out_the_translation(
     monkeypatch: pytest.MonkeyPatch,
@@ -102,6 +104,7 @@ async def test_the_extraction_no_longer_waits_out_the_translation(
     assert time.monotonic() - started < 0.7
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_both_helpers_share_one_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = _helpers(

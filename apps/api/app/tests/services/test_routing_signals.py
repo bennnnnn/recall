@@ -151,6 +151,7 @@ def test_needs_strong_model_is_any_signal() -> None:
     assert not needs_strong_model("what's for dinner tonight")
 
 
+@pytest.mark.wall_clock
 def test_signals_stay_linear_on_adversarial_input() -> None:
     """Routing reads every message; a long run of near-matches must stay fast."""
     nasty = "all a is " * 2_000 + "carefully " * 2_000 + "[{" * 2_000 + ",\n" * 2_000

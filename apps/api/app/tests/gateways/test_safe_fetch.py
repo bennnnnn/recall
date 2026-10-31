@@ -241,6 +241,7 @@ def _pin_to_loopback():
     )
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 @pytest.mark.parametrize("max_body_bytes", [128 * 1024, None])
 async def test_fetch_safely_deadline_ends_a_dripping_body(max_body_bytes):
@@ -259,6 +260,7 @@ async def test_fetch_safely_deadline_ends_a_dripping_body(max_body_bytes):
     assert 0.7 <= elapsed < 2.0
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_fetch_safely_deadline_covers_every_redirect_hop():
     """Six slow hops, each inside the read timeout, still end at one deadline."""

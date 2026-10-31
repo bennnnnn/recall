@@ -293,6 +293,7 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
     session.commit.assert_not_awaited()
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_enqueue_push_receipts_stores_ticket_and_token(fake_redis):
     before = time.time()

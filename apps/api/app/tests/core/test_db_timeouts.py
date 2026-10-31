@@ -49,6 +49,7 @@ def test_app_engine_uses_the_bounded_connect_args() -> None:
     assert db._connect_args.get("timeout") == get_settings().db_connect_timeout_seconds
 
 
+@pytest.mark.wall_clock
 async def test_command_timeout_cancels_a_slow_statement() -> None:
     url, base = prepare_asyncpg_url(get_settings().database_url)
     settings = Settings(db_connect_timeout_seconds=5.0, db_command_timeout_seconds=0.5)

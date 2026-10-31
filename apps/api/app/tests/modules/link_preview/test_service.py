@@ -242,6 +242,7 @@ async def test_fetch_link_preview_passes_an_overall_deadline():
     assert fetch_mock.await_args.kwargs["deadline_seconds"] == 8.0
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_fetch_link_preview_slow_server_ends_at_the_deadline():
     """A server sending one byte at a time used to hold the request open for minutes."""
