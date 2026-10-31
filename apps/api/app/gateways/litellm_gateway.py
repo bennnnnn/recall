@@ -160,14 +160,12 @@ async def stream_chat_completion(
             # A recovering model that another turn is trying (model health's probe).
             logger.info("Chat stream %s passed over: another turn is trying it", alias)
             continue
-        # Buffer until the first non-whitespace token so whitespace-only
-        # "success" streams (common flaky provider quirk) still fall through
-        # to the next alias instead of locking in an empty reply.
+        # Buffer until the first non-whitespace token: a whitespace-only "success" stream
+        # (a flaky provider's quirk) falls through instead of locking in an empty reply.
         pending: list[str] = []
         started = False
-        # Discarded attempts must not add provider tokens onto the caller's
-        # daily quota. Tool-loop usage already lives on `usage`; only merge
-        # the attempt that actually produced content.
+        # Discarded attempts add no provider tokens to the caller's daily quota: only the
+        # attempt that produced content merges (tool-loop usage is already on `usage`).
         attempt_usage: dict[str, int] = {}
         attempt_calls: list[dict[str, Any]] = []
         cap = first_reply_cap(settings, alias, thinking, has_next=has_next, prompt=shape)
@@ -223,6 +221,8 @@ async def stream_chat_completion(
             if has_next:
                 logger.warning("Chat stream %s unavailable; trying %s", alias, aliases[index + 1])
                 continue
+            if _try_again(aliases, alias, exc):
+                continue
             failed = exc.failed_alias or alias
             if stream_meta is not None:
                 stream_meta["model_alias"] = failed
@@ -230,6 +230,18 @@ async def stream_chat_completion(
 
     if last_error is not None:
         raise last_error
+
+
+def _try_again(aliases: list[str], alias: str, exc: ModelUnavailableError) -> bool:
+    """The last model failed before any text: it is tried once more (appended to
+    ``aliases``), unless the provider refused the request itself, which a retry repeats.
+    A user who enabled one model has no backup, and one empty or stalled stream left the
+    reply empty ("That model isn't responding")."""
+    if exc.cause == REQUEST_FAULT or (len(aliases) > 1 and aliases[-2] == alias):
+        return False
+    logger.warning("Chat stream %s answered nothing; trying it once more", alias)
+    aliases.append(alias)
+    return True
 
 
 def _open_wait(settings: Settings, *, has_next: bool) -> float:

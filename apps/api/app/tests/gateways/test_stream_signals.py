@@ -378,12 +378,44 @@ async def test_a_slow_opening_with_a_backup_still_gives_way_at_the_connect_timeo
 
 @pytest.mark.asyncio
 async def test_the_last_model_still_gives_up_on_a_stream_that_never_opens() -> None:
-    fake = _steps(_opens_after(5, _ready(chunk(content="never"))))
-    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=2)
+    # Tried twice, each waiting the idle timeout, then the turn fails.
+    never = _opens_after(5, _ready(chunk(content="never")))
+    fake = _steps(never, never)
+    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=1)
     started = time.monotonic()
     with pytest.raises(litellm_gateway.ModelUnavailableError):
         await _reply("smart-chat", [], fake, settings)
     assert 1.8 < time.monotonic() - started < 4.0
+    assert fake.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_the_only_model_that_answers_nothing_is_tried_once_more() -> None:
+    # A Class 10 round's reply streamed 30 s and ended with no text: with no backup,
+    # the user saw "That model isn't responding".
+    attempts: list[StreamAttempt] = []
+    fake = _chain(_ready(chunk(content="  ")), _ready(chunk(content="v = +6 cm, behind.")))
+    reply = await _reply("smart-chat", [], fake, _fast_caps(), attempts=attempts)
+    assert reply == "smart-chat: v = +6 cm, behind."
+    assert [(a.alias, a.failed) for a in attempts] == [("smart-chat", True), ("smart-chat", False)]
+
+
+@pytest.mark.asyncio
+async def test_the_last_backup_is_tried_once_more_and_no_more() -> None:
+    fake = _chain(_ready(), _ready(), _ready(), _ready(chunk(content="never asked")))
+    with pytest.raises(litellm_gateway.ModelUnavailableError):
+        await _reply("smart-chat", ["glm-5.2"], fake, _fast_caps())
+    assert fake.await_count == 3  # smart-chat, glm-5.2, glm-5.2 again
+
+
+@pytest.mark.asyncio
+async def test_a_refused_request_is_not_tried_again() -> None:
+    refused = Exception("bad request")
+    refused.status_code = 400  # type: ignore[attr-defined]
+    fake = AsyncMock(side_effect=refused)
+    with pytest.raises(litellm_gateway.ModelUnavailableError):
+        await _reply("smart-chat", [], fake, _fast_caps())
+    assert fake.await_count == 1
 
 
 @pytest.mark.asyncio
