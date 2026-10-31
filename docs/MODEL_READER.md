@@ -243,36 +243,39 @@ global_spend_exceeded`) before either model call, as the shadow read does.
 
 ### What the check guarantees, and what it does not
 
-`modules/model_reader/translation.py` keeps an English only when:
+`modules/model_reader/translation.py` reads both texts token by token (`tokens.py`), the
+original in its own language, and keeps the English only when every token of the
+original comes back, and nothing else:
 
-- **every original value is in it, with its sign, and nothing else is.** The server reads
-  the original itself, in its own language's notation (`notation.py`): one value per
-  number (Spanish "3,5" is 3.5; French "1 200" is 1200; Arabic's own marks; Ethiopic
-  numerals added up, two hundred is 2 x 100). A number its language writes two ways has
-  no value and the translation is declined (Spanish "1.200" is 1200 in Spain and 1.2 in
-  Mexico). The English is read strictly: "." is the decimal mark, "," only before three
-  digits. A sign is a minus sign or words ("5 °C bajo cero").
-- **each value keeps its unit at the same scale.** A unit word in the original ("120
-  ሜትር", "500 غرام", "120 metros") must come back as that unit; a word the tables do not
-  know is a count's noun ("5 cars") and must come back with no unit. Never "any unit".
-- **it asks for a kind of quantity the original asks for.** The ask tables name, per
-  language, the words that ask and the words that name a kind of quantity; each ask is
-  the kind named beside its ask word ("how many grams" asks a mass). Every ask on either
-  side must be one the other side could make: "how far" against "how long" is refused,
-  Amharic "ፍጥነት" (a speed or an acceleration) against "acceleration" kept. An original
-  whose ask the tables cannot read, or that names no kind ("how much water", "كمية"), is
-  refused when the English asks for one.
+- **Quantities:** each number with its sign and its whole unit at the same scale. The
+  original is read in its language's notation (`notation.py`): one value per number
+  (Spanish "3,5" is 3.5; French "1 200" is 1200; Arabic's own marks; Ethiopic numerals
+  added up). A number its language writes two ways has no value and the translation is
+  declined (Spanish "1.200": 1200 in Spain, 1.2 in Mexico). Scale and fraction words are
+  numbers ("300 mil" is 300000, "medio kilómetro" 0.5 km, "आधा" 0.5). A compound unit is
+  compared whole ("72 km por hora" is km/h, "غ/مول" g/mol, "م/ث٢" m/s²); a part joined by
+  "/" that the tables cannot read matches nothing. A unit word must come back as that
+  unit; a word the tables do not know is a count's noun and must come back with no unit.
+  A sign is a minus sign or words ("5 °C bajo cero"). The English is read strictly: "."
+  is the decimal mark, "," only before three digits.
+- **Chemical formulas,** verbatim (C6H12O6 is not C6H6, H2O2 not H2O).
+- **An expression's operators and powers** ("8−3" is not "8+3", x² not x³).
+- **The ask:** each ask on either side is one the other makes, with the same kind of
+  quantity and the same qualifiers ("rapidez media", average speed, is not "final
+  speed"). An original whose ask the tables cannot read, or that names no kind ("how much
+  water"), is refused when the English asks for something.
 
-The unit, ask and sign words are data (`modules/model_reader/data/*.json`): the app's nine
-locales and the corpus's Arabic and Hindi. Adding a language is adding its words.
+Exercise and page numbers are labels, not values ("Exercice 2.15"). Unit, number, ask and
+sign words are data (`modules/model_reader/data/*.json`) in the app's nine locales and the
+corpus's Arabic and Hindi; Arabic's prefixes and pronoun suffixes are matched by rule.
 
-It does **not** make the English the same question. A translation may still drop a
-"not", an "each" or a "twice", or swap which value is which: none of those changes a
-number, a unit or the kind asked. The review's 31 probes show it: every number, unit,
-sign and ask case is now caught, and the five meaning-only cases pass the check. Those
-are what a **second translation** is for: another company's model
-(`ROUTING.reader_translation_check`) translates too, and a card is kept only when both
-Englishes pass and read to the same solve (the same operation and the same card).
+**Known holes.** A change of meaning that keeps every token passes: a dropped "not" ("no
+parte del reposo"), an "each" or a "twice" written as a word, two values whose roles are
+swapped, a reversed order in words ("restar 5 de 25" as "subtract 25 from 5"). Of the
+reviews' 78 probes, those five are the ones the check accepts. A **second translation**
+by another company's model (`ROUTING.reader_translation_check`) stays on to guard them: a
+card is kept only when both Englishes pass and read to the same solve (the same operation
+and the same card).
 
 The ask check reads the original with fixed tables rather than asking the translator to
 return the asked quantity: a field from the same call that drifted would agree with its
@@ -280,41 +283,41 @@ own English, so it could not catch the drift; the tables never see the model's o
 
 ### Results
 
-`reader_translate run --books <Amharic textbook sets>`, then `recheck` after the review
-fixes (with the pattern fixes of #2172; 5 languages, 595 questions, plus 46 textbook
-questions in Amharic). Cards / wrong:
+`reader_translate run --books <Amharic textbook sets>`, live, with the pattern fixes of
+#2172. Cards / wrong:
 
-| Rows | Patterns on the original | Numbers and units | + ask | + ask, strict | + second translation agrees |
+| Rows | Patterns on the original | Values and units | + ask | + ask, strict | + second translation agrees |
 |---|---|---|---|---|---|
-| Physics (200) | 6 / 1 | 174 / 1 | 174 / 1 | 173 / 0 | 160 / 0 |
-| Chemistry (200) | 8 / 0 | 170 / 1 | 169 / 1 | 164 / 0 | 158 / 0 |
-| Maths (195) | 38 / 1 | 164 / 0 | 161 / 0 | 161 / 0 | 150 / 0 |
-| Textbooks in Amharic (46) | 3 / 0 | 13 / 1* | 13 / 1* | 13 / 1* | 12 / 1* |
+| Physics (200) | 6 / 1 | 178 / 1 | 177 / 1 | 176 / 0 | 165 / 0 |
+| Chemistry (200) | 8 / 0 | 167 / 0 | 167 / 0 | 161 / 0 | 153 / 0 |
+| Maths (195) | 38 / 1 | 154 / 0 | 151 / 0 | 151 / 0 | 140 / 0 |
+| Textbooks in Amharic (46) | 3 / 0 | 13 / 1* | 13 / 1* | 13 / 1* | 13 / 1* |
+| **Held out (40)** | 4 / 0 | 40 / 0 | 40 / 0 | 40 / 0 | 39 / 0 |
 
 \* The 2 K against 2 °C judge artifact.
 
-- **The two wrong cards the ask check removes** are the meaning drifts found before:
-  Amharic "how far ahead" became "how long", and Arabic "how much water" (no kind named)
-  became moles. It costs 10 cards of 508.
-- **The second translation** costs 30 more cards (6%) and removes no wrong card here once
-  #2172 is in; before it, it caught one (two resistors "each 10 Ω": one model's English
-  hit the English pattern bug, the other's did not). Its value is the meaning changes the
-  check cannot see, which this corpus (built by one model, translated back by two) barely
-  contains.
-- **Time and cost:** `qwen-3.7-flash` p50 0.86 s, p95 1.34 s, $0.011 per 1,000 turns;
-  `gpt-6-luna` p50 1.11 s, p95 1.55 s, $0.039. The two run side by side.
-- **Caveat:** the ask tables were filled from this corpus's own refusals (a kind for molar
-  mass, a field's strength, "how many grams" asking a mass, ...). The reach under "ask" is
-  measured on the data that shaped the tables; the wrong cards are not. A held-out set of
-  questions written after this round is the next measurement.
+- **The 0-wrong figure on the 595 is on a model-made corpus:** one model translated
+  English questions into the five languages, and two others translated them back. It
+  must be re-measured on fresh questions. The **held-out row** is 40 questions a reviewer
+  wrote naturally after the tables were filled (`reader_corpus/heldout.json`, its own
+  test in `test_reader_translate.py`): all 40 kept and answered right with live
+  translations, 39 when the two models must agree.
+- **The ask check** removes the one remaining wrong card ("how far ahead" became "how
+  long") for 3 cards of 499.
+- **The second translation** costs 30 more cards (6%) and removed no wrong card here; it
+  is kept for the meaning changes the check cannot see.
+- **Time and cost:** `qwen-3.7-flash` p50 0.87 s, p95 1.29 s, $0.011 per 1,000 turns;
+  `gpt-6-luna` p50 1.05 s, p95 1.56 s, $0.039. The two run side by side.
+- **Caveat:** the word tables were filled from this corpus's refusals and two reviews'
+  probes; the reach under "ask" is measured on data that shaped them, the wrong cards
+  and the held-out row are not.
 
 ### Recommendation for other languages
 
-Translate, then the patterns, with the strict check: 498 of 595 corpus questions
-answered and no wrong card, where the patterns on the original answer 52. Run it in
-shadow on live non-English STEM turns with the second translation recorded beside it,
-and decide on the second translation from what live traffic shows: it costs 6% of reach
-and has caught one English pattern bug, no translation error, so far.
+Translate, then the patterns, with the strict check and the second translation: 458 of
+595 corpus questions and 39 of 40 held-out questions answered, no wrong card, where the
+patterns on the original answer 52 and 4. Run it in shadow on live non-English STEM turns
+(both translations recorded) and re-measure on a new held-out set before any user sees it.
 
 ## Not doing
 
