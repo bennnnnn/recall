@@ -24,7 +24,6 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Literal
 
 from redis.asyncio import Redis
 
@@ -32,6 +31,16 @@ from app.core.config import Settings
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
+from app.modules.chat.finalize_contracts import (
+    CARD_PASSES,
+    EFFECT,
+    EVERY_OTHER,
+    FENCE_READERS,
+    SERVER_MEDIA,
+    STOPPED_REPLY_PASSES,
+    TEXT,
+    PassKind,
+)
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
     add_settings_card,
@@ -131,14 +140,6 @@ class OnError:
 
 FALL_BACK = OnError()
 
-# "text": the pass returns the reply and changes nothing else. "effect": it also changes
-# the turn (commits the text, links a photo, writes the source chips or the usage).
-PassKind = Literal["text", "effect"]
-TEXT: PassKind = "text"
-EFFECT: PassKind = "effect"
-# In ``before``: ahead of every other pass.
-EVERY_OTHER = frozenset({"*"})
-
 
 @dataclass(frozen=True)
 class FinalizePass:
@@ -156,11 +157,9 @@ class FinalizePass:
     after: frozenset[str] = frozenset()
     before: frozenset[str] = frozenset()
 
-
-# The passes that land a subject's answer card under the reply's Answer heading.
-_CARD_PASSES = frozenset({"chemistry_fences", "physics_fences", "math_fences", "working_check"})
-# The passes that read the model's fences as it wrote them.
-_FENCE_READERS = (_CARD_PASSES - {"working_check"}) | {"formula_charts", "chemistry_enrich"}
+    def __post_init__(self) -> None:
+        if self.kind not in (None, TEXT, EFFECT):
+            raise ValueError(f"pass {self.name!r}: kind is TEXT or EFFECT, not {self.kind!r}")
 
 
 # A failed subject pass recovers its subject's fences (no model answer card
@@ -191,7 +190,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         FALL_BACK,
         closed=drop_check_lines,
         kind=TEXT,
-        before=_CARD_PASSES | {"server_answer_cards", "settings_card", "money_card"},
+        before=CARD_PASSES | {"server_answer_cards", "settings_card", "money_card"},
     ),
     # Before a subject lands its card under the reply's Answer heading.
     FinalizePass(
@@ -199,19 +198,25 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         lambda s: one_answer_label(s.text),
         FALL_BACK,
         kind=TEXT,
-        before=_CARD_PASSES,
+        before=CARD_PASSES,
     ),
     FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), FALL_BACK, kind=TEXT),
-    # A changed reply commits, so a later pass's failure keeps it.
+    # A changed reply commits; before the server's own pictures and chips are added.
     FinalizePass(
         "untrusted_media",
         neutralize_untrusted_media,
         FALL_BACK,
         closed=drop_media_lines,
         kind=EFFECT,
+        before=SERVER_MEDIA,
     ),
+    # After untrusted_media, whose image-made links are no source claims.
     FinalizePass(
-        "search_links", unlink_unretrieved_links, OnError(log_as="search_links"), kind=TEXT
+        "search_links",
+        unlink_unretrieved_links,
+        OnError(log_as="search_links"),
+        kind=TEXT,
+        after=frozenset({"untrusted_media"}),
     ),
     FinalizePass(
         "generic_closer", strip_generic_closer, OnError(log_as="generic_closer"), kind=TEXT
@@ -267,7 +272,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         "math_fences",
         check_math_fences,
         OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_math_fences),
-        kind=TEXT,
+        kind=EFFECT,  # the status callback: "checking", then "finishing"
     ),
     # After the maths pass: it strips a ```graph that no solver wrote.
     FinalizePass(
@@ -285,7 +290,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         "claim_check",
         cut_unsupported_claims,
         OnError(log_as="claim_check"),
-        kind=TEXT,
+        kind=EFFECT,  # a model call that adds to the turn's usage, and a status
         before=frozenset({"search_sources"}),
     ),
     FinalizePass("text_plots", strip_text_plots, FALL_BACK, kind=TEXT),
@@ -302,7 +307,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("search_sources", add_search_sources, FALL_BACK, kind=EFFECT),
     FinalizePass("instant_usage", record_instant_usage, FALL_BACK, kind=EFFECT),
     # Layout, after the passes that read the model's fences as it wrote them.
-    FinalizePass("close_fences", close_open_fences, FALL_BACK, kind=TEXT, after=_FENCE_READERS),
+    FinalizePass("close_fences", close_open_fences, FALL_BACK, kind=TEXT, after=FENCE_READERS),
     # After the closer: a card the model left open is read once it is closed.
     FinalizePass(
         "clarify_card",
@@ -315,50 +320,18 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         "requested_json", check_requested_json, OnError(log_as="requested_json"), kind=TEXT
     ),
     FinalizePass("recipient_placeholders", strip_recipient_placeholders, FALL_BACK, kind=TEXT),
-    # After the fence passes, so it never interferes with fence parsing.
+    # After all fence enrichment, so it never interferes with fence parsing.
     FinalizePass(
         "prose",
         normalize_prose,
         FALL_BACK,
         kind=TEXT,
-        after=_FENCE_READERS | {"close_fences"},
+        after=FENCE_READERS | SERVER_MEDIA | {"close_fences", "settings_card", "money_card"},
     ),
     FinalizePass("mermaid_and_places", sanitize_fences, FALL_BACK, kind=TEXT),
     FinalizePass("proper_case", restore_case, FALL_BACK, kind=TEXT),
     FinalizePass("presentation", present_markdown, FALL_BACK, kind=TEXT),
     FinalizePass("clock", fix_clock, FALL_BACK, kind=TEXT),
-)
-
-
-# After the user's Stop the reply is what they saw: only the passes that remove
-# or neutralize model text (forged checks, untrusted media, scaffolding) or lay it
-# out run. A pass that adds server text (a verified card, a note, source chips, a
-# 3D model, a clock) would grow a stopped answer, and a new pass is left out
-# until it is listed here.
-STOPPED_REPLY_PASSES = frozenset(
-    {
-        "control_tokens",
-        "drop_cut_reminder_fence",
-        "prepare_model_reply",
-        "answer_labels",
-        "untrusted_media",
-        "meta_notes",
-        "prompt_leaks",
-        "emoji_use",
-        "answer_photo",
-        "server_answer_cards",
-        "text_plots",
-        "solve_markers",
-        "instant_usage",
-        "close_fences",
-        "clarify_card",
-        "recipient_placeholders",
-        "prose",
-        "mermaid_and_places",
-        "proper_case",
-        "request_sections",
-        "presentation",
-    }
 )
 
 

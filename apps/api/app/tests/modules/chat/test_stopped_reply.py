@@ -18,11 +18,8 @@ import pytest
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import web_search as web_search_service
-from app.modules.chat.finalize_passes import (
-    FINALIZE_PASSES,
-    STOPPED_REPLY_PASSES,
-    enrich_final_content,
-)
+from app.modules.chat.finalize_contracts import STOPPED_REPLY_PASSES
+from app.modules.chat.finalize_passes import FINALIZE_PASSES, enrich_final_content
 from app.modules.chat.stream_accum import StreamAccum, utf16_prefix
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.ws_turn import client_shown_chars
