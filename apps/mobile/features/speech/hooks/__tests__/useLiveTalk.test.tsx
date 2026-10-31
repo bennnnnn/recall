@@ -43,7 +43,7 @@ function Probe() {
     token: "tok",
     chatId: "chat-1",
     ensureChatId: async () => "chat-1",
-    setMessages: jest.fn(),
+    editThread: jest.fn(),
     isOffline: false,
     onUpgrade,
     onScrollToLatest: jest.fn(),

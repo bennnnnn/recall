@@ -2,16 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from "react-i18next";
 
 import type { Message } from "@/lib/api";
-import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
 import { useChatTransport } from "@/features/chat/hooks/useChatTransport";
 import { useChatTurnActions } from "@/features/chat/hooks/useChatTurnActions";
 import { useDroppedTurnReconcile } from "@/features/chat/hooks/useDroppedTurnReconcile";
 import { useStreamingDraftPublisher } from "@/features/chat/hooks/useStreamingDraftPublisher";
+import { useThreadEdits } from "@/features/chat/hooks/useThreadEdits";
 import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { headRejectedSend, initialChatTurnState, type ChatTurnEvent } from "@/features/chat/model/chatTurnCore";
-import { withoutDeletedAttachment } from "@/features/chat/model/deletedAttachment";
 import { runChatTurnCommands, type ChatTurnEffects } from "@/features/chat/model/chatTurnEffects";
+import { createTurnEffectsSlot } from "@/features/chat/model/turnEffectsSlot";
 import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
 import { popLastAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import type { RejectedSend } from "@/features/chat/model/sendLogic";
@@ -32,7 +32,8 @@ type UseChatOptions = {
 /**
  * The chat on screen and its turn. The turn is the state machine in chatTurnState.ts;
  * this hook holds it, runs the commands each step returns and mirrors what the screen
- * shows into React state (code-health audit CLAR-04).
+ * shows into React state (code-health audit CLAR-04). It is the thread's one owner: every
+ * other writer changes the list through `editThread`, a step of the same machine.
  */
 export function useChat(token: string | null, chatId: string | null, options: UseChatOptions = {}) {
   const { t } = useTranslation();
@@ -50,7 +51,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
   // A -> B -> A is a new view: callbacks for the first A stay detached.
   const viewIdentity = useMemo(() => ({ chatId, authenticated, sessionGeneration }), [chatId, authenticated, sessionGeneration]);
   const view = useRef({ mounted: true, identity: viewIdentity });
-  const effects = useRef<ChatTurnEffects | null>(null);
+  const [effects] = useState(() => createTurnEffectsSlot<ChatTurnEffects>(runChatTurnCommands));
   const isCurrentView = useCallback(
     () => view.current.mounted && view.current.identity === viewIdentity && getSessionGeneration() === viewIdentity.sessionGeneration,
     [viewIdentity],
@@ -61,7 +62,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     const previous = turn.current;
     const next = reduceChatTurn(previous, event, Date.now());
     turn.current = next.state;
-    if (effects.current) runChatTurnCommands(next.commands, effects.current);
+    effects.run(next.commands);
     const shown = turn.current;
     if (shown.phase !== previous.phase) {
       setStreaming(shown.phase !== "idle");
@@ -71,7 +72,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     const head = headRejectedSend(shown);
     if (head !== headRejectedSend(previous)) setRejectedSend(head);
     if (shown.draft !== previous.draft) publishDraft(shown.draft);
-  }, [publishDraft]);
+  }, [effects, publishDraft]);
 
   const transport = useChatTransport({
     chatId,
@@ -114,7 +115,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     view.current.identity = viewIdentity;
   }, [messages, viewIdentity]);
   useLayoutEffect(() => {
-    effects.current = {
+    effects.attach({
       t,
       setMessages,
       popForRegenerate,
@@ -128,10 +129,10 @@ export function useChat(token: string | null, chatId: string | null, options: Us
       cancelSocket: transport.cancelSocket,
       followDroppedTurn: (follow, polls, pollMs) =>
         followDroppedTurn((result) => step({ type: "dropped_turn", follow, result }), polls, pollMs),
-    };
+    });
   }, [
     t, popForRegenerate, cue, options.onError, options.onFirstReply, options.onTodosSync, options.onUsage,
-    transport.dropSocket, transport.abortSse, transport.cancelSocket, followDroppedTurn, step,
+    transport.dropSocket, transport.abortSse, transport.cancelSocket, followDroppedTurn, step, effects,
   ]);
 
   useEffect(() => {
@@ -146,17 +147,13 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     step({ type: "view_changed", chatId, session: sessionGeneration });
   }, [viewIdentity, chatId, sessionGeneration, detach, step]);
 
-  // A photo or file deleted from Library leaves the open chat as it left the server's copy.
-  useEffect(() => onAppEvent("attachmentDeleted", ({ attachmentId, chatId: holder }) => {
-    if (holder !== chatId || !isCurrentView()) return;
-    setMessages((previous) => withoutDeletedAttachment(previous, attachmentId));
-  }), [chatId, isCurrentView]);
+  const editThread = useThreadEdits({ chatId, isCurrentView, step });
 
-  const onUnreachable = useCallback(() => effects.current?.onError?.(t("chat.error_unreachable")), [t]);
+  const onUnreachable = useCallback(() => effects.current?.onError?.(t("chat.error_unreachable")), [effects, t]);
   const actions = useChatTurnActions({
     token, chatId, isCurrentView, turn, step, messagesRef, transport: { connect, sendViaSse, regenerateViaSse, currentSocket }, onUnreachable,
   });
   const sendStart = useTurnStart({ canStart: Boolean(token && chatId), isCurrentView, turn, step, streaming, finalizing });
 
-  return { messages, setMessages, streaming, finalizing, sendingMessageId, rejectedSend, ...actions, sendStart, connect };
+  return { messages, editThread, streaming, finalizing, sendingMessageId, rejectedSend, ...actions, sendStart, connect };
 }

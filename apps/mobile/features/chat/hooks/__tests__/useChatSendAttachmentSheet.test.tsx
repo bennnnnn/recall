@@ -85,7 +85,7 @@ function Probe({ streaming = false, token = "token" }: { streaming?: boolean; to
     streaming,
     sendMessage: jest.fn(async () => true),
     sendStart: { beginDots: () => null, whenReplySettled: async () => undefined },
-    setMessages: jest.fn(),
+    editThread: jest.fn(),
     messages: [],
     selectedModel: "free-chat",
     updateUser: jest.fn(),

@@ -33,7 +33,7 @@ async function failedRow(
   const { result } = await renderHook(() => useChatImageGeneration({
     token: "tok",
     ensureChatId: async () => "chat",
-    setMessages: (update) => { updates.push(update); },
+    editThread: (update) => { updates.push(update); },
     streaming: false,
     isPaid,
     isOffline: false,

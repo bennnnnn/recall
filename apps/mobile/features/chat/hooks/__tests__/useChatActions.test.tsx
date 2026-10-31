@@ -66,7 +66,7 @@ function Probe() {
     archived: false,
     setArchived: jest.fn(),
     setChatTitle,
-    setMessages: jest.fn(),
+    editThread: jest.fn(),
     t: (key) => key,
   });
   useLayoutEffect(() => { actions = result; });
@@ -236,7 +236,7 @@ describe("useChatActions email draft", () => {
       const result = useChatActions({
         token: "tok", chatId: "chat-1", chatTitle: "Draft", messages: [original],
         pinned: false, setPinned: jest.fn(), archived: false, setArchived: jest.fn(),
-        setChatTitle: jest.fn(), setMessages: (update) => { updaters.push(update); },
+        setChatTitle: jest.fn(), editThread: (update) => { updaters.push(update); },
         t: (key) => key,
       });
       useLayoutEffect(() => { actions = result; });
@@ -292,7 +292,7 @@ describe("useChatActions email draft", () => {
         archived: false,
         setArchived: jest.fn(),
         setChatTitle: jest.fn(),
-        setMessages,
+        editThread: setMessages,
             t: (key) => key,
       });
       useLayoutEffect(() => { actions = result; });

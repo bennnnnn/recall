@@ -30,6 +30,7 @@ import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
 import { queryNeedsClientGeo } from "@/lib/resolveClientGeoForQuery";
 import { useViewOwner } from "@/lib/viewOwner";
+import type { EditThread } from "@/features/chat/model/threadEdit";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   subscribeComposerAttachmentQueue,
@@ -76,7 +77,7 @@ type Options = {
   sendMessage: SendMessageFn;
   /** Typing dots that go up with the bubble, before the turn is sent. */
   sendStart: SendTurnStart;
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  editThread: EditThread;
   /** Current transcript — a short follow-up after a picture is worth asking the server about. */
   messages: Message[];
   selectedModel: string;
@@ -108,7 +109,7 @@ export function useChatSend({
   streaming,
   sendMessage,
   sendStart,
-  setMessages,
+  editThread,
   messages,
   selectedModel,
   updateUser,
@@ -212,7 +213,7 @@ export function useChatSend({
     return subscribeComposerAttachmentQueue(applyQueued);
   }, [composerThread, signedIn, session, replacePendingAttachment]);
   const restoreFailedSend = useRestoreFailedSend({
-    token, setMessages, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
+    token, editThread, newMessageCountRef, pendingAttachmentRef, setPendingAttachment,
     stashAttachmentForThread, setPendingOutboundId, sendInFlightRef, setSendPhase, t,
   });
   useEffect(() => {
@@ -298,19 +299,14 @@ export function useChatSend({
     // From the tap, not the paint: anything that ever delays the bubble counts.
     markChatTtftStart(optimisticId, tappedAt, Boolean(attached));
     setPendingOutboundId(optimisticId);
-    setMessages((prev) => [
-      ...prev,
-      buildOptimisticUserMessage({
-        text,
-        attached,
-        optimisticId,
-        createdAt,
-      }),
-    ]);
+    editThread(
+      (prev) => [...prev, buildOptimisticUserMessage({ text, attached, optimisticId, createdAt })],
+      "optimistic_send",
+    );
     newMessageCountRef.current += 1;
     requestAnimationFrame(() => markChatBubblePainted(optimisticId));
     return { optimisticId, dots: sendStart.beginDots() };
-  }, [setInput, setPendingAttachment, setMessages, newMessageCountRef, sendStart]);
+  }, [setInput, setPendingAttachment, editThread, newMessageCountRef, sendStart]);
 
   /** A send to a chat that does not exist yet: it waits for the new chat's id. */
   const sendToNewChat = useCallback(

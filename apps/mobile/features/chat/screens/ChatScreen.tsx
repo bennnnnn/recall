@@ -78,7 +78,7 @@ function ChatScreen() {
 
   const {
     messages,
-    setMessages,
+    editThread,
     streaming,
     finalizing,
     sendingMessageId,
@@ -128,7 +128,7 @@ function ChatScreen() {
     draft,
     chatId,
     setChatId,
-    setMessages,
+    editThread,
     messages,
     streaming: llmBusy,
     imageGeneratingRef,
@@ -154,7 +154,7 @@ function ChatScreen() {
     archived,
     setArchived,
     setChatTitle,
-    setMessages,
+    editThread,
     t,
   });
 
@@ -200,7 +200,7 @@ function ChatScreen() {
   const imageGen = useChatImageGeneration({
     token,
     ensureChatId,
-    setMessages,
+    editThread,
     streaming: llmBusy,
     isPaid,
     isOffline,
@@ -232,7 +232,7 @@ function ChatScreen() {
     streaming: (streaming && !finalizing) || imageGen.generating,
     sendMessage,
     sendStart,
-    setMessages,
+    editThread,
     messages,
     selectedModel,
     updateUser,
@@ -285,7 +285,7 @@ function ChatScreen() {
     token,
     chatId,
     ensureChatId: ensureLiveTalkChatId,
-    setMessages,
+    editThread,
     isOffline,
     onUpgrade: () => openUpgradeRef.current?.("live_talk"),
     onScrollToLatest: scroll.scrollToLatest,
