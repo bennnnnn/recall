@@ -98,7 +98,7 @@ families below were found by reading the code. Two of them are verified bugs tod
     `chemistry.solvers.types.format_number` and `math.formulas.round_significant_figures` agree
     on ties.
 - **Risk:** low to medium. A physics answer that lands exactly on a tie changes in its last
-  figure; the STEM sweep floors will show it.
+  figure; the STEM sweep snapshot will show it.
 - **Size:** M.
 
 ### ES-02 — Photo lookup steals "show me the html / regex / recipe"

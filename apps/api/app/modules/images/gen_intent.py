@@ -23,7 +23,6 @@ from app.modules.images.gen_intent_words import (
     CODEISH_WORDS,
     DIAGRAM_WORDS,
     GENERATE_NOW_EXACT,
-    IMAGE_NOUNS,
     MAKE_IDIOM_FILLER,
     MAKE_NOT_A_PICTURE,
     NON_IMAGE_DRAW_WORDS,
@@ -36,6 +35,7 @@ from app.modules.images.gen_intent_words import (
     VERBS_DRAW,
     VERBS_IMAGE,
 )
+from app.modules.images.gen_intent_words import IMAGE_NOUNS as IMAGE_NOUNS  # chat reads it here
 from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 from app.services.text_normalize import fold_token
 

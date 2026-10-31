@@ -166,8 +166,7 @@ motion, uniform circular motion, and travelling and standing waves.
 ### IS-08 Sweep and tests
 - `tests/behavior/stem_sweep.py`: validate `controls`, `motion` and `readouts` on every scene
   (the IS-01 checks again, from the outside).
-- Add a coverage floor for "interactive pictures" that only goes up, like the existing picture
-  floor.
+- Hold "interactive pictures" entry by entry in `stem_snapshot.json`, like drawn pictures.
 - Phone tests:
   - the evaluator parity fixture;
   - slider interaction (change, release, reset);
@@ -186,7 +185,7 @@ family takes about 1–3 days. **Done for a family when:**
 - it has a builder, controls and readouts;
 - its objects have artwork;
 - its sweep entries pass;
-- the coverage floor is raised.
+- the STEM snapshot records them.
 
 | Family | Scene and sliders | Option |
 |---|---|---|
