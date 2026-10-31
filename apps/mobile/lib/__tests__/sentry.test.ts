@@ -62,6 +62,26 @@ describe("mobile Sentry scrubbing (O10.1)", () => {
   it("drops console breadcrumbs before they are recorded", () => {
     expect(scrubBreadcrumb({ category: "console", message: "hello" })).toBeNull();
   });
+
+  it("tags a refused call's report with its id, and nothing that is no id", () => {
+    const tagged = scrubSentryEvent({ tags: { area: "x" } } as unknown as ErrorEvent, {
+      originalException: { requestId: "m1abc-0123456789abcdef" },
+    });
+    expect(tagged?.tags).toEqual({ area: "x", request_id: "m1abc-0123456789abcdef" });
+    const untagged = scrubSentryEvent({} as unknown as ErrorEvent, {
+      originalException: { requestId: "my private question" },
+    });
+    expect(untagged?.tags).toBeUndefined();
+    expect(scrubSentryEvent({} as unknown as ErrorEvent, { originalException: null })?.tags).toBeUndefined();
+  });
+
+  it("keeps a failed call's id on its crumb", () => {
+    const crumb = scrubBreadcrumb({
+      category: "api",
+      data: { method: "GET", url: "/search", status_code: 500, request_id: "abc-1", body: "q" },
+    });
+    expect(crumb?.data).toEqual({ method: "GET", url: "/search", status_code: 500, request_id: "abc-1" });
+  });
 });
 
 describe("error-boundary capture", () => {

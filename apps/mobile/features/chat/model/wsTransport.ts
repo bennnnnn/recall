@@ -14,6 +14,7 @@ import {
 import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { UNAVAILABLE_CODE } from "@/lib/api/errorBody";
 import { getSessionGeneration } from "@/lib/auth";
+import { newRequestId, withRequestId } from "@/lib/api/requestId";
 
 const WS_TURN_EVENT_TYPES = new Set([
   "start",
@@ -181,8 +182,9 @@ export class ChatWsTransport {
     }
     if (this.connectPromise) return this.connectPromise;
 
+    // Each connection names itself, so the API's lines for this socket can be found.
     const socket = (this.options.createSocket ?? ((url) => new WebSocket(url)))(
-      this.options.url,
+      withRequestId(this.options.url, newRequestId()),
     );
     this.socket = socket;
     this.answersPing = false;
