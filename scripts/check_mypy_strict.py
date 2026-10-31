@@ -69,9 +69,11 @@ def strict_errors(packages: list[str]) -> dict[str, list[str]]:
         "--no-error-summary",
         *(arg for package in packages for arg in ("-p", package)),
     ]
-    run = subprocess.run(command, cwd=API, capture_output=True, text=True, check=False)
+    # The command is this file's own constants and the virtualenv's python: no input reaches it.
+    run = subprocess.run(command, cwd=API, capture_output=True, text=True, check=False)  # noqa: S603
     if run.returncode not in (0, 1):
-        raise SystemExit(f"mypy did not finish (exit {run.returncode}):\n{run.stderr or run.stdout}")
+        output = run.stderr or run.stdout
+        raise SystemExit(f"mypy did not finish (exit {run.returncode}):\n{output}")
     found: dict[str, list[str]] = {}
     for line in run.stdout.splitlines():
         match = _ERROR.match(line)
