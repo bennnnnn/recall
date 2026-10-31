@@ -5,7 +5,9 @@ it changed. Its ``on_error`` says what an exception in it does:
 
 - ``FALL_BACK`` (most passes): the passes stop and the reply is the last
   committed text, the text as of the last side effect (a linked photo, source
-  chips), or the raw reply made safe when nothing was committed (ES-03).
+  chips), or the raw reply made safe when nothing was committed (ES-03). Either
+  way the safety passes that text has not been through then run on it, each
+  failing closed (``FinalizePass.closed``).
 - ``OnError(log_as=step)``: the failure is logged as ``step`` (a timeout as a
   warning, any other failure captured) and the next pass gets the failed pass's
   input.
@@ -42,6 +44,7 @@ from app.modules.chat.finalize_subjects import (
     check_physics_fences,
     check_working,
     draw_formula_charts,
+    drop_check_lines,
     enrich_chemistry_fences,
     fallback_text,
     mark_server_cards,
@@ -69,7 +72,7 @@ from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.lesson_again import keep_to_lesson_again_pass
 from app.modules.chat.meta_notes import unwrap_meta_notes
-from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass
+from app.modules.chat.prompt_leaks import drop_prompt_label_lines, drop_prompt_leaks_pass
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
@@ -77,7 +80,7 @@ from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.chat.untrusted_media import neutralize_untrusted_media
+from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
 from app.modules.chat.worked_lead import drop_guessed_lead
 
 logger = logging.getLogger(__name__)
@@ -131,6 +134,10 @@ class FinalizePass:
     name: str
     run: Callable[[FinalizeState], str | Awaitable[str]]
     on_error: OnError
+    # Set on a safety pass, one that removes what no saved reply may keep (a forged
+    # check, a URL that loads by itself, the prompt's own words). A fallback text runs
+    # it too, and when it fails there this strip stands in, never the text it cleans.
+    closed: Callable[[str], str] | None = None
 
 
 # A failed subject pass recovers its subject's fences (no model answer card
@@ -140,15 +147,20 @@ _SUBJECT_FENCES_STEP = "validate_math_fences"
 FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     # Before the fence repair below can close it for the reminder pass.
     FinalizePass("drop_cut_reminder_fence", lambda s: drop_cut_reminder_fence(s.text), FALL_BACK),
-    FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK),
+    FinalizePass("prepare_model_reply", prepare_model_reply, FALL_BACK, closed=drop_check_lines),
     # Before a subject lands its card under the reply's Answer heading.
     FinalizePass("answer_labels", lambda s: one_answer_label(s.text), FALL_BACK),
     FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), FALL_BACK),
-    FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK),
+    FinalizePass("untrusted_media", neutralize_untrusted_media, FALL_BACK, closed=drop_media_lines),
     FinalizePass("search_links", unlink_unretrieved_links, OnError(log_as="search_links")),
     FinalizePass("generic_closer", strip_generic_closer, OnError(log_as="generic_closer")),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), OnError(log_as="meta_notes")),
-    FinalizePass("prompt_leaks", drop_prompt_leaks_pass, OnError(log_as="prompt_leaks")),
+    FinalizePass(
+        "prompt_leaks",
+        drop_prompt_leaks_pass,
+        OnError(log_as="prompt_leaks"),
+        closed=drop_prompt_label_lines,
+    ),
     FinalizePass(
         "turn_meta",
         lambda s: without_turn_meta(
@@ -261,19 +273,48 @@ async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
 async def run_finalize_passes(state: FinalizeState) -> bool:
     """Every pass in order (a stopped reply's own list). False when one failed and
     the text fell back."""
+    # How many passes the committed text has been through: its fallback runs the
+    # safety passes from there on.
+    passed = 0
     try:
-        for finalize_pass in FINALIZE_PASSES:
+        for index, finalize_pass in enumerate(FINALIZE_PASSES):
             if state.user_stopped and finalize_pass.name not in STOPPED_REPLY_PASSES:
                 continue
-            state.text = await _run_pass(finalize_pass, state)
+            committed = state.committed
+            try:
+                state.text = await _run_pass(finalize_pass, state)
+            finally:
+                if state.committed is not committed:
+                    passed = index + 1
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting the last committed text")
         if state.committed is None:
             state.committed = fallback_text(state.raw, server_text=state.server_text)
             state.ctx.answer_photo_ids = []
+        state.committed = await _made_safe(state, state.committed, FINALIZE_PASSES[passed:])
         state.text = state.committed
         return False
     return True
+
+
+async def _made_safe(state: FinalizeState, text: str, passes: tuple[FinalizePass, ...]) -> str:
+    """``text`` through each safety pass in ``passes``; one that fails there gives way
+    to its closed strip, and a strip that fails too leaves nothing."""
+    for finalize_pass in passes:
+        if finalize_pass.closed is None:
+            continue
+        state.text = text
+        try:
+            cleaned = finalize_pass.run(state)
+            text = cleaned if isinstance(cleaned, str) else await cleaned
+        except Exception:
+            logger.exception("%s failed on the fallback text; stripping closed", finalize_pass.name)
+            try:
+                text = finalize_pass.closed(text)
+            except Exception:
+                logger.exception("%s closed strip failed; saving no text", finalize_pass.name)
+                return ""
+    return text
 
 
 async def enrich_final_content(

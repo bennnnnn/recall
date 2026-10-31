@@ -69,6 +69,27 @@ def neutralize_untrusted_media(state: FinalizeState) -> str:
     return text
 
 
+def drop_media_lines(text: str) -> str:
+    """What stands in when neutralizing fails: every line that could load a picture or
+    a chip goes, in code too, and so does any ``sources`` fence. A Recall attachment
+    marker alone on its line stays."""
+    kept: list[str] = []
+    in_sources = False
+    for line in text.split("\n"):
+        marker = line.strip()
+        if in_sources:
+            in_sources = not marker.startswith(("```", "~~~"))
+            continue
+        if marker.lower().startswith(("```sources", "~~~sources")):
+            in_sources = True
+            continue
+        lower = line.lower()
+        loads = "![" in line or "<img" in lower or _IMAGE_MARKER_HEAD.lower() in lower
+        if not loads or _ATTACHMENT_MARKER.fullmatch(marker):
+            kept.append(line)
+    return "\n".join(kept)
+
+
 def neutralize_media(text: str, *, searched: bool) -> str:
     """See the module docstring. ``searched``: the server's chips replace any sources fence."""
     if not searched and has_closed_fence(text, "sources"):

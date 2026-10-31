@@ -93,6 +93,16 @@ def drop_prompt_leaks_pass(state: FinalizeState) -> str:
     return drop_prompt_leaks(state.text, *_recent_user_lines(state), rules=_rule_grams())
 
 
+def drop_prompt_label_lines(text: str) -> str:
+    """What stands in when the pass fails: every line naming a part of the prompt goes."""
+    return "\n".join(
+        line
+        for line in text.split("\n")
+        if not _PROMPT_LABEL.search(line)
+        and not (_PROMPT_PART.search(line) and _ABOUT_THIS_USER.search(line))
+    )
+
+
 @cache
 def _rule_grams() -> frozenset[str]:
     return frozenset(_grams(prompt_rule_text(), 4))

@@ -51,8 +51,12 @@ def fallback_text(raw: str, *, server_text: bool) -> str:
         return strip_forged_verified_markers(raw)
     except Exception:
         logger.exception("answer-card fallback failed; dropping marker lines")
-        lines = raw.split("\n")
-        return "\n".join(line for line in lines if "verified" not in line.lower())
+        return drop_check_lines(raw)
+
+
+def drop_check_lines(text: str) -> str:
+    """Every line that could claim a check: what stands in when reading the cards fails."""
+    return "\n".join(line for line in text.split("\n") if "verified" not in line.lower())
 
 
 def prepare_model_reply(state: FinalizeState) -> str:
