@@ -30,7 +30,7 @@ counted, not required.
 
 A problem is ``critical`` (a wrong number, a misread turn, a broken picture, LaTeX shown as source)
 or ``coverage`` (a question declined or not recognised, a picture missing). The test fails on
-the first kind; the second is held by floors that only go up.
+the first kind; the second is held entry by entry in ``stem_snapshot.json``.
 
     uv run python -m app.tests.behavior.stem_sweep physics --show
 

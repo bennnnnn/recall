@@ -95,7 +95,7 @@ Correct maths, physics and chemistry is a release requirement.
 - Check units, dimensions, sign conventions, domain restrictions and edge cases. Compare
   floats with a tolerance (the STEM sweep allows 1 %, any unit of the same kind).
 - Every confirmed correctness bug gets a regression test: a unit test, a STEM corpus entry or
-  a behavior sweep entry. STEM sweep coverage floors only go up.
+  a behavior sweep entry. STEM sweep coverage is held entry by entry (`stem_snapshot.json`).
 - Use property-based tests (`hypothesis`) for invariants over wide input ranges.
 - Validate model-written formulas and structured output before showing them as correct. If a
   check fails, say so; never show a plausible guess as a verified result.
