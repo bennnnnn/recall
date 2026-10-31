@@ -331,7 +331,8 @@ declined, and look-alikes. `test_stem_sweep.py` routes each through the real cha
 on a wrong verified number (1%, any unit of the same kind; a result rounded to the inputs'
 significant figures matches within half its last place, and a pH within 0.02), a missing
 formula or balanced equation, or a misread turn. A gas law, Q = mcΔT or a half-life read as
-physics is no misread: those laws are physics'. It holds the answered floor (215 of 223).
+physics is no misread: those laws are physics'. It holds every answered entry by name
+(`stem_snapshot.json`, 215 of 223).
 No `gap` line is open: the last seven misroutes (particles to a mass, a compound-first percent,
 q = nΔH from a mass, a boiling point from moles, labelled partial pressures, a plating time and
 grams of solute for a mass percent) are chemistry's now, and so are reactions told in words and

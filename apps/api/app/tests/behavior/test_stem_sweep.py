@@ -71,17 +71,36 @@ async def test_stem_coverage_matches_its_snapshot(
 ) -> None:
     covered = _covered(await run(load(subject), SUBJECT_NAMES[subject]))
     recorded = json.loads(SNAPSHOT.read_text())
-    if os.environ.get("UPDATE_STEM_SNAPSHOT"):
+    if os.environ.get("UPDATE_STEM_SNAPSHOT") == "1":
         recorded[subject] = covered
         SNAPSHOT.write_text(json.dumps(recorded, indent=1, sort_keys=True) + "\n")
         return
-    for kind, ids in covered.items():
-        was, now = set(recorded[subject][kind]), set(ids)
-        assert not was - now, f"{subject} questions no longer {kind}: {sorted(was - now)}"
-        assert not now - was, (
-            f"{subject} questions newly {kind}: {sorted(now - was)}; "
-            "record them with UPDATE_STEM_SNAPSHOT=1"
-        )
+    held = recorded.get(subject, {})
+    flips = [
+        line
+        for kind, ids in covered.items()
+        for line in _flips(subject, kind, set(held.get(kind, [])), set(ids))
+    ]
+    assert not flips, "\n".join(
+        [
+            *flips,
+            f"See one: uv run python -m app.tests.behavior.stem_sweep {subject} --show --only <id>",
+            "A change meant to answer more: UPDATE_STEM_SNAPSHOT=1, then commit stem_snapshot.json",
+        ]
+    )
+
+
+def _flips(subject: str, kind: str, was: set[str], now: set[str]) -> list[str]:
+    def named(ids: set[str]) -> str:
+        shown = sorted(ids)
+        return ", ".join(shown[:20]) + (f" and {len(shown) - 20} more" if len(shown) > 20 else "")
+
+    lines = []
+    if was - now:
+        lines.append(f"{subject}: {len(was - now)} no longer {kind}: {named(was - now)}")
+    if now - was:
+        lines.append(f"{subject}: {len(now - was)} newly {kind}: {named(now - was)}")
+    return lines
 
 
 @pytest.mark.parametrize("subject", SUBJECTS)
