@@ -387,6 +387,10 @@ def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:
         ("Convert 760 mmHg to kPa.", True),
         ("How many kWh does a 2 kW heater use in 3 hours?", True),
         ("What is the energy in keV of a photon of wavelength 0.1 nm?", True),
+        # Review of #2200: longer prefixes on a nucleic acid, and inches of mercury.
+        ("What does circRNA do in a cell?", True),
+        ("How is rtPCR used to detect a virus?", True),
+        ("Convert 30 inHg to kPa.", True),
     ],
 )
 def test_a_name_in_code_is_code_and_a_science_term_is_science(query: str, note: bool) -> None:

@@ -83,10 +83,13 @@ CURRENT = re.compile(
     re.IGNORECASE,
 )
 # A science term written lower case then capitals, which is no code: one letter before the
-# capitals (pH, pKa, mRNA, hCG, cAMP, kWh, dB, eV), a nucleic acid (siRNA, mtDNA), mmHg, keV.
+# capitals (pH, pKa, mRNA, hCG, cAMP, kWh, dB, eV), a nucleic acid (siRNA, circRNA, mtDNA,
+# hnRNP), rtPCR, mmHg, inHg, keV.
 # More lower case before them is a name in code: toJSON, innerHTML, userID and parseURL were
 # read as science, and a developer's question got a textbook note (2026-11-01).
-_SCIENCE_TERM = r"[a-z][A-Z]+[a-z]?\d*|[a-z]{2,3}(?:RNA|DNA)s?|(?:mm|cm)Hg|cmH2O|[kmµ]eV"
+_SCIENCE_TERM = (
+    r"[a-z][A-Z]+[a-z]?\d*|[a-z]{2,4}(?:RNA|DNA|RNP)s?|rtPCR|(?:mm|cm|in)Hg|cmH2O|[kmµ]eV"
+)
 # Code, an error, a system or a programming word: a developer's question, whatever its shape.
 # A chemical formula (NaHCO3, CuSO4) and a unit (kHz) are camel-cased words too, and no code.
 # A name runs on in lower case after its capital: getUser, iPhone, jQuery, eBay.
