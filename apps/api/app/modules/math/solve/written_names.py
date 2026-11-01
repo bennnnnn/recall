@@ -26,9 +26,12 @@ from typing import Any
 
 import sympy
 
-from app.modules.math.function_names import MATH_FUNCTION_NAMES, names_longest_first
+from app.modules.math.function_names import (
+    GREEK_NAMES,
+    MATH_FUNCTION_NAMES,
+    names_longest_first,
+)
 from app.modules.math.match.letter_runs import MATH_MULTI_LETTER
-from app.modules.math.solve.discrete import GREEK_NAMES
 from app.services.solving import SolveServiceError
 
 # Longest first, so ``sinh`` is not read as ``sin`` + ``h``.

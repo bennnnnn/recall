@@ -17,6 +17,12 @@ _DIRECT = TRIG + HYPERBOLIC
 INVERSE = tuple(f"a{name}" for name in _DIRECT) + tuple(f"arc{name}" for name in _DIRECT)
 
 MATH_FUNCTION_NAMES = frozenset((*_DIRECT, *INVERSE, "log", "ln", "lg", "exp", "sqrt", "abs"))
+# Greek letters spelled out, which the parser reads as one name each (``theta``, not t·h·e·t·a).
+GREEK_NAMES = (
+    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
+    "kappa", "lambda", "mu", "nu", "xi", "rho", "sigma", "tau", "upsilon", "phi",
+    "chi", "psi", "omega",
+)  # fmt: skip
 
 
 def names_longest_first(names: frozenset[str] | tuple[str, ...]) -> tuple[str, ...]:
