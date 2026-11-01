@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from app.modules.images.answer_photo import AnswerPhoto
     from app.modules.images.reply_picture import ReplyPicture
-    from app.modules.money.service import MoneyTurn
+    from app.services.subjects.registry import MoneyTurn
 
 
 @dataclass
