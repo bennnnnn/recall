@@ -1,7 +1,8 @@
 """Turn reading — what a message says, read from its words alone.
 
 The pure readers chat's prompt used to keep beside its copy (structure ticket ST-04): a
-confirmation, a light turn, a locale cue, code, a chart, a lesson step, a school exercise.
+confirmation, a light turn, a locale cue, code, a chart, a lesson step, a school exercise,
+whether the subject readers can read a question (``readable``: English, numbers as written).
 ``turn`` holds the turn's reading, built once from them (ST-05), and ``plan`` its requests.
 Nothing here reaches a database, a cache, the network or a model, and nothing here is
 prompt text; chat's ``prompt_constants`` keeps the copy these readers choose between.
@@ -29,6 +30,7 @@ _MODULE_EXPORTS = (
     "profile_ask",
     "question_kinds",
     "reactions",
+    "readable",
     "routing",
     "school_question",
     "stuck",

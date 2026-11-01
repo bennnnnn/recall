@@ -92,7 +92,8 @@ _FRAGMENT_RE = re.compile(
 _RELATION_RE = re.compile(r"[=<>≤≥≠]|\\(?:leq|geq|le|ge|lt|gt|neq|ne)(?![a-z])", re.IGNORECASE)
 
 
-def _is_fragment(text: str) -> bool:
+def is_fragment(text: str) -> bool:
+    """A lone number or letter (``5``, ``x``, ``for x``): part of the open problem, not one."""
     cleaned = " ".join(text.strip().strip("$").split())
     return bool(_FRAGMENT_RE.fullmatch(cleaned))
 
@@ -106,14 +107,14 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
     neither. Earlier fragments on the same equation are walked past; any
     other message ends it.
     """
-    if not prior_user_messages or not _is_fragment(text):
+    if not prior_user_messages or not is_fragment(text):
         return None
     from app.modules.turn_reading.routing import is_lightweight_chat_turn
 
     if is_lightweight_chat_turn(" ".join(text.split())):
         return None
     for prior in reversed(prior_user_messages):
-        if not prior or not prior.strip() or _is_fragment(prior):
+        if not prior or not prior.strip() or is_fragment(prior):
             continue
         if _RELATION_RE.search(prior) and needs_symbolic_math(prior):
             return prior
