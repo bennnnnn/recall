@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.money.numbers import money_text, percent_text
+from app.modules.money.phrases import percent_value
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
 
@@ -58,7 +59,8 @@ _OTHER_SCENARIO = re.compile(
     r"|rent|budget|savings?)\b",
     re.IGNORECASE,
 )
-_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s?(?:\\?%|percent\b)", re.IGNORECASE)
+# Read whole, as the asker's rate is: "3,5%" is 3.5, never a 5% scenario of its own.
+_PERCENT = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s?(?:\\?%|percent\b)", re.IGNORECASE)
 _TERM = re.compile(r"\b(\d{1,3})[\s-]?(years?|yrs?|months?)\b", re.IGNORECASE)
 _MONEY = re.compile(
     r"(?<![\d.,])[$€£¥₹₦]\s?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)(?:\s?([km])\b)?", re.I
@@ -160,8 +162,10 @@ def _other_scenario(
     if _OTHER_SCENARIO.search(sentence):
         return True
     rate = worked.values[rate_name(worked.product)]
-    if any(abs(float(found) - rate) > 1e-6 for found in _PERCENT.findall(sentence)):
-        return True
+    for found in _PERCENT.findall(sentence):
+        said = percent_value(found)
+        if said is None or abs(said - rate) > 1e-6:
+            return True
     term_name = "years" if "years" in worked.values else "months"
     for count, unit in _TERM.findall(sentence):
         months = float(count) * (12 if unit.lower().startswith(("y", "yr")) else 1)

@@ -162,3 +162,22 @@ async def test_the_line_follows_a_comparing_reply() -> None:
     finished = await finish_money_reply(_turn(), reply, Settings())
 
     assert finished.startswith(reply + "\n\n" + _LINE + "\n\n")
+
+
+@pytest.mark.parametrize(
+    ("reply", "corrected"),
+    [
+        # "3,5%" in the reply is the asker's 3.5%, not a 5% loan of its own (PR review).
+        ("At 3,5% over 25 years, the monthly payment is €950.00.", True),
+        ("At 3,5% over 25 years, the monthly payment is €901.12.", False),
+        ("At 4,5% over 25 years, the monthly payment would be €1,000.50.", False),
+    ],
+)
+def test_a_decimal_comma_rate_in_the_reply_is_the_cards(reply: str, corrected: bool) -> None:
+    request = read_money_request(
+        "Sara takes out a mortgage of €180.000 at 3,5% for 25 years. What is her monthly payment?"
+    )
+    assert request is not None
+    worked = work(request, None)
+    assert worked is not None
+    assert (card_figures(reply, request, worked) is not None) is corrected
