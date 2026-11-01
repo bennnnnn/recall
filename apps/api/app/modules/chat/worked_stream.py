@@ -53,6 +53,8 @@ class WorkedFilter:
         self._raw_chars = 0
         # The open block as last laid out, by how many records it had.
         self._shown: tuple[int, str] = (0, "")
+        # A block closed at the length cap: its own closer line is dropped when it comes.
+        self._cut_off: FenceMarker | None = None
         self.blocks = 0
 
     @property
@@ -69,6 +71,8 @@ class WorkedFilter:
             line, self._line = self._line.split("\n", 1)
             self._take(line)
         if self._fence is not None and self._raw_chars > MAX_BLOCK_CHARS:
+            # Its own closer, when it comes, would open a code block that swallows the rest.
+            self._cut_off = self._fence
             self._close()
 
     def close(self) -> None:
@@ -85,6 +89,10 @@ class WorkedFilter:
     def _take(self, line: str, *, last: bool = False) -> None:
         end = "" if last else "\n"
         marker = read_fence_marker(line)
+        if self._fence is None and self._cut_off is not None and marker is not None:
+            if marker.closes(self._cut_off):
+                self._cut_off = None
+                return
         if self._fence is None:
             if marker is None or marker.lang != _LANG or marker.info.strip().lower() != _LANG:
                 self._done += line + end
@@ -168,8 +176,10 @@ class ReplyFilter:
             delta, self._sent = text[len(self._sent) :], text
             return delta
         # What was sent is no longer the reply's start: the reply is the text, and done
-        # carries it to the phone.
-        self._accum.shown[self._start :] = [text]
+        # carries it to the phone. The list keeps its length, so a round's index into it
+        # (a retract) still points where it did.
+        replaced = len(self._accum.shown) - self._start
+        self._accum.shown[self._start :] = [text, *([""] * max(0, replaced - 1))]
         self._accum.rewritten = True
         self._sent = text
         return ""

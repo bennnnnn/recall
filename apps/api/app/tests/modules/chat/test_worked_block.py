@@ -316,3 +316,50 @@ def test_a_symbol_in_words_is_text(symbol: str, words: bool) -> None:
     from app.modules.chat.worked_render import names_nothing
 
     assert names_nothing(symbol) is words
+
+
+def test_moves_then_a_substitution_stay_in_the_order_written() -> None:
+    block = "```worked\nstep: 2x + 3 = 11 | given\nstep: 2x = 8 | subtract 3\nsubstitution: x = 8 / 2\nanswer: x | 4\n```"
+    sent, _seen, accum = _stream(block, 4, OTHER)
+    assert not accum.rewritten
+    assert sent.strip().startswith(
+        "**Steps**  \n$2x + 3 = 11$ — given  \n$2x = 8$ — subtract 3  \n$x = 8 / 2$"
+    )
+    assert "**Substitution**" not in sent
+
+
+def test_a_formula_before_the_first_part_label_is_that_parts() -> None:
+    block = _solution(
+        "given: d | 100 | m\nformula: Speed | v = d/t\npart: a | speed\nsubstitution: v = 100/5\n"
+        "answer: v | 20 | m/s\npart: b | time\nsubstitution: t = 100/20\nanswer: t | 5 | s"
+    )
+    laid_out = render_worked(block, OTHER)
+    assert laid_out.count("**(a)") == 1 and laid_out.count("---") == 1
+    assert "**(a) speed**\n\n**Formula**  \n$v = d/t$ — Speed" in laid_out
+
+
+def test_a_rewrite_keeps_the_list_length_and_a_stop_after_it_keeps_the_reply_whole() -> None:
+    accum = StreamAccum()
+    accum.shown.append("Before.\n\n")
+    reply_filter = ReplyFilter(accum, PHYSICS)
+    late = DISPLACEMENT.removesuffix("```") + "given: m | 5 | kg | mass\n```"
+    for start in range(0, len(late), 3):
+        if sent := reply_filter.feed(late[start : start + 3]):
+            accum.shown.append(sent)
+    if tail := reply_filter.flush():
+        accum.shown.append(tail)
+    assert accum.rewritten and accum.shown[0] == "Before.\n\n"
+    accum.mark_user_stop()
+    # The client's count is of the text it drew before the rewrite: never cut by it.
+    assert accum.reply_text(client_shown_chars=20).endswith("$2400\\,\\mathrm{m}\\ \\text{east}$")
+
+
+def test_the_closer_of_a_block_cut_at_the_cap_is_dropped() -> None:
+    from app.modules.chat.worked_stream import MAX_BLOCK_CHARS
+
+    filler = "".join(f"substitution: x = {n}\n" for n in range(MAX_BLOCK_CHARS // 15))
+    worked = WorkedFilter(OTHER)
+    worked.feed(f"```worked\ngiven: x | 1\n{filler}```\n\nAfter the block.")
+    worked.close()
+    assert "```" not in worked.text
+    assert worked.text.rstrip().endswith("After the block.")

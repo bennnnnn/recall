@@ -81,7 +81,10 @@ class StreamAccum:
         the one the phone drew. After the user's Stop it is cut to the length the
         client says it drew; tokens still in flight then were never seen."""
         shown = "".join(self.shown)
-        if self.completion == "user_stop" and client_shown_chars is not None:
+        # After a rewrite the client's count is of other text: the reply is kept whole,
+        # and ``done`` carries it (``rewritten``).
+        stopped = self.completion == "user_stop" and not self.rewritten
+        if stopped and client_shown_chars is not None:
             # The client counted the retracted answer it drew before this one.
             drawn = client_shown_chars - len(self.retracted.encode(_UTF16)) // 2
             shown = utf16_prefix(shown, max(0, drawn))

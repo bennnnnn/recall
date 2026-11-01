@@ -237,7 +237,10 @@ def assemble(records: list[RecordModel]) -> WorkedSolution:
         elif isinstance(record, Required):
             required.append(record)
         elif isinstance(record, PartLabel):
-            fresh = (labelled or drafts[-1].started) and len(drafts) < MAX_PARTS
+            # The first label names a part begun and not yet answered ("formula: …" then
+            # "part: a"); a part already answered is finished.
+            begun = labelled or bool(drafts[-1].answers)
+            fresh = begun and len(drafts) < MAX_PARTS
             letter = _letter(record.letter, len(drafts) - (0 if fresh else 1))
             if labelled and letter == drafts[-1].letter:
                 # The same part named again (before its substitution): still that part.

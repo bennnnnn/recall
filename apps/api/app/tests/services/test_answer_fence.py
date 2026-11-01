@@ -171,10 +171,22 @@ _CARD = "```answer\nverified: true\nx = 3\n```"
 @pytest.mark.parametrize(
     ("reply", "expected"),
     [
-        ("Divide.\n\n**Answer:** $x = 3$", "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
-        ("Divide.\n\n**Answer**:  $x = 3$  ", "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
-        ("Divide.\n\nAnswer: x = 3", "Divide.\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```"),
-        ("Divide.\n\n## Answer\n\n$x = 3$", "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
+        (
+            "Divide.\n\n**Answer:** $x = 3$",
+            "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
+        ),
+        (
+            "Divide.\n\n**Answer**:  $x = 3$  ",
+            "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
+        ),
+        (
+            "Divide.\n\nAnswer: x = 3",
+            "Divide.\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```",
+        ),
+        (
+            "Divide.\n\n## Answer\n\n$x = 3$",
+            "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
+        ),
         ("**Answer**  \n- **$x = 3$**", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
         ("**Answer**\n> $x = 3$\\", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
     ],

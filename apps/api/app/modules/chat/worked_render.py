@@ -157,8 +157,8 @@ def _working(part: Part, note: str | None) -> tuple[list[str], list[str], list[s
     """The formula's rows, the substitution's and the steps', in the order written.
 
     A rearrangement or a move before any substitution belongs to the formula when there
-    is one (``Solve for $t$`` under the law); with no formula it is a step. Lines after
-    the first substitution carry it on.
+    is one (``Solve for $t$`` under the law); with no formula it is a step, and so is
+    every line after it. Lines after the first substitution carry it on.
     """
     formula: list[str] = []
     if part.formula is not None:
@@ -166,7 +166,9 @@ def _working(part: Part, note: str | None) -> tuple[list[str], list[str], list[s
     substitution: list[str] = []
     steps: list[str] = []
     for step in part.working:
-        if step.kind == "substitution":
+        # With no formula, moves come first and the lines after them carry them on: one
+        # Steps section, never a Substitution above the moves it follows.
+        if step.kind == "substitution" and not (steps and part.formula is None):
             substitution.append(_line(step.tex))
             continue
         target = substitution if substitution else formula if part.formula else steps
