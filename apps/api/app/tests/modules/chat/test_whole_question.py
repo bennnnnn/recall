@@ -343,6 +343,24 @@ _CRANE = (
         ("What is the resistance? a) 3 Ω b) 6 Ω c) 12 Ω d) 24 Ω", "R = 6 Ω", True),
         ("What is the resistance? a) 3 Ω b) 6 Ω c) 12 Ω d) 24 Ω", "R = 7 Ω", False),
         ("Which gas do plants give off? a) oxygen b) nitrogen c) carbon dioxide", "oxygen", True),
+        # Review of #2191: one value is one answer, however its digits are grouped, and a
+        # value with notes under it is no answer to each option.
+        ("The energy is: a) 1 J b) 2 J c) 3 J", "E = 1,000,000 J", False),
+        ("The energy is: a) 1 J b) 2 J c) 3 J", "E = 2 J", True),
+        ("The energy is: a) 1 J b) 2 J c) 3 J", "E = 5 J; P = 7 W; t = 9 s", False),
+        (
+            "The work done is: a) 2 kJ b) 12.5 kJ c) 25 kJ",
+            "W = 12,500 J, approx., to 3 s.f.",
+            False,
+        ),
+        (
+            "Which gas is it? a) oxygen b) nitrogen c) helium",
+            "Gas = argon\nunit: none\nverified",
+            False,
+        ),
+        ("Which gas is it? a) oxygen b) nitrogen c) helium", "Gas = oxygen\nverified", True),
+        (_CLIFF, "t = 4,040 ms", False),
+        (_CRANE, "W = 98,100 J; P = 9,810 W; ΔE = 98,100 J", True),
     ],
 )
 def test_parts_answered_in_full_stay_and_options_stay_options(

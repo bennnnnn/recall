@@ -180,8 +180,9 @@ def _restates(question: str, answer: str) -> bool:
 _EXPRESSION = re.compile(r"[0-9a-z]\s*[+\-*]\s*[0-9a-z]")
 
 
-# Between the pieces of an answer: a comma (not LaTeX's thin space "\,"), ";", "\quad", a line.
-_ANSWER_PIECES = re.compile(r"(?<!\\),|;|\\quad|\n")
+# Between the pieces of an answer: a comma (not LaTeX's thin space "\,", nor one grouping a
+# number's thousands, "E = 1,000,000 J"), ";", "\quad", a line.
+_ANSWER_PIECES = re.compile(r"(?<![\\\d]),|(?<=\d),(?!\d{3}(?!\d))|;|\\quad|\n")
 
 
 def _squashed(text: str) -> str:
@@ -202,12 +203,18 @@ def answers_whole_question(question: str, answer: str) -> bool:
     pieces = [piece for piece in _ANSWER_PIECES.split(answer) if piece.strip()]
     if not choices:
         return labelled_parts(question) <= max(len(pieces), 1)
-    # A piece for every label answers every part, whatever the labels hold: short ones
-    # ("Find: a) the time of flight b) the range c) the final speed") read like options,
-    # and a solver that answered all three lost its card (2026-11-01).
-    if len(pieces) >= len(choices):
+    if _are_options(choices):
+        # Short labels are options to pick ("a) 1 J b) 2 J c) 3 J") unless they ask for
+        # things and the answer states a value for each: "Find: a) the time of flight b) the
+        # range c) the final speed" answered "4.04 s; 80.8 m; 44.4 m/s" lost its card
+        # (2026-11-01). A note or a unit line under one value is no second answer.
+        stated = [piece for piece in pieces if _RELATION.search(piece) or _NUMBER.search(piece)]
+        holds_values = any(_leading_value(choice) is not None for choice in choices)
+        if holds_values or len(stated) < len(choices):
+            return any(_same_choice(answer, choice) for choice in choices)
         return True
-    return _are_options(choices) and any(_same_choice(answer, choice) for choice in choices)
+    # Parts: one piece of the answer for each ("v = 20 m/s; s = 100 m").
+    return len(pieces) >= len(choices)
 
 
 def _are_options(choices: list[str]) -> bool:
