@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.turn_reading.turn import names_a_subject
+from app.modules.turn_reading.turn import is_homework
 
 # Weather is always live; "under the weather" or a poem about it is no forecast.
 _WEATHER = re.compile(
@@ -107,8 +107,8 @@ def around_the_user(text: str) -> bool:
 
 
 def is_worked_problem(text: str) -> bool:
-    """A problem that states its own measurements, coordinates or function, or one the turn's
-    reading gives a subject (physics, maths, chemistry), solved or not.
+    """A problem that states its own measurements, coordinates or function, or homework by the
+    turn's reading (``turn_reading.turn.is_homework``).
 
     Every reader of the user's place defers to it (places, distances and travel times, local
     weather) unless the line searches around the user (``around_the_user``): homework never
@@ -120,5 +120,5 @@ def is_worked_problem(text: str) -> bool:
         len(_MEASURED.findall(text)) >= 2
         or _COORDINATES.search(text) is not None
         or _FUNCTION.search(text) is not None
-        or names_a_subject(text)
+        or is_homework(text)
     )

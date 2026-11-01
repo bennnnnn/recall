@@ -42,6 +42,9 @@ if TYPE_CHECKING:
         is_short_letter_answer,
         names_its_place,
     )
+    from app.modules.web_search.homework import (
+        asks_about_a_place,
+    )
     from app.modules.web_search.query_builders import (
         build_search_queries,
     )
@@ -71,6 +74,7 @@ _EXPORTS = {
     "TurnTavilyBudget": "search_cache",
     "WEB_SEARCH_HINT": "formatting",
     "WebSearchAdapter": "tool",
+    "asks_about_a_place": "homework",
     "asks_only_whether_it_searches": "detection",
     "asks_whether_it_searches": "capability_ask",
     "build_search_queries": "query_builders",
@@ -107,6 +111,7 @@ __all__ = [
     "SearchSource",
     "TurnTavilyBudget",
     "WebSearchAdapter",
+    "asks_about_a_place",
     "asks_only_whether_it_searches",
     "asks_whether_it_searches",
     "build_search_queries",

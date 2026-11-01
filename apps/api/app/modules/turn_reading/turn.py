@@ -10,6 +10,7 @@ mode, ``chat.turn_prep.mode``: it reads the window, not only the message.)
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -40,6 +41,10 @@ class TurnReading:
     has_image_attachment: bool = False
     subject: str | None = None
     subject_reason: str = "not_read"
+    # The message's requests (``request_units``) that ask about a place or the weather on
+    # their own words, each with the subject the pool read in it (None: none, or not read).
+    # One a subject does not claim keeps its reader beside the homework (``is_homework``).
+    place_requests: tuple[tuple[str, str | None], ...] = ()
 
     @property
     def teaching(self) -> bool:
@@ -72,16 +77,33 @@ def current_turn_reading() -> TurnReading | None:
     return kept if isinstance(kept, TurnReading) else None
 
 
-def names_a_subject(text: str) -> bool:
-    """Whether the turn's reading gives ``text`` a subject (physics, maths, chemistry).
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
 
-    Homework is that subject's question before it is one about the user's place, solved or
-    not (``web_search.weather.is_worked_problem``). Only the turn's own message is known
-    (spacing aside: callers collapse it); any other text, or no turn, is False. Nothing is
-    read here: the subject order runs in the pool.
+
+def request_units(text: str, plan: TurnPlan) -> tuple[str, ...]:
+    """The message's requests as one reader judges each: the plan's parts when it splits the
+    message, else its sentences ("Will it rain tomorrow? And what's 15% of 80?")."""
+    if plan.multi:
+        return plan.texts()
+    return tuple(part for part in _SENTENCE_BREAK.split(" ".join(text.split())) if part)
+
+
+def is_homework(text: str) -> bool:
+    """Whether ``text`` is the turn's message and homework throughout: the turn's reading
+    gives it a subject (physics, maths, chemistry), solved or not, and every request in it that
+    asks about a place or the weather on its own words has a subject too.
+
+    Homework is its subject's question before it is one about the user's place
+    (``web_search.weather.is_worked_problem``): "A ball is dropped from a height of 20 m. How
+    long does it take to reach the ground?" asks about the ball. "What's the weather like
+    today? Also solve 2x + 3 = 7" still asks the forecast. Spacing aside (callers collapse
+    it), only the turn's own message is known; any other text, or no turn, is False. Nothing
+    is read here: the subject order runs in the pool.
     """
     kept = current_turn_reading()
-    return kept is not None and kept.subject is not None and _same_line(kept.text, text)
+    if kept is None or kept.subject is None or not _same_line(kept.text, text):
+        return False
+    return all(subject is not None for _, subject in kept.place_requests)
 
 
 def _same_line(left: str, right: str) -> bool:
