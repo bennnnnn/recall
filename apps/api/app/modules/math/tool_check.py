@@ -74,6 +74,12 @@ _MATH_TOKEN = re.compile(r"[\d.]+|[-+*/^()=<>]|<=|>=")
 _COMPARATORS = ("<=", ">=", "<", ">")
 _APOSTROPHES = frozenset({"'", "\u2019"})
 _INFINITY_WORDS = ("infinity", "∞", "oo", "inf")
+# A minus that signs a number, not one that subtracts it ("x-1"): after a space, a bracket,
+# an operator or the start.
+_SIGNED = re.compile(r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(\d+(?:\.\d+)?)")
+_SIGNED_INFINITY = re.compile(
+    r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|infinity|oo|inf)(?![a-z])"
+)
 _ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d^3", "'''")}
 
 
@@ -82,6 +88,16 @@ def _normalize(text: str) -> str:
     for raw, plain in _UNICODE.items():
         out = out.replace(raw, plain)
     return out.replace("$", " ").replace("\\cdot", "*").replace("\\times", "*")
+
+
+def _latex_as_typed(text: str) -> str:
+    """LaTeX the keypad or a photo's reading writes, in the plain spelling runs read."""
+    from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
+    from app.modules.math.tools.keyboard_notation import keyboard_math_to_plain
+
+    plain = keyboard_math_to_plain(text[:_MAX_TEXT])
+    # Twice: a fraction holding a braced power (\frac{x^{2}-1}{x-1}) opens on the second.
+    return normalize_latex_to_sympy(normalize_latex_to_sympy(plain))
 
 
 def _math_runs(text: str) -> list[str]:
@@ -165,6 +181,9 @@ class _UserMath:
         self.equations: list[Any] = []
         self.inequalities: list[tuple[Any, str]] = []
         runs = _math_runs(text)
+        if "\\" in text:
+            # The keypad and a photo's reading type LaTeX: \frac{1}{x}, \int_{1}^{2}, x^{2}.
+            runs += [run for run in _math_runs(_latex_as_typed(text)) if run not in runs]
         pairs = self._extracted_pairs(text)
         for run in runs[:_MAX_CANDIDATES]:
             relations = _split_relation(run)
@@ -186,7 +205,13 @@ class _UserMath:
             if lhs is not None and rhs is not None:
                 self.equations.append(lhs - rhs)
                 self.expressions.extend([lhs, rhs])
-        self.numbers = {float(match) for match in re.findall(r"\d+(?:\.\d+)?", _normalize(text))}
+        normalized = _normalize(text)
+        self.numbers = {float(match) for match in re.findall(r"\d+(?:\.\d+)?", normalized)}
+        # A number with its sign as written: "-1" or "minus 1" is no 1, and "1" no -1.
+        signed = [(bool(m.group(1)), float(m.group(2))) for m in _SIGNED.finditer(normalized)]
+        self.negatives = {value for minus, value in signed if minus}
+        self.positives = {value for minus, value in signed if not minus}
+        self.infinities = {bool(m.group(1)) for m in _SIGNED_INFINITY.finditer(self.lower)}
 
     @staticmethod
     def _extracted_pairs(text: str) -> list[tuple[str, str]]:
@@ -255,11 +280,14 @@ def _same_inequality(difference: Any, comparator: str, user: _UserMath) -> bool:
 
 
 def _number_written(value: Any, user: _UserMath) -> bool:
+    """``value`` is written in the user's text with its sign: a bound read as -1 from
+    "between 1 and 2" certified 3 for 7/3, and -∞ for "0 and infinity" a sum that diverges."""
     text = str(value).strip().lower()
     if not text:
         return True
+    negative = text.startswith("-")
     if text.lstrip("+-") in {"oo", "inf", "infinity"}:
-        return any(word in user.lower for word in _INFINITY_WORDS)
+        return any(sign == negative for sign in user.infinities)
     if text in {"pi", "e"}:
         return text in user.lower or "π" in user.text
     try:
@@ -267,7 +295,9 @@ def _number_written(value: Any, user: _UserMath) -> bool:
     except ValueError:
         parsed = _parse(text)
         return parsed is not None and _same_expression(parsed, user.expressions)
-    return abs(number) in user.numbers or number == 0
+    if number == 0:
+        return True
+    return abs(number) in (user.negatives if number < 0 else user.positives)
 
 
 def _expression_arg(args: dict[str, Any], key: str, user: _UserMath) -> bool:
@@ -325,6 +355,10 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
 
 
 _CALCULUS_ACTIONS = {"differentiate": "diff"}
+# The kinds whose maths this check compares with what the user wrote.
+READ_KINDS = frozenset(
+    {"equation", "system", "inequality", "calculus", "limit", "graph", "complex"}
+)
 
 
 def intent_in_user_text(intent: Any, text: str) -> bool:

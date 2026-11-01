@@ -229,6 +229,8 @@ def read_math_request(
                 audit_sources.append(image_math_extract.alternate_source_text)
             if any(not _intent_preserves_request(source, intent) for source in audit_sources):
                 intent = None
+            elif not _image_intent_on_the_page(intent, image_math_extract):
+                intent = None
     else:
         intent = extract_math_intent(user_content)
     if intent is not None:
@@ -407,6 +409,19 @@ async def _llm_extract_preserving(user_content: str, settings: Settings) -> Math
     return intent
 
 
+def _image_intent_on_the_page(intent: MathIntent, extract: MathImageExtract) -> bool:
+    """A photo's equations are certified only when they are on the page as read: the vision
+    model's own setup of a photographed word problem is its reading, as a typed one's is
+    (``_model_intent_is_users``). Kinds the page states as numbers (a shape's sides, a data
+    list) are audited as before."""
+    from app.modules.math.tool_check import READ_KINDS, intent_in_user_text
+
+    if intent.kind not in READ_KINDS:
+        return True
+    sources = (extract.source_text, extract.alternate_source_text)
+    return any(text and intent_in_user_text(intent, text) for text in sources)
+
+
 def _model_intent_is_users(user_content: str, intent: MathIntent) -> bool:
     """A model's reading may be solved and certified only when it is the user's own maths:
     the whole request, and an equation or expression the user wrote (``tool_check``)."""
@@ -429,6 +444,10 @@ async def _unchecked_word_problem(setup: WordProblemSetup, settings: Settings) -
         )
     except TimeoutError:
         note_solve_timeout("word_problem")
+        note = None
+    except Exception:
+        # BrokenProcessPool and its kin: the turn keeps the honesty note, never fails.
+        logger.warning("word problem setup note failed", exc_info=True)
         note = None
     unverified = _unverified_math_note("word_problem")
     return f"{note}\n\n{unverified}" if note else unverified

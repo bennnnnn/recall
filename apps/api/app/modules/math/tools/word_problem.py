@@ -135,9 +135,9 @@ _STATED_RATE = re.compile(
 # process continues without end, find the total tax" was summed over three rounds, 3920 Birr
 # for 5000 (2026-11-01).
 _ENDLESS = re.compile(
-    r"\b(?:without\s+(?:an?\s+)?end|for\s*ever|endless(?:ly)?|indefinitely|ad\s+infinitum"
-    r"|never\s+(?:ends|stops)|on\s+and\s+on|infinite(?:ly)?\s+(?:series|sequence|process"
-    r"|number\s+of\s+(?:times|rounds|steps)))\b",
+    r"\b(?:(?:continues?|goes\s+on|repeats?|keeps?\s+going)\s+(?:on\s+)?(?:without\s+(?:an?\s+)?"
+    r"end|for\s*ever|endlessly|indefinitely)|ad\s+infinitum|never\s+(?:ends|stops)"
+    r"|infinite(?:ly)?\s+(?:series|sequence|process|number\s+of\s+(?:times|rounds|steps)))\b",
     re.IGNORECASE,
 )
 _DIGITS = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?|\.\d+")
