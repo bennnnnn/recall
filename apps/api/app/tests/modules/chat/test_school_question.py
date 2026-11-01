@@ -389,6 +389,8 @@ def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:
         ("What is the energy in keV of a photon of wavelength 0.1 nm?", True),
         # Review of #2200: longer prefixes on a nucleic acid, and inches of mercury.
         ("What does circRNA do in a cell?", True),
+        ("What does microRNA do in a cell?", True),
+        ("How does tracrRNA guide Cas9?", True),
         ("How is rtPCR used to detect a virus?", True),
         ("Convert 30 inHg to kPa.", True),
     ],
