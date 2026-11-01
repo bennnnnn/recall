@@ -32,7 +32,7 @@ jobs:
   review:
     if: ${{ github.event.label.name == 'review' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: read
@@ -56,28 +56,34 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             Review pull request ${{ github.repository }}#${{ github.event.pull_request.number }} once.
-            Read it with `gh pr view` and `gh pr diff`, and read the CLAUDE.md files in the
-            directories above the changed files. Then read the code the change touches with
-            Read, Grep and Glob: the functions it calls, its callers, and their tests.
+
+            Work through these steps; do not decide before step 4.
+            1. Read the PR with `gh pr view` and `gh pr diff`, and the CLAUDE.md files in the
+               directories above the changed files.
+            2. For EVERY function or rule the diff adds or changes: Read it in full with Read
+               (not just the diff hunk), then Grep for at least one caller and Read it, and
+               Read the test file that covers it.
+            3. For each of those functions, write down three inputs that stress it (edge
+               values, empty or unusual text, punctuation, large/negative/huge numbers, units
+               and prefixes, a second call or a cancelled task, the wrong order of two events)
+               and work out from the code what each returns. Compare with what it should do.
+            4. Only then decide.
 
             Report a problem only when you can name a concrete input or sequence that makes
-            the changed code give a wrong result, raise, hang, leak or lose data:
-            - a wrong result or an exception for some input (edge values, large or negative
-              numbers, empty or unusual text, punctuation, units, overflow)
-            - a caller, a code path or a test that the change breaks or silently stops covering
-            - a race, an ordering problem, or a task, lock or connection left behind
-            - a security hole
-            - a clear CLAUDE.md violation (quote the rule and link it)
-            Each comment says the triggering input or sequence, what happens, what should
-            happen, and the fix. Do not flag style, naming, wording, missing tests on their
-            own, problems that were there before this pull request, or anything lint, mypy
-            or CI already catches. If you cannot name an input that triggers it, leave it out.
+            the changed code give a wrong result, raise, hang, leak or lose data, or a caller
+            or test it breaks or silently stops covering, a security hole, or a clear CLAUDE.md
+            violation (quote the rule). Post each one once with
+            mcp__github_inline_comment__create_inline_comment (confirmed: true): the triggering
+            input or sequence, what happens, what should happen, and the fix. Do not flag
+            style, naming, wording, missing tests on their own, problems that were there before
+            this pull request, or anything lint, mypy or CI already catches.
 
-            Post each problem once with mcp__github_inline_comment__create_inline_comment
-            (confirmed: true): what is wrong and how to fix it. If there are none, post one
-            comment with `gh pr comment`: "Claude review: no issues found."
+            Finish with one `gh pr comment` that lists every function you checked and, for
+            each, the inputs you tried and what they gave, then either "Claude review: N
+            issues posted." or "Claude review: no issues found." A review that did not read
+            and try every changed function is not a review.
           claude_args: >-
-            --model sonnet --max-turns 50
+            --model sonnet --max-turns 80
             --allowedTools "Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
 
       # The action skips itself, and the job still passes, when this file on the pull request's
