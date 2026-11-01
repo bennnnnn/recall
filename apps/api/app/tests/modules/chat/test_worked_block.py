@@ -363,3 +363,32 @@ def test_the_closer_of_a_block_cut_at_the_cap_is_dropped() -> None:
     worked.close()
     assert "```" not in worked.text
     assert worked.text.rstrip().endswith("After the block.")
+
+
+@pytest.mark.parametrize(
+    "tex",
+    ["x_{final} = x_{initial} + v_{avg} t", "v_{avg} = \\frac{distance}{time}"],
+)
+def test_a_line_with_latex_is_maths_however_many_words_it_holds(tex: str) -> None:
+    block = _solution(f"substitution: {tex}\nstep: {tex} | carried on\nanswer: x | 1")
+    laid_out = render_worked(block, OTHER)
+    assert laid_out.count(f"${tex}$") == 2
+
+
+# Words in a maths field, a sentence as a step, and a symbol in words, as a model wrote them.
+SLOPPY = (
+    "```worked\ngiven: d_AB | 300 | m | distance\nrequired: a) in cm, b) in km\n"
+    "formula: Displacement | \\Delta x = x_final - x_initial\n"
+    "step: Let A be the origin and the direction from A to B positive | set up\n"
+    "substitution: v_{avg} = \\frac{distance}{time}\nanswer: \\Delta x | 100 | m | east\n```"
+)
+
+
+@pytest.mark.parametrize("block", [DISPLACEMENT, POLES, SLOPPY])
+def test_no_laid_out_block_shows_latex_source(block: str) -> None:
+    from app.tests.behavior.latex_check import latex_problems
+
+    worked = WorkedFilter(OTHER)
+    worked.feed(block)
+    worked.close()
+    assert latex_problems(worked.text) == []

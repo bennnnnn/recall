@@ -37,10 +37,9 @@ _NOT_TEX = re.compile(r"[{}\\$%&#_^~]")
 _LONG_SUBSCRIPT = re.compile(r"_(?![{\\])([A-Za-z0-9]{2,})")
 _NUMBERED = re.compile(r"^([A-Za-z])(\d+)$")
 _UPRIGHT = re.compile(r"\\(?:mathrm|text)|\\[,;! ]")
-_COMMAND = re.compile(r"\\(?:text|mathrm|operatorname)\s*\{[^{}]*\}|\\[A-Za-z]+")
-_WORD = re.compile(r"[A-Za-z]{3,}")
-_LETTERS = re.compile(r"[A-Za-z]{2,}")
-_PROSE_WORDS = 3
+# LaTeX syntax or a relation: a field holding any of them is maths.
+_MATH_SYNTAX = re.compile(r"[\\{}^_=<>≤≥≈≠]")
+_WORDS = re.compile(r"[^\W\d_]{2,}")
 _NOT_ALNUM = re.compile(r"[^A-Za-z0-9.]")
 _TEXT_WRAP = re.compile(r"^\\(?:text|mathrm)\s*\{(?P<unit>[^{}]*)\}$")
 _UNIT_SYMBOLS = {
@@ -94,16 +93,16 @@ def tidy_symbol(symbol: str) -> str:
     return tidy_tex(_NUMBERED.sub(r"\1_\2", symbol.strip()))
 
 
-def is_prose(tex: str) -> bool:
-    """A sentence the model put in a maths field ("Let A be the origin"): three words
-    outside any LaTeX command, which maths would set as italic letters."""
-    return len(_WORD.findall(_COMMAND.sub(" ", tex))) >= _PROSE_WORDS
+def is_prose(field: str) -> bool:
+    """Words the model put in a maths field ("Let A be the origin"), told by structure:
+    no LaTeX syntax and no relation, and a word of two letters or more. Anything with a
+    backslash, brace, script or relation is maths, so no LaTeX source is ever shown."""
+    return _MATH_SYNTAX.search(field) is None and _WORDS.search(field) is not None
 
 
 def names_nothing(symbol: str) -> bool:
-    """A "symbol" written in words ("length in cm", "a) in cm"), outside LaTeX."""
-    words = _LETTERS.findall(_COMMAND.sub(" ", symbol))
-    return " " in symbol.strip() and (len(words) >= 2 or bool(_WORD.findall(" ".join(words))))
+    """A "symbol" written in words ("length in cm", "a) in cm")."""
+    return " " in symbol.strip() and is_prose(symbol)
 
 
 def _line(tex: str, note: str | None = None) -> str:
