@@ -30,7 +30,7 @@ from app.modules.math.tools.block.integrals import (
     _log_over_x_reply,
 )
 from app.services.solving import VerifiedMathBlock
-from app.services.workout import Workout, math_line, render_workout, text_line
+from app.services.workout import REQUIRED, Workout, math_line, render_workout, text_line
 
 _FUNCTION_ANALYSIS_OPS = {
     "function_domain",
@@ -187,7 +187,7 @@ def _integrate(
         return block
     # An antiderivative the trace found (checked by differentiating back) may
     # differ from SymPy's by a constant; the lesson ends on its own spelling.
-    return replace(block, given_label="Find", display_answer=checked_answer)
+    return replace(block, given_label=REQUIRED, display_answer=checked_answer)
 
 
 _CALCULUS_OPERATIONS: dict[str, _Operation] = {

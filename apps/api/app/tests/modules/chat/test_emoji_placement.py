@@ -201,6 +201,15 @@ def test_a_worked_solution_has_no_emoji_at_any_setting(level: str) -> None:
     )
 
 
+@pytest.mark.parametrize("heading", ["Required", "Find"])
+def test_what_is_asked_is_a_section_under_either_name(heading: str) -> None:
+    # Given alone is one section; with what is asked (Find: an older Required) it is worked.
+    reply = f"🚶 **Given**\n$d = 15$\n\n🎯 **{heading}**\nAverage speed $v$."
+    out = place_emoji(reply, "more", user_wrote_emoji=True)
+    assert out == f"**Given**\n$d = 15$\n\n**{heading}**\nAverage speed $v$."
+    assert not EMOJI.search(out)
+
+
 def test_one_answer_heading_alone_is_not_a_worked_solution() -> None:
     reply = "### 🧠 Memory\nSleep helps it.\n\n✅ **Answer**\nSleep more."
     assert place_emoji(reply, "more", user_wrote_emoji=False) == reply

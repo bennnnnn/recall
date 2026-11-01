@@ -60,15 +60,17 @@ def _rectangle_side(
             [area_line, given("Width", "w", width, unit)],
             "Length ($l$)",
             "Rectangle area formula",
-            [r"A = l \times w", r"l = \frac{A}{w}"],
+            [r"A = l \times w"],
             [rf"l = \frac{{{area}}}{{{display(width)}}} = {result}"],
+            solved=r"l = \frac{A}{w}",
         )
     return section(
         [area_line, given("Length", "l", length, unit)],
         "Width ($w$)",
         "Rectangle area formula",
-        [r"A = l \times w", r"w = \frac{A}{l}"],
+        [r"A = l \times w"],
         [rf"w = \frac{{{area}}}{{{display(length)}}} = {result}"],
+        solved=r"w = \frac{A}{l}",
     )
 
 
@@ -95,8 +97,9 @@ def rectangle_diagonal(request: GeometryRequest, spec: Spec, result: str) -> str
         _rectangle_givens(length, width, figure_unit(spec)),
         "Diagonal ($d$)",
         "Pythagorean theorem",
-        [r"d^2 = l^2 + w^2", r"d = \sqrt{l^2 + w^2}"],
+        [r"d^2 = l^2 + w^2"],
         [root_of_squares("d", length, width, result)],
+        solved=r"d = \sqrt{l^2 + w^2}",
     )
 
 
@@ -162,8 +165,9 @@ def square_diagonal(request: GeometryRequest, spec: Spec, result: str) -> str | 
         givens,
         "Diagonal ($d$)",
         "Pythagorean theorem",
-        [r"d^2 = s^2 + s^2", r"d = s\sqrt{2}"],
+        [r"d^2 = s^2 + s^2"],
         [rf"d = {display(side)}\sqrt{{2}} = {result}"],
+        solved=r"d = s\sqrt{2}",
     )
 
 

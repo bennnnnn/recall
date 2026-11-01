@@ -1,5 +1,6 @@
 import {
   isAnswerHeading,
+  isWorkedReply,
   lawHeading,
   splitWorkoutNote,
   workoutHeading,
@@ -19,6 +20,9 @@ describe("splitWorkoutNote", () => {
 describe("workoutHeading", () => {
   it.each([
     ["Given", "Given"],
+    ["Required", "Required"],
+    // A reply written before November 2026 headed what is asked "Find".
+    ["Find", "Find"],
     ["Steps:", "Steps"],
     ["Substitution", "Substitution"],
     ["Diagram", null],
@@ -27,6 +31,16 @@ describe("workoutHeading", () => {
     ["Answer (z)", null],
   ])("%s", (text, expected) => {
     expect(workoutHeading(text)).toBe(expected);
+  });
+
+  it.each([
+    ["**Given**  \n$v = 25$", true],
+    ["**Required**  \n$t$", true],
+    ["**Find**  \n$t$", true],
+    ["**Requirements**  \nNode 18", false],
+    ["What is required to find $t$?", false],
+  ])("reads %j as worked: %s", (text, expected) => {
+    expect(isWorkedReply(text)).toBe(expected);
   });
 
   it("reads one part's answer as an answer", () => {

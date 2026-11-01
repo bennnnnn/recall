@@ -13,7 +13,7 @@
  *   only between fences every pass reads alike (column 0, no nesting);
  * - code spans (`protectMathEscapes` pairs ticks across lines): every line's
  *   ticks pair on that line;
- * - a worked reply (`separateStandaloneBoldLines` reads a bold Given or Find
+ * - a worked reply (`separateStandaloneBoldLines` reads a bold Given or Required
  *   label anywhere in the prose region to decide a law-name heading): no cut
  *   after one in its region, and one arriving after a bold label merges the
  *   region's parts back into one;
@@ -28,6 +28,7 @@
 import { isAnswerLang, isExplicitCodeLang } from "@/lib/copyBlock";
 import { isMathFenceLang, isStructuredFenceLang } from "@/lib/fenceRegistry";
 import { escapedAt } from "@/lib/markdown/inlineCode";
+import { OPENING_HEADINGS } from "@/lib/markdown/workoutSection";
 
 type OpenFence = { char: "`" | "~"; len: number; durable: boolean };
 
@@ -48,7 +49,7 @@ export type SegmentScanState = {
   fence: OpenFence | null;
   /** Where the prose region began: after the last fence no pass rewrites. */
   regionStart: number;
-  /** The region has a bold Given or Find label… */
+  /** The region has a bold Given or Required label… */
   regionWorked: boolean;
   /** …or a bold line over another line (a law-name heading, when worked). */
   regionLawHeading: boolean;
@@ -74,7 +75,7 @@ const POISON_RE = /<details|"\$schema"|molecule3d/i;
 const CLEAN_FENCE_RE = /^(`{3,}|~{3,})([^`~]*)$/;
 /** A line that opens with "Answer", or a heading a pass may break out of it. */
 const ANSWER_HEADING_RE = /^[\s#*]*answer|#{1,6}[ \t]*(?:\*\*)?answer/i;
-const WORKED_RE = /^\s*\*\*\s*(?:Given|Find)\b/;
+const WORKED_RE = new RegExp(String.raw`^\s*\*\*\s*(?:${OPENING_HEADINGS.join("|")})\b`);
 const BOLD_LABEL_RE = /^\s*\*\*[^*\n]+\*\*\s*(?:`[^`\n]*`\s*)?$/;
 /** A top-level list item: the passes read it apart from the item above it. */
 const LIST_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]/;
@@ -226,7 +227,7 @@ function foldLine(state: SegmentScanState, line: string, next: number, hooks: Se
 
 /**
  * Whether `text` holds a line that changes how parts cut before it preprocess:
- * a bold Given or Find label (its region's parts merge back into one) or a
+ * a bold Given or Required label (its region's parts merge back into one) or a
  * construct some pass reads across the whole reply.
  */
 export function readsBackAcrossCuts(text: string): boolean {

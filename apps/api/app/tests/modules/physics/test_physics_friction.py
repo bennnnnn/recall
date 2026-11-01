@@ -244,7 +244,7 @@ def test_sliding_answer_has_a_clear_find_line_and_renderable_threshold() -> None
     reply = maybe_direct_physics_reply(block, text)
 
     assert reply is not None
-    assert "**Find**  \n$\\text{Will it start sliding?}$" in reply
+    assert "**Required**  \n$\\text{Will it start sliding?}$" in reply
     assert "Rearranged for" not in reply
     assert r"\quad mg\sin\theta>\mu_smg\cos\theta" in reply
     assert r"\quadmg" not in reply

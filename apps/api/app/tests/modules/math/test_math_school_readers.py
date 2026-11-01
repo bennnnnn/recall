@@ -370,3 +370,14 @@ async def test_build_math_augmentation_declines_features_it_cannot_read(text: st
 )
 def test_needs_symbolic_math_keeps_feature_lookalikes_out(text: str) -> None:
     assert not needs_symbolic_math(text)
+
+
+@pytest.mark.asyncio
+async def test_slope_intercept_form_solves_for_y_as_a_step() -> None:
+    # Solving for the unknown is a line of its own over the result, not a note beside it.
+    query = "write y - 2x = 5 in slope intercept form"
+    _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is not None and verified.worked_reply is not None
+    assert "**Required**  \n$y = mx + c$" in verified.worked_reply
+    assert "**Steps**  \nSolve for $y$  \n$y = 2x + 5$\n" in verified.worked_reply
+    assert "— solve for" not in verified.worked_reply

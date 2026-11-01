@@ -226,13 +226,13 @@ _BOLD_HEADING = re.compile(
     r"^[ \t>]*(?:\*\*|__)(?P<title>[^*_\n]+?)(?:\*\*|__)[ \t]*:?[ \t]*(?P<rest>.*)$"
 )
 _PLAIN_HEADING = re.compile(
-    r"^[ \t>]*(?P<title>given|find|formula|answer|final answer)[ \t]*:[ \t]*(?P<rest>.*)$",
+    r"^[ \t>]*(?P<title>given|required|find|formula|answer|final answer)[ \t]*:[ \t]*(?P<rest>.*)$",
     re.IGNORECASE,
 )
 # A heading is words ("Given", "Final answer") or a numbered step label; "**x = 7**" is not.
 _HEADING_TITLE = re.compile(r"[A-Za-z][A-Za-z .()'\u2019-]{0,40}|\d+[.)][ \t]+[^=\n]{1,80}")
-# Sections that hold the problem's inputs, never the reply's result.
-_INPUT_TITLES = frozenset({"given", "givens", "find", "formula", "formulas", "known", "knowns"})
+# Sections that hold the problem's inputs, never the reply's result (Find: an older Required).
+_INPUT_TITLES = frozenset("given givens required find formula formulas known knowns".split())
 _ANSWER_TITLES = frozenset({"answer", "final answer", "the answer", "result", "final result"})
 _CONNECTIVE = re.compile(
     r"=|≈|~|\bis\b|\bare\b|\bequals\b|\bequal\s+to\b|\bgives\b|\byields\b|\bcomes\s+to\b|"
@@ -285,7 +285,7 @@ def _sentences(text: str) -> list[str]:
 
 def _asks(sentence: str) -> bool:
     text = sentence.rstrip(" \t\n*_~`$")
-    # "Find: x = ?" names the unknown; it asks the reader nothing.
+    # "Required: x = ?" names the unknown; it asks the reader nothing.
     return text.endswith("?") and re.search(r"=\s*\?$", text) is None
 
 
@@ -390,7 +390,7 @@ def _heading(line: str) -> tuple[str, str] | None:
 def _sections(prose: str) -> tuple[str, str | None]:
     """The reply without its input sections, and its last Answer section (None if none).
 
-    Given / Find / Formula lines restate the problem (``v = 3 m/s``); they are
+    Given / Required / Formula lines restate the problem (``v = 3 m/s``); they are
     never the reply's own result. Text after a heading on the same line stays.
     """
     body: list[str] = []

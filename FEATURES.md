@@ -439,7 +439,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   relativity beyond the Schwarzschild radius. Nuclear binding energy and mass defect are chemistry when the
   nuclear mass is supplied. A test keeps that list off the
   catalog. Every complete, single-request verified physics
-  answer returns directly with Given / Find / Formula / Substitution / Answer,
+  answer returns directly with Given / Required / Formula / Substitution / Answer,
   without waiting on the language model. A question in parts the result does not all
   answer, a yes or no about a value, and a side question go to the model with the
   verified block, so no part is dropped. Each answer carries one picture.
@@ -503,7 +503,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   was written in: the fewest significant figures among the measured givens (2–4), typed
   values echoed as typed. Balance, stoichiometry, VSEPR, titration, ICE, and galvanic
   answers also append a server-owned `chem_scene` the phone only draws. Complete typed
-  questions return a textbook worked solution: Given / Find / named Formula / Substitution
+  questions return a textbook worked solution: Given / Required / named Formula / Substitution
   (with units, each conversion its own row) / Answer; a procedure (balancing, a table
   lookup, a configuration) shows its rule under Method and checks it under Working. The
   answer is one server ` ```answer ` fence tagged `notation: chemistry` so formulas and

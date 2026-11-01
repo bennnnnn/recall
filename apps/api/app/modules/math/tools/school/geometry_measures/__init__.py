@@ -1,7 +1,7 @@
 """Closed school geometry the shape solvers do not read.
 
 Each rule reads one stated question shape and nothing else, and its solver
-returns the worked layout (Given, Find, Formula, Substitution) and the answer:
+returns the worked layout (Given, Required, Formula, Substitution) and the answer:
 
 - circles from their circumference or area; semicircles; hemispheres
 - a square from its diagonal; a rhombus from its diagonals; equilateral triangles

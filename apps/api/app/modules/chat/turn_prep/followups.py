@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from app.modules.chat.continuation_subject import (
     blocks_math_followup,
@@ -21,9 +21,7 @@ from app.modules.chat.continuation_subject import (
 )
 from app.modules.chat.prompt_inject import conversation_turns
 from app.services.problem_followup import message_role_content
-from app.services.subjects.registry import subject_adapter
-
-FollowupSubject = Literal["math", "chemistry", "physics"]
+from app.services.subjects.registry import SubjectName, subject_adapter
 
 
 @dataclass(frozen=True)
@@ -59,7 +57,7 @@ def resolve_subject_followup(
     return SubjectFollowup(physics=subject_adapter("physics").followups.problem(content, history))
 
 
-def followup_subject(query_text: str | None, exchange: Sequence[Any]) -> FollowupSubject | None:
+def followup_subject(query_text: str | None, exchange: Sequence[Any]) -> SubjectName | None:
     """The subject whose problem in ``exchange`` this turn only continues, or None."""
     if subject_adapter("math").followups.continues(
         query_text, exchange, blocked=blocks_math_followup
@@ -86,7 +84,7 @@ def read_prompt_inputs(
     query_text: str | None,
     exchange: list[dict[str, str]],
     part_texts: tuple[str, ...] = (),
-) -> FollowupSubject | None:
+) -> SubjectName | None:
     """What the prompt's sections read of the query and the last exchange, in a pool worker.
 
     Returns ``followup_subject``. The query's subject (the memory scope and the task
