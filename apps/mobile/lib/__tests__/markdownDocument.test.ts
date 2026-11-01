@@ -78,6 +78,22 @@ describe("markdownToDocumentText", () => {
     expect(out).not.toContain("{");
   });
 
+  it("keeps a clarifying card written as plain text, as the card shows it", () => {
+    expect(markdownToDocumentText("Intro\n\n```clarify\nWhich region do you mean?\n```", label)).toBe(
+      "Intro\n\nWhich region do you mean?",
+    );
+  });
+
+  it("keeps each of a card's lines on its own line, a hard break apart", () => {
+    const card =
+      '{"questions":[{"id":"a","label":"A","question":"Which region?","options":["Asia","Europe"],' +
+      '"values":["Asia","Europe"]},{"id":"b","label":"B","question":"Budget?","options":["Low","High"],' +
+      '"values":["Low","High"]}]}';
+    expect(markdownToDocumentText(`\`\`\`clarify\n${card}\n\`\`\``, label)).toBe(
+      "Which region? (Asia / Europe)  \nBudget? (Low / High)",
+    );
+  });
+
   it("gives code holding backticks a longer fence", () => {
     const out = markdownToDocumentText("````md\n```js\nx\n```\n````", label);
     expect(out.startsWith("````md\n")).toBe(true);

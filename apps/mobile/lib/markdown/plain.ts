@@ -12,7 +12,13 @@ import {
   fenceSpecForLang,
 } from "@/lib/fenceRegistry";
 import { clarifyText, parseClarifyCard } from "@/lib/clarify/clarifyCard";
-import { arrayText, parseArrayFence, parseQuizFence, quizText } from "@/lib/lesson/lessonFences";
+import {
+  arrayText,
+  parseArrayFence,
+  parseQuizFence,
+  plainFenceText,
+  quizText,
+} from "@/lib/lesson/lessonFences";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
 import {
   DEGREE_RING,
@@ -408,6 +414,11 @@ function convertProse(prose: string, mode: "copy" | "speech"): string {
 
 type PlainMode = "copy" | "speech";
 
+/** A card's text; a body that isn't its JSON reads as the plain text the card shows. */
+function cardText<T>(card: T | null, text: (card: T) => string, body: string): string {
+  return card ? text(card) : (plainFenceText(body) ?? "");
+}
+
 /** Each registry `plainReader`: the body's own text, or null to fall to its `plainText` rule. */
 const PLAIN_READERS: Record<FencePlainReader, (body: string, mode: PlainMode) => string | null> = {
   // A teaching picture speaks its worked lines; without them it is a diagram like any other.
@@ -415,18 +426,9 @@ const PLAIN_READERS: Record<FencePlainReader, (body: string, mode: PlainMode) =>
     const spoken = teachingSpeech(body);
     return spoken ? withTexRuns(spoken, mode === "speech" ? speakMath : copyMath) : null;
   },
-  quiz: (body) => {
-    const quiz = parseQuizFence(body);
-    return quiz ? quizText(quiz) : "";
-  },
-  clarify: (body) => {
-    const card = parseClarifyCard(body);
-    return card ? clarifyText(card) : "";
-  },
-  array: (body) => {
-    const array = parseArrayFence(body);
-    return array ? arrayText(array) : "";
-  },
+  quiz: (body) => cardText(parseQuizFence(body), quizText, body),
+  clarify: (body) => cardText(parseClarifyCard(body), clarifyText, body),
+  array: (body) => cardText(parseArrayFence(body), arrayText, body),
 };
 
 function convertFence(lang: string, body: string, mode: PlainMode): string {

@@ -245,6 +245,15 @@ describe("lesson cards as text", () => {
     expect(text).toContain("nums = [3, 2, 4]");
     expect(text).toContain("What does it return?\nA) [0, 1]\nB) [1, 2]");
   });
+
+  it("reads a card written as plain text as the text it shows, and half-written JSON as nothing", () => {
+    for (const lang of ["clarify", "quiz", "array"]) {
+      const plain = `Intro\n\n\`\`\`${lang}\nWhich region do you mean?\n\`\`\``;
+      expect(markdownToCopyText(plain)).toBe("Intro\n\nWhich region do you mean?");
+      expect(markdownToSpeechText(plain)).toContain("Which region do you mean?");
+      expect(markdownToCopyText(`Intro\n\n\`\`\`${lang}\n{"questions":[{"id"\n\`\`\``)).toBe("Intro");
+    }
+  });
 });
 
 it("leaves a photo request out of copy and speech", () => {

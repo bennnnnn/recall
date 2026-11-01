@@ -1,4 +1,5 @@
 import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
+import { markdownToDocumentText } from "@/lib/markdown/document";
 
 jest.mock("@/lib/vendorAssets", () => ({
   readVendorLibrary: jest.fn(async () => ""),
@@ -37,6 +38,24 @@ describe("PDF print document", () => {
     const html = await body("Run `a * b * c` then *done*.");
     expect(html).toContain("<code>a * b * c</code>");
     expect(html).toContain("<em>done</em>");
+  });
+
+  it("starts a new line at a hard break and joins a soft one", async () => {
+    expect(await body("Which region? (Asia / Europe)  \nBudget? (Low / High)")).toContain(
+      "<p>Which region? (Asia / Europe)<br>Budget? (Low / High)</p>",
+    );
+    expect(await body("one\ntwo  \n\nthree")).toContain("<p>one two</p>");
+  });
+
+  it("prints each question of a shared clarifying card on its own line", async () => {
+    const card =
+      '{"questions":[{"id":"a","label":"A","question":"Which region?","options":["Asia","Europe"],' +
+      '"values":["Asia","Europe"]},{"id":"b","label":"B","question":"Budget?","options":["Low","High"],' +
+      '"values":["Low","High"]}]}';
+    const text = markdownToDocumentText(`Pick:\n\n\`\`\`clarify\n${card}\n\`\`\``, (block) => block);
+    expect(await body(`**Recall:**\n${text}`)).toContain(
+      "<p>Pick:</p>\n<p>Which region? (Asia / Europe)<br>Budget? (Low / High)</p>",
+    );
   });
 
   it("wraps long code lines and borders tables", async () => {

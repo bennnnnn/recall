@@ -118,4 +118,4 @@ reply streams or saves, the button shows but does nothing). A send the chat refu
 goes out (offline) leaves the card live, so the button works again. Once answered it stays read-only
 with the picks ticked, read back from the user message after it, so no store is needed across
 list recycling or a restart. Copy, Read aloud and a shared or PDF chat give each question with
-its choices.
+its choices, one per line; a card written as plain text reads as that text, as the card shows it.

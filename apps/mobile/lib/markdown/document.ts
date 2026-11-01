@@ -19,6 +19,11 @@ import { fenceToCopyText, mapFenceRegions } from "@/lib/markdown/plain";
 /** A card shown in the document as its label alone (each fence's `inDocument` row). */
 export type DocumentBlock = FenceDocumentBlock;
 
+/** A card's lines stay lines: a hard break between them, so the PDF does not join them. */
+function cardLines(text: string): string {
+  return text.replace(/([^\n])\n(?=[^\n])/g, "$1  \n");
+}
+
 /** A fence that survives as code: its backticks outnumber any run inside it. */
 function codeFence(lang: string, body: string): string {
   const longest = Math.max(2, ...[...body.matchAll(/`+/g)].map((run) => run[0].length));
@@ -42,7 +47,7 @@ function documentFence(
   const id = fenceIdForLang(lang);
   const form = documentFormForLang(lang);
   // A long-division or column sum reads as its worked lines, a quiz as its question.
-  if (form === "copyText") return fenceToCopyText(lang, body);
+  if (form === "copyText") return cardLines(fenceToCopyText(lang, body));
   if (form) return label(form);
   if (isControlFenceLang(lang)) return "";
   if (id === "answer") return answerText(trimmed);
