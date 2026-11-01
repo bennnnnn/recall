@@ -21,6 +21,7 @@ from app.modules.math.schemas import (
     MathImageExtract,
     MathIntent,
 )
+from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.tools.bare_answer import BARE_ANSWER_NOTE, bare_answer
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extract import (
@@ -321,6 +322,8 @@ async def build_math_augmentation(
 
     if intent is None:
         return _NO_VERIFIED_RESULT, None
+    if intent.word_problem is not None and not intent.word_problem.read_from_text:
+        return await _unchecked_word_problem(intent.word_problem, settings), None
 
     from app.modules.math import tools as mt
 
@@ -395,13 +398,40 @@ async def _model_math_intent(
 async def _llm_extract_preserving(user_content: str, settings: Settings) -> MathIntent | None:
     intent = await llm_extract_math_intent(user_content, settings)
     if intent is not None and not await read_off_loop(
-        _intent_preserves_request,
+        _model_intent_is_users,
         user_content,
         intent,
         timeout=settings.subject_read_timeout_seconds,
     ):
         return None
     return intent
+
+
+def _model_intent_is_users(user_content: str, intent: MathIntent) -> bool:
+    """A model's reading may be solved and certified only when it is the user's own maths:
+    the whole request, and an equation or expression the user wrote (``tool_check``)."""
+    from app.modules.math.tool_check import intent_in_user_text
+
+    return _intent_preserves_request(user_content, intent) and intent_in_user_text(
+        intent, user_content
+    )
+
+
+async def _unchecked_word_problem(setup: WordProblemSetup, settings: Settings) -> str:
+    """A model's translation of a word problem, solved by SymPy, for the model to check
+    against the words: it never becomes a verified card (``schemas/word_problem.py``)."""
+    from app.core.sympy_executor import run_sympy
+    from app.modules.math.tools.block.word import unchecked_setup_note
+
+    try:
+        note = await run_sympy(
+            unchecked_setup_note, setup, timeout=settings.stem_solve_timeout_seconds
+        )
+    except TimeoutError:
+        note_solve_timeout("word_problem")
+        note = None
+    unverified = _unverified_math_note("word_problem")
+    return f"{note}\n\n{unverified}" if note else unverified
 
 
 def _unverified_math_note(kind: str | None) -> str:

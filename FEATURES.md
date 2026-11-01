@@ -331,11 +331,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   an inequality not reversed, a half-expanded bracket, a lost root, …) and
   continues from the corrected line with verified steps. “Don't finish it for me”
   / “just a hint” names the slip as a question and never shows the fix or answer.
-- ✅ **Word problems** — ages, sums and differences, tickets and prices, consecutive
-  integers: one structured call (`title-model`, flag `math_word_problems_enabled`)
-  translates the problem into unknowns and equations. It is used only when every
-  number is stated in the problem and SymPy finds exactly one solution in the
-  stated domain; the reply shows the setup, the verified steps and the answer. Recall attaches geometry, graph, and
+- ✅ **Word problems** — consecutive integers, two ages, tickets at two prices and
+  mixtures are read by the server's templates; the reply shows the setup, the verified
+  steps and the answer. Other ages, sums and prices get one structured call
+  (`title-model`, flag `math_word_problems_enabled`) that translates the problem into
+  unknowns and equations; when every number is stated and SymPy finds exactly one
+  solution in the stated domain, the model gets that setup to check against the words,
+  never as a verified card. A process that never ends gets no setup. Recall attaches geometry, graph, and
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX on one 6 × 6 grid per page: Basics (digits, the four operations, x and y, fractions,
   roots, powers), Symbols (relations, sets, geometry), Trig, Calc and Greek, each ending in

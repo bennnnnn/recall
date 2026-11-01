@@ -167,10 +167,12 @@ async def test_fallback_skipped_when_gate_misses(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.asyncio
-async def test_fallback_verifies_spoken_math_regex_missed(
+async def test_fallback_verifies_the_users_own_maths_regex_missed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The ∫ x² scar class: gate fires, regex returns None, LLM extract + SymPy close it."""
+    """The ∫ x² scar class: gate fires, regex returns None, LLM extract + SymPy close it.
+    The extraction is certified because x^2 is what the user wrote; read from "x squared"
+    it is the model's reading and is not (``test_math_model_readings.py``)."""
     monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
 
     async def fake(**kwargs: object) -> LLMMathExtract:
@@ -178,7 +180,7 @@ async def test_fallback_verifies_spoken_math_regex_missed(
 
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
     note, verified = await math_prompt.build_math_augmentation(
-        "Integrate x squared", _settings(), needs_math=True
+        "Integrate x^2 please", _settings(), needs_math=True
     )
     assert verified is not None
     assert verified.canonical_answer is not None
@@ -206,7 +208,8 @@ async def test_fallback_found_false_keeps_honesty_note(monkeypatch: pytest.Monke
 async def test_fallback_unverifiable_candidate_gets_unverified_note(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """LLM proposes, SymPy disposes: an expr SymPy cannot parse must not verify."""
+    """LLM proposes, SymPy disposes: an expr SymPy cannot parse must not verify. It is not
+    the user's maths either, so it never reaches SymPy: the turn has no verified result."""
     monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
 
     async def fake(**kwargs: object) -> LLMMathExtract:
@@ -220,8 +223,8 @@ async def test_fallback_unverifiable_candidate_gets_unverified_note(
     )
     assert verified is None
     assert note is not None
-    assert "a symbolic problem was detected" in note
-    assert "Do NOT claim" in note
+    assert "No verified solver result is available" in note
+    assert "Do not claim verification" in note
 
 
 @pytest.mark.asyncio
