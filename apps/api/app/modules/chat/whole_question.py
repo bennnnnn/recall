@@ -199,17 +199,31 @@ _NESTED_FRACTIONS = 4
 def _plain_latex(text: str) -> str:
     plain = _ROOT_INDEX.sub(" ", _BRACED_SCRIPT.sub(r"\1\2", text))
     for _ in range(_NESTED_FRACTIONS):
-        plain, found = _LATEX_FRACTION.subn(r"(\1)/(\2)", plain)
+        plain, found = _LATEX_FRACTION.subn(_slashed, plain)
         if not found:
             break
     return plain
 
 
+def _slashed(fraction: re.Match[str]) -> str:
+    """``\frac{x + 1}{x - 1}`` as typed: (x + 1)/(x - 1), with no bracket around one term
+    (``1/(x - 1)``, ``x/2``), so a fraction never matches across a question's terms."""
+    numerator, denominator = (
+        f"({part})" if _TERMS.search(part.strip()) else part for part in fraction.groups()
+    )
+    return f"{numerator}/{denominator}"
+
+
+# More than one term: an operator after its first character.
+_TERMS = re.compile(r".[+\-*/ ]")
+
+
 def _squashed(text: str) -> str:
-    """Letters, digits and signs only: "27 a^{3} + 54 a^{2} b" and "27a^3 + 54a^2b" alike."""
+    """Letters, digits, signs and brackets only: "27 a^{3} + 54 a^{2} b" and "27a^3 + 54a^2b"
+    alike. Brackets stay, so "1/(x-1)" is not found inside "(x+1)/(x-1)"."""
     plain = re.sub(r"\\(?:text|mathrm|left|right)\b|\\[a-zA-Z]+", " ", _plain_latex(text))
     plain = plain.replace(chr(0x2013), "-").replace(chr(0x2212), "-")
-    return re.sub(r"[^0-9a-zA-Z+\-=*/]", "", plain).lower()
+    return re.sub(r"[^0-9a-zA-Z+\-=*/()]", "", plain).lower()
 
 
 def answers_whole_question(question: str, answer: str) -> bool:

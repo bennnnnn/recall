@@ -90,6 +90,9 @@ def test_a_card_that_restates_the_question_is_no_answer(answer: str) -> None:
     ("question", "answer", "kept"),
     [
         ("simplify (x+1)/(x-1)", r"\frac{x + 1}{x - 1}", False),
+        ("simplify 1/(x-1)", r"\frac{1}{x - 1}", False),
+        # A fraction is matched whole, never across the question's terms.
+        ("simplify (x+1)/(x-1) - x/(x-1)", r"\frac{1}{x - 1}", True),
         ("simplify sqrt(x^2+1)", r"\sqrt{x^{2} + 1}", False),
         # A rewrite a student asked for keeps its card.
         ("Simplify x^-2", r"\frac{1}{x^{2}}", True),
