@@ -89,10 +89,61 @@ class MathFollowups:
 
 
 @dataclass(frozen=True)
+class MathFence:
+    """Maths owns every reply chemistry or physics did not verify (chat's finalize passes)."""
+
+    def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        from app.modules.math.fence import needs_math_fence_validate
+
+        return needs_math_fence_validate(text, _math_block(verified))
+
+    def check(
+        self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
+    ) -> str:
+        from app.modules.math.fence import validate_math_fences_worker
+
+        return validate_math_fences_worker(text, _math_block(verified), correct)
+
+    def recover(self, text: str, verified: VerifiedSolveBlock | None) -> str:
+        from app.modules.math.fence import replace_unclosed_graph_fence_safe
+
+        canonical = verified.canonical_fence if verified is not None else None
+        return replace_unclosed_graph_fence_safe(text, canonical)
+
+    def unverified_note(self, text: str) -> str:
+        from app.modules.math.fence import append_unverified_math_note
+
+        return append_unverified_math_note(text)
+
+    def draws(self, text: str, settings: Settings) -> bool:
+        # A chart the model wrote as a formula: the phone never evaluates one.
+        from app.modules.math.chart_formula import has_formula_chart
+
+        return has_formula_chart(text)
+
+    def draw(self, text: str, settings: Settings) -> str:
+        from app.modules.math.chart_formula import formula_charts_to_graphs
+
+        return formula_charts_to_graphs(text, settings)
+
+    def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
+        # A graph drawn in text characters on a graph turn.
+        from app.modules.math.text_plot import strip_text_plots_on_graph_turn
+
+        return strip_text_plots_on_graph_turn(text, user_text, verified)
+
+
+def _math_block(verified: VerifiedSolveBlock | None) -> VerifiedMathBlock | None:
+    """The turn's block when it is maths' (chat asks maths only when no peer verified)."""
+    return verified if isinstance(verified, VerifiedMathBlock) else None
+
+
+@dataclass(frozen=True)
 class MathSubject:
     name: Literal["math"] = "math"
     hints: SubjectHints = _HINTS
     followups: MathFollowups = MathFollowups()
+    fence: MathFence = MathFence()
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_symbolic_math(text, has_image_attachment=has_image_attachment)

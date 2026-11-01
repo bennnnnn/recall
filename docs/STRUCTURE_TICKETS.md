@@ -518,6 +518,18 @@ printed "no decision changed".
     biology): the leak pass joins its rules in that order. `prompt_rule_text()` hashes the
     same before and after.
   - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2b (chat's finalize passes): done.** Chat files that import a subject:
+  16 → 14.
+  - The adapter gains `fence` (`SubjectFence`): `needs_check`, `check`, `recover`,
+    `unverified_note`, `draws` and `draw` (fences the subject draws in the pool: maths'
+    formula charts, chemistry's molecules), and `tidy` (maths' text plots on a graph
+    turn). `check` and `draw` take positional arguments: the pool runs the bound methods.
+  - `finalize_subjects` asks the three fences in the passes ST-06 declared, in the same
+    order and under the same gates. `ChatTurnDeps.math_fence` is maths' `fence`
+    (`turn_deps`' own `MathFences` protocol is gone); tests swap it under the generic names.
+  - `math.fence` and `.chart_formula`, `physics.fence`, and `chemistry.context` and
+    `.fence` left the subjects' public lists.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 

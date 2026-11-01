@@ -75,10 +75,48 @@ class ChemistryFollowups:
 
 
 @dataclass(frozen=True)
+class ChemistryFence:
+    """Chemistry checks the replies it verified, and draws its molecules (chat's finalize)."""
+
+    def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        return True
+
+    def check(
+        self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
+    ) -> str:
+        from app.modules.chemistry.fence import validate_chemistry_fences
+
+        return validate_chemistry_fences(text, verified=verified, correct=correct)
+
+    def recover(self, text: str, verified: VerifiedSolveBlock | None) -> str:
+        from app.modules.chemistry.fence import replace_unclosed_chemistry_fences_safe
+
+        return replace_unclosed_chemistry_fences_safe(text, verified)
+
+    def unverified_note(self, text: str) -> str:
+        from app.modules.chemistry.context import append_unverified_chemistry_note
+
+        return append_unverified_chemistry_note(text)
+
+    def draws(self, text: str, settings: Settings) -> bool:
+        lowered = text.lower()
+        return settings.chemistry_enabled and ("```smiles" in lowered or "```chemistry" in lowered)
+
+    def draw(self, text: str, settings: Settings) -> str:
+        from app.modules.chemistry.fence import enrich_chemistry_fences_worker
+
+        return enrich_chemistry_fences_worker(text)
+
+    def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
+        return text
+
+
+@dataclass(frozen=True)
 class ChemistrySubject:
     name: Literal["chemistry"] = "chemistry"
     hints: SubjectHints = _HINTS
     followups: ChemistryFollowups = ChemistryFollowups()
+    fence: ChemistryFence = ChemistryFence()
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return is_chemistry_question(text)

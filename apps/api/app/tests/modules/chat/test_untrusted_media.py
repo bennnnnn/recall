@@ -146,8 +146,8 @@ def _deps() -> Any:
     todos = MagicMock()
     todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
     math_fence = MagicMock()
-    math_fence.validate_math_fences_worker = lambda content, *_a, **_k: content
-    math_fence.replace_unclosed_graph_fence_safe = lambda content, _canonical: content
+    math_fence.check = lambda content, *_a, **_k: content
+    math_fence.recover = lambda content, _verified: content
     return turn_deps(
         session_factory=_fake_session,
         users=MagicMock(get_by_id=AsyncMock(return_value=MagicMock())),

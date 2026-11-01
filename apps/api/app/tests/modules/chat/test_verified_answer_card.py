@@ -21,10 +21,10 @@ from app.modules import web_search as web_search_service
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.math import fence as math_fence_service
 from app.modules.physics.reply_policy import PHYSICS_SHORT_HINT
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+from app.services.subjects.registry import subject_adapter
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 # Any spelling of an answer fence a markdown renderer would draw as a card.
@@ -56,7 +56,7 @@ def _deps() -> Any:
         todos=SimpleNamespace(
             materialize_reminder_fences=AsyncMock(side_effect=_reminders),
         ),
-        math_fence=math_fence_service,
+        math_fence=subject_adapter("math").fence,
         web_search=web_search_service,
     )
 
