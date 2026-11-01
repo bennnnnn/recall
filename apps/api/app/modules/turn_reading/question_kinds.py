@@ -84,11 +84,15 @@ CURRENT = re.compile(
 )
 # Code, an error, a system or a programming word: a developer's question, whatever its shape.
 # A chemical formula (NaHCO3, CuSO4) and a unit (kHz) are camel-cased words too, and no code;
-# so is a science term, lower case then capitals to its end (pH, mRNA, siRNA, eV, pKa). A
-# name runs on in lower case after its capital: getUser, iPhone, jQuery, eBay.
+# so is a science term, lower case then capitals to its end (pH, mRNA, hsCRP, oxLDL, pKa). A
+# name runs on in lower case after its capital: getUser, iPhone, jQuery, eBay. One ending in
+# a programming acronym is code too: toJSON, innerHTML, userID, parseURL, isNaN (2026-11-01:
+# a developer's question about innerHTML got a textbook note).
 CODE_TALK = re.compile(
     r"`|\b(?![A-Z][a-z]?\d*(?:[A-Z][a-z]?\d*)+\b|[kmMGµ][A-Z]\w?\b)"
     r"(?:[a-z]+[A-Z](?![A-Z]*[a-z]?\b)\w*|[A-Z][a-z]+[A-Z]\w*)\b"
+    r"|\b[a-z]+(?:JSON|HTML|XML|URLs?|URIs?|IDs?|APIs?|CSS|SQL|DOM|UUIDs?|HTTPS?|CSV|SVG|JWT"
+    r"|SDK|NaN|UI|DB|IO)\b"
     r"|\b(?:iOS|iPadOS|macOS|watchOS|tvOS|visionOS)\b"
     r"|\b(?i:error|exception|code|javascript|typescript|python|java|sql|api|bug|compile\w*"
     r"|emails?|tweets?|nginx|ssh|servers?|deploy\w*|database|repo|git|github|docker"
