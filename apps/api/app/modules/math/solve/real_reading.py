@@ -214,6 +214,8 @@ def _negative_radicand(base: Any) -> bool:
 # radicand that is exactly zero (a sum of square roots that cancels).
 _DIGITS = 30
 _NEAR_ZERO = 1e-12
+# What 30 digits leave of a sum that cancels exactly; -1e-15 itself is far above it.
+_CANCELLED = 10.0 ** (5 - _DIGITS)
 
 
 def _approximate(number: Any) -> complex | None:
@@ -224,11 +226,13 @@ def _approximate(number: Any) -> complex | None:
 
 
 def _real_sign(number: Any) -> int | None:
-    """-1 or 1; None for zero, a value too near zero to tell, or one that is not real."""
+    """-1 or 1; None for zero, a sum that cancels to zero, or a value that is not real."""
+    if number.is_Number:  # -2.5, -1/8, -1e-27: the sign is exact
+        return 1 if number.is_positive else -1 if number.is_negative else None
     value = _approximate(number)
     if value is None or abs(value.imag) > _NEAR_ZERO * max(1.0, abs(value.real)):
         return None
-    if abs(value.real) < _NEAR_ZERO:
+    if abs(value.real) < _CANCELLED:
         return None
     return 1 if value.real > 0 else -1
 

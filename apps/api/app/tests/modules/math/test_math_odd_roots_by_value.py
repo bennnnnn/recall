@@ -35,6 +35,9 @@ _SETTINGS = Settings(math_tools_enabled=True)
         ("(-0.008)^(2/3)", "0.04"),
         ("(-0.5)^(-1/3)", "-1.25992104989487"),
         ("(-2.5)^(2/3)", "1.84201574932019"),
+        # A tiny radicand keeps its sign: its size is no reason to doubt it.
+        ("cbrt(-10^-15)", r"- \frac{1}{100000}"),
+        ("(-0.000000000000001)^(1/3)", "-1.0 \\cdot 10^{-5}"),
         # Inner roots first: ∛(∛(-27) - 5) = ∛(-8).
         ("cbrt(cbrt(-27)-5)", "-2"),
         # ∛(-8)·√(-9) = -2·3i; evaluated, SymPy folds it into 6·(-1)^(5/6).
