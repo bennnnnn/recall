@@ -15,10 +15,11 @@ Another language is read on positive evidence only, so an English question keeps
 - or words of Spanish, French, German, Italian, Portuguese or Turkish: function words those
   languages write and English never does, or a lowercase word with a letter English does
   not use ("résistances", "velocità"). Two or more need to outnumber the English words; one
-  needs none beside it ("résous 3x + 7 = 22") and must not be a particle English names
-  carry ("de Broglie", "le Chatelier"). A word either language writes ("a", "in", "die",
-  "per", "pour", "sin", "tan") counts for neither, a capitalised one- or two-letter word is
-  an element symbol ("La", "Es", "Os"), and a word in capitals a label ("secant CE").
+  needs none beside it ("résous 3x + 7 = 22"). Particles English names carry ("de Broglie
+  et al.", "le Chatelier") are no evidence alone. A word either language writes ("a",
+  "in", "die", "per", "pour", "sin", "tan") counts for neither, nor does a unit ("12 um",
+  "5 nA", "5.2 au"), a capitalised one- or two-letter word (an element symbol: "La", "Es")
+  or a word in capitals (a label: "secant CE").
 
 A message with no words ("1.200 + 800", "2x + 3 = 7") has no language: its numbers decide.
 """
@@ -118,18 +119,26 @@ def other_language(text: str) -> bool:
         return True
     foreign: list[str] = []
     english = 0
-    for word in _WORD.findall(plain):
-        folded = word.casefold()
+    for match in _WORD.finditer(plain):
+        word, folded = match.group(), match.group().casefold()
         if folded in _ENGLISH:
             english += 1
-        elif _SYMBOL.fullmatch(word):
+        elif _SYMBOL.fullmatch(word) or _unit(plain, match.start(), word):
             continue
         elif folded in _FOREIGN or (word == folded and _FOREIGN_LETTERS.intersection(folded)):
             foreign.append(folded)
+    # Name particles alone are names: "de Broglie et al.", "le Chatelier".
+    if all(word in _PARTICLES for word in foreign):
+        return False
     if len(foreign) >= _FOREIGN_WORDS:
         return len(foreign) > english
     # One word of another language and none of English: "résous 3x + 7 = 22", "halla 3x + 1".
-    return bool(foreign) and not english and foreign[0] not in _PARTICLES
+    return not english
+
+
+def _unit(text: str, start: int, word: str) -> bool:
+    """A unit, not a word: after a number ("12 um", "5.2 au", "5 nA"), or in mixed case."""
+    return text[:start].rstrip()[-1:].isdigit() or not (word.islower() or word.istitle())
 
 
 # How each app language writes 1200.5: the mark that groups thousands, the decimal mark.
@@ -154,9 +163,17 @@ def _grouped(mark: str) -> re.Pattern[str]:
 
 _DOT_GROUPS = _grouped(r"\.")
 _COMMA_GROUPS = _grouped(",")
-# Groups set apart by a space (SI and French style), a no-break or thin space, or an
-# apostrophe: the readers read "1 200 kg" as 1 and 200 kg, whoever writes it.
-_SPACE_GROUPS = _grouped("[ \u00a0\u2009\u202f'\u2019]")
+# Groups set apart by a no-break or thin space or an apostrophe: one number, always.
+_MARKED_GROUPS = _grouped("[\u00a0\u2009\u202f'\u2019]")
+# Groups set apart by a plain space: one number in SI and French style ("1 200 kg",
+# "20 000", "100 000"), or a list ("mean of 120 135 150").
+_SPACED_GROUPS = _grouped(" ")
+
+
+def _one_spaced_number(groups: list[str]) -> bool:
+    """Spaced groups read as one number: a round thousand ("100 000", "1 500 000"), or a
+    short lead and one group ("1 200", "12 000"). Three-digit numbers in a row are a list."""
+    return groups[-1] == "000" or (len(groups) == 2 and len(groups[0]) < 3)
 
 
 def misread_number(text: str, locale: str | None) -> bool:
@@ -166,7 +183,8 @@ def misread_number(text: str, locale: str | None) -> bool:
     group, decimal = _MARKS.get(normalize_locale_code(locale), _MARKS["en"])
     plain = _without_code(text)
     return bool(
-        _SPACE_GROUPS.search(plain)
+        _MARKED_GROUPS.search(plain)
+        or any(_one_spaced_number(m.group().split(" ")) for m in _SPACED_GROUPS.finditer(plain))
         or (group == "." and _DOT_GROUPS.search(plain))
         or (decimal == "," and _COMMA_GROUPS.search(plain))
     )

@@ -28,6 +28,7 @@ from app.modules.chat.tool_loop.results import (
 from app.modules.chat.turn_trace import note_tool
 from app.modules.math.text_plot import is_curve_fence
 from app.modules.math.tools.extract import trig_domain_would_be_dropped
+from app.modules.turn_reading.readable import unreadable
 
 logger = logging.getLogger(__name__)
 
@@ -93,14 +94,17 @@ def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
     return clip_status_detail(value) if isinstance(value, str) else None
 
 
-async def _tool_call_matches_user(raw_args: Any, user_texts: list[str], settings: Settings) -> bool:
-    """A tool result is the verified answer only for the problem the user wrote."""
+async def _tool_call_matches_user(
+    raw_args: Any, user_texts: list[str], settings: Settings, locale: str | None = None
+) -> bool:
+    """A tool result is the verified answer only for the problem the user wrote, in words
+    and numbers the readers read (``turn_reading.readable``; ``locale`` is the user's)."""
     from app.core.sympy_executor import run_sympy
-    from app.modules.math.tool_check import tool_call_matches_user_text
+    from app.modules.math.tool_check import matched_user_text
 
     try:
         matched = await run_sympy(
-            tool_call_matches_user_text,
+            matched_user_text,
             raw_args,
             user_texts,
             timeout=settings.stem_solve_timeout_seconds,
@@ -108,7 +112,7 @@ async def _tool_call_matches_user(raw_args: Any, user_texts: list[str], settings
     except Exception:
         logger.info("tool-call match check did not finish; result stays unverified", exc_info=True)
         return False
-    return bool(matched)
+    return isinstance(matched, str) and unreadable(matched, locale) is None
 
 
 def _sympy_solve_drops_trig_domain(name: str, raw_args: Any, user_text: str) -> bool:
@@ -237,8 +241,9 @@ async def _run_call(turn: CallRound, name: str, raw_args: Any, collected: ToolRe
     content = result.content if result else f"Unknown tool: {name}"
     fence = _canonical_from_tool_result(result) if result else None
     answer = _canonical_answer_from_tool_result(result) if result else None
+    locale = turn.ctx.user.locale if turn.ctx.user is not None else None
     if (fence is not None or answer) and not await _tool_call_matches_user(
-        raw_args, turn.user_texts, turn.settings
+        raw_args, turn.user_texts, turn.settings, locale
     ):
         # The tool solved what the model typed, not what the user asked: no verified answer.
         if not await _draws_asked_curve(turn, fence, collected):

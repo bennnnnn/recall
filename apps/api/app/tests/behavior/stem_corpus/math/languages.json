@@ -7,5 +7,9 @@
   {"id": "num-space", "area": "number marks", "prompt": "12 000 + 800", "expect": "decline"},
   {"id": "lang-am-equation", "area": "language", "prompt": "እኩልታውን ይፍቱ፡ (2x + 7)/3 - (x - 9)/2 = 5/2", "expect": "decline", "note": "the card was right (x = -26); another language gets none"},
   {"id": "lang-fr-solve", "area": "language", "prompt": "résous 3x + 7 = 22", "expect": "decline"},
-  {"id": "lang-fr-user-system", "area": "language", "prompt": "x+y+z=6, 2x-y+z=3, x+2y-z=2", "expect": "answer", "locale": "fr", "check": ["nums", ["1", "2", "3"]], "note": "no words and no number a French reader reads otherwise"}
+  {"id": "lang-fr-user-system", "area": "language", "prompt": "x+y+z=6, 2x-y+z=3, x+2y-z=2", "expect": "answer", "locale": "fr", "check": ["nums", ["1", "2", "3"]], "note": "no words and no number a French reader reads otherwise"},
+  {"id": "num-en-list", "area": "number marks", "prompt": "mean of 120 135 150", "expect": "answer", "check": ["num", "135"], "note": "three-digit numbers in a row are a list, not thousands"},
+  {"id": "num-en-list-lcm", "area": "number marks", "prompt": "lcm 120 150", "expect": "answer", "check": ["num", "600"]},
+  {"id": "lang-en-unit-um", "area": "language", "prompt": "12 um in m", "expect": "answer", "check": ["num", "1.2e-5"], "note": "a unit after a number is no word: um is not Portuguese"},
+  {"id": "lang-en-unit-na", "area": "language", "prompt": "5 nA in A", "expect": "answer", "check": ["num", "5e-9"]}
 ]

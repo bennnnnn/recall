@@ -26,6 +26,7 @@ from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
+from app.modules.math.followup import is_fragment
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
 from app.modules.turn_reading.plan import TurnPlan
@@ -121,12 +122,7 @@ async def gather_and_inject(
         fetched = await _fetch_subject_with_priors(
             request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
         )
-    fetched = whole_question_fetch(
-        request.content,
-        fetched,
-        locale=identity.user.locale,
-        problems=(followup.math, followup.chemistry, followup.physics),
-    )
+    fetched = _readable_fetch(request, identity, prompt_messages, followup, fetched)
     return Augmentation(
         prompt_messages=inject_subject_block(prompt_messages, fetched.subject_block),
         verified_subject=fetched.verified,
@@ -135,6 +131,30 @@ async def gather_and_inject(
         direct_text=fetched.direct_text,
         asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
         solve_timed_out=bool(timed_out),
+    )
+
+
+def _readable_fetch(
+    request: TurnRequest,
+    identity: TurnIdentity,
+    prompt_messages: list[dict[str, str]],
+    followup: SubjectFollowup,
+    fetched: SubjectFetch,
+) -> SubjectFetch:
+    """The fetch held to the whole question it answers (``whole_question``): the message,
+    the problem a follow-up solves again, and the earlier lines a terse follow-up borrows
+    ("graph it" plots the last plottable line; a fragment such as "5" continues the open
+    equation). Any of them unread, written in another language or with a number its
+    writer's locale reads otherwise, and the result goes."""
+    content = request.content
+    borrowed: list[str] = []
+    if is_graph_followup(content) or is_fragment(content):
+        borrowed = _prompt_prior_user_messages(prompt_messages, content)[-_PRIOR_USER_LINES:]
+    return whole_question_fetch(
+        content,
+        fetched,
+        locale=identity.user.locale,
+        problems=(followup.math, followup.chemistry, followup.physics, *borrowed),
     )
 
 

@@ -10,10 +10,17 @@ reply. An English question keeps its card, names and symbols included.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import Any
+
 import pytest
 
+from app.core.config import Settings
 from app.modules.chat.prompt_builder import SubjectFetch
+from app.modules.chat.tool_loop.calls import _tool_call_matches_user
 from app.modules.chat.tool_verified import with_tool_verified
+from app.modules.chat.turn_prep import augment
+from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.whole_question import answers_with, whole_question_fetch
 from app.modules.turn_reading.readable import misread_number, other_language, unreadable
 from app.services.solving import VerifiedSolveBlock
@@ -62,6 +69,13 @@ def test_a_question_in_another_language_is_read_as_one(question: str) -> None:
         "I've got 2x + 3 = 7, can you solve it?",
         "solve log2(x) + log2(x-2) = 3",
         "The mean of six numbers is 12. Find the sixth number.",
+        # Units after a number, or in mixed case, are no words: "um" is not Portuguese.
+        "5 nA in A",
+        "12 um in m",
+        "5.2 au in km",
+        "current 5 nA through 2 MΩ resistor voltage",
+        # Name particles alone are names.
+        "de Broglie et al. wavelength electron 1e6 m/s",
         # No words: no language.
         "1.200 + 800",
         "x+y+z=6, 2x-y+z=3, x+2y-z=2",
@@ -91,9 +105,15 @@ def test_an_english_question_is_not_another_language(question: str) -> None:
         ("1,200 + 800", "en", False),
         ("1,200 + 800", "am", False),
         ("x+y+z=6, 2x-y+z=3", "fr", False),
-        # Groups set apart by a space are read as two numbers, whoever writes them.
+        # Groups set apart by a space are read as two numbers, whoever writes them; three
+        # digits in a row are a list.
         ("a car of mass 1 200 kg", "en", True),
         ("12 000 + 800", "en", True),
+        ("100 000 + 5", "en", True),
+        ("mean of 120 135 150", "en", False),
+        ("find the variance of 100 200 300", "en", False),
+        ("lcm 120 150", "en", False),
+        ("my phone number is 555 123 4567", "en", False),
         ("1 200 + 800", "fr", True),
         ("3 + 4", "en", False),
         ("x^2 + 4 = 100", "en", False),
@@ -154,3 +174,38 @@ def test_the_tool_loop_gives_an_unread_question_no_card() -> None:
     tool = VerifiedSolveBlock(text="tool", subject="math", canonical_answer="801.2")
     assert with_tool_verified(None, tool, "1.200 + 800", "es") is None
     assert with_tool_verified(None, tool, "1.200 + 800", "en") is tool
+
+
+def _turn(content: str, earlier: str, locale: str) -> tuple[Any, Any, list[dict[str, str]]]:
+    request = SimpleNamespace(content=content)
+    identity = SimpleNamespace(user=SimpleNamespace(locale=locale))
+    prompt = [
+        {"role": "user", "content": earlier},
+        {"role": "assistant", "content": "Here it is."},
+        {"role": "user", "content": content},
+    ]
+    return request, identity, prompt
+
+
+@pytest.mark.parametrize(
+    ("content", "earlier"), [("graph it", "y = 1.200x + 3"), ("5", "3x + 1.200 = y")]
+)
+def test_a_follow_up_that_borrows_an_unread_line_gets_no_card(content: str, earlier: str) -> None:
+    """A Spanish user's "graph it" plots the last plottable line, and "5" continues the open
+    equation: 1.200 was 1200 there, and the graph drew 1.2x + 3."""
+    fetched = _fetched("1.2 x + 3")
+    request, identity, prompt = _turn(content, earlier, "es")
+    got = augment._readable_fetch(request, identity, prompt, SubjectFollowup(), fetched)
+    assert got == _DROPPED
+    request, identity, prompt = _turn(content, earlier, "en")
+    assert augment._readable_fetch(request, identity, prompt, SubjectFollowup(), fetched) == fetched
+
+
+@pytest.mark.asyncio
+async def test_the_tool_matches_no_unread_earlier_line(thread_sympy_executor: None) -> None:
+    """The tool's call is matched against the newest line with a formula: after "check it
+    with sympy", the Spanish user's 1.200 + 800 before it."""
+    args = {"action": "simplify", "expr": "1.200 + 800"}
+    texts = ["check it with sympy please", "1.200 + 800"]
+    assert not await _tool_call_matches_user(args, texts, Settings(), "es")
+    assert await _tool_call_matches_user(args, texts, Settings(), "en")
