@@ -572,6 +572,17 @@ printed "no decision changed".
   - Money is no `SubjectName`: it has no solve, fence or direct reply, and a money turn has
     no subject solve (`turn_prep/augment.py`), the precedence it had.
   - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 3 (the names): done.** ST-07 is done.
+  - The subject-name `Literal`s are the registry's `SubjectName`: chat's status phases
+    (`stream_status`) and follow-up subject (`FollowupSubject` is gone), the picture intent's
+    `subject` (`images/schemas`, its OpenAPI unchanged) and the scanner's subjects
+    (`ScannerSubject` is `SubjectName` and biology, whose caption the phone sends). The model
+    reader's `Subject` keeps its own order, part of its measured prompt;
+    `test_subject_registry.py` holds its set, and the scanner's, to the registry's.
+  - `test_module_direction.py` gains `test_chat_imports_no_subject`: no chat file imports
+    maths, physics, chemistry or money, an annotation's import included.
+  - The #2151 cycle baseline did not move: none of its cycles held a chat–subject edge.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 

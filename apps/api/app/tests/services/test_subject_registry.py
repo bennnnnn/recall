@@ -26,6 +26,16 @@ def test_the_registry_holds_one_adapter_per_subject_name() -> None:
         assert subject_adapter(name).name == name
 
 
+def test_the_subject_literals_are_the_registrys_names() -> None:
+    from app.modules.model_reader.schemas import Subject
+    from app.services.subject_scan import ScannerSubject
+
+    names = set(typing.get_args(SubjectName))
+    assert set(typing.get_args(Subject)) == {*names, "none"}
+    scanned = {arg for part in typing.get_args(ScannerSubject) for arg in typing.get_args(part)}
+    assert scanned == {*names, "biology"}
+
+
 def test_image_extract_is_math_before_any_peer() -> None:
     from app.modules.math.schemas import MathImageExtract
 
