@@ -158,7 +158,9 @@ test failing.
 
 ### Shipped layout
 
-Shipped on 2026-10-12, keeping the section headings (they make a reply easy to scan). Every
+Shipped on 2026-10-12, keeping the section headings (they make a reply easy to scan). Since
+November 2026 **Find** reads **Required**, and a rearrangement is a `Solve for $a$` line of its own
+instead of the "rearranged for a" note below; the current layout is in `docs/math.md`. Every
 verified reply in maths, physics, and chemistry goes through one formatter,
 `apps/api/app/services/workout.py`. The model prompts for all three subjects state the same
 layout (`WORKOUT_PROMPT_RULE`).

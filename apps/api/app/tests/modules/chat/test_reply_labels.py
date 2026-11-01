@@ -27,6 +27,16 @@ def test_a_label_under_the_heading_becomes_its_value_in_maths() -> None:
             "**Find**\n$a$\n\n**Answer**\n$a = 3.47$\n\n**Answer**\n\n```answer\n3.47\n```",
             "**Find**\n$a$\n\n$a = 3.47$\n\n**Answer**\n\n```answer\n3.47\n```",
         ),
+        # With no card, what is asked makes the reply worked, under either name (Find is
+        # an older reply's Required).
+        (
+            "**Required**\n$a$\n\nAnswer: 3.47\n\n**Answer**\n$a = 3.47$",
+            "**Required**\n$a$\n\n3.47\n\n**Answer**\n$a = 3.47$",
+        ),
+        (
+            "**Find**\n$a$\n\nAnswer: 3.47\n\n**Answer**\n$a = 3.47$",
+            "**Find**\n$a$\n\n3.47\n\n**Answer**\n$a = 3.47$",
+        ),
         # An earlier "Answer: 5 m" keeps its value; the last label stays.
         (
             "**Substitution**\n$x$\n\nAnswer: 5 m\n\n**Answer**\n\n```answer\n5\n```",

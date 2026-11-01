@@ -373,7 +373,7 @@ CASES: tuple[Case, ...] = (
         # A network the server does not read stays with the model: it uses the same
         # layout and checks its own answer, since no server check stands behind it.
         Expect(subject="physics", solved=False, hints=("self_check",)),
-        "Given/Find/Formula/Substitution/Answer: R = (4 + 6) ∥ 12 = 120/22 ≈ 5.45 Ω, "
+        "Given/Required/Formula/Substitution/Answer: R = (4 + 6) ∥ 12 = 120/22 ≈ 5.45 Ω, "
         "I = 12/5.45 ≈ 2.2 A, then a one-line Check. Never a ✓ and never 'verified'.",
     ),
     Case(

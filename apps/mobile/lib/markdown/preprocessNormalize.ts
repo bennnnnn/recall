@@ -70,7 +70,7 @@ const WORKOUT_HEADING_LINE = new RegExp(
  * after the code. A blank line preserves the author's intended step
  * structure and gives tall native fractions/radicals their own row. List
  * labels and fenced examples are deliberately untouched. A workout heading
- * (Given, Find, Formula, Substitution, Steps, Answer) keeps its lines: the
+ * (Given, Required, Formula, Substitution, Steps, Answer) keeps its lines: the
  * workout renderer gives each line its own row. So does a law's name heading
  * its formulas in a worked reply ("**Constant acceleration**" over `$v = u + at$`).
  */

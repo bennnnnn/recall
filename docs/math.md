@@ -79,9 +79,14 @@ Heuristic pre-solve and web-search injection **still run**. The model may also c
 
 Every verified reply in maths, physics, and chemistry is built by `app/services/workout.py`, and
 the model prompts state the same layout (`WORKOUT_PROMPT_RULE`). The sections are **Given**,
-**Find**, **Formula**, **Substitution** (values into a formula) or **Steps** (an equation changed
+**Required** (what is asked; replies before November 2026 say **Find**, and every reader still
+takes it), **Formula**, **Substitution** (values into a formula) or **Steps** (an equation changed
 one move at a time), and **Answer**, in that order and each only when it has lines. Each line
-is one state; its move is a short note after ` — `. Given is the problem as typed; the solver's
+is one state; its move is a short note after ` — `. A formula rearranged for the unknown is not
+a note: a line `Solve for $t$` (`solve_for_line`, one wording wherever a subject writes it:
+physics' law rows, maths' slope-intercept form and geometry rearrangements) comes before the
+rearranged formula. Chemistry has no such note: a relation it rearranges (Beer–Lambert's
+`c = A / (εb)`) opens its Substitution rows. Given is the problem as typed; the solver's
 tidy form is its own Expand or Collect line. A both-sides move is shown as the state it
 reaches, unless the learner asked why. A rule a trace verifies (product, chain, power,
 integration by parts, quadratic formula) is the Formula, named after its dash. The phone renders
@@ -252,7 +257,7 @@ Each step has one home; nothing else needs an edit.
 
 Maths, physics and chemistry share one contract for a reply the model works out itself
 (`services/workout.py`):
-- **Layout:** the same headings as a verified reply (Given, Find, Formula, Substitution or
+- **Layout:** the same headings as a verified reply (Given, Required, Formula, Substitution or
   numbered moves, Answer).
 - **Self-check:** `SELF_CHECK_PROMPT_RULE` tells it to check the result before **Answer**: put it
   back into the formula, redo each multiplication, and check the units and size. It may add a

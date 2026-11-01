@@ -60,7 +60,7 @@ describe("stream segment cuts", () => {
       "**Given**  ",
       "$v = 2$",
       "",
-      "**Find**  ",
+      "**Required**  ",
       "$t$",
       "",
       "```math",
@@ -80,13 +80,17 @@ describe("stream segment cuts", () => {
     expect(cutLines(text)).toEqual(["Next part."]);
   });
 
-  it("merges a region's parts again when a Given label follows a bold label", () => {
-    const text = "Intro.\n\n**Law name**\n$x = 1$\n\nMore prose.\n\n**Given**\n$x$\n\nAfter.\n";
-    const { cuts, rewinds } = cutsOf(text);
-    expect(cuts.length).toBeGreaterThan(0);
-    // The region began at the start of the reply: every part of it is read again.
-    expect(rewinds).toEqual([0]);
-  });
+  // "Find" is what a reply written before November 2026 calls Required.
+  it.each(["Given", "Required", "Find"])(
+    "merges a region's parts again when a %s label follows a bold label",
+    (label) => {
+      const text = `Intro.\n\n**Law name**\n$x = 1$\n\nMore prose.\n\n**${label}**\n$x$\n\nAfter.\n`;
+      const { cuts, rewinds } = cutsOf(text);
+      expect(cuts.length).toBeGreaterThan(0);
+      // The region began at the start of the reply: every part of it is read again.
+      expect(rewinds).toEqual([0]);
+    },
+  );
 
   it("does not cut while an Answer heading still looks for its card", () => {
     const text = "**Answer**\n\n$x = 2$\n\n```answer\nx = 2\n```\n\nThat is all.\n\nThanks.\n";

@@ -737,7 +737,7 @@ def test_a_claimed_result_is_checked_not_used_as_a_given(
         assert "is right" in head, head
     else:
         assert "is right" not in head and "not" in head, head
-    given = reply.split("**Given**")[1].split("**Find**")[0]
+    given = reply.split("**Given**")[1].split("**Required**")[0]
     assert "19.8" not in given and "20.4" not in given and "48" not in given
 
 

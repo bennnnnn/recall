@@ -24,6 +24,13 @@ def test_a_number_above_the_working_goes(lead: str) -> None:
     assert drop_guessed_lead(lead + _WORKED) == _WORKED
 
 
+@pytest.mark.parametrize("heading", ["Required", "Find"])
+def test_a_number_above_a_working_that_opens_on_what_is_asked_goes(heading: str) -> None:
+    # A follow-up may skip Given; what is asked (Find, in an older reply) opens the working.
+    worked = f"**{heading}**\n$t$\n\n**Answer**\n\n```answer\n$t = 200\\ \\text{{s}}$\n```\n"
+    assert drop_guessed_lead("The bus takes **150 s**.\n\n" + worked) == worked
+
+
 def test_a_heading_or_a_photo_above_the_working_stays() -> None:
     text = "[Image: /attachments/a1b2/file]\n\n## Stage 1\n\nAtomic structure of Mg\n\n" + _WORKED
     assert drop_guessed_lead(text) == text

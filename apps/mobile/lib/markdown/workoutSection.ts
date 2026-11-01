@@ -1,13 +1,22 @@
 /**
+ * What is asked: **Required**, or **Find** in a reply written before November 2026 (and in
+ * one a model still heads that way).
+ */
+const REQUIRED_HEADINGS: readonly string[] = ["Required", "Find"];
+
+/** The headings that open a worked reply, behind a thin rule: what it is given and what is asked. */
+export const OPENING_HEADINGS: readonly string[] = ["Given", ...REQUIRED_HEADINGS];
+
+/**
  * The one worked-solution layout the API writes for every subject:
- * **Given**, **Find**, **Formula** (or the law's own name, see `lawHeading`),
+ * **Given**, **Required**, **Formula** (or the law's own name, see `lawHeading`),
  * **Substitution** or **Steps**, **Answer** (**Answer (a)** for one part),
  * each a bold heading on its own line followed by one state per line, with
- * the move as a short note after " — " (`$2x = 8$ — subtract 3`).
+ * the move as a short note after " — " (`$2x = 8$ — subtract 3`). A rearrangement
+ * for the unknown is a line of its own (`Solve for $t$`), never a note.
  */
 export const WORKOUT_HEADINGS: readonly string[] = [
-  "Given",
-  "Find",
+  ...OPENING_HEADINGS,
   "Formula",
   "Substitution",
   "Steps",
@@ -39,10 +48,12 @@ export function lawHeading(text: string, firstLine: string): string | null {
   return /^\$/.test(firstLine.trim()) ? heading : null;
 }
 
-/** A reply worked in sections: it states what it is given or what it finds (a follow-up
- * that changes one given often skips Find). */
+const WORKED_REPLY_RE = new RegExp(String.raw`^\*\*(?:${OPENING_HEADINGS.join("|")}):?\*\*`, "m");
+
+/** A reply worked in sections: it states what it is given or what is asked (a follow-up
+ * that changes one given often skips Required). */
 export function isWorkedReply(text: string): boolean {
-  return /^\*\*(?:Given|Find):?\*\*/m.test(text);
+  return WORKED_REPLY_RE.test(text);
 }
 
 /** ``$2x = 8$ — subtract 3``: the state, then its move. A dash inside math is the math's. */

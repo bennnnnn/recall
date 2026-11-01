@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
+from app.services.workout import GIVEN
+
 # TYPE_CHECKING only: `math.solve` imports `SolveServiceError` from this module
 # (see below), so a real import of `math.solve.key_steps` here — which would
 # run `math/solve/__init__.py` first, like any submodule import does — would
@@ -94,9 +96,9 @@ class VerifiedMathBlock(VerifiedSolveBlock):
     # Ordered inverse-operation (or factor / formula) trace for equation lessons.
     key_steps: tuple[KeyStep, ...] = ()
     given_latex: str | None = None
-    # "Given" for an equation; "Find" when the problem line is the question
-    # itself (a derivative or an integral to evaluate).
-    given_label: str = "Given"
+    # Which section holds the problem line: GIVEN for an equation; REQUIRED when the
+    # problem line is the question itself (a derivative or an integral to evaluate).
+    given_label: str = GIVEN
     check_latex: str | None = None
     alternate_method_note: str | None = None
     # The worked layout for a closed result (formula, then substitution). Unlike
