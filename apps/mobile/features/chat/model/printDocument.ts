@@ -107,19 +107,18 @@ export async function markdownToStructuredPrintHtml(title: string, markdown: str
   return wrapPrintDocument(title, body, katexCss);
 }
 
-/** Stands in for a hard break while a paragraph's inline Markdown becomes HTML. */
-const HARD_BREAK = "\uE000";
-
-/** A line ending in two spaces is a Markdown hard break: the app shows the next line under it. */
-function paragraphLine(line: string): string {
-  return / {2,}$/.test(line) ? `${line.trim()}${HARD_BREAK}` : line.trim();
-}
-
-/** A paragraph's lines as one `<p>`: soft breaks join with a space, hard breaks start a line. */
+/**
+ * A paragraph's lines as one `<p>`: soft breaks join with a space; a line ending in two spaces
+ * is a Markdown hard break, so the app shows the next line under it and so does the PDF.
+ */
 function paragraphHtml(lines: string[]): string {
-  const text = lines.join(" ").replaceAll(`${HARD_BREAK} `, HARD_BREAK).trim();
-  const kept = text.replace(new RegExp(`${HARD_BREAK}+$`), "");
-  return kept ? `<p>${inlineMarkdownToHtml(kept).replaceAll(HARD_BREAK, "<br>")}</p>` : "";
+  const runs: string[][] = [[]];
+  for (const line of lines) {
+    runs[runs.length - 1]!.push(line.trim());
+    if (/ {2,}$/.test(line)) runs.push([]);
+  }
+  const html = runs.map((run) => run.join(" ").trim()).filter(Boolean).map(inlineMarkdownToHtml);
+  return html.length ? `<p>${html.join("<br>")}</p>` : "";
 }
 
 function structuredPrintBody(markdown: string): string {
@@ -223,7 +222,7 @@ function structuredPrintBody(markdown: string): string {
       continue;
     }
 
-    paragraph.push(paragraphLine(line));
+    paragraph.push(line);
     i += 1;
   }
   flushParagraph();

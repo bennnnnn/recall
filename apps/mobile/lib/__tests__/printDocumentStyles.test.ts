@@ -47,6 +47,11 @@ describe("PDF print document", () => {
     expect(await body("one\ntwo  \n\nthree")).toContain("<p>one two</p>");
   });
 
+  it("keeps a line of digits and a code span next to a hard break", async () => {
+    expect(await body("Pick:  \n42  \nnext")).toContain("<p>Pick:<br>42<br>next</p>");
+    expect(await body("Run `a_b`  \n7")).toContain("<p>Run <code>a_b</code><br>7</p>");
+  });
+
   it("prints each question of a shared clarifying card on its own line", async () => {
     const card =
       '{"questions":[{"id":"a","label":"A","question":"Which region?","options":["Asia","Europe"],' +
