@@ -26,8 +26,8 @@ from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
-from app.modules.math.followup import is_fragment
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.math.tools.prompt import borrows_earlier_lines
 from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
 from app.modules.turn_reading.plan import TurnPlan
 from app.modules.web_search.subject import (
@@ -148,7 +148,7 @@ def _readable_fetch(
     writer's locale reads otherwise, and the result goes."""
     content = request.content
     borrowed: list[str] = []
-    if is_graph_followup(content) or is_fragment(content):
+    if borrows_earlier_lines(content):
         borrowed = _prompt_prior_user_messages(prompt_messages, content)[-_PRIOR_USER_LINES:]
     return whole_question_fetch(
         content,
