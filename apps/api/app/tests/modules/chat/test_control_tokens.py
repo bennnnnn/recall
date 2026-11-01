@@ -192,3 +192,21 @@ async def test_a_run_after_closed_inline_code_still_ends_the_stream() -> None:
     tokens = ["See `x` then ", "<|im_end|>", "<|im_end|>", "<|im_end|>", " more"]
     seen = [token async for token in until_control_run(_stream(tokens))]
     assert "".join(seen) == "See `x` then <|im_end|><|im_end|>"
+
+
+@pytest.mark.parametrize(
+    ("opening", "most"),
+    [
+        # Review of #2194: a closing fence's backticks and a stray backtick open no span,
+        # and the guard read a runaway on the same line to the stream's cap.
+        ("```python\nprint(1)\n```", 4),
+        ("Press the ` key", 40),
+    ],
+)
+async def test_a_run_after_a_fence_or_a_stray_backtick_ends_the_stream(
+    opening: str, most: int
+) -> None:
+    stream = _Counted([opening] + ["<|im_end|>"] * 5000)
+    seen = [token async for token in until_control_run(stream)]
+    assert seen[0] == opening
+    assert stream.read <= most

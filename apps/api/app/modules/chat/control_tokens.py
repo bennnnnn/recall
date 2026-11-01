@@ -28,7 +28,8 @@ CONTROL_TOKEN = re.compile(_TOKEN)
 _RUN = re.compile(rf"({_TOKEN})(?:\s*\1){{2,}}")
 # A token a stretch of reply text ends on: the reply's last line, or an answer card's.
 _ENDING = re.compile(rf"(?:{_TOKEN})\s*\Z")
-_INLINE_CODE = re.compile(r"``[^\n]*?``|`[^`\n]*`")
+# `code` or ``code``; "``" alone opens a span, it is no empty one.
+_INLINE_CODE = re.compile(r"``[^\n]*?``|`[^`\n]+`")
 _BLANK_RUN = re.compile(r"\n(?:[ \t]*\n){2,}")
 # A token that ends a turn: past it the model writes notes to itself (2026-10-31: a Grade 11
 # answer ran on after "</|assistant|>" into "el if (rounded amounts) total? compute…"), or
@@ -142,11 +143,29 @@ def _in_open_fence(text: str) -> bool:
     return fence is not None and not fence.closed
 
 
-_BACKTICKS = re.compile(r"`+")
+# A fence's own line ("```" closing a block): its backticks open no `inline` span.
+_FENCE_LINE = re.compile(r"[ \t]{0,3}(?:`{3,}|~{3,})")
+# An `inline` span still open this far past its backtick is a stray backtick ("Press the `
+# key"), not quoted code: a run a reply quotes follows its backtick closely.
+_OPEN_SPAN_MAX = 80
 
 
 def _in_inline_code(text: str, at: int) -> bool:
-    """``at`` is inside `inline` code on its line: an odd number of backtick runs before it
-    (one opens, the next closes), whether or not the closing one has streamed yet."""
+    """``at`` is inside `inline` code on its line: a closed span, or one just opened whose
+    closing backtick has not streamed yet. A fence's line and a stray backtick are no span,
+    so a run after them still ends the stream."""
     line_start = text.rfind("\n", 0, at) + 1
-    return len(_BACKTICKS.findall(text, line_start, at)) % 2 == 1
+    line_end = text.find("\n", at)
+    line = text[line_start : len(text) if line_end == -1 else line_end]
+    if _FENCE_LINE.match(line):
+        return False
+    at -= line_start
+    cursor = 0
+    for span in _INLINE_CODE.finditer(line):
+        if span.start() >= at:
+            break
+        if at < span.end():
+            return True
+        cursor = span.end()
+    opener = line.find("`", cursor, at)
+    return opener != -1 and at - opener <= _OPEN_SPAN_MAX
