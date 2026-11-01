@@ -162,7 +162,7 @@ def test_an_expression_uses_the_subjects_constants_and_numbers() -> None:
         r"\frac{n R T}{V}"
     )
     assert to_latex("n*R*T/V", {}, values, notation=_GAS_NOTATION) == (
-        r"\frac{2 \cdot 0.0820574 \cdot 300}{10}"
+        r"\frac{2 \times 0.0820574 \times 300}{10}"
     )
 
 

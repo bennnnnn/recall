@@ -14,6 +14,7 @@ from app.modules.math.response_intent import (
 from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.solve.step_rules import step_rule
 from app.services.solving import VerifiedMathBlock
+from app.services.times_sign import with_times
 from app.services.workout import (
     GIVEN,
     REQUIRED,
@@ -195,7 +196,9 @@ def with_requested_check(reply: str, verified: VerifiedMathBlock, user_text: str
     moves = [i for i, part in enumerate(parts) if re.match(r"\*\*\d+\. ", part)]
     if not check or not moves or not wants_answer_check(user_text):
         return reply
-    lines = "  \n".join(f"${line.strip()}$" for line in check.split("\n") if line.strip())
+    lines = "  \n".join(
+        f"${with_times(line.strip())}$" for line in check.split("\n") if line.strip()
+    )
     parts.insert(moves[-1] + 1, f"**{len(moves) + 1}. Check**  \n{lines}")
     return "\n\n".join(parts)
 
@@ -378,6 +381,6 @@ def _render_numbered(blocks: list[_NumberedStep]) -> str:
         )
         if note:
             heading += f" — {note}"
-        lines = [heading, *(f"${formula}$" for formula in block.formulas)]
+        lines = [heading, *(f"${with_times(formula)}$" for formula in block.formulas)]
         parts.append("  \n".join(lines))
     return "\n\n".join(parts)

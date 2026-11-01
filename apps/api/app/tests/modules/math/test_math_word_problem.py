@@ -374,7 +374,7 @@ def test_reply_shows_setup_steps_and_answer() -> None:
     assert (
         "**Required**  \n$m$ — Maria's age now (years)  \n$s$ — her son's age now (years)" in reply
     )
-    assert '$m = 3 \\cdot s$ — "Maria is three times as old as her son"' in reply
+    assert '$m = 3 \\times s$ — "Maria is three times as old as her son"' in reply
     # The lesson layout: bold numbered moves with their rule; no check unless asked.
     assert "**Steps**" not in reply and "Check" not in reply
     assert "**1. Substitute into equation (2)** — " in reply

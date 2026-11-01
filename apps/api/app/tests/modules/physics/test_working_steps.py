@@ -20,21 +20,21 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
         ),
         # A size with a direction: the working keeps its sign.
         (
-            [r"F = \frac{1000 \cdot (0 - 15)}{3}"],
+            [r"F = \frac{1000 \times (0 - 15)}{3}"],
             r"5000\,\mathrm{N}\ (\text{opposing the motion})",
             [
-                r"F = \frac{1000 \cdot (0 - 15)}{3}",
-                r"F = \frac{1000 \cdot (-15)}{3}",
+                r"F = \frac{1000 \times (0 - 15)}{3}",
+                r"F = \frac{1000 \times (-15)}{3}",
                 r"F = \frac{-15000}{3}",
                 r"F = -5000\,\mathrm{N}",
             ],
         ),
         # Shown in eV: the SI value, then the answer, on one row.
         (
-            [r"E = \frac{6.6261 \times 10^{-34} \cdot 299792458}{1.2 \times 10^{-6}}"],
+            [r"E = \frac{6.6261 \times 10^{-34} \times 299792458}{1.2 \times 10^{-6}}"],
             r"1.03\,\mathrm{eV}",
             [
-                r"E = \frac{6.6261 \times 10^{-34} \cdot 299792458}{1.2 \times 10^{-6}}",
+                r"E = \frac{6.6261 \times 10^{-34} \times 299792458}{1.2 \times 10^{-6}}",
                 r"E = \frac{1.98645 \times 10^{-25}}{1.2 \times 10^{-6}}",
                 r"E = 1.65538 \times 10^{-19}\,\mathrm{J} = 1.03\,\mathrm{eV}",
             ],
@@ -65,15 +65,15 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
         ),
         # Two values: each row is matched by its value, whatever it is named.
         (
-            [r"a = \frac{2 \cdot 9.81}{5 + 2}", r"T = 5 \cdot \frac{2 \cdot 9.81}{5 + 2}"],
+            [r"a = \frac{2 \times 9.81}{5 + 2}", r"T = 5 \times \frac{2 \times 9.81}{5 + 2}"],
             r"2.8\,\mathrm{m/s²}\ \text{and}\ 14\,\mathrm{N}",
             [
-                r"a = \frac{2 \cdot 9.81}{5 + 2}",
+                r"a = \frac{2 \times 9.81}{5 + 2}",
                 r"a = \frac{19.62}{7}",
                 r"a = 2.8\,\mathrm{m/s²}",
-                r"T = 5 \cdot \frac{2 \cdot 9.81}{5 + 2}",
-                r"T = 5 \cdot \frac{19.62}{7}",
-                r"T = 5 \cdot 2.80286",
+                r"T = 5 \times \frac{2 \times 9.81}{5 + 2}",
+                r"T = 5 \times \frac{19.62}{7}",
+                r"T = 5 \times 2.80286",
                 r"T = 14\,\mathrm{N}",
             ],
         ),
@@ -87,9 +87,9 @@ def test_carried_to_answer(rows: list[str], answer: str, carried: list[str]) -> 
     "rows",
     [
         # Already worked by the solver.
-        [r"E = 2000 \cdot 10800", r"E = 2.16 \times 10^{7}\,\mathrm{J}"],
+        [r"E = 2000 \times 10800", r"E = 2.16 \times 10^{7}\,\mathrm{J}"],
         # Worked to a different value (a rounded row): left as the solver wrote it.
-        [r"R = 2\cos(0^\circ)\cdot 0.4", r"x = 1"],
+        [r"R = 2\cos(0^\circ)\times 0.4", r"x = 1"],
     ],
 )
 def test_rows_that_do_not_reach_the_answer_are_left_alone(rows: list[str]) -> None:

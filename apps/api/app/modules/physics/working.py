@@ -15,13 +15,15 @@ from app.modules.physics.notation import shown
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.results import PhysicsResult
 from app.services.solving import SolveServiceError
+from app.services.times_sign import with_times
 
 _DECIMAL_VALUE = re.compile(r"(?<![\d.])([+-]?\d+\.\d+)(?![\d.])")
 
 
 def _visible_equation(equation: str) -> str:
     equation = _DECIMAL_VALUE.sub(lambda match: match.group(1).rstrip("0").rstrip("."), equation)
-    return typeset_numbers(equation).replace("*", "·")
+    # Every product the solver wrote (\cdot, a middle dot, *) prints \times (``times_sign``).
+    return with_times(typeset_numbers(equation).replace("*", r" \cdot "))
 
 
 def result_symbol_for(intent: PhysicsIntent) -> str | None:

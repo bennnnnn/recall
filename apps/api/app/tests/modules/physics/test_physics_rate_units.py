@@ -73,7 +73,7 @@ def _reply(prompt: str) -> str:
         (
             "A train travels at 72 km/h for 30 minutes. How far does it go?",
             r"$t = 30\,\mathrm{min} \times 60 = 1800\,\mathrm{s}$",
-            r"$d = 20\,\mathrm{m/s} \cdot 1800\,\mathrm{s}$",
+            r"$d = 20\,\mathrm{m/s} \times 1800\,\mathrm{s}$",
         ),
     ],
 )
