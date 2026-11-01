@@ -10,7 +10,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.physics.extract import needs_physics
-from app.services.subject_solving import build_subject_augmentation
+from app.services.subjects.dispatch import build_subject_augmentation
 
 
 def _settings() -> Settings:

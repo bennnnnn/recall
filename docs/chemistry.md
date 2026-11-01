@@ -35,7 +35,7 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    formulas is the arrow of an equation the question asks to balance
    (`Al + HCl = AlCl3 + H2`). A question chemistry cannot close is still chemistry's,
    not maths', when it has a pH or K symbol, an amount in M or mol, a compound's formula or
-   a written reaction (`services/subject_solving.detect_subject`): maths read the `x` of
+   a written reaction (`services/subjects/dispatch.detect_subject`): maths read the `x` of
    `1.8 x 10^-5` as its unknown.
 2. **Extract** (`extract.py`) — converts a complete, unambiguous text problem to a
    validated `ChemistryIntent`. Missing or conflicting values return `None`; the
@@ -224,7 +224,7 @@ Pure solids and liquids are omitted from `Kc`, `Kp`, and solubility products onl
 A law both subjects teach has one implementation, in physics' catalog: the ideal gas law,
 Boyle, Charles, Gay-Lussac and the combined law; `Q = mcΔT`; a half-life amount, a decay
 constant and an activity. A chemistry question routes to physics for them
-(`services/subject_solving.detect_subject`) and reads its answer in its own units:
+(`services/subjects/dispatch.detect_subject`) and reads its answer in its own units:
 
 - a gas stated in litres or atmospheres gives a volume in L and a pressure in atm, not m³
   and Pa ("2 mol at 300 K and 1 atm" occupies 49.2 L). A gas stated in m³ or Pa keeps SI;

@@ -14,7 +14,7 @@ from app.modules.chat.prompt_constants.chart import CHART_SHAPES
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.turn_reading.chart import chart_names_no_curve
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 DATA_CHARTS = (
     "Plot this experiment as a scatter plot with a best-fit line: "

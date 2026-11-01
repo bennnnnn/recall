@@ -60,15 +60,16 @@ _MODULE_EXPORTS = (
     # The verified block's types (services/solving).
     "response_intent",
     "solve.key_steps",
+    # Maths as the subject registry asks it (services/subjects/registry).
+    "subject",
     "sympy_warmup",
     "text_plot",
     "tool_check",
-    # The subject dispatcher (services/subject_solving): direct replies and curve points.
-    "tools.direct",
     "tools.extract",
     # The model reader (modules/model_reader) keeps maths' own typed read.
     "tools.llm_extract",
     "tools.prompt",
+    # The subject order (services/subjects/order): a curve physics cannot read.
     "tools.school.curve_points",
     "tools.solve_timeouts",
 )

@@ -6,7 +6,7 @@ import pytest
 
 from app.modules.physics import extract_physics_intent, is_symbol_givens_request, needs_physics
 from app.modules.physics.symbol_givens import symbol_givens_requests
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 
 @pytest.mark.parametrize(

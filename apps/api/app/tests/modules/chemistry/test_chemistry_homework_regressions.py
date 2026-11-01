@@ -33,7 +33,7 @@ from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import SolveServiceError
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 _NUMBER = re.compile(r"=\s*(-?\d+(?:\.\d+)?)(?:\s*×\s*10\^(-?\d+))?")
 

@@ -28,22 +28,22 @@ __all__ = [
     "validate_smiles",
 ]
 
-# Seams the chat turn uses: question detection, follow-ups, and post-stream fences; and
-# what the subject dispatcher (services/subject_solving) reads: the reading, the
-# extracted intent, the verified block and the direct reply.
+# Seams the chat turn uses: question detection, follow-ups, prompt hints and post-stream
+# fences; what the subject order (services/subjects/order) reads of a line: the extracted
+# intent, its text, a question's cues and a reaction's species; and ``subject``, chemistry as
+# the subject registry (services/subjects/registry) asks it, its verified block and its
+# direct reply.
 _MODULE_EXPORTS = (
-    "block",
     "context",
-    "direct",
     "extract",
     "fence",
     "followup",
     "input_text",
     # The laws a model reader chooses from, and the intent its read binds to.
     "model_read",
-    "reading",
     "reply_policy",
     "request",
     "shape_followup",
     "species",
+    "subject",
 )

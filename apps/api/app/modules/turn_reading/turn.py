@@ -35,7 +35,7 @@ class TurnReading:
     teaching_reason: TeachingReason
     # The message's subject as the pool read it with the turn's attachment flag and
     # chemistry setting, and the step of the subject order that decided it
-    # (``services.subject_solving.read_subject_reason``). ``not_read`` when the pool did not
+    # (``services.subjects.dispatch.read_subject_reason``). ``not_read`` when the pool did not
     # read it, ``read_declined`` when the pool gave up: the subject is then unknown here.
     has_image_attachment: bool = False
     subject: str | None = None

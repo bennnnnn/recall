@@ -20,7 +20,7 @@ from app.modules.math.tools.school.single_draw_events import (
     one_die_event,
     two_dice_event,
 )
-from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+from app.services.subjects.dispatch import build_subject_augmentation, maybe_direct_subject_reply
 
 
 async def _card(text: str) -> tuple[str | None, str | None]:

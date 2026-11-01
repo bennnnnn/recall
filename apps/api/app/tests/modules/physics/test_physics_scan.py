@@ -16,7 +16,7 @@ from app.main import create_app
 from app.models.orm import User
 from app.modules.physics.read import PHYSICS_READ_PROMPT, read_physics_problem, readable_physics
 from app.services.subject_scan import PHYSICS_CAMERA_PROMPT, SCAN_CONFIRMED_PREFIX
-from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+from app.services.subjects.dispatch import build_subject_augmentation, maybe_direct_subject_reply
 
 _IMAGE = base64.b64encode(b"\xff\xd8\xff fake jpeg").decode()
 _SETTINGS = Settings(math_tools_enabled=True)

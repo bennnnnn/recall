@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+from app.services.subjects.dispatch import build_subject_augmentation, maybe_direct_subject_reply
 
 
 async def _verified(text: str) -> tuple[str | None, str | None]:

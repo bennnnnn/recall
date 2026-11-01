@@ -256,7 +256,7 @@ def test_lens_powers_written_as_d_add() -> None:
 
 
 def test_torque_on_a_stated_moment_stays_physics() -> None:
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     text = "A magnetic moment of 0.200 A m^2 is in a 0.500 T field at 30 degrees. Find the torque."
     assert detect_subject(text) == "physics"

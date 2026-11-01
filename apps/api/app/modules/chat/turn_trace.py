@@ -57,7 +57,7 @@ class TurnTrace:
     # Why the message asks to be taught or not (``turn_reading.teaching.TeachingReason``).
     teaching_reason: str | None = None
     # Which step of the subject order decided the message's subject, or that the pool did
-    # not read it (``services.subject_solving.SubjectReason``, ``not_read``,
+    # not read it (``services.subjects.dispatch.SubjectReason``, ``not_read``,
     # ``read_declined``).
     subject_reason: str | None = None
     prompt_rules: list[str] = field(default_factory=list)

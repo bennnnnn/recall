@@ -22,7 +22,7 @@ from app.modules.turn_reading.chart import (
     is_chart_question,
 )
 from app.modules.web_search.detection import needs_web_search
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 
 @pytest.mark.parametrize(

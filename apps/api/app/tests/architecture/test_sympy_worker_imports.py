@@ -42,7 +42,7 @@ _WORKER_JOBS = (
     "from app.modules.chat.related_questions import accepted_questions, follow_up_topic",
     "follow_up_topic('solve 2x + 3 = 7', 'x = 2', exchange, allow_general=True)",
     "accepted_questions('solve 2x + 3 = 7', ['What if 2x + 3 = 9?'])",
-    "from app.services.subject_solving import maybe_direct_subject_reply",
+    "from app.services.subjects.dispatch import maybe_direct_subject_reply",
     "from app.modules.chemistry.context import _solve_locally",
     "_solve_locally('How many moles are in 18 g of water?')",
 )

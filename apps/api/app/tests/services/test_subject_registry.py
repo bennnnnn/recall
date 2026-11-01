@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -9,11 +10,20 @@ import pytest
 from app.core.config import Settings
 from app.modules.chemistry.block import VerifiedChemistry
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_solving import (
+from app.services.subjects.dispatch import (
     build_subject_augmentation,
     detect_subject,
     maybe_direct_subject_reply,
 )
+from app.services.subjects.registry import SUBJECTS, SubjectName, subject_adapter
+
+
+def test_the_registry_holds_one_adapter_per_subject_name() -> None:
+    names = [adapter.name for adapter in SUBJECTS]
+    assert len(set(names)) == len(names)
+    assert set(names) == set(typing.get_args(SubjectName))
+    for name in typing.get_args(SubjectName):
+        assert subject_adapter(name).name == name
 
 
 def test_image_extract_is_math_before_any_peer() -> None:
@@ -50,7 +60,7 @@ def test_disabled_chemistry_does_not_claim_a_lookup() -> None:
 async def test_closed_chemistry_does_not_also_solve_as_math() -> None:
     text = "Find Gibbs free energy when delta H=-40 kJ, delta S=-100 J and T=300 K"
     with patch(
-        "app.services.subject_solving.build_math_augmentation",
+        "app.modules.math.subject.build_math_augmentation",
         AsyncMock(side_effect=AssertionError("math must not run")),
     ):
         result = await build_subject_augmentation(text, Settings(chemistry_enabled=True))
@@ -70,7 +80,7 @@ async def test_closed_chemistry_does_not_also_solve_as_math() -> None:
 async def test_no_subject_does_not_force_the_math_solver() -> None:
     text = "What should I cook for dinner tonight"
     with patch(
-        "app.services.subject_solving.build_math_augmentation",
+        "app.modules.math.subject.build_math_augmentation",
         AsyncMock(side_effect=AssertionError("math must not run")),
     ):
         result = await build_subject_augmentation(
@@ -150,7 +160,7 @@ async def test_chemistry_decline_is_flagged_and_element_context_is_not() -> None
 @pytest.mark.asyncio
 async def test_fetch_returns_the_adapter_decline_flag() -> None:
     from app.modules.chat.prompt_builder import fetch_subject
-    from app.services.subject_solving import SubjectAugmentation
+    from app.services.solving import SubjectAugmentation
 
     settings = Settings(math_tools_enabled=True, web_search_enabled=False)
     with patch(

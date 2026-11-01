@@ -4,8 +4,9 @@ homework (math, physics, and any solver-backed subject after them).
 This module deliberately holds no subject's business logic — no equation
 solving, no physics formulas, no chemistry stoichiometry. It holds only the
 vocabulary subjects use to hand a verified result to the chat turn: the
-error a solve raises when it declines, and the block that carries a verified
-answer (plus optional fence/trajectory data) into the system prompt.
+subjects' names, the error a solve raises when it declines, the block that
+carries a verified answer (plus optional fence/trajectory data) into the system
+prompt, and what a subject's solve returns (``SubjectAugmentation``).
 
 Math and physics both import from here directly instead of one importing
 through the other's package — see docs/SUBJECT_SEPARATION_TICKETS.md (S2).
@@ -29,6 +30,11 @@ if TYPE_CHECKING:
     from app.modules.math.solve.key_steps import KeyStep
     from app.modules.physics.schemas import PhysicsIntent
     from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
+
+# The subjects a turn is solved by. The subject registry (``services/subjects/registry``)
+# holds one adapter per name; the name is here, beside the block each subject hands back,
+# because every subject's block names it and the registry imports the subjects.
+SubjectName = Literal["math", "physics", "chemistry"]
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"
@@ -62,7 +68,7 @@ class VerifiedSolveBlock:
     backward compatibility."""
 
     text: str
-    subject: Literal["math", "physics", "chemistry"]
+    subject: SubjectName
     canonical_fence: dict[str, Any] | None = None
     canonical_answer: str | None = None
     # Optional user-facing spelling of the same verified value. Geometry uses
@@ -140,6 +146,19 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     # A question in parts: each part's working and card, in the order asked.
     physics_parts: tuple[PhysicsPartWorking, ...] = ()
     symbolic_request: SymbolicPhysicsRequest | None = None
+
+
+@dataclass(frozen=True)
+class SubjectAugmentation:
+    """What a subject's solve hands the turn (``services/subjects/registry``)."""
+
+    subject: SubjectName | None
+    prompt_block: str | None
+    verified: VerifiedSolveBlock | None
+    unverified: bool = False
+    # Both halves of "…, and also …" already rendered. Chat shows this and
+    # does not ask the model to redo either half.
+    direct_text: str | None = None
 
 
 def wrap_verified_math(text: str) -> str:
