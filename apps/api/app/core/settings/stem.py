@@ -1,5 +1,7 @@
 """Maths, physics and chemistry: SymPy bounds and pool, model extraction, scan OCR."""
 
+from typing import Literal
+
 from pydantic import AliasChoices, BaseModel, Field
 
 
@@ -57,6 +59,11 @@ class StemSettings(BaseModel):
     # (two 3 s translation attempts), so it only stops a call that outlives its
     # own timeout; a finished extraction is used when the translation runs long.
     math_model_intent_budget_seconds: float = 7.0
+    # Experiment ("every number accounted for", services/verified_numbers.py): a verified
+    # card whose solve did not read what the question states is dropped, and the model
+    # answers. "counts": only counts ("twenty 60 W bulbs", "both", "several"); "all":
+    # every number too. Off until measured.
+    verified_numbers_gate: Literal["off", "counts", "all"] = "off"
     # A model reads each question beside the patterns, and the turn's trace line says
     # whether the two agree (docs/MODEL_READER.md). Off: a measurement, not a feature;
     # nothing it reads reaches a reply. Each of its two calls has this long: the measured

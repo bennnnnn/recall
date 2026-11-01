@@ -18,6 +18,7 @@ _SERVICES = APP_ROOT / "services"
 # Root file -> why it stays with one owner.
 _ONE_OWNER = {
     "calendar_facts": "time_context's calendar half, split from it for size",
+    "verified_numbers": "subject_solving's verified-card gate, split from it for size",
 }
 
 

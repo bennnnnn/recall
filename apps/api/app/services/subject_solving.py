@@ -25,6 +25,7 @@ from app.modules.math.tools.prompt import (
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.prompt import build_physics_augmentation
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock, VerifiedSolveBlock
+from app.services.verified_numbers import passes_gate
 
 SubjectName = Literal["math", "physics", "chemistry"]
 
@@ -421,7 +422,7 @@ async def build_subject_augmentation(
     adapter = SUBJECT_ADAPTERS.get(subject) if subject is not None else None
     if adapter is None:
         return SubjectAugmentation(None, None, None)
-    return await adapter.augment(
+    augmentation = await adapter.augment(
         user_content,
         settings,
         math_user_content=math_text,
@@ -431,6 +432,10 @@ async def build_subject_augmentation(
         response_intent_text=response_intent_text,
         redis=redis,
     )
+    if has_image_attachment or passes_gate(user_content, augmentation.verified, settings):
+        return augmentation
+    # A card that ignores a stated number or count answers another question.
+    return SubjectAugmentation(augmentation.subject, None, None)
 
 
 async def _paired_direct_reply(

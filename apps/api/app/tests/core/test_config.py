@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal, get_args, get_origin
 
 import pytest
 
@@ -357,6 +358,9 @@ def _env_value(name: str, annotation: object, default: object, index: int) -> tu
         return str(1000 + index), 1000 + index
     if annotation is float:
         return f"{index}.25", float(f"{index}.25")
+    if get_origin(annotation) is Literal:
+        choice = next(arg for arg in get_args(annotation) if arg != default)
+        return str(choice), choice
     assert annotation is str, f"{name}: add a case for {annotation!r}"
     return f"value-{name}", f"value-{name}"
 

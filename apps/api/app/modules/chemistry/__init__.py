@@ -38,6 +38,8 @@ _MODULE_EXPORTS = (
     "extract",
     "fence",
     "followup",
+    # The unit spellings chemistry reads after a number (the model reader's translation check).
+    "given_units",
     "input_text",
     # The laws a model reader chooses from, and the intent its read binds to.
     "model_read",

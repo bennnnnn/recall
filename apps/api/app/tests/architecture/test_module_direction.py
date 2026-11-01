@@ -21,7 +21,12 @@ from .boundary_support import _import_cycles, _import_graph, _module_imports
 _SUBJECTS = frozenset({"math", "physics", "chemistry"})
 # The dispatcher sits over the subjects it sends a message to, under chat. The readers of a
 # message are leaves: they import only services, so a subject may ask them too (ST-04).
-_LAYER_OF = {"services.subject_solving": 2, "modules.turn_reading": 0}
+# Its verified-card gate reads each subject's intent, so it sits with it.
+_LAYER_OF = {
+    "services.subject_solving": 2,
+    "services.verified_numbers": 2,
+    "modules.turn_reading": 0,
+}
 # A composition root wires every module together (test_outside_modules.py).
 _ROOTS = frozenset({"app.services.mcp"})
 

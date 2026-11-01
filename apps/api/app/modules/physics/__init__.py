@@ -71,4 +71,5 @@ def __getattr__(name: str) -> Any:
 # The subject registry (services.subject_solving) builds the verified block
 # through ``prompt`` and the direct reply through ``direct``.
 # ``model_read``: the laws a model reader chooses from, and the intent its read binds to.
-_MODULE_EXPORTS = ("direct", "extract", "fence", "followup", "model_read", "prompt")
+# "givens": the unit table a stated number is read with (services/verified_numbers).
+_MODULE_EXPORTS = ("direct", "extract", "fence", "followup", "givens", "model_read", "prompt")
