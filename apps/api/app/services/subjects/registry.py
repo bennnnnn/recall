@@ -7,13 +7,17 @@ through the subject's own files. Which subject a line is belongs to the subject 
 (``services/subjects/order``), the one place precedence between subjects is written: the order
 of ``SUBJECTS`` decides nothing.
 
-An adapter has what the dispatcher asks of every subject:
+An adapter has what the dispatcher and chat ask of every subject:
 
 - ``name``: the subject, one of ``SubjectName``;
 - ``solve``: the turn's verified block for a line, the prompt note when nothing verified it,
   and whether the subject tried and declined (``SubjectAugmentation``);
 - ``direct_reply``: the reply a verified block may show without a model, or None. It runs in
-  the SymPy pool (its checks parse with SymPy).
+  the SymPy pool (its checks parse with SymPy);
+- ``hints``: its prompt copy, and where chat states it (``SubjectHints``);
+- ``asks``: whether a line asks something of the subject (its cue), solved or not;
+- ``followups``: how it reads a line that goes back to its last problem
+  (``SubjectFollowups``). A subject with nothing to read there answers None or False.
 
 A new subject is a module with its own ``subject`` adapter, its name in ``SubjectName`` (in
 ``services/solving``, beside the verified block every subject's solve names itself in) and its
@@ -22,8 +26,9 @@ entry in ``SUBJECTS``; ``tests/services/test_subject_registry.py`` holds the two
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from app.modules.chemistry.subject import CHEMISTRY_SUBJECT
 from app.modules.math.subject import MATH_SUBJECT
@@ -36,6 +41,7 @@ if TYPE_CHECKING:
     from app.core.config import Settings
     from app.modules.math.schemas import MathImageExtract
     from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
+    from app.services.subject_hints import SubjectHints
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -55,11 +61,59 @@ class SubjectRequest:
     redis: Redis | None = None
 
 
+class SubjectFollowups(Protocol):
+    """How a subject reads a line that goes back to its last problem."""
+
+    def problem(
+        self,
+        query: str | None,
+        recent: Sequence[Any],
+        *,
+        blocked: Callable[[str], bool] | None = None,
+    ) -> str | None:
+        """The earlier problem this line asks again about ("how?", "what about 2 moles?").
+
+        ``blocked`` names a line maths must not replay (a physics or chemistry problem).
+        """
+        ...
+
+    def continues(
+        self,
+        query: str | None,
+        recent: Sequence[Any],
+        *,
+        blocked: Callable[[str], bool] | None = None,
+    ) -> bool:
+        """The line only continues the subject's last exchange: its follow-up hints apply."""
+        ...
+
+    def previous_result(self, reply: str) -> str | None:
+        """The last reply as the prompt shows it to a follow-up, or None to keep it as is."""
+        ...
+
+    def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
+        """A cheap look, on the loop: the line asks to see what the subject's card draws,
+        and, given the chat's recent lines, one of them could be the problem it draws."""
+        ...
+
+    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
+        """The problem whose card draws what the line asks to see, read in the pool."""
+        ...
+
+
 class SubjectAdapter(Protocol):
-    """One subject, as the dispatcher asks it."""
+    """One subject, as the dispatcher and chat ask it."""
 
     @property
     def name(self) -> SubjectName: ...
+
+    @property
+    def hints(self) -> SubjectHints: ...
+
+    @property
+    def followups(self) -> SubjectFollowups: ...
+
+    def asks(self, text: str, *, has_image_attachment: bool = False) -> bool: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 

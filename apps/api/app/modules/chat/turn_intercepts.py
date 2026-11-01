@@ -24,12 +24,6 @@ from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import role_content_dicts
 from app.modules.chat.turn_trace import emit_turn_trace
-from app.modules.chemistry.shape_followup import (
-    could_ask_a_shape,
-    is_show_line,
-    last_question_line,
-    shape_followup_problem,
-)
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.generation import ImageGenerationError
 from app.modules.images.intent import (
@@ -45,6 +39,7 @@ from app.modules.images.lookup_intent import (
 )
 from app.modules.images.reply_picture import ReplyPicture
 from app.modules.images.search import ImageSearchError
+from app.services.subjects.registry import subject_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -191,13 +186,12 @@ async def _chemistry_draws_it(settings: Settings, content: str, recent: Sequence
     in any other chat ("show me her") never waits on the pool. A pool that cannot read it
     leaves the line to the photo path and does not decline the turn's other readings.
     """
-    if not settings.chemistry_enabled or not is_show_line(content):
-        return False
-    if not could_ask_a_shape(last_question_line(recent)):
+    followups = subject_adapter("chemistry").followups
+    if not settings.chemistry_enabled or not followups.asks_to_see(content, recent):
         return False
     try:
         problem = await run_sympy(
-            shape_followup_problem,
+            followups.shown_problem,
             content,
             role_content_dicts(recent),
             timeout=settings.subject_read_timeout_seconds,
@@ -434,7 +428,7 @@ async def intercept_regenerate(
     A lookup that ran and found nothing is added to ``misses`` ("photo").
     """
     replace_id = backup.message_id if backup is not None else None
-    if is_show_line(content):
+    if subject_adapter("chemistry").followups.asks_to_see(content):
         recent = await _recent_rows(
             deps, settings, chat_id=chat_id, recent_messages=None, replace_assistant_id=replace_id
         )

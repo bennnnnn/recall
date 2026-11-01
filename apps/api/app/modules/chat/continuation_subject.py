@@ -243,9 +243,9 @@ def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any])
     own = classify_presentation_subject(query)
     if own in {"math", "physics"}:
         return None
-    from app.modules.chemistry.request import is_chemistry_question
+    from app.services.subjects.registry import subject_adapter
 
-    return adjacent_problem(recent, is_chemistry_question)
+    return adjacent_problem(recent, subject_adapter("chemistry").asks)
 
 
 def exchange_pairs(messages: Sequence[Any]) -> tuple[tuple[str, str], ...]:
@@ -274,12 +274,11 @@ def effective_presentation_subject(
         return own
     if is_pure_continuation(query) or is_new_problem_request(query):
         return _continuation_subject(prior_messages or ())
-    from app.modules.chemistry.followup import chemistry_followup_problem
-    from app.modules.physics.followup import physics_followup_problem
+    from app.services.subjects.registry import subject_adapter
 
-    if chemistry_followup_problem(query, prior_messages or ()) is not None:
+    if subject_adapter("chemistry").followups.continues(query, prior_messages or ()):
         return "chemistry"
-    if physics_followup_problem(query, prior_messages or ()) is not None:
+    if subject_adapter("physics").followups.continues(query, prior_messages or ()):
         return "physics"
     return None
 

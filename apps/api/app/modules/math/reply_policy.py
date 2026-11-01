@@ -3,6 +3,7 @@
 The reply policy is shared by heuristic and tool-result prompts.
 """
 
+from app.services.math_notation import MATH_NOTATION_CLARIFICATION_HINT
 from app.services.workout import MATH_WORKOUT_PROMPT_RULE
 
 MATH_REPLY_POLICY = (
@@ -35,14 +36,6 @@ MATH_REPLY_POLICY = (
 GRAPH_NO_SUBSTITUTE_CLAUSE = (
     "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
     "or a Mermaid/flowchart diagram for a function plot."
-)
-
-MATH_NOTATION_CLARIFICATION_HINT = (
-    "If mathematical notation is unclear, unrecognized, or malformed, ask one brief "
-    "clarification instead of guessing its meaning. Do not invent a named mathematical "
-    "concept or silently change the expression. Standard, unambiguous notation aliases "
-    "are fine. A bare log is base 10, as on a school calculator; write the natural log "
-    "as ln."
 )
 
 MATH_INTENT_HINT = (
