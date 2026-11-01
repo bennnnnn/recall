@@ -6,12 +6,14 @@ numbers in two lines over a calculator card (2026-10-31): nothing a student coul
 or hand in. A worked problem's reply is laid out the way the STEM replies are.
 
 It is read from what the question asks, never from who is in it (a name is a brand as
-often as a person): a number to work out ("What is …?", "Find …", "Calculate …"), that is
-not about the asker's own money ("I", "my", "we": a textbook's "Suppose you borrow …" is
-the reader's exercise) and not a choice or advice ("should", "better", "compare",
-"refinance"). And the layout is only used when the server read every value it worked with
-from the question (``lays_out_working``): laid out as homework, a term or a rate the app
-assumed would look like the book's own.
+often as a person): a number to work out ("What is …?", "Find …", "Calculate …") from
+values the question sets out first (a sentence before the ask, or "If …"/"Suppose …"), or
+ordered worked out, that is not about the asker's own money ("I", "my", "we": a textbook's
+"Suppose you borrow …" is the reader's exercise) and not a choice or advice ("should",
+"better", "compare", "refinance"). "Mortgage $300k at 6.5% 30 years payment?" is anyone's
+quick ask. And the layout is only used when the server read every value it worked with from
+the question (``lays_out_working``): laid out as homework, a term, a rate or a compounding
+the app assumed would look like the book's own.
 """
 
 from __future__ import annotations
@@ -30,26 +32,47 @@ _CHOICE = re.compile(
     r"|versus|vs\.?|afford|or\s+(?:a|an|the)\s+\d|which\s+(?:one|is|are|of|would|should))",
     re.IGNORECASE,
 )
-_ASKS = re.compile(r"\?|\b(?:calculate|compute|find|determine|work\s+out)\b", re.IGNORECASE)
+_ORDER = re.compile(r"\b(?:calculate|compute|find|determine|work\s+out)\b", re.IGNORECASE)
+# The values set out before the ask: "If you deposit $1,000 …, how much …?", "Suppose …".
+_CONDITION = re.compile(r"^\W*(?:if|suppose|assume|given)\b", re.IGNORECASE)
+# A sentence ends at ".", "!" or ";" before a space, or at a line's end: "$250.000" and
+# "4.5%" go on.
+_SENTENCE = re.compile(r"(?<=[.!;])\s+|\s*\n\s*")
+
+
+def _sets_out_values(text: str) -> bool:
+    """The question states its values before it asks: a sentence with a number ahead of
+    the last one ("A loan of $20,000 at 6% for 5 years. What is the payment?"), or a
+    condition it opens with. "Hey, what would a $15,000 car loan … cost?" asks at once."""
+    sentences = _SENTENCE.split(text.strip())
+    return _CONDITION.match(text) is not None or any(
+        re.search(r"\d", sentence) for sentence in sentences[:-1]
+    )
 
 
 def is_worked_problem(text: str) -> bool:
-    """A number to work out, not about the asker's own money and not a choice."""
-    return (
-        _ASKS.search(text) is not None
-        and _OWN.search(text) is None
-        and _CHOICE.search(text) is None
-    )
+    """A number to work out, set out as an exercise, not about the asker's own money and
+    not a choice."""
+    asked = _ORDER.search(text) is not None or ("?" in text and _sets_out_values(text))
+    return asked and _OWN.search(text) is None and _CHOICE.search(text) is None
 
 
 def lays_out_working(text: str, request: MoneyRequest, worked: Worked | None) -> bool:
     """A worked problem whose numbers are all the question's: no term, rate or sum assumed
     (a flow the question leaves out, no monthly deposit beside a lump sum, is no
-    assumption), every sum and rate it states used, and no follow-up. Compounding the
-    question names is the reader's (``request.settings``), or it worked no numbers."""
+    assumption), every sum and rate it states used, and no follow-up. Compounding must be
+    the question's (``request.settings``): "6% per year" worked monthly is 4,561.11 where
+    a book compounding yearly prints 4,510.89 (2026-11-01). A monthly deposit is never laid
+    out: when in the month it is paid, and a recurring deposit's simple interest (ICSE's
+    Rs 39,885 against the app's 39,930.10), are the book's convention, not the question's."""
     if worked is None or request.changed or request.rates_only:
         return False
-    defaults = request.product.defaults
+    product = request.product
+    if "per_year" in product.settings and "per_year" not in request.settings:
+        return False
+    if request.values.get("deposit"):
+        return False
+    defaults = product.defaults
     if any(defaults.get(name) != 0 for name in worked.assumed):
         return False
     # Every sum and rate it states is one the numbers use: "a house that costs 250,000 …

@@ -38,7 +38,14 @@ from functools import cache
 
 from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.kinds import named_variant
-from app.modules.money.phrases import CURRENCY_WORDS, DURATION, PERCENT, count_value, sum_phrase
+from app.modules.money.phrases import (
+    CURRENCY_WORDS,
+    DURATION,
+    PERCENT,
+    count_value,
+    percent_value,
+    sum_phrase,
+)
 from app.modules.money.read import MoneyRequest, bare_year, read_sum, term_in
 from app.modules.money.solve import rate_name
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
@@ -200,7 +207,10 @@ def purchase_request(line: str, before: Sequence[str]) -> MoneyRequest | None:
     product = bought.product
     values = {"amount": amount}
     if match["pct"] is not None:
-        values[rate_name(product)] = float(match["pct"])
+        rate = percent_value(match["pct"])
+        if rate is None:
+            return None
+        values[rate_name(product)] = rate
     if match["n"] is not None:
         values.update(term_in(product, count_value(match["n"]), match["unit"]))
     variant = named_variant(product, before[0])
