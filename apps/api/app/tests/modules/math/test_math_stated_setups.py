@@ -29,6 +29,10 @@ def test_a_sentence_that_states_a_situation_is_a_given(text: str) -> None:
     [
         ("ok cool. what is 2+2", "what is 2+2"),
         ("lol got the second one wrong. random but whats 2+2", "whats 2+2"),
+        # Remarks, not setups: a demonstrative points back at the chat, the past tells of it.
+        ("This is so hard. what is 5 factorial", "what is 5 factorial"),
+        ("That was annoying. whats 72 fahrenheit in celsius", "whats 72 fahrenheit in celsius"),
+        ("The test was hard. What is the derivative of x^2", "What is the derivative of x^2"),
         # A letter named before the question: the question's reading sees the whole message.
         (
             "Let i be the interest rate. Simplify 1000(1+i)^2 - 1000",

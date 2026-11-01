@@ -22,14 +22,15 @@ _CHAT_LEAD = re.compile(
     re.IGNORECASE,
 )
 
-# Something stated about a thing: a determiner or a count, a few words, then a verb that
-# states it ("A die is rolled", "Two dice are thrown", "Suppose the bag contains"). "Let i
-# be the interest rate" names a letter, which the reading of the question already sees.
+# A thing introduced and stated in the present: an article or a count, a few words, then
+# is/are/has/contains ("A die is rolled", "Two dice are thrown", "Suppose the bag
+# contains"). "This is so hard", "That was annoying" and "The test was hard" are remarks:
+# a demonstrative points back at the chat and the past tense tells of it. "Let i be the
+# interest rate" names a letter, which the reading of the question already sees.
 _SITUATION = re.compile(
     r"^(?:(?:let|suppose|assume|given|if|when)\s+(?:that\s+)?)?(?:a|an|the|one|two|three"
-    r"|four|five|six|seven|eight|nine|ten|twelve|some|each|every|this|that|these|those|its"
-    r"|their)\s+(?:[\w'-]+\s+){0,4}?(?:is|are|was|were|has|have|had|contains?|holds?"
-    r"|shows?)\b",
+    r"|four|five|six|seven|eight|nine|ten|twelve|some|each|every)\s+(?:[\w'-]+\s+){0,4}?"
+    r"(?:is|are|has|have|contains?|holds?|shows?)\b",
     re.IGNORECASE,
 )
 

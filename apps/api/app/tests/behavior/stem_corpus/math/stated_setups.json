@@ -15,5 +15,7 @@
   {"id": "ds14", "area": "probability", "prompt": "What is the probability of drawing a king from a standard deck of 52 cards? Express your answer as a fraction in simplest form.", "expect": "answer", "check": ["num", "1/13"]},
   {"id": "ds15", "area": "probability", "prompt": "What is the probability of exactly 3 heads in 5 tosses of a fair coin? Round to 4 decimal places.", "expect": "answer", "check": ["num", "5/16"], "note": "C(5,3)/32"},
   {"id": "ds16", "area": "probability", "prompt": "Flip a coin 4 times. What is the probability of exactly 2 heads?", "expect": "answer", "check": ["num", "3/8"], "note": "C(4,2)/16"},
-  {"id": "ds17", "area": "probability", "prompt": "ok cool. what is 2+2", "expect": "answer", "check": ["num", "4"], "note": "chat before a question is still dropped"}
+  {"id": "ds17", "area": "probability", "prompt": "ok cool. what is 2+2", "expect": "answer", "check": ["num", "4"], "note": "chat before a question is still dropped"},
+  {"id": "ds18", "area": "probability", "prompt": "This is so hard. what is 5 factorial", "expect": "answer", "check": ["num", "120"], "note": "a remark before the question is still chat"},
+  {"id": "ds19", "area": "probability", "prompt": "The test was hard. What is the derivative of x^2", "expect": "answer", "check": ["expr", "2*x"], "note": "the past tense tells of the chat; it states no setup"}
 ]
