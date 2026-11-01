@@ -22,6 +22,7 @@ from sympy import (
     Abs,
     Dummy,
     Eq,
+    I,
     Poly,
     Pow,
     S,
@@ -162,16 +163,122 @@ def _single_term(argument: Any, symbols: list[Any]) -> bool:
 
 
 def real_odd_roots(expr: Any) -> Any:
-    """``(-8x⁶)^(1/3)`` as ``-(8x⁶)^(1/3)``: an odd root keeps the radicand's sign."""
-    return expr.replace(
-        lambda node: (
-            node.is_Pow
-            and node.exp.is_Rational
-            and not node.exp.is_Integer
-            and node.exp.q % 2 == 1
-            and node.base.could_extract_minus_sign()
-        ),
-        lambda node: (-1) ** node.exp.p * Pow(-node.base, node.exp),
+    """``(-8x⁶)^(1/3)`` as ``-(8x⁶)^(1/3)``: an odd root keeps the radicand's sign.
+
+    Inner roots first, so ∛(∛(-27) - 5) is ∛(-8) = -2. ``expr`` may be parsed unevaluated
+    (``read_written``): evaluated, (-2.5)^(2/3) is already SymPy's complex principal value
+    and i·∛(-8) is 2·(-1)^(5/6), an even root."""
+    if not expr.args:
+        return expr
+    args = [real_odd_roots(arg) for arg in expr.args]
+    if expr.is_Pow:
+        exponent = _odd_root_exponent(args[1])
+        if exponent is not None and _negative_radicand(args[0]):
+            # SymPy's -1: Python's (-1) ** -1 is the float -1.0, which then prints in the card.
+            return S.NegativeOne**exponent.p * Pow(-args[0], exponent)
+    if all(new is old for new, old in zip(args, expr.args, strict=True)):
+        return expr
+    return expr.func(*args)
+
+
+def read_written(written: Any) -> Any:
+    """An expression parsed unevaluated, read with real odd roots, then evaluated."""
+    return _evaluated(real_odd_roots(written))
+
+
+def _evaluated(expr: Any) -> Any:
+    if not expr.args:
+        return expr
+    return expr.func(*(_evaluated(arg) for arg in expr.args))
+
+
+def _odd_root_exponent(exponent: Any) -> Any:
+    """The exponent p/q of an odd root (q odd, p/q not whole), or None."""
+    rational = exponent if exponent.is_Rational else _evaluated(exponent)
+    if rational.is_Rational and not rational.is_Integer and rational.q % 2 == 1:
+        return rational
+    return None
+
+
+def _negative_radicand(base: Any) -> bool:
+    """A number's sign is its value's: ∛(1 - √2) is negative though written with + first,
+    ∛(√2 - 1) positive though written -1 + √2, and ∛(-8i) has no real root, so it keeps
+    SymPy's principal one. A radicand with letters goes by its written sign; callers check
+    that reading on the real line."""
+    if base.is_number:
+        return _real_sign(base) == -1
+    return bool(base.could_extract_minus_sign())
+
+
+# A sign read at fixed precision: SymPy's own is_negative can search without end on a
+# radicand that is exactly zero (a sum of square roots that cancels).
+_DIGITS = 30
+_NEAR_ZERO = 1e-12
+# What 30 digits leave of a sum that cancels exactly; -1e-15 itself is far above it.
+_CANCELLED = 10.0 ** (5 - _DIGITS)
+
+
+def _approximate(number: Any) -> complex | None:
+    try:
+        return complex(number.evalf(_DIGITS, maxn=2 * _DIGITS))
+    except (TypeError, ValueError, ArithmeticError):
+        return None
+
+
+def _real_sign(number: Any) -> int | None:
+    """-1 or 1; None for zero, a sum that cancels to zero, or a value that is not real."""
+    if number.is_Number:  # -2.5, -1/8, -1e-27: the sign is exact
+        return 1 if number.is_positive else -1 if number.is_negative else None
+    value = _approximate(number)
+    if value is None or abs(value.imag) > _NEAR_ZERO * max(1.0, abs(value.real)):
+        return None
+    if abs(value.real) < _CANCELLED:
+        return None
+    return 1 if value.real > 0 else -1
+
+
+def _powers(written: Any) -> list[tuple[Any, Any]]:
+    """Each power's base and exponent as numbers where they are numbers."""
+    return [(node.base, _evaluated(node.exp)) for node in written.atoms(Pow) if node.base.is_number]
+
+
+def odd_root_of_a_negative_number(written: Any) -> bool:
+    """∛(-8) and the like: -2 in school algebra, 1 + √3 i as complex numbers' principal
+    value. A question in complex numbers that writes one has two readings.
+
+    ``written`` is parsed unevaluated: evaluated, i·∛(-8) is 2·(-1)^(5/6), an even root."""
+    return any(
+        _odd_root_exponent(exponent) is not None and _real_sign(base) == -1
+        for base, exponent in _powers(written)
+    )
+
+
+def _complex_written(written: Any) -> bool:
+    """i itself, or a non-integer power of a negative number that is no odd root
+    (√(-9), (-16)^(1/4)): its only value is the principal complex one."""
+    if written.has(I):
+        return True
+    return any(
+        not exponent.is_Integer and _odd_root_exponent(exponent) is None and _real_sign(base) == -1
+        for base, exponent in _powers(written)
+    )
+
+
+def complex_without_cause(written: Any, value: Any) -> bool:
+    """A value with i from an expression that writes none: an odd root SymPy read on its
+    principal branch. School algebra has no such value, so it is never certified.
+
+    ``written`` is parsed unevaluated, so √(-9) and (-16)^(1/4) are causes as written."""
+    if not getattr(value, "has", None) or _complex_written(written):
+        return False
+    if value.has(I):
+        return True
+    if not value.is_number:
+        return False
+    # 2·(-1)^(5/6) is complex with no i in it; 5/0's complex infinity is no value at all.
+    approximate = _approximate(value)
+    return approximate is not None and abs(approximate.imag) > _NEAR_ZERO * max(
+        1.0, abs(approximate.real)
     )
 
 

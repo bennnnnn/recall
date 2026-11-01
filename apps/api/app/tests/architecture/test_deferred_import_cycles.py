@@ -11,17 +11,31 @@ deferred import.
 When a cycle shrinks, or a module in one is renamed or moved (the same number of modules,
 no more imports), rerun with ``UPDATE_IMPORT_CYCLES=1``: it records the cycles as they
 are and prints each changed one. It never records a larger cycle.
+
+``importlib.import_module("app.x")`` counts as an import of ``app.x``. One whose name is
+computed (``f"app.modules.chat.{name}"``, a lazy package's ``__getattr__``) cannot be
+followed, so each is listed below by hand: a new one fails until it is reviewed and listed.
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 from dataclasses import asdict, dataclass
 from functools import cache
 from pathlib import Path
 
-from .boundary_support import _import_cycles, _import_graph, _module_imports
+import pytest
+
+from .boundary_support import (
+    _import_cycles,
+    _import_graph,
+    _module_imports,
+    _named_dynamic_imports,
+    computed_dynamic_imports,
+    computed_import_keys,
+)
 
 _BASELINE = Path(__file__).with_name("import_cycle_baseline.json")
 
@@ -150,3 +164,79 @@ def test_the_recorded_cycles_are_current() -> None:
         "the cycles changed without growing (smaller, or a module renamed or moved): rerun"
         " this test with UPDATE_IMPORT_CYCLES=1 to record them.\n  " + "\n  ".join(changed)
     )
+
+
+# Lazy packages' ``__getattr__`` (each imports only the names its own table lists) and the
+# prompt-rule reader's walk over its rule homes.
+_COMPUTED_DYNAMIC_IMPORTS = frozenset(
+    {
+        "modules/billing/__init__.py: f'app.modules.billing.{module_name}'",
+        "modules/billing/__init__.py: f'app.modules.billing.{name}'",
+        "modules/chat/__init__.py: f'app.modules.chat.{module_name}'",
+        "modules/chat/__init__.py: f'app.modules.chat.{name}'",
+        "modules/chat/prompt_rule_text.py: f'{home.__name__}.{name}'",
+        "modules/chat/turn_prep/__init__.py: f'app.modules.chat.turn_prep.{module}'",
+        "modules/math/__init__.py: f'app.modules.math.{module_name}'",
+        "modules/memory/__init__.py: f'app.modules.memory.{module}'",
+        "modules/memory/__init__.py: f'app.modules.memory.{name}'",
+        "modules/notifications/__init__.py: f'app.modules.notifications.{module_name}'",
+        "modules/physics/__init__.py: f'app.modules.physics.{module_name}'",
+        "modules/todos/__init__.py: f'app.modules.todos.{module_name}'",
+        "modules/web_search/__init__.py: f'app.modules.web_search.{module}'",
+        "modules/web_search/__init__.py: f'app.modules.web_search.{name}'",
+    }
+)
+
+
+def test_every_computed_dynamic_import_is_listed() -> None:
+    found = computed_dynamic_imports()
+    new = sorted(found - _COMPUTED_DYNAMIC_IMPORTS)
+    gone = sorted(_COMPUTED_DYNAMIC_IMPORTS - found)
+    assert not new, (
+        "a dynamic import the import graph cannot follow (its cycles stay hidden): import "
+        "the module by name, or review it and list it here:\n  " + "\n  ".join(new)
+    )
+    assert not gone, "listed dynamic imports no longer found; remove them:\n  " + "\n  ".join(gone)
+
+
+def test_a_dynamic_import_by_name_is_an_edge() -> None:
+    tree = ast.parse(
+        "import importlib\nfrom importlib import import_module\n"
+        "def f():\n    importlib.import_module('app.a')\n    import_module('app.b')\n"
+        "    import_module(f'app.c.{x}')\n"
+    )
+    assert _named_dynamic_imports(tree) == {"app.a", "app.b"}
+
+
+# 2026-11-01: each of these imported a module by name past the graph.
+@pytest.mark.parametrize(
+    ("source", "named"),
+    [
+        ("from importlib import import_module\nimport_module(name='app.x')", {"app.x"}),
+        ("from importlib import import_module as load\nload('app.x')", {"app.x"}),
+        ("import importlib as il\nil.import_module('app.x')", {"app.x"}),
+        ("__import__('app.x')", {"app.x"}),
+        ("import builtins\nbuiltins.__import__('app.x')", {"app.x"}),
+        (
+            "from importlib import import_module\nimport_module('.x', package='app.pkg')",
+            {"app.pkg.x"},
+        ),
+        ("from importlib import import_module\nimport_module('..y', 'app.pkg.sub')", {"app.pkg.y"}),
+        (
+            "from importlib import import_module\nimport_module('.x', package=__package__)",
+            {"app.own.x"},
+        ),
+        ("from importlib import import_module\nimport_module('.x')", set()),
+        ("__import__('x', globals(), None, [], 1)", set()),
+    ],
+)
+def test_every_spelling_of_a_dynamic_import_is_read(source: str, named: set[str]) -> None:
+    assert _named_dynamic_imports(ast.parse(source), "app.own") == named
+
+
+def test_two_computed_imports_in_one_file_are_listed_apart() -> None:
+    tree = ast.parse(
+        "from importlib import import_module as load\n"
+        "def f(n):\n    load(f'app.{n}')\n    load('app.fixed')\n    return load(f'app.{n}')\n"
+    )
+    assert computed_import_keys("x.py", tree) == {"x.py: f'app.{n}'", "x.py: f'app.{n}' #2"}
