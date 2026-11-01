@@ -7,6 +7,7 @@ direct reply through ``direct``, and its prompt copy from ``reply_policy`` and `
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -68,6 +69,9 @@ class PhysicsFollowups:
     def previous_result(self, reply: str) -> str | None:
         return None
 
+    def continues_alone(self, line: str) -> bool:
+        return False
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return False
 
@@ -76,13 +80,72 @@ class PhysicsFollowups:
 
 
 @dataclass(frozen=True)
+class PhysicsFence:
+    """Physics checks the replies it verified (chat's finalize passes)."""
+
+    def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        return True
+
+    def check(
+        self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
+    ) -> str:
+        from app.modules.physics.fence import validate_physics_fences
+
+        return validate_physics_fences(
+            text, verified=_physics_block(verified), correct=correct, user_text=user_text
+        )
+
+    def recover(self, text: str, verified: VerifiedSolveBlock | None) -> str:
+        from app.modules.physics.fence import replace_unclosed_physics_fences_safe
+
+        return replace_unclosed_physics_fences_safe(text, _physics_block(verified))
+
+    def unverified_note(self, text: str) -> str:
+        # An unverified physics turn's note is in its prompt, not under the reply.
+        return text
+
+    def draws(self, text: str, settings: Settings) -> bool:
+        return False
+
+    def draw(self, text: str, settings: Settings) -> str:
+        return text
+
+    def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
+        return text
+
+
+def _physics_block(verified: VerifiedSolveBlock | None) -> VerifiedPhysicsBlock | None:
+    return verified if isinstance(verified, VerifiedPhysicsBlock) else None
+
+
+@dataclass(frozen=True)
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
     hints: SubjectHints = _HINTS
     followups: PhysicsFollowups = PhysicsFollowups()
+    fence: PhysicsFence = PhysicsFence()
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_physics(text)
+
+    def reads(self, text: str) -> bool:
+        from app.modules.physics.extract import extract_physics_intent
+
+        return extract_physics_intent(text) is not None
+
+    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+        from app.modules.physics.lane import physics_fast_lane
+
+        return physics_fast_lane(text, tools_on=tools_on)
+
+    def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
+        return None
+
+    def warm(self) -> None:
+        return None
+
+    def solve_timeouts(self) -> AbstractContextManager[list[str]]:
+        return nullcontext([])
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
         block, physics_verified, solve_failed = await build_physics_augmentation(

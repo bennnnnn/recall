@@ -670,9 +670,9 @@ async def test_the_maths_pass_runs_the_turns_own_math_fence(
     state = _state("x = 4")
     state.deps = turn_deps(
         math_fence=SimpleNamespace(
-            needs_math_fence_validate=MagicMock(return_value=True),
-            validate_math_fences_worker=MagicMock(return_value="checked"),
-            replace_unclosed_graph_fence_safe=MagicMock(return_value="recovered"),
+            needs_check=MagicMock(return_value=True),
+            check=MagicMock(return_value="checked"),
+            recover=MagicMock(return_value="recovered"),
         )
     )
 

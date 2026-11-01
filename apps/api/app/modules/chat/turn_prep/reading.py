@@ -132,21 +132,20 @@ def ask_turn_readings(
     """Every reading the turn's sync code asks of its message. Runs in a pool worker."""
     from app.modules.chat.model_routing.route import route_chat_model
     from app.modules.chat.turn_prep.intents import plan_turn
-    from app.modules.math.tools.extract import extract_math_intent
-    from app.modules.math.tools.prompt import needs_symbolic_math
-    from app.modules.physics.extract import extract_physics_intent
     from app.services.subjects.dispatch import detect_subject
+    from app.services.subjects.registry import subject_adapter
 
     chemistry = settings.chemistry_enabled
+    maths = subject_adapter("math")
     plan = plan_turn(content, chemistry_enabled=chemistry)
     # The plan's parts too: the tool loop asks each whether it is maths.
     for text in dict.fromkeys((content, *plan.texts())):
         detect_subject(text)
         detect_subject(text, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry)
-        if needs_symbolic_math(text):
-            extract_math_intent(text)
-    extract_math_intent(content)
-    extract_physics_intent(content)
+        if maths.asks(text):
+            maths.reads(text)
+    maths.reads(content)
+    subject_adapter("physics").reads(content)
     # The follow-up readers ask the subject of the user's earlier lines: a physics or
     # chemistry problem is not replayed through maths. Routing asks the line before this
     # one whenever the turn may inherit its lane. A money follow-up asks each line's plan,
@@ -217,14 +216,16 @@ def _earlier_user_lines(earlier: Sequence[Any]) -> tuple[str, ...]:
 
 
 def warm_pool_worker() -> None:
-    """The pool warm-up: a solve and a message read, so a turn pays neither's imports.
+    """The pool warm-up: each subject's (maths' solve) and a message read, so a turn pays
+    neither's imports.
 
     A worker starts cold at boot and again after a timeout kills it; the executor runs
     this first, outside any timeout.
     """
-    from app.modules.math.sympy_warmup import warm_math_worker
+    from app.services.subjects.registry import SUBJECTS
 
-    warm_math_worker()
+    for subject in SUBJECTS:
+        subject.warm()
     ask_turn_readings(
         "A car goes from 0 to 100 km/h in 8 s. Find a, and also solve 2x + 3 = 7",
         prior_user=None,
