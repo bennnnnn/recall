@@ -454,6 +454,16 @@ _BY_OPERATION: dict[tuple[str, str], str] = {
     ("refrigerator_cop", "temp_env"): "cold reservoir temperature",
     ("recoil_speed", "v"): "speed of the projectile",
     ("average_force_from_speeds", "v"): "final velocity",
+    # Shown as v_i and v_f (``notation``): the meaning says which end each one is.
+    ("stopping_distance", "v"): "initial speed",
+    ("impulse", "v1"): "initial velocity",
+    ("impulse", "v2"): "final velocity",
+    ("work_energy", "v1"): "initial speed",
+    ("work_energy", "v2"): "final speed",
+    ("final_velocity", "v1"): "initial velocity",
+    ("final_velocity", "v2"): "initial velocity",
+    ("collision_energy_lost", "v1"): "initial velocity",
+    ("collision_energy_lost", "v2"): "initial velocity",
     # Kepler's laws hold for a star as well as a planet.
     ("kepler_period", "M"): "mass of the central body",
     ("kepler_period_altitude", "M"): "mass of the central body",

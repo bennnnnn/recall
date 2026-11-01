@@ -34,6 +34,7 @@ from app.modules.physics.display import (
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.glossary import given_meaning
 from app.modules.physics.law_titles import law_title
+from app.modules.physics.notation import shown
 from app.modules.physics.parts import asks_more_than_answered
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
@@ -154,14 +155,15 @@ def can_direct_physics(
 
 
 def _parameter_symbol(name: str, operation: str) -> str:
-    """Display symbol declared on this operation. The raw name is not a symbol."""
+    """Display symbol declared on this operation, as the reply shows it (``v_i`` for ``u``).
+    The raw name is not a symbol."""
     spec = formula_spec(operation)
     if spec is None:
         raise ValueError(f"no physics formula named {operation}")
     symbol = symbol_for(spec, name)
     if symbol is None:
         raise ValueError(f"{operation} does not declare {name}")
-    return symbol
+    return shown(symbol, operation)
 
 
 # A script of one character with or without braces (v^{2}, v^2), and a function of one
@@ -211,6 +213,8 @@ def _formula_rows(
     lines: tuple[str, ...] = ()
     if spec is not None:
         base, lines, _assumptions = select_formula(spec, params)
+        base = None if base is None else shown(base, operation)
+        lines = tuple(shown(line, operation) for line in lines)
     if lines:
         return [math_line(line) for line in lines]
     if base is None:

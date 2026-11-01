@@ -19,6 +19,7 @@ from app.modules.physics.answer_checks import (
 from app.modules.physics.catalog import formula_spec
 from app.modules.physics.display import conversion_row
 from app.modules.physics.law_titles import law_title
+from app.modules.physics.notation import shown
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.chip import render_quantity, render_quantity_latex
@@ -34,7 +35,8 @@ from app.services.workout import PHYSICS_WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
 
-# Display labels only. Supported operations and validation live on PhysicsIntent.
+# Display labels only, in the catalog's letters (``notation.shown`` writes v as v_f).
+# Supported operations and validation live on PhysicsIntent.
 _PROJECTILE_LABELS = {
     "time_of_flight": r"t_{\mathrm{flight}}",
     "max_height": r"H_{\mathrm{max}}",
@@ -88,7 +90,7 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
         item = result.quantities[0]
         if item.unit not in allowed or op not in labels:
             raise SolveServiceError("unexpected multipart result representation")
-        labeled.append(QuantityResult(labels[op], item.value, item.unit))
+        labeled.append(QuantityResult(shown(labels[op], op), item.value, item.unit))
         results.append(result)
     first = results[0]
     return PhysicsResult(

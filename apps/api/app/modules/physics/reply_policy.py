@@ -44,6 +44,15 @@ PHYSICS_REPLY_POLICY = (
 )
 
 
+# The symbols the server's own working shows (``notation``), so a reply the model
+# writes reads the same as one the server writes.
+PHYSICS_VELOCITY_NOTATION = (
+    "Physics notation: write a body's initial and final velocity as $v_i$ and $v_f$ "
+    "($v_f = v_i + at$, $v_f^2 = v_i^2 + 2as$), never u and v. In a collision, "
+    "$v_{1i}$ and $v_{2i}$ before, $v_{1f}$ and $v_{2f}$ after."
+)
+
+
 def physics_prompt_hints(short: bool) -> tuple[str, ...]:
     """The physics pack: the short one in Short style or on a compact turn."""
-    return (PHYSICS_SHORT_HINT,) if short else (PHYSICS_INTENT_HINT,)
+    return (PHYSICS_SHORT_HINT,) if short else (PHYSICS_INTENT_HINT, PHYSICS_VELOCITY_NOTATION)
