@@ -156,6 +156,7 @@ const FENCE_TABLE = [
     neverCodeBlock: true,
     owner: "model", body: "data",
     plainReader: "clarify",
+    inDocument: "copyText",
   },
   {
     // A lesson's list as boxes, each value over its index.
