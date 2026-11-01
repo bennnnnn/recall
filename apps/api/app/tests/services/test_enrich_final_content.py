@@ -42,7 +42,9 @@ def _fail_mermaid_pass(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.modules.chat.finalize_text.sanitize_mermaid_fences", _boom)
 
 
-def _passthrough_math(content: str, verified: object = None, correct: bool = True) -> str:
+def _passthrough_math(
+    content: str, verified: object = None, correct: bool = True, user_text: str = ""
+) -> str:
     return content
 
 
@@ -62,8 +64,8 @@ def _deps() -> Any:
     todos = MagicMock()
     todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
     math_fence = MagicMock()
-    math_fence.validate_math_fences_worker = _passthrough_math
-    math_fence.replace_unclosed_graph_fence_safe = lambda content, _canonical: content
+    math_fence.check = _passthrough_math
+    math_fence.recover = lambda content, _verified: content
     return turn_deps(
         session_factory=_fake_session,
         users=MagicMock(get_by_id=AsyncMock(return_value=MagicMock())),
@@ -122,7 +124,7 @@ async def test_exception_fallback_dispatches_to_chemistry_owner(
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     deps = _deps()
     math_safe = MagicMock(return_value="math-safe")
-    deps.math_fence.replace_unclosed_graph_fence_safe = math_safe
+    deps.math_fence.recover = math_safe
     intent = extract_chemistry_intent("Find pH when [H+] = 0.001")
     assert intent is not None
     verified = build_verified_chemistry(intent)
@@ -154,7 +156,7 @@ async def test_exception_fallback_dispatches_to_physics_owner(
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     deps = _deps()
     math_safe = MagicMock(return_value="math-safe")
-    deps.math_fence.replace_unclosed_graph_fence_safe = math_safe
+    deps.math_fence.recover = math_safe
     verified = VerifiedPhysicsBlock(text="verified", canonical_answer="10 N")
     monkeypatch.setattr(
         "app.modules.physics.fence.validate_physics_fences",
@@ -487,12 +489,12 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
 async def test_paired_direct_reply_keeps_both_answer_fences(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.modules.math.fence import needs_math_fence_validate, validate_math_fences
+    from app.services.subjects.registry import subject_adapter
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     deps = _deps()
-    deps.math_fence.needs_math_fence_validate = needs_math_fence_validate
-    deps.math_fence.validate_math_fences_worker = validate_math_fences
+    deps.math_fence.needs_check = subject_adapter("math").fence.needs_check
+    deps.math_fence.check = subject_adapter("math").fence.check
     reply = (
         "**Answer**\n\n```answer\nnotation: chemistry\nV₂ = 100 mL\n```\n\n"
         "**Answer**\n\n```answer\nx = 3 \\text{ or } x = 4\n```\n"
@@ -529,7 +531,7 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     deps = _deps()
-    deps.math_fence.validate_math_fences_worker = MagicMock(
+    deps.math_fence.check = MagicMock(
         side_effect=AssertionError("math fences must not rewrite chemistry")
     )
     question = "Find pH when [H+] = 0.001"

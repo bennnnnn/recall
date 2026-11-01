@@ -40,8 +40,8 @@ def _deps() -> tuple[Any, MagicMock, MagicMock]:
     todos = MagicMock()
     todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough)
     math_fence = MagicMock()
-    math_fence.needs_math_fence_validate = MagicMock(return_value=True)
-    math_fence.validate_math_fences_worker = MagicMock(
+    math_fence.needs_check = MagicMock(return_value=True)
+    math_fence.check = MagicMock(
         side_effect=lambda text, *_args: f"{text}\n\n```answer\nverified: true\nx = 4\n```"
     )
     deps = turn_deps(
@@ -108,7 +108,7 @@ async def test_a_stopped_reply_gets_no_server_card_note_sources_or_reminder(
     assert saved == _REPLY
     assert outcome.final_content == saved
     assert outcome.search_sources == []
-    math_fence.validate_math_fences_worker.assert_not_called()
+    math_fence.check.assert_not_called()
     todos.materialize_reminder_fences.assert_not_awaited()
     assert not outcome.todos_changed
 
@@ -119,7 +119,7 @@ async def test_the_same_reply_finished_gets_them(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     saved, outcome, todos, math_fence = await _finalize(_REPLY, user_stopped=False)
 
-    math_fence.validate_math_fences_worker.assert_called_once()
+    math_fence.check.assert_called_once()
     assert "```sources" in saved
     assert outcome.search_sources
     todos.materialize_reminder_fences.assert_awaited_once()

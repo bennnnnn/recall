@@ -8,12 +8,12 @@ from app.core.config import Settings
 from app.models import model_catalog
 from app.modules.billing import plan
 from app.modules.billing import plan as plan_service
-from app.modules.chat.model_routing import physics as routing_physics
 from app.modules.chat.model_routing.route import (
     message_needs_thinking,
     resolve_alias_in_pool,
     route_chat_model,
 )
+from app.modules.physics import lane as routing_physics
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult
 

@@ -33,16 +33,16 @@ from app.modules.conversation import history as conversation_history
 from app.modules.conversation import service as conversation_service
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
-from app.modules.math import fence as math_fence
 from app.repositories import usage, users
 from app.services import conversation_reference, quota
+from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
     from app.gateways.stream_signals import StreamAttempt
     from app.gateways.web_search_gateway import WebSearchHit
     from app.modules.billing.entitlements import Feature
     from app.services.conversation_reference import ReferenceKind, Turn
-    from app.services.solving import VerifiedMathBlock
+    from app.services.subjects.registry import SubjectFence
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
@@ -347,22 +347,6 @@ class WebSearchFences(Protocol):
     def format_places_fence(self, hits: list[WebSearchHit]) -> str: ...
 
 
-class MathFences(Protocol):
-    """The maths fence rewrite; tests swap it for a pass-through."""
-
-    def needs_math_fence_validate(
-        self, content: str, verified: VerifiedMathBlock | None
-    ) -> bool: ...
-
-    def validate_math_fences_worker(
-        self, content: str, verified: VerifiedMathBlock | None = ..., correct: bool = ...
-    ) -> str: ...
-
-    def replace_unclosed_graph_fence_safe(
-        self, content: str, canonical_fence: dict[str, object] | None
-    ) -> str: ...
-
-
 @dataclass(frozen=True)
 class ChatTurnDeps:
     session_factory: SessionFactory
@@ -382,7 +366,8 @@ class ChatTurnDeps:
     references: ConversationReferences
     todos: Todos
     web_search: WebSearchFences
-    math_fence: MathFences
+    # Maths' fence: it checks every reply no peer verified; tests swap it for a pass-through.
+    math_fence: SubjectFence
 
 
 def default_deps() -> ChatTurnDeps:
@@ -407,5 +392,5 @@ def default_deps() -> ChatTurnDeps:
             materialize_reminder_fences=todos.materialize_reminder_fences,
         ),
         web_search=web_search,
-        math_fence=math_fence,
+        math_fence=subject_adapter("math").fence,
     )

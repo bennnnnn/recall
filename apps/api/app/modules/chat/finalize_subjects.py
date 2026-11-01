@@ -16,12 +16,6 @@ from typing import TYPE_CHECKING, TypeGuard
 from app.core import sympy_executor
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.working_check import is_worked_solution, working_note
-from app.modules.chemistry import fence as chemistry_fence
-from app.modules.chemistry.context import append_unverified_chemistry_note
-from app.modules.math import chart_formula
-from app.modules.math.fence import append_unverified_math_note
-from app.modules.math.text_plot import strip_text_plots_on_graph_turn
-from app.modules.physics import fence as physics_fence
 from app.services.answer_fence import (
     demote_answer_fences,
     land_answer_card,
@@ -37,6 +31,7 @@ from app.services.solving import (
     VerifiedSolveBlock,
     strip_verified_solve_markers,
 )
+from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -104,15 +99,13 @@ def check_chemistry_fences(state: FinalizeState) -> str:
         return state.text
     # The server never corrects its own text: only model prose can state a value
     # that differs from the verified one.
-    return chemistry_fence.validate_chemistry_fences(
-        state.text, verified=verified, correct=not state.server_text
+    return subject_adapter("chemistry").fence.check(
+        state.text, verified, not state.server_text, state.ctx.user_message_content
     )
 
 
 def recover_chemistry_fences(state: FinalizeState) -> str:
-    return chemistry_fence.replace_unclosed_chemistry_fences_safe(
-        state.text, state.ctx.verified_subject
-    )
+    return subject_adapter("chemistry").fence.recover(state.text, state.ctx.verified_subject)
 
 
 def _physics_block(state: FinalizeState) -> VerifiedPhysicsBlock | None:
@@ -124,16 +117,13 @@ def check_physics_fences(state: FinalizeState) -> str:
     verified = _physics_block(state)
     if verified is None:
         return state.text
-    return physics_fence.validate_physics_fences(
-        state.text,
-        verified=verified,
-        correct=not state.server_text,
-        user_text=state.ctx.user_message_content,
+    return subject_adapter("physics").fence.check(
+        state.text, verified, not state.server_text, state.ctx.user_message_content
     )
 
 
 def recover_physics_fences(state: FinalizeState) -> str:
-    return physics_fence.replace_unclosed_physics_fences_safe(state.text, _physics_block(state))
+    return subject_adapter("physics").fence.recover(state.text, _physics_block(state))
 
 
 def _math_owns(verified: VerifiedSolveBlock | None) -> TypeGuard[VerifiedMathBlock | None]:
@@ -156,8 +146,8 @@ async def check_math_fences(state: FinalizeState) -> str:
         # Direct verified replies already carry ```answer. Running that rewrite
         # on the SymPy pool can queue behind an integral for no benefit — keep
         # it in-process.
-        return math_fence.validate_math_fences_worker(state.text, verified, False)
-    if not math_fence.needs_math_fence_validate(state.text, verified):
+        return math_fence.check(state.text, verified, False, state.ctx.user_message_content)
+    if not math_fence.needs_check(state.text, verified):
         return state.text
     if state.on_status is not None:
         # The reply has streamed; this check (up to the SymPy timeout) runs
@@ -166,9 +156,11 @@ async def check_math_fences(state: FinalizeState) -> str:
     try:
         # Through the module: tests swap the SymPy pool for an inline runner there.
         return await sympy_executor.run_sympy(
-            math_fence.validate_math_fences_worker,
+            math_fence.check,
             state.text,
             verified,
+            True,
+            state.ctx.user_message_content,
             timeout=state.settings.stem_solve_timeout_seconds,
         )
     finally:
@@ -181,10 +173,11 @@ async def draw_formula_charts(state: FinalizeState) -> str:
     """A chart the model wrote as a formula (``"fn": "sin(x)"``): the phone never
     evaluates one, so SymPy samples it into a ```graph, or a note takes its place.
     After the maths pass, which would strip a ```graph no solver wrote."""
-    if not chart_formula.has_formula_chart(state.text):
+    maths = subject_adapter("math").fence
+    if not maths.draws(state.text, state.settings):
         return state.text
     return await sympy_executor.run_sympy(
-        chart_formula.formula_charts_to_graphs,
+        maths.draw,
         state.text,
         state.settings,
         timeout=state.settings.stem_solve_timeout_seconds,
@@ -196,9 +189,7 @@ def recover_math_fences(state: FinalizeState) -> str:
     demoted here (no solver needed): a timed-out pool must not let a model's
     ```answer through as a card. Wholly server text keeps its cards.
     """
-    verified = state.ctx.verified_subject
-    canonical = verified.canonical_fence if verified is not None else None
-    text = state.deps.math_fence.replace_unclosed_graph_fence_safe(state.text, canonical)
+    text = state.deps.math_fence.recover(state.text, state.ctx.verified_subject)
     if state.server_text:
         return text
     return demote_answer_fences(text)
@@ -213,10 +204,10 @@ def mark_server_cards(state: FinalizeState) -> str:
 def append_unverified_notes(state: FinalizeState) -> str:
     """Every reply, checked or not, gets the maths note when it needs one: the
     check mark is the only signal. A declined chemistry solve gets its own."""
-    text = append_unverified_math_note(state.text)
+    text = subject_adapter("math").fence.unverified_note(state.text)
     ctx = state.ctx
     if ctx.solver_unverified is True and ctx.unverified_subject == "chemistry":
-        text = append_unverified_chemistry_note(text)
+        text = subject_adapter("chemistry").fence.unverified_note(text)
     return text
 
 
@@ -242,7 +233,7 @@ def strip_text_plots(state: FinalizeState) -> str:
     """A graph drawn in text characters on a graph turn: the prompt forbids it,
     and the phone shows it as broken rows of symbols."""
     ctx = state.ctx
-    return strip_text_plots_on_graph_turn(
+    return subject_adapter("math").fence.tidy(
         state.text, ctx.user_message_content, ctx.verified_subject
     )
 
@@ -255,14 +246,12 @@ def strip_solve_markers(state: FinalizeState) -> str:
 
 
 async def enrich_chemistry_fences(state: FinalizeState) -> str:
-    text = state.text
-    lowered = text.lower()
-    if not state.settings.chemistry_enabled or (
-        "```smiles" not in lowered and "```chemistry" not in lowered
-    ):
-        return text
+    chemistry = subject_adapter("chemistry").fence
+    if not chemistry.draws(state.text, state.settings):
+        return state.text
     return await sympy_executor.run_sympy(
-        chemistry_fence.enrich_chemistry_fences_worker,
-        text,
+        chemistry.draw,
+        state.text,
+        state.settings,
         timeout=state.settings.stem_solve_timeout_seconds,
     )

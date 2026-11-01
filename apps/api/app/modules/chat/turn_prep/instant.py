@@ -25,12 +25,12 @@ from app.modules.chat import recurring_pay as recurring_pay_service
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
-from app.modules.math import match as math_match
 from app.modules.memory.profile_reply import reply_for_profile_question
 from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
 from app.modules.turn_reading.profile_ask import profile_question_to_answer
 from app.services import time_context as time_context_service
+from app.services.subjects.registry import subject_adapter
 from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
@@ -80,8 +80,8 @@ async def resolve_instant_reply(
         return todo_screen
     # "3x" alone was answered "3 times 3 is 9": what it means, an example, what to ask next.
     if not request.has_image_attachment:
-        expression = math_match.bare_expression_reply(
-            content, prior_assistant=_last_recent_assistant_content(request.recent_messages)
+        expression = subject_adapter("math").instant_reply(
+            content, prior_reply=_last_recent_assistant_content(request.recent_messages)
         )
         if expression is not None:
             return expression

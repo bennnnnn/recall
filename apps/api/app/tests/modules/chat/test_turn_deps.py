@@ -28,9 +28,9 @@ from app.modules.conversation import history as conversation_history
 from app.modules.conversation import service as conversation_service
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
-from app.modules.math import fence as math_fence
 from app.repositories import usage, users
 from app.services import conversation_reference, quota
+from app.services.subjects.registry import subject_adapter
 from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -50,7 +50,7 @@ _REAL_MODULES = {
     "attachment_links": attachments_service,
     "references": conversation_reference,
     "web_search": web_search,
-    "math_fence": math_fence,
+    "math_fence": subject_adapter("math").fence,
 }
 
 
