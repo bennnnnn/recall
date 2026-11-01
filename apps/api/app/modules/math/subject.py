@@ -90,6 +90,11 @@ class MathFollowups:
 
         return is_graph_followup(line)
 
+    def borrows_earlier(self, line: str) -> bool:
+        from app.modules.math.tools.prompt import borrows_earlier_lines
+
+        return borrows_earlier_lines(line)
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return False
 
@@ -194,10 +199,10 @@ class MathTool:
             f"{args.get('lhs') or ''} {args.get('rhs') or ''}", user_text
         )
 
-    def call_matches(self, raw_args: Any, user_texts: list[str]) -> bool:
-        from app.modules.math.tool_check import tool_call_matches_user_text
+    def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
+        from app.modules.math.tool_check import matched_user_text
 
-        return tool_call_matches_user_text(raw_args, user_texts)
+        return matched_user_text(raw_args, user_texts)
 
     def draws_curve(self, fence: dict[str, Any] | None) -> bool:
         from app.modules.math.text_plot import is_curve_fence

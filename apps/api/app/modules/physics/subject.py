@@ -72,6 +72,9 @@ class PhysicsFollowups:
     def continues_alone(self, line: str) -> bool:
         return False
 
+    def borrows_earlier(self, line: str) -> bool:
+        return False
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return False
 

@@ -9,17 +9,18 @@ from app.modules.chat.whole_question import answers_with
 from app.services.solving import VerifiedMathBlock
 
 
-def with_tool_verified(server: Any, tool: Any, question: str) -> Any:
+def with_tool_verified(server: Any, tool: Any, question: str, locale: str | None = None) -> Any:
     """The turn's verified block after the tool loop.
 
     A block the server built from the user's own text is never replaced by one
     the model's tool call produced: the model may have mistyped the problem.
     A maths block may gain a diagram the server did not draw; its answer stays.
     The tool's block is held to the question as the server's is: a card the gate
-    dropped from the server's solve never comes back through the model's call.
+    dropped from the server's solve never comes back through the model's call, and a
+    question the readers cannot read (``locale`` is its writer's) gets none from it.
     """
     if server is None:
-        return tool if answers_with(question, tool) else None
+        return tool if answers_with(question, tool, locale=locale) else None
     if not isinstance(server, VerifiedMathBlock) or not isinstance(tool, VerifiedMathBlock):
         return server
     kinds = {

@@ -393,7 +393,12 @@ def holds_no_formula(text: str) -> bool:
 
 
 def tool_call_matches_user_text(raw_args: str | dict[str, Any], user_texts: list[str]) -> bool:
-    """True when the sympy call works on a problem from the user's own messages.
+    """True when the sympy call works on a problem from the user's own messages."""
+    return matched_user_text(raw_args, user_texts) is not None
+
+
+def matched_user_text(raw_args: str | dict[str, Any], user_texts: list[str]) -> str | None:
+    """The user's message the sympy call works on, or None when it works on none.
 
     ``user_texts`` is newest first. The newest message that has any formula in
     it is the reference, so "now graph it" reads the question before it.
@@ -401,9 +406,9 @@ def tool_call_matches_user_text(raw_args: str | dict[str, Any], user_texts: list
     try:
         args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
     except (TypeError, ValueError):
-        return False
+        return None
     if not isinstance(args, dict):
-        return False
+        return None
     try:
         for text in user_texts:
             if not text or not text.strip():
@@ -411,7 +416,7 @@ def tool_call_matches_user_text(raw_args: str | dict[str, Any], user_texts: list
             user = _UserMath(text)
             if user.empty:
                 continue
-            return _matches(args, user)
+            return text if _matches(args, user) else None
     except Exception:
         logger.info("tool-call match check failed", exc_info=True)
-    return False
+    return None
