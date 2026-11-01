@@ -37,7 +37,7 @@
   "modules/memory/llm.py::revise_memory_facts": 112,
   "modules/memory/writes_repository.py::apply_fact_ops": 111,
   "modules/physics/block.py::_build_physics_block": 135,
-  "modules/physics/extractors/circuits.py::_extract_circuit_intent": 179,
+  "modules/physics/extractors/circuits.py::_extract_circuit_intent": 175,
   "modules/physics/extractors/friction.py::_extract_friction_intent": 150,
   "modules/physics/extractors/gravitation.py::_extract_gravitation_intent": 103,
   "modules/physics/extractors/kinematics.py::_extract_kinematics_intent": 174,

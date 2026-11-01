@@ -247,17 +247,19 @@ def _try_again(
     stream_meta: dict[str, str] | None,
 ) -> bool:
     """The last model failed before any text: it is tried once more (appended to
-    ``aliases``). A user who enabled one model has no backup, and one empty or stalled
-    stream left the reply empty ("That model isn't responding"). Not when the provider
-    refused or rate-limited the request, ended the reply itself, or the attempt already
-    took longer than a stream that never starts can (a retry would only double the wait)."""
+    ``aliases``): a one-model user has no backup, and one empty or stalled stream left the
+    reply empty. Not when the provider refused or rate-limited the request, ended the reply
+    itself, or a wait timed out past the connect timeout (a hung provider kept a one-model
+    user 60 to 120 s, 2026-11-01), or the attempt ran longer than a stalled start can."""
     alias = attempt.alias
     if exc.cause in _NO_RETRY_CAUSES or (len(aliases) > 1 and aliases[-2] == alias):
         return False
     if stream_meta is not None and stream_meta.get("finish_reason") in _FINAL_FINISH_REASONS:
         return False
+    elapsed = (attempt.elapsed_ms or 0) / 1000
     stalled_start = _open_wait(settings, has_next=False) + settings.chat_stream_timeout_seconds
-    if (attempt.elapsed_ms or 0) > stalled_start * 1000:
+    timed_out = exc.cause == "timeout" and elapsed > settings.chat_stream_connect_timeout_seconds
+    if timed_out or elapsed > stalled_start:
         return False
     logger.warning("Chat stream %s answered nothing; trying it once more", alias)
     aliases.append(alias)
