@@ -37,7 +37,7 @@ import {
   isIanaTimezoneOnly,
 } from "@/lib/timeQuestion";
 
-type FenceRenderKind =
+export type FenceRenderKind =
   | "hide"
   | "html"
   | "rich"

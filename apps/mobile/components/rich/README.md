@@ -23,7 +23,10 @@ frozen unless the thing the user sees is truly new.
      out of list items before markdown-it reads it).
 2. **One block component**, `components/rich/<Name>Block.tsx`, taking `{ content }`. Parse and
    validate the body in a pure, unit-tested reader under `lib/<domain>/`, never in the component;
-   a body that does not parse never shows as raw JSON. A block that pulls in a
+   a body that does not parse never shows as raw JSON. A block that refuses its body says so with
+   `useFenceRefused(id, content, refused, shape)`: Sentry gets the fence id and a reason code
+   (`lib/fenceReports.ts`), rate-limited, never the body. A crash while it draws is reported by
+   `FenceErrorBoundary`, tagged the same way. A block that pulls in a
    WebView, Skia or a large library is exported lazily from `LazyHeavyRich.tsx` with
    `lazyContentBlock(() => import(...), <placeholder height>)`.
 3. **One case in `renderRichFenceById`** (`RichFence.tsx`). The switch is exhaustive over

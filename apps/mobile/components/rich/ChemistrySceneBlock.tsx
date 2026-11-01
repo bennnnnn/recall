@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { VisualCard } from "@/components/rich/VisualCard";
-import { parseChemistryScene, type ChemistryScene } from "@/lib/chemistry/scene";
+import { CHEMISTRY_SCENE_KINDS, parseChemistryScene, type ChemistryScene } from "@/lib/chemistry/scene";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
@@ -32,12 +33,15 @@ const ANCHOR_LABEL: Record<string, string> = {
 /** What the galvanic-cell scene says about electron flow; the only fixed sentence it carries. */
 const ELECTRON_FLOW = "anode to cathode";
 
+const SCENE_BODY = { json: true, kinds: { field: "kind", known: CHEMISTRY_SCENE_KINDS } };
+
 /** Draws a verified chemistry scene. It never computes a result. */
 export function ChemistrySceneBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const scene = useMemo(() => parseChemistryScene(content), [content]);
+  useFenceRefused("chem_scene", content, scene === null, SCENE_BODY);
 
   if (!scene) {
     return (

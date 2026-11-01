@@ -59,6 +59,18 @@ export type ChemistryScene =
   | EquilibriumScene
   | CellScene;
 
+const SCENE_KIND_SET: Record<ChemistryScene["kind"], true> = {
+  balance: true,
+  stoich: true,
+  vsepr: true,
+  titration: true,
+  equilibrium: true,
+  cell: true,
+};
+
+/** Every chemistry scene this build draws; a fence naming another is refused as an unknown kind. */
+export const CHEMISTRY_SCENE_KINDS = Object.keys(SCENE_KIND_SET);
+
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }

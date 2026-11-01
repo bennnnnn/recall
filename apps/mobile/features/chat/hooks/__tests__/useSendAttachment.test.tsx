@@ -2,12 +2,14 @@ import { act, renderHook } from "@testing-library/react-native";
 
 import { useSendAttachment, uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
+import { reportFailure } from "@/lib/sentry";
 
 const mockDiscard = jest.fn();
 jest.mock("@/features/attachments/model/attachments", () => ({
   discardDraftAttachment: (...args: unknown[]) => mockDiscard(...args),
   uploadChatAttachment: jest.fn(),
 }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
 
 const file = (name: string): PendingAttachment => ({
   localUri: `file:///cache/DocumentPicker/${name}`, contentType: "application/pdf", fileName: name, kind: "file",
@@ -69,5 +71,13 @@ describe("uploadSendAttachment", () => {
     jest.mocked(uploadChatAttachment).mockResolvedValueOnce("id-1");
     const { attachment: uploaded } = await uploadSendAttachment("token", attachment);
     expect(uploaded).toMatchObject({ existingAttachmentId: "id-1", uploadedForDraft: owned });
+    expect(reportFailure).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed upload and throws it on for the caller's toast", async () => {
+    const failure = new Error("presign refused");
+    jest.mocked(uploadChatAttachment).mockRejectedValueOnce(failure);
+    await expect(uploadSendAttachment("token", file("big.pdf"))).rejects.toBe(failure);
+    expect(reportFailure).toHaveBeenCalledWith("attachment_upload", failure);
   });
 });

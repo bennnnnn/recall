@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { rememberCreatedChat } from "@/features/chat/model/chatListCache";
 import { resolveActiveChatId } from "@/features/chat/model/draftLogic";
 import { useLatestRef } from "@/lib/latestRef";
+import { reportFailure } from "@/lib/sentry";
 
 type Options = {
   chatId: string | null;
@@ -70,7 +71,11 @@ export function useDraftChat({ chatId, intent }: Options) {
           setDraftChatId(chat.id);
           return chat.id;
         })
-        .catch(() => null)
+        .catch((error: unknown) => {
+          // The send waiting on it gives its text back to the composer.
+          reportFailure("chat_create", error);
+          return null;
+        })
         .finally(() => {
           draftCreatePromiseRef.current = null;
         });

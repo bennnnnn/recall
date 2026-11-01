@@ -3,15 +3,19 @@ import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { FallbackFence } from "@/components/FallbackMarkdown";
-import { reportBoundaryError } from "@/lib/sentry";
+import type { FenceReportName } from "@/lib/fenceReports";
+import { reportFenceCrash } from "@/lib/sentry";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
-/** The fence's language and body: a block drawn from new ones starts clean. */
-type Props = { lang: string; content: string; children: ReactNode };
+/**
+ * The fence's language and body: a block drawn from new ones starts clean. `fence` names
+ * it in a crash report (`lib/fenceReports.ts`); the language and body never leave the phone.
+ */
+type Props = { lang: string; content: string; fence: FenceReportName; children: ReactNode };
 
 type State = { failed: boolean; source: string };
 
@@ -37,7 +41,8 @@ function FenceFallbackNote() {
  * (`MarkdownErrorBoundary`), and the whole reply, its prose and every other
  * block, dropped to plain markdown. Now only this block degrades: a note, then
  * the block as that crash fallback draws it (`FallbackFence`: code as plain
- * code, a chart or molecule named, never a JSON dump). Reported once.
+ * code, a chart or molecule named, never a JSON dump). Reported once, tagged with the
+ * fence's id and never its body.
  */
 export class FenceErrorBoundary extends Component<Props, State> {
   state: State = { failed: false, source: sourceOf(this.props) };
@@ -55,7 +60,7 @@ export class FenceErrorBoundary extends Component<Props, State> {
     if (__DEV__) {
       console.warn("[FenceErrorBoundary]", error.message, error.stack);
     }
-    reportBoundaryError("fence", error, info.componentStack);
+    reportFenceCrash(this.props.fence, error, info.componentStack);
   }
 
   render() {

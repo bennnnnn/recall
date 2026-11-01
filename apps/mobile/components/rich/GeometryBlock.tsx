@@ -9,8 +9,10 @@ import { SectorDiagram } from "@/components/rich/geometry/SectorDiagram";
 import { TrapezoidDiagram } from "@/components/rich/geometry/TrapezoidDiagram";
 import { TriangleDiagram } from "@/components/rich/geometry/TriangleDiagram";
 import { TriangleSidesDiagram } from "@/components/rich/geometry/TriangleSidesDiagram";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import i18n from "@/lib/i18n";
 import { geometryFigureLabel, parseGeometrySpec } from "@/lib/math/geometryBlock";
+import { GEOMETRY_KINDS } from "@/lib/math/geometryTypes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -18,11 +20,14 @@ import { Type } from "@/lib/type";
 
 type Props = { content: string };
 
+const GEOMETRY_BODY = { json: true, kinds: { field: "type", known: GEOMETRY_KINDS } };
+
 export function GeometryBlock({ content }: Props) {
   const theme = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const spec = useMemo(() => parseGeometrySpec(content), [content]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  useFenceRefused("geometry", content, spec === null, GEOMETRY_BODY);
 
   if (!spec) {
     return (

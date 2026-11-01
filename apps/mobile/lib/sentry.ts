@@ -10,7 +10,10 @@
 
 import type { Breadcrumb, ErrorEvent } from "@sentry/react-native";
 
+import { isServerUnreachable } from "@/lib/api/deadline";
 import { isRequestId } from "@/lib/api/requestId";
+import type { FenceId } from "@/lib/fenceRegistry";
+import type { FenceRefusal, FenceReportName } from "@/lib/fenceReports";
 
 type SentrySdk = typeof import("@sentry/react-native");
 
@@ -18,8 +21,9 @@ type SentrySdk = typeof import("@sentry/react-native");
 let sdk: SentrySdk | null = null;
 let starting: Promise<void> | null = null;
 
-/** A crash loop before init keeps only the first few. */
+/** A crash loop before init keeps only the first few; a minor report takes at most half. */
 const MAX_EARLY_REPORTS = 10;
+const MAX_EARLY_MINOR_REPORTS = MAX_EARLY_REPORTS / 2;
 const earlyReports: ((sentry: SentrySdk) => void)[] = [];
 
 function configuredDsn(): string | undefined {
@@ -141,15 +145,15 @@ export function initMobileSentry(): Promise<void> {
 }
 
 /**
- * A render crash an error boundary kept inside one message, one block of a
- * reply (`fence`) or one screen. The boundary shows its fallback either way;
+ * A render crash an error boundary kept inside one message or one screen (one
+ * block of a reply is `reportFenceCrash`). The boundary shows its fallback either way;
  * this only reports it, and only when Sentry is configured (before the SDK is
  * up, it waits in the queue). The component stack names components, never
  * their text; `screen` is the route's file path (`memory/[key]`), never its
  * values.
  */
 export function reportBoundaryError(
-  boundary: "markdown" | "message_row" | "fence" | "screen",
+  boundary: "markdown" | "message_row" | "screen",
   error: Error,
   componentStack?: string | null,
   screen?: string,
@@ -229,12 +233,171 @@ export function noteApiFailure(
   }
 }
 
-/** Sent at once when the SDK is up; before that it waits in the short queue. */
-function report(capture: (sentry: SentrySdk) => void): void {
+/**
+ * Sent at once when the SDK is up; before that it waits in the short queue. A minor
+ * report (a refused fence, a handled failure) waits only while the queue is under half
+ * full, so a crash at launch still has room.
+ */
+function report(capture: (sentry: SentrySdk) => void, minor = false): void {
   if (sdk) {
     capture(sdk);
     return;
   }
-  if (!configuredDsn() || earlyReports.length >= MAX_EARLY_REPORTS) return;
+  const room = minor ? MAX_EARLY_MINOR_REPORTS : MAX_EARLY_REPORTS;
+  if (!configuredDsn() || earlyReports.length >= room) return;
   earlyReports.push(capture);
+}
+
+const HOUR_MS = 60 * 60_000;
+
+/**
+ * Whether a report may go: one per key every `repeatMs`, and `perHour` in all, so a long
+ * chat of broken fences or a read failing in a loop cannot flood Sentry.
+ */
+function reportLimit(repeatMs: number, perHour: number): (key: string) => boolean {
+  const lastSent = new Map<string, number>();
+  let sent: number[] = [];
+  return (key) => {
+    const now = Date.now();
+    const last = lastSent.get(key);
+    if (last !== undefined && now - last < repeatMs) return false;
+    sent = sent.filter((at) => now - at < HOUR_MS);
+    if (sent.length >= perHour) return false;
+    lastSent.set(key, now);
+    sent.push(now);
+    return true;
+  };
+}
+
+/** A class name or a kind that is one word, never a sentence the error quoted. */
+const SAFE_NAME = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+/** A refusal's code (`rate_limited`, a store's numeric code), never a sentence. */
+const SAFE_CODE = /^[A-Za-z0-9_.-]{1,40}$/;
+
+/**
+ * The frames of `error`'s stack. The stack opens with the message, which can run over
+ * several lines and hold one that reads like a frame ("  at noon"): everything up to the
+ * message's end is cut before the frames are kept.
+ */
+function stackFrames(error: Error): string[] {
+  let stack = error.stack ?? "";
+  const message = error.message;
+  const end = message ? stack.indexOf(message) : -1;
+  if (end >= 0) stack = stack.slice(end + message.length);
+  return stack.split("\n").filter((line) => /^\s+at /.test(line));
+}
+
+/**
+ * `error` with its message replaced by `label`: its class and stack frames, which say
+ * where it broke, and none of the text it carried (a parser's error can quote the body
+ * it choked on; a refusal, the server's words about what was sent).
+ */
+function withoutMessage(error: unknown, label: string): Error {
+  const name = error instanceof Error && SAFE_NAME.test(error.name) ? error.name : "Error";
+  const out = new Error(label);
+  out.name = name;
+  out.stack = [`${name}: ${label}`, ...(error instanceof Error ? stackFrames(error) : [])].join("\n");
+  return out;
+}
+
+/** A fence crash reports once per fence and error class a minute, twenty an hour in all. */
+const fenceCrashAllowed = reportLimit(60_000, 20);
+
+/**
+ * A fence's block threw while it was built or drawn (`renderFence`, `FenceErrorBoundary`).
+ * The block falls back either way; this reports it, tagged with the fence's registry id
+ * or the kind of block it was drawn as (`lib/fenceReports.ts`), never the tag the reply
+ * wrote. The error goes without its message, which can quote the fence's body.
+ */
+export function reportFenceCrash(
+  fence: FenceReportName,
+  error: unknown,
+  componentStack?: string | null,
+): void {
+  const reported = withoutMessage(error, "Fence render failed");
+  if (!fenceCrashAllowed(`${fence}:${reported.name}`)) return;
+  report((Sentry) => {
+    Sentry.captureException(reported, {
+      tags: { boundary: "fence", fence },
+      contexts: componentStack ? { react: { componentStack } } : undefined,
+    });
+  });
+}
+
+/** A refused fence reports once per fence and reason an hour, ten an hour in all. */
+const fenceRefusalAllowed = reportLimit(HOUR_MS, 10);
+
+/**
+ * The phone would not draw a fence: which one and why (`lib/fenceReports.ts`), nothing
+ * of its body. The block shows its own fallback either way.
+ */
+export function reportFenceRefused(fence: FenceId, reason: FenceRefusal): void {
+  if (!fenceRefusalAllowed(`${fence}:${reason}`)) return;
+  report((Sentry) => {
+    Sentry.captureMessage("Fence refused", {
+      level: "warning",
+      tags: { area: "fence_refused", fence, reason },
+      fingerprint: ["fence_refused", fence, reason],
+    });
+  }, true);
+}
+
+/**
+ * Where a user's action failed after the screen handled it (a toast, the draft given
+ * back, the page on screen kept).
+ */
+export type FailureArea =
+  | "chat_create"
+  | "chat_load"
+  | "chat_refresh"
+  | "chat_page"
+  | "attachment_upload"
+  | "paywall_load"
+  | "purchase"
+  | "purchase_restore"
+  | "purchase_sync";
+
+/** A handled failure reports once per area and kind every ten minutes, twenty an hour in all. */
+const failureAllowed = reportLimit(10 * 60_000, 20);
+
+/** What kind of failure: its class, an HTTP status, a refusal's code. Never its text. */
+function failureTags(area: FailureArea, error: unknown): Record<string, string> {
+  const fields = (typeof error === "object" && error !== null ? error : {}) as {
+    name?: unknown;
+    status?: unknown;
+    code?: unknown;
+    reason?: unknown;
+  };
+  const name = typeof fields.name === "string" && SAFE_NAME.test(fields.name) ? fields.name : "unknown";
+  const tags: Record<string, string> = { area, error: name };
+  if (typeof fields.status === "number" && Number.isInteger(fields.status)) {
+    tags.status = String(fields.status);
+  }
+  const code = typeof fields.code === "string" || typeof fields.code === "number"
+    ? String(fields.code)
+    : fields.reason;
+  if (typeof code === "string" && SAFE_CODE.test(code)) tags.code = code;
+  return tags;
+}
+
+/**
+ * A user's action that failed and was handled on screen: where (`area`) and what kind
+ * of failure, as tags, with the stack but never the error's text. A call that found no
+ * API (offline, a timeout), one cancelled, and one a sign-out overtook are not reported:
+ * the connection banner and the next sign-in own those.
+ */
+export function reportFailure(area: FailureArea, error: unknown): void {
+  const name = (error as { name?: unknown } | null | undefined)?.name;
+  if (isServerUnreachable(error) || name === "SessionChangedError") return;
+  const tags = failureTags(area, error);
+  if (!failureAllowed(Object.values(tags).join(":"))) return;
+  const requestId = (error as { requestId?: unknown } | null | undefined)?.requestId;
+  const reported = withoutMessage(error, `${area} failed`);
+  report((Sentry) => {
+    Sentry.captureException(reported, {
+      level: "warning",
+      tags: isRequestId(requestId) ? { ...tags, request_id: requestId } : tags,
+      fingerprint: ["handled_failure", ...Object.values(tags)],
+    });
+  }, true);
 }

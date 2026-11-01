@@ -2,6 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { UpgradeSheet } from "@/features/billing/components/UpgradeSheet";
 import { getPlanPackages } from "@/features/billing/model/purchases";
+import { reportFailure } from "@/lib/sentry";
 
 const mockSyncSubscription = jest.fn();
 const mockPurchase = jest.fn();
@@ -44,6 +45,7 @@ jest.mock("@/lib/api", () => ({
     listModels: (...args: unknown[]) => mockListModels(...args),
   },
 }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
 jest.mock("@/lib/productAnalytics", () => ({
   trackProductEvent: (...args: unknown[]) => mockTrack(...args),
 }));
@@ -104,6 +106,7 @@ beforeEach(() => {
   mockListModels.mockReset().mockResolvedValue(MODELS);
   mockPurchasesConfigured = true;
   jest.mocked(getPlanPackages).mockClear();
+  jest.mocked(reportFailure).mockClear();
   mockUser = { plan: "free" };
 });
 
@@ -159,6 +162,33 @@ it("does not call a paid purchase failed when only the server refresh fails", as
   });
   expect(screen.queryByText("upgrade.purchase_failed")).toBeNull();
   expect(screen.getByText("upgrade.sync_pending")).toBeOnTheScreen();
+  expect(reportFailure).toHaveBeenCalledWith("purchase_sync", expect.any(Error));
+});
+
+it("reports a store purchase that failed, but not one the shopper cancelled", async () => {
+  const failure = Object.assign(new Error("store said no"), { code: "PURCHASE_NOT_ALLOWED" });
+  mockPurchase.mockRejectedValueOnce(failure).mockRejectedValueOnce({ userCancelled: true });
+  const screen = await openSheet();
+  await act(async () => {
+    fireEvent.press(screen.getByText(SUBSCRIBE_PLUS));
+  });
+  expect(screen.getByText("upgrade.purchase_failed")).toBeOnTheScreen();
+  await act(async () => {
+    fireEvent.press(screen.getByText(SUBSCRIBE_PLUS));
+  });
+  expect(reportFailure).toHaveBeenCalledTimes(1);
+  expect(reportFailure).toHaveBeenCalledWith("purchase", failure);
+});
+
+it("reports a restore that failed", async () => {
+  const failure = new Error("restore failed");
+  mockRestore.mockRejectedValue(failure);
+  const screen = await openSheet();
+  await act(async () => {
+    fireEvent.press(screen.getByText("upgrade.restore"));
+  });
+  expect(screen.getByText("upgrade.purchase_failed")).toBeOnTheScreen();
+  expect(reportFailure).toHaveBeenCalledWith("purchase_restore", failure);
 });
 
 it("never unlocks on the client when the store did not grant the plan", async () => {

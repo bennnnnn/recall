@@ -2,11 +2,13 @@
  * The height and error state of a WebView preview card (a chart, a Mermaid
  * diagram). The page posts `{ kind: "<page>-size", height }` once drawn and
  * `{ kind: "<page>-error", message }` when it cannot draw; the card follows
- * `rules` (grow-only, capped, expandable).
+ * `rules` (grow-only, capped, expandable). A page that cannot draw is a refused
+ * fence: Sentry hears its id and `draw_failed`, never the page's message.
  */
 import { useCallback, useRef, useState } from "react";
 
 import type { PreviewHeightRules } from "@/lib/preview/webPreviewHeight";
+import { reportFenceRefused } from "@/lib/sentry";
 
 type PreviewMessage = { kind?: string; message?: string; height?: number };
 
@@ -21,8 +23,8 @@ export function useWebPreviewHeight({
 }: {
   /** A module-level policy (`CHART_PREVIEW_HEIGHT`), so the handlers stay stable. */
   rules: PreviewHeightRules;
-  /** The page's message prefix: `chart` reads `chart-size` and `chart-error`. */
-  page: string;
+  /** The page's message prefix, its fence's id: `chart` reads `chart-size` and `chart-error`. */
+  page: "chart" | "mermaid";
   /** Shown when the page reports an error without a message, or posts unreadable data. */
   errorText: string;
 }) {
@@ -44,6 +46,7 @@ export function useWebPreviewHeight({
       const data: unknown = JSON.parse(event.nativeEvent.data ?? "{}");
       if (isPreviewMessage(data, `${page}-error`)) {
         setRenderError(data.message ?? errorText);
+        reportFenceRefused(page, "draw_failed");
         return;
       }
       if (isPreviewMessage(data, `${page}-size`)) {
@@ -58,6 +61,7 @@ export function useWebPreviewHeight({
       }
     } catch {
       setRenderError(errorText);
+      reportFenceRefused(page, "draw_failed");
     }
   }, [errorText, page, policy, rules]);
 

@@ -8,6 +8,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { CopyButton } from "@/components/CopyButton";
 import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
@@ -35,8 +36,11 @@ const ERROR_KEY: Record<SmilesDrawerError, string> = {
   render: "rich.chemistry_invalid",
 };
 
-/** 2D SMILES preview without card chrome — used by ChemistryBlock and MoleculeCard. */
-export function Chemistry2DView({ smiles }: { smiles: string }) {
+/**
+ * 2D SMILES preview without card chrome — used by ChemistryBlock and MoleculeCard, each
+ * naming its fence for a structure the drawer refuses.
+ */
+export function Chemistry2DView({ smiles, fence }: { smiles: string; fence: "chemistry" | "molecule" }) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -64,6 +68,7 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
   );
   const drawError = failure?.smiles === smiles ? failure.code : null;
   const renderError = drawError ?? (preview.status === "failed" ? "unavailable" : null);
+  useFenceRefused(fence, smiles, drawError === "render", undefined, "draw_failed");
 
   const handleWebViewFailure = useCallback(() => {
     setFailure({ smiles, code: "render" });
@@ -114,6 +119,7 @@ export function ChemistryBlock({ content }: Props) {
   const parsed = useMemo(() => parseChemistryFence(content), [content]);
   const smiles = parsed?.smiles ?? "";
   const caption = parsed?.caption;
+  useFenceRefused("chemistry", content, parsed === null);
 
   if (!parsed) {
     return (
@@ -131,7 +137,7 @@ export function ChemistryBlock({ content }: Props) {
     >
       {caption ? <MoleculeCaption text={caption} /> : null}
 
-      <Chemistry2DView smiles={smiles} />
+      <Chemistry2DView smiles={smiles} fence="chemistry" />
     </VisualCard>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useClarifyActions, useClarifyMessage } from "@/components/rich/clarifyContext";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/lib/clarify/clarifyCard";
 import { selection } from "@/lib/haptics";
 import i18n from "@/lib/i18n";
+import { isUnfinishedJson } from "@/lib/jsonFence";
 import { plainFenceText } from "@/lib/lesson/lessonFences";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -24,6 +26,8 @@ import { Button } from "@/ui/controls/Button";
 type Props = { content: string };
 
 const NONE: ClarifyAnswers = {};
+/** A clarify card is JSON: text in its place, or JSON the card cannot read, is a refused fence. */
+const CLARIFY_BODY = { json: true };
 
 /**
  * A few questions under the start of an answer, each a list of choices with the likeliest
@@ -35,6 +39,7 @@ export function ClarifyCard({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const card = useMemo(() => parseClarifyCard(content), [content]);
+  useFenceRefused("clarify", content, card === null && !isUnfinishedJson(content), CLARIFY_BODY);
   const actions = useClarifyActions();
   const message = useClarifyMessage();
   const streaming = useReplyStreaming();

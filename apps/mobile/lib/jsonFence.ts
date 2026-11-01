@@ -41,13 +41,17 @@ export function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** `text` parsed as JSON when it is an object, else null (bad JSON included). */
-export function parseJsonRecord(text: string): Record<string, unknown> | null {
-  let value: unknown;
+/** `text` parsed as JSON, as `{ value }`, or null when it is not JSON. */
+export function readJson(text: string): { value: unknown } | null {
   try {
-    value = JSON.parse(text);
+    return { value: JSON.parse(text) as unknown };
   } catch {
     return null;
   }
+}
+
+/** `text` parsed as JSON when it is an object, else null (bad JSON included). */
+export function parseJsonRecord(text: string): Record<string, unknown> | null {
+  const value = readJson(text)?.value;
   return isJsonRecord(value) ? value : null;
 }

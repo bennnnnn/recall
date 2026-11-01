@@ -17,12 +17,14 @@ import {
 import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import i18n from "@/lib/i18n";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import {
   classifyFence,
   looksLikeMathMeta,
   shouldHideCopyOnCodeFallback,
 } from "@/lib/fenceDispatch";
+import { fenceReportName, refusalOf, type FenceReportName } from "@/lib/fenceReports";
+import { reportFenceCrash, reportFenceRefused } from "@/lib/sentry";
 import { FenceErrorBoundary } from "@/components/markdown/FenceErrorBoundary";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
@@ -71,10 +73,9 @@ function renderFenceInner(
   key: string,
   lang: string,
   content: string,
+  decision: ReturnType<typeof classifyFence>,
   tokenIndex?: number,
 ) {
-  const decision = classifyFence(lang, content);
-
   if (decision.kind === "hide") return null;
 
   if (decision.kind === "html") {
@@ -101,6 +102,8 @@ function renderFenceInner(
   if (decision.kind === "rich" && decision.id) {
     const rich = renderRichFenceById(decision.id, lang, content, key, tokenIndex);
     if (rich) return rich;
+    // Its body did not read (an empty list, no quote): the text shows instead.
+    reportFenceRefused(decision.id, refusalOf(content));
     if (isNeverCodeBlockLang(lang)) return neverCodeBlockFallback(key, content);
   }
 
@@ -173,13 +176,18 @@ export function renderFence(node: FenceNode) {
   const content = node.content.replace(/\n$/, "").trim();
   if (!content) return null;
 
+  // Named by its registry id, or the block dispatch drew it as: never the tag the reply wrote.
+  let fence: FenceReportName = fenceIdForLang(lang) ?? "code";
   let element: ReactNode;
   try {
-    element = renderFenceInner(node.key, lang, content, node.tokenIndex);
+    const decision = classifyFence(lang, content);
+    fence = fenceReportName(decision);
+    element = renderFenceInner(node.key, lang, content, decision, node.tokenIndex);
   } catch (error) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);
     }
+    reportFenceCrash(fence, error);
     if (isNeverCodeBlockLang(lang)) {
       return neverCodeBlockFallback(node.key, content);
     }
@@ -197,7 +205,7 @@ export function renderFence(node: FenceNode) {
   // still renders. The boundary takes the block's key, so it mounts when the
   // block did (a maths block under its source, an email card under its token).
   return (
-    <FenceErrorBoundary key={element.key ?? node.key} lang={lang} content={content}>
+    <FenceErrorBoundary key={element.key ?? node.key} lang={lang} content={content} fence={fence}>
       {element}
     </FenceErrorBoundary>
   );
