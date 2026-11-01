@@ -21,7 +21,7 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |
 | Today's average rate: one web search, one checked structured read, cached | `apps/api/app/modules/money/rates.py` |
 | The calculator fence and its self-check | `apps/api/app/modules/money/fence.py`, `schemas.py` |
-| The turn: prepare beside the prompt, finish after the stream | `apps/api/app/modules/money/service.py`, `apps/api/app/modules/chat/turn_prep/money.py`, `apps/api/app/modules/chat/finalize_money.py` |
+| The turn: prepare beside the prompt, finish after the stream | `apps/api/app/modules/money/service.py` (chat asks it through `money/subject.py`, the registry's `MONEY`), `apps/api/app/modules/chat/turn_prep/money.py`, `apps/api/app/modules/chat/finalize_money.py` |
 | Settings (`money_enabled`, `money_rate_cache_seconds`, `money_unrealistic_ratio`) | `apps/api/app/core/settings/money.py` |
 | The checked formula tree (shared with physics) | `apps/api/app/services/law_binding/expression.py` (`to_tree`) |
 | The card | `apps/mobile/components/rich/CalculatorBlock.tsx` |

@@ -561,6 +561,17 @@ printed "no decision changed".
     Maths' public list keeps only what the order, the solving types and the model reader
     import, beside `subject`.
   - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2e (money as a peer): done.** Chat imports no subject: 4 files → 0.
+  - `modules/money/subject.py` holds `MoneyPeer` (`prepare`, `prepare_standing`, `finish`,
+    `owns`), and the registry names it `MONEY` beside the subjects. It imports the service
+    when a turn asks: the service loads the web search and the database models, which a
+    SymPy pool worker that loads the registry must not.
+  - `turn_prep/money.py`, `finalize_money.py`, `turn_prep/augment.py` and
+    `turn_prep/context.py` ask `MONEY`; `MoneyTurn` reaches chat's annotations through the
+    registry. Money's public list is its `subject`.
+  - Money is no `SubjectName`: it has no solve, fence or direct reply, and a money turn has
+    no subject solve (`turn_prep/augment.py`), the precedence it had.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 
