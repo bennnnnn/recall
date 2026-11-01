@@ -85,6 +85,8 @@ _ROOT = "(27*a^3 + 54*a^2*b + 36*a*b^2 + 8*b^3)^(1/3)"
     [
         # The card would be the question's expression with the root still on it.
         (f"Find the cube root of {_CUBE}.", _ROOT, False),
+        # Its terms in any order (Claude review): the card prints them in SymPy's.
+        (f"Find the cube root of {_CUBE}.", "(8*b^3 + 36*a*b^2 + 54*a^2*b + 27*a^3)^(1/3)", False),
         ("simplify sqrt(x^2 + 1)", "sqrt(x^2 + 1)", False),
         # Already simplest is an answer: its excluded value is stated beside it.
         ("simplify (x+1)/(x-1)", "(x+1)/(x-1)", True),

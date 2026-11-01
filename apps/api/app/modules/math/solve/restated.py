@@ -62,7 +62,11 @@ def _restates(piece: str, bases: list[Any]) -> bool:
     if card is None or not getattr(card, "free_symbols", None):
         return False
     radicand = _root_base(card)
-    # A root of a sum: of one term ("cbrt(x^2)") it may well be the simplest form.
-    return bool(radicand is not None and radicand.is_Add) and any(
-        radicand == base for base in bases
-    )
+    # A root of a sum: of one term ("cbrt(x^2)") it may well be the simplest form. The sum
+    # is the given one in any order of its terms (the card prints them in SymPy's).
+    if radicand is None or not radicand.is_Add:
+        return False
+    with sympy_decline():
+        given = radicand.doit()
+        return any(given == base.doit() for base in bases)
+    return False
