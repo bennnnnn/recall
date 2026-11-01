@@ -9,6 +9,7 @@ reaches into a subject.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from redis.asyncio import Redis
@@ -21,6 +22,8 @@ from app.services.subjects.registry import SubjectName as SubjectName
 from app.services.subjects.registry import SubjectRequest, subject_adapter
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from app.modules.math.schemas import MathImageExtract
 
 
@@ -75,6 +78,7 @@ def _subject_of_text(
 
 # "Dilute …, and also solve …" is two problems. One failed reading of the
 # whole line used to stamp "couldn't verify" under two correct answers.
+_ANSWER_LABEL = re.compile(r"^\*\*Answer:?\*\*", re.MULTILINE)
 _AND_ALSO = re.compile(r"(?:,\s*|\s+)\band\s+also\b\s+", re.IGNORECASE)
 
 
@@ -90,7 +94,36 @@ async def build_subject_augmentation(
     detected_subject: SubjectName | None = None,
     redis: Redis | None = None,
     pair: bool = True,
+    parts: Sequence[str] = (),
+    parts_answer_all: bool = False,
 ) -> SubjectAugmentation:
+    """The turn's subject solve.
+
+    ``parts``: the separate questions the turn's plan read in the message, each with the
+    setup it carries ("A ball is dropped from 20 m. What is its speed after 1 s?" and "…
+    How long does it take to reach the ground?"). Each is solved on its own: when every part
+    of the message is one (``parts_answer_all``) and each answers itself, the reply is the
+    question in parts; otherwise the first part that verifies keeps its card, where the
+    whole message read as one problem verified nothing.
+    """
+    if len(parts) >= 2 and not has_image_attachment:
+        return await _solve_parts(
+            user_content,
+            settings,
+            parts,
+            answer_all=parts_answer_all,
+            redis=redis,
+            whole=lambda: build_subject_augmentation(
+                user_content,
+                settings,
+                math_user_content=math_user_content,
+                prior_user_messages=prior_user_messages,
+                response_intent_text=response_intent_text,
+                detected_subject=detected_subject,
+                redis=redis,
+                pair=False,
+            ),
+        )
     if pair and not has_image_attachment:
         paired = await _paired_direct_reply(
             user_content,
@@ -139,6 +172,63 @@ async def _paired_direct_reply(
         replies.append(reply.strip())
     # Each question worked and answered on its own, a hairline between them.
     return "\n\n---\n\n".join(replies)
+
+
+async def _solve_parts(
+    user_content: str,
+    settings: Settings,
+    parts: Sequence[str],
+    *,
+    answer_all: bool,
+    redis: Redis | None,
+    whole: Callable[[], Awaitable[SubjectAugmentation]],
+) -> SubjectAugmentation:
+    """Each question solved on its own (``build_subject_augmentation``'s ``parts``)."""
+    pieces = [
+        await build_subject_augmentation(part, settings, pair=False, redis=redis) for part in parts
+    ]
+    if answer_all:
+        replies = [
+            await read_direct_reply(piece.verified, part, settings)
+            for piece, part in zip(pieces, parts, strict=True)
+        ]
+        if all(reply is not None for reply in replies):
+            # The first part's block stands for the turn's verified solve (its card, the
+            # trace); the reply holds every part's own.
+            first = pieces[0]
+            return SubjectAugmentation(
+                first.subject,
+                first.prompt_block,
+                first.verified,
+                direct_text=_in_parts(parts, [r or "" for r in replies]),
+            )
+    verified = next((piece for piece in pieces if piece.verified is not None), None)
+    found = await whole()
+    if found.verified is not None or verified is None:
+        return found
+    return verified
+
+
+def _in_parts(parts: Sequence[str], replies: Sequence[str]) -> str:
+    """The question in parts: each part's own question, then its worked answer."""
+    shared = _shared_setup(parts)
+    sections = []
+    for index, (part, reply) in enumerate(zip(parts, replies, strict=True)):
+        label = chr(ord("a") + index) if index < 26 else str(index + 1)
+        # A question in parts letters each answer: "**Answer (a)**".
+        answer = _ANSWER_LABEL.sub(f"**Answer ({label})**", reply.strip(), count=1)
+        sections.append(f"**({label}) {part[len(shared) :].strip()}**\n\n{answer}")
+    return "\n\n---\n\n".join(sections)
+
+
+def _shared_setup(parts: Sequence[str]) -> str:
+    """The setup every part opens with, up to the end of its last sentence."""
+    first = parts[0]
+    size = min(len(part) for part in parts)
+    same = next((i for i in range(size) if any(part[i] != first[i] for part in parts)), size)
+    prefix = first[:same]
+    end = max(prefix.rfind(". "), prefix.rfind("? "), prefix.rfind("! "))
+    return prefix[: end + 2] if end >= 0 else ""
 
 
 async def read_direct_reply(
