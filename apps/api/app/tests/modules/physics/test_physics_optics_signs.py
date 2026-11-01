@@ -148,6 +148,9 @@ def test_inverted_image(text: str, inverted: bool) -> None:
         "magnification.",
         "A lens produces an image 6 cm tall of an object 2 cm tall. The image is real. Find "
         "the magnification.",
+        "An object of height 2 cm has an image of height -6 cm. Find the magnification.",
+        "An object of height 2 cm has an image whose height is negative 6 cm. Find the "
+        "magnification.",
     ],
 )
 def test_a_sign_not_read_declines(text: str) -> None:

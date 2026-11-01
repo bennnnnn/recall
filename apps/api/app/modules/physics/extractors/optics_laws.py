@@ -229,10 +229,10 @@ def _object_length(cleaned: str) -> tuple[float, str] | None:
 
 
 def _magnification(cleaned: str) -> PhysicsIntent | None:
-    """m = h_image / h_object, of an image not called real or inverted and not placed (a
-    real image's place is its inverting side): unsigned heights certified +3 for "a real,
-    inverted image 6 cm tall" of a 2 cm object (it is -3)."""
-    if inverted_image(cleaned) or places_named(cleaned):
+    """m = h_image / h_object, of an image not called real or inverted, not placed (a real
+    image's place is its inverting side) and with no height signed: unsigned heights
+    certified +3 for "a real, inverted image 6 cm tall" of a 2 cm object (it is -3)."""
+    if inverted_image(cleaned) or places_named(cleaned) or signed_distances(cleaned):
         return None
     obj = _object_length(cleaned)
     # Heights only: "the image forms 60 cm from the lens" is a distance,
