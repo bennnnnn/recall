@@ -109,6 +109,9 @@ def test_a_real_location_ask_still_asks_for_the_place(text: str) -> None:
         # Exercises say "from here" and "here is": no cue.
         ("I walk 5 km from here at 1.5 m/s. How long does it take to reach the lake?", False),
         ("Here is my homework: a ball is dropped from 5 m. How long to reach the ground?", False),
+        ("Here, a ball is dropped from 20 m. How long does it take to reach the ground?", False),
+        ("Question here: a stone falls from a 45 m cliff. How long to reach the bottom?", False),
+        ("Okay here goes: a ball is dropped from 20 m. How long to reach the ground?", False),
     ],
 )
 def test_only_a_cue_about_the_user_outweighs_a_subject(text: str, geo: bool) -> None:

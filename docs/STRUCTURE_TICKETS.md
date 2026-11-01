@@ -395,8 +395,9 @@ for presentation and the post-turn jobs, not for reading.
     `is_worked_problem` asks it, so a line the subject order gives physics, maths or chemistry
     counts as homework whether its subject can solve it or not.
   - Every reader of the user's place defers to `is_worked_problem` unless the line says it is
-    about where the user is (`around_the_user`: "near me", "in my area", "here", "from my
-    location"; not "from here", "here is" or "from me", which exercises say). The readers are
+    about where the user is (`around_the_user`: "near me", "in my area", "from my location", a
+    "here" that ends a place question; not "from here", "from me" or a "here" that opens or
+    carries on a sentence, which exercises say). The readers are
     places, distances and travel times, and local weather; the location ask, the location sent
     with a search, the geo prompt hints and the places card build on them. "how hot is it
     here" is now a weather question.

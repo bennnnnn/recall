@@ -87,15 +87,17 @@ _FUNCTION = re.compile(r"\b[a-zA-Z]\s*\(\s*[a-z]\s*\)\s*=")
 
 
 # A search around the user, which no exercise asks for: "near me", "close to me", "around me",
-# "in my area", "within 5 km of me", "within walking distance", "from my location", "here"
-# ("how hot is it here"). Not "nearby", "the nearest wall to me", "from me", "from here",
-# "here is" or "where I am": exercises say those ("a lamp 2 m from me", "I walk 5 km from
-# here, then 3 km north", "Here is my problem").
+# "in my area", "within 5 km of me", "within walking distance", "from my location", and "here"
+# where a place question ends on it ("how hot is it here", "what's open here today"). Not
+# "nearby", "the nearest wall to me", "from me", "from here", "where I am" or a "here" that
+# opens or carries on a sentence: exercises say those ("a lamp 2 m from me", "I walk 5 km
+# from here, then 3 km north", "Here, a ball is dropped…", "Question here: …").
 _AROUND_THE_USER = re.compile(
     r"\b(?:(?:near|close\s+to|around)\s+(?:me|my\s+(?:house|home|place|hotel|office|location))"
     r"|in\s+my\s+(?:area|neighbou?rhood|city|town)"
     r"|(?:from|at|for|to)\s+my\s+(?:current\s+)?location"
-    r"|(?<!from\s)here(?!\s*(?:is|are|['\u2019]s)\b)"
+    r"|(?<!from\s)(?<=\w\s)here(?=\s*(?:[?.!,]|$)|\s+(?:today|now|right\s+now|tonight|tomorrow"
+    r"|this\s+(?:week|weekend))\b)"
     r"|within\s+(?:walking\s+distance|\d+(?:\.\d+)?\s*[a-z]+\s+of\s+(?:me|here|my\s+\w+)))\b",
     re.IGNORECASE,
 )
