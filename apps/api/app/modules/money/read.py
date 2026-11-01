@@ -145,11 +145,18 @@ _SPAN_BEFORE = re.compile(
 )
 # "for five years" in a clause about time already spent ("I've been paying my mortgage at
 # 4% for five years", "we have had it for 5 years") is time gone by, not the loan's term
-# (2026-11-01: a 5-year mortgage worked from it). Only a "for" span: "I've had a 30-year
-# mortgage" still names its term.
+# (2026-11-01: a 5-year mortgage worked from it). Only a "for" span in the spent verb's own
+# clause: "I've had a 30-year mortgage" still names its term, and so does "I've saved $40k
+# for a down payment and want a mortgage at 6% for 15 years".
 _SPENT_CLAUSE = re.compile(
     r"\b(?:been\s\w+ing|(?:have|has|'ve|\u2019ve|'s|\u2019s)\s(?:been|had|paid|owned|held|made|"
-    r"lived|saved|kept))\b[^.?!;\n]*\bfor\s$",
+    r"lived|saved|kept))\b.*\bfor\s$",
+    re.I | re.S,
+)
+# Where a clause starts: a sentence's end (never a decimal point, "4.5%"), a comma before a
+# space (never "250,000"), or a conjunction.
+_CLAUSE_BREAK = re.compile(
+    r"[.?!;](?=\s|$)|\n|,\s|\b(?:and|but|so|or|yet|then|because|while|although|though)\b",
     re.I,
 )
 # A count word right before a term the reader did not take in whole ("two thousand and
@@ -384,8 +391,8 @@ def _term(product: Product, text: str) -> dict[str, float] | None:
         before = text[max(0, match.start() - 30) : match.start()]
         if _SCALE_BEFORE.search(before):
             return None
-        clause = text[: match.start()]
-        clause = clause[max(clause.rfind(mark) for mark in ".?!;\n") + 1 :]
+        breaks = [end.end() for end in _CLAUSE_BREAK.finditer(text, 0, match.start())]
+        clause = text[breaks[-1] if breaks else 0 : match.start()]
         if (
             _SPAN_AFTER.match(text, match.end())
             or _SPAN_BEFORE.search(before)

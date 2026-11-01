@@ -60,12 +60,29 @@ def test_a_number_is_read_whole(text: str, values: dict[str, float], payment: fl
         "I've been paying my $250k mortgage at 4% for five years, should I refinance?",
         "I've been paying my $250k mortgage at 4% for 5 years, should I refinance?",
         "We have paid our $300k mortgage at 6% for 10 years, is it worth refinancing?",
+        # A decimal point or a dotted sum is no clause's end (PR review).
+        "I've been paying my $250k mortgage at 4.5% for five years, should I refinance?",
+        "I've been paying my $250.000 mortgage at 4% for five years, should I refinance?",
+        "I've been paying my $1.5k car loan at 4% for 2 years, should I refinance?",
     ],
 )
 def test_time_already_spent_is_no_term(text: str) -> None:
     request = read_money_request(text)
     assert request is not None
-    assert "years" not in request.values
+    assert "years" not in request.values and "months" not in request.values
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A spent verb in another clause leaves the asked loan's term alone (PR review).
+        "I've saved $40k for a down payment and want a $300k mortgage at 6% for 15 years.",
+        "I've saved $40k, want a $300k mortgage at 6% for 15 years.",
+    ],
+)
+def test_a_term_after_a_spent_clause_is_still_the_term(text: str) -> None:
+    request = read_money_request(text)
+    assert request is not None and request.values.get("years") == 15
 
 
 @pytest.mark.parametrize(
