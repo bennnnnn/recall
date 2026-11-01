@@ -38,27 +38,20 @@ def _rate_number(value: float) -> str:
     return f"{value:.12g}"
 
 
-def _rate_substitution(intent: PhysicsIntent) -> str:
-    """Plugged-in rate row, with the units the question used."""
+def _rate_substitution(
+    symbol: str, left: tuple[float, str], right: tuple[float, str], *, divide: bool
+) -> str:
+    """The plugged-in rate row, with the numbers the rate was worked from: the question's
+    units when they agree, the SI ones it was converted to when they do not. The givens'
+    conversions are shown from this row, so "5 km" at "25 m/s" reads 5 km = 5000 m first,
+    then 5000 m over 25 m/s, never 5 km over 25 m/s (2026-11-01)."""
     from app.modules.physics.display import latex_given, latex_unit
 
-    params = intent.physics_params or {}
-    units = intent.physics_units or {}
-    op = intent.physics_op
-    if op in {"average_speed", "rate_speed"}:
-        return (
-            rf"v = \frac{{{latex_given(params['d'])}{latex_unit(units.get('d', ''))}}}"
-            rf"{{{latex_given(params['t'])}{latex_unit(units.get('t', ''))}}}"
-        )
-    if op == "rate_distance":
-        return (
-            rf"d = {latex_given(params['v'])}{latex_unit(units.get('v', ''))} \cdot "
-            rf"{latex_given(params['t'])}{latex_unit(units.get('t', ''))}"
-        )
-    return (
-        rf"t = \frac{{{latex_given(params['d'])}{latex_unit(units.get('d', ''))}}}"
-        rf"{{{latex_given(params['v'])}{latex_unit(units.get('v', ''))}}}"
-    )
+    first = f"{latex_given(left[0])}{latex_unit(left[1])}"
+    second = f"{latex_given(right[0])}{latex_unit(right[1])}"
+    if divide:
+        return rf"{symbol} = \frac{{{first}}}{{{second}}}"
+    return rf"{symbol} = {first} \cdot {second}"
 
 
 def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
@@ -90,6 +83,9 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
             rf"{{{_rate_number(duration)}\,\mathrm{{{time_unit}}}}} = "
             rf"{_rate_number(value)}\,\mathrm{{{answer_unit}}}"
         )
+        substitution = _rate_substitution(
+            "v", (distance, distance_unit), (duration, time_unit), divide=True
+        )
     elif op == "rate_distance":
         speed, duration = params.get("v"), params.get("t")
         speed_unit, time_unit = units.get("v"), units.get("t")
@@ -118,6 +114,9 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
             rf"{_rate_number(duration)}\,\mathrm{{{time_unit}}} = "
             rf"{_rate_number(value)}\,\mathrm{{{answer_unit}}}"
         )
+        substitution = _rate_substitution(
+            "d", (speed, speed_unit), (duration, time_unit), divide=False
+        )
     elif op == "rate_time":
         distance, speed = params.get("d"), params.get("v")
         distance_unit, speed_unit = units.get("d"), units.get("v")
@@ -145,11 +144,14 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
             rf"{{{_rate_number(speed)}\,\mathrm{{{speed_unit}}}}} = "
             rf"{_rate_number(value)}\,\mathrm{{{answer_unit}}}"
         )
+        substitution = _rate_substitution(
+            "t", (distance, distance_unit), (speed, speed_unit), divide=True
+        )
     else:  # pragma: no cover - caller checks the closed operation set
         raise SolveServiceError(f"unsupported rate operation: {op}")
     return PhysicsResult(
         answer=working,
         formulas=(formula,),
         quantities=(QuantityResult("", value, answer_unit),),
-        substitutions=(_rate_substitution(intent),),
+        substitutions=(substitution,),
     )
