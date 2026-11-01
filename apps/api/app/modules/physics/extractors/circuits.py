@@ -21,6 +21,7 @@ from app.modules.physics.extractors.circuit_patterns import (
     _WATT_PATTERN,
     network_asks,
     resistor_values,
+    unvalued_part,
     without_resistor_names,
 )
 from app.modules.physics.extractors.counted_parts import counted_resistors
@@ -86,6 +87,8 @@ _WHOLE_CURRENT_ASK = re.compile(
     r"|in|through|round|around)\s+the\s+(?:battery|cell|supply|source|mains|circuit|network"
     r"|combination)\b|\bcurrent\s*(?:[.?!]|$)"
     r"|\bcurrent\s+(?:flows|is\s+drawn|is\s+supplied|passes)\s*(?:[.?!]|$)"
+    r"|\bcurrent\s+(?:does|will|would)\s+the\s+(?:battery|cell|supply|source)"
+    r"\s+(?:supply|deliver|provide|give|draw)\b"
 )
 # A meter's reading is a voltage across part of the circuit, not the supply's.
 _METER_READING = re.compile(r"\bvoltmeter|\breads?\b|\breading")
@@ -145,7 +148,10 @@ def _ohm_givens(
     ohms: list[tuple[float, str]],
 ) -> tuple[dict[str, float], dict[str, str]] | None:
     """The one V, I and R stated, each with its unit; None when one quantity has two values
-    ("a 48 V battery … the voltmeter reads 9 V"): which one a law takes is a guess."""
+    ("a 48 V battery … the voltmeter reads 9 V"): which one a law takes is a guess.
+
+    ``ohms`` is the one resistor the network read left: two resistances past it are that
+    resistor named again, never a set of values that happen to be equal."""
     params: dict[str, float] = {}
     units: dict[str, str] = {}
     for key, found, unit in (("V", volts, "volt"), ("I", amps, "ampere"), ("R", ohms, "ohm")):
@@ -158,6 +164,32 @@ def _ohm_givens(
             # "2 mA", "4.7 kΩ": the unit is kept, and the solver works in SI.
             params[key], units[key] = prefixed
     return params, units
+
+
+def _resistor_network(
+    cleaned: str,
+    lower: str,
+    volts: list[tuple[float, str]],
+    amps: list[tuple[float, str]],
+    ohms: list[tuple[float, str]],
+) -> tuple[bool, PhysicsIntent | None]:
+    """(decided, card) for a resistor network: its card, or a decline. (False, None) when
+    the question is no network and the single-resistor laws below may read it."""
+    network = resistor_values(cleaned)
+    counted = counted_resistors(cleaned)
+    if counted is not None and not network:
+        # Counted resistors beside others: a network this does not read.
+        return True, None
+    if len(network) >= 2 and ("series" in lower or "parallel" in lower):
+        return True, _network_intent(lower, network, counted, volts, amps)
+    # Two parts read with no wiring stated, two values not read as one resistor named again
+    # (an internal resistance and a resistor, "a kettle of 30 Ω and an iron of 30 Ω"), or a
+    # part with no value of its own ("an identical resistor"): Ohm's law on one of them is a
+    # guess. "A resistor of 10 Ω and another of 10 Ω in parallel across 5 V" was certified
+    # 0.5 A, one resistor (2026-11-01).
+    if len(network) >= 2 or (len(ohms) >= 2 and len(network) != 1) or unvalued_part(lower):
+        return True, None
+    return False, None
 
 
 def _readable_circuit_text(cleaned: str) -> str | None:
@@ -238,15 +270,11 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         # A series-parallel network is not one sum: 4 Ω in series with 6 Ω
         # and 12 Ω in parallel is 8 Ω, and the all-series reading said 22 Ω.
         return series_parallel_intent(cleaned, volts, amps)
-    network = resistor_values(cleaned)
-    counted = counted_resistors(cleaned)
-    if counted is not None and not network:
-        # Counted resistors beside others: a network this does not read.
-        return None
-    if len(network) >= 2 and ("series" in lower or "parallel" in lower):
-        return _network_intent(lower, network, counted, volts, amps)
+    decided, network_card = _resistor_network(cleaned, lower, volts, amps, ohms)
+    if decided:
+        return network_card
 
-    read = _ohm_givens(cleaned, volts, amps, ohms)
+    read = _ohm_givens(cleaned, volts, amps, ohms[:1])
     if read is None:
         return None
     params, units = read

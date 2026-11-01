@@ -56,7 +56,7 @@ def is_weather_request(text: str) -> bool:
     """
     if _WEATHER.search(text) is None or WEATHER_NOT_A_FORECAST.search(text) is not None:
         return False
-    if is_worked_problem(text):
+    if is_worked_problem(text) and not around_the_user(text):
         return False
     return not (_STATED_TEMPERATURE.search(text) and _TEMPERATURE_UNIT.search(text))
 
@@ -82,6 +82,23 @@ _COORDINATES = re.compile(
     re.IGNORECASE,
 )
 _FUNCTION = re.compile(r"\b[a-zA-Z]\s*\(\s*[a-z]\s*\)\s*=")
+
+
+# A search around the user, which no exercise asks for: "near me", "close to me", "around me",
+# "in my area", "within 5 km of me", "within walking distance". Not "nearby", "the nearest
+# wall to me", "from me", "from here" or "where I am": exercises say those ("a lamp 2 m from
+# me", "I walk 5 km from here, then 3 km north").
+_AROUND_THE_USER = re.compile(
+    r"\b(?:(?:near|close\s+to|around)\s+(?:me|my\s+(?:house|home|place|hotel|office|location))"
+    r"|in\s+my\s+(?:area|neighbou?rhood|city|town)"
+    r"|within\s+(?:walking\s+distance|\d+(?:\.\d+)?\s*[a-z]+\s+of\s+(?:me|here|my\s+\w+)))\b",
+    re.IGNORECASE,
+)
+
+
+def around_the_user(text: str) -> bool:
+    """The message asks about what is around the user."""
+    return _AROUND_THE_USER.search(text) is not None
 
 
 def is_worked_problem(text: str) -> bool:

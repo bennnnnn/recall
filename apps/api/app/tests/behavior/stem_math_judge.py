@@ -77,6 +77,8 @@ def latex_plain(text: str) -> str:
     for _ in range(4):
         t = re.sub(r"\\frac\{([^{}]*)\}\{([^{}]*)\}", r"((\1)/(\2))", t)
         t = re.sub(r"\\sqrt\{([^{}]*)\}", r"sqrt(\1)", t)
+        # A student reads an odd root of a negative number as real: ∛(-8) is -2.
+        t = re.sub(r"\\sqrt\[(\d+)\]\{([^{}]*)\}", r"real_root(\2, \1)", t)
         t = re.sub(r"\^\{([^{}]*)\}", r"**(\1)", t)
         t = re.sub(r"\\(ln|log|sin|cos|tan|exp)\{([^{}]*)\}", r"\\\1(\2)", t)
     for latex, plain in (
