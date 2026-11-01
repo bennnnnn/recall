@@ -128,7 +128,7 @@ def test_unit_aliases() -> None:
     assert abs(float(convert_unit(1.0, "lb", "g")) - 453.59237) < 1e-4
 
 
-# Converter-pad prompts (apps/mobile/lib/unitConverter.ts). Must parse with
+# Converter-pad prompts (apps/mobile/features/chat/model/unitConverter.ts). Must parse with
 # original case — lowercasing before Pint used to drop J/N/Pa/kWh/BTU/mmHg.
 @pytest.mark.parametrize(
     "value, src, dest",
