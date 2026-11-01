@@ -16,6 +16,12 @@ from app.modules.physics.extractors.unit_patterns import (
     NUMBER,
     VELOCITY_UNIT_PATTERN,
 )
+from app.modules.physics.optic_elements import (
+    converging_element,
+    inverted_image,
+    signed_distances,
+    upright_image,
+)
 from app.modules.physics.schemas import PhysicsIntent
 
 _HEIGHT_RE = re.compile(r"\b(?:tall|high|height)\b")
@@ -222,7 +228,10 @@ def _object_length(cleaned: str) -> tuple[float, str] | None:
 
 
 def _magnification(cleaned: str) -> PhysicsIntent | None:
-    """m = h_image / h_object."""
+    """m = h_image / h_object, of an image not called real or inverted: unsigned heights
+    certified +3 for "a real, inverted image 6 cm tall" of a 2 cm object (it is -3)."""
+    if inverted_image(cleaned):
+        return None
     obj = _object_length(cleaned)
     # Heights only: "the image forms 60 cm from the lens" is a distance,
     # and m = -v/u (the catalog binder) answers that one.
@@ -241,7 +250,11 @@ def _magnification(cleaned: str) -> PhysicsIntent | None:
 
 
 def image_distance(cleaned: str) -> PhysicsIntent | None:
-    """1/f = 1/u + 1/v, from a focal length and an object distance."""
+    """1/f = 1/u + 1/v, from a focal length and an object distance, all real-is-positive: a
+    distance given its sign is another convention, and an upright image from an element
+    not named converging may be a convex mirror's ("A mirror forms an erect image")."""
+    if signed_distances(cleaned) or (upright_image(cleaned) and not converging_element(cleaned)):
+        return None
     focal = _focal_length(cleaned)
     obj = _object_length(cleaned)
     if focal is None or obj is None:

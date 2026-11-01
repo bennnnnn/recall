@@ -225,12 +225,12 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("magnification",),
             result=("dimensionless",),
             inputs=(frozenset({"d_img", "d_obj"}),),
-            # A virtual or erect image's distance carries the other sign (a convex mirror's
-            # and a concave lens's always do). Heights (certified -5 for 5 cm and 25 cm) and
-            # a telescope's two focal lengths are not an object's and an image's distances.
+            # A virtual, erect or "signed" image's distance (optic_elements.signed_distances)
+            # carries the other sign, as a convex mirror's and a concave lens's do. Heights
+            # (-5 for 5 cm and 25 cm) and a telescope's focal lengths are not u and v.
             excludes=(
                 *("virtual", "erect", "upright", "behind the mirror", "same side", "diverging"),
-                *("telescope", "eyepiece", "objective", "height", "tall", "high"),
+                *("signed", "telescope", "eyepiece", "objective", "height", "tall", "high"),
             ),
         ),
     ),
@@ -445,7 +445,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter",),
             inputs=(frozenset({"d_obj", "focal", "h_obj"}),),
             cues=("converging lens", "convex lens", "concave mirror", "converging mirror"),
-            excludes=("diverging", "convex mirror", "concave lens", "virtual"),
+            excludes=("diverging", "convex mirror", "concave lens", "virtual", "signed"),
             negative_detail="inverted",
             requires=("d_obj - focal",),
         ),
@@ -491,7 +491,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter",),
             inputs=(frozenset({"d_obj", "radius_curvature"}),),
             cues=("concave mirror", "converging mirror"),
-            excludes=("convex", "diverging", "virtual", "lens"),
+            excludes=("convex", "diverging", "virtual", "lens", "signed"),
             nonnegative=True,
             # Inside F the image is virtual: behind the mirror, a sign the
             # conventions disagree on.
