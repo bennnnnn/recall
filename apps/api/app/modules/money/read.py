@@ -35,6 +35,7 @@ from app.modules.money.phrases import (
     amount_value,
     count_value,
     grouped,
+    percent_value,
 )
 from app.modules.money.sums import MEASUREMENT, SAYS_MONEY, Sum, amounts
 
@@ -142,6 +143,18 @@ _SPAN_BEFORE = re.compile(
     r"every\s|each\s|per\s|aged?\s)$",
     re.I,
 )
+# "for five years" in a clause about time already spent ("I've been paying my mortgage at
+# 4% for five years", "we have had it for 5 years") is time gone by, not the loan's term
+# (2026-11-01: a 5-year mortgage worked from it). Only a "for" span: "I've had a 30-year
+# mortgage" still names its term.
+_SPENT_CLAUSE = re.compile(
+    r"\b(?:been\s\w+ing|(?:have|has|'ve|\u2019ve|'s|\u2019s)\s(?:been|had|paid|owned|held|made|"
+    r"lived|saved|kept))\b[^.?!;\n]*\bfor\s$",
+    re.I,
+)
+# A count word right before a term the reader did not take in whole ("two thousand and
+# twenty months"): the term is not read.
+_SCALE_BEFORE = re.compile(r"\b(?:hundred|thousand)\s(?:and\s)?$", re.I)
 
 
 @dataclass(frozen=True)
@@ -265,8 +278,12 @@ def _percents(text: str) -> tuple[set[float], set[float]]:
     rates: set[float] = set()
     shares: set[float] = set()
     for match in RATE.finditer(text):
-        value = float(match.group(1))
-        if not _is_share_down(text, match):
+        value = percent_value(match["pct"])
+        if value is None:
+            # A percent the reader cannot read ("3,125%") is one it cannot certify: given
+            # as two, so the slot takes no value.
+            rates |= {-1.0, -2.0}
+        elif not _is_share_down(text, match):
             rates.add(value)
         else:
             shares |= {value} if 0 < value < 100 else {-1.0, -2.0}
@@ -365,7 +382,15 @@ def _term(product: Product, text: str) -> dict[str, float] | None:
     terms: set[tuple[tuple[str, float], ...]] = set()
     for match in TERM.finditer(text):
         before = text[max(0, match.start() - 30) : match.start()]
-        if _SPAN_AFTER.match(text, match.end()) or _SPAN_BEFORE.search(before):
+        if _SCALE_BEFORE.search(before):
+            return None
+        clause = text[: match.start()]
+        clause = clause[max(clause.rfind(mark) for mark in ".?!;\n") + 1 :]
+        if (
+            _SPAN_AFTER.match(text, match.end())
+            or _SPAN_BEFORE.search(before)
+            or _SPENT_CLAUSE.search(clause[-200:])
+        ):
             continue
         if _TERM_CHOICE.search(before):
             return None

@@ -78,17 +78,19 @@ no used-car average and got no numbers at all, where the new-car average had wor
 sum for each input, one rate, one term, one money down, one compounding. Two rates or two
 terms (a comparison, a refinance, "15 or 30 years"), two sums for one input, a sum the reader
 cannot read whole ("5 lakh", "1.2 billion"; digits are read in every grouping: "250,000.50",
-"250.000,50", "5,00,000"), a deposit paid each week, or a compounding word it cannot read
+"250.000,50", "5,00,000"; a rate's decimal comma is its decimal point, "3,5%" is 3.5%, and
+"3,125%" could be either, so it is not read), a deposit paid each week, or a compounding word it cannot read
 give no worked numbers and no card: the model answers. "N% down" is always the share of the
 price put down, never the rate; a plan's name ("401k", "529 plan") is no sum; interest said
 to be simple ("if interest is simple", "no compounding", "I = PRT") is left to maths.
 
 A term the user didn't give comes from the row's default (a 30-year mortgage, a 5-year car loan),
 and the reply says it assumed one. A term in words is read as in digits ("seven years",
-"twenty-five years", "two and a half years"), by the first ask, the follow-up grammar and the
+"twenty-five years", "two and a half years", "one hundred twenty months"), by the first ask, the follow-up grammar and the
 two-line loan alike (`phrases.py`). A length of time that is no term is left out: an age, time
 gone by or a gap ("thirty years old", "ten years ago", "five years apart", "been paying for
-three years", "twelve months of payments", "the past 2 years"). A currency named before its sum ("Birr 3,000", "USD 500")
+three years", "twelve months of payments", "the past 2 years", and any "for N years" in a
+clause about time already spent: "I've been paying my mortgage at 4% for five years"). A currency named before its sum ("Birr 3,000", "USD 500")
 marks it as money; an exchange rate ("USD 1 = ETB 57", "57 birr to the dollar"), a note or
 coin ("Birr 500 notes") and the same sum said again ("that's about USD 21,600") are no sum
 (`sums.py`).
