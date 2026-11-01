@@ -7,7 +7,9 @@ from sympy import expand, factor, latex
 from app.modules.math.schemas import MathExprResult
 from app.modules.math.solve.display import format_verified_latex
 from app.modules.math.solve.parse import parse_expression
+from app.modules.math.solve.real_reading import complex_without_cause
 from app.modules.math.solve.simplest_form import simplest_form
+from app.services.solving import SolveServiceError
 
 
 def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
@@ -16,6 +18,8 @@ def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
     # as sqrt(x^2) = |x|; an unconstrained complex symbol leaves it unchanged.
     parsed = parse_expression(expr, [variable], real=True)
     result, book_latex = simplest_form(parsed)
+    if complex_without_cause(parsed, result):
+        raise SolveServiceError("an odd root kept no real value")
     return MathExprResult(result=str(result), latex=book_latex or format_verified_latex(result))
 
 

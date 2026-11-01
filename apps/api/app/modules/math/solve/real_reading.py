@@ -22,6 +22,7 @@ from sympy import (
     Abs,
     Dummy,
     Eq,
+    I,
     Poly,
     Pow,
     S,
@@ -164,15 +165,48 @@ def _single_term(argument: Any, symbols: list[Any]) -> bool:
 def real_odd_roots(expr: Any) -> Any:
     """``(-8x⁶)^(1/3)`` as ``-(8x⁶)^(1/3)``: an odd root keeps the radicand's sign."""
     return expr.replace(
-        lambda node: (
-            node.is_Pow
-            and node.exp.is_Rational
-            and not node.exp.is_Integer
-            and node.exp.q % 2 == 1
-            and node.base.could_extract_minus_sign()
-        ),
-        lambda node: (-1) ** node.exp.p * Pow(-node.base, node.exp),
+        _odd_root_of_a_negative,
+        # SymPy's -1: Python's (-1) ** -1 is the float -1.0, which then prints in the card.
+        lambda node: S.NegativeOne**node.exp.p * Pow(-node.base, node.exp),
     )
+
+
+def _odd_root_of_a_negative(node: Any) -> bool:
+    """An odd root whose radicand is negative. A number's sign is its value's: ∛(1 - √2)
+    is negative though written with + first, ∛(√2 - 1) positive though written -1 + √2,
+    and ∛(-8i) has no real root, so it keeps SymPy's principal one. A radicand with
+    letters goes by its written sign; callers check that reading on the real line."""
+    if not (
+        node.is_Pow and node.exp.is_Rational and not node.exp.is_Integer and node.exp.q % 2 == 1
+    ):
+        return False
+    base = node.base
+    if base.is_number:
+        return bool(base.is_extended_real and base.is_extended_negative)
+    return bool(base.could_extract_minus_sign())
+
+
+def odd_root_of_a_negative_number(written: Any) -> bool:
+    """∛(-8) and the like: -2 in school algebra, 1 + √3 i as complex numbers' principal
+    value. A question in complex numbers that writes one has two readings.
+
+    ``written`` is parsed unevaluated: evaluated, i·∛(-8) is 2·(-1)^(5/6), an even root."""
+    for node in written.atoms(Pow):
+        base, exponent = node.base.doit(), node.exp.doit()
+        if base.is_number and _odd_root_of_a_negative(Pow(base, exponent, evaluate=False)):
+            return True
+    return False
+
+
+def complex_without_cause(parsed: Any, value: Any) -> bool:
+    """A value with i from an expression with none: an odd root SymPy read on its principal
+    branch. School algebra has no such value, so it is never certified (√(-9) is 3i at
+    parse time, so an even root of a negative is a cause)."""
+    if not getattr(value, "has", None) or parsed.has(I):
+        return False
+    # 2·(-1)^(5/6) is complex with no i written in it; 5/0's complex infinity is not a value.
+    finite_number = value.is_number and value.is_finite
+    return bool(value.has(I) or (finite_number and value.is_extended_real is False))
 
 
 def _real_value(node: Any, point: dict[Any, float]) -> float | None:
