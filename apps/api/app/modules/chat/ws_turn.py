@@ -53,6 +53,9 @@ logger = logging.getLogger(__name__)
 _MAX_SHOWN_CHARS = 1_000_000
 # Frames that start a turn.
 TURN_FRAME_TYPES = frozenset({"message", "regenerate"})
+# What a turn leaves the socket: the next turn's frame, sent during its save, or the
+# frame read it still had running when it ended (the socket's next read takes it).
+TurnLeft = dict[str, Any] | asyncio.Task[Any] | None
 
 
 def client_shown_chars(cancel: dict[str, Any]) -> int | None:
@@ -144,8 +147,8 @@ async def stream_over_ws(
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
     claim: ClientMessageClaim = UNNAMED,
-) -> dict[str, Any] | None:
-    """Run one turn; return the next turn's frame when it came during this one's save.
+) -> TurnLeft:
+    """Run one turn; return what it left the socket (``TurnLeft``).
 
     Once ``stream_end`` is out the reply's text is complete and only its commit
     is left, so a client may send its next message then. That frame is held
@@ -181,6 +184,7 @@ async def stream_over_ws(
         register_inflight_stream(chat_id, producer, stop=stop)
     next_turn: dict[str, Any] | None = None
     receiver: asyncio.Task[Any] | None = None
+    left: asyncio.Task[Any] | None = None
     try:
         while not producer.done():
             receiver = asyncio.create_task(websocket.receive_json())
@@ -189,8 +193,9 @@ async def stream_over_ws(
                 return_when=asyncio.FIRST_COMPLETED,
             )
             if receiver in done:
+                read, receiver = receiver, None
                 try:
-                    msg = receiver.result()
+                    msg = read.result()
                 except WebSocketDisconnect:
                     # Navigate-away: finish the producer (it drains on send
                     # failure). Do not cancel — Stop is the only hard stop.
@@ -229,18 +234,14 @@ async def stream_over_ws(
                         websocket,
                         turn_error_payload(ChatBusyError(), user_message_saved=False),
                     )
-            else:
-                receiver.cancel()
-                try:
-                    await receiver
-                except asyncio.CancelledError:
-                    pass
         # Stop already cancelled the producer once. Cancelling again
         # aborts the save of the partial reply.
         try:
             await producer
         except asyncio.CancelledError:
             pass
+        # The turn ended first: its read is the socket's next, never cancelled (receive_frame).
+        left, receiver = receiver, None
     except WebSocketDisconnect:
         if not producer.done():
             try:
@@ -253,16 +254,29 @@ async def stream_over_ws(
         if receiver is not None and not receiver.done():
             receiver.cancel()
         heartbeat.cancel()
-        # The producer is done unless an error cut the loop above short; then
-        # the claim is settled once it is.
-        if producer.done():
-            await claim.settle(outcome)
-        else:
-            claim.settle_after(producer, outcome)
-        # Same as SSE M10: client close must not orphan the DB commit that
-        # persists the (partial) assistant row and enqueues the title job.
-        await persist_finalize_if_pending(outcome)
-    return next_turn
+        try:
+            await _settle_turn(producer, claim, outcome)
+        except BaseException:
+            # Cancelled while settling (a shutdown): the handed-on read has no owner.
+            if left is not None:
+                left.cancel()
+            raise
+    return next_turn if next_turn is not None else left
+
+
+async def _settle_turn(
+    producer: asyncio.Task[None], claim: ClientMessageClaim, outcome: TurnOutcome
+) -> None:
+    """The turn's claim and its reply's save, however the turn ended."""
+    # The producer is done unless an error cut the turn's loop short; then the
+    # claim is settled once it is.
+    if producer.done():
+        await claim.settle(outcome)
+    else:
+        claim.settle_after(producer, outcome)
+    # Same as SSE M10: client close must not orphan the DB commit that
+    # persists the (partial) assistant row and enqueues the title job.
+    await persist_finalize_if_pending(outcome)
 
 
 async def run_chat_stream(
@@ -273,10 +287,10 @@ async def run_chat_stream(
     chat_id: UUID | None = None,
     frame_budget: FrameBudget | None = None,
     claim: ClientMessageClaim = UNNAMED,
-) -> dict[str, Any] | None:
+) -> TurnLeft:
     """One turn: ``start``, then the stream, which settles the message's ``claim``.
 
-    Returns the next turn's frame if it arrived during this turn's save.
+    Returns what the turn left the socket (``TurnLeft``).
     """
     cancel_event.clear()
     outcome = TurnOutcome()

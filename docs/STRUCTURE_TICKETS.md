@@ -296,6 +296,29 @@ for presentation and the post-turn jobs, not for reading.
   - A plan the pool read before a later read gave up stands (`read_turn` asks the kept
     `plan_turn` reading first, as `@reading` does); only a message the pool never planned
     is `read_declined`.
+- **Status, step 2 (small talk): done, and smaller than counted.**
+  - Small talk already had one owner per turn: `turn_prep/mode.classify_turn_mode`, read
+    against the loaded window once per turn path (new turn, regenerate; prep and persist
+    classify only when no mode was passed), carried as `ctx.lightweight_turn`. It now
+    names why: `_TurnMode.lightweight_reason` is `social`, `answers_offer` (a short reply
+    to the last reply's question or offer), `answers_card` (the turn after a clarify card)
+    or `not_light`, and `lightweight` is exactly `social`. The reason is on the trace line.
+  - Of the 13 calls to `is_lightweight_chat_turn` counted above, 10 are not the turn's
+    decision: they read other text (suggested follow-ups, earlier lines, live talk's spoken
+    query, a fragment against its equation) or compose the reader into a reader of their
+    own. Moving them onto the turn would read the wrong text.
+  - **Precedence questions, kept as today:** `model_routing/route.py` (routing runs in the
+    pool, before the window is read) and `answer_photo_offer.py` (the bare query) ask about
+    the turn's own message without its place, so "no" after an offer is small talk there
+    and an answer to the turn's mode. In the five corpora that is 33 turns
+    (`answers_offer`). Choosing is a behaviour PR of its own.
+  - `tests/architecture/test_turn_decisions.py` lists every caller with why; a new one fails
+    until it reads `ctx.lightweight_turn` or is listed. The list only shrinks.
+  - Decision diff: no decision changed (`--added lightweight_reason`: not_light ×5,021,
+    answers_offer ×33, social ×20).
+  - `_TurnMode` is not folded into `TurnReading` yet: the mode needs the loaded window, which
+    the regenerate path reads after the message. Merging them is the last step, once teaching
+    and subject have one owner each.
 
 ### ST-06 — Finalize passes declare their order and their kind
 

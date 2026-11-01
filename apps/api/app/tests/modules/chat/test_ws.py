@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -12,6 +13,7 @@ from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
 from app.main import create_app
+from app.modules.chat import ws_api
 from app.modules.chat.stream_events import REPLY_SAVE_FAILED_MESSAGE
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.services.quota.messages import QUOTA_EXCEEDED_MESSAGE_FREE
@@ -1106,7 +1108,7 @@ def test_ws_message_before_stream_end_is_still_busy():
     assert contents == ["first"]
 
 
-def test_ws_stop_after_a_waiting_message_stops_that_message_not_the_save():
+def test_ws_stop_after_a_waiting_message_stops_that_message_not_the_save(monkeypatch):
     """The waiting turn's own Stop stays unread until that turn runs."""
     _, tok = _token()
     user = _fake_user()
@@ -1114,7 +1116,20 @@ def test_ws_stop_after_a_waiting_message_stops_that_message_not_the_save():
     contents: list[str] = []
     fake_stream = _saving_turns(release, contents)
     app = _app(user)
+    # The socket's second idle read (the first took "first"; "second" was held) is the
+    # one after the stopped turn: the next frame is sent once it is waiting, so the test
+    # never races the turn's end (CI hung once, 2026-11-01; test_ws_pending_read).
+    reads: list[int] = []
+    reading_again = threading.Event()
+    real_receive_frame = ws_api.receive_frame
 
+    async def receive_frame(websocket, idle_seconds, pending=None):
+        reads.append(1)
+        if len(reads) == 2:
+            reading_again.set()
+        return await real_receive_frame(websocket, idle_seconds, pending)
+
+    monkeypatch.setattr(ws_api, "receive_frame", receive_frame)
     with (
         signed_in(user.id),
         ws_streams(fake_stream),
@@ -1135,6 +1150,7 @@ def test_ws_stop_after_a_waiting_message_stops_that_message_not_the_save():
             assert ws.receive_json() == {"type": "start"}
             # The stopped turn sends nothing more (no token, stream_end or done
             # comes before this answer), and the socket still serves frames.
+            assert reading_again.wait(5)
             ws.send_json({"type": "message", "content": ""})
             assert ws.receive_json()["message"] == "Message cannot be empty."
 
