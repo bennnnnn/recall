@@ -55,7 +55,7 @@ async def apply_reminder_pass(
 ) -> str:
     """The reply with its reminder changes applied; ``todos_changed`` when the list changed.
 
-    A failure keeps the text it was given: every pass before this one succeeded.
+    A failure keeps the text it was given: the finalize passes are done with it.
     """
     # Chat in another language only reads to-dos; changes are made in To-do: the server
     # reads a change against the user's words in English (docs: modules/todos/chat_language).

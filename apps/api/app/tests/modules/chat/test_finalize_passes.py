@@ -72,7 +72,7 @@ def _raise(exc: Exception) -> Any:
 
 def test_the_passes_run_in_one_declared_order() -> None:
     order = [
-        (finalize_pass.name, finalize_pass.on_error.log_as, finalize_pass.on_error.rewrite)
+        (finalize_pass.name, finalize_pass.failure.log_as, finalize_pass.failure.rewrite)
         for finalize_pass in finalize_passes.FINALIZE_PASSES
     ]
     assert [name for name, *_ in order] == [
@@ -117,28 +117,51 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "presentation",
         "clock",
     ]
-    # Only the subject fence passes, the chemistry enrichment, the closer strip, the
-    # meta-note unwrap, the prompt-leak strip, the emoji placement, the formula charts
-    # (left for the phone's note) and the two checks that only ever narrow the reply
-    # (search links, requested JSON) go on after a failure; every other pass falls back
-    # to the last committed text.
-    kept = {name: (log_as, rewrite is not None) for name, log_as, rewrite in order if log_as}
-    assert kept == {
-        "generic_closer": ("generic_closer", False),
-        "meta_notes": ("meta_notes", False),
-        "prompt_leaks": ("prompt_leaks", False),
-        "turn_meta": ("turn_meta", False),
-        "lesson_again": ("lesson_again", False),
-        "emoji_use": ("emoji_use", False),
-        "search_links": ("search_links", False),
-        "claim_check": ("claim_check", False),
-        "requested_json": ("requested_json", False),
+    # Every text pass goes on after a failure (ST-06), and so do the maths pass and the claim
+    # check; every other effect falls back to the last committed text.
+    falls_back = {name for name, log_as, _ in order if log_as is None}
+    assert falls_back == {
+        "untrusted_media",
+        "answer_photo",
+        "reply_picture",
+        "settings_card",
+        "money_card",
+        "search_sources",
+        "instant_usage",
+        "clarify_card",
+    }
+    # A pass that goes on logs under its own name, but the subject fence passes (which
+    # recover their fences) and the chemistry enrichment, under their old steps' names.
+    renamed = {
+        name: (log_as, rewrite is not None)
+        for name, log_as, rewrite in order
+        if log_as not in (None, name) or rewrite
+    }
+    assert renamed == {
         "chemistry_fences": ("validate_math_fences", True),
         "physics_fences": ("validate_math_fences", True),
         "math_fences": ("validate_math_fences", True),
         "chemistry_enrich": ("enrich_chemistry_fences", False),
-        "formula_charts": ("formula_charts", False),
     }
+
+
+@pytest.mark.parametrize(
+    ("kind", "on_error", "failure"),
+    [
+        ("text", None, OnError(log_as="pass")),
+        ("effect", None, FALL_BACK),
+        (None, None, FALL_BACK),
+        ("text", FALL_BACK, FALL_BACK),
+        ("effect", OnError(log_as="step"), OnError(log_as="step")),
+    ],
+)
+def test_a_pass_fails_as_its_kind_does_unless_it_says_otherwise(
+    kind: Any, on_error: OnError | None, failure: OnError
+) -> None:
+    def run(state: FinalizeState) -> str:
+        return state.text
+
+    assert FinalizePass("pass", run, on_error, kind=kind).failure == failure
 
 
 def _contract_problems(passes: tuple[FinalizePass, ...]) -> list[str]:
@@ -288,8 +311,8 @@ async def test_a_fall_back_failure_keeps_the_committed_text(
 @pytest.mark.parametrize(
     ("exc", "level", "message"),
     [
-        (TimeoutError("slow"), logging.WARNING, "step timed out; keeping raw assistant text"),
-        (RuntimeError("boom"), logging.ERROR, "step failed; keeping raw assistant text"),
+        (TimeoutError("slow"), logging.WARNING, "step timed out; keeping the text before it"),
+        (RuntimeError("boom"), logging.ERROR, "step failed; keeping the text before it"),
     ],
 )
 @pytest.mark.parametrize("rewrite", [None, _append("recovered")])

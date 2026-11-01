@@ -52,7 +52,7 @@ Each ticket's PR runs these before and after and shows the diff is empty:
 | `is_teaching_request` | 11 call sites | 11 calls / 9 files | |
 | `detect_subject` | 14 | 15 calls / 11 files | |
 | `StreamContext` fields / files that change it after build | 45 / 8 | 45 / 8 (`finalize_parts`, `finalize_passes`, `finalize_text`, `stream_entry`, `stream_paths`, `stream_pipeline`, `turn_prep/context`, `turn_resources`) | `modules/chat/turn_prep/context.py` |
-| Finalize passes / `FALL_BACK` | 34 / 25 | 34 / 25 (ES-22's "20" is stale) | `modules/chat/finalize_passes.py` |
+| Finalize passes / `FALL_BACK` | 34 / 25 | 40 / 26 by 2026-11-01 (18 text, 8 effects; ES-22's "20" is stale); 40 / 8 after ST-06's on-error default, the effects only | `modules/chat/finalize_passes.py` |
 | Subject name `Literal` | 4 files | 7 declarations in 6 files: `chat/stream_status.py:33,48`, `chat/turn_prep/followups.py:35`, `images/schemas.py:50`, `services/solving.py:65`, `services/subject_scan.py:8` (with "biology"), `services/subject_solving.py:29` | |
 | Chat files importing a subject directly | 22 | 22 | |
 | `services/subject_solving.py` reaching into subject internals | `EQUATION_RE`, `parse_reaction`, `curve_points` | 16 subject imports, 13 of them deferred (`chemistry.request`, `.species`, `.input_text`, `.context`, `.reading`, `.block`, `.direct`; `math.tools.school.curve_points`, `math.tools.direct`; `physics.direct`, …); importers: `chat` (11 files) and `images` (2) | 494 lines |
@@ -408,13 +408,29 @@ rule stricter than #2153's fallback needs, on purpose: every effect works on cle
 `FinalizePass` refuses a kind that is neither at construction. Nothing reorders and nothing
 behaves differently: the decision diff printed "no decision changed". The reason for a contract
 stays in the comment above its pass; the pinned order in
-`test_the_passes_run_in_one_declared_order` is the list a new pass joins. Still open: the
-"log and continue" default for text passes, a behaviour change on failure, in its own PR.
+`test_the_passes_run_in_one_declared_order` is the list a new pass joins.
 
-- **Problem:** the order of the 34 passes is a tuple. The contracts between them ("before the fence
+**Status: done (on-error default).** A pass's kind now sets what an exception in it does.
+A text pass goes on: the failure is logged under the pass's name (`logger.exception`, a
+timeout as a warning), the turn trace lists it (`passes_failed`), and the next pass gets the
+text the failed one was given; the passes after it run. A safety text pass (`control_tokens`,
+`prepare_model_reply`, `prompt_leaks`) hands on its closed strip of that text instead, and is
+replayed if a later effect falls back, as #2153 had it. An effect pass falls back
+(`FALL_BACK`). `FinalizePass.on_error` is written only where a pass departs from its kind:
+the subject fence passes' recoveries, `chemistry_enrich`'s old step name, and the two effects
+that go on (`math_fences`, `claim_check`). Of the 40 passes, 26 fell back (18 text, 8
+effects); now 8 do, the effects `untrusted_media`, `answer_photo`, `reply_picture`,
+`settings_card`, `money_card`, `search_sources`, `instant_usage`, `clarify_card`.
+`test_finalize_pass_failures` raises inside each real pass in turn: each of the 32 that go on
+hands on its input and every later pass runs; each of the 8 that fall back still stops the
+passes, with only the fallback's safety passes after it. On the normal path the decision diff
+printed "no decision changed".
+
+- **Problem:** the order of the 40 passes is a tuple. The contracts between them ("before the fence
   repair below can close it", "before a subject lands its card") are comments. Text passes and
   passes with side effects (photos, chips, settings and money cards, instant usage) are mixed, and
-  25 are `FALL_BACK`: one exception skips every later pass. The review counted 30 → 34 in five days.
+  26 were `FALL_BACK`: one exception skipped every later pass. The review counted 30 → 34 in five
+  days; the code held 40 by 2026-11-01.
 - **Change:**
   - `FinalizePass` gains `after: frozenset[str]`, `before: frozenset[str]` and
     `kind: Literal["text", "effect"]`. A test checks the tuple order against the declared
