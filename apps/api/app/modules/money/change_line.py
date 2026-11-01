@@ -29,7 +29,13 @@ import re
 from dataclasses import dataclass
 from functools import partial
 
-from app.modules.money.phrases import DURATION, PERCENT, count_value, sum_phrase
+from app.modules.money.phrases import (
+    DURATION,
+    PERCENT,
+    count_value,
+    percent_value,
+    sum_phrase,
+)
 from app.modules.money.read import bare_year, read_sum
 
 _MAX_CHARS = 200
@@ -117,8 +123,9 @@ class Change:
         return " " * len(match.group(0))
 
     def take_rate(self, match: re.Match[str]) -> str:
-        self.clash = self.clash or self.rate is not None
-        self.rate = float(match["pct"])
+        rate = percent_value(match["pct"])
+        self.clash = self.clash or self.rate is not None or rate is None
+        self.rate = rate
         return " " * len(match.group(0))
 
     def take_term(self, match: re.Match[str], saving: bool) -> str:

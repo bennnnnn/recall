@@ -25,7 +25,7 @@
  },
  {
   "id": "hs-004",
-  "area": "money lesson",
+  "area": "money everyday",
   "prompt": "Ato Alula deposited Birr 3,000 in a saving account that pays 6% interest rate per year. What is the amount at the end of 7 years?",
   "history": [],
   "reply": "**Given**\nStart: Birr 3,000; rate: 6%; time: 7 years\n\n**Answer**\nThe amount is **Birr 4,559.89**.",
@@ -88,6 +88,38 @@
   "expect": "answer"
  },
  {
+  "id": "hs-016",
+  "area": "money everyday",
+  "prompt": "Hey, what would a $15,000 car loan at 9% for 48 months cost per month?",
+  "history": [],
+  "reply": "About **$373.28** a month over 48 months.",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-017",
+  "area": "money everyday",
+  "prompt": "Mortgage $300k at 6.5% 30 years payment?",
+  "history": [],
+  "reply": "About **$1,896.20** a month.",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-018",
+  "area": "money everyday",
+  "prompt": "Rahul pays Rs 1,000 a month into a recurring deposit at 7% for 3 years. Find the maturity value.",
+  "history": [],
+  "reply": "About **Rs 39,930** at maturity, compounded monthly (assumed).",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-019",
+  "area": "money everyday",
+  "prompt": "If you deposit $200 at the end of each month at 6% compounded monthly for 5 years, how much will you have?",
+  "history": [],
+  "reply": "About **$13,954.01** after 5 years.",
+  "expect": "answer"
+ },
+ {
   "id": "hs-020",
   "area": "emoji homework",
   "prompt": "Which of the following is a mixture?\nA. Water\nB. Salt\nC. Sugar\nD. Milk",
@@ -141,6 +173,30 @@
   "prompt": "We're 4 people splitting a $120 dinner, how much each? 🎉",
   "history": [],
   "reply": "The split:\n\n- 🎉 **Each:** $30\n- 🧾 **Total:** $120",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-035",
+  "area": "emoji lookalike",
+  "prompt": "so......",
+  "history": [],
+  "reply": "Fair enough. A couple of ways to go:\n\n- 💬 **Talk it through** — tell me what's up.\n- 🎲 **Something random** — I'll pick a topic.",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-036",
+  "area": "emoji lookalike",
+  "prompt": "lol ok ___ whatever",
+  "history": [],
+  "reply": "No worries:\n\n- 😌 **Skip it** — we can drop it.\n- 🔁 **Come back later** — whenever you like.",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-037",
+  "area": "emoji lookalike",
+  "prompt": "Trip ideas.......... Paris or Rome?",
+  "history": [],
+  "reply": "Both are great:\n\n- 🏛️ **Rome** — history at every corner.\n- 🥐 **Paris** — art, cafés and food.",
   "expect": "answer"
  }
 ]

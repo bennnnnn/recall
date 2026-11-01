@@ -107,6 +107,20 @@ export async function markdownToStructuredPrintHtml(title: string, markdown: str
   return wrapPrintDocument(title, body, katexCss);
 }
 
+/**
+ * A paragraph's lines as one `<p>`: soft breaks join with a space; a line ending in two spaces
+ * is a Markdown hard break, so the app shows the next line under it and so does the PDF.
+ */
+function paragraphHtml(lines: string[]): string {
+  const runs: string[][] = [[]];
+  for (const line of lines) {
+    runs[runs.length - 1]!.push(line.trim());
+    if (/ {2,}$/.test(line)) runs.push([]);
+  }
+  const html = runs.map((run) => run.join(" ").trim()).filter(Boolean).map(inlineMarkdownToHtml);
+  return html.length ? `<p>${html.join("<br>")}</p>` : "";
+}
+
 function structuredPrintBody(markdown: string): string {
   const prepared = preprocessMarkdown(markdown.replace(/\r\n/g, "\n"));
   const lines = prepared.split("\n");
@@ -116,9 +130,9 @@ function structuredPrintBody(markdown: string): string {
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
-    const text = paragraph.join(" ").trim();
+    const html = paragraphHtml(paragraph);
     paragraph = [];
-    if (text) parts.push(`<p>${inlineMarkdownToHtml(text)}</p>`);
+    if (html) parts.push(html);
   };
 
   while (i < lines.length) {
@@ -208,7 +222,7 @@ function structuredPrintBody(markdown: string): string {
       continue;
     }
 
-    paragraph.push(line.trim());
+    paragraph.push(line);
     i += 1;
   }
   flushParagraph();
