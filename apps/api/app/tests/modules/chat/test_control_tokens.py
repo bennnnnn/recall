@@ -7,7 +7,11 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from app.modules.chat.control_tokens import strip_control_tokens, until_control_run
+from app.modules.chat.control_tokens import (
+    drop_control_tokens,
+    strip_control_tokens,
+    until_control_run,
+)
 
 
 def test_a_leaked_token_and_its_run_leave_the_reply() -> None:
@@ -104,15 +108,16 @@ async def _stream(tokens: list[str]) -> AsyncIterator[str]:
         yield token
 
 
-async def test_a_run_of_one_token_is_read_but_not_shown() -> None:
+async def test_a_run_of_one_token_ends_the_stream() -> None:
     tokens = ["The time is ", "2e-8 s.", "<|im_end|>", "\n</|", "im_end|> \n", "</|im_end|>"]
     tokens += ["\n</|im_end|>"] * 100
     stream = _Counted(tokens)
     seen = [token async for token in until_control_run(stream)]
     # The third of one token is a run: two show, and the saved reply drops them.
     assert "".join(seen) == "The time is 2e-8 s.<|im_end|>\n</|im_end|> \n</|im_end|>"
-    # The rest is read to its end, so the provider's usage and tool calls are recorded.
-    assert stream.read == len(tokens)
+    # Nothing past the run is read: the caller closes the provider, which waited on a
+    # runaway generation to the stream's cap before (2026-11-01).
+    assert stream.read == 7
 
 
 async def test_tokens_in_code_or_alternating_do_not_stop_the_stream() -> None:
@@ -139,3 +144,51 @@ class _Counted:
             raise StopAsyncIteration
         self.read += 1
         return self._tokens.pop(0)
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # A turn end before any reply opens it: it goes, the reply stays (2026-11-01).
+        ("</|assistant|>\nThe answer is 4.", "The answer is 4."),
+        ("<|im_end|>\n\n2 + 2 = 4.", "2 + 2 = 4."),
+        ("<|assistant|>Hello! How can I help?", "Hello! How can I help?"),
+        # Another speaker's turn begins: the reply ends there.
+        ("Hello!<|user|>What's the weather?<|assistant|>Sunny", "Hello!"),
+        ("Done.<|im_start|>user\nthanks", "Done."),
+        ("Done.<|start_header_id|>user<|end_header_id|>\nmore", "Done."),
+        ("Paris.<|system|>You are a helpful assistant.", "Paris."),
+        # The assistant's own role mid-prose ends nothing.
+        ("Shares: <|im_start|>7,000 and 8,400.", "Shares: 7,000 and 8,400."),
+    ],
+)
+def test_a_turn_end_cuts_only_after_some_reply(reply: str, kept: str) -> None:
+    assert strip_control_tokens(reply, "What is 2+2?") == kept
+
+
+def test_a_question_about_role_tokens_keeps_them() -> None:
+    reply = "The <|user|> token marks where a user's turn begins."
+    assert strip_control_tokens(reply, "What is <|user|> in a chat template?") == reply
+
+
+def test_the_closed_strip_drops_every_token() -> None:
+    assert drop_control_tokens("4 <|im_end|>\n```\n<|user|>\n```") == "4 \n```\n\n```"
+
+
+@pytest.mark.parametrize(
+    "tokens",
+    [
+        # A run quoted in `inline` code, whole or still streaming its closing backtick.
+        ["Use `", "<|a_b|><|a_b|><|a_b|>", "` to test the template."],
+        ["Use ``", "<|a_b|>", "<|a_b|>", "<|a_b|>", "`` here."],
+    ],
+)
+async def test_a_run_in_inline_code_is_text(tokens: list[str]) -> None:
+    seen = [token async for token in until_control_run(_stream(tokens))]
+    assert seen == tokens
+
+
+async def test_a_run_after_closed_inline_code_still_ends_the_stream() -> None:
+    tokens = ["See `x` then ", "<|im_end|>", "<|im_end|>", "<|im_end|>", " more"]
+    seen = [token async for token in until_control_run(_stream(tokens))]
+    assert "".join(seen) == "See `x` then <|im_end|><|im_end|>"

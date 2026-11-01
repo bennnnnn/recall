@@ -6,6 +6,9 @@ for 1,100 lines, to the length limit (2026-10-30). A reply about chat templates 
 same tokens on purpose, so only a leak's own shape is acted on: a token ending the reply or
 an answer card, or one token over and over. Code a reply quotes (a fence, `inline` code) is
 never touched.
+
+A run of one token ends the stream: the model is no longer writing a reply, and reading on
+kept the user waiting up to the stream's cap and marked a clean reply cut short (2026-11-01).
 """
 
 from __future__ import annotations
@@ -28,9 +31,13 @@ _ENDING = re.compile(rf"(?:{_TOKEN})\s*\Z")
 _INLINE_CODE = re.compile(r"``[^\n]*?``|`[^`\n]*`")
 _BLANK_RUN = re.compile(r"\n(?:[ \t]*\n){2,}")
 # A token that ends a turn: past it the model writes notes to itself (2026-10-31: a Grade 11
-# answer ran on after "</|assistant|>" into "el if (rounded amounts) total? compute…").
+# answer ran on after "</|assistant|>" into "el if (rounded amounts) total? compute…"), or
+# another speaker's turn begins: "<|user|>" is one model family's stop token, and "Hello!
+# <|user|>What's the weather?<|assistant|>Sunny" wrote both sides of a chat.
 _TURN_END = re.compile(
     rf"</\|[a-z_]{{2,24}}\|>|<\|(?:im_end|eot_id|eom_id|endoftext|end)\|>"
+    rf"|<\|(?:user|system|human|observation)\|>"
+    rf"|<\|(?:im_start|start_header_id)\|>\s*(?:user|system)\b"
     rf"|<{_BAR}end[^{_BAR}\n]{{0,36}}{_BAR}>"
 )
 # A message about chat templates, whose reply may write the tokens on purpose.
@@ -74,22 +81,34 @@ def strip_control_tokens(text: str, asked: str | None = None) -> str:
     if not (shaped or unasked):
         return text
     cleaned = "".join(_strip_piece(piece) if own else piece for piece, own in parts)
+    if CONTROL_TOKEN.match(text.lstrip()):
+        # A token that opened the reply leaves no blank lines above it.
+        cleaned = cleaned.lstrip()
     return cleaned.rstrip() + ("\n" if ends_line else "")
 
 
 def _cut_at_turn_end(text: str) -> str:
-    """``text`` up to the first turn-ending token in its prose; a card or quoted code keeps
-    what it holds (a token closing a card is stripped there, not cut at)."""
+    """``text`` up to the first turn-ending token in its prose that follows some reply; a
+    card or quoted code keeps what it holds (a token closing a card is stripped there, not
+    cut at). A token before any reply opens it ("<|im_end|>\n\n2 + 2 = 4."): cutting there
+    saved an empty reply, so it is only stripped."""
     cursor = 0
     for fence in [*iter_fences(text), None]:
         end = len(text) if fence is None else fence.body_start
-        turn_end = _TURN_END.search(_outside_inline_code(text[cursor:end]))
-        if turn_end is not None:
-            return text[: cursor + turn_end.start()]
+        for turn_end in _TURN_END.finditer(_outside_inline_code(text[cursor:end])):
+            at = cursor + turn_end.start()
+            if CONTROL_TOKEN.sub("", text[:at]).strip():
+                return text[:at]
         if fence is None:
             break
         cursor = fence.body_end
     return text
+
+
+def drop_control_tokens(text: str) -> str:
+    """Every control token gone, code included: the closed strip that stands in when the
+    control-token pass fails, so a fallback never saves a leaked token."""
+    return CONTROL_TOKEN.sub("", text)
 
 
 def _strip_piece(piece: str) -> str:
@@ -105,21 +124,29 @@ def _strip_piece(piece: str) -> str:
 
 
 async def until_control_run(tokens: AsyncIterator[str]) -> AsyncGenerator[str]:
-    """``tokens`` until one control token repeats outside code; the rest of the stream is
-    read but not shown, so the provider's usage, model and tool calls are still recorded."""
+    """``tokens`` until one control token repeats outside code, then no more: the stream is
+    left unread and closed by its caller, and its usage is estimated at settle as for a
+    stop. A run in a fence or `inline` code a reply quotes, closed or still open, is text."""
     text = ""
-    ran = False
     async for token in tokens:
-        if ran:
-            continue
         text += token
-        run = _RUN.search(text, max(0, len(text) - len(token) - 200))
-        if run is not None and not _in_open_fence(text[: run.start()]):
-            ran = True
-            continue
+        start = max(0, len(text) - len(token) - 200)
+        for run in _RUN.finditer(text, start):
+            if not _in_open_fence(text[: run.start()]) and not _in_inline_code(text, run.start()):
+                return
         yield token
 
 
 def _in_open_fence(text: str) -> bool:
     fence = last_fence(text)
     return fence is not None and not fence.closed
+
+
+_BACKTICKS = re.compile(r"`+")
+
+
+def _in_inline_code(text: str, at: int) -> bool:
+    """``at`` is inside `inline` code on its line: an odd number of backtick runs before it
+    (one opens, the next closes), whether or not the closing one has streamed yet."""
+    line_start = text.rfind("\n", 0, at) + 1
+    return len(_BACKTICKS.findall(text, line_start, at)) % 2 == 1
