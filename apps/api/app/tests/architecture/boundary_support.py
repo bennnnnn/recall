@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 from collections import deque
 from collections.abc import Iterable
 from functools import cache
@@ -215,43 +216,104 @@ def _runtime_imports(nodes: Iterable[ast.AST]) -> list[ast.Import | ast.ImportFr
     return found
 
 
-def _dynamic_import_calls(tree: ast.AST) -> list[ast.Call]:
-    """``import_module(...)`` / ``importlib.import_module(...)`` calls."""
-    calls: list[ast.Call] = []
+_IMPORT_FUNCTIONS = frozenset({"import_module", "__import__"})
+
+
+def _dynamic_import_calls(
+    tree: ast.AST,
+) -> list[tuple[ast.Call, ast.expr | None, ast.expr | None]]:
+    """Calls that import a module by name, in line order, with their name and ``package``
+    arguments: ``importlib.import_module`` under any import name (``import importlib as il``,
+    ``from importlib import import_module as load``) and ``__import__``. An ``__import__``
+    with a level is relative to its caller by that level: its name counts as computed."""
+    modules = {"importlib", "builtins"}
+    functions = {name: name for name in _IMPORT_FUNCTIONS}  # local name -> what it is
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and node.args:
-            func = node.func
-            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-            if name == "import_module":
-                calls.append(node)
-    return calls
+        if isinstance(node, ast.Import):
+            modules.update(a.asname or a.name for a in node.names if a.name in modules)
+        elif isinstance(node, ast.ImportFrom) and node.module in {"importlib", "builtins"}:
+            functions.update(
+                {a.asname or a.name: a.name for a in node.names if a.name in _IMPORT_FUNCTIONS}
+            )
+    calls: list[tuple[ast.Call, ast.expr | None, ast.expr | None]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            kind = functions.get(func.id)
+        elif isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+            kind = (
+                func.attr if func.value.id in modules and func.attr in _IMPORT_FUNCTIONS else None
+            )
+        else:
+            kind = None
+        if kind is None:
+            continue
+        keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+        name = node.args[0] if node.args else keywords.get("name")
+        if kind == "import_module":
+            package = node.args[1] if len(node.args) > 1 else keywords.get("package")
+        else:
+            level = node.args[4] if len(node.args) > 4 else keywords.get("level")
+            package = None
+            if level is not None and not (isinstance(level, ast.Constant) and level.value == 0):
+                name = None
+        calls.append((node, name, package))
+    return sorted(calls, key=lambda call: (call[0].lineno, call[0].col_offset))
 
 
-def _named_dynamic_imports(tree: ast.AST) -> set[str]:
-    """The module names dynamic imports spell out whole (a string constant)."""
+def _written_name(name: ast.expr | None, package: ast.expr | None, own_package: str) -> str | None:
+    """The absolute module a dynamic import names in writing, or None when it is computed.
+    ``import_module(".x", package=__package__)`` is relative to the caller's package."""
+    if not (isinstance(name, ast.Constant) and isinstance(name.value, str)):
+        return None
+    if not name.value.startswith("."):
+        return name.value
+    if isinstance(package, ast.Constant) and isinstance(package.value, str):
+        anchor = package.value
+    elif isinstance(package, ast.Name) and package.id == "__package__" and own_package:
+        anchor = own_package
+    else:
+        return None
+    try:
+        return importlib.util.resolve_name(name.value, anchor)
+    except ImportError:
+        return None
+
+
+def _named_dynamic_imports(tree: ast.AST, own_package: str = "") -> set[str]:
+    """The module names dynamic imports spell out whole (a string, relative to a written package)."""
     return {
-        call.args[0].value
-        for call in _dynamic_import_calls(tree)
-        if isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str)
+        written
+        for _, name, package in _dynamic_import_calls(tree)
+        if (written := _written_name(name, package, own_package)) is not None
     }
 
 
+def computed_import_keys(label: str, tree: ast.AST, own_package: str = "") -> set[str]:
+    """``label: expression`` of each dynamic import in ``tree`` whose module name is computed;
+    a second call with the same expression is ``#2``, so each one is listed."""
+    keys: set[str] = set()
+    seen: dict[str, int] = {}
+    for _, written, package in _dynamic_import_calls(tree):
+        if _written_name(written, package, own_package) is not None:
+            continue
+        key = f"{label}: {ast.unparse(written) if written is not None else '?'}"
+        seen[key] = seen.get(key, 0) + 1
+        keys.add(key if seen[key] == 1 else f"{key} #{seen[key]}")
+    return keys
+
+
 def computed_dynamic_imports() -> set[str]:
-    """``file: prefix`` of each dynamic import whose module name is computed (an f-string
-    or a variable): the import graph cannot follow it, so each one is listed by hand."""
+    """Each production dynamic import whose module name is computed (an f-string or a
+    variable): the import graph cannot follow it, so each one is listed by hand."""
     found: set[str] = set()
     for path in _production_python():
         tree = ast.parse(path.read_text(), filename=str(path))
-        for call in _dynamic_import_calls(tree):
-            arg = call.args[0]
-            if isinstance(arg, ast.Constant):
-                continue
-            prefix = ""
-            if isinstance(arg, ast.JoinedStr) and arg.values:
-                head = arg.values[0]
-                if isinstance(head, ast.Constant) and isinstance(head.value, str):
-                    prefix = head.value
-            found.add(f"{path.relative_to(APP_ROOT).as_posix()}: {prefix or ast.unparse(arg)}")
+        name = _module_name(path)
+        own_package = name if path.name == "__init__.py" else name.rpartition(".")[0]
+        found |= computed_import_keys(path.relative_to(APP_ROOT).as_posix(), tree, own_package)
     return found
 
 
@@ -281,7 +343,7 @@ def _module_imports(*, load_time: bool, runtime: bool = False) -> dict[str, set[
         targets: set[str] = set()
         if runtime:
             # ``importlib.import_module("app.x")`` with a written name is an import too.
-            targets.update(_named_dynamic_imports(tree))
+            targets.update(_named_dynamic_imports(tree, package))
         for node in nodes:
             if isinstance(node, ast.Import):
                 targets.update(alias.name for alias in node.names)

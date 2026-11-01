@@ -48,8 +48,9 @@ _INLINE_CONFIG = re.compile(r"#\s*mypy:")
 _ESCAPES = ("ignore_errors", "disable_error_code")
 
 
-# What `--strict` turns on that an override can: a package leaves the ratchet only when an
-# override holds every one of these for the package and every module below it.
+# What `--strict` turns on that an override can (all but the global warn_redundant_casts): a
+# package leaves the ratchet only when an override holds every one of these for the package
+# and every module below it. The architecture tests check this against mypy's own list.
 STRICT_FLAGS = (
     "disallow_untyped_defs",
     "disallow_incomplete_defs",
@@ -59,9 +60,18 @@ STRICT_FLAGS = (
     "disallow_subclassing_any",
     "disallow_untyped_calls",
     "warn_return_any",
+    "warn_unused_ignores",
     "no_implicit_reexport",
     "strict_equality",
+    "extra_checks",
 )
+
+
+def _holds(override: dict[str, object], flag: str) -> bool:
+    """``no_implicit_reexport = true`` or its other spelling, ``implicit_reexport = false``."""
+    if override.get(flag) is True:
+        return True
+    return flag.startswith("no_") and override.get(flag.removeprefix("no_")) is False
 
 
 def strict_packages() -> set[str]:
@@ -72,7 +82,7 @@ def strict_packages() -> set[str]:
     config = tomllib.loads((API / "pyproject.toml").read_text(encoding="utf-8"))
     named: set[str] = set()
     for override in config["tool"]["mypy"].get("overrides", []):
-        if all(override.get(flag) for flag in STRICT_FLAGS):
+        if all(_holds(override, flag) for flag in STRICT_FLAGS):
             named.update(_modules(override))
     return {module for module in named if f"{module}.*" in named}
 

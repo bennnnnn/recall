@@ -26,12 +26,15 @@ from dataclasses import asdict, dataclass
 from functools import cache
 from pathlib import Path
 
+import pytest
+
 from .boundary_support import (
     _import_cycles,
     _import_graph,
     _module_imports,
     _named_dynamic_imports,
     computed_dynamic_imports,
+    computed_import_keys,
 )
 
 _BASELINE = Path(__file__).with_name("import_cycle_baseline.json")
@@ -167,16 +170,20 @@ def test_the_recorded_cycles_are_current() -> None:
 # prompt-rule reader's walk over its rule homes.
 _COMPUTED_DYNAMIC_IMPORTS = frozenset(
     {
-        "modules/billing/__init__.py: app.modules.billing.",
-        "modules/chat/__init__.py: app.modules.chat.",
+        "modules/billing/__init__.py: f'app.modules.billing.{module_name}'",
+        "modules/billing/__init__.py: f'app.modules.billing.{name}'",
+        "modules/chat/__init__.py: f'app.modules.chat.{module_name}'",
+        "modules/chat/__init__.py: f'app.modules.chat.{name}'",
         "modules/chat/prompt_rule_text.py: f'{home.__name__}.{name}'",
-        "modules/chat/turn_prep/__init__.py: app.modules.chat.turn_prep.",
-        "modules/math/__init__.py: app.modules.math.",
-        "modules/memory/__init__.py: app.modules.memory.",
-        "modules/notifications/__init__.py: app.modules.notifications.",
-        "modules/physics/__init__.py: app.modules.physics.",
-        "modules/todos/__init__.py: app.modules.todos.",
-        "modules/web_search/__init__.py: app.modules.web_search.",
+        "modules/chat/turn_prep/__init__.py: f'app.modules.chat.turn_prep.{module}'",
+        "modules/math/__init__.py: f'app.modules.math.{module_name}'",
+        "modules/memory/__init__.py: f'app.modules.memory.{module}'",
+        "modules/memory/__init__.py: f'app.modules.memory.{name}'",
+        "modules/notifications/__init__.py: f'app.modules.notifications.{module_name}'",
+        "modules/physics/__init__.py: f'app.modules.physics.{module_name}'",
+        "modules/todos/__init__.py: f'app.modules.todos.{module_name}'",
+        "modules/web_search/__init__.py: f'app.modules.web_search.{module}'",
+        "modules/web_search/__init__.py: f'app.modules.web_search.{name}'",
     }
 )
 
@@ -199,3 +206,37 @@ def test_a_dynamic_import_by_name_is_an_edge() -> None:
         "    import_module(f'app.c.{x}')\n"
     )
     assert _named_dynamic_imports(tree) == {"app.a", "app.b"}
+
+
+# 2026-11-01: each of these imported a module by name past the graph.
+@pytest.mark.parametrize(
+    ("source", "named"),
+    [
+        ("from importlib import import_module\nimport_module(name='app.x')", {"app.x"}),
+        ("from importlib import import_module as load\nload('app.x')", {"app.x"}),
+        ("import importlib as il\nil.import_module('app.x')", {"app.x"}),
+        ("__import__('app.x')", {"app.x"}),
+        ("import builtins\nbuiltins.__import__('app.x')", {"app.x"}),
+        (
+            "from importlib import import_module\nimport_module('.x', package='app.pkg')",
+            {"app.pkg.x"},
+        ),
+        ("from importlib import import_module\nimport_module('..y', 'app.pkg.sub')", {"app.pkg.y"}),
+        (
+            "from importlib import import_module\nimport_module('.x', package=__package__)",
+            {"app.own.x"},
+        ),
+        ("from importlib import import_module\nimport_module('.x')", set()),
+        ("__import__('x', globals(), None, [], 1)", set()),
+    ],
+)
+def test_every_spelling_of_a_dynamic_import_is_read(source: str, named: set[str]) -> None:
+    assert _named_dynamic_imports(ast.parse(source), "app.own") == named
+
+
+def test_two_computed_imports_in_one_file_are_listed_apart() -> None:
+    tree = ast.parse(
+        "from importlib import import_module as load\n"
+        "def f(n):\n    load(f'app.{n}')\n    load('app.fixed')\n    return load(f'app.{n}')\n"
+    )
+    assert computed_import_keys("x.py", tree) == {"x.py: f'app.{n}'", "x.py: f'app.{n}' #2"}
