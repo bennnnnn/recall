@@ -192,3 +192,76 @@ def test_equal_resistors_named_by_their_noun_are_two(text: str, value: float) ->
 )
 def test_a_part_not_certainly_new_or_unwired_declines(text: str) -> None:
     assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Two parts and no wiring stated, named by nouns the reader does not list.
+        "An electric kettle of 30 Ω and an electric iron of 30 Ω are connected to a 240 V "
+        "supply. Find the current.",
+        "A component of 6 Ω and another component of 6 Ω are connected to a 12 V battery. "
+        "Find the current.",
+        "A 6 Ω resistor and the other 6 Ω resistor are joined end to end across 12 V. Find "
+        "the current.",
+        # A second part with no value of its own.
+        "A 6 Ω resistor is connected in parallel with an identical resistor across 12 V. "
+        "Find the total current.",
+        "A 6 Ω resistor is connected in series with another resistor of the same value "
+        "across 12 V. Find the current.",
+        "A lamp of resistance 6 Ω is connected in parallel with a lamp of the same "
+        "resistance across 6 V. Find the total current.",
+        "A 10 Ω resistor is connected in series with an identical one across a 10 V supply. "
+        "Find the current.",
+        "A 6 Ω resistor is connected in parallel with a second resistor across 12 V. Find "
+        "the total current.",
+        # The cell's internal resistance is its own part, even at the resistor's value.
+        "A battery of emf 12 V has an internal resistance of 2 Ω. It is connected to a 2 Ω "
+        "resistor. Find the power in the 2 Ω resistor.",
+        "A cell of emf 1.5 V and internal resistance 0.5 Ω is connected across a 0.5 Ω wire. "
+        "Find the current.",
+    ],
+)
+def test_two_parts_not_read_as_one_decline(text: str) -> None:
+    assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        (
+            "A cell of emf 12 V and internal resistance 2 Ω is connected to a 2 Ω resistor. "
+            "Find the current.",
+            3.0,
+        ),
+        (
+            "A 6 V battery with internal resistance 3 Ω is connected to a 3 Ω lamp. What "
+            "current flows?",
+            1.0,
+        ),
+        # One resistor named again by "the" or "this" in a series question.
+        (
+            "A 6 Ω resistor is connected in series with a switch and a 12 V battery. Find the "
+            "current in the 6 Ω resistor.",
+            2.0,
+        ),
+        (
+            "A 6 Ω resistor is connected in series with a 12 V battery. Find the power "
+            "dissipated in the 6 Ω resistor.",
+            24.0,
+        ),
+        (
+            "A 4 Ω heater is connected in series with a 12 V battery. What current flows "
+            "through this 4 Ω heater?",
+            3.0,
+        ),
+        (
+            "A current of 2 A flows through a 6 Ω resistor in series with a lamp. Find the "
+            "voltage across the 6 Ω resistor.",
+            12.0,
+        ),
+    ],
+)
+def test_parts_counted_by_their_names_not_their_values(text: str, value: float) -> None:
+    answer = _answer(text)
+    assert answer is not None and answer_number(answer) == pytest.approx(value)

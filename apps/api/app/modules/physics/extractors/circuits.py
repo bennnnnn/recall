@@ -21,6 +21,7 @@ from app.modules.physics.extractors.circuit_patterns import (
     _WATT_PATTERN,
     network_asks,
     resistor_values,
+    unvalued_part,
     without_resistor_names,
 )
 from app.modules.physics.extractors.counted_parts import counted_resistors
@@ -147,7 +148,10 @@ def _ohm_givens(
     ohms: list[tuple[float, str]],
 ) -> tuple[dict[str, float], dict[str, str]] | None:
     """The one V, I and R stated, each with its unit; None when one quantity has two values
-    ("a 48 V battery … the voltmeter reads 9 V"): which one a law takes is a guess."""
+    ("a 48 V battery … the voltmeter reads 9 V"): which one a law takes is a guess.
+
+    ``ohms`` is the one resistor the network read left: two resistances past it are that
+    resistor named again, never a set of values that happen to be equal."""
     params: dict[str, float] = {}
     units: dict[str, str] = {}
     for key, found, unit in (("V", volts, "volt"), ("I", amps, "ampere"), ("R", ohms, "ohm")):
@@ -176,13 +180,14 @@ def _resistor_network(
     if counted is not None and not network:
         # Counted resistors beside others: a network this does not read.
         return True, None
-    wired = "series" in lower or "parallel" in lower
-    if len(network) >= 2 and wired:
+    if len(network) >= 2 and ("series" in lower or "parallel" in lower):
         return True, _network_intent(lower, network, counted, volts, amps)
-    # Two parts read with no wiring stated, or a series/parallel question whose resistances
-    # were not all read: Ohm's law on one of them is a guess. "A resistor of 10 Ω and
-    # another of 10 Ω in parallel across 5 V" was certified 0.5 A, one resistor (2026-11-01).
-    if len(network) >= 2 or (len(ohms) >= 2 and wired):
+    # Two parts read with no wiring stated, two values not read as one resistor named again
+    # (an internal resistance and a resistor, "a kettle of 30 Ω and an iron of 30 Ω"), or a
+    # part with no value of its own ("an identical resistor"): Ohm's law on one of them is a
+    # guess. "A resistor of 10 Ω and another of 10 Ω in parallel across 5 V" was certified
+    # 0.5 A, one resistor (2026-11-01).
+    if len(network) >= 2 or (len(ohms) >= 2 and len(network) != 1) or unvalued_part(lower):
         return True, None
     return False, None
 
@@ -269,7 +274,7 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     if decided:
         return network_card
 
-    read = _ohm_givens(cleaned, volts, amps, ohms)
+    read = _ohm_givens(cleaned, volts, amps, ohms[:1])
     if read is None:
         return None
     params, units = read

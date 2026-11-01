@@ -156,12 +156,32 @@ def resistor_values(text: str) -> list[float]:
 # resistor R of 6 Ω" or "R = 4 Ω".
 _UNKNOWN_RESISTOR_RE = re.compile(r"\b[Rr]esistors?\s+R\b(?!\s*[=_\d])|\bunknown\s+resist")
 _VALUED_R_RE = re.compile(r"\bR\s*(?:=|is\b|of\b)")
+# A part named without a value of its own: "an identical resistor", "a lamp of the same
+# resistance", "another resistor" with no value after it. Read as the one resistor stated,
+# "a 6 Ω resistor in parallel with an identical resistor across 12 V" drew 2 A (it is 4 A).
+_PART_NOUNS = (
+    r"(?:ones?|resistors?|lamps?|bulbs?|heaters?|coils?|wires?|conductors?|elements?"
+    r"|components?|appliances?)"
+)
+_UNVALUED_PART_RE = re.compile(
+    rf"\b(?:identical|similar|equal|matching)\s+{_PART_NOUNS}\b"
+    r"|\bsame\s+(?:value|resistance|rating)\b"
+    rf"|\b(?:another|second)\s+{_PART_NOUNS}\b(?!\s+(?:of\s+)?(?:resistance\s+)?(?:of\s+)?\d)"
+)
+
+
+def unvalued_part(lower: str) -> bool:
+    """The question names a resistive part it gives no value of its own."""
+    return _UNVALUED_PART_RE.search(lower) is not None
+
+
 # A place that introduces a resistor: "a 6 Ω", "another 6 Ω".
 # A place that introduces a part: "a 6 Ω", "another 6 Ω", or the part named first — "a
 # resistor of 6 Ω", "another lamp of resistance 6 Ω". The words between the article and
 # the value are read whole against this list, so "the 6 Ω resistor" (a part named again)
 # is never an introduction.
 _INTRODUCERS = frozenset({"a", "an", "another", "one"})
+_DEFINITES = frozenset({"the", "this", "that"})
 _PART_NOUN_WORDS = frozenset(
     {
         *("resistor", "lamp", "bulb", "heater", "coil", "wire", "conductor", "element"),
@@ -202,26 +222,49 @@ def _stated_resistances(text: str) -> list[float]:
     for index in range(1, len(found)):
         joined = _joins_list(text[ends[index - 1] : starts[index]])
         group[index] = group[index - 1] if joined else group[index - 1] + 1
+    befores = [text[max(0, start - 60) : start] for start in starts]
     for value in set(values):
         places = [index for index, other in enumerate(values) if other == value]
         if len({group[index] for index in places}) < 2:
             continue
-        if not all(_introduces(text[max(0, starts[i] - 60) : starts[i]]) for i in places):
-            return []
+        if not all(_introduces(befores[index]) for index in places):
+            return _one_part_named_again(text, values, befores)
     return values
+
+
+def _one_part_named_again(text: str, values: list[float], befores: list[str]) -> list[float]:
+    """One resistor stated, then named again by "the", "this" or "that" ("a 6 Ω resistor …
+    the current in the 6 Ω resistor"), is one value; anything else is unread. An internal
+    resistance is the cell's own part, never the resistor it equals: "internal resistance
+    2 Ω … a 2 Ω resistor" read as one drew 6 A from 12 V (it is 3 A)."""
+    if len(set(values)) != 1 or "internal" in text.lower():
+        return []
+    if not all(_names_again(before) for before in befores[1:]):
+        return []
+    return values[:1]
 
 
 def _introduces(before: str) -> bool:
     """The words just before a value introduce a new part: an article, then only words of
     the part's own name ("a", "another resistor of", "a lamp of resistance")."""
+    return _article_before(before, _INTRODUCERS, _PART_NOUN_WORDS)
+
+
+def _names_again(before: str) -> bool:
+    """The words just before a value name a part already met: "the", "this" or "that", then
+    only words of the part's own name ("through the", "across this", "the same")."""
+    return _article_before(before, _DEFINITES, _PART_NOUN_WORDS | {"same"})
+
+
+def _article_before(before: str, articles: frozenset[str], name_words: frozenset[str]) -> bool:
+    """Walking back from a value, one of ``articles`` is reached through at most four
+    ``name_words``."""
     words = before.lower().split()
-    phrase: list[str] = []
-    for word in reversed(words):
-        if word in _INTRODUCERS:
-            return all(part in _PART_NOUN_WORDS for part in phrase)
-        if word not in _PART_NOUN_WORDS or len(phrase) >= 4:
+    for count, word in enumerate(reversed(words)):
+        if word in articles:
+            return True
+        if word not in name_words or count >= 4:
             return False
-        phrase.append(word)
     return False
 
 
