@@ -33,7 +33,8 @@ def test_subject_scan_prompts_match_mobile_protocol() -> None:
     assert PHYSICS_CAMERA_PROMPT == _ts_exported_string(subject_source, "PHYSICS_CAMERA_PROMPT")
     assert CHEMISTRY_CAMERA_PROMPT == _ts_exported_string(subject_source, "CHEMISTRY_CAMERA_PROMPT")
     assert BIOLOGY_CAMERA_PROMPT == _ts_exported_string(subject_source, "BIOLOGY_CAMERA_PROMPT")
-    read_back = (mobile / "scanner" / "readBack.ts").read_text(encoding="utf-8")
+    scanner = mobile.parent / "features" / "scanner" / "model"
+    read_back = (scanner / "readBack.ts").read_text(encoding="utf-8")
     assert SCAN_CONFIRMED_PREFIX == _ts_exported_string(read_back, "SCAN_CONFIRMED_PREFIX")
 
 
