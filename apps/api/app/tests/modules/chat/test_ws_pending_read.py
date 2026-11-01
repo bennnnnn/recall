@@ -7,6 +7,7 @@ the socket sat until its idle timeout (CI, 2026-11-01).
 """
 
 import asyncio
+import gc
 import json
 from collections.abc import AsyncIterator, Callable
 from typing import Any, cast
@@ -149,6 +150,9 @@ class _SlowClaim(ClientMessageClaim):
 
 @pytest.mark.asyncio
 async def test_a_handler_cancelled_while_settling_leaves_no_read_running() -> None:
+    loop = asyncio.get_running_loop()
+    unhandled: list[dict[str, Any]] = []
+    loop.set_exception_handler(lambda _loop, context: unhandled.append(context))
     socket = _TestClientSocket()
     claim = _SlowClaim()
     handler = asyncio.create_task(
@@ -162,3 +166,9 @@ async def test_a_handler_cancelled_while_settling_leaves_no_read_running() -> No
         await handler
     await asyncio.sleep(0)
     assert all(read.cancelled() for read in socket.reads)
+    # A read left running would fail later with an exception nobody retrieves.
+    socket.reads.clear()
+    gc.collect()
+    await asyncio.sleep(0)
+    loop.set_exception_handler(None)
+    assert unhandled == []
