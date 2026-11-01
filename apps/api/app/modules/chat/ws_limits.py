@@ -79,9 +79,28 @@ async def close_quietly(websocket: WebSocket, code: int) -> None:
         await websocket.close(code=code)
 
 
-async def receive_frame(websocket: WebSocket, idle_seconds: float) -> Any:
-    """The next JSON frame; ``TimeoutError`` after ``idle_seconds`` without one (0: no limit)."""
-    return await asyncio.wait_for(websocket.receive_json(), timeout=idle_seconds or None)
+async def receive_frame(
+    websocket: WebSocket, idle_seconds: float, pending: asyncio.Task[Any] | None = None
+) -> Any:
+    """The next JSON frame; ``TimeoutError`` after ``idle_seconds`` without one (0: no limit).
+
+    ``pending`` is the read a turn left running when it ended first: its frame is the next
+    one. A read is cancelled only once nothing more is read from the socket (idle close,
+    shutdown): a server may lose the frame it was handing that read, as Starlette's test
+    client does, and the socket would then never answer it (2026-11-01).
+    """
+    read = pending if pending is not None else asyncio.create_task(websocket.receive_json())
+    try:
+        done, _ = await asyncio.wait({read}, timeout=idle_seconds or None)
+    except BaseException:
+        read.cancel()
+        raise
+    if not done:
+        read.cancel()
+        with suppress(asyncio.CancelledError):
+            await read
+        raise TimeoutError
+    return read.result()
 
 
 @contextmanager
