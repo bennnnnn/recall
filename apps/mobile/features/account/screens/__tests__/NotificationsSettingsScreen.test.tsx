@@ -2,7 +2,7 @@ import { Alert } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import NotificationsSettingsScreen from "@/features/account/screens/NotificationsSettingsScreen";
 import { cancelAllTodoReminders, syncTodoReminders } from "@/features/todos/model/todoReminders";
-import { ensureNotificationPermission, getNotificationPermissionGranted, registerRemotePushToken, unregisterRemotePushToken } from "@/lib/pushNotifications";
+import { ensureNotificationPermission, getNotificationPermissionGranted, registerRemotePushToken, unregisterRemotePushToken } from "@/features/notifications/model/pushNotifications";
 
 type PushRegistration = Awaited<ReturnType<typeof registerRemotePushToken>>;
 
@@ -42,7 +42,7 @@ jest.mock("@/ui/pickers/TimePickerDialog", () => ({
   },
 }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn(), syncTodoReminders: jest.fn() }));
-jest.mock("@/lib/pushNotifications", () => ({
+jest.mock("@/features/notifications/model/pushNotifications", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
   getNotificationPermissionGranted: jest.fn(async () => true),
   registerRemotePushToken: jest.fn(async () => undefined),

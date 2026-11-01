@@ -13,7 +13,7 @@ import { attachmentErrorMessage } from "@/features/attachments/model/attachmentE
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
-import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
+import { resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 import type { Message, User } from "@/lib/api";
 
 /** A send whose bubble, and typing dots when they could go up, are on screen. */

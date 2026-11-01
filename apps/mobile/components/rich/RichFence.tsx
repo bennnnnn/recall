@@ -2,10 +2,10 @@ import { ReactNode } from "react";
 
 import i18n from "@/lib/i18n";
 
-import { PlacesListBlock } from "@/components/PlacesListBlock";
+import { PlacesListBlock } from "@/components/rich/PlacesListBlock";
 import { CalculatorBlock } from "@/components/rich/CalculatorBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
-import { parsePlacesJson } from "@/lib/placesList";
+import { parsePlacesJson } from "@/lib/places/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { ArrayBlock } from "@/components/rich/ArrayBlock";
 import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";

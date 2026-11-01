@@ -8,8 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { ChatShareSheet } from "@/features/chat/components/ChatShareSheet";
-import { ChatActionsMenu } from "@/components/ChatActionsMenu";
-import { ChatRenameSheet } from "@/components/ChatRenameSheet";
+import { ChatActionsMenu } from "@/features/chat/components/ChatActionsMenu";
+import { ChatRenameSheet } from "@/features/chat/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useDrawerOpen } from "@/contexts/DrawerContext";
 import { useChatBulkActions } from "@/features/chat/hooks/useChatBulkActions";
@@ -23,7 +23,7 @@ import {
   bottomChromeFadeColors,
   BOTTOM_CHROME_FADE_LOCATIONS,
   drawerHeaderFade,
-} from "@/lib/chromeFade";
+} from "@/features/chat/components/chromeFade";
 import { tap } from "@/lib/haptics";
 import { chatsFromSelection, selectableChats } from "@/features/chat/drawer/drawerChatSelection";
 import { prefetchGallery } from "@/features/attachments/model/galleryListCache";

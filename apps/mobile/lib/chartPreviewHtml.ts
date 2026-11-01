@@ -1,13 +1,13 @@
 /**
  * The chart page for the preview WebView (vendored Vega / Vega-Lite /
- * Vega-Embed): built once and loaded from a file (lib/previewPageFile.ts);
+ * Vega-Embed): built once and loaded from a file (lib/preview/previewPageFile.ts);
  * each block hands it its spec with `chartPreviewConfig`, laid out for a phone
  * (lib/chartPresentation.ts). The page themes it and fits it to the card.
  *
  * Extracted so CSP injection and spec layout are unit-testable without ChartBlock.
  */
-import { previewPageStartScript, type PreviewPage } from "@/lib/previewPage";
-import { CHART_PREVIEW_CSP, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
+import { previewPageStartScript, type PreviewPage } from "@/lib/preview/previewPage";
+import { CHART_PREVIEW_CSP, injectPreviewCsp, inlineScript } from "@/lib/preview/previewSandbox";
 import type { Theme } from "@/lib/theme";
 import { presentChartSpec } from "@/lib/chartPresentation";
 import { parseChartBody } from "@/lib/chartSeriesSpec";

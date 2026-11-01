@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { UpgradeSheet } from "@/components/UpgradeSheet";
+import { UpgradeSheet } from "@/features/billing/components/UpgradeSheet";
 import {
   SettingsGroup,
   SettingsMenuRow,

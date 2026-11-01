@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from app.modules.chat.clarify_turn import follows_card
 from app.modules.memory import is_food_or_diet_query
@@ -102,6 +102,12 @@ def _asks_about_food(content: str) -> bool:
     return not _works_out_a_sum(content)
 
 
+# Why a turn is small talk or not, for its trace line: a greeting or thanks ("social"); a
+# short reply that answers the last reply's offer, or a clarify card, though alone it reads
+# as small talk; or not small talk at all.
+LightReason = Literal["social", "answers_offer", "answers_card", "not_light"]
+
+
 @dataclass
 class _TurnMode:
     lightweight: bool
@@ -115,6 +121,7 @@ class _TurnMode:
     # A yes to the last reply's offer of a reminder: the To-do block loads as for the
     # request it answers (``todos.offer_reply``).
     accepted_offer: bool = False
+    lightweight_reason: LightReason = "not_light"
 
 
 def _turn_needs_rich_context(
@@ -189,9 +196,10 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     prior_assistant = _last_assistant(recent) if is_short_reply(content) else None
     # After a clarify card the message answers it: the whole request, never small talk.
     after_card = follows_card(_last_assistant(recent))
-    lightweight = not after_card and is_lightweight_chat_turn(
-        content, prior_assistant=prior_assistant
+    lightweight_reason = _light_reason(
+        content, prior_assistant=prior_assistant, after_card=after_card
     )
+    lightweight = lightweight_reason == "social"
     profile_followup = False
     if is_profile_recall_pushback(content):
         prior_users = prior_user_texts(recent, content)
@@ -237,4 +245,17 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
         advice_memory=advice_memory,
         after_card=after_card,
         accepted_offer=accepted_offer,
+        lightweight_reason=lightweight_reason,
     )
+
+
+def _light_reason(content: str, *, prior_assistant: str | None, after_card: bool) -> LightReason:
+    """Small talk on its own, then in the turn's place: after a clarify card the message
+    answers it, and a short reply to an offer is the answer, not a greeting."""
+    if not is_lightweight_chat_turn(content):
+        return "not_light"
+    if after_card:
+        return "answers_card"
+    if not is_lightweight_chat_turn(content, prior_assistant=prior_assistant):
+        return "answers_offer"
+    return "social"

@@ -1,5 +1,5 @@
-import type { ClientGeo } from "@/lib/clientGeo";
-import { clientGeoWsFields } from "@/lib/clientGeo";
+import type { ClientGeo } from "@/features/chat/model/clientGeo";
+import { clientGeoWsFields } from "@/features/chat/model/clientGeo";
 import { markChatTtftTransport } from "@/features/chat/model/latency";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { requestSse } from "@/lib/api/client";

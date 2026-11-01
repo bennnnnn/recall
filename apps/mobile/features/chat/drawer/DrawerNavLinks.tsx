@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
-import { ReminderBadge } from "@/components/ReminderBadge";
+import { ReminderBadge } from "@/features/chat/components/ReminderBadge";
 import { tap } from "@/lib/haptics";
 import { ListRow } from "@/ui/list/ListRow";
 

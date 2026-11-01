@@ -157,7 +157,7 @@ jestGlobals.mock("expo-clipboard", () => ({
 }));
 
 // expo-asset and expo-crypto are native modules (expo-modules-core) that cannot
-// load here; rich blocks reach them through lib/previewPageFile.ts and
+// load here; rich blocks reach them through lib/preview/previewPageFile.ts and
 // lib/vendorAssets.ts. Nothing is read or hashed: a test that shows a preview
 // page mocks lib/previewPageFile.
 jestGlobals.mock("expo-asset", () => ({

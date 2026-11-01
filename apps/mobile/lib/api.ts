@@ -9,11 +9,11 @@ import { todosApi } from "@/features/todos/api";
 import { analyticsApi } from "@/lib/api/analytics";
 import { discoverApi } from "@/lib/api/discover";
 import { pushApi } from "@/lib/api/push";
-import { scanApi } from "@/lib/api/scan";
+import { scanApi } from "@/features/scanner/api";
 
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
-export type { ScanReading } from "@/lib/api/scan";
+export type { ScanReading } from "@/features/scanner/api";
 export { attachmentRecordExists } from "@/features/attachments/api";
 export type { AttachmentListItem } from "@/features/attachments/types";
 export {

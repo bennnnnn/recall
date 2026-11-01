@@ -21,7 +21,7 @@ jest.mock("@/features/account/hooks/useUsage", () => ({ useUsage: () => ({ usage
 jest.mock("@/features/account/hooks/useLiveTalkMinutes", () => ({
   useLiveTalkMinutes: (enabled: boolean) => (enabled ? { remaining: 42, limit: 60 } : null),
 }));
-jest.mock("@/components/UpgradeSheet", () => ({
+jest.mock("@/features/billing/components/UpgradeSheet", () => ({
   UpgradeSheet: ({ visible }: { visible: boolean }) => {
     mockUpgradeVisible = visible;
     return null;

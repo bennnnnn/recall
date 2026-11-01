@@ -4,7 +4,7 @@ import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type View
 import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
-import type { UpgradeSource } from "@/components/UpgradeSheet";
+import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import type { LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { WhileDrawerClosed } from "@/contexts/DrawerContext";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";

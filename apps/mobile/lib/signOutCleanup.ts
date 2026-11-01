@@ -6,7 +6,7 @@ import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
 import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
 import { clearSvgMathCache } from "@/lib/math/svgMath";
-import { publishStreamingDraft } from "@/lib/streamingDraftStore";
+import { publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 
 /** Device/account side effects finish before another account signs in, so it
@@ -33,9 +33,9 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/attachments/model/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
     import("@/features/chat/model/chatListCache").then(({ invalidateChatListCache }) => invalidateChatListCache()),
     import("@/lib/cache/usageCache").then(({ invalidateUsageCache }) => invalidateUsageCache()),
-    import("@/lib/pushNotifications").then(({ clearPushSyncRecord }) => clearPushSyncRecord()),
+    import("@/features/notifications/model/pushNotifications").then(({ clearPushSyncRecord }) => clearPushSyncRecord()),
     clearCachedModels(),
-    import("@/lib/purchases").then(({ signOutRevenueCat }) => signOutRevenueCat()),
+    import("@/features/billing/model/purchases").then(({ signOutRevenueCat }) => signOutRevenueCat()),
     signOutGoogle(),
     ...(userId ? [
       import("@/features/todos/model/reminderSeen").then(({ clearSeenReminderIds }) => clearSeenReminderIds(userId)),

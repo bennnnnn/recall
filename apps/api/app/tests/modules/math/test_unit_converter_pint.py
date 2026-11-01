@@ -1,6 +1,6 @@
 """Pin the mobile unit pad's ``toSi`` factors against Pint.
 
-``apps/mobile/lib/unitConverter.ts`` is a keystroke preview. It keeps display
+``apps/mobile/features/chat/model/unitConverter.ts`` is a keystroke preview. It keeps display
 symbols and prompt tokens that Pint does not own. The shared fact is the
 scale: for each non-temperature unit, Pint converts ``1 <prompt>`` into the
 category SI base and that magnitude matches ``toSi``. Temperature is an
@@ -18,7 +18,15 @@ import pytest
 
 from app.services.units import get_unit_registry
 
-_CONVERTER = Path(__file__).resolve().parents[6] / "apps" / "mobile" / "lib" / "unitConverter.ts"
+_CONVERTER = (
+    Path(__file__).resolve().parents[6]
+    / "apps"
+    / "mobile"
+    / "features"
+    / "chat"
+    / "model"
+    / "unitConverter.ts"
+)
 
 # Prompt tokens that are not Pint identifiers. The magnitude still comes from Pint.
 _PROMPT_UNIT = {

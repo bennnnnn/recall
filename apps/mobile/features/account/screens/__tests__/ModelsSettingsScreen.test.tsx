@@ -49,7 +49,7 @@ jest.mock("@/hooks/useModels", () => ({
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
-jest.mock("@/components/UpgradeSheet", () => ({
+jest.mock("@/features/billing/components/UpgradeSheet", () => ({
   UpgradeSheet: ({ visible }: { visible: boolean }) => {
     mockUpgradeVisible = visible;
     return null;

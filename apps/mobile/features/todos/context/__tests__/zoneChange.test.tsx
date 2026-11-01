@@ -27,9 +27,9 @@ jest.mock("@/contexts/AuthContext", () => {
 });
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1, requireTokenSession: jest.fn() }));
 jest.mock("@/lib/api", () => ({ api: { updateMe: jest.fn(), listTodos: jest.fn(), syncSubscription: jest.fn() } }));
-jest.mock("@/lib/purchases", () => ({ isPurchasesConfigured: () => false, configurePurchases: jest.fn(),
+jest.mock("@/features/billing/model/purchases", () => ({ isPurchasesConfigured: () => false, configurePurchases: jest.fn(),
   registerPlanChangeListener: jest.fn() }));
-jest.mock("@/lib/pushNotifications", () => ({ attachPushForegroundSync: jest.fn(),
+jest.mock("@/features/notifications/model/pushNotifications", () => ({ attachPushForegroundSync: jest.fn(),
   ensureReminderChannel: jest.fn(async () => undefined), ensureNotificationPermission: jest.fn(async () => true) }));
 jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn(async () => null) }));
 jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: jest.fn(async () => null), recordSync: jest.fn() }));

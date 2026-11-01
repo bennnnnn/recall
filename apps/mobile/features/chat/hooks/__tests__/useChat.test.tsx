@@ -22,7 +22,7 @@ import {
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 import { REPLY_SAVE_GRACE_MS, type DotsTicket } from "@/features/chat/hooks/useTurnStart";
-import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
+import { getStreamingDraft, resetStreamingDraftStore } from "@/features/chat/model/streamingDraftStore";
 import { beginOpenedPageRead, OPENED_PAGE_WAIT_MS } from "@/features/chat/model/openedPage";
 import { emitAppEvent } from "@/lib/appEvents";
 

@@ -19,7 +19,7 @@ const webrtcStub = path.join(__dirname, "lib/webrtcStub.js");
 /**
  * RevenueCat's web SDK. react-native-purchases runs it only in its browser mode
  * (Expo Go, web), which a native production build never enters, and
- * lib/purchases.ts does not load purchases in Expo Go at all. Production iOS and
+ * features/billing/model/purchases.ts does not load purchases in Expo Go at all. Production iOS and
  * Android bundles leave it out; development bundles keep it, so Expo Go is
  * unchanged. lib/__tests__/metroBundle.test.ts loads react-native-purchases
  * without it, so an update that needs it sooner fails there.

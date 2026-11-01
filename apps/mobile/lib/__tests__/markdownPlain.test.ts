@@ -3,7 +3,7 @@ import {
   markdownToCopyText,
   markdownToSpeechText,
 } from "@/lib/markdown/plain";
-import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
+import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 import { readVendorLibrary } from "@/lib/vendorAssets";
 
 // KaTeX's stylesheet is a vendored asset the print path reads from disk.
@@ -35,11 +35,11 @@ describe("markdownPlain", () => {
 
   it("does not load printDocument", () => {
     jest.resetModules();
-    jest.doMock("@/lib/printDocument", () => {
+    jest.doMock("@/features/chat/model/printDocument", () => {
       throw new Error("markdownPlain must not import printDocument");
     });
     expect(() => require("@/lib/markdown/plain")).not.toThrow();
-    jest.dontMock("@/lib/printDocument");
+    jest.dontMock("@/features/chat/model/printDocument");
   });
 
   it("keeps the visible final answer and flattens pipe tables", () => {

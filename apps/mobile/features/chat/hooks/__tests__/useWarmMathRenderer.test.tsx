@@ -7,7 +7,7 @@ import {
 } from "@/features/chat/hooks/useWarmMathRenderer";
 import type { Message } from "@/lib/api";
 import { warmSvgMath } from "@/lib/math/svgMath";
-import { publishStreamingDraft } from "@/lib/streamingDraftStore";
+import { publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 
 jest.mock("@/lib/math/svgMath", () => ({ warmSvgMath: jest.fn() }));
 

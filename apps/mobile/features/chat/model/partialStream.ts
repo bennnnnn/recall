@@ -1,5 +1,5 @@
 import type { Message } from "@/lib/api";
-import type { StreamingDraft } from "@/lib/streamingDraftStore";
+import type { StreamingDraft } from "@/features/chat/model/streamingDraftStore";
 
 /** The thread with the reply's streaming placeholder at its end (only ever one). */
 export function withStreamingPlaceholder(messages: Message[], now = Date.now()): Message[] {

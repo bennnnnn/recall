@@ -2,7 +2,7 @@ import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
 
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
-import type { PreviewTapGate } from "@/lib/previewTap";
+import type { PreviewTapGate } from "@/lib/preview/previewTap";
 
 type PreviewWebViewMode = "rnc" | "expo-dom";
 
@@ -79,7 +79,7 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
 export const HTML_RUN_ORIGIN_WHITELIST: string[] = ["*"];
 
 /**
- * The Run tab's own documents (lib/htmlRunDocument.ts): the wrapper, which
+ * The Run tab's own documents (lib/preview/htmlRunDocument.ts): the wrapper, which
  * `source={{ html }}` with no baseUrl loads at about:blank (RNCWebViewImpl.m
  * visitSource on iOS; Android loads it without asking), and the page's
  * sandboxed frame.
@@ -96,7 +96,7 @@ const HTML_RUN_DOCUMENTS = new Set(["about:blank", "about:srcdoc"]);
  * and of a subframe's only those to other schemes than http, https and about
  * (AwContentBrowserClient::ShouldOverrideUrlLoading); the page frame's own
  * web navigations are stopped by the wrapper's frame-src instead
- * (lib/htmlRunDocument.ts). Neither platform asks about subresources: CDN
+ * (lib/preview/htmlRunDocument.ts). Neither platform asks about subresources: CDN
  * scripts, styles, images, fonts and fetches follow PREVIEW_CSP_LIVE alone.
  * The frame flag is not read: iOS derives isTopFrame by comparing the URL with
  * the main document's, and Android does not send it.
@@ -110,7 +110,7 @@ export function allowHtmlRunNavigation(request?: unknown): boolean {
 }
 
 /**
- * A preview page loaded from its file (lib/previewPageFile.ts). Every URL
+ * A preview page loaded from its file (lib/preview/previewPageFile.ts). Every URL
  * reaches {@link allowPreviewPageNavigation}, so react-native-webview never
  * hands one to the OS by itself; {@link previewPageLinkToOpen} decides that.
  */
@@ -129,7 +129,7 @@ export function allowPreviewPageNavigation(pageUri: string, request?: unknown): 
  * A navigation the page may not make that should still open, as links in
  * these cards did before they were files: a top-frame link the chat would open
  * too (lib/linkSchemePolicy.ts), right after the user touched the WebView
- * (lib/previewTap.ts). Script in the page can navigate on its own; without
+ * (lib/preview/previewTap.ts). Script in the page can navigate on its own; without
  * that touch nothing opens.
  */
 export function previewPageLinkToOpen(request: unknown, tap: PreviewTapGate): string | null {
@@ -139,7 +139,7 @@ export function previewPageLinkToOpen(request: unknown, tap: PreviewTapGate): st
 }
 
 /**
- * A link the page posted (lib/previewPage.ts) opens on the same terms: a link
+ * A link the page posted (lib/preview/previewPage.ts) opens on the same terms: a link
  * the chat would open, right after a touch. The page posts what it likes.
  */
 export function previewPagePostedLinkToOpen(url: string, tap: PreviewTapGate): string | null {

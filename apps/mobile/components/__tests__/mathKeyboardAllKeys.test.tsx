@@ -6,7 +6,7 @@ import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
 import { MATH_KEYBOARD_GROUPS, MATH_KEYBOARD_SYMBOLS, autoAdvanceNextEmptySlot, caretStepRight, spliceMathInsert, tapAdvancesToNextSlot, type MathKeyboardSymbol } from "@/lib/math/keyboardSymbols";
 import { MATH_PAD_KEYS } from "@/lib/math/keyboardCatalog";
 import { spliceMathBackspace } from "@/lib/math/draftSlots";
-import { appendConverterDigit, CONVERTER_DEFAULT_DIGITS } from "@/lib/unitConverter";
+import { appendConverterDigit, CONVERTER_DEFAULT_DIGITS } from "@/features/chat/model/unitConverter";
 
 // A command glued to its argument (`mathbbN`, `mathrmi`) is a leak too: no trailing \b.
 const RAW = /[\\{}]|\b(?:binom|mathrm|mathbb|mathbf|tfrac|dfrac|frac|sqrt|partial|nabla|infty|cdot|oint)/;

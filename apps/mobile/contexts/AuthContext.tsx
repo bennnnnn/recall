@@ -169,7 +169,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     if (accessToken) {
       // The device's push token goes with the logout, or this account's reminders keep
       // arriving on a signed-out phone. A failure to read it never holds the logout.
-      const pushToken = import("@/lib/pushNotifications")
+      const pushToken = import("@/features/notifications/model/pushNotifications")
         .then(({ devicePushToken }) => devicePushToken())
         .catch(() => null);
       void Promise.all([refreshToken, pushToken])

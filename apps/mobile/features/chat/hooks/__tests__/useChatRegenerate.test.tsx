@@ -5,11 +5,11 @@ import { act, render } from "@testing-library/react-native";
 import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
 import type { Message } from "@/lib/api";
 
-jest.mock("@/lib/resolveClientGeoForQuery", () => ({
+jest.mock("@/features/chat/model/resolveClientGeoForQuery", () => ({
   resolveClientGeoForQuery: jest.fn(async () => ({ ok: true, clientGeo: null })),
 }));
 
-import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
+import { resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 
 const resolveGeo = resolveClientGeoForQuery as jest.Mock;
 

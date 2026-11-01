@@ -1,5 +1,5 @@
 {
-  "about": "Geo intent shared by apps/api/app/modules/web_search/{patterns,distance_patterns,geo_intent}.py (with is_location_question in app/services/time_context.py) and apps/mobile/lib/localPlacesQuery.ts, which the phone runs before sending to decide whether to read GPS. Both test suites ask every reader about every case: `reads` lists the readers that say yes, and every other reader must say no. Change a rule on both sides and update these cases in the same change. The composite is_geo_query is not held here: the server adds a local-weather ask, the phone a where-am-I ask.",
+  "about": "Geo intent shared by apps/api/app/modules/web_search/{patterns,distance_patterns,geo_intent}.py (with is_location_question in app/services/time_context.py) and apps/mobile/lib/places/localPlacesQuery.ts, which the phone runs before sending to decide whether to read GPS. Both test suites ask every reader about every case: `reads` lists the readers that say yes, and every other reader must say no. Change a rule on both sides and update these cases in the same change. The composite is_geo_query is not held here: the server adds a local-weather ask, the phone a where-am-I ask.",
   "readers": {
     "proximity": "is_proximity_query / isProximityQuery",
     "distance": "is_distance_query / isDistanceQuery",

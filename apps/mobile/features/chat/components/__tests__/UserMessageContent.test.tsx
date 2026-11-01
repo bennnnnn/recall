@@ -27,7 +27,7 @@ jest.mock("@/features/attachments/components/ChatMessagePdf", () => {
     ChatMessagePdf: ({ fileName }: { fileName: string }) => <RNText>{`pdf:${fileName}`}</RNText>,
   };
 });
-jest.mock("@/components/CollapsibleMessageBody", () => {
+jest.mock("@/features/chat/components/CollapsibleMessageBody", () => {
   const { View } = jest.requireActual("react-native");
   return {
     CollapsibleMessageBody: ({ children }: { children: React.ReactNode }) => (
