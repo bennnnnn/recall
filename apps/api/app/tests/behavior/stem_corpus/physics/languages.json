@@ -13,5 +13,6 @@
   {"id": "num-space-groups", "area": "number marks", "prompt": "a car of mass 1 200 kg moves at 20 m/s. what is its kinetic energy?", "expect": "decline", "note": "was 40 000 J for 200 kg: '1 200' read as 1 and 200 (right: 240 000 J)"},
   {"id": "num-es-dot-groups", "area": "number marks", "prompt": "a 1.500 kg car moves at 20 m/s. what is its kinetic energy?", "expect": "decline", "locale": "es", "note": "1.500 is 1500 where a dot groups thousands; was 300 J for 1.5 kg"},
   {"id": "num-en-comma-groups", "area": "number marks", "prompt": "a 1,500 kg car moves at 20 m/s. what is its kinetic energy?", "expect": "answer", "answer": [300000, "J"]},
-  {"id": "lang-en-particles", "area": "language", "prompt": "de Broglie et al. wavelength electron 1e6 m/s", "expect": "answer", "answer": [7.27389e-10, "m"], "note": "name particles alone are names"}
+  {"id": "lang-en-particles", "area": "language", "prompt": "de Broglie et al. wavelength electron 1e6 m/s", "expect": "answer", "answer": [7.27389e-10, "m"], "note": "name particles alone are names"},
+  {"id": "num-space-unit", "area": "number marks", "prompt": "The Moon is 384 400 km from Earth. How long does light take to travel that distance?", "expect": "decline", "note": "spaced groups before a unit are one number (Claude review): read as 400 km"}
 ]

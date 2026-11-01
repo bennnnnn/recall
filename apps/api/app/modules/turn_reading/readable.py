@@ -178,10 +178,22 @@ _MARKED_GROUPS = _grouped("[\u00a0\u2009\u202f'\u2019]")
 _SPACED_GROUPS = _grouped(" ")
 
 
-def _one_spaced_number(groups: list[str]) -> bool:
-    """Spaced groups read as one number: a round thousand ("100 000", "1 500 000"), or a
-    short lead and one group ("1 200", "12 000"). Three-digit numbers in a row are a list."""
-    return groups[-1] == "000" or (len(groups) == 2 and len(groups[0]) < 3)
+# What follows a quantity: its unit ("384 400 km", "299 792 458 m/s"), not a word.
+_UNIT_AFTER = re.compile(r"\s?([^\W\d_][^\s,.;:!?()]{0,5})")
+_NOT_UNITS = frozenset(
+    "and or the to of in on at is are was were then than plus minus times with from for".split()
+)
+
+
+def _one_spaced_number(match: re.Match[str]) -> bool:
+    """Spaced groups read as one number: a round thousand ("100 000", "1 500 000"), a short
+    lead and one group ("1 200", "12 000"), or a quantity with its unit ("384 400 km").
+    Three-digit numbers in a row with no unit are a list ("mean of 120 135 150")."""
+    groups = match.group().split(" ")
+    if groups[-1] == "000" or (len(groups) == 2 and len(groups[0]) < 3):
+        return True
+    unit = _UNIT_AFTER.match(match.string, match.end())
+    return unit is not None and unit.group(1).casefold() not in _NOT_UNITS
 
 
 def misread_number(text: str, locale: str | None) -> bool:
@@ -192,7 +204,7 @@ def misread_number(text: str, locale: str | None) -> bool:
     plain = _without_code(text)
     return bool(
         _MARKED_GROUPS.search(plain)
-        or any(_one_spaced_number(m.group().split(" ")) for m in _SPACED_GROUPS.finditer(plain))
+        or any(_one_spaced_number(match) for match in _SPACED_GROUPS.finditer(plain))
         or (group == "." and _DOT_GROUPS.search(plain))
         or (decimal == "," and _COMMA_GROUPS.search(plain))
     )
