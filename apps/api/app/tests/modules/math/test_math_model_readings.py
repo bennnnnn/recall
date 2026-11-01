@@ -26,6 +26,7 @@ from app.modules.math.schemas import MathImageExtract, MathIntent
 from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.tool_check import intent_in_user_text, tool_call_matches_user_text
 from app.modules.math.tools import prompt as math_prompt
+from app.modules.math.tools.block.word import UNCHECKED_SETUP_RULE
 from app.modules.math.tools.llm_extract import LLMMathExtract
 from app.modules.math.tools.word_problem import _ENDLESS, word_problem_intent
 from app.modules.math.tools.word_templates import word_template_setup
@@ -85,7 +86,7 @@ async def test_a_translated_word_problem_is_an_unchecked_setup(
     assert "read by a model (not checked against the problem)" in note
     assert '(from "Together their ages add up to 48")' in note
     assert "SymPy's solution of these equations: m = 36, s = 12" in note
-    assert "Do NOT claim the answer was verified" in note
+    assert UNCHECKED_SETUP_RULE in note
 
 
 @pytest.mark.asyncio
@@ -246,4 +247,5 @@ async def test_a_broken_pool_keeps_the_turn(monkeypatch: pytest.MonkeyPatch) -> 
     note = await math_prompt._unchecked_word_problem(
         WordProblemSetup.model_validate(AGES_SETUP), _settings()
     )
-    assert "Do NOT claim" in note
+    # The honesty note alone: no setup, and the turn goes on.
+    assert note == math_prompt._unverified_math_note("word_problem")

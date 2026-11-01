@@ -59,7 +59,7 @@ UNCHECKED_SETUP_RULE = (
     "This setup is a model's reading of the problem, and SymPy checked only its arithmetic. "
     "Check each equation against the words it comes from before you use it: a misread "
     "condition, a dropped term or quantity, or a process that never ends makes it wrong, and "
-    "then set the problem up yourself. Do NOT claim the answer was verified."
+    "then set the problem up yourself. Never call the answer verified."
 )
 
 
