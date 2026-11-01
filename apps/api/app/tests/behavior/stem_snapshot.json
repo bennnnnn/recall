@@ -337,6 +337,7 @@
    "ds22",
    "echo-expand-bracket",
    "echo-factor-cube",
+   "echo-fraction-part",
    "echo-simplify-cancels",
    "echo-simplify-like-terms",
    "ex1",

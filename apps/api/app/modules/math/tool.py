@@ -24,7 +24,7 @@ from app.modules.math.schemas import (
     SquareGeometryInput,
     SystemOfEquationsInput,
 )
-from app.modules.math.tool_check import card_restates
+from app.modules.math.solve.restated import REWRITES, card_restates
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 logger = logging.getLogger(__name__)
@@ -169,10 +169,10 @@ class SympyAdapter:
                 return ToolResult(name=self.name, content=undefined_note)
             integral_note = infinite_integral_note(expr_result.result)
         # As the heuristic path: an integral SymPy could not close (a literal Integral(...)),
-        # or a rewrite that only restates the expression (tool_check.card_restates), is NOT a
+        # or a rewrite that only restates the expression (solve/restated.py), is NOT a
         # verified answer: an honesty note, and no ```answer fence for validate_math_fences.
-        restated = action in {"simplify", "factor", "expand"} and await self._run_off_loop(
-            card_restates, expr_result.latex, "", (expr,)
+        restated = action in REWRITES and await self._run_off_loop(
+            card_restates, expr_result.latex, (expr,)
         )
         if not expr_result.solved or restated:
             return ToolResult(

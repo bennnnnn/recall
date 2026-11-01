@@ -16,8 +16,8 @@ from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.restated import card_restates
 from app.modules.math.tool import SympyAdapter
-from app.modules.math.tool_check import card_restates
 from app.modules.math.tools import prompt as math_prompt
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.llm_extract import LLMMathExtract
@@ -100,21 +100,18 @@ def test_a_card_is_kept_only_when_it_says_something_new(
     question: str, expr: str, kept: bool
 ) -> None:
     intent = MathIntent(kind="calculus", operation="simplify", expr=expr, variable="x")
-    block = _build_verified_block(intent, Settings(), question)
+    intent._request_text = question
+    block = _build_verified_block(intent, Settings())
     assert (block is not None and block.canonical_answer is not None) is kept
 
 
 @pytest.mark.parametrize(
-    ("question", "card"),
-    [
-        ("median of 3, 5, 7", "5"),
-        ("which is bigger, 3/4 or 2/3?", r"\frac{3}{4}"),
-        ("solve 2x + 3 = 7", "x = 2"),
-    ],
+    ("given", "card"),
+    [("5", "5"), ("3/4", r"\frac{3}{4}"), ("x", "x"), ("2*x + 3", "x = 2")],
 )
-def test_a_number_or_an_equation_never_restates(question: str, card: str) -> None:
-    """A median, the option a comparison picks, or a solved equation is an answer."""
-    assert not card_restates(card, question)
+def test_a_number_a_letter_or_an_equation_never_restates(given: str, card: str) -> None:
+    """A median, the option a comparison picks, a letter or a solved equation is an answer."""
+    assert not card_restates(card, (given,))
 
 
 @pytest.mark.asyncio

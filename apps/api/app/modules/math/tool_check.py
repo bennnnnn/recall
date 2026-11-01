@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from typing import Any
 
 from app.services.glyphs import OPERATOR_GLYPHS
@@ -316,60 +316,6 @@ def _matches(args: dict[str, Any], user: _UserMath) -> bool:
     text = str(args.get("text") or args.get("expr") or "")
     compact = re.sub(r"\s+", "", text.lower())
     return bool(compact) and compact in re.sub(r"\s+", "", user.lower)
-
-
-def card_restates(card: str, question: str = "", expressions: Sequence[str | None] = ()) -> bool:
-    """The card is an expression the question states as written (its maths runs, or the
-    ``expressions`` read from it), or a root of one, so it answers nothing: "simplify
-    (x+1)/(x-1)" got \\frac{x + 1}{x - 1}, and "the cube root of 27a^3 + …" read as
-    (27a^3 + …)^(1/3) got \\sqrt[3]{27 a^{3} + …} (2026-11-01). Compared as SymPy trees
-    parsed as written, never as text: 1/(x - 1) is no part of (x+1)/(x-1) - x/(x-1), and
-    1/x^2 is a rewrite of x^-2. A number, one letter or an equation is never a
-    restatement: a median, or the option a comparison picks, is an answer."""
-    stated = _written_expressions(question, expressions)
-    pieces = [piece for piece in _CARD_PIECES.split(card) if piece.strip()]
-    return bool(stated and pieces) and all(_states(piece, stated) for piece in pieces)
-
-
-_CARD_PIECES = re.compile(r",|;|\\quad")
-
-
-def _written_expressions(question: str, expressions: Sequence[str | None]) -> list[Any]:
-    from app.modules.math import solve as math_solve
-    from app.modules.math.solve.declines import sympy_decline
-
-    sides = [part for run in _math_runs(question)[:_MAX_CANDIDATES] for part in _SIDES.split(run)]
-    stated: list[Any] = []
-    for side in [*sides, *(text for text in expressions if text)]:
-        with sympy_decline():
-            stated.append(math_solve.parse_expression(side.strip(" .,;:"), evaluate=False))
-    return stated
-
-
-_SIDES = re.compile(r"<=|>=|=|<|>")
-
-
-def _states(piece: str, stated: list[Any]) -> bool:
-    from sympy import Rational
-
-    from app.modules.math import solve as math_solve
-    from app.modules.math.solve.declines import sympy_decline
-    from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
-
-    plain = normalize_latex_to_sympy(piece.replace("$", " ").strip())
-    if not plain or "=" in plain:
-        return False
-    with sympy_decline():
-        card = math_solve.parse_expression(plain, evaluate=False)
-        if not getattr(card, "free_symbols", None) or card.is_Symbol:
-            return False
-        shapes = [card]
-        if card.is_Pow:
-            power = card.exp.doit()
-            if isinstance(power, Rational) and power.p == 1 and power.q > 1:
-                shapes.append(card.base)
-        return any(shape == written for shape in shapes for written in stated)
-    return False
 
 
 def asks_for_an_earlier_curve(text: str) -> bool:
