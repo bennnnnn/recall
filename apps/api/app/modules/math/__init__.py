@@ -44,9 +44,8 @@ def __getattr__(name: str) -> Any:
     return value
 
 
-# Seams the chat turn uses: detection, camera reads, the tool loop's check that a sympy
-# call is the problem the user wrote, the record of a pre-solve that ran out of time (so
-# the tool loop does not solve it again), and the pool warm-up.
+# Seams the chat turn uses: camera reads, and the tool loop's check that a sympy call is the
+# problem the user wrote.
 _MODULE_EXPORTS = (
     "image_extract",
     "match",
@@ -56,7 +55,6 @@ _MODULE_EXPORTS = (
     "solve.key_steps",
     # Maths as the subject registry asks it (services/subjects/registry).
     "subject",
-    "sympy_warmup",
     "text_plot",
     "tool_check",
     "tools.extract",
@@ -65,5 +63,4 @@ _MODULE_EXPORTS = (
     "tools.prompt",
     # The subject order (services/subjects/order): a curve physics cannot read.
     "tools.school.curve_points",
-    "tools.solve_timeouts",
 )

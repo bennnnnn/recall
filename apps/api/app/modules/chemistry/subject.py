@@ -9,6 +9,7 @@ reply through ``direct``, each imported when it runs; and its prompt copy from
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -63,6 +64,9 @@ class ChemistryFollowups:
 
     def previous_result(self, reply: str) -> str | None:
         return None
+
+    def continues_alone(self, line: str) -> bool:
+        return False
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         # "can u show me both" right after a shape answer asks for its molecules.
@@ -120,6 +124,24 @@ class ChemistrySubject:
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return is_chemistry_question(text)
+
+    def reads(self, text: str) -> bool:
+        from app.modules.chemistry.extract import extract_chemistry_intent
+
+        return extract_chemistry_intent(text) is not None
+
+    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+        # A chemistry answer's card is the server's: the fast model only presents it.
+        return True
+
+    def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
+        return None
+
+    def warm(self) -> None:
+        return None
+
+    def solve_timeouts(self) -> AbstractContextManager[list[str]]:
+        return nullcontext([])
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
         if not settings.chemistry_enabled:

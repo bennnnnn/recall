@@ -20,7 +20,6 @@ from app.modules.billing.plan import (
     pick_preferred_tier,
     pick_smart_from_pool,
 )
-from app.modules.chat.model_routing.physics import physics_route
 from app.modules.chat.model_routing.signals import SMART_TRIGGERS, needs_strong_model
 from app.modules.chat.turn_trace import note_route
 
@@ -266,19 +265,23 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     # a maths one keeps the maths lane below.
     if subject != "math" and needs_reasoned_choice(content):
         return smart, "reasoned_choice"
+    from app.services.subjects.registry import subject_adapter
+
+    tools_on = settings is None or settings.math_tools_enabled
     if subject == "chemistry":
-        return fast, "chemistry"
+        chemistry_fast = subject_adapter("chemistry").fast_lane(content, tools_on=tools_on)
+        return (fast if chemistry_fast else smart), "chemistry"
     if subject != "math":
-        physics_alias = physics_route(content, fast=fast, smart=smart, settings=settings)
-        if physics_alias is not None:
-            return physics_alias, "physics"
+        physics_fast = subject_adapter("physics").fast_lane(content, tools_on=tools_on)
+        if physics_fast is not None:
+            return (fast if physics_fast else smart), "physics"
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned
     # strong model: a fast model's steps disagreed with the verified answer.
     from app.modules.chat.model_routing.rate_problems import is_multi_step_rate_problem
 
     if is_multi_step_rate_problem(content):  # catch-up, meet, together: the maths lane won't think
         return smart, "rate_problem"
-    if subject == "math" and not _verified_math_stays_fast(content):
+    if subject == "math" and not subject_adapter("math").fast_lane(content, tools_on=tools_on):
         return model_catalog.auto_math_alias(), "math"
     return fast, "math_verified" if subject == "math" else "everyday"
 
@@ -358,32 +361,6 @@ def message_needs_thinking(
             settings=settings,
         )
         == model_catalog.auto_smart_alias()
-    )
-
-
-def _verified_math_stays_fast(content: str) -> bool:
-    """SymPy already covers these; a reasoning model only writes a CoT essay.
-
-    Keep equations / calculus / graphs on smart. Bare factorial ("4!") and
-    "what is 1+1" style arithmetic stay on the fast model.
-    """
-    from app.modules.math.match import (
-        bare_arithmetic_expr,
-        combinatorics_signal,
-        prepare,
-        written_arithmetic_request,
-    )
-
-    cleaned = prepare(content)
-    if not cleaned:
-        return False
-    sig = combinatorics_signal(cleaned)
-    if sig is not None and sig[0] == "factorial":
-        return True
-    # Same whole-message helper as the SymPy gate — a lone "1+1" inside a
-    # harder question must not keep the turn on the fast model.
-    return (
-        bare_arithmetic_expr(cleaned) is not None or written_arithmetic_request(cleaned) is not None
     )
 
 
