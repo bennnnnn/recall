@@ -40,7 +40,6 @@ from app.modules.chat.turn_prep.followups import (
     role_content_dicts,
 )
 from app.modules.conversation import history_rag as chat_history_rag_service
-from app.modules.math.schemas import MathImageExtract
 from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
 from app.services import time_context as time_context_service
@@ -50,7 +49,7 @@ from app.services.subjects.dispatch import (
     build_subject_augmentation,
     read_subject,
 )
-from app.services.subjects.registry import subject_adapter
+from app.services.subjects.registry import MathImageExtract, subject_adapter
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope

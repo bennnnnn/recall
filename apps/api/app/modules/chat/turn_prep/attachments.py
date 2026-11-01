@@ -14,9 +14,8 @@ from app.gateways.storage_gateway import StorageGateway, StorageUnavailableError
 from app.models.orm import Attachment, User
 from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
 from app.modules.chat.stream_status import StreamStatusFn
-from app.modules.chat.turn_prep.camera_math import camera_math_extract
-from app.modules.math.schemas import MathImageExtract
 from app.repositories import users as users_repo
+from app.services.subjects.registry import MathImageExtract, subject_adapter
 
 
 async def load_attachment_rows(
@@ -126,7 +125,7 @@ async def _process_attachment_inputs(
         gateway, attachment_rows, settings=settings, redis=redis, user_id=user_id
     )
     user_content = _with_attachment_markers(content, attachment_lines)
-    image_math_extract, content = await camera_math_extract(
+    image_math_extract, content = await _read_photo_problem(
         content,
         image_attachments=image_attachments,
         bytes_by_key=bytes_by_key,
@@ -149,6 +148,41 @@ async def _process_attachment_inputs(
         gateway=gateway,
         bytes_by_key=bytes_by_key,
         resolved_attachment_ids=resolved_ids,
+    )
+
+
+async def _read_photo_problem(
+    content: str,
+    *,
+    image_attachments: list[tuple[str, str]],
+    bytes_by_key: dict[str, bytes],
+    gateway: StorageGateway,
+    settings: Settings,
+    on_status: StreamStatusFn | None,
+) -> tuple[MathImageExtract | None, str]:
+    """The problem maths reads off the first photo, and ``content`` with its line for the
+    prompt. Bytes downloaded here are kept in ``bytes_by_key`` for the vision injection."""
+    photo = subject_adapter("math").photo
+    if photo is None:
+        return None, content
+    from app.modules.attachments import content as attachment_content_service
+
+    async def load_image(storage_key: str) -> bytes | None:
+        image_bytes = bytes_by_key.get(storage_key)
+        if image_bytes is None:
+            image_bytes = await attachment_content_service.read_attachment_bytes(
+                gateway, storage_key
+            )
+            if image_bytes:
+                bytes_by_key[storage_key] = image_bytes
+        return image_bytes
+
+    return await photo.read(
+        content,
+        image_attachments=image_attachments,
+        load_image=load_image,
+        settings=settings,
+        on_status=on_status,
     )
 
 

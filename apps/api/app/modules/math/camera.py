@@ -1,33 +1,33 @@
-"""Camera math: read the equation in a turn's photo so SymPy can verify the answer.
+"""Camera maths: read the equation in a turn's photo so SymPy can verify the answer.
 
-It runs for the math scanner's caption, a caption that still reads as a math
-request, or a reading the student already confirmed in the scanner.
+It runs for the maths scanner's caption, a caption that still reads as a maths request,
+or a reading the student already confirmed in the scanner. Chat asks it through maths'
+adapter (``photo``, ``services/subjects/registry``) and hands it the photo's bytes.
 """
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from app.core.config import Settings
-from app.gateways.storage_gateway import StorageGateway
-from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.math.schemas import MathImageExtract
 
 
-async def camera_math_extract(
+async def read_camera_maths(
     content: str,
     *,
     image_attachments: list[tuple[str, str]],
-    bytes_by_key: dict[str, bytes],
-    gateway: StorageGateway,
+    load_image: Callable[[str], Awaitable[bytes | None]],
     settings: Settings,
-    on_status: StreamStatusFn | None,
+    on_status: Callable[[str], Awaitable[None]] | None,
 ) -> tuple[MathImageExtract | None, str]:
     """The equation in the first photo, and ``content`` with its ``Solve:`` line for the prompt.
 
-    Bytes downloaded here are kept in ``bytes_by_key`` for the vision injection.
+    ``load_image`` gives a photo's bytes by its storage key (the caller keeps them for the
+    vision injection).
     """
     image_math_extract: MathImageExtract | None = None
     # Camera math solver: vision-extract equation so SymPy can verify.
-    from app.modules.attachments import content as attachment_content_service
     from app.modules.math import image_extract as math_image_extract_service
     from app.modules.math import match as math_match
     from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
@@ -63,13 +63,7 @@ async def camera_math_extract(
                 image_math_extract = extracted
         else:
             mime, storage_key = image_attachments[0]
-            image_bytes = bytes_by_key.get(storage_key)
-            if image_bytes is None:
-                image_bytes = await attachment_content_service.read_attachment_bytes(
-                    gateway, storage_key
-                )
-                if image_bytes:
-                    bytes_by_key[storage_key] = image_bytes
+            image_bytes = await load_image(storage_key)
             if image_bytes:
                 extracted = await math_image_extract_service.extract_equation_from_image(
                     settings, content_type=mime, data=image_bytes
