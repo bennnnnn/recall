@@ -1,4 +1,4 @@
-"""The shared Given / Find / Formula / Substitution layout of a geometry working."""
+"""The shared Given / Required / Formula / Substitution layout of a geometry working."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import re
 from collections.abc import Callable, Mapping
 
 from app.modules.math.schemas import GeometryRequest
-from app.services.workout import Workout, math_line, render_workout
+from app.services.workout import Workout, math_line, render_workout, solve_for_line
 from app.services.workout import formula_name as law_name
 
 # (what was asked, the verified figure's measures, the verified result) -> layout
@@ -66,12 +66,20 @@ def section(
     formula_name: str,
     formulas: list[str],
     substitutions: list[str],
+    *,
+    solved: str | None = None,
 ) -> str:
-    """The shared workout layout; the caller's answer fence follows **Answer**."""
+    """The shared workout layout; the caller's answer fence follows **Answer**.
+
+    ``solved`` is the formula rearranged for the unknown (``l = \\frac{A}{w}``): a
+    ``Solve for $l$`` line, then that formula, after the others.
+    """
     name = law_name(formula_name)
     formula_lines = [
         math_line(formula, name if index == 0 else None) for index, formula in enumerate(formulas)
     ]
+    if solved is not None:
+        formula_lines += [solve_for_line(solved.split(" = ", 1)[0]), math_line(solved)]
     return render_workout(
         Workout(
             given=tuple(_labelled_line(line) for line in givens),

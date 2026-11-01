@@ -194,7 +194,7 @@ def test_force_direct_reply_uses_the_structured_verified_layout() -> None:
     reply = maybe_direct_physics_reply(block, message)
     assert reply is not None
     assert "**Given**" in reply
-    assert "**Find**" in reply
+    assert "**Required**" in reply
     assert "**Newton's second law**" in reply
     assert "**Substitution**" in reply
     assert "**Answer**" in reply

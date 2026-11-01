@@ -61,7 +61,7 @@ def test_the_model_prompt_names_the_same_sections() -> None:
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
-    assert "Given, Find, Formula, Steps, Answer" in verified.prompt_text
+    assert "Given, Required, Formula, Steps, Answer" in verified.prompt_text
     assert "\nSteps:\n" in verified.prompt_text
 
 

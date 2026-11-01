@@ -76,9 +76,12 @@ _PROJECTILE_WORK = (
         # A multiple of x in the working is not a value for x (a server lesson).
         (
             "x = 2.0",
-            "**Find**  \n$x = ?$\n\n**1. Subtract**  \n$0.4 x = 0.8$\n\n**Answer**",
+            "**Required**  \n$x = ?$\n\n**1. Subtract**  \n$0.4 x = 0.8$\n\n**Answer**",
             "absent",
         ),
+        # What is asked restates the problem under either name; it states no result.
+        ("x = 7", "**Required**  \n$x = 6$\n\nWork below.", "absent"),
+        ("x = 7", "**Find**  \n$x = 6$\n\nWork below.", "absent"),
         ("x = 6", "$2 x = 12$ then divide.", "absent"),
         # Not a plain value: the callers keep their string checks.
         (
@@ -93,8 +96,10 @@ def test_stated_verdict(answer: str, prose: str, verdict: str) -> None:
     assert stated_verdict(prose, answer) == verdict
 
 
-def test_a_find_placeholder_is_not_a_question() -> None:
-    assert asks_without_answering("**Find**  \n$x = ?$\n\nWork below.", "x = 6") is False
+@pytest.mark.parametrize("heading", ["Required", "Find"])
+def test_a_find_placeholder_is_not_a_question(heading: str) -> None:
+    reply = f"**{heading}**  \n$x = ?$\n\nWork below."
+    assert asks_without_answering(reply, "x = 6") is False
 
 
 @pytest.mark.parametrize(

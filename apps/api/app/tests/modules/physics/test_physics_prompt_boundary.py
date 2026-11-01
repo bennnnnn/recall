@@ -46,8 +46,8 @@ def test_unverified_physics_note_must_finish_the_answer() -> None:
 
 def test_physics_working_contract_is_explicit_and_ordered() -> None:
     for policy in (PHYSICS_INTENT_HINT, PHYSICS_REPLY_POLICY):
-        # The law's own name heads the formulas, between Find and Substitution.
-        sections = ("Given", "Find", "Constant acceleration", "Substitution")
+        # The law's own name heads the formulas, between Required and Substitution.
+        sections = ("Given", "**Required**", "Constant acceleration", "Substitution")
         positions = [policy.index(name) for name in sections]
         assert positions == sorted(positions)
         assert "Answer" in policy

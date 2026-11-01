@@ -48,6 +48,7 @@ from app.services.workout import (
     Workout,
     math_line,
     render_workout,
+    solve_for_line,
     text_line,
     where_line,
 )
@@ -200,9 +201,9 @@ def _formula_identity(formula: str) -> str:
 def _formula_rows(
     intent: PhysicsIntent, formulas: list[str], operation: str | None = None
 ) -> list[str]:
-    """The governing law's base form, then any rearrangement. The law's name is the
-    section's heading (``law_title``), so no row repeats it. ``operation`` is one part's,
-    in a question in parts."""
+    """The governing law's base form, then any rearrangement, as a step: ``Solve for $t$``
+    over the rearranged formula. The law's name is the section's heading (``law_title``),
+    so no row repeats it. ``operation`` is one part's, in a question in parts."""
     operation = operation or intent.physics_op or ""
     spec = formula_spec(operation)
     params = intent.physics_params or {}
@@ -224,7 +225,7 @@ def _formula_rows(
         if formula_lhs == base_lhs:
             rows.append(math_line(formula, "the same law for these quantities"))
         else:
-            rows.append(math_line(formula, f"rearranged for ${formula_lhs}$"))
+            rows.extend((solve_for_line(formula_lhs), math_line(formula)))
     return rows
 
 

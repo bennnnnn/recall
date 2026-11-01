@@ -114,7 +114,7 @@ def test_geometry_formula_and_substitution_are_separate_verified_lines(
     query: str, formula: str, substitution: str
 ) -> None:
     reply = _reply(query)
-    headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
+    headings = ["**Given**", "**Required**", "**Formula**", "**Substitution**", "**Answer**"]
     positions = [reply.index(heading) for heading in headings]
     assert positions == sorted(positions)
     assert formula in reply

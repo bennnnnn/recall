@@ -559,7 +559,7 @@ def test_direct_reply_has_scan_friendly_heading_order() -> None:
     assert verified is not None
 
     reply = format_direct_chemistry_reply(verified)
-    headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
+    headings = ["**Given**", "**Required**", "**Formula**", "**Substitution**", "**Answer**"]
     positions = [reply.index(heading) for heading in headings]
     assert positions == sorted(positions)
     assert "pH = −log₁₀[H⁺] — Definition of pH" in reply
