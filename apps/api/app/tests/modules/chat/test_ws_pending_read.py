@@ -16,6 +16,7 @@ import pytest
 from fastapi import WebSocket
 
 import app.modules.chat.ws_turn as ws_turn
+from app.modules.chat.client_message import ClientMessageClaim
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.ws_limits import receive_frame
 
@@ -29,8 +30,12 @@ class _TestClientSocket:
     def __init__(self) -> None:
         self.sender, self.receiver = anyio.create_memory_object_stream[str](8)
         self.sent: list[dict[str, Any]] = []
+        self.reads: list[asyncio.Task[Any]] = []
 
     async def receive_json(self) -> Any:
+        task = asyncio.current_task()
+        assert task is not None
+        self.reads.append(task)
         return json.loads(await self.receiver.receive())
 
     async def send_json(self, payload: dict[str, Any]) -> None:
@@ -128,3 +133,32 @@ async def test_a_read_given_up_by_its_caller_does_not_outlive_it() -> None:
         await waiting
     await asyncio.sleep(0)
     assert read.cancelled()
+
+
+class _SlowClaim(ClientMessageClaim):
+    """A claim whose settling waits until the test cancels the turn's handler."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.settling = asyncio.Event()
+
+    async def settle(self, outcome: TurnOutcome) -> None:
+        self.settling.set()
+        await asyncio.Event().wait()
+
+
+@pytest.mark.asyncio
+async def test_a_handler_cancelled_while_settling_leaves_no_read_running() -> None:
+    socket = _TestClientSocket()
+    claim = _SlowClaim()
+    handler = asyncio.create_task(
+        ws_turn.stream_over_ws(socket.ws, _one_token(), asyncio.Event(), TurnOutcome(), claim=claim)
+    )
+    await asyncio.wait_for(claim.settling.wait(), timeout=2)
+    # The turn ended first, so its read was handed on; then a shutdown cancels the handler.
+    assert socket.reads and not socket.reads[-1].done()
+    handler.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await handler
+    await asyncio.sleep(0)
+    assert all(read.cancelled() for read in socket.reads)

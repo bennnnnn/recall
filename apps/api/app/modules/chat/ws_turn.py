@@ -254,16 +254,29 @@ async def stream_over_ws(
         if receiver is not None and not receiver.done():
             receiver.cancel()
         heartbeat.cancel()
-        # The producer is done unless an error cut the loop above short; then
-        # the claim is settled once it is.
-        if producer.done():
-            await claim.settle(outcome)
-        else:
-            claim.settle_after(producer, outcome)
-        # Same as SSE M10: client close must not orphan the DB commit that
-        # persists the (partial) assistant row and enqueues the title job.
-        await persist_finalize_if_pending(outcome)
+        try:
+            await _settle_turn(producer, claim, outcome)
+        except BaseException:
+            # Cancelled while settling (a shutdown): the handed-on read has no owner.
+            if left is not None:
+                left.cancel()
+            raise
     return next_turn if next_turn is not None else left
+
+
+async def _settle_turn(
+    producer: asyncio.Task[None], claim: ClientMessageClaim, outcome: TurnOutcome
+) -> None:
+    """The turn's claim and its reply's save, however the turn ended."""
+    # The producer is done unless an error cut the turn's loop short; then the
+    # claim is settled once it is.
+    if producer.done():
+        await claim.settle(outcome)
+    else:
+        claim.settle_after(producer, outcome)
+    # Same as SSE M10: client close must not orphan the DB commit that
+    # persists the (partial) assistant row and enqueues the title job.
+    await persist_finalize_if_pending(outcome)
 
 
 async def run_chat_stream(
