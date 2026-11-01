@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
 
 from app.modules.turn_reading.stuck import stuck_on_a_topic
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
@@ -273,19 +274,30 @@ def is_walkthrough_request(text: str) -> bool:
     return not (_PROCEDURE.search(cleaned) or re.search(r"\bhow\s+(?:to|do\s+i)\b", rest, re.I))
 
 
-def is_teaching_request(text: str) -> bool:
-    """True for interactive tutoring, not a procedure or full learning roadmap."""
+# Why a message is a request to be taught or not, for the turn's trace line.
+TeachingReason = Literal["teach", "no_cue", "too_long", "learning_plan", "preference", "procedure"]
+
+
+def teaching_reason(text: str) -> TeachingReason:
+    """Why ``text`` asks for interactive tutoring (``teach``) or not."""
     cleaned = straighten_apostrophes(collapse_ws(text))
-    if not cleaned or len(cleaned) > 400:
-        return False
+    if not cleaned:
+        return "no_cue"
+    if len(cleaned) > 400:
+        return "too_long"
     if not _TEACH_TURN.search(cleaned):
-        return False
+        return "no_cue"
     if is_learning_plan_request(cleaned):
-        return False
+        return "learning_plan"
     # "Teach me by asking questions" says how, not what: no lesson yet.
     if is_standing_preference(cleaned):
-        return False
-    return not _asks_for_a_procedure(cleaned)
+        return "preference"
+    return "procedure" if _asks_for_a_procedure(cleaned) else "teach"
+
+
+def is_teaching_request(text: str) -> bool:
+    """True for interactive tutoring, not a procedure or full learning roadmap."""
+    return teaching_reason(text) == "teach"
 
 
 # How the user wants to be taught or answered from now on, with no question of

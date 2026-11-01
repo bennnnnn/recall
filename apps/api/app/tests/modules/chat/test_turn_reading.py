@@ -225,3 +225,41 @@ async def test_another_text_inside_a_turn_plans_itself() -> None:
     reading = current_turn_reading()
     assert reading is not None and other is not reading.plan
     assert other.texts() == ("tell me a joke",)
+
+
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        ("teach me how recursion works", "teach"),
+        ("", "no_cue"),
+        ("What is a python dictionary?", "no_cue"),
+        ("teach me " + "very " * 100 + "much", "too_long"),
+        ("Give me a 4-week roadmap to learn Python", "no_cue"),
+        ("teach me python in 30 days", "learning_plan"),
+        ("teach me by asking questions", "preference"),
+        ("Teach me how to bake bread step by step", "procedure"),
+    ],
+)
+def test_teaching_names_why(text: str, reason: str) -> None:
+    from app.modules.turn_reading.teaching import is_teaching_request, teaching_reason
+
+    assert teaching_reason(text) == reason
+    assert is_teaching_request(text) is (reason == "teach")
+
+
+async def test_teaching_is_the_turns_reading_for_its_message_and_read_for_any_other() -> None:
+    from app.modules.turn_reading.turn import teaching_of
+
+    settings = Settings()
+    begin_turn()
+    await read_turn_message("teach me how recursion works", [], settings)
+
+    reading = current_turn_reading()
+    assert reading is not None and reading.teaching and reading.teaching_reason == "teach"
+    assert teaching_of("teach me how recursion works") is True
+    # Another text is read on its own: a part, a rewritten line.
+    assert teaching_of("What is a python dictionary?") is False
+    begin_turn()
+    await read_turn_message("What is a python dictionary?", [], settings)
+    assert teaching_of("What is a python dictionary?") is False
+    assert teaching_of("teach me how recursion works") is True

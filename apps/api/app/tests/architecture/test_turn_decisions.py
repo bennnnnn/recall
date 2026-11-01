@@ -7,6 +7,10 @@ the turn's message again elsewhere decides it a second time, without that place.
 other callers below read some other text, or compose the reader into a reader of their
 own; each function is listed with how many times it calls and why, and the list only
 shrinks.
+
+Whether the message asks to be taught is the turn's reading (``TurnReading.teaching``,
+read once per turn); code asks ``turn_reading.turn.teaching_of``, which answers from the
+reading for the turn's message and reads any other text on its own.
 """
 
 from __future__ import annotations
@@ -39,6 +43,13 @@ _LIGHTWEIGHT_CALLERS: dict[str, tuple[int, str]] = {
     "modules/turn_reading/personal.py::needs_rich_context": (1, "a reader built on it"),
     "modules/turn_reading/writing.py::_answers_draft_question": (1, "a reader built on it"),
     "modules/web_search/detection.py::web_search_skip": (1, "a reader with its own offer check"),
+}
+
+# "path::function" -> (calls, why).
+_TEACHING_CALLERS: dict[str, tuple[int, str]] = {
+    "modules/turn_reading/turn.py::teaching_of": (1, "owner: any text that is not the turn's"),
+    "modules/chat/lesson_progress.py::lesson_progress": (1, "the chat's earlier user lines"),
+    "modules/turn_reading/lesson_flow.py::outline_awaits_pick": (1, "the line before the reply"),
 }
 
 
@@ -95,6 +106,20 @@ def test_small_talk_is_decided_once_per_turn() -> None:
     )
     assert not more, (
         f"{more} decide small talk again: read the turn's mode (ctx.lightweight_turn), "
+        "or, for another text, list the function here with why"
+    )
+    fewer = sorted(caller for caller, calls in recorded.items() if found.get(caller, 0) < calls)
+    assert not fewer, f"{fewer} call it less now: lower or remove them in the list"
+
+
+def test_teaching_is_read_once_per_turn() -> None:
+    found = _production_callers("is_teaching_request")
+    recorded = {caller: calls for caller, (calls, _why) in _TEACHING_CALLERS.items()}
+    more = sorted(
+        f"{caller}: {calls}" for caller, calls in found.items() if calls > recorded.get(caller, 0)
+    )
+    assert not more, (
+        f"{more} read teaching again: ask teaching_of(text), "
         "or, for another text, list the function here with why"
     )
     fewer = sorted(caller for caller, calls in recorded.items() if found.get(caller, 0) < calls)

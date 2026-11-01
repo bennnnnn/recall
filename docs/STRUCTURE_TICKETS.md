@@ -319,6 +319,24 @@ for presentation and the post-turn jobs, not for reading.
   - `_TurnMode` is not folded into `TurnReading` yet: the mode needs the loaded window, which
     the regenerate path reads after the message. Merging them is the last step, once teaching
     and subject have one owner each.
+- **Status, step 3 (teaching): done.**
+  - `TurnReading.teaching_reason` (`teach`, `no_cue`, `too_long`, `learning_plan`,
+    `preference`, `procedure`) is read once with the plan; `TurnReading.teaching` is exactly
+    `teach`. `turn_reading.teaching.teaching_reason` is the reader, and `is_teaching_request`
+    is now `teaching_reason(text) == "teach"`. The reason is on the trace line.
+  - The 9 places that read teaching from the turn's message ask
+    `turn_reading.turn.teaching_of(text)`, which answers from the reading when `text` is the
+    turn's message and reads any other text on its own: `turn_prep/mode.py` (advice memory),
+    `prompt_format.py` (the layout hint and the style turn), `prompt_sections.py` (the advice
+    hint, a part's shape hints, the lesson contract section), `message_notes.py` (the emoji
+    note), `lesson_again.py` and `model_routing/route.py` (in the pool, where there is no
+    reading, it reads the text). No precedence question: every caller passes the turn's
+    message or another text it reads itself, as before.
+  - `is_teaching_request` is left to `teaching_of` and two readers of other lines:
+    `lesson_progress.py` (the chat's earlier user lines) and `turn_reading/lesson_flow.py`
+    (the line before the reply). `tests/architecture/test_turn_decisions.py` holds that list.
+  - Decision diff: no decision changed (`--added teaching_reason`: no_cue ×5,063, teach ×9,
+    preference ×1, too_long ×1).
 
 ### ST-06 — Finalize passes declare their order and their kind
 
