@@ -90,7 +90,9 @@ and the reply says it assumed one. A term in words is read as in digits ("seven 
 two-line loan alike (`phrases.py`). A length of time that is no term is left out: an age, time
 gone by or a gap ("thirty years old", "ten years ago", "five years apart", "been paying for
 three years", "twelve months of payments", "the past 2 years", and any "for N years" in a
-clause about time already spent: "I've been paying my mortgage at 4% for five years"). A currency named before its sum ("Birr 3,000", "USD 500")
+clause about time already spent paying or holding a loan: "I've been paying my mortgage at
+4% for five years", "we've had our loan for 5 years"; looking at, thinking about or saving
+for a new loan keeps its term). A currency named before its sum ("Birr 3,000", "USD 500")
 marks it as money; an exchange rate ("USD 1 = ETB 57", "57 birr to the dollar"), a note or
 coin ("Birr 500 notes") and the same sum said again ("that's about USD 21,600") are no sum
 (`sums.py`).

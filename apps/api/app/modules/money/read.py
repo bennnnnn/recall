@@ -143,14 +143,18 @@ _SPAN_BEFORE = re.compile(
     r"every\s|each\s|per\s|aged?\s)$",
     re.I,
 )
-# "for five years" in a clause about time already spent ("I've been paying my mortgage at
-# 4% for five years", "we have had it for 5 years") is time gone by, not the loan's term
-# (2026-11-01: a 5-year mortgage worked from it). Only a "for" span in the spent verb's own
-# clause: "I've had a 30-year mortgage" still names its term, and so does "I've saved $40k
-# for a down payment and want a mortgage at 6% for 15 years".
+# "for five years" in a clause about time already spent on a loan held ("I've been paying my
+# mortgage at 4% for five years", "we have had our loan for 5 years") is time gone by, not
+# the loan's term (2026-11-01: a 5-year mortgage worked from it). Only paying, owning or
+# holding counts, and "had" only with the loan as its object: "I've been looking at a car
+# loan at 6% for 3 years" and "I've had my eye on one" ask about a new loan's term, and "I've
+# saved $40k for a down payment and want a mortgage at 6% for 15 years" names its term.
+_HELD = r"(?:mortgage|loan|card|balance|debt)s?"
 _SPENT_CLAUSE = re.compile(
-    r"\b(?:been\s\w+ing|(?:have|has|'ve|\u2019ve|'s|\u2019s)\s(?:been|had|paid|owned|held|made|"
-    r"lived|saved|kept))\b.*\bfor\s$",
+    r"\b(?:been\s(?:paying|repaying|making\s(?:payments|repayments)|servicing|carrying)"
+    r"|(?:have|has|'ve|\u2019ve|'s|\u2019s)\s(?:paid|repaid|owned|held|carried"
+    rf"|had\s(?:it|(?:my|our|his|her|their|the|this|that|a|an)\s(?:\S+\s){{0,3}}?{_HELD})))\b"
+    r".*\bfor\s$",
     re.I | re.S,
 )
 # Where a clause starts: a sentence's end (never a decimal point, "4.5%"), a comma before a

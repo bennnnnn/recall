@@ -64,6 +64,8 @@ def test_a_number_is_read_whole(text: str, values: dict[str, float], payment: fl
         "I've been paying my $250k mortgage at 4.5% for five years, should I refinance?",
         "I've been paying my $250.000 mortgage at 4% for five years, should I refinance?",
         "I've been paying my $1.5k car loan at 4% for 2 years, should I refinance?",
+        "We've had our $300k mortgage at 6% for 10 years, refinance?",
+        "I've been making payments on my $20k car loan at 7% for 2 years",
     ],
 )
 def test_time_already_spent_is_no_term(text: str) -> None:
@@ -78,6 +80,10 @@ def test_time_already_spent_is_no_term(text: str) -> None:
         # A spent verb in another clause leaves the asked loan's term alone (PR review).
         "I've saved $40k for a down payment and want a $300k mortgage at 6% for 15 years.",
         "I've saved $40k, want a $300k mortgage at 6% for 15 years.",
+        # Looking, thinking or having an eye on a loan is no time spent paying it.
+        "I've been thinking about a $300k mortgage at 5% for 15 years",
+        "I've been looking at a $300k mortgage at 6% for 15 years, what's the payment?",
+        "I've had my eye on a $300k mortgage at 6% for 15 years",
     ],
 )
 def test_a_term_after_a_spent_clause_is_still_the_term(text: str) -> None:
