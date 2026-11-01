@@ -476,6 +476,17 @@ components get the same props.
   `components/rich/`) and the HTML preview (`lib/preview/`: run document, sandbox, page file, tap,
   heights, script strip) are `lib/` domain folders: the shared markdown and rich renderers draw
   them, so they are not one feature's code. Flat `lib/` files: 155 → 123.
+- **Status (part 3):** the three fence lists kept beside the registry are rows now:
+  `plainReader` (the bodies copy and read-aloud draw with their own reader: worked lines, quiz,
+  clarify, array), `inDocument` (a card's label in a shared document, or its copy text) and
+  `bareJson` (geometry and graph draw from a ```json fence of their JSON). `plain.ts`,
+  `document.ts` and `fenceDispatch.ts` read them; the renderers stay in their files. Proven
+  identical on 3,328 replies (the behaviour sweep's plus every such fence the tests use, alone,
+  in prose and in a list): 9,890 document, copy and speech outputs and 126 dispatch decisions.
+  The other fence-id lists read rows too: the drafts (`draft`: email, message, social), the
+  molecule cards' fallback label (`inDocument: "molecule"`) and the maths fence tags in
+  `fenceRetag.ts` and `calculationLayout.ts` (which also lays out an unregistered ```equation
+  tag, kept as the one stated extra).
 
 ## Order
 

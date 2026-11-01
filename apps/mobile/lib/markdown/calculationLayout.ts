@@ -11,12 +11,12 @@ import {
   keepHardBreak,
   readsAsProse,
 } from "@/lib/markdown/calculationLayoutTail";
+import { isMathFenceLang } from "@/lib/fenceRegistry";
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
 import { readFenceMarker } from "@/lib/mdFenceScan";
 
-const MATH_LANGS = new Set(["math", "latex", "tex", "equation"]);
 const TEXT_COMMANDS = new Set([
   "text",
   "mathrm",
@@ -494,7 +494,7 @@ function unwrapMathLine(line: string): string {
 function rewriteMathFence(opener: string, body: string): string | null {
   const marker = readFenceMarker(opener);
   const lang = marker?.info.split(/\s+/)[0]?.toLowerCase() ?? "";
-  if (!MATH_LANGS.has(lang)) return null;
+  if (!isMathFenceLang(lang) && lang !== "equation") return null;
   const physical = body.split("\n").filter((line) => line.trim());
   if (physical.length === 0) return null;
   const rows: string[] = [];

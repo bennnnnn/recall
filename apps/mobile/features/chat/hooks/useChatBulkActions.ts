@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { useViewOwner } from "@/features/chat/model/viewOwner";
+import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
