@@ -33,10 +33,28 @@ class TurnReading:
     plan_reason: PlanReason
     # Whether the message asks to be taught, and why (``turn_reading.teaching``).
     teaching_reason: TeachingReason
+    # The message's subject as the pool read it with the turn's attachment flag and
+    # chemistry setting, and the step of the subject order that decided it
+    # (``services.subject_solving.read_subject_reason``). ``not_read`` when the pool did not
+    # read it, ``read_declined`` when the pool gave up: the subject is then unknown here.
+    has_image_attachment: bool = False
+    subject: str | None = None
+    subject_reason: str = "not_read"
 
     @property
     def teaching(self) -> bool:
         return self.teaching_reason == "teach"
+
+    def knows_subject_of(
+        self, text: str, *, has_image_attachment: bool, chemistry_enabled: bool
+    ) -> bool:
+        """Whether this reading holds the subject of ``text`` read with these flags."""
+        return (
+            self.subject_reason not in ("not_read", "read_declined")
+            and self.text == text
+            and self.has_image_attachment == has_image_attachment
+            and self.chemistry_enabled == chemistry_enabled
+        )
 
     def reads(self, text: str, *, chemistry_enabled: bool) -> bool:
         """Whether this is the reading of ``text``: a caller holding another text (a part,

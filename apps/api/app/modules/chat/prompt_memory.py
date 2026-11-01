@@ -25,7 +25,6 @@ from app.modules.turn_reading.profile_ask import (
     is_profile_recall_pushback,
 )
 from app.modules.turn_reading.routing import is_broad_self_question
-from app.services.subject_solving import detect_subject
 
 if TYPE_CHECKING:
     from app.modules.chat.prompt_sections import PromptTurn
@@ -127,7 +126,9 @@ def is_work_turn(text: str | None) -> bool:
         return False
     if _OWN_WORK.search(text) or _DEV_TASK.search(text):
         return True
-    return is_programming_turn(text) and detect_subject(text) is None
+    from app.modules.chat.turn_prep.reading import subject_of
+
+    return is_programming_turn(text) and subject_of(text) is None
 
 
 def memory_scope_for(text: str | None) -> MemoryScope:

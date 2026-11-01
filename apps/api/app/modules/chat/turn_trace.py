@@ -56,6 +56,10 @@ class TurnTrace:
     lightweight_reason: str | None = None
     # Why the message asks to be taught or not (``turn_reading.teaching.TeachingReason``).
     teaching_reason: str | None = None
+    # Which step of the subject order decided the message's subject, or that the pool did
+    # not read it (``services.subject_solving.SubjectReason``, ``not_read``,
+    # ``read_declined``).
+    subject_reason: str | None = None
     prompt_rules: list[str] = field(default_factory=list)
     tools: Counter[str] = field(default_factory=Counter)
     passes_changed: list[tuple[str, int]] = field(default_factory=list)
@@ -117,6 +121,12 @@ def note_route(trace: TurnTrace, reason: str) -> None:
 def note_lightweight(trace: TurnTrace, reason: str) -> None:
     """Why the turn is small talk or not (``turn_prep.mode.classify_turn_mode``)."""
     trace.lightweight_reason = _token(reason)
+
+
+@_quietly
+def note_subject(trace: TurnTrace, reason: str) -> None:
+    """Which step of the subject order decided the message's subject (the turn's reading)."""
+    trace.subject_reason = _token(reason)
 
 
 @_quietly
@@ -260,6 +270,7 @@ def turn_record(
         "plan_reason": trace.plan_reason,
         "lightweight_reason": trace.lightweight_reason,
         "teaching_reason": trace.teaching_reason,
+        "subject_reason": trace.subject_reason,
         "prompt_rules": list(trace.prompt_rules),
         "tools": dict(trace.tools),
         "passes_changed": [list(item) for item in trace.passes_changed],
