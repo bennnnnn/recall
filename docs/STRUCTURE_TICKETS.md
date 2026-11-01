@@ -319,6 +319,31 @@ for presentation and the post-turn jobs, not for reading.
   - `_TurnMode` is not folded into `TurnReading` yet: the mode needs the loaded window, which
     the regenerate path reads after the message. Merging them is the last step, once teaching
     and subject have one owner each.
+- **Status, step 3 (teaching): done.**
+  - `TurnReading.teaching_reason` (`teach`, `no_cue`, `too_long`, `learning_plan`,
+    `preference`, `procedure`) is read once with the plan; `TurnReading.teaching` is exactly
+    `teach`. `turn_reading.teaching.teaching_reason` is the reader, and `is_teaching_request`
+    is now `teaching_reason(text) == "teach"`. The reason is on the trace line.
+  - The 9 places that read teaching from the turn's message ask
+    `turn_reading.turn.teaching_of(text)`, which answers from the reading when `text` is the
+    turn's message and reads any other text on its own: `turn_prep/mode.py` (advice memory),
+    `prompt_format.py` (the layout hint and the style turn), `prompt_sections.py` (the advice
+    hint, a part's shape hints, the lesson contract section), `message_notes.py` (the emoji
+    note), `lesson_again.py` and `model_routing/route.py` (routing runs in the pool, whose
+    readings are seeded from the turn's memo, so it may hold a reading, possibly an earlier
+    turn's; `teaching_of` answers from a reading only when its text is the text asked, and
+    the reader depends on the text alone, so the answer is the same either way). No
+    precedence question: every caller passes the turn's message or another text it reads
+    itself, as before.
+  - The reader is called directly only by `read_turn` (the reading), `teaching_of` (another
+    text), `is_teaching_request` itself, and two readers of other lines: `lesson_progress.py`
+    (the chat's earlier user lines) and `turn_reading/lesson_flow.py` (the line before the
+    reply). `tests/architecture/test_turn_decisions.py` holds that list of direct callers of
+    `is_teaching_request` and `teaching_reason`, found through each file's imports (aliases
+    and module-qualified calls included); it polices who calls the reader, not how often a
+    turn reads it. Step 2's small-talk list is held the same way.
+  - Decision diff: no decision changed (`--added teaching_reason`: no_cue ×5,063, teach ×9,
+    preference ×1, too_long ×1).
 
 ### ST-06 — Finalize passes declare their order and their kind
 
@@ -451,6 +476,17 @@ components get the same props.
   `components/rich/`) and the HTML preview (`lib/preview/`: run document, sandbox, page file, tap,
   heights, script strip) are `lib/` domain folders: the shared markdown and rich renderers draw
   them, so they are not one feature's code. Flat `lib/` files: 155 → 123.
+- **Status (part 3):** the three fence lists kept beside the registry are rows now:
+  `plainReader` (the bodies copy and read-aloud draw with their own reader: worked lines, quiz,
+  clarify, array), `inDocument` (a card's label in a shared document, or its copy text) and
+  `bareJson` (geometry and graph draw from a ```json fence of their JSON). `plain.ts`,
+  `document.ts` and `fenceDispatch.ts` read them; the renderers stay in their files. Proven
+  identical on 3,328 replies (the behaviour sweep's plus every such fence the tests use, alone,
+  in prose and in a list): 9,890 document, copy and speech outputs and 126 dispatch decisions.
+  The other fence-id lists read rows too: the drafts (`draft`: email, message, social), the
+  molecule cards' fallback label (`inDocument: "molecule"`) and the maths fence tags in
+  `fenceRetag.ts` and `calculationLayout.ts` (which also lays out an unregistered ```equation
+  tag, kept as the one stated extra).
 
 ## Order
 

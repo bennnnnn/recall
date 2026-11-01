@@ -1,4 +1,4 @@
-import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang, fenceSpecForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import { markdownToCopyText } from "@/lib/markdown/plain";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/fenceRetag";
 
@@ -316,8 +316,7 @@ export function looksLikeExplicitDraftContent(content: string): boolean {
 }
 
 export function isStructuredDraftLang(lang: string): boolean {
-  const id = fenceIdForLang(lang);
-  return id === "email" || id === "message" || id === "social";
+  return fenceSpecForLang(lang)?.draft ?? false;
 }
 
 /** Remove the literal developer term shown in the reported malformed card. */

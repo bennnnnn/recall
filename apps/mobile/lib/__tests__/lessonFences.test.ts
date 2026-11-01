@@ -1,3 +1,4 @@
+import { arrayCardText, quizCardText } from "@/lib/lesson/cardBody";
 import {
   arrayText,
   explanationParts,
@@ -180,6 +181,46 @@ describe("plainFenceText", () => {
     expect(plainFenceText('{"question": "Q"}')).toBeNull();
     expect(plainFenceText("[1, 2]")).toBeNull();
     expect(plainFenceText("   ")).toBeNull();
+  });
+
+  it("is not plain when JSON follows a line of prose, so the answer key never shows as text", () => {
+    const keyed = 'Here you go:\n{"question":"Q","options":["a","b"],"answer":1,"explanation":"secret"}';
+    expect(plainFenceText(keyed)).toBeNull();
+    expect(plainFenceText('Here: {"values": [1, 2]}')).toBeNull();
+    for (const question of [
+      "Is {1, 2} a subset of [1, 2, 3]?",
+      'Given x = {"a": 1}, what is x["a"]?',
+      'Translate "hola": what does it mean?',
+    ]) {
+      expect(plainFenceText(question)).toBe(question);
+    }
+  });
+});
+
+describe("what a card's copy reads", () => {
+  it("reads a quiz as its card shows it, before Check answer", () => {
+    expect(quizCardText(JSON.stringify(QUIZ))).toBe(
+      "What should `two_sum(nums, target)` return?\nA) `[0, 1]`\nB) `[1, 2]`\nC) `[0, 2]`\nD) `[2, 4]`",
+    );
+    expect(quizCardText("Which loop prints 1 to 5?")).toBe("Which loop prints 1 to 5?");
+    const broken = '{"question": "Pick", "options": ["a", "b",], "answer": 1, "explanation": "secret"}';
+    expect(quizCardText(broken)).toBe("Pick\nA) a\nB) b");
+    expect(quizCardText('{"label": "Card 1", "question": "hablar", "explanation": "to speak"}')).toBe(
+      "hablar",
+    );
+  });
+
+  it("reads nothing for a quiz still streaming in or holding JSON after prose", () => {
+    expect(quizCardText('{"question": "What will')).toBe("");
+    expect(
+      quizCardText('Here you go:\n{"question":"Q","options":["a","b"],"answer":1,"explanation":"secret"}'),
+    ).toBe("");
+  });
+
+  it("reads a list as its card shows it", () => {
+    expect(arrayCardText('{"name": "nums", "values": [2, 7]}')).toBe("nums = [2, 7]");
+    expect(arrayCardText('{"values": [1, "two",], "note": "n"}')).toBe("[1, two]");
+    expect(arrayCardText('{"values": [1, 2')).toBe("");
   });
 });
 

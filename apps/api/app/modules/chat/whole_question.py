@@ -180,8 +180,9 @@ def _restates(question: str, answer: str) -> bool:
 _EXPRESSION = re.compile(r"[0-9a-z]\s*[+\-*]\s*[0-9a-z]")
 
 
-# Between the pieces of an answer: a comma (not LaTeX's thin space "\,"), ";", "\quad", a line.
-_ANSWER_PIECES = re.compile(r"(?<!\\),|;|\\quad|\n")
+# Between the pieces of an answer: a comma (not LaTeX's thin space "\,", nor one grouping a
+# number's thousands, "E = 1,000,000 J"), ";", "\quad", a line.
+_ANSWER_PIECES = re.compile(r"(?<![\\\d]),|(?<=\d),(?!\d{3}(?!\d))|;|\\quad|\n")
 
 
 def _squashed(text: str) -> str:
@@ -203,9 +204,27 @@ def answers_whole_question(question: str, answer: str) -> bool:
     if not choices:
         return labelled_parts(question) <= max(len(pieces), 1)
     if _are_options(choices):
-        return any(_same_choice(answer, choice) for choice in choices)
+        # Short labels are options to pick ("a) 1 J b) 2 J c) 3 J") unless they ask for
+        # things and the answer states a value for each: "Find: a) the time of flight b) the
+        # range c) the final speed" answered "4.04 s; 80.8 m; 44.4 m/s" lost its card
+        # (2026-11-01). A note or a unit line under one value is no second answer.
+        stated = [piece for piece in pieces if _states_a_value(piece)]
+        holds_values = any(_leading_value(choice) is not None for choice in choices)
+        if holds_values or len(stated) < len(choices):
+            return any(_same_choice(answer, choice) for choice in choices)
+        return True
     # Parts: one piece of the answer for each ("v = 20 m/s; s = 100 m").
     return len(pieces) >= len(choices)
+
+
+def _states_a_value(piece: str) -> bool:
+    """``piece`` is one value: it opens with it ("80.8 m") or with its symbol ("x = 80.8 m").
+    A clause about a value ("to 3 s.f.", "from h = 80 m") holds a number and states none."""
+    sides = _RELATION.split(piece, maxsplit=1)
+    if len(sides) == 1:
+        return _leading_value(piece) is not None
+    symbol = _MARKUP.sub("", sides[0]).split()
+    return len(symbol) == 1 and _leading_value(sides[1]) is not None
 
 
 def _are_options(choices: list[str]) -> bool:
@@ -220,7 +239,9 @@ def _same_choice(answer: str, choice: str) -> bool:
     if chosen is not None:
         if _ARROW.search(answer):
             return False
-        given = _leading_value(_right_side(answer) if "=" in answer else answer)
+        # The value as written after its last relation: "4.0 \\times 10^{2}" keeps its power
+        # of ten, which a stripped right side lost ("4" matched the option "4 J").
+        given = _leading_value(_RELATION.split(answer)[-1])
         return given is not None and abs(given - chosen) <= 0.02 * max(abs(chosen), 1e-9)
     plain_choice = _MARKUP.sub("", choice).lower().strip()
     return bool(plain_choice) and plain_choice in _MARKUP.sub("", answer).lower()
@@ -229,13 +250,14 @@ def _same_choice(answer: str, choice: str) -> bool:
 _FRACTION = re.compile(r"\\[dt]?frac\s*\{\s*(-?[\d.]+)\s*\}\s*\{\s*(-?[\d.]+)\s*\}")
 _LEADING = re.compile(
     r"^\s*(-?\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?"
-    r"(?:\s*(?:\\times|\u00d7|x|\*)\s*10\s*\^\s*\{?\s*(-?\d+)\s*\}?)?"
+    r"(?:\s*(?:\\times|\\cdot|\u00d7|\u00b7|x|\*)\s*10\s*\^\s*\{?\s*(-?\d+)\s*\}?)?"
 )
 
 
 def _leading_value(text: str) -> float | None:
     """The number a text opens with: "2 x 10^5 J", "\\frac{1}{2}", "78.54 cm²", "1/2"."""
-    plain = _FRACTION.sub(r"\1/\2", text).replace("$", "").replace(",", "")
+    plain = _FRACTION.sub(r"\1/\2", text).replace("$", "").replace("\\,", "").replace(",", "")
+    plain = plain.replace(chr(0x2212), "-")
     match = _LEADING.match(plain)
     if match is None:
         return None
@@ -243,7 +265,11 @@ def _leading_value(text: str) -> float | None:
     if match.group(2):
         value /= float(match.group(2)) or 1.0
     if match.group(3):
-        value *= 10.0 ** int(match.group(3))
+        # "1 x 10^1000" in an option is no number a card can match, never an error.
+        exponent = int(match.group(3))
+        if abs(exponent) > 300:
+            return None
+        value *= 10.0**exponent
     return value
 
 

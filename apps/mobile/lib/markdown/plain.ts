@@ -3,14 +3,17 @@
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import { closesFence, readFenceMarker } from "@/lib/mdFenceScan";
 import {
+  type FencePlainReader,
   fenceIdForLang,
   isChartFenceLang,
   isControlFenceLang,
   isMathFenceLang,
   isVisualDiagramFenceLang,
+  fenceSpecForLang,
 } from "@/lib/fenceRegistry";
 import { clarifyText, parseClarifyCard } from "@/lib/clarify/clarifyCard";
-import { arrayText, parseArrayFence, parseQuizFence, quizText } from "@/lib/lesson/lessonFences";
+import { arrayCardText, quizCardText } from "@/lib/lesson/cardBody";
+import { plainFenceText } from "@/lib/lesson/lessonFences";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
 import {
   DEGREE_RING,
@@ -404,27 +407,32 @@ function convertProse(prose: string, mode: "copy" | "speech"): string {
   return text;
 }
 
-function convertFence(lang: string, body: string, mode: "copy" | "speech"): string {
+type PlainMode = "copy" | "speech";
+
+/** Each registry `plainReader`: the body's own text, or null to fall to its `plainText` rule. */
+const PLAIN_READERS: Record<FencePlainReader, (body: string, mode: PlainMode) => string | null> = {
+  // A teaching picture speaks its worked lines; without them it is a diagram like any other.
+  worked: (body, mode) => {
+    const spoken = teachingSpeech(body);
+    return spoken ? withTexRuns(spoken, mode === "speech" ? speakMath : copyMath) : null;
+  },
+  // Each reads what its card shows: a plain-text body as that text, never a quiz's answer.
+  quiz: quizCardText,
+  clarify: (body) => {
+    const card = parseClarifyCard(body);
+    return card ? clarifyText(card) : (plainFenceText(body) ?? "");
+  },
+  array: arrayCardText,
+};
+
+function convertFence(lang: string, body: string, mode: PlainMode): string {
   const trimmed = body.replace(/\n$/, "").trim();
   if (isControlFenceLang(lang)) return "";
-  if (fenceIdForLang(lang) === "arithmetic") {
-    const spoken = teachingSpeech(trimmed);
-    if (spoken) return withTexRuns(spoken, mode === "speech" ? speakMath : copyMath);
-  }
+  const reader = fenceSpecForLang(lang)?.plainReader;
+  const read = reader ? PLAIN_READERS[reader](trimmed, mode) : null;
+  if (read !== null) return read;
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
   const id = fenceIdForLang(lang);
-  if (id === "quiz") {
-    const quiz = parseQuizFence(trimmed);
-    return quiz ? quizText(quiz) : "";
-  }
-  if (id === "clarify") {
-    const card = parseClarifyCard(trimmed);
-    return card ? clarifyText(card) : "";
-  }
-  if (id === "array") {
-    const array = parseArrayFence(trimmed);
-    return array ? arrayText(array) : "";
-  }
   if (isVisualDiagramFenceLang(lang)) return mode === "speech" ? "a diagram" : "";
   if (id === "answer") {
     // A chemistry answer is text (H₂O, Fe³⁺, →); the header line only tells the renderer so.

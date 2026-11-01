@@ -90,9 +90,9 @@ from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.turn_reading.teaching import (
     is_learning_plan_request,
     is_standing_preference,
-    is_teaching_request,
     is_walkthrough_request,
 )
+from app.modules.turn_reading.turn import teaching_of
 from app.modules.turn_reading.visuals import is_image_generation_mention
 from app.modules.turn_reading.writing import draft_followup
 from app.modules.turn_reading.writing_kind import writing_request_kind
@@ -147,7 +147,7 @@ def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str |
     # a one-shot comparison table. Explicit visual requests above still win.
     if is_learning_plan_request(query_text):
         return LEARNING_PLAN_HINT
-    if is_teaching_request(query_text):
+    if teaching_of(query_text):
         return TEACHING_HINT
     # A task ("walk me through changing a tire") is not one: it keeps how-to steps.
     if is_walkthrough_request(query_text):
@@ -236,7 +236,7 @@ def _style_turn(
     code_hint = code_question_layout(query_text) if writing is None and not multi else None
     open_shape = bool(query and writing is None and code_hint is None and not multi)
     open_shape = open_shape and not is_brevity_request(query)
-    teaching = open_shape and is_teaching_request(query)
+    teaching = open_shape and teaching_of(query)
     learning_plan = open_shape and is_learning_plan_request(query)
     # "Help me understand recursion" is a lesson on one idea, the same shape.
     walkthrough = open_shape and not teaching and is_walkthrough_request(query)

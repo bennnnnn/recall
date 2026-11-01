@@ -11,6 +11,9 @@ import {
   isVisualDiagramFenceLang,
   isDataBodyFenceId,
   shouldLiftFenceOutOfList,
+  documentFormForLang,
+  drawsBareJson,
+  fenceSpecForLang,
 } from "@/lib/fenceRegistry";
 
 /**
@@ -404,5 +407,56 @@ describe("per-fence predicates accept exactly these fences", () => {
 
   it("maths fences", () => {
     expect(accepted(isMathFenceLang)).toEqual(["math"]);
+  });
+
+  // The lists plain.ts, document.ts and fenceDispatch.ts kept beside the registry (ST-09), now rows.
+  it("bodies copy and read-aloud draw with their own reader", () => {
+    const readers = FENCES.flatMap((spec) => {
+      const reader = spec.plainReader;
+      return reader ? [`${spec.id}:${reader}`] : [];
+    });
+    expect(readers.sort()).toEqual(["arithmetic:worked", "array:array", "clarify:clarify", "quiz:quiz"]);
+  });
+
+  it("what a shared document shows in each card's place", () => {
+    const forms = Object.fromEntries(
+      FENCES.flatMap((spec) => {
+        const form = documentFormForLang(spec.langs[0]!);
+        return form ? [[spec.id, form]] : [];
+      }),
+    );
+    expect(forms).toEqual({
+      arithmetic: "copyText",
+      quiz: "copyText",
+      clarify: "copyText",
+      array: "copyText",
+      calculator: "calculator",
+      places: "places",
+      graph: "graph",
+      chemistry: "molecule",
+      molecule: "molecule",
+      molecule3d: "molecule",
+      chart: "chart",
+      geometry: "diagram",
+      mermaid: "diagram",
+      simulation: "diagram",
+      chem_scene: "diagram",
+    });
+  });
+
+  it("drafts, and the cards drawn as a molecule", () => {
+    expect(accepted((lang) => fenceSpecForLang(lang)?.draft ?? false)).toEqual(["email", "message", "social"]);
+    expect(accepted((lang) => documentFormForLang(lang) === "molecule")).toEqual([
+      "chemistry",
+      "molecule",
+      "molecule3d",
+    ]);
+  });
+
+  it("cards a bare ```json fence of their JSON draws as", () => {
+    expect(FENCES.filter((spec) => drawsBareJson(spec.id)).map((spec) => spec.id).sort()).toEqual([
+      "geometry",
+      "graph",
+    ]);
   });
 });

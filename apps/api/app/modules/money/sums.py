@@ -52,10 +52,18 @@ class Sum:
     other_period: bool = False
 
 
-_MONTHLY = re.compile(r"\s?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b|\s?/\s?mo\b", re.I)
+# "200 at the end of each month" is a monthly deposit too: the one the savings formula pays
+# in. Paid at a month's start it earns a month more, which no product works, so it is
+# another period (2026-11-01: "at the end of each month" read as one $200 lump sum).
+_MONTHLY = re.compile(
+    r"\s?(?:at\s+the\s+end\s+of\s+)?(?:a|per|/|each|every)\s?(?:month|mo)\b|\s?monthly\b"
+    r"|\s?/\s?mo\b",
+    re.I,
+)
 _OTHER_PERIOD = re.compile(
     r"\s?(?:a|per|/|each|every)\s?(?:week|wk|fortnight|day|quarter)\b"
-    r"|\s?(?:weekly|bi-?weekly|fortnightly|daily|quarterly)\b",
+    r"|\s?(?:weekly|bi-?weekly|fortnightly|daily|quarterly)\b"
+    r"|\s?at\s+the\s+(?:start|beginning)\s+of\s+(?:each|every)\s+month\b",
     re.I,
 )
 _DOWN = re.compile(r"\b(?:down\s?payment(?:\s(?:of|is))?|put(?:ting)?\s(?:down)?|down)\s?$", re.I)
@@ -202,7 +210,7 @@ def _sum(value: float, before: str, rest: str, clause: str, lead: str) -> Sum:
     deposit = _DOWN_CLAUSE.match(clause)
     return Sum(
         value=value,
-        monthly=_MONTHLY.match(rest) is not None,
+        monthly=_MONTHLY.match(clause) is not None,
         down=_DOWN.search(before) is not None
         or _DOWN_AFTER.match(rest) is not None
         or (deposit is not None and not _NOT_PURCHASE.search(lead + deposit.group(0))),
@@ -212,7 +220,7 @@ def _sum(value: float, before: str, rest: str, clause: str, lead: str) -> Sum:
         price=_PRICE_BEFORE.search(before) is not None or _GOODS_AFTER.match(rest) is not None,
         paid=_PAID_BEFORE.search(before) is not None,
         income=_INCOME_BEFORE.search(before) is not None or _INCOME_AFTER.match(rest) is not None,
-        other_period=_OTHER_PERIOD.match(rest) is not None,
+        other_period=_OTHER_PERIOD.match(clause) is not None,
     )
 
 

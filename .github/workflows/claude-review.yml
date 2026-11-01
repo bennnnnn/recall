@@ -30,6 +30,9 @@ concurrency:
 
 jobs:
   review:
+    # Each label's run is its own check: another label added later makes a skipped
+    # "claude review (bug)" check, never one that hides the review's own result.
+    name: claude review (${{ github.event.label.name }})
     if: ${{ github.event.label.name == 'review' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -86,13 +89,18 @@ jobs:
             --model sonnet --max-turns 80
             --allowedTools "Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
 
-      # The action skips itself, and the job still passes, when this file on the pull request's
-      # branch differs from main's: a branch older than a change here was never reviewed, yet
-      # showed a green check (2026-11-01). A green check must mean a review ran.
+      # A green check must mean a review ran (2026-11-01). The action skips itself, and the
+      # job would still pass, when this file on the pull request's branch differs from
+      # main's; and with no credential (a fork or Dependabot pull request gets no secrets)
+      # every step skips. Both fail here instead.
       - name: Fail when the review did not run
-        if: env.HAS_CLAUDE_AUTH == 'true' && steps.claude.outputs.conclusion != 'success'
+        if: ${{ !cancelled() && steps.claude.outputs.conclusion != 'success' }}
         env:
           CONCLUSION: ${{ steps.claude.outputs.conclusion }}
         run: |
-          echo "::error::Claude review did not run (conclusion: '${CONCLUSION:-skipped}'). If this branch is older than the last change to .github/workflows/claude-review.yml, merge main into it, then remove and re-add the review label."
+          if [ "$HAS_CLAUDE_AUTH" != "true" ]; then
+            echo "::error::Claude review did not run: no Claude credential here (a fork or Dependabot pull request gets no secrets, or CLAUDE_CODE_OAUTH_TOKEN is unset)."
+          else
+            echo "::error::Claude review did not run (conclusion: '${CONCLUSION:-skipped}'). If this branch is older than the last change to .github/workflows/claude-review.yml, merge main into it, then remove and re-add the review label."
+          fi
           exit 1

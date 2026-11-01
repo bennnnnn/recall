@@ -66,6 +66,15 @@ type FallbackKind =
  */
 type FencePlainText = "drop" | "chart" | "diagram";
 
+/**
+ * A body copy and read-aloud read with their own reader (`lib/markdown/plain.ts`) before the
+ * `plainText` rule. `worked` with no worked lines falls back to that rule; the rest read as nothing.
+ */
+export type FencePlainReader = "worked" | "quiz" | "clarify" | "array";
+
+/** A card shown in a shared document (Share, PDF) as a one-line label (`lib/markdown/document.ts`). */
+export type FenceDocumentBlock = "chart" | "graph" | "diagram" | "molecule" | "calculator" | "places";
+
 type FenceSpecRow = {
   id: string;
   /** Every language tag that resolves to this fence. */
@@ -82,6 +91,14 @@ type FenceSpecRow = {
   fallback?: FallbackKind;
   /** How a whole-message copy and read-aloud treat the body. */
   plainText?: FencePlainText;
+  /** The reader a whole-message copy and read-aloud draw the body with, first. */
+  plainReader?: FencePlainReader;
+  /** In a shared document: its copy text, or the label in the card's place (default: plainText's). */
+  inDocument?: "copyText" | FenceDocumentBlock;
+  /** A ```json or unlabelled fence whose body is this card's JSON draws as this card. */
+  bareJson?: boolean;
+  /** A drafted message (email, text, post): a body that reads as no draft renders as prose. */
+  draft?: boolean;
   /** Display maths or a maths diagram: a code-card fallback of it has no Copy. */
   mathDiagram?: boolean;
   /** Lifted out of a list item so CommonMark reads it as a real fence. */
@@ -89,7 +106,7 @@ type FenceSpecRow = {
 };
 
 const FENCE_TABLE = [
-  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model", body: "prose" },
+  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model", body: "prose", draft: true },
   {
     id: "quote",
     langs: ["quote", "blockquote"],
@@ -127,6 +144,8 @@ const FENCE_TABLE = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "data",
+    plainReader: "quiz",
+    inDocument: "copyText",
   },
   {
     // A few questions with choices when the answer depends on the user (docs/clarify.md):
@@ -136,6 +155,8 @@ const FENCE_TABLE = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "data",
+    plainReader: "clarify",
+    inDocument: "copyText",
   },
   {
     // A lesson's list as boxes, each value over its index.
@@ -144,6 +165,8 @@ const FENCE_TABLE = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "data",
+    plainReader: "array",
+    inDocument: "copyText",
   },
   // `details`, `collapse`, and `summary` are unwrapped to markdown before
   // this table. They are not fence languages.
@@ -180,6 +203,8 @@ const FENCE_TABLE = [
     plainText: "diagram",
     mathDiagram: true,
     liftOutOfLists: true,
+    plainReader: "worked",
+    inDocument: "copyText",
   },
   {
     id: "clock",
@@ -216,6 +241,7 @@ const FENCE_TABLE = [
     plainText: "diagram",
     mathDiagram: true,
     liftOutOfLists: true,
+    bareJson: true,
   },
   {
     id: "graph",
@@ -227,6 +253,8 @@ const FENCE_TABLE = [
     plainText: "diagram",
     mathDiagram: true,
     liftOutOfLists: true,
+    inDocument: "graph",
+    bareJson: true,
   },
   // Server-owned like geometry/graph: the prompt forbids it and
   // validate_math_fences replaces or strikes out anything the model invents.
@@ -248,6 +276,7 @@ const FENCE_TABLE = [
     neverCodeBlock: true,
     owner: "server", body: "data",
     plainText: "drop",
+    inDocument: "calculator",
   },
   {
     id: "chem_scene",
@@ -266,6 +295,7 @@ const FENCE_TABLE = [
     owner: "model", body: "data",
     fallback: "visual",
     plainText: "diagram",
+    inDocument: "molecule",
   },
   // Display-only: the client preprocessor collapses an adjacent smiles + molecule3d pair into
   // this. Neither the model nor the server writes it — a stored reply holds only the two
@@ -278,6 +308,7 @@ const FENCE_TABLE = [
     owner: "server", body: "data",
     fallback: "visual",
     plainText: "diagram",
+    inDocument: "molecule",
   },
   {
     id: "molecule3d",
@@ -287,6 +318,7 @@ const FENCE_TABLE = [
     owner: "server", body: "data",
     fallback: "visual",
     plainText: "diagram",
+    inDocument: "molecule",
   },
   {
     id: "places",
@@ -296,6 +328,7 @@ const FENCE_TABLE = [
     owner: "model", body: "data",
     fallback: "places",
     plainText: "drop",
+    inDocument: "places",
   },
   {
     id: "callout",
@@ -325,6 +358,7 @@ const FENCE_TABLE = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "prose",
+    draft: true,
   },
   {
     id: "message",
@@ -332,6 +366,7 @@ const FENCE_TABLE = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "prose",
+    draft: true,
   },
   // Not structured: `copy` and `sources` never reach the rich renderer, but
   // must not fall through to a syntax-highlighted code block either. `sources`
@@ -411,6 +446,20 @@ export function isChartFenceLang(lang: string): boolean {
 /** Geometry / mermaid / chemistry visuals — not charts (those speak as "a chart"). */
 export function isVisualDiagramFenceLang(lang: string): boolean {
   return fenceSpecForLang(lang)?.plainText === "diagram";
+}
+
+/** What a shared document shows for this fence: its copy text, a card label, or neither. */
+export function documentFormForLang(lang: string): "copyText" | FenceDocumentBlock | null {
+  const spec = fenceSpecForLang(lang);
+  if (spec?.inDocument) return spec.inDocument;
+  if (spec?.plainText === "chart") return "chart";
+  if (spec?.plainText === "diagram") return "diagram";
+  return null;
+}
+
+/** A ```json or unlabelled fence whose body is this card's JSON draws as this card. */
+export function drawsBareJson(id: FenceId): boolean {
+  return BY_ID.get(id)?.bareJson ?? false;
 }
 
 /** A card drawn from JSON or another machine format: its open fence never streams raw. */

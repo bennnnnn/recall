@@ -225,3 +225,57 @@ async def test_another_text_inside_a_turn_plans_itself() -> None:
     reading = current_turn_reading()
     assert reading is not None and other is not reading.plan
     assert other.texts() == ("tell me a joke",)
+
+
+@pytest.mark.parametrize(
+    ("text", "reason"),
+    [
+        ("teach me how recursion works", "teach"),
+        ("", "no_cue"),
+        ("What is a python dictionary?", "no_cue"),
+        ("teach me " + "very " * 100 + "much", "too_long"),
+        ("Give me a 4-week roadmap to learn Python", "no_cue"),
+        ("teach me python in 30 days", "learning_plan"),
+        ("teach me by asking questions", "preference"),
+        ("Teach me how to bake bread step by step", "procedure"),
+    ],
+)
+def test_teaching_names_why(text: str, reason: str) -> None:
+    from app.modules.turn_reading.teaching import is_teaching_request, teaching_reason
+
+    assert teaching_reason(text) == reason
+    assert is_teaching_request(text) is (reason == "teach")
+
+
+async def test_teaching_is_the_turns_reading_for_its_message_and_read_for_any_other(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.turn_reading import turn
+    from app.modules.turn_reading.teaching import is_teaching_request
+
+    settings = Settings()
+    begin_turn()
+    await read_turn_message("teach me how recursion works", [], settings)
+    read: list[str] = []
+
+    def spy(text: str) -> bool:
+        read.append(text)
+        return is_teaching_request(text)
+
+    monkeypatch.setattr(turn, "is_teaching_request", spy)
+
+    reading = current_turn_reading()
+    assert reading is not None and reading.teaching and reading.teaching_reason == "teach"
+    # The turn's message answers from the reading: the reader is not run again.
+    assert turn.teaching_of("teach me how recursion works") is True
+    assert read == []
+    # Another text is read on its own: a part, a rewritten line.
+    assert turn.teaching_of("What is a python dictionary?") is False
+    assert read == ["What is a python dictionary?"]
+    # The next turn's reading is its own: the last turn's message is read again.
+    begin_turn()
+    await read_turn_message("What is a python dictionary?", [], settings)
+    read.clear()
+    assert turn.teaching_of("What is a python dictionary?") is False
+    assert turn.teaching_of("teach me how recursion works") is True
+    assert read == ["teach me how recursion works"]

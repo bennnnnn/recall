@@ -29,7 +29,7 @@ import type { SendTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
 import { queryNeedsClientGeo } from "@/features/chat/model/resolveClientGeoForQuery";
-import { useViewOwner } from "@/features/chat/model/viewOwner";
+import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import {

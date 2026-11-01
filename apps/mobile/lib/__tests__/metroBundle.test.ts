@@ -25,7 +25,7 @@ const config = require(join(__dirname, "..", "..", "metro.config.js")) as MetroC
 /** Resolves as Metro would for one bundle; the app's own resolver hands anything else on. */
 function resolve(
   moduleName: string,
-  { platform = "ios", dev = false, from = "/app/lib/purchases.ts" } = {},
+  { platform = "ios", dev = false, from = "/app/features/billing/model/purchases.ts" } = {},
 ): Resolution {
   const context = {
     dev,

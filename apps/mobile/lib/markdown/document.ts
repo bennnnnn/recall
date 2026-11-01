@@ -7,28 +7,26 @@
 
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import {
+  documentFormForLang,
   fenceIdForLang,
   fenceSpecForLang,
-  isChartFenceLang,
   isControlFenceLang,
   isMathFenceLang,
-  isVisualDiagramFenceLang,
+  type FenceDocumentBlock,
 } from "@/lib/fenceRegistry";
 import { fenceToCopyText, mapFenceRegions } from "@/lib/markdown/plain";
 
-/** A card shown in the document as its label alone. */
-export type DocumentBlock = "chart" | "graph" | "diagram" | "molecule" | "calculator" | "places";
+/** A card shown in the document as its label alone (each fence's `inDocument` row). */
+export type DocumentBlock = FenceDocumentBlock;
 
-const MOLECULE_IDS = new Set(["chemistry", "molecule", "molecule3d"]);
+/**
+ * Where the document goes. Share sends plain text, so a card's lines stay plain lines; the
+ * PDF printer joins a paragraph's lines, so there a card's lines end in a hard break.
+ */
+export type DocumentTarget = "share" | "print";
 
-function blockFor(lang: string): DocumentBlock | null {
-  const id = fenceIdForLang(lang);
-  if (id === "calculator" || id === "places") return id;
-  if (id === "graph") return "graph";
-  if (id && MOLECULE_IDS.has(id)) return "molecule";
-  if (isChartFenceLang(lang)) return "chart";
-  if (isVisualDiagramFenceLang(lang)) return "diagram";
-  return null;
+function cardLines(text: string, target: DocumentTarget): string {
+  return target === "print" ? text.replace(/([^\n])\n(?=[^\n])/g, "$1  \n") : text;
 }
 
 /** A fence that survives as code: its backticks outnumber any run inside it. */
@@ -49,13 +47,14 @@ function documentFence(
   lang: string,
   body: string,
   label: (block: DocumentBlock) => string,
+  target: DocumentTarget,
 ): string {
   const trimmed = body.replace(/\n$/, "").trim();
   const id = fenceIdForLang(lang);
-  // A long-division or column sum reads as its worked lines.
-  if (id === "arithmetic" || id === "quiz" || id === "array") return fenceToCopyText(lang, body);
-  const block = blockFor(lang);
-  if (block) return label(block);
+  const form = documentFormForLang(lang);
+  // A long-division or column sum reads as its worked lines, a quiz as its question.
+  if (form === "copyText") return cardLines(fenceToCopyText(lang, body), target);
+  if (form) return label(form);
   if (isControlFenceLang(lang)) return "";
   if (id === "answer") return answerText(trimmed);
   if (isMathFenceLang(lang)) return codeFence("math", trimmed);
@@ -69,11 +68,12 @@ function documentFence(
 export function markdownToDocumentText(
   markdown: string,
   label: (block: DocumentBlock) => string,
+  target: DocumentTarget = "share",
 ): string {
   return mapFenceRegions(
     markdown,
     (prose) => prose,
-    (lang, body) => documentFence(lang, body, label),
+    (lang, body) => documentFence(lang, body, label, target),
   )
     .replace(/\n{3,}/g, "\n\n")
     .trim();

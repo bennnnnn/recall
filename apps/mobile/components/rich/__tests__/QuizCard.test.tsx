@@ -175,6 +175,13 @@ describe("QuizCard", () => {
     expect(view.getByText("rich.quiz_wrong")).toBeTruthy();
   });
 
+  it("draws nothing for JSON after a line of prose, never its answer key", async () => {
+    const keyed =
+      'Here you go:\n{"question":"Q","options":["a","b"],"answer":1,"explanation":"secret"}';
+    const view = await render(<QuizCard content={keyed} />);
+    expect(view.toJSON()).toBeNull();
+  });
+
   it("shows a question written as plain text", async () => {
     const view = await render(<QuizCard content="Which loop prints 1 to 5?" />);
     expect(view.getByText("Which loop prints 1 to 5?")).toBeTruthy();

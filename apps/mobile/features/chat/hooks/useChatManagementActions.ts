@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { getSessionGeneration } from "@/lib/auth";
-import { useViewOwner } from "@/features/chat/model/viewOwner";
+import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
 import {
   confirmAndDeleteChat,
