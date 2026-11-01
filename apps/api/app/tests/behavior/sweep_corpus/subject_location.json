@@ -242,5 +242,12 @@
   "prompt": "How long does it take to drive 10 km to the airport from my location?",
   "reply": "I need your location to tell you that.",
   "expect": "instant"
+ },
+ {
+  "id": "sbl-035",
+  "area": "physics",
+  "prompt": "A ball is dropped from a height of 20 m and lands on the ground here. How long does it take to reach the ground?",
+  "reply": "**Given:** $h = 20$ m\n\n**Formula:** $t = \\sqrt{2h/g}$\n\n**Substitution:** $t = \\sqrt{2(20)/9.81}$\n\n**Answer:** about **2.02 s**.",
+  "expect": "answer"
  }
 ]
