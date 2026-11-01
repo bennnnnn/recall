@@ -51,37 +51,26 @@ function answerNeedsDisplayMath(text: string): boolean {
   );
 }
 
+type Styles = ReturnType<typeof makeStyles>;
+
 /**
- * The final answer, drawn like the worked layout's Answer section: the
- * "Answer" heading ("Answer (a)" for one part), and the value alone in a white,
- * bordered box.
- * Every ```answer fence lands here; the green check after the value is the
- * server's (a body that opens with `verified: true`, see lib/answerNotation.ts)
- * and needs the reply to have settled. A value no solver checked (`verified: false`)
- * says so beside the heading, "Not checked", in a box with a dashed border.
- *
- * Light answers stay on native `MathText`. Heavy LaTeX environments
- * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in a slot that
- * fills the box — never `compact` + centered zero-width wrap, which used to
- * collapse into a thin vertical sliver / tall pill inside this box.
+ * The card's heading ("Answer", "Answer (a)") and its box. A value no solver checked
+ * (`verified: false`) says "Not checked" beside the heading, in a dashed box.
  */
-export function AnswerBlock({ content, settled = true }: Props) {
-  const theme = useTheme();
+function AnswerFrame({
+  parsed,
+  spoken,
+  styles: s,
+  children,
+}: {
+  parsed: ReturnType<typeof splitAnswerNotation>;
+  spoken: string;
+  styles: Styles;
+  children: ReactNode;
+}) {
   const { t } = useTranslation();
-  const s = useMemo(() => makeStyles(theme), [theme]);
-  const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
-  const check =
-    settled && parsed.verified ? (
-      <Icon
-        testID="answer-success-check"
-        name="check-circle-filled"
-        size={IconSize.md}
-        color={theme.success}
-        style={s.successCheck}
-      />
-    ) : null;
   const unchecked = parsed.unchecked ? t("rich.answer_not_checked") : null;
-  const frame = (spoken: string, value: ReactNode) => (
+  return (
     <View
       style={s.section}
       accessibilityRole="text"
@@ -102,9 +91,44 @@ export function AnswerBlock({ content, settled = true }: Props) {
         ) : null}
       </View>
       <View testID="answer-box" style={[s.box, unchecked ? s.uncheckedBox : null]}>
-        {value}
+        {children}
       </View>
     </View>
+  );
+}
+
+/**
+ * The final answer, drawn like the worked layout's Answer section: the
+ * "Answer" heading ("Answer (a)" for one part), and the value alone in a white,
+ * bordered box.
+ * Every ```answer fence lands here; the green check after the value is the
+ * server's (a body that opens with `verified: true`, see lib/answerNotation.ts)
+ * and needs the reply to have settled. A value no solver checked (`verified: false`)
+ * says so beside the heading, "Not checked", in a box with a dashed border.
+ *
+ * Light answers stay on native `MathText`. Heavy LaTeX environments
+ * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in a slot that
+ * fills the box — never `compact` + centered zero-width wrap, which used to
+ * collapse into a thin vertical sliver / tall pill inside this box.
+ */
+export function AnswerBlock({ content, settled = true }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
+  const check =
+    settled && parsed.verified ? (
+      <Icon
+        testID="answer-success-check"
+        name="check-circle-filled"
+        size={IconSize.md}
+        color={theme.success}
+        style={s.successCheck}
+      />
+    ) : null;
+  const frame = (spoken: string, value: ReactNode) => (
+    <AnswerFrame parsed={parsed} spoken={spoken} styles={s}>
+      {value}
+    </AnswerFrame>
   );
   if (parsed.notation === "chemistry" && parsed.body) {
     return frame(
