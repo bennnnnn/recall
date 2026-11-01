@@ -17,7 +17,7 @@ import re
 from collections.abc import AsyncGenerator, AsyncIterator
 
 from app.services.answer_fence import OWNED_FENCE_LANGS
-from app.services.md_fence_scan import iter_fences, last_fence
+from app.services.md_fence_scan import iter_fences, last_fence, read_fence_marker
 
 # "<|im_end|>", "</|im_end|>", "<|endoftext|>", "<|eot_id|>", and the full-width bar form
 # one provider ends a sentence with.
@@ -143,8 +143,6 @@ def _in_open_fence(text: str) -> bool:
     return fence is not None and not fence.closed
 
 
-# A fence's own line ("```" closing a block): its backticks open no `inline` span.
-_FENCE_LINE = re.compile(r"[ \t]{0,3}(?:`{3,}|~{3,})")
 # An `inline` span still open this far past its backtick is a stray backtick ("Press the `
 # key"), not quoted code: a run a reply quotes follows its backtick closely.
 _OPEN_SPAN_MAX = 80
@@ -157,7 +155,8 @@ def _in_inline_code(text: str, at: int) -> bool:
     line_start = text.rfind("\n", 0, at) + 1
     line_end = text.find("\n", at)
     line = text[line_start : len(text) if line_end == -1 else line_end]
-    if _FENCE_LINE.match(line):
+    if read_fence_marker(line) is not None:
+        # A fence's own line ("```" closing a block): its backticks open no span.
         return False
     at -= line_start
     cursor = 0
