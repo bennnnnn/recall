@@ -17,5 +17,8 @@
   {"id": "ds16", "area": "probability", "prompt": "Flip a coin 4 times. What is the probability of exactly 2 heads?", "expect": "answer", "check": ["num", "3/8"], "note": "C(4,2)/16"},
   {"id": "ds17", "area": "probability", "prompt": "ok cool. what is 2+2", "expect": "answer", "check": ["num", "4"], "note": "chat before a question is still dropped"},
   {"id": "ds18", "area": "probability", "prompt": "This is so hard. what is 5 factorial", "expect": "answer", "check": ["num", "120"], "note": "a remark before the question is still chat"},
-  {"id": "ds19", "area": "probability", "prompt": "The test was hard. What is the derivative of x^2", "expect": "answer", "check": ["expr", "2*x"], "note": "the past tense tells of the chat; it states no setup"}
+  {"id": "ds19", "area": "probability", "prompt": "The test was hard. What is the derivative of x^2", "expect": "answer", "check": ["expr", "2*x"], "note": "the past tense tells of the chat; it states no setup"},
+  {"id": "ds20", "area": "probability", "prompt": "The homework is due Friday. what is 2+2", "expect": "answer", "check": ["num", "4"], "note": "names no die, coin, deck or bag: chat"},
+  {"id": "ds21", "area": "probability", "prompt": "Each problem has a trick. what is 7*8", "expect": "answer", "check": ["num", "56"]},
+  {"id": "ds22", "area": "probability", "prompt": "My sister has a cat. what is 9 squared", "expect": "answer", "check": ["num", "81"]}
 ]
