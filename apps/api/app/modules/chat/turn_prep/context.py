@@ -32,7 +32,7 @@ from app.modules.chat.turn_prep.request import (
     resolve_client_geo,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.modules.chat.turn_trace import note_lightweight, note_plan
+from app.modules.chat.turn_trace import note_lightweight, note_plan, note_teaching
 from app.modules.conversation import history as conversation_history
 from app.modules.turn_reading.plan import TurnPlan
 from app.repositories import users as users_repo
@@ -369,6 +369,7 @@ def _turn_plan(content: str, settings: Settings) -> TurnPlan:
     """The turn's plan, from its reading, and why, for the turn's trace line."""
     reading = read_turn(content, settings)
     note_plan((part.kind for part in reading.plan.parts), reading.plan_reason)
+    note_teaching(reading.teaching_reason)
     return reading.plan
 
 

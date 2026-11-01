@@ -20,7 +20,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.modules.turn_reading.lesson_flow import active_lesson_step, lesson_after_gap, lesson_titles
-from app.modules.turn_reading.teaching import is_teaching_request
+from app.modules.turn_reading.turn import teaching_of
 from app.services.md_fence_scan import iter_fences
 from app.services.text_normalize import straighten_apostrophes
 
@@ -63,7 +63,7 @@ def lesson_again(text: str | None, recent: list[Any] | None) -> int | None:
 
     Not after a gap (that turn recaps), and not on a teach-me line (a new lesson)."""
     current = active_lesson_step(recent)
-    if current is None or asked_lesson(text) != current or is_teaching_request(text or ""):
+    if current is None or asked_lesson(text) != current or teaching_of(text or ""):
         return None
     return None if lesson_after_gap(recent) else current
 

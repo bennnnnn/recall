@@ -233,9 +233,10 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     # live QA at a fraction of the TTFT, so keep this classifier shared with the
     # prompt layer and use the fast lane. Hard coding/math still reaches the
     # smart checks below when it is not an explicit tutor/roadmap request.
-    from app.modules.turn_reading.teaching import is_learning_plan_request, is_teaching_request
+    from app.modules.turn_reading.teaching import is_learning_plan_request
+    from app.modules.turn_reading.turn import teaching_of
 
-    if is_learning_plan_request(content) or is_teaching_request(content):
+    if is_learning_plan_request(content) or teaching_of(content):
         return fast, "teaching"
     # A request whose task is to *format* a small example as a Markdown table
     # is not a deep architecture/trade-off analysis. The column label

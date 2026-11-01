@@ -96,8 +96,8 @@ from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.turn_reading.teaching import (
     is_learning_plan_request,
     is_standing_preference,
-    is_teaching_request,
 )
+from app.modules.turn_reading.turn import teaching_of
 from app.services import locale as locale_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question
@@ -258,7 +258,7 @@ def _advice(turn: PromptTurn) -> list[str]:
     if query and (is_profile_fact_question(query) or is_profile_recall_pushback(query)):
         # A failed memory read must not become "I don't have that yet" (memory_notes).
         return [] if memory_status_note(turn) else [PROFILE_FACT_HINT]
-    if query and is_teaching_request(query):
+    if query and teaching_of(query):
         return [EXAMPLE_PERSONALIZE_HINT]
     if query and is_career_personal_question(query):
         return [CAREER_PERSONALIZE_HINT]
@@ -419,7 +419,7 @@ def part_shape_hints(text: str) -> list[str]:
     hints = _present(_layout_format_hint(text))
     if is_learning_plan_request(text):
         hints.extend(_present(learning_plan_daily_contract(text)))
-    elif is_teaching_request(text):
+    elif teaching_of(text):
         hints.extend(_present(programming_lesson_contract(text)))
     return hints
 
@@ -441,7 +441,7 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         name="learning_plan_contract",
     ),
     PromptSection(
-        lambda t: bool(t.query) and not t.multi and is_teaching_request(t.query),
+        lambda t: bool(t.query) and not t.multi and teaching_of(t.query),
         lambda t: _present(programming_lesson_contract(t.query)),
         name="programming_lesson_contract",
     ),

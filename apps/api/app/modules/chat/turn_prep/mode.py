@@ -23,7 +23,7 @@ from app.modules.turn_reading.routing import (
     is_lightweight_chat_turn,
     is_short_reply,
 )
-from app.modules.turn_reading.teaching import is_teaching_request
+from app.modules.turn_reading.turn import teaching_of
 from app.modules.turn_reading.writing import draft_followup
 from app.services import day_planning as day_planning_service
 from app.services.subject_solving import detect_subject
@@ -227,7 +227,7 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
             is_personal_advice_question(content)
             or _asks_about_food(content)
             or is_capabilities_question(content)
-            or is_teaching_request(content)
+            or teaching_of(content)
             or is_career_personal_question(content)
             or is_profile_fact_question(content)
             or profile_followup
