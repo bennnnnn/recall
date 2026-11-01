@@ -76,10 +76,50 @@ class PhysicsFollowups:
 
 
 @dataclass(frozen=True)
+class PhysicsFence:
+    """Physics checks the replies it verified (chat's finalize passes)."""
+
+    def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        return True
+
+    def check(
+        self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
+    ) -> str:
+        from app.modules.physics.fence import validate_physics_fences
+
+        return validate_physics_fences(
+            text, verified=_physics_block(verified), correct=correct, user_text=user_text
+        )
+
+    def recover(self, text: str, verified: VerifiedSolveBlock | None) -> str:
+        from app.modules.physics.fence import replace_unclosed_physics_fences_safe
+
+        return replace_unclosed_physics_fences_safe(text, _physics_block(verified))
+
+    def unverified_note(self, text: str) -> str:
+        # An unverified physics turn's note is in its prompt, not under the reply.
+        return text
+
+    def draws(self, text: str, settings: Settings) -> bool:
+        return False
+
+    def draw(self, text: str, settings: Settings) -> str:
+        return text
+
+    def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
+        return text
+
+
+def _physics_block(verified: VerifiedSolveBlock | None) -> VerifiedPhysicsBlock | None:
+    return verified if isinstance(verified, VerifiedPhysicsBlock) else None
+
+
+@dataclass(frozen=True)
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
     hints: SubjectHints = _HINTS
     followups: PhysicsFollowups = PhysicsFollowups()
+    fence: PhysicsFence = PhysicsFence()
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_physics(text)

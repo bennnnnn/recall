@@ -17,7 +17,11 @@ An adapter has what the dispatcher and chat ask of every subject:
 - ``hints``: its prompt copy, and where chat states it (``SubjectHints``);
 - ``asks``: whether a line asks something of the subject (its cue), solved or not;
 - ``followups``: how it reads a line that goes back to its last problem
-  (``SubjectFollowups``). A subject with nothing to read there answers None or False.
+  (``SubjectFollowups``);
+- ``fence``: how it holds a finished reply's fences to its verified block, and the notes,
+  drawings and clean-up it adds (``SubjectFence``).
+
+A subject with nothing to offer for a member answers None or False, or returns the text as it is.
 
 A new subject is a module with its own ``subject`` adapter, its name in ``SubjectName`` (in
 ``services/solving``, beside the verified block every subject's solve names itself in) and its
@@ -101,6 +105,44 @@ class SubjectFollowups(Protocol):
         ...
 
 
+class SubjectFence(Protocol):
+    """How a subject finishes a reply: chat's finalize passes ask it, in their order.
+
+    ``check`` and ``draw`` take positional arguments: the SymPy pool runs them.
+    """
+
+    def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        """Whether ``check`` has anything to do, before the pool is asked."""
+        ...
+
+    def check(
+        self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
+    ) -> str:
+        """The reply's fences held to the verified block. ``correct`` adds a correction
+        line when model prose states a different value; the server never corrects its own."""
+        ...
+
+    def recover(self, text: str, verified: VerifiedSolveBlock | None) -> str:
+        """``check`` failed or ran out of time: the fences closed and made safe, no solver."""
+        ...
+
+    def unverified_note(self, text: str) -> str:
+        """The reply with the note an answer the subject could not verify carries."""
+        ...
+
+    def draws(self, text: str, settings: Settings) -> bool:
+        """The reply holds fences the subject draws from its own data (``draw``)."""
+        ...
+
+    def draw(self, text: str, settings: Settings) -> str:
+        """Those fences drawn, in the pool: a chart's formula sampled, a molecule's data."""
+        ...
+
+    def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
+        """What the subject's prompt forbids and a reply still wrote, taken out."""
+        ...
+
+
 class SubjectAdapter(Protocol):
     """One subject, as the dispatcher and chat ask it."""
 
@@ -112,6 +154,9 @@ class SubjectAdapter(Protocol):
 
     @property
     def followups(self) -> SubjectFollowups: ...
+
+    @property
+    def fence(self) -> SubjectFence: ...
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool: ...
 

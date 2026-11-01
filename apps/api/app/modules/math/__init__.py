@@ -44,14 +44,10 @@ def __getattr__(name: str) -> Any:
     return value
 
 
-# Seams the chat turn uses: detection, camera reads, post-stream fences, the tool loop's
-# check that a sympy call is the problem the user wrote, the record of a
-# pre-solve that ran out of time (so the tool loop does not solve it again), and the pool
-# warm-up.
+# Seams the chat turn uses: detection, camera reads, the tool loop's check that a sympy
+# call is the problem the user wrote, the record of a pre-solve that ran out of time (so
+# the tool loop does not solve it again), and the pool warm-up.
 _MODULE_EXPORTS = (
-    # A model's chart of a formula, sampled by SymPy (the phone never evaluates one).
-    "chart_formula",
-    "fence",
     "image_extract",
     "match",
     "ocr",
