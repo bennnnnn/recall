@@ -1,6 +1,6 @@
 import { useCallback, useState, type MutableRefObject } from "react";
 
-import type { UpgradeSource } from "@/components/UpgradeSheet";
+import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import type { User } from "@/lib/api";
 import type { useChatScroll } from "@/features/chat/hooks/useChatScroll";
 import type { useChatSend } from "@/features/chat/hooks/useChatSend";

@@ -3,9 +3,9 @@ import {
   resetAlertsOffNotice,
   shouldTellAlertsOff,
 } from "@/features/todos/model/reminderAlerts";
-import { ensureNotificationPermission } from "@/lib/pushNotifications";
+import { ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
 
-jest.mock("@/lib/pushNotifications", () => ({ ensureNotificationPermission: jest.fn() }));
+jest.mock("@/features/notifications/model/pushNotifications", () => ({ ensureNotificationPermission: jest.fn() }));
 
 beforeEach(() => {
   jest.clearAllMocks();

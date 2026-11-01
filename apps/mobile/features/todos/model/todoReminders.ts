@@ -6,10 +6,10 @@ import { getSessionGeneration } from "@/lib/auth";
 import { formatDate } from "@/lib/datetime/format";
 import i18n from "@/lib/i18n";
 import { shouldSyncLocalTodoReminders } from "@/features/todos/model/todoReminderPush";
-import { AndroidNotificationChannel, notificationSound } from "@/lib/notificationChannels";
-import { ensureReminderChannel } from "@/lib/pushNotifications";
+import { AndroidNotificationChannel, notificationSound } from "@/features/notifications/model/notificationChannels";
+import { ensureReminderChannel } from "@/features/notifications/model/pushNotifications";
 
-export { ensureNotificationPermission } from "@/lib/pushNotifications";
+export { ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
 const TODO_PREFIX = "todo-due-";
 const ANDROID_CHANNEL = AndroidNotificationChannel.reminders;
 type ReminderOptions = {

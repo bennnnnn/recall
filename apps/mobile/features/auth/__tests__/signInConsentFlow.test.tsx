@@ -94,7 +94,7 @@ jest.mock("@/lib/i18n", () => ({ ensureLocale: jest.fn() }));
 jest.mock("@/hooks/useBootstrapSync", () => ({ useBootstrapSync: jest.fn() }));
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn(async () => undefined) }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
-jest.mock("@/lib/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
+jest.mock("@/features/notifications/model/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native");

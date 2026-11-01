@@ -1,4 +1,4 @@
-import { hasUsefulScannerText } from "@/lib/scanner/liveText";
+import { hasUsefulScannerText } from "@/features/scanner/model/liveText";
 
 describe("live scanner text", () => {
   it("treats a formula as ready even when it has no digit", () => {

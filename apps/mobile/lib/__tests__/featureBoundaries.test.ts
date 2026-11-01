@@ -43,6 +43,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/pendingComposerAttachment.ts",
   ],
   auth: [],
+  billing: ["components/UpgradeSheet.tsx", "model/purchases.ts"],
   chat: [
     "model/chatListCache.ts",
     "model/composerDraftReset.ts",
@@ -65,6 +66,16 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/imageIntentPrefilter.ts",
   ],
   memory: ["model/memoryListCache.ts"],
+  notifications: [
+    "model/notificationChannels.ts",
+    "model/pushNotifications.ts",
+    "model/pushRegistration.ts",
+  ],
+  scanner: [
+    "components/LazyMathEquationScanner.tsx",
+    "model/readBack.ts",
+    "model/scanReadError.ts",
+  ],
   search: ["components/DrawerSearchResults.tsx", "hooks/useDrawerSearch.ts"],
   speech: [
     "components/LiveTalkButton.tsx",
@@ -106,8 +117,8 @@ const SHARED_ENTRIES: Record<string, string> = {
   "lib/richBlocks.ts": "reads each rich block; an email draft is sanitized by drafts",
   "lib/markdown/assistantMessageContent.ts": "a reply's reminder card and To-do button are todos fences",
   "components/Avatar.tsx": "the profile photo is an attachment",
-  "components/MathEquationScanner.tsx": "the scanner picks its photo with the attachment picker",
-  "components/mathScanner/useScanReview.ts": "the scanner reads its photo with the attachment picker",
+  "contexts/AuthContext.tsx": "a sign-out takes the device's push token with it (notifications)",
+  "hooks/useBootstrapSync.ts": "a signed-in launch starts billing and push sync",
 };
 
 type Edge = { from: string; to: string };

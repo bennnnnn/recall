@@ -8,7 +8,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { onAppEvent } from "@/lib/appEvents";
 import type { User } from "@/lib/api";
 import { userTimeZone, userUses24HourClock } from "@/lib/datetime/format";
-import { remotePushRegistered, subscribeRemotePushRegistered } from "@/lib/pushRegistration";
+import { remotePushRegistered, subscribeRemotePushRegistered } from "@/features/notifications/model/pushRegistration";
 import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 
 /** The profile fields a to-do's notify_at is worked out from (its time zone for quiet hours). */
