@@ -344,6 +344,46 @@ for presentation and the post-turn jobs, not for reading.
     turn reads it. Step 2's small-talk list is held the same way.
   - Decision diff: no decision changed (`--added teaching_reason`: no_cue ×5,063, teach ×9,
     preference ×1, too_long ×1).
+- **Status, step 4 (subject): done.**
+  - The subject order (code, a scanned caption, closed chemistry, physics, a curve physics
+    cannot read, symbol givens, chemistry-shaped, maths, a chart, chemistry off, a chemistry
+    question, none) is written once, in `services/which_subject.py` (`read_subject_reason`, a
+    pool reading that returns the subject and the step that decided it, `SubjectReading`),
+    moved out of `subject_solving.py`, which keeps its 500-line limit and re-exports
+    `SubjectName`. `_subject_of_text` (and so `detect_subject` and `read_subject`) returns its
+    subject; the order and every branch are unchanged.
+  - `TurnReading` holds the message's subject as the pool read it with the turn's attachment
+    flag and chemistry setting (`subject`, `subject_reason`); `read_turn` takes it from the
+    turn's memo and never reads it on the loop (`not_read` when the pool did not read it,
+    `read_declined` when the pool gave up). The reason is on the trace line. Turn load
+    reads the message before it knows the turn's photo; the prompt's read with the photo
+    builds the reading again with the subject read under that flag, so an image turn's
+    trace names the subject its photo gave.
+  - Chat code asks `chat.turn_prep.reading.subject_of(text, has_image_attachment=…,
+    chemistry_enabled=…)`, which answers from the reading only for the turn's message read
+    with the same flags, and otherwise reads as `detect_subject` did: `turn_prep/mode.py`
+    (food advice), `prompt_memory.py` (a work turn) and `prompt_format.py` (a how-to's
+    layout). Routing (`model_routing/route.py`) keeps calling `detect_subject`: it runs in
+    the pool, before the reading is kept, and importing the reading there grew an import
+    cycle.
+  - **Precedence questions, kept as today:** those three ask with `detect_subject`'s
+    defaults (no image attachment, chemistry on) and routing with the chemistry setting but
+    no attachment flag, while the
+    turn's subject fetch (`turn_prep/augment.py`, `read_subject`) uses the turn's image flag
+    and image maths extract. With chemistry switched off, or a photo attached, they can name
+    a different subject than the fetch. Choosing is a behaviour PR of its own.
+  - Every direct caller of `detect_subject`, `read_subject`, `_subject_of_text` and
+    `read_subject_reason` is listed with why in `tests/architecture/test_turn_decisions.py`:
+    the pool's reads, the subject fetches, readers of other text (a request's own text, an
+    earlier line, a related question) and images' intent readers, which read a send before
+    any chat turn and may not import chat.
+  - Decision diff over 5,106 turns: no decision changed (`--added subject_reason`: none
+    ×3,495, physics ×775, math ×538, chemistry_closed ×228, chemistry_question ×26,
+    chemistry_shaped ×17, code ×16, chart ×11). The STEM snapshot, battery and sweep pass
+    unchanged, and the STEM sweeps take the same time.
+  - A test that begins a turn outside a task (a sync test) would leave its readings in the
+    worker's context, and every later test on the worker would then run inside that turn;
+    `conftest.py` clears the turn after each test.
 
 ### ST-06 — Finalize passes declare their order and their kind
 

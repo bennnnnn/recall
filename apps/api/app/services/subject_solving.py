@@ -10,7 +10,6 @@ from __future__ import annotations
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Literal
 
 from redis.asyncio import Redis
 
@@ -20,13 +19,11 @@ from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.prompt import (
     NOTHING_TO_GRAPH,
     build_math_augmentation,
-    needs_symbolic_math,
 )
-from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.prompt import build_physics_augmentation
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock, VerifiedSolveBlock
-
-SubjectName = Literal["math", "physics", "chemistry"]
+from app.services.which_subject import SubjectName as SubjectName
+from app.services.which_subject import read_subject_reason
 
 
 @dataclass(frozen=True)
@@ -47,59 +44,6 @@ class SubjectAdapter:
     name: SubjectName
     augment: Callable[..., Awaitable[SubjectAugmentation]]
     direct_reply: Callable[..., str | None]
-
-
-def _closed_chemistry(text: str) -> bool:
-    """A chemistry cue plus a complete extraction, before algebra can claim it."""
-    from app.modules.chemistry.extract import extract_chemistry_intent
-    from app.modules.chemistry.request import is_chemistry_question
-
-    if not is_chemistry_question(text):
-        return False
-    return extract_chemistry_intent(text) is not None
-
-
-# What makes a chemistry question chemistry's even when no chemistry reader closes it: a
-# symbol whose case is its meaning (pH, Ka), an amount in a chemistry unit (0.10 M, 3.0 mol,
-# 98 g/mol), or a compound's formula (CH3COOH, NaCl). Maths read "Ka = 1.8 x 10^-5" as an
-# equation in an unknown x and "verified" x = 55555.6; the question is chemistry's even when
-# chemistry can only leave it to the model.
-_CHEMISTRY_SYMBOL = re.compile(
-    r"(?<![A-Za-z0-9])(?:pH|pOH|pKa|pKb|Ka|Kb|Kw|Ksp|Kc|Kp|Qc)(?![A-Za-z])"
-)
-_CHEMISTRY_AMOUNT = re.compile(
-    r"(?<![A-Za-z])(?:\d(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?\s*"
-    r"(?:M|mM|mol(?:es?)?|mmol|mol/L|g/mol|mol/kg)(?![A-Za-z])"
-)
-
-
-def _chemistry_shaped(text: str) -> bool:
-    """A chemistry question by its symbols, amounts or formulas, solved or not."""
-    from app.modules.chemistry.input_text import read_chemistry_text
-    from app.modules.chemistry.request import is_chemistry_question, names_compound
-
-    if not is_chemistry_question(text):
-        return False
-    read = read_chemistry_text(text)
-    if _CHEMISTRY_SYMBOL.search(read) or _CHEMISTRY_AMOUNT.search(read):
-        return True
-    if names_compound(read):
-        return True
-    return _chemical_equation(read)
-
-
-def _chemical_equation(text: str) -> bool:
-    """A reaction of real species ("2H2 + O2 -> 2H2O"), never a mapping such as "A -> B"."""
-    from app.modules.chemistry.request import EQUATION_RE
-    from app.modules.chemistry.species import parse_reaction
-
-    return any(parse_reaction(match.group(1)) is not None for match in EQUATION_RE.finditer(text))
-
-
-def _math_curve_request(text: str) -> bool:
-    from app.modules.math.tools.school.curve_points import extract_curve_point_intent
-
-    return extract_curve_point_intent(text) is not None
 
 
 def detect_subject(
@@ -147,59 +91,8 @@ def _subject_of_text(
     text: str, has_image_attachment: bool, chemistry_enabled: bool
 ) -> SubjectName | None:
     """``detect_subject`` for a line with no image extract: a reading (``core/readings``)."""
-    from app.modules.turn_reading.coding import has_code_syntax
-
-    # Pasted code is not a problem to solve: `for (int i = 1; i <= 3; i++)` is a
-    # loop, and `n * 2` inside `nums.map` is not algebra.
-    if has_code_syntax(text):
-        return None
-    from app.services.subject_scan import scanner_camera_subject
-
-    # A subject's camera caption says "solve", which the math work-request
-    # parser would claim. It is a photo plus a caption, not a math problem.
-    scanned = scanner_camera_subject(text)
-    if scanned == "chemistry":
-        return "chemistry" if chemistry_enabled else None
-    if scanned == "physics":
-        return "physics"
-    # A closed chemistry calculation is chemistry's before physics claims its numbers:
-    # "the mass percent of 5 g of sugar in 95 g of water" has masses physics would read.
-    # The laws both subjects use (gases, Q = mcΔT, half-lives) are physics' alone, so
-    # chemistry never closes on one.
-    if chemistry_enabled and _closed_chemistry(text):
-        return "chemistry"
-    if needs_physics(text):
-        if _math_curve_request(text):
-            # "h = 20t - 5t^2, find the maximum height" cues physics, but it states the
-            # function and asks its maximum: physics extracts nothing, calculus does.
-
-            if extract_physics_intent(text) is None:
-                return "math"
-        return "physics"
-    from app.modules.physics import is_symbol_givens_request
-
-    # Symbol givens with units ("P = 200 W, t = 10 s, find W") are physics even
-    # when no catalog law binds; algebra would read W and s as unknowns.
-    if is_symbol_givens_request(text):
-        return "physics"
-    # A pH, Ka or molarity question chemistry could not close is still not algebra: maths
-    # would read the x of "1.8 x 10^-5" as its unknown and verify nonsense.
-    if chemistry_enabled and _chemistry_shaped(text):
-        return "chemistry"
-    if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
-        from app.modules.math.tools.extract import extract_math_intent
-        from app.modules.turn_reading.chart import chart_names_no_curve
-
-        # A scatter plot of the user's own numbers is a chart, not an unverified maths
-        # turn whose note forbids drawing it ("Here's your scatter plot", and none).
-        return None if chart_names_no_curve(text, extract_math_intent) else "math"
-    if not chemistry_enabled:
-        return None
-    from app.modules.chemistry.request import is_chemistry_question
-
-    if is_chemistry_question(text):
-        return "chemistry"
-    return None
+    found = read_subject_reason(text, has_image_attachment, chemistry_enabled)
+    return None if found is None else found.subject
 
 
 def _physics_request_text(user_content: str) -> str:

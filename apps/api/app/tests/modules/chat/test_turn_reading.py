@@ -279,3 +279,93 @@ async def test_teaching_is_the_turns_reading_for_its_message_and_read_for_any_ot
     assert turn.teaching_of("What is a python dictionary?") is False
     assert turn.teaching_of("teach me how recursion works") is True
     assert read == ["teach me how recursion works"]
+
+
+@pytest.mark.parametrize(
+    ("text", "chemistry", "subject", "reason"),
+    [
+        ("for (int i = 1; i <= 3; i++) { sum += i; }", True, None, "code"),
+        (
+            "A car accelerates from 0 to 20 m/s in 4 s. Find its acceleration.",
+            True,
+            "physics",
+            "physics",
+        ),
+        ("Solve 2x + 3 = 7", True, "math", "math"),
+        ("What is the pH of 0.01 M HCl?", True, "chemistry", "chemistry_closed"),
+        ("What is the pH of 0.01 M HCl?", False, None, "chemistry_off"),
+        ("What should I cook tonight?", True, None, "none"),
+    ],
+)
+def test_the_subject_names_the_step_that_decided_it(
+    text: str, chemistry: bool, subject: str | None, reason: str
+) -> None:
+    from app.services.subject_solving import detect_subject, read_subject_reason
+
+    found = read_subject_reason(text, False, chemistry)
+    assert found is not None
+    assert (found.subject, found.reason) == (subject, reason)
+    assert detect_subject(text, chemistry_enabled=chemistry) == subject
+
+
+async def test_the_subject_is_the_turns_reading_for_its_message_and_read_for_any_other(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.chat.turn_prep import reading as turn_reading_prep
+    from app.services import subject_solving
+
+    settings = Settings()
+    message = "A car accelerates from 0 to 20 m/s in 4 s. Find its acceleration."
+    begin_turn()
+    await read_turn_message(message, [], settings)
+    asked: list[tuple[str, bool, bool]] = []
+    detect = subject_solving.detect_subject
+
+    def spy(
+        text: str, *, has_image_attachment: bool = False, chemistry_enabled: bool = True
+    ) -> Any:
+        asked.append((text, has_image_attachment, chemistry_enabled))
+        return detect(
+            text, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry_enabled
+        )
+
+    monkeypatch.setattr(subject_solving, "detect_subject", spy)
+
+    reading = current_turn_reading()
+    assert reading is not None
+    assert (reading.subject, reading.subject_reason) == ("physics", "physics")
+    # The turn's message with the turn's flags answers from the reading.
+    assert turn_reading_prep.subject_of(message) == "physics"
+    assert asked == []
+    # Other flags, or another text, are read as before.
+    assert turn_reading_prep.subject_of(message, has_image_attachment=True) == "physics"
+    assert turn_reading_prep.subject_of("Solve 2x + 3 = 7") == "math"
+    assert asked == [(message, True, True), ("Solve 2x + 3 = 7", False, True)]
+
+
+async def test_the_turns_photo_reads_its_subject_again_after_turn_load() -> None:
+    # Turn load reads the message before it knows the photo; the prompt reads it with it.
+    settings = Settings()
+    begin_turn()
+    await read_turn_message("solve this", [], settings)
+    before = current_turn_reading()
+    assert before is not None
+    assert (before.subject, before.subject_reason) == (None, "none")
+
+    await read_turn_message("solve this", [], settings, has_image_attachment=True)
+    reading = current_turn_reading()
+    assert reading is not None
+    assert (reading.subject, reading.subject_reason) == ("math", "math")
+    assert reading.has_image_attachment and reading.plan == before.plan
+    # A caller that names no flag (the trace) takes the turn's reading as it stands.
+    assert read_turn("solve this", settings) is reading
+
+
+async def test_a_subject_the_pool_did_not_read_stays_unknown_in_the_reading() -> None:
+    begin_turn()
+    reading = read_turn("Solve 2x + 3 = 7", Settings())
+
+    assert reading.subject is None and reading.subject_reason == "not_read"
+    assert not reading.knows_subject_of(
+        "Solve 2x + 3 = 7", has_image_attachment=False, chemistry_enabled=True
+    )
