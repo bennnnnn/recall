@@ -22,6 +22,7 @@ from app.modules.turn_reading.turn import (
     TurnReading,
     current_turn_reading,
     keep_turn_reading,
+    request_units,
 )
 
 if TYPE_CHECKING:
@@ -75,9 +76,30 @@ def read_turn(
         has_image_attachment=image,
         subject=None if subject is None else subject.subject,
         subject_reason=_subject_reason(subject),
+        place_requests=_place_requests(content, plan, image, chemistry),
     )
     keep_turn_reading(reading)
     return reading
+
+
+def _place_requests(
+    content: str, plan: TurnPlan, image: bool, chemistry: bool
+) -> tuple[tuple[str, str | None], ...]:
+    """The message's requests that ask about a place or the weather on their own words, each
+    with the subject the pool read in it (``_read_place_requests``; None when the read gave
+    up). A message of one request has none: it is the subject's, or no homework."""
+    from app.modules.web_search import asks_about_a_place
+    from app.services.subjects.order import read_subject_reason
+
+    units = request_units(content, plan)
+    if len(units) < 2:
+        return ()
+    found = []
+    for unit in units:
+        if asks_about_a_place(unit):
+            read = kept_reading(read_subject_reason, unit, image, chemistry)
+            found.append((unit, None if read is None else read.subject))
+    return tuple(found)
 
 
 def _subject_reason(subject: Any) -> str:
@@ -146,6 +168,7 @@ def ask_turn_readings(
             maths.reads(text)
     maths.reads(content)
     subject_adapter("physics").reads(content)
+    _read_place_requests(content, plan, has_image_attachment, chemistry)
     # The follow-up readers ask the subject of the user's earlier lines: a physics or
     # chemistry problem is not replayed through maths. Routing asks the line before this
     # one whenever the turn may inherit its lane. A money follow-up asks each line's plan,
@@ -162,6 +185,22 @@ def ask_turn_readings(
         lesson_active=lesson_active,
         settings=settings,
     )
+
+
+def _read_place_requests(
+    content: str, plan: TurnPlan, has_image_attachment: bool, chemistry: bool
+) -> None:
+    """The subject of each request that asks about a place on its own words, so the turn
+    knows whether it is part of the homework beside it (``web_search.homework``)."""
+    from app.modules.web_search import asks_about_a_place
+    from app.services.subjects.order import read_subject_reason
+
+    units = request_units(content, plan)
+    if len(units) < 2:
+        return
+    for unit in units:
+        if asks_about_a_place(unit):
+            read_subject_reason(unit, has_image_attachment, chemistry)
 
 
 async def read_turn_message(

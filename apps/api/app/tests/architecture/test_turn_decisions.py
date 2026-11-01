@@ -76,6 +76,9 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     "services/subjects/dispatch.py::_subject_of_text": (1, "the reader"),
     "modules/chat/turn_prep/reading.py::ask_turn_readings": (4, "the pool's reads of the turn"),
     "modules/chat/turn_prep/reading.py::subject_of": (1, "owner: any text or flags not the turn's"),
+    # A place or weather ask beside homework: its own subject, read in the pool
+    # (``web_search.homework``).
+    "modules/chat/turn_prep/reading.py::_read_place_requests": (1, "a request's own text"),
     # Routing runs in the pool, before the turn's reading is kept (see ST-05's precedence
     # note): it reads the line with the chemistry setting and no attachment flag.
     "modules/chat/model_routing/route.py::_routed_line": (1, "the lane, read in the pool"),

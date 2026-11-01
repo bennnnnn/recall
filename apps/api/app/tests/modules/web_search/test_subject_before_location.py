@@ -2,8 +2,9 @@
 dropped from a height of 20 m. How long does it take to reach the ground?" was answered "I
 don't have your location yet" (2026-11-01). The turn's reading, read in the pool, names the
 message's subject; every reader of the user's place defers to it, solved or not
-(``web_search.weather.is_worked_problem``), unless the line says it is about where the user
-is ("near me", "here", "in my area", "from my location").
+(``turn_reading.turn.is_homework``), unless the line says it is about where the user is ("near me",
+"near here", "in my area", "from my location"). A request beside the homework that asks about
+a place or the weather on its own words keeps its reader.
 """
 
 from __future__ import annotations
@@ -15,12 +16,14 @@ import pytest
 from app.core.config import Settings
 from app.core.readings import begin_turn
 from app.modules.chat.turn_prep.reading import ask_turn_readings, read_turn
-from app.modules.turn_reading.turn import TurnReading, names_a_subject
+from app.modules.turn_reading.turn import TurnReading, is_homework
+from app.modules.web_search.detection import web_search_fast_yes
 from app.modules.web_search.geo_intent import (
     is_distance_query,
     is_geo_query,
     is_places_list_query,
 )
+from app.modules.web_search.weather import is_weather_request
 from app.services.text_normalize import collapse_ws
 
 _SETTINGS = Settings.model_validate({})
@@ -142,11 +145,63 @@ def test_only_the_turns_own_message_is_known() -> None:
     def run() -> tuple[bool, bool, bool]:
         _read_as_turn(problem)
         return (
-            names_a_subject(problem),
-            names_a_subject(f"  {problem}\n"),
-            names_a_subject("How long does it take to reach the airport?"),
+            is_homework(problem),
+            is_homework(f"  {problem}\n"),
+            is_homework("How long does it take to reach the airport?"),
         )
 
     assert contextvars.copy_context().run(run) == (True, True, False)
     # Outside a turn nothing is read.
-    assert contextvars.Context().run(names_a_subject, problem) is False
+    assert contextvars.Context().run(is_homework, problem) is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The plan splits these: the weather part keeps its search.
+        "What's the weather like today? Also solve 2x + 3 = 7",
+        "What's the weather today and how fast does a ball fall from 20 m?",
+        # The plan reads one request: its sentences are judged one by one.
+        "Will it rain tomorrow? And what's 15% of 80?",
+    ],
+)
+def test_a_weather_ask_beside_homework_keeps_its_search(text: str) -> None:
+    def run() -> tuple[str | None, bool, bool, bool]:
+        reading = _read_as_turn(text)
+        return (
+            reading.subject,
+            is_weather_request(text),
+            is_geo_query(text),
+            web_search_fast_yes(text),
+        )
+
+    subject, weather, geo, searches = contextvars.copy_context().run(run)
+
+    assert subject is not None
+    assert weather and geo and searches
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A place ask beside numbers physics claims: still the user's place.
+        "How far is the nearest gas station? My car does 30 mpg",
+        "How far is the nearest pharmacy? Also, a ball is dropped from 20 m, how long to reach "
+        "the ground?",
+    ],
+)
+def test_a_place_ask_beside_homework_keeps_the_place(text: str) -> None:
+    reading, geo, geo_collapsed, _ = _in_turn(text)
+
+    assert reading.subject == "physics"
+    assert geo and geo_collapsed
+
+
+def test_a_second_question_of_the_same_problem_is_still_homework() -> None:
+    text = (
+        "A ball is dropped from 20 m. What is its speed after 1 s? How long does it take to "
+        "reach the ground?"
+    )
+    _, geo, geo_collapsed, distance = _in_turn(text)
+
+    assert not geo and not geo_collapsed and not distance

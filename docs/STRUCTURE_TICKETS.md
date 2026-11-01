@@ -390,23 +390,34 @@ for presentation and the post-turn jobs, not for reading.
     answered "I don't have your location yet": the travel-time reader claimed it before
     physics, and its only guard, `web_search.weather.is_worked_problem`, wanted two stated
     measurements.
-  - `turn_reading.turn.names_a_subject(text)` answers from the turn's reading
-    (`TurnReading.subject`, read in the pool) for the turn's message only, and reads nothing.
-    `is_worked_problem` asks it, so a line the subject order gives physics, maths or chemistry
-    counts as homework whether its subject can solve it or not.
+  - `is_worked_problem` asks `turn_reading.turn.is_homework`: the turn's reading
+    (`TurnReading.subject`, read in the pool) gives the message physics, maths or chemistry,
+    solved or not, and no request in it asks about a place on its own words. Its requests
+    (`turn_reading.turn.request_units`; those that ask about a place are kept as
+    `TurnReading.place_requests` with each one's subject)
+    are the plan's parts when the plan splits the message, else its sentences. A request a
+    proximity or weather reader claims alone (`web_search.asks_about_a_place`), and that no subject claims, keeps its reader:
+    "What's the weather like today? Also solve 2x + 3 = 7" and "Will it rain tomorrow? And
+    what's 15% of 80?" still search, and "How far is the nearest gas station? My car does 30
+    mpg" still asks for the place. A travel-time sentence ("How long does it take to reach
+    the ground?") stays the homework's. Nothing is read on the loop for it: the pool reads
+    the subject of each such request (`reading._read_place_requests`).
   - Every reader of the user's place defers to `is_worked_problem` unless the line says it is
     about where the user is (`around_the_user`: "near me", "near here", "in my area", "from my
     location"; not "from here", "from me" or a bare "here", which exercises say). The readers are
     places, distances and travel times, and local weather; the location ask, the location sent
     with a search, the geo prompt hints and the places card build on them. "how hot is it
     here" is now a weather question.
-  - Trade-off: a real ask the subject order gives physics and that names no such cue is
-    answered without the location ("How far is the nearest gas station? My car does 30 mpg",
-    a sweep `gap`).
   - Decision diff (new look-alikes added on both sides): 22 turns changed, all of them new
     entries. 13 are now solved by physics (`time_to_ground`, `drop_height`) where main asked
-    for the location. 5 homework lines no subject solves no longer get the location ask, nor
-    does the gas-station `gap`, and "how hot is it here" now does. No existing turn changed.
+    for the location. 5 homework lines no subject solves no longer get the location ask, and
+    "how hot is it here" now does.
+  - Follow-up, one request at a time: 5 turns changed, all of them look-alikes. The gas-station
+    line asks for the place again (it was a `gap`). The weather beside maths or physics gets its
+    location hint back. "How far is the nearest pharmacy? Also, a ball is dropped…" asks for the
+    place, as before #2224. Two `gap`s are older than #2224: a one-request line routed to maths
+    runs no search for the weather in it, and the plan splits a problem's second question off
+    as a `live` part without its givens.
 
 ### ST-06 — Finalize passes declare their order and their kind
 

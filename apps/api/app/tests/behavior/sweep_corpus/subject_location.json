@@ -131,8 +131,7 @@
   "area": "places",
   "prompt": "How far is the nearest gas station? My car does 30 mpg",
   "reply": "I need your location to tell you that.",
-  "expect": "instant",
-  "gap": "Physics claims the line (\"30 mpg\"), so homework wins: only near me, here, my area or from my location keep a place ask over a subject (2026-11-01)."
+  "expect": "instant"
  },
  {
   "id": "sbl-020",
@@ -249,5 +248,54 @@
   "prompt": "A ball is dropped from a height of 20 m and lands on the ground here. How long does it take to reach the ground?",
   "reply": "**Given:** $h = 20$ m\n\n**Formula:** $t = \\sqrt{2h/g}$\n\n**Substitution:** $t = \\sqrt{2(20)/9.81}$\n\n**Answer:** about **2.02 s**.",
   "expect": "answer"
+ },
+ {
+  "id": "sbl-036",
+  "area": "multi",
+  "prompt": "What's the weather like today? Also solve 2x + 3 = 7",
+  "reply": "### Today\n\nPartly cloudy in Addis Ababa, a high of **23°C**.\n\n### Solving 2x + 3 = 7\n\nSubtract 3: $2x = 4$, so $x = 2$.",
+  "expect": [
+   "search",
+   "answer"
+  ],
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sbl-037",
+  "area": "multi",
+  "prompt": "What's the weather today and how fast does a ball fall from 20 m?",
+  "reply": "### Today\n\nSunny in Addis Ababa, a high of **24°C**.\n\n### The falling ball\n\n$v = \\sqrt{2gh} = \\sqrt{2(9.81)(20)} \\approx 19.8$ m/s when it lands.",
+  "expect": [
+   "search",
+   "answer"
+  ],
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sbl-038",
+  "area": "search",
+  "prompt": "Will it rain tomorrow? And what's 15% of 80?",
+  "reply": "Tomorrow looks dry in Addis Ababa, with a **10%** chance of a shower.\n\n15% of 80 is $0.15 \\times 80 = 12$.",
+  "expect": [
+   "search",
+   "answer"
+  ],
+  "location": "Addis Ababa, Ethiopia",
+  "gap": "The weather is read now, but a turn the plan reads as one request and routes to maths runs no search for it; it ran none before #2224 either."
+ },
+ {
+  "id": "sbl-039",
+  "area": "places",
+  "prompt": "How far is the nearest pharmacy? Also, a ball is dropped from 20 m, how long to reach the ground?",
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
+ },
+ {
+  "id": "sbl-040",
+  "area": "physics",
+  "prompt": "A ball is dropped from 20 m. What is its speed after 1 s? How long does it take to reach the ground?",
+  "reply": "**Speed after 1 s:** $v = gt = 9.81$ m/s.\n\n**Time to the ground:** $t = \\sqrt{2h/g} = \\sqrt{2(20)/9.81} \\approx 2.02$ s.",
+  "expect": "answer",
+  "gap": "The plan splits the problem's second question off as a 'live' part without its givens, and the tool loop searches it; before #2224 the turn asked for the location."
  }
 ]
