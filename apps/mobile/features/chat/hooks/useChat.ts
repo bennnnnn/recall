@@ -147,7 +147,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     step({ type: "view_changed", chatId, session: sessionGeneration });
   }, [viewIdentity, chatId, sessionGeneration, detach, step]);
 
-  const editThread = useThreadEdits({ chatId, isCurrentView, step });
+  const editThread = useThreadEdits({ chatId, isCurrentView, step, turn });
 
   const onUnreachable = useCallback(() => effects.current?.onError?.(t("chat.error_unreachable")), [effects, t]);
   const actions = useChatTurnActions({

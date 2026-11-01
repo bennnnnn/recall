@@ -490,4 +490,39 @@ describe("thread edits", () => {
     const run = play(idle(), [{ type: "thread_edit", source: "view_cleared", update: [] }], [bubble, older]);
     expect(run.messages).toEqual([]);
   });
+
+  // 2026-11-01: a picture that finished after the user opened another chat landed in that chat.
+  const picture = answer("saved-image", "image");
+  const pictureFor = (chatId: string): ChatTurnEvent =>
+    ({ type: "thread_edit", source: "image_turn", update: (rows) => [...rows, picture], chatId });
+  const viewOf = (chatId: string | null, session = 0): ChatTurnEvent => ({ type: "view_changed", chatId, session });
+
+  it.each([
+    ["another chat", [viewOf("chat-2")]],
+    ["a new chat", [viewOf(null)]],
+    ["another chat, then a new one", [viewOf("chat-2"), viewOf(null)]],
+  ])("an edit for a chat the user left waits for it, in %s", (_name, moves) => {
+    const run = play(idle(), [...moves, pictureFor("chat-1")], [older]);
+    expect(run.messages).toEqual([older]);
+    expect(run.of("messages")).toHaveLength(0);
+    // Back in its chat (its page painted first), the edit lands once.
+    const back = play(run.state, [{ type: "thread_edit", source: "cached_paint", update: [bubble] }, viewOf("chat-1"), viewOf("chat-2"), viewOf("chat-1")]);
+    expect(back.messages).toEqual([bubble, picture]);
+    expect(back.state.heldEdits.size).toBe(0);
+  });
+
+  it("an edit for the chat on screen lands at once", () => {
+    expect(play(idle(), [pictureFor("chat-1")]).messages).toEqual([picture]);
+  });
+
+  it("an edit for the chat a new view is becoming lands when the view names it", () => {
+    // The new chat's id reaches the turn a render after the picture learns it.
+    const run = play(idle({ chatId: null }), [pictureFor("new-1"), viewOf("new-1")]);
+    expect(run.messages).toEqual([picture]);
+  });
+
+  it("held edits never reach another account", () => {
+    const run = play(idle(), [viewOf("chat-2"), pictureFor("chat-1"), viewOf("chat-1", 1)]);
+    expect(run.messages).toEqual([]);
+  });
 });

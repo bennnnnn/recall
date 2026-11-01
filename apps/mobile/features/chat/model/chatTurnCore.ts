@@ -26,6 +26,12 @@ export type ChatTurnState = {
   /** The chat on screen, in which sign-in session; rejected sends are kept per chat. */
   chatId: string | null;
   session: number;
+  /**
+   * Edits made for a chat while another was on screen (a picture that finished after the
+   * user left its chat, or before its new chat reached the screen), applied in order when
+   * that chat is shown.
+   */
+  heldEdits: ReadonlyMap<string, readonly ((previous: Message[]) => Message[])[]>;
   phase: ChatTurnPhase;
   /** The optimistic user bubble still showing "Sending". */
   sendingMessageId: string | null;
@@ -84,7 +90,13 @@ export type ChatTurnEvent =
   | { type: "dropped_turn"; follow: DroppedTurnFollow; result: DroppedTurnResult }
   | { type: "rejected_draft_restored" }
   /** Any other change to the thread on screen (threadEdit.ts names every writer). */
-  | { type: "thread_edit"; source: ThreadEditSource; update: ThreadUpdate };
+  | {
+      type: "thread_edit";
+      source: ThreadEditSource;
+      update: ThreadUpdate;
+      /** The chat the edit belongs to: held while the screen shows another chat. */
+      chatId?: string;
+    };
 
 export type ChatTurnCommand =
   | { type: "messages"; update: (previous: Message[]) => Message[] }
@@ -123,7 +135,8 @@ export type Out = ChatTurnCommand[];
 
 export function initialChatTurnState(chatId: string | null, session: number): ChatTurnState {
   return {
-    chatId, session, phase: "idle", sendingMessageId: null, attempt: 0, pending: null, rejected: new Map(),
+    chatId, session, heldEdits: new Map(), phase: "idle", sendingMessageId: null, attempt: 0, pending: null,
+    rejected: new Map(),
     buffer: "", draft: null, stoppedStreamedId: null, regenerating: false, regenerateBackup: null,
     ttftTurnId: null, firstReply: false, authFallback: null, earlyDots: null,
   };
