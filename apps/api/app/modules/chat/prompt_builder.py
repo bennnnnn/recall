@@ -41,7 +41,6 @@ from app.modules.chat.turn_prep.followups import (
 )
 from app.modules.conversation import history_rag as chat_history_rag_service
 from app.modules.math.schemas import MathImageExtract
-from app.modules.math.tools.extract import is_graph_followup
 from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
 from app.services import time_context as time_context_service
@@ -51,6 +50,7 @@ from app.services.subjects.dispatch import (
     build_subject_augmentation,
     read_subject,
 )
+from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
     from app.modules.memory import MemoryScope
@@ -97,7 +97,9 @@ async def fetch_subject(
     math_user_content = math_followup_problem or subject_text or user_content
     subject_user_content = subject_text or user_content
     subject: SubjectName | None
-    if math_followup_problem is not None or is_graph_followup(user_content):
+    if math_followup_problem is not None or subject_adapter("math").followups.continues_alone(
+        user_content
+    ):
         subject = "math"
     elif chemistry_followup_problem is not None:
         subject = "chemistry"

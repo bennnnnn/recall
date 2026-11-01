@@ -9,6 +9,7 @@ reply through ``direct``, each imported when it runs; and its prompt copy from
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -64,6 +65,9 @@ class ChemistryFollowups:
     def previous_result(self, reply: str) -> str | None:
         return None
 
+    def continues_alone(self, line: str) -> bool:
+        return False
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         # "can u show me both" right after a shape answer asks for its molecules.
         if not is_show_line(line):
@@ -75,13 +79,69 @@ class ChemistryFollowups:
 
 
 @dataclass(frozen=True)
+class ChemistryFence:
+    """Chemistry checks the replies it verified, and draws its molecules (chat's finalize)."""
+
+    def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        return True
+
+    def check(
+        self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
+    ) -> str:
+        from app.modules.chemistry.fence import validate_chemistry_fences
+
+        return validate_chemistry_fences(text, verified=verified, correct=correct)
+
+    def recover(self, text: str, verified: VerifiedSolveBlock | None) -> str:
+        from app.modules.chemistry.fence import replace_unclosed_chemistry_fences_safe
+
+        return replace_unclosed_chemistry_fences_safe(text, verified)
+
+    def unverified_note(self, text: str) -> str:
+        from app.modules.chemistry.context import append_unverified_chemistry_note
+
+        return append_unverified_chemistry_note(text)
+
+    def draws(self, text: str, settings: Settings) -> bool:
+        lowered = text.lower()
+        return settings.chemistry_enabled and ("```smiles" in lowered or "```chemistry" in lowered)
+
+    def draw(self, text: str, settings: Settings) -> str:
+        from app.modules.chemistry.fence import enrich_chemistry_fences_worker
+
+        return enrich_chemistry_fences_worker(text)
+
+    def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
+        return text
+
+
+@dataclass(frozen=True)
 class ChemistrySubject:
     name: Literal["chemistry"] = "chemistry"
     hints: SubjectHints = _HINTS
     followups: ChemistryFollowups = ChemistryFollowups()
+    fence: ChemistryFence = ChemistryFence()
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return is_chemistry_question(text)
+
+    def reads(self, text: str) -> bool:
+        from app.modules.chemistry.extract import extract_chemistry_intent
+
+        return extract_chemistry_intent(text) is not None
+
+    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+        # A chemistry answer's card is the server's: the fast model only presents it.
+        return True
+
+    def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
+        return None
+
+    def warm(self) -> None:
+        return None
+
+    def solve_timeouts(self) -> AbstractContextManager[list[str]]:
+        return nullcontext([])
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
         if not settings.chemistry_enabled:

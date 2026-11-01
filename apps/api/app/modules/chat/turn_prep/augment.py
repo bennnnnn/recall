@@ -26,8 +26,6 @@ from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
-from app.modules.math.tools.extract import is_graph_followup
-from app.modules.math.tools.solve_timeouts import recording as recording_solve_timeouts
 from app.modules.turn_reading.plan import TurnPlan
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
@@ -35,6 +33,7 @@ from app.modules.web_search.subject import (
 from app.modules.web_search.subject import last_assistant_content
 from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_subject
+from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
     from app.modules.money.service import MoneyTurn
@@ -117,7 +116,7 @@ async def gather_and_inject(
         return Augmentation(prompt_messages)
 
     # Phase B: the subject solve. Phase C: inject it before the last user message.
-    with recording_solve_timeouts() as timed_out:
+    with subject_adapter("math").solve_timeouts() as timed_out:
         fetched = await _fetch_subject_with_priors(
             request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
         )
@@ -157,7 +156,7 @@ def _turn_needs(
         detected_subject in {"math", "physics"}
         or followup.math is not None
         or followup.physics is not None
-        or is_graph_followup(content)
+        or subject_adapter("math").followups.continues_alone(content)
     )
     needs_search = web_search_service.needs_web_search(
         content,

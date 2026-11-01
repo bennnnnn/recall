@@ -16,8 +16,17 @@ An adapter has what the dispatcher and chat ask of every subject:
   the SymPy pool (its checks parse with SymPy);
 - ``hints``: its prompt copy, and where chat states it (``SubjectHints``);
 - ``asks``: whether a line asks something of the subject (its cue), solved or not;
+- ``reads``: whether the subject reads a request out of the line (its intent);
+- ``fast_lane``: the model lane its own read of a line suggests to Auto routing;
+- ``instant_reply``: a reply the subject writes for a line with no model and no solve;
+- ``warm``: what a fresh SymPy pool worker runs first, so a turn pays no imports;
+- ``solve_timeouts``: the solves of the subject that ran out of time inside a block;
 - ``followups``: how it reads a line that goes back to its last problem
-  (``SubjectFollowups``). A subject with nothing to read there answers None or False.
+  (``SubjectFollowups``);
+- ``fence``: how it holds a finished reply's fences to its verified block, and the notes,
+  drawings and clean-up it adds (``SubjectFence``).
+
+A subject with nothing to offer for a member answers None or False, or returns the text as it is.
 
 A new subject is a module with its own ``subject`` adapter, its name in ``SubjectName`` (in
 ``services/solving``, beside the verified block every subject's solve names itself in) and its
@@ -27,6 +36,7 @@ entry in ``SUBJECTS``; ``tests/services/test_subject_registry.py`` holds the two
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -91,6 +101,10 @@ class SubjectFollowups(Protocol):
         """The last reply as the prompt shows it to a follow-up, or None to keep it as is."""
         ...
 
+    def continues_alone(self, line: str) -> bool:
+        """The line alone continues the subject's last problem ("graph it"), no exchange read."""
+        ...
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         """A cheap look, on the loop: the line asks to see what the subject's card draws,
         and, given the chat's recent lines, one of them could be the problem it draws."""
@@ -98,6 +112,44 @@ class SubjectFollowups(Protocol):
 
     def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
         """The problem whose card draws what the line asks to see, read in the pool."""
+        ...
+
+
+class SubjectFence(Protocol):
+    """How a subject finishes a reply: chat's finalize passes ask it, in their order.
+
+    ``check`` and ``draw`` take positional arguments: the SymPy pool runs them.
+    """
+
+    def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        """Whether ``check`` has anything to do, before the pool is asked."""
+        ...
+
+    def check(
+        self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
+    ) -> str:
+        """The reply's fences held to the verified block. ``correct`` adds a correction
+        line when model prose states a different value; the server never corrects its own."""
+        ...
+
+    def recover(self, text: str, verified: VerifiedSolveBlock | None) -> str:
+        """``check`` failed or ran out of time: the fences closed and made safe, no solver."""
+        ...
+
+    def unverified_note(self, text: str) -> str:
+        """The reply with the note an answer the subject could not verify carries."""
+        ...
+
+    def draws(self, text: str, settings: Settings) -> bool:
+        """The reply holds fences the subject draws from its own data (``draw``)."""
+        ...
+
+    def draw(self, text: str, settings: Settings) -> str:
+        """Those fences drawn, in the pool: a chart's formula sampled, a molecule's data."""
+        ...
+
+    def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
+        """What the subject's prompt forbids and a reply still wrote, taken out."""
         ...
 
 
@@ -113,7 +165,23 @@ class SubjectAdapter(Protocol):
     @property
     def followups(self) -> SubjectFollowups: ...
 
+    @property
+    def fence(self) -> SubjectFence: ...
+
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool: ...
+
+    def reads(self, text: str) -> bool: ...
+
+    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+        """True keeps the line on the fast model (the verified answer needs no reasoning),
+        False sends it to the strong one, None when the subject has no say."""
+        ...
+
+    def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None: ...
+
+    def warm(self) -> None: ...
+
+    def solve_timeouts(self) -> AbstractContextManager[list[str]]: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 
