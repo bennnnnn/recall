@@ -406,6 +406,11 @@ def test_an_exercise_closing_on_your_answer_is_an_exercise(query: str) -> None:
         ("Water boils at ___ °C", True),
         ("Fill in the blanks. Power is defined as the ______ at which work is done.", True),
         ("complete the sentence: If I had known you were coming, I ___", True),
+        # A worksheet's equation or label (PR review).
+        ("5 + 3 = ___", True),
+        ("Solve: 12 ÷ 4 = ____", True),
+        ("___ + 3 = 8", True),
+        ("Capital of France: ____", True),
         ("so......", False),
         ("so...... what do you think", False),
         ("wait……", False),

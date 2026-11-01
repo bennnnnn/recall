@@ -81,15 +81,24 @@ _WORD = re.compile(r"[^\W_]+")
 # three (2026-11-01: it, "so......" and "Trip ideas.......... Paris or Rome?" read as a
 # textbook's blank, so their replies lost their emoji and the trip its search).
 _BLANK_SENTENCE_WORDS = 4
+# An operand of an equation or a label's value is a slot to fill however short its line:
+# "5 + 3 = ___", "___ + 3 = 8", "Capital of France: ____".
+_SLOT_BEFORE = re.compile(r"[=+\-\u2212\u00d7÷*/<>:]\s*$")
+_SLOT_AFTER = re.compile(r"\s*[=+\-\u2212\u00d7÷*/<>]")
 
 
 def _has_blank(text: str) -> bool:
     """A word to fill in: a run that stands apart from the words around it, in a sentence
-    with words of its own, or in a message that orders the blanks filled."""
+    with words of its own, as an equation's operand or a label's value, or in a message
+    that orders the blanks filled."""
     for run in _RUN.finditer(text):
         if _TRAILING_DOTS.match(text, run.start()):
             continue
-        if _FILL_ORDER.search(text):
+        if (
+            _FILL_ORDER.search(text)
+            or _SLOT_BEFORE.search(text, 0, run.start())
+            or _SLOT_AFTER.match(text, run.end())
+        ):
             return True
         ends = [end.end() for end in _SENTENCE_END.finditer(text, 0, run.start())]
         after = _SENTENCE_END.search(text, run.end())
