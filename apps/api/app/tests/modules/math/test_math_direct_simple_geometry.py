@@ -220,6 +220,8 @@ def test_explicit_multi_measure_right_triangle_keeps_existing_answer_priority_an
     ],
 )
 def test_hypotenuse_reference_or_extra_request_does_not_certify_its_length(query: str) -> None:
+    if extract_math_intent(query) is None:
+        return  # "twice the hypotenuse", "double it": a measure through another is declined
     verified = _verified(query)
     assert verified.canonical_answer is None
     assert maybe_direct_math_reply(verified, query) is None

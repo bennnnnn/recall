@@ -2,6 +2,7 @@ import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf"
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import type { Message } from "@/lib/api";
 import { printHtmlToSharedPdf } from "@/features/chat/model/exportPdf";
+import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 
 jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key } }));
 jest.mock("@/features/chat/model/exportPdf", () => ({ printHtmlToSharedPdf: jest.fn(async () => undefined) }));
@@ -15,6 +16,15 @@ it("says there is nothing to export instead of printing a blank page", async () 
   ] as Message[];
   await expect(exportConversationAsPdf("Trip", onlyCard)).rejects.toBeInstanceOf(NothingToExportError);
   expect(printHtmlToSharedPdf).not.toHaveBeenCalled();
+});
+
+it("prints a card's lines a hard break apart, so the PDF keeps each on its own line", async () => {
+  const quiz = '```quiz\n{"question":"Pick","options":["a","b"],"answer":1}\n```';
+  await exportConversationAsPdf("Quiz", [{ id: "a1", role: "assistant", content: quiz }] as Message[]);
+  expect(markdownToStructuredPrintHtml).toHaveBeenCalledWith(
+    "Quiz",
+    expect.stringContaining("Pick  \nA) a  \nB) b"),
+  );
 });
 
 it("prints a chat with text under its title", async () => {

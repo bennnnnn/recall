@@ -1,6 +1,6 @@
 import { Message } from "@/lib/api";
 import i18n from "@/lib/i18n";
-import { markdownToDocumentText, type DocumentBlock } from "@/lib/markdown/document";
+import { markdownToDocumentText, type DocumentBlock, type DocumentTarget } from "@/lib/markdown/document";
 import { isPdfContentType, parseUserMessageContent } from "@/lib/messageAttachments";
 
 /**
@@ -28,12 +28,17 @@ function blockLabel(block: DocumentBlock): string {
 }
 
 /** Markdown body of a chat (no title heading) — used by share and PDF export. */
-export function conversationMarkdownBody(messages: Message[]): string {
+export function conversationMarkdownBody(
+  messages: Message[],
+  target: DocumentTarget = "share",
+): string {
   return messages
     .filter((m) => m.role !== "system")
     .map((m) => {
       const user = m.role === "user";
-      const text = user ? userTurnText(m.content) : markdownToDocumentText(m.content, blockLabel);
+      const text = user
+        ? userTurnText(m.content)
+        : markdownToDocumentText(m.content, blockLabel, target);
       if (!text) return "";
       const role = i18n.t(user ? "share.role_user" : "share.role_assistant");
       return `**${role}:**\n${text}`;

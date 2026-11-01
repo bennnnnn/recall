@@ -9,9 +9,14 @@ from app.modules.math.match.literal_geometry import (
     measurement_request,
     parse_named_rectangle_request,
 )
+from app.modules.math.match.measure_relations import (
+    measures_not_as_printed,
+    surface_not_closed_total,
+)
 from app.modules.math.match.units import solid_length_unit
 from app.modules.math.schemas import GeometryRequest, MathIntent, SolidGeometryInput
 from app.modules.math.schemas.geometry_request import GeometryQuantity, GeometryShape
+from app.modules.math.tools.school.geometry_measures import is_geometry_measure
 
 _PLANE_SHAPES: dict[str, GeometryShape] = {
     "rectangle": "rectangle",
@@ -45,8 +50,21 @@ def finish_geometry_intent(intent: MathIntent, cleaned: str) -> MathIntent | Non
 
     A natural-language measurement must not inherit the structured-input
     schema's legacy centimetre default; AAA triangles already carry relative
-    side lengths in generic units. None declines a shape whose unit is unreadable.
+    side lengths in generic units. None declines a shape whose unit is unreadable,
+    a question whose measures are not its printed numbers ("height 4 cm more than its
+    radius"), and a solid's surface that is not the closed total ("curved surface area").
     """
+    shape_reading = (
+        intent.kind == "solid"
+        or intent.kind in _PLANE_SHAPES
+        or is_geometry_measure(intent.school_op)
+    )
+    if shape_reading and measures_not_as_printed(cleaned):
+        return None
+    if intent.kind == "solid" and surface_not_closed_total(
+        cleaned, asks_surface=bool(intent.wants_surface_area)
+    ):
+        return None
     if intent.kind == "solid":
         return intent.model_copy(update={"geometry_request": _solid_request(intent, cleaned)})
     shape = _PLANE_SHAPES.get(intent.kind)
