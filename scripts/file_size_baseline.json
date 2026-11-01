@@ -149,10 +149,6 @@
       "lines": 675,
       "why": "Over 500 before the standards; ES-38 split DraftPiece; split by responsibility after the ticketed files"
     },
-    "apps/mobile/features/chat/screens/ChatScreen.tsx": {
-      "lines": 537,
-      "why": "Over 500 before the standards; split by responsibility after the ticketed files"
-    },
     "apps/mobile/lib/codeTokenize.ts": {
       "lines": 517,
       "why": "Exception: Prism grammar registration: Metro needs about 47 literal `require`s in one module"

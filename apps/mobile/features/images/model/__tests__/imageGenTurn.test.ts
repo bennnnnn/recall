@@ -4,6 +4,7 @@ import {
 } from "@/features/images/model/imageGenMessages";
 import {
   applyImageGenFailure,
+  applyImageGenSuccess,
   hasImageGenFailedAssistant,
   imageGenUserBubble,
   readImageTurn,
@@ -75,6 +76,21 @@ describe("image gen failure card", () => {
     expect(next[0]?.content).toBe("create a cat image");
     expect(next[1]?.id).toBe(IMAGE_GEN_PENDING_ASSISTANT_ID);
     expect(next[1]?.image_gen_failure).toBeUndefined();
+  });
+});
+
+describe("image gen success", () => {
+  const saved = [row("saved-user", "user", "create a cat image"), row("saved-image", "assistant", "image")];
+
+  it("puts the saved turn where the painted one was", () => {
+    const painted = [row("older", "user", "hi"), row("local-img-1", "user", "create a cat image"),
+      row(IMAGE_GEN_PENDING_ASSISTANT_ID, "assistant", "")];
+    expect(applyImageGenSuccess(painted, "local-img-1", saved).map((r) => r.id)).toEqual(["older", "saved-user", "saved-image"]);
+  });
+
+  // 2026-11-01: back in its chat, the page read on return already held the saved turn.
+  it("keeps one copy when the chat's page already holds the saved turn", () => {
+    expect(applyImageGenSuccess(saved, "local-img-1", saved).map((r) => r.id)).toEqual(["saved-user", "saved-image"]);
   });
 });
 

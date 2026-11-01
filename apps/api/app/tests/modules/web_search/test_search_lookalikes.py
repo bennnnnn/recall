@@ -82,6 +82,47 @@ def test_a_glued_speed_unit_is_motion_and_a_kick_off_is_a_place(text: str, geo: 
     assert is_geo_query(text) is geo
 
 
+@pytest.mark.parametrize(
+    ("text", "geo"),
+    [
+        # 2026-11-01: two distances made a search around the user an exercise.
+        ("Find coffee shops near me within 2 km, max 5 km", True),
+        ("Is the nearest pharmacy near me open? I can walk 2 km, maybe 3 km", True),
+        ("restaurants close to me, 1 km or 2 km", True),
+        ("Will it rain near me? I'm cycling 20 km, maybe 30 km", True),
+        ("Will it rain in my area? I cycle 20 km, maybe 30 km", True),
+        # An exercise says "nearby", "the nearest X to me", "from me", "from here", "where
+        # I am" and "my house", and asks how far: it stays one.
+        ("A ball is thrown at 10 m/s towards a nearby wall 5 m away. How far does it go?", False),
+        ("Round 2.45 m and 3.75 m to the nearest metre", False),
+        ("A lamp 2 m from me and 3 m above the floor. How far is the lamp from my head?", False),
+        ("I walk 4 km east then 3 km north to my house. How far is it in a straight line?", False),
+        ("I walk 2 km from my house then 3 km east. How far am I from my house?", False),
+        (
+            "I walk 4 km to the nearest corner then 3 km to my house. How far is it in a "
+            "straight line?",
+            False,
+        ),
+        ("I walk 5 km from here, then 3 km north. How far am I from here?", False),
+        (
+            "The nearest wall to me is 3 m away. If I throw a ball at 5 m/s, how long until it "
+            "hits?",
+            False,
+        ),
+        ("A ball is 5 m from where I am and rolls 3 m closer. How far is it now?", False),
+        (
+            "I throw a ball from where I am standing at 10 m/s at 30°. It lands 9 m away. How "
+            "far is it from where I am?",
+            False,
+        ),
+    ],
+)
+def test_where_the_user_is_outweighs_stated_distances(text: str, geo: bool) -> None:
+    from app.modules.web_search.geo_intent import is_geo_query
+
+    assert is_geo_query(text) is geo
+
+
 def test_more_live_cues() -> None:
     from app.modules.web_search.detection import needs_web_search
 

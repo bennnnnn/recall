@@ -11,7 +11,7 @@ nothing here may import the prompt, attachment or database stack.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from app.core.config import Settings
 from app.core.readings import first_read, kept_reading, read_off_loop, readings_declined
@@ -24,22 +24,36 @@ from app.modules.turn_reading.turn import (
     keep_turn_reading,
 )
 
+if TYPE_CHECKING:
+    from app.services.subject_solving import SubjectName
+
 # Exchanges a terse follow-up reaches back over (``math.followup``).
 _FOLLOWUP_EXCHANGES = 4
 
 
-def read_turn(content: str, settings: Settings) -> TurnReading:
+def read_turn(
+    content: str, settings: Settings, *, has_image_attachment: bool | None = None
+) -> TurnReading:
     """The turn's reading of its message, built once from the pooled readings and kept.
 
     Its fields come from the readings ``ask_turn_readings`` made in the pool, so building
-    it reads nothing on the loop.
+    it reads nothing on the loop: a subject the pool did not read stays unknown here.
+    ``has_image_attachment`` None takes the kept reading whatever its flag; a flag the
+    kept reading was not made with (turn load reads before it knows the turn's photo)
+    builds it again, with the subject the pool read under that flag.
     """
     from app.modules.chat.turn_prep.intents import plan_turn
+    from app.services.which_subject import read_subject_reason
 
     chemistry = settings.chemistry_enabled
     kept = current_turn_reading()
-    if kept is not None and kept.reads(content, chemistry_enabled=chemistry):
+    if (
+        kept is not None
+        and kept.reads(content, chemistry_enabled=chemistry)
+        and has_image_attachment in (None, kept.has_image_attachment)
+    ):
         return kept
+    image = bool(has_image_attachment)
     # The pool's plan of the message first, as ``@reading`` answers: a later read that gave
     # up does not undo a plan already read.
     kept_plan = kept_reading(plan_turn, content, chemistry_enabled=chemistry)
@@ -51,9 +65,43 @@ def read_turn(content: str, settings: Settings) -> TurnReading:
     else:
         plan = kept_plan or plan_turn(content, chemistry_enabled=chemistry)
         reason = "several_requests" if plan.multi else "one_request"
-    reading = TurnReading(content, chemistry, plan, reason, teaching_reason(content))
+    subject = kept_reading(read_subject_reason, content, image, chemistry)
+    reading = TurnReading(
+        content,
+        chemistry,
+        plan,
+        reason,
+        teaching_reason(content),
+        has_image_attachment=image,
+        subject=None if subject is None else subject.subject,
+        subject_reason=_subject_reason(subject),
+    )
     keep_turn_reading(reading)
     return reading
+
+
+def _subject_reason(subject: Any) -> str:
+    if subject is not None:
+        return str(subject.reason)
+    return "read_declined" if readings_declined() else "not_read"
+
+
+def subject_of(
+    text: str, *, has_image_attachment: bool = False, chemistry_enabled: bool = True
+) -> SubjectName | None:
+    """The subject of ``text`` (``detect_subject``): the turn's own reading when it read
+    ``text`` with these flags, else ``text`` read as before (a part, another line, other
+    flags)."""
+    from app.services.subject_solving import detect_subject
+
+    kept = current_turn_reading()
+    if kept is not None and kept.knows_subject_of(
+        text, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry_enabled
+    ):
+        return cast("SubjectName | None", kept.subject)
+    return detect_subject(
+        text, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry_enabled
+    )
 
 
 def plan_of(text: str, settings: Settings | None = None) -> TurnPlan:
@@ -151,7 +199,7 @@ async def read_turn_message(
             earlier_lines=_earlier_user_lines(earlier),
             timeout=settings.subject_read_timeout_seconds,
         )
-    read_turn(content, settings)
+    read_turn(content, settings, has_image_attachment=has_image_attachment)
 
 
 def _earlier_user_lines(earlier: Sequence[Any]) -> tuple[str, ...]:

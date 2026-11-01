@@ -24,7 +24,7 @@ from app.modules.physics.binding_values import fallback_value, si_unit
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
-from app.modules.physics.optic_elements import diverging_element
+from app.modules.physics.optic_elements import diverging_element, signed_distances
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.fit import (
     Subject,
@@ -135,7 +135,9 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
 
 def _with_markers(lower: str) -> str:
     """The question as the excludes read it: a convex mirror or a concave lens, however it
-    is worded, is marked "diverging"."""
+    is worded, is marked "diverging", and a distance given its sign is marked "signed"."""
+    if signed_distances(lower):
+        lower = f"{lower} signed"
     return f"{lower} diverging" if diverging_element(lower) else lower
 
 

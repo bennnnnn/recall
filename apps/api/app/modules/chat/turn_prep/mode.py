@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.modules.chat.clarify_turn import follows_card
+from app.modules.chat.turn_prep.reading import subject_of
 from app.modules.memory import is_food_or_diet_query
 from app.modules.turn_reading.capabilities import is_capabilities_question
 from app.modules.turn_reading.personal import (
@@ -26,7 +27,6 @@ from app.modules.turn_reading.routing import (
 from app.modules.turn_reading.turn import teaching_of
 from app.modules.turn_reading.writing import draft_followup
 from app.services import day_planning as day_planning_service
-from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
 
 
@@ -97,7 +97,7 @@ def _asks_about_food(content: str) -> bool:
     """
     if not is_food_or_diet_query(content):
         return False
-    if detect_subject(content) is not None:
+    if subject_of(content) is not None:
         return False
     return not _works_out_a_sum(content)
 

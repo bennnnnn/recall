@@ -68,6 +68,20 @@ export function applyImageGenFailure(
   );
 }
 
+/**
+ * The saved turn in place of the painted one (`optimisticUserId` and the pending picture).
+ * Back in its chat, the page read on return may already hold the saved rows: one copy shows.
+ */
+export function applyImageGenSuccess(
+  messages: readonly Message[],
+  optimisticUserId: string,
+  saved: readonly Message[],
+): Message[] {
+  const kept = messages.filter((row) => row.id !== optimisticUserId && row.id !== IMAGE_GEN_PENDING_ASSISTANT_ID);
+  const shown = new Set(kept.map((row) => row.id));
+  return [...kept, ...saved.filter((row) => !shown.has(row.id))];
+}
+
 export function restoreImageGenPending(messages: readonly Message[]): Message[] {
   return messages.map((row) =>
     row.id === IMAGE_GEN_FAILED_ASSISTANT_ID
