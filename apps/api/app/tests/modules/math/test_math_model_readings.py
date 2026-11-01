@@ -190,6 +190,9 @@ async def test_a_photos_equations_are_certified_only_as_they_are_on_the_page(
         ({"lower": "-1", "upper": "1"}, "integrate x^2 from -1 to 1", True),
         ({"lower": "-oo", "upper": "0"}, "the integral of x^2 between 0 and infinity", False),
         ({"lower": "0", "upper": "oo"}, "the integral of x^2 between 0 and infinity", True),
+        # The keypad's \infty, and a unicode minus (Claude review).
+        ({"lower": "0", "upper": "oo"}, r"\int_{0}^{\infty} x^2 dx", True),
+        ({"lower": "-oo", "upper": "0"}, "integrate x^2 from \u2212\u221e to 0", True),
     ],
 )
 def test_a_bound_is_the_users_with_its_sign(args: dict[str, str], text: str, matches: bool) -> None:

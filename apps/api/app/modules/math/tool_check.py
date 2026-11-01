@@ -78,7 +78,7 @@ _INFINITY_WORDS = ("infinity", "∞", "oo", "inf")
 # an operator or the start.
 _SIGNED = re.compile(r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(\d+(?:\.\d+)?)")
 _SIGNED_INFINITY = re.compile(
-    r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|infinity|oo|inf)(?![a-z])"
+    r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|\\infty|infinity|oo|inf)(?![a-z])"
 )
 _ORDER_WORDS = {2: ("second", "2nd", "d^2", "d²", "''"), 3: ("third", "3rd", "d^3", "'''")}
 
@@ -211,7 +211,8 @@ class _UserMath:
         signed = [(bool(m.group(1)), float(m.group(2))) for m in _SIGNED.finditer(normalized)]
         self.negatives = {value for minus, value in signed if minus}
         self.positives = {value for minus, value in signed if not minus}
-        self.infinities = {bool(m.group(1)) for m in _SIGNED_INFINITY.finditer(self.lower)}
+        # "\infty" the keypad types, and infinity after a unicode minus, read as meant.
+        self.infinities = {bool(m.group(1)) for m in _SIGNED_INFINITY.finditer(normalized.lower())}
 
     @staticmethod
     def _extracted_pairs(text: str) -> list[tuple[str, str]]:

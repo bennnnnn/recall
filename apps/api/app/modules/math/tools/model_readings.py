@@ -26,13 +26,15 @@ logger = logging.getLogger(__name__)
 def image_intent_on_the_page(intent: MathIntent, extract: MathImageExtract) -> bool:
     """A photo's equations, system, inequality or expression are on the page as read (its
     source text, compared with SymPy). Kinds the page states as numbers (a shape's sides, a
-    data list) are audited as before."""
+    data list), and an extract with no page reading, are audited as before."""
     from app.modules.math.tool_check import READ_KINDS, intent_in_user_text
 
-    if intent.kind not in READ_KINDS:
+    sources = [text for text in (extract.source_text, extract.alternate_source_text) if text]
+    # No page reading to hold it to: the OCR path declines a vision read without one
+    # (``ocr.py``), so only a hand-built extract has none, and it is audited as before.
+    if intent.kind not in READ_KINDS or not sources:
         return True
-    sources = (extract.source_text, extract.alternate_source_text)
-    return any(text and intent_in_user_text(intent, text) for text in sources)
+    return any(intent_in_user_text(intent, text) for text in sources)
 
 
 async def unchecked_setup(setup: WordProblemSetup, settings: Settings) -> str | None:
