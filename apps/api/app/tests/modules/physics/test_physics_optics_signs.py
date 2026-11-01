@@ -95,6 +95,7 @@ def test_signed_distances(text: str, signed: bool) -> None:
         ("A concave mirror; the image is formed 60 cm in front of the mirror.", True),
         ("An erect image 2 cm high.", False),
         ("An image of height 6 cm.", False),
+        ("Is the image real or virtual, erect or inverted?", False),
     ],
 )
 def test_inverted_image(text: str, inverted: bool) -> None:
@@ -155,6 +156,17 @@ def test_a_sign_not_read_declines(text: str) -> None:
             "A convex lens forms a real, inverted image. The object is 30 cm away and the "
             "focal length is 10 cm. Find the image distance.",
             15.0,
+        ),
+        # A nature the question asks about is not one it states.
+        (
+            "A thin lens of focal length 20 cm. An object is 30 cm away. Find the image "
+            "distance and say whether the image is real or virtual.",
+            60.0,
+        ),
+        (
+            "An object of height 2 cm forms an image of height 6 cm. Find the magnification "
+            "and state whether the image is erect or inverted.",
+            3.0,
         ),
     ],
 )

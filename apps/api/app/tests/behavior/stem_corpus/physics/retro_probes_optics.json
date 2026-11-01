@@ -27,5 +27,7 @@
   {"id": "rp-opt-26", "area": "optics", "expect": "answer", "answer": [0.5, ""], "note": "an erect image's heights are signed alike", "prompt": "An object 4 cm high forms an erect image 2 cm high. What is the magnification?"},
   {"id": "rp-opt-27", "area": "optics", "expect": "answer", "answer": [15.0, "cm"], "note": "a real, inverted image from a convex lens is the converging law's", "prompt": "A convex lens forms a real, inverted image. The object is 30 cm away and the focal length is 10 cm. Find the image distance."},
   {"id": "rp-opt-28", "area": "optics", "expect": "answer", "answer": [10.0, "cm"], "note": "a virtual image of a convex lens: the card says virtual", "prompt": "A convex lens forms a virtual, magnified image of an object placed 5 cm away. The focal length is 10 cm. Find the image distance."},
-  {"id": "rp-opt-29", "area": "optics", "expect": "answer", "answer": [2.5, "D"], "note": "a signed focal length is read with its sign: -2.5 D", "prompt": "A lens has a focal length of -40 cm. Find the lens power."}
+  {"id": "rp-opt-29", "area": "optics", "expect": "answer", "answer": [2.5, "D"], "note": "a signed focal length is read with its sign: -2.5 D", "prompt": "A lens has a focal length of -40 cm. Find the lens power."},
+  {"id": "rp-opt-30", "area": "optics", "expect": "answer", "answer": [60.0, "cm"], "note": "a nature asked about is not stated (Claude review of #2203)", "prompt": "A thin lens of focal length 20 cm. An object is 30 cm away. Find the image distance and say whether the image is real or virtual."},
+  {"id": "rp-opt-31", "area": "optics", "expect": "answer", "answer": [60.0, "cm"], "prompt": "An object is 30 cm from a lens of focal length 20 cm. Find the image distance. Is the image real or virtual?"}
 ]
