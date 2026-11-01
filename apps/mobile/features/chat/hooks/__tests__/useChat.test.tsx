@@ -25,6 +25,7 @@ import { REPLY_SAVE_GRACE_MS, type DotsTicket } from "@/features/chat/hooks/useT
 import { getStreamingDraft, resetStreamingDraftStore } from "@/features/chat/model/streamingDraftStore";
 import { beginOpenedPageRead, OPENED_PAGE_WAIT_MS } from "@/features/chat/model/openedPage";
 import { emitAppEvent } from "@/lib/appEvents";
+import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
@@ -47,9 +48,10 @@ afterEach(() => { jest.mocked(Math.random).mockRestore(); });
 
 jest.mock("@/lib/api", () => ({
   chatWebSocketUrl: (id: string) => `wss://test/${id}`,
-  api: { listMessages: jest.fn() },
+  api: { listMessages: jest.fn(), generateImage: jest.fn() },
 }));
 const listMessages = jest.requireMock("@/lib/api").api.listMessages as jest.Mock;
+const generateImage = jest.requireMock("@/lib/api").api.generateImage as jest.Mock;
 /** The phone's zone now: it moves on a flight, or in Settings, while a chat is open. */
 let mockZone = "UTC";
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => mockZone }));
@@ -2128,5 +2130,69 @@ describe("the thread's one owner", () => {
       ([, value]) => typeof value === "function" && (value as { name: string }).name === setterName,
     );
     expect(raw).toEqual([]);
+  });
+});
+
+// 2026-11-01: a picture still generating when the user opened another chat landed in that chat.
+describe("a picture that outlives its chat", () => {
+  afterEach(async () => { await cleanup(); });
+  const row = (id: string, content: string) => ({ id, role: "user" as const, content, model: null, created_at: "now" });
+  const saved = { user_message: row("saved-user", "Draw a cat"), assistant_message: { ...row("saved-image", "image"), role: "assistant" as const } };
+  let picture: ReturnType<typeof useImageGeneration>;
+  let openChat: (chatId: string | null) => void;
+
+  /** The chat screen's two writers: the turn's thread and a picture, which makes a chat when none is open. */
+  function Screen({ initial }: { initial: string | null }) {
+    const [chatId, setChatId] = React.useState(initial);
+    const chat = useChat("token", chatId, { onError });
+    const count = React.useRef(0);
+    const generation = useImageGeneration({
+      token: "token",
+      ensureChatId: async () => { if (chatId) return chatId; setChatId("new-1"); return "new-1"; },
+      uploadReference: async () => ({ ids: [] }),
+      describeFailure: (message) => ({ message, retryable: true }),
+      editThread: chat.editThread,
+      streaming: false, isOffline: false, onOpenUpgrade: () => {}, onScrollToLatest: () => {},
+      newMessageCountRef: count, t: (key) => key,
+    });
+    React.useLayoutEffect(() => { current = chat; picture = generation; openChat = setChatId; }, [chat, generation]);
+    return null;
+  }
+
+  async function startPicture() {
+    let finish!: (value: typeof saved) => void;
+    generateImage.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    let pending!: Promise<void>;
+    await act(async () => { pending = picture.submitPrompt({ prompt: "cat", userMessage: "Draw a cat" }); });
+    return async () => { await act(async () => { finish(saved); await pending; }); };
+  }
+
+  it.each([
+    ["another chat", "chat-b"],
+    ["a new chat", null],
+  ])("lands nowhere once the user opened %s", async (_name, next) => {
+    await render(<Screen initial="chat-a" />);
+    const finish = await startPicture();
+    await act(async () => { openChat(next); });
+    const page = [row("b-1", "chat b")];
+    await act(async () => { current.editThread(page, "opened_page"); });
+    await finish();
+    expect(current.messages).toEqual(page);
+  });
+
+  it("lands in the chat it made, though that chat reached the turn a render later", async () => {
+    generateImage.mockResolvedValueOnce(saved);
+    await render(<Screen initial={null} />);
+    await act(async () => { await picture.submitPrompt({ prompt: "cat", userMessage: "Draw a cat" }); });
+    expect(current.messages.map((message) => message.id)).toEqual(["saved-user", "saved-image"]);
+  });
+
+  it("lands nowhere once the user left the chat it made for a new one", async () => {
+    await render(<Screen initial={null} />);
+    const finish = await startPicture();
+    await act(async () => { openChat(null); });
+    await act(async () => { current.editThread([], "view_cleared"); });
+    await finish();
+    expect(current.messages).toEqual([]);
   });
 });

@@ -431,12 +431,13 @@ stays in the comment above its pass; the pinned order in
 - **Risk:** medium (stream edge cases: Stop, regenerate, reconnect). **Size:** L.
 
 **Status: done (thread owner half).** Every other writer of the thread changes it through
-`editThread(update, source)`, a `thread_edit` step of the turn reducer
+`editThread(update, source, chatId?)`, a `thread_edit` step of the turn reducer
 (`features/chat/model/threadEdit.ts` names the 15 sources; `useThreadEdits` builds the writer and
-handles a deleted attachment). The picture and live-talk hooks name their own source, so they need
-no import from chat. `lib/__tests__/threadOwner.test.ts` holds that only `useChat` and the
-reducer's command runner touch the setter, and that no other file holds a setter for a list of
-messages.
+handles a deleted attachment). An edit naming its chat (a picture's, once it has one) is dropped
+after the user leaves that chat. The picture and live-talk hooks name their own source, so they
+need no import from chat. `lib/__tests__/threadOwner.test.ts` holds, by type rather than spelling,
+that only `useChat` and the reducer's command runner touch the setter, and that no other file
+holds a list of messages in React state or a setter for one.
 
 **Status: done (screen split).** `ChatScreen` is 354 lines (was 480): the composer's
 surroundings (mic, live talk, attachment sheet, maths scanner and the heights they add) are

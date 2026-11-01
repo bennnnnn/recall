@@ -3,7 +3,7 @@
  *
  * These throw the failure away: nothing reaches Sentry or the console, and the screen
  * quietly does something else.
- * - an empty `catch {}`, or one holding only a comment;
+ * - a `catch {}` that does nothing: empty, a comment, a bare `return;` or a stray `;`;
  * - a promise rejection handler (`.catch(h)`, or the second argument of `.then(ok, h)`)
  *   that does nothing: `() => {}`, `() => undefined`, `(_e) => void 0`, a body of bare
  *   `return;`, `noop`, or a function this file declares that does nothing.
@@ -36,6 +36,11 @@ function isNothing(node: ts.Expression): boolean {
   return (ts.isIdentifier(node) && node.text === "undefined") || ts.isVoidExpression(node);
 }
 
+/** `;` or a bare `return;`: a statement that only ends. */
+function onlyEnds(statement: ts.Statement): boolean {
+  return ts.isEmptyStatement(statement) || (ts.isReturnStatement(statement) && !statement.expression);
+}
+
 /** A function whose body does nothing: empty, bare returns, or an expression that is nothing. */
 function doesNothing(node: ts.Node): boolean {
   if (!(ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node))) {
@@ -46,8 +51,8 @@ function doesNothing(node: ts.Node): boolean {
   if (!ts.isBlock(body)) return isNothing(body);
   return body.statements.every(
     (statement) =>
-      ts.isReturnStatement(statement) &&
-      (statement.expression === undefined || isNothing(statement.expression)),
+      onlyEnds(statement) ||
+      (ts.isReturnStatement(statement) && statement.expression !== undefined && isNothing(statement.expression)),
   );
 }
 
@@ -86,12 +91,13 @@ function rejectionHandler(node: ts.Node): ts.Expression | undefined {
   return undefined;
 }
 
-/** Empty catch clauses and do-nothing rejection handlers in `source`. */
+/** Catch clauses and rejection handlers that do nothing, in `source`. */
 function emptyCatches(source: ts.SourceFile): number {
   const noOps = localNoOps(source);
   let count = 0;
   const visit = (node: ts.Node): void => {
-    if (ts.isCatchClause(node) && node.block.statements.length === 0) count += 1;
+    // A catch's `return undefined` is its function's stated fallback, as `return null` is.
+    if (ts.isCatchClause(node) && node.block.statements.every(onlyEnds)) count += 1;
     if (isNoOpHandler(rejectionHandler(node), noOps)) count += 1;
     ts.forEachChild(node, visit);
   };
@@ -132,10 +138,17 @@ describe("empty catches", () => {
       "load().catch(_.noop);",
       "load().then(show, () => {});",
       "const ignore = () => undefined; load().catch(ignore);",
+      // 2026-11-01: a catch that only ends the function dropped its error unseen.
+      "function f() { try { a(); } catch { return; } }",
+      "function f() { try { a(); } catch (error) { ; } }",
+      "load().catch(() => { ; });",
     ];
     const kept = [
       "try { a(); } catch (error) { captureException(error); }",
       "try { a(); } catch { return null; }",
+      "function f() { try { a(); } catch { return false; } }",
+      "function f(): string | undefined { try { return a(); } catch { return undefined; } }",
+      "for (const x of xs) { try { a(x); } catch { continue; } }",
       "load().catch((error) => report(error));",
       "load().catch(report);",
       "load().catch(() => null);",

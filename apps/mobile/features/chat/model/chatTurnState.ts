@@ -137,6 +137,7 @@ function onViewChanged(s: ChatTurnState, out: Out, chatId: string | null, sessio
   // Rejected sends wait across chats and newer sends, never into another account.
   if (session !== s.session) s.rejected = new Map();
   s.session = session;
+  if (s.chatId && s.chatId !== chatId) s.leftChats = new Set(s.leftChats).add(s.chatId);
   s.chatId = chatId;
   s.buffer = "";
   s.firstReply = false;
@@ -149,6 +150,16 @@ function onViewChanged(s: ChatTurnState, out: Out, chatId: string | null, sessio
   s.phase = "idle";
   s.sendingMessageId = null;
   s.earlyDots = null;
+}
+
+/**
+ * An edit naming its chat lands only in that chat. A new chat's id reaches the screen a
+ * render after the work that made it learns it, so on a screen not yet showing any chat an
+ * edit for a chat it never showed is that chat's; one it left is not.
+ */
+function editBelongsHere(s: ChatTurnState, chatId: string | null | undefined): boolean {
+  if (chatId === undefined || chatId === s.chatId) return true;
+  return s.chatId === null && chatId !== null && !s.leftChats.has(chatId);
 }
 
 /** The server took this send (`start`, or a token shown): a dropped connection is not a rejection. */
@@ -436,8 +447,11 @@ export function reduceChatTurn(state: ChatTurnState, event: ChatTurnEvent, now: 
       onUnconfirmedReply(s, out, now);
       break;
     case "thread_edit": {
-      // The turn itself is unchanged; edits reach the list in the order they arrive.
+      // The turn itself is unchanged; edits reach the list in the order they arrive. One
+      // made for another chat (a picture that finished after the user left its chat) is
+      // dropped: the list on screen is this chat's.
       const { update } = event;
+      if (!editBelongsHere(s, event.chatId)) break;
       out.push({ type: "messages", update: typeof update === "function" ? update : () => update });
       break;
     }

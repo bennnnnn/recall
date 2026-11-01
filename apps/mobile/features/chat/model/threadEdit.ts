@@ -38,5 +38,13 @@ export type ThreadEditSource =
 /** The new list, or how to make it from the newest one. */
 export type ThreadUpdate = SetStateAction<Message[]>;
 
-/** Changes the thread on screen; `source` says which writer it is. */
-export type EditThread = (update: ThreadUpdate, source: ThreadEditSource) => void;
+/**
+ * Changes the thread on screen; `source` says which writer it is. `chatId`, when given, is
+ * the chat the change belongs to: work that outlives its chat (a picture still generating
+ * when the user opens another chat) lands nowhere rather than in the chat now on screen.
+ */
+export type EditThread = (
+  update: ThreadUpdate,
+  source: ThreadEditSource,
+  chatId?: string | null,
+) => void;

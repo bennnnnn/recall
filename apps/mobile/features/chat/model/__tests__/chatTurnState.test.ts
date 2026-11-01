@@ -490,4 +490,32 @@ describe("thread edits", () => {
     const run = play(idle(), [{ type: "thread_edit", source: "view_cleared", update: [] }], [bubble, older]);
     expect(run.messages).toEqual([]);
   });
+
+  // 2026-11-01: a picture that finished after the user opened another chat landed in that chat.
+  const picture = answer("saved-image", "image");
+  const pictureFor = (chatId: string): ChatTurnEvent =>
+    ({ type: "thread_edit", source: "image_turn", update: (rows) => [...rows, picture], chatId });
+  const viewOf = (chatId: string | null, session = 0): ChatTurnEvent => ({ type: "view_changed", chatId, session });
+
+  it.each([
+    ["another chat", [viewOf("chat-2")]],
+    ["a new chat", [viewOf(null)]],
+    ["another chat, then a new one", [viewOf("chat-2"), viewOf(null)]],
+    ["another account's new chat", [viewOf(null, 1)]],
+  ])("an edit for a chat the user left lands nowhere, in %s", (_name, moves) => {
+    const run = play(idle(), [...moves, pictureFor("chat-1")], [older]);
+    expect(run.messages).toEqual([older]);
+  });
+
+  it("an edit for the chat on screen lands, back in it after leaving too", () => {
+    expect(play(idle(), [pictureFor("chat-1")]).messages).toEqual([picture]);
+    expect(play(idle(), [viewOf("chat-2"), viewOf("chat-1"), pictureFor("chat-1")]).messages).toEqual([picture]);
+  });
+
+  it("an edit for the chat a new view is becoming lands before the view names it", () => {
+    // The new chat's id reaches the turn a render after the picture learns it.
+    const run = play(idle({ chatId: null }), [pictureFor("new-1")]);
+    expect(run.messages).toEqual([picture]);
+    expect(play(idle(), [viewOf("chat-2"), pictureFor("new-1")]).messages).toEqual([]);
+  });
 });

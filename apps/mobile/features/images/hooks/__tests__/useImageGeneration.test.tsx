@@ -285,6 +285,22 @@ describe("image generation submit steps", () => {
     expect(api.generateImage).toHaveBeenCalledTimes(1);
   });
 
+  // 2026-11-01: a picture that finished after the user opened another chat landed in it.
+  it.each([
+    ["a success", null],
+    ["a failure", new Error("provider down")],
+  ])("names the picture's chat on every edit once it has one, on %s", async (_name, failure) => {
+    if (failure) (api.generateImage as jest.Mock).mockRejectedValueOnce(failure);
+    const owners: (string | null | undefined)[] = [];
+    const { submit } = await setup({
+      ensureChatId: jest.fn(async () => "new-1"),
+      editThread: (_update, _source, chatId) => { owners.push(chatId); },
+    });
+    await submit({ prompt: "cat", userMessage: "Draw a cat" });
+    // The painted turn goes to the chat on screen; what follows belongs to the picture's chat.
+    expect(owners).toEqual([undefined, "new-1"]);
+  });
+
   it("opens the upgrade on a 403 (the server decides the plan)", async () => {
     (api.generateImage as jest.Mock).mockRejectedValueOnce(new ApiRequestError(403, "Pro only"));
     const { submit, replay, options } = await setup();

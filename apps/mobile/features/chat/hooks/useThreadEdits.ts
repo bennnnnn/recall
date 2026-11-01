@@ -18,7 +18,7 @@ type Options = {
  */
 export function useThreadEdits({ chatId, isCurrentView, step }: Options): EditThread {
   const editThread = useCallback<EditThread>(
-    (update, source) => step({ type: "thread_edit", source, update }),
+    (update, source, belongsTo) => step({ type: "thread_edit", source, update, chatId: belongsTo }),
     [step],
   );
 
