@@ -161,6 +161,24 @@ function onViewChanged(s: ChatTurnState, out: Out, chatId: string | null, sessio
   s.earlyDots = null;
 }
 
+/** An edit naming its chat changes the list only while that chat is on screen. */
+export function editLands(s: ChatTurnState, chatId: string | undefined): boolean {
+  return chatId === undefined || chatId === s.chatId;
+}
+
+/**
+ * The turn itself is unchanged; edits reach the list in the order they arrive. One made for
+ * another chat waits for that chat (onViewChanged): a picture that finished after the user
+ * left, or before its new chat's id reached the screen (a render later), or while a reopened
+ * chat's page read was out.
+ */
+function onThreadEdit(s: ChatTurnState, out: Out, event: Extract<ChatTurnEvent, { type: "thread_edit" }>): void {
+  const { update, chatId } = event;
+  const apply = typeof update === "function" ? update : () => update;
+  if (editLands(s, chatId)) messages(out, apply);
+  else if (chatId) s.heldEdits = new Map(s.heldEdits).set(chatId, [...(s.heldEdits.get(chatId) ?? []), apply]);
+}
+
 /** The server took this send (`start`, or a token shown): a dropped connection is not a rejection. */
 function serverTookSend(s: ChatTurnState, pending: PendingSend | null): boolean {
   return !s.regenerateBackup && (Boolean(pending?.accepted) || s.buffer.trim().length > 0);
@@ -445,17 +463,9 @@ export function reduceChatTurn(state: ChatTurnState, event: ChatTurnEvent, now: 
     case "unconfirmed_reply":
       onUnconfirmedReply(s, out, now);
       break;
-    case "thread_edit": {
-      // The turn itself is unchanged; edits reach the list in the order they arrive. One
-      // made for another chat waits for that chat (onViewChanged): a picture that finished
-      // after the user left, or before its new chat's id reached the screen (a render
-      // later), or while a reopened chat's page read was out.
-      const { update, chatId } = event;
-      const apply = typeof update === "function" ? update : () => update;
-      if (chatId === undefined || chatId === s.chatId) messages(out, apply);
-      else s.heldEdits = new Map(s.heldEdits).set(chatId, [...(s.heldEdits.get(chatId) ?? []), apply]);
+    case "thread_edit":
+      onThreadEdit(s, out, event);
       break;
-    }
   }
   return { state: s, commands: out };
 }

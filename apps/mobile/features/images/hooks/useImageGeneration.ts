@@ -191,7 +191,7 @@ export function useImageGeneration({
       newMessageCountRef.current += addedRows;
       onScrollToLatest();
 
-      // The chat the picture belongs to, once it has one; until then it is the one on screen.
+      // The picture's chat once it has one (until then the one on screen); a picture that waits scrolls nothing.
       let owner: string | undefined;
       const edit = (update: (rows: Message[]) => Message[]) => editThread(update, "image_turn", owner);
       try {
@@ -254,7 +254,6 @@ export function useImageGeneration({
         emitAppEvent("attachmentAdded", { chatId: activeChatId });
         optimisticUserIdRef.current = null;
         lastSubmitRef.current = null;
-        // Another chat on screen keeps its place; this one shows the picture when reopened.
         if (shown !== false) onScrollToLatest();
       } catch (error) {
         const canceled = userCancelRef.current;

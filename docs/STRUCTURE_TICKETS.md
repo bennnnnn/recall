@@ -433,8 +433,8 @@ stays in the comment above its pass; the pinned order in
 **Status: done (thread owner half).** Every other writer of the thread changes it through
 `editThread(update, source, chatId?)`, a `thread_edit` step of the turn reducer
 (`features/chat/model/threadEdit.ts` names the 15 sources; `useThreadEdits` builds the writer and
-handles a deleted attachment). An edit naming its chat (a picture's, once it has one) is dropped
-after the user leaves that chat. The picture and live-talk hooks name their own source, so they
+handles a deleted attachment). An edit naming its chat (a picture's, once it has one) waits
+while another chat is on screen and lands when its chat is shown. The picture and live-talk hooks name their own source, so they
 need no import from chat. `lib/__tests__/threadOwner.test.ts` holds, by type rather than spelling,
 that only `useChat` and the reducer's command runner touch the setter, and that no other file
 holds a list of messages in React state or a setter for one.
