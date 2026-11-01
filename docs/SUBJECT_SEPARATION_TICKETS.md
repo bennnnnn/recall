@@ -66,7 +66,8 @@ or fence behavior.
 `app.services.subject_solving` owns generic chat integration:
 
 - detect one subject before extraction;
-- call only that subject's augmentation path;
+- call only that subject's augmentation path, through its adapter (`services/subject_registry`,
+  structure ticket ST-07);
 - dispatch direct presentation based on the verified block subtype.
 
 `app.services.symbolic_text`, `app.services.unit_text`, and `app.services.units` contain scanning

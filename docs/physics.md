@@ -410,7 +410,7 @@ A photographed problem goes through the same pipeline as a typed one.
    - **Solve** sends the text alone, so it gets the verified Given / Find / Formula /
      Substitution / Answer reply of a typed question;
    - **Send photo** sends the crop with `I read this as: …`. The turn verifies that reading
-     (`subject_solving._physics_request_text`), and the model writes the reply, since the
+     (`modules/physics/subject.py`, `_physics_request_text`), and the model writes the reply, since the
      photo may hold a diagram the text does not.
 
 A physics caption is physics, never math: math neither OCRs the photo nor claims the

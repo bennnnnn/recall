@@ -16,8 +16,7 @@ from typing import Literal
 from app.core.readings import reading
 from app.modules.math.tools.prompt import needs_symbolic_math
 from app.modules.physics.extract import extract_physics_intent, needs_physics
-
-SubjectName = Literal["math", "physics", "chemistry"]
+from app.services.subject_registry import SubjectName
 
 # Which step of the subject order decided a line (``read_subject_reason``): the order is
 # the precedence, written once there.

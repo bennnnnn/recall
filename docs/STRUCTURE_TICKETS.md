@@ -449,7 +449,30 @@ stays in the comment above its pass; the pinned order in
 - **Proof:** the decision diff and STEM snapshot are unchanged. `test_module_direction` gains "chat
   imports no subject", and the #2151 cycle baseline loses the subject edges.
 - **Conflicts:** #2148, #2150, #2152, #2155, #2156 (subject readers), #2154/#2160 (money).
-- **Risk:** medium. **Size:** L.
+- **Risk:** medium. **Size:** L. Land it in steps: the registry, then chat's subject imports
+  behind it, then the `Literal`s.
+- **Status, step 1 (the registry): done.**
+  - `services/subject_registry.py` defines `SubjectAdapter`, a protocol like `ToolAdapter`
+    with what the dispatcher asks of every subject: `name`, `solve` (a `SubjectRequest` to a
+    `SubjectAugmentation`) and `direct_reply`. `SUBJECTS` names each subject's adapter, one
+    entry each: `modules/math/subject.py`, `modules/physics/subject.py`,
+    `modules/chemistry/subject.py`, each listed public by its package. They hold what the
+    dispatcher's private `_augment_*` and `_direct_*` functions held, unchanged.
+  - `subject_solving.py` (388 → 179 lines) asks `subject_adapter(name)` and imports no
+    subject; `test_module_direction.py` holds that. The registry sits beside it in layer 2.
+  - `SubjectName` and `SubjectAugmentation` moved to `services/solving.py`, the leaf below
+    every subject, and the registry re-exports the name: the registry imports the subjects,
+    and the pure solvers reach `solving`, so the list of names sits below both.
+    `test_subject_registry.py` holds one adapter per name.
+  - Registration is the tuple, not a call in each subject's `__init__`: the SymPy pool's
+    spawned workers import only what a job names (the direct reply runs there), so a call in
+    an `__init__` registers nothing until something imports every subject; the tuple is that
+    import, typed and in one place, as `services/mcp` registers the model's tools.
+  - The order between subjects stays `which_subject`'s (ST-05), so a subject that competes
+    with another for a line also adds its step there. Dispatcher-only public files left the
+    subjects' lists: `math.tools.direct`, `physics.direct` and `.prompt`, `chemistry.block`,
+    `.direct` and `.reading`.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 

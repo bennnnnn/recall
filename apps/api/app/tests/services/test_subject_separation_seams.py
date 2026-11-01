@@ -112,6 +112,7 @@ def test_neutral_solving_module_does_not_build_math_blocks() -> None:
     "module",
     [
         "app.services.solving",
+        "app.services.subject_registry",
         "app.services.subject_solving",
         "app.services.symbolic_text",
         "app.services.unit_text",
@@ -119,6 +120,9 @@ def test_neutral_solving_module_does_not_build_math_blocks() -> None:
         "app.modules.physics.schemas",
         "app.modules.math.tools.extract",
         "app.modules.physics.extract",
+        "app.modules.math.subject",
+        "app.modules.physics.subject",
+        "app.modules.chemistry.subject",
     ],
 )
 def test_subject_and_neutral_modules_import_cold(module: str) -> None:
