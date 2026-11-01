@@ -7,8 +7,8 @@ import type { MdImgStyles, StyleMap } from "@/components/markdown/markdownConten
 import { TapToLoadImage } from "@/components/markdown/TapToLoadImage";
 import { imageLoadPolicy } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
-import { openPlaceLink } from "@/lib/openPlaceLink";
-import { isGenericSearchUrl } from "@/lib/placesList";
+import { openPlaceLink } from "@/lib/places/openPlaceLink";
+import { isGenericSearchUrl } from "@/lib/places/placesList";
 
 export function linkRules(mdImg: MdImgStyles) {
   return {

@@ -6,7 +6,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 
-import type { PreviewHeightRules } from "@/lib/webPreviewHeight";
+import type { PreviewHeightRules } from "@/lib/preview/webPreviewHeight";
 
 type PreviewMessage = { kind?: string; message?: string; height?: number };
 

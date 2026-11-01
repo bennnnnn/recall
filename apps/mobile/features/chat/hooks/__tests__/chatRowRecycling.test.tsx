@@ -11,7 +11,7 @@ import { View } from "react-native";
 import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
 import type { Message } from "@/lib/api";
-import { publishStreamingDraft } from "@/lib/streamingDraftStore";
+import { publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 
 const mockMounts = new Map<string, number>();
 
@@ -24,14 +24,14 @@ jest.mock("@/features/chat/components/MessageActions", () => ({
   MESSAGE_ACTION_ROW_HEIGHT: 44,
 }));
 jest.mock("@/features/suggestions/components/RelatedPromptLines", () => ({ RelatedPromptLines: () => null }));
-jest.mock("@/components/SettingsProposalCard", () => ({ SettingsProposalCard: () => null }));
+jest.mock("@/features/chat/components/SettingsProposalCard", () => ({ SettingsProposalCard: () => null }));
 jest.mock("@/features/todos/components/ReminderProposalCard", () => ({ ReminderProposalCard: () => null }));
-jest.mock("@/components/PlacesListBlock", () => ({ PlacesListBlock: () => null }));
+jest.mock("@/components/rich/PlacesListBlock", () => ({ PlacesListBlock: () => null }));
 jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({ ChatMessageImageStrip: () => null }));
 jest.mock("@/features/images/components/ImageGenPlaceholder", () => ({ ImageGenPlaceholder: () => null }));
 jest.mock("@/ui/feedback/ActionShimmer", () => ({ ActionShimmer: () => null }));
-jest.mock("@/components/SearchSourcesStack", () => ({ SearchSourcesStack: () => null }));
-jest.mock("@/components/RecallTypingIndicator", () => ({ RecallTypingIndicator: () => null }));
+jest.mock("@/features/chat/components/SearchSourcesStack", () => ({ SearchSourcesStack: () => null }));
+jest.mock("@/features/chat/components/RecallTypingIndicator", () => ({ RecallTypingIndicator: () => null }));
 jest.mock("@/features/chat/components/UserMessageContent", () => ({ UserMessageContent: () => null }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),

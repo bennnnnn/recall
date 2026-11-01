@@ -13,7 +13,7 @@ import { fenceIdForLang, fallbackKindForLang } from "@/lib/fenceRegistry";
 import { parseJsonRecord } from "@/lib/jsonFence";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";
 import { parseSearchSourcesJson } from "@/lib/searchSources";
-import { parsePlacesJson } from "@/lib/placesList";
+import { parsePlacesJson } from "@/lib/places/placesList";
 
 const VISUAL_SNIPPET_MAX = 80;
 

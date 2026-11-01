@@ -1,21 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { SettingsProposalCard } from "@/components/SettingsProposalCard";
+import { SettingsProposalCard } from "@/features/chat/components/SettingsProposalCard";
 import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
 import { TodoLinkButton } from "@/features/todos/components/TodoLinkButton";
-import { PlacesListBlock } from "@/components/PlacesListBlock";
+import { PlacesListBlock } from "@/components/rich/PlacesListBlock";
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/features/attachments/components/ChatMessageImageStrip";
 import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceholder";
 import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
-import { SearchSourcesStack } from "@/components/SearchSourcesStack";
+import { SearchSourcesStack } from "@/features/chat/components/SearchSourcesStack";
 import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
 import { ClarifyMessageScope } from "@/components/rich/clarifyContext";
 import { ReplyMarkdown } from "@/components/markdown/ReplyMarkdown";
-import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
-import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
-import { StreamProgressLabel } from "@/components/StreamProgressLabel";
+import { MarkdownErrorBoundary } from "@/features/chat/components/MarkdownErrorBoundary";
+import { RecallTypingIndicator } from "@/features/chat/components/RecallTypingIndicator";
+import { StreamProgressLabel } from "@/features/chat/components/StreamProgressLabel";
 import { AssistantMessageScope } from "@/features/drafts/context/emailDraftPersist";
 import {
   AssistantActions,
@@ -25,7 +25,7 @@ import {
 import { Message } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";
-import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
+import { useAssistantMessageContent } from "@/features/chat/hooks/useAssistantMessageContent";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { messageListKey } from "@/lib/messageListLayout";
 import {

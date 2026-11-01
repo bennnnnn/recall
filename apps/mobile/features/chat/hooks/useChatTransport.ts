@@ -5,7 +5,7 @@ import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import { useAccountSession } from "@/contexts/accountSession";
 import { chatWebSocketUrl } from "@/lib/api";
 import { accessTokenNeedsRefresh, freshAccessToken } from "@/lib/api/client";
-import type { ClientGeo } from "@/lib/clientGeo";
+import type { ClientGeo } from "@/features/chat/model/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isNetworkOffline, isNetworkPathChange } from "@/lib/networkStatus";
 import { shouldAbortPriorSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";

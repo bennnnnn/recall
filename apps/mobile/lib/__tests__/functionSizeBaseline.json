@@ -115,7 +115,7 @@
   "features/scanner/hooks/useMathScannerCrop.ts::useMathScannerCrop": 312,
   "hooks/useNetworkStatus.ts::useNetworkStatus": 160,
   "lib/markdown/assistantMessageContent.ts::deriveAssistantMessageContent": 103,
-  "lib/printDocument.ts::structuredPrintBody": 108,
+  "features/chat/model/printDocument.ts::structuredPrintBody": 108,
   "ui/controls/Button.tsx::Button": 104,
   "ui/controls/Chip.tsx::Chip": 108,
   "ui/controls/Slider.tsx::Slider": 154,

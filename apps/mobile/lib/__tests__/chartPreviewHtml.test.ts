@@ -1,7 +1,7 @@
 import { buildVegaPageHtml, CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
 import { normalizeChartSpec } from "@/lib/chartPresentation";
-import { PREVIEW_PAGE_LINK_KIND } from "@/lib/previewPage";
-import { CHART_PREVIEW_CSP, PREVIEW_CSP } from "@/lib/previewSandbox";
+import { PREVIEW_PAGE_LINK_KIND } from "@/lib/preview/previewPage";
+import { CHART_PREVIEW_CSP, PREVIEW_CSP } from "@/lib/preview/previewSandbox";
 
 import { previewPageSandbox, settle } from "./fixtures/previewPageSandbox";
 

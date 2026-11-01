@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from "react";
 
-import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
+import { useStreamingDraft } from "@/features/chat/context/StreamingDraftContext";
 import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
 import { StreamSilenceHint } from "@/features/chat/components/StreamSilenceHint";

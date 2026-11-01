@@ -19,7 +19,7 @@ const { createRequire } = jest.requireActual<{
 const packageDir = dirname(createRequire(join(__dirname, "katexParity.test.ts")).resolve("katex/package.json"));
 const sourceCss = readFileSync(join(packageDir, "dist/katex.min.css"), "utf8");
 const manifest = JSON.parse(readFileSync(join(__dirname, "../manifest.json"), "utf8"));
-/** The stylesheet PDF export inlines (lib/printDocument.ts), as shipped. */
+/** The stylesheet PDF export inlines (features/chat/model/printDocument.ts), as shipped. */
 const KATEX_CSS = readFileSync(join(__dirname, "../katex.min.css.txt"), "utf8");
 const facePattern = /@font-face\{[^}]*\}/g;
 const sha = (value: string): string => createHash("sha256").update(value).digest("hex");

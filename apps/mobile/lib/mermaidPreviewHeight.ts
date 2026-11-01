@@ -1,9 +1,9 @@
 /**
- * Height policy for the mermaid WebView preview (`lib/webPreviewHeight.ts`).
+ * Height policy for the mermaid WebView preview (`lib/preview/webPreviewHeight.ts`).
  *
  * Extracted so grow/clamp is unit-testable without a linked WebView.
  */
-import { previewHeightRules } from "@/lib/webPreviewHeight";
+import { previewHeightRules } from "@/lib/preview/webPreviewHeight";
 
 /** Placeholder until the SVG reports its size. */
 export const MERMAID_MIN_HEIGHT = 160;

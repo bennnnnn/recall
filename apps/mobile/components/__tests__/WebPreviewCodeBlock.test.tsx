@@ -1,9 +1,9 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
-import { bundleHtmlPreview, type PreviewFile } from "@/lib/htmlPreviewBundle";
-import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
-import { openHtmlInBrowser } from "@/lib/openHtmlPreview";
+import { bundleHtmlPreview, type PreviewFile } from "@/lib/preview/htmlPreviewBundle";
+import { HtmlPreviewFilesProvider } from "@/lib/preview/htmlPreviewFiles";
+import { openHtmlInBrowser } from "@/lib/preview/openHtmlPreview";
 
 jest.mock("@/lib/theme", () => {
   const actual = jest.requireActual("@/lib/theme");
@@ -13,11 +13,11 @@ jest.mock("@/lib/codeTokenize", () => ({
   tokenize: (code: string) => [{ text: code, color: "#111111" }],
   resolveHighlightLang: (lang: string) => lang,
 }));
-jest.mock("@/lib/htmlPreviewBundle", () => {
-  const actual = jest.requireActual("@/lib/htmlPreviewBundle");
+jest.mock("@/lib/preview/htmlPreviewBundle", () => {
+  const actual = jest.requireActual("@/lib/preview/htmlPreviewBundle");
   return { ...actual, bundleHtmlPreview: jest.fn(actual.bundleHtmlPreview) };
 });
-jest.mock("@/lib/openHtmlPreview", () => ({ openHtmlInBrowser: jest.fn(async () => undefined) }));
+jest.mock("@/lib/preview/openHtmlPreview", () => ({ openHtmlInBrowser: jest.fn(async () => undefined) }));
 jest.mock("@/components/HtmlPreviewModal", () => ({ HtmlPreviewModal: () => null }));
 
 const HTML = "<html><head></head><body><p>hi</p></body></html>";

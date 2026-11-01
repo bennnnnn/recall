@@ -6,10 +6,10 @@ import { act, render } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 
 import { ChartBlock } from "@/components/rich/ChartBlock";
-import { previewPageFile } from "@/lib/previewPageFile";
+import { previewPageFile } from "@/lib/preview/previewPageFile";
 
 jest.mock("expo-file-system/legacy", () => ({}));
-jest.mock("@/lib/previewPageFile", () => ({
+jest.mock("@/lib/preview/previewPageFile", () => ({
   previewPageFile: jest.fn(async () => "file:///cache/preview-pages/chart-0123456789abcdef.html"),
   readyPreviewPageFile: jest.fn(() => null),
   forgetPreviewPageFile: jest.fn(),

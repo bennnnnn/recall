@@ -58,7 +58,7 @@ jest.mock("@/features/chat/components/ChatComposer", () => ({
   },
 }));
 
-jest.mock("@/contexts/StreamingDraftContext", () => ({
+jest.mock("@/features/chat/context/StreamingDraftContext", () => ({
   StreamingDraftProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 

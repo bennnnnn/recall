@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
-import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
+import { CollapsibleMessageBody } from "@/features/chat/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/features/attachments/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";

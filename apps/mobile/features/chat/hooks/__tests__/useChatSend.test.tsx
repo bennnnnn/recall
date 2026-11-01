@@ -20,7 +20,7 @@ import * as latency from "@/features/chat/model/latency";
 import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
-} from "@/lib/resolveClientGeoForQuery";
+} from "@/features/chat/model/resolveClientGeoForQuery";
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
 beforeEach(() => {
   (getSessionGeneration as jest.Mock).mockReturnValue(0);
@@ -103,7 +103,7 @@ jest.mock("@/lib/haptics", () => ({
 }));
 const mockTap = tap as jest.Mock;
 const mockNotifyWarning = notifyWarning as jest.Mock;
-jest.mock("@/lib/resolveClientGeoForQuery", () => ({
+jest.mock("@/features/chat/model/resolveClientGeoForQuery", () => ({
   queryNeedsClientGeo: jest.fn(() => false),
   resolveClientGeoForQuery: jest.fn(async () => ({ ok: true, clientGeo: null })),
 }));

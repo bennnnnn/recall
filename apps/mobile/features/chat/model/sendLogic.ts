@@ -1,7 +1,7 @@
 import type { Message } from "@/lib/api";
 import { messageTextForSend, type PendingAttachment } from "@/features/attachments/model/attachments";
 
-import type { ClientGeo } from "@/lib/clientGeo";
+import type { ClientGeo } from "@/features/chat/model/clientGeo";
 
 export type ComposerSendDraft = {
   text: string;

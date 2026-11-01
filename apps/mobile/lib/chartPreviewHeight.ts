@@ -1,8 +1,8 @@
 /**
- * Height policy for the chart WebView preview (`lib/webPreviewHeight.ts`).
+ * Height policy for the chart WebView preview (`lib/preview/webPreviewHeight.ts`).
  * Grow-only after first paint so the assistant bubble does not jump.
  */
-import { previewHeightRules } from "@/lib/webPreviewHeight";
+import { previewHeightRules } from "@/lib/preview/webPreviewHeight";
 
 /** Also the placeholder until the SVG reports its size. */
 export const CHART_MIN_HEIGHT = 140;

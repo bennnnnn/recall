@@ -6,7 +6,7 @@ import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
 import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
 import { clearSvgMathCache } from "@/lib/math/svgMath";
-import { publishStreamingDraft } from "@/lib/streamingDraftStore";
+import { publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 
 /** Device/account side effects finish before another account signs in, so it

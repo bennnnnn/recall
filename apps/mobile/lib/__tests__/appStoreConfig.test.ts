@@ -114,7 +114,7 @@ const COLLECTED_DATA: Record<string, { linked: boolean; purposes: readonly strin
   UserID: { linked: true, purposes: ["AppFunctionality", "Analytics"] },
   // This install's id (lib/installationId.ts), sent with the push token and product events.
   DeviceID: { linked: true, purposes: ["AppFunctionality", "Analytics"] },
-  // A nearby or "where am I" message carries the fix's coordinates (lib/clientGeo.ts), and its
+  // A nearby or "where am I" message carries the fix's coordinates (features/chat/model/clientGeo.ts), and its
   // place label is the coordinates to four decimals when the phone finds no place name.
   PreciseLocation: { linked: true, purposes: ["AppFunctionality"] },
   // The city, region and country saved while Use current location is on.

@@ -12,7 +12,7 @@ import {
   UNIT_CATEGORIES,
   UNITS_BY_CATEGORY,
   type UnitCategory,
-} from "@/lib/unitConverter";
+} from "@/features/chat/model/unitConverter";
 import { IconSize } from "@/ui/icons/sizes";
 
 /** Fixed so Length / Temp / Volume don't bounce the sheet when the list length changes. */

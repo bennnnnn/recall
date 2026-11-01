@@ -15,7 +15,7 @@ import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
 import { composerShowsStop } from "@/features/chat/model/composerLogic";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import { UpgradeSheet, type UpgradeSource } from "@/features/billing/components/UpgradeSheet";
-import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
+import { StreamingDraftProvider } from "@/features/chat/context/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message, ScanReading } from "@/lib/api";

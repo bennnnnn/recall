@@ -66,7 +66,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/notifications/model/pushNotifications.ts#lastPushSync": "clearPushSyncRecord",
   // clearPushSyncRecord sets it back to false.
   "features/notifications/model/pushRegistration.ts#registered": "clearPushSyncRecord",
-  "lib/streamingDraftStore.ts#draft": "publishStreamingDraft",
+  "features/chat/model/streamingDraftStore.ts#draft": "publishStreamingDraft",
   "lib/syncRecords.ts#locationRecord": "forgetSyncRecords",
   "lib/syncRecords.ts#pushRecord": "forgetSyncRecords",
 };
@@ -171,7 +171,7 @@ const NO_ACCOUNT_DATA = [
   "lib/linkPreview.ts#inFlight",
   "lib/math/svgMath.ts#rendererImpl",
   "lib/math/svgMath.ts#rendererPromise",
-  "lib/previewPageFile.ts#pageFiles",
+  "lib/preview/previewPageFile.ts#pageFiles",
   "lib/networkProbe.ts#netInfoConfigured",
   "lib/productAnalytics.ts#flushOnBackground",
   "lib/productAnalytics.ts#flushTimer",

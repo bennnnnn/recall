@@ -1,8 +1,8 @@
 import type { RefObject } from "react";
 import type { View } from "react-native";
 
-import { ChatActionsMenu } from "@/components/ChatActionsMenu";
-import { ChatRenameSheet } from "@/components/ChatRenameSheet";
+import { ChatActionsMenu } from "@/features/chat/components/ChatActionsMenu";
+import { ChatRenameSheet } from "@/features/chat/components/ChatRenameSheet";
 import { ChatShareSheet } from "@/features/chat/components/ChatShareSheet";
 import type { Message } from "@/lib/api";
 

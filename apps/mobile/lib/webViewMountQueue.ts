@@ -17,7 +17,7 @@
  * Kept framework-free (no React) so the allocation logic is unit-testable
  * without rendering anything — see hooks/useDeferredWebViewMount.ts for the
  * React wrapper that consuming components actually use. Pattern mirrors
- * lib/streamingDraftStore.ts: private module-level state + a listeners set
+ * features/chat/model/streamingDraftStore.ts: private module-level state + a listeners set
  * that gets notified on every change.
  */
 

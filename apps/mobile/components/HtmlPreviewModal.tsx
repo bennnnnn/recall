@@ -28,8 +28,8 @@ import {
   looksLikeInteractiveHtml,
   shareHtmlPreview,
   wrapFullDocument,
-} from "@/lib/openHtmlPreview";
-import { HTML_RUN_EMPTY_KIND, prepareHtmlRunDocument } from "@/lib/htmlRunDocument";
+} from "@/lib/preview/openHtmlPreview";
+import { HTML_RUN_EMPTY_KIND, prepareHtmlRunDocument } from "@/lib/preview/htmlRunDocument";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import {
@@ -105,7 +105,7 @@ type PreviewTab = "run" | "code";
  *
  * Keep this path as close as charts: `source={{ html }}`, no baseUrl. The
  * model's page runs in a sandboxed frame inside that document, under the
- * wrapper's PREVIEW_CSP_LIVE (lib/htmlRunDocument.ts), so it cannot navigate
+ * wrapper's PREVIEW_CSP_LIVE (lib/preview/htmlRunDocument.ts), so it cannot navigate
  * the WebView, its own frame or open windows; CDN loads are allowed. The
  * WebView's navigations (on iOS, every frame's) also go through
  * allowHtmlRunNavigation, which keeps the tab's own documents and refuses the
