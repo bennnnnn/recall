@@ -247,9 +247,6 @@ class MathExprResult(BaseModel):
     # can copy them instead of inventing its own derivation. Empty for
     # operations where SymPy doesn't expose intermediate steps.
     steps: list[str] = Field(default_factory=list)
-    # True when a simplification, factorisation or expansion is the expression as
-    # written: a card would only restate the question (``solve/expressions.py``).
-    restated: bool = False
 
 
 class MathLimitResult(BaseModel):

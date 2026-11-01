@@ -185,9 +185,29 @@ _EXPRESSION = re.compile(r"[0-9a-z]\s*[+\-*]\s*[0-9a-z]")
 _ANSWER_PIECES = re.compile(r"(?<![\\\d]),|(?<=\d),(?!\d{3}(?!\d))|;|\\quad|\n")
 
 
+# LaTeX a card prints and a question rarely types: a braced script (``a^{3}``), a fraction
+# (``\frac{x + 1}{x - 1}``, read as (x + 1)/(x - 1)) and a root's index (``\sqrt[3]{…}``, the
+# root of what it holds). A card that is the question's expression under a root, as a
+# fraction or with its terms in place restates it: "the cube root of 27a^3 + …" answered
+# ``\sqrt[3]{27 a^{3} + …}`` did no work.
+_BRACED_SCRIPT = re.compile(r"([\^_])\{([^{}]*)\}")
+_LATEX_FRACTION = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+_ROOT_INDEX = re.compile(r"\\sqrt\s*\[[^\]]*\]")
+_NESTED_FRACTIONS = 4
+
+
+def _plain_latex(text: str) -> str:
+    plain = _ROOT_INDEX.sub(" ", _BRACED_SCRIPT.sub(r"\1\2", text))
+    for _ in range(_NESTED_FRACTIONS):
+        plain, found = _LATEX_FRACTION.subn(r"(\1)/(\2)", plain)
+        if not found:
+            break
+    return plain
+
+
 def _squashed(text: str) -> str:
     """Letters, digits and signs only: "27 a^{3} + 54 a^{2} b" and "27a^3 + 54a^2b" alike."""
-    plain = re.sub(r"\\(?:text|mathrm|left|right)\b|\\[a-zA-Z]+", " ", text)
+    plain = re.sub(r"\\(?:text|mathrm|left|right)\b|\\[a-zA-Z]+", " ", _plain_latex(text))
     plain = plain.replace(chr(0x2013), "-").replace(chr(0x2212), "-")
     return re.sub(r"[^0-9a-zA-Z+\-=*/]", "", plain).lower()
 

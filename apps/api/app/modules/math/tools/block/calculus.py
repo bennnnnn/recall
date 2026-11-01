@@ -103,12 +103,10 @@ def _finish_operation(
 
 def _simplify(
     intent: MathIntent, expr: str, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock | None:
+) -> VerifiedMathBlock:
     out = math_solve.simplify_expression(expr, intent.variable)
     if not out.solved:
         return _no_closed_form(out, lines)
-    if out.restated:
-        return None
     reply = _simplification_direct_reply(intent, out.latex)
     if reply is None:
         # A value the simplification cancelled may be one the question excludes, and
@@ -119,23 +117,19 @@ def _simplify(
 
 def _factor(
     intent: MathIntent, expr: str, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock | None:
+) -> VerifiedMathBlock:
     out = math_solve.factor_expression(expr, intent.variable)
     if not out.solved:
         return _no_closed_form(out, lines)
-    if out.restated:
-        return None
     return _finish_operation(out, lines, out.latex)
 
 
 def _expand(
     intent: MathIntent, expr: str, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock | None:
+) -> VerifiedMathBlock:
     out = math_solve.expand_expression(expr, intent.variable)
     if not out.solved:
         return _no_closed_form(out, lines)
-    if out.restated:
-        return None
     return _finish_operation(out, lines, out.latex)
 
 

@@ -16,7 +16,7 @@ polynomial, "simplified" it to itself and certified the question as its answer
 (2026-11-01). ``cuberoot(8)`` would have been the letters c·u·b·e·r·o·o·t times 8. A name
 must be a function or constant SymPy knows, a Greek letter, a letter with a subscript
 (``x_1``), a name the caller declared, or one-letter variables written together (``ab``,
-``abc``): never a word.
+``3abc``, ``lwh``, ``abcd``): never a word.
 """
 
 from __future__ import annotations
@@ -85,30 +85,38 @@ _NAME = re.compile(r"(?<![\w.])[A-Za-z_][A-Za-z0-9_]*")
 _KNOWN_NAMES = frozenset(sympy.__all__) | MATH_MULTI_LETTER | frozenset(GREEK_NAMES)
 # ``x_1``, ``a_n``, ``theta_0``: one letter, or a Greek one, with a subscript.
 _SUBSCRIPTED_NAME = re.compile(rf"(?:[A-Za-z]|{'|'.join(GREEK_NAMES)})_[A-Za-z0-9]+")
-# One-letter variables written together are at most three (``abc`` in a^3 + b^3 + c^3 - 3abc).
-_MAX_PRODUCT = 3
+# Three one-letter variables written together are a product (``3abc``, ``lwh``, ``nRT``);
+# longer runs are only when their letters run in order (``abcd``, ``pqrs``).
+_SHORT_PRODUCT = 3
 
 
 def reject_unknown_names(normalized: str, declared: set[str]) -> None:
-    """Every name in the parser's text is one it knows, or letters written together.
-
-    A word (four letters or more, a letter twice, or three applied to a bracket like
-    ``fog(x)``) is a name nobody defined, and so is one joined by ``_`` (``cube_root``).
-    """
+    """Every name in the parser's text is one it knows, or one-letter variables written
+    together. A word is a name nobody defined: one joined by ``_`` (``cube_root``), a letter
+    twice (``root``, ``speed``), four letters or more out of order (``cube``, ``velocity``),
+    or three out of order applied to a bracket (``fog(x)``)."""
     for match in _NAME.finditer(normalized):
         name = match.group()
         if len(name) == 1 or name in declared or name in _KNOWN_NAMES:
             continue
         if name.lower() in _KNOWN_NAMES or _SUBSCRIPTED_NAME.fullmatch(name):
             continue
-        applied = normalized[match.end() : match.end() + 1] == "("
-        if (
-            not name.isalpha()
-            or len(name) > _MAX_PRODUCT
-            or len(set(name)) < len(name)
-            or (applied and len(name) == _MAX_PRODUCT)
+        if not name.isalpha() or not _letters_written_together(
+            name, applied=normalized[match.end() : match.end() + 1] == "("
         ):
             raise SolveServiceError(f"Could not parse expression: {name}")
+
+
+def _letters_written_together(name: str, *, applied: bool) -> bool:
+    letters = name.casefold()
+    if len(set(letters)) < len(letters):
+        return False
+    in_order = list(letters) == sorted(letters)
+    if len(letters) < _SHORT_PRODUCT:
+        return True
+    if len(letters) == _SHORT_PRODUCT:
+        return in_order or not applied
+    return in_order
 
 
 def defined_variable(lhs: str, rhs: str | None = None) -> str | None:
