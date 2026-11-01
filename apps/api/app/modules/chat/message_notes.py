@@ -20,7 +20,7 @@ from app.modules.chat.prompt_constants.shared_numbers import shared_numbers_hint
 from app.modules.chat.reply_language import reply_language_hint
 from app.modules.chat.response_tone import emoji_note
 from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
-from app.modules.turn_reading.teaching import is_teaching_request
+from app.modules.turn_reading.turn import teaching_of
 
 
 def _own_way(query: str, exchange: list[Any], pairs: Sequence[tuple[str, str]]) -> bool:
@@ -36,7 +36,7 @@ def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str 
     own_way = _own_way(query, exchange, pairs)
     missed = None if own_way else reply_missed_hint(query, pairs) or reply_how_hint(query, pairs)
     # A lesson (its first one too), outline or clarify card places its own emoji.
-    lesson_like = own_way or is_teaching_request(query)
+    lesson_like = own_way or teaching_of(query)
     emoji = None if lesson_like else emoji_note(user.emoji_use, memory_block)
     language = reply_language_hint(query, pairs, user.locale, user.custom_instructions)
     # A lesson teaches its own way; a school exercise asked in it is still the lesson's.

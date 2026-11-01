@@ -40,6 +40,7 @@ from app.modules.chat.turn_trace import (
     note_plan,
     note_prompt_rule,
     note_route,
+    note_teaching,
     note_tool,
     plain_record,
 )
@@ -55,6 +56,7 @@ _ALLOWED_KEYS = {
     "plan",
     "plan_reason",
     "lightweight_reason",
+    "teaching_reason",
     "prompt_rules",
     "tools",
     "passes_changed",
@@ -122,6 +124,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
     note_route("auto.math")
     note_plan(["ask", "solve"], "several_requests")
     note_lightweight("answers_offer")
+    note_teaching("procedure")
     note_prompt_rule("hints.format_pack")
     note_tool("web_search")
     note_tool("web_search")
@@ -141,6 +144,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
     assert trace["plan"] == ["ask", "solve"]
     assert trace["plan_reason"] == "several_requests"
     assert trace["lightweight_reason"] == "answers_offer"
+    assert trace["teaching_reason"] == "procedure"
     assert trace["tools"] == {"web_search": 2}
     assert trace["passes_changed"] == [["prose", 1]]
     assert trace["transport"] == "ws"

@@ -16,6 +16,7 @@ from typing import Any
 from app.core.config import Settings
 from app.core.readings import first_read, kept_reading, read_off_loop, readings_declined
 from app.modules.turn_reading.plan import TurnPlan, single_plan
+from app.modules.turn_reading.teaching import teaching_reason
 from app.modules.turn_reading.turn import (
     PlanReason,
     TurnReading,
@@ -50,7 +51,7 @@ def read_turn(content: str, settings: Settings) -> TurnReading:
     else:
         plan = kept_plan or plan_turn(content, chemistry_enabled=chemistry)
         reason = "several_requests" if plan.multi else "one_request"
-    reading = TurnReading(content, chemistry, plan, reason)
+    reading = TurnReading(content, chemistry, plan, reason, teaching_reason(content))
     keep_turn_reading(reading)
     return reading
 
