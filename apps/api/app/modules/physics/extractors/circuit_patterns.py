@@ -157,7 +157,17 @@ def resistor_values(text: str) -> list[float]:
 _UNKNOWN_RESISTOR_RE = re.compile(r"\b[Rr]esistors?\s+R\b(?!\s*[=_\d])|\bunknown\s+resist")
 _VALUED_R_RE = re.compile(r"\bR\s*(?:=|is\b|of\b)")
 # A place that introduces a resistor: "a 6 Ω", "another 6 Ω".
-_INTRODUCES_RE = re.compile(r"\b(?:a|an|another|one)\s+$", re.IGNORECASE)
+# A place that introduces a part: "a 6 Ω", "another 6 Ω", or the part named first — "a
+# resistor of 6 Ω", "another lamp of resistance 6 Ω". The words between the article and
+# the value are read whole against this list, so "the 6 Ω resistor" (a part named again)
+# is never an introduction.
+_INTRODUCERS = frozenset({"a", "an", "another", "one"})
+_PART_NOUN_WORDS = frozenset(
+    {
+        *("resistor", "lamp", "bulb", "heater", "coil", "wire", "conductor", "element"),
+        *("of", "resistance", "carbon", "fixed", "small", "large", "second", "electric"),
+    }
+)
 # Between two values of one list: "6 Ω, 6 Ω and 3 Ω", "a 6 Ω and a 6 Ω resistor". Read as
 # words, so no pattern scans a long run of spaces.
 _LIST_WORD_RE = re.compile(r",|[^\s,]+")
@@ -196,9 +206,23 @@ def _stated_resistances(text: str) -> list[float]:
         places = [index for index, other in enumerate(values) if other == value]
         if len({group[index] for index in places}) < 2:
             continue
-        if not all(_INTRODUCES_RE.search(text[max(0, starts[i] - 10) : starts[i]]) for i in places):
+        if not all(_introduces(text[max(0, starts[i] - 60) : starts[i]]) for i in places):
             return []
     return values
+
+
+def _introduces(before: str) -> bool:
+    """The words just before a value introduce a new part: an article, then only words of
+    the part's own name ("a", "another resistor of", "a lamp of resistance")."""
+    words = before.lower().split()
+    phrase: list[str] = []
+    for word in reversed(words):
+        if word in _INTRODUCERS:
+            return all(part in _PART_NOUN_WORDS for part in phrase)
+        if word not in _PART_NOUN_WORDS or len(phrase) >= 4:
+            return False
+        phrase.append(word)
+    return False
 
 
 def _value_end(text: str, start: int) -> int:

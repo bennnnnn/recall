@@ -86,6 +86,8 @@ _WHOLE_CURRENT_ASK = re.compile(
     r"|in|through|round|around)\s+the\s+(?:battery|cell|supply|source|mains|circuit|network"
     r"|combination)\b|\bcurrent\s*(?:[.?!]|$)"
     r"|\bcurrent\s+(?:flows|is\s+drawn|is\s+supplied|passes)\s*(?:[.?!]|$)"
+    r"|\bcurrent\s+(?:does|will|would)\s+the\s+(?:battery|cell|supply|source)"
+    r"\s+(?:supply|deliver|provide|give|draw)\b"
 )
 # A meter's reading is a voltage across part of the circuit, not the supply's.
 _METER_READING = re.compile(r"\bvoltmeter|\breads?\b|\breading")
@@ -245,6 +247,11 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     if len(network) >= 2 and ("series" in lower or "parallel" in lower):
         return _network_intent(lower, network, counted, volts, amps)
+    # Two parts read with no wiring stated, or a series/parallel question whose resistances
+    # were not all read: Ohm's law on one of them is a guess. "A resistor of 10 Ω and
+    # another of 10 Ω in parallel across 5 V" was certified 0.5 A, one resistor (2026-11-01).
+    if len(network) >= 2 or (len(ohms) >= 2 and ("series" in lower or "parallel" in lower)):
+        return None
 
     read = _ohm_givens(cleaned, volts, amps, ohms)
     if read is None:

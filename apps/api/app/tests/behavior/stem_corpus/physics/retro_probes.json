@@ -1,0 +1,14 @@
+[
+  {"id": "rp-cir-01", "area": "circuits", "expect": "answer", "answer": [1.0, "A"], "note": "retro review 2026-11-01: two equal resistors were certified as one (0.5 A)", "prompt": "A resistor of 10 Ω and another resistor of 10 Ω are connected in parallel across a 5 V battery. Find the total current."},
+  {"id": "rp-cir-02", "area": "circuits", "expect": "answer", "answer": [4.0, "A"], "prompt": "A 6 Ω resistor is connected in parallel with a resistor of 6 Ω across a 12 V battery. Find the current drawn from the battery."},
+  {"id": "rp-cir-03", "area": "circuits", "expect": "answer", "answer": [2.0, "A"], "prompt": "In a parallel circuit, a 10 Ω resistor and a resistor of 10 Ω are connected to a 10 V supply. Find the total current."},
+  {"id": "rp-cir-04", "area": "circuits", "expect": "decline", "note": "\"the other\" may name a part already given: not certain to be a second resistor", "prompt": "A 6 Ω resistor and the other 6 Ω resistor are connected in series across 24 V. Find the current."},
+  {"id": "rp-cir-05", "area": "circuits", "expect": "answer", "answer": [2.0, "A"], "prompt": "A lamp of resistance 6 Ω and another lamp of resistance 6 Ω are connected in parallel across 6 V. Find the total current."},
+  {"id": "rp-cir-06", "area": "circuits", "expect": "answer", "answer": [2.0, "A"], "prompt": "A bulb of resistance 4 Ω is connected in series with a heater of resistance 4 Ω across 16 V. Find the current."},
+  {"id": "rp-cir-07", "area": "circuits", "expect": "answer", "answer": [16.0, "ohm"], "prompt": "A resistor of 8 Ω is connected in series with a resistor of 8 Ω. Find the total resistance."},
+  {"id": "rp-cir-08", "area": "circuits", "expect": "answer", "answer": [20.0, "ohm"], "prompt": "A 5 Ω resistor is connected in series with another 5 Ω resistor and a 10 Ω resistor. Find the total resistance."},
+  {"id": "rp-cir-09", "area": "circuits", "expect": "decline", "note": "two parts and no wiring stated: Ohm's law on one of them is a guess", "prompt": "A lamp of resistance 6 Ω and another lamp of resistance 6 Ω are connected to a 6 V supply. Find the current."},
+  {"id": "rp-cir-10", "area": "circuits", "expect": "answer", "answer": [2.0, "A"], "prompt": "Two resistors of 4 Ω and 12 Ω are connected in parallel across 6 V. What current does the battery supply?"},
+  {"id": "rp-cir-11", "area": "circuits", "expect": "answer", "answer": [2.0, "A"], "note": "the same resistor named twice is one resistor", "prompt": "A 6 Ω resistor is connected to a 12 V battery. What is the current through the 6 Ω resistor?"},
+  {"id": "rp-cir-12", "area": "circuits", "expect": "decline", "note": "a value named again in the ask is not a second resistor, and the p.d. across one part is not read", "prompt": "A 50 Ω resistor is in series with a 100 Ω resistor across 30 V. Find the p.d. across the 50 Ω resistor."}
+]
