@@ -75,8 +75,8 @@ _COMPARATORS = ("<=", ">=", "<", ">")
 _APOSTROPHES = frozenset({"'", "\u2019"})
 _INFINITY_WORDS = ("infinity", "∞", "oo", "inf")
 # A minus that signs a number, not one that subtracts it ("x-1"): after a space, a bracket,
-# an operator or the start.
-_SIGNED = re.compile(r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(\d+(?:\.\d+)?)")
+# an operator, a subscript mark ("∫_1^2") or the start.
+_SIGNED = re.compile(r"(?<![A-Za-z0-9).])((?:-|minus\s+|negative\s+)?)\s*(\d+(?:\.\d+)?)")
 _SIGNED_INFINITY = re.compile(
     r"(?<![\w).])((?:-|minus\s+|negative\s+)?)\s*(?:∞|\\infty|infinity|oo|inf)(?![a-z])"
 )

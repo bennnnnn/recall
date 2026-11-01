@@ -192,6 +192,9 @@ async def test_a_photos_equations_are_certified_only_as_they_are_on_the_page(
         ({"lower": "0", "upper": "oo"}, "the integral of x^2 between 0 and infinity", True),
         # The keypad's \infty, and a unicode minus (Claude review).
         ({"lower": "0", "upper": "oo"}, r"\int_{0}^{\infty} x^2 dx", True),
+        # A bound after a subscript mark is written (Claude review).
+        ({"lower": "1", "upper": "2"}, "int_1^2 x^2 dx", True),
+        ({"lower": "1", "upper": "2"}, "\u222b_1^2 x^2 dx", True),
         ({"lower": "-oo", "upper": "0"}, "integrate x^2 from \u2212\u221e to 0", True),
     ],
 )
