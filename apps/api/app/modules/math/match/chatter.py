@@ -3,8 +3,10 @@
 The readers take the whole message, so the chat before a question kept it from the
 solver: "lol got the second one wrong. random but whats 72 fahrenheit in celsius" and
 "random question but what is 2+2" went to the model unchecked. Sentences before it that
-hold no digit are chat, so the question is the last sentence, without "random but",
-"btw" or "ok cool". A digit before it may be a given ("x = 3. What is 2x + 1?"), so then
+hold no given are chat, so the question is the last sentence, without "random but",
+"btw" or "ok cool". A digit before it may be a given ("x = 3. What is 2x + 1?"), and so
+is a sentence that states a situation ("An eight-sided die is rolled.", "A biased coin is
+tossed.", "Suppose the die is loaded."): the question after it is about that, so then
 nothing is dropped.
 """
 
@@ -20,6 +22,17 @@ _CHAT_LEAD = re.compile(
     re.IGNORECASE,
 )
 
+# Something stated about a thing: a determiner or a count, a few words, then a verb that
+# states it ("A die is rolled", "Two dice are thrown", "Suppose the bag contains"). "Let i
+# be the interest rate" names a letter, which the reading of the question already sees.
+_SITUATION = re.compile(
+    r"^(?:(?:let|suppose|assume|given|if|when)\s+(?:that\s+)?)?(?:a|an|the|one|two|three"
+    r"|four|five|six|seven|eight|nine|ten|twelve|some|each|every|this|that|these|those|its"
+    r"|their)\s+(?:[\w'-]+\s+){0,4}?(?:is|are|was|were|has|have|had|contains?|holds?"
+    r"|shows?)\b",
+    re.IGNORECASE,
+)
+
 
 def question_after_chat(text: str) -> str | None:
     """The question after the chat before it, or None when nothing was chat."""
@@ -29,6 +42,8 @@ def question_after_chat(text: str) -> str | None:
         return None
     *before, last = sentences
     if any(char.isdigit() for sentence in before for char in sentence):
+        return None
+    if any(_SITUATION.match(_CHAT_LEAD.sub("", sentence)) for sentence in before):
         return None
     question = _CHAT_LEAD.sub("", last).strip()
     if not question or question == cleaned:

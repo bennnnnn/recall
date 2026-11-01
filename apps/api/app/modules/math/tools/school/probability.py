@@ -60,6 +60,14 @@ _TRIALS_REPEAT = re.compile(
     re.IGNORECASE,
 )
 _TRIALS_COUNTED = re.compile(rf"\b(?:exactly\s+)?{_COUNT}\s+(heads|tails|sixes)\b", re.IGNORECASE)
+# The trials are read wherever they stand, so a coin or die the question says is not the
+# fair six-sided one, or a chance it states, is looked for in the whole of it.
+_NOT_FAIR_DEVICE = re.compile(
+    r"\b(?:biased|loaded|weighted|unfair|crooked|rigged)\b|\bnot\s+(?:a\s+)?fair\b"
+    r"|\b(?!six\b|6\b)\w+[- ]sided\b|\b(?:tetrahedral|octahedral|dodecahedral|icosahedral)\b"
+    r"|(?<![\w.])(?:0?\.\d+|\d+(?:\.\d+)?\s*%|\d+\s*/\s*\d+)(?!\w|\.\d)",
+    re.IGNORECASE,
+)
 
 
 # The whole request, for the direct reply: nothing else may ride along.
@@ -168,6 +176,8 @@ def binomial_trials_direct_request(text: str) -> bool:
 def _trials_intent(cleaned: str) -> MathIntent | None:
     """A fair coin or die repeated n times, asking for exactly k of one outcome."""
     if not _CHANCE.search(cleaned) or _NOT_EXACTLY.search(cleaned):
+        return None
+    if _NOT_FAIR_DEVICE.search(cleaned):
         return None
     found = _TRIALS_IN.search(cleaned)
     if found is not None:
