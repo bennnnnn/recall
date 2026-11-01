@@ -175,7 +175,6 @@ def unvalued_part(lower: str) -> bool:
     return _UNVALUED_PART_RE.search(lower) is not None
 
 
-# A place that introduces a resistor: "a 6 Ω", "another 6 Ω".
 # A place that introduces a part: "a 6 Ω", "another 6 Ω", or the part named first — "a
 # resistor of 6 Ω", "another lamp of resistance 6 Ω". The words between the article and
 # the value are read whole against this list, so "the 6 Ω resistor" (a part named again)
