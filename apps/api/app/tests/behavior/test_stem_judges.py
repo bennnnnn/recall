@@ -49,6 +49,10 @@ from app.tests.behavior.stem_sweep import Entry, card_values, check_answer, same
             False,
         ),
         (("regex", r"2\s*:\s*3"), "2 : 3", True),
+        # An odd root of a negative number is read as real, as a student reads it.
+        (("num", "-2"), r"\sqrt[3]{-8}", True),
+        (("num", "1 - sqrt(2)"), r"- \sqrt[3]{5 \sqrt{2} - 7}", True),
+        (("num", "sqrt(2) - 1"), r"- \sqrt[3]{5 \sqrt{2} - 7}", False),
     ],
 )
 def test_math_judge_reads_the_card(check: tuple[str, Any], card: str, right: bool) -> None:
