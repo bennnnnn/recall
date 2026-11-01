@@ -1434,5 +1434,71 @@
    "Pa"
   ],
   "note": "area typed bare"
+ },
+ {
+  "id": "fall-reach-01",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from a height of 20 m. How long does it take to reach the ground?",
+  "expect": "answer",
+  "answer": [
+   2.01928,
+   "s"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "fall-reach-02",
+  "area": "free_fall",
+  "prompt": "A stone falls from the top of a cliff 45 m high. How long does it take to reach the bottom?",
+  "expect": "answer",
+  "answer": [
+   3.02891,
+   "s"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "fall-reach-03",
+  "area": "free_fall",
+  "prompt": "A coin is dropped from a height of 1.8 m. How long does it take to reach the floor?",
+  "expect": "answer",
+  "answer": [
+   0.60578,
+   "s"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "fall-reach-04",
+  "area": "free_fall",
+  "prompt": "A rock is dropped from a bridge 30 m above the river. How long does it take to reach the water?",
+  "expect": "answer",
+  "answer": [
+   2.4731,
+   "s"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "fall-reach-05",
+  "area": "free_fall",
+  "prompt": "If a ball is dropped from 10 m, how long does it take to get to the ground?",
+  "expect": "answer",
+  "answer": [
+   1.42784,
+   "s"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "fall-reach-06",
+  "area": "free_fall",
+  "prompt": "A stone is dropped down a well and hits the water after 2 s. How far down is the water?",
+  "expect": "answer",
+  "answer": [
+   19.62,
+   "m"
+  ],
+  "visual": "projectile_motion"
  }
 ]

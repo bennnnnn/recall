@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import re
 
+from app.modules.turn_reading.turn import names_a_subject
+
 # Weather is always live; "under the weather" or a poem about it is no forecast.
 _WEATHER = re.compile(
     r"\b(?:(?:what(?:['\u2019]s|\s+is|\s+will\s+be)|how(?:['\u2019]s|\s+is))\s+the\s+"
@@ -24,7 +26,7 @@ _WEATHER = re.compile(
     r"|(?:(?:will|is)\s+it|^(?:i\s+(?:want|need)\s+to\s+know|(?:can|could)\s+you\s+(?:tell\s+me|check)"
     r"|do\s+you\s+know|i\s+wonder|tell\s+me|check|find\s+out)\s+(?:if|whether)\s+it(?:\s+will"
     r"|['\u2019]ll|\s+is|['\u2019]s))\s+(?:going\s+to\s+|gonna\s+)?(?:rain|snow|storm)(?:ing)?"
-    r"|(?:how|is\s+it)\s+(?:hot|cold|warm|humid)\s+(?:is\s+it\s+)?(?:outside|today|out))\b",
+    r"|(?:how|is\s+it)\s+(?:hot|cold|warm|humid)\s+(?:is\s+it\s+)?(?:outside|today|out|here))\b",
     re.IGNORECASE,
 )
 WEATHER_NOT_A_FORECAST = re.compile(
@@ -85,12 +87,15 @@ _FUNCTION = re.compile(r"\b[a-zA-Z]\s*\(\s*[a-z]\s*\)\s*=")
 
 
 # A search around the user, which no exercise asks for: "near me", "close to me", "around me",
-# "in my area", "within 5 km of me", "within walking distance". Not "nearby", "the nearest
-# wall to me", "from me", "from here" or "where I am": exercises say those ("a lamp 2 m from
-# me", "I walk 5 km from here, then 3 km north").
+# "near here", "in my area", "within 5 km of me", "within walking distance", "from my
+# location". Not "nearby", "the nearest wall to me", "from me", "from here", "where I am" or
+# a bare "here": exercises say those ("a lamp 2 m from me", "I walk 5 km from here, then 3 km
+# north", "Here, a ball is dropped…", "a block at rest here."). "How hot is it here" needs no
+# cue: no subject claims it.
 _AROUND_THE_USER = re.compile(
-    r"\b(?:(?:near|close\s+to|around)\s+(?:me|my\s+(?:house|home|place|hotel|office|location))"
+    r"\b(?:(?:near|close\s+to|around)\s+(?:me|here|my\s+(?:house|home|place|hotel|office|location))"
     r"|in\s+my\s+(?:area|neighbou?rhood|city|town)"
+    r"|(?:from|at|for|to)\s+my\s+(?:current\s+)?location"
     r"|within\s+(?:walking\s+distance|\d+(?:\.\d+)?\s*[a-z]+\s+of\s+(?:me|here|my\s+\w+)))\b",
     re.IGNORECASE,
 )
@@ -102,9 +107,18 @@ def around_the_user(text: str) -> bool:
 
 
 def is_worked_problem(text: str) -> bool:
-    """A problem that states its own measurements, coordinates or function."""
+    """A problem that states its own measurements, coordinates or function, or one the turn's
+    reading gives a subject (physics, maths, chemistry), solved or not.
+
+    Every reader of the user's place defers to it (places, distances and travel times, local
+    weather) unless the line searches around the user (``around_the_user``): homework never
+    asks where the user is. "A ball is dropped from a height of 20 m. How long does it take
+    to reach the ground?" states one measurement, and was asked for the user's city
+    (2026-11-01).
+    """
     return (
         len(_MEASURED.findall(text)) >= 2
         or _COORDINATES.search(text) is not None
         or _FUNCTION.search(text) is not None
+        or names_a_subject(text)
     )
