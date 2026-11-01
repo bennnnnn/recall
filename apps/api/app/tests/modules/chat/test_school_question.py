@@ -370,6 +370,42 @@ def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:
     assert question_hint(query) is None
 
 
+# 2026-11-01: a name in code ending in capitals read as a science term, so a developer's
+# question got a textbook note; science written the same way still gets one.
+@pytest.mark.parametrize(
+    ("query", "note"),
+    [
+        ("What does innerHTML return for an empty div?", False),
+        ("Why does toJSON drop undefined fields?", False),
+        ("What is the difference between userID and userId in the schema?", False),
+        ("When should parseURL be called before fetch?", False),
+        ("What is the pOH of a solution whose pH is 3?", True),
+        ("What is the pKa of acetic acid?", True),
+        ("How does siRNA silence a gene?", True),
+        ("Why is mtDNA inherited from the mother?", True),
+        ("What does cAMP do in cell signalling?", True),
+        ("Convert 760 mmHg to kPa.", True),
+        ("How many kWh does a 2 kW heater use in 3 hours?", True),
+        ("What is the energy in keV of a photon of wavelength 0.1 nm?", True),
+        # Review of #2200: longer prefixes on a nucleic acid, and inches of mercury.
+        ("What does circRNA do in a cell?", True),
+        ("What does microRNA do in a cell?", True),
+        ("How does tracrRNA guide Cas9?", True),
+        # Third review: any lower case word ending in capitals may be a lab term.
+        ("What is a high hsCRP?", True),
+        ("What does oxLDL do in arteries?", True),
+        ("How does ddPCR work?", True),
+        ("What is sdLDL?", True),
+        ("Why does isNaN return true for a string?", False),
+        ("How do I read the baseURL from config?", False),
+        ("How is rtPCR used to detect a virus?", True),
+        ("Convert 30 inHg to kPa.", True),
+    ],
+)
+def test_a_name_in_code_is_code_and_a_science_term_is_science(query: str, note: bool) -> None:
+    assert (question_hint(query) is not None) is note
+
+
 @pytest.mark.parametrize(
     "query",
     [
