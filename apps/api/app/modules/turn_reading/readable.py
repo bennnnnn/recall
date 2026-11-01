@@ -15,8 +15,8 @@ Another language is read on positive evidence only, so an English question keeps
 - or words of Spanish, French, German, Italian, Portuguese or Turkish: function words those
   languages write and English never does, or a lowercase word with a letter English does
   not use ("résistances", "velocità"). Two or more need to outnumber the English words; one
-  needs none beside it and must be a listed word ("résous 3x + 7 = 22"): letters alone are
-  no evidence ("5 ångström in m"). Particles English names carry ("de Broglie
+  needs none beside it and must be a listed word of four letters or more ("résous 3x + 7 =
+  22"): letters alone ("5 ångström in m") or a short word ("distance in au") are none. Particles English names carry ("de Broglie
   et al.", "le Chatelier") are no evidence alone. A word either language writes ("a",
   "in", "die", "per", "pour", "sin", "tan") counts for neither, nor does a unit ("12 um",
   "5 nA", "5.2 au"), a capitalised one- or two-letter word (an element symbol: "La", "Es")
@@ -44,6 +44,9 @@ _MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\[A-Za-z]+", re.DOTALL)
 _WORD = re.compile(r"(?<![^\W_])[^\W\d_]+(?![^\W_])")
 _OTHER_SCRIPT_LETTERS = 2
 _FOREIGN_WORDS = 2
+# A lone word of another language is evidence when it is at least this long: an instruction
+# or a question ("résous", "halla", "combien"), not a function word.
+_LONE_WORD = 4
 # Letters English does not write; a lowercase word holding one is another language's.
 _FOREIGN_LETTERS = frozenset("ñçäöüßãõàâêîôûèìòùáéíóúşğıœ¿¡")
 # Scripts that are maths notation or letter-like symbols, never a language: Greek (θ, λ),
@@ -60,7 +63,8 @@ _NOTATION_SCRIPTS = (
 # verbs that set an exercise. Words English writes too stay out: "a", "e", "o", "y", "i",
 # "in", "en", "no", "do", "die", "son", "per", "pour", "sin", "tan", "del" (∇), "du" (du/dx),
 # "si" (SI units), "al" ("et al."), "six", "sept", "ve" ("I've"), "mil", "hay", "media",
-# "comment", "tension", "determine". Letters English does not write catch the rest.
+# "comment", "tension", "determine", and unit symbols ("um", "au"). Letters English does not
+# write catch the rest.
 _FOREIGN = frozenset(
     """
     el la los las una unos unas un que qué cuál cuáles cuánto cuánta cuántos cuántas cómo
@@ -71,7 +75,7 @@ _FOREIGN = frozenset(
     le les des une deux trois quatre cinq huit neuf dix est sont avec dans sur sous quelle
     quel quels quelles combien calculez calculer trouvez trouver factoriser convertir résous
     résoudre résolvez simplifie simplifier développe développer dérive dériver
-    moyenne pente lorsque vers nombres vitesse masse temps courant hauteur aire au aux et ce
+    moyenne pente lorsque vers nombres vitesse masse temps courant hauteur aire aux et ce
     der das dem den ein eine einen einem einer ist sind wird werden wie viel viele welche
     welcher welches berechne berechnen bestimme bestimmen gegeben mit von zu nach auf aus bei
     und oder rechne faktorisiere geschwindigkeit zeit strom spannung widerstand löse lösen
@@ -79,7 +83,7 @@ _FOREIGN = frozenset(
     il lo gli della dello delle dei degli che sono uno quanto quanta quanti quante quale
     quali calcola calcolare trova trovare risolvi fattorizza tempo corrente di da nel nella
     tra fra
-    um uma uns umas os qual quais encontre resolva fatore converta velocidade em na dos pelo
+    uma uns umas os qual quais encontre resolva fatore converta velocidade em na dos pelo
     pela com
     bir ile nedir kaç kaçtır hesaplayın hesaplayınız bulun bulunuz olan olarak kütle kütlesi çöz
     zaman akım
@@ -136,8 +140,10 @@ def other_language(text: str) -> bool:
     if len(foreign) >= _FOREIGN_WORDS:
         return len(foreign) > english
     # One word of another language and none of English: "résous 3x + 7 = 22", "halla 3x + 1".
-    # A word only by its letters is no evidence alone: "5 ångström in m", "ampère's law".
-    return not english and foreign[0] in _FOREIGN
+    # It must be a listed word, and not a short one: letters alone ("5 ångström in m") or a
+    # short word that may be a unit or a name ("distance in au") are no evidence alone.
+    word = foreign[0]
+    return not english and word in _FOREIGN and len(word) >= _LONE_WORD
 
 
 # A unit after a number is short ("um", "au", "mol"); "2 résistances" is a word.
