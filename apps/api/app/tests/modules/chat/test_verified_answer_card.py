@@ -22,7 +22,7 @@ from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.physics.reply_policy import PHYSICS_SHORT_HINT
-from app.services.answer_fence import VERIFIED_ANSWER_MARKER
+from app.services.answer_fence import UNCHECKED_ANSWER_MARKER, VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
 from app.services.subjects.registry import subject_adapter
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -278,7 +278,8 @@ async def test_verification_claims_are_removed_when_the_server_did_not_verify(
     monkeypatch: pytest.MonkeyPatch, reply: str, kept: str
 ) -> None:
     out = await _finalize(monkeypatch, reply, prompt="what is the braking force")
-    assert "verified" not in out.lower()
+    # The card's own "not checked" line is the protocol, not a claim.
+    assert "verified" not in out.replace(UNCHECKED_ANSWER_MARKER, "").lower()
     assert "sympy" not in out.lower()
     assert kept in out
 
@@ -305,7 +306,7 @@ async def test_ordinary_uses_of_verified_stay(monkeypatch: pytest.MonkeyPatch, r
     assert out.strip() == reply
 
 
-# --- 7. A final answer with no verified result still lands in a card, without the check ----
+# --- 7. A final answer with no verified result still lands in a card, marked not checked ---
 
 
 @pytest.mark.parametrize(
@@ -323,14 +324,14 @@ async def test_ordinary_uses_of_verified_stay(monkeypatch: pytest.MonkeyPatch, r
     ],
     ids=["solver declined", "worked solution"],
 )
-async def test_an_unverified_stem_answer_lands_in_a_card_with_no_marker(
+async def test_an_unverified_stem_answer_lands_in_a_card_marked_not_checked(
     monkeypatch: pytest.MonkeyPatch, reply: str, unverified_subject: str | None
 ) -> None:
     out = await _finalize(
         monkeypatch, reply, prompt="what is the force", unverified_subject=unverified_subject
     )
     final = "$F = 7500\\ \\text{N}$" if unverified_subject else "$x = 6$"
-    assert _cards(out) == [final]
+    assert _cards(out) == [f"{UNCHECKED_ANSWER_MARKER}\n{final}"]
     assert VERIFIED_ANSWER_MARKER not in out
     assert out.count("**Answer**") == 1
     assert out.index("**Answer**\n\n```answer") > 0

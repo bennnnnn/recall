@@ -26,6 +26,8 @@ from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
+from app.modules.chat.worked_render import WorkedLayout
+from app.modules.chat.worked_turn import with_worked_contract, worked_layout
 from app.modules.turn_reading.plan import TurnPlan
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
@@ -54,6 +56,10 @@ class Augmentation:
     asks_more: bool = False
     # SymPy ran out of time on the turn's problem: the tool loop does not run it again.
     solve_timed_out: bool = False
+    # The message's subject, as the subject order read it.
+    subject: SubjectName | None = None
+    # A calculation nothing verified: the model writes a ```worked block (``worked_turn``).
+    worked: WorkedLayout | None = None
 
     async def direct_reply(
         self, request: TurnRequest, followup: SubjectFollowup, settings: Settings
@@ -113,7 +119,7 @@ async def gather_and_inject(
         needs_search=needs_search,
         needs_chem=needs_chem,
     ):
-        return Augmentation(prompt_messages)
+        return Augmentation(prompt_messages, subject=detected_subject)
 
     # Phase B: the subject solve. Phase C: inject it before the last user message.
     with subject_adapter("math").solve_timeouts() as timed_out:
@@ -129,6 +135,7 @@ async def gather_and_inject(
         direct_text=fetched.direct_text,
         asks_more=plan.multi and any(part.kind != "solve" for part in plan.parts),
         solve_timed_out=bool(timed_out),
+        subject=detected_subject,
     )
 
 
@@ -258,4 +265,23 @@ async def augment_after_prompt(
         timing.mark_prompt_ready()
     if instant_reply is None:
         instant_reply = await augmented.direct_reply(request, followup, settings)
+    augmented.worked = worked_layout(
+        request.content,
+        augmented.subject or _followup_subject(followup),
+        settings,
+        answered=bool(instant_reply is not None or augmented.verified_subject or money),
+        lightweight=identity.mode.lightweight,
+        several_requests=plan_of(request.content, settings).multi,
+    )
+    if augmented.worked is not None:
+        augmented.prompt_messages = with_worked_contract(augmented.prompt_messages)
     return augmented, instant_reply
+
+
+def _followup_subject(followup: SubjectFollowup) -> SubjectName | None:
+    """The subject of the earlier problem a follow-up solves again."""
+    if followup.physics is not None:
+        return "physics"
+    if followup.chemistry is not None:
+        return "chemistry"
+    return "math" if followup.math is not None else None

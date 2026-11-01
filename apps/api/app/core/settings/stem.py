@@ -6,6 +6,10 @@ from pydantic import AliasChoices, BaseModel, Field
 class StemSettings(BaseModel):
     math_tools_enabled: bool = True
     chemistry_enabled: bool = True
+    # A calculation no solver checked: the model writes its parts in a ```worked block and
+    # the server lays them out as a verified reply (``chat.worked_turn``). Off: the model
+    # writes the layout itself, as before.
+    worked_layout_enabled: bool = True
     math_max_expr_length: int = 256
     # Polynomial solve shape bound — refuse before the 5s SymPy pool, not
     # only by character length (x^40 is short and still pathological).

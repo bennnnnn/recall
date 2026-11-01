@@ -42,6 +42,7 @@ from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
 from app.modules.chat.prompt_constants.reply_missed import REPLY_MISSED_HINT
 from app.modules.chat.prompt_constants.shared_numbers import SHARED_NUMBERS_HINT
+from app.modules.chat.prompt_constants.worked import WORKED_BLOCK_CONTRACT
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
@@ -148,6 +149,8 @@ HINTS: dict[str, str] = {
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,
+    # A calculation nothing verified: its parts in a ```worked block the server lays out.
+    "worked": WORKED_BLOCK_CONTRACT,
     # The general layout contract, and the compact one a greeting or fragment gets.
     "format_contract": pc.FORMAT_CONTRACT,
     "compact": pc.COMPACT_RESPONSE_FORMAT_HINT,
