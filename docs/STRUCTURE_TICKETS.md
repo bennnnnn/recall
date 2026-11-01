@@ -329,12 +329,19 @@ for presentation and the post-turn jobs, not for reading.
     turn's message and reads any other text on its own: `turn_prep/mode.py` (advice memory),
     `prompt_format.py` (the layout hint and the style turn), `prompt_sections.py` (the advice
     hint, a part's shape hints, the lesson contract section), `message_notes.py` (the emoji
-    note), `lesson_again.py` and `model_routing/route.py` (in the pool, where there is no
-    reading, it reads the text). No precedence question: every caller passes the turn's
-    message or another text it reads itself, as before.
-  - `is_teaching_request` is left to `teaching_of` and two readers of other lines:
-    `lesson_progress.py` (the chat's earlier user lines) and `turn_reading/lesson_flow.py`
-    (the line before the reply). `tests/architecture/test_turn_decisions.py` holds that list.
+    note), `lesson_again.py` and `model_routing/route.py` (routing runs in the pool, whose
+    readings are seeded from the turn's memo, so it may hold a reading, possibly an earlier
+    turn's; `teaching_of` answers from a reading only when its text is the text asked, and
+    the reader depends on the text alone, so the answer is the same either way). No
+    precedence question: every caller passes the turn's message or another text it reads
+    itself, as before.
+  - The reader is called directly only by `read_turn` (the reading), `teaching_of` (another
+    text), `is_teaching_request` itself, and two readers of other lines: `lesson_progress.py`
+    (the chat's earlier user lines) and `turn_reading/lesson_flow.py` (the line before the
+    reply). `tests/architecture/test_turn_decisions.py` holds that list of direct callers of
+    `is_teaching_request` and `teaching_reason`, found through each file's imports (aliases
+    and module-qualified calls included); it polices who calls the reader, not how often a
+    turn reads it. Step 2's small-talk list is held the same way.
   - Decision diff: no decision changed (`--added teaching_reason`: no_cue ×5,063, teach ×9,
     preference ×1, too_long ×1).
 

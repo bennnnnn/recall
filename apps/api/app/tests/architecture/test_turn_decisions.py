@@ -1,16 +1,20 @@
-"""A turn's decisions have one owner each; other code reads them (structure ticket ST-05).
+"""Direct callers of the readers behind a turn's decisions are listed, with why (ST-05).
+
+These tests police who calls a reader, not how often a turn reads it. A call is found
+through the file's own imports: a bare name bound by ``from <module> import name`` (aliases
+too) or defined in the module itself, and ``alias.name`` where ``alias`` is the module.
 
 Small talk is decided once per turn, in its place, by ``turn_prep.mode.classify_turn_mode``
 (``_TurnMode.lightweight`` and its reason, carried as ``ctx.lightweight_turn``): a short
-reply to an offer or a clarify card is an answer, not a greeting. Calling the reader on
-the turn's message again elsewhere decides it a second time, without that place. The
-other callers below read some other text, or compose the reader into a reader of their
-own; each function is listed with how many times it calls and why, and the list only
-shrinks.
+reply to an offer or a clarify card is an answer, not a greeting. Calling the reader on the
+turn's message again elsewhere decides it a second time, without that place.
 
-Whether the message asks to be taught is the turn's reading (``TurnReading.teaching``,
-read once per turn); code asks ``turn_reading.turn.teaching_of``, which answers from the
+Whether the message asks to be taught is the turn's reading (``TurnReading.teaching``, read
+by ``read_turn``); code asks ``turn_reading.turn.teaching_of``, which answers from the
 reading for the turn's message and reads any other text on its own.
+
+Every other caller reads some other text, or composes the reader into a reader of its own;
+each function is listed with how many times it calls and why, and the lists only shrink.
 """
 
 from __future__ import annotations
@@ -19,6 +23,9 @@ import ast
 from collections import Counter
 
 from .boundary_support import APP_ROOT
+
+_ROUTING = "app.modules.turn_reading.routing"
+_TEACHING = "app.modules.turn_reading.teaching"
 
 # "path::function" -> (calls, why).
 _LIGHTWEIGHT_CALLERS: dict[str, tuple[int, str]] = {
@@ -45,16 +52,48 @@ _LIGHTWEIGHT_CALLERS: dict[str, tuple[int, str]] = {
     "modules/web_search/detection.py::web_search_skip": (1, "a reader with its own offer check"),
 }
 
-# "path::function" -> (calls, why).
+# "path::function" -> (calls of is_teaching_request or teaching_reason, why).
 _TEACHING_CALLERS: dict[str, tuple[int, str]] = {
+    "modules/chat/turn_prep/reading.py::read_turn": (1, "owner: the turn's reading"),
     "modules/turn_reading/turn.py::teaching_of": (1, "owner: any text that is not the turn's"),
+    "modules/turn_reading/teaching.py::is_teaching_request": (1, "the reader's yes/no"),
     "modules/chat/lesson_progress.py::lesson_progress": (1, "the chat's earlier user lines"),
     "modules/turn_reading/lesson_flow.py::outline_awaits_pick": (1, "the line before the reply"),
 }
 
 
-def callers(name: str, tree: ast.AST, path: str) -> Counter[str]:
-    """Each call of ``name`` (bare or ``module.name``), counted by its enclosing function."""
+def _dotted(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        base = _dotted(node.value)
+        return f"{base}.{node.attr}" if base else None
+    return None
+
+
+def callers(names: set[str], module: str, tree: ast.AST, path: str) -> Counter[str]:
+    """Each call of a function in ``names`` that ``module`` defines, by enclosing function."""
+    module_path = "modules/" + module.removeprefix("app.modules.").replace(".", "/") + ".py"
+    parent, _, leaf = module.rpartition(".")
+    functions: dict[str, str] = {}
+    modules = {module}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == module:
+            functions.update(
+                {
+                    alias.asname or alias.name: alias.name
+                    for alias in node.names
+                    if alias.name in names
+                }
+            )
+        elif isinstance(node, ast.ImportFrom) and node.module == parent:
+            modules.update(alias.asname or alias.name for alias in node.names if alias.name == leaf)
+        elif isinstance(node, ast.Import):
+            modules.update(
+                alias.asname for alias in node.names if alias.name == module and alias.asname
+            )
+        elif path == module_path and isinstance(node, ast.FunctionDef) and node.name in names:
+            functions[node.name] = node.name
     found: Counter[str] = Counter()
 
     def visit(node: ast.AST, scope: str) -> None:
@@ -64,10 +103,13 @@ def callers(name: str, tree: ast.AST, path: str) -> Counter[str]:
                 inner = f"{scope}.{child.name}" if scope else child.name
             if isinstance(child, ast.Call):
                 func = child.func
-                named = func.id if isinstance(func, ast.Name) else None
-                if isinstance(func, ast.Attribute):
-                    named = func.attr
-                if named == name:
+                bare = isinstance(func, ast.Name) and func.id in functions
+                qualified = (
+                    isinstance(func, ast.Attribute)
+                    and func.attr in names
+                    and _dotted(func.value) in modules
+                )
+                if bare or qualified:
                     found[f"{path}::{scope or '<module>'}"] += 1
             visit(child, inner)
 
@@ -75,52 +117,63 @@ def callers(name: str, tree: ast.AST, path: str) -> Counter[str]:
     return found
 
 
-def _production_callers(name: str) -> Counter[str]:
+def _production_callers(names: set[str], module: str) -> Counter[str]:
     found: Counter[str] = Counter()
     for path in sorted(APP_ROOT.rglob("*.py")):
         relative = path.relative_to(APP_ROOT).as_posix()
         if not relative.startswith("tests/"):
-            found += callers(name, ast.parse(path.read_text(encoding="utf-8")), relative)
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            found += callers(names, module, tree, relative)
     return found
 
 
-def test_callers_sees_bare_and_module_qualified_calls_by_function() -> None:
+def _check(found: Counter[str], listed: dict[str, tuple[int, str]], advice: str) -> None:
+    recorded = {caller: calls for caller, (calls, _why) in listed.items()}
+    more = sorted(
+        f"{caller}: {calls}" for caller, calls in found.items() if calls > recorded.get(caller, 0)
+    )
+    assert not more, f"{more} call the reader directly: {advice}"
+    fewer = sorted(caller for caller, calls in recorded.items() if found.get(caller, 0) < calls)
+    assert not fewer, f"{fewer} call it less now: lower or remove them in the list"
+
+
+def test_callers_resolves_the_files_imports() -> None:
     tree = ast.parse(
-        "from x import routing, is_lightweight_chat_turn\n"
-        "def a(t):\n    return is_lightweight_chat_turn(t)\n"
-        "class B:\n    def c(self, t):\n        return routing.is_lightweight_chat_turn(t)\n"
-        "def d(t):\n    return is_lightweight_chat_turn(t) or is_lightweight_chat_turn(t + 'x')\n"
+        f"from {_TEACHING} import is_teaching_request as itr, teaching_reason\n"
+        "from app.modules.turn_reading import teaching as t\n"
+        f"import {_TEACHING} as tt\n"
+        "import app.modules.turn_reading.teaching\n"
+        "from elsewhere import is_teaching_request as other\n"
+        "def a(x):\n    return itr(x)\n"
+        "class B:\n    def c(self, x):\n        return t.teaching_reason(x) and tt.is_teaching_request(x)\n"
+        f"def d(x):\n    return {_TEACHING}.is_teaching_request(x) or teaching_reason(x)\n"
+        "def e(x):\n    return other(x) or unknown.is_teaching_request(x)\n"
     )
-    assert callers("is_lightweight_chat_turn", tree, "f.py") == {
-        "f.py::a": 1,
-        "f.py::B.c": 1,
-        "f.py::d": 2,
-    }
+    names = {"is_teaching_request", "teaching_reason"}
+    assert callers(names, _TEACHING, tree, "f.py") == {"f.py::a": 1, "f.py::B.c": 2, "f.py::d": 2}
 
 
-def test_small_talk_is_decided_once_per_turn() -> None:
-    found = _production_callers("is_lightweight_chat_turn")
-    recorded = {caller: calls for caller, (calls, _why) in _LIGHTWEIGHT_CALLERS.items()}
-    more = sorted(
-        f"{caller}: {calls}" for caller, calls in found.items() if calls > recorded.get(caller, 0)
+def test_callers_counts_a_module_calling_its_own_reader() -> None:
+    tree = ast.parse(
+        "def teaching_reason(x):\n    return x\n"
+        "def is_teaching_request(x):\n    return teaching_reason(x) == 'teach'\n"
     )
-    assert not more, (
-        f"{more} decide small talk again: read the turn's mode (ctx.lightweight_turn), "
-        "or, for another text, list the function here with why"
-    )
-    fewer = sorted(caller for caller, calls in recorded.items() if found.get(caller, 0) < calls)
-    assert not fewer, f"{fewer} call it less now: lower or remove them in the list"
+    names = {"is_teaching_request", "teaching_reason"}
+    found = callers(names, _TEACHING, tree, "modules/turn_reading/teaching.py")
+    assert found == {"modules/turn_reading/teaching.py::is_teaching_request": 1}
 
 
-def test_teaching_is_read_once_per_turn() -> None:
-    found = _production_callers("is_teaching_request")
-    recorded = {caller: calls for caller, (calls, _why) in _TEACHING_CALLERS.items()}
-    more = sorted(
-        f"{caller}: {calls}" for caller, calls in found.items() if calls > recorded.get(caller, 0)
+def test_direct_callers_of_the_small_talk_reader_are_listed() -> None:
+    _check(
+        _production_callers({"is_lightweight_chat_turn"}, _ROUTING),
+        _LIGHTWEIGHT_CALLERS,
+        "read the turn's mode (ctx.lightweight_turn), or, for another text, list it with why",
     )
-    assert not more, (
-        f"{more} read teaching again: ask teaching_of(text), "
-        "or, for another text, list the function here with why"
+
+
+def test_direct_callers_of_the_teaching_reader_are_listed() -> None:
+    _check(
+        _production_callers({"is_teaching_request", "teaching_reason"}, _TEACHING),
+        _TEACHING_CALLERS,
+        "ask teaching_of(text), or, for another text, list it with why",
     )
-    fewer = sorted(caller for caller, calls in recorded.items() if found.get(caller, 0) < calls)
-    assert not fewer, f"{fewer} call it less now: lower or remove them in the list"
