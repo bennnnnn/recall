@@ -1,3 +1,4 @@
+import { isMathFenceLang } from "@/lib/fenceRegistry";
 import { escapedAt } from "@/lib/markdown/inlineCode";
 import { closesFence, mapClosedFences, readFenceMarkerLoose } from "@/lib/mdFenceScan";
 import { restoreMathEscapes } from "@/lib/math/text";
@@ -229,8 +230,7 @@ export function shouldInlineMathFenceOnBareListMarker(body: string): boolean {
 }
 
 function mathFenceLang(info: string): boolean {
-  const lang = info.split(/\s/)[0]?.toLowerCase() ?? "";
-  return lang === "math" || lang === "latex" || lang === "tex";
+  return isMathFenceLang(info.split(/\s/)[0]?.toLowerCase() ?? "");
 }
 
 /** Step labels / headings that must not live inside a ```math body. */

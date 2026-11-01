@@ -7,29 +7,17 @@
 
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import {
+  documentFormForLang,
   fenceIdForLang,
   fenceSpecForLang,
-  isChartFenceLang,
   isControlFenceLang,
   isMathFenceLang,
-  isVisualDiagramFenceLang,
+  type FenceDocumentBlock,
 } from "@/lib/fenceRegistry";
 import { fenceToCopyText, mapFenceRegions } from "@/lib/markdown/plain";
 
-/** A card shown in the document as its label alone. */
-export type DocumentBlock = "chart" | "graph" | "diagram" | "molecule" | "calculator" | "places";
-
-const MOLECULE_IDS = new Set(["chemistry", "molecule", "molecule3d"]);
-
-function blockFor(lang: string): DocumentBlock | null {
-  const id = fenceIdForLang(lang);
-  if (id === "calculator" || id === "places") return id;
-  if (id === "graph") return "graph";
-  if (id && MOLECULE_IDS.has(id)) return "molecule";
-  if (isChartFenceLang(lang)) return "chart";
-  if (isVisualDiagramFenceLang(lang)) return "diagram";
-  return null;
-}
+/** A card shown in the document as its label alone (each fence's `inDocument` row). */
+export type DocumentBlock = FenceDocumentBlock;
 
 /** A fence that survives as code: its backticks outnumber any run inside it. */
 function codeFence(lang: string, body: string): string {
@@ -52,10 +40,10 @@ function documentFence(
 ): string {
   const trimmed = body.replace(/\n$/, "").trim();
   const id = fenceIdForLang(lang);
-  // A long-division or column sum reads as its worked lines.
-  if (id === "arithmetic" || id === "quiz" || id === "array") return fenceToCopyText(lang, body);
-  const block = blockFor(lang);
-  if (block) return label(block);
+  const form = documentFormForLang(lang);
+  // A long-division or column sum reads as its worked lines, a quiz as its question.
+  if (form === "copyText") return fenceToCopyText(lang, body);
+  if (form) return label(form);
   if (isControlFenceLang(lang)) return "";
   if (id === "answer") return answerText(trimmed);
   if (isMathFenceLang(lang)) return codeFence("math", trimmed);
