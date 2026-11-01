@@ -17,7 +17,13 @@ from app.modules.physics.givens import Given, scan_givens
 from app.services.law_binding.units import dimension_of
 from app.services.number_text import count_word_pattern, number_word_value
 
-_COUNT = rf"{count_word_pattern(low=2, high=12)}|(?<![\d.,])(?:[2-9]|1[0-2])(?![\d.,])"
+# Any count a school question writes: "fifteen 40 W bulbs" and "a dozen 60 W bulbs" were read
+# as one bulb (2026-11-01). A solve that cannot use the count declines (``physics.counted``).
+_DOZEN = r"(?:half\s+a\s+|a\s+)?dozen"
+_COUNT = (
+    rf"{_DOZEN}|{count_word_pattern(low=2, high=20)}"
+    r"|(?<![\d.,])(?:[2-9]|[1-9]\d)(?![\d.,])"
+)
 _SAME = r"(?:(?:identical|equal|similar)\s+)?"
 # "two resistors", "each of the three lamps", "two identical heaters", "a pair of cells",
 # "both capacitors", "two of them". The noun is a plural word, or "of them".
@@ -27,6 +33,17 @@ _COUNT_RE = re.compile(
 )
 _NOUN_RE = re.compile(
     r"\s*(?P<noun>of\s+(?:them|these|those)|others|[a-z]+(?:es|s))\b", re.IGNORECASE
+)
+# A counted value's items may be named a few words on: "two 100 W electric bulbs", "two 1.5 V
+# dry cells", "three 40 W tube lights" were each read as one item (2026-11-01). The words
+# between are the items' own, never a verb or a preposition ("two 4 Ω in series").
+_LINKING = (
+    r"(?:are|is|was|were|be|in|on|at|of|and|or|to|for|from|with|by|across|each|connected"
+    r"|placed|joined|wired|used|run|left|switched|lit|kept)"
+)
+_LATER_NOUN_RE = re.compile(
+    rf"\s*(?:(?!{_LINKING}\b)[a-z][a-z-]*\s+){{1,3}}?(?P<noun>[a-z]{{2,}}(?:es|s))\b",
+    re.IGNORECASE,
 )
 # "each" before a value in its own clause: "each 10 Ω", "each rated 2 kW", "each of the two
 # resistors has a resistance of 10 Ω".
@@ -76,6 +93,8 @@ def _count(word: str) -> int:
     lower = word.lower()
     if lower.startswith(("a pair", "both")):
         return 2
+    if lower.endswith("dozen"):
+        return 6 if lower.startswith("half") else 12
     return int(lower) if lower.isdigit() else number_word_value(lower) or 0
 
 
@@ -125,6 +144,8 @@ def counted_items(text: str) -> list[CountedItems]:
             own.append(inside)
             position = _unit_end(text, inside)
         named = _NOUN_RE.match(text, position)
+        if named is None and inside is not None:
+            named = _LATER_NOUN_RE.match(text, position)
         if named is None:
             continue
         if found.group(0).rstrip().lower().endswith(("identical", "equal", "similar")):

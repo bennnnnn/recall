@@ -56,6 +56,13 @@ def _verified_answer(text: str) -> str | None:
             "total resistance.",
             "7 Ω",
         ),
+        # The items named a few words after the value (retro review, 2026-11-01).
+        (
+            "Two 10 Ω carbon resistors are connected in parallel across 5 V. Find the total "
+            "current.",
+            "1 A",
+        ),
+        ("Two 4 Ω coils are joined in series across 16 V. Find the current.", "2 A"),
     ],
 )
 def test_a_value_stated_for_counted_resistors_is_in_each(text: str, answer: str) -> None:
@@ -79,6 +86,18 @@ def test_a_value_stated_for_counted_resistors_is_in_each(text: str, answer: str)
         "A pair of 1.5 V cells powers a 3 Ω lamp. What is the current?",
         "Two capacitors of 10 µF each are charged to 12 V. Find the energy stored.",
         "Two 60 W bulbs are left on for 5 hours. How much electrical energy do they use?",
+        # Read as one item before the retro review (2026-11-01): the items named a few words
+        # on, a count above twelve or a dozen, or "of" a value for parts other than resistors.
+        "Two 100 W electric bulbs are used for 5 hours. Find the energy consumed in kWh.",
+        "Two 2 kW electric heaters run for 3 hours. How much energy do they use in kWh?",
+        "Two 1.5 V dry cells are connected in series to a 3 Ω bulb. Find the current.",
+        "Two 60 W ceiling fans are switched on for 4 hours. Find the energy in kWh.",
+        "A family uses three 40 W tube lights for 6 hours a day. Find the energy used in kWh.",
+        "Fifteen 40 W bulbs are used for 2 hours. Find the energy consumed in kWh.",
+        "A dozen 60 W bulbs are used for 5 hours. Find the energy consumed in kWh.",
+        "A house has two fans of 75 W each used for 10 h. Find the energy consumed in kWh.",
+        "Two heaters of 2 kW are used for 3 hours. Find the energy used in kWh.",
+        "Two lamps of 6 Ω are connected in parallel across 6 V. Find the total current.",
     ],
 )
 def test_a_counted_part_a_reader_cannot_account_for_declines(text: str) -> None:
@@ -134,6 +153,13 @@ def test_counts_that_name_no_shared_value_read_as_before(text: str, answer: str)
         # "each are connected across 12 V": 12 V is the supply's, not each lamp's.
         ("two lamps of 6 Ω each are connected across 12 V", [("lamps", 2, [(6.0, "Ω")])]),
         ("the 2 Ω and 3 Ω resistors", []),
+        ("two 100 W electric bulbs", [("bulbs", 2, [(100.0, "W")])]),
+        ("three 40 W tube lights", [("lights", 3, [(40.0, "W")])]),
+        ("fifteen 40 W bulbs", [("bulbs", 15, [(40.0, "W")])]),
+        ("a dozen 60 W bulbs", [("bulbs", 12, [(60.0, "W")])]),
+        ("half a dozen 60 W bulbs", [("bulbs", 6, [(60.0, "W")])]),
+        # A verb or a preposition is no part of the items' name.
+        ("two 4 Ω in series", []),
     ],
 )
 def test_counted_items_reads_the_count_and_the_value_for_each(

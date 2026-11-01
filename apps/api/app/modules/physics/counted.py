@@ -20,13 +20,18 @@ from app.modules.physics.givens import Given, scan_givens
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.units import dimension_of
 
-# The parts whose value is of one kind, so values of that kind are theirs to count.
-_PART_KINDS = {
-    "resistors": "ohm",
-    "resistances": "ohm",
-    "cells": "volt",
-    "batteries": "volt",
-    "capacitors": "farad",
+# The parts and the kinds their values are, so values of those kinds are theirs to count:
+# "two lamps of 6 Ω" and "two heaters of 2 kW" were read as one lamp and one heater
+# (2026-11-01). A lamp's value may be its resistance or its power.
+_LOADS = ("ohm", "watt")
+_PART_KINDS: dict[str, tuple[str, ...]] = {
+    **dict.fromkeys(("resistors", "resistances", "coils", "wires"), ("ohm",)),
+    **dict.fromkeys(("cells", "batteries"), ("volt",)),
+    "capacitors": ("farad",),
+    **dict.fromkeys(
+        ("lamps", "bulbs", "heaters", "fans", "irons", "kettles", "lights", "tubes"), _LOADS
+    ),
+    **dict.fromkeys(("appliances", "motors", "toasters", "elements"), _LOADS),
 }
 # Between two numbers of one list: "2, 3 and 6 ohms".
 _LIST_JOIN = re.compile(r"\s*(?:,\s*(?:and|or)?|and|or)\s*")
@@ -52,17 +57,17 @@ def accounts_for_counted_items(intent: PhysicsIntent, text: str) -> bool:
             )
             if bound and (item.count is None or bound < item.count):
                 return False
-        kind = _PART_KINDS.get(item.noun.lower())
-        if item.each or item.count is None or kind is None:
+        kinds = _PART_KINDS.get(item.noun.lower(), ())
+        if item.each or item.count is None:
             continue
-        dimension = dimension_of(kind)
-        stated = [
-            given
-            for given in _with_listed_units(text, givens)
-            if given.dimension == dimension and not one_item_value(text, given)
-        ]
-        if 0 < len(stated) < item.count:
-            return False
+        for dimension in map(dimension_of, kinds):
+            stated = [
+                given
+                for given in _with_listed_units(text, givens)
+                if given.dimension == dimension and not one_item_value(text, given)
+            ]
+            if 0 < len(stated) < item.count:
+                return False
     return True
 
 
