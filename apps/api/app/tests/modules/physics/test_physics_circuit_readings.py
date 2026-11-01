@@ -134,3 +134,61 @@ def test_a_circuit_read_whole_keeps_its_card(text: str, value: float) -> None:
 )
 def test_a_circuit_read_in_part_declines(text: str) -> None:
     assert _answer(text) is None
+
+
+# 2026-11-01 retro review: two equal resistors were certified as one. A part named by its
+# noun after an article ("a resistor of 10 Ω", "another lamp of resistance 6 Ω") is a new
+# part; a series/parallel question whose resistances were not all read never falls back to
+# Ohm's law on one of them, and nor do two parts with no wiring stated.
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        (
+            "A resistor of 10 Ω and another resistor of 10 Ω are connected in parallel across "
+            "a 5 V battery. Find the total current.",
+            1.0,
+        ),
+        (
+            "A 6 Ω resistor is connected in parallel with a resistor of 6 Ω across a 12 V "
+            "battery. Find the current drawn from the battery.",
+            4.0,
+        ),
+        (
+            "A bulb of resistance 4 Ω is connected in series with a heater of resistance 4 Ω "
+            "across 16 V. Find the current.",
+            2.0,
+        ),
+        (
+            "A resistor of 8 Ω is connected in series with a resistor of 8 Ω. Find the total resistance.",
+            16.0,
+        ),
+        (
+            "Two resistors of 4 Ω and 12 Ω are connected in parallel across 6 V. What current "
+            "does the battery supply?",
+            2.0,
+        ),
+        (
+            "A 6 Ω resistor is connected to a 12 V battery. What is the current through the "
+            "6 Ω resistor?",
+            2.0,
+        ),
+    ],
+)
+def test_equal_resistors_named_by_their_noun_are_two(text: str, value: float) -> None:
+    answer = _answer(text)
+    assert answer is not None and answer_number(answer) == pytest.approx(value)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A 6 Ω resistor and the other 6 Ω resistor are connected in series across 24 V. "
+        "Find the current.",
+        "A lamp of resistance 6 Ω and another lamp of resistance 6 Ω are connected to a 6 V "
+        "supply. Find the current.",
+        "A 50 Ω resistor is in series with a 100 Ω resistor across 30 V. Find the p.d. across "
+        "the 50 Ω resistor.",
+    ],
+)
+def test_a_part_not_certainly_new_or_unwired_declines(text: str) -> None:
+    assert _answer(text) is None

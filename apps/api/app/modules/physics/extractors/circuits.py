@@ -162,6 +162,31 @@ def _ohm_givens(
     return params, units
 
 
+def _resistor_network(
+    cleaned: str,
+    lower: str,
+    volts: list[tuple[float, str]],
+    amps: list[tuple[float, str]],
+    ohms: list[tuple[float, str]],
+) -> tuple[bool, PhysicsIntent | None]:
+    """(decided, card) for a resistor network: its card, or a decline. (False, None) when
+    the question is no network and the single-resistor laws below may read it."""
+    network = resistor_values(cleaned)
+    counted = counted_resistors(cleaned)
+    if counted is not None and not network:
+        # Counted resistors beside others: a network this does not read.
+        return True, None
+    wired = "series" in lower or "parallel" in lower
+    if len(network) >= 2 and wired:
+        return True, _network_intent(lower, network, counted, volts, amps)
+    # Two parts read with no wiring stated, or a series/parallel question whose resistances
+    # were not all read: Ohm's law on one of them is a guess. "A resistor of 10 Ω and
+    # another of 10 Ω in parallel across 5 V" was certified 0.5 A, one resistor (2026-11-01).
+    if len(network) >= 2 or (len(ohms) >= 2 and wired):
+        return True, None
+    return False, None
+
+
 def _readable_circuit_text(cleaned: str) -> str | None:
     """The question as the readers below take it: without its "R1 =" labels. None for
     a circuit this does not read (a blocked shape, a network wired by name, algebra)."""
@@ -240,18 +265,9 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         # A series-parallel network is not one sum: 4 Ω in series with 6 Ω
         # and 12 Ω in parallel is 8 Ω, and the all-series reading said 22 Ω.
         return series_parallel_intent(cleaned, volts, amps)
-    network = resistor_values(cleaned)
-    counted = counted_resistors(cleaned)
-    if counted is not None and not network:
-        # Counted resistors beside others: a network this does not read.
-        return None
-    if len(network) >= 2 and ("series" in lower or "parallel" in lower):
-        return _network_intent(lower, network, counted, volts, amps)
-    # Two parts read with no wiring stated, or a series/parallel question whose resistances
-    # were not all read: Ohm's law on one of them is a guess. "A resistor of 10 Ω and
-    # another of 10 Ω in parallel across 5 V" was certified 0.5 A, one resistor (2026-11-01).
-    if len(network) >= 2 or (len(ohms) >= 2 and ("series" in lower or "parallel" in lower)):
-        return None
+    decided, network_card = _resistor_network(cleaned, lower, volts, amps, ohms)
+    if decided:
+        return network_card
 
     read = _ohm_givens(cleaned, volts, amps, ohms)
     if read is None:
