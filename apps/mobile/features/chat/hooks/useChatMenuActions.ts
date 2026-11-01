@@ -5,7 +5,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { useLatestRef } from "@/lib/latestRef";
-import { useViewOwner } from "@/features/chat/model/viewOwner";
+import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
 import {
   confirmAndDeleteChat,

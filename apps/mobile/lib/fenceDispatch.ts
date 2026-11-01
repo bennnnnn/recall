@@ -19,6 +19,7 @@ import {
 } from "@/lib/copyBlock";
 import {
   type FenceId,
+  drawsBareJson,
   fenceIdForLang,
   fenceSpecForLang,
   isDataBodyFenceId,
@@ -94,9 +95,7 @@ export function classifyFence(lang: string, content: string): FenceDecision {
 
   if (l === "json" || l === "") {
     const jsonKind = detectJsonRichFenceKind(content);
-    if (jsonKind === "geometry" || jsonKind === "graph") {
-      return { kind: "rich", lang: l, id: jsonKind };
-    }
+    if (jsonKind && drawsBareJson(jsonKind)) return { kind: "rich", lang: l, id: jsonKind };
   }
 
   if (isExplicitCodeLang(lang)) return { kind: "code", lang: l };
