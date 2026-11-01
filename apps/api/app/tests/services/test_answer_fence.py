@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.services.answer_fence import (
+    UNCHECKED_ANSWER_MARKER,
     VERIFIED_ANSWER_MARKER,
     answer_fence_value,
     demote_answer_fences,
@@ -168,12 +171,12 @@ _CARD = "```answer\nverified: true\nx = 3\n```"
 @pytest.mark.parametrize(
     ("reply", "expected"),
     [
-        ("Divide.\n\n**Answer:** $x = 3$", "Divide.\n\n**Answer**\n\n```answer\n$x = 3$\n```"),
-        ("Divide.\n\n**Answer**:  $x = 3$  ", "Divide.\n\n**Answer**\n\n```answer\n$x = 3$\n```"),
-        ("Divide.\n\nAnswer: x = 3", "Divide.\n\n**Answer**\n\n```answer\nx = 3\n```"),
-        ("Divide.\n\n## Answer\n\n$x = 3$", "Divide.\n\n**Answer**\n\n```answer\n$x = 3$\n```"),
-        ("**Answer**  \n- **$x = 3$**", "**Answer**\n\n```answer\n$x = 3$\n```"),
-        ("**Answer**\n> $x = 3$\\", "**Answer**\n\n```answer\n$x = 3$\n```"),
+        ("Divide.\n\n**Answer:** $x = 3$", "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
+        ("Divide.\n\n**Answer**:  $x = 3$  ", "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
+        ("Divide.\n\nAnswer: x = 3", "Divide.\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```"),
+        ("Divide.\n\n## Answer\n\n$x = 3$", "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
+        ("**Answer**  \n- **$x = 3$**", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
+        ("**Answer**\n> $x = 3$\\", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
     ],
 )
 def test_land_puts_the_value_under_the_heading_in_a_card(reply: str, expected: str) -> None:
@@ -188,7 +191,7 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
     out = land_answer_card(reply, None)
     assert out == (
         "**Formula**  \n$v = gt$\n\n$v = 9.8 \\times 2$  \n\n**Answer**\n\n"
-        "```answer\n$v = 19.6\\ \\text{m/s}$\n```\n\n**Check**  \n$19.6 / 9.8 = 2$"
+        "```answer\nverified: false\n$v = 19.6\\ \\text{m/s}$\n```\n\n**Check**  \n$19.6 / 9.8 = 2$"
     )
     assert land_answer_card(out, None) == out
 
@@ -198,47 +201,47 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
     [
         (
             "**Answer**\n$x = 3$\nOnly the positive root counts.",
-            "**Answer**\n\n```answer\n$x = 3$\n```\n\nOnly the positive root counts.",
+            "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```\n\nOnly the positive root counts.",
         ),
         (
             "**Answer**\nx = 6 / 2\n\nx = 3",
-            "x = 6 / 2\n\n**Answer**\n\n```answer\nx = 3\n```",
+            "x = 6 / 2\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```",
         ),
-        ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\n$x = 3$\n```\n\n"),
-        ("**Answer**\n**x ≈ 1.5**", "**Answer**\n\n```answer\nx ≈ 1.5\n```"),
+        ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```\n\n"),
+        ("**Answer**\n**x ≈ 1.5**", "**Answer**\n\n```answer\nverified: false\nx ≈ 1.5\n```"),
         (
             "**Answer**\nv = 9.8 × 2\nv ≈ 19.6 m/s",
-            "v = 9.8 × 2\n\n**Answer**\n\n```answer\nv ≈ 19.6 m/s\n```",
+            "v = 9.8 × 2\n\n**Answer**\n\n```answer\nverified: false\nv ≈ 19.6 m/s\n```",
         ),
         (
             "**Answer**\n\\[\nx = 3\n\\]\nOnly the positive root counts.",
-            "**Answer**\n\n```answer\n$$\nx = 3\n$$\n```\n\nOnly the positive root counts.",
+            "**Answer**\n\n```answer\nverified: false\n$$\nx = 3\n$$\n```\n\nOnly the positive root counts.",
         ),
         (
             "**Answer**\n$$\n\\begin{cases} x = 1 \\\\\ny = 2\n\\end{cases}\n$$",
-            "**Answer**\n\n```answer\n$$\n\\begin{cases} x = 1 \\\\\ny = 2\n\\end{cases}\n$$\n```",
+            "**Answer**\n\n```answer\nverified: false\n$$\n\\begin{cases} x = 1 \\\\\ny = 2\n\\end{cases}\n$$\n```",
         ),
         (
             "**Answer**\nA = 3 × 4\nArea = 12 cm²\nSo the area is 12 square centimetres.",
-            "A = 3 × 4\n\n**Answer**\n\n```answer\nArea = 12 cm²\n```\n\n"
+            "A = 3 × 4\n\n**Answer**\n\n```answer\nverified: false\nArea = 12 cm²\n```\n\n"
             "So the area is 12 square centimetres.",
         ),
         (
             "**Answer**\n2x + 3 = 7\n2x + 3 - 3 = 7 - 3\nx = 2",
-            "2x + 3 = 7\n2x + 3 - 3 = 7 - 3\n\n**Answer**\n\n```answer\nx = 2\n```",
+            "2x + 3 = 7\n2x + 3 - 3 = 7 - 3\n\n**Answer**\n\n```answer\nverified: false\nx = 2\n```",
         ),
         (
             "**Answer:** $$\nx = 3\n$$\nOnly the positive root counts.",
-            "**Answer**\n\n```answer\n$$\nx = 3\n$$\n```\n\nOnly the positive root counts.",
+            "**Answer**\n\n```answer\nverified: false\n$$\nx = 3\n$$\n```\n\nOnly the positive root counts.",
         ),
         ("**Answer**\n\n", "**Answer**\n\n"),
         (
             "**Answer:** $x = 2$\n$x = -2$",
-            "**Answer**\n\n```answer\n$x = 2$, $x = -2$\n```",
+            "**Answer**\n\n```answer\nverified: false\n$x = 2$, $x = -2$\n```",
         ),
         (
             "**Answer:** $x = 12 / 4$\n$x = 3$",
-            "$x = 12 / 4$\n\n**Answer**\n\n```answer\n$x = 3$\n```",
+            "$x = 12 / 4$\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
         ),
     ],
 )
@@ -272,14 +275,14 @@ def test_land_leaves_an_answer_that_is_not_maths(reply: str) -> None:
 def test_land_stops_at_a_bold_heading_line_but_not_at_a_bold_value() -> None:
     reply = "**Answer**\n$x^2 = 9$\n**x = 3**\n**Check** $3^2 = 9$"
     assert land_answer_card(reply, None) == (
-        "$x^2 = 9$\n\n**Answer**\n\n```answer\nx = 3\n```\n\n**Check** $3^2 = 9$"
+        "$x^2 = 9$\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```\n\n**Check** $3^2 = 9$"
     )
 
 
 def test_land_takes_a_display_block_as_one_value() -> None:
     reply = "**Answer**\n$x^2 = 9$\n$$\nx = \\pm 3\n$$"
     assert land_answer_card(reply, None) == (
-        "$x^2 = 9$\n\n**Answer**\n\n```answer\n$$\nx = \\pm 3\n$$\n```"
+        "$x^2 = 9$\n\n**Answer**\n\n```answer\nverified: false\n$$\nx = \\pm 3\n$$\n```"
     )
 
 
@@ -295,7 +298,7 @@ def test_land_replaces_the_model_value_with_the_verified_card() -> None:
 def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
     reply = "**Answer**\n\n$2x = 4$\n\n$x = 2$.\n\nWant another one?"
     assert land_answer_card(reply, None) == (
-        "$2x = 4$\n\n**Answer**\n\n```answer\n$x = 2$\n```\n\nWant another one?"
+        "$2x = 4$\n\n**Answer**\n\n```answer\nverified: false\n$x = 2$\n```\n\nWant another one?"
     )
 
 
@@ -311,7 +314,7 @@ def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
 def test_land_keeps_every_root_in_the_card(roots: str, card: str) -> None:
     reply = f"**Answer**\n$x^2 = 4$\n{roots}\n\n**Check**\n$2^2 = 4$"
     assert land_answer_card(reply, None) == (
-        f"$x^2 = 4$\n\n**Answer**\n\n```answer\n{card}\n```\n\n**Check**\n$2^2 = 4$"
+        f"$x^2 = 4$\n\n**Answer**\n\n```answer\nverified: false\n{card}\n```\n\n**Check**\n$2^2 = 4$"
     )
 
 
@@ -340,8 +343,10 @@ def test_land_leaves_an_unverified_reply_without_an_answer_section() -> None:
 )
 def test_land_never_writes_a_header_line_into_an_unverified_card(reply: str) -> None:
     out = land_answer_card(reply, None)
-    assert "```answer\nverified" not in out
-    assert "```answer\nlabel" not in out
+    # Its only header is the server's "not checked" line.
+    for body in re.findall(r"```answer\n(.*?)\n```", out, re.S):
+        assert body.split("\n")[0] == UNCHECKED_ANSWER_MARKER
+        assert "verified: true" not in body and "label" not in body
 
 
 @pytest.mark.parametrize(
@@ -374,3 +379,11 @@ def test_an_equation_in_words_keeps_its_card() -> None:
         "/ 300 seconds = 4 metres per second"
     )
     assert "```answer" in land_answer_card(reply, None)
+
+
+def test_the_not_checked_line_is_a_header_and_never_survives_a_verified_card() -> None:
+    body = f"{UNCHECKED_ANSWER_MARKER}\nx = 3"
+    assert answer_fence_value(body) == "x = 3"
+    assert verified_answer_fence(body) == f"```answer\n{VERIFIED_ANSWER_MARKER}\nx = 3\n```"
+    assert demote_answer_fences(f"```answer\n{body}\n```") == "x = 3\n"
+    assert UNCHECKED_ANSWER_MARKER == "verified: false"

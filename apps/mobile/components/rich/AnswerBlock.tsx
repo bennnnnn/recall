@@ -57,7 +57,8 @@ function answerNeedsDisplayMath(text: string): boolean {
  * bordered box.
  * Every ```answer fence lands here; the green check after the value is the
  * server's (a body that opens with `verified: true`, see lib/answerNotation.ts)
- * and needs the reply to have settled.
+ * and needs the reply to have settled. A value no solver checked (`verified: false`)
+ * says so beside the heading, "Not checked", in a box with a dashed border.
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
  * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in a slot that
@@ -79,18 +80,28 @@ export function AnswerBlock({ content, settled = true }: Props) {
         style={s.successCheck}
       />
     ) : null;
+  const unchecked = parsed.unchecked ? t("rich.answer_not_checked") : null;
   const frame = (spoken: string, value: ReactNode) => (
     <View
       style={s.section}
       accessibilityRole="text"
-      accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
+      accessibilityLabel={
+        t("rich.answer_a11y", { text: spoken }) + (unchecked ? `. ${unchecked}` : "")
+      }
     >
-      <Text testID="answer-label" style={s.label}>
-        {parsed.part
-          ? t("rich.answer_part_label", { part: parsed.part })
-          : t("rich.answer_label")}
-      </Text>
-      <View testID="answer-box" style={s.box}>
+      <View style={s.heading}>
+        <Text testID="answer-label" style={s.label}>
+          {parsed.part
+            ? t("rich.answer_part_label", { part: parsed.part })
+            : t("rich.answer_label")}
+        </Text>
+        {unchecked ? (
+          <Text testID="answer-not-checked" style={s.notChecked}>
+            {unchecked}
+          </Text>
+        ) : null}
+      </View>
+      <View testID="answer-box" style={[s.box, unchecked ? s.uncheckedBox : null]}>
         {value}
       </View>
     </View>
@@ -231,10 +242,23 @@ const makeStyles = (t: Theme) =>
       gap: Space.xs,
       marginBottom: PARAGRAPH_GAP,
     },
+    heading: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: Space.sm,
+    },
     label: {
       ...Type.body,
       ...Weight.semibold,
       color: t.assistantText,
+    },
+    // A value no solver checked: a quiet note beside the heading, never a warning.
+    notChecked: {
+      ...Type.caption,
+      color: t.textSecondary,
+    },
+    uncheckedBox: {
+      borderStyle: "dashed",
     },
     // The same bordered box as a written-out answer (workout-answer): the page's own
     // background inside a thin border. The answer sits centred; no side rule.

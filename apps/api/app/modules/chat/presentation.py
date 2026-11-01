@@ -16,7 +16,11 @@ from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
 from app.modules.chat.lead_lines import separate_lead_lines
 from app.modules.chat.notation_spans import code_notation
 from app.modules.chat.repl_transcript import fence_repl_transcripts
-from app.services.answer_fence import ANSWER_FENCE_LANGS, VERIFIED_ANSWER_MARKER
+from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    UNCHECKED_ANSWER_MARKER,
+    VERIFIED_ANSWER_MARKER,
+)
 from app.services.md_fence_scan import iter_fences
 
 _WHY_QUESTION = re.compile(r"\b(?:why|explain)\b", re.IGNORECASE)
@@ -29,7 +33,8 @@ def _without_leading_number_card(reply: str) -> str:
     if fence is None or fence.start or not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
         return reply
     rows = [row.strip() for row in reply[fence.body_start : fence.body_end].split("\n")]
-    rows = [row for row in rows if row and row.lower() != VERIFIED_ANSWER_MARKER]
+    checks = (VERIFIED_ANSWER_MARKER, UNCHECKED_ANSWER_MARKER)
+    rows = [row for row in rows if row and row.lower() not in checks]
     if len(rows) != 1 or not _BARE_NUMBER_LINE.fullmatch(rows[0]):
         return reply
     return reply[fence.end :]

@@ -41,6 +41,9 @@ class StreamAccum:
     # that ends with nothing in its place keeps it.
     retracted: str = ""
     retracted_parts: str = ""
+    # The reply stopped extending what the client was sent (a ```worked block laid out
+    # again when a record came out of order, ``worked_stream``): ``done`` carries it.
+    rewritten: bool = False
 
     def retract(self, parts_from: int, shown_from: int) -> None:
         self.retracted = "".join(self.shown[shown_from:])

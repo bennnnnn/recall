@@ -15,6 +15,7 @@ describe("answer card value", () => {
       notation: "math",
       body: "\\frac{5}{6}",
       verified: true,
+      unchecked: false,
     });
     expect(splitAnswerNotation("notation: chemistry\npH = 2.00").body).toBe("pH = 2.00");
   });

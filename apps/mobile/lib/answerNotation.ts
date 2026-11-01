@@ -4,6 +4,8 @@
  * - `verified: true` — the server checked this value with a solver. It is the only
  *   thing that earns the card's green check; the server strips the line from anything
  *   a model writes, so a reply cannot forge it.
+ * - `verified: false` — no solver checked it: the model worked it out. The card says
+ *   "Not checked" and draws no check. A card from before November 2026 has neither line.
  * - `notation: chemistry` — the body is chemistry text, not LaTeX. Chemistry (and any
  *   later literal subject) keeps formulas, charges, and units as text; treating that
  *   body as algebra rewrites a correct result.
@@ -24,12 +26,13 @@ type AnswerNotation = "math" | "chemistry";
 export const CHEMISTRY_ANSWER_NOTATION = "notation: chemistry";
 const ANSWER_LABEL_LINE = "label: answer";
 const VERIFIED_ANSWER_MARKER = "verified: true";
+const UNCHECKED_ANSWER_MARKER = "verified: false";
 const PART_LINE = /^part: ([a-h])$/;
 
 function headerLine(line: string): string | null {
   // The marker must be exactly the server's line: no case, spacing, or invisible
   // characters a forged copy could hide behind.
-  if (line === VERIFIED_ANSWER_MARKER) return line;
+  if (line === VERIFIED_ANSWER_MARKER || line === UNCHECKED_ANSWER_MARKER) return line;
   const trimmed = line.trim();
   if (PART_LINE.test(trimmed)) return trimmed;
   return trimmed === CHEMISTRY_ANSWER_NOTATION || trimmed === ANSWER_LABEL_LINE ? trimmed : null;
@@ -39,6 +42,8 @@ export function splitAnswerNotation(raw: string): {
   notation: AnswerNotation;
   body: string;
   verified: boolean;
+  /** The server marked it as a value no solver checked. */
+  unchecked: boolean;
   part?: string;
 } {
   const lines = raw.replace(/\r\n/g, "\n").trim().split("\n");
@@ -56,6 +61,7 @@ export function splitAnswerNotation(raw: string): {
     notation: headers.has(CHEMISTRY_ANSWER_NOTATION) ? "chemistry" : "math",
     body: finalAnswerOnly(lines.join("\n").trim()),
     verified: headers.has(VERIFIED_ANSWER_MARKER),
+    unchecked: headers.has(UNCHECKED_ANSWER_MARKER) && !headers.has(VERIFIED_ANSWER_MARKER),
     ...(part ? { part } : {}),
   };
 }

@@ -374,16 +374,43 @@ CASES: tuple[Case, ...] = (
         "12 ohm resistor across a 12 V battery. Find the current from the battery.",
         # A network the server does not read stays with the model: it uses the same
         # layout and checks its own answer, since no server check stands behind it.
-        Expect(subject="physics", solved=False, hints=("self_check",)),
-        "Given/Required/Formula/Substitution/Answer: R = (4 + 6) ∥ 12 = 120/22 ≈ 5.45 Ω, "
-        "I = 12/5.45 ≈ 2.2 A, then a one-line Check. Never a ✓ and never 'verified'.",
+        Expect(subject="physics", solved=False, hints=("self_check", "worked")),
+        "A ```worked block the server lays out as Given/Required/Formula/Substitution/Answer: "
+        "R = (4 + 6) ∥ 12 = 120/22 ≈ 5.45 Ω, I = 12/5.45 ≈ 2.2 A, its card not checked. "
+        "Never a ✓ and never 'verified'.",
     ),
     Case(
         "physics-verified-no-self-check",
         "physics",
         "a ball is dropped from 45 m. how long until it hits the ground?",
-        Expect(subject="physics", solved=True, no_hints=("self_check",)),
+        Expect(subject="physics", solved=True, no_hints=("self_check", "worked")),
         "About 3.03 s from t = √(2h/g), copied from the verified card.",
+    ),
+    Case(
+        "physics-unread-exercise-worked",
+        "physics",
+        "A car moves at a speed of 20m/s for 120 seconds due East. What is the displacement "
+        "of the car?",
+        # No subject reader reads it, but it is a school exercise with numbers: its parts
+        # come in a ```worked block, laid out as a verified reply (2026-11-01).
+        Expect(solved=False, hints=("worked",)),
+        "Given v = 20 m/s, t = 120 s; Required s; s = vt; s = 20 × 120 = 2400 m; Answer "
+        "2400 m east in a card marked not checked.",
+    ),
+    Case(
+        "chem-word-cue-no-worked",
+        "chemistry",
+        "remind me to study chemistry tomorrow at 7pm",
+        # Chemistry named by a word and a time, no calculation: no ```worked block.
+        Expect(no_hints=("worked",)),
+        "A reminder card for 7 pm tomorrow.",
+    ),
+    Case(
+        "physics-explain-no-worked",
+        "physics",
+        "Why is displacement a vector but distance is not?",
+        Expect(no_hints=("worked",)),
+        "A short explanation in prose: direction. No worked layout.",
     ),
     # ── Chemistry ───────────────────────────────────────────────────────────
     Case(

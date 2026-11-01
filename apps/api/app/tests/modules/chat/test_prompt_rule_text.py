@@ -15,10 +15,11 @@ from app.modules.chat.prompt_rule_text import prompt_rule_text
 from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 
 # Distinct rule strings and the 4-grams within each: before ST-04 (main e4c784a5a), then with
-# the worked layout's Required heading and its Solve-for step.
-_RULES = 162
-_RULE_GRAMS = 13945
-_RULE_GRAMS_SHA = "5c5dcc1fa69be33f"
+# the worked layout's Required heading and its Solve-for step, then the ```worked block's
+# contract (prompt_constants.worked).
+_RULES = 163
+_RULE_GRAMS = 14271
+_RULE_GRAMS_SHA = "4fe14eec207a900f"
 
 
 def _rules() -> list[str]:
