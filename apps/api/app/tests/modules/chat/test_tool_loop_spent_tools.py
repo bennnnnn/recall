@@ -169,6 +169,7 @@ async def test_the_turns_augmentation_says_whether_its_solve_timed_out(timed_out
             lightweight=False, minimal_personal=False, day_planning=False, rich_context=True
         ),
         geo=SimpleNamespace(ambiguous_nearby=False),
+        user=SimpleNamespace(locale="en"),
     )
     # A maths line: the gate lets it through to the solve, whose answer is stood in for.
     with patch.object(augment, "fetch_subject", fetch):

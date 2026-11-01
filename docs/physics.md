@@ -521,5 +521,9 @@ pipeline refuses:
   on;
 - values listed "respectively" for inputs told apart by words ("primary and secondary coils
   with 100 and 500 turns respectively"); a list the law fills in order still binds;
+- a question in another language, and a number its writer reads otherwise ("1.200 kg"
+  from a Spanish user is 1200 kg; "1 200 kg" from anyone): the readers are English
+  grammars, so "Deux résistances de 10 ohms … en parallèle" was one resistor's 0.5 A
+  (`turn_reading/readable.py`; chat drops the result whole, `chat/whole_question.py`);
 - every refusal listed under Physics in `FEATURES.md` (an unstated collision type, a
   diverging lens, an absolute temperature written as bare "degrees", and the rest).

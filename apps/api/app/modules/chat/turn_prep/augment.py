@@ -121,7 +121,12 @@ async def gather_and_inject(
         fetched = await _fetch_subject_with_priors(
             request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
         )
-    fetched = whole_question_fetch(request.content, fetched)
+    fetched = whole_question_fetch(
+        request.content,
+        fetched,
+        locale=identity.user.locale,
+        problems=(followup.math, followup.chemistry, followup.physics),
+    )
     return Augmentation(
         prompt_messages=inject_subject_block(prompt_messages, fetched.subject_block),
         verified_subject=fetched.verified,

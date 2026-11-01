@@ -91,6 +91,8 @@ class Case:
     tags: tuple[str, ...] = field(default=())
     # The user's memory switch (Settings → Memory).
     memory_enabled: bool = True
+    # The user's app language: how they write numbers ("1.200" is 1200 in Spanish).
+    locale: str = "en"
 
 
 NO_PHOTO = ""

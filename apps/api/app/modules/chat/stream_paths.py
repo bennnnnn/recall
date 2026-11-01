@@ -169,7 +169,10 @@ def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:
     ctx.prompt_messages, tool_verified, terminal_image, tool_search_hits = rounds
     if tool_verified is not None:
         question = ctx.user_message_content or ""
-        ctx.verified_subject = with_tool_verified(ctx.verified_subject, tool_verified, question)
+        locale = ctx.user.locale if ctx.user is not None else None
+        ctx.verified_subject = with_tool_verified(
+            ctx.verified_subject, tool_verified, question, locale
+        )
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
