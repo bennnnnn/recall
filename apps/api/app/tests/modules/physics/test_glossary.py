@@ -46,7 +46,7 @@ def test_meanings_are_words_not_identifiers() -> None:
         ("centripetal_force", "r", "radius"),
         ("double_slit_fringe_spacing", "L", "distance to the screen"),
         ("carnot_efficiency", "temp", "hot reservoir temperature"),
-        ("impulse", "v2", "velocity"),
+        ("impulse", "v2", "final velocity"),
     ],
 )
 def test_a_name_reads_as_its_law_means_it(operation: str, name: str, meaning: str) -> None:

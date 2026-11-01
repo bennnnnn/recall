@@ -23,7 +23,7 @@
     "rebound_impulse": {
       "question": "A 0.2 kg ball hits a wall at 10 m/s and rebounds at 8 m/s. Find the impulse.",
       "answer": "3.6 N·s (opposite to the initial motion)",
-      "reply": "**Given**  \n$m = 0.2\\,\\mathrm{kg}$  \n$v_1 = 10\\,\\mathrm{m/s}$  \n$v_2 = -8\\,\\mathrm{m/s}$  \nwhere $m$ = mass; $v_1$, $v_2$ = velocities\n\n**Required**  \n$J$\n\n**Impulse-momentum theorem**  \n$J = m(v_2 - v_1)$\n\n**Substitution**  \n$J = 0.2 \\cdot ((-8) - 10)$  \n$J = 0.2 \\cdot (-18)$  \n$J = -3.6\\,\\mathrm{N·s}$\n\n**Answer**\n\n```answer\n3.6\\,\\mathrm{N·s}\\ (\\text{opposite to the initial motion})\n```\n"
+      "reply": "**Given**  \n$m = 0.2\\,\\mathrm{kg}$  \n$v_i = 10\\,\\mathrm{m/s}$  \n$v_f = -8\\,\\mathrm{m/s}$  \nwhere $m$ = mass, $v_i$ = initial velocity, $v_f$ = final velocity\n\n**Required**  \n$J$\n\n**Impulse-momentum theorem**  \n$J = m(v_f - v_i)$\n\n**Substitution**  \n$J = 0.2 \\cdot ((-8) - 10)$  \n$J = 0.2 \\cdot (-18)$  \n$J = -3.6\\,\\mathrm{N·s}$\n\n**Answer**\n\n```answer\n3.6\\,\\mathrm{N·s}\\ (\\text{opposite to the initial motion})\n```\n"
     },
     "heater_energy": {
       "question": "A 2 kW heater runs for 3 hours. How much energy does it use in kWh?",
