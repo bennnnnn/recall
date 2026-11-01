@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import re
 
+from app.modules.turn_reading.turn import reads_a_problem
+
 # Weather is always live; "under the weather" or a poem about it is no forecast.
 _WEATHER = re.compile(
     r"\b(?:(?:what(?:['\u2019]s|\s+is|\s+will\s+be)|how(?:['\u2019]s|\s+is))\s+the\s+"
@@ -102,9 +104,17 @@ def around_the_user(text: str) -> bool:
 
 
 def is_worked_problem(text: str) -> bool:
-    """A problem that states its own measurements, coordinates or function."""
+    """A problem that states its own measurements, coordinates or function, or one the turn's
+    reading has a subject solve.
+
+    Every reader of the user's place defers to it (places, distances and travel times, local
+    weather): a line two readers claim is the subject's. "A ball is dropped from a height of
+    20 m. How long does it take to reach the ground?" states one measurement, and was asked
+    for the user's city (2026-11-01); physics reads it.
+    """
     return (
         len(_MEASURED.findall(text)) >= 2
         or _COORDINATES.search(text) is not None
         or _FUNCTION.search(text) is not None
+        or reads_a_problem(text)
     )

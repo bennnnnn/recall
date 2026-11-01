@@ -76,6 +76,9 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     "services/subjects/dispatch.py::_subject_of_text": (1, "the reader"),
     "modules/chat/turn_prep/reading.py::ask_turn_readings": (4, "the pool's reads of the turn"),
     "modules/chat/turn_prep/reading.py::subject_of": (1, "owner: any text or flags not the turn's"),
+    # Whether the order's subject reads a request out of the line: a reading of its own,
+    # read in the pool and kept on the turn's reading (``TurnReading.problem``).
+    "services/subjects/order.py::read_problem_subject": (1, "a reader built on it"),
     # Routing runs in the pool, before the turn's reading is kept (see ST-05's precedence
     # note): it reads the line with the chemistry setting and no attachment flag.
     "modules/chat/model_routing/route.py::_routed_line": (1, "the lane, read in the pool"),

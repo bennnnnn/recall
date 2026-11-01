@@ -43,7 +43,7 @@ def read_turn(
     builds it again, with the subject the pool read under that flag.
     """
     from app.modules.chat.turn_prep.intents import plan_turn
-    from app.services.subjects.order import read_subject_reason
+    from app.services.subjects.order import read_problem_subject, read_subject_reason
 
     chemistry = settings.chemistry_enabled
     kept = current_turn_reading()
@@ -75,6 +75,7 @@ def read_turn(
         has_image_attachment=image,
         subject=None if subject is None else subject.subject,
         subject_reason=_subject_reason(subject),
+        problem=kept_reading(read_problem_subject, content, image, chemistry),
     )
     keep_turn_reading(reading)
     return reading
@@ -133,6 +134,7 @@ def ask_turn_readings(
     from app.modules.chat.model_routing.route import route_chat_model
     from app.modules.chat.turn_prep.intents import plan_turn
     from app.services.subjects.dispatch import detect_subject
+    from app.services.subjects.order import read_problem_subject
     from app.services.subjects.registry import subject_adapter
 
     chemistry = settings.chemistry_enabled
@@ -146,6 +148,8 @@ def ask_turn_readings(
             maths.reads(text)
     maths.reads(content)
     subject_adapter("physics").reads(content)
+    # Whether its subject solves it: such a message asks nothing about the user's place.
+    read_problem_subject(content, has_image_attachment, chemistry)
     # The follow-up readers ask the subject of the user's earlier lines: a physics or
     # chemistry problem is not replayed through maths. Routing asks the line before this
     # one whenever the turn may inherit its lane. A money follow-up asks each line's plan,

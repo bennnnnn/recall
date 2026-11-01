@@ -40,6 +40,11 @@ class TurnReading:
     has_image_attachment: bool = False
     subject: str | None = None
     subject_reason: str = "not_read"
+    # The subject that reads a request to solve out of the message
+    # (``services.subjects.order.read_problem_subject``): None when none does, or the pool
+    # did not read it. Such a message is that subject's problem, never a question about
+    # where the user is (``reads_a_problem``).
+    problem: str | None = None
 
     @property
     def teaching(self) -> bool:
@@ -70,6 +75,20 @@ def current_turn_reading() -> TurnReading | None:
     """This turn's reading, or None outside a turn or before its message was read."""
     kept = kept_for_turn(_KEPT)
     return kept if isinstance(kept, TurnReading) else None
+
+
+def reads_a_problem(text: str) -> bool:
+    """Whether a subject reads a request to solve out of ``text``, by the turn's reading.
+
+    Only the turn's own message is known (spacing aside: callers collapse it); any other
+    text, or no turn, is False. Nothing is read here: the readers run in the pool.
+    """
+    kept = current_turn_reading()
+    return kept is not None and kept.problem is not None and _same_line(kept.text, text)
+
+
+def _same_line(left: str, right: str) -> bool:
+    return left.split() == right.split()
 
 
 def teaching_of(text: str) -> bool:

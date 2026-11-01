@@ -83,6 +83,10 @@ def is_proximity_query(text: str) -> bool:
         return False
     if non_geographic_nearest(cleaned):
         return False
+    # Places around the user outweigh the distances a problem states: "Find coffee shops
+    # near me within 2 km, max 5 km" lost its location (2026-11-01).
+    if is_worked_problem(cleaned) and not around_the_user(cleaned):
+        return False
     if _NEARBY_INTENT.search(cleaned):
         return True
     if _IMPLICIT_LOCAL.search(cleaned):
@@ -97,7 +101,8 @@ def is_distance_query(text: str) -> bool:
         return False
     if not (_DISTANCE_INTENT.search(cleaned) or trip_how_many_phrase(cleaned)):
         return False
-    if _MOTION_HOMEWORK.search(cleaned):
+    # An exercise asks "how far" and "how long to reach" too: never a trip from the user.
+    if _MOTION_HOMEWORK.search(cleaned) or is_worked_problem(cleaned):
         return False
     if _TIMETABLE.search(cleaned) or _UNIT_CONVERSION.search(cleaned):
         return False
@@ -109,12 +114,10 @@ def is_distance_query(text: str) -> bool:
 
 
 def is_geo_query(text: str) -> bool:
-    """Any query that needs the user's location — places OR distance. Venue-agnostic."""
-    if is_worked_problem(text):
-        # Places or weather around the user outweigh the distances a message states: "Find
-        # coffee shops near me within 2 km, max 5 km" lost its location (2026-11-01). A trip
-        # or a distance does not: an exercise asks "how far" too.
-        return around_the_user(text) and (is_proximity_query(text) or is_local_weather_query(text))
+    """Any query that needs the user's location — places OR distance. Venue-agnostic.
+
+    Each reader leaves a worked problem to its subject (``weather.is_worked_problem``).
+    """
     return is_proximity_query(text) or is_distance_query(text) or is_local_weather_query(text)
 
 

@@ -385,6 +385,24 @@ for presentation and the post-turn jobs, not for reading.
   - A test that begins a turn outside a task (a sync test) would leave its readings in the
     worker's context, and every later test on the worker would then run inside that turn;
     `conftest.py` clears the turn after each test.
+- **Precedence chosen (behaviour PR): a subject's problem before the user's place.**
+  - "A ball is dropped from a height of 20 m. How long does it take to reach the ground?" was
+    answered "I don't have your location yet": the travel-time reader claimed it before
+    physics, and its only guard, `web_search.weather.is_worked_problem`, wanted two stated
+    measurements.
+  - `TurnReading.problem` is the subject whose adapter reads a request to solve out of the
+    message (`services/subjects/order.read_problem_subject`, a pool reading built on the
+    order's subject and `SubjectAdapter.reads`). `turn_reading.turn.reads_a_problem(text)`
+    answers it for the turn's message only and reads nothing.
+  - `is_worked_problem` asks it, and every reader of the user's place defers to
+    `is_worked_problem`: places (unless the line searches around the user), distances and
+    travel times, and local weather. So does everything built on them: the location ask,
+    the location sent with a search, the geo prompt hints and the places card.
+  - A line physics claims but reads no request out of ("How far is the nearest gas station?
+    My car does 30 mpg") is still a location ask.
+  - Decision diff (new look-alikes added on both sides): 13 turns changed, all of them new
+    entries. 12 are now solved by physics (`time_to_ground`, `drop_height`) where main asked
+    for the location; 13 lose the `context.slim_geo` hint. No existing turn changed.
 
 ### ST-06 — Finalize passes declare their order and their kind
 
