@@ -70,12 +70,14 @@ def evaluate_arithmetic(expr: str) -> str:
         raise SolveServiceError("not a numeric arithmetic expression")
     if parsed.free_symbols:
         raise SolveServiceError("arithmetic expression still has variables")
-    from app.modules.math.solve.real_reading import complex_without_cause, real_odd_roots
+    from app.modules.math.solve.real_reading import complex_without_cause, read_written
 
     # ∛(-27) is -3, as everywhere in school algebra; SymPy's principal root is complex.
-    value = simplify(real_odd_roots(parsed))
-    if complex_without_cause(parsed, value):
-        raise SolveServiceError("an odd root kept no real value")
+    # Read as written: evaluated, (-2.5)^(2/3) is already the principal value.
+    written = parse_expression(expr, ["x"], evaluate=False)
+    value = simplify(read_written(written))
+    if complex_without_cause(written, value):
+        raise SolveServiceError("could not verify: an odd root kept no real value")
     return _defined_value_latex(value)
 
 
@@ -414,7 +416,9 @@ def evaluate_complex(expr: str, *, expanded: bool = False) -> str:
     written = parse_expression(sympy_text, ["x"])
     if odd_root_of_a_negative_number(parse_expression(sympy_text, ["x"], evaluate=False)):
         # ∛(-8) asked in complex numbers is -2 or the principal 1 + √3 i: no one value.
-        raise SolveServiceError("an odd root of a negative number in complex numbers")
+        raise SolveServiceError(
+            "could not verify: an odd root of a negative number has two values in complex numbers"
+        )
     parsed = real_odd_roots(written)
     value = expand(parsed) if expanded else simplify(parsed)
     if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
