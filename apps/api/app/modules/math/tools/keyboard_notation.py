@@ -88,7 +88,7 @@ def _times_beside_fractions(tex: str) -> str:
 
 def _greek_names(tex: str) -> str:
     """The keypad's ``\\theta`` is the unknown ``theta``; ``\\pi`` stays a constant."""
-    from app.modules.math.solve.discrete import GREEK_NAMES
+    from app.modules.math.function_names import GREEK_NAMES
 
     def name(match: re.Match[str]) -> str:
         word = match.group(2)

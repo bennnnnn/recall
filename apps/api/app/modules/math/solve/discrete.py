@@ -9,7 +9,11 @@ from typing import Literal
 
 from sympy import Matrix, Rational, factorint, isprime, latex
 
-from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
+from app.modules.math.function_names import (
+    GREEK_NAMES,
+    MATH_FUNCTION_NAMES,
+    function_name_alternation,
+)
 from app.modules.math.match.letter_runs import mask_unknown_letter_runs
 from app.modules.math.schemas import (
     CombinatoricsInput,
@@ -31,11 +35,6 @@ _FUNCTION_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 # A Greek letter name is one unknown (the keypad's θ), not five letters.
-GREEK_NAMES = (
-    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
-    "kappa", "lambda", "mu", "nu", "xi", "rho", "sigma", "tau", "upsilon", "phi",
-    "chi", "psi", "omega",
-)  # fmt: skip
 _GREEK_NAME_RE = re.compile(rf"(?<![A-Za-z])(?:{'|'.join(GREEK_NAMES)})(?![A-Za-z])")
 
 # Multi-letter mathematical constants that must NOT be split into per-letter
