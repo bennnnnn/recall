@@ -32,20 +32,28 @@ _FOLLOWUP_EXCHANGES = 4
 
 
 def read_turn(
-    content: str, settings: Settings, *, has_image_attachment: bool = False
+    content: str, settings: Settings, *, has_image_attachment: bool | None = None
 ) -> TurnReading:
     """The turn's reading of its message, built once from the pooled readings and kept.
 
     Its fields come from the readings ``ask_turn_readings`` made in the pool, so building
     it reads nothing on the loop: a subject the pool did not read stays unknown here.
+    ``has_image_attachment`` None takes the kept reading whatever its flag; a flag the
+    kept reading was not made with (turn load reads before it knows the turn's photo)
+    builds it again, with the subject the pool read under that flag.
     """
     from app.modules.chat.turn_prep.intents import plan_turn
     from app.services.which_subject import read_subject_reason
 
     chemistry = settings.chemistry_enabled
     kept = current_turn_reading()
-    if kept is not None and kept.reads(content, chemistry_enabled=chemistry):
+    if (
+        kept is not None
+        and kept.reads(content, chemistry_enabled=chemistry)
+        and has_image_attachment in (None, kept.has_image_attachment)
+    ):
         return kept
+    image = bool(has_image_attachment)
     # The pool's plan of the message first, as ``@reading`` answers: a later read that gave
     # up does not undo a plan already read.
     kept_plan = kept_reading(plan_turn, content, chemistry_enabled=chemistry)
@@ -57,14 +65,14 @@ def read_turn(
     else:
         plan = kept_plan or plan_turn(content, chemistry_enabled=chemistry)
         reason = "several_requests" if plan.multi else "one_request"
-    subject = kept_reading(read_subject_reason, content, has_image_attachment, chemistry)
+    subject = kept_reading(read_subject_reason, content, image, chemistry)
     reading = TurnReading(
         content,
         chemistry,
         plan,
         reason,
         teaching_reason(content),
-        has_image_attachment=has_image_attachment,
+        has_image_attachment=image,
         subject=None if subject is None else subject.subject,
         subject_reason=_subject_reason(subject),
     )

@@ -343,6 +343,24 @@ async def test_the_subject_is_the_turns_reading_for_its_message_and_read_for_any
     assert asked == [(message, True, True), ("Solve 2x + 3 = 7", False, True)]
 
 
+async def test_the_turns_photo_reads_its_subject_again_after_turn_load() -> None:
+    # Turn load reads the message before it knows the photo; the prompt reads it with it.
+    settings = Settings()
+    begin_turn()
+    await read_turn_message("solve this", [], settings)
+    before = current_turn_reading()
+    assert before is not None
+    assert (before.subject, before.subject_reason) == (None, "none")
+
+    await read_turn_message("solve this", [], settings, has_image_attachment=True)
+    reading = current_turn_reading()
+    assert reading is not None
+    assert (reading.subject, reading.subject_reason) == ("math", "math")
+    assert reading.has_image_attachment and reading.plan == before.plan
+    # A caller that names no flag (the trace) takes the turn's reading as it stands.
+    assert read_turn("solve this", settings) is reading
+
+
 async def test_a_subject_the_pool_did_not_read_stays_unknown_in_the_reading() -> None:
     begin_turn()
     reading = read_turn("Solve 2x + 3 = 7", Settings())

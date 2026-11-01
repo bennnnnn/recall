@@ -355,7 +355,10 @@ for presentation and the post-turn jobs, not for reading.
   - `TurnReading` holds the message's subject as the pool read it with the turn's attachment
     flag and chemistry setting (`subject`, `subject_reason`); `read_turn` takes it from the
     turn's memo and never reads it on the loop (`not_read` when the pool did not read it,
-    `read_declined` when the pool gave up). The reason is on the trace line.
+    `read_declined` when the pool gave up). The reason is on the trace line. Turn load
+    reads the message before it knows the turn's photo; the prompt's read with the photo
+    builds the reading again with the subject read under that flag, so an image turn's
+    trace names the subject its photo gave.
   - Chat code asks `chat.turn_prep.reading.subject_of(text, has_image_attachment=…,
     chemistry_enabled=…)`, which answers from the reading only for the turn's message read
     with the same flags, and otherwise reads as `detect_subject` did: `turn_prep/mode.py`
