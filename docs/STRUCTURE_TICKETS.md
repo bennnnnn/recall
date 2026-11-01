@@ -547,6 +547,20 @@ printed "no decision changed".
     `turn_prep/instant.py` ask the adapters. `math.sympy_warmup` and
     `.tools.solve_timeouts` left maths' public list.
   - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2d (the photo and the tool loop): done.** Chat files that import a subject:
+  10 → 4, all money's (step 2e).
+  - The adapter gains two capabilities a subject has or not (None): `photo` (`SubjectPhoto`,
+    reading its problem off a turn's photo) and `tool` (`SubjectTool`, how the tool loop
+    checks calls to the model tool it owns: `refuses`, `call_matches`, `draws_curve`,
+    `asks_for_earlier_curve`). Maths has both; physics and chemistry neither.
+  - Chat's `turn_prep/camera_math.py` moved to `modules/math/camera.py`
+    (`read_camera_maths`); chat hands it a loader that keeps the bytes for the vision
+    injection. `tool_loop/calls.py` asks maths' `tool` where it imported `tool_check`,
+    `text_plot` and the trig-domain check.
+  - `MathImageExtract` reaches chat through the registry, the type of what `photo` reads.
+    Maths' public list keeps only what the order, the solving types and the model reader
+    import, beside `subject`.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 

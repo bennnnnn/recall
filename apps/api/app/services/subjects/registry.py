@@ -21,6 +21,9 @@ An adapter has what the dispatcher and chat ask of every subject:
 - ``instant_reply``: a reply the subject writes for a line with no model and no solve;
 - ``warm``: what a fresh SymPy pool worker runs first, so a turn pays no imports;
 - ``solve_timeouts``: the solves of the subject that ran out of time inside a block;
+- ``photo``: how it reads its problem off a turn's photo (``SubjectPhoto``), or None;
+- ``tool``: how the tool loop checks calls to the model tool it owns (``SubjectTool``), or
+  None;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
 - ``fence``: how it holds a finished reply's fences to its verified block, and the notes,
@@ -35,12 +38,15 @@ entry in ``SUBJECTS``; ``tests/services/test_subject_registry.py`` holds the two
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from app.modules.chemistry.subject import CHEMISTRY_SUBJECT
+
+# What maths read off a photo: chat holds it for the turn and hands it back (``photo``).
+from app.modules.math.schemas import MathImageExtract as MathImageExtract
 from app.modules.math.subject import MATH_SUBJECT
 from app.modules.physics.subject import PHYSICS_SUBJECT
 from app.services.solving import SubjectName as SubjectName
@@ -49,7 +55,6 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
 
     from app.core.config import Settings
-    from app.modules.math.schemas import MathImageExtract
     from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
     from app.services.subject_hints import SubjectHints
 
@@ -153,6 +158,49 @@ class SubjectFence(Protocol):
         ...
 
 
+class SubjectPhoto(Protocol):
+    """How a subject reads its problem off a turn's photo."""
+
+    async def read(
+        self,
+        content: str,
+        *,
+        image_attachments: list[tuple[str, str]],
+        load_image: Callable[[str], Awaitable[bytes | None]],
+        settings: Settings,
+        on_status: Callable[[str], Awaitable[None]] | None,
+    ) -> tuple[MathImageExtract | None, str]:
+        """What it read, and ``content`` with the line the prompt states it in.
+
+        ``load_image`` gives a photo's bytes by its storage key.
+        """
+        ...
+
+
+class SubjectTool(Protocol):
+    """How the tool loop checks calls to the model tool a subject owns.
+
+    ``call_matches`` and ``asks_for_earlier_curve`` take positional arguments: the SymPy
+    pool runs them.
+    """
+
+    def refuses(self, name: str, raw_args: Any, user_text: str) -> bool:
+        """A call that must not run for this problem (a solve that drops its domain)."""
+        ...
+
+    def call_matches(self, raw_args: Any, user_texts: list[str]) -> bool:
+        """The call works on a problem from the user's own lines (newest first)."""
+        ...
+
+    def draws_curve(self, fence: dict[str, Any] | None) -> bool:
+        """The call's fence is a sampled curve, not an answer or a diagram."""
+        ...
+
+    def asks_for_earlier_curve(self, text: str) -> bool:
+        """A graph ask whose own words hold no formula: its curve is from earlier in the chat."""
+        ...
+
+
 class SubjectAdapter(Protocol):
     """One subject, as the dispatcher and chat ask it."""
 
@@ -182,6 +230,12 @@ class SubjectAdapter(Protocol):
     def warm(self) -> None: ...
 
     def solve_timeouts(self) -> AbstractContextManager[list[str]]: ...
+
+    @property
+    def photo(self) -> SubjectPhoto | None: ...
+
+    @property
+    def tool(self) -> SubjectTool | None: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 

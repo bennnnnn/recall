@@ -44,23 +44,18 @@ def __getattr__(name: str) -> Any:
     return value
 
 
-# Seams the chat turn uses: camera reads, and the tool loop's check that a sympy call is the
-# problem the user wrote.
+# What other modules may import besides the package: chat reaches maths only through its
+# adapter (``subject``, services/subjects/registry).
 _MODULE_EXPORTS = (
-    "image_extract",
-    "match",
-    "ocr",
     # The verified block's types (services/solving).
     "response_intent",
     "solve.key_steps",
-    # Maths as the subject registry asks it (services/subjects/registry).
     "subject",
-    "text_plot",
-    "tool_check",
+    # The subject order (services/subjects/order): maths' cue, its intent, and a curve
+    # physics cannot read.
     "tools.extract",
+    "tools.prompt",
+    "tools.school.curve_points",
     # The model reader (modules/model_reader) keeps maths' own typed read.
     "tools.llm_extract",
-    "tools.prompt",
-    # The subject order (services/subjects/order): a curve physics cannot read.
-    "tools.school.curve_points",
 )
