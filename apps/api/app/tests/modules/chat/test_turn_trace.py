@@ -35,6 +35,7 @@ from app.modules.chat.turn_trace import (
     begin_turn_trace,
     current_turn_trace,
     emit_turn_trace,
+    note_lightweight,
     note_pass,
     note_plan,
     note_prompt_rule,
@@ -53,6 +54,7 @@ _ALLOWED_KEYS = {
     "route",
     "plan",
     "plan_reason",
+    "lightweight_reason",
     "prompt_rules",
     "tools",
     "passes_changed",
@@ -119,6 +121,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
     begin_turn_trace("new")
     note_route("auto.math")
     note_plan(["ask", "solve"], "several_requests")
+    note_lightweight("answers_offer")
     note_prompt_rule("hints.format_pack")
     note_tool("web_search")
     note_tool("web_search")
@@ -137,6 +140,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
     assert trace["route"] == "auto.math"
     assert trace["plan"] == ["ask", "solve"]
     assert trace["plan_reason"] == "several_requests"
+    assert trace["lightweight_reason"] == "answers_offer"
     assert trace["tools"] == {"web_search": 2}
     assert trace["passes_changed"] == [["prose", 1]]
     assert trace["transport"] == "ws"
@@ -150,6 +154,7 @@ def test_a_turn_line_holds_its_decisions_and_none_of_its_words(
         (lambda: note_route("route me to 'smart' please"), lambda trace: trace.route),
         (lambda: note_prompt_rule("hints.1 my secret"), lambda trace: trace.prompt_rules),
         (lambda: note_plan(["ask", "I owe $200"]), lambda trace: trace.plan),
+        (lambda: note_lightweight("hi there"), lambda trace: trace.lightweight_reason),
     ],
 )
 def test_a_string_that_is_no_identifier_never_enters_the_trace(note: Any, value: Any) -> None:

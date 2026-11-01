@@ -52,6 +52,8 @@ class TurnTrace:
     plan: tuple[str, ...] = ()
     # Why the plan is what it is (``turn_reading.turn.PlanReason``).
     plan_reason: str | None = None
+    # Why the turn is small talk or not (``turn_prep.mode.LightReason``).
+    lightweight_reason: str | None = None
     prompt_rules: list[str] = field(default_factory=list)
     tools: Counter[str] = field(default_factory=Counter)
     passes_changed: list[tuple[str, int]] = field(default_factory=list)
@@ -107,6 +109,12 @@ def current_turn_trace() -> TurnTrace | None:
 def note_route(trace: TurnTrace, reason: str) -> None:
     """Why routing chose the turn's lane (``route.routed_chat_model``)."""
     trace.route = _token(reason)
+
+
+@_quietly
+def note_lightweight(trace: TurnTrace, reason: str) -> None:
+    """Why the turn is small talk or not (``turn_prep.mode.classify_turn_mode``)."""
+    trace.lightweight_reason = _token(reason)
 
 
 @_quietly
@@ -242,6 +250,7 @@ def turn_record(
         "route": trace.route,
         "plan": list(trace.plan),
         "plan_reason": trace.plan_reason,
+        "lightweight_reason": trace.lightweight_reason,
         "prompt_rules": list(trace.prompt_rules),
         "tools": dict(trace.tools),
         "passes_changed": [list(item) for item in trace.passes_changed],

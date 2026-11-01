@@ -1557,6 +1557,48 @@ def test_classify_turn_mode_hi_is_lightweight():
     assert mode.advice_memory is False
 
 
+_CARD_REPLY = (
+    "What do you mean by *best*?\n\n```clarify\n"
+    '{"request": "Recommend a country.", "questions": [{"id": "region", "label": "Region", '
+    '"question": "Which region?", "options": ["Europe", "Asia"]}], "closing": "Compare them.", '
+    '"submit": "Find it"}\n```'
+)
+
+
+@pytest.mark.parametrize(
+    ("last_reply", "text", "reason"),
+    [
+        (None, "hi", "social"),
+        (None, "thanks!", "social"),
+        (None, "explain photosynthesis", "not_light"),
+        # A short reply to a question answers it: never small talk.
+        ("Want me to set a reminder for that?", "no", "answers_offer"),
+        ("Does that make sense?", "yes", "answers_offer"),
+        # After a clarify card the message answers the card, whatever it says.
+        (_CARD_REPLY, "ok", "answers_card"),
+        (_CARD_REPLY, "Europe please", "not_light"),
+    ],
+)
+def test_classify_turn_mode_names_why_a_turn_is_small_talk(
+    last_reply: str | None, text: str, reason: str
+):
+    """The reason is the decision: light exactly when it reads as small talk in its place."""
+    from types import SimpleNamespace
+
+    from app.modules.chat.clarify_turn import follows_card
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
+    from app.modules.turn_reading.routing import is_lightweight_chat_turn, is_short_reply
+
+    recent = [] if last_reply is None else [SimpleNamespace(role="assistant", content=last_reply)]
+    mode = classify_turn_mode(recent, text)
+
+    assert mode.lightweight_reason == reason
+    prior = last_reply if is_short_reply(text) else None
+    assert mode.lightweight is (
+        not follows_card(last_reply) and is_lightweight_chat_turn(text, prior_assistant=prior)
+    )
+
+
 @pytest.mark.parametrize(
     ("text", "advice"),
     [

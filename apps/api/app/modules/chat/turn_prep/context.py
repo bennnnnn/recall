@@ -32,7 +32,7 @@ from app.modules.chat.turn_prep.request import (
     resolve_client_geo,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.modules.chat.turn_trace import note_plan
+from app.modules.chat.turn_trace import note_lightweight, note_plan
 from app.modules.conversation import history as conversation_history
 from app.modules.turn_reading.plan import TurnPlan
 from app.repositories import users as users_repo
@@ -295,6 +295,7 @@ async def _load_turn_identity(request: TurnRequest, settings: Settings) -> TurnI
         client_longitude=request.client_longitude,
     )
     local_tz = time_context_service.effective_timezone(user.timezone, request.client_timezone)
+    note_lightweight(mode.lightweight_reason)
     return TurnIdentity(user=user, chat=chat, mode=mode, geo=geo, local_tz=local_tz)
 
 
