@@ -84,8 +84,25 @@ _COORDINATES = re.compile(
 _FUNCTION = re.compile(r"\b[a-zA-Z]\s*\(\s*[a-z]\s*\)\s*=")
 
 
+# Where the user is, which no exercise states: "Find coffee shops near me within 2 km, max 5
+# km" gives two distances and is still a search around them (2026-11-01). Not "nearby", "the
+# nearest" or "from me" alone: "a nearby wall 5 m away", "to the nearest metre" and "a lamp
+# 2 m from me" are exercises.
+_THE_USER = r"(?:me|here|my\s+(?:house|home|place|hotel|office|location))"
+_AROUND_THE_USER = re.compile(
+    rf"\b(?:(?:near|close\s+to|around)\s+{_THE_USER}|from\s+here|where\s+i\s+am"
+    rf"|(?:nearest|closest)\b[^.?!\n]{{0,40}}?\bto\s+{_THE_USER}"
+    r"|(?:from|of)\s+my\s+(?:current\s+)?location|in\s+my\s+(?:area|neighbou?rhood|city|town)"
+    r"|within\s+(?:walking\s+distance|\d+(?:\.\d+)?\s*[a-z]+\s+of\s+(?:me|here|my\s+\w+)))\b",
+    re.IGNORECASE,
+)
+
+
 def is_worked_problem(text: str) -> bool:
-    """A problem that states its own measurements, coordinates or function."""
+    """A problem that states its own measurements, coordinates or function, and never where
+    the user is."""
+    if _AROUND_THE_USER.search(text) is not None:
+        return False
     return (
         len(_MEASURED.findall(text)) >= 2
         or _COORDINATES.search(text) is not None
