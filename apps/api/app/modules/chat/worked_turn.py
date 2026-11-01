@@ -28,9 +28,9 @@ from app.modules.turn_reading.turn import current_turn_reading, teaching_of
 _STEM_SUBJECTS = frozenset({"math", "physics", "chemistry"})
 # Subject-order steps that read a subject from a word, not from a problem's shape.
 _WORD_CUE_REASONS = frozenset({"chemistry_question"})
-# A number with a unit after it ("100 meters", "4 g"); a digit inside a formula (CO2) or a
-# time (10am) is none.
-_QUANTITY = re.compile(r"(?<![A-Za-z\d.])\d+(?:[.,]\d+)?\s?(?!am\b|pm\b)(?:[a-zA-Zµ°Ω%]{1,12})\b")
+# A number with a unit after it ("100 meters", "4 g"); a digit inside a formula (CO2), a
+# time (10am) or a bare percentage (50%) is none.
+_QUANTITY = re.compile(r"(?<![A-Za-z\d.])\d+(?:[.,]\d+)?\s?(?!am\b|pm\b)(?:[a-zA-Zµ°Ω]{1,12})\b")
 
 
 def worked_layout(
