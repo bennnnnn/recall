@@ -2,9 +2,10 @@
 
 - A myopic eye's lens, a minus lens, a rear-view mirror and an upright, diminished image
   are diverging elements, however the question words them.
-- m = -v/u and the image distance read every distance as a real one: a sign on a number,
-  a distance called negative, or an image on its virtual side (behind a mirror, in front of
-  a lens) declines. A real image's side (in front of a mirror, behind a lens) still answers.
+- m = -v/u and the image distance read every distance as a real one: a sign on a number or
+  a distance called negative declines.
+- Where the image is sets a magnification's sign, and no wording of it is read: any place
+  word (behind, in front, beyond, a side, left or right of) declines m = -v/u and heights.
 - Heights give m = h_i/h_o only for an image not called real or inverted.
 """
 
@@ -17,6 +18,7 @@ from app.modules.physics import build_verified_physics_block, extract_physics_in
 from app.modules.physics.optic_elements import (
     diverging_element,
     inverted_image,
+    places_named,
     signed_distances,
 )
 from app.tests.modules.physics.support import answer_number
@@ -68,19 +70,10 @@ def test_not_a_diverging_element(text: str) -> None:
     ("text", "signed"),
     [
         ("u = -15 cm and v = +30 cm for a convex lens.", True),
-        ("The object distance is −15 cm.", True),
+        ("The object distance is \u221215 cm.", True),
         ("The image distance is negative 30 cm.", True),
-        ("A concave mirror and the image forms 30 cm behind it.", True),
-        ("A convex lens. The image is formed 30 cm in front of the lens.", True),
-        ("A convex lens; its image is formed 30 cm on the object's side.", True),
-        ("A convex lens; the image is formed on the side of the object.", True),
-        ("A concave mirror; the image is 30 cm on the other side of the mirror.", True),
-        ("The image forms 30 cm to the left of the lens.", True),
-        # Its real side, a range's dash, and an object's place are no sign.
-        ("A concave mirror; the image is formed 60 cm in front of the mirror.", False),
-        ("A converging lens forms an image 15 cm behind it.", False),
         ("Objects 10-20 cm from a lens.", False),
-        ("A concave mirror forms an image of an object placed 20 cm in front of it.", False),
+        ("An object is placed 20 cm in front of a concave mirror.", False),
     ],
 )
 def test_signed_distances(text: str, signed: bool) -> None:
@@ -88,11 +81,27 @@ def test_signed_distances(text: str, signed: bool) -> None:
 
 
 @pytest.mark.parametrize(
+    ("text", "placed"),
+    [
+        ("A concave mirror and the image forms 30 cm behind it.", True),
+        ("The image of the object is formed 30 cm behind a concave mirror.", True),
+        ("A convex lens. The image is formed 30 cm in front of the lens.", True),
+        ("A convex lens; its image is formed 30 cm on the object's side.", True),
+        ("A concave mirror; the image is 30 cm on the other side of the mirror.", True),
+        ("The image forms 30 cm to the left of the lens.", True),
+        ("The image is beyond 2F.", True),
+        ("An object is 20 cm from a lens and its image is 60 cm from it.", False),
+    ],
+)
+def test_places_named(text: str, placed: bool) -> None:
+    assert places_named(text) is placed
+
+
+@pytest.mark.parametrize(
     ("text", "inverted"),
     [
         ("A real, inverted image that is 6 cm tall.", True),
         ("An image of height 9 cm that is upside down.", True),
-        ("A concave mirror; the image is formed 60 cm in front of the mirror.", True),
         ("An erect image 2 cm high.", False),
         ("An image of height 6 cm.", False),
         ("Is the image real or virtual, erect or inverted?", False),
@@ -116,10 +125,19 @@ def test_inverted_image(text: str, inverted: bool) -> None:
         "side of the mirror. Find the magnification.",
         "An object is placed 10 cm from a convex lens and its image is formed 30 cm from the "
         "lens on the object's side. Find the magnification.",
+        "The image of the object is formed 30 cm behind a concave mirror. The object is 10 cm "
+        "from the mirror. Find the magnification.",
         "For a convex lens, the object distance is -15 cm and the image distance is +30 cm. "
         "Find the magnification.",
         "The image distance is negative 30 cm and the object distance is 10 cm for a lens. "
         "Find the magnification.",
+        # A real image's place too: no wording of the image's place is read.
+        "An object is placed 20 cm in front of a concave mirror and the image is formed 60 cm "
+        "in front of the mirror. Find the magnification.",
+        "An object is placed 20 cm from a convex lens and the image is formed 60 cm on the "
+        "other side of the lens. Find the magnification.",
+        "An object 2 cm tall forms an image 6 cm tall 60 cm in front of a concave mirror. Find "
+        "the magnification.",
         "An object is placed 30 cm from a minus lens of focal length 15 cm. Find the image "
         "distance.",
         "A mirror forms a virtual, erect and diminished image. Its focal length is 10 cm and "
@@ -141,15 +159,11 @@ def test_a_sign_not_read_declines(text: str) -> None:
     [
         ("A long-sighted person uses a lens of focal length 50 cm. Find the lens power.", 2.0),
         ("A lens has a focal length of -40 cm. Find the lens power.", -2.5),
+        # An object's place names no sign the image distance reads.
         (
-            "An object is placed 20 cm in front of a concave mirror and the image is formed "
-            "60 cm in front of the mirror. Find the magnification.",
-            -3.0,
-        ),
-        (
-            "An object is placed 20 cm from a convex lens and the image is formed 60 cm on "
-            "the other side of the lens. Find the magnification.",
-            -3.0,
+            "An object is placed 20 cm in front of a concave mirror of focal length 15 cm. "
+            "Find the image distance.",
+            60.0,
         ),
         ("An object 4 cm high forms an erect image 2 cm high. What is the magnification?", 0.5),
         (

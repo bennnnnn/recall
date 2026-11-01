@@ -225,12 +225,12 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("magnification",),
             result=("dimensionless",),
             inputs=(frozenset({"d_img", "d_obj"}),),
-            # A virtual, erect or "signed" image's distance (optic_elements.signed_distances)
-            # carries the other sign, as a convex mirror's and a concave lens's do. Heights
-            # (-5 for 5 cm and 25 cm) and a telescope's focal lengths are not u and v.
+            # A virtual, erect or "signed" image's distance carries the other sign, and any place
+            # named may be the image's (optic_elements._PLACE). Heights are not u and v.
             excludes=(
-                *("virtual", "erect", "upright", "behind the mirror", "same side", "diverging"),
-                *("signed", "telescope", "eyepiece", "objective", "height", "tall", "high"),
+                *("virtual", "erect", "upright", "behind", "beyond", "side", "in front", "left of"),
+                *("right of", "diverging", "signed", "telescope", "eyepiece", "objective"),
+                *("height", "tall", "high"),
             ),
         ),
     ),

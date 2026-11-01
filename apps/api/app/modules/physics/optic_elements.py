@@ -10,9 +10,10 @@ eye's lens, a minus lens, a rear-view mirror and an erect, diminished image name
 each was certified as converging (2026-11-01).
 
 The unsigned laws read every distance as a real one. A question that writes a sign
-("u = -15 cm"), calls a distance negative, or puts the image on its virtual side ("30 cm
-behind the mirror", "in front of the lens") states a convention they do not read: m = -v/u
-certified -3 for an image 30 cm behind a concave mirror (it is +3).
+("u = -15 cm") or calls a distance negative states a convention they do not read. Where the
+image is (behind, in front, which side) sets the sign of a magnification, and no wording of
+it is read: m = -v/u certified -3 for an image 30 cm behind a concave mirror (it is +3), and
+reading the image's clause leaked twice in review, so any place word declines one.
 """
 
 from __future__ import annotations
@@ -46,17 +47,9 @@ _NATURE_CHOICE = re.compile(rf"\b{_NATURES}\s*(?:/|,?\s*or\s+(?:an?\s+)?){_NATUR
 # range's dash ("10-15 cm").
 _SIGNED_NUMBER = re.compile(r"(?<![\w.,)])[-+\u2212\u2013]\s?\d")
 _SIGN_WORD = re.compile(r"\b(?:negative|minus)\b")
-# The image's clause runs to the object's ("an image of an object placed 20 cm in front of
-# it") or to its sentence's end; "the object's side" and "the side of the object" are the
-# image's place.
-_OBJECT_CLAUSE = r"(?<!side of the )(?<!side as the )\bobject\b(?!'?s\s+side)"
-_IMAGE_CLAUSE = re.compile(rf"\bimage\b(?P<clause>(?:(?!{_OBJECT_CLAUSE}|[.?!;](?:\s|$)).)*)")
-_BEHIND = re.compile(r"\bbehind\b|\b(?:other|opposite|far)\s+side\b|\bbeyond\b")
-_IN_FRONT = re.compile(
-    r"\bin\s+front\b|\b(?:same|near)\s+side\b|\bobject'?s\s+side\b"
-    r"|\bside\s+(?:of|as)\s+the\s+object\b"
-)
-_LEFT_RIGHT = re.compile(r"\b(?:left|right)\s+of\b")
+# Where something is put beside a lens or a mirror: "behind", "in front", "beyond", "the other
+# side", "the object's side", "to the left of".
+_PLACE = re.compile(r"\b(?:behind|beyond|sides?)\b|\bin\s+front\b|\b(?:left|right)\s+of\b")
 
 
 def diverging_element(text: str) -> bool:
@@ -86,10 +79,14 @@ def upright_image(text: str) -> bool:
 
 
 def inverted_image(text: str) -> bool:
-    """The image is called real or inverted, or forms on a real image's side."""
-    lower = text.lower()
-    stated = _INVERTED.search(_stated_natures(lower)) is not None
-    return stated or "real" in _image_sides(lower)
+    """The image is called real or inverted."""
+    return _INVERTED.search(_stated_natures(text.lower())) is not None
+
+
+def places_named(text: str) -> bool:
+    """The question says where something is beside the element: the image's place, which
+    sets a magnification's sign, may be any of them."""
+    return _PLACE.search(text.lower()) is not None
 
 
 def _stated_natures(lower: str) -> str:
@@ -102,29 +99,6 @@ def _upright_diminished(lower: str) -> bool:
 
 
 def signed_distances(text: str) -> bool:
-    """The question gives a distance its sign: on a number, in words, or by putting the image
-    on the side whose distance the conventions sign negative (or on a side it does not let
-    us tell)."""
+    """The question gives a distance its sign, on a number or in words."""
     lower = text.lower()
-    return bool(
-        _SIGNED_NUMBER.search(lower)
-        or _SIGN_WORD.search(lower)
-        or any(side != "real" for side in _image_sides(lower))
-    )
-
-
-def _image_sides(lower: str) -> list[str]:
-    """Each side the question puts its image on: "real" behind a lens or in front of a
-    mirror, "virtual" the other way, "unread" for a left or a right, for both sides at
-    once, or for an element that is not one lens or one mirror."""
-    lens, mirror = _LENS.search(lower) is not None, _MIRROR.search(lower) is not None
-    sides: list[str] = []
-    for found in _IMAGE_CLAUSE.finditer(lower):
-        clause = found.group("clause")
-        behind = _BEHIND.search(clause) is not None
-        in_front = _IN_FRONT.search(clause) is not None
-        if _LEFT_RIGHT.search(clause) or (behind and in_front):
-            sides.append("unread")
-        elif behind or in_front:
-            sides.append("unread" if lens == mirror else "real" if behind == lens else "virtual")
-    return sides
+    return _SIGNED_NUMBER.search(lower) is not None or _SIGN_WORD.search(lower) is not None
