@@ -340,6 +340,7 @@
    "echo-fraction-part",
    "echo-simplify-cancels",
    "echo-simplify-like-terms",
+   "echo-simplify-rational",
    "ex1",
    "ex2",
    "ex3",
