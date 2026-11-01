@@ -211,7 +211,8 @@ def test_format_now_awareness_includes_year_month_and_time():
     shown = maybe_local_now_reply("What time is above", "America/New_York")
     assert shown is not None
     assert "```clock" not in shown
-    assert "October" in shown
+    # The month the reply was written in: a fixed "October" failed every run from November 1.
+    assert datetime.now(ZoneInfo("America/New_York")).strftime("%B") in shown
     assert is_shown_clock_question("What time is above") is True
     assert maybe_local_now_reply("what year did WWII end", "UTC") is None
     assert maybe_local_now_reply("what year", "UTC") is None
