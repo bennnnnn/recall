@@ -35,7 +35,7 @@ from app.modules.chat.stream_pipeline import _prior_window
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import _hand_off
 from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY
-from app.modules.physics import PHYSICS_REPLY_POLICY
+from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
 from app.modules.web_search import WEB_SEARCH_HINT
 from app.services.locale import locale_system_hint
 from app.services.workout import MATH_WORKOUT_PROMPT_RULE

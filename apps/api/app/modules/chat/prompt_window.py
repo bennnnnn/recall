@@ -23,10 +23,10 @@ from app.modules.chat.context_window import (
     trim_message_for_summary,
 )
 from app.modules.chat.prompt_context import _load_unsummarized_gap
-from app.modules.math.followup import readable_standalone_answer
 from app.services.answer_fence import answer_fence_value
 from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
+from app.services.subjects.registry import subject_adapter
 
 _PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo", "calculator")
 
@@ -166,7 +166,7 @@ def history_messages(window: PromptWindow, *, math_followup: bool) -> list[dict[
             content = wrap_persisted_attachment_excerpts(content)
         elif msg.role == "assistant":
             prior_result = (
-                readable_standalone_answer(content)
+                subject_adapter("math").followups.previous_result(content)
                 if math_followup and msg is window.exchange[-1]
                 else None
             )

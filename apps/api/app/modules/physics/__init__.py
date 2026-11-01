@@ -31,12 +31,6 @@ if TYPE_CHECKING:
     from app.modules.physics.extract import (
         needs_physics as needs_physics,
     )
-    from app.modules.physics.reply_policy import (
-        PHYSICS_REPLY_POLICY as PHYSICS_REPLY_POLICY,
-    )
-    from app.modules.physics.reply_policy import (
-        physics_prompt_hints as physics_prompt_hints,
-    )
     from app.modules.physics.solver import (
         solve_physics as solve_physics,
     )
@@ -45,12 +39,10 @@ if TYPE_CHECKING:
     )
 
 _EXPORTS = {
-    "PHYSICS_REPLY_POLICY": ("reply_policy", "PHYSICS_REPLY_POLICY"),
     "build_verified_physics_block": ("block", "build_verified_physics_block"),
     "extract_physics_intent": ("extract", "extract_physics_intent"),
     "is_symbol_givens_request": ("symbol_givens", "is_symbol_givens_request"),
     "needs_physics": ("extract", "needs_physics"),
-    "physics_prompt_hints": ("reply_policy", "physics_prompt_hints"),
     "solve_physics": ("solver", "solve_physics"),
 }
 
@@ -67,8 +59,8 @@ def __getattr__(name: str) -> Any:
     return value
 
 
-# Seams the chat turn uses: question detection, follow-ups, and post-stream fences.
-# ``subject``: physics as the subject registry (services/subjects/registry) asks it, its
-# verified block and its direct reply.
+# Seams the chat turn uses: question detection and post-stream fences.
+# ``subject``: physics as the subject registry (services/subjects/registry) asks it: its
+# verified block, its direct reply, its prompt copy and its follow-ups.
 # ``model_read``: the laws a model reader chooses from, and the intent its read binds to.
-_MODULE_EXPORTS = ("extract", "fence", "followup", "model_read", "subject")
+_MODULE_EXPORTS = ("extract", "fence", "model_read", "subject")

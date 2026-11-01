@@ -1,16 +1,21 @@
 """Physics as the subject registry asks it (``services/subjects/registry``).
 
-The adapter calls what physics already has: the verified block through ``prompt`` and the
-direct reply through ``direct``.
+The adapter calls what physics already has: the verified block through ``prompt``, the
+direct reply through ``direct``, and its prompt copy from ``reply_policy`` and ``followup``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
+from app.modules.physics.extract import needs_physics
+from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
 from app.modules.physics.prompt import build_physics_augmentation
+from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
 from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
+from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -32,9 +37,52 @@ def _physics_request_text(user_content: str) -> str:
     return confirmed_scan_reading(user_content) or user_content
 
 
+_HINTS = SubjectHints(
+    physics_prompt_hints,
+    (PHYSICS_REPLY_POLICY,),
+    shared_math_ink=False,
+    followup=(PHYSICS_FOLLOWUP_HINT,),
+)
+
+
+@dataclass(frozen=True)
+class PhysicsFollowups:
+    def problem(
+        self,
+        query: str | None,
+        recent: Sequence[Any],
+        *,
+        blocked: Callable[[str], bool] | None = None,
+    ) -> str | None:
+        return physics_followup_problem(query, recent)
+
+    def continues(
+        self,
+        query: str | None,
+        recent: Sequence[Any],
+        *,
+        blocked: Callable[[str], bool] | None = None,
+    ) -> bool:
+        return physics_followup_problem(query, recent) is not None
+
+    def previous_result(self, reply: str) -> str | None:
+        return None
+
+    def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
+        return False
+
+    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
+        return None
+
+
 @dataclass(frozen=True)
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
+    hints: SubjectHints = _HINTS
+    followups: PhysicsFollowups = PhysicsFollowups()
+
+    def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
+        return needs_physics(text)
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
         block, physics_verified, solve_failed = await build_physics_augmentation(

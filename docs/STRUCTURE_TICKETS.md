@@ -495,6 +495,29 @@ printed "no decision changed".
     subjects' lists: `math.tools.direct`, `physics.direct` and `.prompt`, `chemistry.block`,
     `.direct` and `.reading`.
   - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2a (chat's prompt copy and follow-ups): done.** Chat files that import a
+  subject: 25 → 16 (53 import lines → 35).
+  - The adapter gains `hints` (`services/subject_hints.py`, `SubjectHints`, moved from chat's
+    `prompt_subjects`; it adds the follow-up hints and chemistry's copy the leak pass reads
+    beside chat's visuals rules), `asks` (the subject's cue: `needs_symbolic_math`,
+    `needs_physics`, `is_chemistry_question`) and `followups` (`problem`, `continues`,
+    `previous_result`, `asks_to_see`, `shown_problem`; a subject with nothing to read there
+    answers None or False).
+  - Chat reads them there: `prompt_subjects`, `prompt_sections` (the three follow-up
+    sections), `prompt_rule_text`, `tool_loop/rounds` (maths' closing policy after a SymPy
+    round), `turn_prep/followups` (maths' five follow-up readers, in their order, are now
+    `MathFollowups.problem`), `continuation_subject`, `prompt_window` and `turn_intercepts`
+    (chemistry's "show me both" after a shape answer; the pool reads the adapter's bound
+    method).
+  - The maths-notation rule moved to `services/math_notation.py`: maths' pack and chat's
+    every-turn maths-ink rule both state it.
+  - What only chat's prompt and follow-ups read left the subjects' public lists:
+    `math.followup` and `.reply_policy`; `physics.followup`, `PHYSICS_REPLY_POLICY` and
+    `physics_prompt_hints`; `chemistry.followup`, `.reply_policy` and `.shape_followup`.
+  - `SUBJECT_HINTS` keeps its order (physics, maths, chemistry, then chat's statistics and
+    biology): the leak pass joins its rules in that order. `prompt_rule_text()` hashes the
+    same before and after.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 
