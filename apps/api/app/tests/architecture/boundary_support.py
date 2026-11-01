@@ -215,6 +215,46 @@ def _runtime_imports(nodes: Iterable[ast.AST]) -> list[ast.Import | ast.ImportFr
     return found
 
 
+def _dynamic_import_calls(tree: ast.AST) -> list[ast.Call]:
+    """``import_module(...)`` / ``importlib.import_module(...)`` calls."""
+    calls: list[ast.Call] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and node.args:
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            if name == "import_module":
+                calls.append(node)
+    return calls
+
+
+def _named_dynamic_imports(tree: ast.AST) -> set[str]:
+    """The module names dynamic imports spell out whole (a string constant)."""
+    return {
+        call.args[0].value
+        for call in _dynamic_import_calls(tree)
+        if isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str)
+    }
+
+
+def computed_dynamic_imports() -> set[str]:
+    """``file: prefix`` of each dynamic import whose module name is computed (an f-string
+    or a variable): the import graph cannot follow it, so each one is listed by hand."""
+    found: set[str] = set()
+    for path in _production_python():
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for call in _dynamic_import_calls(tree):
+            arg = call.args[0]
+            if isinstance(arg, ast.Constant):
+                continue
+            prefix = ""
+            if isinstance(arg, ast.JoinedStr) and arg.values:
+                head = arg.values[0]
+                if isinstance(head, ast.Constant) and isinstance(head.value, str):
+                    prefix = head.value
+            found.add(f"{path.relative_to(APP_ROOT).as_posix()}: {prefix or ast.unparse(arg)}")
+    return found
+
+
 @cache
 def _module_imports(*, load_time: bool, runtime: bool = False) -> dict[str, set[str]]:
     """Production module -> every module name its imports name, made absolute.
@@ -239,6 +279,9 @@ def _module_imports(*, load_time: bool, runtime: bool = False) -> dict[str, set[
                 node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)
             ]
         targets: set[str] = set()
+        if runtime:
+            # ``importlib.import_module("app.x")`` with a written name is an import too.
+            targets.update(_named_dynamic_imports(tree))
         for node in nodes:
             if isinstance(node, ast.Import):
                 targets.update(alias.name for alias in node.names)

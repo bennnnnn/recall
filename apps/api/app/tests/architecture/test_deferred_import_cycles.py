@@ -11,17 +11,28 @@ deferred import.
 When a cycle shrinks, or a module in one is renamed or moved (the same number of modules,
 no more imports), rerun with ``UPDATE_IMPORT_CYCLES=1``: it records the cycles as they
 are and prints each changed one. It never records a larger cycle.
+
+``importlib.import_module("app.x")`` counts as an import of ``app.x``. One whose name is
+computed (``f"app.modules.chat.{name}"``, a lazy package's ``__getattr__``) cannot be
+followed, so each is listed below by hand: a new one fails until it is reviewed and listed.
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 from dataclasses import asdict, dataclass
 from functools import cache
 from pathlib import Path
 
-from .boundary_support import _import_cycles, _import_graph, _module_imports
+from .boundary_support import (
+    _import_cycles,
+    _import_graph,
+    _module_imports,
+    _named_dynamic_imports,
+    computed_dynamic_imports,
+)
 
 _BASELINE = Path(__file__).with_name("import_cycle_baseline.json")
 
@@ -150,3 +161,41 @@ def test_the_recorded_cycles_are_current() -> None:
         "the cycles changed without growing (smaller, or a module renamed or moved): rerun"
         " this test with UPDATE_IMPORT_CYCLES=1 to record them.\n  " + "\n  ".join(changed)
     )
+
+
+# Lazy packages' ``__getattr__`` (each imports only the names its own table lists) and the
+# prompt-rule reader's walk over its rule homes.
+_COMPUTED_DYNAMIC_IMPORTS = frozenset(
+    {
+        "modules/billing/__init__.py: app.modules.billing.",
+        "modules/chat/__init__.py: app.modules.chat.",
+        "modules/chat/prompt_rule_text.py: f'{home.__name__}.{name}'",
+        "modules/chat/turn_prep/__init__.py: app.modules.chat.turn_prep.",
+        "modules/math/__init__.py: app.modules.math.",
+        "modules/memory/__init__.py: app.modules.memory.",
+        "modules/notifications/__init__.py: app.modules.notifications.",
+        "modules/physics/__init__.py: app.modules.physics.",
+        "modules/todos/__init__.py: app.modules.todos.",
+        "modules/web_search/__init__.py: app.modules.web_search.",
+    }
+)
+
+
+def test_every_computed_dynamic_import_is_listed() -> None:
+    found = computed_dynamic_imports()
+    new = sorted(found - _COMPUTED_DYNAMIC_IMPORTS)
+    gone = sorted(_COMPUTED_DYNAMIC_IMPORTS - found)
+    assert not new, (
+        "a dynamic import the import graph cannot follow (its cycles stay hidden): import "
+        "the module by name, or review it and list it here:\n  " + "\n  ".join(new)
+    )
+    assert not gone, "listed dynamic imports no longer found; remove them:\n  " + "\n  ".join(gone)
+
+
+def test_a_dynamic_import_by_name_is_an_edge() -> None:
+    tree = ast.parse(
+        "import importlib\nfrom importlib import import_module\n"
+        "def f():\n    importlib.import_module('app.a')\n    import_module('app.b')\n"
+        "    import_module(f'app.c.{x}')\n"
+    )
+    assert _named_dynamic_imports(tree) == {"app.a", "app.b"}

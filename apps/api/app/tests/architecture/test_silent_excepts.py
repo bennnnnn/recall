@@ -57,7 +57,24 @@ def _reports(call: ast.Call) -> bool:
     owner = func.value
     name = (owner.id if isinstance(owner, ast.Name) else getattr(owner, "attr", "")).lower()
     is_logger = name.lstrip("_") in _LOGGERS or name.endswith("logger")
-    return is_logger and func.attr in _REPORTING_LEVELS
+    if not is_logger or func.attr not in _REPORTING_LEVELS:
+        return False
+    return func.attr != "log" or _reported_level(call)
+
+
+def _reported_level(call: ast.Call) -> bool:
+    """``logger.log(level, …)`` reports at INFO or above; ``logging.DEBUG`` (or any level
+    below 20) never reaches production logs. A level held in a variable gets the benefit."""
+    level = (
+        call.args[0]
+        if call.args
+        else next((kw.value for kw in call.keywords if kw.arg == "level"), None)
+    )
+    if isinstance(level, ast.Attribute):
+        return level.attr in {"INFO", "WARNING", "WARN", "ERROR", "CRITICAL", "FATAL"}
+    if isinstance(level, ast.Constant) and isinstance(level.value, int):
+        return level.value >= 20
+    return level is not None
 
 
 def _own_nodes(statements: list[ast.stmt]) -> Iterator[ast.AST]:
@@ -132,6 +149,9 @@ def test_silent_counts_only_broad_swallows() -> None:
         "try:\n    a()\nexcept* Exception:\n    pass\n",
         "with contextlib.suppress(Exception):\n    a()\n",
         "with suppress(ValueError, BaseException):\n    a()\n",
+        # 2026-11-01: a DEBUG line through ``log`` never reaches production logs either.
+        "try:\n    a()\nexcept Exception:\n    logger.log(logging.DEBUG, 'a failed')\n",
+        "try:\n    a()\nexcept Exception:\n    logger.log(10, 'a failed')\n",
     )
     reported = (
         "try:\n    a()\nexcept ValueError:\n    pass\n",
@@ -142,6 +162,8 @@ def test_silent_counts_only_broad_swallows() -> None:
         "try:\n    a()\nexcept Exception:\n    sentry_sdk.capture_exception()\n",
         "try:\n    a()\nexcept Exception as exc:\n    raise RuntimeError from exc\n",
         "try:\n    a()\nexcept Exception:\n    if b():\n        raise\n",
+        "try:\n    a()\nexcept Exception:\n    logger.log(logging.WARNING, 'a failed')\n",
+        "try:\n    a()\nexcept Exception:\n    logger.log(level, 'a failed')\n",
     )
     assert _silent_counts({"x.py": ast.parse("".join(silent))}) == {"x.py": len(silent)}
     assert _silent_counts({"x.py": ast.parse("".join(reported))}) == {}

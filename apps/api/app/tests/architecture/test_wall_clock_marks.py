@@ -3,9 +3,10 @@
 CI runs the suite on one worker per core, then the ``wall_clock`` tests alone: a duration
 measured while three other workers share the machine is not the one the test was written
 for (a 0.5 s budget took 0.68 s). A test asserts on the clock when an assert reads it
-(``time.perf_counter()``, ``time.monotonic()``, ``time.time()``, their ``_ns`` forms and
-``process_time``), reads a name assigned from such a read, or calls a function of the same
-file that reads it. The mark may sit on the test, its class, or the module's ``pytestmark``.
+(``time.perf_counter()``, ``time.monotonic()``, ``time.time()``, their ``_ns`` forms,
+``process_time`` and an event loop's ``loop.time()``), reads a name assigned from such a read
+or from another timed name (``elapsed = end - start``), or calls a function of the same file
+that reads it. The mark may sit on the test, its class, or the module's ``pytestmark``.
 """
 
 from __future__ import annotations
@@ -26,6 +27,8 @@ def _is_clock_read(call: ast.Call, helpers: frozenset[str]) -> bool:
         if func.attr in _CLOCK_READS:
             return True
         owner = func.value
+        if func.attr == "time" and "loop" in ast.unparse(owner).lower():
+            return True  # ``loop.time()``, ``asyncio.get_running_loop().time()``
         return func.attr in _TIME_READS and isinstance(owner, ast.Name) and owner.id == "time"
     if isinstance(func, ast.Name):
         return func.id in _CLOCK_READS or func.id in _TIME_READS or func.id in helpers
@@ -49,15 +52,37 @@ def _module_marked(tree: ast.Module) -> bool:
     )
 
 
+def _difference_of(value: ast.expr, timed: set[str]) -> bool:
+    """``end - start`` with a timed name on either side: a duration, unlike ``now + 60``
+    (a clock reading used as data, such as a token's expiry)."""
+    return any(
+        isinstance(node, ast.BinOp)
+        and isinstance(node.op, ast.Sub)
+        and any(isinstance(side, ast.Name) and side.id in timed for side in (node.left, node.right))
+        for node in ast.walk(value)
+    )
+
+
 def _asserts_on_clock(
     test: ast.FunctionDef | ast.AsyncFunctionDef, helpers: frozenset[str]
 ) -> bool:
+    assigns = [
+        node
+        for node in ast.walk(test)
+        if isinstance(node, ast.Assign | ast.AnnAssign | ast.AugAssign) and node.value is not None
+    ]
     timed: set[str] = set()
-    for node in ast.walk(test):
-        if isinstance(node, ast.Assign | ast.AnnAssign | ast.AugAssign) and node.value is not None:
-            if _reads_clock(node.value, helpers):
+    grew = True
+    while grew:  # a difference of timed names is a duration: ``elapsed = end - start``
+        grew = False
+        for node in assigns:
+            assert node.value is not None
+            if _reads_clock(node.value, helpers) or _difference_of(node.value, timed):
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                timed |= {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+                names = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+                if not names <= timed:
+                    timed |= names
+                    grew = True
     return any(
         isinstance(node, ast.Assert)
         and (
@@ -109,9 +134,19 @@ def test_the_check_sees_a_timed_assert_and_its_helpers() -> None:
         "def test_direct():\n    t0 = time.monotonic()\n    assert time.monotonic() - t0 < 1\n"
         "def test_named():\n    elapsed = _took(print)\n    assert elapsed < 1\n"
         "def test_plain():\n    now = 3\n    assert now < 4\n"
+        # 2026-11-01: a derived name and an event loop's clock were both missed.
+        "def test_derived():\n    start = time.monotonic()\n    end = time.monotonic()\n"
+        "    elapsed = end - start\n    assert elapsed < 1\n"
+        "def test_loop():\n    loop = asyncio.get_running_loop()\n    t0 = loop.time()\n"
+        "    assert loop.time() - t0 < 1\n"
+        "def test_running_loop():\n    t0 = asyncio.get_running_loop().time()\n"
+        "    assert t0 > 0\n"
     )
     helpers = frozenset({"_took"})
     tests = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
     assert _asserts_on_clock(tests["test_direct"], helpers)
     assert _asserts_on_clock(tests["test_named"], helpers)
     assert not _asserts_on_clock(tests["test_plain"], helpers)
+    assert _asserts_on_clock(tests["test_derived"], helpers)
+    assert _asserts_on_clock(tests["test_loop"], helpers)
+    assert _asserts_on_clock(tests["test_running_loop"], helpers)
