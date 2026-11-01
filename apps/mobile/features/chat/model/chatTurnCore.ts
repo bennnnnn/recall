@@ -1,5 +1,5 @@
 import type { Message } from "@/lib/api";
-import type { StreamingDraft } from "@/lib/streamingDraftStore";
+import type { StreamingDraft } from "@/features/chat/model/streamingDraftStore";
 import { restoreAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import { replaceStreamingMessageWithPartial, withStreamingPlaceholder } from "@/features/chat/model/partialStream";
 import type { PendingSend, RejectedSend, SendMessageOptions } from "@/features/chat/model/sendLogic";

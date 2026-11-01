@@ -9,7 +9,7 @@ import {
   PDF_LIBRARIES,
   pdfPreviewColors,
   type PdfSources,
-} from "@/lib/pdfPreviewHtml";
+} from "@/features/attachments/model/pdfPreviewHtml";
 import { useTheme } from "@/lib/theme";
 import { readVendorLibraries } from "@/lib/vendorAssets";
 import { allowPdfPageNavigation, PDF_PAGE_ORIGIN_WHITELIST } from "@/lib/webView";

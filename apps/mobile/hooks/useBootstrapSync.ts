@@ -3,7 +3,7 @@ import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
-import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/lib/purchases";
+import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/features/billing/model/purchases";
 import { getSessionGeneration } from "@/lib/auth";
 import { api, type User } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
@@ -138,7 +138,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     const generation = getSessionGeneration();
     let cancelled = false;
     let cleanup: (() => void) | undefined;
-    void import("@/lib/pushNotifications").then(({ attachPushForegroundSync }) => {
+    void import("@/features/notifications/model/pushNotifications").then(({ attachPushForegroundSync }) => {
       const token = tokenRef.current;
       if (cancelled || generation !== getSessionGeneration() || !token) return;
       // Gate push registration on user.push_notifications_enabled — without

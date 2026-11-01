@@ -5,7 +5,7 @@ import {
   syncTodoReminders,
   todoNotificationId,
 } from "@/features/todos/model/todoReminders";
-import { ensureNotificationPermission } from "@/lib/pushNotifications";
+import { ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
 import type { Todo } from "@/lib/api/types";
 let mockSession = 1;
 const scheduled = new Map<string, unknown>();
@@ -16,7 +16,7 @@ jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 let mockExpoGo = false;
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockExpoGo }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
-jest.mock("@/lib/pushNotifications", () => ({
+jest.mock("@/features/notifications/model/pushNotifications", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
   ensureReminderChannel: jest.fn(async () => undefined),
 }));

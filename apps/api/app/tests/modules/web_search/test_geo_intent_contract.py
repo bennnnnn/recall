@@ -1,9 +1,9 @@
 """The server reads geo intent exactly the way the phone does.
 
-The phone decides before sending whether to read GPS (`lib/localPlacesQuery.ts`),
+The phone decides before sending whether to read GPS (`lib/places/localPlacesQuery.ts`),
 so it must ask for a fix on the same messages the server answers from the user's
 location. `docs/fixtures/geo_intent_cases.json` holds the cases both sides must
-agree on; the mobile test (`lib/__tests__/localPlacesQuery.test.ts`) asserts the
+agree on; the mobile test (`lib/places/__tests__/localPlacesQuery.test.ts`) asserts the
 same file, so a rule changed on one side alone fails a suite.
 """
 

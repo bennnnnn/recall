@@ -4,7 +4,7 @@
  * with the one fixture.
  */
 import fixture from "../../../../docs/fixtures/scanner_prompts.json";
-import { SCAN_CONFIRMED_PREFIX } from "@/lib/scanner/readBack";
+import { SCAN_CONFIRMED_PREFIX } from "@/features/scanner/model/readBack";
 import { SCANNER_CAMERA_PROMPTS } from "@/lib/scanner/subjects";
 
 describe("scan captions", () => {

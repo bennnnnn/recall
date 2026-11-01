@@ -55,7 +55,7 @@ from app.modules.chat.ws_limits import (
     safe_send_json,
     user_socket_slot,
 )
-from app.modules.chat.ws_turn import TURN_FRAME_TYPES, run_chat_stream
+from app.modules.chat.ws_turn import TURN_FRAME_TYPES, TurnLeft, run_chat_stream
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -152,7 +152,7 @@ async def _handle_regenerate(
     emit_status: StreamStatusFn,
     emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
-) -> dict[str, Any] | None:
+) -> TurnLeft:
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
@@ -197,7 +197,7 @@ async def _handle_message(
     emit_reasoning: StreamReasoningFn,
     frame_budget: FrameBudget | None = None,
     access: access_tokens.AccessCheck | None = None,
-) -> dict[str, Any] | None:
+) -> TurnLeft:
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
@@ -278,8 +278,9 @@ class _ChatSocket:
     client_timezone: str | None
     cancel_event: asyncio.Event
     frame_budget: FrameBudget
-    # A turn sent while the last one saved: it runs before the socket is read again.
-    next_turn: dict[str, Any] | None = None
+    # What the last turn left: a turn sent during its save (it runs before the socket is
+    # read again), or the read it still had running (it is the socket's next read).
+    next_turn: TurnLeft = None
 
 
 async def _authenticate(
@@ -388,13 +389,15 @@ async def _serve_frames(conn: _ChatSocket) -> None:
     try:
         while True:
             held, conn.next_turn = conn.next_turn, None
-            if held is not None:
+            if isinstance(held, dict):
                 # Counted against the frame budget when it arrived.
                 if not await _dispatch(conn, held):
                     return
                 continue
             try:
-                payload = await receive_frame(websocket, conn.settings.ws_idle_timeout_seconds)
+                payload = await receive_frame(
+                    websocket, conn.settings.ws_idle_timeout_seconds, held
+                )
             except TimeoutError:
                 logger.info("Idle WebSocket closed chat_id=%s", chat_id)
                 await close_quietly(websocket, WS_IDLE_CLOSE_CODE)
@@ -477,7 +480,7 @@ async def _dispatch(conn: _ChatSocket, payload: dict[str, Any]) -> bool:
         await websocket.send_json(rate_limited_payload())
         return True
 
-    handle: Callable[..., Awaitable[dict[str, Any] | None]] = (
+    handle: Callable[..., Awaitable[TurnLeft]] = (
         _handle_regenerate if msg_type == "regenerate" else partial(_handle_message, access=access)
     )
     emit_status, emit_reasoning = _status_emitters(websocket)

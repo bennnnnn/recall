@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 
-import { publishStreamingDraft, type StreamingDraft } from "@/lib/streamingDraftStore";
+import { publishStreamingDraft, type StreamingDraft } from "@/features/chat/model/streamingDraftStore";
 
 /**
  * Publishes the streaming bubble's draft at most once a frame, so a burst of tokens

@@ -28,8 +28,8 @@ import { useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import type { SendTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
-import { queryNeedsClientGeo } from "@/lib/resolveClientGeoForQuery";
-import { useViewOwner } from "@/lib/viewOwner";
+import { queryNeedsClientGeo } from "@/features/chat/model/resolveClientGeoForQuery";
+import { useViewOwner } from "@/features/chat/model/viewOwner";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 import {

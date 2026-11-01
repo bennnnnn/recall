@@ -13,7 +13,7 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/lib/api", () => ({ api: { renameChat: jest.fn(), setPin: jest.fn(), setArchive: jest.fn(), deleteChat: jest.fn(), listAllMessages: jest.fn() } }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: () => undefined, peekCreatedChat: () => undefined }));
-jest.mock("@/lib/exportPdf", () => ({ printHtmlToSharedPdf: jest.fn() }));
+jest.mock("@/features/chat/model/exportPdf", () => ({ printHtmlToSharedPdf: jest.fn() }));
 jest.mock("@/features/chat/drawer/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),

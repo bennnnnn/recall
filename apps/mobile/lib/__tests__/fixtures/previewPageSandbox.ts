@@ -1,9 +1,9 @@
 /**
  * Runs a preview page's own scripts and a block's config script against fake
  * browser globals, so a test sees what the page does with the data a WebView
- * hands it (lib/previewPage.ts) without a browser.
+ * hands it (lib/preview/previewPage.ts) without a browser.
  */
-import { previewPageConfigScript, type PreviewPageConfig } from "@/lib/previewPage";
+import { previewPageConfigScript, type PreviewPageConfig } from "@/lib/preview/previewPage";
 
 type FakeElement = { textContent: string; style: Record<string, string> };
 type Listener = (event: unknown) => void;

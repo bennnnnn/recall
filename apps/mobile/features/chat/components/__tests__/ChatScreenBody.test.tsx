@@ -58,7 +58,7 @@ jest.mock("@/features/chat/components/ChatComposer", () => ({
   },
 }));
 
-jest.mock("@/contexts/StreamingDraftContext", () => ({
+jest.mock("@/features/chat/context/StreamingDraftContext", () => ({
   StreamingDraftProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -74,10 +74,10 @@ jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
     return null;
   },
 }));
-jest.mock("@/components/MathEquationScanner", () => ({
+jest.mock("@/features/scanner/components/MathEquationScanner", () => ({
   MathEquationScanner: () => null,
 }));
-jest.mock("@/components/UpgradeSheet", () => ({ UpgradeSheet: () => null }));
+jest.mock("@/features/billing/components/UpgradeSheet", () => ({ UpgradeSheet: () => null }));
 jest.mock("@/features/chat/components/ChatInlineError", () => ({ ChatInlineError: () => null }));
 jest.mock("@/features/chat/components/ChatQuotaNudge", () => ({ ChatQuotaNudge: () => null }));
 jest.mock("@/features/chat/components/ChatScrollFab", () => ({

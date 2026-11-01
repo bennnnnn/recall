@@ -78,7 +78,7 @@ class StemSettings(BaseModel):
     )
     # One read answers within this many seconds of arriving, every reader and
     # fallback included (later steps get what earlier ones left). It stays
-    # below the phone's timeout (SCAN_READ_TIMEOUT_MS in lib/api/scan.ts,
+    # below the phone's timeout (SCAN_READ_TIMEOUT_MS in features/scanner/api.ts,
     # this plus 5 s for the upload), so a slow read ends as "could not read".
     scan_read_deadline_seconds: float = 20.0
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.

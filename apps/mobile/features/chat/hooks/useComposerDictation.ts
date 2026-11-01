@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 
-import type { UpgradeSource } from "@/components/UpgradeSheet";
+import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 import type { User } from "@/lib/api";

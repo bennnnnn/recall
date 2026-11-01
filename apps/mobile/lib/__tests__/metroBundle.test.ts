@@ -248,11 +248,11 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
     expect(mockWebSdkReads).toEqual([]);
   });
 
-  it.each(["ios", "android"])("serves every call lib/purchases.ts makes from the native store on %s", async (os) => {
+  it.each(["ios", "android"])("serves every call features/billing/model/purchases.ts makes from the native store on %s", async (os) => {
     mockPlatform.OS = os;
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded after the mocks above
-    const purchases = require("@/lib/purchases") as typeof import("@/lib/purchases");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- the same module lib/purchases.ts loads
+    const purchases = require("@/features/billing/model/purchases") as typeof import("@/features/billing/model/purchases");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- the same module features/billing/model/purchases.ts loads
     const { default: Purchases } = require("react-native-purchases") as typeof import("react-native-purchases");
 
     await purchases.configurePurchases("user-1");

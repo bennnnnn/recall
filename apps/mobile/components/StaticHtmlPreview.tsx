@@ -3,8 +3,8 @@ import { ScrollView, StyleSheet, type StyleProp, type ViewStyle } from "react-na
 import RenderHtml, { defaultSystemFonts, type MixedStyleDeclaration } from "react-native-render-html";
 
 import { CODE_FONT } from "@/lib/fonts";
-import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
-import { stripScripts } from "@/lib/htmlScriptStrip";
+import { htmlForInlinePreview } from "@/lib/preview/htmlForInlinePreview";
+import { stripScripts } from "@/lib/preview/htmlScriptStrip";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";

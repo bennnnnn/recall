@@ -6,7 +6,7 @@ import { useAuthOptional } from "@/contexts/AuthContext";
 import {
   configurePushNotificationHandler,
   handlePushNotificationResponse,
-} from "@/lib/pushNotifications";
+} from "@/features/notifications/model/pushNotifications";
 import {
   cancelTodoReminder,
 } from "@/features/todos/model/todoReminders";

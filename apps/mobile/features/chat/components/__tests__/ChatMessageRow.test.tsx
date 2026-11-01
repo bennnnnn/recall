@@ -25,7 +25,7 @@ jest.mock("@/features/chat/components/MessageBubble", () => {
   };
 });
 let mockDraft: { content: string } | null = null;
-jest.mock("@/contexts/StreamingDraftContext", () => ({
+jest.mock("@/features/chat/context/StreamingDraftContext", () => ({
   useStreamingDraft: (enabled: boolean) => {
     mockDraftReads.push(enabled);
     return enabled ? mockDraft : null;

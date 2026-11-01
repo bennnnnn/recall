@@ -6,7 +6,7 @@ import * as Notifications from "expo-notifications";
 
 import { syncTodoReminders } from "@/features/todos/model/todoReminders";
 import type { Todo } from "@/lib/api/types";
-import { configurePushNotificationHandler } from "@/lib/pushNotifications";
+import { configurePushNotificationHandler } from "@/features/notifications/model/pushNotifications";
 
 jest.mock("react-native", () => ({ Platform: { OS: "android" }, AppState: { addEventListener: jest.fn() } }));
 jest.mock("@/lib/api", () => ({ api: {} }));

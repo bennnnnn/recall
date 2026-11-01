@@ -1,4 +1,4 @@
-import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
+import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 
 jest.mock("@/lib/vendorAssets", () => ({
   readVendorLibrary: jest.fn(async () => ""),

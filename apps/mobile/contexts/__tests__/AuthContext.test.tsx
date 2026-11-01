@@ -44,7 +44,7 @@ jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), sign
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn() }));
 jest.mock("@/lib/sentry", () => ({ reportCorruptSessionCleared: jest.fn() }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
-jest.mock("@/lib/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
+jest.mock("@/features/notifications/model/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
 jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => true) }));
 
 const userA = { id: "account-a", name: "Alice", locale: "en" } as User;
@@ -433,7 +433,7 @@ it("forgets the push and location sync records when an account signs in", async 
 });
 
 it("hands the server this device's push token with the logout", async () => {
-  const { devicePushToken } = jest.requireMock("@/lib/pushNotifications");
+  const { devicePushToken } = jest.requireMock("@/features/notifications/model/pushNotifications");
   devicePushToken.mockResolvedValueOnce("ExponentPushToken[this-phone]");
   await mount();
   await act(async () => { await current.signOut(); });
@@ -442,7 +442,7 @@ it("hands the server this device's push token with the logout", async () => {
 });
 
 it("still logs out when the push token cannot be read", async () => {
-  const { devicePushToken } = jest.requireMock("@/lib/pushNotifications");
+  const { devicePushToken } = jest.requireMock("@/features/notifications/model/pushNotifications");
   devicePushToken.mockRejectedValueOnce(new Error("expo push service down"));
   await mount();
   await act(async () => { await current.signOut(); });

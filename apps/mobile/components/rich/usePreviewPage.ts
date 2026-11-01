@@ -1,5 +1,5 @@
 /**
- * A rich block's WebView on its kind's page file (lib/previewPageFile.ts):
+ * A rich block's WebView on its kind's page file (lib/preview/previewPageFile.ts):
  * waits for the page, then hands it this block's data. Every block of a kind
  * loads the same file, so a block never builds or sends a page of its own.
  */
@@ -11,13 +11,13 @@ import {
   previewPageLink,
   type PreviewPage,
   type PreviewPageConfig,
-} from "@/lib/previewPage";
+} from "@/lib/preview/previewPage";
 import {
   forgetPreviewPageFile,
   previewPageFile,
   readyPreviewPageFile,
-} from "@/lib/previewPageFile";
-import { createPreviewTapGate } from "@/lib/previewTap";
+} from "@/lib/preview/previewPageFile";
+import { createPreviewTapGate } from "@/lib/preview/previewTap";
 import type { VendorLibrary } from "@/lib/vendorAssets";
 import {
   allowPreviewPageNavigation,

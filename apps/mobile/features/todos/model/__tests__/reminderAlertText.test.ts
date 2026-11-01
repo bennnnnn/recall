@@ -18,7 +18,7 @@ const scheduled = new Map<string, unknown>();
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => false }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
-jest.mock("@/lib/pushNotifications", () => ({
+jest.mock("@/features/notifications/model/pushNotifications", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
   ensureReminderChannel: jest.fn(async () => undefined),
 }));

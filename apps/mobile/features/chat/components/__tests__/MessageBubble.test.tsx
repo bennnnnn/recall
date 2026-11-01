@@ -38,13 +38,13 @@ jest.mock("@/components/MarkdownContent", () => {
     ),
   };
 });
-jest.mock("@/components/SettingsProposalCard", () => ({
+jest.mock("@/features/chat/components/SettingsProposalCard", () => ({
   SettingsProposalCard: () => null,
 }));
 jest.mock("@/features/todos/components/ReminderProposalCard", () => ({
   ReminderProposalCard: () => null,
 }));
-jest.mock("@/components/PlacesListBlock", () => ({
+jest.mock("@/components/rich/PlacesListBlock", () => ({
   PlacesListBlock: () => null,
 }));
 jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({
@@ -57,7 +57,7 @@ jest.mock("@/features/images/components/ImageGenPlaceholder", () => {
 jest.mock("@/ui/feedback/ActionShimmer", () => ({
   ActionShimmer: () => null,
 }));
-jest.mock("@/components/SearchSourcesStack", () => ({
+jest.mock("@/features/chat/components/SearchSourcesStack", () => ({
   SearchSourcesStack: () => null,
 }));
 jest.mock("@/components/rich/LazyHeavyRich", () => ({
@@ -67,11 +67,11 @@ jest.mock("@/components/rich/LazyHeavyRich", () => ({
     return <MockText testID="lazy-message-clock">{content}</MockText>;
   },
 }));
-jest.mock("@/components/MarkdownErrorBoundary", () => ({
+jest.mock("@/features/chat/components/MarkdownErrorBoundary", () => ({
   MarkdownErrorBoundary: ({ children }: { children: React.ReactNode }) =>
     children,
 }));
-jest.mock("@/components/RecallTypingIndicator", () => {
+jest.mock("@/features/chat/components/RecallTypingIndicator", () => {
   const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     RecallTypingIndicator: ({ phase }: { phase?: string }) => (
@@ -79,7 +79,7 @@ jest.mock("@/components/RecallTypingIndicator", () => {
     ),
   };
 });
-jest.mock("@/components/StreamProgressLabel", () => {
+jest.mock("@/features/chat/components/StreamProgressLabel", () => {
   const { Text: MockText } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     StreamProgressLabel: ({ phase, startedAt }: { phase: string; startedAt?: number }) => (
@@ -99,7 +99,7 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
-jest.mock("@/hooks/useAssistantMessageContent", () => ({
+jest.mock("@/features/chat/hooks/useAssistantMessageContent", () => ({
   useAssistantMessageContent: ({ isUser }: { isUser: boolean }) => ({
     hasContent: mockHasContent,
     showActionSlot: !isUser,

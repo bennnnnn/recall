@@ -6,11 +6,11 @@ import {
   composerTextAfterScanConfirm,
   type ReadBackSubject,
   scanSolveMessage,
-} from "@/lib/scanner/readBack";
+} from "@/features/scanner/model/readBack";
 import {
   scanFailureMessage,
   type ScanReadFailure,
-} from "@/lib/scanner/scanReadError";
+} from "@/features/scanner/model/scanReadError";
 import {
   composerTextAfterSubjectScan,
   type ScannerSubject,

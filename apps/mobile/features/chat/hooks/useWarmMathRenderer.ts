@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Message } from "@/lib/api";
 import { warmSvgMath } from "@/lib/math/svgMath";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
-import { getStreamingDraft, subscribeStreamingDraft } from "@/lib/streamingDraftStore";
+import { getStreamingDraft, subscribeStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 
 /** The chat's own first frames and its cold-start work come before the warm-up. */
 export const WARM_MATH_AFTER_MS = 2_000;

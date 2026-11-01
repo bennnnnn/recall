@@ -2,7 +2,7 @@ import { useCallback, type RefObject } from "react";
 import { randomUUID } from "expo-crypto";
 
 import type { Message } from "@/lib/api";
-import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
+import { clientGeoWsFields, type ClientGeo } from "@/features/chat/model/clientGeo";
 import { canRegenerate, headRejectedSend, type ChatTurnEvent, type ChatTurnState } from "@/features/chat/model/chatTurnCore";
 import { whenOpenedPageSettled } from "@/features/chat/model/openedPage";
 import type { ComposerSendDraft, PendingSend, RejectedSend, SendMessageOptions } from "@/features/chat/model/sendLogic";

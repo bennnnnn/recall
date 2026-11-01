@@ -3,7 +3,7 @@ import { Alert } from "react-native";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import SettingsScreen from "@/features/account/screens/SettingsScreen";
-import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
+import { getNotificationPermissionGranted } from "@/features/notifications/model/pushNotifications";
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -62,13 +62,13 @@ jest.mock("@/features/account/hooks/useUsage", () => ({
     usage: { date: "2026-10-14", daily_limit: 100, remaining: 80, input_tokens: 10, output_tokens: 10 },
   }),
 }));
-jest.mock("@/lib/pushNotifications", () => ({
+jest.mock("@/features/notifications/model/pushNotifications", () => ({
   getNotificationPermissionGranted: jest.fn(async () => true),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
-jest.mock("@/components/UpgradeSheet", () => ({
+jest.mock("@/features/billing/components/UpgradeSheet", () => ({
   UpgradeSheet: () => null,
 }));
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));

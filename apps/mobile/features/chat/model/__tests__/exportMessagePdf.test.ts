@@ -1,11 +1,11 @@
 import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import type { Message } from "@/lib/api";
-import { printHtmlToSharedPdf } from "@/lib/exportPdf";
+import { printHtmlToSharedPdf } from "@/features/chat/model/exportPdf";
 
 jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key } }));
-jest.mock("@/lib/exportPdf", () => ({ printHtmlToSharedPdf: jest.fn(async () => undefined) }));
-jest.mock("@/lib/printDocument", () => ({
+jest.mock("@/features/chat/model/exportPdf", () => ({ printHtmlToSharedPdf: jest.fn(async () => undefined) }));
+jest.mock("@/features/chat/model/printDocument", () => ({
   markdownToStructuredPrintHtml: jest.fn(async (_title: string, md: string) => `<p>${md}</p>`),
 }));
 
