@@ -22,6 +22,8 @@ import {
   type SceneLayout,
   type SimulationSpec,
 } from "@/lib/physics/simulation";
+import { DIAGRAM_KINDS } from "@/lib/physics/diagramKind";
+import { SCENE_KINDS } from "@/lib/physics/simulation/parse";
 import { Motion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 import { makeFigureFrameStyles } from "@/components/rich/diagrams/DiagramFrame";
@@ -30,11 +32,15 @@ import { usePlayback } from "@/components/rich/usePlayback";
 import { measureRuns } from "@/components/rich/skia/fontRuns";
 import { pointsPath } from "@/components/rich/skia/paths";
 import { LABEL_FONT_SIZE } from "@/components/rich/simulation/labels";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 
 /** The math faces set a size larger, so a τ stands as tall as SpaceMono's x-height beside it. */
 const FALLBACK_FONT_SIZE = 13;
 /** Until the font loads, a rough SpaceMono advance keeps the layout sane. */
 const FALLBACK_CHAR_WIDTH = 6.7;
+
+/** A circuit, rays and a wave reach `PhysicsDiagram`; any other type is no kind this build draws. */
+const SCENE_BODY = { json: true, kinds: { field: "type", known: [...SCENE_KINDS, ...DIAGRAM_KINDS] } };
 
 /** Periodic motion goes round again while playing; the rest hold their end. */
 const PERIODIC: readonly SimulationSpec["type"][] = ["orbit", "spring", "pendulum"];
@@ -50,6 +56,7 @@ export function useSimulationScene(content: string) {
   const italic = useFont(require("@/assets/fonts/KaTeX_Math-Italic.ttf"), FALLBACK_FONT_SIZE);
   const fallbacks = useMemo(() => [upright, italic], [italic, upright]);
   const spec = useMemo(() => parseSimulationSpec(content), [content]);
+  useFenceRefused("simulation", content, spec === null, SCENE_BODY);
   const width = figureWidth(screenWidth);
   const styles = useMemo(() => makeFigureFrameStyles(theme), [theme]);
   const height = useMemo(

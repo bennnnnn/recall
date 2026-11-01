@@ -11,6 +11,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { Icon } from "@/ui/icons/Icon";
 
 import { ChartFallback } from "@/components/rich/ChartFallback";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
@@ -25,6 +26,8 @@ import { Type } from "@/lib/type";
 import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
+
+const CHART_BODY = { json: true };
 
 export function ChartBlock({ content }: Props) {
   const theme = useTheme();
@@ -57,6 +60,7 @@ export function ChartBlock({ content }: Props) {
   );
   const previewError = preview.status === "failed" ? t("rich.chart_error") : null;
   const undrawn = !drawable || renderError !== null;
+  useFenceRefused("chart", content, !drawable, CHART_BODY);
 
   return (
     <VisualCard

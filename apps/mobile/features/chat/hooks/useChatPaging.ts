@@ -11,6 +11,7 @@ import {
 import type { IconName } from "@/ui/icons/names";
 import { api, type Message } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { reportFailure } from "@/lib/sentry";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { writeCachedChatMessages } from "@/features/chat/model/messageCache";
 import { mergeLocalAttachmentUris } from "@/features/chat/model/messageMerge";
@@ -32,6 +33,12 @@ type Options = {
   showActionBanner: (message: string, icon?: IconName) => void;
   t: (key: string) => string;
 };
+
+/** A page that could not be read: Sentry hears of it, and the view that asked, still open, says so. */
+function pageReadFailed(error: unknown, shown: boolean, { showActionBanner, t }: Pick<Options, "showActionBanner" | "t">) {
+  reportFailure("chat_page", error);
+  if (shown) showActionBanner(t("common.error"), "alert-circle");
+}
 
 /**
  * Paging within the open chat: older pages above the thread and, after a jump to a
@@ -76,8 +83,8 @@ export function useChatPaging({
         return [...page.messages.filter((message) => !knownIds.has(message.id)), ...prev];
       }, "older_page");
       setHasMoreOlder(page.has_more);
-    } catch {
-      if (read.isCurrent()) showActionBanner(t("common.error"), "alert-circle");
+    } catch (error) {
+      pageReadFailed(error, read.isCurrent(), { showActionBanner, t });
     } finally {
       if (read.isCurrent()) {
         requestRef.current = null;
@@ -101,8 +108,8 @@ export function useChatPaging({
         return [...prev, ...page.messages.filter((message) => !knownIds.has(message.id))];
       }, "newer_page");
       setHasMoreNewer(page.has_more_after === true);
-    } catch {
-      if (read.isCurrent()) showActionBanner(t("common.error"), "alert-circle");
+    } catch (error) {
+      pageReadFailed(error, read.isCurrent(), { showActionBanner, t });
     } finally {
       if (read.isCurrent()) {
         requestRef.current = null;
@@ -122,8 +129,8 @@ export function useChatPaging({
       setHasMoreOlder(page.has_more);
       setHasMoreNewer(page.has_more_after === true);
       return true;
-    } catch {
-      if (read.isCurrent()) showActionBanner(t("common.error"), "alert-circle");
+    } catch (error) {
+      pageReadFailed(error, read.isCurrent(), { showActionBanner, t });
       return false;
     } finally {
       if (read.isCurrent()) requestRef.current = null;
@@ -141,8 +148,8 @@ export function useChatPaging({
       setHasMoreOlder(page.has_more);
       setHasMoreNewer(false);
       void writeCachedChatMessages(read.chatId, page.messages, page.has_more);
-    } catch {
-      if (read.isCurrent()) showActionBanner(t("common.error"), "alert-circle");
+    } catch (error) {
+      pageReadFailed(error, read.isCurrent(), { showActionBanner, t });
     } finally {
       if (read.isCurrent()) requestRef.current = null;
     }

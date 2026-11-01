@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { ChipText } from "@/components/rich/ChipText";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import {
   inlineCodeTextStyle,
   PARAGRAPH_GAP,
@@ -21,12 +22,16 @@ import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 
 type Props = { content: string };
 
+/** A quiz is JSON: text in its place, or JSON the card cannot read, is a refused fence. */
+const QUIZ_BODY = { json: true };
+
 /** "Exercise 1": the code, pick an option, check it, see why. Nothing is sent to the chat. */
 export function QuizCard({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const body = useMemo(() => quizBody(content), [content]);
   const quiz = body?.kind === "card" ? body.card : null;
+  useFenceRefused("quiz", content, body !== null && quiz === null, QUIZ_BODY);
   const [attempt, setAttempt] = useState<QuizAttempt>(
     () => quizAttempt(content) ?? { picked: null, checked: false },
   );

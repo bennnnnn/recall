@@ -495,7 +495,7 @@ every row, and the manifest says `NSPrivacyTracking: false`.
 | Usage Data → Product Interaction | Yes | No | Analytics | Metadata-only product events: paywall views, purchase outcomes, notification permission, how a chat turn ended |
 | Diagnostics → Performance Data | Yes | No | Analytics, App Functionality | How quickly replies start (bucketed product events); Sentry traces when the DSN is set |
 | Diagnostics → Crash Data | No | No | App Functionality | Sentry crash reports when the DSN is set: no user id, no message text (`lib/sentry.ts`) |
-| Diagnostics → Other Diagnostic Data | No | No | App Functionality | Sentry error reports (a screen or message that failed to draw, store and push failures), same rules |
+| Diagnostics → Other Diagnostic Data | No | No | App Functionality | Sentry error reports (a screen or message that failed to draw, store and push failures), same rules; a chat that could not be created or read, a failed upload or purchase, and a reply block the app would not draw or that crashed carry ids and codes only, never message text |
 | Other Data → Other Data Types | Yes | No | App Functionality, Product Personalization | Optional profile fields (age, country, job); each signed-in session's device name or model |
 
 Not collected: phone number, physical address, contacts, health or fitness,

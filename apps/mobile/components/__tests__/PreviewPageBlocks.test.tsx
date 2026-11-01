@@ -95,7 +95,7 @@ const CASES: [string, Case][] = [
     "a SMILES drawing",
     {
       page: SMILES_DRAWER_PAGE,
-      element: (data) => <Chemistry2DView smiles={data} />,
+      element: (data) => <Chemistry2DView smiles={data} fence="chemistry" />,
       data: ["CCO", "c1ccccc1"],
       inScript: (data) => `"smiles":${JSON.stringify(data)}`,
       failure: "rich.chemistry_renderer_unavailable",

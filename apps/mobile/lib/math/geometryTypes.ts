@@ -126,5 +126,20 @@ export type GeometrySpec =
   | ParallelogramSpec
   | SectorSpec;
 
+const GEOMETRY_KIND_SET: Record<GeometrySpec["type"], true> = {
+  rectangle: true,
+  square: true,
+  triangle: true,
+  right_triangle: true,
+  circle: true,
+  triangle_sides: true,
+  trapezoid: true,
+  parallelogram: true,
+  sector: true,
+};
+
+/** Every figure this build draws; a fence naming another is refused as an unknown kind. */
+export const GEOMETRY_KINDS = Object.keys(GEOMETRY_KIND_SET);
+
 /** Match backend `RectangleGeometryInput` / triangle inputs (`le=1_000_000`). */
 export const MAX_GEOMETRY_DIMENSION = 1_000_000;

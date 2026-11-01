@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { MathText } from "@/components/rich/MathText";
 import { StepList } from "@/components/rich/StepList";
 import { TeachingCard } from "@/components/rich/TeachingCard";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { MATH_FONT, mathFace } from "@/lib/fonts";
 import { parseArithmeticWork, parseFractionWork } from "@/lib/math/arithmeticBlock";
 import { parseTeaching } from "@/lib/math/teachingBlock";
@@ -309,8 +310,14 @@ function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
   );
 }
 
+/** The server writes this fence as JSON. */
+const ARITHMETIC_BODY = { json: true };
+
 export function ArithmeticWorkBlock({ content }: { content: string }) {
   const teaching = parseTeaching(content);
+  const spec = teaching ? null : parseArithmeticWork(content);
+  const fraction = teaching || spec ? null : parseFractionWork(content);
+  useFenceRefused("arithmetic", content, !teaching && !spec && !fraction, ARITHMETIC_BODY);
   // Bonds, dot arrays, and ten frames repeat the fact the answer line states.
   if (
     teaching?.type === "number_bond" ||
@@ -320,11 +327,7 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
     return null;
   }
   if (teaching) return <TeachingCard spec={teaching} />;
-  const spec = parseArithmeticWork(content);
-  if (!spec) {
-    const fraction = parseFractionWork(content);
-    return fraction ? <FractionWork spec={fraction} /> : null;
-  }
+  if (!spec) return fraction ? <FractionWork spec={fraction} /> : null;
   const layout =
     spec.operation === "addition" || spec.operation === "subtraction" ? (
       <ColumnWork spec={spec} />

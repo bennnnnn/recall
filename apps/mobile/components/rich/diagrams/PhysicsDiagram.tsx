@@ -13,10 +13,13 @@ import { DiagramFallback } from "@/components/rich/diagrams/DiagramFrame";
 import { RayDiagram } from "@/components/rich/diagrams/RayDiagram";
 import { parsePhysicsDiagram } from "@/components/rich/diagrams/spec";
 import { WaveDiagram } from "@/components/rich/diagrams/WaveDiagram";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { type DiagramKind } from "@/lib/physics/diagramKind";
 
 export function PhysicsDiagram({ content, kind }: { content: string; kind: DiagramKind }) {
   const spec = useMemo(() => parsePhysicsDiagram(content, kind), [content, kind]);
+  // Its kind was read to route it here: what failed is the rest of the body.
+  useFenceRefused("simulation", content, spec === null, undefined, "invalid_spec");
   if (!spec) return <DiagramFallback />;
   switch (spec.kind) {
     case "circuit":

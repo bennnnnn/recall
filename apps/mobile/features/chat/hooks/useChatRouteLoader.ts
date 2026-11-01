@@ -9,6 +9,7 @@ import { useComposerDraftApiOptional } from "@/features/chat/context/ComposerDra
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
+import { reportFailure } from "@/lib/sentry";
 import { getCachedChat, getFetchedChat } from "@/features/chat/model/chatListCache";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { shouldForceForegroundChatRecovery, shouldRefetchChatOnForeground } from "@/features/chat/model/foregroundRefetch";
@@ -246,8 +247,8 @@ export function useChatRouteLoader({
         const fetchedAt = Date.now();
         noteChatPageRead(openChatId, fetchedAt);
         setPageSync({ chatId: openChatId, fetchedAt });
-      } catch {
-        /* keep existing messages on silent refetch failure */
+      } catch (error) {
+        reportFailure("chat_refresh", error); // The messages on screen stay.
       }
     },
     [token, session, owns, activeChatRef, messagesRef, setChatId, editThread, applyMetadata, turnBusy, hasMoreNewer],
@@ -426,7 +427,7 @@ export function useChatRouteLoader({
             removeChatGlobal(openChatId);
             void clearCachedChatMessages(openChatId);
             startNewChat({ force: true });
-          }
+          } else reportFailure("chat_load", error);
           showActionBanner(t("common.error"), "alert-circle");
         }
       } finally {
