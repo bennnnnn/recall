@@ -21,7 +21,6 @@ from app.modules.math.schemas import (
     MathImageExtract,
     MathIntent,
 )
-from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.tools.bare_answer import BARE_ANSWER_NOTE, bare_answer
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extract import (
@@ -336,7 +335,10 @@ async def build_math_augmentation(
     if intent is None:
         return _NO_VERIFIED_RESULT, None
     if intent.word_problem is not None and not intent.word_problem.read_from_text:
-        return await _unchecked_word_problem(intent.word_problem, settings), None
+        # A translation is never a verified card (``tools/model_readings.py``).
+        note = await unchecked_setup(intent.word_problem, settings)
+        unverified = _unverified_math_note("word_problem")
+        return (f"{note}\n\n{unverified}" if note else unverified), None
 
     from app.modules.math import tools as mt
 
@@ -428,13 +430,6 @@ def _model_intent_is_users(user_content: str, intent: MathIntent) -> bool:
     return _intent_preserves_request(user_content, intent) and intent_in_user_text(
         intent, user_content
     )
-
-
-async def _unchecked_word_problem(setup: WordProblemSetup, settings: Settings) -> str:
-    """A translation is never a verified card (``tools/model_readings.py``)."""
-    note = await unchecked_setup(setup, settings)
-    unverified = _unverified_math_note("word_problem")
-    return f"{note}\n\n{unverified}" if note else unverified
 
 
 def _unverified_math_note(kind: str | None) -> str:

@@ -28,6 +28,7 @@ from app.modules.math.tool_check import intent_in_user_text, tool_call_matches_u
 from app.modules.math.tools import prompt as math_prompt
 from app.modules.math.tools.block.word import UNCHECKED_SETUP_RULE
 from app.modules.math.tools.llm_extract import LLMMathExtract
+from app.modules.math.tools.model_readings import unchecked_setup
 from app.modules.math.tools.word_problem import _ENDLESS, word_problem_intent
 from app.modules.math.tools.word_templates import word_template_setup
 
@@ -244,8 +245,6 @@ async def test_a_broken_pool_keeps_the_turn(monkeypatch: pytest.MonkeyPatch) -> 
         raise BrokenProcessPool("a worker died")
 
     monkeypatch.setattr(sympy_executor, "run_sympy", broken)
-    note = await math_prompt._unchecked_word_problem(
-        WordProblemSetup.model_validate(AGES_SETUP), _settings()
-    )
-    # The honesty note alone: no setup, and the turn goes on.
-    assert note == math_prompt._unverified_math_note("word_problem")
+    note = await unchecked_setup(WordProblemSetup.model_validate(AGES_SETUP), _settings())
+    # No setup: the turn keeps its honesty note and goes on.
+    assert note is None
