@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.money.follow_up import follow_up_request
-from app.modules.money.phrases import percent_value
+from app.modules.money.phrases import RATE, percent_value
 from app.modules.money.purchase import purchase_request
 from app.modules.money.read import read_money_request
 from app.modules.money.solve import work
@@ -87,11 +87,20 @@ def test_time_already_spent_is_no_term(text: str) -> None:
         # Money paid toward a new loan is no time spent paying one.
         "I've paid $5k toward a down payment on a $300k mortgage at 6% for 15 years, what's "
         "the payment?",
+        # A quote or an offer for a loan is a new loan, never one held (coordinator review).
+        "We have had a mortgage offer of $300k at 6% for 15 years",
     ],
 )
 def test_a_term_after_a_spent_clause_is_still_the_term(text: str) -> None:
     request = read_money_request(text)
     assert request is not None and request.values.get("years") == 15
+
+
+def test_a_loan_quote_keeps_its_term() -> None:
+    request = read_money_request(
+        "I've had a car loan quote at 7% for 6 years on $20,000, what's the monthly payment?"
+    )
+    assert request is not None and request.values.get("months") == 72
 
 
 @pytest.mark.parametrize(
@@ -101,6 +110,8 @@ def test_a_term_after_a_spent_clause_is_still_the_term(text: str) -> None:
         "mortgage of $200,000 at 3,125% for 30 years",
         # A count word before a term the reader did not take in whole.
         "car loan of $20,000 at 6% for two thousand and twenty months",
+        # Two rates after a separator are two rates, not the first alone (coordinator review).
+        "rates of 3%,4% on a $20,000 car loan for 5 years",
     ],
 )
 def test_a_number_the_reader_cannot_read_whole_gets_no_worked_numbers(text: str) -> None:
@@ -123,3 +134,9 @@ def test_a_decimal_comma_rate_in_a_follow_up_and_a_purchase_line() -> None:
     purchase = purchase_request("20k with 6,5 percent", ("I am planing to buy a car",))
     assert purchase is not None and purchase.values.get("rate") == 6.5
     assert purchase_request("20k with 6,125 percent", ("I am planing to buy a car",)) is None
+
+
+def test_a_percent_starts_at_no_digit_point_or_a_digits_comma() -> None:
+    # "3,5%" is one rate, "1000%" no "000%", ".5%" no 5%, and "3%,4%" two rates.
+    found = [match["pct"] for match in RATE.finditer("3,5% 1000% .5% 3%,4%")]
+    assert found == ["3,5", "3", "4"]

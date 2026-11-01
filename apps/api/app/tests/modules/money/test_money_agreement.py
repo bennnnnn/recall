@@ -171,6 +171,8 @@ async def test_the_line_follows_a_comparing_reply() -> None:
         ("At 3,5% over 25 years, the monthly payment is €950.00.", True),
         ("At 3,5% over 25 years, the monthly payment is €901.12.", False),
         ("At 4,5% over 25 years, the monthly payment would be €1,000.50.", False),
+        # Two rates after a separator are both read: another scenario.
+        ("At 3,5%,4% over 25 years, the monthly payment would be €1,000.50.", False),
     ],
 )
 def test_a_decimal_comma_rate_in_the_reply_is_the_cards(reply: str, corrected: bool) -> None:

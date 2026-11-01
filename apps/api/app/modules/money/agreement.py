@@ -60,7 +60,7 @@ _OTHER_SCENARIO = re.compile(
     re.IGNORECASE,
 )
 # Read whole, as the asker's rate is: "3,5%" is 3.5, never a 5% scenario of its own.
-_PERCENT = re.compile(r"(?<![\d.,])(\d+(?:[.,]\d+)?)\s?(?:\\?%|percent\b)", re.IGNORECASE)
+_PERCENT = re.compile(r"(?<![\d.])(?<!\d,)(\d+(?:[.,]\d+)?)\s?(?:\\?%|percent\b)", re.IGNORECASE)
 _TERM = re.compile(r"\b(\d{1,3})[\s-]?(years?|yrs?|months?)\b", re.IGNORECASE)
 _MONEY = re.compile(
     r"(?<![\d.,])[$€£¥₹₦]\s?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)(?:\s?([km])\b)?", re.I

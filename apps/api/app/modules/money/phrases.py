@@ -20,9 +20,10 @@ _SPELLED = (
     rf"(?:(?:a|{_ONES})\shundred(?:\s(?:and\s)?{_BELOW_HUNDRED})?|{_BELOW_HUNDRED})"
     r"(?:\sand\sa\shalf)?"
 )
-# A decimal comma is a decimal point ("3,5%" is 3.5); no digit, point or comma before it,
-# so "3,5%" is never read as "5%" (2026-11-01: a 5% mortgage worked from "3,5%").
-PERCENT = r"(?<![\d.,])(?P<pct>\d{1,3}(?:[.,]\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
+# A decimal comma is a decimal point ("3,5%" is 3.5). It starts at no digit, decimal point
+# or a digit's comma, so "3,5%" is never read as "5%" (2026-11-01: a 5% mortgage worked from
+# "3,5%"), and "3%,4%" is two rates.
+PERCENT = r"(?<![\d.])(?<!\d,)(?P<pct>\d{1,3}(?:[.,]\d{1,4})?)\s?(?:%|percent\b|per\s?cent\b|pct\b)"
 # A length of time; its count is ``count_value``'s.
 DURATION = (
     rf"(?P<n>\d{{1,3}}(?:\.\d{{1,2}})?|{_SPELLED})\s?-?\s?(?P<unit>years?|yrs?|months?|mos?)\b"
