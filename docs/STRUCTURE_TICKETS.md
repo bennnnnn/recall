@@ -511,6 +511,9 @@ printed "no decision changed".
     method).
   - The maths-notation rule moved to `services/math_notation.py`: maths' pack and chat's
     every-turn maths-ink rule both state it.
+  - What only chat's prompt and follow-ups read left the subjects' public lists:
+    `math.followup` and `.reply_policy`; `physics.followup`, `PHYSICS_REPLY_POLICY` and
+    `physics_prompt_hints`; `chemistry.followup`, `.reply_policy` and `.shape_followup`.
   - `SUBJECT_HINTS` keeps its order (physics, maths, chemistry, then chat's statistics and
     biology): the leak pass joins its rules in that order. `prompt_rule_text()` hashes the
     same before and after.
