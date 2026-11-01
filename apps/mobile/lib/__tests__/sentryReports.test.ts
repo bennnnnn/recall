@@ -66,6 +66,16 @@ describe("a handled failure", () => {
     expect(String(reported.stack)).not.toContain(PRIVATE);
   });
 
+  it("drops a message over several lines, even a line that reads like a frame", async () => {
+    const { mod, sdk } = await freshSentry();
+    const error = new Error("could not read body:\n  at noon call Sam");
+    error.stack = `Error: ${error.message}\n    at readBody (index.bundle:5:6)`;
+    mod.reportFailure("chat_load", error);
+
+    const [reported] = sdk().captureException.mock.calls[0];
+    expect(reported.stack).toBe("Error: chat_load failed\n    at readBody (index.bundle:5:6)");
+  });
+
   it("keeps the stack's frames and drops the message line", async () => {
     const { mod, sdk } = await freshSentry();
     const error = new TypeError(`cannot read ${PRIVATE}`);

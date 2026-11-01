@@ -275,16 +275,28 @@ const SAFE_NAME = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
 const SAFE_CODE = /^[A-Za-z0-9_.-]{1,40}$/;
 
 /**
+ * The frames of `error`'s stack. The stack opens with the message, which can run over
+ * several lines and hold one that reads like a frame ("  at noon"): everything up to the
+ * message's end is cut before the frames are kept.
+ */
+function stackFrames(error: Error): string[] {
+  let stack = error.stack ?? "";
+  const message = error.message;
+  const end = message ? stack.indexOf(message) : -1;
+  if (end >= 0) stack = stack.slice(end + message.length);
+  return stack.split("\n").filter((line) => /^\s+at /.test(line));
+}
+
+/**
  * `error` with its message replaced by `label`: its class and stack frames, which say
  * where it broke, and none of the text it carried (a parser's error can quote the body
  * it choked on; a refusal, the server's words about what was sent).
  */
 function withoutMessage(error: unknown, label: string): Error {
   const name = error instanceof Error && SAFE_NAME.test(error.name) ? error.name : "Error";
-  const stack = error instanceof Error ? (error.stack ?? "") : "";
   const out = new Error(label);
   out.name = name;
-  out.stack = [`${name}: ${label}`, ...stack.split("\n").filter((line) => /^\s+at /.test(line))].join("\n");
+  out.stack = [`${name}: ${label}`, ...(error instanceof Error ? stackFrames(error) : [])].join("\n");
   return out;
 }
 
