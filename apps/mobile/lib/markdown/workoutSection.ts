@@ -2,7 +2,7 @@
  * What is asked: **Required**, or **Find** in a reply written before November 2026 (and in
  * one a model still heads that way).
  */
-export const REQUIRED_HEADINGS: readonly string[] = ["Required", "Find"];
+const REQUIRED_HEADINGS: readonly string[] = ["Required", "Find"];
 
 /** The headings that open a worked reply, behind a thin rule: what it is given and what is asked. */
 export const OPENING_HEADINGS: readonly string[] = ["Given", ...REQUIRED_HEADINGS];
