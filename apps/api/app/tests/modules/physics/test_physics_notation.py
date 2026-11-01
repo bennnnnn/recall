@@ -78,7 +78,9 @@ def _catalog_latex(spec: FormulaSpec) -> list[str]:
 
 
 # A bare u or v, or a before/after v_1 or v_2: what the table renames.
-_OLD_SYMBOL = re.compile(r"(?<![\\A-Za-z])(?:u|v)(?![A-Za-z_{])|v_\{?[12]\}?'?")
+_OLD_SYMBOL = re.compile(
+    r"(?<![\\A-Za-z])(?:u|v)(?![A-Za-z_{])|v_(?:[12]|\{[12]\})(?![A-Za-z0-9}])"
+)
 
 
 @pytest.mark.parametrize("operation", sorted(renamed_operations()))
