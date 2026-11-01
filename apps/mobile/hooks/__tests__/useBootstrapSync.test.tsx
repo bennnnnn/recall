@@ -6,8 +6,8 @@ import { ActionFeedbackContext, type ActionFeedbackApi } from "@/contexts/action
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { api, type User } from "@/lib/api";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
-import { registerPlanChangeListener } from "@/lib/purchases";
-import { attachPushForegroundSync } from "@/lib/pushNotifications";
+import { registerPlanChangeListener } from "@/features/billing/model/purchases";
+import { attachPushForegroundSync } from "@/features/notifications/model/pushNotifications";
 import { onAppEvent } from "@/lib/appEvents";
 import { ApiRequestError } from "@/lib/api/errorBody";
 
@@ -31,7 +31,7 @@ jest.mock("@/lib/foregroundRefresh", () => ({
   },
 }));
 jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn() }));
-jest.mock("@/lib/pushNotifications", () => ({ attachPushForegroundSync: jest.fn() }));
+jest.mock("@/features/notifications/model/pushNotifications", () => ({ attachPushForegroundSync: jest.fn() }));
 const mockSyncRecords = new Map<string, { account: string; at: number }>();
 jest.mock("@/lib/syncRecords", () => ({
   recentSyncAt: jest.fn(async (kind: string, account: string, maxAgeMs: number) => {
@@ -43,7 +43,7 @@ jest.mock("@/lib/syncRecords", () => ({
     mockSyncRecords.set(kind, { account, at: Date.now() });
   }),
 }));
-jest.mock("@/lib/purchases", () => ({
+jest.mock("@/features/billing/model/purchases", () => ({
   configurePurchases: jest.fn(), isPurchasesConfigured: () => true,
   registerPlanChangeListener: jest.fn(),
 }));
@@ -135,7 +135,7 @@ it("merges only the synced timezone into the current account", async () => {
 });
 
 it("keeps one RevenueCat setup across an access-token refresh", async () => {
-  const { configurePurchases } = jest.requireMock("@/lib/purchases") as { configurePurchases: jest.Mock };
+  const { configurePurchases } = jest.requireMock("@/features/billing/model/purchases") as { configurePurchases: jest.Mock };
   const rendered = await render(<Probe user={{ ...userA, timezone: userB.timezone }} token="a" />);
   await act(async () => {});
   await rendered.rerender(<Probe user={{ ...userA, timezone: userB.timezone }} token="a-refreshed" />);

@@ -378,7 +378,7 @@ is drawn as tetrahedral, not square planar.
 | Ionic names (ion table) | `apps/api/app/modules/chemistry/nomenclature.py` |
 | SMILES / 3D / post-stream | `apps/api/app/modules/chemistry/smiles.py`, `fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
-| Mobile scan errors | `apps/mobile/lib/scanner/scanReadError.ts` (every subject) |
+| Mobile scan errors | `apps/mobile/features/scanner/model/scanReadError.ts` (every subject) |
 | Mobile parse / render | `apps/mobile/lib/chemistry/` (fence parsing, `smilesDrawerHtml.ts`, `molecule3dLayout.ts`), `apps/mobile/components/rich/` |
 | Web render | `apps/web/src/lib/chemScene.ts`, `assistantMarkdown.ts` |
 | Client contract | `docs/fixtures/chemistry_replies.json` |

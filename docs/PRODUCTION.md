@@ -449,7 +449,7 @@ permission. Changing any of it is a native change (bump `version`, new build).
       base plans). A product that is not approved does not load.
 - [ ] **RevenueCat offering first.** The current offering must hold the
       `plus_monthly` and `pro_monthly` packages before review. Without them the
-      plan sheet's buy buttons stay disabled (`components/UpgradeSheet.tsx`),
+      plan sheet's buy buttons stay disabled (`features/billing/components/UpgradeSheet.tsx`),
       and a paywall that cannot buy is rejected.
 - [ ] **App Review notes:** sign in with Apple (or Google). The line under the
       sign-in buttons says that continuing agrees to the Terms, the Privacy

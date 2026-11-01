@@ -6,7 +6,7 @@ import {
   getNotificationPermissionGranted,
   registerRemotePushToken,
   unregisterRemotePushToken,
-} from "@/lib/pushNotifications";
+} from "@/features/notifications/model/pushNotifications";
 
 type PushNotificationToggleOptions = {
   token: string | null;

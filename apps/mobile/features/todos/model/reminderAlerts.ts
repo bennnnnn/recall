@@ -13,7 +13,7 @@ let toldAlertsOff = false;
 export async function allowReminderAlerts(): Promise<ReminderAlerts> {
   try {
     // Loaded on save, so every chat bubble that holds a card does not load expo-notifications.
-    const { ensureNotificationPermission } = await import("@/lib/pushNotifications");
+    const { ensureNotificationPermission } = await import("@/features/notifications/model/pushNotifications");
     return (await ensureNotificationPermission()) ? "on" : "off";
   } catch {
     return "off";

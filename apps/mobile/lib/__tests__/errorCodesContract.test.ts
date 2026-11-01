@@ -10,7 +10,7 @@ import { accountDeleteFailure } from "@/lib/accountDelete";
 import { signInRefusalKey } from "@/features/auth/model/signInRefusal";
 import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
-import { scanFailureMessage } from "@/lib/scanner/scanReadError";
+import { scanFailureMessage } from "@/features/scanner/model/scanReadError";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 import { memoryFailure, memoryFailureKey } from "@/features/memory/model/memoryFailure";
 import {

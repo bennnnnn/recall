@@ -21,7 +21,7 @@ import { DrawerShell } from "@/features/chat/drawer/DrawerShell";
 import { ComposerDraftProvider, useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
 import { ChatReplyProviders } from "@/features/chat/components/ChatReplyProviders";
 import { useAuth } from "@/contexts/AuthContext";
-import type { UpgradeSource } from "@/components/UpgradeSheet";
+import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";

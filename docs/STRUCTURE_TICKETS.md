@@ -412,6 +412,15 @@ components get the same props.
 - **Conflicts:** #2159 (`lib/api/client.ts`, `lib/sentry.ts`), #2157 (baseline paths move: update
   the keys, not the sizes).
 - **Risk:** low to medium (import paths). **Size:** M.
+- **Status (part 1):** billing (`features/billing/`: RevenueCat, the upgrade sheet and its hook),
+  notifications (`features/notifications/`: push token, registration, Android channels) and the
+  scanner (`features/scanner/`: camera, crop, read-back, its API slice) are features. The boundary
+  test sees them; the scanner's two composition entries are gone (it is a feature that imports
+  attachments' public modules), and app start (`hooks/useBootstrapSync.ts`) and sign-out
+  (`contexts/AuthContext.tsx`) are listed as the composition points they are. Measured, not
+  moved: places and the HTML preview are fence rendering the shared markdown and rich renderers
+  use, so they go to `lib/` domain folders, not features (part 2); `lib/scanner/subjects.ts` and
+  `lib/cameraPermission.ts` stay shared (shared code and two features use them).
 
 ## Order
 

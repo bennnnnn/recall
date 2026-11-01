@@ -7,7 +7,7 @@ import { Platform } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { PushNotificationBootstrap } from "@/features/todos/components/PushNotificationBootstrap";
-import { handlePushNotificationResponse } from "@/lib/pushNotifications";
+import { handlePushNotificationResponse } from "@/features/notifications/model/pushNotifications";
 
 const mockGetLastNotificationResponseAsync = jest.fn().mockResolvedValue(null);
 const mockAddNotificationResponseReceivedListener = jest
@@ -31,7 +31,7 @@ jest.mock("expo-router", () => ({
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthOptional: () => ({ token: null, loading: false }),
 }));
-jest.mock("@/lib/pushNotifications", () => ({
+jest.mock("@/features/notifications/model/pushNotifications", () => ({
   configurePushNotificationHandler: jest.fn(),
   handlePushNotificationResponse: jest.fn().mockResolvedValue(undefined),
 }));

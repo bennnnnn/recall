@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Linking, Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { UpgradeSheet } from "@/components/UpgradeSheet";
+import { UpgradeSheet } from "@/features/billing/components/UpgradeSheet";
 import {
   SettingsGroup,
   SettingsLinkRow,

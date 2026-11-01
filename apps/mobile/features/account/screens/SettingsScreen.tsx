@@ -20,7 +20,7 @@ import { voiceLabel } from "@/features/speech/model/voices";
 import { ACCENT_OPTIONS, accentSwatch } from "@/lib/accent";
 import { APPEARANCE_OPTIONS } from "@/lib/appearance";
 import { LANGUAGES } from "@/lib/i18n/languages";
-import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
+import { getNotificationPermissionGranted } from "@/features/notifications/model/pushNotifications";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 

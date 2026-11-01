@@ -5,7 +5,7 @@ import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
-import { LazyMathEquationScanner } from "@/components/mathScanner/LazyMathEquationScanner";
+import { LazyMathEquationScanner } from "@/features/scanner/components/LazyMathEquationScanner";
 import { ChatComposer, type LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { ChatInlineError } from "@/features/chat/components/ChatInlineError";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
@@ -14,13 +14,13 @@ import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyl
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
 import { composerShowsStop } from "@/features/chat/model/composerLogic";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
-import { UpgradeSheet, type UpgradeSource } from "@/components/UpgradeSheet";
+import { UpgradeSheet, type UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message, ScanReading } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import type { ReadBackSubject } from "@/lib/scanner/readBack";
+import type { ReadBackSubject } from "@/features/scanner/model/readBack";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import type { IconName } from "@/ui/icons/names";

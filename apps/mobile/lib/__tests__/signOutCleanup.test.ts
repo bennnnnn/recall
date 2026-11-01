@@ -1,6 +1,6 @@
 /** Sign-out leaves nothing of the account for the next one (see accountState.test.ts). */
 import { request } from "@/lib/api/client";
-import { clearPushSyncRecord } from "@/lib/pushNotifications";
+import { clearPushSyncRecord } from "@/features/notifications/model/pushNotifications";
 import { quizAttempt, saveQuizAttempt } from "@/lib/lesson/quizAttempts";
 import { fetchLinkPreview } from "@/lib/linkPreview";
 import { latexToSvgMath, peekSvgMath, setSvgMathRendererForTest } from "@/lib/math/svgMath";
@@ -27,7 +27,7 @@ jest.mock("expo-file-system/legacy", () => ({
 jest.mock("@/lib/api/client", () => ({
   request: jest.fn(async () => ({ url: "https://a.example", title: "A", description: null, domain: "a.example" })),
 }));
-jest.mock("@/lib/pushNotifications", () => ({ clearPushSyncRecord: jest.fn(async () => undefined) }));
+jest.mock("@/features/notifications/model/pushNotifications", () => ({ clearPushSyncRecord: jest.fn(async () => undefined) }));
 jest.mock("@/lib/auth", () => ({ getToken: jest.fn(async () => "token") }));
 jest.mock("@/lib/cachedModels", () => ({ clearCachedModels: jest.fn(async () => undefined) }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
@@ -43,7 +43,7 @@ jest.mock("@/features/memory/model/memoryListCache", () => ({ invalidateMemories
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/features/chat/model/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
 jest.mock("@/lib/cache/usageCache", () => ({ invalidateUsageCache: jest.fn() }));
-jest.mock("@/lib/purchases", () => ({ signOutRevenueCat: jest.fn() }));
+jest.mock("@/features/billing/model/purchases", () => ({ signOutRevenueCat: jest.fn() }));
 jest.mock("@/features/todos/model/reminderSeen", () => ({ clearSeenReminderIds: jest.fn() }));
 jest.mock("@/features/todos/model/homeReminderNudges", () => ({ clearHomeNudgeState: jest.fn() }));
 
