@@ -110,14 +110,52 @@ def _one_abundance(segment: str) -> float | None:
     return values[0] if len(values) == 1 else None
 
 
-def _one_mass(segment: str) -> float | None:
-    values = [float(match.group(1) or match.group(2)) for match in _STATED_MASS.finditer(segment)]
-    return values[0] if len(values) == 1 else None
+def _masses_in(segment: str) -> list[float]:
+    return [float(match.group(1) or match.group(2)) for match in _STATED_MASS.finditer(segment)]
+
+
+# A mass written with its unit ("35 u", "6.02 amu"): if no isotope took it, it was not read.
+_UNIT_MASS = re.compile(rf"(?<![\w.]){NUMBER}\s*{_UNIT}")
+_PERCENTAGE = re.compile(rf"{NUMBER}\s*%")
+# A sample's grams, moles or atoms ("a mass of 10 g"); a molar mass in g/mol is a mass.
+_SAMPLE = re.compile(
+    r"\s*(?i:[km]?g|grams?|kilograms?|mol|moles?|atoms?|molecules?|particles?|ions?|nuclei"
+    r"|formula\s+units?)\b(?!\s*(?i:/|per\s)\s*(?i:mol))"
+)
+
+
+def _unread_mass(read: str, isotopes: list[tuple[str, int, int, int]]) -> bool:
+    """Whether the text states a mass no isotope took: a number with a mass unit, or a number
+    near an isotope's mass number that a mass noun leads past only words naming the isotopes
+    ("the relative masses of 6Li and 7Li are 6.0 and 7.0", "molar masses 6.015 g/mol and
+    7.016 g/mol"), never a sample's grams nor "(1 mark)" or "to 2 decimal places" after
+    "the relative atomic mass of hydrogen". The table's masses would then answer another
+    question (2026-11-01: four questions stating their masses were averaged from the
+    table)."""
+    for _symbol, _number, start, end in isotopes:
+        read = _blank(read, start, end)
+    if _UNIT_MASS.search(read):
+        return True
+    read = _PERCENTAGE.sub(lambda match: " " * len(match.group()), read)
+    symbol = isotopes[0][0]
+    mass_numbers = [number for _symbol, number, _start, _end in isotopes]
+    for found in NUMBER_RE.finditer(read):
+        if _SAMPLE.match(read, found.end()) or not _names_masses(
+            _clause_before(read, found.start()), symbol
+        ):
+            continue
+        value = float(found.group())
+        if any(abs(value - number) <= _MASS_NUMBER_GAP for number in mass_numbers):
+            return True
+    return False
 
 
 def _clause_before(text: str, start: int) -> str:
     ends = [match.end() for match in _CLAUSE_END.finditer(text, 0, start)]
     return text[ends[-1] if ends else 0 : start]
+
+
+_POSSESSIVE = re.compile(r"(?<=[A-Za-z])['\u2019]s\b")
 
 
 def _names_masses(lead: str, symbol: str) -> bool:
@@ -126,6 +164,8 @@ def _names_masses(lead: str, symbol: str) -> bool:
     if not nouns:
         return False
     bridge = _PARENTHETICAL.sub(" ", _ISOTOPE.sub(" ", lead[nouns[-1].end() :]))
+    # "lithium's isotopes" names them as "the isotopes of lithium" does.
+    bridge = _POSSESSIVE.sub("", bridge)
     if re.sub(r"[A-Za-z\s,^]", "", bridge):
         return False
     known = _BRIDGE_WORDS | {symbol.lower(), BY_SYMBOL[symbol].name.lower()}
@@ -226,7 +266,10 @@ def extract_average_atomic_mass(text: str) -> ChemistryIntent | None:
         clause_end = _CLAUSE_END.search(read, end, stop)
         segment = read[end : clause_end.start() if clause_end else stop]
         abundance = _one_abundance(segment)
-        stated = _one_mass(segment)
+        said = _masses_in(segment)
+        if len(said) > 1:
+            return None  # two masses for one isotope: which one is its, the reader cannot tell
+        stated = said[0] if said else None
         if listed_abundances is not None:
             if abundance is not None:
                 return None  # given twice: which one holds is not ours to pick
@@ -246,6 +289,8 @@ def extract_average_atomic_mass(text: str) -> ChemistryIntent | None:
         abundances[label] = abundance
         masses[label] = mass
     if stated_count not in {0, len(isotopes)}:
+        return None
+    if stated_count == 0 and _unread_mass(read, isotopes):
         return None
     if abs(sum(abundances.values()) - 100) > 0.1:
         return None
