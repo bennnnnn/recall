@@ -76,6 +76,7 @@ pytest.register_assert_rewrite(
 
 # Before any test module imports the app (and with it SymPy's names): a reading or a SymPy
 # call made on the event loop by production code fails the test (app/tests/loop_guard.py).
+from app.core import readings
 from app.tests import loop_guard
 
 loop_guard.install()
@@ -107,6 +108,14 @@ def _nothing_read_on_the_loop():
             "Ran on the event loop; read it in the SymPy pool (app/core/readings.py):\n"
             + "\n".join(ran)
         )
+
+
+@pytest.fixture(autouse=True)
+def _no_turn_left_behind():
+    """A sync test that begins a turn leaves none behind: the next test on the worker
+    would otherwise run inside it, and the loop guard would fail its own readings."""
+    yield
+    readings._MEMO.set(None)
 
 
 @pytest.fixture(autouse=True)

@@ -343,7 +343,7 @@ async def test_the_subject_is_the_turns_reading_for_its_message_and_read_for_any
     assert asked == [(message, True, True), ("Solve 2x + 3 = 7", False, True)]
 
 
-def test_a_subject_the_pool_did_not_read_stays_unknown_in_the_reading() -> None:
+async def test_a_subject_the_pool_did_not_read_stays_unknown_in_the_reading() -> None:
     begin_turn()
     reading = read_turn("Solve 2x + 3 = 7", Settings())
 
