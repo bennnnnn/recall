@@ -428,6 +428,7 @@ describe("per-fence predicates accept exactly these fences", () => {
     expect(forms).toEqual({
       arithmetic: "copyText",
       quiz: "copyText",
+      clarify: "copyText",
       array: "copyText",
       calculator: "calculator",
       places: "places",
