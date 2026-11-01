@@ -12,7 +12,7 @@ from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.sig_figs import decimals_of
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 from app.tests.modules.chemistry.corpus import (
     ANSWERABLE,
     COVERAGE_FLOOR,

@@ -347,9 +347,10 @@ for presentation and the post-turn jobs, not for reading.
 - **Status, step 4 (subject): done.**
   - The subject order (code, a scanned caption, closed chemistry, physics, a curve physics
     cannot read, symbol givens, chemistry-shaped, maths, a chart, chemistry off, a chemistry
-    question, none) is written once, in `services/which_subject.py` (`read_subject_reason`, a
-    pool reading that returns the subject and the step that decided it, `SubjectReading`),
-    moved out of `subject_solving.py`, which keeps its 500-line limit and re-exports
+    question, none) is written once, in `services/which_subject.py` (now
+    `services/subjects/order.py`: `read_subject_reason`, a pool reading that returns the
+    subject and the step that decided it, `SubjectReading`), moved out of `subject_solving.py`
+    (now `services/subjects/dispatch.py`), which keeps its 500-line limit and re-exports
     `SubjectName`. `_subject_of_text` (and so `detect_subject` and `read_subject`) returns its
     subject; the order and every branch are unchanged.
   - `TurnReading` holds the message's subject as the pool read it with the turn's attachment
@@ -465,7 +466,58 @@ printed "no decision changed".
 - **Proof:** the decision diff and STEM snapshot are unchanged. `test_module_direction` gains "chat
   imports no subject", and the #2151 cycle baseline loses the subject edges.
 - **Conflicts:** #2148, #2150, #2152, #2155, #2156 (subject readers), #2154/#2160 (money).
-- **Risk:** medium. **Size:** L.
+- **Risk:** medium. **Size:** L. Land it in steps: the registry, then chat's subject imports
+  behind it, then the `Literal`s.
+- **Status, step 1 (the registry): done.**
+  - `services/subjects/` is the subjects' package: `registry.py` (new), `order.py` (was
+    `services/which_subject.py`) and `dispatch.py` (was `services/subject_solving.py`). Three
+    flat `subject_*` files would have been a domain with no package
+    (`tests/services/test_service_layout.py`). `subject_scan.py` stays a flat leaf: the
+    subjects import it, and the package imports the subjects.
+  - `registry.py` defines `SubjectAdapter`, a protocol like `ToolAdapter` with what the
+    dispatcher asks of every subject: `name`, `solve` (a `SubjectRequest` to a
+    `SubjectAugmentation`) and `direct_reply`. `SUBJECTS` names each subject's adapter, one
+    entry each: `modules/math/subject.py`, `modules/physics/subject.py`,
+    `modules/chemistry/subject.py`, each listed public by its package. They hold what the
+    dispatcher's private `_augment_*` and `_direct_*` functions held, unchanged.
+  - `dispatch.py` (388 → 179 lines) asks `subject_adapter(name)` and imports no subject;
+    `test_module_direction.py` holds that. The package sits in layer 2.
+  - `SubjectName` and `SubjectAugmentation` moved to `services/solving.py`, the leaf below
+    every subject, and the registry re-exports the name: the registry imports the subjects,
+    and the pure solvers reach `solving`, so the list of names sits below both.
+    `test_subject_registry.py` holds one adapter per name.
+  - Registration is the tuple, not a call in each subject's `__init__`: the SymPy pool's
+    spawned workers import only what a job names (the direct reply runs there), so a call in
+    an `__init__` registers nothing until something imports every subject; the tuple is that
+    import, typed and in one place, as `services/mcp` registers the model's tools.
+  - The order between subjects stays `order.py`'s (ST-05), so a subject that competes with
+    another for a line also adds its step there. Dispatcher-only public files left the
+    subjects' lists: `math.tools.direct`, `physics.direct` and `.prompt`, `chemistry.block`,
+    `.direct` and `.reading`.
+  - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2a (chat's prompt copy and follow-ups): done.** Chat files that import a
+  subject: 25 → 16 (53 import lines → 35).
+  - The adapter gains `hints` (`services/subject_hints.py`, `SubjectHints`, moved from chat's
+    `prompt_subjects`; it adds the follow-up hints and chemistry's copy the leak pass reads
+    beside chat's visuals rules), `asks` (the subject's cue: `needs_symbolic_math`,
+    `needs_physics`, `is_chemistry_question`) and `followups` (`problem`, `continues`,
+    `previous_result`, `asks_to_see`, `shown_problem`; a subject with nothing to read there
+    answers None or False).
+  - Chat reads them there: `prompt_subjects`, `prompt_sections` (the three follow-up
+    sections), `prompt_rule_text`, `tool_loop/rounds` (maths' closing policy after a SymPy
+    round), `turn_prep/followups` (maths' five follow-up readers, in their order, are now
+    `MathFollowups.problem`), `continuation_subject`, `prompt_window` and `turn_intercepts`
+    (chemistry's "show me both" after a shape answer; the pool reads the adapter's bound
+    method).
+  - The maths-notation rule moved to `services/math_notation.py`: maths' pack and chat's
+    every-turn maths-ink rule both state it.
+  - What only chat's prompt and follow-ups read left the subjects' public lists:
+    `math.followup` and `.reply_policy`; `physics.followup`, `PHYSICS_REPLY_POLICY` and
+    `physics_prompt_hints`; `chemistry.followup`, `.reply_policy` and `.shape_followup`.
+  - `SUBJECT_HINTS` keeps its order (physics, maths, chemistry, then chat's statistics and
+    biology): the leak pass joins its rules in that order. `prompt_rule_text()` hashes the
+    same before and after.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 

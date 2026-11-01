@@ -23,7 +23,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.shape_followup import is_show_line
 from app.modules.chemistry.solvers import solve_chemistry
 from app.services.solving import SolveServiceError
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 _LIVE = (
     "Ok so chem hw. how much water do i get if i burn like 4g of h2",

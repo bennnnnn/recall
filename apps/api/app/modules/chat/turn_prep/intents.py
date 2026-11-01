@@ -33,7 +33,7 @@ from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject
 from app.modules.images.lookup_intent import extract_image_lookup_query
 from app.modules.turn_reading.plan import PartKind, TurnPart, TurnPlan, single_plan
 from app.modules.web_search.detection import needs_web_search
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 # After a sentence or comma, two open questions need this many words of their own.
 _MIN_OWN_TOPICS = 2

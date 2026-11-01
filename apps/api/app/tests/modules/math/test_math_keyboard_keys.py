@@ -10,7 +10,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.math.solve.parse import parse_expression
-from app.services.subject_solving import build_subject_augmentation
+from app.services.subjects.dispatch import build_subject_augmentation
 
 
 def _settings() -> Settings:

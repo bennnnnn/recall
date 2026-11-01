@@ -21,14 +21,10 @@ _RULE_GRAMS_SHA = "feb77525666d944e"
 
 
 def _rules() -> list[str]:
-    from app.modules.chat.prompt_rule_text import _rule_modules, _strings
+    from app.modules.chat.prompt_rule_text import _rule_sources, _source_rules, _strings
     from app.modules.chat.prompt_subjects import SUBJECT_HINTS
 
-    rules: list[str] = []
-    for module in _rule_modules():
-        for name, value in vars(module).items():
-            if name.isupper() or (name.startswith("_") and name.lstrip("_").isupper()):
-                rules += _strings(value)
+    rules = [rule for source in _rule_sources() for rule in _source_rules(source)]
     for hints in SUBJECT_HINTS.values():
         for short in (False, True):
             rules += _strings(list(hints.presentation(short)))

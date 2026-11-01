@@ -77,7 +77,7 @@ from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search.detection import needs_web_search
 from app.services.mcp import setup_mcp_adapters
 from app.services.solving import VerifiedPhysicsBlock
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 from app.tests.fakes import fake_session

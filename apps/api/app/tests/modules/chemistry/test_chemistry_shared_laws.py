@@ -15,7 +15,7 @@ from app.modules.chemistry.solvers.solver import CHEMISTRY_SOLVERS
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.direct import maybe_direct_physics_reply
 from app.services.solving import VerifiedPhysicsBlock
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 _SETTINGS = Settings(math_tools_enabled=True)
 

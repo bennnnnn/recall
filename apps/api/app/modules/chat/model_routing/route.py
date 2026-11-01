@@ -253,7 +253,7 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
     # A tweet or an email about a migration is writing, not the migration.
     if needs_strong_model(content) and not is_writing_deliverable_request(content):
         return smart, "strong_task"
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     # The lane follows the subject whose solver answers the line (code-health audit
     # DUP-05): a balanced equation or a molarity is chemistry's card, not the maths

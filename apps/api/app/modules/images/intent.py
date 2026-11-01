@@ -35,7 +35,7 @@ from app.modules.images.lookup_intent import extract_image_lookup_query, is_refe
 
 if TYPE_CHECKING:
     from app.core.config import Settings
-    from app.services.subject_solving import SubjectName
+    from app.services.subjects.dispatch import SubjectName
 
 _IMAGE_MARKER_ID = re.compile(
     r"\[Image: /attachments/([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})/file\]"
@@ -218,7 +218,7 @@ async def composer_intent_for_chat(
             )
     # The subject is the one reading behind this answer that parses with SymPy; read it in
     # the pool, and ``composer_image_intent`` asks it of this request's readings.
-    from app.services.subject_solving import read_subject
+    from app.services.subjects.dispatch import read_subject
 
     await read_subject(text, settings)
     return composer_image_intent(

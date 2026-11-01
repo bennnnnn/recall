@@ -20,7 +20,7 @@ from app.modules.chat.continuation_subject import (
 )
 from app.modules.chat.follow_up_thread import subject_for_related
 from app.modules.chat.model_routing.route import route_chat_model
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 from app.services.text_normalize import collapse_ws
 from app.tests.behavior.cases import CASES
 

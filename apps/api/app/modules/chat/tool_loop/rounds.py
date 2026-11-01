@@ -36,9 +36,9 @@ from app.modules.chat.tool_loop.selection import (
     user_words,
 )
 from app.modules.chat.tool_loop.text_calls import _tool_calls_from_text
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.web_search import TurnTavilyBudget
 from app.services.solving import VerifiedMathBlock
+from app.services.subjects.registry import subject_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +254,10 @@ def _hand_off(
         # Tool content is supporting data, not a request for a worked tutorial.
         # Append after completed results; cancelled/unanswered rounds were trimmed.
         # An earlier copy (system prompt, solve block) goes: this one is closest.
-        working = policies_once([*working, {"role": "system", "content": MATH_REPLY_POLICY}])
+        policies = subject_adapter("math").hints.closing
+        working = policies_once(
+            [*working, *({"role": "system", "content": policy} for policy in policies)]
+        )
     return ToolRoundsOutcome(working, verified, collected.terminal_image, collected.search_hits)
 
 
