@@ -83,10 +83,11 @@ _ROOT = "(27*a^3 + 54*a^2*b + 36*a*b^2 + 8*b^3)^(1/3)"
 @pytest.mark.parametrize(
     ("question", "expr", "kept"),
     [
-        # The card would be the question's expression, or a root of it.
-        ("simplify (x+1)/(x-1)", "(x+1)/(x-1)", False),
-        ("simplify 1/(x-1)", "1/(x-1)", False),
+        # The card would be the question's expression with the root still on it.
         (f"Find the cube root of {_CUBE}.", _ROOT, False),
+        ("simplify sqrt(x^2 + 1)", "sqrt(x^2 + 1)", False),
+        # Already simplest is an answer: its excluded value is stated beside it.
+        ("simplify (x+1)/(x-1)", "(x+1)/(x-1)", True),
         # A fraction is matched whole, never inside the question's terms (Claude review).
         ("simplify (x+1)/(x-1) - x/(x-1)", "(x+1)/(x-1) - x/(x-1)", True),
         # A rewrite the student asked for keeps its card.
@@ -107,7 +108,13 @@ def test_a_card_is_kept_only_when_it_says_something_new(
 
 @pytest.mark.parametrize(
     ("given", "card"),
-    [("5", "5"), ("3/4", r"\frac{3}{4}"), ("x", "x"), ("2*x + 3", "x = 2")],
+    [
+        ("5", "5"),
+        ("3/4", r"\frac{3}{4}"),
+        ("x", "x"),
+        ("2*x + 3", "x = 2"),
+        ("x^2 + 1", "x^{2} + 1"),
+    ],
 )
 def test_a_number_a_letter_or_an_equation_never_restates(given: str, card: str) -> None:
     """A median, the option a comparison picks, a letter or a solved equation is an answer."""
@@ -134,9 +141,10 @@ async def test_the_model_readers_cube_root_gets_no_card(monkeypatch: pytest.Monk
 
 @pytest.mark.asyncio
 async def test_the_sympy_tool_certifies_no_restated_expression(thread_sympy_executor: None) -> None:
-    """The model's own simplify call on what the question states repeats it as a card."""
+    """The model's own simplify call on a root of the whole expression repeats the question."""
     adapter = SympyAdapter(Settings())
-    same = await adapter._action_expr_op({"action": "simplify", "expr": "(x+1)/(x-1)"})
+    root = "(27*a**3 + 54*a**2*b + 36*a*b**2 + 8*b**3)**(1/3)"
+    same = await adapter._action_expr_op({"action": "simplify", "expr": root})
     assert not (same.data or {}).get("canonical_answer")
     assert "Do NOT claim" in same.content
     changed = await adapter._action_expr_op({"action": "simplify", "expr": "2*x + 3*x"})
