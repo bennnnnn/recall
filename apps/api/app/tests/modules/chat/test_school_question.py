@@ -391,3 +391,35 @@ def test_an_opinion_closing_on_your_answer_is_no_exercise(query: str) -> None:
 )
 def test_an_exercise_closing_on_your_answer_is_an_exercise(query: str) -> None:
     assert school_question_hint(query) is not None
+
+
+# A blank is a word to fill in a sentence of its own; a run of dots or underscores in a chat
+# message is punctuation (2026-11-01: "so......", "lol ok ___ whatever" and "Trip
+# ideas.......... Paris or Rome?" read as a textbook's blank, so their replies lost their
+# emoji and the trip question its search).
+@pytest.mark.parametrize(
+    ("query", "blank"),
+    [
+        ("The process by which plants make food is called ________.", True),
+        ("The ........ is the powerhouse of the cell.", True),
+        ("The …… is the powerhouse of the cell.", True),
+        ("Water boils at ___ °C", True),
+        ("Fill in the blanks. Power is defined as the ______ at which work is done.", True),
+        ("complete the sentence: If I had known you were coming, I ___", True),
+        # A worksheet's equation or label (PR review).
+        ("5 + 3 = ___", True),
+        ("Solve: 12 ÷ 4 = ____", True),
+        ("___ + 3 = 8", True),
+        ("Capital of France: ____", True),
+        ("so......", False),
+        ("so...... what do you think", False),
+        ("wait……", False),
+        ("lol ok ___ whatever", False),
+        ("Trip ideas.......... Paris or Rome?", False),
+    ],
+)
+def test_a_blank_is_a_word_missing_from_a_sentence(query: str, blank: bool) -> None:
+    from app.modules.turn_reading.school_question import has_nothing_to_look_up, in_textbook_form
+
+    assert in_textbook_form(query) is blank
+    assert has_nothing_to_look_up(query) is blank
