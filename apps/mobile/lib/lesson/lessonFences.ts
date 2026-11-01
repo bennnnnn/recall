@@ -279,8 +279,11 @@ export function looseArray(content: string): LooseArray | null {
   };
 }
 
-/** A JSON member (`"answer":`): text holding one is JSON, even after a line of prose. */
-const JSON_MEMBER = /"[^"\n]*"\s*:/;
+/**
+ * A lesson card's own JSON member (`"answer":`, `"values":`): text holding one is the card's
+ * JSON, even after a line of prose. Other quoted words (`x = {"a": 1}`) stay plain text.
+ */
+const CARD_MEMBER = /"(?:question|questions|options|answer|explanation|values)"\s*:/;
 
 /**
  * Text in a lesson fence that is not JSON at all, such as a question written out. A body
@@ -288,6 +291,6 @@ const JSON_MEMBER = /"[^"\n]*"\s*:/;
  */
 export function plainFenceText(content: string): string | null {
   const text = content.trim();
-  if (!text || text.startsWith("{") || text.startsWith("[") || JSON_MEMBER.test(text)) return null;
+  if (!text || text.startsWith("{") || text.startsWith("[") || CARD_MEMBER.test(text)) return null;
   return text;
 }

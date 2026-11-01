@@ -187,7 +187,13 @@ describe("plainFenceText", () => {
     const keyed = 'Here you go:\n{"question":"Q","options":["a","b"],"answer":1,"explanation":"secret"}';
     expect(plainFenceText(keyed)).toBeNull();
     expect(plainFenceText('Here: {"values": [1, 2]}')).toBeNull();
-    expect(plainFenceText("Is {1, 2} a subset of [1, 2, 3]?")).toBe("Is {1, 2} a subset of [1, 2, 3]?");
+    for (const question of [
+      "Is {1, 2} a subset of [1, 2, 3]?",
+      'Given x = {"a": 1}, what is x["a"]?',
+      'Translate "hola": what does it mean?',
+    ]) {
+      expect(plainFenceText(question)).toBe(question);
+    }
   });
 });
 
