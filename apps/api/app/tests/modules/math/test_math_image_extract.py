@@ -276,7 +276,7 @@ async def test_extract_equation_real_timeout_returns_none():
     ],
 )
 async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
-    lhs: str, rhs: str
+    lhs: str, rhs: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """BUG FIX (Phase B item 6): the vision-extracted equation used to be
     discarded after stringifying to "lhs = rhs" free text, which was then
@@ -295,7 +295,10 @@ async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
     from app.tests.modules.math.prompt_support import augment_prompt_messages
 
     settings = Settings(math_tools_enabled=True)
-    extract = MathImageExtract(lhs=lhs, rhs=rhs, variables=["x"], found=True)
+    # The page as read: every production extract carries it, and its equation is held to it.
+    extract = MathImageExtract(
+        lhs=lhs, rhs=rhs, variables=["x"], found=True, source_text=f"{lhs} = {rhs}"
+    )
     user_content = f"Solve the math problem in this image step by step.\n\nSolve: {lhs} = {rhs}"
     messages = [
         {"role": "system", "content": "base"},
@@ -308,6 +311,11 @@ async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
         captured["intent"] = intent
         return VerifiedMathBlock(text="stub")
 
+    # This test is about the reparse; the page check (``_image_intent_on_the_page``, which
+    # cannot read "f(x,2)") has its own tests in test_math_model_readings.py.
+    from app.modules.math.tools import prompt as math_prompt
+
+    monkeypatch.setattr(math_prompt, "_image_intent_on_the_page", lambda *_args: True)
     with patch(
         "app.modules.math.tools._build_verified_block_async",
         AsyncMock(side_effect=_fake_build),

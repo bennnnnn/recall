@@ -323,7 +323,9 @@ async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPa
         "solve",
         _settings(),
         has_image_attachment=True,
-        image_math_extract=MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True),
+        image_math_extract=MathImageExtract(
+            lhs="2*x+3", rhs="7", variables=["x"], found=True, source_text="2x + 3 = 7"
+        ),
         needs_math=True,
     )
     assert verified is not None

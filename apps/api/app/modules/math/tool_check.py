@@ -387,14 +387,9 @@ def intent_in_user_text(intent: Any, text: str) -> bool:
     return tool_call_matches_user_text(args, [text])
 
 
-def asks_for_an_earlier_curve(text: str) -> bool:
-    """A graph ask whose own words hold no formula: "can you graph how the balloon's volume
-    changes … from the problem earlier?". Its curve can only be the model's reading of the
-    chat, so no user line matches the call; a message with a formula of its own is
-    matched against that formula instead."""
-    from app.modules.math.text_plot import is_graph_turn
-
-    return is_graph_turn(text, None) and _UserMath(text).empty
+def holds_no_formula(text: str) -> bool:
+    """``text`` has no formula this check could match a call against."""
+    return _UserMath(text).empty
 
 
 def tool_call_matches_user_text(raw_args: str | dict[str, Any], user_texts: list[str]) -> bool:

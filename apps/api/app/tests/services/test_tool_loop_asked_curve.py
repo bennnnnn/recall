@@ -19,7 +19,8 @@ import pytest
 from app.gateways import litellm_gateway
 from app.gateways.mcp import registry as mcp_registry
 from app.modules.chat import tool_loop
-from app.modules.math.tool_check import asks_for_an_earlier_curve, tool_call_matches_user_text
+from app.modules.math.text_plot import asks_for_an_earlier_curve
+from app.modules.math.tool_check import tool_call_matches_user_text
 
 from .tool_loop_support import settings
 
