@@ -100,6 +100,17 @@ def is_graph_turn(user_text: str, verified: Any) -> bool:
     return is_graph_followup(text) or (has_viz_command(text) and needs_symbolic_math(text))
 
 
+def asks_for_an_earlier_curve(text: str) -> bool:
+    """A graph ask whose own words hold no formula: "can you graph how the balloon's volume
+    changes … from the problem earlier?". Its curve can only be the model's reading of the
+    chat, so no user line matches the call; a message with a formula of its own is
+    matched against that formula instead. (Here, beside the graph ask, so the tool check
+    reaches nothing above it.)"""
+    from app.modules.math.tool_check import holds_no_formula
+
+    return is_graph_turn(text, None) and holds_no_formula(text)
+
+
 def strip_text_plots_on_graph_turn(content: str, user_text: str, verified: Any) -> str:
     """Only on a graph turn: an ASCII drawing the learner asked for is left alone."""
     if not content or not is_graph_turn(user_text, verified):

@@ -526,11 +526,24 @@ async def test_intent_rejects_an_unrepresented_second_operation(
 
 
 @pytest.mark.asyncio
-async def test_turn_verifies_and_replies_directly(
+async def test_a_translated_turn_is_an_unchecked_setup_for_the_model(
     monkeypatch: pytest.MonkeyPatch, thread_sympy_executor: None
 ) -> None:
+    """SymPy checks the translation's arithmetic, not that it says what the problem says:
+    the model gets the setup and its solution to check, and no card is verified."""
     monkeypatch.setattr(litellm_gateway, "complete_structured", _gateway(TICKETS_SETUP))
-    _note, verified = await math_prompt.build_math_augmentation(TICKETS, _settings())
+    note, verified = await math_prompt.build_math_augmentation(TICKETS, _settings())
+    assert verified is None
+    assert note is not None
+    assert "Equation: 5 \\cdot k + 8 \\cdot a = 124" in note
+    assert "SymPy's solution of these equations: k = 12, a = 8" in note
+
+
+def test_a_template_setup_replies_directly() -> None:
+    """A setup the server read keeps its verified, direct reply."""
+    setup = WordProblemSetup.model_validate(TICKETS_SETUP).as_read_from_text()
+    intent = MathIntent(kind="word_problem", word_problem=setup, operation="solve")
+    verified = mt._build_verified_block(intent, _settings())
     assert verified is not None and verified.canonical_answer == "8"
     reply = maybe_direct_math_reply(verified, TICKETS)
     assert reply is not None and "adults who went: $8$" in reply

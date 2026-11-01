@@ -210,7 +210,7 @@ class MathTool:
         return is_curve_fence(fence)
 
     def asks_for_earlier_curve(self, text: str) -> bool:
-        from app.modules.math.tool_check import asks_for_an_earlier_curve
+        from app.modules.math.text_plot import asks_for_an_earlier_curve
 
         return asks_for_an_earlier_curve(text)
 

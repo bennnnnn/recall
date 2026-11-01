@@ -47,7 +47,7 @@ def _helpers(
 
     monkeypatch.setattr(word_problem, "word_problem_intent", translate)
     monkeypatch.setattr(math_prompt, "llm_extract_math_intent", extract)
-    monkeypatch.setattr(math_prompt, "_intent_preserves_request", lambda _text, _intent: True)
+    monkeypatch.setattr(math_prompt, "_model_intent_is_users", lambda _text, _intent: True)
     return calls
 
 
@@ -155,7 +155,7 @@ async def test_an_extraction_that_drops_part_of_the_request_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _helpers(monkeypatch, translated=None, extracted=_EQUATION)
-    monkeypatch.setattr(math_prompt, "_intent_preserves_request", lambda _text, _intent: False)
+    monkeypatch.setattr(math_prompt, "_model_intent_is_users", lambda _text, _intent: False)
     assert await math_prompt._model_math_intent("text", _settings(), word_problem=True) is None
 
 

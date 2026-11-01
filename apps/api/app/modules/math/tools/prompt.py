@@ -32,6 +32,7 @@ from app.modules.math.tools.extract import (
 from app.modules.math.tools.function_def import has_assignment_evaluation_request
 from app.modules.math.tools.image_intent import intent_from_image_extract
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
+from app.modules.math.tools.model_readings import image_intent_on_the_page, unchecked_setup
 from app.modules.math.tools.solve_timeouts import note as note_solve_timeout
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 from app.services.workout import SELF_CHECK_PROMPT_RULE
@@ -238,6 +239,8 @@ def read_math_request(
                 audit_sources.append(image_math_extract.alternate_source_text)
             if any(not _intent_preserves_request(source, intent) for source in audit_sources):
                 intent = None
+            elif not image_intent_on_the_page(intent, image_math_extract):
+                intent = None
     else:
         intent = extract_math_intent(user_content)
     if intent is not None:
@@ -331,6 +334,11 @@ async def build_math_augmentation(
 
     if intent is None:
         return _NO_VERIFIED_RESULT, None
+    if intent.word_problem is not None and not intent.word_problem.read_from_text:
+        # A translation is never a verified card (``tools/model_readings.py``).
+        note = await unchecked_setup(intent.word_problem, settings)
+        unverified = _unverified_math_note("word_problem")
+        return (f"{note}\n\n{unverified}" if note else unverified), None
 
     from app.modules.math import tools as mt
 
@@ -405,13 +413,23 @@ async def _model_math_intent(
 async def _llm_extract_preserving(user_content: str, settings: Settings) -> MathIntent | None:
     intent = await llm_extract_math_intent(user_content, settings)
     if intent is not None and not await read_off_loop(
-        _intent_preserves_request,
+        _model_intent_is_users,
         user_content,
         intent,
         timeout=settings.subject_read_timeout_seconds,
     ):
         return None
     return intent
+
+
+def _model_intent_is_users(user_content: str, intent: MathIntent) -> bool:
+    """A model's reading may be solved and certified only when it is the user's own maths:
+    the whole request, and an equation or expression the user wrote (``tool_check``)."""
+    from app.modules.math.tool_check import intent_in_user_text
+
+    return _intent_preserves_request(user_content, intent) and intent_in_user_text(
+        intent, user_content
+    )
 
 
 def _unverified_math_note(kind: str | None) -> str:

@@ -11,6 +11,10 @@ every number in those equations must be one the problem states, in digits or
 in words, so a translation cannot smuggle in a value the student never gave.
 SymPy then has to find exactly one solution in the stated domain
 (``solve/word_problem.py``); otherwise the turn keeps its normal path.
+
+A translation is a model's reading: its solve goes to the model as an unchecked setup to
+check against the words, never as a verified card (``tools/prompt.py``). Only a setup the
+templates read is certified. A process that never ends is no setup at all.
 """
 
 from __future__ import annotations
@@ -125,6 +129,15 @@ _RELATION = re.compile(
 _STATED_RATE = re.compile(
     r"\b\d+(?:\.\d+)?\s+[a-z]+(?:\s+of\s+[a-z]+)?\s+"
     r"(?:for|per|makes?|serves?|feeds?|to\s+make)\s+\d",
+    re.IGNORECASE,
+)
+# A process that never ends sums an infinite series, which no finite setup holds: "If this
+# process continues without end, find the total tax" was summed over three rounds, 3920 Birr
+# for 5000 (2026-11-01).
+_ENDLESS = re.compile(
+    r"\b(?:(?:continues?|goes\s+on|repeats?|keeps?\s+going)\s+(?:on\s+)?(?:without\s+(?:an?\s+)?"
+    r"end|for\s*ever|endlessly|indefinitely)|ad\s+infinitum|never\s+(?:ends|stops)"
+    r"|infinite(?:ly)?\s+(?:series|sequence|process|number\s+of\s+(?:times|rounds|steps)))\b",
     re.IGNORECASE,
 )
 _DIGITS = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?|\.\d+")
@@ -278,7 +291,7 @@ async def word_problem_intent(text: str, settings: Settings) -> MathIntent | Non
     A classic shape one closed template reads whole (``word_templates``) needs
     no model call; its setup is checked the same way.
     """
-    if not settings.math_word_problems_enabled:
+    if not settings.math_word_problems_enabled or _ENDLESS.search(text):
         return None
     from app.modules.math.tools.word_templates import word_template_setup
 

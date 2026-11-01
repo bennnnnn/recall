@@ -440,5 +440,5 @@ def word_template_setup(text: str) -> WordProblemSetup | None:
     for template in _TEMPLATES:
         setup = template(plain)
         if setup is not None:
-            return setup if grounded(setup, plain) else None
+            return setup.as_read_from_text() if grounded(setup, plain) else None
     return None

@@ -16,6 +16,7 @@ from sympy import latex
 from app.core.config import Settings
 from app.modules.math.schemas import MathIntent
 from app.modules.math.schemas.word_problem import WordProblemSetup
+from app.modules.math.solve.declines import declines
 from app.modules.math.solve.word_problem import WordSolution, solve_word_problem
 from app.modules.math.tools.block.canonical import _answer_canonical
 from app.services.solving import VerifiedMathBlock
@@ -51,6 +52,33 @@ def _verified_block_word_problem(
         direct_reply=format_word_problem_reply(setup, solution, answer),
         check_latex=solution.check,
     )
+
+
+# What the model is told about a setup no reader of the server's read from the words.
+UNCHECKED_SETUP_RULE = (
+    "This setup is a model's reading of the problem, and SymPy checked only its arithmetic. "
+    "Check each equation against the words it comes from before you use it: a misread "
+    "condition, a dropped term or quantity, or a process that never ends makes it wrong, and "
+    "then set the problem up yourself. Never call the answer verified."
+)
+
+
+@declines(None)
+def unchecked_setup_note(setup: WordProblemSetup) -> str | None:
+    """A model's translation of a word problem and SymPy's solution of it, for the model to
+    check against the words; None when SymPy finds no one solution in the stated domain."""
+    solution = solve_word_problem(setup)
+    if solution is None:
+        return None
+    lines = ["Word problem setup, read by a model (not checked against the problem):"]
+    lines.extend(f"{unknown.symbol} = {_plain(unknown.meaning)}" for unknown in setup.unknowns)
+    for equation, item in zip(solution.equations, setup.equations, strict=True):
+        source = _plain(item.source)
+        lines.append(f"Equation: {equation}" + (f' (from "{source}")' if source else ""))
+    values = ", ".join(f"{name} = {latex(value)}" for name, value in solution.values)
+    lines.append(f"SymPy's solution of these equations: {values}")
+    lines.append(UNCHECKED_SETUP_RULE)
+    return "\n".join(lines)
 
 
 def _plain(text: str | None) -> str:
