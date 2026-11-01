@@ -70,10 +70,15 @@ def evaluate_arithmetic(expr: str) -> str:
         raise SolveServiceError("not a numeric arithmetic expression")
     if parsed.free_symbols:
         raise SolveServiceError("arithmetic expression still has variables")
-    from app.modules.math.solve.real_reading import real_odd_roots
+    from app.modules.math.solve.real_reading import complex_without_cause, read_written
 
     # ∛(-27) is -3, as everywhere in school algebra; SymPy's principal root is complex.
-    return _defined_value_latex(simplify(real_odd_roots(parsed)))
+    # Read as written: evaluated, (-2.5)^(2/3) is already the principal value.
+    written = parse_expression(expr, ["x"], evaluate=False)
+    value = simplify(read_written(written))
+    if complex_without_cause(written, value):
+        raise SolveServiceError("could not verify: an odd root kept no real value")
+    return _defined_value_latex(value)
 
 
 def percent_of(rate: float, base: float) -> str:
@@ -399,11 +404,22 @@ def _imaginary_unit_to_sympy(expr: str) -> str:
 
 
 def evaluate_complex(expr: str, *, expanded: bool = False) -> str:
-    """The value, odd roots read as real roots like everywhere else (∛(-8) = -2)."""
+    """The value in complex numbers; an odd root of a negative number has two readings there
+    (-2 or the principal 1 + √3 i), so it is declined."""
     from app.modules.math.solve.complex_form import a_plus_bi
-    from app.modules.math.solve.real_reading import real_odd_roots
+    from app.modules.math.solve.real_reading import (
+        odd_root_of_a_negative_number,
+        real_odd_roots,
+    )
 
-    parsed = real_odd_roots(parse_expression(_imaginary_unit_to_sympy(expr), ["x"]))
+    sympy_text = _imaginary_unit_to_sympy(expr)
+    written = parse_expression(sympy_text, ["x"])
+    if odd_root_of_a_negative_number(parse_expression(sympy_text, ["x"], evaluate=False)):
+        # ∛(-8) asked in complex numbers is -2 or the principal 1 + √3 i: no one value.
+        raise SolveServiceError(
+            "could not verify: an odd root of a negative number has two values in complex numbers"
+        )
+    parsed = real_odd_roots(written)
     value = expand(parsed) if expanded else simplify(parsed)
     if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
         return UNDEFINED_LATEX

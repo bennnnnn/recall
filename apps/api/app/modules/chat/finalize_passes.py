@@ -29,7 +29,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.modules.chat.claim_check import cut_unsupported_claims
-from app.modules.chat.control_tokens import strip_control_tokens
+from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
 from app.modules.chat.finalize_contracts import (
     CARD_PASSES,
@@ -172,6 +172,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         "control_tokens",
         lambda s: strip_control_tokens(s.text, s.ctx.user_message_content or ""),
         FALL_BACK,
+        closed=drop_control_tokens,
         kind=TEXT,
         before=EVERY_OTHER,
     ),

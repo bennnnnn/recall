@@ -447,6 +447,22 @@ async def test_sympy_adapter_broken_pool_degrades_like_timeout(
 
 
 @pytest.mark.asyncio
+async def test_sympy_adapter_reports_a_declined_value_as_its_reason(
+    thread_sympy_executor: None,
+):
+    """A decline is not a timeout: the model is told the reason, not "timed out"."""
+    from app.services.solving import SolveServiceError
+
+    adapter = SympyAdapter(Settings(stem_solve_timeout_seconds=5))
+    declined = SolveServiceError("could not verify: an odd root kept no real value")
+    with patch("app.modules.math.tool.math_solve.simplify_expression", side_effect=declined):
+        result = await adapter.invoke(
+            {"action": "simplify", "expr": "x + x", "variable": "x"}, tool_context()
+        )
+    assert result.content == "Math error: could not verify: an odd root kept no real value"
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_solve_times_out_instead_of_blocking(
     monkeypatch: pytest.MonkeyPatch,
     thread_sympy_executor: None,

@@ -185,6 +185,7 @@ async def test_revoke_failures_return_false_and_never_raise(monkeypatch, token, 
     )
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_slow_apple_ends_at_the_deadline(monkeypatch) -> None:
     async def slow(_request: httpx.Request) -> httpx.Response:

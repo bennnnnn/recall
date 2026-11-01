@@ -79,21 +79,20 @@ class SympyAdapter:
         }
 
     async def _run_off_loop(self, fn: Callable[..., _T], *args: Any) -> _T | None:
-        """Run synchronous, CPU-bound SymPy work in the bounded subprocess
-        pool with a hard timeout + SIGTERM on timeout.
+        """Run synchronous, CPU-bound SymPy work in the bounded subprocess pool with a hard
+        timeout + SIGTERM on timeout, as every chat-path SymPy call: a pathological expression
+        sent through the model-callable "sympy" tool would otherwise stall every stream on
+        this worker's event loop. A decline (``SolveServiceError``) is raised with its reason.
 
-        Through the SymPy pool, with its timeout, as every chat-path SymPy call:
-        solve and integrate are synchronous, and a pathological expression sent through
-        the model-callable "sympy" tool would otherwise stall every stream on this
-        worker's event loop.
-
-        The function and args must be picklable (top-level functions + plain
-        data) so they can cross the subprocess boundary.
+        The function and args must be picklable (top-level functions + plain data) so they
+        can cross the subprocess boundary.
         """
         from app.core.sympy_executor import run_sympy
 
         try:
             return await run_sympy(fn, *args, timeout=self.settings.stem_solve_timeout_seconds)
+        except math_solve.SolveServiceError:
+            raise
         except TimeoutError:
             logger.warning("sympy MCP tool call timed out")
             return None
