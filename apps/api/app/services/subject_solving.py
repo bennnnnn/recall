@@ -25,7 +25,7 @@ from app.modules.math.tools.prompt import (
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.prompt import build_physics_augmentation
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock, VerifiedSolveBlock
-from app.services.verified_numbers import passes_gate
+from app.services.verified_numbers import gate_augmentation
 
 SubjectName = Literal["math", "physics", "chemistry"]
 
@@ -39,6 +39,8 @@ class SubjectAugmentation:
     # Both halves of "…, and also …" already rendered. Chat shows this and
     # does not ask the model to redo either half.
     direct_text: str | None = None
+    # What the verified-number gate found unread when it dropped the card (kinds only).
+    gate_missed: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -432,10 +434,8 @@ async def build_subject_augmentation(
         response_intent_text=response_intent_text,
         redis=redis,
     )
-    if has_image_attachment or passes_gate(user_content, augmentation.verified, settings):
-        return augmentation
-    # A card that ignores a stated number or count answers another question.
-    return SubjectAugmentation(augmentation.subject, None, None)
+    question = math_text if subject == "math" else user_content  # a follow-up's problem
+    return await gate_augmentation(augmentation, question, settings, image=has_image_attachment)
 
 
 async def _paired_direct_reply(

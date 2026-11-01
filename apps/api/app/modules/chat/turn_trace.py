@@ -60,6 +60,8 @@ class TurnTrace:
     # ``model_reader.schemas.ModelRead`` it set when it finished.
     model_read_task: Any = None
     model_read: Any = None
+    # A verified card the verified-number gate dropped: "<mode>-<kinds>" ("counts-count").
+    numbers_gate: str | None = None
     emitted: bool = False
 
 
@@ -133,6 +135,13 @@ def note_pass(trace: TurnTrace, name: str, before: str, after: str) -> None:
     """A finalize pass's effect: recorded only when it changed the text."""
     if after != before and len(trace.passes_changed) < _MAX_NAMES:
         trace.passes_changed.append((_token(name) or "unknown", len(after) - len(before)))
+
+
+@_quietly
+def note_numbers_gate(trace: TurnTrace, mode: str, missed: Iterable[str]) -> None:
+    """The verified-number gate dropped the card: its mode and what it found unread."""
+    kinds = sorted({kind for kind in map(_token, missed) if kind})
+    trace.numbers_gate = _token(f"{mode}-{'.'.join(kinds)}")
 
 
 @_quietly
@@ -276,6 +285,8 @@ def turn_record(
     shadow = _model_read(trace, record.get("solver"))
     if shadow is not None:
         record["model_read"] = shadow
+    if trace.numbers_gate is not None:
+        record["numbers_gate"] = trace.numbers_gate
     return record
 
 

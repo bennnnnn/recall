@@ -59,7 +59,7 @@ class StemSettings(BaseModel):
     # (two 3 s translation attempts), so it only stops a call that outlives its
     # own timeout; a finished extraction is used when the translation runs long.
     math_model_intent_budget_seconds: float = 7.0
-    # Experiment ("every number accounted for", services/verified_numbers.py): a verified
+    # Experiment ("every number accounted for", services/verified_numbers/gate.py): a verified
     # card whose solve did not read what the question states is dropped, and the model
     # answers. "counts": only counts ("twenty 60 W bulbs", "both", "several"); "all":
     # every number too. Off until measured.

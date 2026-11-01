@@ -163,13 +163,17 @@ def _web_verdict(
     return bool(found), found if plan_of(gate.content, settings).multi else None
 
 
-def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:
+async def _apply_tool_rounds(
+    ctx: StreamContext, rounds: ToolRoundsOutcome, settings: Settings
+) -> None:
     """What the tool rounds found becomes the turn's: the messages the stream reads,
     a verified block, a terminal picture, search sources the prompt path lacked."""
     ctx.prompt_messages, tool_verified, terminal_image, tool_search_hits = rounds
     if tool_verified is not None:
         question = ctx.user_message_content or ""
-        ctx.verified_subject = with_tool_verified(ctx.verified_subject, tool_verified, question)
+        ctx.verified_subject = await with_tool_verified(
+            ctx.verified_subject, tool_verified, question, settings
+        )
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
@@ -237,7 +241,7 @@ async def run_tool_loop_path(
         search_parts=search_parts,
         skip_tools=gate.skip_tools,
     )
-    _apply_tool_rounds(ctx, rounds)
+    await _apply_tool_rounds(ctx, rounds, settings)
 
 
 @dataclass

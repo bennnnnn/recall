@@ -164,6 +164,18 @@ def test_a_tool_with_an_odd_name_is_counted_as_unknown() -> None:
     assert dict(trace.tools) == {"unknown": 1}
 
 
+def test_a_card_the_number_gate_drops_is_on_the_line_by_kind_only() -> None:
+    trace = begin_turn_trace("new")
+    turn_trace.note_numbers_gate("counts", ("count", "vague", "count"))
+    assert trace.numbers_gate == "counts-count.vague"
+    assert turn_trace.turn_record(trace, None, outcome=None)["numbers_gate"] == "counts-count.vague"
+
+
+def test_a_turn_the_gate_kept_has_no_gate_on_its_line() -> None:
+    trace = begin_turn_trace("new")
+    assert "numbers_gate" not in turn_trace.turn_record(trace, None, outcome=None)
+
+
 def test_notes_outside_a_turn_go_nowhere() -> None:
     note_route("auto.math")
     note_tool("web_search")

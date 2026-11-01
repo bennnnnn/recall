@@ -39,6 +39,7 @@ from app.modules.chat.turn_prep.followups import (
     read_prompt_inputs,
     role_content_dicts,
 )
+from app.modules.chat.turn_trace import note_numbers_gate
 from app.modules.conversation import history_rag as chat_history_rag_service
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
@@ -131,6 +132,8 @@ async def fetch_subject(
         detected_subject=subject,
         redis=redis,
     )
+    if subject_result.gate_missed:
+        note_numbers_gate(settings.verified_numbers_gate, subject_result.gate_missed)
     return SubjectFetch(
         subject_block=subject_result.prompt_block,
         verified=subject_result.verified,
