@@ -84,6 +84,9 @@ def test_time_already_spent_is_no_term(text: str) -> None:
         "I've been thinking about a $300k mortgage at 5% for 15 years",
         "I've been looking at a $300k mortgage at 6% for 15 years, what's the payment?",
         "I've had my eye on a $300k mortgage at 6% for 15 years",
+        # Money paid toward a new loan is no time spent paying one.
+        "I've paid $5k toward a down payment on a $300k mortgage at 6% for 15 years, what's "
+        "the payment?",
     ],
 )
 def test_a_term_after_a_spent_clause_is_still_the_term(text: str) -> None:
