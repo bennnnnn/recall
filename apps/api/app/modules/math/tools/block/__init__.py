@@ -11,6 +11,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
+from app.modules.math.solve.restated import REWRITES, card_restates
 from app.modules.math.tools.block.algebra import (
     _verified_block_equation,
     _verified_block_inequality,
@@ -113,6 +114,16 @@ def _shows_non_finite(block: VerifiedMathBlock) -> bool:
     return any(_NON_FINITE.search(text) for text in shown if text)
 
 
+def _restates(intent: MathIntent, block: VerifiedMathBlock) -> bool:
+    """A rewrite whose card is the expression it was given (``solve/restated.py``)."""
+    return bool(
+        intent.kind == "calculus"
+        and intent.operation in REWRITES
+        and block.canonical_answer
+        and card_restates(block.canonical_answer, (intent.expr,))
+    )
+
+
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
     lines: list[str] = []
 
@@ -126,6 +137,8 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             return None
         block = builder(intent, settings, lines)
         if block is None or _shows_non_finite(block):
+            return None
+        if _restates(intent, block):
             return None
 
         # A rendered reply and a literal plot are bound to the request they read.
