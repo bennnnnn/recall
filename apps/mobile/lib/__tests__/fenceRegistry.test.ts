@@ -13,7 +13,7 @@ import {
   shouldLiftFenceOutOfList,
   documentFormForLang,
   drawsBareJson,
-  plainReaderForLang,
+  fenceSpecForLang,
 } from "@/lib/fenceRegistry";
 
 /**
@@ -412,7 +412,7 @@ describe("per-fence predicates accept exactly these fences", () => {
   // The lists plain.ts, document.ts and fenceDispatch.ts kept beside the registry (ST-09), now rows.
   it("bodies copy and read-aloud draw with their own reader", () => {
     const readers = FENCES.flatMap((spec) => {
-      const reader = plainReaderForLang(spec.langs[0]!);
+      const reader = spec.plainReader;
       return reader ? [`${spec.id}:${reader}`] : [];
     });
     expect(readers.sort()).toEqual(["arithmetic:worked", "array:array", "clarify:clarify", "quiz:quiz"]);
@@ -425,7 +425,7 @@ describe("per-fence predicates accept exactly these fences", () => {
         return form ? [[spec.id, form]] : [];
       }),
     );
-    expect(forms).toMatchObject({
+    expect(forms).toEqual({
       arithmetic: "copyText",
       quiz: "copyText",
       array: "copyText",
@@ -437,9 +437,19 @@ describe("per-fence predicates accept exactly these fences", () => {
       molecule3d: "molecule",
       chart: "chart",
       geometry: "diagram",
+      mermaid: "diagram",
+      simulation: "diagram",
+      chem_scene: "diagram",
     });
-    expect(forms.clarify).toBeUndefined();
-    expect(documentFormForLang("email")).toBeNull();
+  });
+
+  it("drafts, and the cards drawn as a molecule", () => {
+    expect(accepted((lang) => fenceSpecForLang(lang)?.draft ?? false)).toEqual(["email", "message", "social"]);
+    expect(accepted((lang) => documentFormForLang(lang) === "molecule")).toEqual([
+      "chemistry",
+      "molecule",
+      "molecule3d",
+    ]);
   });
 
   it("cards a bare ```json fence of their JSON draws as", () => {

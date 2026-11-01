@@ -22,7 +22,7 @@ import { CODE_FACE } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
-import { fenceIdForLang } from "@/lib/fenceRegistry";
+import { documentFormForLang, fenceIdForLang } from "@/lib/fenceRegistry";
 import { mermaidTitleKey } from "@/lib/mermaidKind";
 import { Theme, useTheme } from "@/lib/theme";
 import { Italic, Type, Weight } from "@/lib/type";
@@ -72,7 +72,7 @@ function visualFallbackLabel(lang: string, content: string, t: (key: string) => 
   const id = fenceIdForLang(lang);
   if (id === "chart") return t("rich.chart");
   if (id === "mermaid") return t(mermaidTitleKey(content));
-  if (id === "chemistry" || id === "molecule" || id === "molecule3d") return t("rich.chemistry_structure");
+  if (documentFormForLang(lang) === "molecule") return t("rich.chemistry_structure");
   if (id === "chem_scene") return t("rich.chemistry_diagram");
   return t("rich.diagram");
 }

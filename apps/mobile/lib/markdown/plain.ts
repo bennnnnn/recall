@@ -9,7 +9,7 @@ import {
   isControlFenceLang,
   isMathFenceLang,
   isVisualDiagramFenceLang,
-  plainReaderForLang,
+  fenceSpecForLang,
 } from "@/lib/fenceRegistry";
 import { clarifyText, parseClarifyCard } from "@/lib/clarify/clarifyCard";
 import { arrayText, parseArrayFence, parseQuizFence, quizText } from "@/lib/lesson/lessonFences";
@@ -432,7 +432,7 @@ const PLAIN_READERS: Record<FencePlainReader, (body: string, mode: PlainMode) =>
 function convertFence(lang: string, body: string, mode: PlainMode): string {
   const trimmed = body.replace(/\n$/, "").trim();
   if (isControlFenceLang(lang)) return "";
-  const reader = plainReaderForLang(lang);
+  const reader = fenceSpecForLang(lang)?.plainReader;
   const read = reader ? PLAIN_READERS[reader](trimmed, mode) : null;
   if (read !== null) return read;
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";

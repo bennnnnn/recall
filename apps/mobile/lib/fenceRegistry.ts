@@ -67,10 +67,8 @@ type FallbackKind =
 type FencePlainText = "drop" | "chart" | "diagram";
 
 /**
- * A body a whole-message copy and read-aloud read with their own reader (`lib/markdown/plain.ts`),
- * before the `plainText` rule: a teaching picture's worked lines, a quiz's question and
- * options, a clarifying card's questions, an array's values. A `worked` body with no worked
- * lines falls back to the `plainText` rule; the others read as nothing when they don't parse.
+ * A body copy and read-aloud read with their own reader (`lib/markdown/plain.ts`) before the
+ * `plainText` rule. `worked` with no worked lines falls back to that rule; the rest read as nothing.
  */
 export type FencePlainReader = "worked" | "quiz" | "clarify" | "array";
 
@@ -95,13 +93,12 @@ type FenceSpecRow = {
   plainText?: FencePlainText;
   /** The reader a whole-message copy and read-aloud draw the body with, first. */
   plainReader?: FencePlainReader;
-  /**
-   * In a shared document: `copyText` reads as its copy text; a block kind is the label shown in
-   * the card's place. Omitted: a `chart` body is a chart label, a `diagram` body a diagram label.
-   */
+  /** In a shared document: its copy text, or the label in the card's place (default: plainText's). */
   inDocument?: "copyText" | FenceDocumentBlock;
   /** A ```json or unlabelled fence whose body is this card's JSON draws as this card. */
   bareJson?: boolean;
+  /** A drafted message (email, text, post): a body that reads as no draft renders as prose. */
+  draft?: boolean;
   /** Display maths or a maths diagram: a code-card fallback of it has no Copy. */
   mathDiagram?: boolean;
   /** Lifted out of a list item so CommonMark reads it as a real fence. */
@@ -109,7 +106,7 @@ type FenceSpecRow = {
 };
 
 const FENCE_TABLE = [
-  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model", body: "prose" },
+  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model", body: "prose", draft: true },
   {
     id: "quote",
     langs: ["quote", "blockquote"],
@@ -360,6 +357,7 @@ const FENCE_TABLE = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "prose",
+    draft: true,
   },
   {
     id: "message",
@@ -367,6 +365,7 @@ const FENCE_TABLE = [
     structured: true,
     neverCodeBlock: true,
     owner: "model", body: "prose",
+    draft: true,
   },
   // Not structured: `copy` and `sources` never reach the rich renderer, but
   // must not fall through to a syntax-highlighted code block either. `sources`
@@ -446,11 +445,6 @@ export function isChartFenceLang(lang: string): boolean {
 /** Geometry / mermaid / chemistry visuals — not charts (those speak as "a chart"). */
 export function isVisualDiagramFenceLang(lang: string): boolean {
   return fenceSpecForLang(lang)?.plainText === "diagram";
-}
-
-/** The reader a whole-message copy and read-aloud draw this fence's body with, if any. */
-export function plainReaderForLang(lang: string): FencePlainReader | null {
-  return fenceSpecForLang(lang)?.plainReader ?? null;
 }
 
 /** What a shared document shows for this fence: its copy text, a card label, or neither. */
