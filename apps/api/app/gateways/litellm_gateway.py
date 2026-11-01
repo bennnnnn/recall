@@ -250,14 +250,22 @@ def _try_again(
     ``aliases``). A user who enabled one model has no backup, and one empty or stalled
     stream left the reply empty ("That model isn't responding"). Not when the provider
     refused or rate-limited the request, ended the reply itself, or the attempt already
-    took longer than a stream that never starts can (a retry would only double the wait)."""
+    took longer than a stream that never starts can (a retry would only double the wait).
+
+    Nor after a wait timed out: the last model already waited the idle timeout for its
+    stream to open and for each chunk, and a second try kept a one-model user on a hung
+    provider 60 to 120 s before "not responding" (2026-11-01). A quick failure (an empty
+    stream, a dropped connection, a fast 408) still gets its second try."""
     alias = attempt.alias
     if exc.cause in _NO_RETRY_CAUSES or (len(aliases) > 1 and aliases[-2] == alias):
         return False
     if stream_meta is not None and stream_meta.get("finish_reason") in _FINAL_FINISH_REASONS:
         return False
+    elapsed_ms = attempt.elapsed_ms or 0
+    if exc.cause == "timeout" and elapsed_ms > settings.chat_stream_connect_timeout_seconds * 1000:
+        return False
     stalled_start = _open_wait(settings, has_next=False) + settings.chat_stream_timeout_seconds
-    if (attempt.elapsed_ms or 0) > stalled_start * 1000:
+    if elapsed_ms > stalled_start * 1000:
         return False
     logger.warning("Chat stream %s answered nothing; trying it once more", alias)
     aliases.append(alias)

@@ -382,14 +382,44 @@ async def test_a_slow_opening_with_a_backup_still_gives_way_at_the_connect_timeo
 @pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_the_last_model_still_gives_up_on_a_stream_that_never_opens() -> None:
-    # Tried twice, each waiting the idle timeout, then the turn fails.
+    # It waits the idle timeout once, then the turn fails: a second wait kept a one-model
+    # user on a hung provider 60 to 120 s (2026-11-01).
     never = _opens_after(5, _ready(chunk(content="never")))
     fake = _steps(never, never)
-    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=1)
+    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=2)
     started = time.monotonic()
     with pytest.raises(litellm_gateway.ModelUnavailableError):
         await _reply("smart-chat", [], fake, settings)
-    assert 1.8 < time.monotonic() - started < 4.0
+    assert 1.8 < time.monotonic() - started < 3.0
+    assert fake.await_count == 1
+
+
+@pytest.mark.wall_clock
+@pytest.mark.asyncio
+async def test_the_last_model_that_opens_and_falls_silent_is_not_waited_on_twice() -> None:
+    silent = FakeStream([])  # opens, then never sends a chunk
+    fake = _chain(silent, _ready(chunk(content="never asked")))
+    settings = _fast_caps(chat_stream_connect_timeout_seconds=1, chat_stream_timeout_seconds=2)
+    started = time.monotonic()
+    with pytest.raises(litellm_gateway.ModelUnavailableError):
+        await _reply("smart-chat", [], fake, settings)
+    assert time.monotonic() - started < 3.0
+    assert fake.await_count == 1
+
+
+@pytest.mark.parametrize(
+    "first",
+    [
+        # A dropped connection and a fast 408 fail at once: one more try costs nothing.
+        Exception("connection reset"),
+        type("Timeout408", (Exception,), {"status_code": 408})("request timeout"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_quick_failure_of_the_only_model_is_tried_once_more(first: Exception) -> None:
+    fake = AsyncMock(side_effect=[first, _ready(chunk(content="v = +6 cm, behind."))])
+    reply = await _reply("smart-chat", [], fake, _fast_caps())
+    assert reply == "smart-chat: v = +6 cm, behind."
     assert fake.await_count == 2
 
 
