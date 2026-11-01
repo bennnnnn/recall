@@ -9,15 +9,8 @@ import {
 } from "@/components/markdown/markdownContentStyles";
 import { notifySuccess, notifyWarning, selection } from "@/lib/haptics";
 import i18n from "@/lib/i18n";
-import { isUnfinishedJson } from "@/lib/jsonFence";
-import {
-  explanationParts,
-  type LooseQuiz,
-  looseQuiz,
-  optionLetter,
-  parseQuizFence,
-  plainFenceText,
-} from "@/lib/lesson/lessonFences";
+import { quizBody } from "@/lib/lesson/cardBody";
+import { explanationParts, type LooseQuiz, optionLetter } from "@/lib/lesson/lessonFences";
 import { type QuizAttempt, quizAttempt, saveQuizAttempt } from "@/lib/lesson/quizAttempts";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -32,7 +25,8 @@ type Props = { content: string };
 export function QuizCard({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const quiz = useMemo(() => parseQuizFence(content), [content]);
+  const body = useMemo(() => quizBody(content), [content]);
+  const quiz = body?.kind === "card" ? body.card : null;
   const [attempt, setAttempt] = useState<QuizAttempt>(
     () => quizAttempt(content) ?? { picked: null, checked: false },
   );
@@ -41,17 +35,14 @@ export function QuizCard({ content }: Props) {
   useLiveAnnouncement(verdict);
 
   if (!quiz) {
-    const plain = plainFenceText(content);
-    if (plain) {
+    if (body?.kind === "plain") {
       return (
         <ChipText style={[s.explanation, s.plain]} chip={s.chip}>
-          {plain}
+          {body.text}
         </ChipText>
       );
     }
-    if (isUnfinishedJson(content)) return null;
-    const loose = looseQuiz(content);
-    return loose ? <LooseQuizCard quiz={loose} s={s} /> : null;
+    return body?.kind === "loose" ? <LooseQuizCard quiz={body.loose} s={s} /> : null;
   }
 
   const save = (next: QuizAttempt) => {

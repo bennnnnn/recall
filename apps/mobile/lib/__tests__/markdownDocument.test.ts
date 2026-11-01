@@ -84,12 +84,14 @@ describe("markdownToDocumentText", () => {
     );
   });
 
-  it("keeps each of a card's lines on its own line, a hard break apart", () => {
+  it("keeps each of a card's lines on its own line: plain in Share, a hard break apart in print", () => {
     const card =
       '{"questions":[{"id":"a","label":"A","question":"Which region?","options":["Asia","Europe"],' +
       '"values":["Asia","Europe"]},{"id":"b","label":"B","question":"Budget?","options":["Low","High"],' +
       '"values":["Low","High"]}]}';
-    expect(markdownToDocumentText(`\`\`\`clarify\n${card}\n\`\`\``, label)).toBe(
+    const md = `\`\`\`clarify\n${card}\n\`\`\``;
+    expect(markdownToDocumentText(md, label)).toBe("Which region? (Asia / Europe)\nBudget? (Low / High)");
+    expect(markdownToDocumentText(md, label, "print")).toBe(
       "Which region? (Asia / Europe)  \nBudget? (Low / High)",
     );
   });

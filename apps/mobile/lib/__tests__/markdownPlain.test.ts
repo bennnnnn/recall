@@ -254,6 +254,16 @@ describe("lesson cards as text", () => {
       expect(markdownToCopyText(`Intro\n\n\`\`\`${lang}\n{"questions":[{"id"\n\`\`\``)).toBe("Intro");
     }
   });
+
+  it("copies a quiz with broken JSON as its card shows it, and never a quiz's answer", () => {
+    const broken = '```quiz\n{"question": "Pick", "options": ["a", "b",], "answer": 1, "explanation": "secret"}\n```';
+    expect(markdownToCopyText(broken)).toBe("Pick\nA) a\nB) b");
+    const keyed = '```quiz\nHere you go:\n{"question":"Q","options":["a","b"],"answer":1,"explanation":"secret"}\n```';
+    for (const md of [keyed, broken]) {
+      expect(markdownToCopyText(md)).not.toContain("secret");
+      expect(markdownToSpeechText(md)).not.toContain("secret");
+    }
+  });
 });
 
 it("leaves a photo request out of copy and speech", () => {

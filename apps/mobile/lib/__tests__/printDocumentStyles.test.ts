@@ -52,7 +52,8 @@ describe("PDF print document", () => {
       '{"questions":[{"id":"a","label":"A","question":"Which region?","options":["Asia","Europe"],' +
       '"values":["Asia","Europe"]},{"id":"b","label":"B","question":"Budget?","options":["Low","High"],' +
       '"values":["Low","High"]}]}';
-    const text = markdownToDocumentText(`Pick:\n\n\`\`\`clarify\n${card}\n\`\`\``, (block) => block);
+    const md = `Pick:\n\n\`\`\`clarify\n${card}\n\`\`\``;
+    const text = markdownToDocumentText(md, (block) => block, "print");
     expect(await body(`**Recall:**\n${text}`)).toContain(
       "<p>Pick:</p>\n<p>Which region? (Asia / Europe)<br>Budget? (Low / High)</p>",
     );

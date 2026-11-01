@@ -14,7 +14,7 @@
 import { parseJsonRecord } from "@/lib/jsonFence";
 import { scanFences } from "@/lib/mdFenceScan";
 
-type QuizFence = {
+export type QuizFence = {
   /** The pill at the top of the card, such as "Exercise 1". */
   label: string | null;
   question: string;
@@ -29,7 +29,7 @@ type QuizFence = {
 
 type ArrayValue = string | number | boolean | null;
 
-type ArrayFence = {
+export type ArrayFence = {
   /** The list's name, for copy and speech ("nums = [2, 7, 11, 15]"). */
   name: string | null;
   /** A line above the boxes: "Think of a Python list as a row of numbered boxes." */
@@ -140,11 +140,11 @@ export function optionLetter(index: number): string {
   return `${LETTERS[index] ?? index + 1})`;
 }
 
-/** The question and lettered options as plain text, for copy and speech. */
-export function quizText(fence: QuizFence): string {
+/** The question and lettered options as plain text, for copy and speech. Never the answer. */
+export function quizText(fence: Pick<QuizFence, "question" | "code" | "options">): string {
   const options = fence.options.map((option, i) => `${optionLetter(i)} ${option}`);
   const code = fence.code ? [fence.code] : [];
-  return [fence.question, ...code, ...options].join("\n");
+  return [fence.question, ...code, ...options].filter(Boolean).join("\n");
 }
 
 /** Split an explanation into prose and fenced code, in order. */
@@ -279,8 +279,15 @@ export function looseArray(content: string): LooseArray | null {
   };
 }
 
-/** Text in a lesson fence that is not JSON at all, such as a question written out. */
+/** A JSON member (`"answer":`): text holding one is JSON, even after a line of prose. */
+const JSON_MEMBER = /"[^"\n]*"\s*:/;
+
+/**
+ * Text in a lesson fence that is not JSON at all, such as a question written out. A body
+ * holding JSON after prose is not plain: drawn as text it would show the quiz's answer key.
+ */
 export function plainFenceText(content: string): string | null {
   const text = content.trim();
-  return text && !text.startsWith("{") && !text.startsWith("[") ? text : null;
+  if (!text || text.startsWith("{") || text.startsWith("[") || JSON_MEMBER.test(text)) return null;
+  return text;
 }
