@@ -82,7 +82,7 @@ One place per kind of change (`modules/chat/`):
 | A transport | Call `stream_entry` with `turn_deps.default_deps()`, send `start`, tokens and status, then `stream_end` and `stream_events.settled_turn_event` (follow-ups only after a committed `done`); register the producer in `finalize_registry` and await `persist_finalize_if_pending` in a `finally` |
 | A turn intercept (answered without the model) | `turn_intercepts.py` |
 | A prompt section | `prompt_sections.TURN_SECTIONS` (or `NEARBY_CONTRACTS`). `STABLE_SECTIONS` is the prefix providers cache: only text that is the same on every turn for the user goes there, never a section that can change with the turn's kind, words, clock or loaded context |
-| A finalize pass | `finalize_passes.FINALIZE_PASSES` with its `kind` (`TEXT` or `EFFECT`) and any `after`/`before` contract, and `STOPPED_REPLY_PASSES` if a stopped reply runs it |
+| A finalize pass | `finalize_passes.FINALIZE_PASSES` with its `kind` (`TEXT` or `EFFECT`; a text pass that raises is logged and the rest run, an effect falls back) and any `after`/`before` contract, and `STOPPED_REPLY_PASSES` if a stopped reply runs it |
 | A post-turn job | `post_turn.POST_TURN_JOBS`, and its handler in `background/handlers.py` |
 | A model tool | the owning module's `tool.py`, registered through `gateways/mcp/` |
 | Something the turn uses from outside chat | a field on `turn_deps.ChatTurnDeps` |

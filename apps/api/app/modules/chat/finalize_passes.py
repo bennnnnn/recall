@@ -1,18 +1,24 @@
 """Finalizing a reply: an ordered list of passes over the finished text.
 
 ``FINALIZE_PASSES`` is the order. Each pass takes the reply so far and returns
-it changed. Its ``on_error`` says what an exception in it does:
+it changed. What an exception in it does follows its kind, unless its own
+``on_error`` says otherwise:
 
-- ``FALL_BACK`` (most passes): the passes stop and the reply is the last
-  committed text, the text as of the last side effect (a linked photo, source
-  chips), or the raw reply made safe when nothing was committed (ES-03). Either
-  way the safety passes that text has not been through then run on it, each
-  failing closed (``FinalizePass.closed``).
-- ``OnError(log_as=step)``: the failure is logged as ``step`` (a timeout as a
-  warning, any other failure captured) and the next pass gets the failed pass's
-  input.
+- A text pass (``kind=TEXT``) goes on: the failure is logged under the pass's
+  name (a timeout as a warning, any other failure captured), the turn's trace
+  lists it (``passes_failed``), and the next pass gets the failed pass's input.
+  One broken text pass costs its own change, never the passes after it (ST-06).
+- An effect pass (``kind=EFFECT``) falls back (``FALL_BACK``): the passes stop
+  and the reply is the last committed text, the text as of the last side effect
+  (a linked photo, source chips), or the raw reply made safe when nothing was
+  committed (ES-03). Either way the safety passes that text has not been through
+  then run on it, each failing closed (``FinalizePass.closed``).
+- ``OnError(log_as=step)``: goes on like a text pass, logged as ``step``.
 - ``OnError(log_as=step, rewrite=fn)``: logged the same way; the next pass gets
   what ``fn`` makes of that input.
+
+A safety pass that goes on after failing hands on its closed strip of its input,
+never the input itself.
 
 Then the reminder pass (``finalize_reminders``) runs on whatever text the passes
 leave: it is the one step with an effect outside the reply.
@@ -147,7 +153,8 @@ class FinalizePass:
 
     name: str
     run: Callable[[FinalizeState], str | Awaitable[str]]
-    on_error: OnError
+    # None: what its kind does (``failure``).
+    on_error: OnError | None = None
     # Set on a safety pass, one that removes what no saved reply may keep (a forged
     # check, a URL that loads by itself, the prompt's own words). A fallback text runs
     # it too, and when it fails there this strip stands in, never the text it cleans.
@@ -161,6 +168,14 @@ class FinalizePass:
         if self.kind not in (None, TEXT, EFFECT):
             raise ValueError(f"pass {self.name!r}: kind is TEXT or EFFECT, not {self.kind!r}")
 
+    @property
+    def failure(self) -> OnError:
+        """What an exception in it does: its own ``on_error``; else a text pass goes on,
+        logged under its name, and any other falls back."""
+        if self.on_error is not None:
+            return self.on_error
+        return OnError(log_as=self.name) if self.kind == TEXT else FALL_BACK
+
 
 # A failed subject pass recovers its subject's fences (no model answer card
 # survives it) and logs under the name the one subject step had.
@@ -171,7 +186,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "control_tokens",
         lambda s: strip_control_tokens(s.text, s.ctx.user_message_content or ""),
-        FALL_BACK,
         closed=drop_control_tokens,
         kind=TEXT,
         before=EVERY_OTHER,
@@ -180,7 +194,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "drop_cut_reminder_fence",
         lambda s: drop_cut_reminder_fence(s.text),
-        FALL_BACK,
         kind=TEXT,
         before=frozenset({"close_fences"}),
     ),
@@ -188,7 +201,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "prepare_model_reply",
         prepare_model_reply,
-        FALL_BACK,
         closed=drop_check_lines,
         kind=TEXT,
         before=CARD_PASSES | {"server_answer_cards", "settings_card", "money_card"},
@@ -197,16 +209,14 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "answer_labels",
         lambda s: one_answer_label(s.text),
-        FALL_BACK,
         kind=TEXT,
         before=CARD_PASSES,
     ),
-    FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), FALL_BACK, kind=TEXT),
+    FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), kind=TEXT),
     # A changed reply commits; before the server's own pictures and chips are added.
     FinalizePass(
         "untrusted_media",
         neutralize_untrusted_media,
-        FALL_BACK,
         closed=drop_media_lines,
         kind=EFFECT,
         before=SERVER_MEDIA,
@@ -215,45 +225,27 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "search_links",
         unlink_unretrieved_links,
-        OnError(log_as="search_links"),
         kind=TEXT,
         after=frozenset({"untrusted_media"}),
     ),
-    FinalizePass(
-        "generic_closer", strip_generic_closer, OnError(log_as="generic_closer"), kind=TEXT
-    ),
-    FinalizePass(
-        "meta_notes",
-        lambda s: unwrap_meta_notes(s.text),
-        OnError(log_as="meta_notes"),
-        kind=TEXT,
-    ),
-    FinalizePass(
-        "prompt_leaks",
-        drop_prompt_leaks_pass,
-        OnError(log_as="prompt_leaks"),
-        closed=drop_prompt_lines,
-        kind=TEXT,
-    ),
+    FinalizePass("generic_closer", strip_generic_closer, kind=TEXT),
+    FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), kind=TEXT),
+    FinalizePass("prompt_leaks", drop_prompt_leaks_pass, closed=drop_prompt_lines, kind=TEXT),
     FinalizePass(
         "turn_meta",
         lambda s: without_turn_meta(
             s.text, s.ctx.user_message_content or "", local_today(s.ctx.user_timezone)
         ),
-        OnError(log_as="turn_meta"),
         kind=TEXT,
     ),
-    FinalizePass(
-        "lesson_again", keep_to_lesson_again_pass, OnError(log_as="lesson_again"), kind=TEXT
-    ),
-    FinalizePass("emoji_use", place_reply_emoji, OnError(log_as="emoji_use"), kind=TEXT),
+    FinalizePass("lesson_again", keep_to_lesson_again_pass, kind=TEXT),
+    FinalizePass("emoji_use", place_reply_emoji, kind=TEXT),
     # A linked photo commits the text, so a later failure keeps its marker.
-    FinalizePass("answer_photo", attach_answer_photo, FALL_BACK, kind=EFFECT),
+    FinalizePass("answer_photo", attach_answer_photo, kind=EFFECT),
     # After the answer photo's pass, which sets the list the picture joins.
     FinalizePass(
         "reply_picture",
         attach_reply_picture,
-        FALL_BACK,
         kind=EFFECT,
         after=frozenset({"answer_photo"}),
     ),
@@ -279,13 +271,12 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "formula_charts",
         draw_formula_charts,
-        OnError(log_as="formula_charts"),
         kind=TEXT,
         after=frozenset({"math_fences"}),
     ),
-    FinalizePass("server_answer_cards", mark_server_cards, FALL_BACK, kind=TEXT),
-    FinalizePass("unverified_notes", append_unverified_notes, FALL_BACK, kind=TEXT),
-    FinalizePass("working_check", check_working, FALL_BACK, kind=TEXT),
+    FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
+    FinalizePass("unverified_notes", append_unverified_notes, kind=TEXT),
+    FinalizePass("working_check", check_working, kind=TEXT),
     # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
     FinalizePass(
         "claim_check",
@@ -294,50 +285,46 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=EFFECT,  # a model call that adds to the turn's usage, and a status
         before=frozenset({"search_sources"}),
     ),
-    FinalizePass("text_plots", strip_text_plots, FALL_BACK, kind=TEXT),
-    FinalizePass("solve_markers", strip_solve_markers, FALL_BACK, kind=TEXT),
+    FinalizePass("text_plots", strip_text_plots, kind=TEXT),
+    FinalizePass("solve_markers", strip_solve_markers, kind=TEXT),
     FinalizePass(
         "chemistry_enrich",
         enrich_chemistry_fences,
         OnError(log_as="enrich_chemistry_fences"),
         kind=TEXT,
     ),
-    FinalizePass("settings_card", add_settings_card, FALL_BACK, kind=EFFECT),
-    FinalizePass("money_card", attach_money_card, FALL_BACK, kind=EFFECT),
-    FinalizePass("request_sections", divide_request_sections, FALL_BACK, kind=TEXT),
-    FinalizePass("search_sources", add_search_sources, FALL_BACK, kind=EFFECT),
-    FinalizePass("instant_usage", record_instant_usage, FALL_BACK, kind=EFFECT),
+    FinalizePass("settings_card", add_settings_card, kind=EFFECT),
+    FinalizePass("money_card", attach_money_card, kind=EFFECT),
+    FinalizePass("request_sections", divide_request_sections, kind=TEXT),
+    FinalizePass("search_sources", add_search_sources, kind=EFFECT),
+    FinalizePass("instant_usage", record_instant_usage, kind=EFFECT),
     # Layout, after the passes that read the model's fences as it wrote them.
-    FinalizePass("close_fences", close_open_fences, FALL_BACK, kind=TEXT, after=FENCE_READERS),
+    FinalizePass("close_fences", close_open_fences, kind=TEXT, after=FENCE_READERS),
     # After the closer: a card the model left open is read once it is closed.
     FinalizePass(
         "clarify_card",
         settle_clarify,
-        FALL_BACK,
         kind=EFFECT,
         after=frozenset({"close_fences"}),
     ),
-    FinalizePass(
-        "requested_json", check_requested_json, OnError(log_as="requested_json"), kind=TEXT
-    ),
-    FinalizePass("recipient_placeholders", strip_recipient_placeholders, FALL_BACK, kind=TEXT),
+    FinalizePass("requested_json", check_requested_json, kind=TEXT),
+    FinalizePass("recipient_placeholders", strip_recipient_placeholders, kind=TEXT),
     # After all fence enrichment, so it never interferes with fence parsing.
     FinalizePass(
         "prose",
         normalize_prose,
-        FALL_BACK,
         kind=TEXT,
         after=FENCE_READERS | SERVER_MEDIA | {"close_fences", "settings_card", "money_card"},
     ),
-    FinalizePass("mermaid_and_places", sanitize_fences, FALL_BACK, kind=TEXT),
-    FinalizePass("proper_case", restore_case, FALL_BACK, kind=TEXT),
-    FinalizePass("presentation", present_markdown, FALL_BACK, kind=TEXT),
-    FinalizePass("clock", fix_clock, FALL_BACK, kind=TEXT),
+    FinalizePass("mermaid_and_places", sanitize_fences, kind=TEXT),
+    FinalizePass("proper_case", restore_case, kind=TEXT),
+    FinalizePass("presentation", present_markdown, kind=TEXT),
+    FinalizePass("clock", fix_clock, kind=TEXT),
 )
 
 
 async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
-    on_error = finalize_pass.on_error
+    on_error = finalize_pass.failure
     started = time.perf_counter()
     try:
         text = finalize_pass.run(state)
@@ -351,7 +338,7 @@ async def _run_pass(finalize_pass: FinalizePass, state: FinalizeState) -> str:
         if on_error.log_as is None:
             raise
         # A safety pass fails closed: its strip goes on, never the text it cleans.
-        kept = "stripping closed" if finalize_pass.closed else "keeping raw assistant text"
+        kept = "stripping closed" if finalize_pass.closed else "keeping the text before it"
         if isinstance(exc, TimeoutError):
             logger.warning("%s timed out; %s", on_error.log_as, kept)
         else:
