@@ -38,6 +38,10 @@ _DIVERGING = re.compile(
 _UPRIGHT = re.compile(r"\b(?:virtual|erect|upright)\b")
 _DIMINISHED = re.compile(r"\b(?:diminished|smaller)\b")
 _INVERTED = re.compile(r"\b(?:real|inverted|upside[\s-]?down)\b")
+# A nature asked about is not stated: "say whether the image is real or virtual" (a
+# converging lens's 60 cm was declined for it in review).
+_NATURES = r"(?:real|virtual|erect|upright|inverted|magnified|enlarged|diminished|smaller|larger)"
+_NATURE_CHOICE = re.compile(rf"\b{_NATURES}\s*(?:/|,?\s*or\s+(?:an?\s+)?){_NATURES}\b")
 # "u = -15 cm" (a hyphen, a minus sign or a dash), "(+30 cm)": a sign on a number, not a
 # range's dash ("10-15 cm").
 _SIGNED_NUMBER = re.compile(r"(?<![\w.,)])[-+\u2212\u2013]\s?\d")
@@ -46,9 +50,7 @@ _SIGN_WORD = re.compile(r"\b(?:negative|minus)\b")
 # it") or to its sentence's end; "the object's side" and "the side of the object" are the
 # image's place.
 _OBJECT_CLAUSE = r"(?<!side of the )(?<!side as the )\bobject\b(?!'?s\s+side)"
-_IMAGE_CLAUSE = re.compile(
-    rf"\bimage\b(?P<clause>(?:(?!{_OBJECT_CLAUSE}|[.?!;](?:\s|$)).)*)"
-)
+_IMAGE_CLAUSE = re.compile(rf"\bimage\b(?P<clause>(?:(?!{_OBJECT_CLAUSE}|[.?!;](?:\s|$)).)*)")
 _BEHIND = re.compile(r"\bbehind\b|\b(?:other|opposite|far)\s+side\b|\bbeyond\b")
 _IN_FRONT = re.compile(
     r"\bin\s+front\b|\b(?:same|near)\s+side\b|\bobject'?s\s+side\b"
@@ -64,7 +66,7 @@ def diverging_element(text: str) -> bool:
         _DIVERGING.search(lower)
         or (_CONVEX.search(lower) and _MIRROR.search(lower))
         or (_CONCAVE.search(lower) and _LENS.search(lower))
-        or (_UPRIGHT.search(lower) and _DIMINISHED.search(lower))
+        or _upright_diminished(_stated_natures(lower))
     )
 
 
@@ -80,13 +82,23 @@ def converging_element(text: str) -> bool:
 
 def upright_image(text: str) -> bool:
     """The image is called virtual, erect or upright."""
-    return _UPRIGHT.search(text.lower()) is not None
+    return _UPRIGHT.search(_stated_natures(text.lower())) is not None
 
 
 def inverted_image(text: str) -> bool:
     """The image is called real or inverted, or forms on a real image's side."""
     lower = text.lower()
-    return _INVERTED.search(lower) is not None or "real" in _image_sides(lower)
+    stated = _INVERTED.search(_stated_natures(lower)) is not None
+    return stated or "real" in _image_sides(lower)
+
+
+def _stated_natures(lower: str) -> str:
+    """The question without the natures it asks to choose between."""
+    return _NATURE_CHOICE.sub(" ", lower)
+
+
+def _upright_diminished(lower: str) -> bool:
+    return _UPRIGHT.search(lower) is not None and _DIMINISHED.search(lower) is not None
 
 
 def signed_distances(text: str) -> bool:
