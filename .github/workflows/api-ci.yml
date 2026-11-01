@@ -6,18 +6,11 @@ on:
   # deploy gate (scripts/require-green-ci.sh) reads only main's push runs.
   push:
     branches: [main]
-    paths:
-      - "apps/api/**"
-      # API tests read the fixtures it shares with the phone.
-      - "docs/fixtures/**"
-      - "scripts/check_file_sizes.py"
-      - "scripts/file_size_baseline.json"
-      - "scripts/check_mypy_strict.py"
-      - "scripts/mypy_strict_baseline.json"
-      # The behaviour battery's runner and comparer, which its tests load.
-      - "scripts/battery.py"
-      - "scripts/battery_compare.py"
-      - ".github/workflows/api-ci.yml"
+    # API tests read more than apps/api: CLAUDE.md and docs paths that comments name, fly.toml,
+    # the phone's sources (contract and parity tests), the shared fixtures and scripts. Only a
+    # change confined to the web client leaves them as they were.
+    paths-ignore:
+      - "apps/web/**"
   # Every pull request, so the required checks always report. The jobs skip
   # themselves when nothing they check changed (a skipped job counts as passed).
   pull_request:
@@ -55,7 +48,10 @@ jobs:
           run=true
           sweeps=true
           if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
-            echo "$files" | grep -qE '^(apps/api/|docs/fixtures/|scripts/(check_file_sizes\.py|file_size_baseline\.json|check_mypy_strict\.py|mypy_strict_baseline\.json|battery\.py|battery_compare\.py)$|\.github/workflows/api-ci\.yml$)' || run=false
+            # API tests read beyond apps/api (docs and CLAUDE.md paths that comments name,
+            # fly.toml, the phone's sources for contract tests, scripts): only a pull request
+            # that changes nothing but the web client skips them.
+            echo "$files" | grep -qvE '^apps/web/' || run=false
             # The sweeps read the app's code, the shared test helpers, their corpora, the
             # fixtures and the battery scripts: a pull request that only changes other tests,
             # migrations or scripts leaves what they check as it was.
@@ -168,7 +164,7 @@ jobs:
       # Both runs' coverage together, against the floor. The sweeps job's own coverage does
       # not count here: about 170 statements only the sweeps reach are no longer covered.
       - name: Coverage
-        run: uv run coverage report --show-missing --fail-under=80
+        run: uv run coverage report --show-missing --precision=2 --fail-under=80
 
   # The behaviour and STEM sweeps (app/tests/behavior), on their own runner and only when
   # what they read changed. They fake the database and Redis, so no services start.

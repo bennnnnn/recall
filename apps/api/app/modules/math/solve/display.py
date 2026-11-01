@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import cmath
 from typing import Any
 
 _EXACT_LATEX_DECIMAL_THRESHOLD = 40
@@ -66,8 +67,34 @@ def format_verified_latex(expr: Any) -> str:
     # A derivative or antiderivative stays exact: ``0.434294 x`` is not ``x / ln 10``.
     if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD or getattr(val, "free_symbols", None):
         return tex
+    whole = _exact_integer(val)
+    if whole is not None:
+        return str(whole)  # ∛(√5 + 2) - ∛(√5 - 2) is 1, not the decimal 1.0
     approximate = str(latex(val.evalf(6)))
     # ``evalf`` also converts harmless exact integer coefficients inside a
     # symbolic expression (``3`` -> ``3.0``).  Only use the approximation when
     # it actually makes a long exact result easier to read.
     return approximate if len(approximate) < len(tex) else tex
+
+
+def _exact_integer(value: Any) -> int | None:
+    """The integer a long exact number equals, proved by its minimal polynomial; tried only
+    when it agrees with that integer to 20 digits."""
+    from sympy import Dummy, minimal_polynomial
+    from sympy.polys.polyerrors import BasePolynomialError
+
+    try:
+        approximate = complex(value.evalf(30, maxn=60))
+    except (TypeError, ValueError, ArithmeticError):
+        return None
+    if not cmath.isfinite(approximate):
+        return None  # 1e999 is past a float
+    nearest = round(approximate.real)
+    if abs(approximate - nearest) > 1e-20 * max(1, abs(nearest)):
+        return None
+    t = Dummy("t")
+    try:
+        return nearest if minimal_polynomial(value - nearest, t) == t else None
+    except (BasePolynomialError, NotImplementedError, ArithmeticError):
+        # Not algebraic (π, sin 4) or past SymPy's reach: the decimal stands.
+        return None
