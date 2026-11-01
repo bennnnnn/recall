@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.modules.physics.catalog import CATALOG, select_formula
 from app.modules.physics.direct import format_direct_physics_working
+from app.modules.physics.notation import shown
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import solve_physics
 from app.services.workout import as_formula_heading
@@ -159,7 +160,8 @@ def test_each_solver_branch_is_in_the_catalog_and_substitutes(
     text = " ".join(result.substitutions)
     assert any(_contains_given(text, value) for name, value in params.items() if name in visible)
     if op == "work_energy" and "v1" not in params:
-        assert result.substitutions[0].startswith("v_1")
+        # Shown as v_i (``notation``): the starting speed of the work done.
+        assert result.substitutions[0].startswith("v_i")
 
 
 def test_law_coefficient_strip_keeps_a_plugged_in_number() -> None:
@@ -375,8 +377,9 @@ def test_alternate_family_is_the_law_the_reply_opens_with(
     reply = format_direct_physics_working(block)
     assert reply is not None
     formula = as_formula_heading(reply).split("**Substitution**", 1)[0].split("**Formula**", 1)[1]
-    assert f"${law}$" in formula
-    assert other not in formula
+    # The reply shows the law in its shown symbols (v_f = v_i + at for v = u + at).
+    assert f"${shown(law, op)}$" in formula
+    assert shown(other, op) not in formula
 
 
 def test_time_branch_stays_when_both_families_were_given() -> None:
