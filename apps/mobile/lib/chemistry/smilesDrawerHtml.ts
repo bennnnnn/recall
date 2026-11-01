@@ -4,8 +4,8 @@
  * each structure hands it its SMILES with `smilesDrawerConfig`. Extracted so
  * the page and the message contract are testable without the card.
  */
-import { previewPageStartScript, type PreviewPage } from "@/lib/previewPage";
-import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
+import { previewPageStartScript, type PreviewPage } from "@/lib/preview/previewPage";
+import { injectPreviewCsp, inlineScript } from "@/lib/preview/previewSandbox";
 import type { Theme } from "@/lib/theme";
 
 type SmilesDrawerTheme = Pick<Theme, "bg" | "isDark">;

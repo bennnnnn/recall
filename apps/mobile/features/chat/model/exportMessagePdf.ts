@@ -1,7 +1,7 @@
 import type { Message } from "@/lib/api";
-import { printHtmlToSharedPdf } from "@/lib/exportPdf";
+import { printHtmlToSharedPdf } from "@/features/chat/model/exportPdf";
 import i18n from "@/lib/i18n";
-import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
+import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationMarkdownBody } from "@/features/chat/model/transcript";
 

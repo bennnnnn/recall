@@ -421,6 +421,13 @@ components get the same props.
   moved: places and the HTML preview are fence rendering the shared markdown and rich renderers
   use, so they go to `lib/` domain folders, not features (part 2); `lib/scanner/subjects.ts` and
   `lib/cameraPermission.ts` stay shared (shared code and two features use them).
+- **Status (part 2):** code only chat uses moved into `features/chat` (9 components, the
+  settings-proposal card and its hook, the assistant-content hook, the streaming draft context,
+  store and timing, client geo, the unit converter, view ownership, PDF export and print); the PDF
+  page HTML into `features/attachments`. Places (`lib/places/`, with `PlacesListBlock` in
+  `components/rich/`) and the HTML preview (`lib/preview/`: run document, sandbox, page file, tap,
+  heights, script strip) are `lib/` domain folders: the shared markdown and rich renderers draw
+  them, so they are not one feature's code. Flat `lib/` files: 155 → 123.
 
 ## Order
 

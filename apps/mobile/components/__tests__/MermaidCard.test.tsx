@@ -8,11 +8,11 @@ import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
-import { previewPageFile, readyPreviewPageFile } from "@/lib/previewPageFile";
+import { previewPageFile, readyPreviewPageFile } from "@/lib/preview/previewPageFile";
 
 jest.mock("expo-file-system/legacy", () => ({}));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("@/lib/previewPageFile", () => ({
+jest.mock("@/lib/preview/previewPageFile", () => ({
   previewPageFile: jest.fn(),
   readyPreviewPageFile: jest.fn(() => null),
   forgetPreviewPageFile: jest.fn(),

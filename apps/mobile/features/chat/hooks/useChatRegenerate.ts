@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { ClientGeo } from "@/lib/clientGeo";
+import type { ClientGeo } from "@/features/chat/model/clientGeo";
 import type { Message, User } from "@/lib/api";
-import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
+import { resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 
 type Params = {
   token: string | null;

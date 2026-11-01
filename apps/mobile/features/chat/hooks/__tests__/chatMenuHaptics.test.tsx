@@ -6,7 +6,7 @@ import React, { useLayoutEffect } from "react";
 import { Alert, Text } from "react-native";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
-import { ChatActionsMenu } from "@/components/ChatActionsMenu";
+import { ChatActionsMenu } from "@/features/chat/components/ChatActionsMenu";
 import { ConversationList } from "@/features/chat/drawer/ConversationList";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { api, type Chat } from "@/lib/api";
@@ -79,7 +79,7 @@ jest.mock("@/features/chat/drawer/useDrawerChatSelection", () => ({
 }));
 jest.mock("@/features/todos/hooks/useReminderBadgeCount", () => ({ useReminderBadgeCount: () => ({}) }));
 jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
-jest.mock("@/components/ChatRenameSheet", () => ({ ChatRenameSheet: () => null }));
+jest.mock("@/features/chat/components/ChatRenameSheet", () => ({ ChatRenameSheet: () => null }));
 jest.mock("@/features/chat/components/ChatShareSheet", () => ({ ChatShareSheet: () => null }));
 jest.mock("@/features/chat/drawer/DrawerListHeader", () => ({ DrawerListHeader: () => null }));
 jest.mock("@/features/chat/drawer/DrawerFooter", () => ({ DrawerFooter: () => null }));

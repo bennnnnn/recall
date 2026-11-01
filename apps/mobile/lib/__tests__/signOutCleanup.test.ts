@@ -5,7 +5,7 @@ import { quizAttempt, saveQuizAttempt } from "@/lib/lesson/quizAttempts";
 import { fetchLinkPreview } from "@/lib/linkPreview";
 import { latexToSvgMath, peekSvgMath, setSvgMathRendererForTest } from "@/lib/math/svgMath";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
-import { getStreamingDraft, publishStreamingDraft } from "@/lib/streamingDraftStore";
+import { getStreamingDraft, publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 import { clearSavedProposals } from "@/features/todos/model/reminderProposal";
 import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
 import { forgetSyncRecords } from "@/lib/syncRecords";

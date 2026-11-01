@@ -173,7 +173,7 @@ const RAW_COLORS_ALLOWED = [
   "lib/chemistry/**",
   "lib/physics/**",
   // Light defaults for the document handed to the system browser.
-  "lib/openHtmlPreview.ts",
+  "lib/preview/openHtmlPreview.ts",
   // Mask luminance: white keeps the shape, black cuts the mark out.
   "ui/icons/custom.tsx",
 ];

@@ -49,6 +49,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/composerDraftReset.ts",
     "model/messageCache.ts",
     "model/quotaNudgeDismissal.ts",
+    "model/streamingDraftStore.ts",
   ],
   drafts: [
     "components/EmailCard.tsx",

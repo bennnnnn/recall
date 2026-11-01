@@ -20,7 +20,7 @@ import {
   findUnit,
   formatConvertNumber,
   type UnitCategory,
-} from "@/lib/unitConverter";
+} from "@/features/chat/model/unitConverter";
 import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {

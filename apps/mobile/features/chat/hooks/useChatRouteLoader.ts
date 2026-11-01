@@ -42,7 +42,7 @@ import { useChatPageCacheWriter, type ChatPageSync } from "@/features/chat/hooks
 import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 import { useLatestRef } from "@/lib/latestRef";
-import { useViewOwner } from "@/lib/viewOwner";
+import { useViewOwner } from "@/features/chat/model/viewOwner";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 
 type Router = ReturnType<typeof useRouter>;

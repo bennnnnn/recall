@@ -9,7 +9,7 @@ import {
   CHROME_FADE_EXTRA,
   TOP_CHROME_FADE_LOCATIONS,
   topChromeFadeColors,
-} from "@/lib/chromeFade";
+} from "@/features/chat/components/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
 import { Italic, Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";

@@ -1,6 +1,6 @@
 /**
  * Mermaid diagrams, charts and SMILES drawings load one shared page file per
- * kind (lib/previewPageFile.ts) and hand it each block's data, instead of
+ * kind (lib/preview/previewPageFile.ts) and hand it each block's data, instead of
  * building a page of up to 3.4 MB per block. These tests pin what the WebView
  * gets: the file, the data, and settings no looser than the inline pages had.
  */
@@ -14,16 +14,16 @@ import { MermaidBlock } from "@/components/rich/MermaidBlock";
 import { CHART_PAGE } from "@/lib/chartPreviewHtml";
 import { SMILES_DRAWER_PAGE } from "@/lib/chemistry/smilesDrawerHtml";
 import { MERMAID_PAGE } from "@/lib/mermaidPreviewHtml";
-import type { PreviewPage } from "@/lib/previewPage";
+import type { PreviewPage } from "@/lib/preview/previewPage";
 import {
   forgetPreviewPageFile,
   previewPageFile,
   readyPreviewPageFile,
-} from "@/lib/previewPageFile";
+} from "@/lib/preview/previewPageFile";
 
 jest.mock("expo-file-system/legacy", () => ({}));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("@/lib/previewPageFile", () => ({
+jest.mock("@/lib/preview/previewPageFile", () => ({
   previewPageFile: jest.fn(),
   readyPreviewPageFile: jest.fn(() => null),
   forgetPreviewPageFile: jest.fn(),

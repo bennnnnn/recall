@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
-import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/htmlPreviewBundle";
-import { useHtmlPreviewFiles } from "@/lib/htmlPreviewFiles";
-import { openHtmlInBrowser } from "@/lib/openHtmlPreview";
+import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/preview/htmlPreviewBundle";
+import { useHtmlPreviewFiles } from "@/lib/preview/htmlPreviewFiles";
+import { openHtmlInBrowser } from "@/lib/preview/openHtmlPreview";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

@@ -3,7 +3,7 @@
 import { render } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
+import { MarkdownErrorBoundary } from "@/features/chat/components/MarkdownErrorBoundary";
 import { reportBoundaryError } from "@/lib/sentry";
 
 jest.mock("@/lib/sentry", () => ({ reportBoundaryError: jest.fn() }));

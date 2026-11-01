@@ -1,10 +1,10 @@
 /**
  * The Mermaid diagram page for the preview WebView: built once with the
- * vendored library and loaded from a file (lib/previewPageFile.ts); each block
+ * vendored library and loaded from a file (lib/preview/previewPageFile.ts); each block
  * hands it its diagram with `mermaidPreviewConfig`.
  */
-import { previewPageStartScript, type PreviewPage } from "@/lib/previewPage";
-import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
+import { previewPageStartScript, type PreviewPage } from "@/lib/preview/previewPage";
+import { injectPreviewCsp, inlineScript } from "@/lib/preview/previewSandbox";
 import type { Theme } from "@/lib/theme";
 
 type MermaidPreviewTheme = Pick<Theme, "bg" | "danger" | "isDark">;

@@ -8,7 +8,7 @@
  * module runs exactly one interval — reference-counted so it starts on the
  * first subscriber and stops once the last one unsubscribes — and fans the
  * tick out to every subscriber. Same house pattern as
- * `lib/streamingDraftStore.ts`: module-level state + a `Set<Listener>` +
+ * `features/chat/model/streamingDraftStore.ts`: module-level state + a `Set<Listener>` +
  * subscribe/publish.
  */
 

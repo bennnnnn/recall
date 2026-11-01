@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { useViewOwner } from "@/lib/viewOwner";
+import { useViewOwner } from "@/features/chat/model/viewOwner";
 import {
   clearChatSelection,
   selectAllChatIds,

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import { MathConverterUnitSheet } from "@/features/chat/components/MathConverterUnitSheet";
-import { UNITS_BY_CATEGORY } from "@/lib/unitConverter";
+import { UNITS_BY_CATEGORY } from "@/features/chat/model/unitConverter";
 
 describe("MathConverterUnitSheet", () => {
   it("tells a screen reader which unit is picked", async () => {

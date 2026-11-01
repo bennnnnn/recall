@@ -18,7 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import {
   BOTTOM_CHROME_FADE_LOCATIONS,
   bottomChromeFadeColors,
-} from "@/lib/chromeFade";
+} from "@/features/chat/components/chromeFade";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";

@@ -22,8 +22,8 @@ import {
 import {
   advancePreviewFilesScan,
   type PreviewScanState,
-} from "@/lib/htmlPreviewBundle";
-import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
+} from "@/lib/preview/htmlPreviewBundle";
+import { HtmlPreviewFilesProvider } from "@/lib/preview/htmlPreviewFiles";
 import { useTheme } from "@/lib/theme";
 
 type Props = {

@@ -1,4 +1,4 @@
-import { createPreviewTapGate, PREVIEW_TAP_WINDOW_MS } from "@/lib/previewTap";
+import { createPreviewTapGate, PREVIEW_TAP_WINDOW_MS } from "@/lib/preview/previewTap";
 import {
   allowPreviewPageNavigation,
   PREVIEW_PAGE_ORIGIN_WHITELIST,
