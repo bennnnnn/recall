@@ -360,6 +360,11 @@ _CRANE = (
         ),
         ("Which gas is it? a) oxygen b) nitrogen c) helium", "Gas = oxygen\nverified", True),
         (_CLIFF, "t = 4,040 ms", False),
+        # Second review: clauses about one value are no answers to the other parts.
+        (_CLIFF, "t = 4.04 s, to 3 s.f., from h = 80 m", False),
+        (_CLIFF, "t = 4.04 s\nnote 3", False),
+        (_CLIFF, r"4.04\,\mathrm{s};\quad 80.8\,\mathrm{m};\quad 44.4\,\mathrm{m/s}", True),
+        (_CLIFF, r"t = 4.04 s; \Delta x = 80.8 m; v_{f} \approx 44.4 m/s", True),
         (_CRANE, "W = 98,100 J; P = 9,810 W; ΔE = 98,100 J", True),
     ],
 )

@@ -208,13 +208,23 @@ def answers_whole_question(question: str, answer: str) -> bool:
         # things and the answer states a value for each: "Find: a) the time of flight b) the
         # range c) the final speed" answered "4.04 s; 80.8 m; 44.4 m/s" lost its card
         # (2026-11-01). A note or a unit line under one value is no second answer.
-        stated = [piece for piece in pieces if _RELATION.search(piece) or _NUMBER.search(piece)]
+        stated = [piece for piece in pieces if _states_a_value(piece)]
         holds_values = any(_leading_value(choice) is not None for choice in choices)
         if holds_values or len(stated) < len(choices):
             return any(_same_choice(answer, choice) for choice in choices)
         return True
     # Parts: one piece of the answer for each ("v = 20 m/s; s = 100 m").
     return len(pieces) >= len(choices)
+
+
+def _states_a_value(piece: str) -> bool:
+    """``piece`` is one value: it opens with it ("80.8 m") or with its symbol ("x = 80.8 m").
+    A clause about a value ("to 3 s.f.", "from h = 80 m") holds a number and states none."""
+    sides = _RELATION.split(piece, maxsplit=1)
+    if len(sides) == 1:
+        return _leading_value(piece) is not None
+    symbol = _MARKUP.sub("", sides[0]).split()
+    return len(symbol) == 1 and _leading_value(sides[1]) is not None
 
 
 def _are_options(choices: list[str]) -> bool:
