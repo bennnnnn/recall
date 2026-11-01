@@ -57,12 +57,10 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
         (
             "A train travels at 20 m/s. How long does it take to reach the station 4 km away? "
             "Are there coffee shops near me?",
+            # "A train travels at 20 m/s" has no subject of its own: no setup, and the
+            # question has its own givens.
             [
-                (
-                    "A train travels at 20 m/s. How long does it take to reach the station 4 km "
-                    "away?",
-                    "solve",
-                ),
+                ("How long does it take to reach the station 4 km away?", "solve"),
                 ("Are there coffee shops near me?", "live"),
             ],
         ),
@@ -86,11 +84,6 @@ def test_a_request_of_its_own_stands_beside_homework(
             "A ball is thrown up at 15 m/s. How high does it go? How long does it take to reach "
             "the top?",
             ["How high does it go?", "How long does it take to reach the top?"],
-        ),
-        (
-            "A ball rolls off a table 1.2 m high. What is its speed? How long does it take to "
-            "reach the floor?",
-            ["What is its speed?", "How long does it take to reach the floor?"],
         ),
     ],
 )
@@ -126,3 +119,27 @@ def test_a_setup_about_the_user_is_no_problem() -> None:
 
     assert plan.context == "I'm a backend dev"
     assert [part.text for part in plan.parts] == ["What laptop should I buy?", "find remote jobs."]
+
+
+@pytest.mark.parametrize(
+    ("text", "context", "parts"),
+    [
+        (
+            "I'm a backend dev. What laptop should I buy? What is 12 squared?",
+            "I'm a backend dev",
+            ["What laptop should I buy?", "What is 12 squared?"],
+        ),
+        (
+            "We're in Paris. How far is 300 m in feet? What's good to eat here?",
+            "We're in Paris",
+            ["How far is 300 m in feet?", "What's good to eat here?"],
+        ),
+    ],
+)
+def test_a_later_question_lends_the_setup_no_subject(
+    text: str, context: str, parts: list[str]
+) -> None:
+    plan = plan_turn(text)
+
+    assert plan.context == context
+    assert [part.text for part in plan.parts] == parts

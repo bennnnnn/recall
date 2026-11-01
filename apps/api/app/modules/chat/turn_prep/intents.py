@@ -16,7 +16,7 @@ is not this module's job: the prompt renders the plan (``prompt_constants.multi_
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -26,6 +26,7 @@ from app.modules.chat.turn_prep.clauses import (
     Clause,
     Cut,
     leans_on_definite,
+    points_back,
     request_body,
     request_clauses,
     without_connector,
@@ -128,7 +129,7 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
     split = request_clauses(text)
     if len(split.clauses) < 2:
         return single_plan(text)
-    problem = _Problem.of(split.context, text, chemistry_enabled=chemistry_enabled)
+    problem = _Problem.of(split.context, split.clauses, chemistry_enabled=chemistry_enabled)
     merged: list[tuple[Clause, PartKind]] = []
     for clause in split.clauses:
         kind = problem.kind(clause)
@@ -146,8 +147,10 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
         return single_plan(text)
     parts = tuple(problem.part(clause, kind) for clause, kind in merged)
     # The setup opens each question it belongs to: no part reads it twice.
-    carried = problem.setup is not None and any(problem.carries(clause) for clause, _ in merged)
-    return TurnPlan(parts, context="" if carried else split.context)
+    # The setup opens each question it belongs to; a part it does not open keeps it as the
+    # plan's context.
+    every = problem.setup is not None and all(problem.carries(clause) for clause, _ in merged)
+    return TurnPlan(parts, context="" if every else split.context)
 
 
 @dataclass(frozen=True)
@@ -166,14 +169,19 @@ class _Problem:
     chemistry_enabled: bool
 
     @classmethod
-    def of(cls, context: str, text: str, *, chemistry_enabled: bool) -> _Problem:
-        if not context:
-            return cls(None, None, chemistry_enabled)
-        subject = detect_subject(context, chemistry_enabled=chemistry_enabled) or detect_subject(
-            text, chemistry_enabled=chemistry_enabled
+    def of(cls, context: str, clauses: Sequence[Clause], *, chemistry_enabled: bool) -> _Problem:
+        """A setup by its own reading: its own subject, and givens (a quantity, or an object
+        a question points back to). A later question never lends it a subject: "I'm a
+        backend dev. … What is 12 squared?" and "We're in Paris. How far is 300 m in feet?"
+        set up nothing."""
+        subject = detect_subject(context, chemistry_enabled=chemistry_enabled) if context else None
+        givens = any(ch.isdigit() for ch in context) or any(
+            points_back(clause.text) for clause in clauses
         )
+        if subject is None or not givens:
+            return cls(None, None, chemistry_enabled)
         setup = context if context.endswith((".", "!", "?", ":")) else f"{context}."
-        return cls(setup if subject else None, subject, chemistry_enabled)
+        return cls(setup, subject, chemistry_enabled)
 
     def carries(self, clause: Clause) -> bool:
         """Whether a question is about the problem: the subject claims it with the setup

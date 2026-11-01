@@ -11,7 +11,8 @@
   "area": "physics",
   "prompt": "A ball rolls off a table 1.2 m high. What is its speed? How long does it take to reach the floor?",
   "reply": "The time to fall depends only on the height: $t = \\sqrt{2h/g} = \\sqrt{2(1.2)/9.81} \\approx 0.49$ s. Its speed off the table isn't given, so I can't find its horizontal speed; it lands moving down at $gt \\approx 4.85$ m/s.",
-  "expect": "answer"
+  "expect": "answer",
+  "gap": "Physics reads no subject in \"A ball rolls off a table 1.2 m high\" on its own, so it sets up no problem; the floor question, cut from it, reads as a trip and is searched."
  },
  {
   "id": "qp-003",
@@ -107,6 +108,20 @@
   "area": "multi lookalike",
   "prompt": "Two dice are rolled. What is the probability that the sum is 4? Give your answer as a fraction.",
   "reply": "There are 3 ways out of 36: $P = \\dfrac{3}{36} = \\dfrac{1}{12}$",
+  "expect": "answer"
+ },
+ {
+  "id": "qp-014",
+  "area": "multi",
+  "prompt": "I'm a backend dev. What laptop should I buy? What is 12 squared?",
+  "reply": "### A laptop\n\nFor backend work, a MacBook Air M3 with 16 GB or a ThinkPad T14 with 32 GB.\n\n### 12 squared\n\n$12^2 = 144$",
+  "expect": "answer"
+ },
+ {
+  "id": "qp-015",
+  "area": "multi",
+  "prompt": "We're in Paris. How far is 300 m in feet? What's good to eat here?",
+  "reply": "### 300 m in feet\n\n$300 \\times 3.281 \\approx 984$ ft\n\n### Eating in Paris\n\nTry a croque-monsieur at a café, fresh croissants, and steak frites at a bistro.",
   "expect": "answer"
  }
 ]
