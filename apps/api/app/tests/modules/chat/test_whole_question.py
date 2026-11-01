@@ -317,3 +317,69 @@ def test_time_and_map_coordinates_stay_location_questions(question: str) -> None
 )
 def test_values_asked_are_values(question: str, answer: str, kept: bool) -> None:
     assert answers_the_question(question, answer) is kept
+
+
+_CLIFF = (
+    "A ball is thrown horizontally at 20 m/s from a cliff 80 m high. Find: a) the time of "
+    "flight b) the horizontal range c) the final speed"
+)
+_CRANE = (
+    "A crane lifts a 500 kg load through 20 m in 10 s. Calculate: (a) the work done (b) the "
+    "power developed (c) the gain in potential energy"
+)
+
+
+@pytest.mark.parametrize(
+    ("question", "answer", "kept"),
+    [
+        # 2026-11-01: short parts read as options, and a card answering all of them was dropped.
+        (_CLIFF, "t = 4.04 s; x = 80.8 m; v = 44.4 m/s", True),
+        (_CRANE, "W = 98100 J; P = 9810 W; ΔE = 98100 J", True),
+        (_CLIFF, "t = 4.04 s\nx = 80.8 m\nv = 44.4 m/s", True),
+        # One part of three is still a part.
+        (_CLIFF, "t = 4.04 s", False),
+        (_CRANE, "W = 98100 J; P = 9810 W", False),
+        # Options stay options: the card must be one of them.
+        ("What is the resistance? a) 3 Ω b) 6 Ω c) 12 Ω d) 24 Ω", "R = 6 Ω", True),
+        ("What is the resistance? a) 3 Ω b) 6 Ω c) 12 Ω d) 24 Ω", "R = 7 Ω", False),
+        ("Which gas do plants give off? a) oxygen b) nitrogen c) carbon dioxide", "oxygen", True),
+    ],
+)
+def test_parts_answered_in_full_stay_and_options_stay_options(
+    question: str, answer: str, kept: bool
+) -> None:
+    assert answers_whole_question(question, answer) is kept
+
+
+@pytest.mark.parametrize(
+    ("question", "answer", "kept"),
+    [
+        # The power of ten is the value: 400 J is no "4 J" option.
+        (
+            "The potential energy is: a) 1 J b) 2 J c) 4 J d) 8 J",
+            r"E_p = 4.0 \times 10^{2}\,\mathrm{J}",
+            False,
+        ),
+        (
+            "The speed of light is: a) 3 × 10^8 m/s b) 3 × 10^6 m/s c) 3 × 10^5 m/s",
+            r"c = 3.00 \times 10^{8}\,\mathrm{m/s}",
+            True,
+        ),
+        (
+            "The speed of light is: a) 3 × 10^8 m/s b) 3 × 10^6 m/s c) 3 × 10^5 m/s",
+            r"c = 3.00 \cdot 10^{8}\ \mathrm{m/s}",
+            True,
+        ),
+        (
+            "The energy is: a) 40 J b) 400 J c) 4000 J",
+            r"E \approx 4.0 \times 10^{2}\ \mathrm{J}",
+            True,
+        ),
+        ("The charge is: a) −2 C b) 2 C c) 4 C", "q = -2 C", True),
+        # An option no float holds is never an error.
+        ("The energy is: a) 1 × 10^1000 J b) 2 J c) 3 J", "E = 2 J", True),
+        ("The energy is: a) 1 × 10^1000 J b) 2 J c) 3 J", "E = 5 J", False),
+    ],
+)
+def test_an_option_is_matched_by_its_whole_value(question: str, answer: str, kept: bool) -> None:
+    assert answers_whole_question(question, answer) is kept

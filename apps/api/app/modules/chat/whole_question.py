@@ -202,10 +202,12 @@ def answers_whole_question(question: str, answer: str) -> bool:
     pieces = [piece for piece in _ANSWER_PIECES.split(answer) if piece.strip()]
     if not choices:
         return labelled_parts(question) <= max(len(pieces), 1)
-    if _are_options(choices):
-        return any(_same_choice(answer, choice) for choice in choices)
-    # Parts: one piece of the answer for each ("v = 20 m/s; s = 100 m").
-    return len(pieces) >= len(choices)
+    # A piece for every label answers every part, whatever the labels hold: short ones
+    # ("Find: a) the time of flight b) the range c) the final speed") read like options,
+    # and a solver that answered all three lost its card (2026-11-01).
+    if len(pieces) >= len(choices):
+        return True
+    return _are_options(choices) and any(_same_choice(answer, choice) for choice in choices)
 
 
 def _are_options(choices: list[str]) -> bool:
@@ -220,7 +222,9 @@ def _same_choice(answer: str, choice: str) -> bool:
     if chosen is not None:
         if _ARROW.search(answer):
             return False
-        given = _leading_value(_right_side(answer) if "=" in answer else answer)
+        # The value as written after its last relation: "4.0 \\times 10^{2}" keeps its power
+        # of ten, which a stripped right side lost ("4" matched the option "4 J").
+        given = _leading_value(_RELATION.split(answer)[-1])
         return given is not None and abs(given - chosen) <= 0.02 * max(abs(chosen), 1e-9)
     plain_choice = _MARKUP.sub("", choice).lower().strip()
     return bool(plain_choice) and plain_choice in _MARKUP.sub("", answer).lower()
@@ -229,13 +233,14 @@ def _same_choice(answer: str, choice: str) -> bool:
 _FRACTION = re.compile(r"\\[dt]?frac\s*\{\s*(-?[\d.]+)\s*\}\s*\{\s*(-?[\d.]+)\s*\}")
 _LEADING = re.compile(
     r"^\s*(-?\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?"
-    r"(?:\s*(?:\\times|\u00d7|x|\*)\s*10\s*\^\s*\{?\s*(-?\d+)\s*\}?)?"
+    r"(?:\s*(?:\\times|\\cdot|\u00d7|\u00b7|x|\*)\s*10\s*\^\s*\{?\s*(-?\d+)\s*\}?)?"
 )
 
 
 def _leading_value(text: str) -> float | None:
     """The number a text opens with: "2 x 10^5 J", "\\frac{1}{2}", "78.54 cm²", "1/2"."""
-    plain = _FRACTION.sub(r"\1/\2", text).replace("$", "").replace(",", "")
+    plain = _FRACTION.sub(r"\1/\2", text).replace("$", "").replace("\\,", "").replace(",", "")
+    plain = plain.replace(chr(0x2212), "-")
     match = _LEADING.match(plain)
     if match is None:
         return None
@@ -243,7 +248,11 @@ def _leading_value(text: str) -> float | None:
     if match.group(2):
         value /= float(match.group(2)) or 1.0
     if match.group(3):
-        value *= 10.0 ** int(match.group(3))
+        # "1 x 10^1000" in an option is no number a card can match, never an error.
+        exponent = int(match.group(3))
+        if abs(exponent) > 300:
+            return None
+        value *= 10.0**exponent
     return value
 
 
