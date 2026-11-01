@@ -8,6 +8,10 @@ that forms iron(II) oxide, "3:2" for a five-part question, and part (a) alone of
 calculations (2026-10-30, Ethiopian Grade 7-12 chemistry books). Such a result is dropped
 whole (its prompt block, its card and its instant reply), and the model answers the
 question; a result that answers every part, or is one of the options, stays.
+
+The readers must also be able to read the question at all (``turn_reading.readable``): a
+question in another language, or with a number its writer's locale reads otherwise ("1.200"
+from a Spanish user is 1200), gets no verified result, its card and pictures included.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from __future__ import annotations
 import re
 
 from app.modules.chat.prompt_builder import SubjectFetch
+from app.modules.turn_reading.readable import unreadable
 from app.services.question_parts import labelled_parts
 from app.services.solving import VerifiedSolveBlock
 
@@ -273,25 +278,42 @@ def _leading_value(text: str) -> float | None:
     return value
 
 
-def answers_with(question: str, verified: VerifiedSolveBlock) -> bool:
-    """A verified block may stand for ``question``: it answers what is asked, or carries no
-    answer line to judge (a diagram)."""
+def answers_with(question: str, verified: VerifiedSolveBlock, *, locale: str | None = None) -> bool:
+    """A verified block may stand for ``question``: the readers read it, written by a user
+    of ``locale``, and it answers what is asked or carries no answer line to judge (a
+    diagram)."""
+    if unreadable(question, locale) is not None:
+        return False
     answer = verified.display_answer or verified.canonical_answer or ""
     return not answer or answers_the_question(question, answer)
 
 
-def whole_question_fetch(question: str, fetched: SubjectFetch) -> SubjectFetch:
-    """``fetched`` as it was, or without its verified result when that answers part of
-    ``question``."""
+def whole_question_fetch(
+    question: str,
+    fetched: SubjectFetch,
+    *,
+    locale: str | None = None,
+    problems: tuple[str | None, ...] = (),
+) -> SubjectFetch:
+    """``fetched`` as it was, or without its verified result when the readers could not read
+    ``question`` or an earlier ``problems`` line it solved (a follow-up's), or when that
+    result answers part of ``question``."""
     verified = fetched.verified
+    if verified is None and fetched.direct_text is None:
+        return fetched
+    if any(unreadable(text, locale) for text in (question, *problems) if text):
+        return _DECLINED
     if verified is None or fetched.direct_text is not None:
         return fetched
-    if answers_with(question, verified):
+    if answers_with(question, verified, locale=locale):
         return fetched
-    return SubjectFetch(
-        subject_block=None,
-        verified=None,
-        solver_unverified=False,
-        unverified_subject=None,
-        direct_text=None,
-    )
+    return _DECLINED
+
+
+_DECLINED = SubjectFetch(
+    subject_block=None,
+    verified=None,
+    solver_unverified=False,
+    unverified_subject=None,
+    direct_text=None,
+)

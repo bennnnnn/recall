@@ -119,6 +119,12 @@ class SubjectFollowups(Protocol):
         """The line alone continues the subject's last problem ("graph it"), no exchange read."""
         ...
 
+    def borrows_earlier(self, line: str) -> bool:
+        """The subject may solve the line from the user's earlier lines ("graph it", or a
+        fragment such as "5" that continues an open equation): a gate on what the readers
+        read (``chat/whole_question``) holds those lines to it too."""
+        ...
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         """A cheap look, on the loop: the line asks to see what the subject's card draws,
         and, given the chat's recent lines, one of them could be the problem it draws."""
@@ -197,8 +203,9 @@ class SubjectTool(Protocol):
         """A call that must not run for this problem (a solve that drops its domain)."""
         ...
 
-    def call_matches(self, raw_args: Any, user_texts: list[str]) -> bool:
-        """The call works on a problem from the user's own lines (newest first)."""
+    def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
+        """The user's line (``user_texts`` newest first) whose problem the call works on, or
+        None: chat holds that line to what the readers read (``turn_reading.readable``)."""
         ...
 
     def draws_curve(self, fence: dict[str, Any] | None) -> bool:

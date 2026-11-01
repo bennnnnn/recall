@@ -16,7 +16,8 @@ question a student would type, worked independently from the textbook formula
 - ``decline``: an underdetermined question, never given a number;
 - ``not_subject``: an everyday message that only sounds like the subject.
 
-``history`` gives earlier turns for a follow-up. ``shared`` names the peer
+``history`` gives earlier turns for a follow-up, and ``locale`` the asker's app language
+(English when absent). ``shared`` names the peer
 subject that owns a law both use (gases, Q = mcΔT, half-lives are physics'), so
 its claiming the turn is no misread. ``gap`` marks a known miss: a strict
 expected failure until the fix deletes the line. Every verified physics and
@@ -90,6 +91,8 @@ class Entry:
     visual: str | None = None
     note: str | None = None
     gap: str | None = None
+    # The asker's app language, which reads their numbers ("1.200" is 1200 in Spanish).
+    locale: str = "en"
 
     @property
     def checked(self) -> bool:
@@ -143,6 +146,7 @@ def load(subject: str) -> list[Entry]:
                     visual=raw.get("visual"),
                     note=raw.get("note"),
                     gap=raw.get("gap"),
+                    locale=raw.get("locale", "en"),
                 )
             )
     return entries
@@ -590,7 +594,9 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
 
 
 async def run_entry(entry: Entry, subject: str) -> Outcome:
-    case = Case(entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history)
+    case = Case(
+        entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history, locale=entry.locale
+    )
     route = await route_case(case)
     return judge(entry, subject, route)
 
