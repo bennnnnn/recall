@@ -83,7 +83,7 @@ def is_proximity_query(text: str) -> bool:
         return False
     if non_geographic_nearest(cleaned):
         return False
-    # Places around the user outweigh the distances a problem states: "Find coffee shops
+    # Places around the user outweigh a problem's numbers and subject: "Find coffee shops
     # near me within 2 km, max 5 km" lost its location (2026-11-01).
     if is_worked_problem(cleaned) and not around_the_user(cleaned):
         return False
@@ -101,8 +101,11 @@ def is_distance_query(text: str) -> bool:
         return False
     if not (_DISTANCE_INTENT.search(cleaned) or trip_how_many_phrase(cleaned)):
         return False
-    # An exercise asks "how far" and "how long to reach" too: never a trip from the user.
-    if _MOTION_HOMEWORK.search(cleaned) or is_worked_problem(cleaned):
+    if _MOTION_HOMEWORK.search(cleaned):
+        return False
+    # An exercise asks "how far" and "how long to reach" too: a trip from the user only when
+    # the line says so ("from my location").
+    if is_worked_problem(cleaned) and not around_the_user(cleaned):
         return False
     if _TIMETABLE.search(cleaned) or _UNIT_CONVERSION.search(cleaned):
         return False

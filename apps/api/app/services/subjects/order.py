@@ -16,7 +16,7 @@ from typing import Literal
 from app.core.readings import reading
 from app.modules.math.tools.prompt import needs_symbolic_math
 from app.modules.physics.extract import extract_physics_intent, needs_physics
-from app.services.subjects.registry import SubjectName, subject_adapter
+from app.services.subjects.registry import SubjectName
 
 # Which step of the subject order decided a line (``read_subject_reason``): the order is
 # the precedence, written once there.
@@ -160,20 +160,3 @@ def read_subject_reason(
     if is_chemistry_question(text):
         return SubjectReading("chemistry", "chemistry_question")
     return SubjectReading(None, "none")
-
-
-@reading(declined=None)
-def read_problem_subject(
-    text: str, has_image_attachment: bool, chemistry_enabled: bool
-) -> SubjectName | None:
-    """The subject that reads a request to solve out of a line: the order's subject, when its
-    adapter's reader closes one (``SubjectAdapter.reads``). A reading (``core/readings``).
-
-    A line a subject solves is that subject's problem before anything reads it for the user's
-    place: "A ball is dropped from 20 m. How long does it take to reach the ground?" asks
-    about the ball, not a trip from where the user is (``web_search.weather.is_worked_problem``).
-    """
-    found = read_subject_reason(text, has_image_attachment, chemistry_enabled)
-    if found is None or found.subject is None:
-        return None
-    return found.subject if subject_adapter(found.subject).reads(text) else None

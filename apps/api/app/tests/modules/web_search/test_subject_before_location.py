@@ -1,8 +1,9 @@
-"""A line a subject solves is that subject's problem before it is a question about the user's
-place: "A ball is dropped from a height of 20 m. How long does it take to reach the ground?"
-was answered "I don't have your location yet" (2026-11-01). The turn's reading, read in the
-pool, says which subject reads a request out of the message; every reader of the user's place
-defers to it (``web_search.weather.is_worked_problem``).
+"""Homework is its subject's question before it is one about the user's place: "A ball is
+dropped from a height of 20 m. How long does it take to reach the ground?" was answered "I
+don't have your location yet" (2026-11-01). The turn's reading, read in the pool, names the
+message's subject; every reader of the user's place defers to it, solved or not
+(``web_search.weather.is_worked_problem``), unless the line says it is about where the user
+is ("near me", "here", "in my area", "from my location").
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import pytest
 from app.core.config import Settings
 from app.core.readings import begin_turn
 from app.modules.chat.turn_prep.reading import ask_turn_readings, read_turn
-from app.modules.turn_reading.turn import TurnReading, reads_a_problem
+from app.modules.turn_reading.turn import TurnReading, names_a_subject
 from app.modules.web_search.geo_intent import (
     is_distance_query,
     is_geo_query,
@@ -62,15 +63,20 @@ def _in_turn(text: str) -> tuple[TurnReading, bool, bool, bool]:
         "the water?",
         "If a ball is dropped from 10 m, how long does it take to get to the ground?",
         "A stone is dropped down a well and hits the water after 2 s. How far down is the water?",
+        # Homework physics claims and cannot solve is still no question about a place.
+        "A ball rolls off a table 1.2 m high. How long does it take to reach the floor?",
+        "A block slides down a frictionless slope 10 m long inclined at 30 degrees. How long "
+        "does it take to reach the bottom of the slope?",
+        "The height of a ball is h = 80 - 5t^2. How long does it take to reach the ground?",
     ],
 )
-def test_a_problem_its_subject_reads_asks_nothing_about_the_users_place(text: str) -> None:
+def test_homework_asks_nothing_about_the_users_place(text: str) -> None:
     # Without the turn's reading the place readers claim it, as they did.
     assert is_geo_query(text)
 
     reading, geo, geo_collapsed, distance = _in_turn(text)
 
-    assert reading.problem == "physics"
+    assert reading.subject is not None
     assert not geo and not geo_collapsed and not distance
 
 
@@ -81,17 +87,35 @@ def test_a_problem_its_subject_reads_asks_nothing_about_the_users_place(text: st
         "how long to get to the beach?",
         "How far is the nearest hospital?",
         "How long does it take to reach the top of the nearest mountain?",
-        # Physics claims the line ("30 mpg") and reads no problem in it.
-        "How far is the nearest gas station? My car does 30 mpg",
         "What's the weather like here today?",
         "coffee shops near me",
+        "how hot is it here",
+        "how far is the airport from me",
+        "What's the temperature in my area?",
     ],
 )
 def test_a_real_location_ask_still_asks_for_the_place(text: str) -> None:
     reading, geo, geo_collapsed, _ = _in_turn(text)
 
-    assert reading.problem is None
+    assert reading.subject is None
     assert geo and geo_collapsed
+
+
+@pytest.mark.parametrize(
+    ("text", "geo"),
+    [
+        # A subject's line that says it is about where the user is keeps the place.
+        ("How long does it take to drive 10 km to the airport from my location?", True),
+        # Exercises say "from here" and "here is": no cue.
+        ("I walk 5 km from here at 1.5 m/s. How long does it take to reach the lake?", False),
+        ("Here is my homework: a ball is dropped from 5 m. How long to reach the ground?", False),
+    ],
+)
+def test_only_a_cue_about_the_user_outweighs_a_subject(text: str, geo: bool) -> None:
+    reading, geo_now, _, _ = _in_turn(text)
+
+    assert reading.subject is not None
+    assert geo_now is geo
 
 
 def test_a_search_around_the_user_outweighs_a_problem() -> None:
@@ -110,11 +134,11 @@ def test_only_the_turns_own_message_is_known() -> None:
     def run() -> tuple[bool, bool, bool]:
         _read_as_turn(problem)
         return (
-            reads_a_problem(problem),
-            reads_a_problem(f"  {problem}\n"),
-            reads_a_problem("How long does it take to reach the airport?"),
+            names_a_subject(problem),
+            names_a_subject(f"  {problem}\n"),
+            names_a_subject("How long does it take to reach the airport?"),
         )
 
     assert contextvars.copy_context().run(run) == (True, True, False)
     # Outside a turn nothing is read.
-    assert contextvars.Context().run(reads_a_problem, problem) is False
+    assert contextvars.Context().run(names_a_subject, problem) is False

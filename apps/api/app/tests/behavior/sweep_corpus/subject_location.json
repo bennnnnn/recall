@@ -131,7 +131,8 @@
   "area": "places",
   "prompt": "How far is the nearest gas station? My car does 30 mpg",
   "reply": "I need your location to tell you that.",
-  "expect": "instant"
+  "expect": "instant",
+  "gap": "Physics claims the line (\"30 mpg\"), so homework wins: only near me, here, my area or from my location keep a place ask over a subject (2026-11-01)."
  },
  {
   "id": "sbl-020",
@@ -170,5 +171,76 @@
   "reply": "Today in Addis Ababa: **partly cloudy**, high of **23°C**, low of **11°C**, with a **30%** chance of an afternoon shower.",
   "expect": "search",
   "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sbl-025",
+  "area": "physics",
+  "prompt": "A ball rolls off a table 1.2 m high. How long does it take to reach the floor?",
+  "reply": "Its fall is free fall from rest vertically.\n\n**Given:** $h = 1.2$ m\n\n**Formula:** $t = \\sqrt{2h/g}$\n\n**Substitution:** $t = \\sqrt{2(1.2)/9.81}$\n\n**Answer:** about **0.49 s**.",
+  "expect": "answer"
+ },
+ {
+  "id": "sbl-026",
+  "area": "physics",
+  "prompt": "A block slides down a frictionless slope 10 m long inclined at 30 degrees. How long does it take to reach the bottom of the slope?",
+  "reply": "**Given:** $s = 10$ m, $\\theta = 30^\\circ$\n\n**Formula:** $a = g\\sin\\theta$, $s = \\tfrac{1}{2}at^2$\n\n**Substitution:** $a = 9.81 \\times 0.5 = 4.905$ m/s², $t = \\sqrt{2(10)/4.905}$\n\n**Answer:** about **2.02 s**.",
+  "expect": "answer"
+ },
+ {
+  "id": "sbl-027",
+  "area": "physics",
+  "prompt": "The height of a ball is h = 80 - 5t^2. How long does it take to reach the ground?",
+  "reply": "The ball reaches the ground when $h = 0$:\n\n$$80 - 5t^2 = 0 \\Rightarrow t^2 = 16 \\Rightarrow t = 4$$\n\nIt reaches the ground after **4 s**.",
+  "expect": "answer"
+ },
+ {
+  "id": "sbl-028",
+  "area": "physics",
+  "prompt": "An apple falls 5 m. How long does it take to reach the floor?",
+  "reply": "**Given:** $h = 5$ m\n\n**Formula:** $t = \\sqrt{2h/g}$\n\n**Substitution:** $t = \\sqrt{2(5)/9.81}$\n\n**Answer:** about **1.01 s**.",
+  "expect": "answer"
+ },
+ {
+  "id": "sbl-029",
+  "area": "math",
+  "prompt": "How long does it take to get to 100 if you start at 4 and double every day?",
+  "reply": "Doubling from 4: 8, 16, 32, 64, 128. You pass 100 on **day 5** (exactly, $4 \\cdot 2^t = 100$ gives $t = \\log_2 25 \\approx 4.64$ days).",
+  "expect": "answer"
+ },
+ {
+  "id": "sbl-030",
+  "area": "places",
+  "prompt": "how hot is it here",
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
+ },
+ {
+  "id": "sbl-031",
+  "area": "places",
+  "prompt": "how hot is it here",
+  "reply": "It's **24°C** in Addis Ababa right now, sunny with a light breeze.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sbl-032",
+  "area": "places",
+  "prompt": "how far is the airport from me",
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
+ },
+ {
+  "id": "sbl-033",
+  "area": "places",
+  "prompt": "What's the temperature in my area?",
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
+ },
+ {
+  "id": "sbl-034",
+  "area": "places",
+  "prompt": "How long does it take to drive 10 km to the airport from my location?",
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
  }
 ]
