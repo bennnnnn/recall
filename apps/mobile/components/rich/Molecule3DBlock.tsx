@@ -22,6 +22,7 @@ import {
   MOLECULE_PREVIEW_HEIGHT,
   type MoleculeStyle,
 } from "@/lib/chemistry/molecule3dLayout";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { VisualCard } from "@/components/rich/VisualCard";
 import {
   parseMolGeometry,
@@ -225,6 +226,7 @@ export function Molecule3DBlock({ content }: Props) {
   const sdf = parsed?.sdf ?? "";
   const caption = parsed?.caption;
   const geom = useMemo(() => (sdf ? parseMolGeometry(sdf) : null), [sdf]);
+  useFenceRefused("molecule3d", content, !parsed || !geom);
 
   if (!parsed || !geom) {
     return (

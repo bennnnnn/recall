@@ -83,7 +83,9 @@ async function loadPurchases(): Promise<PurchasesModule | null> {
   try {
     purchasesModule = await import("react-native-purchases");
     return purchasesModule;
-  } catch {
+  } catch (error) {
+    // A configured build without the store's native module: no plan can be bought.
+    reportStoreUnavailable(error);
     purchasesModule = null;
     return null;
   }

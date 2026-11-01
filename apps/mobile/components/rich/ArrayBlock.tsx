@@ -6,6 +6,7 @@ import {
   PARAGRAPH_GAP,
 } from "@/components/markdown/markdownContentStyles";
 import { ChipText } from "@/components/rich/ChipText";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { CODE_FACE } from "@/lib/fonts";
 import i18n from "@/lib/i18n";
 import { arrayBody, looseArrayValues } from "@/lib/lesson/cardBody";
@@ -19,6 +20,8 @@ type Props = { content: string };
 
 // Up to this many boxes share the card's width; more scroll sideways.
 const FIT_CELLS = 6;
+/** A list is JSON: text in its place, or JSON the card cannot read, is a refused fence. */
+const ARRAY_BODY = { json: true };
 
 /**
  * A list as gray boxes, each value over its index, with the pair that matters
@@ -29,6 +32,7 @@ export function ArrayBlock({ content }: Props) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const body = useMemo(() => arrayBody(content), [content]);
   const fence = body?.kind === "card" ? body.card : null;
+  useFenceRefused("array", content, body !== null && fence === null, ARRAY_BODY);
 
   if (!fence) {
     if (body?.kind === "plain") {

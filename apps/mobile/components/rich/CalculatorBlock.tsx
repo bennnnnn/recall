@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, Text, View } from "react-native";
 
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { formatCalendarDay } from "@/lib/datetime/format";
 import appI18n from "@/lib/i18n";
@@ -23,6 +24,7 @@ import { Slider } from "@/ui/controls/Slider";
 type Props = { content: string };
 
 const FALLBACK_TITLE = "money.title.loan";
+const CALCULATOR_BODY = { json: true };
 
 /**
  * A loan, a card payoff or savings: a slider for each input and the numbers they give. The
@@ -32,6 +34,7 @@ const FALLBACK_TITLE = "money.title.loan";
  */
 export function CalculatorBlock({ content }: Props) {
   const calculator = useMemo(() => parseCalculatorFence(content), [content]);
+  useFenceRefused("calculator", content, calculator === null, CALCULATOR_BODY);
   if (!calculator) return null;
   return <CalculatorCard key={content} content={content} calculator={calculator} />;
 }

@@ -1,4 +1,4 @@
-import { isUnfinishedJson } from "@/lib/jsonFence";
+import { isUnfinishedJson, readJson } from "@/lib/jsonFence";
 
 describe("isUnfinishedJson", () => {
   it.each([
@@ -16,5 +16,21 @@ describe("isUnfinishedJson", () => {
     ['{"question": "a { b"}', false],
   ])("%j → %s", (content, unfinished) => {
     expect(isUnfinishedJson(content)).toBe(unfinished);
+  });
+});
+
+describe("readJson", () => {
+  it.each([
+    ['{"a": 1}', { value: { a: 1 } }],
+    ["[1, 2]", { value: [1, 2] }],
+    // JSON's null is a value, not a failure.
+    ["null", { value: null }],
+    ["0", { value: 0 }],
+    ['"text"', { value: "text" }],
+    ["", null],
+    ["plain text", null],
+    ['{"a": 1,}', null],
+  ])("%j → %j", (text, read) => {
+    expect(readJson(text)).toEqual(read);
   });
 });

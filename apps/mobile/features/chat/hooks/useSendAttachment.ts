@@ -6,6 +6,7 @@ import {
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
 import { useLatestRef } from "@/lib/latestRef";
+import { reportFailure } from "@/lib/sentry";
 
 /**
  * The attachment queued in the composer, and the ones waiting on other threads
@@ -92,9 +93,15 @@ export function useSendAttachment(token: string | null) {
   };
 }
 
-/** Uploads once: the copy it returns carries the server id, so a restore or a retry reuses it. */
+/**
+ * Uploads once: the copy it returns carries the server id, so a restore or a retry reuses it.
+ * A failed upload is reported (metadata only) and thrown on for the caller's toast.
+ */
 export async function uploadSendAttachment(token: string, attachment: PendingAttachment) {
-  const id = await uploadChatAttachment(token, attachment);
+  const id = await uploadChatAttachment(token, attachment).catch((error: unknown) => {
+    reportFailure("attachment_upload", error);
+    throw error;
+  });
   // A Library pick was already on the server; only a fresh upload is this draft's to cancel.
   const uploadedForDraft = attachment.uploadedForDraft ?? !attachment.existingAttachmentId;
   return { ids: [id], attachment: { ...attachment, existingAttachmentId: id, uploadedForDraft } };

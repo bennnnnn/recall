@@ -9,6 +9,7 @@ import { Button } from "@/ui/controls/Button";
 import { useSubscriptionActions } from "@/features/billing/hooks/useSubscriptionActions";
 import type { IconName } from "@/ui/icons/names";
 import { api } from "@/lib/api";
+import { reportFailure } from "@/lib/sentry";
 import {
   getPlanPackages,
   isPurchaseCancelled,
@@ -120,17 +121,15 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       .then((next) => {
         if (!cancelled) setCatalog(next);
       })
-      .catch(() => {
-        // The cards still show what each plan includes, without numbers.
-      });
+      // The cards still show what each plan includes, without numbers.
+      .catch((error: unknown) => reportFailure("paywall_load", error));
     void api
       .listModels(token)
       .then((models) => {
         if (!cancelled) setPremiumModels(premiumModelNames(models));
       })
-      .catch(() => {
-        // Without the list the models line names no model.
-      });
+      // Without the list the models line names no model.
+      .catch((error: unknown) => reportFailure("paywall_load", error));
     return () => {
       cancelled = true;
     };
@@ -155,10 +154,17 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     };
   }, [visible, purchasesReady, offerAttempt]);
 
+  /** The server reads the store again. The store took the payment, so a failure here says
+   * "pending", never that it failed: the plan listener and the webhook still land it. */
   const syncAfterStore = async () => {
     if (!token) return;
-    await syncSubscription();
-    onClose();
+    try {
+      await syncSubscription();
+      onClose();
+    } catch (error) {
+      reportFailure("purchase_sync", error);
+      setError(t("upgrade.sync_pending"));
+    }
   };
 
   const onSubscribe = async (plan: PaidPlanId) => {
@@ -176,6 +182,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         plan,
         reason: cancelled ? "cancelled" : "error",
       });
+      if (!cancelled) reportFailure("purchase", purchaseError);
       if (!cancelled) setError(t("upgrade.purchase_failed"));
       setBusy(null);
       return;
@@ -187,15 +194,8 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       return;
     }
     trackProductEvent("purchase_succeeded", { plan });
-    try {
-      await syncAfterStore();
-    } catch {
-      // The store took the payment; only the server refresh failed. The plan
-      // listener and the webhook still land it — never say the purchase failed.
-      setError(t("upgrade.sync_pending"));
-    } finally {
-      setBusy(null);
-    }
+    await syncAfterStore();
+    setBusy(null);
   };
 
   const onRestore = async () => {
@@ -208,12 +208,9 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         setError(t("upgrade.restore_empty"));
         return;
       }
-      try {
-        await syncAfterStore();
-      } catch {
-        setError(t("upgrade.sync_pending"));
-      }
-    } catch {
+      await syncAfterStore();
+    } catch (error) {
+      reportFailure("purchase_restore", error);
       setError(t("upgrade.purchase_failed"));
     } finally {
       setBusy(null);

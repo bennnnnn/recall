@@ -7,8 +7,9 @@ import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
 import { TrajectoryChart } from "@/components/rich/TrajectoryChart";
 import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { formatGraphExpr, formatInequalityExpr } from "@/lib/math/graphBlock";
-import { parseGraphSpec } from "@/lib/math/graphSpec";
+import { GRAPH_KINDS, parseGraphSpec } from "@/lib/math/graphSpec";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -17,6 +18,7 @@ import { Type } from "@/lib/type";
 type Props = { content: string };
 
 const NUMBER_LINE_HEIGHT = 80;
+const GRAPH_BODY = { json: true, kinds: { field: "type", known: GRAPH_KINDS } };
 
 export function FunctionGraphBlock({ content }: Props) {
   const theme = useTheme();
@@ -25,6 +27,7 @@ export function FunctionGraphBlock({ content }: Props) {
   const spec = useMemo(() => parseGraphSpec(content), [content]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const chartWidth = figureWidth(screenWidth);
+  useFenceRefused("graph", content, spec === null, GRAPH_BODY);
 
   if (!spec) {
     return (

@@ -38,7 +38,8 @@ const ARROW_KINDS: readonly SimulationArrow[] = [
   "normal",
   "friction",
 ];
-const SCENE_KINDS: readonly SimulationKind[] = [
+/** Every body scene this build draws (a circuit, rays and a wave are `diagramKind`'s). */
+export const SCENE_KINDS: readonly SimulationKind[] = [
   "projectile_motion",
   "orbit",
   "collision",

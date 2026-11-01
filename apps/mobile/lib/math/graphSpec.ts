@@ -62,6 +62,17 @@ export type InequalityGraphSpec = Omit<SampledGraphSpec, "type"> & {
 
 export type GraphSpec = SampledGraphSpec | InequalityGraphSpec;
 
+const GRAPH_KIND_SET: Record<GraphSpec["type"], true> = {
+  function: true,
+  vertical: true,
+  number_line: true,
+  trajectory: true,
+  inequality: true,
+};
+
+/** Every graph this build draws; a fence naming another is refused as an unknown kind. */
+export const GRAPH_KINDS = Object.keys(GRAPH_KIND_SET);
+
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
 const MAX_GRAPH_POINTS = 500;
 const MAX_GRAPH_EXPR_LENGTH = 256;

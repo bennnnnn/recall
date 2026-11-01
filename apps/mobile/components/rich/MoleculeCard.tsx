@@ -11,6 +11,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { Chemistry2DView } from "@/components/rich/ChemistryBlock";
 import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
 import { Molecule3DView } from "@/components/rich/Molecule3DBlock";
+import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { parseMolGeometry, parseMolecule3DFence } from "@/lib/chemistry/molecule3dFence";
 import { parseMoleculeFence } from "@/lib/chemistry/moleculePair";
@@ -37,6 +38,7 @@ export function MoleculeCard({ content }: { content: string }) {
     const mol = parseMolecule3DFence(raw);
     return mol?.sdf ? parseMolGeometry(mol.sdf) : null;
   }, [parsed]);
+  useFenceRefused("molecule", content, parsed === null);
 
   if (!parsed) {
     return (
@@ -75,7 +77,7 @@ export function MoleculeCard({ content }: { content: string }) {
       {caption ? <MoleculeCaption text={caption} /> : null}
 
       <View style={active === "2d" ? undefined : s.hidden}>
-        <Chemistry2DView smiles={smiles} />
+        <Chemistry2DView smiles={smiles} fence="molecule" />
       </View>
       {geometry && (seen3d || active === "3d") ? (
         <View style={active === "3d" ? undefined : s.hidden}>
