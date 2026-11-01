@@ -1,8 +1,9 @@
 """Auto routing's physics lane: verified physics stays fast, uncovered homework goes smart.
 
-Split from ``routing``. ``_physics_solves`` is a reading (``core/readings.py``): the turn
-reads it in the SymPy pool with the rest of its message, so routing never runs the
-physics solver on the event loop.
+Physics' read of a line for model routing (chat's ``model_routing/route``), asked through
+its adapter (``services/subjects/registry``). ``_physics_solves`` is a reading
+(``core/readings.py``): the turn reads it in the SymPy pool with the rest of its message,
+so routing never runs the physics solver on the event loop.
 """
 
 from __future__ import annotations
@@ -10,7 +11,6 @@ from __future__ import annotations
 import logging
 from functools import lru_cache
 
-from app.core.config import Settings
 from app.core.readings import reading
 
 logger = logging.getLogger(__name__)
@@ -101,17 +101,12 @@ def _physics_solves(content: str) -> bool:
     return True
 
 
-def physics_route(
-    content: str,
-    *,
-    fast: str,
-    smart: str,
-    settings: Settings | None = None,
-) -> str | None:
-    """Verified physics stays on the fast model. Uncovered homework goes smart.
+def physics_fast_lane(content: str, *, tools_on: bool) -> bool | None:
+    """Verified physics stays on the fast model (True). Uncovered homework goes to the
+    strong one (False). None when the line is no physics.
 
-    The fast tier is only for a template the solver actually finishes, and
-    only while math tools are on. Otherwise the strong model answers it.
+    The fast tier is only for a template the solver actually finishes, and only while
+    math tools are on. Otherwise the strong model answers it.
     """
     homework = _looks_like_physics_homework(content)
     from app.modules.physics import extract_physics_intent, needs_physics
@@ -119,6 +114,5 @@ def physics_route(
     if not homework and not needs_physics(content):
         return None
     if extract_physics_intent(content) is None:
-        return smart if homework else None
-    tools_on = settings is None or settings.math_tools_enabled
-    return fast if tools_on and _physics_solves(content) else smart
+        return False if homework else None
+    return tools_on and _physics_solves(content)

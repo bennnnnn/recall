@@ -155,7 +155,7 @@ def _needs_non_web_tool(
 ) -> bool:
     """Math, a photo lookup, or image generation still needs a tool-selection round."""
     from app.modules.images.lookup_intent import extract_image_lookup_query
-    from app.modules.math.tools.prompt import needs_symbolic_math
+    from app.services.subjects.registry import subject_adapter
 
     sympy_on = "sympy" not in skip_tools
     if sympy_on and leftover_math_after_verified(text):
@@ -164,12 +164,11 @@ def _needs_non_web_tool(
 
     math_on = sympy_on and (settings is None or settings.math_tools_enabled)
     # A pasted traceback or loop is code to read, not an equation for SymPy.
-    if math_on and not has_code_syntax(text) and needs_symbolic_math(text):
-        from app.modules.math.tools.extract import extract_math_intent
-
+    maths = subject_adapter("math")
+    if math_on and not has_code_syntax(text) and maths.asks(text):
         # Detection without an extractor is the 7*8 trap: the sympy tool
         # calls the same extractor and burns the round timeout for nothing.
-        if extract_math_intent(text) is not None:
+        if maths.reads(text):
             return True
     # Reference-photo lookup ("show me an ear") is checked before generation
     # so its disjoint trigger phrasing (show / let … see / what does … look

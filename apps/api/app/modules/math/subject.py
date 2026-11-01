@@ -8,6 +8,7 @@ direct reply through ``tools.direct``, and its prompt copy from ``reply_policy``
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -81,6 +82,12 @@ class MathFollowups:
     def previous_result(self, reply: str) -> str | None:
         return readable_standalone_answer(reply)
 
+    def continues_alone(self, line: str) -> bool:
+        # "graph it" / "plot this equation" with no new formula.
+        from app.modules.math.tools.extract import is_graph_followup
+
+        return is_graph_followup(line)
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return False
 
@@ -147,6 +154,54 @@ class MathSubject:
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_symbolic_math(text, has_image_attachment=has_image_attachment)
+
+    def reads(self, text: str) -> bool:
+        from app.modules.math.tools.extract import extract_math_intent
+
+        return extract_math_intent(text) is not None
+
+    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+        """SymPy already covers these; a reasoning model only writes a CoT essay.
+
+        Keep equations / calculus / graphs on the maths lane (False). Bare factorial
+        ("4!") and "what is 1+1" style arithmetic stay on the fast model.
+        """
+        from app.modules.math.match import (
+            bare_arithmetic_expr,
+            combinatorics_signal,
+            prepare,
+            written_arithmetic_request,
+        )
+
+        cleaned = prepare(text)
+        if not cleaned:
+            return False
+        sig = combinatorics_signal(cleaned)
+        if sig is not None and sig[0] == "factorial":
+            return True
+        # Same whole-message helper as the SymPy gate — a lone "1+1" inside a
+        # harder question must not keep the turn on the fast model.
+        return (
+            bare_arithmetic_expr(cleaned) is not None
+            or written_arithmetic_request(cleaned) is not None
+        )
+
+    def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
+        # "3x" alone: what it means, an example, what to ask next.
+        from app.modules.math.match import bare_expression_reply
+
+        return bare_expression_reply(text, prior_assistant=prior_reply)
+
+    def warm(self) -> None:
+        from app.modules.math.sympy_warmup import warm_math_worker
+
+        warm_math_worker()
+
+    def solve_timeouts(self) -> AbstractContextManager[list[str]]:
+        # A pre-solve that ran out of time: the tool loop does not run it again.
+        from app.modules.math.tools.solve_timeouts import recording
+
+        return recording()
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
         block, math_verified = await build_math_augmentation(

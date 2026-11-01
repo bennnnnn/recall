@@ -16,6 +16,11 @@ An adapter has what the dispatcher and chat ask of every subject:
   the SymPy pool (its checks parse with SymPy);
 - ``hints``: its prompt copy, and where chat states it (``SubjectHints``);
 - ``asks``: whether a line asks something of the subject (its cue), solved or not;
+- ``reads``: whether the subject reads a request out of the line (its intent);
+- ``fast_lane``: the model lane its own read of a line suggests to Auto routing;
+- ``instant_reply``: a reply the subject writes for a line with no model and no solve;
+- ``warm``: what a fresh SymPy pool worker runs first, so a turn pays no imports;
+- ``solve_timeouts``: the solves of the subject that ran out of time inside a block;
 - ``followups``: how it reads a line that goes back to its last problem
   (``SubjectFollowups``);
 - ``fence``: how it holds a finished reply's fences to its verified block, and the notes,
@@ -31,6 +36,7 @@ entry in ``SUBJECTS``; ``tests/services/test_subject_registry.py`` holds the two
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -93,6 +99,10 @@ class SubjectFollowups(Protocol):
 
     def previous_result(self, reply: str) -> str | None:
         """The last reply as the prompt shows it to a follow-up, or None to keep it as is."""
+        ...
+
+    def continues_alone(self, line: str) -> bool:
+        """The line alone continues the subject's last problem ("graph it"), no exchange read."""
         ...
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
@@ -159,6 +169,19 @@ class SubjectAdapter(Protocol):
     def fence(self) -> SubjectFence: ...
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool: ...
+
+    def reads(self, text: str) -> bool: ...
+
+    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+        """True keeps the line on the fast model (the verified answer needs no reasoning),
+        False sends it to the strong one, None when the subject has no say."""
+        ...
+
+    def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None: ...
+
+    def warm(self) -> None: ...
+
+    def solve_timeouts(self) -> AbstractContextManager[list[str]]: ...
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation: ...
 

@@ -530,6 +530,23 @@ printed "no decision changed".
   - `math.fence` and `.chart_formula`, `physics.fence`, and `chemistry.context` and
     `.fence` left the subjects' public lists.
   - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2c (chat's readers, routing, warm-up and instant reply): done.** Chat files
+  that import a subject: 14 → 10.
+  - The adapter gains `reads` (the subject's intent: `extract_*_intent` is not None),
+    `fast_lane` (Auto routing's lane from the subject's own read), `instant_reply` (maths'
+    reply to a bare expression), `warm` (maths' pool warm-up solve), `solve_timeouts`
+    (maths' record of a pre-solve that ran out of time) and `followups.continues_alone`
+    (maths' "graph it").
+  - Physics' routing lane moved from chat's `model_routing/physics.py` to
+    `modules/physics/lane.py` (`physics_fast_lane`; `_physics_solves` stays a reading), and
+    maths' "stays fast" check into `MathSubject.fast_lane`. `model_routing/route.py` keeps
+    its order and asks each subject's lane where it asked physics' route or the maths
+    check; chemistry's lane is always fast, as before.
+  - `turn_prep/reading.py` (the pool's reads and its warm-up, which runs every subject's
+    `warm`), `tool_loop/selection.py`, `prompt_builder.py`, `turn_prep/augment.py` and
+    `turn_prep/instant.py` ask the adapters. `math.sympy_warmup` and
+    `.tools.solve_timeouts` left maths' public list.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 

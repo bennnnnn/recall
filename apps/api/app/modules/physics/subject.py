@@ -7,6 +7,7 @@ direct reply through ``direct``, and its prompt copy from ``reply_policy`` and `
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -68,6 +69,9 @@ class PhysicsFollowups:
     def previous_result(self, reply: str) -> str | None:
         return None
 
+    def continues_alone(self, line: str) -> bool:
+        return False
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return False
 
@@ -123,6 +127,25 @@ class PhysicsSubject:
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_physics(text)
+
+    def reads(self, text: str) -> bool:
+        from app.modules.physics.extract import extract_physics_intent
+
+        return extract_physics_intent(text) is not None
+
+    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+        from app.modules.physics.lane import physics_fast_lane
+
+        return physics_fast_lane(text, tools_on=tools_on)
+
+    def instant_reply(self, text: str, *, prior_reply: str | None) -> str | None:
+        return None
+
+    def warm(self) -> None:
+        return None
+
+    def solve_timeouts(self) -> AbstractContextManager[list[str]]:
+        return nullcontext([])
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
         block, physics_verified, solve_failed = await build_physics_augmentation(
