@@ -24,6 +24,7 @@ from app.modules.math.schemas import (
     SquareGeometryInput,
     SystemOfEquationsInput,
 )
+from app.modules.math.tool_check import card_restates
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 logger = logging.getLogger(__name__)
@@ -167,25 +168,24 @@ class SympyAdapter:
             if undefined_note is not None:
                 return ToolResult(name=self.name, content=undefined_note)
             integral_note = infinite_integral_note(expr_result.result)
-        # Parity with the heuristic _verified_block_calculus path: an integral
-        # that SymPy couldn't close (it hands back a literal Integral(...) rather
-        # than raising) must NOT be asserted as a verified answer. Emit an
-        # honesty note and no ```answer / canonical fence so validate_math_fences
-        # does not overwrite the model's output with an unverified value.
-        if not expr_result.solved:
+        # As the heuristic path: an integral SymPy could not close (a literal Integral(...)),
+        # or a rewrite that only restates the expression (tool_check.card_restates), is NOT a
+        # verified answer: an honesty note, and no ```answer fence for validate_math_fences.
+        restated = action in {"simplify", "factor", "expand"} and await self._run_off_loop(
+            card_restates, expr_result.latex, "", (expr,)
+        )
+        if not expr_result.solved or restated:
             return ToolResult(
                 name=self.name,
                 content=(
                     f"SymPy could not find a closed-form result (got: {expr_result.latex}). "
-                    "Do NOT claim this as a verified answer — tell the user no closed "
-                    "form was found, or explain why the integral is hard, instead of "
-                    "asserting a solution."
+                    "Do NOT claim this as a verified answer — tell the user no closed form "
+                    "was found (and why the integral is hard), or that the expression is "
+                    "already in its simplest form, instead of asserting a solution."
                 ),
             )
-        # Attach a canonical ```answer fence so the post-stream rewriter
-        # (validate_math_fences) corrects the model's final answer to the
-        # verified SymPy value — same invariant _action_solve/_action_inequality
-        # already enforce for their kinds.
+        # A canonical ```answer fence lets validate_math_fences correct the model's final
+        # answer to the verified SymPy value, as _action_solve/_action_inequality do.
         answer = expr_result.latex
         if indefinite:
             answer += " + C"

@@ -324,7 +324,7 @@ async def build_math_augmentation(
 
     from app.modules.math import tools as mt
 
-    verified = await mt._build_verified_block_async(intent, settings)
+    verified = await mt._build_verified_block_async(intent, settings, question=user_content)
     if not verified:
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.
@@ -422,7 +422,7 @@ def _unverified_math_note(kind: str | None) -> str:
 
 
 async def _build_verified_block_async(
-    intent: MathIntent, settings: Settings
+    intent: MathIntent, settings: Settings, *, question: str | None = None
 ) -> VerifiedMathBlock | None:
     """Run the sync, CPU-bound SymPy work in a bounded subprocess with a
     hard timeout + SIGTERM on timeout.
@@ -442,6 +442,7 @@ async def _build_verified_block_async(
             mt._build_verified_block,
             intent,
             settings,
+            question,
             timeout=settings.stem_solve_timeout_seconds,
         )
     except TimeoutError:

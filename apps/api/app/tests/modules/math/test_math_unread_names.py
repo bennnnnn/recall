@@ -4,7 +4,8 @@
 ``cube_root(27a^3 + …)``. The parser read ``cube_root`` as one symbol times the polynomial,
 "simplified" that to itself, and the checked card was the question (right: 3a + 2b). A name
 the parser does not know as a function or as one-letter variables declines, and a card that
-is the question's expression, as a fraction or under a root, is no answer.
+is an expression the question states, or a root of one, compared as SymPy trees, is no
+answer.
 """
 
 from __future__ import annotations
@@ -13,12 +14,14 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
-from app.modules.chat.tool_verified import with_tool_verified
-from app.modules.chat.whole_question import answers_the_question
 from app.modules.math import solve as math_solve
+from app.modules.math.schemas import MathIntent
+from app.modules.math.tool import SympyAdapter
+from app.modules.math.tool_check import card_restates
 from app.modules.math.tools import prompt as math_prompt
+from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.llm_extract import LLMMathExtract
-from app.services.solving import SolveServiceError, VerifiedSolveBlock
+from app.services.solving import SolveServiceError
 
 _CUBE = "27a^3 + 54a^2b + 36ab^2 + 8b^3"
 
@@ -74,40 +77,44 @@ def test_functions_constants_and_letters_written_together_still_parse(expr: str)
     math_solve.parse_expression(expr)
 
 
-@pytest.mark.parametrize(
-    "answer",
-    [
-        # The model's power of the whole expression, printed as a root.
-        r"\sqrt[3]{27 a^{3} + 54 a^{2} b + 36 a b^{2} + 8 b^{3}}",
-        "27 a^{3} + 54 a^{2} b + 36 a b^{2} + 8 b^{3}",
-    ],
-)
-def test_a_card_that_restates_the_question_is_no_answer(answer: str) -> None:
-    assert not answers_the_question(f"Find the cube root of {_CUBE}.", answer)
+_ROOT = "(27*a^3 + 54*a^2*b + 36*a*b^2 + 8*b^3)^(1/3)"
 
 
 @pytest.mark.parametrize(
-    ("question", "answer", "kept"),
+    ("question", "expr", "kept"),
     [
-        ("simplify (x+1)/(x-1)", r"\frac{x + 1}{x - 1}", False),
-        ("simplify 1/(x-1)", r"\frac{1}{x - 1}", False),
-        # A fraction is matched whole, never across the question's terms.
-        ("simplify (x+1)/(x-1) - x/(x-1)", r"\frac{1}{x - 1}", True),
-        ("simplify sqrt(x^2+1)", r"\sqrt{x^{2} + 1}", False),
-        # A rewrite a student asked for keeps its card.
-        ("Simplify x^-2", r"\frac{1}{x^{2}}", True),
-        ("Simplify 5^-2", r"\frac{1}{25}", True),
-        ("Simplify -(-x)", "x", True),
-        ("Simplify x + -2", "x - 2", True),
-        ("simplify (x^2-1)/(x-1)", "x + 1", True),
-        ("find the derivative of sqrt(x^2+1)", r"\frac{x}{\sqrt{x^{2} + 1}}", True),
-        (f"Find the cube root of {_CUBE}.", "3 a + 2 b", True),
+        # The card would be the question's expression, or a root of it.
+        ("simplify (x+1)/(x-1)", "(x+1)/(x-1)", False),
+        ("simplify 1/(x-1)", "1/(x-1)", False),
+        (f"Find the cube root of {_CUBE}.", _ROOT, False),
+        # A fraction is matched whole, never inside the question's terms (Claude review).
+        ("simplify (x+1)/(x-1) - x/(x-1)", "(x+1)/(x-1) - x/(x-1)", True),
+        # A rewrite the student asked for keeps its card.
+        ("Simplify x^-2", "x^-2", True),
+        ("Simplify -(-x)", "-(-x)", True),
+        ("simplify (x^2-1)/(x-1)", "(x^2-1)/(x-1)", True),
+        ("simplify 2x + 3x", "2x + 3x", True),
     ],
 )
 def test_a_card_is_kept_only_when_it_says_something_new(
-    question: str, answer: str, kept: bool
+    question: str, expr: str, kept: bool
 ) -> None:
-    assert answers_the_question(question, answer) is kept
+    intent = MathIntent(kind="calculus", operation="simplify", expr=expr, variable="x")
+    block = _build_verified_block(intent, Settings(), question)
+    assert (block is not None and block.canonical_answer is not None) is kept
+
+
+@pytest.mark.parametrize(
+    ("question", "card"),
+    [
+        ("median of 3, 5, 7", "5"),
+        ("which is bigger, 3/4 or 2/3?", r"\frac{3}{4}"),
+        ("solve 2x + 3 = 7", "x = 2"),
+    ],
+)
+def test_a_number_or_an_equation_never_restates(question: str, card: str) -> None:
+    """A median, the option a comparison picks, or a solved equation is an answer."""
+    assert not card_restates(card, question)
 
 
 @pytest.mark.asyncio
@@ -128,12 +135,12 @@ async def test_the_model_readers_cube_root_gets_no_card(monkeypatch: pytest.Monk
     assert verified is None
 
 
-def test_the_tools_root_of_the_question_is_held_to_it() -> None:
-    """The model's sympy call on the whole polynomial to the 1/3 is held to the question as
-    the server's own card is (``tool_verified``): its root of the question goes."""
-    tool = VerifiedSolveBlock(
-        text="tool",
-        subject="math",
-        canonical_answer=r"\sqrt[3]{27 a^{3} + 54 a^{2} b + 36 a b^{2} + 8 b^{3}}",
-    )
-    assert with_tool_verified(None, tool, f"Find the cube root of {_CUBE}.") is None
+@pytest.mark.asyncio
+async def test_the_sympy_tool_certifies_no_restated_expression(thread_sympy_executor: None) -> None:
+    """The model's own simplify call on what the question states repeats it as a card."""
+    adapter = SympyAdapter(Settings())
+    same = await adapter._action_expr_op({"action": "simplify", "expr": "(x+1)/(x-1)"})
+    assert not (same.data or {}).get("canonical_answer")
+    assert "Do NOT claim" in same.content
+    changed = await adapter._action_expr_op({"action": "simplify", "expr": "2*x + 3*x"})
+    assert (changed.data or {}).get("canonical_answer") == "5 x"

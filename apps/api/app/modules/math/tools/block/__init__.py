@@ -113,7 +113,11 @@ def _shows_non_finite(block: VerifiedMathBlock) -> bool:
     return any(_NON_FINITE.search(text) for text in shown if text)
 
 
-def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
+def _build_verified_block(
+    intent: MathIntent, settings: Settings, question: str | None = None
+) -> VerifiedMathBlock | None:
+    """The verified block for ``intent``; None when it fails or when its card only restates
+    an expression ``question`` states (``tool_check.card_restates``)."""
     lines: list[str] = []
 
     try:
@@ -127,6 +131,12 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         block = builder(intent, settings, lines)
         if block is None or _shows_non_finite(block):
             return None
+        if question and block.canonical_answer:
+            from app.modules.math.tool_check import card_restates
+
+            read = (intent.expr, intent.lhs, intent.rhs)
+            if card_restates(block.canonical_answer, question, read):
+                return None
 
         # A rendered reply and a literal plot are bound to the request they read.
         bound = block.direct_reply is not None or intent.plot_point is not None
