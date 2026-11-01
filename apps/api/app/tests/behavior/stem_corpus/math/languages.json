@@ -11,5 +11,6 @@
   {"id": "num-en-list", "area": "number marks", "prompt": "mean of 120 135 150", "expect": "answer", "check": ["num", "135"], "note": "three-digit numbers in a row are a list, not thousands"},
   {"id": "num-en-list-lcm", "area": "number marks", "prompt": "lcm 120 150", "expect": "answer", "check": ["num", "600"]},
   {"id": "lang-en-unit-um", "area": "language", "prompt": "12 um in m", "expect": "answer", "check": ["num", "1.2e-5"], "note": "a unit after a number is no word: um is not Portuguese"},
-  {"id": "lang-en-unit-na", "area": "language", "prompt": "5 nA in A", "expect": "answer", "check": ["num", "5e-9"]}
+  {"id": "lang-en-unit-na", "area": "language", "prompt": "5 nA in A", "expect": "answer", "check": ["num", "5e-9"]},
+  {"id": "lang-en-angstrom", "area": "language", "prompt": "convert 5 ångström to nm", "expect": "answer", "check": ["num", "0.5"], "note": "a lone word with a letter English does not write is a loanword (Claude review)"}
 ]

@@ -76,6 +76,13 @@ def test_a_question_in_another_language_is_read_as_one(question: str) -> None:
         "12 um in m",
         "5.2 au in km",
         "current 5 nA through 2 MΩ resistor voltage",
+        # One word with a letter English does not write is a loanword or a name.
+        "5 ångström in m",
+        "ampère's law 5 A at 2 cm",
+        "schrödinger equation for a particle in a 1 nm box",
+        "schrödinger equation for n = 2",
+        "poincaré",
+        "the poincaré recurrence time for 3 particles",
         # Name particles alone are names.
         "de Broglie et al. wavelength electron 1e6 m/s",
         # No words: no language.

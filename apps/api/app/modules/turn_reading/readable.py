@@ -15,7 +15,8 @@ Another language is read on positive evidence only, so an English question keeps
 - or words of Spanish, French, German, Italian, Portuguese or Turkish: function words those
   languages write and English never does, or a lowercase word with a letter English does
   not use ("résistances", "velocità"). Two or more need to outnumber the English words; one
-  needs none beside it ("résous 3x + 7 = 22"). Particles English names carry ("de Broglie
+  needs none beside it and must be a listed word ("résous 3x + 7 = 22"): letters alone are
+  no evidence ("5 ångström in m"). Particles English names carry ("de Broglie
   et al.", "le Chatelier") are no evidence alone. A word either language writes ("a",
   "in", "die", "per", "pour", "sin", "tan") counts for neither, nor does a unit ("12 um",
   "5 nA", "5.2 au"), a capitalised one- or two-letter word (an element symbol: "La", "Es")
@@ -37,7 +38,7 @@ Unreadable = Literal["other_language", "number_marks"]
 
 # Code, links and addresses are read for neither words nor numbers (fences go through
 # ``md_fence_scan``); maths ("$x = 1$", a LaTeX command) holds numbers and no language.
-_CODE = re.compile(r"`[^`\n]*`|\bhttps?://\S+|\S+@\S+")
+_CODE = re.compile(r"`[^`\n]*`|\bhttps?://\S+|(?<!\S)[^\s@]+@\S+")
 _MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\[A-Za-z]+", re.DOTALL)
 # A word, not a unit or a label glued to a number ("2x", "991es").
 _WORD = re.compile(r"(?<![^\W_])[^\W\d_]+(?![^\W_])")
@@ -68,17 +69,19 @@ _FOREIGN = frozenset(
     pendiente entre grados radianes dos tres cuatro cinco seis siete ocho nueve diez cien
     valor velocidad masa fuerza tiempo distancia corriente resistencia altura volumen de
     le les des une deux trois quatre cinq huit neuf dix est sont avec dans sur sous quelle
-    quel quels quelles combien calculez calculer trouvez trouver factoriser convertir
+    quel quels quelles combien calculez calculer trouvez trouver factoriser convertir résous
+    résoudre résolvez simplifie simplifier développe développer dérive dériver
     moyenne pente lorsque vers nombres vitesse masse temps courant hauteur aire au aux et ce
     der das dem den ein eine einen einem einer ist sind wird werden wie viel viele welche
     welcher welches berechne berechnen bestimme bestimmen gegeben mit von zu nach auf aus bei
-    und oder rechne faktorisiere geschwindigkeit zeit strom spannung widerstand
+    und oder rechne faktorisiere geschwindigkeit zeit strom spannung widerstand löse lösen
+    vereinfache
     il lo gli della dello delle dei degli che sono uno quanto quanta quanti quante quale
     quali calcola calcolare trova trovare risolvi fattorizza tempo corrente di da nel nella
     tra fra
     um uma uns umas os qual quais encontre resolva fatore converta velocidade em na dos pelo
     pela com
-    bir ile nedir kaç kaçtır hesaplayın hesaplayınız bulun bulunuz olan olarak kütle kütlesi
+    bir ile nedir kaç kaçtır hesaplayın hesaplayınız bulun bulunuz olan olarak kütle kütlesi çöz
     zaman akım
     """.split()
 )
@@ -133,7 +136,8 @@ def other_language(text: str) -> bool:
     if len(foreign) >= _FOREIGN_WORDS:
         return len(foreign) > english
     # One word of another language and none of English: "résous 3x + 7 = 22", "halla 3x + 1".
-    return not english
+    # A word only by its letters is no evidence alone: "5 ångström in m", "ampère's law".
+    return not english and foreign[0] in _FOREIGN
 
 
 # A unit after a number is short ("um", "au", "mol"); "2 résistances" is a word.
