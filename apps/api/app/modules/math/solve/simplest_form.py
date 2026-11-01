@@ -70,10 +70,12 @@ def _real_root_form(parsed: Expr, result: Expr) -> Expr:
     positive = {symbol: Dummy(str(symbol), positive=True) for symbol in symbols}
     back = {dummy: symbol for symbol, dummy in positive.items()}
     candidate = simplify(real_odd_roots(parsed).subs(positive)).subs(back)
+    if not symbols:
+        # A number: the real odd root is its value (∛(-8) + √(-9) = -2 + 3i), even when
+        # SymPy's principal root prints shorter (∛(1 - √2) is -∛(√2 - 1), not complex).
+        return candidate
     if count_ops(candidate) > count_ops(result) or candidate == result:
         return result
-    if not symbols:
-        return candidate  # a number: the real odd root is its value (∛(-8) + √(-9) = -2 + 3i)
     return candidate if agrees_on_reals(parsed, candidate) else result
 
 

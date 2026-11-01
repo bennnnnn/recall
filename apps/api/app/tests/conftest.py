@@ -84,13 +84,23 @@ loop_guard.install()
 _REAL_CONNECT: dict[str, object] = {}
 
 
+def _distributed(config: pytest.Config) -> bool:
+    """Any xdist distribution: ``-n``, ``--tx 2*popen`` or a ``--dist`` mode other than "no"."""
+    option = config.option
+    return bool(
+        getattr(option, "numprocesses", None)
+        or getattr(option, "tx", None)
+        or getattr(option, "dist", "no") not in (None, "no")
+    )
+
+
 def pytest_configure(config: pytest.Config) -> None:
-    """A ``-n`` run needs a database per worker (above), or every worker writes to one."""
-    if getattr(config.option, "numprocesses", None) and not _PER_WORKER:
+    """A distributed run needs a database per worker (above), or every worker writes to one."""
+    if _distributed(config) and not _PER_WORKER:
         pytest.exit(
-            "pytest -n needs a database per worker: CI copies one for each and sets "
-            "RECALL_TEST_DB_PER_WORKER=1. Locally, run without -n (the development "
-            "database is shared).",
+            "A distributed run (-n, --tx, --dist) needs a database per worker: CI copies "
+            "one for each and sets RECALL_TEST_DB_PER_WORKER=1. Locally, run without "
+            "xdist (the development database is shared).",
             returncode=4,
         )
 

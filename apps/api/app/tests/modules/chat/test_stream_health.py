@@ -117,11 +117,11 @@ def _ctx() -> Any:
     )
 
 
-async def _run(fake_stream: Any) -> AsyncMock:
+async def _run(fake_stream: Any, outcome: TurnOutcome | None = None) -> AsyncMock:
     from app.modules.chat.stream_pipeline import stream_and_finalize
 
     record = AsyncMock()
-    outcome = TurnOutcome()
+    outcome = outcome or TurnOutcome()
     with ExitStack() as stack:
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
@@ -162,6 +162,36 @@ async def test_the_turn_records_every_model_it_tried(stream_offline_io: None) ->
     assert record.await_args is not None
     samples = record.await_args.args[1]
     assert [(s.alias, s.success) for s in samples] == [("smart-chat", False), ("glm-5.2", True)]
+
+
+@pytest.mark.asyncio
+async def test_a_run_ends_the_reply_whole_and_closes_the_provider(
+    stream_offline_io: None,
+) -> None:
+    """2026-11-01: the guard read a runaway run to the provider's length limit, so the user
+    waited on it and the clean reply was marked cut short."""
+    closed: list[bool] = []
+    read: list[int] = []
+
+    async def fake_stream(**kwargs: Any) -> Any:
+        try:
+            yield "The time is 2e-8 s."
+            for count in range(500):
+                read.append(count)
+                yield "<|im_end|>"
+            kwargs["stream_meta"]["finish_reason"] = "length"
+        finally:
+            closed.append(True)
+
+    outcome = TurnOutcome()
+    record = await _run(fake_stream, outcome)
+    assert outcome.completion != "interrupted"
+    assert outcome.final_content == "The time is 2e-8 s."
+    assert closed == [True]
+    assert len(read) < 10
+    # The model wrote a reply: a run is its health, not a failure.
+    assert record.await_args is not None
+    assert [s.success for s in record.await_args.args[1]] == [True]
 
 
 @pytest.mark.asyncio
