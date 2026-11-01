@@ -1,15 +1,15 @@
 import { useCallback, useEffect } from "react";
 
 import { onAppEvent } from "@/lib/appEvents";
-import type { ChatTurnEvent } from "@/features/chat/model/chatTurnCore";
+import type { ChatTurnCommand, ChatTurnEvent } from "@/features/chat/model/chatTurnCore";
 import { withoutDeletedAttachment } from "@/features/chat/model/deletedAttachment";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 
 type Options = {
   chatId: string | null;
   isCurrentView: () => boolean;
-  /** One step of the chat's turn (useChat), which owns the thread. */
-  step: (event: ChatTurnEvent) => void;
+  /** One step of the chat's turn (useChat), which owns the thread; what it asked for. */
+  step: (event: ChatTurnEvent) => readonly ChatTurnCommand[];
 };
 
 /**
@@ -18,7 +18,8 @@ type Options = {
  */
 export function useThreadEdits({ chatId, isCurrentView, step }: Options): EditThread {
   const editThread = useCallback<EditThread>(
-    (update, source, belongsTo) => step({ type: "thread_edit", source, update, chatId: belongsTo }),
+    (update, source, belongsTo) =>
+      step({ type: "thread_edit", source, update, chatId: belongsTo }).some((command) => command.type === "messages"),
     [step],
   );
 

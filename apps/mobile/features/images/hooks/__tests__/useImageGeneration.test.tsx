@@ -301,6 +301,15 @@ describe("image generation submit steps", () => {
     expect(owners).toEqual([undefined, "new-1"]);
   });
 
+  it("leaves another chat where it is when the picture waits for its own", async () => {
+    const { submit, options } = await setup({
+      editThread: (_update, _source, chatId) => chatId === undefined,
+    });
+    await submit({ prompt: "cat", userMessage: "Draw a cat" });
+    // Scrolled for the painted turn only, not for a success that did not show.
+    expect(options.onScrollToLatest).toHaveBeenCalledTimes(1);
+  });
+
   it("opens the upgrade on a 403 (the server decides the plan)", async () => {
     (api.generateImage as jest.Mock).mockRejectedValueOnce(new ApiRequestError(403, "Pro only"));
     const { submit, replay, options } = await setup();

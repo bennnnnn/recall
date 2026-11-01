@@ -47,9 +47,9 @@ type Options = {
   /**
    * Changes the thread on screen, which the chat owns: the picture turn's bubbles, named
    * "image_turn". Once the picture has its chat, each edit names it: a picture that
-   * finishes after the user opened another chat changes nothing there.
+   * finishes after the user opened another chat waits for its own (the chat answers false).
    */
-  editThread: (update: SetStateAction<Message[]>, source: "image_turn", chatId?: string | null) => void;
+  editThread: (update: SetStateAction<Message[]>, source: "image_turn", chatId?: string) => boolean | void;
   streaming: boolean;
   isOffline: boolean;
   onOpenUpgrade: () => void;
@@ -250,11 +250,12 @@ export function useImageGeneration({
           { signal: abort.signal },
         );
         if (abort.signal.aborted) throw new Error("Image request cancelled");
-        edit((prev) => applyImageGenSuccess(prev, optimisticUserId, [result.user_message, result.assistant_message]));
+        const shown = edit((prev) => applyImageGenSuccess(prev, optimisticUserId, [result.user_message, result.assistant_message]));
         emitAppEvent("attachmentAdded", { chatId: activeChatId });
         optimisticUserIdRef.current = null;
         lastSubmitRef.current = null;
-        onScrollToLatest();
+        // Another chat on screen keeps its place; this one shows the picture when reopened.
+        if (shown !== false) onScrollToLatest();
       } catch (error) {
         const canceled = userCancelRef.current;
         userCancelRef.current = false;

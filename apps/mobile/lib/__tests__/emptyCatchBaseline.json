@@ -44,7 +44,7 @@
   "lib/auth.ts": 1,
   "lib/cache/cacheFile.ts": 1,
   "lib/cache/staleResource.ts": 1,
-  "lib/datetime/phoneClock.ts": 1,
+  "lib/datetime/phoneClock.ts": 2,
   "lib/deviceSession.ts": 1,
   "lib/exportData.ts": 1,
   "features/chat/model/exportPdf.ts": 1,

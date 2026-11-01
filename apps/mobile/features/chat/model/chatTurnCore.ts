@@ -27,11 +27,11 @@ export type ChatTurnState = {
   chatId: string | null;
   session: number;
   /**
-   * Chats this screen showed and moved away from. An edit made for one of them (a picture
-   * that finished after the user left) is dropped; one for a chat not shown yet is the
-   * new chat the open view is becoming.
+   * Edits made for a chat while another was on screen (a picture that finished after the
+   * user left its chat, or before its new chat reached the screen), applied in order when
+   * that chat is shown.
    */
-  leftChats: ReadonlySet<string>;
+  heldEdits: ReadonlyMap<string, readonly ((previous: Message[]) => Message[])[]>;
   phase: ChatTurnPhase;
   /** The optimistic user bubble still showing "Sending". */
   sendingMessageId: string | null;
@@ -94,8 +94,8 @@ export type ChatTurnEvent =
       type: "thread_edit";
       source: ThreadEditSource;
       update: ThreadUpdate;
-      /** The chat the edit belongs to: dropped once the screen shows another chat. */
-      chatId?: string | null;
+      /** The chat the edit belongs to: held while the screen shows another chat. */
+      chatId?: string;
     };
 
 export type ChatTurnCommand =
@@ -135,7 +135,7 @@ export type Out = ChatTurnCommand[];
 
 export function initialChatTurnState(chatId: string | null, session: number): ChatTurnState {
   return {
-    chatId, session, leftChats: new Set(), phase: "idle", sendingMessageId: null, attempt: 0, pending: null,
+    chatId, session, heldEdits: new Map(), phase: "idle", sendingMessageId: null, attempt: 0, pending: null,
     rejected: new Map(),
     buffer: "", draft: null, stoppedStreamedId: null, regenerating: false, regenerateBackup: null,
     ttftTurnId: null, firstReply: false, authFallback: null, earlyDots: null,

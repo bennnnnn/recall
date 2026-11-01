@@ -9,7 +9,9 @@ import { useDroppedTurnReconcile } from "@/features/chat/hooks/useDroppedTurnRec
 import { useStreamingDraftPublisher } from "@/features/chat/hooks/useStreamingDraftPublisher";
 import { useThreadEdits } from "@/features/chat/hooks/useThreadEdits";
 import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
-import { headRejectedSend, initialChatTurnState, type ChatTurnEvent } from "@/features/chat/model/chatTurnCore";
+import {
+  headRejectedSend, initialChatTurnState, type ChatTurnCommand, type ChatTurnEvent,
+} from "@/features/chat/model/chatTurnCore";
 import { runChatTurnCommands, type ChatTurnEffects } from "@/features/chat/model/chatTurnEffects";
 import { createTurnEffectsSlot } from "@/features/chat/model/turnEffectsSlot";
 import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
@@ -58,7 +60,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
   );
 
   /** One step of the turn: reduce, run what it asks for, show what changed. */
-  const step = useCallback((event: ChatTurnEvent) => {
+  const step = useCallback((event: ChatTurnEvent): readonly ChatTurnCommand[] => {
     const previous = turn.current;
     const next = reduceChatTurn(previous, event, Date.now());
     turn.current = next.state;
@@ -72,6 +74,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     const head = headRejectedSend(shown);
     if (head !== headRejectedSend(previous)) setRejectedSend(head);
     if (shown.draft !== previous.draft) publishDraft(shown.draft);
+    return next.commands;
   }, [effects, publishDraft]);
 
   const transport = useChatTransport({
