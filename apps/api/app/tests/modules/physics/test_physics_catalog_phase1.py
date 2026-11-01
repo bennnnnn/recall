@@ -136,7 +136,7 @@ def test_new_catalog_problem_is_verified_and_explained(
     assert reply is not None
     # The law's name heads its formulas.
     law = f"**{law_title(law_name.rstrip(':'))}**"
-    headings = ["**Given**", "**Find**", law, "**Substitution**", "**Answer**"]
+    headings = ["**Given**", "**Required**", law, "**Substitution**", "**Answer**"]
     assert all(reply.count(heading) == 1 for heading in headings)
     assert [reply.index(heading) for heading in headings] == sorted(
         reply.index(heading) for heading in headings

@@ -19,7 +19,7 @@ from app.modules.math.tools.school.equation_features.forms import (
     _symbols,
     _tex,
 )
-from app.services.workout import Workout, math_line
+from app.services.workout import Workout, math_line, solve_for_line
 
 
 def _y_intercept(intent: MathIntent) -> _Solved | None:
@@ -138,7 +138,7 @@ def _slope_intercept(intent: MathIntent) -> _Solved | None:
     workout = Workout(
         given=(math_line(given),),
         find=(math_line("y = mx + c"),),
-        steps=(math_line(answer, "solve for y"),),
+        steps=(solve_for_line("y"), math_line(answer)),
     )
     return workout, answer, [f"Slope-intercept form: {answer}"]
 

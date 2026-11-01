@@ -34,11 +34,7 @@ from app.modules.chat.prompt_window import (
     load_prompt_window,
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
-from app.modules.chat.turn_prep.followups import (
-    FollowupSubject,
-    read_prompt_inputs,
-    role_content_dicts,
-)
+from app.modules.chat.turn_prep.followups import read_prompt_inputs, role_content_dicts
 from app.modules.conversation import history_rag as chat_history_rag_service
 from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
@@ -273,7 +269,7 @@ def _assemble(
 
 async def _read_prompt_inputs(
     settings: Settings, query_text: str | None, window: PromptWindow, turn_plan: TurnPlan | None
-) -> FollowupSubject | None:
+) -> SubjectName | None:
     """Read off the event loop, in the SymPy pool: the readers behind it parse with SymPy.
 
     Each request of a multi-part message is read too: its own layout asks its subject.

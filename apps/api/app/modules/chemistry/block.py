@@ -41,12 +41,12 @@ def _prompt_text(result: ChemistryResult) -> str:
     law, rows = ("Formula", "Steps") if result.method else ("Formula", "Substitution")
     return (
         f"[{result.title}]\n"
-        f"Required visible layout: Given, Find, {law}, {rows}, Answer. {WORKOUT_PROMPT_RULE} "
+        f"Use this visible layout: Given, Required, {law}, {rows}, Answer. {WORKOUT_PROMPT_RULE} "
         "Do not write a prose wall, "
         "do not recalculate, and copy every verified number exactly: its trailing zeros are "
         "significant figures, so never add or drop one.\n"
         f"Given:\n{given}\n"
-        f"Find:\n- {result.find}\n"
+        f"Required:\n- {result.find}\n"
         f"{law} ({result.formula_name}):\n{_bullet_rows(result.formula)}\n"
         f"{rows}:\n{substitution}\n"
         f"Verified answer:\n{_bullet_rows(result.answer)}\n"

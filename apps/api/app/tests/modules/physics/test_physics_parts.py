@@ -35,7 +35,7 @@ def test_each_part_is_worked_and_answered_on_its_own(
     reply = maybe_direct_physics_reply(verified, question)
     assert reply is not None
     # The givens and what is asked once; then each part, a hairline between.
-    assert reply.count("**Given**") == 1 and reply.count("**Find**") == 1
+    assert reply.count("**Given**") == 1 and reply.count("**Required**") == 1
     assert [f"**{title}**" in reply for title in titles] == [True, True]
     assert reply.count("\n---\n") == 1
     sections = reply.split("\n---\n")

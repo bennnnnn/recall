@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.models.schemas.text import UserText
+from app.services.solving import SubjectName
 
 if TYPE_CHECKING:
     from app.models.schemas.chats import MessageOut
@@ -47,7 +48,7 @@ class ImageIntentOut(BaseModel):
     """
 
     # The maths, physics or chemistry subject that owns the text: never a picture.
-    subject: Literal["math", "physics", "chemistry"] | None
+    subject: SubjectName | None
     # A real photo the chat turn looks up ("show me an ear"); sent as chat.
     lookup_query: str | None = None
     generate_prompt: str | None = None

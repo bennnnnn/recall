@@ -4,7 +4,7 @@ Told to answer first, a model opened worked replies with a number it had not wor
 "The ratio of fuel used … is **5 : 7**" over working and a card that found 4 : 5, and
 "The car covers **290 m**" over a sum of 310 m (a Class 9 book, 2026-10-30); the prompt
 saying a calculation opens with its working did not hold. In a reply with a worked section
-(Given, Working, Solution, Find, Formula, Substitution or Steps) and an answer card below
+(Given, Working, Solution, Required, Formula, Substitution or Steps) and an answer card below
 it, a short lead above the section stating a number the working never reaches is that guess,
 and goes: a lead the working agrees with stays.
 A heading, a photo or a lead without a number stays, and so does a long lead, which may be
@@ -16,12 +16,13 @@ from __future__ import annotations
 import re
 
 from app.services.md_fence_scan import iter_fences, line_fences
+from app.services.workout import REQUIRED_PATTERN
 
 # The first label of the working, as a heading or a bare line: **Given**, **Working**,
 # ## Solution, "Given". Replies label it several ways; the guess sits above any of them.
 _GIVEN = re.compile(
-    r"^[^\S\n]*(?:#{1,4}[^\S\n]+)?(?:\*\*)?(?:Given|Working|Solution|Find|Formula|Substitution"
-    r"|Steps)(?:\*\*)?:?(?:\*\*)?[^\S\n]*$",
+    rf"^[^\S\n]*(?:#{{1,4}}[^\S\n]+)?(?:\*\*)?(?:Given|Working|Solution|{REQUIRED_PATTERN}|Formula"
+    r"|Substitution|Steps)(?:\*\*)?:?(?:\*\*)?[^\S\n]*$",
     re.I | re.M,
 )
 # A heading: "## Stage 1", "**Atomic structure of Mg**"; a bold sentence ("**The ratio is

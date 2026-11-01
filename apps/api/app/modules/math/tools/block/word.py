@@ -113,7 +113,7 @@ def _answer_sentence(setup: WordProblemSetup, solution: WordSolution) -> str:
 
 
 def format_word_problem_reply(setup: WordProblemSetup, solution: WordSolution, answer: str) -> str:
-    """Given: each equation with the words it comes from. Find: what each letter is."""
+    """Given: each equation with the words it comes from. Required: what each letter is."""
     from app.modules.math.tools.lesson import numbered_steps
 
     find = tuple(

@@ -63,8 +63,9 @@ def right_triangle_hypotenuse(request: GeometryRequest, spec: Spec, result: str)
         givens,
         "Hypotenuse ($c$)",
         "Pythagorean theorem",
-        [r"c^2 = a^2 + b^2", r"c = \sqrt{a^2 + b^2}"],
+        [r"c^2 = a^2 + b^2"],
         [root_of_squares("c", base, height, result)],
+        solved=r"c = \sqrt{a^2 + b^2}",
     )
 
 

@@ -111,7 +111,7 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    declines; "back to the first one" with two reactions that hold the substance declines.
 3. **Solve** (`solvers/`) — deterministic solvers, one module per topic (`amounts`,
    `stoichiometry`, `acid_base`, `titration`, `equilibrium`, `kinetics`, …), return
-   `ChemistryResult` with Given, Find, named universal Formula, Substitution, and Answer
+   `ChemistryResult` with Given, Required, named universal Formula, Substitution, and Answer
    fields; `solver.py` maps each operation to its solver. The catalog (`catalog.py`) is
    the one list of operations: `ChemistryIntent` refuses an operation it does not declare,
    or one it files under another kind.
@@ -142,7 +142,7 @@ flowchart LR
   message[User message] --> gate[Chemistry gate]
   gate --> extract[Typed extraction]
   extract -->|complete| solve[Pure solver]
-  solve --> direct[Given / Find / Formula / Substitution / Answer]
+  solve --> direct[Given / Required / Formula / Substitution / Answer]
   extract -->|incomplete| model[Model explanation]
   gate -->|compound| pubchem[PubChem context]
   model --> enrich[SMILES validation + 3D enrichment]
@@ -257,7 +257,7 @@ results, IUPAC names) is never typeset. The model is told to write species with
 Unicode sub- and superscripts and `→` / `⇌` arrows, not LaTeX.
 
 A verified answer is laid out as a textbook worked solution (`direct.py`): **Given**,
-**Find**, **Formula**, **Substitution**, **Answer**. An operation that is a procedure rather
+**Required**, **Formula**, **Substitution**, **Answer**. An operation that is a procedure rather
 than an equation (balancing, a correlation table, a structure match, an electron
 configuration: `catalog.METHODS`) shows its rule under **Method** and checks it under
 **Working**. Substitutions carry units (`n = 36 g / 18.015 g/mol`, `c = 0.5 mol / 2.0 L`),

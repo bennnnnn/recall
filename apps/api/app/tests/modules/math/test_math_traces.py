@@ -320,7 +320,7 @@ def test_derivative_trace_is_empty_for_an_unknown_rule():
 def test_a_multi_part_derivative_gets_a_lesson_with_a_find_line():
     reply = _reply("differentiate x^3 + 2x")
     assert reply is not None
-    assert reply.startswith("**Given**  \n$y = x^{3} + 2 x$\n\n**Find**  \n$\\frac{dy}{dx}$")
+    assert reply.startswith("**Given**  \n$y = x^{3} + 2 x$\n\n**Required**  \n$\\frac{dy}{dx}$")
     assert "Power rule on $x^{3}$" in reply
     assert reply.endswith("```answer\n3 x^{2} + 2\n```\n")
 
@@ -419,7 +419,7 @@ def test_integral_trace_is_empty_for_an_unknown_method():
 def test_an_integral_lesson_ends_on_its_checked_antiderivative():
     reply = _reply("integrate x(x^2+1)^5")
     assert reply is not None
-    assert reply.startswith(r"**Find**  " "\n" r"$\int x \left(x^{2} + 1\right)^{5}\,dx$")
+    assert reply.startswith(r"**Required**  " "\n" r"$\int x \left(x^{2} + 1\right)^{5}\,dx$")
     assert reply.endswith("```answer\n\\frac{\\left(x^{2} + 1\\right)^{6}}{12} + C\n```\n")
 
 

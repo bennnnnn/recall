@@ -10,7 +10,7 @@ here:
   later in such a line moves to its front, and any in a sentence goes.
 - ``more``: as written.
 
-A worked maths, physics or chemistry solution (Given, Find, Substitution, Answer…) has
+A worked maths, physics or chemistry solution (Given, Required, Substitution, Answer…) has
 none at any setting: the prompt says so, and at "Lots" its headings still got them. Nor
 does the answer to a school exercise in a textbook's own shape: at "Lots" a book's answers
 ended "**D. Milk** … 💧" (2026-10-31). Only when the whole message is that exercise and
@@ -34,6 +34,7 @@ from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.turn_reading.routing import EMOJI
 from app.modules.turn_reading.school_question import in_textbook_form
 from app.services.md_fence_scan import line_fences
+from app.services.workout import REQUIRED_PATTERN
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -44,13 +45,14 @@ _BOLD_START = re.compile(r"^(?:\*\*|__)")
 _INLINE_CODE = re.compile(r"(`+)[^`]*?\1")
 # "### Lesson 2: Loops": a lesson keeps the emoji its own rules give it.
 _LESSON = re.compile(r"^#{1,6}\s.*\bLesson\s+\d", re.MULTILINE)
-# A worked solution's sections, an emoji before one or not ("🎯 **Find**", "**✅ Answer**"):
+# A worked solution's sections, an emoji before one or not ("🎯 **Required**", "**✅ Answer**"):
 # none belongs there at any setting, and "✅ **Answer**" was no Answer heading, so a Class 8
 # speed came back with no answer box (2026-10-30).
 _EMOJI_LEAD = rf"(?:(?:{EMOJI.pattern})[ \t]*)?"
 _WORKED_SECTION = re.compile(
     rf"^[^\S\n]*(?:#{{1,4}}[ \t]+)?{_EMOJI_LEAD}\*\*{_EMOJI_LEAD}"
-    r"(?P<name>Given|Find|Formula|Substitution|Answer|Check)(?:\s*\([a-h]\))?\s*:?\*\*",
+    rf"(?P<name>Given|{REQUIRED_PATTERN}|Formula|Substitution|Answer|Check)"
+    r"(?:\s*\([a-h]\))?\s*:?\*\*",
     re.MULTILINE | re.IGNORECASE,
 )
 

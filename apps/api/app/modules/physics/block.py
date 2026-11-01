@@ -207,12 +207,12 @@ def _build_physics_block(
     spec = formula_spec(intent.physics_op or "")
     law = law_title(spec.law_name) if spec is not None else None
     lines.append(
-        "Required user-visible layout for this verified physics solution: "
+        "Use this user-visible layout for this verified physics solution: "
         f"{PHYSICS_WORKOUT_PROMPT_RULE} Put every equation on its own line. Under Given, list "
-        "the supplied quantities with units. Under Find, name the requested quantity. Head "
-        "the formulas with the verified law's name in place of Formula, show its "
-        "universal/base equation first, then any rearrangement for the requested unknown. "
-        "Under Substitution, insert the supplied numbers and copy the verified rows to the "
+        "the supplied quantities with units. Under Required, name the requested quantity. Head "
+        "the formulas with the verified law's name in place of Formula, show its universal/base "
+        "equation first, then any rearrangement for the requested unknown under a `Solve for` "
+        "line. Under Substitution, insert the supplied numbers and copy the verified rows to the "
         "result. Under Answer, state the verified result exactly once."
     )
     if result.simulation_specs:

@@ -85,7 +85,7 @@ def test_the_card_is_typeset_and_the_answer_is_plain() -> None:
 def test_a_value_not_in_si_shows_the_value_the_solver_used(text: str, row: str) -> None:
     reply = maybe_direct_physics_reply(_verified(text), text)
     assert reply is not None
-    given = reply.split("**Find**", 1)[0]
+    given = reply.split("**Required**", 1)[0]
     assert row in given
     assert r"\times 10^{-" in given
 
@@ -111,7 +111,7 @@ def test_a_value_not_in_si_shows_the_value_the_solver_used(text: str, row: str) 
 def test_an_answer_equal_to_a_given_does_not_hide_its_si_step(text: str, row: str) -> None:
     reply = maybe_direct_physics_reply(_verified(text), text)
     assert reply is not None
-    assert row in reply.split("**Find**", 1)[0]
+    assert row in reply.split("**Required**", 1)[0]
 
 
 @pytest.mark.parametrize(
@@ -126,7 +126,7 @@ def test_an_answer_equal_to_a_given_does_not_hide_its_si_step(text: str, row: st
 def test_no_conversion_row_when_the_working_uses_the_written_unit(text: str) -> None:
     reply = maybe_direct_physics_reply(_verified(text), text)
     assert reply is not None
-    given = reply.split("**Find**", 1)[0]
+    given = reply.split("**Required**", 1)[0]
     assert "= 7200" not in given and "rad/s" not in given
 
 

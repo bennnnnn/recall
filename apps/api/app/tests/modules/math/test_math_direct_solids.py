@@ -54,7 +54,7 @@ async def test_each_closed_solid_emits_one_exact_answer_without_model(
     assert reply.startswith("**Given**  \n")
     assert all(
         heading in reply
-        for heading in ("**Find**", "**Formula**", "**Substitution**", "**Answer**")
+        for heading in ("**Required**", "**Formula**", "**Substitution**", "**Answer**")
     )
     # A measure with π in it is shown rounded, and its card says so.
     rounded = shape.split()[0] in {"cylinder", "cone", "sphere"}

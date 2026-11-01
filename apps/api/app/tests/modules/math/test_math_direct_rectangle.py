@@ -43,7 +43,7 @@ async def test_rectangle_streams_one_answer_and_exact_diagram_without_model(
     assert reply is not None and reply.endswith("```\n")
     assert reply.count("```answer") == 1 and reply.count("```geometry") == 1
     assert "**Given**" in reply
-    assert "**Find**" in reply
+    assert "**Required**" in reply
     assert "**Formula**" in reply
     assert "**Substitution**" in reply
     assert "```geometry" in reply

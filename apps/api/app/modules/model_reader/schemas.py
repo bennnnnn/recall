@@ -7,6 +7,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# The registry's subjects (``SubjectName``) and none, in the order the reader's schema states
+# them to the model: the order is part of the measured prompt (docs/MODEL_READER.md), so it is
+# written here, and ``tests/services/test_subject_registry.py`` holds the set to the registry's.
 Subject = Literal["physics", "chemistry", "math", "none"]
 
 

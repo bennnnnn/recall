@@ -6,6 +6,8 @@ from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from typing import Literal, Protocol
 
+from app.services.solving import SubjectName
+
 StreamStatusPhase = Literal[
     "preparing",
     "remembering",
@@ -30,7 +32,9 @@ StreamStatusPhase = Literal[
     "finishing",
 ]
 
-_SUBJECT_STATUS_PHASE: dict[Literal["math", "physics", "chemistry"], StreamStatusPhase] = {
+# The status line a subject's solve shows, by the registry's names (``SubjectName``): the
+# phone has a label for each phase.
+_SUBJECT_STATUS_PHASE: dict[SubjectName, StreamStatusPhase] = {
     "math": "calculating",
     "physics": "physics",
     "chemistry": "chemistry",
@@ -45,7 +49,7 @@ SLOW_STEP_SECONDS = 1.0
 
 
 def status_phase_for_subject(
-    subject: Literal["math", "physics", "chemistry"],
+    subject: SubjectName,
 ) -> StreamStatusPhase:
     """Bubble phase for one subject. Math keeps the calculating label."""
     return _SUBJECT_STATUS_PHASE[subject]

@@ -194,7 +194,7 @@ def test_phase2_catalog_is_verified_and_uses_structured_working(
     spec = formula_spec(operation)
     assert spec is not None
     law = f"**{law_title(spec.law_name)}**"
-    headings = ["**Given**", "**Find**", law, "**Substitution**", "**Answer**"]
+    headings = ["**Given**", "**Required**", law, "**Substitution**", "**Answer**"]
     assert [reply.index(heading) for heading in headings] == sorted(
         reply.index(h) for h in headings
     )

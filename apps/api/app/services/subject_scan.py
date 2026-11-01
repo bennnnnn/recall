@@ -5,7 +5,10 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-ScannerSubject = Literal["math", "physics", "chemistry", "biology"]
+from app.services.solving import SubjectName
+
+# The registry's subjects, and biology, whose camera caption the phone already sends.
+ScannerSubject = SubjectName | Literal["biology"]
 
 MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."
 PHYSICS_CAMERA_PROMPT = "Solve the physics problem in this image step by step."

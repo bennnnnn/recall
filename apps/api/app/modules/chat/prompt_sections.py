@@ -71,7 +71,6 @@ from app.modules.chat.prompt_profile import (
     should_include_profile_email,
 )
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
-from app.modules.chat.turn_prep.followups import FollowupSubject
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
 from app.modules.turn_reading.length import is_brevity_request, reply_length
@@ -99,6 +98,7 @@ from app.services import locale as locale_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question
 from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
+from app.services.subjects.registry import SubjectName
 
 
 @dataclass(frozen=True)
@@ -124,7 +124,7 @@ class PromptTurn:
     chat_history_rag_block: str
     # The completed exchange before this turn (``PromptWindow.exchange``).
     exchange: list[Any]
-    followup: FollowupSubject | None
+    followup: SubjectName | None
     # The separate requests the message holds (``turn_prep.intents``), when more than one.
     plan: TurnPlan | None = None
     # How the memory read went ("ok", "partial", "unavailable"); see prompt_memory.
