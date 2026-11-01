@@ -17,8 +17,8 @@ from app.modules.account import profile as profile_service
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.modules.math.schemas import MathImageExtract
 from app.services import time_context as time_context_service
+from app.services.subjects.registry import MathImageExtract
 
 
 @dataclass(frozen=True, kw_only=True)

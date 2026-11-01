@@ -36,7 +36,7 @@ from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
-    from app.modules.money.service import MoneyTurn
+    from app.services.subjects.registry import MoneyTurn
 
 # Earlier user lines a follow-up may take its problem from.
 _PRIOR_USER_LINES = 8

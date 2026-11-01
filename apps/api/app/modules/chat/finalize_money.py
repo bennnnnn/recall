@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING
 
 from app.modules import todos as todos_service
 from app.modules.chat.finalize_subjects import fallback_text
-from app.modules.money.service import MoneyTurn, finish_money_reply
 from app.services.md_fence_scan import strip_closed_fences
+from app.services.subjects.registry import MONEY
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -27,9 +27,9 @@ async def attach_money_card(state: FinalizeState) -> str:
     if CALCULATOR_FENCE in text:
         text = strip_closed_fences(text, CALCULATOR_FENCE).rstrip()
     turn = state.ctx.money
-    if not isinstance(turn, MoneyTurn) or state.was_cancelled or state.user_stopped:
+    if not MONEY.owns(turn) or state.was_cancelled or state.user_stopped:
         return text
     english = todos_service.message_language(state.ctx.user_message_content) is None
-    text = await finish_money_reply(turn, text, state.settings, english=english)
+    text = await MONEY.finish(turn, text, state.settings, english=english)
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

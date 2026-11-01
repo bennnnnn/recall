@@ -121,6 +121,9 @@ class ChemistrySubject:
     hints: SubjectHints = _HINTS
     followups: ChemistryFollowups = ChemistryFollowups()
     fence: ChemistryFence = ChemistryFence()
+    # No photo reader and no model tool of its own.
+    photo: None = None
+    tool: None = None
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return is_chemistry_question(text)
