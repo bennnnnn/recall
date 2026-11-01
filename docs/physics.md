@@ -6,7 +6,7 @@ the model, unverified. A plausible wrong number is the one outcome the pipeline 
 prevent.
 
 Code: `apps/api/app/modules/physics/`. Math hands physics over at subject detection
-(`services/subject_solving.detect_subject`) and shares no algorithm with it.
+(`services/subjects/dispatch.detect_subject`) and shares no algorithm with it.
 
 ## Pipeline
 

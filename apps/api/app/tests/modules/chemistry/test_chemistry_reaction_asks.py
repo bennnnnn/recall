@@ -22,7 +22,7 @@ from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.context import build_chemistry_augmentation
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import is_chemistry_question
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 
 def _answer(question: str) -> str | None:

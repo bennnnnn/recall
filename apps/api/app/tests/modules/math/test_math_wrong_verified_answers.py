@@ -24,7 +24,7 @@ from app.modules.math.solve.work_check import check_work
 from app.modules.math.tools.block.work import format_work_check_reply
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import needs_symbolic_math
-from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+from app.services.subjects.dispatch import build_subject_augmentation, maybe_direct_subject_reply
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import route_case
 

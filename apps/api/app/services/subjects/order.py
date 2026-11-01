@@ -4,7 +4,7 @@
 is no problem, a scanned caption is its subject's, a closed chemistry calculation is
 chemistry's before physics claims its numbers, physics before maths, chemistry-shaped
 questions never go to algebra, a chart of the user's own numbers is no maths, and chemistry
-looks a line up last. ``services.subject_solving`` reads a line's subject from it.
+looks a line up last. ``services.subjects.dispatch`` reads a line's subject from it.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Literal
 from app.core.readings import reading
 from app.modules.math.tools.prompt import needs_symbolic_math
 from app.modules.physics.extract import extract_physics_intent, needs_physics
-from app.services.subject_registry import SubjectName
+from app.services.subjects.registry import SubjectName
 
 # Which step of the subject order decided a line (``read_subject_reason``): the order is
 # the precedence, written once there.

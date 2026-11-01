@@ -10,12 +10,12 @@ import pytest
 from app.core.config import Settings
 from app.modules.chemistry.block import VerifiedChemistry
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_registry import SUBJECTS, SubjectName, subject_adapter
-from app.services.subject_solving import (
+from app.services.subjects.dispatch import (
     build_subject_augmentation,
     detect_subject,
     maybe_direct_subject_reply,
 )
+from app.services.subjects.registry import SUBJECTS, SubjectName, subject_adapter
 
 
 def test_the_registry_holds_one_adapter_per_subject_name() -> None:

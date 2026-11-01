@@ -1,4 +1,4 @@
-"""Physics as the subject registry asks it (``services/subject_registry``).
+"""Physics as the subject registry asks it (``services/subjects/registry``).
 
 The adapter calls what physics already has: the verified block through ``prompt`` and the
 direct reply through ``direct``.
@@ -15,7 +15,7 @@ from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
 if TYPE_CHECKING:
     from app.core.config import Settings
     from app.services.solving import VerifiedSolveBlock
-    from app.services.subject_registry import SubjectRequest
+    from app.services.subjects.registry import SubjectRequest
 
 
 def _physics_request_text(user_content: str) -> str:

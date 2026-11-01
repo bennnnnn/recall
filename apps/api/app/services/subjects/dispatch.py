@@ -1,8 +1,8 @@
 """The subject dispatcher: a line's subject, its solve and its direct reply.
 
-A line's subject comes from the subject order (``services/which_subject``), so a subject
+A line's subject comes from the subject order (``services/subjects/order``), so a subject
 package never decides which peer owns a turn. The solve and the direct reply are the
-subject's own, asked through its adapter (``services/subject_registry``); nothing here
+subject's own, asked through its adapter (``services/subjects/registry``); nothing here
 reaches into a subject.
 """
 
@@ -16,9 +16,9 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.readings import read_off_loop, reading
 from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
-from app.services.subject_registry import SubjectName as SubjectName
-from app.services.subject_registry import SubjectRequest, subject_adapter
-from app.services.which_subject import read_subject_reason
+from app.services.subjects.order import read_subject_reason
+from app.services.subjects.registry import SubjectName as SubjectName
+from app.services.subjects.registry import SubjectRequest, subject_adapter
 
 if TYPE_CHECKING:
     from app.modules.math.schemas import MathImageExtract

@@ -213,7 +213,7 @@ def classify_presentation_subject(text: str | None) -> str | None:
     if not text or not text.strip():
         return None
     from app.modules.turn_reading.coding import has_code_syntax
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     subject = detect_subject(text)
     # Pasted code gets code ink: `i <= 3` is a loop bound, `variance` a variable.
@@ -228,7 +228,7 @@ def classify_presentation_subject(text: str | None) -> str | None:
 
 def blocks_math_followup(text: str) -> bool:
     """Physics and chemistry problems are not replayed through the math solver."""
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     return detect_subject(text) in {"physics", "chemistry"}
 

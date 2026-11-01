@@ -1,4 +1,4 @@
-"""Maths as the subject registry asks it (``services/subject_registry``).
+"""Maths as the subject registry asks it (``services/subjects/registry``).
 
 The adapter calls what maths already has: the verified block through ``tools.prompt`` and
 the direct reply through ``tools.direct``.
@@ -15,7 +15,7 @@ from app.services.solving import SubjectAugmentation, VerifiedMathBlock
 if TYPE_CHECKING:
     from app.core.config import Settings
     from app.services.solving import VerifiedSolveBlock
-    from app.services.subject_registry import SubjectRequest
+    from app.services.subjects.registry import SubjectRequest
 
 
 @dataclass(frozen=True)

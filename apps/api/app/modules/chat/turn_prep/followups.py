@@ -113,7 +113,7 @@ def read_prompt_inputs(
     rules ask it), each request's subject (a part's own layout asks it) and the
     presentation subject the style hints read are kept for the turn (``core/readings``).
     """
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     for text in dict.fromkeys((query_text, *part_texts)):
         if text:

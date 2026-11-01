@@ -40,7 +40,7 @@ from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 from app.services.text_normalize import fold_token
 
 if TYPE_CHECKING:
-    from app.services.subject_solving import SubjectName
+    from app.services.subjects.dispatch import SubjectName
 
 USER_MESSAGE_PREFIX = "Generate image: "
 _PURPOSE_COLON = re.compile(
@@ -458,7 +458,7 @@ def stem_subject(text: str, *, chemistry_enabled: bool = True) -> SubjectName | 
     image?" is optics; the text rules above would read both as picture requests.
     Art stays art: "a cute cartoon atom for our chemistry club poster" is a picture.
     """
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     if any(fold_token(word) in _ART_WORDS for word in text.split()):
         return None

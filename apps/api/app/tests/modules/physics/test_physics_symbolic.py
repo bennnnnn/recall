@@ -13,7 +13,7 @@ from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.symbolic.request import parse_symbolic_physics_request
 from app.modules.physics.symbolic.solver import build_symbolic_physics_block
 from app.services.solving import SolveServiceError
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 
 def solve(text: str):

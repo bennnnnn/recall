@@ -25,7 +25,7 @@ from app.modules.turn_reading.turn import (
 )
 
 if TYPE_CHECKING:
-    from app.services.subject_solving import SubjectName
+    from app.services.subjects.dispatch import SubjectName
 
 # Exchanges a terse follow-up reaches back over (``math.followup``).
 _FOLLOWUP_EXCHANGES = 4
@@ -43,7 +43,7 @@ def read_turn(
     builds it again, with the subject the pool read under that flag.
     """
     from app.modules.chat.turn_prep.intents import plan_turn
-    from app.services.which_subject import read_subject_reason
+    from app.services.subjects.order import read_subject_reason
 
     chemistry = settings.chemistry_enabled
     kept = current_turn_reading()
@@ -92,7 +92,7 @@ def subject_of(
     """The subject of ``text`` (``detect_subject``): the turn's own reading when it read
     ``text`` with these flags, else ``text`` read as before (a part, another line, other
     flags)."""
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     kept = current_turn_reading()
     if kept is not None and kept.knows_subject_of(
@@ -135,7 +135,7 @@ def ask_turn_readings(
     from app.modules.math.tools.extract import extract_math_intent
     from app.modules.math.tools.prompt import needs_symbolic_math
     from app.modules.physics.extract import extract_physics_intent
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     chemistry = settings.chemistry_enabled
     plan = plan_turn(content, chemistry_enabled=chemistry)

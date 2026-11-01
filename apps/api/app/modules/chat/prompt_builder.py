@@ -46,7 +46,7 @@ from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
 from app.services import time_context as time_context_service
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_solving import (
+from app.services.subjects.dispatch import (
     SubjectName,
     build_subject_augmentation,
     read_subject,

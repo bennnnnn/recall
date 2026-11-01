@@ -347,9 +347,10 @@ for presentation and the post-turn jobs, not for reading.
 - **Status, step 4 (subject): done.**
   - The subject order (code, a scanned caption, closed chemistry, physics, a curve physics
     cannot read, symbol givens, chemistry-shaped, maths, a chart, chemistry off, a chemistry
-    question, none) is written once, in `services/which_subject.py` (`read_subject_reason`, a
-    pool reading that returns the subject and the step that decided it, `SubjectReading`),
-    moved out of `subject_solving.py`, which keeps its 500-line limit and re-exports
+    question, none) is written once, in `services/which_subject.py` (now
+    `services/subjects/order.py`: `read_subject_reason`, a pool reading that returns the
+    subject and the step that decided it, `SubjectReading`), moved out of `subject_solving.py`
+    (now `services/subjects/dispatch.py`), which keeps its 500-line limit and re-exports
     `SubjectName`. `_subject_of_text` (and so `detect_subject` and `read_subject`) returns its
     subject; the order and every branch are unchanged.
   - `TurnReading` holds the message's subject as the pool read it with the turn's attachment
@@ -452,14 +453,19 @@ stays in the comment above its pass; the pinned order in
 - **Risk:** medium. **Size:** L. Land it in steps: the registry, then chat's subject imports
   behind it, then the `Literal`s.
 - **Status, step 1 (the registry): done.**
-  - `services/subject_registry.py` defines `SubjectAdapter`, a protocol like `ToolAdapter`
-    with what the dispatcher asks of every subject: `name`, `solve` (a `SubjectRequest` to a
+  - `services/subjects/` is the subjects' package: `registry.py` (new), `order.py` (was
+    `services/which_subject.py`) and `dispatch.py` (was `services/subject_solving.py`). Three
+    flat `subject_*` files would have been a domain with no package
+    (`tests/services/test_service_layout.py`). `subject_scan.py` stays a flat leaf: the
+    subjects import it, and the package imports the subjects.
+  - `registry.py` defines `SubjectAdapter`, a protocol like `ToolAdapter` with what the
+    dispatcher asks of every subject: `name`, `solve` (a `SubjectRequest` to a
     `SubjectAugmentation`) and `direct_reply`. `SUBJECTS` names each subject's adapter, one
     entry each: `modules/math/subject.py`, `modules/physics/subject.py`,
     `modules/chemistry/subject.py`, each listed public by its package. They hold what the
     dispatcher's private `_augment_*` and `_direct_*` functions held, unchanged.
-  - `subject_solving.py` (388 → 179 lines) asks `subject_adapter(name)` and imports no
-    subject; `test_module_direction.py` holds that. The registry sits beside it in layer 2.
+  - `dispatch.py` (388 → 179 lines) asks `subject_adapter(name)` and imports no subject;
+    `test_module_direction.py` holds that. The package sits in layer 2.
   - `SubjectName` and `SubjectAugmentation` moved to `services/solving.py`, the leaf below
     every subject, and the registry re-exports the name: the registry imports the subjects,
     and the pure solvers reach `solving`, so the list of names sits below both.
@@ -468,8 +474,8 @@ stays in the comment above its pass; the pinned order in
     spawned workers import only what a job names (the direct reply runs there), so a call in
     an `__init__` registers nothing until something imports every subject; the tuple is that
     import, typed and in one place, as `services/mcp` registers the model's tools.
-  - The order between subjects stays `which_subject`'s (ST-05), so a subject that competes
-    with another for a line also adds its step there. Dispatcher-only public files left the
+  - The order between subjects stays `order.py`'s (ST-05), so a subject that competes with
+    another for a line also adds its step there. Dispatcher-only public files left the
     subjects' lists: `math.tools.direct`, `physics.direct` and `.prompt`, `chemistry.block`,
     `.direct` and `.reading`.
   - Decision diff over 5,232 turns: no decision changed.

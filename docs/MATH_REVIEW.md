@@ -421,7 +421,7 @@ adding a subject:
 | Law catalog: name, universal form, rearrangements, units | `services/law_binding/` | Physics, chemistry, economics, biology |
 | Consumption audit | `modules/math/request_consumption.py` | All |
 | Scan read-back | The math, physics, and chemistry scan endpoints | All, biology included |
-| Claim-based dispatcher and collision corpus | `services/subject_solving.py` | All |
+| Claim-based dispatcher and collision corpus | `services/subjects/dispatch.py` | All |
 | Phrasing corpus and golden-snapshot harness | C1, W4 | All |
 
 - **Economics** (deterministic core): supply–demand equilibrium (a 2×2 system, plus a graph

@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from app.modules.physics.schemas import PhysicsIntent
     from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
 
-# The subjects a turn is solved by. The subject registry (``services/subject_registry``)
+# The subjects a turn is solved by. The subject registry (``services/subjects/registry``)
 # holds one adapter per name; the name is here, beside the block each subject hands back,
 # because every subject's block names it and the registry imports the subjects.
 SubjectName = Literal["math", "physics", "chemistry"]
@@ -150,7 +150,7 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
 
 @dataclass(frozen=True)
 class SubjectAugmentation:
-    """What a subject's solve hands the turn (``services/subject_registry``)."""
+    """What a subject's solve hands the turn (``services/subjects/registry``)."""
 
     subject: SubjectName | None
     prompt_block: str | None

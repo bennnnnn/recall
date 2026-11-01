@@ -29,9 +29,9 @@ __all__ = [
 ]
 
 # Seams the chat turn uses: question detection, follow-ups, prompt hints and post-stream
-# fences; what the subject order (services/which_subject) reads of a line: the extracted
+# fences; what the subject order (services/subjects/order) reads of a line: the extracted
 # intent, its text, a question's cues and a reaction's species; and ``subject``, chemistry as
-# the subject registry (services/subject_registry) asks it, its verified block and its
+# the subject registry (services/subjects/registry) asks it, its verified block and its
 # direct reply.
 _MODULE_EXPORTS = (
     "context",

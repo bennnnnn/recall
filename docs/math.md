@@ -10,7 +10,7 @@ The chat pipeline chooses a peer subject before it extracts an intent:
 
 ```text
 user input
-→ neutral subject detection (`services/subject_solving.py`)
+→ neutral subject detection (`services/subjects/dispatch.py`)
 → math extraction (`modules/math/tools/extract.py`)
 → request-consumption audit (`modules/math/request_consumption.py`)
 → math solver and typed trace (`modules/math/solve/`, `modules/math/school.py`)
@@ -126,7 +126,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 
 | Layer | Path |
 |-------|------|
-| Neutral subject dispatch | `apps/api/app/services/subject_solving.py` (each subject's adapter registered in `services/subject_registry.py`), `services/solving.py` |
+| Neutral subject dispatch | `apps/api/app/services/subjects/dispatch.py` (each subject's adapter registered in `services/subjects/registry.py`), `services/solving.py` |
 | SymPy core | `apps/api/app/modules/math/solve/` |
 | Triangle laws | `apps/api/app/modules/math/solve/triangle.py`: cosine and sine rules, Heron's formula, validity; exact where SymPy has the cosine (30°, 45°, 60° and their supplements) |
 | Physics (peer subject) | `apps/api/app/modules/physics/` — `catalog/`, `extractors/`, `solvers/`, plus `extract.py`, `solver.py`, `direct.py`, `block.py` |

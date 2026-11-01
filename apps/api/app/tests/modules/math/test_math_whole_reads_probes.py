@@ -13,7 +13,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.math.tools.school.single_draw import extract_single_draw_intent
-from app.services.subject_solving import build_subject_augmentation
+from app.services.subjects.dispatch import build_subject_augmentation
 
 _DRAWS = [
     (

@@ -76,7 +76,7 @@ app/
   repositories/        # shared persistence still used while domains migrate
   routers/             # legacy HTTP until that domain is a module
   services/            # leaves several owners share (quota, time, STEM text); not one module's code
-    law_binding/ mcp/ quota/
+    law_binding/ mcp/ quota/ subjects/
   exceptions.py        # shared domain exceptions
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
   background/          # job handlers + periodic schedulers
@@ -159,7 +159,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | HTTP/WS endpoint | module `api.py` or legacy `routers/` + `main.py` | Thin API → module/service | Drop registration + tests |
 | External API | `gateways/` | One gateway module; mock in tests | Delete gateway; keep service behind a flag if needed |
 | MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter`; `invoke(args, ctx: ToolContext)` gets the turn as an argument | Unregister; `mcp_tool_loop_enabled` defaults **on** |
-| Subject (maths, physics, chemistry) | module `subject.py` adapter; `services/subject_registry.py` (`SUBJECTS`), asked by `services/subject_solving.py`; which subject a line is: `services/which_subject.py` | A module whose `subject.py` implements `SubjectAdapter` (`solve`, `direct_reply`), its name in `SubjectName` (`services/solving.py`), one entry in `SUBJECTS`, and its step in the subject order | Drop the entry, the name and the step; delete the module |
+| Subject (maths, physics, chemistry) | module `subject.py` adapter; `services/subjects/registry.py` (`SUBJECTS`), asked by `services/subjects/dispatch.py`; which subject a line is: `services/subjects/order.py` | A module whose `subject.py` implements `SubjectAdapter` (`solve`, `direct_reply`), its name in `SubjectName` (`services/solving.py`), one entry in `SUBJECTS`, and its step in the subject order | Drop the entry, the name and the step; delete the module |
 | Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs/` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
 | Feature flag / setting | `core/settings/<section>.py` (joined into `Settings` in `core/config.py`) | One field in its section; gate service entry | Default false; then delete path |
 | Model | `models/model_catalog.py`; which alias does which job (Auto's lanes, photos, tool selection) in `models/routing_lanes.py` | Catalog entry + OpenRouter slug + capability flags (`supports_vision`, `supports_tools`, `json_mode`, `context_tokens`; unconfirmed = false). Route by capability, never by name | Remove alias; don’t leave provider names in app code |

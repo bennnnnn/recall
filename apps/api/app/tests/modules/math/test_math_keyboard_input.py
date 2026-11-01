@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.math.match.arithmetic import bare_arithmetic_expr
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 from app.services.symbolic_text import fold_latex_marks
 
 

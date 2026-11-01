@@ -12,7 +12,7 @@ import pytest
 
 from app.modules.math.schemas import MathIntent
 from app.modules.physics.schemas import PhysicsIntent
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 _APP_DIR = Path(__file__).resolve().parents[2]
 _MATH_PATHS = (_APP_DIR / "modules" / "math", _APP_DIR / "models" / "schemas" / "math")
@@ -112,8 +112,8 @@ def test_neutral_solving_module_does_not_build_math_blocks() -> None:
     "module",
     [
         "app.services.solving",
-        "app.services.subject_registry",
-        "app.services.subject_solving",
+        "app.services.subjects.registry",
+        "app.services.subjects.dispatch",
         "app.services.symbolic_text",
         "app.services.unit_text",
         "app.modules.math.schemas",

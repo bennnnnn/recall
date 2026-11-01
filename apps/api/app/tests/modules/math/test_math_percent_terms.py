@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.services.subject_solving import build_subject_augmentation
+from app.services.subjects.dispatch import build_subject_augmentation
 
 PROBES: list[tuple[str, str | None]] = [
     ("subtract 5 from 25% of 80", "15"),

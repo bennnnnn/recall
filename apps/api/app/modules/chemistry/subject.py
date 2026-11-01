@@ -1,4 +1,4 @@
-"""Chemistry as the subject registry asks it (``services/subject_registry``).
+"""Chemistry as the subject registry asks it (``services/subjects/registry``).
 
 The adapter calls what chemistry already has: the reading of a line through ``reading``, the
 verified block through ``context`` (with its fence hint from ``reply_policy``) and the direct
@@ -15,7 +15,7 @@ from app.services.solving import SubjectAugmentation
 if TYPE_CHECKING:
     from app.core.config import Settings
     from app.services.solving import VerifiedSolveBlock
-    from app.services.subject_registry import SubjectRequest
+    from app.services.subjects.registry import SubjectRequest
 
 
 @dataclass(frozen=True)

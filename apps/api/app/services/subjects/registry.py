@@ -2,9 +2,9 @@
 
 A subject (maths, physics, chemistry) owns one ``SubjectAdapter`` in its public ``subject``
 file, and ``SUBJECTS`` below names it in one entry, as ``services/mcp`` registers the model's
-tools. The dispatcher (``services/subject_solving``) asks a subject through its adapter, never
+tools. The dispatcher (``services/subjects/dispatch``) asks a subject through its adapter, never
 through the subject's own files. Which subject a line is belongs to the subject order
-(``services/which_subject``), the one place precedence between subjects is written: the order
+(``services/subjects/order``), the one place precedence between subjects is written: the order
 of ``SUBJECTS`` decides nothing.
 
 An adapter has what the dispatcher asks of every subject:

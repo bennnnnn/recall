@@ -18,7 +18,7 @@ from app.modules.physics.extract import needs_physics
 from app.modules.physics.givens import scan_givens
 from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
 from app.services.law_binding.units import unit_dimension
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 from app.tests.modules.physics.support import answer_number
 
 _SETTINGS = Settings(math_tools_enabled=True)

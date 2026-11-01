@@ -27,7 +27,7 @@ from app.modules.chat.follow_up_ground import works_the_problem
 from app.modules.chat.follow_up_words import topic_words
 from app.modules.turn_reading.routing import is_lightweight_chat_turn
 from app.services.problem_followup import message_role_content
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # A follow-up ("why?") belongs to a problem a few user lines back; further is stale.
