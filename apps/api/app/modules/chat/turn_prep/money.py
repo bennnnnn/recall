@@ -11,6 +11,7 @@ one too.
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 from redis.asyncio import Redis
 
@@ -23,8 +24,11 @@ from app.modules.chat.turn_prep.instant import settings_card
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.chat.turn_prep.mode import prior_user_texts
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
-from app.modules.money.service import MoneyTurn, prepare_money_turn, prepare_standing_turn
 from app.modules.turn_reading.plan import TurnPlan
+from app.services.subjects.registry import MONEY
+
+if TYPE_CHECKING:
+    from app.services.subjects.registry import MoneyTurn
 
 
 async def money_turn(
@@ -50,7 +54,7 @@ async def money_turn(
         "",
     )
     for text in plan.texts() if plan.multi else (request.content,):
-        turn = await prepare_money_turn(
+        turn = await MONEY.prepare(
             text,
             settings,
             redis,
@@ -64,7 +68,7 @@ async def money_turn(
     # A reminder or to-do line is the to-do path's, whatever money words it holds.
     if todos_service.query_implies_todos(request.content):
         return None
-    return await prepare_standing_turn(
+    return await MONEY.prepare_standing(
         request.content,
         settings,
         redis,

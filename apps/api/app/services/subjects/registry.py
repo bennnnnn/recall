@@ -31,6 +31,10 @@ An adapter has what the dispatcher and chat ask of every subject:
 
 A subject with nothing to offer for a member answers None or False, or returns the text as it is.
 
+Money is registered beside them as a peer (``MONEY``, a ``MoneyPeer``): a loan, card or
+savings question is worked before the prompt and gets its calculator card after the reply,
+and a money turn has no subject solve (chat's ``turn_prep``).
+
 A new subject is a module with its own ``subject`` adapter, its name in ``SubjectName`` (in
 ``services/solving``, beside the verified block every subject's solve names itself in) and its
 entry in ``SUBJECTS``; ``tests/services/test_subject_registry.py`` holds the two to each other.
@@ -41,13 +45,14 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, TypeGuard
 
 from app.modules.chemistry.subject import CHEMISTRY_SUBJECT
 
 # What maths read off a photo: chat holds it for the turn and hands it back (``photo``).
 from app.modules.math.schemas import MathImageExtract as MathImageExtract
 from app.modules.math.subject import MATH_SUBJECT
+from app.modules.money.subject import MONEY_PEER
 from app.modules.physics.subject import PHYSICS_SUBJECT
 from app.services.solving import SubjectName as SubjectName
 
@@ -55,6 +60,10 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
 
     from app.core.config import Settings
+    from app.models.orm import User
+
+    # A money turn, from its prompt to its finalize; chat holds it for the turn.
+    from app.modules.money.service import MoneyTurn as MoneyTurn
     from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
     from app.services.subject_hints import SubjectHints
 
@@ -248,6 +257,49 @@ class SubjectAdapter(Protocol):
         verified_request_text: str | None,
     ) -> str | None: ...
 
+
+class MoneyPeer(Protocol):
+    """Money as chat asks it: worked before the prompt, carded after the reply."""
+
+    async def prepare(
+        self,
+        text: str,
+        settings: Settings,
+        redis: Redis | None,
+        *,
+        user: User | None,
+        location: str | None,
+        earlier: Sequence[str | Sequence[str]],
+        last_reply: str,
+    ) -> MoneyTurn | None:
+        """The money turn ``text`` asks for, or None when it is not one."""
+        ...
+
+    async def prepare_standing(
+        self,
+        text: str,
+        settings: Settings,
+        redis: Redis | None,
+        *,
+        user: User | None,
+        location: str | None,
+        earlier: Sequence[str | Sequence[str]],
+        last_reply: str,
+    ) -> MoneyTurn | None:
+        """The chat's earlier loan, for a message about it that is no money request itself."""
+        ...
+
+    async def finish(self, turn: MoneyTurn, text: str, settings: Settings, *, english: bool) -> str:
+        """The reply with the market note and the calculator card under it."""
+        ...
+
+    def owns(self, value: object) -> TypeGuard[MoneyTurn]:
+        """``value`` is a money turn."""
+        ...
+
+
+# Money, the subjects' peer.
+MONEY: MoneyPeer = MONEY_PEER
 
 # The registration: one entry per subject.
 SUBJECTS: tuple[SubjectAdapter, ...] = (
