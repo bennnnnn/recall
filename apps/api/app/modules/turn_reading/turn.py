@@ -72,6 +72,22 @@ def current_turn_reading() -> TurnReading | None:
     return kept if isinstance(kept, TurnReading) else None
 
 
+def names_a_subject(text: str) -> bool:
+    """Whether the turn's reading gives ``text`` a subject (physics, maths, chemistry).
+
+    Homework is that subject's question before it is one about the user's place, solved or
+    not (``web_search.weather.is_worked_problem``). Only the turn's own message is known
+    (spacing aside: callers collapse it); any other text, or no turn, is False. Nothing is
+    read here: the subject order runs in the pool.
+    """
+    kept = current_turn_reading()
+    return kept is not None and kept.subject is not None and _same_line(kept.text, text)
+
+
+def _same_line(left: str, right: str) -> bool:
+    return left.split() == right.split()
+
+
 def teaching_of(text: str) -> bool:
     """Whether ``text`` asks to be taught: the turn's own reading when ``text`` is the turn's
     message, else that text read on its own (a part, a line the turn rewrote)."""

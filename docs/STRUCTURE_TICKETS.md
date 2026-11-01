@@ -385,6 +385,28 @@ for presentation and the post-turn jobs, not for reading.
   - A test that begins a turn outside a task (a sync test) would leave its readings in the
     worker's context, and every later test on the worker would then run inside that turn;
     `conftest.py` clears the turn after each test.
+- **Precedence chosen (behaviour PR): homework before the user's place.**
+  - "A ball is dropped from a height of 20 m. How long does it take to reach the ground?" was
+    answered "I don't have your location yet": the travel-time reader claimed it before
+    physics, and its only guard, `web_search.weather.is_worked_problem`, wanted two stated
+    measurements.
+  - `turn_reading.turn.names_a_subject(text)` answers from the turn's reading
+    (`TurnReading.subject`, read in the pool) for the turn's message only, and reads nothing.
+    `is_worked_problem` asks it, so a line the subject order gives physics, maths or chemistry
+    counts as homework whether its subject can solve it or not.
+  - Every reader of the user's place defers to `is_worked_problem` unless the line says it is
+    about where the user is (`around_the_user`: "near me", "near here", "in my area", "from my
+    location"; not "from here", "from me" or a bare "here", which exercises say). The readers are
+    places, distances and travel times, and local weather; the location ask, the location sent
+    with a search, the geo prompt hints and the places card build on them. "how hot is it
+    here" is now a weather question.
+  - Trade-off: a real ask the subject order gives physics and that names no such cue is
+    answered without the location ("How far is the nearest gas station? My car does 30 mpg",
+    a sweep `gap`).
+  - Decision diff (new look-alikes added on both sides): 22 turns changed, all of them new
+    entries. 13 are now solved by physics (`time_to_ground`, `drop_height`) where main asked
+    for the location. 5 homework lines no subject solves no longer get the location ask, nor
+    does the gas-station `gap`, and "how hot is it here" now does. No existing turn changed.
 
 ### ST-06 — Finalize passes declare their order and their kind
 
