@@ -311,11 +311,11 @@ async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
         captured["intent"] = intent
         return VerifiedMathBlock(text="stub")
 
-    # This test is about the reparse; the page check (``_image_intent_on_the_page``, which
+    # This test is about the reparse; the page check (``image_intent_on_the_page``, which
     # cannot read "f(x,2)") has its own tests in test_math_model_readings.py.
     from app.modules.math.tools import prompt as math_prompt
 
-    monkeypatch.setattr(math_prompt, "_image_intent_on_the_page", lambda *_args: True)
+    monkeypatch.setattr(math_prompt, "image_intent_on_the_page", lambda *_args: True)
     with patch(
         "app.modules.math.tools._build_verified_block_async",
         AsyncMock(side_effect=_fake_build),
