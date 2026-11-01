@@ -7,7 +7,7 @@
   "modules/chat/stream_entry.py::stream_chat_response": 120,
   "modules/chat/stream_entry.py::stream_regenerate_response": 122,
   "modules/chat/turn_prep/prepare.py::prepare_chat_turn": 106,
-  "modules/chat/ws_turn.py::stream_over_ws": 127,
+  "modules/chat/ws_turn.py::stream_over_ws": 125,
   "modules/chemistry/lewis.py::lewis_structure": 130,
   "modules/chemistry/solvers/amounts.py::solve_amount": 113,
   "modules/chemistry/solvers/solutions.py::solve_solution": 120,
