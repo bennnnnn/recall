@@ -391,6 +391,13 @@ def test_code_news_and_ones_own_still_get_no_note(query: str) -> None:
         ("What does circRNA do in a cell?", True),
         ("What does microRNA do in a cell?", True),
         ("How does tracrRNA guide Cas9?", True),
+        # Third review: any lower case word ending in capitals may be a lab term.
+        ("What is a high hsCRP?", True),
+        ("What does oxLDL do in arteries?", True),
+        ("How does ddPCR work?", True),
+        ("What is sdLDL?", True),
+        ("Why does isNaN return true for a string?", False),
+        ("How do I read the baseURL from config?", False),
         ("How is rtPCR used to detect a virus?", True),
         ("Convert 30 inHg to kPa.", True),
     ],

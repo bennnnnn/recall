@@ -98,6 +98,12 @@ def test_a_glued_speed_unit_is_motion_and_a_kick_off_is_a_place(text: str, geo: 
         ("I walk 4 km east then 3 km north to my house. How far is it in a straight line?", False),
         ("I walk 2 km from my house then 3 km east. How far am I from my house?", False),
         (
+            "I walk 4 km to the nearest corner then 3 km to my house. How far is it in a "
+            "straight line?",
+            False,
+        ),
+        ("the nearest coffee shop to me, 2 km or 3 km away", True),
+        (
             "I throw a ball from where I am standing at 10 m/s at 30°. It lands 9 m away. How "
             "far is it from where I am?",
             False,
