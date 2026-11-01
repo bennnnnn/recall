@@ -68,6 +68,16 @@ describe("markdownToDocumentText", () => {
     );
   });
 
+  it("shows a clarifying card as its questions, not its JSON", () => {
+    const card =
+      '{"questions":[{"id":"region","label":"Region","question":"Which region?",' +
+      '"options":["🌍 Anywhere","🇪🇺 Europe"],"values":["Anywhere","Europe"]}],' +
+      '"request":"Recommend a country.","submit":"Find it"}';
+    const out = markdownToDocumentText(`Which do you mean?\n\n\`\`\`clarify\n${card}\n\`\`\``, label);
+    expect(out).toBe("Which do you mean?\n\nWhich region? (Anywhere / Europe)");
+    expect(out).not.toContain("{");
+  });
+
   it("gives code holding backticks a longer fence", () => {
     const out = markdownToDocumentText("````md\n```js\nx\n```\n````", label);
     expect(out.startsWith("````md\n")).toBe(true);
