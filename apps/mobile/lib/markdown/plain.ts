@@ -12,7 +12,8 @@ import {
   fenceSpecForLang,
 } from "@/lib/fenceRegistry";
 import { clarifyText, parseClarifyCard } from "@/lib/clarify/clarifyCard";
-import { arrayText, parseArrayFence, parseQuizFence, quizText } from "@/lib/lesson/lessonFences";
+import { arrayCardText, quizCardText } from "@/lib/lesson/cardBody";
+import { plainFenceText } from "@/lib/lesson/lessonFences";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
 import {
   DEGREE_RING,
@@ -415,18 +416,13 @@ const PLAIN_READERS: Record<FencePlainReader, (body: string, mode: PlainMode) =>
     const spoken = teachingSpeech(body);
     return spoken ? withTexRuns(spoken, mode === "speech" ? speakMath : copyMath) : null;
   },
-  quiz: (body) => {
-    const quiz = parseQuizFence(body);
-    return quiz ? quizText(quiz) : "";
-  },
+  // Each reads what its card shows: a plain-text body as that text, never a quiz's answer.
+  quiz: quizCardText,
   clarify: (body) => {
     const card = parseClarifyCard(body);
-    return card ? clarifyText(card) : "";
+    return card ? clarifyText(card) : (plainFenceText(body) ?? "");
   },
-  array: (body) => {
-    const array = parseArrayFence(body);
-    return array ? arrayText(array) : "";
-  },
+  array: arrayCardText,
 };
 
 function convertFence(lang: string, body: string, mode: PlainMode): string {

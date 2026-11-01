@@ -19,6 +19,16 @@ import { fenceToCopyText, mapFenceRegions } from "@/lib/markdown/plain";
 /** A card shown in the document as its label alone (each fence's `inDocument` row). */
 export type DocumentBlock = FenceDocumentBlock;
 
+/**
+ * Where the document goes. Share sends plain text, so a card's lines stay plain lines; the
+ * PDF printer joins a paragraph's lines, so there a card's lines end in a hard break.
+ */
+export type DocumentTarget = "share" | "print";
+
+function cardLines(text: string, target: DocumentTarget): string {
+  return target === "print" ? text.replace(/([^\n])\n(?=[^\n])/g, "$1  \n") : text;
+}
+
 /** A fence that survives as code: its backticks outnumber any run inside it. */
 function codeFence(lang: string, body: string): string {
   const longest = Math.max(2, ...[...body.matchAll(/`+/g)].map((run) => run[0].length));
@@ -37,12 +47,13 @@ function documentFence(
   lang: string,
   body: string,
   label: (block: DocumentBlock) => string,
+  target: DocumentTarget,
 ): string {
   const trimmed = body.replace(/\n$/, "").trim();
   const id = fenceIdForLang(lang);
   const form = documentFormForLang(lang);
   // A long-division or column sum reads as its worked lines, a quiz as its question.
-  if (form === "copyText") return fenceToCopyText(lang, body);
+  if (form === "copyText") return cardLines(fenceToCopyText(lang, body), target);
   if (form) return label(form);
   if (isControlFenceLang(lang)) return "";
   if (id === "answer") return answerText(trimmed);
@@ -57,11 +68,12 @@ function documentFence(
 export function markdownToDocumentText(
   markdown: string,
   label: (block: DocumentBlock) => string,
+  target: DocumentTarget = "share",
 ): string {
   return mapFenceRegions(
     markdown,
     (prose) => prose,
-    (lang, body) => documentFence(lang, body, label),
+    (lang, body) => documentFence(lang, body, label, target),
   )
     .replace(/\n{3,}/g, "\n\n")
     .trim();

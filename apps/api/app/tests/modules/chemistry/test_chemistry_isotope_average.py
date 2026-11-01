@@ -104,10 +104,13 @@ def test_a_stated_isotope_mass_beats_the_table(
             "is 6.9.",
             "A(Li) = 6.941 u",
         ),
+        # Each isotope's own molar mass is a stated mass the reader does not take: no card,
+        # where the table's 6.940 matched only because the stated values are the table's
+        # (2026-11-01; "6.0 g/mol and 7.0 g/mol" would have been answered 6.941).
         (
             "Lithium has two isotopes, 6Li (7.59%) and 7Li (92.41%), with molar masses 6.015 "
             "g/mol and 7.016 g/mol respectively. Calculate the average atomic mass of lithium.",
-            "A(Li) = 6.940 u",
+            None,
         ),
         (
             "Carbon consists of 12C (98.89%) and 13C (1.11%). Calculate the average atomic mass "
@@ -358,4 +361,105 @@ def test_an_average_atomic_mass_has_a_tables_precision(question: str, answer: st
 def test_an_average_atomic_mass_reads_only_what_is_certain(
     question: str, answer: str | None
 ) -> None:
+    assert _answer(question) == answer
+
+
+# 2026-11-01 retrospective: masses a question stated but the reader did not take were averaged
+# from the table (35.47 for "35 u and 37 u"), and an average asked in grams per atom got a card
+# in u. A mass the reader cannot place, or another unit, gets no card; one it places is used,
+# summed exactly (6.945 rounds to 6.95, not a float's 6.944999… to 6.94).
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        (
+            "The masses of 35Cl and 37Cl are 35 u and 37 u. Their abundances are 75% and 25%. "
+            "Calculate the average atomic mass of chlorine.",
+            None,
+        ),
+        (
+            "The relative masses of 6Li and 7Li are 6.0 and 7.0 and their abundances are 7.5% "
+            "and 92.5%. Calculate the relative atomic mass of lithium.",
+            None,
+        ),
+        (
+            "Chlorine has isotopes 35Cl (75%) and 37Cl (25%). Their masses are about 35 u and "
+            "37 u. Find the average atomic mass.",
+            None,
+        ),
+        # Two masses in one isotope's clause: which is its, the reader cannot tell.
+        (
+            "Chlorine-35 has a mass of 34.97 u and 35 u and an abundance of 75%; chlorine-37 has "
+            "a mass of 36.97 u and an abundance of 25%. Find the average atomic mass.",
+            None,
+        ),
+        (
+            "Boron has two isotopes, 10B and 11B, with masses 10 u and 11 u and abundances 20% "
+            "and 80%. Calculate the average atomic mass of boron.",
+            "A(B) = 10.8 u",
+        ),
+        (
+            "Lithium has isotopes 6Li and 7Li with masses 6.02 u and 7.02 u and abundances 7.5% "
+            "and 92.5%. Find the average atomic mass of lithium.",
+            "A(Li) = 6.95 u",
+        ),
+        (
+            "Lithium has two isotopes, 6Li (7.59%) and 7Li (92.41%), with molar masses 6.0 g/mol "
+            "and 7.0 grams per mole respectively. Calculate the average atomic mass of lithium.",
+            None,
+        ),
+        (
+            "The relative masses of lithium's isotopes 6Li and 7Li are 6.0 and 7.0 and their "
+            "abundances are 7.5% and 92.5%. Calculate the relative atomic mass of lithium.",
+            None,
+        ),
+        # A sample's grams, a mark, or a number nowhere near a mass number is no isotope's
+        # mass: only a number a mass noun leads, past words naming the isotopes, is one.
+        (
+            "Calculate the relative atomic mass of hydrogen (1 mark): 1H (99.9885%) and 2H "
+            "(0.0115%).",
+            "A(H) = 1.008 u",
+        ),
+        (
+            "Boron has isotopes 10B (20%) and 11B (80%). A sample has a mass of 10 g. Find the "
+            "average atomic mass.",
+            "A(B) = 10.81 u",
+        ),
+        (
+            "Find the relative atomic mass of chlorine (2 marks): 35Cl (75%) and 37Cl (25%).",
+            "A(Cl) = 35.47 u",
+        ),
+        # Another unit is another number; g/mol is u's number.
+        (
+            "Calculate the average atomic mass of silver in grams per atom: 107Ag (51.84%) and "
+            "109Ag (48.16%).",
+            None,
+        ),
+        (
+            "Calculate the average atomic mass of silver in kg: 107Ag (51.84%) and 109Ag (48.16%).",
+            None,
+        ),
+        (
+            "Calculate the average atomic mass of silver in kg/mol: 107Ag (51.84%) and 109Ag "
+            "(48.16%).",
+            None,
+        ),
+        # A symbol is no unit: "as Mg-24" is magnesium, never milligrams.
+        (
+            "Magnesium exists as Mg-24 (78.99%), Mg-25 (10.00%) and Mg-26 (11.01%). Calculate "
+            "the average atomic mass of magnesium.",
+            "A(Mg) = 24.31 u",
+        ),
+        (
+            "What is the average atomic mass of chlorine in g/mol? Chlorine has isotopes 35Cl "
+            "(75%) and 37Cl (25%).",
+            "A(Cl) = 35.47 u",
+        ),
+        (
+            "Calculate the average atomic mass of silver in amu: 107Ag (51.84%) and 109Ag "
+            "(48.16%).",
+            "A(Ag) = 107.9 u",
+        ),
+    ],
+)
+def test_a_stated_mass_is_read_or_the_average_declined(question: str, answer: str | None) -> None:
     assert _answer(question) == answer
