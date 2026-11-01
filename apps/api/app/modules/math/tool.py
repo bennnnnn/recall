@@ -167,19 +167,19 @@ class SympyAdapter:
             if undefined_note is not None:
                 return ToolResult(name=self.name, content=undefined_note)
             integral_note = infinite_integral_note(expr_result.result)
-        # Parity with the heuristic _verified_block_calculus path: an integral
-        # that SymPy couldn't close (it hands back a literal Integral(...) rather
-        # than raising) must NOT be asserted as a verified answer. Emit an
-        # honesty note and no ```answer / canonical fence so validate_math_fences
-        # does not overwrite the model's output with an unverified value.
-        if not expr_result.solved:
+        # Parity with the heuristic _verified_block_calculus path: an integral SymPy
+        # couldn't close (a literal Integral(...)), or a result that restates the
+        # expression as written, must NOT be asserted as a verified answer. Emit an
+        # honesty note and no ```answer fence for validate_math_fences to rewrite.
+        if not expr_result.solved or expr_result.restated:
             return ToolResult(
                 name=self.name,
                 content=(
-                    f"SymPy could not find a closed-form result (got: {expr_result.latex}). "
+                    "SymPy could not find a closed-form result, or one simpler than the "
+                    f"expression (got: {expr_result.latex}). "
                     "Do NOT claim this as a verified answer — tell the user no closed "
-                    "form was found, or explain why the integral is hard, instead of "
-                    "asserting a solution."
+                    "form was found (and why the integral is hard), or that the expression "
+                    "is already in its simplest form, instead of asserting a solution."
                 ),
             )
         # Attach a canonical ```answer fence so the post-stream rewriter
