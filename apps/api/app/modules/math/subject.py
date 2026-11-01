@@ -7,7 +7,8 @@ direct reply through ``tools.direct``, and its prompt copy from ``reply_policy``
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import json
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -33,6 +34,7 @@ from app.services.subject_hints import SubjectHints
 
 if TYPE_CHECKING:
     from app.core.config import Settings
+    from app.modules.math.schemas import MathImageExtract
     from app.services.solving import VerifiedSolveBlock
     from app.services.subjects.registry import SubjectRequest
 
@@ -87,6 +89,11 @@ class MathFollowups:
         from app.modules.math.tools.extract import is_graph_followup
 
         return is_graph_followup(line)
+
+    def borrows_earlier(self, line: str) -> bool:
+        from app.modules.math.tools.prompt import borrows_earlier_lines
+
+        return borrows_earlier_lines(line)
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return False
@@ -146,11 +153,76 @@ def _math_block(verified: VerifiedSolveBlock | None) -> VerifiedMathBlock | None
 
 
 @dataclass(frozen=True)
+class MathPhoto:
+    """The equation in a turn's photo (``camera``), so SymPy can verify the answer."""
+
+    async def read(
+        self,
+        content: str,
+        *,
+        image_attachments: list[tuple[str, str]],
+        load_image: Callable[[str], Awaitable[bytes | None]],
+        settings: Settings,
+        on_status: Callable[[str], Awaitable[None]] | None,
+    ) -> tuple[MathImageExtract | None, str]:
+        from app.modules.math.camera import read_camera_maths
+
+        return await read_camera_maths(
+            content,
+            image_attachments=image_attachments,
+            load_image=load_image,
+            settings=settings,
+            on_status=on_status,
+        )
+
+
+@dataclass(frozen=True)
+class MathTool:
+    """The ``sympy`` model tool (``tool.py``), as the tool loop checks its calls."""
+
+    def refuses(self, name: str, raw_args: Any, user_text: str) -> bool:
+        # The trig solver owns all-real solutions: the tool schema cannot express the
+        # requested interval or another domain.
+        if name != "sympy":
+            return False
+        try:
+            args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+        except (TypeError, ValueError):
+            return False  # Let the registry report malformed arguments normally.
+        if not isinstance(args, dict):
+            return False
+        if str(args.get("action") or "solve").strip().lower() != "solve":
+            return False
+        from app.modules.math.tools.extract import trig_domain_would_be_dropped
+
+        return trig_domain_would_be_dropped(
+            f"{args.get('lhs') or ''} {args.get('rhs') or ''}", user_text
+        )
+
+    def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
+        from app.modules.math.tool_check import matched_user_text
+
+        return matched_user_text(raw_args, user_texts)
+
+    def draws_curve(self, fence: dict[str, Any] | None) -> bool:
+        from app.modules.math.text_plot import is_curve_fence
+
+        return is_curve_fence(fence)
+
+    def asks_for_earlier_curve(self, text: str) -> bool:
+        from app.modules.math.tool_check import asks_for_an_earlier_curve
+
+        return asks_for_an_earlier_curve(text)
+
+
+@dataclass(frozen=True)
 class MathSubject:
     name: Literal["math"] = "math"
     hints: SubjectHints = _HINTS
     followups: MathFollowups = MathFollowups()
     fence: MathFence = MathFence()
+    photo: MathPhoto = MathPhoto()
+    tool: MathTool = MathTool()
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_symbolic_math(text, has_image_attachment=has_image_attachment)

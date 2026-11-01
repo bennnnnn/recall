@@ -72,6 +72,9 @@ class PhysicsFollowups:
     def continues_alone(self, line: str) -> bool:
         return False
 
+    def borrows_earlier(self, line: str) -> bool:
+        return False
+
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return False
 
@@ -124,6 +127,9 @@ class PhysicsSubject:
     hints: SubjectHints = _HINTS
     followups: PhysicsFollowups = PhysicsFollowups()
     fence: PhysicsFence = PhysicsFence()
+    # No photo reader and no model tool of its own.
+    photo: None = None
+    tool: None = None
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_physics(text)

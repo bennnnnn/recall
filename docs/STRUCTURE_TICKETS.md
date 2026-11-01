@@ -547,6 +547,31 @@ printed "no decision changed".
     `turn_prep/instant.py` ask the adapters. `math.sympy_warmup` and
     `.tools.solve_timeouts` left maths' public list.
   - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2d (the photo and the tool loop): done.** Chat files that import a subject:
+  10 → 4, all money's (step 2e).
+  - The adapter gains two capabilities a subject has or not (None): `photo` (`SubjectPhoto`,
+    reading its problem off a turn's photo) and `tool` (`SubjectTool`, how the tool loop
+    checks calls to the model tool it owns: `refuses`, `call_matches`, `draws_curve`,
+    `asks_for_earlier_curve`). Maths has both; physics and chemistry neither.
+  - Chat's `turn_prep/camera_math.py` moved to `modules/math/camera.py`
+    (`read_camera_maths`); chat hands it a loader that keeps the bytes for the vision
+    injection. `tool_loop/calls.py` asks maths' `tool` where it imported `tool_check`,
+    `text_plot` and the trig-domain check.
+  - `MathImageExtract` reaches chat through the registry, the type of what `photo` reads.
+    Maths' public list keeps only what the order, the solving types and the model reader
+    import, beside `subject`.
+  - Decision diff over 5,232 turns: no decision changed.
+- **Status, step 2e (money as a peer): done.** Chat imports no subject: 4 files → 0.
+  - `modules/money/subject.py` holds `MoneyPeer` (`prepare`, `prepare_standing`, `finish`,
+    `owns`), and the registry names it `MONEY` beside the subjects. It imports the service
+    when a turn asks: the service loads the web search and the database models, which a
+    SymPy pool worker that loads the registry must not.
+  - `turn_prep/money.py`, `finalize_money.py`, `turn_prep/augment.py` and
+    `turn_prep/context.py` ask `MONEY`; `MoneyTurn` reaches chat's annotations through the
+    registry. Money's public list is its `subject`.
+  - Money is no `SubjectName`: it has no solve, fence or direct reply, and a money turn has
+    no subject solve (`turn_prep/augment.py`), the precedence it had.
+  - Decision diff over 5,232 turns: no decision changed.
 
 ## P5 — Phone
 

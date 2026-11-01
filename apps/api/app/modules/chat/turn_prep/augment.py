@@ -26,7 +26,6 @@ from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
-from app.modules.math.tools.prompt import borrows_earlier_lines
 from app.modules.turn_reading.plan import TurnPlan
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
@@ -37,7 +36,7 @@ from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
-    from app.modules.money.service import MoneyTurn
+    from app.services.subjects.registry import MoneyTurn
 
 # Earlier user lines a follow-up may take its problem from.
 _PRIOR_USER_LINES = 8
@@ -147,7 +146,7 @@ def _readable_fetch(
     writer's locale reads otherwise, and the result goes."""
     content = request.content
     borrowed: list[str] = []
-    if borrows_earlier_lines(content):
+    if subject_adapter("math").followups.borrows_earlier(content):
         borrowed = _prompt_prior_user_messages(prompt_messages, content)[-_PRIOR_USER_LINES:]
     return whole_question_fetch(
         content,

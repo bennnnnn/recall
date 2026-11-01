@@ -7,8 +7,9 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
-from app.modules.chat.tool_loop import calls, rounds
+from app.modules.chat.tool_loop import rounds
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.services.subjects.registry import subject_adapter
 from app.tests.tool_context import tool_context
 
 
@@ -121,6 +122,6 @@ async def test_all_real_or_teaching_trig_request_keeps_tool_result(suffix: str):
     ],
 )
 def test_guard_leaves_other_actions_and_argument_validation_to_registry(name: str, args):
-    assert not calls._sympy_solve_drops_trig_domain(
-        name, args, "Solve sin(x)=2 over the complex numbers"
-    )
+    tool = subject_adapter("math").tool
+    assert tool is not None
+    assert not tool.refuses(name, args, "Solve sin(x)=2 over the complex numbers")

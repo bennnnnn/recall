@@ -26,9 +26,8 @@ from app.modules.chat.tool_loop.results import (
     _canonical_from_tool_result,
 )
 from app.modules.chat.turn_trace import note_tool
-from app.modules.math.text_plot import is_curve_fence
-from app.modules.math.tools.extract import trig_domain_would_be_dropped
 from app.modules.turn_reading.readable import unreadable
+from app.services.subjects.registry import subject_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +99,13 @@ async def _tool_call_matches_user(
     """A tool result is the verified answer only for the problem the user wrote, in words
     and numbers the readers read (``turn_reading.readable``; ``locale`` is the user's)."""
     from app.core.sympy_executor import run_sympy
-    from app.modules.math.tool_check import matched_user_text
 
+    tool = subject_adapter("math").tool
+    if tool is None:
+        return False
     try:
         matched = await run_sympy(
-            matched_user_text,
+            tool.call_matches,
             raw_args,
             user_texts,
             timeout=settings.stem_solve_timeout_seconds,
@@ -113,20 +114,6 @@ async def _tool_call_matches_user(
         logger.info("tool-call match check did not finish; result stays unverified", exc_info=True)
         return False
     return isinstance(matched, str) and unreadable(matched, locale) is None
-
-
-def _sympy_solve_drops_trig_domain(name: str, raw_args: Any, user_text: str) -> bool:
-    if name != "sympy":
-        return False
-    try:
-        args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
-    except (TypeError, ValueError):
-        return False  # Let the registry report malformed arguments normally.
-    if not isinstance(args, dict) or str(args.get("action") or "solve").strip().lower() != "solve":
-        return False
-    return trig_domain_would_be_dropped(
-        f"{args.get('lhs') or ''} {args.get('rhs') or ''}", user_text
-    )
 
 
 async def execute_calls(
@@ -177,7 +164,8 @@ def _refusal(
         # A provider can return a call to a tool it was not given.
         # Never run it (e.g. generate_image the user did not ask for).
         return f"Tool {name or '(unnamed)'} is not available for this turn."
-    if _sympy_solve_drops_trig_domain(name, raw_args, turn.user_text):
+    tool = subject_adapter("math").tool
+    if tool is not None and tool.refuses(name, raw_args, turn.user_text):
         # This solver owns all-real trig solutions. The tool schema
         # cannot express the requested interval or alternative domain;
         # do not reintroduce an answer rejected during turn preparation.
@@ -215,15 +203,17 @@ async def _draws_asked_curve(
     own (one it does hold is the user's, and a call that misses it is a typo), and never
     over a curve a matched call already drew.
     """
-    if not is_curve_fence(fence) or str((fence or {}).get("type")) in collected.canonical_by_type:
+    tool = subject_adapter("math").tool
+    if tool is None or not tool.draws_curve(fence):
+        return False
+    if str((fence or {}).get("type")) in collected.canonical_by_type:
         return False
     from app.core.sympy_executor import run_sympy
-    from app.modules.math.tool_check import asks_for_an_earlier_curve
 
     text = turn.user_texts[0] if turn.user_texts else turn.user_text
     try:
         asked = await run_sympy(
-            asks_for_an_earlier_curve, text, timeout=turn.settings.stem_solve_timeout_seconds
+            tool.asks_for_earlier_curve, text, timeout=turn.settings.stem_solve_timeout_seconds
         )
     except Exception:
         logger.info("graph-ask read did not finish; the unmatched curve is dropped", exc_info=True)
