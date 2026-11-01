@@ -136,9 +136,17 @@ def other_language(text: str) -> bool:
     return not english
 
 
+# A unit after a number is short ("um", "au", "mol"); "2 résistances" is a word.
+_UNIT_LETTERS = 3
+
+
 def _unit(text: str, start: int, word: str) -> bool:
-    """A unit, not a word: after a number ("12 um", "5.2 au", "5 nA"), or in mixed case."""
-    return text[:start].rstrip()[-1:].isdigit() or not (word.islower() or word.istitle())
+    """A unit, not a word: short and after a number ("12 um", "5.2 au", "5 nA"), or in
+    mixed case. A word with a letter English does not write is never a unit."""
+    if _FOREIGN_LETTERS.intersection(word.casefold()):
+        return False
+    after_number = text[:start].rstrip()[-1:].isdigit() and len(word) <= _UNIT_LETTERS
+    return after_number or not (word.islower() or word.istitle())
 
 
 # How each app language writes 1200.5: the mark that groups thousands, the decimal mark.

@@ -32,6 +32,8 @@ _DROPPED = SubjectFetch(None, None, False, None, None)
     "question",
     [
         "Deux résistances de 10 ohms sont en parallèle sous 5 V, courant total ?",
+        # A word after a number is a unit only when it is short and English could write it.
+        "2 résistances de 10 ohms, 5 V",
         "Dos resistencias de 10 ohmios están en paralelo a 5 V, ¿cuál es la corriente total?",
         "Berechne die Geschwindigkeit eines Autos, das in 5 s 100 m fährt.",
         "Calcola la velocità di un'auto che percorre 100 m in 5 s.",

@@ -1,6 +1,7 @@
 [
   {"id": "lang-fr-parallel", "area": "language", "prompt": "Deux résistances de 10 ohms sont en parallèle sous 5 V, courant total ?", "expect": "decline", "note": "was 0.5 A, one resistor: 'deux' unread (right: 1 A); the readers read English: a card only from a question they read whole (2026-11-01 baseline)"},
   {"id": "lang-es-parallel", "area": "language", "prompt": "Dos resistencias de 10 ohmios están en paralelo a 5 V, ¿cuál es la corriente total?", "expect": "decline"},
+  {"id": "lang-fr-parallel-digit", "area": "language", "prompt": "2 résistances de 10 ohms, 5 V", "expect": "decline", "note": "a word after a number is a unit only when short (Claude review): résistances is French"},
   {"id": "lang-es-ohm", "area": "language", "prompt": "¿Qué voltaje se necesita para hacer pasar 2 A a través de una resistencia de 15 Ω?", "expect": "decline", "note": "the card was right (30 V); another language gets none"},
   {"id": "lang-fr-ohm", "area": "language", "prompt": "Quelle tension faut-il pour faire passer 2 A à travers une résistance de 15 Ω ?", "expect": "decline"},
   {"id": "lang-am-ohm", "area": "language", "prompt": "2 A ን በ15 Ω ተከላካይ ውስጥ ለማስገደድ ምን ያህል ቮልቴጅ ያስፈልጋል?", "expect": "decline"},
