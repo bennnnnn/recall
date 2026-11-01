@@ -24,7 +24,7 @@ def _law_line(result: ChemistryResult, show: Callable[[str], str]) -> str:
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
     result = verified.result
     # A lookup that only draws (a named compound's structure) computes nothing: no
-    # Given/Find/Substitution, one line and the drawing.
+    # Given/Required/Substitution, one line and the drawing.
     if result.structure_smiles and not result.answer.strip():
         return assemble_chemistry_reply(f"{result.title}, from PubChem:", verified)
     # The solver text is ASCII (H2SO4, Fe2+, ->); the reader gets H₂SO₄, Fe²⁺, →. A result

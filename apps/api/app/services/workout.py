@@ -5,9 +5,11 @@ it has lines:
 
 - **Given**: the problem as the student wrote it, or the stated values, closed by a
   ``where`` line naming their symbols (``where_line``)
-- **Find**: what is asked
+- **Required**: what is asked (**Find** before November 2026; a reader takes both)
 - **Formula**: the law or rule that governs it; a physics law is headed by its own
-  name instead (**Constant acceleration**, ``modules/physics/law_titles.py``)
+  name instead (**Constant acceleration**, ``modules/physics/law_titles.py``). A
+  rearrangement for the unknown is a line of its own, ``Solve for $t$``
+  (``solve_for_line``), then the rearranged formula
 - **Substitution**: values put into that formula
 - **Steps**: an equation changed one move at a time
 - **Answer**: the verified result (the caller's answer fence follows)
@@ -27,7 +29,12 @@ import re
 from dataclasses import dataclass
 
 GIVEN = "Given"
-FIND = "Find"
+REQUIRED = "Required"
+# What is asked was headed "Find" until November 2026. A reader takes both spellings: older
+# replies keep theirs, and a model may still write it.
+REQUIRED_HEADINGS = (REQUIRED, "Find")
+# The same as a regex alternation, ``Required|Find``.
+REQUIRED_PATTERN = "|".join(REQUIRED_HEADINGS)
 FORMULA = "Formula"
 SUBSTITUTION = "Substitution"
 STEPS = "Steps"
@@ -65,6 +72,12 @@ _PROPER_FIRST_WORD = re.compile(
     r"Archimedes|Pascal|Bernoulli|Faraday|Avogadro|Bayes|Heron|Hess|Dalton|Graham|Henry|"
     r"Raoult|Nernst|Arrhenius|Beer|Gibbs|Hardy|Planck|Einstein|Lenz|Gauss|Kirchhoff|SUVAT)"
 )
+
+
+def solve_for_line(symbol: str) -> str:
+    """``Solve for $t$``: a rearrangement for the unknown, a line of its own before the
+    rearranged formula. Every subject words it the same."""
+    return text_line(f"Solve for ${symbol.strip()}$")
 
 
 def note_from_label(label: str) -> str:
@@ -106,13 +119,13 @@ def render_workout(
 
     ``before_answer`` is already-rendered markdown (numbered equation steps)
     placed after the sections and before **Answer**. ``answer_heading`` names a
-    part's answer (``Answer (a)``); None leaves it out, for the Given and Find a
+    part's answer (``Answer (a)``); None leaves it out, for the Given and Required a
     question in parts opens with.
     """
     sections: list[str] = []
     for heading, lines in (
         (GIVEN, workout.given),
-        (FIND, workout.find),
+        (REQUIRED, workout.find),
         (workout.formula_heading, workout.formula),
         (SUBSTITUTION, workout.substitution),
         (STEPS, workout.steps),
@@ -130,10 +143,11 @@ def render_workout(
     return f"{body}\n\n```answer\n{answer.strip()}\n```\n"
 
 
-# Headings a worked reply names by role; any other bold line over maths after Given or Find
-# (a follow-up may skip Find) is a law.
-_ROLE_HEADINGS = frozenset(
-    {"given", "find", "formula", "substitution", "steps", "answer", "working", "check"}
+# Headings a worked reply names by role; any other bold line over maths after Given or
+# Required (a follow-up may skip Required) is a law.
+_OPENING_HEADINGS = frozenset({GIVEN.lower(), *(name.lower() for name in REQUIRED_HEADINGS)})
+_ROLE_HEADINGS = _OPENING_HEADINGS | frozenset(
+    {"formula", "substitution", "steps", "answer", "working", "check"}
     | {"result", "final answer", "solution", "method", "calculation"}
 )
 _BOLD_LINE = re.compile(r"^\s*\*\*(?P<title>[^*\n]+?)\*\*[ \t]*$")
@@ -152,7 +166,7 @@ def as_formula_heading(text: str) -> str:
         if bold is None:
             continue
         title = bold.group("title").strip().rstrip(":").lower()
-        if title in ("given", "find"):
+        if title in _OPENING_HEADINGS:
             worked = True
             continue
         following = next((later for later in lines[number + 1 :] if later.strip()), "")
@@ -236,8 +250,8 @@ def split_equality_chain(tex: str) -> list[str]:
 
 def _sections(formula: str) -> str:
     return (
-        "**Given** (the problem exactly as written, or the stated values), **Find** (what is "
-        f"asked), {formula}, **Substitution** (values put into that formula)"
+        "**Given** (the problem exactly as written, or the stated values), **Required** (what "
+        f"is asked), {formula}, **Substitution** (values put into that formula)"
     )
 
 
@@ -251,15 +265,20 @@ _WORKOUT_SECTION_LINES = (
     "Put each heading on its own line with its lines directly under it: one state per "
     "line, no blank line inside a section, one blank line between sections."
 )
+# A rearrangement is a step a learner takes, so it is a line of its own (``solve_for_line``).
+_WORKOUT_REARRANGED = (
+    "Rearranging a formula for the unknown is a line of its own, never a note: "
+    "`Solve for $t$`, then `$t = \\frac{d}{v}$`."
+)
 _WORKOUT_PARTS = (
     "A question in parts: one **Given** for the whole question, then for each part a bold "
     "label alone on its line naming its letter and what it finds (`**(a) Acceleration**`), "
-    "followed by that part's **Formula**, **Substitution** and **Answer**, with no **Find** "
-    "under a part; a later part may use an earlier part's answer as a given."
+    "followed by that part's **Formula**, **Substitution** and **Answer**, with no "
+    "**Required** under a part; a later part may use an earlier part's answer as a given."
 )
 # Physics answers each part in its own card ("Answer (a)"), a hairline between parts.
 _PHYSICS_PARTS = (
-    "A question in parts: one **Given** and one **Find** naming every quantity asked, then "
+    "A question in parts: one **Given** and one **Required** naming every quantity asked, then "
     "for each part a bold label alone on its line naming its letter and what it finds "
     "(`**(a) Acceleration**`), followed by that part's own law heading, **Substitution** "
     "carried to its value, and its answer under **Answer (a)** (its own letter), with a "
@@ -292,8 +311,9 @@ def _workout_rule(sections: str, working: str = "", parts: str = _WORKOUT_PARTS)
         "Worked-solution layout: bold headings in this order, each only when it has "
         f"something to show: {sections} or **Steps** (an equation changed one move at a "
         f"time), then **Answer**. {_WORKOUT_SECTION_LINES} Write a move as a short note "
-        "after its line, e.g. `$2x = 8$ — subtract 3 from both sides`. No numbered steps, no "
-        f"separate Simplify lines, no prose between lines. {parts} {_WORKOUT_UNITS} "
+        "after its line, e.g. `$2x = 8$ — subtract 3 from both sides`. "
+        f"{_WORKOUT_REARRANGED} No numbered steps, no separate Simplify lines, no prose "
+        f"between lines. {parts} {_WORKOUT_UNITS} "
         f"{working}{_WORKOUT_ONE_EXPRESSION}"
     )
 
@@ -307,7 +327,8 @@ PHYSICS_WORKOUT_PROMPT_RULE = _workout_rule(_LAW_SECTIONS, f"{_PHYSICS_WORKING} 
 MATH_WORKOUT_PROMPT_RULE = (
     "Worked-solution layout for maths: bold headings in this order, each only when it has "
     f"something to show: {_WORKOUT_SECTIONS} or numbered moves, then **Answer**. "
-    f"{_WORKOUT_SECTION_LINES} Number every move in place of a **Steps** heading: a bold "
+    f"{_WORKOUT_SECTION_LINES} {_WORKOUT_REARRANGED} Number every move in place of a "
+    "**Steps** heading: a bold "
     "line naming the move, then an em dash and the rule it uses "
     "(`**1. Subtract 4 from both sides** — Subtraction property of equality`; never a "
     "**Steps** heading or a plain `1.` list), then its working, each "
@@ -322,7 +343,7 @@ MATH_WORKOUT_PROMPT_RULE = (
 # Physics' rule in one sentence, for hints with a tight character budget.
 PHYSICS_WORKOUT_PROMPT_SHORT = (
     "Use the worked-solution layout: **Given** (a converted value keeps one line, with its "
-    "factor), **Find**, the law's name as heading (`**Constant acceleration**`), "
+    "factor), **Required**, the law's name as heading (`**Constant acceleration**`), "
     "**Substitution** carried step by step to the final value, then **Answer** once; one "
     "state per line; no numbered steps."
 )

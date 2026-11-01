@@ -82,9 +82,9 @@ def test_every_upward_import_is_named() -> None:
     assert not gone, f"these imports are gone: take them off the list: {gone}"
 
 
-def _subject_module(module: str) -> bool:
+def _subject_module(module: str, subjects: frozenset[str] = _SUBJECTS) -> bool:
     parts = module.split(".")
-    return len(parts) >= 3 and parts[1] == "modules" and parts[2] in _SUBJECTS
+    return len(parts) >= 3 and parts[1] == "modules" and parts[2] in subjects
 
 
 def test_the_dispatcher_asks_a_subject_only_through_its_adapter() -> None:
@@ -94,6 +94,20 @@ def test_the_dispatcher_asks_a_subject_only_through_its_adapter() -> None:
     assert dispatcher in imports
     assert any(_subject_module(target) for target in imports["app.services.subjects.registry"])
     assert sorted(filter(_subject_module, imports[dispatcher])) == []
+
+
+def test_chat_imports_no_subject() -> None:
+    """Chat asks a subject, and money beside them, through the registry (ST-07), never
+    directly: every import counts, one for an annotation too."""
+    peers = _SUBJECTS | {"money"}
+    reached = sorted(
+        f"{module} imports {target}"
+        for module, targets in _module_imports(load_time=False).items()
+        if module.startswith("app.modules.chat")
+        for target in targets
+        if _subject_module(target, peers)
+    )
+    assert reached == []
 
 
 def test_without_the_named_imports_the_modules_form_no_cycle() -> None:

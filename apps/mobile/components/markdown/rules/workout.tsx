@@ -19,6 +19,7 @@ import { splitInlineMath } from "@/lib/markdown/preprocess";
 import {
   isAnswerHeading,
   lawHeading,
+  OPENING_HEADINGS,
   splitWorkoutNote,
   workoutHeading,
   workoutPart,
@@ -112,13 +113,13 @@ function lastMathLine(lines: string[]): number {
   return lines.length - 1;
 }
 
-/** Given and Find, what the question states and asks, sit behind a thin rule. */
-const RULED_SECTIONS: ReadonlySet<string> = new Set(["Given", "Find"]);
+/** Given and Required, what the question states and asks, sit behind a thin rule. */
+const RULED_SECTIONS: ReadonlySet<string> = new Set(OPENING_HEADINGS);
 const RULE_WIDTH = 2;
 
 /**
  * A worked-solution section. The heading stays at the margin and its lines are
- * indented under it: Given and Find behind a thin rule, the working without one,
+ * indented under it: Given and Required behind a thin rule, the working without one,
  * every section's lines starting at the same edge. Each given is its own line,
  * and a closing "where v₀ = initial speed, …" line names them in secondary ink.
  * A move's note sits at the right edge, and the last line of maths in a
@@ -201,7 +202,7 @@ export function renderWorkoutSection(
       </Text>
       <View
         testID="workout-body"
-        // Given and Find sit behind a rule; the working keeps its edge without one,
+        // Given and Required sit behind a rule; the working keeps its edge without one,
         // and the Answer's box needs neither.
         style={
           answer

@@ -19,7 +19,7 @@ flowchart LR
   extract --> complete[complete_physics_intent: accountability + asked quantity]
   complete -->|intent| solve[Solver: pure arithmetic]
   solve --> block[Block: ask guard, asked unit, plain + typeset answer]
-  block --> direct[Given / Find / Formula / Substitution / Answer]
+  block --> direct[Given / Required / Formula / Substitution / Answer]
   extract -->|none| model[Model, with the unverified physics note]
   complete -->|declined| model
 ```
@@ -147,8 +147,10 @@ flowchart LR
      guards and for readers without math.
    - `display_answer`: LaTeX with upright units (`3.97 \times 10^{-19}\,\mathrm{J}`), for
      the answer card.
-7. **Respond** (`direct.py`). A complete verified request returns Given / Find / Formula /
-   Substitution / Answer without waiting for the model. A given not in SI is followed by the
+7. **Respond** (`direct.py`). A complete verified request returns Given / Required / Formula /
+   Substitution / Answer without waiting for the model. The law's heading holds its base
+   form, then a rearrangement for the unknown as a step: `Solve for $t$`, then
+   `$t = \frac{d}{v}$` (never a "rearranged for" note). A given not in SI is followed by the
    value the substitution uses (`λ = 500 nm`, then `λ = 5 × 10⁻⁷ m`). A solver that works
    in the written units (150 km in 2 h) gets no conversion row. A stated result gets one
    line above the working: "Your 19.8 m/s is right." Image questions stay on the model
@@ -407,7 +409,7 @@ A photographed problem goes through the same pipeline as a typed one.
    a student would type: `2 \times 10^{-6}\,\mathrm{C}` becomes `2 × 10^-6 C`, `30^{\circ}`
    becomes `30°`, and `\mu` is µ before a unit and μ elsewhere.
 3. The student checks the reading under **I read this as**, then chooses:
-   - **Solve** sends the text alone, so it gets the verified Given / Find / Formula /
+   - **Solve** sends the text alone, so it gets the verified Given / Required / Formula /
      Substitution / Answer reply of a typed question;
    - **Send photo** sends the crop with `I read this as: …`. The turn verifies that reading
      (`modules/physics/subject.py`, `_physics_request_text`), and the model writes the reply, since the
@@ -433,7 +435,8 @@ investigation's 286 questions (multi-part ones list every `parts` value the card
 hold), and `investigation_lookalikes.json`, the everyday sentences its new readers must
 leave alone. For each turn it routes the prompt as a
 chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
-It also checks the reply's Given / Find / Formula / Substitution / Answer order, flags
+It also checks the reply's Given / Required / Formula / Substitution / Answer order (an older
+reply's Find counts as Required), flags
 calculator notation and an invented zero given, and validates every `simulation` and `graph`
 fence against the schema and its own bounds. `test_stem_sweep.py` fails on a wrong number, a
 misread turn (a physics question answered as math, or hijacked by a location or settings

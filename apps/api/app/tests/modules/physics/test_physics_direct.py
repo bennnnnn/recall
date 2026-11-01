@@ -109,7 +109,7 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
     if verified.physics_intent is not None:
         # The law's own name heads its formulas, in the Formula slot.
         read = as_formula_heading(reply)
-        headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
+        headings = ["**Given**", "**Required**", "**Formula**", "**Substitution**", "**Answer**"]
         assert all(read.count(heading) == 1 for heading in headings)
         assert [read.index(heading) for heading in headings] == sorted(
             read.index(heading) for heading in headings
@@ -199,7 +199,7 @@ def test_collision_hides_the_internal_elasticity_switch_from_given() -> None:
     reply = maybe_direct_physics_reply(_verified(query), query)
 
     assert reply is not None
-    given = reply.split("**Find**", 1)[0]
+    given = reply.split("**Required**", 1)[0]
     assert "elastic" not in given
     assert "$m_1 = 2" in given
     assert "$m_2 = 4" in given
@@ -231,7 +231,7 @@ def test_friction_given_uses_the_coefficient_symbol_not_raw_mu() -> None:
     reply = maybe_direct_physics_reply(_verified(query), query)
 
     assert reply is not None
-    given = reply.split("**Find**", 1)[0]
+    given = reply.split("**Required**", 1)[0]
     assert r"$\mu = 0.2$" in given
     assert "$mu" not in given
 
@@ -257,7 +257,7 @@ def test_force_rearrangements_name_the_quantity_actually_being_found(
 ) -> None:
     reply = maybe_direct_physics_reply(_verified(query), query)
     assert reply is not None
-    assert f"**Find**  \n${symbol}$" in reply
+    assert f"**Required**  \n${symbol}$" in reply
     assert f"**Substitution**  \n${substitution}$" in reply
 
 
@@ -299,7 +299,7 @@ def test_speed_law_uses_its_universal_formula_before_any_rearrangement(
     assert verified.canonical_answer == answer
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert f"**Find**  \n{find}" in reply
+    assert f"**Required**  \n{find}" in reply
     assert "**Speed**  \n$v = \\frac{d}{t}$" in reply
     if rearranged is not None:
         assert rearranged in reply
@@ -339,7 +339,13 @@ def test_teaching_suffix_uses_the_same_verified_physics_working(suffix: str) -> 
     assert reply is not None
     assert all(
         as_formula_heading(reply).count(heading) == 1
-        for heading in ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")
+        for heading in (
+            "**Given**",
+            "**Required**",
+            "**Formula**",
+            "**Substitution**",
+            "**Answer**",
+        )
     )
 
 

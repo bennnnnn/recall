@@ -115,7 +115,7 @@ describe("preprocessing a stream in parts", () => {
       "**Given**",
       "$d = 10$",
       "",
-      "**Find**",
+      "**Required**",
       "$v$",
       "",
       "Done.",

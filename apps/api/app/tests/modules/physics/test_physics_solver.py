@@ -552,7 +552,7 @@ def test_physics_block_requires_multiline_worked_layout() -> None:
     block = physics_block._build_physics_block(intent, Settings(), [])
 
     assert block is not None
-    for heading in ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"):
+    for heading in ("**Given**", "**Required**", "**Formula**", "**Substitution**", "**Answer**"):
         assert heading in block.text
     assert "Put every equation on its own line" in block.text
     assert block.text.index("**Given**") < block.text.index("**Answer**")

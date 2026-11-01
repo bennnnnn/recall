@@ -16,7 +16,7 @@ from app.tests.modules.physics.support import (
 )
 
 _SETTINGS = Settings(math_tools_enabled=True)
-_HEADINGS = ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")
+_HEADINGS = ("**Given**", "**Required**", "**Formula**", "**Substitution**", "**Answer**")
 
 
 @pytest.mark.parametrize(
@@ -333,12 +333,13 @@ def test_worked_layout_names_the_requested_unknown(
     assert verified is not None
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert f"**Find**  \n{find_line}" in reply
+    assert f"**Required**  \n{find_line}" in reply
     assert f"**{law_title(law_name)}**  \n" in reply
     assert base_formula in reply
     if rearranged_formula is not None:
-        assert f"— rearranged for {find_line}" in reply
-        assert rearranged_formula in reply
+        # Solving for the unknown is a step of its own, over the rearranged formula.
+        assert f"Solve for {find_line}  \n{rearranged_formula}" in reply
+        assert "rearranged for" not in reply
     assert f"**Substitution**  \n{substitution_line}" in reply
 
 

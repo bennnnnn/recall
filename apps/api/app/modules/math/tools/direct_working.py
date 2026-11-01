@@ -23,7 +23,7 @@ _DIVISION = re.compile(r"(?<!÷ )(?<![\d.])(\d+) ÷ (\d+)(?![\d.])(?! ÷)")
 def working_above_card(reply: str, user_text: str) -> str:
     """``reply`` with its card's working moved above the card, typeset."""
     start, _end, body = next(iter_closed_fences(reply, "answer"), (0, 0, None))
-    # A worked layout (column sums, Given and Find) already shows its working.
+    # A worked layout (column sums, Given and Required) already shows its working.
     if body is None or _ANSWER_HEADING.search(reply, 0, start):
         return reply
     headers, value = answer_header_and_value(body)

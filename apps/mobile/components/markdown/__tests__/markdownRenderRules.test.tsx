@@ -384,14 +384,14 @@ describe("markdown render rules", () => {
     expect(queryByText(/\$|\\frac/)).toBeNull();
   });
 
-  it("rules only Given and Find, stacks the givens and names them, and boxes the answer", async () => {
+  it("rules only Given and Required, stacks the givens and names them, and boxes the answer", async () => {
     const content = [
       "**Given**  ",
       String.raw`$m = 5\ \text{kg}$  `,
       String.raw`$F = 20\ \text{N}$  `,
       String.raw`where $m$ = mass, $F$ = force`,
       "",
-      "**Find**  ",
+      "**Required**  ",
       String.raw`$a$`,
       "",
       "**Formula**  ",
@@ -403,7 +403,7 @@ describe("markdown render rules", () => {
     const { getAllByTestId, getByTestId, getByText, queryByTestId } = await render(
       <MarkdownContent content={content} />,
     );
-    // The headings stay at the margin. Given and Find sit behind a thin rule; the
+    // The headings stay at the margin. Given and Required sit behind a thin rule; the
     // working has none but starts at the same edge; the Answer's box needs neither.
     const bodies = getAllByTestId("workout-body").map((body) => StyleSheet.flatten(body.props.style));
     expect(bodies).toHaveLength(4);
@@ -440,12 +440,13 @@ describe("markdown render rules", () => {
       String.raw`$u = 0\,\mathrm{km/h} = 0\,\mathrm{m/s}$  `,
       String.raw`$t = 8\,\mathrm{s}$`,
       "",
-      "**Find**  ",
+      "**Required**  ",
       "$a$",
       "",
       "**Constant acceleration**  ",
       "$v = u + at$  ",
-      String.raw`$a = \frac{v - u}{t}$ — rearranged for $a$`,
+      "Solve for $a$  ",
+      String.raw`$a = \frac{v - u}{t}$`,
       "",
       "**Substitution**  ",
       String.raw`$a = \frac{27.7778}{8}$`,
@@ -453,18 +454,32 @@ describe("markdown render rules", () => {
     const { getAllByTestId } = await render(<MarkdownContent content={content} />);
     expect(getAllByTestId("workout-heading").map((node) => node.props.children)).toEqual([
       "Given",
-      "Find",
+      "Required",
       "Constant acceleration",
       "Substitution",
     ]);
-    // Laid out like Formula: one row per law, the move as a note on the right, no rule.
+    // Laid out like Formula: one row per state, no rule. Solving for the unknown is a
+    // step of its own between the law and its rearrangement, not a note beside it.
     const law = getAllByTestId("workout-body")[2]!;
-    expect(within(law).getAllByTestId("workout-line")).toHaveLength(2);
-    expect(within(within(law).getByTestId("workout-note")).getByText(/rearranged for/)).toBeOnTheScreen();
+    const lines = within(law).getAllByTestId("workout-line");
+    expect(lines).toHaveLength(3);
+    expect(lines[1]).toHaveTextContent(/^Solve for\s*a$/);
+    expect(within(law).queryByTestId("workout-note")).toBeNull();
     expect(StyleSheet.flatten(law.props.style).borderLeftWidth).toBeUndefined();
   });
 
-  it("heads the formulas with the law's name in a follow-up that skips Find", async () => {
+  it("rules an older reply's Find like Required", async () => {
+    const content = ["**Given**  ", "$d = 5$", "", "**Find**  ", "$t$"].join("\n");
+    const { getAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getAllByTestId("workout-heading").map((node) => node.props.children)).toEqual([
+      "Given",
+      "Find",
+    ]);
+    const bodies = getAllByTestId("workout-body").map((body) => StyleSheet.flatten(body.props.style));
+    expect(bodies.map((body) => body.borderLeftWidth)).toEqual([2, 2]);
+  });
+
+  it("heads the formulas with the law's name in a follow-up that skips Required", async () => {
     const content = [
       "**Given**  ",
       String.raw`$F = 70\,\mathrm{N}$`,

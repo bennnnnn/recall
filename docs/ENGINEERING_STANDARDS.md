@@ -70,7 +70,8 @@ designed and a long one can be justified. What CI can check reliably, it checks 
 - The phone renders verified results and walks sampled paths; it never solves or re-derives
   (CLAUDE.md rule 7).
 - A new subject (biology) is a new module with its own catalog, extractors, solvers, fence and
-  STEM corpus folder, plugged in at the existing seams (routing, `lib/fenceRegistry.ts`). It
+  STEM corpus folder, plugged in at the existing seams (its adapter in the subject registry,
+  `services/subjects/registry.py`; its step in the subject order; `lib/fenceRegistry.ts`). It
   needs no edits inside another subject.
 
 ## Size and shape

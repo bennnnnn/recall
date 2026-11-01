@@ -15,6 +15,8 @@ from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.solve.step_rules import step_rule
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import (
+    GIVEN,
+    REQUIRED,
     Workout,
     formula_name,
     math_line,
@@ -95,7 +97,7 @@ def should_render_equation_lesson(verified: VerifiedMathBlock, user_text: str) -
     # A closed equation/system/inequality should teach. ``key_steps`` is a short,
     # server-rendered, SymPy-checked trace; hiding it reduced homework to a bare chip.
     # Calculus keeps its compact style unless the learner asks how/why/for steps.
-    if verified.given_label == "Given":
+    if verified.given_label == GIVEN:
         return True
     if wants_math_explanation(user_text):
         return True
@@ -116,7 +118,7 @@ def format_equation_lesson_reply(
 ) -> str:
     """Numbered working for a verified equation.
 
-    Given is the problem. Find is ``x = ?``. Each move is its own number: the
+    Given is the problem. Required is ``x = ?``. Each move is its own number: the
     instruction, the equation with that move written on both sides, then the
     simplified equation. A following ``Simplify`` row stays on that same step.
     """
@@ -200,7 +202,7 @@ def with_requested_check(reply: str, verified: VerifiedMathBlock, user_text: str
 
 def _given_and_find(verified: VerifiedMathBlock) -> tuple[tuple[str, ...], tuple[str, ...], str]:
     given = (verified.given_latex or "").strip()
-    if verified.given_label == "Find":
+    if verified.given_label == REQUIRED:
         return (), (math_line(given),) if given else (), "x"
     derivative = _DERIVATIVE_GIVEN.match(given)
     if derivative is not None:

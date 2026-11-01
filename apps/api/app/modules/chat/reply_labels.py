@@ -5,7 +5,7 @@ A follow-up copied its history and wrote **Answer**, then ``Answer: 26.3\\,\\mat
 lands its card (``land_answer_card``), this leaves one label:
 
 - ``**Answer**`` and, under it, ``Answer: X``: the heading over ``X``, LaTeX as maths;
-- in a worked one-part reply (Find, Formula, Substitution or Steps, or a card), only
+- in a worked one-part reply (Required, Formula, Substitution or Steps, or a card), only
   the last label: earlier bare headings go, and an earlier ``Answer: X`` keeps only its
   value, as working. A quiz's "**Answer:** 4" under each question is left alone;
 - a reply in parts keeps one label per part (``**Answer (a)**``).
@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from app.services.md_fence_scan import iter_fences, line_fences
+from app.services.workout import REQUIRED_PATTERN
 
 # **Answer**, **Answer:**, ## Answer, Answer: — alone on its line.
 _HEADING = re.compile(r"^\s*(?:#{1,4}\s+)?(?:\*\*)?answer(?:\*\*)?\s*:?\s*(?:\*\*)?\s*:?\s*$", re.I)
@@ -29,7 +30,9 @@ _PART = re.compile(
 )
 # ``[^\S\n]*``, not ``\s*``: from each line start ``\s*`` ran over every blank line below
 # it, quadratic in a run of them, and found no heading the next line start misses.
-_WORKED_HEADING = re.compile(r"^[^\S\n]*\*\*(?:Find|Formula|Substitution|Steps):?\*\*", re.I | re.M)
+_WORKED_HEADING = re.compile(
+    rf"^[^\S\n]*\*\*(?:{REQUIRED_PATTERN}|Formula|Substitution|Steps):?\*\*", re.I | re.M
+)
 
 
 def _value(value: str) -> str:
@@ -95,7 +98,7 @@ def _previous_text(lines: list[str], number: int) -> int | None:
 
 
 def _is_worked(text: str) -> bool:
-    """A worked reply: a Find, Formula, Substitution or Steps heading, or a card."""
+    """A worked reply: a Required, Formula, Substitution or Steps heading, or a card."""
     return _WORKED_HEADING.search(text) is not None or any(
         fence.lang == "answer" for fence in iter_fences(text)
     )

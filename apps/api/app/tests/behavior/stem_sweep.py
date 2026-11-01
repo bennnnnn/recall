@@ -21,7 +21,7 @@ question a student would type, worked independently from the textbook formula
 subject that owns a law both use (gases, Q = mcΔT, half-lives are physics'), so
 its claiming the turn is no misread. ``gap`` marks a known miss: a strict
 expected failure until the fix deletes the line. Every verified physics and
-chemistry reply is also checked for its shape (Given, Find, Formula,
+chemistry reply is also checked for its shape (Given, Required, Formula,
 Substitution, Answer; no calculator notation; no invented zero given), and
 every picture it carries is validated: a ``simulation`` scene against the
 server schema and its own bounds, a ``graph`` for finite points. Its LaTeX is
@@ -55,7 +55,7 @@ from typing import Any
 import pint
 
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
-from app.services.workout import as_formula_heading
+from app.services.workout import REQUIRED_HEADINGS, as_formula_heading
 from app.tests.behavior.harness import Case, Expect, Route, route_case
 from app.tests.behavior.latex_check import latex_problems
 from app.tests.behavior.stem_math_judge import judge_check
@@ -369,13 +369,20 @@ def check_answer(
 
 # --- judging -------------------------------------------------------------------
 
-# The sections a verified reply carries, in order; a slot may take several names.
+# The sections a verified reply carries, in order; a slot may take several names. What is
+# asked is Required, or Find in a reply written the older way.
 _SECTIONS: dict[str, tuple[tuple[str, ...], ...]] = {
-    "physics": (("Given",), ("Find",), ("Formula",), ("Substitution",), ("Answer", "Answer (a)")),
+    "physics": (
+        ("Given",),
+        REQUIRED_HEADINGS,
+        ("Formula",),
+        ("Substitution",),
+        ("Answer", "Answer (a)"),
+    ),
     # A balanced equation or an empirical formula works in Steps, not a substitution.
     "chemistry": (
         ("Given",),
-        ("Find",),
+        REQUIRED_HEADINGS,
         ("Formula", "Method"),
         ("Substitution", "Steps", "Working"),
         ("Answer",),
@@ -399,6 +406,12 @@ def _section_at(prose: str, names: tuple[str, ...]) -> int:
     return min(found) if found else -1
 
 
+def _given_part(prose: str) -> str:
+    """The reply up to what is asked: its givens."""
+    at = _section_at(prose, REQUIRED_HEADINGS)
+    return prose if at < 0 else prose[:at]
+
+
 def check_shape(entry: Entry, reply: str, subject: str = "physics") -> list[Problem]:
     """A worked reply's sections and notation; maths replies are checked for notation only."""
     problems: list[Problem] = []
@@ -418,7 +431,7 @@ def check_shape(entry: Entry, reply: str, subject: str = "physics") -> list[Prob
     if re.search(r"\b(?:nan|inf|None)\b", prose):
         problems.append(Problem("shape", "nan, inf or None in the reply"))
     # An equation's "= 0" is the question, not a given.
-    given = prose.split("**Find**")[0] if subject != "math" else ""
+    given = _given_part(prose) if subject != "math" else ""
     for symbol in _GIVEN_ROW.findall(given):
         if not _ZERO_WORDS.search(entry.prompt):
             problems.append(Problem("shape", f"invented a zero given: {symbol.strip()} = 0"))
@@ -444,7 +457,7 @@ def _physics_working(prose: str) -> list[Problem]:
         problems.append(Problem("shape", f"part answers {parts} among {len(labels)} labels"))
     elif not parts and len(labels) != 1:
         problems.append(Problem("shape", f"{len(labels)} Answer labels"))
-    given = prose.split("**Find**")[0]
+    given = _given_part(prose)
     symbols = [symbol.strip() for symbol in _GIVEN_SYMBOL.findall(given)]
     if repeated := sorted({symbol for symbol in symbols if symbols.count(symbol) > 1}):
         problems.append(Problem("shape", f"given twice: {', '.join(repeated)}"))

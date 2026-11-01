@@ -32,7 +32,7 @@ def _given(query: str) -> tuple[str, str]:
     assert verified is not None, query
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None and verified.canonical_answer is not None, query
-    return verified.canonical_answer, reply.split("**Find**", 1)[0]
+    return verified.canonical_answer, reply.split("**Required**", 1)[0]
 
 
 @pytest.mark.parametrize(
