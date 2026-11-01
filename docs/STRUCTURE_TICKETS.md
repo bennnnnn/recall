@@ -374,9 +374,13 @@ for presentation and the post-turn jobs, not for reading.
     the pool's reads, the subject fetches, readers of other text (a request's own text, an
     earlier line, a related question) and images' intent readers, which read a send before
     any chat turn and may not import chat.
-  - Decision diff: no decision changed (`--added subject_reason`: none ×3,490, physics ×775,
-    math ×511, chemistry_closed ×228, chemistry_question ×26, chemistry_shaped ×17, code ×16,
-    chart ×11). The STEM sweeps answer the same entries (physics 618/635) in the same time.
+  - Decision diff over 5,106 turns: no decision changed (`--added subject_reason`: none
+    ×3,495, physics ×775, math ×538, chemistry_closed ×228, chemistry_question ×26,
+    chemistry_shaped ×17, code ×16, chart ×11). The STEM snapshot, battery and sweep pass
+    unchanged, and the STEM sweeps take the same time.
+  - A test that begins a turn outside a task (a sync test) would leave its readings in the
+    worker's context, and every later test on the worker would then run inside that turn;
+    `conftest.py` clears the turn after each test.
 
 ### ST-06 — Finalize passes declare their order and their kind
 
