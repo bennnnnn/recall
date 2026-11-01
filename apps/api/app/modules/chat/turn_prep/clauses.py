@@ -131,6 +131,7 @@ _POINTS_BACK = re.compile(
     re.IGNORECASE,
 )
 _WORD = re.compile(r"[^\W_][\w'+#-]*")
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)*%?")
 _MATH = re.compile(r"[\w^.()]+ ?(?:[-+*/^=<>] ?[\w^.()]+)+")
 _STOP = frozenset(
     """a about above after again all also am an and any are as at be because been before
@@ -155,9 +156,11 @@ _MAX_LEADS = 4
 
 
 def topic_words(text: str) -> frozenset[str]:
-    """What a clause is about: its content words, and each maths expression whole."""
+    """What a clause is about: its content words, each maths expression whole, and its
+    numbers ("And what's 15% of 80?" asks about 15% and 80, not nothing)."""
     lowered = text.lower()
     found = {re.sub(r"\s", "", span) for span in _MATH.findall(lowered) if _is_math(span)}
+    found.update(_NUMBER.findall(lowered))
     for raw in _WORD.findall(lowered):
         word = raw.strip("'-").removesuffix("'s")
         if len(word) >= 3 and word not in _STOP and word not in _TASK_WORD_SET:

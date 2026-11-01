@@ -93,6 +93,9 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     # Readers of other text.
     "modules/chat/turn_prep/intents.py::part_kind": (1, "a request's own text"),
     "modules/chat/turn_prep/intents.py::_continues_solve": (1, "the earlier request"),
+    # A problem's setup and each question about it, read in the pool with the plan.
+    "modules/chat/turn_prep/intents.py::_Problem.of": (1, "the setup by its own words"),
+    "modules/chat/turn_prep/intents.py::_Problem.carries": (2, "a question, then with its setup"),
     "modules/chat/continuation_subject.py::classify_presentation_subject": (1, "any line"),
     "modules/chat/continuation_subject.py::blocks_math_followup": (1, "an earlier line"),
     "modules/chat/follow_up_thread.py::subject_for_related": (1, "a related question"),

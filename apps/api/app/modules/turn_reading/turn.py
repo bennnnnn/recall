@@ -91,7 +91,10 @@ def request_units(text: str, plan: TurnPlan) -> tuple[str, ...]:
 def is_homework(text: str) -> bool:
     """Whether ``text`` is the turn's message and homework throughout: the turn's reading
     gives it a subject (physics, maths, chemistry), solved or not, and every request in it that
-    asks about a place or the weather on its own words has a subject too.
+    asks about a place or the weather on its own words has a subject too. A part of the
+    turn's plan that the plan reads as a solve is homework as well: the planner read it with
+    its subject and the problem's setup (``turn_prep.intents``), and the search gates read
+    each part alone.
 
     Homework is its subject's question before it is one about the user's place
     (``web_search.weather.is_worked_problem``): "A ball is dropped from a height of 20 m. How
@@ -101,7 +104,13 @@ def is_homework(text: str) -> bool:
     is read here: the subject order runs in the pool.
     """
     kept = current_turn_reading()
-    if kept is None or kept.subject is None or not _same_line(kept.text, text):
+    if kept is None:
+        return False
+    if kept.plan.multi and any(
+        part.kind == "solve" and _same_line(part.text, text) for part in kept.plan.parts
+    ):
+        return True
+    if kept.subject is None or not _same_line(kept.text, text):
         return False
     return all(subject is not None for _, subject in kept.place_requests)
 

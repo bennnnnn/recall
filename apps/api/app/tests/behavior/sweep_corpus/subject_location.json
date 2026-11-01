@@ -280,8 +280,7 @@
    "search",
    "answer"
   ],
-  "location": "Addis Ababa, Ethiopia",
-  "gap": "The weather is read now, but a turn the plan reads as one request and routes to maths runs no search for it; it ran none before #2224 either."
+  "location": "Addis Ababa, Ethiopia"
  },
  {
   "id": "sbl-039",
@@ -295,7 +294,6 @@
   "area": "physics",
   "prompt": "A ball is dropped from 20 m. What is its speed after 1 s? How long does it take to reach the ground?",
   "reply": "**Speed after 1 s:** $v = gt = 9.81$ m/s.\n\n**Time to the ground:** $t = \\sqrt{2h/g} = \\sqrt{2(20)/9.81} \\approx 2.02$ s.",
-  "expect": "answer",
-  "gap": "The plan splits the problem's second question off as a 'live' part without its givens, and the tool loop searches it; before #2224 the turn asked for the location."
+  "expect": "answer"
  }
 ]
