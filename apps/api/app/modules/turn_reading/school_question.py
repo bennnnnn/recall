@@ -67,7 +67,36 @@ _OPENING = re.compile(
 ASSERTION = re.compile(r"\bassertion\b.*\breason\b", re.IGNORECASE | re.DOTALL)
 
 
-_BLANK = re.compile(r"_{3,}|…{2,}|\.{6,}")
+# A run that may mark a word to fill in: "is called ________.", "The ........ is".
+_RUN = re.compile(r"_{3,}|…{2,}|\.{6,}")
+# Dots glued to the word before them trail it ("so......", "Trip ideas.........."): a
+# pause, not a gap.
+_TRAILING_DOTS = re.compile(r"(?<=[^\W_])(?:…{2,}|\.{6,})")
+_FILL_ORDER = re.compile(
+    r"\b(?:fill\s+in|complete\s+the\s+(?:sentences?|statements?|following))\b", re.IGNORECASE
+)
+_SENTENCE_END = re.compile(r"[.?!](?=\s|$)|\n")
+_WORD = re.compile(r"[^\W_]+")
+# A sentence to complete has words of its own around its gap: "lol ok ___ whatever" has
+# three (2026-11-01: it, "so......" and "Trip ideas.......... Paris or Rome?" read as a
+# textbook's blank, so their replies lost their emoji and the trip its search).
+_BLANK_SENTENCE_WORDS = 4
+
+
+def _has_blank(text: str) -> bool:
+    """A word to fill in: a run that stands apart from the words around it, in a sentence
+    with words of its own, or in a message that orders the blanks filled."""
+    for run in _RUN.finditer(text):
+        if _TRAILING_DOTS.match(text, run.start()):
+            continue
+        if _FILL_ORDER.search(text):
+            return True
+        ends = [end.end() for end in _SENTENCE_END.finditer(text, 0, run.start())]
+        after = _SENTENCE_END.search(text, run.end())
+        sentence = text[ends[-1] if ends else 0 : after.start() if after else len(text)]
+        if len(_WORD.findall(_RUN.sub(" ", sentence))) >= _BLANK_SENTENCE_WORDS:
+            return True
+    return False
 
 
 # Someone a textbook's scenario is about: "A student said", "Two students, Renu and
@@ -142,7 +171,7 @@ def option_choice(text: str) -> bool:
     stem, texts, own_lines = read
     # "what is its (i) distance, (ii) displacement and (iii) speed?" lists asks, and an
     # option that is itself a question, or a blank to fill, is a part.
-    if _JOINED_LABELS.search(text) or _BLANK.search(text) or any("?" in o for o in texts[:-1]):
+    if _JOINED_LABELS.search(text) or _has_blank(text) or any("?" in o for o in texts[:-1]):
         return False
     asked = (
         all(len(option.split()) <= 8 for option in texts)
@@ -171,7 +200,7 @@ def is_school_exercise(query: str) -> bool:
         return False
     if _CODE.search(text) or _closes_as_exercise(text):
         return True
-    if _TEXTBOOK.search(text) or ASSERTION.search(text) or _BLANK.search(text):
+    if _TEXTBOOK.search(text) or ASSERTION.search(text) or _has_blank(text):
         return True
     if _OPENING.search(text):
         return True
@@ -236,5 +265,5 @@ def in_textbook_form(query: str) -> bool:
     if anyones(text):
         return False
     return bool(
-        option_choice(text) or ASSERTION.search(text) or _BLANK.search(text) or _CODE.search(text)
+        option_choice(text) or ASSERTION.search(text) or _has_blank(text) or _CODE.search(text)
     )
