@@ -407,7 +407,18 @@ def test_an_average_atomic_mass_reads_only_what_is_certain(
             "and 7.0 grams per mole respectively. Calculate the average atomic mass of lithium.",
             None,
         ),
-        # A sample's grams, or a number nowhere near a mass number, is no isotope's mass.
+        (
+            "The relative masses of lithium's isotopes 6Li and 7Li are 6.0 and 7.0 and their "
+            "abundances are 7.5% and 92.5%. Calculate the relative atomic mass of lithium.",
+            None,
+        ),
+        # A sample's grams, a mark, or a number nowhere near a mass number is no isotope's
+        # mass: only a number a mass noun leads, past words naming the isotopes, is one.
+        (
+            "Calculate the relative atomic mass of hydrogen (1 mark): 1H (99.9885%) and 2H "
+            "(0.0115%).",
+            "A(H) = 1.008 u",
+        ),
         (
             "Boron has isotopes 10B (20%) and 11B (80%). A sample has a mass of 10 g. Find the "
             "average atomic mass.",

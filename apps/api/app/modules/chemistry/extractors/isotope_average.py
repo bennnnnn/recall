@@ -117,9 +117,6 @@ def _masses_in(segment: str) -> list[float]:
 # A mass written with its unit ("35 u", "6.02 amu"): if no isotope took it, it was not read.
 _UNIT_MASS = re.compile(rf"(?<![\w.]){NUMBER}\s*{_UNIT}")
 _PERCENTAGE = re.compile(rf"{NUMBER}\s*%")
-# A number belongs to the label nearest before it: a mass noun, or another count ("mass
-# numbers 35 and 37", "nucleon numbers", "A = 35", "abundances of 75 and 25").
-_LABEL = re.compile(rf"(?P<mass>{_MASS_NOUN})|(?i:\bnumbers?\b|\babundances?\b)|\b[AZ]\s*=")
 # A sample's grams, moles or atoms ("a mass of 10 g"); a molar mass in g/mol is a mass.
 _SAMPLE = re.compile(
     r"\s*(?i:[km]?g|grams?|kilograms?|mol|moles?|atoms?|molecules?|particles?|ions?|nuclei"
@@ -129,23 +126,23 @@ _SAMPLE = re.compile(
 
 def _unread_mass(read: str, isotopes: list[tuple[str, int, int, int]]) -> bool:
     """Whether the text states a mass no isotope took: a number with a mass unit, or a number
-    near an isotope's mass number that a mass noun labels ("the relative masses of 6Li and
-    7Li are 6.0 and 7.0", "molar masses 6.015 g/mol and 7.016 g/mol"), never a sample's grams.
-    The table's masses would then answer another question (2026-11-01: four questions stating
-    their masses were averaged from the table)."""
+    near an isotope's mass number that a mass noun leads past only words naming the isotopes
+    ("the relative masses of 6Li and 7Li are 6.0 and 7.0", "molar masses 6.015 g/mol and
+    7.016 g/mol"), never a sample's grams nor "(1 mark)" or "to 2 decimal places" after
+    "the relative atomic mass of hydrogen". The table's masses would then answer another
+    question (2026-11-01: four questions stating their masses were averaged from the
+    table)."""
     for _symbol, _number, start, end in isotopes:
         read = _blank(read, start, end)
     if _UNIT_MASS.search(read):
         return True
     read = _PERCENTAGE.sub(lambda match: " " * len(match.group()), read)
+    symbol = isotopes[0][0]
     mass_numbers = [number for _symbol, number, _start, _end in isotopes]
-    labels = list(_LABEL.finditer(read))
     for found in NUMBER_RE.finditer(read):
-        before = [match for match in labels if match.end() <= found.start()]
-        label = before[-1] if before else None
-        if label is None or label.group("mass") is None:
-            continue
-        if _CLAUSE_END.search(read, label.end(), found.start()) or _SAMPLE.match(read, found.end()):
+        if _SAMPLE.match(read, found.end()) or not _names_masses(
+            _clause_before(read, found.start()), symbol
+        ):
             continue
         value = float(found.group())
         if any(abs(value - number) <= _MASS_NUMBER_GAP for number in mass_numbers):
@@ -158,12 +155,17 @@ def _clause_before(text: str, start: int) -> str:
     return text[ends[-1] if ends else 0 : start]
 
 
+_POSSESSIVE = re.compile(r"(?<=[A-Za-z])['\u2019]s\b")
+
+
 def _names_masses(lead: str, symbol: str) -> bool:
     """Whether a mass noun leads the list, past only words naming the isotopes."""
     nouns = list(_MASS_NOUN_RE.finditer(lead))
     if not nouns:
         return False
     bridge = _PARENTHETICAL.sub(" ", _ISOTOPE.sub(" ", lead[nouns[-1].end() :]))
+    # "lithium's isotopes" names them as "the isotopes of lithium" does.
+    bridge = _POSSESSIVE.sub("", bridge)
     if re.sub(r"[A-Za-z\s,^]", "", bridge):
         return False
     known = _BRIDGE_WORDS | {symbol.lower(), BY_SYMBOL[symbol].name.lower()}
