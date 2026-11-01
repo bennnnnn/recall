@@ -16,7 +16,7 @@ export async function exportConversationAsPdf(
   messages: Message[],
 ): Promise<void> {
   const heading = title?.trim() || i18n.t("chat.export_pdf_default_title");
-  const body = conversationMarkdownBody(messages);
+  const body = conversationMarkdownBody(messages, "print");
   if (!body.trim()) throw new NothingToExportError();
   await exportMessageAsPdf(heading, body);
 }

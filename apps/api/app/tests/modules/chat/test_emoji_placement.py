@@ -116,6 +116,10 @@ _BLANK = "The process by which plants make food is called ________."
         ("🚗 **About 4 hours**", "Estimate how long a road trip from LA to Vegas takes",
          "🚗 **About 4 hours**"),
         ("🌍 **Book early**", "any tips for my trip to Rome?", "🌍 **Book early**"),
+        # A run of dots or underscores is punctuation, not a blank to fill.
+        ("😅 **Fair enough**", "so......", "😅 **Fair enough**"),
+        ("😂 **Got it**", "lol ok ___ whatever", "😂 **Got it**"),
+        ("✈️ **Rome**", "Trip ideas.......... Paris or Rome?", "✈️ **Rome**"),
         # An exercise beside another request: the reply is not all homework.
         ("☀️ **Sunny**", _EXERCISE + "\n\nAlso, what's the weather in Paris today?",
          "☀️ **Sunny**"),
