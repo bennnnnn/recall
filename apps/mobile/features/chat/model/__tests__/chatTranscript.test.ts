@@ -54,5 +54,12 @@ describe("conversationMarkdownBody", () => {
     expect(body).toContain("share.block_graph");
     expect(body).not.toContain("curves");
   });
+
+  it("shares a card's lines as plain lines, with no trailing spaces", () => {
+    const quiz = '```quiz\n{"question":"Pick","options":["a","b"],"answer":1}\n```';
+    const body = conversationMarkdownBody([{ id: "a1", role: "assistant", content: quiz }] as Message[]);
+    expect(body).toContain("Pick\nA) a\nB) b");
+    expect(body).not.toMatch(/ +\n/);
+  });
 });
 

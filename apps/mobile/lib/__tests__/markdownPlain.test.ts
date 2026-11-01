@@ -245,6 +245,25 @@ describe("lesson cards as text", () => {
     expect(text).toContain("nums = [3, 2, 4]");
     expect(text).toContain("What does it return?\nA) [0, 1]\nB) [1, 2]");
   });
+
+  it("reads a card written as plain text as the text it shows, and half-written JSON as nothing", () => {
+    for (const lang of ["clarify", "quiz", "array"]) {
+      const plain = `Intro\n\n\`\`\`${lang}\nWhich region do you mean?\n\`\`\``;
+      expect(markdownToCopyText(plain)).toBe("Intro\n\nWhich region do you mean?");
+      expect(markdownToSpeechText(plain)).toContain("Which region do you mean?");
+      expect(markdownToCopyText(`Intro\n\n\`\`\`${lang}\n{"questions":[{"id"\n\`\`\``)).toBe("Intro");
+    }
+  });
+
+  it("copies a quiz with broken JSON as its card shows it, and never a quiz's answer", () => {
+    const broken = '```quiz\n{"question": "Pick", "options": ["a", "b",], "answer": 1, "explanation": "secret"}\n```';
+    expect(markdownToCopyText(broken)).toBe("Pick\nA) a\nB) b");
+    const keyed = '```quiz\nHere you go:\n{"question":"Q","options":["a","b"],"answer":1,"explanation":"secret"}\n```';
+    for (const md of [keyed, broken]) {
+      expect(markdownToCopyText(md)).not.toContain("secret");
+      expect(markdownToSpeechText(md)).not.toContain("secret");
+    }
+  });
 });
 
 it("leaves a photo request out of copy and speech", () => {

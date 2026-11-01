@@ -8,15 +8,8 @@ import {
 import { ChipText } from "@/components/rich/ChipText";
 import { CODE_FACE } from "@/lib/fonts";
 import i18n from "@/lib/i18n";
-import { isUnfinishedJson } from "@/lib/jsonFence";
-import {
-  arrayText,
-  type LooseArray,
-  formatCell,
-  looseArray,
-  parseArrayFence,
-  plainFenceText,
-} from "@/lib/lesson/lessonFences";
+import { arrayBody, looseArrayValues } from "@/lib/lesson/cardBody";
+import { arrayText, type LooseArray, formatCell } from "@/lib/lesson/lessonFences";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -34,20 +27,18 @@ const FIT_CELLS = 6;
 export function ArrayBlock({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const fence = useMemo(() => parseArrayFence(content), [content]);
+  const body = useMemo(() => arrayBody(content), [content]);
+  const fence = body?.kind === "card" ? body.card : null;
 
   if (!fence) {
-    const plain = plainFenceText(content);
-    if (plain) {
+    if (body?.kind === "plain") {
       return (
         <ChipText style={[s.note, s.plain]} chip={s.chip}>
-          {plain}
+          {body.text}
         </ChipText>
       );
     }
-    if (isUnfinishedJson(content)) return null;
-    const loose = looseArray(content);
-    return loose ? <LooseArrayText list={loose} s={s} /> : null;
+    return body?.kind === "loose" ? <LooseArrayText list={body.loose} s={s} /> : null;
   }
 
   const fits = fence.values.length <= FIT_CELLS;
@@ -111,7 +102,7 @@ function LooseArrayText({ list, s }: { list: LooseArray; s: Styles }) {
           {list.title}
         </ChipText>
       ) : null}
-      <Text style={s.values}>{`[${list.values.join(", ")}]`}</Text>
+      <Text style={s.values}>{looseArrayValues(list)}</Text>
       {list.caption ? <Text style={s.caption}>{list.caption}</Text> : null}
       {list.note ? (
         <ChipText style={s.note} chip={s.chip}>

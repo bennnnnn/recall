@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from fractions import Fraction
+
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
@@ -325,7 +327,15 @@ def solve_average_atomic_mass(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("isotope masses and abundances must be positive")
     if abs(sum(abundances.values()) - 100) > _ABUNDANCE_TOLERANCE:
         raise SolveServiceError("isotope abundances must add up to 100%")
-    average = sum(masses[label] * abundances[label] / 100 for label in abundances)
+    # Summed exactly from the numbers as written: 6.02 at 7.5% and 7.02 at 92.5% is 6.945, which
+    # rounds to 6.95; a float sum is 6.944999… and rounded down to 6.94.
+    average = float(
+        sum(
+            Fraction(repr(masses[label])) * Fraction(repr(abundances[label]))
+            for label in abundances
+        )
+        / 100
+    )
     symbol = intent.target or ""
     shown = f"{mean(average)} u"
     terms = " + ".join(
