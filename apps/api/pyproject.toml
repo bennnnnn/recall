@@ -21,7 +21,7 @@ dependencies = [
     "google-auth>=2.56.3,<2.63",
     "httpx>=0.28.0,<0.29",
     "litellm>=1.55.0,<1.106",
-    "pydantic-settings>=2.6.0,<2.16",
+    "pydantic-settings>=2.6.0,<2.17",
     "pyjwt>=2.14.0,<2.16",
     "redis>=5.2.0,<8.2",
     "sqlalchemy[asyncio]>=2.0.52,<2.2",
@@ -40,7 +40,7 @@ dependencies = [
     "rdkit>=2024.3.6,<2025",
     "cryptography>=50.0.0,<51",
     "boto3>=1.35.0,<1.44",
-    "sentry-sdk[fastapi]>=2.66.0,<2.72",
+    "sentry-sdk[fastapi]>=2.66.0,<2.74",
     "pypdfium2>=4.30.0,<6",
     "pillow>=12.3.0,<14",
 ]

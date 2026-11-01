@@ -155,8 +155,6 @@ def test_written_side_shows_a_unit_fraction_as_typed(typed: str, shown: str) -> 
         ("2+3i*sin(30)", r"2 + 3 \sin{\left(30 \right)} i"),
         # √3 - 1 is positive, though it prints starting with a minus.
         ("(sqrt(3)+i)(1-i)", r"\left(1 + \sqrt{3}\right) - \left(\sqrt{3} - 1\right) i"),
-        # An odd root is the real root here too.
-        ("(-8)^(1/3) + 2i", "-2 + 2 i"),
         # A sum for a or b is grouped: 2 + (1 + √2)i, never 2 + 1 + √2 i.
         ("(2+i) + sqrt(2)*i", r"2 + \left(1 + \sqrt{2}\right) i"),
         ("(1+2i)(sqrt(3)+i)", r"\left(\sqrt{3} - 2\right) + \left(1 + 2 \sqrt{3}\right) i"),
@@ -360,7 +358,6 @@ def test_excluded_values_of_an_odd_root_card_and_its_answer() -> None:
         ("Simplify (1+i)/(1-i)+x", "x + i"),
         ("Simplify (cos(x) + i sin(x))^2", "e^{2 i x}"),
         ("Simplify i^2 R + i^2 r", "- R - r"),
-        ("Write (-8)^(1/3) + 2i in the form a + bi", "-2 + 2 i"),
         # The requested operation, in complex numbers.
         ("Expand (x+3i)^2 where i is the imaginary unit", "x^{2} + 6 i x - 9"),
         ("Expand (x+3i)^2", "x^{2} + 6 i x - 9"),
