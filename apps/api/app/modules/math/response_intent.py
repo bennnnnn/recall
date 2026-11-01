@@ -399,8 +399,12 @@ _ASK_FRAME_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
         rf"(?:^|(?<=[.?!]\s)){_OPENER}\b[,:!]?(?:\s+{_OPENER}\b[,:!]?)*\s*",
+        # The format words only: "as a fraction, assuming the first die is even" keeps its
+        # condition, so the reader sees it and declines rather than answer without it.
         r"\b(?:express|give|write|leave|state|present)\s+(?:your|the)\s+answers?\s+"
-        r"(?:as|in)\b(?![^.?!]*(?:\u03c0|\\pi|\bpi\b))[^.?!]*",
+        r"(?:as|in)\b(?![^.?!]*(?:\u03c0|\\pi|\bpi\b))[^.?!,;:]*?(?=\s*(?:[.?!,;:]|$"
+        r"|\b(?:assuming|given|if|when|where|which|that|unless|provided|but|and|because|since"
+        r"|with|for|then)\b))",
         r"\b(?:in|to)\s+(?:its\s+|the\s+)?(?:simplest|lowest)\s+(?:form|terms)\b",
         r"\b(?:round(?:ed)?|correct)\s+(?:your\s+answer\s+|it\s+)?to\s+(?:the\s+nearest\s+"
         r"(?:tenth|hundredth|thousandth|whole(?:\s+number)?|integer|unit)|\d+\s+(?:decimal\s+places?"

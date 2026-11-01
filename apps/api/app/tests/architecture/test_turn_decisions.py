@@ -13,6 +13,11 @@ Whether the message asks to be taught is the turn's reading (``TurnReading.teach
 by ``read_turn``); code asks ``turn_reading.turn.teaching_of``, which answers from the
 reading for the turn's message and reads any other text on its own.
 
+The message's subject is read in the pool and kept on the reading (``TurnReading.subject``
+and the step of the subject order that decided it); chat code asks
+``chat.turn_prep.reading.subject_of``, which answers from the reading for the turn's
+message read with the turn's flags and reads anything else as before.
+
 Every other caller reads some other text, or composes the reader into a reader of its own;
 each function is listed with how many times it calls and why, and the lists only shrink.
 """
@@ -26,6 +31,9 @@ from .boundary_support import APP_ROOT
 
 _ROUTING = "app.modules.turn_reading.routing"
 _TEACHING = "app.modules.turn_reading.teaching"
+_SUBJECTS = "app.services.subject_solving"
+_SUBJECT_READERS = {"detect_subject", "read_subject", "_subject_of_text"}
+_SUBJECT_ORDER = "app.services.which_subject"
 
 # "path::function" -> (calls, why).
 _LIGHTWEIGHT_CALLERS: dict[str, tuple[int, str]] = {
@@ -61,6 +69,35 @@ _TEACHING_CALLERS: dict[str, tuple[int, str]] = {
     "modules/turn_reading/lesson_flow.py::outline_awaits_pick": (1, "the line before the reply"),
 }
 
+# "path::function" -> (calls of a subject reader, why).
+_SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
+    # The reader and the turn's subject: read in the pool, kept on the reading.
+    "services/subject_solving.py::detect_subject": (1, "the reader"),
+    "services/subject_solving.py::_subject_of_text": (1, "the reader"),
+    "modules/chat/turn_prep/reading.py::ask_turn_readings": (4, "the pool's reads of the turn"),
+    "modules/chat/turn_prep/reading.py::subject_of": (1, "owner: any text or flags not the turn's"),
+    # Routing runs in the pool, before the turn's reading is kept (see ST-05's precedence
+    # note): it reads the line with the chemistry setting and no attachment flag.
+    "modules/chat/model_routing/route.py::_routed_line": (1, "the lane, read in the pool"),
+    "modules/chat/turn_prep/followups.py::read_prompt_inputs": (
+        1,
+        "the pool's reads for the prompt",
+    ),
+    # The subject fetch: the turn's subject with its image extract, off the loop.
+    "modules/chat/turn_prep/augment.py::gather_and_inject": (1, "the turn's subject fetch"),
+    "modules/chat/prompt_builder.py::fetch_subject": (1, "the prompt's subject fetch"),
+    "services/subject_solving.py::build_subject_augmentation": (1, "a fetch with no subject"),
+    # Readers of other text.
+    "modules/chat/turn_prep/intents.py::part_kind": (1, "a request's own text"),
+    "modules/chat/turn_prep/intents.py::_continues_solve": (1, "the earlier request"),
+    "modules/chat/continuation_subject.py::classify_presentation_subject": (1, "any line"),
+    "modules/chat/continuation_subject.py::blocks_math_followup": (1, "an earlier line"),
+    "modules/chat/follow_up_thread.py::subject_for_related": (1, "a related question"),
+    # Images reads a send before any chat turn (and may not import chat).
+    "modules/images/gen_intent.py::stem_subject": (1, "a picture request's subject"),
+    "modules/images/intent.py::composer_intent_for_chat": (1, "the composer's send"),
+}
+
 
 def _dotted(node: ast.expr) -> str | None:
     if isinstance(node, ast.Name):
@@ -73,7 +110,7 @@ def _dotted(node: ast.expr) -> str | None:
 
 def callers(names: set[str], module: str, tree: ast.AST, path: str) -> Counter[str]:
     """Each call of a function in ``names`` that ``module`` defines, by enclosing function."""
-    module_path = "modules/" + module.removeprefix("app.modules.").replace(".", "/") + ".py"
+    module_path = module.removeprefix("app.").replace(".", "/") + ".py"
     parent, _, leaf = module.rpartition(".")
     functions: dict[str, str] = {}
     modules = {module}
@@ -92,7 +129,11 @@ def callers(names: set[str], module: str, tree: ast.AST, path: str) -> Counter[s
             modules.update(
                 alias.asname for alias in node.names if alias.name == module and alias.asname
             )
-        elif path == module_path and isinstance(node, ast.FunctionDef) and node.name in names:
+        elif (
+            path == module_path
+            and isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+            and node.name in names
+        ):
             functions[node.name] = node.name
     found: Counter[str] = Counter()
 
@@ -176,4 +217,13 @@ def test_direct_callers_of_the_teaching_reader_are_listed() -> None:
         _production_callers({"is_teaching_request", "teaching_reason"}, _TEACHING),
         _TEACHING_CALLERS,
         "ask teaching_of(text), or, for another text, list it with why",
+    )
+
+
+def test_direct_callers_of_the_subject_readers_are_listed() -> None:
+    _check(
+        _production_callers(_SUBJECT_READERS, _SUBJECTS)
+        + _production_callers({"read_subject_reason"}, _SUBJECT_ORDER),
+        _SUBJECT_CALLERS,
+        "ask subject_of(text, …) (chat.turn_prep.reading), or, for another text, list it with why",
     )

@@ -70,6 +70,7 @@ from app.modules.chat.prompt_constants.visuals import (
     IMAGE_GEN_UNAVAILABLE_HINT,
 )
 from app.modules.chat.prompt_subjects import subject_closing_hints, subject_presentation_hints
+from app.modules.chat.turn_prep.reading import subject_of
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.capabilities import is_capabilities_question
 from app.modules.turn_reading.chart import chart_followup_data, is_chart_question
@@ -97,7 +98,6 @@ from app.modules.turn_reading.visuals import is_image_generation_mention
 from app.modules.turn_reading.writing import draft_followup
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-from app.services.subject_solving import detect_subject
 
 
 @dataclass(frozen=True)
@@ -167,7 +167,7 @@ def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str |
     if is_howto_question(query_text):
         return HOWTO_FORMAT_HINT
     # A solver owns the shape of "how do I solve 2x + 5 = 17".
-    if is_task_howto(query_text) and detect_subject(query_text) is None:
+    if is_task_howto(query_text) and subject_of(query_text) is None:
         return STEPS_FORMAT_HINT
     if ranking := ranking_layout(query_text):  # "the best countries for business": picks
         return ranking

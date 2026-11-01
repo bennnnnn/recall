@@ -17,6 +17,7 @@ import {
 } from "@/features/images/model/imageGenMessages";
 import {
   applyImageGenFailure,
+  applyImageGenSuccess,
   hasImageGenFailedAssistant,
   imageGenUserBubble,
   restoreImageGenPending,
@@ -43,8 +44,12 @@ type Options = {
    * photo's upload).
    */
   describeFailure: (message: string, code: string | undefined, error: unknown) => ImageGenFailureText;
-  /** Changes the thread on screen, which the chat owns: the picture turn's bubbles, named "image_turn". */
-  editThread: (update: SetStateAction<Message[]>, source: "image_turn") => void;
+  /**
+   * Changes the thread on screen, which the chat owns: the picture turn's bubbles, named
+   * "image_turn". Once the picture has its chat, each edit names it: a picture that
+   * finishes after the user opened another chat waits for its own (the chat answers false).
+   */
+  editThread: (update: SetStateAction<Message[]>, source: "image_turn", chatId?: string) => boolean | void;
   streaming: boolean;
   isOffline: boolean;
   onOpenUpgrade: () => void;
@@ -186,6 +191,9 @@ export function useImageGeneration({
       newMessageCountRef.current += addedRows;
       onScrollToLatest();
 
+      // The picture's chat once it has one (until then the one on screen); a picture that waits scrolls nothing.
+      let owner: string | undefined;
+      const edit = (update: (rows: Message[]) => Message[]) => editThread(update, "image_turn", owner);
       try {
         const persistenceReady = input.persistenceReady
           ? await input.persistenceReady.catch(() => false)
@@ -216,9 +224,10 @@ export function useImageGeneration({
 
         const activeChatId = await ensureChatId();
         if (!activeChatId) {
-          editThread((prev) => applyImageGenFailure(prev, "failed", t("chat.error_generic")), "image_turn");
+          edit((prev) => applyImageGenFailure(prev, "failed", t("chat.error_generic")));
           return;
         }
+        owner = activeChatId;
         const referenceIds = input.referenceAttachment
           ? (await uploadReference(authToken, input.referenceAttachment)).ids
           : input.referenceAttachmentIds;
@@ -241,32 +250,27 @@ export function useImageGeneration({
           { signal: abort.signal },
         );
         if (abort.signal.aborted) throw new Error("Image request cancelled");
-        editThread((prev) => {
-          const without = prev.filter(
-            (m) => m.id !== optimisticUserId && m.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
-          );
-          return [...without, result.user_message, result.assistant_message];
-        }, "image_turn");
+        const shown = edit((prev) => applyImageGenSuccess(prev, optimisticUserId, [result.user_message, result.assistant_message]));
         emitAppEvent("attachmentAdded", { chatId: activeChatId });
         optimisticUserIdRef.current = null;
         lastSubmitRef.current = null;
-        onScrollToLatest();
+        if (shown !== false) onScrollToLatest();
       } catch (error) {
         const canceled = userCancelRef.current;
         userCancelRef.current = false;
         if (canceled) {
-          editThread((prev) => applyImageGenFailure(prev, "canceled"), "image_turn");
+          edit((prev) => applyImageGenFailure(prev, "canceled"));
           return;
         }
         if (error instanceof ApiRequestError && error.status === 403) {
-          editThread((prev) => applyImageGenFailure(prev, "failed"), "image_turn");
+          edit((prev) => applyImageGenFailure(prev, "failed"));
           onOpenUpgrade();
           return;
         }
         const message = error instanceof Error ? error.message : t("common.error");
         const code = error instanceof ApiRequestError ? (error.code ?? undefined) : undefined;
         const failure = describeFailure(message, code, error);
-        editThread((prev) => applyImageGenFailure(prev, "failed", failure.message, !failure.retryable), "image_turn");
+        edit((prev) => applyImageGenFailure(prev, "failed", failure.message, !failure.retryable));
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
         generatingRef.current = false;
