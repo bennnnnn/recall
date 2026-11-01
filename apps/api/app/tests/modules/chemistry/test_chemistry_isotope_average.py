@@ -443,6 +443,12 @@ def test_an_average_atomic_mass_reads_only_what_is_certain(
             "(48.16%).",
             None,
         ),
+        # A symbol is no unit: "as Mg-24" is magnesium, never milligrams.
+        (
+            "Magnesium exists as Mg-24 (78.99%), Mg-25 (10.00%) and Mg-26 (11.01%). Calculate "
+            "the average atomic mass of magnesium.",
+            "A(Mg) = 24.31 u",
+        ),
         (
             "What is the average atomic mass of chlorine in g/mol? Chlorine has isotopes 35Cl "
             "(75%) and 37Cl (25%).",

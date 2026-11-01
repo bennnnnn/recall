@@ -103,20 +103,20 @@ def states_the_average(text: str) -> bool:
 
 # An average asked in another unit ("in grams per atom", "in kg") is another number: the
 # card's value is in u (2026-11-01: "in grams per atom" got a 107.9 u card). g/mol is the
-# same number as u.
+# same number as u. Symbols keep their case, so "exists as Mg-24" is magnesium, not mg.
 _OTHER_UNIT = re.compile(
-    r"(?i:\b(?:in|as)\s+(?:units?\s+of\s+)?(?:(?:g|grams?)(?!\s*(?:/|per\s)\s*mol)|[kmµ]g|"
-    r"kilograms?|milligrams?|[km]?j|joules?|[kmg]?ev)\b)"
+    r"\b(?i:in|as)\s+(?i:units?\s+of\s+)?(?:(?:g|(?i:grams?))(?!\s*(?:/|(?i:per)\s)\s*(?i:mol))"
+    r"|[kmµ]g|[kM]?J|[kMG]?eV|(?i:kilograms?|milligrams?|joules?|electron\s*volts?))\b"
 )
 
 
 def asks_only_the_average(text: str, isotopes: Spans) -> bool:
     """Whether every clause that asks something asks the average atomic mass, and one does."""
-    if _OTHER_UNIT.search(text):
-        return False
     words = text
     for start, end in isotopes:
         words = _blank(words, start, end)
+    if _OTHER_UNIT.search(words):
+        return False
     words = _PARENTHETICAL.sub(lambda match: " " * len(match.group()), words)
     words = NUMBER_RE.sub(lambda match: " " * len(match.group()), words)
     asked = False
