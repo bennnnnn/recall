@@ -14,7 +14,7 @@ from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.types import format_number
 from app.modules.chemistry.species_facts import dissolution_equation
 from app.services.solving import SolveServiceError
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 
 def _answer(question: str) -> str | None:

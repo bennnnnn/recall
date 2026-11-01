@@ -70,11 +70,8 @@ from app.modules.chat.prompt_profile import (
     format_user_profile_block,
     should_include_profile_email,
 )
+from app.modules.chat.prompt_subjects import SUBJECT_HINTS
 from app.modules.chat.turn_prep.followups import FollowupSubject
-from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT
-from app.modules.math.followup import MATH_FOLLOWUP_HINT
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
 from app.modules.turn_reading.length import is_brevity_request, reply_length
@@ -378,17 +375,17 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
     ),
     PromptSection(
         lambda t: t.followup == "math",
-        lambda _t: [MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT],
+        lambda _t: list(SUBJECT_HINTS["math"].followup),
         name="math_followup",
     ),
     PromptSection(
         lambda t: t.followup == "chemistry",
-        lambda _t: [CHEMISTRY_FOLLOWUP_HINT],
+        lambda _t: list(SUBJECT_HINTS["chemistry"].followup),
         name="chemistry_followup",
     ),
     PromptSection(
         lambda t: t.followup == "physics",
-        lambda _t: [PHYSICS_FOLLOWUP_HINT],
+        lambda _t: list(SUBJECT_HINTS["physics"].followup),
         name="physics_followup",
     ),
     # Keep the acknowledgement contract closest to the user turn. Memory and

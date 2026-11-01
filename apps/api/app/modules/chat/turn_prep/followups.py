@@ -20,17 +20,8 @@ from app.modules.chat.continuation_subject import (
     exchange_pairs,
 )
 from app.modules.chat.prompt_inject import conversation_turns
-from app.modules.chemistry.followup import chemistry_followup_problem
-from app.modules.math.followup import (
-    answer_claim_problem,
-    is_math_followup,
-    math_working_followup_problem,
-    offered_equation_problem,
-    pronoun_math_problem,
-    restated_math_problem,
-)
-from app.modules.physics.followup import physics_followup_problem
 from app.services.problem_followup import message_role_content
+from app.services.subjects.registry import subject_adapter
 
 FollowupSubject = Literal["math", "chemistry", "physics"]
 
@@ -57,37 +48,26 @@ def resolve_subject_followup(
     history = conversation_turns(prompt_messages)
     if history and history[-1].get("role") == "user" and history[-1].get("content") == content:
         history = history[:-1]
-    math = math_working_followup_problem(content, history, blocked=blocks_math_followup)
-    # "Do it" after the assistant wrote a new equation is not a request to
-    # re-solve the user's earlier line. Solve the offered equation instead.
-    if math is None:
-        math = offered_equation_problem(content, history)
-    # "check my answer: x = 6" is checked against the open problem, and
-    # "simplify it" works on the user's last expression. Alone, each one used
-    # to be solved as typed: ``x = 6`` verified itself and "it" was ``i t``.
-    if math is None:
-        math = (
-            answer_claim_problem(content, history, blocked=blocks_math_followup)
-            or pronoun_math_problem(content, history, blocked=blocks_math_followup)
-            or restated_math_problem(content, history, blocked=blocks_math_followup)
-        )
+    math = subject_adapter("math").followups.problem(content, history, blocked=blocks_math_followup)
     if math is not None:
         return SubjectFollowup(math=math)
     chemistry = chemistry_working_followup_problem(content, history)
     if chemistry is None:
-        chemistry = chemistry_followup_problem(content, history)
+        chemistry = subject_adapter("chemistry").followups.problem(content, history)
     if chemistry is not None:
         return SubjectFollowup(chemistry=chemistry)
-    return SubjectFollowup(physics=physics_followup_problem(content, history))
+    return SubjectFollowup(physics=subject_adapter("physics").followups.problem(content, history))
 
 
 def followup_subject(query_text: str | None, exchange: Sequence[Any]) -> FollowupSubject | None:
     """The subject whose problem in ``exchange`` this turn only continues, or None."""
-    if is_math_followup(query_text, exchange, blocked=blocks_math_followup):
+    if subject_adapter("math").followups.continues(
+        query_text, exchange, blocked=blocks_math_followup
+    ):
         return "math"
-    if chemistry_followup_problem(query_text, exchange) is not None:
+    if subject_adapter("chemistry").followups.continues(query_text, exchange):
         return "chemistry"
-    if physics_followup_problem(query_text, exchange) is not None:
+    if subject_adapter("physics").followups.continues(query_text, exchange):
         return "physics"
     return None
 
@@ -113,7 +93,7 @@ def read_prompt_inputs(
     rules ask it), each request's subject (a part's own layout asks it) and the
     presentation subject the style hints read are kept for the turn (``core/readings``).
     """
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     for text in dict.fromkeys((query_text, *part_texts)):
         if text:

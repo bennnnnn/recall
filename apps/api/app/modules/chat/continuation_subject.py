@@ -213,7 +213,7 @@ def classify_presentation_subject(text: str | None) -> str | None:
     if not text or not text.strip():
         return None
     from app.modules.turn_reading.coding import has_code_syntax
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     subject = detect_subject(text)
     # Pasted code gets code ink: `i <= 3` is a loop bound, `variance` a variable.
@@ -228,7 +228,7 @@ def classify_presentation_subject(text: str | None) -> str | None:
 
 def blocks_math_followup(text: str) -> bool:
     """Physics and chemistry problems are not replayed through the math solver."""
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     return detect_subject(text) in {"physics", "chemistry"}
 
@@ -243,9 +243,9 @@ def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any])
     own = classify_presentation_subject(query)
     if own in {"math", "physics"}:
         return None
-    from app.modules.chemistry.request import is_chemistry_question
+    from app.services.subjects.registry import subject_adapter
 
-    return adjacent_problem(recent, is_chemistry_question)
+    return adjacent_problem(recent, subject_adapter("chemistry").asks)
 
 
 def exchange_pairs(messages: Sequence[Any]) -> tuple[tuple[str, str], ...]:
@@ -274,12 +274,11 @@ def effective_presentation_subject(
         return own
     if is_pure_continuation(query) or is_new_problem_request(query):
         return _continuation_subject(prior_messages or ())
-    from app.modules.chemistry.followup import chemistry_followup_problem
-    from app.modules.physics.followup import physics_followup_problem
+    from app.services.subjects.registry import subject_adapter
 
-    if chemistry_followup_problem(query, prior_messages or ()) is not None:
+    if subject_adapter("chemistry").followups.continues(query, prior_messages or ()):
         return "chemistry"
-    if physics_followup_problem(query, prior_messages or ()) is not None:
+    if subject_adapter("physics").followups.continues(query, prior_messages or ()):
         return "physics"
     return None
 

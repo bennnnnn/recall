@@ -1,0 +1,123 @@
+"""Physics as the subject registry asks it (``services/subjects/registry``).
+
+The adapter calls what physics already has: the verified block through ``prompt``, the
+direct reply through ``direct``, and its prompt copy from ``reply_policy`` and ``followup``.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal
+
+from app.modules.physics.extract import needs_physics
+from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
+from app.modules.physics.prompt import build_physics_augmentation
+from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
+from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
+from app.services.subject_hints import SubjectHints
+
+if TYPE_CHECKING:
+    from app.core.config import Settings
+    from app.services.solving import VerifiedSolveBlock
+    from app.services.subjects.registry import SubjectRequest
+
+
+def _physics_request_text(user_content: str) -> str:
+    """The problem a physics turn verifies.
+
+    A scanned photo's caption is a protocol line. When the student confirmed
+    what the scanner read, that reading is the problem; without one, the
+    caption alone gets the unverified physics note.
+    """
+    from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
+
+    if scanner_camera_subject(user_content) != "physics":
+        return user_content
+    return confirmed_scan_reading(user_content) or user_content
+
+
+_HINTS = SubjectHints(
+    physics_prompt_hints,
+    (PHYSICS_REPLY_POLICY,),
+    shared_math_ink=False,
+    followup=(PHYSICS_FOLLOWUP_HINT,),
+)
+
+
+@dataclass(frozen=True)
+class PhysicsFollowups:
+    def problem(
+        self,
+        query: str | None,
+        recent: Sequence[Any],
+        *,
+        blocked: Callable[[str], bool] | None = None,
+    ) -> str | None:
+        return physics_followup_problem(query, recent)
+
+    def continues(
+        self,
+        query: str | None,
+        recent: Sequence[Any],
+        *,
+        blocked: Callable[[str], bool] | None = None,
+    ) -> bool:
+        return physics_followup_problem(query, recent) is not None
+
+    def previous_result(self, reply: str) -> str | None:
+        return None
+
+    def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
+        return False
+
+    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
+        return None
+
+
+@dataclass(frozen=True)
+class PhysicsSubject:
+    name: Literal["physics"] = "physics"
+    hints: SubjectHints = _HINTS
+    followups: PhysicsFollowups = PhysicsFollowups()
+
+    def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
+        return needs_physics(text)
+
+    async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
+        block, physics_verified, solve_failed = await build_physics_augmentation(
+            _physics_request_text(request.text),
+            settings,
+            needs_subject=True,
+        )
+        return SubjectAugmentation(
+            subject="physics",
+            prompt_block=block,
+            verified=physics_verified,
+            # No matching template is not a failed check. The prompt note still
+            # tells the model not to claim a check. The reply does not say it
+            # could not be verified.
+            unverified=solve_failed,
+        )
+
+    def direct_reply(
+        self,
+        verified: VerifiedSolveBlock,
+        user_text: str,
+        *,
+        has_image_attachment: bool,
+        verified_request_text: str | None,
+    ) -> str | None:
+        del verified_request_text
+        if not isinstance(verified, VerifiedPhysicsBlock):
+            return None
+        from app.modules.physics.direct import maybe_direct_physics_reply
+
+        return maybe_direct_physics_reply(
+            verified,
+            user_text,
+            has_image_attachment=has_image_attachment,
+        )
+
+
+PHYSICS_SUBJECT = PhysicsSubject()

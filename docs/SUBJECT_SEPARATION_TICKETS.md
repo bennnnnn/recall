@@ -43,7 +43,7 @@ or fence behavior.
 
 | Layer | Math owns | Physics owns | Neutral/shared owns |
 |---|---|---|---|
-| Detection | `modules/math/tools/prompt.py`, math matchers | `modules/physics/extract.py::needs_physics` | `services/subject_solving.py::detect_subject` chooses one peer subject |
+| Detection | `modules/math/tools/prompt.py`, math matchers | `modules/physics/extract.py::needs_physics` | `services/subjects/dispatch.py::detect_subject` chooses one peer subject |
 | Intent | `modules/math/schemas/intent.py::MathIntent` | `modules/physics/schemas/intent.py::PhysicsIntent` | No shared subject enum |
 | Extraction | `modules/math/tools/extract.py` and math extractors | `modules/physics/extract.py` and physics extractors | Text/unit scanning primitives in `services/` |
 | Solving | `modules/math/solve/`, `modules/math/school.py` | `modules/physics/solver.py`, `modules/physics/solvers/` | `services/sympy_executor.py`, generic solve error |
@@ -63,10 +63,11 @@ or fence behavior.
 - `VerifiedMathBlock` and `VerifiedPhysicsBlock`, which keep subject-specific state separate;
 - neutral marker stripping and wrapper helpers.
 
-`app.services.subject_solving` owns generic chat integration:
+`app.services.subjects.dispatch` owns generic chat integration:
 
 - detect one subject before extraction;
-- call only that subject's augmentation path;
+- call only that subject's augmentation path, through its adapter (`services/subjects/registry`,
+  structure ticket ST-07);
 - dispatch direct presentation based on the verified block subtype.
 
 `app.services.symbolic_text`, `app.services.unit_text`, and `app.services.units` contain scanning

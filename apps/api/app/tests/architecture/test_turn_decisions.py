@@ -31,9 +31,9 @@ from .boundary_support import APP_ROOT
 
 _ROUTING = "app.modules.turn_reading.routing"
 _TEACHING = "app.modules.turn_reading.teaching"
-_SUBJECTS = "app.services.subject_solving"
+_SUBJECTS = "app.services.subjects.dispatch"
 _SUBJECT_READERS = {"detect_subject", "read_subject", "_subject_of_text"}
-_SUBJECT_ORDER = "app.services.which_subject"
+_SUBJECT_ORDER = "app.services.subjects.order"
 
 # "path::function" -> (calls, why).
 _LIGHTWEIGHT_CALLERS: dict[str, tuple[int, str]] = {
@@ -72,8 +72,8 @@ _TEACHING_CALLERS: dict[str, tuple[int, str]] = {
 # "path::function" -> (calls of a subject reader, why).
 _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     # The reader and the turn's subject: read in the pool, kept on the reading.
-    "services/subject_solving.py::detect_subject": (1, "the reader"),
-    "services/subject_solving.py::_subject_of_text": (1, "the reader"),
+    "services/subjects/dispatch.py::detect_subject": (1, "the reader"),
+    "services/subjects/dispatch.py::_subject_of_text": (1, "the reader"),
     "modules/chat/turn_prep/reading.py::ask_turn_readings": (4, "the pool's reads of the turn"),
     "modules/chat/turn_prep/reading.py::subject_of": (1, "owner: any text or flags not the turn's"),
     # Routing runs in the pool, before the turn's reading is kept (see ST-05's precedence
@@ -86,7 +86,7 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     # The subject fetch: the turn's subject with its image extract, off the loop.
     "modules/chat/turn_prep/augment.py::gather_and_inject": (1, "the turn's subject fetch"),
     "modules/chat/prompt_builder.py::fetch_subject": (1, "the prompt's subject fetch"),
-    "services/subject_solving.py::build_subject_augmentation": (1, "a fetch with no subject"),
+    "services/subjects/dispatch.py::build_subject_augmentation": (1, "a fetch with no subject"),
     # Readers of other text.
     "modules/chat/turn_prep/intents.py::part_kind": (1, "a request's own text"),
     "modules/chat/turn_prep/intents.py::_continues_solve": (1, "the earlier request"),

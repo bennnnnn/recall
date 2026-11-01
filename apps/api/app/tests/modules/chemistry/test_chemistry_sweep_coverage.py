@@ -13,7 +13,7 @@ import pytest
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.solvers import solve_chemistry
 from app.services.solving import SolveServiceError
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 
 def _answer(question: str) -> tuple[str, str]:

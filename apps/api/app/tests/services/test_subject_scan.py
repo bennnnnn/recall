@@ -73,7 +73,7 @@ def test_confirmed_scan_reading() -> None:
 
 def test_chemistry_camera_caption_is_not_math() -> None:
     from app.modules.math.match.needs import needs_symbolic
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     assert needs_symbolic(CHEMISTRY_CAMERA_PROMPT, has_image_attachment=True) is False
     assert detect_subject(CHEMISTRY_CAMERA_PROMPT, has_image_attachment=True) == "chemistry"
@@ -89,7 +89,7 @@ def test_chemistry_camera_caption_is_not_math() -> None:
 )
 def test_a_physics_camera_caption_is_physics_not_math(caption: str) -> None:
     from app.modules.math.match.needs import needs_symbolic
-    from app.services.subject_solving import detect_subject
+    from app.services.subjects.dispatch import detect_subject
 
     assert needs_symbolic(caption, has_image_attachment=True) is False
     assert detect_subject(caption, has_image_attachment=True) == "physics"

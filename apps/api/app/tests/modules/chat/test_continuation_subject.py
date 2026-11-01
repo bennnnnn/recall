@@ -25,7 +25,7 @@ from app.modules.math.followup import is_math_followup
 from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.reply_policy import PHYSICS_INTENT_HINT, PHYSICS_REPLY_POLICY
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 CYCLIST = "A cyclist rides 12 km at 20 km/h then 8 km at 10 km/h. Find average speed."
 EQUATION = "Solve 2x + 3 = 11"

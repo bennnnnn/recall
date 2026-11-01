@@ -7,7 +7,7 @@ to the components it joins (``modules.<name>``, ``services.<name>``), in four la
 
 0. the shared leaves in ``services/``;
 1. the subjects: maths, physics, chemistry;
-2. the product features, and the subject dispatcher;
+2. the product features, and the subjects' registry, order and dispatcher;
 3. chat, which runs a turn over all of them.
 
 A component imports its own layer or a lower one. An import that runs upward is listed
@@ -19,12 +19,12 @@ from __future__ import annotations
 from .boundary_support import _import_cycles, _import_graph, _module_imports
 
 _SUBJECTS = frozenset({"math", "physics", "chemistry"})
-# The dispatcher, and the subject order it reads a line's subject from (ST-05), sit over the
-# subjects they send a message to, under chat. The readers of a message are leaves: they
-# import only services, so a subject may ask them too (ST-04).
+# The subjects' registry, the order between them (ST-05) and the dispatcher that asks them
+# (ST-07, ``services/subjects/``) sit over the subjects they send a message to, under chat.
+# The readers of a message are leaves: they import only services, so a subject may ask
+# them too (ST-04).
 _LAYER_OF = {
-    "services.subject_solving": 2,
-    "services.which_subject": 2,
+    "services.subjects": 2,
     "modules.turn_reading": 0,
 }
 # A composition root wires every module together (test_outside_modules.py).
@@ -80,6 +80,20 @@ def test_every_upward_import_is_named() -> None:
     assert not new, f"these import upward: depend downward, or name them with a reason: {new}"
     gone = sorted(set(_UPWARD) - upward)
     assert not gone, f"these imports are gone: take them off the list: {gone}"
+
+
+def _subject_module(module: str) -> bool:
+    parts = module.split(".")
+    return len(parts) >= 3 and parts[1] == "modules" and parts[2] in _SUBJECTS
+
+
+def test_the_dispatcher_asks_a_subject_only_through_its_adapter() -> None:
+    """The dispatcher reaches a subject through the registry (ST-07), never directly."""
+    imports = _module_imports(load_time=False, runtime=True)
+    dispatcher = "app.services.subjects.dispatch"
+    assert dispatcher in imports
+    assert any(_subject_module(target) for target in imports["app.services.subjects.registry"])
+    assert sorted(filter(_subject_module, imports[dispatcher])) == []
 
 
 def test_without_the_named_imports_the_modules_form_no_cycle() -> None:

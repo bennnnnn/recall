@@ -11,7 +11,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
-from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+from app.services.subjects.dispatch import build_subject_augmentation, maybe_direct_subject_reply
 
 
 def _settings() -> Settings:

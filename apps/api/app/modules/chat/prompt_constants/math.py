@@ -1,6 +1,6 @@
 """The maths-ink rule every turn gets. The maths pack is ``modules/math/reply_policy``."""
 
-from app.modules.math.reply_policy import MATH_NOTATION_CLARIFICATION_HINT
+from app.services.math_notation import MATH_NOTATION_CLARIFICATION_HINT
 
 MATH_FENCE_SAFETY_HINT = (
     "If you write math, use inline `$...$` (never backticks around `$...$`). Code is not math: "

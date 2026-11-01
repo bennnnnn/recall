@@ -34,7 +34,7 @@ from app.modules.web_search.subject import (
 )
 from app.modules.web_search.subject import last_assistant_content
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_solving import SubjectName, read_direct_reply, read_subject
+from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_subject
 
 if TYPE_CHECKING:
     from app.modules.money.service import MoneyTurn

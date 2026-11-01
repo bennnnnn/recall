@@ -9,7 +9,7 @@ from app.modules.math.tools import _build_verified_block as build_math_block
 from app.modules.math.tools import extract_math_intent
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
-from app.services.subject_solving import detect_subject
+from app.services.subjects.dispatch import detect_subject
 
 _SETTINGS = Settings(math_tools_enabled=True)
 

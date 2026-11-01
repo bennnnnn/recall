@@ -27,7 +27,7 @@ from app.modules.math.tools.prompt import build_math_augmentation
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.turn_reading.plan import TurnPlan, single_plan
 from app.modules.turn_reading.turn import current_turn_reading
-from app.services.subject_solving import detect_subject, read_direct_reply
+from app.services.subjects.dispatch import detect_subject, read_direct_reply
 from app.tests.sympy_support import ThreadSympyExecutor
 
 
@@ -300,7 +300,7 @@ async def test_teaching_is_the_turns_reading_for_its_message_and_read_for_any_ot
 def test_the_subject_names_the_step_that_decided_it(
     text: str, chemistry: bool, subject: str | None, reason: str
 ) -> None:
-    from app.services.subject_solving import detect_subject, read_subject_reason
+    from app.services.subjects.dispatch import detect_subject, read_subject_reason
 
     found = read_subject_reason(text, False, chemistry)
     assert found is not None
@@ -312,14 +312,14 @@ async def test_the_subject_is_the_turns_reading_for_its_message_and_read_for_any
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.modules.chat.turn_prep import reading as turn_reading_prep
-    from app.services import subject_solving
+    from app.services.subjects import dispatch
 
     settings = Settings()
     message = "A car accelerates from 0 to 20 m/s in 4 s. Find its acceleration."
     begin_turn()
     await read_turn_message(message, [], settings)
     asked: list[tuple[str, bool, bool]] = []
-    detect = subject_solving.detect_subject
+    detect = dispatch.detect_subject
 
     def spy(
         text: str, *, has_image_attachment: bool = False, chemistry_enabled: bool = True
@@ -329,7 +329,7 @@ async def test_the_subject_is_the_turns_reading_for_its_message_and_read_for_any
             text, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry_enabled
         )
 
-    monkeypatch.setattr(subject_solving, "detect_subject", spy)
+    monkeypatch.setattr(dispatch, "detect_subject", spy)
 
     reading = current_turn_reading()
     assert reading is not None

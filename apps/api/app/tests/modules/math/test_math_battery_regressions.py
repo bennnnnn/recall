@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.modules.math.solve.calculus import integrate_expression
 from app.modules.math.solve.inequalities import solve_inequality
 from app.services.card_value import split_working
-from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+from app.services.subjects.dispatch import build_subject_augmentation, maybe_direct_subject_reply
 from app.tests.modules.math.card_support import card_with_working
 
 
