@@ -7,6 +7,7 @@ import math
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
 from app.services.solving import SolveServiceError
+from app.services.times_sign import times
 
 _RATE_OPERATIONS = {"average_speed", "rate_speed", "rate_distance", "rate_time"}
 
@@ -51,7 +52,7 @@ def _rate_substitution(
     second = f"{latex_given(right[0])}{latex_unit(right[1])}"
     if divide:
         return rf"{symbol} = \frac{{{first}}}{{{second}}}"
-    return rf"{symbol} = {first} \cdot {second}"
+    return f"{symbol} = {times(first, second)}"
 
 
 def _result(
@@ -116,7 +117,7 @@ def _distance(params: dict[str, float], units: dict[str, str]) -> PhysicsResult:
     value = speed * duration
     working = (
         rf"d = vt = "
-        rf"{_rate_number(speed)}\,\mathrm{{{speed_unit}}} \cdot "
+        rf"{_rate_number(speed)}\,\mathrm{{{speed_unit}}} \times "
         rf"{_rate_number(duration)}\,\mathrm{{{time_unit}}} = "
         rf"{_rate_number(value)}\,\mathrm{{{distance_unit}}}"
     )

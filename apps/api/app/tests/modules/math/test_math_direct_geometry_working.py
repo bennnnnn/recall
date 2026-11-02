@@ -190,5 +190,6 @@ def test_heron_shows_every_row_down_to_the_area(query: str) -> None:
     """The working stopped at the root of the differences and jumped to 6."""
     reply = _reply(query)
     assert (
-        r"$A = \sqrt{6(6-3)(6-4)(6-5)} = \sqrt{6 \cdot 3 \cdot 2 \cdot 1} = \sqrt{36} = 6$" in reply
+        r"$A = \sqrt{6(6-3)(6-4)(6-5)} = \sqrt{6 \times 3 \times 2 \times 1} = \sqrt{36} = 6$"
+        in reply
     )

@@ -24,6 +24,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 
+from app.services.times_sign import times
+
 _FUNCTIONS: dict[str, Callable[[float], float]] = {
     "sqrt": math.sqrt,
     "sin": math.sin,
@@ -365,16 +367,16 @@ def _latex(
     if isinstance(node.op, ast.Mult):
         left = _wrapped(node.left, symbols, values, 2, notation, degrees)
         right = _wrapped(node.right, symbols, values, 2, notation, degrees)
-        # Numbers side by side need a dot, and so does a number before a function
-        # ("1 \\cdot \\sin(30^\\circ)") or a fraction ("5 \\cdot \\frac{19.62}{7}", never
-        # read as the mixed number 5 19.62/7); symbols are written together.
+        # Numbers side by side need \\times (``times_sign``), and so does a number before a
+        # function ("1 \\times \\sin(30^\\circ)") or a fraction ("5 \\times \\frac{19.62}{7}",
+        # never read as the mixed number 5 19.62/7); symbols are written together.
         follows = _leftmost(node.right)
         joined = _plugged(_rightmost(node.left), values) and (
             _plugged(follows, values)
             or (values is not None and isinstance(follows, ast.Call))
             or (values is not None and isinstance(follows, ast.BinOp))
         )
-        return rf"{left} \cdot {right}" if joined else f"{left} {right}"
+        return times(left, right) if joined else f"{left} {right}"
     operator = "+" if isinstance(node.op, ast.Add) else "-"
     left = _latex(node.left, symbols, values, notation, degrees)
     # a - (b + c) keeps its brackets, and so does a negative number after a sign.

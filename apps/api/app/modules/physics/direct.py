@@ -196,7 +196,7 @@ def _formula_identity(formula: str) -> str:
     """Ignore presentation-only differences when comparing laws: spacing,
     multiplication dots, braces round a one-character script, brackets round a
     one-atom argument. Torque and centripetal force were each listed twice."""
-    text = formula.replace(r"\cdot", "").replace(r"\,", "").replace(" ", "")
+    text = formula.replace(r"\cdot", "").replace(r"\times", "").replace(r"\,", "").replace(" ", "")
     return _unbracket_functions(_BRACED_SCRIPT.sub(r"\1\2", text))
 
 

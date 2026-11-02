@@ -22,6 +22,7 @@ from fractions import Fraction
 
 from app.services.md_fence_scan import has_closed_fence, without_fences
 from app.services.text_normalize import collapse_ws
+from app.services.times_sign import with_times
 
 # "What is 3x", "what does 3x mean", "meaning of 3x", "3x meaning".
 _LEAD_IN = re.compile(
@@ -430,7 +431,7 @@ def bare_expression_reply(message: str, *, prior_assistant: str | None = None) -
         lines += [
             "",
             f"For example, if ${given}$:",
-            f"$${tex} = {working} = {_fraction_tex(result)}$$",
+            f"$${with_times(f'{tex} = {working}')} = {_fraction_tex(result)}$$",
         ]
         suggestions.append(f'find its value for a number: "{typed} when {given}"')
         if len(expression.variables) == 1:

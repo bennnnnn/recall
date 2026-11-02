@@ -58,22 +58,22 @@ def test_anything_but_arithmetic_is_refused(expression: str) -> None:
 @pytest.mark.parametrize(
     ("expression", "formula", "substitution", "values"),
     [
-        ("v - a*t", "v - a t", r"18 - 2 \cdot 6", {"v": 18, "a": 2, "t": 6}),
+        ("v - a*t", "v - a t", r"18 - 2 \times 6", {"v": 18, "a": 2, "t": 6}),
         (
             "sqrt(v**2 - 2*a*d)",
             r"\sqrt{v^{2} - 2 a s}",
-            r"\sqrt{20^{2} - 2 \cdot 2 \cdot 50}",
+            r"\sqrt{20^{2} - 2 \times 2 \times 50}",
             {"v": 20, "a": 2, "d": 50},
         ),
         (
             "(F - mu*m*g)/m",
             r"\frac{F - \mu m g}{m}",
-            r"\frac{100 - 0.25 \cdot 20 \cdot 9.81}{20}",
+            r"\frac{100 - 0.25 \times 20 \times 9.81}{20}",
             {"F": 100, "mu": 0.25, "m": 20, "g": 9.81},
         ),
         # A negative number after an operator keeps its brackets.
-        ("v - a*t", "v - a t", r"-18 - (-2) \cdot 6", {"v": -18, "a": -2, "t": 6}),
-        ("u + a*t", "u + a t", r"3 + (-2) \cdot 6", {"u": 3, "a": -2, "t": 6}),
+        ("v - a*t", "v - a t", r"-18 - (-2) \times 6", {"v": -18, "a": -2, "t": 6}),
+        ("u + a*t", "u + a t", r"3 + (-2) \times 6", {"u": 3, "a": -2, "t": 6}),
     ],
 )
 def test_the_formula_and_the_substitution_print_the_same_tree(

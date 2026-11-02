@@ -35,6 +35,7 @@ from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.display import derivative_latex, format_verified_latex
 from app.modules.math.solve.parse import SolveServiceError, parse_expression
 from app.modules.math.solve.root_latex import expr_equal
+from app.services.times_sign import TIMES
 
 # A quadrature whose own error estimate is above _QUADRATURE_TRUST (relative) judges nothing; a
 # closed form within _QUADRATURE_AGREE of a trusted one passes.
@@ -58,7 +59,7 @@ def _term_derivative_step(term: Any, sym: Any) -> str:
         return f"Power rule: ${lhs} = {latex(deriv)}$"
     if getattr(term, "is_Pow", False) and term.base == sym:
         return (
-            f"Power rule: ${lhs} = {latex(term.exp)} \\cdot "
+            f"Power rule: ${lhs} = {latex(term.exp)} {TIMES} "
             f"{latex(sym)}^{{{latex(term.exp - 1)}}} = {latex(deriv)}$"
         )
     # Product / quotient / constant-multiple.
@@ -67,7 +68,7 @@ def _term_derivative_step(term: Any, sym: Any) -> str:
         if len(dep) == 1:
             const = [f for f in term.args if not (f.free_symbols & {sym})]
             return (
-                f"Constant multiple: ${lhs} = {latex(Mul(*const) if const else 1)} \\cdot "
+                f"Constant multiple: ${lhs} = {latex(Mul(*const) if const else 1)} {TIMES} "
                 f"\\frac{{d}}{{d{latex(sym)}}}\\left[{latex(dep[0])}\\right] = {latex(deriv)}$"
             )
         return f"Product rule: ${lhs} = {latex(deriv)}$"

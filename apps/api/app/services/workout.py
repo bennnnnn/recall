@@ -31,6 +31,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.services.times_sign import with_times
+
 GIVEN = "Given"
 REQUIRED = "Required"
 # What is asked was headed "Find" until November 2026. A reader takes both spellings: older
@@ -61,8 +63,10 @@ class Workout:
 
 
 def math_line(tex: str, note: str | None = None) -> str:
-    """``$2x = 8$ — subtract 3``: one state in math, its move as a short note."""
-    body = f"${tex.strip()}$"
+    """``$2x = 8$ — subtract 3``: one state in math, its move as a short note.
+
+    A product prints ``\\times`` whatever the row was built with (``times_sign``)."""
+    body = f"${with_times(tex.strip())}$"
     return f"{body}{_NOTE_SEPARATOR}{note.strip()}" if note and note.strip() else body
 
 
