@@ -71,11 +71,11 @@ override-dependencies = [
     # advisories (GHSA-v4x8-3wr5-3wq8 and twelve more, fixed in 4.2.1). The bound is
     # stricter than litellm needs. litellm imports filelock only in its proxy CLI
     # (`litellm/proxy/client/cli/commands/configure_profiles.py`, `claude_settings.py`),
-    # as `FileLock(path, timeout=10, mode=0o600)`; huggingface-hub (litellm's tokenizer
-    # download) uses FileLock / SoftFileLock / Timeout the same way. filelock 4.0's one
-    # breaking change is the SoftReadWriteLock on-disk protocol, which neither uses, and
-    # `FileLock(path, timeout=..., mode=...)` is unchanged through 4.2. Drop this line
-    # once litellm allows filelock 4.
+    # as `FileLock(path, timeout=10, mode=0o600)`; huggingface-hub (its `hf_hub_download`)
+    # uses FileLock / SoftFileLock / Timeout the same way. filelock 4's breaking changes
+    # (the SoftReadWriteLock on-disk protocol, stricter option checks) don't touch those
+    # calls: `FileLock(path, timeout=..., mode=...)`, `acquire(timeout)` and `Timeout`
+    # are unchanged through 4.2. Drop this line once litellm allows filelock 4.
     "filelock>=4.2.1,<5",
 ]
 
