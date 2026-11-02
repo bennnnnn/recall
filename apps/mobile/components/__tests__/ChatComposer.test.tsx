@@ -385,8 +385,9 @@ describe("ChatComposer math keyboard", () => {
       if (input) expect(within(controls).getByLabelText("chat.send_a11y")).toBeTruthy();
       await view.unmount();
     }
-    // The thread's bottom inset clears both rows: the 36 pt field, the 36 pt buttons, 20 pt of air.
-    expect(COMPOSER_HEIGHT).toBe(92);
+    // The thread's bottom inset clears both rows: the 36 pt field, the 36 pt buttons, the
+    // card's border and padding and the shell's air.
+    expect(COMPOSER_HEIGHT).toBe(94);
   });
 
   it("offers a full-height editor when the multiline input reaches its limit", async () => {

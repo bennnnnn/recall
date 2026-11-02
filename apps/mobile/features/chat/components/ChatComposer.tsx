@@ -74,9 +74,9 @@ function gapFadeColors(bg: string): [string, string] {
   return [withAlpha(bg, 0.92), bg];
 }
 
-// The 36 pt field over the 36 pt button row + 4 pt card padding above and below +
-// 6 pt shell air above and below.
-export const COMPOSER_HEIGHT = COMPOSER_CONTROL_SIZE * 2 + 20;
+// The 36 pt field over the 36 pt button row + the card's 1 pt border and 4 pt padding
+// above and below + 6 pt shell air above and below.
+export const COMPOSER_HEIGHT = COMPOSER_CONTROL_SIZE * 2 + 22;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
 
 /** Mic mute and close beside the real composer while live talk is open. */

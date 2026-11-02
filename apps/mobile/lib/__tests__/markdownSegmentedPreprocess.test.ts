@@ -146,6 +146,28 @@ describe("preprocessing a stream in parts", () => {
     expect(firstDifference(text)).toBeNull();
   });
 
+  it.each([
+    ["a blank line", ["**Speed**", "", "$v = d / t$"]],
+    ["a maths fence", ["**Speed**", "```math", "v = d / t", "```"]],
+  ])("reads the whole reply again when a Given follows a bold label over %s", (_name, label) => {
+    const text = [
+      ...label,
+      "",
+      "```answer",
+      "v = 2",
+      "```",
+      "",
+      "A paragraph after the card.",
+      "",
+      "**Given**",
+      "$d = 10$",
+      "",
+      "Done.",
+      "",
+    ].join("\n");
+    expect(firstDifference(text)).toBeNull();
+  });
+
   it("preprocesses part (b) after its card as a worked reply's, cut or whole", () => {
     const reply = physics.replies.projectile_parts.reply;
     const whole = preprocessMarkdown(reply, formatAssistantMathExpr);

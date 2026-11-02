@@ -57,8 +57,9 @@ export type SegmentScanState = {
   regionLawHeading: boolean;
   /** The reply holds a Given or Required label as `isWorkedReply` reads it. */
   replyWorked: boolean;
-  /** A bold line over another line anywhere in the reply so far. */
-  replyLawHeading: boolean;
+  /** A bold label anywhere in the reply so far: a law-name heading once the reply is worked
+   * (one over a blank line or a maths fence too, which the passes may still join to it). */
+  replyBoldLabel: boolean;
   /** Inside a "You can check" section (until a heading). */
   inCheck: boolean;
   /** Since the open part began: a line whose code ticks do not pair on it. */
@@ -99,7 +100,7 @@ export function emptySegmentScan(): SegmentScanState {
     regionWorked: false,
     regionLawHeading: false,
     replyWorked: false,
-    replyLawHeading: false,
+    replyBoldLabel: false,
     inCheck: false,
     unpairedTicks: false,
     parenOpen: false,
@@ -203,10 +204,7 @@ function foldProseLine(state: SegmentScanState, line: string, hooks: SegmentHook
   if (!ticksPairOnLine(line)) state.unpairedTicks = true;
   state.parenOpen = pairLazily(line, state.parenOpen, "\\(", "\\)");
   state.bracketOpen = pairLazily(line, state.bracketOpen, "\\[", "\\]");
-  if (state.prevBoldLabel && !state.prevBlank) {
-    state.regionLawHeading = true;
-    state.replyLawHeading = true;
-  }
+  if (state.prevBoldLabel && !state.prevBlank) state.regionLawHeading = true;
   if (!WORKED_RE.test(line)) return;
   state.regionWorked = true;
   // The first one makes the whole reply worked: bold labels preprocessed as an
@@ -214,7 +212,7 @@ function foldProseLine(state: SegmentScanState, line: string, hooks: SegmentHook
   const first = !state.replyWorked && isWorkedReply(line);
   if (first) state.replyWorked = true;
   const from =
-    first && state.replyLawHeading ? 0 : state.regionLawHeading ? state.regionStart : null;
+    first && state.replyBoldLabel ? 0 : state.regionLawHeading ? state.regionStart : null;
   if (from !== null && state.segmentStart > from) state.segmentStart = hooks.rewind(from);
 }
 
@@ -234,6 +232,8 @@ function foldLine(state: SegmentScanState, line: string, next: number, hooks: Se
     !blank && !fenceLine && !state.fence && (LIST_ITEM_RE.test(line) || INDENTED_RE.test(line));
   if (!blank) {
     state.prevBoldLabel = !state.fence && !fenceLine && BOLD_LABEL_RE.test(line);
+    // Only labels before the first Given: a part after it is preprocessed as worked already.
+    if (state.prevBoldLabel && !state.replyWorked) state.replyBoldLabel = true;
     state.lastNonBlank = line;
   }
   state.prevBlank = blank;
