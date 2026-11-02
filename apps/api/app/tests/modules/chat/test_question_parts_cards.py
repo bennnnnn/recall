@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import stream_pipeline
 from app.modules.chat.stream_events import DoneEvent
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -69,7 +70,7 @@ async def _saved_and_done(ctx: Any, fake_redis: Any) -> tuple[str, dict[str, Any
 
     outcome = TurnOutcome()
     with (
-        patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", side_effect=capture),
+        patch.object(stream_pipeline, "finalize_stream_turn_db", side_effect=capture),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
     ):
         async for _token in stream_and_finalize(

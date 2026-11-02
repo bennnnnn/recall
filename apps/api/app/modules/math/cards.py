@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 
 from app.modules.math.fence import (
-    _canonical_answer_body,
-    _collect_canonical_specs,
-    _spec_fence_kind,
+    canonical_answer_body,
+    collect_canonical_specs,
+    spec_fence_kind,
 )
 from app.services.md_fence_scan import iter_fences
 from app.services.part_fences import RESULT_FENCE_LANGS
@@ -28,10 +28,10 @@ _FENCE_OF_KIND = {
 
 
 def solver_cards(verified: VerifiedMathBlock) -> tuple[str, ...]:
-    answer = _canonical_answer_body(verified)
+    answer = canonical_answer_body(verified)
     cards = [f"```answer\n{answer}\n```"] if answer else []
-    for spec in _collect_canonical_specs(verified):
-        language = _FENCE_OF_KIND.get(_spec_fence_kind(spec) or "")
+    for spec in collect_canonical_specs(verified):
+        language = _FENCE_OF_KIND.get(spec_fence_kind(spec) or "")
         if language is not None:
             cards.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
     # The solver's own reply writes its card its way: "\frac{dy}{dx} = -\frac{x}{y}".

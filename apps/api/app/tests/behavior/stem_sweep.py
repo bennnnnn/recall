@@ -55,6 +55,7 @@ from typing import Any
 import pint
 
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
+from app.services.answer_fence import answer_fence_value
 from app.services.workout import REQUIRED_HEADINGS, as_formula_heading
 from app.tests.behavior.harness import Case, Expect, Route, route_case, saved_reply
 from app.tests.behavior.latex_check import latex_problems
@@ -181,7 +182,10 @@ _NUMBER = re.compile(r"^\s*(-?\d+(?:\.\d+)?)(?:e(-?\d+))?\s*(.*)$")
 
 
 def answer_card(reply: str) -> str:
-    return next((text for lang, text in fences(reply) if lang == "answer"), "")
+    """The first card's value, without the header lines the server writes above it
+    (``verified: true`` on a saved reply's card)."""
+    card = next((text for lang, text in fences(reply) if lang == "answer"), "")
+    return answer_fence_value(card)
 
 
 def card_values(reply: str) -> list[tuple[float, str, str]]:
