@@ -14,7 +14,7 @@ overrides:
   js-yaml: 4.3.2
   postcss: 8.5.23
   '@xmldom/xmldom@0.9.10': 0.9.12
-  undici: 6.28.1
+  undici: 6.29.1
   nanoid@3: 3.3.18
   shell-quote: 1.11.0
   source-map-js: 1.2.2
@@ -22,12 +22,13 @@ overrides:
   handlebars: 4.7.10
   image-size: file:vendor/image-size
   browserslist: 4.28.7
-  decode-uri-component: 0.5.0
+  decode-uri-component: 0.5.1
+  node-forge: 1.4.2
 
 patchedDependencies:
-  decode-uri-component@0.5.0:
-    hash: gmx37hifmhjurluvdkzcfvlmxm
-    path: patches/decode-uri-component@0.5.0.patch
+  decode-uri-component@0.5.1:
+    hash: uxfmt64ljdid7fpvsoyxwtecwq
+    path: patches/decode-uri-component@0.5.1.patch
   react-native-vision-camera-mlkit@2.0.1:
     hash: qo6kmmcgj6sr36pfksmq4gzfcm
     path: patches/react-native-vision-camera-mlkit@2.0.1.patch
@@ -2778,8 +2779,8 @@ packages:
       supports-color:
         optional: true
 
-  decode-uri-component@0.5.0:
-    resolution: {integrity: sha512-1BiQVoK8C9gUbQU6NzAtO/tkz2qOFpEObMWpcFvhx4fYnj4Oc5yzaJN/LD36ihkVUdXyh5ZekzX+yM+ty/SrPg==}
+  decode-uri-component@0.5.1:
+    resolution: {integrity: sha512-vWHQkXgg2cE3BB4rR0c+PYw9BCQzLoNIRMI7AunIkZst74tw/vpPp7VLoYtsR/cy1f55g3XDWUslfeCZjiZJyA==}
     engines: {node: '>=14.16'}
 
   dedent@1.7.2:
@@ -4667,8 +4668,8 @@ packages:
       encoding:
         optional: true
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+  node-forge@1.4.2:
+    resolution: {integrity: sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==}
     engines: {node: '>= 6.13.0'}
 
   node-int64@0.4.0:
@@ -5744,8 +5745,8 @@ packages:
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
-  undici@6.28.1:
-    resolution: {integrity: sha512-zWpdTVD54H48CIybL0rWQ3ukpb9d23wM7eH5RtfdmeP70cWHNjtfo7P4vZX+5CoDcO53J4Pu5uXp7lNfjc6DRA==}
+  undici@6.29.1:
+    resolution: {integrity: sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA==}
     engines: {node: '>=18.17'}
 
   unicode-canonical-property-names-ecmascript@2.0.1:
@@ -6690,7 +6691,7 @@ snapshots:
       glob: 13.0.6
       lan-network: 0.2.1
       multitars: 1.0.2
-      node-forge: 1.4.0
+      node-forge: 1.4.2
       npm-package-arg: 11.0.3
       ora: 3.4.0
       picomatch: 4.0.4
@@ -6727,7 +6728,7 @@ snapshots:
 
   '@expo/code-signing-certificates@0.0.6':
     dependencies:
-      node-forge: 1.4.0
+      node-forge: 1.4.2
 
   '@expo/config-plugins@57.0.10(typescript@6.0.3)':
     dependencies:
@@ -7996,7 +7997,7 @@ snapshots:
     dependencies:
       progress: 2.0.3
       proxy-from-env: 1.1.0
-      undici: 6.28.1
+      undici: 6.29.1
       which: 2.0.2
     optionalDependencies:
       '@sentry/cli-darwin': 3.8.0
@@ -9072,7 +9073,7 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  decode-uri-component@0.5.0(patch_hash=gmx37hifmhjurluvdkzcfvlmxm): {}
+  decode-uri-component@0.5.1(patch_hash=uxfmt64ljdid7fpvsoyxwtecwq): {}
 
   dedent@1.7.2: {}
 
@@ -11589,7 +11590,7 @@ snapshots:
     dependencies:
       whatwg-url: 5.0.0
 
-  node-forge@1.4.0: {}
+  node-forge@1.4.2: {}
 
   node-int64@0.4.0: {}
 
@@ -11873,7 +11874,7 @@ snapshots:
 
   query-string@7.1.3:
     dependencies:
-      decode-uri-component: 0.5.0(patch_hash=gmx37hifmhjurluvdkzcfvlmxm)
+      decode-uri-component: 0.5.1(patch_hash=uxfmt64ljdid7fpvsoyxwtecwq)
       filter-obj: 1.1.0
       split-on-first: 1.1.0
       strict-uri-encode: 2.0.0
@@ -12760,7 +12761,7 @@ snapshots:
 
   undici-types@8.9.0: {}
 
-  undici@6.28.1: {}
+  undici@6.29.1: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 
