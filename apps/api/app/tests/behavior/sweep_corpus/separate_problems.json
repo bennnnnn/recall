@@ -1,0 +1,88 @@
+[
+ {
+  "id": "spp-001",
+  "area": "physics",
+  "prompt": "A car goes 100 m in 5 s; find its speed. A train goes 300 m in 10 s; find its speed.",
+  "expect": "answer",
+  "reply": "**(a)** $v = d/t = 100/5 = 20$ m/s\n\n**(b)** $v = d/t = 300/10 = 30$ m/s",
+  "note": "Two problems, each its own setup and question: each solved on its own (stem_corpus physics sp-01)."
+ },
+ {
+  "id": "spp-002",
+  "area": "physics",
+  "prompt": "A car travels 100 m in 5 s. Find its speed. A train travels 300 m in 10 s. Find its speed.",
+  "expect": "answer",
+  "reply": "**(a)** $v = 100/5 = 20$ m/s\n\n**(b)** $v = 300/10 = 30$ m/s"
+ },
+ {
+  "id": "spp-003",
+  "area": "physics",
+  "prompt": "A ball is dropped from 20 m. How long does it take to reach the ground? A stone is dropped from 45 m. How long does it take to reach the ground?",
+  "expect": "answer",
+  "reply": "**(a)** $t = \\sqrt{2h/g} = \\sqrt{40/9.81} \\approx 2.02$ s\n\n**(b)** $t = \\sqrt{90/9.81} \\approx 3.03$ s"
+ },
+ {
+  "id": "spp-004",
+  "area": "physics",
+  "prompt": "Car A covers 150 m in 10 s. What is its speed? Car B covers 400 m in 20 s. What is its speed?",
+  "expect": "answer",
+  "reply": "**(a)** $v = 150/10 = 15$ m/s\n\n**(b)** $v = 400/20 = 20$ m/s"
+ },
+ {
+  "id": "spp-look-001",
+  "area": "multi lookalike",
+  "prompt": "Which is faster, a car going 100 m in 5 s or a train going 300 m in 10 s?",
+  "expect": "answer",
+  "reply": "The car goes $100/5 = 20$ m/s and the train $300/10 = 30$ m/s, so the train is faster.",
+  "note": "One question about both bodies, or one problem told in steps: one request."
+ },
+ {
+  "id": "spp-look-002",
+  "area": "multi lookalike",
+  "prompt": "A car goes 100 m in 5 s. A train goes 300 m in 10 s. Which is faster?",
+  "expect": "answer",
+  "reply": "Car: $20$ m/s. Train: $30$ m/s. The train is faster."
+ },
+ {
+  "id": "spp-look-003",
+  "area": "multi lookalike",
+  "prompt": "A car goes 100 m in 5 s; find its speed. A train goes 300 m in 10 s. Which one is faster?",
+  "expect": "answer",
+  "reply": "The car's speed is $20$ m/s; the train's is $30$ m/s, so the train is faster."
+ },
+ {
+  "id": "spp-look-004",
+  "area": "multi lookalike",
+  "prompt": "A car goes 100 m in 5 s; find its speed. A train goes 300 m in 10 s; compare their speeds.",
+  "expect": "answer",
+  "reply": "The car moves at $20$ m/s and the train at $30$ m/s: the train is 1.5 times as fast."
+ },
+ {
+  "id": "spp-look-005",
+  "area": "multi lookalike",
+  "prompt": "A car accelerates from rest at 2 m/s² for 5 s. Find its speed. The driver then brakes at 4 m/s². How far does it travel while braking?",
+  "expect": "answer",
+  "reply": "After 5 s: $v = at = 10$ m/s. Braking: $d = v^2/(2a) = 100/8 = 12.5$ m."
+ },
+ {
+  "id": "spp-look-006",
+  "area": "multi lookalike",
+  "prompt": "A car goes 100 m in 5 s; find its speed. It then goes 300 m in 10 s; find its speed.",
+  "expect": "answer",
+  "reply": "First stretch: $20$ m/s. Second stretch: $30$ m/s."
+ },
+ {
+  "id": "spp-look-007",
+  "area": "multi lookalike",
+  "prompt": "Recommend a laptop under $1000. A friend has a $500 budget; what should she buy?",
+  "expect": "answer",
+  "reply": "Under \\$1000, a MacBook Air M2 or a ThinkPad E14. For \\$500, look at a Chromebook Plus or a refurbished ThinkPad T14."
+ },
+ {
+  "id": "spp-look-008",
+  "area": "multi lookalike",
+  "prompt": "A car goes 100 m in 5 s; find its speed. A train goes 300 m in 10 s.",
+  "expect": "answer",
+  "reply": "The car's speed is $100/5 = 20$ m/s. The train's is $300/10 = 30$ m/s."
+ }
+]

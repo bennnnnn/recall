@@ -45,6 +45,10 @@ class Clause:
     cut: Cut
     # What the clause is about (``topic_words``).
     topics: frozenset[str]
+    # The statements that set up a problem of the clause's own, stated before it ("A train
+    # goes 300 m in 10 s"), when the message holds several (``problems``). Its text is the
+    # question alone.
+    setup: str = ""
 
 
 @dataclass(frozen=True)
@@ -56,7 +60,7 @@ class RequestSplit:
 
 # Pasted articles and long briefs are one request with a lot of detail.
 _MAX_CHARS = 600
-_MAX_CLAUSES = 5
+MAX_CLAUSES = 5
 
 _WH = r"what|what's|whats|who|who's|whose|whom|when|where|where's|why|how|how's|which"
 _AUX = r"is|are|was|were|can|could|should|would|will|do|does|did|has|have|any"
@@ -68,6 +72,8 @@ _TASK_VERBS = (
     "build implement debug review proofread rewrite brainstorm quiz check add make help"
 ).split()
 _TASK = "|".join(_TASK_VERBS)
+# The task verbs as one alternation, for readers that find a request inside a statement.
+TASK_PATTERN = _TASK
 _OPENER = rf"(?:{_WH}|{_AUX}|{_TASK})\b"
 _LEAD_WORDS = (
     r"(?:and |but |oh )?also|btw|by the way|oh and|plus|separately|unrelated(?:ly)?|"
@@ -151,6 +157,7 @@ _STOP = frozenset(
     breakdown work works working time quick another one ones lot made mean means happen
     happens""".split()
 )
+STOP_WORDS = _STOP
 _TASK_WORD_SET = frozenset(_TASK_VERBS)
 _MAX_LEADS = 4
 
@@ -265,18 +272,24 @@ def _whole(text: str) -> RequestSplit:
     return RequestSplit("", (Clause(text, Cut.START, frozenset()),))
 
 
-def request_clauses(text: str) -> RequestSplit:
-    """The message's requests in order; a cut that fails the rules above is merged back."""
-    whole = collapse_ws(text)
-    if not whole or not _cuttable(text):
-        return _whole(whole)
+def candidate_segments(text: str) -> list[tuple[str, Cut]]:
+    """The message cut at every candidate boundary, each piece with the cut before it; none
+    when it is never cut (code, a quote to translate, a long paste)."""
+    if not collapse_ws(text) or not _cuttable(text):
+        return []
     segments: list[tuple[str, Cut]] = []
     for index, line in enumerate(_lines(text)):
         segments.extend(_segments(line, Cut.START if index == 0 else Cut.SENTENCE))
+    return segments
+
+
+def request_clauses(text: str) -> RequestSplit:
+    """The message's requests in order; a cut that fails the rules above is merged back."""
+    segments = candidate_segments(text)
     # "Why does it look like that? What are the scales made of": a follow-up to the
     # chat, all of it.
     if not segments or points_back(segments[0][0]):
-        return _whole(whole)
+        return _whole(collapse_ws(text))
     context: list[str] = []
     clauses: list[Clause] = []
     for raw, cut in segments:
@@ -291,6 +304,6 @@ def request_clauses(text: str) -> RequestSplit:
         else:
             last = clauses[-1]
             clauses[-1] = Clause(f"{last.text} {raw}", last.cut, last.topics | topics)
-    if not clauses or len(clauses) > _MAX_CLAUSES:
-        return _whole(whole)
+    if not clauses or len(clauses) > MAX_CLAUSES:
+        return _whole(collapse_ws(text))
     return RequestSplit(" ".join(context), tuple(clauses))

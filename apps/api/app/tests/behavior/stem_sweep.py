@@ -390,7 +390,8 @@ _SECTIONS: dict[str, tuple[tuple[str, ...], ...]] = {
         REQUIRED_HEADINGS,
         ("Formula", "Method"),
         ("Substitution", "Steps", "Working"),
-        ("Answer",),
+        # Separate problems in one message are answered in parts, as physics' are.
+        ("Answer", "Answer (a)"),
     ),
 }
 _CALCULATOR = re.compile(r"\d(?:\.\d+)?[eE][-+]?\d")

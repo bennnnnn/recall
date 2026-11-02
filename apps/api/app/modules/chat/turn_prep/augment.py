@@ -28,7 +28,7 @@ from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
 from app.modules.chat.worked_render import WorkedLayout
 from app.modules.chat.worked_turn import with_worked_contract, worked_layout
-from app.modules.turn_reading.plan import TurnPlan
+from app.modules.turn_reading.plan import TurnPlan, solved_parts
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
 )
@@ -102,7 +102,7 @@ async def gather_and_inject(
         settings,
         has_image_attachment=request.has_image_attachment,
         image_math_extract=request.image_math_extract,
-    )
+    ) or await _parts_subject(request, settings, plan)
     if instant_reply is None:
         start_model_read_shadow(request.content, settings, redis, subject=detected_subject)
     needs_math, needs_search, needs_chem = _turn_needs(
@@ -171,6 +171,22 @@ def _mixed_solve(plan: TurnPlan) -> str | None:
     """
     solves = plan.of_kind("solve")
     return solves[0].text if plan.multi and len(solves) == 1 else None
+
+
+async def _parts_subject(
+    request: TurnRequest, settings: Settings, plan: TurnPlan
+) -> SubjectName | None:
+    """The subject of a message of separate problems no subject reads whole ("A car goes
+    100 m in 5 s; find its speed. A train goes 300 m in 10 s; find its speed."): its first
+    part's (``solved_parts``), as the turn's reading takes it. Each part is still solved
+    with its own."""
+    for part in solved_parts(plan):
+        subject = await read_subject(
+            part.text, settings, has_image_attachment=request.has_image_attachment
+        )
+        if subject is not None:
+            return subject
+    return None
 
 
 def _solve_parts(plan: TurnPlan) -> tuple[str, ...]:

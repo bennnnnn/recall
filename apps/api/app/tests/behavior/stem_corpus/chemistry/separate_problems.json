@@ -1,0 +1,32 @@
+[
+ {
+  "id": "sp-chem-01",
+  "area": "molarity",
+  "prompt": "A solution has 2 mol of NaCl in 1 L. Find its molarity. A second solution has 0.5 mol of KCl in 500 mL. Find its molarity.",
+  "expect": "answer",
+  "answers": [
+   [
+    2.0,
+    "M"
+   ]
+  ],
+  "parts": [
+   [
+    2.0,
+    "M"
+   ],
+   [
+    1.0,
+    "M"
+   ]
+  ],
+  "note": "Two problems in one message, each solved on its own (stem_corpus physics separate_problems)."
+ },
+ {
+  "id": "sp-chem-02",
+  "area": "molarity",
+  "prompt": "10 g of NaOH is dissolved in water. Find the moles. A 2 L flask then holds the solution. Find the molarity.",
+  "expect": "explain",
+  "note": "One problem told in steps: the flask holds the first solution, so it is never a problem of its own (the moles are not given to it)."
+ }
+]
