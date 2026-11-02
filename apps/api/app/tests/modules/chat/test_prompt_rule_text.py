@@ -19,9 +19,9 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # PHYSICS_VELOCITY_NOTATION (initial and final velocity written v_i and v_f), then the
 # ```worked block's contract (prompt_constants.worked), then the calculation layout's rule
 # that multiplication is written \times, never a dot.
-_RULES = 0
-_RULE_GRAMS = 0
-_RULE_GRAMS_SHA = "0"
+_RULES = 164
+_RULE_GRAMS = 14342
+_RULE_GRAMS_SHA = "425d6ebc339702d3"
 
 
 def _rules() -> list[str]:
