@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
@@ -84,10 +85,14 @@ async def fetch_subject(
     on_status: StreamStatusFn | None = None,
     redis: Redis | None = None,
     subject_text: str | None = None,
+    parts: Sequence[str] = (),
+    parts_answer_all: bool = False,
 ) -> SubjectFetch:
     """The subject solver's block for this turn, WITHOUT mutating the prompt.
 
     ``subject_text``: the solve part of a message that asks for more (its plan).
+    ``parts``: the plan's solve parts when it holds several, each solved on its own;
+    ``parts_answer_all`` when they are the whole message (``build_subject_augmentation``).
     """
     math_user_content = math_followup_problem or subject_text or user_content
     subject_user_content = subject_text or user_content
@@ -127,6 +132,8 @@ async def fetch_subject(
         response_intent_text=user_content if math_followup_problem is not None else None,
         detected_subject=subject,
         redis=redis,
+        parts=() if math_followup_problem or physics_followup_problem else parts,
+        parts_answer_all=parts_answer_all,
     )
     return SubjectFetch(
         subject_block=subject_result.prompt_block,
