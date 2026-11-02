@@ -55,8 +55,9 @@ from typing import Any
 import pint
 
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
+from app.services.answer_fence import answer_fence_value
 from app.services.workout import REQUIRED_HEADINGS, SOLUTION, as_formula_heading
-from app.tests.behavior.harness import Case, Expect, Route, route_case
+from app.tests.behavior.harness import Case, Expect, Route, route_case, saved_reply
 from app.tests.behavior.latex_check import latex_problems
 from app.tests.behavior.stem_math_judge import judge_check
 
@@ -181,7 +182,10 @@ _NUMBER = re.compile(r"^\s*(-?\d+(?:\.\d+)?)(?:e(-?\d+))?\s*(.*)$")
 
 
 def answer_card(reply: str) -> str:
-    return next((text for lang, text in fences(reply) if lang == "answer"), "")
+    """The first card's value, without the header lines the server writes above it
+    (``verified: true`` on a saved reply's card)."""
+    card = next((text for lang, text in fences(reply) if lang == "answer"), "")
+    return answer_fence_value(card)
 
 
 def card_values(reply: str) -> list[tuple[float, str, str]]:
@@ -608,6 +612,10 @@ async def run_entry(entry: Entry, subject: str) -> Outcome:
         entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history, locale=entry.locale
     )
     route = await route_case(case)
+    if route.instant_text:
+        # The reply the student reads is the one that saves: the finalize passes held its
+        # cards to the verified result, and a question in parts lost every card there.
+        route.instant_text = await saved_reply(route)
     return judge(entry, subject, route)
 
 
