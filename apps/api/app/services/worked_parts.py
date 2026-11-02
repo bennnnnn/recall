@@ -22,6 +22,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.services.md_fence_scan import iter_fences
 from app.services.workout import ANSWER, GIVEN, REQUIRED, REQUIRED_HEADINGS, SOLUTION
 
 _HARD_BREAK = "  \n"
@@ -133,7 +134,6 @@ def render_parts(
     return f"{head}\n\n{body}" if head else body
 
 
-_FENCE_OPEN = re.compile(r"^```answer[ \t]*$", re.MULTILINE)
 _HEADING = re.compile(r"^\*\*(?P<title>[^*\n]+)\*\*(?:  )?$")
 
 
@@ -150,13 +150,11 @@ def read_worked_reply(reply: str) -> _Read | None:
     """A whole worked reply the server wrote, back in its sections; None for any other
     shape (a lead sentence, no Answer heading, no card), which is then shown as written."""
     head, found, tail = reply.strip().partition(f"\n\n**{ANSWER}**\n\n")
-    if not found or not _FENCE_OPEN.match(tail):
+    card = next(iter_fences(tail), None) if found else None
+    if card is None or card.start != 0 or card.lang != "answer" or not card.closed:
         return None
-    close = tail.find("\n```", len("```answer"))
-    if close < 0:
-        return None
-    answer = tail[len("```answer") : close].strip("\n")
-    after = tail[close + len("\n```") :].strip()
+    answer = tail[card.body_start : card.body_end].strip("\n")
+    after = tail[card.end :].strip()
     given: tuple[str, ...] = ()
     required: tuple[str, ...] = ()
     working: list[str] = []
