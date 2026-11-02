@@ -56,7 +56,7 @@ import pint
 
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
 from app.services.workout import REQUIRED_HEADINGS, as_formula_heading
-from app.tests.behavior.harness import Case, Expect, Route, route_case
+from app.tests.behavior.harness import Case, Expect, Route, route_case, saved_reply
 from app.tests.behavior.latex_check import latex_problems
 from app.tests.behavior.stem_math_judge import judge_check
 
@@ -598,6 +598,10 @@ async def run_entry(entry: Entry, subject: str) -> Outcome:
         entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history, locale=entry.locale
     )
     route = await route_case(case)
+    if route.instant_text:
+        # The reply the student reads is the one that saves: the finalize passes held its
+        # cards to the verified result, and a question in parts lost every card there.
+        route.instant_text = await saved_reply(route)
     return judge(entry, subject, route)
 
 
