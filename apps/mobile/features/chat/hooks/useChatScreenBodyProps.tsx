@@ -5,7 +5,6 @@ import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
 import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
-import type { LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
 import { WhileDrawerClosed } from "@/contexts/DrawerContext";
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
 import type {
@@ -118,7 +117,7 @@ type UseChatScreenBodyPropsParams = {
     cancelVoiceInput?: () => void;
     onLiveTalkPress?: () => void;
   };
-  liveTalkSession?: LiveTalkComposerChrome | null;
+  liveTalkActive?: boolean;
 };
 
 export function useChatScreenBodyProps({
@@ -196,7 +195,7 @@ export function useChatScreenBodyProps({
     cancelVoiceInput,
     onLiveTalkPress,
   },
-  liveTalkSession = null,
+  liveTalkActive = false,
 }: UseChatScreenBodyPropsParams): {
   bodyProps: ChatScreenBodyProps;
   openUpgradeSheet: (source?: UpgradeSource) => void;
@@ -252,23 +251,6 @@ export function useChatScreenBodyProps({
     void toggleVoiceInput();
   }, [toggleVoiceInput]);
   const onCloseUpgrade = useCallback(() => setUpgradeVisible(false), []);
-  const stableLiveTalkSession = useMemo(
-    () =>
-      liveTalkSession
-        ? {
-            muted: liveTalkSession.muted,
-            onClose: liveTalkSession.onClose,
-            onMutePress: liveTalkSession.onMutePress,
-            onYield: liveTalkSession.onYield,
-          }
-        : null,
-    [
-      liveTalkSession?.muted,
-      liveTalkSession?.onClose,
-      liveTalkSession?.onMutePress,
-      liveTalkSession?.onYield,
-    ],
-  );
 
   // Hidden while the drawer is open; it reads that itself, so this screen never re-renders for it.
   const listHeader = useMemo(
@@ -386,7 +368,7 @@ export function useChatScreenBodyProps({
       onVoicePress,
       onCancelVoice: cancelVoiceInput,
       onLiveTalkPress,
-      liveTalkSession: stableLiveTalkSession,
+      liveTalkActive,
     }),
     [
       composerAnimatedStyle,
@@ -411,7 +393,7 @@ export function useChatScreenBodyProps({
       onVoicePress,
       cancelVoiceInput,
       onLiveTalkPress,
-      stableLiveTalkSession,
+      liveTalkActive,
     ],
   );
 

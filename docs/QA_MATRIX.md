@@ -321,6 +321,7 @@ FEATURES calls device barge-in a release gate. Simulator Live Talk is half-duple
 |---|------|-----|---------|-------|
 | 21.1 | Start | ☐ | ☐ | Pro account: tap the waveform. Start chime, then the orb; say a sentence and Recall answers aloud. Close: both turns are in the chat as messages. |
 | 21.2 | Mute | ☐ | ☐ | Tap the mic: it turns red and Recall does not hear you; tap again and it does. |
+| 21.2a | Call screen | ☐ | ☐ | Type a few words, then start Live Talk: the composer is gone (no field, +, calculator or chips), and mute and ✕ sit centred where its row was. The orb is still while connecting and listening and swells softly only while Recall speaks; the eyes look ahead and blink now and then. Only ✕ ends the call; afterwards the composer is back with the words you typed. With Reduce Motion on, the orb never moves or blinks. |
 | 21.3 | Barge-in | ☐ | ☐ | Talk over Recall while it speaks: playback stops at once, the cut reply reads "Generation stopped.", and your new turn is answered. |
 | 21.4 | Airplane mode mid-session | ☐ | ☐ | Turn airplane mode on while Recall talks: an error shows and no audio keeps playing; close Live Talk. Back online: the turns so far are in the chat, and Settings → Account minutes dropped by at most the session's reservation (15 min; a session whose end never reached the server keeps it). |
 | 21.5 | Microphone denied | ☐ | ☐ | Turn Recall's microphone off in system Settings, start Live Talk: "Microphone access needed" with Open Settings (opens Recall's settings page), never "needs a dev build"; no minutes are used. |

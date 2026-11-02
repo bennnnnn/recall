@@ -23,7 +23,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
-import { LiveTalkComposerControls } from "@/features/speech/components/LiveTalkComposerControls";
 import { type MeterLevel, VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
 import {
   MathDraftPreview,
@@ -58,7 +57,6 @@ import {
   composerShowsMic,
   composerShowsSend,
 } from "@/features/chat/model/composerLogic";
-import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { Space } from "@/lib/space";
 import { useTheme, withAlpha } from "@/lib/theme";
@@ -78,15 +76,6 @@ function gapFadeColors(bg: string): [string, string] {
 // above and below + 6 pt shell air above and below.
 export const COMPOSER_HEIGHT = COMPOSER_CONTROL_SIZE * 2 + 22;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
-
-/** Mic mute and close beside the real composer while live talk is open. */
-export type LiveTalkComposerChrome = {
-  muted: boolean;
-  onClose: () => void;
-  onMutePress: () => void;
-  /** The user went back to the composer (focus, attach, send): live talk closes. */
-  onYield: () => void;
-};
 
 type Props = {
   visible: boolean;
@@ -111,7 +100,11 @@ type Props = {
   /** Drops the open mic take, including a transcription already in flight. */
   onCancelVoice?: () => void;
   onLiveTalkPress?: () => void;
-  liveTalkChrome?: LiveTalkComposerChrome | null;
+  /**
+   * A live talk call is up, from connecting to hang-up: the composer is not drawn (the
+   * call's own mute and end buttons take the row). The draft stays in its context.
+   */
+  liveTalkActive?: boolean;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
   /** Extra field height past one line, so the thread moves up with the pill. */
@@ -139,7 +132,7 @@ export const ChatComposer = memo(function ChatComposer({
   onVoicePress,
   onCancelVoice,
   onLiveTalkPress,
-  liveTalkChrome = null,
+  liveTalkActive = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
   onInputFrameExtraChange,
@@ -250,16 +243,14 @@ export const ChatComposer = memo(function ChatComposer({
     [math.mathBarOpen, onSend, toggleMathBar],
   );
 
-  if (!visible) return null;
+  if (!visible || liveTalkActive) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
   const attachmentDisabled = attachPicking || sendBusy || streaming;
-  const showLiveTalkSideChrome =
-    Boolean(liveTalkChrome) && liveTalkShowsSideChrome(input);
   const parkInput = showMathPreview;
   const showEmptyCaret = math.mathBarOpen && !showMathPreview && !input.trim();
   const showMic = composerShowsMic({
-    voiceAvailable: Boolean(voiceAvailable && onVoicePress && token && !liveTalkChrome),
+    voiceAvailable: Boolean(voiceAvailable && onVoicePress && token),
     voiceRecording,
     voiceTranscribing,
     hasSendableContent,
@@ -287,7 +278,6 @@ export const ChatComposer = memo(function ChatComposer({
           onCancelVoice?.();
           return;
         }
-        liveTalkChrome?.onYield();
         onPickAttachment();
       }}
     />
@@ -320,7 +310,6 @@ export const ChatComposer = memo(function ChatComposer({
         voiceTranscribing={voiceTranscribing}
         onVoicePress={onVoicePress}
         onLiveTalkPress={onLiveTalkPress}
-        liveTalkOpen={Boolean(liveTalkChrome)}
       />
     </View>
   );
@@ -355,17 +344,11 @@ export const ChatComposer = memo(function ChatComposer({
             />
           ) : null}
           <View style={[s.inputStack, composerExpanded && s.expandedFill]}>
-          <View
-            style={[
-              showLiveTalkSideChrome ? s.liveTalkRow : null,
-              composerExpanded && s.expandedFill,
-            ]}
-          >
+          <View style={composerExpanded && s.expandedFill}>
           <View
             testID="composer-surface"
             style={[
               s.inputWrap,
-              showLiveTalkSideChrome ? s.inputWrapFlex : null,
               composerExpanded && s.inputWrapExpanded,
             ]}
           >
@@ -473,7 +456,6 @@ export const ChatComposer = memo(function ChatComposer({
                     showSoftInputOnFocus={!math.resumeMathOnFocus}
                     onFocus={() => {
                       onCloseAttachSheet();
-                      liveTalkChrome?.onYield();
                       math.onComposerFocus();
                     }}
                     multiline
@@ -503,13 +485,6 @@ export const ChatComposer = memo(function ChatComposer({
               </Text>
             ) : null}
           </View>
-          {liveTalkChrome && showLiveTalkSideChrome ? (
-            <LiveTalkComposerControls
-              muted={liveTalkChrome.muted}
-              onMutePress={liveTalkChrome.onMutePress}
-              onClose={liveTalkChrome.onClose}
-            />
-          ) : null}
           </View>
           {mathBarOpen && !composerExpanded ? (
             <LinearGradient

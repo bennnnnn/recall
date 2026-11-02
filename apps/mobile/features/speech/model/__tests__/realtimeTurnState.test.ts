@@ -167,3 +167,33 @@ describe("reduceRealtimeTurn: a failed connection", () => {
     expect(commands).toContainEqual({ type: "emit", event: { type: "error", message: "rate limited" } });
   });
 });
+
+describe("reduceRealtimeTurn: the reply's audio playing", () => {
+  const playing = { type: "emit", event: { type: "output_audio", playing: true } };
+  const stopped = { type: "emit", event: { type: "output_audio", playing: false } };
+  const started = server({ type: "output_audio_buffer.started", response_id: "a1" });
+
+  it.each([true, false])("reports playback start and stop once each (barge-in: %s)", (bargeIn) => {
+    const { commands } = run(
+      replying(bargeIn),
+      started,
+      started,
+      server({ type: "output_audio_buffer.stopped", response_id: "a1" }),
+      server({ type: "output_audio_buffer.stopped", response_id: "a1" }),
+    );
+    const audio = commands.filter((c) => c.type === "emit" && c.event.type === "output_audio");
+    expect(audio).toEqual([playing, stopped]);
+  });
+
+  it.each<[string, RealtimeTurnEvent]>([
+    ["the user talks over it", server({ type: "input_audio_buffer.speech_started", item_id: "u2" })],
+    ["the reply is cancelled", { type: "cancel_response" }],
+    ["the buffer is cleared", server({ type: "output_audio_buffer.cleared", response_id: "a1" })],
+    ["no stop event comes", { type: "playback_fallback" }],
+    ["the server errors", server({ type: "error", error: { message: "boom" } })],
+  ])("stops when %s", (_label, event) => {
+    const { state, commands } = run(run(replying(true), started).state, event);
+    expect(commands).toContainEqual(stopped);
+    expect(state.audioPlaying).toBe(false);
+  });
+});

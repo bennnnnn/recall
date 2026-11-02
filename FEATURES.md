@@ -238,9 +238,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   minutes left. Tap the mic (next to close) to mute so Recall
   cannot hear you; it turns red. Playback is not paused. No Listening/Speaking
   labels on screen; screen readers hear each phase (listening, thinking, speaking) as
-  it changes. A denied microphone asks for access with Open Settings. The normal composer stays so you can type and attach in voice mode.
-  Typing a draft hides mute and close so the field uses the full row; they
-  return when the draft is empty. Spoken turns are saved as normal chat
+  it changes. A denied microphone asks for access with Open Settings. During a call (connecting
+  to hang-up) the composer is not drawn: mute and end (✕) sit centred where its row was, only ✕
+  ends the call, and the composer comes back with any unsent draft. The orb is a still face (no
+  ring or halo): it swells gently (1.00 to 1.05) only while Recall's voice is playing (the WebRTC
+  output-buffer start and stop events), and its eyes look ahead and blink every 3 to 6 s. With
+  reduce motion on, nothing moves and the eyes do not blink. Spoken turns are saved as normal chat
   messages (what you said + the reply) so they are in the thread when you
   close. Spoken sessions get the same stored-memory snapshot as text chat
   plus bounded read-only memory lookup and web search.

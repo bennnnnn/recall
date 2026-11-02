@@ -25,6 +25,8 @@ export type RealtimeVoiceEvent =
   | { type: "response_done" }
   | { type: "response_interrupted" }
   | { type: "search_sources"; sources: SearchSource[] }
+  /** The reply's audio started or stopped playing on the phone (WebRTC output buffer events). */
+  | { type: "output_audio"; playing: boolean }
   /** ``fatal``: the connection itself is gone (peer or channel failed); the session must close. */
   | { type: "error"; message: string; fatal?: boolean };
 
@@ -63,6 +65,8 @@ export type RealtimeTurnState = {
   userMuted: boolean;
   sessionReadyForTurns: boolean;
   assistantSpeaking: boolean;
+  /** Audio is playing out of the speaker; `output_audio` reports each change once. */
+  audioPlaying: boolean;
   userSpeaking: boolean;
   suppressCurrentInputTurn: boolean;
   acceptedUserUtterance: boolean;
@@ -91,6 +95,7 @@ export function initialRealtimeTurnState(bargeIn: boolean): RealtimeTurnState {
     userMuted: false,
     sessionReadyForTurns: false,
     assistantSpeaking: false,
+    audioPlaying: false,
     userSpeaking: false,
     suppressCurrentInputTurn: false,
     acceptedUserUtterance: false,
@@ -140,6 +145,12 @@ const startTimer = (out: Out, timer: RealtimeTimer, ms: number, then: RealtimeTu
 };
 const clearMicResume = (out: Out) => { out.push({ type: "clear_timer", timer: "mic_resume" }); };
 
+function setAudioPlaying(s: RealtimeTurnState, out: Out, playing: boolean): void {
+  if (s.audioPlaying === playing) return;
+  s.audioPlaying = playing;
+  emit(out, { type: "output_audio", playing });
+}
+
 function syncMic(s: RealtimeTurnState, out: Out): void {
   const enabled = liveTalkLocalMicEnabled(s.userMuted, s.assistantSpeaking, s.bargeIn);
   out.push({ type: "set_mic", enabled });
@@ -167,6 +178,7 @@ function onSpeechStarted(s: RealtimeTurnState, out: Out, event: Record<string, u
   if (s.bargeIn && s.assistantSpeaking) {
     // Server WebRTC VAD cancels and truncates unplayed audio automatically.
     emit(out, { type: "response_interrupted" });
+    setAudioPlaying(s, out, false);
     s.assistantSpeaking = false;
     s.assistantTranscript = "";
     s.activeResponseId = null;
@@ -237,6 +249,7 @@ function onInputTranscript(s: RealtimeTurnState, out: Out, event: Record<string,
 }
 
 function onOutputAudioStopped(s: RealtimeTurnState, out: Out): void {
+  setAudioPlaying(s, out, false);
   s.sawOutputAudioStopped = true;
   if (s.bargeIn) {
     s.assistantSpeaking = false;
@@ -281,6 +294,7 @@ function onResponseDone(s: RealtimeTurnState, out: Out, event: Record<string, un
 function onServerError(s: RealtimeTurnState, out: Out, event: Record<string, unknown>): void {
   clearMicResume(out);
   s.assistantSpeaking = false;
+  setAudioPlaying(s, out, false);
   s.suppressCurrentInputTurn = false;
   s.acceptedUserUtterance = false;
   syncMic(s, out);
@@ -333,9 +347,13 @@ function onServerEvent(s: RealtimeTurnState, out: Out, event: Record<string, unk
       emit(out, { type: "assistant_transcript", text: s.lastAssistantText, final: true });
       return;
     }
+    case "output_audio_buffer.started":
+      return setAudioPlaying(s, out, true);
     case "output_audio_buffer.stopped":
     case "output_audio_buffer.audio_stopped":
       return onOutputAudioStopped(s, out);
+    case "output_audio_buffer.cleared":
+      return setAudioPlaying(s, out, false);
     case "response.done":
       return onResponseDone(s, out, event);
     case "error":
@@ -368,6 +386,7 @@ function onCancelResponse(s: RealtimeTurnState, out: Out): void {
   send(out, { type: "response.cancel" });
   if (s.bargeIn) send(out, { type: "output_audio_buffer.clear" });
   if (s.assistantSpeaking) emit(out, { type: "response_interrupted" });
+  setAudioPlaying(s, out, false);
   s.activeResponseId = null;
   s.assistantSpeaking = false;
   clearMicResume(out);
@@ -403,12 +422,15 @@ export function reduceRealtimeTurn(state: RealtimeTurnState, event: RealtimeTurn
       s.sessionReadyForTurns = true;
       log(out, "session-ready-for-turns", event.reason);
       break;
+    // Both end playback when no stop event came: the orb must not keep moving.
     case "resume_mic":
       s.assistantSpeaking = false;
+      setAudioPlaying(s, out, false);
       syncMic(s, out);
       break;
     case "playback_fallback":
       s.assistantSpeaking = false;
+      setAudioPlaying(s, out, false);
       if (!s.closed) emit(out, { type: "response_done" });
       break;
     case "tool_output":

@@ -48,11 +48,6 @@ export function makeChatComposerStyles(theme: Theme) {
     composerAnchor: { position: "relative", overflow: "visible", zIndex: 1 },
     composer: { paddingVertical: COMPOSER_VERTICAL_PADDING, overflow: "visible" },
     inputStack: { position: "relative", overflow: "visible" },
-    liveTalkRow: {
-      flexDirection: "row",
-      alignItems: "flex-end",
-      gap: Space.xs,
-    },
     inputWrap: {
       // Attachments, the field and the button row share one card, edged like the answer box.
       backgroundColor: theme.composerBg,
@@ -63,7 +58,6 @@ export function makeChatComposerStyles(theme: Theme) {
       borderWidth: 1,
       borderColor: theme.borderStrong,
     },
-    inputWrapFlex: { flex: 1, minWidth: 0 },
     inputWrapExpanded: { flex: 1, minHeight: 0 },
     sendStatus: {
       marginTop: Space.xxs,

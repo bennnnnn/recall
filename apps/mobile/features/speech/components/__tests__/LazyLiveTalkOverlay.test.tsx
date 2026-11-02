@@ -10,20 +10,22 @@ jest.mock("@/features/speech/components/LiveTalkOverlay", () => {
   const { Text } = jest.requireActual<typeof import("react-native")>("react-native");
   mockModuleLoads.push("overlay");
   return {
-    LiveTalkOverlay: ({ visible, phase }: { visible: boolean; phase: string }) => {
+    LiveTalkOverlay: ({ visible, call }: { visible: boolean; call: { phase: string } }) => {
       mockVisibleSeen.push(visible);
-      return createElement(Text, { testID: "live-talk-overlay" }, `${visible ? "open" : "closed"} ${phase}`);
+      return createElement(Text, { testID: "live-talk-overlay" }, `${visible ? "open" : "closed"} ${call.phase}`);
     },
   };
 });
 
-const props = {
+const call = {
   phase: "recording" as const,
-  recording: true,
-  headerInset: 0,
-  composerClearance: 0,
-  onToggle: jest.fn(),
+  voicePlaying: false,
+  muted: false,
+  toggle: jest.fn(),
+  toggleMute: jest.fn(),
+  close: jest.fn(),
 };
+const props = { call, headerInset: 0, bottomInset: 0 };
 
 describe("LazyLiveTalkOverlay", () => {
   it("loads the overlay when Live Talk first opens and keeps it for its exit", async () => {
@@ -37,7 +39,7 @@ describe("LazyLiveTalkOverlay", () => {
     expect(mockVisibleSeen[0]).toBe(false);
     expect(mockVisibleSeen.at(-1)).toBe(true);
 
-    await view.rerender(<LazyLiveTalkOverlay visible={false} {...props} phase="idle" />);
+    await view.rerender(<LazyLiveTalkOverlay visible={false} {...props} call={{ ...call, phase: "idle" }} />);
     expect(screen.getByTestId("live-talk-overlay")).toHaveTextContent("closed idle");
     expect(mockModuleLoads).toEqual(["overlay"]);
   });

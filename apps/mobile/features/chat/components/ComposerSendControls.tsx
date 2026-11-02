@@ -24,7 +24,6 @@ type Props = {
   voiceTranscribing: boolean;
   onVoicePress?: () => void;
   onLiveTalkPress?: () => void;
-  liveTalkOpen: boolean;
 };
 
 /** Stop while a reply streams; otherwise mic, live talk or send, whichever the draft calls for. */
@@ -42,7 +41,6 @@ export function ComposerSendControls({
   voiceTranscribing,
   onVoicePress,
   onLiveTalkPress,
-  liveTalkOpen,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -74,7 +72,7 @@ export function ComposerSendControls({
           onPress={onVoicePress}
         />
       ) : null}
-      {onLiveTalkPress && !liveTalkOpen && !voiceActive && !showSend && !sendBusy ? (
+      {onLiveTalkPress && !voiceActive && !showSend && !sendBusy ? (
         <LiveTalkButton size={COMPOSER_CONTROL_SIZE} disabled={attachBusy || isOffline} onPress={onLiveTalkPress} />
       ) : null}
       {showSend || sendBusy ? (

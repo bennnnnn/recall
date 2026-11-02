@@ -151,11 +151,10 @@ const mockLiveTalk = {
   close: mockNoop,
   toggle: mockAsyncNoop,
   toggleMute: mockNoop,
-  yieldToComposer: mockNoop,
   visible: false,
   muted: false,
   phase: "idle",
-  recording: false,
+  voicePlaying: false,
 };
 const mockErrorHandlers = {
   chatError: null,
