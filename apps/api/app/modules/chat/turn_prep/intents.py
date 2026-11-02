@@ -16,7 +16,8 @@ is not this module's job: the prompt renders the plan (``prompt_constants.multi_
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 
 from app.core.readings import reading
@@ -25,13 +26,21 @@ from app.modules.chat.turn_prep.clauses import (
     Clause,
     Cut,
     leans_on_definite,
+    points_back,
     request_body,
     request_clauses,
     without_connector,
 )
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import extract_image_lookup_query
-from app.modules.turn_reading.plan import PartKind, TurnPart, TurnPlan, single_plan
+from app.modules.turn_reading.plan import (
+    HANDLED_KINDS,
+    PartKind,
+    TurnPart,
+    TurnPlan,
+    single_plan,
+)
+from app.modules.web_search import asks_about_a_place, is_distance_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subjects.dispatch import detect_subject
 
@@ -120,19 +129,115 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
     split = request_clauses(text)
     if len(split.clauses) < 2:
         return single_plan(text)
+    problem = _Problem.of(split.context, split.clauses, chemistry_enabled=chemistry_enabled)
     merged: list[tuple[Clause, PartKind]] = []
     for clause in split.clauses:
-        kind = part_kind(clause.text, chemistry_enabled=chemistry_enabled)
-        if not merged or _keeps_cut(clause, kind, *merged[-1], chemistry_enabled=chemistry_enabled):
+        kind = problem.kind(clause)
+        if (
+            not merged
+            or problem.separate_questions(merged[-1][0], clause)
+            or _keeps_cut(clause, kind, *merged[-1], chemistry_enabled=chemistry_enabled)
+        ):
             merged.append((clause, kind))
             continue
         last, _ = merged.pop()
         joined = Clause(f"{last.text} {clause.text}", last.cut, last.topics | clause.topics)
-        merged.append((joined, part_kind(joined.text, chemistry_enabled=chemistry_enabled)))
+        merged.append((joined, problem.kind(joined)))
     if len(merged) < 2:
         return single_plan(text)
-    parts = tuple(TurnPart(_quoted(clause.text), kind) for clause, kind in merged)
-    return TurnPlan(parts, context=split.context)
+    parts = tuple(problem.part(clause, kind) for clause, kind in merged)
+    # The setup opens each question it belongs to: no part reads it twice.
+    # The setup opens each question it belongs to; a part it does not open keeps it as the
+    # plan's context.
+    every = problem.setup is not None and all(problem.carries(clause) for clause, _ in merged)
+    return TurnPlan(parts, context="" if every else split.context)
+
+
+@dataclass(frozen=True)
+class _Problem:
+    """The problem the statements before the first question set up, and its subject.
+
+    "A ball is dropped from 20 m. What is its speed after 1 s? How long does it take to
+    reach the ground?" states its givens once and asks two questions. Cut apart, the
+    second lost the ball, read as a trip from the user, and searched. Each question about
+    the problem carries the setup and is read with it (``carries``), so it stays that
+    subject's homework; "I'm a backend dev" sets up no problem.
+    """
+
+    setup: str | None
+    subject: str | None
+    chemistry_enabled: bool
+
+    @classmethod
+    def of(cls, context: str, clauses: Sequence[Clause], *, chemistry_enabled: bool) -> _Problem:
+        """A setup by its own reading: its own subject, and givens (a quantity, or an object
+        a question points back to). A later question never lends it a subject: "I'm a
+        backend dev. … What is 12 squared?" and "We're in Paris. How far is 300 m in feet?"
+        set up nothing."""
+        subject = detect_subject(context, chemistry_enabled=chemistry_enabled) if context else None
+        givens = any(ch.isdigit() for ch in context) or any(
+            points_back(clause.text) for clause in clauses
+        )
+        if subject is None or not givens:
+            return cls(None, None, chemistry_enabled)
+        setup = context if context.endswith((".", "!", "?", ":")) else f"{context}."
+        return cls(setup, subject, chemistry_enabled)
+
+    def carries(self, clause: Clause) -> bool:
+        """Whether a question is about the problem: the subject claims it with the setup
+        before it, and nothing of its own words sends it elsewhere. They do when it follows
+        a strong cut ("Also, …"), another path owns it (a setting, a picture, a photo, a
+        reminder), it asks about a place or the weather, it is live by a cue of its own
+        (news, prices, scores; "how long does it take to reach the ground" is no trip
+        without the setup), or another subject claims it."""
+        if self.setup is None or clause.cut == Cut.STRONG:
+            return False
+        body = request_body(clause.text)
+        alone = part_kind(body, chemistry_enabled=self.chemistry_enabled)
+        if alone in HANDLED_KINDS or alone == "reminder":
+            return False
+        own = detect_subject(body, chemistry_enabled=self.chemistry_enabled)
+        if own is not None:
+            return own == self.subject
+        if asks_about_a_place(body) or (needs_web_search(body) and not is_distance_query(body)):
+            return False
+        joined = detect_subject(f"{self.setup} {body}", chemistry_enabled=self.chemistry_enabled)
+        return joined == self.subject
+
+    def separate_questions(self, last: Clause, clause: Clause) -> bool:
+        """Two questions about the problem, each its own sentence: each is solved with the
+        setup before it ("How high does it go? How long does it take to reach the top?").
+        "Give your answer as a fraction" shapes the answer; it asks nothing."""
+        return (
+            clause.cut >= Cut.SENTENCE
+            and _asks(last)
+            and _asks(clause)
+            and self.carries(last)
+            and self.carries(clause)
+        )
+
+    def kind(self, clause: Clause) -> PartKind:
+        """The clause's kind: read with the setup when its own words read as live, a lookup
+        it only seemed to be without its givens, and it is about the problem."""
+        alone = part_kind(clause.text, chemistry_enabled=self.chemistry_enabled)
+        if alone == "live" and self.carries(clause):
+            return part_kind(
+                f"{self.setup} {clause.text}", chemistry_enabled=self.chemistry_enabled
+            )
+        return alone
+
+    def part(self, clause: Clause, kind: PartKind) -> TurnPart:
+        """The request as its readers take it: a question about the problem with the setup
+        before it, and read with it."""
+        text = _quoted(clause.text)
+        if not self.carries(clause):
+            return TurnPart(text, kind)
+        joined = f"{self.setup} {text}"
+        return TurnPart(joined, part_kind(joined, chemistry_enabled=self.chemistry_enabled))
+
+
+def _asks(clause: Clause) -> bool:
+    return clause.text.rstrip().endswith("?")
 
 
 def cuts_after_picture(text: str, is_picture: Callable[[str], bool]) -> bool:

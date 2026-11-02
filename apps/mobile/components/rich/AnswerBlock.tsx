@@ -51,13 +51,60 @@ function answerNeedsDisplayMath(text: string): boolean {
   );
 }
 
+type Styles = ReturnType<typeof makeStyles>;
+
+/**
+ * The card's heading ("Answer", "Answer (a)") and its box. A value no solver checked
+ * (`verified: false`) says "Not checked" beside the heading, in a dashed box.
+ */
+function AnswerFrame({
+  parsed,
+  spoken,
+  styles: s,
+  children,
+}: {
+  parsed: ReturnType<typeof splitAnswerNotation>;
+  spoken: string;
+  styles: Styles;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const unchecked = parsed.unchecked ? t("rich.answer_not_checked") : null;
+  return (
+    <View
+      style={s.section}
+      accessibilityRole="text"
+      accessibilityLabel={
+        t("rich.answer_a11y", { text: spoken }) + (unchecked ? `. ${unchecked}` : "")
+      }
+    >
+      <View style={s.heading}>
+        <Text testID="answer-label" style={s.label}>
+          {parsed.part
+            ? t("rich.answer_part_label", { part: parsed.part })
+            : t("rich.answer_label")}
+        </Text>
+        {unchecked ? (
+          <Text testID="answer-not-checked" style={s.notChecked}>
+            {unchecked}
+          </Text>
+        ) : null}
+      </View>
+      <View testID="answer-box" style={[s.box, unchecked ? s.uncheckedBox : null]}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
 /**
  * The final answer, drawn like the worked layout's Answer section: the
  * "Answer" heading ("Answer (a)" for one part), and the value alone in a white,
  * bordered box.
  * Every ```answer fence lands here; the green check after the value is the
  * server's (a body that opens with `verified: true`, see lib/answerNotation.ts)
- * and needs the reply to have settled.
+ * and needs the reply to have settled. A value no solver checked (`verified: false`)
+ * says so beside the heading, "Not checked", in a box with a dashed border.
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
  * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in a slot that
@@ -66,7 +113,6 @@ function answerNeedsDisplayMath(text: string): boolean {
  */
 export function AnswerBlock({ content, settled = true }: Props) {
   const theme = useTheme();
-  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
   const check =
@@ -80,20 +126,9 @@ export function AnswerBlock({ content, settled = true }: Props) {
       />
     ) : null;
   const frame = (spoken: string, value: ReactNode) => (
-    <View
-      style={s.section}
-      accessibilityRole="text"
-      accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
-    >
-      <Text testID="answer-label" style={s.label}>
-        {parsed.part
-          ? t("rich.answer_part_label", { part: parsed.part })
-          : t("rich.answer_label")}
-      </Text>
-      <View testID="answer-box" style={s.box}>
-        {value}
-      </View>
-    </View>
+    <AnswerFrame parsed={parsed} spoken={spoken} styles={s}>
+      {value}
+    </AnswerFrame>
   );
   if (parsed.notation === "chemistry" && parsed.body) {
     return frame(
@@ -231,10 +266,23 @@ const makeStyles = (t: Theme) =>
       gap: Space.xs,
       marginBottom: PARAGRAPH_GAP,
     },
+    heading: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: Space.sm,
+    },
     label: {
       ...Type.body,
       ...Weight.semibold,
       color: t.assistantText,
+    },
+    // A value no solver checked: a quiet note beside the heading, never a warning.
+    notChecked: {
+      ...Type.caption,
+      color: t.textSecondary,
+    },
+    uncheckedBox: {
+      borderStyle: "dashed",
     },
     // The same bordered box as a written-out answer (workout-answer): the page's own
     // background inside a thin border. The answer sits centred; no side rule.

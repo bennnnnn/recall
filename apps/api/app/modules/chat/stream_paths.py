@@ -27,7 +27,6 @@ from app.modules.chat.control_tokens import until_control_run
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_health import ReplyHealth, probe_gate
-from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, thinking_status
 from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop import live_denial, reply_calls
@@ -39,6 +38,8 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_prep.reading import plan_of
+from app.modules.chat.worked_stream import ReplyFilter
+from app.modules.chat.worked_turn import without_worked_contract
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 
 logger = logging.getLogger(__name__)
@@ -173,6 +174,9 @@ def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:
         ctx.verified_subject = with_tool_verified(
             ctx.verified_subject, tool_verified, question, locale
         )
+        if ctx.worked is not None and ctx.verified_subject is not None:
+            # A tool checked the answer: the reply copies it, as any verified reply does.
+            ctx.prompt_messages, ctx.worked = without_worked_contract(ctx.prompt_messages), None
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
@@ -274,7 +278,7 @@ async def run_llm_token_stream(
     requested_model = ctx.model
     health = ReplyHealth()
     may_try = probe_gate(redis, settings, ctx.probe_models)
-    scaffold = ScaffoldFilter()
+    scaffold = ReplyFilter(accum, ctx.worked)
     if on_status is not None:
         # The model is writing now: a tool or search label must not linger.
         await on_status("composing")
@@ -308,7 +312,7 @@ async def run_llm_token_stream(
             if retry_tools and live_denial.asks_again(ctx, reply_round.calls, accum, written):
                 accum.retract(written, shown_from)
                 # A held "!" or "[" was the denial's, never drawn: the new round starts clean.
-                scaffold = ScaffoldFilter()
+                scaffold = ReplyFilter(accum, ctx.worked)
                 reply_round, retry_tools = _ReplyRound(tools=retry_tools, lead="\n\n"), []
                 continue
             # Only a call that carried tools leads to another: one search a turn.
@@ -370,7 +374,7 @@ async def _stream_round(
     usage: dict[str, int],
     should_cancel: Callable[[], bool] | None,
     accum: StreamAccum,
-    scaffold: ScaffoldFilter,
+    scaffold: ReplyFilter,
 ) -> AsyncGenerator[str]:
     """One model call's tokens, added to the reply; its tool calls land on the round."""
     llm_stream = deps.llm.stream_chat_completion(

@@ -16,11 +16,11 @@ card. Model text never keeps it:
 3. ``modules/chat/verification_claims`` drops the model's own "✅ Verified with SymPy",
    and ``strip_model_simulation_fences`` its own ```simulation scene.
 
-The server writes the line with ``verified_answer_fence`` (post-stream cards)
-and ``mark_server_answer_fences`` (an instant reply, once, when it is sent).
-``land_answer_card`` puts a reply's final answer in one card under one
-**Answer** heading: the verified card, or the model's own final line in a card
-with no marker. The fence scan is a linear line scan, no nested regex on untrusted text.
+The server writes the line with ``verified_answer_fence`` (post-stream cards) and
+``mark_server_answer_fences`` (an instant reply, once, when it is sent). ``land_answer_card``
+puts a reply's final answer in one card under one **Answer** heading: the verified card, or
+the model's own final line in a card marked ``verified: false`` ("not checked" on the
+phone). The fence scan is a linear line scan, no nested regex on untrusted text.
 """
 
 from __future__ import annotations
@@ -35,10 +35,12 @@ from app.services.md_fence_scan import fence_lang as fence_lang
 from app.services.md_fence_scan import map_closed_fences, read_fence_marker
 
 VERIFIED_ANSWER_MARKER = "verified: true"
+UNCHECKED_ANSWER_MARKER = "verified: false"  # a card no solver checked ("not checked")
+_CHECK_LINES = frozenset({VERIFIED_ANSWER_MARKER, UNCHECKED_ANSWER_MARKER})
 CHEMISTRY_NOTATION_LINE = "notation: chemistry"
 # Header lines a client reads off the top of an answer body. Older phone builds
 # also wrote ``label: answer`` when they moved an **Answer** heading inside.
-ANSWER_HEADER_LINES = frozenset({VERIFIED_ANSWER_MARKER, CHEMISTRY_NOTATION_LINE, "label: answer"})
+ANSWER_HEADER_LINES = _CHECK_LINES | {CHEMISTRY_NOTATION_LINE, "label: answer"}
 ANSWER_FENCE_LANGS = ("answer", "result", "final")
 # Server-owned fences a model must not ship in any spelling.
 OWNED_FENCE_LANGS = (*ANSWER_FENCE_LANGS, "simulation")
@@ -67,7 +69,7 @@ def answer_fence_value(body: str) -> str:
 def verified_answer_body(body: str) -> str:
     """``body`` marked verified, holding its final answer alone (idempotent)."""
     headers, value = answer_header_and_value(body)
-    rest = [line for line in headers if line != VERIFIED_ANSWER_MARKER]
+    rest = [line for line in headers if line not in _CHECK_LINES]
     return "\n".join([VERIFIED_ANSWER_MARKER, *rest, final_answer_only(value)]).strip()
 
 
@@ -414,17 +416,14 @@ def _card_start(values: list[tuple[int, str]]) -> int:
 def land_answer_card(text: str, verified_body: str | None, *, above: str | None = None) -> str:
     """Put the reply's final answer in one card under one **Answer** heading.
 
-    The reply's last Answer section (``**Answer**``, ``**Answer:** $x = 3$``,
-    ``## Answer``, ``Answer:``) outside code fences becomes ``**Answer**`` and a
-    card: the server's verified card when ``verified_body`` is given, otherwise
-    the section's last line of maths (with the plain values just before it, so
-    both roots stay) in a card with no marker. Earlier lines under the heading are
-    working: they stay as prose above it; a sentence after the answer stays below.
-    ``above`` (written working, a correction line) goes directly above the heading.
-
-    With no Answer section, a verified card is added at the end unless the reply
-    already has one; an unverified reply, or one whose answer is not maths, is left
-    as written.
+    The reply's last Answer section (``**Answer**``, ``**Answer:** $x = 3$``, ``## Answer``,
+    ``Answer:``) outside code fences becomes ``**Answer**`` and a card: the server's verified
+    card when ``verified_body`` is given, otherwise the section's last line of maths (with the
+    plain values just before it, so both roots stay) in a card marked ``verified: false``.
+    Earlier lines under the heading are working: they stay as prose above it; a sentence after
+    the answer stays below. ``above`` (written working, a correction line) goes directly above
+    the heading. With no Answer section, a verified card is added at the end unless the reply
+    already has one; an unverified reply, or one whose answer is not maths, is left as written.
     """
     lines = text.split("\n")
     fences, inside = _scan(lines)
@@ -459,7 +458,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         # A card draws maths; "Paris" under a quiz's Answer, or a paragraph, stays prose.
         if ("$" not in value and "=" not in _relations(value)) or _wordy(value):
             return text
-        card = f"```answer\n{value}\n```"
+        card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{value}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []
     while steps and not steps[-1].strip():
         steps.pop()

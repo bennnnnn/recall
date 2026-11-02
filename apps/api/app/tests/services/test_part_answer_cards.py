@@ -36,12 +36,18 @@ $45000 \\cdot 5 = 225000$"""
 def test_each_part_gets_its_own_card() -> None:
     landed = land_part_answer_cards(_CRANE)
     assert landed is not None
-    assert "**Answer (a)**\n\n```answer\n$E_p = 225000\\ \\text{J}$\n```\n\n---" in landed
-    assert "**Answer (b)**\n\n```answer\n$P = 45000\\ \\text{W}$\n```\n\n**Check**" in landed
+    assert (
+        "**Answer (a)**\n\n```answer\nverified: false\n$E_p = 225000\\ \\text{J}$\n```\n\n---"
+        in landed
+    )
+    assert (
+        "**Answer (b)**\n\n```answer\nverified: false\n$P = 45000\\ \\text{W}$\n```\n\n**Check**"
+        in landed
+    )
     # The working above each Answer and the check after it stay as written.
     assert "$E_p = 450 \\cdot 10 \\cdot 50$" in landed
     assert landed.endswith("**Check**\n$45000 \\cdot 5 = 225000$")
-    assert "verified" not in landed
+    assert "verified: true" not in landed
 
 
 def test_landing_twice_adds_nothing() -> None:
@@ -88,8 +94,8 @@ _PARTS = "**Answer (a)**\n$t = 2\\ \\text{s}$\n\n**Answer (b)**\n$v = 19.6\\ \\t
 def test_a_closing_answer_after_the_parts_is_left_as_written(closing: str) -> None:
     landed = land_part_answer_cards(_PARTS + closing)
     assert landed is not None
-    assert "**Answer (a)**\n\n```answer\n$t = 2\\ \\text{s}$\n```" in landed
-    assert "**Answer (b)**\n\n```answer\n$v = 19.6\\ \\text{m/s}$\n```" in landed
+    assert "**Answer (a)**\n\n```answer\nverified: false\n$t = 2\\ \\text{s}$\n```" in landed
+    assert "**Answer (b)**\n\n```answer\nverified: false\n$v = 19.6\\ \\text{m/s}$\n```" in landed
     assert landed.endswith(closing)
     assert landed.count("```answer") == 2
 
@@ -101,7 +107,9 @@ def test_an_answer_line_right_under_the_last_part_is_that_parts(label: str) -> N
     reply = f"**Answer (a)**\n$t = 2\\ \\text{{s}}$\n\n**Answer (b)**\n{label}$v = 19.6\\ \\text{{m/s}}$"
     landed = land_part_answer_cards(reply)
     assert landed is not None
-    assert landed.endswith("**Answer (b)**\n\n```answer\n$v = 19.6\\ \\text{m/s}$\n```")
+    assert landed.endswith(
+        "**Answer (b)**\n\n```answer\nverified: false\n$v = 19.6\\ \\text{m/s}$\n```"
+    )
 
 
 def test_parts_answered_in_words_leave_the_closing_answer_to_the_one_card() -> None:

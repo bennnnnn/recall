@@ -1500,5 +1500,47 @@
    "m"
   ],
   "visual": "projectile_motion"
+ },
+ {
+  "id": "fall-reach-07",
+  "area": "free_fall",
+  "prompt": "A ball is dropped from 20 m. What is its speed after 1 s? How long does it take to reach the ground?",
+  "expect": "answer",
+  "answer": [
+   9.81,
+   "m/s"
+  ],
+  "parts": [
+   [
+    9.81,
+    "m/s"
+   ],
+   [
+    2.01928,
+    "s"
+   ]
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "fall-reach-08",
+  "area": "free_fall",
+  "prompt": "A ball is thrown up at 15 m/s. How high does it go? How long does it take to reach the top?",
+  "expect": "answer",
+  "answer": [
+   11.46789,
+   "m"
+  ],
+  "parts": [
+   [
+    11.46789,
+    "m"
+   ],
+   [
+    1.52905,
+    "s"
+   ]
+  ],
+  "visual": "projectile_motion"
  }
 ]

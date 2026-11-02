@@ -33,6 +33,7 @@ from app.modules.chat.turn_prep.request import (
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import note_lightweight, note_plan, note_subject, note_teaching
+from app.modules.chat.worked_render import WorkedLayout
 from app.modules.conversation import history as conversation_history
 from app.modules.turn_reading.plan import TurnPlan
 from app.repositories import users as users_repo
@@ -142,6 +143,8 @@ class StreamContext:
     after_card: bool = False
     # A loan, card or savings question: finalize adds its note and calculator card.
     money: MoneyTurn | None = None
+    # A calculation nothing verified: its ```worked block is laid out as it streams.
+    worked: WorkedLayout | None = None
 
 
 @dataclass
@@ -168,6 +171,7 @@ class TurnPromptBundle:
     after_card: bool = False
     # The chat's last messages the prompt was built from (``StreamContext.recent_messages``).
     recent_messages: list[Any] | None = None
+    worked: WorkedLayout | None = None
 
 
 def _search_location(geo: ClientGeoContext) -> str | None:
@@ -237,6 +241,7 @@ def stream_context_from_bundle(
         settings_card=bundle.settings_card,
         money=bundle.money,
         after_card=bundle.after_card,
+        worked=bundle.worked,
         user_message_persist=user_message_persist,
         thinking=thinking,
     )
@@ -354,6 +359,7 @@ def _bundle(
         unverified_subject=augmented.unverified_subject,
         solve_timed_out=augmented.solve_timed_out,
         after_card=identity.mode.after_card,
+        worked=augmented.worked,
     )
 
 

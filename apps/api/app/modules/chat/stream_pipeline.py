@@ -334,8 +334,10 @@ async def _settle_reply(
             user_stopped=user_stopped,
             on_status=on_status,
         )
-        # The phone drew a first answer this one replaced: done must carry the text.
-        if accum.retracted and outcome is not None and outcome.final_content is None:
+        # The phone drew a first answer this one replaced, or text the reply no longer
+        # starts with: done must carry the text.
+        replaced = accum.retracted or accum.rewritten
+        if replaced and outcome is not None and outcome.final_content is None:
             outcome.final_content = final_text
         await await_user_message_persist(ctx)
         await register_and_enqueue_finalize(
