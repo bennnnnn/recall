@@ -367,7 +367,7 @@ function ChatScreen() {
     stopGeneration: stopTurn,
     isOffline,
     voice: composerWiring.voice,
-    liveTalkSession: composerWiring.liveTalkSession,
+    liveTalkActive: liveTalk.visible,
   });
   // Bound late for the hooks above, which need them before they exist; set once the render commits.
   useLayoutEffect(() => {
@@ -387,11 +387,9 @@ function ChatScreen() {
         <ChatScreenBody {...chatScreenBodyProps} />
         <LazyLiveTalkOverlay
           visible={liveTalk.visible}
-          phase={liveTalk.phase}
-          recording={liveTalk.recording}
+          call={liveTalk}
           headerInset={layout.headerInset}
-          composerClearance={layout.composerClearance}
-          onToggle={() => void liveTalk.toggle()}
+          bottomInset={idleComposerBottomPad}
         />
 
         <ChatScreenMenuSheets menuAnchorRef={menuAnchorRef} {...chatMenuSheetProps(chatActions, { chatTitle, pinned, archived })} />

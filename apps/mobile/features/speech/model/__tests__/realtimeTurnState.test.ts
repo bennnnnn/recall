@@ -167,3 +167,60 @@ describe("reduceRealtimeTurn: a failed connection", () => {
     expect(commands).toContainEqual({ type: "emit", event: { type: "error", message: "rate limited" } });
   });
 });
+
+describe("reduceRealtimeTurn: the reply's audio playing", () => {
+  const playing = { type: "emit", event: { type: "output_audio", playing: true } };
+  const stopped = { type: "emit", event: { type: "output_audio", playing: false } };
+  const started = server({ type: "output_audio_buffer.started", response_id: "a1" });
+
+  it.each([true, false])("reports playback start and stop once each (barge-in: %s)", (bargeIn) => {
+    const { commands } = run(
+      replying(bargeIn),
+      started,
+      started,
+      server({ type: "output_audio_buffer.stopped", response_id: "a1" }),
+      server({ type: "output_audio_buffer.stopped", response_id: "a1" }),
+    );
+    const audio = commands.filter((c) => c.type === "emit" && c.event.type === "output_audio");
+    expect(audio).toEqual([playing, stopped]);
+  });
+
+  it.each<[string, RealtimeTurnEvent]>([
+    ["the user talks over it", server({ type: "input_audio_buffer.speech_started", item_id: "u2" })],
+    ["the reply is cancelled", { type: "cancel_response" }],
+    ["the buffer is cleared", server({ type: "output_audio_buffer.cleared", response_id: "a1" })],
+    ["the server errors", server({ type: "error", error: { message: "boom" } })],
+  ])("stops when %s", (_label, event) => {
+    const { state, commands } = run(run(replying(true), started).state, event);
+    expect(commands).toContainEqual(stopped);
+    expect(state.audioPlaying).toBe(false);
+  });
+
+  // The mic fallback runs 12 s from response.done; a long reply still plays after it.
+  it.each<RealtimeTurnEvent>([{ type: "playback_fallback" }, { type: "resume_mic" }])(
+    "keeps playing through the mic fallback until the stop event: %j",
+    (fallback) => {
+      const { state, commands } = run(
+        replying(true),
+        started,
+        server({ type: "response.done", response: { id: "a1", output: [] } }),
+        fallback,
+      );
+      expect(commands).not.toContainEqual(stopped);
+      expect(state.audioPlaying).toBe(true);
+      const after = run(state, server({ type: "output_audio_buffer.stopped", response_id: "a1" }));
+      expect(after.commands).toContainEqual(stopped);
+    },
+  );
+
+  // A lookup's spoken preamble can still be playing when the follow-up response begins.
+  it("ends playback on the playing response's stop, even after a newer response began", () => {
+    const { state, commands } = run(
+      run(replying(true), started).state,
+      server({ type: "response.created", response: { id: "a2" } }),
+      server({ type: "output_audio_buffer.stopped", response_id: "a1" }),
+    );
+    expect(commands).toContainEqual(stopped);
+    expect(state.audioPlaying).toBe(false);
+  });
+});

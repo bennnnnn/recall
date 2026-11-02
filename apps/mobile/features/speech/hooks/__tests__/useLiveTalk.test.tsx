@@ -296,6 +296,51 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     expect(live.visible).toBe(stillOpen);
   });
 
+  it("moves the face only while the reply's voice plays", async () => {
+    // Hanging up saves the turn so far.
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockResolvedValueOnce(null as never);
+    const emit = await openCall();
+    expect(live.voicePlaying).toBe(false);
+
+    await act(async () => {
+      emit({ type: "assistant_transcript", text: "Hi", final: false });
+    });
+    // The words arrived; the voice has not started yet.
+    expect(live.voicePlaying).toBe(false);
+    await act(async () => {
+      emit({ type: "output_audio", playing: true });
+    });
+    expect(live.voicePlaying).toBe(true);
+    await act(async () => {
+      emit({ type: "output_audio", playing: false });
+    });
+    expect(live.voicePlaying).toBe(false);
+
+    await act(async () => {
+      emit({ type: "output_audio", playing: true });
+    });
+    await act(async () => {
+      live.close();
+    });
+    expect(live.voicePlaying).toBe(false);
+  });
+
+  // Tapping the composer ended the call: its focus, attach and send all called a
+  // "yield" that hung up. The composer is gone during a call, and so is that path.
+  it("offers nothing that ends the call but close, and muting keeps it up", async () => {
+    await openCall();
+    expect(Object.keys(live)).not.toContain("yieldToComposer");
+    await act(async () => {
+      live.toggleMute();
+    });
+    expect(live.muted).toBe(true);
+    expect(live.visible).toBe(true);
+    await act(async () => {
+      live.close();
+    });
+    expect(live.visible).toBe(false);
+  });
+
   it("leaves Back to an open drawer, reading the drawer when Back is pressed", async () => {
     const backHandlers: (() => boolean | null | undefined)[] = [];
     const addListener = jest

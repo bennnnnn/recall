@@ -1,4 +1,4 @@
-import { memo, ReactElement, RefObject, useCallback, useEffect, useMemo } from "react";
+import { memo, ReactElement, RefObject, useEffect, useMemo } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
@@ -6,7 +6,7 @@ import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
 import { LazyMathEquationScanner } from "@/features/scanner/components/LazyMathEquationScanner";
-import { ChatComposer, type LiveTalkComposerChrome } from "@/features/chat/components/ChatComposer";
+import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { ChatInlineError } from "@/features/chat/components/ChatInlineError";
 import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
@@ -81,7 +81,8 @@ export interface ChatScreenComposerProps {
   onVoicePress?: () => void;
   onCancelVoice?: () => void;
   onLiveTalkPress?: () => void;
-  liveTalkSession?: LiveTalkComposerChrome | null;
+  /** A live talk call is up: the composer steps aside for the call's own controls. */
+  liveTalkActive?: boolean;
 }
 
 export interface ChatScreenChromeProps {
@@ -147,15 +148,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
   const drawerOpen = useDrawerOpen();
   const { styles: s, keyboardLift } = layout;
   const { messages } = list;
-  const { liveTalkSession, onSend } = composer;
   const { mathScannerOpen, onCloseMathScanner } = sheets;
-  const handleComposerSend = useCallback(
-    (text?: string) => {
-      liveTalkSession?.onYield();
-      onSend(text);
-    },
-    [liveTalkSession, onSend],
-  );
 
   useEffect(() => {
     if (drawerOpen && mathScannerOpen) onCloseMathScanner();
@@ -197,7 +190,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
         onRemoveAttachment={composer.onRemoveAttachment}
         onCloseAttachSheet={sheets.onCloseAttachSheet}
         onPickAttachment={composer.onPickAttachment}
-        onSend={handleComposerSend}
+        onSend={composer.onSend}
         onStop={composer.onStop}
         isOffline={composer.isOffline}
         voiceAvailable={composer.voiceAvailable}
@@ -207,7 +200,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
         onVoicePress={composer.onVoicePress}
         onCancelVoice={composer.onCancelVoice}
         onLiveTalkPress={composer.onLiveTalkPress}
-        liveTalkChrome={composer.liveTalkSession}
+        liveTalkActive={composer.liveTalkActive}
         onOpenMathScanner={composer.onOpenMathScanner}
         onMathChromeHeightChange={composer.onMathChromeHeightChange}
         onInputFrameExtraChange={composer.onInputFrameExtraChange}

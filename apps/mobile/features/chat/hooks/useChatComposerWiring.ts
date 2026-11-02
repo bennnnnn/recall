@@ -105,13 +105,5 @@ export function useChatComposerWiring({
       cancelVoiceInput,
       onLiveTalkPress: liveTalk.open,
     },
-    liveTalkSession: liveTalk.visible
-      ? {
-          muted: liveTalk.muted,
-          onClose: liveTalk.close,
-          onMutePress: liveTalk.toggleMute,
-          onYield: liveTalk.yieldToComposer,
-        }
-      : null,
   };
 }

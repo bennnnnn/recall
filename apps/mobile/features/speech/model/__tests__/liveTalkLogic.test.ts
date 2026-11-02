@@ -15,7 +15,6 @@ import {
   liveTalkShouldCloseOnAppState,
   liveTalkDataChannelText,
   liveTalkMuteA11yKey,
-  liveTalkShowsSideChrome,
   liveTalkLocalMicEnabled,
   liveTalkShouldCreateResponse,
   isLikelyAssistantEcho,
@@ -284,9 +283,6 @@ describe("liveTalkOrbAction", () => {
     expect(liveTalkOrbAction("idle")).toBe("begin");
     expect(liveTalkMuteA11yKey(false)).toBe("chat.live_talk_mute_a11y");
     expect(liveTalkMuteA11yKey(true)).toBe("chat.live_talk_unmute_a11y");
-    expect(liveTalkShowsSideChrome("")).toBe(true);
-    expect(liveTalkShowsSideChrome("  ")).toBe(true);
-    expect(liveTalkShowsSideChrome("hello")).toBe(false);
   });
 });
 

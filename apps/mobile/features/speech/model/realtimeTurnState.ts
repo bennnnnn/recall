@@ -25,6 +25,8 @@ export type RealtimeVoiceEvent =
   | { type: "response_done" }
   | { type: "response_interrupted" }
   | { type: "search_sources"; sources: SearchSource[] }
+  /** The reply's audio started or stopped playing on the phone (WebRTC output buffer events). */
+  | { type: "output_audio"; playing: boolean }
   /** ``fatal``: the connection itself is gone (peer or channel failed); the session must close. */
   | { type: "error"; message: string; fatal?: boolean };
 
@@ -63,6 +65,10 @@ export type RealtimeTurnState = {
   userMuted: boolean;
   sessionReadyForTurns: boolean;
   assistantSpeaking: boolean;
+  /** Audio is playing out of the speaker; `output_audio` reports each change once. */
+  audioPlaying: boolean;
+  /** The response whose audio is playing: its stop counts even after a newer response began. */
+  playingResponseId: string | null;
   userSpeaking: boolean;
   suppressCurrentInputTurn: boolean;
   acceptedUserUtterance: boolean;
@@ -91,6 +97,8 @@ export function initialRealtimeTurnState(bargeIn: boolean): RealtimeTurnState {
     userMuted: false,
     sessionReadyForTurns: false,
     assistantSpeaking: false,
+    audioPlaying: false,
+    playingResponseId: null,
     userSpeaking: false,
     suppressCurrentInputTurn: false,
     acceptedUserUtterance: false,
@@ -140,6 +148,35 @@ const startTimer = (out: Out, timer: RealtimeTimer, ms: number, then: RealtimeTu
 };
 const clearMicResume = (out: Out) => { out.push({ type: "clear_timer", timer: "mic_resume" }); };
 
+function setAudioPlaying(s: RealtimeTurnState, out: Out, playing: boolean): void {
+  if (!playing) s.playingResponseId = null;
+  if (s.audioPlaying === playing) return;
+  s.audioPlaying = playing;
+  emit(out, { type: "output_audio", playing });
+}
+
+const AUDIO_END_EVENTS = new Set([
+  "output_audio_buffer.stopped",
+  "output_audio_buffer.audio_stopped",
+  "output_audio_buffer.cleared",
+]);
+
+/**
+ * Playback is tracked by the response that started it, not the active one: a lookup's
+ * spoken preamble can still be playing when the follow-up response is created, and its
+ * stop must still end playback. Only these events end it (and barge-in, cancel, a new
+ * user turn, an error): the 12 s mic fallback can fire while a long reply still plays.
+ */
+function trackPlayback(s: RealtimeTurnState, out: Out, type: string, responseId: string | undefined): void {
+  if (type === "output_audio_buffer.started") {
+    s.playingResponseId = responseId ?? null;
+    setAudioPlaying(s, out, true);
+    return;
+  }
+  const ours = !responseId || !s.playingResponseId || responseId === s.playingResponseId;
+  if (AUDIO_END_EVENTS.has(type) && ours) setAudioPlaying(s, out, false);
+}
+
 function syncMic(s: RealtimeTurnState, out: Out): void {
   const enabled = liveTalkLocalMicEnabled(s.userMuted, s.assistantSpeaking, s.bargeIn);
   out.push({ type: "set_mic", enabled });
@@ -172,6 +209,8 @@ function onSpeechStarted(s: RealtimeTurnState, out: Out, event: Record<string, u
     s.activeResponseId = null;
     clearMicResume(out);
   }
+  // The user has the floor: any reply audio is over (half duplex) or being cut.
+  setAudioPlaying(s, out, false);
   s.activeInputId = typeof event.item_id === "string" ? event.item_id : String(receivedAt);
   s.userSpeaking = true;
   s.turnEpoch += 1;
@@ -281,6 +320,7 @@ function onResponseDone(s: RealtimeTurnState, out: Out, event: Record<string, un
 function onServerError(s: RealtimeTurnState, out: Out, event: Record<string, unknown>): void {
   clearMicResume(out);
   s.assistantSpeaking = false;
+  setAudioPlaying(s, out, false);
   s.suppressCurrentInputTurn = false;
   s.acceptedUserUtterance = false;
   syncMic(s, out);
@@ -299,6 +339,7 @@ function onServerEvent(s: RealtimeTurnState, out: Out, event: Record<string, unk
   // complete or overwrite the next user's turn.
   const response = event.response as { id?: string; status?: string } | undefined;
   const responseId = typeof event.response_id === "string" ? event.response_id : response?.id;
+  trackPlayback(s, out, type, responseId);
   if (type !== "response.created" && responseId && responseId !== s.activeResponseId) return;
   log(out, "event", type);
   switch (type) {
@@ -368,6 +409,7 @@ function onCancelResponse(s: RealtimeTurnState, out: Out): void {
   send(out, { type: "response.cancel" });
   if (s.bargeIn) send(out, { type: "output_audio_buffer.clear" });
   if (s.assistantSpeaking) emit(out, { type: "response_interrupted" });
+  setAudioPlaying(s, out, false);
   s.activeResponseId = null;
   s.assistantSpeaking = false;
   clearMicResume(out);

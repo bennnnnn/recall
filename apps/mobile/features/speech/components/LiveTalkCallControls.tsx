@@ -14,13 +14,16 @@ type Props = {
   onClose: () => void;
 };
 
-/** Mic mute + close, same row as the composer. Red means the model cannot hear you. */
-export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props) {
+/**
+ * Mute and end, a centred pair where the composer row sits; the composer is not drawn
+ * during a call. Red mute means Recall cannot hear you. Only end (✕) ends the call.
+ */
+export function LiveTalkCallControls({ muted, onMutePress, onClose }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
 
   return (
-    <View style={styles.row}>
+    <View style={styles.row} testID="live-talk-controls">
       <IconButton
         onPress={onMutePress}
         style={[
@@ -52,8 +55,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Space.xs,
-    paddingBottom: 2,
+    justifyContent: "center",
+    gap: Space.xl,
   },
   round: {
     width: 52,

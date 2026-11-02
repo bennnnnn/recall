@@ -94,6 +94,8 @@ export function useLiveTalk({
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
   const [muted, setMuted] = useState(false);
+  /** The reply's audio is playing on the phone: the only time the orb moves. */
+  const [voicePlaying, setVoicePlaying] = useState(false);
   const [status, setStatus] = useState<LiveTalkStatus | null>(null);
   const sessionRef = useRef<RealtimeVoiceSession | null>(null);
   const callIdRef = useRef<string | null>(null);
@@ -244,6 +246,7 @@ export function useLiveTalk({
     (event: RealtimeVoiceEvent) => {
       const dropped = !visibleRef.current && event.type !== "connected";
       if (dropped) return;
+      if (event.type === "output_audio") return setVoicePlaying(event.playing);
       if (event.type === "connected") {
         setPhase("recording");
         return;
@@ -346,6 +349,7 @@ export function useLiveTalk({
     sessionRef.current = null;
     callIdRef.current = null;
     setMuted(false);
+    setVoicePlaying(false);
     setPhase("idle");
     setVisible(false);
     if (shouldCueEnd) void playCue("end");
@@ -429,10 +433,6 @@ export function useLiveTalk({
     }
   }, [phase]);
 
-  const yieldToComposer = useCallback(() => {
-    close();
-  }, [close]);
-
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -470,12 +470,11 @@ export function useLiveTalk({
   return {
     visible,
     phase,
-    recording: phase === "recording",
+    voicePlaying,
     muted,
     open,
     close,
     toggle,
     toggleMute,
-    yieldToComposer,
   };
 }
