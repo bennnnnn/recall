@@ -32,6 +32,7 @@ from app.services.answer_fence import CHEMISTRY_NOTATION_LINE, answer_header_and
 from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
 from app.services.md_fence_scan import Fence, map_fence_blocks
 from app.services.school_rounding import round_places
+from app.services.workout import names_a_formula
 
 Verdict = Literal["same", "rounded", "conflict", "absent", "unknown"]
 
@@ -381,7 +382,9 @@ def _heading(line: str) -> tuple[str, str] | None:
     if match is None:
         return None
     title = match.group("title").strip().rstrip(":").strip()
-    if not _HEADING_TITLE.fullmatch(title):
+    # A formula's own heading may be longer: "Ideal mechanical advantage of a pulley
+    # system formula".
+    if not _HEADING_TITLE.fullmatch(title) and not names_a_formula(title):
         return None
     rest = match.groupdict().get("rest") or ""
     return title.lower(), rest.strip()
@@ -409,7 +412,8 @@ def _sections(prose: str) -> tuple[str, str | None]:
             continue
         title, rest = heading
         in_answer = title in _ANSWER_TITLES
-        skipping = title in _INPUT_TITLES
+        # A formula headed by its name ("Definition of pH formula") is an input too.
+        skipping = title in _INPUT_TITLES or names_a_formula(title)
         if in_answer:
             region = [rest] if rest else []
         elif rest:

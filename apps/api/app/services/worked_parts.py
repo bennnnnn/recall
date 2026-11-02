@@ -115,7 +115,10 @@ def render_parts(
     sections: list[str] = []
     for letter, part in zip(_LETTERS, parts, strict=False):
         label = f"**({letter}) {part.title.strip().rstrip('?')}**" if part.title.strip() else ""
-        pieces = [label, part.working.strip(), f"**{ANSWER} ({letter})**"]
+        pieces = [label, part.working.strip()]
+        # A part still streaming has no answer yet: its heading waits with it.
+        if part.answer is not None or part.after.strip():
+            pieces.append(f"**{ANSWER} ({letter})**")
         if part.answer is not None:
             pieces.append(f"```answer\n{part.answer.strip()}\n```")
         pieces.append(part.after.strip())

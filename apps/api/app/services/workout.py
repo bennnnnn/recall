@@ -107,7 +107,7 @@ _NAMED_KIND = re.compile(
 )
 # The phone reads a formula's own heading as one when it is a few words with no
 # sentence end (``lib/markdown/workoutSection.ts``, ``lawHeading``).
-_HEADING_WORDS = 8
+_HEADING_WORDS = 10
 
 
 def formula_heading(name: str | None) -> str:
@@ -123,6 +123,11 @@ def formula_heading(name: str | None) -> str:
     text = text[:1].upper() + text[1:]
     heading = text if _NAMED_KIND.search(text) else f"{text} formula"
     return heading if len(heading.split()) <= _HEADING_WORDS else FORMULA
+
+
+def names_a_formula(title: str) -> bool:
+    """A heading over a formula by its name ("Average speed formula", "Ohm's law")."""
+    return _NAMED_KIND.search(title.strip().rstrip(":")) is not None
 
 
 def _named(line: str) -> tuple[str, str] | None:
@@ -250,7 +255,10 @@ def as_formula_heading(text: str) -> str:
             worked = True
             continue
         following = next((later for later in lines[number + 1 :] if later.strip()), "")
-        if worked and title not in _ROLE_HEADINGS and following.lstrip().startswith("$"):
+        # A formula's own heading ("Average speed formula", "Ohm's law") names it whatever
+        # its lines are; another bold line heads a formula when maths follows it.
+        named = _NAMED_KIND.search(title) is not None
+        if worked and title not in _ROLE_HEADINGS and (named or following.lstrip().startswith("$")):
             lines[number] = line.replace(f"**{bold.group('title')}**", f"**{FORMULA}**", 1)
     return "\n".join(lines)
 
@@ -429,10 +437,9 @@ MATH_WORKOUT_PROMPT_RULE = (
 # Physics' rule in one sentence, for hints with a tight character budget.
 PHYSICS_WORKOUT_PROMPT_SHORT = (
     "Use the worked-solution layout: **Given** (a converted value keeps one line, with its "
-    'factor), **Required**, **Solution**, the law\'s name and "formula" as heading '
-    "(`**Constant acceleration formula**`), "
-    "**Substitution** carried step by step to the final value, then **Answer** once; one "
-    "state per line; no numbered steps."
+    "factor), **Required**, **Solution**, the law as heading "
+    "(`**Constant acceleration formula**`), **Substitution** step by step to the final "
+    "value, then **Answer** once; one state per line; no numbered steps."
 )
 
 # Questions in parts and upright units, for a reply the model writes with no

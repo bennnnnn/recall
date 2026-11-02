@@ -220,22 +220,34 @@ def render_worked(
 ) -> str:
     """The solution as a worked reply. ``streaming``: the block is still being written, so
     a line that a later record could change is left out until it cannot."""
-    opening = (_given_section(solution, streaming=streaming), _find_rows(solution))
+    # While the block streams, what is asked waits until the working shows whether the
+    # question is in parts: in parts it is lettered, and a drawn line is never rewritten.
+    settled = (
+        not streaming
+        or solution.labelled
+        or any(part.formula or part.working or part.answers for part in solution.parts)
+    )
+    opening = (
+        _given_section(solution, streaming=streaming),
+        _find_rows(solution) if settled else (),
+    )
     if not solution.labelled:
         part = solution.parts[0] if solution.parts else Part()
         return _part_body(part, layout, opening, ANSWER)
     # The one layout every question in parts has (``services/worked_parts``): one Given,
-    # one Required naming what each part finds, then each part closed by its answer.
+    # one Required naming what each part finds, then each part closed by its answer. What
+    # is asked comes before the parts, so it is lettered by its own order: a part that
+    # streams in later never rewrites it.
     required = opening[1]
-    by_part = len(required) == len(solution.parts)
+    lettered = len(required) > 1
     parts = [
         WorkedPart(
             title=part.title
             or (solution.required[index].meaning if index < len(solution.required) else ""),
             working=_part_body(part, layout, ((), ()), None),
             after=_HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers),
-            required=(required[index],) if by_part else (),
         )
         for index, part in enumerate(solution.parts)
     ]
-    return render_parts(parts, opening[0], required=() if by_part else required)
+    asked = [f"({letter}) {row}" for letter, row in zip("abcdefgh", required, strict=False)]
+    return render_parts(parts, opening[0], required=asked if lettered else required)

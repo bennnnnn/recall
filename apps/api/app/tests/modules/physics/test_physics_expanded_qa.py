@@ -179,7 +179,7 @@ def test_audit_prompts_are_verified_instant_structured_physics(
     assert (intent.kind, intent.physics_op) == (kind, op)
     verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
-    assert "law's name in place of Formula" in verified.text
+    assert "verified law's heading" in verified.text
     assert "show its universal/base equation first" in verified.text
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
@@ -207,7 +207,7 @@ def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> Non
     assert verified is not None
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert "**Electrical power**  \n$P = VI$" in reply
+    assert "**Electrical power formula**  \n$P = VI$" in reply
     assert "— the same law for these quantities" in reply
     assert "$P = I^2 R$" in reply
     assert "**Substitution**  \n$P = 3^{2} \\times 4$" in reply

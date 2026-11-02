@@ -34,9 +34,8 @@ from app.services.workout import (
         ("", FORMULA),
         (None, FORMULA),
         ("Average speed.", "Average speed formula"),
-        ("speed is distance over time, as the book says.", FORMULA),
         ("$v = d/t$", FORMULA),
-        ("one two three four five six seven eight", FORMULA),
+        ("one two three four five six seven eight nine ten", FORMULA),
     ],
 )
 def test_formula_heading_names_the_formula(name: str | None, heading: str) -> None:

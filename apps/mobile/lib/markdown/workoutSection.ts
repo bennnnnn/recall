@@ -54,7 +54,7 @@ export function isAnswerHeading(heading: string): boolean {
  */
 export function lawHeading(text: string, firstLine: string): string | null {
   const heading = text.trim();
-  if (!heading || /[.:?!]$/.test(heading) || heading.split(/\s+/).length > 8) return null;
+  if (!heading || /[.:?!]$/.test(heading) || heading.split(/\s+/).length > 10) return null;
   // A numbered move ("1. Subtract 4 from both sides") and a part are their own blocks.
   if (/^\d+[.)]\s/.test(heading) || workoutPart(heading)) return null;
   return /^\$/.test(firstLine.trim()) ? heading : null;
