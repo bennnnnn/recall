@@ -38,7 +38,8 @@ function knockout(shape: ReactNode, mark: ReactNode, { color, maskId }: CustomGl
 /**
  * Drawings Lucide does not have, in the same 24-unit grid and line weight.
  * `menu` is the two-line mark with the shorter bottom bar; the filled circles
- * and box are selected/done states, with the tick cut out of the fill.
+ * and box are selected/done states, with the tick cut out of the fill; `stop`
+ * and `pause` are solid media marks.
  */
 export const CUSTOM_GLYPHS = {
   menu: ({ color, strokeWidth }) => (
@@ -86,6 +87,13 @@ export const CUSTOM_GLYPHS = {
       props,
     ),
   stop: ({ color }) => <Rect x="6" y="6" width="12" height="12" rx="2.5" fill={color} stroke="none" />,
+  // Two solid bars, the stop square's partner: Lucide's outlined bars read as four lines.
+  pause: ({ color }) => (
+    <>
+      <Rect x="6" y="5" width="4" height="14" rx="1.5" fill={color} stroke="none" />
+      <Rect x="14" y="5" width="4" height="14" rx="1.5" fill={color} stroke="none" />
+    </>
+  ),
 } satisfies Record<string, CustomGlyph>;
 
 export type CustomIconName = keyof typeof CUSTOM_GLYPHS;

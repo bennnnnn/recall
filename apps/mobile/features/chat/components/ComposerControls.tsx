@@ -1,9 +1,11 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
+import { COMPOSER_INPUT_LINE_HEIGHT } from "@/features/chat/model/composerLogic";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { DYNAMIC_TYPE_MAX, Type } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
@@ -61,6 +63,40 @@ export function ComposerAttachButton({
     </Pressable>
   );
 }
+
+/**
+ * The empty field's placeholder, on the text box's one line (`bottom` is the field's
+ * centring slack). The field's native placeholder wraps; this one stays on one line at
+ * any language and text size and ends in an ellipsis. Screen readers hear the field's
+ * own label instead.
+ */
+export function ComposerPlaceholder({ bottom }: { bottom: number }) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  return (
+    <View
+      style={[placeholderStyles.box, { bottom }]}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Text
+        testID="chat-composer-placeholder"
+        style={[placeholderStyles.text, { color: theme.textDisabled }]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
+      >
+        {t("chat.placeholder")}
+      </Text>
+    </View>
+  );
+}
+
+const placeholderStyles = StyleSheet.create({
+  box: { position: "absolute", left: 0, right: 0 },
+  text: { ...Type.body, lineHeight: COMPOSER_INPUT_LINE_HEIGHT },
+});
 
 /** After an image-only paste: offer the math scanner instead. */
 export function ComposerScanHint({

@@ -92,6 +92,31 @@ describe("stream segment cuts", () => {
     },
   );
 
+  it("merges every part again when the reply's first Given follows a card and a bold label", () => {
+    const text = [
+      "**Law name**",
+      "$x = 1$",
+      "",
+      "```answer",
+      "x = 1",
+      "```",
+      "",
+      "More prose.",
+      "",
+      "**Given**",
+      "$x$",
+      "",
+      "**Required**",
+      "$y$",
+      "",
+    ].join("\n");
+    const { cuts, rewinds, state } = cutsOf(text);
+    expect(cuts.length).toBeGreaterThan(0);
+    // Worked is the whole reply's: the region before the card is read again, once.
+    expect(rewinds).toEqual([0]);
+    expect(state.replyWorked).toBe(true);
+  });
+
   it("does not cut while an Answer heading still looks for its card", () => {
     const text = "**Answer**\n\n$x = 2$\n\n```answer\nx = 2\n```\n\nThat is all.\n\nThanks.\n";
     expect(cutLines(text)).toEqual(["That is all.", "Thanks."]);

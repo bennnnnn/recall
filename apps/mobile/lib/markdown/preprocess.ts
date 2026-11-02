@@ -52,6 +52,7 @@ import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
+import { isWorkedReply } from "@/lib/markdown/workoutSection";
 import { repairBrokenMarkdownLinks } from "@/lib/places/placesList";
 
 export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
@@ -71,6 +72,9 @@ export type PreprocessOptions = {
   /** The server presented this text before saving it (isServerPresentedRow):
    * its prose is shown as saved, not presented again. */
   presented?: boolean;
+  /** The text is a part cut from a streaming reply whose earlier parts are worked
+   * (segmentedPreprocess.ts): its law-name headings are a worked reply's. */
+  workedAbove?: boolean;
 };
 
 export function preprocessMarkdown(
@@ -78,6 +82,8 @@ export function preprocessMarkdown(
   mathFormat?: (expr: string) => string,
   options: PreprocessOptions = {},
 ): string {
+  // Read from the text as written, over the whole reply: the stream's parts read it alike.
+  const worked = options.workedAbove === true || isWorkedReply(content);
   // SMILES ("CC(=O)O") becomes code first: the maths passes read "(=O)" as maths.
   let out = codeNotation(repairBrokenMarkdownLinks(content));
   out = trimBoldDelimiterWhitespace(out);
@@ -138,7 +144,7 @@ export function preprocessMarkdown(
   // After fence inlining: a trailing ✓ used to abort the = split, and
   // inlineShortMathFences can glue `$...$` back onto `For x = 3:`.
   out = layoutCheckVerificationLines(out);
-  out = separateStandaloneBoldLines(out);
+  out = separateStandaloneBoldLines(out, worked);
   // Some math normalizers rebuild the surrounding prose while preserving the
   // model's original delimiter padding. Make this the final prose cleanup so
   // malformed bold closers can never reach markdown-it as literal `**`.

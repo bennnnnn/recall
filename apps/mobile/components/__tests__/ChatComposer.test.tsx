@@ -1,7 +1,7 @@
 import { Dimensions, StyleSheet } from "react-native";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
-import { ChatComposer } from "@/features/chat/components/ChatComposer";
+import { ChatComposer, COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
@@ -296,8 +296,6 @@ describe("ChatComposer math keyboard", () => {
     );
     const composerInput = getByTestId("chat-composer-input");
 
-    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
-    expect(composerInput.props.placeholder).toBe("chat.placeholder");
     expect(composerInput.props.accessibilityLabel).toBe("chat.placeholder");
     expect(composerInput.props.maxFontSizeMultiplier).toBe(1.5);
 
@@ -307,9 +305,27 @@ describe("ChatComposer math keyboard", () => {
     });
 
     expect(getByTestId("chat-composer-input").props.value).toBe("\n");
-    expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
     expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 48, paddingTop: 0 });
+    // The field grows upward; the button row stays under it.
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("caps the placeholder at one line and hides it once there is a draft", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
+    // Hidden from screen readers: the field's own label reads it.
+    const placeholder = getByTestId("chat-composer-placeholder", HIDDEN_TOO);
+    expect(placeholder.props.numberOfLines).toBe(1);
+    expect(placeholder.props.ellipsizeMode).toBe("tail");
+    expect(placeholder).toHaveTextContent("chat.placeholder");
+    // The native placeholder would wrap: the field draws none of its own.
+    expect(getByTestId("chat-composer-input").props.placeholder).toBeUndefined();
+
+    await fireEvent.changeText(getByTestId("chat-composer-input"), "Hi");
+    expect(queryByTestId("chat-composer-placeholder", HIDDEN_TOO)).toBeNull();
   });
 
   it("grows to the next line when text reaches the end of the field", async () => {
@@ -345,56 +361,33 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("chat-composer-input").props.value).toBe("  const answer = 42;");
   });
 
-  it("bottom-aligns controls only after visible multiline text is entered", async () => {
-    const { getByTestId } = await render(
-      <DraftHarness input={"First line\nSecond line"}>
-        <ChatComposer {...baseProps} />
-      </DraftHarness>,
-    );
-
-    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
-      nativeEvent: { contentSize: { width: 240, height: 50 } },
-    });
-
-    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
-  });
-
-  it("puts text beside the + until it wraps, then gives it the full width", async () => {
-    const view = await render(
-      <DraftHarness input="Hello there">
-        <ChatComposer {...baseProps} />
-      </DraftHarness>,
-    );
-    const row = () => view.getByTestId("composer-input-row");
-    await fireEvent(view.getByTestId("chat-composer-input"), "layout", {
-      nativeEvent: { layout: { width: 200, height: 24 } },
-    });
-    expect(within(row()).getByTestId("composer-attachment-button")).toBeTruthy();
-    expect(view.queryByTestId("composer-stacked-controls")).toBeNull();
-
-    await view.rerender(
-      <DraftHarness input={"A long message that wraps ".repeat(4)}>
-        <ChatComposer {...baseProps} />
-      </DraftHarness>,
-    );
-    const controls = view.getByTestId("composer-stacked-controls");
-    expect(within(controls).getByTestId("composer-attachment-button")).toBeTruthy();
-    expect(within(controls).getByLabelText("chat.send_a11y")).toBeTruthy();
-    expect(within(row()).queryByTestId("composer-attachment-button")).toBeNull();
-
-    // The stacked field is wider; wrapping is still judged beside the buttons.
-    await fireEvent(view.getByTestId("chat-composer-input"), "layout", {
-      nativeEvent: { layout: { width: 320, height: 72 } },
-    });
-    expect(view.getByTestId("composer-stacked-controls")).toBeTruthy();
-
-    await view.rerender(
-      <DraftHarness input="Hello there">
-        <ChatComposer {...baseProps} />
-      </DraftHarness>,
-    );
-    expect(view.queryByTestId("composer-stacked-controls")).toBeNull();
-    expect(within(row()).getByTestId("composer-attachment-button")).toBeTruthy();
+  it("puts the field on a row of its own over the buttons, empty or not", async () => {
+    for (const input of ["", "Hello there", "A long message that wraps ".repeat(4)]) {
+      const view = await render(
+        <DraftHarness input={input}>
+          <ChatComposer {...baseProps} />
+        </DraftHarness>,
+      );
+      const surface = view.getByTestId("composer-surface");
+      const row = view.getByTestId("composer-input-row");
+      expect(within(row).getByTestId("chat-composer-input")).toBeTruthy();
+      expect(within(row).queryByTestId("composer-attachment-button")).toBeNull();
+      // The field row comes first, the buttons under it.
+      const ids = surface.children
+        .map((child) => (typeof child === "string" ? null : child.props.testID))
+        .filter((id): id is string => id === "composer-input-row" || id === "composer-controls-row");
+      expect(ids).toEqual(["composer-input-row", "composer-controls-row"]);
+      const controls = view.getByTestId("composer-controls-row");
+      expect(controls).toHaveStyle({ flexDirection: "row", justifyContent: "space-between" });
+      // + at the left; the rest at the right.
+      const first = controls.children[0];
+      expect(typeof first === "string" ? null : first?.props.testID).toBe("composer-attachment-button");
+      if (input) expect(within(controls).getByLabelText("chat.send_a11y")).toBeTruthy();
+      await view.unmount();
+    }
+    // The thread's bottom inset clears both rows: the 36 pt field, the 36 pt buttons, the
+    // card's border and padding and the shell's air.
+    expect(COMPOSER_HEIGHT).toBe(94);
   });
 
   it("offers a full-height editor when the multiline input reaches its limit", async () => {
@@ -457,7 +450,7 @@ describe("ChatComposer math keyboard", () => {
         />
       </DraftHarness>,
     );
-    const row = getByTestId("composer-input-row");
+    const row = getByTestId("composer-controls-row");
     const ids: string[] = [];
     const walk = (node: { props?: { testID?: string }; children?: unknown[] }) => {
       const id = node.props?.testID;

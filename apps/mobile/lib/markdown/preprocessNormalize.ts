@@ -73,17 +73,20 @@ const WORKOUT_HEADING_LINE = new RegExp(
  * (Given, Required, Formula, Substitution, Steps, Answer) keeps its lines: the
  * workout renderer gives each line its own row. So does a law's name heading
  * its formulas in a worked reply ("**Constant acceleration**" over `$v = u + at$`).
+ * Worked is read for the whole reply (`worked`, from its text as written), not only the
+ * stretch between two fences: part (b), after part (a)'s answer card, has no **Given**
+ * of its own.
  */
-export function separateStandaloneBoldLines(content: string): string {
+export function separateStandaloneBoldLines(content: string, worked = false): string {
   return applyOutsideFences(content, (prose) => {
-    const worked = isWorkedReply(prose);
+    const workedProse = worked || isWorkedReply(prose);
     // A heading's lines start on the next row: written with a plain line break (as a
     // model does), "**Substitution**" and its first line ran together on one row.
     const headed = prose.replace(WORKOUT_HEADING_LINE, "$1  \n");
     return headed.replace(STANDALONE_BOLD_LINE, (line: string, head: string, offset: number) => {
       const next = headed.slice(offset + line.length).split("\n", 1)[0] ?? "";
       const name = head.trim().replace(/^\*\*|\*\*$/g, "");
-      return worked && lawHeading(name, next) ? `${head.trimEnd()}  \n` : `${head}\n\n`;
+      return workedProse && lawHeading(name, next) ? `${head.trimEnd()}  \n` : `${head}\n\n`;
     });
   });
 }

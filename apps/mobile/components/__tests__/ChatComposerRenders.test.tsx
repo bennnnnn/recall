@@ -8,7 +8,7 @@ import { DraftHarness } from "./DraftHarness";
 /**
  * How often the whole composer renders for one typed character. A keystroke
  * reaches JS as separate native events: the text, the selection, and the
- * off-screen measure of the draft (its one-line width grows with every letter).
+ * off-screen measure of the draft at the field width.
  */
 
 const mockComposerRenders = jest.fn();
@@ -55,7 +55,7 @@ const props = {
 
 type HostNode = { type?: unknown; props?: Record<string, unknown>; children?: unknown[] };
 
-/** The two off-screen copies of the draft: one line, then wrapped at the field width. */
+/** The off-screen copy of the draft, wrapped at the field width. */
 function measureCopies(root: HostNode): HostNode[] {
   const found: HostNode[] = [];
   const walk = (node: HostNode) => {
@@ -69,19 +69,15 @@ function measureCopies(root: HostNode): HostNode[] {
 }
 
 const TYPED = "Plan a weekend in Lisbon";
-/** Width of one letter in the one-line copy; the field is wide enough for all of them. */
-const LETTER_WIDTH = 8;
 const FIELD_WIDTH = 280;
 
-/** The off-screen copies report their layout the way the native text does after a keystroke. */
-async function layOutCopies(field: HostNode, length: number) {
-  const [oneLine, wrapped] = measureCopies(field);
+/** The off-screen copy reports its layout the way the native text does after a keystroke. */
+async function layOutCopies(field: HostNode, lines: number) {
+  const copies = measureCopies(field);
+  expect(copies).toHaveLength(1);
   await act(async () => {
-    (oneLine.props?.onLayout as (event: unknown) => void)({
-      nativeEvent: { layout: { x: 0, y: 0, width: length * LETTER_WIDTH, height: 24 } },
-    });
-    (wrapped.props?.onLayout as (event: unknown) => void)({
-      nativeEvent: { layout: { x: 0, y: 0, width: FIELD_WIDTH, height: 24 } },
+    (copies[0]!.props?.onLayout as (event: unknown) => void)({
+      nativeEvent: { layout: { x: 0, y: 0, width: FIELD_WIDTH, height: 24 * lines } },
     });
   });
 }
@@ -110,7 +106,7 @@ describe("ChatComposer renders per keystroke", () => {
           nativeEvent: { selection: { start: length, end: length } },
         });
       });
-      await layOutCopies(view.getByTestId("chat-composer-field") as HostNode, length);
+      await layOutCopies(view.getByTestId("chat-composer-field") as HostNode, 1);
       perKeystroke.push(mockComposerRenders.mock.calls.length - before);
     }
 
@@ -129,14 +125,16 @@ describe("ChatComposer renders per keystroke", () => {
       nativeEvent: { layout: { x: 0, y: 0, width: FIELD_WIDTH, height: 24 } },
     });
     await layOutCopies(view.getByTestId("chat-composer-field") as HostNode, 1);
-    expect(view.queryByTestId("composer-stacked-controls")).toBeNull();
+    expect(input()).toHaveStyle({ height: 24 });
 
-    // One letter past the field beside the buttons: the text takes the full width.
-    const wide = "x".repeat(FIELD_WIDTH / LETTER_WIDTH + 1);
+    // The text wraps onto a second line: the field grows to it.
+    const wide = "x".repeat(60);
     await act(async () => {
       fireEvent.changeText(input(), wide);
     });
-    await layOutCopies(view.getByTestId("chat-composer-field") as HostNode, wide.length);
-    expect(view.getByTestId("composer-stacked-controls")).toBeTruthy();
+    const before = mockComposerRenders.mock.calls.length;
+    await layOutCopies(view.getByTestId("chat-composer-field") as HostNode, 2);
+    expect(mockComposerRenders.mock.calls.length).toBeGreaterThan(before);
+    expect(input()).toHaveStyle({ height: 48 });
   });
 });

@@ -542,13 +542,12 @@ describe("ChatComposer at a larger text size", () => {
   it.each([
     [1.5, 36, 0],
     [2, 48, 0],
-  ])("keeps one line level with the buttons at %sx", async (scale, line, spaceBelow) => {
+  ])("sizes one line to the scaled text at %sx", async (scale, line, spaceBelow) => {
     windowFontScale = scale;
     const { getByTestId } = await render(<ChatComposer {...baseProps} />);
 
     expect(getByTestId("chat-composer-input")).toHaveStyle({ height: line });
     expect(getByTestId("chat-composer-field")).toHaveStyle({ paddingBottom: spaceBelow });
-    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
   });
 
   it("grows by a scaled line per Return", async () => {

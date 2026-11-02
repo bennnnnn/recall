@@ -342,7 +342,7 @@ export function preprocessMarkdownForStream(
     reusable ? (cache.segments ?? null) : null,
     content,
     stableLen,
-    (raw) => preprocessMarkdown(raw, mathFormat, options),
+    (raw, workedAbove) => preprocessMarkdown(raw, mathFormat, { ...options, workedAbove }),
   );
   const tail = content.slice(stableLen);
   return {
@@ -371,7 +371,8 @@ export function preprocessSettledMarkdown(
   mathFormat?: (expr: string) => string,
   options: PreprocessOptions = {},
 ): string {
-  const preprocess = (raw: string) => preprocessMarkdown(raw, mathFormat, options);
+  const preprocess = (raw: string, workedAbove = false) =>
+    preprocessMarkdown(raw, mathFormat, { ...options, workedAbove });
   const segments =
     cache && cache.presented === (options.presented === true) && cache.mathFormat === mathFormat
       ? cache.segments

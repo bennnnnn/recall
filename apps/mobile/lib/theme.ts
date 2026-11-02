@@ -42,6 +42,11 @@ export type Theme = {
   control: string;
   border: string;
   /**
+   * A step darker than `border`, for an edge that frames something on its own: the chat
+   * composer's pill (and the controls beside it) and the answer box. Drawn 1pt wide.
+   */
+  borderStrong: string;
+  /**
    * Hairlines between rows inside one card or menu. Drawn one device pixel
    * wide, so it needs at least 1.25:1 on bg, surface and elevated to show at
    * all; kept quieter than `border`.
@@ -68,7 +73,6 @@ export type Theme = {
   // Composer
   /** The chat composer's pill: pure white on the light page, the control grey in dark. */
   composerBg: string;
-  composerBorder: string;
   inputBg: string;
 
   // Copyable / content panels
@@ -146,6 +150,7 @@ export const lightTheme: Theme = {
   elevated: "#FFFFFF",
   control: "#F1F1F3",
   border: "#D9D9DE",
+  borderStrong: "#C2C2C9",
   separator: "#DCDCE0",
   pressed: "rgba(17,17,19,0.06)",
 
@@ -160,7 +165,6 @@ export const lightTheme: Theme = {
   assistantText: "#111113",
 
   composerBg: "#FFFFFF",
-  composerBorder: "#D9D9DE",
   inputBg: "#F7F7F8",
 
   contentSurface: "#F7F7F8",
@@ -208,6 +212,7 @@ export const darkTheme: Theme = {
   elevated: "#242428",
   control: "#323238",
   border: "#3A3A42",
+  borderStrong: "#505059",
   separator: "#38383F",
   pressed: "rgba(255,255,255,0.08)",
 
@@ -222,7 +227,6 @@ export const darkTheme: Theme = {
   assistantText: "#F5F5F6",
 
   composerBg: "#323238",
-  composerBorder: "#3A3A42",
   inputBg: "#171719",
 
   contentSurface: "#202023",

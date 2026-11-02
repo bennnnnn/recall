@@ -54,14 +54,14 @@ export function makeChatComposerStyles(theme: Theme) {
       gap: Space.xs,
     },
     inputWrap: {
-      // Attachments and the input row live inside the same rounded card.
+      // Attachments, the field and the button row share one card, edged like the answer box.
       backgroundColor: theme.composerBg,
       borderRadius: Radius.composer,
       paddingHorizontal: Space.md,
       paddingTop: Space.xxs,
       paddingBottom: Space.xxs,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.composerBorder,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
     },
     inputWrapFlex: { flex: 1, minWidth: 0 },
     inputWrapExpanded: { flex: 1, minHeight: 0 },
@@ -71,10 +71,9 @@ export function makeChatComposerStyles(theme: Theme) {
       ...Type.meta,
       color: theme.textSecondary,
     },
-    inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xs },
-    inputRowMainSingleLine: { alignItems: "center" },
+    inputRowMain: { flexDirection: "row", alignItems: "flex-end" },
     inputRowMainExpanded: { flex: 1, minHeight: 0 },
-    stackedControlsRow: {
+    controlsRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
@@ -125,10 +124,11 @@ export function makeChatComposerStyles(theme: Theme) {
       flex: 1,
       ...Type.body,
       color: theme.text,
-      // Fixed line box. A padded field makes iOS draw the caret a line too high.
+      // Fixed line box. A padded field makes iOS draw the caret a line too high, and
+      // Android's own inset would move the text off the placeholder (ComposerPlaceholder).
       lineHeight: COMPOSER_INPUT_LINE_HEIGHT,
       maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
-      paddingVertical: 0,
+      padding: 0,
       minHeight: COMPOSER_INPUT_LINE_HEIGHT,
     },
     inputExpanded: {

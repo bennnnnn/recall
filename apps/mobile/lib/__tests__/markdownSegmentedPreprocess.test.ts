@@ -124,6 +124,59 @@ describe("preprocessing a stream in parts", () => {
     expect(firstDifference(text)).toBeNull();
   });
 
+  it("reads the whole reply again when its Given label arrives after a card and a bold label", () => {
+    // Worked is read over the whole reply: a law-name heading before an answer card turns
+    // worked when a Given arrives after the card.
+    const text = [
+      "**Speed**",
+      "$v = d / t$",
+      "",
+      "```answer",
+      "v = 2",
+      "```",
+      "",
+      "A paragraph after the card.",
+      "",
+      "**Given**",
+      "$d = 10$",
+      "",
+      "Done.",
+      "",
+    ].join("\n");
+    expect(firstDifference(text)).toBeNull();
+  });
+
+  it.each([
+    ["a blank line", ["**Speed**", "", "$v = d / t$"]],
+    ["a maths fence", ["**Speed**", "```math", "v = d / t", "```"]],
+  ])("reads the whole reply again when a Given follows a bold label over %s", (_name, label) => {
+    const text = [
+      ...label,
+      "",
+      "```answer",
+      "v = 2",
+      "```",
+      "",
+      "A paragraph after the card.",
+      "",
+      "**Given**",
+      "$d = 10$",
+      "",
+      "Done.",
+      "",
+    ].join("\n");
+    expect(firstDifference(text)).toBeNull();
+  });
+
+  it("preprocesses part (b) after its card as a worked reply's, cut or whole", () => {
+    const reply = physics.replies.projectile_parts.reply;
+    const whole = preprocessMarkdown(reply, formatAssistantMathExpr);
+    // Every part's formula heading keeps its maths on the next row of one paragraph.
+    expect(whole.match(/\*\*Projectile motion formula\*\* {2}\n\$/g)).toHaveLength(3);
+    expect(firstDifference(reply)).toBeNull();
+    expect(partsOf(reply)).toBeGreaterThanOrEqual(8);
+  });
+
   it("cuts long replies into many parts", () => {
     expect(partsOf(STREAMING_REPLIES.maths)).toBeGreaterThanOrEqual(10);
     expect(partsOf(physics.replies.projectile_parts.reply)).toBeGreaterThanOrEqual(8);

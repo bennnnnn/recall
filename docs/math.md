@@ -274,9 +274,9 @@ Maths, physics and chemistry share one contract for a reply the model works out 
   question; `worked_layout_enabled`). Headings stay English for every locale, as a verified
   reply's do; the names, meanings and moves are in the reply's language.
 - **Not checked:** the value under **Answer** goes in the same card a verified one does,
-  marked `verified: false` (`land_answer_card`); the phone draws it in a dashed box with no
-  check and no label (`components/rich/AnswerBlock.tsx`; the "Not checked" tag was removed in
-  November 2026).
+  marked `verified: false` (`land_answer_card`); the phone draws it in the same solid box
+  with no check and no label (`components/rich/AnswerBlock.tsx`; the "Not checked" tag and the
+  dashed border were removed in November 2026): the green check is the only difference.
 - **Headings:** every worked layout reads Given, Required, **Solution** (a heading alone),
   then the formula under its own name and "formula" (**Average speed formula**; a name that
   already ends in law, theorem, rule, principle or equation stays: **Ohm's law**), never the
