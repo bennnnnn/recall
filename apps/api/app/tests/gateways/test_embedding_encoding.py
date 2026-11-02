@@ -1,4 +1,8 @@
-"""The query-embedding cache's encoding: packed float32, JSON entries still read."""
+"""How the query-embedding cache stores a vector: packed float32, JSON entries still read.
+
+(Not "encoding" then a colon on the first line: CodeQL's Python extractor read that as a
+PEP 263 source-encoding declaration and skipped the file as unparseable.)
+"""
 
 import json
 from uuid import uuid4

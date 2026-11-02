@@ -13,6 +13,7 @@ from app.gateways.storage_gateway import (
     StorageUnavailableError,
     UnconfiguredStorageGateway,
     get_storage_gateway,
+    local_storage_root,
 )
 
 
@@ -56,6 +57,49 @@ def test_local_storage_expands_home_dir(tmp_path: Path, monkeypatch):
     gateway = LocalStorageGateway(Path("~/.recall/attachments"))
     assert gateway.base_path == (tmp_path / ".recall" / "attachments").resolve()
     assert gateway.base_path.is_dir()
+
+
+_HOSTILE_KEYS = [
+    "../escape",
+    "../../etc/passwd",
+    "/etc/passwd",
+    "user-1/../../escape",
+    "user-1/./../../escape",
+    "",
+    "link/escape",  # a symlink inside the root that points out of it
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("key", _HOSTILE_KEYS)
+async def test_local_storage_rejects_keys_that_leave_the_root(tmp_path: Path, key: str):
+    root = tmp_path / "root"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "escape").write_bytes(b"secret")
+    gateway = LocalStorageGateway(root)
+    (gateway.base_path / "link").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="Invalid storage key"):
+        await gateway.write_bytes(key, b"overwritten")
+    with pytest.raises(ValueError, match="Invalid storage key"):
+        await gateway.presign_download(key)
+    assert await gateway.read_bytes(key) is None
+    assert await gateway.object_size(key) is None
+    assert gateway.resolve_local_path(key) is None
+    assert await gateway.copy_bytes(key, "user-1/copy") is False
+    await gateway.delete_bytes(key)
+    assert await gateway.delete_prefix(key) == 0
+    assert (outside / "escape").read_bytes() == b"secret"
+    assert not (tmp_path / "escape").exists()
+
+
+def test_local_storage_root_is_never_the_filesystem_root(tmp_path: Path):
+    with pytest.raises(ValueError, match="STORAGE_LOCAL_PATH"):
+        LocalStorageGateway("/")
+    with pytest.raises(ValueError, match="STORAGE_LOCAL_PATH"):
+        local_storage_root("/usr/../")
+    assert local_storage_root(tmp_path / "a" / ".." / "b") == (tmp_path / "b").resolve()
 
 
 def test_default_local_storage_path_is_not_tmp():

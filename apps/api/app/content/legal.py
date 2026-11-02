@@ -18,11 +18,14 @@ LEGAL_EFFECTIVE_DATE = "October 29, 2026"
 
 # Without SUPPORT_EMAIL (local dev) the pages still render; production boot warns.
 _NO_EMAIL_CONTACT = "use the support link on Recall's app-store listing"
-_PLAIN_EMAIL = re.compile(r"[^@\s()<>\[\]]+@[^@\s()<>\[\]]+\.[^@\s()<>\[\]]+")
+# Dot-separated domain labels, none empty: one way to read each address. Anchored, though
+# it is only ever fullmatched, so CodeQL's ReDoS check does not try it from every character.
+_PLAIN_EMAIL = re.compile(r"\A[^@\s()<>\[\]]+@[^@\s()<>\[\].]+(?:\.[^@\s()<>\[\].]+)+\Z")
 
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
-# Only https, mailto and same-site paths become links.
-_LINK = re.compile(r"\[([^\]]+)\]\(((?:https://|mailto:|/)[^\s)]+)\)")
+# Only https, mailto and same-site paths become links. Neither the text nor the address holds
+# a "[", so a line of unclosed brackets is read once, not again from each one.
+_LINK = re.compile(r"\[([^\[\]]+)\]\(((?:https://|mailto:|/)[^\s\[)]+)\)")
 _ORDERED_ITEM = re.compile(r"^\d+\.\s+")
 
 

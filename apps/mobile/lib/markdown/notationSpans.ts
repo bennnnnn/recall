@@ -11,13 +11,15 @@ import { applyOutsideFences } from "@/lib/mdFenceScan";
 
 const CHARSET = /^[A-Za-z0-9@+\-[\]()=#%/\\.]+$/;
 const LETTERS = /[A-Za-z]+/g;
-// Organic atoms, aromatic lowercase atoms, and two-letter element symbols.
-const ATOMS = /^(?:Cl|Br|[A-Z][a-z]|[BCNOPSFIKH]|[bcnops])+$/;
+// Organic atoms, aromatic lowercase atoms, and two-letter element symbols. A capital takes the
+// small letter after it ("Cl", "Br", "Bb"), so each run is read one way only: "B" then "b"
+// as well as "Bb" made a long run of "Bb" take exponential time (CodeQL js/redos).
+const ATOMS = /^(?:[A-Z][a-z]|[BCNOPSFIKH](?![a-z])|[bcnops])+$/;
 const RING_ATOM = /(?:[A-Z][a-z]?|[cnosp])(\d)/g;
 // Inline code and maths are left as they are; prose between them is read.
 const PROTECTED = /(`+[^`\n]*`+|\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/;
 const TOKEN = /[^\s`$]+/g;
-const TRAILING = /[.,;:!?]+$/;
+const TRAILING = ".,;:!?";
 const MIN_LENGTH = 6;
 
 /** True for a SMILES string such as `CC(=O)O` or `O=Cc1ccccc1`. */
@@ -40,8 +42,16 @@ function isNotation(token: string): boolean {
   );
 }
 
+/** `raw` without trailing punctuation. A loop, like the twin's `rstrip`: `/[.,;:!?]+$/`
+ * read a long run of dots again from each dot when the token did not end in one. */
+function withoutTrailing(raw: string): string {
+  let end = raw.length;
+  while (end > 0 && TRAILING.includes(raw[end - 1])) end -= 1;
+  return raw.slice(0, end);
+}
+
 function codeToken(raw: string): string {
-  const token = raw.replace(TRAILING, "");
+  const token = withoutTrailing(raw);
   if (!isNotation(token)) return raw;
   return `\`${token}\`${raw.slice(token.length)}`;
 }

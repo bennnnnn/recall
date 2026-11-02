@@ -20,8 +20,10 @@ from app.modules.chat.markdown_regions import map_prose_outside_fences
 
 _CHARSET = re.compile(r"[A-Za-z0-9@+\-\[\]()=#%/\\.]+")
 _LETTERS = re.compile(r"[A-Za-z]+")
-# Organic atoms, aromatic lowercase atoms, and two-letter element symbols.
-_ATOMS = re.compile(r"(?:Cl|Br|[A-Z][a-z]|[BCNOPSFIKH]|[bcnops])+")
+# Organic atoms, aromatic lowercase atoms, and two-letter element symbols. A capital takes the
+# small letter after it ("Cl", "Br", "Bb"), so each run is read one way only: "B" then "b"
+# as well as "Bb" made a long run of "Bb" take exponential time (CodeQL js/redos, the twin).
+_ATOMS = re.compile(r"(?:[A-Z][a-z]|[BCNOPSFIKH](?![a-z])|[bcnops])+")
 _RING_ATOM = re.compile(r"(?:[A-Z][a-z]?|[cnosp])(\d)")
 # Inline code and maths are left as they are; prose between them is read.
 _PROTECTED = re.compile(r"(`+[^`\n]*`+|\$\$[\s\S]*?\$\$|\$[^$\n]+\$)")

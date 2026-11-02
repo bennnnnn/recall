@@ -155,10 +155,12 @@ def _charge(text: str) -> int | None:
 
 def _placeholder(letter: str, text: str) -> bool:
     """ "element X", "atom X", "X has": a letter standing for an unnamed element."""
+    if letter in BY_SYMBOL:
+        return False
+    # Escaped: the letter comes from the user's text, and a pattern is built from it.
+    name = re.escape(letter)
     return (
-        letter not in BY_SYMBOL
-        and re.search(rf"\b(?:element|atom|ion|species)\s+{letter}\b|\b{letter}\s+has\b", text)
-        is not None
+        re.search(rf"\b(?:element|atom|ion|species)\s+{name}\b|\b{name}\s+has\b", text) is not None
     )
 
 

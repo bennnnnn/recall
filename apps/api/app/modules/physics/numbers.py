@@ -114,8 +114,11 @@ _MACHINE_ABBREVIATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(rf"{_ABBREVIATION_LEAD}VR\b(?!\.\w){_NOT_NAMED}"), "velocity ratio"),
 )
 # "a 20 m plank": a length written before the thing it measures is that thing's length.
+# ``\b(?<!\.)`` before a digit is the same test as ``(?<![\w.])``: the number starts here, not
+# inside a word or after a point. CodeQL's ReDoS check reads ``\b`` as where a match starts;
+# past the lookbehind it saw a run of digits read again from each digit.
 _LENGTH_BEFORE_PLANK = re.compile(
-    r"(?<![\w.])(\d+(?:\.\d+)?\s*(?:m|cm|km|metres?|meters?))\s+(planks?|ramps?|slopes?|boards?)\b",
+    r"\b(?<!\.)(\d+(?:\.\d+)?\s*(?:m|cm|km|metres?|meters?))\s+(planks?|ramps?|slopes?|boards?)\b",
     re.IGNORECASE,
 )
 

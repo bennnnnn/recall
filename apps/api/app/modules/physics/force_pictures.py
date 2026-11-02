@@ -135,7 +135,8 @@ _RISING = re.compile(r"\b(?:thrown|tossed|launched|going|moving)\s+(?:straight\s
 _AIR = re.compile(r"\b(?:air\s+resistance|drag\s+force|air\s+friction|with\s+drag)\b", re.I)
 _ROUND = re.compile(r"\b(?:ball|stone|rock|apple|bob|puck)\b", re.IGNORECASE)
 # "a 30 degree incline", "30°", "at 25 degrees above the horizontal".
-_ANGLE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*(?:°|º|-?\s*deg(?:rees?)?\b)", re.IGNORECASE)
+# One ``\s*`` before the unit and one after a hyphen: a run of spaces is read one way only.
+_ANGLE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*(?:°|º|(?:-\s*)?deg(?:rees?)?\b)", re.IGNORECASE)
 # A rope or a second body: more than one free-body picture, or one this file does not draw.
 _TOO_MANY = re.compile(
     r"\b(?:two|three|both|pair\s+of)\s+(?:ropes|strings|cables|blocks|boxes|masses)\b"

@@ -59,9 +59,23 @@ _PHRASES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     )
 )
 # "3 over 4", "x over 2": a fraction only between two operands.
-_OVER = re.compile(r"(\d+(?:\.\d+)?|\b[a-z]\b|\))\s+over\s+(\d|[a-z]\b|\()", re.IGNORECASE)
+# A number starts after a non-word (``\b``) or after a letter, which the match takes and puts
+# back (``_fraction``): ``\d+`` alone read a run of digits again from each digit (CodeQL
+# py/polynomial-redos). The one change: a denominator's later digits no longer start the next
+# fraction ("1 over 23 over 4" was "1 / 23 / 4", and is "1 / 23 over 4" as with one digit).
+_OVER = re.compile(
+    r"(?:(?:\b|(?P<lead>[^\W\d]))(?P<number>\d+(?:\.\d+)?)|(?P<term>\b[a-z]\b|\)))"
+    r"\s+over\s+(?P<under>\d|[a-z]\b|\()",
+    re.IGNORECASE,
+)
 _OPERATOR = r"[-+*/^=%]"
 _ORDINAL_EXPONENT = re.compile(rf"\^({_ORDINAL})\b", re.IGNORECASE)
+
+
+def _fraction(match: re.Match[str]) -> str:
+    """ "3 over 4" as "3 / 4"; a letter the number follows stays in front of it."""
+    over = match["number"] or match["term"]
+    return f"{match['lead'] or ''}{over} / {match['under']}"
 
 
 def _number(match: re.Match[str]) -> str:
@@ -99,15 +113,28 @@ def _numbers_beside_operators(text: str) -> str:
     return "".join(out)
 
 
+def _tight_carets(text: str) -> str:
+    r"""``x ^ 2`` as ``x^2``: no whitespace either side of a caret.
+
+    ``re.sub(r"\s*\^\s*", "^", text)`` as a split: that pattern rescanned a long run of
+    spaces from each of its characters (CodeQL py/polynomial-redos).
+    """
+    if "^" not in text:
+        return text
+    parts = text.split("^")
+    inner = [part.strip() for part in parts[1:-1]]
+    return "^".join([parts[0].rstrip(), *inner, parts[-1].lstrip()])
+
+
 def spoken_math_to_plain(text: str) -> str:
     """``text`` with its spoken maths as symbols; unchanged when it says none."""
     plain = text
     for pattern, replacement in _PHRASES:
         plain = pattern.sub(replacement, plain)
     plain = _ORDINAL_EXPONENT.sub(lambda m: f"^{_ORDINAL_POWERS[m.group(1).lower()]}", plain)
-    plain = _OVER.sub(r"\1 / \2", plain)
+    plain = _OVER.sub(_fraction, plain)
     plain = _numbers_beside_operators(plain)
     plain = re.sub(r"\bsqrt\s+(\d+(?:\.\d+)?|[a-z]\b)", r"sqrt(\1)", plain)
-    plain = re.sub(r"\s*\^\s*", "^", plain)
+    plain = _tight_carets(plain)
     plain = re.sub(r"(\d)\s+%", r"\1%", plain)
     return collapse_ws(plain) if plain != text else text
