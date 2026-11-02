@@ -13,8 +13,8 @@ diff --git a/package.json b/package.json
 diff --git a/index.js b/index.js
 --- a/index.js
 +++ b/index.js
-@@ -157,7 +157,7 @@
- 	return input;
+@@ -136,7 +136,7 @@
+ 	return input.replace(multiMatcher, run => decode(run));
  }
  
 -export default function decodeUriComponent(encodedURI) {
