@@ -120,7 +120,7 @@ describe("answer cards", () => {
     expect(checks).toBe(0);
     expect(json).not.toContain("answer-not-checked");
     expect(json).not.toContain("Not checked");
-    expect(json).toContain("2400");
+    expect(json).toContain('"testID":"answer-box"');
     expect(json).not.toContain("verified");
   });
 

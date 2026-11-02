@@ -382,19 +382,16 @@ def _heading(line: str) -> tuple[str, str] | None:
     if match is None:
         return None
     title = match.group("title").strip().rstrip(":").strip()
-    # A formula's own heading may be longer: "Ideal mechanical advantage of a pulley
-    # system formula".
     if not _HEADING_TITLE.fullmatch(title) and not names_a_formula(title):
         return None
-    rest = match.groupdict().get("rest") or ""
-    return title.lower(), rest.strip()
+    return title.lower(), (match.groupdict().get("rest") or "").strip()
 
 
 def _sections(prose: str) -> tuple[str, str | None]:
     """The reply without its input sections, and its last Answer section (None if none).
 
-    Given / Required / Formula lines restate the problem (``v = 3 m/s``); they are
-    never the reply's own result. Text after a heading on the same line stays.
+    Given / Required / Formula lines (or a formula's own heading) restate the problem
+    (``v = 3 m/s``), never the reply's result. Text after a heading on its line stays.
     """
     body: list[str] = []
     region: list[str] | None = None
@@ -412,7 +409,6 @@ def _sections(prose: str) -> tuple[str, str | None]:
             continue
         title, rest = heading
         in_answer = title in _ANSWER_TITLES
-        # A formula headed by its name ("Definition of pH formula") is an input too.
         skipping = title in _INPUT_TITLES or names_a_formula(title)
         if in_answer:
             region = [rest] if rest else []
