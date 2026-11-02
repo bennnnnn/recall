@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from uuid import uuid4
 
+import pytest
+
 from app.core.config import Settings
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.finalize_subjects import (
@@ -27,6 +29,7 @@ from app.services.subjects.registry import subject_adapter
 from app.services.worked_parts import (
     WorkedPart,
     merged_given,
+    parts_in_one_layout,
     read_worked_reply,
     render_parts,
 )
@@ -76,23 +79,27 @@ def test_render_parts_is_one_layout() -> None:
     text = render_parts(
         [
             WorkedPart(
-                "Speed after 1 s", working, "9.81", required=("$v$",), given=("$g = 9.81$",)
+                "What's its speed after 1 s?",
+                working,
+                "9.81",
+                required=("$v$ — speed",),
+                given=("$g = 9.81$",),
             ),
-            WorkedPart("Time to reach the ground", working, "2.02", required=("$t$",)),
+            WorkedPart("How long to reach the ground?", working, "2.02", required=("$t$ — time",)),
         ]
     )
     assert _headings(text) == [
         "Given",
         "Required",
         "Solution",
-        "(a) Speed after 1 s",
+        "(a) What's its speed after 1 s?",
         "Constant acceleration formula",
         "Answer (a)",
-        "(b) Time to reach the ground",
+        "(b) How long to reach the ground?",
         "Constant acceleration formula",
         "Answer (b)",
     ]
-    assert "(a) $v$ — speed after 1 s  \n(b) $t$ — time to reach the ground" in text
+    assert "(a) $v$ — speed  \n(b) $t$ — time" in text
     assert re.findall(r"```answer\n(.*?)\n```", text) == ["9.81", "2.02"]
 
 
@@ -108,9 +115,15 @@ async def test_the_ball_dropped_from_20_m_is_one_layout() -> None:
     found = await build_subject_augmentation(_WHOLE, _SETTINGS, parts=_PARTS, parts_answer_all=True)
 
     text = found.direct_text or ""
-    assert _headings(text)[:4] == ["Given", "Required", "Solution", "(a) Speed after 1 s"]
+    # The part is the student's own question; what it finds is named by the solver.
+    assert _headings(text)[:4] == [
+        "Given",
+        "Required",
+        "Solution",
+        "(a) What's its speed after 1 s?",
+    ]
     assert text.count("**Given**") == 1 and text.count("**Required**") == 1
-    assert "(b) $t$ — time to reach the ground" in text
+    assert "(a) $v$ — speed  \n(b) $t$ — time" in text
     assert text.count("where ") == 1
     # Every part ends with its own card, in the reply the phone streams.
     assert re.findall(r"\*\*Answer \(([ab])\)\*\*\n\n```answer\n", text) == ["a", "b"]
@@ -159,4 +172,18 @@ def test_render_parts_drops_no_part_past_h() -> None:
     parts = [WorkedPart(f"Part {n}", "$x = 1$", str(n), required=("$x$",)) for n in range(10)]
     text = render_parts(parts)
     assert len(re.findall(r"```answer\n", text)) == 10
-    assert "**Answer (j)**" in text and "(j) $x$ — part 9" in text
+    assert "**Answer (j)**" in text and "(j) $x$" in text
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["What's its speed after 1 s?", "How far does it travel in 3 s?", "How long is the rope?"],
+)
+def test_a_part_is_labelled_by_its_question_as_written(question: str) -> None:
+    reply = (
+        "**Given**  \n$x = 1$\n\n**Required**  \n$y$\n\n**Solution**\n\n"
+        "**Formula**  \n$y = x$\n\n**Answer**\n\n```answer\n1\n```\n"
+    )
+    text = parts_in_one_layout([question, "What is x?"], [reply, reply]) or ""
+    assert f"**(a) {question}**" in text
+    assert "(a) $y$  \n(b) $y$" in text

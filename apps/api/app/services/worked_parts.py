@@ -26,7 +26,6 @@ from app.services.md_fence_scan import iter_fences
 from app.services.workout import ANSWER, GIVEN, REQUIRED, REQUIRED_HEADINGS, SOLUTION
 
 _HARD_BREAK = "  \n"
-_NOTE = " — "
 # "$v_0$ = initial speed" or "$m_1$, $m_2$ = masses": one name in a where-line.
 _WHERE_PIECE = re.compile(r"[,;] (?=\$[^$]+\$(?:, \$[^$]+\$)* = )")
 
@@ -85,19 +84,9 @@ def merged_given(lines: Sequence[str]) -> list[str]:
     return values
 
 
-def _what(title: str) -> str:
-    """``Speed after 1 s`` → ``speed after 1 s``: what a part finds, after a dash."""
-    text = title.strip().rstrip("?.:")
-    if len(text) > 1 and text[0].isupper() and not text[1].isupper():
-        return text[0].lower() + text[1:]
-    return text
-
-
-def _required_line(letter: str, line: str, title: str) -> str:
-    """``(a) $v$ — speed after 1 s``: the part's letter, what it finds and what that is."""
-    if _NOTE in line or not title.strip():
-        return f"({letter}) {line}"
-    return f"({letter}) {line}{_NOTE}{_what(title)}"
+def _required_line(letter: str, line: str) -> str:
+    """``(a) $v$ — speed``: the part's letter before what it finds, as its solver named it."""
+    return f"({letter}) {line}"
 
 
 def render_parts(
@@ -109,7 +98,7 @@ def render_parts(
     asked = [
         *required,
         *(
-            _required_line(part_letter(index), line, part.title)
+            _required_line(part_letter(index), line)
             for index, part in enumerate(parts)
             for line in part.required
         ),
@@ -120,7 +109,7 @@ def render_parts(
     sections: list[str] = []
     for index, part in enumerate(parts):
         letter = part_letter(index)
-        label = f"**({letter}) {part.title.strip().rstrip('?')}**" if part.title.strip() else ""
+        label = f"**({letter}) {part.title.strip()}**" if part.title.strip() else ""
         pieces = [label, part.working.strip()]
         # A part still streaming has no answer yet: its heading waits with it.
         if part.answer is not None or part.after.strip():
@@ -180,35 +169,6 @@ def read_worked_reply(reply: str) -> _Read | None:
     return _Read(given, required, "\n\n".join(working), answer, after)
 
 
-def _short_title(question: str) -> str:
-    """What a separate question finds, short: "What's its speed after 1 s?" → "Speed after
-    1 s"; "How long to reach the ground?" → "Time to reach the ground"."""
-    text = question.strip().rstrip("?.!").strip()
-    for pattern, lead in _QUESTION_LEADS:
-        match = pattern.match(text)
-        if match is not None:
-            text = lead + text[match.end() :]
-            break
-    return text[:1].upper() + text[1:] if text else text
-
-
-_QUESTION_LEADS = (
-    (re.compile(r"^how long (?:does it take |will it take |is it )?(?=to\b)", re.I), "time "),
-    (re.compile(r"^how long\b", re.I), "time"),
-    (re.compile(r"^how far\b", re.I), "distance"),
-    (re.compile(r"^how fast\b", re.I), "speed"),
-    (re.compile(r"^how high\b", re.I), "height"),
-    (
-        re.compile(
-            r"^(?:what(?:'s| is| was| will be| are)|find|calculate|determine|work out)\s+"
-            r"(?:the |its |their |his |her |this |that )?",
-            re.I,
-        ),
-        "",
-    ),
-)
-
-
 def parts_in_one_layout(questions: Sequence[str], replies: Sequence[str]) -> str | None:
     """Separate questions' worked replies as one question in parts; None when a reply is
     not the worked layout."""
@@ -219,7 +179,8 @@ def parts_in_one_layout(questions: Sequence[str], replies: Sequence[str]) -> str
             return None
         parts.append(
             WorkedPart(
-                title=_short_title(question),
+                # The part's question as the student wrote it, never reworded.
+                title=question.strip(),
                 working=read.working,
                 answer=read.answer,
                 after=read.after,

@@ -320,7 +320,8 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     return render_workout(
         Workout(
             given=tuple(given_rows),
-            find=(math_line(find_symbol),),
+            # What is asked, named as the where-line names a given ("$v$ — speed").
+            find=(math_line(find_symbol, _meaning(operation, find_symbol)),),
             formula=tuple(formula_rows),
             substitution=tuple(
                 math_line(row)
@@ -360,6 +361,12 @@ def _solver_fences(verified: VerifiedPhysicsBlock) -> list[dict[str, Any]]:
     return fences
 
 
+def _meaning(operation: str, symbol: str) -> str | None:
+    """What an unknown stands for, from the glossary that names the givens."""
+    spec = formula_spec(operation)
+    return given_meaning(operation, spec.kind if spec is not None else "", symbol)
+
+
 def _format_parts(
     verified: VerifiedPhysicsBlock, intent: PhysicsIntent, given_rows: list[str]
 ) -> str:
@@ -388,7 +395,7 @@ def _format_parts(
                 title=part.title,
                 working=working,
                 answer=part.display_answer,
-                required=(math_line(part.symbol),),
+                required=(math_line(part.symbol, _meaning(part.op, part.symbol)),),
             )
         )
     # The one layout every question in parts has (``services/worked_parts``).
