@@ -5,7 +5,7 @@
  *   thing that earns the card's green check; the server strips the line from anything
  *   a model writes, so a reply cannot forge it.
  * - `verified: false` — no solver checked it: the model worked it out. The card draws
- *   no check and no label, in a dashed box. A card from before November 2026 has neither line.
+ *   no check and no label, in the same box. A card from before November 2026 has neither line.
  * - `notation: chemistry` — the body is chemistry text, not LaTeX. Chemistry (and any
  *   later literal subject) keeps formulas, charges, and units as text; treating that
  *   body as algebra rewrites a correct result.
@@ -42,8 +42,6 @@ export function splitAnswerNotation(raw: string): {
   notation: AnswerNotation;
   body: string;
   verified: boolean;
-  /** The server marked it as a value no solver checked. */
-  unchecked: boolean;
   part?: string;
 } {
   const lines = raw.replace(/\r\n/g, "\n").trim().split("\n");
@@ -61,7 +59,6 @@ export function splitAnswerNotation(raw: string): {
     notation: headers.has(CHEMISTRY_ANSWER_NOTATION) ? "chemistry" : "math",
     body: finalAnswerOnly(lines.join("\n").trim()),
     verified: headers.has(VERIFIED_ANSWER_MARKER),
-    unchecked: headers.has(UNCHECKED_ANSWER_MARKER) && !headers.has(VERIFIED_ANSWER_MARKER),
     ...(part ? { part } : {}),
   };
 }

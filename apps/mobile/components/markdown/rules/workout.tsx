@@ -360,7 +360,7 @@ export function renderWorkoutSection(
                 alignItems: "center",
                 backgroundColor: t.bg,
                 borderWidth: 1,
-                borderColor: t.border,
+                borderColor: t.borderStrong,
                 borderRadius: Radius.md,
                 paddingVertical: Space.sm,
                 paddingHorizontal: Space.md,

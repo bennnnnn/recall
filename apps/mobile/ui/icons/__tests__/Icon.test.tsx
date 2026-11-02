@@ -53,6 +53,23 @@ describe("Icon", () => {
     expect(stroke(large.toJSON())).toBeCloseTo(1.5);
   });
 
+  it("draws pause as two solid bars in the icon's ink, not four outlined lines", async () => {
+    const view = await render(<Icon name="pause" color="#123456" testID="i" />);
+    const svg = view.toJSON() as { children: { children: { children: unknown[] }[] }[] };
+    const shapes = svg.children[0].children[0].children as {
+      type: string;
+      props: { fill?: unknown; stroke?: unknown };
+    }[];
+    expect(shapes).toHaveLength(2);
+    for (const shape of shapes) {
+      expect(shape.type).toBe("RNSVGRect");
+      // Filled in the ink, with no outline.
+      expect(shape.props.fill).not.toBeNull();
+      expect(shape.props.stroke).toBeNull();
+    }
+    expect("pause" in GLYPHS).toBe(false);
+  });
+
   it("renders the app-only glyphs", async () => {
     const { getByTestId } = await render(<Icon name="menu" testID="menu" />);
     expect(getByTestId("menu").props.name).toBe("menu");

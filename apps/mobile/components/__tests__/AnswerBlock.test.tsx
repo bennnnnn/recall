@@ -46,7 +46,7 @@ describe("AnswerBlock", () => {
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({
       backgroundColor: lightTheme.bg,
       borderWidth: 1,
-      borderColor: lightTheme.border,
+      borderColor: lightTheme.borderStrong,
       flexDirection: "row",
       justifyContent: "center",
     });
@@ -100,12 +100,12 @@ describe("AnswerBlock", () => {
     expect(mockFormula).not.toHaveBeenCalled();
   });
 
-  it("shows the page background inside a thin grey border, like a written-out answer", async () => {
+  it("shows the page background inside the stronger 1pt border, like a written-out answer", async () => {
     const { getByTestId } = await render(<AnswerBlock content="x = 1" />);
     expect(StyleSheet.flatten(getByTestId("answer-box").props.style)).toMatchObject({
       backgroundColor: lightTheme.bg,
       borderWidth: 1,
-      borderColor: lightTheme.border,
+      borderColor: lightTheme.borderStrong,
     });
   });
 

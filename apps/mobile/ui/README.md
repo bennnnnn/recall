@@ -56,7 +56,8 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 ## Tokens
 
 Pieces draw from the tokens in `lib/`: colors in `theme.ts` (`elevated` for popups, `control`
-for plates and wells, `separator`, `pressed`, `wash`), type roles and `Weight` in `type.ts`,
+for plates and wells, `border` for a field's 1pt edge, `borderStrong` a step darker for an edge that
+frames something on its own (the chat composer, the answer box), `separator`, `pressed`, `wash`), type roles and `Weight` in `type.ts`,
 `space.ts`, `radius.ts`, and springs in `motion.ts`. Lint rejects raw font sizes, font
 weights, spacing, radii and hex colors outside a short list of domain graphics.
 

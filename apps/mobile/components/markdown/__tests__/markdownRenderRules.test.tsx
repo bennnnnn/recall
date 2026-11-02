@@ -730,6 +730,79 @@ describe("markdown render rules", () => {
     expect(hairlines(toJSON())).toBe(1);
   });
 
+  it("draws every part's working alike: part (b) after its divider is inside Solution too", async () => {
+    // The server's reply shape: part (b)'s prose sits after part (a)'s answer card, with no
+    // **Given** of its own. Its formula heading used to draw as a bold section heading.
+    const content = [
+      "**Given**  ",
+      String.raw`$d_1 = 100\,\mathrm{m}$`,
+      "",
+      "**Required**  ",
+      "$v$ (speed)",
+      "",
+      "**Solution**",
+      "",
+      "**(a) A car goes 100 m in 5 s. Find its speed.**",
+      "",
+      "**Speed formula**  ",
+      String.raw`$v = \frac{d}{t}$`,
+      "",
+      "**Substitution**  ",
+      String.raw`$v = \frac{100}{5}$`,
+      String.raw`$v = 20\,\mathrm{m/s}$`,
+      "",
+      "**Answer (a)**",
+      "",
+      "```answer",
+      "verified: true",
+      String.raw`20\,\mathrm{m/s}`,
+      "```",
+      "",
+      "---",
+      "",
+      "**(b) A train goes 300 m in 10 s. Find its speed.**",
+      "",
+      "**Speed formula**  ",
+      String.raw`$v = \frac{d}{t}$`,
+      "",
+      "**Substitution**  ",
+      String.raw`$v = \frac{300}{10}$`,
+      String.raw`$v = 30\,\mathrm{m/s}$`,
+      "",
+      "**Answer (b)**",
+      "",
+      "```answer",
+      "verified: true",
+      String.raw`30\,\mathrm{m/s}`,
+      "```",
+    ].join("\n");
+    const { getAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getAllByTestId("workout-part")).toHaveLength(2);
+    expect(
+      getAllByTestId("workout-heading").map((node) => node.props.children),
+    ).toEqual(["Given", "Required", "Solution"]);
+    const subheadings = getAllByTestId("workout-subheading");
+    expect(subheadings.map((node) => node.props.children)).toEqual([
+      "Speed formula",
+      "Substitution",
+      "Speed formula",
+      "Substitution",
+    ]);
+    const flat = (node: { props: { style?: StyleProp<TextStyle> } }) =>
+      StyleSheet.flatten(node.props.style);
+    // Each part's formula heading is the same small secondary sub-heading…
+    expect(flat(subheadings[2]!)).toEqual(flat(subheadings[0]!));
+    expect(flat(subheadings[2]!).color).toBe(lightTheme.textSecondary);
+    // …and every line of maths under it is centred, in part (a) and part (b) alike.
+    const working = getAllByTestId("workout-body").slice(2);
+    expect(working).toHaveLength(4);
+    for (const body of working) {
+      for (const line of within(body).getAllByTestId("workout-line")) {
+        expect(flat(line).justifyContent).toBe("center");
+      }
+    }
+  });
+
   it("lays out a model's sections written with plain line breaks", async () => {
     // A model wrote one newline after each heading; its first line ran onto the heading.
     const content = [
@@ -779,7 +852,7 @@ describe("markdown render rules", () => {
     expect(StyleSheet.flatten(box.props.style)).toMatchObject({
       backgroundColor: lightTheme.bg,
       borderWidth: 1,
-      borderColor: lightTheme.border,
+      borderColor: lightTheme.borderStrong,
     });
     const boxed = within(box).getAllByTestId("workout-line");
     expect(boxed).toHaveLength(1);

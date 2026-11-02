@@ -32,6 +32,7 @@ import {
 import {
   ComposerAttachButton,
   ComposerExpandControl,
+  ComposerPlaceholder,
   ComposerScanHint,
   COMPOSER_SCAN_HINT_HEIGHT,
 } from "@/features/chat/components/ComposerControls";
@@ -51,6 +52,7 @@ import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInse
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
+  COMPOSER_CONTROL_SIZE,
   COMPOSER_GAP_FADE_OVERLAP,
   composerNativeInputTraits,
   composerShowsMic,
@@ -72,8 +74,9 @@ function gapFadeColors(bg: string): [string, string] {
   return [withAlpha(bg, 0.92), bg];
 }
 
-// 36 pt row + 4 pt card padding above and below + 6 pt shell air above and below.
-export const COMPOSER_HEIGHT = 56;
+// The 36 pt field over the 36 pt button row + 4 pt card padding above and below +
+// 6 pt shell air above and below.
+export const COMPOSER_HEIGHT = COMPOSER_CONTROL_SIZE * 2 + 20;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
 
 /** Mic mute and close beside the real composer while live talk is open. */
@@ -203,16 +206,13 @@ export const ChatComposer = memo(function ChatComposer({
     field,
     textBoxHeight,
     fieldOverflows,
-    singleLineComposer,
     showExpandControl,
-    stackedLayout,
     onInputLayout,
     onInputContentSizeChange,
   } = useComposerFieldLayout({
     input,
     draftRevision: draft?.revision,
     fontScale,
-    voiceActive,
     onInputFrameExtraChange,
   });
 
@@ -386,15 +386,11 @@ export const ChatComposer = memo(function ChatComposer({
                 }}
               />
             ) : null}
+            {/* The field has the full width; the buttons are a row of their own under it. */}
             <View
               testID="composer-input-row"
-              style={[
-                s.inputRowMain,
-                singleLineComposer && !stackedLayout && s.inputRowMainSingleLine,
-                composerExpanded && s.inputRowMainExpanded,
-              ]}
+              style={[s.inputRowMain, composerExpanded && s.inputRowMainExpanded]}
             >
-              {stackedLayout ? null : attachButton}
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform
                   recording={voiceRecording}
@@ -405,7 +401,7 @@ export const ChatComposer = memo(function ChatComposer({
                 <Pressable
                   style={[
                     s.inputField,
-                    // Keeps one line on the button midline. Extra lines grow above the caret.
+                    // Keeps one line on the field's midline. Extra lines grow above the caret.
                     { paddingBottom: field.slack / 2 },
                     composerExpanded && s.inputFieldExpanded,
                   ]}
@@ -455,8 +451,6 @@ export const ChatComposer = memo(function ChatComposer({
                           },
                       parkInput ? s.inputParked : null,
                     ]}
-                    placeholder={showMathPreview ? "" : t("chat.placeholder")}
-                    placeholderTextColor={theme.textDisabled}
                     accessibilityLabel={t("chat.placeholder")}
                     maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
                     value={input}
@@ -485,6 +479,7 @@ export const ChatComposer = memo(function ChatComposer({
                     multiline
                     returnKeyType="default"
                   />
+                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} />}
                   {showEmptyCaret ? (
                     <View style={s.emptyCaret} pointerEvents="none">
                       <MathComposerCaret testID="math-composer-caret" />
@@ -492,14 +487,11 @@ export const ChatComposer = memo(function ChatComposer({
                   ) : null}
                 </Pressable>
               )}
-              {stackedLayout ? null : trailingControls}
             </View>
-            {stackedLayout ? (
-              <View style={s.stackedControlsRow} testID="composer-stacked-controls">
-                {attachButton}
-                {trailingControls}
-              </View>
-            ) : null}
+            <View style={s.controlsRow} testID="composer-controls-row">
+              {attachButton}
+              {trailingControls}
+            </View>
             {sendStatus ? (
               <Text
                 style={s.sendStatus}

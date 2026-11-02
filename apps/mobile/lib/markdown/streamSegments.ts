@@ -14,9 +14,11 @@
  * - code spans (`protectMathEscapes` pairs ticks across lines): every line's
  *   ticks pair on that line;
  * - a worked reply (`separateStandaloneBoldLines` reads a bold Given or Required
- *   label anywhere in the prose region to decide a law-name heading): no cut
- *   after one in its region, and one arriving after a bold label merges the
- *   region's parts back into one;
+ *   label anywhere in the reply to decide a law-name heading): no cut after one
+ *   in its prose region, a part after it is preprocessed as worked
+ *   (`workedAbove`), and the first one arriving after a bold label merges the
+ *   parts back into one (from the reply's start; from the region's start for a
+ *   label only this scan's looser pattern reads);
  * - an Answer heading looks ahead for its card (`attachAnswerHeadingToFence`),
  *   and a check section runs until a heading (`layoutCheckVerificationLines`);
  * - `<details>`, bare Vega JSON and molecule pairs are read across the whole
@@ -28,7 +30,7 @@
 import { isAnswerLang, isExplicitCodeLang } from "@/lib/copyBlock";
 import { isMathFenceLang, isStructuredFenceLang } from "@/lib/fenceRegistry";
 import { escapedAt } from "@/lib/markdown/inlineCode";
-import { OPENING_HEADINGS } from "@/lib/markdown/workoutSection";
+import { isWorkedReply, OPENING_HEADINGS } from "@/lib/markdown/workoutSection";
 
 type OpenFence = { char: "`" | "~"; len: number; durable: boolean };
 
@@ -53,6 +55,10 @@ export type SegmentScanState = {
   regionWorked: boolean;
   /** …or a bold line over another line (a law-name heading, when worked). */
   regionLawHeading: boolean;
+  /** The reply holds a Given or Required label as `isWorkedReply` reads it. */
+  replyWorked: boolean;
+  /** A bold line over another line anywhere in the reply so far. */
+  replyLawHeading: boolean;
   /** Inside a "You can check" section (until a heading). */
   inCheck: boolean;
   /** Since the open part began: a line whose code ticks do not pair on it. */
@@ -92,6 +98,8 @@ export function emptySegmentScan(): SegmentScanState {
     regionStart: 0,
     regionWorked: false,
     regionLawHeading: false,
+    replyWorked: false,
+    replyLawHeading: false,
     inCheck: false,
     unpairedTicks: false,
     parenOpen: false,
@@ -195,13 +203,19 @@ function foldProseLine(state: SegmentScanState, line: string, hooks: SegmentHook
   if (!ticksPairOnLine(line)) state.unpairedTicks = true;
   state.parenOpen = pairLazily(line, state.parenOpen, "\\(", "\\)");
   state.bracketOpen = pairLazily(line, state.bracketOpen, "\\[", "\\]");
-  if (state.prevBoldLabel && !state.prevBlank) state.regionLawHeading = true;
+  if (state.prevBoldLabel && !state.prevBlank) {
+    state.regionLawHeading = true;
+    state.replyLawHeading = true;
+  }
   if (!WORKED_RE.test(line)) return;
   state.regionWorked = true;
-  // Its bold labels were preprocessed as an unworked reply: preprocess them again.
-  if (state.regionLawHeading && state.segmentStart > state.regionStart) {
-    state.segmentStart = hooks.rewind(state.regionStart);
-  }
+  // The first one makes the whole reply worked: bold labels preprocessed as an
+  // unworked reply's are preprocessed again.
+  const first = !state.replyWorked && isWorkedReply(line);
+  if (first) state.replyWorked = true;
+  const from =
+    first && state.replyLawHeading ? 0 : state.regionLawHeading ? state.regionStart : null;
+  if (from !== null && state.segmentStart > from) state.segmentStart = hooks.rewind(from);
 }
 
 /** Fold one complete raw line into the state. */

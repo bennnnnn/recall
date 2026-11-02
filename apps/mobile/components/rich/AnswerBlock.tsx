@@ -55,7 +55,7 @@ type Styles = ReturnType<typeof makeStyles>;
 
 /**
  * The card's heading ("Answer", "Answer (a)") and its box. A value no solver checked
- * (`verified: false`) sits in a dashed box, with no label and no check.
+ * (`verified: false`) sits in the same box, only without the check.
  */
 function AnswerFrame({
   parsed,
@@ -82,7 +82,7 @@ function AnswerFrame({
             : t("rich.answer_label")}
         </Text>
       </View>
-      <View testID="answer-box" style={[s.box, parsed.unchecked ? s.uncheckedBox : null]}>
+      <View testID="answer-box" style={s.box}>
         {children}
       </View>
     </View>
@@ -96,7 +96,7 @@ function AnswerFrame({
  * Every ```answer fence lands here; the green check after the value is the
  * server's (a body that opens with `verified: true`, see lib/answerNotation.ts)
  * and needs the reply to have settled. A value no solver checked (`verified: false`)
- * sits in a box with a dashed border, with no label and no check.
+ * sits in the same box with no check: the check is the only difference.
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
  * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in a slot that
@@ -268,18 +268,16 @@ const makeStyles = (t: Theme) =>
       ...Weight.semibold,
       color: t.assistantText,
     },
-    uncheckedBox: {
-      borderStyle: "dashed",
-    },
     // The same bordered box as a written-out answer (workout-answer): the page's own
-    // background inside a thin border. The answer sits centred; no side rule.
+    // background inside the stronger 1pt border the composer uses. The answer sits
+    // centred; no side rule.
     box: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: t.bg,
       borderWidth: 1,
-      borderColor: t.border,
+      borderColor: t.borderStrong,
       borderRadius: Radius.md,
       paddingVertical: Space.sm,
       paddingHorizontal: Space.md,

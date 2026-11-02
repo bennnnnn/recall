@@ -8,9 +8,13 @@
  * plain math, never the card. A card marked `verified: false` (no solver checked it)
  * draws no check and no label (the "Not checked" tag was removed in November 2026).
  */
+import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { lightTheme } from "@/lib/theme";
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
@@ -122,6 +126,26 @@ describe("answer cards", () => {
     expect(json).not.toContain("Not checked");
     expect(json).toContain('"testID":"answer-box"');
     expect(json).not.toContain("verified");
+  });
+
+  it("draws a checked and a not-checked card in one box: solid, the stronger border", async () => {
+    const boxStyle = async (content: string) => {
+      const screen = await render(<MarkdownContent content={content} />);
+      return StyleSheet.flatten(screen.getByTestId("answer-box").props.style);
+    };
+    const checked = await boxStyle("```answer\nverified: true\nx = 6\n```");
+    const unchecked = await boxStyle("```answer\nverified: false\nx = 6\n```");
+    const unmarked = await boxStyle("```answer\nx = 6\n```");
+    expect(unchecked).toEqual(checked);
+    expect(unmarked).toEqual(checked);
+    expect(checked.borderStyle).toBeUndefined();
+    expect(checked).toMatchObject({
+      borderWidth: 1,
+      borderColor: lightTheme.borderStrong,
+      borderRadius: Radius.md,
+      paddingVertical: Space.sm,
+      paddingHorizontal: Space.md,
+    });
   });
 
   it("no card is labelled not checked, marked or not", async () => {

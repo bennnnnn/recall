@@ -27,7 +27,7 @@ export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props)
           styles.round,
           muted
             ? { backgroundColor: theme.danger, borderColor: theme.danger }
-            : { backgroundColor: theme.inputBg, borderColor: theme.composerBorder },
+            : { backgroundColor: theme.inputBg, borderColor: theme.borderStrong },
         ]}
         accessibilityLabel={t(liveTalkMuteA11yKey(muted))}
         testID="live-talk-mute"
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: Radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: "transparent",
     alignItems: "center",
     justifyContent: "center",

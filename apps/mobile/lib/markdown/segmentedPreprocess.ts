@@ -10,8 +10,10 @@ import {
   readsBackAcrossCuts,
   type SegmentScanState,
 } from "@/lib/markdown/streamSegments";
+import { isWorkedReply } from "@/lib/markdown/workoutSection";
 
-type Preprocess = (raw: string) => string;
+/** `workedAbove`: the parts before this text hold a worked reply's **Given** or **Required**. */
+type Preprocess = (raw: string, workedAbove: boolean) => string;
 
 export type SegmentedPrefix = {
   /** Raw text of the cut parts, joined (a prefix of the reply). */
@@ -22,6 +24,8 @@ export type SegmentedPrefix = {
   parts: string[];
   /** `parts` joined. */
   prepared: string;
+  /** `raw` reads as a worked reply: the parts after it are preprocessed as one's. */
+  workedAbove: boolean;
   scan: SegmentScanState;
   /** The open part (from the last cut to the stable end) and its preprocess. */
   openRaw: string;
@@ -34,6 +38,7 @@ function emptySegmentedPrefix(): SegmentedPrefix {
     starts: [],
     parts: [],
     prepared: "",
+    workedAbove: false,
     scan: emptySegmentScan(),
     openRaw: "",
     openPrepared: "",
@@ -50,6 +55,7 @@ function rewindTo(prefix: SegmentedPrefix, start: number): number {
   prefix.parts = prefix.parts.slice(0, keep);
   prefix.prepared = prefix.parts.join("");
   prefix.raw = prefix.raw.slice(0, from);
+  prefix.workedAbove = isWorkedReply(prefix.raw);
   prefix.openRaw = "";
   return from;
 }
@@ -77,9 +83,11 @@ export function advanceSegmentedPrefix(
   const tryCut = (start: number): boolean => {
     const open = content.slice(prefix.raw.length, start);
     const after = content.slice(start, stableLen);
-    const whole = preprocess(open + after);
-    const head = preprocess(open);
-    const rest = preprocess(after);
+    const above = prefix.workedAbove;
+    const whole = preprocess(open + after, above);
+    const head = preprocess(open, above);
+    const restAbove = above || isWorkedReply(open);
+    const rest = preprocess(after, restAbove);
     if (whole !== head + rest) {
       prefix.openRaw = open + after;
       prefix.openPrepared = whole;
@@ -89,6 +97,7 @@ export function advanceSegmentedPrefix(
     prefix.parts = [...prefix.parts, head];
     prefix.prepared += head;
     prefix.raw += open;
+    prefix.workedAbove = restAbove;
     prefix.openRaw = after;
     prefix.openPrepared = rest;
     return true;
@@ -100,7 +109,7 @@ export function advanceSegmentedPrefix(
   const openRaw = content.slice(prefix.raw.length, stableLen);
   if (openRaw !== prefix.openRaw) {
     prefix.openRaw = openRaw;
-    prefix.openPrepared = preprocess(openRaw);
+    prefix.openPrepared = preprocess(openRaw, prefix.workedAbove);
   }
   return { prefix, preparedStable: prefix.prepared + prefix.openPrepared };
 }
@@ -121,5 +130,5 @@ export function finishSegmentedPrefix(
   if (!content.startsWith(read)) return null;
   const unread = content.slice(read.length);
   if (readsBackAcrossCuts(unread)) return null;
-  return prev.prepared + preprocess(prev.openRaw + unread);
+  return prev.prepared + preprocess(prev.openRaw + unread, prev.workedAbove);
 }

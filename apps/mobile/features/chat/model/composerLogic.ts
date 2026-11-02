@@ -10,9 +10,9 @@ export const CHAT_ACTION_ROW_HEIGHT = 44;
 const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 /**
- * One-line composer row. Shorter than the 44 pt touch minimum; the buttons
- * add hitSlop so the placeholder, +, mic, and live talk stay on one line.
- * Also the input's minimum height, so the placeholder shares the controls' midline.
+ * The composer's button row (+, calculator, mic, live talk, send), under the
+ * field. Shorter than the 44 pt touch minimum; the buttons add hitSlop. Also the
+ * field's one-line height.
  */
 export const COMPOSER_CONTROL_SIZE = 36;
 /** Extra Returns grow by one text line, not another full control. */

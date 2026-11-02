@@ -1,3 +1,5 @@
+import { fencedLines } from "@/lib/mdFenceScan";
+
 /**
  * What is asked: **Required**, or **Find** in a reply written before November 2026 (and in
  * one a model still heads that way).
@@ -61,12 +63,15 @@ export function lawHeading(text: string, firstLine: string): string | null {
   return /^\$/.test(firstLine.trim()) ? heading : null;
 }
 
-const WORKED_REPLY_RE = new RegExp(String.raw`^\*\*(?:${OPENING_HEADINGS.join("|")}):?\*\*`, "m");
+const WORKED_LINE_RE = new RegExp(String.raw`^\*\*(?:${OPENING_HEADINGS.join("|")}):?\*\*`);
 
 /** A reply worked in sections: it states what it is given or what is asked (a follow-up
- * that changes one given often skips Required). */
+ * that changes one given often skips Required). Read over the whole reply, its fences
+ * left out: a part after an answer card (`---`, **(b) …**) is as worked as the first. */
 export function isWorkedReply(text: string): boolean {
-  return WORKED_REPLY_RE.test(text);
+  if (!text.includes("**")) return false;
+  const fenced = fencedLines(text, false);
+  return text.split("\n").some((line, index) => !fenced[index] && WORKED_LINE_RE.test(line));
 }
 
 /** ``$2x = 8$ — subtract 3``: the state, then its move. A dash inside math is the math's. */
