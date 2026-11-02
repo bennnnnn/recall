@@ -415,9 +415,7 @@ export function useChatSend({
     setInput, setPendingAttachment, attachPickInFlightRef,
   ]);
 
-  const { handleMathScanCaptured, readScan, handleMathScanSolve } = useMathScanSend({
-    token,
-    t,
+  const { handleMathScanCaptured } = useMathScanSend({
     inputRef,
     setInput,
     replacePendingAttachment,
@@ -442,8 +440,6 @@ export function useChatSend({
     handlePickAttachment,
     handleAttachmentSheetSelect,
     handleMathScanCaptured,
-    readScan,
-    handleMathScanSolve,
     creatingRef,
     pendingOutboundId,
   };

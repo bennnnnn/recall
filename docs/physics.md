@@ -402,18 +402,18 @@ carries. Three tests read the file:
 
 A photographed problem goes through the same pipeline as a typed one.
 
-1. The camera's physics tab sends the crop to `POST /physics/scan/read` (`api.py`). The shared
-   guard in `services/scan_read.py` checks the payload, the vision spend cap and the per-user
-   rate, as it does for math and chemistry.
+1. The camera's physics tab sends the crop on **Solve** with the physics caption. The turn
+   asks physics' photo reader (`PhysicsPhoto` in `subject.py`, through
+   `services/subject_scan.read_scanned_problem`).
 2. `read.py` asks `vision-chat` for the problem as written, then turns any LaTeX into the text
    a student would type: `2 \times 10^{-6}\,\mathrm{C}` becomes `2 × 10^-6 C`, `30^{\circ}`
    becomes `30°`, and `\mu` is µ before a unit and μ elsewhere.
-3. The student checks the reading under **I read this as**, then chooses:
-   - **Solve** sends the text alone, so it gets the verified Given / Required / Formula /
-     Substitution / Answer reply of a typed question;
-   - **Send photo** sends the crop with `I read this as: …`. The turn verifies that reading
-     (`modules/physics/subject.py`, `_physics_request_text`), and the model writes the reply, since the
-     photo may hold a diagram the text does not.
+3. The reading is stated under the caption as `I read this as: …`, in the prompt and in the
+   stored message (so a follow-up or a regenerate finds the problem, and the chat shows what
+   was read under the photo). The turn verifies that reading
+   (`_physics_request_text`), and the model writes the reply with the photo, since it may hold
+   a diagram the text does not. `POST /physics/scan/read` (`api.py`) stays for older app
+   builds, which send the checked reading themselves.
 
 A physics caption is physics, never math: math neither OCRs the photo nor claims the
 confirmed reading. A photo with no reading gets the unverified physics note.

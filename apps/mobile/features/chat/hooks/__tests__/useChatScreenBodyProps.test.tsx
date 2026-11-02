@@ -48,8 +48,6 @@ const handlePickAttachment = jest.fn();
 const handleAttachmentSheetSelect = jest.fn(async () => undefined);
 const closeMathScanner = jest.fn();
 const handleMathScanCaptured = jest.fn();
-const readScan = jest.fn(async () => null);
-const handleMathScanSolve = jest.fn();
 const quotaDismiss = jest.fn();
 const retryChatError = jest.fn();
 const dismissChatError = jest.fn();
@@ -122,8 +120,6 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
       mathScannerOpen: false,
       closeMathScanner,
       handleMathScanCaptured,
-      readScan,
-      handleMathScanSolve,
     },
     quotaNudge: {
       show: false,

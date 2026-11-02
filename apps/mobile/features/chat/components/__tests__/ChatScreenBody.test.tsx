@@ -175,8 +175,6 @@ const baseProps: ChatScreenBodyProps = {
     mathScannerOpen: false,
     onCloseMathScanner: noop,
     onMathScanCaptured: noop,
-    onReadScan: async () => null,
-    onMathScanSolve: noop,
     upgradeVisible: false,
     onCloseUpgrade: noop,
   },

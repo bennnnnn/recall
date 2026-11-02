@@ -72,11 +72,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/pushNotifications.ts",
     "model/pushRegistration.ts",
   ],
-  scanner: [
-    "components/LazyMathEquationScanner.tsx",
-    "model/readBack.ts",
-    "model/scanReadError.ts",
-  ],
+  scanner: ["components/LazyMathEquationScanner.tsx"],
   search: ["components/DrawerSearchResults.tsx", "hooks/useDrawerSearch.ts"],
   speech: [
     "components/LiveTalkButton.tsx",

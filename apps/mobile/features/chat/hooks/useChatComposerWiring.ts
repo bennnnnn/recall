@@ -90,8 +90,6 @@ export function useChatComposerWiring({
       mathScannerOpen: send.mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured: send.handleMathScanCaptured,
-      readScan: send.readScan,
-      handleMathScanSolve: send.handleMathScanSolve,
       onOpenMathScanner: openMathScanner,
       onMathChromeHeightChange: setMathChromeExtra,
       onInputFrameExtraChange: setComposerInputExtra,

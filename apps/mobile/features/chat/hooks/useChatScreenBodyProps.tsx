@@ -21,7 +21,6 @@ import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import { openDrawer } from "@/features/chat/drawer/drawer";
 import type { Theme } from "@/lib/theme";
@@ -89,8 +88,6 @@ type UseChatScreenBodyPropsParams = {
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
     handleMathScanCaptured: ChatScreenSheetsProps["onMathScanCaptured"];
-    readScan: ChatScreenSheetsProps["onReadScan"];
-    handleMathScanSolve: (reading: string, subject?: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
     onInputFrameExtraChange?: (extra: number) => void;
@@ -167,8 +164,6 @@ export function useChatScreenBodyProps({
     mathScannerOpen,
     closeMathScanner,
     handleMathScanCaptured,
-    readScan,
-    handleMathScanSolve,
     onOpenMathScanner,
     onMathChromeHeightChange,
     onInputFrameExtraChange,
@@ -442,8 +437,6 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       onCloseMathScanner: closeMathScanner,
       onMathScanCaptured: handleMathScanCaptured,
-      onReadScan: readScan,
-      onMathScanSolve: handleMathScanSolve,
       upgradeVisible,
       upgradeSource,
       onCloseUpgrade,
@@ -455,8 +448,6 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured,
-      readScan,
-      handleMathScanSolve,
       upgradeVisible,
       upgradeSource,
       onCloseUpgrade,

@@ -50,7 +50,6 @@
   "features/notifications/model/pushNotifications.ts": 1,
   "features/scanner/components/LiveMathScannerCamera.tsx": 1,
   "features/scanner/components/MathEquationScanner.tsx": 3,
-  "features/scanner/hooks/useScanReview.ts": 1,
   "features/scanner/model/switchCue.ts": 1,
   "features/speech/hooks/useLiveTalk.ts": 2,
   "features/speech/hooks/useVoiceInput.ts": 2,
