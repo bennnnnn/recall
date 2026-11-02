@@ -2,11 +2,11 @@
 
 Every section goes through ``render_workout`` (``services/workout.py``), the renderer of
 every verified maths, physics and chemistry reply: **Given** (each value on its line, then
-the ``where`` line naming them), **Required**, the formula under its heading (a physics
-law's own name, as its verified replies head it; **Formula** with the name after a dash
-elsewhere), ``Solve for`` lines, **Substitution** or **Steps**, then **Answer** with the
-value. A question in parts is laid out as a verified one in parts: the givens and what is
-asked once, then each part under its letter, closed by its own **Answer (a)**, a hairline
+the ``where`` line naming them), **Required**, **Solution**, the formula under its name's
+heading (``formula_heading``: **Average speed formula**; **Formula** with no name),
+``Solve for`` lines, **Substitution** or **Steps**, then **Answer** with the value. A
+question in parts is laid out as a verified one in parts: the givens and what is asked
+once, then **Solution** and each part under its letter, closed by its own **Answer (a)**, a hairline
 between parts. The value under **Answer** becomes the card in finalize
 (``chat.finalize_subjects.check_working``), marked ``verified: false``: no solver
 checked it.
@@ -20,9 +20,8 @@ from dataclasses import dataclass
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
 from app.services.workout import (
     ANSWER,
-    FORMULA,
     Workout,
-    formula_name,
+    formula_heading,
     math_line,
     render_workout,
     solve_for_line,
@@ -53,15 +52,12 @@ _UNIT_SYMBOLS = {
     "°F": r"\,^\circ\mathrm{F}",
     "%": r"\,\%",
 }
-# A law's own name heads its formulas only when the phone reads it as one: a few words,
-# no sentence (``lib/markdown/workoutSection.ts``, ``lawHeading``).
-_LAW_NAME_WORDS = 8
 
 
 @dataclass(frozen=True)
 class WorkedLayout:
-    """How one turn's worked block is laid out. ``law_heading``: physics heads a formula
-    with its law's name and its card holds the value alone, as its verified replies do."""
+    """How one turn's worked block is laid out. ``law_heading``: physics' card holds the
+    value alone, as its verified replies do."""
 
     law_heading: bool = False
 
@@ -139,20 +135,7 @@ def _given_section(solution: WorkedSolution, *, streaming: bool) -> tuple[str, .
     return tuple(rows)
 
 
-def _formula_heading(part: Part, layout: WorkedLayout) -> tuple[str, str | None]:
-    """The section's heading, and the note after the formula (its name, elsewhere)."""
-    formula = part.formula
-    if formula is None:
-        return FORMULA, None
-    name = formula.name.strip().rstrip(".:")
-    if not name:
-        return FORMULA, None
-    if layout.law_heading and len(name.split()) <= _LAW_NAME_WORDS and "$" not in name:
-        return name[:1].upper() + name[1:], None
-    return FORMULA, formula_name(name)
-
-
-def _working(part: Part, note: str | None) -> tuple[list[str], list[str], list[str]]:
+def _working(part: Part) -> tuple[list[str], list[str], list[str]]:
     """The formula's rows, the substitution's and the steps', in the order written.
 
     A rearrangement or a move before any substitution belongs to the formula when there
@@ -161,7 +144,7 @@ def _working(part: Part, note: str | None) -> tuple[list[str], list[str], list[s
     """
     formula: list[str] = []
     if part.formula is not None:
-        formula.append(math_line(tidy_tex(part.formula.tex), note))
+        formula.append(math_line(tidy_tex(part.formula.tex)))
     substitution: list[str] = []
     steps: list[str] = []
     for step in part.working:
@@ -199,8 +182,7 @@ def _part_body(
     opening: tuple[tuple[str, ...], tuple[str, ...]],
     answer_heading: str,
 ) -> str:
-    heading, note = _formula_heading(part, layout)
-    formula, substitution, steps = _working(part, note)
+    formula, substitution, steps = _working(part)
     given, find = opening
     body = render_workout(
         Workout(
@@ -209,7 +191,8 @@ def _part_body(
             formula=tuple(formula),
             substitution=tuple(substitution),
             steps=tuple(steps),
-            formula_heading=heading,
+            # The formula's name heads it, never a note on its line.
+            formula_heading=formula_heading(part.formula.name if part.formula else None),
         ),
         answer_heading=answer_heading if part.answers else None,
     )
@@ -246,6 +229,8 @@ def render_worked(
         label = f"**({letter}) {title}**" if title else f"**({letter})**"
         worked = _part_body(part, layout, ((), ()), f"{ANSWER} ({letter})")
         sections.append(f"{label}\n\n{worked}".strip())
-    head = render_workout(Workout(given=opening[0], find=opening[1]), answer_heading=None)
+    head = render_workout(
+        Workout(given=opening[0], find=opening[1]), answer_heading=None, solution=True
+    )
     body = "\n\n---\n\n".join(sections)
     return f"{head}\n\n{body}" if head else body

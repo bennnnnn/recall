@@ -468,6 +468,30 @@ describe("markdown render rules", () => {
     expect(StyleSheet.flatten(law.props.style).borderLeftWidth).toBeUndefined();
   });
 
+  it.each([
+    ["as the server writes it", "\n\n"],
+    ["as a model writes it, one line break apart", "\n"],
+  ])("heads the working with Solution, %s", async (_name, gap) => {
+    const content = [
+      "**Given**  \n$d = 3000\\,\\mathrm{m}$",
+      "**Required**  \n$v$",
+      "**Solution**",
+      "**Average speed formula**  \n$v = \\frac{d}{t}$",
+      "**Substitution**  \n$v = \\frac{3000}{900}$",
+    ].join(gap);
+    const { getAllByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getAllByTestId("workout-heading").map((node) => node.props.children)).toEqual([
+      "Given",
+      "Required",
+      "Solution",
+      "Average speed formula",
+      "Substitution",
+    ]);
+    // The formula's name is its heading, never a note beside it.
+    expect(getAllByTestId("workout-body")).toHaveLength(4);
+    expect(within(getAllByTestId("workout-body")[2]!).queryByTestId("workout-note")).toBeNull();
+  });
+
   it("rules an older reply's Find like Required", async () => {
     const content = ["**Given**  ", "$d = 5$", "", "**Find**  ", "$t$"].join("\n");
     const { getAllByTestId } = await render(<MarkdownContent content={content} />);

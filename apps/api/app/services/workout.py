@@ -230,9 +230,9 @@ _BOLD_LINE = re.compile(r"^\s*\*\*(?P<title>[^*\n]+?)\*\*[ \t]*$")
 
 
 def as_formula_heading(text: str) -> str:
-    """The reply with each law's own heading read as **Formula**, for a checker.
+    """The reply with each formula's own heading read as **Formula**, for a checker.
 
-    "**Constant acceleration**" over ``$v = u + at$`` heads formulas, which are inputs
+    "**Constant acceleration formula**" over ``$v = u + at$`` heads formulas, which are inputs
     and never the reply's result; a checker that skips **Formula** skips them too.
     """
     lines = text.split("\n")
@@ -334,12 +334,11 @@ def _sections(formula: str) -> str:
 
 # Every subject heads a formula with its name and "formula" (``formula_heading``).
 _WORKOUT_SECTIONS = _sections(
-    "the governing law or rule under a bold heading of its name followed by \"formula\" "
+    'the governing law or rule under a bold heading of its name followed by "formula" '
     "(`**Average speed formula**`; a name that already ends in law, theorem, rule, "
     "principle or equation stays as it is: `**Ohm's law**`), or **Formula** when it has "
     "no name; never the name after the formula on its line"
 )
-_LAW_SECTIONS = _WORKOUT_SECTIONS
 _WORKOUT_SECTION_LINES = (
     "Put each heading on its own line with its lines directly under it: one state per "
     "line, no blank line inside a section, one blank line between sections."
@@ -350,16 +349,18 @@ _WORKOUT_REARRANGED = (
     "`Solve for $t$`, then `$t = \\frac{d}{v}$`."
 )
 _WORKOUT_PARTS = (
-    "A question in parts: one **Given** for the whole question, then **Solution**, then for each part a bold "
-    "label alone on its line naming its letter and what it finds (`**(a) Acceleration**`), "
+    "A question in parts: one **Given** for the whole question, then **Solution**, then for "
+    "each part a bold label alone on its line naming its letter and what it finds "
+    "(`**(a) Acceleration**`), "
     "followed by that part's formula heading, **Substitution** and **Answer**, with no "
     "**Required** under a part; a later part may use an earlier part's answer as a given."
 )
 # Physics answers each part in its own card ("Answer (a)"), a hairline between parts.
 _PHYSICS_PARTS = (
     "A question in parts: one **Given** and one **Required** naming every quantity asked, "
-    "**Solution**, then for each part a bold label alone on its line naming its letter and what it finds "
-    "(`**(a) Acceleration**`), followed by that part's own formula heading, **Substitution** "
+    "**Solution**, then for each part a bold label alone on its line naming its letter and "
+    "what it finds (`**(a) Acceleration**`), followed by that part's own formula heading, "
+    "**Substitution** "
     "carried to its value, and its answer under **Answer (a)** (its own letter), with a "
     "line `---` between two parts; a later part may use an earlier part's answer as a given."
 )
@@ -399,7 +400,9 @@ def _workout_rule(sections: str, working: str = "", parts: str = _WORKOUT_PARTS)
 
 # What the model is told for a chemistry reply it writes itself, and physics' own.
 WORKOUT_PROMPT_RULE = _workout_rule(_WORKOUT_SECTIONS)
-PHYSICS_WORKOUT_PROMPT_RULE = _workout_rule(_LAW_SECTIONS, f"{_PHYSICS_WORKING} ", _PHYSICS_PARTS)
+PHYSICS_WORKOUT_PROMPT_RULE = _workout_rule(
+    _WORKOUT_SECTIONS, f"{_PHYSICS_WORKING} ", _PHYSICS_PARTS
+)
 
 # What the model is told for a maths reply it writes itself: numbered moves, as the
 # verified equation lesson renders them, so the phone draws each number as a badge.
@@ -422,7 +425,7 @@ MATH_WORKOUT_PROMPT_RULE = (
 # Physics' rule in one sentence, for hints with a tight character budget.
 PHYSICS_WORKOUT_PROMPT_SHORT = (
     "Use the worked-solution layout: **Given** (a converted value keeps one line, with its "
-    "factor), **Required**, **Solution**, the law's name and \"formula\" as heading "
+    'factor), **Required**, **Solution**, the law\'s name and "formula" as heading '
     "(`**Constant acceleration formula**`), "
     "**Substitution** carried step by step to the final value, then **Answer** once; one "
     "state per line; no numbered steps."

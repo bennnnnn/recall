@@ -18,8 +18,10 @@ import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import {
   isAnswerHeading,
+  isSolutionHeading,
   lawHeading,
   OPENING_HEADINGS,
+  SOLUTION_HEADING,
   splitWorkoutNote,
   workoutHeading,
   workoutPart,
@@ -44,6 +46,11 @@ export function workoutSectionParts(node: AstNode): { heading: string; lines: st
   const strong = openingStrong(kids[0]);
   if (!strong) return null;
   const rest = kids.slice(1);
+  // **Solution** stands alone: the sections after it are its working.
+  const restText = rest.map((kid) => astTextWithBreaks(kid)).join("");
+  if (!restText.trim() && isSolutionHeading(splitStreamCaret(astText(strong)).text)) {
+    return { heading: SOLUTION_HEADING, lines: [] };
+  }
   if (!rest.length || !rest.every(plainInline)) return null;
   const tail = rest.map((kid) => astTextWithBreaks(kid)).join("");
   if (!/^[ \t]*\n/.test(tail)) return null;
@@ -192,14 +199,25 @@ export function renderWorkoutSection(
       </View>
     );
   });
+  const heading = (
+    <Text
+      testID="workout-heading"
+      style={[styles.body, styles.text, { ...Weight.semibold, color: t.assistantText }]}
+    >
+      {section.heading}
+    </Text>
+  );
+  // **Solution** has no lines: the sections below it are its working.
+  if (!section.lines.length) {
+    return (
+      <View key={key} testID="workout-section" style={styles.paragraphRun}>
+        {heading}
+      </View>
+    );
+  }
   return (
     <View key={key} testID="workout-section" style={[styles.paragraphRun, { gap: Space.xs }]}>
-      <Text
-        testID="workout-heading"
-        style={[styles.body, styles.text, { ...Weight.semibold, color: t.assistantText }]}
-      >
-        {section.heading}
-      </Text>
+      {heading}
       <View
         testID="workout-body"
         // Given and Required sit behind a rule; the working keeps its edge without one,
