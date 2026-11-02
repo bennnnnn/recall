@@ -43,8 +43,8 @@ from app.modules.physics.working import result_symbol_for
 from app.modules.physics.working_steps import carried_to_answer
 from app.services.glyphs import SUPERSCRIPT_SIGNED
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
+from app.services.worked_parts import WorkedPart, render_parts
 from app.services.workout import (
-    ANSWER,
     FORMULA,
     Workout,
     math_line,
@@ -365,20 +365,14 @@ def _format_parts(
 ) -> str:
     """A question in parts: the givens and what is asked once, then each part worked on
     its own, closed by its own answer card, a hairline between parts."""
-    parts = verified.physics_parts
-    opening = render_workout(
-        Workout(given=tuple(given_rows), find=tuple(math_line(part.symbol) for part in parts)),
-        answer_heading=None,
-        solution=True,
-    )
-    sections: list[str] = []
-    for letter, part in zip("abcdefgh", parts, strict=False):
+    worked: list[WorkedPart] = []
+    for part in verified.physics_parts:
         spec = formula_spec(part.op)
         rows = _formula_rows(intent, list(part.formulas), part.op)
         if spec is not None:
             params = intent.physics_params or {}
             rows.extend(text_line(f"Assumes {item}.") for item in visible_assumptions(spec, params))
-        worked = render_workout(
+        working = render_workout(
             Workout(
                 formula=tuple(rows),
                 substitution=tuple(
@@ -387,11 +381,18 @@ def _format_parts(
                 ),
                 formula_heading=law_heading(spec.law_name) if spec is not None else FORMULA,
             ),
-            part.display_answer,
-            answer_heading=f"{ANSWER} ({letter})",
+            answer_heading=None,
         )
-        sections.append(f"**({letter}) {part.title}**\n\n{worked.strip()}")
-    return f"{opening}\n\n" + "\n\n---\n\n".join(sections)
+        worked.append(
+            WorkedPart(
+                title=part.title,
+                working=working,
+                answer=part.display_answer,
+                required=(math_line(part.symbol),),
+            )
+        )
+    # The one layout every question in parts has (``services/worked_parts``).
+    return render_parts(worked, given_rows)
 
 
 def maybe_direct_physics_reply(

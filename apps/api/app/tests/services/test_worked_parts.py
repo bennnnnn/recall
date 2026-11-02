@@ -1,0 +1,155 @@
+"""One layout for every worked answer in parts (``services/worked_parts``).
+
+"A ball is dropped from 20 m. What's its speed after 1 s? How long to reach the ground?"
+came back as two whole replies: the givens under each part, the part above its givens and
+no card under either answer (2026-11-01). It now reads Given and Required once, then
+Solution and each part closed by its own card, and the cards reach the saved reply.
+"""
+
+from __future__ import annotations
+
+import re
+from uuid import uuid4
+
+from app.core.config import Settings
+from app.modules.chat.finalize_passes import FinalizeState
+from app.modules.chat.finalize_subjects import (
+    check_chemistry_fences,
+    check_math_fences,
+    check_physics_fences,
+    mark_server_cards,
+)
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.turn_prep import StreamContext
+from app.services.answer_fence import VERIFIED_ANSWER_MARKER
+from app.services.subjects.dispatch import build_subject_augmentation
+from app.services.subjects.registry import subject_adapter
+from app.services.worked_parts import (
+    WorkedPart,
+    merged_given,
+    read_worked_reply,
+    render_parts,
+)
+from app.services.workout import Workout, math_line, render_workout
+from app.tests.modules.chat.chat_test_support import turn_deps
+
+_SETTINGS = Settings.model_validate({})
+_SETUP = "A ball is dropped from 20 m."
+_QUESTIONS = ("What's its speed after 1 s?", "How long to reach the ground?")
+_PARTS = tuple(f"{_SETUP} {question}" for question in _QUESTIONS)
+_WHOLE = " ".join([_SETUP, *_QUESTIONS])
+
+
+def _headings(text: str) -> list[str]:
+    return re.findall(r"^\*\*([^*\n]+)\*\*", text, re.M)
+
+
+def test_merged_given_names_each_value_and_symbol_once() -> None:
+    lines = merged_given(
+        [
+            "$g = 9.81$",
+            "$h_0 = 20$",
+            "where $g$ = gravity, $h_0$ = starting height",
+            "$g = 9.81$",
+            "$t = 1$",
+            "where $g$ = gravity, $t$ = time",
+        ]
+    )
+    assert lines == [
+        "$g = 9.81$",
+        "$h_0 = 20$",
+        "$t = 1$",
+        "where $g$ = gravity, $h_0$ = starting height, $t$ = time",
+    ]
+
+
+def test_merged_given_keeps_a_group_of_symbols_together() -> None:
+    lines = merged_given(["where $m_1$, $m_2$ = masses; $r$ = distance", "where $r$ = distance"])
+    assert lines == ["where $m_1$, $m_2$ = masses; $r$ = distance"]
+
+
+def test_render_parts_is_one_layout() -> None:
+    working = render_workout(
+        Workout(formula=(math_line("v = gt"),), formula_heading="Constant acceleration formula"),
+        answer_heading=None,
+    )
+    text = render_parts(
+        [
+            WorkedPart(
+                "Speed after 1 s", working, "9.81", required=("$v$",), given=("$g = 9.81$",)
+            ),
+            WorkedPart("Time to reach the ground", working, "2.02", required=("$t$",)),
+        ]
+    )
+    assert _headings(text) == [
+        "Given",
+        "Required",
+        "Solution",
+        "(a) Speed after 1 s",
+        "Constant acceleration formula",
+        "Answer (a)",
+        "(b) Time to reach the ground",
+        "Constant acceleration formula",
+        "Answer (b)",
+    ]
+    assert "(a) $v$ — speed after 1 s  \n(b) $t$ — time to reach the ground" in text
+    assert re.findall(r"```answer\n(.*?)\n```", text) == ["9.81", "2.02"]
+
+
+def test_a_reply_with_a_lead_is_not_read_as_the_layout() -> None:
+    assert (
+        read_worked_reply("Here it is.\n\n**Given**  \n$x$\n\n**Answer**\n\n```answer\n1\n```")
+        is None
+    )
+    assert read_worked_reply("**Given**  \n$x$\n\n**Required**  \n$y$\n\n**Answer**") is None
+
+
+async def test_the_ball_dropped_from_20_m_is_one_layout() -> None:
+    found = await build_subject_augmentation(_WHOLE, _SETTINGS, parts=_PARTS, parts_answer_all=True)
+
+    text = found.direct_text or ""
+    assert _headings(text)[:4] == ["Given", "Required", "Solution", "(a) Speed after 1 s"]
+    assert text.count("**Given**") == 1 and text.count("**Required**") == 1
+    assert "(b) $t$ — time to reach the ground" in text
+    assert text.count("where ") == 1
+    # Every part ends with its own card, in the reply the phone streams.
+    assert re.findall(r"\*\*Answer \(([ab])\)\*\*\n\n```answer\n", text) == ["a", "b"]
+
+
+async def test_each_part_keeps_its_card_in_the_saved_reply() -> None:
+    found = await build_subject_augmentation(_WHOLE, _SETTINGS, parts=_PARTS, parts_answer_all=True)
+    assert found.direct_text is not None
+    state = FinalizeState(
+        deps=turn_deps(math_fence=subject_adapter("math").fence),
+        settings=_SETTINGS,
+        ctx=StreamContext(
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            model="free-chat",
+            prompt_messages=[{"role": "user", "content": _WHOLE}],
+            run_title=False,
+            user_message_content=_WHOLE,
+            reserved_tokens=0,
+            max_output_tokens=0,
+            verified_subject=found.verified,
+            instant_reply=found.direct_text,
+        ),
+        raw=found.direct_text,
+        text=found.direct_text,
+        usage={},
+        outcome=TurnOutcome(),
+        was_cancelled=False,
+        assistant_parts=[found.direct_text],
+        should_cancel=None,
+    )
+
+    # The subject passes the saved reply goes through, in order (``finalize_passes``).
+    state.text = check_chemistry_fences(state)
+    state.text = check_physics_fences(state)
+    state.text = await check_math_fences(state)
+    saved = mark_server_cards(state)
+
+    cards = re.findall(r"^```answer\n(.*?)\n```", saved, re.S | re.M)
+    assert len(cards) == 2
+    assert all(card.startswith(VERIFIED_ANSWER_MARKER) for card in cards)
+    assert "9.81" in cards[0] and "2.02" in cards[1]

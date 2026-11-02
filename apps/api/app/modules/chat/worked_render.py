@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass
 
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
+from app.services.times_sign import with_times
+from app.services.worked_parts import WorkedPart, render_parts
 from app.services.workout import (
     ANSWER,
     Workout,
@@ -80,8 +82,9 @@ def unit_tex(unit: str) -> str:
 
 
 def tidy_tex(tex: str) -> str:
-    """A subscript of several characters in braces: ``x_final`` → ``x_{final}``."""
-    return _LONG_SUBSCRIPT.sub(r"_{\1}", tex.strip())
+    """A subscript of several characters in braces: ``x_final`` → ``x_{final}``; a product
+    written with a dot, with \\times as every reply writes it (``services/times_sign``)."""
+    return with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex.strip()))
 
 
 def tidy_symbol(symbol: str) -> str:
@@ -180,8 +183,9 @@ def _part_body(
     part: Part,
     layout: WorkedLayout,
     opening: tuple[tuple[str, ...], tuple[str, ...]],
-    answer_heading: str,
+    answer_heading: str | None,
 ) -> str:
+    """One part's sections; with ``answer_heading``, closed by its answer's value."""
     formula, substitution, steps = _working(part)
     given, find = opening
     body = render_workout(
@@ -196,7 +200,7 @@ def _part_body(
         ),
         answer_heading=answer_heading if part.answers else None,
     )
-    if not part.answers:
+    if not part.answers or answer_heading is None:
         return body
     values = _HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers)
     return f"{body}\n\n{values}"
@@ -220,17 +224,18 @@ def render_worked(
     if not solution.labelled:
         part = solution.parts[0] if solution.parts else Part()
         return _part_body(part, layout, opening, ANSWER)
-    sections: list[str] = []
-    for index, part in enumerate(solution.parts):
-        letter = part.letter or "abcdefgh"[index]
-        title = part.title or (
-            solution.required[index].meaning if index < len(solution.required) else ""
+    # The one layout every question in parts has (``services/worked_parts``): one Given,
+    # one Required naming what each part finds, then each part closed by its answer.
+    required = opening[1]
+    by_part = len(required) == len(solution.parts)
+    parts = [
+        WorkedPart(
+            title=part.title
+            or (solution.required[index].meaning if index < len(solution.required) else ""),
+            working=_part_body(part, layout, ((), ()), None),
+            after=_HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers),
+            required=(required[index],) if by_part else (),
         )
-        label = f"**({letter}) {title}**" if title else f"**({letter})**"
-        worked = _part_body(part, layout, ((), ()), f"{ANSWER} ({letter})")
-        sections.append(f"{label}\n\n{worked}".strip())
-    head = render_workout(
-        Workout(given=opening[0], find=opening[1]), answer_heading=None, solution=True
-    )
-    body = "\n\n---\n\n".join(sections)
-    return f"{head}\n\n{body}" if head else body
+        for index, part in enumerate(solution.parts)
+    ]
+    return render_parts(parts, opening[0], required=() if by_part else required)

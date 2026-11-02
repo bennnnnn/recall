@@ -33,6 +33,18 @@ def _closing(lines: list[str], prose: list[int], last: int) -> int:
     return len(lines)
 
 
+def carded_in_parts(text: str) -> bool:
+    """Two or more parts, each under its own Answer heading with its own card."""
+    lines = text.split("\n")
+    owners = line_fences(text)
+    headings = sum(
+        1
+        for number, line in enumerate(lines)
+        if owners[number] is None and PART_ANSWER_HEADING.match(line)
+    )
+    return headings >= 2 and _cards(text) >= headings
+
+
 def land_part_answer_cards(text: str) -> str | None:
     """``text`` with each part's final value in a card under its Answer heading; None
     unless the reply answers in two or more parts and a part gained a card.

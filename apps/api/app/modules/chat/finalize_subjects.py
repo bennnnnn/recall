@@ -24,7 +24,7 @@ from app.services.answer_fence import (
     strip_forged_verified_markers,
     strip_model_simulation_fences,
 )
-from app.services.part_answer_cards import land_part_answer_cards
+from app.services.part_answer_cards import carded_in_parts, land_part_answer_cards
 from app.services.solving import (
     VerifiedMathBlock,
     VerifiedPhysicsBlock,
@@ -87,6 +87,18 @@ def prepare_model_reply(state: FinalizeState) -> str:
     return text
 
 
+def _server_parts(state: FinalizeState) -> bool:
+    """Separate questions the server solved one by one, each answered under its own heading
+    with its own card (``services/worked_parts``). The turn's verified block is the first
+    part's alone, so a subject pass would read the other parts' cards as the model's and
+    drop them: every card stays as the server wrote it. Physics' own question in parts
+    knows its parts and lands their cards itself."""
+    verified = state.ctx.verified_subject
+    if isinstance(verified, VerifiedPhysicsBlock) and len(verified.physics_parts) > 1:
+        return False
+    return state.server_text and carded_in_parts(state.text)
+
+
 def _chemistry_verified(verified: VerifiedSolveBlock | None) -> bool:
     return verified is not None and verified.subject == "chemistry"
 
@@ -95,7 +107,7 @@ def check_chemistry_fences(state: FinalizeState) -> str:
     """Chemistry answer text is not algebra: the maths rewrite would read its
     formulas and slash-units as expressions, so chemistry checks its own turns."""
     verified = state.ctx.verified_subject
-    if not _chemistry_verified(verified):
+    if not _chemistry_verified(verified) or _server_parts(state):
         return state.text
     # The server never corrects its own text: only model prose can state a value
     # that differs from the verified one.
@@ -115,7 +127,7 @@ def _physics_block(state: FinalizeState) -> VerifiedPhysicsBlock | None:
 
 def check_physics_fences(state: FinalizeState) -> str:
     verified = _physics_block(state)
-    if verified is None:
+    if verified is None or _server_parts(state):
         return state.text
     return subject_adapter("physics").fence.check(
         state.text, verified, not state.server_text, state.ctx.user_message_content
@@ -133,7 +145,7 @@ def _math_owns(verified: VerifiedSolveBlock | None) -> TypeGuard[VerifiedMathBlo
 
 async def check_math_fences(state: FinalizeState) -> str:
     verified = state.ctx.verified_subject
-    if not _math_owns(verified):
+    if not _math_owns(verified) or _server_parts(state):
         return state.text
     math_fence = state.deps.math_fence
     if state.server_text:
