@@ -153,3 +153,10 @@ async def test_each_part_keeps_its_card_in_the_saved_reply() -> None:
     assert len(cards) == 2
     assert all(card.startswith(VERIFIED_ANSWER_MARKER) for card in cards)
     assert "9.81" in cards[0] and "2.02" in cards[1]
+
+
+def test_render_parts_drops_no_part_past_h() -> None:
+    parts = [WorkedPart(f"Part {n}", "$x = 1$", str(n), required=("$x$",)) for n in range(10)]
+    text = render_parts(parts)
+    assert len(re.findall(r"```answer\n", text)) == 10
+    assert "**Answer (j)**" in text and "(j) $x$ — part 9" in text

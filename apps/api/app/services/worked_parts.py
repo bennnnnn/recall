@@ -26,7 +26,6 @@ from app.services.workout import ANSWER, GIVEN, REQUIRED, REQUIRED_HEADINGS, SOL
 
 _HARD_BREAK = "  \n"
 _NOTE = " — "
-_LETTERS = "abcdefgh"
 # "$v_0$ = initial speed" or "$m_1$, $m_2$ = masses": one name in a where-line.
 _WHERE_PIECE = re.compile(r"[,;] (?=\$[^$]+\$(?:, \$[^$]+\$)* = )")
 
@@ -44,6 +43,11 @@ class WorkedPart:
     after: str = ""
     required: tuple[str, ...] = ()
     given: tuple[str, ...] = ()
+
+
+def part_letter(index: int) -> str:
+    """``a``, ``b``, … for a part; past ``z`` its number, so no part is ever dropped."""
+    return chr(ord("a") + index) if index < 26 else str(index + 1)
 
 
 def _section(heading: str, lines: Sequence[str]) -> str:
@@ -104,8 +108,8 @@ def render_parts(
     asked = [
         *required,
         *(
-            _required_line(letter, line, part.title)
-            for letter, part in zip(_LETTERS, parts, strict=False)
+            _required_line(part_letter(index), line, part.title)
+            for index, part in enumerate(parts)
             for line in part.required
         ),
     ]
@@ -113,7 +117,8 @@ def render_parts(
         _section(heading, lines) for heading, lines in ((GIVEN, givens), (REQUIRED, asked)) if lines
     ]
     sections: list[str] = []
-    for letter, part in zip(_LETTERS, parts, strict=False):
+    for index, part in enumerate(parts):
+        letter = part_letter(index)
         label = f"**({letter}) {part.title.strip().rstrip('?')}**" if part.title.strip() else ""
         pieces = [label, part.working.strip()]
         # A part still streaming has no answer yet: its heading waits with it.

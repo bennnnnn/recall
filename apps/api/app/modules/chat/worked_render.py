@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
 from app.services.times_sign import with_times
-from app.services.worked_parts import WorkedPart, render_parts
+from app.services.worked_parts import WorkedPart, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
     Workout,
@@ -249,5 +249,5 @@ def render_worked(
         )
         for index, part in enumerate(solution.parts)
     ]
-    asked = [f"({letter}) {row}" for letter, row in zip("abcdefgh", required, strict=False)]
+    asked = [f"({part_letter(index)}) {row}" for index, row in enumerate(required)]
     return render_parts(parts, opening[0], required=asked if lettered else required)
