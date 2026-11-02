@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from app.core.config import Settings
 from app.core.readings import first_read, kept_reading, read_off_loop, readings_declined
-from app.modules.turn_reading.plan import TurnPlan, single_plan
+from app.modules.turn_reading.plan import TurnPlan, single_plan, solved_parts
 from app.modules.turn_reading.teaching import teaching_reason
 from app.modules.turn_reading.turn import (
     PlanReason,
@@ -27,6 +27,7 @@ from app.modules.turn_reading.turn import (
 
 if TYPE_CHECKING:
     from app.services.subjects.dispatch import SubjectName
+    from app.services.subjects.order import SubjectReading
 
 # Exchanges a terse follow-up reaches back over (``math.followup``).
 _FOLLOWUP_EXCHANGES = 4
@@ -66,7 +67,9 @@ def read_turn(
     else:
         plan = kept_plan or plan_turn(content, chemistry_enabled=chemistry)
         reason = "several_requests" if plan.multi else "one_request"
-    subject = kept_reading(read_subject_reason, content, image, chemistry)
+    subject = _parts_subject(
+        kept_reading(read_subject_reason, content, image, chemistry), plan, image, chemistry
+    )
     reading = TurnReading(
         content,
         chemistry,
@@ -80,6 +83,24 @@ def read_turn(
     )
     keep_turn_reading(reading)
     return reading
+
+
+def _parts_subject(
+    whole: SubjectReading | None, plan: TurnPlan, image: bool, chemistry: bool
+) -> SubjectReading | None:
+    """The message's subject: the whole line's, or, when no subject reads it whole and its
+    plan is separate problems a subject solves each (``solved_parts``: "A car goes 100 m in
+    5 s; find its speed. A train goes 300 m in 10 s; find its speed."), its first part's, as
+    the pool read it (step ``parts``)."""
+    from app.services.subjects.order import SubjectReading, read_subject_reason
+
+    if whole is None or whole.subject is not None:
+        return whole
+    for part in solved_parts(plan):
+        read = kept_reading(read_subject_reason, part.text, image, chemistry)
+        if read is not None and read.subject is not None:
+            return SubjectReading(read.subject, "parts")
+    return whole
 
 
 def _place_requests(

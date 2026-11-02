@@ -88,6 +88,8 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     ),
     # The subject fetch: the turn's subject with its image extract, off the loop.
     "modules/chat/turn_prep/augment.py::gather_and_inject": (1, "the turn's subject fetch"),
+    # Separate problems no subject reads whole: each part's own text, as the reading takes it.
+    "modules/chat/turn_prep/augment.py::_parts_subject": (1, "a part's own text"),
     "modules/chat/prompt_builder.py::fetch_subject": (1, "the prompt's subject fetch"),
     "services/subjects/dispatch.py::build_subject_augmentation": (1, "a fetch with no subject"),
     # Readers of other text.
@@ -95,6 +97,7 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     "modules/chat/turn_prep/intents.py::_continues_solve": (1, "the earlier request"),
     # A problem's setup and each question about it, read in the pool with the plan.
     "modules/chat/turn_prep/intents.py::_Problem.of": (1, "the setup by its own words"),
+    "modules/chat/turn_prep/intents.py::_Problem.opened": (1, "a problem's setup and question"),
     "modules/chat/turn_prep/intents.py::_Problem.carries": (2, "a question, then with its setup"),
     "modules/chat/continuation_subject.py::classify_presentation_subject": (1, "any line"),
     "modules/chat/continuation_subject.py::blocks_math_followup": (1, "an earlier line"),

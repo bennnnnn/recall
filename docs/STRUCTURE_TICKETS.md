@@ -418,6 +418,25 @@ for presentation and the post-turn jobs, not for reading.
     place, as before #2224. Two `gap`s are older than #2224: a one-request line routed to maths
     runs no search for the weather in it, and the plan splits a problem's second question off
     as a `live` part without its givens.
+- **Behaviour PR: separate problems in one message.** "A car goes 100 m in 5 s; find its speed.
+  A train goes 300 m in 10 s; find its speed." was one request: a statement is never a request,
+  so the train's setup joined the car's question, "find its speed" pointed back, and the whole
+  line read as no subject's. `turn_prep/problems.py` reads the shape first: a problem opens with
+  a statement that introduces a body of its own afresh ("A train …", "Car B …"; never "The
+  driver then …" or "It then …") and states quantities, and a question follows it. A question
+  that weighs the bodies ("which is faster?", "compare their speeds") keeps them one problem.
+  `plan_turn` keeps the problems apart only when a subject solves each one with its setup;
+  otherwise the message is planned as before. A message no subject reads whole whose parts are
+  all solves takes its first part's subject (`TurnReading.subject_reason` `parts`), and the
+  subject fetch does the same, so each part is solved on its own and laid out in parts.
+  A new body's setup that steps on in the first problem's time ("A moment later …"), changes it
+  ("added in series") or names what it named ("hung from the spring"), and a question about the
+  bodies together ("the total momentum", "the new normal force", "catches up"), keep the old plan.
+  Decision diff (new entries on both sides: `separate_problems.json` in the physics and chemistry
+  STEM corpora and the sweep): 17 turns changed, all of them the new multi-problem entries, each
+  now one `solve` part per question answered by the server in parts (`server_answer_cards`); 8
+  read no subject whole and take `parts`. No existing turn and none of the 13 look-alikes
+  (comparisons, one problem told in steps, a statement no question follows, advice) changed.
 
 ### ST-06 — Finalize passes declare their order and their kind
 

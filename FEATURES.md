@@ -450,7 +450,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   answer returns directly with Given / Required / Formula / Substitution / Answer,
   without waiting on the language model. A question in parts the result does not all
   answer, a yes or no about a value, and a side question go to the model with the
-  verified block, so no part is dropped. Each answer carries one picture.
+  verified block, so no part is dropped. Each answer carries one picture. A message of
+  separate problems, each its own setup and question ("A car goes 100 m in 5 s; find its
+  speed. A train goes 300 m in 10 s; find its speed."), is planned as one request per
+  problem (`turn_prep/problems.py`): each is solved on its own and the reply is one question
+  in parts, its one Given lettered. A comparison ("which is faster?") stays one question.
   - Trajectory ` ```graph ` fences are for SUVAT (position or velocity against time), a speed
     asked of a fall (`v(t)` beside the fall), and SHM.
   - A projectile or a drop is one labelled ` ```simulation ` scene instead of a path graph. It

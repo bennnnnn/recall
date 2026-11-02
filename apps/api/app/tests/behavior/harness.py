@@ -62,6 +62,7 @@ from app.modules.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
+from app.modules.chat.turn_prep.reading import subject_of
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
@@ -80,7 +81,6 @@ from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search.detection import needs_web_search
 from app.services.mcp import setup_mcp_adapters
 from app.services.solving import VerifiedPhysicsBlock
-from app.services.subjects.dispatch import detect_subject
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 from app.tests.fakes import fake_session
@@ -480,7 +480,9 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     else:
         search = "no"
 
-    subject = detect_subject(text, chemistry_enabled=settings.chemistry_enabled) or ""
+    # The turn's subject as its reading decided it: a message of separate problems no
+    # subject reads whole takes its parts' (``turn_prep.reading``).
+    subject = subject_of(text, chemistry_enabled=settings.chemistry_enabled) or ""
     verified = bundle.verified_subject
     # A free-body picture with no result behind it is drawn, not solved.
     solved = verified is not None and not is_picture_only(verified)

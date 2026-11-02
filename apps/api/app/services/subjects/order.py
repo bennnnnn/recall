@@ -33,6 +33,10 @@ SubjectReason = Literal[
     "chemistry_off",
     "chemistry_question",
     "none",
+    # Not a step of the order: no step reads the whole line, and the turn's plan is separate
+    # problems a subject solves each; the turn takes its first part's subject
+    # (``chat.turn_prep.reading``).
+    "parts",
 ]
 
 

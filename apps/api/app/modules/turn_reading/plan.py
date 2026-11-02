@@ -44,3 +44,13 @@ class TurnPlan:
 def single_plan(text: str) -> TurnPlan:
     """The whole message as one request: every turn before plans existed."""
     return TurnPlan((TurnPart(text),))
+
+
+def solved_parts(plan: TurnPlan) -> tuple[TurnPart, ...]:
+    """The plan's parts when it holds two or more and a subject solves every one: separate
+    questions about one problem, or separate problems ("A car goes 100 m in 5 s; find its
+    speed. A train goes 300 m in 10 s; find its speed."). A message of them is its parts'
+    subject's homework even when the whole line, read as one problem, is no subject's."""
+    if plan.multi and all(part.kind == "solve" for part in plan.parts):
+        return plan.parts
+    return ()
