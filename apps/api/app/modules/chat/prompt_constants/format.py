@@ -209,6 +209,8 @@ CALCULATION_LAYOUT_CONTRACT = (
     "Keep one definition, one formula, one simple evaluation, or one relationship together, "
     "including $12 + 8 = 20\\text{ km}$, $0.6 + 0.8 = 1.4\\text{ h}$, $20 \\div 4 = 5$, and "
     "$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$ on a single row. "
+    "Write multiplication as $\\times$ ($0.5 \\times 2 \\times 100$), never a dot "
+    "($\\cdot$ or ·), which reads as a decimal point; a vector dot product keeps its dot. "
     "A wide formula may scroll; do not break inside a fraction, radical, or matrix. "
     "Put a formula, its substitution, and its result on separate rows: "
     "$v = \\frac{d}{t}$, then $v = \\frac{50}{10}$, then $v = 5$. "

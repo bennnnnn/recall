@@ -185,7 +185,7 @@ def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None
     # No launch height was stated: the working shows no "0 +" for one.
     assert (
         "**Substitution**  \n"
-        r"$H_{max} = \frac{20^2 \sin^2(30^\circ)}{2 \cdot 9.81}$"
+        r"$H_{max} = \frac{20^2 \sin^2(30^\circ)}{2 \times 9.81}$"
     ) in working
     assert "0 +" not in working
     assert "```answer\n5.1\\,\\mathrm{m}\n```" in reply
@@ -217,8 +217,8 @@ def test_elastic_collision_shows_both_universal_formulas_and_substitutions() -> 
     substitution = reply.split("**Substitution**", 1)[1].split("**Answer**", 1)[0]
     assert r"v_{1f} = \frac{(m_1-m_2)v_{1i} + 2m_2v_{2i}}{m_1+m_2}" in formula
     assert r"v_{2f} = \frac{(m_2-m_1)v_{2i} + 2m_1v_{1i}}{m_1+m_2}" in formula
-    assert r"v_{1f} = \frac{(2-1)\cdot 3 + 2\cdot 1\cdot 0}{2+1}" in substitution
-    assert r"v_{2f} = \frac{(1-2)\cdot 0 + 2\cdot 2\cdot 3}{2+1}" in substitution
+    assert r"v_{1f} = \frac{(2-1) \times 3 + 2 \times 1 \times 0}{2+1}" in substitution
+    assert r"v_{2f} = \frac{(1-2) \times 0 + 2 \times 2 \times 3}{2+1}" in substitution
     assert "1.00" not in reply
     assert "4.00" not in reply
 
@@ -239,7 +239,7 @@ def test_friction_given_uses_the_coefficient_symbol_not_raw_mu() -> None:
 @pytest.mark.parametrize(
     "query,symbol,substitution",
     [
-        ("Find the force on a 5 kg object with acceleration 2 m/s^2.", "F", "F = 5 \\cdot 2"),
+        ("Find the force on a 5 kg object with acceleration 2 m/s^2.", "F", "F = 5 \\times 2"),
         (
             "Find the acceleration of a 5 kg object under a force of 20 N.",
             "a",
@@ -276,7 +276,7 @@ def test_force_rearrangements_name_the_quantity_actually_being_found(
             "20 m",
             "$d$",
             "$d = vt$",
-            r"$d = 5\,\mathrm{m/s} \cdot 4\,\mathrm{s}$",
+            r"$d = 5\,\mathrm{m/s} \times 4\,\mathrm{s}$",
         ),
         (
             "A car travels 20 m at 5 m/s. How long does it take?",

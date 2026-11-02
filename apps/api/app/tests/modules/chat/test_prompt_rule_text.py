@@ -17,10 +17,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # Distinct rule strings and the 4-grams within each: before ST-04 (main e4c784a5a), then with
 # the worked layout's Required heading and its Solve-for step, then with physics'
 # PHYSICS_VELOCITY_NOTATION (initial and final velocity written v_i and v_f), then the
-# ```worked block's contract (prompt_constants.worked).
+# ```worked block's contract (prompt_constants.worked), then the calculation layout's rule
+# that multiplication is written \times, never a dot.
 _RULES = 164
-_RULE_GRAMS = 14314
-_RULE_GRAMS_SHA = "f29b3449a142969b"
+_RULE_GRAMS = 14342
+_RULE_GRAMS_SHA = "425d6ebc339702d3"
 
 
 def _rules() -> list[str]:
