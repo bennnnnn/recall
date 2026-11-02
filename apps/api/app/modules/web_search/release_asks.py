@@ -43,6 +43,8 @@ _RELEASE_NOUN = re.compile(
     re.IGNORECASE,
 )
 _NEW = re.compile(r"\b(?:new|next|upcoming)\b", re.IGNORECASE)
+# "what's the" before a release date's thing ("of" or "for" after it is ``_bare_thing``'s).
+_LEADING_WHAT = re.compile(r"^(?:what(?:'s| is)\s+)?(?:the\s+)?")
 # A person, the user's own things or the world outside: "is my order out", "is the
 # power out", "is it out yet" (the last reply's subject is the follow-up rule's).
 _NOT_A_RELEASE = frozenset(
@@ -67,6 +69,21 @@ def _names_a_release(thing: str) -> bool:
     return names >= 2 or (names == 1 and _NEW.search(thing) is not None)
 
 
+def _bare_thing(thing: str) -> str:
+    r"""``thing`` without "what's the" before it or "of" / "for" after it.
+
+    ``re.sub(r"^(?:what(?:'s| is)\s+)?(?:the\s+)?|\s+(?:of|for)\s*$", "", thing).strip()``
+    as an anchored match and a suffix check: its ``\s+`` read a run of spaces again from each
+    of them (CodeQL py/polynomial-redos).
+    """
+    thing = _LEADING_WHAT.sub("", thing, count=1).rstrip()
+    for word in ("of", "for"):
+        rest = thing.removesuffix(word)
+        if rest != thing and rest[-1:].isspace():
+            return rest.strip()
+    return thing.strip()
+
+
 def released_thing(text: str) -> str | None:
     """What a release question asks about ("iPhone 19" in "Is iPhone 19 out?"), else None."""
     cleaned = collapse_ws(text)
@@ -77,7 +94,7 @@ def released_thing(text: str) -> str | None:
     if _RELEASE_DATE.search(cleaned) is None or NOT_A_PRICE.search(cleaned) is not None:
         return None
     thing = _RELEASE_DATE.sub(" ", cleaned).strip(" ?!.")
-    thing = re.sub(r"^(?:what(?:'s| is)\s+)?(?:the\s+)?|\s+(?:of|for)\s*$", "", thing).strip()
+    thing = _bare_thing(thing)
     thing = re.sub(r"^(?:of|for)\s+", "", thing)
     return thing if thing and _names_a_release(thing) else None
 

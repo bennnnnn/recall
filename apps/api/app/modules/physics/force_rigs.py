@@ -54,7 +54,8 @@ _TOP = re.compile(r"\btop\b|\bhighest\s+point\b", re.IGNORECASE)
 _BOTTOM = re.compile(r"\bbottom\b|\blowest\s+point\b", re.IGNORECASE)
 _ROUND = re.compile(r"\b(?:ball|stone|rock|bob|apple|puck)\b", re.IGNORECASE)
 # "a 20 degree bank", "banked at 15°".
-_ANGLE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*(?:°|º|-?\s*deg(?:rees?)?\b)", re.IGNORECASE)
+# One ``\s*`` before the unit and one after a hyphen: a run of spaces is read one way only.
+_ANGLE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*(?:°|º|(?:-\s*)?deg(?:rees?)?\b)", re.IGNORECASE)
 
 RigPicture = tuple[SimulationBlockSpec, str]
 

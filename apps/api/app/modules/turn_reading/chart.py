@@ -57,7 +57,31 @@ _DRAW_VERB = re.compile(
 _LINE_PLOT = re.compile(r"\b(?:line|area)\s*(?:graphs?|plots?)\b", re.IGNORECASE)
 
 
-_CURVE = re.compile(r"\bf\s*\(\s*x\s*\)|\by\s*=\s*[^,;\n]*?x", re.IGNORECASE)
+# "f(x)", or "y = 2x + 1": a curve named by its formula (``_names_a_curve``).
+_F_OF_X = re.compile(r"\bf\s*\(\s*x\s*\)", re.IGNORECASE)
+_Y_EQUALS = re.compile(r"\by\s*=\s*", re.IGNORECASE)
+# What ends the formula after "y =": its x, or a comma, a semicolon or a new line.
+_FORMULA_STOP = re.compile(r"[x,;\n]", re.IGNORECASE)
+
+
+def _names_a_curve(text: str) -> bool:
+    r"""``f(x)``, or an x after ``y =`` before a comma, a semicolon or the line's end.
+
+    The same as ``re.search(r"\bf\s*\(\s*x\s*\)|\by\s*=\s*[^,;\n]*?x", text, re.I)``, which
+    read the rest of the line again from every "y =" and from every space after one (CodeQL
+    py/polynomial-redos). Here each stop is found once and shared by the "y =" before it.
+    """
+    if _F_OF_X.search(text):
+        return True
+    stop: re.Match[str] | None = None
+    for equals in _Y_EQUALS.finditer(text):
+        if stop is None or equals.end() > stop.start():
+            stop = _FORMULA_STOP.search(text, equals.end())
+            if stop is None:
+                return False
+        if stop.group() in "xX":
+            return True
+    return False
 
 
 _DEFINITION = re.compile(
@@ -260,7 +284,7 @@ def is_chart_question(text: str) -> bool:
         return True
     if not _PLOT_REQUEST.search(cleaned):
         return False
-    return not (_LINE_PLOT.search(cleaned) and _CURVE.search(cleaned))
+    return not (_LINE_PLOT.search(cleaned) and _names_a_curve(cleaned))
 
 
 # A number the chart request also asks for: "find the mean", "what's the total".

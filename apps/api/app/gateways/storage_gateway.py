@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 import uuid
 from collections.abc import Callable
@@ -67,11 +68,25 @@ class StorageGateway(Protocol):
     def resolve_local_path(self, storage_key: str) -> Path | None: ...
 
 
+def local_storage_root(configured: str | Path) -> Path:
+    """STORAGE_LOCAL_PATH as an absolute directory with no symlink in it, never ``/``.
+
+    Every key is checked to stay under this root (``_path_under_base``), so the root must be
+    a directory of its own: ``/`` would let a key name any file on the machine. CodeQL takes
+    the setting for request data, since a request handler passes it on; a normalized path
+    under a ``startswith`` check is what its py/path-injection query reads as checked.
+    """
+    root = os.path.realpath(os.path.expanduser(os.fspath(configured)))
+    if not root.startswith(os.sep) or root == os.sep:
+        raise ValueError(f"STORAGE_LOCAL_PATH must name a directory, not {root!r}")
+    return Path(root)
+
+
 class LocalStorageGateway:
     """Dev/test storage — files under STORAGE_LOCAL_PATH."""
 
-    def __init__(self, base_path: Path) -> None:
-        self.base_path = Path(base_path).expanduser().resolve()
+    def __init__(self, base_path: str | Path) -> None:
+        self.base_path = local_storage_root(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     def _path_under_base(self, storage_key: str) -> Path:
@@ -437,8 +452,8 @@ def _build_storage_gateway(settings: Settings) -> StorageGateway:
                 "STORAGE_BACKEND=r2 but R2 credentials are incomplete — "
                 "falling back to local storage. Set r2_* secrets before production."
             )
-            return LocalStorageGateway(Path(settings.storage_local_path))
+            return LocalStorageGateway(settings.storage_local_path)
         logger.error("R2 storage selected but credentials incomplete in production")
         return UnconfiguredStorageGateway()
     # default: local
-    return LocalStorageGateway(Path(settings.storage_local_path))
+    return LocalStorageGateway(settings.storage_local_path)

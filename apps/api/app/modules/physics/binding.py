@@ -47,12 +47,24 @@ _SECOND_REQUEST = re.compile(
 )
 # "Calculate his average speed and write the correct unit of speed" (a Class 8 book,
 # 2026-10-30): the unit is part of the answer the card gives, not a second request.
+# The spaces start after a comma (dropped with them), a word (``\b``) or another mark (kept,
+# ``_drop_unit_request``), never inside a run of spaces: ``,?\s+`` read a long run again from
+# each of its spaces (CodeQL py/polynomial-redos). Only a request at the very start of the
+# text, after spaces, is no longer dropped; a question never starts that way.
 _UNIT_REQUEST = re.compile(
-    r",?\s+(?:and|also|then)\s+(?:also\s+)?(?:write|give|state|mention|name)\s+(?:down\s+)?"
+    r"(?:,|\b|(?P<mark>[^\w\s,]))\s+(?:and|also|then)\s+(?:also\s+)?"
+    r"(?:write|give|state|mention|name)\s+(?:down\s+)?"
     r"(?:(?:the|its|his|her|their)\s+)?(?:(?:correct|proper|right|appropriate|SI|S\.I\.)\s+)?"
     r"units?(?:\s+of\s+(?:the\s+)?[a-z]+(?:\s+[a-z]+)?)?(?=\s*[.?!]|\s*$)",
     re.IGNORECASE,
 )
+
+
+def _drop_unit_request(text: str) -> str:
+    """``text`` without "and write the correct unit": the card states the unit."""
+    return _UNIT_REQUEST.sub(lambda match: match["mark"] or "", text)
+
+
 _PHYSICS = Subject(units=PHYSICS_UNITS, fallback=fallback_value, unit_of=si_unit)
 _NORTH_SOUTH = re.compile(r"\b(?:north|south)(?:wards?|bound|erly)?\b")
 _EAST_WEST = re.compile(r"\b(?:east|west)(?:wards?|bound|erly)?\b")
@@ -78,7 +90,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     few regex searches and never reads units. Detection calls this on every
     chat turn.
     """
-    text = _UNIT_REQUEST.sub("", text)
+    text = _drop_unit_request(text)
     clause = ask_clause(text)
     if clause is None or _SECOND_REQUEST.search(text):
         return None
