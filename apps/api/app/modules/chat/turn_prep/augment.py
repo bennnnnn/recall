@@ -124,7 +124,7 @@ async def gather_and_inject(
     # Phase B: the subject solve. Phase C: inject it before the last user message.
     with subject_adapter("math").solve_timeouts() as timed_out:
         fetched = await _fetch_subject_with_priors(
-            request, identity, settings, redis, prompt_messages, followup, _mixed_solve(plan)
+            request, identity, settings, redis, prompt_messages, followup, plan
         )
     fetched = _readable_fetch(request, identity, prompt_messages, followup, fetched)
     return Augmentation(
@@ -173,6 +173,14 @@ def _mixed_solve(plan: TurnPlan) -> str | None:
     return solves[0].text if plan.multi and len(solves) == 1 else None
 
 
+def _solve_parts(plan: TurnPlan) -> tuple[str, ...]:
+    """The separate questions of a message that holds several, each solved on its own:
+    "A ball is dropped from 20 m. What is its speed after 1 s? How long does it take to
+    reach the ground?" is two (``turn_prep.intents``)."""
+    solves = plan.of_kind("solve")
+    return tuple(part.text for part in solves) if len(solves) >= 2 else ()
+
+
 def _turn_needs(
     request: TurnRequest,
     settings: Settings,
@@ -207,7 +215,7 @@ async def _fetch_subject_with_priors(
     redis: Redis,
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
-    subject_text: str | None = None,
+    plan: TurnPlan,
 ) -> SubjectFetch:
     # Earlier user lines can hold the problem a follow-up refers to. They come from
     # the prompt's own history: a second read of the messages raced the current line.
@@ -223,7 +231,9 @@ async def _fetch_subject_with_priors(
         physics_followup_problem=followup.physics,
         on_status=request.on_status,
         redis=redis,
-        subject_text=subject_text,
+        subject_text=_mixed_solve(plan),
+        parts=_solve_parts(plan),
+        parts_answer_all=all(part.kind == "solve" for part in plan.parts),
     )
 
 

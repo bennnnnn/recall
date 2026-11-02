@@ -146,7 +146,6 @@ def plan_turn(text: str, *, chemistry_enabled: bool = True) -> TurnPlan:
     if len(merged) < 2:
         return single_plan(text)
     parts = tuple(problem.part(clause, kind) for clause, kind in merged)
-    # The setup opens each question it belongs to: no part reads it twice.
     # The setup opens each question it belongs to; a part it does not open keeps it as the
     # plan's context.
     every = problem.setup is not None and all(problem.carries(clause) for clause, _ in merged)

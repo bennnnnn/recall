@@ -158,8 +158,8 @@ class SubjectAugmentation:
     prompt_block: str | None
     verified: VerifiedSolveBlock | None
     unverified: bool = False
-    # Both halves of "…, and also …" already rendered. Chat shows this and
-    # does not ask the model to redo either half.
+    # Both halves of "…, and also …", or each question of a problem in parts, already
+    # rendered. Chat shows this and does not ask the model to redo any of them.
     direct_text: str | None = None
 
 
