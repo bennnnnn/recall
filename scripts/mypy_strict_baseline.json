@@ -3,7 +3,6 @@
   "files": {
     "app/modules/chemistry/binding.py": 2,
     "app/modules/chemistry/reactions.py": 1,
-    "app/modules/chemistry/smiles.py": 1,
     "app/modules/chemistry/solvers/titration.py": 2,
     "app/modules/math/__init__.py": 1,
     "app/modules/math/calculus_applications.py": 7,
