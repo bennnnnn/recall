@@ -15,7 +15,12 @@ from app.models.orm import Attachment, User
 from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
 from app.modules.chat.stream_status import StreamStatusFn
 from app.repositories import users as users_repo
-from app.services.subjects.registry import MathImageExtract, subject_adapter
+from app.services.subjects.registry import (
+    SUBJECTS,
+    MathImageExtract,
+    SubjectPhoto,
+    subject_adapter,
+)
 
 
 async def load_attachment_rows(
@@ -124,8 +129,7 @@ async def _process_attachment_inputs(
     attachment_lines, image_attachments, bytes_by_key = await _read_turn_attachments(
         gateway, attachment_rows, settings=settings, redis=redis, user_id=user_id
     )
-    user_content = _with_attachment_markers(content, attachment_lines)
-    image_math_extract, content = await _read_photo_problem(
+    image_math_extract, read_content = await _read_photo_problem(
         content,
         image_attachments=image_attachments,
         bytes_by_key=bytes_by_key,
@@ -133,6 +137,10 @@ async def _process_attachment_inputs(
         settings=settings,
         on_status=on_status,
     )
+    user_content = _with_attachment_markers(
+        _stored_caption(content, read_content), attachment_lines
+    )
+    content = read_content
 
     return _AttachmentProcessResult(
         user=user,
@@ -160,9 +168,12 @@ async def _read_photo_problem(
     settings: Settings,
     on_status: StreamStatusFn | None,
 ) -> tuple[MathImageExtract | None, str]:
-    """The problem maths reads off the first photo, and ``content`` with its line for the
-    prompt. Bytes downloaded here are kept in ``bytes_by_key`` for the vision injection."""
-    photo = subject_adapter("math").photo
+    """The problem read off the first photo, and ``content`` with its line for the prompt.
+
+    The scanner's tab names the subject in the caption, and that subject reads its own
+    photo; any other photo is maths' to try. Bytes downloaded here are kept in
+    ``bytes_by_key`` for the vision injection."""
+    photo = _photo_reader(content)
     if photo is None:
         return None, content
     from app.modules.attachments import content as attachment_content_service
@@ -184,6 +195,28 @@ async def _read_photo_problem(
         settings=settings,
         on_status=on_status,
     )
+
+
+def _stored_caption(sent: str, read: str) -> str:
+    """The caption the user's row keeps: with the reading a scanner photo's subject stated as
+    its confirmed line (as the scanner's old review sent it), so a follow-up and a
+    regenerate find the problem; otherwise the caption as sent (maths' ``Solve:`` line is
+    the prompt's only)."""
+    from app.services.subject_scan import confirmed_scan_reading
+
+    if confirmed_scan_reading(read) is not None and confirmed_scan_reading(sent) is None:
+        return read
+    return sent
+
+
+def _photo_reader(content: str) -> SubjectPhoto | None:
+    from app.services.subject_scan import scanner_camera_subject
+
+    named = scanner_camera_subject(content)
+    for adapter in SUBJECTS:
+        if adapter.name == named and adapter.photo is not None:
+            return adapter.photo
+    return subject_adapter("math").photo
 
 
 def _without_attachments(

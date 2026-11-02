@@ -20,17 +20,14 @@ import {
 } from "@/features/scanner/components/MathScannerCropOverlay";
 import {
   LiveMathScannerCamera,
-  type LiveScannerCameraHandle,
   type LiveScannerDetection,
 } from "@/features/scanner/components/LiveMathScannerCamera";
-import { ScanReadingReview } from "@/features/scanner/components/ScanReadingReview";
+import { ScannerCameraUnavailable } from "@/features/scanner/components/ScannerCameraUnavailable";
 import { ScannerPermission } from "@/features/scanner/components/ScannerPermission";
 import { ScannerSubjectGuide } from "@/features/scanner/components/ScannerSubjectGuide";
-import { useScanReview } from "@/features/scanner/hooks/useScanReview";
 import { useMathScannerCrop } from "@/features/scanner/hooks/useMathScannerCrop";
+import { useScannerCamera } from "@/features/scanner/hooks/useScannerCamera";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import type { ScanReading } from "@/lib/api";
-import type { ReadBackSubject } from "@/features/scanner/model/readBack";
 import {
   NativePickerBusyError,
   NativePickerTimeoutError,
@@ -62,43 +59,31 @@ import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** Send the photo; ``confirmedReading`` when the student checked the read. The composer then owns the file. */
-  onCaptured: (
-    pending: PendingAttachment,
-    subject: ScannerSubject,
-    confirmedReading?: string,
-  ) => void;
-  /** Read the crop back through the subject's reader. Null means it failed. */
-  onReadScan?: (
-    scan: PendingAttachment,
-    subject: ReadBackSubject,
-    signal: AbortSignal,
-  ) => Promise<ScanReading | { error: string } | null>;
-  /** Solve the confirmed reading as typed text (math asks for steps). */
-  onSolveReading?: (reading: string, subject: ScannerSubject) => void;
+  /**
+   * Send the cropped photo with its subject; the chat turn reads and solves it. The
+   * composer then owns the file.
+   */
+  onCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
 };
 
-type ScanShot = PendingAttachment & { width: number; height: number };
+/** A still on the crop screen, with the subject its tab had when it was taken or picked. */
+type ScanShot = PendingAttachment & { width: number; height: number; subject: ScannerSubject };
 
 const ANDROID_DISMISS_MS = 400;
 
 /**
  * Keep the crop frame live over the camera so the student aims before capture.
- * Camera shots are cropped immediately from that live region; imported photos
- * still get an adjustable still-image crop. A math, physics or chemistry crop
- * is then read back ("I read this as") so a misread digit can be fixed before
- * solving.
+ * A camera shot is cut to that live region and shown as a still with its own
+ * adjustable crop, as an imported photo is; nothing is sent until Solve. Solve
+ * sends the crop to the chat with the subject, and the turn reads and solves it.
+ *
+ * Capture is never a silent tap: while the camera starts the shutter says so, and
+ * a camera that cannot run says why in the viewfinder and offers a photo instead.
  *
  * A shot checks after every await that the scanner is still in the session it
  * started in: one that lands after close is dropped and its files deleted.
  */
-export function MathEquationScanner({
-  visible,
-  onClose,
-  onCaptured,
-  onReadScan,
-  onSolveReading,
-}: Props) {
+export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -115,7 +100,7 @@ export function MathEquationScanner({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
   const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<LiveScannerCameraHandle>(null);
+  const granted = Boolean(permission?.granted);
   const [hosted, setHosted] = useState(visible);
   const [busy, setBusy] = useState(false);
   const [capturing, setCapturing] = useState(false);
@@ -124,25 +109,17 @@ export function MathEquationScanner({
   const [torchOn, setTorchOn] = useState(false);
   const [subject, setSubject] = useState<ScannerSubject>("math");
   const [files] = useState(() => new ScanFiles());
-  const { review, deliverShot, clearReview, solve, sendPhoto } = useScanReview({
-    visible,
-    files,
-    onCaptured,
-    onReadScan,
-    onSolveReading,
-  });
+  const camera = useScannerCamera({ live: granted && visible && !preview });
+  const { cameraRef, resetCamera } = camera;
+  const cameraStatus = camera.status;
   // Bumped on every open and close; work started in an older session is stale.
   const sessionRef = useRef(0);
   const [zoom, setZoom] = useState(0);
-  const [cameraReady, setCameraReady] = useState(false);
   const [liveRegion, setLiveRegion] = useState<ScanRegion | null>(null);
   const [liveStatus, setLiveStatus] = useState<LiveScanFrameStatus>("idle");
   const liveReadyRef = useRef(false);
   // One shot at a time: a capture or a preview Solve, never two.
   const shotPendingRef = useRef(false);
-  const handleCameraReady = useCallback(() => setCameraReady(true), []);
-  const handleCameraError = useCallback(() => setError(t("chat.math_scan_camera_unavailable")), [t]);
-  const handleCameraMissing = useCallback(() => setError(t("chat.math_scan_camera_needs_build")), [t]);
   const inset = useMemo(
     () => scanChromeInset(view.width, view.height, insets),
     [view.width, view.height, insets.top, insets.bottom],
@@ -193,10 +170,9 @@ export function MathEquationScanner({
     if (visible) {
       setHosted(true);
       setPreview(null);
-      clearReview();
       setError(null);
       setTorchOn(false);
-      setCameraReady(false);
+      resetCamera();
       resetLive();
       crop.resetRegion();
       crop.resetZoom();
@@ -218,10 +194,10 @@ export function MathEquationScanner({
 
   /** Show a shot for a manual crop, sized in the space the crop is cut in. */
   const showShot = useCallback(
-    async (pending: PendingAttachment, isCurrent: () => boolean) => {
+    async (pending: PendingAttachment, shotSubject: ScannerSubject, isCurrent: () => boolean) => {
       try {
         const size = await measureScanImage(pending.localUri);
-        if (isCurrent()) setPreview({ ...pending, ...size });
+        if (isCurrent()) setPreview({ ...pending, ...size, subject: shotSubject });
         else files.discard(pending.localUri);
       } catch {
         files.discard(pending.localUri);
@@ -248,7 +224,7 @@ export function MathEquationScanner({
     }
   }, [t]);
 
-  /** Hand a fresh crop on, unless the scanner closed while it was cut. */
+  /** Send a fresh crop, unless the scanner closed while it was cut. It becomes the chat's file. */
   const deliverCrop = useCallback(
     (cropped: PendingAttachment, shotSubject: ScannerSubject, isCurrent: () => boolean) => {
       files.track(cropped.localUri);
@@ -256,14 +232,17 @@ export function MathEquationScanner({
         files.discard(cropped.localUri);
         return;
       }
-      if (deliverShot(cropped, shotSubject)) resetLive();
+      files.handOff(cropped.localUri);
+      files.discardAll();
+      resetLive();
+      onCaptured(cropped, shotSubject);
     },
-    [deliverShot, files, resetLive],
+    [files, onCaptured, resetLive],
   );
 
   const capture = useCallback(() => {
-    // Not ready yet is startup, not a failure. onError already reports a real load failure.
-    if (busy || preview || !cameraReady || !cameraRef.current) return;
+    // The shutter is disabled until the camera is ready, and says why (MathScannerChrome).
+    if (busy || preview || cameraStatus.kind !== "ready" || !cameraRef.current) return;
     const shotSubject = subject;
     const region = crop.readRegion();
     const { width: viewWidth, height: viewHeight } = view;
@@ -297,18 +276,21 @@ export function MathEquationScanner({
         );
       } catch {
         // Keep a recoverable path if a device reports unexpected camera geometry.
-        await showShot(pending, isCurrent);
+        await showShot(pending, shotSubject, isCurrent);
         return;
       }
       // The full-resolution capture is not needed once it is cropped.
       files.discard(photo.uri);
-      deliverCrop({ ...pending, localUri: cropped.uri }, shotSubject, isCurrent);
+      files.track(cropped.uri);
+      if (isCurrent()) resetLive();
+      // The framed shot waits on the crop screen: nothing is sent before Solve.
+      await showShot({ ...pending, localUri: cropped.uri }, shotSubject, isCurrent);
     });
-  }, [busy, cameraReady, crop, deliverCrop, files, preview, runShot, showShot, subject, t, view]);
+  }, [busy, cameraRef, cameraStatus.kind, crop, files, preview, resetLive, runShot, showShot, subject, t, view]);
 
   const confirmPreview = useCallback(() => {
     if (!preview || busy || !previewFrame) return;
-    const shotSubject = subject;
+    const shotSubject = preview.subject;
     const region = crop.readRegion();
     void runShot(async (isCurrent) => {
       setBusy(true);
@@ -322,17 +304,16 @@ export function MathEquationScanner({
         isCurrent,
       );
     });
-  }, [busy, crop, deliverCrop, preview, previewFrame, runShot, subject]);
+  }, [busy, crop, deliverCrop, preview, previewFrame, runShot]);
 
   /** Back to the live camera; every file from the last shot is deleted. */
   const retake = useCallback(() => {
-    clearReview();
     files.discardAll();
     resetLive();
     crop.resetRegion();
     setPreview(null);
     setError(null);
-  }, [clearReview, crop, files, resetLive]);
+  }, [crop, files, resetLive]);
 
   const changeSubject = useCallback((next: ScannerSubject) => {
     if (next === subject) return;
@@ -347,6 +328,7 @@ export function MathEquationScanner({
   /** Photos by default (no permission needed, and where a homework photo is); Files second. */
   const openLibrary = useCallback(async (source: "photos" | "files") => {
     if (busy) return;
+    const shotSubject = subject;
     const session = sessionRef.current;
     const isCurrent = () => session === sessionRef.current;
     setBusy(true);
@@ -358,7 +340,7 @@ export function MathEquationScanner({
       // The picker copied the image into the cache for the scanner.
       files.track(picked.localUri);
       if (isCurrent()) resetLive();
-      await showShot(picked, isCurrent);
+      await showShot(picked, shotSubject, isCurrent);
     } catch (caught) {
       if (!isCurrent()) return;
       if (caught instanceof NativePickerBusyError || caught instanceof NativePickerTimeoutError) {
@@ -369,9 +351,10 @@ export function MathEquationScanner({
     } finally {
       setBusy(false);
     }
-  }, [busy, files, resetLive, showShot, t]);
+  }, [busy, files, resetLive, showShot, subject, t]);
 
-  const granted = Boolean(permission?.granted);
+  const cameraOff = cameraStatus.kind === "unavailable";
+  const choosePhoto = () => void openLibrary("photos");
 
   if (!hosted && !visible) return null;
 
@@ -394,7 +377,7 @@ export function MathEquationScanner({
           <ScannerPermission
             permission={permission}
             requestPermission={() => void requestPermission()}
-            onChoosePhoto={() => void openLibrary("photos")}
+            onChoosePhoto={choosePhoto}
             onChooseFile={() => void openLibrary("files")}
           />
         ) : (
@@ -402,18 +385,21 @@ export function MathEquationScanner({
             {granted ? <View style={StyleSheet.absoluteFill} testID="math-scanner-camera" pointerEvents="none">
               <LiveMathScannerCamera
                 ref={cameraRef}
-                active={!preview && !review && visible}
-                torchOn={torchOn && !preview && !review && visible}
+                active={!preview && visible}
+                torchOn={torchOn && !preview && visible}
                 zoom={zoom}
                 scanRegion={scanRegion}
                 viewSize={view}
-                onReady={handleCameraReady}
-                onError={handleCameraError}
-                onUnavailable={handleCameraMissing}
+                onReady={camera.onReady}
+                onError={camera.onError}
+                onUnavailable={camera.onUnavailable}
                 onDetectionChange={handleLiveDetection}
               />
             </View> : null}
-            {granted && !preview && !review ? <ScannerSubjectGuide subject={subject} /> : null}
+            {granted && !preview && cameraStatus.kind === "unavailable" ? (
+              <ScannerCameraUnavailable reason={cameraStatus.reason} onChoosePhoto={choosePhoto} />
+            ) : null}
+            {granted && !preview && !cameraOff ? <ScannerSubjectGuide subject={subject} /> : null}
             {preview ? (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.mediaScrim }]}>
                 <Image
@@ -430,7 +416,7 @@ export function MathEquationScanner({
                 />
               </View>
             ) : null}
-            {preview || (granted && !review) ? (
+            {preview || (granted && !cameraOff) ? (
               <MathScannerCropOverlay
                 regionGesture={crop.regionGesture}
                 cornerTL={crop.cornerTL}
@@ -460,7 +446,7 @@ export function MathEquationScanner({
           preview={Boolean(preview)}
           busy={busy}
           capturing={capturing}
-          captureReady={cameraReady}
+          camera={cameraStatus.kind}
           torchOn={torchOn}
           subject={subject}
           error={error}
@@ -475,18 +461,7 @@ export function MathEquationScanner({
           onCapture={capture}
           onRetake={retake}
           onSolve={confirmPreview}
-          reviewing={review !== null}
         />
-        {review ? (
-          <ScanReadingReview
-            photoUri={review.shot.localUri}
-            state={review.state}
-            insets={insets}
-            onSolve={solve}
-            onSendPhoto={sendPhoto}
-            onRetake={retake}
-          />
-        ) : null}
       </GestureHandlerRootView>
     </FullScreenModal>
   );

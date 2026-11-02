@@ -8,7 +8,7 @@ reply through ``direct``, each imported when it runs; and its prompt copy from
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -124,13 +124,48 @@ class ChemistryFence:
 
 
 @dataclass(frozen=True)
+class ChemistryPhoto:
+    """The problem on a chemistry scanner photo, read in the turn and stated as its confirmed line.
+
+    The turn then solves it as a typed chemistry question; a read that finds nothing leaves the
+    turn an ordinary photo turn.
+    """
+
+    async def read(
+        self,
+        content: str,
+        *,
+        image_attachments: list[tuple[str, str]],
+        load_image: Callable[[str], Awaitable[bytes | None]],
+        settings: Settings,
+        on_status: Callable[[str], Awaitable[None]] | None,
+    ) -> tuple[None, str]:
+        if not settings.chemistry_enabled:
+            return None, content
+        from app.modules.chemistry.read import read_chemistry_problem
+        from app.services.subject_scan import read_scanned_problem
+
+        async def read(content_type: str, data: bytes) -> str:
+            return await read_chemistry_problem(settings, content_type=content_type, data=data)
+
+        return None, await read_scanned_problem(
+            content,
+            subject="chemistry",
+            image_attachments=image_attachments,
+            load_image=load_image,
+            read=read,
+            on_status=on_status,
+        )
+
+
+@dataclass(frozen=True)
 class ChemistrySubject:
     name: Literal["chemistry"] = "chemistry"
     hints: SubjectHints = _HINTS
     followups: ChemistryFollowups = ChemistryFollowups()
     fence: ChemistryFence = ChemistryFence()
-    # No photo reader and no model tool of its own.
-    photo: None = None
+    photo: ChemistryPhoto = ChemistryPhoto()
+    # No model tool of its own.
     tool: None = None
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:

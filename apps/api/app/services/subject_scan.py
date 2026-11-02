@@ -1,11 +1,21 @@
-"""Shared protocol captions for camera scans across school subjects."""
+"""Shared protocol captions for camera scans across school subjects.
+
+The phone sends a scan as its photo and the subject's caption. A subject that reads its
+own photos (physics, chemistry) reads the problem in the turn and states it under the
+caption as the confirmed line (``read_scanned_problem``), so the turn solves it as if the
+student had typed it. Older app builds still send that line themselves, after a review.
+"""
 
 from __future__ import annotations
 
+import logging
 import re
+from collections.abc import Awaitable, Callable
 from typing import Literal
 
 from app.services.solving import SubjectName
+
+logger = logging.getLogger(__name__)
 
 # The registry's subjects, and biology, whose camera caption the phone already sends.
 ScannerSubject = SubjectName | Literal["biology"]
@@ -57,3 +67,52 @@ def confirmed_scan_reading(text: str) -> str | None:
     if blank is not None:
         rest = rest[: blank.start()]
     return rest.strip() or None
+
+
+def with_confirmed_reading(content: str, reading: str) -> str:
+    """A scanner caption with ``reading`` as its confirmed line, before anything typed after it.
+
+    The reading keeps its lines but never a blank one: ``confirmed_scan_reading`` ends it at
+    the first blank line. Content that is no scanner caption, or a blank reading, is unchanged.
+    """
+    subject = scanner_camera_subject(content)
+    lines = [line.strip() for line in reading.splitlines() if line.strip()]
+    if subject is None or not lines:
+        return content
+    prompt = SCANNER_CAMERA_PROMPTS[subject]
+    rest = content.strip()[len(prompt) :].strip()
+    confirmed = f"{prompt}\n\n{SCAN_CONFIRMED_PREFIX} " + "\n".join(lines)
+    return f"{confirmed}\n\n{rest}" if rest else confirmed
+
+
+async def read_scanned_problem(
+    content: str,
+    *,
+    subject: ScannerSubject,
+    image_attachments: list[tuple[str, str]],
+    load_image: Callable[[str], Awaitable[bytes | None]],
+    read: Callable[[str, bytes], Awaitable[str]],
+    on_status: Callable[[str], Awaitable[None]] | None,
+) -> str:
+    """``content`` with the problem ``read`` finds on the first photo as its confirmed line.
+
+    Only for ``subject``'s scanner caption with no confirmed line yet. ``read(content_type,
+    data)`` returns the problem as plain text, or empty. A read that fails or finds nothing
+    leaves ``content`` as it was: the turn is then an ordinary photo turn, never refused.
+    """
+    if (
+        not image_attachments
+        or scanner_camera_subject(content) != subject
+        or confirmed_scan_reading(content) is not None
+    ):
+        return content
+    if on_status is not None:
+        await on_status("calculating")
+    content_type, storage_key = image_attachments[0]
+    try:
+        data = await load_image(storage_key)
+        reading = await read(content_type, data) if data else ""
+    except Exception:
+        logger.warning("Scanner photo read failed; the photo goes as it is", exc_info=True)
+        return content
+    return with_confirmed_reading(content, reading)

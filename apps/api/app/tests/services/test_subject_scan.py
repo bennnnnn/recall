@@ -11,6 +11,7 @@ from app.services.subject_scan import (
     confirmed_scan_reading,
     is_scanner_camera_prompt,
     scanner_camera_subject,
+    with_confirmed_reading,
 )
 
 
@@ -33,9 +34,6 @@ def test_subject_scan_prompts_match_mobile_protocol() -> None:
     assert PHYSICS_CAMERA_PROMPT == _ts_exported_string(subject_source, "PHYSICS_CAMERA_PROMPT")
     assert CHEMISTRY_CAMERA_PROMPT == _ts_exported_string(subject_source, "CHEMISTRY_CAMERA_PROMPT")
     assert BIOLOGY_CAMERA_PROMPT == _ts_exported_string(subject_source, "BIOLOGY_CAMERA_PROMPT")
-    scanner = mobile.parent / "features" / "scanner" / "model"
-    read_back = (scanner / "readBack.ts").read_text(encoding="utf-8")
-    assert SCAN_CONFIRMED_PREFIX == _ts_exported_string(read_back, "SCAN_CONFIRMED_PREFIX")
 
 
 def test_scanner_camera_subject_matches_only_protocol_prefixes() -> None:
@@ -99,3 +97,15 @@ def test_a_biology_camera_caption_is_not_math() -> None:
     from app.modules.math.match.needs import needs_symbolic
 
     assert needs_symbolic(BIOLOGY_CAMERA_PROMPT, has_image_attachment=True) is False
+
+
+def test_with_confirmed_reading_states_the_reading_under_the_caption() -> None:
+    assert with_confirmed_reading(PHYSICS_CAMERA_PROMPT, " v = 3 m/s \n\n t = 2 s ") == (
+        f"{PHYSICS_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} v = 3 m/s\nt = 2 s"
+    )
+    with_draft = with_confirmed_reading(f"{MATH_CAMERA_PROMPT}\n\nonly part b", "x+1=2")
+    assert confirmed_scan_reading(with_draft) == "x+1=2"
+    assert with_draft.endswith("\n\nonly part b")
+    # Not a scanner caption, or nothing read: unchanged.
+    assert with_confirmed_reading("what is this?", "x+1=2") == "what is this?"
+    assert with_confirmed_reading(CHEMISTRY_CAMERA_PROMPT, " \n ") == CHEMISTRY_CAMERA_PROMPT

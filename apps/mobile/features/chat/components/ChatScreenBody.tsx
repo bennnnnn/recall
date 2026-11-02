@@ -18,9 +18,8 @@ import { UpgradeSheet, type UpgradeSource } from "@/features/billing/components/
 import { StreamingDraftProvider } from "@/features/chat/context/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
-import type { Message, ScanReading } from "@/lib/api";
+import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import type { ReadBackSubject } from "@/features/scanner/model/readBack";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import type { IconName } from "@/ui/icons/names";
@@ -112,17 +111,8 @@ export interface ChatScreenSheetsProps {
   onAttachmentSource: (source: AttachmentSource) => void;
   mathScannerOpen: boolean;
   onCloseMathScanner: () => void;
-  onMathScanCaptured: (
-    pending: PendingAttachment,
-    subject: ScannerSubject,
-    confirmedReading?: string,
-  ) => void;
-  onReadScan: (
-    scan: PendingAttachment,
-    subject: ReadBackSubject,
-    signal: AbortSignal,
-  ) => Promise<ScanReading | { error: string } | null>;
-  onMathScanSolve: (reading: string, subject: ScannerSubject) => void;
+  /** The scanner's cropped photo and its tab's subject: sent at once, read and solved in the turn. */
+  onMathScanCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
   upgradeVisible: boolean;
   /** Where the paywall was opened from (analytics only). */
   upgradeSource?: UpgradeSource;
@@ -289,8 +279,6 @@ const ChatOverlays = memo(function ChatOverlays({
         visible={sheets.mathScannerOpen}
         onClose={sheets.onCloseMathScanner}
         onCaptured={sheets.onMathScanCaptured}
-        onReadScan={sheets.onReadScan}
-        onSolveReading={sheets.onMathScanSolve}
       />
 
       <UpgradeSheet

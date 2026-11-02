@@ -6,7 +6,7 @@ direct reply through ``direct``, and its prompt copy from ``reply_policy`` and `
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -128,13 +128,48 @@ def _physics_block(verified: VerifiedSolveBlock | None) -> VerifiedPhysicsBlock 
 
 
 @dataclass(frozen=True)
+class PhysicsPhoto:
+    """The problem on a physics scanner photo, read in the turn and stated as its confirmed line.
+
+    The turn then solves it as a typed physics question; a read that finds nothing leaves the
+    turn an ordinary photo turn.
+    """
+
+    async def read(
+        self,
+        content: str,
+        *,
+        image_attachments: list[tuple[str, str]],
+        load_image: Callable[[str], Awaitable[bytes | None]],
+        settings: Settings,
+        on_status: Callable[[str], Awaitable[None]] | None,
+    ) -> tuple[None, str]:
+        if not settings.math_tools_enabled:
+            return None, content
+        from app.modules.physics.read import read_physics_problem
+        from app.services.subject_scan import read_scanned_problem
+
+        async def read(content_type: str, data: bytes) -> str:
+            return await read_physics_problem(settings, content_type=content_type, data=data)
+
+        return None, await read_scanned_problem(
+            content,
+            subject="physics",
+            image_attachments=image_attachments,
+            load_image=load_image,
+            read=read,
+            on_status=on_status,
+        )
+
+
+@dataclass(frozen=True)
 class PhysicsSubject:
     name: Literal["physics"] = "physics"
     hints: SubjectHints = _HINTS
     followups: PhysicsFollowups = PhysicsFollowups()
     fence: PhysicsFence = PhysicsFence()
-    # No photo reader and no model tool of its own.
-    photo: None = None
+    photo: PhysicsPhoto = PhysicsPhoto()
+    # No model tool of its own.
     tool: None = None
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:

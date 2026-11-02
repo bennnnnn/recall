@@ -51,7 +51,7 @@ jest.mock("@/features/attachments/model/attachments", () => ({
     }
   },
 }));
-jest.mock("@/lib/api", () => ({ api: { readScan: jest.fn(), imageIntent: jest.fn() } }));
+jest.mock("@/lib/api", () => ({ api: { imageIntent: jest.fn() } }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn(), notifyWarning: jest.fn() }));
 jest.mock("@/features/chat/model/resolveClientGeoForQuery", () => ({
   queryNeedsClientGeo: jest.fn(() => false),

@@ -10,7 +10,6 @@ import { accountDeleteFailure } from "@/lib/accountDelete";
 import { signInRefusalKey } from "@/features/auth/model/signInRefusal";
 import { ApiRequestError } from "@/lib/api/client";
 import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
-import { scanFailureMessage } from "@/features/scanner/model/scanReadError";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 import { memoryFailure, memoryFailureKey } from "@/features/memory/model/memoryFailure";
 import {
@@ -75,25 +74,6 @@ it.each([
   ["dev_auth_disabled", "login.error_dev_disabled"],
 ])("words a refused sign-in: %s", (name, key) => {
   expect(signInRefusalKey(refused(name))).toBe(key);
-});
-
-it.each([
-  ["scan_not_available", "chat.scan_unavailable"],
-  ["scan_too_large", "chat.scan_too_large"],
-  ["scan_rate_limited", "chat.scan_rate_limit"],
-  ["scan_spend_cap", "chat.scan_spend_cap"],
-  ["scan_quota_exceeded", "chat.quota_exceeded_pro"],
-  ["scan_busy", "chat.scan_busy"],
-  ["scan_invalid_image", null],
-  // Not a photo (the API sniffs the bytes): the generic could-not-read, as a bad payload.
-  ["scan_not_a_photo", null],
-  // The request limiter's 429 and a refused refresh: their English showed.
-  ["rate_limited", "chat.rate_limited"],
-  ["refresh_rate_limited", "chat.rate_limited"],
-  // A Redis outage said "Too many scans in a row", then "couldn't scan that photo".
-  ["service_unavailable", "common.service_unavailable"],
-])("words a refused scan: %s", (name, words) => {
-  expect(scanFailureMessage(refused(name), t)).toBe(words);
 });
 
 it.each([

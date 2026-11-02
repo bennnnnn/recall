@@ -19,10 +19,18 @@ from app.exceptions import AttachmentValidationError, ChatNotFoundError
 from app.modules.chat.turn_prep.attachments import _process_attachments
 from app.modules.math.image_extract import camera_math_user_suffix
 from app.modules.math.schemas import MathImageExtract
+from app.services.subject_scan import (
+    BIOLOGY_CAMERA_PROMPT,
+    CHEMISTRY_CAMERA_PROMPT,
+    PHYSICS_CAMERA_PROMPT,
+    SCAN_CONFIRMED_PREFIX,
+)
 from app.tests.fakes import redis_mock
 
 _EXTRACTED = MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True)
 _SOLVE = "please solve this equation"
+_PHYSICS_READING = "A ball is dropped from 20 m.\n\nHow long does it fall?"
+_CHEMISTRY_READING = "Find the molar mass of H2O"
 _SIGNED_IN = object()
 
 
@@ -74,6 +82,8 @@ async def _run(
         "format": AsyncMock(side_effect=_lines),
         "read": AsyncMock(return_value=b"downloaded"),
         "extract": AsyncMock(return_value=_EXTRACTED),
+        "physics_read": AsyncMock(return_value=_PHYSICS_READING),
+        "chemistry_read": AsyncMock(return_value=_CHEMISTRY_READING),
         "refund": AsyncMock(),
     }
     mocks.update(fakes or {})
@@ -96,6 +106,8 @@ async def _run(
         patch("app.modules.attachments.content.format_attachment_lines", mocks["format"]),
         patch("app.modules.attachments.content.read_attachment_bytes", mocks["read"]),
         patch("app.modules.math.image_extract.extract_equation_from_image", mocks["extract"]),
+        patch("app.modules.physics.read.read_physics_problem", mocks["physics_read"]),
+        patch("app.modules.chemistry.read.read_chemistry_problem", mocks["chemistry_read"]),
         patch("app.services.quota.counters.refund", mocks["refund"]),
     ):
         mocks["gateway"] = gw
@@ -254,3 +266,87 @@ async def test_no_rows_after_reuse_return_before_storage() -> None:
     assert result.resolved_attachment_ids == [] and result.gateway is None
     assert result.user_content == "hi" and statuses == []
     mocks["gateway"].assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_physics_scan_reads_its_problem_into_the_turn_and_its_row() -> None:
+    image = _row("image/jpeg")
+    result, mocks, statuses = await _run([image], content=PHYSICS_CAMERA_PROMPT)
+    assert mocks["physics_read"].await_args.kwargs == {
+        "content_type": "image/jpeg",
+        "data": b"downloaded",
+    }
+    mocks["extract"].assert_not_awaited()
+    # The reading's blank line goes: the confirmed line ends at the first one.
+    assert result.content == (
+        f"{PHYSICS_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} "
+        "A ball is dropped from 20 m.\nHow long does it fall?"
+    )
+    # The row keeps the reading too: a follow-up or a regenerate reads the problem from it.
+    assert result.user_content == f"{result.content}\n\n[Image: /attachments/{image.id}/file]"
+    assert result.image_math_extract is None and result.has_image_attachment
+    assert statuses == ["reading_files", "calculating"]
+
+
+@pytest.mark.asyncio
+async def test_a_chemistry_scan_keeps_what_the_student_typed_after_its_reading() -> None:
+    image = _row("image/png")
+    result, mocks, _ = await _run([image], content=f"{CHEMISTRY_CAMERA_PROMPT}\n\nshow units")
+    mocks["chemistry_read"].assert_awaited_once()
+    mocks["physics_read"].assert_not_awaited()
+    assert result.content == (
+        f"{CHEMISTRY_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} {_CHEMISTRY_READING}\n\nshow units"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reader",
+    [AsyncMock(return_value=""), AsyncMock(side_effect=RuntimeError("vision down"))],
+    ids=["nothing read", "read failed"],
+)
+async def test_a_scan_read_that_finds_nothing_is_an_ordinary_photo_turn(reader: AsyncMock) -> None:
+    image = _row("image/png")
+    result, _, _ = await _run(
+        [image], content=PHYSICS_CAMERA_PROMPT, fakes={"physics_read": reader}
+    )
+    reader.assert_awaited_once()
+    assert result.content == PHYSICS_CAMERA_PROMPT
+    assert (
+        result.user_content == f"{PHYSICS_CAMERA_PROMPT}\n\n[Image: /attachments/{image.id}/file]"
+    )
+    assert result.image_attachments == [("image/png", image.storage_key)]
+
+
+@pytest.mark.asyncio
+async def test_a_reading_the_student_confirmed_is_not_read_again() -> None:
+    # An older app build sends the reading its review confirmed.
+    confirmed = f"{PHYSICS_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} v = 3 m/s"
+    result, mocks, _ = await _run([_row("image/png")], content=confirmed)
+    mocks["physics_read"].assert_not_awaited()
+    assert result.content == confirmed
+
+
+@pytest.mark.asyncio
+async def test_a_biology_scan_has_no_reader() -> None:
+    result, mocks, _ = await _run([_row("image/png")], content=BIOLOGY_CAMERA_PROMPT)
+    for name in ("physics_read", "chemistry_read", "extract"):
+        mocks[name].assert_not_awaited()
+    assert result.content == BIOLOGY_CAMERA_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_a_scan_read_waits_for_its_subject_to_be_on() -> None:
+    image = _row("image/png")
+    with patch("app.modules.physics.read.read_physics_problem") as reader:
+        from app.modules.physics.subject import PhysicsPhoto
+
+        _, content = await PhysicsPhoto().read(
+            PHYSICS_CAMERA_PROMPT,
+            image_attachments=[("image/png", image.storage_key)],
+            load_image=AsyncMock(return_value=b"x"),
+            settings=Settings(math_tools_enabled=False),
+            on_status=None,
+        )
+    reader.assert_not_called()
+    assert content == PHYSICS_CAMERA_PROMPT

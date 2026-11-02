@@ -90,8 +90,8 @@ class StemSettings(BaseModel):
     scan_read_max_in_flight: int = 2
     # One read answers within this many seconds of arriving, every reader and
     # fallback included (later steps get what earlier ones left). It stays
-    # below the phone's timeout (SCAN_READ_TIMEOUT_MS in features/scanner/api.ts,
-    # this plus 5 s for the upload), so a slow read ends as "could not read".
+    # below the timeout older app builds wait for a read (this plus 5 s for the
+    # upload), so a slow read ends as "could not read".
     scan_read_deadline_seconds: float = 20.0
     # Chat tokens one read takes from the day's allowance (``daily_token_limit``): the
     # photo, as a chat turn's image is reserved (``image_attachment_reserve_tokens``),

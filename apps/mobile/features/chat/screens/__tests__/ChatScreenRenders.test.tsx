@@ -141,8 +141,6 @@ const mockSend = {
   handlePickAttachment: mockNoop,
   handleAttachmentSheetSelect: mockAsyncNoop,
   handleMathScanCaptured: mockNoop,
-  readScan: async () => null,
-  handleMathScanSolve: mockNoop,
   mathScannerOpen: false,
   setMathScannerOpen: mockNoop,
 };

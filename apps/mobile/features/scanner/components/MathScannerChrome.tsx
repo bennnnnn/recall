@@ -26,6 +26,7 @@ import {
 } from "@/lib/math/scannerRegion";
 import { Motion, motionMs, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
+import type { ScannerCameraStatus } from "@/features/scanner/model/cameraStatus";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
@@ -39,13 +40,14 @@ type Props = {
   busy: boolean;
   /** Capture is in flight. Library picks stay off this so the shutter does not spin. */
   capturing?: boolean;
-  /** False while the camera is still starting. A tap then is ignored, not a failure. */
-  captureReady?: boolean;
+  /**
+   * The live camera: Capture works once it is `ready`. While it is `starting` the shutter
+   * is dimmed with a spinner; `unavailable` dims it, and the viewfinder says why.
+   */
+  camera?: ScannerCameraStatus["kind"];
   torchOn: boolean;
   subject: ScannerSubject;
   error: string | null;
-  /** The reading review is open, so capture controls must not sit on top of it. */
-  reviewing?: boolean;
   onClose: () => void;
   onSubjectChange: (subject: ScannerSubject) => void;
   onToggleTorch: () => void;
@@ -63,11 +65,10 @@ export function MathScannerChrome({
   preview,
   busy,
   capturing = false,
-  captureReady = true,
+  camera = "ready",
   torchOn,
   subject,
   error,
-  reviewing = false,
   onClose,
   onSubjectChange,
   onToggleTorch,
@@ -88,6 +89,9 @@ export function MathScannerChrome({
     transform: [{ scale: shutterScale.value }],
   }));
 
+  const cameraReady = camera === "ready";
+  const cameraStarting = camera === "starting";
+  const cameraOff = camera === "unavailable";
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
   const errorBottom = bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl;
   useLiveAnnouncement(error);
@@ -104,14 +108,6 @@ export function MathScannerChrome({
       <Icon name="close" size={IconSize.md} color={theme.onMedia} />
     </Pressable>
   );
-
-  if (reviewing) {
-    return (
-      <View style={s.closeLayer} pointerEvents="box-none">
-        <View style={[s.topBar, { paddingTop: insets.top + Space.xs }]}>{closeButton}</View>
-      </View>
-    );
-  }
 
   return (
     <View style={s.root} pointerEvents="box-none">
@@ -192,15 +188,19 @@ export function MathScannerChrome({
                 shutterScale.value = withTiming(1, { duration: pressMs });
               }}
               onPress={onCapture}
-              disabled={busy || !captureReady}
+              disabled={busy || !cameraReady}
               testID="math-scanner-shutter"
               accessibilityRole="button"
-              accessibilityState={{ disabled: busy || !captureReady, busy }}
+              accessibilityState={{ disabled: busy || !cameraReady, busy: busy || cameraStarting }}
               accessibilityLabel={t("chat.math_scan_capture_a11y")}
+              accessibilityHint={cameraStarting ? t("chat.math_scan_camera_starting") : undefined}
             >
-              <Animated.View style={[s.shutter, shutterStyle]}>
-                {capturing ? (
-                  <ActivityIndicator color={theme.text} />
+              <Animated.View
+                style={[s.shutter, shutterStyle, cameraReady ? null : s.dimmed]}
+                testID={`math-scanner-shutter-${camera}`}
+              >
+                {capturing || cameraStarting ? (
+                  <ActivityIndicator color={capturing ? theme.text : theme.onMedia} />
                 ) : (
                   <View style={s.shutterInner} testID="math-scanner-shutter-disc" />
                 )}
@@ -208,12 +208,12 @@ export function MathScannerChrome({
             </GHPressable>
             <View style={s.sideSlot}>
               <GHPressable
-                style={[s.sideControl, torchOn ? s.torchOn : null]}
+                style={[s.sideControl, torchOn ? s.torchOn : null, cameraOff ? s.dimmed : null]}
                 onPress={onToggleTorch}
-                disabled={busy}
+                disabled={busy || cameraOff}
                 testID="math-scanner-torch"
                 accessibilityRole="button"
-                accessibilityState={{ selected: torchOn, disabled: busy }}
+                accessibilityState={{ selected: torchOn, disabled: busy || cameraOff }}
                 accessibilityLabel={
                   torchOn ? t("chat.math_scan_torch_on_a11y") : t("chat.math_scan_torch_off_a11y")
                 }
@@ -238,10 +238,6 @@ function makeStyles(theme: Theme) {
     root: {
       ...StyleSheet.absoluteFill,
       zIndex: 40,
-    },
-    closeLayer: {
-      ...StyleSheet.absoluteFill,
-      zIndex: 60,
     },
     topBar: {
       position: "absolute",
@@ -337,6 +333,10 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: withAlpha(theme.onMedia, 0.18),
+    },
+    // Not ready yet, or no camera: visibly not a button that takes a photo now.
+    dimmed: {
+      opacity: 0.4,
     },
     shutterInner: {
       width: 60,
