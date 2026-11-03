@@ -11,6 +11,10 @@ dist/
 !vendor/image-size/
 !vendor/image-size/dist/
 !vendor/image-size/dist/**
+# So does vendored deepmerge (the GHSA-gcqx-w48m-w2h4 fix), for @expo/config and jest-config.
+!vendor/deepmerge/
+!vendor/deepmerge/dist/
+!vendor/deepmerge/dist/**
 web-build/
 expo-env.d.ts
 
