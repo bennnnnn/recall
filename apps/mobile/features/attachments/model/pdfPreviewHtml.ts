@@ -1,7 +1,7 @@
 import { PDF_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/preview/previewSandbox";
 import type { Theme } from "@/lib/theme";
 
-/** pdf.js and its worker, which the page inlines (lib/vendorAssets.ts). */
+/** pdf.js and its worker, which the page inlines and runs (lib/vendorAssets.ts). */
 export const PDF_LIBRARIES = ["pdf", "pdfWorker"] as const;
 export type PdfSources = Readonly<Record<(typeof PDF_LIBRARIES)[number], string>>;
 
@@ -37,9 +37,6 @@ const PAGE_SCRIPT = `(function () {
     errBox.textContent = 'PDF preview: ' + (err && err.message ? err.message : String(err));
     errBox.style.display = 'block';
   }
-  // The worker source sits in a non-executable tag; a Blob URL spawns it with no fetch.
-  var workerText = document.getElementById('pdf-worker-src').textContent;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([workerText], { type: 'application/javascript' }));
   // The PDF is this page's own text, in a tag that never runs: nothing is fetched or read.
   // The tag goes once decoded, so the page keeps no second copy of the file.
   function readBytes() {
@@ -120,7 +117,11 @@ const PAGE_SCRIPT = `(function () {
 /**
  * The PDF's page, handed to the WebView whole (`source: { html }`): pdf.js, its
  * worker and the PDF itself all ride in it, so it fetches and reads nothing and
- * needs no file access. `base64` is the PDF; the page holds it as text and
+ * needs no file access. The worker runs in the page itself (it sets
+ * `globalThis.pdfjsWorker`, which pdf.js uses in place of a Worker): the page's
+ * sandbox gives it no origin, so a Worker from a `blob:null` URL never starts, and
+ * pdf.js's fallback, loading that URL as a script, is one the CSP refuses. Every
+ * preview said "Setting up fake worker failed: Cannot load script at: blob:null/…". `base64` is the PDF; the page holds it as text and
  * decodes it once (an attachment is at most MAX_ATTACHMENT_BYTES, so at most
  * about 13.4 MB of base64). The template is ours, so its CSP is written in
  * place rather than found by scanning the whole document (injectPreviewCsp).
@@ -140,8 +141,8 @@ export function buildPdfPreviewHtml(
 <meta charset="UTF-8">
 <meta name="viewport" content="${PREVIEW_VIEWPORT}">
 <script>${inlineScript(`window.RECALL_PDF = ${JSON.stringify(config)};`)}</script>
+<script>${inlineScript(sources.pdfWorker)}</script>
 <script>${inlineScript(sources.pdf)}</script>
-<script type="text/pdf-worker" id="pdf-worker-src">${inlineScript(sources.pdfWorker)}</script>
 <script type="application/pdf" id="pdf-data">${base64}</script>
 <style>
   * { box-sizing: border-box; }

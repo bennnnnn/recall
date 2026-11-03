@@ -79,8 +79,9 @@ export const PREVIEW_CSP_LIVE = [
 /**
  * CSP for the PDF preview WebView (pdf.js).
  *
- * pdf.js + its worker are vendored and inlined (the worker is built from a
- * Blob URL at runtime, hence `worker-src blob:`). The PDF bytes are inlined
+ * pdf.js + its worker are vendored and inlined, and the worker runs in the page
+ * (the sandbox gives the page no origin, so a blob: Worker never starts there):
+ * `worker-src 'none'`. The PDF bytes are inlined
  * as base64 — no fetch, and no file read (features/attachments/model/pdfPreviewHtml.ts). A PDF is
  * untrusted and pdf.js has had script-capable bugs, so the page reaches
  * nothing outside itself: `connect-src 'none'`, and images, fonts and media
@@ -91,7 +92,7 @@ export const PDF_PREVIEW_CSP = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
   "script-src 'unsafe-inline'",
-  "worker-src blob:",
+  "worker-src 'none'",
   "img-src data: blob:",
   "font-src data:",
   "media-src data: blob:",
