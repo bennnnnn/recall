@@ -3,7 +3,7 @@
 Facts stay atomic rows; a document is every active fact with the same topic.
 "You" holds who the user is and how they like replies. "Topics" are standard
 themes. An "area" is one major project or part of the user's life, named by
-the model (``area:recall``), with its own title and one-line summary.
+the model (``area:garden-planner``), with its own title and one-line summary.
 """
 
 from __future__ import annotations

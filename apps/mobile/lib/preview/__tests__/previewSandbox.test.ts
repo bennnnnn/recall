@@ -102,12 +102,11 @@ describe("PREVIEW_CSP egress details", () => {
 });
 
 describe("PDF_PREVIEW_CSP", () => {
-  it("allows a blob worker (pdf.js worker is vendored inline) and blocks all network egress", () => {
-    // pdf.js + its worker are vendored and inlined; the worker is built from a
-    // Blob URL at runtime, so the CSP must allow `worker-src blob:` while
-    // keeping `connect-src 'none'` (no network fetch is needed — the PDF bytes
-    // are inlined as base64).
-    expect(PDF_PREVIEW_CSP).toContain("worker-src blob:");
+  it("starts no worker and blocks all network egress", () => {
+    // pdf.js + its worker are vendored and inlined, and the worker runs in the page
+    // (a sandboxed page has no origin, so a blob: Worker never starts). No network
+    // fetch is needed either: the PDF bytes are inlined as base64.
+    expect(PDF_PREVIEW_CSP).toContain("worker-src 'none'");
     expect(PDF_PREVIEW_CSP).toContain("connect-src 'none'");
   });
 
@@ -142,11 +141,10 @@ describe("PDF_PREVIEW_CSP", () => {
     }
   });
 
-  it("allows worker-src only for blob: (not arbitrary origins)", () => {
+  it("allows no worker from any source", () => {
     const workerSrcMatch = PDF_PREVIEW_CSP.match(/worker-src\s+([^;]+)/);
     expect(workerSrcMatch).not.toBeNull();
-    const workerSrcValue = workerSrcMatch![1].trim();
-    expect(workerSrcValue).toBe("blob:");
+    expect(workerSrcMatch![1].trim()).toBe("'none'");
   });
 });
 
