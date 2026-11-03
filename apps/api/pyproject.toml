@@ -20,7 +20,10 @@ dependencies = [
     "fastapi>=0.141.1,<0.143",
     "google-auth>=2.56.3,<2.63",
     "httpx>=0.28.0,<0.29",
-    "litellm>=1.55.0,<1.107",
+    # litellm 1.106 imports the `mcp` package (only in its proxy/mcp extras) for any request
+    # with tools, so every reply that offers web_search failed. Raise the bound only when
+    # app/tests/gateways/test_litellm_tools_install.py passes on the new version.
+    "litellm>=1.55.0,<1.106",
     "pydantic-settings>=2.6.0,<2.17",
     "pyjwt>=2.14.0,<2.16",
     "redis>=5.2.0,<8.2",
@@ -67,7 +70,7 @@ override-dependencies = [
     "pyasn1>=0.6.4",
     "aiohttp>=3.14.3",
     "h2>=4.4.1",
-    # filelock: litellm 1.106 declares `filelock<4`, which held us on 3.32.7 and its
+    # filelock: litellm 1.106 declares `filelock<4` (1.103, locked now, declares none), which held us on 3.32.7 and its
     # advisories (GHSA-v4x8-3wr5-3wq8 and twelve more, fixed in 4.2.1). The bound is
     # stricter than litellm needs. litellm imports filelock only in its proxy CLI
     # (`litellm/proxy/client/cli/commands/configure_profiles.py`, `claude_settings.py`),
@@ -75,7 +78,7 @@ override-dependencies = [
     # uses FileLock / SoftFileLock / Timeout the same way. filelock 4's breaking changes
     # (the SoftReadWriteLock on-disk protocol, stricter option checks) don't touch those
     # calls: `FileLock(path, timeout=..., mode=...)`, `acquire(timeout)` and `Timeout`
-    # are unchanged through 4.2. Drop this line once litellm allows filelock 4.
+    # are unchanged through 4.2. It also keeps a later litellm from pulling filelock back below 4.
     "filelock>=4.2.1,<5",
 ]
 
