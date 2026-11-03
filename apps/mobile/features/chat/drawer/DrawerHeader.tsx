@@ -1,8 +1,9 @@
-import { Pressable, Text, View, type TextInputInstance } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { Avatar } from "@/components/Avatar";
+import { useAuth } from "@/contexts/AuthContext";
 import { Icon } from "@/ui/icons/Icon";
-import { SearchField } from "@/ui/controls/SearchField";
 import { tap } from "@/lib/haptics";
 import { IconSize } from "@/ui/icons/sizes";
 import type { Theme } from "@/lib/theme";
@@ -13,12 +14,8 @@ type Props = {
   styles: ConversationListStyles;
   theme: Theme;
   paddingTop: number;
-  searchOpen: boolean;
-  searchQuery: string;
-  searchInputRef: React.RefObject<TextInputInstance | null>;
-  onSearchChange: (text: string) => void;
-  onOpenSearch: () => void;
-  onCloseSearch: () => void;
+  onNewChat: () => void;
+  onSettings: () => void;
   selectionMode?: boolean;
   selectedCount?: number;
   onExitSelection?: () => void;
@@ -29,45 +26,20 @@ export function DrawerHeader({
   styles: s,
   theme,
   paddingTop,
-  searchOpen,
-  searchQuery,
-  searchInputRef,
-  onSearchChange,
-  onOpenSearch,
-  onCloseSearch,
+  onNewChat,
+  onSettings,
   selectionMode = false,
   selectedCount = 0,
   onExitSelection,
   onSelectAll,
 }: Props) {
   const { t } = useTranslation();
+  const { user, token } = useAuth();
 
   return (
     <View style={[s.topOverlay, { paddingTop }]} pointerEvents="box-none">
       <View style={s.header}>
-        {searchOpen ? (
-          <SearchField
-            inputRef={searchInputRef}
-            value={searchQuery}
-            onChangeText={onSearchChange}
-            placeholder={t("search.placeholder")}
-            clearButtonMode="while-editing"
-            trailing={
-              <Pressable
-                hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}
-                onPress={() => {
-                  tap();
-                  onCloseSearch();
-                }}
-                style={s.searchCancel}
-                accessibilityRole="button"
-                accessibilityLabel={t("common.cancel")}
-              >
-                <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
-              </Pressable>
-            }
-          />
-        ) : selectionMode ? (
+        {selectionMode ? (
           <View style={s.selectionHeader}>
             <Pressable
               hitSlop={11}
@@ -99,21 +71,30 @@ export function DrawerHeader({
           </View>
         ) : (
           <View style={s.logo}>
-            <Text style={s.logoText}>{t("app.name")}</Text>
-            <View style={s.headerActions}>
-              <Pressable
-                hitSlop={8}
-                style={s.searchBtn}
-                onPress={() => {
-                  tap();
-                  onOpenSearch();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={t("search.open_accessibility")}
-              >
-                <Icon name="search" size={IconSize.sm} color={theme.text} />
-              </Pressable>
-            </View>
+            <Pressable
+              style={s.profileBtn}
+              onPress={() => {
+                tap();
+                onSettings();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t("settings.title")}
+            >
+              <Avatar name={user?.name ?? null} uri={user?.avatar_url} token={token} size={32} />
+            </Pressable>
+            <Pressable
+              style={s.newChatBtn}
+              hitSlop={{ top: 4, bottom: 4 }}
+              onPress={() => {
+                tap();
+                onNewChat();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t("drawer.new_chat")}
+            >
+              <Icon name="edit" size={IconSize.sm} color={theme.onPrimary} />
+              <Text style={s.newChatText}>{t("drawer.new_chat")}</Text>
+            </Pressable>
           </View>
         )}
       </View>

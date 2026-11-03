@@ -10,6 +10,8 @@ import type { SearchResult } from "@/lib/api";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
 
+import { matchParts } from "../model/matchParts";
+
 type ChromeProps = {
   hasSearchQuery: boolean;
   searchLoading: boolean;
@@ -46,14 +48,29 @@ export function DrawerSearchResultsChrome({
   );
 }
 
+/** The text with what the search matched drawn in the accent. */
+function Highlighted({ text, query, matchStyle }: { text: string; query: string; matchStyle: object }) {
+  return matchParts(text, query).map((part, index) =>
+    part.match ? (
+      <Text key={index} style={matchStyle}>
+        {part.text}
+      </Text>
+    ) : (
+      part.text
+    ),
+  );
+}
+
 type RowProps = {
   result: SearchResult;
   /** The chat's title as the drawer shows it (the chat feature owns how titles read). */
   title: string;
+  /** What was searched: its matches are highlighted. */
+  query: string;
   onOpenChat: (chatId: string, messageId?: string | null) => void;
 };
 
-export function DrawerSearchResultRow({ result, title, onOpenChat }: RowProps) {
+export function DrawerSearchResultRow({ result, title, query, onOpenChat }: RowProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
@@ -79,7 +96,7 @@ export function DrawerSearchResultRow({ result, title, onOpenChat }: RowProps) {
           color={result.match_type === "title" ? theme.primary : theme.textSecondary}
         />
         <Text style={s.searchResultTitle} numberOfLines={1}>
-          {title}
+          <Highlighted text={title} query={query} matchStyle={s.match} />
         </Text>
         {result.match_type === "title" ? (
           <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
@@ -89,7 +106,7 @@ export function DrawerSearchResultRow({ result, title, onOpenChat }: RowProps) {
         ) : null}
       </View>
       <Text style={s.searchResultSnippet} numberOfLines={2}>
-        {result.content}
+        <Highlighted text={result.content} query={query} matchStyle={s.match} />
       </Text>
     </Pressable>
   );
@@ -163,6 +180,7 @@ function makeStyles(theme: Theme) {
       color: theme.primary,
     },
     searchResultSnippet: { ...Type.callout, ...Weight.regular, color: theme.text },
+    match: { ...Weight.semibold, color: theme.primary },
     loadMore: { paddingVertical: Space.sm, alignItems: "center" },
     loadMoreText: { ...Type.label, color: theme.primary },
   });
