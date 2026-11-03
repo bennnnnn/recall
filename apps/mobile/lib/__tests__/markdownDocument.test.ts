@@ -3,12 +3,41 @@ import { markdownToDocumentText } from "@/lib/markdown/document";
 const label = (block: string) => `[${block}]`;
 
 describe("markdownToDocumentText", () => {
-  it("keeps prose, code and tables as written", () => {
+  it("keeps prose, code and tables as written for the PDF", () => {
     const md = "Use `proposal_id` here.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n```python\nprint(1)\n```";
-    const out = markdownToDocumentText(md, label);
+    const out = markdownToDocumentText(md, label, "print");
     expect(out).toContain("Use `proposal_id` here.");
     expect(out).toContain("| 1 | 2 |");
     expect(out).toContain("```python\nprint(1)\n```");
+  });
+
+  it("shares plain text, as Copy writes it: no markdown marks, maths as text", () => {
+    const md = [
+      "# Ohm's law",
+      "",
+      "The **current** is $I = \\frac{V}{R}$, so `I = 2 A`.",
+      "",
+      "- one",
+      "",
+      "```math",
+      "R = 2\\,\\Omega",
+      "```",
+      "",
+      "```answer",
+      "verified: true",
+      "I = 2\\,\\mathrm{A}",
+      "```",
+      "",
+      "```python",
+      "print(1)",
+      "```",
+    ].join("\n");
+    const out = markdownToDocumentText(md, label);
+    expect(out).toContain("Ohm's law\n");
+    expect(out).toContain("The current is I = V/R, so I = 2 A.");
+    expect(out).toContain("• one");
+    expect(out).toContain("print(1)");
+    expect(out).not.toMatch(/[#*`$\\]/);
   });
 
   it("drops control cards and sources", () => {
@@ -25,15 +54,18 @@ describe("markdownToDocumentText", () => {
   });
 
   it("shows a verified answer as maths, and a chemistry or sentence answer as text", () => {
-    expect(markdownToDocumentText("```answer\nverified: true\nx = 2\n```", label)).toBe(
+    expect(markdownToDocumentText("```answer\nverified: true\nx = 2\n```", label, "print")).toBe(
       "```math\nx = 2\n```",
     );
     expect(
       markdownToDocumentText("```answer\nnotation: chemistry\nH₂O\n```", label),
     ).toBe("H₂O");
     expect(
-      markdownToDocumentText("```answer\nThe ball lands after $t = 2$ s.\n```", label),
+      markdownToDocumentText("```answer\nThe ball lands after $t = 2$ s.\n```", label, "print"),
     ).toBe("The ball lands after $t = 2$ s.");
+    expect(
+      markdownToDocumentText("```answer\nThe ball lands after $t = 2$ s.\n```", label),
+    ).toBe("The ball lands after t = 2 s.");
   });
 
   it("names each card a reader cannot open outside the app", () => {
@@ -60,7 +92,7 @@ describe("markdownToDocumentText", () => {
   });
 
   it("keeps a maths fence as maths and a drafted email as its text", () => {
-    expect(markdownToDocumentText("```math\n\\frac{1}{2}\n```", label)).toBe(
+    expect(markdownToDocumentText("```math\n\\frac{1}{2}\n```", label, "print")).toBe(
       "```math\n\\frac{1}{2}\n```",
     );
     expect(markdownToDocumentText("```email\nHi Sam,\nThanks.\n```", label)).toBe(
@@ -97,7 +129,7 @@ describe("markdownToDocumentText", () => {
   });
 
   it("gives code holding backticks a longer fence", () => {
-    const out = markdownToDocumentText("````md\n```js\nx\n```\n````", label);
+    const out = markdownToDocumentText("````md\n```js\nx\n```\n````", label, "print");
     expect(out.startsWith("````md\n")).toBe(true);
     expect(out.endsWith("\n````")).toBe(true);
   });

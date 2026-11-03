@@ -27,7 +27,10 @@ function blockLabel(block: DocumentBlock): string {
   return i18n.t(`share.block_${block}`);
 }
 
-/** Markdown body of a chat (no title heading) — used by share and PDF export. */
+/**
+ * A chat's turns (no title): plain text for Share, markdown for the PDF. Each turn is
+ * signed by who wrote it: "You", or the app's name.
+ */
 export function conversationMarkdownBody(
   messages: Message[],
   target: DocumentTarget = "share",
@@ -40,15 +43,15 @@ export function conversationMarkdownBody(
         ? userTurnText(m.content)
         : markdownToDocumentText(m.content, blockLabel, target);
       if (!text) return "";
-      const role = i18n.t(user ? "share.role_user" : "share.role_assistant");
-      return `**${role}:**\n${text}`;
+      const role = user ? i18n.t("share.role_user") : i18n.t("app.name");
+      return target === "print" ? `**${role}:**\n${text}` : `${role}:\n${text}`;
     })
     .filter(Boolean)
     .join("\n\n");
 }
 
-/** Full markdown transcript including a title heading. */
+/** The chat as Share sends it: its title, then its turns, in plain text. */
 export function conversationTranscript(title: string | null, messages: Message[]): string {
-  const header = `# ${title?.trim() || i18n.t("share.default_title")}\n\n`;
+  const header = `${title?.trim() || i18n.t("share.default_title")}\n\n`;
   return header + conversationMarkdownBody(messages);
 }
