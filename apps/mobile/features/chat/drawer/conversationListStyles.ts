@@ -27,8 +27,8 @@ export function makeConversationListStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 100,
-      // Transparent so the header fade can blur titles sliding under Recall
-      // and search. The title and search button paint above that veil.
+      // Transparent so the header fade can blur titles sliding under the
+      // profile and new chat buttons, which paint above that veil.
       backgroundColor: "transparent",
     },
     header: { paddingHorizontal: Space.md, paddingBottom: Space.sm },
@@ -39,27 +39,6 @@ export function makeConversationListStyles(theme: Theme) {
       borderBottomColor: theme.border,
     },
     logo: { flexDirection: "row", alignItems: "center", gap: Space.xs },
-    logoText: {
-      ...Type.title,
-      ...Weight.bold,
-      color: theme.text,
-      letterSpacing: -0.5,
-    },
-    headerActions: {
-      marginLeft: "auto",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xxs,
-    },
-    searchBtn: {
-      width: Space.minTouch,
-      height: Space.minTouch,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: Radius.full,
-      backgroundColor: theme.bg,
-      ...shadowRaised(theme),
-    },
     selectionHeader: {
       flexDirection: "row",
       alignItems: "center",
@@ -133,7 +112,21 @@ export function makeConversationListStyles(theme: Theme) {
       paddingTop: Space.sm,
       backgroundColor: "transparent",
     },
-    footerNewChat: {
+    footerSearch: { flex: 1 },
+    searchBar: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
+      minHeight: Space.minTouch,
+      borderRadius: Radius.full,
+      paddingHorizontal: Space.sm,
+      backgroundColor: theme.bg,
+      ...shadowRaised(theme),
+    },
+    searchBarText: { ...Type.body, color: theme.textDisabled, flex: 1 },
+    newChatBtn: {
+      marginLeft: "auto",
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
@@ -142,9 +135,8 @@ export function makeConversationListStyles(theme: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: theme.primary,
     },
-    footerNewChatText: { ...Type.label, color: theme.onPrimary },
+    newChatText: { ...Type.label, color: theme.onPrimary },
     profileBtn: {
-      marginLeft: "auto",
       width: Space.minTouch,
       height: Space.minTouch,
       alignItems: "center",

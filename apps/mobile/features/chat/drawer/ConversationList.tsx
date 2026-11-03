@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/features/chat/drawer/drawer";
+import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -16,6 +16,7 @@ import { useChatBulkActions } from "@/features/chat/hooks/useChatBulkActions";
 import { useChatMenuActions } from "@/features/chat/hooks/useChatMenuActions";
 import { useDrawerChatList } from "@/features/chat/drawer/useDrawerChatList";
 import { useDrawerChatSelection } from "@/features/chat/drawer/useDrawerChatSelection";
+import { useDrawerNavigation } from "@/features/chat/drawer/useDrawerNavigation";
 import { useReminderBadgeCount } from "@/features/todos/hooks/useReminderBadgeCount";
 import { useDrawerSearch } from "@/features/search/hooks/useDrawerSearch";
 import { Chat } from "@/lib/api";
@@ -25,8 +26,8 @@ import {
   drawerHeaderFade,
 } from "@/features/chat/components/chromeFade";
 import { tap } from "@/lib/haptics";
+import { useKeyboardHeight } from "@/ui/hooks/useKeyboardHeight";
 import { chatsFromSelection, selectableChats } from "@/features/chat/drawer/drawerChatSelection";
-import { prefetchGallery } from "@/features/attachments/model/galleryListCache";
 import { DrawerChatFlashList } from "@/features/chat/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/features/chat/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/features/chat/drawer/DrawerFooter";
@@ -178,21 +179,7 @@ export function ConversationList() {
     [isCurrentSearch, openChat],
   );
 
-  const newChat = useCallback(() => {
-    closeDrawer();
-    startNewChatGlobal();
-  }, []);
-
-  const openReminders = useCallback(() => {
-    closeDrawer();
-    router.push("/todos");
-  }, [router]);
-
-  const openGallery = useCallback(() => {
-    if (token) prefetchGallery(token);
-    closeDrawer();
-    router.push("/gallery");
-  }, [router, token]);
+  const { newChat, openSettings, openReminders, openGallery } = useDrawerNavigation(token);
 
   const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | null>(null);
   const onShowRowMenu = useCallback(
@@ -226,9 +213,11 @@ export function ConversationList() {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the logo / search row is fixed; To-do scrolls with titles.
+  // Only the profile / new chat row and the search bar are fixed; To-do scrolls with titles.
   const topInset = insets.top + 8 + TOP_CHROME;
-  const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
+  // Search types at the bottom: its field rides the keyboard, so the results end above it.
+  const searchKeyboard = useKeyboardHeight(searchOpen);
+  const bottomInset = Math.max(insets.bottom + 8, searchKeyboard + 8) + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
 
@@ -336,6 +325,7 @@ export function ConversationList() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         searchOpen={searchOpen}
+        searchQuery={searchQuery}
         searchResults={searchResults}
         searchHasMore={hasMore}
         searchLoadingMore={loadingMore}
@@ -364,12 +354,8 @@ export function ConversationList() {
         styles={s}
         theme={theme}
         paddingTop={insets.top + 8}
-        searchOpen={searchOpen}
-        searchQuery={searchQuery}
-        searchInputRef={searchInputRef}
-        onSearchChange={onSearchChange}
-        onOpenSearch={openSearch}
-        onCloseSearch={closeSearch}
+        onNewChat={newChat}
+        onSettings={openSettings}
         selectionMode={selectionMode}
         selectedCount={selectedCount}
         onExitSelection={exitSelectionMode}
@@ -391,11 +377,13 @@ export function ConversationList() {
           styles={s}
           theme={theme}
           paddingBottom={insets.bottom + 8}
-          onNewChat={newChat}
-          onSettings={() => {
-            closeDrawer();
-            router.push("/settings");
-          }}
+          keyboardHeight={searchKeyboard}
+          searchOpen={searchOpen}
+          searchQuery={searchQuery}
+          searchInputRef={searchInputRef}
+          onSearchChange={onSearchChange}
+          onOpenSearch={openSearch}
+          onCloseSearch={closeSearch}
         />
       )}
 

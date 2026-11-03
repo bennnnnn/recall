@@ -7,7 +7,7 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { ConversationList } from "@/features/chat/drawer/ConversationList";
-import type { DrawerChatListItem } from "@/features/chat/drawer/DrawerChatFlashList";
+import type { DrawerChatListItem } from "@/features/chat/drawer/drawerListItems";
 import { api, type Chat } from "@/lib/api";
 
 type ListProps = { data: DrawerChatListItem[]; renderItem: unknown; extraData?: unknown };

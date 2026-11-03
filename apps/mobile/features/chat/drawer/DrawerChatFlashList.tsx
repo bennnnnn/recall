@@ -23,31 +23,14 @@ import {
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
 import { isChatTitleGenerating } from "@/features/chat/drawer/drawer";
+import type { DrawerChatListItem } from "@/features/chat/drawer/drawerListItems";
+import { useDrawerSearchItems } from "@/features/chat/drawer/useDrawerSearchItems";
 import { displayChatTitle } from "@/features/chat/model/title";
 import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 
-export type DrawerChatListItem =
-  | {
-      type: "sectionHeader";
-      key: ChatListSectionKey;
-      title: string;
-      count: number;
-      collapsible: boolean;
-    }
-  | { type: "row"; key: string; chat: Chat }
-  | { type: "searchRow"; key: string; result: SearchResult; onOpen: (id: string, messageId?: string | null) => void }
-  | {
-      type: "searchLoadMore";
-      key: "search-load-more";
-      loadingMore: boolean;
-      loadingMoreError: boolean;
-      onLoadMore?: () => void;
-    }
-  | { type: "archivedMore"; key: "archived-more" };
-
-const NO_ITEMS: DrawerChatListItem[] = [];
+const SEARCH_POSITION = { disabled: true };
 
 type Props = {
   groups: ChatList;
@@ -71,6 +54,8 @@ type Props = {
   refreshing: boolean;
   onRefresh: () => void;
   searchOpen?: boolean;
+  /** What was searched: the results highlight it. */
+  searchQuery?: string;
   searchResults?: SearchResult[];
   searchHasMore?: boolean;
   searchLoadingMore?: boolean;
@@ -104,6 +89,7 @@ export function DrawerChatFlashList({
   refreshing,
   onRefresh,
   searchOpen = false,
+  searchQuery = "",
   searchResults = [],
   searchHasMore = false,
   searchLoadingMore = false,
@@ -118,36 +104,16 @@ export function DrawerChatFlashList({
   const s = useMemo(() => makeConversationListStyles(theme), [theme]);
   const rowStyles = useMemo(() => makeConversationRowStyles(theme), [theme]);
 
-  // Each keystroke starts a new search with new result handlers. They ride on the search
-  // items, so the chat rows under them keep their items and renderItem and are not redrawn.
-  const searchItems = useMemo<DrawerChatListItem[]>(() => {
-    if (!searchOpen || searchResults.length === 0) return NO_ITEMS;
-    const items: DrawerChatListItem[] = [];
-    for (const result of searchResults) {
-      const key = result.message_id
-        ? `search-${result.message_id}`
-        : `search-title-${result.chat_id}`;
-      items.push({ type: "searchRow", key, result, onOpen: onOpenSearchResult });
-    }
-    if (searchHasMore || searchLoadingMoreError) {
-      items.push({
-        type: "searchLoadMore",
-        key: "search-load-more",
-        loadingMore: searchLoadingMore,
-        loadingMoreError: searchLoadingMoreError,
-        onLoadMore: onSearchLoadMore,
-      });
-    }
-    return items;
-  }, [
-    onOpenSearchResult,
-    onSearchLoadMore,
+  const { searchItems, listRef } = useDrawerSearchItems({
+    searchOpen,
+    searchQuery,
+    searchResults,
     searchHasMore,
     searchLoadingMore,
     searchLoadingMoreError,
-    searchOpen,
-    searchResults,
-  ]);
+    onOpenSearchResult,
+    onSearchLoadMore,
+  });
 
   const chatItems = useMemo<DrawerChatListItem[]>(() => {
     const items: DrawerChatListItem[] = [];
@@ -191,6 +157,7 @@ export function DrawerChatFlashList({
           <DrawerSearchResultRow
             result={item.result}
             title={displayChatTitle(item.result.chat_title, {}, t)}
+            query={item.query}
             onOpenChat={item.onOpen}
           />
         );
@@ -299,6 +266,7 @@ export function DrawerChatFlashList({
 
   return (
     <FlashList
+      ref={listRef}
       style={s.list}
       data={chatListData}
       renderItem={renderChatItem}
@@ -314,6 +282,7 @@ export function DrawerChatFlashList({
       refreshControl={refreshControl}
       onEndReached={searchOpen ? undefined : onLoadOlderChats}
       onEndReachedThreshold={0.5}
+      maintainVisibleContentPosition={searchOpen ? SEARCH_POSITION : undefined}
     />
   );
 }

@@ -1,53 +1,51 @@
+import { StyleSheet } from "react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { DrawerFooter } from "@/features/chat/drawer/DrawerFooter";
 import { makeConversationListStyles } from "@/features/chat/drawer/conversationListStyles";
+import { Space } from "@/lib/space";
 import { lightTheme } from "@/lib/theme";
 
-let mockUser: { name: string; avatar_url: string | null };
-let mockToken: string;
-
-jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: mockUser, token: mockToken }) }));
-jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 
-const styles = makeConversationListStyles(lightTheme);
+const props = {
+  styles: makeConversationListStyles(lightTheme),
+  theme: lightTheme,
+  paddingBottom: 30,
+  keyboardHeight: 0,
+  searchQuery: "",
+  searchInputRef: { current: null },
+  onSearchChange: jest.fn(),
+  onOpenSearch: jest.fn(),
+  onCloseSearch: jest.fn(),
+};
 
-beforeEach(() => {
-  mockUser = { name: "Bini Recall", avatar_url: null };
-  mockToken = "test-token";
+function footerStyle(view: Awaited<ReturnType<typeof render>>) {
+  return StyleSheet.flatten(view.getByTestId("drawer-footer").props.style);
+}
+
+it("is one search bar at the bottom that opens search", async () => {
+  const onOpenSearch = jest.fn();
+  const view = await render(<DrawerFooter {...props} searchOpen={false} onOpenSearch={onOpenSearch} />);
+
+  expect(view.queryByPlaceholderText("search.placeholder")).toBeNull();
+  await fireEvent.press(view.getByRole("search", { name: "search.open_accessibility" }));
+  expect(onOpenSearch).toHaveBeenCalledTimes(1);
 });
 
-it("uses the user's initials as the settings control and preserves new chat", async () => {
-  const onSettings = jest.fn();
-  const onNewChat = jest.fn();
+it("becomes the field in place, sitting on the keyboard", async () => {
+  const onCloseSearch = jest.fn();
   const view = await render(
-    <DrawerFooter styles={styles} theme={lightTheme} paddingBottom={0}
-      onSettings={onSettings} onNewChat={onNewChat} />,
+    <DrawerFooter {...props} searchOpen keyboardHeight={300} onCloseSearch={onCloseSearch} />,
   );
 
-  expect(view.getByText("BR")).toBeTruthy();
-  await fireEvent.press(view.getByRole("button", { name: "settings.title" }));
-  expect(onSettings).toHaveBeenCalledTimes(1);
-  expect(onNewChat).not.toHaveBeenCalled();
-  await fireEvent.press(view.getByRole("button", { name: "drawer.new_chat" }));
-  expect(onNewChat).toHaveBeenCalledTimes(1);
+  expect(view.getByPlaceholderText("search.placeholder")).toBeTruthy();
+  expect(footerStyle(view)).toMatchObject({ bottom: 300, paddingBottom: Space.xs });
+  await fireEvent.press(view.getByRole("button", { name: "common.cancel" }));
+  expect(onCloseSearch).toHaveBeenCalledTimes(1);
 });
 
-it("updates the sidebar photo and its credentials when the account changes", async () => {
-  const footer = () => <DrawerFooter styles={styles} theme={lightTheme} paddingBottom={0}
-    onSettings={jest.fn()} onNewChat={jest.fn()} />;
-  const view = await render(footer());
-  mockUser = {
-    name: "Bini Recall",
-    avatar_url: "/attachments/11111111-1111-4111-8111-111111111111/file",
-  };
-  mockToken = "refreshed-token";
-  await view.rerender(footer());
-
-  expect(view.queryByText("BR")).toBeNull();
-  expect(view.getByTestId("avatar-image").props.source).toEqual({
-    uri: "https://api.recall.test/attachments/11111111-1111-4111-8111-111111111111/file",
-    headers: { Authorization: "Bearer refreshed-token" },
-  });
+it("rests on the home indicator when the keyboard is down", async () => {
+  const view = await render(<DrawerFooter {...props} searchOpen keyboardHeight={0} />);
+  expect(footerStyle(view)).toMatchObject({ bottom: 0, paddingBottom: 30 });
 });
