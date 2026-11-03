@@ -26,6 +26,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/attachmentStatusFile.ts#settledFile": "clearSettledStatuses",
   "features/speech/model/readAloudSession.ts#controls": "stopReadingAloud",
   "features/speech/model/readAloudSession.ts#readAloudSession": "stopReadingAloud",
+  "features/speech/model/readAloudSession.ts#stopper": "stopReadingAloud",
   "features/attachments/model/downloadChatAttachment.ts#cacheGeneration": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#cacheRevision": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#cachedFiles": "clearLocalAttachmentFileCache",

@@ -178,6 +178,16 @@ export function reportStoreUnavailable(error: unknown): void {
 }
 
 /**
+ * Pause or resume of a reading aloud failed (a clip's player gone, the phone's voice
+ * refusing). The player keeps its state; this says how often it happens.
+ */
+export function reportReadAloudControlFailed(error: unknown): void {
+  report((Sentry) => {
+    Sentry.captureException(error, { tags: { area: "read_aloud" } });
+  }, true);
+}
+
+/**
  * Turning push off could not remove this phone's token from the server. The switch
  * still turns off (the account setting stops sends) and the next sync tries again;
  * this says so, since the call failing on every phone once went unseen.

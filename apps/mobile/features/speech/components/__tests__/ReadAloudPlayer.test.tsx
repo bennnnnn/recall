@@ -1,10 +1,11 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { ReadAloudPlayer } from "@/features/speech/components/ReadAloudPlayer";
-import { stopReadingAloud } from "@/features/speech/model/pronunciation";
 import {
   endReadAloud,
+  pauseReadAloud,
   readAloudChunk,
+  readAloudClipEnded,
   readAloudClipTime,
   readAloudPlaying,
   readAloudSession,
@@ -12,10 +13,7 @@ import {
 } from "@/features/speech/model/readAloudSession";
 
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
-jest.mock("@/features/speech/model/pronunciation", () => {
-  const session = jest.requireActual("@/features/speech/model/readAloudSession");
-  return { stopReadingAloud: jest.fn(() => session.endReadAloud()) };
-});
+jest.mock("@/lib/sentry", () => ({ reportReadAloudControlFailed: jest.fn() }));
 
 const controls = { pause: jest.fn(), resume: jest.fn(), canPause: true };
 
@@ -73,11 +71,12 @@ it("offers Stop alone for a voice that cannot pause (the phone's own, on Android
 
 it("stops the reading and closes on Stop", async () => {
   const view = await render(<ReadAloudPlayer visible bottomOffset={80} />);
+  const stop = jest.fn();
   await act(async () => {
-    startReadAloud("m1", "A reply.");
+    startReadAloud("m1", "A reply.", stop);
   });
   await fireEvent.press(view.getByRole("button", { name: "chat.read_aloud_stop" }));
-  expect(stopReadingAloud).toHaveBeenCalledTimes(1);
+  expect(stop).toHaveBeenCalledTimes(1);
   expect(view.queryByTestId("read-aloud-player")).toBeNull();
 });
 
@@ -86,4 +85,30 @@ it("keeps a newer reading when the one before it ends", () => {
   startReadAloud("m2", "Two.");
   endReadAloud(first);
   expect(readAloudSession.get()?.messageId).toBe("m2");
+});
+
+it("offers no pause between clips: the clip that ended has no player left", async () => {
+  const view = await render(<ReadAloudPlayer visible bottomOffset={80} />);
+  await act(async () => {
+    startReadAloud("m1", "A reply.");
+    readAloudChunk(0, 2);
+    readAloudPlaying(controls, true);
+    readAloudClipEnded();
+  });
+  expect(view.getByText("chat.read_aloud_preparing")).toBeTruthy();
+  expect(view.queryByTestId("read-aloud-player-toggle")).toBeNull();
+  pauseReadAloud();
+  expect(controls.pause).not.toHaveBeenCalled();
+});
+
+it("keeps playing, and reports, when a pause fails", async () => {
+  const { reportReadAloudControlFailed } = jest.requireMock("@/lib/sentry");
+  const failing = { ...controls, pause: jest.fn(() => { throw new Error("released"); }) };
+  await act(async () => {
+    startReadAloud("m1", "A reply.");
+    readAloudPlaying(failing, true);
+  });
+  expect(() => pauseReadAloud()).not.toThrow();
+  expect(readAloudSession.get()?.phase).toBe("playing");
+  expect(reportReadAloudControlFailed).toHaveBeenCalledTimes(1);
 });

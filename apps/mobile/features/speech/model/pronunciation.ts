@@ -16,6 +16,7 @@ import { readAloudPart } from "@/features/speech/model/readAloudLength";
 import {
   endReadAloud,
   readAloudChunk,
+  readAloudClipEnded,
   readAloudClipTime,
   readAloudPaused,
   readAloudPlaying,
@@ -242,6 +243,7 @@ async function playCloudBase64(
     if (cloudPlayerCleanup === release) {
       cloudPlayerCleanup = null;
       release();
+      readAloudClipEnded();
     }
     return { ok: true };
   } catch {
@@ -276,8 +278,8 @@ async function beginDeviceSpeech(
           // expo-speech pauses on iOS only; on Android the player offers Stop alone.
           readAloudPlaying(
             {
-              pause: () => void Speech.pause().catch(() => undefined),
-              resume: () => void Speech.resume().catch(() => undefined),
+              pause: () => Speech.pause(),
+              resume: () => Speech.resume(),
               canPause: Platform.OS === "ios",
             },
             false,
@@ -401,7 +403,7 @@ export async function readReplyAloud(
   language: string,
   options?: { token?: string | null; preferCloud?: boolean },
 ): Promise<SpeakResult> {
-  const id = startReadAloud(messageId, markdown);
+  const id = startReadAloud(messageId, markdown, stopSpeaking);
   try {
     return await speakPlainText(markdown, language, options);
   } finally {

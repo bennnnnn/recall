@@ -10,8 +10,9 @@
  */
 import { createValueStore } from "@/lib/listenerSet";
 import { markdownToSpeechText } from "@/lib/markdown/plain";
+import { reportReadAloudControlFailed } from "@/lib/sentry";
 
-export type ReadAloudPhase = "preparing" | "playing" | "paused";
+type ReadAloudPhase = "preparing" | "playing" | "paused";
 
 export type ReadAloud = {
   /** Which reading this is: a reading that ended never clears the one after it. */
@@ -26,18 +27,22 @@ export type ReadAloud = {
   canPause: boolean;
 };
 
-type PlaybackControls = { pause: () => void; resume: () => void; canPause: boolean };
+/** What plays now: a clip's player, or the phone's voice (whose calls return promises). */
+type PlaybackControls = { pause: () => unknown; resume: () => unknown; canPause: boolean };
 
 const PREVIEW_CHARS = 80;
 
 export const readAloudSession = createValueStore<ReadAloud | null>(null);
 let controls: PlaybackControls | null = null;
+/** How the reading stops (pronunciation's stopSpeaking): the player's Stop calls it. */
+let stopper: (() => void) | null = null;
 let chunk = { index: 0, count: 1 };
 let lastId = 0;
 
 /** A reply starts being read: its player shows at once, while the voice is prepared. */
-export function startReadAloud(messageId: string, text: string): number {
+export function startReadAloud(messageId: string, text: string, stop?: () => void): number {
   controls = null;
+  stopper = stop ?? null;
   chunk = { index: 0, count: 1 };
   lastId += 1;
   readAloudSession.set({
@@ -56,7 +61,24 @@ export function endReadAloud(id?: number): void {
   const current = readAloudSession.get();
   if (!current || (id !== undefined && current.id !== id)) return;
   controls = null;
+  stopper = null;
   readAloudSession.set(null);
+}
+
+/** The player's Stop: the reading stops and the player closes. */
+export function stopReadAloud(): void {
+  const stop = stopper;
+  endReadAloud();
+  stop?.();
+}
+
+/**
+ * A clip finished and its player was released: until the next clip plays there is nothing to
+ * pause. Pause in that gap once reached the released player, and said "Paused" over nothing.
+ */
+export function readAloudClipEnded(): void {
+  controls = null;
+  update({ phase: "preparing", canPause: false });
 }
 
 /** Which clip of how many plays next; progress counts the clips before it as heard. */
@@ -92,14 +114,24 @@ export function readAloudPaused(): boolean {
 export function pauseReadAloud(): void {
   const current = readAloudSession.get();
   if (!controls?.canPause || current?.phase !== "playing") return;
-  controls.pause();
-  update({ phase: "paused" });
+  if (control(controls.pause)) update({ phase: "paused" });
 }
 
 export function resumeReadAloud(): void {
   if (!controls || !readAloudPaused()) return;
-  controls.resume();
-  update({ phase: "playing" });
+  if (control(controls.resume)) update({ phase: "playing" });
+}
+
+/** Run a pause or resume; one that fails is reported and never thrown into the tap. */
+function control(action: () => unknown): boolean {
+  try {
+    const result = action();
+    if (result instanceof Promise) result.catch(reportReadAloudControlFailed);
+    return true;
+  } catch (error) {
+    reportReadAloudControlFailed(error);
+    return false;
+  }
 }
 
 function update(patch: Partial<ReadAloud>): void {

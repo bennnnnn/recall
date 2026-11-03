@@ -11,9 +11,9 @@ import { splitTtsChunks } from "@/features/speech/model/ttsLead";
 
 const TTS_JSON_TIMEOUT_MS = 60_000;
 
-export type TtsClip = { audio_base64: string; content_type: string; lead_hash?: string | null };
+type TtsClip = { audio_base64: string; content_type: string; lead_hash?: string | null };
 
-export type PrefetchState = {
+type PrefetchState = {
   key: string;
   model: string;
   chunks: string[];

@@ -4,11 +4,11 @@ import { Pressable } from "react-native-gesture-handler";
 import Animated, { type SharedValue } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { stopReadingAloud } from "@/features/speech/model/pronunciation";
 import {
   pauseReadAloud,
   readAloudSession,
   resumeReadAloud,
+  stopReadAloud,
   type ReadAloud,
 } from "@/features/speech/model/readAloudSession";
 import { tap } from "@/lib/haptics";
@@ -96,7 +96,7 @@ export function ReadAloudPlayer({ visible, bottomOffset, lift }: Props) {
           style={s.button}
           onPress={() => {
             tap();
-            stopReadingAloud();
+            stopReadAloud();
           }}
           accessibilityRole="button"
           accessibilityLabel={t("chat.read_aloud_stop")}
