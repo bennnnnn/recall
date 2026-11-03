@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
 from app.models.model_catalog import estimate_cost_usd  # noqa: E402
-from app.modules.turn_reading.lesson_flow import lesson_step  # noqa: E402
+from app.modules.turn_reading.lesson_flow import lesson_step, outline_topics  # noqa: E402
 from app.tests.behavior.cases import CASES, CATEGORIES, Case  # noqa: E402
 
 TIMEZONE = "Africa/Nairobi"
@@ -379,13 +379,14 @@ def check(case: Case, turn: Turn) -> list[str]:
     return misses
 
 
-_TOPIC_LINE = re.compile(r"^\s*\d+\.\s+\*\*", re.MULTILINE)
-
-
 def _outline_misses(reply: str) -> list[str]:
-    """A whole subject: 5-8 bold topics in order and a closing question, no lesson yet."""
+    """A whole subject: 5-8 bold topics in order and a closing question, no lesson yet.
+
+    A topic may lead with an emoji before its bold name ("1. 🐍 **Setup**"), as the
+    reply's Emoji rule allows; the server reads topics the same way (``outline_topics``).
+    """
     misses: list[str] = []
-    if len(_TOPIC_LINE.findall(reply)) < 5:
+    if outline_topics(reply) < 5:
         misses.append("no topic outline")
     lines = reply.strip().splitlines()
     if not lines or "?" not in lines[-1]:

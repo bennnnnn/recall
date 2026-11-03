@@ -169,8 +169,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   reached Lesson 3, Dictionaries … Covered: …”, `lesson_progress` job, no LLM; a hand edit
   to memory after the lessons began keeps it out), so “teach me Python” in a new chat
   offers to pick up where they stopped. Prompt: `modules/chat/prompt_constants/teaching.py`
-  and `lesson_flow.py`. Procedures (“teach me how to
-  install Docker” / “walk me through changing a tire”) keep the how-to steps.
+  and `lesson_flow.py`, the shape restated beside the message. The server holds the parts
+  the app reads (`modules/chat/lesson_shape.py`): a lesson the model wrote without its title
+  or card gets `### Lesson N: <topic>` and a `quiz` card written from the lesson by a cheap
+  model; an outline gets bold topic names, its topics when it only asked about the level,
+  and its question last. “I'm stuck on X” teaches a subject, never a thing of the user's
+  own (“I don't understand the error”, “the email my landlord sent”). Procedures (“teach me
+  how to install Docker” / “walk me through changing a tire”) keep the how-to steps.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step
   loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to

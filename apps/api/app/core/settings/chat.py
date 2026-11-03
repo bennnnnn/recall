@@ -39,3 +39,9 @@ class ChatContextSettings(BaseModel):
     # support is cut before it saves (``modules/chat/claim_check.py``). Off: replies as written.
     claim_check_enabled: bool = True
     claim_check_timeout_seconds: float = 8.0
+
+    # Lesson shape — a lesson reply ends with its title and practice card, and a teach-me
+    # outline lists its topics and ends on its question; what the model left out is added
+    # before it saves (``modules/chat/lesson_shape.py``). Off: replies as written.
+    lesson_shape_enabled: bool = True
+    lesson_shape_timeout_seconds: float = 10.0

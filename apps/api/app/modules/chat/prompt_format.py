@@ -326,10 +326,11 @@ def _format_pack(turn: StyleTurn) -> list[str]:
 
 
 def _may_ask_with_card(turn: StyleTurn) -> bool:
-    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer,
-    and not a "best X for Y" question, which already says what it is for."""
+    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer, and
+    not a "best X for Y" question, which says what it is for. A lesson ends on its quiz."""
     shaped = turn.compact or turn.multi or turn.writing or turn.code_hint or turn.lesson_hint
-    lesson = turn.teaching or turn.learning_plan or turn.subject in NO_PHOTO_SUBJECTS
+    lesson = turn.teaching or turn.walkthrough or turn.learning_plan
+    lesson = lesson or turn.subject in NO_PHOTO_SUBJECTS
     answerable = turn.after_card or names_its_purpose(turn.query)
     return bool(turn.query) and not shaped and not lesson and not answerable
 

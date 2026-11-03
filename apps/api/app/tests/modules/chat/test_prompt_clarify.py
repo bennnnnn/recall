@@ -30,7 +30,6 @@ def _hints(query: str, *, multi: bool = False) -> list[str]:
         "What is the best country",
         "which laptop should I buy",
         "plan my week",
-        "help me understand recursion",
     ],
 )
 def test_an_open_question_may_ask_with_a_card(query: str) -> None:
@@ -45,6 +44,9 @@ def test_an_open_question_may_ask_with_a_card(query: str) -> None:
         # A problem, a lesson, a draft with its purpose, pasted code.
         "solve 2x + 5 = 17",
         "teach me python",
+        # A lesson on one idea ends on its practice card, not "which part confuses you?".
+        "help me understand recursion",
+        "I don't understand recursion",
         "write an email to my landlord asking him to fix the heating",
         "why does this fail?\n```python\nprint(1/0)\n```",
     ],

@@ -18,6 +18,7 @@ go in one system message just before the user turn, after the context.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any
 
 from app.core.config import Settings
@@ -27,6 +28,7 @@ from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
+from app.modules.chat.lesson_layout import lesson_contract
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
@@ -138,6 +140,11 @@ class PromptTurn:
     @property
     def query(self) -> str:
         return self.query_text or ""
+
+    @cached_property
+    def style_hints(self) -> list[str]:
+        """The layout and writing hints (``prompt_format``), worked out once per turn."""
+        return [] if self.lightweight else _style_hints(self)
 
     @property
     def length_hint(self) -> str:
@@ -320,7 +327,7 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: [_social_hint(t), SHORT_RESPONSE_FORMAT_HINT, MATH_FENCE_SAFETY_HINT],
         name="lightweight_social",
     ),
-    PromptSection(lambda t: not t.lightweight, _style_hints, name="style_hints"),
+    PromptSection(lambda t: not t.lightweight, lambda t: t.style_hints, name="style_hints"),
     # A fact that may have changed is looked up or offered, never guessed.
     PromptSection(
         lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT], name="fact_grounding"
@@ -445,6 +452,8 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: _present(programming_lesson_contract(t.query)),
         name="programming_lesson_contract",
     ),
+    # A lesson or a teach-me outline: its shape here too (``lesson_layout``).
+    PromptSection(_always, lambda t: lesson_contract(t.style_hints), name="lesson_contract"),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
     PromptSection(
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),

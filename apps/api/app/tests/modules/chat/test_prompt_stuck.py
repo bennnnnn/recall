@@ -23,6 +23,10 @@ from app.modules.turn_reading.teaching import is_walkthrough_request
         "recursion makes no sense to me",
         "pointers confuse me",
         "the chain rule is so confusing",
+        "I don't understand the rules of cricket",
+        "help me understand how recursion works",
+        "help me understand what a closure is",
+        "break down the French Revolution",
     ],
 )
 def test_stuck_on_a_topic_gets_the_lesson(text: str) -> None:
@@ -50,6 +54,21 @@ def test_stuck_on_a_topic_gets_the_lesson(text: str) -> None:
         "I'm stuck on the highway",
         "I'm struggling with grief",
         "I don't understand how to install docker",
+        # A thing of the user's own or an event: the reply looks at it, it teaches no subject.
+        "I don't understand the error",
+        "I don't get the joke",
+        "I don't understand the email my landlord sent",
+        "I'm confused about the meeting time",
+        "I can't follow the recipe",
+        "the instructions make no sense, my package never arrived",
+        "help me understand my lab results",
+        "break down my budget",
+        "walk me through your reasoning",
+        "help me understand what happened",
+        "help me understand the code",
+        # Paperwork is steps to take, not a subject.
+        "walk me through the visa requirements for Kenya",
+        "walk me through the paperwork for renting an apartment",
     ],
 )
 def test_not_a_topic_gets_no_lesson(text: str) -> None:

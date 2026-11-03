@@ -162,6 +162,33 @@ WALKTHROUGH_HINT = (
 )
 
 
+# Restated beside the user's message (``NEARBY_CONTRACTS``): small models follow a short
+# contract there more reliably than the long hint inside the system prompt, which the
+# general rules ("lead with the answer", "end on one question") outweighed. The finalize
+# pass ``lesson_shape`` holds the parts the app reads to these same contracts.
+_LESSON_PARTS = (
+    "the title line `### Lesson N: <topic>` after a one- or two-sentence hook (N is 1 unless "
+    "this chat already taught lessons), numbered `### 1. <title>` sections, and last "
+    "`### N. Your turn` holding exactly one ```quiz card (```quiz alone on its line, the JSON "
+    "on the next), then one sentence previewing the next lesson"
+)
+
+LESSON_CONTRACT = (
+    "LESSON SHAPE, REQUIRED: this reply is a lesson, not a chat answer. It contains "
+    + _LESSON_PARTS
+    + ". The quiz card is the practice: never end on a question to the user, and never ask "
+    "which part confuses them."
+)
+
+TEACH_CONTRACT = (
+    "TEACH-ME SHAPE, REQUIRED, one of two. A whole subject: one sentence, then a numbered list "
+    "of 5-8 topics in learning order, each `N. **Topic** — what it lets them do`, then a last "
+    "line that is one question asking where they are and where to start; no title, no quiz. "
+    "Never reply with only questions about their level: the outline comes first. One idea: "
+    "a lesson with " + _LESSON_PARTS + "."
+)
+
+
 STANDING_PREFERENCE_HINT = (
     "The user is telling you how to teach or answer them from now on; there is no question "
     "to answer yet. Do not start a lesson, answer a topic, or mention photos, images or "

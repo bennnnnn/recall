@@ -1158,6 +1158,13 @@ CASES: tuple[Case, ...] = (
         "A person, not a topic: a kind reply, no lesson.",
     ),
     Case(
+        "teach-not-a-thing",
+        "teaching",
+        "I don't understand the error",
+        Expect(no_hints=("walkthrough", "teaching")),
+        "A thing on their screen, not a subject: asks for the error and its code, no lesson.",
+    ),
+    Case(
         "teach-history",
         "teaching",
         "teach me american history",

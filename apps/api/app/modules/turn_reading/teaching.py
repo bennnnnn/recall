@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.turn_reading.stuck import stuck_on_a_topic
+from app.modules.turn_reading.stuck import names_a_thing, stuck_on_a_topic, stuck_topic
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # Asking to be taught, in the shipped UI languages. A task ("teach me how to
@@ -50,10 +50,11 @@ _TEACH_TURN = re.compile(
 )
 
 
-# A task keeps the how-to layout: the user wants it done, not a lesson.
+# A task keeps the how-to layout: the user wants it done, not a lesson. Paperwork too
+# ("walk me through the visa requirements for Kenya"): steps to take, nothing to practise.
 _PROCEDURE = re.compile(
     r"\b(?:install|uninstall|set\s*up|setup|configure|deploy|download|troubleshoot|"
-    r"fix|repair|reset|log\s*in|sign\s*up)\b",
+    r"fix|repair|reset|log\s*in|sign\s*up|requirements|paperwork|visa|permit)\b",
     re.IGNORECASE,
 )
 
@@ -246,9 +247,12 @@ def is_learning_plan_request(text: str) -> bool:
 
 # "Help me understand two sum", or stuck on a topic ("I don't understand recursion",
 # stuck.py): one idea, explained in full now, building to the answer in one reply.
+# Not a subject: the last reply, something of the user's own or someone's ("break down my
+# budget", "walk me through your reasoning"), or an event ("help me understand what happened").
 _WALKTHROUGH = re.compile(
     r"(?:\bhelp\s+me\s+understand|\bwalk\s+me\s+through|\bbreak\s+down)\s+"
-    r"(?!(?:it|this|that|what\s+you|you|why\s+you)\b)[^\W\d_]"
+    r"(?!(?:it|this|that|these|those|you|your|my|our|his|her|their|its|why|who|when|where|"
+    r"what\s+(?:happened|you|i|he|she|they|we|it))\b)[^\W\d_]"
     r"|\bexplain\b[^.?!\n]{1,80}\bstep[- ]by[- ]step\b",
     re.IGNORECASE,
 )
@@ -268,10 +272,26 @@ def is_walkthrough_request(text: str) -> bool:
     if match is None:
         return stuck_on_a_topic(cleaned) and not _PROCEDURE.search(cleaned)
     rest = cleaned[match.start() :]
+    if names_a_thing(cleaned[match.end() - 1 :]):
+        return False
     first_object = rest.split()[3:4] if rest.lower().startswith("walk me through") else []
     if first_object and _TASK_OBJECT.fullmatch(first_object[0]):
         return False
     return not (_PROCEDURE.search(cleaned) or re.search(r"\bhow\s+(?:to|do\s+i)\b", rest, re.I))
+
+
+def walkthrough_topic(text: str) -> str | None:
+    """The words from a walkthrough's topic on ("walk me through two sum" -> "two sum");
+    None when ``text`` is no walkthrough. The caller ends the topic."""
+    cleaned = straighten_apostrophes(collapse_ws(text))
+    if not is_walkthrough_request(cleaned):
+        return None
+    match = _WALKTHROUGH.search(cleaned)
+    if match is None:
+        return stuck_topic(cleaned)
+    if match.group(0).lower().startswith("explain"):
+        return re.sub(r"(?i)^explain\s+", "", match.group(0))
+    return cleaned[match.end() - 1 :]
 
 
 # Why a message is a request to be taught or not, for the turn's trace line.

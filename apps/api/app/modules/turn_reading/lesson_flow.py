@@ -7,9 +7,13 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.modules.turn_reading.teaching import _TEACH_TURN, is_teaching_request
-from app.services.md_fence_scan import iter_fences
-from app.services.text_normalize import collapse_ws
+from app.modules.turn_reading.teaching import (
+    _TEACH_TURN,
+    is_teaching_request,
+    walkthrough_topic,
+)
+from app.services.md_fence_scan import iter_fences, without_fences
+from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # "### Lesson 2: Dictionaries": a heading with the word Lesson in an app
 # language and the lesson's number. "Day 1", "Part 2" and "Step 3" are plans,
@@ -35,6 +39,11 @@ LESSON_RECAP_AFTER = timedelta(hours=20)
 
 
 _QUESTION_MARKS = ("?", "？", "፧")
+
+
+def has_lesson_title(text: str | None) -> bool:
+    """True when a reply holds a lesson title ("### Lesson 2: Dictionaries")."""
+    return bool(text and _LESSON_TITLE.search(text))
 
 
 def lesson_step(text: str | None) -> int | None:
@@ -138,7 +147,36 @@ def teach_subject(text: str | None) -> str | None:
     # "I want to know American history" ends its match on the subject's first letter.
     if end >= 2 and cleaned[end - 1].isalpha() and cleaned[end - 2].isspace():
         end -= 1
-    rest = _SUBJECT_LEAD.sub("", cleaned[end:]).strip()
-    words = _SUBJECT_END.split(rest, maxsplit=1)[0].split()[:_SUBJECT_MAX_WORDS]
+    return _named(_SUBJECT_LEAD.sub("", cleaned[end:]))
+
+
+# Where a stuck or walkthrough topic ends: "recursion yet", "pointers in C at all".
+_TOPIC_TAIL = re.compile(
+    r"\s(?:to\s+me|for\s+me|at\s+all|yet|anymore|any\s+more|very\s+well|well)\s*$", re.IGNORECASE
+)
+
+
+def lesson_topic(text: str | None) -> str | None:
+    """What a lesson request is about: "teach me Python" -> "Python", "I don't understand
+    recursion" -> "Recursion", "walk me through two sum" -> "Two sum"."""
+    cleaned = straighten_apostrophes(collapse_ws(text or ""))
+    if subject := teach_subject(cleaned):
+        return subject
+    rest = walkthrough_topic(cleaned)
+    return _named(_TOPIC_TAIL.sub("", _SUBJECT_END.split(rest, maxsplit=1)[0])) if rest else None
+
+
+def _named(rest: str) -> str | None:
+    """The topic at the start of ``rest``, capitalized, at most a few words."""
+    words = _SUBJECT_END.split(rest.strip(), maxsplit=1)[0].split()[:_SUBJECT_MAX_WORDS]
     subject = " ".join(words).strip()
     return subject[:1].upper() + subject[1:] if subject else None
+
+
+# A topic of an outline: "3. **Loops** — repeat a step", "1. 🐍 **Setup** - install it".
+_OUTLINE_TOPIC = re.compile(r"^\s{0,3}\d{1,2}[.)]\s+(?:[^\w\s*`]{1,4}\s*)?\*\*[^*\n]+\*\*", re.M)
+
+
+def outline_topics(text: str | None) -> int:
+    """How many numbered topics with a bold name an outline reply lists."""
+    return len(_OUTLINE_TOPIC.findall(without_fences(text or "", "")))

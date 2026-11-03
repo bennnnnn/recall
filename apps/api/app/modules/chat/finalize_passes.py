@@ -88,6 +88,7 @@ from app.modules.chat.finalize_text import (
 from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.lesson_again import keep_to_lesson_again_pass
+from app.modules.chat.lesson_shape import hold_lesson_shape
 from app.modules.chat.meta_notes import unwrap_meta_notes
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
 from app.modules.chat.reply_labels import one_answer_label
@@ -304,6 +305,15 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "clarify_card",
         settle_clarify,
+        kind=EFFECT,
+        after=frozenset({"close_fences"}),
+    ),
+    # After the closer, so a card the model left open is whole; a model call when the
+    # reply left out a lesson's title and card or an outline's topics.
+    FinalizePass(
+        "lesson_shape",
+        hold_lesson_shape,
+        OnError(log_as="lesson_shape"),
         kind=EFFECT,
         after=frozenset({"close_fences"}),
     ),
