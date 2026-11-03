@@ -1,6 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Pressable, RefreshControl, Text } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -148,6 +148,15 @@ export function DrawerChatFlashList({
     searchOpen,
     searchResults,
   ]);
+
+  // A new search's results go in above the chat rows, and the list keeps the rows on
+  // screen, which pushed the results up out of sight. A new first result is a new
+  // search: show it from the top. Load more appends below and keeps the place.
+  const listRef = useRef<FlashListRef<DrawerChatListItem>>(null);
+  const firstSearchKey = searchItems[0]?.key;
+  useEffect(() => {
+    if (firstSearchKey) listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [firstSearchKey]);
 
   const chatItems = useMemo<DrawerChatListItem[]>(() => {
     const items: DrawerChatListItem[] = [];
@@ -299,6 +308,7 @@ export function DrawerChatFlashList({
 
   return (
     <FlashList
+      ref={listRef}
       style={s.list}
       data={chatListData}
       renderItem={renderChatItem}
