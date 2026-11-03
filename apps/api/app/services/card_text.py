@@ -52,8 +52,9 @@ def _plain(prose: str) -> str:
 
 def named_value(value: str) -> str:
     """``Work input = 1.2J`` → ``Work input = $1.2\\,\\mathrm{J}$``: a value named in words,
-    its words as text and its number in maths. Anything else is returned as it is."""
-    if "$" in value or "\\" in value or "=" not in value:
+    its words as text and its number in maths. Anything else is returned as it is: several
+    values joined ("Work = 5 J, Power = 2 W") stay one text, never half converted."""
+    if "$" in value or "\\" in value or value.count("=") != 1:
         return value
     name, _, written = value.rpartition("=")
     match = _VALUE.fullmatch(written.strip())

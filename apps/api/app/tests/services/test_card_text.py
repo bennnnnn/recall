@@ -39,6 +39,8 @@ def test_without_emphasis_drops_markdown_marks(written: str, plain: str) -> None
         ("$x = 3$", "$x = 3$"),
         ("x = 3", "x = 3"),
         ("Capital = Paris", "Capital = Paris"),
+        # Several values joined: one text, never half converted.
+        ("Work = 5 J, Power = 2 W", "Work = 5 J, Power = 2 W"),
     ],
 )
 def test_a_value_named_in_words_keeps_its_words_as_text(value: str, card: str) -> None:
