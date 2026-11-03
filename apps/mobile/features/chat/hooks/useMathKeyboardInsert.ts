@@ -2,8 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import {
   Keyboard,
   Platform,
-  type NativeSyntheticEvent,
-  type TextInputSelectionChangeEventData,
+  type TextInputSelectionChangeEvent,
 } from "react-native";
 
 import { clipboardIsImageOnly } from "@/lib/clipboard";
@@ -137,7 +136,7 @@ export function useMathKeyboardInsert(options: {
   }, [input, pinSelection, selection, setInput, textRef]);
 
   const onSelectionChange = useCallback(
-    (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+    (event: TextInputSelectionChangeEvent) => {
       const next = event.nativeEvent.selection;
       const pinned = pinRef.current;
       // Only explicit math edits use the preview caret. Ordinary typing,

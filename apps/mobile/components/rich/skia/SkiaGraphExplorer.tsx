@@ -156,12 +156,12 @@ export function SkiaGraphCanvas({
     }, [holes, width, height, pad]),
   );
   const verticalPath = useDerivedValue(() => {
-    const path = Skia.Path.Make();
-    if (verticalX == null) return path;
+    const path = Skia.PathBuilder.Make();
+    if (verticalX == null) return path.detach();
     const { px } = mapPointW(verticalX, 0, bounds.value, width, height, pad);
     path.moveTo(px, pad);
     path.lineTo(px, height - pad);
-    return path;
+    return path.detach();
   }, [verticalX, width, height, pad]);
 
   const trace = useDerivedValue(() => {
@@ -190,12 +190,12 @@ export function SkiaGraphCanvas({
   );
 
   const traceLine = useDerivedValue(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     const t = trace.value;
-    if (!t) return path;
+    if (!t) return path.detach();
     path.moveTo(t.px, pad);
     path.lineTo(t.px, height - pad);
-    return path;
+    return path.detach();
   });
   const traceX = useDerivedValue(() => trace.value?.px ?? -1000);
   const traceY = useDerivedValue(() => trace.value?.py ?? -1000);

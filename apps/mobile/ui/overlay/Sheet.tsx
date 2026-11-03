@@ -12,6 +12,8 @@ import {
   type AccessibilityRole,
   type StyleProp,
   type ViewStyle,
+  type HostInstance,
+  type ScrollViewInstance,
 } from "react-native";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated from "react-native-reanimated";
@@ -105,8 +107,8 @@ export function Sheet({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const keyboardHeight = useKeyboardHeight(keyboardAvoiding && visible);
   const reduceMotion = useReduceMotion();
-  const dialogRef = useRef<View>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const dialogRef = useRef<HostInstance>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const dismissible = backdropDismiss;
   const { pan, panStyle } = useSheetPanDismiss(
     dismissible && variant === "bottom",

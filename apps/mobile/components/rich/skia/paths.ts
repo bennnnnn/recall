@@ -4,8 +4,11 @@
  * The arrow is the one drawing vocabulary both use, so it lives here once:
  * a filled head is a force, an open chevron is motion (velocity, an
  * acceleration), and cross-ticks at both ends are a length (a dimension line).
+ *
+ * An `SkPath` is immutable: each builder draws into a `Skia.PathBuilder` and
+ * hands back the built path.
  */
-import { Skia, type SkPath } from "@shopify/react-native-skia";
+import { Skia, type SkPath, type SkPathBuilder } from "@shopify/react-native-skia";
 
 type Point = { px: number; py: number };
 
@@ -13,31 +16,31 @@ type ArrowHead = "filled" | "open" | "ticks";
 
 /** A polyline through screen points. */
 export function pointsPath(points: readonly Point[]): SkPath {
-  const path = Skia.Path.Make();
+  const path = Skia.PathBuilder.Make();
   points.forEach((point, index) => {
     if (index === 0) path.moveTo(point.px, point.py);
     else path.lineTo(point.px, point.py);
   });
-  return path;
+  return path.detach();
 }
 
 export function linePath(x1: number, y1: number, x2: number, y2: number): SkPath {
-  const path = Skia.Path.Make();
+  const path = Skia.PathBuilder.Make();
   path.moveTo(x1, y1);
   path.lineTo(x2, y2);
-  return path;
+  return path.detach();
 }
 
 /** Separate straight strokes in one path: hatching, ticks, walls. */
 export function segmentsPath(
   segments: readonly { x1: number; y1: number; x2: number; y2: number }[],
 ): SkPath {
-  const path = Skia.Path.Make();
+  const path = Skia.PathBuilder.Make();
   for (const segment of segments) {
     path.moveTo(segment.x1, segment.y1);
     path.lineTo(segment.x2, segment.y2);
   }
-  return path;
+  return path.detach();
 }
 
 /**
@@ -46,7 +49,7 @@ export function segmentsPath(
  * too, since a dimension line is marked at both ends.
  */
 export function appendArrowHead(
-  path: SkPath,
+  path: SkPathBuilder,
   tipX: number,
   tipY: number,
   ux: number,
@@ -54,7 +57,7 @@ export function appendArrowHead(
   head: number,
   kind: ArrowHead,
   length = 0,
-): SkPath {
+): SkPathBuilder {
   "worklet";
   if (head <= 0) return path;
   // Perpendicular, for the barbs.
@@ -94,8 +97,8 @@ export function arrowPath(
   kind: ArrowHead,
 ): SkPath {
   "worklet";
-  const path = Skia.Path.Make();
-  if (!(length > 0)) return path;
+  const path = Skia.PathBuilder.Make();
+  if (!(length > 0)) return path.detach();
   const tipX = fromX + ux * length;
   const tipY = fromY + uy * length;
   // A filled head covers the last stretch of shaft; stopping short keeps the
@@ -103,7 +106,7 @@ export function arrowPath(
   const shaft = kind === "filled" ? Math.max(0, length - head * 0.6) : length;
   path.moveTo(fromX, fromY);
   path.lineTo(fromX + ux * shaft, fromY + uy * shaft);
-  return appendArrowHead(path, tipX, tipY, ux, uy, head, kind, length);
+  return appendArrowHead(path, tipX, tipY, ux, uy, head, kind, length).detach();
 }
 
 /** Just the shaft, for an arrow whose shaft is dashed and whose head is not. */
@@ -128,7 +131,7 @@ export function arrowHeadPath(
   kind: ArrowHead,
 ): SkPath {
   return appendArrowHead(
-    Skia.Path.Make(),
+    Skia.PathBuilder.Make(),
     fromX + ux * length,
     fromY + uy * length,
     ux,
@@ -136,5 +139,5 @@ export function arrowHeadPath(
     head,
     kind,
     length,
-  );
+  ).detach();
 }

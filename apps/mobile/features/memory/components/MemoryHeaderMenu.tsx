@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { View } from "react-native";
+import type { HostInstance } from "react-native";
 import { useNavigation } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -11,7 +11,7 @@ import { Menu, type MenuEntry } from "@/ui/overlay/Menu";
 export function MemoryHeaderMenu({ items }: { items: MenuEntry[] }) {
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const anchorRef = useRef<View>(null);
+  const anchorRef = useRef<HostInstance>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {

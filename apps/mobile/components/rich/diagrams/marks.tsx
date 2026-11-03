@@ -54,11 +54,11 @@ export function DiagramLabel({
 
 /** A filled rectangle, built from lines so the test stub can draw it too. */
 export function rectPath(x: number, y: number, width: number, height: number): SkPath {
-  const path = Skia.Path.Make();
+  const path = Skia.PathBuilder.Make();
   path.moveTo(x, y);
   path.lineTo(x + width, y);
   path.lineTo(x + width, y + height);
   path.lineTo(x, y + height);
   path.close();
-  return path;
+  return path.detach();
 }

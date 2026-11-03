@@ -16,9 +16,11 @@ import { reportBoundaryError } from "@/lib/sentry";
 import { themeFor } from "@/lib/theme";
 
 jest.mock("@/lib/sentry", () => ({ reportBoundaryError: jest.fn() }));
-// What the router reads from `expo`: no splash screen and no native views here.
+// What the router reads from `expo`: no splash screen, native views or Liquid Glass here.
 jest.mock("expo", () => ({
   requireOptionalNativeModule: () => null,
+  requireNativeModule: () => ({ isLiquidGlassAvailable: false }),
+  Platform: { OS: "ios" },
   requireNativeView: () => () => null,
   registerRootComponent: jest.fn(),
 }));

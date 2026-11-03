@@ -6,6 +6,7 @@ import {
   type StyleProp,
   type TextStyle,
   type ViewStyle,
+  type ScrollViewInstance,
 } from "react-native";
 
 import { DisplayRow, InlineFlow } from "@/components/markdown/rules/inlineFlow";
@@ -30,7 +31,7 @@ export function ScrollingLine({
   contentContainerStyle: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
-  const ref = useRef<ScrollView>(null);
+  const ref = useRef<ScrollViewInstance>(null);
   const seen = useRef({ viewport: 0, content: 0, flashed: false });
   const flashIfClipped = () => {
     const size = seen.current;

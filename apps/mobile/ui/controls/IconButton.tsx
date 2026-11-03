@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode, type Ref } from "react";
-import { Pressable, StyleSheet, type StyleProp, type View, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, type HostInstance, type StyleProp, type ViewStyle } from "react-native";
 
 import { Icon } from "../icons/Icon";
 import type { IconName } from "../icons/names";
@@ -21,7 +21,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   testID?: string;
   /** Lets a Menu drop from this button (`anchorRef`). */
-  ref?: Ref<View>;
+  ref?: Ref<HostInstance>;
 };
 
 /** 44×44 hit target around a smaller outline icon. Prefer this over a

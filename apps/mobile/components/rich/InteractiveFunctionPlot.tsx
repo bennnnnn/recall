@@ -1,5 +1,5 @@
 import { Suspense, useMemo, type RefObject } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -152,7 +152,7 @@ function SeriesList({
   theme: Theme;
   styles: ReturnType<typeof makeExplorerStyles>;
   canAdd: boolean;
-  scrollRef?: RefObject<ScrollView | null>;
+  scrollRef?: RefObject<ScrollViewInstance | null>;
   onChangeExpr: (id: string, text: string) => void;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;

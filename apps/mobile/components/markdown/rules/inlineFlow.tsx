@@ -52,7 +52,7 @@ export function DisplayRow({ latex }: { latex: string }) {
 }
 
 function spaceFor(style: StyleProp<TextStyle>[]): number {
-  const fontSize = StyleSheet.flatten(style).fontSize ?? BODY_FONT_SIZE;
+  const fontSize = StyleSheet.flatten(style)?.fontSize ?? BODY_FONT_SIZE;
   return Math.round(fontSize * SPACE_EM * 10) / 10;
 }
 
@@ -118,7 +118,7 @@ function collect(node: ReactNode, ctx: Ctx, flow: Flow): void {
     const inner = textContext(ctx, props);
     if (props.onPress || props.onLongPress) flow.pressable = true;
     // A painted chip (inline code) stays one box; its words share the fill.
-    if (StyleSheet.flatten(inner.style).backgroundColor == null) {
+    if (StyleSheet.flatten(inner.style)?.backgroundColor == null) {
       collect(props.children, inner, flow);
       return;
     }

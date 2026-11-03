@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { View } from "react-native";
+import type { HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import type { TodoView } from "@/features/todos/model/todoListFilter";
@@ -23,7 +23,7 @@ export function TodosViewMenu({
 }: {
   visible: boolean;
   view: TodoView;
-  anchorRef: RefObject<View | null>;
+  anchorRef: RefObject<HostInstance | null>;
   onView: (view: TodoView) => void;
   onSelect: () => void;
   onClose: () => void;

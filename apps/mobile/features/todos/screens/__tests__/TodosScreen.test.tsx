@@ -50,6 +50,7 @@ jest.mock("expo-router", () => ({
   Redirect: () => null,
   useNavigation: () => mockNavigation,
   useLocalSearchParams: () => mockRouteParams,
+  usePreventRemove: () => () => {},
   useFocusEffect: (effect: () => void | (() => void)) => {
     const React = jest.requireActual("react");
     const focused = mockFocused;

@@ -130,14 +130,14 @@ export function AngleArc({ layout, theme }: { layout: AngleLayout; theme: Theme 
     const arc = pointsPath(layout.arc);
     const head = layout.head
       ? appendArrowHead(
-          Skia.Path.Make(),
+          Skia.PathBuilder.Make(),
           layout.head.tip.px,
           layout.head.tip.py,
           layout.head.ux,
           layout.head.uy,
           layout.head.size,
           "filled",
-        )
+        ).detach()
       : null;
     return { arc, head };
   }, [layout]);
@@ -201,11 +201,11 @@ export function Tether({
 }) {
   const path = useDerivedValue(() => {
     const end = tetherEnd(anchor, trajectoryPointAt(track, progress.value), radius, boxAngle);
-    const line = Skia.Path.Make();
-    if (!end) return line;
+    const line = Skia.PathBuilder.Make();
+    if (!end) return line.detach();
     line.moveTo(anchor.px, anchor.py);
     line.lineTo(end.px, end.py);
-    return line;
+    return line.detach();
   });
   return (
     <Path path={path} color={color} style="stroke" strokeWidth={ARROW_STROKE} strokeCap="round" />

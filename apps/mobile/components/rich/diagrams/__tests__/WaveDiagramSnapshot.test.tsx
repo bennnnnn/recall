@@ -34,6 +34,7 @@ jest.mock("@shopify/react-native-skia", () => {
       addCircle: (x: number, y: number, r: number) =>
         ops.push(`C${round(x)},${round(y)},${round(r)}`) && path,
       close: () => ops.push("Z") && path,
+      detach: () => path,
     };
     return path;
   };
@@ -50,7 +51,7 @@ jest.mock("@shopify/react-native-skia", () => {
     Text: named("Text"),
     Skia: {
       ...actual.Skia,
-      Path: { Make: makePath },
+      PathBuilder: { Make: makePath },
       XYWHRect: (x: number, y: number, width: number, height: number) => ({ x, y, width, height }),
     },
     useFont: () => font,

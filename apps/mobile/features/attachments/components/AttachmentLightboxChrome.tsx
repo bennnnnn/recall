@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, type HostInstance } from "react-native";
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -50,7 +50,7 @@ export function AttachmentLightboxChrome({
   onDelete,
 }: Props) {
   const { t } = useTranslation();
-  const moreRef = useRef<View>(null);
+  const moreRef = useRef<HostInstance>(null);
   const showOverflow = showUseInChat || showOpenChat || showDelete;
   if (!visible) return null;
 

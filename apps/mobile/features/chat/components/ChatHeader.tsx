@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useRef, type RefObject } from "react";
-import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import { StyleSheet, Text, View, type LayoutChangeEvent, type HostInstance } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { HeaderButton, HeaderButtonGroup } from "@/ui/controls/HeaderButton";
@@ -28,7 +28,7 @@ type Props = {
   onNewChat: () => void;
   onOpenMenu: () => void;
   /** Attached to ⋮ so the chat menu opens from it. */
-  menuAnchorRef?: RefObject<View | null>;
+  menuAnchorRef?: RefObject<HostInstance | null>;
 };
 
 export const ChatHeader = memo(function ChatHeader({

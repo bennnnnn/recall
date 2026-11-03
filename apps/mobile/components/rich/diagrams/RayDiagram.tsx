@@ -51,10 +51,10 @@ function elementPath(scene: RayScene, width: number): SkPath {
   const { element, elementX, extent, axis } = scene;
   if (element.kind === "interface") return linePath(0, axis, width, axis);
   if (element.kind === "mirror") return pointsPath(element.curve);
-  const path = linePath(elementX, extent.top, elementX, extent.bottom);
+  const path = Skia.PathBuilder.MakeFromPath(linePath(elementX, extent.top, elementX, extent.bottom));
   appendArrowHead(path, elementX, extent.top, 0, element.outward ? -1 : 1, LENS_HEAD, "open");
   appendArrowHead(path, elementX, extent.bottom, 0, element.outward ? 1 : -1, LENS_HEAD, "open");
-  return path;
+  return path.detach();
 }
 
 /** The scene's Skia paths. */
@@ -64,19 +64,19 @@ function scenePaths(scene: RayScene, width: number) {
     hatch: scene.element.kind === "mirror" ? segmentsPath(scene.element.hatches) : null,
     focusTicks: segmentsPath(scene.focusTicks),
     rays: scene.rays.map((ray) => {
-      const heads = Skia.Path.Make();
+      const heads = Skia.PathBuilder.Make();
       for (const mark of ray.marks) appendArrowHead(heads, mark.x, mark.y, mark.ux, mark.uy, RAY_HEAD, "filled");
-      return { virtual: ray.virtual, line: pointsPath(ray.points), heads };
+      return { virtual: ray.virtual, line: pointsPath(ray.points), heads: heads.detach() };
     }),
     object: scene.object ? standingArrowPaths(scene.object, scene.axis) : null,
     image: scene.image ? standingArrowPaths(scene.image, scene.axis) : null,
     angles: scene.angles.map((angle) => {
-      const path = pointsPath(angle.points);
+      const path = Skia.PathBuilder.MakeFromPath(pointsPath(angle.points));
       if (angle.arrow) {
         const end = angle.points[angle.points.length - 1];
         appendArrowHead(path, end.px, end.py, angle.endDirection.ux, angle.endDirection.uy, 6, "open");
       }
-      return { path, role: angle.role };
+      return { path: path.detach(), role: angle.role };
     }),
   };
 }

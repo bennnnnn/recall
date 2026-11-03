@@ -19,6 +19,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   View,
+  type HostInstance,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -75,7 +76,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const didActivate = useSharedValue(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerOpenRef = useLatestRef(drawerOpen);
-  const panelRef = useRef<View>(null);
+  const panelRef = useRef<HostInstance>(null);
 
   useEffect(() => {
     widthSV.value = drawerWidth;

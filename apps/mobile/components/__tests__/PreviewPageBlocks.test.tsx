@@ -126,7 +126,7 @@ afterEach(() => {
 
 beforeEach(() => {
   jest.replaceProperty(Platform, "OS", "ios");
-  jest.spyOn(Linking, "openURL").mockReset().mockResolvedValue(true);
+  jest.spyOn(Linking, "openURL").mockReset().mockResolvedValue(undefined);
   mockWebView.renders.length = 0;
   mockWebView.mounts = 0;
   mockTheme.dark = false;

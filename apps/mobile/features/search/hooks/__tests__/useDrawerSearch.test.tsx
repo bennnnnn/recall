@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, type TextInput } from "react-native";
+import { Text, type TextInputInstance } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useDrawerSearch } from "@/features/search/hooks/useDrawerSearch";
 import { api, type SearchResult } from "@/lib/api";
@@ -149,7 +149,7 @@ it("aborts pagination and ignores its completion when the drawer closes", async 
 it("cancels a queued search focus when closing before the next animation frame", async () => {
   const view = await render(<Probe />);
   const focus = jest.fn();
-  current.searchInputRef.current = { focus } as unknown as TextInput;
+  current.searchInputRef.current = { focus } as unknown as TextInputInstance;
   await act(async () => { current.openSearch(); current.closeSearch(); });
   await act(async () => { jest.advanceTimersByTime(20); });
   expect(focus).not.toHaveBeenCalled();
@@ -284,7 +284,7 @@ it("uses the refreshed token for a search still waiting in debounce", async () =
 it("cancels its queued focus frame on unmount", async () => {
   const view = await render(<Probe />);
   const focus = jest.fn();
-  current.searchInputRef.current = { focus } as unknown as TextInput;
+  current.searchInputRef.current = { focus } as unknown as TextInputInstance;
   const schedule = jest.spyOn(globalThis, "requestAnimationFrame");
   const cancel = jest.spyOn(globalThis, "cancelAnimationFrame");
   let focusFrame!: number;

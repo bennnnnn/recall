@@ -8,6 +8,7 @@ import {
   Skia,
   Text as SkiaText,
   useFont,
+  type SkPathBuilder,
 } from "@shopify/react-native-skia";
 
 import {
@@ -43,7 +44,7 @@ function valueToPx(
 }
 
 function addArrowHead(
-  path: ReturnType<typeof Skia.Path.Make>,
+  path: SkPathBuilder,
   x: number,
   y: number,
   direction: "left" | "right",
@@ -82,7 +83,7 @@ export function SkiaNumberLineChart({
   const y = height / 2;
 
   const axisPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     path.moveTo(GRAPH_CHART_PAD, y);
     path.lineTo(width - GRAPH_CHART_PAD, y);
     ticks.forEach((value) => {
@@ -90,11 +91,11 @@ export function SkiaNumberLineChart({
       path.moveTo(px, y - 5);
       path.lineTo(px, y + 5);
     });
-    return path;
+    return path.detach();
   }, [bounds, height, ticks, width, y]);
 
   const intervalPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     intervals.forEach((interval) => {
       if (interval.start != null && interval.end != null && interval.start !== interval.end) {
         path.moveTo(valueToPx(interval.start, bounds, width, height), y);
@@ -107,25 +108,25 @@ export function SkiaNumberLineChart({
         path.lineTo(width - GRAPH_CHART_PAD, y);
       }
     });
-    return path;
+    return path.detach();
   }, [bounds, height, intervals, width, y]);
 
   const axisArrowPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     addArrowHead(path, GRAPH_CHART_PAD, y, "left");
     addArrowHead(path, width - GRAPH_CHART_PAD, y, "right");
-    return path;
+    return path.detach();
   }, [width, y]);
 
   const intervalArrowPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     intervals.forEach((interval) => {
       if (interval.start == null && interval.end != null) addArrowHead(path, GRAPH_CHART_PAD, y, "left");
       if (interval.end == null && interval.start != null) {
         addArrowHead(path, width - GRAPH_CHART_PAD, y, "right");
       }
     });
-    return path;
+    return path.detach();
   }, [intervals, width, y]);
 
   const markers = useMemo(

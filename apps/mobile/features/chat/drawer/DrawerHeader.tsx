@@ -1,4 +1,4 @@
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View, type TextInputInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -15,7 +15,7 @@ type Props = {
   paddingTop: number;
   searchOpen: boolean;
   searchQuery: string;
-  searchInputRef: React.RefObject<TextInput | null>;
+  searchInputRef: React.RefObject<TextInputInstance | null>;
   onSearchChange: (text: string) => void;
   onOpenSearch: () => void;
   onCloseSearch: () => void;

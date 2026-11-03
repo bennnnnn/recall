@@ -62,7 +62,7 @@ const UTF8_BOM = "\uFEFF";
 
 /** The document "Open in browser" hands the system browser as a data: URL. */
 async function openedDocument(html: string): Promise<string> {
-  const open = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+  const open = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
   open.mockClear();
   await expect(openHtmlInBrowser(html)).resolves.toBe(true);
   const url = String(open.mock.calls[0]?.[0]);
@@ -72,7 +72,7 @@ async function openedDocument(html: string): Promise<string> {
 
 /** The file Share writes and hands the share sheet, after its byte-order mark. */
 async function sharedDocument(html: string): Promise<string> {
-  jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction });
+  jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
   jest.mocked(writeAsStringAsync).mockClear();
   await expect(shareHtmlPreview(html)).resolves.toBe(true);
   const file = String(jest.mocked(writeAsStringAsync).mock.calls[0]?.[1]);
@@ -101,7 +101,7 @@ describe("exported HTML (Open in browser, Share)", () => {
 
   it("carries the CSP on the file path a large page takes, and when data: URLs are refused", async () => {
     jest.mocked(writeAsStringAsync).mockClear();
-    jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
     await openHtmlInBrowser(`<p>${"x".repeat(130_000)}</p>`);
     const file = String(jest.mocked(writeAsStringAsync).mock.calls[0]?.[1]);
     expect(file.startsWith(UTF8_BOM)).toBe(true);
@@ -116,7 +116,7 @@ describe("exported HTML (Open in browser, Share)", () => {
 
   it("carries the CSP when the share sheet gets the HTML as text", async () => {
     jest.mocked(writeAsStringAsync).mockRejectedValueOnce(new Error("disk full"));
-    const share = jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction });
+    const share = jest.spyOn(Share, "share").mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
     share.mockClear();
     await shareHtmlPreview("<p>hi</p>");
     const content = share.mock.calls[0]?.[0];

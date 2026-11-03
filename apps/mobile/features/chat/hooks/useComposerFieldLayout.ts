@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   LayoutChangeEvent,
-  NativeSyntheticEvent,
-  TextInputContentSizeChangeEventData,
+  TextInputContentSizeChangeEvent,
 } from "react-native";
 
 import type { ComposerTextSize } from "@/features/chat/components/ComposerTextMeasure";
@@ -139,7 +138,7 @@ export function useComposerFieldLayout({
   };
 
   const onInputContentSizeChange = (
-    event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>,
+    event: TextInputContentSizeChangeEvent,
   ) => {
     const measuredHeight = Math.ceil(event.nativeEvent.contentSize.height);
     const revision = draftRevision ?? 0;

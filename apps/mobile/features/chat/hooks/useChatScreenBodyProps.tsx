@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useState, type MutableRefObject, type ReactElement, type RefObject } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type ViewStyle } from "react-native";
+import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle, type HostInstance } from "react-native";
 import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
@@ -55,7 +55,7 @@ type UseChatScreenBodyPropsParams = {
     setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
     menuOverlayOpen: boolean;
     /** The header ⋮ button; the chat menu drops from it. */
-    menuAnchorRef: RefObject<View | null>;
+    menuAnchorRef: RefObject<HostInstance | null>;
   };
   /** Message list data + scroll/pagination handlers for ChatMessageList. */
   list: {

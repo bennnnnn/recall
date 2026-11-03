@@ -84,7 +84,7 @@ describe("markdown render rules", () => {
 
   it("zeros library block padding/border on inline code", () => {
     const styles = makeMdStyles(lightTheme);
-    const inline = StyleSheet.flatten(styles.code_inline);
+    const inline = StyleSheet.flatten(styles.code_inline) ?? {};
     expect(inline).toMatchObject({
       borderWidth: 0,
       padding: 0,
@@ -635,7 +635,7 @@ describe("markdown render rules", () => {
     );
     const [given, formula] = getAllByTestId("workout-body");
     const flat = (node: { props: { style?: StyleProp<TextStyle> } }) =>
-      StyleSheet.flatten(node.props.style);
+      StyleSheet.flatten(node.props.style) ?? {};
     expect(flat(within(formula!).getByTestId("workout-line")).justifyContent).toBe("center");
     expect(flat(within(given!).getByTestId("workout-line")).justifyContent).toBe("flex-start");
     expect(flat(getByTestId("workout-subheading")).textAlign).toBeUndefined();
@@ -789,7 +789,7 @@ describe("markdown render rules", () => {
       "Substitution",
     ]);
     const flat = (node: { props: { style?: StyleProp<TextStyle> } }) =>
-      StyleSheet.flatten(node.props.style);
+      StyleSheet.flatten(node.props.style) ?? {};
     // Each part's formula heading is the same small secondary sub-heading…
     expect(flat(subheadings[2]!)).toEqual(flat(subheadings[0]!));
     expect(flat(subheadings[2]!).color).toBe(lightTheme.textSecondary);

@@ -35,7 +35,13 @@ jest.mock("@shopify/react-native-skia", () => {
       moveTo: (x: number, y: number) => ops.push(["M", x, y]) && path,
       lineTo: (x: number, y: number) => ops.push(["L", x, y]) && path,
       close: () => ops.push(["Z"]) && path,
+      detach: () => path,
     };
+    return path;
+  };
+  const fromPath = (source: { ops: (string | number)[][] }) => {
+    const path = makePath();
+    path.ops.push(...source.ops);
     return path;
   };
   const font = {
@@ -48,7 +54,11 @@ jest.mock("@shopify/react-native-skia", () => {
     Path: named("Path"),
     Circle: named("Circle"),
     DashPathEffect: named("DashPathEffect"),
-    Skia: { ...actual.Skia, Path: { Make: makePath } },
+    Skia: {
+      ...actual.Skia,
+      Path: { Make: makePath },
+      PathBuilder: { Make: makePath, MakeFromPath: fromPath },
+    },
     useFont: () => font,
   };
 });

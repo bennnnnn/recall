@@ -1,5 +1,5 @@
 import { useEffect, useMemo, type RefObject } from "react";
-import { Keyboard, type View } from "react-native";
+import { Keyboard, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Menu, type MenuEntry } from "@/ui/overlay/Menu";
@@ -10,7 +10,7 @@ type Props = {
   pinned: boolean;
   archived?: boolean;
   /** The ⋮ button in the chat header. */
-  anchorRef?: RefObject<View | null>;
+  anchorRef?: RefObject<HostInstance | null>;
   /** Or where a drawer row was long-pressed. */
   anchorPoint?: { x: number; y: number } | null;
   onClose: () => void;

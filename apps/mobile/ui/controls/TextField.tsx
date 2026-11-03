@@ -7,6 +7,7 @@ import {
   type StyleProp,
   type TextInputProps,
   type ViewStyle,
+  type TextInputInstance,
 } from "react-native";
 
 import { Radius } from "@/lib/radius";
@@ -25,7 +26,7 @@ type Props = Omit<TextInputProps, "style"> & {
   error?: string | null;
   /** Layout for the whole field (label, box, helper). */
   style?: StyleProp<ViewStyle>;
-  ref?: Ref<TextInput>;
+  ref?: Ref<TextInputInstance>;
 };
 
 /**

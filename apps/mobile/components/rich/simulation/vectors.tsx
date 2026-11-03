@@ -139,9 +139,9 @@ export function RidingVector({
   const paint = vectorPaint(layout.vector.role, theme);
   const { stroke } = paint;
   const shaft = useDerivedValue(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     const arrow = ridingNow(layout, track, progress.value, wheel, canvasWidth, canvasHeight);
-    if (!arrow) return path;
+    if (!arrow) return path.detach();
     if (stroke === "force") {
       return arrowPath(
         arrow.fromX,
@@ -155,12 +155,12 @@ export function RidingVector({
     }
     path.moveTo(arrow.fromX, arrow.fromY);
     path.lineTo(arrow.fromX + arrow.ux * arrow.length, arrow.fromY + arrow.uy * arrow.length);
-    return path;
+    return path.detach();
   });
   const head = useDerivedValue(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     const arrow = ridingNow(layout, track, progress.value, wheel, canvasWidth, canvasHeight);
-    if (!arrow || stroke === "force") return path;
+    if (!arrow || stroke === "force") return path.detach();
     return appendArrowHead(
       path,
       arrow.fromX + arrow.ux * arrow.length,
@@ -170,7 +170,7 @@ export function RidingVector({
       arrowHeadSize(arrow.length),
       stroke === "motion" ? "open" : "ticks",
       arrow.length,
-    );
+    ).detach();
   });
   return <VectorMarks {...paint} shaft={shaft} head={head} />;
 }

@@ -15,7 +15,7 @@ import { PIVOT_SIZE } from "@/lib/physics/simulation";
 
 jest.mock("@shopify/react-native-skia", () => ({
   Skia: {
-    Path: {
+    PathBuilder: {
       Make: () => {
         const ops: (string | number)[][] = [];
         const path = {
@@ -23,6 +23,7 @@ jest.mock("@shopify/react-native-skia", () => ({
           moveTo: (x: number, y: number) => ops.push(["M", x, y]) && path,
           lineTo: (x: number, y: number) => ops.push(["L", x, y]) && path,
           close: () => ops.push(["Z"]) && path,
+          detach: () => path,
         };
         return path;
       },

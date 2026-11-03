@@ -10,7 +10,7 @@
  * Only `moveTo`, `lineTo`, `close` and `addCircle` are used: every builder
  * runs under the component tests' Skia stub too.
  */
-import { Skia, type SkPath } from "@shopify/react-native-skia";
+import { Skia, type SkPath, type SkPathBuilder } from "@shopify/react-native-skia";
 
 import {
   PART_HALF_SPAN,
@@ -31,11 +31,11 @@ const COIL_LOOPS = 4;
 const COIL_HEIGHT = 6;
 const ARC_STEPS = 10;
 
-function polyline(path: SkPath, points: [number, number][]) {
+function polyline(path: SkPathBuilder, points: [number, number][]) {
   points.forEach(([x, y], index) => (index === 0 ? path.moveTo(x, y) : path.lineTo(x, y)));
 }
 
-function letterA(path: SkPath, cx: number, cy: number) {
+function letterA(path: SkPathBuilder, cx: number, cy: number) {
   polyline(path, [
     [cx - 3.6, cy + 4.6],
     [cx, cy - 4.6],
@@ -47,7 +47,7 @@ function letterA(path: SkPath, cx: number, cy: number) {
   ]);
 }
 
-function letterV(path: SkPath, cx: number, cy: number) {
+function letterV(path: SkPathBuilder, cx: number, cy: number) {
   polyline(path, [
     [cx - 3.6, cy - 4.6],
     [cx, cy + 4.6],
@@ -56,7 +56,7 @@ function letterV(path: SkPath, cx: number, cy: number) {
 }
 
 export function partSymbolPaths(part: CircuitPartKind, cx: number, cy: number): SymbolPaths {
-  const stroke = Skia.Path.Make();
+  const stroke = Skia.PathBuilder.Make();
   const half = PART_HALF_SPAN[part];
   switch (part) {
     case "resistor": {
@@ -67,7 +67,7 @@ export function partSymbolPaths(part: CircuitPartKind, cx: number, cy: number): 
       }
       points.push([cx + half, cy]);
       polyline(stroke, points);
-      return { stroke };
+      return { stroke: stroke.detach() };
     }
     case "bulb": {
       stroke.addCircle(cx, cy, METER_RADIUS);
@@ -80,16 +80,16 @@ export function partSymbolPaths(part: CircuitPartKind, cx: number, cy: number): 
         [cx - d, cy + d],
         [cx + d, cy - d],
       ]);
-      return { stroke };
+      return { stroke: stroke.detach() };
     }
     case "ammeter":
     case "voltmeter":
       stroke.addCircle(cx, cy, METER_RADIUS);
       if (part === "ammeter") letterA(stroke, cx, cy);
       else letterV(stroke, cx, cy);
-      return { stroke };
+      return { stroke: stroke.detach() };
     case "capacitor": {
-      const heavy = Skia.Path.Make();
+      const heavy = Skia.PathBuilder.Make();
       polyline(heavy, [
         [cx - half, cy - PLATE_HALF],
         [cx - half, cy + PLATE_HALF],
@@ -98,7 +98,7 @@ export function partSymbolPaths(part: CircuitPartKind, cx: number, cy: number): 
         [cx + half, cy - PLATE_HALF],
         [cx + half, cy + PLATE_HALF],
       ]);
-      return { stroke, heavy };
+      return { stroke: stroke.detach(), heavy: heavy.detach() };
     }
     case "inductor": {
       // Humps above the wire, each half an ellipse.
@@ -112,7 +112,7 @@ export function partSymbolPaths(part: CircuitPartKind, cx: number, cy: number): 
         }
       }
       polyline(stroke, points);
-      return { stroke };
+      return { stroke: stroke.detach() };
     }
     case "switch": {
       // Two terminals and the blade lifted off the right one: an open switch.
@@ -124,14 +124,14 @@ export function partSymbolPaths(part: CircuitPartKind, cx: number, cy: number): 
         [cx - half + 1.4, cy - 1.4],
         [cx - half + blade * Math.cos(lift), cy - blade * Math.sin(lift)],
       ]);
-      return { stroke };
+      return { stroke: stroke.detach() };
     }
   }
 }
 
 /** The source on the left edge, about its centre; the + terminal is at the top. */
 export function sourceSymbolPaths(kind: CircuitSourceKind, cx: number, cy: number): SymbolPaths {
-  const stroke = Skia.Path.Make();
+  const stroke = Skia.PathBuilder.Make();
   if (kind === "ac") {
     stroke.addCircle(cx, cy, SOURCE_HALF_SPAN);
     const points: [number, number][] = [];
@@ -140,7 +140,7 @@ export function sourceSymbolPaths(kind: CircuitSourceKind, cx: number, cy: numbe
       points.push([cx - 6 + 12 * u, cy - 3.5 * Math.sin(u * Math.PI * 2)]);
     }
     polyline(stroke, points);
-    return { stroke };
+    return { stroke: stroke.detach() };
   }
   // Long plate (+) above the short, heavy plate (−), joined to the edge wire.
   const gap = 3.5;
@@ -156,7 +156,7 @@ export function sourceSymbolPaths(kind: CircuitSourceKind, cx: number, cy: numbe
     [cx - SOURCE_HALF_WIDTH, cy - gap],
     [cx + SOURCE_HALF_WIDTH, cy - gap],
   ]);
-  const heavy = Skia.Path.Make();
+  const heavy = Skia.PathBuilder.Make();
   polyline(heavy, [
     [cx - SOURCE_HALF_WIDTH / 2, cy + gap],
     [cx + SOURCE_HALF_WIDTH / 2, cy + gap],
@@ -175,5 +175,5 @@ export function sourceSymbolPaths(kind: CircuitSourceKind, cx: number, cy: numbe
     [signX - 2.5, cy + gap + 5],
     [signX + 2.5, cy + gap + 5],
   ]);
-  return { stroke, heavy };
+  return { stroke: stroke.detach(), heavy: heavy.detach() };
 }

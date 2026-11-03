@@ -6,6 +6,7 @@ import {
   View,
   type StyleProp,
   type ViewStyle,
+  type HostInstance,
 } from "react-native";
 
 import { Space } from "@/lib/space";
@@ -38,7 +39,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   testID?: string;
   /** Lets a Menu drop from this button. */
-  ref?: Ref<View>;
+  ref?: Ref<HostInstance>;
 };
 
 /**

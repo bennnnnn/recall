@@ -1,6 +1,13 @@
 const { jest: jestGlobals } = require("@jest/globals");
 
 /**
+ * Expo SDK 58 makes expo/fetch the global `fetch` the first time `expo` loads, which a
+ * test that stubs `globalThis.fetch` before rendering would lose. The app uses Expo's;
+ * tests answer every request themselves, so they keep React Native's.
+ */
+process.env.EXPO_PUBLIC_USE_RN_FETCH = "1";
+
+/**
  * Sheet (and other chrome) import RNGH + Reanimated. The RN jest env has
  * neither native module, so mock them before any component test file loads.
  */

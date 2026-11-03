@@ -14,6 +14,7 @@ import {
   type NativeSyntheticEvent,
   type StyleProp,
   type ViewStyle,
+  type ScrollViewInstance,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -48,7 +49,7 @@ export function FadingHorizontalScroll({
   children,
 }: Props) {
   const theme = useTheme();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const flashed = useRef(false);
   const scrollable = contentWidth > viewportWidth + 1;
   const [offset, setOffset] = useState(0);

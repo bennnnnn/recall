@@ -3,7 +3,7 @@ import "@/lib/i18n";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { InteractionManager, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
@@ -25,6 +25,7 @@ import { watchPhoneClock } from "@/lib/datetime/phoneClockSync";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { markLaunchReady } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useStackHeaderOptions } from "@/lib/stackHeader";
 import {
   stackAuthTransition,
@@ -115,11 +116,10 @@ export default function RootLayout() {
 
   // Work for later in the session, once the launch has settled.
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
+    return scheduleIdleTask(() => {
       void initMobileSentry();
       preloadSimulationSizing();
     });
-    return () => task.cancel();
   }, []);
 
   return (

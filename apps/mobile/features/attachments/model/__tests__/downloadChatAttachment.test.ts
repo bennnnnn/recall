@@ -28,7 +28,7 @@ jest.mock("expo-file-system/legacy", () => ({
 
 jest.mock("expo-media-library", () => ({
   requestPermissionsAsync: jest.fn(async () => ({ granted: true })),
-  saveToLibraryAsync: jest.fn(async () => undefined),
+  Asset: { create: jest.fn(async () => ({})) },
 }));
 
 jest.mock("react-native", () => ({
@@ -342,7 +342,7 @@ describe("share and save", () => {
       fileName: "cat.jpg",
     });
     expect(result).toBe("saved");
-    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalled();
+    expect(MediaLibrary.Asset.create).toHaveBeenCalled();
   });
 
   it("hands the file itself to the share sheet, with its type for Android", async () => {
@@ -402,7 +402,7 @@ describe("share and save", () => {
     });
     await expect(saveChatAttachmentToLibrary({ uri: "https://files.test/permission.jpg", token: "tok" }))
       .rejects.toThrow("Session changed");
-    expect(MediaLibrary.saveToLibraryAsync).not.toHaveBeenCalled();
+    expect(MediaLibrary.Asset.create).not.toHaveBeenCalled();
   });
 
   it("does not reopen a failed share sheet when Photos permission is denied", async () => {

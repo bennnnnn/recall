@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Text,
   View,
-  type AccessibilityRole,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -46,7 +45,7 @@ type Props = {
   numberOfLines?: number;
   disabled?: boolean;
   /** Filter chips default to a radio when the choices exclude each other. */
-  accessibilityRole?: Extract<AccessibilityRole, "button" | "radio" | "checkbox" | "tab">;
+  accessibilityRole?: "button" | "radio" | "checkbox" | "tab";
   accessibilityLabel?: string;
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
