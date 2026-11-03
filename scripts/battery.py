@@ -117,6 +117,37 @@ class Turn:
         return "; ".join(parts) or "plain reply"
 
 
+def _jobs_settled(timeout_s: float = 60.0) -> bool:
+    """The API's job queue holds nothing pending or undelivered, twice in a row.
+
+    A turn queues its memory, topic and indexing jobs as it finishes, a moment after
+    the reply's last frame, so one empty read right after it can come too early.
+    """
+    import asyncio
+
+    import redis.asyncio as aioredis
+
+    from app.core.config import get_settings
+    from app.core.jobs.admin import collect_queue_metrics
+
+    async def idle() -> bool:
+        client = aioredis.from_url(get_settings().redis_url)
+        try:
+            metrics = await collect_queue_metrics(client)
+        finally:
+            await client.aclose()
+        return metrics["pending_entries"] == 0 and metrics["backlog"] == 0
+
+    deadline = time.monotonic() + timeout_s
+    quiet = 0
+    while time.monotonic() < deadline:
+        time.sleep(1)
+        quiet = quiet + 1 if asyncio.run(idle()) else 0
+        if quiet >= 2:
+            return True
+    return False
+
+
 class Battery:
     def __init__(self, api: str, model: str = "auto") -> None:
         self.api = api.rstrip("/")
@@ -171,16 +202,18 @@ class Battery:
 
         Cleared only at the start, an earlier case's "wants to learn Python from scratch"
         and its lesson line made "teach me python" open Lesson 1 instead of the outline it
-        asks for. The last case's memory job may still hold the lock (409 ``memory_busy``):
-        waiting for it also keeps that job from writing into this case.
+        asks for. The last case's post-turn jobs run first: a memory job still queued would
+        otherwise write its facts into this case after the delete.
         """
+        if not _jobs_settled():
+            print("  (post-turn jobs still running after 60 s; clearing memory anyway)")
         for _ in range(30):
             response = self.client.delete("/memories", headers=self._headers(pro))
             if response.status_code != 409:
                 response.raise_for_status()
                 return
             time.sleep(1)
-        response.raise_for_status()
+        print("  (memory stayed busy for 30 s; this case may see the last one's facts)")
 
     def _reset_quota(self, pro: bool) -> None:
         """A battery spends a day's free tokens; the dev reset keeps every prompt answerable."""
