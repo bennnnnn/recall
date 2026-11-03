@@ -42,6 +42,7 @@ from app.modules.chat.prompt_constants import (
     FACT_GROUNDING_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
+    NO_SELF_TALK_RULE,
     PERSONAL_DISCLOSURE_HINT,
     PROFILE_FACT_HINT,
     SETTINGS_ASK_REMINDER,
@@ -278,7 +279,11 @@ def _advice(turn: PromptTurn) -> list[str]:
 STABLE_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(
         _always,
-        lambda _t: ["You are Recall, a helpful personal AI assistant.", ASSISTANT_NAME_RULE],
+        lambda _t: [
+            "You are Recall, a helpful personal AI assistant.",
+            ASSISTANT_NAME_RULE,
+            NO_SELF_TALK_RULE,
+        ],
         name="identity",
     ),
     PromptSection(

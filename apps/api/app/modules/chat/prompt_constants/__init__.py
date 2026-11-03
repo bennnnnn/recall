@@ -21,6 +21,7 @@ from app.modules.chat.prompt_constants.conversation import (
     ASSISTANT_NAME_RULE,
     CONTINUE_HINT,
     CORRECTION_HINT,
+    NO_SELF_TALK_RULE,
     REPEATED_GREETING_HINT,
     repeated_greeting_hint,
 )
@@ -133,6 +134,7 @@ __all__ = [
     "MIXED_LENGTH_HINT",
     "NEW_PROBLEM_HINT",
     "NON_DRAFT_TURN_HINT",
+    "NO_SELF_TALK_RULE",
     "PERSONAL_DISCLOSURE_HINT",
     "PHOTO_LOOKUP_HINT",
     "PRIVACY_HINT",
