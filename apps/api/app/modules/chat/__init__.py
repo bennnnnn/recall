@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from app.modules.chat.presentation import (
         present_assistant_markdown as present_assistant_markdown,
     )
+    from app.modules.chat.prompt_constants import (
+        ASSISTANT_NAME_RULE as ASSISTANT_NAME_RULE,
+    )
     from app.modules.chat.stream_entry import (
         stream_chat_response as stream_chat_response,
     )
@@ -50,6 +53,7 @@ if TYPE_CHECKING:
     )
 
 _EXPORTS = {
+    "ASSISTANT_NAME_RULE": ("prompt_constants", "ASSISTANT_NAME_RULE"),
     "RegenerateBackup": ("turn_prep", "RegenerateBackup"),
     "StreamContext": ("turn_prep", "StreamContext"),
     "StreamStatusFn": ("stream_status", "StreamStatusFn"),

@@ -30,6 +30,7 @@ from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
+    ASSISTANT_NAME_RULE,
     BREVITY_REQUEST_HINT,
     CAREER_PERSONALIZE_HINT,
     CODE_INK_REMINDER,
@@ -267,7 +268,9 @@ def _advice(turn: PromptTurn) -> list[str]:
 # the turn (its kind, its words, the clock or what was loaded for it).
 STABLE_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(
-        _always, lambda _t: ["You are Recall, a helpful personal AI assistant."], name="identity"
+        _always,
+        lambda _t: ["You are Recall, a helpful personal AI assistant.", ASSISTANT_NAME_RULE],
+        name="identity",
     ),
     PromptSection(
         _always,
