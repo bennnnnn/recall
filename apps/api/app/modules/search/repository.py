@@ -163,10 +163,12 @@ def _result(row: Row[Any], words: dict[UUID, str], query: str) -> dict[str, Any]
 async def _message_words(
     session: AsyncSession, user_id: UUID, page: list[Row[Any]]
 ) -> dict[UUID, str]:
-    """A page's message hits as their readers see them, by id (a deleted row reads empty)."""
+    """A page's message hits as their readers see them, by id (a deleted row reads empty).
+
+    Read even for a page with none, so every search runs the same two statements whatever
+    the page holds (a page of titles once skipped it: one statement for 50 chats, two for 5).
+    """
     ids = [row.row_id for row in page if row.match_type == "message"]
-    if not ids:
-        return {}
     result = await session.execute(
         select(Message.id, Message.search_text).where(
             Message.user_id == user_id, Message.id.in_(ids)

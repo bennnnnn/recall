@@ -30,7 +30,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 # Frozen copy of app.models.orm.chat.MESSAGE_SEARCH_TEXT_SQL as of this revision.
 _SEARCH_TEXT_SQL = r"""CASE WHEN role = 'user'
-THEN regexp_replace(content, '(^|\n)\[(File|Image)[: (][\s\S]*$', '')
+THEN regexp_replace(content, '(^|\n)\[(File|Image): /attachments/[\s\S]*$', '')
 ELSE regexp_replace(content, '(^|\n)\[Image: /attachments/[^\n]*', '', 'g') END"""
 
 

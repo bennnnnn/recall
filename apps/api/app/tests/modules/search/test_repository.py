@@ -72,8 +72,8 @@ async def test_search_pages_the_merged_union_once():
 
     assert results == []
     assert next_cursor is None
-    session.execute.assert_awaited_once()
-    sql = str(session.execute.await_args.args[0]).lower()
+    assert session.execute.await_count == 2  # the page, then its message words by id
+    sql = str(session.execute.await_args_list[0].args[0]).lower()
     assert "union all" in sql
     assert sql.count("limit") == 1
     assert "offset" not in sql

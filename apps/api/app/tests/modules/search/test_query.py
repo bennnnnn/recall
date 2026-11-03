@@ -142,9 +142,10 @@ async def test_search_page_and_cursor_share_one_statement(search_session, after_
 
     assert len(results) == (0 if after_the_hit else 1)
     assert next_cursor is None
-    # One statement reads the page and the row past it; nothing counts every hit.
-    session.execute.assert_awaited_once()
-    assert "count(" not in str(session.execute.await_args.args[0]).lower()
+    # One statement reads the page and the row past it; nothing counts every hit. The
+    # second reads the page's message words by id, whatever the page holds.
+    assert session.execute.await_count == 2
+    assert "count(" not in str(session.execute.await_args_list[0].args[0]).lower()
 
 
 @pytest.mark.asyncio
@@ -246,3 +247,22 @@ async def test_search_lists_titles_then_files_then_messages(search_session):
 
     # The oldest hit is a title: it still comes first, then the file, then the message.
     assert [r["match_type"] for r in results] == ["title", "file", "message"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "typed", ["Todo\n[File a bug] login crash on iOS", "[Image of the chart] login crash"]
+)
+async def test_search_keeps_words_typed_in_brackets(search_session, typed):
+    """Only the server's own markers (``[File: /attachments/…]``) end what the user typed."""
+    sync_session, session = search_session
+    owner_id = uuid4()
+    chat = Chat(user_id=owner_id, title="Notes")
+    sync_session.add(chat)
+    sync_session.flush()
+    sync_session.add(Message(chat_id=chat.id, user_id=owner_id, role="user", content=typed))
+    sync_session.commit()
+
+    results, _ = await search_repo.search_conversations(session, owner_id, "login crash")
+
+    assert [r["match_type"] for r in results] == ["message"]

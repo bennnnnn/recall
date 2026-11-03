@@ -27,11 +27,12 @@ if TYPE_CHECKING:
     from app.models.orm.user import User
 
 # A message as a reader sees it, which the drawer's search matches and quotes: a user
-# message up to its first attachment line (the ``[File: …]`` / ``[Image: …]`` markers
-# and the file's extracted text follow the words they typed), a reply without its
-# ``[Image: …]`` lines. Kept by Postgres (migration 0124), so every writer is covered.
+# message up to its first attachment line (the server's ``[File: /attachments/…]`` /
+# ``[Image: /attachments/…]`` markers and the file's extracted text follow the words
+# they typed; a typed "[File a bug]" is theirs), a reply without its ``[Image: …]`` lines.
+# Kept by Postgres (migration 0124), so every writer is covered.
 MESSAGE_SEARCH_TEXT_SQL = r"""CASE WHEN role = 'user'
-THEN regexp_replace(content, '(^|\n)\[(File|Image)[: (][\s\S]*$', '')
+THEN regexp_replace(content, '(^|\n)\[(File|Image): /attachments/[\s\S]*$', '')
 ELSE regexp_replace(content, '(^|\n)\[Image: /attachments/[^\n]*', '', 'g') END"""
 
 
