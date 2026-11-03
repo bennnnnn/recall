@@ -72,11 +72,19 @@ export function ReadAloudPlayer({ visible, bottomOffset, lift }: Props) {
             <Icon name="volume" filled size={IconSize.sm} color={C.primary} />
           )}
         </View>
-        <View style={s.texts} accessible accessibilityLabel={`${title}, ${time}`}>
-          <Text style={s.time} numberOfLines={1} testID="read-aloud-player-time">
+        {/* Centred on the whole player, not the space between the icon and the buttons. */}
+        <View style={s.timeLayer} pointerEvents="none">
+          <Text
+            style={s.time}
+            numberOfLines={1}
+            accessible
+            accessibilityLabel={`${title}, ${time}`}
+            testID="read-aloud-player-time"
+          >
             {time}
           </Text>
         </View>
+        <View style={s.spacer} />
         {session.canPause ? (
           <Pressable
             style={s.button}
@@ -166,10 +174,12 @@ const makeS = (C: Theme) =>
       width: IconSize.md,
       alignItems: "center",
     },
-    texts: {
-      flex: 1,
-      marginHorizontal: Space.xs,
+    timeLayer: {
+      ...StyleSheet.absoluteFill,
+      alignItems: "center",
+      justifyContent: "center",
     },
+    spacer: { flex: 1 },
     // Digits of one width, so the time does not jiggle as it counts.
     time: {
       ...Type.compact,
