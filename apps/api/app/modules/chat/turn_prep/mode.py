@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.modules.chat.clarify_turn import follows_card
+from app.modules.chat.prompt_memory import is_work_turn
 from app.modules.chat.turn_prep.reading import subject_of
 from app.modules.memory import is_food_or_diet_query
 from app.modules.turn_reading.capabilities import is_capabilities_question
 from app.modules.turn_reading.personal import (
     is_career_personal_question,
     is_personal_advice_question,
+    mentions_own_things,
     needs_rich_context,
 )
 from app.modules.turn_reading.profile_ask import (
@@ -141,7 +143,18 @@ def _turn_needs_rich_context(
         return True
     if todos_service.query_implies_todos(content):
         return True
-    return False
+    return _about_own_things(content)
+
+
+def _about_own_things(content: str) -> bool:
+    """ "My timetable", "our trip": the user's own things, which memory or an earlier chat
+    may hold, whatever the noun. A profile question ("what is my education level") reads
+    the profile (``advice_memory``), and work on their own software ("auth in my app")
+    the work memory scope (``prompt_memory.is_work_turn``).
+    """
+    if not mentions_own_things(content) or is_profile_fact_question(content):
+        return False
+    return not is_work_turn(content)
 
 
 def prior_user_texts(recent: Sequence[Any], content: str) -> list[str]:

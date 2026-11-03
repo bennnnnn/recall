@@ -36,7 +36,9 @@ async def apply_memory_facts(
 
     ``manual_edit`` marks writes the user asked for (a plain-words edit, a
     "forget ..."). When they change or remove saved facts, the edit is stamped
-    in the same transaction so the history scan cannot bring the old facts back.
+    in the same transaction so the history scan cannot bring the old facts back,
+    and a removed fact's past-chat snippets go with it. A background delete or
+    mute (extraction housekeeping, consolidation) keeps chat history.
     """
     if not writes:
         return
@@ -57,6 +59,7 @@ async def apply_memory_facts(
                 expected_facts=expected_facts,
                 active_cap=settings.memory_active_fact_cap,
                 commit=False,
+                purge_history=manual_edit,
                 **({"applied": applied} if applied is not None else {}),
             )
             if manual_edit and any(write.op != "add" for write in writes):

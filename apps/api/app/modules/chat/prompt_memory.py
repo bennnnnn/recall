@@ -28,7 +28,7 @@ from app.modules.turn_reading.routing import is_broad_self_question
 
 if TYPE_CHECKING:
     from app.modules.chat.prompt_sections import PromptTurn
-    from app.modules.memory import MemoryScope
+    from app.modules.memory import MemoryCommand, MemoryScope
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +38,52 @@ MEMORY_OFF_HINT = (
     "know about them, say memory is off and that they can turn it on in Settings → Memory. "
     "Never say you will remember it."
 )
-# "Remember that I want to try cacio e pepe again" was saved to memory, and the reply said
-# "I've added that to your to-do list"; two turns on it said "I can't save it to memory"
-# (live chat, 2026-10-25). Nothing told the model what Recall does with the line.
-MEMORY_SAVING_HINT = (
-    "The user asked you to remember something. Recall saves it to their memory after your "
-    "reply, and they can see and edit it in Settings → Memory. Say in a few words that you'll "
-    "remember it. Memory is not their to-do list: don't say it was added to their to-dos or "
-    "reminders."
+# What Recall does after the reply with each memory command (``memory.memory_command``).
+# Nothing told the model: "Remember that I want to try cacio e pepe again" was saved, and
+# the reply called it a to-do (live chat, 2026-10-25); "Forget my favorite drink" was
+# deleted, and the reply said it couldn't remove saved memories from chat (2026-11-02).
+# Each is (what the user asked, what Recall does, what the reply confirms).
+_MEMORY_COMMAND_DOES: dict[MemoryCommand, tuple[str, str, str]] = {
+    "keep": (
+        "The user asked you to remember something",
+        "saves it to their memory",
+        "you'll remember it",
+    ),
+    "forget": (
+        "The user asked you to forget something",
+        "deletes it from their saved memory",
+        "you've forgotten it",
+    ),
+    "mute": (
+        "The user asked you to stop bringing something up",
+        "keeps it saved but stops using it",
+        "you won't bring it up",
+    ),
+    # Correction words ("actually I", "not anymore") are loose: this note is conditional.
+    "correct": (
+        "The user may be correcting something they told you about themselves before",
+        "updates their saved memory if so",
+        "you've noted the change, if it is one",
+    ),
+}
+_MEMORY_NOT_TODOS = (
+    " Memory is not their to-do list: don't say it was added to their to-dos or reminders."
 )
+
+
+def _memory_command_note(command: MemoryCommand) -> str:
+    asked, does, confirm = _MEMORY_COMMAND_DOES[command]
+    note = (
+        f"{asked}. After your reply, Recall {does}; they can see their memory in Settings → "
+        f"Memory. Say in a few words that {confirm}. Never say you can't change their memory "
+        "from this chat."
+    )
+    return note + _MEMORY_NOT_TODOS if command == "keep" else note
+
+
+MEMORY_COMMAND_NOTES: dict[MemoryCommand, str] = {
+    command: _memory_command_note(command) for command in _MEMORY_COMMAND_DOES
+}
 MEMORY_PAUSED_HINT = (
     "Saving to memory is paused right now. If the user asks you to remember something, say "
     "it can't be saved at the moment; never say you will remember it."
@@ -203,8 +240,10 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     if turn.memory_paused:
         notes.append(MEMORY_PAUSED_HINT)
     # A line that also asks for a reminder gets its card; memory drops one-off dated items.
-    elif query and memory_service.asks_to_keep(query) and not query_implies_todos(query):
-        notes.append(MEMORY_SAVING_HINT)
+    elif query and not query_implies_todos(query):
+        command = memory_service.memory_command(query)
+        if command is not None:
+            notes.append(MEMORY_COMMAND_NOTES[command])
     status = memory_status_note(turn)
     if status:
         notes.append(status)

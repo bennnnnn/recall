@@ -1,0 +1,202 @@
+[
+  {
+    "id": "mr-001",
+    "area": "about me lookalike",
+    "prompt": "what do you remember about my trip to Rome?",
+    "history": [],
+    "reply": "You mentioned staying near Trastevere and wanting to see the Vatican Museums early in the morning.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-002",
+    "area": "about me lookalike",
+    "prompt": "what do you know about that recipe?",
+    "history": [],
+    "reply": "Which recipe do you mean? If you paste it or tell me its name, I can walk through it.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-003",
+    "area": "about me lookalike",
+    "prompt": "who am i kidding, this essay is never getting done tonight",
+    "history": [],
+    "reply": "It can get done: write the ugly first draft of one paragraph now, then take a five minute break.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-004",
+    "area": "about me lookalike",
+    "prompt": "describe me a sunset over the sea",
+    "history": [],
+    "reply": "The sun sinks into the water, the sky going from gold to pink to a deep violet as the waves turn silver.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-005",
+    "area": "about me lookalike",
+    "prompt": "what am i doing wrong with my sourdough? it never rises",
+    "history": [],
+    "reply": "Most often the starter isn't active enough. Feed it twice a day and use it at its peak, when it has doubled.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-006",
+    "area": "about me lookalike",
+    "prompt": "what do you know about mesopotamia?",
+    "history": [],
+    "reply": "Mesopotamia was the land between the Tigris and Euphrates, home to Sumer, Akkad, Babylon and Assyria.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-007",
+    "area": "about me lookalike",
+    "prompt": "describe my ideal morning routine for a busy workday",
+    "history": [],
+    "reply": "Wake at a fixed time, drink water, move for ten minutes, then plan your three most important tasks before email.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-008",
+    "area": "forget lookalike",
+    "prompt": "I always forget my keys, any tips?",
+    "history": [],
+    "reply": "Keep a bowl by the door and make it the only place keys go. A tracker tag helps too.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-009",
+    "area": "forget lookalike",
+    "prompt": "how do I forget a bad memory?",
+    "history": [],
+    "reply": "You can't erase it, but you can soften it: talk it through, write it down, and give your mind new things to dwell on.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-010",
+    "area": "forget lookalike",
+    "prompt": "forget it, let's talk about football",
+    "history": [],
+    "reply": "Sure! Who are you following this season?",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-011",
+    "area": "forget lookalike",
+    "prompt": "why do I forget names so fast?",
+    "history": [],
+    "reply": "Names are arbitrary, so they don't stick unless you use them. Repeat the name back and link it to something.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-012",
+    "area": "forget lookalike",
+    "prompt": "forget the last answer, explain it more simply",
+    "history": [],
+    "reply": "Sure. Plants use sunlight to turn water and air into sugar, and give off oxygen.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-013",
+    "area": "forget lookalike",
+    "prompt": "I want to forget everything about my ex, how do I move on?",
+    "history": [],
+    "reply": "Give it time and distance: mute their socials, lean on friends, and fill the evenings with something new.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-014",
+    "area": "mute lookalike",
+    "prompt": "how do I stop mentioning my ex in every conversation?",
+    "history": [],
+    "reply": "Notice the moment you start, and steer to something present: what you're doing this week, or a question about them.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-015",
+    "area": "mute lookalike",
+    "prompt": "My mom keeps telling me to stop bringing up politics at dinner, how do I handle it?",
+    "history": [],
+    "reply": "Agree on a no-politics dinner and save the debates for a walk afterwards.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-016",
+    "area": "possessive lookalike",
+    "prompt": "is my answer right? 2x + 3 = 7 so x = 2",
+    "history": [],
+    "reply": "Yes: 2(2) + 3 = 7, so x = 2 is right.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-017",
+    "area": "possessive lookalike",
+    "prompt": "proofread my essay: The industrial revolution changed everything about how people lived.",
+    "history": [],
+    "reply": "It reads well. You might say \"how people lived and worked\" to make the point sharper.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-018",
+    "area": "possessive lookalike",
+    "prompt": "oh my god, what is photosynthesis?",
+    "history": [],
+    "reply": "Photosynthesis is how plants turn light, water and carbon dioxide into sugar, giving off oxygen.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-019",
+    "area": "possessive lookalike",
+    "prompt": "in my opinion pluto is still a planet, is it?",
+    "history": [],
+    "reply": "Officially no: since 2006 it is a dwarf planet, because it hasn't cleared its orbit.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-020",
+    "area": "possessive lookalike",
+    "prompt": "translate my sentence into French: the cat is black",
+    "history": [],
+    "reply": "Le chat est noir.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-021",
+    "area": "possessive lookalike",
+    "prompt": "check my working: 3x = 12 so x = 4",
+    "history": [],
+    "reply": "That's right: dividing both sides by 3 gives x = 4.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-022",
+    "area": "possessive lookalike",
+    "prompt": "my bad, what is the capital of Peru?",
+    "history": [],
+    "reply": "Lima is the capital of Peru.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-023",
+    "area": "possessive lookalike",
+    "prompt": "is my grammar right: she don't like apples",
+    "history": [],
+    "reply": "Not quite: it should be \"she doesn't like apples\".",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-024",
+    "area": "possessive lookalike",
+    "prompt": "improve my paragraph: dogs are good pets because they are loyal",
+    "history": [],
+    "reply": "Dogs make wonderful pets: they are loyal, affectionate and always glad to see you.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-025",
+    "area": "possessive lookalike",
+    "prompt": "my question is why is the sky blue",
+    "history": [],
+    "reply": "Air scatters blue light more than red, so the sky looks blue from every direction.",
+    "expect": "answer"
+  }
+]

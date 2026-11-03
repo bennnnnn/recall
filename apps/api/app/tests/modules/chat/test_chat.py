@@ -933,6 +933,21 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
         ("Where am I?", False),
         ("What's my email?", False),
         ("What's my name?", False),
+        # What Recall knows, remembers or has saved, about me as a whole.
+        ("What do you remember about me?", True),
+        ("what have you saved about me", True),
+        ("what do you know of me", True),
+        ("tell me what you remember about me", True),
+        ("So, what do you actually know about me so far?", True),
+        ("What\u2019s saved about me?", True),
+        ("what info do you have on me", True),
+        ("do you remember me?", True),
+        # About something of mine, or not a question about me at all.
+        ("what do you remember about my trip", False),
+        ("what do you remember about the lever", False),
+        ("what do you know about that recipe?", False),
+        ("what do you know about me and my job?", False),
+        ("forget everything you know about me", False),
     ],
 )
 def test_is_broad_self_question(text, expected):
@@ -1555,6 +1570,33 @@ def test_classify_turn_mode_hi_is_lightweight():
     assert mode.lightweight is True
     assert mode.rich_context is False
     assert mode.advice_memory is False
+
+
+@pytest.mark.parametrize(
+    ("text", "rich"),
+    [
+        # The user's own things, whatever the noun: memory or an earlier chat may hold them.
+        ("What time is the chemistry lab on my timetable, and which room?", True),
+        ("when is my sister's wedding?", True),
+        ("how did our trip to Rome go again?", True),
+        ("what's my vocab progress", True),
+        # An idiom, or the text this message hands over to work on.
+        ("fix my code: print(x", False),
+        ("is my answer right? x = 3", False),
+        ("proofread my essay please", False),
+        ("oh my god, explain photosynthesis", False),
+        ("in my opinion pineapple belongs on pizza", False),
+        # The user's own software reads the work memory scope instead.
+        ("How should I structure auth in my app?", False),
+        ("explain photosynthesis", False),
+    ],
+)
+def test_a_turn_about_the_users_own_things_loads_personal_context(text: str, rich: bool):
+    """Live (2026-11-02): "the chemistry lab on my timetable" loaded no memory or past chat,
+    and the reply said it couldn't see the timetable shared in another chat."""
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
+
+    assert classify_turn_mode([], text).rich_context is rich
 
 
 _CARD_REPLY = (

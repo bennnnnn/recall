@@ -116,3 +116,24 @@ def test_reset_requests_need_the_users_memory(text, reset):
 )
 def test_corrections_are_read_anywhere_in_the_line(text, correction):
     assert is_memory_correction(text) is correction
+
+
+@pytest.mark.parametrize(
+    ("text", "command"),
+    [
+        ("Forget my favorite drink", "forget"),
+        ("forget that I use React", "forget"),
+        ("stop mentioning my job", "mute"),
+        ("Remember I'm vegetarian", "keep"),
+        ("I don't work at Uber anymore, I'm at Stripe now", "correct"),
+        # A reset is Settings' to apply; an errand is not memory; talk is no command.
+        ("forget everything you know about me", None),
+        ("please remember to buy milk", None),
+        ("I always forget my keys", None),
+        ("do you remember that song?", None),
+    ],
+)
+def test_memory_command_names_what_the_post_turn_pass_does(text, command):
+    from app.modules.memory.fact_quality import memory_command
+
+    assert memory_command(text) == command
