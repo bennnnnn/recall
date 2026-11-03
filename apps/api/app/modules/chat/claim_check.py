@@ -70,10 +70,10 @@ _SYSTEM = (
     "estimates, and what the reply says it could not find.\n\n"
     'Return JSON: {"unsupported": [{"quote": ..., "topic": ...}], "note": ...}. '
     "quote is the shortest span copied exactly from the reply that holds the claim. "
-    "topic is 2 to 8 words naming what was claimed. note is one short sentence, in the "
-    "language of the reply, saying you could not confirm those details from the sources "
-    "found and left them out. Use an empty list and an empty note when every claim is "
-    "supported."
+    "topic is 2 to 8 words naming what was claimed. note is one short sentence to the "
+    "user, in the language of the reply, saying you could not confirm those details from "
+    "the sources found and left them out; never number a source or name the reply. Use an "
+    "empty list and an empty note when every claim is supported."
 )
 
 
@@ -379,9 +379,30 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
         return text
     topics = "; ".join(dict.fromkeys(c.topic.strip() for c in verdict.unsupported if c.topic))
     logger.info("claim_check cut %d unsupported claim(s): %s", found, topics)
-    note = verdict.note.strip() or (
-        f"I couldn't confirm these from the sources I found, so I left them out: {topics}."
-        if topics
-        else "I left out details the sources I found did not confirm."
-    )
-    return f"{cut.rstrip()}\n\n*{note.strip('*_ ')}*"
+    return f"{cut.rstrip()}\n\n*{_user_note(verdict.note, topics)}*"
+
+
+# The checker's own terms: a numbered source, "the provided sources", the reply or the
+# assistant. Live (2026-11-03): "The provided sources do not confirm that Musk criticized a
+# specific 'tax and spending bill' …; Source [4] mentions an 'agenda bill' but …" reached
+# the user as the note.
+_CHECKER_TERMS = re.compile(
+    r"\[\d+\]|\bsources?\s*#?\d|\bprovided\b|\bthe\s+(?:reply|assistant|evidence)\b",
+    re.IGNORECASE,
+)
+_MAX_NOTE_CHARS = 160
+
+
+def _user_note(note: str, topics: str) -> str:
+    """The checker's note when it is one short sentence to the user, else ours."""
+    said = collapse_ws(note).strip("*_ ")
+    if (
+        said
+        and len(said) <= _MAX_NOTE_CHARS
+        and len(_sentences(said)) == 1
+        and not _CHECKER_TERMS.search(said)
+    ):
+        return said
+    if topics:
+        return f"I couldn't confirm these from the sources I found, so I left them out: {topics}."
+    return "I left out details the sources I found did not confirm."

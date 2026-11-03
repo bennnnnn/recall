@@ -46,8 +46,9 @@ class StreamAccum:
     rewritten: bool = False
 
     def retract(self, parts_from: int, shown_from: int) -> None:
-        self.retracted = "".join(self.shown[shown_from:])
-        self.retracted_parts = "".join(self.parts[parts_from:])
+        # Added up: a denial taken back, then the text before a search, were both drawn.
+        self.retracted += "".join(self.shown[shown_from:])
+        self.retracted_parts += "".join(self.parts[parts_from:])
         del self.parts[parts_from:], self.shown[shown_from:]
 
     def restore_retracted(self) -> None:
