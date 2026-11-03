@@ -14,7 +14,12 @@ from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.billing import can_use
-from app.modules.chat import finish_turn, needs_generated_title, present_assistant_markdown
+from app.modules.chat import (
+    ASSISTANT_NAME_RULE,
+    finish_turn,
+    needs_generated_title,
+    present_assistant_markdown,
+)
 from app.modules.conversation import history as chat_history
 from app.modules.conversation import turn_record
 from app.modules.memory.switch import memory_switch_on
@@ -202,7 +207,7 @@ def build_realtime_instructions(
     schedule_block: str = "",
 ) -> str:
     """Persona plus optional custom instructions, memory, Schedule, and recent chat."""
-    parts = [_REALTIME_INSTRUCTIONS]
+    parts = [_REALTIME_INSTRUCTIONS, ASSISTANT_NAME_RULE]
     custom = (custom_instructions or "").strip()
     if custom:
         parts.append(custom)

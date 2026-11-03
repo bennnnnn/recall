@@ -18,6 +18,7 @@ from app.modules.chat.prompt_constants.coding import (
     code_question_hint,
 )
 from app.modules.chat.prompt_constants.conversation import (
+    ASSISTANT_NAME_RULE,
     CONTINUE_HINT,
     CORRECTION_HINT,
     REPEATED_GREETING_HINT,
@@ -99,6 +100,7 @@ from app.modules.chat.prompt_constants.writing import (
 __all__ = [
     "ADVICE_PERSONALIZE_HINT",
     "ANSWER_PHOTO_HINT",
+    "ASSISTANT_NAME_RULE",
     "BIOLOGY_PRESENTATION_HINT",
     "BREVITY_REQUEST_HINT",
     "BROAD_SELF_ANSWER_HINT",

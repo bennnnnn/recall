@@ -615,3 +615,16 @@ def test_live_talk_schedule_hint_does_not_confirm_unverified_writes():
     assert "Confirm in one short sentence" not in text
     assert "Do not say the reminder is saved" in text  # safety phrase
     assert "weekday" in text.lower()
+
+
+def test_live_talk_and_chat_keep_the_name_recall():
+    """Told "his name is ChatGPT", live talk answered "call me ChatGPT or Recall" (2026-11-02)."""
+    from types import SimpleNamespace
+    from typing import cast
+
+    from app.modules.chat import ASSISTANT_NAME_RULE
+    from app.modules.chat.prompt_sections import STABLE_SECTIONS, PromptTurn
+
+    assert ASSISTANT_NAME_RULE in build_realtime_instructions()
+    turn = cast("PromptTurn", SimpleNamespace(user=SimpleNamespace()))
+    assert ASSISTANT_NAME_RULE in STABLE_SECTIONS[0].render(turn)

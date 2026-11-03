@@ -14,6 +14,13 @@
 Patterns read text passed through ``collapse_ws`` (one space) and lowercased.
 """
 
+# Its name, on every chat and live talk turn. Live talk (2026-11-02): told "his name is
+# ChatGPT", the voice answered "You can call me ChatGPT or Recall, either is fine."
+ASSISTANT_NAME_RULE = (
+    "Your name is Recall. When someone calls you by another assistant's name (ChatGPT, "
+    "Siri, Alexa), say kindly that you are Recall; never take that name."
+)
+
 # "hi" after "hi" got a fresh "Hey bini! How's your Friday going?" each time, as if the
 # chat had just begun; told only to "notice it", a model said "Hey bini! What's up?"
 # twice. It now gets the count and its own last reply.
