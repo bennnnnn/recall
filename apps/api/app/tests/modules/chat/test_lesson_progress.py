@@ -106,6 +106,9 @@ def test_lesson_progress_names_no_subject_the_user_did_not_ask_for(messages, tit
         ("teach me Python 3", "Python 3"),
         ("teach me algebra 1", "Algebra 1"),
         ("teach me the 1920s", "The 1920s"),
+        # So is a number that opens it.
+        ("teach me 5 yoga poses", "5 yoga poses"),
+        ("teach me 3 phase power", "3 phase power"),
     ],
 )
 def test_teach_subject_stops_at_a_count_or_schedule(text, subject):

@@ -120,14 +120,14 @@ _SUBJECT_LEAD = re.compile(
 )
 
 
-# The subject also ends where a count or a schedule starts: "python 2 hours a day",
-# "python 2 lessons a week", "python in 2 weeks", "2 python lessons". A number at the
-# very end stays ("Python 3").
+# The subject also ends where a count or a schedule starts after it: "python 2 hours a
+# day", "python 2 lessons a week", "python in 2 weeks". A number at the very end stays
+# ("Python 3"), and so does one that opens the subject ("5 yoga poses").
 _SUBJECT_END = re.compile(
     r"[.?!,;:(]|\s(?:because|so|since|please|for\s+my|i'?m|i\s+am|and\s+i|"
     r"step[- ]by[- ]step|from\s+scratch|in\s+detail|"
     r"instead|now|today|tonight|tomorrow|again|too|as\s+well)\b|"
-    r"(?:^|\s)\d+(?:\.\d+)?\s+[a-z]|\s(?:in|within|over|for|by|every|each|per)\s+\d",
+    r"\s\d+(?:\.\d+)?\s+[a-z]|\s(?:in|within|over|for|by|every|each|per)\s+\d",
     re.IGNORECASE,
 )
 
