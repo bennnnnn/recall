@@ -15,7 +15,7 @@ jest.mock("@/lib/haptics", () => ({
 }));
 
 describe("AttachmentSourceSheet", () => {
-  it("offers scan math plus camera, photo, and file", async () => {
+  it("offers scan math, the math keyboard, camera, photo, and file", async () => {
     const onSelect = jest.fn();
     const { queryByText, getByText } = await render(
       <AttachmentSourceSheet visible onClose={jest.fn()} onSelect={onSelect} />,
@@ -25,6 +25,8 @@ describe("AttachmentSourceSheet", () => {
     expect(queryByText("chat.attach_library")).toBeNull();
     expect(getByText("chat.attach_solve_math_camera")).toBeTruthy();
 
+    await fireEvent.press(getByText("chat.math_keyboard_show"));
+    expect(onSelect).toHaveBeenCalledWith("math_keyboard");
     await fireEvent.press(getByText("chat.attach_camera"));
     expect(onSelect).toHaveBeenCalledWith("camera");
   });

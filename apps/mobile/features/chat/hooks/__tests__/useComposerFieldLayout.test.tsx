@@ -39,8 +39,22 @@ describe("useComposerFieldLayout", () => {
         onInputFrameExtraChange,
       }),
     );
-    // One Return adds a line; the button row is always there (COMPOSER_HEIGHT holds it).
+    // One Return adds a line; the one row is in COMPOSER_HEIGHT.
     expect(onInputFrameExtraChange).toHaveBeenLastCalledWith(24);
+  });
+
+  it("moves the thread by the button row too when a Return drops the buttons under the field", async () => {
+    const onInputFrameExtraChange = jest.fn();
+    await renderHook(() =>
+      useComposerFieldLayout({
+        input: "First line\nSecond line",
+        draftRevision: 0,
+        fontScale: 1,
+        buttonRowBelow: true,
+        onInputFrameExtraChange,
+      }),
+    );
+    expect(onInputFrameExtraChange).toHaveBeenLastCalledWith(24 + 36);
   });
 
   it("reports nothing extra for one line, so an empty composer adds no padding of its own", async () => {

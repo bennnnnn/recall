@@ -22,20 +22,25 @@ type Options = {
   draftRevision: number | undefined;
   /** Native text scales the field's line box with the system text size. */
   fontScale: number;
+  /** The draft wrapped, so the buttons sit in a row under the field (useComposerRowFit): a
+   * Return then moves the thread by that row too. */
+  buttonRowBelow?: boolean;
   /** Extra field height past one line, so the thread moves up with the pill. */
   onInputFrameExtraChange?: (extra: number) => void;
 };
 
 /**
- * How tall the composer field is and the full-height editor toggle. The field
- * has the composer's full width, over the row of buttons (November 2026: beside
- * them, the placeholder wrapped on a narrow phone). The field reports its width
- * and content size; everything else is derived from the draft and the text size.
+ * How tall the composer field is and the full-height editor toggle. While the draft fits
+ * on one line the field sits between + and the mic and live talk buttons (the calculator
+ * is in the + menu, so the placeholder fits on a narrow phone); once it wraps it runs the
+ * card's full width over a row of the buttons (useComposerRowFit). The field reports its
+ * width and content size; everything else is derived from the draft and the text size.
  */
 export function useComposerFieldLayout({
   input,
   draftRevision,
   fontScale,
+  buttonRowBelow = false,
   onInputFrameExtraChange,
 }: Options) {
   const [inputHeight, setInputHeight] = useState<number>(COMPOSER_CONTROL_SIZE);
@@ -101,11 +106,10 @@ export function useComposerFieldLayout({
   // Only hard returns move the thread. A soft wrap grows the field in place;
   // pushing list padding here is what yanks the chat up on every line.
   // Measured from the one-line field COMPOSER_HEIGHT assumes, so a taller line
-  // at a large text size moves the thread too. The button row is in COMPOSER_HEIGHT.
+  // at a large text size moves the thread too. The row itself is in COMPOSER_HEIGHT.
   const returnFrame = composerInputFrameHeight(input, 0, 0, fontScale);
-  const inputFrameExtra = composerExpanded
-    ? 0
-    : Math.max(0, returnFrame.height - COMPOSER_CONTROL_SIZE);
+  const returnExtra = Math.max(0, returnFrame.height - COMPOSER_CONTROL_SIZE);
+  const inputFrameExtra = composerExpanded ? 0 : returnExtra + (buttonRowBelow && returnExtra > 0 ? COMPOSER_CONTROL_SIZE : 0);
   // Reported while the drawer hides the composer too: it keeps its size there,
   // so opening the drawer does not lay out the chat under it again.
   useEffect(() => {
