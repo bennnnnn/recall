@@ -29,6 +29,7 @@ jest.mock("react-native-reanimated", () => {
     Easing: { out: (value: unknown) => value, ease: "ease" },
     useAnimatedStyle: (fn: () => unknown) => fn(),
     useSharedValue: (value: number) => ({ value }),
+    runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
     withTiming: jest.fn((value: number) => value),
   };
 });
@@ -134,9 +135,25 @@ describe("decoded attachment frame proportions", () => {
     expect(blur).toBeTruthy();
     await fireEvent(blur!, "load", load(1200, 300));
     expect(withTiming).toHaveBeenCalledTimes(1);
-    expect(withTiming).toHaveBeenCalledWith(1, expect.objectContaining({ duration: 280 }));
+    expect(withTiming).toHaveBeenCalledWith(1, expect.objectContaining({ duration: 280 }), expect.any(Function));
     await fireEvent(sharp!, "load", load(1200, 300));
     expect(withTiming).toHaveBeenCalledTimes(1);
+  });
+
+  // The blurred layer stayed mounted, invisible, for the row's life: a second decoded
+  // (and blurred) copy of every reply's picture kept in memory.
+  it("lets the blurred layer go once the reveal has finished", async () => {
+    const withTiming = Reanimated.withTiming as jest.Mock;
+    const view = await render(<ChatMessageImage path="https://images.test/generated.jpg" width={148} height={189} />);
+    const blur = view.getAllByTestId("animated-image").find((layer) => layer.props.blurRadius === 16);
+    await fireEvent(blur!, "load", load(1200, 300));
+    const finish = withTiming.mock.lastCall?.[2] as (finished: boolean) => void;
+    await act(async () => finish(false));
+    expect(view.getAllByTestId("animated-image")).toHaveLength(2);
+    await act(async () => finish(true));
+    const layers = view.getAllByTestId("animated-image");
+    expect(layers).toHaveLength(1);
+    expect(layers[0].props.blurRadius).toBeUndefined();
   });
 
   it("re-fits a loaded image if its available bounds change", async () => {

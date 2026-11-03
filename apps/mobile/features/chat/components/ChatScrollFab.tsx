@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Pressable } from "react-native-gesture-handler";
 import Animated, { type SharedValue } from "react-native-reanimated";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
@@ -9,8 +10,18 @@ import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/features/chat/model/scrollLogic";
 import { tap } from "@/lib/haptics";
 import { IconSize } from "@/ui/icons/sizes";
+import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { useBottomLiftStyle } from "@/ui/hooks/useBottomLiftStyle";
+
+/** The round button as drawn. */
+export const SCROLL_FAB_SIZE = Space.minTouch;
+/**
+ * The square the button owns around it. A tap near the circle presses the button instead of
+ * landing on the message under it (a calculator card's slider moved when the button was tapped).
+ */
+export const SCROLL_FAB_TARGET = SCROLL_FAB_SIZE + Space.xs * 2;
 
 type Props = {
   visible: boolean;
@@ -21,6 +32,13 @@ type Props = {
   onPress: () => void;
 };
 
+/**
+ * The scroll-to-latest button over the end of the chat. It floats over the messages, so it
+ * takes every touch in its own square: the slot is the size of that square (no full-width
+ * strip that passes touches on), and the press is a native gesture-handler button, so a
+ * gesture in the content under it (a slider, a graph's pan) never sees the touch, on iOS or
+ * on Android, where the gesture handler finds its own target.
+ */
 export function ChatScrollFab({ visible, bottomOffset, lift, scrollAwayCount, onPress }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -32,22 +50,25 @@ export function ChatScrollFab({ visible, bottomOffset, lift, scrollAwayCount, on
 
   return (
     <Animated.View
-      style={[s.overlay, { bottom: bottomOffset }, lift ? liftStyle : null]}
-      pointerEvents="box-none"
+      style={[s.slot, { bottom: bottomOffset - Space.xs }, lift ? liftStyle : null]}
+      testID="chat-scroll-fab"
     >
       <Pressable
-        style={s.button}
+        style={s.target}
         onPress={() => {
           tap();
           onPress();
         }}
         accessibilityRole="button"
         accessibilityLabel={t("chat.scroll_to_latest")}
+        testID="chat-scroll-fab-button"
       >
-        <Icon name="chevron-down" size={IconSize.md} color={C.text} />
-        {badgeLabel ? (
-          <CountBadge count={scrollAwayCount} max={9} style={s.badge} />
-        ) : null}
+        <View style={s.button} pointerEvents="none">
+          <Icon name="chevron-down" size={IconSize.md} color={C.text} />
+          {badgeLabel ? (
+            <CountBadge count={scrollAwayCount} max={9} style={s.badge} />
+          ) : null}
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -55,16 +76,23 @@ export function ChatScrollFab({ visible, bottomOffset, lift, scrollAwayCount, on
 
 const makeS = (C: Theme) =>
   StyleSheet.create({
-    overlay: {
+    slot: {
       position: "absolute",
-      left: 0,
-      right: 0,
+      left: "50%",
+      marginLeft: -SCROLL_FAB_TARGET / 2,
+      width: SCROLL_FAB_TARGET,
+      height: SCROLL_FAB_TARGET,
+      zIndex: Layer.header - 5,
+    },
+    target: {
+      width: SCROLL_FAB_TARGET,
+      height: SCROLL_FAB_TARGET,
       alignItems: "center",
-      zIndex: 95,
+      justifyContent: "center",
     },
     button: {
-      width: 44,
-      height: 44,
+      width: SCROLL_FAB_SIZE,
+      height: SCROLL_FAB_SIZE,
       borderRadius: Radius.full,
       backgroundColor: C.surface,
       borderWidth: StyleSheet.hairlineWidth,

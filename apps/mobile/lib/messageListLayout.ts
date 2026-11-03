@@ -60,6 +60,16 @@ export function messageListItemType(item: {
   return "assistant";
 }
 
+/**
+ * Rows the chat list keeps mounted off screen for reuse. FlashList keeps every row it
+ * recycles, with no limit, and a kept row still draws the message it last showed: its
+ * graphs and scenes (Skia canvases), charts and previews (web views) and photos stay in
+ * memory after scrolling past them. A message's content changes wholesale from one row
+ * to the next, so a big pool saves little; past this many, a row leaves when it leaves
+ * the screen (and its draw distance).
+ */
+export const CHAT_RECYCLE_POOL = 4;
+
 export function messageListKey(item: { id: string; renderKey?: string }): string {
   return item.renderKey ?? item.id;
 }
