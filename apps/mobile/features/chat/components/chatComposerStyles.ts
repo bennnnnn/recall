@@ -49,10 +49,10 @@ export function makeChatComposerStyles(theme: Theme) {
     composer: { paddingVertical: COMPOSER_VERTICAL_PADDING, overflow: "visible" },
     inputStack: { position: "relative", overflow: "visible" },
     inputWrap: {
-      // Attachments, the field and the button row share one card, edged like the answer box.
+      // Attachments and the row (+, field, buttons) share one card, edged like the answer box.
       backgroundColor: theme.composerBg,
       borderRadius: Radius.composer,
-      paddingHorizontal: Space.md,
+      paddingHorizontal: Space.xs,
       paddingTop: Space.xxs,
       paddingBottom: Space.xxs,
       borderWidth: 1,
@@ -65,13 +65,9 @@ export function makeChatComposerStyles(theme: Theme) {
       ...Type.meta,
       color: theme.textSecondary,
     },
-    inputRowMain: { flexDirection: "row", alignItems: "flex-end" },
+    inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xxs },
     inputRowMainExpanded: { flex: 1, minHeight: 0 },
-    controlsRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
+    controlsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     trailingControls: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     inputField: {
       flex: 1,
@@ -79,6 +75,7 @@ export function makeChatComposerStyles(theme: Theme) {
       minHeight: COMPOSER_CONTROL_SIZE,
       position: "relative",
     },
+    inputFieldStacked: { paddingHorizontal: Space.xs }, // text starts where the + glyph does
     inputFieldExpanded: { justifyContent: "flex-start", minHeight: 0, paddingBottom: 0 },
     expandControlRow: {
       minHeight: Space.minTouch,
@@ -115,7 +112,7 @@ export function makeChatComposerStyles(theme: Theme) {
     },
     controlDisabled: { opacity: 0.55 },
     input: {
-      flex: 1,
+      // No flex: it stretched the box past its line, and typed text sat above the +.
       ...Type.body,
       color: theme.text,
       // Fixed line box. A padded field makes iOS draw the caret a line too high, and
@@ -126,6 +123,7 @@ export function makeChatComposerStyles(theme: Theme) {
       minHeight: COMPOSER_INPUT_LINE_HEIGHT,
     },
     inputExpanded: {
+      flex: 1,
       height: undefined,
       maxHeight: undefined,
       minHeight: 0,

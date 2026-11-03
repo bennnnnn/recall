@@ -173,7 +173,7 @@ describe("decoded attachment frame proportions", () => {
     expect(host.height).toBeGreaterThanOrEqual(44);
     expect(host.backgroundColor).toBeUndefined();
     expect(host.overflow).toBeUndefined();
-    await fireEvent.press(view.getByRole("button"));
+    await fireEvent.press(view.getByLabelText("chat.remove_attachment_a11y"));
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
@@ -186,7 +186,7 @@ describe("decoded attachment frame proportions", () => {
     await act(() => staleLoad(load(300, 1200)));
     expect(view.getByTestId("composer-image-frame")).toHaveStyle({ width: 88, height: 112 });
     expect(view.getByTestId("composer-image-controls").props.accessibilityState.busy).toBe(true);
-    await fireEvent.press(view.getByRole("button"));
+    await fireEvent.press(view.getByLabelText("chat.remove_attachment_a11y"));
     expect(onRemove).not.toHaveBeenCalled();
     await fireEvent(view.getByTestId("composer-image-preview"), "load", load(1200, 300));
     expect(view.getByTestId("composer-image-frame")).toHaveStyle({ width: 88, height: 22 });

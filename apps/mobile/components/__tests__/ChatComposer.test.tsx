@@ -1,6 +1,7 @@
 import { Dimensions, StyleSheet } from "react-native";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
+import { mathKeyboardRequests } from "@/features/chat/model/mathKeyboardRequest";
 import { ChatComposer, COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
@@ -11,6 +12,13 @@ import { DraftHarness } from "./DraftHarness";
 
 /** The math preview is hidden from screen readers (the text field reads the draft); look inside it. */
 const HIDDEN_TOO = { includeHiddenElements: true };
+
+
+/** The + sheet's "Math keyboard" row: the composer opens its pad. */
+const openMathKeyboard = () =>
+  act(async () => {
+    mathKeyboardRequests.emit();
+  });
 
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
@@ -113,7 +121,7 @@ describe("ChatComposer math keyboard", () => {
       expect(native.props.autoCapitalize).toBe("none");
     };
     expectMessaging();
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     expectMathEditor();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     expectMessaging();
@@ -125,7 +133,7 @@ describe("ChatComposer math keyboard", () => {
         <ChatComposer {...baseProps} />
       </DraftHarness>,
     );
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     const text = "The price is $5.00";
     for (let i = 1; i <= text.length; i += 1) {
@@ -150,7 +158,7 @@ describe("ChatComposer math keyboard", () => {
     await act(() => api.switchThread("literal"));
     await fireEvent.changeText(getByTestId("chat-composer-input"), "The price is $5");
     await act(() => api.switchThread("math"));
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-draft-preview", HIDDEN_TOO)).toBeTruthy();
     await act(() => api.switchThread("literal"));
@@ -361,33 +369,57 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("chat-composer-input").props.value).toBe("  const answer = 42;");
   });
 
-  it("puts the field on a row of its own over the buttons, empty or not", async () => {
-    for (const input of ["", "Hello there", "A long message that wraps ".repeat(4)]) {
+  /** The row and the trailing buttons as a phone lays them out (jest runs no layout). */
+  const layOut = async (view: Awaited<ReturnType<typeof render>>) => {
+    const width = (w: number) => ({ nativeEvent: { layout: { width: w, height: 36 } } });
+    await fireEvent(view.getByTestId("composer-input-row"), "layout", width(320));
+    await fireEvent(view.getByTestId("composer-trailing-controls"), "layout", width(80));
+  };
+
+  it("is one row while the draft fits: + just before the field, then the buttons", async () => {
+    for (const input of ["", "Hello there"]) {
       const view = await render(
         <DraftHarness input={input}>
           <ChatComposer {...baseProps} />
         </DraftHarness>,
       );
-      const surface = view.getByTestId("composer-surface");
-      const row = view.getByTestId("composer-input-row");
-      expect(within(row).getByTestId("chat-composer-input")).toBeTruthy();
-      expect(within(row).queryByTestId("composer-attachment-button")).toBeNull();
-      // The field row comes first, the buttons under it.
-      const ids = surface.children
-        .map((child) => (typeof child === "string" ? null : child.props.testID))
-        .filter((id): id is string => id === "composer-input-row" || id === "composer-controls-row");
-      expect(ids).toEqual(["composer-input-row", "composer-controls-row"]);
-      const controls = view.getByTestId("composer-controls-row");
-      expect(controls).toHaveStyle({ flexDirection: "row", justifyContent: "space-between" });
-      // + at the left; the rest at the right.
-      const first = controls.children[0];
-      expect(typeof first === "string" ? null : first?.props.testID).toBe("composer-attachment-button");
-      if (input) expect(within(controls).getByLabelText("chat.send_a11y")).toBeTruthy();
+      await layOut(view);
+      const ids = view
+        .getByTestId("composer-input-row")
+        .children.map((child) => (typeof child === "string" ? null : child.props.testID));
+      expect(ids).toEqual(["composer-attachment-button", "chat-composer-field", "composer-trailing-controls"]);
+      expect(view.queryByTestId("composer-controls-row")).toBeNull();
       await view.unmount();
     }
-    // The thread's bottom inset clears both rows: the 36 pt field, the 36 pt buttons, the
-    // card's border and padding and the shell's air.
-    expect(COMPOSER_HEIGHT).toBe(94);
+    // The thread's bottom inset clears the one row: 36 pt, the card's border and padding
+    // and the shell's air.
+    expect(COMPOSER_HEIGHT).toBe(58);
+  });
+
+  it("runs a wrapping draft end to end, over a row of the buttons", async () => {
+    const view = await render(
+      <DraftHarness input={"A long message that wraps ".repeat(4)}>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
+    await layOut(view);
+    const row = view.getByTestId("composer-input-row");
+    expect(within(row).getByTestId("chat-composer-input")).toBeTruthy();
+    expect(within(row).queryByTestId("composer-attachment-button")).toBeNull();
+    const controls = view.getByTestId("composer-controls-row");
+    expect(controls).toHaveStyle({ flexDirection: "row", justifyContent: "space-between" });
+    const first = controls.children[0];
+    expect(typeof first === "string" ? null : first?.props.testID).toBe("composer-attachment-button");
+    expect(within(controls).getByLabelText("chat.send_a11y")).toBeTruthy();
+  });
+
+  it("keeps one typed line on the buttons' midline: the field does not stretch", async () => {
+    const view = await render(
+      <DraftHarness input="Hello there">
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
+    expect(StyleSheet.flatten(view.getByTestId("chat-composer-input").props.style).flex).toBeUndefined();
   });
 
   it("offers a full-height editor when the multiline input reaches its limit", async () => {
@@ -440,30 +472,16 @@ describe("ChatComposer math keyboard", () => {
     expect(getByLabelText("chat.stop_a11y")).toBeTruthy();
   });
 
-  it("shows the math keyboard button on an empty composer, immediately before the mic", async () => {
-    const { getByTestId } = await render(
+  it("has no math keyboard button: the + sheet's Math keyboard opens the pad", async () => {
+    const { getByTestId, queryByTestId } = await render(
       <DraftHarness input="">
-        <ChatComposer
-          {...baseProps}
-          voiceAvailable
-          onVoicePress={jest.fn()}
-        />
+        <ChatComposer {...baseProps} voiceAvailable onVoicePress={jest.fn()} />
       </DraftHarness>,
     );
-    const row = getByTestId("composer-controls-row");
-    const ids: string[] = [];
-    const walk = (node: { props?: { testID?: string }; children?: unknown[] }) => {
-      const id = node.props?.testID;
-      if (typeof id === "string") ids.push(id);
-      for (const child of node.children ?? []) {
-        if (child && typeof child === "object") walk(child as typeof node);
-      }
-    };
-    walk(row);
-    const math = ids.indexOf("math-keyboard-toggle");
-    const mic = ids.indexOf("voice-mic-button");
-    expect(math).toBeGreaterThanOrEqual(0);
-    expect(mic).toBe(math + 1);
+    expect(queryByTestId("math-keyboard-toggle")).toBeNull();
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+    await openMathKeyboard();
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
   });
 
   it("toggles the symbol bar and inserts a fraction at the caret", async () => {
@@ -475,9 +493,8 @@ describe("ChatComposer math keyboard", () => {
     );
 
     expect(queryByTestId("math-key-frac")).toBeNull();
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
-    expect(queryByTestId("math-keyboard-toggle")).toBeNull();
     expect(getByTestId("math-keyboard-abc")).toBeTruthy();
     expect(getByTestId("math-composer-caret")).toBeTruthy();
     expect(getByTestId("math-key-frac")).toBeTruthy();
@@ -494,7 +511,7 @@ describe("ChatComposer math keyboard", () => {
         <ChatComposer {...baseProps} />
       </DraftHarness>,
     );
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     expect(queryByTestId("math-key-sin")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     expect(getByTestId("math-key-sin")).toBeTruthy();
@@ -508,7 +525,7 @@ describe("ChatComposer math keyboard", () => {
         <ChatComposer {...baseProps} />
       </DraftHarness>,
     );
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     await fireEvent.press(getByTestId("math-key-cos"));
     expect(getAllByTestId("math-group", HIDDEN_TOO)).toHaveLength(1);
@@ -522,7 +539,7 @@ describe("ChatComposer math keyboard", () => {
         <ChatComposer {...baseProps} onSend={onSend} />
       </DraftHarness>,
     );
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
     expect(getByTestId("math-converter")).toBeTruthy();
     expect(getByTestId("math-converter-from-value").props.children).toBe("1");
@@ -538,7 +555,7 @@ describe("ChatComposer math keyboard", () => {
 
   it("gives every page, the converter included, one key height of at least 44pt", async () => {
     const { getByTestId } = await render(<ChatComposer {...baseProps} />);
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     const flat = (id: string) => {
       const style = getByTestId(id).props.style;
       return StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
@@ -569,7 +586,7 @@ describe("ChatComposer math keyboard", () => {
   });
   it("draws every key white with the same ink, delete and clear included", async () => {
     const { getByTestId } = await render(<ChatComposer {...baseProps} />);
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     const flat = (style: unknown) =>
       StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
     const ink = [lightTheme.text, darkTheme.text];
@@ -589,7 +606,7 @@ describe("ChatComposer math keyboard", () => {
   });
   it("leaves the thread free to scroll while the math keyboard is open", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
     const padHeight = StyleSheet.flatten(getByTestId("math-keyboard-pad").props.style).height;
     const fade = StyleSheet.flatten(getByTestId("composer-scroll-fade").props.style);
@@ -610,14 +627,14 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, getByLabelText, queryByTestId, rerender } = await render(
       <ChatComposer {...baseProps} onStop={onStop} />,
     );
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
 
     await rerender(<ChatComposer {...baseProps} streaming onStop={onStop} />);
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
     expect(getByLabelText("chat.stop_a11y")).toBeTruthy();
 
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
     await fireEvent.press(getByLabelText("chat.stop_a11y"));
     expect(onStop).toHaveBeenCalled();
@@ -625,18 +642,18 @@ describe("ChatComposer math keyboard", () => {
 
   it("reopens the Converter tab after ABC", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
     expect(getByTestId("math-converter")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     expect(queryByTestId("math-converter")).toBeNull();
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     expect(getByTestId("math-converter")).toBeTruthy();
   });
 
   it("opens the unit list in a sheet, not inside the pad", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
     expect(queryByTestId("math-converter-picker")).toBeNull();
     await fireEvent.press(getByTestId("math-converter-from-unit"));
@@ -655,7 +672,7 @@ describe("ChatComposer math keyboard", () => {
 
   it("keeps digits and operators on Basics, and every page on the same grid", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await openMathKeyboard();
     for (const id of ["digit-7", "digit-0", "plus", "minus", "times", "div", "eq", "var-x", "frac"]) {
       expect(getByTestId(`math-key-${id}`)).toBeTruthy();
     }

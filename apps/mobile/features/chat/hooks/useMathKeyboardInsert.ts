@@ -5,6 +5,7 @@ import {
   type TextInputSelectionChangeEvent,
 } from "react-native";
 
+import { mathKeyboardRequests } from "@/features/chat/model/mathKeyboardRequest";
 import { clipboardIsImageOnly } from "@/lib/clipboard";
 import {
   autoAdvanceNextEmptySlot,
@@ -350,4 +351,9 @@ export function useMathKeyboardInsert(options: {
     stepCaret,
     symbols: MATH_KEYBOARD_SYMBOLS,
   };
+}
+
+/** The + sheet's "Math keyboard" row: `open` runs where the pad lives, the composer. */
+export function useMathKeyboardRequests(open: () => void): void {
+  useEffect(() => mathKeyboardRequests.subscribe(open), [open]);
 }

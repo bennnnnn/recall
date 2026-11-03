@@ -127,6 +127,20 @@ it("opens the math scanner instead of a picker", async () => {
   expect(pickFromCamera).not.toHaveBeenCalled();
 });
 
+it("asks the composer for its math keyboard and closes the sheet", async () => {
+  const { mathKeyboardRequests } = jest.requireActual("@/features/chat/model/mathKeyboardRequest");
+  const opened = jest.fn();
+  const stop = mathKeyboardRequests.subscribe(opened);
+  await render(<Probe />);
+  await act(async () => { current.setAttachSheetOpen(true); });
+  await select("math_keyboard");
+  stop();
+  expect(opened).toHaveBeenCalledTimes(1);
+  expect(current.attachSheetOpen).toBe(false);
+  expect(current.mathScannerOpen).toBe(false);
+  expect(pickFromCamera).not.toHaveBeenCalled();
+});
+
 it.each([
   ["a busy picker", new NativePickerBusyError(), "error", "chat.picker_busy"],
   ["a picker timeout", new NativePickerTimeoutError(), "error", "chat.picker_busy"],

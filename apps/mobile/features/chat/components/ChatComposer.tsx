@@ -21,7 +21,6 @@ import {
   bottomChromeFadeColors,
 } from "@/features/chat/components/chromeFade";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { type MeterLevel, VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
@@ -48,7 +47,8 @@ import {
 } from "@/features/chat/context/ComposerDraftContext";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
-import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";
+import { useComposerRowFit } from "@/features/chat/hooks/useComposerRowFit";
+import { useMathKeyboardInsert, useMathKeyboardRequests } from "@/features/chat/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
@@ -62,9 +62,9 @@ import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlo
 import { Space } from "@/lib/space";
 import { useTheme, withAlpha } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX } from "@/lib/type";
-import { IconSize } from "@/ui/icons/sizes";
 
 function noopComposerInput(_text: string) {}
+function noopOpen() {}
 
 const GAP_FADE_LOCATIONS = [0, 1] as const;
 
@@ -73,9 +73,9 @@ function gapFadeColors(bg: string): [string, string] {
   return [withAlpha(bg, 0.92), bg];
 }
 
-// The 36 pt field over the 36 pt button row + the card's 1 pt border and 4 pt padding
+// One 36 pt row (+, the field, mic and live talk) + the card's 1 pt border and 4 pt padding
 // above and below + 6 pt shell air above and below.
-export const COMPOSER_HEIGHT = COMPOSER_CONTROL_SIZE * 2 + 22;
+export const COMPOSER_HEIGHT = COMPOSER_CONTROL_SIZE + 22;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
 
 type Props = {
@@ -160,7 +160,6 @@ export const ChatComposer = memo(function ChatComposer({
   const showMathPreview = math.showMathPreview;
   const mathBarOpen = math.mathBarOpen;
   const toggleMathBar = math.toggleMathBar;
-  const showMathButton = !mathBarOpen;
   const mathChromeHeight =
     (math.mathBarOpen ? math.padHeight : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
@@ -192,6 +191,8 @@ export const ChatComposer = memo(function ChatComposer({
   }, [draft?.revision]);
 
   const voiceActive = voiceRecording || voiceTranscribing;
+  // While the waveform takes the field's place, the row never splits.
+  const rowFit = useComposerRowFit(voiceActive ? "" : input, fontScale);
   const {
     composerExpanded,
     toggleExpanded,
@@ -207,8 +208,10 @@ export const ChatComposer = memo(function ChatComposer({
     input,
     draftRevision: draft?.revision,
     fontScale,
+    buttonRowBelow: rowFit.wraps,
     onInputFrameExtraChange,
   });
+  const stacked = rowFit.wraps || composerExpanded;
 
   const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const keyboard = useAnimatedKeyboard();
@@ -235,6 +238,8 @@ export const ChatComposer = memo(function ChatComposer({
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [mathBarOpen, streaming, toggleMathBar]);
+
+  useMathKeyboardRequests(mathBarOpen ? noopOpen : onToggleMathBar);
 
   const sendAndCloseMath = useCallback(
     (text?: string) => {
@@ -284,19 +289,7 @@ export const ChatComposer = memo(function ChatComposer({
     />
   );
   const trailingControls = (
-    <View style={s.trailingControls}>
-      {showMathButton ? (
-        <Pressable
-          onPress={onToggleMathBar}
-          style={({ pressed }) => [s.attachBtn, pressed && s.controlDisabled]}
-          accessibilityRole="button"
-          accessibilityLabel={t("chat.math_keyboard_show")}
-          testID="math-keyboard-toggle"
-          hitSlop={4}
-        >
-          <Icon name="calculator" size={IconSize.sm} color={theme.text} />
-        </Pressable>
-      ) : null}
+    <View style={s.trailingControls} onLayout={rowFit.onTrailingLayout} testID="composer-trailing-controls">
       <ComposerSendControls
         s={s}
         streaming={streaming}
@@ -370,11 +363,14 @@ export const ChatComposer = memo(function ChatComposer({
                 }}
               />
             ) : null}
-            {/* The field has the full width; the buttons are a row of their own under it. */}
+            {/* One row while the draft fits: + just before the caret, the field, then mic and
+                live talk (or send). Once it wraps, the text runs end to end over the buttons. */}
             <View
               testID="composer-input-row"
               style={[s.inputRowMain, composerExpanded && s.inputRowMainExpanded]}
+              onLayout={rowFit.onRowLayout}
             >
+              {stacked ? null : attachButton}
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform
                   recording={voiceRecording}
@@ -387,6 +383,7 @@ export const ChatComposer = memo(function ChatComposer({
                     s.inputField,
                     // Keeps one line on the field's midline. Extra lines grow above the caret.
                     { paddingBottom: field.slack / 2 },
+                    stacked && s.inputFieldStacked,
                     composerExpanded && s.inputFieldExpanded,
                   ]}
                   testID="chat-composer-field"
@@ -470,11 +467,14 @@ export const ChatComposer = memo(function ChatComposer({
                   ) : null}
                 </Pressable>
               )}
+              {stacked ? null : trailingControls}
             </View>
-            <View style={s.controlsRow} testID="composer-controls-row">
-              {attachButton}
-              {trailingControls}
-            </View>
+            {stacked ? (
+              <View style={s.controlsRow} testID="composer-controls-row">
+                {attachButton}
+                {trailingControls}
+              </View>
+            ) : null}
             {sendStatus ? (
               <Text
                 style={s.sendStatus}

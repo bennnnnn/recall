@@ -60,7 +60,7 @@
   "features/chat/components/MathKeyboardBar.tsx::MathKeyboardBar": 134,
   "features/chat/components/MessageBubble.tsx::MessageBubble": 240,
   "features/chat/components/UserMessageContent.tsx::UserMessageContent": 103,
-  "features/chat/components/chatComposerStyles.ts::makeChatComposerStyles": 154,
+  "features/chat/components/chatComposerStyles.ts::makeChatComposerStyles": 152,
   "features/chat/drawer/ConversationList.tsx::ConversationList": 368,
   "features/chat/drawer/DrawerChatFlashList.tsx::DrawerChatFlashList": 234,
   "features/chat/drawer/DrawerShell.tsx::DrawerShell": 269,
