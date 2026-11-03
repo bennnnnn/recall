@@ -123,3 +123,19 @@ def test_everyday_numbers_are_no_results_to_check(text: str) -> None:
 def test_physics_hears_a_plural_check(check: str) -> None:
     text = f"A 2 kg ball is dropped from 20 m. My results: 19.8 m/s for its impact speed, {check}"
     assert [claim.value for claim in read_claims(text)] == [19.8]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "My values are 3 and 4. What is their sum?",
+        "My results are 12 N and 3 kg. What is the acceleration?",
+    ],
+)
+def test_values_with_no_check_asked_are_givens(text: str) -> None:
+    """With no check asked, a question beside the values asks its own value."""
+    assert not only_checks_stated_results(text)
+
+
+def test_a_check_with_a_word_of_thanks_is_still_only_a_check() -> None:
+    assert only_checks_stated_results("My answer is 4 mol, is that right? Thanks!")

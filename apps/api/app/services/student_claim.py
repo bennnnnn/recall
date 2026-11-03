@@ -119,10 +119,17 @@ def without_stated_results(text: str) -> str:
 
 
 def only_checks_stated_results(text: str) -> bool:
-    """The text states results to check and asks for no new value: what is left without
-    them holds no number. "How many grams in 0.5 mol of NaCl? I got 29.2 g, am I right?"
-    still asks its question; "My answers: 1) 1 mol 2) 110 g. Right?" asks only the check."""
-    return has_stated_result(text) and not any(char.isdigit() for char in question_part(text))
+    """The text states results to check and asks for no new value. "My answers: 1) 1 mol
+    2) 110 g. Right?" asks only the check; "How many grams in 0.5 mol of NaCl? I got
+    29.2 g, am I right?" still asks its question. With no check asked, anything else it
+    says is a question of its own: in "My values are 3 and 4. What is their sum?" the
+    values are givens, not answers to mark."""
+    if not has_stated_result(text):
+        return False
+    rest = question_part(text)
+    if not rest:
+        return True
+    return _ASKS_CHECK.search(text) is not None and not any(char.isdigit() for char in rest)
 
 
 def has_stated_result(text: str) -> bool:
