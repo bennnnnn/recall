@@ -50,11 +50,14 @@ describe("buildPdfPreviewHtml", () => {
     expect(html).not.toMatch(/XMLHttpRequest|fetch\(|cfg\.src|file:/);
   });
 
-  it("runs pdf.js and keeps its worker inert until the page spawns it from a Blob", () => {
+  it("runs pdf.js's worker in the page, before pdf.js, and starts no Worker", () => {
     expect(PDF_LIBRARIES).toEqual(["pdf", "pdfWorker"]);
     const html = buildPdfPreviewHtml("QUJD", theme, false, SOURCES);
-    expect(html).toContain(`<script>${SOURCES.pdf}</script>`);
-    expect(html).toContain(`<script type="text/pdf-worker" id="pdf-worker-src">${SOURCES.pdfWorker}</script>`);
+    const worker = html.indexOf(`<script>${SOURCES.pdfWorker}</script>`);
+    expect(worker).toBeGreaterThan(-1);
+    expect(html.indexOf(`<script>${SOURCES.pdf}</script>`)).toBeGreaterThan(worker);
+    // A sandboxed page has no origin: a blob: worker never starts there.
+    expect(html).not.toMatch(/workerSrc|createObjectURL|new Worker/);
   });
 
   it("draws every page lazily for the viewer and page 1 for the card", () => {
@@ -81,16 +84,13 @@ describe("buildPdfPreviewHtml", () => {
     const elements: Record<string, unknown> = {
       err: { textContent: "", style: {} },
       pages: { appendChild: () => undefined },
-      "pdf-worker-src": { textContent: SOURCES.pdfWorker },
       "pdf-data": dataTag,
     };
     const getDocument = jest.fn(() => ({ promise: new Promise(() => undefined) }));
     const page = {
       window: { RECALL_PDF: { allPages: false, colors: {} }, innerWidth: 320, devicePixelRatio: 2 },
       document: { documentElement: { style: { setProperty: () => undefined } }, getElementById: (id: string) => elements[id] },
-      pdfjsLib: { GlobalWorkerOptions: {} as { workerSrc?: string }, getDocument },
-      URL: { createObjectURL: () => "blob:worker" },
-      Blob: class {},
+      pdfjsLib: { getDocument },
     };
     new Function(...Object.keys(page), body)(...Object.values(page));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -98,7 +98,6 @@ describe("buildPdfPreviewHtml", () => {
       data: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]),
       isEvalSupported: false,
     });
-    expect(page.pdfjsLib.GlobalWorkerOptions.workerSrc).toBe("blob:worker");
     expect(removed).toEqual([dataTag]);
   });
 
