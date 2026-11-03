@@ -172,6 +172,11 @@ _LONE_I = re.compile(r"(?<![\w'’$\\])i(?P<contraction>['’](?:m|ve|ll|d)\b)?(
 # "if") comes before a symbol too ("between e and i", "when i is squared"), so after one
 # the speaker needs a verb of their own ("and i need").
 _BEFORE_I = frozenset("do does did can could should would will how what why where".split())
+# After an asking word, what follows still decides: "what does i squared equal?" and "what
+# will i^2 be?" ask about the imaginary unit.
+_MATHS_AFTER_I = frozenset(
+    "squared cubed equal equals times plus minus over divided multiplied raised".split()
+)
 _AFTER_I = frozenset(
     "am have had need get find know want use make solve think calculate was got still just "
     "really".split()
@@ -210,12 +215,18 @@ def _a_word(first: re.Match[str]) -> bool:
 
 def _speaker(match: re.Match[str]) -> str:
     before = re.findall(r"[A-Za-z]+", match.string[: match.start()])
-    after = re.match(r"\s+([A-Za-z]+)", match.string[match.end() :])
+    rest = match.string[match.end() :]
+    after = re.match(r"\s+([A-Za-z]+)", rest)
+    next_word = after.group(1).lower() if after else None
+    # The question ends at "i" ("should i?"), or a plain word follows it ("can i use").
+    plain_after = (
+        next_word not in _MATHS_AFTER_I if next_word else not re.match(r"\s*\w|\s*[\^=+\-*/]", rest)
+    )
     speaks = (
         match.group("contraction") is not None
         or not before
-        or before[-1].lower() in _BEFORE_I
-        or (after is not None and after.group(1).lower() in _AFTER_I)
+        or (before[-1].lower() in _BEFORE_I and plain_after)
+        or next_word in _AFTER_I
     )
     return "I" + (match.group("contraction") or "") if speaks else match.group(0)
 

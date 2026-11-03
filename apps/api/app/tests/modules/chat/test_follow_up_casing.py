@@ -40,6 +40,12 @@ from app.modules.chat.related_questions import accepted_questions, sentence_case
         ("if i is negative, what then?", "If i is negative, what then?"),
         ("and i need the next step?", "And I need the next step?"),
         ("what if i get stuck?", "What if I get stuck?"),
+        # After an asking word, a maths word or symbol keeps the imaginary unit.
+        ("what does i squared equal?", "What does i squared equal?"),
+        ("what will i^2 be?", "What will i^2 be?"),
+        ("what is the value of i^2", "What is the value of i^2"),
+        ("should i?", "Should I?"),
+        ("can i use moles here or not?", "Can I use moles here or not?"),
     ],
 )
 def test_sentence_case(chip: str, shown: str) -> None:
