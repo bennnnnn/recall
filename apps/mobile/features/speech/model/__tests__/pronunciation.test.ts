@@ -1,8 +1,23 @@
 import { deleteAsync, writeAsStringAsync } from "expo-file-system/legacy";
 
-import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
+import {
+  readReplyAloud,
+  speakPlainText,
+  stopReadingAloud,
+  stopSpeaking,
+} from "@/features/speech/model/pronunciation";
+import {
+  pauseReadAloud,
+  readAloudSession,
+  resumeReadAloud,
+} from "@/features/speech/model/readAloudSession";
 
-type StatusListener = (status: { didJustFinish?: boolean; playing?: boolean }) => void;
+type StatusListener = (status: {
+  didJustFinish?: boolean;
+  playing?: boolean;
+  currentTime?: number;
+  duration?: number;
+}) => void;
 type FakePlayer = {
   play: jest.Mock;
   pause: jest.Mock;
@@ -172,5 +187,72 @@ describe("the on-device voice switch", () => {
     await flush();
     expect(requestRaw).toHaveBeenCalled();
     expect(speak).not.toHaveBeenCalled();
+  });
+});
+
+describe("the read-aloud player", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockPlayers.length = 0;
+    mockTtsModel = "speech-tts-model";
+  });
+  afterEach(() => {
+    stopReadingAloud();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it("holds a paused clip, rather than taking it for finished, and plays on after resume", async () => {
+    const reading = readReplyAloud("m1", "first|second", "en-US", { token: "tok", preferCloud: true });
+    expect(readAloudSession.get()).toMatchObject({ messageId: "m1", phase: "preparing" });
+    await flush();
+    expect(readAloudSession.get()).toMatchObject({ phase: "playing", canPause: true, progress: 0 });
+    const [first] = mockPlayers;
+    first.emit({ playing: true, currentTime: 1, duration: 2 });
+    // Two clips: halfway through the first is a quarter of the reply.
+    expect(readAloudSession.get()?.progress).toBe(0.25);
+
+    pauseReadAloud();
+    expect(first.pause).toHaveBeenCalled();
+    first.playing = false;
+    first.emit({ playing: false });
+    await flush();
+    jest.advanceTimersByTime(1_000);
+    await flush();
+    // The pause stopped the clip; the queue did not read that as its end.
+    expect(mockPlayers).toHaveLength(1);
+    expect(readAloudSession.get()?.phase).toBe("paused");
+
+    resumeReadAloud();
+    expect(first.play).toHaveBeenCalledTimes(2);
+    expect(readAloudSession.get()?.phase).toBe("playing");
+    first.emit({ didJustFinish: true });
+    await flush();
+    expect(mockPlayers).toHaveLength(2);
+    mockPlayers[1].emit({ didJustFinish: true });
+    await expect(reading).resolves.toEqual({ ok: true });
+    expect(readAloudSession.get()).toBeNull();
+  });
+
+  it("closes the player and ends the reading on Stop", async () => {
+    const reading = readReplyAloud("m1", "first|second", "en-US", { token: "tok", preferCloud: true });
+    await flush();
+    mockPlayers[0].emit({ playing: true });
+    stopReadingAloud();
+    expect(readAloudSession.get()).toBeNull();
+    await expect(reading).resolves.toEqual({ ok: true });
+    expect(mockPlayers[0].remove).toHaveBeenCalled();
+  });
+
+  it("keeps the player of the reply read next when the one before ends", async () => {
+    const firstReading = readReplyAloud("m1", "one", "en-US", { token: "tok", preferCloud: true });
+    await flush();
+    const secondReading = readReplyAloud("m2", "two", "en-US", { token: "tok", preferCloud: true });
+    await expect(firstReading).resolves.toEqual({ ok: true });
+    expect(readAloudSession.get()?.messageId).toBe("m2");
+    await flush();
+    mockPlayers[mockPlayers.length - 1].emit({ didJustFinish: true });
+    await expect(secondReading).resolves.toEqual({ ok: true });
   });
 });

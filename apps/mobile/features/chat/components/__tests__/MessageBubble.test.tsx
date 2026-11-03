@@ -3,7 +3,8 @@ import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { MessageBubble } from "@/features/chat/components/MessageBubble";
-import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
+import { readReplyAloud, stopReadingAloud } from "@/features/speech/model/pronunciation";
+import { endReadAloud } from "@/features/speech/model/readAloudSession";
 import type { Message } from "@/lib/api";
 import { selection, tap } from "@/lib/haptics";
 
@@ -129,11 +130,26 @@ jest.mock("@/lib/haptics", () => ({
   selection: jest.fn(),
   tap: jest.fn(),
 }));
-jest.mock("@/features/speech/model/pronunciation", () => ({
-  readAloudIsCut: jest.fn(() => false),
-  speakPlainText: jest.fn(async () => ({ ok: true })),
-  stopSpeaking: jest.fn(),
-}));
+// As the real one does, a reading holds the read-aloud session (the row's icon reads it).
+let mockReading: Promise<{ ok: true }> = Promise.resolve({ ok: true });
+jest.mock("@/features/speech/model/pronunciation", () => {
+  const session = jest.requireActual("@/features/speech/model/readAloudSession");
+  return {
+    readAloudIsCut: jest.fn(() => false),
+    readReplyAloud: jest.fn(async (messageId: string, markdown: string) => {
+      const id = session.startReadAloud(messageId, markdown);
+      const result = await mockReading;
+      session.endReadAloud(id);
+      return result;
+    }),
+    stopReadingAloud: jest.fn(() => session.endReadAloud()),
+  };
+});
+// A test that leaves a reading going would show the next test's row as reading.
+afterEach(async () => {
+  mockReading = Promise.resolve({ ok: true });
+  await act(async () => endReadAloud());
+});
 jest.mock("@/lib/theme", () => ({
   useTheme: () => ({
     primary: "#36f",
@@ -305,16 +321,13 @@ describe("MessageBubble copy feedback timers", () => {
     expect(view.getByLabelText("chat.thumbs_up_a11y").props.accessibilityState).toMatchObject({ selected: true });
     expect(view.getByLabelText("chat.thumbs_down_a11y").props.accessibilityState).toMatchObject({ selected: false });
 
-    jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
+    mockReading = new Promise(() => {});
     expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({ selected: false });
     await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
     expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({ selected: true });
   });
 
   describe("read aloud", () => {
-    const readingForever = () =>
-      jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
-
     afterEach(() => {
       mockAuthUser = null;
     });
@@ -323,7 +336,7 @@ describe("MessageBubble copy feedback timers", () => {
       mockAuthUser = { plan: "free", features: ["image_generation"], locale: "en" };
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
-      const options = jest.mocked(speakPlainText).mock.calls.at(-1)?.[2];
+      const options = jest.mocked(readReplyAloud).mock.calls.at(-1)?.[3];
       expect(options).toEqual({ token: null, preferCloud: false });
     });
 
@@ -335,47 +348,46 @@ describe("MessageBubble copy feedback timers", () => {
       };
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
-      const options = jest.mocked(speakPlainText).mock.calls.at(-1)?.[2];
+      const options = jest.mocked(readReplyAloud).mock.calls.at(-1)?.[3];
       expect(options).toEqual({ token: "token", preferCloud: true });
     });
 
-    it("stops reading when the reply leaves the screen", async () => {
-      readingForever();
+    it("keeps reading when the reply leaves the screen; the player over the composer stops it", async () => {
+      mockReading = new Promise(() => {});
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
-      expect(speakPlainText).toHaveBeenCalledTimes(1);
-      // Another chat, a regenerate or list recycling takes the stop button
-      // away; the voice must not keep reading with no way to stop it.
+      expect(readReplyAloud).toHaveBeenCalledTimes(1);
       await act(async () => {
         view.unmount();
       });
-      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+      expect(stopReadingAloud).not.toHaveBeenCalled();
     });
 
-    it("stops reading when the row is reused for another reply", async () => {
-      readingForever();
+    it("shows a reused row the state of its own reply", async () => {
+      mockReading = new Promise(() => {});
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
       await view.rerender(
         <MessageBubble message={{ ...assistantMessage, id: "assistant-2" }} />,
       );
-      expect(stopSpeaking).toHaveBeenCalledTimes(1);
-      // The reused row starts the new reply instead of acting as Stop.
+      // The reused row is not the Stop of the reply it showed before: it starts its own.
+      expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({
+        selected: false,
+      });
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
-      expect(speakPlainText).toHaveBeenCalledTimes(2);
-      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+      expect(jest.mocked(readReplyAloud).mock.calls.at(-1)?.[0]).toBe("assistant-2");
+      expect(stopReadingAloud).not.toHaveBeenCalled();
     });
 
-    it("leaves other playback alone once its own reading has finished", async () => {
+    it("stops its own reading when pressed again", async () => {
+      mockReading = new Promise(() => {});
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
-      await act(async () => {
-        await Promise.resolve();
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      expect(stopReadingAloud).toHaveBeenCalledTimes(1);
+      expect(view.getByLabelText("chat.read_aloud_a11y").props.accessibilityState).toMatchObject({
+        selected: false,
       });
-      await act(async () => {
-        view.unmount();
-      });
-      expect(stopSpeaking).not.toHaveBeenCalled();
     });
   });
 

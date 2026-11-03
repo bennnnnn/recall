@@ -77,11 +77,13 @@ const PUBLIC: Record<string, readonly string[]> = {
   speech: [
     "components/LiveTalkButton.tsx",
     "components/LazyLiveTalkOverlay.tsx",
+    "components/ReadAloudPlayer.tsx",
     "components/VoiceComposerWaveform.tsx",
     "components/VoiceMicButton.tsx",
     "hooks/useLiveTalk.ts",
     "hooks/useVoiceInput.ts",
     "model/pronunciation.ts",
+    "model/readAloudSession.ts",
     "model/speechRate.ts",
     "model/ttsPreference.ts",
     "model/voices.ts",

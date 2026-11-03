@@ -1,11 +1,12 @@
 /** The action rows under a chat message: copy for a sent one; copy, read aloud, thumbs and regenerate for a reply. */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { useAuthToken, useAuthUserReader } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { readAloudIsCut, speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
+import { readAloudIsCut, readReplyAloud, stopReadingAloud } from "@/features/speech/model/pronunciation";
+import { readAloudSession } from "@/features/speech/model/readAloudSession";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { speechLocale } from "@/lib/i18n/languages";
@@ -105,9 +106,10 @@ export function UserActions({
 }
 
 /**
- * Read a reply aloud, with a Stop that belongs to that reply. Keyed by reply:
- * a list row reused for another reply must not show (or act as) the Stop of
- * the one it showed before.
+ * Read a reply aloud, or stop it. The reading belongs to the read-aloud session (and its
+ * player over the composer), not to this row: it goes on while the reply scrolls away, and
+ * a row reused for another reply never shows the Stop of the one it showed before. The row
+ * re-renders only when it starts or stops being the reply read, not on every progress tick.
  */
 function useReadAloud(messageId: string, markdown: string) {
   const { t } = useTranslation();
@@ -115,49 +117,26 @@ function useReadAloud(messageId: string, markdown: string) {
   const readUser = useAuthUserReader();
   const token = useAuthToken();
   const feedbackApi = useActionFeedbackOptional();
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const speaking = speakingId === messageId;
-  const speakGenRef = useRef(0);
-  const readingRef = useRef(false);
-
-  // Stop lives on this reply. When the reply leaves (another chat, a
-  // regenerate, or the list reusing the row), stop its reading with it;
-  // otherwise the voice keeps fetching and reading with no way to stop it.
-  useEffect(
-    () => () => {
-      if (!readingRef.current) return;
-      readingRef.current = false;
-      speakGenRef.current += 1;
-      stopSpeaking();
-      setSpeakingId(null);
-    },
-    [messageId],
+  const speaking = useSyncExternalStore(
+    readAloudSession.subscribe,
+    () => readAloudSession.get()?.messageId === messageId,
   );
 
   const toggleSpeaking = async () => {
     if (speaking) {
-      speakGenRef.current += 1;
-      readingRef.current = false;
-      stopSpeaking();
-      setSpeakingId(null);
+      stopReadingAloud();
       return;
     }
-    const gen = ++speakGenRef.current;
     tap();
-    readingRef.current = true;
-    setSpeakingId(messageId);
     // The natural (cloud) voice is a paid feature the server enforces; other
     // plans read with the phone's own voice, which never reaches the server.
     const user = readUser();
     const cloudVoice = hasPlanFeature(user, "speech_tts");
     if (readAloudIsCut(markdown)) feedbackApi?.info(t("chat.read_aloud_cut"));
-    const result = await speakPlainText(markdown, speechLocale(user?.locale), {
+    const result = await readReplyAloud(messageId, markdown, speechLocale(user?.locale), {
       token: cloudVoice ? token : null,
       preferCloud: cloudVoice,
     });
-    if (gen !== speakGenRef.current) return;
-    readingRef.current = false;
-    setSpeakingId(null);
     if (!result.ok) {
       reportRecoverableError(
         feedbackApi,

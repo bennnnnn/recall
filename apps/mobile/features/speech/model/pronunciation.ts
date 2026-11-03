@@ -2,10 +2,9 @@
 
 import { isAbortError } from "@/lib/api/abort";
 import { cacheDirectory, deleteAsync, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 
 import { newAccountFile } from "@/lib/accountFiles";
-import { requestRaw } from "@/lib/api/client";
 import {
   applySpeechRate,
   PLAYBACK_POLL_MS,
@@ -14,7 +13,15 @@ import {
 } from "@/features/speech/model/cloudPlayback";
 import { markdownToSpeechText } from "@/lib/markdown/plain";
 import { readAloudPart } from "@/features/speech/model/readAloudLength";
-import { splitTtsChunks } from "@/features/speech/model/ttsLead";
+import {
+  endReadAloud,
+  readAloudChunk,
+  readAloudClipTime,
+  readAloudPaused,
+  readAloudPlaying,
+  startReadAloud,
+} from "@/features/speech/model/readAloudSession";
+import { ensureChunk, ensurePrefetchState } from "@/features/speech/model/ttsClipFetch";
 import { currentSpeechRate, getSpeechRate } from "@/features/speech/model/speechRate";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL } from "@/features/speech/model/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
@@ -82,7 +89,7 @@ let backgroundStop: { remove: () => void } | null = null;
 function stopReadingInBackground(): void {
   if (backgroundStop) return;
   backgroundStop = AppState.addEventListener("change", (state) => {
-    if (state === "background") stopSpeaking();
+    if (state === "background") stopReadingAloud();
   });
 }
 
@@ -108,72 +115,6 @@ function stopDeviceSpeech(): void {
   } catch {
     speechModule = null;
   }
-}
-
-const TTS_JSON_TIMEOUT_MS = 60_000;
-
-type TtsClip = { audio_base64: string; content_type: string; lead_hash?: string | null };
-
-type PrefetchState = {
-  key: string;
-  model: string;
-  chunks: string[];
-  abort: AbortController;
-  clips: Array<TtsClip | null>;
-  inflight: Array<Promise<TtsClip | null> | null>;
-  leadHash: string | null;
-};
-
-let prefetch: PrefetchState | null = null;
-
-function prefetchCacheKey(text: string, model: string): string {
-  return `${model}\0${text}`;
-}
-
-async function fetchCloudTtsClip(
-  token: string,
-  text: string,
-  language: string,
-  model: string,
-  part: "full" | "lead" | "rest",
-  signal: AbortSignal,
-  leadHash?: string | null,
-): Promise<TtsClip | null> {
-  const plain = readAloudPart(text);
-  if (!plain) return null;
-  const body: Record<string, string> = {
-    text: plain,
-    language,
-    model,
-    part,
-  };
-  if (part === "rest" && leadHash) {
-    body.lead_hash = leadHash;
-  }
-  const response = await requestRaw(
-    "/speech/tts",
-    token,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    },
-    true,
-    TTS_JSON_TIMEOUT_MS,
-  );
-  if (!response.ok) return null;
-  const data = (await response.json()) as {
-    audio_base64?: string;
-    content_type?: string;
-    lead_hash?: string | null;
-  };
-  if (!data.audio_base64) return null;
-  return {
-    audio_base64: data.audio_base64,
-    content_type: data.content_type ?? "audio/mpeg",
-    lead_hash: data.lead_hash ?? null,
-  };
 }
 
 type PlaybackStatus = {
@@ -223,13 +164,16 @@ function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MA
       resolve();
     };
     cloudPlaybackFinish = finish;
+    // A paused clip stopped playing but has not finished: the player's pause holds it.
     sub = player.addListener("playbackStatusUpdate", (status) => {
       if (status.playing) sawPlaying = true;
-      if (playbackStatusFinished({ ...status, sawPlaying })) finish();
+      readAloudClipTime(status.currentTime, status.duration);
+      if (!readAloudPaused() && playbackStatusFinished({ ...status, sawPlaying })) finish();
     });
     const poll = setInterval(() => {
       if (player.playing) sawPlaying = true;
       if (
+        !readAloudPaused() &&
         playbackStatusFinished({
           currentTime: player.currentTime,
           duration: player.duration,
@@ -240,7 +184,12 @@ function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MA
         finish();
       }
     }, PLAYBACK_POLL_MS);
-    const timer = setTimeout(finish, maxMs);
+    // The backstop for a clip that never reports its end; time spent paused does not count.
+    const backstop = () => {
+      if (readAloudPaused()) timer = setTimeout(backstop, maxMs);
+      else finish();
+    };
+    let timer = setTimeout(backstop, maxMs);
   });
 }
 
@@ -286,6 +235,7 @@ async function playCloudBase64(
     cloudPlayerCleanup = release;
     player.play();
     logTtsSpeechStarted();
+    readAloudPlaying({ pause: () => player.pause(), resume: () => player.play(), canPause: true }, true);
     await waitUntilPlaybackEnds(player, maxWaitMs ?? CLOUD_PLAYBACK_MAX_MS);
     // Release on finish, not on the next tap: a finished player keeps the
     // audio session in playback and holds the decoder.
@@ -321,7 +271,18 @@ async function beginDeviceSpeech(
       Speech.speak(plain, {
         language,
         rate: DEVICE_SPEECH_RATE * currentSpeechRate(),
-        onStart: () => logTtsSpeechStarted(),
+        onStart: () => {
+          logTtsSpeechStarted();
+          // expo-speech pauses on iOS only; on Android the player offers Stop alone.
+          readAloudPlaying(
+            {
+              pause: () => void Speech.pause().catch(() => undefined),
+              resume: () => void Speech.resume().catch(() => undefined),
+              canPause: Platform.OS === "ios",
+            },
+            false,
+          );
+        },
         onDone: () => resolve({ ok: true }),
         onStopped: () => resolve({ ok: true }),
         onError: () => resolve({ ok: false, reason: "error" }),
@@ -331,69 +292,6 @@ async function beginDeviceSpeech(
       resolve({ ok: false, reason: "unavailable" });
     }
   });
-}
-
-function ttsPartForChunk(index: number, total: number): "full" | "lead" | "rest" {
-  if (total <= 1) return "full";
-  return index === 0 ? "lead" : "rest";
-}
-
-function ensurePrefetchState(text: string, model: string): PrefetchState {
-  const key = prefetchCacheKey(text, model);
-  if (prefetch?.key === key) return prefetch;
-  prefetch?.abort.abort();
-  const chunks = splitTtsChunks(text);
-  const next: PrefetchState = {
-    key,
-    model,
-    chunks,
-    abort: new AbortController(),
-    clips: chunks.map(() => null),
-    inflight: chunks.map(() => null),
-    leadHash: null,
-  };
-  prefetch = next;
-  return next;
-}
-
-function ensureChunk(
-  state: PrefetchState,
-  index: number,
-  token: string,
-  language: string,
-  signal: AbortSignal,
-): Promise<TtsClip | null> {
-  const cached = state.clips[index];
-  if (cached) {
-    if (cached.lead_hash) state.leadHash = cached.lead_hash;
-    return Promise.resolve(cached);
-  }
-  const pending = state.inflight[index];
-  if (pending) return pending;
-  const chunk = state.chunks[index];
-  if (!chunk) return Promise.resolve(null);
-  const request = fetchCloudTtsClip(
-    token,
-    chunk,
-    language,
-    state.model,
-    ttsPartForChunk(index, state.chunks.length),
-    signal,
-    state.leadHash,
-  )
-    .then((clip) => {
-      if (clip?.lead_hash) state.leadHash = clip.lead_hash;
-      if (state.clips[index] == null) state.clips[index] = clip;
-      if (state.inflight[index] === request) state.inflight[index] = null;
-      return state.clips[index];
-    })
-    .catch((error: unknown) => {
-      if (state.inflight[index] === request) state.inflight[index] = null;
-      if (isAbortError(error)) return state.clips[index];
-      throw error;
-    });
-  state.inflight[index] = request;
-  return request;
 }
 
 async function playChunkPipeline(
@@ -429,6 +327,7 @@ async function playChunkPipeline(
     if (index + 1 < state.chunks.length) {
       void ensureChunk(state, index + 1, token, language, signal);
     }
+    readAloudChunk(index, state.chunks.length);
     const played = await playCloudBase64(clip.audio_base64, clip.content_type, generation);
     if (!played.ok) return played;
   }
@@ -489,6 +388,31 @@ export async function speakPlainText(
   } finally {
     if (ttsAbort === ac) ttsAbort = null;
   }
+}
+
+/**
+ * Read a reply aloud, with the small player over the composer (readAloudSession). The reading
+ * belongs to the session, not to the reply's row: it goes on while the reply scrolls away, and
+ * the player or the reply's speaker icon stops it.
+ */
+export async function readReplyAloud(
+  messageId: string,
+  markdown: string,
+  language: string,
+  options?: { token?: string | null; preferCloud?: boolean },
+): Promise<SpeakResult> {
+  const id = startReadAloud(messageId, markdown);
+  try {
+    return await speakPlainText(markdown, language, options);
+  } finally {
+    endReadAloud(id);
+  }
+}
+
+/** Stop the reading and close its player: its Stop, the app going to the background, sign-out. */
+export function stopReadingAloud(): void {
+  stopSpeaking();
+  endReadAloud();
 }
 
 export function stopSpeaking(): void {

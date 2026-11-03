@@ -24,6 +24,8 @@ const STORE_PATTERNS = [
 /** Holds an account's data; sign-out calls the named function. */
 const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/attachmentStatusFile.ts#settledFile": "clearSettledStatuses",
+  "features/speech/model/readAloudSession.ts#controls": "stopReadingAloud",
+  "features/speech/model/readAloudSession.ts#readAloudSession": "stopReadingAloud",
   "features/attachments/model/downloadChatAttachment.ts#cacheGeneration": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#cacheRevision": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#cachedFiles": "clearLocalAttachmentFileCache",
@@ -110,11 +112,11 @@ const IN_FLIGHT = [
   "features/speech/model/pronunciation.ts#backgroundStop",
   "features/speech/model/pronunciation.ts#cloudPlaybackFinish",
   "features/speech/model/pronunciation.ts#cloudPlayerCleanup",
-  "features/speech/model/pronunciation.ts#prefetch",
   "features/speech/model/pronunciation.ts#speakGeneration",
   "features/speech/model/pronunciation.ts#ttsAbort",
   "features/speech/model/pronunciation.ts#ttsStartLoggedFor",
   "features/speech/model/pronunciation.ts#ttsTapAt",
+  "features/speech/model/ttsClipFetch.ts#prefetch",
   // An ended session's logout still owed to the server, keyed by its own tokens; the next
   // account never reads it, and it must outlive the sign-out that wrote it.
   "lib/pendingLogout.ts#hasPending",
@@ -142,6 +144,8 @@ const NO_ACCOUNT_DATA = [
   "features/speech/model/liveTalkSfx.ts#cueEpoch",
   "features/speech/model/liveTalkSfx.ts#cuePlayer",
   "features/speech/model/pronunciation.ts#speechModule",
+  "features/speech/model/readAloudSession.ts#chunk",
+  "features/speech/model/readAloudSession.ts#lastId",
   "features/speech/model/speechRate.ts#cachedRate",
   "features/speech/model/ttsPreference.ts#cachedPreference",
   "features/todos/model/optimisticTodo.ts#optimisticTodoSeq",
