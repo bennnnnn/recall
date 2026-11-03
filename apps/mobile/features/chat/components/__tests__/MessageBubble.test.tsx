@@ -136,8 +136,8 @@ jest.mock("@/features/speech/model/pronunciation", () => {
   const session = jest.requireActual("@/features/speech/model/readAloudSession");
   return {
     readAloudIsCut: jest.fn(() => false),
-    readReplyAloud: jest.fn(async (messageId: string, markdown: string) => {
-      const id = session.startReadAloud(messageId, markdown);
+    readReplyAloud: jest.fn(async (messageId: string) => {
+      const id = session.startReadAloud(messageId);
       const result = await mockReading;
       session.endReadAloud(id);
       return result;

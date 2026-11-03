@@ -146,6 +146,8 @@ const NO_ACCOUNT_DATA = [
   "features/speech/model/liveTalkSfx.ts#cuePlayer",
   "features/speech/model/pronunciation.ts#speechModule",
   "features/speech/model/readAloudSession.ts#chunk",
+  "features/speech/model/readAloudSession.ts#clipMs",
+  "features/speech/model/readAloudSession.ts#heardClipsMs",
   "features/speech/model/readAloudSession.ts#lastId",
   "features/speech/model/speechRate.ts#cachedRate",
   "features/speech/model/ttsPreference.ts#cachedPreference",

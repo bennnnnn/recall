@@ -62,10 +62,11 @@ def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
 def resolve_tts_voice(settings: Settings, model: str, user_voice: str | None = None) -> str:
     """The user's voice, else the configured one; never one left from Gemini/Kokoro."""
     chosen = (user_voice or "").strip().lower()
-    if chosen in _OPENAI_TTS_VOICES:
-        return chosen
-    voice = (settings.speech_tts_voice or "").strip().lower()
-    return voice if voice in _OPENAI_TTS_VOICES else "alloy"
+    if chosen not in _OPENAI_TTS_VOICES:
+        configured = (settings.speech_tts_voice or "").strip().lower()
+        chosen = configured if configured in _OPENAI_TTS_VOICES else "alloy"
+    # The model may lack the voice (it is live talk's choice too): the gateway picks its nearest.
+    return speech_gateway.voice_for(model, chosen)
 
 
 async def transcribe_audio(
