@@ -166,6 +166,22 @@ class Battery:
         self.client.delete("/chats", headers=headers).raise_for_status()
         self.client.delete("/memories", headers=headers).raise_for_status()
 
+    def _clear_memory(self, pro: bool) -> None:
+        """Each case starts with no saved memory, as a new user would.
+
+        Cleared only at the start, an earlier case's "wants to learn Python from scratch"
+        and its lesson line made "teach me python" open Lesson 1 instead of the outline it
+        asks for. The last case's memory job may still hold the lock (409 ``memory_busy``):
+        waiting for it also keeps that job from writing into this case.
+        """
+        for _ in range(30):
+            response = self.client.delete("/memories", headers=self._headers(pro))
+            if response.status_code != 409:
+                response.raise_for_status()
+                return
+            time.sleep(1)
+        response.raise_for_status()
+
     def _reset_quota(self, pro: bool) -> None:
         """A battery spends a day's free tokens; the dev reset keeps every prompt answerable."""
         response = self.client.post("/chats/usage/today/reset", headers=self._headers(pro))
@@ -246,6 +262,7 @@ class Battery:
 
     def run(self, case: Case) -> Turn:
         self._reset_quota(case.pro)
+        self._clear_memory(case.pro)
         self._set_location(case.pro, case.location)
         created = self.client.post(
             "/chats", headers=self._headers(case.pro), json={"model": self.model}
