@@ -9,7 +9,7 @@ import {
   type TriangleSpec,
 } from "@/lib/math/geometryBlock";
 import { type Theme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 export function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; screenWidth: number; theme: Theme }) {
   const colors = diagramColors(theme);
@@ -66,7 +66,7 @@ export function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSp
             y={verts[0].y + 18}
             fill={theme.text}
             fontSize={13}
-            fontFamily={UI_FONT.semibold}
+            {...Weight.semibold}
             textAnchor="middle"
           >
             {labels.base}
@@ -76,12 +76,12 @@ export function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSp
             y={(verts[2].y + verts[0].y) / 2}
             fill={colors.height}
             fontSize={12}
-            fontFamily={UI_FONT.semibold}
+            {...Weight.semibold}
           >
             {labels.height}
           </SvgText>
           {labels.area ? (
-            <SvgText x={verts[2].x} y={verts[2].y - 8} fill={theme.textSecondary} fontSize={11} fontFamily={UI_FONT.regular} textAnchor="middle">
+            <SvgText x={verts[2].x} y={verts[2].y - 8} fill={theme.textSecondary} fontSize={11} {...Weight.regular} textAnchor="middle">
               {labels.area}
             </SvgText>
           ) : null}

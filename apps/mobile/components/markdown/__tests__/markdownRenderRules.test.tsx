@@ -57,20 +57,15 @@ jest.mock("@/components/CodeBlock", () => {
 });
 
 describe("markdown render rules", () => {
-  it("clamps heading4–6 to body size so hierarchy never inverts", () => {
+  it("clamps heading4–6 to the reading size so hierarchy never inverts", () => {
     const styles = makeMdStyles(lightTheme);
-    expect(StyleSheet.flatten(styles.heading3)).toMatchObject({
-      fontSize: 17,
-      fontWeight: "400",
-      fontFamily: "SourceSans3-Bold",
-    });
-    expect(StyleSheet.flatten(styles.heading4)).toMatchObject({
-      fontSize: 16,
-      fontWeight: "400",
-      fontFamily: "SourceSans3-Bold",
-    });
-    expect(StyleSheet.flatten(styles.heading5)).toMatchObject({ fontSize: 16 });
-    expect(StyleSheet.flatten(styles.heading6)).toMatchObject({ fontSize: 16 });
+    expect(StyleSheet.flatten(styles.heading3)).toMatchObject({ fontSize: 20, fontWeight: "700" });
+    for (const heading of [styles.heading4, styles.heading5, styles.heading6]) {
+      expect(StyleSheet.flatten(heading)).toMatchObject({
+        fontSize: Type.reading.fontSize,
+        fontWeight: "700",
+      });
+    }
   });
 
   it("colors ordered-list markers and gives them a fixed rail", () => {
@@ -89,7 +84,7 @@ describe("markdown render rules", () => {
       borderWidth: 0,
       padding: 0,
       backgroundColor: lightTheme.codeInlineBg,
-      fontSize: 14,
+      fontSize: Type.secondary.fontSize,
       paddingHorizontal: 0,
     });
     expect(inline.lineHeight).toBeUndefined();
@@ -983,7 +978,7 @@ describe("markdown render rules", () => {
     const fours = getAllByText("4");
     expect(
       fours.some((node) =>
-        JSON.stringify(node.props.style).includes("SourceSans3-Bold"),
+        JSON.stringify(node.props.style).includes('"fontWeight":"700"'),
       ),
     ).toBe(true);
   });
@@ -1178,44 +1173,43 @@ $\frac{d}{dx} x^{3} = 3 x^{2}$`}
 });
 
 describe("emphasis faces", () => {
-  // A one-file family has no italic or bold slot: the face must be the file.
-  function faceOf(node: {
+  // The weight a word is drawn in: its own, or the nearest one around it.
+  function weightOf(node: {
     props: { style?: StyleProp<TextStyle> };
     parent: unknown;
-  }): string | undefined {
+  }): TextStyle["fontWeight"] | undefined {
     let current: {
       props: { style?: StyleProp<TextStyle> };
       parent: unknown;
     } | null = node;
     while (current) {
-      const family = StyleSheet.flatten(current.props.style)?.fontFamily;
-      if (family) return family;
+      const weight = StyleSheet.flatten(current.props.style)?.fontWeight;
+      if (weight) return weight;
       current = current.parent as typeof current;
     }
     return undefined;
   }
 
-  it("draws *italic* with the italic file, never fontStyle", async () => {
+  it("draws *italic* in the system face's real italic", async () => {
     const { getByText } = await render(
       <MarkdownContent content="A *soft* word" />,
     );
     const leaf = getByText("soft");
-    expect(faceOf(leaf)).toBe("SourceSans3-Italic");
-    expect(StyleSheet.flatten(leaf.props.style)?.fontStyle).not.toBe("italic");
+    expect(StyleSheet.flatten(leaf.props.style)).toMatchObject({ fontStyle: "italic", fontWeight: "400" });
   });
 
   it("draws ***both*** with the bold italic file", async () => {
     const { getByText } = await render(
       <MarkdownContent content="A ***loud*** word" />,
     );
-    expect(faceOf(getByText("loud"))).toBe("SourceSans3-BoldItalic");
+    expect(StyleSheet.flatten(getByText("loud").props.style)).toMatchObject({ fontStyle: "italic", fontWeight: "700" });
   });
 
   it("keeps **bold** bold inside a table cell", async () => {
     const md = "| Plan | Price |\n| --- | --- |\n| **Pro** | $5 |";
     const { getByText } = await render(<MarkdownContent content={md} />);
-    expect(faceOf(getByText("Pro"))).toBe("SourceSans3-Bold");
-    expect(faceOf(getByText("$5"))).toBe("SourceSans3");
+    expect(weightOf(getByText("Pro"))).toBe("700");
+    expect(weightOf(getByText("$5"))).toBe("400");
   });
 });
 
@@ -1271,7 +1265,7 @@ describe("reply rhythm", () => {
     expect(rule.borderLeftColor).toBe(lightTheme.textDisabled);
     const prose = StyleSheet.flatten(getByText("An aside with ").props.style);
     expect(prose.color).toBe(lightTheme.textSecondary);
-    expect(prose.fontSize).toBe(Type.body.fontSize);
+    expect(prose.fontSize).toBe(Type.reading.fontSize);
     expect(StyleSheet.flatten(getByText("weight").props.style).color).toBe(
       lightTheme.textSecondary,
     );

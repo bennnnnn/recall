@@ -3,6 +3,7 @@ import { render } from "@testing-library/react-native";
 
 import { CountBadge } from "@/ui/feedback/CountBadge";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
@@ -25,6 +26,7 @@ describe("semantic primitives", () => {
     });
     expect(badgeStyle.height).toBeUndefined();
     expect(labelStyle.color).toBe(mockLightTheme.onDanger);
-    expect(labelStyle.lineHeight).toBeUndefined();
+    // Its line height scales with the text, so the badge grows around it.
+    expect(labelStyle.lineHeight).toBe(Type.micro.lineHeight);
   });
 });

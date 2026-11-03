@@ -8,7 +8,7 @@ import {
 } from "@/lib/math/geometryBlock";
 import i18n from "@/lib/i18n";
 import { type Theme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 export function CircleDiagram({
   spec,
@@ -66,7 +66,7 @@ export function CircleDiagram({
           y={cy - 8}
           fill={colors.diagonal}
           fontSize={12}
-          fontFamily={UI_FONT.semibold}
+          {...Weight.semibold}
           textAnchor="middle"
         >
           {spec.show_diameter && labels.diameter ? labels.diameter : labels.radius}
@@ -79,7 +79,7 @@ export function CircleDiagram({
           y={cy + r + 34 + index * 16}
           fill={theme.textSecondary}
           fontSize={12}
-          fontFamily={UI_FONT.regular}
+          {...Weight.regular}
           textAnchor="middle"
         >
           {line}

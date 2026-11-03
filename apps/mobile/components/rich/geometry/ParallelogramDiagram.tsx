@@ -13,7 +13,7 @@ import {
 } from "@/lib/math/geometryBlock";
 import i18n from "@/lib/i18n";
 import { type Theme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 export function ParallelogramDiagram({
   spec,
@@ -73,7 +73,7 @@ export function ParallelogramDiagram({
             y={(tl.y + bl.y) / 2 - 10}
             fill={theme.text}
             fontSize={12}
-            fontFamily={UI_FONT.semibold}
+            {...Weight.semibold}
             textAnchor="end"
           >
             {labels.side}
@@ -83,7 +83,7 @@ export function ParallelogramDiagram({
             y={(tr.y + br.y) / 2 - 10}
             fill={theme.text}
             fontSize={12}
-            fontFamily={UI_FONT.semibold}
+            {...Weight.semibold}
             textAnchor="start"
           >
             {labels.side}
@@ -94,7 +94,7 @@ export function ParallelogramDiagram({
               y={bl.y + 40}
               fill={theme.textSecondary}
               fontSize={12}
-              fontFamily={UI_FONT.regular}
+              {...Weight.regular}
               textAnchor="middle"
             >
               {spec.show_perimeter

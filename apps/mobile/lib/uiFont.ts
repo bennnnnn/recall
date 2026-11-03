@@ -1,26 +1,10 @@
-/** One line of the UI face, in em: hhea ascender 1024 + descender 400 per 1000 units, no gap. */
-export const UI_LINE_EM = 1.424;
+/**
+ * The platform's own face: "System" is SF Pro on iOS and Roboto on Android. The OS
+ * draws every weight and the italics from its own files, tuned for each size, so
+ * nothing is loaded and `fontWeight` / `fontStyle` are real, never faux.
+ */
+export const UI_FONT_FAMILY = "System";
 
-/** Source Sans 3, one file per weight. Loaded in the root layout. Not Inter. */
-export const UI_FONT = {
-  regular: "SourceSans3",
-  medium: "SourceSans3-Medium",
-  semibold: "SourceSans3-Semibold",
-  bold: "SourceSans3-Bold",
-  /** True italic files: `fontStyle: "italic"` on a one-file family draws upright
-   *  on iOS and Roboto Italic on Android. */
-  italic: "SourceSans3-Italic",
-  semiboldItalic: "SourceSans3-SemiboldItalic",
-  boldItalic: "SourceSans3-BoldItalic",
-} as const;
+/** One line of the UI face at its natural height, in em (SF Pro 1.19, Roboto 1.17), rounded up. */
+export const UI_LINE_EM = 1.2;
 
-const UI_FONT_FOR_WEIGHT = {
-  "400": UI_FONT.regular,
-  "500": UI_FONT.medium,
-  "600": UI_FONT.semibold,
-  "700": UI_FONT.bold,
-} as const;
-
-export function uiFontFamily(weight: keyof typeof UI_FONT_FOR_WEIGHT): string {
-  return UI_FONT_FOR_WEIGHT[weight];
-}

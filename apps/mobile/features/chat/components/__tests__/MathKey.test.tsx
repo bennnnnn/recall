@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import {
@@ -8,7 +9,7 @@ import {
   keyLabelSize,
 } from "@/features/chat/components/MathKey";
 import { MATH_FONT, MATH_SIZE1_FONT, MATH_SYMBOL_FONT, MATH_VARIABLE_FONT } from "@/lib/fonts";
-import { UI_FONT } from "@/lib/uiFont";
+import { UI_FONT_FAMILY } from "@/lib/uiFont";
 
 describe("math key labels", () => {
   it("draws scripts as raised and lowered text, not Unicode the face may lack", () => {
@@ -29,7 +30,7 @@ describe("math key labels", () => {
   });
 
   it("puts each glyph in a bundled face that has it", () => {
-    expect(keyLabelRuns("sin", false)).toEqual([{ text: "sin", family: UI_FONT.semibold, scale: 1 }]);
+    expect(keyLabelRuns("sin", false)).toEqual([{ text: "sin", family: UI_FONT_FAMILY, scale: 1 }]);
     expect(keyLabelRuns("∬", false)[0]!.family).toBe(MATH_SIZE1_FONT);
     expect(keyLabelRuns("∠", false)[0]!.family).toBe(MATH_FONT);
     expect(keyLabelRuns("ℝ", false)[0]).toMatchObject({ text: "R", family: MATH_SYMBOL_FONT });
@@ -52,5 +53,22 @@ describe("math key labels", () => {
       expect(node.props.numberOfLines).toBe(1);
       expect(node.props.maxFontSizeMultiplier).toBe(KEY_FONT_SCALE_MAX);
     }
+  });
+
+  it("draws a word label in the UI face's semibold, a symbol in its maths face", async () => {
+    const { getByText } = await render(
+      <MathKey label="sin" testID="k" accessibilityLabel="Sine" onPress={() => undefined} height={44} />,
+    );
+    expect(StyleSheet.flatten(getByText("sin").props.style)).toMatchObject({
+      fontFamily: UI_FONT_FAMILY,
+      fontWeight: "600",
+    });
+    const symbol = await render(
+      <MathKey label="∠" testID="a" accessibilityLabel="Angle" onPress={() => undefined} height={44} />,
+    );
+    expect(StyleSheet.flatten(symbol.getByText("∠").props.style)).toMatchObject({
+      fontFamily: MATH_FONT,
+      fontWeight: "400",
+    });
   });
 });

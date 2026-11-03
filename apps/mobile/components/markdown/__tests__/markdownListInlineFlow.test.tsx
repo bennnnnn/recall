@@ -128,9 +128,7 @@ describe("markdown list item inline flow", () => {
       "2. **Prioritize sleep** – Aim for seven to nine hours every night.",
     ].join("\n");
     const { getByText } = await render(<MarkdownContent content={md} />);
-    expect(StyleSheet.flatten(getByText("1.").props.style).fontFamily).toBe(
-      "SourceSans3-Bold",
-    );
+    expect(StyleSheet.flatten(getByText("1.").props.style).fontWeight).toBe("700");
     expect(getByText(/Consume diverse books/)).toBeTruthy();
   });
 
@@ -138,9 +136,7 @@ describe("markdown list item inline flow", () => {
     const md =
       "1. Preheat the oven to 200 degrees.\n2. Mix the flour and the butter.";
     const { getByText } = await render(<MarkdownContent content={md} />);
-    expect(StyleSheet.flatten(getByText("1.").props.style).fontFamily).toBe(
-      "SourceSans3",
-    );
+    expect(StyleSheet.flatten(getByText("1.").props.style).fontWeight).toBe("400");
   });
 
   it("still renders a plain list item (no embedded styling) as before", async () => {
