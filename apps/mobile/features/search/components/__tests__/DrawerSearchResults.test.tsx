@@ -50,7 +50,7 @@ it("keeps snippets as literal text and exposes result navigation as a button", a
   const content = '<script>alert("hi")</script> **literal** [click](https://example.com)';
   const result: SearchResult = { chat_id: "chat", message_id: "message", chat_title: "A title",
     content, match_type: "message", role: "user", created_at: "2026-01-01" };
-  const view = await render(<DrawerSearchResultRow result={result} title="A title" onOpenChat={open} />);
+  const view = await render(<DrawerSearchResultRow query="" result={result} title="A title" onOpenChat={open} />);
   expect(view.getByText(content)).toBeTruthy();
   await fireEvent.press(view.getByRole("button"));
   expect(open).toHaveBeenCalledWith("chat", "message");
@@ -83,9 +83,9 @@ it("wires search rows to the guarded result action and keeps the failed page ret
 it("tags a hit in an archived chat, which search used to skip", async () => {
   const result: SearchResult = { chat_id: "chat", message_id: "message", chat_title: "Old trip",
     content: "the pelican", match_type: "message", role: "user", created_at: "2026-01-01", archived: true };
-  const view = await render(<DrawerSearchResultRow result={result} title="Old trip" onOpenChat={jest.fn()} />);
+  const view = await render(<DrawerSearchResultRow query="" result={result} title="Old trip" onOpenChat={jest.fn()} />);
   expect(view.getByText("search.archived_tag")).toBeTruthy();
-  const live = await render(<DrawerSearchResultRow result={{ ...result, archived: false }} title="Old trip"
+  const live = await render(<DrawerSearchResultRow query="" result={{ ...result, archived: false }} title="Old trip"
     onOpenChat={jest.fn()} />);
   expect(live.queryByText("search.archived_tag")).toBeNull();
 });
@@ -115,8 +115,18 @@ it("shows a file hit by its name and opens the message it was sent with", async 
   const open = jest.fn();
   const result: SearchResult = { chat_id: "chat", message_id: "message", chat_title: "Chemistry",
     content: "Chemistry Study Guide.pdf", match_type: "file", role: "user", created_at: "2026-01-01" };
-  const view = await render(<DrawerSearchResultRow result={result} title="Chemistry" onOpenChat={open} />);
+  const view = await render(<DrawerSearchResultRow query="" result={result} title="Chemistry" onOpenChat={open} />);
   expect(view.getByText("Chemistry Study Guide.pdf")).toBeTruthy();
   await fireEvent.press(view.getByRole("button"));
   expect(open).toHaveBeenCalledWith("chat", "message");
+});
+
+it("highlights what was searched in the title and the words", async () => {
+  const result: SearchResult = {
+    match_type: "message", message_id: "m", chat_id: "chat", chat_title: "How rainbows form",
+    content: "Rain makes rainbows", role: "user", created_at: "2026-01-01T00:00:00Z",
+  };
+  const view = await render(<DrawerSearchResultRow query="rain" result={result} title="How rainbows form"
+    onOpenChat={jest.fn()} />);
+  expect(view.getAllByText(/^rain$/i).map((node) => node.props.children)).toEqual(["rain", "Rain", "rain"]);
 });

@@ -37,7 +37,7 @@ export type DrawerChatListItem =
       collapsible: boolean;
     }
   | { type: "row"; key: string; chat: Chat }
-  | { type: "searchRow"; key: string; result: SearchResult; onOpen: (id: string, messageId?: string | null) => void }
+  | { type: "searchRow"; key: string; result: SearchResult; query: string; onOpen: (id: string, messageId?: string | null) => void }
   | {
       type: "searchLoadMore";
       key: "search-load-more";
@@ -48,6 +48,7 @@ export type DrawerChatListItem =
   | { type: "archivedMore"; key: "archived-more" };
 
 const NO_ITEMS: DrawerChatListItem[] = [];
+const SEARCH_POSITION = { disabled: true };
 
 type Props = {
   groups: ChatList;
@@ -71,6 +72,8 @@ type Props = {
   refreshing: boolean;
   onRefresh: () => void;
   searchOpen?: boolean;
+  /** What was searched: the results highlight it. */
+  searchQuery?: string;
   searchResults?: SearchResult[];
   searchHasMore?: boolean;
   searchLoadingMore?: boolean;
@@ -104,6 +107,7 @@ export function DrawerChatFlashList({
   refreshing,
   onRefresh,
   searchOpen = false,
+  searchQuery = "",
   searchResults = [],
   searchHasMore = false,
   searchLoadingMore = false,
@@ -127,7 +131,7 @@ export function DrawerChatFlashList({
       const key = result.message_id
         ? `search-${result.message_id}`
         : `search-title-${result.chat_id}`;
-      items.push({ type: "searchRow", key, result, onOpen: onOpenSearchResult });
+      items.push({ type: "searchRow", key, result, query: searchQuery, onOpen: onOpenSearchResult });
     }
     if (searchHasMore || searchLoadingMoreError) {
       items.push({
@@ -146,12 +150,13 @@ export function DrawerChatFlashList({
     searchLoadingMore,
     searchLoadingMoreError,
     searchOpen,
+    searchQuery,
     searchResults,
   ]);
 
-  // A new search's results go in above the chat rows, and the list keeps the rows on
-  // screen, which pushed the results up out of sight. A new first result is a new
-  // search: show it from the top. Load more appends below and keeps the place.
+  // A new search's results go in above the chat rows. Keeping the rows on screen (the
+  // list's visible-position rule, off while searching) pushed them out of sight. A new
+  // first result is a new search: show it from the top. Load more keeps the place.
   const listRef = useRef<FlashListRef<DrawerChatListItem>>(null);
   const firstSearchKey = searchItems[0]?.key;
   useEffect(() => {
@@ -200,6 +205,7 @@ export function DrawerChatFlashList({
           <DrawerSearchResultRow
             result={item.result}
             title={displayChatTitle(item.result.chat_title, {}, t)}
+            query={item.query}
             onOpenChat={item.onOpen}
           />
         );
@@ -324,6 +330,7 @@ export function DrawerChatFlashList({
       refreshControl={refreshControl}
       onEndReached={searchOpen ? undefined : onLoadOlderChats}
       onEndReachedThreshold={0.5}
+      maintainVisibleContentPosition={searchOpen ? SEARCH_POSITION : undefined}
     />
   );
 }

@@ -9,11 +9,13 @@ import { DrawerChatFlashList } from "@/features/chat/drawer/DrawerChatFlashList"
 import type { ChatList, SearchResult } from "@/lib/api";
 
 const mockScrollToOffset = jest.fn();
+let mockListProps: { maintainVisibleContentPosition?: { disabled?: boolean } } = {};
 
 jest.mock("@shopify/flash-list", () => {
   const { forwardRef, useImperativeHandle } = jest.requireActual<typeof import("react")>("react");
   return {
-    FlashList: forwardRef(function MockFlashList(_props, ref) {
+    FlashList: forwardRef(function MockFlashList(props: typeof mockListProps, ref) {
+      mockListProps = props;
       useImperativeHandle(ref, () => ({ scrollToOffset: mockScrollToOffset }));
       return null;
     }),
@@ -70,6 +72,8 @@ it("shows a new search's results from the top", async () => {
 
   await view.rerender(list([result("c")]));
   expect(mockScrollToOffset).toHaveBeenCalledTimes(2);
+  // Keeping the chat rows on screen would push the results back up after that scroll.
+  expect(mockListProps.maintainVisibleContentPosition).toEqual({ disabled: true });
 });
 
 it("keeps the place when more results load below", async () => {

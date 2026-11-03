@@ -344,6 +344,7 @@ export function ConversationList() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         searchOpen={searchOpen}
+        searchQuery={searchQuery}
         searchResults={searchResults}
         searchHasMore={hasMore}
         searchLoadingMore={loadingMore}
