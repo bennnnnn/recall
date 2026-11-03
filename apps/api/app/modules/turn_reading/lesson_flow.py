@@ -12,8 +12,8 @@ from app.modules.turn_reading.teaching import (
     PROGRAMMING_PATTERNS,
     is_teaching_request,
     programming_tag,
-    walkthrough_topic,
 )
+from app.modules.turn_reading.walkthrough import walkthrough_topic
 from app.services.md_fence_scan import iter_fences, without_fences
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 

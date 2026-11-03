@@ -91,10 +91,10 @@ from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.turn_reading.teaching import (
     is_learning_plan_request,
     is_standing_preference,
-    is_walkthrough_request,
 )
 from app.modules.turn_reading.turn import teaching_of
 from app.modules.turn_reading.visuals import is_image_generation_mention
+from app.modules.turn_reading.walkthrough import is_walkthrough_request
 from app.modules.turn_reading.writing import draft_followup
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
