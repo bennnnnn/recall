@@ -75,6 +75,12 @@ _DIGIT = re.compile(r"\d")
 # A lead-in that names a result, or someone else's: a claim even with no check asked.
 _NAMES_A_RESULT = re.compile(rf"\b{_OWN_RESULT}\b|\b{_SOMEONE_ELSE}\b", re.IGNORECASE)
 _ASKS_CHECK = re.compile(CHECK, re.IGNORECASE)
+# A sentence that asks for nothing: thanks, a please, an okay.
+_COURTESY = re.compile(
+    r"^(?:thanks?(?:\s+(?:a\s+lot|so\s+much))?|thank\s+you(?:\s+(?:so|very)\s+much)?|thx|ty|"
+    r"please|pls|plz|ok(?:ay)?|cool|great|cheers|lol)\W*$",
+    re.IGNORECASE,
+)
 
 
 def _claim_sentences(text: str) -> list[str]:
@@ -134,12 +140,11 @@ def only_checks_stated_results(text: str) -> bool:
 
 
 def _asks_something(text: str) -> bool:
-    """A sentence beside the claims that asks a question of its own: a number to work with,
-    a question mark, or a question word leading it ("What is the molar mass of water?")."""
+    """A sentence beside the claims asks for something of its own ("What is the molar
+    mass of water?", "Show the working.", "Explain why."), unless it is only a courtesy:
+    "Thanks!", "Please.", "ok"."""
     return any(
-        any(char.isdigit() for char in sentence)
-        or "?" in sentence
-        or QUESTION_WORD.match(sentence.strip()) is not None
+        _COURTESY.match(sentence.strip()) is None
         for sentence in _SENTENCE.findall(text)
         if sentence.strip()
     )

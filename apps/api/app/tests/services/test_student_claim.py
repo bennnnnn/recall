@@ -150,3 +150,19 @@ def test_a_check_with_a_word_of_thanks_is_still_only_a_check() -> None:
 )
 def test_a_question_with_no_number_beside_a_check_is_still_asked(text: str) -> None:
     assert not only_checks_stated_results(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "My answers: 1) 5 2) 6. Did I get them right? Show the working.",
+        "My answer is 4 mol, is that right? Explain why.",
+    ],
+)
+def test_a_request_beside_a_check_is_still_asked(text: str) -> None:
+    assert not only_checks_stated_results(text)
+
+
+@pytest.mark.parametrize("courtesy", ["Thanks!", "Thank you so much.", "Please.", "ok"])
+def test_a_courtesy_beside_a_check_asks_nothing(courtesy: str) -> None:
+    assert only_checks_stated_results(f"My answer is 4 mol, is that right? {courtesy}")
