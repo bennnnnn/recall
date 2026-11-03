@@ -7,6 +7,7 @@ and only count at the start of a clause, after nothing but "please", "can you" o
 
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import Literal
 
 MemoryReset = Literal["clear", "off"]
@@ -445,6 +446,8 @@ def _is_command_at(lowered: str, marker: str, index: int) -> bool:
     after = lowered[index + len(marker) :].split()
     if (marker.startswith("forget") or marker in _MUTE_MARKERS) and _names_a_chat_part(after):
         return False
+    if marker.startswith("forget") and _withdraws_the_ask(lowered[index + len("forget") :]):
+        return False
     # "Remember that song from Titanic?" asks; "can you remember that …?" tells.
     return not (marker in _REMEMBER_MARKERS and not led and lowered.rstrip().endswith("?"))
 
@@ -454,6 +457,36 @@ def _names_a_chat_part(words: list[str]) -> bool:
     while head and head[0] in _CHAT_PART_LEADS:
         head = head[1:]
     return bool(head) and head[0] in _CHAT_PARTS
+
+
+# "Never mind, forget I asked", "forget that I asked about the weather": the user drops the
+# request in hand, not a saved fact. Asking states nothing to save, so "forget I asked about
+# my diet" drops a question. What was said is still a forget ("forget I said I'm
+# vegetarian", "forget I said anything"), and so is a bare "forget that" or "forget about
+# it": it deletes only a fact the line before asked to remember (``pass_writes``).
+_ASK_VERBS = frozenset({"ask", "asked", "asking", "requested", "wondered"})
+_ASIDES = frozenset({"ever", "even", "just", "already", "once"})
+# An ask that was itself a save: "forget I asked you to remember my wifi password" forgets
+# what that ask saved, not the asking.
+_SAVE_ASKS = frozenset(
+    {"remember", "save", "keep", "store", "note", "memorize", "memorise", "call"}
+)
+
+
+def _withdraws_the_ask(rest: str) -> bool:
+    """True when what follows "forget" drops the user's request, not a saved fact."""
+    clause = rest
+    for mark in _CLAUSE_BREAKS:
+        clause = clause.split(mark, 1)[0]
+    words = clause.split()
+    if words[:1] == ["that"]:
+        words = words[1:]
+    if words[:1] not in (["i"], ["i'd"], ["i've"]):
+        return False
+    verbs = [word for word in words[1:] if word not in _ASIDES]
+    if not verbs or verbs[0] not in _ASK_VERBS:
+        return False
+    return not any(word == "to" and nxt in _SAVE_ASKS for word, nxt in pairwise(verbs[1:]))
 
 
 def _forget_marker_is_negated(lowered: str, index: int) -> bool:

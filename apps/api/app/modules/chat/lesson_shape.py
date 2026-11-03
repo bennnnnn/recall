@@ -73,16 +73,18 @@ def asks_back(text: str) -> bool:
     return bool(parts) and is_question(parts[-1]) and not any(map(is_heading, parts))
 
 
-def next_lesson_number(recent: Sequence[Any] | None) -> int:
-    """One past the last lesson this chat taught before the turn's own message."""
-    rows = list(recent or [])
-    last_user = max(
-        (i for i, m in enumerate(rows) if getattr(m, "role", None) == "user"), default=0
-    )
+def next_lesson_number(recent: Sequence[Any] | None, *, redoing: Any = None) -> int:
+    """One past the highest lesson this chat has taught.
+
+    ``recent`` is read before this turn's message is saved, so its last reply is the one
+    before this turn: every reply counts but the one a regenerate redoes (``redoing``, its
+    message id). Counting only replies before the last user row restarted at Lesson 1.
+    """
     taught = [
         lesson_step(content)
-        for message in rows[:last_user]
+        for message in recent or []
         if getattr(message, "role", None) == "assistant"
+        and (redoing is None or getattr(message, "id", None) != redoing)
         and isinstance(content := getattr(message, "content", None), str)
     ]
     return max((n for n in taught if n is not None), default=0) + 1
@@ -133,7 +135,10 @@ async def hold_lesson(state: FinalizeState, copy: LessonCopy) -> str:
         topic = lesson_topic(state.ctx.user_message_content) or (practice and practice.topic)
         if not topic:
             return text
-        number = next_lesson_number(state.ctx.recent_messages)
+        backup = state.ctx.regenerate_backup
+        number = next_lesson_number(
+            state.ctx.recent_messages, redoing=backup.message_id if backup else None
+        )
         text = with_title(text, f"### {copy.lesson} {number}: {topic}")
     return with_practice(text, practice.quiz, copy) if practice is not None else text
 

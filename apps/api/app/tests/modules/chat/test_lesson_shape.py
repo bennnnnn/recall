@@ -94,6 +94,7 @@ def _state(
             prompt_messages=[*system, *nearby, {"role": "user", "content": message}],
             user_message_content=message,
             recent_messages=recent or [],
+            regenerate_backup=None,
             user=SimpleNamespace(locale=locale),
         ),
     )
@@ -201,12 +202,26 @@ async def test_the_lesson_number_follows_the_chats_last_lesson(calls: _Calls) ->
     assert "### Lesson 3: Recursion" in out
 
 
-def test_a_regenerated_reply_after_the_message_is_not_counted() -> None:
+@pytest.mark.asyncio
+async def test_the_lesson_number_counts_the_reply_just_before_this_turn(calls: _Calls) -> None:
+    """``recent`` is read before this turn's message is saved: it ends on the last lesson."""
     recent = [
-        SimpleNamespace(role="user", content="I don't understand recursion"),
-        SimpleNamespace(role="assistant", content="### Lesson 1: Recursion\n\n```quiz\n{}\n```"),
+        SimpleNamespace(role="user", content="teach me python lists"),
+        SimpleNamespace(
+            role="assistant", content="### Lesson 1: Lists\n\nText.\n\n```quiz\n{}\n```"
+        ),
     ]
-    assert next_lesson_number(recent) == 1
+    state = _state(_WALKTHROUGH_REPLY, "I don't understand recursion", recent=recent)
+    assert "### Lesson 2: Recursion" in await hold_lesson_shape(state)
+
+
+def test_a_regenerated_reply_is_not_counted() -> None:
+    redone = SimpleNamespace(
+        id="m2", role="assistant", content="### Lesson 1: Recursion\n\n```quiz\n{}\n```"
+    )
+    recent = [SimpleNamespace(id="m1", role="user", content="I don't understand recursion"), redone]
+    assert next_lesson_number(recent, redoing="m2") == 1
+    assert next_lesson_number(recent) == 2
 
 
 @pytest.mark.asyncio

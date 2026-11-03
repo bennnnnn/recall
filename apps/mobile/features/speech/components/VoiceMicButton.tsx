@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 
-import { lightTheme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
@@ -42,10 +42,16 @@ export function VoiceMicButton({ size, recording, transcribing, disabled, onPres
     >
       <View
         testID="voice-mic-surface"
-        style={[styles.btn, box, recording && [styles.stopDisc, { borderRadius: size / 2 }]]}
+        style={[
+          styles.btn,
+          box,
+          // The accent's tint behind the accent mark: in dark mode the accent is pale and
+          // the tint dark, so the mark stands out in both (a white disc lost it in dark).
+          recording && { backgroundColor: theme.primaryLight, borderRadius: size / 2 },
+        ]}
       >
         {recording ? (
-          <RoundedStop size={IconSize.md} color={lightTheme.text} />
+          <RoundedStop size={IconSize.md} color={theme.primary} />
         ) : (
           <Icon name="mic" size={IconSize.md} color={theme.text} testID="voice-mic-icon" />
         )}
@@ -64,8 +70,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
-  },
-  stopDisc: {
-    backgroundColor: lightTheme.bg,
   },
 });

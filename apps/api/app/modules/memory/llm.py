@@ -71,11 +71,18 @@ SETTING_PREFERENCE_RULE = (
     "in their own work, is a fact."
 )
 
-# What belongs elsewhere: reminders, and a setting's choice.
+# What belongs elsewhere: reminders, a setting's choice, a single task (held in code by
+# ``task_lines``), and the lesson job's progress line (``fact_quality.is_learning_line``).
 _NOT_MEMORY_RULES = (
     "- Do not store a todo, reminder, appointment, flight, concert, or other one-off errand. "
     "Those are reminders, not memory. A standing routine (every evening, working hours) may "
-    "be a schedule fact.\n" + SETTING_PREFERENCE_RULE
+    "be a schedule fact.\n" + SETTING_PREFERENCE_RULE + "\n"
+    "- A single task is not a fact either: 'solve x^2 - 5x + 6 = 0' is not working on an "
+    "equation, 'write an HTML page with a button' is not learning web development, and the "
+    "numbers a request hands over to chart or work on are its material, not the user's "
+    "record.\n"
+    "- A fact that starts 'Learning <subject>: reached Lesson' is kept by the app from the "
+    "lessons themselves: never add, update, or supersede one."
 )
 
 # On the Memory page the user asks directly, so the reply says where that setting is.

@@ -290,5 +290,21 @@
     "history": [],
     "reply": "Not necessarily. Saying no is fair; it can help to tell her why and what you can do instead.",
     "expect": "answer"
+  },
+  {
+    "id": "mc-036",
+    "area": "memory",
+    "prompt": "forget I said I'm vegetarian",
+    "history": [],
+    "reply": "Done, I've removed that you're vegetarian from memory.",
+    "expect": "memory"
+  },
+  {
+    "id": "mc-037",
+    "area": "memory",
+    "prompt": "forget I told you about my ex",
+    "history": [],
+    "reply": "Okay, I've removed that from memory.",
+    "expect": "memory"
   }
 ]

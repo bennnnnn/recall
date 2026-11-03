@@ -20,7 +20,8 @@ _DEFAULT_PCM_RATE = 24000
 # The OpenAI audio models this gateway calls. An operator override outside them is not
 # used (``speech.service``), so a stale Gemini or Kokoro name never reaches OpenAI.
 _TRANSCRIBE_MODELS = frozenset({"gpt-4o-mini-transcribe", "gpt-4o-transcribe"})
-_SPEECH_MODEL_FAMILY = "gpt-4o-mini-tts"
+# Read aloud speaks with tts-1; gpt-4o-mini-tts stays an operator override (SPEECH_TTS_MODEL).
+_SPEECH_MODEL_FAMILIES = ("tts-1", "gpt-4o-mini-tts")
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2
 
@@ -41,9 +42,25 @@ def can_transcribe_with(model: str) -> bool:
     return model.removeprefix("openai/") in _TRANSCRIBE_MODELS
 
 
+# The voices tts-1 has. The Voice setting also chooses live talk's voice, which has marin,
+# cedar, ballad and verse: tts-1 speaks those as its nearest voice.
+_TTS1_VOICES = frozenset(
+    {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"}
+)
+_TTS1_NEAREST = {"marin": "coral", "cedar": "onyx", "ballad": "echo", "verse": "ash"}
+
+
+def voice_for(model: str, voice: str) -> str:
+    """``voice`` as ``model`` can speak it: itself, or tts-1's nearest (alloy at worst)."""
+    if not model.removeprefix("openai/").startswith("tts-1"):
+        return voice
+    nearest = _TTS1_NEAREST.get(voice, voice)
+    return nearest if nearest in _TTS1_VOICES else "alloy"
+
+
 def can_speak_with(model: str) -> bool:
     """Whether ``model`` (``openai/`` or bare) is one this gateway reads aloud with."""
-    return model.removeprefix("openai/").startswith(_SPEECH_MODEL_FAMILY)
+    return model.removeprefix("openai/").startswith(_SPEECH_MODEL_FAMILIES)
 
 
 def audio_format_from_filename(filename: str) -> str:
@@ -163,7 +180,9 @@ def _tts_request_payload(
         "voice": voice,
         "response_format": response_format,
     }
-    payload["instructions"] = _openai_tts_instructions(language)
+    # Only the gpt-4o voices take instructions; tts-1 reads the language from the text.
+    if model.removeprefix("openai/").startswith("gpt-4o"):
+        payload["instructions"] = _openai_tts_instructions(language)
     return payload
 
 

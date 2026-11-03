@@ -168,14 +168,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   warm-up quiz. Each lesson keeps one ordinary memory line per chat (“Learning Python:
   reached Lesson 3, Dictionaries … Covered: …”, `lesson_progress` job, no LLM; a hand edit
   to memory after the lessons began keeps it out), so “teach me Python” in a new chat
-  offers to pick up where they stopped. Prompt: `modules/chat/prompt_constants/teaching.py`
-  and `lesson_flow.py`, the shape restated beside the message. The server holds the parts
-  the app reads (`modules/chat/lesson_shape.py`): a lesson the model wrote without its title
-  or card gets `### Lesson N: <topic>` and a `quiz` card written from the lesson by a cheap
-  model; an outline gets bold topic names, its topics when it only asked about the level,
-  and its question last. “I'm stuck on X” teaches a subject, never a thing of the user's
-  own (“I don't understand the error”, “the email my landlord sent”). Procedures (“teach me
-  how to install Docker” / “walk me through changing a tire”) keep the how-to steps.
+  offers to pick up where they stopped. Its subject is the “teach me” the lessons answer
+  (a count or schedule ends it: “python 2 hours a day” is Python); a new “teach me” and a
+  Lesson 1 start a new course line; lessons that answered no “teach me” keep no line (the
+  chat title never names the subject). Only that job writes the line: the extraction
+  model never adds, updates or supersedes one, and consolidation never merges one. Prompt:
+  `modules/chat/prompt_constants/teaching.py` and `lesson_flow.py`, the shape restated beside
+  the message. The server holds the parts the app reads (`modules/chat/lesson_shape.py`): a
+  lesson the model wrote without its title or card gets `### Lesson N: <topic>` (N one past
+  the chat's highest lesson) and a `quiz` card written from the lesson by a cheap model; an
+  outline gets bold topic names, its topics when it only asked about the level, and its
+  question last. “I'm stuck on X” teaches a subject, never a thing of the user's own (“I
+  don't understand the error”, “the email my landlord sent”). Procedures (“teach me how to
+  install Docker” / “walk me through changing a tire”) keep the how-to steps.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step
   loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to
@@ -652,12 +657,22 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   snippets dropped); a do-not-mention preference is kept even when sensitive. "Forget
   everything you know about me" and "stop remembering things about me" get a one-line reply
   pointing to Settings → Memory: chat changes no setting but the theme. Explicit facts and hand edits are
-  never evicted by the 150 cap. Sweep look-alikes: `sweep_corpus/memory_controls.json`.
+  never evicted by the 150 cap. "Never mind, forget I asked" drops the request, not a fact:
+  asking states nothing to save, while "forget I said I'm vegetarian" still forgets. Sweep
+  look-alikes: `sweep_corpus/memory_controls.json`, `memory_recall.json`.
 - ✅ **Extraction hygiene** — only what the user's own lines state or clearly show (the
   projects they build, the stack they build with, their job, goals, routines, recurring
   interests); never assistant restatements. Transcript is the **user line only**, capped ~4k
   (head+tail); attachment OCR / untrusted blocks stripped before extract; memory wrapped as
   first-party notes (fence kept); account email injected only for email/draft/inbox intents.
+  A single task is not a fact about the user, held in code (`modules/memory/task_lines.py`):
+  lines that only ask for work and say nothing of the user ("solve x^2 - 5x + 6 = 0", "write
+  an HTML page with a button") keep none of the model's facts, and a fact repeating the
+  numbers a request hands over ("chart my test scores: math 85, chemistry 72 …") is dropped
+  unless a clause says them of the user. Reply preferences and "remember …" are kept.
+  A memory job that finds the per-user write lock busy waits its turn in the delayed queue
+  (15 s doubling to 5 min, about two hours) rather than being dropped after three tries; past
+  that the chat's cursor still holds the lines for its next pass.
 - ✅ **Extraction reliability (2026-09)** — name, job, employer, school, city, home country and
   languages are `normal` sensitivity (the `identity` label means gender identity, immigration
   status or disability), and a dating-app project is not a relationship fact. A failed model

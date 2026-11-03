@@ -60,6 +60,19 @@ class FactView:
     confirmed_at: datetime | None = None
 
 
+# "Learning Python: reached Lesson 3, Loops (chat "Python"). Covered: …": the line the
+# lesson_progress job builds from the chat's own lessons (``learning_progress``). Only that
+# job writes it: the extraction model rewrote one into "Learning Maths: reached Lesson 2,
+# Chemistry basics … User completed a quiz on moles" from a chat that taught no lesson
+# (2026-11-02).
+_LEARNING_LINE = re.compile(r"^\s*learning [^:\n]{1,120}: reached lesson \d", re.IGNORECASE)
+
+
+def is_learning_line(text: str | None) -> bool:
+    """True for a lesson chat's progress line, which only the lesson_progress job writes."""
+    return bool(text) and _LEARNING_LINE.match(text or "") is not None
+
+
 def is_one_off_schedule_fact(text: str) -> bool:
     """True for a dated errand or reminder, not a standing routine.
 
@@ -113,6 +126,8 @@ def texts_to_drop(facts: Sequence[FactView]) -> list[str]:
     drops: list[str] = []
     kept: list[FactView] = []
     for fact in facts:
+        if is_learning_line(fact.text):
+            continue
         if is_one_off_schedule_fact(fact.text):
             drops.append(fact.text)
         else:

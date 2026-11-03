@@ -215,14 +215,15 @@ async def test_synthesize_empty_returns_none():
 def test_resolve_tts_model_uses_openai_for_both_aliases_and_stale_overrides():
     settings = Settings(speech_tts_model="openai/gpt-4o-mini-tts")
     assert resolve_tts_model(settings) == "openai/gpt-4o-mini-tts"
-    assert resolve_tts_model(Settings(speech_tts_model="")) == ("openai/gpt-4o-mini-tts")
+    # Read aloud speaks with tts-1: gpt-4o-mini-tts took 7-30 s to start a clip.
+    assert resolve_tts_model(Settings(speech_tts_model="")) == "openai/tts-1"
     assert (
         resolve_tts_model(Settings(speech_tts_model="openai/gpt-4o-mini-tts-2025-12-15"))
         == "openai/gpt-4o-mini-tts-2025-12-15"
     )
-    assert resolve_tts_model(Settings(), alias=TTS_FAST_ALIAS) == "openai/gpt-4o-mini-tts"
+    assert resolve_tts_model(Settings(), alias=TTS_FAST_ALIAS) == "openai/tts-1"
     for stale in ("google/gemini-3.1-flash-tts-preview", "hexgrad/kokoro-82m"):
-        assert resolve_tts_model(Settings(speech_tts_model=stale)) == "openai/gpt-4o-mini-tts"
+        assert resolve_tts_model(Settings(speech_tts_model=stale)) == "openai/tts-1"
     assert normalize_tts_alias(None) == TTS_QUALITY_ALIAS
     assert normalize_tts_alias("speech-tts-fast-model") == TTS_FAST_ALIAS
 
@@ -246,6 +247,15 @@ def test_resolve_tts_voice_prefers_the_users_voice(user_voice, expected):
     assert resolve_tts_voice(settings, "openai/gpt-4o-mini-tts", user_voice) == expected
 
 
+@pytest.mark.parametrize(
+    "user_voice, expected",
+    [("marin", "coral"), ("cedar", "onyx"), ("ballad", "echo"), ("verse", "ash"), ("sage", "sage")],
+)
+def test_tts1_reads_a_live_talk_only_voice_as_its_nearest(user_voice, expected):
+    # The Voice setting is live talk's too, which has marin, cedar, ballad and verse.
+    assert resolve_tts_voice(Settings(), "openai/tts-1", user_voice) == expected
+
+
 def test_pcm_to_wav_writes_riff_header():
     wav = pcm_to_wav(b"\x00\x00" * 8, sample_rate=24000, channels=1)
     assert wav[:4] == b"RIFF"
@@ -258,7 +268,7 @@ async def test_synthesize_openai_omits_language_field():
         mock_llm_enabled=False,
         openai_api_key="sk-test",
         speech_tts_enabled=True,
-        speech_tts_model="",
+        speech_tts_model="openai/gpt-4o-mini-tts",
         speech_tts_voice="alloy",
     )
     response = MagicMock()
@@ -316,9 +326,11 @@ async def test_synthesize_legacy_fast_alias_requests_openai_mp3():
 
     assert result == (b"ID3kokoro", "audio/mpeg")
     body = client.post.call_args.kwargs["json"]
-    assert body["model"] == "gpt-4o-mini-tts"
+    assert body["model"] == "tts-1"
     assert body["voice"] == "alloy"
     assert body["response_format"] == "mp3"
+    # tts-1 takes no instructions: it reads the language from the text.
+    assert "instructions" not in body
 
 
 @pytest.mark.asyncio

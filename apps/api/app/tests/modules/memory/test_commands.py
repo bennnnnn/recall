@@ -137,3 +137,39 @@ def test_memory_command_names_what_the_post_turn_pass_does(text, command):
     from app.modules.memory.fact_quality import memory_command
 
     assert memory_command(text) == command
+
+
+@pytest.mark.parametrize(
+    ("text", "forget"),
+    [
+        # Dropping the request in hand: asking states nothing to save (2026-11-02, "never
+        # mind, forget I asked" got the forget note).
+        ("never mind, forget I asked", False),
+        ("forget I asked", False),
+        ("oh forget I asked lol", False),
+        ("forget I ever asked", False),
+        ("forget that I asked about the weather", False),
+        ("forget I asked about my diet", False),
+        ("forget i asked, how about pasta?", False),
+        # What was said, or a bare pointer back, is still a forget.
+        ("forget I said I'm vegetarian", True),
+        ("forget that I'm vegetarian", True),
+        ("forget I told you about my ex", True),
+        ("forget I said anything", True),
+        ("forget I mentioned it", True),
+        ("forget that", True),
+        ("forget about it", True),
+        ("forget about my old job", True),
+        # An ask that saved something: forgetting it forgets what it saved.
+        ("forget I asked you to remember my wifi password", True),
+        ("forget that I asked you to call me Bob", True),
+        ("forget I just asked you to save my address", True),
+    ],
+)
+def test_forget_tells_a_dropped_request_from_a_saved_fact(text, forget):
+    from app.modules.memory.commands import forget_requests, is_explicit_forget_command
+
+    assert is_explicit_forget_command(text) is forget
+    assert is_explicit_memory_command(text) is forget
+    if not forget:
+        assert forget_requests(text) == []

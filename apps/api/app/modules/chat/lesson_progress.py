@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -36,35 +36,76 @@ class LessonProgress:
     started_at: datetime | None
 
 
-def lesson_progress(messages: Sequence[Any], *, title: str | None) -> LessonProgress | None:
-    """The learning line for an oldest-first chat, or None when it taught no lesson."""
+@dataclass
+class _Course:
+    """The course a chat is on, read message by message."""
+
     subject: str | None = None
-    topics: list[str] = []
+    topics: list[str] = field(default_factory=list)
     latest: tuple[int, str] | None = None
     started_at: datetime | None = None
+    # The subject of the last "teach me" since the last lesson, if any.
+    pending: str | None = None
+
+    def asked(self, subject: str | None) -> None:
+        if subject:
+            self.pending = subject
+
+    def taught(self, reply: str, sent: datetime | None) -> None:
+        titles = lesson_titles(reply)
+        if not titles:
+            return
+        switched = (
+            self.pending is not None
+            and titles[0][0] == 1
+            and self.pending.casefold() != (self.subject or "").casefold()
+        )
+        if self.latest is None or switched:
+            # With no "teach me" before it, a course has no subject to name.
+            self._start(self.pending, sent)
+        # "Teach me more about loops" between lessons 4 and 5 goes on with the course.
+        self.pending = None
+        for number, raw_topic in titles:
+            topic = raw_topic[:_TOPIC_MAX_CHARS].strip()
+            self.latest = (number, topic)
+            if topic not in self.topics:
+                self.topics.append(topic)
+
+    def _start(self, subject: str | None, sent: datetime | None) -> None:
+        self.subject, self.topics, self.latest, self.started_at = subject, [], None, sent
+
+
+def lesson_progress(messages: Sequence[Any], *, title: str | None) -> LessonProgress | None:
+    """The learning line for an oldest-first chat, or None when it taught no lesson.
+
+    The subject is what the user asked to learn, never a guess: a chat whose lessons
+    answered no "teach me" (a "help me understand two sum" the model laid out as Lesson
+    1) keeps no line, and the chat's title ("Greeting", "Understanding Two Sum In
+    Python") never stands in for it. A new "teach me" followed by a Lesson 1 starts a
+    new course in the same chat ("teach me maths", lessons, then "now teach me
+    chemistry"): the line is the latest course's, with only its own lessons.
+    """
+    course = _Course()
     for message in messages:
         content = getattr(message, "content", None)
         if not isinstance(content, str):
             continue
         role = getattr(message, "role", None)
-        if role == "user" and subject is None and is_teaching_request(content):
-            subject = teach_subject(content)
+        if role == "user" and is_teaching_request(content):
+            course.asked(teach_subject(content))
         elif role == "assistant" and lesson_step(content) is not None:
-            for number, topic in lesson_titles(content):
-                topic = topic[:_TOPIC_MAX_CHARS].strip()
-                latest = (number, topic)
-                if topic not in topics:
-                    topics.append(topic)
-            started_at = started_at or getattr(message, "created_at", None)
-    subject = subject or (title or "").strip() or None
-    if latest is None or subject is None:
+            course.taught(content, getattr(message, "created_at", None))
+    if course.latest is None or course.subject is None:
         return None
-    number, topic = latest
+    number, topic = course.latest
     where = f' (chat "{title.strip()}")' if title and title.strip() else ""
-    covered = "; ".join(topics[-_COVERED_MAX:])
+    covered = "; ".join(course.topics[-_COVERED_MAX:])
     return LessonProgress(
-        text=f"Learning {subject}: reached Lesson {number}, {topic}{where}. Covered: {covered}",
-        started_at=started_at,
+        text=(
+            f"Learning {course.subject}: reached Lesson {number}, {topic}{where}. "
+            f"Covered: {covered}"
+        ),
+        started_at=course.started_at,
     )
 
 

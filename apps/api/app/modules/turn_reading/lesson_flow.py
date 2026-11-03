@@ -124,16 +124,35 @@ def lesson_titles(text: str | None) -> list[tuple[int, str]]:
 # What comes between "teach me" and the subject, and what ends the subject.
 _SUBJECT_LEAD = re.compile(
     r"^(?:\s*(?:me|us|you|teach|learn|learning|study|to|about|on|in|more|some|"
-    r"a\s+(?:bit|little)\s+(?:about|of)|the\s+basics\s+of|basics\s+of)\b)+",
+    r"a\s+(?:bit|little)\s+(?:about|of)|the\s+basics\s+of|basics\s+of|"
+    # "teach me lesson 2 of python": the course is Python.
+    r"(?:lesson|part|chapter|unit)\s+\d+\s+(?:of|on|in))\b)+",
     re.IGNORECASE,
 )
 
 
-_SUBJECT_END = re.compile(
-    r"[.?!,;:(]|\s(?:because|so|since|please|for\s+my|i'?m|i\s+am|and\s+i|"
-    r"step[- ]by[- ]step|from\s+scratch|in\s+detail)\b",
-    re.IGNORECASE,
-)
+# The subject also ends where a schedule starts after it: a count of time or lessons
+# closing the line or followed by its rate ("python 2 hours a day", "python 2 lessons a
+# week"), or a count after in/for/over… ("python in 2 weeks", "chemistry for 30 minutes").
+# Any other number is the subject's: "Python 3", "algebra 2 step by step", "the 7 times
+# table", "the 12 days of Christmas", "multiplication by 10", "5 yoga poses".
+def _subject_end() -> re.Pattern[str]:
+    # Built here, not kept as a module string: the prompt-rule text reads those as copy.
+    count = (
+        r"\d+(?:\.\d+)?\s*(?:hours?|hrs?|minutes?|mins?|days?|weeks?|months?|lessons?|times?|"
+        r"sessions?|classes|chapters?)"
+    )
+    return re.compile(
+        r"[.?!,;:(]|\s(?:because|so|since|please|for\s+my|i'?m|i\s+am|and\s+i|"
+        r"step[- ]by[- ]step|from\s+scratch|in\s+detail|"
+        r"instead|now|today|tonight|tomorrow|again|too|as\s+well)\b|"
+        rf"(?<!\bthe)\s{count}\b(?=\s+(?:a|an|per|each|every)\b|\s*$)|"
+        rf"\s(?:in|within|over|for|every|each|per)\s+{count}\b",
+        re.IGNORECASE,
+    )
+
+
+_SUBJECT_END = _subject_end()
 
 
 _SUBJECT_MAX_WORDS = 6

@@ -13,6 +13,7 @@ ProductEventName = Literal[
     "push_permission",
     "chat_ttft",
     "chat_turn_outcome",
+    "reply_rated",
 ]
 
 

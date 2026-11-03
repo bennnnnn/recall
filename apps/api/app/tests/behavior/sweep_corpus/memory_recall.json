@@ -198,5 +198,56 @@
     "history": [],
     "reply": "Air scatters blue light more than red, so the sky looks blue from every direction.",
     "expect": "answer"
+  },
+  {
+    "id": "mr-026",
+    "area": "forget lookalike",
+    "prompt": "never mind, forget I asked",
+    "history": [
+      ["user", "what's the weather like in Oslo this weekend?"],
+      ["assistant", "Want me to look up the Oslo forecast for Saturday and Sunday?"]
+    ],
+    "reply": "No problem, we can skip the Oslo forecast.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-027",
+    "area": "forget lookalike",
+    "prompt": "forget I asked, how do I make a quick pasta for dinner?",
+    "history": [],
+    "reply": "Boil the pasta, then toss it with garlic softened in olive oil, chili flakes, parmesan and a splash of the pasta water.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-028",
+    "area": "forget lookalike",
+    "prompt": "oh forget that I asked about the weather lol",
+    "history": [],
+    "reply": "Sure, no problem.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-029",
+    "area": "forget lookalike",
+    "prompt": "Forget I ever asked, it doesn't matter anymore",
+    "history": [],
+    "reply": "Okay, no problem. I'm here if it comes up again.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-030",
+    "area": "possessive lookalike",
+    "prompt": "is the code I pasted here correct? def double(x): return x * 2",
+    "history": [],
+    "reply": "Yes: double(3) returns 6. It works for any number.",
+    "expect": "answer"
+  },
+  {
+    "id": "mr-031",
+    "area": "possessive lookalike",
+    "prompt": "what is the timetable for trains from Boston to New York?",
+    "history": [],
+    "reply": "Amtrak runs Northeast Regional and Acela trains through the day; check amtrak.com for today's times.",
+    "expect": "answer"
   }
 ]

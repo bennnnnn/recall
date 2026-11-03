@@ -119,6 +119,7 @@ async def _system_prompt(
     status: str = "ok",
     block: str = "",
     recent: list[SimpleNamespace] | None = None,
+    holds_attachment: bool = False,
 ):
     user = _user(memory=memory)
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
@@ -145,6 +146,7 @@ async def _system_prompt(
             query_text=text,
             rich_context=False,
             advice_memory=True,
+            holds_attachment=holds_attachment,
         )
     return "\n\n".join(m["content"] for m in messages if m["role"] == "system")
 
@@ -287,6 +289,17 @@ async def test_a_recalled_past_with_no_record_is_not_invented():
     # The news last week is not a conversation the user had with Recall.
     news = await _system_prompt("what happened in the news last week?")
     assert prompt_memory.NO_PAST_RECORD_HINT not in news
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["Summarize the pdf I attached", "review the file I uploaded"])
+async def test_a_file_sent_with_the_message_is_not_a_missing_past(text):
+    """Sent with the file, "the pdf I attached" is this message's own: never "can't find it"."""
+    assert prompt_memory.NO_PAST_RECORD_HINT not in await _system_prompt(
+        text, holds_attachment=True
+    )
+    # Sent with nothing, it points back at an earlier chat, which holds no record here.
+    assert prompt_memory.NO_PAST_RECORD_HINT in await _system_prompt(text)
 
 
 @pytest.mark.asyncio

@@ -121,6 +121,7 @@ async def prepare_chat_turn(
         client_latitude=client_latitude,
         client_longitude=client_longitude,
         has_image_attachment=attachments.has_image_attachment,
+        holds_attachment=bool(attachment_ids),
         image_math_extract=attachments.image_math_extract,
         on_status=on_status,
         user=turn.user,
@@ -145,12 +146,7 @@ async def prepare_chat_turn(
     ):
         _route_to_vision(turn, turn.user, turn.model, bundle, settings)
     return _stream_context(
-        bundle,
-        turn,
-        settings,
-        reserved_tokens=reserved_tokens,
-        timing=timing,
-        persist=persist,
+        bundle, turn, settings, reserved_tokens=reserved_tokens, timing=timing, persist=persist
     )
 
 

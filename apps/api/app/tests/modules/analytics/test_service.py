@@ -296,3 +296,54 @@ async def test_record_batch_rejects_raw_or_misplaced_newer_fields(
         with pytest.raises(ValueError, match="Invalid"):
             await product_analytics.record_batch(session, uuid4(), batch)
     create_batch.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("content", "kind"),
+    [
+        ("Paris is the capital of France.", "text"),
+        ("It rains there.\n\n```sources\n[]\n```", "search"),
+        ("Here:\n\n```python\nprint(1)\n```", "code"),
+        ("So:\n\n```answer\nverified: true\nx = 2\n```", "answer"),
+        ("```graph\n{}\n```", "visual"),
+        ("[Image: /attachments/0b1c4e3a-0000-4000-8000-000000000000/file]", "image"),
+        # A checked answer stays an answer, whatever else the reply draws.
+        ("```answer\nx = 2\n```\n\n```graph\n{}\n```", "answer"),
+    ],
+)
+def test_reply_kind_reads_what_a_reply_was(content: str, kind: str) -> None:
+    assert product_analytics.reply_kind(content) == kind
+
+
+@pytest.mark.asyncio
+async def test_a_rating_is_recorded_as_metadata_only() -> None:
+    session = fake_session()
+    with patch(
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
+    ) as create:
+        await product_analytics.record_reply_rating(
+            session, uuid4(), rating="down", model="smart-chat", content="The secret is 42."
+        )
+    assert create.await_args is not None
+    (event,) = create.await_args.args[1]
+    assert event.name == "reply_rated"
+    assert event.properties == {"rating": "down", "model": "smart-chat", "kind": "text"}
+    assert "42" not in str(event.properties)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("rating", "model", "expected"), [(None, "openai/gpt-4o", ("none", "other"))]
+)
+async def test_a_cleared_rating_and_an_unknown_model_stay_in_the_allowlist(
+    rating, model, expected
+) -> None:
+    with patch(
+        "app.modules.analytics.service.product_events_repo.create_batch", AsyncMock()
+    ) as create:
+        await product_analytics.record_reply_rating(
+            fake_session(), uuid4(), rating=rating, model=model, content="Hi"
+        )
+    assert create.await_args is not None
+    (event,) = create.await_args.args[1]
+    assert (event.properties["rating"], event.properties["model"]) == expected

@@ -15,6 +15,7 @@ list, not import-time discovery, so the set of live job types stays greppable.
 
 import functools
 import logging
+import random
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
@@ -27,7 +28,6 @@ from app.core.jobs import (
     JobSkipped,
     enqueue_later,
     register,
-    retry_delay_s,
     unique_dedupe_key,
 )
 from app.core.redis import get_redis_client
@@ -51,10 +51,23 @@ logger = logging.getLogger(__name__)
 HISTORY_SCANS_AT_ONCE = 3
 
 
-_MEMORY_LOCK_MAX_RETRIES = 3
+# A busy memory lock is another writer's model call, not a failure: the job waits its turn.
+# Waits double from 15 s to a 5-minute cap, about 2 h 10 min in all, so a burst of a few
+# hundred turns for one user, served one lock holder at a time, is read in full (2026-10-31:
+# 201 extractions dropped after three waits, about five minutes).
+_MEMORY_LOCK_MAX_RETRIES = 30
+_MEMORY_LOCK_FIRST_WAIT_S = 15.0
+_MEMORY_LOCK_MAX_WAIT_S = 300.0
+_MEMORY_LOCK_JITTER = 0.2
 # A finished welcome or receipt email, storage sweep or chat title must not run again
 # for a late duplicate; every other job's done marker lives the default hour.
 _ONCE_A_DAY = 86_400
+
+
+def memory_lock_wait_s(retry: int, rand: Callable[[], float] = random.random) -> float:
+    """The wait before lock retry ``retry`` (1 is the first), ±20% so waiters spread out."""
+    base = min(_MEMORY_LOCK_MAX_WAIT_S, _MEMORY_LOCK_FIRST_WAIT_S * 2 ** max(0, retry - 1))
+    return base * (1 - _MEMORY_LOCK_JITTER + 2 * _MEMORY_LOCK_JITTER * rand())
 
 
 def _memory_lock_retries(payload: dict[str, Any]) -> int:
@@ -73,12 +86,13 @@ async def _reenqueue_after_memory_lock(
 ) -> None:
     """Re-enqueue a lock-busy memory job for later, or discard to the DLQ after the cap.
 
-    The retry waits in the delayed queue (the job retry pauses: 15 s, then 1 min,
-    4 min), not asleep in this worker slot. Each attempt has its own ``dedupe_key``,
-    unique per request, so a reclaim of this entry plus the retry cannot double-run
-    the same pass, and a later request is never skipped as already done. Exhausted
-    retries raise ``JobDiscardError`` so the worker records the drop in the DLQ
-    instead of acking a silent success.
+    The retry waits in the delayed queue (``memory_lock_wait_s``: 15 s doubling to 5 min,
+    about two hours in all), not asleep in this worker slot. Each attempt has its own
+    ``dedupe_key``, unique per request, so a reclaim of this entry plus the retry cannot
+    double-run the same pass, and a later request is never skipped as already done.
+    Exhausted retries raise ``JobDiscardError`` so the worker records the drop in the DLQ
+    instead of acking a silent success; an extraction's lines stay unread (its cursor did
+    not move), so the chat's next pass still reads them.
     """
     retries = _memory_lock_retries(retry_payload)
     if retries >= _MEMORY_LOCK_MAX_RETRIES:
@@ -90,7 +104,7 @@ async def _reenqueue_after_memory_lock(
         get_redis_client(),
         job_type,
         {**retry_payload, "lock_retries": next_retries},
-        delay_s=retry_delay_s(next_retries + 1),
+        delay_s=memory_lock_wait_s(next_retries),
         dedupe_key=unique_dedupe_key(f"{dedupe_stem}:lock{next_retries}"),
     )
 

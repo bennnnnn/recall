@@ -213,7 +213,8 @@ export function AssistantActions({
           name="thumbs-up"
           filled={feedback === "up"}
           size={IconSize.sm}
-          color={feedback === "up" ? theme.primary : theme.textSecondary}
+          // Green for a good reply, red for a bad one: the accent read as red beside 👎.
+          color={feedback === "up" ? theme.success : theme.textSecondary}
         />
       </ActionButton>
       <ActionButton label={t("chat.thumbs_down_a11y")} onPress={() => rate("down")} selected={feedback === "down"}>

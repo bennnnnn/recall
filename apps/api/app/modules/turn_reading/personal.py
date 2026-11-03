@@ -134,12 +134,32 @@ def _phrase_at_word_boundary(text: str, phrase: str) -> bool:
         start = found + 1
 
 
+# "The timetable I sent you", "that pdf I uploaded earlier", "the photo I showed you
+# yesterday": a thing the user gave Recall before, whatever the noun. A determiner, up to
+# three words, then "I" and a giving verb, then who got it or when (an upload or an
+# attachment went to Recall by itself). "The package I sent to my mom" is not one, nor
+# "the code I pasted here": this message holds it.
+_GIVEN_TO_RECALL = re.compile(
+    r"\b(?:the|that|this|those|these)\s+(?:[a-z0-9'-]+\s+){1,3}?(?:i|we)\s+"
+    r"(?:(?:just|already)\s+)?"
+    r"(?:(?:sent|shared|showed|gave|forwarded|mentioned)\s+"
+    r"(?:you\b|with\s+you\b|to\s+you\b|earlier\b|before\b|yesterday\b|last\s+\w+)|"
+    r"(?:uploaded|attached)\b)"
+)
+
+
+def refers_to_something_given(text: str) -> bool:
+    """True when the line points at a thing the user gave Recall before ("the timetable I
+    sent you"): an earlier chat or memory may hold it."""
+    return bool(_GIVEN_TO_RECALL.search(straighten_apostrophes(collapse_ws(text)).lower()))
+
+
 def recalls_earlier_conversation(text: str) -> bool:
     """True when the user is asking about something said in an earlier chat."""
     cleaned = collapse_ws(text).lower()
     if not cleaned:
         return False
-    return any(
+    return refers_to_something_given(cleaned) or any(
         _phrase_at_word_boundary(cleaned, phrase) for phrase in _EARLIER_CONVERSATION_PHRASES
     )
 
@@ -171,6 +191,8 @@ def needs_rich_context(
     if is_email_or_message_request(cleaned):
         return True
     if has_any_personal_locale_cue(cleaned):
+        return True
+    if refers_to_something_given(cleaned):
         return True
     return bool(_PERSONAL_CONTEXT_CUE.search(cleaned))
 

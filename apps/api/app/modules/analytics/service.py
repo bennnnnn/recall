@@ -2,9 +2,11 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models import model_catalog
 from app.models.orm import ProductEvent
 from app.models.schemas import ProductEventBatchIn, ProductEventIn
 from app.repositories import product_events as product_events_repo
+from app.services.md_fence_scan import iter_fences
 
 # The phone sends the two chat events for a sample of turns and says which share
 # (code-health audit NET-15): a count divided by its rate is the whole.
@@ -79,6 +81,13 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
         ),
         "sample_rate": _SAMPLE_RATES,
     },
+    # A reply's thumbs, recorded by the server when it is saved: the rating ("none" when
+    # cleared), the reply's model alias and its kind (``reply_kind``). Never its words.
+    "reply_rated": {
+        "rating": frozenset({"up", "down", "none"}),
+        "model": model_catalog.known_ids() | {"other"},
+        "kind": frozenset({"answer", "image", "visual", "code", "search", "text"}),
+    },
 }
 
 # Fields a newer app adds to an event; one that predates them still sends it
@@ -139,3 +148,42 @@ async def record_batch(
     except Exception:
         await session.rollback()
         raise
+
+
+# Fences that draw a picture of the answer (charts, graphs, scenes, molecules, diagrams).
+_VISUAL_FENCES = frozenset(
+    {"chart", "vega", "vega-lite", "graph", "geometry", "simulation", "mermaid", "smiles",
+     "molecule3d", "calculator"}
+)  # fmt: skip
+# Fences that are the reply's own furniture, not code it wrote.
+_NOT_CODE_FENCES = frozenset({"sources", "answer", "worked", "quiz", "clarify", "math", "steps"})
+
+
+def reply_kind(content: str) -> str:
+    """What a reply was, for its rating: a checked answer, a picture, a drawn visual, code,
+    a searched answer, or text. Read from the reply alone; only this label leaves it."""
+    if "[Image: /attachments/" in content:
+        return "image"
+    langs = {fence.lang.lower() for fence in iter_fences(content)}
+    if langs & {"answer", "worked"}:
+        return "answer"
+    if langs & _VISUAL_FENCES:
+        return "visual"
+    if any(lang and lang not in _NOT_CODE_FENCES for lang in langs):
+        return "code"
+    return "search" if "sources" in langs else "text"
+
+
+async def record_reply_rating(
+    session: AsyncSession, user_id: UUID, *, rating: str | None, model: str | None, content: str
+) -> None:
+    """The ``reply_rated`` event for a reply just rated; commits."""
+    known = model_catalog.known_ids()
+    properties = {
+        "rating": rating or "none",
+        "model": model if model in known else "other",
+        "kind": reply_kind(content),
+    }
+    await product_events_repo.create_batch(
+        session, [ProductEvent(user_id=user_id, name="reply_rated", properties=properties)]
+    )
