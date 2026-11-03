@@ -20,7 +20,8 @@ _DEFAULT_PCM_RATE = 24000
 # The OpenAI audio models this gateway calls. An operator override outside them is not
 # used (``speech.service``), so a stale Gemini or Kokoro name never reaches OpenAI.
 _TRANSCRIBE_MODELS = frozenset({"gpt-4o-mini-transcribe", "gpt-4o-transcribe"})
-_SPEECH_MODEL_FAMILY = "gpt-4o-mini-tts"
+# Read aloud speaks with tts-1; gpt-4o-mini-tts stays an operator override (SPEECH_TTS_MODEL).
+_SPEECH_MODEL_FAMILIES = ("tts-1", "gpt-4o-mini-tts")
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2
 
@@ -43,7 +44,7 @@ def can_transcribe_with(model: str) -> bool:
 
 def can_speak_with(model: str) -> bool:
     """Whether ``model`` (``openai/`` or bare) is one this gateway reads aloud with."""
-    return model.removeprefix("openai/").startswith(_SPEECH_MODEL_FAMILY)
+    return model.removeprefix("openai/").startswith(_SPEECH_MODEL_FAMILIES)
 
 
 def audio_format_from_filename(filename: str) -> str:
@@ -163,7 +164,9 @@ def _tts_request_payload(
         "voice": voice,
         "response_format": response_format,
     }
-    payload["instructions"] = _openai_tts_instructions(language)
+    # Only the gpt-4o voices take instructions; tts-1 reads the language from the text.
+    if model.removeprefix("openai/").startswith("gpt-4o"):
+        payload["instructions"] = _openai_tts_instructions(language)
     return payload
 
 

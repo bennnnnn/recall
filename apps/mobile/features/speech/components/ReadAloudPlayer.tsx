@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
 import Animated, { type SharedValue } from "react-native-reanimated";
@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   pauseReadAloud,
+  readAloudElapsedMs,
   readAloudSession,
   resumeReadAloud,
   stopReadAloud,
@@ -23,7 +24,7 @@ import { IconSize } from "@/ui/icons/sizes";
 import { useBottomLiftStyle } from "@/ui/hooks/useBottomLiftStyle";
 
 /** The player's height, so what floats over the composer (the scroll button) sits above it. */
-export const READ_ALOUD_PLAYER_HEIGHT = 56;
+export const READ_ALOUD_PLAYER_HEIGHT = 48;
 
 /** A reply is being read aloud: the player shows over the composer. */
 export function useReadAloudShowing(): boolean {
@@ -38,10 +39,10 @@ type Props = {
 };
 
 /**
- * The small player over the composer while a reply is read aloud: what it reads, a spinner
- * while the voice is prepared (a cloud voice takes a few seconds), pause and resume, Stop, and
- * how far it has got. It takes its own touches, as the scroll button does, so a slider or a
- * graph under it never sees them.
+ * The small player over the composer while a reply is read aloud: a spinner while the voice is
+ * prepared, the time heard (and the whole length once known), pause and resume, Stop, and how
+ * far it has got. Not the reply's words: they are on the screen above it. It takes its own
+ * touches, as the scroll button does, so a slider or a graph under it never sees them.
  */
 export function ReadAloudPlayer({ visible, bottomOffset, lift }: Props) {
   const { t } = useTranslation();
@@ -49,11 +50,13 @@ export function ReadAloudPlayer({ visible, bottomOffset, lift }: Props) {
   const s = useMemo(() => makeS(C), [C]);
   const session = useSyncExternalStore(readAloudSession.subscribe, readAloudSession.get);
   const liftStyle = useBottomLiftStyle(lift);
+  const now = useTicking(session?.playingSince != null);
 
   if (!visible || !session) return null;
 
   const paused = session.phase === "paused";
   const title = playerTitle(session, t);
+  const time = playerTime(readAloudElapsedMs(session, now), session.totalMs);
 
   return (
     <Animated.View
@@ -69,12 +72,9 @@ export function ReadAloudPlayer({ visible, bottomOffset, lift }: Props) {
             <Icon name="volume" filled size={IconSize.sm} color={C.primary} />
           )}
         </View>
-        <View style={s.texts} accessible accessibilityLabel={`${title}. ${session.preview}`}>
-          <Text style={s.title} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={s.preview} numberOfLines={1}>
-            {session.preview}
+        <View style={s.texts} accessible accessibilityLabel={`${title}, ${time}`}>
+          <Text style={s.time} numberOfLines={1} testID="read-aloud-player-time">
+            {time}
           </Text>
         </View>
         {session.canPause ? (
@@ -114,6 +114,27 @@ export function ReadAloudPlayer({ visible, bottomOffset, lift }: Props) {
   );
 }
 
+/** Now, again every half second while the phone's voice is timed by the clock. */
+function useTicking(ticking: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ticking) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(timer);
+  }, [ticking]);
+  return now;
+}
+
+/** "0:04", or "0:04 / 0:12" once the whole length is known. */
+function playerTime(elapsedMs: number, totalMs: number | null): string {
+  const clock = (ms: number) => {
+    const seconds = Math.max(0, Math.floor(ms / 1000));
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  };
+  return totalMs === null ? clock(elapsedMs) : `${clock(elapsedMs)} / ${clock(totalMs)}`;
+}
+
 function playerTitle(session: ReadAloud, t: (key: string) => string): string {
   if (session.phase === "preparing") return t("chat.read_aloud_preparing");
   if (session.phase === "paused") return t("chat.read_aloud_paused");
@@ -149,14 +170,12 @@ const makeS = (C: Theme) =>
       flex: 1,
       marginHorizontal: Space.xs,
     },
-    title: {
-      ...Type.caption,
+    // Digits of one width, so the time does not jiggle as it counts.
+    time: {
+      ...Type.compact,
       ...Weight.semibold,
       color: C.text,
-    },
-    preview: {
-      ...Type.caption,
-      color: C.textSecondary,
+      fontVariant: ["tabular-nums"],
     },
     button: {
       width: Space.minTouch,

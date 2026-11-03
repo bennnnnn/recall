@@ -403,7 +403,7 @@ export async function readReplyAloud(
   language: string,
   options?: { token?: string | null; preferCloud?: boolean },
 ): Promise<SpeakResult> {
-  const id = startReadAloud(messageId, markdown, stopSpeaking);
+  const id = startReadAloud(messageId, stopSpeaking);
   try {
     return await speakPlainText(markdown, language, options);
   } finally {
