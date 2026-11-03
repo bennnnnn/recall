@@ -145,7 +145,9 @@ def _stale_fact_deletes(
             continue
         already.add(key)
         deletes.append(
-            MemoryFactWrite(op="delete", type="fact", text="", confidence=1.0, match_text=text)
+            MemoryFactWrite(
+                op="delete", type="fact", text="", confidence=1.0, match_text=text, stale=True
+            )
         )
     return deletes
 

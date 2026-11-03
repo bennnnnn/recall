@@ -7,25 +7,43 @@ import re
 
 from app.modules.turn_reading.lesson_flow import lesson_step
 from app.services import time_context as time_context_service
-from app.services.text_normalize import collapse_ws
+from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # Patterns assume input was passed through ``collapse_ws`` (single spaces only).
+# A question about the user as a whole, read as a small grammar rather than a phrase list:
+# what Recall knows, remembers or has saved (the verb) about me or myself (the object, and
+# nothing after it but "so far"). "What do you remember about my trip" names something
+# else and stays a question about that.
+_KNOWS = (
+    r"(?: (?:do|did|can|could|would) (?:you|u) (?:\w+ )?(?:know|remember|recall)"
+    r"| (?:have|has) (?:you|u) (?:\w+ )?(?:saved|stored|learned|learnt|remembered|noted|kept"
+    r"|gathered|collected|got|picked up|figured out)"
+    r"| do (?:you|u) have(?: saved| stored| on file| in memory)?"
+    r"|(?: is| are|'s) (?:saved|stored|on file|in (?:your )?memory)"
+    r"| (?:you|u)(?:'ve| have)? (?:know|remember|recall|have(?: saved| stored)?|saved|stored"
+    r"|learned|learnt|got))"
+)
+_ME = r"(?:me|myself)"
 _BROAD_SELF_QUESTION = re.compile(
-    r"^(?:"
-    r"who am i\??"
-    r"|what am i\??"
-    r"|tell me about me\??"
-    r"|what do you know about me\??"
-    r"|describe me\??"
-    r"|what(?:'re| are) i like\??"
-    r")[.!?]*$",
+    r"^(?:(?:so|ok|okay|hey|and|now|then|honestly)[,!]? )?(?:"
+    r"who am i|what am i(?: like)?|what(?:'re| are) i like"
+    rf"|describe {_ME}|tell me (?:all |everything )?about {_ME}"
+    r"|(?:(?:tell|show) me |list )?(?:what|how much|everything|all|anything)"
+    r"(?: else| all| exactly| (?:info|information|details|facts|memories|data|notes))?(?: that)?"
+    rf"{_KNOWS} (?:about|abt|of|on) {_ME}"
+    rf"|(?:do|did) (?:you|u) (?:\w+ )?(?:know|remember) (?:anything (?:about|abt|of) )?{_ME}"
+    r")(?: so far| already| yet| now| at all)?[.!?]*$",
     re.IGNORECASE,
 )
 
 
 def is_broad_self_question(text: str) -> bool:
-    """Broad identity questions — name only, no personal context dump."""
-    cleaned = collapse_ws(text)
+    """A question about the user as a whole ("who am I", "what do you remember about me").
+
+    Such a turn reads all of their saved facts, not the few nearest the question: the
+    question names nothing a search could find.
+    """
+    cleaned = straighten_apostrophes(collapse_ws(text))
     if not cleaned or time_context_service.is_location_question(cleaned):
         return False
     return bool(_BROAD_SELF_QUESTION.match(cleaned))

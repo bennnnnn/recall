@@ -149,6 +149,7 @@ async def apply_writes(
     active_cap: int,
     commit: bool = True,
     applied: list[str] | None = None,
+    purge_history: bool = False,
 ) -> list[UUID]:
     touched = await apply_fact_ops(
         session,
@@ -157,6 +158,7 @@ async def apply_writes(
         expected_facts,
         active_cap=active_cap,
         applied=applied,
+        purge_history=purge_history,
     )
     if commit:
         await session.commit()

@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Literal
 
 MemoryReset = Literal["clear", "off"]
+# What the post-turn memory pass does with a chat line: save, delete, mute or update a fact.
+MemoryCommand = Literal["keep", "forget", "mute", "correct"]
 
 # "Save to memory that I'm allergic to peanuts", "add this to your memory: …".
 _SAVE_TO_MEMORY = tuple(

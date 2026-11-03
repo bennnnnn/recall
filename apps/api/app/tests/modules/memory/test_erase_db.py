@@ -128,6 +128,7 @@ async def test_a_mute_keeps_the_fact_but_stops_its_recall(db_session):
         None,
         active_cap=150,
         applied=applied,
+        purge_history=True,
     )
 
     assert applied == ["mute"]
@@ -136,6 +137,54 @@ async def test_a_mute_keeps_the_fact_but_stops_its_recall(db_session):
     # Not injected: only active facts are eligible for a prompt.
     active = await memories_repo.list_for_user(db_session, user.id, include_muted=False)
     assert active == []
+
+
+@pytest.mark.parametrize("op", ["delete", "mute"])
+@pytest.mark.parametrize(("purge_history", "left"), [(False, 2), (True, 1)])
+@pytest.mark.asyncio
+async def test_a_removal_purges_chat_snippets_only_when_the_user_asked(
+    db_session, op, purge_history, left
+):
+    """The memory model's own delete or mute keeps chat history; the user's purges it."""
+    user = await _user(db_session)
+    text = "User is solving x^2 - 5x + 6 = 0"
+    await apply_fact_ops(db_session, user.id, [_write("add", text)], None, active_cap=150)
+    fact = (await db_session.execute(select(Memory).where(Memory.user_id == user.id))).scalar_one()
+    fact.embedding = _LISBON
+    await _chunk(db_session, user.id, "factor x^2 - 7x + 12 for me", _LISBON)
+    await _chunk(db_session, user.id, "what's a good pasta recipe", _OTHER)
+    await db_session.flush()
+
+    await apply_fact_ops(
+        db_session,
+        user.id,
+        [_write(op, match=text)],
+        None,
+        active_cap=150,
+        purge_history=purge_history,
+    )
+
+    assert len(await _chunk_texts(db_session, user.id)) == left
+
+
+@pytest.mark.asyncio
+async def test_a_stale_fact_dropped_in_a_users_pass_keeps_chat_snippets(db_session):
+    """A pass the user edited also drops stale facts in passing; those keep chat history."""
+    user = await _user(db_session)
+    text = "User is solving x^2 - 5x + 6 = 0"
+    await apply_fact_ops(db_session, user.id, [_write("add", text)], None, active_cap=150)
+    fact = (await db_session.execute(select(Memory).where(Memory.user_id == user.id))).scalar_one()
+    fact.embedding = _LISBON
+    await _chunk(db_session, user.id, "factor x^2 - 7x + 12 for me", _LISBON)
+    await db_session.flush()
+
+    stale = MemoryFactWrite(
+        op="delete", type="fact", text="", confidence=1.0, match_text=text, stale=True
+    )
+    await apply_fact_ops(db_session, user.id, [stale], None, active_cap=150, purge_history=True)
+
+    assert await _facts(db_session, user.id) == []
+    assert await _chunk_texts(db_session, user.id) == ["User: factor x^2 - 7x + 12 for me"]
 
 
 @pytest.mark.asyncio

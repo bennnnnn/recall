@@ -12,8 +12,12 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from app.services.text_normalize import straighten_apostrophes
+
+if TYPE_CHECKING:
+    from app.modules.memory.commands import MemoryCommand
 
 _TASK = re.compile(
     r"\b(?:todos?|to-dos?|appointments?|pickups?|flights?|concerts?|dentist)\b",
@@ -156,3 +160,30 @@ def asks_to_keep(text: str) -> bool:
         and _ERRAND.search(straighten_apostrophes(text)) is None
         and not is_one_off_schedule_fact(text)
     )
+
+
+def memory_command(text: str) -> MemoryCommand | None:
+    """What a chat line asks memory to do, as the post-turn pass applies it (``pass_writes``).
+
+    None for a reset, which chat does not apply (Settings → Memory does), and for a
+    "remember …" memory will not keep (``asks_to_keep``).
+    """
+    from app.modules.memory.commands import (
+        is_explicit_forget_command,
+        is_explicit_memory_command,
+        is_explicit_mute_command,
+        is_memory_correction,
+        memory_reset_request,
+    )
+
+    if memory_reset_request(text) is not None:
+        return None
+    if is_explicit_forget_command(text):
+        return "forget"
+    if is_explicit_mute_command(text):
+        return "mute"
+    if asks_to_keep(text):
+        return "keep"
+    if is_explicit_memory_command(text):
+        return None
+    return "correct" if is_memory_correction(text) else None

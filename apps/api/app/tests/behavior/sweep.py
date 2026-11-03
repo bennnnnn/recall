@@ -147,7 +147,16 @@ LOOKALIKE_HINTS = {
     "record lookalike": "personal_record",
     # "Should I tell my boss I'm pregnant?" asks for advice, not a message to send.
     "draft lookalike": "email",
+    # "What do you remember about my trip?" asks about the trip, not the user as a whole.
+    "about me lookalike": "broad_self",
+    # "I always forget my keys" and "how do I forget a bad memory?" remove no saved fact.
+    "forget lookalike": "memory_forget",
+    # "How do I stop mentioning my ex in every conversation?" asks for advice.
+    "mute lookalike": "memory_mute",
 }
+# "Fix my code", "is my answer right?", "oh my god": a "my" that names nothing of the
+# user's life (an idiom, or the text the message hands over) reads no personal memory.
+NOT_PERSONAL_AREAS = {"possessive lookalike"}
 # A loan, card or savings ask, or a what-if that changes the one before it ("what if i only
 # do 3 years instead"): the server works its numbers, so the turn carries the money block.
 MONEY_AREAS = {"money", "money lesson", "money everyday"}
@@ -510,6 +519,8 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
             problems.append("let the model decide to search")
         if entry.area in NOT_MATH_AREAS and (route.subject == "math" or route.solved):
             problems.append(f"read as maths (solved={route.solved})")
+        if entry.area in NOT_PERSONAL_AREAS and route.memory and route.memory_scope != "work":
+            problems.append(f"read personal memory ({route.memory_scope})")
         unwanted = LOOKALIKE_HINTS.get(entry.area)
         if unwanted and unwanted in route.hints:
             problems.append(f"given the {unwanted!r} hint")
