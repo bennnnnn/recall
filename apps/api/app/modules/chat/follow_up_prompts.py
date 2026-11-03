@@ -22,13 +22,15 @@ SUBJECT_SYSTEM = (
     "2. What if: the same problem with one number or condition changed. "
     "3. Go further: the next idea this problem leads to. "
     "4 and 5: one more of any of those kinds. "
+    "No two ask the same thing: one what-if per changed value, named once. "
     "Name the quantity, never restate the whole problem: "
     '"Why convert km/h to m/s first?", "What if it took 10 s instead?", '
     '"How far does the car go in 5 s?". '
     "A what-if names what changes. For an equation write the new one: "
     '"What if $3x + 3 = 5$?", never "What if it was 5?". '
     "Write each equation in $...$ with spaces around =, as in $x^2 = 9$ or "
-    "$\\sqrt{x} = 5$. A letter and a number stay separate: never $x5$, and "
+    "$\\sqrt{x} = 5$, and a symbol with a subscript too: $v_f$, never a bare v_f. "
+    "A letter and a number stay separate: never $x5$, and "
     "never a number stuck to a radical like $^5\\sqrt{x}$. "
     f"{SHAPE}"
 )

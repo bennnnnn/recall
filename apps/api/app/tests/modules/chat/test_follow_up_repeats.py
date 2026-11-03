@@ -68,6 +68,10 @@ _REPLY = "Charles's law ties volume to absolute temperature, so it needs kelvin.
             "How much heat melts 2 kg of ice at 0 °C?",
             ["How much heat melts 2 kg of ice at 0 degrees?"],
         ),
+        # One change named two ways, a word and its symbol (live, 2026-11-02).
+        ("What if t was 4 s?", ["What if the time was 4 s?"]),
+        ("What if $t$ was 4 s?", ["What if the time was 4 seconds?"]),
+        ("And if $v_f$ was 30 m/s?", ["What if the final speed was 30 m/s?"]),
     ],
 )
 def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: list[str]) -> None:
@@ -112,6 +116,12 @@ def test_a_reworded_question_repeats_the_earlier_one(candidate: str, earlier: li
         ("What if the temperature was 300 K?", ["What if the temperature was 300 °C?"]),
         ("What if the mass was 2 kg?", ["What if the mass was 2 g?"]),
         ("What if the loan was $10,000?", ["What if the loan was $10,000 over 5 years?"]),
+        # The same value for two quantities, named apart in words or by symbols.
+        ("What if $v_i$ was 30 m/s?", ["What if $v_f$ was 30 m/s?"]),
+        ("What if v_i was 30 m/s?", ["What if v_f was 30 m/s?"]),
+        ("What if the initial speed was 30 m/s?", ["What if the final speed was 30 m/s?"]),
+        ("What if x was 4 cm?", ["What if y was 4 cm?"]),
+        ("What if the time was 4 s?", ["How far does it go in 4 s?"]),
         # "a" may be the variable, not an article.
         ("What if a = 2?", ["What if it = 2?"]),
         ("What if a doubled?", ["What if it doubled?"]),

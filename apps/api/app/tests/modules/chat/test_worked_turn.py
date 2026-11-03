@@ -11,13 +11,15 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.prompt_constants.worked import WORKED_BLOCK_CONTRACT
+from app.modules.chat.prompt_constants.worked import RESULT_CHECK_CONTRACT, WORKED_BLOCK_CONTRACT
 from app.modules.chat.stream_paths import _apply_tool_rounds
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.worked_render import WorkedLayout
 from app.modules.chat.worked_turn import (
+    checks_stated_results,
+    with_result_check_contract,
     with_worked_contract,
     without_worked_contract,
     worked_layout,
@@ -80,6 +82,57 @@ def test_other_turns_get_no_block(
 ) -> None:
     kwargs = {"answered": False, "lightweight": False, "several_requests": False, **flags}
     assert worked_layout(content, subject, Settings(), **kwargs) is None
+
+
+# Live (2026-11-02): the worked contract on a message of answers to check made the model
+# rework all four problems and say it could not see the answers.
+_ANSWERS = "My answers: 1) 1 mol 2) 110 g 3) 4.5 x 10^23 molecules 4) 2 mol. Did I get them right?"
+_FLAGS = {"answered": False, "lightweight": False, "several_requests": False}
+
+
+@pytest.mark.parametrize(
+    ("content", "subject"),
+    [
+        (_ANSWERS, "chemistry"),
+        ("My answers:\n1. 4 m/s^2\n2. 12 N\nAre these right?", "physics"),
+        ("I got x = 4 for 3x - 2 = 10, am I right?", "math"),
+    ],
+)
+def test_results_to_check_get_the_check_not_the_block(content: str, subject: str) -> None:
+    assert worked_layout(content, subject, Settings(), **_FLAGS) is None
+    assert checks_stated_results(content, subject, answered=False, lightweight=False)
+
+
+def test_a_question_beside_a_claim_keeps_its_block() -> None:
+    content = "How many grams are in 0.5 mol of NaCl? I got 29.2 g, am I right?"
+    assert worked_layout(content, "chemistry", Settings(), **_FLAGS) == WorkedLayout()
+    assert not checks_stated_results(content, "chemistry", answered=False, lightweight=False)
+
+
+@pytest.mark.parametrize(
+    ("content", "subject", "flags"),
+    [
+        # Not a calculation turn: no subject, no exercise.
+        ("My results from the 5k: 24 minutes. Is that ok?", None, {}),
+        (_ANSWERS, "chemistry", {"lightweight": True}),
+        # The solver checked it ("check my answer: x = 6"): its verified reply compares.
+        ("check my answer: x = 6", "math", {"answered": True}),
+        # A calculation to do, not results to check.
+        ("How many moles are in 36 g of water?", "chemistry", {}),
+    ],
+)
+def test_other_turns_get_no_check(
+    content: str, subject: str | None, flags: dict[str, bool]
+) -> None:
+    kwargs = {"answered": False, "lightweight": False, **flags}
+    assert not checks_stated_results(content, subject, **kwargs)
+
+
+def test_the_check_contract_sits_beside_the_message() -> None:
+    prompt = [{"role": "system", "content": "rules"}, {"role": "user", "content": _ANSWERS}]
+    with_contract = with_result_check_contract(prompt)
+    assert with_contract[-2] == {"role": "system", "content": RESULT_CHECK_CONTRACT}
+    assert with_contract[-1] == {"role": "user", "content": _ANSWERS}
 
 
 def test_the_setting_turns_the_block_off() -> None:

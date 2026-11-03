@@ -98,6 +98,18 @@ class Case:
 NO_PHOTO = ""
 NONE = ""
 
+# Four mole problems the chat set, before the student's answers to them (2026-11-02).
+_MOLE_PRACTICE = (
+    ("user", "Can you give me some practice problems on moles?"),
+    (
+        "assistant",
+        "1. How many moles are in 58.44 g of NaCl? (M = 58.44 g/mol)\n"
+        "2. What is the mass of 2.5 mol of CO2? (M = 44.01 g/mol)\n"
+        "3. How many molecules are in 0.75 mol of H2O?\n"
+        "4. In 2 H2 + O2 -> 2 H2O, how many moles of H2O form from 4 mol of H2?",
+    ),
+)
+
 # A story cut off mid-sentence, and code with its bug report, for the follow-up turns.
 _STORY = (
     ("user", "tell me a long story about a dragon who is afraid of fire"),
@@ -404,6 +416,25 @@ CASES: tuple[Case, ...] = (
         # Chemistry named by a word and a time, no calculation: no ```worked block.
         Expect(no_hints=("worked",)),
         "A reminder card for 7 pm tomorrow.",
+    ),
+    Case(
+        "chem-check-my-answers",
+        "chemistry",
+        "My answers: 1) 1 mol 2) 110 g 3) 4.5 x 10^23 molecules 4) 2 mol. Did I get them right?",
+        # Live (2026-11-02): the worked contract made the model rework all four and say it
+        # could not see the answers. Only results to check: each compared, none reworked.
+        Expect(no_hints=("worked",), hints=("result_check",)),
+        "Four short lines: 1 mol right, 110 g right, 4.5 x 10^23 right, 2 mol wrong (the "
+        "2 : 2 ratio gives 4 mol). No worked blocks, no re-solve.",
+        history=_MOLE_PRACTICE,
+    ),
+    Case(
+        "chem-question-and-claim-worked",
+        "chemistry",
+        "How many grams are in 0.5 mol of NaCl? I got 29.2 g, am I right?",
+        # A new question beside the claim: it is worked (or solved), and the claim compared.
+        Expect(subject="chemistry", no_hints=("result_check",)),
+        "29.2 g is right: 0.5 × 58.44 = 29.22 g.",
     ),
     Case(
         "physics-explain-no-worked",

@@ -43,7 +43,7 @@ from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER
 from app.modules.chat.prompt_constants.reply_missed import REPLY_MISSED_HINT
 from app.modules.chat.prompt_constants.shared_numbers import SHARED_NUMBERS_HINT
-from app.modules.chat.prompt_constants.worked import WORKED_BLOCK_CONTRACT
+from app.modules.chat.prompt_constants.worked import RESULT_CHECK_CONTRACT, WORKED_BLOCK_CONTRACT
 from app.modules.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
@@ -153,6 +153,8 @@ HINTS: dict[str, str] = {
     "self_check": SELF_CHECK_PROMPT_RULE,
     # A calculation nothing verified: its parts in a ```worked block the server lays out.
     "worked": WORKED_BLOCK_CONTRACT,
+    # A message that only states the student's results to check: each compared, none reworked.
+    "result_check": RESULT_CHECK_CONTRACT,
     # The general layout contract, and the compact one a greeting or fragment gets.
     "format_contract": pc.FORMAT_CONTRACT,
     "compact": pc.COMPACT_RESPONSE_FORMAT_HINT,

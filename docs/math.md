@@ -271,8 +271,12 @@ Maths, physics and chemistry share one contract for a reply the model works out 
   A model that writes no block gets today's reply; a block with no valid record is shown as
   written. Which turns ask for it: `modules/chat/worked_turn.py` (nothing verified, a number
   in the message, and a maths, physics or chemistry subject, a school exercise or a science
-  question; `worked_layout_enabled`). Headings stay English for every locale, as a verified
-  reply's do; the names, meanings and moves are in the reply's language.
+  question; `worked_layout_enabled`). A message that only states the student's own results
+  and asks whether they are right ("My answers: 1) 1 mol 2) 110 g. Did I get them right?",
+  the grammar in `services/student_claim.py`) asks for no new value: it gets no block, and
+  `RESULT_CHECK_CONTRACT` has the reply compare each result with the right one instead.
+  Headings stay English for every locale, as a verified reply's do; the names, meanings and
+  moves are in the reply's language.
 - **Not checked:** the value under **Answer** goes in the same card a verified one does,
   marked `verified: false` (`land_answer_card`); the phone draws it in the same solid box
   with no check and no label (`components/rich/AnswerBlock.tsx`; the "Not checked" tag and the

@@ -53,3 +53,21 @@ WORKED_BLOCK_CONTRACT = (
     "answer: v | 3.33 | m/s\n"
     "```"
 )
+
+# Live (2026-11-02): "My answers: 1) 1 mol 2) 110 g 3) 4.5 x 10^23 molecules 4) 2 mol. Did I
+# get them right?" got the worked contract, and the model opened "I can't see the answers you
+# wrote", worked all four problems again and named one slip in passing. A message that only
+# states results to check gets this instead (``chat.worked_turn``).
+RESULT_CHECK_CONTRACT = (
+    "The user's last message states their own results (to the problems earlier in this "
+    "chat, or to the one it names) and asks whether they are right. The results are in "
+    "that message: read them from it, and never say you cannot see them. Go through them in "
+    "the problems' order, one line each and each verdict once: the right value with the one "
+    "sum that gives it (its ratio, unit and power of ten included), then their result and "
+    "whether it matches; when it does not, the slip in a few words. For example: "
+    '"1) 36 g ÷ 18.0 g/mol = 2.0 mol. Yours: 2 mol, right." and "2) 12 N ÷ 3 kg = '
+    '4 m/s². Yours: 36 m/s², not right: the force is divided by the mass, not multiplied." '
+    "A result that differs from the right one only by rounding is right. No other working "
+    "and no ```worked block. Close with one line on how they did. Open with the first line, "
+    "not a heading or a title."
+)

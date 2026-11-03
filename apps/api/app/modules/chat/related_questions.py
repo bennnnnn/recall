@@ -143,9 +143,27 @@ def _one_short_line(text: str) -> bool:
     return re.search(r"[.!?:;]\s+\S", visible.rstrip("?")) is None
 
 
+# A symbol with a subscript written bare: "v_f", "v_0", "x_{1}". The phone typesets maths
+# in $...$ and a caret or digit subscript it finds bare; "v_f" it showed as typed (live,
+# 2026-11-02: "What if v_f was 30 m/s?"). Not a name in code ("x_train").
+_BARE_SUBSCRIPT = re.compile(r"(?<![\w$\\])[A-Za-z]_(?:\{[^{}\n]+\}|[A-Za-z0-9]{1,3}(?!\w))")
+
+
+def _typeset_symbols(text: str) -> str:
+    """Each bare subscripted symbol outside a maths span, in $...$ for the phone."""
+    pieces: list[str] = []
+    last = 0
+    for span in _MATH_SPAN.finditer(text):
+        pieces.append(_BARE_SUBSCRIPT.sub(lambda m: f"${m.group()}$", text[last : span.start()]))
+        pieces.append(span.group())
+        last = span.end()
+    pieces.append(_BARE_SUBSCRIPT.sub(lambda m: f"${m.group()}$", text[last:]))
+    return "".join(pieces)
+
+
 def _prepare_question(candidate: str) -> str | None:
     """A short full question with a variable and a number kept apart, or none."""
-    cleaned = collapse_ws(candidate).strip("\"'“”")
+    cleaned = _typeset_symbols(collapse_ws(candidate).strip("\"'“”"))
     if not cleaned.endswith("?") and _QUESTION_OPENER.match(cleaned):
         # The model left off the mark ("why does everest grow taller"): the question is whole.
         cleaned = cleaned.rstrip(".") + "?"
