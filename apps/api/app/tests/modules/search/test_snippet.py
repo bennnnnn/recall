@@ -50,6 +50,16 @@ def test_reader_text_keeps_code_and_drops_cards():
     )
 
 
+@pytest.mark.parametrize(
+    "code",
+    ["[server]\nport = 8080", "{ a: 1, port: 8080 }", "[port for port in ports]"],
+)
+def test_snippet_finds_a_match_in_code_that_opens_with_a_bracket(code):
+    """Only a JSON body is a card's data; code that opens with a bracket is still read."""
+    body = f"Here is the config:\n```text\n{code}\n```\nThat should do it."
+    assert "port" in snippet(body, "port")
+
+
 def test_reader_text_reads_a_long_unpaired_body_quickly():
     hostile = "**" + "a " * 50_000 + "_" * 10_000
     assert reader_text(hostile).startswith("**a a")

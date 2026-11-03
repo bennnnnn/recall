@@ -6,12 +6,14 @@ that no client could draw. The body is read as plain text first and cut after, h
 every client (the phone's drawer, the web) gets the same readable line.
 
 A card's fence (a calculator, a chart, a scene: a JSON body) is not words, and is left
-out; any other fence keeps its body, as code reads as itself. Every pattern is bounded,
+out; any other fence keeps its body, as code reads as itself, also code that opens with a
+bracket (an ini section, a JS object, a list comprehension). Every pattern is bounded,
 so a long or hostile body is read in linear time.
 """
 
 from __future__ import annotations
 
+import json
 import re
 
 from app.services.md_fence_scan import iter_fences
@@ -59,11 +61,22 @@ def reader_text(markdown: str) -> str:
     for fence in iter_fences(markdown):
         pieces.append(_prose_text(markdown[cursor : fence.start]))
         body = markdown[fence.body_start : fence.body_end]
-        if not body.lstrip().startswith(("{", "[")):
+        if not _is_card_data(body):
             pieces.append(body)
         cursor = fence.end
     pieces.append(_prose_text(markdown[cursor:]))
     return collapse_ws(" ".join(pieces))
+
+
+def _is_card_data(body: str) -> bool:
+    """A JSON object or list: a card's data, not code a reader reads."""
+    stripped = body.strip()
+    if not stripped.startswith(("{", "[")):
+        return False
+    try:
+        return isinstance(json.loads(stripped), (dict, list))
+    except ValueError:
+        return False
 
 
 def snippet(content: str, query: str, max_len: int = 120) -> str:
