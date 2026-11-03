@@ -49,7 +49,8 @@ const WORDS = new Set(
   ).split(" "),
 );
 
-const FORMULA_RE = /^(?:\(?(?:[A-Z][a-z]?[₀-₉]*)+\)?[₀-₉]*)+[⁰¹²³⁴⁵⁶⁷⁸⁹]*[⁺⁻]?/;
+// A charge is never followed by a superscript digit: in K⁻¹ the ⁻ is an exponent's sign.
+const FORMULA_RE = /^(?:\(?(?:[A-Z][a-z]?[₀-₉]*)+\)?[₀-₉]*)+[⁰¹²³⁴⁵⁶⁷⁸⁹]*(?:[⁺⁻](?![⁰¹²³⁴⁵⁶⁷⁸⁹]))?/;
 const NUMBER_RE = /^\d+(?:\.\d+)?/;
 const POWER_OF_TEN_END = /10\^\{?-?\d+\}?$/;
 

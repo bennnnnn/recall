@@ -32,4 +32,22 @@ describe("uprightNotation", () => {
   ])("leaves %s alone", (source) => {
     expect(uprightNotation(source)).toBe(source);
   });
+
+  it.each([
+    ["α = 1.2×10⁻⁵ K⁻¹", "K⁻¹"],
+    ["β = 3×10⁻⁴ °C⁻¹", "C⁻¹"],
+    ["k = 0.5 s⁻¹", "s⁻¹"],
+    ["E = 2 V⁻¹", "V⁻¹"],
+  ])("reads the ⁻ in %s as an exponent, not an ion's charge", (source, unit) => {
+    const out = uprightNotation(source);
+    expect(out).not.toMatch(/\\mathrm\{[A-Z][a-z]?⁻\}/);
+    expect(out).toContain(unit);
+  });
+
+  it.each([
+    ["[SO₄²⁻] = 0.2 M", "\\mathrm{SO₄²⁻}"],
+    ["K⁺ and Cl⁻ ions", "\\mathrm{K⁺}"],
+  ])("still reads a charge in %s", (source, ion) => {
+    expect(uprightNotation(source)).toContain(ion);
+  });
 });
