@@ -191,9 +191,14 @@ _OUTLINE_PARTS = (
     "level: the outline comes first"
 )
 
+# The outline is the default: "teach me american history" came back once as Lesson 1 on the
+# colonies when the two ways read as equals (2026-11-03).
 TEACH_CONTRACT = (
-    "Lay this reply out one of two ways, never saying that you were asked to. A whole "
-    "subject: " + _OUTLINE_PARTS + ". One idea: a lesson with " + _LESSON_PARTS + "."
+    "Lay this reply out one of two ways, never saying that you were asked to. They named a "
+    "whole subject or field (a language, a period or country's history, a science, an "
+    "instrument, a craft): the outline, " + _OUTLINE_PARTS + ". Only when they named one "
+    "narrow idea inside a subject (Python dictionaries, the present perfect, derivatives, an "
+    "omelette) is it a lesson, with " + _LESSON_PARTS + "."
 )
 
 # "Teach me Python" names a whole language (``lesson_flow.names_a_whole_language``): the
