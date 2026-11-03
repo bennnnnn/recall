@@ -117,11 +117,12 @@ class Turn:
         return "; ".join(parts) or "plain reply"
 
 
-def _jobs_settled(timeout_s: float = 60.0) -> bool:
+def _jobs_settled(timeout_s: float = 60.0) -> bool | None:
     """The API's job queue holds nothing pending or undelivered, twice in a row.
 
     A turn queues its memory, topic and indexing jobs as it finishes, a moment after
-    the reply's last frame, so one empty read right after it can come too early.
+    the reply's last frame, so one empty read right after it can come too early. None:
+    the queue could not be read (Redis down, no consumer group yet), so nothing waits.
     """
     import asyncio
 
@@ -130,19 +131,25 @@ def _jobs_settled(timeout_s: float = 60.0) -> bool:
     from app.core.config import get_settings
     from app.core.jobs.admin import collect_queue_metrics
 
-    async def idle() -> bool:
-        client = aioredis.from_url(get_settings().redis_url)
+    async def idle() -> bool | None:
+        client = aioredis.from_url(get_settings().redis_url, decode_responses=True)
         try:
             metrics = await collect_queue_metrics(client)
         finally:
             await client.aclose()
-        return metrics["pending_entries"] == 0 and metrics["backlog"] == 0
+        pending, backlog = metrics["pending_entries"], metrics["backlog"]
+        if pending is None or backlog is None:
+            return None
+        return pending == 0 and backlog == 0
 
     deadline = time.monotonic() + timeout_s
     quiet = 0
     while time.monotonic() < deadline:
         time.sleep(1)
-        quiet = quiet + 1 if asyncio.run(idle()) else 0
+        state = asyncio.run(idle())
+        if state is None:
+            return None
+        quiet = quiet + 1 if state else 0
         if quiet >= 2:
             return True
     return False
@@ -156,6 +163,7 @@ class Battery:
         self.tokens: dict[bool, str] = {}
         self.location: dict[bool, str | None] = {}
         self.last_send = 0.0
+        self.queue_unreadable_noted = False
 
     def _headers(self, pro: bool) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.tokens[pro]}"}
@@ -205,8 +213,12 @@ class Battery:
         asks for. The last case's post-turn jobs run first: a memory job still queued would
         otherwise write its facts into this case after the delete.
         """
-        if not _jobs_settled():
+        settled = _jobs_settled()
+        if settled is False:
             print("  (post-turn jobs still running after 60 s; clearing memory anyway)")
+        elif settled is None and not self.queue_unreadable_noted:
+            self.queue_unreadable_noted = True
+            print("  (the job queue can't be read; memory is cleared without waiting for it)")
         for _ in range(30):
             response = self.client.delete("/memories", headers=self._headers(pro))
             if response.status_code != 409:
