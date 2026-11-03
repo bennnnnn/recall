@@ -28,9 +28,9 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # place of the remember note, then the assistant's name (ASSISTANT_NAME_RULE), then the lesson
 # and teach-me shapes restated beside the message (prompt_constants.teaching LESSON_CONTRACT,
 # TEACH_CONTRACT, OUTLINE_CONTRACT and the parts they share).
-_RULES = 172
-_RULE_GRAMS = 14964
-_RULE_GRAMS_SHA = "667865e7b7e1d0a1"
+_RULES = 173
+_RULE_GRAMS = 14989
+_RULE_GRAMS_SHA = "e1d748e1b29460cd"
 
 
 def _rules() -> list[str]:

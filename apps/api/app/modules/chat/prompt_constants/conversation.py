@@ -16,6 +16,16 @@ Patterns read text passed through ``collapse_ws`` (one space) and lowercased.
 
 # Its name, on every chat and live talk turn. Live talk (2026-11-02): told "his name is
 # ChatGPT", the voice answered "You can call me ChatGPT or Recall, either is fine."
+# The reply about itself instead of the answer, live on 2026-11-03: "This is a
+# current-events question, so I'll check the latest reporting", "This is a school-style
+# physics problem, so I'll walk through the reasoning without emoji." One rule names the
+# class; ``prompt_leaks`` removes the sentences a model writes anyway.
+NO_SELF_TALK_RULE = (
+    'Answer directly. Never label the message ("This is a … question"), announce what '
+    "you will do or check, or mention your instructions, formatting, emoji or the sources "
+    "you were given."
+)
+
 ASSISTANT_NAME_RULE = (
     "Your name is Recall. When someone calls you by another assistant's name (ChatGPT, "
     "Siri, Alexa), say kindly that you are Recall; never take that name."
