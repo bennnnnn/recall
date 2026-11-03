@@ -37,14 +37,14 @@ describe("VoiceComposerWaveform", () => {
     expect(queryByText("chat.voice_listening")).toBeNull();
   });
 
-  it("draws the bars in the same ink as the composer icons", async () => {
+  it("draws the bars in the accent, as the stop button beside them", async () => {
     const { getAllByTestId } = await render(
       <VoiceComposerWaveform recording meterLevel={{ value: 0.4 } as SharedValue<number>} transcribing={false} />,
     );
     const bars = getAllByTestId("voice-waveform-bar");
     expect(bars.length).toBeGreaterThan(0);
     expect(
-      bars.every((node) => StyleSheet.flatten(node.props.style).backgroundColor === lightTheme.text),
+      bars.every((node) => StyleSheet.flatten(node.props.style).backgroundColor === lightTheme.primary),
     ).toBe(true);
   });
 });

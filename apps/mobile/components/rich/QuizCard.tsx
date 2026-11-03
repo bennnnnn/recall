@@ -222,12 +222,13 @@ function makeStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    radioPicked: { borderColor: t.text, backgroundColor: t.text },
+    // The accent, beside the card's Check answer button, not black.
+    radioPicked: { borderColor: t.primary, backgroundColor: t.primary },
     radioDot: {
       width: 8,
       height: 8,
       borderRadius: Radius.full,
-      backgroundColor: t.bg,
+      backgroundColor: t.onPrimary,
     },
     optionText: { flex: 1, ...Type.body, color: t.text },
     // The same pill as inline code in replies.
