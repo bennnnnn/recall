@@ -232,19 +232,21 @@ async def test_reply_searches_then_answers_from_the_results(
 
 
 @pytest.mark.asyncio
-async def test_reply_text_before_its_search_gets_a_paragraph_break(
+async def test_reply_text_before_its_search_gives_way_to_the_answer(
     web_search_tool: dict[str, Any],
 ) -> None:
     ctx = _context("who won the champions league")
     ctx.reply_tools = [web_search_tool]
     llm, seen = _model((["Let me check."], [_SEARCH_CALL]), (["PSG won it."], []))
+    accum = StreamAccum()
 
     with patch(
         "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
     ):
-        text = await _reply(ctx, llm)
+        await _reply(ctx, llm, accum=accum)
 
-    assert text == "Let me check.\n\nPSG won it."
+    assert accum.reply_text() == "PSG won it."
+    assert accum.retracted == "Let me check."
     assert seen[1]["messages"][-2]["content"] == "Let me check."
 
 
@@ -410,6 +412,23 @@ async def test_a_denial_is_asked_again_with_search_offered(
     assert accum.retracted == _DENIAL
     assert [call["tools"] for call in seen] == [None, [web_search_tool], None]
     assert [hit.url for hit in ctx.search_sources] == [_HIT.url]
+
+
+@pytest.mark.asyncio
+async def test_a_denial_then_text_before_the_search_both_give_way(
+    web_search_tool: dict[str, Any],
+) -> None:
+    ctx = _retry_context(tool=web_search_tool)
+    llm, _seen = _model(([_DENIAL], []), (["Let me look."], [_SEARCH_CALL]), ([_ANSWER], []))
+    accum = StreamAccum()
+    with patch(
+        "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
+    ):
+        await _reply(ctx, llm, accum=accum)
+
+    assert accum.reply_text() == _ANSWER
+    # Both were drawn, so a stop's count of drawn text takes both off.
+    assert accum.retracted == f"{_DENIAL}\n\nLet me look."
 
 
 @pytest.mark.asyncio

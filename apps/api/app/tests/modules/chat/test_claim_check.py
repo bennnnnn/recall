@@ -243,6 +243,31 @@ async def test_the_default_note_names_what_was_left_out() -> None:
     assert out.rstrip().endswith("left them out: a levy.*")
 
 
+@pytest.mark.parametrize(
+    "note",
+    [
+        # Live, 2026-11-03: the checker's analysis reached the user as the note.
+        "The provided sources do not confirm that Musk criticized a specific 'tax and "
+        "spending bill'; Source [4] mentions an 'agenda bill' but does not detail it.",
+        "Source 2 does not support the levy.",
+        "The reply's levy is not in the evidence.",
+        "I couldn't confirm the levy. The rest is from the sources. Ask your broker.",
+        "I couldn't confirm " + "this detail and " * 12 + "left it out.",
+    ],
+)
+async def test_a_note_in_the_checkers_own_terms_gives_way_to_ours(note: str) -> None:
+    out = await _run(_state(), _verdict("| CSTA Levy | 0.5% | 150 |", note=note))
+    assert out.rstrip().endswith(
+        "*I couldn't confirm these from the sources I found, so I left them out: a levy.*"
+    )
+
+
+async def test_a_short_note_to_the_user_in_another_language_is_kept() -> None:
+    note = "No pude confirmar la tasa CSTA en las fuentes, así que la omití."
+    out = await _run(_state(), _verdict("| CSTA Levy | 0.5% | 150 |", note=note))
+    assert out.rstrip().endswith(f"*{note}*")
+
+
 _LEAD = "The charges on a 30,000 KES purchase are listed below, with each in shillings.\n\n"
 
 
