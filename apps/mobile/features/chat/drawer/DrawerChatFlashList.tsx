@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import { Pressable, RefreshControl, Text } from "react-native";
-import { FlashList, type FlashListRef } from "@shopify/flash-list";
+import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -23,6 +23,7 @@ import {
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
 import { isChatTitleGenerating } from "@/features/chat/drawer/drawer";
+import { useDrawerSearchItems } from "@/features/chat/drawer/useDrawerSearchItems";
 import { displayChatTitle } from "@/features/chat/model/title";
 import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
@@ -47,7 +48,6 @@ export type DrawerChatListItem =
     }
   | { type: "archivedMore"; key: "archived-more" };
 
-const NO_ITEMS: DrawerChatListItem[] = [];
 const SEARCH_POSITION = { disabled: true };
 
 type Props = {
@@ -122,46 +122,16 @@ export function DrawerChatFlashList({
   const s = useMemo(() => makeConversationListStyles(theme), [theme]);
   const rowStyles = useMemo(() => makeConversationRowStyles(theme), [theme]);
 
-  // Each keystroke starts a new search with new result handlers. They ride on the search
-  // items, so the chat rows under them keep their items and renderItem and are not redrawn.
-  const searchItems = useMemo<DrawerChatListItem[]>(() => {
-    if (!searchOpen || searchResults.length === 0) return NO_ITEMS;
-    const items: DrawerChatListItem[] = [];
-    for (const result of searchResults) {
-      const key = result.message_id
-        ? `search-${result.message_id}`
-        : `search-title-${result.chat_id}`;
-      items.push({ type: "searchRow", key, result, query: searchQuery, onOpen: onOpenSearchResult });
-    }
-    if (searchHasMore || searchLoadingMoreError) {
-      items.push({
-        type: "searchLoadMore",
-        key: "search-load-more",
-        loadingMore: searchLoadingMore,
-        loadingMoreError: searchLoadingMoreError,
-        onLoadMore: onSearchLoadMore,
-      });
-    }
-    return items;
-  }, [
-    onOpenSearchResult,
-    onSearchLoadMore,
-    searchHasMore,
-    searchLoadingMore,
-    searchLoadingMoreError,
+  const { searchItems, listRef } = useDrawerSearchItems({
     searchOpen,
     searchQuery,
     searchResults,
-  ]);
-
-  // A new search's results go in above the chat rows. Keeping the rows on screen (the
-  // list's visible-position rule, off while searching) pushed them out of sight. A new
-  // first result is a new search: show it from the top. Load more keeps the place.
-  const listRef = useRef<FlashListRef<DrawerChatListItem>>(null);
-  const firstSearchKey = searchItems[0]?.key;
-  useEffect(() => {
-    if (firstSearchKey) listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [firstSearchKey]);
+    searchHasMore,
+    searchLoadingMore,
+    searchLoadingMoreError,
+    onOpenSearchResult,
+    onSearchLoadMore,
+  });
 
   const chatItems = useMemo<DrawerChatListItem[]>(() => {
     const items: DrawerChatListItem[] = [];

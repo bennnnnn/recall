@@ -1,4 +1,4 @@
-export type MatchPart = { text: string; match: boolean };
+type MatchPart = { text: string; match: boolean };
 
 /**
  * A result's text cut where the search matched, to highlight it. The server finds the
