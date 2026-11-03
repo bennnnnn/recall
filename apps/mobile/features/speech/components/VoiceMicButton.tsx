@@ -45,7 +45,8 @@ export function VoiceMicButton({ size, recording, transcribing, disabled, onPres
         style={[styles.btn, box, recording && [styles.stopDisc, { borderRadius: size / 2 }]]}
       >
         {recording ? (
-          <RoundedStop size={IconSize.md} color={lightTheme.text} />
+          // The accent: the stop mark follows Settings → Accent, as the waveform beside it does.
+          <RoundedStop size={IconSize.md} color={theme.primary} />
         ) : (
           <Icon name="mic" size={IconSize.md} color={theme.text} testID="voice-mic-icon" />
         )}

@@ -112,7 +112,8 @@ export function VoiceComposerWaveform({
 
   const indices = useMemo(() => Array.from({ length: BAR_COUNT }, (_, i) => i), []);
   const label = transcribing ? t("chat.voice_transcribing") : t("chat.voice_listening");
-  const barColor = theme.text;
+  // The accent, as the stop button beside it: it follows Settings → Accent.
+  const barColor = theme.primary;
 
   return (
     <View
