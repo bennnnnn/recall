@@ -168,7 +168,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -201,7 +201,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -232,7 +232,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -255,7 +255,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -278,7 +278,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -307,7 +307,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -330,7 +330,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -353,7 +353,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -376,7 +376,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -404,7 +404,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -424,7 +424,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -448,7 +448,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -475,7 +475,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -629,7 +629,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 15"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 15"
      ],
      [
       "system",
@@ -771,7 +771,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 15"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[professional] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 15"
      ],
      [
       "system",
@@ -826,7 +826,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -888,7 +888,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -938,7 +938,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -978,7 +978,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1012,7 +1012,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1048,7 +1048,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1082,7 +1082,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1118,7 +1118,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1154,7 +1154,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1188,7 +1188,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1227,7 +1227,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1265,7 +1265,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1303,7 +1303,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1337,7 +1337,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1379,7 +1379,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1421,7 +1421,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1455,7 +1455,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1497,7 +1497,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1539,7 +1539,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1573,7 +1573,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1607,7 +1607,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1649,7 +1649,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1691,7 +1691,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1725,7 +1725,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1759,7 +1759,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1801,7 +1801,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1851,7 +1851,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1893,7 +1893,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1927,7 +1927,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -1961,7 +1961,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -2003,7 +2003,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
@@ -2058,7 +2058,7 @@
     "messages": [
      [
       "system",
-      "0 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
+      "0 @ASSISTANT_NAME_RULE 1 @TONE_HINTS[casual] 1 @EMOJI_HINTS[some] 1 @TONE_FORMAT_GUARD 1 @UNCLEAR_MESSAGE_HINT 1 @SETTINGS_IN_APP_HINT 2"
      ],
      [
       "system",
