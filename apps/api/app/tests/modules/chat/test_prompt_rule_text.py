@@ -29,8 +29,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # and teach-me shapes restated beside the message (prompt_constants.teaching LESSON_CONTRACT,
 # TEACH_CONTRACT and the lesson parts they share).
 _RULES = 170
-_RULE_GRAMS = 14911
-_RULE_GRAMS_SHA = "a09248f831fe0eb5"
+_RULE_GRAMS = 14916
+_RULE_GRAMS_SHA = "a5d5f86fd6ca84a9"
 
 
 def _rules() -> list[str]:
