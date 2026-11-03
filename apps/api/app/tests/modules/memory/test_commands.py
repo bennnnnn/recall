@@ -160,6 +160,10 @@ def test_memory_command_names_what_the_post_turn_pass_does(text, command):
         ("forget that", True),
         ("forget about it", True),
         ("forget about my old job", True),
+        # An ask that saved something: forgetting it forgets what it saved.
+        ("forget I asked you to remember my wifi password", True),
+        ("forget that I asked you to call me Bob", True),
+        ("forget I just asked you to save my address", True),
     ],
 )
 def test_forget_tells_a_dropped_request_from_a_saved_fact(text, forget):

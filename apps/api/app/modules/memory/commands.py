@@ -7,6 +7,7 @@ and only count at the start of a clause, after nothing but "please", "can you" o
 
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import Literal
 
 MemoryReset = Literal["clear", "off"]
@@ -465,6 +466,11 @@ def _names_a_chat_part(words: list[str]) -> bool:
 # it": it deletes only a fact the line before asked to remember (``pass_writes``).
 _ASK_VERBS = frozenset({"ask", "asked", "asking", "requested", "wondered"})
 _ASIDES = frozenset({"ever", "even", "just", "already", "once"})
+# An ask that was itself a save: "forget I asked you to remember my wifi password" forgets
+# what that ask saved, not the asking.
+_SAVE_ASKS = frozenset(
+    {"remember", "save", "keep", "store", "note", "memorize", "memorise", "call"}
+)
 
 
 def _withdraws_the_ask(rest: str) -> bool:
@@ -478,7 +484,9 @@ def _withdraws_the_ask(rest: str) -> bool:
     if words[:1] not in (["i"], ["i'd"], ["i've"]):
         return False
     verbs = [word for word in words[1:] if word not in _ASIDES]
-    return bool(verbs) and verbs[0] in _ASK_VERBS
+    if not verbs or verbs[0] not in _ASK_VERBS:
+        return False
+    return not any(word == "to" and nxt in _SAVE_ASKS for word, nxt in pairwise(verbs[1:]))
 
 
 def _forget_marker_is_negated(lowered: str, index: int) -> bool:
