@@ -139,3 +139,14 @@ def test_values_with_no_check_asked_are_givens(text: str) -> None:
 
 def test_a_check_with_a_word_of_thanks_is_still_only_a_check() -> None:
     assert only_checks_stated_results("My answer is 4 mol, is that right? Thanks!")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "What is the molar mass of water? I got 18 g/mol, am I right?",
+        "My answers: 1) 1 mol 2) 110 g. Did I get them right? Also, what is the molar mass of NaCl?",
+    ],
+)
+def test_a_question_with_no_number_beside_a_check_is_still_asked(text: str) -> None:
+    assert not only_checks_stated_results(text)
