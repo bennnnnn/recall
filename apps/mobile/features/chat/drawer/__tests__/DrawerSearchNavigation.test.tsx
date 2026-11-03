@@ -10,8 +10,8 @@ const mockSetParams = jest.fn();
 const mockPush = jest.fn();
 const mockCloseDrawer = jest.fn();
 const mockClearHighlight = jest.fn();
-let mockHeader: { onSettings: () => void; onSearchChange: (value: string) => void };
-let mockFooter: { onOpenSearch: () => void };
+let mockHeader: { onSettings: () => void };
+let mockFooter: { onOpenSearch: () => void; onSearchChange: (value: string) => void };
 let mockList: { onOpenChat: (id: string, messageId?: string | null) => void; onOpenSearchResult?: (id: string, messageId?: string | null) => void };
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
@@ -51,7 +51,7 @@ afterEach(() => { jest.useRealTimers(); });
 async function search() {
   const view = await render(<ConversationList />);
   await act(async () => { mockFooter.onOpenSearch(); });
-  await act(async () => { mockHeader.onSearchChange("hello"); });
+  await act(async () => { mockFooter.onSearchChange("hello"); });
   await act(async () => { jest.advanceTimersByTime(300); });
   return { view, press: mockList.onOpenSearchResult ?? mockList.onOpenChat };
 }
@@ -75,8 +75,8 @@ it("rejects a retained result press immediately after account invalidation", asy
 
 it("rejects a retained result press after its query changes away and back", async () => {
   const { press } = await search();
-  await act(async () => { mockHeader.onSearchChange("different"); });
-  await act(async () => { mockHeader.onSearchChange("hello"); });
+  await act(async () => { mockFooter.onSearchChange("different"); });
+  await act(async () => { mockFooter.onSearchChange("hello"); });
   await act(async () => { press("chat", "message"); });
   expect(mockSetParams).not.toHaveBeenCalled();
 });

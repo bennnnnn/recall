@@ -1,10 +1,9 @@
-import { Pressable, Text, View, type TextInputInstance } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Icon } from "@/ui/icons/Icon";
-import { SearchField } from "@/ui/controls/SearchField";
 import { tap } from "@/lib/haptics";
 import { IconSize } from "@/ui/icons/sizes";
 import type { Theme } from "@/lib/theme";
@@ -15,11 +14,6 @@ type Props = {
   styles: ConversationListStyles;
   theme: Theme;
   paddingTop: number;
-  searchOpen: boolean;
-  searchQuery: string;
-  searchInputRef: React.RefObject<TextInputInstance | null>;
-  onSearchChange: (text: string) => void;
-  onCloseSearch: () => void;
   onNewChat: () => void;
   onSettings: () => void;
   selectionMode?: boolean;
@@ -32,11 +26,6 @@ export function DrawerHeader({
   styles: s,
   theme,
   paddingTop,
-  searchOpen,
-  searchQuery,
-  searchInputRef,
-  onSearchChange,
-  onCloseSearch,
   onNewChat,
   onSettings,
   selectionMode = false,
@@ -50,29 +39,7 @@ export function DrawerHeader({
   return (
     <View style={[s.topOverlay, { paddingTop }]} pointerEvents="box-none">
       <View style={s.header}>
-        {searchOpen ? (
-          <SearchField
-            inputRef={searchInputRef}
-            value={searchQuery}
-            onChangeText={onSearchChange}
-            placeholder={t("search.placeholder")}
-            clearButtonMode="while-editing"
-            trailing={
-              <Pressable
-                hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}
-                onPress={() => {
-                  tap();
-                  onCloseSearch();
-                }}
-                style={s.searchCancel}
-                accessibilityRole="button"
-                accessibilityLabel={t("common.cancel")}
-              >
-                <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
-              </Pressable>
-            }
-          />
-        ) : selectionMode ? (
+        {selectionMode ? (
           <View style={s.selectionHeader}>
             <Pressable
               hitSlop={11}

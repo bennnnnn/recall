@@ -25,6 +25,7 @@ import {
   drawerHeaderFade,
 } from "@/features/chat/components/chromeFade";
 import { tap } from "@/lib/haptics";
+import { useKeyboardHeight } from "@/ui/hooks/useKeyboardHeight";
 import { chatsFromSelection, selectableChats } from "@/features/chat/drawer/drawerChatSelection";
 import { prefetchGallery } from "@/features/attachments/model/galleryListCache";
 import { DrawerChatFlashList } from "@/features/chat/drawer/DrawerChatFlashList";
@@ -231,9 +232,11 @@ export function ConversationList() {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the profile / new chat row and the Recall / search row are fixed; To-do scrolls with titles.
+  // Only the profile / new chat row and the search bar are fixed; To-do scrolls with titles.
   const topInset = insets.top + 8 + TOP_CHROME;
-  const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
+  // Search types at the bottom: its field rides the keyboard, so the results end above it.
+  const searchKeyboard = useKeyboardHeight(searchOpen);
+  const bottomInset = Math.max(insets.bottom + 8, searchKeyboard + 8) + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
 
@@ -369,11 +372,6 @@ export function ConversationList() {
         styles={s}
         theme={theme}
         paddingTop={insets.top + 8}
-        searchOpen={searchOpen}
-        searchQuery={searchQuery}
-        searchInputRef={searchInputRef}
-        onSearchChange={onSearchChange}
-        onCloseSearch={closeSearch}
         onNewChat={newChat}
         onSettings={openSettings}
         selectionMode={selectionMode}
@@ -397,7 +395,13 @@ export function ConversationList() {
           styles={s}
           theme={theme}
           paddingBottom={insets.bottom + 8}
+          keyboardHeight={searchKeyboard}
+          searchOpen={searchOpen}
+          searchQuery={searchQuery}
+          searchInputRef={searchInputRef}
+          onSearchChange={onSearchChange}
           onOpenSearch={openSearch}
+          onCloseSearch={closeSearch}
         />
       )}
 

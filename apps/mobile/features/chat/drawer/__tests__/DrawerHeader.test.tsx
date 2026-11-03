@@ -16,11 +16,6 @@ const headerProps = {
   styles,
   theme: lightTheme,
   paddingTop: 0,
-  searchOpen: false,
-  searchQuery: "",
-  searchInputRef: { current: null },
-  onSearchChange: jest.fn(),
-  onCloseSearch: jest.fn(),
 };
 
 beforeEach(() => {
