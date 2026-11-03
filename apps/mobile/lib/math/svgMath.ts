@@ -213,20 +213,13 @@ export async function latexToSvgMath(
   if (hit !== undefined) return hit;
 
   let result: SvgMathResult | null = null;
-  if (trimmed && trimmed.length <= MAX_LATEX_CHARS) {
-    try {
-      const render = await getRenderer();
-      const containerHtml = render(rewriteLatexDialects(trimmed), display);
-      const svg = extractSvgElement(containerHtml);
-      if (svg && svgPaintsGlyphs(svg)) {
-        const widthEx = parseExDimension(svg, "width");
-        const heightEx = parseExDimension(svg, "height");
-        if (widthEx != null && heightEx != null) {
-          result = { svg: svgForDisplay(svg), widthEx, heightEx };
-        }
-      }
-    } catch {
-      result = null;
+  const drawn = await drawnSvg(trimmed, display);
+  const svg = drawn ? extractSvgElement(drawn) : null;
+  if (svg) {
+    const widthEx = parseExDimension(svg, "width");
+    const heightEx = parseExDimension(svg, "height");
+    if (widthEx != null && heightEx != null) {
+      result = { svg: svgForDisplay(svg), widthEx, heightEx };
     }
   }
   cacheSet(key, result);
@@ -234,12 +227,11 @@ export async function latexToSvgMath(
 }
 
 /**
- * latex → an `<svg>` for an HTML page (the PDF export), drawn as the chat draws display
- * maths: MathJax's sizes in `ex` and its baseline offset kept, every glyph a path, so the
- * page needs no font. Null when MathJax cannot draw it.
+ * MathJax's own `<svg>` for trimmed latex, as it draws it (sizes in `ex`, its baseline
+ * offset in a style), or null: empty or pathological input, a parse failure, or an error
+ * box with no glyphs.
  */
-export async function latexToHtmlSvg(latex: string, display: boolean): Promise<string | null> {
-  const trimmed = latex.trim();
+async function drawnSvg(trimmed: string, display: boolean): Promise<string | null> {
   if (!trimmed || trimmed.length > MAX_LATEX_CHARS) return null;
   try {
     const render = await getRenderer();
@@ -252,6 +244,15 @@ export async function latexToHtmlSvg(latex: string, display: boolean): Promise<s
   } catch {
     return null;
   }
+}
+
+/**
+ * latex → an `<svg>` for an HTML page (the PDF export), drawn as the chat draws display
+ * maths: MathJax's sizes in `ex` and its baseline offset kept, every glyph a path, so the
+ * page needs no font. Null when MathJax cannot draw it.
+ */
+export function latexToHtmlSvg(latex: string, display: boolean): Promise<string | null> {
+  return drawnSvg(latex.trim(), display);
 }
 
 /** Sign-out: the cache holds maths from the previous account's replies. */

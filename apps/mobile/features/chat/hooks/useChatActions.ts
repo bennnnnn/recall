@@ -148,8 +148,7 @@ export function useChatActions({
         loadTranscriptMessages(),
         import("@/features/chat/model/exportMessagePdf"),
       ]);
-      // "Preparing" stays up while the PDF is drawn (its maths, then the print), until the
-      // share sheet opens: the first export loads MathJax and took seconds with nothing shown.
+      // "Preparing" stays up until the share sheet opens: the first export takes seconds.
       await exportConversationAsPdf(chatTitle, transcript, dismissActionBanner);
     } catch (error) {
       dismissActionBanner();

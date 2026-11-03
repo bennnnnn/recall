@@ -17,6 +17,7 @@ import {
   isMathFenceLang,
   type FenceDocumentBlock,
 } from "@/lib/fenceRegistry";
+import { parseJsonRecord } from "@/lib/jsonFence";
 import { fenceToCopyText, mapFenceRegions, proseToCopyText } from "@/lib/markdown/plain";
 
 /** A card shown in the document as its label alone (each fence's `inDocument` row). */
@@ -48,13 +49,8 @@ function answerText(body: string): string {
 
 /** What a picture shows, in its own words: the `alt` a scene or diagram carries for screen readers. */
 function cardDescription(body: string): string | null {
-  if (!body.startsWith("{")) return null;
-  try {
-    const alt = (JSON.parse(body) as { alt?: unknown }).alt;
-    return typeof alt === "string" && alt.trim() ? alt.trim() : null;
-  } catch {
-    return null;
-  }
+  const alt = body.startsWith("{") ? parseJsonRecord(body)?.alt : null;
+  return typeof alt === "string" && alt.trim() ? alt.trim() : null;
 }
 
 function documentFence(
