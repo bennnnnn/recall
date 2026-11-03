@@ -324,6 +324,7 @@ async def test_a_rating_is_recorded_as_metadata_only() -> None:
         await product_analytics.record_reply_rating(
             session, uuid4(), rating="down", model="smart-chat", content="The secret is 42."
         )
+    assert create.await_args is not None
     (event,) = create.await_args.args[1]
     assert event.name == "reply_rated"
     assert event.properties == {"rating": "down", "model": "smart-chat", "kind": "text"}
@@ -343,5 +344,6 @@ async def test_a_cleared_rating_and_an_unknown_model_stay_in_the_allowlist(
         await product_analytics.record_reply_rating(
             fake_session(), uuid4(), rating=rating, model=model, content="Hi"
         )
+    assert create.await_args is not None
     (event,) = create.await_args.args[1]
     assert (event.properties["rating"], event.properties["model"]) == expected
