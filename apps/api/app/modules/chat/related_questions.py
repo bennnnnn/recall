@@ -161,49 +161,20 @@ def _typeset_symbols(text: str) -> str:
     return "".join(pieces)
 
 
-# The user's own voice, as they type it, came back lowercase: "how do i solve these?"
-# (2026-11-02). A question opens with a capital and "i" alone is "I", in English; maths,
-# code and a word that is not all lowercase ("iPhone", "pH") are left as written.
+# Chips came back lowercase: "how do i solve these?" (2026-11-02). A question opens with
+# a capital; a symbol that opens it keeps its case, which is its meaning. A lone "i" is
+# left as written: it is the speaker or the imaginary unit ("1 + i", "what does i squared
+# equal?", "(i)"), and four review rounds each found a chip the speaker rule misread.
 _FIRST_WORD = re.compile(r"[^\W\d_]+(?![\w'’-])|[^\W\d_]['’]")  # noqa: RUF001
-# "i" is the speaker after a word that asks or joins ("how do i", "can i", "and i") or
-# before a contraction or a verb ("i'm", "i need"); "what is i squared" is the imaginary unit.
-_LONE_I = re.compile(r"(?<![\w'’$\\])i(?P<contraction>['’](?:m|ve|ll|d)\b)?(?![\w'’])")  # noqa: RUF001
-# Only an asking word or an auxiliary makes the speaker alone: a joiner ("and", "when",
-# "if") comes before a symbol too ("between e and i", "when i is squared"), so after one
-# the speaker needs a verb of their own ("and i need").
-_BEFORE_I = frozenset("do does did can could should would will how what why where".split())
-# After an asking word, what follows still decides: "what does i squared equal?" and "what
-# will i^2 be?" ask about the imaginary unit.
-_MATHS_AFTER_I = frozenset(
-    "squared cubed equal equals times plus minus over divided multiplied raised".split()
-)
-_AFTER_I = frozenset(
-    "am have had need get find know want use make solve think calculate was got still just "
-    "really".split()
-)
-_ENGLISH = re.compile(
-    r"\b(?:how|what|why|when|where|which|who|do|does|did|can|could|should|would|will|is|are|"
-    r"the|if|my|and|of|to|it|am|have)\b",
-    re.IGNORECASE,
-)
 
 
 def sentence_case(question: str) -> str:
-    """``how do i find mass from moles?`` → ``How do I find mass from moles?``."""
-    text = question
-    first = _FIRST_WORD.match(text)
+    """``how do you find mass from moles?`` → ``How do you find mass from moles?``."""
+    first = _FIRST_WORD.match(question)
     apostrophes = "'\u2019"  # straight and typed
     if first is not None and first.group(0).rstrip(apostrophes).islower() and _a_word(first):
-        text = text[0].upper() + text[1:]
-    if _ENGLISH.search(text) is None:
-        return text
-    pieces: list[str] = []
-    last = 0
-    for span in re.finditer(r"\$[^$]*\$|`[^`]*`", text):
-        pieces.extend((_LONE_I.sub(_speaker, text[last : span.start()]), span.group(0)))
-        last = span.end()
-    pieces.append(_LONE_I.sub(_speaker, text[last:]))
-    return "".join(pieces)
+        return question[0].upper() + question[1:]
+    return question
 
 
 def _a_word(first: re.Match[str]) -> bool:
@@ -211,24 +182,6 @@ def _a_word(first: re.Match[str]) -> bool:
     ``sin(x) = 0`` keep their case, which is their meaning."""
     after = first.string[first.end() :].lstrip()[:1]
     return len(first.group(0)) > 1 and after not in set("(=+-*/^_<>≤≥")
-
-
-def _speaker(match: re.Match[str]) -> str:
-    before = re.findall(r"[A-Za-z]+", match.string[: match.start()])
-    rest = match.string[match.end() :]
-    after = re.match(r"\s+([A-Za-z]+)", rest)
-    next_word = after.group(1).lower() if after else None
-    # The question ends at "i" ("should i?"), or a plain word follows it ("can i use").
-    plain_after = (
-        next_word not in _MATHS_AFTER_I if next_word else not re.match(r"\s*\w|\s*[\^=+\-*/]", rest)
-    )
-    speaks = (
-        match.group("contraction") is not None
-        or not before
-        or (before[-1].lower() in _BEFORE_I and plain_after)
-        or next_word in _AFTER_I
-    )
-    return "I" + (match.group("contraction") or "") if speaks else match.group(0)
 
 
 def _prepare_question(candidate: str) -> str | None:
