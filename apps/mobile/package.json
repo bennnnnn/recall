@@ -128,7 +128,10 @@
       "image-size": "file:vendor/image-size",
       "browserslist": "4.28.7",
       "node-forge": "1.4.2",
-      "zod": "4.6.7"
+      "zod": "4.6.7",
+      "deepmerge": "file:vendor/deepmerge",
+      "glob@>=9.0.0 <14.0.2": "14.0.3",
+      "minimatch@>=9.0.0 <11.0.1": "11.0.4"
     },
     "patchedDependencies": {
       "react-native-vision-camera-mlkit@2.0.1": "patches/react-native-vision-camera-mlkit@2.0.1.patch"
