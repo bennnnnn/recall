@@ -31,6 +31,24 @@ function Harness() {
 }
 
 describe("ActionFeedbackProvider", () => {
+  // The photo viewer keys its content by its session (1 at first), as the first toast's id is.
+  it("keeps a toast apart from a child that has the same key as its id", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const view = await render(
+      <ActionFeedbackProvider>
+        <Harness key={1} />
+      </ActionFeedbackProvider>,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByRole("button"));
+    });
+    expect(view.getByText("success:Saved")).toBeOnTheScreen();
+    expect(view.getByText("Trigger")).toBeOnTheScreen();
+    expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    consoleError.mockRestore();
+    jest.clearAllMocks();
+  });
+
   it("shows centralized success feedback and triggers outcome haptics", async () => {
     const { getByRole, getByText } = await render(
       <ActionFeedbackProvider>
