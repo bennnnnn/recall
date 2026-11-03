@@ -438,6 +438,7 @@ async def build_stream_prompt_context(
             current_user_message_id=request.current_user_message_id,
             prior_count=request.prior_count,
             turn_plan=plan if plan.multi else None,
+            holds_attachment=request.holds_attachment,
         ),
         resolve_instant_reply(request, identity, settings, redis, plan),
         _fallback_models(

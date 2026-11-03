@@ -134,6 +134,8 @@ class PromptTurn:
     memory_paused: bool = False
     # "What did we decide last time": an earlier chat may answer this turn.
     recalls_shared_past: bool = False
+    # The message carries its own file or photo: "the pdf I attached" names it, not the past.
+    holds_attachment: bool = False
 
     @property
     def query(self) -> str:

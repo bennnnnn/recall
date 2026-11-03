@@ -20,13 +20,19 @@ from app.modules.memory.commands import (
     mute_requests,
     remember_requests,
 )
-from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
+from app.modules.memory.fact_quality import (
+    FactView,
+    is_learning_line,
+    is_one_off_schedule_fact,
+    texts_to_drop,
+)
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.forget_match import names_nothing, phrase_names_fact
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
 from app.modules.memory.schemas import MemoryFactOp
 from app.modules.memory.self_facts import stated_fact_writes
+from app.modules.memory.task_lines import drop_task_facts
 from app.modules.memory.text import classify_memory_sensitivity
 from app.modules.memory.topics import is_area, parse_topic, topic_memory_type
 from app.modules.memory.user_name import as_chosen_name
@@ -100,6 +106,12 @@ def compose_writes(
         existing_texts=snapshot.existing_facts.values(),
         profile_name=snapshot.profile_name,
     )
+    writes, owned = _without_learning_lines(writes)
+    skipped += owned
+    if not asks.remember:
+        # A single task is not a fact about the user (``task_lines``).
+        writes, task_facts = drop_task_facts(writes, lines)
+        skipped += task_facts
     if asks.forget and not from_history and not any(write.op == "delete" for write in writes):
         writes.extend(
             named_forget_deletes(lines, existing_facts=snapshot.existing_facts, chat_id=chat_id)
@@ -126,6 +138,20 @@ def compose_writes(
     if from_history:
         return [write for write in writes if write.op == "add"], skipped
     return writes + _stale_fact_deletes(snapshot, writes), skipped
+
+
+def _without_learning_lines(
+    writes: list[MemoryFactWrite],
+) -> tuple[list[MemoryFactWrite], int]:
+    """No model write adds or rewrites a lesson chat's progress line: the lesson_progress
+    job builds it from the lessons. A forget or mute of it is the user's and stays."""
+    kept = [
+        write
+        for write in writes
+        if write.op in _MATCH_ONLY_OPS
+        or not (is_learning_line(write.text) or is_learning_line(write.match_text))
+    ]
+    return kept, len(writes) - len(kept)
 
 
 def _stale_fact_deletes(

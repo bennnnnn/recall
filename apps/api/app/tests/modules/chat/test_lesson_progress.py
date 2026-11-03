@@ -73,11 +73,103 @@ def test_lesson_progress_names_the_subject_lessons_and_chat():
     assert progress.started_at == NOW - 2 * day
 
 
-def test_lesson_progress_falls_back_to_the_chat_title():
+@pytest.mark.parametrize(
+    "messages, title",
+    [
+        # No "teach me": the title never names the subject (2026-11-02, "Learning
+        # Understanding Two Sum In Python" and a chat titled "Greeting").
+        ([_msg("user", "next"), _msg("assistant", _lesson(4, "Functions"))], "Python"),
+        (
+            [
+                _msg("user", "help me understand two sum in python"),
+                _msg("assistant", _lesson(1, "Two Sum in Python")),
+            ],
+            "Understanding Two Sum In Python",
+        ),
+    ],
+)
+def test_lesson_progress_names_no_subject_the_user_did_not_ask_for(messages, title):
+    assert lesson_progress(messages, title=title) is None
+
+
+@pytest.mark.parametrize(
+    "text, subject",
+    [
+        ("teach me python 2 hours a day", "Python"),
+        ("can you teach me python 2 times a week", "Python"),
+        ("teach me python 2 lessons a day", "Python"),
+        ("Teach me Python in 2 weeks", "Python"),
+        ("teach me chemistry for 30 minutes", "Chemistry"),
+        ("teach me lesson 2 of python", "Python"),
+        ("actually teach me chemistry instead", "Chemistry"),
+        # A number that ends the subject is part of it.
+        ("teach me Python 3", "Python 3"),
+        ("teach me algebra 1", "Algebra 1"),
+        ("teach me the 1920s", "The 1920s"),
+        # So is a number that opens it.
+        ("teach me 5 yoga poses", "5 yoga poses"),
+        ("teach me 3 phase power", "3 phase power"),
+        # And one that other words follow, unless they are a count or a schedule.
+        ("teach me algebra 2 step by step", "Algebra 2"),
+        ("teach me World War 2 in detail", "World War 2"),
+        ("teach me Calculus 2 please", "Calculus 2"),
+        ("teach me Python 3 because I need it for work", "Python 3"),
+        # Or a count that is part of the subject's name.
+        ("teach me the 7 times table", "The 7 times table"),
+        ("teach me the 12 days of Christmas", "The 12 days of Christmas"),
+        ("teach me multiplication by 10", "Multiplication by 10"),
+        ("teach me how to multiply by 10", "How to multiply by 10"),
+    ],
+)
+def test_teach_subject_stops_at_a_count_or_schedule(text, subject):
+    assert teach_subject(text) == subject
+
+
+def test_a_new_teach_me_and_lesson_one_start_a_new_course():
     progress = lesson_progress(
-        [_msg("user", "next"), _msg("assistant", _lesson(4, "Functions"))], title="Python"
+        [
+            _msg("user", "teach me maths"),
+            _msg("assistant", _lesson(1, "Number basics")),
+            _msg("user", "now teach me chemistry"),
+            _msg("assistant", _lesson(1, "Atoms")),
+            _msg("user", "next"),
+            _msg("assistant", _lesson(2, "Moles and molar mass")),
+        ],
+        title="Greeting",
     )
-    assert progress is not None and progress.text.startswith("Learning Python: reached Lesson 4")
+    assert progress is not None
+    assert progress.text == (
+        'Learning Chemistry: reached Lesson 2, Moles and molar mass (chat "Greeting"). '
+        "Covered: Atoms; Moles and molar mass"
+    )
+
+
+def test_a_teach_me_mid_course_goes_on_with_the_course():
+    progress = lesson_progress(
+        [
+            _msg("user", "teach me python"),
+            _msg("assistant", _lesson(1, "Variables")),
+            _msg("user", "teach me more about loops"),
+            _msg("assistant", _lesson(2, "Loops")),
+        ],
+        title="Python",
+    )
+    assert progress is not None
+    assert progress.text.startswith("Learning Python: reached Lesson 2, Loops")
+    assert progress.text.endswith("Covered: Variables; Loops")
+
+
+def test_the_latest_teach_me_before_the_first_lesson_names_the_course():
+    progress = lesson_progress(
+        [
+            _msg("user", "teach me maths"),
+            _msg("assistant", "1. **Numbers** ... Where should we start?"),
+            _msg("user", "actually teach me chemistry instead"),
+            _msg("assistant", _lesson(1, "Atoms")),
+        ],
+        title="Maths",
+    )
+    assert progress is not None and progress.text.startswith("Learning Chemistry: reached Lesson 1")
 
 
 @pytest.mark.parametrize(

@@ -34,6 +34,8 @@ class TurnRequest:
     client_latitude: float | None
     client_longitude: float | None
     has_image_attachment: bool = False
+    # The message carries a file or photo of its own: "the pdf I attached" is this one.
+    holds_attachment: bool = False
     image_math_extract: MathImageExtract | None = None
     on_status: StreamStatusFn | None = None
     # Prepare and regenerate pass all three; one left out is read in a short

@@ -17,7 +17,7 @@ from app.modules.memory.consolidation import (
     fact_text_jaccard,
     facts_need_consolidation,
 )
-from app.modules.memory.fact_quality import FactView, texts_to_drop
+from app.modules.memory.fact_quality import FactView, is_learning_line, texts_to_drop
 from app.modules.memory.facts import is_active_memory
 from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
 from app.modules.memory.ops import normalize_memory_text
@@ -39,7 +39,14 @@ _NEAR_DUP_JACCARD = 0.8
 
 
 def _duplicate_pairs(facts: list[Memory]) -> list[_Pair]:
-    active = [fact for fact in facts if is_active_memory(fact) and normalize_memory_text(fact.text)]
+    # A lesson chat's progress line is the lesson job's: two courses are never one line.
+    active = [
+        fact
+        for fact in facts
+        if is_active_memory(fact)
+        and normalize_memory_text(fact.text)
+        and not is_learning_line(fact.text)
+    ]
     by_key: dict[tuple[str, str], list[Memory]] = {}
     for fact in active:
         key = (fact.type, normalize_memory_text(fact.text).lower())

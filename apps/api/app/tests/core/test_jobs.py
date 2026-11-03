@@ -354,12 +354,51 @@ async def test_handle_memory_retries_skipped_lock_with_backoff():
 
 
 @pytest.mark.asyncio
-async def test_handle_memory_discards_after_lock_retries():
+async def test_handle_memory_keeps_waiting_past_a_burst():
+    """Three waits (about five minutes) dropped 201 turns of one user's burst (2026-10-31)."""
     payload = {
         "user_id": str(uuid4()),
         "chat_id": str(uuid4()),
         "transcript": "t",
         "lock_retries": 3,
+    }
+    with (
+        _patch_session(),
+        patch(
+            "app.background.handlers.memory_extraction.extract_and_store_memories",
+            AsyncMock(return_value="skipped_lock"),
+        ),
+        patch("app.background.handlers.enqueue_later", AsyncMock()) as enqueue_mock,
+        patch("app.background.handlers.get_redis_client", MagicMock()),
+    ):
+        await job_handlers._handle_memory(Settings(), payload)
+
+    enqueue_mock.assert_awaited_once()
+    assert enqueue_mock.await_args.args[2]["lock_retries"] == 4
+    assert enqueue_mock.await_args.args[2]["transcript"] == "t"
+
+
+def test_memory_lock_waits_double_to_a_cap_and_last_hours():
+    waits = [
+        job_handlers.memory_lock_wait_s(retry, rand=lambda: 0.5)
+        for retry in range(1, job_handlers._MEMORY_LOCK_MAX_RETRIES + 1)
+    ]
+    assert waits[:5] == [15.0, 30.0, 60.0, 120.0, 240.0]
+    assert max(waits) == 300.0
+    # Long enough for a few hundred one-at-a-time passes, short of the cursor's TTL.
+    assert sum(waits) >= 2 * 3600
+    low = job_handlers.memory_lock_wait_s(1, rand=lambda: 0.0)
+    high = job_handlers.memory_lock_wait_s(1, rand=lambda: 1.0)
+    assert (low, high) == pytest.approx((12.0, 18.0))
+
+
+@pytest.mark.asyncio
+async def test_handle_memory_discards_after_lock_retries():
+    payload = {
+        "user_id": str(uuid4()),
+        "chat_id": str(uuid4()),
+        "transcript": "t",
+        "lock_retries": job_handlers._MEMORY_LOCK_MAX_RETRIES,
     }
     with (
         _patch_session(),
@@ -413,7 +452,7 @@ async def test_handle_memory_consolidate_retries_skipped_lock_with_backoff():
 
 @pytest.mark.asyncio
 async def test_handle_memory_consolidate_discards_after_lock_retries():
-    payload = {"user_id": str(uuid4()), "lock_retries": 3}
+    payload = {"user_id": str(uuid4()), "lock_retries": job_handlers._MEMORY_LOCK_MAX_RETRIES}
     with (
         _patch_session(),
         patch(
