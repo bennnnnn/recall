@@ -29,6 +29,14 @@ describe("uprightNotation", () => {
     String.raw`\frac{1}{2} m v^2`,
     "x_{2} + y^{10}",
     "f(x) = x^2",
+    // A number times a variable whose letter is also a unit's.
+    "E = 0.5 m v^2",
+    "1/2 m v^2",
+    "h = 0.5 g t^2",
+    "F = 2 m a",
+    "W = 3 N d",
+    "3 A + 2 A",
+    "2min(a,b)",
   ])("leaves %s alone", (source) => {
     expect(uprightNotation(source)).toBe(source);
   });

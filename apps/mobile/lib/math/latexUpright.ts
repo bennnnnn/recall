@@ -41,6 +41,9 @@ const GROUP = `(?:${ATOM})${POWER}(?:·(?:${ATOM})${POWER})*`;
 const UNIT_RE = new RegExp(String.raw`^(?:${GROUP})(?:/(?:\((?:${GROUP})\)|${GROUP}))*(?![A-Za-z°µΩ])`);
 // After the unit: the end of the value.
 const VALUE_END = /^(?:$|[\s,;.)\]=+\-−]|\\[,;:! ]|\\(?:quad|qquad|text))/;
+// A one-letter unit ends its expression: in `0.5 m v^2`, `0.5 g t^2` or `3 A + 2 A` the
+// letter is a variable that another term follows, not metres, grams or amperes.
+const LETTER_UNIT_END = /^\s*(?:$|[,;.)\]=]|\\[,;:!]|\\(?:quad|qquad|text|\\))/;
 
 const WORDS = new Set(
   (
@@ -86,8 +89,25 @@ function unitTex(unit: string): string {
   return String.raw`\,\mathrm{${body}}` + (power ? `^{${power.replace(/[\^{}]/g, "")}}` : "");
 }
 
+/**
+ * One-letter units the expression uses as variables: a letter after a number that
+ * another term follows (`3 A + 2 A`) is a variable, so it is one at the end too.
+ */
+function variableLetters(source: string): Set<string> {
+  const letters = new Set<string>();
+  for (const match of source.matchAll(/\d\s+([A-Za-zΩµ])(?![A-Za-z°µΩ])/g)) {
+    const end = match.index + match[0].length;
+    if (!LETTER_UNIT_END.test(source.slice(end))) letters.add(match[1]!);
+  }
+  return letters;
+}
+
 /** The unit read straight after a number at `at`, or null. */
-function unitAfter(source: string, at: number): { tex: string; next: number } | null {
+function unitAfter(
+  source: string,
+  at: number,
+  variables: ReadonlySet<string>,
+): { tex: string; next: number } | null {
   const spaced = source[at] === " ";
   const start = spaced ? at + 1 : at;
   const match = UNIT_RE.exec(source.slice(start));
@@ -96,13 +116,17 @@ function unitAfter(source: string, at: number): { tex: string; next: number } | 
   const next = start + unit.length;
   const compound = /[/·]/.test(unit) || unit.replace(/\^.*|[⁻¹²³]/g, "").length > 1;
   if (!spaced && !compound) return null;
-  if (!compound && !VALUE_END.test(source.slice(next))) return null;
+  const after = source.slice(next);
+  if (!compound && (variables.has(unit) || !LETTER_UNIT_END.test(after))) return null;
+  // Glued to its number, a unit still ends the value: `2min(a,b)` is a function.
+  if (!spaced && !VALUE_END.test(after)) return null;
   return { tex: unitTex(unit), next };
 }
 
 /** `source` with its units, sentence words and formulas upright. */
 export function uprightNotation(source: string): string {
   const indexed = /[A-Z][a-z]?₁(?![₀-₉])/.test(source);
+  const variables = variableLetters(source);
   let out = "";
   let i = 0;
   while (i < source.length) {
@@ -132,7 +156,7 @@ export function uprightNotation(source: string): string {
       out += source.slice(i, next);
       i = next;
       // A power of ten ends a number too: `6.022 \times 10^{23} mol^{-1}`.
-      const unit = POWER_OF_TEN_END.test(out) && source[i] === " " ? unitAfter(source, i) : null;
+      const unit = POWER_OF_TEN_END.test(out) && source[i] === " " ? unitAfter(source, i, variables) : null;
       if (unit) {
         out += unit.tex;
         i = unit.next;
@@ -144,7 +168,7 @@ export function uprightNotation(source: string): string {
       const number = NUMBER_RE.exec(source.slice(i))![0];
       out += number;
       i += number.length;
-      const unit = unitAfter(source, i);
+      const unit = unitAfter(source, i, variables);
       if (unit) {
         out += unit.tex;
         i = unit.next;
