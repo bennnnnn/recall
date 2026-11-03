@@ -29,5 +29,10 @@ it("prints a card's lines a hard break apart, so the PDF keeps each on its own l
 
 it("prints a chat with text under its title", async () => {
   await exportConversationAsPdf("Trip", [{ id: "u1", role: "user", content: "hello" }] as Message[]);
-  expect(printHtmlToSharedPdf).toHaveBeenCalledWith(expect.stringContaining("hello"), "Trip");
+  expect(printHtmlToSharedPdf).toHaveBeenCalledWith(
+    expect.stringContaining("hello"),
+    "Trip",
+    expect.any(Function),
+    expect.any(Function),
+  );
 });
