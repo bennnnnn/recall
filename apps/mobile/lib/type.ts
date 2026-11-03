@@ -11,7 +11,7 @@
  */
 import type { TextStyle } from "react-native";
 
-import { UI_FONT, uiFontFamily } from "@/lib/uiFont";
+import { UI_FONT_FAMILY } from "@/lib/uiFont";
 
 /** Cap for a control that shares a line with a 44pt target. Body copy stays uncapped. */
 export const DYNAMIC_TYPE_MAX = 1.5;
@@ -23,41 +23,50 @@ export const DYNAMIC_TYPE_MAX = 1.5;
 export const DYNAMIC_TYPE_PICKER_MAX = 1.3;
 
 function face(weight: "400" | "500" | "600" | "700"): Pick<TextStyle, "fontFamily" | "fontWeight"> {
-  return {
-    fontFamily: uiFontFamily(weight),
-    // The file is already this weight. Android registers it as the regular
-    // face; a 700 weight looks up a bold slot that was never loaded and draws
-    // Roboto. iOS would faux-bold that same file. Ask both for the regular slot.
-    fontWeight: "400",
-  };
+  return { fontFamily: UI_FONT_FAMILY, fontWeight: weight };
 }
 
 export const Type = {
-  /** Primary body copy. Multiline roles use the platform's scaled line box. */
+  /** Primary body copy: iOS Body, 17pt.
+   *
+   *  Every role sets its line height: the system face's own line (1.19 em) packs prose
+   *  tight, so each role keeps about the air Source Sans gave (1.42 em). React Native
+   *  scales it with the reader's text size. A paragraph with tall maths lays out words
+   *  and formulas as items in a wrapping row, so its lines still grow to the formula. */
   body: {
-    fontSize: 16,
+    fontSize: 17,
+    lineHeight: 24,
+    ...face("400"),
+  },
+  /** Chat replies and messages: a size up from the body with reading air, 18 on 28
+   *  (1.55 em), as ChatGPT sets its answers. The rest of the UI keeps the body. */
+  reading: {
+    fontSize: 18,
+    lineHeight: 28,
     ...face("400"),
   },
   /** Secondary body / supporting paragraphs */
   secondary: {
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 21,
     ...face("400"),
   },
   /** Captions / compact meta */
   caption: {
     fontSize: 12,
+    lineHeight: 16,
     ...face("500"),
   },
-  /** 12pt regular meta — timestamps, domain lines, "PDF" kind labels.
-   *  No lineHeight (matches caption/label: single-line roles omit it). */
+  /** 12pt regular meta — timestamps, domain lines, "PDF" kind labels. */
   meta: {
     fontSize: 12,
+    lineHeight: 16,
     ...face("400"),
   },
-  /** 11pt uppercase tracked overline — drawer/home section dividers.
-   *  No lineHeight (single-line role). */
+  /** 11pt uppercase tracked overline — drawer/home section dividers. */
   overline: {
     fontSize: 11,
+    lineHeight: 15,
     ...face("700"),
     textTransform: "uppercase",
     letterSpacing: 0.8,
@@ -66,39 +75,46 @@ export const Type = {
    *  size without its uppercase tracking. */
   micro: {
     fontSize: 11,
+    lineHeight: 14,
     ...face("700"),
   },
   /** 13pt compact chrome — banners, inline alerts, supporting meta that
-   *  sat between caption (12) and secondary (14). Override weight at the site. */
+   *  sat between caption (12) and secondary (15). Override weight at the site. */
   compact: {
     fontSize: 13,
+    lineHeight: 18,
     ...face("400"),
   },
   /** Compact control labels */
   label: {
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 20,
     ...face("600"),
   },
-  /** 15pt callout — toasts and dense card titles between body (16) and
-   *  secondary (14). */
+  /** 16pt callout — toasts and dense card titles between body (17) and
+   *  secondary (15). */
   callout: {
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
     ...face("600"),
   },
   /** Screen / section titles */
   title: {
     fontSize: 20,
+    lineHeight: 26,
     ...face("600"),
   },
   /** Nav bar & sheet titles — the 17pt role the scale was missing (8+ sites
    *  invented it as `...Type.title, fontSize: 17` or a bare 17/700). */
   navTitle: {
     fontSize: 17,
+    lineHeight: 22,
     ...face("600"),
   },
   /** Onboarding / marketing display. Tightened: 28pt bold reads loose at 0. */
   display: {
     fontSize: 28,
+    lineHeight: 34,
     ...face("700"),
     letterSpacing: -0.5,
   },
@@ -109,20 +125,19 @@ export const Type = {
     fontVariant: ["tabular-nums"],
   },
   /** Markdown heading ladder (h1–h6). Wrapped headings keep scaled line boxes. */
-  h1: { fontSize: 22, ...face("700") },
-  h2: { fontSize: 19, ...face("700") },
-  h3: { fontSize: 17, ...face("700") },
-  /** Section label — never smaller than body, or hierarchy inverts. */
-  h4: { fontSize: 16, ...face("700") },
-  h5: { fontSize: 16, ...face("700") },
-  h6: { fontSize: 16, ...face("700") },
+  h1: { fontSize: 26, lineHeight: 32, ...face("700") },
+  h2: { fontSize: 22, lineHeight: 28, ...face("700") },
+  h3: { fontSize: 20, lineHeight: 26, ...face("700") },
+  /** Section label — never smaller than the reading size, or hierarchy inverts. */
+  h4: { fontSize: 18, lineHeight: 26, ...face("700") },
+  h5: { fontSize: 18, lineHeight: 26, ...face("700") },
+  h6: { fontSize: 18, lineHeight: 26, ...face("700") },
 } as const satisfies Record<string, TextStyle>;
 
 /**
- * Weight changes on top of a role: `{ ...Type.body, ...Weight.bold }`.
- * Each entry sets the matching Source Sans 3 file and asks for the regular
- * slot. A 700 weight makes Android drop the file and draw Roboto. Lint bans
- * raw `fontWeight`; use this instead.
+ * Weight changes on top of a role: `{ ...Type.body, ...Weight.bold }`. The
+ * system face carries every weight, so each entry is the family and its
+ * weight together. Lint bans raw `fontWeight`; use this instead.
  */
 export const Weight = {
   regular: face("400"),
@@ -132,12 +147,11 @@ export const Weight = {
 } as const satisfies Record<string, TextStyle>;
 
 /**
- * Italic on top of a role: `{ ...Type.body, ...Italic.regular }`. Each entry is
- * a real italic file; `fontStyle: "italic"` on these one-file families draws
- * upright on iOS and Roboto Italic on Android, so it is never set.
+ * Italic on top of a role: `{ ...Type.body, ...Italic.regular }`. The system
+ * face has true italics at every weight.
  */
 export const Italic = {
-  regular: { fontFamily: UI_FONT.italic, fontWeight: "400", fontStyle: "normal" },
-  semibold: { fontFamily: UI_FONT.semiboldItalic, fontWeight: "400", fontStyle: "normal" },
-  bold: { fontFamily: UI_FONT.boldItalic, fontWeight: "400", fontStyle: "normal" },
+  regular: { ...face("400"), fontStyle: "italic" },
+  semibold: { ...face("600"), fontStyle: "italic" },
+  bold: { ...face("700"), fontStyle: "italic" },
 } as const satisfies Record<string, TextStyle>;

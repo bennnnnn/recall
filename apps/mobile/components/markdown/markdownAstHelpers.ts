@@ -1,4 +1,5 @@
 import { citationAuthor, isStandaloneUrl } from "@/lib/richBlocks";
+import { Type } from "@/lib/type";
 
 export type AstNode = {
   key: string;
@@ -74,11 +75,11 @@ export function listLargestNumber(parent: unknown): number {
   return start + Math.max(0, (list.children?.length ?? 1) - 1);
 }
 
-/** Body-size digit and period widths in Source Sans 3 (tabular). */
-const DIGIT_WIDTH = 8;
-const PERIOD_WIDTH = 4;
+/** Reading-size digit and period widths in the system face at 18pt (SF Pro), rounded up. */
+const DIGIT_WIDTH = 11;
+const PERIOD_WIDTH = 5;
 /** The column 1–99 fit in at the default text size. */
-const MIN_NUMBER_COLUMN = 22;
+const MIN_NUMBER_COLUMN = 29;
 
 /**
  * Width of a numbered list's marker column: every item in the list uses the
@@ -93,9 +94,8 @@ export function numberColumnWidth(largest: number, fontScale: number): number {
   return Math.max(MIN_NUMBER_COLUMN, needed);
 }
 
-/** Source Sans 3's line box: (ascender 1024 + descender 400) / 1000 em. */
-const BODY_LINE_RATIO = 1.424;
-const BODY_FONT_SIZE = 16;
+/** The reading line box (`Type.reading.lineHeight`), which scales with the reader's text size. */
+const BODY_LINE_HEIGHT = Type.reading.lineHeight;
 const BULLET_SIZE = 6;
 /** The disc stops growing here, like a control beside a 44pt target. */
 const BULLET_SCALE_MAX = 1.5;
@@ -111,7 +111,7 @@ export function bulletDiscMetrics(fontScale: number): {
 } {
   const scale = Math.max(1, fontScale);
   const size = Math.round(BULLET_SIZE * Math.min(scale, BULLET_SCALE_MAX));
-  const line = BODY_FONT_SIZE * scale * BODY_LINE_RATIO;
+  const line = BODY_LINE_HEIGHT * scale;
   return { size, top: Math.max(0, Math.round((line - size) / 2)) };
 }
 

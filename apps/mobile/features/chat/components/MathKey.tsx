@@ -20,7 +20,7 @@ export const KEY_FONT_SCALE_MAX = 1.15;
 /** Big operators: drawn in KaTeX_Size1, a little smaller than text. */
 const BIG_OPERATORS = new Set(["∫", "∬", "∭", "∮", "∑", "∏"]);
 const BIG_OPERATOR_SCALE = 0.8;
-/** Symbols the app font (Source Sans 3) does not carry, but KaTeX_Main does. */
+/** Symbols drawn in KaTeX_Main, so the keys match the maths they insert. */
 const MAIN_FACE_CHARS = new Set([
   "∇", "∠", "⊥", "∥", "≅", "∼", "∈", "⊂", "⊆", "∪", "⇔", "⌊", "⌋", "⌈", "⌉", "∅",
 ]);
@@ -129,9 +129,8 @@ function KeyLabel({ label, color }: { label: string; color: string }) {
 function RunText({ run, size, color }: { run: Run; size: number; color: string }) {
   const fontSize = Math.round(size * run.scale);
   const face: TextStyle = {
-    ...Weight.regular,
-    // The file is already the weight we want; ask for its regular slot.
-    fontFamily: run.family,
+    // The UI face carries its weight beside it; a math face's file is its only weight.
+    ...(run.family === UI_FAMILY ? Weight.semibold : { ...Weight.regular, fontFamily: run.family }),
     fontSize,
     lineHeight: Math.round(fontSize * 1.25),
     color,

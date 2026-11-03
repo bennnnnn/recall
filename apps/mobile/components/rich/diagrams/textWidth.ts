@@ -1,7 +1,7 @@
 /**
  * Label widths for the physics diagrams, without loading a font.
  *
- * The diagrams draw their labels in Source Sans 3 Regular (the app's UI face,
+ * The diagrams draw their labels in Source Sans 3 Regular (the diagrams' own face,
  * which unlike SpaceMono carries Ω, λ and θ). Skia measures and draws text as
  * the plain sum of glyph advances, with no kerning, so a table of advances
  * gives the width Skia will draw. The layout and the list placeholder both

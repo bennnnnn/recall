@@ -64,9 +64,9 @@ describe("listItemHasNestedList", () => {
 
 describe("numbered list column", () => {
   it("fits the list's largest number, so 9. and 10. share one text edge", () => {
-    expect(numberColumnWidth(9, 1)).toBe(22);
-    expect(numberColumnWidth(12, 1)).toBe(22);
-    expect(numberColumnWidth(100, 1)).toBeGreaterThan(22);
+    expect(numberColumnWidth(9, 1)).toBe(29);
+    expect(numberColumnWidth(12, 1)).toBe(29);
+    expect(numberColumnWidth(100, 1)).toBeGreaterThan(29);
     // Larger text: the column grows with it instead of pushing 10+ right.
     expect(numberColumnWidth(12, 1.5)).toBeGreaterThan(numberColumnWidth(12, 1));
   });
@@ -81,12 +81,12 @@ describe("numbered list column", () => {
 
 describe("bulletDiscMetrics", () => {
   it.each([
-    // 16pt body, line box 22.8pt: a 6pt disc drops 8pt to sit on its middle.
-    [1, 6, 8],
-    [0.85, 6, 8],
-    [1.5, 9, 13],
+    // 18pt reading text on a 28pt line: a 6pt disc drops 11pt to sit on its middle.
+    [1, 6, 11],
+    [0.85, 6, 11],
+    [1.5, 9, 17],
     // The disc stops growing at 1.5x; the drop keeps following the line.
-    [2, 9, 18],
+    [2, 9, 24],
   ])("at text scale %p is %ppt and drops %ppt", (scale, size, top) => {
     expect(bulletDiscMetrics(scale)).toEqual({ size, top });
   });

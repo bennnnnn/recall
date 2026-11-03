@@ -10,7 +10,7 @@ import {
 } from "@/lib/math/graphBlock";
 import { GraphSpec, NumberLineInterval } from "@/lib/math/graphSpec";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 type Props = {
   spec: GraphSpec;
@@ -230,7 +230,7 @@ function SvgNumberLineChart({
             y={y + 20}
             fill={labelColor}
             fontSize={11}
-            fontFamily={UI_FONT.regular}
+            {...Weight.regular}
             textAnchor="middle"
           >
             {formatTick(n)}
@@ -286,7 +286,7 @@ function SvgNumberLineChart({
         y={y - 10}
         fill={labelColor}
         fontSize={11}
-        fontFamily={UI_FONT.regular}
+        {...Weight.regular}
         textAnchor="end"
       >
         {spec.variable ?? "x"}

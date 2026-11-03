@@ -20,7 +20,7 @@ import {
 } from "@/lib/math/geometryBlock";
 import i18n from "@/lib/i18n";
 import { type Theme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 export function TriangleSidesDiagram({
   spec,
@@ -140,13 +140,13 @@ export function TriangleSidesDiagram({
       ) : null}
       {showLabels ? (
         <>
-          <SvgText x={(p0.x + p1.x) / 2} y={p0.y + 18} fill={theme.text} fontSize={13} fontFamily={UI_FONT.semibold} textAnchor="middle">
+          <SvgText x={(p0.x + p1.x) / 2} y={p0.y + 18} fill={theme.text} fontSize={13} {...Weight.semibold} textAnchor="middle">
             {labels.a}
           </SvgText>
-          <SvgText x={(p1.x + p2.x) / 2 + 8} y={(p1.y + p2.y) / 2} fill={theme.text} fontSize={13} fontFamily={UI_FONT.semibold}>
+          <SvgText x={(p1.x + p2.x) / 2 + 8} y={(p1.y + p2.y) / 2} fill={theme.text} fontSize={13} {...Weight.semibold}>
             {labels.b}
           </SvgText>
-          <SvgText x={(p2.x + p0.x) / 2 - 8} y={(p2.y + p0.y) / 2} fill={theme.text} fontSize={13} fontFamily={UI_FONT.semibold} textAnchor="end">
+          <SvgText x={(p2.x + p0.x) / 2 - 8} y={(p2.y + p0.y) / 2} fill={theme.text} fontSize={13} {...Weight.semibold} textAnchor="end">
             {labels.c}
           </SvgText>
           {spec.relative_lengths || labels.area ? (
@@ -155,7 +155,7 @@ export function TriangleSidesDiagram({
               y={Math.max(p0.y, p1.y) + 34}
               fill={theme.textSecondary}
               fontSize={12}
-              fontFamily={UI_FONT.regular}
+              {...Weight.regular}
               textAnchor="middle"
               testID={spec.relative_lengths ? "sss-relative-label" : "sss-area-label"}
             >

@@ -23,7 +23,6 @@ import {
   MATH_SYMBOL_FONT,
   MATH_VARIABLE_FONT,
 } from "@/lib/fonts";
-import { UI_FONT } from "@/lib/uiFont";
 
 export const APP_FONT_FACES: Record<string, FontSource> = {
   [CODE_FONT]: require("@/assets/fonts/SpaceMono-Regular.ttf"),
@@ -32,11 +31,4 @@ export const APP_FONT_FACES: Record<string, FontSource> = {
   [MATH_SYMBOL_FONT]: require("@/assets/fonts/KaTeX_AMS-Regular.ttf"),
   // ∬ ∭ ∮ on the math keyboard live only in this face.
   [MATH_SIZE1_FONT]: require("katex/dist/fonts/KaTeX_Size1-Regular.ttf"),
-  [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
-  [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
-  [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
-  [UI_FONT.bold]: require("@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf"),
-  [UI_FONT.italic]: require("@expo-google-fonts/source-sans-3/400Regular_Italic/SourceSans3_400Regular_Italic.ttf"),
-  [UI_FONT.semiboldItalic]: require("@expo-google-fonts/source-sans-3/600SemiBold_Italic/SourceSans3_600SemiBold_Italic.ttf"),
-  [UI_FONT.boldItalic]: require("@expo-google-fonts/source-sans-3/700Bold_Italic/SourceSans3_700Bold_Italic.ttf"),
 };

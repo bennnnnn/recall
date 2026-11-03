@@ -6,7 +6,7 @@ import {
   mapGraphPoint,
 } from "@/lib/math/graphBlock";
 import { formatPiTickW, piTicksW, tickCountW } from "@/lib/math/graphWorklets";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 type Bounds = {
   xMin: number;
@@ -131,7 +131,7 @@ export function CartesianAxes({
             y={xAxisY + 16}
             fill={labelColor}
             fontSize={TICK_FONT}
-            fontFamily={UI_FONT.regular}
+            {...Weight.regular}
             textAnchor="middle"
           >
             {xLabel(n)}
@@ -149,7 +149,7 @@ export function CartesianAxes({
             y={py + 4}
             fill={labelColor}
             fontSize={TICK_FONT}
-            fontFamily={UI_FONT.regular}
+            {...Weight.regular}
             textAnchor="end"
           >
             {formatAxisNumber(n, fractionalTicks)}
@@ -162,7 +162,7 @@ export function CartesianAxes({
           y={origin.py + 16}
           fill={labelColor}
           fontSize={TICK_FONT}
-          fontFamily={UI_FONT.regular}
+          {...Weight.regular}
           textAnchor="start"
         >
           0
@@ -173,7 +173,7 @@ export function CartesianAxes({
         y={xAxisY - 6}
         fill={labelColor}
         fontSize={TICK_FONT}
-        fontFamily={UI_FONT.regular}
+        {...Weight.regular}
         textAnchor="end"
       >
         {xName}
@@ -188,7 +188,7 @@ export function CartesianAxes({
         y={pad - 2}
         fill={labelColor}
         fontSize={TICK_FONT}
-        fontFamily={UI_FONT.regular}
+        {...Weight.regular}
         textAnchor="start"
       >
         {yName}

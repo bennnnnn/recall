@@ -4,7 +4,7 @@ import Svg, { Line, Polygon, Text as SvgText } from "react-native-svg";
 import { InteriorAngleMarks } from "@/components/rich/geometry/GeometryMarks";
 import { padDiagramForAngleLabels } from "@/lib/math/geometryBlock";
 import type { Theme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 type Vertex = { x: number; y: number };
 
@@ -44,7 +44,7 @@ export function QuadrilateralDimensionLabels({
         y={topLeft.y - 8}
         fill={theme.text}
         fontSize={13}
-        fontFamily={UI_FONT.semibold}
+        {...Weight.semibold}
         textAnchor="middle"
       >
         {top}
@@ -54,7 +54,7 @@ export function QuadrilateralDimensionLabels({
         y={bottomLeft.y + 18}
         fill={theme.text}
         fontSize={13}
-        fontFamily={UI_FONT.semibold}
+        {...Weight.semibold}
         textAnchor="middle"
       >
         {bottom}
@@ -64,7 +64,7 @@ export function QuadrilateralDimensionLabels({
         y={(topLeft.y + bottomLeft.y) / 2}
         fill={theme.accent}
         fontSize={12}
-        fontFamily={UI_FONT.semibold}
+        {...Weight.semibold}
         textAnchor="end"
       >
         {height}
