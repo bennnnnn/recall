@@ -27,7 +27,12 @@ from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
 from app.modules.chat.worked_render import WorkedLayout
-from app.modules.chat.worked_turn import with_worked_contract, worked_layout
+from app.modules.chat.worked_turn import (
+    checks_stated_results,
+    with_result_check_contract,
+    with_worked_contract,
+    worked_layout,
+)
 from app.modules.turn_reading.plan import TurnPlan, solved_parts
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
@@ -291,16 +296,23 @@ async def augment_after_prompt(
         timing.mark_prompt_ready()
     if instant_reply is None:
         instant_reply = await augmented.direct_reply(request, followup, settings)
+    subject = augmented.subject or _followup_subject(followup)
+    answered = bool(instant_reply is not None or augmented.verified_subject or money)
+    lightweight = identity.mode.lightweight
     augmented.worked = worked_layout(
         request.content,
-        augmented.subject or _followup_subject(followup),
+        subject,
         settings,
-        answered=bool(instant_reply is not None or augmented.verified_subject or money),
-        lightweight=identity.mode.lightweight,
+        answered=answered,
+        lightweight=lightweight,
         several_requests=plan_of(request.content, settings).multi,
     )
     if augmented.worked is not None:
         augmented.prompt_messages = with_worked_contract(augmented.prompt_messages)
+    elif checks_stated_results(
+        request.content, subject, answered=answered, lightweight=lightweight
+    ):
+        augmented.prompt_messages = with_result_check_contract(augmented.prompt_messages)
     return augmented, instant_reply
 
 

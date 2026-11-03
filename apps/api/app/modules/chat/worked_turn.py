@@ -9,6 +9,12 @@ that states a quantity (``turn_reading.school_question``, ``question_kinds``). T
 still answers a question that asks no calculation in prose; the contract says so.
 
 Physics lays the block out as its verified replies are laid out (``WorkedLayout``).
+
+A message that only states the student's own results and asks whether they are right ("My
+answers: 1) 1 mol 2) 110 g. Did I get them right?") asks for no new value: it gets no block,
+and the reply compares each result with the right one (``RESULT_CHECK_CONTRACT``). A new
+question beside a claim ("How many grams in 0.5 mol NaCl? I got 29.2 g, am I right?") keeps
+its block, for the question.
 """
 
 from __future__ import annotations
@@ -17,13 +23,14 @@ import re
 from typing import Any
 
 from app.core.config import Settings
-from app.modules.chat.prompt_constants.worked import WORKED_BLOCK_CONTRACT
+from app.modules.chat.prompt_constants.worked import RESULT_CHECK_CONTRACT, WORKED_BLOCK_CONTRACT
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.chat.worked_render import WorkedLayout
 from app.modules.turn_reading.question_kinds import is_science_question
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.modules.turn_reading.turn import current_turn_reading, teaching_of
+from app.services.student_claim import only_checks_stated_results
 
 _STEM_SUBJECTS = frozenset({"math", "physics", "chemistry"})
 # Subject-order steps that read a subject from a word, not from a problem's shape.
@@ -48,14 +55,34 @@ def worked_layout(
     """
     if not settings.worked_layout_enabled or answered or lightweight or several_requests:
         return None
-    if not any(char.isdigit() for char in content) or teaching_of(content):
+    if not _calculation(content, subject) or only_checks_stated_results(content):
         return None
-    worked = (
+    return WorkedLayout(law_heading=subject == "physics")
+
+
+def checks_stated_results(
+    content: str, subject: str | None, *, answered: bool, lightweight: bool
+) -> bool:
+    """A calculation turn nothing verified whose message only states the student's results
+    to check: the reply compares each with the right one, and works nothing again. A
+    verified check ("check my answer: x = 6") is the solver's, laid out as its replies are."""
+    return (
+        not answered
+        and not lightweight
+        and only_checks_stated_results(content)
+        and _calculation(content, subject)
+    )
+
+
+def _calculation(content: str, subject: str | None) -> bool:
+    """The readers say the message is a question to work, with a number in it."""
+    if not any(char.isdigit() for char in content) or teaching_of(content):
+        return False
+    return (
         (subject in _STEM_SUBJECTS and not _word_cue_only(content))
         or is_school_exercise(content)
         or (is_science_question(content) and _QUANTITY.search(content) is not None)
     )
-    return WorkedLayout(law_heading=subject == "physics") if worked else None
 
 
 def _word_cue_only(content: str) -> bool:
@@ -73,6 +100,12 @@ def with_worked_contract(messages: list[dict[str, str]]) -> list[dict[str, str]]
     """The prompt with the block's contract beside the user's message."""
     note_prompt_rule("subject.worked")
     return inject_before_last_user(messages, WORKED_BLOCK_CONTRACT)
+
+
+def with_result_check_contract(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """The prompt with the check's contract beside the user's message."""
+    note_prompt_rule("subject.result_check")
+    return inject_before_last_user(messages, RESULT_CHECK_CONTRACT)
 
 
 def without_worked_contract(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

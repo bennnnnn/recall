@@ -5,8 +5,9 @@ problem a line or two back. Any question within three user lines continues the p
 with one exception. Live (2026-10-25), "cool. i'm going to lisbon next month for 4 days,
 what should i not miss?" two lines after a rectangle problem got "What if perimeter was
 48 cm?" under its travel tips. A line that names a topic of its own (three topic words or
-more) and points nowhere back ("it", "that", "same", "what if", "why?", "again", "more
-simply") must have a reply that still works the problem (``follow_up_ground``). A follow-up
+more) and points nowhere back ("same", "what if", "why?", "again", "more simply"; "it" or
+"that" only in a line with no topic of its own) must have a reply that still works the
+problem (``follow_up_ground``). A follow-up
 the chat showed and the user tapped, a line that points back and a short line continue it,
 as before: a missed new topic shows odd questions, a lost follow-up shows none. A read of
 the user's To-do list follows up on nothing (``related_questions``).
@@ -58,15 +59,23 @@ _FOLLOW_UP_LEADS = frozenset(
         "if",
     }
 )
-# A line that points back at the problem: "what if", "why?", "is that fast for a car?",
-# "what if i used a ramp instead?", "can you explain it more simply?". A question about
-# the reasoning does too: "why must temperatures be in kelvin for gas laws?", "how come
-# it's squared?", "what does the negative sign tell us?". "This week" and "that night"
-# point at a time, not at the problem.
+# A line that points back at the problem: "what if", "why?", "what if i used a ramp
+# instead?", "can you explain it more simply?". A question about the reasoning does too:
+# "why must temperatures be in kelvin for gas laws?", "how come it's squared?", "what does
+# the negative sign tell us?".
 _POINTS_BACK = re.compile(
     r"^(?:what|and) if\b|^(?:why|how come)\b|"
     r"^what (?:does|do)\b.*\b(?:mean|tell|show|represent|stand for)\b|"
-    r"\b(?:it|its|they|them|their|same|instead|again|another|simpler|simply)\b|"
+    r"\b(?:same|instead|again|another|simpler|simply)\b",
+    re.IGNORECASE,
+)
+# A pronoun points back too, in a line with no topic of its own: "is that fast for a car?".
+# In a line that names one it points inside the line: live (2026-11-02), "Maya texted back:
+# ok see you at lunch :) Is that a good sign?" two lines after an acceleration problem got
+# "What if the time was 4 s?" under its reply about Maya. "This week" and "that night"
+# point at a time, not at the problem.
+_PRONOUN = re.compile(
+    r"\b(?:it|its|they|them|their)\b|"
     r"\b(?:this|that|these|those)\b(?!\s+(?:week|weekend|morning|afternoon|evening|night|"
     r"year|month|summer|winter|spring|fall)\b)",
     re.IGNORECASE,
@@ -185,14 +194,22 @@ def _turns(messages: list[tuple[str, str]]) -> list[tuple[str, str]]:
 def _names_its_own_topic(question: str, shown: Sequence[str]) -> bool:
     """An English line with three topic words or more that does not follow on."""
     line = straighten_apostrophes(collapse_ws(question))
-    if _follows_on(line, shown) or not _ENGLISH.search(line):
+    if _follows_on(line, shown):
         return False
-    return len(topic_words(line)) >= _OWN_TOPIC_WORDS
+    return _own_topic(line)
+
+
+def _own_topic(line: str) -> bool:
+    """Three topic words or more, in English (the topic-word rules are English's)."""
+    return _ENGLISH.search(line) is not None and len(topic_words(line)) >= _OWN_TOPIC_WORDS
 
 
 def _follows_on(question: str, shown: Sequence[str]) -> bool:
-    """A follow-up the chat showed (written for the problem), or a line that points back."""
+    """A follow-up the chat showed (written for the problem), or a line that points back:
+    by its frame, or by a pronoun when it names no topic of its own."""
     line = straighten_apostrophes(collapse_ws(question))
     if line.casefold() in {straighten_apostrophes(collapse_ws(q)).casefold() for q in shown}:
         return True
-    return _POINTS_BACK.search(line) is not None
+    if _POINTS_BACK.search(line) is not None:
+        return True
+    return _PRONOUN.search(line) is not None and not _own_topic(line)

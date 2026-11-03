@@ -20,7 +20,7 @@ from app.modules.chat.related_prompts import (
     load_related_prompts,
     schedule_related_prompts,
 )
-from app.modules.chat.related_questions import _digit_skeleton
+from app.modules.chat.related_questions import _digit_skeleton, accepted_questions
 from app.modules.chat.service import list_messages_page
 from app.modules.chat.stream_accum import Completion
 from app.modules.chat.stream_events import DoneEvent, take_related_prompts_event
@@ -1316,3 +1316,94 @@ def test_a_reply_that_asks_with_a_card_gets_no_follow_ups() -> None:
         "Whichever you choose, get at least 16 GB of RAM and a 512 GB SSD."
     )
     assert follow_up_topic(question, answered, None, allow_general=True) is not None
+
+
+# Live (2026-11-02, one chat): an acceleration problem, an essay question, then a line about
+# a friend. Its "that" is the friend's text, not the problem: the chips were what-ifs on the
+# car. A pronoun points back only in a line with no topic of its own.
+_CAR = "Thanks! Now physics homework: a car speeds up from 0 to 72 km/h in 8 seconds. What is its acceleration?"
+_CAR_WINDOW = [
+    {"role": "user", "content": _CAR},
+    {
+        "role": "assistant",
+        "content": "v_f = 72 km/h = 20 m/s, so a = (20 - 0) / 8 = 2.5 m/s².",
+    },
+    {"role": "user", "content": "Can you help me with a thesis for my Mockingbird essay?"},
+    {
+        "role": "assistant",
+        "content": "Atticus shows that courage is doing right when you know you will lose.",
+    },
+]
+_MAYA = "Maya texted back: ok see you at lunch :) Is that a good sign?"
+_MAYA_REPLY = (
+    'Yes, that sounds like a good sign. "See you at lunch" means she\'s still planning to '
+    "spend time with you, and the smiley suggests she isn't upset anymore. Lunch could be a "
+    "natural place to start the code conversation: ask her which part of the robot code is "
+    "giving her the most trouble, then offer to take one piece of it."
+)
+
+
+def test_a_pronoun_in_a_line_on_a_topic_of_its_own_does_not_point_back() -> None:
+    from app.modules.chat.related_questions import follow_up_topic
+
+    assert thread_problem(_MAYA, _CAR_WINDOW, _MAYA_REPLY, []) is None
+    got = follow_up_topic(_MAYA, _MAYA_REPLY, _CAR_WINDOW, allow_general=True, shown=[])
+    assert got is None or got[0] == "general"
+    # A short line keeps its pronoun's pointing: "is that fast for a car?" asks the problem.
+    assert thread_problem("is that fast for a car?", _CAR_WINDOW[:2], "Quite brisk.", []) == _CAR
+
+
+# The same chat, earlier: the problem came after the user's day, and the study tips under the
+# next line named the day (Maya, the test, Friday, chemistry) and the formula to learn. The
+# chips were what-ifs on the water.
+_WATER = (
+    "We build the arm, Maya codes it. Anyway I have a chemistry test Friday on moles. How many "
+    "moles are in 36 g of water?"
+)
+_WATER_WINDOW = [
+    {"role": "user", "content": _WATER},
+    {
+        "role": "assistant",
+        "content": (
+            "**Given**\nmass = 36 g\nM(H₂O) = 18.015 g/mol\n\n**Mass–mole relation formula**\n"
+            "n = m / M\n\n```answer\nverified: true\nnotation: chemistry\nn(H₂O) = 2.0 mol\n```"
+        ),
+    },
+]
+_FLASHCARDS = "Maya says flash Cards are the best way to study for chem. Is she right?"
+_FLASHCARDS_REPLY = (
+    "Flashcards are a solid choice for chemistry, and Maya is partly right. They work well for "
+    "memorizing the building blocks, like the molar mass of common compounds, the mole formula "
+    "(n = m / M), and vocabulary such as Avogadro's number. Since your test is Friday, you have "
+    "a few days to use them. For moles, though, flashcards alone usually aren't enough: practice "
+    "mass-to-mole and mole-to-particle problems without notes, and redo any you got wrong."
+)
+
+
+def test_a_reply_that_names_the_users_day_and_the_subject_does_not_work_the_problem() -> None:
+    from app.modules.chat.related_questions import follow_up_topic
+
+    assert thread_problem(_FLASHCARDS, _WATER_WINDOW, _FLASHCARDS_REPLY, []) is None
+    got = follow_up_topic(
+        _FLASHCARDS, _FLASHCARDS_REPLY, _WATER_WINDOW, allow_general=True, shown=[]
+    )
+    assert got == ("general", None)
+    # A reply that works the water again still ties to it.
+    worked = "Same steps for 54 g: 54 g / 18.015 g/mol = 3.0 mol of water."
+    assert thread_problem("how would i do this for 54 g?", _WATER_WINDOW, worked, []) == _WATER
+
+
+@pytest.mark.parametrize(
+    ("candidate", "shown"),
+    [
+        ("What if v_f was 30 m/s?", "What if $v_f$ was 30 m/s?"),
+        ("Why is v_{0} zero for this car?", "Why is $v_{0}$ zero for this car?"),
+        ("Why is $v_f = 20$ m/s here?", "Why is $v_f = 20$ m/s here?"),
+        # A name in code is no symbol.
+        ("What does x_train hold in this code?", "What does x_train hold in this code?"),
+    ],
+)
+def test_a_subscripted_symbol_is_typeset_as_the_phone_draws_it(candidate: str, shown: str) -> None:
+    assert accepted_questions("A car speeds up to 20 m/s in 8 s, what is a?", [candidate]) == [
+        shown
+    ]

@@ -1,0 +1,4 @@
+[
+  {"id": "pcl-01", "area": "claim", "prompt": "A 2 kg ball is dropped from 20 m. My results: 19.8 m/s for its impact speed. Are they right?", "expect": "answer", "answer": [19.8091, "m/s"], "note": "the plural grammar: the claimed value is no given"},
+  {"id": "pcl-02", "area": "claim", "prompt": "My answers: 1) 4 m/s^2 2) 12 N. Are these right?", "expect": "explain", "history": [["user", "Give me two practice problems on Newton's second law"], ["assistant", "1. A 3 kg cart is pushed with 12 N. What is its acceleration?\n2. What force gives a 4 kg box an acceleration of 3 m/s^2?"]]}
+]

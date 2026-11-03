@@ -8,6 +8,14 @@ reuses its ground: its nouns ("perimeter", "ball"), its numbers with their units
 written any way), and its maths ("x^2 - 5x + 6", "x = 2", the variable x). A day plan's
 "Day 1" or a recipe's "2 eggs" is no ground, a single digit counts only with its unit, and
 one noun is not enough: a Lisbon itinerary may mention "the Bairro Alto area".
+
+The ground is the problem's, not the chat around it or the subject's name. Live (2026-11-02):
+"We build the arm, Maya codes it. Anyway I have a chemistry test Friday on moles. How many
+moles are in 36 g of water?", then "Maya says flash cards are the best way to study for chem.
+Is she right?": its study tips named Maya, the test, Friday, chemistry and the formula's
+letters, and the chips were what-ifs on the water. A sentence about the user with no number
+in it is their day, "chemistry" any talk of the subject, and a formula's letters count only
+beside a step of its maths.
 """
 
 from __future__ import annotations
@@ -37,6 +45,12 @@ _EVERYDAY_NOUNS = frozenset(
     """area building cost distance food friend ground heat height house length money people
     price room size time water weight width""".split()
 )
+# A sentence about the user ("Anyway I have a chemistry test Friday on moles."), and
+# the subject's own name: no problem's ground.
+_ABOUT_THE_USER = re.compile(r"\b(?:i|i'm|im|we|we're|my|our|me|us)\b", re.IGNORECASE)
+_SENTENCE = re.compile(r"(?:[^.?!]|\.(?=\d))+[.?!]*")
+# Singular, as ``topic_words`` reads them: "physics" is "physic", "maths" is "math".
+_SUBJECT_NAMES = frozenset("algebra biology chem chemistry geometry math mathematic physic".split())
 # 19.8 m/s or 153.9 again is the problem's own quantity; 36 alone, or "2 mol", one thing
 # it said.
 _NUMBER_WITH_UNIT = 2.0
@@ -76,15 +90,18 @@ def works_the_problem(problem: str, problem_reply: str | None, line: str, answer
     sister finished her homework, what's a quick dinner?" names the homework problem's
     words, and its recipe shares none. A noun the line names counts in full when the reply
     shares it too."""
-    asked, replied = _ground(problem), _ground(problem_reply or "")
+    asked, replied = _ground(_problem_sentences(problem)), _ground(problem_reply or "")
     said = _ground(answer, _TURN_WORD)
     named = _ground(line, _TURN_WORD).nouns
     nouns = sum(
         1.0 if noun in named or noun not in _EVERYDAY_NOUNS else _HALF
         for noun in said.nouns & asked.nouns
     ) + _HALF * len((said.nouns & replied.nouns) - asked.nouns)
-    maths = len(said.maths & (asked.maths | replied.maths)) + float(
-        bool(said.variables & (asked.variables | replied.variables))
+    steps = len(said.maths & (asked.maths | replied.maths))
+    # Its variable with a step of its maths: "n = m / M" quoted as a formula to learn is
+    # the subject's, not this problem worked.
+    maths = steps + float(
+        steps > 0 and bool(said.variables & (asked.variables | replied.variables))
     )
     numbers = _shared_numbers(said.quantities, asked.quantities + replied.quantities)
     return nouns + maths + numbers >= _ENOUGH
@@ -92,8 +109,21 @@ def works_the_problem(problem: str, problem_reply: str | None, line: str, answer
 
 def _ground(text: str, pattern: re.Pattern[str] = TOPIC_WORD) -> _Ground:
     plain = straighten_apostrophes(text[:_TURN_CHARS]).translate(SYMBOLS)
-    nouns = topic_words(plain, pattern) - MEASURES
+    nouns = topic_words(plain, pattern) - MEASURES - _SUBJECT_NAMES
     return _Ground(nouns, tuple(quantities(plain)), _maths(plain))
+
+
+def _problem_sentences(problem: str) -> str:
+    """The problem without the sentences about the user that hold no number: "Anyway I
+    have a chemistry test Friday on moles." is their day; "my sister's rectangle has a
+    perimeter of 36 cm" is the problem."""
+    plain = straighten_apostrophes(problem)
+    kept = [
+        sentence
+        for sentence in _SENTENCE.findall(plain)
+        if any(char.isdigit() for char in sentence) or _ABOUT_THE_USER.search(sentence) is None
+    ]
+    return " ".join(kept) if kept else problem
 
 
 def _shared_numbers(said: tuple[Quantity, ...], ground: tuple[Quantity, ...]) -> float:

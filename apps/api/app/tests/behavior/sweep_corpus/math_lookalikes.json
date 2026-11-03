@@ -639,5 +639,40 @@
   "prompt": "I am 3x faster now",
   "reply": "That's a big jump! What changed?",
   "expect": "answer"
+ },
+ {
+  "id": "ml-086",
+  "area": "math lookalike",
+  "prompt": "My answers for trivia night: 1) Paris 2) 1969 3) Jupiter. Are these right?",
+  "reply": "All three are right: Paris, 1969 (the Moon landing) and Jupiter.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-087",
+  "area": "math lookalike",
+  "prompt": "My results from the 5k: 24 minutes. Is that ok for a beginner?",
+  "reply": "24 minutes is a solid beginner 5K, about 7:45 per kilometre.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-088",
+  "area": "math lookalike",
+  "prompt": "My results came back: cholesterol 210 mg/dL. Are they ok?",
+  "reply": "210 mg/dL is borderline high; a doctor can say what it means for you.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-089",
+  "area": "math lookalike",
+  "prompt": "My answers to the quiz are due at 5, can you check them later?",
+  "reply": "Sure, paste them here whenever you're ready.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-090",
+  "area": "math lookalike",
+  "prompt": "I got 3 of them right on the test. Did I get them all right next time if I study?",
+  "reply": "Studying the ones you missed is the best way to get them all next time.",
+  "expect": "answer"
  }
 ]
