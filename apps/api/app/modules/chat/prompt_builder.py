@@ -303,6 +303,11 @@ def _fill_stats(
         stats.context_summarized = chat.summary_message_count
 
 
+async def _memory_paused(user: User, settings: Settings, query_text: str | None) -> bool:
+    """Saving to memory is paused (spend cap) on a turn that asks to save, with memory on."""
+    return bool(memory_switch_on(user) and await memory_saving_paused(settings, query_text))
+
+
 async def build_prompt_messages(
     user: User,
     chat_id: UUID,
@@ -325,6 +330,7 @@ async def build_prompt_messages(
     current_user_message_id: UUID | None = None,
     prior_count: int | None = None,
     turn_plan: TurnPlan | None = None,
+    holds_attachment: bool = False,
 ) -> list[dict[str, str]]:
     """Assemble system + recent messages for a chat turn.
 
@@ -404,9 +410,8 @@ async def build_prompt_messages(
         followup=followup,
         plan=turn_plan,
         memory_status=blocks.memory_status,
-        memory_paused=bool(
-            memory_switch_on(user) and await memory_saving_paused(settings, query_text)
-        ),
+        memory_paused=await _memory_paused(user, settings, query_text),
         recalls_shared_past=plan.recalls_shared_past,
+        holds_attachment=holds_attachment,
     )
     return _assemble(turn, window, math_followup=followup == "math")

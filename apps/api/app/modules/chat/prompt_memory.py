@@ -251,8 +251,12 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     if (
         turn.recalls_shared_past
         and not turn.chat_history_rag_block
-        # "The timetable I sent you" names a thing the user gave Recall before.
-        and (_NAMES_OUR_CONVERSATION.search(turn.query) or refers_to_something_given(turn.query))
+        # "The timetable I sent you" names a thing the user gave Recall before; "summarize the
+        # pdf I attached", sent with the file, names this message's own, which is not missing.
+        and (
+            _NAMES_OUR_CONVERSATION.search(turn.query)
+            or (refers_to_something_given(turn.query) and not turn.holds_attachment)
+        )
     ):
         notes.append(NO_PAST_RECORD_HINT)
     return notes
