@@ -34,6 +34,12 @@ from app.modules.chat.related_questions import accepted_questions, sentence_case
         ("v = 20 m/s: how far in 3 s?", "v = 20 m/s: how far in 3 s?"),
         ("sin(x) = 0, where?", "sin(x) = 0, where?"),
         ("i need the next step", "I need the next step"),
+        # After a joiner, "i" is the imaginary unit unless a speaker's verb follows.
+        ("what is the relationship between e and i?", "What is the relationship between e and i?"),
+        ("what happens when i is squared?", "What happens when i is squared?"),
+        ("if i is negative, what then?", "If i is negative, what then?"),
+        ("and i need the next step?", "And I need the next step?"),
+        ("what if i get stuck?", "What if I get stuck?"),
     ],
 )
 def test_sentence_case(chip: str, shown: str) -> None:

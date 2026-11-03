@@ -168,10 +168,10 @@ _FIRST_WORD = re.compile(r"[^\W\d_]+(?![\w'’-])|[^\W\d_]['’]")  # noqa: RUF0
 # "i" is the speaker after a word that asks or joins ("how do i", "can i", "and i") or
 # before a contraction or a verb ("i'm", "i need"); "what is i squared" is the imaginary unit.
 _LONE_I = re.compile(r"(?<![\w'’$\\])i(?P<contraction>['’](?:m|ve|ll|d)\b)?(?![\w'’])")  # noqa: RUF001
-_BEFORE_I = frozenset(
-    "do does did can could should would will if when so and but how what why where then "
-    "that or until once while".split()
-)
+# Only an asking word or an auxiliary makes the speaker alone: a joiner ("and", "when",
+# "if") comes before a symbol too ("between e and i", "when i is squared"), so after one
+# the speaker needs a verb of their own ("and i need").
+_BEFORE_I = frozenset("do does did can could should would will how what why where".split())
 _AFTER_I = frozenset(
     "am have had need get find know want use make solve think calculate was got still just "
     "really".split()
