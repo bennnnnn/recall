@@ -32,6 +32,12 @@ from app.services.subject_scan import (
         ("create a cat", "cat"),
         ("Create cat", "cat"),
         ("Create a car from the 1950s on NW road", "car from the 1950s on NW road"),
+        # The first noun phrase is what is drawn; a written thing after it is in the scene.
+        (
+            "Generate an image of a robot arm holding a test tube, cartoon style",
+            "a robot arm holding a test tube, cartoon style",
+        ),
+        ("draw me a dog with a todo list on its back", "dog with a todo list on its back"),
     ],
 )
 def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
@@ -65,6 +71,8 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "make a picture of my todo list",
         "show me a picture of ways to be smarter",
         "create an image of tips for studying",
+        "make a picture of my notes",
+        "create an image of a meeting summary",
         "Draw a mermaid flowchart for brewing coffee.",
         "draw a mermaid flowchart of making a cup of coffee",
         "draw a right triangle with legs 3 and 4",

@@ -981,5 +981,37 @@
   "prompt": "make a mnemonic for my notes",
   "reply": "Try: Some Lovers Try Positions That They Can't Handle, for the carpal bones.",
   "expect": "answer"
+ },
+ {
+  "id": "hi-106",
+  "area": "image",
+  "prompt": "Generate an image of a robot arm holding a test tube, cartoon style",
+  "history": [],
+  "reply": "Here's your cartoon robot arm holding a test tube.",
+  "expect": "image_gen"
+ },
+ {
+  "id": "hi-107",
+  "area": "image",
+  "prompt": "draw me a dog with a todo list on its back",
+  "history": [],
+  "reply": "Here's a dog carrying a little to-do list on its back.",
+  "expect": "image_gen"
+ },
+ {
+  "id": "hi-108",
+  "area": "lookalike",
+  "prompt": "create an image of a meeting summary",
+  "history": [],
+  "reply": "Here's a short summary you can paste into a slide: decisions, owners, and next steps.",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-109",
+  "area": "lookalike",
+  "prompt": "make a picture of my notes",
+  "history": [],
+  "reply": "Paste your notes here and I'll turn them into a one-page visual summary.",
+  "expect": "answer"
  }
 ]
