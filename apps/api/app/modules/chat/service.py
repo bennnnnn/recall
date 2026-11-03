@@ -18,6 +18,7 @@ from app.exceptions import DomainError
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
 from app.models.schemas.page import Page
+from app.modules.analytics import service as analytics_service
 from app.modules.chat import finalize_registry
 from app.modules.chat.email_fence import rewrite_first_email_fence
 from app.modules.chat.related_prompts import (
@@ -427,6 +428,14 @@ async def set_message_feedback(
         raise ChatsError("Message not found", status_code=404)
     if message.role != "assistant":
         raise ChatsError("Only a reply can be rated", status_code=422)
+    # The rating is saved; counting it is best effort and never fails it.
+    try:
+        await analytics_service.record_reply_rating(
+            session, user.id, rating=feedback, model=message.model, content=message.content
+        )
+    except Exception:
+        await session.rollback()
+        logger.warning("reply_rated event not recorded", exc_info=True)
     return message
 
 
