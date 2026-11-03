@@ -23,9 +23,10 @@ import { Type } from "@/lib/type";
 const RENDER_TEST_MARKERS = process.env.NODE_ENV === "test";
 
 /**
- * Source Sans 3, the app's UI face: unlike SpaceMono it carries Ω, λ and θ,
- * and a Skia font has no fallback for a glyph it lacks. `textWidth.ts` holds
- * its advances, so the layout knows every label's width before it loads.
+ * Source Sans 3, the diagrams' face (the UI draws in the system face, which Skia
+ * cannot measure ahead): unlike SpaceMono it carries Ω, λ and θ, and a Skia font
+ * has no fallback for a glyph it lacks. `textWidth.ts` holds its advances, so the
+ * layout knows every label's width before it loads.
  */
 export function useDiagramFont(): SkFont | null {
   return useFont(

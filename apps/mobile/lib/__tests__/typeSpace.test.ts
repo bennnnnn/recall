@@ -2,49 +2,41 @@ import { IconSize } from "@/ui/icons/sizes";
 import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 
 describe("type and space tokens", () => {
-  it("owns the screen type roles", () => {
-    expect(Type.body.fontSize).toBe(16);
-    expect(Type.secondary.fontSize).toBe(14);
+  it("owns the screen type roles on the iOS text scale", () => {
+    expect(Type.body.fontSize).toBe(17);
+    expect(Type.reading.fontSize).toBe(18);
+    expect(Type.secondary.fontSize).toBe(15);
     expect(Type.caption.fontSize).toBe(12);
     expect(Type.compact.fontSize).toBe(13);
-    expect(Type.label.fontSize).toBe(14);
-    expect(Type.callout.fontSize).toBe(15);
+    expect(Type.label.fontSize).toBe(15);
+    expect(Type.callout.fontSize).toBe(16);
     expect(Type.navTitle.fontSize).toBe(17);
     expect(Type.title.fontSize).toBe(20);
     expect(Type.display.fontSize).toBe(28);
-    expect(Type.body.fontFamily).toBe("SourceSans3");
-    expect(Type.label.fontFamily).toBe("SourceSans3-Semibold");
-    expect(Type.display.fontFamily).toBe("SourceSans3-Bold");
+    for (const role of Object.values(Type)) expect(role.fontFamily).toBe("System");
   });
 
-  it("pairs every weight with its own Source Sans file", () => {
-    expect(Weight.regular).toEqual({ fontFamily: "SourceSans3", fontWeight: "400" });
-    expect(Weight.medium).toEqual({ fontFamily: "SourceSans3-Medium", fontWeight: "400" });
-    expect(Weight.semibold).toEqual({ fontFamily: "SourceSans3-Semibold", fontWeight: "400" });
-    expect(Weight.bold).toEqual({ fontFamily: "SourceSans3-Bold", fontWeight: "400" });
+  it("pairs the system face with each real weight", () => {
+    expect(Weight.regular).toEqual({ fontFamily: "System", fontWeight: "400" });
+    expect(Weight.medium).toEqual({ fontFamily: "System", fontWeight: "500" });
+    expect(Weight.semibold).toEqual({ fontFamily: "System", fontWeight: "600" });
+    expect(Weight.bold).toEqual({ fontFamily: "System", fontWeight: "700" });
+    expect(Italic.bold).toEqual({ fontFamily: "System", fontWeight: "700", fontStyle: "italic" });
   });
 
-  it("lets multiline roles use scaled platform line boxes", () => {
-    for (const role of [
-      Type.body,
-      Type.secondary,
-      Type.compact,
-      Type.callout,
-      Type.title,
-      Type.navTitle,
-      Type.display,
-      Type.h1,
-      Type.h2,
-      Type.h3,
-      Type.h4,
-      Type.h5,
-      Type.h6,
-    ]) {
-      expect(role).not.toHaveProperty("lineHeight");
+  it("gives every text role air: about the old face's 1.42 em, chat text 1.55", () => {
+    for (const role of Object.values(Type)) {
+      if (!("lineHeight" in role)) continue;
+      const ratio = role.lineHeight / role.fontSize;
+      expect(ratio).toBeGreaterThanOrEqual(1.2);
+      expect(ratio).toBeLessThanOrEqual(1.56);
     }
+    expect(Type.reading.lineHeight).toBe(28);
+    // The time picker's digits keep the face's own line: their box is sized from it.
+    expect(Type.clock).not.toHaveProperty("lineHeight");
   });
 
   it("uses a 4pt spacing scale", () => {

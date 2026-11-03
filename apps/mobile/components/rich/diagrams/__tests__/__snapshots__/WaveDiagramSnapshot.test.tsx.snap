@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`WaveDiagram render draws a standing wave in a pipe as before 1`] = `
-"Text style={fontSize:15,fontFamily:SourceSans3-Semibold,fontWeight:400,color:#111113,marginBottom:2,textAlign:center}
+"Text style={fontSize:16,lineHeight:22,fontFamily:System,fontWeight:600,color:#111113,marginBottom:2,textAlign:center}
  Text "Standing Wave"
 View rich.diagram_a11y_standing_wave. rich.diagram_a11y_nodes. rich.diagram_a11y_antinodes. rich.diagram_a11y_ends. λ = 0.8 m.
  View wave-canvas
@@ -61,7 +61,7 @@ PlaybackButton testID=wave isPlaying=false playLabel=rich.diagram_wave_play_a11y
 `;
 
 exports[`WaveDiagram render draws a standing wave on a string as before 1`] = `
-"Text style={fontSize:15,fontFamily:SourceSans3-Semibold,fontWeight:400,color:#111113,marginBottom:2,textAlign:center}
+"Text style={fontSize:16,lineHeight:22,fontFamily:System,fontWeight:600,color:#111113,marginBottom:2,textAlign:center}
  Text "Standing Wave"
 View rich.diagram_a11y_standing_wave. rich.diagram_a11y_nodes. rich.diagram_a11y_antinodes. rich.diagram_a11y_ends. λ = 0.8 m.
  View wave-canvas
@@ -121,7 +121,7 @@ PlaybackButton testID=wave isPlaying=false playLabel=rich.diagram_wave_play_a11y
 `;
 
 exports[`WaveDiagram render draws a travelling wave as before 1`] = `
-"Text style={fontSize:15,fontFamily:SourceSans3-Semibold,fontWeight:400,color:#111113,marginBottom:2,textAlign:center}
+"Text style={fontSize:16,lineHeight:22,fontFamily:System,fontWeight:600,color:#111113,marginBottom:2,textAlign:center}
  Text "Wave"
 View rich.diagram_a11y_wave.
  View wave-canvas

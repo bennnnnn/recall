@@ -319,7 +319,6 @@ const makeStyles = (t: Theme) =>
       justifyContent: "center",
     },
     answer: {
-      // Source Sans Medium: a bare 500 weight drew the system font.
       ...Weight.medium,
       fontSize: ANSWER_FONT_SIZE,
       lineHeight: 28,

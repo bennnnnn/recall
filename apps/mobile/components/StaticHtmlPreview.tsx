@@ -9,7 +9,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
 import { Italic, Type, Weight } from "@/lib/type";
-import { UI_FONT } from "@/lib/uiFont";
+import { UI_FONT_FAMILY } from "@/lib/uiFont";
 
 /**
  * The HTML preview where react-native-webview is missing: Expo Go. Development
@@ -22,9 +22,8 @@ type PreviewStyles = {
   base: MixedStyleDeclaration;
 };
 
-// render-html drops any fontFamily not in this list, which turned every
-// Source Sans role below back into the system font.
-const PREVIEW_FONTS = [...defaultSystemFonts, ...Object.values(UI_FONT), CODE_FONT];
+// render-html drops any fontFamily not in this list.
+const PREVIEW_FONTS = [...defaultSystemFonts, UI_FONT_FAMILY, CODE_FONT];
 
 function makeTagStyles(theme: Theme) {
   return {

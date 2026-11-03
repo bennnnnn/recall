@@ -13,13 +13,15 @@ import { Space } from "@/lib/space";
  * The markdown-display default is a block recipe (`borderWidth: 1`,
  * `padding: 10`); those props make iOS wrap each chip onto its own line, so
  * they stay zero. 14pt SpaceMono sits inside the 16pt body line box (its
- * ascent and descent are both under Source Sans 3's at 16), so a line with
+ * ascent and descent are both inside the 17pt body line box), so a line with
  * code is no taller than one without. The radius only shows where the code
  * is its own Text in a row; a nested span has no corners on either platform.
  */
 export function inlineCodeTextStyle(t: Theme): TextStyle {
   return {
     ...Type.secondary,
+    // The sentence's line holds it: a code word never changes its line's spacing.
+    lineHeight: undefined,
     ...CODE_FACE,
     color: t.text,
     backgroundColor: t.codeInlineBg,
@@ -102,7 +104,7 @@ export function makeMdTable(t: Theme) {
     cellInline: { fontSize: Type.callout.fontSize, color: t.text },
     headerText: { ...Weight.semibold, color: t.text },
     // The cell's smaller size, still in the code face (spreading the
-    // compact role here used to put Source Sans back on table code).
+    // compact role here used to put the UI face back on table code).
     cellCode: {
       ...inlineCodeTextStyle(t),
       fontSize: Type.compact.fontSize,
@@ -127,7 +129,7 @@ export function makeMdImg(t: Theme) {
  * quote. One gap and no top margins, so the space between any two blocks is
  * the same whatever their kind. Headings add their own space above.
  */
-export const PARAGRAPH_GAP = Space.sm;
+export const PARAGRAPH_GAP = Space.md;
 
 /**
  * Wraps markdown blocks inside a framed container (quote bar, quote card):
@@ -138,7 +140,7 @@ export const TRIM_TRAILING_GAP = { marginBottom: -PARAGRAPH_GAP } as const;
 
 export function makeMdStyles(t: Theme) {
   return StyleSheet.create({
-    body: { ...Type.body, color: t.assistantText },
+    body: { ...Type.reading, color: t.assistantText },
     code_inline: inlineCodeTextStyle(t),
     // Custom fence renderer handles code blocks / HTML preview inline.
     fence: { marginVertical: 0, padding: 0 },
@@ -157,7 +159,7 @@ export function makeMdStyles(t: Theme) {
     // A loose list's paragraphs: the item gap separates them, not a block gap.
     listParagraph: { marginBottom: 0 },
     ordered_list_icon: {
-      ...Type.body,
+      ...Type.reading,
       color: t.text,
       minWidth: 22,
       textAlign: "right",

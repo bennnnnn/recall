@@ -97,7 +97,7 @@ const DESIGN_TOKEN_RULES = [
   {
     selector: "Property[key.name='fontWeight']",
     message:
-      "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
+      "Use Weight from lib/type.ts (`...Weight.bold`). It sets the system face with its weight, so every weight comes from one scale.",
   },
   {
     selector:

@@ -8,6 +8,7 @@ import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-na
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { DisplayRow, InlineFlow } from "@/components/markdown/rules/inlineFlow";
 import { MATH_SCRIPT_LINE_HEIGHT } from "@/lib/math/text";
+import { Type } from "@/lib/type";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
@@ -66,8 +67,8 @@ describe("inline maths flows inside the line", () => {
     expect(within(row).getByText("seconds")).toBeOnTheScreen();
     expect(within(row).getByText("(about")).toBeOnTheScreen();
     expect(getByLabelText(/^Light takes approximately 8\.3 × 10\^2 seconds \(about 500 seconds\) to travel/)).toBeOnTheScreen();
-    // The prose keeps body leading; only the formula's own box is taller.
-    expect(lineHeightOf(getByText("travel"))).toBeUndefined();
+    // The prose keeps reading leading; only the formula's own box is taller.
+    expect(lineHeightOf(getByText("travel"))).toBe(Type.reading.lineHeight);
   });
 
   it("keeps body line height around a display limit and joins its closing parenthesis", async () => {
@@ -75,7 +76,7 @@ describe("inline maths flows inside the line", () => {
     const formulas = getAllByTestId("md-heavy-math-run");
     expect(formulas).toHaveLength(2);
     for (const word of ["recognizing", "historically"]) {
-      expect(lineHeightOf(getByText(word))).toBeUndefined();
+      expect(lineHeightOf(getByText(word))).toBe(Type.reading.lineHeight);
     }
     // ")." closes the parenthetical on the formula, not as the start of the next line.
     expect(within(formulas[1]!).getByText(").")).toBeOnTheScreen();
@@ -89,7 +90,7 @@ describe("inline maths flows inside the line", () => {
     // "problem" and its comma are one unbreakable Text; "famously" is its own item.
     expect(within(row).getByText(/^problem,$/)).toBeOnTheScreen();
     expect(within(row).getByText("famously")).toBeOnTheScreen();
-    expect(lineHeightOf(getByText("famously"))).toBeUndefined();
+    expect(lineHeightOf(getByText("famously"))).toBe(Type.reading.lineHeight);
   });
 
   it("draws x-bar beside its words, not on a line of its own", async () => {
@@ -98,9 +99,9 @@ describe("inline maths flows inside the line", () => {
     expect(within(row).getByText("With")).toBeOnTheScreen();
     expect(within(row).getByText("slope")).toBeOnTheScreen();
     expect(getByLabelText(/^The best-fit line was computed by ordinary least squares\. With .+ and .+, the slope is/)).toBeOnTheScreen();
-    // The words keep body leading instead of the script line height.
+    // The words keep reading leading instead of the script line height.
     expect(lineHeightOf(getByText("intercept"))).not.toBe(MATH_SCRIPT_LINE_HEIGHT);
-    expect(lineHeightOf(getByText("intercept"))).toBeUndefined();
+    expect(lineHeightOf(getByText("intercept"))).toBe(Type.reading.lineHeight);
   });
 });
 

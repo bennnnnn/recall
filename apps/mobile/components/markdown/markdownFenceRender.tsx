@@ -53,7 +53,7 @@ export type FenceNode = {
 function NeverCodeBlockFallback({ content }: { content: string }) {
   const t = useTheme();
   return (
-    <Text selectable style={[Type.body, { color: t.assistantText, marginBottom: PARAGRAPH_GAP }]}>
+    <Text selectable style={[Type.reading, { color: t.assistantText, marginBottom: PARAGRAPH_GAP }]}>
       {content}
     </Text>
   );

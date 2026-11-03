@@ -8,7 +8,7 @@ import {
 } from "@/lib/math/geometryBlock";
 import i18n from "@/lib/i18n";
 import { type Theme } from "@/lib/theme";
-import { UI_FONT } from "@/lib/uiFont";
+import { Weight } from "@/lib/type";
 
 export function SectorDiagram({
   spec,
@@ -72,7 +72,7 @@ export function SectorDiagram({
             y={cy + labelR * Math.sin(midRad)}
             fill={theme.text}
             fontSize={12}
-            fontFamily={UI_FONT.semibold}
+            {...Weight.semibold}
             textAnchor="middle"
           >
             {labels.angle}
@@ -82,7 +82,7 @@ export function SectorDiagram({
             y={(cy + y1) / 2}
             fill={theme.accent}
             fontSize={12}
-            fontFamily={UI_FONT.semibold}
+            {...Weight.semibold}
             textAnchor="end"
           >
             {labels.radius}
@@ -94,7 +94,7 @@ export function SectorDiagram({
               y={(cy + y2) / 2 + 8 * Math.sin(endRad + Math.PI / 2)}
               fill={theme.accent}
               fontSize={12}
-              fontFamily={UI_FONT.semibold}
+              {...Weight.semibold}
               textAnchor="middle"
             >
               {labels.radius}
@@ -106,7 +106,7 @@ export function SectorDiagram({
               y={plotBottom + 34}
               fill={theme.textSecondary}
               fontSize={12}
-              fontFamily={UI_FONT.regular}
+              {...Weight.regular}
               textAnchor="middle"
             >
               {`${i18n.t("rich.area")}\u00A0${labels.area}`}
@@ -118,7 +118,7 @@ export function SectorDiagram({
               y={plotBottom + (labels.area ? 50 : 34)}
               fill={theme.textSecondary}
               fontSize={12}
-              fontFamily={UI_FONT.regular}
+              {...Weight.regular}
               textAnchor="middle"
             >
               {`${i18n.t("rich.arc_length")}\u00A0${labels.arc_length}`}
