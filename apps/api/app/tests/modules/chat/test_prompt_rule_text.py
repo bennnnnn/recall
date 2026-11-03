@@ -25,10 +25,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then nothing after the block restating the answer its card shows, then the contract for a
 # message that only states results to check (prompt_constants.worked.RESULT_CHECK_CONTRACT),
 # then one note per memory command (remember, forget, mute, correct) from one template, in
-# place of the remember note, then the assistant's name (ASSISTANT_NAME_RULE).
-_RULES = 167
-_RULE_GRAMS = 14783
-_RULE_GRAMS_SHA = "80aae3550b5b9a60"
+# place of the remember note, then the assistant's name (ASSISTANT_NAME_RULE), then the lesson
+# and teach-me shapes restated beside the message (prompt_constants.teaching LESSON_CONTRACT,
+# TEACH_CONTRACT, OUTLINE_CONTRACT and the parts they share).
+_RULES = 172
+_RULE_GRAMS = 14964
+_RULE_GRAMS_SHA = "667865e7b7e1d0a1"
 
 
 def _rules() -> list[str]:

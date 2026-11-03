@@ -797,3 +797,29 @@ def test_continue_resumes_the_last_reply_but_a_lesson_keeps_its_own_next_step():
     assert CONTINUE_HINT not in _turn_prompt("continue", exchange=lesson)[1]
     assert CONTINUE_HINT not in _turn_prompt("continue")[1]
     assert CONTINUE_HINT not in _turn_prompt("another one", exchange=story)[1]
+
+
+@pytest.mark.parametrize(
+    ("query", "contract"),
+    [
+        ("I don't understand recursion", "LESSON_CONTRACT"),
+        ("help me understand two sum in python", "LESSON_CONTRACT"),
+        ("teach me python", "OUTLINE_CONTRACT"),
+        ("I want to learn python from scratch", "OUTLINE_CONTRACT"),
+        ("teach me python dictionaries", "TEACH_CONTRACT"),
+        ("teach me american history", "TEACH_CONTRACT"),
+        ("what is recursion", None),
+        ("give me a 30 day plan to learn javascript", None),
+        ("When teaching me, explain one concept at a time.", None),
+    ],
+)
+def test_a_lesson_turn_restates_its_shape_beside_the_message(
+    query: str, contract: str | None
+) -> None:
+    """The long lesson hint lost to the general rules on small models (2026-11-02): the
+    shape the app reads is restated beside the message, where the finalize pass reads it."""
+    from app.modules.chat.prompt_constants import teaching
+
+    _, nearby = _turn_prompt(query)
+    for name in ("LESSON_CONTRACT", "TEACH_CONTRACT", "OUTLINE_CONTRACT"):
+        assert (getattr(teaching, name) in nearby) is (name == contract)

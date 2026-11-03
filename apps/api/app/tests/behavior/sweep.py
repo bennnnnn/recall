@@ -56,6 +56,7 @@ from app.modules.conversation import messages_repository
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import NEED_A_TIME
+from app.modules.turn_reading.lesson_flow import has_lesson_title, outline_topics
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
@@ -143,6 +144,8 @@ LOOKALIKE_HINTS = {
     "money declined": "money",
     # "I don't understand why she left" is not a topic to be taught.
     "walkthrough lookalike": "walkthrough",
+    # "Teach me how to install Docker" is a task to do: its steps, no outline or lesson.
+    "teaching lookalike": "teaching",
     # "My resume got rejected, what am I doing wrong?" asks for advice, not a résumé.
     "record lookalike": "personal_record",
     # "Should I tell my boss I'm pregnant?" asks for advice, not a message to send.
@@ -169,6 +172,15 @@ EMOJI_KEPT_AREAS = {"emoji lookalike"}
 # A "yes" or "what about 15 years?" about the chat's earlier loan that no card answers: the
 # model reads the loan's figures, worked by the app.
 MONEY_STANDING_AREAS = {"money standing"}
+# Not a lesson: the finalize pass that holds a lesson's shape (``lesson_shape``) adds nothing.
+LESSON_LOOKALIKE_AREAS = {"walkthrough lookalike", "teaching lookalike"}
+
+
+def _lesson_parts(text: str) -> tuple[bool, int, int]:
+    """A reply's lesson title, practice cards and outline topics."""
+    return has_lesson_title(text), text.count("```quiz"), outline_topics(text)
+
+
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
 
@@ -524,6 +536,10 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
         unwanted = LOOKALIKE_HINTS.get(entry.area)
         if unwanted and unwanted in route.hints:
             problems.append(f"given the {unwanted!r} hint")
+        if entry.area in LESSON_LOOKALIKE_AREAS and _lesson_parts(final) != _lesson_parts(
+            entry.reply
+        ):
+            problems.append("made into a lesson or an outline by the server")
         if entry.area in MONEY_AREAS and "money" not in route.hints:
             problems.append("numbers not worked by the server (no money block)")
         if entry.area in MONEY_LESSON_AREAS and "money_worked" not in route.hints:

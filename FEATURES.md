@@ -172,8 +172,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (a count or schedule ends it: “python 2 hours a day” is Python); a new “teach me” and a
   Lesson 1 start a new course line; lessons that answered no “teach me” keep no line (the
   chat title never names the subject). Only that job writes the line: the extraction
-  model never adds, updates or supersedes one, and consolidation never merges one. Prompt: `modules/chat/prompt_constants/teaching.py`
-  and `lesson_flow.py`. Procedures (“teach me how to
+  model never adds, updates or supersedes one, and consolidation never merges one. Prompt:
+  `modules/chat/prompt_constants/teaching.py` and `lesson_flow.py`, the shape restated beside
+  the message. The server holds the parts the app reads (`modules/chat/lesson_shape.py`): a
+  lesson the model wrote without its title or card gets `### Lesson N: <topic>` (N one past
+  the chat's highest lesson) and a `quiz` card written from the lesson by a cheap model; an
+  outline gets bold topic names, its topics when it only asked about the level, and its
+  question last. “I'm stuck on X” teaches a subject, never a thing of the user's own (“I
+  don't understand the error”, “the email my landlord sent”). Procedures (“teach me how to
   install Docker” / “walk me through changing a tire”) keep the how-to steps.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step

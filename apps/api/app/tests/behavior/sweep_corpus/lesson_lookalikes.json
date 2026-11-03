@@ -1,0 +1,150 @@
+[
+ {
+  "id": "ll-001",
+  "area": "walkthrough lookalike",
+  "prompt": "I don't understand the error",
+  "history": [],
+  "reply": "Can you paste the full error message and the few lines of code around it? Then I can tell you exactly what it means and how to fix it.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-002",
+  "area": "walkthrough lookalike",
+  "prompt": "I don't get the joke",
+  "history": [
+   [
+    "user",
+    "tell me a joke"
+   ],
+   [
+    "assistant",
+    "I'm reading a book about anti-gravity. It's impossible to put down."
+   ]
+  ],
+  "reply": "It's a pun: \"I'm reading a book about anti-gravity, it's impossible to put down\" plays on *put down* meaning both stop reading and set it on a table. Anti-gravity would keep it floating, so you literally can't put it down.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-003",
+  "area": "walkthrough lookalike",
+  "prompt": "I don't understand the email my landlord sent",
+  "history": [],
+  "reply": "Paste the email here and I'll go through what it says, what he's asking you to do, and anything you should reply to.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-004",
+  "area": "walkthrough lookalike",
+  "prompt": "I'm confused about the meeting time",
+  "history": [],
+  "reply": "Which meeting do you mean? If you tell me the time it was set for and your time zone, I'll work out when it is for you.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-005",
+  "area": "walkthrough lookalike",
+  "prompt": "I can't follow the recipe",
+  "history": [
+   [
+    "user",
+    "how do I make a white sauce"
+   ],
+   [
+    "assistant",
+    "Make a roux with equal parts butter and flour, then whisk in warm milk gradually and simmer until it coats a spoon."
+   ]
+  ],
+  "reply": "No problem, here it is in plain steps:\n\n1. Melt the butter in a pan over low heat.\n2. Stir in the flour for a minute.\n3. Pour in the milk slowly, whisking so no lumps form.\n4. Keep stirring until it thickens, then add salt and pepper.\n\nWhich step lost you?",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-006",
+  "area": "walkthrough lookalike",
+  "prompt": "the instructions make no sense, my package never arrived",
+  "history": [],
+  "reply": "That's frustrating. The usual steps are to check the tracking page for the last scan, then contact the seller (not the courier) and ask for a resend or a refund. Which store did you order from?",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-007",
+  "area": "walkthrough lookalike",
+  "prompt": "help me understand my lab results",
+  "history": [],
+  "reply": "Sure. Can you share the values on the report, with the reference ranges printed next to them? I'll explain what each one measures and which, if any, are outside the normal range.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-008",
+  "area": "walkthrough lookalike",
+  "prompt": "break down my budget for me",
+  "history": [],
+  "reply": "Happy to. What's your monthly take-home pay, and what do you spend on rent, food, transport and anything else that comes out every month?",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-009",
+  "area": "walkthrough lookalike",
+  "prompt": "walk me through your reasoning",
+  "history": [
+   [
+    "user",
+    "I have 12 apples, give away a third, then split the rest between two people. How many each?"
+   ],
+   [
+    "assistant",
+    "Each person gets 4 apples."
+   ]
+  ],
+  "reply": "I took the 12 apples, gave away a third (4), and then split the remaining 8 between two people, so each got 4.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-010",
+  "area": "walkthrough lookalike",
+  "prompt": "help me understand what happened",
+  "history": [],
+  "reply": "Of course. Tell me what happened, from the start, and I'll help you make sense of it.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-011",
+  "area": "walkthrough lookalike",
+  "prompt": "help me understand the code",
+  "history": [
+   [
+    "user",
+    "def add_all(nums):\n    total = 0\n    for n in nums:\n        total += n\n    return total"
+   ],
+   [
+    "assistant",
+    "This function adds up a list of numbers."
+   ]
+  ],
+  "reply": "Sure: `total` starts at 0, the loop adds each number in `nums` to it, and the function returns the sum, so `add_all([1, 2, 3])` returns `6`.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-012",
+  "area": "teaching lookalike",
+  "prompt": "teach me how to install docker",
+  "history": [],
+  "reply": "1. **Download Docker Desktop** from docker.com for your system.\n2. **Run the installer** and accept the defaults.\n3. **Start Docker Desktop** and wait for it to say it's running.\n4. **Check it works**: run `docker run hello-world` in a terminal.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-013",
+  "area": "teaching lookalike",
+  "prompt": "Can you teach me how to tie a tie?",
+  "history": [],
+  "reply": "1. **Drape the tie** around your neck, the wide end longer on your right.\n2. **Cross the wide end** over the narrow one.\n3. **Bring it up** through the neck loop.\n4. **Pull it down** through the front knot and tighten.",
+  "expect": "answer"
+ },
+ {
+  "id": "ll-014",
+  "area": "walkthrough lookalike",
+  "prompt": "walk me through the paperwork for renting an apartment",
+  "history": [],
+  "reply": "1. **Proof of income** — recent pay slips or a job offer letter.\n2. **ID** — a passport or national ID.\n3. **References** — a past landlord or employer.\n4. **The lease** — read it, then sign and pay the deposit.",
+  "expect": "answer"
+ }
+]

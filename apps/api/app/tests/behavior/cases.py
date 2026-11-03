@@ -1082,7 +1082,7 @@ CASES: tuple[Case, ...] = (
         "teach-python",
         "teaching",
         "teach me python",
-        Expect(hints=("teaching", "programming_lesson"), search="no", outline=True),
+        Expect(hints=("teaching",), no_hints=("programming_lesson",), search="no", outline=True),
         "One line on what Python opens up, 5-8 topics in order, then where they are and where "
         "to start. No lesson, no code, no quiz yet.",
     ),
@@ -1156,6 +1156,13 @@ CASES: tuple[Case, ...] = (
         "I don't understand why she left",
         Expect(no_hints=("walkthrough", "teaching")),
         "A person, not a topic: a kind reply, no lesson.",
+    ),
+    Case(
+        "teach-not-a-thing",
+        "teaching",
+        "I don't understand the error",
+        Expect(no_hints=("walkthrough", "teaching")),
+        "A thing on their screen, not a subject: asks for the error and its code, no lesson.",
     ),
     Case(
         "teach-history",

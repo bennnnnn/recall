@@ -12,6 +12,7 @@ projects, and milestones rather than entering the one-step-at-a-time tutor.
 
 from __future__ import annotations
 
+from app.modules.turn_reading.lesson_flow import names_a_whole_language
 from app.modules.turn_reading.teaching import programming_tag
 
 LEARNING_PLAN_HINT = (
@@ -48,9 +49,10 @@ LEARNING_PLAN_HINT = (
 
 
 def programming_lesson_contract(text: str) -> str:
-    """Return a hard tagged-fence requirement for a named programming topic."""
+    """Return a hard tagged-fence requirement for a named programming topic; a whole
+    language ("teach me python") gets its outline, which has no code."""
     tag = programming_tag(text)
-    if tag is None:
+    if tag is None or names_a_whole_language(text):
         return ""
     return (
         "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK (a lesson only; an outline of a whole "
@@ -159,6 +161,51 @@ WALKTHROUGH_HINT = (
     + "- Build to the answer: understand the problem with a tiny example, the simple solution "
     "and its cost, the key insight behind the better one, a trace of it, a table comparing "
     "the approaches, then practice.\n" + _LESSON_SHAPE
+)
+
+
+# Restated beside the user's message (``NEARBY_CONTRACTS``): small models follow a short
+# contract there more reliably than the long hint inside the system prompt, which the
+# general rules ("lead with the answer", "end on one question") outweighed. The finalize
+# pass ``lesson_shape`` holds the parts the app reads to these same contracts. A loud
+# "LESSON SHAPE, REQUIRED" label once came back in the reply ("A lesson shape is requested
+# here, so…", 2026-11-03): the contracts say what to write, never name themselves.
+_LESSON_PARTS = (
+    "the title line `### Lesson N: <topic>` after a one- or two-sentence hook (N is 1 unless "
+    "this chat already taught lessons), numbered `### 1. <title>` sections, and last "
+    "`### N. Your turn` holding exactly one ```quiz card (```quiz alone on its line, the JSON "
+    "on the next), then one sentence previewing the next lesson"
+)
+
+LESSON_CONTRACT = (
+    "Lay this reply out as a lesson, never saying that you were asked to. It contains "
+    + _LESSON_PARTS
+    + ". The quiz card is the practice: never end on a question to the user, and never ask "
+    "which part confuses them."
+)
+
+_OUTLINE_PARTS = (
+    "one sentence, then a numbered list of 5-8 topics in learning order, each `N. **Topic** — "
+    "what it lets them do`, then a last line that is one question asking where they are and "
+    "where to start; no title, no quiz, no code. Never reply with only questions about their "
+    "level: the outline comes first"
+)
+
+# The outline is the default: "teach me american history" came back once as Lesson 1 on the
+# colonies when the two ways read as equals (2026-11-03).
+TEACH_CONTRACT = (
+    "Lay this reply out one of two ways, never saying that you were asked to. They named a "
+    "whole subject or field (a language, a period or country's history, a science, an "
+    "instrument, a craft): the outline, " + _OUTLINE_PARTS + ". Only when they named one "
+    "narrow idea inside a subject (Python dictionaries, the present perfect, derivatives, an "
+    "omelette) is it a lesson, with " + _LESSON_PARTS + "."
+)
+
+# "Teach me Python" names a whole language (``lesson_flow.names_a_whole_language``): the
+# server reads that much, so the reply is the outline, never Lesson 1 on variables.
+OUTLINE_CONTRACT = (
+    "Lay this reply out as an outline of the whole subject, never saying that you were asked "
+    "to: " + _OUTLINE_PARTS + "."
 )
 
 

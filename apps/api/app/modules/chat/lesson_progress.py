@@ -8,6 +8,7 @@ job after a lesson reply; memory owns the write
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -25,6 +26,8 @@ from app.modules.turn_reading.teaching import is_teaching_request
 LESSON_HISTORY_LIMIT = 300
 _COVERED_MAX = 8
 _TOPIC_MAX_CHARS = 60
+# The line ``lesson_progress`` writes, as the prompt's memory shows it.
+PROGRESS_LINE = re.compile(r"\bLearning [^\n:]{1,120}: reached Lesson \d")
 
 
 @dataclass(frozen=True)

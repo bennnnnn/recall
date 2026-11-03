@@ -91,10 +91,10 @@ from app.modules.turn_reading.routing import is_short_confirmation
 from app.modules.turn_reading.teaching import (
     is_learning_plan_request,
     is_standing_preference,
-    is_walkthrough_request,
 )
 from app.modules.turn_reading.turn import teaching_of
 from app.modules.turn_reading.visuals import is_image_generation_mention
+from app.modules.turn_reading.walkthrough import is_walkthrough_request
 from app.modules.turn_reading.writing import draft_followup
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
@@ -326,10 +326,11 @@ def _format_pack(turn: StyleTurn) -> list[str]:
 
 
 def _may_ask_with_card(turn: StyleTurn) -> bool:
-    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer,
-    and not a "best X for Y" question, which already says what it is for."""
+    """An unshaped turn (no greeting, draft, code, lesson, problem), not a card's answer, and
+    not a "best X for Y" question, which says what it is for. A lesson ends on its quiz."""
     shaped = turn.compact or turn.multi or turn.writing or turn.code_hint or turn.lesson_hint
-    lesson = turn.teaching or turn.learning_plan or turn.subject in NO_PHOTO_SUBJECTS
+    lesson = turn.teaching or turn.walkthrough or turn.learning_plan
+    lesson = lesson or turn.subject in NO_PHOTO_SUBJECTS
     answerable = turn.after_card or names_its_purpose(turn.query)
     return bool(turn.query) and not shaped and not lesson and not answerable
 

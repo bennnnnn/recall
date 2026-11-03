@@ -6,11 +6,10 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.modules.turn_reading.stuck import stuck_on_a_topic
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # Asking to be taught, in the shipped UI languages. A task ("teach me how to
-# install Docker") keeps its how-to steps; see ``_PROCEDURE``.
+# install Docker") keeps its how-to steps; see ``PROCEDURE``.
 _TEACH_TURN = re.compile(
     r"(?:"
     r"\bteach\s+(?:me|us)\b|"
@@ -51,7 +50,7 @@ _TEACH_TURN = re.compile(
 
 
 # A task keeps the how-to layout: the user wants it done, not a lesson.
-_PROCEDURE = re.compile(
+PROCEDURE = re.compile(
     r"\b(?:install|uninstall|set\s*up|setup|configure|deploy|download|troubleshoot|"
     r"fix|repair|reset|log\s*in|sign\s*up)\b",
     re.IGNORECASE,
@@ -212,6 +211,9 @@ _PROGRAMMING_TAGS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+PROGRAMMING_PATTERNS = _PROGRAMMING_TAGS
+
+
 def programming_tag(text: str) -> str | None:
     """The fence tag of the programming topic ``text`` names (``python``), or None."""
     cleaned = collapse_ws(text)
@@ -242,36 +244,6 @@ def is_learning_plan_request(text: str) -> bool:
         return True
     around_duration = cleaned[max(0, duration.start() - 140) : duration.end() + 140]
     return bool(_LEARNING_CUE.search(around_duration) or _PLAN_CUE.search(around_duration))
-
-
-# "Help me understand two sum", or stuck on a topic ("I don't understand recursion",
-# stuck.py): one idea, explained in full now, building to the answer in one reply.
-_WALKTHROUGH = re.compile(
-    r"(?:\bhelp\s+me\s+understand|\bwalk\s+me\s+through|\bbreak\s+down)\s+"
-    r"(?!(?:it|this|that|what\s+you|you|why\s+you)\b)[^\W\d_]"
-    r"|\bexplain\b[^.?!\n]{1,80}\bstep[- ]by[- ]step\b",
-    re.IGNORECASE,
-)
-
-
-# "Walk me through changing a tire" / "how to set up Docker step by step" is a
-# task to do: it keeps the numbered how-to steps.
-_TASK_OBJECT = re.compile(r"\b(?:how\s+(?:to|do\s+i|can\s+i)|[a-z]{3,}ing)\b", re.IGNORECASE)
-
-
-def is_walkthrough_request(text: str) -> bool:
-    """True for "help me understand X" / "walk me through X": a full explanation now."""
-    cleaned = straighten_apostrophes(collapse_ws(text))
-    if not cleaned or len(cleaned) > 400:
-        return False
-    match = _WALKTHROUGH.search(cleaned)
-    if match is None:
-        return stuck_on_a_topic(cleaned) and not _PROCEDURE.search(cleaned)
-    rest = cleaned[match.start() :]
-    first_object = rest.split()[3:4] if rest.lower().startswith("walk me through") else []
-    if first_object and _TASK_OBJECT.fullmatch(first_object[0]):
-        return False
-    return not (_PROCEDURE.search(cleaned) or re.search(r"\bhow\s+(?:to|do\s+i)\b", rest, re.I))
 
 
 # Why a message is a request to be taught or not, for the turn's trace line.
@@ -459,7 +431,7 @@ def is_standing_preference(text: str) -> bool:
 
 
 def _asks_for_a_procedure(cleaned: str) -> bool:
-    if _PROCEDURE.search(cleaned):
+    if PROCEDURE.search(cleaned):
         return True
     verb = _TO_VERB.search(cleaned)
     if verb is None:
