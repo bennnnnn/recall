@@ -114,6 +114,11 @@ def test_lesson_progress_names_no_subject_the_user_did_not_ask_for(messages, tit
         ("teach me World War 2 in detail", "World War 2"),
         ("teach me Calculus 2 please", "Calculus 2"),
         ("teach me Python 3 because I need it for work", "Python 3"),
+        # Or a count that is part of the subject's name.
+        ("teach me the 7 times table", "The 7 times table"),
+        ("teach me the 12 days of Christmas", "The 12 days of Christmas"),
+        ("teach me multiplication by 10", "Multiplication by 10"),
+        ("teach me how to multiply by 10", "How to multiply by 10"),
     ],
 )
 def test_teach_subject_stops_at_a_count_or_schedule(text, subject):

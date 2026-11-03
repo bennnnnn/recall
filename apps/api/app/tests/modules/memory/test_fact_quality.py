@@ -334,6 +334,11 @@ def _add(text, type_="fact", topic="notes"):
             "User: thanks\nUser: plot y = 3x + 2",
             _add("User is studying linear functions", "focus", "goals"),
         ),
+        # An expression handed over bare is a task too.
+        (
+            "User: x^2 - 5x + 6 = 0",
+            _add("User is working on x^2 - 5x + 6 = 0", "focus", "recent-work"),
+        ),
         (
             "User: I'm Sami, in 10th grade\nUser: solve 2x + 3 = 7",
             _add("User is working on solving 2x + 3 = 7", "focus", "recent-work"),
@@ -370,6 +375,16 @@ def test_a_single_task_is_not_a_fact_about_the_user(lines, op):
             _add("User builds with Python and FastAPI", "fact", "tech-stack"),
         ),
         ("User: 10th grade", _add("User is in 10th grade", "profile", "profile")),
+        # Versions and slashes beside words state a fact; they are not maths to do.
+        (
+            "User: React 18 + Expo 52",
+            _add("User builds with React 18 and Expo 52", "fact", "tech-stack"),
+        ),
+        (
+            "User: Next.js 14/Postgres 16",
+            _add("User builds with Next.js 14 and Postgres 16", "fact", "tech-stack"),
+        ),
+        ("User: 24/7 on-call", _add("User works 24/7 on-call", "fact", "notes")),
         # How they want replies asks for no task.
         (
             "User: keep replies short from now on",

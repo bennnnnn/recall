@@ -120,16 +120,22 @@ _SUBJECT_LEAD = re.compile(
 )
 
 
-# The subject also ends where a count or a schedule starts after it: "python 2 hours a
-# day", "python 2 lessons a week", "python in 2 weeks". Any other number is the subject's:
-# at the end ("Python 3"), before other words ("algebra 2 step by step", "World War 2 in
-# detail") or opening it ("5 yoga poses").
+# A count of time or lessons: "2 hours", "30 minutes", "3 lessons".
+_COUNT = (
+    r"\d+(?:\.\d+)?\s*(?:hours?|hrs?|minutes?|mins?|days?|weeks?|months?|lessons?|times?|"
+    r"sessions?|classes|chapters?)"
+)
+# The subject also ends where a schedule starts after it: a count closing the line or
+# followed by its rate ("python 2 hours a day", "python 2 lessons a week"), or a count after
+# in/for/over… ("python in 2 weeks", "chemistry for 30 minutes"). Any other number is the
+# subject's: "Python 3", "algebra 2 step by step", "the 7 times table", "the 12 days of
+# Christmas", "multiplication by 10", "5 yoga poses".
 _SUBJECT_END = re.compile(
     r"[.?!,;:(]|\s(?:because|so|since|please|for\s+my|i'?m|i\s+am|and\s+i|"
     r"step[- ]by[- ]step|from\s+scratch|in\s+detail|"
     r"instead|now|today|tonight|tomorrow|again|too|as\s+well)\b|"
-    r"\s\d+(?:\.\d+)?\s+(?:hours?|hrs?|minutes?|mins?|days?|weeks?|months?|lessons?|"
-    r"times?|sessions?|classes|chapters?)\b|\s(?:in|within|over|for|by|every|each|per)\s+\d",
+    rf"(?<!\bthe)\s{_COUNT}\b(?=\s+(?:a|an|per|each|every)\b|\s*$)|"
+    rf"\s(?:in|within|over|for|every|each|per)\s+{_COUNT}\b",
     re.IGNORECASE,
 )
 

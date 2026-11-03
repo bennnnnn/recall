@@ -69,6 +69,9 @@ _NUMBER = re.compile(r"(?<![\w.])\d+(?:\.\d+)?")
 # An expression handed over: "x^2 - 5x + 6 = 0", "3*4", "12/5". A minus needs spaces round
 # it, so "2024-2025" and "well-known" are not one.
 _EXPRESSION = re.compile(r"[\w)]\s*[=^*/+]\s*[\w(]|\w\s-\s\w")
+# Words an expression may hold besides its numbers, one-letter names and operators.
+_MATH_WORDS = frozenset({"sin", "cos", "tan", "log", "ln", "sqrt", "exp", "pi", "mod"})
+_LETTER_RUN = re.compile(r"[a-z]{2,}", re.IGNORECASE)
 _MATERIAL_MIN_NUMBERS = 3
 
 
@@ -126,8 +129,16 @@ def _is_request(line: str) -> bool:
         words[0] in _TASK_VERBS
         or words[0] in _QUESTION_WORDS
         or line.rstrip().endswith("?")
-        or (_EXPRESSION.search(line) is not None and any(c.isdigit() for c in line))
+        or _is_expression(line)
     )
+
+
+def _is_expression(line: str) -> bool:
+    """A line that is maths alone: "x^2 - 5x + 6 = 0", "3*4". Words beside the numbers make
+    it a statement: "React 18 + Expo 52", "Next.js 14/Postgres 16", "24/7 on-call"."""
+    if _EXPRESSION.search(line) is None or not any(c.isdigit() for c in line):
+        return False
+    return all(run.lower() in _MATH_WORDS for run in _LETTER_RUN.findall(line))
 
 
 def _names_the_user(line: str) -> bool:
@@ -165,7 +176,7 @@ def _handed_over_numbers(said: Iterable[str]) -> set[str]:
         if not _is_request(line) or _states_of_user(line):
             continue
         numbers = _NUMBER.findall(line)
-        if len(numbers) >= _MATERIAL_MIN_NUMBERS or (numbers and _EXPRESSION.search(line)):
+        if len(numbers) >= _MATERIAL_MIN_NUMBERS or (numbers and _is_expression(line)):
             material.update(numbers)
     return material
 
