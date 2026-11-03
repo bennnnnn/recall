@@ -113,14 +113,21 @@ def lesson_titles(text: str | None) -> list[tuple[int, str]]:
 # What comes between "teach me" and the subject, and what ends the subject.
 _SUBJECT_LEAD = re.compile(
     r"^(?:\s*(?:me|us|you|teach|learn|learning|study|to|about|on|in|more|some|"
-    r"a\s+(?:bit|little)\s+(?:about|of)|the\s+basics\s+of|basics\s+of)\b)+",
+    r"a\s+(?:bit|little)\s+(?:about|of)|the\s+basics\s+of|basics\s+of|"
+    # "teach me lesson 2 of python": the course is Python.
+    r"(?:lesson|part|chapter|unit)\s+\d+\s+(?:of|on|in))\b)+",
     re.IGNORECASE,
 )
 
 
+# The subject also ends where a count or a schedule starts: "python 2 hours a day",
+# "python 2 lessons a week", "python in 2 weeks", "2 python lessons". A number at the
+# very end stays ("Python 3").
 _SUBJECT_END = re.compile(
     r"[.?!,;:(]|\s(?:because|so|since|please|for\s+my|i'?m|i\s+am|and\s+i|"
-    r"step[- ]by[- ]step|from\s+scratch|in\s+detail)\b",
+    r"step[- ]by[- ]step|from\s+scratch|in\s+detail|"
+    r"instead|now|today|tonight|tomorrow|again|too|as\s+well)\b|"
+    r"(?:^|\s)\d+(?:\.\d+)?\s+[a-z]|\s(?:in|within|over|for|by|every|each|per)\s+\d",
     re.IGNORECASE,
 )
 

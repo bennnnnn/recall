@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.turn_reading.personal import recalls_earlier_conversation
+from app.modules.turn_reading.personal import needs_rich_context, recalls_earlier_conversation
 
 
 @pytest.mark.parametrize(
@@ -23,6 +23,13 @@ from app.modules.turn_reading.personal import recalls_earlier_conversation
         "Pick up from where we left off.",
         "You know the thing I told you about.",
         "What was my idea again?",
+        # A thing the user gave Recall before, whatever the noun (2026-11-02).
+        "What's on the timetable I sent you?",
+        "summarize that article I shared earlier",
+        "the photo I showed you yesterday, what was in it?",
+        "remind me what the recipe I gave you was",
+        "what does the pdf I uploaded say about refunds",
+        "that list we shared with you last week",
     ],
 )
 def test_recalls_earlier_conversation(text: str):
@@ -38,10 +45,21 @@ def test_recalls_earlier_conversation(text: str):
         "",
         "How did weather forecasting improve?",
         "How do we pickle onions?",
+        # Given to someone else, or in this very message.
+        "the package I sent to my mom arrived broken",
+        "the email I sent to my boss was rude, help me apologize",
+        "I sent you a photo",
+        "is the code I pasted here correct?",
+        "what is the timetable for trains to Boston",
     ],
 )
 def test_ordinary_turns_do_not_recall_earlier_conversation(text: str):
     assert recalls_earlier_conversation(text) is False
+
+
+def test_a_thing_given_before_loads_personal_context():
+    assert needs_rich_context("What's on the timetable I sent you?")
+    assert not needs_rich_context("what is the timetable for trains to Boston")
 
 
 @pytest.mark.asyncio

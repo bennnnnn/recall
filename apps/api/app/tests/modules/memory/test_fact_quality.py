@@ -191,3 +191,198 @@ def test_a_stale_fact_is_dropped_as_housekeeping_not_as_the_users_removal():
 
     stale = [write for write in writes if write.match_text == "User is in Avon"]
     assert [(write.op, write.stale) for write in stale] == [("delete", True)]
+
+
+_LESSON_LINE = (
+    'Learning Maths: reached Lesson 1, Number basics (chat "Greeting"). Covered: Number basics'
+)
+
+
+def _snapshot(*texts):
+    from app.modules.memory.pass_writes import MemorySnapshot
+
+    return MemorySnapshot(
+        memory_enabled=True,
+        include_sensitive=False,
+        existing_facts={uuid4(): text for text in texts},
+        prompt_facts=[{"type": "focus", "topic": "goals", "text": text} for text in texts],
+        prompt_areas=[],
+    )
+
+
+def _compose(lines, ops, *texts):
+    from app.modules.memory.pass_writes import Asks, compose_writes
+
+    return compose_writes(
+        _snapshot(*texts),
+        lines,
+        Asks.of(lines),
+        [MemoryFactOp.model_validate(op) for op in ops],
+        chat_id=uuid4(),
+        from_history=False,
+        min_confidence=0.5,
+    )
+
+
+@pytest.mark.parametrize(
+    "op",
+    [
+        # The model rewrote the lesson job's line from a chat that taught no lesson.
+        {
+            "op": "update",
+            "type": "focus",
+            "topic": "goals",
+            "text": 'Learning Maths: reached Lesson 2, Chemistry basics (chat "Chemistry"). '
+            "User completed a quiz on moles and molar mass",
+            "match_text": _LESSON_LINE,
+            "confidence": 0.9,
+        },
+        {
+            "op": "supersede",
+            "type": "focus",
+            "topic": "goals",
+            "text": "User is working on solving the equation 3x^2+4/4=1",
+            "match_text": _LESSON_LINE,
+            "confidence": 0.9,
+        },
+        {
+            "op": "add",
+            "type": "focus",
+            "topic": "goals",
+            "text": "Learning Python 2: reached Lesson 1, Variables",
+            "confidence": 0.9,
+        },
+    ],
+)
+def test_no_model_write_adds_or_rewrites_a_lesson_line(op):
+    lines = "User: Maya and I had a fight. My chem test on moles is Friday"
+    writes, skipped = _compose(lines, [op], _LESSON_LINE)
+    assert not [w for w in writes if w.op in {"add", "update", "supersede"}]
+    assert skipped == 1
+
+
+def test_forgetting_a_lesson_line_is_the_users_to_do():
+    lines = "User: forget that I'm learning maths"
+    op = {"op": "delete", "type": "focus", "match_text": _LESSON_LINE, "confidence": 0.9}
+    writes, _ = _compose(lines, [op], _LESSON_LINE)
+    assert [(w.op, w.match_text) for w in writes] == [("delete", _LESSON_LINE)]
+
+
+def test_a_lesson_line_is_never_stale_or_merged():
+    from app.modules.memory.consolidation_workflow import _duplicate_pairs
+    from app.modules.memory.fact_quality import is_learning_line
+
+    assert is_learning_line(_LESSON_LINE)
+    assert not is_learning_line("User is learning Python")
+    assert texts_to_drop([FactView("Learning Plans: reached Lesson 1, Dentist appointments")]) == []
+    other = _LESSON_LINE.replace("Greeting", "Maths")
+    facts = [
+        SimpleNamespace(
+            id=uuid4(),
+            type="focus",
+            text=text,
+            status="active",
+            last_confirmed_at=_NOW,
+            updated_at=_NOW,
+        )
+        for text in (_LESSON_LINE, other)
+    ]
+    assert _duplicate_pairs(facts) == []
+
+
+def _add(text, type_="fact", topic="notes"):
+    return {"op": "add", "type": type_, "topic": topic, "text": text, "confidence": 0.9}
+
+
+@pytest.mark.parametrize(
+    ("lines", "op"),
+    [
+        # 2026-11-02: three single requests saved as lasting facts.
+        (
+            "User: solve x^2 - 5x + 6 = 0",
+            _add(
+                "User is working on solving the quadratic equation x^2 - 5x + 6 = 0",
+                "focus",
+                "recent-work",
+            ),
+        ),
+        (
+            "User: make a bar chart of my test scores: math 85, chemistry 72, English 90, "
+            "physics 78",
+            _add("User scored 85 in math, 72 in chemistry, 90 in English, 78 in physics"),
+        ),
+        (
+            "User: write a simple HTML page with a button that counts clicks",
+            _add(
+                "User is learning basic web development with HTML and JavaScript", "focus", "goals"
+            ),
+        ),
+        # The class, not the case: any task that says nothing of the user.
+        (
+            "User: can you write me a python script that renames files",
+            _add("User is learning Python scripting", "focus", "goals"),
+        ),
+        (
+            "User: what's the capital of France?",
+            _add("User is interested in France", "fact", "interests"),
+        ),
+        (
+            "User: help me solve 2x + 3 = 7",
+            _add("User is working on 2x + 3 = 7", "focus", "recent-work"),
+        ),
+        (
+            "User: thanks\nUser: plot y = 3x + 2",
+            _add("User is studying linear functions", "focus", "goals"),
+        ),
+        (
+            "User: I'm Sami, in 10th grade\nUser: solve 2x + 3 = 7",
+            _add("User is working on solving 2x + 3 = 7", "focus", "recent-work"),
+        ),
+    ],
+)
+def test_a_single_task_is_not_a_fact_about_the_user(lines, op):
+    writes, skipped = _compose(lines, [op])
+    assert [w.text for w in writes if w.op == "add"] == []
+    assert skipped == 1
+
+
+@pytest.mark.parametrize(
+    ("lines", "op"),
+    [
+        # Durable context revealed while asking for help stays the model's call.
+        (
+            "User: Fix the drawer in my Expo app Recall",
+            _add("User builds Recall with Expo", "project", "side-projects"),
+        ),
+        (
+            "User: I got 85 in maths and 72 in chemistry, chart them",
+            _add("User scored 85 in maths and 72 in chemistry"),
+        ),
+        ("User: plan a party for my 2 kids", _add("User has 2 kids", "profile", "profile")),
+        (
+            "User: I want to learn python, explain variables",
+            _add("User is learning Python", "focus", "goals"),
+        ),
+        ("User: teach me python", _add("User is learning Python", "focus", "goals")),
+        # An answer, not a request.
+        (
+            "User: Python and FastAPI",
+            _add("User builds with Python and FastAPI", "fact", "tech-stack"),
+        ),
+        ("User: 10th grade", _add("User is in 10th grade", "profile", "profile")),
+        # How they want replies asks for no task.
+        (
+            "User: keep replies short from now on",
+            _add("User prefers short replies", "preference", "preferences"),
+        ),
+        # A "remember" keeps what it names.
+        (
+            "User: remember my test scores: math 85, chemistry 72, English 90",
+            _add("User scored 85 in math, 72 in chemistry, 90 in English"),
+        ),
+    ],
+)
+def test_facts_the_user_states_while_asking_are_kept(lines, op):
+    writes, skipped = _compose(lines, [op])
+    assert [w.text for w in writes if w.op == "add"] == [op["text"]]
+    assert skipped == 0

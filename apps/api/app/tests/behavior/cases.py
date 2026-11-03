@@ -2431,6 +2431,14 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        "personal-thing-sent-earlier",
+        "personal",
+        "What's on the timetable I sent you?",
+        Expect(hints=("no_past_record",), memory=True),
+        "A thing the user gave Recall before: reads memory and earlier chats for it, and "
+        "says it can't find it rather than inventing a timetable.",
+    ),
+    Case(
         "personal-said-to-someone-else",
         "personal",
         "I said hello to my neighbour and he ignored me, what should I do?",

@@ -19,6 +19,7 @@ from app.modules.turn_reading.coding import is_programming_turn
 from app.modules.turn_reading.personal import (
     is_career_personal_question,
     recalls_earlier_conversation,
+    refers_to_something_given,
 )
 from app.modules.turn_reading.profile_ask import (
     is_profile_fact_question,
@@ -250,7 +251,8 @@ def memory_notes(turn: PromptTurn) -> list[str]:
     if (
         turn.recalls_shared_past
         and not turn.chat_history_rag_block
-        and _NAMES_OUR_CONVERSATION.search(turn.query)
+        # "The timetable I sent you" names a thing the user gave Recall before.
+        and (_NAMES_OUR_CONVERSATION.search(turn.query) or refers_to_something_given(turn.query))
     ):
         notes.append(NO_PAST_RECORD_HINT)
     return notes
