@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.turn_reading.teaching import is_walkthrough_request
+from app.modules.turn_reading.teaching import is_walkthrough_request, teaching_reason
 
 
 @pytest.mark.parametrize(
@@ -73,3 +73,16 @@ def test_stuck_on_a_topic_gets_the_lesson(text: str) -> None:
 )
 def test_not_a_topic_gets_no_lesson(text: str) -> None:
     assert not is_walkthrough_request(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "teach me software requirements engineering",
+        "teach me how Visa and Mastercard work",
+        "teach me about building permit law",
+    ],
+)
+def test_paperwork_words_leave_a_teach_me_a_lesson(text: str) -> None:
+    # The paperwork words keep only a walkthrough a task; a subject named with them is learnt.
+    assert teaching_reason(text) == "teach"

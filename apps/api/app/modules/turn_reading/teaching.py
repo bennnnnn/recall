@@ -50,13 +50,17 @@ _TEACH_TURN = re.compile(
 )
 
 
-# A task keeps the how-to layout: the user wants it done, not a lesson. Paperwork too
-# ("walk me through the visa requirements for Kenya"): steps to take, nothing to practise.
+# A task keeps the how-to layout: the user wants it done, not a lesson.
 _PROCEDURE = re.compile(
     r"\b(?:install|uninstall|set\s*up|setup|configure|deploy|download|troubleshoot|"
-    r"fix|repair|reset|log\s*in|sign\s*up|requirements|paperwork|visa|permit)\b",
+    r"fix|repair|reset|log\s*in|sign\s*up)\b",
     re.IGNORECASE,
 )
+
+# Paperwork a walkthrough asks about ("walk me through the visa requirements for Kenya"):
+# steps to take, nothing to practise. Walkthroughs only: "teach me software requirements
+# engineering" or "teach me about building permit law" is a subject to learn.
+_PAPERWORK = re.compile(r"\b(?:requirements|paperwork|visa|permit)\b", re.IGNORECASE)
 
 
 # "Teach me (how) to bake bread" asks for a procedure; "teach me how to code"
@@ -273,14 +277,18 @@ def is_walkthrough_request(text: str) -> bool:
         return False
     match = _WALKTHROUGH.search(cleaned)
     if match is None:
-        return stuck_on_a_topic(cleaned) and not _PROCEDURE.search(cleaned)
+        return stuck_on_a_topic(cleaned) and not _is_a_task(cleaned)
     rest = cleaned[match.start() :]
     if names_a_thing(cleaned[match.end() - 1 :]):
         return False
     first_object = rest.split()[3:4] if rest.lower().startswith("walk me through") else []
     if first_object and _TASK_OBJECT.fullmatch(first_object[0]):
         return False
-    return not (_PROCEDURE.search(cleaned) or re.search(r"\bhow\s+(?:to|do\s+i)\b", rest, re.I))
+    return not (_is_a_task(cleaned) or re.search(r"\bhow\s+(?:to|do\s+i)\b", rest, re.I))
+
+
+def _is_a_task(cleaned: str) -> bool:
+    return bool(_PROCEDURE.search(cleaned) or _PAPERWORK.search(cleaned))
 
 
 def walkthrough_topic(text: str) -> str | None:
