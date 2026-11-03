@@ -16,7 +16,6 @@ import {
 } from "expo-file-system/legacy";
 
 export type VendorLibrary =
-  | "katexCss"
   | "mermaid"
   | "pdf"
   | "pdfWorker"
@@ -26,7 +25,6 @@ export type VendorLibrary =
   | "vegaLite";
 
 const VENDOR_ASSETS: Record<VendorLibrary, number> = {
-  katexCss: require("@/lib/vendor/katex.min.css.txt"),
   mermaid: require("@/lib/vendor/mermaid.min.js.txt"),
   pdf: require("@/lib/vendor/pdf.min.js.txt"),
   pdfWorker: require("@/lib/vendor/pdf.worker.min.js.txt"),

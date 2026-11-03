@@ -233,6 +233,27 @@ export async function latexToSvgMath(
   return result;
 }
 
+/**
+ * latex → an `<svg>` for an HTML page (the PDF export), drawn as the chat draws display
+ * maths: MathJax's sizes in `ex` and its baseline offset kept, every glyph a path, so the
+ * page needs no font. Null when MathJax cannot draw it.
+ */
+export async function latexToHtmlSvg(latex: string, display: boolean): Promise<string | null> {
+  const trimmed = latex.trim();
+  if (!trimmed || trimmed.length > MAX_LATEX_CHARS) return null;
+  try {
+    const render = await getRenderer();
+    const html = render(rewriteLatexDialects(trimmed), display);
+    const start = html.indexOf("<svg");
+    const end = html.lastIndexOf("</svg>");
+    if (start < 0 || end < start) return null;
+    const svg = html.slice(start, end + "</svg>".length);
+    return svgPaintsGlyphs(svg) ? svg : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Sign-out: the cache holds maths from the previous account's replies. */
 export function clearSvgMathCache(): void {
   cache.clear();

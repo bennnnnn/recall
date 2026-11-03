@@ -1,6 +1,7 @@
 /**
  * A reply as a shared document (Share and PDF), and each card the reader cannot open
- * outside Recall (a chart, a graph, a molecule, a calculator) as a one-line label. Control
+ * outside Recall (a chart, a graph, a molecule, a calculator) as a one-line label, with what
+ * the picture shows when it says (a scene's `alt`). Control
  * blocks (reminder and settings cards, sources) are left out. The PDF keeps the markdown
  * for its printer to draw (maths as maths, code as code). Share sends plain text to apps
  * that show it as typed, so there it is as Copy writes it (`plain.ts`): no `**` or `#`,
@@ -45,6 +46,17 @@ function answerText(body: string): string {
   return codeFence("math", answer);
 }
 
+/** What a picture shows, in its own words: the `alt` a scene or diagram carries for screen readers. */
+function cardDescription(body: string): string | null {
+  if (!body.startsWith("{")) return null;
+  try {
+    const alt = (JSON.parse(body) as { alt?: unknown }).alt;
+    return typeof alt === "string" && alt.trim() ? alt.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function documentFence(
   lang: string,
   body: string,
@@ -56,7 +68,10 @@ function documentFence(
   const form = documentFormForLang(lang);
   // A long-division or column sum reads as its worked lines, a quiz as its question.
   if (form === "copyText") return cardLines(fenceToCopyText(lang, body), target);
-  if (form) return label(form);
+  if (form) {
+    const description = cardDescription(trimmed);
+    return description ? `${label(form)} ${description}` : label(form);
+  }
   if (isControlFenceLang(lang)) return "";
   if (target === "share") return fenceToCopyText(lang, body);
   if (id === "answer") return answerText(trimmed);
