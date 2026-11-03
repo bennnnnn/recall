@@ -152,7 +152,8 @@ export type Todo = {
 };
 
 export type SearchResult = {
-  match_type: "message" | "title";
+  /** A chat's title, the name of a file sent in it, or a message's own words. */
+  match_type: "message" | "title" | "file";
   message_id: string | null;
   chat_id: string;
   chat_title: string | null;

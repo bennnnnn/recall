@@ -1,4 +1,6 @@
 import os
+import re
+import sqlite3
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,6 +9,26 @@ from unittest.mock import AsyncMock, patch
 import fakeredis.aioredis
 import pytest
 from hypothesis import settings as hypothesis_settings
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+
+
+def _regexp_replace(
+    text: str | None, pattern: str, replacement: str, flags: str = ""
+) -> str | None:
+    """Postgres ``regexp_replace`` for SQLite: ``messages.search_text`` is computed with it."""
+    if text is None:
+        return None
+    return re.sub(pattern, replacement, text, count=0 if "g" in flags else 1)
+
+
+@event.listens_for(Engine, "connect")
+def _sqlite_functions(dbapi_connection: object, _record: object) -> None:
+    # Tests that build tables in SQLite (Message.__table__.create) need the function the
+    # generated column calls; deterministic, as SQLite requires of a generated column.
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        dbapi_connection.create_function("regexp_replace", -1, _regexp_replace, deterministic=True)
+
 
 # Match local `.env.example` — Settings.environment defaults to production
 # (fail-closed). Tests that construct Settings() without an env file need this.

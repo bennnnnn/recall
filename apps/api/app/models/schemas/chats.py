@@ -140,7 +140,7 @@ class ChatMessageRequest(_StreamClientContext):
 
 
 class SearchResultItem(BaseModel):
-    match_type: Literal["message", "title"] = "message"
+    match_type: Literal["message", "title", "file"] = "message"
     message_id: UUID | None = None
     chat_id: UUID
     chat_title: str | None

@@ -69,9 +69,11 @@ export function DrawerSearchResultRow({ result, title, onOpenChat }: RowProps) {
           name={
             result.match_type === "title"
               ? "message"
-              : result.role === "user"
-                ? "user"
-                : "sparkles"
+              : result.match_type === "file"
+                ? "file"
+                : result.role === "user"
+                  ? "user"
+                  : "sparkles"
           }
           size={IconSize.xxs}
           color={result.match_type === "title" ? theme.primary : theme.textSecondary}
