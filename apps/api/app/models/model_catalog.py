@@ -339,8 +339,7 @@ CATALOG: tuple[ChatModel, ...] = (
     ChatModel(
         id="speech-tts-model",
         label="OpenAI TTS",
-        # tts-1, not gpt-4o-mini-tts: a short reply's first clip took 7-30 s there
-        # (2026-11-03, measured beside tts-1's 1-2 s for the same sentence).
+        # tts-1: gpt-4o-mini-tts took 7-30 s per clip, tts-1 1-2 s (measured 2026-11-03).
         model="openai/tts-1",
         provider="openai",
         api_key_field="openai_api_key",

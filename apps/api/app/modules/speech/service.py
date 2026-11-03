@@ -59,24 +59,14 @@ def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
     return openrouter_slug(TTS_QUALITY_ALIAS)
 
 
-# The voices tts-1 has. The Voice setting also chooses live talk's voice, which has marin,
-# cedar, ballad and verse: read aloud speaks those as the nearest tts-1 voice.
-_TTS1_VOICES = frozenset(
-    {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"}
-)
-_TTS1_NEAREST = {"marin": "coral", "cedar": "onyx", "ballad": "echo", "verse": "ash"}
-
-
 def resolve_tts_voice(settings: Settings, model: str, user_voice: str | None = None) -> str:
     """The user's voice, else the configured one; never one left from Gemini/Kokoro."""
     chosen = (user_voice or "").strip().lower()
     if chosen not in _OPENAI_TTS_VOICES:
         configured = (settings.speech_tts_voice or "").strip().lower()
         chosen = configured if configured in _OPENAI_TTS_VOICES else "alloy"
-    if not model.removeprefix("openai/").startswith("tts-1"):
-        return chosen
-    voice = _TTS1_NEAREST.get(chosen, chosen)
-    return voice if voice in _TTS1_VOICES else "alloy"
+    # The model may lack the voice (it is live talk's choice too): the gateway picks its nearest.
+    return speech_gateway.voice_for(model, chosen)
 
 
 async def transcribe_audio(
