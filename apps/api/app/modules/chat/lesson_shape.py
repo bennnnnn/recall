@@ -50,6 +50,8 @@ _ASKS_BACK_MAX_WORDS = 80
 # A closing question longer than this is part of the lesson, not a sign-off.
 _CLOSER_MAX_CHARS = 400
 _NUMBERED_SECTION = re.compile(r"^\s{0,3}#{2,4}\s+\d{1,2}[.)]\s", re.MULTILINE)
+# A heading's marks and section number, before its words.
+_HEADING_NAME = re.compile(r"^#{1,6}\s+(?:\*\*)?(?:\d{1,2}[.)]\s+)?")
 
 
 def teaches(text: str) -> bool:
@@ -105,10 +107,14 @@ def _card(quiz: QuizCard, copy: LessonCopy) -> str:
 def with_practice(text: str, quiz: QuizCard, copy: LessonCopy) -> str:
     """The card last, under the lesson's practice heading."""
     parts = blocks(text)
-    names = {copy.your_turn.casefold(), "your turn"}
-    own = [i for i, part in enumerate(parts) if is_heading(part) and _names(part, names)]
+    names = {_folded(copy.your_turn), "your turn"}
+    own = [i for i, part in enumerate(parts) if is_heading(part) and _heading_name(part) in names]
     if own:
-        return joined([*parts[: own[-1] + 1], _card(quiz, copy)])
+        # The card takes the place of the prose practice under the heading; the sections
+        # after it ("Common mistakes", a closing note under its own heading) stay.
+        at = own[-1]
+        end = next((j for j in range(at + 1, len(parts)) if is_heading(parts[j])), len(parts))
+        return joined([*parts[: at + 1], _card(quiz, copy), *parts[end:]])
     if parts and is_question(parts[-1]) and len(parts[-1]) <= _CLOSER_MAX_CHARS:
         parts = parts[:-1]
     sections = len(_NUMBERED_SECTION.findall(without_fences(text, "")))
@@ -116,9 +122,14 @@ def with_practice(text: str, quiz: QuizCard, copy: LessonCopy) -> str:
     return joined([*parts, heading, _card(quiz, copy)])
 
 
-def _names(heading: str, names: set[str]) -> bool:
-    folded = heading.casefold()
-    return any(name in folded for name in names)
+def _folded(name: str) -> str:
+    return " ".join(name.casefold().split())
+
+
+def _heading_name(heading: str) -> str:
+    """A heading's own words: no #s, no section number, no closing colon or mark, so
+    "### 2. Your turn:" names "your turn" and "### Why your turn matters" does not."""
+    return _folded(_HEADING_NAME.sub("", heading.strip()).rstrip(" :!.?*"))
 
 
 async def hold_lesson(state: FinalizeState, copy: LessonCopy) -> str:

@@ -153,6 +153,35 @@ async def test_the_lessons_own_practice_section_holds_the_card(calls: _Calls) ->
 
 
 @pytest.mark.asyncio
+async def test_the_card_replaces_only_the_practice_under_its_heading(calls: _Calls) -> None:
+    reply = (
+        "### Lesson 1: Recursion\n\nA function that calls itself.\n\n"
+        "### Your turn\n\nWrite factorial and tell me.\n\n"
+        "### Common mistakes\n\n- No base case\n- Wrong step\n\n### Next\n\nWe'll do memoising."
+    )
+    out = await hold_lesson_shape(_state(reply, "I don't understand recursion"))
+
+    assert "### Your turn\n\n```quiz\n" in out
+    assert "Write factorial" not in out
+    assert out.endswith(
+        "### Common mistakes\n\n- No base case\n- Wrong step\n\n### Next\n\nWe'll do memoising."
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_heading_that_only_mentions_your_turn_is_not_the_practice(calls: _Calls) -> None:
+    reply = (
+        "### Lesson 1: Recursion\n\nA function that calls itself.\n\n"
+        "### Your turn to think about stack depth\n\nEach call waits for the next."
+    )
+    out = await hold_lesson_shape(_state(reply, "I don't understand recursion"))
+
+    assert "Each call waits for the next." in out
+    assert out.count("```quiz") == 1
+    assert "\n\n### Your turn\n\n```quiz\n" in out
+
+
+@pytest.mark.asyncio
 async def test_a_whole_lesson_is_left_alone(calls: _Calls) -> None:
     reply = "Hook.\n\n### Lesson 1: Loops\n\nText.\n\n```quiz\n{}\n```"
     assert await hold_lesson_shape(_state(reply, "help me understand loops")) == reply
