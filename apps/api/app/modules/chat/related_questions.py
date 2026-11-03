@@ -188,7 +188,7 @@ def sentence_case(question: str) -> str:
     text = question
     first = _FIRST_WORD.match(text)
     apostrophes = "'\u2019"  # straight and typed
-    if first is not None and first.group(0).rstrip(apostrophes).islower():
+    if first is not None and first.group(0).rstrip(apostrophes).islower() and _a_word(first):
         text = text[0].upper() + text[1:]
     if _ENGLISH.search(text) is None:
         return text
@@ -199,6 +199,13 @@ def sentence_case(question: str) -> str:
         last = span.end()
     pieces.append(_LONE_I.sub(_speaker, text[last:]))
     return "".join(pieces)
+
+
+def _a_word(first: re.Match[str]) -> bool:
+    """The chip opens on a word, not a symbol: ``x + 2 = 5``, ``f(x) = 3x`` and
+    ``sin(x) = 0`` keep their case, which is their meaning."""
+    after = first.string[first.end() :].lstrip()[:1]
+    return len(first.group(0)) > 1 and after not in set("(=+-*/^_<>≤≥")
 
 
 def _speaker(match: re.Match[str]) -> str:

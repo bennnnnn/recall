@@ -87,6 +87,11 @@ def test_correct_weekday_dates_fixes_only_a_wrong_weekday(text: str, fixed: str)
             "Wednesday is November 4, 2026, so I'll set it for 7:00 PM that day.",
         ),
         ("**Friday** is **Friday**, November 6.", "**Friday** is November 6."),
+        # The bold opened on the repeated day is the date's: it stays.
+        (
+            "Wednesday is **Wednesday, November 4, 2026**.",
+            "Wednesday is **November 4, 2026**.",
+        ),
         ("Next Monday is Monday Nov 9.", "Next Monday is Nov 9."),
         ("Saturday falls on Saturday, 7 November.", "Saturday falls on 7 November."),
         # A wrong weekday is corrected first, then said once.

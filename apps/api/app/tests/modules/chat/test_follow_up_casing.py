@@ -28,6 +28,12 @@ from app.modules.chat.related_questions import accepted_questions, sentence_case
         ("iPhone or Pixel for photos?", "iPhone or Pixel for photos?"),
         ("come si calcolano i numeri primi?", "Come si calcolano i numeri primi?"),
         ("как приготовить плов?", "Как приготовить плов?"),
+        # A symbol opening the chip keeps its case, which is its meaning.
+        ("x + 2 = 5, how do i solve it?", "x + 2 = 5, how do I solve it?"),
+        ("f(x) = 3x, what is f(2)?", "f(x) = 3x, what is f(2)?"),
+        ("v = 20 m/s: how far in 3 s?", "v = 20 m/s: how far in 3 s?"),
+        ("sin(x) = 0, where?", "sin(x) = 0, where?"),
+        ("i need the next step", "I need the next step"),
     ],
 )
 def test_sentence_case(chip: str, shown: str) -> None:
