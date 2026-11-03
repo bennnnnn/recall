@@ -4,8 +4,18 @@ import { Image, type ImageLoadEventData } from "expo-image";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
+import {
+  LazyAttachmentPdfViewer,
+  LazyAttachmentTextViewer,
+  LazyComposerImageEnlarge,
+} from "@/features/attachments/components/LazyDraftAttachmentViewers";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
+import { isReadableTextContentType } from "@/features/attachments/model/gallery";
+import { isPdfContentType } from "@/lib/messageAttachments";
+import { shareLocalFile } from "@/lib/shareFile";
+import { shareFailureKey } from "@/lib/shareUnavailable";
+import { alertDialog } from "@/ui/overlay/dialogs";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -28,27 +38,88 @@ type Props = {
   onRemove: () => void;
 };
 
+/** Which viewer shows a picked file before it is sent: a PDF, readable text, or none. */
+function fileViewer(contentType: string): "pdf" | "text" | null {
+  if (isPdfContentType(contentType)) return "pdf";
+  return isReadableTextContentType(contentType) ? "text" : null;
+}
+
+/**
+ * A picked attachment can be seen before it is sent: the photo enlarges over the chat, a
+ * PDF or a text file opens in its reader, from the file on the phone. The composer's
+ * thumbnail and file row were not tappable at all.
+ */
+function PendingAttachmentViewer({ attachment, open, onClose }: {
+  attachment: PendingAttachment;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const { localUri, fileName, contentType } = attachment;
+  if (attachment.kind === "image") {
+    return <LazyComposerImageEnlarge visible={open} uri={localUri} onClose={onClose} />;
+  }
+  const onShare = () => {
+    void shareLocalFile(localUri, { title: fileName, mimeType: contentType }).catch((error: unknown) =>
+      alertDialog({ title: t(shareFailureKey(error, "common.share_failed")) }),
+    );
+  };
+  const props = { visible: open, onClose, localUri, fileName, onShare };
+  const viewer = fileViewer(contentType);
+  if (viewer === "pdf") return <LazyAttachmentPdfViewer {...props} />;
+  return viewer === "text" ? <LazyAttachmentTextViewer {...props} /> : null;
+}
+
 export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
+  const [open, setOpen] = useState(false);
+  const viewer = (
+    <PendingAttachmentViewer attachment={attachment} open={open} onClose={() => setOpen(false)} />
+  );
 
   if (attachment.kind === "image") {
-    return <ComposerImagePreview key={attachment.localUri} {...{ attachment, uploading, onRemove }} />;
+    return (
+      <>
+        <ComposerImagePreview
+          key={attachment.localUri}
+          {...{ attachment, uploading, onRemove }}
+          onOpen={() => setOpen(true)}
+        />
+        {viewer}
+      </>
+    );
   }
 
+  const canOpen = fileViewer(attachment.contentType) !== null;
   return (
     <View
       style={s.fileWrap}
       accessibilityLabel={uploading ? t("chat.sending") : undefined}
       accessibilityState={{ busy: Boolean(uploading) }}
     >
-      <View style={s.fileIcon}>
-        <Icon name="file" size={IconSize.sm} color={C.primary} />
-      </View>
-      <Text style={s.fileName} numberOfLines={1}>
-        {attachment.fileName}
-      </Text>
+      <Pressable
+        style={s.fileOpen}
+        onPress={() => setOpen(true)}
+        disabled={!canOpen}
+        accessibilityRole={canOpen ? "button" : undefined}
+        accessibilityLabel={
+          isPdfContentType(attachment.contentType)
+            ? t("chat.pdf_open_a11y", { fileName: attachment.fileName })
+            : canOpen
+              ? t("gallery.open_file_a11y")
+              : attachment.fileName
+        }
+        testID="composer-file-open"
+      >
+        <View style={s.fileIcon}>
+          <Icon name="file" size={IconSize.sm} color={C.primary} />
+        </View>
+        <Text style={s.fileName} numberOfLines={1}>
+          {attachment.fileName}
+        </Text>
+      </Pressable>
       {uploading ? (
         <ActivityIndicator size="small" color={C.primary} />
       ) : (
@@ -61,11 +132,17 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
           <Icon name="close-circle" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
       )}
+      {viewer}
     </View>
   );
 }
 
-function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
+function ComposerImagePreview({
+  attachment,
+  uploading,
+  onRemove,
+  onOpen,
+}: Props & { onOpen: () => void }) {
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -85,7 +162,13 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
       accessibilityState={{ busy: Boolean(uploading) }}
       testID="composer-image-controls"
     >
-      <View style={[s.imageWrap, size]} testID="composer-image-frame">
+      <Pressable
+        style={[s.imageWrap, size]}
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.image_view_a11y")}
+        testID="composer-image-frame"
+      >
         <Image
           source={{ uri: attachment.localUri }}
           style={s.image}
@@ -99,7 +182,7 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
             <ActivityIndicator color={C.onMedia} />
           </View>
         ) : null}
-      </View>
+      </Pressable>
       <Pressable
         style={s.removeBtn}
         onPress={onRemove}
@@ -117,8 +200,10 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
+    // Inset like the composer's text, which starts at the + glyph.
     imageControls: {
       marginBottom: Space.xs,
+      marginLeft: Space.xs,
     },
     imageWrap: {
       borderRadius: Radius.bubble,
@@ -156,16 +241,21 @@ function makeStyles(C: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
     },
+    // A chip as wide as its name (a long one truncates), not a bar across the composer.
     fileWrap: {
+      alignSelf: "flex-start",
+      maxWidth: "100%",
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
       marginBottom: Space.xs,
+      marginHorizontal: Space.xs,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
       borderRadius: Radius.md,
       backgroundColor: C.surfaceAlt,
     },
+    fileOpen: { flexShrink: 1, flexDirection: "row", alignItems: "center", gap: Space.xs },
     fileIcon: {
       width: 32,
       height: 32,
@@ -175,7 +265,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.primaryLight,
     },
     fileName: {
-      flex: 1,
+      flexShrink: 1,
       ...Type.compact,
       color: C.textSecondary,
     },

@@ -23,10 +23,12 @@ const MAX_PREVIEW_CHARS = 200_000;
 
 type Props = AttachmentViewerProps & {
   attachmentId?: string | null;
+  /** A file on the phone (one picked in the composer, not sent yet). */
+  localUri?: string | null;
   path?: string | null;
 };
 
-export function AttachmentTextViewer({ visible, attachmentId, path, ...chrome }: Props) {
+export function AttachmentTextViewer({ visible, attachmentId, localUri, path, ...chrome }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -36,8 +38,8 @@ export function AttachmentTextViewer({ visible, attachmentId, path, ...chrome }:
   const [failed, setFailed] = useState(false);
 
   const remoteUri = useMemo(
-    () => resolveAttachmentUri({ attachmentId, path }),
-    [attachmentId, path],
+    () => resolveAttachmentUri({ attachmentId, localUri, path }),
+    [attachmentId, localUri, path],
   );
 
   useEffect(() => {
