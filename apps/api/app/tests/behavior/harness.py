@@ -172,6 +172,10 @@ HINTS: dict[str, str] = {
     # Memory is off, or has no record of the earlier chat the user recalls.
     "memory_off": prompt_memory.MEMORY_OFF_HINT,
     "no_past_record": prompt_memory.NO_PAST_RECORD_HINT,
+    # "What do you remember about me?": a summary of everything saved.
+    "broad_self": pc.BROAD_SELF_ANSWER_HINT,
+    # What Recall does after the reply with a remember, forget, mute or correction line.
+    **{f"memory_{command}": note for command, note in prompt_memory.MEMORY_COMMAND_NOTES.items()},
 }
 
 USER_NAME = "Bini"

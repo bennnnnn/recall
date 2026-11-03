@@ -7,6 +7,7 @@ import pytest
 
 from app.models.orm import Chat, Message
 from app.modules.search import repository as search_repo
+from app.modules.search.snippet import snippet
 from app.repositories import users as users_repo
 
 
@@ -188,5 +189,5 @@ async def test_search_pages_over_keys_then_reads_the_page_bodies(db_session):
 
     by_type = {row["match_type"]: row for row in rows}
     assert by_type["title"]["content"] == "needle plans"
-    assert by_type["message"]["content"] == search_repo._snippet(long_body, "needle", 120)
+    assert by_type["message"]["content"] == snippet(long_body, "needle", 120)
     assert by_type["message"]["role"] == "user"

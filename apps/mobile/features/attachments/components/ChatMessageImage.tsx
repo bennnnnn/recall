@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { Image, type ImageLoadEventData, type ImageSource } from "expo-image";
 import { useTranslation } from "react-i18next";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { LazyAttachmentImageViewer } from "@/features/attachments/components/LazyAttachmentImageViewer";
@@ -74,6 +74,9 @@ function RevealingImage({
 }: RevealingImageProps) {
   const reveal = useSharedValue(reduceMotion ? 1 : 0);
   const started = useRef(false);
+  // Once the sharp layer is in, the blurred one is gone: kept, its invisible copy of the
+  // picture (decoded and blurred) stayed in memory as long as the row.
+  const [revealed, setRevealed] = useState(false);
   const sharpStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.value }));
 
@@ -87,10 +90,13 @@ function RevealingImage({
     // catch. The rule doesn't yet recognize SharedValue as an exempt
     // mutable-ref type (a known gap for Reanimated under React Compiler).
     // eslint-disable-next-line react-hooks/immutability -- a shared value written in an event handler, not in render
-    reveal.value = withTiming(1, {
-      duration: motionMs(REVEAL_DURATION_MS, reduceMotion),
-      easing: Easing.out(Easing.ease),
-    });
+    reveal.value = withTiming(
+      1,
+      { duration: motionMs(REVEAL_DURATION_MS, reduceMotion), easing: Easing.out(Easing.ease) },
+      (finished) => {
+        if (finished) runOnJS(setRevealed)(true);
+      },
+    );
   };
 
   if (reduceMotion) {
@@ -110,14 +116,16 @@ function RevealingImage({
     <>
       {/* Blurred layer fades out as the sharp layer fades in — a soft
           "develop" reveal rather than a hard pop once decoded. */}
-      <AnimatedImage
-        source={source}
-        style={[style, layerStyle, blurStyle]}
-        contentFit={previewFit}
-        cachePolicy="memory-disk"
-        blurRadius={REVEAL_BLUR_RADIUS}
-        onLoad={handleLoad}
-      />
+      {revealed ? null : (
+        <AnimatedImage
+          source={source}
+          style={[style, layerStyle, blurStyle]}
+          contentFit={previewFit}
+          cachePolicy="memory-disk"
+          blurRadius={REVEAL_BLUR_RADIUS}
+          onLoad={handleLoad}
+        />
+      )}
       <AnimatedImage
         source={source}
         style={[style, layerStyle, sharpStyle]}

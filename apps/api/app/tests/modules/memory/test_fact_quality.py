@@ -166,3 +166,28 @@ def test_writes_skip_a_one_off_reminder():
     )
     assert skipped == 1
     assert [write.text for write in writes] == ["User is from Addis Ababa, Ethiopia"]
+
+
+def test_a_stale_fact_is_dropped_as_housekeeping_not_as_the_users_removal():
+    """Its delete keeps chat history even in a pass where the user said "forget ..."."""
+    from app.modules.memory.pass_writes import Asks, MemorySnapshot, compose_writes
+
+    snapshot = MemorySnapshot(
+        memory_enabled=True,
+        include_sensitive=False,
+        existing_facts={},
+        prompt_facts=[],
+        prompt_areas=[],
+        active_facts=(
+            FactView("User is in Avon", _NOW - timedelta(days=2)),
+            FactView("User is in Russia", _NOW),
+        ),
+    )
+    lines = "User: forget my favorite drink"
+
+    writes, _ = compose_writes(
+        snapshot, lines, Asks.of(lines), [], chat_id=uuid4(), from_history=False, min_confidence=0.5
+    )
+
+    stale = [write for write in writes if write.match_text == "User is in Avon"]
+    assert [(write.op, write.stale) for write in stale] == [("delete", True)]

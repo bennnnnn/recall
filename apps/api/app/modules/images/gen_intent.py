@@ -36,6 +36,7 @@ from app.modules.images.gen_intent_words import (
     VERBS_IMAGE,
 )
 from app.modules.images.gen_intent_words import IMAGE_NOUNS as IMAGE_NOUNS  # chat reads it here
+from app.modules.images.subject_phrase import MARKUP_WORDS, first_phrase
 from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 from app.services.text_normalize import fold_token
 
@@ -78,7 +79,7 @@ def has_non_image_subject(subject: str, *, drawn: bool = False) -> bool:
     """A subject that is not a picture: a task, notes, code. With a ``drawn`` verb
     (draw, paint, illustrate), what follows "for" is what the picture is for: "draw me a
     cute cartoon skeleton for my notes" drew nothing, as if the notes were the subject."""
-    words = [fold_token(word) for word in subject.split()]
+    words = first_phrase(subject.split())
     if drawn and "for" in words[1:]:
         words = words[: words.index("for", 1)]
     for i, key in enumerate(words):
@@ -118,12 +119,11 @@ _ART_FOR_NOUNS = frozenset(
     }
 )
 # "A logo for my site in html" asks for markup, not a picture.
-_MARKUP_WORDS = frozenset({"html", "css", "javascript", "typescript"})
 
 
 def _names_what_the_art_is_for(words: list[str], i: int) -> bool:
     """``app`` in "an app logo" or "a logo for my app": what the picture is for, not the ask."""
-    if any(word in _MARKUP_WORDS for word in words):
+    if any(word in MARKUP_WORDS for word in words):
         return False
     if i + 1 < len(words) and words[i + 1] in _ART_FOR_NOUNS:
         return True

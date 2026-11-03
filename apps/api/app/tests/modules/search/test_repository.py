@@ -105,26 +105,26 @@ async def test_search_reads_one_row_past_the_page_for_the_cursor():
 
 
 def test_search_snippet_exact_match():
-    from app.modules.search.repository import _snippet
+    from app.modules.search.snippet import snippet
 
     content = "The quick brown fox jumps over the lazy dog"
-    result = _snippet(content, "fox", 120)
+    result = snippet(content, "fox", 120)
     assert "fox" in result
 
 
 def test_search_snippet_no_match():
-    from app.modules.search.repository import _snippet
+    from app.modules.search.snippet import snippet
 
     content = "Hello world"
-    result = _snippet(content, "zzz", 120)
+    result = snippet(content, "zzz", 120)
     assert len(result) <= 120
 
 
 def test_search_snippet_truncation():
-    from app.modules.search.repository import _snippet
+    from app.modules.search.snippet import snippet
 
     content = "a" * 300 + "needle" + "b" * 300
-    result = _snippet(content, "needle", 120)
+    result = snippet(content, "needle", 120)
     assert "needle" in result
     # Expect at most: 40 (prefix) + len(query) + 80 (suffix) + 2 (… markers) ≈ 128
     assert len(result) <= 130

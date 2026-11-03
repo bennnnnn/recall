@@ -22,6 +22,7 @@ import { preloadSimulationSizing } from "@/components/rich/LazyHeavyRich";
 import { useLaunchFonts } from "@/hooks/useLaunchFonts";
 import { sweepOldPickerCopies } from "@/lib/accountFiles";
 import { watchPhoneClock } from "@/lib/datetime/phoneClockSync";
+import { boundImageMemoryCache } from "@/lib/images/memoryCache";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { markLaunchReady } from "@/lib/launchSplash";
 import { useReduceMotion } from "@/lib/reduceMotion";
@@ -41,6 +42,8 @@ import { useTheme } from "@/lib/theme";
 void restoreLaunchPrefs().then(() => markLaunchReady("prefs"));
 // Before anything can be picked, so a fresh pick is never in the listing.
 void sweepOldPickerCopies();
+// Before the first picture decodes: the memory cache keeps what it decodes until told a limit.
+boundImageMemoryCache();
 
 const markSessionRestored = () => markLaunchReady("session");
 

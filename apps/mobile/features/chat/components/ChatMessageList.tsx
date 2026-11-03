@@ -10,6 +10,7 @@ import { useComposerDraftActivity } from "@/features/chat/context/ComposerDraftC
 import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
+  CHAT_RECYCLE_POOL,
   latchStartRenderingFromBottom,
   messageListItemType,
   messageListKey,
@@ -41,6 +42,9 @@ type Props = {
   /** After the last message, inside the scroll content (the keyboard spacer). */
   footer?: ReactElement | null;
 };
+
+/** What the list draws beyond the screen, and how many rows it keeps off it for reuse. */
+const LIST_WINDOW = { drawDistance: 280, maxItemsInRecyclePool: CHAT_RECYCLE_POOL } as const;
 
 /** FlashList never scrolls to the bottom on its own: useChatScroll is the one writer. */
 const NO_AUTOSCROLL = -1;
@@ -108,7 +112,7 @@ function ChatMessageListComponent({
         data={messages}
         // An opened chat is drawn once it sits at its end, never top-then-jump.
         style={scroll?.hidden ? s.listHidden : s.list}
-        drawDistance={280}
+        {...LIST_WINDOW}
         maintainVisibleContentPosition={maintainVisibleContentPosition}
         keyExtractor={messageListKey}
         getItemType={messageListItemType}

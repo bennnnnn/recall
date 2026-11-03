@@ -2434,8 +2434,47 @@ CASES: tuple[Case, ...] = (
         "personal-said-to-someone-else",
         "personal",
         "I said hello to my neighbour and he ignored me, what should I do?",
-        Expect(memory=False, no_hints=("no_past_record",)),
-        "Ordinary advice about the neighbour; no saved memory or earlier chats are read.",
+        Expect(no_hints=("no_past_record",)),
+        "Ordinary advice about the neighbour, not a recalled conversation: no \"can't find "
+        "that chat\" note. Memory may be read: it is the user's own neighbour.",
+    ),
+    Case(
+        "personal-remember-about-me",
+        "personal",
+        "What do you remember about me?",
+        Expect(memory=True, memory_scope="self", hints=("broad_self",)),
+        'A short, warm summary of what is saved (work, interests, preferences), never "I '
+        "don't have any memories saved\" when some are.",
+    ),
+    Case(
+        "personal-remember-about-my-trip",
+        "personal",
+        "what do you remember about my trip to Lisbon?",
+        Expect(memory=True, memory_scope="query", no_hints=("broad_self",)),
+        "What memory and earlier chats hold about the trip, not a summary of the user.",
+    ),
+    Case(
+        "personal-own-timetable",
+        "personal",
+        "What time is the chemistry lab on my timetable, and which room?",
+        Expect(memory=True, memory_scope="query"),
+        "The time and room from the timetable shared in another chat; says it can't find "
+        "the timetable only when no earlier chat or memory has it.",
+    ),
+    Case(
+        "personal-forget-a-fact",
+        "personal",
+        "Forget my favorite drink",
+        Expect(hints=("memory_forget",), no_hints=("memory_keep",)),
+        "Confirms in a few words that it's forgotten; never \"I can't remove saved memories "
+        'from this chat".',
+    ),
+    Case(
+        "personal-mute-a-fact",
+        "personal",
+        "stop mentioning my job",
+        Expect(hints=("memory_mute",)),
+        "Confirms in a few words it won't bring the job up again.",
     ),
     Case(
         "personal-memory-not-config",

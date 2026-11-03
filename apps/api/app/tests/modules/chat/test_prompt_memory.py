@@ -23,6 +23,9 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.memory.switch import memory_switch_on
 from app.tests.modules.chat.chat_test_support import system_prompt
 
+# The note a "remember …" line gets: Recall saves it after the reply.
+_SAVING = prompt_memory.MEMORY_COMMAND_NOTES["keep"]
+
 
 def _user(*, memory: bool = True) -> User:
     return User(
@@ -92,6 +95,11 @@ async def test_memory_off_stops_saved_facts_and_past_chat_recall():
     ("text", "scope"),
     [
         ("what do you know about me?", "self"),
+        # Live (2026-11-02): read by query, nothing came near the question and the reply
+        # said nothing was saved.
+        ("What do you remember about me?", "self"),
+        ("what have you saved about me", "self"),
+        ("what do you remember about my trip?", "query"),
         ("what's my job?", "profile"),
         ("should I ask for a promotion?", "profile"),
         # A cover letter is written from the saved job and skills.
@@ -177,7 +185,7 @@ async def test_a_remember_turn_is_told_recall_saves_it():
     """Live (2026-10-25): "remember that…" was saved, and the reply called it a to-do,
     then said it couldn't save to memory."""
     saving = await _system_prompt("remember that I want to try cacio e pepe again")
-    assert prompt_memory.MEMORY_SAVING_HINT in saving
+    assert _SAVING in saving
     for line in (
         # Memory drops one-off dated items and errands: no promise to remember them.
         "remember that my dentist appointment is tomorrow at 3pm",
@@ -192,10 +200,48 @@ async def test_a_remember_turn_is_told_recall_saves_it():
         "what should I cook tonight?",
     ):
         system = await _system_prompt(line)
-        assert prompt_memory.MEMORY_SAVING_HINT not in system, line
+        assert _SAVING not in system, line
     off = await _system_prompt("remember that I want to try cacio e pepe again", memory=False)
     assert prompt_memory.MEMORY_OFF_HINT in off
-    assert prompt_memory.MEMORY_SAVING_HINT not in off
+    assert _SAVING not in off
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("line", "command"),
+    [
+        ("Forget my favorite drink", "forget"),
+        ("stop mentioning my job", "mute"),
+        ("Actually I live in Lisbon now, not Nairobi", "correct"),
+        ("remember that I want to try cacio e pepe again", "keep"),
+    ],
+)
+async def test_each_memory_command_is_told_what_recall_does_with_it(line, command):
+    """Live (2026-11-02): "Forget my favorite drink" was deleted after the reply, which said
+    it couldn't remove saved memories from this chat. One note per command, one template."""
+    system = await _system_prompt(line)
+    assert prompt_memory.MEMORY_COMMAND_NOTES[command] in system
+    others = set(prompt_memory.MEMORY_COMMAND_NOTES.values()) - {
+        prompt_memory.MEMORY_COMMAND_NOTES[command]
+    }
+    assert not any(note in system for note in others)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "line",
+    [
+        # Chat does not reset memory: the reply is canned and points to Settings.
+        "forget everything you know about me",
+        "I always forget my keys",
+        "what should I cook tonight?",
+        # A reminder change gets its card.
+        "forget the reminder to call mom",
+    ],
+)
+async def test_a_line_that_is_no_memory_command_gets_no_command_note(line):
+    system = await _system_prompt(line)
+    assert not any(note in system for note in prompt_memory.MEMORY_COMMAND_NOTES.values())
 
 
 @pytest.mark.asyncio
@@ -228,7 +274,7 @@ async def test_remember_while_saving_is_paused_says_so(spend: str, paused: bool)
     redis.get.assert_awaited()
     assert (prompt_memory.MEMORY_PAUSED_HINT in system_prompt(messages)) is paused
     if paused:
-        assert prompt_memory.MEMORY_SAVING_HINT not in system_prompt(messages)
+        assert _SAVING not in system_prompt(messages)
 
 
 @pytest.mark.asyncio

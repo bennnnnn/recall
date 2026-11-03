@@ -23,6 +23,8 @@ _PERSONAL_CONTEXT_CUE = re.compile(
     r"what was that thing|that thing we (?:talked|discussed|mentioned)"
     r")\b|"
     r"\b(?:about me|tell me about (?:me|myself))\b|"
+    # What Recall keeps and the people closest to the user: personal even inside a task.
+    # Any other thing of theirs is ``mentions_own_things``.
     r"\bmy\s+(?:"
     r"name|email|preference|preferences|diet|routine|schedule|"
     r"calendar|wife|husband|kids?|dog|cat|job|work|boss|team|"
@@ -32,6 +34,42 @@ _PERSONAL_CONTEXT_CUE = re.compile(
     r")",
     re.IGNORECASE,
 )
+
+# "My timetable", "our trip", "my sister's wedding": a first-person possessive names the
+# user's own thing, which memory or an earlier chat may hold, whatever the noun. Up to three
+# words after it are read, so "my python code" is code.
+_OWN_THING = re.compile(
+    r"\b(?:my|our)\s+([a-z][\w'-]*)(?:\s+([a-z][\w'-]*))?(?:\s+([a-z][\w'-]*))?"
+)
+# Two kinds of "my" say nothing of the user's life: an idiom ("oh my god", "my bad", "in my
+# opinion"), and what this very message hands over to work on ("fix my code", "is my answer
+# right", "proofread my essay"): the text is in the line, not in memory.
+_NOT_OWN_THING_HEAD = frozenset({
+    "god", "gosh", "goodness", "bad", "pleasure", "apologies", "guess", "opinion", "view",
+    "question", "questions", "point", "turn", "mistake", "understanding",
+})  # fmt: skip
+_HANDED_OVER = frozenset({
+    "code", "script", "function", "program", "query", "regex", "snippet", "bug", "error",
+    "output", "answer", "answers", "solution", "attempt", "calculation", "steps", "working",
+    "homework", "essay", "draft", "text", "paragraph", "sentence", "sentences", "writing",
+    "wording", "words", "grammar", "spelling", "translation",
+})  # fmt: skip
+
+
+def mentions_own_things(text: str) -> bool:
+    """True when the line names something of the user's own life ("my timetable", "our trip").
+
+    Not an idiom, and not the text the line itself hands over: a task on it ("fix my code")
+    needs no memory.
+    """
+    lowered = straighten_apostrophes(text).lower()
+    for match in _OWN_THING.finditer(lowered):
+        words = [word for word in match.groups() if word]
+        if words[0] in _NOT_OWN_THING_HEAD:
+            continue
+        if not any(word.removesuffix("'s") in _HANDED_OVER for word in words):
+            return True
+    return False
 
 
 # Continuity asks that should still search earlier chats on a slim turn.

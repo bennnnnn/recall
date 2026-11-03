@@ -3,8 +3,10 @@
 Deleting "User lives in Lisbon" also deletes the "User lives in Nairobi" row it
 superseded, and drops the past-chat snippets that would put either back into a
 prompt through chat-history recall. The snippets are purged from the recall index
-when the fact goes (one write, nothing to check on later turns); the messages stay
-in their chats. Callers own the transaction.
+when the user removes the fact (one write, nothing to check on later turns); the
+messages stay in their chats. A fact the memory model drops on its own keeps them
+(``purge=False``): the snippets near a routine fact are often whole unrelated chats.
+Callers own the transaction.
 """
 
 from __future__ import annotations

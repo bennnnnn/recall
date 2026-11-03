@@ -155,6 +155,8 @@ async def test_apply_memory_facts_stamps_a_hand_edit_in_the_same_commit(op, manu
             manual_edit=manual_edit,
         )
 
+    # Only the user's own removal purges the chat snippets that repeat a fact.
+    assert memories.apply_writes.await_args.kwargs["purge_history"] is manual_edit
     if stamped:
         memories.note_manual_edit.assert_awaited_once_with(session, user_id)
     else:

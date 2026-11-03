@@ -17,6 +17,7 @@ from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat, Message
+from app.modules.search.snippet import snippet
 from app.repositories.keyset import after, decode_cursor, encode_cursor, page_of
 
 # A title hit has no message; this id sorts it after any message hit in the same chat.
@@ -106,7 +107,7 @@ async def search_conversations(
     results: list[dict[str, Any]] = []
     for row in page:
         if row.match_type == "message":
-            content = _snippet(bodies.get(row.message_id, ""), q, 120)
+            content = snippet(bodies.get(row.message_id, ""), q, 120)
         else:
             content = row.chat_title or ""
         created = row.created_at or datetime.now(UTC)
@@ -136,18 +137,3 @@ async def _message_bodies(
         select(Message.id, Message.content).where(Message.user_id == user_id, Message.id.in_(ids))
     )
     return {row.id: row.content or "" for row in result.all()}
-
-
-def _snippet(content: str, query: str, max_len: int = 120) -> str:
-    """Extract a short snippet around the first match of query."""
-    idx = content.lower().find(query.lower())
-    if idx == -1:
-        return content[:max_len]
-    start = max(0, idx - 40)
-    end = min(len(content), idx + len(query) + 80)
-    snippet = content[start:end]
-    if start > 0:
-        snippet = "…" + snippet
-    if end < len(content):
-        snippet += "…"
-    return snippet

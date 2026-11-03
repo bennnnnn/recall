@@ -46,6 +46,9 @@ class MemoryFactWrite:
     # Title and summary for a new area document (``area:<slug>`` topic).
     area_title: str | None = None
     area_summary: str | None = None
+    # A delete for a fact gone stale (``texts_to_drop``): housekeeping, never the
+    # user's removal, so its chat snippets stay even in a pass the user edited.
+    stale: bool = False
 
 
 async def lock_memory_enabled(session: AsyncSession, user_id: UUID) -> bool:
@@ -71,12 +74,14 @@ async def apply_fact_ops(
     *,
     active_cap: int,
     applied: list[str] | None = None,
+    purge_history: bool = False,
 ) -> list[UUID]:
     """Apply add/update/supersede/delete/mute. Returns ids whose text changed.
 
     The caller owns commit and rollback. When ``expected_facts`` is set, a
     late background write is skipped if the matched row's text changed.
     ``applied`` collects the op of every write that took effect.
+    ``purge_history``: the user removed these facts (``_remove_fact``).
     """
     if not writes:
         return []
@@ -125,14 +130,10 @@ async def apply_fact_ops(
         )
         if matched is None or not _snapshot_ok(matched, expected_facts):
             continue
-        if op == "delete":
-            removed = await erase.delete_fact_rows(session, user_id, matched.id)
+        if op in {"delete", "mute"}:
+            purge = purge_history and not write.stale
+            removed = await _remove_fact(session, user_id, matched, op, purge=purge)
             facts = [fact for fact in facts if fact.id not in removed]
-            _note(applied, op)
-            continue
-        if op == "mute":
-            matched.status = MUTED_STATUS
-            await erase.purge_fact_chunks(session, user_id, [matched])
             _note(applied, op)
             continue
         if op == "update":
@@ -174,6 +175,23 @@ async def apply_fact_ops(
         await erase.delete_fact_rows(session, user_id, stale.id, purge=False)
     await _ensure_areas(session, user_id, writes)
     return list(dict.fromkeys(touched))
+
+
+async def _remove_fact(
+    session: AsyncSession, user_id: UUID, fact: Memory, op: str, *, purge: bool
+) -> set[UUID]:
+    """Delete or mute ``fact``. Returns the ids deleted.
+
+    ``purge`` when the user removed it ("forget ...", a hand edit): the past-chat
+    snippets that repeat it go too. The memory model's own housekeeping keeps chat
+    history; the snippets near a routine fact are often a whole unrelated chat.
+    """
+    if op == "delete":
+        return await erase.delete_fact_rows(session, user_id, fact.id, purge=purge)
+    fact.status = MUTED_STATUS
+    if purge:
+        await erase.purge_fact_chunks(session, user_id, [fact])
+    return set()
 
 
 def _note(applied: list[str] | None, op: str) -> None:
