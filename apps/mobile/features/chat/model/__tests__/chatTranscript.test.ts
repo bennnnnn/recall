@@ -1,4 +1,4 @@
-import { conversationMarkdownBody } from "@/features/chat/model/transcript";
+import { conversationMarkdownBody, conversationTranscript } from "@/features/chat/model/transcript";
 import type { Message } from "@/lib/api";
 
 jest.mock("@/lib/i18n", () => ({
@@ -13,9 +13,20 @@ describe("conversationMarkdownBody", () => {
       { id: "u1", role: "user", content: "hello" },
       { id: "a1", role: "assistant", content: "hi there" },
     ] as Message[]);
-    expect(body).toContain("**share.role_user:**\nhello");
-    expect(body).toContain("**share.role_assistant:**\nhi there");
+    expect(body).toContain("share.role_user:\nhello");
+    expect(body).toContain("app.name:\nhi there");
     expect(body).not.toContain("hidden");
+  });
+
+  it("shares plain text under a plain title, and marks the turns up for the PDF", () => {
+    const messages = [
+      { id: "u1", role: "user", content: "what is ohm's law" },
+      { id: "a1", role: "assistant", content: "## Ohm's law\n\n**V = IR**" },
+    ] as Message[];
+    const shared = conversationTranscript("Physics", messages);
+    expect(shared).toBe("Physics\n\nshare.role_user:\nwhat is ohm's law\n\napp.name:\nOhm's law\n\nV = IR");
+    const printed = conversationMarkdownBody(messages, "print");
+    expect(printed).toContain("**app.name:**\n## Ohm's law\n\n**V = IR**");
   });
 
   it("shows what the user sent, never the server's file markers or file text", () => {
@@ -50,7 +61,7 @@ describe("conversationMarkdownBody", () => {
       { id: "a2", role: "assistant", content: 'Here:\n\n```graph\n{"curves":[]}\n```' },
     ] as Message[]);
     expect(body).not.toContain("proposal_id");
-    expect(body.match(/share\.role_assistant/g)).toHaveLength(1);
+    expect(body.match(/app\.name/g)).toHaveLength(1);
     expect(body).toContain("share.block_graph");
     expect(body).not.toContain("curves");
   });

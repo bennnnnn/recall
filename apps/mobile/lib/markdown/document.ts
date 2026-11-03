@@ -1,8 +1,11 @@
 /**
- * A reply as a shared document (Share and PDF): its prose and code as written, maths as
- * maths, and each card the reader cannot open outside Recall (a chart, a graph, a
- * molecule, a calculator) as a one-line label. Control blocks (reminder and settings
- * cards, sources) are left out. Walks the same fences as Copy (`plain.ts`).
+ * A reply as a shared document (Share and PDF), and each card the reader cannot open
+ * outside Recall (a chart, a graph, a molecule, a calculator) as a one-line label, with what
+ * the picture shows when it says (a scene's `alt`). Control
+ * blocks (reminder and settings cards, sources) are left out. The PDF keeps the markdown
+ * for its printer to draw (maths as maths, code as code). Share sends plain text to apps
+ * that show it as typed, so there it is as Copy writes it (`plain.ts`): no `**` or `#`,
+ * maths as readable text.
  */
 
 import { splitAnswerNotation } from "@/lib/answerNotation";
@@ -14,14 +17,15 @@ import {
   isMathFenceLang,
   type FenceDocumentBlock,
 } from "@/lib/fenceRegistry";
-import { fenceToCopyText, mapFenceRegions } from "@/lib/markdown/plain";
+import { parseJsonRecord } from "@/lib/jsonFence";
+import { fenceToCopyText, mapFenceRegions, proseToCopyText } from "@/lib/markdown/plain";
 
 /** A card shown in the document as its label alone (each fence's `inDocument` row). */
 export type DocumentBlock = FenceDocumentBlock;
 
 /**
- * Where the document goes. Share sends plain text, so a card's lines stay plain lines; the
- * PDF printer joins a paragraph's lines, so there a card's lines end in a hard break.
+ * Where the document goes. Share sends plain text, as Copy writes it; the PDF printer reads
+ * markdown and joins a paragraph's lines, so there a card's lines end in a hard break.
  */
 export type DocumentTarget = "share" | "print";
 
@@ -43,6 +47,12 @@ function answerText(body: string): string {
   return codeFence("math", answer);
 }
 
+/** What a picture shows, in its own words: the `alt` a scene or diagram carries for screen readers. */
+function cardDescription(body: string): string | null {
+  const alt = body.startsWith("{") ? parseJsonRecord(body)?.alt : null;
+  return typeof alt === "string" && alt.trim() ? alt.trim() : null;
+}
+
 function documentFence(
   lang: string,
   body: string,
@@ -54,8 +64,12 @@ function documentFence(
   const form = documentFormForLang(lang);
   // A long-division or column sum reads as its worked lines, a quiz as its question.
   if (form === "copyText") return cardLines(fenceToCopyText(lang, body), target);
-  if (form) return label(form);
+  if (form) {
+    const description = cardDescription(trimmed);
+    return description ? `${label(form)} ${description}` : label(form);
+  }
   if (isControlFenceLang(lang)) return "";
+  if (target === "share") return fenceToCopyText(lang, body);
   if (id === "answer") return answerText(trimmed);
   if (isMathFenceLang(lang)) return codeFence("math", trimmed);
   // A drafted email, a callout or a list of steps is text the reader reads as it is.
@@ -72,7 +86,7 @@ export function markdownToDocumentText(
 ): string {
   return mapFenceRegions(
     markdown,
-    (prose) => prose,
+    (prose) => (target === "share" ? proseToCopyText(prose) : prose),
     (lang, body) => documentFence(lang, body, label, target),
   )
     .replace(/\n{3,}/g, "\n\n")

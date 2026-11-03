@@ -113,7 +113,6 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
     "settings.accent_violet",
     "settings.assistant",
     "settings.notifications",
-    "share.role_assistant",
     "todos.date_label",
   ],
   it: [

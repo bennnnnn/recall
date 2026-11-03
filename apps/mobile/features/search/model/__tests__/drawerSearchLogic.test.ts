@@ -19,3 +19,9 @@ it("keeps separate title/message hits and updates an overlapping message without
   expect(merged[0]).toBe(title);
   expect(merged[1].chat_title).toBe("New");
 });
+
+it("keeps a file hit apart from its message's own hit", () => {
+  const message: SearchResult = { match_type: "message", chat_id: "chat", message_id: "message", chat_title: "T", content: "Here", role: "user", created_at: "2026-09-04" };
+  const file = { ...message, match_type: "file" as const, content: "Study Guide.pdf" };
+  expect(mergeDrawerSearchResults([message], [file])).toEqual([message, file]);
+});

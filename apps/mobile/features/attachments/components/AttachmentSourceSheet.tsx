@@ -12,7 +12,8 @@ export type AttachmentSource =
   | "camera"
   | "photo"
   | "file"
-  | "solve_math_camera";
+  | "solve_math_camera"
+  | "math_keyboard";
 
 type Props = {
   visible: boolean;
@@ -20,7 +21,7 @@ type Props = {
   onSelect: (source: AttachmentSource) => void;
 };
 
-/** Attach / math-scan source picker — same floating Sheet chrome as chat actions. */
+/** Attach / math-scan / math keyboard picker — same floating Sheet chrome as chat actions. */
 export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -47,6 +48,13 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
         icon="scan"
         title={t("chat.attach_solve_math_camera")}
         onPress={() => pick("solve_math_camera")}
+        style={s.row}
+      />
+      <ListRow
+        appearance="plain"
+        icon="calculator"
+        title={t("chat.math_keyboard_show")}
+        onPress={() => pick("math_keyboard")}
         style={s.row}
       />
       <ListRow

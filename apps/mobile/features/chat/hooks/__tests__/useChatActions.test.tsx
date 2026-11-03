@@ -149,6 +149,9 @@ describe("useChatActions", () => {
   it("exports the whole chat as a PDF through the module it loads on demand", async () => {
     const full = [{ id: "m1", role: "user", content: "hi" }];
     (api.listAllMessages as jest.Mock).mockResolvedValueOnce(full);
+    (exportConversationAsPdf as jest.Mock).mockImplementationOnce(
+      async (_title: string, _messages: unknown, onSharing: () => void) => onSharing(),
+    );
     await act(async () => {
       render(<Probe />);
     });
@@ -157,9 +160,38 @@ describe("useChatActions", () => {
       await actions.handleExportPdf();
     });
 
-    expect(exportConversationAsPdf).toHaveBeenCalledWith("Old title", full);
+    expect(exportConversationAsPdf).toHaveBeenCalledWith("Old title", full, expect.any(Function));
     expect(actions.actionBanner).toBeNull();
     expect(mockFeedbackError).not.toHaveBeenCalled();
+  });
+
+  it("says it is preparing while the PDF is drawn, until its share sheet opens", async () => {
+    (api.listAllMessages as jest.Mock).mockResolvedValueOnce([{ id: "m1", role: "user", content: "hi" }]);
+    let share = () => {};
+    let finish = () => {};
+    (exportConversationAsPdf as jest.Mock).mockImplementationOnce(
+      (_title: string, _messages: unknown, onSharing: () => void) =>
+        new Promise<void>((resolve) => {
+          share = onSharing;
+          finish = resolve;
+        }),
+    );
+    await act(async () => {
+      render(<Probe />);
+    });
+
+    let task: Promise<void> = Promise.resolve();
+    await act(async () => {
+      task = actions.handleExportPdf();
+    });
+    expect(actions.actionBanner).not.toBeNull();
+
+    await act(async () => share());
+    expect(actions.actionBanner).toBeNull();
+    await act(async () => {
+      finish();
+      await task;
+    });
   });
 
   it("stays quiet when the share sheet is closed, and reports a failed export", async () => {

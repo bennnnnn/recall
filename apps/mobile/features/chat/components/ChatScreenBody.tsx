@@ -12,6 +12,11 @@ import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
 import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
+import {
+  READ_ALOUD_PLAYER_HEIGHT,
+  ReadAloudPlayer,
+  useReadAloudShowing,
+} from "@/features/speech/components/ReadAloudPlayer";
 import { composerShowsStop } from "@/features/chat/model/composerLogic";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import { UpgradeSheet, type UpgradeSource } from "@/features/billing/components/UpgradeSheet";
@@ -225,10 +230,20 @@ const ChatOverlays = memo(function ChatOverlays({
   onStop,
   quotaUpgradeLabel,
 }: ChatOverlaysProps) {
-  const { styles, theme, restingComposerClearance: composerClearance, keyboardLift } = layout;
+  const { styles, theme, restingComposerClearance, keyboardLift } = layout;
+  // The read-aloud player sits on the composer; what floats there too rides above it.
+  const playerShowing = useReadAloudShowing();
+  const composerClearance =
+    restingComposerClearance + (playerShowing ? READ_ALOUD_PLAYER_HEIGHT + 8 : 0);
 
   return (
     <>
+      <ReadAloudPlayer
+        visible={!drawerOpen}
+        bottomOffset={restingComposerClearance + 8}
+        lift={keyboardLift}
+      />
+
       <ChatScrollFab
         visible={!drawerOpen && chrome.showScrollToBottom}
         bottomOffset={composerClearance + 8}

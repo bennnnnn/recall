@@ -456,6 +456,11 @@ function convertMarkdown(markdown: string, mode: "copy" | "speech"): string {
   return walked.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** Prose (no fences) as whole-message Copy writes it: no markdown marks, maths as text. */
+export function proseToCopyText(prose: string): string {
+  return convertProse(prose, "copy");
+}
+
 /** One fenced block as whole-message Copy writes it. */
 export function fenceToCopyText(lang: string, body: string): string {
   return convertFence(lang, body, "copy");

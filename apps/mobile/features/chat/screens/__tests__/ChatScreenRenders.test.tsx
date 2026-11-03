@@ -195,7 +195,7 @@ jest.mock("@/features/chat/components/ChatScreenBody", () => ({
 }));
 jest.mock("@/features/chat/components/ChatScreenMenuSheets", () => ({ ChatScreenMenuSheets: () => null }));
 jest.mock("@/features/chat/components/ChatHeader", () => ({ ChatHeader: () => null }));
-jest.mock("@/features/chat/components/ChatComposer", () => ({ COMPOSER_HEIGHT: 56 }));
+jest.mock("@/features/chat/components/ChatComposer", () => ({ COMPOSER_HEIGHT: 58 }));
 jest.mock("@/features/attachments/components/ComposerAttachmentPreview", () => ({
   composerAttachmentExtra: () => 0,
 }));

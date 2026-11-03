@@ -4,7 +4,7 @@ import {
   UPLOADABLE_IMAGE_TYPES,
 } from "@/features/attachments/model/attachmentLimits";
 
-// The lib test project has Jest types but no Node types (see katexParity.test.ts).
+// The lib test project has Jest types but no Node types (see lib/vendor/__tests__/vendor.test.ts).
 declare const __dirname: string;
 const { readFileSync } = jest.requireActual<{
   readFileSync(path: string, encoding: "utf8"): string;

@@ -4,6 +4,7 @@ import { Keyboard, Linking } from "react-native";
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
+import { mathKeyboardRequests } from "@/features/chat/model/mathKeyboardRequest";
 import {
   discardDraftAttachment,
   NativePickerBusyError,
@@ -31,7 +32,7 @@ type Options = {
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 
-function pickFrom(source: Exclude<AttachmentSource, "solve_math_camera">) {
+function pickFrom(source: Exclude<AttachmentSource, "solve_math_camera" | "math_keyboard">) {
   if (source === "camera") return pickFromCamera();
   if (source === "photo") return pickFromPhotoLibrary();
   return pickDocument();
@@ -74,6 +75,10 @@ export function useComposerAttachmentSheet({
       setAttachSheetOpen(false);
       if (source === "solve_math_camera") {
         setMathScannerOpen(true);
+        return;
+      }
+      if (source === "math_keyboard") {
+        mathKeyboardRequests.emit();
         return;
       }
       const version = viewRef.current.version;

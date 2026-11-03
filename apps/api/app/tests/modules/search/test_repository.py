@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -11,6 +11,8 @@ from app.repositories.keyset import encode_cursor
 def _title_row(*, chat_id, title: str, created_at: datetime):
     row = MagicMock()
     row.match_type = "title"
+    row.rank = 2
+    row.row_id = UUID(int=0)
     row.message_id = None
     row.chat_id = chat_id
     row.chat_title = title
@@ -23,6 +25,8 @@ def _title_row(*, chat_id, title: str, created_at: datetime):
 def _message_row(*, message_id, chat_id, title: str, content: str, created_at: datetime):
     row = MagicMock()
     row.match_type = "message"
+    row.rank = 0
+    row.row_id = message_id
     row.message_id = message_id
     row.chat_id = chat_id
     row.chat_title = title
@@ -54,13 +58,13 @@ async def test_search_includes_title_only_match():
 
 @pytest.mark.asyncio
 async def test_search_pages_the_merged_union_once():
-    """The cursor and limit apply to the union, not to title and message streams
-    separately; nothing counts every hit, and nothing skips by offset."""
+    """The cursor and limit apply to the union, not to the title, file and message
+    streams separately; nothing counts every hit, and nothing skips by offset."""
     session = AsyncMock()
     page_result = MagicMock()
     page_result.all.return_value = []
     session.execute = AsyncMock(return_value=page_result)
-    cursor = encode_cursor(datetime(2026, 9, 4, tzinfo=UTC), uuid4(), uuid4())
+    cursor = encode_cursor(datetime(2026, 9, 4, tzinfo=UTC), UUID(int=0), uuid4(), uuid4())
 
     results, next_cursor = await search_repo.search_conversations(
         session, uuid4(), "trip", limit=20, cursor=cursor
@@ -68,16 +72,19 @@ async def test_search_pages_the_merged_union_once():
 
     assert results == []
     assert next_cursor is None
-    session.execute.assert_awaited_once()
-    sql = str(session.execute.await_args.args[0]).lower()
+    assert session.execute.await_count == 2  # the page, then its message words by id
+    sql = str(session.execute.await_args_list[0].args[0]).lower()
     assert "union all" in sql
     assert sql.count("limit") == 1
     assert "offset" not in sql
-    assert "(search_hits.created_at, search_hits.chat_id, coalesce(" in sql
+    assert (
+        "(search_hits.rank, search_hits.created_at, search_hits.chat_id, search_hits.row_id)" in sql
+    )
     assert "count(" not in sql
     # A common word sorted every matching body through ORDER BY/LIMIT: the union carries
     # keys, and the page's bodies are read by id afterwards.
-    assert "messages.content" not in sql.split("from messages")[0]
+    assert "messages.content" not in sql
+    assert "messages.search_text" not in sql.split("from messages")[0]
     assert "search_hits.content" not in sql
 
 
@@ -98,7 +105,7 @@ async def test_search_reads_one_row_past_the_page_for_the_cursor():
 
     assert [row["match_type"] for row in results] == ["message"]
     first = page.all.return_value[0]
-    assert next_cursor == encode_cursor(now, first.chat_id, first.message_id)
+    assert next_cursor == encode_cursor(now, UUID(int=0), first.chat_id, first.message_id)
 
 
 # ── search repository snippet ───────────────────────────────────────────────
