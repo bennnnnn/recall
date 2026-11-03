@@ -66,7 +66,13 @@ _ABOUT_THIS_USER = re.compile(
 # school-style physics problem, so I'll walk through the reasoning without emoji." (live,
 # 2026-11-03, a scanned equilibrium problem). Emoji are a style rule of the prompt's; a
 # reply that says it uses or skips them is telling the user about its instructions.
-_STYLE_RULE = re.compile(r"\bemoji(?:s|-free)?\b", re.IGNORECASE)
+_STYLE_RULE = re.compile(
+    r"\bemoji-free\b"
+    r"|\b(?:without|no|skip(?:ping)?|avoid(?:ing)?|leave out|leaving out|drop(?:ping)?|"
+    r"add(?:ing)?|us(?:e|ing)|includ(?:e|ing)|sprinkl(?:e|ing))\s+(?:the\s+|any\s+|a few\s+|some\s+)?"
+    r"emojis?\b",
+    re.IGNORECASE,
+)
 _FIRST_PERSON = re.compile(r"\b(?:i'll|i will|i'm|i am|i've|let me|we'll)\b", re.IGNORECASE)
 _ASKED_ABOUT_STYLE = re.compile(r"\bemoji|[\U0001F300-\U0001FAFF]", re.IGNORECASE)
 # An opening that labels the message and announces the plan, whatever the plan is: "This
@@ -76,7 +82,8 @@ _SELF_LABEL = re.compile(
     r"(?:this|that|it)(?:'s| is| looks like| sounds like| seems like) (?:a|an) [^.!?\n]{0,80}?"
     r"\b(?:question|problem|request|task|query|topic|one)\b[^.!?\n]{0,80}?"
     r"(?:,|\bso|\band)\s+(?:i(?:'ll| will| am going to|'m going to)|let me|we(?:'ll| will))\b"
-    r"[^.!?\n]*[.!]",
+    # To the sentence's end, past a decimal point; a colon starts the answer itself.
+    r"[^:!?\n]*?[.!](?=\s|$)",
     re.IGNORECASE,
 )
 # A sentence that goes on about the one before it.
@@ -176,7 +183,7 @@ def drop_prompt_leaks(
     text = _without_self_label(text)
     if not text or not (_PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt or style):
         return text
-    if not style and _asked_about(asked):
+    if _asked_about(asked):
         return text
     lines = text.split("\n")
     owners = line_fences(text)
