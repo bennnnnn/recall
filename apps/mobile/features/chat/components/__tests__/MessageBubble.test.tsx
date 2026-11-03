@@ -16,8 +16,8 @@ jest.mock("@/ui/icons/Icon", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
-    Icon: ({ name }: { name: string }) => (
-      <MockText testID={`icon-${name}`}>{name}</MockText>
+    Icon: ({ name, color }: { name: string; color?: string }) => (
+      <MockText testID={`icon-${name}`} accessibilityHint={color}>{name}</MockText>
     ),
   };
 });
@@ -155,6 +155,7 @@ jest.mock("@/lib/theme", () => ({
     primary: "#36f",
     textSecondary: "#666",
     danger: "#f00",
+    success: "#0a0",
     textTertiary: "#777",
     primaryLight: "#eef",
   }),
@@ -313,6 +314,14 @@ describe("MessageBubble copy feedback timers", () => {
     });
     expect(clearSpy).toHaveBeenCalled();
     clearSpy.mockRestore();
+  });
+
+  it.each([
+    ["up", "icon-thumbs-up", "#0a0"],
+    ["down", "icon-thumbs-down", "#f00"],
+  ] as const)("fills a %s rating green for good, red for bad", async (feedback, icon, color) => {
+    const view = await render(<MessageBubble message={{ ...assistantMessage, feedback } as Message} />);
+    expect(view.getByTestId(icon).props.accessibilityHint).toBe(color);
   });
 
   it("tells a screen reader which rating is on and that a reply is being read", async () => {
