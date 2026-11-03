@@ -27,8 +27,8 @@ export function makeConversationListStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 100,
-      // Transparent so the header fade can blur titles sliding under Recall
-      // and search. The title and search button paint above that veil.
+      // Transparent so the header fade can blur titles sliding under the
+      // profile and new chat buttons, which paint above that veil.
       backgroundColor: "transparent",
     },
     header: { paddingHorizontal: Space.md, paddingBottom: Space.sm },
@@ -133,7 +133,8 @@ export function makeConversationListStyles(theme: Theme) {
       paddingTop: Space.sm,
       backgroundColor: "transparent",
     },
-    footerNewChat: {
+    newChatBtn: {
+      marginLeft: "auto",
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
@@ -142,9 +143,8 @@ export function makeConversationListStyles(theme: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: theme.primary,
     },
-    footerNewChatText: { ...Type.label, color: theme.onPrimary },
+    newChatText: { ...Type.label, color: theme.onPrimary },
     profileBtn: {
-      marginLeft: "auto",
       width: Space.minTouch,
       height: Space.minTouch,
       alignItems: "center",

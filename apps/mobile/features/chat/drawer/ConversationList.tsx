@@ -183,6 +183,11 @@ export function ConversationList() {
     startNewChatGlobal();
   }, []);
 
+  const openSettings = useCallback(() => {
+    closeDrawer();
+    router.push("/settings");
+  }, [router]);
+
   const openReminders = useCallback(() => {
     closeDrawer();
     router.push("/todos");
@@ -226,7 +231,7 @@ export function ConversationList() {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the logo / search row is fixed; To-do scrolls with titles.
+  // Only the profile / new chat row and the Recall / search row are fixed; To-do scrolls with titles.
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
@@ -368,8 +373,9 @@ export function ConversationList() {
         searchQuery={searchQuery}
         searchInputRef={searchInputRef}
         onSearchChange={onSearchChange}
-        onOpenSearch={openSearch}
         onCloseSearch={closeSearch}
+        onNewChat={newChat}
+        onSettings={openSettings}
         selectionMode={selectionMode}
         selectedCount={selectedCount}
         onExitSelection={exitSelectionMode}
@@ -391,11 +397,7 @@ export function ConversationList() {
           styles={s}
           theme={theme}
           paddingBottom={insets.bottom + 8}
-          onNewChat={newChat}
-          onSettings={() => {
-            closeDrawer();
-            router.push("/settings");
-          }}
+          onOpenSearch={openSearch}
         />
       )}
 
