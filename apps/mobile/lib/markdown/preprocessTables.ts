@@ -267,8 +267,18 @@ function splitCodeFenceAroundPipeTable(lang: string, body: string): string | nul
 }
 
 /**
+ * Text laid out with spaces: two or more lines with a gap of three spaces or more inside
+ * them (an ASCII graph, a column of figures). Markdown collapses the spaces, so as prose
+ * it falls apart: a velocity-time graph drawn with `/`, `\` and `|` became one paragraph.
+ */
+function looksSpaceAligned(body: string): boolean {
+  return body.split("\n").filter((line) => /\S {3,}\S/.test(line)).length >= 2;
+}
+
+/**
  * Hoist prose/table fences into inline markdown so we never nest `<Markdown>` inside
- * fence render rules (that caused stack overflows and stripped formatting).
+ * fence render rules (that caused stack overflows and stripped formatting). A fence laid
+ * out with spaces keeps them: it stays a code block.
  */
 export function unwrapNonCodeFences(content: string): string {
   return mapClosedFences(content, (info, body, original) => {
@@ -319,6 +329,8 @@ export function unwrapNonCodeFences(content: string): string {
     if (taggedLiteral && /^\+[-=+]+\+$/m.test(trimmed)) {
       return original;
     }
+
+    if (looksSpaceAligned(trimmed)) return original;
 
     if (shouldRenderAsPlainProseFence(lang, trimmed)) {
       return `\n\n${trimmed}\n\n`;

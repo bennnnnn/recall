@@ -1119,6 +1119,24 @@ represents`;
     expect(out.trim()).toBe("1. **Benu** – fusion ($$$)");
   });
 
+  it("keeps a fence laid out with spaces (an ASCII graph, a column of figures) as code", () => {
+    // A velocity-time graph drawn in a bare fence became one paragraph: its spaces collapsed.
+    const graph = [
+      "v (m/s)",
+      " 20 |        ___________",
+      "    |       /           \\",
+      "  0 |_/____________________\\___ t (s)",
+      "    0      10        25    30",
+    ].join("\n");
+    const out = preprocessMarkdown(`Here it is:\n\n\`\`\`\n${graph}\n\`\`\`\n\nDone.`);
+    expect(out).toContain(`\`\`\`\n${graph}\n\`\`\``);
+  });
+
+  it("still reads a bare fence of ordinary sentences as prose", () => {
+    const out = preprocessMarkdown("```\nThis is a sentence about the sky.  It has two spaces after a full stop.\nAnd another line of ordinary prose here.\n```");
+    expect(out).not.toContain("```");
+  });
+
   it("does not unwrap a math fence just because its content has bold text", () => {
     const input = "```math\n**x** = 5\n```";
     const out = preprocessMarkdown(input);
