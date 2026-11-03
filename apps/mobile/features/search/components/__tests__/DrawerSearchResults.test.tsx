@@ -3,7 +3,8 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { DrawerSearchLoadMore, DrawerSearchResultRow, DrawerSearchResultsChrome } from "@/features/search/components/DrawerSearchResults";
 import { DrawerListHeader } from "@/features/chat/drawer/DrawerListHeader";
 import type { SearchResult } from "@/lib/api";
-import { DrawerChatFlashList, type DrawerChatListItem } from "@/features/chat/drawer/DrawerChatFlashList";
+import { DrawerChatFlashList } from "@/features/chat/drawer/DrawerChatFlashList";
+import type { DrawerChatListItem } from "@/features/chat/drawer/drawerListItems";
 import { emptyChatList } from "@/features/chat/model/listSections";
 
 jest.mock("@/features/chat/drawer/drawer", () => ({ isChatTitleGenerating: () => false }));

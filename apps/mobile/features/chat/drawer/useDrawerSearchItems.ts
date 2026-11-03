@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { FlashListRef } from "@shopify/flash-list";
 
-import type { DrawerChatListItem } from "@/features/chat/drawer/DrawerChatFlashList";
+import type { DrawerChatListItem } from "@/features/chat/drawer/drawerListItems";
 import type { SearchResult } from "@/lib/api";
 
 const NO_ITEMS: DrawerChatListItem[] = [];

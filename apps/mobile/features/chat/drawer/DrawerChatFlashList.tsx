@@ -23,30 +23,12 @@ import {
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
 import { isChatTitleGenerating } from "@/features/chat/drawer/drawer";
+import type { DrawerChatListItem } from "@/features/chat/drawer/drawerListItems";
 import { useDrawerSearchItems } from "@/features/chat/drawer/useDrawerSearchItems";
 import { displayChatTitle } from "@/features/chat/model/title";
 import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
-
-export type DrawerChatListItem =
-  | {
-      type: "sectionHeader";
-      key: ChatListSectionKey;
-      title: string;
-      count: number;
-      collapsible: boolean;
-    }
-  | { type: "row"; key: string; chat: Chat }
-  | { type: "searchRow"; key: string; result: SearchResult; query: string; onOpen: (id: string, messageId?: string | null) => void }
-  | {
-      type: "searchLoadMore";
-      key: "search-load-more";
-      loadingMore: boolean;
-      loadingMoreError: boolean;
-      onLoadMore?: () => void;
-    }
-  | { type: "archivedMore"; key: "archived-more" };
 
 const SEARCH_POSITION = { disabled: true };
 
