@@ -38,9 +38,8 @@ const LAZY_PACKAGES = [
 
 /** App modules that load on first use, never at launch. */
 const LAZY_FILES = [
-  // PDF export: KaTeX and its 360 KB stylesheet.
+  // PDF export: the print document and its maths.
   "features/chat/model/printDocument.ts",
-  "lib/vendor/katexCss.ts",
   // The math scanner: camera, live text detection, crop and review.
   "features/scanner/components/MathEquationScanner.tsx",
   // The photo viewer: pager, zoom, Download and Share, and the media library.

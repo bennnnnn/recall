@@ -143,13 +143,13 @@ export function useChatActions({
   const handleExportPdf = useCallback(async () => {
     showActionBanner(t("chat.status.preparing"), "file-text");
     try {
-      // KaTeX, its stylesheet and expo-print load when a PDF is asked for, not with the chat.
+      // MathJax and expo-print load when a PDF is asked for, not with the chat.
       const [transcript, { exportConversationAsPdf }] = await Promise.all([
         loadTranscriptMessages(),
         import("@/features/chat/model/exportMessagePdf"),
       ]);
-      dismissActionBanner();
-      await exportConversationAsPdf(chatTitle, transcript);
+      // "Preparing" stays up until the share sheet opens: the first export takes seconds.
+      await exportConversationAsPdf(chatTitle, transcript, dismissActionBanner);
     } catch (error) {
       dismissActionBanner();
       if (isShareCancelled(error)) return;

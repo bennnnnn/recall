@@ -1,10 +1,6 @@
 import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 import { markdownToDocumentText } from "@/lib/markdown/document";
 
-jest.mock("@/lib/vendorAssets", () => ({
-  readVendorLibrary: jest.fn(async () => ""),
-}));
-
 const body = async (markdown: string) => {
   const html = await markdownToStructuredPrintHtml("T", markdown);
   return html.slice(html.indexOf("<body>"));
@@ -14,7 +10,7 @@ describe("PDF print document", () => {
   it("typesets an answer card instead of printing its LaTeX", async () => {
     const html = await body("```answer\nverified: true\nx = \\frac{1}{2}\n```");
     expect(html).toContain('class="answer"');
-    expect(html).toContain("katex");
+    expect(html).toContain("<svg");
     expect(html).not.toContain("verified: true");
     expect(html).not.toContain("<pre>");
   });
@@ -23,7 +19,7 @@ describe("PDF print document", () => {
     expect(await body("```answer\nnotation: chemistry\nH₂O\n```")).toContain("<p>H₂O</p>");
     const sentence = await body("```answer\nIt lands after $t = 2$ s.\n```");
     expect(sentence).toContain("It lands after");
-    expect(sentence).toContain("katex");
+    expect(sentence).toContain("<svg");
   });
 
   it("keeps underscores inside words and code", async () => {
@@ -45,6 +41,11 @@ describe("PDF print document", () => {
       "<p>Which region? (Asia / Europe)<br>Budget? (Low / High)</p>",
     );
     expect(await body("one\ntwo  \n\nthree")).toContain("<p>one two</p>");
+  });
+
+  it("prints what a backslash escapes, and breaks the line at a trailing backslash", async () => {
+    expect(await body("Escaped \\$5 and \\*not emphasis\\*")).toContain("<p>Escaped $5 and *not emphasis*</p>");
+    expect(await body("first\\\nsecond")).toContain("<p>first<br>second</p>");
   });
 
   it("keeps a line of digits and a code span next to a hard break", async () => {

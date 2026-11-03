@@ -81,7 +81,6 @@ beforeEach(() => {
 
 describe("vendored library assets", () => {
   it.each([
-    ["katexCss", "katex.min.css.txt"],
     ["mermaid", "mermaid.min.js.txt"],
     ["pdf", "pdf.min.js.txt"],
     ["pdfWorker", "pdf.worker.min.js.txt"],
@@ -105,8 +104,8 @@ describe("vendored library assets", () => {
   });
 
   it("reads a library from its file on the device", async () => {
-    await expect(readVendorLibrary("katexCss")).resolves.toBe("source of katex.min.css.txt");
-    expect(mockState.downloads).toEqual(["katex.min.css.txt"]);
+    await expect(readVendorLibrary("vega")).resolves.toBe("source of vega.min.js.txt");
+    expect(mockState.downloads).toEqual(["vega.min.js.txt"]);
   });
 
   it("downloads again a copy that was cleared since this run made it", async () => {

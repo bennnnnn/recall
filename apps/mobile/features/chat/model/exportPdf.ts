@@ -44,12 +44,13 @@ async function namedCopy(printed: string, name: string): Promise<string | null> 
  * Render HTML to a PDF named after `fileTitle` and open the system share sheet.
  * expo-print names its file with a UUID, so the share sheet and the saved file
  * read "3F2A….pdf"; a copy carries the title instead. Both are deleted once the
- * sheet closes.
+ * sheet closes. `onSharing` runs as the sheet opens: what said "Preparing" can stop.
  */
 export async function printHtmlToSharedPdf(
   html: string,
   fileTitle: string,
   isCurrent: () => boolean = () => true,
+  onSharing: () => void = () => {},
 ): Promise<void> {
   if (!isCurrent()) return;
   const { uri } = await Print.printToFileAsync({ html });
@@ -58,6 +59,7 @@ export async function printHtmlToSharedPdf(
   try {
     if (!isCurrent()) return;
     named = await namedCopy(uri, name);
+    onSharing();
     // Through expo-sharing on Android: React Native's Share ignores `url` there
     // and would send nothing but the title.
     await shareLocalFile(named ?? uri, {

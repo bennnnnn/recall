@@ -21,7 +21,6 @@ const manifest = JSON.parse(read("manifest.json")) as { sha256: Record<string, s
 
 /** Each file, by the name the manifest records its hash under. */
 const FILES: [string, string][] = [
-  ["katexCss", "katex.min.css.txt"],
   ["mermaidMinJs", "mermaid.min.js.txt"],
   ["vegaMinJs", "vega.min.js.txt"],
   ["vegaLiteMinJs", "vega-lite.min.js.txt"],
@@ -81,13 +80,6 @@ describe("vendored web libraries", () => {
   it.each(SCRIPTS)("%s contains no CDN host URL", (file) => {
     // Vendored bundles must not reach back out to a CDN at runtime.
     expect(read(file)).not.toContain("cdnjs.cloudflare.com");
-  });
-
-  it("inlines KaTeX's woff2 fonts as data URIs and references no CDN", () => {
-    const css = read("katex.min.css.txt");
-    expect(css).toContain("data:font/woff2;base64,");
-    expect(css).not.toContain("cdn.jsdelivr.net");
-    expect(css).not.toMatch(/url\(fonts\//);
   });
 
   it("has pdf.js main and worker, both substantial", () => {

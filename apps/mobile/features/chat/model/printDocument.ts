@@ -1,14 +1,14 @@
 /** Build print-ready HTML documents for PDF export. */
 
-import katex from "katex";
-
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { fenceIdForLang, isMathFenceLang } from "@/lib/fenceRegistry";
 import { fenceAfterLine, readFenceMarker } from "@/lib/mdFenceScan";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
+import { fenceToCopyText } from "@/lib/markdown/plain";
 import { looksLikePipeRow } from "@/lib/markdown/streamTableHold";
-import { readVendorLibrary } from "@/lib/vendorAssets";
+import { latexToHtmlSvg } from "@/lib/math/svgMath";
+import { restoreMathEscapes } from "@/lib/math/textMarkers";
 
 function escapeHtml(text: string): string {
   return text
@@ -42,31 +42,40 @@ const PRINT_STYLES = `
   blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid #E5E7EB; color: #6B7280; }
   .empty { font-size: 14px; color: #9CA3AF; }
   .math-block { margin: 12px 0; overflow-x: auto; text-align: center; }
-  .math-inline { display: inline-block; vertical-align: middle; max-width: 100%; }
-  .math-fallback { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; white-space: pre-wrap; }
+  .math-block svg { max-width: 100%; }
 `;
 
-/** Render LaTeX to KaTeX HTML for print (same engine as in-chat math). */
+/** Where a formula goes, until the page's formulas are drawn together (MathJax loads async). */
+const MATH_SLOT = /<span data-tex="([^"]*)" data-display="([01])"><\/span>/g;
+
+/**
+ * A formula's place on the page. The maths comes through the chat's preprocessing, which
+ * holds `\`, `_` and `*` as placeholders so markdown leaves them alone; the source
+ * characters go back first (KaTeX, which printed before, failed on every `R_1` and `\,`).
+ */
 function renderPrintMathHtml(latex: string, displayMode: boolean): string {
-  const trimmed = latex.trim();
-  if (!trimmed) return "";
-  try {
-    if (trimmed.length > 4000) {
-      return `<code class="math-fallback">${escapeHtml(trimmed.slice(0, 200))}…</code>`;
-    }
-    const body = katex.renderToString(trimmed, {
-      throwOnError: false,
-      displayMode,
-      strict: "ignore",
-      output: "html",
-      maxSize: 20,
-      maxExpand: 500,
-    });
-    const cls = displayMode ? "math-block" : "math-inline";
-    return `<span class="${cls}">${body}</span>`;
-  } catch {
-    return `<code class="math-fallback">${escapeHtml(trimmed)}</code>`;
-  }
+  const source = restoreMathEscapes(latex).trim();
+  if (!source) return "";
+  return `<span data-tex="${encodeURIComponent(source)}" data-display="${displayMode ? 1 : 0}"></span>`;
+}
+
+/**
+ * One formula drawn as the chat draws it (MathJax SVG, every glyph a path, so the PDF
+ * needs no font), or, when MathJax cannot, as Copy writes it: never its LaTeX source.
+ */
+async function printMathHtml(latex: string, display: boolean): Promise<string> {
+  const svg = await latexToHtmlSvg(latex, display);
+  const inner = svg ?? escapeHtml(fenceToCopyText("math", latex));
+  return display ? `<div class="math-block">${inner}</div>` : inner;
+}
+
+async function typesetMath(html: string): Promise<string> {
+  const slots = [...html.matchAll(MATH_SLOT)];
+  const drawn = await Promise.all(
+    slots.map(([, tex, display]) => printMathHtml(decodeURIComponent(tex ?? ""), display === "1")),
+  );
+  let next = 0;
+  return html.replace(MATH_SLOT, () => drawn[next++] ?? "");
 }
 
 function isPrintMathFenceLang(lang: string): boolean {
@@ -74,7 +83,7 @@ function isPrintMathFenceLang(lang: string): boolean {
   return isMathFenceLang(l) || l === "katex" || l === "asciimath";
 }
 
-function wrapPrintDocument(title: string, bodyHtml: string, katexCss: string, meta?: string): string {
+function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {
   const safeTitle = escapeHtml(title.trim() || "Recall report");
   const metaBlock = meta?.trim()
     ? `<p class="meta">${escapeHtml(meta.trim())}</p>`
@@ -83,8 +92,7 @@ function wrapPrintDocument(title: string, bodyHtml: string, katexCss: string, me
 <html>
 <head>
 <meta charset="utf-8"/>
-<style>${katexCss}
-${PRINT_STYLES}</style>
+<style>${PRINT_STYLES}</style>
 </head>
 <body>
   <h1>${safeTitle}</h1>
@@ -96,26 +104,25 @@ ${PRINT_STYLES}</style>
 
 /**
  * Convert markdown into structured print HTML (headings, lists, code, paragraphs).
- * Math fences and $...$ / \\(...\\) inline math use KaTeX — same as the chat UI —
- * instead of dumping raw LaTeX into <pre>. KaTeX's stylesheet is a vendored asset,
- * read here rather than carried in the JS bundle.
+ * Math fences and $...$ / \\(...\\) inline math are typeset as the chat typesets them
+ * (MathJax SVG), never dumped as raw LaTeX.
  */
 export async function markdownToStructuredPrintHtml(title: string, markdown: string): Promise<string> {
-  const body = structuredPrintBody(markdown);
-  // Without the stylesheet KaTeX's markup still reads, unstyled; the export goes ahead.
-  const katexCss = await readVendorLibrary("katexCss").catch(() => "");
-  return wrapPrintDocument(title, body, katexCss);
+  const body = await typesetMath(structuredPrintBody(markdown));
+  return wrapPrintDocument(title, body);
 }
 
 /**
  * A paragraph's lines as one `<p>`: soft breaks join with a space; a line ending in two spaces
- * is a Markdown hard break, so the app shows the next line under it and so does the PDF.
+ * or a backslash is a Markdown hard break, so the app shows the next line under it and so
+ * does the PDF.
  */
 function paragraphHtml(lines: string[]): string {
   const runs: string[][] = [[]];
   for (const line of lines) {
-    runs[runs.length - 1]!.push(line.trim());
-    if (/ {2,}$/.test(line)) runs.push([]);
+    const hardBreak = / {2,}$|\\$/.test(line);
+    runs[runs.length - 1]!.push(line.replace(/\\$/, "").trim());
+    if (hardBreak) runs.push([]);
   }
   const html = runs.map((run) => run.join(" ").trim()).filter(Boolean).map(inlineMarkdownToHtml);
   return html.length ? `<p>${html.join("<br>")}</p>` : "";
@@ -269,18 +276,29 @@ function inlineMarkdownToHtml(text: string): string {
       if (part.type === "math") {
         return renderPrintMathHtml(part.value, false);
       }
-      return formatInlineText(part.value);
+      return formatInlineText(restoreMathEscapes(part.value));
     })
     .join("");
 }
 
-/** Stands in for a code span while emphasis is read, so `proposal_id` keeps its underscore. */
-const CODE_SLOT = "\uE000";
+/**
+ * Stands in for a code span while emphasis is read, so `proposal_id` keeps its underscore.
+ * Not one of the maths placeholders (`lib/math/textMarkers.ts`, U+E000 to U+E00A).
+ */
+const CODE_SLOT = "\uE0F0";
+
+/** A backslash before ASCII punctuation (as escapeHtml leaves it) is a Markdown escape. */
+const ESCAPED_PUNCTUATION = /\\(&(?:amp|lt|gt|quot);|[!#$%'()*+,\-./:;=?@[\\\]^_`{|}~])/g;
 
 function formatInlineText(text: string): string {
   const codes: string[] = [];
   let out = escapeHtml(text).replace(/`([^`]+)`/g, (_match, code: string) => {
     codes.push(`<code>${code}</code>`);
+    return `${CODE_SLOT}${codes.length - 1}${CODE_SLOT}`;
+  });
+  // "\$5", "\*" and "\(" are what they escape, as the chat shows them, and never emphasis.
+  out = out.replace(ESCAPED_PUNCTUATION, (_match, char: string) => {
+    codes.push(char);
     return `${CODE_SLOT}${codes.length - 1}${CODE_SLOT}`;
   });
   out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "$1");
