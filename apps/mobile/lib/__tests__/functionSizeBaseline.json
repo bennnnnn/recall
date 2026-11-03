@@ -106,7 +106,7 @@
   "features/speech/hooks/useVoiceInput.ts::useVoiceInput": 219,
   "features/todos/components/TodoDateFields.tsx::TodoDateFields": 209,
   "features/todos/components/TodoEditorSheet.tsx::TodoEditorSheet": 239,
-  "features/todos/components/TodoRow.tsx::TodoRow": 136,
+  "features/todos/components/TodoRow.tsx::TodoRow": 127,
   "features/todos/components/TodosScrollList.tsx::TodosScrollList": 106,
   "features/todos/components/todosStyles.ts::makeTodosStyles": 204,
   "features/todos/hooks/useTodosActions.ts::useTodosActions": 271,

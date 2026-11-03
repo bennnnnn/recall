@@ -5,7 +5,7 @@
 import "./support/expoGlobal";
 
 import { StyleSheet, Text } from "react-native";
-import { Stack, router } from "expo-router";
+import { type Href, Stack, router } from "expo-router";
 import { act, fireEvent, renderRouter, screen } from "expo-router/testing-library";
 
 import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
@@ -251,7 +251,8 @@ describe("the way back from a screen's error view", () => {
 
   async function crashOn(path: string, app: object = { _layout: ROOT_LAYOUT, index: ChatScreen, ...SECTION }) {
     await renderRouter(app as Parameters<typeof renderRouter>[0], { initialUrl: "/" });
-    await act(async () => router.push(path));
+    // The test's own routes, not the app's: typed routes (generated once Metro runs) know none.
+    await act(async () => router.push(path as Href));
     failing = true;
     await act(async () => router.setParams({ x: "1" }));
     expect(screen.getByText("common.screen_error_title")).toBeTruthy();
