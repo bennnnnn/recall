@@ -213,6 +213,9 @@ _PROGRAMMING_TAGS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 
+PROGRAMMING_PATTERNS = _PROGRAMMING_TAGS
+
+
 def programming_tag(text: str) -> str | None:
     """The fence tag of the programming topic ``text`` names (``python``), or None."""
     cleaned = collapse_ws(text)

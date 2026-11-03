@@ -12,6 +12,7 @@ projects, and milestones rather than entering the one-step-at-a-time tutor.
 
 from __future__ import annotations
 
+from app.modules.turn_reading.lesson_flow import names_a_whole_language
 from app.modules.turn_reading.teaching import programming_tag
 
 LEARNING_PLAN_HINT = (
@@ -48,9 +49,10 @@ LEARNING_PLAN_HINT = (
 
 
 def programming_lesson_contract(text: str) -> str:
-    """Return a hard tagged-fence requirement for a named programming topic."""
+    """Return a hard tagged-fence requirement for a named programming topic; a whole
+    language ("teach me python") gets its outline, which has no code."""
     tag = programming_tag(text)
-    if tag is None:
+    if tag is None or names_a_whole_language(text):
         return ""
     return (
         "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK (a lesson only; an outline of a whole "
@@ -182,13 +184,23 @@ LESSON_CONTRACT = (
     "which part confuses them."
 )
 
+_OUTLINE_PARTS = (
+    "one sentence, then a numbered list of 5-8 topics in learning order, each `N. **Topic** — "
+    "what it lets them do`, then a last line that is one question asking where they are and "
+    "where to start; no title, no quiz, no code. Never reply with only questions about their "
+    "level: the outline comes first"
+)
+
 TEACH_CONTRACT = (
     "Lay this reply out one of two ways, never saying that you were asked to. A whole "
-    "subject: one sentence, then a numbered list "
-    "of 5-8 topics in learning order, each `N. **Topic** — what it lets them do`, then a last "
-    "line that is one question asking where they are and where to start; no title, no quiz. "
-    "Never reply with only questions about their level: the outline comes first. One idea: "
-    "a lesson with " + _LESSON_PARTS + "."
+    "subject: " + _OUTLINE_PARTS + ". One idea: a lesson with " + _LESSON_PARTS + "."
+)
+
+# "Teach me Python" names a whole language (``lesson_flow.names_a_whole_language``): the
+# server reads that much, so the reply is the outline, never Lesson 1 on variables.
+OUTLINE_CONTRACT = (
+    "Lay this reply out as an outline of the whole subject, never saying that you were asked "
+    "to: " + _OUTLINE_PARTS + "."
 )
 
 

@@ -563,8 +563,11 @@ def test_teaching_hint_outlines_a_whole_subject_and_teaches_one_idea():
     assert "A whole subject" in TEACHING_HINT and "do not teach yet" in TEACHING_HINT
     assert "One idea" in TEACHING_HINT and "nothing past it" in TEACHING_HINT
     assert "an outline of a whole language has no code" in programming_lesson_contract(
-        "teach me python"
+        "teach me python lists"
     )
+    # A whole language is its outline: no code contract pulls it into Lesson 1 (2026-11-03).
+    assert programming_lesson_contract("teach me python") == ""
+    assert programming_lesson_contract("I want to learn python from scratch") == ""
 
 
 def _turns(*pairs):

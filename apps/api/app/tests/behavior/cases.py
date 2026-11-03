@@ -1082,7 +1082,7 @@ CASES: tuple[Case, ...] = (
         "teach-python",
         "teaching",
         "teach me python",
-        Expect(hints=("teaching", "programming_lesson"), search="no", outline=True),
+        Expect(hints=("teaching",), no_hints=("programming_lesson",), search="no", outline=True),
         "One line on what Python opens up, 5-8 topics in order, then where they are and where "
         "to start. No lesson, no code, no quiz yet.",
     ),
