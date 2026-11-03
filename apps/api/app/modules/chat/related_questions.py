@@ -161,9 +161,61 @@ def _typeset_symbols(text: str) -> str:
     return "".join(pieces)
 
 
+# The user's own voice, as they type it, came back lowercase: "how do i solve these?"
+# (2026-11-02). A question opens with a capital and "i" alone is "I", in English; maths,
+# code and a word that is not all lowercase ("iPhone", "pH") are left as written.
+_FIRST_WORD = re.compile(r"[^\W\d_]+(?![\w'’-])|[^\W\d_]['’]")  # noqa: RUF001
+# "i" is the speaker after a word that asks or joins ("how do i", "can i", "and i") or
+# before a contraction or a verb ("i'm", "i need"); "what is i squared" is the imaginary unit.
+_LONE_I = re.compile(r"(?<![\w'’$\\])i(?P<contraction>['’](?:m|ve|ll|d)\b)?(?![\w'’])")  # noqa: RUF001
+_BEFORE_I = frozenset(
+    "do does did can could should would will if when so and but how what why where then "
+    "that or until once while".split()
+)
+_AFTER_I = frozenset(
+    "am have had need get find know want use make solve think calculate was got still just "
+    "really".split()
+)
+_ENGLISH = re.compile(
+    r"\b(?:how|what|why|when|where|which|who|do|does|did|can|could|should|would|will|is|are|"
+    r"the|if|my|and|of|to|it|am|have)\b",
+    re.IGNORECASE,
+)
+
+
+def sentence_case(question: str) -> str:
+    """``how do i find mass from moles?`` → ``How do I find mass from moles?``."""
+    text = question
+    first = _FIRST_WORD.match(text)
+    apostrophes = "'\u2019"  # straight and typed
+    if first is not None and first.group(0).rstrip(apostrophes).islower():
+        text = text[0].upper() + text[1:]
+    if _ENGLISH.search(text) is None:
+        return text
+    pieces: list[str] = []
+    last = 0
+    for span in re.finditer(r"\$[^$]*\$|`[^`]*`", text):
+        pieces.extend((_LONE_I.sub(_speaker, text[last : span.start()]), span.group(0)))
+        last = span.end()
+    pieces.append(_LONE_I.sub(_speaker, text[last:]))
+    return "".join(pieces)
+
+
+def _speaker(match: re.Match[str]) -> str:
+    before = re.findall(r"[A-Za-z]+", match.string[: match.start()])
+    after = re.match(r"\s+([A-Za-z]+)", match.string[match.end() :])
+    speaks = (
+        match.group("contraction") is not None
+        or not before
+        or before[-1].lower() in _BEFORE_I
+        or (after is not None and after.group(1).lower() in _AFTER_I)
+    )
+    return "I" + (match.group("contraction") or "") if speaks else match.group(0)
+
+
 def _prepare_question(candidate: str) -> str | None:
     """A short full question with a variable and a number kept apart, or none."""
-    cleaned = _typeset_symbols(collapse_ws(candidate).strip("\"'“”"))
+    cleaned = sentence_case(_typeset_symbols(collapse_ws(candidate).strip("\"'“”")))
     if not cleaned.endswith("?") and _QUESTION_OPENER.match(cleaned):
         # The model left off the mark ("why does everest grow taller"): the question is whole.
         cleaned = cleaned.rstrip(".") + "?"

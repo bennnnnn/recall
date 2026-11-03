@@ -23,16 +23,22 @@ def _verified(question: str) -> VerifiedChemistry:
 _HCL = "Find pH when [H+] = 0.01"
 
 
-def test_the_solver_card_carries_the_marker_before_its_notation() -> None:
+def test_the_solver_card_carries_the_marker_before_its_value() -> None:
+    """One quantity is maths, as every subject's card is; an equation keeps the chemistry
+    notation line under the marker."""
     out = validate_chemistry_fences("Strong acid.", verified=_verified(_HCL))
-    assert f"```answer\n{VERIFIED_ANSWER_MARKER}\nnotation: chemistry\npH = 2" in out
+    assert f"```answer\n{VERIFIED_ANSWER_MARKER}\n\\mathrm{{pH}} = 2.00\n```" in out
+    balanced = validate_chemistry_fences("Balanced.", verified=_verified("Balance H2 + O2 -> H2O"))
+    assert (
+        f"```answer\n{VERIFIED_ANSWER_MARKER}\nnotation: chemistry\n2 H₂ + O₂ → 2 H₂O" in balanced
+    )
 
 
 def test_wrong_prose_beside_the_card_gets_one_correction_line() -> None:
     prose = "HCl fully dissociates, so [H⁺] = 0.1 M, which gives pH = 1.00 because −log(0.1) = 1."
     out = validate_chemistry_fences(prose, verified=_verified(_HCL))
     assert "pH = 1.00" in out
-    correction = "The verified answer is pH = 2.00."
+    correction = "The verified answer is $\\mathrm{pH} = 2.00$."
     assert out.count(correction) == 1
     assert out.index(correction) < out.index("```answer")
 
@@ -44,7 +50,7 @@ def test_steps_under_the_answer_heading_move_above_the_card() -> None:
         "pH = −(−2)  \npH = 2.00\n\nA strong acid gives a low pH."
     )
     out = validate_chemistry_fences(prose, verified=_verified(_HCL))
-    heading = out.index(f"**Answer**\n\n```answer\n{VERIFIED_ANSWER_MARKER}\nnotation: chemistry")
+    heading = out.index(f"**Answer**\n\n```answer\n{VERIFIED_ANSWER_MARKER}\n\\mathrm{{pH}}")
     assert out.index("pH = −log(0.01)") < heading
     assert out.index("pH = −(−2)") < heading
     assert "pH = 2.00\n\nA strong" not in out

@@ -7,6 +7,10 @@ from the average either way "is not realistic"; any other gets the average "for
 reference"; a rate that is the average (the user gave none) says so. No average, no note.
 An average standing in for the kind asked (the new-car one for a used car) says so, and
 judges no rate unrealistic: a used-car rate far above the new-car average is ordinary.
+Neither does an average of kinds priced far apart (``RateLookup.spread``: every savings
+account, big banks at almost nothing beside high-yield accounts near 4%): 4% is an ordinary
+high-yield rate, never "not realistic" beside a 0.37% national average (2026-11-02). Only
+an average of the same kind is a bar; any other is for reference, said with what it is.
 """
 
 from __future__ import annotations
@@ -96,7 +100,7 @@ def market_note(worked: Worked, average: MarketRate | None, ratio: float) -> str
     source = f"[{average.source_title}]({average.source_url})"
     when = day_text(average.as_of)
     level = percent_text(average.value)
-    caveat = f" {average.caveat}" if average.caveat else ""
+    caveat = " ".join(("", *(said for said in (average.caveat, average.spread) if said)))
     if rate_input in worked.assumed:
         return (
             f"**Note:** this uses today's average {average.name} in {average.country}, "

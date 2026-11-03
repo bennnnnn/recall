@@ -45,7 +45,7 @@ def test_a_reply_word_past_its_opening_or_of_four_letters_keeps_a_follow_up() ->
 @pytest.mark.parametrize(
     ("candidate", "kept"),
     [
-        ("why does everest grow taller", "why does everest grow taller?"),
+        ("why does everest grow taller", "Why does everest grow taller?"),
         ("How tall is Everest in miles.", "How tall is Everest in miles?"),
         # Not a question without its mark: a statement stays out.
         ("Everest grows a few millimetres a year", None),

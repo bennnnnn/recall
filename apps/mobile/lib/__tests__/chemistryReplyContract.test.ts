@@ -35,12 +35,14 @@ describe("server chemistry replies", () => {
     expect(CHEMISTRY_ANSWER_NOTATION).toBe(contract.answer_notation);
   });
 
-  it.each(replies)("%s: every answer fence is chemistry notation with a visible answer", (_name, entry) => {
+  // One quantity's value is maths, as every subject's card is (n(\mathrm{H₂O}) = 2.0\,\mathrm{mol});
+  // an equation, a name or a list is chemistry text under the notation header.
+  it.each(replies)("%s: every answer fence is maths or chemistry notation with a visible answer", (_name, entry) => {
     const answers = fenceBodies(entry.reply, "answer");
     expect(answers.length).toBeGreaterThan(0);
     for (const raw of answers) {
       const { notation, body } = splitAnswerNotation(raw);
-      expect(notation).toBe("chemistry");
+      expect(notation === "chemistry" || /\\mathrm\{/.test(body)).toBe(true);
       expect(body).not.toContain("notation");
       expect(body.length).toBeGreaterThan(0);
     }
@@ -54,9 +56,12 @@ describe("server chemistry replies", () => {
 
   it.each(replies)("%s: copy and read-aloud carry the answer, not the plumbing", (_name, entry) => {
     const [answer] = fenceBodies(entry.reply, "answer");
-    const visible = splitAnswerNotation(answer!).body.split("\n")[0]!;
+    const { notation, body } = splitAnswerNotation(answer!);
+    // Chemistry text is read as written; a maths card by its value, never its TeX.
+    const visible = notation === "chemistry" ? body.split("\n")[0]! : /\d+(?:\.\d+)?(?!.*\d)/.exec(body)![0];
     for (const text of [markdownToCopyText(entry.reply), markdownToSpeechText(entry.reply)]) {
       expect(text).toContain(visible);
+      expect(text).not.toContain("\\mathrm");
       expect(text).not.toContain("notation");
       expect(text).not.toContain('"kind"');
       expect(text).not.toContain("```");
@@ -75,7 +80,7 @@ describe("server chemistry replies", () => {
     for (const raw of fenceBodies(preprocessMarkdown(sent), "answer")) {
       const parsed = splitAnswerNotation(raw);
       expect(parsed.verified).toBe(true);
-      expect(parsed.notation).toBe("chemistry");
+      expect(parsed.notation === "chemistry" || /\\mathrm\{/.test(parsed.body)).toBe(true);
     }
     for (const text of [markdownToCopyText(sent), markdownToSpeechText(sent)]) {
       expect(text).not.toContain("verified");

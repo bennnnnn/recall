@@ -12,6 +12,7 @@
 import type { LiteElement } from "mathjax-full/js/adaptors/lite/Element.js";
 
 import { rewriteLatexDialects } from "@/lib/math/latexDialects";
+import { uprightNotation } from "@/lib/math/latexUpright";
 
 /**
  * Every package but the two that hide a mistake: `noundefined` paints an
@@ -235,7 +236,7 @@ async function drawnSvg(trimmed: string, display: boolean): Promise<string | nul
   if (!trimmed || trimmed.length > MAX_LATEX_CHARS) return null;
   try {
     const render = await getRenderer();
-    const html = render(rewriteLatexDialects(trimmed), display);
+    const html = render(uprightNotation(rewriteLatexDialects(trimmed)), display);
     const start = html.indexOf("<svg");
     const end = html.lastIndexOf("</svg>");
     if (start < 0 || end < start) return null;

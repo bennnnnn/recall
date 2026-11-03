@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 
 from pydantic import BaseModel, Field
@@ -59,6 +59,9 @@ class MarketRate:
     country: str
     # Said beside the rate when it stands in for the kind asked (``Variant.stand_in``).
     caveat: str = ""
+    # Said beside an average of kinds priced far apart (``RateLookup.spread``): it judges
+    # no rate. Read from the catalog row, never cached, so a change to the row shows at once.
+    spread: str = ""
 
 
 class RateReading(BaseModel):
@@ -101,7 +104,7 @@ async def current_average(
     day = today or datetime.now(UTC).date()
     cached = await _cached(redis, key)
     if cached is not None and _fresh(cached.as_of, lookup, day):
-        return cached
+        return replace(cached, spread=lookup.spread)
     try:
         hits, _ = await run_cached_search(
             settings, [search_query(lookup, bucket, country)], user=user, redis=redis
@@ -180,6 +183,7 @@ def checked(
         source_url=source.url,
         name=lookup.describe(bucket),
         country=country,
+        spread=lookup.spread,
     )
 
 

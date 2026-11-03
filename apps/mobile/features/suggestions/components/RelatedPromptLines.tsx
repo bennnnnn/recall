@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { RichMathBody } from "@/components/rich/RichMathBody";
-import { suggestionToSend, wrapSuggestionMath } from "@/features/suggestions/model/promptMath";
+import {
+  spokenPrompt,
+  suggestionToSend,
+  wrapSuggestionMath,
+} from "@/features/suggestions/model/promptMath";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -17,7 +21,8 @@ type Props = {
 /**
  * Follow-up questions under the latest reply: three tappable rows. Each has a
  * dotted underline under its words, the way a link reads, so it looks tappable
- * without a rule between rows.
+ * without a rule between rows. VoiceOver reads each row as it is drawn: its maths in
+ * words ("v sub f equals 36 km/h"), never the LaTeX source.
  */
 export function RelatedPromptLines({ prompts, onSelect }: Props) {
   const theme = useTheme();
@@ -36,7 +41,7 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
         <View key={prompt}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={prompt}
+            accessibilityLabel={spokenPrompt(prompt)}
             onPress={() => onSelect(prompt)}
             style={({ pressed }) => [s.row, pressed && s.rowPressed]}
           >

@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react-native";
 
 import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
+import { spokenPrompt } from "@/features/suggestions/model/promptMath";
 
 const PHYSICS =
   "Why is the force the product of mass and acceleration for this object?";
@@ -24,7 +25,7 @@ describe("RelatedPromptLines", () => {
     expect(queryByTestId("related-prompt-divider")).toBeNull();
 
     await act(async () => {
-      fireEvent.press(getByLabelText(MATH));
+      fireEvent.press(getByLabelText(spokenPrompt(MATH)));
     });
     expect(onSelect).toHaveBeenCalledWith(MATH);
     await act(async () => {
@@ -44,8 +45,26 @@ describe("RelatedPromptLines", () => {
 
     expect(queryByLabelText("How")).toBeNull();
     expect(queryByLabelText("Education level")).toBeNull();
-    fireEvent.press(getByLabelText(MATH));
+    fireEvent.press(getByLabelText(spokenPrompt(MATH)));
     expect(onSelect).toHaveBeenCalledWith(MATH);
+  });
+});
+
+describe("RelatedPromptLines for a screen reader", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("labels a maths follow-up with its words, never its LaTeX", async () => {
+    const prompt = String.raw`What if $v_f = 36\text{ km/h}$?`;
+    const onSelect = jest.fn();
+    const { getAllByRole, getByLabelText } = await render(
+      <RelatedPromptLines prompts={[prompt]} onSelect={onSelect} />,
+    );
+    const [button] = getAllByRole("button");
+    expect(button!.props.accessibilityLabel).toBe("What if v subscript f = 36 km/h?");
+    fireEvent.press(getByLabelText("What if v subscript f = 36 km/h?"));
+    expect(onSelect).toHaveBeenCalledWith(prompt);
   });
 });
 

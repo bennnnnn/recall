@@ -4,6 +4,11 @@ A reply in parts ("**Answer (a)** … **Answer (b)** …") had no card at all wh
 solved none of them: only one closing ``**Answer**`` heading is carded, so a crane's
 energy and power sat on the phone as plain lines (2026-10-30). A part the server did not
 verify gets the same card a one-part answer does, without the check.
+
+One Answer heading over lettered lines ("**Answer**", "- (a) Work input = **1.2J**",
+"- (b) Work output = 1.2 J", a scanned lever, 2026-11-03) answers in parts too: only (a)
+went in the card and the others stayed bullets below it. Each lettered line becomes its
+part's own Answer, so every part's answer is laid out alike (``answers_by_letter``).
 """
 
 from __future__ import annotations
@@ -15,6 +20,34 @@ from app.services.md_fence_scan import iter_fences, line_fences
 
 PART_ANSWER_HEADING = re.compile(r"^\s*(?:#{1,4}\s+)?\*\*Answer \((?P<letter>[a-h])\):?\*\*:?\s*$")
 _SECTION_HEADING = "**Answer**"
+# "(a) …", "a) …", "**(a)** …", "- (a) …": one part's answer on a line of its own.
+_LETTERED = re.compile(
+    r"^\s*(?:[-*+•]\s+)?(?:\*\*)?\(?(?P<letter>[a-h])[).](?:\*\*)?\s+(?P<value>\S.*)$"
+)
+
+
+def answers_by_letter(text: str) -> str:
+    """``text`` with the lettered lines under its last bare Answer heading, (a), (b) and so
+    on in order, each under its own ``**Answer (a)**`` heading; else ``text`` as it is."""
+    lines = text.split("\n")
+    prose = {number for number, owner in enumerate(line_fences(text)) if owner is None}
+    headings = [number for number in sorted(prose) if answer_heading(lines[number]) == ""]
+    if not headings:
+        return text
+    start = end = headings[-1]
+    answers: list[tuple[str, str]] = []
+    for number in range(start + 1, len(lines)):
+        if not lines[number].strip() and number in prose:
+            continue
+        lettered = _LETTERED.match(lines[number]) if number in prose else None
+        if lettered is None:
+            break
+        answers.append((lettered.group("letter"), lettered.group("value").strip()))
+        end = number
+    if len(answers) < 2 or [letter for letter, _ in answers] != list("abcdefgh"[: len(answers)]):
+        return text
+    parts = [f"**{_SECTION_HEADING[2:-2]} ({letter})**\n\n{value}" for letter, value in answers]
+    return "\n".join([*lines[:start], "\n\n".join(parts), *lines[end + 1 :]])
 
 
 def _cards(text: str) -> int:
@@ -41,6 +74,7 @@ def land_part_answer_cards(text: str) -> str | None:
     closing Answer heading ("**Answer:** It lands after 2 s.", "## Answer"): a summary,
     never one part's answer. A heading inside a code block is an example, not a part.
     """
+    text = answers_by_letter(text)
     lines = text.split("\n")
     prose = [number for number, owner in enumerate(line_fences(text)) if owner is None]
     headings = [number for number in prose if PART_ANSWER_HEADING.match(lines[number])]

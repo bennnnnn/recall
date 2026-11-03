@@ -186,7 +186,7 @@ def render_parts(
     sections: list[str] = []
     for index, part in enumerate(parts):
         letter = part_letter(index)
-        label = f"**({letter}) {part.title.strip()}**" if part.title.strip() else ""
+        label = f"**({letter}) {_sentence_case(part.title)}**" if part.title.strip() else ""
         # Only while a reply streams: a part's givens written after its label wait at the
         # part, before its formula, until the whole block moves them to the one Given.
         mine = _section(GIVEN, own[index]) if own[index] else ""
@@ -269,3 +269,10 @@ def parts_in_one_layout(questions: Sequence[str], replies: Sequence[str]) -> str
             )
         )
     return render_parts(parts)
+
+
+def _sentence_case(title: str) -> str:
+    """A part's title as a heading reads: "work output" → "Work output". A title that
+    opens with a symbol ("pH of …", "x-component") is left as written."""
+    text = title.strip()
+    return text[:1].upper() + text[1:] if re.match(r"[a-z]{2,}\b", text) else text

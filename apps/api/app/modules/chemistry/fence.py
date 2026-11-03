@@ -21,6 +21,7 @@ from app.modules.chemistry.smiles import (
     generate_3d_coordinates,
     validate_smiles,
 )
+from app.modules.chemistry.tex import chemistry_tex
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -199,7 +200,14 @@ _OWNED_FENCE_LANGS = (
 
 
 def _answer_body(answer: str, *, verbatim: bool) -> str:
-    body = answer.strip() if verbatim else typeset(answer.strip())
+    """One quantity's value is maths, as every subject's card is (``n(\\mathrm{H₂O}) =
+    2.0\\,\\mathrm{mol}``, ``tex``); anything else (an equation, a name, a list) is
+    chemistry text under ``notation: chemistry``, which no renderer reads as algebra."""
+    value = answer.strip()
+    tex = None if verbatim or "\n" in value else chemistry_tex(value)
+    if tex is not None:
+        return tex
+    body = value if verbatim else typeset(value)
     return f"{CHEMISTRY_ANSWER_NOTATION}\n{body}"
 
 

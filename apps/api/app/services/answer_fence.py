@@ -30,6 +30,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.services.card_text import named_value, without_emphasis
 from app.services.card_value import final_answer_only
 from app.services.md_fence_scan import fence_lang as fence_lang
 from app.services.md_fence_scan import map_closed_fences, read_fence_marker
@@ -269,13 +270,12 @@ def _plain_line(line: str, *, hard_break: bool = True) -> str:
 
 
 def _value_line(line: str) -> str:
-    """A value line as a card shows it: no list marker, no bold around it."""
+    """A value line as a card shows it: no list marker, no emphasis (``card_text``)."""
     text = _plain_line(line)
     marker = _LIST_MARKER.match(text)
     if marker is not None:
         text = text[marker.end() :]
-    if len(text) > 4 and text.startswith("**") and text.endswith("**"):
-        text = text[2:-2].strip()
+    text = without_emphasis(text).strip()
     return text.removesuffix(".") if text.endswith("$.") else text
 
 
@@ -452,7 +452,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         parts = [v for _, v in values[shown:]] or [""]
         # Both roots read on one line (x = 2, x = -2): a card draws one line of maths.
         joined = parts[0] if len(parts) == 1 else ", ".join(" ".join(p.split()) for p in parts)
-        value = answer_header_and_value(joined)[1]
+        value = named_value(answer_header_and_value(joined)[1])
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
         # A card draws maths; "Paris" under a quiz's Answer, or a paragraph, stays prose.
