@@ -1223,6 +1223,6 @@ async def test_the_extraction_prompt_names_decisions_mutes_and_corrections(monke
         Settings(mock_llm_enabled=False), "User: For Recall I decided to use Neon"
     )
     system = captured["messages"][0]["content"]
-    assert "Recall uses Neon (chosen over Supabase)" in system
+    assert "Garden Planner uses Neon (chosen over Supabase)" in system
     assert "op=mute" in system
     assert "that's wrong, I'm at Stripe now" in system

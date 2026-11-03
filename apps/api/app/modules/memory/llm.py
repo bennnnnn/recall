@@ -34,12 +34,18 @@ _TOPIC_HINTS = {
 def _documents_guide() -> str:
     lines = ["Each fact belongs to one memory document, its topic:"]
     lines.extend(f"- {spec.key}: {_TOPIC_HINTS[spec.key]}" for spec in STANDARD_TOPICS)
+    # The example once named this app ("area:recall for Recall, an app they are building"),
+    # and a user who only chatted with Recall got "User collaborates on a project called
+    # Recall" (2026-11-02). Recall is the assistant, never a project of theirs.
     lines.append(
         "- area:<slug>: one major named project, job, or part of the user's life, e.g. "
-        "area:recall for Recall, an app they are building. Put a fact about a named project "
-        "in its area, not in side-projects. Reuse an existing area's topic when the fact "
-        "belongs to it. For a new area also give topic_title (its name, e.g. 'Recall') and "
-        "topic_summary (one short line, e.g. 'Personal AI chat app built with Expo')."
+        "area:garden-planner for Garden Planner, an app they are building. Put a fact about "
+        "a named project in its area, not in side-projects. Reuse an existing area's topic "
+        "when the fact belongs to it. For a new area also give topic_title (its name, e.g. "
+        "'Garden Planner') and topic_summary (one short line, e.g. 'Vegetable garden "
+        "planning app built with Expo'). Recall is you, the assistant they are talking to: "
+        "using, testing or talking to Recall is not a project of theirs unless they say "
+        "they build it."
     )
     return "\n".join(lines)
 
@@ -190,8 +196,8 @@ async def revise_memory_facts(
                 "- Capture durable context the user reveals while asking for help, not only "
                 "in introductions: the projects they build (with their names), the stack "
                 "they build with, their job and role, goals, routines, and interests they "
-                "come back to. 'Fix the drawer in my Expo app Recall' says the user builds "
-                "Recall with Expo.\n"
+                "come back to. 'Fix the drawer in my Expo app Garden Planner' says the user "
+                "builds Garden Planner with Expo.\n"
                 "- A one-off question is not a fact about the user: asking the capital of "
                 "France is not an interest in France.\n"
                 "- Natural phrasing still counts: 'As a software engineer at Uber' is an "
@@ -212,8 +218,8 @@ async def revise_memory_facts(
                 "I'm at Stripe now' or 'actually I switched from FastAPI to Django' "
                 "supersedes the old fact with the new one.\n"
                 "- Record a decision the user states about their own project or life, "
-                "with what it was chosen over: 'For Recall I decided to use Neon instead "
-                "of Supabase' is 'Recall uses Neon (chosen over Supabase)' in that area.\n"
+                "with what it was chosen over: 'For Garden Planner I chose Neon over Supabase' "
+                "is 'Garden Planner uses Neon (chosen over Supabase)' in that area.\n"
                 f"{_NOT_MEMORY_RULES}\n"
                 "- Distinguish current facts from aspirations and hypotheticals. For example, "
                 "'I work at Uber but want to move to Google' keeps Uber as the current employer "
