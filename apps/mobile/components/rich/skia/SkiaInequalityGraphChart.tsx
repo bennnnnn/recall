@@ -82,7 +82,7 @@ export function SkiaInequalityGraphChart({
   );
 
   const gridPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     xTicks.forEach((value) => {
       if (Math.abs(value) < 1e-9) return;
       const { px } = mapGraphPoint(value, 0, bounds, width, height, GRAPH_CHART_PAD);
@@ -95,37 +95,37 @@ export function SkiaInequalityGraphChart({
       path.moveTo(GRAPH_CHART_PAD, py);
       path.lineTo(width - GRAPH_CHART_PAD, py);
     });
-    return path;
+    return path.detach();
   }, [bounds, height, width, xTicks, yTicks]);
 
   const axesPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     path.moveTo(yAxisX, GRAPH_CHART_PAD);
     path.lineTo(yAxisX, height - GRAPH_CHART_PAD);
     path.moveTo(GRAPH_CHART_PAD, xAxisY);
     path.lineTo(width - GRAPH_CHART_PAD, xAxisY);
-    return path;
+    return path.detach();
   }, [height, width, xAxisY, yAxisX]);
 
   const regionPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     geometry?.region.forEach(([x, y], index) => {
       const point = mapGraphPoint(x, y, bounds, width, height, GRAPH_CHART_PAD);
       if (index === 0) path.moveTo(point.px, point.py);
       else path.lineTo(point.px, point.py);
     });
     if ((geometry?.region.length ?? 0) >= 3) path.close();
-    return path;
+    return path.detach();
   }, [bounds, geometry, height, width]);
 
   const boundaryPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     geometry?.boundary.forEach(([x, y], index) => {
       const point = mapGraphPoint(x, y, bounds, width, height, GRAPH_CHART_PAD);
       if (index === 0) path.moveTo(point.px, point.py);
       else path.lineTo(point.px, point.py);
     });
-    return path;
+    return path.detach();
   }, [bounds, geometry, height, width]);
 
   if (!geometry) return null;

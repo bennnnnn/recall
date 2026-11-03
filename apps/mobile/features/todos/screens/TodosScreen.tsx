@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
-import { Keyboard, Pressable, Text, View } from "react-native";
+import { Redirect, useLocalSearchParams, useNavigation, usePreventRemove } from "expo-router";
+import { Keyboard, Pressable, Text, View, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/ui/controls/AddFab";
@@ -61,7 +61,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const [detailMenu, setDetailMenu] = useState(false);
   const editRef = useRef<TodoEditorHandle>(null);
   /** Header ⋮ — both the list menu and the detail menu drop from it. */
-  const menuAnchorRef = useRef<View>(null);
+  const menuAnchorRef = useRef<HostInstance>(null);
   const [view, setView] = useState<TodoView>("today");
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -118,15 +118,12 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const headerRightAction = useRef<() => void>(() => {});
   const headerBackAction = useRef<() => void>(() => {});
   headerBackAction.current = leaveDetail;
-  useEffect(() => {
-    if (!detailOpen) return;
-    return navigation.addListener("beforeRemove", (event) => {
-      const type = event.data.action.type;
-      if (type !== "GO_BACK" && type !== "POP") return;
-      event.preventDefault();
-      leaveDetail();
-    });
-  }, [navigation, detailOpen, leaveDetail]);
+  // Back from a to-do's page returns to the list; any other navigation goes ahead.
+  usePreventRemove(detailOpen, ({ data, repeat }) => {
+    const type = data.action.type;
+    if (type === "GO_BACK" || type === "POP") leaveDetail();
+    else repeat();
+  });
   headerRightAction.current = () => {
     Keyboard.dismiss();
     if (detailOpen && editingId) {

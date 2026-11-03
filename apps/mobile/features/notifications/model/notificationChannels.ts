@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import { AndroidImportance } from "expo-notifications";
 
 import { isExpoGo } from "@/lib/expoRuntime";
 
@@ -31,7 +32,7 @@ export async function ensureAndroidNotificationChannels(names: {
   const sound = notificationSound();
   await Notifications.setNotificationChannelAsync(AndroidNotificationChannel.reminders, {
     name: names.reminders,
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: AndroidImportance.HIGH,
     vibrationPattern: [...REMINDER_VIBRATION_MS],
     enableVibrate: true,
     sound,

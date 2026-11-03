@@ -4,7 +4,7 @@
  * labels for the current bounds. `SkiaGraphCanvas` derives them on the UI
  * thread every frame.
  */
-import { Skia, type SkFont } from "@shopify/react-native-skia";
+import { Skia, type SkFont, type SkPath } from "@shopify/react-native-skia";
 
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
 import { GRAPH_TICK_FONT_SIZE } from "@/components/rich/graphPaint";
@@ -27,8 +27,8 @@ const MARKER_RADIUS = 4;
 type TickLabel = { px: number; py: number; text: string };
 
 export type Chrome = {
-  grid: ReturnType<typeof Skia.Path.Make>;
-  axes: ReturnType<typeof Skia.Path.Make>;
+  grid: SkPath;
+  axes: SkPath;
   xLabels: TickLabel[];
   yLabels: TickLabel[];
   origin: { px: number; py: number };
@@ -45,8 +45,8 @@ export function buildSeriesPath(
   pad: number,
 ) {
   "worklet";
-  const path = Skia.Path.Make();
-  if (!row || !row.visible) return path;
+  const path = Skia.PathBuilder.Make();
+  if (!row || !row.visible) return path.detach();
   const segs = row.segments?.filter((seg) => seg.length >= 2);
   const curves = segs && segs.length > 1 ? segs : row.points.length >= 2 ? [row.points] : [];
   for (const seg of curves) {
@@ -64,7 +64,7 @@ export function buildSeriesPath(
       }
     }
   }
-  return path;
+  return path.detach();
 }
 
 export function buildFillPath(
@@ -75,11 +75,11 @@ export function buildFillPath(
   pad: number,
 ) {
   "worklet";
-  const path = Skia.Path.Make();
-  if (!row || !row.visible || row.cmp === "=") return path;
+  const path = Skia.PathBuilder.Make();
+  if (!row || !row.visible || row.cmp === "=") return path.detach();
   const segs = row.segments?.filter((seg) => seg.length >= 2);
   const curve = segs && segs.length > 1 ? segs[0] : row.points.length >= 2 ? row.points : null;
-  if (!curve) return path;
+  if (!curve) return path.detach();
   const below = row.cmp === "<" || row.cmp === "<=";
   const edgePy = below ? height - pad : pad;
   let started = false;
@@ -102,7 +102,7 @@ export function buildFillPath(
     path.lineTo(firstPx, edgePy);
     path.close();
   }
-  return path;
+  return path.detach();
 }
 
 export function buildMarkerPath(
@@ -113,18 +113,18 @@ export function buildMarkerPath(
   pad: number,
 ) {
   "worklet";
-  const path = Skia.Path.Make();
+  const path = Skia.PathBuilder.Make();
   const visible = drawn.filter((row) => row.visible);
-  if (visible.length !== 1) return path;
+  if (visible.length !== 1) return path.detach();
   const points = visible[0].points;
-  if (points.length > 20) return path;
+  if (points.length > 20) return path.detach();
   for (const [x, y] of points) {
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     if (x < b.xMin || x > b.xMax || y < b.yMin || y > b.yMax) continue;
     const { px, py } = mapPointW(x, y, b, width, height, pad);
     path.addCircle(px, py, MARKER_RADIUS);
   }
-  return path;
+  return path.detach();
 }
 
 export function computeChrome(
@@ -138,8 +138,8 @@ export function computeChrome(
   "worklet";
   const measure = (text: string) =>
     font ? font.measureText(text).width : text.length * MONO_CHAR_PX;
-  const grid = Skia.Path.Make();
-  const axes = Skia.Path.Make();
+  const grid = Skia.PathBuilder.Make();
+  const axes = Skia.PathBuilder.Make();
   const origin = mapPointW(0, 0, b, width, height, pad);
   const xOriginInView = b.xMin <= 0 && b.xMax >= 0;
   const yOriginInView = b.yMin <= 0 && b.yMax >= 0;
@@ -188,8 +188,8 @@ export function computeChrome(
 
   const originInView = xOriginInView && yOriginInView;
   return {
-    grid,
-    axes,
+    grid: grid.detach(),
+    axes: axes.detach(),
     xLabels,
     yLabels,
     origin,

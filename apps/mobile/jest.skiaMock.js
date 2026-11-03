@@ -2,18 +2,26 @@
  * Jest mock for @shopify/react-native-skia. The shipped jestSetup targets the
  * commonjs build, but our resolver loads lib/module (ESM) — so map the module
  * here instead. Canvas renders its children; paint components are null; the
- * Skia path API is a minimal chainable stub. Tests can still override with
+ * Skia path builder is a minimal chainable stub. Tests can still override with
  * jest.doMock (e.g. skiaAvailability probes).
  */
 const React = require("react");
 const { View } = require("react-native");
 
-const makePath = () => ({
-  moveTo: () => undefined,
-  lineTo: () => undefined,
-  addCircle: () => undefined,
-  close: () => undefined,
-});
+const makePath = () => ({});
+
+// Paths are immutable: builders draw, then build() or detach() the path.
+const makeBuilder = () => {
+  const builder = {
+    moveTo: () => builder,
+    lineTo: () => builder,
+    addCircle: () => builder,
+    close: () => builder,
+    build: makePath,
+    detach: makePath,
+  };
+  return builder;
+};
 
 const Canvas = ({ children, ...rest }) => React.createElement(View, rest, children);
 const Group = ({ children }) => (children ?? null);
@@ -32,6 +40,7 @@ module.exports = {
   Shader: Null,
   Skia: {
     Path: { Make: makePath },
+    PathBuilder: { Make: makeBuilder, MakeFromPath: makeBuilder },
     XYWHRect: (x, y, width, height) => ({ x, y, width, height }),
     // A compiled shader stand-in: callers only check it is non-null.
     RuntimeEffect: { Make: (sksl) => ({ sksl }) },

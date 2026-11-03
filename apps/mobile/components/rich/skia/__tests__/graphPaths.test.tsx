@@ -22,10 +22,11 @@ jest.mock("@shopify/react-native-skia", () => {
       addCircle: (x: number, y: number, r: number) =>
         ops.push(`C${round(x)},${round(y)},${round(r)}`) && path,
       close: () => ops.push("Z") && path,
+      detach: () => path,
     };
     return path;
   };
-  return { ...actual, Skia: { ...actual.Skia, Path: { Make: makePath } } };
+  return { ...actual, Skia: { ...actual.Skia, PathBuilder: { Make: makePath } } };
 });
 
 type Recorded = { ops: string[] };

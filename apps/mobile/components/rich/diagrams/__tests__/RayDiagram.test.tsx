@@ -36,15 +36,17 @@ jest.mock("@shopify/react-native-skia", () => {
   const React = require("react");
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
   const { View } = require("react-native");
-  const makePath = () => {
-    const cmds: (string | number)[][] = [];
-    return {
+  const makePath = (from: (string | number)[][] = []) => {
+    const cmds = [...from];
+    const path = {
       cmds,
-      moveTo: (x: number, y: number) => cmds.push(["M", x, y]),
-      lineTo: (x: number, y: number) => cmds.push(["L", x, y]),
-      close: () => cmds.push(["Z"]),
-      addCircle: (x: number, y: number, r: number) => cmds.push(["C", x, y, r]),
+      moveTo: (x: number, y: number) => cmds.push(["M", x, y]) && path,
+      lineTo: (x: number, y: number) => cmds.push(["L", x, y]) && path,
+      close: () => cmds.push(["Z"]) && path,
+      addCircle: (x: number, y: number, r: number) => cmds.push(["C", x, y, r]) && path,
+      detach: () => path,
     };
+    return path;
   };
   type MockProps = Record<string, unknown>;
   return {
@@ -56,7 +58,10 @@ jest.mock("@shopify/react-native-skia", () => {
     DashPathEffect: (props: MockProps) => React.createElement("SkDash", props),
     Text: ({ font: _font, ...rest }: MockProps) => React.createElement("SkText", rest),
     Skia: {
-      Path: { Make: makePath },
+      PathBuilder: {
+        Make: () => makePath(),
+        MakeFromPath: (source: { cmds: (string | number)[][] }) => makePath(source.cmds),
+      },
       XYWHRect: (x: number, y: number, width: number, height: number) => ({ x, y, width, height }),
     },
     useFont: () => ({ size: 12 }),

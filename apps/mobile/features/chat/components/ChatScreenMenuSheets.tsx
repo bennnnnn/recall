@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { View } from "react-native";
+import type { HostInstance } from "react-native";
 
 import { ChatActionsMenu } from "@/features/chat/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/features/chat/components/ChatRenameSheet";
@@ -9,7 +9,7 @@ import type { Message } from "@/lib/api";
 export type ChatScreenMenuSheetsProps = {
   menuVisible: boolean;
   /** The header ⋮ button the menu drops from. */
-  menuAnchorRef: RefObject<View | null>;
+  menuAnchorRef: RefObject<HostInstance | null>;
   chatTitle: string | null;
   pinned: boolean;
   archived: boolean;

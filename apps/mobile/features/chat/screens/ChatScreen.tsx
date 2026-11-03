@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   useWindowDimensions,
   View,
+  type HostInstance,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
@@ -314,7 +315,7 @@ function ChatScreen() {
   });
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
-  const menuAnchorRef = useRef<View>(null);
+  const menuAnchorRef = useRef<HostInstance>(null);
 
   const chatScreenBody = useChatScreenBodyProps({
     styles: s,

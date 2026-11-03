@@ -8,6 +8,7 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type HostInstance,
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,7 +50,7 @@ type Props = {
   onClose: () => void;
   items: MenuEntry[];
   /** The control that opened the menu; the card drops from it. */
-  anchorRef?: RefObject<View | null>;
+  anchorRef?: RefObject<HostInstance | null>;
   /** Or a touch point (long-press) to open from. */
   anchorPoint?: { x: number; y: number } | null;
   /** Muted heading above the rows (e.g. the chat title). */
@@ -103,7 +104,7 @@ function MenuCard({
   const [anchor, setAnchor] = useState<Rect | null>(null);
   const [waitedForAnchor, setWaitedForAnchor] = useState(false);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
-  const firstRowRef = useRef<View>(null);
+  const firstRowRef = useRef<HostInstance>(null);
 
   useEffect(() => {
     if (!visible) return;

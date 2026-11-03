@@ -1,5 +1,5 @@
 import type { ReactNode, Ref } from "react";
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, TextInput, View, type TextInputInstance, type TextInputProps, type StyleProp, type ViewStyle } from "react-native";
 
 import { Icon } from "../icons/Icon";
 import { Radius } from "@/lib/radius";
@@ -13,7 +13,7 @@ type Props = {
   value: string;
   onChangeText: (text: string) => void;
   placeholder: string;
-  inputRef?: Ref<TextInput>;
+  inputRef?: Ref<TextInputInstance>;
   /** Extra control inside the pill, after the field. */
   trailing?: ReactNode;
   onClear?: () => void;

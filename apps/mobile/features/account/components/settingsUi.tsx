@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, type View } from "react-native";
+import { ScrollView, StyleSheet, type HostInstance } from "react-native";
 import { type Href, Redirect, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -144,7 +144,7 @@ export function SettingsMenuRow<K extends string>({
   onSelect: (key: K) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const rowRef = useRef<View>(null);
+  const rowRef = useRef<HostInstance>(null);
   return (
     <>
       <ListRow

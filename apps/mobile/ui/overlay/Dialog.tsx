@@ -7,6 +7,7 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type HostInstance,
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 
@@ -91,7 +92,7 @@ function DialogCard({
   const progress = useOverlayProgress();
   const screen = useWindowDimensions();
   const keyboardHeight = useKeyboardHeight(visible && avoidKeyboard);
-  const titleRef = useRef<Text>(null);
+  const titleRef = useRef<HostInstance>(null);
   const cardWidth = Math.min(width, screen.width - Space.lg * 2);
   const stacked =
     actions.length > 2 || actions.some((action) => action.label.length > 18);

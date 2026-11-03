@@ -1,7 +1,7 @@
-import { type ComponentProps, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type AccessibilityActionEvent, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { GestureDetector } from "react-native-gesture-handler";
+import { GestureDetector, type GestureType, type LegacyComposedGesture } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
   type AnimatedStyle,
@@ -18,7 +18,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type AnimStyle = AnimatedStyle<Record<string, unknown>>;
-type DetectorGesture = ComponentProps<typeof GestureDetector>["gesture"];
+type DetectorGesture = GestureType | LegacyComposedGesture;
 
 export type LiveScanFrameStatus = "idle" | "detecting" | "ready";
 

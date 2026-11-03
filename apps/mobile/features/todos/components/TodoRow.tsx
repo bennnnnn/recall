@@ -1,7 +1,8 @@
 import { memo, useMemo } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/ui/icons/Icon";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated, { type SharedValue, useAnimatedStyle } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
@@ -29,6 +30,40 @@ type Props = {
   selected?: boolean;
   onSelect?: (todo: Todo) => void;
 };
+
+/**
+ * The red Delete behind a row. Gesture handler 3 no longer hides a row's actions until it is
+ * swiped, and the row's card is translucent: unhidden, Delete showed through every row.
+ */
+function SwipeDeleteAction({ progress, busy, onDelete }: {
+  progress: SharedValue<number>;
+  busy?: boolean;
+  onDelete: () => void;
+}) {
+  const { t } = useTranslation();
+  const C = useTheme();
+  const s = useMemo(() => makeTodosStyles(C), [C]);
+  const shown = useAnimatedStyle(() => ({ opacity: progress.value === 0 ? 0 : 1 }));
+  return (
+    <Animated.View style={[actionStyles.wrap, shown]}>
+      <Pressable
+        style={s.swipeDeleteAction}
+        onPress={onDelete}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={t("common.delete")}
+      >
+        <Icon name="trash" size={IconSize.sm} color={C.onPrimary} />
+        <Text style={s.swipeDeleteText}>{t("common.delete")}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const actionStyles = StyleSheet.create({
+  // A row, so the action stretches to the row's height.
+  wrap: { flexDirection: "row" },
+});
 
 function completedMeta(iso: string | null | undefined): string | null {
   if (!iso) return null;
@@ -156,17 +191,8 @@ export const TodoRow = memo(function TodoRow({
       overshootRight={false}
       enabled={!busy && !selecting}
       containerStyle={s.swipeContainer}
-      renderRightActions={() => (
-        <Pressable
-          style={s.swipeDeleteAction}
-          onPress={handleDelete}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.delete")}
-        >
-          <Icon name="trash" size={IconSize.sm} color={C.onPrimary} />
-          <Text style={s.swipeDeleteText}>{t("common.delete")}</Text>
-        </Pressable>
+      renderRightActions={(progress) => (
+        <SwipeDeleteAction progress={progress} busy={busy} onDelete={handleDelete} />
       )}
     >
       {row}

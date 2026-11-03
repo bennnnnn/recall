@@ -4,7 +4,7 @@
  * explorer's plot size, view and samples. `InteractiveFunctionPlot` draws it.
  */
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { useWindowDimensions, type LayoutChangeEvent, type ScrollView } from "react-native";
+import { useWindowDimensions, type LayoutChangeEvent, type ScrollViewInstance } from "react-native";
 import { useSafeAreaInsets, type EdgeInsets } from "react-native-safe-area-context";
 
 import { GRAPH_AXIS_PAD, type GraphHoleMarker } from "@/components/rich/GraphCanvas";
@@ -166,7 +166,7 @@ export function useFunctionPlotState(spec: GraphSpec, chartWidth: number, theme:
   const card = useCardPlot(spec, chartWidth, curves);
   const skia = isSkiaAvailable();
   const explorer = useExplorerPlot(spec, insets, skia, curves);
-  const seriesListRef = useRef<ScrollView>(null);
+  const seriesListRef = useRef<ScrollViewInstance>(null);
   const addSeriesAndReveal = () => {
     addSeries();
     requestAnimationFrame(() => {

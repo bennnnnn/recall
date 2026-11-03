@@ -12,6 +12,7 @@ import {
   type StyleProp,
   type TextProps,
   type ViewStyle,
+  type HostInstance,
 } from "react-native";
 
 import { selection } from "@/lib/haptics";
@@ -72,7 +73,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   testID?: string;
   /** Lets a Menu or SelectMenu open from this row. */
-  ref?: Ref<View>;
+  ref?: Ref<HostInstance>;
 };
 
 /**

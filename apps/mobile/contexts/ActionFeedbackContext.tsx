@@ -103,7 +103,9 @@ export function ActionFeedbackProvider({
         {children}
         {item ? (
           <ActionBanner
-            key={item.id}
+            // The toast is a sibling of `children`: a numeric key met a child keyed the same
+            // (the photo viewer's content is keyed by its session, 1 at first) and React kept one.
+            key={`toast-${item.id}`}
             message={item.message}
             icon={item.icon}
             tone={item.tone}

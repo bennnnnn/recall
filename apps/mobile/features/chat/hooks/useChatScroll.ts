@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import type { NativeScrollEvent, NativeSyntheticEvent, ScrollViewInstance } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 
 import type { Message } from "@/lib/api";
@@ -128,7 +128,7 @@ export function useChatScroll({
   /** The end, in this frame: FlashList's own scrollToEnd waits a tick and may scroll by index first. */
   const scrollToEndNow = useCallback(() => {
     const list = listRef.current;
-    const scroller = list?.getNativeScrollRef();
+    const scroller = list?.getNativeScrollRef() as ScrollViewInstance | null | undefined; // FlashList types the class
     if (scroller) scroller.scrollToEnd({ animated: false });
     else list?.scrollToEnd({ animated: false });
   }, []);

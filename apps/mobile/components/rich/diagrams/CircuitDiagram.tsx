@@ -53,18 +53,18 @@ export function CircuitDiagram({ spec }: { spec: CircuitDiagramSpec }) {
   const description = useMemo(() => spec.alt ?? describeCircuit(spec.circuit, t), [spec, t]);
 
   const drawing = useMemo(() => {
-    const wires = Skia.Path.Make();
+    const wires = Skia.PathBuilder.Make();
     for (const segment of layout.wires) {
       wires.moveTo(segment.x1, segment.y1);
       wires.lineTo(segment.x2, segment.y2);
     }
     const brackets = layout.groups.map((group) => {
-      const path = Skia.Path.Make();
+      const path = Skia.PathBuilder.Make();
       path.moveTo(group.x1, group.y + BRACKET_TICK);
       path.lineTo(group.x1, group.y);
       path.lineTo(group.x2, group.y);
       path.lineTo(group.x2, group.y + BRACKET_TICK);
-      return path;
+      return path.detach();
     });
     const current = layout.current
       ? arrowPath(
@@ -78,7 +78,7 @@ export function CircuitDiagram({ spec }: { spec: CircuitDiagramSpec }) {
         )
       : null;
     return {
-      wires,
+      wires: wires.detach(),
       brackets,
       current,
       source: sourceSymbolPaths(layout.source.kind, layout.source.cx, layout.source.cy),

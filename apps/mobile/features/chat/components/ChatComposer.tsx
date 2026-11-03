@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   View,
   type ViewStyle,
+  type TextInputInstance,
 } from "react-native";
 import Animated, {
   useAnimatedKeyboard,
@@ -149,7 +150,7 @@ export const ChatComposer = memo(function ChatComposer({
   const input = draft?.input ?? "";
   const onChangeInput = draftApi ? draftApi.typeInput : noopComposerInput;
   const [scanHint, setScanHint] = useState(false);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const math = useMathKeyboardInsert({
     input,
     draftRevision: draft?.revision,

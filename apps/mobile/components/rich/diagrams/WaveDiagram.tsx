@@ -36,14 +36,14 @@ const WAVE_STROKE = 2;
 
 /** Two polylines in one path: the envelope's upper and lower edges. */
 function polylinesPath(lines: readonly ScreenPoint[][]) {
-  const path = Skia.Path.Make();
+  const path = Skia.PathBuilder.Make();
   for (const line of lines) {
     line.forEach((point, index) => {
       if (index === 0) path.moveTo(point.px, point.py);
       else path.lineTo(point.px, point.py);
     });
   }
-  return path;
+  return path.detach();
 }
 
 /** The scene's fixed strokes as Skia paths; only the curve changes per frame. */
@@ -93,12 +93,12 @@ export function WaveDiagram({ spec, content }: { spec: WaveDiagramSpec; content:
   const { xs, frames, cycle, axis } = scene;
   const curve = useDerivedValue(() => {
     const ys = waveSamplesAt(frames, cycle, progress.value);
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     for (let i = 0; i < xs.length; i += 1) {
       if (i === 0) path.moveTo(xs[i], axis - ys[i]);
       else path.lineTo(xs[i], axis - ys[i]);
     }
-    return path;
+    return path.detach();
   });
 
   const standing = isStandingWave(spec.wave);

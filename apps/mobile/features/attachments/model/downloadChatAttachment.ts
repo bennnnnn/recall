@@ -271,7 +271,7 @@ export async function saveChatAttachmentToLibrary(options: {
   requireCurrent();
   if (granted) {
     try {
-      await MediaLibrary.saveToLibraryAsync(localUri);
+      await MediaLibrary.Asset.create(localUri);
       requireCurrent();
       return "saved";
     } catch {

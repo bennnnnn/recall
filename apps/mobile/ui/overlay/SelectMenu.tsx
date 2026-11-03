@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { View } from "react-native";
+import type { HostInstance } from "react-native";
 
 import type { IconName } from "../icons/names";
 import { Menu } from "./Menu";
@@ -22,7 +22,7 @@ type Props = {
   onSelect: (key: string) => void;
   onClose: () => void;
   /** The row that opened the choices. Without one the menu centers. */
-  anchorRef?: RefObject<View | null>;
+  anchorRef?: RefObject<HostInstance | null>;
   title?: string;
   /** Locks every choice (e.g. while the last pick saves). */
   disabled?: boolean;

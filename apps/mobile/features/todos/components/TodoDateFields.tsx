@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type Ref } from "react";
-import { Keyboard, Pressable, Text, View } from "react-native";
+import { Keyboard, Pressable, Text, View, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -66,7 +66,7 @@ export function TodoDateFields({
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const [remindOpen, setRemindOpen] = useState(false);
   const [savingLead, setSavingLead] = useState(false);
-  const remindRowRef = useRef<View>(null);
+  const remindRowRef = useRef<HostInstance>(null);
   const lead = normalizeReminderLeadMinutes(leadMinutes ?? DEFAULT_REMINDER_LEAD_MINUTES);
   // The server's instant (the lead time, after quiet hours); "—" until it is known. Quiet
   // hours can move it to the next morning, and a lead before midnight to the evening before:
@@ -258,7 +258,7 @@ function ReviewRow({
   inset?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
-  ref?: Ref<View>;
+  ref?: Ref<HostInstance>;
 }) {
   const C = useTheme();
   return (

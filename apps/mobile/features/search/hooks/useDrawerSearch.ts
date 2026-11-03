@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import type { TextInput } from "react-native";
+import type { TextInputInstance } from "react-native";
 
 import { api, type SearchResult } from "@/lib/api";
 import { isAbortError } from "@/lib/api/abort";
@@ -42,7 +42,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
   const view = viewRef.current;
   const cycleRef = useRef(emptyCycle(view));
   const [snapshot, setSnapshot] = useState(() => emptySnapshot(cycleRef.current));
-  const searchInputRef = useRef<TextInput>(null);
+  const searchInputRef = useRef<TextInputInstance>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusFrameRef = useRef<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
@@ -155,7 +155,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
     loadingMore: visible && snapshot.loadingMore,
     loadingMoreError: visible && snapshot.loadingMoreError,
     loadMore, retrySearch, isCurrentSearch,
-    searchInputRef: searchInputRef as RefObject<TextInput>,
+    searchInputRef: searchInputRef as RefObject<TextInputInstance>,
     openSearch, closeSearch, onSearchChange,
   };
 }

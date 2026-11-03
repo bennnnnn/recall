@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { View } from "react-native";
+import type { HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Menu } from "@/ui/overlay/Menu";
@@ -15,7 +15,7 @@ export function TodoDetailMenu({
 }: {
   visible: boolean;
   checked: boolean;
-  anchorRef: RefObject<View | null>;
+  anchorRef: RefObject<HostInstance | null>;
   onMarkDone: () => void;
   onDelete: () => void;
   onClose: () => void;

@@ -21,7 +21,7 @@ describe("share sheet", () => {
   beforeEach(() => {
     platform.OS = "ios";
     jest.mocked(Share.share).mockReset();
-    jest.mocked(Share.share).mockResolvedValue({ action: Share.sharedAction });
+    jest.mocked(Share.share).mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
   });
 
   it("opens the native share sheet with message and iOS subject", async () => {

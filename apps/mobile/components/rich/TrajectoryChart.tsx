@@ -56,7 +56,7 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
     [bounds, chartWidth],
   );
   const gridPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     axes.xTicks.forEach((tick) => {
       path.moveTo(tick.px, TRAJECTORY_PAD);
       path.lineTo(tick.px, TRAJECTORY_CHART_HEIGHT - TRAJECTORY_PAD);
@@ -65,15 +65,15 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
       path.moveTo(TRAJECTORY_PAD, tick.py - 4);
       path.lineTo(chartWidth - TRAJECTORY_PAD, tick.py - 4);
     });
-    return path;
+    return path.detach();
   }, [axes, chartWidth]);
   const axesPath = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     path.moveTo(axes.yAxisX, TRAJECTORY_PAD);
     path.lineTo(axes.yAxisX, TRAJECTORY_CHART_HEIGHT - TRAJECTORY_PAD);
     path.moveTo(TRAJECTORY_PAD, axes.xAxisY);
     path.lineTo(chartWidth - TRAJECTORY_PAD, axes.xAxisY);
-    return path;
+    return path.detach();
   }, [axes, chartWidth]);
   // The clip keeps a wild sample off the labels; it is grown by the stroke so
   // a curve running along the plot's edge keeps its full width.
