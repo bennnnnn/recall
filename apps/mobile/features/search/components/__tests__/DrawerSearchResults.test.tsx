@@ -110,3 +110,13 @@ it("offers more archived chats under the archived section, and retries a failed 
   const all = await render(<DrawerChatFlashList {...props} onLoadMoreArchived={undefined} />);
   expect(all.queryByRole("button", { name: "drawer.archived_show_more" })).toBeNull();
 });
+
+it("shows a file hit by its name and opens the message it was sent with", async () => {
+  const open = jest.fn();
+  const result: SearchResult = { chat_id: "chat", message_id: "message", chat_title: "Chemistry",
+    content: "Chemistry Study Guide.pdf", match_type: "file", role: "user", created_at: "2026-01-01" };
+  const view = await render(<DrawerSearchResultRow result={result} title="Chemistry" onOpenChat={open} />);
+  expect(view.getByText("Chemistry Study Guide.pdf")).toBeTruthy();
+  await fireEvent.press(view.getByRole("button"));
+  expect(open).toHaveBeenCalledWith("chat", "message");
+});

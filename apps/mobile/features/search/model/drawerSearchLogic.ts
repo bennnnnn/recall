@@ -16,7 +16,8 @@ export function isValidDrawerSearchQuery(query: string): boolean {
 export function mergeDrawerSearchResults(previous: SearchResult[], incoming: SearchResult[]): SearchResult[] {
   const byId = new Map<string, SearchResult>();
   for (const result of [...previous, ...incoming]) {
-    const id = result.message_id ? `message:${result.chat_id}:${result.message_id}` : `title:${result.chat_id}`;
+    // A file hit shares its message's id with that message's own hit: the kind tells them apart.
+    const id = `${result.match_type}:${result.chat_id}:${result.message_id ?? ""}:${result.match_type === "file" ? result.content : ""}`;
     byId.set(id, result);
   }
   return [...byId.values()];

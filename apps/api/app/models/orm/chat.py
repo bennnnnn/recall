@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Computed,
     DateTime,
     ForeignKey,
     Index,
@@ -24,6 +25,15 @@ from app.core.ids import uuid7
 
 if TYPE_CHECKING:
     from app.models.orm.user import User
+
+# A message as a reader sees it, which the drawer's search matches and quotes: a user
+# message up to its first attachment line (the server's ``[File: /attachments/…]`` /
+# ``[Image: /attachments/…]`` markers and the file's extracted text follow the words
+# they typed; a typed "[File a bug]" is theirs), a reply without its ``[Image: …]`` lines.
+# Kept by Postgres (migration 0124), so every writer is covered.
+MESSAGE_SEARCH_TEXT_SQL = r"""CASE WHEN role = 'user'
+THEN regexp_replace(content, '(^|\n)\[(File|Image): /attachments/[\s\S]*$', '')
+ELSE regexp_replace(content, '(^|\n)\[Image: /attachments/[^\n]*', '', 'g') END"""
 
 
 class Chat(Base):
@@ -92,13 +102,13 @@ class Message(Base):
         Index("ix_messages_chat_created_id", "chat_id", "created_at", "id"),
         Index("ix_messages_chat_role", "chat_id", "role"),
         Index("ix_messages_user_id", "user_id"),
-        # DB index (migration 0118) is actually:
-        #   CREATE INDEX ix_messages_user_content_trgm ON messages
-        #   USING gin (user_id, content gin_trgm_ops)
+        # DB index (migration 0124) is actually:
+        #   CREATE INDEX ix_messages_user_search_text_trgm ON messages
+        #   USING gin (user_id, search_text gin_trgm_ops)
         # (btree_gin), so a search reads one user's trigrams. Plain Index() can't express
         # the opclass; declared so autogenerate knows an index with this name exists here
         # and won't propose dropping it.
-        Index("ix_messages_user_content_trgm", "user_id", "content"),
+        Index("ix_messages_user_search_text_trgm", "user_id", "search_text"),
         CheckConstraint("role IN ('user', 'assistant', 'system')", name="ck_messages_role"),
         CheckConstraint(
             "feedback IS NULL OR feedback IN ('up', 'down')", name="ck_messages_feedback"
@@ -119,6 +129,10 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    # Read-only: Postgres derives it from content (MESSAGE_SEARCH_TEXT_SQL).
+    search_text: Mapped[str | None] = mapped_column(
+        Text, Computed(MESSAGE_SEARCH_TEXT_SQL, persisted=True)
+    )
     model: Mapped[str | None] = mapped_column(String)
     feedback: Mapped[str | None] = mapped_column(String)  # 'up' | 'down' | None
     # A reply that did not finish: 'user_stop' (Stop) or 'interrupted'; None when it did.

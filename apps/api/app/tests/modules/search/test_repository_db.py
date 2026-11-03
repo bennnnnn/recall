@@ -88,7 +88,8 @@ async def test_search_scopes_both_message_and_chat_owners_and_tags_archived(db_s
         allowed.id: False,
         archived.id: True,
     }
-    assert {row["match_type"] for row in rows} == {"message"}
+    # Each of the owner's chats matches by its title and by its message.
+    assert sorted(row["match_type"] for row in rows) == ["message", "message", "title", "title"]
 
 
 @pytest.mark.asyncio
@@ -118,16 +119,18 @@ async def test_search_equal_timestamp_pages_have_stable_order_by_cursor(db_sessi
 
     pages = []
     cursor = None
-    for _ in range(3):
+    for _ in range(4):
         page = await search_repo.search_conversations(
             db_session, owner.id, "needle", limit=1, cursor=cursor
         )
         pages.append(page)
         cursor = page[1]
 
-    assert [next_cursor is not None for _, next_cursor in pages] == [True, True, False]
+    assert [next_cursor is not None for _, next_cursor in pages] == [True, True, True, False]
+    # Both titles first (equal times: by chat id), then the messages.
     assert [(rows[0]["chat_id"], rows[0]["message_id"]) for rows, _ in pages] == [
         (title_chat.id, None),
+        (messages_chat.id, None),
         (messages_chat.id, message_ids[1]),
         (messages_chat.id, message_ids[0]),
     ]
