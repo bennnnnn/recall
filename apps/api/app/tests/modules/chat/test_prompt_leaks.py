@@ -319,6 +319,12 @@ def test_the_label_ends_at_its_sentence_not_a_decimal(reply: str, kept: str) -> 
             "I'm fairly sure that is the Face with Tears of Joy emoji.",
             "what's the crying laughing face called?",
         ),
+        # A stop inside the sentence ("e.g.", "Fig.") is no sentence end: kept whole.
+        (
+            "This is a physics problem, so I'll use a free-body diagram, e.g. one per mass. T1 = 5 N.",
+            "help",
+        ),
+        ("This is a rate problem, so I'll use Fig. 2 and v = d/t.", "help"),
         # Asked about the prompt: nothing is cut.
         (
             "I can't share my system prompt. I'll use emoji sparingly.",

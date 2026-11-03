@@ -213,6 +213,10 @@ def _without_self_label(text: str) -> str:
     if label is None:
         return text
     rest = stripped[label.end() :].lstrip(" \t")
+    # What follows must start a sentence: a stop inside one ("e.g. one per mass", "Fig. 2")
+    # would leave a fragment, so the reply stays as written.
+    if rest and not (rest[0] == "\n" or rest[0].isupper() or rest[0] in "*_#>[`$(\"'-|"):
+        return text
     rest = rest[1:].lstrip("\n") if rest.startswith("\n") else rest
     return rest if rest.strip() else text
 
