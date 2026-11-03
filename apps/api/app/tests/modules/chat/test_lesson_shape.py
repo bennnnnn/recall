@@ -365,6 +365,20 @@ async def test_a_teach_me_that_teaches_is_held_as_a_lesson(calls: _Calls) -> Non
         ("Intro.\n\n1. **A**\n2. **B**\n3. **C**\n\nWhere to start?", False),
         ("Python is great! New to coding?", False),
         (" ".join(["word"] * 200), True),
+        # A long lesson with a short numbered list in the middle still teaches.
+        (
+            " ".join(["Plants turn light into sugar."] * 20)
+            + "\n\n1. Light reactions\n2. Calvin cycle\n3. Products\n\n"
+            + " ".join(["Each stage feeds the next."] * 15),
+            True,
+        ),
+        # A long outline, every topic described, is still an outline.
+        (
+            "Here is the map.\n\n"
+            + "\n".join(f"{n}. **Topic {n}** — " + " ".join(["detail"] * 25) for n in range(1, 8))
+            + "\n\nWhere would you like to start?",
+            False,
+        ),
     ],
 )
 def test_what_a_teach_me_reply_is(reply: str, lesson: bool) -> None:

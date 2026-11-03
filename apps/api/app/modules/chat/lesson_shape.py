@@ -32,7 +32,14 @@ import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from app.modules.chat.lesson_blocks import blocks, is_heading, is_paragraph, is_question, joined
+from app.modules.chat.lesson_blocks import (
+    blocks,
+    is_heading,
+    is_list,
+    is_paragraph,
+    is_question,
+    joined,
+)
 from app.modules.chat.lesson_calls import QuizCard, lesson_practice
 from app.modules.chat.lesson_copy import LessonCopy, lesson_copy
 from app.modules.chat.lesson_layout import prompt_lesson_layout
@@ -62,8 +69,14 @@ def teaches(text: str) -> bool:
     if _NUMBERED_SECTION.search(prose):
         return True
     if numbered_items(prose) >= MIN_TOPICS:
-        return False
+        # An outline's words are in its list; a lesson with a short list ("1. Light
+        # reactions, 2. Calvin cycle") still teaches in the paragraphs around it.
+        return _words_outside_lists(prose) > _OUTLINE_MAX_WORDS
     return len(prose.split()) > _OUTLINE_MAX_WORDS
+
+
+def _words_outside_lists(prose: str) -> int:
+    return sum(len(part.split()) for part in blocks(prose) if not is_list(part))
 
 
 def asks_back(text: str) -> bool:
