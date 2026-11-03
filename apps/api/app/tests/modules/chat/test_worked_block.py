@@ -42,7 +42,7 @@ DISPLACEMENT_LAID_OUT = (
     "**Solution**\n\n"
     "**Constant velocity formula**  \n$s = v t$\n\n"
     "**Substitution**  \n$s = 20 \\times 120$  \n$s = 2400\\,\\mathrm{m}$\n\n"
-    "**Answer**\n\n$2400\\,\\mathrm{m}\\ \\text{east}$"
+    "**Answer**\n\n$2400\\,\\mathrm{m}$ (east)"
 )
 
 POLES = r"""Here is the conversion.
@@ -129,7 +129,7 @@ def test_render_heads_the_formula_with_its_name_and_keeps_the_symbol_elsewhere()
     # The name heads the formula ("<name> formula"), never a note beside it.
     assert "**Constant velocity formula**  \n$s = v t$\n" in laid_out
     assert "— Constant velocity" not in laid_out
-    assert laid_out.endswith("**Answer**\n\n$s = 2400\\,\\mathrm{m}\\ \\text{east}$")
+    assert laid_out.endswith("**Answer**\n\n$s = 2400\\,\\mathrm{m}$ (east)")
 
 
 def test_render_puts_a_rearrangement_under_its_formula_and_moves_under_steps() -> None:
@@ -264,7 +264,7 @@ def test_a_record_out_of_order_rewrites_the_reply_and_marks_it() -> None:
     assert sent.startswith(
         "**Given**  \n$v = 20\\,\\mathrm{m/s}$  \n$t = 120\\,\\mathrm{s}$  \n$m = 5"
     )
-    assert sent.rstrip().endswith("$2400\\,\\mathrm{m}\\ \\text{east}$")
+    assert sent.rstrip().endswith("$2400\\,\\mathrm{m}$ (east)")
 
 
 def test_the_worked_filter_counts_the_blocks_it_laid_out() -> None:
@@ -344,7 +344,7 @@ def test_a_formula_before_the_first_part_label_is_that_parts() -> None:
     )
     laid_out = render_worked(block, OTHER)
     assert laid_out.count("**(a)") == 1 and laid_out.count("---") == 1
-    assert "**(a) speed**\n\n**Speed formula**  \n$v = d/t$\n" in laid_out
+    assert "**(a) Speed**\n\n**Speed formula**  \n$v = d/t$\n" in laid_out
 
 
 def test_a_rewrite_keeps_the_list_length_and_a_stop_after_it_keeps_the_reply_whole() -> None:
@@ -360,7 +360,7 @@ def test_a_rewrite_keeps_the_list_length_and_a_stop_after_it_keeps_the_reply_who
     assert accum.rewritten and accum.shown[0] == "Before.\n\n"
     accum.mark_user_stop()
     # The client's count is of the text it drew before the rewrite: never cut by it.
-    assert accum.reply_text(client_shown_chars=20).endswith("$2400\\,\\mathrm{m}\\ \\text{east}$")
+    assert accum.reply_text(client_shown_chars=20).endswith("$2400\\,\\mathrm{m}$ (east)")
 
 
 def test_the_closer_of_a_block_cut_at_the_cap_is_dropped() -> None:

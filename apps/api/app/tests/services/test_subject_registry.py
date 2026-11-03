@@ -81,7 +81,7 @@ async def test_closed_chemistry_does_not_also_solve_as_math() -> None:
     reply = maybe_direct_subject_reply(result.verified, text)
     assert reply is not None
     assert reply.count("```answer") == 1
-    assert "notation: chemistry\nΔG = −10 kJ/mol" in reply
+    assert "```answer\n\\Delta G = -10\\,\\mathrm{kJ/mol}\n```" in reply
     assert "✅" not in reply
     assert result.unverified is False
 
@@ -210,7 +210,7 @@ async def test_two_problems_joined_by_and_also_are_both_verified() -> None:
     result = await build_subject_augmentation(question, settings)
     assert result.unverified is False
     assert result.direct_text is not None
-    assert "40 mL" in result.direct_text
+    assert "40\\,\\mathrm{mL}" in result.direct_text
     assert "x = 2" in result.direct_text
     assert "x = 3" in result.direct_text
     assert "couldn't automatically verify" not in result.direct_text

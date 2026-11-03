@@ -565,9 +565,9 @@ def test_direct_reply_has_scan_friendly_heading_order() -> None:
     positions = [read.index(heading) for heading in [*headings, "**Answer**"]]
     assert positions == sorted(positions)
     # The law's name heads its equation, never a note beside it.
-    assert "**Definition of pH formula**  \npH = −log₁₀[H⁺]\n" in reply
+    assert "**Definition of pH formula**  \n$\\mathrm{pH} = -\\log_{10} [\\mathrm{H⁺}]$\n" in reply
     assert reply.count("```answer") == 1
-    assert "notation: chemistry\npH = 3.00\n" in reply
+    assert "```answer\n\\mathrm{pH} = 3.00\n" in reply
     assert "✅" not in reply
     assert maybe_direct_chemistry_reply(verified, has_image_attachment=False) == reply
     assert maybe_direct_chemistry_reply(verified, has_image_attachment=True) is None

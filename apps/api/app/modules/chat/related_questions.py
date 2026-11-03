@@ -161,9 +161,32 @@ def _typeset_symbols(text: str) -> str:
     return "".join(pieces)
 
 
+# Chips came back lowercase: "how do i solve these?" (2026-11-02). A question opens with
+# a capital; a symbol that opens it keeps its case, which is its meaning. A lone "i" is
+# left as written: it is the speaker or the imaginary unit ("1 + i", "what does i squared
+# equal?", "(i)"), and four review rounds each found a chip the speaker rule misread.
+_FIRST_WORD = re.compile(r"[^\W\d_]+(?![\w'’-])|[^\W\d_]['’]")  # noqa: RUF001
+
+
+def sentence_case(question: str) -> str:
+    """``how do you find mass from moles?`` → ``How do you find mass from moles?``."""
+    first = _FIRST_WORD.match(question)
+    apostrophes = "'\u2019"  # straight and typed
+    if first is not None and first.group(0).rstrip(apostrophes).islower() and _a_word(first):
+        return question[0].upper() + question[1:]
+    return question
+
+
+def _a_word(first: re.Match[str]) -> bool:
+    """The chip opens on a word, not a symbol: ``x + 2 = 5``, ``f(x) = 3x`` and
+    ``sin(x) = 0`` keep their case, which is their meaning."""
+    after = first.string[first.end() :].lstrip()[:1]
+    return len(first.group(0)) > 1 and after not in set("(=+-*/^_<>≤≥")
+
+
 def _prepare_question(candidate: str) -> str | None:
     """A short full question with a variable and a number kept apart, or none."""
-    cleaned = _typeset_symbols(collapse_ws(candidate).strip("\"'“”"))
+    cleaned = sentence_case(_typeset_symbols(collapse_ws(candidate).strip("\"'“”")))
     if not cleaned.endswith("?") and _QUESTION_OPENER.match(cleaned):
         # The model left off the mark ("why does everest grow taller"): the question is whole.
         cleaned = cleaned.rstrip(".") + "?"

@@ -35,7 +35,9 @@ from app.services.workout import (
 _HARD_BREAK = "  \n"
 _SUPERSCRIPTS = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 _POWER = re.compile(r"\^\{?(-?\d+)\}?")
-_NOT_TEX = re.compile(r"[{}\\$%&#_^~]")
+_BOLD = re.compile(r"\*\*(.+?)\*\*")
+# A note is text beside the maths: no maths or markdown marks in it.
+_NOT_MARKDOWN = re.compile(r"[\\$*_`]")
 _LONG_SUBSCRIPT = re.compile(r"_(?![{\\])([A-Za-z0-9]{2,})")
 _NUMBERED = re.compile(r"^([A-Za-z])(\d+)$")
 _UPRIGHT = re.compile(r"\\(?:mathrm|text)|\\[,;! ]")
@@ -84,8 +86,10 @@ def unit_tex(unit: str) -> str:
 
 def tidy_tex(tex: str) -> str:
     """A subscript of several characters in braces: ``x_final`` → ``x_{final}``; a product
-    written with a dot, with \\times as every reply writes it (``services/times_sign``)."""
-    return with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex.strip()))
+    written with a dot, with \\times as every reply writes it (``services/times_sign``).
+    Markdown bold a model put in a maths field (``**1.2**``) is dropped: TeX has none."""
+    tex = _BOLD.sub(r"\1", tex.strip())
+    return with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex))
 
 
 def tidy_symbol(symbol: str) -> str:
@@ -293,15 +297,16 @@ def _step_rows(step: Step) -> list[str]:
 
 
 def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
-    """The value with its unit, and a note ("east") upright inside the maths: the card draws
-    one line of maths, where a word outside it would be read as italic letters."""
+    """The value with its unit in maths, and a note ("east", "an ideal lever, treated as
+    frictionless") after it as text: the card draws words beside its maths in the reading
+    font (``lib/math/answerLayout.ts``), never as maths letters (live, 2026-11-03)."""
     value = f"{tidy_tex(answer.value)}{unit_tex(answer.unit)}"
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
     named = answer.symbol and answer.symbol != answer.unit and not names_nothing(answer.symbol)
     symbol = tidy_symbol(answer.symbol) if named else ""
     shown = value if layout.law_heading or not symbol else f"{symbol} = {value}"
-    note = _NOT_TEX.sub("", answer.note).strip()
-    return math_line(f"{shown}\\ \\text{{{note}}}" if note else shown)
+    note = _NOT_MARKDOWN.sub("", answer.note).strip()
+    return f"{math_line(shown)} ({note})" if note else math_line(shown)
 
 
 def _part_body(

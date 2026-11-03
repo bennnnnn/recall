@@ -4,7 +4,8 @@ A worked reply has the same sections everywhere, in this order, each only when
 it has lines:
 
 - **Given**: the problem as the student wrote it, or the stated values, closed by a
-  ``where`` line naming their symbols (``where_line``)
+  ``where`` line naming their symbols (``where_line``); a given written with its meaning
+  as a note is moved onto that line (``given_names``)
 - **Required**: what is asked (**Find** before November 2026; a reader takes both), each
   unknown with its meaning in brackets on its line, ``$v$ (speed)`` (``asked_line``)
 - **Solution**: a heading alone, over the working below (none before November 2026)
@@ -34,6 +35,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.services.given_names import named_givens, note_at
+from app.services.given_names import where_line as where_line
 from app.services.times_sign import with_times
 
 GIVEN = "Given"
@@ -136,7 +139,7 @@ def names_a_formula(title: str) -> bool:
 def _named(line: str) -> tuple[str, str] | None:
     """``$a^2 + b^2 = c^2$ — Pythagorean theorem`` → (the formula, its name). A name is
     capitalised; a lower-case note says something else (``on the x-axis``)."""
-    at = _note_at(line)
+    at = note_at(line)
     if at < 0:
         return None
     note = line[at + len(_NOTE_SEPARATOR) :].strip()
@@ -171,23 +174,12 @@ def formula_sections(
     return sections
 
 
-def _note_at(line: str) -> int:
-    """Where the move's note separator starts outside maths, or -1."""
-    in_math = False
-    for at, char in enumerate(line):
-        if char == "$":
-            in_math = not in_math
-        elif not in_math and line.startswith(_NOTE_SEPARATOR, at):
-            return at
-    return -1
-
-
 def asked_line(line: str) -> str:
     """``$v$ — speed`` → ``$v$ (speed)``: what is asked reads as one line, the unknown with
     its meaning beside it, symbol first as in Given. A note after " — " is a move's (the
     phone draws it as a line of its own above its maths); the meaning of an unknown is no
     move (November 2026)."""
-    at = _note_at(line)
+    at = note_at(line)
     if at < 0:
         return line
     note = line[at + len(_NOTE_SEPARATOR) :].strip()
@@ -228,7 +220,7 @@ def render_workout(
     opening = [
         _section(heading, kept)
         for heading, lines in (
-            (GIVEN, workout.given),
+            (GIVEN, named_givens(workout.given)),
             (REQUIRED, tuple(asked_line(line) for line in workout.find)),
         )
         if (kept := _clean(lines))
@@ -288,42 +280,6 @@ def as_formula_heading(text: str) -> str:
         if worked and title not in _ROLE_HEADINGS and (named or following.lstrip().startswith("$")):
             lines[number] = line.replace(f"**{bold.group('title')}**", f"**{FORMULA}**", 1)
     return "\n".join(lines)
-
-
-_IRREGULAR_PLURALS = {"index": "indices"}
-
-
-def _plural(noun: str) -> str:
-    """``mass`` → ``masses``; the last word of a phrase takes the plural."""
-    head, _, last = noun.rpartition(" ")
-    if last in _IRREGULAR_PLURALS:
-        word = _IRREGULAR_PLURALS[last]
-    elif last.endswith("y") and last[-2:-1] not in ("a", "e", "i", "o", "u"):
-        word = last[:-1] + "ies"  # velocity → velocities
-    else:
-        word = last + ("es" if last.endswith(("s", "sh", "ch", "x")) else "s")
-    return f"{head} {word}" if head else word
-
-
-def where_line(definitions: list[tuple[str, str]]) -> str | None:
-    """``where $v_0$ = initial speed; $m_1$, $m_2$ = masses`` from (symbol, meaning) pairs.
-
-    A symbol named twice is named once; symbols with the same meaning are named together,
-    and then semicolons keep one group's commas from running into the next.
-    """
-    groups: dict[str, list[str]] = {}
-    for symbol, meaning in definitions:
-        shown = groups.setdefault(meaning, [])
-        if symbol not in shown and all(symbol not in other for other in groups.values()):
-            shown.append(symbol)
-    parts = [
-        f"{', '.join(f'${symbol}$' for symbol in symbols)} = "
-        + (_plural(meaning) if len(symbols) > 1 else meaning)
-        for meaning, symbols in groups.items()
-        if symbols
-    ]
-    grouped = any(len(symbols) > 1 for symbols in groups.values())
-    return f"where {('; ' if grouped else ', ').join(parts)}" if parts else None
 
 
 def split_equality_chain(tex: str) -> list[str]:

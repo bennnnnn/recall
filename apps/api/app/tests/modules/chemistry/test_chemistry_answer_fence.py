@@ -52,7 +52,7 @@ def test_model_answer_and_structure_are_replaced_by_the_solver() -> None:
     )
     finalized = validate_chemistry_fences(invented, verified=verified)
     assert finalized.count("```answer") == 1
-    assert "notation: chemistry\npH = 3" in finalized
+    assert "verified: true\n\\mathrm{pH} = 3.00\n" in finalized
     assert "```smiles" not in finalized
     assert "```chem_scene" not in finalized
     assert "The pH is 4." not in finalized
@@ -66,7 +66,7 @@ def test_a_longer_explanation_stays_beside_the_verified_fence() -> None:
     )
     finalized = validate_chemistry_fences(explained, verified=verified)
     assert "fully dissociated" in finalized
-    assert "notation: chemistry\npH = 3" in finalized
+    assert "verified: true\n\\mathrm{pH} = 3.00\n" in finalized
 
 
 def test_solver_scene_survives_and_is_not_duplicated() -> None:

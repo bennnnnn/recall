@@ -76,3 +76,34 @@ def test_calendar_lines_gives_the_week_and_the_named_dates() -> None:
 )
 def test_correct_weekday_dates_fixes_only_a_wrong_weekday(text: str, fixed: str) -> None:
     assert correct_weekday_dates(text) == fixed
+
+
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [
+        # Live, 2026-11-02, confirming a reminder for "Wednesday at 7pm".
+        (
+            "Wednesday is Wednesday, November 4, 2026, so I'll set it for 7:00 PM that day.",
+            "Wednesday is November 4, 2026, so I'll set it for 7:00 PM that day.",
+        ),
+        ("**Friday** is **Friday**, November 6.", "**Friday** is November 6."),
+        # The bold opened on the repeated day is the date's: it stays.
+        (
+            "Wednesday is **Wednesday, November 4, 2026**.",
+            "Wednesday is **November 4, 2026**.",
+        ),
+        ("Next Monday is Monday Nov 9.", "Next Monday is Nov 9."),
+        ("Saturday falls on Saturday, 7 November.", "Saturday falls on 7 November."),
+        # A wrong weekday is corrected first, then said once.
+        ("Wednesday is Thursday, November 4, 2026.", "Wednesday is November 4, 2026."),
+        # Anything else is left as written.
+        (
+            "The meeting is Wednesday, November 4, 2026.",
+            "The meeting is Wednesday, November 4, 2026.",
+        ),
+        ("Monday is Monday. Tuesday is busy.", "Monday is Monday. Tuesday is busy."),
+        ("Wednesday is Friday's day off.", "Wednesday is Friday's day off."),
+    ],
+)
+def test_a_weekday_is_never_restated_as_itself(text: str, said: str) -> None:
+    assert correct_weekday_dates(text) == said

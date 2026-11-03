@@ -112,9 +112,9 @@ def test_two_questions_have_one_given_lettered_by_part(block: str) -> None:
     assert text.count("**Given**") == 1
     assert opening.startswith(_ONE_GIVEN)
     assert "**Required**  \n(a) $v$ (speed of the car)  \n(b) $v$ (speed of the train)" in opening
-    assert car.strip().startswith("**(a) speed of the car**\n\n**Average speed formula**")
+    assert car.strip().startswith("**(a) Speed of the car**\n\n**Average speed formula**")
     assert "30\\," not in car
-    assert train.startswith("**(b) speed of the train**\n\n**Average speed formula**")
+    assert train.startswith("**(b) Speed of the train**\n\n**Average speed formula**")
     assert re.findall(r"\*\*Answer \(([a-z])\)\*\*", text) == ["a", "b"]
     assert car.rstrip().endswith("$20\\,\\mathrm{m/s}$")
     assert train.rstrip().endswith("$30\\,\\mathrm{m/s}$")
@@ -141,7 +141,7 @@ def test_a_symbol_the_parts_name_apart_is_named_once_by_what_they_share() -> Non
 
 def test_a_part_titled_with_the_contracts_placeholder_is_named_by_what_is_asked() -> None:
     text = _laid_out(CONTRACT.replace("part: b | speed of the train", "part: b | what is asked"))
-    assert "**(b) speed of the train**" in text and "what is asked" not in text
+    assert "**(b) Speed of the train**" in text and "what is asked" not in text
 
 
 @pytest.mark.parametrize(
@@ -193,8 +193,8 @@ def test_a_letter_named_again_is_that_part_and_an_empty_part_is_left_out() -> No
     )
     text = _laid_out(block)
     assert re.findall(r"^\*\*\(([a-z])\) ([^*]+)\*\*$", text, re.M) == [
-        ("a", "speed"),
-        ("b", "distance"),
+        ("a", "Speed"),
+        ("b", "Distance"),
     ]
     assert re.findall(r"\*\*Answer \(([a-z])\)\*\*", text) == ["a", "b"]
 
@@ -347,3 +347,27 @@ def test_the_finished_reply_letters_what_is_asked_and_states_each_answer_once() 
     assert _LETTERED in text
     assert text.count("```answer") == 2
     assert text.rstrip().endswith("```") and "The car's speed" not in text
+
+
+def test_the_scanned_lever_lays_every_part_out_alike() -> None:
+    """Live, 2026-11-03 (a scanned lever, three parts): the headings came out lowercase,
+    and the efficiency's note was drawn in the maths italic inside its card."""
+    block = (
+        "given: E | 40 | N | effort force\ngiven: L | 60 | N | load\n"
+        "required: W_{in} | work input\nrequired: W_{out} | work output\n"
+        "required: \\eta | efficiency\n"
+        "part: a | work input\nformula: Work | W = F \\times d\n"
+        "substitution: W_{in} = 40 \\times 0.03\nanswer: W_{in} | **1.2** | J\n"
+        "part: b | work output\nformula: Work | W = F \\times d\n"
+        "substitution: W_{out} = 60 \\times 0.02\nanswer: W_{out} | 1.2 | J\n"
+        "part: c | efficiency\nformula: Efficiency | \\eta = W_{out} / W_{in} \\times 100\\%\n"
+        "substitution: \\eta = 1.2 / 1.2 \\times 100\\%\n"
+        "answer: \\eta | 100 | % | an ideal lever, treated as frictionless"
+    )
+    text = _laid_out(block)
+    headings = re.findall(r"^\*\*\(([a-c])\) ([^*]+)\*\*$", text, re.M)
+    assert headings == [("a", "Work input"), ("b", "Work output"), ("c", "Efficiency")]
+    assert re.findall(r"\*\*Answer \(([a-c])\)\*\*", text) == ["a", "b", "c"]
+    assert "**1.2**" not in text
+    assert "100\\,\\%$ (an ideal lever, treated as frictionless)" in text
+    assert "\\text{an ideal" not in text

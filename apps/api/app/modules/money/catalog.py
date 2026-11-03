@@ -68,12 +68,18 @@ class RateLookup:
     one ("30-year fixed mortgage"); ``terms`` are the buckets averages are published for,
     in the product's term unit (none: the rate has no term). A reading counts only when
     it lies within ``plausible`` (percent) and describes a day at most ``fresh_days`` ago.
+
+    ``spread`` is said beside an average that mixes kinds of the product priced far apart
+    (every savings account: big banks paying almost nothing beside high-yield accounts
+    near 4%). Such an average is not the bar for any one account, so it judges no rate
+    unrealistic (``note.market_note``): only an average of the same kind may.
     """
 
     name: str
     plausible: tuple[float, float]
     fresh_days: int
     terms: tuple[float, ...] = ()
+    spread: str = ""
 
     def term_bucket(self, asked: float | None) -> float | None:
         if not self.terms:
@@ -311,7 +317,18 @@ PRODUCTS: tuple[Product, ...] = (
         inputs=(_START, _DEPOSIT, _RATE, _years(1, 50)),
         outputs=_SAVINGS_OUTPUTS,
         defaults={"start": 0, "deposit": 0, "years": 10},
-        lookup=RateLookup("savings account interest rate (APY)", (0.01, 10.0), 60),
+        # The national average (0.37%, 2026-09) is pulled down by big banks paying 0.01%;
+        # "4% is not a realistic savings rate" beside it was wrong for a high-yield account
+        # (2026-11-02). It is said for reference, with what it averages.
+        lookup=RateLookup(
+            "savings account interest rate (APY)",
+            (0.01, 10.0),
+            60,
+            spread=(
+                "That average includes accounts that pay almost nothing; high-yield "
+                "savings accounts pay much more."
+            ),
+        ),
         settings={"per_year": 12},
     ),
     # Money put into a market, not a bank. "If I invest $200 a month at 7%" was a savings

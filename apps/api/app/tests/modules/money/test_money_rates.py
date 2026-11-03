@@ -154,3 +154,35 @@ def test_each_kind_checks_its_own_plausible_range() -> None:
     assert checked(high, HITS, used, None, "the United States", TODAY) is not None
     assert checked(high, HITS, new, 60, "the United States", TODAY) is None
     assert car.rate_lookup("unknown") is car.lookup
+
+
+async def test_a_mixed_average_says_what_it_averages_from_the_cache_too(
+    monkeypatch, fake_redis
+) -> None:
+    """The savings average judges no rate (``RateLookup.spread``), read or cached."""
+
+    async def search(settings: Settings, found: list[str], **_: Any) -> tuple[list, list]:
+        return HITS, []
+
+    async def read(**_: Any) -> RateReading:
+        return _reading(rate_percent=0.37)
+
+    monkeypatch.setattr(rates, "run_cached_search", search)
+    monkeypatch.setattr(rates.litellm_gateway, "complete_structured", read)
+    savings = product("savings")
+    found = [
+        await current_average(
+            savings, None, "the United States", Settings(), fake_redis, today=TODAY
+        )
+        for _ in range(2)
+    ]
+    assert all(rate is not None and "high-yield" in rate.spread for rate in found)
+
+    async def mortgage_rate(**_: Any) -> RateReading:
+        return _reading()
+
+    monkeypatch.setattr(rates.litellm_gateway, "complete_structured", mortgage_rate)
+    mortgage = await current_average(
+        product("mortgage"), 30, "the United States", Settings(), fake_redis, today=TODAY
+    )
+    assert mortgage is not None and mortgage.spread == ""

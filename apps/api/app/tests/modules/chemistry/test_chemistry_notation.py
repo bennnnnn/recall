@@ -16,6 +16,7 @@ from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.solver import CHEMISTRY_SOLVERS
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.answer_fence import mark_server_answer_fences
+from app.tests.behavior.latex_check import latex_problems
 from app.tests.modules.chemistry.new_law_cases import NEW_LAW_CASES
 from app.tests.modules.chemistry.test_chemistry_solver_expanded import (
     PIPELINE_CASES,
@@ -150,7 +151,7 @@ def test_every_numeric_given_is_used_in_the_working(
 
 
 @pytest.mark.parametrize(("question", "operation", "_answer"), ALL_CASES)
-def test_a_direct_reply_is_typeset_free_of_math_delimiters_and_stable_under_finalize(
+def test_a_direct_reply_draws_on_the_phone_and_is_stable_under_finalize(
     question: str, operation: str, _answer: str
 ) -> None:
     intent = extract_chemistry_intent(question)
@@ -158,7 +159,8 @@ def test_a_direct_reply_is_typeset_free_of_math_delimiters_and_stable_under_fina
     verified = build_verified_chemistry(intent)
     assert verified is not None
     reply = format_direct_chemistry_reply(verified)
-    assert "$" not in reply
+    # Its rows are maths as physics' are: every command one the phone draws, none in prose.
+    assert latex_problems(reply) == [], operation
     # Finalizing adds only the server's verified marker to its own card.
     assert validate_chemistry_fences(reply, verified=verified) == mark_server_answer_fences(reply)
 
