@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.ask import QUANTITY, SENTENCE, ask_clause
+from app.modules.physics.ask import QUANTITY, SENTENCE, ask_clause, asks
 from app.modules.physics.claims import CHECK_ONLY
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ASK_VERBS
@@ -76,13 +76,14 @@ def _joined_asks(text: str) -> int:
 
 
 def asks_count(text: str) -> int:
-    """How many things the text asks for: labelled parts, questions, joined quantities
-    or joined questions."""
+    """How many things the text asks for: labelled parts, questions, joined quantities,
+    joined questions, or the quantities every asked clause names (``ask.asks``)."""
     return max(
         labelled_parts(text),
         _question_sentences(text),
         _joined_quantities(text),
         _joined_asks(text),
+        len(asks(text)),
         1,
     )
 

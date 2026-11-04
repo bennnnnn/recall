@@ -391,12 +391,20 @@ def _selection_uses_gravity(spec: FormulaSpec, params: dict[str, float]) -> bool
     return True
 
 
-def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> PhysicsIntent | None:
+def complete_physics_intent(
+    intent: PhysicsIntent,
+    request: PhysicsRequest,
+    *,
+    step_of: tuple[str, ...] | None = None,
+) -> PhysicsIntent | None:
     """Attach every requested projectile quantity, or refuse a different solve.
 
     A solve that skipped a stated quantity of a kind it uses is refused too.
     The asked dimensions ride along so the block can refuse an answer to a
     different question.
+
+    ``step_of`` makes this one law of a chain (``chain_solve``): it carries its own ask,
+    and whether every stated value was used is checked over the whole chain.
     """
     from app.modules.physics.accounting import competing_given
     from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
@@ -440,6 +448,8 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
             params = {**params, "g": detected}
             units = {**(intent.physics_units or {}), "g": "m/s^2"}
             intent = intent.model_copy(update={"physics_params": params, "physics_units": units})
+    if step_of is not None:
+        return intent.model_copy(update={"asked": step_of, "asked_unit": None})
     if competing_given(intent, request.text) is not None:
         return None
     if not accounts_for_counted_items(intent, request.text):

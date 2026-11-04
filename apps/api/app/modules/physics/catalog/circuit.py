@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
+# One load on one source: a network of resistors (series, parallel) or a cell's lost
+# volts is another law's, and Ohm's law read on one resistor of it answers the wrong
+# circuit ("a 6 Ω resistor in parallel with an identical one across 12 V" is 4 A).
+_ONE_LOAD = ("terminal", "lost volts", "parallel", "series")
+
 # The members of a resistor network, in the order stated. Six covers "five 100 Ω
 # resistors in series" and a count word's repeats.
 _NETWORK = tuple(var(f"R{n}", f"R_{n}", "ohm") for n in range(1, 7))
@@ -19,6 +24,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("I", "I", "ampere"),
             var("R", "R", "ohm"),
         ),
+        binding=Binding(
+            asks=("voltage", "potential difference"),
+            result=("volt",),
+            inputs=(frozenset({"I", "R"}),),
+            excludes=_ONE_LOAD,
+            nonnegative=True,
+        ),
     ),
     formula(
         "current",
@@ -29,6 +41,13 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("R", "R", "ohm"),
             var("V", "V", "volt"),
+        ),
+        binding=Binding(
+            asks=("current",),
+            result=("ampere",),
+            inputs=(frozenset({"V", "R"}),),
+            excludes=_ONE_LOAD,
+            nonnegative=True,
         ),
     ),
     formula(
@@ -41,6 +60,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("I", "I", "ampere"),
             var("V", "V", "volt"),
         ),
+        binding=Binding(
+            asks=("resistance",),
+            result=("ohm",),
+            inputs=(frozenset({"V", "I"}),),
+            excludes=_ONE_LOAD,
+            nonnegative=True,
+        ),
     ),
     formula(
         "electrical_power",
@@ -52,6 +78,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("I", "I", "ampere"),
             var("R", "R", "ohm"),
             var("V", "V", "volt"),
+        ),
+        binding=Binding(
+            asks=("power dissipated", "electrical power", "power"),
+            result=("watt",),
+            inputs=(frozenset({"V", "I"}), frozenset({"I", "R"}), frozenset({"V", "R"})),
+            excludes=_ONE_LOAD,
+            nonnegative=True,
         ),
     ),
     # A battery's own resistance adds to the load's: I = ε/(R + r).
@@ -78,7 +111,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("ampere",),
             inputs=(frozenset({"E_emf", "R", "r_int"}),),
             cues=("internal resistance",),
-            excludes=("terminal", "lost volts", "parallel", "series"),
+            excludes=_ONE_LOAD,
             nonnegative=True,
         ),
     ),
@@ -191,6 +224,13 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("power", "P", "watt"),
             var("t", "t", "second"),
+        ),
+        binding=Binding(
+            asks=("electrical energy", "energy used", "energy consumed", "energy"),
+            result=("joule",),
+            inputs=(frozenset({"power", "t"}),),
+            excludes=_ONE_LOAD,
+            nonnegative=True,
         ),
     ),
     formula(

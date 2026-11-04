@@ -103,6 +103,12 @@ def _split(text: str) -> _Parts | None:
     return _Parts(stated, asks, through)
 
 
+def changes_the_situation(ask: str) -> bool:
+    """A part that depends on another or on a change ("3 s later", "its kinetic energy if
+    the speed doubles"): read alone it is answered for the unchanged values."""
+    return _RELATIVE.search(ask) is not None
+
+
 def _own_values(asks: list[str]) -> bool:
     """Every part states its own values, of the same kinds ("the earth, where g = 10
     m/s²", "the moon, where g = 1.6 m/s²"), so no part needs another's."""
@@ -131,7 +137,7 @@ def _title(ask: str, op: str, symbol: str, givens: str) -> str:
     return _HOW_NOUNS.get(phrase, phrase[:1].upper() + phrase[1:])
 
 
-def _working(block: VerifiedPhysicsBlock, ask: str, givens: str) -> PhysicsPartWorking | None:
+def part_working(block: VerifiedPhysicsBlock, ask: str, givens: str) -> PhysicsPartWorking | None:
     intent = block.physics_intent
     if intent is None or not block.display_answer or not block.physics_formulas:
         return None
@@ -158,7 +164,7 @@ def _first_new_part(
     """The first reading of a part that solves to an answer no earlier part has."""
     for candidate in candidates:
         block = _solved(candidate, settings)
-        working = None if block is None else _working(block, ask, givens)
+        working = None if block is None else part_working(block, ask, givens)
         if (
             block is not None
             and working is not None
@@ -176,7 +182,7 @@ def solve_in_parts(text: str, settings: Settings) -> VerifiedPhysicsBlock | None
     parts = _split(normalize_physics_units(text))
     if parts is None or len(parts.asks) > _MAX_PARTS:
         return None
-    if any(_RELATIVE.search(ask) for ask in parts.asks):
+    if any(changes_the_situation(ask) for ask in parts.asks):
         return None
     own = _own_values(parts.asks)
     blocks: list[VerifiedPhysicsBlock] = []
@@ -206,7 +212,7 @@ def solve_in_parts(text: str, settings: Settings) -> VerifiedPhysicsBlock | None
                 own or _named_apart(names, read, first, second)
             ):
                 return None
-    return _joined(blocks, workings)
+    return joined_parts(blocks, workings)
 
 
 def _law_name(op: str, ask: str) -> str | None:
@@ -251,7 +257,7 @@ def _pictures(block: VerifiedPhysicsBlock) -> list[dict[str, object]]:
     return [spec for spec in specs if spec is not None and spec.get("type") != "answer"]
 
 
-def _joined(
+def joined_parts(
     blocks: list[VerifiedPhysicsBlock], workings: list[PhysicsPartWorking]
 ) -> VerifiedPhysicsBlock:
     lines = [

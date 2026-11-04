@@ -1,0 +1,170 @@
+[
+  {
+    "id": "ch-throw-01",
+    "area": "chained",
+    "prompt": "a ball is thrown straight up at 15 m/s. how high does it go and how long till it comes back down",
+    "expect": "answer",
+    "answer": [
+      11.46788990825688,
+      "m"
+    ],
+    "parts": [
+      [
+        11.46788990825688,
+        "m"
+      ],
+      [
+        3.058103975535168,
+        "s"
+      ]
+    ],
+    "note": "live 2026-11-03: two asks, one was answered"
+  },
+  {
+    "id": "ch-throw-02",
+    "area": "chained",
+    "prompt": "A stone is thrown vertically upward at 25 m/s. Find the maximum height and the time to reach the top.",
+    "expect": "answer",
+    "answer": [
+      31.855249745158,
+      "m"
+    ],
+    "parts": [
+      [
+        31.855249745158,
+        "m"
+      ],
+      [
+        2.54841997961264,
+        "s"
+      ]
+    ]
+  },
+  {
+    "id": "ch-brake-01",
+    "area": "chained",
+    "prompt": "car going 72 km/h slams the brakes and stops in 4 s. whats the deceleration and how far does it go before stopping",
+    "expect": "answer",
+    "answer": [
+      5.0,
+      "m/s^2"
+    ],
+    "parts": [
+      [
+        5.0,
+        "m/s^2"
+      ],
+      [
+        40.0,
+        "m"
+      ]
+    ],
+    "note": "live 2026-11-03: part (a) had no answer"
+  },
+  {
+    "id": "ch-brake-02",
+    "area": "chained",
+    "prompt": "a car going 72 km/h stops in 4 s. how far does it travel while stopping",
+    "expect": "answer",
+    "answer": [
+      40.0,
+      "m"
+    ],
+    "note": "d = vt and s = ½(u+v)t are named alike; 'stops in' is v = 0"
+  },
+  {
+    "id": "ch-circuit-01",
+    "area": "chained",
+    "prompt": "A 12 ohm resistor is connected to a 9 V battery. Find the current and the power dissipated.",
+    "expect": "answer",
+    "answer": [
+      0.75,
+      "A"
+    ],
+    "parts": [
+      [
+        0.75,
+        "A"
+      ],
+      [
+        6.75,
+        "W"
+      ]
+    ]
+  },
+  {
+    "id": "ch-circuit-02",
+    "area": "chained",
+    "prompt": "A current of 3 A flows through a 4 ohm resistor. Find the voltage across it and the power.",
+    "expect": "answer",
+    "answer": [
+      12.0,
+      "V"
+    ],
+    "parts": [
+      [
+        12.0,
+        "V"
+      ],
+      [
+        36.0,
+        "W"
+      ]
+    ]
+  },
+  {
+    "id": "ch-car-01",
+    "area": "chained",
+    "prompt": "A 1500 kg car moves at 20 m/s. What is its momentum and its kinetic energy?",
+    "expect": "answer",
+    "answer": [
+      30000.0,
+      "kg*m/s"
+    ],
+    "parts": [
+      [
+        30000.0,
+        "kg*m/s"
+      ],
+      [
+        300000.0,
+        "J"
+      ]
+    ]
+  },
+  {
+    "id": "ch-d-double",
+    "area": "decline",
+    "prompt": "A 2 kg ball moves at 3 m/s. Find its momentum and its kinetic energy if the speed doubles.",
+    "expect": "decline",
+    "note": "a part that changes the situation"
+  },
+  {
+    "id": "ch-d-drag",
+    "area": "decline",
+    "prompt": "A ball is dropped from 20 m. F = -kv. How high and how long until it hits the ground?",
+    "expect": "decline",
+    "note": "a stated drag law is not free fall"
+  },
+  {
+    "id": "ch-d-push",
+    "area": "decline",
+    "prompt": "A ball is thrown straight up at 15 m/s by a 30 N push. How high does it go and how long till it comes back down?",
+    "expect": "decline",
+    "note": "a stated force no law of the chain uses"
+  },
+  {
+    "id": "ch-d-angle",
+    "area": "decline",
+    "prompt": "How much work is done by a 10 N force at an angle over 4 m, and what power in 2 s?",
+    "expect": "decline",
+    "note": "an angle named and not stated"
+  },
+  {
+    "id": "ch-d-nomass",
+    "area": "decline",
+    "prompt": "A car accelerates from rest at 2 m/s^2 for 5 s. Find its final speed and its kinetic energy.",
+    "expect": "decline",
+    "note": "no mass for the kinetic energy"
+  }
+]

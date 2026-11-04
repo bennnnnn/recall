@@ -20,6 +20,8 @@ SAMPLES: dict[str, float] = {
     "m": 5.0,
     "g": 9.81,
     "F": 100.0,
+    # Work done, in joules: P = W/t.
+    "W": 500.0,
     "mu": 0.2,
     "h": 3.0,
     "h0": 20.0,

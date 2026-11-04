@@ -138,7 +138,11 @@ async def test_symbolic_drag_fall_is_verified_not_a_failed_check() -> None:
 async def test_a_failed_physics_solve_is_still_unverified() -> None:
     text = "A ball is dropped from 20 m. How long until it hits the ground?"
 
-    with patch("app.modules.physics.prompt._build_physics_block", return_value=None):
+    # Every solve fails: the one law read, and the chain of laws behind it.
+    with (
+        patch("app.modules.physics.prompt._build_physics_block", return_value=None),
+        patch("app.modules.physics.prompt.solve_chain", return_value=None),
+    ):
         result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
     assert result.subject == "physics"
     assert result.verified is None
