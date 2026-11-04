@@ -141,8 +141,30 @@ _WEEKDAY_DATE = re.compile(
 )
 
 
+# "Wednesday is Wednesday, November 4, 2026": a weekday the user named, restated as itself
+# before its date (live, 2026-11-02). The date is what the sentence tells them.
+_WEEKDAY_AS_ITSELF = re.compile(
+    r"\b(?P<day>Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?P<bold>\*\*)?"
+    r"(?P<verb>\s+(?:is|means|will be|would be|falls on|lands on)\s+)(?:the\s+)?(?P<open>\*\*)?"
+    r"(?P=day)(?P<close>\*\*)?,?\s+(?=(?:\*\*)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d))",
+    re.IGNORECASE,
+)
+
+
 def correct_weekday_dates(text: str) -> str:
-    """Replace a weekday that does not belong to the date written next to it."""
+    """Replace a weekday that does not belong to the date written next to it, then say a
+    weekday once: "Wednesday is Wednesday, November 4" reads "Wednesday is November 4"."""
+    return _WEEKDAY_AS_ITSELF.sub(_said_once, _correct_weekdays(text))
+
+
+def _said_once(match: re.Match[str]) -> str:
+    # "is **Wednesday, November 4**": the bold opened on the repeated day belongs to the
+    # date, so it stays when the day goes.
+    reopen = "**" if match.group("open") and not match.group("close") else ""
+    return f"{match.group('day')}{match.group('bold') or ''}{match.group('verb')}{reopen}"
+
+
+def _correct_weekdays(text: str) -> str:
 
     def replace(match: re.Match[str]) -> str:
         weekday = match.group(1)

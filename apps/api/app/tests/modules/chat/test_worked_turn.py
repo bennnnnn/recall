@@ -216,10 +216,7 @@ async def test_the_phone_is_sent_the_layout_and_the_reply_saves_with_a_not_check
     assert streamed.startswith("**Given**  \n$v = 20\\,\\mathrm{m/s}$")
     assert "given:" not in streamed and "```worked" not in streamed
     assert len(yielded) > 3  # section by section, not all at the end
-    assert (
-        "**Answer**\n\n```answer\nverified: false\n$2400\\,\\mathrm{m}\\ \\text{east}$\n```"
-        in saved
-    )
+    assert "**Answer**\n\n```answer\nverified: false\n$2400\\,\\mathrm{m}$ (east)\n```" in saved
     assert VERIFIED_ANSWER_MARKER not in saved
     # Every section survives the finalize passes (the prompt-leak pass among them).
     for heading in (

@@ -62,6 +62,30 @@ _ABOUT_THIS_USER = re.compile(
     r"|\b(?:a )?different person\b|\bset(?:ting)? (?:it|that|this|them) aside\b",
     re.IGNORECASE,
 )
+# The reply on its own presentation rules, which only the prompt set: "This is a
+# school-style physics problem, so I'll walk through the reasoning without emoji." (live,
+# 2026-11-03, a scanned equilibrium problem). Emoji are a style rule of the prompt's; a
+# reply that says it uses or skips them is telling the user about its instructions.
+_STYLE_RULE = re.compile(
+    r"\bemoji-free\b"
+    r"|\b(?:without|no|skip(?:ping)?|avoid(?:ing)?|leave out|leaving out|drop(?:ping)?|"
+    r"add(?:ing)?|us(?:e|ing)|includ(?:e|ing)|sprinkl(?:e|ing))\s+(?:the\s+|any\s+|a few\s+|some\s+)?"
+    r"emojis?\b",
+    re.IGNORECASE,
+)
+_FIRST_PERSON = re.compile(r"\b(?:i'll|i will|i'm|i am|i've|let me|we'll)\b", re.IGNORECASE)
+_ASKED_ABOUT_STYLE = re.compile(r"\bemoji|[\U0001F300-\U0001FAFF]", re.IGNORECASE)
+# An opening that labels the message and announces the plan, whatever the plan is: "This
+# is a current-events question, so I'll check …", "This is a school-style physics
+# problem, so I'll walk through …". The answer that follows is the plan carried out.
+_SELF_LABEL = re.compile(
+    r"(?:this|that|it)(?:'s| is| looks like| sounds like| seems like) (?:a|an) [^.!?\n]{0,80}?"
+    r"\b(?:question|problem|request|task|query|topic|one)\b[^.!?\n]{0,80}?"
+    r"(?:,|\bso|\band)\s+(?:i(?:'ll| will| am going to|'m going to)|let me|we(?:'ll| will))\b"
+    # To the sentence's end, past a decimal point; a colon starts the answer itself.
+    r"[^:!?\n]*?[.!](?=\s|$)",
+    re.IGNORECASE,
+)
 # A sentence that goes on about the one before it.
 _POINTS_BACK = re.compile(r"(?:it|this|that|they|these|those)\b", re.IGNORECASE)
 # The user's latest messages name these parts or ask about prompt writing.
@@ -153,7 +177,11 @@ def drop_prompt_leaks(
     # ("Never open with a rhetorical hook." in tips on blog intros, review 2026-10-30).
     if _copied_count(text, prompt) < 2:
         prompt = frozenset()
-    if not text or not (_PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt):
+    style = _STYLE_RULE.search(text) is not None and not any(
+        line and _ASKED_ABOUT_STYLE.search(line) for line in asked
+    )
+    text = _without_self_label(text)
+    if not text or not (_PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt or style):
         return text
     if _asked_about(asked):
         return text
@@ -173,6 +201,24 @@ def drop_prompt_leaks(
         out.append(kept)
     result = "\n".join(out)
     return result if result.strip() else text
+
+
+def _without_self_label(text: str) -> str:
+    """``text`` without an opening sentence that labels the message and announces the plan;
+    as it was when that sentence is the whole reply."""
+    stripped = text.lstrip()
+    if stripped.startswith(_SKIPPED_STARTS) or stripped.startswith(("```", "~~~")):
+        return text
+    label = _SELF_LABEL.match(straighten_apostrophes(stripped))
+    if label is None:
+        return text
+    rest = stripped[label.end() :].lstrip(" \t")
+    # What follows must start a sentence: a stop inside one ("e.g. one per mass", "Fig. 2")
+    # would leave a fragment, so the reply stays as written.
+    if rest and not (rest[0] == "\n" or rest[0].isupper() or rest[0] in "*_#>[`$(\"'-|"):
+        return text
+    rest = rest[1:].lstrip("\n") if rest.startswith("\n") else rest
+    return rest if rest.strip() else text
 
 
 def _asked_about(asked: tuple[str | None, ...]) -> bool:
@@ -231,6 +277,8 @@ def _without_leaks(line: str, prompt: AbstractSet[str] | None = None) -> str | N
 
 def _leaks(prose: str) -> bool:
     if _PROMPT_LABEL.search(prose):
+        return True
+    if _STYLE_RULE.search(prose) and _FIRST_PERSON.search(prose):
         return True
     return bool(_PROMPT_PART.search(prose) and _ABOUT_THIS_USER.search(prose))
 

@@ -4,6 +4,7 @@ import { repairLeakedMath } from "@/lib/math/healMathSource";
 import { rewriteLatexChemistry } from "@/lib/math/latexChemistry";
 import { CMD_REPLACEMENTS } from "@/lib/math/latexCommands";
 import { rewriteLatexDialects } from "@/lib/math/latexDialects";
+import { uprightNotation } from "@/lib/math/latexUpright";
 import { braceFractionArguments, isParenthesizedArgument, readGroup } from "@/lib/math/latexGroups";
 import { rewriteLatexStructure } from "@/lib/math/latexStructure";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
@@ -213,7 +214,11 @@ function normalizeScriptsOutsideUpright(source: string): string {
 export function preprocessLatex(latex: string): string {
   // Package dialects (`\bm`, `\SI`, `\abs`) and mhchem become plain TeX first,
   // so their units and formulas reach the upright-run step below.
-  const source = rewriteLatexChemistry(rewriteLatexDialects(restoreMathEscapes(latex.trim())));
+  // Units, sentence words and formulas a writer left in the maths font go upright
+  // (lib/math/latexUpright.ts), the same rule MathJax's display path takes.
+  const source = rewriteLatexChemistry(
+    uprightNotation(rewriteLatexDialects(restoreMathEscapes(latex.trim()))),
+  );
   let s = repairLeakedMath(normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(source)));
   s = preserveNativeUprightRuns(s);
   // Protect visible set delimiters before command replacement turns `\{`

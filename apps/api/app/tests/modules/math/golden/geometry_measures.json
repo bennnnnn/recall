@@ -9,7 +9,7 @@
     "content": "5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}"
    },
    "canonical_answer": "5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}",
-   "worked_reply": "**Given**  \n$d = 10$ — diameter\n\n**Required**  \n$P$ (perimeter of the semicircle)\n\n**Solution**\n\n**Curved edge plus the diameter formula**  \n$P = \\pi r + 2r$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$P = \\pi(5) + 2(5)$\n\n**Answer**\n\n```answer\n5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}\n```\n"
+   "worked_reply": "**Given**  \n$d = 10$  \nwhere $d$ = diameter\n\n**Required**  \n$P$ (perimeter of the semicircle)\n\n**Solution**\n\n**Curved edge plus the diameter formula**  \n$P = \\pi r + 2r$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$P = \\pi(5) + 2(5)$\n\n**Answer**\n\n```answer\n5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}\n```\n"
   }
  },
  {
@@ -22,7 +22,7 @@
     "content": "18\\pi \\approx 56.55"
    },
    "canonical_answer": "18\\pi \\approx 56.55",
-   "worked_reply": "**Given**  \n$r = 3$ — radius\n\n**Required**  \n$V$ (volume of the hemisphere)\n\n**Solution**\n\n**Half a sphere formula**  \n$V = \\frac{2}{3}\\pi r^3$\n\n**Substitution**  \n$V = \\frac{2}{3}\\pi(3)^3$\n\n**Answer**\n\n```answer\n18\\pi \\approx 56.55\n```\n"
+   "worked_reply": "**Given**  \n$r = 3$  \nwhere $r$ = radius\n\n**Required**  \n$V$ (volume of the hemisphere)\n\n**Solution**\n\n**Half a sphere formula**  \n$V = \\frac{2}{3}\\pi r^3$\n\n**Substitution**  \n$V = \\frac{2}{3}\\pi(3)^3$\n\n**Answer**\n\n```answer\n18\\pi \\approx 56.55\n```\n"
   }
  },
  {
@@ -35,7 +35,7 @@
     "content": "\\approx 5.00"
    },
    "canonical_answer": "\\approx 5.00",
-   "worked_reply": "**Given**  \n$C = 31.4$ — circumference\n\n**Required**  \n$r$ (radius)\n\n**Solution**\n\n**Circumference formula**  \n$C = 2\\pi r$\n\n**Substitution**  \n$r = \\frac{C}{2\\pi} = \\frac{31.4}{2\\pi} \\approx 5.00$\n\n**Answer**\n\n```answer\n\\approx 5.00\n```\n"
+   "worked_reply": "**Given**  \n$C = 31.4$  \nwhere $C$ = circumference\n\n**Required**  \n$r$ (radius)\n\n**Solution**\n\n**Circumference formula**  \n$C = 2\\pi r$\n\n**Substitution**  \n$r = \\frac{C}{2\\pi} = \\frac{31.4}{2\\pi} \\approx 5.00$\n\n**Answer**\n\n```answer\n\\approx 5.00\n```\n"
   }
  },
  {
@@ -48,7 +48,7 @@
     "content": "\\approx 7.98"
    },
    "canonical_answer": "\\approx 7.98",
-   "worked_reply": "**Given**  \n$A = 50$ — area\n\n**Required**  \n$d$ (diameter)\n\n**Solution**\n\n**Circle area formula**  \n$A = \\pi r^2$\n\n**Substitution**  \n$r = \\sqrt{\\frac{A}{\\pi}} = \\sqrt{\\frac{50}{\\pi}} \\approx 3.99$  \n$d = 2r \\approx 2(3.99)$\n\n**Answer**\n\n```answer\n\\approx 7.98\n```\n"
+   "worked_reply": "**Given**  \n$A = 50$  \nwhere $A$ = area\n\n**Required**  \n$d$ (diameter)\n\n**Solution**\n\n**Circle area formula**  \n$A = \\pi r^2$\n\n**Substitution**  \n$r = \\sqrt{\\frac{A}{\\pi}} = \\sqrt{\\frac{50}{\\pi}} \\approx 3.99$  \n$d = 2r \\approx 2(3.99)$\n\n**Answer**\n\n```answer\n\\approx 7.98\n```\n"
   }
  },
  {
@@ -87,7 +87,7 @@
     "content": "3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}"
    },
    "canonical_answer": "3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}",
-   "worked_reply": "**Given**  \n$d = 6$ — diagonal\n\n**Required**  \n$s$ (side)\n\n**Solution**\n\n**Pythagorean theorem on half the square formula**  \n$d = s\\sqrt{2}$\n\n**Substitution**  \n$s = \\frac{6}{\\sqrt{2}}$\n\n**Answer**\n\n```answer\n3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}\n```\n"
+   "worked_reply": "**Given**  \n$d = 6$  \nwhere $d$ = diagonal\n\n**Required**  \n$s$ (side)\n\n**Solution**\n\n**Pythagorean theorem on half the square formula**  \n$d = s\\sqrt{2}$\n\n**Substitution**  \n$s = \\frac{6}{\\sqrt{2}}$\n\n**Answer**\n\n```answer\n3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}\n```\n"
   }
  },
  {
@@ -113,7 +113,7 @@
     "content": "9\\sqrt{3} \\approx 15.59"
    },
    "canonical_answer": "9\\sqrt{3} \\approx 15.59",
-   "worked_reply": "**Given**  \n$s = 6$ — side\n\n**Required**  \n$A$ (area)\n\n**Solution**\n\n**Equilateral triangle area formula**  \n$A = \\frac{\\sqrt{3}}{4}s^2$\n\n**Substitution**  \n$A = \\frac{\\sqrt{3}}{4}(6)^2$\n\n**Answer**\n\n```answer\n9\\sqrt{3} \\approx 15.59\n```\n"
+   "worked_reply": "**Given**  \n$s = 6$  \nwhere $s$ = side\n\n**Required**  \n$A$ (area)\n\n**Solution**\n\n**Equilateral triangle area formula**  \n$A = \\frac{\\sqrt{3}}{4}s^2$\n\n**Substitution**  \n$A = \\frac{\\sqrt{3}}{4}(6)^2$\n\n**Answer**\n\n```answer\n9\\sqrt{3} \\approx 15.59\n```\n"
   }
  },
  {
@@ -126,7 +126,7 @@
     "content": "2\\sqrt{3} \\approx 3.46"
    },
    "canonical_answer": "2\\sqrt{3} \\approx 3.46",
-   "worked_reply": "**Given**  \n$s = 2$ — edge\n\n**Required**  \n$d$ (space diagonal)\n\n**Solution**\n\n**Pythagorean theorem in 3D formula**  \n$d = \\sqrt{s^2 + s^2 + s^2} = s\\sqrt{3}$\n\n**Substitution**  \n$d = 2\\sqrt{3}$\n\n**Answer**\n\n```answer\n2\\sqrt{3} \\approx 3.46\n```\n"
+   "worked_reply": "**Given**  \n$s = 2$  \nwhere $s$ = edge\n\n**Required**  \n$d$ (space diagonal)\n\n**Solution**\n\n**Pythagorean theorem in 3D formula**  \n$d = \\sqrt{s^2 + s^2 + s^2} = s\\sqrt{3}$\n\n**Substitution**  \n$d = 2\\sqrt{3}$\n\n**Answer**\n\n```answer\n2\\sqrt{3} \\approx 3.46\n```\n"
   }
  },
  {
@@ -230,7 +230,7 @@
     "content": "8\\ \\mathrm{m}"
    },
    "canonical_answer": "8\\ \\mathrm{m}",
-   "worked_reply": "**Given**  \n$L = 10$ — the ladder, the hypotenuse  \n$d = 6$ — foot of the ladder to the wall\n\n**Required**  \n$h$ (height up the wall)\n\n**Solution**\n\n**Pythagorean theorem**  \n$h^2 + d^2 = L^2$\n\n**Substitution**  \n$h = \\sqrt{10^2 - 6^2} = \\sqrt{100 - 36} = \\sqrt{64}$\n\n**Answer**\n\n```answer\n8\\ \\mathrm{m}\n```\n"
+   "worked_reply": "**Given**  \n$L = 10$ — the ladder, the hypotenuse  \n$d = 6$  \nwhere $d$ = foot of the ladder to the wall\n\n**Required**  \n$h$ (height up the wall)\n\n**Solution**\n\n**Pythagorean theorem**  \n$h^2 + d^2 = L^2$\n\n**Substitution**  \n$h = \\sqrt{10^2 - 6^2} = \\sqrt{100 - 36} = \\sqrt{64}$\n\n**Answer**\n\n```answer\n8\\ \\mathrm{m}\n```\n"
   }
  },
  {

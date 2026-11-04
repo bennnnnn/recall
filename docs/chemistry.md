@@ -116,12 +116,15 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    the one list of operations: `ChemistryIntent` refuses an operation it does not declare,
    or one it files under another kind.
 4. **Respond** (`direct.py`) — a complete typed calculation returns the exact compact
-   five-section answer without waiting for model prose. The value is a server
-   ` ```answer ` fence with the header line `notation: chemistry` (after the server's
-   `verified: true`, added when the reply is sent), so the client draws it as text
-   instead of LaTeX, with the green check. Image questions remain on the vision/model
+   five-section answer without waiting for model prose, laid out as physics' and maths'
+   are (`tex.py`, below). The value is a server ` ```answer ` fence (after the server's
+   `verified: true`, added when the reply is sent): one quantity in LaTeX, like every
+   subject's card (`n(\mathrm{H₂O}) = 2.0\,\mathrm{mol}`); an equation, a name or a list
+   under the header line `notation: chemistry`, so the client draws it as text instead
+   of LaTeX. Either way with the green check. Image questions remain on the vision/model
    path because OCR text was not the typed extractor input. Substitution is the
-   formula with the numbers put in, never a repeat of the answer.
+   formula with the numbers put in, then (as physics') the same symbol equal to the
+   answer's value when the last row stops at an operation.
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
    structure fences and appends the solver's copies (the card marked `verified: true`).
    Prose whose own final value differs (`pH = 1.00` against `2.00`) gets one line above
@@ -257,7 +260,15 @@ results, IUPAC names) is never typeset. The model is told to write species with
 Unicode sub- and superscripts and `→` / `⇌` arrows, not LaTeX.
 
 A verified answer is laid out as a textbook worked solution (`direct.py`): **Given**,
-**Required**, **Formula**, **Substitution**, **Answer**. An operation that is a procedure rather
+**Required**, **Formula**, **Substitution**, **Answer**, with physics' layout rules (one
+rule for every subject). Each row that is one formula is maths (`tex.chemistry_tex`):
+symbols in the maths font, a unit upright after a thin space (`36\,\mathrm{g}`), a
+chemical formula upright (`n(\mathrm{H₂O})`, `[\mathrm{H⁺}]`), `pH` upright; a row that is
+a sentence, a list or an equation with an arrow stays text. The givens are symbols
+(`m = 36 g`, never `mass = 36 g` beside `n = m / M`) closed by a `where` line naming the
+ones `glossary.py` knows by symbol and unit (`m` in g is a mass, in mol/kg a molality);
+**Required** is `$n$ (amount)`; and the substitution is worked to the answer's value as
+physics' is (`n = 36 g / 18.015 g/mol`, then `n = 2.0 mol`). An operation that is a procedure rather
 than an equation (balancing, a correlation table, a structure match, an electron
 configuration: `catalog.METHODS`) shows its rule under **Method** and checks it under
 **Working**. Substitutions carry units (`n = 36 g / 18.015 g/mol`, `c = 0.5 mol / 2.0 L`),

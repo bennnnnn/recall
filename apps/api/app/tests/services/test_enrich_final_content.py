@@ -144,7 +144,7 @@ async def test_exception_fallback_dispatches_to_chemistry_owner(
     result = await _finalize_failed_subject_pass(deps, verified, "```answer\n4\n```")
 
     assert len(calls) == 2
-    assert "notation: chemistry\npH = 3" in result
+    assert "verified: true\n\\mathrm{pH} = 3.00\n" in result
     assert "```answer\n4\n```" not in result
     math_safe.assert_not_called()
 
@@ -556,7 +556,7 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
         should_cancel=None,
     )
     assert persisted.count("```answer") == 1
-    assert "notation: chemistry\npH = 3" in persisted
+    assert "verified: true\n\\mathrm{pH} = 3.00\n" in persisted
     assert "```smiles" not in persisted
     assert "```answer\n4\n```" not in persisted
 

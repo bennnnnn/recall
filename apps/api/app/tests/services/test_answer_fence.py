@@ -235,7 +235,7 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
         ),
         (
             "**Answer**\nA = 3 × 4\nArea = 12 cm²\nSo the area is 12 square centimetres.",
-            "A = 3 × 4\n\n**Answer**\n\n```answer\nverified: false\nArea = 12 cm²\n```\n\n"
+            "A = 3 × 4\n\n**Answer**\n\n```answer\nverified: false\nArea = $12\\,\\mathrm{cm²}$\n```\n\n"
             "So the area is 12 square centimetres.",
         ),
         (

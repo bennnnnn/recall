@@ -100,7 +100,7 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         value = f"{num(moles)} mol"
         return verified(
             "Verified amount of substance",
-            (f"mass = {inp(mass)} g", f"M({formula}) = {molar_mass_working(molar)} g/mol"),
+            (f"m = {inp(mass)} g", f"M({formula}) = {molar_mass_working(molar)} g/mol"),
             "Amount, n",
             *stated("mass_to_moles"),
             (f"n = {qty(mass, 'g')} / {molar_mass_working(molar)} g/mol",),

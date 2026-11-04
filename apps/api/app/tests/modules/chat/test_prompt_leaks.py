@@ -219,3 +219,118 @@ def test_one_sentence_of_advice_like_a_rule_stays(reply: str) -> None:
     from app.modules.chat.prompt_leaks import _rule_grams
 
     assert drop_prompt_leaks(reply, "How do I write it?", rules=_rule_grams()) == reply
+
+
+_EQUILIBRIUM = (
+    "This is a school-style physics problem, so I'll walk through the reasoning without "
+    "emoji.\n\nThe figure shows a point P in static equilibrium, held by three forces."
+)
+
+
+def test_a_reply_announcing_its_emoji_rule_loses_that_sentence() -> None:
+    # Live, 2026-11-03: a scanned equilibrium problem opened by reciting the style rule.
+    out = drop_prompt_leaks(_EQUILIBRIUM, "Find the force F of the cord")
+    assert out == "The figure shows a point P in static equilibrium, held by three forces."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Tutoring narration about the method is the answer's own.
+        "This is a projectile problem, so I'll split it into horizontal and vertical parts.",
+        # Emoji as the subject, not the reply's style.
+        "The 🙂 emoji means a polite smile in most chats.",
+    ],
+)
+def test_narration_about_the_method_or_emoji_as_a_topic_stays(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "help me with this") == reply
+
+
+def test_a_chat_about_emoji_keeps_a_reply_that_names_them() -> None:
+    reply = "I'll keep the emoji in, since you asked for a fun caption. 🎉 Beach day!"
+    assert drop_prompt_leaks(reply, "write a caption with emoji") == reply
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "This is a current-events question, so I'll check the latest reporting before "
+            "answering.\n\nThey have since reconciled.",
+            "They have since reconciled.",
+        ),
+        (
+            "This is a projectile problem, so I'll split it into two parts. Horizontally, "
+            "the speed stays 12 m/s.",
+            "Horizontally, the speed stays 12 m/s.",
+        ),
+        (
+            "That's a great question, and I'll keep it short: yes.",
+            "That's a great question, and I'll keep it short: yes.",
+        ),
+        (
+            "It sounds like a tricky one, so let me lay it out. First, the area is 12.",
+            "First, the area is 12.",
+        ),
+    ],
+)
+def test_an_opening_that_labels_the_message_and_announces_a_plan_comes_off(
+    reply: str, kept: str
+) -> None:
+    assert drop_prompt_leaks(reply, "help") == kept
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Only the opening, and only a label with a plan.
+        "Horizontally, the speed stays 12 m/s. This is a projectile problem, so I'll add a sketch.",
+        "This is a classic problem.\n\nThe answer is 12.",
+        # A reply that is only the label keeps it rather than saying nothing.
+        "This is a hard question, so I'll need a moment.",
+        "```python\nthis is a test, so i'll print it.\n```",
+    ],
+)
+def test_other_openings_stay(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "help") == reply
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # A decimal point is no sentence end.
+        (
+            "This is a rate problem, so I'll start with v = 3.5 m/s. Then t = d/v.",
+            "Then t = d/v.",
+        ),
+    ],
+)
+def test_the_label_ends_at_its_sentence_not_a_decimal(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "help") == kept
+
+
+@pytest.mark.parametrize(
+    ("reply", "asked"),
+    [
+        # A colon starts the answer: the sentence stays.
+        ("That's a great question, and I'll keep it short: yes. The area is 12.", "help"),
+        # An emoji named as the topic, not the reply's style.
+        (
+            "I'm fairly sure that is the Face with Tears of Joy emoji.",
+            "what's the crying laughing face called?",
+        ),
+        # A stop inside the sentence ("e.g.", "Fig.") is no sentence end: kept whole.
+        (
+            "This is a physics problem, so I'll use a free-body diagram, e.g. one per mass. T1 = 5 N.",
+            "help",
+        ),
+        ("This is a rate problem, so I'll use Fig. 2 and v = d/t.", "help"),
+        # Asked about the prompt: nothing is cut.
+        (
+            "I can't share my system prompt. I'll use emoji sparingly.",
+            "what's in your system prompt?",
+        ),
+    ],
+)
+def test_answers_and_topics_stay(reply: str, asked: str) -> None:
+    assert drop_prompt_leaks(reply, asked) == reply

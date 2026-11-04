@@ -128,8 +128,9 @@ def test_geometry_formula_and_substitution_are_separate_verified_lines(
 
 def test_natural_rectangle_wording_draws_exact_sides_and_trims_decimal_zeroes() -> None:
     reply = _reply("a rectangle area with sides 4.04, 5")
-    assert "$w = 4.04" in reply and "— width" in reply
-    assert "$l = 5" in reply and "— length" in reply
+    assert "$w = 4.04" in reply and "$l = 5" in reply
+    # Their meanings close Given, as every subject's: nothing at a value's right edge.
+    assert "where $l$ = length, $w$ = width" in reply
     assert r"$A = 5 \times 4.04 = 20.2$" in reply
     assert "20.20" not in reply
     assert '"width":4.04' in reply and '"height":5.0' in reply
@@ -145,13 +146,13 @@ def test_natural_rectangle_wording_draws_exact_sides_and_trims_decimal_zeroes() 
 )
 def test_natural_named_rectangle_uses_compact_verified_working(query: str) -> None:
     reply = _reply(query)
-    assert "$l = 4" in reply and "— length" in reply
-    assert "$w = 3" in reply and "— width" in reply
+    assert "$l = 4" in reply and "$w = 3" in reply
+    assert "where $l$ = length, $w$ = width" in reply
     assert r"$A = l \times w$" in reply
     assert r"$A = 4 \times 3 = 12$" in reply
     assert r"```answer" + "\n" + r"12\ \mathrm{units}^{2}" + "\n```" in reply
     assert "**Given**  \n$l = " in reply
-    assert "— length  \n$w = " in reply
+    assert "  \nwhere $l$ = length, $w$ = width" in reply
 
 
 @pytest.mark.parametrize(

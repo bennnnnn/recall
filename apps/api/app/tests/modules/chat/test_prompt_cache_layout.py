@@ -21,6 +21,7 @@ from app.modules.chat.prompt_constants import (
     ASSISTANT_NAME_RULE,
     CLARIFICATION_HINT,
     FACT_GROUNDING_HINT,
+    NO_SELF_TALK_RULE,
     PERSONAL_DISCLOSURE_HINT,
     PHOTO_LOOKUP_HINT,
     SETTINGS_IN_APP_HINT,
@@ -47,7 +48,7 @@ from app.tests.modules.chat.chat_test_support import system_prompt
 from app.tests.modules.chat.test_prompt_golden import _DEFAULTS, render, resolve
 
 # The identity section: who it is, and that its name is Recall.
-_IDENTITY = f"You are Recall, a helpful personal AI assistant.\n\n{ASSISTANT_NAME_RULE}"
+_IDENTITY = f"You are Recall, a helpful personal AI assistant.\n\n{ASSISTANT_NAME_RULE}\n\n{NO_SELF_TALK_RULE}"
 _NINE = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
 _SEVEN_PAST = datetime(2026, 10, 14, 6, 7, tzinfo=UTC)
 _QUERY = "what should I cook tonight?"

@@ -5,6 +5,7 @@
  * Already-delimited spans are left alone.
  */
 
+import { markdownToSpeechText } from "@/lib/markdown/plain";
 import { repairLeakedMath } from "@/lib/math/healMathSource";
 
 const MATH_ISLAND =
@@ -170,4 +171,12 @@ export function wrapSuggestionMath(text: string): string {
     i = match.index + match[0].length;
   }
   return out;
+}
+
+/**
+ * What a screen reader says for a follow-up: the line as it is drawn, its maths in words
+ * ("What if v sub f equals 36 km/h?"), never the LaTeX source the row is typeset from.
+ */
+export function spokenPrompt(prompt: string): string {
+  return markdownToSpeechText(wrapSuggestionMath(prompt)) || prompt;
 }
