@@ -176,6 +176,8 @@ def test_some_of_the_electrons_are_no_atoms_count(question: str, read: bool) -> 
             "What is the length of the radius of the base?",
             r"r = \pm 7",
         ),
+        # A distance given a sign, as one part of a card.
+        ("A car stops in 4 s from 20 m/s. How far does it go and how long?", "-40 m; 4 s"),
         # The question's own expression.
         (
             "Find the cube root of 27a^3 + 54a^2b + 36ab^2 + 8b^3.",
@@ -406,3 +408,11 @@ def test_parts_answered_in_full_stay_and_options_stay_options(
 )
 def test_an_option_is_matched_by_its_whole_value(question: str, answer: str, kept: bool) -> None:
     assert answers_whole_question(question, answer) is kept
+
+
+def test_a_signed_rate_beside_a_size_answers_a_question_in_parts() -> None:
+    # The deceleration is signed by convention; the distance is the size asked "how far".
+    assert answers_the_question(
+        "car going 72 km/h stops in 4 s. whats the deceleration and how far does it go",
+        r"-5\,\mathrm{m/s²};\quad 40\,\mathrm{m}",
+    )

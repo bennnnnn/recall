@@ -73,6 +73,20 @@ _MAGNITUDE_ASK = re.compile(
     re.IGNORECASE,
 )
 _SIGNED = re.compile(r"\\pm|±|(?:^|[=(,\s])-\s*\d")
+# The answers of a question in parts, as one card joins them.
+_PART_JOIN = re.compile(r";\s*|\\quad")
+# A rate's unit (m/s², km/h) is per something: a signed rate is no signed size.
+_PER = re.compile(r"/|\\frac|\bper\b")
+
+
+def _signed_size(answer: str) -> bool:
+    """A size given a sign: each part's value, a part whose unit is a rate left out. "-5
+    m/s²; 40 m" for "the deceleration and how far" signs the deceleration, not the size."""
+    for part in _PART_JOIN.split(answer):
+        value = part.rsplit("=", 1)[-1]
+        if _SIGNED.search(value) and not _PER.search(value):
+            return True
+    return False
 
 
 # A proof has no value to certify: "Prove by induction …" showed "n = 0, 1/2, 1".
@@ -115,9 +129,7 @@ def answers_the_question(question: str, answer: str) -> bool:
         answers_whole_question(question, answer)
         and not _restates(question, answer)
         and not (_SOLUTION_VERDICT.search(answer) and not _ASKS_TO_SOLVE.search(question))
-        and not (
-            _MAGNITUDE_ASK.search(_asked(question)) and _SIGNED.search(answer.rsplit("=", 1)[-1])
-        )
+        and not (_MAGNITUDE_ASK.search(_asked(question)) and _signed_size(answer))
         and not _ASKS_A_PROOF.search(question)
         and not (
             _AT_A_POINT.search(question)

@@ -12,17 +12,21 @@ names an ambiguous quantity ("field strength", "components"), gets no guard.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES, _UNKNOWN
 from app.modules.physics.givens import ANGLE, unit_at, unit_dimension, unit_readings
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.law_binding.ask import ask_clause as _verb_ask_clause
+from app.services.law_binding.ask import ask_clauses as _verb_ask_clauses
 
 __all__ = [
+    "Ask",
     "ask_clause",
     "asked_dimensions",
     "asked_phrases",
     "asked_unit",
+    "asks",
     "has_ask",
     "result_dimension",
     "result_reading",
@@ -221,20 +225,75 @@ def asked_phrases(text: str) -> tuple[str, ...]:
     clause = ask_clause(text)
     if clause is None:
         return ()
+    return tuple(phrase for phrase, _ in _asked_nouns(clause, text))
+
+
+def _asked_nouns(clause: str, text: str) -> list[tuple[str, re.Match[str]]]:
+    """The quantities one asked clause lists, each with where it is said."""
     nouns = [noun for noun in QUANTITY.finditer(clause) if not _labels_a_value(clause, noun, text)]
     if not nouns or nouns[0].start() > _ASK_REACH:
-        return ()
-    phrases: list[str] = []
+        return []
+    listed: list[tuple[str, re.Match[str]]] = []
     previous_end = nouns[0].start()
     for noun in nouns:
-        if phrases and not _CONNECTOR.fullmatch(clause, previous_end, noun.start()):
+        if listed and not _CONNECTOR.fullmatch(clause, previous_end, noun.start()):
             break
         phrase = re.sub(r"\s+", " ", noun.group().lower())
         if phrase == "how long" and _HOW_LONG_IS_LENGTH.search(clause):
             phrase = "length"
-        phrases.append(phrase)
+        listed.append((phrase, noun))
         previous_end = noun.end()
-    return tuple(phrases)
+    return listed
+
+
+@dataclass(frozen=True, slots=True)
+class Ask:
+    """One quantity a question asks for: its words, from its noun to the next asked
+    noun, and its dimension."""
+
+    words: str
+    dimension: str
+
+
+def asks(text: str) -> tuple[Ask, ...]:
+    """Every quantity the question asks for, in every asked clause, in order; empty
+    unless each one's dimension is certain.
+
+    "How high does it go and how long till it comes back down" asks for a height and a
+    time; "find (a) the maximum height (b) the time to the top" lists two in one clause.
+    """
+    found: list[Ask] = []
+    for _, clause in _verb_ask_clauses(text):
+        listed = _one_per_quantity(clause, _asked_nouns(clause, text))
+        start = 0
+        for index, (phrase, noun) in enumerate(listed):
+            # From the last asked noun's end, so "the maximum height" keeps its "maximum".
+            end = listed[index + 1][1].start() if index + 1 < len(listed) else len(clause)
+            dimension = _dimension(phrase, text)
+            if dimension is None:
+                return ()
+            found.append(Ask(clause[start:end], dimension))
+            start = noun.end()
+    return tuple(found)
+
+
+# What lists a second quantity: "and", a comma, "as well as", a part label.
+_SEPARATOR = re.compile(r",|;|\band\b|\bas\s+well\s+as\b|\(?\b[a-h]\)", re.IGNORECASE)
+
+
+def _one_per_quantity(
+    clause: str, listed: list[tuple[str, re.Match[str]]]
+) -> list[tuple[str, re.Match[str]]]:
+    """The asked nouns, one per quantity: two nouns with nothing listing them apart name
+    one ("the kinetic friction force" is a force, not a friction and a force), the last
+    noun its head."""
+    merged: list[tuple[str, re.Match[str]]] = []
+    for phrase, noun in listed:
+        if merged and not _SEPARATOR.search(clause, merged[-1][1].end(), noun.start()):
+            merged[-1] = (phrase, noun)
+            continue
+        merged.append((phrase, noun))
+    return merged
 
 
 def asked_dimensions(text: str) -> tuple[str, ...]:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from app.core.readings import reading
 from app.modules.physics.registry import (
@@ -20,6 +21,9 @@ from app.services.symbolic_text import (
     normalize_symbolic_request,
 )
 from app.services.text_normalize import cap_text_head_tail
+
+if TYPE_CHECKING:
+    from app.modules.physics.request import PhysicsRequest
 
 __all__ = [
     "PHYSICS_CUES",
@@ -200,28 +204,38 @@ def _answers_another_kind(intent: PhysicsIntent) -> bool:
     return not set(intent.asked) <= produced
 
 
+def read_physics_request(text: str) -> PhysicsRequest | None:
+    """The question as every reader reads it, or None when it is empty or refused.
+
+    A side question about another body is not the main question's setting ("Would it be
+    different on Mars?"), and a student's own result is never a given ("I got 19.8
+    m/s"). Both are read out before anything binds a value.
+    """
+    from app.modules.physics.bodies import main_question
+    from app.modules.physics.claims import question_without_claims
+    from app.modules.physics.request import prepare_physics_request
+
+    named = _named_symbol_request(text)
+    if named is not None:
+        text = named
+    cleaned = normalize_symbolic_request(fold_scientific(text), limit=_MAX_PHYSICS_REQUEST)
+    if not cleaned:
+        return None
+    request = prepare_physics_request(question_without_claims(main_question(cleaned)))
+    return None if request.rejected else request
+
+
 @reading(declined=None)
 @lru_cache(maxsize=_CACHE_SIZE)
 def _extract_physics_intent(text: str) -> PhysicsIntent | None:
-    from app.modules.physics.request import complete_physics_intent, prepare_physics_request
+    from app.modules.physics.ask import asked_phrases, has_ask
+    from app.modules.physics.request import complete_physics_intent
 
     named = _named_symbol_request(text)
     if named is not None:
         return _extract_physics_intent(named)
-
-    cleaned = normalize_symbolic_request(fold_scientific(text), limit=_MAX_PHYSICS_REQUEST)
-    if not cleaned:
-        return None
-    from app.modules.physics.ask import asked_phrases, has_ask
-    from app.modules.physics.bodies import main_question
-    from app.modules.physics.claims import question_without_claims
-
-    # A side question about another body is not the main question's setting
-    # ("Would it be different on Mars?"), and a student's own result is never a
-    # given ("I got 19.8 m/s"). Both are read out before anything binds a value.
-    cleaned = question_without_claims(main_question(cleaned))
-    request = prepare_physics_request(cleaned)
-    if request.rejected:
+    request = read_physics_request(text)
+    if request is None:
         return None
     if request.collision is not None:
         return complete_physics_intent(request.collision, request)

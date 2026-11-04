@@ -8,6 +8,7 @@ from typing import Literal
 
 from app.core.config import Settings
 from app.modules.physics.block import _build_physics_block
+from app.modules.physics.chain_solve import solve_chain
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.parts import asks_count
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
@@ -72,12 +73,27 @@ def solve_physics_request(
             block = _build_physics_block(intent, settings, [])
         except Exception:
             logger.warning("physics solve failed for kind=%s", intent.kind, exc_info=True)
-    # A question in parts the solve answered one part of: every part, or that one.
+    # A question that asks more than one law answered, or that no one law answered: every
+    # ask by its own law, laws chained (``chain_solve``), else each part read alone.
     if block is None or (len(block.physics_parts) < 2 and asks_count(user_content) > 1):
-        block = solve_in_parts(user_content, settings) or block
+        block = _more_answered(block, user_content, settings)
     if block is None:
         return _picture_or(user_content, "note" if intent is None else "failed")
     return "verified", replace(block, text=wrap_verified_physics(block.text))
+
+
+def _more_answered(
+    block: VerifiedPhysicsBlock | None, user_content: str, settings: Settings
+) -> VerifiedPhysicsBlock | None:
+    """The first of the chain and the part-by-part solve that answers more of the question
+    than ``block``: any answer where there was none, else more parts. The same question
+    answered again by another law keeps the first answer."""
+    answered = 0 if block is None else max(len(block.physics_parts), 1)
+    for solve in (solve_chain, solve_in_parts):
+        found = solve(user_content, settings)
+        if found is not None and max(len(found.physics_parts), 1) > answered:
+            return found
+    return block
 
 
 def _picture_or(

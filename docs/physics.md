@@ -161,6 +161,23 @@ flowchart LR
    question. The model writes those around the verified block, so no part is dropped.
    An instant reply that answered (b) alone left (a) unanswered. A SUVAT question in parts
    ("find (a) its final speed and (b) the distance") is answered whole.
+
+   **Every ask, laws chained** (`chain_solve.py`, on the shared `services/law_binding/chain`).
+   A question the one-law read answered only in part, or not at all, is read for every
+   quantity it asks (`ask.asks`, across every asked clause; two nouns with nothing listing
+   them apart are one quantity, "the kinetic friction force"). Each ask is answered by a
+   catalog law its words name, filled from the stated values and the values earlier laws
+   worked out: "72 km/h, stops in 4 s: the deceleration and how far" is a = (v − u)/t, then
+   s = ½(u + v)t. A law missing one input may have it worked out first by another law of
+   its kind (two steps at most). A value carries from one law to the next only when both
+   declare that same variable (SUVAT's u, v, a, s, t; the vertical-motion laws' g, v₀,
+   h₀): a name alone is a law's own. Two laws named alike answer only when they agree, and
+   of two that fit, the one that uses more of what the words state wins ("stops in" is
+   v = 0, which d = vt never reads). Over the whole chain every stated value must be used
+   (`accounting.competing_given_of`), a part that changes the situation ("if the speed
+   doubles") declines, and the chain must answer as many asks as the question has. It
+   replaces a one-law block only when it answers more parts. One verified part per ask;
+   a value a part needed first is worked out inside that part.
 8. **Finalize** (`fence.py`). The model's answer and visual fences are dropped, and the
    solver's are appended; the card carries the server's `verified: true` line, the only
    thing the phone draws a green check for. A reply that answers and then offers more
@@ -492,7 +509,8 @@ with one photon's energy. The laws and their near misses are in
 Still left to the model, by design or for now: series-parallel networks other than one
 resistor in series with a parallel group (that one is read, solved and drawn nested, from
 `extractors/series_parallel.py`), heating through a phase change, a lap's average velocity (zero, not d/t), Doppler with both parties
-moving, multi-part questions that need several laws, a plank balanced with its own weight
+moving, a question in parts that needs a law the catalog has no binding for, a plank
+balanced with its own weight
 at the pivot, and a string's tension at the top of a vertical circle.
 
 ## What it refuses

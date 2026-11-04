@@ -110,6 +110,12 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("m", "m", "kilogram"),
             var("v", "v", "meter / second"),
         ),
+        binding=Binding(
+            asks=("momentum",),
+            result=("kilogram * meter / second",),
+            inputs=(frozenset({"m", "v"}),),
+            nonnegative=True,
+        ),
     ),
     formula(
         "impulse",

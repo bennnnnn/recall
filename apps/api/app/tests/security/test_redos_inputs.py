@@ -15,7 +15,7 @@ from app.modules.chat.notation_spans import code_notation, is_notation
 from app.modules.chemistry.extractors.atom_particles import _placeholder
 from app.modules.math.match.spoken import _OVER, _fraction, _tight_carets, spoken_math_to_plain
 from app.modules.physics import force_pictures, force_rigs
-from app.modules.physics.binding import _drop_unit_request, bind_physics_intent
+from app.modules.physics.binding import bind_physics_intent, drop_unit_request
 from app.modules.physics.numbers import _LENGTH_BEFORE_PLANK
 from app.modules.turn_reading.chart import _names_a_curve, is_chart_question
 from app.modules.web_search.release_asks import _bare_thing, released_thing
@@ -71,8 +71,8 @@ def test_plank_length_reads_a_run_of_digits_once():
 
 
 def test_unit_request_reads_a_run_of_spaces_once():
-    assert _drop_unit_request("a" + SPACES + "b") == "a" + SPACES + "b"
-    assert _drop_unit_request(", " * (N // 2)) == ", " * (N // 2)
+    assert drop_unit_request("a" + SPACES + "b") == "a" + SPACES + "b"
+    assert drop_unit_request(", " * (N // 2)) == ", " * (N // 2)
     assert bind_physics_intent("a" + SPACES + "b") is None
 
 
@@ -87,7 +87,7 @@ def test_unit_request_reads_a_run_of_spaces_once():
     ],
 )
 def test_unit_request_drops_as_before(asked, kept):
-    assert _drop_unit_request(asked) == kept
+    assert drop_unit_request(asked) == kept
 
 
 def test_release_thing_reads_a_run_of_spaces_once():

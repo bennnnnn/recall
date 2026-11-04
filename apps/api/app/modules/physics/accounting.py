@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import combinations, product
 
@@ -242,7 +243,14 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
     A stated force, speed, length or angle the solve does not use at all is
     refused too (``_unused_situation``).
     """
-    params = _params(intent)
+    return competing_given_of((intent,), text)
+
+
+def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | None:
+    """``competing_given`` over several laws applied in turn (``chain_solve``): one may
+    use some stated values and the next the rest, so every one must be used by some."""
+    params = [param for intent in intents for param in _params(intent)]
+    op = ", ".join(intent.physics_op or "" for intent in intents)
     settings = [match.span() for match in _GRAVITY_SETTING.finditer(text)]
     givens = [
         given
@@ -256,7 +264,7 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
                 "physics solve declined: %s %s is of a kind op=%s never uses",
                 given.value,
                 given.unit,
-                intent.physics_op,
+                op,
             )
             return given
         same_kind = [param for param in params if param.dimension == given.dimension]
@@ -276,7 +284,7 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
             "physics solve declined: %s %s left unbound by op=%s",
             given.value,
             given.unit,
-            intent.physics_op,
+            op,
         )
         return given
     return None

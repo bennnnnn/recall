@@ -20,7 +20,7 @@ could take either of two values.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
 from app.services.law_binding.givens import Given, scan_givens
@@ -75,6 +75,9 @@ class Fit:
     params: dict[str, float]
     units: dict[str, str]
     strength: int
+    # How many facts the words state this fill used ("stops in" is v = 0): of two laws
+    # named alike, the one that accounts for more of the question is its law.
+    stated: int = 0
 
 
 # "$0.15 per kWh" is a price. No law takes one, so it is not a value to
@@ -108,7 +111,7 @@ def read_givens(text: str, units: UnitTable) -> tuple[Given, ...]:
     return tuple(read)
 
 
-def _variable_kind(variable: VariableSpec) -> str | None:
+def variable_kind(variable: VariableSpec) -> str | None:
     if variable.name.startswith("angle"):
         return ANGLE
     if variable.dimensionless:
@@ -123,7 +126,7 @@ def _given_dimension(given: Given) -> str | None:
     return _DIMENSIONLESS if not given.unit else None
 
 
-def _given_kind(given: Given, units: UnitTable) -> str | None:
+def given_kind(given: Given, units: UnitTable) -> str | None:
     """The input kind a value can fill: its dimension, with angular rates apart.
 
     A frequency in Hz and an angular velocity in rad/s share a dimension, but
@@ -208,8 +211,20 @@ def _in_si(value: float, unit: str, table: UnitTable) -> float:
     return value if reading is None else value * reading[1] + reading[2]
 
 
-def fit(spec: FormulaSpec, strength: int, question: Question, subject: Subject) -> Fit | None:
-    """This law filled from the question, or None when it does not fit exactly one way."""
+def fit(
+    spec: FormulaSpec,
+    strength: int,
+    question: Question,
+    subject: Subject,
+    known: Mapping[str, tuple[float, str]] | None = None,
+) -> Fit | None:
+    """This law filled from the question, or None when it does not fit exactly one way.
+
+    ``known`` holds values worked out before (by name: value, unit), which fill their
+    inputs as the words would; a law chained after another reads them (``chain``). A
+    stated value then left with no open input is the earlier law's, and the chain checks
+    that every value was used by some law.
+    """
     binding = spec.binding
     if binding is None:
         return None
@@ -231,17 +246,23 @@ def fit(spec: FormulaSpec, strength: int, question: Question, subject: Subject) 
         if implied is not None:
             params[variable.name] = implied
             units[variable.name] = subject.unit_of(variable)
+    stated = len(params)
+    for variable in variables:
+        if known and variable.name in known and variable.name not in params:
+            params[variable.name], units[variable.name] = known[variable.name]
     listed = word_pattern("respectively").search(lower) is not None
     previous = 0
     earlier = ""
     for index, given in enumerate(givens):
-        kind = _given_kind(given, subject.units)
+        kind = given_kind(given, subject.units)
         options = [
             variable
             for variable in variables
-            if variable.name not in params and kind is not None and _variable_kind(variable) == kind
+            if variable.name not in params and kind is not None and variable_kind(variable) == kind
         ]
         if not options:
+            if known:
+                continue
             return None
         before = words_before(lower, previous, given.start)
         # "at 100 kPa and 300 K": the words before a list name every value in it.
@@ -267,9 +288,25 @@ def fit(spec: FormulaSpec, strength: int, question: Question, subject: Subject) 
         if value is not None:
             params[variable.name] = value
             units[variable.name] = subject.unit_of(variable)
-    if frozenset(params) not in binding.inputs:
+    if frozenset(params) not in binding.inputs or _angle_left_unstated(variables, params, question):
         return None
-    return Fit(spec, params, units, strength)
+    return Fit(spec, params, units, strength, stated)
+
+
+_ANGLE_WORD = re.compile(r"(?<![\w])angles?\b", re.IGNORECASE)
+
+
+def _angle_left_unstated(
+    variables: list[VariableSpec], params: dict[str, float], question: Question
+) -> bool:
+    """The question says the force or path is at an angle and states none: "a 10 N force
+    at an angle over 4 m". The law's form without its angle input is the parallel case,
+    which the question rules out."""
+    open_angle = any(variable_kind(v) == ANGLE and v.name not in params for v in variables)
+    stated = any(
+        given.dimension == ANGLE or given.unit in {"°", "deg"} for given in question.givens
+    )
+    return open_angle and not stated and _ANGLE_WORD.search(question.lower) is not None
 
 
 def named_strength(
@@ -323,6 +360,8 @@ def only_strongest_fit[K](
     """The one law that fits most strongly, with the key it was named under.
 
     Two laws that fit equally strongly decline: the question does not say which it is.
+    Of two named alike, the one whose fill uses more of what the words state wins: "stops
+    in 4 s" is a final speed of 0, which d = vt never reads.
     """
     fits = [
         (key, filled)
@@ -331,6 +370,6 @@ def only_strongest_fit[K](
     ]
     if not fits:
         return None
-    strongest = max(filled.strength for _, filled in fits)
-    top = [entry for entry in fits if entry[1].strength == strongest]
+    strongest = max((filled.strength, filled.stated) for _, filled in fits)
+    top = [entry for entry in fits if (entry[1].strength, entry[1].stated) == strongest]
     return top[0] if len(top) == 1 else None

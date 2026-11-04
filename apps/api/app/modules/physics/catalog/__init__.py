@@ -30,6 +30,7 @@ from app.modules.physics.catalog.machine_ratios import SPECS as MACHINE_RATIOS
 from app.modules.physics.catalog.machines import SPECS as MACHINES
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
 from app.modules.physics.catalog.materials import SPECS as MATERIALS
+from app.modules.physics.catalog.mechanical_energy import SPECS as MECHANICAL_ENERGY
 from app.modules.physics.catalog.modern import SPECS as MODERN
 from app.modules.physics.catalog.momentum import SPECS as MOMENTUM
 from app.modules.physics.catalog.nuclear import SPECS as NUCLEAR
@@ -44,6 +45,7 @@ from app.modules.physics.catalog.spring import SPECS as SPRING
 from app.modules.physics.catalog.suvat import SPECS as SUVAT
 from app.modules.physics.catalog.thermal import SPECS as THERMAL
 from app.modules.physics.catalog.torque import SPECS as TORQUE
+from app.modules.physics.catalog.vertical import SPECS as VERTICAL
 from app.modules.physics.catalog.wave_optics import SPECS as WAVE_OPTICS
 from app.modules.physics.catalog.waves import SPECS as WAVES
 from app.services.law_binding.spec import (
@@ -82,10 +84,12 @@ def _register(*groups: tuple[FormulaSpec, ...]) -> dict[str, FormulaSpec]:
 
 
 CATALOG: dict[str, FormulaSpec] = _register(
+    VERTICAL,
     KINEMATICS,
     PROJECTILE,
     SUVAT,
     FORCE,
+    MECHANICAL_ENERGY,
     ENERGY,
     MACHINES,
     MACHINE_RATIOS,

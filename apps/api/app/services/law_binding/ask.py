@@ -14,7 +14,8 @@ _SELF_NAMING = ("how long", "how far", "how fast", "how high", "how deep", "how 
 
 ASK_VERBS = re.compile(
     r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|"
-    r"what|"
+    # "whats the deceleration": the apostrophe is often left out.
+    r"what(?:s(?=\s))?|"
     r"how\s+(?:long|far|fast|high|deep|much|many|tall))\b",
     re.IGNORECASE,
 )
@@ -31,7 +32,29 @@ def ask_clause(text: str, verbs: re.Pattern[str] = ASK_VERBS) -> str | None:
     if not asks:
         return None
     ask = asks[-1]
+    end_match = _SENTENCE_END.search(text, _clause_start(ask))
+    return text[_clause_start(ask) : end_match.start() if end_match else len(text)]
+
+
+def ask_clauses(text: str, verbs: re.Pattern[str] = ASK_VERBS) -> tuple[tuple[int, str], ...]:
+    """Every asked part, in order, with where each starts: from its verb to the next verb
+    or the end of its sentence.
+
+    "How high does it go and how long till it comes back down" asks twice; read from its
+    last verb alone it asked only for the time.
+    """
+    asks = list(verbs.finditer(text))
+    clauses: list[tuple[int, str]] = []
+    for index, ask in enumerate(asks):
+        start = _clause_start(ask)
+        end_match = _SENTENCE_END.search(text, start)
+        end = end_match.start() if end_match else len(text)
+        if index + 1 < len(asks):
+            end = min(end, asks[index + 1].start())
+        clauses.append((start, text[start:end]))
+    return tuple(clauses)
+
+
+def _clause_start(ask: re.Match[str]) -> int:
     self_naming = re.sub(r"\s+", " ", ask.group().lower()).startswith(_SELF_NAMING)
-    start = ask.start() if self_naming else ask.end()
-    end_match = _SENTENCE_END.search(text, start)
-    return text[start : end_match.start() if end_match else len(text)]
+    return ask.start() if self_naming else ask.end()

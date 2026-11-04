@@ -48,7 +48,7 @@ _SECOND_REQUEST = re.compile(
 # "Calculate his average speed and write the correct unit of speed" (a Class 8 book,
 # 2026-10-30): the unit is part of the answer the card gives, not a second request.
 # The spaces start after a comma (dropped with them), a word (``\b``) or another mark (kept,
-# ``_drop_unit_request``), never inside a run of spaces: ``,?\s+`` read a long run again from
+# ``drop_unit_request``), never inside a run of spaces: ``,?\s+`` read a long run again from
 # each of its spaces (CodeQL py/polynomial-redos). Only a request at the very start of the
 # text, after spaces, is no longer dropped; a question never starts that way.
 _UNIT_REQUEST = re.compile(
@@ -60,12 +60,12 @@ _UNIT_REQUEST = re.compile(
 )
 
 
-def _drop_unit_request(text: str) -> str:
+def drop_unit_request(text: str) -> str:
     """``text`` without "and write the correct unit": the card states the unit."""
     return _UNIT_REQUEST.sub(lambda match: match["mark"] or "", text)
 
 
-_PHYSICS = Subject(units=PHYSICS_UNITS, fallback=fallback_value, unit_of=si_unit)
+PHYSICS_SUBJECT = Subject(units=PHYSICS_UNITS, fallback=fallback_value, unit_of=si_unit)
 _NORTH_SOUTH = re.compile(r"\b(?:north|south)(?:wards?|bound|erly)?\b")
 _EAST_WEST = re.compile(r"\b(?:east|west)(?:wards?|bound|erly)?\b")
 # A direction between the axes, a bearing or a stated angle is not a right angle.
@@ -90,32 +90,11 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     few regex searches and never reads units. Detection calls this on every
     chat turn.
     """
-    text = _drop_unit_request(text)
+    text = drop_unit_request(text)
     clause = ask_clause(text)
     if clause is None or _SECOND_REQUEST.search(text):
         return None
-    lower = text.lower()
-    # "0.8c" is a speed of light: the phrase relativity's cues are written as.
-    cue_text = f"{lower} speed of light" if FRACTION_OF_C.search(lower) else lower
-    # "flies due north … a wind blows from west to east": one direction on each
-    # compass axis is a right angle, the cue the perpendicular laws are written with.
-    if crosswise(lower):
-        cue_text = f"{cue_text} crosswise"
-    only_water = names_only_water(lower)
-    # "The mirror is convex": a law that excludes a diverging element excludes it, however
-    # the question words it.
-    excluded = _with_markers(lower)
-    named = [
-        (spec, spec, strength)
-        for spec in _bindable()
-        if spec.binding is not None
-        and (only_water or spec.id not in WATER_ONLY)
-        and (
-            strength := named_strength(
-                spec.binding, clause, excluded, PHYSICS_UNITS, cue_text=cue_text
-            )
-        )
-    ]
+    named = [(spec, spec, strength) for spec, strength in named_laws(text, clause)]
     if not named:
         return None
     unit = asked_unit(text)
@@ -129,7 +108,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     )
     if question is None:
         return None
-    strongest = only_strongest_fit(named, question, _PHYSICS)
+    strongest = only_strongest_fit(named, question, PHYSICS_SUBJECT)
     if strongest is None:
         return None
     _, chosen = strongest
@@ -143,6 +122,43 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         )
     except ValueError:
         return None
+
+
+def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
+    """Every catalog law the asked clause names, with how strongly, as the question's
+    own words allow it (its cues, its excludes, water named alone)."""
+    lower = text.lower()
+    # "0.8c" is a speed of light: the phrase relativity's cues are written as.
+    cue_text = f"{lower} speed of light" if FRACTION_OF_C.search(lower) else lower
+    # "flies due north … a wind blows from west to east": one direction on each
+    # compass axis is a right angle, the cue the perpendicular laws are written with.
+    if crosswise(lower):
+        cue_text = f"{cue_text} crosswise"
+    only_water = names_only_water(lower)
+    # "The mirror is convex": a law that excludes a diverging element excludes it, however
+    # the question words it.
+    excluded = _with_markers(lower)
+    return [
+        (spec, strength)
+        for spec in _bindable()
+        if spec.binding is not None
+        and (only_water or spec.id not in WATER_ONLY)
+        and (
+            strength := named_strength(
+                spec.binding, clause, excluded, PHYSICS_UNITS, cue_text=cue_text
+            )
+        )
+    ]
+
+
+def asks_another_thing(text: str) -> bool:
+    """A second request ("... and tell me a joke") the verified answer does not finish."""
+    return _SECOND_REQUEST.search(text) is not None
+
+
+def bindable_of_kind(kind: str) -> tuple[FormulaSpec, ...]:
+    """The catalog laws of one kind the binder can fill."""
+    return tuple(spec for spec in _bindable() if spec.kind == kind)
 
 
 def _with_markers(lower: str) -> str:
