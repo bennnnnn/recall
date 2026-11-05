@@ -231,6 +231,39 @@ sample of STEM turns once this merges, to measure agreement on real questions an
 pattern mistakes. The next candidate is maths in other languages (1 wrong in 42): measure
 it on a larger translated sample before offering it.
 
+## Second opinion (2026-11-05)
+
+`chat/second_opinion.py`, behind `second_opinion_enabled` (off). On a turn no solver
+verified, the reader's read starts beside the reply (`turn_prep.model_read_shadow`,
+every such turn, no sampling) and the server solves it (`model_reader/solve.py`, each
+subject's `read_answer`). Before the finalize passes, the reply's final value is set beside
+it (`answer_check.stated_verdict`): agreeing or no plain value, the reply stays; differing,
+the stronger model (`ROUTING.hard`) answers the same prompt once, and its reply is kept only
+when it agrees with the solved read. Two of three must agree; the reader's number never
+goes into prose. A reply it keeps goes through every finalize pass. The turn's line records
+`second_opinion: {verdict, redo, chosen}`.
+
+`second_opinion_eval.py` measures it on real replies: every corpus `answer` question the
+server does not answer (38 with one worked value) and 40 per subject it does, routed with
+the solvers off so the model answers alone. Judged at the sweep's 1%:
+
+| | Questions |
+|---|---|
+| The model's first answers | 116: 69 right, 13 wrong, 34 with no one plain value |
+| A read the server could solve | 23 |
+| Read and reply more than 1% apart | 3, of which the reply was wrong: 1 |
+| Answers the second opinion changed | 0 |
+
+`stated_verdict` holds a stated value to the precision it is written in, which is right for
+a verified card and too strict between two workings: its three conflicts were 1470 W
+against 1471.5 W (g 9.8 against 9.81), 25 mol against 24.98 mol, 1780 kJ against 1775 kJ,
+all right at 1%; none was replaced, since each redo rounded the same way.
+
+**Why it is off:** the questions the model gets wrong are the ones no catalog law reads,
+and the reader binds to the same catalog, so it reaches almost none of them. It fixed no
+answer and broke none. Turn it on when the reader's reach on unverified questions grows,
+and re-measure with `second_opinion_eval` first.
+
 ## Not doing
 
 - No model writes a verified answer, a formula or a number the reply shows: the solvers do.

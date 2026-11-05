@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from functools import lru_cache
 
 from app.modules.chemistry.binding import bind_chemistry_intent, prepare
+from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.law_record import ChemistryLaw
 from app.modules.chemistry.laws import LAWS
@@ -94,3 +95,10 @@ def chemistry_read_intent(
         ):
             return intent
     return None
+
+
+def read_answer(intent: ChemistryIntent) -> str | None:
+    """The answer card the chemistry solver gives a model's read, or None when it gives
+    none. Run in the SymPy pool."""
+    block = build_verified_chemistry(intent)
+    return None if block is None else block.display_answer or block.canonical_answer

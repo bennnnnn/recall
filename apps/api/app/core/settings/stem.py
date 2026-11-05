@@ -74,6 +74,13 @@ class StemSettings(BaseModel):
     # costs two model calls.
     model_reader_shadow_rate: float = 0.1
     model_reader_timeout_seconds: float = 3.5
+    # A second opinion on a maths, physics or chemistry answer the server could not verify
+    # (``chat.second_opinion``): the model reader's read, solved by the server, is set beside
+    # the reply's own number; only when they differ does a stronger model answer again, and
+    # a reply changes only when two of the three agree. Its whole wait is bounded by
+    # ``second_opinion_seconds``; past it the reply stays as written.
+    second_opinion_enabled: bool = False
+    second_opinion_seconds: float = 12.0
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
     # Per user, per hour, shared by every subject's reader (it was

@@ -179,3 +179,19 @@ def test_stated_verdict_reads_a_result_said_without_equals(
     answer: str, prose: str, verdict: str
 ) -> None:
     assert stated_verdict(prose, answer) == verdict
+
+
+@pytest.mark.parametrize(
+    ("prose", "verdict"),
+    [
+        # A note in brackets after the value says something about it (worked layout).
+        ("**Answer**\n\n$2.55\\,\\mathrm{m/s^2}$ (in the direction of the push)", "rounded"),
+        ("**Answer**\n\n$31\\,\\mathrm{m/s^2}$ (downward)", "conflict"),
+        ("**Answer**\n\n$a = 31\\,\\mathrm{m/s^2}$ (downward)", "conflict"),
+        # A note with a number of its own, or two values, states more than one value.
+        ("**Answer**\n\n$2.55\\,\\mathrm{m/s^2}$ (about 3 times g)", "absent"),
+        ("**Answer**\n\n2 m and 3 m", "absent"),
+    ],
+)
+def test_a_bracketed_note_after_the_answer_is_no_part_of_it(prose: str, verdict: str) -> None:
+    assert stated_verdict(prose, r"2.5475\,\mathrm{m/s^2}") == verdict

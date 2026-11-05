@@ -200,3 +200,12 @@ def complex_reading(intent: MathIntent | None, text: str) -> MathIntent | None:
     # "Expand (x + 3i)²" stays an expansion, in complex numbers.
     operation = "expand" if intent.operation == "expand" else "eval"
     return MathIntent(kind="complex", school_op=operation, expr=intent.expr, operation="solve")
+
+
+def read_answer(intent: MathIntent, settings: Settings) -> str | None:
+    """The answer card SymPy gives a model's typed read, or None when it gives none. Run
+    in the SymPy pool."""
+    # Imported here: this module also loads on the event loop, the solver does not.
+    from app.modules.math.tools.block import verified_answer
+
+    return verified_answer(intent, settings)

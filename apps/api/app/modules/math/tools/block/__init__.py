@@ -190,3 +190,9 @@ def verified_curves(
     block = _build_verified_block(intent, settings)
     fence = block.canonical_fence if block is not None else None
     return fence if isinstance(fence, dict) and fence.get("points") else None
+
+
+def verified_answer(intent: MathIntent, settings: Settings) -> str | None:
+    """The answer card SymPy gives ``intent``, or None when it gives none."""
+    block = _build_verified_block(intent, settings)
+    return None if block is None else block.display_answer or block.canonical_answer

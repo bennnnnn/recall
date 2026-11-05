@@ -6,3 +6,6 @@ A module of its own, below chat and above the subjects: it makes model calls, so
 one of the pure message readers (``turn_reading``, structure ticket ST-04). Chat calls
 ``service``; each subject owns its menu and the step from a read to an intent.
 """
+
+# What chat imports besides ``service``: the answer a read solves to (a second opinion).
+_MODULE_EXPORTS = ("solve",)

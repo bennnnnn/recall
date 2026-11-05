@@ -5,7 +5,10 @@ the subject read calls maths, physics or chemistry, with no instant reply, start
 ``model_reader``'s read of the message. Nothing awaits it: the turn's trace line
 (``turn_trace``) says ``pending`` while it reads, and it logs its own ``turn_model_read``
 line when it finishes, bounded by its calls' own timeouts. It skips at the day's spend cap
-(docs/MODEL_READER.md). The read never reaches the reply.
+(docs/MODEL_READER.md). In shadow the read never reaches the reply.
+
+A turn no solver verified also starts the read, every time, when the second opinion is on
+(``chat.second_opinion``): it runs beside the reply, and the finalize pass awaits it.
 """
 
 from __future__ import annotations
@@ -36,6 +39,19 @@ def start_model_read_shadow(
         return
     if random.random() >= settings.model_reader_shadow_rate:  # noqa: S311 - a sample, not a secret
         return
+    _start_read(text, settings, redis)
+
+
+def start_second_opinion_read(
+    text: str, settings: Settings, redis: Redis, *, unverified_subject: str | None
+) -> None:
+    """Start the read a second opinion needs on a turn no solver verified, unless the
+    shadow already started it; never raises."""
+    if settings.second_opinion_enabled and unverified_subject in _SUBJECTS:
+        _start_read(text, settings, redis)
+
+
+def _start_read(text: str, settings: Settings, redis: Redis) -> None:
     trace = current_turn_trace()
     if trace is None or trace.emitted or trace.model_read_task is not None:
         return

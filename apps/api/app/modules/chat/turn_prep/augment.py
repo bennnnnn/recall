@@ -22,7 +22,10 @@ from app.modules.chat.turn_prep.followups import (
 )
 from app.modules.chat.turn_prep.instant import location_not_set_reply
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
-from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
+from app.modules.chat.turn_prep.model_read_shadow import (
+    start_model_read_shadow,
+    start_second_opinion_read,
+)
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
@@ -132,6 +135,10 @@ async def gather_and_inject(
             request, identity, settings, redis, prompt_messages, followup, plan
         )
     fetched = _readable_fetch(request, identity, prompt_messages, followup, fetched)
+    if instant_reply is None and fetched.solver_unverified:
+        start_second_opinion_read(
+            request.content, settings, redis, unverified_subject=fetched.unverified_subject
+        )
     return Augmentation(
         prompt_messages=inject_subject_block(prompt_messages, fetched.subject_block),
         verified_subject=fetched.verified,

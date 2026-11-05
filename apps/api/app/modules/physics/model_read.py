@@ -10,7 +10,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from functools import lru_cache
 
+from app.core.config import Settings
 from app.modules.physics.binding import bind_physics_intent, ruled_out
+from app.modules.physics.block import build_verified_physics_block
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.modules.physics.schemas import PhysicsIntent
@@ -62,3 +64,10 @@ def physics_read_intent(
         ):
             return intent
     return None
+
+
+def read_answer(intent: PhysicsIntent, settings: Settings) -> str | None:
+    """The answer card the physics solver gives a model's read, or None when it gives
+    none. Run in the SymPy pool."""
+    block = build_verified_physics_block(intent, settings)
+    return None if block is None else block.display_answer or block.canonical_answer

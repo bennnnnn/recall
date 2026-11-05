@@ -107,8 +107,9 @@ _FILLER = re.compile(
 _UNIT_LETTERS = frozenset("msghLNJWVAKCFTHMΩ")
 # What may follow a final value (a unit, °, %, a closing mark); one letter per repeat, not 2^n.
 _UNIT_TAIL = re.compile(r"(?:[A-Za-zµμΩ°%](?:\^-?\d+)?|[/·*]|\s|[()])*")
-# Where a stated value ends: punctuation or a joining word ("pH = 2 for a strong
-# acid"). A comma before three digits is a thousands separator (1,500), not a list.
+# A note in brackets after an Answer line's value ("(in the direction of the push)"), no number.
+_TRAILING_NOTE = re.compile(r"[ \t]*\([^()\d\n]*\)[ \t]*$", re.MULTILINE)
+# A value ends at punctuation or a joining word ("pH = 2 for a strong acid"); 1,500 is one.
 _SEPARATORS = re.compile(
     r"\s*(?:,(?!\d{3}(?!\d))|;|\b(?:or|and|but|which|because|since|so|for|in|at|with|when|"
     r"if|as|from|after|before|on)\b)\s*"
@@ -241,8 +242,7 @@ _CONNECTIVE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_END = re.compile(r"(?<!\d)[.!?](?=\s|$)|(?<=\d)[.!?](?=\s|$)|\n")
-# A result said without "=": "it lands about 70.6 m out", "takes 3.2 s". The first
-# number after the verb is the value; "falls from 20 m" names a given, not a result.
+# A result without "=": the first number after its verb ("lands 70.6 m out", not "falls from 20 m").
 _RESULT_STATEMENT = re.compile(
     r"\b(?:lands?|landed|travels?|travel(?:l)?ed|goes|went|reaches|reached|hits?|covers?|"
     r"covered|rises?|rose|takes?|took|lasts?|stops?|stopped|flies|flew|ends up|"
@@ -431,6 +431,7 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[_Number], 
     body = statement_text(raw_body)
     region = statement_text(raw_region).strip() if raw_region is not None else None
     if region:
+        region = _TRAILING_NOTE.sub("", region)
         if verified.label is not None:
             final, every = _labelled(region, verified.label)
             if final:
@@ -523,8 +524,7 @@ def _closeness(stated: _Number, verified: _Number) -> Closeness:
     if verified.places is not None and stated.places >= verified.places:
         # As precise as the verified answer (35.31 for 35.3): the same if it rounds to it.
         return "same" if _agree(stated.value, verified.value, verified.places) else "different"
-    # Coarser than the verified answer: 12.8 for 12.75, 0.33 for 1/3. A whole number
-    # for a fraction is a different answer, not a rounding: x = 4 for x = 7/2.
+    # Coarser is rounded (12.8 for 12.75, 0.33 for 1/3); a whole number for 7/2 is another answer.
     whole = stated.value.denominator == 1 and stated.places <= 0
     if whole and verified.value.denominator != 1:
         return "different"

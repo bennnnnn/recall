@@ -68,6 +68,9 @@ class TurnTrace:
     # ``model_reader.schemas.ModelRead`` it set when it finished.
     model_read_task: Any = None
     model_read: Any = None
+    # What the second opinion did (``chat.second_opinion``): its verdict, whether a stronger
+    # model answered again, and which reply was kept.
+    second_opinion: dict[str, Any] | None = None
     emitted: bool = False
 
 
@@ -306,6 +309,8 @@ def turn_record(
     shadow = _model_read(trace, record.get("solver"))
     if shadow is not None:
         record["model_read"] = shadow
+    if trace.second_opinion is not None:
+        record["second_opinion"] = trace.second_opinion
     return record
 
 

@@ -94,6 +94,7 @@ from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_li
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
+from app.modules.chat.second_opinion import second_opinion_reply
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -432,14 +433,21 @@ async def enrich_final_content(
 
     A reply the user stopped runs only ``STOPPED_REPLY_PASSES`` and no reminder
     pass: it changes nothing outside itself, and ``done`` carries the text the
-    user saw, made safe, never a longer one.
+    user saw, made safe, never a longer one. A whole reply to a subject question no
+    solver verified may first give way to a stronger model's (``second_opinion``): the
+    passes then run on that one, and ``done`` carries it.
     """
+    reply = assistant_text
+    if not (was_cancelled or user_stopped):
+        reply = await second_opinion_reply(
+            deps, settings, ctx, assistant_text, usage, on_status=on_status
+        )
     state = FinalizeState(
         deps=deps,
         settings=settings,
         ctx=ctx,
-        raw=assistant_text,
-        text=assistant_text,
+        raw=reply,
+        text=reply,
         usage=usage,
         outcome=outcome,
         was_cancelled=was_cancelled,
