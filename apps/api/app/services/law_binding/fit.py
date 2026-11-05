@@ -288,7 +288,11 @@ def fit(
         if value is not None:
             params[variable.name] = value
             units[variable.name] = subject.unit_of(variable)
-    if frozenset(params) not in binding.inputs or _angle_left_unstated(variables, params, question):
+    if (
+        frozenset(params) not in binding.inputs
+        or _angle_left_unstated(variables, params, question)
+        or named_but_unstated(variables, params, question.lower)
+    ):
         return None
     return Fit(spec, params, units, strength, stated)
 
@@ -307,6 +311,17 @@ def _angle_left_unstated(
         given.dimension == ANGLE or given.unit in {"°", "deg"} for given in question.givens
     )
     return open_angle and not stated and _ANGLE_WORD.search(question.lower) is not None
+
+
+def named_but_unstated(
+    variables: Iterable[VariableSpec], params: Mapping[str, float], lower: str
+) -> bool:
+    """An input the question's situation names ("from the top of a hill") is left without
+    a value: the law's form without it (a launch from the ground) is not this question."""
+    return any(
+        v.name not in params and any(word_pattern(w).search(lower) for w in v.named_by)
+        for v in variables
+    )
 
 
 def named_strength(

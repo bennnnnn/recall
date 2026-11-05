@@ -22,6 +22,13 @@ _LEVEL_LAUNCH = (
 # The binder adds this cue when the question states an angle (``binding.named_laws``): a
 # launch at 30° is a projectile's, wherever it starts from.
 AT_AN_ANGLE = "at an angle"
+# Where a launch height is: said with no height stated ("from the top of a hill"), the
+# landing is below the launch by an unknown height, so a ground launch's laws decline.
+# A ramp or a hill named this way is a launch site, not a surface it moves along.
+_LAUNCH_SITES = (
+    *("cliff", "hill", "building", "tower", "roof", "balcony", "bridge", "ledge"),
+    *("table", "bench", "top of"),
+)
 # A length is the launch height only when the words name it so: "kicked toward a wall
 # 30 m away" states no height, and read as one it would be launched from 30 m up.
 _HEIGHT_WORDS = (
@@ -52,7 +59,7 @@ _LAUNCH = (
         implied=tuple((phrase, 0.0) for phrase in _LEVEL_LAUNCH),
     ),
     var("g", "g", "meter / second ** 2", fallback="gravity"),
-    var("h0", "h_0", "meter", words=_HEIGHT_WORDS, needs_words=True),
+    var("h0", "h_0", "meter", words=_HEIGHT_WORDS, needs_words=True, named_by=_LAUNCH_SITES),
     var("v0", "v_0", "meter / second"),
 )
 _FROM_A_HEIGHT = frozenset({"angle", "g", "h0", "v0"})
@@ -66,9 +73,12 @@ _FROM_THE_GROUND = frozenset({"angle", "g", "v0"})
 # Another situation than a free flight from a launch: a slope's motion, a pull, a swing,
 # or a flight toward a wall or a target, whose question is another one.
 _NOT_A_FREE_FLIGHT = (
-    *("incline", "inclined", "slope", "ramp", "hill"),
+    *("incline", "inclined", "slope"),
     *("rope", "string", "pendulum", "tension"),
     *("wall", "fence"),
+    # A flight lands; a body that comes to a stop moved along a surface ("a cart rolls
+    # up a 10° ramp at 6 m/s: how far before stopping").
+    *("before stopping", "before it stops", "comes to rest", "comes to a stop"),
 )
 # A speed asked somewhere on the way up or down, not where it lands.
 _ON_THE_WAY = (

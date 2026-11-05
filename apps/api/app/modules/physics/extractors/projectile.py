@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 
 from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
@@ -21,6 +22,7 @@ from app.modules.physics.extractors.unit_patterns import (
     VELOCITY_UNIT_PATTERN,
 )
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.fit import named_but_unstated
 from app.services.text_match import has_equation
 
 _PROJECTILE_CUES = (
@@ -110,22 +112,28 @@ def extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     intent = _extract_projectile_intent(cleaned)
     if intent is None or intent.physics_op is None:
         return intent
-    if _ruled_out_by_its_law(intent.physics_op, cleaned):
+    if _ruled_out_by_its_law(intent.physics_op, intent.physics_params or {}, cleaned):
         return None
     return intent
 
 
-def _ruled_out_by_its_law(op: str, cleaned: str) -> bool:
-    """The law's catalog says this is not its situation, or the ask names another law.
-    Read as a launch, "a block slides up a 30° incline at 5 m/s" was answered with a
-    range, and "how fast is it going at the top" with the speed it lands at."""
+def _ruled_out_by_its_law(op: str, params: Mapping[str, float], cleaned: str) -> bool:
+    """The law's catalog says this is not its situation, the situation names an input the
+    question never states, or the ask names another law. Read as a launch, "a block slides
+    up a 30° incline at 5 m/s" was answered with a range, "thrown from the top of a hill"
+    with a level-ground range, and "how fast is it going at the top" with the speed it
+    lands at."""
     from app.modules.physics.binding import ruled_out
     from app.modules.physics.catalog import formula_spec
 
     spec = formula_spec(op)
     if spec is None or spec.binding is None:
         return False
-    return ruled_out(spec, cleaned) or _another_law_named_more(op, cleaned)
+    return (
+        ruled_out(spec, cleaned)
+        or named_but_unstated(spec.variables, params, cleaned.lower())
+        or _another_law_named_more(op, cleaned)
+    )
 
 
 def _another_law_named_more(op: str, cleaned: str) -> bool:

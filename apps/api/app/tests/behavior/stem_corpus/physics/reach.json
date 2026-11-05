@@ -209,5 +209,41 @@
       "m"
     ],
     "note": "thrown downward from a low height: it flies, so the launch height and the angle are tested on their own signs"
+  },
+  {
+    "id": "re-hill-01",
+    "area": "reach",
+    "prompt": "A ball is thrown at 20 m/s at 30° from the top of a 45 m hill. How far from the base does it land?",
+    "expect": "answer",
+    "answer": [
+      73.00962461051631,
+      "m"
+    ],
+    "note": "a hill with its height stated is a launch height"
+  },
+  {
+    "id": "re-hill-02",
+    "area": "reach",
+    "prompt": "A ball is thrown from the top of a hill at 20 m/s at 30°. How far does it land?",
+    "expect": "decline",
+    "note": "the hill's height is named but not stated: a level-ground range would be a wrong number"
+  },
+  {
+    "id": "re-ramp-01",
+    "area": "reach",
+    "prompt": "A skier leaves a ramp at 15 m/s at 25° above the horizontal and lands at the same height. How far does she travel?",
+    "expect": "answer",
+    "answer": [
+      17.56982667704078,
+      "m"
+    ],
+    "note": "a ramp is a launch site, not a surface the flight moves along"
+  },
+  {
+    "id": "re-ramp-02",
+    "area": "reach",
+    "prompt": "A cart rolls up a 10° ramp at 6 m/s. How far does it go before stopping?",
+    "expect": "decline",
+    "note": "it comes to a stop along the ramp: no free flight"
   }
 ]
