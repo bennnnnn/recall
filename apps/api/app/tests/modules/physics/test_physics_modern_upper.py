@@ -157,7 +157,7 @@ def _answer(text: str) -> str | None:
             # r = R_Earth + 400 km = 6771 km.
             "Find the period of a satellite orbiting 400 km above Earth.",
             "kepler_period_altitude",
-            "5545 s",
+            "5545 s (92.4 min)",
         ),
     ],
 )

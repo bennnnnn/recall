@@ -345,7 +345,7 @@ async def test_a_scan_read_waits_for_its_subject_to_be_on() -> None:
             PHYSICS_CAMERA_PROMPT,
             image_attachments=[("image/png", image.storage_key)],
             load_image=AsyncMock(return_value=b"x"),
-            settings=Settings(math_tools_enabled=False),
+            settings=Settings(physics_enabled=False),
             on_status=None,
         )
     reader.assert_not_called()

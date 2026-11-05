@@ -5,6 +5,9 @@ from pydantic import AliasChoices, BaseModel, Field
 
 class StemSettings(BaseModel):
     math_tools_enabled: bool = True
+    # Physics has its own switch: off, a physics question is the model's, unverified, while
+    # maths keeps its tools (it rode on math_tools_enabled before).
+    physics_enabled: bool = True
     chemistry_enabled: bool = True
     # A calculation no solver checked: the model writes its parts in a ```worked block and
     # the server lays them out as a verified reply (``chat.worked_turn``). Off: the model

@@ -154,8 +154,8 @@ def test_scan_read_is_rate_limited_per_user() -> None:
     read.assert_not_awaited()
 
 
-def test_scan_read_is_off_without_math_tools() -> None:
-    response = _post(_client(Settings(math_tools_enabled=False)))
+def test_scan_read_is_off_without_physics() -> None:
+    response = _post(_client(Settings(physics_enabled=False)))
     assert response.status_code == 404
 
 

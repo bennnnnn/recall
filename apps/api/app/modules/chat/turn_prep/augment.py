@@ -212,11 +212,15 @@ def _turn_needs(
 ) -> tuple[bool, bool, bool]:
     """Whether the turn needs maths, a web search and chemistry, in that order."""
     content = request.content
-    needs_math = settings.math_tools_enabled and (
-        detected_subject in {"math", "physics"}
-        or followup.math is not None
-        or followup.physics is not None
-        or subject_adapter("math").followups.continues_alone(content)
+    needs_math = (
+        settings.math_tools_enabled
+        and (
+            detected_subject == "math"
+            or followup.math is not None
+            or subject_adapter("math").followups.continues_alone(content)
+        )
+    ) or (
+        settings.physics_enabled and (detected_subject == "physics" or followup.physics is not None)
     )
     needs_search = web_search_service.needs_web_search(
         content,

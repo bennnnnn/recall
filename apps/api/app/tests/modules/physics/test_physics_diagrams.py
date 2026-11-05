@@ -206,7 +206,7 @@ def test_a_lens_ray_diagram_meets_at_the_image_it_labels() -> None:
     ).optics
     assert optics is not None and optics.image is not None and optics.object is not None
     assert optics.element == "converging_lens"
-    assert optics.image.label == "v = 15 cm"
+    assert optics.image.label == "dᵢ = 15 cm"
     image = [optics.image.x, optics.image.height]
     for ray in optics.rays:
         assert ray.points[0] == [optics.object.x, optics.object.height]

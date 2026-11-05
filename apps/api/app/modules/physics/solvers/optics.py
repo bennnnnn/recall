@@ -236,12 +236,12 @@ def _virtual_image_distance(obj: float, focal: float, shown: str, *, mirror: boo
     side = "virtual, behind the mirror" if mirror else "virtual, on the object's side of the lens"
     return PhysicsResult(
         answer=(
-            rf"\frac{{1}}{{f}} = \frac{{1}}{{u}} + \frac{{1}}{{v}} \Rightarrow |v| = "
-            rf"\frac{{uf}}{{f - u}} = \frac{{{obj:g} \cdot {focal:g}}}"
+            rf"\frac{{1}}{{f}} = \frac{{1}}{{d_o}} + \frac{{1}}{{d_i}} \Rightarrow |d_i| = "
+            rf"\frac{{d_o f}}{{f - d_o}} = \frac{{{obj:g} \cdot {focal:g}}}"
             rf"{{{focal:g} - {obj:g}}} \approx {img:.4g} \text{{ {shown}}}"
         ),
-        formulas=(r"|v| = \frac{uf}{f - u}",),
-        substitutions=(rf"|v| = \frac{{{obj:g} \cdot {focal:g}}}{{{focal:g} - {obj:g}}}",),
+        formulas=(r"|d_i| = \frac{d_o f}{f - d_o}",),
+        substitutions=(rf"|d_i| = \frac{{{obj:g} \cdot {focal:g}}}{{{focal:g} - {obj:g}}}",),
         quantities=(QuantityResult("", img, shown, detail=side),),
     )
 
@@ -266,12 +266,12 @@ def _image_distance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
     img = 1 / (1 / focal - 1 / obj)
     return PhysicsResult(
         answer=(
-            rf"\frac{{1}}{{f}} = \frac{{1}}{{u}} + \frac{{1}}{{v}} \Rightarrow v = "
-            rf"\frac{{uf}}{{u - f}} = \frac{{{obj:g} \cdot {focal:g}}}"
+            rf"\frac{{1}}{{f}} = \frac{{1}}{{d_o}} + \frac{{1}}{{d_i}} \Rightarrow d_i = "
+            rf"\frac{{d_o f}}{{d_o - f}} = \frac{{{obj:g} \cdot {focal:g}}}"
             rf"{{{obj:g} - {focal:g}}} \approx {img:.4g} \text{{ {shown}}}"
         ),
-        formulas=(r"v = \frac{uf}{u - f}",),
-        substitutions=(rf"v = \frac{{{obj:g} \cdot {focal:g}}}{{{obj:g} - {focal:g}}}",),
+        formulas=(r"d_i = \frac{d_o f}{d_o - f}",),
+        substitutions=(rf"d_i = \frac{{{obj:g} \cdot {focal:g}}}{{{obj:g} - {focal:g}}}",),
         quantities=(QuantityResult("", img, shown),),
     )
 

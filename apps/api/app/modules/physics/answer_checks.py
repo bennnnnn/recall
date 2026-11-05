@@ -67,7 +67,7 @@ def _in_context_units(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsRe
     if intent.asked_unit is not None:
         return result
     result = _per_gram_of_givens(intent, _per_time_of_givens(intent, result))
-    result = _kwh_of_givens(intent, result)
+    result = _readable_time(_kwh_of_givens(intent, result))
     written = {unit.lower() for unit in (intent.physics_units or {}).values()}
     if not written & _CHEMISTRY_GAS or written & _SI_GAS:
         return result
@@ -188,6 +188,36 @@ def _kwh_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResul
             for old, new in zip(result.quantities, converted.quantities, strict=True)
         ),
     )
+
+
+# A long time in seconds also reads in the unit a person counts it in: a 400 km orbit is
+# 5545 s (92.4 min), a year 3.16e7 s (365 days). Each unit takes over from twice its size.
+_READABLE_TIMES = (
+    (2 * 365.25 * 86400, 365.25 * 86400, "years"),
+    (2 * 86400, 86400, "days"),
+    (2 * 3600, 3600, "h"),
+    (120, 60, "min"),
+)
+
+
+def _readable_time(result: PhysicsResult) -> PhysicsResult:
+    """A time in seconds of two minutes or more, also shown in min, h, days or years."""
+    return replace(
+        result,
+        quantities=tuple(
+            _with_readable_time(item) if item.unit == "s" and item.detail is None else item
+            for item in result.quantities
+        ),
+    )
+
+
+def _with_readable_time(item: QuantityResult) -> QuantityResult:
+    seconds = abs(item.value)
+    for at_least, size, unit in _READABLE_TIMES:
+        if seconds >= at_least:
+            shown = f"{plain_number(item.value / size)} {unit}"
+            return replace(item, detail=shown, detail_style="paren")
+    return item
 
 
 def _answers_the_question(intent: PhysicsIntent, result: PhysicsResult) -> bool:
