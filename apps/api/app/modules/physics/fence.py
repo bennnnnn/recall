@@ -126,6 +126,11 @@ def validate_physics_fences(
             by_part = land_part_answer_cards(by_part) or by_part
     if by_part is not None:
         cleaned, answer = by_part, ""
+    elif verified.partial:
+        # The card answers one part of several: placed under the reply's one Answer it
+        # would claim the whole question, and its "verified answer is" line would contradict
+        # the other part's value (2026-11-04). Each part keeps the answer the reply gave.
+        answer = ""
     # The law's own heading heads inputs, like **Formula**: its equations are no result.
     read = as_formula_heading(cleaned)
     if answer and _asks_instead_of_answering(read, answer):

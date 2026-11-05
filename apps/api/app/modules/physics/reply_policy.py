@@ -44,6 +44,18 @@ PHYSICS_REPLY_POLICY = (
 )
 
 
+# The verified result answers only part of the question: "how far does it land and what's
+# the max height" was answered with the height, then "Want me to work out the horizontal
+# range too?" (2026-11-04), since the policy says to copy the verified numbers.
+PHYSICS_PARTIAL_POLICY = (
+    "This verified result answers only part of the question. Answer every other part "
+    "the question asks yourself, in this reply: work it out from the givens and the "
+    "verified values, and check it before you write it. Give every part, in the order "
+    "asked, its own heading **Answer (a)**, **Answer (b)**, … with its value and units. "
+    "Never offer to work a part out later, and never leave one out."
+)
+
+
 # The symbols the server's own working shows (``notation``), so a reply the model
 # writes reads the same as one the server writes.
 PHYSICS_VELOCITY_NOTATION = (

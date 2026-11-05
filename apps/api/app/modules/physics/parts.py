@@ -32,6 +32,8 @@ _LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d", re.IGNORECASE)
 _ASK_LEAD = re.compile(
     r"\bhow\s+(?:long|fast|far|high|much|many|quickly|big|heavy|hot|deep|strong|hard)\b"
     r"|\bwhat(?:'s|\s+is|\s+was|\s+will|\s+would|\s+are)\b|\bwhen\s+(?:does|do|will|is)\b"
+    # "Where is the image and how big is it": a place is asked too (2026-11-04).
+    r"|\bwhere\s+(?:is|are|does|do|will|would)\b"
     r"|\bwith\s+what\s+(?:speed|velocity|force|energy)\b",
     re.IGNORECASE,
 )
@@ -95,3 +97,9 @@ def answers_count(intent: PhysicsIntent) -> int:
 
 def asks_more_than_answered(text: str, intent: PhysicsIntent) -> bool:
     return asks_count(text) > answers_count(intent)
+
+
+def answers_part_of(text: str, intent: PhysicsIntent | None, parts: int) -> bool:
+    """The question asks for more than a result with this intent and ``parts`` answers."""
+    answered = max(parts, answers_count(intent) if intent is not None else 1)
+    return asks_count(text) > answered

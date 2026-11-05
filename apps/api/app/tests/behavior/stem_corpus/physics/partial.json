@@ -1,0 +1,56 @@
+[
+  {
+    "id": "pa-kick-01",
+    "area": "partial",
+    "prompt": "I kick a ball at 20 m/s at 30 degrees, how far does it land and what's the max height",
+    "expect": "answer",
+    "answer": [
+      35.311943069701876,
+      "m"
+    ],
+    "parts": [
+      [
+        35.311943069701876,
+        "m"
+      ],
+      [
+        5.09683995922528,
+        "m"
+      ]
+    ],
+    "note": "live 2026-11-04: the height alone was answered, then the range offered as a follow-up"
+  },
+  {
+    "id": "pa-lens-01",
+    "area": "partial",
+    "prompt": "An object is 30 cm from a convex lens with focal length 10 cm. Where is the image and how big is it",
+    "expect": "answer",
+    "answer": [
+      15,
+      "cm"
+    ],
+    "note": "live 2026-11-04: the size (m = -0.5, real, inverted) was dropped"
+  },
+  {
+    "id": "pa-kick-02",
+    "area": "partial",
+    "prompt": "I kick a ball at 20 m/s at 30 degrees, how far does it land",
+    "expect": "answer",
+    "answer": [
+      35.311943069701876,
+      "m"
+    ],
+    "note": "look-alike: one ask, answered whole"
+  },
+  {
+    "id": "pa-lens-02",
+    "area": "partial",
+    "prompt": "An object is 30 cm from a convex lens with focal length 10 cm. Where is the image?",
+    "expect": "answer",
+    "answer": [
+      15,
+      "cm"
+    ],
+    "note": "look-alike: one ask, answered whole"
+  }
+]
