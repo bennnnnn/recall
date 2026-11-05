@@ -97,6 +97,7 @@ async def search_semantic(
     *,
     window: int,
     exclude_message_ids: set[UUID] | None = None,
+    exclude_chat_id: UUID | None = None,
     limit: int = 6,
     max_distance: float | None = None,
 ) -> list[MessageChunk]:
@@ -111,6 +112,8 @@ async def search_semantic(
     filters = [MessageChunk.user_id == user_id, MessageChunk.embedding.isnot(None)]
     if exclude_message_ids:
         filters.append(MessageChunk.message_id.notin_(exclude_message_ids))
+    if exclude_chat_id is not None:
+        filters.append(MessageChunk.chat_id != exclude_chat_id)
     # The LIMIT keeps the planner from flattening the window into the outer query.
     newest = (
         select(MessageChunk.id, MessageChunk.embedding)

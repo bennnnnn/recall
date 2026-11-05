@@ -139,6 +139,32 @@ async def test_a_search_returns_only_the_asking_users_chunks(db_session) -> None
     assert {row.user_id for row in rows} == {alice.id}
 
 
+async def test_a_search_can_leave_out_one_chat(db_session) -> None:
+    user = await _user(db_session)
+    query = _vector(20)
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    here, here_message = await _chat_with_message(db_session, user.id)
+    earlier, earlier_message = await _chat_with_message(db_session, user.id)
+    for index, (chat, message) in enumerate(((here, here_message), (earlier, earlier_message))):
+        db_session.add(
+            _chunk(
+                user.id,
+                chat.id,
+                message.id,
+                index,
+                query,
+                created_at=base + timedelta(minutes=index),
+            )
+        )
+    await db_session.flush()
+
+    rows = await chunks_repo.search_semantic(
+        db_session, user.id, query, window=100, limit=6, exclude_chat_id=here.id
+    )
+
+    assert [row.chat_id for row in rows] == [earlier.id]
+
+
 async def test_a_search_reads_only_the_newest_window(db_session) -> None:
     user = await _user(db_session)
     chat, message = await _chat_with_message(db_session, user.id)

@@ -62,7 +62,7 @@ def _ctx(user: Any) -> ToolContext:
     return ToolContext(
         user=user,
         redis=None,
-        chat_id=None,
+        chat_id=uuid4(),
         user_timezone=None,
         user_query="what did i ask you earlier about a lens",
         tavily_budget=SimpleNamespace(),  # recall never searches the web
@@ -109,7 +109,10 @@ async def test_invoke_returns_the_snippets_and_reuses_them() -> None:
         again = await RecallChatsAdapter(_SETTINGS).invoke({"query": "lens"}, ctx)
     assert first.content == _SNIPPETS
     assert again is first
-    retrieve.assert_awaited_once_with(_SETTINGS, user_id=user.id, query="lens question")
+    # Earlier chats only: this chat's own lines are already in the prompt.
+    retrieve.assert_awaited_once_with(
+        _SETTINGS, user_id=user.id, query="lens question", exclude_chat_id=ctx.chat_id
+    )
 
 
 async def test_invoke_says_when_nothing_matches_or_memory_is_off() -> None:
