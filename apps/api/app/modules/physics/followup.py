@@ -13,9 +13,12 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from app.modules.physics.ask import ask_clause, asks
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.givens import ANGLE, PHYSICS_UNITS
+from app.services.law_binding.fit import read_givens
+from app.services.law_binding.givens import Given
 from app.services.law_binding.units import unit_dimension
 from app.services.problem_followup import (
     EXPLAIN_RE,
@@ -23,10 +26,16 @@ from app.services.problem_followup import (
     adjacent_problem,
     ask_replaced,
     asked_unit,
+    changes_relatively,
+    continues,
     followup_line,
     in_unit,
     new_value,
+    remove_given,
+    replace_given,
+    same_quantities,
     scaled_given,
+    with_sentences,
 )
 
 PHYSICS_FOLLOWUP_HINT = (
@@ -75,9 +84,10 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(line)
     if changed is not None:
-        return _GIVENS.changed(
+        rewritten = _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
+        return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
     how = _HOW.fullmatch(line)
     if how is not None:
         return _another_quantity(prior, _HOW_QUANTITY[how.group("word")])
@@ -89,8 +99,9 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _GIVENS.scaled(prior, *scaled)
     value = new_value(written)
     if value is not None:
-        return _GIVENS.changed(prior, None, *value)
-    return None
+        rewritten = _GIVENS.changed(prior, None, *value)
+        return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
+    return _restated(prior, written)
 
 
 def _in_unit(prior: str, unit: str) -> str | None:
@@ -119,22 +130,156 @@ def _another_quantity(prior: str, ask: str) -> str | None:
 
 
 def _verifies(text: str) -> bool:
-    """True when one operation answers this wording, including the ask guard."""
+    """True when the server answers this wording whole, as a turn would: one law, the
+    laws chained, or each part."""
     return _verified_display(text) is not None
 
 
 def _verified_display(text: str) -> str | None:
     """The verified card's answer for this wording, or None when nothing verifies it."""
-    intent = extract_physics_intent(text)
-    if intent is None:
-        return None
-    from app.core.config import get_settings
-    from app.modules.physics.block import build_verified_physics_block
+    answers = _answers(text)
+    return None if answers is None else "; ".join(display for _, display in answers)
 
-    block = build_verified_physics_block(intent, get_settings())
-    if block is None:
+
+def _answers(text: str) -> list[tuple[str, str]] | None:
+    """Each verified answer as (plain, LaTeX), in the order asked, or None."""
+    from app.core.config import get_settings
+    from app.modules.physics.prompt import solve_physics_request
+
+    outcome, block = solve_physics_request(text, get_settings(), True)
+    if outcome != "verified" or block is None or block.partial:
         return None
-    return block.display_answer or block.canonical_answer or ""
+    if block.physics_parts:
+        return [(part.answer, part.display_answer) for part in block.physics_parts]
+    return [(block.canonical_answer or "", block.display_answer or block.canonical_answer or "")]
+
+
+def _results(text: str) -> list[Given] | None:
+    """The previous problem's answers as values with their kinds: "-5 m/s²; 40 m"."""
+    answers = _answers(text)
+    if answers is None:
+        return None
+    return [g for plain, _ in answers for g in read_givens(plain, PHYSICS_UNITS) if g.dimension]
+
+
+def _restated(prior: str, written: str) -> str | None:
+    """The previous problem with this line's changes, when it verifies one way only.
+
+    "Ok and if it was going 100 km/h with the same braking, how far then?": the line's
+    values take the place of the earlier ones of their kind, a quantity it says stays
+    the same is stated at its earlier result, and its ask replaces the earlier one.
+    """
+    if (not continues(written) and not asks(written)) or changes_relatively(written):
+        return None
+    changed = [g for g in read_givens(written, PHYSICS_UNITS) if g.dimension]
+    kept = [d for d in map(_kept_dimension, same_quantities(written, _KEPT_NAMES)) if d]
+    if not changed and not kept:
+        return None
+    text = prior
+    for given in changed:
+        same_kind = [g for g in read_givens(text, PHYSICS_UNITS) if g.dimension == given.dimension]
+        # One given of its kind, and a value it changes: the same value again is no change.
+        if len(same_kind) != 1 or (same_kind[0].value, same_kind[0].unit) == (
+            given.value,
+            given.unit,
+        ):
+            return None
+        text = replace_given(text, same_kind[0], f"{given.value:g}", given.unit)
+    # Its ask clause alone ("how far then"): the rest of the line restates its values.
+    # With none, the earlier asks stand, but not one the line keeps: it is a given now.
+    ask = ask_clause(written) if asks(written) else _asks_left(prior, kept)
+    return _kept(prior, text, ask, kept, changed)
+
+
+# The names a quantity said to stay the same goes by: the ask vocabulary, and a car's
+# "braking" for its deceleration. Not in the ask vocabulary, which reads "braking force"
+# and "stopping distance" by their last word.
+_KEPT_NAMES: dict[str, str] = {**_QUANTITIES, "braking": _QUANTITIES["deceleration"]}
+
+
+def _kept_dimension(name: str) -> str | None:
+    return _dimension_of_phrase("deceleration" if name == "braking" else name)
+
+
+def _asks_left(prior: str, kept: list[str]) -> str | None:
+    """The earlier asks without the quantities kept the same, as one ask; None when all
+    stand (the earlier ask sentence stays) or none is left."""
+    earlier = asks(prior)
+    left = [ask.words.strip() for ask in earlier if ask.dimension not in kept]
+    if len(left) == len(earlier) or not left:
+        return None
+    return " and ".join(left) + "?"
+
+
+def _kept(
+    prior: str, text: str, ask: str | None, kept: list[str], changed: list[Given]
+) -> str | None:
+    """``text`` with each kept quantity stated at the prior result, without the one stated
+    value it now over-determines; None unless exactly one answer verifies."""
+    results = _results(prior)
+    if results is None:
+        return None
+    stated: list[str] = []
+    for dimension in kept:
+        earlier = [r for r in results if r.dimension == dimension]
+        if len(earlier) != 1:
+            if any(g.dimension == dimension for g in read_givens(text, PHYSICS_UNITS)):
+                continue  # a stated value kept as it was
+            return None
+        sentence = _stated(earlier[0])
+        if sentence is None:
+            return None
+        stated.append(sentence)
+    if not stated:
+        whole = with_sentences(text, ask=ask, stated=())
+        return None if not _verifies(whole) or _ambiguous(prior, whole) else whole
+    new = {(g.value, g.unit) for g in changed}
+    verified: dict[str, str] = {}
+    for given in read_givens(text, PHYSICS_UNITS):
+        if not given.dimension or (given.value, given.unit) in new:
+            continue
+        candidate = with_sentences(remove_given(text, given), ask=ask, stated=tuple(stated))
+        display = _verified_display(candidate)
+        if display is not None:
+            verified[candidate] = display
+    if len(set(verified.values())) != 1:
+        return None
+    return next(iter(verified))
+
+
+def _ambiguous(prior: str, rewritten: str) -> bool:
+    """A changed value whose problem gives another answer when an earlier result is held
+    in place of a stated value: "and if it was going 100 km/h?" after a car that stopped in
+    4 s may keep the time or the deceleration, and the two answers differ."""
+    plain = _verified_display(rewritten)
+    results = _results(prior)
+    if plain is None or not results:
+        return False
+    asked = {r.dimension for r in _results(rewritten) or []}
+    before = {(g.value, g.unit) for g in read_givens(prior, PHYSICS_UNITS)}
+    for result in results:
+        sentence = _stated(result)
+        if result.dimension in asked or sentence is None:
+            continue
+        for given in read_givens(rewritten, PHYSICS_UNITS):
+            if not given.dimension or given.dimension == result.dimension:
+                continue
+            if (given.value, given.unit) not in before:
+                continue  # the value the line changed
+            held = with_sentences(remove_given(rewritten, given), ask=None, stated=(sentence,))
+            other = _verified_display(held)
+            if other is not None and other != plain:
+                return True
+    return False
+
+
+def _stated(result: Given) -> str | None:
+    """An earlier result said as a given, by the vocabulary's first name of its kind: its
+    plain name ("acceleration"), which sets no sign of its own as "deceleration" would."""
+    for phrase in _QUANTITIES:
+        if " " not in phrase and _dimension_of_phrase(phrase) == result.dimension:
+            return f"The {phrase} is {result.value:g} {result.unit}."
+    return None
 
 
 def _dimension_of_unit(unit: str) -> str | None:

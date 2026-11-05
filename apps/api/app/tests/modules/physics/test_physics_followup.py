@@ -143,3 +143,76 @@ def test_how_far_in_that_time_asks_the_same_car() -> None:
     rewritten = physics_followup_problem("how far did it go in that time", _recent(_CAR_FROM_ZERO))
     assert rewritten is not None
     assert _answer(rewritten) == "50 m"
+
+
+_CAR = "car going 72 km/h slams the brakes and stops in 4 s. whats the deceleration and how far does it go"
+
+
+def test_the_same_braking_keeps_the_deceleration_not_the_time() -> None:
+    # Live (2026-11-05): kept 4 s and answered 55.56 m; the same braking is 5 m/s², 77.2 m.
+    line = "ok and if it was going 100 km/h with the same braking, how far then"
+    problem = physics_followup_problem(line, _recent(_CAR))
+    assert problem is not None
+    assert "4 s" not in problem and "100 km/h" in problem
+    assert _solved(problem) == ["77.2 m"]
+
+
+def test_a_kept_quantity_is_not_asked_again() -> None:
+    problem = physics_followup_problem("same braking but from 90 km/h", _recent(_CAR))
+    assert problem is not None
+    assert _solved(problem) == ["62.5 m"]
+
+
+def test_a_changed_value_with_two_readings_declines() -> None:
+    # Keeping the 4 s gives 55.6 m and keeping the deceleration 77.2 m: not one answer.
+    assert (
+        physics_followup_problem("and if it was going 100 km/h, how far then", _recent(_CAR))
+        is None
+    )
+
+
+def test_a_change_with_nothing_derived_to_hold_still_replays() -> None:
+    prior = "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
+    problem = physics_followup_problem("what if the mass was 4 kg", _recent(prior))
+    assert problem is not None and _solved(problem) == ["18 J"]
+
+
+def test_a_remark_holding_a_value_is_not_a_followup() -> None:
+    prior = "A 2 kg ball falls from 20 m. How fast is it going when it hits the ground?"
+    assert physics_followup_problem("my car weighs 1500 kg lol", _recent(prior)) is None
+
+
+def test_what_about_a_new_amount_replays_the_problem_before_it() -> None:
+    prior = "How much heat is needed to raise 50 g of water by 10 °C? (c=4.18)"
+    problem = physics_followup_problem("what about 100 g of water", _recent(prior))
+    assert problem is not None and "100 g" in problem and "?." not in problem
+
+
+_RESISTOR = "12V battery connected to a 4 ohm resistor. current?"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        # Live sweep (hf-019): restated as the same 4 Ω and answered 3 A; in series it is 1.5 A.
+        "now add another 4 ohm in series",
+        "and with a 6 ohm in parallel",
+        "now 3 resistors of 4 ohm",
+    ],
+)
+def test_an_added_part_is_not_a_replaced_given(line: str) -> None:
+    assert physics_followup_problem(line, _recent(_RESISTOR)) is None
+
+
+def test_a_new_part_instead_replaces_the_given() -> None:
+    problem = physics_followup_problem("with a 6 ohm resistor instead", _recent(_RESISTOR))
+    assert problem is not None and _solved(problem) == ["2 A"]
+
+
+def _solved(problem: str) -> list[str]:
+    from app.core.config import get_settings
+    from app.modules.physics.prompt import solve_physics_request
+
+    outcome, block = solve_physics_request(problem, get_settings(), True)
+    assert outcome == "verified" and block is not None
+    return [part.answer for part in block.physics_parts] or [block.canonical_answer or ""]

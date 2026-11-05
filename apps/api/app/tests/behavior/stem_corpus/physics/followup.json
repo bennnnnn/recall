@@ -1,0 +1,122 @@
+[
+  {
+    "id": "fu-brake-01",
+    "area": "followup",
+    "prompt": "ok and if it was going 100 km/h with the same braking, how far then",
+    "expect": "answer",
+    "answer": [
+      77.1604938271605,
+      "m"
+    ],
+    "history": [
+      [
+        "user",
+        "car going 72 km/h slams the brakes and stops in 4 s. whats the deceleration and how far does it go"
+      ],
+      [
+        "assistant",
+        "**Answer (a)** a = −5 m/s²\n\n**Answer (b)** s = 40 m"
+      ]
+    ],
+    "note": "same braking keeps the deceleration (5 m/s²), not the 4 s: v²/2a"
+  },
+  {
+    "id": "fu-brake-02",
+    "area": "followup",
+    "prompt": "same braking but from 90 km/h",
+    "expect": "answer",
+    "answer": [
+      62.5,
+      "m"
+    ],
+    "history": [
+      [
+        "user",
+        "car going 72 km/h slams the brakes and stops in 4 s. whats the deceleration and how far does it go"
+      ],
+      [
+        "assistant",
+        "**Answer (a)** a = −5 m/s²\n\n**Answer (b)** s = 40 m"
+      ]
+    ],
+    "note": "no ask of its own: the distance asked before, the kept deceleration a given"
+  },
+  {
+    "id": "fu-brake-03",
+    "area": "followup",
+    "prompt": "and if it was going 100 km/h, how far then",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "car going 72 km/h slams the brakes and stops in 4 s. whats the deceleration and how far does it go"
+      ],
+      [
+        "assistant",
+        "**Answer (a)** a = −5 m/s²\n\n**Answer (b)** s = 40 m"
+      ]
+    ],
+    "note": "keeping the 4 s or the deceleration gives 55.6 m or 77.2 m: not one answer"
+  },
+  {
+    "id": "fu-drop-01",
+    "area": "followup",
+    "prompt": "what if it's dropped from 80 m",
+    "expect": "answer",
+    "answer": [
+      4.038550218769218,
+      "s"
+    ],
+    "history": [
+      [
+        "user",
+        "A ball is dropped from 20 m. How long does it take to hit the ground?"
+      ],
+      [
+        "assistant",
+        "t = 2.02 s"
+      ]
+    ],
+    "note": "one value changed, nothing derived to hold instead"
+  },
+  {
+    "id": "fu-mass-01",
+    "area": "followup",
+    "prompt": "what if the mass was 4 kg",
+    "expect": "answer",
+    "answer": [
+      18.0,
+      "J"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ]
+  },
+  {
+    "id": "fu-time-01",
+    "area": "followup",
+    "prompt": "and after 10 s",
+    "expect": "answer",
+    "answer": [
+      100.0,
+      "m"
+    ],
+    "history": [
+      [
+        "user",
+        "A car accelerates from rest at 2 m/s^2 for 5 s. How far does it go?"
+      ],
+      [
+        "assistant",
+        "s = 25 m"
+      ]
+    ]
+  }
+]
