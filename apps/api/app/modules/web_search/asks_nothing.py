@@ -19,6 +19,7 @@ typed short and stays searchable.
 
 from __future__ import annotations
 
+import itertools
 import re
 
 from app.modules.web_search.patterns import _LATEST_NEWS, _NEWS, collapse_ws, is_weather_request
@@ -115,9 +116,10 @@ def _clauses(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
-# A word an article or "this" leads is a noun: "what's the us inflation rate" asks about
-# the US, and searched nothing (2026-11-05).
-_DETERMINER = re.compile(r"(?:the|a|an|this|that)", re.IGNORECASE)
+# A word an article leads is a noun: "what's the us inflation rate" asks about the US, and
+# searched nothing (2026-11-05). Only an article: "that" and "this" stand alone as pronouns
+# ("Is that you?").
+_ARTICLE = re.compile(r"(?:the|a|an)", re.IGNORECASE)
 
 
 def _asks_about_us(clause: str) -> bool:
@@ -127,8 +129,8 @@ def _asks_about_us(clause: str) -> bool:
         return False
     words = [w.strip("?.,!") for w in clause.split()[: 1 + _ASK_WINDOW_WORDS]]
     return any(
-        _ABOUT_US.fullmatch(word) and not _DETERMINER.fullmatch(before)
-        for before, word in zip(words, words[1:], strict=False)
+        _ABOUT_US.fullmatch(word) and not _ARTICLE.fullmatch(before)
+        for before, word in itertools.pairwise(words)
     )
 
 

@@ -642,5 +642,33 @@
   "prompt": "I got the iPhone 17 yesterday, is it any good?",
   "reply": "Congrats! Most people like its battery life and camera. What do you mostly use your phone for?",
   "expect": "answer"
+ },
+ {
+  "id": "sl-093",
+  "area": "statement",
+  "prompt": "Is that you?",
+  "reply": "Yes, it's me, Recall. What can I help with?",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-094",
+  "area": "statement",
+  "prompt": "was that me or you who said it first?",
+  "reply": "You said it first, a couple of messages ago.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-095",
+  "area": "search",
+  "prompt": "what's the us inflation rate",
+  "reply": "US inflation was 3.7% in September, per the BLS.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-096",
+  "area": "search",
+  "prompt": "what is the us unemployment rate right now",
+  "reply": "The US unemployment rate was 4.4% in September.",
+  "expect": "search"
  }
 ]

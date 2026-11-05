@@ -31,6 +31,9 @@ from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
         "In what order did we talk about things today?",
         "At what point did you say that?",
         "For which topics did I ask you for sources?",
+        # "That" and "this" stand alone as pronouns: still about us (review).
+        "Is that you?",
+        "Was that me?",
     ],
 )
 def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):

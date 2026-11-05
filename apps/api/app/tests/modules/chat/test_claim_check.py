@@ -7,7 +7,7 @@ the pass does with its verdict: it cuts only what the reply says word for word, 
 outside prose, never most of a reply, and never costs the user an answer.
 """
 
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -426,7 +426,9 @@ async def test_a_figure_a_page_states_stays_though_the_checker_flags_it() -> Non
 
 
 @pytest.mark.parametrize("kind", ["attribution", "other"])
-async def test_a_doubtful_attribution_or_detail_never_costs_the_answer(kind: str) -> None:
+async def test_a_doubtful_attribution_or_detail_never_costs_the_answer(
+    kind: Literal["attribution", "other"],
+) -> None:
     """Live 2026-11-05: "Ciryl Gane, the French heavyweight, is the UFC champion" lost its
     whole sentence over the nationality, and the reply began "He won the title"."""
     reply = (

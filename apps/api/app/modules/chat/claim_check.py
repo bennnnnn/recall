@@ -130,6 +130,8 @@ _SENTENCE_OPENERS = frozenset(string.ascii_uppercase + string.digits + "*_[(\"'"
 # Letters with points, "a.m.", "U.S.", "e.g.": the point after the last ends no sentence.
 _INITIALS = re.compile(r"(?<![\w.])(?:[A-Za-z]\.){2,}$")
 _EMPHASIS = re.compile(r"\*\*|__|[*_`]")
+# A "_" inside a word ("snake_case", a URL) marks nothing.
+_WORD_UNDERSCORE = re.compile(r"(?<=[^\W_])_+(?=[^\W_])")
 _ONLY_MARKUP = re.compile(r"^[\s>*_\-•\d.)#]*$")
 
 
@@ -204,9 +206,10 @@ def _sentences(line: str) -> list[str]:
 
 
 def _open_emphasis(text: str) -> bool:
-    """Whether ``text`` leaves a bold, italic or code span open."""
+    """Whether ``text`` leaves a bold, italic or code span open. A bullet's "* " and a
+    "_" inside a word open nothing."""
     marks: dict[str, int] = {}
-    for mark in _EMPHASIS.findall(text):
+    for mark in _EMPHASIS.findall(_WORD_UNDERSCORE.sub("", _LIST_MARKER.sub("", text))):
         marks[mark] = marks.get(mark, 0) + 1
     return any(count % 2 for count in marks.values())
 

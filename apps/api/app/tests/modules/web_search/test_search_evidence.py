@@ -142,6 +142,12 @@ def test_a_figure_one_page_states_is_not_cut(quote: str, stated: bool) -> None:
             ["**A bold start. Still bold** and on.", "Then plain."],
         ),
         ("One. Two.", ["One.", "Two."]),
+        # A bullet's marker and an underscore inside a word open no emphasis (review).
+        (
+            "* Gane is the champion. He won in September.",
+            ["* Gane is the champion.", "He won in September."],
+        ),
+        ("See my_notes.txt here. Then go.", ["See my_notes.txt here.", "Then go."]),
     ],
 )
 def test_a_sentence_ends_neither_at_initials_nor_inside_bold(
