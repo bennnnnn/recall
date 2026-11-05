@@ -20,9 +20,10 @@ QUOTED = "> Rain taps the glass in silver thread,  \n> and hums the city off to 
         (f"{QUOTED}\n> -- recall.", POEM),
         # On a quote line a hyphen is a citation too (the phone reads it as one).
         (f"{QUOTED}\n> - Recall", POEM),
-        # The citation after the quote, with or without a blank line between.
+        # The citation on the line under the quote closes it; across a blank line only the
+        # signature goes, and the quote stays as written.
         (f"{QUOTED}\n— Recall", POEM),
-        (f"{QUOTED}\n\n— **Recall**\n\nWant a longer one?", f"{POEM}\n\nWant a longer one?"),
+        (f"{QUOTED}\n\n— **Recall**\n\nWant a longer one?", f"{QUOTED}\n\nWant a longer one?"),
         # The poem as plain lines, signed: only the signature goes.
         (f"{POEM}\n\n— Recall", POEM),
         (f"Here's one:\n\n{QUOTED}\n> — Recall\n", f"Here's one:\n\n{POEM}\n"),
@@ -58,7 +59,20 @@ def test_other_citations_and_the_name_elsewhere_are_left_alone(reply: str) -> No
     assert drop_self_attribution(reply) == reply
 
 
-def test_a_sign_off_below_someone_elses_quote_leaves_that_quote_whole() -> None:
-    """Review of #2300: the sign-off after a blank line unwrapped Gandhi's card."""
-    quote = "> Be the change you wish to see in the world.\n> — Gandhi"
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "> Be the change you wish to see in the world.\n> — Gandhi",
+        "> Be the change you wish to see in the world.\n> - Gandhi",
+        "> Warning: do not mix bleach and ammonia.",
+    ],
+)
+def test_a_sign_off_apart_from_a_quote_leaves_that_quote_whole(quote: str) -> None:
+    """Reviews of #2300: a sign-off after a blank line unwrapped Gandhi's card, with either
+    dash, and a callout."""
     assert drop_self_attribution(f"{quote}\n\n— Recall") == quote
+
+
+def test_a_sign_off_under_a_cited_quote_leaves_the_citation() -> None:
+    quote = "> Be the change.\n> - Gandhi"
+    assert drop_self_attribution(f"{quote}\n— Recall") == quote
