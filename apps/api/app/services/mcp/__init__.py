@@ -5,11 +5,14 @@ from app.gateways.mcp.registry import register
 from app.modules.images.gen_tool import ImageGenAdapter
 from app.modules.images.search_tool import ImageSearchAdapter
 from app.modules.math.tool import SympyAdapter
+from app.modules.memory.recall_tool import RecallChatsAdapter
 from app.modules.web_search import WebSearchAdapter
 
 
 def setup_mcp_adapters(settings: Settings) -> None:
     register(WebSearchAdapter(settings))
+    if settings.chat_history_rag_enabled:
+        register(RecallChatsAdapter(settings))
     if settings.math_tools_enabled:
         register(SympyAdapter(settings))
     if settings.image_generation_enabled:

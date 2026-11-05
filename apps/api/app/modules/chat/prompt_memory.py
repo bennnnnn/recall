@@ -186,7 +186,13 @@ def memory_scope_for(text: str | None) -> MemoryScope:
 
 
 def recalls_shared_past(text: str | None) -> bool:
-    """The user asks about something said or decided in an earlier chat, or earlier in this one."""
+    """The user plainly asks about something said or decided in an earlier chat, or earlier
+    in this one.
+
+    A preload, not the gate: these turns read saved facts and past-chat snippets before the
+    reply, so the answer needs no search round, and a search that found nothing gets the
+    "no record" note. A recall this misses ("what did i ask you earlier about a lens") is
+    the model's to search for with ``recall_chats`` (``memory.recall_tool``)."""
     if not text:
         return False
     return (

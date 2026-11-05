@@ -39,7 +39,9 @@ from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.worked_stream import ReplyFilter
 from app.modules.chat.worked_turn import without_worked_contract
+from app.modules.memory.switch import memory_switch_on
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
+from app.services.prompt_safety import holds_earlier_chats
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +120,9 @@ class _LoopGate:
             skip_tools=self.skip_tools,
         )
 
-    def reply_tools(self, settings: Settings, prompt: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def reply_tools(
+        self, settings: Settings, prompt: list[dict[str, Any]], user: User | None
+    ) -> list[dict[str, Any]]:
         """The tools the reply's model call may use, when the tool loop leaves the turn."""
         return reply_calls.reply_tools(
             settings,
@@ -130,6 +134,7 @@ class _LoopGate:
                 has_search_sources=self.has_search_sources,
                 prior_user_messages=collect_prior_user_messages(prompt, self.content) or None,
                 prior_assistant=last_assistant_content(prompt),
+                may_recall=memory_switch_on(user) and not holds_earlier_chats(prompt),
             ),
         )
 
@@ -222,8 +227,9 @@ async def run_tool_loop_path(
         web_search_flag, search_parts = _web_verdict(settings, ctx, gate)
         if not gate.needs_loop(settings, ctx.user, web_search=web_search_flag):
             prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-            ctx.reply_tools = gate.reply_tools(settings, prompt)
-            if not (ctx.reply_tools or gate.has_search_sources or gate.has_instant_reply):
+            ctx.reply_tools = gate.reply_tools(settings, prompt, ctx.user)
+            searches = reply_calls.offers_search(ctx.reply_tools)
+            if not (searches or gate.has_search_sources or gate.has_instant_reply):
                 ctx.denial_retry_tools = reply_calls.web_search_tool(settings)
             return
     rounds = await tool_loop.run_tool_rounds(

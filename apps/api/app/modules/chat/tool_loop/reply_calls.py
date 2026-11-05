@@ -1,4 +1,4 @@
-"""The ``web_search`` tool on the reply's own model call.
+"""The tools on the reply's own model call: ``web_search`` and ``recall_chats``.
 
 Word rules alone decided search in production: the classifier round that read the
 rest cost every turn a model call before its first word, so it was turned off, and
@@ -6,7 +6,8 @@ rest cost every turn a model call before its first word, so it was turned off, a
 from training data. A turn the rules neither searched nor ruled out now offers the
 tool to the model writing the reply. It answers at once, or calls ``web_search`` and
 answers in a second call that reads the results. A reply that needs no search costs
-nothing more.
+nothing more. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
+so the model, not a phrase list, decides when a turn reads the user's earlier chats.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from app.modules.chat.tool_loop.parts import open_parts
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
+from app.modules.memory.recall_tool import RECALL_TOOL
 from app.modules.turn_reading.coding import has_code_syntax
 from app.modules.turn_reading.conversation import is_social_opener
 from app.modules.turn_reading.school_question import has_nothing_to_look_up
@@ -48,15 +50,35 @@ class ReplyTurn(NamedTuple):
     has_search_sources: bool
     prior_user_messages: list[str] | None
     prior_assistant: str | None
+    # Memory is on and the prompt holds no earlier-chat snippets already.
+    may_recall: bool = False
 
 
 def reply_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
-    """``web_search`` for the reply's model call, or nothing.
+    """The tools the reply's model call may use: ``web_search``, ``recall_chats``, both
+    or neither."""
+    return [*_search_tools(settings, turn), *_recall_tools(settings, turn)]
 
-    Nothing when search is off (``web_search_enabled`` already carries the user's
-    switch), a quick reply or a verified solve answered the turn, a search already
-    ran, or no open request has anything to look up (``_nothing_to_look_up``).
-    """
+
+def _recall_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
+    """``recall_chats`` while memory is on, unless a quick reply or a verified solve
+    answered the turn."""
+    if not (turn.may_recall and settings.mcp_tool_loop_enabled):
+        return []
+    if not settings.chat_history_rag_enabled:
+        return []
+    if turn.lightweight or turn.has_instant_reply or turn.has_verified_math:
+        return []
+    adapter = mcp_registry.get(RECALL_TOOL)
+    to_tool = getattr(adapter, "to_openai_tool", None)
+    return [to_tool()] if callable(to_tool) else []
+
+
+def _search_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
+    """``web_search``, or nothing when search is off (``web_search_enabled`` already
+    carries the user's switch), a quick reply or a verified solve answered the turn, a
+    search already ran, or no open request has anything to look up
+    (``_nothing_to_look_up``)."""
     if not (
         settings.mcp_tool_loop_enabled
         and settings.reply_search_tool_enabled
@@ -73,6 +95,11 @@ def reply_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
     if all(_nothing_to_look_up(part, earlier) for part in parts):
         return []
     return web_search_tool(settings)
+
+
+def offers_search(tools: list[dict[str, Any]]) -> bool:
+    """These reply tools include ``web_search``."""
+    return any((tool.get("function") or {}).get("name") == REPLY_TOOL for tool in tools)
 
 
 def web_search_tool(settings: Settings) -> list[dict[str, Any]]:
@@ -127,7 +154,7 @@ async def answer_reply_calls(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
 ) -> ReplyCallsOutcome:
-    """Run the reply's calls: one tool message each, refused unless ``web_search``.
+    """Run the reply's calls: one tool message each, refused unless a reply tool.
 
     The calls share one turn budget, like the tool loop's. A stop during the search
     trims the unanswered call, so the list stays one a provider accepts.
@@ -145,7 +172,7 @@ async def answer_reply_calls(
     )
     turn = CallRound(
         settings=settings,
-        offered=frozenset({REPLY_TOOL}),
+        offered=frozenset({REPLY_TOOL, RECALL_TOOL}),
         ctx=ctx,
         on_status=on_status,
         should_cancel=should_cancel,

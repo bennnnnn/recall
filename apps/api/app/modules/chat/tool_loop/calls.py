@@ -32,6 +32,7 @@ from app.modules.chat.tool_loop.results import (
     _canonical_from_tool_result,
 )
 from app.modules.chat.turn_trace import note_tool
+from app.modules.memory.recall_tool import RECALL_TOOL
 from app.modules.turn_reading.readable import unreadable
 from app.services.subjects.registry import subject_adapter
 
@@ -73,6 +74,8 @@ def _status_for_tool(name: str) -> StreamStatusPhase | None:
         return "searching"
     if name == "sympy":
         return "calculating"
+    if name == RECALL_TOOL:
+        return "remembering"
     if name == "generate_image":
         return "image_gen"
     # A reference-photo lookup finds a real photo; it is not image generation,
