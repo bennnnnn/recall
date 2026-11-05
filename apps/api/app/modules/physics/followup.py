@@ -175,16 +175,27 @@ def _restated(prior: str, written: str) -> str | None:
     kept = [d for d in map(_kept_dimension, same_quantities(written, _KEPT_NAMES)) if d]
     if not changed and not kept:
         return None
-    text = prior
+    # Two new values of one kind ("from 10 m/s to 20 m/s") have no single earlier given
+    # each takes the place of: replacing one after the other kept only the last.
+    dimensions = [g.dimension for g in changed]
+    if len(set(dimensions)) < len(dimensions):
+        return None
+    earlier = [g for g in read_givens(prior, PHYSICS_UNITS) if g.dimension]
+    pairs = []
     for given in changed:
-        same_kind = [g for g in read_givens(text, PHYSICS_UNITS) if g.dimension == given.dimension]
+        # Matched against the earlier problem's givens, never the text already edited.
+        same_kind = [g for g in earlier if g.dimension == given.dimension]
         # One given of its kind, and a value it changes: the same value again is no change.
         if len(same_kind) != 1 or (same_kind[0].value, same_kind[0].unit) == (
             given.value,
             given.unit,
         ):
             return None
-        text = replace_given(text, same_kind[0], f"{given.value:g}", given.unit)
+        pairs.append((same_kind[0], given))
+    text = prior
+    # From the last position back, so each earlier given's position still holds.
+    for old, new in sorted(pairs, key=lambda pair: pair[0].start, reverse=True):
+        text = replace_given(text, old, f"{new.value:g}", new.unit)
     # Its ask clause alone ("how far then"): the rest of the line restates its values.
     # With none, the earlier asks stand, but not one the line keeps: it is a given now.
     ask = ask_clause(written) if asks(written) else _asks_left(prior, kept)

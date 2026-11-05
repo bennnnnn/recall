@@ -3,7 +3,7 @@
 import pytest
 
 from app.modules.physics.extract import extract_physics_intent
-from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
+from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, _restated, physics_followup_problem
 from app.tests.modules.physics.test_physics_binding import _answer
 
 
@@ -216,3 +216,18 @@ def _solved(problem: str) -> list[str]:
     outcome, block = solve_physics_request(problem, get_settings(), True)
     assert outcome == "verified" and block is not None
     return [part.answer for part in block.physics_parts] or [block.canonical_answer or ""]
+
+
+def test_two_new_values_of_one_kind_decline() -> None:
+    # "from 10 m/s to 20 m/s" has no single earlier speed each replaces: replacing one
+    # after the other kept only the last and verified a wrong start speed.
+    prior = "A car starts at 5 m/s and accelerates at 2 m/s² for 4 s. How far does it go?"
+    assert _restated(prior, "what if it went from 10 m/s to 20 m/s instead") is None
+
+
+def test_two_new_values_of_different_kinds_both_take_their_place() -> None:
+    prior = "A car starts at 5 m/s and accelerates at 2 m/s² for 4 s. How far does it go?"
+    restated = _restated(prior, "what if it started at 10 m/s and went for 6 s instead")
+    assert restated is not None
+    assert "10 m/s" in restated and "6 s" in restated
+    assert "5 m/s" not in restated and "4 s" not in restated
