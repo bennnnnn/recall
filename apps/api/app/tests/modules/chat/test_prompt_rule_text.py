@@ -27,10 +27,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then one note per memory command (remember, forget, mute, correct) from one template, in
 # place of the remember note, then the assistant's name (ASSISTANT_NAME_RULE), then the lesson
 # and teach-me shapes restated beside the message (prompt_constants.teaching LESSON_CONTRACT,
-# TEACH_CONTRACT, OUTLINE_CONTRACT and the parts they share).
+# TEACH_CONTRACT, OUTLINE_CONTRACT and the parts they share), then a quote card naming the
+# person quoted and the reply's own writing never signed (FORMAT_CONTRACT, PROSE_WRITING_HINT).
 _RULES = 173
-_RULE_GRAMS = 14989
-_RULE_GRAMS_SHA = "e1d748e1b29460cd"
+_RULE_GRAMS = 15032
+_RULE_GRAMS_SHA = "adcb0cc18ae80c43"
 
 
 def _rules() -> list[str]:

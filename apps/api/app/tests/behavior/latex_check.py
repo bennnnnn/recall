@@ -20,8 +20,10 @@ FIXTURE = Path(__file__).resolve().parents[5] / "docs" / "fixtures" / "latex_com
 
 _FENCE = re.compile(r"^(`{3,}|~{3,})([^\n]*)\n(.*?)^\1[ \t]*$", re.DOTALL | re.MULTILINE)
 _MATH_FENCES = {"math", "latex", "tex", "answer"}
+# Inline maths may hold an escaped dollar (``$C = \\$0.90$``): the phone reads it as the sign.
 _SPAN = re.compile(
-    r"\$\$(.+?)\$\$|\\\((.+?)\\\)|\\\[(.+?)\\\]|(?<![\\$])\$(?!\$)([^$\n]+?)(?<!\\)\$",
+    r"\$\$(.+?)\$\$|\\\((.+?)\\\)|\\\[(.+?)\\\]"
+    r"|(?<![\\$])\$(?!\$)((?:\\\$|[^$\n])+?)(?<!\\)\$",
     re.DOTALL,
 )
 _INLINE_CODE = re.compile(r"`[^`\n]*`")

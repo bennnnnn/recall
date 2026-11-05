@@ -179,6 +179,8 @@ PROSE_WRITING_HINT = (
     "- Poem, script, address, and line-by-line text must preserve intended line breaks. "
     "Use Markdown hard breaks (two trailing spaces) or blank lines so mobile rendering "
     "does not join separate lines.\n"
+    "- The piece is your own writing: plain lines, never a `>` quote, and never signed "
+    "with a name.\n"
     "- Outline markers (numbers, letters, or roman numerals) must match what the user asked for.\n"
     "Do not use a copy fence unless the user explicitly wants paste-and-send wording."
 )

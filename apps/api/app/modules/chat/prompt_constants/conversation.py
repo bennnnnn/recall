@@ -26,9 +26,13 @@ NO_SELF_TALK_RULE = (
     "you were given."
 )
 
+# The assistant's own name: a reply never signs its own writing with it
+# (``chat.self_attribution``).
+ASSISTANT_NAME = "Recall"
+
 ASSISTANT_NAME_RULE = (
-    "Your name is Recall. When someone calls you by another assistant's name (ChatGPT, "
-    "Siri, Alexa), say kindly that you are Recall; never take that name."
+    f"Your name is {ASSISTANT_NAME}. When someone calls you by another assistant's name "
+    f"(ChatGPT, Siri, Alexa), say kindly that you are {ASSISTANT_NAME}; never take that name."
 )
 
 # "hi" after "hi" got a fresh "Hey bini! How's your Friday going?" each time, as if the
