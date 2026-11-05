@@ -231,6 +231,27 @@ sample of STEM turns once this merges, to measure agreement on real questions an
 pattern mistakes. The next candidate is maths in other languages (1 wrong in 42): measure
 it on a larger translated sample before offering it.
 
+## Second opinion (measured 2026-11-05, not shipped)
+
+A second opinion was built and measured: on a turn no solver verified, the reader's read
+was solved by the server and set beside the reply's final value; on a conflict the stronger
+model answered once more, and a reply was kept only when two of three agreed. The code and
+its eval (`second_opinion_eval.py`) are on the `feat/stem-second-opinion` branch.
+
+On real replies (116 corpus questions answered by the model alone, judged at the sweep's 1%):
+
+| | Questions |
+|---|---|
+| The model's first answers | 69 right, 13 wrong, 34 with no one plain value |
+| A read the server could solve | 23 |
+| Read and reply more than 1% apart | 3, of which the reply was wrong: 1 |
+| Answers the second opinion changed | 0 |
+
+**Why it is not in the app:** the questions the model gets wrong are the ones no catalog law
+reads, and the reader binds to the same catalog, so it reaches almost none of them. The lever
+is the catalog's reach (bindings the chain can solve), not a second read of the same catalog.
+Re-measure with the branch's eval once that reach has grown.
+
 ## Not doing
 
 - No model writes a verified answer, a formula or a number the reply shows: the solvers do.
