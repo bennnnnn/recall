@@ -58,11 +58,11 @@ async def test_turn_search_keeps_the_users_words(message: str, expected: str) ->
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "user_query, recent",
+    "user_query, dated",
     [("what's the newest iphone", True), ("how do iphones charge wirelessly", False)],
 )
-async def test_model_written_search_asks_for_recent_pages_on_a_newest_ask(
-    user_query: str, recent: bool
+async def test_model_written_search_asks_for_news_on_a_newest_ask(
+    user_query: str, dated: bool
 ) -> None:
     ctx = tool_context(user_query=user_query)
     run_search = AsyncMock(return_value=([], ["q"]))
@@ -70,7 +70,8 @@ async def test_model_written_search_asks_for_recent_pages_on_a_newest_ask(
         await WebSearchAdapter(Settings()).invoke({"query": "newest iPhone model"}, ctx)
     sent: Any = run_search.await_args
     assert sent is not None and sent.args[1] == ["newest iPhone model"]
-    assert sent.kwargs["dated"] is recent
+    assert sent.kwargs["dated"] is dated
+    assert sent.kwargs["recent"] is True
 
 
 @pytest.mark.parametrize(

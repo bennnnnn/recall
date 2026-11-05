@@ -115,9 +115,12 @@ _WORLD_VISION = WebSearchHit(
         ("at least 90 people died", False),
         # Two pages' figures together are not one page's claim.
         ("76 died, 12 of them in Cuba", False),
-        # A year dates a claim; it does not make one.
+        # A year dates a claim; it does not make one: the words decide.
         ("Melissa's status was upgraded in 2026", False),
         ("Cytonn has been reinstated", False),
+        # No figure: most of its words on one page.
+        ("deaths across the region in Haiti", True),
+        ("the region confirmed deaths in Cuba", False),
     ],
 )
 def test_a_figure_one_page_states_is_not_cut(quote: str, stated: bool) -> None:
@@ -157,20 +160,58 @@ def test_a_sentence_ends_neither_at_initials_nor_inside_bold(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("recent, dated", [(True, True), (False, False), ("yes", False)])
-async def test_the_model_marks_a_search_about_now(recent: object, dated: bool) -> None:
-    """ "who is top of the premier league table" names no time; the model knows it is about now."""
+@pytest.mark.parametrize(
+    "args, recent",
+    [
+        # The tool is for what changes: last year's pages unless the model says the past.
+        ({}, True),
+        ({"recent": True}, True),
+        ({"recent": "yes"}, True),
+        ({"recent": False}, False),
+    ],
+)
+async def test_a_model_written_search_keeps_to_the_last_year_unless_about_the_past(
+    args: dict[str, object], recent: bool
+) -> None:
+    """Live 2026-11-05: "who is top of the premier league table" names no time, was searched
+    with none, and read a mid-October table. The news search beside it still follows the
+    user's words, so it is not run here."""
     run_search = AsyncMock(return_value=([], ["q"]))
     with patch("app.modules.web_search.tool.run_cached_search", run_search):
         await WebSearchAdapter(Settings()).invoke(
-            {"query": "Premier League table", "recent": recent},
+            {"query": "Premier League table", **args},
             tool_context(user_query="who is top of the premier league table"),
         )
     sent: Any = run_search.await_args
-    assert sent.kwargs["dated"] is dated
+    assert sent.kwargs["recent"] is recent
+    assert sent.kwargs["dated"] is False
+
+
+@pytest.mark.asyncio
+async def test_a_recent_search_runs_no_news_search(fake_redis: Any) -> None:
+    from app.modules.web_search.search_cache import _run_search
+
+    topics: list[tuple[str, bool]] = []
+
+    async def search(
+        _settings: Any,
+        query: str,
+        *,
+        max_results: int,
+        skip_tavily: bool = False,
+        topic: str = "general",
+        recent: bool = False,
+    ) -> list[WebSearchHit]:
+        topics.append((topic, recent))
+        return [WebSearchHit("T", "https://t.example", "s")]
+
+    with patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search):
+        await _run_search(Settings(), ["premier league table"], redis=fake_redis, recent=True)
+    assert topics == [("general", True)]
 
 
 def test_the_tool_offers_recent_and_asks_for_no_year_in_the_query() -> None:
     tool = WebSearchAdapter(Settings()).to_openai_tool()["function"]
-    assert "recent" in tool["parameters"]["properties"]
+    recent = tool["parameters"]["properties"]["recent"]
+    assert recent["default"] is True
     assert "no month or year" in tool["description"]

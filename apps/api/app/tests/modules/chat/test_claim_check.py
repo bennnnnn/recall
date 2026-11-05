@@ -78,7 +78,7 @@ def _verdict(*quotes: str, note: str = "") -> claim_check._Verdict:
             claim_check._Claim(
                 quote=q,
                 topic="a levy",
-                kind="figure" if claim_check._figures(q) else "status",
+                kind="figure" if claim_check._figures(q) else "legal",
             )
             for q in quotes
         ],
@@ -439,3 +439,22 @@ async def test_a_doubtful_attribution_or_detail_never_costs_the_answer(
         unsupported=[claim_check._Claim(quote="the French heavyweight", kind=kind)]
     )
     assert await _run(_state(reply), verdict) == reply
+
+
+async def test_a_claim_a_page_says_in_its_own_words_stays() -> None:
+    """Live 2026-11-05: "France beat defending champions Brazil" lost its sentence as an
+    unsupported status under a page that said "beat defending champions Brazil"."""
+    page = WebSearchHit(
+        title="1998 FIFA World Cup",
+        url="https://en.wikipedia.org/wiki/1998_FIFA_World_Cup",
+        snippet="The tournament was won by host country France, who beat defending champions "
+        "Brazil 3–0 in the final to win their first title.",
+    )
+    reply = (
+        "France won the 1998 World Cup, beating defending champions Brazil in the final. "
+        "It was their first title, won at home."
+    )
+    verdict = claim_check._Verdict(
+        unsupported=[claim_check._Claim(quote="beating defending champions Brazil", kind="status")]
+    )
+    assert await _run(_state(reply, search_sources=[page]), verdict) == reply

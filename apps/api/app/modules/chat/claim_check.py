@@ -15,8 +15,8 @@ saying what was left out. A check that fails, times out or flags most of the rep
 changes nothing: it never costs the user an answer.
 
 The checker sees the pages as the reply read them, and names what kind of claim each is.
-Only two kinds cost a sentence: a figure no page states (the code reads the pages, not the
-checker) and a legal or regulatory status. On 2026-11-05 a cheap checker cut "at least 76
+Only two kinds cost a sentence, a figure and a legal standing, and only when no page states
+it: the code reads the pages, not the checker (its figures, or most of its words). On 2026-11-05 a cheap checker cut "at least 76
 deaths" under a World Vision page that said "At least 76 people confirmed died", and the
 reply began "Some people were still missing, so the total could rise"; it cut "Ciryl Gane
 is the UFC heavyweight champion" for the nationality beside it, and the reply began "He won
@@ -78,8 +78,9 @@ _SYSTEM = (
     "estimates, and what the reply says it could not find.\n\n"
     'Return JSON: {"unsupported": [{"quote": ..., "topic": ..., "kind": ...}], "note": ...}. '
     "quote is the shortest span copied exactly from the reply that holds the claim. "
-    "topic is 2 to 8 words naming what was claimed. kind is figure, status (a legal or "
-    "regulatory status), attribution, or other. note is one short sentence to the "
+    "topic is 2 to 8 words naming what was claimed. kind is figure, legal (licensed, "
+    "banned, approved, reinstated or safe to use under a law or regulator), attribution, "
+    "or other. note is one short sentence to the "
     "user, in the language of the reply, saying you could not confirm those details from "
     "the sources found and left them out; never number a source or name the reply. Use an "
     "empty list and an empty note when every claim is supported."
@@ -89,7 +90,8 @@ _SYSTEM = (
 class _Claim(BaseModel):
     quote: str = Field(min_length=3, max_length=300)
     topic: str = Field(default="", max_length=100)
-    kind: Literal["figure", "status", "attribution", "other"] = "other"
+    # "status" is what the checker called "legal" before (2026-11-05); it is read the same.
+    kind: Literal["figure", "legal", "status", "attribution", "other"] = "other"
 
 
 class _Verdict(BaseModel):
@@ -363,25 +365,35 @@ def _figures(text: str) -> set[str]:
 
 
 def _costs_its_sentence(claim: _Claim, pages: list[WebSearchHit]) -> bool:
-    """A figure no page states, or a legal or regulatory status: what a reader would act on
-    and what a page would have said. An attribution or a detail beside the answer is not
-    worth the sentence that carries the answer."""
-    if claim.kind == "status":
-        return True
-    return (
-        claim.kind == "figure"
-        and bool(_figures(claim.quote))
-        and not _stated_by_a_page(claim.quote, pages)
-    )
+    """A figure or a legal standing no page states: what a reader would act on and what a
+    page would have said. An attribution or a detail beside the answer is not worth the
+    sentence that carries the answer."""
+    return claim.kind in _CUT_KINDS and not _stated_by_a_page(claim.quote, pages)
+
+
+_CUT_KINDS = frozenset({"figure", "legal", "status"})
+_CONTENT_WORD = re.compile(r"[^\W\d_]{4,}")
+# A claim with no figure is a page's when this share of its words are on that page.
+_MIN_WORDS_ON_PAGE = 0.8
 
 
 def _stated_by_a_page(quote: str, pages: list[WebSearchHit]) -> bool:
-    """Whether one page states every figure in ``quote``: a cheap checker's "unsupported"
-    is then its own misreading, and cutting it costs the user a sourced answer."""
+    """Whether one page states ``quote``: every figure in it, or for a claim with none, most
+    of its words. A cheap checker's "unsupported" is then its own misreading, and cutting
+    it costs the user a sourced answer: "beat defending champions Brazil" was cut as a
+    status under a page that said those words (2026-11-05)."""
     figures = _figures(quote)
-    return bool(figures) and any(
-        figures <= _figures(f"{page.title} {page.snippet[:SNIPPET_CHARS]}") for page in pages
-    )
+    words = {word.casefold() for word in _CONTENT_WORD.findall(quote)}
+    for page in pages:
+        text = f"{page.title} {page.snippet[:SNIPPET_CHARS]}"
+        if figures:
+            if figures <= _figures(text):
+                return True
+            continue
+        on_page = {word.casefold() for word in _CONTENT_WORD.findall(text)}
+        if words and len(words & on_page) / len(words) >= _MIN_WORDS_ON_PAGE:
+            return True
+    return False
 
 
 async def _verdict(state: FinalizeState) -> _Verdict | None:
