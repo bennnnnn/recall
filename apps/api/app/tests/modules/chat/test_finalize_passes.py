@@ -86,6 +86,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "generic_closer",
         "meta_notes",
         "prompt_leaks",
+        "self_attribution",
         "turn_meta",
         "lesson_again",
         "emoji_use",

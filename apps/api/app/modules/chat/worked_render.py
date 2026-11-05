@@ -19,6 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
+from app.modules.chat.worked_units import currency_first, quantity_tex
 from app.services.times_sign import with_times
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
@@ -33,8 +34,6 @@ from app.services.workout import (
 )
 
 _HARD_BREAK = "  \n"
-_SUPERSCRIPTS = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
-_POWER = re.compile(r"\^\{?(-?\d+)\}?")
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 # A note is text beside the maths: no maths or markdown marks in it.
 _NOT_MARKDOWN = re.compile(r"[\\$*_`]")
@@ -45,18 +44,6 @@ _UPRIGHT = re.compile(r"\\(?:mathrm|text)|\\[,;! ]")
 _MATH_SYNTAX = re.compile(r"[\\{}^_=<>≤≥≈≠]")
 _WORDS = re.compile(r"[^\W\d_]{2,}")
 _NOT_ALNUM = re.compile(r"[^A-Za-z0-9.]")
-_TEXT_WRAP = re.compile(r"^\\(?:text|mathrm)\s*\{(?P<unit>[^{}]*)\}$")
-_UNIT_SYMBOLS = {
-    "°": r"^\circ",
-    "deg": r"^\circ",
-    "degree": r"^\circ",
-    "degrees": r"^\circ",
-    "°C": r"\,^\circ\mathrm{C}",
-    "℃": r"\,^\circ\mathrm{C}",
-    "degC": r"\,^\circ\mathrm{C}",
-    "°F": r"\,^\circ\mathrm{F}",
-    "%": r"\,\%",
-}
 
 
 @dataclass(frozen=True)
@@ -67,29 +54,13 @@ class WorkedLayout:
     law_heading: bool = False
 
 
-def unit_tex(unit: str) -> str:
-    """The unit after a number, upright: ``m/s^2`` → ``\\,\\mathrm{m/s²}``."""
-    text = unit.strip()
-    wrapped = _TEXT_WRAP.match(text)
-    if wrapped is not None:
-        text = wrapped.group("unit").strip()
-    if not text:
-        return ""
-    if text in _UNIT_SYMBOLS:
-        return _UNIT_SYMBOLS[text]
-    if "\\" in text:
-        return rf"\,{text}"  # written in LaTeX already
-    plain = _POWER.sub(lambda match: match.group(1).translate(_SUPERSCRIPTS), text)
-    plain = plain.replace("*", "·").replace("{", "").replace("}", "").replace("%", r"\%")
-    return rf"\,\mathrm{{{plain}}}"
-
-
 def tidy_tex(tex: str) -> str:
     """A subscript of several characters in braces: ``x_final`` → ``x_{final}``; a product
     written with a dot, with \\times as every reply writes it (``services/times_sign``).
-    Markdown bold a model put in a maths field (``**1.2**``) is dropped: TeX has none."""
+    Markdown bold a model put in a maths field (``**1.2**``) is dropped: TeX has none. A
+    currency sign after a number goes before it (``worked_units``)."""
     tex = _BOLD.sub(r"\1", tex.strip())
-    return with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex))
+    return currency_first(with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex)))
 
 
 def tidy_symbol(symbol: str) -> str:
@@ -121,7 +92,7 @@ def _plain(tex: str) -> str:
 def _given_row(given: Given, letters: Sequence[str] | None = None) -> str:
     """The given on its line; one only some parts use carries their letters, as Required's
     lines do: ``(a) $t = 1\\,\\mathrm{s}$``."""
-    shown = f"{tidy_tex(given.value)}{unit_tex(given.unit)}"
+    shown = quantity_tex(tidy_tex(given.value), given.unit)
     # "500 g = 500 g" says nothing: a conversion to the same value is left out.
     if given.converted and _plain(given.converted) != _plain(shown):
         shown = f"{shown} = {tidy_tex(given.converted)}"
@@ -300,7 +271,7 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     """The value with its unit in maths, and a note ("east", "an ideal lever, treated as
     frictionless") after it as text: the card draws words beside its maths in the reading
     font (``lib/math/answerLayout.ts``), never as maths letters (live, 2026-11-03)."""
-    value = f"{tidy_tex(answer.value)}{unit_tex(answer.unit)}"
+    value = quantity_tex(tidy_tex(answer.value), answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
     named = answer.symbol and answer.symbol != answer.unit and not names_nothing(answer.symbol)
     symbol = tidy_symbol(answer.symbol) if named else ""

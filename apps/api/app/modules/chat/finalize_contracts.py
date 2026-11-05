@@ -36,6 +36,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "untrusted_media",
         "meta_notes",
         "prompt_leaks",
+        "self_attribution",
         "emoji_use",
         "answer_photo",
         "server_answer_cards",

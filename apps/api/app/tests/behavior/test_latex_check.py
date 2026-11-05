@@ -19,6 +19,7 @@ from app.tests.behavior.latex_check import drawn_commands, latex_problems
         ('```graph\n{"label": "\\u2192"}\n```', []),
         ("Then \\frac{1}{2} in prose", ["TeX outside maths: \\frac"]),
         ("The area is 25 m^{2}.", ["TeX outside maths: ^{"]),
+        ("$C = \\$0.15\\mathrm{/kWh}$ and $\\$2$", []),
         ("$\\nosuchcommand{x}$", ["the phone draws no \\nosuchcommand"]),
         ("```answer\n\\nosuchcommand{1}\n```", ["the phone draws no \\nosuchcommand"]),
     ],

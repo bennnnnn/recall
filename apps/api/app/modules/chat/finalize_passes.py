@@ -94,6 +94,7 @@ from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_li
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
+from app.modules.chat.self_attribution import drop_self_attribution
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -232,6 +233,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("generic_closer", strip_generic_closer, kind=TEXT),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), kind=TEXT),
     FinalizePass("prompt_leaks", drop_prompt_leaks_pass, closed=drop_prompt_lines, kind=TEXT),
+    FinalizePass("self_attribution", lambda s: drop_self_attribution(s.text), kind=TEXT),
     FinalizePass(
         "turn_meta",
         lambda s: without_turn_meta(

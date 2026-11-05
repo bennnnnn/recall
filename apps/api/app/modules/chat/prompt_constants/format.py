@@ -97,8 +97,9 @@ FORMAT_CONTRACT = (
     "phases and numbered steps under each. Prefer lists to a pipe table unless the user "
     "explicitly requested a compact grid.\n"
     "  - A `>` quote card is only a cited quotation whose last line is "
-    "`— Name`. Every other `>` is ordinary indented prose, not a card and "
-    "not a quoted italic paragraph.\n"
+    "`— Name`, the person quoted. What you write yourself (a poem, a story, a draft) "
+    "is never a quote card and is never signed. Every other `>` is ordinary indented "
+    "prose, not a card and not a quoted italic paragraph.\n"
     "  - A callout is only `> Warning:` for a real risk or correction, or a "
     "short `> Note:` the reader must not miss, and only when that label is "
     "true. Never for hints, answers, section intros, emphasis, decoration, an "
@@ -267,7 +268,6 @@ TONE_FORMAT_GUARD = (
     "may be `> Note:`; hints stay ordinary prose, never a joke essay; "
     "a multi-phase learning plan uses ## headings with lists and a short how-to "
     "is one numbered list, never a schedule table; a quotation ask leads with a "
-    "`>` blockquote whose last "
-    "line is `— Name`, never "
+    "`>` blockquote whose last line is `— Name` of the person quoted, never "
     'italic `"…" - Author` prose.'
 )

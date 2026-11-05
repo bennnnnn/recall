@@ -8,7 +8,7 @@ import itertools
 import pytest
 
 from app.modules.chat.stream_accum import StreamAccum
-from app.modules.chat.worked_render import WorkedLayout, render_worked, unit_tex
+from app.modules.chat.worked_render import WorkedLayout, render_worked
 from app.modules.chat.worked_solution import (
     Answer,
     Formula,
@@ -21,6 +21,8 @@ from app.modules.chat.worked_solution import (
     read_record,
 )
 from app.modules.chat.worked_stream import ReplyFilter, WorkedFilter
+from app.modules.chat.worked_units import currency_first, unit_tex
+from app.tests.behavior.latex_check import latex_problems
 
 PHYSICS = WorkedLayout(law_heading=True)
 OTHER = WorkedLayout()
@@ -180,6 +182,48 @@ def test_render_writes_no_answer_heading_without_an_answer() -> None:
 )
 def test_unit_tex_writes_units_upright(unit: str, tex: str) -> None:
     assert unit_tex(unit) == tex
+
+
+@pytest.mark.parametrize(
+    ("tex", "expected"),
+    [
+        # A unit field laid after the value (``unit_tex``).
+        (r"0.90\,\mathrm{\$}", r"\$0.90"),
+        (r"0.15\,\mathrm{\$/kWh}", r"\$0.15\mathrm{/kWh}"),
+        (r"-3\,\mathrm{€}", r"-\mathrm{€}3"),
+        (r"1{,}200\,\mathrm{£}", r"\mathrm{£}1{,}200"),
+        (r"500\,\mathrm{¥}", r"\mathrm{¥}500"),
+        # The model's own LaTeX in a substitution line.
+        (r"C = 2 \times 3 \times 0.15 = 0.90\,\$", r"C = 2 \times 3 \times 0.15 = \$0.90"),
+        (r"C = 0.9 \text{ €}", r"C = \mathrm{€}0.9"),
+        # Already before the number, a cent sign, a currency in letters, and no currency.
+        (r"C = \$0.90", r"C = \$0.90"),
+        (r"15\,\mathrm{¢/kWh}", r"15\,\mathrm{¢/kWh}"),
+        (r"12\,\mathrm{USD}", r"12\,\mathrm{USD}"),
+        (r"x = 5 + 3", r"x = 5 + 3"),
+        (r"T = 5\,^\circ\mathrm{C}", r"T = 5\,^\circ\mathrm{C}"),
+        (r"v_1 = 3\,\mathrm{m/s}", r"v_1 = 3\,\mathrm{m/s}"),
+    ],
+)
+def test_currency_first_writes_a_currency_sign_before_its_number(tex: str, expected: str) -> None:
+    assert currency_first(tex) == expected
+
+
+def test_a_cost_answer_shows_the_currency_before_the_value() -> None:
+    """Live (2026-11-05): a 2000 W heater for 3 h at 15¢/kWh got the card ``0.90 $``."""
+    block = _solution(
+        "given: P | 2000 | W | power | 2\\,\\mathrm{kW}\n"
+        "given: r | 0.15 | $/kWh | price\n"
+        "required: C | cost\n"
+        "formula: Cost | C = P t r\n"
+        "substitution: C = 2 \\times 3 \\times 0.15 = 0.90\\,\\$\n"
+        "answer: C | 0.90 | $"
+    )
+    laid_out = render_worked(block, OTHER)
+    assert r"$r = \$0.15\mathrm{/kWh}$" in laid_out
+    assert r"$C = 2 \times 3 \times 0.15 = \$0.90$" in laid_out
+    assert laid_out.endswith(r"$C = \$0.90$")
+    assert latex_problems(laid_out) == []
 
 
 def _stream(
@@ -395,8 +439,6 @@ SLOPPY = (
 
 @pytest.mark.parametrize("block", [DISPLACEMENT, POLES, SLOPPY])
 def test_no_laid_out_block_shows_latex_source(block: str) -> None:
-    from app.tests.behavior.latex_check import latex_problems
-
     worked = WorkedFilter(OTHER)
     worked.feed(block)
     worked.close()
