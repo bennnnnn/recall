@@ -34,8 +34,9 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, Field
 
 from app.gateways.structured_completion import complete_structured
-from app.gateways.web_search_gateway import SNIPPET_CHARS, WebSearchHit
+from app.gateways.web_search_gateway import SNIPPET_CHARS
 from app.models.routing_lanes import ROUTING
+from app.modules.chat.claim_evidence import costs_its_sentence
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.stream_status import announced_if_slow
 from app.services.text_normalize import collapse_ws
@@ -347,62 +348,6 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     return map_prose_outside_fences(text, rewrite), len(handled)
 
 
-_FIGURE = re.compile(r"\d+(?:[.,]\d+)*")
-_GROUPED = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?")
-_A_YEAR = re.compile(r"(?:19|20)\d\d")
-
-
-def _figures(text: str) -> set[str]:
-    """The numbers ``text`` states, "1,600" as "1600"; a year alone dates, it states nothing."""
-    found = set()
-    for figure in _FIGURE.findall(text):
-        figure = figure.rstrip(".,")
-        if _GROUPED.fullmatch(figure):
-            figure = figure.replace(",", "")
-        if not _A_YEAR.fullmatch(figure):
-            found.add(figure)
-    return found
-
-
-def _costs_its_sentence(claim: _Claim, pages: list[WebSearchHit]) -> bool:
-    """A figure or a legal standing no page states: what a reader would act on and what a
-    page would have said. An attribution or a detail beside the answer is not worth the
-    sentence that carries the answer."""
-    if claim.kind == "figure" and not _figures(claim.quote):
-        return False  # "three million" written out: no figure the pages can be read for
-    return claim.kind in _CUT_KINDS and not _stated_by_a_page(claim.quote, pages)
-
-
-_CUT_KINDS = frozenset({"figure", "legal", "status"})
-_CONTENT_WORD = re.compile(r"[^\W\d_]{4,}")
-# A word by its first letters, so "beating" is the page's "beat" (review of #2301).
-_STEM = 4
-# A claim with no figure is a page's when this share of its words are on that page.
-_MIN_WORDS_ON_PAGE = 0.8
-
-
-def _stated_by_a_page(quote: str, pages: list[WebSearchHit]) -> bool:
-    """Whether one page states ``quote``: every figure in it, or for a claim with none, most
-    of its words. A cheap checker's "unsupported" is then its own misreading, and cutting
-    it costs the user a sourced answer: "beat defending champions Brazil" was cut as a
-    status under a page that said those words (2026-11-05)."""
-    figures = _figures(quote)
-    words = _stems(quote)
-    for page in pages:
-        text = f"{page.title} {page.snippet[:SNIPPET_CHARS]}"
-        if figures:
-            if figures <= _figures(text):
-                return True
-            continue
-        if words and len(words & _stems(text)) / len(words) >= _MIN_WORDS_ON_PAGE:
-            return True
-    return False
-
-
-def _stems(text: str) -> set[str]:
-    return {word.casefold()[:_STEM] for word in _CONTENT_WORD.findall(text)}
-
-
 async def _verdict(state: FinalizeState) -> _Verdict | None:
     settings = state.settings
     messages = [
@@ -459,7 +404,7 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
     if verdict is None:
         return text
     pages = ctx.search_sources[:_MAX_HITS]
-    claims = [c for c in verdict.unsupported if _costs_its_sentence(c, pages)]
+    claims = [c for c in verdict.unsupported if costs_its_sentence(c.quote, c.kind, pages)]
     if not claims:
         return text
     quotes = [claim.quote for claim in claims]

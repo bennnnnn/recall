@@ -18,7 +18,8 @@ import pytest
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.gateways.web_search_gateway import SNIPPET_CHARS, WebSearchHit, search_web
-from app.modules.chat.claim_check import _sentences, _stated_by_a_page
+from app.modules.chat.claim_check import _sentences
+from app.modules.chat.claim_evidence import stated_by_a_page
 from app.modules.chat.tool_loop.results import _search_hits_from_tool_result
 from app.modules.web_search.formatting import NEWEST_SOURCE_RULE, format_search_block
 from app.modules.web_search.search_cache import _search_cache_key
@@ -125,7 +126,7 @@ _WORLD_VISION = WebSearchHit(
 )
 def test_a_figure_one_page_states_is_not_cut(quote: str, stated: bool) -> None:
     other = WebSearchHit("UN News", "https://news.un.org", "12 days of rain. 5 million tonnes.")
-    assert _stated_by_a_page(quote, [_WORLD_VISION, other]) is stated
+    assert stated_by_a_page(quote, [_WORLD_VISION, other]) is stated
 
 
 @pytest.mark.parametrize(
@@ -215,3 +216,24 @@ def test_the_tool_offers_recent_and_asks_for_no_year_in_the_query() -> None:
     recent = tool["parameters"]["properties"]["recent"]
     assert recent["default"] is True
     assert "no month or year" in tool["description"]
+
+
+_LICENSING = WebSearchHit(
+    "Regulator register",
+    "https://regulator.example/acme",
+    "Acme Ltd is licensed to operate in Spain. Beta Ltd is not licensed in Spain.",
+)
+
+
+@pytest.mark.parametrize(
+    "quote, stated",
+    [
+        ("Acme is licensed to operate in Spain", True),
+        # The page says the opposite: a legal claim it contradicts is not its claim (review).
+        ("Acme is not licensed to operate in Spain", False),
+        ("Beta is not licensed in Spain", True),
+        ("Beta is licensed in Spain", False),
+    ],
+)
+def test_a_legal_claim_is_stated_only_the_way_the_page_says_it(quote: str, stated: bool) -> None:
+    assert stated_by_a_page(quote, [_LICENSING]) is stated

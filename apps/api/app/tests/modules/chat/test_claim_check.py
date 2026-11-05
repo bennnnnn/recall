@@ -17,6 +17,7 @@ from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat import claim_check
 from app.modules.chat.claim_check import cut_unsupported_claims
+from app.modules.chat.claim_evidence import costs_its_sentence, figures
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -78,7 +79,7 @@ def _verdict(*quotes: str, note: str = "") -> claim_check._Verdict:
             claim_check._Claim(
                 quote=q,
                 topic="a levy",
-                kind="figure" if claim_check._figures(q) else "legal",
+                kind="figure" if figures(q) else "legal",
             )
             for q in quotes
         ],
@@ -465,5 +466,4 @@ async def test_a_claim_a_page_says_in_its_own_words_stays() -> None:
 
 
 def test_a_figure_claim_written_in_words_is_never_cut() -> None:
-    claim = claim_check._Claim(quote="about three million people", kind="figure")
-    assert claim_check._costs_its_sentence(claim, []) is False
+    assert costs_its_sentence("about three million people", "figure", []) is False
