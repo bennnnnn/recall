@@ -222,11 +222,12 @@ def published_note(published: str, today: date, timezone: str | None) -> str:
 
     "The 2026 World Series continues on Saturday with Game 2" means the Saturday after
     the day it was written: with the weekday, the model can tell which one it was. The day
-    is the user's: a recap posted at 03:30 GMT on the 25th is the 24th in Los Angeles.
+    is the user's: a recap posted at 03:30 GMT on the 25th is the 24th in Los Angeles. A
+    general search's day may be the page's last update, so the note says either.
     """
     day = published_day(published, timezone)
     if day is None:
         return ""
     month = _MONTH_NAMES[day.month - 1]
     ago = _ago((today - day).days)
-    return f"[Published {day.strftime('%A')}, {month} {day.day}, {day.year} ({ago}).] "
+    return f"[Published or updated {day.strftime('%A')}, {month} {day.day}, {day.year} ({ago}).] "

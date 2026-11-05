@@ -115,13 +115,21 @@ def _clauses(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
+# A word an article or "this" leads is a noun: "what's the us inflation rate" asks about
+# the US, and searched nothing (2026-11-05).
+_DETERMINER = re.compile(r"(?:the|a|an|this|that)", re.IGNORECASE)
+
+
 def _asks_about_us(clause: str) -> bool:
     """A question about the user or the assistant, naming nothing out in the world."""
     # "Where should I eat", "where did you get that": a place or a source to find.
     if _NAMED.search(clause) or clause.casefold().startswith("where"):
         return False
-    words = clause.split()[1 : 1 + _ASK_WINDOW_WORDS]
-    return any(_ABOUT_US.fullmatch(w.strip("?.,!")) for w in words)
+    words = [w.strip("?.,!") for w in clause.split()[: 1 + _ASK_WINDOW_WORDS]]
+    return any(
+        _ABOUT_US.fullmatch(word) and not _DETERMINER.fullmatch(before)
+        for before, word in zip(words, words[1:], strict=False)
+    )
 
 
 def _questions(text: str) -> list[str]:

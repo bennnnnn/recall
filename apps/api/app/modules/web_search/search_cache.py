@@ -21,6 +21,7 @@ import itertools
 import json
 import logging
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from redis.asyncio import Redis
 
@@ -128,8 +129,9 @@ async def run_cached_search(
     Applies the per-user daily Tavily reservation and Redis result cache so
     model-initiated ``web_search`` calls cannot bypass the heuristic path's cap.
     *budget* is the turn's reservation when the turn may search more than once.
-    *dated*: the ask is about now (``recency.wants_dated_results``); the first query
-    also runs as a news search, on the same reservation.
+    *dated*: the ask is about now (``recency.wants_dated_results``); every query keeps to
+    pages from the last year, and the first also runs as a news search, on the same
+    reservation.
     """
     return await _run_search(settings, queries, user=user, redis=redis, budget=budget, dated=dated)
 
@@ -170,7 +172,13 @@ async def _run_search(
         results = await gather_or_cancel(
             *(
                 _search_with_cache(
-                    settings, query, max_results=limit, budget=budget, user=user, redis=redis
+                    settings,
+                    query,
+                    max_results=limit,
+                    budget=budget,
+                    user=user,
+                    redis=redis,
+                    recent=dated,
                 )
                 for query in queries
             )
@@ -241,10 +249,17 @@ def _key(hit: WebSearchHit) -> str:
 
 
 def _search_cache_key(
-    query: str, max_results: int, *, user_id: str = "anon", topic: str = "general"
+    query: str,
+    max_results: int,
+    *,
+    user_id: str = "anon",
+    topic: str = "general",
+    recent: bool = False,
 ) -> str:
     digest = hashlib.sha256(query.strip().lower().encode()).hexdigest()[:32]
     key = f"websearch:{user_id}:{max_results}:{digest}"
+    if recent:
+        key = f"{key}:recent"
     return key if topic == "general" else f"{key}:{topic}"
 
 
@@ -257,13 +272,14 @@ async def _search_with_cache(
     user: User | None = None,
     redis: Redis | None = None,
     topic: str = "general",
+    recent: bool = False,
 ) -> list[WebSearchHit]:
     cleaned = query.strip()
     if not cleaned:
         return []
 
     user_id = str(user.id) if user is not None else "anon"
-    cache_key = _search_cache_key(cleaned, max_results, user_id=user_id, topic=topic)
+    cache_key = _search_cache_key(cleaned, max_results, user_id=user_id, topic=topic, recent=recent)
     # The dated search goes beside the turn's own: whether the turn's search failed is
     # the general search's to say.
     ledger = budget if topic == "general" else None
@@ -324,7 +340,7 @@ async def _search_with_cache(
                 cleaned,
                 max_results=max_results,
                 skip_tavily=skip_tavily,
-                **({} if topic == "general" else {"topic": topic}),
+                **_search_kind(topic, recent=recent),
             )
         except WebSearchUnavailableError:
             _record(ledger, failed=True)
@@ -346,6 +362,13 @@ async def _search_with_cache(
                 await cache_redis.delete(lock_key)
             except Exception:
                 logger.debug("Web search lock release failed", exc_info=True)
+
+
+def _search_kind(topic: str, *, recent: bool) -> dict[str, Any]:
+    """The gateway's words for a news search, or for a general one kept to the last year."""
+    if topic != "general":
+        return {"topic": topic}
+    return {"recent": True} if recent else {}
 
 
 def _record(budget: TavilyBudget | None, *, failed: bool) -> None:

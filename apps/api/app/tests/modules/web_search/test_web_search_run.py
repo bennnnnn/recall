@@ -53,7 +53,9 @@ async def test_run_search_parallelizes_queries():
     settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
     all_started = asyncio.Barrier(3)
 
-    async def mock_search(_settings, query, *, max_results, budget=None, user=None, redis=None):
+    async def mock_search(
+        _settings, query, *, max_results, budget=None, user=None, redis=None, recent=False
+    ):
         # Run one at a time, the first search waits here alone and times out.
         await asyncio.wait_for(all_started.wait(), timeout=1)
         return [
@@ -303,7 +305,9 @@ async def test_run_search_dedupes_across_queries_and_respects_limit():
 
     settings = Settings(web_search_max_results=2, mock_llm_enabled=True)
 
-    async def mock_search(_settings, query, *, max_results, budget=None, user=None, redis=None):
+    async def mock_search(
+        _settings, query, *, max_results, budget=None, user=None, redis=None, recent=False
+    ):
         if query == "q1":
             return [
                 WebSearchHit(title="A", url="https://dup", snippet="1"),

@@ -27,7 +27,6 @@ from app.modules.web_search.query_builders import (
     build_search_queries,
     is_current_news_request,
 )
-from app.modules.web_search.recency import anchor_recency_to_year
 from app.modules.web_search.release_asks import release_search_query
 from app.modules.web_search.subject import collect_prior_user_messages
 from app.services.conversation_reference import resolve_reference, turns_from_prompt
@@ -93,8 +92,6 @@ async def search_queries_for_turn(
         subject = command.subject
         if is_current_news_request(subject):
             subject = anchor_news_query_to_today(subject, user_timezone)
-        else:
-            subject = anchor_recency_to_year(subject, cleaned, user_timezone)
         return [subject]
     priors = collect_prior_user_messages(messages, user_text)
     # A place named after "I don't have your location yet" asks the earlier question there.
@@ -129,6 +126,4 @@ async def search_queries_for_turn(
     # "Coffee near me" searched those words and found New York cafés.
     if user_location and is_geo_query(cleaned):
         return [anchor_to_location(cleaned, user_location)]
-    if is_current_news_request(cleaned):
-        return [cleaned]
-    return [anchor_recency_to_year(cleaned, cleaned, user_timezone)]
+    return [cleaned]

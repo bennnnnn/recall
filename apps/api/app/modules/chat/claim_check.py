@@ -13,6 +13,14 @@ is where an invention starts, so it is not evidence. Each quote must be found in
 The pass removes the table row or sentence that holds it, outside fences, and adds one line
 saying what was left out. A check that fails, times out or flags most of the reply
 changes nothing: it never costs the user an answer.
+
+The checker sees the pages as the reply read them, and names what kind of claim each is.
+Only two kinds cost a sentence: a figure no page states (the code reads the pages, not the
+checker) and a legal or regulatory status. On 2026-11-05 a cheap checker cut "at least 76
+deaths" under a World Vision page that said "At least 76 people confirmed died", and the
+reply began "Some people were still missing, so the total could rise"; it cut "Ciryl Gane
+is the UFC heavyweight champion" for the nationality beside it, and the reply began "He won
+the title". A doubtful attribution or detail now stays, and only the note goes.
 """
 
 from __future__ import annotations
@@ -21,11 +29,12 @@ import logging
 import re
 import string
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
 from app.gateways.structured_completion import complete_structured
+from app.gateways.web_search_gateway import SNIPPET_CHARS, WebSearchHit
 from app.models.routing_lanes import ROUTING
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.stream_status import announced_if_slow
@@ -39,7 +48,6 @@ logger = logging.getLogger(__name__)
 # A reply shorter than this holds no table of figures or status claims worth a model call.
 _MIN_REPLY_CHARS = 120
 _MAX_HITS = 8
-_HIT_CHARS = 700
 _EARLIER_USER_MESSAGES = 4
 _MAX_MEMORY = 20
 _USER_CHARS = 600
@@ -68,9 +76,10 @@ _SYSTEM = (
     "Not a claim to list: advice, opinions, definitions, general explanations of how "
     "something works, steps for doing something, hedged estimates the reply calls "
     "estimates, and what the reply says it could not find.\n\n"
-    'Return JSON: {"unsupported": [{"quote": ..., "topic": ...}], "note": ...}. '
+    'Return JSON: {"unsupported": [{"quote": ..., "topic": ..., "kind": ...}], "note": ...}. '
     "quote is the shortest span copied exactly from the reply that holds the claim. "
-    "topic is 2 to 8 words naming what was claimed. note is one short sentence to the "
+    "topic is 2 to 8 words naming what was claimed. kind is figure, status (a legal or "
+    "regulatory status), attribution, or other. note is one short sentence to the "
     "user, in the language of the reply, saying you could not confirm those details from "
     "the sources found and left them out; never number a source or name the reply. Use an "
     "empty list and an empty note when every claim is supported."
@@ -80,6 +89,7 @@ _SYSTEM = (
 class _Claim(BaseModel):
     quote: str = Field(min_length=3, max_length=300)
     topic: str = Field(default="", max_length=100)
+    kind: Literal["figure", "status", "attribution", "other"] = "other"
 
 
 class _Verdict(BaseModel):
@@ -90,7 +100,7 @@ class _Verdict(BaseModel):
 def _evidence(state: FinalizeState) -> str:
     ctx = state.ctx
     hits = [
-        f"[{n}] {hit.title}\n{hit.url}\n{hit.snippet[:_HIT_CHARS]}"
+        f"[{n}] {hit.title}\n{hit.url}\n{hit.snippet[:SNIPPET_CHARS]}"
         for n, hit in enumerate(ctx.search_sources[:_MAX_HITS], 1)
     ]
     earlier = [
@@ -117,6 +127,9 @@ _TABLE_ROW = re.compile(r"^\s*\|")
 _TABLE_RULE_CHARS = re.compile(r"[\s:|-]*")
 _SENTENCE_END = re.compile(r"[.!?]")
 _SENTENCE_OPENERS = frozenset(string.ascii_uppercase + string.digits + "*_[(\"'")
+# Letters with points, "a.m.", "U.S.", "e.g.": the point after the last ends no sentence.
+_INITIALS = re.compile(r"(?<![\w.])(?:[A-Za-z]\.){2,}$")
+_EMPHASIS = re.compile(r"\*\*|__|[*_`]")
 _ONLY_MARKUP = re.compile(r"^[\s>*_\-•\d.)#]*$")
 
 
@@ -169,18 +182,33 @@ def _is_table_rule(row: str) -> bool:
 
 def _sentences(line: str) -> list[str]:
     """``line`` split after each ``.``, ``!`` or ``?`` that whitespace and then a capital,
-    digit, markup or quote follow; the whitespace goes."""
+    digit, markup or quote follow; the whitespace goes.
+
+    Not after initials ("9:53 a.m. EST"), and not inside bold or code: a cut there left
+    "peaking at about **9:53 a.m." with its bold never closed (2026-11-05)."""
     parts: list[str] = []
     start = 0
     for end in _SENTENCE_END.finditer(line):
         stop = gap = end.end()
         while gap < len(line) and line[gap].isspace():
             gap += 1
-        if stop < gap < len(line) and line[gap] in _SENTENCE_OPENERS:
-            parts.append(line[start:stop])
-            start = gap
+        if not (stop < gap < len(line) and line[gap] in _SENTENCE_OPENERS):
+            continue
+        before = line[start:stop]
+        if _INITIALS.search(before) or _open_emphasis(before):
+            continue
+        parts.append(before)
+        start = gap
     parts.append(line[start:])
     return parts
+
+
+def _open_emphasis(text: str) -> bool:
+    """Whether ``text`` leaves a bold, italic or code span open."""
+    marks: dict[str, int] = {}
+    for mark in _EMPHASIS.findall(text):
+        marks[mark] = marks.get(mark, 0) + 1
+    return any(count % 2 for count in marks.values())
 
 
 def _cut_from_line(line: str, quote: str) -> str | None:
@@ -314,6 +342,45 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     return map_prose_outside_fences(text, rewrite), len(handled)
 
 
+_FIGURE = re.compile(r"\d+(?:[.,]\d+)*")
+_GROUPED = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?")
+_A_YEAR = re.compile(r"(?:19|20)\d\d")
+
+
+def _figures(text: str) -> set[str]:
+    """The numbers ``text`` states, "1,600" as "1600"; a year alone dates, it states nothing."""
+    found = set()
+    for figure in _FIGURE.findall(text):
+        figure = figure.rstrip(".,")
+        if _GROUPED.fullmatch(figure):
+            figure = figure.replace(",", "")
+        if not _A_YEAR.fullmatch(figure):
+            found.add(figure)
+    return found
+
+
+def _costs_its_sentence(claim: _Claim, pages: list[WebSearchHit]) -> bool:
+    """A figure no page states, or a legal or regulatory status: what a reader would act on
+    and what a page would have said. An attribution or a detail beside the answer is not
+    worth the sentence that carries the answer."""
+    if claim.kind == "status":
+        return True
+    return (
+        claim.kind == "figure"
+        and bool(_figures(claim.quote))
+        and not _stated_by_a_page(claim.quote, pages)
+    )
+
+
+def _stated_by_a_page(quote: str, pages: list[WebSearchHit]) -> bool:
+    """Whether one page states every figure in ``quote``: a cheap checker's "unsupported"
+    is then its own misreading, and cutting it costs the user a sourced answer."""
+    figures = _figures(quote)
+    return bool(figures) and any(
+        figures <= _figures(f"{page.title} {page.snippet[:SNIPPET_CHARS]}") for page in pages
+    )
+
+
 async def _verdict(state: FinalizeState) -> _Verdict | None:
     settings = state.settings
     messages = [
@@ -367,9 +434,13 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
     ):
         return text
     verdict = await _verdict(state)
-    if verdict is None or not verdict.unsupported:
+    if verdict is None:
         return text
-    quotes = [claim.quote for claim in verdict.unsupported]
+    pages = ctx.search_sources[:_MAX_HITS]
+    claims = [c for c in verdict.unsupported if _costs_its_sentence(c, pages)]
+    if not claims:
+        return text
+    quotes = [claim.quote for claim in claims]
     cut, found = cut_claims(text, quotes)
     if not found:
         return text
@@ -377,7 +448,7 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
     if before and (before - _prose_chars(cut)) / before > _MAX_CUT_SHARE:
         logger.warning("claim_check flagged most of a reply; left it as written")
         return text
-    topics = "; ".join(dict.fromkeys(c.topic.strip() for c in verdict.unsupported if c.topic))
+    topics = "; ".join(dict.fromkeys(c.topic.strip() for c in claims if c.topic))
     logger.info("claim_check cut %d unsupported claim(s): %s", found, topics)
     return f"{cut.rstrip()}\n\n*{_user_note(verdict.note, topics)}*"
 
