@@ -10,8 +10,8 @@ from app.core.config import Settings
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.chain_solve import solve_chain
 from app.modules.physics.extract import extract_physics_intent, needs_physics
-from app.modules.physics.parts import asks_count
-from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
+from app.modules.physics.parts import answers_part_of, asks_count
+from app.modules.physics.reply_policy import PHYSICS_PARTIAL_POLICY, PHYSICS_REPLY_POLICY
 from app.modules.physics.split_parts import solve_in_parts
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
 from app.services.workout import PHYSICS_WORKOUT_PARTS_PROMPT, SELF_CHECK_PROMPT_RULE
@@ -79,7 +79,8 @@ def solve_physics_request(
         block = _more_answered(block, user_content, settings)
     if block is None:
         return _picture_or(user_content, "note" if intent is None else "failed")
-    return "verified", replace(block, text=wrap_verified_physics(block.text))
+    partial = answers_part_of(user_content, block.physics_intent, len(block.physics_parts))
+    return "verified", replace(block, text=wrap_verified_physics(block.text), partial=partial)
 
 
 def _more_answered(
@@ -146,4 +147,9 @@ async def build_physics_augmentation(
         return block.text, block, False
     if block is None:
         return _unverified_physics_note(), None, True
-    return f"{block.text}\n\n{PHYSICS_REPLY_POLICY}", block, False
+    policy = (
+        f"{PHYSICS_REPLY_POLICY}\n\n{PHYSICS_PARTIAL_POLICY}"
+        if block.partial
+        else PHYSICS_REPLY_POLICY
+    )
+    return f"{block.text}\n\n{policy}", block, False

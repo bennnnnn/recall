@@ -152,6 +152,8 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     # A question in parts: each part's working and card, in the order asked.
     physics_parts: tuple[PhysicsPartWorking, ...] = ()
     symbolic_request: SymbolicPhysicsRequest | None = None
+    # The question asks for more than this result answers: the model answers the rest.
+    partial: bool = False
 
 
 @dataclass(frozen=True)
