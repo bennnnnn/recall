@@ -79,6 +79,19 @@ WEB_SEARCH_HINT = (
 )
 
 
+# Pages saved at different times disagree about what changes: "who is top of the Premier
+# League" read TNT's table after 6 games (City first) beside ESPN's after 9 (Arsenal first),
+# and the reply named City (2026-11-05). Said with the results, on both search paths. The
+# user never sees this list, so "the most recent price in these results" told them nothing.
+NEWEST_SOURCE_RULE = (
+    "When these pages disagree about something that changes (a table or standings, a "
+    "price or rate, a count or toll, the latest version), go by the most recent one, by "
+    "its date or by how far along it is; do not blend them or give the older figure. The "
+    'user does not see this list: name the page\'s source ("Coinbase shows …"), never '
+    '"these results" or "these pages".'
+)
+
+
 def format_search_block(
     hits: list[WebSearchHit],
     *,
@@ -89,6 +102,7 @@ def format_search_block(
 ) -> str:
     lines = [
         "Web search results (retrieved just now — ground your answer in these):",
+        NEWEST_SOURCE_RULE,
     ]
     if local_places and not (user_location or "").strip():
         lines.append(

@@ -79,13 +79,13 @@ def test_the_note_is_the_users_own_day() -> None:
     """A recap posted at 03:30 GMT on the 25th was written on the 24th in Los Angeles."""
     late = "2026-10-25T03:30:00+00:00"
     assert published_note(late, date(2026, 10, 24), "America/Los_Angeles") == (
-        "[Published Saturday, October 24, 2026 (today).] "
+        "[Published or updated Saturday, October 24, 2026 (today).] "
     )
     assert published_note(late, date(2026, 10, 25), "Africa/Nairobi") == (
-        "[Published Sunday, October 25, 2026 (today).] "
+        "[Published or updated Sunday, October 25, 2026 (today).] "
     )
     assert published_note("2026-10-24", date(2026, 10, 25), "UTC") == (
-        "[Published Saturday, October 24, 2026 (yesterday).] "
+        "[Published or updated Saturday, October 24, 2026 (yesterday).] "
     )
     assert published_note("", date(2026, 10, 25), "UTC") == ""
 
@@ -144,8 +144,13 @@ async def test_a_dated_search_adds_news_after_each_general_result(fake_redis):
     settings = Settings(web_search_max_results=5)
     news = [_hit("game-1", "2026-10-24"), _hit("game-2", "2026-10-25"), _hit("shared"), _hit("n4")]
     general = [_hit("winners-list"), _hit("shared"), _hit("history")]
+    recent_asked: list[bool] = []
 
-    async def search(_settings, query, *, max_results, skip_tavily=False, topic="general"):
+    async def search(
+        _settings, query, *, max_results, skip_tavily=False, topic="general", recent=False
+    ):
+        if topic == "general":
+            recent_asked.append(recent)
         return news if topic == "news" else general
 
     with patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search):
@@ -163,6 +168,8 @@ async def test_a_dated_search_adds_news_after_each_general_result(fake_redis):
         "history",
     ]
     assert [hit.title for hit in plain] == ["winners-list", "shared", "history"]
+    # The general search of an ask about now keeps to the last year; a plain one does not.
+    assert recent_asked == [True, False]
     # The news pages keep their moments through the cache.
     again, _ = await _run_search(settings, ["world series 2026"], redis=fake_redis, dated=True)
     assert [hit.published for hit in again if hit.published] == ["2026-10-24", "2026-10-25"]
@@ -174,7 +181,9 @@ async def test_a_slow_news_search_never_holds_up_the_general_one(fake_redis):
 
     settings = Settings(web_search_max_results=5)
 
-    async def search(_settings, query, *, max_results, skip_tavily=False, topic="general"):
+    async def search(
+        _settings, query, *, max_results, skip_tavily=False, topic="general", recent=False
+    ):
         if topic == "news":
             await asyncio.sleep(30)
         return [_hit("winners-list")]
@@ -209,7 +218,7 @@ def test_the_search_block_says_when_each_page_was_published() -> None:
     with patch("app.modules.web_search.formatting.local_today", return_value=date(2026, 10, 25)):
         block = format_search_block(hits, user_timezone="America/New_York")
     assert (
-        "1. game-2 (https://example.com/game-2) — [Published Sunday, October 25, 2026 (today).]"
+        "1. game-2 (https://example.com/game-2) — [Published or updated Sunday, October 25, 2026 (today).]"
         in block
     )
     assert "2. winners (https://example.com/w) — 2025 Dodgers" in block

@@ -43,10 +43,13 @@ def _canonical_answer_from_tool_result(result: ToolResult) -> str | None:
 
 
 def _search_hits_from_tool_result(result: ToolResult) -> list[WebSearchHit]:
+    """The pages a search read, as the reply read them (``pages``), else its chips (``hits``)."""
     data = result.data
     if not isinstance(data, dict):
         return []
-    raw = data.get("hits")
+    raw = data.get("pages")
+    if not isinstance(raw, list):
+        raw = data.get("hits")
     if not isinstance(raw, list):
         return []
     hits: list[WebSearchHit] = []
@@ -56,8 +59,9 @@ def _search_hits_from_tool_result(result: ToolResult) -> list[WebSearchHit]:
         title = str(item.get("title") or "")
         url = str(item.get("url") or "")
         snippet = str(item.get("snippet") or "")
+        published = str(item.get("published") or "")
         if title or url:
-            hits.append(WebSearchHit(title=title, url=url, snippet=snippet))
+            hits.append(WebSearchHit(title=title, url=url, snippet=snippet, published=published))
     return hits
 
 

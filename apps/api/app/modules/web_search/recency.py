@@ -1,18 +1,17 @@
-"""A search for the newest or latest of something names this year.
+"""Whether a search is about how things stand now.
 
-"What's the newest iPhone" searched those words, and the engine ranked 2018 and
-2025 articles: the reply named last year's phone as the newest. A message that
-asks what is newest now adds the user's current year to the query, as the photo
-search does (``images.lookup_intent.dated_lookup_query``). No product list: the
-recency words decide.
+"What's the newest iPhone" searched those words, and the engine ranked 2018 and 2025
+articles: the reply named last year's phone as the newest. The query then took the
+user's year ("newest iphone 2026"), which went wrong another way: "latest iOS version
+2026" ranked the iOS 26 pages over iOS 27 (2026-11-05). An ask about now keeps the user's
+words and asks the search for pages from the last year instead
+(``search_cache.run_cached_search``, ``dated``). No product list: the recency words decide.
 """
 
 from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-
-from app.services import time_context as time_context_service
 
 # "Newest", "latest", "most recent", "brand new", "just released", or "the new
 # X". Bare "new" is not enough: "I'm new to Python", "a new way to learn".
@@ -21,21 +20,13 @@ _RECENCY = re.compile(
     r"|the\s+new(?!\s+(?:year|years|moon)\b))\b",
     re.IGNORECASE,
 )
-# A year the query already names ("iPhone 17 2026", "the 2025 model").
+# A year the message names ("who won in 2025", "the 2026 model").
 _YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
 
 
 def asks_for_newest(text: str) -> bool:
     """True for "what's the newest iPhone", "the latest Django release"."""
     return _RECENCY.search(text) is not None
-
-
-def anchor_recency_to_year(query: str, user_text: str, user_timezone: str | None) -> str:
-    """``newest iphone`` becomes ``newest iphone 2026`` when the user asked for the newest."""
-    if not asks_for_newest(user_text) or _YEAR.search(query):
-        return query
-    tz = time_context_service.resolve_timezone(user_timezone)
-    return f"{query.strip()} {datetime.now(tz).year}"
 
 
 # Words that ask how things stand now: a result, a score, the news, "so far", "this

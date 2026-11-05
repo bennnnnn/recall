@@ -10,6 +10,13 @@ from pydantic import BaseModel, Field
 
 class WebSearchToolInput(BaseModel):
     query: str = Field(min_length=1, max_length=500)
+    recent: bool = Field(
+        default=False,
+        description=(
+            "true when the answer is how things stand now (standings, prices, news, who "
+            "holds a post, the latest version): only pages from the last year are searched"
+        ),
+    )
 
 
 class RecallChatsToolInput(BaseModel):

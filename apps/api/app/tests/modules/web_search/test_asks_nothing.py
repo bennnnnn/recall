@@ -31,6 +31,9 @@ from app.modules.web_search.asks_nothing import asks_nothing_to_look_up
         "In what order did we talk about things today?",
         "At what point did you say that?",
         "For which topics did I ask you for sources?",
+        # "That" and "this" stand alone as pronouns: still about us (review).
+        "Is that you?",
+        "Was that me?",
     ],
 )
 def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
@@ -41,6 +44,9 @@ def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
     "text",
     [
         "latest news about Ethiopia",
+        # "the us" is the country, not the speaker (live, 2026-11-05).
+        "what's the us inflation rate",
+        "what is the us unemployment rate right now",
         "the score of my team's game today",
         "the price of gold went up again today in London",
         "What's open near me right now?",

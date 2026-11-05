@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import WebSearchToolInput
-from app.modules.web_search.formatting import sources_payload
+from app.modules.web_search.formatting import NEWEST_SOURCE_RULE, sources_payload
 from app.modules.web_search.geo_intent import is_geo_query
 from app.modules.web_search.query_builders import (
     anchor_news_query_to_today,
@@ -16,7 +17,7 @@ from app.modules.web_search.query_builders import (
     is_current_news_request,
     is_news_today_request,
 )
-from app.modules.web_search.recency import anchor_recency_to_year, wants_dated_results
+from app.modules.web_search.recency import wants_dated_results
 from app.modules.web_search.search_cache import run_cached_search
 from app.modules.web_search.source_dates import (
     local_today,
@@ -80,7 +81,8 @@ class WebSearchAdapter:
             "told you about themselves, or for the date or time anywhere (the prompt has the "
             "user's clock). The query must stand alone: spell out who or what "
             "the conversation is about (a full name, a place), never 'it', 'her' or 'do a "
-            "search'."
+            "search'. Write it as a person types into a search engine, with no month or "
+            "year unless the question names one: set recent for how things stand now."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -102,8 +104,6 @@ class WebSearchAdapter:
         news_today = is_news_today_request(user_query)
         if current_news:
             query = anchor_news_query_to_today(query, ctx.user_timezone)
-        else:
-            query = anchor_recency_to_year(query, user_query, ctx.user_timezone)
         if ctx.user_location and is_geo_query(user_query):
             query = anchor_to_location(query, ctx.user_location)
         # One search per turn: a repeat call gets the first call's result.
@@ -118,7 +118,10 @@ class WebSearchAdapter:
             user=ctx.user,
             redis=ctx.redis,
             budget=ctx.tavily_budget,
-            dated=wants_dated_results(user_query),
+            # The model says when the answer is how things stand now; the user's words
+            # say it too ("latest", "right now"). "Premier League table current leader
+            # November 2026" found betting sites' August tables (2026-11-05).
+            dated=args.get("recent") is True or wants_dated_results(user_query),
         )
         if news_today:
             hits = filter_hits_to_today(hits, ctx.user_timezone)
@@ -155,6 +158,7 @@ class WebSearchAdapter:
                 f"{stale_note(hit.snippet, today)}{tables_as_rows(mark_dates(hit.snippet, today))}"
                 for hit in shown
             ]
+            lines.insert(0, NEWEST_SOURCE_RULE)
             if current_news:
                 lines.insert(
                     0,
@@ -166,7 +170,10 @@ class WebSearchAdapter:
             result = ToolResult(
                 name=self.name,
                 content=wrap_untrusted("web search", "\n".join(lines)),
-                data={"hits": sources_payload(shown)},
+                # ``hits`` are the source chips; ``pages`` what the reply read, which the
+                # turn keeps as its sources (``tool_loop.results``): a claim checked against
+                # the chips' 280 characters looked unsupported when the page held it.
+                data={"hits": sources_payload(shown), "pages": [asdict(hit) for hit in shown]},
             )
         ctx.first_results[self.name] = result
         return result

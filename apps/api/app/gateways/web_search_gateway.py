@@ -31,6 +31,15 @@ _TAVILY_OVERALL_SECONDS = 15.0
 # (up to three sequential calls) outlives the wait, so the fallback has two threads of
 # its own per machine and is skipped, not queued, when both are taken.
 _DDG_TIMEOUT_SECONDS = 8.0
+# A page's text as the provider sends it. Tavily returns up to three passages per page,
+# each the part that best matches the query, about 500 characters apiece. Cut at 600, the
+# second and third went: "what's the latest iOS version" kept endoflife.date's table up to
+# "| 27 | 3 weeks ago | Yes | Yes | 27", the release number cut off, and the reply named
+# the year-old iOS 26.7.1 (2026-11-05).
+SNIPPET_CHARS = 1600
+# A search for how things stand now asks for pages from the last year. Adding the year to
+# the words did that badly: "latest iOS version 2026" ranked the iOS 26 pages first.
+_RECENT_RANGE = "year"
 
 
 @dataclass(frozen=True)
@@ -86,11 +95,13 @@ def _ddg_item_to_hit(item: dict[str, object]) -> WebSearchHit | None:
     return WebSearchHit(
         title=title or url or "Untitled",
         url=url,
-        snippet=snippet[:600],
+        snippet=snippet[:SNIPPET_CHARS],
     )
 
 
-def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
+def _search_duckduckgo_sync(
+    query: str, max_results: int, recent: bool = False
+) -> list[WebSearchHit]:
     """DuckDuckGo news then text. Raises when every call it made failed."""
     try:
         from ddgs import DDGS
@@ -134,7 +145,12 @@ def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
             if newsish:
                 _try(lambda: ddgs.news(query, max_results=max_results), "news search")
             if not hits:
-                _try(lambda: ddgs.text(query, max_results=max_results), "text search")
+                _try(
+                    lambda: ddgs.text(
+                        query, max_results=max_results, timelimit="y" if recent else None
+                    ),
+                    "text search",
+                )
             if not hits and not newsish:
                 _try(lambda: ddgs.news(query, max_results=max_results), "news fallback")
     except Exception as exc:
@@ -145,13 +161,15 @@ def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
     return hits
 
 
-async def _search_duckduckgo(query: str, max_results: int) -> list[WebSearchHit]:
+async def _search_duckduckgo(
+    query: str, max_results: int, *, recent: bool = False
+) -> list[WebSearchHit]:
     if not has_room("web_search"):
         # Both fallback threads are still on earlier searches: fail this one fast.
         raise WebSearchUnavailableError("DuckDuckGo fallback busy")
     try:
         return await asyncio.wait_for(
-            run_blocking("web_search", _search_duckduckgo_sync, query, max_results),
+            run_blocking("web_search", _search_duckduckgo_sync, query, max_results, recent),
             timeout=_DDG_TIMEOUT_SECONDS,
         )
     except WebSearchUnavailableError:
@@ -185,7 +203,12 @@ def _published_at(raw: object) -> str:
 
 
 async def _search_tavily(
-    settings: Settings, query: str, max_results: int, *, topic: str = "general"
+    settings: Settings,
+    query: str,
+    max_results: int,
+    *,
+    topic: str = "general",
+    recent: bool = False,
 ) -> list[WebSearchHit]:
     payload: dict[str, object] = {
         "api_key": settings.tavily_api_key,
@@ -193,9 +216,14 @@ async def _search_tavily(
         "search_depth": "basic",
         "max_results": max_results,
         "include_answer": False,
+        # Every page with the day it was published or last updated, when Tavily can tell:
+        # the reply sees which of two disagreeing tables is the newer one.
+        "include_published_date": True,
     }
     if topic != "general":
         payload["topic"] = topic
+    if recent:
+        payload["time_range"] = _RECENT_RANGE
 
     try:
         client = get_pooled_client(DEFAULT_TIMEOUT_SECONDS)
@@ -224,7 +252,7 @@ async def _search_tavily(
             WebSearchHit(
                 title=title or url or "Untitled",
                 url=url,
-                snippet=snippet[:600],
+                snippet=snippet[:SNIPPET_CHARS],
                 published=_published_at(item.get("published_date")),
             )
         )
@@ -238,11 +266,14 @@ async def search_web(
     max_results: int | None = None,
     skip_tavily: bool = False,
     topic: str = "general",
+    recent: bool = False,
 ) -> list[WebSearchHit]:
     """Hits for ``query``: Tavily, then DuckDuckGo when Tavily has none.
 
     ``topic="news"`` asks Tavily alone for news pages, each with the day it was
     published; with no Tavily it finds nothing, since the turn's own search runs beside it.
+    ``recent`` keeps to pages from the last year (an ask about the latest or how things
+    stand now); a page with no date it can read is kept.
     Raises ``WebSearchUnavailableError`` when the search failed rather than found nothing.
     """
     cleaned = query.strip()
@@ -270,7 +301,7 @@ async def search_web(
         return await _search_tavily(settings, cleaned, limit, topic=topic) if tavily_tried else []
     if tavily_tried:
         try:
-            hits = await _search_tavily(settings, cleaned, limit)
+            hits = await _search_tavily(settings, cleaned, limit, recent=recent)
         except WebSearchUnavailableError:
             primary_failed = True
         else:
@@ -279,7 +310,7 @@ async def search_web(
 
     if settings.web_search_fallback_enabled:
         try:
-            hits = await _search_duckduckgo(cleaned, limit)
+            hits = await _search_duckduckgo(cleaned, limit, recent=recent)
         except WebSearchUnavailableError:
             fallback_failed = True
         else:

@@ -1,12 +1,13 @@
-"""A search for the newest X names this year; "I want to know if it will rain" is weather.
+"""A search for the newest X keeps to recent pages; "I want to know if it will rain" is weather.
 
-"What's the newest iPhone" answered iPhone 17 from 2018 to 2025 articles. "I want to
-know if it will rain tomorrow" got "I don't have access to live weather data".
+"What's the newest iPhone" answered iPhone 17 from 2018 to 2025 articles. The query then
+took the year, and "latest iOS version 2026" found the iOS 26 pages over iOS 27
+(2026-11-05): the user's words are searched as written, for pages from the last year. "I
+want to know if it will rain tomorrow" got "I don't have access to live weather data".
 """
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -15,11 +16,9 @@ import pytest
 from app.core.config import Settings
 from app.modules.web_search import is_geo_query, turn_query
 from app.modules.web_search.patterns import is_weather_request
-from app.modules.web_search.recency import anchor_recency_to_year, asks_for_newest
+from app.modules.web_search.recency import asks_for_newest
 from app.modules.web_search.tool import WebSearchAdapter
 from app.tests.tool_context import tool_context
-
-_YEAR = datetime.now().year
 
 
 @pytest.mark.parametrize(
@@ -39,25 +38,18 @@ def test_asks_for_newest_reads_recency_words(text: str, newest: bool) -> None:
     assert asks_for_newest(text) is newest
 
 
-def test_anchor_recency_adds_the_year_once() -> None:
-    assert anchor_recency_to_year("newest iphone", "what's the newest iphone", None) == (
-        f"newest iphone {_YEAR}"
-    )
-    # The query already names a year, or the user did not ask for the newest.
-    assert anchor_recency_to_year("iphone 2025", "the newest iphone", None) == "iphone 2025"
-    assert anchor_recency_to_year("iphone review", "iphone review", None) == "iphone review"
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "message, expected",
     [
-        ("what's the newest iphone", f"what's the newest iphone {_YEAR}"),
-        ("search for the latest tesla model", f"the latest tesla model {_YEAR}"),
+        ("what's the newest iphone", "what's the newest iphone"),
+        ("what's the latest iOS version", "what's the latest iOS version"),
+        ("search for the latest tesla model", "the latest tesla model"),
         ("I'm new to python", "I'm new to python"),
+        ("latest news on AI", "latest news on AI"),
     ],
 )
-async def test_turn_search_dates_a_newest_ask(message: str, expected: str) -> None:
+async def test_turn_search_keeps_the_users_words(message: str, expected: str) -> None:
     queries = await turn_query.search_queries_for_turn(
         Settings(), message, [{"role": "user", "content": message}]
     )
@@ -65,22 +57,20 @@ async def test_turn_search_dates_a_newest_ask(message: str, expected: str) -> No
 
 
 @pytest.mark.asyncio
-async def test_news_keeps_its_own_date_not_a_bare_year() -> None:
-    message = "latest news on AI"
-    queries = await turn_query.search_queries_for_turn(
-        Settings(), message, [{"role": "user", "content": message}]
-    )
-    assert queries == [message]
-
-
-@pytest.mark.asyncio
-async def test_model_written_search_dates_a_newest_ask() -> None:
-    ctx = tool_context(user_query="what's the newest iphone")
+@pytest.mark.parametrize(
+    "user_query, recent",
+    [("what's the newest iphone", True), ("how do iphones charge wirelessly", False)],
+)
+async def test_model_written_search_asks_for_recent_pages_on_a_newest_ask(
+    user_query: str, recent: bool
+) -> None:
+    ctx = tool_context(user_query=user_query)
     run_search = AsyncMock(return_value=([], ["q"]))
     with patch("app.modules.web_search.tool.run_cached_search", run_search):
         await WebSearchAdapter(Settings()).invoke({"query": "newest iPhone model"}, ctx)
     sent: Any = run_search.await_args
-    assert sent is not None and sent.args[1] == [f"newest iPhone model {_YEAR}"]
+    assert sent is not None and sent.args[1] == ["newest iPhone model"]
+    assert sent.kwargs["dated"] is recent
 
 
 @pytest.mark.parametrize(

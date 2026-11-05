@@ -7,7 +7,7 @@ the pass does with its verdict: it cuts only what the reply says word for word, 
 outside prose, never most of a reply, and never costs the user an answer.
 """
 
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -71,8 +71,17 @@ def _state(reply: str = _REPLY, **ctx_fields: Any) -> FinalizeState:
 
 
 def _verdict(*quotes: str, note: str = "") -> claim_check._Verdict:
+    """Each quote as the checker would name it: a figure when it states a number, else a
+    status."""
     return claim_check._Verdict(
-        unsupported=[claim_check._Claim(quote=q, topic="a levy") for q in quotes],
+        unsupported=[
+            claim_check._Claim(
+                quote=q,
+                topic="a levy",
+                kind="figure" if claim_check._figures(q) else "status",
+            )
+            for q in quotes
+        ],
         note=note,
     )
 
@@ -395,3 +404,38 @@ async def test_a_list_numbered_with_brackets_counts_on_too() -> None:
     reply = f"{_LEAD}{_STEPS.replace('. ', ') ', 4)}\n\nAsk your broker."
     out = await _run(_state(reply), _verdict("The CSTA levy is 0.5% of the trade value."))
     assert "2) The CDSC fee" in out and "3) Brokerage" in out
+
+
+async def test_a_figure_a_page_states_stays_though_the_checker_flags_it() -> None:
+    """Live 2026-11-05: "at least 76" was cut under a page that said "At least 76 people
+    confirmed died", and the reply began "Some people were still missing"."""
+    page = WebSearchHit(
+        title="Hurricane Melissa: Facts",
+        url="https://www.worldvision.org/melissa",
+        snippet="At least 76 people confirmed died across the region: Haiti (43 deaths).",
+    )
+    reply = (
+        "Hurricane Melissa killed at least 76 people across the Caribbean, 43 of them in "
+        "Haiti. Some people were still missing, so the total could rise."
+    )
+    out = await _run(
+        _state(reply, search_sources=[page]),
+        _verdict("killed at least 76 people across the Caribbean", "43 of them in Haiti"),
+    )
+    assert out == reply
+
+
+@pytest.mark.parametrize("kind", ["attribution", "other"])
+async def test_a_doubtful_attribution_or_detail_never_costs_the_answer(
+    kind: Literal["attribution", "other"],
+) -> None:
+    """Live 2026-11-05: "Ciryl Gane, the French heavyweight, is the UFC champion" lost its
+    whole sentence over the nationality, and the reply began "He won the title"."""
+    reply = (
+        "Ciryl Gane, the French heavyweight, is the UFC heavyweight champion. He won the "
+        "title on September 19, 2026, after Tom Aspinall vacated it."
+    )
+    verdict = claim_check._Verdict(
+        unsupported=[claim_check._Claim(quote="the French heavyweight", kind=kind)]
+    )
+    assert await _run(_state(reply), verdict) == reply
