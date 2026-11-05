@@ -10,7 +10,8 @@ import re
 
 # A phrase naming the quantity itself ("how long"), not an ask before one.
 # "how many" names the count that follows it, the way "how long" names a time.
-_SELF_NAMING = ("how long", "how far", "how fast", "how high", "how deep", "how many", "how tall")
+# Asks that name their quantity themselves: the clause starts at them, not after.
+SELF_NAMING = ("how long", "how far", "how fast", "how high", "how deep", "how many", "how tall")
 
 ASK_VERBS = re.compile(
     r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|"
@@ -36,7 +37,11 @@ def ask_clause(text: str, verbs: re.Pattern[str] = ASK_VERBS) -> str | None:
     return text[_clause_start(ask) : end_match.start() if end_match else len(text)]
 
 
-def ask_clauses(text: str, verbs: re.Pattern[str] = ASK_VERBS) -> tuple[tuple[int, str], ...]:
+def ask_clauses(
+    text: str,
+    verbs: re.Pattern[str] = ASK_VERBS,
+    self_naming: tuple[str, ...] = SELF_NAMING,
+) -> tuple[tuple[int, str], ...]:
     """Every asked part, in order, with where each starts: from its verb to the next verb
     or the end of its sentence.
 
@@ -46,7 +51,7 @@ def ask_clauses(text: str, verbs: re.Pattern[str] = ASK_VERBS) -> tuple[tuple[in
     asks = list(verbs.finditer(text))
     clauses: list[tuple[int, str]] = []
     for index, ask in enumerate(asks):
-        start = _clause_start(ask)
+        start = _clause_start(ask, self_naming)
         end_match = _SENTENCE_END.search(text, start)
         end = end_match.start() if end_match else len(text)
         if index + 1 < len(asks):
@@ -55,6 +60,6 @@ def ask_clauses(text: str, verbs: re.Pattern[str] = ASK_VERBS) -> tuple[tuple[in
     return tuple(clauses)
 
 
-def _clause_start(ask: re.Match[str]) -> int:
-    self_naming = re.sub(r"\s+", " ", ask.group().lower()).startswith(_SELF_NAMING)
-    return ask.start() if self_naming else ask.end()
+def _clause_start(ask: re.Match[str], self_naming: tuple[str, ...] = SELF_NAMING) -> int:
+    names_itself = re.sub(r"\s+", " ", ask.group().lower()).startswith(self_naming)
+    return ask.start() if names_itself else ask.end()

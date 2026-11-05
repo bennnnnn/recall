@@ -25,6 +25,8 @@ NOT_READ_BACK = frozenset(
         "gravitational_force_at_surface:M+m+radius_body",
         "heat_energy:c_heat+delta_temp+m",
         "heat_energy:c_heat+m+temp_final+temp_initial",
+        # The sample object (2.5) is inside the focal length (4): a virtual image, out of range.
+        "image_distance:d_obj+focal",
         "impact_speed:angle+g+h0+v0",
         "latent_heat:latent_heat+m+temp_phase",
         "lens_power_sum:p1+p2",
@@ -33,6 +35,8 @@ NOT_READ_BACK = frozenset(
         "radiation_pressure_absorbed:intensity",
         "radiation_pressure_reflected:intensity",
         "range:angle+g+h0+v0",
+        # Written back "horizontally" (its first cue), which states 0° beside the 30° given.
+        "range:angle+g+v0",
         "resonance_frequency:L+harmonic+mode_factor+pipe+v_wave",
         "resonance_frequency:L+harmonic+mode_factor+v_wave",
         "rod_center_inertia:m+rod_length",
@@ -41,6 +45,7 @@ NOT_READ_BACK = frozenset(
         "rolling_body_kinetic_energy:m+shape_k+v",
         "sound_level:i_ref+intensity",
         "time_of_flight:angle+g+h0+v0",
+        "time_of_flight:angle+g+v0",
         "weight_at_height:M+altitude+m+radius_body",
         "work_energy:m+v1+v2",
     }

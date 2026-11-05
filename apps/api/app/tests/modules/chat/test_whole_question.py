@@ -416,3 +416,13 @@ def test_a_signed_rate_beside_a_size_answers_a_question_in_parts() -> None:
         "car going 72 km/h stops in 4 s. whats the deceleration and how far does it go",
         r"-5\,\mathrm{m/s²};\quad 40\,\mathrm{m}",
     )
+
+
+def test_a_place_asked_is_the_sentence_asked() -> None:
+    # "Where is the image …" asks, so the focal length the question gives is no size asked
+    # and the signed magnification answers it (2026-11-04: the whole card was dropped).
+    assert answers_the_question(
+        "An object is 30 cm from a convex lens with focal length 10 cm. "
+        "Where is the image and how big is it",
+        r"15\,\mathrm{cm};\quad -0.5",
+    )

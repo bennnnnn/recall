@@ -29,6 +29,16 @@
       15,
       "cm"
     ],
+    "parts": [
+      [
+        15,
+        "cm"
+      ],
+      [
+        -0.5,
+        ""
+      ]
+    ],
     "note": "live 2026-11-04: the size (m = -0.5, real, inverted) was dropped"
   },
   {

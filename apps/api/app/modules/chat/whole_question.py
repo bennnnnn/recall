@@ -170,7 +170,7 @@ def _right_side(answer: str) -> str:
 # The sentences that ask: "… Find its acceleration.", "What is the radius?"
 _ASKED_SENTENCE = re.compile(
     r"[^.?!\n]*\?|(?:^|(?<=[.!\n]))\s*(?:find|calculate|determine|state|give|work\s+out"
-    r"|how|what|which)\b[^.?!\n]*",
+    r"|how|what|which|where)\b[^.?!\n]*",
     re.IGNORECASE,
 )
 

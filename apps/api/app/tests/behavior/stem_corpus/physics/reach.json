@@ -1,0 +1,202 @@
+[
+  {
+    "id": "re-kick-01",
+    "area": "reach",
+    "prompt": "a footballer kicks a ball at 18 m/s at 35 degrees. how far away does it land and how high does it go?",
+    "expect": "answer",
+    "answer": [
+      31.035719585589632,
+      "m"
+    ],
+    "parts": [
+      [
+        31.035719585589632,
+        "m"
+      ],
+      [
+        5.432861201898146,
+        "m"
+      ]
+    ],
+    "note": "ground launch at an angle: range then max height"
+  },
+  {
+    "id": "re-kick-02",
+    "area": "reach",
+    "prompt": "A projectile is launched at 30 m/s at 50° above the horizontal. Find the time of flight and the range.",
+    "expect": "answer",
+    "answer": [
+      4.685287113877541,
+      "s"
+    ],
+    "parts": [
+      [
+        4.685287113877541,
+        "s"
+      ],
+      [
+        90.34933513873467,
+        "m"
+      ]
+    ]
+  },
+  {
+    "id": "re-cliff-01",
+    "area": "reach",
+    "prompt": "A ball is kicked at 15 m/s at 40 degrees from the top of a 10 m high cliff. How far from the base of the cliff does it land?",
+    "expect": "answer",
+    "answer": [
+      31.211806206178135,
+      "m"
+    ],
+    "note": "a launch height named: not the level-ground law"
+  },
+  {
+    "id": "re-wall-01",
+    "area": "reach",
+    "prompt": "A ball is kicked at 20 m/s at 30 degrees toward a wall 30 m away. How high is it when it reaches the wall?",
+    "expect": "answer",
+    "answer": [
+      2.6055080756887694,
+      "m"
+    ],
+    "note": "the 30 m is no launch height: never read as one"
+  },
+  {
+    "id": "re-incline-01",
+    "area": "reach",
+    "prompt": "A block slides up a frictionless 30 degree incline at 5 m/s. How far up the incline does it go before stopping?",
+    "expect": "answer",
+    "answer": [
+      2.5484199796126403,
+      "m"
+    ],
+    "note": "an angle on a slope is not a projectile's"
+  },
+  {
+    "id": "re-lens-01",
+    "area": "reach",
+    "prompt": "A candle is 40 cm from a converging lens of focal length 15 cm. Where is the image and how big is it compared to the candle?",
+    "expect": "answer",
+    "answer": [
+      24.0,
+      "cm"
+    ],
+    "parts": [
+      [
+        24.0,
+        "cm"
+      ],
+      [
+        -0.6,
+        ""
+      ]
+    ],
+    "note": "image distance, then the magnification it gives"
+  },
+  {
+    "id": "re-lens-02",
+    "area": "reach",
+    "prompt": "An object is placed 25 cm from a convex lens with a focal length of 20 cm. Find the image distance and the magnification.",
+    "expect": "answer",
+    "answer": [
+      100.0,
+      "cm"
+    ],
+    "parts": [
+      [
+        100.0,
+        "cm"
+      ],
+      [
+        -4.0,
+        ""
+      ]
+    ]
+  },
+  {
+    "id": "re-lens-03",
+    "area": "reach",
+    "prompt": "An object is 6 cm from a convex lens of focal length 10 cm. Where is the image and how big is it?",
+    "expect": "answer",
+    "answer": [
+      15.0,
+      "cm"
+    ],
+    "parts": [
+      [
+        15.0,
+        "cm"
+      ],
+      [
+        2.5,
+        ""
+      ]
+    ],
+    "note": "inside F: a virtual image; its distance carries no certified sign, so never chained"
+  },
+  {
+    "id": "re-lens-04",
+    "area": "reach",
+    "prompt": "An object is 30 cm from a concave lens with focal length 10 cm. Where is the image and how big is it?",
+    "expect": "answer",
+    "answer": [
+      7.5,
+      "cm"
+    ],
+    "parts": [
+      [
+        7.5,
+        "cm"
+      ],
+      [
+        0.25,
+        ""
+      ]
+    ],
+    "note": "a diverging lens: its focal length's sign is unstated"
+  },
+  {
+    "id": "re-lens-05",
+    "area": "reach",
+    "prompt": "A 4 cm tall object is 30 cm from a convex lens with focal length 10 cm. How big is the image?",
+    "expect": "answer",
+    "answer": [
+      2.0,
+      "cm"
+    ],
+    "note": "a height stated: the image's size is a length"
+  },
+  {
+    "id": "re-top-01",
+    "area": "reach",
+    "prompt": "A ball is kicked at 20 m/s at 30 degrees. How long does it take to reach the top?",
+    "expect": "answer",
+    "answer": [
+      1.0193679918450558,
+      "s"
+    ],
+    "note": "v0 sin(theta)/g; the whole flight (2.04 s) was answered"
+  },
+  {
+    "id": "re-top-02",
+    "area": "reach",
+    "prompt": "I kick a ball at 20 m/s at 30 degrees, how far does it land and how long does it take to reach the top",
+    "expect": "answer",
+    "answer": [
+      35.311943069701876,
+      "m"
+    ],
+    "parts": [
+      [
+        35.311943069701876,
+        "m"
+      ],
+      [
+        1.0193679918450558,
+        "s"
+      ]
+    ],
+    "note": "range, then the time to the top"
+  }
+]

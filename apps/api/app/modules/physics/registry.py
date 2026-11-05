@@ -84,7 +84,7 @@ from app.modules.physics.extractors.oscillations import (
 from app.modules.physics.extractors.projectile import (
     _PROJECTILE_CUE_RES,
     _PROJECTILE_CUES,
-    _extract_projectile_intent,
+    extract_projectile_intent,
 )
 from app.modules.physics.extractors.rates import _RATE_CUES, extract_rate_intent
 from app.modules.physics.extractors.relative_motion import (
@@ -145,7 +145,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
     # and kinematics already owns it. SUVAT sees only what gravity did not
     # claim, so adding it perturbs nothing that already answered.
     _extract_suvat_intent,
-    _extract_projectile_intent,
+    extract_projectile_intent,
     _extract_momentum_intent,
     _extract_friction_intent,
     _extract_circular_intent,
