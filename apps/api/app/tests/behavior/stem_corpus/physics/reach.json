@@ -198,5 +198,16 @@
       ]
     ],
     "note": "range, then the time to the top"
+  },
+  {
+    "id": "re-down-01",
+    "area": "reach",
+    "prompt": "A ball is thrown 10 m/s at 60° below the horizontal from a table 0.5 m high. How far does it land?",
+    "expect": "answer",
+    "answer": [
+      0.27980655353203404,
+      "m"
+    ],
+    "note": "thrown downward from a low height: it flies, so the launch height and the angle are tested on their own signs"
   }
 ]

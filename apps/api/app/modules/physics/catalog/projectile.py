@@ -56,9 +56,11 @@ _LAUNCH = (
     var("v0", "v_0", "meter / second"),
 )
 _FROM_A_HEIGHT = frozenset({"angle", "g", "h0", "v0"})
-# It flies: launched upward, or from above the ground (a missing height is the ground).
-# Rolled off "horizontally" with no height stated, it would land where it started.
-_FLIES = ("angle + h0",)
+# It flies: from above the ground, or launched upward (a missing height is the ground).
+# Rolled off "horizontally" with no height stated, it would land where it started. Each
+# side is tested on its own sign, never a sum: an angle in radians plus a height in metres
+# made a 60° downward throw from a 0.5 m table land nowhere.
+_FLIES = ("h0 if h0 > 0 else sin(angle)",)
 # Launched and landing on level ground: no height stated.
 _FROM_THE_GROUND = frozenset({"angle", "g", "v0"})
 # Another situation than a free flight from a launch: a slope's motion, a pull, a swing,
