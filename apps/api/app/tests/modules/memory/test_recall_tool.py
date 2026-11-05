@@ -200,3 +200,23 @@ async def test_a_question_with_no_past_to_recall_never_searches(recall: dict[str
         await _reply(_stream_ctx("how does a lens work", [recall]), llm, StreamAccum())
     retrieve.assert_not_awaited()
     assert len(seen) == 1
+
+
+async def test_a_tool_the_round_did_not_offer_is_refused_never_run(recall: dict[str, Any]) -> None:
+    # Search switched off: only recall was offered, and the provider sent a web_search
+    # call anyway. It must not run (no query leaves, no budget spent).
+    stray = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "web_search", "arguments": '{"query": "lens"}'},
+    }
+    llm, seen = _model(([], [stray]), (["A lens bends light."], []))
+    with (
+        patch("app.modules.web_search.tool.run_cached_search", AsyncMock()) as search,
+        patch(_RETRIEVE, AsyncMock()) as retrieve,
+    ):
+        await _reply(_stream_ctx("how does a lens work", [recall]), llm, StreamAccum())
+    search.assert_not_awaited()
+    retrieve.assert_not_awaited()
+    refusal = seen[1]["messages"][-1]
+    assert refusal["role"] == "tool" and refusal["tool_call_id"] == "call_1"

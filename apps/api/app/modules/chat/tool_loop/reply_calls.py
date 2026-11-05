@@ -132,6 +132,11 @@ def _nothing_to_look_up(part: str, turn: ReplyTurn | None) -> bool:
     )
 
 
+def tool_names(tools: list[dict[str, Any]]) -> frozenset[str]:
+    """The names of the tools a reply round offered."""
+    return frozenset(str(tool.get("function", {}).get("name") or "") for tool in tools) - {""}
+
+
 class ReplyCallsOutcome(NamedTuple):
     """The messages the reply's next call reads, and the pages the search found."""
 
@@ -145,6 +150,7 @@ async def answer_reply_calls(
     messages: list[dict[str, Any]],
     calls: list[dict[str, Any]],
     text_before: str,
+    offered: frozenset[str],
     user: User | None,
     redis: Redis | None,
     chat_id: UUID | None,
@@ -154,7 +160,7 @@ async def answer_reply_calls(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
 ) -> ReplyCallsOutcome:
-    """Run the reply's calls: one tool message each, refused unless a reply tool.
+    """Run the reply's calls: one tool message each, refused unless ``offered`` this round.
 
     The calls share one turn budget, like the tool loop's. A stop during the search
     trims the unanswered call, so the list stays one a provider accepts.
@@ -172,7 +178,9 @@ async def answer_reply_calls(
     )
     turn = CallRound(
         settings=settings,
-        offered=frozenset({REPLY_TOOL, RECALL_TOOL}),
+        # Only the tools this round sent: a stray web_search with search switched off, or a
+        # recall when the prompt already holds the snippets, is refused, never run.
+        offered=offered & {REPLY_TOOL, RECALL_TOOL},
         ctx=ctx,
         on_status=on_status,
         should_cancel=should_cancel,

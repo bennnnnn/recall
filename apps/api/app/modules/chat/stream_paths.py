@@ -327,6 +327,7 @@ async def run_llm_token_stream(
                 ctx,
                 reply_round.calls,
                 text_before,
+                offered=reply_calls.tool_names(reply_round.tools),
                 on_status=on_status,
                 should_cancel=should_cancel,
             )
@@ -457,6 +458,7 @@ async def _answer_reply_calls(
     calls: list[dict[str, Any]],
     text_before: str,
     *,
+    offered: frozenset[str],
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
 ) -> None:
@@ -471,6 +473,7 @@ async def _answer_reply_calls(
             messages=ctx.prompt_messages,
             calls=calls,
             text_before=text_before,
+            offered=offered,
             user=ctx.user,
             redis=redis,
             chat_id=ctx.chat_id,
