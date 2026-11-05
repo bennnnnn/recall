@@ -175,6 +175,98 @@ def given_name(name: str) -> str:
     return " ".join(_NAME_FILLER.sub(" ", name).split())
 
 
+# "the same braking", "same acceleration": the words that may name a quantity kept.
+_SAME = re.compile(r"\bsame (?=[a-z])", re.IGNORECASE)
+# A line that takes up the problem before it: "and if…", "what about…", "with…instead".
+_CONTINUES = re.compile(
+    r"(?:(?:ok(?:ay)?|so|now|then)[ ,]+)*"
+    r"(?:and|but|what about|how about|what if|if|with|try|suppose|say|now|then)\b",
+    re.IGNORECASE,
+)
+
+
+def continues(line: str) -> bool:
+    """True when the line reads as taking up the problem before it: it opens as a
+    follow-up does, says something stays the same, or ends "instead". A remark that only
+    holds a number ("my car weighs 1500 kg lol") does not."""
+    stripped = line.strip()
+    return (
+        _CONTINUES.match(stripped) is not None
+        or _SAME.search(stripped) is not None
+        or stripped.lower().rstrip(" ?.!").endswith(" instead")
+    )
+
+
+# Words that make a value an addition or a difference, not the new value of a given:
+# "add another 4 ohm in series", "10 m/s faster", "heavier by 2 kg", "twice the mass".
+_RELATIVE = re.compile(
+    r"\b(?:add(?:s|ed|ing)?|another|more|less|fewer|extra|plus|minus|also|second|third"
+    r"|series|parallel|together|combined|each|by|increase[sd]?|decrease[sd]?|than"
+    r"|faster|slower|heavier|lighter|higher|lower|longer|shorter|bigger|smaller|larger"
+    r"|double[sd]?|triple[sd]?|half|halved?|twice|times)\b",
+    re.IGNORECASE,
+)
+
+
+def changes_relatively(line: str) -> bool:
+    """True when the line's value adds to the setup or differs from a given rather than
+    replacing it: "now add another 4 ohm in series" is 8 Ω, not the 4 Ω again."""
+    return _RELATIVE.search(line) is not None
+
+
+# A word that only introduces a value ("stops in 4 s"), left behind when the value goes.
+_INTRODUCER = re.compile(r"(?:in|after|for|within|over|at|of|from|to|with|by)[ \t]+$")
+
+
+def same_quantities(line: str, names: Mapping[str, object]) -> list[str]:
+    """The quantity names a line says stay the same, read longest first from ``names``:
+    "with the same braking" → ``["braking"]``. Words no name begins are not a quantity."""
+    found: list[str] = []
+    lower = line.lower()
+    for match in _SAME.finditer(lower):
+        # Each "same" reads its own words: "the same acceleration and the same time".
+        rest = " ".join(re.findall(r"[a-z]+", lower[match.end() : match.end() + 40]))
+        best = max(
+            (name for name in names if rest == name or rest.startswith(name + " ")),
+            key=len,
+            default=None,
+        )
+        if best is not None:
+            found.append(best)
+    return found
+
+
+def remove_given(text: str, given: Given) -> str:
+    """The text without one given: its value, the unit after it and the word that
+    introduced it ("stops in 4 s." → "stops.")."""
+    end = given.end
+    old_unit = re.match(r"[ \t]*" + re.escape(given.unit), text[end:], re.IGNORECASE)
+    if old_unit is not None:
+        end += old_unit.end()
+    head = text[: given.start]
+    introducer = _INTRODUCER.search(head)
+    if introducer is not None:
+        head = head[: introducer.start()]
+    return " ".join((head.rstrip() + text[end:]).split()).replace(" .", ".").replace(" ,", ",")
+
+
+def with_sentences(prior: str, *, ask: str | None, stated: tuple[str, ...]) -> str:
+    """The prior problem with sentences ``stated`` before its ask, and ``ask`` in place of
+    its ask sentence when given."""
+    parts = re.split(r"(?<=[.?!])\s+", prior.strip())
+    has_ask = bool(parts) and _ASK_SENTENCE.search(parts[-1]) is not None
+    setup = parts[:-1] if has_ask else parts
+    question = ask if ask is not None else (parts[-1] if has_ask else "")
+    body = " ".join(_sentence(part) for part in setup if part.strip())
+    return " ".join(filter(None, (body, *stated, question.strip()))).strip()
+
+
+def _sentence(part: str) -> str:
+    """One sentence ending in its own stop: "…by 10 °C?" stays, "(c=4.18)" gains a "."."""
+    part = part.strip()
+    return part if part.endswith(("?", "!")) else part.rstrip(".") + "."
+
+
 def replace_given(text: str, given: Given, value: str, unit: str) -> str:
     """The text with one given, and the unit written after it, replaced."""
     end = given.end

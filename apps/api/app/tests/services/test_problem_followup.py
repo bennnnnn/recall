@@ -3,13 +3,19 @@
 import pytest
 
 from app.modules.physics.givens import PHYSICS_UNITS
+from app.services.law_binding.fit import read_givens
 from app.services.law_binding.units import unit_dimension
 from app.services.problem_followup import (
     GivenRewriter,
     asked_unit,
+    changes_relatively,
+    continues,
     new_value,
+    remove_given,
+    same_quantities,
     scaled_given,
     scaled_value,
+    with_sentences,
 )
 
 
@@ -116,3 +122,75 @@ def test_given_rewriter_scales_the_one_named_given() -> None:
     )
     assert _REWRITER.scaled(_PRIOR, "time", 2.0) is None
     assert _REWRITER.scaled(_PRIOR, "speed", 2.0) is None
+
+
+@pytest.mark.parametrize(
+    ("line", "kept"),
+    [
+        ("ok and if it was going 100 km/h with the same braking, how far then", ["braking"]),
+        ("same braking force but heavier", ["braking force"]),
+        ("with the same acceleration and the same time", ["acceleration", "time"]),
+        ("the same thing happens", []),
+    ],
+)
+def test_same_quantities_read_the_longest_name(line: str, kept: list[str]) -> None:
+    names = {"braking": "", "braking force": "", "acceleration": "", "time": ""}
+    assert same_quantities(line, names) == kept
+
+
+@pytest.mark.parametrize(
+    ("text", "after"),
+    [
+        ("A car stops in 4 s. How far does it go?", "A car stops. How far does it go?"),
+        ("A 2 kg ball moves at 3 m/s. Find its energy.", "A ball moves at 3 m/s. Find its energy."),
+    ],
+)
+def test_remove_given_takes_its_value_unit_and_introducer(text: str, after: str) -> None:
+    given = next(g for g in read_givens(text, PHYSICS_UNITS) if g.unit in {"s", "kg"})
+    assert remove_given(text, given) == after
+
+
+def test_with_sentences_states_before_the_ask_and_may_replace_it() -> None:
+    prior = "A car going 72 km/h stops in 4 s. What is the deceleration and how far does it go"
+    assert with_sentences(prior, ask="how far then", stated=("The acceleration is -5 m/s².",)) == (
+        "A car going 72 km/h stops in 4 s. The acceleration is -5 m/s². how far then"
+    )
+    assert with_sentences(prior, ask=None, stated=()) == prior
+
+
+def test_with_sentences_keeps_a_question_mark_inside() -> None:
+    prior = "How much heat raises 50 g of water by 10 °C? (c=4.18)"
+    assert with_sentences(prior, ask=None, stated=()) == (
+        "How much heat raises 50 g of water by 10 °C? (c=4.18)."
+    )
+
+
+@pytest.mark.parametrize(
+    ("line", "takes_up"),
+    [
+        ("ok and if it was going 100 km/h", True),
+        ("what about 100 g of water", True),
+        ("same braking but from 90 km/h", True),
+        ("from 45 m instead", True),
+        ("my car weighs 1500 kg lol", False),
+        ("i drink 500 g of water a day", False),
+        ("so my bike is 12 kg", False),
+    ],
+)
+def test_continues_reads_a_line_that_takes_up_the_problem(line: str, takes_up: bool) -> None:
+    assert continues(line) is takes_up
+
+
+@pytest.mark.parametrize(
+    ("line", "relative"),
+    [
+        ("now add another 4 ohm in series", True),
+        ("what if it was 10 km/h faster", True),
+        ("and 2 kg heavier", True),
+        ("and 20 g more water", True),
+        ("what about 100 g of water", False),
+        ("with a 6 ohm resistor instead", False),
+    ],
+)
+def test_changes_relatively_reads_an_addition_or_a_difference(line: str, relative: bool) -> None:
+    assert changes_relatively(line) is relative
