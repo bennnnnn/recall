@@ -29,11 +29,12 @@ _UNIT_SYMBOLS = {
     "°F": r"\,^\circ\mathrm{F}",
     "%": r"\,\%",
 }
-# A number, then the spacing before a sign that may be its currency: bare (``\$``, ``€``)
+# A number ending on a digit ("5, \$3" is two items, not "5," then its dollar), then the
+# spacing before a sign that may be its currency: bare (``\$``, ``€``)
 # or opening an upright unit (``\mathrm{\$/kWh}``). Whether it is a currency sign is
 # Unicode's call (``_currency``), so the pattern takes any one symbol there.
 _SIGN_AFTER_NUMBER = re.compile(
-    r"(?<![\w.])(?P<number>\d(?:[\d.,]|\{,\})*)(?:\s|\\[,;:! ]|~)*"
+    r"(?<![\w.])(?P<number>\d(?:(?:[\d.,]|\{,\})*\d)?)(?:\s|\\[,;:! ]|~)*"
     r"(?:\\(?P<command>mathrm|text)\s*\{\s*(?P<wrapped>\\\$|[^\w\s\\{}])(?P<rest>[^{}]*)\}"
     r"|(?P<sign>\\\$|[^\w\s\\{}]))"
 )

@@ -56,3 +56,9 @@ def test_a_reply_signed_by_the_assistant_loses_the_signature_and_its_quote(
 )
 def test_other_citations_and_the_name_elsewhere_are_left_alone(reply: str) -> None:
     assert drop_self_attribution(reply) == reply
+
+
+def test_a_sign_off_below_someone_elses_quote_leaves_that_quote_whole() -> None:
+    """Review of #2300: the sign-off after a blank line unwrapped Gandhi's card."""
+    quote = "> Be the change you wish to see in the world.\n> — Gandhi"
+    assert drop_self_attribution(f"{quote}\n\n— Recall") == quote

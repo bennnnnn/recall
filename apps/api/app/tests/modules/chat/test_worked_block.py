@@ -203,6 +203,10 @@ def test_unit_tex_writes_units_upright(unit: str, tex: str) -> None:
         (r"x = 5 + 3", r"x = 5 + 3"),
         (r"T = 5\,^\circ\mathrm{C}", r"T = 5\,^\circ\mathrm{C}"),
         (r"v_1 = 3\,\mathrm{m/s}", r"v_1 = 3\,\mathrm{m/s}"),
+        # A list: the sign belongs to the next item, not to "5," (review of #2300).
+        (r"x = 5, \$3", r"x = 5, \$3"),
+        (r"(1, €3)", r"(1, €3)"),
+        (r"1.5. \$2", r"1.5. \$2"),
     ],
 )
 def test_currency_first_writes_a_currency_sign_before_its_number(tex: str, expected: str) -> None:

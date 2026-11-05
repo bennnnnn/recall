@@ -24,6 +24,8 @@ _SELF_SIGNED = re.compile(
     re.IGNORECASE,
 )
 _QUOTE = re.compile(r"^(?P<indent>[ \t]*)>[ \t]?")
+# A quote's own citation line: "> — Gandhi".
+_CITES = re.compile(r"^[ \t]*(?:>[ \t]*)+(?:\u2014|\u2013|--)")
 
 
 def _blank(line: str) -> bool:
@@ -32,9 +34,12 @@ def _blank(line: str) -> bool:
 
 def _unquote(lines: list[str], end: int) -> None:
     """The quote whose last line is ``end`` (blank lines above it skipped), written as the
-    plain lines it holds, each kept at its indent."""
+    plain lines it holds, each kept at its indent. A quote with a citation of its own
+    ("> — Gandhi") is someone else's words, and stays a quote (review of #2300)."""
     while end >= 0 and _blank(lines[end]) and _QUOTE.match(lines[end]) is None:
         end -= 1
+    if end < 0 or _CITES.match(lines[end]):
+        return
     start = end
     while start >= 0 and _QUOTE.match(lines[start]) is not None:
         start -= 1
