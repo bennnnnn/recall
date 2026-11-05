@@ -134,9 +134,23 @@ def wrap_saved_memory(content: str) -> str:
     )
 
 
+_EARLIER_CHATS = "earlier chats"
+
+
 def wrap_earlier_chats(content: str) -> str:
     """Wrap past-chat snippets so they read as earlier chats, not this one or saved memory."""
-    return wrap_untrusted("earlier chats", content, preamble=_EARLIER_CHATS_PREAMBLE)
+    return wrap_untrusted(_EARLIER_CHATS, content, preamble=_EARLIER_CHATS_PREAMBLE)
+
+
+def holds_earlier_chats(messages: list[dict[str, Any]]) -> bool:
+    """A system message already carries snippets from the user's earlier chats."""
+    marker = f"[BEGIN UNTRUSTED CONTENT — {_EARLIER_CHATS}]"
+    return any(
+        message.get("role") == "system"
+        and isinstance(message.get("content"), str)
+        and marker in message["content"]
+        for message in messages
+    )
 
 
 def wrap_untrusted(

@@ -239,6 +239,7 @@ async def retrieve_for_prompt(
     user_id: UUID,
     query: str,
     exclude_message_ids: set[UUID] | None = None,
+    exclude_chat_id: UUID | None = None,
     query_vec: list[float] | None = None,
 ) -> str:
     """Return a system-prompt block of past-turn snippets, or empty.
@@ -269,6 +270,7 @@ async def retrieve_for_prompt(
                 query_vec,
                 window=settings.chat_history_rag_search_window,
                 exclude_message_ids=exclude_message_ids,
+                exclude_chat_id=exclude_chat_id,
                 limit=settings.chat_history_rag_chunk_limit,
                 max_distance=max_distance,
             )

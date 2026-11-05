@@ -60,8 +60,9 @@ _EXPORTS = {
     "memory_reset_request": "commands",
 }
 # The chat turn answers "what do you know about me" from ``profile_reply``; every
-# reader of the Settings → Memory switch asks ``switch``.
-_MODULE_EXPORTS = ("profile_reply", "switch")
+# reader of the Settings → Memory switch asks ``switch``; the reply's tool that searches
+# earlier chats is ``recall_tool``.
+_MODULE_EXPORTS = ("profile_reply", "recall_tool", "switch")
 __all__ = [*_EXPORTS, *_MODULE_EXPORTS]
 
 
