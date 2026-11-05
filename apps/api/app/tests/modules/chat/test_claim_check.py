@@ -450,11 +450,20 @@ async def test_a_claim_a_page_says_in_its_own_words_stays() -> None:
         snippet="The tournament was won by host country France, who beat defending champions "
         "Brazil 3–0 in the final to win their first title.",
     )
+    # Long enough that the cut-share guard would not keep it: only the page check does.
     reply = (
         "France won the 1998 World Cup, beating defending champions Brazil in the final. "
-        "It was their first title, won at home."
+        "It was their first title, won at home in front of a crowd of eighty thousand at "
+        "the Stade de France. Zinedine Zidane scored twice with headers in the first half, "
+        "and Emmanuel Petit added a third late on. Croatia, in their first World Cup, "
+        "finished third after beating the Netherlands in the play-off."
     )
     verdict = claim_check._Verdict(
         unsupported=[claim_check._Claim(quote="beating defending champions Brazil", kind="status")]
     )
     assert await _run(_state(reply, search_sources=[page]), verdict) == reply
+
+
+def test_a_figure_claim_written_in_words_is_never_cut() -> None:
+    claim = claim_check._Claim(quote="about three million people", kind="figure")
+    assert claim_check._costs_its_sentence(claim, []) is False

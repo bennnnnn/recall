@@ -368,11 +368,15 @@ def _costs_its_sentence(claim: _Claim, pages: list[WebSearchHit]) -> bool:
     """A figure or a legal standing no page states: what a reader would act on and what a
     page would have said. An attribution or a detail beside the answer is not worth the
     sentence that carries the answer."""
+    if claim.kind == "figure" and not _figures(claim.quote):
+        return False  # "three million" written out: no figure the pages can be read for
     return claim.kind in _CUT_KINDS and not _stated_by_a_page(claim.quote, pages)
 
 
 _CUT_KINDS = frozenset({"figure", "legal", "status"})
 _CONTENT_WORD = re.compile(r"[^\W\d_]{4,}")
+# A word by its first letters, so "beating" is the page's "beat" (review of #2301).
+_STEM = 4
 # A claim with no figure is a page's when this share of its words are on that page.
 _MIN_WORDS_ON_PAGE = 0.8
 
@@ -383,17 +387,20 @@ def _stated_by_a_page(quote: str, pages: list[WebSearchHit]) -> bool:
     it costs the user a sourced answer: "beat defending champions Brazil" was cut as a
     status under a page that said those words (2026-11-05)."""
     figures = _figures(quote)
-    words = {word.casefold() for word in _CONTENT_WORD.findall(quote)}
+    words = _stems(quote)
     for page in pages:
         text = f"{page.title} {page.snippet[:SNIPPET_CHARS]}"
         if figures:
             if figures <= _figures(text):
                 return True
             continue
-        on_page = {word.casefold() for word in _CONTENT_WORD.findall(text)}
-        if words and len(words & on_page) / len(words) >= _MIN_WORDS_ON_PAGE:
+        if words and len(words & _stems(text)) / len(words) >= _MIN_WORDS_ON_PAGE:
             return True
     return False
+
+
+def _stems(text: str) -> set[str]:
+    return {word.casefold()[:_STEM] for word in _CONTENT_WORD.findall(text)}
 
 
 async def _verdict(state: FinalizeState) -> _Verdict | None:
