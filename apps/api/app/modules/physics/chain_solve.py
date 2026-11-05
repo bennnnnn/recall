@@ -30,6 +30,7 @@ from app.modules.physics.counted import accounts_for_counted_items
 from app.modules.physics.display import si_symbol
 from app.modules.physics.extract import read_physics_request
 from app.modules.physics.givens import PHYSICS_UNITS
+from app.modules.physics.law_range import holds_its_range
 from app.modules.physics.parts import asks_count
 from app.modules.physics.request import PhysicsRequest, complete_physics_intent
 from app.modules.physics.schemas import PhysicsIntent
@@ -109,7 +110,7 @@ def _intent(
 def _solved_value(filled: Fit, ask: Asked, request: PhysicsRequest) -> tuple[float, str] | None:
     """The law's result in SI, for the next law and for comparing two routes."""
     intent = _intent(filled, None, (), request)
-    if intent is None or filled.spec.binding is None:
+    if intent is None or filled.spec.binding is None or not holds_its_range(filled.spec, intent):
         return None
     try:
         result = solve_physics(intent)

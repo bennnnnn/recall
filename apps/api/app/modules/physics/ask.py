@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES, _UNKNOWN
 from app.modules.physics.givens import ANGLE, unit_at, unit_dimension, unit_readings
-from app.services.law_binding.ask import ASK_VERBS
+from app.services.law_binding.ask import ASK_VERBS, SELF_NAMING
 from app.services.law_binding.ask import ask_clause as _verb_ask_clause
 from app.services.law_binding.ask import ask_clauses as _verb_ask_clauses
 
@@ -94,6 +94,18 @@ def ask_clause(text: str) -> str | None:
 
 # "Where is the image?" names no question verb the shared reader knows.
 _WHERE_IMAGE = re.compile(r"\bwhere\s+(?:is|will|does|would)\s+(?:the\s+)?image\b", re.IGNORECASE)
+# Every ask, the shared verbs with optics' own: "where is the image and how big is it".
+_PHYSICS_ASKS = re.compile(
+    rf"{ASK_VERBS.pattern}|{_WHERE_IMAGE.pattern}|\bhow\s+big\b", re.IGNORECASE
+)
+_PHYSICS_SELF_NAMING = (
+    *SELF_NAMING,
+    "where is",
+    "where will",
+    "where does",
+    "where would",
+    "how big",
+)
 
 
 # Instructions that ask without a question word: "Solve for v.", "Use Gauss's law
@@ -204,7 +216,18 @@ def _labels_a_value(clause: str, noun: re.Match[str], text: str) -> bool:
     return reading is not None and reading[0] == _dimension(noun.group(), text)
 
 
+# What an image's size is asked as: beside a lens or a mirror and with no height stated,
+# "how big is it" asks how many times the object's size, a magnification.
+_IMAGE_SIZE = frozenset({"how big", "image size", "size of the image"})
+_OPTIC = re.compile(r"\blens(?:es)?\b|\bmirrors?\b", re.IGNORECASE)
+_HEIGHT_STATED = re.compile(r"\b(?:tall|high|height)\b", re.IGNORECASE)
+
+
 def _dimension(phrase: str, text: str) -> str | None:
+    if phrase.lower() in _IMAGE_SIZE:
+        if _OPTIC.search(text) is None:
+            return None
+        return _DIMENSIONLESS if _HEIGHT_STATED.search(text) is None else "[length]^1"
     expression = _QUANTITIES[phrase.lower()]
     if expression == "watt" and _LENS.search(text):
         return None
@@ -263,7 +286,7 @@ def asks(text: str) -> tuple[Ask, ...]:
     time; "find (a) the maximum height (b) the time to the top" lists two in one clause.
     """
     found: list[Ask] = []
-    for _, clause in _verb_ask_clauses(text):
+    for _, clause in _verb_ask_clauses(text, _PHYSICS_ASKS, _PHYSICS_SELF_NAMING):
         listed = _one_per_quantity(clause, _asked_nouns(clause, text))
         start = 0
         for index, (phrase, noun) in enumerate(listed):

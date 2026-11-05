@@ -6,20 +6,6 @@ from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, 
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
-        "image_distance",
-        "optics",
-        "Thin-lens and mirror equation",
-        "d_i",
-        base_latex="\\frac{1}{f} = \\frac{1}{d_o} + \\frac{1}{d_i}",
-        variables=(
-            var("d_obj", "d_o", "meter"),
-            var("focal", "f", "meter"),
-            # Not in the formula: a lens and a concave mirror share it, and
-            # only the ray diagram tells them apart.
-            var("mirror", "mirror", dimensionless=True, visible=False),
-        ),
-    ),
-    formula(
         "magnification",
         "optics",
         "Magnification formula",
@@ -207,31 +193,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             # convention the question has not stated.
             excludes=("convex", "diverging"),
             nonnegative=True,
-        ),
-    ),
-    formula(
-        "magnification_distances",
-        "optics",
-        "Magnification equation",
-        "m",
-        base_latex=r"m = -\frac{d_i}{d_o}",
-        assumptions=("real distances are positive; a negative m is an inverted image",),
-        expression="-d_img/d_obj",
-        variables=(
-            var("d_img", "d_i", "meter", words=("image",)),
-            var("d_obj", "d_o", "meter", words=("object",)),
-        ),
-        binding=Binding(
-            asks=("magnification",),
-            result=("dimensionless",),
-            inputs=(frozenset({"d_img", "d_obj"}),),
-            # A virtual, erect or "signed" image's distance carries the other sign, and any place
-            # named may be the image's (optic_elements._PLACE). Heights are not d_o and d_i.
-            excludes=(
-                *("virtual", "erect", "upright", "behind", "beyond", "side", "in front", "left of"),
-                *("right of", "diverging", "signed", "telescope", "eyepiece", "objective"),
-                *("height", "tall", "high"),
-            ),
         ),
     ),
     formula(

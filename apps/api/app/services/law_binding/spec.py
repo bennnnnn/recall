@@ -46,6 +46,10 @@ class VariableSpec:
     # when it is the only input of its kind: an object's density is not the
     # fluid's, and a tube's diameter is not its radius.
     needs_words: bool = False
+    # Words for the situation that has this value ("cliff", "top of" for a launch
+    # height): said with no value stated, the law cannot take its form without it
+    # (a launch from the ground), so it declines.
+    named_by: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.dimensionless == (self.dimension is not None):
@@ -152,6 +156,7 @@ def var(
     negating: tuple[str, ...] = (),
     fallback: str | None = None,
     needs_words: bool = False,
+    named_by: tuple[str, ...] = (),
 ) -> VariableSpec:
     return VariableSpec(
         name=name,
@@ -164,6 +169,7 @@ def var(
         negating=negating,
         fallback=fallback,
         needs_words=needs_words,
+        named_by=named_by,
     )
 
 

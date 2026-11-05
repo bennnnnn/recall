@@ -23,7 +23,9 @@ from app.modules.physics.ask import ask_clause, asked_dimensions, asked_unit
 from app.modules.physics.binding_values import fallback_value, si_unit
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
+from app.modules.physics.catalog.projectile import AT_AN_ANGLE
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
+from app.modules.physics.law_range import holds_its_range
 from app.modules.physics.optic_elements import diverging_element, signed_distances
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.fit import (
@@ -74,6 +76,19 @@ _NOT_ALONG_AN_AXIS = re.compile(
 )
 
 
+# An angle stated with its number: "at 30°", "30 degrees". A temperature in degrees is
+# not one ("20 °C", "20 degrees Celsius").
+_STATED_ANGLE = re.compile(
+    r"\d\s*(?:°(?!\s*[CFK]\b)|deg(?:rees?)?\b(?!\s*(?:c|f|k|celsius|fahrenheit|kelvin)\b))",
+    re.IGNORECASE,
+)
+
+
+def states_an_angle(text: str) -> bool:
+    """The question states an angle with its number."""
+    return _STATED_ANGLE.search(text) is not None
+
+
 def crosswise(lower: str) -> bool:
     """One direction on each compass axis and nothing between them: north and east."""
     return (
@@ -113,7 +128,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         return None
     _, chosen = strongest
     try:
-        return PhysicsIntent(
+        intent = PhysicsIntent(
             # The catalog's kind is a str; the model validates it against its Literal.
             kind=chosen.spec.kind,  # type: ignore[arg-type]
             physics_op=chosen.spec.id,
@@ -122,6 +137,11 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         )
     except ValueError:
         return None
+    # An expression law refuses outside its range as it solves; a hand-written one is
+    # checked here, or a level launch with no height would read as a flight from the ground.
+    if chosen.spec.expression is None and not holds_its_range(chosen.spec, intent):
+        return None
+    return intent
 
 
 def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
@@ -134,6 +154,9 @@ def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
     # compass axis is a right angle, the cue the perpendicular laws are written with.
     if crosswise(lower):
         cue_text = f"{cue_text} crosswise"
+    # A stated angle is the cue a launch at an angle is written with (``AT_AN_ANGLE``).
+    if states_an_angle(text):
+        cue_text = f"{cue_text} {AT_AN_ANGLE}"
     only_water = names_only_water(lower)
     # "The mirror is convex": a law that excludes a diverging element excludes it, however
     # the question words it.

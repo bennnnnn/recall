@@ -26,6 +26,7 @@ from app.modules.physics.catalog.heat import SPECS as HEAT
 from app.modules.physics.catalog.heat import WATER_ONLY
 from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
+from app.modules.physics.catalog.lens import SPECS as LENS
 from app.modules.physics.catalog.machine_ratios import SPECS as MACHINE_RATIOS
 from app.modules.physics.catalog.machines import SPECS as MACHINES
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
@@ -103,6 +104,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     CAPACITORS,
     INDUCTANCE_AC,
     WAVES,
+    LENS,
     OPTICS,
     WAVE_OPTICS,
     THERMAL,

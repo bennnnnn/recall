@@ -26,7 +26,8 @@ SAMPLES: dict[str, float] = {
     "h": 3.0,
     "h0": 20.0,
     "v0": 15.0,
-    "angle": 0.0,
+    # Above the horizontal, so a launch from level ground flies (at 0° it would not).
+    "angle": 20.0,
     "angle_bragg": 30.0,
     "m1": 5.0,
     "m2": 3.0,

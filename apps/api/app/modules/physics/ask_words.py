@@ -35,6 +35,10 @@ _QUANTITIES: dict[str, str] = {
     "where is the image": "meter",
     "where will the image": "meter",
     "where does the image": "meter",
+    # An image's size: its height, or how many times the object's (``ask._dimension``).
+    "how big": _UNKNOWN,
+    "image size": _UNKNOWN,
+    "size of the image": _UNKNOWN,
     "how many metres": "meter",
     "how many meters": "meter",
     "how many kilometres": "meter",
