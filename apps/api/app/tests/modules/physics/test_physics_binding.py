@@ -105,7 +105,7 @@ def _answer(text: str) -> str | None:
         (
             "Find the period of a satellite orbiting at a radius of 7000 km around Earth.",
             "kepler_period",
-            "5829 s",  # 2π√(r³/GM)
+            "5829 s (97.1 min)",  # 2π√(r³/GM), and in minutes
         ),
         (
             "A flywheel with moment of inertia 4 kg m^2 spins at 10 rad/s. "

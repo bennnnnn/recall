@@ -47,8 +47,8 @@ def lens_scene(u: float, f: float, v: float, unit: str) -> list[SimulationBlockS
             optics=OpticsSpec(
                 element="converging_lens",
                 focal=f,
-                object=OpticsArrow(x=-u, height=h, label=f"u = {shown_u}"),
-                image=OpticsArrow(x=v, height=hi, label=f"v = {shown_v}"),
+                object=OpticsArrow(x=-u, height=h, label=f"dₒ = {shown_u}"),
+                image=OpticsArrow(x=v, height=hi, label=f"dᵢ = {shown_v}"),
                 rays=rays,
             ),
             x_min=-u * 1.15,
@@ -94,8 +94,8 @@ def mirror_image_scene(u: float, f: float, v: float, unit: str) -> list[Simulati
             optics=OpticsSpec(
                 element="concave_mirror",
                 focal=f,
-                object=OpticsArrow(x=-u, height=h, label=f"u = {shown_u}"),
-                image=OpticsArrow(x=-v, height=hi, label=f"v = {shown_v}"),
+                object=OpticsArrow(x=-u, height=h, label=f"dₒ = {shown_u}"),
+                image=OpticsArrow(x=-v, height=hi, label=f"dᵢ = {shown_v}"),
                 rays=rays,
             ),
             x_min=-far * 1.15,

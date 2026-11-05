@@ -116,7 +116,9 @@ async def fetch_subject(
         )
     if subject == "chemistry":
         needs_subject = settings.chemistry_enabled
-    elif subject in {"math", "physics"}:
+    elif subject == "physics":
+        needs_subject = settings.physics_enabled
+    elif subject == "math":
         needs_subject = settings.math_tools_enabled
     else:
         needs_subject = False

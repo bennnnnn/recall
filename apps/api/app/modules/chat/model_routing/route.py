@@ -272,7 +272,8 @@ def _routed_line(content: str, settings: Settings | None = None) -> tuple[str, s
         chemistry_fast = subject_adapter("chemistry").fast_lane(content, tools_on=tools_on)
         return (fast if chemistry_fast else smart), "chemistry"
     if subject != "math":
-        physics_fast = subject_adapter("physics").fast_lane(content, tools_on=tools_on)
+        physics_on = settings is None or settings.physics_enabled
+        physics_fast = subject_adapter("physics").fast_lane(content, tools_on=physics_on)
         if physics_fast is not None:
             return (fast if physics_fast else smart), "physics"
     # Math turns (equations, graphs, geometry, calculus, stats, …) go to the math-tuned

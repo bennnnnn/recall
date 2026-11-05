@@ -285,12 +285,12 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
         ),
         (
             "A converging lens has focal length 10 cm and an object is 30 cm away. Find image distance.",
-            "$v$",
+            "$d_i$",
             "Thin-lens and mirror equation",
-            r"$\frac{1}{f} = \frac{1}{u} + \frac{1}{v}$",
-            r"$v = \frac{uf}{u - f}$",
+            r"$\frac{1}{f} = \frac{1}{d_o} + \frac{1}{d_i}$",
+            r"$d_i = \frac{d_o f}{d_o - f}$",
             # Given in cm, the working stays in cm.
-            r"$v = \frac{30 \times 10}{30 - 10}$",
+            r"$d_i = \frac{30 \times 10}{30 - 10}$",
         ),
         (
             "A 30 kg child sits 2 m from the pivot of a seesaw. Where should a 20 kg child sit to balance it?",

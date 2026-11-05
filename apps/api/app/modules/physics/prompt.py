@@ -118,7 +118,7 @@ async def build_physics_augmentation(
     solve failed. A physics question with no template still gets the prompt
     note, and it is not reported as a failed check.
     """
-    if not settings.math_tools_enabled:
+    if not settings.physics_enabled:
         return None, None, False
     from app.core.sympy_executor import run_sympy
 

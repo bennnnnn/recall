@@ -144,7 +144,7 @@ class PhysicsPhoto:
         settings: Settings,
         on_status: Callable[[str], Awaitable[None]] | None,
     ) -> tuple[None, str]:
-        if not settings.math_tools_enabled:
+        if not settings.physics_enabled:
             return None, content
         from app.modules.physics.read import read_physics_problem
         from app.services.subject_scan import read_scanned_problem

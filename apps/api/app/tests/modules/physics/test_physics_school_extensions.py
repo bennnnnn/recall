@@ -171,7 +171,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Use Kepler's law for a 6e24 kg mass and an orbital radius of 6e6 m. Find the period.",
         "kepler_period",
-        "4615 s",
+        "4615 s (76.9 min)",
     ),
     (
         "Find the internal energy of 2 mol of monatomic ideal gas at 300 K.",

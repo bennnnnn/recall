@@ -7,6 +7,8 @@ prevent.
 
 Code: `apps/api/app/modules/physics/`. Math hands physics over at subject detection
 (`services/subjects/dispatch.detect_subject`) and shares no algorithm with it.
+Physics has its own switch, `physics_enabled` (on); off, a physics question is the model's,
+unverified, while maths keeps `math_tools_enabled`.
 
 ## Pipeline
 
@@ -325,6 +327,12 @@ The binder reads these laws, beside the extractors' own:
 - **Energy from a power and hours or days** is answered in joules with the kilowatt-hours
   beside it, as a bill writes them: 100 W for 5 hours a day for 30 days is
   5.4 × 10⁷ J (15 kWh).
+- **A long time in seconds** also reads in the unit a person counts it in, beside the
+  seconds: a 400 km orbit is 5545 s (92.4 min), and each of min, h, days and years takes
+  over from twice its size (`answer_checks._readable_time`). An asked unit wins.
+- **Symbols say what they are, across topics.** A lens or mirror's distances are d_o and d_i
+  (1/f = 1/d_o + 1/d_i), never u and v, which a student reads as speeds; an energy density
+  is u_E or u_B. A symbol is the same in Given, Formula, Substitution and the picture.
 - **Everyday spellings** are read before any extractor: "accelaration", "velocty" and
   "whats"; kph and kmph as km/h; °F, whose change is worked in kelvins, never as a raw
   °F difference; mAh and Ah; weeks; µs and ns; amu, and a bare "u" written

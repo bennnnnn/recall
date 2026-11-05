@@ -9,10 +9,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "image_distance",
         "optics",
         "Thin-lens and mirror equation",
-        "v",
-        base_latex="\\frac{1}{f} = \\frac{1}{u} + \\frac{1}{v}",
+        "d_i",
+        base_latex="\\frac{1}{f} = \\frac{1}{d_o} + \\frac{1}{d_i}",
         variables=(
-            var("d_obj", "u", "meter"),
+            var("d_obj", "d_o", "meter"),
             var("focal", "f", "meter"),
             # Not in the formula: a lens and a concave mirror share it, and
             # only the ray diagram tells them apart.
@@ -214,19 +214,19 @@ SPECS: tuple[FormulaSpec, ...] = (
         "optics",
         "Magnification equation",
         "m",
-        base_latex=r"m = -\frac{v}{u}",
+        base_latex=r"m = -\frac{d_i}{d_o}",
         assumptions=("real distances are positive; a negative m is an inverted image",),
         expression="-d_img/d_obj",
         variables=(
-            var("d_img", "v", "meter", words=("image",)),
-            var("d_obj", "u", "meter", words=("object",)),
+            var("d_img", "d_i", "meter", words=("image",)),
+            var("d_obj", "d_o", "meter", words=("object",)),
         ),
         binding=Binding(
             asks=("magnification",),
             result=("dimensionless",),
             inputs=(frozenset({"d_img", "d_obj"}),),
             # A virtual, erect or "signed" image's distance carries the other sign, and any place
-            # named may be the image's (optic_elements._PLACE). Heights are not u and v.
+            # named may be the image's (optic_elements._PLACE). Heights are not d_o and d_i.
             excludes=(
                 *("virtual", "erect", "upright", "behind", "beyond", "side", "in front", "left of"),
                 *("right of", "diverging", "signed", "telescope", "eyepiece", "objective"),
@@ -404,7 +404,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     # The image's height from a converging lens or a concave mirror: the
-    # magnification is v/u = f/(u - f). A real image (the object outside F) is
+    # magnification is d_i/d_o = f/(d_o - f). A real image (the object outside F) is
     # inverted, so the signed result is negative and shown as its size,
     # inverted. Inside F the image is virtual, and the sign conventions part.
     formula(
@@ -412,7 +412,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "optics",
         "Magnification",
         "h_i",
-        base_latex=r"h_i = -h_o\frac{v}{u} = -h_o\frac{f}{u - f}",
+        base_latex=r"h_i = -h_o\frac{d_i}{d_o} = -h_o\frac{f}{d_o - f}",
         assumptions=("a thin converging lens or a concave mirror, the object outside F",),
         expression="-h_obj*focal/(d_obj - focal)",
         variables=(
@@ -425,7 +425,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
             var(
                 "d_obj",
-                "u",
+                "d_o",
                 "meter",
                 words=("in front", "from the", "away", "object is", "placed", "object distance"),
                 needs_words=True,
@@ -456,8 +456,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "mirror_image_from_radius",
         "optics",
         "Mirror equation",
-        "v",
-        base_latex=r"\frac{1}{u} + \frac{1}{v} = \frac{2}{R}",
+        "d_i",
+        base_latex=r"\frac{1}{d_o} + \frac{1}{d_i} = \frac{2}{R}",
         assumptions=("a concave mirror, rays near the axis, the object outside F",),
         expression="1/(2/radius_curvature - 1/d_obj)",
         variables=(
@@ -470,7 +470,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
             var(
                 "d_obj",
-                "u",
+                "d_o",
                 "meter",
                 words=("object", "placed", "in front", "away", "from the mirror"),
                 needs_words=True,

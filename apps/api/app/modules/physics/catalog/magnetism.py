@@ -517,8 +517,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "magnetic_energy_density",
         "magnetism",
         "Magnetic energy density",
-        "u",
-        base_latex=r"u = \frac{B^2}{2\mu_0}",
+        "u_B",
+        base_latex=r"u_B = \frac{B^2}{2\mu_0}",
         expression="b_field**2/(2*mu_0)",
         variables=(var("b_field", "B", "tesla"),),
         binding=Binding(

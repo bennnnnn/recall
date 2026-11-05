@@ -65,8 +65,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "electric_energy_density",
         "magnetism",
         "Electric energy density",
-        "u",
-        base_latex=r"u = \frac{1}{2}\varepsilon_0 E^2",
+        "u_E",
+        base_latex=r"u_E = \frac{1}{2}\varepsilon_0 E^2",
         expression="epsilon_0*e_field**2/2",
         variables=(var("e_field", "E", "volt / meter"),),
         binding=Binding(

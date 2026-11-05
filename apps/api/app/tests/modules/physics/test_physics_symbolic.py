@@ -193,7 +193,7 @@ async def test_symbolic_boundary_uses_worker_timeout_and_declines(monkeypatch) -
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", timeout_worker)
     _prompt, verified, failed = await build_physics_augmentation(text, settings)
     assert verified is None and failed
-    assert await build_physics_augmentation(text, Settings(math_tools_enabled=False)) == (
+    assert await build_physics_augmentation(text, Settings(physics_enabled=False)) == (
         None,
         None,
         False,

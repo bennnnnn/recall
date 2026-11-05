@@ -175,7 +175,7 @@ def test_message_needs_thinking(content: str, prior_user: str | None, expected: 
     assert message_needs_thinking(content, prior_user=prior_user) is expected
 
 
-def test_verified_physics_stays_smart_when_math_tools_are_off() -> None:
+def test_verified_physics_stays_smart_when_physics_is_off() -> None:
     content = "calculate the momentum of a 5kg object moving at 12 m/s"
     pool = [model.id for model in model_catalog.selectable_models()]
     assert (
@@ -183,7 +183,7 @@ def test_verified_physics_stays_smart_when_math_tools_are_off() -> None:
             "auto",
             content,
             pool,
-            Settings(math_tools_enabled=False),
+            Settings(physics_enabled=False),
         )
         == "smart-chat"
     )

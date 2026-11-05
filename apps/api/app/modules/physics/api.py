@@ -26,9 +26,9 @@ async def read_physics_scan(
     user: User = Depends(get_consented_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> ScanReadingOut:
-    # Physics is verified only while math tools are on; a reading the chat
-    # cannot verify would only add a step before the same unverified answer.
-    if not settings.math_tools_enabled:
+    # Physics is verified only while it is on; a reading the chat cannot
+    # verify would only add a step before the same unverified answer.
+    if not settings.physics_enabled:
         raise ScanRefusedError("Not available", status_code=404, code="not_available")
 
     async def read(photo: ScanPhoto, seconds_left: float) -> str:
