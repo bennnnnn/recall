@@ -130,3 +130,23 @@ def test_a_note_with_nested_maths_is_one_maths_run() -> None:
         r"about $1.20\sqrt{gh}$; A gives $\sqrt{2gh}$."
     )
     assert _tex_as_maths("east") == "east"
+
+
+@pytest.mark.parametrize(
+    ("note", "shown"),
+    [
+        (r"about \frac{v_0}{2}", r"about $\frac{v_0}{2}$"),
+        (r"about $\frac{v_0}{2}$", r"about $\frac{v_0}{2}$"),
+        (r"5\% error", "5% error"),
+        (r"a\,b", "a b"),
+        (r"1.20\,\sqrt{gh}", r"1.20 $\sqrt{gh}$"),
+        ("**east**, the `v_0` axis", "east, the v0 axis"),
+        ("east", "east"),
+    ],
+)
+def test_a_note_keeps_its_maths_and_loses_its_marks(note: str, shown: str) -> None:
+    """Review of #2303: marks were stripped before the maths was found, so subscripts went,
+    and a backslash before a non-letter showed raw."""
+    from app.modules.chat.worked_render import _note_text
+
+    assert _note_text(note) == shown
