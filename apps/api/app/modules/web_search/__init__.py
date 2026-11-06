@@ -45,7 +45,7 @@ if TYPE_CHECKING:
         run_cached_search,
     )
     from app.modules.web_search.tool import WebSearchAdapter
-    from app.modules.web_search.turn_query import search_queries_for_turn
+    from app.modules.web_search.turn_query import points_back_in_chat, search_queries_for_turn
 
 _EXPORTS = {
     "AMBIGUOUS_NEARBY_HINT": "formatting",
@@ -69,6 +69,7 @@ _EXPORTS = {
     "is_places_list_query": "geo_intent",
     "names_its_place": "geo_intent",
     "needs_web_search": "detection",
+    "points_back_in_chat": "turn_query",
     "run_cached_search": "search_cache",
     "search_queries_for_turn": "turn_query",
     "sources_payload": "formatting",
@@ -100,6 +101,7 @@ __all__ = [
     "is_places_list_query",
     "names_its_place",
     "needs_web_search",
+    "points_back_in_chat",
     "run_cached_search",
     "search_queries_for_turn",
     "sources_payload",

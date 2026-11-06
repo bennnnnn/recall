@@ -31,10 +31,13 @@ _POLITE = re.compile(
     r"|do\s+you\s+know\s+|please\s+)",
     re.IGNORECASE,
 )
-# "What a day" exclaims; it does not ask.
+# "What a day" exclaims; it does not ask. People type "whats", "hows", "wheres" without the
+# apostrophe: "whats the weather like there now" read as a statement and searched nothing
+# (2026-11-06).
 _ASK_OPENER = re.compile(
-    r"(?!what\s+an?\b)(?:who(?:'s|se|m)?|what(?:'s|re)?|which|when|where(?:'s)?|why|how(?:'s)?|"
-    r"is|are|was|were|did|does|do|has|have|will|can|could|should|any)\b",
+    r"(?!what\s+an?\b)(?:who(?:'?s|se|m)?|what(?:'?s|re)?|which|when(?:'?s)?|where(?:'?s)?"
+    r"|why(?:'?s)?|how(?:'?s)?|is|are|was|were|did|does|do|has|have|will|can|could|should"
+    r"|any)\b",
     re.IGNORECASE,
 )
 # "In which order did we cover it", "at what point did you say": the question opens with a

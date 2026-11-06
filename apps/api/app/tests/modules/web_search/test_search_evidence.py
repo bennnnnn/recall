@@ -19,7 +19,7 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.gateways.web_search_gateway import SNIPPET_CHARS, WebSearchHit, search_web
 from app.modules.chat.claim_check import _sentences
-from app.modules.chat.claim_evidence import costs_its_sentence, figures, stated_by_a_page
+from app.modules.chat.claim_evidence import any_on_a_page, costs_its_sentence, figures
 from app.modules.chat.tool_loop.results import _search_hits_from_tool_result
 from app.modules.web_search.formatting import NEWEST_SOURCE_RULE, format_search_block
 from app.modules.web_search.search_cache import _search_cache_key
@@ -114,8 +114,8 @@ _WORLD_VISION = WebSearchHit(
         ("damage of $8.8 billion", False),
         ("damage of 8,800,000,000 dollars", True),
         ("at least 90 people died", False),
-        # Two pages' figures together are not one page's claim.
-        ("76 died, 12 of them in Cuba", False),
+        # Partly on a page is sourced: only a figure no page holds any number of is made up.
+        ("76 died, 12 of them in Cuba", True),
         # A year dates a claim; it does not make one: no figure, nothing stated.
         ("Melissa's status was upgraded in 2026", False),
         ("Cytonn has been reinstated", False),
@@ -123,7 +123,7 @@ _WORLD_VISION = WebSearchHit(
 )
 def test_a_figure_one_page_states_is_not_cut(quote: str, stated: bool) -> None:
     other = WebSearchHit("UN News", "https://news.un.org", "12 days of rain. 5 million tonnes.")
-    assert stated_by_a_page(figures(quote), [_WORLD_VISION, other]) is stated
+    assert any_on_a_page(figures(quote), [_WORLD_VISION, other]) is stated
 
 
 @pytest.mark.parametrize(
@@ -220,10 +220,13 @@ def test_the_tool_offers_recent_and_asks_for_no_year_in_the_query() -> None:
     [
         # A legal standing is always cut: matching words cleared contradicted ones (review).
         ("Acme is licensed in Spain", "legal", True),
-        ("Acme is licensed in Spain", "status", True),
+        # "status" is not offered; one the checker still writes is a detail.
+        ("December is the dry season", "status", False),
         # A figure a page states stays; one no page states goes.
         ("at least 76 people died", "figure", False),
         ("at least 90 people died", "figure", True),
+        # Partly sourced: 76 is on the page, the hour is not; the sentence stays.
+        ("76 deaths by 10 AM", "figure", False),
         ("about three million people", "figure", False),
         # An attribution or a detail never costs the answer.
         ("beating defending champions Brazil", "other", False),

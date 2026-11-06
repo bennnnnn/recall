@@ -1439,5 +1439,56 @@
     "history": [],
     "reply": "Sure!",
     "expect": "save"
+  },
+  {
+    "id": "ht-130",
+    "area": "lookalike",
+    "prompt": "remind me what the yellow fever thing was",
+    "history": [
+      [
+        "user",
+        "do i need any vaccines for zanzibar"
+      ],
+      [
+        "assistant",
+        "Yellow fever proof is needed if you arrive from a risk country."
+      ]
+    ],
+    "reply": "You may need proof of a yellow fever vaccine if you arrive from a risk country.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-131",
+    "area": "lookalike",
+    "prompt": "ok also two things: write a short email to my landlord, and remind me what the yellow fever thing was",
+    "history": [
+      [
+        "user",
+        "do i need any vaccines for zanzibar"
+      ],
+      [
+        "assistant",
+        "Yellow fever proof is needed if you arrive from a risk country."
+      ]
+    ],
+    "reply": "Here's the email. And the yellow fever rule: bring proof of the vaccine.",
+    "expect": "answer"
+  },
+  {
+    "id": "ht-132",
+    "area": "lookalike",
+    "prompt": "remind me who wrote that book",
+    "history": [
+      [
+        "user",
+        "a short book?"
+      ],
+      [
+        "assistant",
+        "Of Mice and Men by John Steinbeck."
+      ]
+    ],
+    "reply": "That was John Steinbeck.",
+    "expect": "answer"
   }
 ]

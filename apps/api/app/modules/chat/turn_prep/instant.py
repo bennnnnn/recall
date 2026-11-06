@@ -161,18 +161,24 @@ async def _profile_reply(asked: str, identity: TurnIdentity) -> str | None:
 
 
 def location_not_set_reply(
-    content: str, geo: ClientGeoContext, followup: SubjectFollowup
+    content: str,
+    geo: ClientGeoContext,
+    followup: SubjectFollowup,
+    messages: list[dict[str, Any]] | None = None,
 ) -> str | None:
     """A nearby question with no location to search from, answered without the model.
 
     A question that names its own place ("best restaurant in DC") needs no location,
-    and "how far does it go?" after a physics problem asks about the car, not the user.
+    "how far does it go?" after a physics problem asks about the car, not the user, and
+    "whats the weather like there now" after a Zanzibar trip asks about Zanzibar: it got
+    "I don't have your location yet" (2026-11-06); the search reads the place from the chat.
     """
     if (
         geo.geo_query
         and not geo.has_geo_fix
         and not followup.found
         and not web_search_service.names_its_place(content)
+        and not web_search_service.points_back_in_chat(content, messages or [])
     ):
         return web_search_service.format_location_not_set_answer()
     return None
