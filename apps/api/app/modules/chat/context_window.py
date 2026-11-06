@@ -11,7 +11,7 @@ from typing import Any
 
 from app.services.md_fence_scan import iter_fences
 
-_SUMMARY_MAX_CHARS = 6000
+SUMMARY_MAX_CHARS = 6000
 _SUMMARY_MESSAGE_MAX_CHARS = 1200
 _TRIM_MARK = " … [truncated] … "
 
@@ -25,16 +25,17 @@ NEWEST_FIGURE_RULE = (
 )
 
 SUMMARY_SYSTEM_PROMPT = (
-    "You compress a conversation into a concise running summary so an assistant can "
-    "continue it later. Merge the existing summary with the new messages.\n\n"
+    "You keep a running summary of a conversation so an assistant can continue it later. "
+    "You get the existing summary and the new messages to fold in.\n\n"
     "Format (plain text, no markdown headings):\n"
-    "Facts: durable preferences, names, numbers, decisions\n"
-    "Topics: one short line per topic in the order it was discussed (oldest first), "
-    "with its outcome\n"
+    "Facts: every durable preference, name, number and decision from the existing summary "
+    "that still holds, plus the new ones, in a few sentences\n"
+    "Topics: one short line per topic of the NEW messages only, in the order discussed, "
+    "each naming its subject (the place, person or thing) and its outcome; the existing "
+    "topic lines are kept as they are, so do not repeat them\n"
     "Open: questions the user left unanswered or next steps they asked for; write None when "
     "there are none, and " + NO_INVENTED_PLAN + "\n\n"
-    "Keep the whole summary under 300 words: shorten older topic lines as new ones arrive, "
-    "never drop a topic, and always finish every section. "
+    "Keep it under 200 words and finish every section. "
     + NEWEST_FIGURE_RULE
     + "Keep durable facts and decisions; drop greetings and filler. Preserve uncertainty: "
     "if someone is considering an option or has not decided, do not upgrade that into a "
@@ -232,7 +233,7 @@ def trim_message_for_summary(content: str, max_chars: int = _SUMMARY_MESSAGE_MAX
     return f"{text[:head].rstrip()}{_TRIM_MARK}{text[len(text) - (keep - head) :].lstrip()}"
 
 
-def cap_summary(text: str, max_chars: int = _SUMMARY_MAX_CHARS) -> str:
+def cap_summary(text: str, max_chars: int = SUMMARY_MAX_CHARS) -> str:
     trimmed = text.strip()
     if len(trimmed) <= max_chars:
         return trimmed

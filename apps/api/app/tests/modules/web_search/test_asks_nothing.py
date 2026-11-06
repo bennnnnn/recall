@@ -47,6 +47,10 @@ def test_asks_nothing_to_look_up_statements_and_requests_to_make(text):
         # "the us" is the country, not the speaker (live, 2026-11-05).
         "what's the us inflation rate",
         "what is the us unemployment rate right now",
+        # Typed without the apostrophe, as people do (live, 2026-11-06).
+        "whats the weather like there now",
+        "hows the traffic in nairobi today",
+        "wheres the nearest pharmacy",
         "the score of my team's game today",
         "the price of gold went up again today in London",
         "What's open near me right now?",

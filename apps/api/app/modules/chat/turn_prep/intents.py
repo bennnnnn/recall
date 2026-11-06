@@ -35,6 +35,7 @@ from app.modules.chat.turn_prep.clauses import (
 from app.modules.chat.turn_prep.problems import problem_clauses
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import extract_image_lookup_query
+from app.modules.todos import is_reminder_request
 from app.modules.turn_reading.plan import (
     HANDLED_KINDS,
     PartKind,
@@ -51,10 +52,10 @@ _MIN_OWN_TOPICS = 2
 # Requests whose path decides them alone: what follows one is not a follow-up to it.
 _OWNED_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo", "reminder", "solve"})
 _PLAN_CACHE = 256
-_REMINDER = re.compile(
-    r"^(?:remind me|set (?:a |an )?(?:reminder|alarm)|add (?:a )?(?:reminder|todo|to-do))\b",
-    re.IGNORECASE,
-)
+# An alarm is asked as a reminder; "remind me …" is the to-do reader's to tell apart:
+# "remind me what the yellow fever thing was" asks to be told again, and was planned as a
+# reminder, answered "I can't save one without a date and time" (2026-11-06).
+_ALARM = re.compile(r"^set (?:a |an )?alarm\b", re.IGNORECASE)
 # A calculation asked of the problem just stated: "find the total current", "work out
 # how fast it lands". "Find me a book" is a request of its own.
 _WORKS_ON_PROBLEM = re.compile(
@@ -74,7 +75,7 @@ def part_kind(text: str, *, chemistry_enabled: bool = True) -> PartKind:
     stem = stem_subject_claims(body, chemistry_enabled=chemistry_enabled)
     if not stem and extract_image_gen_prompt(body):
         return "image"
-    if _REMINDER.match(body):
+    if is_reminder_request(body) or _ALARM.match(body):
         return "reminder"
     if stem or detect_subject(body, chemistry_enabled=chemistry_enabled) is not None:
         return "solve"
