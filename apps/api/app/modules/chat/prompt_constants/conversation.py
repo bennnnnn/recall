@@ -75,6 +75,9 @@ CORRECTION_HINT = (
 # isnt a builtin" got "Sorry, I misread that."): it checks first, and words it itself. Read
 # from the system prompt, far from the message, the free plan's model conceded a right answer
 # ("Fair point …"): it sits beside every message that follows a reply (``message_notes``).
+# "wait but the trip is in december thats like a month away" after saving was worked out to
+# take 17 months got "You've got plenty of time to save up" (2026-11-06): a fact the user adds
+# is checked against what the chat already worked out before agreeing.
 OWN_MISTAKE_HINT = (
     'If this message says you took it the wrong way ("I meant …", "not that one"), '
     "they know what they meant: open with a short apology in your own words, then answer "
@@ -82,7 +85,9 @@ OWN_MISTAKE_HINT = (
     'apologise briefly and correct it; if it is not, do not apologise or concede ("fair '
     'point" included): thank them for checking and explain in a sentence or two why it '
     "stands. When they sound frustrated or worried, answer the feeling in one sentence "
-    "first, as a person would, then help."
+    "first, as a person would, then help. When they add a fact (a date, an amount, a "
+    "limit), check it against what this chat already worked out before you agree or "
+    "reassure, and say plainly what it changes."
 )
 
 CONTINUE_HINT = (
