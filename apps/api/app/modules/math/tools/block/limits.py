@@ -93,20 +93,20 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
     if rounds is None:
         return None
     rule = math_line(r"\lim \frac{f}{g} = \lim \frac{f'}{g'}", "L'Hôpital's rule")
-    steps = [zero]
+    rows = [zero]
     before = latex(expr)
     for index, (top, bottom) in enumerate(rounds):
         note = "differentiate the top and the bottom"
         if index:
             note = f"still $\\frac{{0}}{{0}}$ at ${var} = {at}$: differentiate again"
         after = latex(top) if bottom == 1 else rf"\frac{{{latex(top)}}}{{{latex(bottom)}}}"
-        steps.append(math_line(rf"{lim} {before} = {lim} {after}", note))
+        rows.append(math_line(rf"{lim} {before} = {lim} {after}", note))
         before = after
     top, bottom = rounds[-1]
     if simplify((top / bottom).subs(symbol, point) - value) != 0:
         return None
-    steps.append(math_line(f"= {latex(value)}", substitute))
-    return render_workout(Workout(find=find, formula=(rule,), steps=tuple(steps)), answer)
+    rows.append(math_line(f"= {latex(value)}", substitute))
+    return render_workout(Workout(find=find, formula=(rule,), steps=tuple(rows)), answer)
 
 
 # "(1 - cos x)/x^2" is 0/0 after one round too: sin x / 2x. Three rounds cover school limits.

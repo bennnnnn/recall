@@ -9,6 +9,7 @@ card of 1/2 and nothing else.
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -21,7 +22,7 @@ from app.services.subjects.dispatch import build_subject_augmentation, maybe_dir
 _SETTINGS = Settings(math_llm_extract_enabled=False, math_word_problems_enabled=False)
 
 
-async def _verified(text: str):  # type: ignore[no-untyped-def]  # a VerifiedMathBlock or None
+async def _verified(text: str) -> Any:  # a VerifiedMathBlock or None
     return (await build_subject_augmentation(text, _SETTINGS)).verified
 
 

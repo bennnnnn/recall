@@ -17,6 +17,7 @@ from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.fence import validate_physics_fences
 from app.modules.physics.solvers.motion_scenes import vertical_scene
 from app.services.part_answer_cards import own_line_part_answers
+from app.services.solving import VerifiedPhysicsBlock
 from app.services.subjects.dispatch import build_subject_augmentation
 
 
@@ -81,7 +82,7 @@ def test_a_vertical_scene_is_titled_by_its_launch(v0: float, title: str, key: st
     scene = vertical_scene(30.0, v0, 9.81, 2.0, ground=True)
     assert scene is not None
     assert (scene.title, scene.title_key) == (title, key)
-    assert ("down" in scene.alt) == (v0 < 0)
+    assert ("down" in (scene.alt or "")) == (v0 < 0)
 
 
 def test_a_part_answer_on_its_heading_line_moves_under_it() -> None:
@@ -98,6 +99,7 @@ async def test_each_part_is_carded_once_when_its_value_shares_the_heading_line()
     )
     settings = Settings(math_llm_extract_enabled=False, math_word_problems_enabled=False)
     verified = (await build_subject_augmentation(question, settings)).verified
+    assert isinstance(verified, VerifiedPhysicsBlock)
     reply = (
         "**(a) Maximum height**\n\n$h_{\\max} = \\frac{400}{19.62} = 20.4\\,\\mathrm{m}$\n\n"
         "**Answer (a):** $20.4\\,\\mathrm{m}$\n\n---\n\n**(b) Time to return**\n\n"
