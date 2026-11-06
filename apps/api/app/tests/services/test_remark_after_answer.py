@@ -67,6 +67,8 @@ from app.services.remark_after_answer import split_tail
         ("$x = 3$ as expected", "$x = 3$", "As expected."),
         # A value written without maths marks.
         ("x = 3, since 3 > 2", "x = 3", "Since 3 > 2."),
+        ("x = 2, x = -2", "x = 2, x = -2", ""),
+        ("x = 3, y = 4, since both fit", "x = 3, y = 4", "Since both fit."),
         ("v = 4 m/s; it slows as it climbs", "v = 4 m/s", "It slows as it climbs."),
         ("\\[x = 3\\], since 3 > 2", "\\[x = 3\\]", "Since 3 > 2."),
         # Words that are no unit are a remark.

@@ -90,5 +90,10 @@ def _break(value: str, pos: int, spans: list[re.Match[str]]) -> int | None:
             if following is not None:
                 pos = following.end()
                 continue
+            # Another value written without maths marks: "x = 2, x = -2" (review of #2303).
+            bare = _BARE_START.match(value, after)
+            if bare is not None:
+                pos = bare.end()
+                continue
         return found.start()
     return None
