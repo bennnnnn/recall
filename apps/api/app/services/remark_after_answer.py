@@ -2,88 +2,90 @@
 
 "v = √(10gh/7) m/s (about 1.20sqrt{gh}; option A gives sqrt{2gh}, which is the
 sliding-block result with no rotation)" filled the card (live, 2026-11-06): the line under
-**Answer** went in whole. The card keeps the value's maths and a unit written straight
-after it ("$x = 3$ m/s") and a short label in brackets ("(east)"); the words after that,
-a note, a comparison or a reason, go in a sentence directly under the card. A line that
-opens with words ("The ball lands at …") is an answer in a sentence, and stays as it was.
+**Answer** went in whole. The card keeps the value up to its first clause break: a clause
+mark (";", ",", a dash, a full stop, a long bracket) or a word that opens a clause
+("since", "so", "which"). What the value is written with stays on it, whatever the words:
+a unit ("m/s", "meters per second"), what is counted ("12 students"), a direction ("north",
+"above the horizontal"), a short label in brackets ("(east)"), another value ("and
+$y = 4$"). A line that opens with words ("The ball lands at …") is an answer in a
+sentence, and stays as it was.
+
+Reviews of #2303 found units and directions cut off one case at a time while the card
+tried to recognise units; it now recognises the breaks instead, which are few.
 """
 
 from __future__ import annotations
 
 import re
 
-_MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)", re.DOTALL)
+_MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)|\\\[.*?\\\]", re.DOTALL)
 _WORD = re.compile(r"[^\W\d_]{3,}")
-# One word written straight after the maths, alone or before a clause mark, stays on the
-# card: it is the unit ("m/s", "°C", "meters/second") or what is counted ("12 students",
-# "5 birr"). A one-word qualifier ("approximately") stays with it, harmless there; read
-# through the unit table, "students" would have gone under the card (review of #2303).
-_UNIT = re.compile(r"[^\s,;:()\u2014\u2013]+(?=\s*(?:$|[,;:(\u2014\u2013]))")
-# The marks that open what is said about the value: ", since …", "; option A …", "— so …".
-_LEAD = re.compile(r"^[\s,;:.\u2014\u2013-]+")
-# A bracketed label this short stays on the card: "(east)", "(to 3 s.f.)".
+# A value written without maths marks: "v = 4 m/s", "x ≈ 3".
+_BARE_START = re.compile(r"\s*[^\W\d_]{1,3}(?:_\{?\w+\}?)?\s*[=\u2248]")
+# Where a remark may begin: a clause mark, a bracket (a short label is skipped), or a word
+# that opens a clause. "1,073.64" and "3:30" are numbers, not breaks.
+_BREAK = re.compile(
+    r"[;\u2014\u2013]|,(?!\d)|:(?!\d)|\s-\s|\.(?=\s|$)|\("
+    r"|\b(?:since|because|so|which|as|while|whereas|but|though|although|meaning|giving"
+    r"|hence|thus|therefore|compared|unlike)\b",
+    re.IGNORECASE,
+)
+_BRACKET = re.compile(r"\((?:[^()]|\([^()]*\))*\)")
+# A bracket this short stays on the card: "(east)", "(to 3 s.f.)".
 _LABEL_WORDS = 3
-# What may stand between two values the card keeps: marks, or one bare "and", "or" or
-# "then" ("$x = 3$ and $y = 4$", review of #2303).
-_JOINS = re.compile(r"[\s,;]*(?:(?:and|or|then)\b[\s,;]*)?", re.IGNORECASE)
-# What follows the maths carries the maths on ("$F$ = 10 newtons", "$x$ ≈ 3.2"): the value
-# was written partly outside the dollars, and the card keeps it whole (review of #2303).
-_GOES_ON = re.compile(r"\s*[=<>\u2248\u2260\u2264\u2265+\u00d7\u00b7*/^\d]")
+# What may stand between a comma and the next value: "$x = 2$, $x = -2$", ", or $x = 5$".
+_JOIN = re.compile(r"\s*(?:(?:and|or|then)\s+)?", re.IGNORECASE)
+# A connective left before a break goes with the remark: "$x = 3$ and so $y = 4$".
+_TRAILING_JOIN = re.compile(r"\s+(?:and|or|then)\s*$", re.IGNORECASE)
+_LEAD = re.compile(r"^[\s,;:.\u2014\u2013-]+")
 _WRAPPED = re.compile(r"^\((?P<inner>[^()]*(?:\([^()]*\)[^()]*)*)\)\.?$")
 
 
-# A unit of several words ("square meters", "miles per hour") is one the unit table reads;
-# "so it works" is not (review of #2303).
-_UNIT_WORDS = re.compile(r"(?:[^\W\d_]+\s+){1,3}[^\W\d_]+(?=\s*(?:$|[,;:(\u2014\u2013]))")
-
-
-def _unit_end(text: str) -> int:
-    """Where the unit written straight after the maths ends in ``text``, or 0 for none."""
-    words = _UNIT_WORDS.match(text)
-    if words is not None and _reads_as_unit(words.group()):
-        return words.end()
-    unit = _UNIT.match(text)
-    return unit.end() if unit is not None else 0
-
-
-def _reads_as_unit(words: str) -> bool:
-    from pint.errors import PintError
-
-    from app.services.units import get_unit_registry
-
-    try:
-        quantity = get_unit_registry()(words.replace(" per ", "/"))
-    except (PintError, ValueError, TypeError, AttributeError, SyntaxError):
-        return False  # not a unit the table knows: the words are a remark
-    return not getattr(quantity, "dimensionless", True)
-
-
 def split_tail(value: str) -> tuple[str, str]:
-    """``value`` as the card's maths and the sentence to go under the card ("" for none)."""
+    """``value`` as the card's text and the sentence to go under the card ("" for none)."""
     spans = list(_MATH_SPAN.finditer(value))
-    if not spans or _WORD.search(value[: spans[0].start()]):
-        return value, ""  # no maths, or words before it: an answer written as a sentence
-    # The maths the value opens with, its spans joined by marks or a bare "and" ("$x = 2$,
-    # $x = -2$"); maths inside what follows ("about $1.20\sqrt{gh}$") belongs to the sentence.
-    end = spans[0].end()
-    for span in spans[1:]:
-        if not _JOINS.fullmatch(value[end : span.start()]):
-            break
-        end = span.end()
-    rest = value[end:]
-    if _GOES_ON.match(rest):
+    if spans and not _WORD.search(value[: spans[0].start()]):
+        start = spans[0].end()
+    else:
+        bare = _BARE_START.match(value)
+        if bare is None:
+            return value, ""  # no maths, or words before it: an answer written as a sentence
+        start = bare.end()
+    at = _break(value, start, spans)
+    if at is None:
         return value, ""
-    unit_end = _unit_end(rest.lstrip())
-    if unit_end:
-        end += len(rest) - len(rest.lstrip()) + unit_end
-        rest = value[end:]
-    said = _LEAD.sub("", rest).strip()
+    trailing = _TRAILING_JOIN.search(value[:at])
+    if trailing is not None:
+        at = trailing.start()
+    said = _LEAD.sub("", value[at:]).strip()
     wrapped = _WRAPPED.match(said)
     if wrapped is not None:
         said = wrapped.group("inner").strip()
-        if len(said.split()) <= _LABEL_WORDS and "$" not in said:
-            return value, ""  # a label of the value ("east", "to 3 s.f."), not a remark
     if not _WORD.search(said):
-        return value, ""
+        return value, ""  # a closing stop or a mark, not a remark
     sentence = said[0].upper() + said[1:]
-    return value[:end].rstrip(" ,;:"), sentence if sentence[-1] in ".!?" else f"{sentence}."
+    return value[:at].rstrip(" ,;:"), sentence if sentence[-1] in ".!?" else f"{sentence}."
+
+
+def _break(value: str, pos: int, spans: list[re.Match[str]]) -> int | None:
+    """Where the first remark in ``value`` after ``pos`` begins, or None for none."""
+    while (found := _BREAK.search(value, pos)) is not None:
+        inside = next((s for s in spans if s.start() <= found.start() < s.end()), None)
+        if inside is not None:
+            pos = inside.end()
+            continue
+        if found.group() == "(":
+            bracket = _BRACKET.match(value, found.start())
+            inner = bracket.group()[1:-1] if bracket is not None else ""
+            if bracket is not None and len(inner.split()) <= _LABEL_WORDS and "$" not in inner:
+                pos = bracket.end()
+                continue
+        elif found.group() == ",":
+            joined = _JOIN.match(value, found.end())
+            after = joined.end() if joined is not None else found.end()
+            following = next((s for s in spans if s.start() == after), None)
+            if following is not None:
+                pos = following.end()
+                continue
+        return found.start()
+    return None

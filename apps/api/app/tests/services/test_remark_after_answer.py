@@ -28,25 +28,41 @@ from app.services.remark_after_answer import split_tail
         ("$v = 4$ m/s; it slows as it climbs", "$v = 4$ m/s", "It slows as it climbs."),
         # A unit, a short label in brackets, and both roots stay on the card.
         ("$x = 3$ m/s", "$x = 3$ m/s", ""),
-        # A unit of several words the unit table reads stays (review of #2303).
+        # What the value is written with stays, whatever the words (reviews of #2303).
         ("$A = 12$ square meters", "$A = 12$ square meters", ""),
         ("$v = 60$ miles per hour", "$v = 60$ miles per hour", ""),
+        ("$v = 5$ meters/second", "$v = 5$ meters/second", ""),
+        ("$n = 12$ students", "$n = 12$ students", ""),
+        ("$x = 3$ approximately", "$x = 3$ approximately", ""),
+        ("$v = 8$ m/s north", "$v = 8$ m/s north", ""),
+        ("$h = 20$ m above the ground", "$h = 20$ m above the ground", ""),
+        ("$n = 0.5$ mol of oxygen", "$n = 0.5$ mol of oxygen", ""),
+        ("$r = 5\\%$ per year", "$r = 5\\%$ per year", ""),
+        (
+            "$\\theta = 30^\\circ$ above the horizontal",
+            "$\\theta = 30^\\circ$ above the horizontal",
+            "",
+        ),
+        ("$F$ = 10 newtons", "$F$ = 10 newtons", ""),
+        ("$x$ ≈ 3.2 m", "$x$ ≈ 3.2 m", ""),
+        ("$M$ = 1,073.64 USD per month", "$M$ = 1,073.64 USD per month", ""),
+        ("$x = 3$ and $y = 4$", "$x = 3$ and $y = 4$", ""),
+        ("$t = 2$ s and $t = 4$ s", "$t = 2$ s and $t = 4$ s", ""),
+        ("$x = 2$ or $x = -2$", "$x = 2$ or $x = -2$", ""),
+        ("$x = 3$ m/s.", "$x = 3$ m/s.", ""),
+        # A clause break starts the remark, with or without a mark before it.
         (
             "$V = 5$ cubic centimeters, about a teaspoon",
             "$V = 5$ cubic centimeters",
             "About a teaspoon.",
         ),
-        # The maths carried on outside the dollars stays whole (review of #2303).
-        ("$F$ = 10 newtons", "$F$ = 10 newtons", ""),
-        ("$x$ ≈ 3.2 m", "$x$ ≈ 3.2 m", ""),
-        # Values joined by a bare "and" or "or" stay together (review of #2303).
-        ("$x = 3$ and $y = 4$", "$x = 3$ and $y = 4$", ""),
-        ("$x = 2$ or $x = -2$", "$x = 2$ or $x = -2$", ""),
         ("$x = 3$ and so $y = 4$", "$x = 3$", "And so $y = 4$."),
-        # One word is the unit or what is counted, however long (review of #2303).
-        ("$v = 5$ meters/second", "$v = 5$ meters/second", ""),
-        ("$n = 12$ students", "$n = 12$ students", ""),
-        ("$x = 3$ approximately", "$x = 3$ approximately", ""),
+        ("$x = 3$ m/s since the net force is zero", "$x = 3$ m/s", "Since the net force is zero."),
+        ("$v = 4$ m/s. It slows down as it climbs.", "$v = 4$ m/s", "It slows down as it climbs."),
+        # A value written without maths marks.
+        ("x = 3, since 3 > 2", "x = 3", "Since 3 > 2."),
+        ("v = 4 m/s; it slows as it climbs", "v = 4 m/s", "It slows as it climbs."),
+        ("\\[x = 3\\], since 3 > 2", "\\[x = 3\\]", "Since 3 > 2."),
         # Words that are no unit are a remark.
         ("$x = 3$ so it works", "$x = 3$", "So it works."),
         ("$0.90$ dollars", "$0.90$ dollars", ""),
