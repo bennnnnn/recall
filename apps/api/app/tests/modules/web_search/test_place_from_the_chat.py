@@ -26,6 +26,10 @@ _TRIP = [
         ("thanks! how far is it to the airport from here?", False),
         ("is it raining here", False),
         ("and what about near me", False),
+        # "Is there …" points at no place, and a thing nearby is the user's (review of #2305).
+        ("is there a pharmacy nearby", False),
+        ("is there a good ramen place open", False),
+        ("is there still a ferry there", True),
     ],
 )
 def test_a_place_question_points_back_at_the_chat(message: str, back: bool) -> None:

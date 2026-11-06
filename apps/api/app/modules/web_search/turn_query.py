@@ -13,7 +13,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.modules.web_search.command import search_command
-from app.modules.web_search.geo_intent import is_geo_query
+from app.modules.web_search.geo_intent import is_geo_query, is_proximity_query
 from app.modules.web_search.officeholder import office_with_subject, office_without_place
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
@@ -83,6 +83,10 @@ def points_back(text: str, prior_user_messages: list[str] | None) -> bool:
 
 # "From here", "is it raining here": the user's own place, whatever the chat was about.
 _HERE = re.compile(r"\bhere\b(?!'s|\s+(?:is|are)\b)", re.IGNORECASE)
+# "Is there a pharmacy …", "there's a ramen place …": "there" that points at no place.
+_EXISTENTIAL_THERE = re.compile(
+    r"\b(?:(?:is|are|was|were)\s+there|there(?:'s|\s+(?:is|are|was|were)))\b", re.IGNORECASE
+)
 
 
 def points_back_in_chat(text: str, messages: list[dict[str, Any]]) -> bool:
@@ -90,9 +94,12 @@ def points_back_in_chat(text: str, messages: list[dict[str, Any]]) -> bool:
     after talk of a Zanzibar trip asks about Zanzibar, not the user's location. A message
     about the user's own place ("how far is it to the airport from here?") does not."""
     cleaned = collapse_ws(text)
-    if _HERE.search(cleaned) or around_the_user(cleaned):
+    # Something near the user, of any kind ("is there a pharmacy nearby"), is about their
+    # place too (review of #2305).
+    if _HERE.search(cleaned) or around_the_user(cleaned) or is_proximity_query(cleaned):
         return False
-    return points_back(cleaned, collect_prior_user_messages(messages, text))
+    pointing = _EXISTENTIAL_THERE.sub(" ", cleaned)
+    return points_back(pointing, collect_prior_user_messages(messages, text))
 
 
 async def search_queries_for_turn(
