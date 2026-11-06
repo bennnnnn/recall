@@ -173,7 +173,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
       readableLatexFallback(text),
       <>
         <View style={s.fill}>
-          <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
+          <MathSvgView latex={text} textColor={theme.text} minHeight={48} em={ANSWER_FONT_SIZE} />
         </View>
         {check}
       </>,

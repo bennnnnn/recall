@@ -11,18 +11,29 @@ import {
 } from "@/lib/math/svgMath";
 import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
 import { Space } from "@/lib/space";
+import { Type } from "@/lib/type";
+
+/** MathJax metrics: the SVG viewBox runs 1000 units per em and 1ex ≈ 0.442em (measured). */
+const EX_PER_EM = 0.442;
 
 /**
- * MathJax metrics: the SVG viewBox runs 1000 units per em and 1ex ≈ 0.442em
- * (measured from MathJax output). Render display math at the same 20px em the
- * retired KaTeX WebView used.
+ * Display maths is set at the reply's own text size, as TeX sets a display at the size of
+ * its paragraph: the 20px em the retired KaTeX WebView used drew every display formula a
+ * size larger than the inline maths and the words around it.
  */
-export const MATH_SVG_EX_PX = 20 * 0.442;
+export const MATH_SVG_EX_PX = Type.reading.fontSize * EX_PER_EM;
 
 type Props = {
   latex: string;
   textColor: string;
   minHeight?: number;
+  /** The type size (em) the formula is set at; the reply's text size by default. */
+  em?: number;
+  /**
+   * `start` sets the formula at the left edge of the text column it sits in, with the
+   * lines around it (a reply); `center` centres it in its box (the answer card).
+   */
+  align?: "start" | "center";
 };
 
 /** A conversion and the latex it belongs to (`undefined` while it runs). */
@@ -37,7 +48,11 @@ export const MathSvgView = React.memo(function MathSvgView({
   latex,
   textColor,
   minHeight = 48,
+  em = Type.reading.fontSize,
+  align = "center",
 }: Props) {
+  const exPx = em * EX_PER_EM;
+  const justify = align === "start" ? styles.alignStart : null;
   // The conversion is held with the latex it was made from. A view whose
   // latex changes (a streaming answer growing, a reused row) never draws the
   // previous formula's result, not even for one frame: until its own result
@@ -95,15 +110,15 @@ export const MathSvgView = React.memo(function MathSvgView({
           horizontal
           nestedScrollEnabled
           showsHorizontalScrollIndicator
-          contentContainerStyle={styles.lineScroll}
+          contentContainerStyle={[styles.lineScroll, justify]}
         >
           {hasNestedView ? (
-            <View style={styles.nestedRow}>
-              <MathText latex={latex} textColor={textColor} />
+            <View style={[styles.nestedRow, justify]}>
+              <MathText latex={latex} textColor={textColor} fontSize={em} />
             </View>
           ) : (
-            <Text style={styles.line} selectable>
-              <MathText latex={latex} textColor={textColor} />
+            <Text style={[styles.line, align === "start" && styles.lineStart]} selectable>
+              <MathText latex={latex} textColor={textColor} fontSize={em} />
             </Text>
           )}
         </ScrollView>
@@ -113,16 +128,17 @@ export const MathSvgView = React.memo(function MathSvgView({
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
   // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
-  const width = Math.max(1, result.widthEx * MATH_SVG_EX_PX);
-  const height = Math.max(1, result.heightEx * MATH_SVG_EX_PX);
+  const width = Math.max(1, result.widthEx * exPx);
+  const height = Math.max(1, result.heightEx * exPx);
   return (
     <View style={styles.wrap}>
       <ScrollView
         horizontal
         nestedScrollEnabled
         showsHorizontalScrollIndicator
+        testID="math-svg-scroll"
         style={{ height }}
-        contentContainerStyle={styles.lineScroll}
+        contentContainerStyle={[styles.lineScroll, justify]}
       >
         <SvgAst
           ast={ast}
@@ -152,6 +168,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: MATH_TALL_LINE_HEIGHT,
   },
+  lineStart: { textAlign: "left" },
+  // At the start the formula's first glyph lines up with the text column's edge.
+  alignStart: { justifyContent: "flex-start", paddingLeft: 0 },
   // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
   // clip it to a Text line box. Centers the run like the `line` Text would.
   nestedRow: {

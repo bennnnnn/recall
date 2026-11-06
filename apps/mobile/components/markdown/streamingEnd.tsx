@@ -12,6 +12,7 @@ import type { StreamingPreprocessCache } from "@/lib/markdown/preprocessStream";
 import { completeStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 import { Space } from "@/lib/space";
+import { Type } from "@/lib/type";
 import { useTheme } from "@/lib/theme";
 
 type OpenStreamRegion = ReturnType<typeof classifyOpenStreamTail>;
@@ -28,7 +29,7 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
   if (!drawable) return null;
   return (
     <View style={{ marginVertical: Space.xxs }}>
-      <MathText latex={drawable} textColor={theme.text} />
+      <MathText latex={drawable} textColor={theme.text} fontSize={Type.reading.fontSize} />
     </View>
   );
 });
