@@ -36,6 +36,10 @@ from app.services.remark_after_answer import split_tail
             "$V = 5$ cubic centimeters",
             "About a teaspoon.",
         ),
+        # Values joined by a bare "and" or "or" stay together (review of #2303).
+        ("$x = 3$ and $y = 4$", "$x = 3$ and $y = 4$", ""),
+        ("$x = 2$ or $x = -2$", "$x = 2$ or $x = -2$", ""),
+        ("$x = 3$ and so $y = 4$", "$x = 3$", "And so $y = 4$."),
         # One word is the unit or what is counted, however long (review of #2303).
         ("$v = 5$ meters/second", "$v = 5$ meters/second", ""),
         ("$n = 12$ students", "$n = 12$ students", ""),

@@ -23,6 +23,9 @@ _UNIT = re.compile(r"[^\s,;:()\u2014\u2013]+(?=\s*(?:$|[,;:(\u2014\u2013]))")
 _LEAD = re.compile(r"^[\s,;:.\u2014\u2013-]+")
 # A bracketed label this short stays on the card: "(east)", "(to 3 s.f.)".
 _LABEL_WORDS = 3
+# What may stand between two values the card keeps: marks, or one bare "and", "or" or
+# "then" ("$x = 3$ and $y = 4$", review of #2303).
+_JOINS = re.compile(r"[\s,;]*(?:(?:and|or|then)\b[\s,;]*)?", re.IGNORECASE)
 _WRAPPED = re.compile(r"^\((?P<inner>[^()]*(?:\([^()]*\)[^()]*)*)\)\.?$")
 
 
@@ -57,11 +60,11 @@ def split_tail(value: str) -> tuple[str, str]:
     spans = list(_MATH_SPAN.finditer(value))
     if not spans or _WORD.search(value[: spans[0].start()]):
         return value, ""  # no maths, or words before it: an answer written as a sentence
-    # The maths the value opens with, its spans joined by marks alone ("$x = 2$, $x = -2$");
-    # maths inside what follows ("about $1.20\sqrt{gh}$") belongs to the sentence.
+    # The maths the value opens with, its spans joined by marks or a bare "and" ("$x = 2$,
+    # $x = -2$"); maths inside what follows ("about $1.20\sqrt{gh}$") belongs to the sentence.
     end = spans[0].end()
     for span in spans[1:]:
-        if _WORD.search(value[end : span.start()]):
+        if not _JOINS.fullmatch(value[end : span.start()]):
             break
         end = span.end()
     rest = value[end:]
