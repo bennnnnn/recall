@@ -18,6 +18,7 @@ from app.modules.physics.answer_checks import (
 )
 from app.modules.physics.catalog import formula_spec
 from app.modules.physics.display import conversion_row
+from app.modules.physics.givens import unit_expression
 from app.modules.physics.law_titles import law_heading, law_title
 from app.modules.physics.notation import shown
 from app.modules.physics.schemas import PhysicsIntent
@@ -146,7 +147,9 @@ def _with_conversions(solved: PhysicsResult, shown: PhysicsResult) -> PhysicsRes
             after.symbol or named, (before.value, before.unit), (after.value, after.unit)
         )
         for before, after in zip(solved.quantities, shown.quantities, strict=True)
-        if before.unit != after.unit
+        # "meters" asked is the "m" solved: one unit, no step ("18000 m = 18000 m").
+        if (unit_expression(before.unit) or before.unit)
+        != (unit_expression(after.unit) or after.unit)
     )
     return replace(shown, substitutions=(*shown.substitutions, *rows)) if rows else shown
 

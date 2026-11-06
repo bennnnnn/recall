@@ -334,3 +334,32 @@ def test_the_label_ends_at_its_sentence_not_a_decimal(reply: str, kept: str) -> 
 )
 def test_answers_and_topics_stay(reply: str, asked: str) -> None:
     assert drop_prompt_leaks(reply, asked) == reply
+
+
+def test_an_opening_that_narrates_the_users_message_comes_off() -> None:
+    """Live 2026-11-06: the planning paragraph reached the user above the answer."""
+    reply = (
+        'The user says "ok and like 5 common beginner mistakes i should avoid?" This is a '
+        "factual list request, so I'll give five clear mistakes with short explanations. "
+        "Numbered list, bold labels.\n\n1. **Mixing up `=` and `==`** - one assigns."
+    )
+    assert drop_prompt_leaks(reply, "ok and like 5 common beginner mistakes") == (
+        "1. **Mixing up `=` and `==`** - one assigns."
+    )
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # The whole reply, or an answer about users that names them.
+        'The user says "hi".',
+        "The user story is the unit of work in Scrum.\n\nIt names who wants what and why.",
+        "The users asked for dark mode most often.\n\nSo it shipped first.",
+        # An explanation that opens on a user plans nothing (review of #2306).
+        "The user wants to log in, so the app redirects to /auth and checks the token.\n\n"
+        "Then the session is stored.",
+        "The user needs to reset a password: they get an email link.\n\nThe link expires.",
+    ],
+)
+def test_other_replies_about_users_stay(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "tell me about user stories") == reply

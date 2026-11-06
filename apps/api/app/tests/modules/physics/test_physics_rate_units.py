@@ -13,7 +13,8 @@ from app.modules.physics import build_verified_physics_block, extract_physics_in
         ("A car travels 180 meters in 12 seconds. What is its average speed?", "15 m/s"),
         ("Find the average speed for 20 s over 100 m.", "5 m/s"),
         ("average speed 120 km in 2 hours", "60 km/h"),
-        ("average speed 100 cm in 20 seconds", "5 cm/s"),
+        # Centimetres with SI seconds mix two systems: worked in SI, 100 cm = 1 m first.
+        ("average speed 100 cm in 20 seconds", "0.05 m/s"),
         ("average speed 100 feet in 20 minutes", "5 ft/min"),
         ("average speed .5 m in 2 s", "0.25 m/s"),
         ("average speed 0.5 m in 2 s", "0.25 m/s"),
@@ -89,3 +90,42 @@ def test_units_that_agree_are_worked_as_written() -> None:
     reply = _reply("A car travels 150 km in 2 h. What is its average speed?")
     assert r"$v = \frac{150\,\mathrm{km}}{2\,\mathrm{h}}$" in reply
     assert r"\times" not in reply
+
+
+@pytest.mark.parametrize(
+    "prompt, given, substitution",
+    [
+        # Live 2026-11-06: 14.5 min stayed in minutes until 345 m/min = 5.75 m/s.
+        (
+            "Tirunesh Dibaba covers a distance of 5000m in 14.5 minutes. Calculate the "
+            "average speed of Tirunesh in m/s.",
+            r"$t = 14.5\,\mathrm{min} \times 60 = 870\,\mathrm{s}$",
+            r"$v = \frac{5000\,\mathrm{m}}{870\,\mathrm{s}}$",
+        ),
+        # Asked in SI: every given in another unit is converted on its Given line.
+        (
+            "a car travels 150 km in 2 hours. what is its speed in m/s",
+            r"$t = 2\,\mathrm{h} \times 3600 = 7200\,\mathrm{s}$",
+            r"$v = \frac{1.5 \times 10^{5}\,\mathrm{m}}{7200\,\mathrm{s}}$",
+        ),
+        (
+            "a train moves at 72 km/h for 15 minutes. how far does it go in meters",
+            r"$v = 72\,\mathrm{km/h} \times 1000/3600 = 20\,\mathrm{m/s}$",
+            r"$d = 20\,\mathrm{m/s} \times 900\,\mathrm{s}$",
+        ),
+    ],
+)
+def test_a_question_in_si_converts_each_given_first(
+    prompt: str, given: str, substitution: str
+) -> None:
+    reply = _reply(prompt)
+    assert given in reply
+    assert substitution in reply
+    # One step per conversion: none restated after the answer ("18000 m = 18000 m").
+    assert "m = 18000" not in reply
+
+
+def test_a_question_in_its_own_units_is_worked_in_them() -> None:
+    reply = _reply("a car travels 150 km in 2 h. what is its average speed")
+    assert r"$v = \frac{150\,\mathrm{km}}{2\,\mathrm{h}}$" in reply
+    assert r"\times 3600" not in reply

@@ -1,4 +1,11 @@
-"""Distance, speed and time: d = vt and average speed, shown in the question's units."""
+"""Distance, speed and time: d = vt and average speed, in the question's units or in SI.
+
+"150 km in 2 h" is 75 km/h, worked in the question's own units. "5000 m in 14.5 minutes, in
+m/s" was worked as 5000 m over 14.5 min = 345 m/min and only then turned into 5.75 m/s
+(live, 2026-11-06): a question that asks for an SI unit, or whose givens mix SI and other
+units, is worked in SI, each given converted first (14.5 min times 60 = 870 s on its Given line,
+``direct._given_value``), as every catalog law is.
+"""
 
 from __future__ import annotations
 
@@ -157,10 +164,37 @@ def _time(params: dict[str, float], units: dict[str, str]) -> PhysicsResult:
     return _result(r"t = \frac{d}{v}", working, value, answer_unit, substitution)
 
 
+# Each rate quantity's SI unit, and the one an operation answers in.
+_SI = {"d": "m", "t": "s", "v": "m/s"}
+_ANSWERS = {"average_speed": "v", "rate_speed": "v", "rate_distance": "d", "rate_time": "t"}
+
+
+def _in_si_when_asked(
+    intent: PhysicsIntent, params: dict[str, float], units: dict[str, str]
+) -> tuple[dict[str, float], dict[str, str]]:
+    """The givens in SI when the question asks for its answer in SI ("in m/s") or writes
+    them in SI and other units at once (5000 m in 14.5 minutes); else as written."""
+    answer = _ANSWERS.get(intent.physics_op or "")
+    asked = intent.asked_unit
+    given = {name: unit for name, unit in units.items() if name in _SI and name in params}
+    written_si = {name: _same_unit(unit, _SI[name]) for name, unit in given.items()}
+    asks_si = bool(asked and answer and _same_unit(asked, _SI[answer]))
+    mixed = len(set(written_si.values())) > 1
+    if not (asks_si or mixed) or all(written_si.values()):
+        return params, units
+    converted = dict(params)
+    si_units = dict(units)
+    for name, unit in given.items():
+        converted[name], si_units[name] = _in_si(params[name], unit, _SI[name])
+    return converted, si_units
+
+
 def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
-    """Solve one closed distance-speed-time request in its supplied units."""
-    params = intent.physics_params or {}
-    units = intent.physics_units or {}
+    """Solve one closed distance-speed-time request, in SI when the question asks for SI
+    or mixes SI with other units, else in its supplied units."""
+    params, units = _in_si_when_asked(
+        intent, intent.physics_params or {}, intent.physics_units or {}
+    )
     op = intent.physics_op
     if op in {"average_speed", "rate_speed"}:
         return _speed(params, units)
