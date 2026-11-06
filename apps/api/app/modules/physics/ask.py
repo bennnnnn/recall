@@ -77,10 +77,13 @@ def _bare_question(text: str) -> str | None:
 
 
 def ask_clause(text: str) -> str | None:
-    """The last question's asked part; a bare quantity with a "?" asks too.
+    """The last question's asked part; a bare quantity with a "?" asks too, and so does
+    a closing phrase that is its quantity.
 
     "A 0.5 kg mass on a spring oscillates with amplitude 5 cm. max speed?" names
     no question verb, and read as asking nothing it was answered with the period.
+    "A rock falls from a 15 m cliff, ignore air. speed just before it hits the ground"
+    names no verb and no "?" either, and was answered with the fall's time.
     """
     clause = _verb_ask_clause(text)
     if clause is not None:
@@ -89,7 +92,31 @@ def ask_clause(text: str) -> str | None:
     if where is not None:
         end = re.search(r"[?!]|\.(?:\s|$)", text[where.start() :])
         return text[where.start() : where.start() + end.start() if end else len(text)]
-    return _bare_question(text)
+    return _bare_question(text) or _closing_quantity(text)
+
+
+# The last phrase of the message, after its last stop or comma: "..., ignore air. speed
+# just before it hits the ground". A decimal point stays inside it.
+_CLOSING_PHRASE = re.compile(
+    r"(?:^|(?<!\d)[.,;:!]\s*|[.,;:!](?!\d)\s*|\n)\s*"
+    r"(?P<ask>[a-z](?:[^.,;:!?\n]|(?<=\d)\.(?=\d)){0,80}?)[\s.!]*$",
+    re.IGNORECASE,
+)
+# A phrase that states, not asks: "the speed is 20 m/s", "mass = 5 kg".
+_STATES = re.compile(r"\b(?:is|are|was|were|has|have|had|equals)\b|=", re.IGNORECASE)
+
+
+def _closing_quantity(text: str) -> str | None:
+    """The message's closing phrase when it is an asked quantity and states nothing."""
+    match = _CLOSING_PHRASE.search(text)
+    if match is None:
+        return None
+    ask = match.group("ask")
+    words = re.sub(rf"^(?:(?:the|its|their)\s+)?(?:(?:{_ADJECTIVES})\s+)*", "", ask, flags=re.I)
+    noun = QUANTITY.match(words)
+    if len(ask.split()) > 12 or noun is None or _STATES.search(ask):
+        return None
+    return None if _labels_a_value(words, noun, text) else ask
 
 
 # "Where is the image?" names no question verb the shared reader knows.
@@ -169,6 +196,7 @@ def has_ask(text: str) -> bool:
         or _NAMED_LAW.search(text)
         or _INTERROGATIVE.search(text)
         or _names_its_quantity(text)
+        or _closing_quantity(text) is not None
     )
 
 

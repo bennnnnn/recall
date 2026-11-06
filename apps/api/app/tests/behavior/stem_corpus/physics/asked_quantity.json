@@ -1,0 +1,108 @@
+[
+  {
+    "id": "ask-fall-01",
+    "area": "free_fall",
+    "prompt": "new one. a 2kg rock falls from a 15m cliff, ignore air. speed just before it hits the ground using energy",
+    "expect": "answer",
+    "answer": [
+      17.1552,
+      "m/s"
+    ],
+    "visual": "projectile_motion",
+    "note": "v = sqrt(2 x 9.81 x 15); the ask with no verb or '?' was answered with the fall's time, 1.75 s (2026-11-06)"
+  },
+  {
+    "id": "ask-fall-02",
+    "area": "free_fall",
+    "prompt": "a rock falls from a 15 m cliff. velocity just before it hits the ground",
+    "expect": "answer",
+    "answer": [
+      -17.1552,
+      "m/s"
+    ],
+    "visual": "projectile_motion",
+    "note": "downward, up taken positive"
+  },
+  {
+    "id": "ask-fall-03",
+    "area": "free_fall",
+    "prompt": "a ball dropped from 20 m. time to hit the ground",
+    "expect": "answer",
+    "answer": [
+      2.01928,
+      "s"
+    ],
+    "visual": "projectile_motion",
+    "note": "sqrt(2 x 20 / 9.81)"
+  },
+  {
+    "id": "ask-fall-04",
+    "area": "free_fall",
+    "prompt": "a stone is dropped from a 45 m tower, ignore air. time to reach the ground",
+    "expect": "answer",
+    "answer": [
+      3.02891,
+      "s"
+    ],
+    "visual": "projectile_motion",
+    "note": "sqrt(90 / 9.81)"
+  },
+  {
+    "id": "ask-fall-05",
+    "area": "free_fall",
+    "prompt": "a ball is thrown straight down at 5 m/s from a 30 m bridge. speed when it hits the water",
+    "expect": "answer",
+    "answer": [
+      24.7709,
+      "m/s"
+    ],
+    "visual": "projectile_motion",
+    "note": "sqrt(5^2 + 2 x 9.81 x 30)"
+  },
+  {
+    "id": "ask-fall-06",
+    "area": "free_fall",
+    "prompt": "a ball dropped from 20 m, speed after 1.5 s",
+    "expect": "answer",
+    "answer": [
+      14.715,
+      "m/s"
+    ],
+    "visual": "projectile_motion",
+    "note": "9.81 x 1.5"
+  },
+  {
+    "id": "ask-throw-01",
+    "area": "free_fall",
+    "prompt": "a ball is thrown straight up at 20 m/s. how high does it go and how long till it comes back down",
+    "expect": "answer",
+    "answer": [
+      20.3874,
+      "m"
+    ],
+    "parts": [
+      [
+        20.3874,
+        "m"
+      ],
+      [
+        4.07747,
+        "s"
+      ]
+    ],
+    "visual": "projectile_motion",
+    "note": "20^2 / (2 x 9.81) and 2 x 20 / 9.81; its scene is titled Thrown Upward"
+  },
+  {
+    "id": "ask-fall-07",
+    "area": "energy",
+    "prompt": "a 2 kg ball dropped from 20 m. kinetic energy just before impact",
+    "expect": "answer",
+    "answer": [
+      392.4,
+      "J"
+    ],
+    "gap": "kinetic energy at impact from a drop height is not bound to mgh",
+    "note": "m g h = 2 x 9.81 x 20"
+  }
+]
