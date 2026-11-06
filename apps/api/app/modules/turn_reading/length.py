@@ -20,9 +20,21 @@ _BREVITY_MARKERS = (
     "briefly",
     "keep it short",
     "keep it brief",
-    "shorter",
     "tldr",
     "tl;dr",
+)
+
+
+# "Shorter" asks for a shorter reply only when the reply is what it is about: "shorter",
+# "make it shorter", "a shorter version", "your answers should be shorter". After a list
+# of books "anything shorter?" asks for a shorter book, and "a shorter route" is a route:
+# the model reads those with the conversation (2026-11-06).
+_SHORTER_REPLY = re.compile(
+    r"^(?:even |much |way |a bit |a little )?shorter(?: (?:please|pls|plz))?[.!?]*$"
+    r"|\b(?:make|keep|get|cut|write|rewrite|say|put) (?:it|this|that|them|the \w+|your \w+) "
+    r"(?:a (?:bit|little|lot) |much |way |even )?shorter\b"
+    r"|\bshorter (?:version|answer|reply|response|summary|explanation|text|draft)\b"
+    r"|\b(?:answers?|repl(?:y|ies)|responses?) (?:should be|to be|could be|be) shorter\b",
 )
 
 
@@ -65,11 +77,13 @@ _DETAIL_REQUEST = re.compile(
 
 def is_brevity_request(text: str) -> bool:
     """True when the user capped length (one sentence / briefly)."""
-    cleaned = text.strip().lower()
+    cleaned = collapse_ws(text).lower()
     if not cleaned:
         return False
-    return any(marker in cleaned for marker in _BREVITY_MARKERS) or bool(
-        _LENGTH_CAP.search(cleaned)
+    return (
+        any(marker in cleaned for marker in _BREVITY_MARKERS)
+        or _SHORTER_REPLY.search(cleaned) is not None
+        or _LENGTH_CAP.search(cleaned) is not None
     )
 
 

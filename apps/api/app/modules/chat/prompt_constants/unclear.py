@@ -9,6 +9,11 @@ so every turn carries the rule and the model judges.
 "1" and "More on 1" under a numbered list of ways to learn Python got "That's just the
 number 1 … were you testing me?" and "checking the time or date?"; "4" under five beginner
 mistakes got "Option 4 is a small number" (2026-11-06). A number after a list names its item.
+
+"can u explain it so a 12 year old gets it" right after a worked answer got "which thing do
+you want explained?", and "anything shorter? i get bored fast" after a list of books got one
+book from the list (2026-11-06). A follow-up that leaves out what it is about is about the
+last reply: "it" is its subject, and "anything shorter" asks for more of what it suggested.
 """
 
 UNCLEAR_MESSAGE_HINT = (
@@ -23,5 +28,9 @@ UNCLEAR_MESSAGE_HINT = (
     '"How\'s it going?", "gd" is "good"). A short message that names a number or a place in '
     'a list ("1", "more on 4", "#2", "the second one", "the last one") after a reply of yours '
     "that listed things points at that item of your most recent list: say more about that "
-    "item, and never ask what the number means."
+    "item, and never ask what the number means. A follow-up that leaves out what it is "
+    'about ("explain it so a kid gets it", "why is that", "anything shorter?", "a '
+    'cheaper one?") is about your most recent reply: "it" or "that" is what the reply '
+    "was about, and a comparison asks for new picks of the kind it suggested, changed that "
+    "way. Answer it; never ask which thing they mean."
 )

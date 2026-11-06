@@ -362,6 +362,36 @@ def test_shorter_preserves_fact_guardrail():
     assert "units" in BREVITY_REQUEST_HINT
 
 
+@pytest.mark.parametrize(
+    ("text", "brief"),
+    [
+        ("Shorter.", True),
+        ("shorter please", True),
+        ("ok now make it shorter", True),
+        ("can you make the email a bit shorter", True),
+        ("give me a shorter version", True),
+        ("Going forward, your answers should be shorter.", True),
+        ("explain it briefly", True),
+        # "Shorter" about something else: the model reads it with the conversation.
+        ("anything shorter? i get bored fast", False),
+        ("is there a shorter route to the airport", False),
+        ("which of these books is shorter", False),
+        ("the days are getting shorter", False),
+    ],
+)
+def test_shorter_asks_for_a_brief_reply_only_about_the_reply(text: str, brief: bool) -> None:
+    from app.modules.turn_reading.length import is_brevity_request
+
+    assert is_brevity_request(text) is brief
+
+
+def test_a_follow_up_without_its_subject_is_about_the_last_reply() -> None:
+    from app.modules.chat.prompt_constants import UNCLEAR_MESSAGE_HINT
+
+    assert "is about your most recent reply" in UNCLEAR_MESSAGE_HINT
+    assert "never ask which thing they mean" in UNCLEAR_MESSAGE_HINT
+
+
 def test_sequence_diagram_uses_sequence_hint_not_flowchart():
     from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT, SEQUENCE_FORMAT_HINT
     from app.modules.turn_reading.diagrams import is_sequence_diagram_question
