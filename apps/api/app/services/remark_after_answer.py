@@ -25,9 +25,9 @@ _WORD = re.compile(r"[^\W\d_]{3,}")
 _BARE_START = re.compile(r"\s*[^\W\d_]+(?:_\{?\w+\}?)?\s*[=\u2248]")
 # Where a remark may begin: a clause mark, a bracket (a short label is skipped), or a word
 # that opens a clause. "1,073.64", "3:30" and ", 30° north of east" go on with the value,
-# and so does "as well as".
+# and so do "as well as" and a range: an en dash written straight onto the next value.
 _BREAK = re.compile(
-    r"[;\u2014\u2013]|,(?!\s*\d)|:(?!\d)|\s-\s|\.(?=\s|$)|\("
+    r"[;\u2014]|\u2013(?![\d$\\])|,(?!\s*\d)|:(?!\d)|\s-\s|\.(?=\s|$)|\("
     r"|\b(?:(?<!well\s)as(?!\s+well\s+as\b))\b"
     r"|\b(?:since|because|so|which|while|whereas|but|though|although|meaning|giving"
     r"|hence|thus|therefore|compared|unlike)\b",

@@ -71,6 +71,10 @@ from app.services.remark_after_answer import split_tail
         ("x = 3, y = 4, since both fit", "x = 3, y = 4", "Since both fit."),
         ("v = 4 m/s; it slows as it climbs", "v = 4 m/s", "It slows as it climbs."),
         ("\\[x = 3\\], since 3 > 2", "\\[x = 3\\]", "Since 3 > 2."),
+        # A range written with an en dash is one value; a spaced en dash opens a remark.
+        ("T = 2\u20133 seconds", "T = 2\u20133 seconds", ""),
+        ("$v = 3$\u2013$5$ m/s", "$v = 3$\u2013$5$ m/s", ""),
+        ("$t = 2$ s \u2013 it lands then", "$t = 2$ s", "It lands then."),
         # Words that are no unit are a remark.
         ("$x = 3$ so it works", "$x = 3$", "So it works."),
         ("$0.90$ dollars", "$0.90$ dollars", ""),
