@@ -14,6 +14,7 @@ import re
 from typing import TYPE_CHECKING, TypeGuard
 
 from app.core import sympy_executor
+from app.modules.chat.simulation_fences import strip_model_simulation_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_restated_tail
 from app.modules.chat.working_check import is_worked_solution, working_note
@@ -23,7 +24,6 @@ from app.services.answer_fence import (
     mark_server_answer_fences,
     normalize_owned_fences,
     strip_forged_verified_markers,
-    strip_model_simulation_fences,
 )
 from app.services.part_answer_cards import land_part_answer_cards
 from app.services.part_fences import keep_part_fences

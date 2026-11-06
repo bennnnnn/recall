@@ -35,8 +35,15 @@ from app.services.workout import (
 
 _HARD_BREAK = "  \n"
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
-# A note is text beside the maths: no maths or markdown marks in it.
-_NOT_MARKDOWN = re.compile(r"[\\$*_`]")
+# A note is prose: its LaTeX ("about 1.20\sqrt{gh}") is found again and drawn as maths, and
+# outside it markdown marks go. LaTeX spacing ("a\,b") is a space, and a backslash before
+# anything but a letter ("5\%") goes.
+_NOTE_DELIMITERS = re.compile(r"[$`]")
+_EMPHASIS = re.compile(r"[*_]")
+_TEX_SPACE = re.compile(r"\\[,;:! ]")
+_LONE_BACKSLASH = re.compile(r"\\(?![A-Za-z])")
+# Where a LaTeX run in a note starts: the number or word it is written onto ("1.20\sqrt").
+_TEX_START = re.compile(r"[\w.]*\\[A-Za-z]")
 _LONG_SUBSCRIPT = re.compile(r"_(?![{\\])([A-Za-z0-9]{2,})")
 _NUMBERED = re.compile(r"^([A-Za-z])(\d+)$")
 _UPRIGHT = re.compile(r"\\(?:mathrm|text)|\\[,;! ]")
@@ -268,16 +275,56 @@ def _step_rows(step: Step) -> list[str]:
 
 
 def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
-    """The value with its unit in maths, and a note ("east", "an ideal lever, treated as
-    frictionless") after it as text: the card draws words beside its maths in the reading
-    font (``lib/math/answerLayout.ts``), never as maths letters (live, 2026-11-03)."""
+    """The value with its unit in maths, and a note after it in brackets: a short label
+    ("east") stays on the card, and a remark ("about 1.20√(gh); option A gives …") goes
+    in a sentence under it (``services.remark_after_answer``), its maths drawn as maths."""
     value = quantity_tex(tidy_tex(answer.value), answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
     named = answer.symbol and answer.symbol != answer.unit and not names_nothing(answer.symbol)
     symbol = tidy_symbol(answer.symbol) if named else ""
     shown = value if layout.law_heading or not symbol else f"{symbol} = {value}"
-    note = _NOT_MARKDOWN.sub("", answer.note).strip()
+    note = _note_text(answer.note)
     return f"{math_line(shown)} ({note})" if note else math_line(shown)
+
+
+def _note_text(note: str) -> str:
+    r"""``note`` as prose with its maths drawn: "about \frac{v_0}{2}" keeps its subscript,
+    "5\% error" loses its backslash (review of #2303)."""
+    plain = _NOTE_DELIMITERS.sub("", note)
+    return _tex_as_maths(_LONE_BACKSLASH.sub("", _TEX_SPACE.sub(" ", plain))).strip()
+
+
+def _tex_as_maths(note: str) -> str:
+    r"""Each LaTeX run in ``note`` inside ``$…$``: its commands, their brace groups however
+    deep (``\sqrt{\frac{10gh}{7}}`` is one run, review of #2303), and the word characters
+    and powers written onto it. Markdown marks go from the prose between the runs."""
+    out: list[str] = []
+    index = 0
+    while (start := _TEX_START.search(note, index)) is not None:
+        end = _tex_run_end(note, start.end() - 2)
+        out += [_EMPHASIS.sub("", note[index : start.start()]), f"${note[start.start() : end]}$"]
+        index = end
+    return "".join([*out, _EMPHASIS.sub("", note[index:])])
+
+
+def _tex_run_end(text: str, at: int) -> int:
+    """Where the LaTeX run from the backslash at ``at`` ends: past every command, balanced
+    brace group, word character and power that follows."""
+    depth = 0
+    while at < len(text):
+        char = text[at]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            if depth == 0:
+                break
+            depth -= 1
+        elif depth == 0 and not (
+            char.isalnum() or char in "\\^_" or (char == "." and text[at + 1 : at + 2].isdigit())
+        ):
+            break
+        at += 1
+    return at
 
 
 def _part_body(

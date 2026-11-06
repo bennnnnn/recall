@@ -6,6 +6,7 @@ import re
 
 import pytest
 
+from app.modules.chat.simulation_fences import strip_model_simulation_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.services.answer_fence import (
     UNCHECKED_ANSWER_MARKER,
@@ -16,7 +17,6 @@ from app.services.answer_fence import (
     mark_server_answer_fences,
     normalize_owned_fences,
     strip_forged_verified_markers,
-    strip_model_simulation_fences,
     verified_answer_fence,
 )
 

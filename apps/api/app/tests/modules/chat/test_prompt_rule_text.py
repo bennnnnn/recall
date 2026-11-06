@@ -29,11 +29,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # and teach-me shapes restated beside the message (prompt_constants.teaching LESSON_CONTRACT,
 # TEACH_CONTRACT, OUTLINE_CONTRACT and the parts they share), then a quote card naming the
 # person quoted and the reply's own writing never signed (FORMAT_CONTRACT, PROSE_WRITING_HINT),
+# then an answer record's note kept to a label, an explanation in a sentence after the block,
 # then owning a mistake on every turn and a number after a list naming its item
 # (OWN_MISTAKE_HINT, UNCLEAR_MESSAGE_HINT).
 _RULES = 174
-_RULE_GRAMS = 15180
-_RULE_GRAMS_SHA = "aece6c67dd03593e"
+_RULE_GRAMS = 15204
+_RULE_GRAMS_SHA = "5049909446c38229"
 
 
 def _rules() -> list[str]:
