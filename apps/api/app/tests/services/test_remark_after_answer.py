@@ -28,6 +28,16 @@ from app.services.remark_after_answer import split_tail
         ("$v = 4$ m/s; it slows as it climbs", "$v = 4$ m/s", "It slows as it climbs."),
         # A unit, a short label in brackets, and both roots stay on the card.
         ("$x = 3$ m/s", "$x = 3$ m/s", ""),
+        # A unit of several words the unit table reads stays (review of #2303).
+        ("$A = 12$ square meters", "$A = 12$ square meters", ""),
+        ("$v = 60$ miles per hour", "$v = 60$ miles per hour", ""),
+        (
+            "$V = 5$ cubic centimeters, about a teaspoon",
+            "$V = 5$ cubic centimeters",
+            "About a teaspoon.",
+        ),
+        # Words that are no unit are a remark.
+        ("$x = 3$ so it works", "$x = 3$", "So it works."),
         ("$0.90$ dollars", "$0.90$ dollars", ""),
         ("$v = 8$ m/s (east)", "$v = 8$ m/s (east)", ""),
         ("$x = 3.33$ (to 3 s.f.)", "$x = 3.33$ (to 3 s.f.)", ""),

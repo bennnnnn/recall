@@ -24,6 +24,32 @@ _LABEL_WORDS = 3
 _WRAPPED = re.compile(r"^\((?P<inner>[^()]*(?:\([^()]*\)[^()]*)*)\)\.?$")
 
 
+# A unit of several words ("square meters", "miles per hour") is one the unit table reads;
+# "so it works" is not (review of #2303).
+_UNIT_WORDS = re.compile(r"(?:[^\W\d_]+\s+){1,3}[^\W\d_]+(?=\s*(?:$|[,;:(\u2014\u2013]))")
+
+
+def _unit_end(text: str) -> int:
+    """Where the unit written straight after the maths ends in ``text``, or 0 for none."""
+    words = _UNIT_WORDS.match(text)
+    if words is not None and _reads_as_unit(words.group()):
+        return words.end()
+    unit = _UNIT.match(text)
+    return unit.end() if unit is not None else 0
+
+
+def _reads_as_unit(words: str) -> bool:
+    from pint.errors import PintError
+
+    from app.services.units import get_unit_registry
+
+    try:
+        quantity = get_unit_registry()(words.replace(" per ", "/"))
+    except (PintError, ValueError, TypeError, AttributeError, SyntaxError):
+        return False  # not a unit the table knows: the words are a remark
+    return not getattr(quantity, "dimensionless", True)
+
+
 def split_tail(value: str) -> tuple[str, str]:
     """``value`` as the card's maths and the sentence to go under the card ("" for none)."""
     spans = list(_MATH_SPAN.finditer(value))
@@ -37,9 +63,9 @@ def split_tail(value: str) -> tuple[str, str]:
             break
         end = span.end()
     rest = value[end:]
-    unit = _UNIT.match(rest.lstrip())
-    if unit is not None:
-        end += len(rest) - len(rest.lstrip()) + unit.end()
+    unit_end = _unit_end(rest.lstrip())
+    if unit_end:
+        end += len(rest) - len(rest.lstrip()) + unit_end
         rest = value[end:]
     said = _LEAD.sub("", rest).strip()
     wrapped = _WRAPPED.match(said)
