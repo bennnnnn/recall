@@ -717,6 +717,8 @@
   "rich.simulation_title": "Simulation",
   "rich.scene_title_projectile": "Wurfbewegung",
   "rich.scene_title_free_fall": "Freier Fall",
+  "rich.scene_title_thrown_up": "Senkrechter Wurf nach oben",
+  "rich.scene_title_thrown_down": "Senkrechter Wurf nach unten",
   "rich.scene_title_orbit": "Umlaufbahn",
   "rich.scene_title_satellite": "Satellitenbahn",
   "rich.scene_title_circular_motion": "Kreisbewegung",

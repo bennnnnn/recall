@@ -724,6 +724,8 @@
   "rich.simulation_title": "Simulación",
   "rich.scene_title_projectile": "Proyectil",
   "rich.scene_title_free_fall": "Caída libre",
+  "rich.scene_title_thrown_up": "Lanzamiento vertical hacia arriba",
+  "rich.scene_title_thrown_down": "Lanzamiento vertical hacia abajo",
   "rich.scene_title_orbit": "Órbita",
   "rich.scene_title_satellite": "Órbita de un satélite",
   "rich.scene_title_circular_motion": "Movimiento circular",
