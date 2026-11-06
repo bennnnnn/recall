@@ -13,7 +13,7 @@ from app.modules.web_search import needs_web_search, points_back_in_chat
 
 _TRIP = [
     {"role": "user", "content": "im thinking of going to zanzibar in december"},
-    {"role": "assistant", "content": "December is dry season in Zanzibar."},
+    {"role": "assistant", "content": "December is a good time for Zanzibar."},
 ]
 
 
@@ -53,13 +53,3 @@ def test_with_no_chat_before_it_nothing_points_back() -> None:
 )
 def test_a_question_typed_without_its_apostrophe_still_searches(message: str) -> None:
     assert needs_web_search(message) is True
-
-
-def test_there_after_a_chat_that_named_no_place_points_nowhere() -> None:
-    """Review of #2305: after a chat about Python, "is it raining there" has no place."""
-    chat = [
-        {"role": "user", "content": "how do i read a file in python"},
-        {"role": "assistant", "content": "Use open() with a with-block."},
-        {"role": "user", "content": "is it raining there"},
-    ]
-    assert points_back_in_chat("is it raining there", chat) is False

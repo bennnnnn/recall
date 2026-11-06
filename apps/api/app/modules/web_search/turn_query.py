@@ -17,7 +17,6 @@ from app.modules.web_search.geo_intent import (
     is_distance_query,
     is_geo_query,
     is_proximity_query,
-    names_its_place,
 )
 from app.modules.web_search.officeholder import office_with_subject, office_without_place
 from app.modules.web_search.patterns import (
@@ -102,22 +101,18 @@ def points_back_in_chat(text: str, messages: list[dict[str, Any]]) -> bool:
     """``text`` asks about a place the chat named: "whats the weather like there now" after
     talk of a Zanzibar trip asks about Zanzibar, not the user's location.
 
-    Three things must hold (reviews of #2305): "there" points at a place ("it" names a
-    thing, "is there" and "hi there" name nothing); an earlier message names one by its
-    proper name; and the question needs no place of the user's own, as a message about
-    their surroundings or a trip ("how long to get there") does.
+    "There" must point at a place ("it" names a thing; "is there", "hi there" and "out
+    there" name nothing), the chat must have come before it, and the question must need no
+    place of the user's own, as their surroundings or a trip ("how long to get there") do
+    (reviews of #2305). Which place the chat named is the search's to read: its resolver
+    reads the whole chat, where a word list could not tell "zanzibar" from "in December".
     """
     cleaned = collapse_ws(text)
     if _HERE.search(cleaned) or around_the_user(cleaned) or is_proximity_query(cleaned):
         return False
     if is_distance_query(cleaned) or not _THERE.search(_NO_PLACE_THERE.sub(" ", cleaned)):
         return False
-    earlier = [
-        str(message.get("content") or "")
-        for message in messages[:-1]
-        if message.get("role") in {"user", "assistant"}
-    ]
-    return any(names_its_place(line) for line in earlier)
+    return bool(collect_prior_user_messages(messages, text))
 
 
 async def search_queries_for_turn(
