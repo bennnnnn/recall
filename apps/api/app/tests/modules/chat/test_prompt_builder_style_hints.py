@@ -372,6 +372,13 @@ def test_shorter_preserves_fact_guardrail():
         ("give me a shorter version", True),
         ("Going forward, your answers should be shorter.", True),
         ("explain it briefly", True),
+        # Review of #2307: plurals, a bare noun after the verb, "be shorter", a comma.
+        ("shorter answers please", True),
+        ("shorter replies", True),
+        ("keep answers shorter", True),
+        ("be shorter from now on", True),
+        ("shorter, please", True),
+        ("your replies need to be shorter", True),
         # "Shorter" about something else: the model reads it with the conversation.
         ("anything shorter? i get bored fast", False),
         ("is there a shorter route to the airport", False),

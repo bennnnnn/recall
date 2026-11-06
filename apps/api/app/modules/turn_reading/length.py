@@ -25,16 +25,23 @@ _BREVITY_MARKERS = (
 )
 
 
-# "Shorter" asks for a shorter reply only when the reply is what it is about: "shorter",
-# "make it shorter", "a shorter version", "your answers should be shorter". After a list
-# of books "anything shorter?" asks for a shorter book, and "a shorter route" is a route:
-# the model reads those with the conversation (2026-11-06).
+# "Shorter" asks for a shorter reply when the reply is what it is about: "shorter" alone,
+# what is made shorter ("make it shorter", "keep answers shorter"), a reply's noun
+# ("shorter replies", "a shorter version"), or the assistant ("be shorter"). After a list of
+# books "anything shorter?" asks for a shorter book, and "a shorter route" is a route: the
+# model reads those with the conversation (2026-11-06; plurals and "be shorter" from the
+# review of #2307).
+_REPLY_NOUN = (
+    r"(?:answers?|repl(?:y|ies)|responses?|versions?|summar(?:y|ies)|explanations?"
+    r"|texts?|drafts?|messages?|emails?)"
+)
 _SHORTER_REPLY = re.compile(
-    r"^(?:even |much |way |a bit |a little )?shorter(?: (?:please|pls|plz))?[.!?]*$"
-    r"|\b(?:make|keep|get|cut|write|rewrite|say|put) (?:it|this|that|them|the \w+|your \w+) "
+    r"^(?:even |much |way |a bit |a little )?shorter[,.!?]*(?: (?:please|pls|plz)[.!?]*)?$"
+    r"|\b(?:make|keep|get|cut|write|rewrite|say|put) (?:(?:the|your|my) )?\w+ "
     r"(?:a (?:bit|little|lot) |much |way |even )?shorter\b"
-    r"|\bshorter (?:version|answer|reply|response|summary|explanation|text|draft)\b"
-    r"|\b(?:answers?|repl(?:y|ies)|responses?) (?:should be|to be|could be|be) shorter\b",
+    rf"|\bshorter {_REPLY_NOUN}\b"
+    rf"|\b(?:{_REPLY_NOUN}|you) (?:should|could|must|can|need to|have to)? ?(?:be|get) shorter\b"
+    r"|\bbe shorter\b",
 )
 
 
