@@ -218,6 +218,7 @@ async def stream_chat_response(
             half_open=turn.half_open,
         )
         ctx.photo_missed = "photo" in misses
+        ctx.message_day = res.message_day
         try:
             ctx.reply_picture = start_reply_picture(
                 deps, settings, user=turn.user, chat_id=chat_id, content=content
@@ -339,6 +340,7 @@ async def stream_regenerate_response(
             thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
         ctx.photo_missed = "photo" in misses
+        ctx.message_day = res.message_day
         await top_up_reserve_for_prompt(
             res,
             settings=settings,

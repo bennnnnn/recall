@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field, replace
+from datetime import date
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -70,6 +71,9 @@ class StreamContext:
     user_message_content: str
     reserved_tokens: int
     max_output_tokens: int
+    # The UTC day whose chat message this turn took (``TurnResources.message_day``): kept
+    # when a reply is saved, given back with ``reserved_tokens`` when none is.
+    message_day: date | None = None
     # Effective timezone for this request (profile preference overridden by
     # the current client timezone). Finalization must use the same zone that
     # prompt construction used for relative dates and reminder clocks.
