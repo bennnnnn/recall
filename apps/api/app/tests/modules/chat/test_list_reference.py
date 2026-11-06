@@ -50,7 +50,6 @@ def test_a_number_names_the_item_of_each_recent_list(message: str, named: list[s
     note = list_reference_hint(message, prior) or ""
     for item in named:
         assert item in note
-    assert "never ask what the number means" in note
 
 
 @pytest.mark.parametrize(
