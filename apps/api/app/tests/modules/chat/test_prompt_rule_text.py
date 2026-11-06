@@ -28,10 +28,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # place of the remember note, then the assistant's name (ASSISTANT_NAME_RULE), then the lesson
 # and teach-me shapes restated beside the message (prompt_constants.teaching LESSON_CONTRACT,
 # TEACH_CONTRACT, OUTLINE_CONTRACT and the parts they share), then a quote card naming the
-# person quoted and the reply's own writing never signed (FORMAT_CONTRACT, PROSE_WRITING_HINT).
-_RULES = 173
-_RULE_GRAMS = 15032
-_RULE_GRAMS_SHA = "adcb0cc18ae80c43"
+# person quoted and the reply's own writing never signed (FORMAT_CONTRACT, PROSE_WRITING_HINT),
+# then owning a mistake on every turn and a number after a list naming its item
+# (OWN_MISTAKE_HINT, UNCLEAR_MESSAGE_HINT).
+_RULES = 174
+_RULE_GRAMS = 15180
+_RULE_GRAMS_SHA = "aece6c67dd03593e"
 
 
 def _rules() -> list[str]:

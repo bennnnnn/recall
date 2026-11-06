@@ -1,5 +1,6 @@
 """What the latest message is, said beside it: a list of values, "What?" or "How?" at the
-last reply, the user's Emoji setting, and the language it is written in.
+last reply, a number naming an item of its list, owning a mistake when told of one, the
+user's Emoji setting, and the language it is written in.
 
 These sit nearest the user's turn (``prompt_sections.CONTEXT_SECTIONS``): a small model
 follows the note closest to the message. A lesson, its outline and a clarify card read
@@ -14,6 +15,8 @@ from typing import Any
 
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs
+from app.modules.chat.prompt_constants.conversation import OWN_MISTAKE_HINT
+from app.modules.chat.prompt_constants.list_reference import list_reference_hint
 from app.modules.chat.prompt_constants.reply_missed import reply_how_hint, reply_missed_hint
 from app.modules.chat.prompt_constants.school_question import question_hint
 from app.modules.chat.prompt_constants.shared_numbers import shared_numbers_hint
@@ -42,5 +45,8 @@ def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str 
     # A lesson teaches its own way; a school exercise asked in it is still the lesson's.
     # Any other question gets a school exercise's note or a factual question's.
     school = None if lesson_like else question_hint(query)
-    notes = (shared_numbers_hint(query), missed, school, emoji, language)
+    pointed = None if own_way else list_reference_hint(query, pairs)
+    # "I said …", "thats wrong", "u misunderstood me": the model checks and owns it.
+    owned = OWN_MISTAKE_HINT if any(role == "assistant" for role, _ in pairs) else None
+    notes = (shared_numbers_hint(query), missed, pointed, owned, school, emoji, language)
     return [note for note in notes if note]

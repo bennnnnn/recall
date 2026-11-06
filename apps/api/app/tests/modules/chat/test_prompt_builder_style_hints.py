@@ -779,7 +779,7 @@ def test_a_correction_contract_sits_beside_the_user_turn():
     system, nearby = _turn_prompt("no, I said I'm vegetarian", exchange=asked)
     assert CORRECTION_HINT in nearby and CORRECTION_HINT not in system
     assert "do not repeat the mistaken assumption" in CORRECTION_HINT
-    assert "without a long apology" in CORRECTION_HINT
+    assert "say sorry in a few plain words" in CORRECTION_HINT
     # Nothing was said yet to correct, and a thank-you closes the topic.
     assert CORRECTION_HINT not in _turn_prompt("no, I said I'm vegetarian")[1]
     assert CORRECTION_HINT not in _turn_prompt("no, I said it was fine — thanks", exchange=asked)[1]
