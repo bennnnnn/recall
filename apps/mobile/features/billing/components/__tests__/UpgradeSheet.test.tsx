@@ -110,9 +110,13 @@ it("offers free users both plans with store prices and server numbers", async ()
   const screen = await openSheet();
   expect(screen.getByTestId("upgrade-plan-plus")).toBeOnTheScreen();
   expect(screen.getByTestId("upgrade-plan-pro")).toBeOnTheScreen();
-  expect(screen.getByText('upgrade.per_month {"price":"$7.99"}')).toBeOnTheScreen();
-  expect(screen.getByText('upgrade.per_month {"price":"$13.99"}')).toBeOnTheScreen();
+  expect(screen.getByText(/^\$7\.99/)).toBeOnTheScreen();
+  expect(screen.getByText(/^\$13\.99/)).toBeOnTheScreen();
+  // The picked plan's list: Plus to start, Pro once its tile is tapped.
   expect(screen.getByText('upgrade.feature_images {"count":10}')).toBeOnTheScreen();
+  await act(async () => {
+    fireEvent.press(screen.getByTestId("upgrade-plan-pro"));
+  });
   expect(screen.getByText('upgrade.feature_live_talk {"count":60}')).toBeOnTheScreen();
   expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", { source: "live_talk" });
 });
@@ -126,7 +130,7 @@ it("says the store is unavailable, never an empty shop, and reads it again on Re
   });
   expect(getPlanPackages).toHaveBeenCalledTimes(2);
   expect(screen.queryByText("upgrade.store_unavailable")).toBeNull();
-  expect(screen.getByText('upgrade.per_month {"price":"$7.99"}')).toBeOnTheScreen();
+  expect(screen.getByText(/^\$7\.99/)).toBeOnTheScreen();
 });
 
 it("offers a Plus subscriber only the step up to Pro", async () => {
@@ -221,10 +225,13 @@ it("restore that finds a plan refreshes the server plan", async () => {
 
 it("sells what a plan gives, never a model's name", async () => {
   const screen = await openSheet();
-  expect(screen.getByText('upgrade.free_includes {"count":10}')).toBeOnTheScreen();
+  expect(screen.getAllByText('upgrade.free_has {"count":10}').length).toBeGreaterThan(0);
   expect(screen.getByText('upgrade.feature_messages {"count":200}')).toBeOnTheScreen();
   expect(screen.getByText('upgrade.feature_messages {"count":1000}')).toBeOnTheScreen();
   expect(screen.getByText("upgrade.feature_voice")).toBeOnTheScreen();
+  await act(async () => {
+    fireEvent.press(screen.getByTestId("upgrade-plan-pro"));
+  });
   expect(screen.getByText("upgrade.feature_sharper")).toBeOnTheScreen();
   expect(screen.queryByText(/model/i)).toBeNull();
 });
@@ -242,7 +249,7 @@ it("after the first sign-in offers Free as a choice, kept with one tap", async (
   const screen = await render(<UpgradeSheet visible onClose={onClose} source="welcome" />);
   await act(async () => {});
   expect(screen.getByText("upgrade.welcome_title")).toBeOnTheScreen();
-  expect(screen.getByText("upgrade.welcome_body")).toBeOnTheScreen();
+  expect(screen.getByText("upgrade.cancel_anytime")).toBeOnTheScreen();
   expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", { source: "welcome" });
   await act(async () => {
     fireEvent.press(screen.getByTestId("upgrade-continue-free"));

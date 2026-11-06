@@ -1,10 +1,16 @@
 import { useAccountSession } from "@/contexts/accountSession";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/ui/icons/Icon";
-import { type FeatureLine, PlanCard } from "@/features/billing/components/PlanCard";
+import {
+  type FeatureLine,
+  PlanBenefits,
+  PlansSmallPrint,
+  PlanTiles,
+  type Tile,
+} from "@/features/billing/components/PlanPicker";
 import { Sheet } from "@/ui/overlay/Sheet";
 import { Button } from "@/ui/controls/Button";
 import { useSubscriptionActions } from "@/features/billing/hooks/useSubscriptionActions";
@@ -29,11 +35,8 @@ import {
 } from "@/lib/plan";
 import { Space } from "@/lib/space";
 import { trackProductEvent } from "@/lib/productAnalytics";
-import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
-import { openAllowedUrl } from "@/lib/linkSchemePolicy";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
 /** Where the sheet was opened from: "welcome" is the offer after the first sign-in, "nudge"
@@ -59,24 +62,24 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
 
 const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
-/** A 12pt link line is about 17pt tall: this makes it a 45pt target, short of the next link. */
-const LEGAL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
-
-/** What Free already gives, so the plans above it read as more of something known. */
-function freeIncludes(catalog: PlanCatalog | null, t: Translate): string {
-  const count = catalog?.plans.find((item) => item.id === "free")?.allowances.daily_messages;
-  return count ? t("upgrade.free_includes", { count }) : t("upgrade.free_includes_plain");
-}
-
 /** "200 messages a day": what a plan offers, never which model answers. */
 function messagesLine(info: PlanInfo | undefined, t: Translate): FeatureLine {
   const count = info?.allowances.daily_messages;
   return { icon: "message", text: count ? t("upgrade.feature_messages", { count }) : t("upgrade.feature_messages_plain") };
 }
 
-/** What a plan gives, in what the user gets, with the server's numbers (the store owns the price). */
-function planFeatureLines(plan: PaidPlanId, info: PlanInfo | undefined, t: Translate): FeatureLine[] {
-  const lines: FeatureLine[] = [messagesLine(info, t)];
+/** What a plan gives, in what the user gets, with the server's numbers (the store owns the
+ * price); the messages line says what Free has beside it. */
+function planFeatureLines(
+  plan: PaidPlanId,
+  catalog: PlanCatalog | null,
+  t: Translate,
+): FeatureLine[] {
+  const info = catalog?.plans.find((item) => item.id === plan);
+  const free = catalog?.plans.find((item) => item.id === "free")?.allowances.daily_messages;
+  const lines: FeatureLine[] = [
+    { ...messagesLine(info, t), note: free ? t("upgrade.free_has", { count: free }) : undefined },
+  ];
   const images = info?.allowances.daily_image_generations;
   if (plan === "pro") {
     const minutes = info?.allowances.monthly_live_talk_minutes;
@@ -220,7 +223,6 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     }
   };
 
-  const planInfo = (plan: PaidPlanId) => catalog?.plans.find((item) => item.id === plan);
   // An offer the user did not ask for says Free is a choice, and keeping it is one tap.
   const welcome = (source === "welcome" || source === "nudge") && current === "free";
 
@@ -231,28 +233,16 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       minBottomPadding={36}
       contentContainerStyle={s.sheet}
     >
-      <View style={s.iconWrap}>
-        <Icon name="sparkles" size={IconSize.lg} color={theme.primary} />
-      </View>
-      <Text style={s.title} accessibilityRole="header">{t(welcome ? "upgrade.welcome_title" : "upgrade.title")}</Text>
-      {current !== "free" ? (
-        <Text style={s.body}>{t("upgrade.current_plan", { plan: t(planNameKey(current)) })}</Text>
-      ) : (
-        <Text style={s.body}>{t(welcome ? "upgrade.welcome_body" : "upgrade.body")}</Text>
-      )}
-      {current === "free" ? <Text style={s.freeLine}>{freeIncludes(catalog, t)}</Text> : null}
-      {targets.map((plan) => (
-        <PlanCard
-          key={plan}
-          name={t(planNameKey(plan))}
-          price={priceLabel(packages[plan]?.priceString, t)}
-          lines={planFeatureLines(plan, planInfo(plan), t)}
-          picked={plan === chosen}
-          onPick={() => setPicked(plan)}
-          disabled={busy != null}
-          testID={`upgrade-plan-${plan}`}
-        />
-      ))}
+      <LinearGradient colors={[theme.primary, theme.primaryDark]} style={s.hero}>
+        <Text style={s.heroTitle} accessibilityRole="header">{t(welcome ? "upgrade.welcome_title" : "upgrade.title")}</Text>
+        <Text style={s.heroBody}>
+          {current !== "free" ? t("upgrade.current_plan", { plan: t(planNameKey(current)) }) : t("upgrade.cancel_anytime")}
+        </Text>
+      </LinearGradient>
+      <PlanTiles tiles={planTiles(targets, catalog, packages, t)} picked={chosen} onPick={(id) => setPicked(id as PaidPlanId)} disabled={busy != null} />
+      {chosen ? (
+        <PlanBenefits heading={t("upgrade.benefits_heading", { plan: t(planNameKey(chosen)) })} lines={planFeatureLines(chosen, catalog, t)} />
+      ) : null}
       {chosen ? (
         <BuyButton
           plan={chosen}
@@ -283,54 +273,38 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       ) : null}
       {error ? <Text style={s.error}>{error}</Text> : null}
       {welcome ? (
-        <Button
-          title={t("upgrade.continue_free")}
-          onPress={onClose}
-          variant="secondary"
-          disabled={busy != null}
-          style={s.primaryBtn}
-          testID="upgrade-continue-free"
-        />
+        <Pressable onPress={onClose} disabled={busy != null} style={s.freeLink} accessibilityRole="button" testID="upgrade-continue-free">
+          <Text style={s.freeLinkText}>{t("upgrade.continue_free")}</Text>
+        </Pressable>
       ) : null}
-      {purchasesReady ? (
-        <Button
-          title={t("upgrade.restore")}
-          onPress={() => void onRestore()}
-          variant="ghost"
-          loading={busy === "restore"}
-          disabled={busy != null && busy !== "restore"}
-        />
-      ) : (
-        // A build with no store keys (Expo Go, a local build) cannot sell: say so, never "Coming soon".
-        <Text style={s.storeMissing}>{t("upgrade.store_not_in_build")}</Text>
-      )}
-      <Text style={s.subscriptionTerms}>{t("upgrade.subscription_terms")}</Text>
-      <View style={s.legalLinks}>
-        <Pressable
-          onPress={() => void openAllowedUrl(getLegalTermsUrl())}
-          accessibilityRole="link"
-          accessibilityLabel={t("terms.title")}
-          hitSlop={LEGAL_LINK_SLOP}
-        >
-          <Text style={s.legalLink}>{t("terms.title")}</Text>
-        </Pressable>
-        <Text style={s.legalSeparator} accessibilityElementsHidden importantForAccessibility="no">·</Text>
-        <Pressable
-          onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
-          accessibilityRole="link"
-          accessibilityLabel={t("privacy.title")}
-          hitSlop={LEGAL_LINK_SLOP}
-        >
-          <Text style={s.legalLink}>{t("privacy.title")}</Text>
-        </Pressable>
-      </View>
+      {/* A build with no store keys (Expo Go, a local build) cannot sell: say so, never "Coming soon". */}
+      {purchasesReady ? null : <Text style={s.storeMissing}>{t("upgrade.store_not_in_build")}</Text>}
+      <PlansSmallPrint
+        renews={t("upgrade.subscription_terms")}
+        links={{ terms: t("terms.title"), privacy: t("privacy.title") }}
+        restore={purchasesReady ? { label: t("upgrade.restore"), onPress: () => void onRestore(), disabled: busy != null } : undefined}
+      />
     </Sheet>
   );
 }
 
-/** "$7.99/month", or a pointer to the store when the store has not said. */
-function priceLabel(price: string | undefined, t: Translate): string {
-  return price ? t("upgrade.per_month", { price }) : t("upgrade.price_fallback");
+/** The paid plans as tiles: the store's price when it has said one, and the day's messages. */
+function planTiles(
+  targets: readonly PaidPlanId[],
+  catalog: PlanCatalog | null,
+  packages: PlanOffer["packages"],
+  t: Translate,
+): Tile[] {
+  return targets.map((plan) => ({
+    id: plan,
+    name: t(planNameKey(plan)),
+    price: packages[plan]?.priceString,
+    perMonth: t("upgrade.per_month_suffix"),
+    headline: messagesLine(
+      catalog?.plans.find((item) => item.id === plan),
+      t,
+    ).text,
+  }));
 }
 
 /** Buys the picked plan. A build with no store keys cannot sell: in development it
@@ -380,35 +354,15 @@ const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     sheet: {
       backgroundColor: theme.bg,
-      paddingHorizontal: Space.lg,
-      paddingTop: Space.lg,
-      gap: Space.sm,
+      paddingHorizontal: Space.gutter,
+      paddingTop: Space.md,
+      gap: Space.md,
     },
-    iconWrap: {
-      width: 52,
-      height: 52,
-      borderRadius: Radius.full,
-      backgroundColor: theme.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-      alignSelf: "center",
-    },
-    title: {
-      ...Type.h1,
-      color: theme.text,
-      textAlign: "center",
-    },
-    body: {
-      ...Type.secondary,
-      color: theme.textSecondary,
-      textAlign: "center",
-    },
-    freeLine: {
-      ...Type.caption,
-      ...Weight.semibold,
-      color: theme.textSecondary,
-      textAlign: "center",
-    },
+    hero: { borderRadius: Radius.xl, paddingHorizontal: Space.gutter, paddingVertical: Space.lg, gap: Space.xxs },
+    heroTitle: { ...Type.h1, color: theme.onPrimary },
+    heroBody: { ...Type.body, color: withAlpha(theme.onPrimary, 0.85) },
+    freeLink: { alignSelf: "center", paddingVertical: Space.xs, paddingHorizontal: Space.md },
+    freeLinkText: { ...Type.body, ...Weight.semibold, color: theme.textSecondary },
     error: {
       ...Type.secondary,
       color: theme.danger,
@@ -421,26 +375,5 @@ const makeStyles = (theme: Theme) =>
       ...Type.secondary,
       color: theme.textSecondary,
       textAlign: "center",
-    },
-    subscriptionTerms: {
-      ...Type.caption,
-      color: theme.textTertiary,
-      textAlign: "center",
-      lineHeight: 17,
-    },
-    legalLinks: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xs,
-    },
-    legalLink: {
-      ...Type.caption,
-      color: theme.primary,
-      ...Weight.semibold,
-    },
-    legalSeparator: {
-      ...Type.caption,
-      color: theme.textTertiary,
     },
   });

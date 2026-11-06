@@ -25,7 +25,7 @@ const HUGS = /^[.,;:!?)»”’、。]/;
 
 /** The sentence cut at its links: plain runs and the two marked names, in order, each
  * without its edge spaces; ``spaced`` says whether a word gap comes before it. */
-export function agreePieces(sentence: string): (Piece & { spaced: boolean })[] {
+function agreePieces(sentence: string): (Piece & { spaced: boolean })[] {
   const pieces: Piece[] = [];
   let at = 0;
   for (const match of sentence.matchAll(MARKED)) {
