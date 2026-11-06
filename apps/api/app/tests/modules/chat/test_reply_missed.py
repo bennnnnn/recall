@@ -12,6 +12,7 @@ import pytest
 
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants.conversation import OWN_MISTAKE_HINT
+from app.modules.chat.prompt_constants.format import STEPS_NOTE
 from app.modules.chat.prompt_constants.reply_missed import (
     REPLY_HOW_HINT,
     REPLY_MISSED_HINT,
@@ -90,10 +91,12 @@ def _exchange(*pairs: tuple[str, str]) -> list[SimpleNamespace]:
 
 def test_the_notes_sit_in_order_and_only_when_they_apply() -> None:
     rain = "Monthly rainfall: Jan 15, Feb 30, Mar 60, Apr 85"
-    # After a reply, owning a mistake rides along (``OWN_MISTAKE_HINT``).
+    # After a reply, owning a mistake rides along (``OWN_MISTAKE_HINT``); steps to follow are
+    # numbered on every message outside a lesson (``STEPS_NOTE``).
     assert message_notes("??", _exchange(*_AFTER_A_REPLY), _EN) == [
         REPLY_MISSED_HINT,
         OWN_MISTAKE_HINT,
+        STEPS_NOTE,
     ]
     assert message_notes(rain, [], _EN)[0].startswith(SHARED_NUMBERS_HINT)
     # The message's language comes last, nearest it.
