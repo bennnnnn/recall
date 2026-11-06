@@ -14,9 +14,11 @@ import re
 
 _MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)", re.DOTALL)
 _WORD = re.compile(r"[^\W\d_]{3,}")
-# A unit written straight after the maths, alone or before a clause mark: "m/s", "°C",
-# "dollars" ("$0.90$ dollars"), "kg·m/s".
-_UNIT = re.compile(r"[^\s,;:()\u2014\u2013]{1,12}(?=\s*(?:$|[,;:(\u2014\u2013]))")
+# One word written straight after the maths, alone or before a clause mark, stays on the
+# card: it is the unit ("m/s", "°C", "meters/second") or what is counted ("12 students",
+# "5 birr"). A one-word qualifier ("approximately") stays with it, harmless there; read
+# through the unit table, "students" would have gone under the card (review of #2303).
+_UNIT = re.compile(r"[^\s,;:()\u2014\u2013]+(?=\s*(?:$|[,;:(\u2014\u2013]))")
 # The marks that open what is said about the value: ", since …", "; option A …", "— so …".
 _LEAD = re.compile(r"^[\s,;:.\u2014\u2013-]+")
 # A bracketed label this short stays on the card: "(east)", "(to 3 s.f.)".

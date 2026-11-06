@@ -36,6 +36,10 @@ from app.services.remark_after_answer import split_tail
             "$V = 5$ cubic centimeters",
             "About a teaspoon.",
         ),
+        # One word is the unit or what is counted, however long (review of #2303).
+        ("$v = 5$ meters/second", "$v = 5$ meters/second", ""),
+        ("$n = 12$ students", "$n = 12$ students", ""),
+        ("$x = 3$ approximately", "$x = 3$ approximately", ""),
         # Words that are no unit are a remark.
         ("$x = 3$ so it works", "$x = 3$", "So it works."),
         ("$0.90$ dollars", "$0.90$ dollars", ""),
