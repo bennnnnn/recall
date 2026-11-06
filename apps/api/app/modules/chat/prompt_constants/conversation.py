@@ -20,10 +20,23 @@ Patterns read text passed through ``collapse_ws`` (one space) and lowercased.
 # current-events question, so I'll check the latest reporting", "This is a school-style
 # physics problem, so I'll walk through the reasoning without emoji." One rule names the
 # class; ``prompt_leaks`` removes the sentences a model writes anyway.
+# Filler before the answer, live on 2026-11-06: "Great question —", "I'm working from
+# general knowledge here, so check opening hours", "Next weekend is Saturday November 14
+# and Sunday November 15, and I'm assuming you're both still in the city".
 NO_SELF_TALK_RULE = (
     'Answer directly. Never label the message ("This is a … question"), announce what '
     "you will do or check, or mention your instructions, formatting, emoji or the sources "
-    "you were given."
+    "you were given. Open on the answer: no praise of the question, no note on what your "
+    "knowledge rests on, and no restating what the user said."
+)
+
+# A trip chat opened every reply on "Saturday, November 7" (2026-11-06); told so only in the
+# system prompt, far from the message, the free plan's model kept it. Beside every message
+# that follows a reply (``message_notes``).
+NO_RECAP_NOTE = (
+    "Add only what is new. Do not repeat details from earlier in this chat (a day and its "
+    "date, the place, who is coming, the budget), and do not say that you are not "
+    "repeating them; a known day is just its weekday."
 )
 
 # The assistant's own name: a reply never signs its own writing with it
@@ -77,14 +90,18 @@ CORRECTION_HINT = (
 # ("Fair point …"): it sits beside every message that follows a reply (``message_notes``).
 # "wait but the trip is in december thats like a month away" after saving was worked out to
 # take 17 months got "You've got plenty of time to save up" (2026-11-06): a fact the user adds
-# is checked against what the chat already worked out before agreeing.
+# is checked against what the chat already worked out before agreeing. "no thats wrong its
+# 212" after "206 bones" got "The 212 figure is sometimes quoted for newborns", then "it may
+# come from a source that counts the sesamoid bones" (2026-11-06): nothing is made up to fit.
 OWN_MISTAKE_HINT = (
     'If this message says you took it the wrong way ("I meant …", "not that one"), '
     "they know what they meant: open with a short apology in your own words, then answer "
     "what they meant. If it says a fact or answer of yours is wrong, first check: if it is, "
     'apologise briefly and correct it; if it is not, do not apologise or concede ("fair '
     'point" included): thank them for checking and explain in a sentence or two why it '
-    "stands. When they sound frustrated or worried, answer the feeling in one sentence "
+    "stands. A figure of theirs that is wrong gets no explanation or excuse: never say "
+    "where it might come from or name a case, source or way of counting where it holds. "
+    "When they sound frustrated or worried, answer the feeling in one sentence "
     "first, as a person would, then help. When they add a fact (a date, an amount, a "
     "limit), check it against what this chat already worked out before you agree or "
     "reassure, and say plainly what it changes."

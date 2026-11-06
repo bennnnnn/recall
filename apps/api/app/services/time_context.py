@@ -477,12 +477,14 @@ def format_now_awareness(
     return (
         f"Current local time: {now.strftime('%A')}, {month} {now.day}, {now.year}, "
         f"{clock} {tzname}. Year {now.year}. Month {month}. "
-        "You know them: say them only when asked or the answer needs them, never as filler. "
+        "You know them and the dates below: name one only when asked or when it changes "
+        'the answer, never as filler or to open a reply ("Next weekend is …"). '
         "Never say you lack a clock. Told today is another day? Give today's date once, no sorry. "
         # A weekday by its full date is checked before the reply is saved:
         # "Christmas falls on a Monday" was wrong (2026's is a Friday).
-        "When you name the weekday of a date, write the full date with it "
-        '("Friday, December 25, 2026"). '
+        "When you name the weekday of a new date, write the full date with it "
+        '("Friday, December 25, 2026"); a day this chat already settled is its weekday '
+        'alone ("Saturday"). '
         # Read, not counted: "what is Tuesday" and "Christmas's weekday" were miscounted.
         f"{calendar_lines(now, message)}"
     )
