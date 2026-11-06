@@ -44,7 +44,7 @@ const LEGAL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs }
 
 const HIGHLIGHTS = [
   { icon: "graduation-cap" as const, labelKey: "login.highlight_learn" },
-  { icon: "calendar" as const, labelKey: "login.highlight_organize" },
+  { icon: "message-dots" as const, labelKey: "login.highlight_organize" },
 ];
 
 export default function LoginScreen() {

@@ -43,7 +43,12 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/pendingComposerAttachment.ts",
   ],
   auth: [],
-  billing: ["components/UpgradeSheet.tsx", "model/purchases.ts"],
+  billing: [
+    "components/UpgradeSheet.tsx",
+    "hooks/useWelcomePlans.ts",
+    "model/purchases.ts",
+    "model/welcomePlans.ts",
+  ],
   chat: [
     "model/chatListCache.ts",
     "model/composerDraftReset.ts",
@@ -58,7 +63,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/emailDraftFlush.ts",
     "model/emailDraftSanitize.ts",
   ],
-  home: ["components/HomeStarters.tsx"],
+  home: ["components/HomeStarters.tsx", "model/homeOnScreen.ts"],
   images: [
     "components/ImageGenPlaceholder.tsx",
     "hooks/useImageGeneration.ts",

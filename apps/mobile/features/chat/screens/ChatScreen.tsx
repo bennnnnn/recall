@@ -41,6 +41,7 @@ import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/features/chat/hooks/useChatScreenError";
 import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
+import { useWelcomePlans } from "@/features/billing/hooks/useWelcomePlans";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
 import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
@@ -378,14 +379,14 @@ function ChatScreen() {
     stopTurnRef.current = () => { imageGen.cancel(); stopGeneration(); dismissChatError(); };
     openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
   });
-  const chatScreenBodyProps = chatScreenBody.bodyProps;
+  useWelcomePlans({ user, busy: streamActive || regenerating, outOfCredit: quotaNudge.usedPct >= 100 || chatError?.kind === "quota", open: chatScreenBody.openUpgradeSheet });
 
   if (!token) return <Redirect href="/login" />;
 
   return (
     <ChatReplyProviders saveEmailDraft={handleSaveEmailDraft} send={sendTappedLine} busy={streamActive || regenerating}>
       <View style={{ flex: 1 }}>
-        <ChatScreenBody {...chatScreenBodyProps} />
+        <ChatScreenBody {...chatScreenBody.bodyProps} />
         <LazyLiveTalkOverlay
           visible={liveTalk.visible}
           call={liveTalk}

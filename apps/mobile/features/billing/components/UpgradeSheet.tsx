@@ -4,10 +4,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
+import { type FeatureLine, PlanCard } from "@/features/billing/components/PlanCard";
 import { Sheet } from "@/ui/overlay/Sheet";
 import { Button } from "@/ui/controls/Button";
 import { useSubscriptionActions } from "@/features/billing/hooks/useSubscriptionActions";
-import type { IconName } from "@/ui/icons/names";
 import { api } from "@/lib/api";
 import { reportFailure } from "@/lib/sentry";
 import {
@@ -25,7 +25,6 @@ import {
   type PlanInfo,
   planNameKey,
   planOf,
-  premiumModelNames,
   upgradeTargets,
 } from "@/lib/plan";
 import { Space } from "@/lib/space";
@@ -37,7 +36,17 @@ import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
-export type UpgradeSource = "quota" | "model_gate" | "settings" | "voice" | "live_talk" | "other";
+/** Where the sheet was opened from: "welcome" is the offer after the first sign-in, "nudge"
+ * the one now and then after it (`welcomePlans`). */
+export type UpgradeSource =
+  | "quota"
+  | "model_gate"
+  | "settings"
+  | "voice"
+  | "live_talk"
+  | "welcome"
+  | "nudge"
+  | "other";
 
 type Props = {
   visible: boolean;
@@ -53,35 +62,34 @@ const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
 /** A 12pt link line is about 17pt tall: this makes it a 45pt target, short of the next link. */
 const LEGAL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
 
-type FeatureLine = { icon: IconName; text: string };
-
-/** The paid models by name when the server's list is in, else a line that names none. */
-function modelsLine(models: readonly string[], t: Translate): string {
-  return models.length ? t("upgrade.feature_models_named", { models: models.join(", ") }) : t("upgrade.feature_models");
+/** What Free already gives, so the plans above it read as more of something known. */
+function freeIncludes(catalog: PlanCatalog | null, t: Translate): string {
+  const count = catalog?.plans.find((item) => item.id === "free")?.allowances.daily_messages;
+  return count ? t("upgrade.free_includes", { count }) : t("upgrade.free_includes_plain");
 }
 
-/** What a plan includes, with the server's numbers (the store owns the price). */
-function planFeatureLines(
-  plan: PaidPlanId,
-  info: PlanInfo | undefined,
-  models: readonly string[],
-  t: Translate,
-): FeatureLine[] {
-  const lines: FeatureLine[] = [];
+/** "200 messages a day": what a plan offers, never which model answers. */
+function messagesLine(info: PlanInfo | undefined, t: Translate): FeatureLine {
+  const count = info?.allowances.daily_messages;
+  return { icon: "message", text: count ? t("upgrade.feature_messages", { count }) : t("upgrade.feature_messages_plain") };
+}
+
+/** What a plan gives, in what the user gets, with the server's numbers (the store owns the price). */
+function planFeatureLines(plan: PaidPlanId, info: PlanInfo | undefined, t: Translate): FeatureLine[] {
+  const lines: FeatureLine[] = [messagesLine(info, t)];
   const images = info?.allowances.daily_image_generations;
   if (plan === "pro") {
-    lines.push({ icon: "check", text: t("upgrade.everything_in", { plan: t(planNameKey("plus")) }) });
     const minutes = info?.allowances.monthly_live_talk_minutes;
     lines.push({
       icon: "activity",
       text: minutes ? t("upgrade.feature_live_talk", { count: minutes }) : t("upgrade.feature_live_talk_plain"),
     });
+    lines.push({ icon: "sparkles", text: t("upgrade.feature_sharper") });
   } else {
-    lines.push({ icon: "zap", text: modelsLine(models, t) });
-    lines.push({ icon: "infinity", text: t("upgrade.feature_limits") });
     lines.push({ icon: "mic", text: t("upgrade.feature_voice") });
   }
   if (images) lines.push({ icon: "image", text: t("upgrade.feature_images", { count: images }) });
+  if (plan === "pro") lines.push({ icon: "check", text: t("upgrade.everything_in", { plan: t(planNameKey("plus")) }) });
   return lines;
 }
 
@@ -97,10 +105,12 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const [offerAttempt, setOfferAttempt] = useState(0);
   const packages = offer.packages;
   const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
-  const [premiumModels, setPremiumModels] = useState<string[]>([]);
   const [loadingOffer, setLoadingOffer] = useState(false);
   const [busy, setBusy] = useState<PaidPlanId | "restore" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The plan the one button buys: the first one up from the current plan to start.
+  const [picked, setPicked] = useState<PaidPlanId | null>(null);
+  const chosen = picked && targets.includes(picked) ? picked : (targets[0] ?? null);
   const purchasesReady = isPurchasesConfigured();
   const wasVisible = useRef(false);
 
@@ -122,13 +132,6 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         if (!cancelled) setCatalog(next);
       })
       // The cards still show what each plan includes, without numbers.
-      .catch((error: unknown) => reportFailure("paywall_load", error));
-    void api
-      .listModels(token)
-      .then((models) => {
-        if (!cancelled) setPremiumModels(premiumModelNames(models));
-      })
-      // Without the list the models line names no model.
       .catch((error: unknown) => reportFailure("paywall_load", error));
     return () => {
       cancelled = true;
@@ -218,6 +221,8 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   };
 
   const planInfo = (plan: PaidPlanId) => catalog?.plans.find((item) => item.id === plan);
+  // An offer the user did not ask for says Free is a choice, and keeping it is one tap.
+  const welcome = (source === "welcome" || source === "nudge") && current === "free";
 
   return (
     <Sheet
@@ -229,41 +234,42 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       <View style={s.iconWrap}>
         <Icon name="sparkles" size={IconSize.lg} color={theme.primary} />
       </View>
-      <Text style={s.title} accessibilityRole="header">{t("upgrade.title")}</Text>
+      <Text style={s.title} accessibilityRole="header">{t(welcome ? "upgrade.welcome_title" : "upgrade.title")}</Text>
       {current !== "free" ? (
         <Text style={s.body}>{t("upgrade.current_plan", { plan: t(planNameKey(current)) })}</Text>
       ) : (
-        <Text style={s.body}>{t("upgrade.body")}</Text>
+        <Text style={s.body}>{t(welcome ? "upgrade.welcome_body" : "upgrade.body")}</Text>
       )}
-      {targets.map((plan) => {
-        const pkg = packages[plan];
-        const price = pkg?.priceString;
-        return (
-          <View key={plan} style={s.card} testID={`upgrade-plan-${plan}`}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardTitle}>{t(planNameKey(plan))}</Text>
-              <Text style={s.cardPrice}>
-                {price ? t("upgrade.per_month", { price }) : t("upgrade.price_fallback")}
-              </Text>
-            </View>
-            <View style={s.featureList}>
-              {planFeatureLines(plan, planInfo(plan), premiumModels, t).map((line) => (
-                <FeatureRow key={line.text} icon={line.icon} text={line.text} theme={theme} />
-              ))}
-            </View>
-            {purchasesReady ? (
-              <Button
-                title={t("upgrade.subscribe_plan", { plan: t(planNameKey(plan)) })}
-                onPress={() => void onSubscribe(plan)}
-                loading={busy === plan || (loadingOffer && !pkg)}
-                disabled={!pkg || (busy != null && busy !== plan)}
-                variant={plan === "pro" ? "primary" : "secondary"}
-                style={s.primaryBtn}
-              />
-            ) : null}
-          </View>
-        );
-      })}
+      {current === "free" ? <Text style={s.freeLine}>{freeIncludes(catalog, t)}</Text> : null}
+      {targets.map((plan) => (
+        <PlanCard
+          key={plan}
+          name={t(planNameKey(plan))}
+          price={priceLabel(packages[plan]?.priceString, t)}
+          lines={planFeatureLines(plan, planInfo(plan), t)}
+          picked={plan === chosen}
+          onPick={() => setPicked(plan)}
+          disabled={busy != null}
+          testID={`upgrade-plan-${plan}`}
+        />
+      ))}
+      {chosen ? (
+        <BuyButton
+          plan={chosen}
+          price={packages[chosen]?.priceString}
+          purchasesReady={purchasesReady}
+          loading={busy === chosen || (loadingOffer && !packages[chosen])}
+          disabled={(purchasesReady && !packages[chosen]) || (busy != null && busy !== chosen)}
+          onBuy={() => void onSubscribe(chosen)}
+          onDevEnable={() => {
+            void devUpgrade(chosen).then((ok) => {
+              if (ok) onClose();
+            });
+          }}
+          style={s.primaryBtn}
+          t={t}
+        />
+      ) : null}
       {purchasesReady && offer.unavailable && !loadingOffer ? (
         <>
           <Text style={s.error}>{t("upgrade.store_unavailable")}</Text>
@@ -276,6 +282,16 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         </>
       ) : null}
       {error ? <Text style={s.error}>{error}</Text> : null}
+      {welcome ? (
+        <Button
+          title={t("upgrade.continue_free")}
+          onPress={onClose}
+          variant="secondary"
+          disabled={busy != null}
+          style={s.primaryBtn}
+          testID="upgrade-continue-free"
+        />
+      ) : null}
       {purchasesReady ? (
         <Button
           title={t("upgrade.restore")}
@@ -308,42 +324,55 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           <Text style={s.legalLink}>{t("privacy.title")}</Text>
         </Pressable>
       </View>
-      {__DEV__
-        ? targets.map((plan) => (
-            <Pressable
-              key={`dev-${plan}`}
-              style={s.devBtn}
-              accessibilityRole="button"
-              onPress={() => {
-                void devUpgrade(plan).then((ok) => {
-                  if (ok) onClose();
-                });
-              }}
-            >
-              <Text style={s.devBtnText}>
-                {t("upgrade.dev_enable_plan", { plan: t(planNameKey(plan)) })}
-              </Text>
-            </Pressable>
-          ))
-        : null}
     </Sheet>
   );
 }
 
-function FeatureRow({
-  icon,
-  text,
-  theme,
+/** "$7.99/month", or a pointer to the store when the store has not said. */
+function priceLabel(price: string | undefined, t: Translate): string {
+  return price ? t("upgrade.per_month", { price }) : t("upgrade.price_fallback");
+}
+
+/** Buys the picked plan. A build with no store keys cannot sell: in development it
+ * switches the plan without paying (the server's dev upgrade), and in a release it says
+ * the store is missing (below). */
+function BuyButton({
+  plan,
+  price,
+  purchasesReady,
+  loading,
+  disabled,
+  onBuy,
+  onDevEnable,
+  style,
+  t,
 }: {
-  icon: IconName;
-  text: string;
-  theme: Theme;
+  plan: PaidPlanId;
+  price: string | undefined;
+  purchasesReady: boolean;
+  loading: boolean;
+  disabled: boolean;
+  onBuy: () => void;
+  onDevEnable: () => void;
+  style: object;
+  t: Translate;
 }) {
+  const name = t(planNameKey(plan));
+  if (!purchasesReady) {
+    return __DEV__ ? (
+      <Button title={t("upgrade.dev_enable_plan", { plan: name })} onPress={onDevEnable} size="lg" style={style} />
+    ) : null;
+  }
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: Space.xs }}>
-      <Icon name={icon} size={IconSize.sm} color={theme.primary} />
-      <Text style={{ flex: 1, ...Type.secondary, color: theme.textSecondary }}>{text}</Text>
-    </View>
+    <Button
+      title={price ? t("upgrade.subscribe_for", { plan: name, price }) : t("upgrade.subscribe_plan", { plan: name })}
+      onPress={onBuy}
+      loading={loading}
+      disabled={disabled}
+      size="lg"
+      style={style}
+      testID="upgrade-subscribe"
+    />
   );
 }
 
@@ -374,30 +403,12 @@ const makeStyles = (theme: Theme) =>
       color: theme.textSecondary,
       textAlign: "center",
     },
-    card: {
-      borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-      padding: Space.md,
-      gap: Space.xs,
-    },
-    cardHeader: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-      gap: Space.xs,
-    },
-    cardTitle: {
-      ...Type.body,
+    freeLine: {
+      ...Type.caption,
       ...Weight.semibold,
-      color: theme.text,
-    },
-    cardPrice: {
-      ...Type.secondary,
       color: theme.textSecondary,
+      textAlign: "center",
     },
-    featureList: { gap: Space.xs, marginVertical: Space.xxs },
     error: {
       ...Type.secondary,
       color: theme.danger,
@@ -432,9 +443,4 @@ const makeStyles = (theme: Theme) =>
       ...Type.caption,
       color: theme.textTertiary,
     },
-    devBtn: {
-      alignItems: "center",
-      paddingVertical: Space.xs,
-    },
-    devBtnText: { ...Type.compact, color: theme.textTertiary },
   });

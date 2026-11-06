@@ -300,6 +300,7 @@ function serverBody(method: string, path: string, body?: string): unknown {
     };
   }
   if (p === "/models") return [{ id: "free-chat", label: "Free", available: true, plan_access: "free" }];
+  if (p === "/billing/plans") return { current: "free", plans: [{ id: "plus", features: [], allowances: {} }] };
   if (p === "/todos/page") return { items: [], next_cursor: null };
   if (p === "/chats/usage/today") return { date: "2026-10-24", tokens_used: 0, daily_limit: 100000 };
   if (p === "/chats" && method === "POST") {
@@ -654,8 +655,9 @@ const REVISITED = ["memory", "security"];
 
 /** The most requests and sockets each step may send. */
 const CEILINGS: Record<string, number> = {
-  // /auth/me, the day's usage (free plan), to-dos, models, the check, the push token, the drawer.
-  "cold start after sign-in": 7,
+  // /auth/me, the day's usage (free plan), to-dos, models, the check, the push token, the drawer;
+  // a free account's first open of the day offers the plans: their list and its paywall_viewed.
+  "cold start after sign-in": 9,
   // The newest page, each file's status (three), the socket.
   "open chat 1": 5,
   "open chat 2": 2,
@@ -869,7 +871,7 @@ function expectWithin(ceilings: Record<string, number>): void {
  * not come back in step.
  */
 const OUTAGE_CEILINGS: Record<string, number> = {
-  "cold start after sign-in": 7,
+  "cold start after sign-in": 9,
   "open chat 1": 5,
   // The sockets close (1012) and nothing reconnects until the user moves.
   "a deploy with the chat open, down 30 s, then a minute": 0,
