@@ -86,6 +86,22 @@ _SELF_LABEL = re.compile(
     r"[^:!?\n]*?[.!](?=\s|$)",
     re.IGNORECASE,
 )
+# An opening that narrates the message as said by "the user": "The user says "ok and like 5
+# common beginner mistakes i should avoid?" This is a factual list request, so I'll give five
+# … Numbered list, bold labels." opened a reply (2026-11-06). A reply speaks to the person;
+# talk about "the user" saying, asking or wanting, in a short paragraph that also announces
+# the model's own plan, is the model planning. The paragraph goes. An explanation that opens
+# on a user ("The user wants to log in, so the app redirects to /auth") plans nothing and
+# stays (review of #2306).
+_NARRATES_USER = re.compile(
+    r"the user(?:'s message)? (?:says|said|asks|asked|wants|wanted|writes|wrote|is asking"
+    r"|is requesting|requests|requested|needs|is looking for)\b",
+    re.IGNORECASE,
+)
+_ANNOUNCES_PLAN = re.compile(
+    r"\b(?:i(?:'ll| will| should| need to| am going to|'m going to)|let me)\b", re.IGNORECASE
+)
+_PLAN_PARAGRAPH = 400
 # A sentence that goes on about the one before it.
 _POINTS_BACK = re.compile(r"(?:it|this|that|they|these|those)\b", re.IGNORECASE)
 # The user's latest messages name these parts or ask about prompt writing.
@@ -209,6 +225,9 @@ def _without_self_label(text: str) -> str:
     stripped = text.lstrip()
     if stripped.startswith(_SKIPPED_STARTS) or stripped.startswith(("```", "~~~")):
         return text
+    plan, gap, rest = stripped.partition("\n\n")
+    if gap and rest.strip() and _narrates_a_plan(straighten_apostrophes(plan)):
+        return rest.lstrip("\n")
     label = _SELF_LABEL.match(straighten_apostrophes(stripped))
     if label is None:
         return text
@@ -219,6 +238,15 @@ def _without_self_label(text: str) -> str:
         return text
     rest = rest[1:].lstrip("\n") if rest.startswith("\n") else rest
     return rest if rest.strip() else text
+
+
+def _narrates_a_plan(paragraph: str) -> bool:
+    """``paragraph`` is short, tells what "the user" said and what the model will do."""
+    return (
+        len(paragraph) <= _PLAN_PARAGRAPH
+        and _NARRATES_USER.match(paragraph) is not None
+        and _ANNOUNCES_PLAN.search(paragraph) is not None
+    )
 
 
 def _asked_about(asked: tuple[str | None, ...]) -> bool:
