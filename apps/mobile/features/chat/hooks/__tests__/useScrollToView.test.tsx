@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo, type View } from "react-native";
+import { AccessibilityInfo, type HostInstance } from "react-native";
 
 import { useScrollToView } from "@/features/chat/hooks/useScrollToView";
 import { Space } from "@/lib/space";
@@ -19,7 +19,7 @@ function card(content: object) {
     measureLayout: (relative: object, ok: (x: number, y: number) => void) => {
       if (relative === content) ok(0, 900);
     },
-  } as unknown as View;
+  } as unknown as HostInstance;
 }
 
 describe("scrolling the thread to a view inside a message", () => {

@@ -1,5 +1,5 @@
 import { useCallback, type RefObject } from "react";
-import type { ScrollViewInstance, View } from "react-native";
+import type { HostInstance, ScrollViewInstance } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 
 import type { ScrollToView } from "@/components/rich/answerJump";
@@ -21,7 +21,7 @@ export function useScrollToView(
 ): ScrollToView {
   const reduceMotion = useReduceMotion();
   return useCallback(
-    (target: View) => {
+    (target: HostInstance) => {
       const list = listRef.current;
       const scroller = list?.getNativeScrollRef() as ScrollViewInstance | null | undefined;
       const content = scroller?.getInnerViewRef();

@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { StyleSheet, Text, type View } from "react-native";
+import { StyleSheet, Text, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { MathText } from "@/components/rich/MathText";
@@ -28,7 +28,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
 /** Scrolls the chat so `target` (a view inside a message) is in view. */
-export type ScrollToView = (target: View) => void;
+export type ScrollToView = (target: HostInstance) => void;
 
 const ScrollToViewContext = createContext<ScrollToView | null>(null);
 
@@ -38,8 +38,8 @@ export function ScrollToViewProvider({ scrollTo, children }: { scrollTo: ScrollT
 
 type AnchorRegistry = {
   /** A card's ref callback: the first card on screen is the one the line leads to. */
-  register: (view: View | null, key: object) => void;
-  first: () => View | null;
+  register: (view: HostInstance | null, key: object) => void;
+  first: () => HostInstance | null;
   /** Whether a card is on screen, so the line is drawn only with somewhere to go. */
   present: boolean;
 };
@@ -48,9 +48,9 @@ const AnswerAnchorContext = createContext<AnchorRegistry | null>(null);
 
 /** One reply's answer cards, in the order they mounted (the reply's reading order). */
 export function AnswerAnchorScope({ children }: { children: ReactNode }) {
-  const cards = useRef<{ key: object; view: View }[]>([]);
+  const cards = useRef<{ key: object; view: HostInstance }[]>([]);
   const [present, setPresent] = useState(false);
-  const register = useCallback((view: View | null, key: object) => {
+  const register = useCallback((view: HostInstance | null, key: object) => {
     const rest = cards.current.filter((card) => card.key !== key);
     cards.current = view ? [...rest, { key, view }] : rest;
     setPresent(cards.current.length > 0);
@@ -63,11 +63,11 @@ export function AnswerAnchorScope({ children }: { children: ReactNode }) {
 }
 
 /** The ref an answer card puts on its frame, so the reply's answer line can lead to it. */
-export function useAnswerAnchorRef(): ((view: View | null) => void) | undefined {
+export function useAnswerAnchorRef(): ((view: HostInstance | null) => void) | undefined {
   const registry = useContext(AnswerAnchorContext);
   const key = useRef({}).current;
   return useMemo(
-    () => (registry ? (view: View | null) => registry.register(view, key) : undefined),
+    () => (registry ? (view: HostInstance | null) => registry.register(view, key) : undefined),
     // `register` is stable; `present` changing must not hand the card a new ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [registry?.register, key],
