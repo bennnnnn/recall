@@ -37,7 +37,8 @@ _HARD_BREAK = "  \n"
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 # A note is prose: markdown marks go, and its LaTeX ("about 1.20\sqrt{gh}") is drawn as maths.
 _NOT_MARKDOWN = re.compile(r"[$*_`]")
-_TEX_RUN = re.compile(r"[\w.]*(?:\\[A-Za-z]+(?:\{[^{}]*\})*)+(?:[\w{}^]|\.(?=\w))*")
+# Where a LaTeX run in a note starts: the number or word it is written onto ("1.20\sqrt").
+_TEX_START = re.compile(r"[\w.]*\\[A-Za-z]")
 _LONG_SUBSCRIPT = re.compile(r"_(?![{\\])([A-Za-z0-9]{2,})")
 _NUMBERED = re.compile(r"^([A-Za-z])(\d+)$")
 _UPRIGHT = re.compile(r"\\(?:mathrm|text)|\\[,;! ]")
@@ -277,8 +278,41 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     named = answer.symbol and answer.symbol != answer.unit and not names_nothing(answer.symbol)
     symbol = tidy_symbol(answer.symbol) if named else ""
     shown = value if layout.law_heading or not symbol else f"{symbol} = {value}"
-    note = _TEX_RUN.sub(lambda tex: f"${tex.group()}$", _NOT_MARKDOWN.sub("", answer.note)).strip()
+    note = _tex_as_maths(_NOT_MARKDOWN.sub("", answer.note)).strip()
     return f"{math_line(shown)} ({note})" if note else math_line(shown)
+
+
+def _tex_as_maths(note: str) -> str:
+    r"""Each LaTeX run in ``note`` inside ``$…$``: its commands, their brace groups however
+    deep (``\sqrt{\frac{10gh}{7}}`` is one run, review of #2303), and the word characters
+    and powers written onto it."""
+    out: list[str] = []
+    index = 0
+    while (start := _TEX_START.search(note, index)) is not None:
+        end = _tex_run_end(note, start.end() - 2)
+        out += [note[index : start.start()], f"${note[start.start() : end]}$"]
+        index = end
+    return "".join([*out, note[index:]])
+
+
+def _tex_run_end(text: str, at: int) -> int:
+    """Where the LaTeX run from the backslash at ``at`` ends: past every command, balanced
+    brace group, word character and power that follows."""
+    depth = 0
+    while at < len(text):
+        char = text[at]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            if depth == 0:
+                break
+            depth -= 1
+        elif depth == 0 and not (
+            char.isalnum() or char in "\\^_" or (char == "." and text[at + 1 : at + 2].isdigit())
+        ):
+            break
+        at += 1
+    return at
 
 
 def _part_body(

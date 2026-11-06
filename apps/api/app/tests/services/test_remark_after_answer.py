@@ -74,3 +74,14 @@ def test_each_part_card_holds_only_its_value() -> None:
     landed = land_part_answer_cards(reply) or ""
     assert "```answer\nverified: false\n$v = 4$ m/s\n```\n\nIt slows as it climbs." in landed
     assert "```answer\nverified: false\n$t = 2$ s\n```" in landed
+
+
+def test_a_note_with_nested_maths_is_one_maths_run() -> None:
+    """Review of #2303: one level of braces split \\sqrt{\\frac{10gh}{7}} in two."""
+    from app.modules.chat.worked_render import _tex_as_maths
+
+    assert _tex_as_maths(r"about \sqrt{\frac{10gh}{7}}") == r"about $\sqrt{\frac{10gh}{7}}$"
+    assert _tex_as_maths(r"about 1.20\sqrt{gh}; A gives \sqrt{2gh}.") == (
+        r"about $1.20\sqrt{gh}$; A gives $\sqrt{2gh}$."
+    )
+    assert _tex_as_maths("east") == "east"
