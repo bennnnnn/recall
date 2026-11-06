@@ -1,12 +1,13 @@
-"""Whether a page states a claim the claim check flagged: read in code, not by the checker.
+"""Whether a flagged claim costs its sentence: read in code, not by the checker.
 
 A cheap checker calls claims "unsupported" that a page says outright: "at least 76 deaths"
-under "At least 76 people confirmed died", and "beat defending champions Brazil" under a
-page with those words (2026-11-05). Cutting such a sentence costs the user a sourced
-answer, so only a figure or a legal standing no page states is cut. A figure is stated
-when one page holds every number in it. A claim with no figure is stated when one
-sentence of a page holds most of its words and says it the same way: "Acme is not
-licensed" is not stated by "Acme is licensed" (review of #2301).
+under "At least 76 people confirmed died" (2026-11-05). Cutting such a sentence costs the
+user a sourced answer. A figure is cut only when no one page holds every number in it, and
+a legal standing (licensed, banned, reinstated) is always cut: matching its words against
+a page cleared contradicted ones ("Acme is licensed in Spain" under "Beta is licensed in
+Spain, but Acme is licensed in France", review of #2301). An attribution or another detail
+is never cut: "France ... beat defending champions Brazil" lost its sentence as a
+"status" (2026-11-05), and the checker now names only a legal standing.
 """
 
 from __future__ import annotations
@@ -18,14 +19,8 @@ from app.gateways.web_search_gateway import SNIPPET_CHARS, WebSearchHit
 _FIGURE = re.compile(r"\d+(?:[.,]\d+)*")
 _GROUPED = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?")
 _A_YEAR = re.compile(r"(?:19|20)\d\d")
-_CUT_KINDS = frozenset({"figure", "legal", "status"})
-_CONTENT_WORD = re.compile(r"[^\W\d_]{4,}")
-# A word by its first letters, so "beating" is the page's "beat" (review of #2301).
-_STEM = 4
-# A claim with no figure is a sentence's when this share of its words are in it.
-_MIN_WORDS_IN_SENTENCE = 0.8
-_NEGATION = re.compile(r"\b(?:not|no|never|without|neither|nor|cannot)\b|n't\b", re.IGNORECASE)
-_PAGE_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
+# "status" is what the checker called "legal" before (2026-11-05).
+_LEGAL = frozenset({"legal", "status"})
 
 
 def figures(text: str) -> set[str]:
@@ -41,34 +36,17 @@ def figures(text: str) -> set[str]:
 
 
 def costs_its_sentence(quote: str, kind: str, pages: list[WebSearchHit]) -> bool:
-    """A figure or a legal standing no page states: what a reader would act on and what a
-    page would have said. An attribution or a detail beside the answer is not worth the
-    sentence that carries the answer."""
-    if kind == "figure" and not figures(quote):
-        return False  # "three million" written out: no figure the pages can be read for
-    return kind in _CUT_KINDS and not stated_by_a_page(quote, pages)
+    """A legal standing, or a figure no page states: what a reader would act on. An
+    attribution or a detail beside the answer is not worth the sentence that carries it."""
+    if kind in _LEGAL:
+        return True
+    stated = figures(quote)
+    # A figure written out ("three million") has no number the pages can be read for.
+    return kind == "figure" and bool(stated) and not stated_by_a_page(stated, pages)
 
 
-def stated_by_a_page(quote: str, pages: list[WebSearchHit]) -> bool:
-    """Whether one page states ``quote``: every figure in it, or for a claim with none, one
-    sentence with most of its words and the same negation."""
-    wanted = figures(quote)
-    words = _stems(quote)
-    negated = _NEGATION.search(quote) is not None
-    for page in pages:
-        text = f"{page.title}\n{page.snippet[:SNIPPET_CHARS]}"
-        if wanted:
-            if wanted <= figures(text):
-                return True
-            continue
-        if words and any(
-            len(words & _stems(sentence)) / len(words) >= _MIN_WORDS_IN_SENTENCE
-            and (_NEGATION.search(sentence) is not None) == negated
-            for sentence in _PAGE_SENTENCE.split(text)
-        ):
-            return True
-    return False
-
-
-def _stems(text: str) -> set[str]:
-    return {word.casefold()[:_STEM] for word in _CONTENT_WORD.findall(text)}
+def stated_by_a_page(wanted: set[str], pages: list[WebSearchHit]) -> bool:
+    """Whether one page holds every figure in ``wanted``; no figures, nothing stated."""
+    return bool(wanted) and any(
+        wanted <= figures(f"{page.title}\n{page.snippet[:SNIPPET_CHARS]}") for page in pages
+    )

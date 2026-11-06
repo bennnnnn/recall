@@ -442,27 +442,11 @@ async def test_a_doubtful_attribution_or_detail_never_costs_the_answer(
     assert await _run(_state(reply), verdict) == reply
 
 
-async def test_a_claim_a_page_says_in_its_own_words_stays() -> None:
-    """Live 2026-11-05: "France beat defending champions Brazil" lost its sentence as an
-    unsupported status under a page that said "beat defending champions Brazil"."""
-    page = WebSearchHit(
-        title="1998 FIFA World Cup",
-        url="https://en.wikipedia.org/wiki/1998_FIFA_World_Cup",
-        snippet="The tournament was won by host country France, who beat defending champions "
-        "Brazil 3–0 in the final to win their first title.",
-    )
-    # Long enough that the cut-share guard would not keep it: only the page check does.
-    reply = (
-        "France won the 1998 World Cup, beating defending champions Brazil in the final. "
-        "It was their first title, won at home in front of a crowd of eighty thousand at "
-        "the Stade de France. Zinedine Zidane scored twice with headers in the first half, "
-        "and Emmanuel Petit added a third late on. Croatia, in their first World Cup, "
-        "finished third after beating the Netherlands in the play-off."
-    )
-    verdict = claim_check._Verdict(
-        unsupported=[claim_check._Claim(quote="beating defending champions Brazil", kind="status")]
-    )
-    assert await _run(_state(reply, search_sources=[page]), verdict) == reply
+def test_the_checker_names_only_a_legal_standing_as_cuttable() -> None:
+    """2026-11-05: "beat defending champions Brazil" was labelled a "status" and cut. The
+    checker is offered "legal" (licensed, banned, reinstated), not "status"."""
+    assert "kind is figure, legal (licensed" in claim_check._SYSTEM
+    assert "status" not in claim_check._SYSTEM.split("kind is", 1)[1].split("note is", 1)[0]
 
 
 def test_a_figure_claim_written_in_words_is_never_cut() -> None:
