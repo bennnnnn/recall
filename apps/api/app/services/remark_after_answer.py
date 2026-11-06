@@ -1,0 +1,53 @@
+"""An answer card holds the answer; what is said about it goes in a sentence under it.
+
+"v = √(10gh/7) m/s (about 1.20sqrt{gh}; option A gives sqrt{2gh}, which is the
+sliding-block result with no rotation)" filled the card (live, 2026-11-06): the line under
+**Answer** went in whole. The card keeps the value's maths and a unit written straight
+after it ("$x = 3$ m/s") and a short label in brackets ("(east)"); the words after that,
+a note, a comparison or a reason, go in a sentence directly under the card. A line that
+opens with words ("The ball lands at …") is an answer in a sentence, and stays as it was.
+"""
+
+from __future__ import annotations
+
+import re
+
+_MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)", re.DOTALL)
+_WORD = re.compile(r"[^\W\d_]{3,}")
+# A unit written straight after the maths, alone or before a clause mark: "m/s", "°C",
+# "dollars" ("$0.90$ dollars"), "kg·m/s".
+_UNIT = re.compile(r"[^\s,;:()\u2014\u2013]{1,12}(?=\s*(?:$|[,;:(\u2014\u2013]))")
+# The marks that open what is said about the value: ", since …", "; option A …", "— so …".
+_LEAD = re.compile(r"^[\s,;:.\u2014\u2013-]+")
+# A bracketed label this short stays on the card: "(east)", "(to 3 s.f.)".
+_LABEL_WORDS = 3
+_WRAPPED = re.compile(r"^\((?P<inner>[^()]*(?:\([^()]*\)[^()]*)*)\)\.?$")
+
+
+def split_tail(value: str) -> tuple[str, str]:
+    """``value`` as the card's maths and the sentence to go under the card ("" for none)."""
+    spans = list(_MATH_SPAN.finditer(value))
+    if not spans or _WORD.search(value[: spans[0].start()]):
+        return value, ""  # no maths, or words before it: an answer written as a sentence
+    # The maths the value opens with, its spans joined by marks alone ("$x = 2$, $x = -2$");
+    # maths inside what follows ("about $1.20\sqrt{gh}$") belongs to the sentence.
+    end = spans[0].end()
+    for span in spans[1:]:
+        if _WORD.search(value[end : span.start()]):
+            break
+        end = span.end()
+    rest = value[end:]
+    unit = _UNIT.match(rest.lstrip())
+    if unit is not None:
+        end += len(rest) - len(rest.lstrip()) + unit.end()
+        rest = value[end:]
+    said = _LEAD.sub("", rest).strip()
+    wrapped = _WRAPPED.match(said)
+    if wrapped is not None:
+        said = wrapped.group("inner").strip()
+        if len(said.split()) <= _LABEL_WORDS and "$" not in said:
+            return value, ""  # a label of the value ("east", "to 3 s.f."), not a remark
+    if not _WORD.search(said):
+        return value, ""
+    sentence = said[0].upper() + said[1:]
+    return value[:end].rstrip(" ,;:"), sentence if sentence[-1] in ".!?" else f"{sentence}."

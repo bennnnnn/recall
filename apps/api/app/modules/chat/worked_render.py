@@ -35,8 +35,9 @@ from app.services.workout import (
 
 _HARD_BREAK = "  \n"
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
-# A note is text beside the maths: no maths or markdown marks in it.
-_NOT_MARKDOWN = re.compile(r"[\\$*_`]")
+# A note is prose: markdown marks go, and its LaTeX ("about 1.20\sqrt{gh}") is drawn as maths.
+_NOT_MARKDOWN = re.compile(r"[$*_`]")
+_TEX_RUN = re.compile(r"[\w.]*(?:\\[A-Za-z]+(?:\{[^{}]*\})*)+(?:[\w{}^]|\.(?=\w))*")
 _LONG_SUBSCRIPT = re.compile(r"_(?![{\\])([A-Za-z0-9]{2,})")
 _NUMBERED = re.compile(r"^([A-Za-z])(\d+)$")
 _UPRIGHT = re.compile(r"\\(?:mathrm|text)|\\[,;! ]")
@@ -268,15 +269,15 @@ def _step_rows(step: Step) -> list[str]:
 
 
 def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
-    """The value with its unit in maths, and a note ("east", "an ideal lever, treated as
-    frictionless") after it as text: the card draws words beside its maths in the reading
-    font (``lib/math/answerLayout.ts``), never as maths letters (live, 2026-11-03)."""
+    """The value with its unit in maths, and a note after it in brackets: a short label
+    ("east") stays on the card, and a remark ("about 1.20√(gh); option A gives …") goes
+    in a sentence under it (``services.remark_after_answer``), its maths drawn as maths."""
     value = quantity_tex(tidy_tex(answer.value), answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
     named = answer.symbol and answer.symbol != answer.unit and not names_nothing(answer.symbol)
     symbol = tidy_symbol(answer.symbol) if named else ""
     shown = value if layout.law_heading or not symbol else f"{symbol} = {value}"
-    note = _NOT_MARKDOWN.sub("", answer.note).strip()
+    note = _TEX_RUN.sub(lambda tex: f"${tex.group()}$", _NOT_MARKDOWN.sub("", answer.note)).strip()
     return f"{math_line(shown)} ({note})" if note else math_line(shown)
 
 

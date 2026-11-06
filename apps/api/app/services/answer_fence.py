@@ -14,7 +14,7 @@ card. Model text never keeps it:
    ``Answer``, ``result`` / ``final``) to the plain column-0 form, so each
    subject's fence pass sees and demotes all of them, not only ``\\n```answer``.
 3. ``modules/chat/verification_claims`` drops the model's own "✅ Verified with SymPy",
-   and ``strip_model_simulation_fences`` its own ```simulation scene.
+   and ``chat.simulation_fences`` its own ```simulation scene.
 
 The server writes the line with ``verified_answer_fence`` (post-stream cards) and
 ``mark_server_answer_fences`` (an instant reply, once, when it is sent). ``land_answer_card``
@@ -34,6 +34,7 @@ from app.services.card_text import named_value, without_emphasis
 from app.services.card_value import final_answer_only
 from app.services.md_fence_scan import fence_lang as fence_lang
 from app.services.md_fence_scan import map_closed_fences, read_fence_marker
+from app.services.remark_after_answer import split_tail
 
 VERIFIED_ANSWER_MARKER = "verified: true"
 UNCHECKED_ANSWER_MARKER = "verified: false"  # a card no solver checked ("not checked")
@@ -50,7 +51,6 @@ OWNED_FENCE_LANGS = (*ANSWER_FENCE_LANGS, "simulation")
 _MARKER_SCRUB_LANGS = frozenset(
     {*ANSWER_FENCE_LANGS, "", "copy", "text", "plain", "clike", "math", "latex", "tex"}
 )
-_DIAGRAM_FAIL_NOTE = "*Could not render that diagram.*"
 
 
 def answer_header_and_value(body: str) -> tuple[list[str], str]:
@@ -427,7 +427,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
     """
     lines = text.split("\n")
     fences, inside = _scan(lines)
-    heading, same_line = -1, ""
+    heading, same_line, said = -1, "", ""
     for number, line in enumerate(lines):
         found = None if number in inside else answer_heading(line)
         if found is not None:
@@ -452,7 +452,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         parts = [v for _, v in values[shown:]] or [""]
         # Both roots read on one line (x = 2, x = -2): a card draws one line of maths.
         joined = parts[0] if len(parts) == 1 else ", ".join(" ".join(p.split()) for p in parts)
-        value = named_value(answer_header_and_value(joined)[1])
+        value, said = split_tail(named_value(answer_header_and_value(joined)[1]))
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
         # A card draws maths; "Paris" under a quiz's Answer, or a paragraph, stays prose.
@@ -466,23 +466,11 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
     while before and (not before[-1].strip() or answer_heading(before[-1]) == ""):
         before.pop()
     block = [*steps, *([""] if steps else []), *([above, ""] if above else [])]
-    block += [_HEADING_LINE, "", card]
+    block += [_HEADING_LINE, "", card, *(["", said] if said else [])]  # what's said, under it
     after = lines[end + 1 :]
     if after and after[0].strip():
         after = ["", *after]
     return "\n".join([*before, *([""] if before else []), *block, *after])
-
-
-def strip_model_simulation_fences(text: str) -> str:
-    """A ```simulation scene is solver-sampled. The model's own never ships."""
-    if "simulation" not in text.lower():
-        return text
-    normalized = normalize_owned_fences(text, ("simulation",))
-    stripped = map_closed_fences(normalized, "simulation", lambda _body: "")
-    if stripped == normalized:
-        return text
-    cleaned = re.sub(r"\n{3,}", "\n\n", stripped).strip()
-    return cleaned or _DIAGRAM_FAIL_NOTE
 
 
 def map_outside_fences(text: str, transform: Callable[[str], str]) -> str:
