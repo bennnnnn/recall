@@ -86,6 +86,15 @@ _SELF_LABEL = re.compile(
     r"[^:!?\n]*?[.!](?=\s|$)",
     re.IGNORECASE,
 )
+# An opening that narrates the message as said by "the user": "The user says "ok and like 5
+# common beginner mistakes i should avoid?" This is a factual list request, so I'll give five
+# … Numbered list, bold labels." opened a reply (2026-11-06). A reply speaks to the person;
+# talk about "the user" saying, asking or wanting is the model planning. The paragraph goes.
+_NARRATES_USER = re.compile(
+    r"the user(?:'s message)? (?:says|said|asks|asked|wants|wanted|writes|wrote|is asking"
+    r"|is requesting|requests|requested|needs|is looking for)\b",
+    re.IGNORECASE,
+)
 # A sentence that goes on about the one before it.
 _POINTS_BACK = re.compile(r"(?:it|this|that|they|these|those)\b", re.IGNORECASE)
 # The user's latest messages name these parts or ask about prompt writing.
@@ -209,6 +218,9 @@ def _without_self_label(text: str) -> str:
     stripped = text.lstrip()
     if stripped.startswith(_SKIPPED_STARTS) or stripped.startswith(("```", "~~~")):
         return text
+    plan, gap, rest = stripped.partition("\n\n")
+    if gap and rest.strip() and _NARRATES_USER.match(straighten_apostrophes(plan)):
+        return rest.lstrip("\n")
     label = _SELF_LABEL.match(straighten_apostrophes(stripped))
     if label is None:
         return text

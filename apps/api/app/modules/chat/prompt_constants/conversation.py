@@ -63,8 +63,26 @@ def repeated_greeting_hint(run: int, last_reply: str | None) -> str:
 CORRECTION_HINT = (
     "The user is correcting something you said or assumed earlier. Apply the correction to "
     "this answer and to the rest of the chat, and do not repeat the mistaken assumption. "
-    "Acknowledge it in a few words at most, without a long apology, then give the corrected "
-    "answer."
+    "When they are right, say sorry in a few plain words, then give the corrected answer."
+)
+
+# Every turn, judged by the model: "I said tell me about the first way u listed!" after a
+# reply that called "1" just a number got "The first way I listed was …", no sorry; "what??
+# i meant number 4 on ur list" got "Got it, you wanted …" (2026-11-06). The correction rule
+# above fires on its phrases ("no, I meant"); "I said …", "thats wrong" and "u misunderstood
+# me" are corrections too, so owning a mistake is not left to a phrase list. Given a phrase
+# to say, the model said it word for word, also when it had been right ("thats wrong tho, list
+# isnt a builtin" got "Sorry, I misread that."): it checks first, and words it itself. Read
+# from the system prompt, far from the message, the free plan's model conceded a right answer
+# ("Fair point …"): it sits beside every message that follows a reply (``message_notes``).
+OWN_MISTAKE_HINT = (
+    'If this message says you took it the wrong way ("I meant …", "not that one"), '
+    "they know what they meant: open with a short apology in your own words, then answer "
+    "what they meant. If it says a fact or answer of yours is wrong, first check: if it is, "
+    'apologise briefly and correct it; if it is not, do not apologise or concede ("fair '
+    'point" included): thank them for checking and explain in a sentence or two why it '
+    "stands. When they sound frustrated or worried, answer the feeling in one sentence "
+    "first, as a person would, then help."
 )
 
 CONTINUE_HINT = (
