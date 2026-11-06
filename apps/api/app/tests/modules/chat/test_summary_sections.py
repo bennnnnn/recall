@@ -57,6 +57,19 @@ def test_over_the_cap_the_oldest_lines_are_shortened_never_dropped() -> None:
     assert topics[0].endswith("…") and topics[-1] == "Newest. Outcome: done."
 
 
+def test_a_chat_with_more_topics_than_the_cap_holds_keeps_the_newest_and_open() -> None:
+    # Review of #2305: lines shortened to 90 characters still overran the cap, and the cut
+    # after it took the newest topics and the Open line.
+    old = "Facts: f\nTopics:\n" + "\n".join(f"Topic {n}. " + "word " * 40 for n in range(200))
+    fresh = "Facts: " + "fact " * 2000 + "\nTopics: Newest. Outcome: done.\nOpen: Pick a date."
+    text = merged(old, fresh, 6000)
+    read = sections(text)
+    assert len(text) <= 6000
+    assert read["Topics"][-1] == "Newest. Outcome: done."
+    assert read["Open"] == ["Pick a date."]
+    assert len(read["Topics"]) > 100  # the oldest are cut to a subject before any goes
+
+
 @pytest.mark.asyncio
 async def test_a_topic_outlives_many_folds() -> None:
     from app.modules.chat.summarize import summarize_conversation
