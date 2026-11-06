@@ -564,6 +564,7 @@
   "privacy.title": "Politique de confidentialité",
   "reminders.badge_accessibility": "Tâches, {{count}} pour aujourd’hui ou en retard",
   "rich.answer_a11y": "Réponse : {{text}}",
+  "rich.answer_jump_hint": "Fait défiler jusqu’à la réponse complète",
   "rich.answer_label": "Réponse",
   "rich.answer_part_label": "Réponse ({{part}})",
   "rich.arc_length": "Longueur de l’arc :",
