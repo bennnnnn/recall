@@ -1,11 +1,13 @@
-"""LLM rolling chat summary (prompt + transport call)."""
+"""LLM rolling chat summary (prompt + transport call); its topic lines are kept by code
+(``summary_sections``), so a fold never drops an earlier topic."""
 
 from __future__ import annotations
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
 from app.models.routing_lanes import ROUTING
-from app.modules.chat.context_window import SUMMARY_SYSTEM_PROMPT, cap_summary
+from app.modules.chat.context_window import SUMMARY_MAX_CHARS, SUMMARY_SYSTEM_PROMPT, cap_summary
+from app.modules.chat.summary_sections import merged
 
 
 async def summarize_conversation(
@@ -32,4 +34,6 @@ async def summarize_conversation(
         messages=msgs,
         max_tokens=settings.summary_max_tokens,
     )
-    return cap_summary(text) if text else None
+    if not text:
+        return None
+    return cap_summary(merged(prior_summary, text, SUMMARY_MAX_CHARS))

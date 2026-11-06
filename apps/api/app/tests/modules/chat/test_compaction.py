@@ -290,8 +290,9 @@ def test_summary_system_prompt_keeps_topics_in_order_and_short():
 
     # A 36-message chat once saved a summary cut off mid-sentence, with the middle topics
     # gone: the model was never asked to stay short, so it ran out of tokens.
-    assert "oldest first" in SUMMARY_SYSTEM_PROMPT
-    assert "under 300 words" in SUMMARY_SYSTEM_PROMPT
+    # The model writes only the new messages' topics; earlier lines are kept by code.
+    assert "NEW messages only" in SUMMARY_SYSTEM_PROMPT
+    assert "under 200 words" in SUMMARY_SYSTEM_PROMPT
     assert NEWEST_FIGURE_RULE in SUMMARY_SYSTEM_PROMPT
     # An invented "Open: user considering sleeping 6-7 hours" later came back as something
     # the assistant had asked.

@@ -8,6 +8,7 @@ about; sending the literal words searched for "do a search".
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.core.config import Settings
@@ -29,7 +30,12 @@ from app.modules.web_search.query_builders import (
 )
 from app.modules.web_search.release_asks import release_search_query
 from app.modules.web_search.subject import collect_prior_user_messages
-from app.services.conversation_reference import resolve_reference, turns_from_prompt
+from app.modules.web_search.weather import around_the_user
+from app.services.conversation_reference import (
+    resolve_reference,
+    summary_from_prompt,
+    turns_from_prompt,
+)
 from app.services.text_normalize import fold_token
 
 # Words that stand for someone or something named earlier in the chat.
@@ -75,6 +81,20 @@ def points_back(text: str, prior_user_messages: list[str] | None) -> bool:
     return len(words) <= _SHORT_FOLLOWUP_WORDS and any(w in _REFERENCE_WORDS for w in words)
 
 
+# "From here", "is it raining here": the user's own place, whatever the chat was about.
+_HERE = re.compile(r"\bhere\b(?!'s|\s+(?:is|are)\b)", re.IGNORECASE)
+
+
+def points_back_in_chat(text: str, messages: list[dict[str, Any]]) -> bool:
+    """``text`` needs the chat to say what it is about: "whats the weather like there now"
+    after talk of a Zanzibar trip asks about Zanzibar, not the user's location. A message
+    about the user's own place ("how far is it to the airport from here?") does not."""
+    cleaned = collapse_ws(text)
+    if _HERE.search(cleaned) or around_the_user(cleaned):
+        return False
+    return points_back(cleaned, collect_prior_user_messages(messages, text))
+
+
 async def search_queries_for_turn(
     settings: Settings,
     user_text: str,
@@ -106,6 +126,7 @@ async def search_queries_for_turn(
             kind="search",
             request=cleaned,
             turns=turns_from_prompt(messages),
+            earlier=summary_from_prompt(messages),
         )
         if resolved:
             return [resolved]

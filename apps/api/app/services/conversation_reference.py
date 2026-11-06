@@ -65,6 +65,31 @@ def turns_from_prompt(messages: Iterable[dict[str, Any]]) -> list[Turn]:
     return turns
 
 
+# The rolling summary's place in the prompt (``chat.prompt_sections``, the summary block).
+_SUMMARY_HEAD = "Summary of earlier conversation:\n"
+_SUMMARY_END = "\n[END UNTRUSTED CONTENT"
+_MAX_SUMMARY_CHARS = 1500
+
+
+def summary_from_prompt(messages: Iterable[dict[str, Any]]) -> str | None:
+    """The chat's rolling summary as the prompt carries it, or None: what a long chat said
+    before its recent window. "whats the weather like there now" thirty turns into a chat
+    about a Zanzibar trip searched its own words, since the trip was only in the summary
+    (2026-11-06)."""
+    for message in messages:
+        content = message.get("content")
+        if message.get("role") != "system" or not isinstance(content, str):
+            continue
+        start = content.find(_SUMMARY_HEAD)
+        if start < 0:
+            continue
+        body = content[start + len(_SUMMARY_HEAD) :]
+        end = body.find(_SUMMARY_END)
+        text = (body if end < 0 else body[:end]).strip()
+        return text[:_MAX_SUMMARY_CHARS] or None
+    return None
+
+
 def turns_from_rows(rows: Iterable[Any]) -> list[Turn]:
     """User and assistant turns from stored message rows, oldest first."""
     turns: list[Turn] = []
@@ -112,8 +137,10 @@ async def resolve_reference(
     kind: ReferenceKind,
     request: str,
     turns: Sequence[Turn],
+    earlier: str | None = None,
 ) -> str | None:
-    """The search query or photo subject *request* means, or None."""
+    """The search query or photo subject *request* means, or None. ``earlier``: the chat's
+    summary of what came before the turns."""
     lines = _conversation(turns, request)
     if not lines:
         return None
@@ -135,7 +162,8 @@ async def resolve_reference(
                     {
                         "role": "user",
                         "content": (
-                            "Conversation:\n"
+                            (f"Earlier in this chat (summary):\n{earlier}\n\n" if earlier else "")
+                            + "Conversation:\n"
                             + "\n".join(lines)
                             + f"\n\nLatest message: {collapse_ws(request)[:300]}"
                         ),

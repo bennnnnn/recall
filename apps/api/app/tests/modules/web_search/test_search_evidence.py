@@ -220,10 +220,13 @@ def test_the_tool_offers_recent_and_asks_for_no_year_in_the_query() -> None:
     [
         # A legal standing is always cut: matching words cleared contradicted ones (review).
         ("Acme is licensed in Spain", "legal", True),
-        ("Acme is licensed in Spain", "status", True),
+        # "status" is not offered; one the checker still writes is a detail.
+        ("December is the dry season", "status", False),
         # A figure a page states stays; one no page states goes.
         ("at least 76 people died", "figure", False),
         ("at least 90 people died", "figure", True),
+        # Partly sourced: 76 is on the page, the hour is not; the sentence stays.
+        ("76 deaths by 10 AM", "figure", False),
         ("about three million people", "figure", False),
         # An attribution or a detail never costs the answer.
         ("beating defending champions Brazil", "other", False),

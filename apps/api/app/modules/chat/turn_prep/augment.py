@@ -283,7 +283,9 @@ async def augment_after_prompt(
         or SubjectFollowup()
     )
     if instant_reply is None:
-        instant_reply = location_not_set_reply(request.content, identity.geo, followup)
+        instant_reply = location_not_set_reply(
+            request.content, identity.geo, followup, role_content_dicts(prompt_messages)
+        )
     augmented = await gather_and_inject(
         request,
         identity,
