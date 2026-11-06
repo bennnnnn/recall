@@ -18,15 +18,18 @@ from __future__ import annotations
 
 import re
 
-_MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)|\\\[.*?\\\]", re.DOTALL)
+# An escaped dollar inside maths ("$M = \\$1{,}073.64$") does not close it.
+_MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$(?:\\.|[^$\\\n])*\$|\\\(.*?\\\)|\\\[.*?\\\]", re.DOTALL)
 _WORD = re.compile(r"[^\W\d_]{3,}")
-# A value written without maths marks: "v = 4 m/s", "x ≈ 3".
-_BARE_START = re.compile(r"\s*[^\W\d_]{1,3}(?:_\{?\w+\}?)?\s*[=\u2248]")
+# A value written without maths marks: "v = 4 m/s", "x ≈ 3", "Speed = 4 m/s".
+_BARE_START = re.compile(r"\s*[^\W\d_]+(?:_\{?\w+\}?)?\s*[=\u2248]")
 # Where a remark may begin: a clause mark, a bracket (a short label is skipped), or a word
-# that opens a clause. "1,073.64" and "3:30" are numbers, not breaks.
+# that opens a clause. "1,073.64", "3:30" and ", 30° north of east" go on with the value,
+# and so does "as well as".
 _BREAK = re.compile(
-    r"[;\u2014\u2013]|,(?!\d)|:(?!\d)|\s-\s|\.(?=\s|$)|\("
-    r"|\b(?:since|because|so|which|as|while|whereas|but|though|although|meaning|giving"
+    r"[;\u2014\u2013]|,(?!\s*\d)|:(?!\d)|\s-\s|\.(?=\s|$)|\("
+    r"|\b(?:(?<!well\s)as(?!\s+well\s+as\b))\b"
+    r"|\b(?:since|because|so|which|while|whereas|but|though|although|meaning|giving"
     r"|hence|thus|therefore|compared|unlike)\b",
     re.IGNORECASE,
 )

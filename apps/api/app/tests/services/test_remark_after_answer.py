@@ -59,6 +59,12 @@ from app.services.remark_after_answer import split_tail
         ("$x = 3$ and so $y = 4$", "$x = 3$", "And so $y = 4$."),
         ("$x = 3$ m/s since the net force is zero", "$x = 3$ m/s", "Since the net force is zero."),
         ("$v = 4$ m/s. It slows down as it climbs.", "$v = 4$ m/s", "It slows down as it climbs."),
+        # Second review round of #2303.
+        ("$M = \\$1{,}073.64$ per month", "$M = \\$1{,}073.64$ per month", ""),
+        ("$v = 8$ m/s, 30° north of east", "$v = 8$ m/s, 30° north of east", ""),
+        ("$x = 2$ as well as $x = 3$", "$x = 2$ as well as $x = 3$", ""),
+        ("Speed = 4 m/s, since it starts from rest", "Speed = 4 m/s", "Since it starts from rest."),
+        ("$x = 3$ as expected", "$x = 3$", "As expected."),
         # A value written without maths marks.
         ("x = 3, since 3 > 2", "x = 3", "Since 3 > 2."),
         ("v = 4 m/s; it slows as it climbs", "v = 4 m/s", "It slows as it climbs."),
