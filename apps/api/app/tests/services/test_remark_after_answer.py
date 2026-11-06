@@ -36,6 +36,9 @@ from app.services.remark_after_answer import split_tail
             "$V = 5$ cubic centimeters",
             "About a teaspoon.",
         ),
+        # The maths carried on outside the dollars stays whole (review of #2303).
+        ("$F$ = 10 newtons", "$F$ = 10 newtons", ""),
+        ("$x$ ≈ 3.2 m", "$x$ ≈ 3.2 m", ""),
         # Values joined by a bare "and" or "or" stay together (review of #2303).
         ("$x = 3$ and $y = 4$", "$x = 3$ and $y = 4$", ""),
         ("$x = 2$ or $x = -2$", "$x = 2$ or $x = -2$", ""),

@@ -26,6 +26,9 @@ _LABEL_WORDS = 3
 # What may stand between two values the card keeps: marks, or one bare "and", "or" or
 # "then" ("$x = 3$ and $y = 4$", review of #2303).
 _JOINS = re.compile(r"[\s,;]*(?:(?:and|or|then)\b[\s,;]*)?", re.IGNORECASE)
+# What follows the maths carries the maths on ("$F$ = 10 newtons", "$x$ ≈ 3.2"): the value
+# was written partly outside the dollars, and the card keeps it whole (review of #2303).
+_GOES_ON = re.compile(r"\s*[=<>\u2248\u2260\u2264\u2265+\u00d7\u00b7*/^\d]")
 _WRAPPED = re.compile(r"^\((?P<inner>[^()]*(?:\([^()]*\)[^()]*)*)\)\.?$")
 
 
@@ -68,6 +71,8 @@ def split_tail(value: str) -> tuple[str, str]:
             break
         end = span.end()
     rest = value[end:]
+    if _GOES_ON.match(rest):
+        return value, ""
     unit_end = _unit_end(rest.lstrip())
     if unit_end:
         end += len(rest) - len(rest.lstrip()) + unit_end
