@@ -11,10 +11,10 @@ from pydantic import BaseModel, Field
 class WebSearchToolInput(BaseModel):
     query: str = Field(min_length=1, max_length=500)
     recent: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "true when the answer is how things stand now (standings, prices, news, who "
-            "holds a post, the latest version): only pages from the last year are searched"
+            "Only pages from the last year are searched, for how things stand now. false "
+            "only for a question about the past (an earlier year, a historical event)"
         ),
     )
 

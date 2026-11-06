@@ -123,6 +123,7 @@ async def run_cached_search(
     redis: Redis | None = None,
     budget: TavilyBudget | None = None,
     dated: bool = False,
+    recent: bool = False,
 ) -> tuple[list[WebSearchHit], list[str]]:
     """Public cached + quota-aware search (heuristic augment and MCP tool loop).
 
@@ -131,9 +132,11 @@ async def run_cached_search(
     *budget* is the turn's reservation when the turn may search more than once.
     *dated*: the ask is about now (``recency.wants_dated_results``); every query keeps to
     pages from the last year, and the first also runs as a news search, on the same
-    reservation.
+    reservation. *recent*: keep to the last year without the news search.
     """
-    return await _run_search(settings, queries, user=user, redis=redis, budget=budget, dated=dated)
+    return await _run_search(
+        settings, queries, user=user, redis=redis, budget=budget, dated=dated, recent=recent
+    )
 
 
 async def _run_search(
@@ -144,6 +147,7 @@ async def _run_search(
     redis: Redis | None = None,
     budget: TavilyBudget | None = None,
     dated: bool = False,
+    recent: bool = False,
 ) -> tuple[list[WebSearchHit], list[str]]:
     limit = max(1, min(settings.web_search_max_results, 10))
     if not queries:
@@ -178,7 +182,7 @@ async def _run_search(
                     budget=budget,
                     user=user,
                     redis=redis,
-                    recent=dated,
+                    recent=dated or recent,
                 )
                 for query in queries
             )

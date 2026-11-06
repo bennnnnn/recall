@@ -17,6 +17,7 @@ from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat import claim_check
 from app.modules.chat.claim_check import cut_unsupported_claims
+from app.modules.chat.claim_evidence import costs_its_sentence, figures
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
@@ -78,7 +79,7 @@ def _verdict(*quotes: str, note: str = "") -> claim_check._Verdict:
             claim_check._Claim(
                 quote=q,
                 topic="a levy",
-                kind="figure" if claim_check._figures(q) else "status",
+                kind="figure" if figures(q) else "legal",
             )
             for q in quotes
         ],
@@ -439,3 +440,14 @@ async def test_a_doubtful_attribution_or_detail_never_costs_the_answer(
         unsupported=[claim_check._Claim(quote="the French heavyweight", kind=kind)]
     )
     assert await _run(_state(reply), verdict) == reply
+
+
+def test_the_checker_names_only_a_legal_standing_as_cuttable() -> None:
+    """2026-11-05: "beat defending champions Brazil" was labelled a "status" and cut. The
+    checker is offered "legal" (licensed, banned, reinstated), not "status"."""
+    assert "kind is figure, legal (licensed" in claim_check._SYSTEM
+    assert "status" not in claim_check._SYSTEM.split("kind is", 1)[1].split("note is", 1)[0]
+
+
+def test_a_figure_claim_written_in_words_is_never_cut() -> None:
+    assert costs_its_sentence("about three million people", "figure", []) is False

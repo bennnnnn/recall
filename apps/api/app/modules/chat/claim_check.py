@@ -15,8 +15,8 @@ saying what was left out. A check that fails, times out or flags most of the rep
 changes nothing: it never costs the user an answer.
 
 The checker sees the pages as the reply read them, and names what kind of claim each is.
-Only two kinds cost a sentence: a figure no page states (the code reads the pages, not the
-checker) and a legal or regulatory status. On 2026-11-05 a cheap checker cut "at least 76
+Only two kinds cost a sentence, a figure and a legal standing, and only when no page states
+it: the code reads the pages, not the checker (its figures, or most of its words). On 2026-11-05 a cheap checker cut "at least 76
 deaths" under a World Vision page that said "At least 76 people confirmed died", and the
 reply began "Some people were still missing, so the total could rise"; it cut "Ciryl Gane
 is the UFC heavyweight champion" for the nationality beside it, and the reply began "He won
@@ -34,8 +34,9 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, Field
 
 from app.gateways.structured_completion import complete_structured
-from app.gateways.web_search_gateway import SNIPPET_CHARS, WebSearchHit
+from app.gateways.web_search_gateway import SNIPPET_CHARS
 from app.models.routing_lanes import ROUTING
+from app.modules.chat.claim_evidence import costs_its_sentence
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.stream_status import announced_if_slow
 from app.services.text_normalize import collapse_ws
@@ -78,8 +79,9 @@ _SYSTEM = (
     "estimates, and what the reply says it could not find.\n\n"
     'Return JSON: {"unsupported": [{"quote": ..., "topic": ..., "kind": ...}], "note": ...}. '
     "quote is the shortest span copied exactly from the reply that holds the claim. "
-    "topic is 2 to 8 words naming what was claimed. kind is figure, status (a legal or "
-    "regulatory status), attribution, or other. note is one short sentence to the "
+    "topic is 2 to 8 words naming what was claimed. kind is figure, legal (licensed, "
+    "banned, approved, reinstated or safe to use under a law or regulator), attribution, "
+    "or other. note is one short sentence to the "
     "user, in the language of the reply, saying you could not confirm those details from "
     "the sources found and left them out; never number a source or name the reply. Use an "
     "empty list and an empty note when every claim is supported."
@@ -89,7 +91,8 @@ _SYSTEM = (
 class _Claim(BaseModel):
     quote: str = Field(min_length=3, max_length=300)
     topic: str = Field(default="", max_length=100)
-    kind: Literal["figure", "status", "attribution", "other"] = "other"
+    # "status" is what the checker called "legal" before (2026-11-05); it is read the same.
+    kind: Literal["figure", "legal", "status", "attribution", "other"] = "other"
 
 
 class _Verdict(BaseModel):
@@ -345,45 +348,6 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     return map_prose_outside_fences(text, rewrite), len(handled)
 
 
-_FIGURE = re.compile(r"\d+(?:[.,]\d+)*")
-_GROUPED = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?")
-_A_YEAR = re.compile(r"(?:19|20)\d\d")
-
-
-def _figures(text: str) -> set[str]:
-    """The numbers ``text`` states, "1,600" as "1600"; a year alone dates, it states nothing."""
-    found = set()
-    for figure in _FIGURE.findall(text):
-        figure = figure.rstrip(".,")
-        if _GROUPED.fullmatch(figure):
-            figure = figure.replace(",", "")
-        if not _A_YEAR.fullmatch(figure):
-            found.add(figure)
-    return found
-
-
-def _costs_its_sentence(claim: _Claim, pages: list[WebSearchHit]) -> bool:
-    """A figure no page states, or a legal or regulatory status: what a reader would act on
-    and what a page would have said. An attribution or a detail beside the answer is not
-    worth the sentence that carries the answer."""
-    if claim.kind == "status":
-        return True
-    return (
-        claim.kind == "figure"
-        and bool(_figures(claim.quote))
-        and not _stated_by_a_page(claim.quote, pages)
-    )
-
-
-def _stated_by_a_page(quote: str, pages: list[WebSearchHit]) -> bool:
-    """Whether one page states every figure in ``quote``: a cheap checker's "unsupported"
-    is then its own misreading, and cutting it costs the user a sourced answer."""
-    figures = _figures(quote)
-    return bool(figures) and any(
-        figures <= _figures(f"{page.title} {page.snippet[:SNIPPET_CHARS]}") for page in pages
-    )
-
-
 async def _verdict(state: FinalizeState) -> _Verdict | None:
     settings = state.settings
     messages = [
@@ -440,7 +404,7 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
     if verdict is None:
         return text
     pages = ctx.search_sources[:_MAX_HITS]
-    claims = [c for c in verdict.unsupported if _costs_its_sentence(c, pages)]
+    claims = [c for c in verdict.unsupported if costs_its_sentence(c.quote, c.kind, pages)]
     if not claims:
         return text
     quotes = [claim.quote for claim in claims]

@@ -82,7 +82,8 @@ class WebSearchAdapter:
             "user's clock). The query must stand alone: spell out who or what "
             "the conversation is about (a full name, a place), never 'it', 'her' or 'do a "
             "search'. Write it as a person types into a search engine, with no month or "
-            "year unless the question names one: set recent for how things stand now."
+            "year unless the question names one; set recent to false for a question about "
+            "the past."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -118,10 +119,13 @@ class WebSearchAdapter:
             user=ctx.user,
             redis=ctx.redis,
             budget=ctx.tavily_budget,
-            # The model says when the answer is how things stand now; the user's words
-            # say it too ("latest", "right now"). "Premier League table current leader
-            # November 2026" found betting sites' August tables (2026-11-05).
-            dated=args.get("recent") is True or wants_dated_results(user_query),
+            # The tool is for what changes, so its pages are from the last year unless the
+            # model says the question is about the past: "who is top of the premier league
+            # table" named no time, was searched with none, and read a mid-October table
+            # (2026-11-05). The news search beside it stays for asks about now in the
+            # user's words ("latest", "right now"); it costs a second search.
+            dated=wants_dated_results(user_query),
+            recent=args.get("recent") is not False,
         )
         if news_today:
             hits = filter_hits_to_today(hits, ctx.user_timezone)
