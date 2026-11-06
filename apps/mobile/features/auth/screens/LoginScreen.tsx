@@ -21,11 +21,10 @@ import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { type LoginProvider, useLoginActions } from "@/features/auth/hooks/useLoginActions";
 import { AI_CONSENT_ROUTE, needsAiDataConsent } from "@/features/auth/model/aiConsent";
+import { AgreeLine } from "@/features/auth/components/AgreeLine";
 import { shouldShowAppleSignInButton } from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { isExpoGo } from "@/lib/google-auth";
-import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
-import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Space } from "@/lib/space";
 import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
@@ -39,8 +38,6 @@ import { Radius } from "@/lib/radius";
 const GLASS_WHITE = "#FFFFFF";
 
 const APP_ICON = require("@/assets/images/icon.png");
-/** A 12pt link line is about 17pt tall: this makes it a 45pt target, short of the next link. */
-const LEGAL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
 
 const HIGHLIGHTS = [
   { icon: "graduation-cap" as const, labelKey: "login.highlight_learn" },
@@ -200,28 +197,9 @@ export default function LoginScreen() {
             </>
           )}
 
-          {/* Apple 5.1.2(i): the disclosure sits under the buttons and a tap is the
-              agreement (features/auth/api.ts sends it with the sign-in). */}
-          <Text style={s.consentLine}>{t("login.consent_line")}</Text>
-          <View style={s.links}>
-            <Pressable
-              onPress={() => void openAllowedUrl(getLegalTermsUrl())}
-              accessibilityRole="link"
-              accessibilityLabel={t("login.terms")}
-              hitSlop={LEGAL_LINK_SLOP}
-            >
-              <Text style={[s.link, s.linkPressable]}>{t("login.terms")}</Text>
-            </Pressable>
-            <Text style={s.dot} accessibilityElementsHidden importantForAccessibility="no">·</Text>
-            <Pressable
-              onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
-              accessibilityRole="link"
-              accessibilityLabel={t("login.privacy")}
-              hitSlop={LEGAL_LINK_SLOP}
-            >
-              <Text style={[s.link, s.linkPressable]}>{t("login.privacy")}</Text>
-            </Pressable>
-          </View>
+          {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
+              the sign-in); the Privacy Policy says what the AI providers receive. */}
+          <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
         </View>
       </AuthScrollLayout>
     </LinearGradient>
@@ -376,17 +354,8 @@ function makeStyles(theme: Theme) {
       ...Weight.regular,
       color: theme.textSecondary,
       textAlign: "center",
-      paddingHorizontal: Space.xs,
-    },
-    links: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xs,
-      marginTop: 2,
     },
     link: { ...Type.caption, ...Weight.regular, color: theme.primary },
     linkPressable: { textDecorationLine: "underline" },
-    dot: { ...Type.caption, ...Weight.regular, color: theme.textTertiary },
   });
 }

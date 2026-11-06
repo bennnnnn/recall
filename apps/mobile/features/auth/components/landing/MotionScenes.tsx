@@ -149,7 +149,7 @@ function makeStyles(theme: Theme) {
       borderRightWidth: 3,
       borderBottomRightRadius: Radius.md,
     },
-    photo: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+    photo: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
     sweep: {
       position: "absolute",
       top: 0,

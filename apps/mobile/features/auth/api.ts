@@ -21,7 +21,7 @@ import { deviceSessionFields } from "@/lib/deviceSession";
 /**
  * Every sign-in starts from a button on the sign-in page, under the line saying that
  * continuing agrees to the Terms, the Privacy Policy and outside AI processing
- * (`login.consent_line`): the tap is the agreement, and the server records it with the
+ * (`login.agree_line`: the Terms and the Privacy Policy, which says what the AI providers receive): the tap is the agreement, and the server records it with the
  * sign-in, so the reply comes back agreed. Only those buttons call these functions.
  */
 const AGREED_BY_SIGNING_IN = { ai_data_consent: true } as const;
