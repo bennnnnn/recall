@@ -13,7 +13,12 @@ from typing import Any
 
 from app.core.config import Settings
 from app.modules.web_search.command import search_command
-from app.modules.web_search.geo_intent import is_geo_query, is_proximity_query
+from app.modules.web_search.geo_intent import (
+    is_distance_query,
+    is_geo_query,
+    is_proximity_query,
+    names_its_place,
+)
 from app.modules.web_search.officeholder import office_with_subject, office_without_place
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
@@ -83,25 +88,36 @@ def points_back(text: str, prior_user_messages: list[str] | None) -> bool:
 
 # "From here", "is it raining here": the user's own place, whatever the chat was about.
 _HERE = re.compile(r"\bhere\b(?!'s|\s+(?:is|are)\b)", re.IGNORECASE)
-# "There" points at a place said earlier; "is there a pharmacy …" and "there's a ramen
-# place …" point at none.
+# "There" points at a place said earlier; "is there a pharmacy …", "there's a ramen place
+# …", "hi there" and "out there" point at none.
 _THERE = re.compile(r"\bthere\b", re.IGNORECASE)
-_EXISTENTIAL_THERE = re.compile(
-    r"\b(?:(?:is|are|was|were)\s+there|there(?:'s|\s+(?:is|are|was|were)))\b", re.IGNORECASE
+_NO_PLACE_THERE = re.compile(
+    r"\b(?:(?:is|are|was|were)\s+there|there(?:'s|\s+(?:is|are|was|were))"
+    r"|(?:hi|hey|hello|thanks|thank\s+you)\s+there|out\s+there)\b",
+    re.IGNORECASE,
 )
 
 
 def points_back_in_chat(text: str, messages: list[dict[str, Any]]) -> bool:
     """``text`` asks about a place the chat named: "whats the weather like there now" after
-    talk of a Zanzibar trip asks about Zanzibar, not the user's location. Only "there" points
-    at a place; "it" or "that" names a thing, so "how far is it to the airport" still needs
-    the user's location (review of #2305), as does a message about their own place."""
+    talk of a Zanzibar trip asks about Zanzibar, not the user's location.
+
+    Three things must hold (reviews of #2305): "there" points at a place ("it" names a
+    thing, "is there" and "hi there" name nothing); an earlier message names one by its
+    proper name; and the question needs no place of the user's own, as a message about
+    their surroundings or a trip ("how long to get there") does.
+    """
     cleaned = collapse_ws(text)
     if _HERE.search(cleaned) or around_the_user(cleaned) or is_proximity_query(cleaned):
         return False
-    if not _THERE.search(_EXISTENTIAL_THERE.sub(" ", cleaned)):
+    if is_distance_query(cleaned) or not _THERE.search(_NO_PLACE_THERE.sub(" ", cleaned)):
         return False
-    return bool(collect_prior_user_messages(messages, text))
+    earlier = [
+        str(message.get("content") or "")
+        for message in messages[:-1]
+        if message.get("role") in {"user", "assistant"}
+    ]
+    return any(names_its_place(line) for line in earlier)
 
 
 async def search_queries_for_turn(
