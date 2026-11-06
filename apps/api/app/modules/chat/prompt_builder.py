@@ -220,14 +220,14 @@ async def _context_plan(
         slim=minimal_personal_context or lightweight or not rich_context,
         load_memory=memory_on and (personal_context or work_memory or recalls_past),
         recalls_shared_past=recalls_past,
-        # Earlier chats before the reply only when the message refers back to one; any other
-        # turn reads saved memory, and its model may call ``recall_chats``. Loaded for every
-        # personal turn, a camping chat's "what can we cook" got an old recipe chat's
-        # ingredients as "you're bringing those anyway", and a new landlord email copied an
-        # old chat's draft, kitchen sink and all (2026-11-06).
+        # Earlier chats before the reply only when the message refers back to one, or to all
+        # they said ("what do you know about me"); any other turn reads saved memory, and its
+        # model may call ``recall_chats``. Loaded for every personal turn, a camping chat's
+        # "what can we cook" got an old recipe chat's ingredients as "you're bringing those
+        # anyway", and a new landlord email copied an old chat's draft (2026-11-06).
         history_rag=bool(
             memory_on
-            and recalls_past
+            and (recalls_past or (minimal_personal_context and not lightweight))
             and settings.chat_history_rag_enabled
             and query_text
             and query_text.strip()
