@@ -46,16 +46,9 @@ def costs_its_sentence(quote: str, kind: str, pages: list[WebSearchHit]) -> bool
     # that a page partly states is sourced: "28°C … until 10 AM" lost the temperature over
     # an hour no page gave, and the weather reply opened "That's the closest thing I have"
     # (2026-11-06). Only a figure no page holds any number of was made up.
-    return kind == "figure" and bool(stated) and not _any_on_a_page(stated, pages)
+    return kind == "figure" and bool(stated) and not any_on_a_page(stated, pages)
 
 
-def stated_by_a_page(wanted: set[str], pages: list[WebSearchHit]) -> bool:
-    """Whether one page holds every figure in ``wanted``; no figures, nothing stated."""
-    return bool(wanted) and any(
-        wanted <= figures(f"{page.title}\n{page.snippet[:SNIPPET_CHARS]}") for page in pages
-    )
-
-
-def _any_on_a_page(wanted: set[str], pages: list[WebSearchHit]) -> bool:
+def any_on_a_page(wanted: set[str], pages: list[WebSearchHit]) -> bool:
     """Whether some page holds one of the figures in ``wanted``."""
     return any(wanted & figures(f"{page.title}\n{page.snippet[:SNIPPET_CHARS]}") for page in pages)
