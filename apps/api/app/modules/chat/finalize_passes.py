@@ -90,6 +90,7 @@ from app.modules.chat.json_output import check_requested_json
 from app.modules.chat.lesson_again import keep_to_lesson_again_pass
 from app.modules.chat.lesson_shape import hold_lesson_shape
 from app.modules.chat.meta_notes import unwrap_meta_notes
+from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
@@ -231,6 +232,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         after=frozenset({"untrusted_media"}),
     ),
     FinalizePass("generic_closer", strip_generic_closer, kind=TEXT),
+    FinalizePass("praise_opener", strip_praise_opener, kind=TEXT),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), kind=TEXT),
     FinalizePass("prompt_leaks", drop_prompt_leaks_pass, closed=drop_prompt_lines, kind=TEXT),
     FinalizePass("self_attribution", lambda s: drop_self_attribution(s.text), kind=TEXT),
