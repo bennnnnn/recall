@@ -36,6 +36,31 @@ type Props = {
   align?: "start" | "center";
 };
 
+/** What MathJax could not convert: the same formula in readable native maths. */
+function FallbackMath({ latex, textColor, em, align }: Required<Omit<Props, "minHeight">>) {
+  const justify = align === "start" ? styles.alignStart : null;
+  return (
+    <View style={[styles.wrap, styles.fallbackBox]} testID="math-svg-fallback">
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator
+        contentContainerStyle={[styles.lineScroll, justify]}
+      >
+        {latexHasNestedMathView(latex) ? (
+          <View style={[styles.nestedRow, justify]}>
+            <MathText latex={latex} textColor={textColor} fontSize={em} />
+          </View>
+        ) : (
+          <Text style={[styles.line, align === "start" && styles.lineStart]} selectable>
+            <MathText latex={latex} textColor={textColor} fontSize={em} />
+          </Text>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
 /** A conversion and the latex it belongs to (`undefined` while it runs). */
 type Loaded = { latex: string; result: SvgMathResult | null | undefined };
 
@@ -103,27 +128,7 @@ export const MathSvgView = React.memo(function MathSvgView({
   }
 
   if (result === null || ast == null) {
-    const hasNestedView = latexHasNestedMathView(latex);
-    return (
-      <View style={[styles.wrap, styles.fallbackBox]} testID="math-svg-fallback">
-        <ScrollView
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator
-          contentContainerStyle={[styles.lineScroll, justify]}
-        >
-          {hasNestedView ? (
-            <View style={[styles.nestedRow, justify]}>
-              <MathText latex={latex} textColor={textColor} fontSize={em} />
-            </View>
-          ) : (
-            <Text style={[styles.line, align === "start" && styles.lineStart]} selectable>
-              <MathText latex={latex} textColor={textColor} fontSize={em} />
-            </Text>
-          )}
-        </ScrollView>
-      </View>
-    );
+    return <FallbackMath latex={latex} textColor={textColor} em={em} align={align} />;
   }
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
