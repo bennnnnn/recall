@@ -30,6 +30,9 @@ _TRIP = [
         ("is there a pharmacy nearby", False),
         ("is there a good ramen place open", False),
         ("is there still a ferry there", True),
+        # "It" or "that" names a thing, not a place (review of #2305).
+        ("how far is it to the airport", False),
+        ("is it raining today", False),
     ],
 )
 def test_a_place_question_points_back_at_the_chat(message: str, back: bool) -> None:

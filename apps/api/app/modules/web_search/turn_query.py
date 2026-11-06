@@ -83,23 +83,25 @@ def points_back(text: str, prior_user_messages: list[str] | None) -> bool:
 
 # "From here", "is it raining here": the user's own place, whatever the chat was about.
 _HERE = re.compile(r"\bhere\b(?!'s|\s+(?:is|are)\b)", re.IGNORECASE)
-# "Is there a pharmacy …", "there's a ramen place …": "there" that points at no place.
+# "There" points at a place said earlier; "is there a pharmacy …" and "there's a ramen
+# place …" point at none.
+_THERE = re.compile(r"\bthere\b", re.IGNORECASE)
 _EXISTENTIAL_THERE = re.compile(
     r"\b(?:(?:is|are|was|were)\s+there|there(?:'s|\s+(?:is|are|was|were)))\b", re.IGNORECASE
 )
 
 
 def points_back_in_chat(text: str, messages: list[dict[str, Any]]) -> bool:
-    """``text`` needs the chat to say what it is about: "whats the weather like there now"
-    after talk of a Zanzibar trip asks about Zanzibar, not the user's location. A message
-    about the user's own place ("how far is it to the airport from here?") does not."""
+    """``text`` asks about a place the chat named: "whats the weather like there now" after
+    talk of a Zanzibar trip asks about Zanzibar, not the user's location. Only "there" points
+    at a place; "it" or "that" names a thing, so "how far is it to the airport" still needs
+    the user's location (review of #2305), as does a message about their own place."""
     cleaned = collapse_ws(text)
-    # Something near the user, of any kind ("is there a pharmacy nearby"), is about their
-    # place too (review of #2305).
     if _HERE.search(cleaned) or around_the_user(cleaned) or is_proximity_query(cleaned):
         return False
-    pointing = _EXISTENTIAL_THERE.sub(" ", cleaned)
-    return points_back(pointing, collect_prior_user_messages(messages, text))
+    if not _THERE.search(_EXISTENTIAL_THERE.sub(" ", cleaned)):
+        return False
+    return bool(collect_prior_user_messages(messages, text))
 
 
 async def search_queries_for_turn(
