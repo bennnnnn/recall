@@ -355,6 +355,10 @@ def test_an_opening_that_narrates_the_users_message_comes_off() -> None:
         'The user says "hi".',
         "The user story is the unit of work in Scrum.\n\nIt names who wants what and why.",
         "The users asked for dark mode most often.\n\nSo it shipped first.",
+        # An explanation that opens on a user plans nothing (review of #2306).
+        "The user wants to log in, so the app redirects to /auth and checks the token.\n\n"
+        "Then the session is stored.",
+        "The user needs to reset a password: they get an email link.\n\nThe link expires.",
     ],
 )
 def test_other_replies_about_users_stay(reply: str) -> None:
