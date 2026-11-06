@@ -292,6 +292,10 @@ async def _load_turn_identity(request: TurnRequest, settings: Settings) -> TurnI
                 mode = classify_turn_mode(recent, request.content)
     if request.force_rich_context and not mode.rich_context:
         mode = replace(mode, rich_context=True)
+    # A photo is what the turn is about, sent alone or with a "hi": never small talk. A
+    # homework photo with no caption was answered on the small-talk prompt (2026-11-06).
+    if request.has_image_attachment and mode.lightweight:
+        mode = replace(mode, lightweight=False, lightweight_reason="not_light")
     geo = resolve_client_geo(
         user,
         request.content,

@@ -207,6 +207,26 @@ async def test_camera_math_downloads_once_and_adds_the_equation_to_the_prompt_on
 
 
 @pytest.mark.asyncio
+async def test_a_photo_sent_alone_is_read_like_a_scan() -> None:
+    # Live 2026-11-06: a homework photo with no caption got plain steps and no checked
+    # answer; typed, the same question got the worked layout and the card.
+    image = _row("image/png")
+    result, mocks, statuses = await _run([image], content="")
+    mocks["extract"].assert_awaited_once()
+    assert result.image_math_extract == _EXTRACTED
+    assert result.content == f"\n\n{camera_math_user_suffix(_EXTRACTED)}"
+    # A photo alone may hold no problem: nothing says "calculating" before it is read.
+    assert statuses == ["reading_files"]
+
+
+@pytest.mark.asyncio
+async def test_a_captioned_photo_with_no_maths_word_is_not_read() -> None:
+    result, mocks, _ = await _run([_row("image/png")], content="what bird is this?")
+    mocks["extract"].assert_not_awaited()
+    assert result.content == "what bird is this?"
+
+
+@pytest.mark.asyncio
 async def test_camera_math_reads_the_first_image_from_the_verified_bytes() -> None:
     first, second = _row("image/jpeg", verified=False), _row("image/png", verified=False)
     result, mocks, _ = await _run([first, second], content=_SOLVE)

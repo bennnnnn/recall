@@ -37,13 +37,15 @@ async def read_camera_maths(
     # edited caption still reads as a maths ask ("solve this", "find x"), so OCR runs
     # whenever the caption has a maths keyword, the signal needs_symbolic_math trusts for
     # an attached image, not only on the exact caption. A caption with no maths keyword
-    # (or the blank one a plain photo sends) is left alone: no vision call on every photo.
+    # is left alone: no vision call on every captioned photo. A photo sent alone is read
+    # like a scan: a homework photo with no caption got plain "Step 1 … Step 4" lines and no
+    # checked answer, while the same question typed got both (2026-11-06). A photo with no
+    # problem on it reads found=false and goes on as an ordinary photo.
     caption = content.strip()
     scan_subject = scanner_camera_subject(content)
-    looks_like_math_caption = (
-        scan_subject not in {"physics", "biology", "chemistry"}
-        and bool(caption)
-        and math_match.has_math_keyword(caption.lower())
+    photo_alone = not caption
+    looks_like_math_caption = scan_subject not in {"physics", "biology", "chemistry"} and (
+        photo_alone or math_match.has_math_keyword(caption.lower())
     )
     # A physics or chemistry photo carries its confirmed reading too, but that
     # reading is the subject's request text, not an equation for math OCR.
@@ -51,7 +53,8 @@ async def read_camera_maths(
     if image_attachments and (
         confirmed_reading or scan_subject == "math" or looks_like_math_caption
     ):
-        if on_status is not None:
+        # A photo alone may be anything: it says "calculating" only once it holds a problem.
+        if on_status is not None and not photo_alone:
             await on_status("calculating")
         if confirmed_reading:
             # The student already verified OCR in the scanner. Re-running
