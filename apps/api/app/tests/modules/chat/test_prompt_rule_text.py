@@ -32,10 +32,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then an answer record's note kept to a label, an explanation in a sentence after the block,
 # then owning a mistake on every turn and a number after a list naming its item
 # (OWN_MISTAKE_HINT, UNCLEAR_MESSAGE_HINT), then a follow-up that leaves out what it is about
-# read as about the last reply (UNCLEAR_MESSAGE_HINT).
-_RULES = 174
-_RULE_GRAMS = 15266
-_RULE_GRAMS_SHA = "6595879b96a7d462"
+# read as about the last reply (UNCLEAR_MESSAGE_HINT), then the brevity reader's plural reply
+# nouns (turn_reading.length).
+_RULES = 175
+_RULE_GRAMS = 15277
+_RULE_GRAMS_SHA = "ade32ba00816952b"
 
 
 def _rules() -> list[str]:
