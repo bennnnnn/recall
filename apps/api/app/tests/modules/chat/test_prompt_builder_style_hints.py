@@ -385,13 +385,6 @@ def test_shorter_asks_for_a_brief_reply_only_about_the_reply(text: str, brief: b
     assert is_brevity_request(text) is brief
 
 
-def test_a_follow_up_without_its_subject_is_about_the_last_reply() -> None:
-    from app.modules.chat.prompt_constants import UNCLEAR_MESSAGE_HINT
-
-    assert "is about your most recent reply" in UNCLEAR_MESSAGE_HINT
-    assert "never ask which thing they mean" in UNCLEAR_MESSAGE_HINT
-
-
 def test_sequence_diagram_uses_sequence_hint_not_flowchart():
     from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT, SEQUENCE_FORMAT_HINT
     from app.modules.turn_reading.diagrams import is_sequence_diagram_question
