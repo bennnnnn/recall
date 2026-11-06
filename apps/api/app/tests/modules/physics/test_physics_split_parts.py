@@ -104,7 +104,7 @@ def test_the_parts_the_server_did_not_solve_get_a_card_marked_not_checked() -> N
     _, block = solve_physics_request(_BLOCK, _SETTINGS, None)
     assert block is not None and block.display_answer == r"12.3\,\mathrm{N}"
     landed = validate_physics_fences(_REPLY, verified=block, user_text=_BLOCK)
-    assert "**Answer (a)**\n\n```answer\nverified: false\n$N = 49.05\\ \\text{N}$\n```" in landed
+    assert "**Answer (a)**\n\n```answer\nverified: false\nN = 49.05\\ \\text{N}\n```" in landed
     assert "**Answer (b)**\n\n```answer\nverified: true\n12.3\\,\\mathrm{N}\n```" in landed
 
 
