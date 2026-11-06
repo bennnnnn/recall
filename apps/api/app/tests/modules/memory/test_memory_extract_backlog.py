@@ -39,6 +39,16 @@ def test_format_user_memory_transcript_strips_attachments():
     assert "Image" not in built
 
 
+def test_a_line_that_only_says_when_teaches_memory_nothing():
+    # Live 2026-11-06: "6pm", the answer to a reminder's question, became "User works or
+    # starts their day at 18:00 (6pm)".
+    built = format_user_memory_transcript(
+        ["remind me to call mom tomorrow at 6", "6pm", "tomorrow at 6", "pm"]
+    )
+    assert built == "User: remind me to call mom tomorrow at 6"
+    assert format_user_memory_transcript(["I start work at 6pm"]) == "User: I start work at 6pm"
+
+
 @pytest.mark.asyncio
 async def test_expand_includes_unprocessed_user_lines():
     session = AsyncMock()
