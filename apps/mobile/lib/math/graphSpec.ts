@@ -15,7 +15,7 @@ type TrajectoryType = "position_vs_time" | "velocity_vs_time" | "parametric";
  * phone never works one out itself. `label` is plain text ("(2, −1)", "(2 − √2, 0)"); a
  * mark without one is labelled with its coordinates. `curve` is 1 or 2 (`expr2`).
  */
-export type GraphMark = { x: number; y: number; label?: string; curve: 1 | 2 };
+type GraphMark = { x: number; y: number; label?: string; curve: 1 | 2 };
 
 type SampledGraphSpec = {
   type: "function" | "vertical" | "number_line" | "trajectory";

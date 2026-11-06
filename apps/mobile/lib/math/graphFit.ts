@@ -158,7 +158,10 @@ function graphFeatures(spec: GraphSpec, view: GraphView): Features {
   if (wave) main = main.filter(([x]) => x >= view.xMin && x <= view.xMax);
   main.push(...(spec.marks ?? []).map(({ x, y }): Point => [x, y]));
   const intercepts = runs.map(yIntercept).filter((point): point is Point => point != null);
-  const focusable = !wave && sampled.every((curve) => curve.length === 1);
+  // Only a graph of y = f(x) the phone reads, in one piece: a circle or a relation in x and
+  // y keeps its fit and its true axis ratio.
+  const functions = curves.every((curve) => parseGraphRelation(curve.expr, variable)?.cmp === "=");
+  const focusable = functions && !wave && sampled.every((curve) => curve.length === 1);
   return { main, intercepts, closed: false, runs: focusable ? runs : null };
 }
 

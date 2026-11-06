@@ -64,13 +64,12 @@ export function AnswerAnchorScope({ children }: { children: ReactNode }) {
 
 /** The ref an answer card puts on its frame, so the reply's answer line can lead to it. */
 export function useAnswerAnchorRef(): ((view: HostInstance | null) => void) | undefined {
-  const registry = useContext(AnswerAnchorContext);
+  // `register` alone, never the registry: its `present` changing must not hand the card a new ref.
+  const register = useContext(AnswerAnchorContext)?.register;
   const key = useRef({}).current;
   return useMemo(
-    () => (registry ? (view: HostInstance | null) => registry.register(view, key) : undefined),
-    // `register` is stable; `present` changing must not hand the card a new ref.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [registry?.register, key],
+    () => (register ? (view: HostInstance | null) => register(view, key) : undefined),
+    [register, key],
   );
 }
 

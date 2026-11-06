@@ -21,7 +21,7 @@ const FENCE_LINES = 6;
 const MAX_VALUES = 3;
 const MAX_VALUE_LENGTH = 32;
 
-export type AnswerValue = { text: string; notation: "math" | "chemistry" };
+type AnswerValue = { text: string; notation: "math" | "chemistry" };
 
 /** The values to show, or `[]` for a line that only names the answer and leads to it. */
 export type AnswerJump = { values: AnswerValue[] };
