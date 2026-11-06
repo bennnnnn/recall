@@ -9,6 +9,14 @@ export type NumberLineInterval = {
 
 type TrajectoryType = "position_vs_time" | "velocity_vs_time" | "parametric";
 
+/**
+ * A point the server marked on a curve, worked out with SymPy: a root, a turning point,
+ * an intercept, where two curves meet. The card draws it as a dot with its label; the
+ * phone never works one out itself. `label` is plain text ("(2, −1)", "(2 − √2, 0)"); a
+ * mark without one is labelled with its coordinates. `curve` is 1 or 2 (`expr2`).
+ */
+export type GraphMark = { x: number; y: number; label?: string; curve: 1 | 2 };
+
 type SampledGraphSpec = {
   type: "function" | "vertical" | "number_line" | "trajectory";
   expr: string;
@@ -30,6 +38,8 @@ type SampledGraphSpec = {
   segments?: [number, number][][];
   /** Open points at removable discontinuities in the original function. */
   holes?: [number, number][];
+  /** Labelled points on the curves (`GraphMark`); absent on fences before November 2026. */
+  marks?: GraphMark[];
   // Optional second curve for a direct comparison plot ("graph y=x^2 and
   // y=2x on the same axes") — undefined means "single-curve graph," same
   // as every fence before this field existed.
@@ -271,6 +281,27 @@ function parseHoles(raw: unknown): [number, number][] | null {
   return holes;
 }
 
+const MAX_GRAPH_MARKS = 12;
+const MAX_MARK_LABEL = 48;
+
+/** The marks a fence lists; one that is malformed is left out, never the graph. */
+function parseMarks(raw: unknown, curves: 1 | 2): GraphMark[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const marks: GraphMark[] = [];
+  for (const item of raw.slice(0, MAX_GRAPH_MARKS)) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const x = row.x;
+    const y = row.y;
+    if (typeof x !== "number" || typeof y !== "number" || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const label = typeof row.label === "string" ? row.label.trim().slice(0, MAX_MARK_LABEL) : "";
+    const curve = row.curve === 2 ? 2 : 1;
+    if (curve > curves) continue;
+    marks.push({ x, y, curve, ...(label ? { label } : {}) });
+  }
+  return marks.length ? marks : undefined;
+}
+
 export function parseGraphSpec(raw: string): GraphSpec | null {
   try {
     const data = JSON.parse(raw.trim()) as unknown;
@@ -319,6 +350,7 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
       points,
       segments,
       holes: holes.length ? holes : undefined,
+      marks: parseMarks(row.marks, hasCurve2 ? 2 : 1),
       expr2: hasCurve2 ? expr2Raw : undefined,
       points2: hasCurve2 ? points2 : undefined,
       segments2: hasCurve2 ? parseSegments(row.segments2) : undefined,

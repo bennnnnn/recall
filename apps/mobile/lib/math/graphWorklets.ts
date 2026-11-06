@@ -281,3 +281,29 @@ export function nearestTraceSampleW(
   }
   return best;
 }
+
+/** Room between a marked point's dot and its label. */
+const MARK_LABEL_GAP_W = 6;
+
+/**
+ * Where a marked point's label is set (its left end and baseline): above and to the
+ * right of the dot, moved to the left or below when that would leave the plot.
+ */
+export function markLabelW(
+  px: number,
+  py: number,
+  textWidth: number,
+  textHeight: number,
+  width: number,
+  height: number,
+  pad: number,
+): { x: number; y: number } {
+  "worklet";
+  const gap = MARK_LABEL_GAP_W;
+  let x = px + gap;
+  if (x + textWidth > width - pad) x = px - gap - textWidth;
+  x = Math.max(pad, x);
+  let y = py - gap;
+  if (y - textHeight < pad) y = py + gap + textHeight;
+  return { x, y: Math.min(y, height - pad) };
+}
