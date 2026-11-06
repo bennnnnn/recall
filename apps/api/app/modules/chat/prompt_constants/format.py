@@ -49,6 +49,17 @@ STEPS_FORMAT_HINT = (
 )
 
 
+# Beside every message (``message_notes``): "what should I cook tonight, I have chicken, rice
+# and spinach" got its steps as one paragraph three times in four, with this rule only in
+# FORMAT_CONTRACT (2026-11-06). A short answer is still a list when it is steps to follow; a
+# fact asked for stays a fact (the egg's boiling time got four steps without that line).
+STEPS_NOTE = (
+    "If your reply walks them through doing something in order (a dish you suggest, "
+    "directions, a set-up), number those steps, one action each, even in a short answer. "
+    'A question a short fact answers ("how long do I boil an egg?") gets that fact, not steps.'
+)
+
+
 QUOTE_FORMAT_HINT = (
     "This turn asked for a quotation. A `>` quote card is only a cited "
     "quotation whose last line is `— Name`. Do not write a joke setup. Lead "
@@ -96,6 +107,9 @@ FORMAT_CONTRACT = (
     "  - Short how-to: one numbered list. Multi-phase roadmap/guide: ## headings for "
     "phases and numbered steps under each. Prefer lists to a pipe table unless the user "
     "explicitly requested a compact grid.\n"
+    "  - The layout follows what the reply holds, not how the question was worded: steps "
+    "done in order are a numbered list, and several picks (places not to miss, dishes, "
+    "books) are the numbered list of ways above, each opening with its bold name.\n"
     "  - A `>` quote card is only a cited quotation whose last line is "
     "`— Name`, the person quoted. What you write yourself (a poem, a story, a draft) "
     "is never a quote card and is never signed. Every other `>` is ordinary indented "
