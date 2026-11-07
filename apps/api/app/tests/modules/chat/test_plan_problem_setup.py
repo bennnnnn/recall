@@ -55,6 +55,23 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
             ],
         ),
         (
+            # Maths and chemistry read the joined line whole: a question naming what the
+            # problem never does is about that thing.
+            "A rectangle is 4 cm by 6 cm. What is its area? Who is the president of France?",
+            [
+                ("A rectangle is 4 cm by 6 cm. What is its area?", "solve"),
+                ("Who is the president of France?", "ask"),
+            ],
+        ),
+        (
+            "2 moles of H2 react with O2. How many moles of water form? Who is the president "
+            "of France?",
+            [
+                ("2 moles of H2 react with O2. How many moles of water form?", "solve"),
+                ("Who is the president of France?", "ask"),
+            ],
+        ),
+        (
             "A train travels at 20 m/s. How long does it take to reach the station 4 km away? "
             "Are there coffee shops near me?",
             # "A train travels at 20 m/s" has no subject of its own: no setup, and the
@@ -108,6 +125,7 @@ def test_each_question_of_a_problem_carries_its_setup(text: str, questions: list
         "A car moves 100 m in 20 s. Find its speed and give the unit.",
         "Two dice are rolled. What is the probability that the sum is 4? Give your answer as a "
         "fraction.",
+        "A right triangle has legs 3 and 4. How do I use Pythagoras here?",
     ],
 )
 def test_one_question_in_several_sentences_is_one_request(text: str) -> None:
