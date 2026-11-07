@@ -21,8 +21,29 @@ from app.modules.physics.solvers.si import params_in_si
 from app.services.solving import SolveServiceError
 
 
+def _braking_stop(p: dict[str, float]) -> tuple[float, float, float] | None:
+    """(u, a, when it stops) for a body its brakes slow: it stops at u/|a| and stays.
+    None for a body that speeds up, or one a force like gravity turns back (a throw up),
+    which keeps going the other way."""
+    u, a = p.get("u"), p.get("a")
+    if not p.get("halts") or u is None or a is None or u * a >= 0:
+        return None
+    return u, a, -u / a
+
+
 def _suvat_velocity(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, a, t, d = p.get("u"), p.get("a"), p.get("t"), p.get("d")
+    braking = _braking_stop(p)
+    if braking is not None and t is not None and t > braking[2]:
+        # Braking stops it at u/|a| and it stays at rest: not u + at, which would reverse it.
+        u, a, stop = braking
+        plugged = rf"\frac{{{u:g}}}{{{abs(a):g}}} = {stop:g}\ \mathrm{{s}}"
+        return (
+            0.0,
+            rf"t_{{stop}} = \frac{{u}}{{|a|}} = {plugged} < {t:g}\ \mathrm{{s}},\ v = 0",
+            r"t_{stop} = \frac{u}{|a|}",
+            rf"t_{{stop}} = {plugged}",
+        )
     if u is not None and a is not None and t is not None:
         plugged = rf"{u:g} + {latex_num(a)} \cdot {t:g}"
         return u + a * t, rf"v = u + at = {plugged}", r"v = u + at", rf"v = {plugged}"
@@ -52,6 +73,17 @@ def _suvat_velocity(p: dict[str, float]) -> tuple[float, str, str, str]:
 
 def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, v, a, t = p.get("u"), p.get("v"), p.get("a"), p.get("t")
+    braking = _braking_stop(p)
+    if braking is not None and t is not None and t > braking[2]:
+        # Braking stops it before the time asked: it goes its stopping distance and no more.
+        u, a, _ = braking
+        plugged = rf"\frac{{{latex_num(u, square=True)}}}{{2 \cdot {abs(a):g}}}"
+        return (
+            u * u / (2 * abs(a)),
+            rf"s = \frac{{u^2}}{{2|a|}} = {plugged}",
+            r"s = \frac{u^2}{2|a|}",
+            rf"s = {plugged}",
+        )
     if p.get("distance_path", 1.0):
         initial, final = u, v
         if initial is not None and a is not None and t is not None:

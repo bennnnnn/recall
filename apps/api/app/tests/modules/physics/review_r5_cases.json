@@ -603,7 +603,10 @@
  },
  {
   "prompt": "A car moving at 20 m/s stops over 50 m. Find the deceleration.",
-  "answer": null
+  "answer": [
+   -4.0,
+   "m/s^2"
+  ]
  },
  {
   "prompt": "A car moving at twenty m/s brakes at 4 m/s^2 for half a second. What is its speed afterwards?",

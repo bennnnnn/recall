@@ -20,6 +20,7 @@ from app.modules.physics.extractors.unit_patterns import (
     NUMBER,
     VELOCITY_UNIT_PATTERN,
 )
+from app.modules.physics.motion import read_motion
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.words import word_pattern
 from app.services.text_match import has_equation
@@ -46,11 +47,6 @@ _SUVAT_CUE_RES: tuple[re.Pattern[str], ...] = (
         r".{0,80}?\d\s*(?:seconds?|secs?|sec|s)\b.{0,80}?\bacceleration\b",
         re.IGNORECASE,
     ),
-)
-
-_AT_REST_START_RE = re.compile(
-    r"\b(?:from|at|starts?\s+(?:from|at)|starting\s+(?:from|at)|initially\s+at)\s+rest\b",
-    re.IGNORECASE,
 )
 
 _SPEED = rf"{NUMBER}\s*(?:{VELOCITY_UNIT_PATTERN})(?![\w^²/])"
@@ -86,12 +82,6 @@ _FINAL_SPEED_RE = re.compile(
     rf"|{_SPEED}\s+after\s+{_CHANGE}"
     rf"|(?:^|[.?!]\s+)after\s+{_CHANGE}(?:[^.?!]|(?<=\d)\.(?=\d))*?{_STATE}{_SPEED}"
     r"(?![^.?!]*\b(?:(?:ac|de)celerat|brak|slow))",
-    re.IGNORECASE,
-)
-
-_AT_REST_END_RE = re.compile(
-    r"\bto\s+(?:rest|a\s+(?:stop|halt))\b|\b(?:stops?|stopping|halts?)\b"
-    r"|\bcomes?\s+to\s+(?:rest|a\s+(?:stop|halt))\b",
     re.IGNORECASE,
 )
 
@@ -215,9 +205,18 @@ def _not_one_interval(lower: str) -> bool:
     )
 
 
+def _rest_at_an_end(cleaned: str) -> bool:
+    """A speed with rest at one end: a change with no acceleration stated, however the rest
+    is said ("stops after 5 s", "to a standstill", "initially stationary")."""
+    motion = read_motion(cleaned)
+    return (motion.starts_at_rest or motion.ends_at_rest) and bool(
+        ordered_values(cleaned, VELOCITY_UNIT_PATTERN)
+    )
+
+
 def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
+    if not (_rest_at_an_end(cleaned) or has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES)):
         return None
     if _not_one_interval(lower):
         return None
@@ -258,8 +257,8 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
         # Written order alone cannot identify which of two unlabeled speeds
         # came first ("has speeds 10 m/s and 30 m/s").
         return None
-    starts_at_rest = _AT_REST_START_RE.search(cleaned) is not None
-    ends_at_rest = _AT_REST_END_RE.search(cleaned) is not None
+    motion = read_motion(cleaned)  # at rest at either end, however it is said
+    starts_at_rest, ends_at_rest = motion.starts_at_rest, motion.ends_at_rest
 
     if starts_at_rest:
         params["u"], units["u"] = 0.0, "m/s"
