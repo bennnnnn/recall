@@ -124,7 +124,19 @@ def test_the_cards_statement_must_stand_whole() -> None:
         assert drop_guessed_lead(text) == text
 
 
-@pytest.mark.parametrize("heading", ["## Q7", "**Ex 4**", "## Set B2", "**Stage 1**"])
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "## Q7",
+        "**Ex 4**",
+        "## Set B2",
+        "**Stage 1**",
+        # Review (2026-11-07): a number followed by words still names a part.
+        "## Chapter 4 Kinematics",
+        "**Step 1 of 3**",
+        "## Question 12 Part b",
+    ],
+)
 def test_a_short_heading_with_a_number_stays(heading: str) -> None:
     # Review (2026-11-07): a heading names a part; its number is no stated result.
     text = f"{heading}\n\n{_CAR}"
