@@ -44,11 +44,11 @@ export function useQuotaNudge({ isPaid }: Options) {
   const [show, setShow] = useState(false);
   const [usedPct, setUsedPct] = useState(0);
   // The day's messages when the server counts them: the banner says how many are left.
-  const [messages, setMessages] = useState<Counted | null>(null);
+  const [dayCount, setDayCount] = useState<Counted | null>(null);
 
   const applyPercent = useCallback((pct: number, counted: Counted | null = null) => {
     setUsedPct(pct);
-    setMessages(counted);
+    setDayCount(counted);
     if (pct >= QUOTA_NUDGE_THRESHOLD_PCT && !quotaNudgeDismissedToday()) {
       setShow(true);
     }
@@ -91,8 +91,8 @@ export function useQuotaNudge({ isPaid }: Options) {
     setShow(false);
   }, []);
 
-  const label = messages
-    ? t("chat.quota_nudge_messages", { left: messages.total - messages.used, total: messages.total })
+  const label = dayCount
+    ? t("chat.quota_nudge_messages", { left: dayCount.total - dayCount.used, total: dayCount.total })
     : t("chat.quota_nudge_body", { pct: usedPct });
   return { show, usedPct, label, dismiss, applyTurnUsage };
 }
