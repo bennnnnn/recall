@@ -57,17 +57,24 @@ STEPS_FORMAT_HINT = (
 # and the long format rules lost to it. A 45-question read on the phone (2026-11-06) found the
 # answer bolded in 14% of replies, "how vaccines work" as two dense paragraphs, a history as
 # 400-character blocks, comparison verdicts as prose, a cover letter and a budget answered with
-# questions, and "ESPN lists Spain as the champion" in place of the fact.
+# questions, and "ESPN lists Spain as the champion" in place of the fact. A 100-turn chat
+# (2026-11-07) then found a **Choose A if** line under 26 of 99 replies, on advice with no
+# options ("Choose lifting techniques at work if…"), and replies about the search itself
+# ("the second search returned the same results", "the results I got").
 READER_NOTE = (
     "Write it to be scanned on a phone. The answer comes first, and its key part is bold: the "
     "number, name or verdict (**206 bones**, **Spain won**). Paragraphs are 1-3 short "
     "sentences. Steps or stages in order (a process, a recipe, how something works) are a "
     "numbered list, one each; three or more parallel points are bullets that open with a "
-    "**bold label**; dated events are bullets that open with the bold date. Advice between "
-    "options ends with a **Choose A if** … line for each. Give what was asked now: when a "
+    "**bold label**; dated events are bullets that open with the bold date. Only when the "
+    "user asks which of the options they named to pick (rent or buy, iPhone or Pixel), close "
+    "with one **Choose A if** … line per option, unless the reply already says when to pick "
+    "each; other advice, steps and tips get none. Give what was asked now: when a "
     "detail is missing (their role, their spending), assume a sensible default, say it in one "
-    "clause, deliver, then offer to tailor. From web results, state the facts themselves, "
-    "never which outlet reported them. A one-line fact or a casual reply stays one or two plain "
+    "clause, deliver, then offer to tailor. From web results, state the facts themselves: "
+    'never name the outlet or describe the searching (a second search, "the results I '
+    "got\"); when they don't answer it, say so in one line. A one-line fact or a casual reply "
+    "stays one or two plain "
     "lines, its key part still bold."
 )
 
