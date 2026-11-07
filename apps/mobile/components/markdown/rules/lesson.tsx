@@ -12,6 +12,8 @@ import {
 } from "@/components/markdown/markdownAstHelpers";
 import {
   STEP_BADGE,
+  STEP_LABEL_INSET,
+  WORK_GAP,
   type StyleMap,
   WORK_INDENT,
 } from "@/components/markdown/markdownContentStyles";
@@ -235,15 +237,24 @@ export function renderLessonStep(
         </View>
       </View>
       {step.reason || step.formulas.length ? (
-        <View testID="lesson-step-formula" style={{ paddingLeft: WORK_INDENT, gap: Space.xxs }}>
+        // The reason under the label it explains; the maths a step further in, as all working is.
+        <View
+          testID="lesson-step-formula"
+          style={{ paddingLeft: STEP_LABEL_INSET, gap: Space.xxs }}
+        >
           {step.reason ? renderLessonReason(key, step.reason, styles, t) : null}
           {step.formulas.map((formula, i) => (
-            // A move's maths starts at the left edge its reason does, as every line of a
-            // worked solution does.
+            // A move's maths starts in the working column, as every line of a worked
+            // solution does, a little apart from the words above it.
             <View
               key={`${key}-formula-${i}`}
               testID="lesson-step-maths"
-              style={{ alignItems: "flex-start", maxWidth: "100%" }}
+              style={{
+                alignItems: "flex-start",
+                maxWidth: "100%",
+                paddingLeft: WORK_INDENT - STEP_LABEL_INSET,
+                marginTop: i === 0 ? WORK_GAP : 0,
+              }}
             >
               <MathText scrollOverflow latex={formula} fontSize={mathSizeOf(styles.body)} />
             </View>

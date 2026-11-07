@@ -7,6 +7,7 @@ import { runRule } from "@/components/markdown/__tests__/support/runRule";
 import {
   makeMdStyles,
   PARAGRAPH_GAP,
+  STEP_LABEL_INSET,
   WORK_INDENT,
 } from "@/components/markdown/markdownContentStyles";
 import { Space } from "@/lib/space";
@@ -531,7 +532,8 @@ describe("markdown render rules", () => {
     // Bold in the reply's ink at the margin, as the sections are (November 2026).
     expect(sub.fontWeight).toBe(section.fontWeight);
     expect(sub.color).toBe(lightTheme.assistantText);
-    // A formula's lines start in the column Given's values do, behind their rule.
+    // Given's values stay by the margin behind their rule; a formula's lines start further
+    // in, in the working column every line of maths starts in.
     const [given, , formula] = getAllByTestId("workout-body").map((node) =>
       StyleSheet.flatten(node.props.style),
     );
@@ -540,7 +542,7 @@ describe("markdown render rules", () => {
       (given!.borderLeftWidth as number) +
       (given!.paddingLeft as number);
     expect(formula!.paddingLeft).toBe(WORK_INDENT);
-    expect(ruled).toBe(WORK_INDENT);
+    expect(ruled).toBeLessThan(WORK_INDENT);
     // The formula's name is its heading, never a note beside it.
     expect(getAllByTestId("workout-body")).toHaveLength(4);
     expect(
@@ -980,10 +982,13 @@ describe("markdown render rules", () => {
     const { getByTestId } = await render(
       <MarkdownContent content={"**2. Simplify**\n$x^2 = 1$"} />,
     );
-    // In the one column every line of working starts in.
-    expect(StyleSheet.flatten(getByTestId("lesson-step-formula").props.style).paddingLeft).toBe(
-      WORK_INDENT,
-    );
+    // The reason under the label; the maths in the one column every line of working starts in,
+    // a step further in than the label.
+    const step = StyleSheet.flatten(getByTestId("lesson-step-formula").props.style);
+    const maths = StyleSheet.flatten(getByTestId("lesson-step-maths").props.style);
+    expect(step.paddingLeft).toBe(STEP_LABEL_INSET);
+    expect((step.paddingLeft as number) + (maths.paddingLeft as number)).toBe(WORK_INDENT);
+    expect(WORK_INDENT).toBeGreaterThan(STEP_LABEL_INSET);
   });
 
   it.each([

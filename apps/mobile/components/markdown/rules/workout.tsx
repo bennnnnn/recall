@@ -15,6 +15,7 @@ import {
 } from "@/components/markdown/markdownAstHelpers";
 import {
   type StyleMap,
+  WORK_GAP,
   WORK_INDENT,
   WORK_RULE,
 } from "@/components/markdown/markdownContentStyles";
@@ -323,7 +324,7 @@ export function renderWorkoutSection(
         </Text>
         <View
           testID="workout-body"
-          style={{ gap: Space.xs, marginTop: Space.xxs, paddingLeft: WORK_INDENT }}
+          style={{ gap: Space.xs, marginTop: WORK_GAP, paddingLeft: WORK_INDENT }}
         >
           {lines}
         </View>

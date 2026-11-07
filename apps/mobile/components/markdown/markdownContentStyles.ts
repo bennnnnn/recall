@@ -143,19 +143,21 @@ export const TRIM_TRAILING_GAP = { marginBottom: -PARAGRAPH_GAP } as const;
 /** A numbered step's badge and the gap after it, before the step's bold label. */
 export const STEP_BADGE = { size: 22, gap: Space.xs } as const;
 
-/**
- * Where a line of working starts: the column a numbered step's label starts in. A given,
- * a formula, a substitution, a step's maths and a display equation all start here, so the
- * work reads down one column under bold labels at the margin (November 2026).
- */
-export const WORK_INDENT = STEP_BADGE.size + STEP_BADGE.gap;
+/** Where a numbered step's label (and the reason under it) starts: after its badge. */
+export const STEP_LABEL_INSET = STEP_BADGE.size + STEP_BADGE.gap;
 
-/** The thin rule Given and Required sit behind: its inset, width and the gap to the values. */
-export const WORK_RULE = {
-  inset: Space.xxs,
-  width: 2,
-  gap: WORK_INDENT - Space.xxs - 2,
-} as const;
+/**
+ * Where a line of working starts: a step further in than a step's label, so the maths
+ * reads as indented under every bold label above it. A given, a formula, a substitution, a
+ * step's maths and a display equation all start here, in one column (November 2026).
+ */
+export const WORK_INDENT = STEP_LABEL_INSET + 2 * Space.xl;
+
+/** The space between a step's words (its label, its reason) and the maths under them. */
+export const WORK_GAP = Space.sm;
+
+/** The thin rule Given and Required sit behind, at the margin: its inset, width and gap. */
+export const WORK_RULE = { inset: Space.xxs, width: 2, gap: Space.sm } as const;
 
 /** The six heading levels: each its type and the space around it, on a row that wraps. */
 function headingStyles(t: Theme) {
