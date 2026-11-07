@@ -372,18 +372,6 @@ def format_relative_day_answer(offset: int, timezone: str | None) -> str:
     return f"{span} {unit} after today is {written}."
 
 
-def is_local_now_question(text: str) -> bool:
-    """Current local time, year, or date — facts we already know without the LLM."""
-    return (
-        is_time_question(text)
-        or is_year_question(text)
-        or is_current_date_question(text)
-        or is_time_denial(text)
-        or is_shown_clock_question(text)
-        or relative_day_offset(text) is not None
-    )
-
-
 def format_year_answer(timezone: str | None) -> str:
     tz = resolve_timezone(timezone)
     now = datetime.now(tz)
@@ -480,6 +468,11 @@ def format_now_awareness(
         "You know them and the dates below: name one only when asked or when it changes "
         'the answer, never as filler or to open a reply ("Next weekend is …"). '
         "Never say you lack a clock. Told today is another day? Give today's date once, no sorry. "
+        # A model's memory ends before today: "who won the last world cup" was answered
+        # with a final that never happened.
+        "What you remember ends well before this date: the latest winner, whether something "
+        "is out yet, who holds a post now or what comes next may have changed since: look "
+        "it up when you have web_search, and never give a memory as today's fact. "
         # The weekday beside a full date is checked before saving (Christmas 2026 is a Friday).
         "When you name the weekday of a date, write the full date with it "
         '("Friday, December 25, 2026"). '

@@ -54,42 +54,6 @@ _INSTRUCTIONS: dict[ReferenceKind, str] = {
 }
 
 
-def turns_from_prompt(messages: Iterable[dict[str, Any]]) -> list[Turn]:
-    """User and assistant turns from prompt messages; system blocks are dropped."""
-    turns: list[Turn] = []
-    for message in messages:
-        role = str(message.get("role") or "")
-        content = message.get("content")
-        if role in {"user", "assistant"} and isinstance(content, str):
-            turns.append((role, content))
-    return turns
-
-
-# The rolling summary's place in the prompt (``chat.prompt_sections``, the summary block).
-_SUMMARY_HEAD = "Summary of earlier conversation:\n"
-_SUMMARY_END = "\n[END UNTRUSTED CONTENT"
-_MAX_SUMMARY_CHARS = 1500
-
-
-def summary_from_prompt(messages: Iterable[dict[str, Any]]) -> str | None:
-    """The chat's rolling summary as the prompt carries it, or None: what a long chat said
-    before its recent window. "whats the weather like there now" thirty turns into a chat
-    about a Zanzibar trip searched its own words, since the trip was only in the summary
-    (2026-11-06)."""
-    for message in messages:
-        content = message.get("content")
-        if message.get("role") != "system" or not isinstance(content, str):
-            continue
-        start = content.find(_SUMMARY_HEAD)
-        if start < 0:
-            continue
-        body = content[start + len(_SUMMARY_HEAD) :]
-        end = body.find(_SUMMARY_END)
-        text = (body if end < 0 else body[:end]).strip()
-        return text[:_MAX_SUMMARY_CHARS] or None
-    return None
-
-
 def turns_from_rows(rows: Iterable[Any]) -> list[Turn]:
     """User and assistant turns from stored message rows, oldest first."""
     turns: list[Turn] = []

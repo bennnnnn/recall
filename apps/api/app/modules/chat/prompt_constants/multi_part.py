@@ -30,10 +30,6 @@ _KIND_NOTES: dict[PartKind, str] = {
     "reminder": (
         "a reminder. Handle it the way the To-do instructions say, in one short line; no section."
     ),
-    "live": (
-        "a live question: answer it from the web results; if none came back, say you "
-        "could not check it live."
-    ),
 }
 _NO_SECTION_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo", "reminder"})
 

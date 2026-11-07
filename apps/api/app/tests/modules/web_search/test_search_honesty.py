@@ -132,37 +132,6 @@ def test_the_empty_block_words_failure_apart_from_nothing_found() -> None:
     assert "no usable results" in empty and "failed" not in empty
 
 
-@pytest.mark.asyncio
-async def test_the_forced_search_says_failed_when_the_search_failed() -> None:
-    from app.modules.chat.tool_loop import forced_search
-
-    ctx = tool_context(user=SimpleNamespace(id=uuid4(), plan="free"))
-
-    async def run(*_args: object, budget: TurnTavilyBudget, **_kwargs: object):
-        budget.record_search(failed=True)
-        return [], ["lisbon weather"]
-
-    messages = [{"role": "user", "content": "search the web for lisbon weather"}]
-    with (
-        patch.object(forced_search, "run_cached_search", run),
-        patch.object(
-            forced_search, "search_queries_for_turn", AsyncMock(return_value=["lisbon weather"])
-        ),
-    ):
-        out, hits = await forced_search._force_web_search_if_needed(
-            settings=Settings(web_search_enabled=True),
-            messages=messages,
-            search_hits=[],
-            ctx=ctx,
-            on_status=None,
-            should_cancel=None,
-            search_required=True,
-        )
-    assert hits == []
-    injected = "\n".join(str(m["content"]) for m in out if m["role"] == "system")
-    assert "search service failed" in injected
-
-
 def test_results_that_miss_may_say_so_and_facts_are_stated() -> None:
     """D11.2 and T5.10: the model may say nothing it found covers it, never fill in.
 

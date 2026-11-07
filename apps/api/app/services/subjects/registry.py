@@ -241,6 +241,12 @@ class SubjectAdapter(Protocol):
 
     def reads(self, text: str) -> bool: ...
 
+    def asks_of(self, setup: str, question: str) -> bool:
+        """The question asks something of the problem ``setup`` states, so it is read with
+        it: "How long does it take to land?" after "A ball is dropped from 20 m", not "Who
+        won the Arsenal game last night?"."""
+        ...
+
     def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
         """True keeps the line on the fast model (the verified answer needs no reasoning),
         False sends it to the strong one, None when the subject has no say."""

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-PartKind = Literal["settings", "image", "photo", "reminder", "solve", "live", "ask"]
+PartKind = Literal["settings", "image", "photo", "reminder", "solve", "ask"]
 
 # Requests the server carries out itself (a settings card, a picture, a photo): the
 # tool loop never takes them, and the reply only makes room for them.
