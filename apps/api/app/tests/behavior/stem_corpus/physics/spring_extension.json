@@ -78,7 +78,7 @@
    0.04905,
    "m"
   ],
-  "gap": "the hanging weight mg is not read as the force: x = mg/k has no law"
+  "note": "not answered yet: the hanging weight mg is not read as the force: x = mg/k has no law"
  },
  {
   "id": "se-09",
@@ -89,6 +89,6 @@
    0.05,
    "m"
   ],
-  "gap": "\"by how much is it compressed\" is not read as asking the compression"
+  "note": "not answered yet: \"by how much is it compressed\" is not read as asking the compression"
  }
 ]

@@ -2552,7 +2552,11 @@
     "id": "fu-r4-19",
     "area": "followup",
     "prompt": "what if the voltage doubled",
-    "expect": "decline",
+    "expect": "answer",
+    "answer": [
+      0.00012,
+      "C"
+    ],
     "history": [
       [
         "user",
@@ -2563,7 +2567,7 @@
         "Here is the working."
       ]
     ],
-    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+    "note": "a component's constant stays: the other given changes with the line's (R, k or C held)"
   },
   {
     "id": "fu-r4-20",
