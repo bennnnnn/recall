@@ -48,10 +48,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # without invented details, earlier chats only when referred back to, no undated to-dos, and a
 # missed reply re-explained, then no "live" part in a message of several requests: whether one
 # needs the web is the reply model's call (multi_part), then every teach-me taught at once, one
-# item per section (prompt_constants.teaching).
+# item per section (prompt_constants.teaching), then the person spoken to as
+# "you", never about, and memory never quoted (NO_SELF_TALK_RULE).
 _RULES = 174
-_RULE_GRAMS = 15797
-_RULE_GRAMS_SHA = "a834d0c472dc0bf3"
+_RULE_GRAMS = 15831
+_RULE_GRAMS_SHA = "5bf708f346c9a6da"
 
 
 def _rules() -> list[str]:
