@@ -100,9 +100,9 @@ async def test_infinity_minus_infinity_is_not_worked_as_zero_over_zero(
 ) -> None:
     got, reply = await _reply(text)
     assert got == answer
-    assert reply is not None
-    assert r"\frac{0}{0}" not in reply
-    assert "L'Hôpital" not in reply
+    # No working of its own, so no server reply: the model writes the method around the
+    # checked card (main's rule since #2311), and the server never works it as 0/0.
+    assert reply is None
 
 
 def test_a_failing_limit_loses_the_working_not_the_turn() -> None:

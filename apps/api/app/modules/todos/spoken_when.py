@@ -108,6 +108,10 @@ class SpokenWhen:
     spans: list[tuple[int, int]] = field(default_factory=list)
     # "in 3 minutes": minutes from now, read only when no day or clock is named.
     after_minutes: int | None = None
+    # "at 6" with no am, pm or part of the day: (hour, minute) on the 12-hour clock. It is
+    # not a clock yet, but it is when, not the task: the title leaves it out, and the
+    # question that follows asks only which half of the day.
+    bare: tuple[int, int] | None = None
 
 
 def find_when(text: str) -> SpokenWhen:
@@ -195,6 +199,9 @@ def _find_clock(text: str, found: SpokenWhen) -> None:
         _set_clock(found, hour % 12 + 12, match, text)
     elif 1 <= hour <= 12 and _MORNING.search(text):
         _set_clock(found, hour % 12, match, text)
+    elif 1 <= hour <= 12:
+        found.bare = (hour, int(match.group("m") or 0))
+        found.spans.append(match.span())
 
 
 def _set_clock(found: SpokenWhen, hour: int, match: re.Match[str], text: str) -> None:
@@ -261,6 +268,53 @@ def parse_clock_only(user_text: str | None) -> tuple[int, int] | None:
     if clock is not None and not raw[clock.end :].strip(" ."):
         return clock.hour, clock.minute
     return bare_hour_as_pm(raw)
+
+
+# "pm", "in the evening": the half of the day a bare "at 6" left open, said on its own.
+_HALF_RE = re.compile(
+    r"(?:(?:in\s+the\s+)?(?P<am>a\.?m\.?|morning)|(?:in\s+the\s+)?(?P<pm>p\.?m\.?|afternoon"
+    r"|evening)|(?:at\s+)?(?P<night>night|tonight))",
+    re.IGNORECASE,
+)
+
+
+def half_of_day(user_text: str | None) -> int | None:
+    """12 for a reply that is only "pm", "evening" or "night", 0 for "am" or "morning"."""
+    match = _HALF_RE.fullmatch((user_text or "").strip(" .!?"))
+    if match is None:
+        return None
+    return 0 if match.group("am") else 12
+
+
+# What may stand beside a when in a reply that is only a when: "ok 6pm then", "make it 7".
+_WHEN_FILLER = frozenset(
+    "at on by around about ok okay sure yes yeah yep maybe make it lets let's say then "
+    "please pls um uh how".split()
+)
+_REPLY_WORD_RE = re.compile(r"[^\W_]+(?:'[^\W_]+)?")
+
+
+def is_only_a_when(text: str | None) -> bool:
+    """A message that only says when: "6pm", "tomorrow at 6", "pm", "ok friday then".
+
+    It answers a question about a reminder or a plan, and says nothing about the person
+    who wrote it: memory reading "6pm" on its own wrote "starts their day at 18:00".
+    """
+    raw = (text or "").strip()
+    if not raw or len(raw) > _MAX_WHEN_REPLY:
+        return False
+    if parse_clock_only(raw) is not None or half_of_day(raw) is not None:
+        return True
+    found = find_when(raw)
+    if not found.spans:
+        return False
+    rest = without_spans(raw, found.spans).lower()
+    words = _REPLY_WORD_RE.findall(rest)
+    return all(word in _WHEN_FILLER for word in words)
+
+
+# A when on its own is a few words.
+_MAX_WHEN_REPLY = 60
 
 
 def find_clock(text: str) -> Clock | None:

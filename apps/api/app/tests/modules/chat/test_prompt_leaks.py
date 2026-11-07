@@ -363,3 +363,67 @@ def test_an_opening_that_narrates_the_users_message_comes_off() -> None:
 )
 def test_other_replies_about_users_stay(reply: str) -> None:
     assert drop_prompt_leaks(reply, "tell me about user stories") == reply
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # Live 2026-11-07, "Teach me American proverbs" after an English-words course.
+        (
+            "Memory says they've been learning useful English words, one concept at a time, "
+            "and they're on a fresh subject now, so this is a new lesson. Since they asked for "
+            "a whole subject, I'll teach Lesson 1 with the most useful first piece.\n\n"
+            "Let's start with the proverbs you'll hear most.\n\n### Lesson 1: Proverbs",
+            "Let's start with the proverbs you'll hear most.\n\n### Lesson 1: Proverbs",
+        ),
+        (
+            "They want a lesson on proverbs, so I'll start with the ten most common.\n\n"
+            "### Lesson 1: Proverbs",
+            "### Lesson 1: Proverbs",
+        ),
+        (
+            "The learner is on Lesson 3, so I'll continue with dictionaries.\n\n"
+            "### Lesson 4: Dictionaries",
+            "### Lesson 4: Dictionaries",
+        ),
+        (
+            "Based on memory, they prefer short answers, so I'll keep it brief.\n\n"
+            "**Paris** is the capital of France.",
+            "**Paris** is the capital of France.",
+        ),
+        # What is remembered is said to the person, not credited to memory.
+        (
+            "Memory says you're vegetarian, so here are three dinners:\n\n1. **Dal**",
+            "You're vegetarian, so here are three dinners:\n\n1. **Dal**",
+        ),
+        (
+            "According to my memory, you live in Addis, so the closest is Bole.",
+            "You live in Addis, so the closest is Bole.",
+        ),
+    ],
+)
+def test_a_reply_speaks_to_the_person_not_about_them(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "teach me") == kept
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Spoken to the person: it stays.
+        "You've been learning English words, so let's add proverbs.\n\n### Lesson 1: Proverbs",
+        # About other people, or a plan about nobody in particular.
+        "The Romans built roads to move armies, and I'll explain how.\n\nThey paved them.",
+        "They say actions speak louder than words, so let me explain it.\n\nIt means deeds.",
+        "Farmers want rain in spring, so I'll explain irrigation.\n\nWater is piped in.",
+        # Memory a program keeps (review of #2326).
+        "Variables are kept in memory, so I'll show how the stack works.\n\nThe stack grows down.",
+        "The memory shows you the value of x at each step.\n\nSet a breakpoint first.",
+        # A story or dialogue (review of #2326).
+        "They asked me to stay, but I'll go.\n\nShe walked out into the rain.",
+        '"They want the money by Friday, so I\'ll pay," he said.\n\nShe nodded.',
+        # Narration with nothing after it: the reply is left as written.
+        "They want a lesson on proverbs, so I'll start with the ten most common.",
+    ],
+)
+def test_replies_that_speak_to_the_person_stay(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "teach me") == reply

@@ -53,10 +53,22 @@ STEPS_FORMAT_HINT = (
 # and spinach" got its steps as one paragraph three times in four, with this rule only in
 # FORMAT_CONTRACT (2026-11-06). A short answer is still a list when it is steps to follow; a
 # fact asked for stays a fact (the egg's boiling time got four steps without that line).
-STEPS_NOTE = (
-    "If your reply walks them through doing something in order (a dish you suggest, "
-    "directions, a set-up), number those steps, one action each, even in a short answer. "
-    'A question a short fact answers ("how long do I boil an egg?") gets that fact, not steps.'
+# Beside every message outside a lesson: a small model follows the note nearest the message,
+# and the long format rules lost to it. A 45-question read on the phone (2026-11-06) found the
+# answer bolded in 14% of replies, "how vaccines work" as two dense paragraphs, a history as
+# 400-character blocks, comparison verdicts as prose, a cover letter and a budget answered with
+# questions, and "ESPN lists Spain as the champion" in place of the fact.
+READER_NOTE = (
+    "Write it to be scanned on a phone. The answer comes first, and its key part is bold: the "
+    "number, name or verdict (**206 bones**, **Spain won**). Paragraphs are 1-3 short "
+    "sentences. Steps or stages in order (a process, a recipe, how something works) are a "
+    "numbered list, one each; three or more parallel points are bullets that open with a "
+    "**bold label**; dated events are bullets that open with the bold date. Advice between "
+    "options ends with a **Choose A if** … line for each. Give what was asked now: when a "
+    "detail is missing (their role, their spending), assume a sensible default, say it in one "
+    "clause, deliver, then offer to tailor. From web results, state the facts themselves, "
+    "never which outlet reported them. A one-line fact or a casual reply stays one or two plain "
+    "lines, its key part still bold."
 )
 
 
@@ -81,10 +93,13 @@ FORMAT_CONTRACT = (
     "Explicit format requests win: one paragraph stays one paragraph; requested outline "
     "markers, tables, code, poems, and multiple draft versions keep that shape.\n"
     "Default:\n"
-    "  - Simple factual or conversational answer: 1-3 short paragraphs, usually no heading.\n"
+    "  - Simple factual answer: the answer sentence first with its key part bold, then at "
+    "most two short paragraphs, usually no heading; three or more points, steps or stages in "
+    "it become a list. A conversational reply is a few plain lines.\n"
     "  - If the answer depends on something the user didn't say (budget, platform, version), "
-    "state the assumption in one short clause and answer. Say plainly, once, when you are "
-    "unsure; no stacked disclaimers.\n"
+    "state the assumption in one short clause and answer; what the message already says "
+    "(next weekend, the city they are in) needs no restating. Say plainly, once, when you "
+    "are unsure; no stacked disclaimers.\n"
     "  - Bullets are for parallel unordered items. Numbers are for steps, rankings, "
     "chronology, priorities, and a list of ways, tips, or ideas the user may point back to "
     '("the second one"). Letters are for alternatives/answer choices or when requested; '
@@ -131,6 +146,9 @@ FORMAT_CONTRACT = (
     "when the user explicitly requests alternatives.\n"
     "  - If they only asked to write an email with no purpose, ask one question "
     "first — do not invent a generic letter or placeholders.\n"
+    "  - A letter, cover letter, bio or post whose purpose they gave is written now, whole: "
+    "what you do not know stays a short [placeholder] in it, and one line after it offers "
+    "to tailor it. Never ask for their details first.\n"
     "  - Never open ```email / ```sms / ```message as an example of a capability. "
     "Describe drafting in words unless this turn is a request to write one.\n"
     "\n"
@@ -204,8 +222,7 @@ _UNIVERSAL_FORMAT_CORE = (
     "Honor an explicit request for a table, paragraph, outline marker, or code block. "
     "Never invent a pipe table for tips, how-tos, roadmaps, or checklists. "
     "Use a pipe table for timetables, measurements, lookup grids, and X vs Y comparisons. "
-    "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
-    "Let's break it down)."
+    "Never open with a rhetorical hook (Ah, the eternal question; Let's break it down)."
 )
 
 MARKDOWN_BOUNDARY_CONTRACT = (

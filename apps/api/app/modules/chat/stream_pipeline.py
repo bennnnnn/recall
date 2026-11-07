@@ -35,7 +35,7 @@ from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
-from app.modules.chat.turn_resources import TurnResources
+from app.modules.chat.turn_resources import TurnResources, refund_turn_quota
 from app.modules.chat.turn_settle import finalize_stream_turn_db
 from app.modules.chat.turn_trace import emit_turn_trace
 from app.modules.images.answer_photo import AnswerPhoto
@@ -188,7 +188,7 @@ async def _refund_turn(
     if resources is not None:
         await resources.refund()
     else:
-        await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+        await refund_turn_quota(deps, redis, ctx.user_id, ctx.reserved_tokens, ctx.message_day)
 
 
 def _is_terminal_image(ctx: StreamContext) -> bool:

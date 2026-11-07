@@ -2,17 +2,17 @@ import { type ReactNode, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { useAnswerAnchorRef } from "@/components/rich/answerJump";
 import { ProseAnswer, ScrollingLine, spokenAnswer } from "@/components/rich/answerLines";
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerNotation } from "@/lib/answerNotation";
-import { answerReadsAsProse, splitAnswerBranches } from "@/lib/math/answerLayout";
 import {
-  isHeavyInlineMath,
-  stripEmbeddedDollarWraps,
-  stripRedundantDollarWrap,
-} from "@/lib/math/fenceRetag";
-import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
+  answerReadsAsProse,
+  normalizeAnswerContent,
+  splitAnswerBranches,
+} from "@/lib/math/answerLayout";
+import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
@@ -32,17 +32,6 @@ type Props = {
 
 // Match standalone KaTeX and the answer text role, including nested native math.
 const ANSWER_FONT_SIZE = 20;
-
-function normalizeAnswerContent(raw: string): string {
-  const text = stripTrailingFenceCloser(raw.trim());
-  const boxed = text.match(/^\\boxed\{([\s\S]+)\}$/);
-  if (boxed) return rewriteSolutionSeparatorBars(boxed[1].trim());
-  // Unwrapped, a sentence's words would be typeset as italic variables.
-  if (answerReadsAsProse(text)) return text;
-  return rewriteSolutionSeparatorBars(
-    stripEmbeddedDollarWraps(stripRedundantDollarWrap(text)),
-  );
-}
 
 function answerNeedsDisplayMath(text: string): boolean {
   if (isHeavyInlineMath(text)) return true;
@@ -69,8 +58,12 @@ function AnswerFrame({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  // The reply's answer line at its top scrolls here (components/rich/answerJump.tsx).
+  const anchorRef = useAnswerAnchorRef();
   return (
     <View
+      ref={anchorRef}
+      collapsable={false}
       style={s.section}
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
@@ -173,7 +166,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
       readableLatexFallback(text),
       <>
         <View style={s.fill}>
-          <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
+          <MathSvgView latex={text} textColor={theme.text} minHeight={48} em={ANSWER_FONT_SIZE} />
         </View>
         {check}
       </>,

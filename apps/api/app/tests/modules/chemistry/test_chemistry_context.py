@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -463,3 +464,22 @@ async def test_logp_of_a_named_compound_uses_the_pubchem_smiles() -> None:
     assert block is not None
     assert "Canonical SMILES: CC(=O)Oc1ccccc1C(=O)O" in block
     assert "LogP: 1.31" in block
+
+
+def test_chemistry_warm_runs_a_real_solve(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The pool runs each subject's warm before a worker's first job: chemistry's must load its
+    # solvers there, not inside the first question's solve budget.
+    from app.modules.chemistry import context
+    from app.modules.chemistry.subject import CHEMISTRY_SUBJECT
+
+    verified: list[bool] = []
+    real = context._read_locally
+
+    def spy(content: str) -> tuple[Any, Any, Any, Any]:
+        result = real(content)
+        verified.append(result[1] is not None)
+        return result
+
+    monkeypatch.setattr(context, "_read_locally", spy)
+    CHEMISTRY_SUBJECT.warm()
+    assert verified == [True]

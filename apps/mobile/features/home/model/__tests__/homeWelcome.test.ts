@@ -34,6 +34,12 @@ describe("homeGreeting", () => {
     expect(homeGreeting("", new Date("2026-07-17T09:00:00"))).toBe("Good morning");
   });
 
+  it("capitalises the name's first letter and keeps the rest as written", () => {
+    expect(homeGreeting("bini", new Date("2026-07-17T09:00:00"))).toBe("Good morning, Bini");
+    expect(homeGreeting("mcKenzie", new Date("2026-07-17T09:00:00"))).toBe("Good morning, McKenzie");
+    expect(homeGreeting("élodie", new Date("2026-07-17T09:00:00"))).toBe("Good morning, Élodie");
+  });
+
   it("speaks the phone's language, not the server's", async () => {
     await i18n.changeLanguage("fr");
     expect(homeGreeting("Sam", new Date("2026-07-17T19:00:00"))).toBe("Bonsoir, Sam");

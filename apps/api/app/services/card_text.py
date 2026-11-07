@@ -11,7 +11,11 @@ with its asterisks showing. Before a model's line becomes a card:
   value drawn as maths;
 - ``named_value``: a quantity named in words keeps its words as text and puts only its
   value in maths, ``Work input = $1.2\\,\\mathrm{J}$``, the way a card holding words and
-  maths is drawn on the phone (``lib/math/answerLayout.ts``).
+  maths is drawn on the phone (``lib/math/answerLayout.ts``);
+- ``card_maths``: a value that is all maths loses its ``$`` marks, as a verified card holds
+  TeX alone, and a unit's power is written after the unit, as the server writes it
+  (``\\mathrm{cm}^{2}``): a triangle's parts came as ``$A = 54\\,\\mathrm{cm²}$`` beside
+  ``\\mathrm{cm^2}`` (2026-11-06).
 """
 
 from __future__ import annotations
@@ -64,6 +68,22 @@ def named_value(value: str) -> str:
     if match.group("power"):
         number += rf" \times 10^{{{match.group('power').replace('−', '-')}}}"
     return f"{name.rstrip()} = ${number}{_unit(match.group('unit') or '')}$"
+
+
+_WHOLE_MATH = re.compile(r"\$(?!\$)([^$\n]+)\$")
+# "\mathrm{cm^2}", "\mathrm{cm^{3}}", "\mathrm{cm²}": a power written inside the unit.
+_POWER_INSIDE = re.compile(r"\\mathrm\{([A-Za-zµΩ/]+)(?:\^\{?([23])\}?|([²³]))\}")
+_SUPERSCRIPT = {"²": "2", "³": "3"}
+
+
+def card_maths(value: str) -> str:
+    """A card's value as the server writes one: no ``$`` around a value that is all maths,
+    and a unit's power after the unit."""
+    whole = _WHOLE_MATH.fullmatch(value.strip())
+    value = whole.group(1).strip() if whole else value
+    return _POWER_INSIDE.sub(
+        lambda m: rf"\mathrm{{{m.group(1)}}}^{{{m.group(2) or _SUPERSCRIPT[m.group(3)]}}}", value
+    )
 
 
 def _unit(unit: str) -> str:

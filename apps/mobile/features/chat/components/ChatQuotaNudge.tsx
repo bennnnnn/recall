@@ -14,7 +14,8 @@ type Props = {
   bottomOffset: number;
   /** Rides the keyboard with the composer, frame by frame. */
   lift?: SharedValue<number>;
-  usedPct: number;
+  /** "3 of 10 free messages left today. Upgrade for more." */
+  label: string;
   onUpgrade: () => void;
   onDismiss: () => void;
 };
@@ -24,7 +25,7 @@ export function ChatQuotaNudge({
   theme,
   bottomOffset,
   lift,
-  usedPct,
+  label,
   onUpgrade,
   onDismiss,
 }: Props) {
@@ -41,7 +42,7 @@ export function ChatQuotaNudge({
           style={s.quotaNudgeIcon}
         />
         <Text style={s.quotaNudgeText}>
-          {t("chat.quota_nudge_body", { pct: usedPct })}
+          {label}
         </Text>
       </Pressable>
       <Pressable style={s.quotaNudgeCta} onPress={onUpgrade} hitSlop={{ top: 10, bottom: 10 }} accessibilityRole="button">

@@ -15,6 +15,7 @@ export type PlanFeature =
   | "live_talk";
 
 type PlanAllowance =
+  | "daily_messages"
   | "daily_tokens"
   | "daily_image_uploads"
   | "daily_web_searches"
@@ -67,12 +68,3 @@ export function planNameKey(plan: PlanId): `plans.${PlanId}` {
   return `plans.${plan}`;
 }
 
-/**
- * The names of the models a paid plan unlocks, from the server's model list, so the
- * paywall never names a model that does not exist or is free.
- */
-export function premiumModelNames(
-  models: readonly { label: string; plan_access: string; available: boolean }[],
-): string[] {
-  return models.filter((model) => model.plan_access === "pro" && model.available).map((model) => model.label);
-}

@@ -29,11 +29,11 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
     [
         (
             "Will it rain tomorrow? And what's 15% of 80?",
-            [("Will it rain tomorrow?", "live"), ("what's 15% of 80?", "solve")],
+            [("Will it rain tomorrow?", "ask"), ("what's 15% of 80?", "solve")],
         ),
         (
             "What's the latest news on SpaceX? And what is 12 squared?",
-            [("What's the latest news on SpaceX?", "live"), ("what is 12 squared?", "solve")],
+            [("What's the latest news on SpaceX?", "ask"), ("what is 12 squared?", "solve")],
         ),
         (
             "A ball is dropped from 20 m. How long does it take to reach the ground? What's the "
@@ -43,7 +43,7 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
                     "A ball is dropped from 20 m. How long does it take to reach the ground?",
                     "solve",
                 ),
-                ("What's the weather like today?", "live"),
+                ("What's the weather like today?", "ask"),
             ],
         ),
         (
@@ -51,7 +51,24 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
             "game last night?",
             [
                 ("A ball is dropped from 20 m. How long does it take to land?", "solve"),
-                ("Who won the Arsenal game last night?", "live"),
+                ("Who won the Arsenal game last night?", "ask"),
+            ],
+        ),
+        (
+            # Maths and chemistry read the joined line whole: a question naming what the
+            # problem never does is about that thing.
+            "A rectangle is 4 cm by 6 cm. What is its area? Who is the president of France?",
+            [
+                ("A rectangle is 4 cm by 6 cm. What is its area?", "solve"),
+                ("Who is the president of France?", "ask"),
+            ],
+        ),
+        (
+            "2 moles of H2 react with O2. How many moles of water form? Who is the president "
+            "of France?",
+            [
+                ("2 moles of H2 react with O2. How many moles of water form?", "solve"),
+                ("Who is the president of France?", "ask"),
             ],
         ),
         (
@@ -61,7 +78,7 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
             # question has its own givens.
             [
                 ("How long does it take to reach the station 4 km away?", "solve"),
-                ("Are there coffee shops near me?", "live"),
+                ("Are there coffee shops near me?", "ask"),
             ],
         ),
     ],
@@ -108,6 +125,7 @@ def test_each_question_of_a_problem_carries_its_setup(text: str, questions: list
         "A car moves 100 m in 20 s. Find its speed and give the unit.",
         "Two dice are rolled. What is the probability that the sum is 4? Give your answer as a "
         "fraction.",
+        "A right triangle has legs 3 and 4. How do I use Pythagoras here?",
     ],
 )
 def test_one_question_in_several_sentences_is_one_request(text: str) -> None:

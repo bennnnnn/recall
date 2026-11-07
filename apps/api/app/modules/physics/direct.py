@@ -15,6 +15,7 @@ from typing import Any
 
 from app.modules.chat import present_assistant_markdown
 from app.modules.physics.ask import has_ask
+from app.modules.physics.asked_names import asked_meaning
 from app.modules.physics.bodies import side_questions
 from app.modules.physics.catalog import (
     formula_spec,
@@ -321,7 +322,12 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
         Workout(
             given=tuple(given_rows),
             # What is asked, named as the where-line names a given ("$v$ — speed").
-            find=(math_line(find_symbol, _meaning(operation, find_symbol)),),
+            find=(
+                math_line(
+                    find_symbol,
+                    asked_meaning(operation, find_symbol, _answer_unit(verified.canonical_answer)),
+                ),
+            ),
             formula=tuple(formula_rows),
             substitution=tuple(
                 math_line(row)
@@ -361,10 +367,10 @@ def _solver_fences(verified: VerifiedPhysicsBlock) -> list[dict[str, Any]]:
     return fences
 
 
-def _meaning(operation: str, symbol: str) -> str | None:
-    """What an unknown stands for, from the glossary that names the givens."""
-    spec = formula_spec(operation)
-    return given_meaning(operation, spec.kind if spec is not None else "", symbol)
+def _answer_unit(answer: str | None) -> str | None:
+    """The unit of a plain verified answer ("669760 J" → "J"), when it has one."""
+    match = _PLAIN_ANSWER.match(answer or "")
+    return None if match is None else match.group("unit")
 
 
 def _format_parts(
@@ -395,7 +401,12 @@ def _format_parts(
                 title=part.title,
                 working=working,
                 answer=part.display_answer,
-                required=(math_line(part.symbol, _meaning(part.op, part.symbol)),),
+                required=(
+                    math_line(
+                        part.symbol,
+                        asked_meaning(part.op, part.symbol, _answer_unit(part.answer)),
+                    ),
+                ),
             )
         )
     # The one layout every question in parts has (``services/worked_parts``).

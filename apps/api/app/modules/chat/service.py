@@ -253,7 +253,12 @@ async def today_usage(
     redis_used = await quota_service.get_daily_usage(redis, str(user.id))
     used_tokens = max(redis_used, input_tokens + output_tokens)
     remaining = max(0, limit - used_tokens)
+    messages = await quota_service.messages_used(redis, user.id)
+    daily_messages = quota_service.daily_message_limit(user, settings)
     return UsageOut(
+        messages_used=messages,
+        daily_messages=daily_messages,
+        messages_left=max(0, daily_messages - messages),
         date=day.isoformat(),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -274,6 +279,7 @@ async def reset_today_usage(
     if not settings.dev_auth_enabled:
         raise ChatsError("Not found", status_code=404)
     await quota_service.reset_daily_usage(redis, str(user.id))
+    await quota_service.reset_messages(redis, user.id)
     # L9: also clear the DB row so today_usage (called next) returns 0 —
     # otherwise the UI still shows the DB-recorded total after reset.
     await usage_repo.reset_for_date(session, user.id, utc_today())

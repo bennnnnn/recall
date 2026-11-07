@@ -84,4 +84,30 @@ describe("the window a graph card opens on", () => {
     expect(view.xMax).toBe(6);
     expect(view.yMax).toBeCloseTo(6 / CARD_ASPECT, 9);
   });
+
+  it("focuses y = x² − 4x + 3 on its roots, vertex and y-intercept, not the half-empty ±6 window", () => {
+    // 2026-11-06: the card ran from −6 to 6 and half the plot was empty.
+    const view = interactiveFunctionBounds(fn("x^2 - 4x + 3", (x) => x * x - 4 * x + 3), CARD_ASPECT);
+    for (const point of [[1, 0], [3, 0], [2, -1], [0, 3]] as const) {
+      expect(shows(view, point as unknown as [number, number])).toBe(true);
+    }
+    expect(view.xMax - view.xMin).toBeLessThan(8);
+    expect(view.xMin).toBeGreaterThan(-3);
+    expect(view.xMax).toBeLessThan(6);
+    // The arms climb out of the top, not off into a window of empty grid.
+    expect(view.yMax).toBeLessThan(10);
+  });
+
+  it("shows every point the fence marks", () => {
+    const view = interactiveFunctionBounds(
+      fn("x^2 - 4x + 3", (x) => x * x - 4 * x + 3, {
+        marks: [{ x: 1, y: 0, curve: 1 }, { x: 3, y: 0, curve: 1 }, { x: 2, y: -1, curve: 1 }, { x: 0, y: 3, curve: 1 }],
+      }),
+      CARD_ASPECT,
+    );
+    for (const point of [[1, 0], [3, 0], [2, -1], [0, 3]] as const) {
+      expect(shows(view, point as unknown as [number, number])).toBe(true);
+    }
+  });
 });
+

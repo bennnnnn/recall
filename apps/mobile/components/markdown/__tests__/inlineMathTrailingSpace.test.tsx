@@ -9,6 +9,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
+import { Type } from "@/lib/type";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
@@ -63,7 +64,8 @@ function visibleText(node: unknown): string {
   if (typeof node === "string") return node.replace(/ /g, " ");
   if (Array.isArray(node)) return node.map(visibleText).join("");
   const element = node as Exclude<Node, string | null>;
-  if (element.props?.testID === "stream-caret") return "";
+  // The caret and the empty run a formula sets its baseline with draw no glyphs.
+  if (element.props?.testID === "stream-caret" || element.props?.testID === "math-baseline") return "";
   const style = styleOf(element);
   let text = visibleText(element.children);
   if (element.props?.testID === "math-script") {
@@ -74,8 +76,9 @@ function visibleText(node: unknown): string {
   return gap > 0 ? `${text} ` : text;
 }
 
+/** Inline maths is set at the reply's text size. */
 function measuredWidth(latex: string): number {
-  return layoutMath(parseSimpleLatex(fixImplicitExponents(latex)), 16).width;
+  return layoutMath(parseSimpleLatex(fixImplicitExponents(latex)), Type.reading.fontSize).width;
 }
 
 /** The formula's own box: a floor at the measured width, never a cap below its glyphs. */

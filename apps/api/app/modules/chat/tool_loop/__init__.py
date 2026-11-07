@@ -7,11 +7,13 @@ Ordinary Q&A streams immediately. After tools run, the visible answer is
 chunk, and we do not throw it away and call the model a third time.
 
 - ``selection`` — does the turn need the loop, and which tools may it offer
-- ``rounds`` — search first, or one selection round, then hand off to the stream
+- ``rounds`` — one selection round, then hand off to the stream
 - ``calls`` — answer each call: refuse it, or run it and check it against the user
 - ``results`` — what a call hands back (verified fences, search hits, a terminal image)
 - ``text_calls`` — a call the provider wrote into the reply text
-- ``forced_search`` — the live search the model skipped
+- ``reply_calls`` — the reply's own model call may search (``web_search``), or the live
+  read's search runs before it
+- ``live_denial`` — a reply that says it cannot check live gets the tool once more
 """
 
 from app.modules.chat.tool_loop.rounds import run_tool_rounds

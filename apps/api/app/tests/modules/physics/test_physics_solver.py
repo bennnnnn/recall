@@ -244,7 +244,7 @@ def test_kinematics_time_to_peak_answers_the_top_and_draws_the_whole_trip() -> N
     assert result.formulas == (r"t_{\text{top}} = \frac{v_0}{g}",)
     assert result.graph_specs == []
     (scene,) = result.simulation_specs
-    assert scene.title_key == "free_fall" and scene.ground
+    assert scene.title_key == "thrown_up" and scene.ground
 
 
 @pytest.mark.parametrize(

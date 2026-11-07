@@ -30,7 +30,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from app.services.card_text import named_value, without_emphasis
+from app.services.card_text import card_maths, named_value, without_emphasis
 from app.services.card_value import final_answer_only
 from app.services.md_fence_scan import fence_lang as fence_lang
 from app.services.md_fence_scan import map_closed_fences, read_fence_marker
@@ -458,7 +458,7 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         # A card draws maths; "Paris" under a quiz's Answer, or a paragraph, stays prose.
         if ("$" not in value and "=" not in _relations(value)) or _wordy(value):
             return text
-        card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{value}\n```"
+        card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card_maths(value)}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []
     while steps and not steps[-1].strip():
         steps.pop()

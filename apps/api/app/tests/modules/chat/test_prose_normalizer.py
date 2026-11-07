@@ -49,6 +49,24 @@ class TestNormalizeProseArtifacts:
         inner = result.split("```python")[1].split("```")[0]
         assert inner.count("\n\n\n") >= 1
 
+    def test_empty_bullet_removed(self):
+        # 2026-11-06, "what's going on in the news today": an empty dot above the news.
+        text = (
+            "### International\n*\n*   **Ukraine:** drones shot down.\n-\n- **Russia:** gains slow."
+        )
+        assert normalize_prose_artifacts(text) == (
+            "### International\n*   **Ukraine:** drones shot down.\n- **Russia:** gains slow."
+        )
+
+    def test_a_bullet_whose_text_is_indented_below_it_stays(self):
+        # Review of #2323: in CommonMark the indented line is that item's own text.
+        text = "-\n  **Ukraine:** drones shot down.\n*\n    Russia: gains slow."
+        assert normalize_prose_artifacts(text) == text
+
+    def test_a_number_alone_and_a_fenced_bullet_stay(self):
+        text = "1.\n**Preheat** the oven.\n\n```markdown\n*\n```"
+        assert normalize_prose_artifacts(text) == text
+
     def test_multiple_orphan_colons_removed(self):
         text = "Step 1\n:\nStep 2\n:\nStep 3"
         result = normalize_prose_artifacts(text)

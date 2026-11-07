@@ -333,7 +333,13 @@ async def _save_user_remind(turn: _Turn) -> tuple[str, int]:
         about = about_saved_reminders(turn.prior_assistant) or asks_about_my_reminders(
             turn.prior_user
         )
-        reply = reply_when_nothing_saved(turn.assistant_text, turn.user_text, about_reminders=about)
+        reply = reply_when_nothing_saved(
+            turn.assistant_text,
+            turn.user_text,
+            about_reminders=about,
+            prior_assistant=turn.prior_assistant,
+            prior_user=turn.prior_user,
+        )
         return reply, 0
     line, ok = await create_one(turn.writes(), draft)
     updated = turn.assistant_text.strip()
@@ -374,7 +380,13 @@ async def _apply_fences(turn: _Turn, spans: _Spans) -> tuple[str, int]:
             state.applied += 1
     updated = _render(turn.assistant_text, spans, in_place, result_lines)
     if state.applied == 0:
-        updated = reply_when_nothing_saved(updated, turn.user_text, about_reminders=True)
+        updated = reply_when_nothing_saved(
+            updated,
+            turn.user_text,
+            about_reminders=True,
+            prior_assistant=turn.prior_assistant,
+            prior_user=turn.prior_user,
+        )
         if invalid_any and not updated.strip():
             updated = _ASK_WHEN
     return updated, state.applied

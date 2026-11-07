@@ -179,27 +179,6 @@ def test_a_personal_current_taste_or_task_message_gets_no_note(query: str) -> No
     assert question_hint(query) is None
 
 
-@pytest.mark.parametrize(
-    ("content", "nothing"),
-    [
-        (
-            "The lowest temperature at which a substance catches fire is called its "
-            "a) Ignition temperature b) Maximum temperature c) Room temperature "
-            "d) Normal temperature",
-            True,
-        ),
-        ("What is the SI unit of force?", True),
-        ("Who won the champions league final?", False),
-        ("What is the current Fed funds rate? a) 3.5% b) 4.25% c) 5%", False),
-    ],
-)
-def test_a_textbook_question_has_nothing_to_look_up(content: str, nothing: bool) -> None:
-    # Its note said not to search, and the reply searched anyway (2026-10-30).
-    from app.modules.chat.tool_loop.reply_calls import _nothing_to_look_up
-
-    assert _nothing_to_look_up(content, None) is nothing
-
-
 # Review (2026-10-30): anyone's own matter is no exercise, whatever its shape, and so is
 # never kept from searching.
 @pytest.mark.parametrize(
@@ -258,23 +237,6 @@ def test_more_textbook_shapes_are_exercises(query: str) -> None:
 @pytest.mark.parametrize(
     "query",
     [
-        "Why don't cooking pans have metal handles?",
-        "Why is phosphorus preserved in water?",
-        "Why does the image in a plane mirror suffer lateral inversion?",
-        "What causes earthquakes?",
-        "How do we hear sound?",
-    ],
-)
-def test_a_plain_science_question_has_nothing_to_look_up(query: str) -> None:
-    # Main kept these from searching (1278d63b6); the factual note must not undo it.
-    from app.modules.chat.tool_loop.reply_calls import _nothing_to_look_up
-
-    assert _nothing_to_look_up(query, None) is True
-
-
-@pytest.mark.parametrize(
-    "query",
-    [
         "Can you set a reminder for 5pm?",
         "What's a good name for a cat?",
         "Is a 5-star hotel worth it in Paris?",
@@ -322,12 +284,8 @@ def test_a_books_words_are_no_news(query: str) -> None:
     ],
 )
 def test_a_changing_or_everyday_question_keeps_its_search_and_lane(query: str) -> None:
-    from app.modules.turn_reading.school_question import (
-        has_nothing_to_look_up,
-        needs_reasoned_choice,
-    )
+    from app.modules.turn_reading.school_question import needs_reasoned_choice
 
-    assert not has_nothing_to_look_up(query)
     assert not needs_reasoned_choice(query)
 
 
@@ -455,7 +413,6 @@ def test_an_exercise_closing_on_your_answer_is_an_exercise(query: str) -> None:
     ],
 )
 def test_a_blank_is_a_word_missing_from_a_sentence(query: str, blank: bool) -> None:
-    from app.modules.turn_reading.school_question import has_nothing_to_look_up, in_textbook_form
+    from app.modules.turn_reading.school_question import in_textbook_form
 
     assert in_textbook_form(query) is blank
-    assert has_nothing_to_look_up(query) is blank

@@ -493,15 +493,15 @@ describe("markdown render rules", () => {
       getAllByTestId("workout-subheading").map((node) => node.props.children),
     ).toEqual(["Constant acceleration", "Substitution"]);
     // Laid out like Formula: one row per state. Solving for the unknown is a step of its
-    // own between the law and its rearrangement, at the left; the maths is centred.
+    // own between the law and its rearrangement; every line starts at the left edge.
     const law = getAllByTestId("workout-body")[2]!;
     const lines = within(law).getAllByTestId("workout-line");
     expect(lines).toHaveLength(3);
     expect(lines[1]).toHaveTextContent(/^Solve for\s*a$/);
     expect(within(lines[1]!).getByTestId("workout-move")).toBeOnTheScreen();
-    expect(StyleSheet.flatten(lines[1]!.props.style).justifyContent).toBe("flex-start");
-    expect(StyleSheet.flatten(lines[0]!.props.style).justifyContent).toBe("center");
-    expect(StyleSheet.flatten(lines[2]!.props.style).justifyContent).toBe("center");
+    for (const line of lines) {
+      expect(StyleSheet.flatten(line.props.style).justifyContent).toBe("flex-start");
+    }
   });
 
   it("heads the working with Solution, its formula by name", async () => {
@@ -618,7 +618,7 @@ describe("markdown render rules", () => {
     expect(getAllByTestId("workout-move").map((move) => move.props.testID)).toHaveLength(5);
   });
 
-  it("centres a line of maths inside Solution and keeps Given and the headings at the left", async () => {
+  it("starts every line of a worked solution at one left edge, on the text baseline", async () => {
     const content = [
       "**Given**  \n$d = 3000\\,\\mathrm{m}$",
       "**Solution**",
@@ -631,8 +631,15 @@ describe("markdown render rules", () => {
     const [given, formula] = getAllByTestId("workout-body");
     const flat = (node: { props: { style?: StyleProp<TextStyle> } }) =>
       StyleSheet.flatten(node.props.style) ?? {};
-    expect(flat(within(formula!).getByTestId("workout-line")).justifyContent).toBe("center");
-    expect(flat(within(given!).getByTestId("workout-line")).justifyContent).toBe("flex-start");
+    // The formula under its name and the given above it share one left edge (a centred
+    // formula over left-aligned substitution lines read as two layouts), and words and
+    // maths on a line share its baseline.
+    for (const body of [given!, formula!]) {
+      expect(flat(within(body).getByTestId("workout-line"))).toMatchObject({
+        justifyContent: "flex-start",
+        alignItems: "baseline",
+      });
+    }
     expect(flat(getByTestId("workout-subheading")).textAlign).toBeUndefined();
     // Answer stays a section, its box outside Solution's rule.
     expect(
@@ -788,12 +795,12 @@ describe("markdown render rules", () => {
     // Each part's formula heading is the same small secondary sub-heading…
     expect(flat(subheadings[2]!)).toEqual(flat(subheadings[0]!));
     expect(flat(subheadings[2]!).color).toBe(lightTheme.textSecondary);
-    // …and every line of maths under it is centred, in part (a) and part (b) alike.
+    // …and every line of maths under it starts at the left, in part (a) and part (b) alike.
     const working = getAllByTestId("workout-body").slice(2);
     expect(working).toHaveLength(4);
     for (const body of working) {
       for (const line of within(body).getAllByTestId("workout-line")) {
-        expect(flat(line).justifyContent).toBe("center");
+        expect(flat(line).justifyContent).toBe("flex-start");
       }
     }
   });

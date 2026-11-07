@@ -5,6 +5,7 @@ import { ChatMessageList } from "@/features/chat/components/ChatMessageList";
 import type { Message } from "@/lib/api";
 
 jest.mock("@/features/home/components/HomeStarters", () => ({ HomeStarters: () => null }));
+jest.mock("@/features/chat/components/LastChatCard", () => ({ LastChatCard: () => null }));
 
 const message: Message = { id: "m1", role: "user", content: "hello", model: null, created_at: "t" };
 

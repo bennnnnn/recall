@@ -161,12 +161,5 @@
       "app.modules.physics.split_parts"
     ],
     "imports": 2
-  },
-  {
-    "modules": [
-      "app.modules.web_search.detection",
-      "app.modules.web_search.subject"
-    ],
-    "imports": 2
   }
 ]

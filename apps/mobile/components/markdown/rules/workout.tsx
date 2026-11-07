@@ -14,7 +14,7 @@ import {
   unwrapSingle,
 } from "@/components/markdown/markdownAstHelpers";
 import type { StyleMap } from "@/components/markdown/markdownContentStyles";
-import { withGreenTicks } from "@/components/markdown/rules/textWithMath";
+import { mathSizeOf, withGreenTicks } from "@/components/markdown/rules/textWithMath";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
@@ -96,6 +96,7 @@ function workoutInline(
   color: string,
   tickColor?: string,
 ): ReactNode[] {
+  const size = mathSizeOf(textStyle);
   return splitInlineMath(text).map((part, i) =>
     part.type === "math" ? (
       <MathText
@@ -103,6 +104,7 @@ function workoutInline(
         key={`${keyPrefix}-m-${i}`}
         latex={part.value}
         textColor={color}
+        fontSize={size}
       />
     ) : (
       <Text key={`${keyPrefix}-t-${i}`} style={textStyle} selectable>
@@ -150,7 +152,7 @@ const RULE_WIDTH = 2;
 /**
  * The thin rule Given and Required sit behind, and only they: the working inside Solution
  * (a formula under its name, Substitution, Steps, a numbered move) has none, its smaller
- * headings and centred maths set it apart (November 2026).
+ * headings in secondary ink set it apart (November 2026).
  */
 function workoutRule(t: Theme) {
   return {
@@ -178,7 +180,7 @@ const SOLVE_FOR = /^Solve for\s/;
 function renderWorkoutLine(
   lineKey: string,
   line: string,
-  { given, asked, working }: { given: boolean; asked: boolean; working: boolean },
+  { given, asked }: { given: boolean; asked: boolean },
   {
     body,
     noteStyle,
@@ -194,10 +196,10 @@ function renderWorkoutLine(
   );
   const naming = given && /^where\s/i.test(state);
   const move = !note && SOLVE_FOR.test(state);
-  // Inside Solution a line of maths is centred, as a textbook sets it; what names or
-  // explains it (a heading, a move, "Solve for") stays at the left above it. A line too
-  // wide to fit keeps the full width and its own overflow.
-  const centred = working && !move && state.includes("$");
+  // Every line of a worked solution starts at the same left edge: a formula, its
+  // substitution, a move and a given read down one column (a centred formula over
+  // left-aligned substitution lines read as two layouts, November 2026). Words and
+  // maths on a line share its baseline.
   const row = (
     <View
       key={lineKey}
@@ -205,8 +207,8 @@ function renderWorkoutLine(
       style={{
         flexDirection: "row",
         flexWrap: "wrap",
-        alignItems: "center",
-        justifyContent: centred ? "center" : "flex-start",
+        alignItems: "baseline",
+        justifyContent: "flex-start",
         flexShrink: 1,
       }}
     >
@@ -218,7 +220,7 @@ function renderWorkoutLine(
             // A symbol stays beside its meaning; a long meaning wraps after it.
             style={{
               flexDirection: "row",
-              alignItems: "center",
+              alignItems: "baseline",
               maxWidth: "100%",
               marginRight: Space.xxs,
             }}
@@ -239,7 +241,7 @@ function renderWorkoutLine(
           style={{
             flexDirection: "row",
             flexWrap: asked ? undefined : "wrap",
-            alignItems: "center",
+            alignItems: "baseline",
             maxWidth: "100%",
           }}
         >
@@ -260,7 +262,7 @@ function renderWorkoutLine(
     <View key={lineKey} testID="workout-step" style={{ gap: Space.xxs }}>
       <View
         testID="workout-move"
-        style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}
+        style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline" }}
       >
         {workoutInline(note, `${lineKey}-note`, noteStyle, t.textSecondary, t.success)}
       </View>
@@ -274,8 +276,8 @@ function renderWorkoutLine(
  * are sections: a heading at the margin, Given's and Required's lines behind a thin rule.
  * Every other section (a formula under its name, Substitution, Steps) is working inside
  * Solution: a smaller heading in secondary ink and its lines, with no rule, whoever wrote
- * the reply and whether or not it has a **Solution** heading; its lines of maths are
- * centred, the words above them at the left. Each given is
+ * the reply and whether or not it has a **Solution** heading; its lines start at the
+ * left edge every other line of the solution starts at. Each given is
  * its own line, and a closing "where v₀ = initial speed, …" line names them in secondary
  * ink. The last line of maths in a written-out answer sits in a white, bordered box,
  * outside the rule (the lines before it are working, a sentence after it stays below). A
@@ -302,7 +304,7 @@ export function renderWorkoutSection(
     renderWorkoutLine(
       `${key}-line-${index}`,
       line,
-      { given, asked, working },
+      { given, asked },
       { body, noteStyle },
       t,
     ),
