@@ -1,7 +1,7 @@
 """Which lesson layout a turn's prompt asks for, and the contract it restates beside the message.
 
-A teach-me ("teach me Python") gets ``TEACHING_HINT``: an outline of a whole subject, or a
-lesson on one idea. A walkthrough ("I don't understand recursion") gets ``WALKTHROUGH_HINT``:
+A teach-me ("teach me Python") gets ``TEACHING_HINT``: a lesson, a whole subject's starting
+at its most useful first piece. A walkthrough ("I don't understand recursion") gets ``WALKTHROUGH_HINT``:
 a lesson. The style hints decide it (``prompt_format``); this module only reads their choice,
 so the contract beside the message and the finalize pass that holds the reply to it
 (``lesson_shape``) never disagree with the layout the prompt gave.
@@ -14,12 +14,10 @@ from typing import Any, Literal
 
 from app.modules.chat.prompt_constants.teaching import (
     LESSON_CONTRACT,
-    OUTLINE_CONTRACT,
     TEACH_CONTRACT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
 )
-from app.modules.turn_reading.lesson_flow import names_a_whole_language
 
 LessonLayout = Literal["teaching", "walkthrough"]
 
@@ -33,12 +31,9 @@ def lesson_layout_of(style_hints: Sequence[str]) -> LessonLayout | None:
     return "walkthrough" if WALKTHROUGH_HINT in style_hints else None
 
 
-def lesson_contract(style_hints: Sequence[str], query: str) -> list[str]:
-    """The contract restated beside the user's message for the turn's lesson layout: only
-    the outline when the message names a whole programming language."""
+def lesson_contract(style_hints: Sequence[str]) -> list[str]:
+    """The contract restated beside the user's message for the turn's lesson layout."""
     layout = lesson_layout_of(style_hints)
-    if layout == "teaching" and names_a_whole_language(query):
-        return [OUTLINE_CONTRACT]
     return [_CONTRACTS[layout]] if layout else []
 
 
@@ -49,8 +44,6 @@ def prompt_lesson_layout(prompt_messages: Sequence[dict[str, Any]]) -> LessonLay
         content = message.get("content")
         if message.get("role") != "system" or not isinstance(content, str):
             continue
-        if OUTLINE_CONTRACT in content:
-            return "teaching"
         for layout, contract in _CONTRACTS.items():
             if contract in content:
                 return layout

@@ -293,7 +293,7 @@ def test_programming_lesson_requires_a_tagged_code_example():
 @pytest.mark.parametrize("hint", [TEACHING_HINT, WALKTHROUGH_HINT])
 def test_lesson_hints_follow_the_chatgpt_lesson_shape(hint):
     assert "### Lesson N: <topic>" in hint
-    assert "`### 1. Understand the problem`" in hint
+    assert "`### 1. Eventually`" in hint
     assert "Your turn" in hint and "```quiz" in hint
     assert "```array" in hint and "```steps" in hint
     assert "$O(n^2)$" in hint
@@ -559,15 +559,10 @@ OUTLINE = (
 )
 
 
-def test_teaching_hint_outlines_a_whole_subject_and_teaches_one_idea():
-    assert "A whole subject" in TEACHING_HINT and "do not teach yet" in TEACHING_HINT
-    assert "One idea" in TEACHING_HINT and "nothing past it" in TEACHING_HINT
-    assert "an outline of a whole language has no code" in programming_lesson_contract(
-        "teach me python lists"
-    )
-    # A whole language is its outline: no code contract pulls it into Lesson 1 (2026-11-03).
-    assert programming_lesson_contract("teach me python") == ""
-    assert programming_lesson_contract("I want to learn python from scratch") == ""
+def test_a_whole_language_gets_its_first_lesson_with_code():
+    # "teach me python" is Lesson 1 now, not an outline: its code contract applies.
+    assert programming_lesson_contract("teach me python") != ""
+    assert programming_lesson_contract("I want to learn python from scratch") != ""
 
 
 def _turns(*pairs):

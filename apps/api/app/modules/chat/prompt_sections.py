@@ -460,9 +460,7 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         name="programming_lesson_contract",
     ),
     # A lesson or a teach-me outline: its shape here too (``lesson_layout``).
-    PromptSection(
-        _always, lambda t: lesson_contract(t.style_hints, t.query), name="lesson_contract"
-    ),
+    PromptSection(_always, lambda t: lesson_contract(t.style_hints), name="lesson_contract"),
     # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
     PromptSection(
         lambda t: not t.lightweight and bool(code_question_layout(t.query_text)),

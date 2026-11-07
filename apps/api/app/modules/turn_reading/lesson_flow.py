@@ -9,9 +9,7 @@ from typing import Any
 
 from app.modules.turn_reading.teaching import (
     _TEACH_TURN,
-    PROGRAMMING_PATTERNS,
     is_teaching_request,
-    programming_tag,
 )
 from app.modules.turn_reading.walkthrough import walkthrough_topic
 from app.services.md_fence_scan import iter_fences, without_fences
@@ -169,23 +167,6 @@ def teach_subject(text: str | None) -> str | None:
     if end >= 2 and cleaned[end - 1].isalpha() and cleaned[end - 2].isspace():
         end -= 1
     return _named(_SUBJECT_LEAD.sub("", cleaned[end:]))
-
-
-# What may stand beside a language's name in a subject that is still the whole language.
-_LANGUAGE_FILLER = frozenset({"the", "language", "programming", "coding", "code", "basics"})
-
-
-def names_a_whole_language(text: str | None) -> bool:
-    """A teach-me whose subject is a programming language and nothing narrower ("teach me
-    python", "I want to learn the go language"): a whole subject, so an outline first."""
-    subject = teach_subject(text)
-    tag = programming_tag(subject or "")
-    if subject is None or tag is None:
-        return False
-    rest = subject
-    for pattern, _tag in PROGRAMMING_PATTERNS:
-        rest = pattern.sub(" ", rest)
-    return all(word.casefold() in _LANGUAGE_FILLER for word in rest.split())
 
 
 # Where a stuck or walkthrough topic ends: "recursion yet", "pointers in C at all".

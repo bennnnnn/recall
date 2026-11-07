@@ -15,21 +15,15 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.modules.chat import lesson_calls
 from app.modules.chat.lesson_calls import LessonPractice, OutlineTopics, QuizCard
-from app.modules.chat.lesson_layout import lesson_layout_of, prompt_lesson_layout
+from app.modules.chat.lesson_layout import lesson_contract, lesson_layout_of, prompt_lesson_layout
 from app.modules.chat.lesson_shape import hold_lesson_shape, next_lesson_number, teaches
 from app.modules.chat.prompt_constants.teaching import (
     LESSON_CONTRACT,
-    OUTLINE_CONTRACT,
     TEACH_CONTRACT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
 )
-from app.modules.turn_reading.lesson_flow import (
-    lesson_step,
-    lesson_topic,
-    names_a_whole_language,
-    outline_topics,
-)
+from app.modules.turn_reading.lesson_flow import lesson_step, lesson_topic, outline_topics
 from app.services.md_fence_scan import iter_fences
 
 _QUIZ: dict[str, Any] = {
@@ -388,16 +382,6 @@ def test_what_a_teach_me_reply_is(reply: str, lesson: bool) -> None:
 # ── Layout, readers and the card ────────────────────────────────────────
 
 
-def test_the_layout_is_read_from_the_hints_and_the_prompt() -> None:
-    assert lesson_layout_of(["x", TEACHING_HINT]) == "teaching"
-    assert lesson_layout_of([WALKTHROUGH_HINT]) == "walkthrough"
-    assert lesson_layout_of(["x"]) is None
-    messages = [{"role": "system", "content": f"a\n\n{TEACH_CONTRACT}"}]
-    assert prompt_lesson_layout(messages) == "teaching"
-    assert prompt_lesson_layout([{"role": "system", "content": OUTLINE_CONTRACT}]) == "teaching"
-    assert prompt_lesson_layout([{"role": "user", "content": LESSON_CONTRACT}]) is None
-
-
 @pytest.mark.parametrize(
     ("message", "topic"),
     [
@@ -442,18 +426,16 @@ def test_the_call_schemas_accept_their_examples() -> None:
     assert len(OutlineTopics.model_validate(_TOPICS).topics) == 6
 
 
-@pytest.mark.parametrize(
-    ("message", "whole"),
-    [
-        ("teach me python", True),
-        ("I want to learn python from scratch", True),
-        ("can you teach me javascript please", True),
-        ("teach me the go language", True),
-        ("teach me python dictionaries", False),
-        ("teach me python loops", False),
-        ("teach me american history", False),
-        ("what is python", False),
-    ],
-)
-def test_a_teach_me_naming_only_a_language_is_the_whole_subject(message: str, whole: bool) -> None:
-    assert names_a_whole_language(message) is whole
+def test_the_layout_is_read_from_the_hints_and_the_prompt() -> None:
+    assert lesson_layout_of(["x", TEACHING_HINT]) == "teaching"
+    assert lesson_layout_of([WALKTHROUGH_HINT]) == "walkthrough"
+    assert lesson_layout_of(["x"]) is None
+    messages = [{"role": "system", "content": f"a\n\n{TEACH_CONTRACT}"}]
+    assert prompt_lesson_layout(messages) == "teaching"
+    assert prompt_lesson_layout([{"role": "user", "content": LESSON_CONTRACT}]) is None
+
+
+def test_every_teach_me_is_a_lesson_that_starts_now() -> None:
+    """ "Teach me useful English words" once got a menu of areas and a question about the
+    user's level before a single word (2026-11-06)."""
+    assert lesson_contract([TEACHING_HINT]) == [TEACH_CONTRACT]

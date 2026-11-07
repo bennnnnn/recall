@@ -12,7 +12,6 @@ projects, and milestones rather than entering the one-step-at-a-time tutor.
 
 from __future__ import annotations
 
-from app.modules.turn_reading.lesson_flow import names_a_whole_language
 from app.modules.turn_reading.teaching import programming_tag
 
 LEARNING_PLAN_HINT = (
@@ -49,14 +48,13 @@ LEARNING_PLAN_HINT = (
 
 
 def programming_lesson_contract(text: str) -> str:
-    """Return a hard tagged-fence requirement for a named programming topic; a whole
-    language ("teach me python") gets its outline, which has no code."""
+    """Return a hard tagged-fence requirement for a named programming topic, a whole
+    language's first lesson included."""
     tag = programming_tag(text)
-    if tag is None or names_a_whole_language(text):
+    if tag is None:
         return ""
     return (
-        "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK (a lesson only; an outline of a whole "
-        "language has no code): Before answering, verify the response contains "
+        "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK: Before answering, verify the response contains "
         f"the literal opening fence ```{tag}, runnable code on following lines, and a closing ```. "
         "This is mandatory even when the lesson starts with a concept. An inline snippet, pseudo-code, or "
         "untagged fence fails the requested output. Keep the example short, then end with the "
@@ -69,11 +67,13 @@ def programming_lesson_contract(text: str) -> str:
 # (apps/mobile/components/rich/QuizCard.tsx, ArrayBlock.tsx, StepList.tsx).
 _LESSON_SHAPE = (
     "- Title: `### Lesson N: <topic>` (the word Lesson in the reply language), N counting the "
-    "lessons in this chat. Then 3-5 numbered sections, each a `### 1. <title>` heading, for "
-    "example `### 1. Understand the problem`, `### 2. Solution one: Brute force`, "
-    "`### 3. Apply it to backend development`. Each section teaches one idea in two or three "
-    "short paragraphs with a concrete, real-world example (for code: an API, a table of users; "
-    "otherwise a worked example, an event, a source).\n"
+    "lessons in this chat. Then numbered sections, each a `### 1. <title>` heading naming the "
+    "one thing it teaches (a word, a rule, a step, an idea), for example `### 1. Eventually`, "
+    "`### 2. Solution one: Brute force`. Under it, the thing itself, compact. A word or phrase "
+    "gets a `**Meaning:**` line and an `**Example:**` sentence, ten of them in a lesson of "
+    "words. Anything else: what it is or does in a line or two, then one concrete example "
+    "(code with an API or a table of users; a date and what happened; a way to practise it), "
+    "3-5 sections. Never a paragraph on why it matters.\n"
     "- Code: short language-tagged blocks such as ```python. Explain it the way a tutor does: "
     "a `# 18` comment for what a line gives, then a bullet per idea that opens with the code "
     'in `inline code` ("`ages[0]` gets the first item."), or `**How it works:**` with '
@@ -118,28 +118,27 @@ _LESSON_SHAPE = (
 _LESSON_OPENING = (
     "- A lesson is the exception to the general layout rules: it opens with a short hook "
     "instead of the answer, and uses the app's ```quiz, ```array and ```steps cards below.\n"
-    "- Open with one or two sentences before the title: what they will learn, why it matters, "
-    'and how it fits their goal or level when the profile or memory says ("Since you already '
+    "- Open with one sentence before the title: what they will learn, tied to their goal or "
+    'level when the profile or memory says ("Since you already '
     "know some Python basics, we'll build on them instead of starting with what a variable "
     'is."). Without that, never claim what they already know.\n'
 )
 
-# A whole subject is a map before it is a lesson: "teach me Python" gets the
-# topics in order and one question; "teach me Python dictionaries" gets the
-# lesson. The model judges the size, in any subject and language.
+# Every teach-me teaches at once: "teach me useful English words" once came back as a menu
+# of areas and a question about the user's level, and a second turn ("I said useful. U
+# decide") before a single word (2026-11-06). A whole subject starts with its most useful
+# first piece, chosen here, never asked about.
 _SUBJECT_OUTLINE = (
     'First check memory: if it says they are already learning this subject ("Learning '
     'Python: reached Lesson 3, Dictionaries ... Covered: ...") reply with only two lines '
     "and no list: where they got to, then one question offering the next topic after the "
     'last one covered or a fresh start ("Last time we got to dictionaries. Pick up with '
-    'functions, or start over?"). Otherwise judge the size of what they asked for.\n'
-    "- A whole subject (Python, English, cooking, calculus, guitar, chemistry): do not teach "
-    "yet. Reply with one sentence on what it opens up for them, then a numbered list of 5-8 "
-    "topics in the order to learn them, each a **bold name** and a few words on what it "
-    "lets them do, then one short question: where they are and where to start (for "
-    'example "New to it, or do you know some already? Pick a number, or tell me what you '
-    'want to make with it."). Tailor the list to a level or goal they or the profile or '
-    "memory already gave. No lesson title, no code, no quiz, no headings; under 150 words.\n"
+    'functions, or start over?"). Otherwise teach now; never ask which area, their level or '
+    "where to start first.\n"
+    "- A whole subject or a broad ask (Python, English, useful English words, cooking, "
+    "guitar): Lesson 1 is its most useful first piece, chosen by you and named in the title "
+    "(ten everyday English words with meanings and examples; printing and variables). Tailor "
+    "it to a level or goal they or the profile or memory already gave.\n"
     "- One idea, skill, rule or dish (Python dictionaries, the present perfect, derivatives, "
     "knife skills, an omelette): teach exactly that and nothing past it.\n"
 )
@@ -147,7 +146,7 @@ _SUBJECT_OUTLINE = (
 TEACHING_HINT = (
     "The user wants to learn something. "
     + _SUBJECT_OUTLINE
-    + "For one idea, teach Lesson 1 now, complete, in this shape:\n"
+    + "Teach Lesson 1 now, complete, in this shape:\n"
     + _LESSON_OPENING
     + "- Start where they are: skip what they already know, and tie the example to their "
     "goal.\n" + _LESSON_SHAPE
@@ -171,8 +170,13 @@ WALKTHROUGH_HINT = (
 # "LESSON SHAPE, REQUIRED" label once came back in the reply ("A lesson shape is requested
 # here, so…", 2026-11-03): the contracts say what to write, never name themselves.
 _LESSON_PARTS = (
-    "the title line `### Lesson N: <topic>` after a one- or two-sentence hook (N is 1 unless "
-    "this chat already taught lessons), numbered `### 1. <title>` sections, and last "
+    "the title line `### Lesson N: <topic>` after a one-sentence hook (N is 1 unless "
+    "this chat already taught lessons), then numbered `### 1. <title>` sections, one per item "
+    "taught: the heading is the item itself (the word, the phrase, the rule, the step), never "
+    "a group of them. Under a word or phrase: a `**Meaning:**` line and an `**Example:**` "
+    "sentence that uses it, ten sections in all. Under anything else: what it is or does in "
+    "a line or two, then one concrete example (code, a date and what happened, a way to "
+    "practise it), never a paragraph on why it matters, 3-5 sections; and last "
     "`### N. Your turn` holding exactly one ```quiz card (```quiz alone on its line, the JSON "
     "on the next), then one sentence previewing the next lesson"
 )
@@ -184,28 +188,13 @@ LESSON_CONTRACT = (
     "which part confuses them."
 )
 
-_OUTLINE_PARTS = (
-    "one sentence, then a numbered list of 5-8 topics in learning order, each `N. **Topic** — "
-    "what it lets them do`, then a last line that is one question asking where they are and "
-    "where to start; no title, no quiz, no code. Never reply with only questions about their "
-    "level: the outline comes first"
-)
-
-# The outline is the default: "teach me american history" came back once as Lesson 1 on the
-# colonies when the two ways read as equals (2026-11-03).
+# A teach-me is a lesson whatever its size: a whole subject starts at its most useful first
+# piece. It once got an outline and a question instead (``_SUBJECT_OUTLINE``).
 TEACH_CONTRACT = (
-    "Lay this reply out one of two ways, never saying that you were asked to. They named a "
-    "whole subject or field (a language, a period or country's history, a science, an "
-    "instrument, a craft): the outline, " + _OUTLINE_PARTS + ". Only when they named one "
-    "narrow idea inside a subject (Python dictionaries, the present perfect, derivatives, an "
-    "omelette) is it a lesson, with " + _LESSON_PARTS + "."
-)
-
-# "Teach me Python" names a whole language (``lesson_flow.names_a_whole_language``): the
-# server reads that much, so the reply is the outline, never Lesson 1 on variables.
-OUTLINE_CONTRACT = (
-    "Lay this reply out as an outline of the whole subject, never saying that you were asked "
-    "to: " + _OUTLINE_PARTS + "."
+    "Lay this reply out as a lesson, never saying that you were asked to; for a whole subject "
+    "or a broad ask, Lesson 1 is its most useful first piece, which you choose. It contains "
+    + _LESSON_PARTS
+    + ". Never ask which area, their level or where to start before teaching."
 )
 
 

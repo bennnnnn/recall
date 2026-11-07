@@ -34,10 +34,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (OWN_MISTAKE_HINT, UNCLEAR_MESSAGE_HINT), then a layout that follows what the reply holds
 # (FORMAT_CONTRACT), steps to follow numbered beside every message (STEPS_NOTE) and a fact the
 # user adds checked against the chat (OWN_MISTAKE_HINT), then a follow-up that leaves out what
-# it is about read as about the last reply (UNCLEAR_MESSAGE_HINT).
-_RULES = 175
-_RULE_GRAMS = 15378
-_RULE_GRAMS_SHA = "cb92a3d0a994ec31"
+# it is about read as about the last reply (UNCLEAR_MESSAGE_HINT), then every teach-me taught
+# at once, one item per section (prompt_constants.teaching).
+_RULES = 173
+_RULE_GRAMS = 15325
+_RULE_GRAMS_SHA = "9d4e48017ee25f08"
 
 
 def _rules() -> list[str]:
