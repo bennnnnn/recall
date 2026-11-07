@@ -19,6 +19,7 @@ from app.core.sympy_notation import use_school_log_notation
 from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
 from app.modules.math.solve.number_size import reject_huge_numbers
+from app.modules.math.solve.solved_functions import reject_unsolved_functions
 from app.modules.math.solve.written_names import (
     lone_quantity,
     reject_unknown_names,
@@ -212,4 +213,5 @@ def parse_equation(data: EquationInput) -> tuple[Any, Any, list[Any]]:
     real = _expr_needs_real_domain(data.lhs, data.rhs)
     lhs = parse_expression(data.lhs, data.variables, real=real)
     rhs = parse_expression(data.rhs, data.variables, real=real)
+    reject_unsolved_functions((data.lhs, data.rhs), (lhs, rhs), data.variables)
     return Eq(lhs, rhs), lhs, rhs

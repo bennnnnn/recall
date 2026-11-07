@@ -10,6 +10,7 @@ from sympy import Eq, Symbol, latex, simplify, solve
 from app.modules.math.schemas import MathSystemSolveResult, SystemOfEquationsInput
 from app.modules.math.solve.equations import _reject_high_degree
 from app.modules.math.solve.parse import SolveServiceError, parse_expression
+from app.modules.math.solve.solved_functions import reject_unsolved_functions
 
 
 def _classify_system_no_solution(pairs: list[tuple[Any, Any]]) -> Literal["none", "infinite"]:
@@ -34,6 +35,7 @@ def solve_system(data: SystemOfEquationsInput) -> MathSystemSolveResult:
     for i, (lhs_raw, rhs_raw) in enumerate(data.equations, start=1):
         lhs = parse_expression(lhs_raw, data.variables)
         rhs = parse_expression(rhs_raw, data.variables)
+        reject_unsolved_functions((lhs_raw, rhs_raw), (lhs, rhs), data.variables)
         _reject_high_degree(lhs, rhs, data.variables)
         equations.append(Eq(lhs, rhs))
         parsed_pairs.append((lhs, rhs))
