@@ -86,6 +86,13 @@ from app.services.solving import SolveServiceError
         ("Find the root(s) of x^2 - 5x + 6 = 0", {}),
         ("what are the sum(s) of the digits", {}),
         ("list the design(s) and their box(es)", {}),
+        # A percentage is no remainder (review of #2322).
+        ("what is 20% (one fifth) of 80", {}),
+        ("it grows 5% a year", {}),
+        ("x % (y + 1)", {"mod": 1}),
+        ("x % y", {"mod": 1}),
+        ("5% x 20", {}),
+        ("17%5", {"mod": 1}),
     ],
 )
 def test_written_functions_names_each_applied_function(text: str, expected: dict[str, int]) -> None:

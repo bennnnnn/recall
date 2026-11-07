@@ -115,6 +115,20 @@ def _bar_pairs(text: str) -> int:
     return text.count("|") // 2
 
 
+def _a_remainder(text: str, at: int) -> bool:
+    """``%`` at ``at`` is a remainder: an operand follows (``17 % 5``, ``x % y``,
+    ``x % (y + 1)``, ``17%5``). A sign that hugs its number with a space after it is a
+    percentage (``20% (one fifth) of 80``, ``5% a year``, ``5% x 20``)."""
+    rest = text[at + 1 :]
+    after = rest.lstrip()
+    if not after or (not text[at - 1 : at].isspace() and rest[:1].isspace()):
+        return False
+    if after[0].isdigit() or after[0] == "(":
+        return True
+    word = re.match(r"[^\W\d_]+", after)
+    return word is not None and len(word.group(0)) == 1 and word.group(0) not in "aAI"
+
+
 def written_functions(text: str) -> Counter[str]:
     """Each function the message applies, by its one name, with how often it is applied."""
     found: Counter[str] = Counter()
@@ -137,6 +151,8 @@ def written_functions(text: str) -> Counter[str]:
         found["abs"] += bars
     for match in _SAID.finditer(text):
         if match.group("mod") and match.start("mod") in called:
+            continue
+        if match.group("percent") and not _a_remainder(text, match.start("percent")):
             continue
         if match.group("mod") or match.group("percent"):
             found["mod"] += 1
