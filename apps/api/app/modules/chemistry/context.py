@@ -288,6 +288,11 @@ def _read_locally(
     return intent, solved, local_context, lookup
 
 
+def warm_chemistry_solve() -> None:
+    """One real local solve, so a worker's first chemistry question pays no imports."""
+    _read_locally("How many moles are in 36 g of H2O?")
+
+
 async def build_chemistry_augmentation(
     content: str,
     settings: Settings,
