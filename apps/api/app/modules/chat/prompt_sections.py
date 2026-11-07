@@ -54,7 +54,7 @@ from app.modules.chat.prompt_constants import (
     UNCLEAR_MESSAGE_HINT,
     WEB_SEARCH_OFF_HINT,
     is_bare_writing_line,
-    learning_plan_daily_contract,
+    learning_plan_contract,
     programming_lesson_contract,
     repeated_greeting_hint,
     writing_format_hint,
@@ -434,7 +434,7 @@ def part_shape_hints(text: str) -> list[str]:
         return [writing]
     hints = _present(_layout_format_hint(text))
     if is_learning_plan_request(text):
-        hints.extend(_present(learning_plan_daily_contract(text)))
+        hints.extend(_present(learning_plan_contract(text)))
     elif teaching_of(text):
         hints.extend(_present(programming_lesson_contract(text)))
     return hints
@@ -453,7 +453,7 @@ def _multi_part(turn: PromptTurn) -> list[str]:
 NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
     PromptSection(
         lambda t: bool(t.query) and not t.multi and is_learning_plan_request(t.query),
-        lambda t: _present(learning_plan_daily_contract(t.query)),
+        lambda t: _present(learning_plan_contract(t.query)),
         name="learning_plan_contract",
     ),
     PromptSection(
