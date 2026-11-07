@@ -44,7 +44,10 @@ _LENGTH_LEAD = frozenset({"in", "for", "within", "over", "under"})
 # the past year", "10 years of experience", "2 weeks ago").
 _PAST = frozenset({"studied", "learned", "learnt", "been", "spent", "practiced", "practised"})
 _PAST |= {"worked", "had", "did", "took", "past"}
-_NOT_A_LENGTH_AFTER = frozenset({"of", "ago", "old"})
+# "2 weeks ago", "3 years old"; and "of" only after having it ("I have 10 years of
+# experience"), never "a Python roadmap: 30 days of lessons".
+_GONE = frozenset({"ago", "old"})
+_HAVE = frozenset({"have", "has", "had", "with", "got", "i've", "we've"})
 _CLAUSE_BREAK = re.compile(r"[,;:!?]|\.(?!\d)")
 # The plan's own length sits beside its name: "a 30 day Python plan", "a 6-month roadmap".
 _PLAN_WORDS = re.compile(
@@ -86,7 +89,8 @@ def _length(text: str) -> re.Match[str] | None:
         beside_plan = _PLAN_WORDS.search(near) is not None
         # "10 years of experience" is past; "the next 3 months of guitar" and "a 30 days of
         # Python plan" are the plan.
-        spent = after and after[0] in _NOT_A_LENGTH_AFTER and lead != "next" and not beside_plan
+        spent = bool(after) and not beside_plan and lead != "next"
+        spent = spent and (after[0] in _GONE or (after[0] == "of" and bool(_HAVE & set(before))))
         # Beside the plan's name it is the plan's, whatever came before ("I had a 30 day
         # Python plan in mind").
         if spent or (_PAST & set(before[-3:]) and not beside_plan):
