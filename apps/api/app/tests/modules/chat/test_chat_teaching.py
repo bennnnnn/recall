@@ -17,7 +17,7 @@ from app.modules.chat.prompt_constants import (
     STEPS_FORMAT_HINT,
     TEACHING_HINT,
     WALKTHROUGH_HINT,
-    learning_plan_daily_contract,
+    learning_plan_contract,
     programming_lesson_contract,
 )
 from app.modules.chat.prompt_constants.lesson_flow import OUTLINE_PICK_HINT, lesson_continue_hint
@@ -144,8 +144,8 @@ def test_learning_plan_request_detected(text):
 
 
 def test_only_a_programming_roadmap_ends_on_production_experience() -> None:
-    assert "Production-experience note" in learning_plan_daily_contract("30 day Python plan")
-    spanish = learning_plan_daily_contract("6 day Spanish plan")
+    assert "Production-experience note" in learning_plan_contract("30 day Python plan")
+    spanish = learning_plan_contract("6 day Spanish plan")
     assert "Checkpoints and milestones" in spanish
     assert "Production" not in spanish
 
@@ -307,7 +307,7 @@ def test_lesson_hints_follow_the_chatgpt_lesson_shape(hint):
 
 
 def test_named_daily_plan_gets_every_required_label_in_order():
-    contract = learning_plan_daily_contract("Create a 70-day Python plan")
+    contract = learning_plan_contract("Create a 70-day Python plan")
     assert "exactly 70 separate Markdown lines" in contract
     assert "Day 1 | Day 2 | Day 3" in contract
     assert "Day 68 | Day 69 | Day 70" in contract
@@ -320,9 +320,36 @@ def test_named_daily_plan_gets_every_required_label_in_order():
     assert contract in joined
 
 
-def test_non_daily_plan_does_not_get_a_daily_label_contract():
-    assert learning_plan_daily_contract("Create a Python learning roadmap") == ""
-    assert learning_plan_daily_contract("Create a 6-month Python plan") == ""
+def test_a_plan_without_a_length_gets_no_label_contract():
+    assert learning_plan_contract("Create a Python learning roadmap") == ""
+    assert learning_plan_contract("a 3 year plan to learn medicine") == ""
+
+
+@pytest.mark.parametrize(
+    ("text", "first", "last"),
+    [
+        # 2026-11-07: "an 8 week plan" came back as 56 day lines, "3 months" as 138 lines.
+        ("make me an 8 week plan to learn guitar", "Week 1", "Week 8"),
+        ("create a study plan for learning spanish in 3 months", "Week 1", "Week 13"),
+        ("Create a 6-month Python plan", "Week 1", "Week 26"),
+        ("120 day plan to learn data science", "Week 1", "Week 17"),
+        ("a 1 year plan to learn japanese", "Month 1", "Month 12"),
+        ("learn spanish in 9 months", "Month 1", "Month 9"),
+        # Short enough to go day by day, whatever unit it was named in.
+        ("help me learn french in 2 weeks", "Day 1", "Day 14"),
+        # How often is not how long.
+        ("i practice 4 days a week, plan to learn guitar in 3 months", "Week 1", "Week 13"),
+    ],
+)
+def test_a_plan_goes_by_the_finest_unit_that_stays_short(text, first, last):
+    contract = learning_plan_contract(text)
+    unit = first.split()[0]
+    assert f"one per {unit.lower()}" in contract
+    assert f"{first} | " in contract and contract.split("Required labels, in order: ")[
+        1
+    ].startswith(first)
+    assert f"| {last}." in contract
+    assert ("Never list the days inside" in contract) is (unit != "Day")
 
 
 def test_programming_lesson_contract_uses_named_language_tag():

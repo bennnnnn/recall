@@ -56,7 +56,7 @@ from app.modules.chat.prompt_constants import (
     code_question_hint,
     draft_followup_hint,
     is_bare_writing_line,
-    learning_plan_daily_contract,
+    learning_plan_contract,
     mermaid_format_hint,
     programming_lesson_contract,
     writing_format_hint,
@@ -382,7 +382,7 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     # an optional style preference.
     PromptRule(
         lambda t: t.learning_plan,
-        lambda t: _present(learning_plan_daily_contract(t.query)),
+        lambda t: _present(learning_plan_contract(t.query)),
         name="learning_plan_contract",
     ),
     PromptRule(
