@@ -21,6 +21,7 @@ from app.modules.todos.spoken_change import (
     names_reminders,
 )
 from app.modules.todos.spoken_target import match_from_context, resolve_spoken_target
+from app.services.locale import LOCALE_NAMES
 
 _HIDDEN_TOPICS = frozenset({"", "General", "Reminders"})
 _READ_LIMIT = 30
@@ -62,14 +63,14 @@ async def apply_spoken_change(
     )
 
     state = ReminderWrites(
-        session=session,
-        user_id=user_id,
-        chat_id=chat_id,
-        user_timezone=user_timezone,
+        session=session, user_id=user_id, chat_id=chat_id, user_timezone=user_timezone
     )
     explicit = names_reminders(user_text)
     prior_about = about_saved_reminders(prior_assistant) or asks_about_my_reminders(prior_user)
     await load_existing(state)
+    # "Put that in a table" reshapes the reply; a move needs a list's name (2026-11-07).
+    if spoken.topic and not _a_list(spoken, prior_assistant, explicit):
+        return None
     named_in_message = spoken.use_latest and match_from_context(state.existing, spoken) is not None
     if (
         spoken.use_latest
@@ -132,6 +133,28 @@ async def apply_spoken_change(
     draft.repeat = spoken.repeat
     line, ok = await mutate_one(state, draft)
     return line, (1 if ok else 0)
+
+
+# "Put that in Spanish" asks for the reply in another language Recall speaks.
+_LANGUAGES = frozenset(name.lower() for name in LOCALE_NAMES.values())
+
+
+def _a_list(spoken: SpokenReminderChange, prior_assistant: str | None, named: bool) -> bool:
+    """A move's ``topic`` can be a list and "it" a reminder. "a table" or "an email" is a shape
+    for the reply and "Spanish" a language; and after a plan that mentions a reminder in
+    passing, "put that in a table" is about the plan (live, 2026-11-07: it became a card moving
+    the reminder "To a table")."""
+    from app.modules.todos.reply_check import opens_on_saved_reminders
+
+    wanted = (spoken.topic or "").strip().lower()
+    if wanted.startswith(("a ", "an ")) or wanted in _LANGUAGES:
+        return False
+    return (
+        not spoken.use_latest
+        or named
+        or prior_assistant is None
+        or opens_on_saved_reminders(prior_assistant)
+    )
 
 
 async def _apply_saved_fields(
