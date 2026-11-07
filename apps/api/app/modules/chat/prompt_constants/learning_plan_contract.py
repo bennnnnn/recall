@@ -33,13 +33,24 @@ _DAYS_IN = {"day": 1.0, "week": 7.0, "month": 365 / 12, "year": 365.0}
 # The plan's length: "70 days", "8-week", "in 3 months", "a year"; never a frequency
 # ("4 days a week", "2 days per week") or a layout ("week-by-week").
 _DURATION = re.compile(
-    r"\b(\d{1,3}|" + "|".join(_NUMBERS) + r")[\s-]?(day|week|month|year)s?\b"
+    r"(?<![\d.])\b(\d{1,3}(?:\.\d)?|" + "|".join(_NUMBERS) + r")[\s-]?(day|week|month|year)s?\b"
     r"(?!-by-|\s+(?:a|an|per|each|every)\s+(?:day|week|month|year)\b)",
     re.IGNORECASE,
 )
 # "a week" is a length only after one of these ("in a year", "for a month"); otherwise it is
 # how often ("twice a week", "an hour a day") or a layout ("a week-by-week plan").
 _LENGTH_LEAD = frozenset({"in", "for", "within", "over", "under"})
+# A duration that is not the plan's: past study or experience ("studied for 2 months", "for
+# the past year", "10 years of experience", "2 weeks ago").
+_PAST = frozenset({"studied", "learned", "learnt", "been", "spent", "practiced", "practised"})
+_PAST |= {"worked", "had", "did", "took", "past", "last"}
+_NOT_A_LENGTH_AFTER = frozenset({"of", "ago", "old"})
+# The plan's own length sits beside its name: "a 30 day Python plan", "a 6-month roadmap".
+_PLAN_WORDS = re.compile(
+    r"\b(?:plans?|roadmaps?|courses?|schedules?|programs?|programmes?|curriculum|bootcamps?"
+    r"|challenges?)\b",
+    re.IGNORECASE,
+)
 # A named day count up to this many keeps a line per day (#1495).
 _MAX_DAYS = 90
 # Otherwise: days up to three weeks, weeks up to six months, months up to two years.
@@ -59,15 +70,25 @@ class _Coverage:
 
 
 def _length(text: str) -> re.Match[str] | None:
-    """The first duration that is the plan's length: "a week" after "twice" is how often."""
+    """The duration that is the plan's length. Past study or experience is skipped; one
+    beside the plan's name ("30 day Python plan") beats one after "in" or "for", which beats
+    any other; "a week" counts only as "in a week" or "for a week"."""
+    best: tuple[int, re.Match[str]] | None = None
     for match in _DURATION.finditer(text):
-        before = text[: match.start()].split()
-        if match.group(1).lower() in ("a", "an") and not (
-            before and before[-1].lower() in _LENGTH_LEAD
-        ):
+        before = [word.lower().strip(",.;:!?") for word in text[: match.start()].split()]
+        after = [word.lower().strip(",.;:!?") for word in text[match.end() :].split()]
+        lead = before[-1] if before else ""
+        if match.group(1).lower() in ("a", "an") and lead not in _LENGTH_LEAD:
             continue
-        return match
-    return None
+        # "10 years of experience" is past; "the next 3 months of guitar" is the plan.
+        spent = after and after[0] in _NOT_A_LENGTH_AFTER and lead != "next"
+        if spent or _PAST & set(before[-3:]):
+            continue
+        near = " ".join(before[-3:] + after[:3])
+        score = 2 if _PLAN_WORDS.search(near) else int(lead in _LENGTH_LEAD or lead == "next")
+        if best is None or score > best[0]:
+            best = (score, match)
+    return best[1] if best else None
 
 
 def _coverage(text: str) -> _Coverage | None:
@@ -76,9 +97,9 @@ def _coverage(text: str) -> _Coverage | None:
     if match is None:
         return None
     amount, unit = match.group(1).lower(), match.group(2).lower()
-    count = _NUMBERS[amount] if amount in _NUMBERS else int(amount)
-    if unit == "day" and 2 <= count <= _MAX_DAYS:
-        return _Coverage("day", count)
+    count = _NUMBERS[amount] if amount in _NUMBERS else float(amount)
+    if unit == "day" and count.is_integer() and 2 <= count <= _MAX_DAYS:
+        return _Coverage("day", int(count))
     days = count * _DAYS_IN[unit]
     if days < 2:
         return None
