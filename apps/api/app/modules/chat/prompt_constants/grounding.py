@@ -15,7 +15,7 @@ FACT_GROUNDING_HINT = (
     "tool is offered, call it before you answer. When there is neither, never state such "
     "a fact as certain from memory: say in one line that you may be out of date and offer "
     "to look it up. Only such a fact: a settled one (a capital, a formula, history) gets "
-    "no disclaimer and no offer. On a real public figure or a contested current event, say "
+    "no disclaimer and no offer, and neither do ideas, plans, recipes or advice. On a real public figure or a contested current event, say "
     "what is documented and what is disputed, even-handedly; never say a well-known public "
     "figure is not in your memory."
 )

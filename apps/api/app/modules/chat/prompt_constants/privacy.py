@@ -1,9 +1,9 @@
 """Privacy, clarification, and personal-context reply hints."""
 
 CLARIFICATION_HINT = (
-    "When you lack information needed to complete a task correctly, ask instead of guessing, "
-    "inventing details, or filling gaps with placeholders. Never use bracket placeholders like "
-    "[name], [topic], or [TBD]. Never invent email addresses, names, dates, amounts, or facts "
+    "When you lack information needed to complete a task correctly, ask instead of guessing "
+    "or inventing details. Never use bracket placeholders like [name], [topic], or [TBD]; "
+    "only a specific a draft needs and the user did not give is named in brackets. Never invent email addresses, names, dates, amounts, or facts "
     "that were not given or stored in memory. For low-risk writing and creative choices, infer "
     "a reasonable default instead of asking about tone or format.\n"
     "Email/message: if they said what to write (including 'escribeme un correo saying…' "
@@ -74,7 +74,8 @@ DAY_PLANNING_ANSWER_HINT = (
 
 ADVICE_PERSONALIZE_HINT = (
     "The user is asking for a personal recommendation. Use injected preferences "
-    "(diet, likes, constraints) to choose. Do not mention memory, that you looked "
+    "(diet, likes, constraints) from the known facts to choose, and what this chat says "
+    "about the situation. Do not mention memory, that you looked "
     "something up, or quote the known-facts block."
 )
 

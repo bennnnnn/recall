@@ -166,6 +166,8 @@ class SpokenAdd:
     minute: int | None
     # "in 3 minutes": the reminder is due that long after the message.
     after_minutes: int | None = None
+    # "at 6" with no am or pm (``SpokenWhen.bare``): asked which, never guessed.
+    bare: tuple[int, int] | None = None
 
 
 def user_named_a_clock(user_text: str | None) -> bool:
@@ -247,7 +249,32 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
         hour=when.hour,
         minute=when.minute,
         after_minutes=when.after_minutes,
+        bare=when.bare if when.hour is None else None,
     )
+
+
+def which_half_question(add: SpokenAdd | None) -> str | None:
+    """The one question an add with a day and a bare hour leaves: "6 am or 6 pm?".
+
+    "Remind me to call mom tomorrow at 6" keeps tomorrow; only the half of the day is
+    open. None when the add has no bare hour.
+    """
+    if add is None or add.bare is None or add.hour is not None:
+        return None
+    hour, minute = add.bare
+    clock = f"{hour}:{minute:02d}" if minute else str(hour)
+    return f"When should I remind you{_day_phrase(add.day)}: {clock} am or {clock} pm?"
+
+
+def _day_phrase(day: str | None) -> str:
+    """How a day reads inside that question: "tomorrow", "on Friday", "next Friday"."""
+    if not day or "-" in day:
+        return ""
+    if day in {"today", "tomorrow"}:
+        return f" {day}"
+    if day.startswith("next "):
+        return f" next {day.removeprefix('next ').title()}"
+    return f" on {day.title()}"
 
 
 def _request_sentence(body: str) -> str:
@@ -312,6 +339,23 @@ def relative_due(
     if add is None or add.after_minutes is None:
         return None
     return due_for_add(add, user_timezone=user_timezone, now=now)
+
+
+# "Put milk on my list", "add eggs to the shopping list": an add in the user's own words for
+# a list. "My list of reasons" is not one.
+_ONTO_LIST_RE = re.compile(
+    r"^(?:(?:please|pls|also|just|and|can you|could you)\s+)*(?:add|put|stick|pop|throw|write"
+    r"|jot)\b.*\b(?:to|on|onto|in)\s+(?:my|the|our)\s+(?:to-?do\s+|todo\s+|task\s+"
+    r"|reminders?\s+|shopping\s+|grocery\s+)?(?:list|to-?dos?|reminders|tasks)\b(?!\s+of\b)",
+    re.IGNORECASE,
+)
+
+
+def asks_to_add(text: str | None) -> bool:
+    """The message asks for a reminder, or to put something on their list."""
+    if not text or adds_content(text):
+        return False
+    return is_reminder_request(text) or _ONTO_LIST_RE.search(text.strip()) is not None
 
 
 def is_reminder_request(text: str | None) -> bool:

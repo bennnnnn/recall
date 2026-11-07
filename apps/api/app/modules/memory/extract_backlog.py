@@ -58,10 +58,15 @@ def format_extract_cursor(created_at: datetime, message_id: UUID) -> str:
 
 
 def format_user_memory_transcript(user_texts: list[str]) -> str:
+    """The user's lines for the model. One that only says when ("6pm", "tomorrow at 6")
+    answers a reminder's or a plan's question and says nothing about them: read alone,
+    "6pm" became "User works or starts their day at 18:00" (2026-11-06)."""
+    from app.modules import todos
+
     lines: list[str] = []
     for raw in user_texts:
         cleaned = memory_extract_user_text(raw)
-        if cleaned:
+        if cleaned and not todos.is_only_a_when(cleaned):
             lines.append(f"User: {cleaned}")
     return "\n".join(lines)
 
@@ -112,7 +117,8 @@ async def expand_memory_extract_transcript(
 
     texts = [row.content for row in rows]
     built = format_user_memory_transcript(texts)
-    if not built:
+    # Lines read and all left out (only a when) teach nothing; no lines at all fall back.
+    if not built and not rows:
         built = fallback_transcript
     newest_cursor: str | None = None
     if rows:

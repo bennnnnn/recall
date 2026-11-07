@@ -15,6 +15,8 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.modules.todos.proposals import FENCE_LANG as CARD_FENCE
+from app.modules.todos.spoken_add import asks_to_add
+from app.modules.todos.spoken_clauses import asked_when
 from app.services.md_fence_scan import iter_fences
 
 # "Would you like me to set up that X reminder…?", "Want me to add it to your list?",
@@ -68,18 +70,30 @@ def accepted_reminder_offer(user_text: str | None, prior_assistant: str | None) 
 
 
 def follows_reminder_card(recent: Sequence[Any] | None) -> bool:
-    """The last reply held a reminder card, so this message is about that change.
+    """The last reply held a reminder card or asked when to remind, so this message is
+    about that change.
 
     Live (2026-10-26): "Delete overdue" got a card and the user tapped it. Then "Did u remove
     it?" has no to-do word and nothing left overdue, so the turn carried no To-do text; a
     light model answered "I don't have access to your To-do list" and apologised for a delete
-    that had happened, three turns running. A turn after a card keeps the To-do text.
+    that had happened, three turns running. A turn after a card keeps the To-do text. So does
+    the answer to a question about a reminder just asked for ("When should I remind you?",
+    "6 am or 6 pm?"): "6pm" streamed "I can't set reminders from this chat" above the card
+    it saved (2026-11-06).
     """
-    for message in reversed(recent or ()):
-        if getattr(message, "role", None) == "assistant":
-            content = getattr(message, "content", None)
-            return isinstance(content, str) and f"```{CARD_FENCE}" in content
-    return False
+    replies = [
+        (getattr(message, "role", None), getattr(message, "content", None))
+        for message in recent or ()
+    ]
+    texts = [(role, text) for role, text in replies if isinstance(text, str)]
+    last = next((i for i in range(len(texts) - 1, -1, -1) if texts[i][0] == "assistant"), None)
+    if last is None:
+        return False
+    reply = texts[last][1]
+    if f"```{CARD_FENCE}" in reply or asked_when(reply):
+        return True
+    asked = next((text for role, text in reversed(texts[:last]) if role == "user"), None)
+    return reply.rstrip().endswith("?") and asks_to_add(asked)
 
 
 def accepted_offer_in(user_text: str | None, recent: Sequence[Any] | None) -> str | None:

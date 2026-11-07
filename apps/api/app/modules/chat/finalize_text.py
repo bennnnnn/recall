@@ -14,6 +14,7 @@ from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle
 from app.modules.chat.clock_denial import model_denies_clock
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
+from app.modules.chat.math_padding import without_math_padding
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 from app.modules.chat.proper_case import restore_proper_case
@@ -109,8 +110,9 @@ def strip_recipient_placeholders(state: FinalizeState) -> str:
 
 def normalize_prose(state: FinalizeState) -> str:
     """Prose artifact cleanup, after the fence passes so it never interferes with
-    fence parsing: orphan colon lines go and 3+ blank lines collapse."""
-    normalized = normalize_prose_artifacts(state.text)
+    fence parsing: orphan colon lines go, 3+ blank lines collapse, and inline maths
+    loses a space inside its dollars ("$2x $")."""
+    normalized = without_math_padding(normalize_prose_artifacts(state.text))
     return normalized if prose_changed(state.text, normalized) else state.text
 
 
