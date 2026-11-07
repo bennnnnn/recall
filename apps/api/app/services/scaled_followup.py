@@ -4,12 +4,13 @@
 force", "what if I halve the speed", "if the speed was increased by a factor of 3": each
 holds one factor and what it scales. That is the noun the line names when it names a
 quantity ("the speed was twice as high" is the speed, the adjective only says which way),
-or the quantity an unambiguous adjective stands for when the line's subject is the
-problem's object or a pronoun ("the cliff was twice as high" is the height). Only "is",
-"was" and the like carry the adjective, or for a speed the motion it belongs to ("it was
-thrown twice as fast"): "it accelerated twice as fast" or "it landed twice as far" says
-something else and is not read. A line with two scalings or a negation is not one scaled
-given. Which given the reading names is the subject's rewriter's call
+or the quantity an unambiguous adjective stands for when the line's subject is an object
+of the problem ("the cliff was twice as high" is the cliff's height). A pronoun with an
+adjective or a quantity ("it was twice as heavy", "it had twice the mass") may be any body
+of the problem and is not read; the one exception is a throw ("it was thrown twice as
+fast"), which the problem's own "thrown at" names. Nor is a verb other than "is" or "was"
+("it accelerated twice as fast", "it landed twice as far"), two scalings, or a negation.
+Which given a reading names, and whether its object owns it, is the rewriter's call
 (``GivenRewriter.scaled``).
 """
 
@@ -32,6 +33,8 @@ class Scaling:
     noun: str | None
     adjective: str | None
     owner: str | None = None
+    # "it was thrown twice as fast": the throw that names the speed.
+    thrown: str | None = None
 
 
 _LEAD = r"(?:(?:and|but|so|ok(?:ay)?|now|then|please|can you|could you)[ ,]+)*"
@@ -46,6 +49,7 @@ _OPENING = (
     r"(?:(?:with|at|using|from|to|for) )?"
 )
 _AGENTS = frozenset({"i", "we", "you"})
+_THROWS = frozenset({"thrown", "kicked", "launched"})
 # "the cliff was", "it's", "the ball were": a subject and the verb that carries an adjective.
 _COPULA = r"(?:'s| is| was| were| be| are| had been| has been| became| becomes| got| gets)"
 _SUBJECT = rf"(?:(?:it|she|he|they)|{_ARTICLE} {_NOUN}){_COPULA}"
@@ -149,10 +153,17 @@ def scaled_given(line: str) -> Scaling | None:
         adjective = words.get(match.group("word").lower())
         if adjective is None:
             continue
-        # A motion carries a speed only: "it was thrown twice as high" says where it went.
-        if match.group("motion") and adjective != "speed":
-            return None
         noun = match.group("noun") or match.group("made")
+        motion = (match.group("motion") or "").lower()
+        if noun is None:
+            # A pronoun or nothing: only a throw says which body ("it was thrown twice
+            # as fast"); "it was twice as heavy" may be the driver or the car.
+            if motion in _THROWS and adjective == "speed":
+                return _reading(match.group("factor"), None, adjective, thrown=motion)
+            return None
+        # "the truck was going twice as fast": a motion is no object beside a value.
+        if motion:
+            return None
         return _reading(match.group("factor"), noun, adjective)
     for pattern in (_OF_NAME, _NAME_THEN, _CUT_NAME):
         match = pattern.fullmatch(text)
@@ -169,21 +180,28 @@ def _owner(match: re.Match[str]) -> str | None:
     twice the mass"; none for "it", "with" or an agent ("I double the mass"). "we" or "I"
     having it is no body of the problem: "?" stands for an owner nothing can match."""
     who = (match.groupdict().get("who") or "").lower()
-    if not who or who in {"it", "she", "he", "they"}:
+    if not who:
         return None
+    # "it had twice the mass" may be any body of the problem; "we had" is none of them.
+    if who in {"it", "she", "he", "they"}:
+        return "?"
     if who in _AGENTS:
         return "?" if match.groupdict().get("verb") else None
     return who
 
 
 def _reading(
-    written: str, noun: str | None, adjective: str | None, owner: str | None = None
+    written: str,
+    noun: str | None,
+    adjective: str | None,
+    owner: str | None = None,
+    thrown: str | None = None,
 ) -> Scaling | None:
     factor = _factor(written.lower())
     if factor is None or factor == 1.0 or not 0.0 < factor <= _LARGEST:
         return None
     noun = None if noun is None else " ".join(noun.lower().split())
-    return Scaling(factor, noun, adjective, owner)
+    return Scaling(factor, noun, adjective, owner, thrown)
 
 
 def _factor(written: str) -> float | None:
@@ -225,12 +243,13 @@ def scaled_name(
 
     A named quantity wins over the adjective ("the mass was 3 times higher" is the mass); a
     named object takes its adjective's quantity and must own it ("the cliff was twice as
-    high"); "the mass of the car" and "the car had twice the mass" are the car's mass. An
-    owner the problem never mentions ("the earth", "we") names nothing."""
+    high"); "the mass of the car" and "the car had twice the mass" are the car's mass. A
+    throw is the speed it was thrown at. An owner the problem never mentions ("the earth",
+    "we") or a pronoun ("it had twice the mass") names nothing."""
     noun = scaling.noun
-    owner = scaling.owner
     if noun is None:
-        return None if scaling.adjective is None else (scaling.adjective, owner)
+        return ("speed", None) if scaling.thrown else None
+    owner = scaling.owner
     head, _, of_owner = noun.partition(" of ")
     if of_owner:
         if owner is not None:
@@ -248,13 +267,19 @@ def scaled_name(
 
 
 _UNIT_AFTER = r"[ \t]*{unit}"
-_OWNER_GAP = 2
+# The one word that may stand between a value and its object: "1.2 m high table".
+_BESIDE = frozenset({"high", "tall", "deep", "long", "wide", "heavy"})
 
 
-def owns(prior: str, given: Given, owner: str) -> bool:
-    """True when ``owner`` sits beside the given's value in the problem: the value, its
-    unit, at most two words, then the owner ("70 kg driver", "1.2 m high table"), or the
-    owner and its quantity's words before "of" and the value ("a car of mass 900 kg")."""
+def _clause_before(prior: str, given: Given) -> list[str]:
+    return _words(re.split(r"[.?!,;]", prior[: given.start])[-1])
+
+
+def owns(prior: str, given: Given, owner: str, name: str = "") -> bool:
+    """True only when ``owner`` is written right beside the given: its value, its unit, at
+    most one word of size ("high", "tall", ...), then the owner ("80 m cliff", "1.2 m high
+    table"); or the owner just before "of" and the value ("a load of 50 kg", "a car of mass
+    900 kg"). "A 70 kg driver in a car" is the driver's, never the car's."""
     wanted = _words(owner)
     if not wanted:
         return False
@@ -263,17 +288,34 @@ def owns(prior: str, given: Given, owner: str) -> bool:
     if unit is not None:
         end += unit.end()
     after = _words(re.split(r"[.?!,;]", prior[end:], maxsplit=1)[0])
-    for start in range(min(_OWNER_GAP, len(after)) + 1):
-        if after[start : start + len(wanted)] == wanted:
-            return True
-    before = re.split(r"[.?!,;]", prior[: given.start])[-1]
-    tokens = _words(before)
-    # "a car of 900 kg", "a car of mass 900 kg": "of" last or before the quantity's word.
-    if "of" not in tokens[-2:]:
-        return False
-    of = len(tokens) - 1 - tokens[::-1].index("of")
-    window = tokens[max(0, of - _OWNER_GAP - len(wanted)) : of]
-    return any(window[i : i + len(wanted)] == wanted for i in range(len(window) - len(wanted) + 1))
+    size = 1 if after and after[0] in _BESIDE else 0
+    if after[size : size + len(wanted)] == wanted:
+        return True
+    before = _clause_before(prior, given)
+    named = _words(name)[-1:]
+    for lead in (["of"], ["of", *named] if named else None):
+        if lead and before[-len(lead) :] == lead:
+            if before[-len(lead) - len(wanted) : -len(lead)] == wanted:
+                return True
+    return False
+
+
+# "Two 5 kg masses", "each 4 ohm resistor": a value that is more than one body's.
+_COUNTED = frozenset({"two", "three", "four", "both", "each", "pair"})
+
+
+def counted(prior: str, given: Given) -> bool:
+    """True when a count stands right before the value: doubling "the mass" of "two 5 kg
+    masses" may be one of them or both."""
+    before = _clause_before(prior, given)
+    return bool(before) and (before[-1] in _COUNTED or before[-2:] == ["pair", "of"])
+
+
+def thrown_at(prior: str, given: Given, throw: str) -> bool:
+    """True when the problem itself throws at this value: "thrown upward at 20 m/s"."""
+    head = re.split(r"[.?!,;]", prior[: given.start])[-1]
+    stem = throw[:-1] if throw.endswith("n") else throw[:-2]  # thrown → throw, kicked → kick
+    return re.search(rf"\b{stem}[a-z]*(?: [a-z]+){{0,2}} at[ \t]*$", head, re.I) is not None
 
 
 # A name that says which end of a change it is: "the initial speed", "the final velocity".

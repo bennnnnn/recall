@@ -18,7 +18,14 @@ from typing import Any
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
-from app.services.scaled_followup import Scaling, owns, plays_role, scaled_name
+from app.services.scaled_followup import (
+    Scaling,
+    counted,
+    owns,
+    plays_role,
+    scaled_name,
+    thrown_at,
+)
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -275,7 +282,7 @@ class GivenRewriter:
             return None
         written_unit = " ".join(unit.split())
         new_dim = self.unit_dimension(written_unit)
-        if new_dim is None:
+        if new_dim is None or not fully_read(prior):
             return None
         if name:
             named_dim = self.phrase_dimension(given_name(name))
@@ -294,7 +301,7 @@ class GivenRewriter:
     def scaled(self, prior: str, scaling: Scaling) -> str | None:
         """``what if the mass doubles``: the one given of that kind, times the factor."""
         reading = scaled_name(prior, scaling, self._is_quantity)
-        if reading is None:
+        if reading is None or not fully_read(prior):
             return None
         name, owner = reading
         named_dim = self.phrase_dimension(given_name(name))
@@ -303,11 +310,15 @@ class GivenRewriter:
         matches = [
             g
             for g in self._of_dimension(prior, named_dim)
-            if plays_role(prior, g, name) and (owner is None or owns(prior, g, owner))
+            if plays_role(prior, g, name) and (owner is None or owns(prior, g, owner, name))
         ]
-        if len(matches) != 1 or not _scales(prior, matches[0]):
+        if len(matches) != 1:
             return None
         given = matches[0]
+        if counted(prior, given) or not _scales(prior, given):
+            return None
+        if scaling.thrown and not thrown_at(prior, given, scaling.thrown):
+            return None
         rewritten = replace_given(
             prior, given, scaled_value(given.value, scaling.factor), given.unit
         )
@@ -326,6 +337,22 @@ class GivenRewriter:
 
     def _of_dimension(self, prior: str, dimension: str) -> list[Given]:
         return [given for given in read_givens(prior, self.units) if given.dimension == dimension]
+
+
+# A value written in words ("dropped from ten metres") is one no reading counts: a
+# problem with one may have more givens of a kind than the reader sees.
+_SPELLED_VALUE = re.compile(
+    r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty"
+    r"|thirty|forty|fifty|hundred|thousand) (?:(?:kilo|centi|milli)?met(?:re|er)s?|seconds?"
+    r"|minutes?|hours?|(?:kilo)?grams?|newtons?|joules?|volts?|amps?|ohms?|lit(?:re|er)s?"
+    r"|moles?|degrees?|kelvins?)\b",
+    re.IGNORECASE,
+)
+
+
+def fully_read(prior: str) -> bool:
+    """False when the problem states a value in words the reader does not count."""
+    return _SPELLED_VALUE.search(prior) is None
 
 
 _KELVIN = frozenset({"k", "kelvin", "kelvins"})

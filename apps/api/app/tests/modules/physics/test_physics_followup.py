@@ -120,9 +120,6 @@ _PUSH = "A 10 N force acts on a 2 kg box. Find its acceleration."
     [
         # The quantity an adjective stands for: "twice as high" is the height.
         (_CLIFF, "now what if the cliff was twice as high?", "5.71 s"),
-        (_CLIFF, "what if it was 3 times higher", "6.99 s"),
-        (_KE, "what if it was twice as fast", "36 J"),
-        (_KE, "half as heavy", "4.5 J"),
         # The quantity named with the factor.
         (_KE, "with twice the mass", "18 J"),
         (_KE, "if the speed was increased by a factor of 3", "81 J"),
@@ -161,6 +158,36 @@ _BATTERY = "A 12 V battery is connected to a 4 ohm resistor. Find the current."
 _GAS_C = "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C."
 _GAS_K = "Find the pressure of 2 mol of an ideal gas in a 0.01 m^3 container at 300 K."
 _GOING = "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?"
+_LOAD = "A cart carrying a load of 50 kg accelerates at 2 m/s^2. Find the net force on the load."
+_TRAILER = "A 900 kg car pulls a trailer with a force of 2000 N. Find the acceleration of the car."
+_UPWARD = "A ball is thrown upward at 20 m/s. How high does it go?"
+_IN_ELEVATOR = (
+    "A 60 kg person in an elevator accelerating upward at 2 m/s^2. "
+    "Find the normal force on the person."
+)
+_IN_CAR = "A 70 kg driver in a car braking at 5 m/s^2. Find the force on the driver."
+_IS_IN_CAR = "A 70 kg driver is in a car braking at 5 m/s^2. Find the force on the driver."
+_SATELLITE = "A 500 kg satellite orbits the earth at a radius of 7000 km. Find its orbital speed."
+_MOON = "A 70 kg astronaut on the moon jumps at 3 m/s. Find his kinetic energy."
+_HITS_CART = "A 2 kg ball moving at 3 m/s hits a cart. Find the kinetic energy of the ball."
+_ON_CART = "A 5 kg box on a cart accelerating at 2 m/s^2. Find the net force on the box."
+_STRING_WAVE = (
+    "A wave on a string has a frequency of 170 Hz and a wavelength of 2 m. Find its speed."
+)
+_SOUND = "A sound wave has a frequency of 170 Hz and a wavelength of 2 m. Find its speed."
+_GUITAR = (
+    "A guitar string vibrates at 200 Hz and the wave on it has a wavelength of 1.5 m. "
+    "Find the wave speed."
+)
+_TWO_MASSES = "Two 5 kg masses are 2 m apart. Find the gravitational force between them."
+_TRUCK = "A 1000 kg car moving at 20 m/s collides with a truck. Find the momentum of the car."
+_CURVE = "A 1200 kg car rounds a curve of radius 50 m at 15 m/s. Find the centripetal force."
+_NEXT_TO = "A 2 kg ball is moving at 3 m/s next to a car. Find its kinetic energy."
+_TOWS = "A 1000 kg car tows a boat at 20 m/s. Find the car's kinetic energy."
+_TEN_METRES = (
+    "A 2 kg ball is dropped from ten metres onto a 1 m high table. "
+    "Find its speed when it hits the table."
+)
 _TO_SPEED = (
     "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. "
     "How long does it take?"
@@ -173,7 +200,6 @@ _TO_SPEED = (
         # The noun the line names is the quantity; "higher" only says which way.
         (_DROP_MASS, "what if the mass was 3 times higher", "14 m/s"),
         (_DROP_MASS, "what if the mass was twice as high", "14 m/s"),
-        (_DROP_MASS, "what if it was twice as high", "19.8 m/s"),
         (_THROWN, "what if the speed was twice as high", "2.02 s"),
         (_TABLE, "what if the speed was 3 times higher", "4.45 m"),
         # Initial and final name the value that says so.
@@ -184,6 +210,11 @@ _TO_SPEED = (
         (_DRIVER, "what if the driver was twice as heavy", "700 N"),
         (_SKIER, "what if the slope was twice as high", "28 m/s"),
         (_BATTERY, "what if the battery had twice the voltage", "6 A"),
+        # The owner just before "of": the load's 50 kg.
+        (_LOAD, "what if the load was twice as heavy", "200 N"),
+        (_TRAILER, "what if the car was twice as heavy", "1.11 m/s²"),
+        # The problem's own throw names the speed.
+        (_UPWARD, "what if it was thrown twice as fast", "81.5 m"),
         # Kelvin scales; a gas at 27 °C keeps its other givens.
         (_GAS_K, "what if the temperature doubled", "9.98 × 10⁵ Pa"),
         (_GAS_C, "what if the volume was halved", "9.85 atm"),
@@ -257,6 +288,58 @@ def test_a_scaling_names_the_quantity_the_student_wrote(prior: str, line: str, a
         (_GOING, "what if the initial speed was 20 m/s"),
         (_GOING, "what if it was going twice as fast"),
         (_GOING, "what if the final speed doubled"),
+        # A pronoun with an adjective or a quantity may be any body of the problem.
+        (_CLIFF, "what if it was 3 times higher"),
+        (_KE, "what if it was twice as fast"),
+        (_KE, "half as heavy"),
+        (_DROP_MASS, "what if it was twice as high"),
+        (_DRIVER, "what if it was twice as heavy"),
+        (_DRIVER, "what if it had twice the mass"),
+        (_ELEVATOR, "what if it was twice as heavy"),
+        (_ELEVATOR, "what if it had twice the mass"),
+        (_CURVE, "what if it was going twice as fast"),
+        # One word changed and the object still does not own the value.
+        (_IN_ELEVATOR, "what if the elevator was twice as heavy"),
+        (_IN_ELEVATOR, "what if the elevator had twice the mass"),
+        (_IN_ELEVATOR, "what if the mass of the elevator doubled"),
+        (_IN_CAR, "what if the car was twice as heavy"),
+        (_IN_CAR, "what if the car had twice the mass"),
+        (_IN_CAR, "what if it was twice as heavy"),
+        (_IS_IN_CAR, "what if the car was twice as heavy"),
+        (_IS_IN_CAR, "what if the car had twice the mass"),
+        (_SATELLITE, "what if the earth was twice as heavy"),
+        (_SATELLITE, "what if the earth had twice the mass"),
+        (_SATELLITE, "what if the mass of the earth doubled"),
+        (_MOON, "what if the moon was twice as heavy"),
+        (_HITS_CART, "what if the cart was twice as fast"),
+        (_HITS_CART, "what if the cart was going twice as fast"),
+        (_ON_CART, "what if the cart was twice as heavy"),
+        (_ON_CART, "what if the cart had twice the mass"),
+        (_TRAILER, "what if the trailer was twice as heavy"),
+        (_TRAILER, "what if the trailer had twice the mass"),
+        (_LOAD, "what if the cart was twice as heavy"),
+        (_LOAD, "what if the cart had twice the mass"),
+        (_TRUCK, "what if the truck was going twice as fast"),
+        (_TRUCK, "what if the truck was twice as fast"),
+        (_TRUCK, "what if the truck was twice as heavy"),
+        (_CURVE, "what if the curve was twice as heavy"),
+        (_NEXT_TO, "what if the car was twice as fast"),
+        (_NEXT_TO, "what if the car had twice the speed"),
+        (_TOWS, "what if the boat was twice as heavy"),
+        # A wave's speed is the medium's: a new frequency changes the wavelength.
+        (_STRING_WAVE, "what if the frequency doubled"),
+        (_STRING_WAVE, "with twice the frequency"),
+        (_SOUND, "what if the frequency doubled"),
+        (_SOUND, "what if the wavelength was halved"),
+        (_GUITAR, "what if the frequency doubled"),
+        # "Two 5 kg masses": one of them doubled, or both?
+        (_TWO_MASSES, "what if the mass doubled"),
+        (_TWO_MASSES, "with twice the mass"),
+        # "ten metres" is a value the reading never saw: the problem is not all read.
+        (_TEN_METRES, "what if the table was twice as high"),
+        (_TEN_METRES, "what if the height doubled"),
+        # A wavelength the problem never had is no other length.
+        (_DROP_MASS, "what if the wavelength was halved"),
         (_CLIFF, "double it"),
         (_CLIFF, "make it twice as long"),
         (_KE, "what if the mass doubles and the speed triples"),

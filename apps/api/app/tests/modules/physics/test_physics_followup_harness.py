@@ -12,6 +12,7 @@ that owns nothing, a body the problem never had, a temperature in °C) must decl
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -32,6 +33,8 @@ class Param:
     names: frozenset[str]
     owner: str | None = None
     role: str | None = None
+    # "Two 5 kg masses": the value is more than one body's, so "the mass" is no one given.
+    shared: bool = False
 
 
 @dataclass(frozen=True)
@@ -42,9 +45,14 @@ class Problem:
 
 
 def _p(
-    key: str, value: float, *names: str, owner: str | None = None, role: str | None = None
+    key: str,
+    value: float,
+    *names: str,
+    owner: str | None = None,
+    role: str | None = None,
+    shared: bool = False,
 ) -> Param:
-    return Param(key, value, frozenset(names), owner, role)
+    return Param(key, value, frozenset(names), owner, role, shared)
 
 
 _SPEED = ("speed", "velocity")
@@ -142,6 +150,89 @@ PROBLEMS = {
         ),
         lambda v: v["m"] * v["v"] / v["t"],
     ),
+    # The two-body problems again, one word changed: the value is still one body's.
+    "in_elevator": Problem(
+        "A 60 kg person in an elevator accelerating upward at 2 m/s^2. "
+        "Find the normal force on the person.",
+        (_p("m", 60, "mass", owner="person"), _p("a", 2, "acceleration", owner="elevator")),
+        lambda v: v["m"] * (G + v["a"]),
+    ),
+    "in_car": Problem(
+        "A 70 kg driver in a car braking at 5 m/s^2. Find the force on the driver.",
+        (_p("m", 70, "mass", owner="driver"), _p("a", 5, "acceleration", owner="car")),
+        lambda v: v["m"] * v["a"],
+    ),
+    "is_in_car": Problem(
+        "A 70 kg driver is in a car braking at 5 m/s^2. Find the force on the driver.",
+        (_p("m", 70, "mass", owner="driver"), _p("a", 5, "acceleration", owner="car")),
+        lambda v: v["m"] * v["a"],
+    ),
+    "on_cart": Problem(
+        "A 5 kg box on a cart accelerating at 2 m/s^2. Find the net force on the box.",
+        (_p("m", 5, "mass", owner="box"), _p("a", 2, "acceleration", owner="cart")),
+        lambda v: v["m"] * v["a"],
+    ),
+    "load": Problem(
+        "A cart carrying a load of 50 kg accelerates at 2 m/s^2. Find the net force on the load.",
+        (_p("m", 50, "mass", owner="load"), _p("a", 2, "acceleration", owner="cart")),
+        lambda v: v["m"] * v["a"],
+    ),
+    "trailer": Problem(
+        "A 900 kg car pulls a trailer with a force of 2000 N. Find the acceleration of the car.",
+        (_p("m", 900, "mass", owner="car"), _p("F", 2000, "force")),
+        lambda v: v["F"] / v["m"],
+    ),
+    "next_to": Problem(
+        "A 2 kg ball is moving at 3 m/s next to a car. Find its kinetic energy.",
+        (_p("m", 2, "mass", owner="ball"), _p("v", 3, *_SPEED, owner="ball")),
+        lambda v: 0.5 * v["m"] * v["v"] ** 2,
+    ),
+    "hits_cart": Problem(
+        "A 2 kg ball moving at 3 m/s hits a cart. Find the kinetic energy of the ball.",
+        (_p("m", 2, "mass", owner="ball"), _p("v", 3, *_SPEED, owner="ball")),
+        lambda v: 0.5 * v["m"] * v["v"] ** 2,
+    ),
+    "tows": Problem(
+        "A 1000 kg car tows a boat at 20 m/s. Find the car's kinetic energy.",
+        (_p("m", 1000, "mass", owner="car"), _p("v", 20, *_SPEED)),
+        lambda v: 0.5 * v["m"] * v["v"] ** 2,
+    ),
+    "moon": Problem(
+        "A 70 kg astronaut on the moon jumps at 3 m/s. Find his kinetic energy.",
+        (_p("m", 70, "mass", owner="astronaut"), _p("v", 3, *_SPEED, owner="astronaut")),
+        lambda v: 0.5 * v["m"] * v["v"] ** 2,
+    ),
+    "curve": Problem(
+        "A 1200 kg car rounds a curve of radius 50 m at 15 m/s. Find the centripetal force.",
+        (
+            _p("m", 1200, "mass", owner="car"),
+            _p("r", 50, "radius", owner="curve"),
+            _p("v", 15, *_SPEED, owner="car"),
+        ),
+        lambda v: v["m"] * v["v"] ** 2 / v["r"],
+    ),
+    "upward": Problem(
+        "A ball is thrown upward at 20 m/s. How high does it go?",
+        (_p("v", 20, *_SPEED, owner="ball", role="initial"),),
+        lambda v: v["v"] ** 2 / (2 * G),
+    ),
+    # A wave's speed is the medium's: a new frequency gives a new wavelength, the same speed.
+    "string_wave": Problem(
+        "A wave on a string has a frequency of 170 Hz and a wavelength of 2 m. Find its speed.",
+        (_p("f", 170, "frequency", owner="wave"), _p("w", 2, "wavelength", owner="wave")),
+        lambda v: 340.0,
+    ),
+    "sound": Problem(
+        "A sound wave has a frequency of 170 Hz and a wavelength of 2 m. Find its speed.",
+        (_p("f", 170, "frequency", owner="wave"), _p("w", 2, "wavelength", owner="wave")),
+        lambda v: 340.0,
+    ),
+    # Two equal masses: "the mass doubled" is one of them or both.
+    "two_masses": Problem(
+        "Two 5 kg masses are 2 m apart. Find the gravitational force between them.",
+        (_p("m", 5, "mass", shared=True), _p("r", 2, "distance")),
+        lambda v: 6.674e-11 * v["m"] ** 2 / v["r"] ** 2,
+    ),
     "gas_c": Problem(
         "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C.",
         (
@@ -159,19 +250,24 @@ Reading = tuple[str, str | None, str | None, float] | None
 TEMPLATES: list[tuple[str, Reading]] = [
     ("what if the mass doubled", ("mass", None, None, 2)),
     ("with twice the mass", ("mass", None, None, 2)),
-    ("what if it was twice as heavy", ("mass", None, None, 2)),
+    # A pronoun may be any body of the problem: it must decline.
+    ("what if it was twice as heavy", None),
+    ("what if it had twice the mass", None),
+    ("what if it was going twice as fast", None),
+    ("what if it was thrown twice as fast", ("speed", None, "initial", 2)),
     ("what if the earth had twice the mass", ("mass", "earth", None, 2)),
     ("what if we had twice the mass", ("mass", "we", None, 2)),
     ("what if the height doubled", ("height", None, None, 2)),
-    ("what if it was twice as high", ("height", None, None, 2)),
+    ("what if it was twice as high", None),
     ("what if the distance doubled", ("distance", None, None, 2)),
     ("what if it went twice as far", None),
     ("what if the speed was twice as high", ("speed", None, None, 2)),
-    ("what if it was going twice as fast", ("speed", None, None, 2)),
     ("what if the initial speed doubled", ("speed", None, "initial", 2)),
     ("what if the final speed doubled", ("speed", None, "final", 2)),
     ("what if the acceleration doubled", ("acceleration", None, None, 2)),
-    ("what if it accelerated twice as fast", ("acceleration", None, None, 2)),
+    ("what if it accelerated twice as fast", None),
+    ("what if the frequency doubled", ("frequency", None, None, 2)),
+    ("what if the wavelength was halved", ("wavelength", None, None, 0.5)),
     ("what if the voltage were doubled", ("voltage", None, None, 2)),
     ("what if I halve the resistance", ("resistance", None, None, 0.5)),
     ("what if the angle doubled", ("angle", None, None, 2)),
@@ -187,6 +283,8 @@ OWNER_TEMPLATES: list[tuple[str, str, float]] = [
     ("what if the mass of the {o} doubled", "mass", 2),
     ("what if the {o} was twice as high", "height", 2),
     ("what if the {o} had twice the acceleration", "acceleration", 2),
+    ("what if the {o} was twice as fast", "speed", 2),
+    ("what if the {o} had twice the speed", "speed", 2),
 ]
 OBJECTS = (
     "ball",
@@ -204,6 +302,15 @@ OBJECTS = (
     "battery",
     "resistor",
     "container",
+    "cart",
+    "load",
+    "trailer",
+    "boat",
+    "astronaut",
+    "moon",
+    "earth",
+    "curve",
+    "wave",
 )
 
 
@@ -232,17 +339,27 @@ def _expected(problem: Problem, reading: Reading) -> float | None:
         and (owner is None or p.owner == owner)
         and (role is None or p.role == role)
     ]
-    if len(found) != 1:
+    if len(found) != 1 or found[0].shared:
         return None
     values = {p.key: p.value for p in problem.params}
     values[found[0].key] *= factor
     return problem.formula(values)
 
 
+_SUPERSCRIPT = str.maketrans("⁻⁰¹²³⁴⁵⁶⁷⁸⁹", "-0123456789")
+_POWER = re.compile(r"^(?P<a>-?[\d.]+) × 10(?P<n>[⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+) (?P<unit>.+)$")
+
+
 def _si(text: str) -> float:
+    """The verified answer in SI, a power of ten too ("4e5 J"), which read_givens skips."""
     answers = _answers(text)
     assert answers, text
-    values = [g.si for g in read_givens(answers[0][0], PHYSICS_UNITS) if g.si is not None]
+    plain = answers[0][0].split(" (")[0]
+    power = _POWER.match(plain)
+    if power is not None:
+        scale = float(power.group("a")) * 10 ** int(power.group("n").translate(_SUPERSCRIPT))
+        plain = f"{scale:.6g} {power.group('unit')}".replace("e+", "e")
+    values = [g.si for g in read_givens(plain, PHYSICS_UNITS) if g.si is not None]
     assert values, answers
     return values[0]
 

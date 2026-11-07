@@ -83,12 +83,14 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     # Before the other shapes: "what if it was 3 times higher" is no new value.
     scaled = scaled_given(line)
     if scaled is not None:
-        return _GIVENS.scaled(prior, scaled)
+        return None if _set_by_medium(prior) else _GIVENS.scaled(prior, scaled)
     about = _ABOUT.fullmatch(line)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(line)
     if changed is not None:
+        if _set_by_medium(prior):
+            return None
         rewritten = _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
@@ -101,9 +103,26 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _in_unit(prior, unit)
     value = new_value(written)
     if value is not None:
+        if _set_by_medium(prior):
+            return None
         rewritten = _GIVENS.changed(prior, None, *value)
         return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
-    return _restated(prior, written)
+    return None if _set_by_medium(prior) else _restated(prior, written)
+
+
+# Laws whose result is a property of the medium: v = fλ finds a wave's speed, but the
+# same string or the same air keeps that speed when the frequency changes; the
+# wavelength changes instead. Re-solving with one given changed would change the speed.
+_SET_BY_MEDIUM = frozenset({"wave_speed"})
+
+
+def _set_by_medium(prior: str) -> bool:
+    """True when the problem asks for a result its medium sets, from givens that do not:
+    no changed given of it re-solves to a true number."""
+    intent = extract_physics_intent(prior)
+    if intent is None or intent.physics_op not in _SET_BY_MEDIUM:
+        return False
+    return _dimension_of_phrase("speed") in {ask.dimension for ask in asks(prior)}
 
 
 def _in_unit(prior: str, unit: str) -> str | None:
@@ -327,9 +346,13 @@ _LENGTH_WORDS = {
 
 
 def _fits(prior: str, name: str) -> bool:
+    """A named length needs its own words in the problem: "the wavelength" of a dropped
+    ball, or "the height" of a swung string, is no length the problem gave."""
     words = given_name(name).split()
-    cue = _LENGTH_WORDS.get(words[-1]) if words else None
-    return cue is None or re.search(rf"\b(?:{cue})\b", prior, re.IGNORECASE) is not None
+    if not words or _dimension_of_phrase(" ".join(words)) != _dimension_of_phrase("length"):
+        return True
+    cue = _LENGTH_WORDS.get(words[-1], re.escape(words[-1]) + "s?")
+    return re.search(rf"\b(?:{cue})\b", prior, re.IGNORECASE) is not None
 
 
 _GIVENS = GivenRewriter(
