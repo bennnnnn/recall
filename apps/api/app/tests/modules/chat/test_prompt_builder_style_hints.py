@@ -388,6 +388,10 @@ def test_shorter_preserves_fact_guardrail():
         ("anything shorter? i get bored fast", False),
         ("is there a shorter route to the airport", False),
         ("which of these books is shorter", False),
+        # Third review: what a verb makes shorter must be the reply.
+        ("can you get me a shorter flight", False),
+        ("write me a shorter poem", False),
+        ("make a shorter route for my run", False),
         ("the days are getting shorter", False),
     ],
 )
