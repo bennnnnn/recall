@@ -6,7 +6,7 @@ import re
 
 from app.modules.physics.catalog.kinematics import CLOSED_PATH, ONE_TURN
 from app.modules.physics.catalog.suvat import TWO_BODIES
-from app.modules.physics.motion import read_motion
+from app.modules.physics.motion import constant_speed_laws_hold
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.words import word_pattern
 from app.services.unit_text import LENGTH_UNITS, QUANTITY_NUMBER, TIME_UNITS, unit_after_quantity
@@ -25,8 +25,9 @@ _RATE_CUES = (
 
 def _changes_speed(cleaned: str) -> bool:
     """A speed that changes is not constant speed: "15 m/s ... to a stop in 3 s, how far" is
-    braking distance, and d = vt would answer 45 m instead of 22.5 m (``motion``)."""
-    return read_motion(cleaned).changes_speed
+    braking distance, and d = vt would answer 45 m instead of 22.5 m (``motion``). An average
+    speed is still distance over time."""
+    return not constant_speed_laws_hold(cleaned)
 
 
 def extract_rate_intent(cleaned: str) -> PhysicsIntent | None:

@@ -33,7 +33,7 @@ from app.modules.physics.catalog import CATALOG, WATER_ONLY
 from app.modules.physics.catalog.projectile import AT_AN_ANGLE
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
 from app.modules.physics.law_range import holds_its_range
-from app.modules.physics.motion import SPEED_CHANGE_MARKER, read_motion
+from app.modules.physics.motion import SPEED_CHANGE_MARKER, constant_speed_laws_hold
 from app.modules.physics.optic_elements import diverging_element, signed_distances
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.fit import (
@@ -234,7 +234,7 @@ def _with_markers(lower: str) -> str:
     speed that changes, however it is said, is marked for the constant-speed laws."""
     if signed_distances(lower):
         lower = f"{lower} signed"
-    if read_motion(lower).changes_speed:
+    if not constant_speed_laws_hold(lower):
         lower = f"{lower} {SPEED_CHANGE_MARKER}"
     return f"{lower} diverging" if diverging_element(lower) else lower
 

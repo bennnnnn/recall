@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.physics.motion import read_motion
+from app.modules.physics.motion import constant_speed_laws_hold, read_motion
 
 
 @pytest.mark.parametrize(
@@ -87,3 +87,21 @@ def test_a_steady_speed_or_a_place_called_a_stop_is_not_a_change(text: str) -> N
 )
 def test_braking_brings_it_to_rest_and_a_throw_does_not(text: str, brakes: bool) -> None:
     assert read_motion(text).brakes is brakes
+
+
+@pytest.mark.parametrize(
+    ("text", "hold"),
+    [
+        ("A sprinter starts from rest and covers 100 m in 12 s. What is her average speed?", True),
+        ("A cyclist accelerates and travels 300 m in 20 s. What is her average velocity?", True),
+        ("A bus travels 120 km in 2 hours. What is its speed?", True),
+        ("A car moving at 15 m/s brakes to a stop in 3 s. How far does it travel?", False),
+        (
+            "A runner accelerates from rest and covers 100 m in 10 s. What is her final speed?",
+            False,
+        ),
+    ],
+)
+def test_constant_speed_laws_hold_for_an_average(text: str, hold: bool) -> None:
+    # Review of #2333: an average speed is distance over time however the speed changes.
+    assert constant_speed_laws_hold(text) is hold

@@ -385,5 +385,39 @@
   ],
   "note": "now it stops: u = 20, v = 0, t = 10",
   "gap": "a follow-up that changes the motion keeps the earlier law and swaps a number (followup.py physics_followup_problem) (audit 2026-11-07)"
+ },
+ {
+  "id": "au-avg-from-rest",
+  "area": "kinematics",
+  "prompt": "A sprinter starts from rest and covers 100 m in 12 s. What is her average speed?",
+  "expect": "answer",
+  "answer": [
+   8.33333,
+   "m/s"
+  ],
+  "note": "an average speed is total distance over total time, whatever the speed does: 100 / 12 (review of #2333)"
+ },
+ {
+  "id": "au-avg-velocity-accelerating",
+  "area": "kinematics",
+  "prompt": "A cyclist accelerates and travels 300 m in 20 s. What is her average velocity?",
+  "expect": "answer",
+  "answer": [
+   15,
+   "m/s"
+  ],
+  "note": "300 / 20; accelerating does not change what an average is"
+ },
+ {
+  "id": "au-avg-speed-given",
+  "area": "kinematics",
+  "prompt": "Starting from rest, a car reaches an average speed of 12 m/s over 30 s. How far did it go?",
+  "expect": "answer",
+  "answer": [
+   360,
+   "m"
+  ],
+  "note": "d = (average speed) × t = 12 × 30; 12 m/s is no final speed",
+  "gap": "SUVAT reads a stated average speed as the final speed: s = (0 + 12)/2 × 30 = 180 m, verified (found 2026-11-07 probing #2333)"
  }
 ]

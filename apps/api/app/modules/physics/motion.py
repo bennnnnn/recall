@@ -62,6 +62,10 @@ _BRAKES = re.compile(
 # The marker the binder's excludes read for a speed that changes (``binding._with_markers``).
 SPEED_CHANGE_MARKER = "speedchange"
 
+# An average speed is the whole distance over the whole time, whatever the speed does on the
+# way: "starts from rest and covers 100 m in 12 s, average speed?" is 100 / 12.
+_AVERAGE_SPEED = re.compile(r"\b(?:average|mean)\s+(?:speed|velocity)\b", re.IGNORECASE)
+
 
 @dataclass(frozen=True, slots=True)
 class Motion:
@@ -81,6 +85,12 @@ def _stops(text: str) -> bool:
         or _NOUN_BEFORE.search(text[: match.start()]) is None
         for match in _STOP_VERB.finditer(text)
     )
+
+
+def constant_speed_laws_hold(text: str) -> bool:
+    """d = vt and v = d/t answer the question: its speed never changes, or the speed it states
+    or asks is an average (review of #2333: a sprinter "starts from rest" declined d/t)."""
+    return not read_motion(text).changes_speed or _AVERAGE_SPEED.search(text) is not None
 
 
 def read_motion(text: str) -> Motion:
