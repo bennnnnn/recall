@@ -27,6 +27,12 @@ _INITIAL = (
     "travelling at",
     "traveling at",
 )
+# The words that state a speed is the starting one. "Moving at" and "travelling at" only
+# lean that way: "is moving at 30 m/s after accelerating for 5 s" states the final speed,
+# so they never mark a speed as the starting speed a question asks for.
+_STARTS = tuple(
+    word for word in _INITIAL if word not in {"moving at", "travelling at", "traveling at"}
+)
 _FINAL = ("final", "finally", "to", "reaches", "reaching", "until", "up to", "becomes", "ends at")
 _SLOWING = ("decelerat", "retard", "slows down at", "brakes at", "braking at")
 
@@ -240,7 +246,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=(_SPEED,),
             excludes=TWO_BODIES,
             inputs=_inputs("vat", "vad", "vdt", "adt"),
-            result_words=_INITIAL,
+            result_words=_STARTS,
         ),
     ),
 )

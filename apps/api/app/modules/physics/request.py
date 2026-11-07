@@ -408,6 +408,7 @@ def complete_physics_intent(
     """
     from app.modules.physics.accounting import competing_given
     from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
+    from app.modules.physics.asked_end_check import answers_the_other_end
     from app.modules.physics.bodies import SCHOOL_GRAVITY, names_body_without_school_gravity
     from app.modules.physics.catalog import formula_spec
     from app.modules.physics.counted import accounts_for_counted_items
@@ -451,6 +452,9 @@ def complete_physics_intent(
     if step_of is not None:
         return intent.model_copy(update={"asked": step_of, "asked_unit": None})
     if competing_given(intent, request.text) is not None:
+        return None
+    if answers_the_other_end(intent, request.text):
+        # "Going 30 m/s after accelerating … its starting speed?": 30 m/s is the final speed.
         return None
     if not accounts_for_counted_items(intent, request.text):
         # "Two 5 kg blocks", "two resistors, each 10 Ω": one value for several items.

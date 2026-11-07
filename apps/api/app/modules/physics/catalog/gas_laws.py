@@ -2,17 +2,31 @@
 
 from __future__ import annotations
 
+import re
+
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 # The state before and the state after: "occupies 4 L at 2 atm", "is
 # compressed to 2 L". The words before each value say which state it is.
-_BEFORE = ("initially", "initial", "originally", "at first", "from", "occupies", "at")
+_BEFORE = (
+    "initially",
+    "initial",
+    "originally",
+    "at first",
+    "starts at",
+    "started at",
+    "from",
+    "occupies",
+    "at",
+)
 # A chemistry class labels the two states with subscripts: "P1 = 2 atm, V2 = 6 L".
 _FIRST = {"pres1": ("p1",), "vol1": ("v1",), "temp_initial": ("t1",)}
 _SECOND = {"pres2": ("p2",), "vol2": ("v2",), "temp_final": ("t2",)}
 _AFTER = (
     "to",
     "new",
+    "ends at",
+    "ended at",
     "final",
     "finally",
     "becomes",
@@ -94,7 +108,7 @@ def _state_law(
     )
 
 
-SPECS: tuple[FormulaSpec, ...] = (
+_STATE_LAWS: tuple[FormulaSpec, ...] = (
     _state_law(
         "boyle_volume",
         "Boyle's law",
@@ -184,6 +198,51 @@ SPECS: tuple[FormulaSpec, ...] = (
         ("pres1", "temp_final", "temp_initial", "vol1", "vol2"),
         ("gas",),
     ),
+)
+
+# The state before, read back from the state after: "heated from 300 K to 400 K, it ends
+# with a volume of 6 L. What was its initial volume?" is 4.5 L. Each law above, its
+# before and after swapped, answers the initial value; the law that answers the new
+# value took the 6 L as V₁ and answered 8 L.
+_SWAPPED = {
+    "pres1": "pres2",
+    "pres2": "pres1",
+    "vol1": "vol2",
+    "vol2": "vol1",
+    "temp_initial": "temp_final",
+    "temp_final": "temp_initial",
+}
+_SWAP_RE = re.compile(r"\b(?:" + "|".join(_SWAPPED) + r")\b")
+_INITIAL_ASKS = {
+    "meter ** 3": ("initial volume", "original volume", "starting volume", "v1"),
+    "pascal": ("initial pressure", "original pressure", "starting pressure", "p1"),
+    "kelvin": ("initial temperature", "original temperature", "starting temperature", "t1"),
+}
+
+
+def _initial_state_law(law: FormulaSpec) -> FormulaSpec:
+    """``law`` solved for the state before: its 1s and 2s swapped."""
+    if law.binding is None or law.expression is None:
+        raise ValueError(f"{law.id} is not a state law")
+    result = law.binding.result[0]
+    head, quantity = law.id.rsplit("_", 1)
+    (inputs,) = law.binding.inputs
+    return _state_law(
+        f"{head}_initial_{quantity}",
+        law.law_name,
+        law.result_symbol.replace("_2", "_1"),
+        law.base_latex or "",
+        _SWAP_RE.sub(lambda match: _SWAPPED[match.group()], law.expression),
+        _INITIAL_ASKS[result],
+        result,
+        tuple(sorted(_SWAPPED[name] for name in inputs)),
+        law.binding.cues,
+    )
+
+
+SPECS: tuple[FormulaSpec, ...] = (
+    *_STATE_LAWS,
+    *(_initial_state_law(law) for law in _STATE_LAWS),
     formula(
         "rms_speed",
         "thermal",

@@ -51,11 +51,27 @@ _AT_REST_START_RE = re.compile(
     re.IGNORECASE,
 )
 
-# A lone speed the question says it ends at: "accelerates ... and reaches 18 m/s".
-# That is v, and a question for v that states it has nothing left to solve.
+_SPEED = rf"{NUMBER}\s*(?:{VELOCITY_UNIT_PATTERN})(?![\w^²/])"
+# The change a speed is stated after: "after accelerating", "after braking", "after 5 s".
+_CHANGE = (
+    r"(?:(?:ac|de)celerat\w*|brak\w*|speeding\s+up|slowing(?:\s+down)?"
+    r"|\d+(?:\.\d+)?\s*(?:s|secs?|seconds?)\b)"
+)
+# A sentence, a decimal point kept inside it.
+_IN_SENTENCE = r"(?:[^.?!]|(?<=\d)\.(?=\d))*?"
+# A lone speed the question says it ends at: "accelerates ... and reaches 18 m/s",
+# "ends at 12 m/s", "is then going 30 m/s", "is going 30 m/s after accelerating for
+# 5 s", "After accelerating for 5 s it is moving at 30 m/s". That is v: read as u, the
+# car going 30 m/s after 5 s at 4 m/s² had covered 200 m instead of 100 m. A question
+# for v that states it has nothing left to solve.
 _FINAL_SPEED_RE = re.compile(
-    r"\b(?:reach(?:es|ed|ing)?|final\s+(?:speed|velocity)(?:\s+(?:of|is))?|up\s+to|until\s+it\s+reaches)"
-    rf"\s+(?:a\s+(?:speed|velocity)\s+of\s+)?{NUMBER}\s*(?:{VELOCITY_UNIT_PATTERN})",
+    r"\b(?:reach(?:es|ed|ing)?|final\s+(?:speed|velocity)(?:\s+(?:of|is))?|up\s+to|until\s+it\s+reaches"
+    r"|(?:ends?|ending|finish(?:es)?|finishing)\s+(?:up\s+)?at|hits"
+    r"|(?:is|was)\s+(?:then|now)\s+(?:going|moving|travell?ing|doing)(?:\s+at)?"
+    r"|(?:then|now)\s+(?:has|had)\s+a\s+(?:speed|velocity)\s+of)"
+    rf"\s+(?:a\s+(?:speed|velocity)\s+of\s+)?{_SPEED}"
+    rf"|{_SPEED}\s+after\s+{_CHANGE}"
+    rf"|(?:^|[.?!]\s+)after\s+{_CHANGE}{_IN_SENTENCE}{_SPEED}",
     re.IGNORECASE,
 )
 
