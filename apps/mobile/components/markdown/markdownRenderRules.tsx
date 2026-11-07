@@ -34,7 +34,7 @@ function makeSharedRules(
     ...inlineRules(mdTable, mdMath),
     ...listRules(t, mdMath),
     ...blockRules(t, mdTable, mdMath),
-    ...headingRules(),
+    ...headingRules(t),
     ...codeRules(mdTable, mdCodeInline),
     ...tableRules(),
   };

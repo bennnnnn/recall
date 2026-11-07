@@ -26,7 +26,8 @@ import {
 import { fenceReportName, refusalOf, type FenceReportName } from "@/lib/fenceReports";
 import { reportFenceCrash, reportFenceRefused } from "@/lib/sentry";
 import { FenceErrorBoundary } from "@/components/markdown/FenceErrorBoundary";
-import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import { PARAGRAPH_GAP, type StyleMap } from "@/components/markdown/markdownContentStyles";
+import { parentHasType } from "@/components/markdown/markdownAstHelpers";
 import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -75,6 +76,7 @@ function renderFenceInner(
   content: string,
   decision: ReturnType<typeof classifyFence>,
   tokenIndex?: number,
+  indent = false,
 ) {
   if (decision.kind === "hide") return null;
 
@@ -87,7 +89,7 @@ function renderFenceInner(
   }
 
   if (decision.kind === "math") {
-    return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
+    return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} indent={indent} />;
   }
 
   if (decision.kind === "clock") {
@@ -130,6 +132,7 @@ function renderFenceInner(
 
 /** What a fence was last drawn from, and what it drew. */
 type DrawnFence = {
+  indent: boolean;
   info: string | undefined;
   content: string;
   tokenIndex: number | undefined;
@@ -146,12 +149,22 @@ type DrawnFence = {
  * then, and React leaves that block as it is; what the block reads from
  * context (the reply settling, its preview files) still reaches it.
  */
-export function makeFenceRule(): (node: FenceNode) => ReactNode {
+export function makeFenceRule(): (
+  node: FenceNode,
+  children?: unknown,
+  parent?: unknown,
+  styles?: StyleMap,
+) => ReactNode {
   const drawn = new Map<string, DrawnFence>();
-  return (node) => {
+  return (node, _children, parent, styles) => {
+    // A display block is working, in the working column; a quote's and a sent bubble's stay put.
+    const indent =
+      !parentHasType(parent, "blockquote") &&
+      ((styles?.workIndent as { paddingLeft?: number } | undefined)?.paddingLeft ?? 0) > 0;
     const last = drawn.get(node.key);
     if (
       last &&
+      last.indent === indent &&
       last.info === node.sourceInfo &&
       last.content === node.content &&
       last.tokenIndex === node.tokenIndex &&
@@ -159,8 +172,9 @@ export function makeFenceRule(): (node: FenceNode) => ReactNode {
     ) {
       return last.element;
     }
-    const element = renderFence(node);
+    const element = renderFence(node, indent);
     drawn.set(node.key, {
+      indent,
       info: node.sourceInfo,
       content: node.content,
       tokenIndex: node.tokenIndex,
@@ -171,7 +185,7 @@ export function makeFenceRule(): (node: FenceNode) => ReactNode {
   };
 }
 
-export function renderFence(node: FenceNode) {
+export function renderFence(node: FenceNode, indent = false) {
   const lang = parseFenceLang(node.sourceInfo?.trim() || "");
   const content = node.content.replace(/\n$/, "").trim();
   if (!content) return null;
@@ -182,7 +196,7 @@ export function renderFence(node: FenceNode) {
   try {
     const decision = classifyFence(lang, content);
     fence = fenceReportName(decision);
-    element = renderFenceInner(node.key, lang, content, decision, node.tokenIndex);
+    element = renderFenceInner(node.key, lang, content, decision, node.tokenIndex, indent);
   } catch (error) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);

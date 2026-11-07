@@ -82,7 +82,7 @@ export function renderRichFenceById(
       return <SocialPostCard key={key} platform={social} text={content} />;
     }
     case "math":
-      return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
+      return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} indent />;
     case "answer":
       return <AnswerBlock key={key} content={content} />;
     case "arithmetic":

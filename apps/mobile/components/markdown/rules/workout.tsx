@@ -13,7 +13,12 @@ import {
   openingStrong,
   unwrapSingle,
 } from "@/components/markdown/markdownAstHelpers";
-import type { StyleMap } from "@/components/markdown/markdownContentStyles";
+import {
+  type StyleMap,
+  WORK_GAP,
+  WORK_INDENT,
+  WORK_RULE,
+} from "@/components/markdown/markdownContentStyles";
 import { mathSizeOf, withGreenTicks } from "@/components/markdown/rules/textWithMath";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -147,25 +152,27 @@ function lastMathLine(lines: string[]): number {
   return lines.length - 1;
 }
 
-const RULE_WIDTH = 2;
-
 /**
  * The thin rule Given and Required sit behind, and only they: the working inside Solution
- * (a formula under its name, Substitution, Steps, a numbered move) has none, its smaller
- * headings in secondary ink set it apart (November 2026).
+ * (a formula under its name, Substitution, Steps, a numbered move) has none; its lines
+ * start at the column Given's values do (`WORK_INDENT`).
  */
 function workoutRule(t: Theme) {
   return {
-    marginLeft: Space.xxs,
-    paddingLeft: Space.sm,
-    borderLeftWidth: RULE_WIDTH,
+    marginLeft: WORK_RULE.inset,
+    paddingLeft: WORK_RULE.gap,
+    borderLeftWidth: WORK_RULE.width,
     borderLeftColor: t.separator,
   } as const;
 }
 
-/** A heading inside Solution, a level under the section headings: smaller, in secondary ink. */
+/**
+ * A heading inside Solution (a formula's name, Substitution, a move): bold in the reply's
+ * ink at the margin, its working indented under it. Bold as a model's own headings and
+ * bold text are, so the server's and the model's replies read alike (November 2026).
+ */
 export function subheadingStyle(styles: StyleMap, t: Theme): StyleProp<TextStyle> {
-  return [styles.text, { ...Type.secondary, ...Weight.semibold, color: t.textSecondary }];
+  return [styles.body, styles.text, { ...Weight.bold, color: t.assistantText }];
 }
 
 // "Solve for $t$": a step of the working written as words, drawn as a move.
@@ -315,7 +322,10 @@ export function renderWorkoutSection(
         <Text testID="workout-subheading" style={subheadingStyle(styles, t)}>
           {section.heading}
         </Text>
-        <View testID="workout-body" style={{ gap: Space.xs, marginTop: Space.xxs }}>
+        <View
+          testID="workout-body"
+          style={{ gap: Space.xs, marginTop: WORK_GAP, paddingLeft: WORK_INDENT }}
+        >
           {lines}
         </View>
       </View>
@@ -327,7 +337,7 @@ export function renderWorkoutSection(
       style={[
         styles.body,
         styles.text,
-        { ...Weight.semibold, color: t.assistantText },
+        { ...Weight.bold, color: t.assistantText },
       ]}
     >
       {section.heading}
@@ -427,7 +437,7 @@ export function renderWorkoutPart(
         {workoutInline(
           part.title,
           `${key}-part`,
-          [styles.body, styles.text, { ...Weight.semibold, color: t.accent }],
+          [styles.body, styles.text, { ...Weight.bold, color: t.accent }],
           t.accent,
         )}
       </View>

@@ -7,6 +7,8 @@ import { runRule } from "@/components/markdown/__tests__/support/runRule";
 import {
   makeMdStyles,
   PARAGRAPH_GAP,
+  STEP_LABEL_INSET,
+  WORK_INDENT,
 } from "@/components/markdown/markdownContentStyles";
 import { Space } from "@/lib/space";
 import { lightTheme } from "@/lib/theme";
@@ -516,7 +518,7 @@ describe("markdown render rules", () => {
       <MarkdownContent content={content} />,
     );
     // Two levels: Given, Required and Solution are sections; the formula under its name
-    // and Substitution are smaller headings inside Solution.
+    // and Substitution are headings inside Solution, their working indented under them.
     expect(
       getAllByTestId("workout-heading").map((node) => node.props.children),
     ).toEqual(["Given", "Required", "Solution"]);
@@ -527,8 +529,20 @@ describe("markdown render rules", () => {
     ]);
     const section = StyleSheet.flatten(getAllByTestId("workout-heading")[0]!.props.style);
     const sub = StyleSheet.flatten(subheadings[0]!.props.style);
-    expect(sub.fontSize as number).toBeLessThan(section.fontSize as number);
-    expect(sub.color).toBe(lightTheme.textSecondary);
+    // Bold in the reply's ink at the margin, as the sections are (November 2026).
+    expect(sub.fontWeight).toBe(section.fontWeight);
+    expect(sub.color).toBe(lightTheme.assistantText);
+    // Given's values stay by the margin behind their rule; a formula's lines start further
+    // in, in the working column every line of maths starts in.
+    const [given, , formula] = getAllByTestId("workout-body").map((node) =>
+      StyleSheet.flatten(node.props.style),
+    );
+    const ruled =
+      (given!.marginLeft as number) +
+      (given!.borderLeftWidth as number) +
+      (given!.paddingLeft as number);
+    expect(formula!.paddingLeft).toBe(WORK_INDENT);
+    expect(ruled).toBeLessThan(WORK_INDENT);
     // The formula's name is its heading, never a note beside it.
     expect(getAllByTestId("workout-body")).toHaveLength(4);
     expect(
@@ -792,13 +806,14 @@ describe("markdown render rules", () => {
     ]);
     const flat = (node: { props: { style?: StyleProp<TextStyle> } }) =>
       StyleSheet.flatten(node.props.style) ?? {};
-    // Each part's formula heading is the same small secondary sub-heading…
+    // Each part's formula heading is the same bold sub-heading…
     expect(flat(subheadings[2]!)).toEqual(flat(subheadings[0]!));
-    expect(flat(subheadings[2]!).color).toBe(lightTheme.textSecondary);
-    // …and every line of maths under it starts at the left, in part (a) and part (b) alike.
+    expect(flat(subheadings[2]!).color).toBe(lightTheme.assistantText);
+    // …and every line of maths under it starts in one column, in part (a) and part (b) alike.
     const working = getAllByTestId("workout-body").slice(2);
     expect(working).toHaveLength(4);
     for (const body of working) {
+      expect(flat(body).paddingLeft).toBe(WORK_INDENT);
       for (const line of within(body).getAllByTestId("workout-line")) {
         expect(flat(line).justifyContent).toBe("flex-start");
       }
@@ -967,7 +982,114 @@ describe("markdown render rules", () => {
     const { getByTestId } = await render(
       <MarkdownContent content={"**2. Simplify**\n$x^2 = 1$"} />,
     );
-    expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
+    // The reason under the label; the maths in the one column every line of working starts in,
+    // a step further in than the label.
+    const step = StyleSheet.flatten(getByTestId("lesson-step-formula").props.style);
+    const maths = StyleSheet.flatten(getByTestId("lesson-step-maths").props.style);
+    expect(step.paddingLeft).toBe(STEP_LABEL_INSET);
+    expect((step.paddingLeft as number) + (maths.paddingLeft as number)).toBe(WORK_INDENT);
+    expect(WORK_INDENT).toBeGreaterThan(STEP_LABEL_INSET);
+  });
+
+  it.each([
+    ["(addition property of equality)"],
+    [": addition property of equality"],
+    ["– addition property of equality"],
+    ["- addition property of equality"],
+  ])(
+    "draws a model's step whose reason is set off as %s like the server's",
+    async (reason) => {
+      // A model wrote "(…)" where the server writes " — …": the heading, the reason and
+      // the first equation ran into one paragraph (November 2026).
+      const { getByTestId, getAllByTestId, queryByText } = await render(
+        <MarkdownContent
+          content={`**1. Add 3 to both sides** ${reason}\n$5x - 3 + 3 = 12 + 3$\n$5x = 15$`}
+        />,
+      );
+      expect(getAllByTestId("lesson-step")).toHaveLength(1);
+      expect(getByTestId("lesson-step-reason")).toHaveTextContent("addition property of equality");
+      expect(getAllByTestId("lesson-step-maths")).toHaveLength(2);
+      expect(queryByText(/[()]/)).toBeNull();
+    },
+  );
+
+  it.each([
+    ["one formula under a heading", "### 2. Divide every term by a\n\n$x^2 + \\frac{b}{a}x = 0$"],
+    ["formulas one per line", "### 3. Simplify\n\n$x + 1 = 3$  \n$x = 2$."],
+    ["a display block", "### 4. Isolate x\n\n$$x = \\frac{-b}{2a}$$"],
+  ])("indents %s to the working column", async (_name, content) => {
+    // A model's derivation drew its equations at the margin, flush with the headings.
+    const view = await render(<MarkdownContent content={content} />);
+    expect(JSON.stringify(view.toJSON())).toContain(`"paddingLeft":${WORK_INDENT}`);
+  });
+
+  it.each([
+    ["a sentence with maths in it", "Divide every term by $a$ to get $x$."],
+    ["a formula in a list", "- $x = 2$\n- $y = 3$"],
+  ])("leaves %s at the margin", async (_name, content) => {
+    const view = await render(<MarkdownContent content={content} />);
+    expect(JSON.stringify(view.toJSON())).not.toContain(`"paddingLeft":${WORK_INDENT}`);
+  });
+
+  it.each([
+    ["formulas one per line", "$2x + 3 = 7$\n$x - 1 = 0$"],
+    ["a display block", "Solve:\n\n$$x^2 = 4$$"],
+  ])("never indents %s in the user's own sent message", async (_name, content) => {
+    const view = await render(<MarkdownContent content={content} compact />);
+    expect(JSON.stringify(view.toJSON())).not.toContain(`"paddingLeft":${WORK_INDENT}`);
+  });
+
+  it("indents a formula paragraph while it streams, so it never jumps when it settles", async () => {
+    const view = await render(
+      <MarkdownContent content={"### 1. Simplify\n\n$x + 1 = 3$"} streaming />,
+    );
+    expect(JSON.stringify(view.toJSON())).toContain(`"paddingLeft":${WORK_INDENT}`);
+  });
+
+  it("draws a step label's maths in the label's ink", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={"**2. Divide both sides by $a$**\n$x = \\frac{b}{a}$"} />,
+    );
+    const variable = within(getByTestId("lesson-step-label")).getAllByTestId("math-variable")[0]!;
+    expect(StyleSheet.flatten(variable.props.style).color).toBe(lightTheme.assistantText);
+  });
+
+  it.each([
+    ["its first equation on the heading line", "**1. Distribute**: $2(x+3)=14$\n$2x+6=14$"],
+    ["a minus sign after the heading", "**1. Multiply both sides by** -1\n$x = 2$"],
+  ])("keeps a step with %s as ordinary markdown, never a reason", async (_name, content) => {
+    const { queryByTestId } = await render(<MarkdownContent content={content} />);
+    expect(queryByTestId("lesson-step-reason")).toBeNull();
+  });
+
+  it.each([
+    ["### 1. Start with the standard form", "1", "Start with the standard form"],
+    ["## 2) Divide every term by a", "2", "Divide every term by a"],
+    ["#### Step 3: Move the constant", "3", "Move the constant"],
+  ])("draws a model's numbered heading %s with the server step's badge", async (heading, n, title) => {
+    // The server's steps had a grey badge, a model's "### 1. …" a plain "1." (November 2026).
+    const { getByTestId, getByText } = await render(<MarkdownContent content={heading} />);
+    const step = getByTestId("step-heading");
+    expect(step.props.accessibilityRole).toBe("header");
+    expect(within(getByTestId("step-badge")).getByText(n)).toBeOnTheScreen();
+    expect(getByText(title)).toBeOnTheScreen();
+  });
+
+  it.each([
+    ["a heading with no number", "### Start with the standard form"],
+    ["a year", "### 2024 results"],
+    ["a decimal section number", "### 3.5 Methods"],
+    ["a heading with a link", "### 1. Read [the guide](https://example.com)"],
+  ])("keeps the library's heading for %s", async (_name, heading) => {
+    const { queryByTestId } = await render(<MarkdownContent content={heading} />);
+    expect(queryByTestId("step-heading")).toBeNull();
+  });
+
+  it("keeps a step whose words after the heading are not a reason as ordinary markdown", async () => {
+    const { queryByTestId } = await render(
+      <MarkdownContent content={"**1. Add 3** (so both sides stay equal) then\n$x = 2$"} />,
+    );
+    expect(queryByTestId("lesson-step")).toBeNull();
   });
 
   it("stacks the both-sides line and the result under one numbered step", async () => {

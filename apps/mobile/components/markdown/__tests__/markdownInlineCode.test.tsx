@@ -157,14 +157,17 @@ describe("a line-by-line lesson", () => {
     "Creates a variable `total` and sets it to `0`.",
   ].join("\n");
 
-  it("renders numbered ### headings as section titles", async () => {
+  it("renders numbered ### headings as section titles, the number in a step's badge", async () => {
     const view = await render(<MarkdownContent content={LESSON} />);
-    for (const title of ["1. The code", "2. Explain each line"]) {
+    for (const title of ["The code", "Explain each line"]) {
       expect(StyleSheet.flatten(view.getByText(title).props.style)).toMatchObject({
         fontSize: Type.h3.fontSize,
         fontFamily: Type.h3.fontFamily,
       });
     }
+    expect(
+      view.getAllByTestId("step-badge").map((badge) => strings(badge as unknown as Node)),
+    ).toEqual(["1", "2"]);
   });
 
   it("keeps a bold label and its code on one row, the explanation under it", async () => {

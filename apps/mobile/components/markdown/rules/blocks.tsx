@@ -3,9 +3,11 @@ import { ReactNode } from "react";
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { renderBlockquote } from "@/components/markdown/blockquoteRender";
 import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
+import { splitStreamCaret } from "@/components/StreamingCursor";
 import {
   type AstNode,
   astText,
+  astTextWithBreaks,
   detectStandaloneLink,
   inTableCell,
   inTableHeader,
@@ -34,6 +36,29 @@ import type { Theme } from "@/lib/theme";
 function StandaloneLink({ url, text }: { url: string; text: ReactNode }) {
   const streaming = useReplyStreaming();
   return streaming ? <>{text}</> : <LinkPreviewCard url={url} />;
+}
+
+/** One formula alone on its line, with at most the punctuation that ends it. */
+const FORMULA_LINE = /^\$[^$\n]+\$[.,;:]?$/;
+
+const PLAIN_KIDS = new Set(["text", "textgroup", "softbreak", "hardbreak"]);
+
+function plainKids(node: AstNode): boolean {
+  return (node.children ?? []).every((kid) => PLAIN_KIDS.has(kid.type ?? "") && plainKids(kid));
+}
+
+/**
+ * A paragraph of formulas alone, one per line ("### 2. Divide by a" then "$x^2 + … = 0$"):
+ * working, so it starts in the column a worked solution's lines do (November 2026). A
+ * bold formula is a highlighted line, not working; the streaming caret is not part of it.
+ */
+function formulasOnly(node: AstNode): boolean {
+  if (!plainKids(node)) return false;
+  const lines = splitStreamCaret(astTextWithBreaks(node))
+    .text.split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length > 0 && lines.every((line) => FORMULA_LINE.test(line));
 }
 
 export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyles) {
@@ -81,6 +106,10 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
     const runHeight = mathRunLineHeight(raw);
     // A loose list's paragraph: the item gap separates items, not a block gap.
     const inListItem = parentHasType(parent, "list_item");
+    const working =
+      !inListItem && !parentHasType(parent, "blockquote") && formulasOnly(node)
+        ? styles.workIndent
+        : null;
     return wrapInlineChildren(
       node,
       children,
@@ -90,8 +119,9 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
         styles.paragraphRun,
         inListItem && styles.listParagraph,
         runHeight != null && { lineHeight: runHeight },
+        working,
       ],
-      [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph],
+      [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph, working],
     );
   };
   return {

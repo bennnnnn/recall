@@ -2,7 +2,6 @@ import { type ReactNode, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { useAnswerAnchorRef } from "@/components/rich/answerJump";
 import { ProseAnswer, ScrollingLine, spokenAnswer } from "@/components/rich/answerLines";
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MathSvgView } from "@/components/rich/MathSvgView";
@@ -59,12 +58,8 @@ function AnswerFrame({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
-  // The reply's answer line at its top scrolls here (components/rich/answerJump.tsx).
-  const anchorRef = useAnswerAnchorRef();
   return (
     <View
-      ref={anchorRef}
-      collapsable={false}
       style={s.section}
       accessible
       accessibilityRole="text"
@@ -261,7 +256,7 @@ const makeStyles = (t: Theme) =>
     },
     label: {
       ...Type.body,
-      ...Weight.semibold,
+      ...Weight.bold,
       color: t.assistantText,
     },
     // The same bordered box as a written-out answer (workout-answer): the page's own

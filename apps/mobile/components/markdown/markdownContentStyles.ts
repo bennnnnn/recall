@@ -140,6 +140,46 @@ export const PARAGRAPH_GAP = Space.md;
  */
 export const TRIM_TRAILING_GAP = { marginBottom: -PARAGRAPH_GAP } as const;
 
+/** A numbered step's badge and the gap after it, before the step's bold label. */
+export const STEP_BADGE = { size: 22, gap: Space.xs } as const;
+
+/** Where a numbered step's label (and the reason under it) starts: after its badge. */
+export const STEP_LABEL_INSET = STEP_BADGE.size + STEP_BADGE.gap;
+
+/**
+ * Where a line of working starts: a step further in than a step's label, so the maths
+ * reads as indented under every bold label above it. A given, a formula, a substitution, a
+ * step's maths and a display equation all start here, in one column (November 2026).
+ */
+export const WORK_INDENT = STEP_LABEL_INSET + 2 * Space.xl;
+
+/** The space between a step's words (its label, its reason) and the maths under them. */
+export const WORK_GAP = Space.sm;
+
+/** The thin rule Given and Required sit behind, at the margin: its inset, width and gap. */
+export const WORK_RULE = { inset: Space.xxs, width: 2, gap: Space.sm } as const;
+
+/** The six heading levels: each its type and the space around it, on a row that wraps. */
+function headingStyles(t: Theme) {
+  const heading = (type: TextStyle, marginTop: number, marginBottom: number) => ({
+    ...type,
+    marginTop,
+    marginBottom,
+    color: t.text,
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    alignItems: "flex-start" as const,
+  });
+  return {
+    heading1: heading(Type.h1, Space.md, Space.xs),
+    heading2: heading(Type.h2, Space.sm, Space.xxs),
+    heading3: heading(Type.h3, Space.xs, Space.xxs),
+    heading4: heading(Type.h4, Space.xxs, Space.xxs),
+    heading5: heading(Type.h5, Space.xxs, Space.xxs),
+    heading6: heading(Type.h6, Space.xxs, Space.xxs),
+  };
+}
+
 export function makeMdStyles(t: Theme) {
   return StyleSheet.create({
     body: { ...Type.reading, color: t.assistantText },
@@ -150,6 +190,8 @@ export function makeMdStyles(t: Theme) {
     // Text-only paragraph run. Do not reuse `paragraph` — markdown-display
     // mergeStyle copies flexDirection/flexWrap/width onto that key.
     paragraphRun: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
+    // Working (a paragraph of formulas, a display block) starts in the working column.
+    workIndent: { paddingLeft: WORK_INDENT },
     bullet_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
     ordered_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
     // The gap between items. The last item drops it (`lastListItem`), so the
@@ -168,60 +210,7 @@ export function makeMdStyles(t: Theme) {
       marginLeft: 0,
       marginRight: Space.xs,
     },
-    heading1: {
-      ...Type.h1,
-      marginTop: Space.md,
-      marginBottom: Space.xs,
-      color: t.text,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-    },
-    heading2: {
-      ...Type.h2,
-      marginTop: Space.sm,
-      marginBottom: Space.xxs,
-      color: t.text,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-    },
-    heading3: {
-      ...Type.h3,
-      marginTop: Space.xs,
-      marginBottom: Space.xxs,
-      color: t.text,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-    },
-    heading4: {
-      ...Type.h4,
-      marginTop: Space.xxs,
-      marginBottom: Space.xxs,
-      color: t.text,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-    },
-    heading5: {
-      ...Type.h5,
-      marginTop: Space.xxs,
-      marginBottom: Space.xxs,
-      color: t.text,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-    },
-    heading6: {
-      ...Type.h6,
-      marginTop: Space.xxs,
-      marginBottom: Space.xxs,
-      color: t.text,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "flex-start",
-    },
+    ...headingStyles(t),
     strong: { ...Weight.bold, color: t.text },
     em: { ...Italic.regular },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
@@ -253,6 +242,8 @@ export function compactMdStyles<T extends ReturnType<typeof makeMdStyles>>(style
     ...styles,
     body: { ...styles.body, gap: blockGap },
     paragraphRun: { ...styles.paragraphRun, marginBottom: 0 },
+    // A sent message is the user's own words, never a worked solution.
+    workIndent: { paddingLeft: 0 },
     bullet_list: { ...styles.bullet_list, marginBottom: 0 },
     ordered_list: { ...styles.ordered_list, marginBottom: 0 },
     // A sent bubble is as wide as its text. Yoga gives any positive `flex` a zero basis (an
