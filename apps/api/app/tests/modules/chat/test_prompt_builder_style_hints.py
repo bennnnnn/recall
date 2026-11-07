@@ -379,6 +379,11 @@ def test_shorter_preserves_fact_guardrail():
         ("be shorter from now on", True),
         ("shorter, please", True),
         ("your replies need to be shorter", True),
+        # Second review: two words before "shorter", and "be a bit shorter".
+        ("make your last answer shorter", True),
+        ("make that response shorter", True),
+        ("make this answer shorter", True),
+        ("be a bit shorter", True),
         # "Shorter" about something else: the model reads it with the conversation.
         ("anything shorter? i get bored fast", False),
         ("is there a shorter route to the airport", False),
