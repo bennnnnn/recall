@@ -8,8 +8,23 @@ in the shape a message list takes back.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NamedTuple
 from uuid import uuid4
+
+
+class ToolOffer(NamedTuple):
+    """The tools a streamed call carries, and the one it must call (None: its choice)."""
+
+    tools: list[dict[str, Any]]
+    require: str | None = None
+
+    def choice(self) -> str | dict[str, Any]:
+        """The provider's ``tool_choice``: the required tool by name, when the call carries
+        it, else ``auto``."""
+        names = {str((tool.get("function") or {}).get("name")) for tool in self.tools}
+        if self.require in names:
+            return {"type": "function", "function": {"name": self.require}}
+        return "auto"
 
 
 def _field(source: Any, name: str) -> Any:

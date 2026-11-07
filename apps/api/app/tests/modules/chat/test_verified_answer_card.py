@@ -268,7 +268,7 @@ async def test_a_sympy_timeout_still_demotes_the_models_answer_fence(
     [
         ("Subtract 5 then divide by 2: $x = 7$. ✅ Verified with SymPy.", "$x = 7$."),
         ("Roots: $x = 2$ or $x = 3$ (verified).", "Roots: $x = 2$ or $x = 3$."),
-        ("**Answer**  \n$F = 15000\\ \\text{N}$ (verified)", "$F = 15000\\ \\text{N}$"),
+        ("**Answer**  \n$F = 15000\\ \\text{N}$ (verified)", "F = 15000\\ \\text{N}"),
         ("The force is 15000 N. This was verified by the solver.", "The force is 15000 N."),
         ("**Verified answer:** $x = 7$", "**Answer:** $x = 7$"),
         ("x = 7 ✓ Checked with SymPy", "x = 7"),
@@ -330,7 +330,7 @@ async def test_an_unverified_stem_answer_lands_in_a_card_marked_not_checked(
     out = await _finalize(
         monkeypatch, reply, prompt="what is the force", unverified_subject=unverified_subject
     )
-    final = "$F = 7500\\ \\text{N}$" if unverified_subject else "$x = 6$"
+    final = "F = 7500\\ \\text{N}" if unverified_subject else "x = 6"
     assert _cards(out) == [f"{UNCHECKED_ANSWER_MARKER}\n{final}"]
     assert VERIFIED_ANSWER_MARKER not in out
     assert out.count("**Answer**") == 1

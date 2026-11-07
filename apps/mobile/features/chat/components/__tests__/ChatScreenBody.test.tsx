@@ -158,7 +158,7 @@ const baseProps: ChatScreenBodyProps = {
     scrollAwayCount: 0,
     onScrollToLatest: noop,
     quotaNudgeVisible: false,
-    quotaUsedPct: 0,
+    quotaLabel: "",
     onQuotaUpgrade: noop,
     onQuotaDismiss: noop,
     chatError: null,

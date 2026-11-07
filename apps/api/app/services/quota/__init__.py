@@ -1,6 +1,7 @@
 """Usage limits in Redis.
 
-``tokens`` is the daily token budget, ``counters`` the per-feature daily caps
+``chat_messages`` is the day's chat messages (what a plan offers), ``tokens`` the
+daily token budget behind it (a cost guardrail), ``counters`` the per-feature daily caps
 (``counters.reserve("image_search", ...)``), ``live_talk`` the monthly live talk
 seconds, ``carryover`` what account delete hands to a new account for the same
 sign-in or email address, and ``spend`` the global daily spend breaker (its counter is
@@ -12,6 +13,13 @@ from app.services.quota.carryover import (
     CarriedUsage,
     apply_carried_usage,
     read_carried_usage,
+)
+from app.services.quota.chat_messages import (
+    daily_message_limit,
+    messages_used,
+    refund_message,
+    reserve_message,
+    reset_messages,
 )
 from app.services.quota.counters import utc_today
 from app.services.quota.live_talk import (
@@ -95,6 +103,7 @@ __all__ = [
     "clear_usage_needs_heal",
     "counters",
     "daily_limit_for_user",
+    "daily_message_limit",
     "get_daily_usage",
     "get_global_spend_micro_usd",
     "global_spend_exceeded",
@@ -104,17 +113,21 @@ __all__ = [
     "live_talk_seconds_left",
     "live_talk_used_seconds",
     "mark_usage_needs_heal",
+    "messages_used",
     "next_month_start",
     "quota_exceeded_message",
     "read_carried_usage",
     "record_global_spend",
     "record_live_talk_reservation",
     "record_voice_spend",
+    "refund_message",
     "refund_usage",
     "release_live_talk_seconds",
     "reserve_live_talk_seconds",
+    "reserve_message",
     "reserve_usage_up_to",
     "reset_daily_usage",
+    "reset_messages",
     "seed_usage_if_missing",
     "settle_live_talk_session",
     "take_live_talk_save",

@@ -60,9 +60,11 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Schedule keeps `SuggestedReminderRow` / From email. The drawer Schedule badge stays.
 
 ## 10. No Home dashboard chrome
-- Home is **greeting + at most one dismissible overdue reminder**.
+- Home is **the app icon, the greeting and its one line, at most one dismissible overdue
+  reminder, and one “Pick up where you left off” card** (the last titled chat, at the foot,
+  `LastChatCard`; asked for 2026-11-06). The composer's placeholder may cycle examples there.
 - Do **not** show starter chips (`welcomeStarters`, “Help me think”, “What can you do?”,
-  time, memory, calendar, or “Pick up where we left off” chips).
+  time, memory or calendar chips), or more than the one last-chat card.
 - Do **not** show a progress bar, due-soon stack, or “For you” personalized chips.
 - `/home` may return `starters: []`. Do not rebuild a starter list or wire `onSelectStarter`.
 

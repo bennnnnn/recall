@@ -263,3 +263,34 @@ async def test_photos_from_two_messages_each_go_back_to_their_own() -> None:
     ]
     assert colours == [["red"], ["blue"]]
     assert messages[-1]["content"] == "compare the two photos"
+
+
+@pytest.mark.parametrize(("photo", "light"), [(True, False), (False, True)])
+@pytest.mark.asyncio
+async def test_a_photo_sent_alone_is_never_small_talk(photo: bool, light: bool) -> None:
+    """Live 2026-11-06: a homework photo with no caption got the small-talk prompt."""
+    from app.modules.chat.turn_prep.context import _load_turn_identity
+    from app.modules.chat.turn_prep.mode import classify_turn_mode
+    from app.modules.chat.turn_prep.request import TurnRequest
+
+    mode = classify_turn_mode([], "")
+    assert mode.lightweight
+    user = SimpleNamespace(
+        id=uuid4(), timezone="UTC", location=None, location_enabled=False, locale="en"
+    )
+    request = TurnRequest(
+        user_id=user.id,
+        chat_id=uuid4(),
+        content="",
+        model="free-chat",
+        client_timezone=None,
+        client_location=None,
+        client_latitude=None,
+        client_longitude=None,
+        has_image_attachment=photo,
+        user=user,  # type: ignore[arg-type]  # a stand-in carrying the fields read here
+        chat=SimpleNamespace(id=uuid4()),  # type: ignore[arg-type]  # as above
+        turn_mode=mode,
+    )
+    identity = await _load_turn_identity(request, _ON)
+    assert identity.mode.lightweight is light

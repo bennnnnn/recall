@@ -69,9 +69,9 @@ from app.modules.chat.prompt_constants.visuals import (
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
 )
+from app.modules.chat.prompt_rules import PromptRule, render_rules
 from app.modules.chat.prompt_subjects import subject_closing_hints, subject_presentation_hints
 from app.modules.chat.turn_prep.reading import subject_of
-from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.capabilities import is_capabilities_question
 from app.modules.turn_reading.chart import chart_followup_data, is_chart_question
 from app.modules.turn_reading.checklist import is_checklist_request
@@ -98,30 +98,6 @@ from app.modules.turn_reading.walkthrough import is_walkthrough_request
 from app.modules.turn_reading.writing import draft_followup
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-
-
-@dataclass(frozen=True)
-class PromptRule[T]:
-    """An ordered prompt rule: when it applies to a turn, the text it adds, and the name
-    a turn's trace calls it (``turn_trace``), unique in its table."""
-
-    applies: Callable[[T], bool]
-    render: Callable[[T], Sequence[str]]
-    name: str
-
-
-def render_rules[T](rules: Sequence[PromptRule[T]], turn: T, *, table: str = "rules") -> list[str]:
-    """Every applying rule's text, in table order; the turn's trace names each one that
-    added text (``table.name``)."""
-    texts: list[str] = []
-    for rule in rules:
-        if not rule.applies(turn):
-            continue
-        added = rule.render(turn)
-        if added:
-            note_prompt_rule(f"{table}.{rule.name}")
-        texts.extend(added)
-    return texts
 
 
 def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str | None:
@@ -210,6 +186,8 @@ class StyleTurn:
     picks: bool = False  # the card's picks: its closing "compare …" asks no table
     # "Graph it" after the user's numbers: the message that holds them, quoted in the hint.
     chart_data: str | None = None
+    # Memory says they are partway through this subject: the reply asks where to pick up.
+    resuming: bool = False
 
 
 def _style_turn(
@@ -225,6 +203,7 @@ def _style_turn(
     lesson_after_gap: bool = False,
     prior_messages: Sequence[tuple[str, str]] | None,
     multi: bool = False,
+    resuming: bool = False,
 ) -> StyleTurn:
     query = query_text or ""
     # "make it more polite" or "asking money" goes on with the draft asked for a
@@ -256,6 +235,7 @@ def _style_turn(
         code_hint=code_hint,
         learning_plan=learning_plan,
         teaching=teaching,
+        resuming=resuming,
         walkthrough=walkthrough,
         lesson_hint=None
         if shaped
@@ -406,7 +386,7 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
         name="learning_plan_contract",
     ),
     PromptRule(
-        lambda t: t.teaching,
+        lambda t: t.teaching and not t.resuming,
         lambda t: _present(programming_lesson_contract(t.query)),
         name="programming_lesson_contract",
     ),
@@ -471,6 +451,7 @@ def _style_format_hints(
     lesson_after_gap: bool = False,
     prior_messages: Sequence[tuple[str, str]] | None = None,
     multi: bool = False,
+    resuming: bool = False,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
@@ -496,5 +477,6 @@ def _style_format_hints(
         image_generation_enabled=image_generation_enabled,
         image_search_enabled=image_search_enabled,
         multi=multi,
+        resuming=resuming,
     )
     return render_rules(HINT_RULES, turn, table="hints")

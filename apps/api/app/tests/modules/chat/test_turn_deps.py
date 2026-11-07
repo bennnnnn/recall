@@ -17,6 +17,7 @@ from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
+from app.modules.chat import conversation_reference
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_deps import (
     CONVERSATION_CHATS,
@@ -29,7 +30,7 @@ from app.modules.conversation import service as conversation_service
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.repositories import usage, users
-from app.services import conversation_reference, quota
+from app.services import quota
 from app.services.subjects.registry import subject_adapter
 from app.tests.fakes import redis_mock
 from app.tests.modules.chat.chat_test_support import turn_deps

@@ -4,8 +4,7 @@
   "area": "search",
   "prompt": "Perfect. totally unrelated but did the bears win today",
   "reply": "The Bears didn't play today; they beat the Patriots on Thursday.",
-  "expect": "search",
-  "gap": "a question after \"but\" reads as a statement; the model gets the turn, and \"can't you look it up?\" then searches"
+  "expect": "search"
  },
  {
   "id": "lva-002",

@@ -18,7 +18,6 @@ _SERVICES = APP_ROOT / "services"
 # Root file -> why it stays with one owner.
 _ONE_OWNER = {
     "calendar_facts": "time_context's calendar half, split from it for size",
-    "card_text": "answer_fence's reading of a model's own answer line, split from it for size",
     "given_names": "workout's where line, split from it for size",
     "remark_after_answer": "answer_fence's card value and the remark under it, split for size",
 }

@@ -11,8 +11,7 @@
   "area": "physics",
   "prompt": "A ball rolls off a table 1.2 m high. What is its speed? How long does it take to reach the floor?",
   "reply": "The time to fall depends only on the height: $t = \\sqrt{2h/g} = \\sqrt{2(1.2)/9.81} \\approx 0.49$ s. Its speed off the table isn't given, so I can't find its horizontal speed; it lands moving down at $gt \\approx 4.85$ m/s.",
-  "expect": "answer",
-  "gap": "Physics reads no subject in \"A ball rolls off a table 1.2 m high\" on its own, so it sets up no problem; the floor question, cut from it, reads as a trip and is searched."
+  "expect": "answer"
  },
  {
   "id": "qp-003",
@@ -122,6 +121,33 @@
   "area": "multi",
   "prompt": "We're in Paris. How far is 300 m in feet? What's good to eat here?",
   "reply": "### 300 m in feet\n\n$300 \\times 3.281 \\approx 984$ ft\n\n### Eating in Paris\n\nTry a croque-monsieur at a café, fresh croissants, and steak frites at a bistro.",
+  "expect": "answer"
+ },
+ {
+  "id": "qp-016",
+  "area": "multi",
+  "prompt": "A rectangle is 4 cm by 6 cm. What is its area? Who is the president of France?",
+  "reply": "### The rectangle\n\n$A = 4 \\times 6 = 24$ cm²\n\n### France\n\nThe president of France is **Emmanuel Macron**.",
+  "expect": [
+   "search",
+   "answer"
+  ]
+ },
+ {
+  "id": "qp-017",
+  "area": "multi",
+  "prompt": "2 moles of H2 react with O2. How many moles of water form? Who is the president of France?",
+  "reply": "### The water\n\n$2\\,H_2 + O_2 \\to 2\\,H_2O$, so 2 mol of H₂ gives **2 mol** of water.\n\n### France\n\nThe president of France is **Emmanuel Macron**.",
+  "expect": [
+   "search",
+   "answer"
+  ]
+ },
+ {
+  "id": "qp-018",
+  "area": "multi lookalike",
+  "prompt": "A right triangle has legs 3 and 4. How do I use Pythagoras here?",
+  "reply": "Square the legs and add them: $c^2 = 3^2 + 4^2 = 25$, so $c = 5$.",
   "expect": "answer"
  }
 ]

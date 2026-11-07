@@ -107,6 +107,11 @@ export function getCachedChatList(): ChatList | undefined {
   return resource.get(LIST);
 }
 
+/** Called on every change to the cached list (read with `getCachedChatList`). */
+export function subscribeChatList(listener: () => void): () => void {
+  return resource.subscribe(listener);
+}
+
 /**
  * The cached list with each dated chat under the heading it has now, in the phone's
  * zone (`regroupChatsByRecency`): a list restored from disk or held across midnight.

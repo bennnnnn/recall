@@ -31,6 +31,7 @@ from .conftest import World, delete_accounts
 # Every per-user daily counter, named independently of the code under test.
 DAILY_PREFIXES = (
     "usage",
+    "chatmsg",
     "imgup",
     "docup",
     "speech",
@@ -77,9 +78,11 @@ async def _sign_in_google(world: World, *, sub: str, email: str) -> UUID:
 
 
 async def _use_quota(redis: Any, user_id: UUID) -> None:
-    """What a busy day leaves: tokens, uploads, voice, searches, images, live talk."""
+    """What a busy day leaves: messages, tokens, uploads, voice, searches, images, live talk."""
     assert await quota.reserve_usage_up_to(redis, str(user_id), 1234, daily_limit=10**9) == 1234
     user, caps = User(id=user_id, plan="pro"), _pro_caps(10)
+    for _ in range(5):
+        assert await counters.reserve("chat_message", redis, user, caps)
     for _ in range(2):
         assert await counters.reserve("image_upload", redis, user, caps)
     for _ in range(3):
@@ -104,6 +107,7 @@ async def _use_quota(redis: Any, user_id: UUID) -> None:
 
 _USED = {
     "usage": 1234,
+    "chatmsg": 5,
     "imgup": 2,
     "docup": 3,
     "speech": 3,

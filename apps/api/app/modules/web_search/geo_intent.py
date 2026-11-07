@@ -24,7 +24,6 @@ from app.modules.web_search.patterns import (
     is_weather_request,
     non_geographic_nearest,
 )
-from app.modules.web_search.place_answer import LOCATION_ASK_OPENING
 from app.modules.web_search.weather import around_the_user, is_worked_problem
 
 _LOCATIONLESS_WEATHER = re.compile(
@@ -33,6 +32,9 @@ _LOCATIONLESS_WEATHER = re.compile(
     r"|(?:the\s+)?forecast(?:\s+(?:today|tomorrow|tonight))?)\s*[?.!]*\s*$",
     re.IGNORECASE,
 )
+
+# How a turn without the user's location asks for it.
+LOCATION_ASK_OPENING = "I don't have your location yet"
 
 
 # "weather in Paris" names its place; "weather for the weekend" and "weather
@@ -142,22 +144,6 @@ def is_ambiguous_local_places_query(text: str) -> bool:
     if not subject:
         return False
     return _AMBIGUOUS_NEARBY_SUBJECT.search(subject) is not None
-
-
-_LETTER_ANSWER = re.compile(
-    r"^(?:is\s+it\s+|option\s+|answer\s*(?:is\s+)?|i\s+(?:think|say|choose|pick)\s+)?"
-    r"([A-D])\.?[?!.]*$",
-    re.IGNORECASE,
-)
-_MAX_LETTER_ANSWER_LEN = 24
-
-
-def is_short_letter_answer(text: str) -> bool:
-    """Letter-only A–D replies should not trigger web search."""
-    cleaned = text.strip()
-    if not cleaned or len(cleaned) > _MAX_LETTER_ANSWER_LEN:
-        return False
-    return _LETTER_ANSWER.fullmatch(cleaned) is not None
 
 
 def format_location_not_set_answer() -> str:

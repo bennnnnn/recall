@@ -2,7 +2,13 @@ import type { Message, SearchSource } from "@/lib/api";
 import { parseSearchSources, searchSourcesFromField, stripSearchSourcesFromContent } from "@/lib/searchSources";
 
 /** The day's usage a `done` reports (code-health audit NET-14). */
-export type TurnUsage = { used_tokens: number; daily_limit: number };
+/** The day's usage after a turn; the messages (what a plan offers) when the server sends them. */
+export type TurnUsage = {
+  used_tokens: number;
+  daily_limit: number;
+  messages_used?: number;
+  daily_messages?: number;
+};
 
 export type ChatWsPayload = {
   type: string;
@@ -51,7 +57,8 @@ export function shouldIgnoreStoppedStreamEvent(
 /**
  * `done` carries `search_sources` as JSON text and `todos_sync: "1"` today; ES-45 sends an
  * array and `todos_changed: true`. Either reads the same past this point. The day's usage
- * comes as the strings `used_tokens` and `daily_limit`, read into `usage`.
+ * comes as the strings `used_tokens` and `daily_limit` (and `messages_used`, `daily_messages`),
+ * read into `usage`.
  */
 function wholeNumber(value: unknown): number | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
@@ -59,10 +66,20 @@ function wholeNumber(value: unknown): number | null {
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
 }
 
-function turnUsageFrom(usedTokens: unknown, dailyLimit: unknown): TurnUsage | null {
+function turnUsageFrom(
+  usedTokens: unknown,
+  dailyLimit: unknown,
+  messagesUsed: unknown,
+  dailyMessages: unknown,
+): TurnUsage | null {
   const used = wholeNumber(usedTokens);
   const limit = wholeNumber(dailyLimit);
-  return used !== null && limit !== null && limit > 0 ? { used_tokens: used, daily_limit: limit } : null;
+  if (used === null || limit === null || limit <= 0) return null;
+  const messages = wholeNumber(messagesUsed);
+  const allowance = wholeNumber(dailyMessages);
+  return messages !== null && allowance !== null && allowance > 0
+    ? { used_tokens: used, daily_limit: limit, messages_used: messages, daily_messages: allowance }
+    : { used_tokens: used, daily_limit: limit };
 }
 
 function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
@@ -72,13 +89,15 @@ function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
     todos_changed: todosChanged,
     used_tokens: usedTokens,
     daily_limit: dailyLimit,
+    messages_used: messagesUsed,
+    daily_messages: dailyMessages,
     ...rest
   } = wire;
   const payload = rest as ChatWsPayload;
   const searchSources = searchSourcesFromField(sources);
   if (searchSources.length > 0) payload.search_sources = searchSources;
   if (todosChanged === true || todosSync === "1") payload.todos_changed = true;
-  const usage = turnUsageFrom(usedTokens, dailyLimit);
+  const usage = turnUsageFrom(usedTokens, dailyLimit, messagesUsed, dailyMessages);
   if (usage) payload.usage = usage;
   return payload;
 }

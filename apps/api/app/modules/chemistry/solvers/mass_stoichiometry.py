@@ -10,7 +10,14 @@ from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.scene import StoichScene, StoichStep
 from app.modules.chemistry.solvers.constants import AVOGADRO, GAS_R
-from app.modules.chemistry.solvers.display import const, inp, molar_mass_working, num, verified
+from app.modules.chemistry.solvers.display import (
+    carried,
+    const,
+    inp,
+    molar_mass_working,
+    num,
+    verified,
+)
 from app.modules.chemistry.solvers.stoichiometry import balanced_text
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import (
@@ -93,15 +100,15 @@ def _from_moles(
         return moles, "mol", None
     if unit == "g":
         molar = molar_mass(formula)
-        return moles * molar, "g", f"{num(moles)} × {molar_mass_working(molar)}"
+        return moles * molar, "g", f"{carried(moles)} × {molar_mass_working(molar)}"
     if unit == "particles":
-        return moles * AVOGADRO, "particles", f"{num(moles)} × {const(AVOGADRO)}"
+        return moles * AVOGADRO, "particles", f"{carried(moles)} × {const(AVOGADRO)}"
     if unit == "L":
         pressure, temperature = _pressure_temperature(params, "gas volume")
         return (
             moles * GAS_R * temperature / pressure,
             "L",
-            f"({num(moles)})({const(GAS_R)})({inp(temperature)}) / {inp(pressure)}",
+            f"({carried(moles)})({const(GAS_R)})({inp(temperature)}) / {inp(pressure)}",
         )
     raise SolveServiceError(f"unsupported result unit {unit}")
 
@@ -133,11 +140,11 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
     value_num, unit, find_working = _from_moles(target, product_moles, find_unit, intent.params)
     value = f"{num(value_num)} {unit}"
     steps = [
-        f"n({known}) = {known_working} = {num(moles)} mol"
+        f"n({known}) = {known_working} = {carried(moles)} mol"
         if known_working
-        else f"n({known}) = {num(moles)} mol",
-        f"n({target}) = {num(moles)} × ({product_coeff} / {reactant_coeff}) "
-        f"= {num(product_moles)} mol",
+        else f"n({known}) = {carried(moles)} mol",
+        f"n({target}) = {carried(moles)} × ({product_coeff} / {reactant_coeff}) "
+        f"= {carried(product_moles)} mol",
     ]
     if find_working:
         steps.append(f"{_symbol(find_unit, target)} = {find_working} = {value}")
@@ -161,14 +168,14 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
             steps=[
                 StoichStep(
                     label=f"n({known})",
-                    value=f"{known_working} = {num(moles)} mol"
+                    value=f"{known_working} = {carried(moles)} mol"
                     if known_working
-                    else f"{num(moles)} mol",
+                    else f"{carried(moles)} mol",
                 ),
                 StoichStep(
                     label=f"n({target})",
-                    value=f"{num(moles)} × ({product_coeff} / {reactant_coeff}) "
-                    f"= {num(product_moles)} mol",
+                    value=f"{carried(moles)} × ({product_coeff} / {reactant_coeff}) "
+                    f"= {carried(product_moles)} mol",
                 ),
                 StoichStep(label=_symbol(find_unit, target), value=value),
             ],
@@ -211,18 +218,20 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
     steps = []
     for formula in moles:
         steps.append(
-            f"n({formula}) = {working[formula]} = {num(moles[formula])} mol"
+            f"n({formula}) = {working[formula]} = {carried(moles[formula])} mol"
             if working[formula]
-            else f"n({formula}) = {num(moles[formula])} mol"
+            else f"n({formula}) = {carried(moles[formula])} mol"
         )
         steps.append(
-            f"{formula}: {num(moles[formula])} / {balanced.reactants[formula]} = "
-            f"{num(reaction_units[formula])} reaction units"
+            f"{formula}: {carried(moles[formula])} / {balanced.reactants[formula]} = "
+            f"{carried(reaction_units[formula])} reaction units"
         )
     steps.append(f"limiting reagent = {' and '.join(limiting)} (fewest reaction units)")
-    steps.append(f"n({target}) = {num(fewest)} × {product_coeff} = {num(product_moles)} mol")
     steps.append(
-        f"m({target}) = {num(product_moles)} × {molar_mass_working(product_molar)} "
+        f"n({target}) = {carried(fewest)} × {product_coeff} = {carried(product_moles)} mol"
+    )
+    steps.append(
+        f"m({target}) = {carried(product_moles)} × {molar_mass_working(product_molar)} "
         f"= {num(product_mass)} g"
     )
     for formula, amount in moles.items():
@@ -233,11 +242,14 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
         if unit == "g":
             molar = molar_mass(formula)
             steps.append(
-                f"excess {formula} = ({num(amount)} − {num(used)}) × {molar_mass_working(molar)} "
+                f"excess {formula} = ({carried(amount)} − {carried(used)}) × "
+                f"{molar_mass_working(molar)} "
                 f"= {num(leftover * molar)} g"
             )
         else:
-            steps.append(f"excess {formula} = {num(amount)} − {num(used)} = {num(leftover)} mol")
+            steps.append(
+                f"excess {formula} = {carried(amount)} − {carried(used)} = {num(leftover)} mol"
+            )
     value = f"{num(product_mass)} g {target}"
     return verified(
         "Verified limiting reagent",
@@ -283,12 +295,12 @@ def solve_reaction_percent_yield(intent: ChemistryIntent) -> ChemistryResult:
         "Percent yield",
         *stated("reaction_percent_yield"),
         (
-            f"n({known}) = {known_working} = {num(moles)} mol",
-            f"n({target}) = {num(moles)} × ({product_coeff} / {reactant_coeff})"
-            f" = {num(product_moles)} mol",
-            f"theoretical m({target}) = {num(product_moles)} × {molar_mass_working(molar)}"
-            f" = {num(theoretical)} g",
-            f"% yield = ({inp(actual)} g / {num(theoretical)} g) × 100",
+            f"n({known}) = {known_working} = {carried(moles)} mol",
+            f"n({target}) = {carried(moles)} × ({product_coeff} / {reactant_coeff})"
+            f" = {carried(product_moles)} mol",
+            f"theoretical m({target}) = {carried(product_moles)} × {molar_mass_working(molar)}"
+            f" = {carried(theoretical)} g",
+            f"% yield = ({inp(actual)} g / {carried(theoretical)} g) × 100",
         ),
         f"Percent yield = {value}",
         value,

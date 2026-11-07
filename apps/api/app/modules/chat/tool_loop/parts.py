@@ -1,4 +1,4 @@
-"""Which of the turn's requests the tool loop takes, and which of those need a search.
+"""Which of the turn's requests are still open for a tool.
 
 The gates used to read the whole message as one request, so one part could cancel
 another: "remind me to buy milk and what's the weather in Nairobi?" never searched
@@ -10,8 +10,6 @@ every turn) is the whole message, exactly as before.
 """
 
 from __future__ import annotations
-
-from collections.abc import Sequence
 
 from app.core.config import Settings
 from app.modules.turn_reading.plan import HANDLED_KINDS
@@ -33,36 +31,3 @@ def open_parts(
         return [] if has_verified_math else [text]
     done = {*HANDLED_KINDS, "solve"} if has_verified_math else set(HANDLED_KINDS)
     return [part.text for part in plan.parts if part.kind not in done]
-
-
-def live_parts(parts: Sequence[str]) -> list[str]:
-    """The parts the sync search gate says need live results."""
-    from app.modules.web_search.detection import needs_web_search
-
-    return [part for part in parts if needs_web_search(part)]
-
-
-def searchable_parts(
-    parts: Sequence[str],
-    settings: Settings,
-    *,
-    prior_user_messages: list[str] | None,
-    prior_assistant: str | None,
-) -> list[str]:
-    """The parts the search gate says need live results, with search on.
-
-    One part keeps the chat's earlier turns, as before. Parts of one message are
-    asked without them: each is a request of its own, and a short "tell me a joke"
-    after a weather question is not that question's follow-up.
-    """
-    from app.modules.web_search.detection import should_web_search
-
-    if len(parts) == 1:
-        found = should_web_search(
-            parts[0],
-            settings,
-            prior_user_messages=prior_user_messages,
-            prior_assistant=prior_assistant,
-        )
-        return list(parts) if found else []
-    return [part for part in parts if should_web_search(part, settings)]

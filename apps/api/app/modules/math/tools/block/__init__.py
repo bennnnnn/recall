@@ -124,6 +124,15 @@ def _restates(intent: MathIntent, block: VerifiedMathBlock) -> bool:
     )
 
 
+def _method_left_out(intent: MathIntent, block: VerifiedMathBlock) -> bool:
+    """A limit, derivative, integral or sum a student works by method, with no method to
+    show: alone, its card is a bare value ("lim x->0 of (1-cos x)/x^2" was ½ and nothing
+    else, 2026-11-06), so the model writes the method around the verified card."""
+    worked = block.key_steps or block.worked_reply or block.direct_reply
+    calculus = intent.kind == "calculus" and intent.operation in {"differentiate", "integrate"}
+    return not worked and (calculus or intent.kind in {"limit", "series"})
+
+
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
     lines: list[str] = []
 
@@ -148,6 +157,8 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             text=wrap_verified_math(block.text),
             geometry_request=intent.geometry_request,
             plot_point=intent.plot_point,
+            read_from_words=not (intent.expr or intent.lhs or intent.system_equations),
+            allow_direct=block.allow_direct and not _method_left_out(intent, block),
             direct_request_text=intent._request_text if bound else None,
             direct_requires_calculus_guard=bool(
                 block.direct_reply is not None

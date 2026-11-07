@@ -244,8 +244,8 @@ async def test_a_question_in_parts_saves_a_card_per_part(monkeypatch: pytest.Mon
     worked.close()
     out = await _finalize(monkeypatch, worked.text, prompt="What is 100 m in cm and km?")
     assert _cards(out) == [
-        f"{UNCHECKED_ANSWER_MARKER}\n$d_{{cm}} = 10000\\,\\mathrm{{cm}}$",
-        f"{UNCHECKED_ANSWER_MARKER}\n$d_{{km}} = 0.1\\,\\mathrm{{km}}$",
+        f"{UNCHECKED_ANSWER_MARKER}\nd_{{cm}} = 10000\\,\\mathrm{{cm}}",
+        f"{UNCHECKED_ANSWER_MARKER}\nd_{{km}} = 0.1\\,\\mathrm{{km}}",
     ]
     assert re.search(r"\*\*Answer \(a\)\*\*\n\n```answer\n", out)
 

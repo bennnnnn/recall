@@ -195,7 +195,7 @@ beforeEach(() => {
 it("a new sign-in opens the chat with no consent screen, and the server records the agreement", async () => {
   const view = await render(<AuthProvider><App /></AuthProvider>);
   await settle();
-  expect(view.getByText("login.consent_line")).toBeOnTheScreen();
+  expect(view.getByText("login.agree_line")).toBeOnTheScreen();
 
   await act(async () => fireEvent.press(view.getByText("login.google")));
   await settle();
@@ -235,7 +235,7 @@ it("after a withdrawal, signing out from the consent screen and in again agrees 
   await settle();
   await act(async () => fireEvent.press(view.getByText("get started")));
   await settle();
-  expect(view.getByText("login.consent_line")).toBeOnTheScreen();
+  expect(view.getByText("login.agree_line")).toBeOnTheScreen();
 
   await act(async () => fireEvent.press(view.getByText("login.google")));
   await settle();
