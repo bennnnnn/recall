@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAnswerAnchorRef } from "@/components/rich/answerJump";
 import { ProseAnswer, ScrollingLine, spokenAnswer } from "@/components/rich/answerLines";
+import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerNotation } from "@/lib/answerNotation";
@@ -65,6 +66,7 @@ function AnswerFrame({
       ref={anchorRef}
       collapsable={false}
       style={s.section}
+      accessible
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
     >
@@ -76,7 +78,8 @@ function AnswerFrame({
         </Text>
       </View>
       <View testID="answer-box" style={s.box}>
-        {children}
+        {/* The frame reads the value; nothing in the box is a second stop. */}
+        <AccessibleElementChildren>{children}</AccessibleElementChildren>
       </View>
     </View>
   );

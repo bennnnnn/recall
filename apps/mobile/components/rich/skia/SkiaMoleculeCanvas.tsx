@@ -76,14 +76,14 @@ export function SkiaMoleculeCanvas({
         return (
           <Group key={`atom-${atom.index}`}>
             <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} color={ATOM_INK} />
-            <Circle cx={atom.x} cy={atom.y} r={atom.radius} color={atomColor(atom.element)} />
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius} color={atomColor(atom.element, theme.isDark)} />
             {showsAtomLabel(style) && font ? (
               <SkiaText
                 x={atom.x - font.measureText(atom.element).width / 2}
                 y={atom.y + 4}
                 text={atom.element}
                 font={font}
-                color={atomLabelColor(atom.element)}
+                color={atomLabelColor(atom.element, theme.isDark)}
               />
             ) : null}
           </Group>

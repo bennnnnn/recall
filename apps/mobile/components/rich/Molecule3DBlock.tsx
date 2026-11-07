@@ -100,12 +100,12 @@ function SvgMoleculeCanvas({
         return (
           <G key={`atom-${atom.index}`}>
             <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} fill={ATOM_INK} />
-            <Circle cx={atom.x} cy={atom.y} r={atom.radius} fill={atomColor(atom.element)} />
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius} fill={atomColor(atom.element, theme.isDark)} />
             {showsAtomLabel(style) ? (
               <SvgText
                 x={atom.x}
                 y={atom.y + 4}
-                fill={atomLabelColor(atom.element)}
+                fill={atomLabelColor(atom.element, theme.isDark)}
                 fontFamily={CODE_FONT}
                 fontSize={12}
                 textAnchor="middle"

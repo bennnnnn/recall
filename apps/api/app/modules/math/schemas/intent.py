@@ -175,6 +175,9 @@ class MathIntent(BaseModel):
     # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;
     # determinant/inverse/eigens/diagonalization require a square matrix.
     matrix_op: MatrixOp | None = None
+    # Every result a question lists for its one matrix ("determinant and inverse"), in
+    # order; ``matrix_op`` is the first. None asks for ``matrix_op`` alone.
+    matrix_ops: list[MatrixOp] | None = None
     matrix_rows: list[list[float]] | None = None
     matrix_rows_b: list[list[float]] | None = None
     # Triangle by three side lengths (SSS) — `base`/`side` above stay

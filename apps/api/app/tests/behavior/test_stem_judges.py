@@ -59,6 +59,36 @@ def test_math_judge_reads_the_card(check: tuple[str, Any], card: str, right: boo
     assert judge_check(check, card, "") is right
 
 
+_DET_INV = (
+    "parts",
+    [["num", "1"], ["matrix", [["3", "-1"], ["-5", "2"]]]],
+)
+_INVERSE = r"\left[\begin{matrix}3 & -1\\-5 & 2\end{matrix}\right]"
+
+
+@pytest.mark.parametrize(
+    ("check", "card", "body", "right"),
+    [
+        (_DET_INV, rf"\det(A) = 1,\quad A^{{-1}} = {_INVERSE}", "", True),
+        # The determinant alone: the inverse part has no card part to hold it.
+        (_DET_INV, r"1", "", False),
+        # Two parts asked of one card part: each needs its own.
+        (("parts", [["num", "1"], ["num", "1"]]), r"\det(A) = 1", "", False),
+        # A part's regex reads its card part, not the reply around the card.
+        (
+            ("parts", [["num", "0"], ["regex", "does not exist"]]),
+            r"\det(A) = 0",
+            "the inverse does not exist",
+            False,
+        ),
+    ],
+)
+def test_parts_each_need_a_card_part_of_their_own(
+    check: tuple[str, Any], card: str, body: str, right: bool
+) -> None:
+    assert judge_check(check, card, body) is right
+
+
 @pytest.mark.parametrize(
     ("card", "want", "abs_tol", "right"),
     [
