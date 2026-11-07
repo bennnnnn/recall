@@ -19,57 +19,24 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
-from sympy import (
-    Abs,
-    acos,
-    acosh,
-    acot,
-    acoth,
-    acsc,
-    acsch,
-    asec,
-    asech,
-    asin,
-    asinh,
-    atan,
-    atanh,
-    cos,
-    cosh,
-    cot,
-    coth,
-    csc,
-    csch,
-    exp,
-    log,
-    sec,
-    sech,
-    sin,
-    sinh,
-    tan,
-    tanh,
-)
+import sympy
 from sympy.core.function import Application
 
+from app.modules.math.function_names import names_longest_first
+from app.modules.math.function_table import SOLVED_SYMPY, UNSOLVED_WRITTEN
 from app.services.solving import SolveServiceError
 
-# The functions whose equations the solvers work: trig and hyperbolic with their inverses,
-# exp, log and absolute value. A root is a power, not a function.
-SOLVED = frozenset(
-    {
-        sin, cos, tan, cot, sec, csc, asin, acos, atan, acot, asec, acsc,
-        sinh, cosh, tanh, coth, sech, csch, asinh, acosh, atanh, acoth, asech, acsch,
-        exp, log, Abs,
-    }
-)  # fmt: skip
-# Written names whose SymPy reading hides them, or that no solver models.
+# The functions whose equations the solvers work (``function_table.py``): trig and hyperbolic
+# with their inverses, exp, log and absolute value. A root is a power, not a function.
+SOLVED = frozenset(getattr(sympy, name) for name in SOLVED_SYMPY)
+# Written names whose SymPy reading hides them, or that no solver models. A subscript is part
+# of a quantity's name: ``x_min`` and ``v_max`` are no functions.
 _UNSOLVED_NAMES = re.compile(
-    r"(?<![\\A-Za-z])(?:floor|ceil(?:ing)?|round|trunc|sign|sgn|signum|frac|mod|modulo|"
-    r"max|min|gcd|hcf|gcf|lcm|heaviside|piecewise|factorial|binomial|ncr|npr|"
-    r"re|im|arg|conjugate)(?![A-Za-z])",
+    r"(?<!\\)(?<![^\W\d])(?:"
+    + "|".join(re.escape(name) for name in names_longest_first(UNSOLVED_WRITTEN))
+    + r")(?![^\W\d])",
     re.IGNORECASE,
 )
-
-
 _STANDALONE = r"(?<![A-Za-z]){}(?![A-Za-z])"
 
 

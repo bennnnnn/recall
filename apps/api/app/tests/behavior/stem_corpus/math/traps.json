@@ -117,5 +117,17 @@
   {"id": "uf14", "area": "trap", "prompt": "solve factorial(x) = 24", "expect": "decline", "note": "was x = 24: factorial dropped"},
   {"id": "uf15", "area": "trap", "prompt": "evaluate floor(3.7)", "expect": "answer", "check": ["num", "3"], "note": "a step function of a number is a number"},
   {"id": "uf16", "area": "trap", "prompt": "evaluate ceiling(2.1)", "expect": "answer", "check": ["num", "3"], "note": "a step function of a number is a number"},
-  {"id": "uf17", "area": "trap", "prompt": "solve abs(x - 3) = 5", "expect": "answer", "check": ["nums", ["-2", "8"]], "note": "absolute value is modelled"}
+  {"id": "uf17", "area": "trap", "prompt": "solve abs(x - 3) = 5", "expect": "answer", "check": ["nums", ["-2", "8"]], "note": "absolute value is modelled"},
+  {"id": "uf18", "area": "trap", "prompt": "solve ln|x| = 2", "expect": "decline", "note": "was x = 2, the answer is x = ±e^2: ln before the bars was dropped"},
+  {"id": "uf19", "area": "trap", "prompt": "solve x|x| = 4", "expect": "decline", "note": "was x = 4, the answer is x = 2: the factor before the bars was dropped"},
+  {"id": "uf20", "area": "trap", "prompt": "solve sqrt|x| = 3", "expect": "decline", "note": "was x = 3, the answer is x = ±9"},
+  {"id": "uf21", "area": "trap", "prompt": "solve x % 3 = 1", "expect": "decline", "note": "was no solution: % is a remainder here"},
+  {"id": "uf22", "area": "trap", "prompt": "solve 3^x % 5 = 1", "expect": "decline", "note": "was no solution: % is a remainder here"},
+  {"id": "uf23", "area": "trap", "prompt": "solve Γ(x) = 6", "expect": "decline", "note": "was x = 6, the answer is x = 4: the Greek name was dropped"},
+  {"id": "uf24", "area": "trap", "prompt": "solve φ(n) = 4", "expect": "decline", "note": "was n = 4: Euler's totient was dropped"},
+  {"id": "uf25", "area": "trap", "prompt": "solve 2x ≡ 3 mod 5", "expect": "decline", "note": "was 3, the answer is x ≡ 4 (mod 5): the congruence lost its unknown"},
+  {"id": "uf26", "area": "trap", "prompt": "solve erf(x) = 0.5", "expect": "decline", "note": "was x = 0.5"},
+  {"id": "uf27", "area": "trap", "prompt": "solve cbrt(x) = 2", "expect": "answer", "check": ["num", "8"], "note": "was x = 2: cbrt was peeled off as a word"},
+  {"id": "uf28", "area": "trap", "prompt": "solve cbrt(x - 1) = 3", "expect": "answer", "check": ["num", "28"], "note": "was x = 4: cbrt was peeled off as a word"},
+  {"id": "uf29", "area": "trap", "prompt": "what is 15% of 80", "expect": "answer", "check": ["num", "12"], "note": "a percentage is not a remainder"}
 ]

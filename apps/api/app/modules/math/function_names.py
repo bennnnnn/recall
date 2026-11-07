@@ -16,7 +16,9 @@ _DIRECT = TRIG + HYPERBOLIC
 # SymPy's names (``acot``) and the textbook's (``arccot``).
 INVERSE = tuple(f"a{name}" for name in _DIRECT) + tuple(f"arc{name}" for name in _DIRECT)
 
-MATH_FUNCTION_NAMES = frozenset((*_DIRECT, *INVERSE, "log", "ln", "lg", "exp", "sqrt", "abs"))
+MATH_FUNCTION_NAMES = frozenset(
+    (*_DIRECT, *INVERSE, "log", "ln", "lg", "exp", "sqrt", "cbrt", "abs")
+)
 # Greek letters spelled out, which the parser reads as one name each (``theta``, not t·h·e·t·a).
 GREEK_NAMES = (
     "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",

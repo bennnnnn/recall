@@ -11,12 +11,22 @@ its unknown declines the solve (``solve/solved_functions.py``).
 from __future__ import annotations
 
 import pytest
+import sympy
 
 from app.modules.math.function_calls import unread_functions, written_functions
+from app.modules.math.function_names import MATH_FUNCTION_NAMES
+from app.modules.math.function_table import (
+    FUNCTIONS,
+    REQUEST_WORDS,
+    SOLVED_SYMPY,
+    UNSOLVED_WRITTEN,
+    WRITTEN,
+)
 from app.modules.math.request_consumption import audit_math_request
 from app.modules.math.schemas import EquationInput, MathIntent, SystemOfEquationsInput
 from app.modules.math.solve.equations import solve_equation
 from app.modules.math.solve.inequalities import solve_compound_inequality, solve_inequality
+from app.modules.math.solve.solved_functions import unsolved_function
 from app.modules.math.solve.systems import solve_system
 from app.modules.math.tools.extract import extract_math_intent
 from app.services.solving import SolveServiceError
@@ -41,6 +51,20 @@ from app.services.solving import SolveServiceError
         ("solve arcsin(x) = 0.5", {"asin": 1}),
         ("evaluate ln(5) + log(2)", {"log": 2}),
         ("solve 2xsin(x) = 0", {"sin": 1}),
+        # A name before a bar, the bars themselves, a remainder sign and a Greek function.
+        ("solve ln|x| = 2", {"log": 1, "abs": 1}),
+        ("solve sqrt|x| = 3", {"sqrt": 1, "abs": 1}),
+        ("solve x|x| = 4", {"abs": 1}),
+        ("solve \\left|2x - 1\\right| = 5", {"abs": 1}),
+        ("solve |x + 1| + |x - 1| = 4", {"abs": 2}),
+        ("solve x % 3 = 1", {"mod": 1}),
+        ("solve 3^x%5 = 1", {"mod": 1}),
+        ("what is 17 % 5", {"mod": 1}),
+        ("solve Γ(x) = 6", {"gamma": 1}),
+        ("solve ζ(x) = 2", {"zeta": 1}),
+        ("solve φ(n) = 4", {"φ": 1}),
+        ("solve 2x ≡ 3 mod 5", {"mod": 1, "congruence": 1}),
+        ("solve cbrt(x) = 2", {"cbrt": 1}),
         # Notation, products, request verbs, LaTeX brackets and prose are not functions.
         ("f(x) = 2x + 3", {}),
         ("solve ab(x+1) = 4", {}),
@@ -51,6 +75,10 @@ from app.services.solving import SolveServiceError
         ("round 3.456 to two decimal places", {}),
         ("the floor area of a room is 12 by 15", {}),
         ("find the max of y = -x^2 + 4x", {}),
+        ("what is 15% of 80", {}),
+        ("solve 20% of x = 15", {}),
+        ("the area is π(r + 1)", {}),
+        ("is 17 ≡ 2 mod 5", {"mod": 1}),
     ],
 )
 def test_written_functions_names_each_applied_function(text: str, expected: dict[str, int]) -> None:
@@ -64,6 +92,15 @@ def test_written_functions_names_each_applied_function(text: str, expected: dict
         ("solve sign(sin(x)) = 1", ["(sin(x))", "1"], ("sign",)),
         ("solve sin(x) + sin(2x) = 1", ["sin(x)", "1"], ("sin",)),
         ("solve arcsin(x) = 0.5", ["asin (x)", "0.5"], ()),
+        ("solve arcsin(x) = 0.5", ["arcsin(x)", "0.5"], ()),
+        # A whole word: sin is not inside arcsin.
+        ("solve sin(x) = 0.5", ["arcsin(x)", "0.5"], ("sin",)),
+        ("solve ln|x| = 2", ["(x)", "2"], ("abs", "log")),
+        ("solve ln|x| = 2", ["ln(Abs(x))", "2"], ()),
+        ("solve x % 3 = 1", ["3", "1"], ("mod",)),
+        ("solve Γ(x) = 6", ["gamma(x)", "6"], ()),
+        ("solve φ(n) = 4", ["phi*(n)", "4"], ("φ",)),
+        ("evaluate exp(2)", ["e^2"], ()),
         ("solve |x| = 3", ["Abs(x)", "3"], ()),
         ("solve abs(x - 3) = 5", ["Abs(x - 3)", "5"], ()),
         ("gcd(12, 18)", ["gcd"], ()),
@@ -103,6 +140,24 @@ def test_unread_functions_finds_what_a_reading_lost(
         "solve x + y = 5, floor(x) = y",
         "solve factorial(x) = 24",
         "floor(x) = 3",
+        "solve ln|x| = 2",
+        "solve log|x| = 1",
+        "solve sqrt|x| = 3",
+        "solve sin|x| = 0.5",
+        "solve tan|x| = 1",
+        "solve x|x| = 4",
+        "solve x % 3 = 1",
+        "solve x%3 = 1",
+        "solve 3^x % 5 = 1",
+        "solve Γ(x) = 6",
+        "solve Γ(x+1) = 24",
+        "solve gamma(x) = 6",
+        "solve ζ(x) = 2",
+        "solve φ(n) = 4",
+        "solve erf(x) = 0.5",
+        "solve 2x ≡ 3 mod 5",
+        "solve x ≡ 2 (mod 3)",
+        "solve trunc(x) = 2",
         "simplify floor(x) + x",
         "evaluate sign(-3)",
     ],
@@ -142,6 +197,12 @@ def test_extract_declines_a_reading_that_dropped_a_function(text: str) -> None:
         "integrate ln(x) dx",
         "limit of sin(x)/x as x->0",
         "solve 2x + 3 = 7",
+        "what is 15% of 80",
+        "evaluate 2^10 mod 7",
+        "solve \\left|2x - 1\\right| = 5",
+        "solve |x + 1| + |x - 1| = 4",
+        "solve cbrt(x) = 2",
+        "solve cbrt(x - 1) = 3",
     ],
 )
 def test_extract_keeps_modelled_functions(text: str) -> None:
@@ -202,6 +263,10 @@ def test_a_maths_word_is_never_split_into_letters() -> None:
         ("2x + 3", "7", ["x = 2"]),
         # A function of numbers alone is a number: the unknown is outside it.
         ("x + floor(2.5)", "5", ["x = 3"]),
+        # A cube root is a power the solvers work, a negative value included.
+        ("cbrt(x)", "2", ["x = 8"]),
+        ("cbrt(x - 1)", "3", ["x = 28"]),
+        ("cbrt(x)", "-2", ["x = -8"]),
     ],
 )
 def test_solve_equation_keeps_modelled_functions(lhs: str, rhs: str, solutions: list[str]) -> None:
@@ -242,3 +307,36 @@ def test_system_declines_an_unmodelled_function() -> None:
                 equations=[("x + y", "5"), ("floor(x)", "y")], variables=["x", "y"]
             )
         )
+
+
+@pytest.mark.parametrize(
+    ("side", "unknown", "unsolved"),
+    [
+        ("floor(x) + 1", "x", True),
+        ("2floor(x)", "x", True),
+        ("gcd(x, 6)", "x", True),
+        ("binomial(x, 2)", "x", True),
+        ("erf(x)", "x", True),
+        # A subscript is part of a quantity's name, and a function of numbers is a number.
+        ("x_min + 2", "x_min", False),
+        ("3t + v_max", "t", False),
+        ("x_re - 1", "x_re", False),
+        ("x + floor(2.5)", "x", False),
+    ],
+)
+def test_unsolved_function_reads_names_not_subscripts(
+    side: str, unknown: str, unsolved: bool
+) -> None:
+    assert unsolved_function((side,), (), [unknown]) is unsolved
+
+
+def test_function_table_is_one_source() -> None:
+    """The reader, the parser's gates and the solver read one table of names."""
+    assert MATH_FUNCTION_NAMES <= set(WRITTEN)
+    assert not REQUEST_WORDS & set(WRITTEN)
+    assert all(callable(getattr(sympy, name)) for name in SOLVED_SYMPY)
+    assert {"choose", "comb", "binom", "perm", "gamma", "erf"} <= {
+        name.lower() for name in UNSOLVED_WRITTEN
+    }
+    names = [function.name for function in FUNCTIONS]
+    assert len(names) == len(set(names))
