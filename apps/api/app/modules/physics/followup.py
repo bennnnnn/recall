@@ -29,14 +29,15 @@ from app.services.problem_followup import (
     changes_relatively,
     continues,
     followup_line,
+    given_name,
     in_unit,
     new_value,
     remove_given,
     replace_given,
     same_quantities,
-    scaled_given,
     with_sentences,
 )
+from app.services.scaled_followup import scaled_given
 
 PHYSICS_FOLLOWUP_HINT = (
     "This short request continues the immediately preceding physics problem. "
@@ -79,11 +80,17 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return None
     if EXPLAIN_RE.fullmatch(line):
         return prior
+    # Before the other shapes: "what if it was 3 times higher" is no new value.
+    scaled = scaled_given(line)
+    if scaled is not None:
+        return None if _held_fixed(prior) else _GIVENS.scaled(prior, scaled)
     about = _ABOUT.fullmatch(line)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(line)
     if changed is not None:
+        if _held_fixed(prior):
+            return None
         rewritten = _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
@@ -94,14 +101,56 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     unit = asked_unit(written)
     if unit is not None:
         return _in_unit(prior, unit)
-    scaled = scaled_given(line)
-    if scaled is not None:
-        return _GIVENS.scaled(prior, *scaled)
     value = new_value(written)
     if value is not None:
+        if _held_fixed(prior):
+            return None
         rewritten = _GIVENS.changed(prior, None, *value)
         return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
-    return _restated(prior, written)
+    return None if _held_fixed(prior) else _restated(prior, written)
+
+
+# A result that is a property of the object or its medium, not of what is done to it:
+# a resistor's 6 Ω stays 6 Ω when the voltage doubles (the current doubles instead), a
+# string's wave speed stays when the frequency doubles, a spring's constant when the
+# force does. Re-solving with one given changed would change the property itself.
+_INTRINSIC = (
+    "resistance",
+    "resistivity",
+    "capacitance",
+    "spring constant",
+    "specific heat capacity",
+    "latent heat",
+    "density",
+    "refractive index",
+    "coefficient of friction",
+)
+# Laws whose asked speed is the medium's: v = fλ.
+_SET_BY_MEDIUM = frozenset({"wave_speed"})
+# A device's rating is a property too: "a 60 W bulb" on twice the voltage is no 60 W bulb.
+_RATING = re.compile(
+    # A number starts once, not at every digit of "1.1.1…": the scan stays linear.
+    r"(?<![\w.,])\d[\d.,]*\s*(?:k?w|watts?|kilowatts?)\s+(?:[a-z]+\s+)?(?:bulb|lamp|light|heater|kettle"
+    r"|motor|toaster|iron|fan|oven|microwave|dryer|hairdryer|charger|appliance|tv|radio)s?\b",
+    re.IGNORECASE,
+)
+# A source with an internal resistance holds its emf fixed while the circuit changes.
+_INTERNAL = re.compile(r"\binternal resistance\b|\bemf\b|\be\.m\.f\b", re.IGNORECASE)
+
+
+def _held_fixed(prior: str) -> bool:
+    """True when no changed given of the problem re-solves to a true number: it asks for
+    a property of the object or its medium, rates a device, or has a source whose emf
+    and internal resistance the change would hold wrongly."""
+    if _RATING.search(prior) or _INTERNAL.search(prior):
+        return True
+    asked = {ask.dimension for ask in asks(prior)}
+    if asked & {_dimension_of_phrase(name) for name in _INTRINSIC}:
+        return True
+    if not asked & {_dimension_of_phrase("speed")}:
+        return False
+    intent = extract_physics_intent(prior)
+    return intent is not None and intent.physics_op in _SET_BY_MEDIUM
 
 
 def _in_unit(prior: str, unit: str) -> str | None:
@@ -308,4 +357,37 @@ def _dimension_of_phrase(phrase: str) -> str | None:
     return None if reading is None else reading[0]
 
 
-_GIVENS = GivenRewriter(PHYSICS_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)
+def _asked_dimensions(prior: str) -> set[str]:
+    return {ask.dimension for ask in asks(prior)}
+
+
+# The words a problem uses for each kind of length: a length shares its dimension with
+# every other, so a named one needs its own words in the problem.
+_LENGTH_WORDS = {
+    "height": r"high|height|tall|drop|drops|dropped|falls?|fell|cliff|building|tower|hill"
+    r"|slope|above",
+    "distance": r"far|distance|travel(?:s|s?led|ed)?|over|covers?|covered|lands?|landed"
+    r"|across|away|apart",
+    "radius": r"radius|string|rope|cord|circle|orbit",
+    "length": r"length|long|string|rope|cord|pendulum|wire|rod",
+}
+
+
+def _fits(prior: str, name: str) -> bool:
+    """A named length needs its own words in the problem: "the wavelength" of a dropped
+    ball, or "the height" of a swung string, is no length the problem gave."""
+    words = given_name(name).split()
+    if not words or _dimension_of_phrase(" ".join(words)) != _dimension_of_phrase("length"):
+        return True
+    cue = _LENGTH_WORDS.get(words[-1], re.escape(words[-1]) + "s?")
+    return re.search(rf"\b(?:{cue})\b", prior, re.IGNORECASE) is not None
+
+
+_GIVENS = GivenRewriter(
+    PHYSICS_UNITS,
+    _dimension_of_unit,
+    _dimension_of_phrase,
+    _verifies,
+    asked=_asked_dimensions,
+    fits=_fits,
+)
