@@ -733,6 +733,8 @@
   "rich.simulation_title": "Симуляция",
   "rich.scene_title_projectile": "Бросок тела",
   "rich.scene_title_free_fall": "Свободное падение",
+  "rich.scene_title_thrown_up": "Бросок вертикально вверх",
+  "rich.scene_title_thrown_down": "Бросок вертикально вниз",
   "rich.scene_title_orbit": "Орбита",
   "rich.scene_title_satellite": "Орбита спутника",
   "rich.scene_title_circular_motion": "Движение по окружности",

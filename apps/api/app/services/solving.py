@@ -124,6 +124,9 @@ class VerifiedMathBlock(VerifiedSolveBlock):
     # reads the question again. Server-side only: no reply or record holds it.
     geometry_request: GeometryRequest | None = None
     plot_point: tuple[float, float] | None = None
+    # The result answers a question in words, not an equation or expression the user
+    # typed: a reply working it to another value leaves it unchecked (``math.fence_conflict``).
+    read_from_words: bool = False
 
 
 @dataclass(frozen=True)

@@ -8,7 +8,7 @@ import math
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import KW, PKW, weak_dissociation
-from app.modules.chemistry.solvers.display import inp, num, p_value, verified
+from app.modules.chemistry.solvers.display import carried, inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
@@ -33,7 +33,7 @@ def _quadratic_lines(constant: float, concentration: float, amount: float) -> li
     k, c = inp(constant), inp(concentration)
     return [
         f"x^2 + ({k})x − ({k})({c}) = 0",
-        f"x = [−({k}) + √(({k})^2 + 4({k})({c}))] / 2 = {num(amount)}",
+        f"x = [−({k}) + √(({k})^2 + 4({k})({c}))] / 2 = {carried(amount)}",
     ]
 
 
@@ -44,11 +44,11 @@ def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
     ph_text = p_value(ph)
     lines = [
         *_quadratic_lines(constant, concentration, amount),
-        f"[H+] = x = {num(amount)} mol/L",
+        f"[H+] = x = {carried(amount)} mol/L",
     ]
     if note:
         lines.append(note)
-    lines.append(f"pH = −log10({num(amount)}) = {ph_text}")
+    lines.append(f"pH = −log10({carried(amount)}) = {ph_text}")
     return verified(
         "Verified weak-acid pH",
         (f"C = {inp(concentration)} mol/L", f"Ka = {inp(constant)}"),
@@ -70,8 +70,8 @@ def solve_conjugate_salt(intent: ChemistryIntent) -> ChemistryResult:
     lines = [
         f"Kb = {num(KW)} / {inp(ka)} = {num(kb)}",
         *_quadratic_lines(kb, concentration, amount),
-        f"[OH-] = x = {num(amount)} mol/L",
-        f"pOH = −log10({num(amount)}) = {p_value(-math.log10(amount))}",
+        f"[OH-] = x = {carried(amount)} mol/L",
+        f"pOH = −log10({carried(amount)}) = {p_value(-math.log10(amount))}",
         f"pH = {PKW} − {p_value(-math.log10(amount))} = {ph_text}",
     ]
     if note:
@@ -102,8 +102,8 @@ def solve_weak_acid_ka(intent: ChemistryIntent) -> ChemistryResult:
         "Ka",
         *stated("weak_acid_ka"),
         (
-            f"[H+] = 10^(-{inp(ph)}) = {num(hydrogen)} mol/L",
-            f"Ka = ({num(hydrogen)})^2 / ({inp(concentration)} − {num(hydrogen)})",
+            f"[H+] = 10^(-{inp(ph)}) = {carried(hydrogen)} mol/L",
+            f"Ka = ({carried(hydrogen)})^2 / ({inp(concentration)} − {carried(hydrogen)})",
         ),
         f"Ka = {value}",
         value,
@@ -117,11 +117,11 @@ def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
     ph_text = p_value(ph)
     lines = [
         *_quadratic_lines(constant, concentration, amount),
-        f"[OH-] = x = {num(amount)} mol/L",
+        f"[OH-] = x = {carried(amount)} mol/L",
     ]
     if note:
         lines.append(note)
-    lines.append(f"pOH = −log10({num(amount)}) = {p_value(-math.log10(amount))}")
+    lines.append(f"pOH = −log10({carried(amount)}) = {p_value(-math.log10(amount))}")
     lines.append(f"pH = {PKW} − {p_value(-math.log10(amount))} = {ph_text}")
     return verified(
         "Verified weak-base pH",
@@ -149,15 +149,15 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
         ha += added
         base -= added
         steps = (
-            f"HA = {inp(ha0)} + {inp(added)} = {num(ha)} mol",
-            f"A- = {inp(base0)} − {inp(added)} = {num(base)} mol",
+            f"HA = {inp(ha0)} + {inp(added)} = {carried(ha)} mol",
+            f"A- = {inp(base0)} − {inp(added)} = {carried(base)} mol",
         )
     elif kind == "base":
         base += added
         ha -= added
         steps = (
-            f"A- = {inp(base0)} + {inp(added)} = {num(base)} mol",
-            f"HA = {inp(ha0)} − {inp(added)} = {num(ha)} mol",
+            f"A- = {inp(base0)} + {inp(added)} = {carried(base)} mol",
+            f"HA = {inp(ha0)} − {inp(added)} = {carried(ha)} mol",
         )
     else:
         raise SolveServiceError("added reagent must be acid or base")
@@ -174,7 +174,7 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
         ),
         "pH",
         *stated("buffer_addition"),
-        (*steps, f"pH = {inp(pka)} + log10({num(base)} / {num(ha)})"),
+        (*steps, f"pH = {inp(pka)} + log10({carried(base)} / {carried(ha)})"),
         f"pH = {ph}",
         ph,
     )
@@ -271,8 +271,8 @@ def solve_polyprotic(intent: ChemistryIntent) -> ChemistryResult:
         *stated("polyprotic_ph"),
         (
             *_quadratic_lines(ka1, concentration, amount),
-            f"[H+] = x = {num(amount)} mol/L, from the first dissociation only",
-            f"pH = −log10({num(amount)}) = {ph}",
+            f"[H+] = x = {carried(amount)} mol/L, from the first dissociation only",
+            f"pH = −log10({carried(amount)}) = {ph}",
             "Later dissociations are omitted because Ka1 dominates.",
         ),
         f"pH = {ph}",

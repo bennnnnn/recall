@@ -719,6 +719,8 @@
   "rich.simulation_title": "Simülasyon",
   "rich.scene_title_projectile": "Atış hareketi",
   "rich.scene_title_free_fall": "Serbest düşme",
+  "rich.scene_title_thrown_up": "Yukarı düşey atış",
+  "rich.scene_title_thrown_down": "Aşağı düşey atış",
   "rich.scene_title_orbit": "Yörünge",
   "rich.scene_title_satellite": "Uydu yörüngesi",
   "rich.scene_title_circular_motion": "Dairesel hareket",

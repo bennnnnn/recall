@@ -8,6 +8,7 @@ from app.modules.chemistry.formula import hill_formula, parse_formula
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.display import (
     atomic_mass,
+    carried,
     inp,
     molar_mass_working,
     num,
@@ -64,7 +65,7 @@ def _empirical_counts(
         raise SolveServiceError("percentages do not form a simple integer ratio")
     working = [
         f"{element}: {inp(percents[element])} g / {atomic_mass(masses[element])} g/mol = "
-        f"{num(moles[element])} mol; / {num(smallest)} = {num(ratios[element])}"
+        f"{carried(moles[element])} mol; / {carried(smallest)} = {num(ratios[element])}"
         f" -> {counts[element]}"
         for element in percents
     ]
@@ -106,9 +107,11 @@ def solve_combustion(intent: ChemistryIntent) -> ChemistryResult:
         f"n(H) = 2 * {inp(water)} / {molar_mass_working(water_mass)} = {num(moles_h)} mol",
     ]
     if "O" in moles:
-        working.append(f"m(O) = {inp(sample)} - {num(mass_c)} - {num(mass_h)} = {num(mass_o)} g")
         working.append(
-            f"n(O) = {num(mass_o)} / {molar_mass_working(oxygen)} = {num(moles['O'])} mol"
+            f"m(O) = {inp(sample)} - {num(mass_c)} - {num(mass_h)} = {carried(mass_o)} g"
+        )
+        working.append(
+            f"n(O) = {carried(mass_o)} / {molar_mass_working(oxygen)} = {carried(moles['O'])} mol"
         )
     else:
         working.append("the sample mass is the carbon and hydrogen, so there is no oxygen")
@@ -156,8 +159,8 @@ def solve_hydrate(intent: ChemistryIntent) -> ChemistryResult:
         "Waters of hydration",
         *stated("hydrate_water"),
         (
-            f"m(H2O) = {inp(hydrate)} - {inp(anhydrous)} = {num(water_mass)} g",
-            f"n = ({num(water_mass)} / {molar_mass_working(water)})"
+            f"m(H2O) = {inp(hydrate)} - {inp(anhydrous)} = {carried(water_mass)} g",
+            f"n = ({carried(water_mass)} / {molar_mass_working(water)})"
             f" / ({inp(anhydrous)} / {molar_mass_working(salt)}) = {nearest}",
         ),
         shown,

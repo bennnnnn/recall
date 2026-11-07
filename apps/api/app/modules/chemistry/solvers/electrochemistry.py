@@ -12,6 +12,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.scene import CellScene
 from app.modules.chemistry.solvers.constants import FARADAY, GAS_R_J, STANDARD_REDUCTION
 from app.modules.chemistry.solvers.display import (
+    carried,
     const,
     given_row,
     inp,
@@ -270,9 +271,9 @@ def solve_galvanic_nernst(intent: ChemistryIntent) -> ChemistryResult:
             f"n = {electrons} electrons transferred",
             f"Q = {power(anode_ion, anode_power)} / {power(cathode_ion, cathode_power)}"
             f" = {raised(anode_c, anode_power)} / {raised(cathode_c, cathode_power)}"
-            f" = {num(quotient)}",
+            f" = {carried(quotient)}",
             f"E = {_volts(standard)} V − [({const(GAS_R_J)} J/(mol·K))({used(temperature)} K) / "
-            f"(({electrons})({const(FARADAY)} C/mol))]ln({num(quotient)})",
+            f"(({electrons})({const(FARADAY)} C/mol))]ln({carried(quotient)})",
         ),
         shown,
         shown,

@@ -719,6 +719,8 @@
   "rich.simulation_title": "ሲሙሌሽን",
   "rich.scene_title_projectile": "የተወረወረ አካል",
   "rich.scene_title_free_fall": "ነጻ ውድቀት",
+  "rich.scene_title_thrown_up": "ወደ ላይ መወርወር",
+  "rich.scene_title_thrown_down": "ወደ ታች መወርወር",
   "rich.scene_title_orbit": "ምህዋር",
   "rich.scene_title_satellite": "የሳተላይት ምህዋር",
   "rich.scene_title_circular_motion": "ክብ እንቅስቃሴ",

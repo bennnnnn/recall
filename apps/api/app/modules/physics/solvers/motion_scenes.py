@@ -22,6 +22,7 @@ from app.modules.physics.schemas import (
     SimulationSolid,
     SimulationVector,
 )
+from app.modules.physics.schemas.scene_titles import TitleKey
 from app.modules.physics.schemas.simulation import ArrowKind
 
 _SAMPLES = 60
@@ -127,6 +128,15 @@ def _projectile_x_max(span: float, peak: float, radius: float) -> float:
     return max(span * 1.08, peak * 0.25, radius * 4)
 
 
+# A scene is titled by what happens in it: a ball thrown up is no free fall from rest,
+# though gravity alone moves it (2026-11-06). Keyed by the launch's sign.
+_VERTICAL_TITLES: dict[int, tuple[str, TitleKey]] = {
+    1: ("Thrown Upward", "thrown_up"),
+    0: ("Free Fall", "free_fall"),
+    -1: ("Thrown Downward", "thrown_down"),
+}
+
+
 def vertical_scene(
     h0: float, v0: float, g: float, t_end: float, *, ground: bool, height_given: bool = True
 ) -> SimulationBlockSpec | None:
@@ -180,8 +190,11 @@ def vertical_scene(
                 role="measure",
             )
         )
+    title, title_key = _VERTICAL_TITLES[(v0 > 0) - (v0 < 0)]
     if v0 > 0:
         alt = f"A ball thrown straight up at {_given(v0)} m/s rises {plain_number(top - h0)} m."
+    elif v0 < 0:
+        alt = f"A ball thrown straight down at {_given(-v0)} m/s for {plain_number(t_end)} s."
     elif h0 > 0 and heights[-1] <= 1e-9 * h0:
         # Solved to land, it lands: 125 - 4.905 * 5.048² leaves 1e-14, not 0.
         alt = f"A ball dropped from {shown_h} m reaches the ground after {plain_number(t_end)} s."
@@ -189,8 +202,8 @@ def vertical_scene(
         alt = f"A ball falling from rest for {_given(t_end)} s, speeding up as it goes."
     return SimulationBlockSpec(
         type="projectile_motion",
-        title="Free Fall",
-        title_key="free_fall",
+        title=title,
+        title_key=title_key,
         bodies=[SimulationBody(path=path, radius=radius)],
         solids=solids,
         vectors=vectors,
