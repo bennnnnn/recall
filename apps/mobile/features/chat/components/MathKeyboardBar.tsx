@@ -194,7 +194,7 @@ const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     pad: {
       marginTop: Space.xs,
-      // Edge to edge, as the system keyboard is: the composer's own side gutter is Space.md.
+      // Edge to edge, as the system keyboard is: this cancels the composer's own side gutter.
       marginHorizontal: -Space.md,
       paddingHorizontal: Space.xs,
       paddingTop: Space.xs,
