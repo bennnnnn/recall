@@ -13,7 +13,6 @@ from app.core.readings import read_off_loop
 from app.models.orm import Chat, User
 from app.modules.attachments import service as attachments_service
 from app.modules.chat.prompt_context import _load_context_blocks
-from app.modules.chat.prompt_format import render_rules
 from app.modules.chat.prompt_inject import append_after_history, inject_before_last_user
 from app.modules.chat.prompt_memory import (
     is_work_turn,
@@ -22,6 +21,7 @@ from app.modules.chat.prompt_memory import (
     recalls_shared_past,
 )
 from app.modules.chat.prompt_repeats import last_policy_parts, policies_once
+from app.modules.chat.prompt_rules import render_rules
 from app.modules.chat.prompt_sections import (
     CONTEXT_SECTIONS,
     NEARBY_CONTRACTS,

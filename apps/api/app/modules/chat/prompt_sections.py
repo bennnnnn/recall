@@ -29,6 +29,7 @@ from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
 from app.modules.chat.json_output import JSON_OUTPUT_HINT, is_json_request
 from app.modules.chat.lesson_layout import lesson_contract
+from app.modules.chat.lesson_progress import resumes_course
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
@@ -62,7 +63,6 @@ from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
 from app.modules.chat.prompt_context_hints import integration_hints, lookup_hints, slim_geo_hints
 from app.modules.chat.prompt_format import (
-    PromptRule,
     _layout_format_hint,
     _style_format_hints,
     code_question_layout,
@@ -74,6 +74,7 @@ from app.modules.chat.prompt_profile import (
     format_user_profile_block,
     should_include_profile_email,
 )
+from app.modules.chat.prompt_rules import PromptRule
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
@@ -208,6 +209,7 @@ def _style_hints(turn: PromptTurn) -> list[str]:
         lesson_after_gap=after_gap,
         prior_messages=exchange_pairs(turn.exchange),
         multi=turn.multi,
+        resuming=resumes_course(query, turn.memory_block),
     )
 
 
@@ -455,7 +457,12 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         name="learning_plan_contract",
     ),
     PromptSection(
-        lambda t: bool(t.query) and not t.multi and teaching_of(t.query),
+        lambda t: (
+            bool(t.query)
+            and not t.multi
+            and teaching_of(t.query)
+            and not resumes_course(t.query, t.memory_block)
+        ),
         lambda t: _present(programming_lesson_contract(t.query)),
         name="programming_lesson_contract",
     ),

@@ -673,7 +673,7 @@ def _turn_prompt(
 
     from app.core.config import Settings
     from app.models.orm import User
-    from app.modules.chat.prompt_format import render_rules
+    from app.modules.chat.prompt_rules import render_rules
     from app.modules.chat.prompt_sections import (
         NEARBY_CONTRACTS,
         STABLE_SECTIONS,

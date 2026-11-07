@@ -439,10 +439,10 @@ def _user():
     return user
 
 
-async def _system_prompt(recent, query):
+async def _system_prompt(recent, query, memory=""):
     with (
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
-        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value=memory)),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
         patch.object(messages_repository, "list_recent", AsyncMock(return_value=recent)),
     ):
@@ -451,10 +451,28 @@ async def _system_prompt(recent, query):
             uuid4(),
             Settings(attachment_rag_enabled=False),
             query_text=query,
-            rich_context=False,
+            rich_context=bool(memory),
             current_user_message_id=recent[-1].id,
         )
     return system_prompt(messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("memory", "demanded"),
+    [
+        ("", True),
+        ("- Learning Python: reached Lesson 3, Dictionaries. Covered: Variables; Lists", False),
+        # A course in another subject leaves this one's first lesson as it is.
+        ("- Learning Spanish: reached Lesson 2, Greetings. Covered: Sounds", True),
+    ],
+)
+async def test_a_course_in_progress_is_not_asked_for_a_new_lessons_code(memory, demanded):
+    """Review of #2318: "teach me python" with Lesson 3 in memory asks where to pick up,
+    and the code-and-quiz check once demanded a whole new lesson on top of that."""
+    recent = [SimpleNamespace(id=uuid4(), role="user", content="teach me python")]
+    system = await _system_prompt(recent, "teach me python", memory=memory)
+    assert ("HARD PROGRAMMING-LESSON ACCEPTANCE CHECK" in system) is demanded
 
 
 @pytest.mark.asyncio

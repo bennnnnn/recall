@@ -27,7 +27,19 @@ LESSON_HISTORY_LIMIT = 300
 _COVERED_MAX = 8
 _TOPIC_MAX_CHARS = 60
 # The line ``lesson_progress`` writes, as the prompt's memory shows it.
-PROGRESS_LINE = re.compile(r"\bLearning [^\n:]{1,120}: reached Lesson \d")
+PROGRESS_LINE = re.compile(r"\bLearning (?P<subject>[^\n:]{1,120}): reached Lesson \d")
+
+
+def resumes_course(query: str, memory: str) -> bool:
+    """Memory says they are already learning what this asks for ("Learning Python lists:
+    reached Lesson 3" and "teach me python"): the reply asks where to pick up, so no new
+    lesson's code and quiz are demanded."""
+    asked = query.lower()
+    for line in PROGRESS_LINE.finditer(memory or ""):
+        words = line.group("subject").lower().split()
+        if words and re.search(rf"(?<!\w){re.escape(words[0])}(?!\w)", asked):
+            return True
+    return False
 
 
 @dataclass(frozen=True)
