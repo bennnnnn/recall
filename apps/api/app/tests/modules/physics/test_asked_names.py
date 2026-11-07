@@ -33,6 +33,8 @@ from app.services.law_binding.units import unit_dimension
         ("work", "W", "work"),
         ("power", "P", "power"),
         ("charge", "Q", "charge"),
+        # A law solved for one of its inputs: the work-energy theorem asked for the mass.
+        ("work_energy", "m", "mass"),
     ],
 )
 def test_asked_meaning_names_the_quantity_its_law_finds(

@@ -47,16 +47,17 @@ def asked_meaning(operation: str, symbol: str, answer_unit: str | None = None) -
     meaning = given_meaning(operation, kind, symbol)
     if meaning is None:
         return None
-    result = _result_dimension(spec, answer_unit)
+    result = _result_dimension(spec, symbol, answer_unit)
     if result is None or _dimension(symbol) in {None, result}:
         return meaning
     return _asked_noun(spec)
 
 
 def _own_variable(spec: FormulaSpec, symbol: str) -> str | None:
-    """The catalog name of the law's input written as ``symbol``, when it is not the symbol."""
+    """The catalog name of the law's input written as ``symbol``: a quantity it solves for,
+    or an input whose name is not its symbol."""
     for name, written in spec.solve_for:
-        if written == symbol and name != symbol:
+        if written == symbol:
             return name
     for variable in spec.variables:
         if variable.symbol == symbol and variable.name != symbol:
@@ -69,8 +70,10 @@ def _dimension(name: str) -> str | None:
     return None if unit is None else _unit_dimension(unit)
 
 
-def _result_dimension(spec: FormulaSpec, answer_unit: str | None) -> str | None:
-    if spec.binding is not None and spec.binding.result:
+def _result_dimension(spec: FormulaSpec, symbol: str, answer_unit: str | None) -> str | None:
+    """The asked quantity's dimension: the binding's result unit when it asks the law's own
+    result, else the verified answer's unit (a law solved for another of its quantities)."""
+    if symbol == spec.result_symbol and spec.binding is not None and spec.binding.result:
         return _unit_dimension(spec.binding.result[0])
     return None if not answer_unit else _unit_dimension(answer_unit)
 
