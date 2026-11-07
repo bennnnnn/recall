@@ -436,7 +436,7 @@ def complete_physics_intent(
             else "displacement" in request.text.lower()
         )
         # Brought to rest by its brakes, a body stays there; one thrown up comes back.
-        flags = {"distance_path": not displacement, "halts": read_motion(request.text).brakes}
+        flags = {"distance_path": not displacement, "halts": read_motion(request.text).halts}
         params = {**params, **{name: float(on) for name, on in flags.items()}}
         units = {**(intent.physics_units or {}), **dict.fromkeys(flags, "")}
         intent = intent.model_copy(update={"physics_params": params, "physics_units": units})

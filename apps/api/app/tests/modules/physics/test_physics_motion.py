@@ -105,3 +105,22 @@ def test_braking_brings_it_to_rest_and_a_throw_does_not(text: str, brakes: bool)
 def test_constant_speed_laws_hold_for_an_average(text: str, hold: bool) -> None:
     # Review of #2333: an average speed is distance over time however the speed changes.
     assert constant_speed_laws_hold(text) is hold
+
+
+@pytest.mark.parametrize(
+    ("text", "halts"),
+    [
+        ("A car moving at 15 m/s brakes to a stop in 3 s. How far does it travel?", True),
+        ("A train moving at 30 m/s slows down at 2 m/s². What is its speed after 20 s?", True),
+        # Review of #2333: gravity slows a body only to turn it back.
+        ("A ball is thrown up at 20 m/s and decelerates at 9.8 m/s² under gravity.", False),
+        (
+            "A stone is thrown vertically upward and decelerates. Find its velocity after 3 s.",
+            False,
+        ),
+        ("A block slides up a frictionless incline at 6 m/s and decelerates at 4.9 m/s².", False),
+        ("A rocket rises at 50 m/s and decelerates at 9.81 m/s once its engine cuts out.", False),
+    ],
+)
+def test_only_brakes_keep_a_body_stopped(text: str, halts: bool) -> None:
+    assert read_motion(text).halts is halts

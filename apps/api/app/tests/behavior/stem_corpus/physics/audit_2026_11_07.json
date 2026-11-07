@@ -419,5 +419,38 @@
   ],
   "note": "d = (average speed) × t = 12 × 30; 12 m/s is no final speed",
   "gap": "SUVAT reads a stated average speed as the final speed: s = (0 + 12)/2 × 30 = 180 m, verified (found 2026-11-07 probing #2333)"
+ },
+ {
+  "id": "au-throw-decelerates",
+  "area": "kinematics",
+  "prompt": "A ball is thrown up at 20 m/s and decelerates at 9.8 m/s² under gravity. Find its velocity after 3 s.",
+  "expect": "answer",
+  "answer": [
+   -9.4,
+   "m/s"
+  ],
+  "note": "gravity turns it back: v = 20 - 9.8 × 3 (review of #2333; braking would stop it at 0)"
+ },
+ {
+  "id": "au-incline-decelerates",
+  "area": "kinematics",
+  "prompt": "A block slides up a frictionless incline at 6 m/s and decelerates at 4.9 m/s². Find its velocity after 2 s.",
+  "expect": "answer",
+  "answer": [
+   -3.8,
+   "m/s"
+  ],
+  "note": "on a frictionless incline it slides back: v = 6 - 4.9 × 2"
+ },
+ {
+  "id": "au-brakes-stay-stopped",
+  "area": "kinematics",
+  "prompt": "A car travelling at 20 m/s decelerates at 4 m/s². What is its velocity after 6 s?",
+  "expect": "answer",
+  "answer": [
+   0,
+   "m/s"
+  ],
+  "note": "it stops at 5 s and stays: brakes never reverse a car"
  }
 ]

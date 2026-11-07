@@ -59,6 +59,16 @@ _BRAKES = re.compile(
     re.IGNORECASE,
 )
 
+# Gravity slows a body only to turn it back: a throw up "decelerates at 9.8 m/s²" and falls
+# again, so it never stays stopped (review of #2333). Named, or given as g's own size.
+_TURNS_BACK = re.compile(
+    r"\bgravit\w*|\bfree[\s-]?fall|\b(?:thrown|throws?|tossed|tosses|launched|projected|fired|"
+    r"kicked|hit)\s+(?:\w+\s+){0,2}(?:straight\s+)?(?:up|upward|upwards|vertically)\b|"
+    r"\bvertically\b|\b(?:incline|slope|ramp|hill)s?\b",
+    re.IGNORECASE,
+)
+_G_SIZED = re.compile(r"(?<![\d.])9\.8\d?\s*(?:m\s*/\s*s|m\s*s|ms)", re.IGNORECASE)
+
 # The marker the binder's excludes read for a speed that changes (``binding._with_markers``).
 SPEED_CHANGE_MARKER = "speedchange"
 
@@ -75,6 +85,8 @@ class Motion:
     ends_at_rest: bool
     changes_speed: bool
     brakes: bool
+    # Brought to rest and kept there: brakes or friction, never gravity.
+    halts: bool
 
 
 def _stops(text: str) -> bool:
@@ -102,5 +114,6 @@ def read_motion(text: str) -> Motion:
         starts_at_rest=starts,
         ends_at_rest=ends,
         changes_speed=starts or ends or _CHANGES_SPEED.search(text) is not None,
-        brakes=_BRAKES.search(text) is not None,
+        brakes=(brakes := _BRAKES.search(text) is not None),
+        halts=brakes and _TURNS_BACK.search(text) is None and _G_SIZED.search(text) is None,
     )
