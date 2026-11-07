@@ -109,6 +109,307 @@ def test_physics_followup_reverifies_the_previous_problem(
     assert _answer(rewritten) == answer
 
 
+_CLIFF = "A stone is dropped from a 80 m cliff. How long to hit the water?"
+_KE = "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+_OHM = "A 12 V battery drives a 4 ohm resistor. Find the current."
+_PUSH = "A 10 N force acts on a 2 kg box. Find its acceleration."
+
+
+@pytest.mark.parametrize(
+    ("prior", "line", "answer"),
+    [
+        # The quantity an adjective stands for: "twice as high" is the height.
+        (_CLIFF, "now what if the cliff was twice as high?", "5.71 s"),
+        # The quantity named with the factor.
+        (_KE, "with twice the mass", "18 J"),
+        (_KE, "if the speed was increased by a factor of 3", "81 J"),
+        (_OHM, "what if the voltage were doubled", "6 A"),
+        (_OHM, "what if I halve the resistance", "6 A"),
+        (_PUSH, "and with 3 times the force", "15 m/s²"),
+    ],
+)
+def test_a_scaling_said_any_common_way_reverifies_the_problem(
+    prior: str, line: str, answer: str
+) -> None:
+    rewritten = physics_followup_problem(line, _recent(prior))
+    assert rewritten is not None
+    assert _answer(rewritten) == answer
+
+
+_DROP_MASS = "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+_SPEEDING = "A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m. Find its final speed."
+_THROWN = "A ball is thrown horizontally at 10 m/s from a 20 m cliff. How long is it in the air?"
+_TABLE = "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+_TRAIN = "A train slows down to 10 m/s from 30 m/s over 200 m. Find its deceleration."
+_FROM_TO = "A car accelerates from 10 m/s to 30 m/s in 5 s. Find its acceleration."
+_DRIVER = "A 70 kg driver sits in a car braking at 5 m/s^2. Find the force on the driver."
+_ELEVATOR = (
+    "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. "
+    "Find the normal force on the person."
+)
+_RAMP = "A 5 kg box rests on a ramp inclined at 30 degrees. Find the normal force on the box."
+_SWUNG = (
+    "A 0.5 kg ball tied to a 2 m string is swung in a horizontal circle at 4 m/s. Find the tension."
+)
+_SKIER = (
+    "A 60 kg skier starts from rest at the top of a 20 m high slope. Find her speed at the bottom."
+)
+_BATTERY = "A 12 V battery is connected to a 4 ohm resistor. Find the current."
+_GAS_C = "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C."
+_GAS_K = "Find the pressure of 2 mol of an ideal gas in a 0.01 m^3 container at 300 K."
+_GOING = "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?"
+_LOAD = "A cart carrying a load of 50 kg accelerates at 2 m/s^2. Find the net force on the load."
+_TRAILER = "A 900 kg car pulls a trailer with a force of 2000 N. Find the acceleration of the car."
+_UPWARD = "A ball is thrown upward at 20 m/s. How high does it go?"
+_IN_ELEVATOR = (
+    "A 60 kg person in an elevator accelerating upward at 2 m/s^2. "
+    "Find the normal force on the person."
+)
+_IN_CAR = "A 70 kg driver in a car braking at 5 m/s^2. Find the force on the driver."
+_IS_IN_CAR = "A 70 kg driver is in a car braking at 5 m/s^2. Find the force on the driver."
+_SATELLITE = "A 500 kg satellite orbits the earth at a radius of 7000 km. Find its orbital speed."
+_MOON = "A 70 kg astronaut on the moon jumps at 3 m/s. Find his kinetic energy."
+_HITS_CART = "A 2 kg ball moving at 3 m/s hits a cart. Find the kinetic energy of the ball."
+_ON_CART = "A 5 kg box on a cart accelerating at 2 m/s^2. Find the net force on the box."
+_STRING_WAVE = (
+    "A wave on a string has a frequency of 170 Hz and a wavelength of 2 m. Find its speed."
+)
+_SOUND = "A sound wave has a frequency of 170 Hz and a wavelength of 2 m. Find its speed."
+_GUITAR = (
+    "A guitar string vibrates at 200 Hz and the wave on it has a wavelength of 1.5 m. "
+    "Find the wave speed."
+)
+_TWO_MASSES = "Two 5 kg masses are 2 m apart. Find the gravitational force between them."
+_TRUCK = "A 1000 kg car moving at 20 m/s collides with a truck. Find the momentum of the car."
+_CURVE = "A 1200 kg car rounds a curve of radius 50 m at 15 m/s. Find the centripetal force."
+_NEXT_TO = "A 2 kg ball is moving at 3 m/s next to a car. Find its kinetic energy."
+_TOWS = "A 1000 kg car tows a boat at 20 m/s. Find the car's kinetic energy."
+_TEN_METRES = (
+    "A 2 kg ball is dropped from ten metres onto a 1 m high table. "
+    "Find its speed when it hits the table."
+)
+_SAT_EARTH = "A satellite orbits Earth at a radius of 7000000 m. The mass of Earth is 6e24 kg. Find its orbital speed."
+_PLANET = "A moon orbits a planet of mass 2e27 kg at a radius of 4e8 m. Find its orbital period."
+_RESISTOR = "A 12 V battery drives a current of 2 A through a resistor. Find the resistance."
+_BULB = "A 60 W bulb runs on 120 V. Find the current."
+_HEATER = "A 1000 W heater runs on 230 V. Find its resistance."
+_SPRING = "A spring stretches 0.1 m under a 5 N force. Find the spring constant."
+_CAPACITOR = "A capacitor stores a charge of 0.00006 C at 12 V. Find its capacitance."
+_METAL = "4000 J of heat raises the temperature of 1 kg of a metal by 10 K. Find the specific heat capacity."
+_GLASS = "Light travels at 200000000 m/s in glass. Find the refractive index of the glass."
+_EMF = "A battery with an emf of 9 V drives 0.5 A through a circuit. Find the terminal voltage if the internal resistance is 2 ohm."
+_EACH_SPHERE = "Each of two spheres has mass 5 kg and they are 2 m apart. Find the gravitational force between them."
+_SPHERES_EACH = (
+    "Two spheres, each of mass 5 kg, are 2 m apart. Find the gravitational force between them."
+)
+_EQUAL_Q = "Two equal charges of 3e-6 C are 0.5 m apart. Find the force between them."
+_Q_EACH = "Two charges of 3e-6 C each are 0.5 m apart. Find the force between them."
+_IDENTICAL_Q = "Two identical charges of 3e-6 C are 0.5 m apart. Find the force between them."
+_TWO_R = "Two resistors of 4 ohm each are connected in series to a 12 V battery. Find the current."
+_LONG_RAMP = "A 2 kg box slides down a 10 m long frictionless ramp from a height of 3 m. Find its speed at the bottom."
+_WELL = "A 300 m deep well. A stone is dropped into the well. Find the time to hit the water."
+_FLOWERPOT = "A 20 m high building has a 5 kg flowerpot on its roof. Find the potential energy of the flowerpot."
+_GAS_FROM_TO = "A gas is heated at constant volume from 300 K to 600 K. Its initial pressure is 100 kPa. Find its final pressure."
+_SLOWS = "A car slows from 30 m/s to 10 m/s in 4 s. Find its acceleration."
+_TO_SPEED = (
+    "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. "
+    "How long does it take?"
+)
+
+
+@pytest.mark.parametrize(
+    ("prior", "line", "answer"),
+    [
+        # The noun the line names is the quantity; "higher" only says which way.
+        (_DROP_MASS, "what if the mass was 3 times higher", "14 m/s"),
+        (_DROP_MASS, "what if the mass was twice as high", "14 m/s"),
+        (_THROWN, "what if the speed was twice as high", "2.02 s"),
+        (_TABLE, "what if the speed was 3 times higher", "4.45 m"),
+        # Initial and final name the value that says so.
+        (_TRAIN, "what if the initial speed doubled", "-8.75 m/s²"),
+        (_TRAIN, "what if the final speed doubled", "-1.25 m/s²"),
+        (_FROM_TO, "what if the initial speed was 5 m/s", "5 m/s²"),
+        # An object that owns the given, beside its value.
+        (_DRIVER, "what if the driver was twice as heavy", "700 N"),
+        (_SKIER, "what if the slope was twice as high", "28 m/s"),
+        (_BATTERY, "what if the battery had twice the voltage", "6 A"),
+        # The owner just before "of": the load's 50 kg.
+        (_LOAD, "what if the load was twice as heavy", "200 N"),
+        (_TRAILER, "what if the car was twice as heavy", "1.11 m/s²"),
+        # The problem's own throw names the speed.
+        (_UPWARD, "what if it was thrown twice as fast", "81.5 m"),
+        (_WELL, "what if the well was twice as deep", "11.1 s"),
+        (_FLOWERPOT, "what if the building was twice as high", "1962 J"),
+        (_FLOWERPOT, "what if the flowerpot was twice as heavy", "1962 J"),
+        (_GAS_FROM_TO, "what if the final temperature doubled", "400 kPa"),
+        (_SLOWS, "what if the initial speed doubled", "-12.5 m/s²"),
+        (_SLOWS, "what if the final speed doubled", "-2.5 m/s²"),
+        # Kelvin scales; a gas at 27 °C keeps its other givens.
+        (_GAS_K, "what if the temperature doubled", "9.98 × 10⁵ Pa"),
+        (_GAS_C, "what if the volume was halved", "9.85 atm"),
+        (_TO_SPEED, "what if the final speed doubled", "20 s"),
+    ],
+)
+def test_a_scaling_names_the_quantity_the_student_wrote(prior: str, line: str, answer: str) -> None:
+    rewritten = physics_followup_problem(line, _recent(prior))
+    assert rewritten is not None
+    assert _answer(rewritten) == answer
+
+
+@pytest.mark.parametrize(
+    ("prior", "line"),
+    [
+        # Where it went is the answer, not a given.
+        (_TABLE, "what if it went twice as far"),
+        (_TABLE, "what if it landed twice as far"),
+        (_TABLE, "twice as far"),
+        # A speed of something the problem never had.
+        (_TABLE, "what if it rolled at double the speed of sound"),
+        (_KE, "half the speed of light"),
+        (_KE, "twice the mass of the earth"),
+        # A verb that is not the speed's: acceleration, falling, braking, spinning.
+        (_TO_SPEED, "what if it accelerated twice as fast"),
+        (_TO_SPEED, "what if it fell twice as fast"),
+        (_TO_SPEED, "what if it braked twice as fast"),
+        (_TO_SPEED, "what if it slowed down twice as fast"),
+        (_TO_SPEED, "what if it decelerated twice as fast"),
+        (_TO_SPEED, "what if it spun twice as fast"),
+        # It starts from rest: the 30 m/s it reaches is no initial speed.
+        (_TO_SPEED, "what if the initial speed doubled"),
+        (_TO_SPEED, "with twice the initial speed"),
+        # The object named does not own the given: the driver's 70 kg is not the car's.
+        (_DRIVER, "what if the car was twice as heavy"),
+        (_DRIVER, "what if the car had twice the mass"),
+        (_DRIVER, "what if the mass of the car doubled"),
+        (_ELEVATOR, "what if the elevator was twice as heavy"),
+        (_ELEVATOR, "what if the elevator had twice the mass"),
+        (_ELEVATOR, "what if the mass of the elevator doubled"),
+        (_RAMP, "what if the ramp was twice as heavy"),
+        (_RAMP, "what if the ramp had twice the mass"),
+        (_SWUNG, "what if the string was twice as heavy"),
+        (_SWUNG, "what if the string had twice the mass"),
+        (_DROP_MASS, "what if the ball was twice as high"),
+        # A body the problem never had, or "we".
+        (_DROP_MASS, "what if the earth had twice the mass"),
+        (_DROP_MASS, "what if the planet had twice the mass"),
+        (_DROP_MASS, "what if the moon had twice the mass"),
+        (_DROP_MASS, "what if the mass of the earth doubled"),
+        (_DROP_MASS, "what if we had twice the mass"),
+        # A string's 2 m is no height and no distance.
+        (_SWUNG, "what if the height doubled"),
+        (_SWUNG, "what if the distance doubled"),
+        # 27 °C doubled is not 54 °C.
+        (_GAS_C, "what if the temperature doubled"),
+        (_GAS_C, "with twice the temperature"),
+        (_GAS_C, "at twice the temperature"),
+        # A named given of the kind the problem asks for may be the answer's.
+        (_TABLE, "what if the distance doubled"),
+        (_TABLE, "what if the range doubled"),
+        (_TABLE, "with twice the distance"),
+        (_TABLE, "what if the horizontal distance doubled"),
+        (_TABLE, "what if the table was twice as high"),
+        # "moving at", "rolls off at" say no end of a change.
+        (_TABLE, "what if the initial speed doubled"),
+        (_KE, "what if the initial speed doubled"),
+        (_SPEEDING, "what if the speed was twice as high"),
+        (_SPEEDING, "what if the initial speed doubled"),
+        (_GOING, "what if the initial speed doubled"),
+        (_GOING, "what if the initial speed was 20 m/s"),
+        (_GOING, "what if it was going twice as fast"),
+        (_GOING, "what if the final speed doubled"),
+        # A pronoun with an adjective or a quantity may be any body of the problem.
+        (_CLIFF, "what if it was 3 times higher"),
+        (_KE, "what if it was twice as fast"),
+        (_KE, "half as heavy"),
+        (_DROP_MASS, "what if it was twice as high"),
+        (_DRIVER, "what if it was twice as heavy"),
+        (_DRIVER, "what if it had twice the mass"),
+        (_ELEVATOR, "what if it was twice as heavy"),
+        (_ELEVATOR, "what if it had twice the mass"),
+        (_CURVE, "what if it was going twice as fast"),
+        # One word changed and the object still does not own the value.
+        (_IN_ELEVATOR, "what if the elevator was twice as heavy"),
+        (_IN_ELEVATOR, "what if the elevator had twice the mass"),
+        (_IN_ELEVATOR, "what if the mass of the elevator doubled"),
+        (_IN_CAR, "what if the car was twice as heavy"),
+        (_IN_CAR, "what if the car had twice the mass"),
+        (_IN_CAR, "what if it was twice as heavy"),
+        (_IS_IN_CAR, "what if the car was twice as heavy"),
+        (_IS_IN_CAR, "what if the car had twice the mass"),
+        (_SATELLITE, "what if the earth was twice as heavy"),
+        (_SATELLITE, "what if the earth had twice the mass"),
+        (_SATELLITE, "what if the mass of the earth doubled"),
+        (_MOON, "what if the moon was twice as heavy"),
+        (_HITS_CART, "what if the cart was twice as fast"),
+        (_HITS_CART, "what if the cart was going twice as fast"),
+        (_ON_CART, "what if the cart was twice as heavy"),
+        (_ON_CART, "what if the cart had twice the mass"),
+        (_TRAILER, "what if the trailer was twice as heavy"),
+        (_TRAILER, "what if the trailer had twice the mass"),
+        (_LOAD, "what if the cart was twice as heavy"),
+        (_LOAD, "what if the cart had twice the mass"),
+        (_TRUCK, "what if the truck was going twice as fast"),
+        (_TRUCK, "what if the truck was twice as fast"),
+        (_TRUCK, "what if the truck was twice as heavy"),
+        (_CURVE, "what if the curve was twice as heavy"),
+        (_NEXT_TO, "what if the car was twice as fast"),
+        (_NEXT_TO, "what if the car had twice the speed"),
+        (_TOWS, "what if the boat was twice as heavy"),
+        # A wave's speed is the medium's: a new frequency changes the wavelength.
+        (_STRING_WAVE, "what if the frequency doubled"),
+        (_STRING_WAVE, "with twice the frequency"),
+        (_SOUND, "what if the frequency doubled"),
+        (_SOUND, "what if the wavelength was halved"),
+        (_GUITAR, "what if the frequency doubled"),
+        # "Two 5 kg masses": one of them doubled, or both?
+        (_TWO_MASSES, "what if the mass doubled"),
+        (_TWO_MASSES, "with twice the mass"),
+        # "ten metres" is a value the reading never saw: the problem is not all read.
+        (_TEN_METRES, "what if the table was twice as high"),
+        (_TEN_METRES, "what if the height doubled"),
+        # A wavelength the problem never had is no other length.
+        (_DROP_MASS, "what if the wavelength was halved"),
+        # A property of the object, a rating, an emf: the change holds the wrong thing.
+        (_SAT_EARTH, "what if the mass doubled"),
+        (_SAT_EARTH, "what if the mass was doubled"),
+        (_PLANET, "what if the mass doubled"),
+        (_RESISTOR, "what if the voltage doubled"),
+        (_RESISTOR, "what if the current doubled"),
+        (_RESISTOR, "with twice the voltage"),
+        (_BULB, "what if the voltage doubled"),
+        (_BULB, "what if the power doubled"),
+        (_HEATER, "what if the voltage doubled"),
+        (_HEATER, "what if the voltage was halved"),
+        (_SPRING, "what if the force doubled"),
+        (_SPRING, "what if the extension doubled"),
+        (_CAPACITOR, "what if the voltage doubled"),
+        (_CAPACITOR, "what if the charge doubled"),
+        (_METAL, "what if the heat doubled"),
+        (_METAL, "what if the mass doubled"),
+        (_GLASS, "what if the speed doubled"),
+        (_GLASS, "what if the speed was halved"),
+        (_EMF, "what if the resistance doubled"),
+        (_EMF, "what if the current doubled"),
+        (_EACH_SPHERE, "what if the mass doubled"),
+        (_SPHERES_EACH, "what if the mass doubled"),
+        (_EQUAL_Q, "what if the charge doubled"),
+        (_Q_EACH, "what if the charge doubled"),
+        (_IDENTICAL_Q, "what if the charge doubled"),
+        (_TWO_R, "what if the resistance doubled"),
+        (_LONG_RAMP, "what if the ramp was twice as high"),
+        (_LONG_RAMP, "what if the ramp was twice as tall"),
+        (_CLIFF, "double it"),
+        (_CLIFF, "make it twice as long"),
+        (_KE, "what if the mass doubles and the speed triples"),
+        (_KE, "is it twice as much fun"),
+        # No length is given to scale: the distance is what it asks.
+        (_KE, "twice as far"),
+    ],
+)
+def test_a_scaling_look_alike_is_not_reverified(prior: str, line: str) -> None:
+    assert physics_followup_problem(line, _recent(prior)) is None
+
+
 @pytest.mark.parametrize(
     "line", ["show steps", "show me the working", "explain it", "step by step"]
 )

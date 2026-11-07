@@ -32,8 +32,8 @@ from app.services.problem_followup import (
     ask_replaced,
     followup_line,
     new_value,
-    scaled_given,
 )
+from app.services.scaled_followup import scaled_given
 
 CHEMISTRY_FOLLOWUP_HINT = (
     "This short request continues the immediately preceding chemistry problem. "
@@ -110,6 +110,10 @@ def _adjacent_problem(prior: str, text: str) -> str | None:
     folded = text.lower()
     if EXPLAIN_RE.fullmatch(folded):
         return prior
+    # Before the other shapes: "what if it was 3 times higher" is no new value.
+    scaled = scaled_given(folded)
+    if scaled is not None:
+        return _GIVENS.scaled(prior, scaled)
     about = _ABOUT.fullmatch(folded)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))
@@ -120,9 +124,6 @@ def _adjacent_problem(prior: str, text: str) -> str | None:
         )
         if rewritten is not None:
             return rewritten
-    scaled = scaled_given(text)
-    if scaled is not None:
-        return _GIVENS.scaled(prior, *scaled)
     value = new_value(text)
     if value is not None:
         return _GIVENS.changed(prior, None, *value)

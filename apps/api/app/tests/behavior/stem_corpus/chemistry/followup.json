@@ -1,0 +1,59 @@
+[
+  {
+    "id": "fu-chem-01",
+    "area": "followup",
+    "prompt": "what if the mass doubled",
+    "expect": "answer",
+    "answers": [
+      [
+        1.0010266940451746,
+        "M"
+      ]
+    ],
+    "history": [
+      [
+        "user",
+        "What is the molarity of a solution made by dissolving 58.5 g of NaCl in 2 L of water?"
+      ],
+      [
+        "assistant",
+        "c = 0.50 mol/L"
+      ]
+    ],
+    "note": "the one mass is the NaCl's"
+  },
+  {
+    "id": "fu-chem-02",
+    "area": "followup",
+    "prompt": "what if the water was twice as heavy",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "What is the molarity of a solution made by dissolving 58.5 g of NaCl in 2 L of water?"
+      ],
+      [
+        "assistant",
+        "c = 0.50 mol/L"
+      ]
+    ],
+    "note": "the 58.5 g is the NaCl's, not the water's"
+  },
+  {
+    "id": "fu-chem-03",
+    "area": "followup",
+    "prompt": "what if the water had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "What is the molarity of a solution made by dissolving 58.5 g of NaCl in 2 L of water?"
+      ],
+      [
+        "assistant",
+        "c = 0.50 mol/L"
+      ]
+    ],
+    "note": "the 58.5 g is the NaCl's, not the water's"
+  }
+]

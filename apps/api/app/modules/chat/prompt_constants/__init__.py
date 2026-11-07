@@ -52,7 +52,7 @@ from app.modules.chat.prompt_constants.grounding import (
     FACT_GROUNDING_HINT,
     WEB_SEARCH_OFF_HINT,
 )
-from app.modules.chat.prompt_constants.learning_plan_contract import learning_plan_daily_contract
+from app.modules.chat.prompt_constants.learning_plan_contract import learning_plan_contract
 from app.modules.chat.prompt_constants.length import (
     BREVITY_REQUEST_HINT,
     MIXED_LENGTH_HINT,
@@ -169,7 +169,7 @@ __all__ = [
     "code_question_hint",
     "draft_followup_hint",
     "is_bare_writing_line",
-    "learning_plan_daily_contract",
+    "learning_plan_contract",
     "mermaid_format_hint",
     "programming_lesson_contract",
     "repeated_greeting_hint",

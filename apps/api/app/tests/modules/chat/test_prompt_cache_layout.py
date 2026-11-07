@@ -28,7 +28,7 @@ from app.modules.chat.prompt_constants import (
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
-    learning_plan_daily_contract,
+    learning_plan_contract,
 )
 from app.modules.chat.prompt_inject import append_after_history, conversation_turns
 from app.modules.chat.prompt_repeats import REPLY_POLICIES, last_policy_parts, policies_once
@@ -252,7 +252,7 @@ async def test_a_plan_contract_keeps_its_repeat_beside_the_user_turn() -> None:
     messages = await _prompt_at(
         _NINE, history=[["user", query]], kwargs={"query_text": query, "current": 0}
     )
-    contract = learning_plan_daily_contract(query)
+    contract = learning_plan_contract(query)
     assert contract
     assert sum(message["content"].count(contract) for message in messages) == 2
     assert messages[-2] == {"role": "system", "content": contract}
