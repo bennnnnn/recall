@@ -6,6 +6,12 @@
  * point, where it crosses the axes or another curve, a line or point off to
  * one side, the whole of a circle. The fixed window alone cut the vertex off
  * y = x² − 4 and left y = 7, x = 8 and (8, 3) off the card entirely.
+ *
+ * A curve whose features sit together in a corner of that window is focused on
+ * them instead: y = x² − 4x + 3 has its roots, vertex and y-intercept between
+ * x = 0 and 3, and the ±6 window left half the card empty. The features are read
+ * off the curve as drawn, for the window only; the points the card labels are
+ * the server's (`GraphSpec.marks`).
  */
 import { equalScaleGraphBounds, functionPlotBounds } from "@/lib/math/graphBlock";
 import { parseGraphRelation, sampleGraphExpr } from "@/lib/math/graphExpr";
@@ -28,6 +34,12 @@ const TALL = 1.25;
 const POINT_LIST = /^\s*\(\s*[-+]?\d*\.?\d+\s*,/;
 /** Samples read for features across the server's x-range. */
 const FEATURE_SAMPLES = 400;
+/** A focused window is at least this wide, so the curve keeps some shape around its features. */
+const FOCUS_MIN_SPAN = 6;
+/** Room left around the features a window focuses on (share of their span, at least a unit). */
+const FOCUS_PAD = 0.25;
+/** Features closer than this in x and y are one place: y = x² keeps the school window. */
+const ONE_PLACE = 0.5;
 
 type Curve = { expr: string; points: Point[]; segments?: Point[][] };
 
@@ -115,14 +127,15 @@ function extremes(points: Point[]): Point[] {
   ];
 }
 
-type Features = { main: Point[]; intercepts: Point[]; closed: boolean };
+/** `runs`: the curve as drawn, when the window may focus on its features (no pole, no wave). */
+type Features = { main: Point[]; intercepts: Point[]; closed: boolean; runs: Point[][] | null };
 
 /** What the window must show: features of the curve as drawn, or the points as plotted. */
 function graphFeatures(spec: GraphSpec, view: GraphView): Features {
   if (spec.type === "vertical") {
-    return { main: Number.isFinite(spec.x) ? [[Number(spec.x), 0]] : [], intercepts: [], closed: false };
+    return { main: Number.isFinite(spec.x) ? [[Number(spec.x), 0]] : [], intercepts: [], closed: false, runs: null };
   }
-  if (spec.type !== "function") return { main: [], intercepts: [], closed: false };
+  if (spec.type !== "function") return { main: [], intercepts: [], closed: false, runs: null };
   const curves: Curve[] = [{ expr: spec.expr, points: spec.points, segments: spec.segments }];
   if (spec.expr2 && spec.points2?.length) {
     curves.push({ expr: spec.expr2, points: spec.points2, segments: spec.segments2 });
@@ -131,7 +144,7 @@ function graphFeatures(spec: GraphSpec, view: GraphView): Features {
   const plotted = (curve: Curve) => curve.points.length === 1 || POINT_LIST.test(curve.expr);
   if (curves.some((curve) => plotted(curve) || isClosed(curve.points))) {
     const all = curves.flatMap(({ points }) => points);
-    return { main: extremes(all), intercepts: [], closed: curves.some(({ points }) => isClosed(points)) };
+    return { main: extremes(all), intercepts: [], closed: curves.some(({ points }) => isClosed(points)), runs: null };
   }
   const xs = curves.flatMap(({ points }) => points.map(([x]) => x));
   const variable = spec.variable ?? "x";
@@ -141,9 +154,55 @@ function graphFeatures(spec: GraphSpec, view: GraphView): Features {
   if (sampled.length === 2 && sampled[0].length === 1 && sampled[1].length === 1) {
     main.push(...meetings(sampled[0][0], sampled[1][0]));
   }
-  if (main.length > MANY_FEATURES) main = main.filter(([x]) => x >= view.xMin && x <= view.xMax);
+  const wave = main.length > MANY_FEATURES;
+  if (wave) main = main.filter(([x]) => x >= view.xMin && x <= view.xMax);
+  main.push(...(spec.marks ?? []).map(({ x, y }): Point => [x, y]));
   const intercepts = runs.map(yIntercept).filter((point): point is Point => point != null);
-  return { main, intercepts, closed: false };
+  // Only a graph of y = f(x) the phone reads, in one piece: a circle or a relation in x and
+  // y keeps its fit and its true axis ratio.
+  const functions = curves.every((curve) => parseGraphRelation(curve.expr, variable)?.cmp === "=");
+  const focusable = functions && !wave && sampled.every((curve) => curve.length === 1);
+  return { main, intercepts, closed: false, runs: focusable ? runs : null };
+}
+
+function span(values: number[]): [number, number] {
+  return [Math.min(...values), Math.max(...values)];
+}
+
+/**
+ * The window around a curve's features when they sit closer together than the school
+ * window: their x-range with room around it, and the curve's own y-values over it, kept
+ * within reach of the features (y = x² − 4x + 3 shows its arms, not their climb to 11).
+ * Null when the features are one place, or would need the school window or more.
+ */
+function focusView(points: Point[], runs: Point[][], school: GraphView): GraphView | null {
+  const finite = points.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (finite.length < 2) return null;
+  const [x0, x1] = span(finite.map(([x]) => x));
+  const [y0, y1] = span(finite.map(([, y]) => y));
+  if (x1 - x0 < ONE_PLACE && y1 - y0 < ONE_PLACE) return null;
+  const pad = Math.max(1, (x1 - x0) * FOCUS_PAD);
+  const half = Math.max(FOCUS_MIN_SPAN, x1 - x0 + 2 * pad) / 2;
+  const mid = (x0 + x1) / 2;
+  const [xMin, xMax] = [mid - half, mid + half];
+  if (xMax - xMin >= school.xMax - school.xMin) return null;
+  const reach = Math.max(y1 - y0, FOCUS_MIN_SPAN / 2);
+  const ys = runs
+    .flat()
+    .filter(([x, y]) => x >= xMin && x <= xMax && y >= y0 - reach && y <= y1 + reach)
+    .map(([, y]) => y);
+  const [lo, hi] = span([y0, y1, ...ys]);
+  const yPad = Math.max(ONE_PLACE, (hi - lo) * FEATURE_PAD * 0.5);
+  return { xMin, xMax, yMin: lo - yPad, yMax: hi + yPad };
+}
+
+/** The y-intercept joins the features unless it is far off them: y = (x − 8)² meets x = 0 at 64. */
+function nearIntercepts(main: Point[], intercepts: Point[]): Point[] {
+  const ys = main.map(([, y]) => y);
+  if (!ys.length) return intercepts;
+  const [lo, hi] = span(ys);
+  const reach = Y_INTERCEPT_STRETCH * Math.max(hi - lo, FOCUS_MIN_SPAN);
+  return intercepts.filter(([, y]) => y >= lo - reach && y <= hi + reach);
 }
 
 function growAxis(lo: number, hi: number, values: number[]): [number, number] {
@@ -172,7 +231,12 @@ function size(view: GraphView, aspect: number): number {
 function fitView(spec: GraphSpec, plotAspect: number): GraphView {
   const view = defaultInteractiveBounds(plotAspect);
   const aspect = Number.isFinite(plotAspect) && plotAspect > 0.3 ? plotAspect : 1.7;
-  const { main, intercepts, closed } = graphFeatures(spec, view);
+  const { main, intercepts, closed, runs } = graphFeatures(spec, view);
+  const focused = runs ? focusView([...main, ...nearIntercepts(main, intercepts)], runs, view) : null;
+  if (focused) {
+    const tallFocus = (focused.yMax - focused.yMin) * aspect > (focused.xMax - focused.xMin) * TALL;
+    return tallFocus ? focused : equalScaleGraphBounds(focused, aspect);
+  }
   let fitted = grow(view, main);
   const withIntercept = grow(fitted, intercepts);
   if (size(withIntercept, aspect) <= size(fitted, aspect) * Y_INTERCEPT_STRETCH) fitted = withIntercept;

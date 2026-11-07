@@ -571,6 +571,7 @@
   "privacy.title": "Политика конфиденциальности",
   "reminders.badge_accessibility": "Задачи, {{count}} на сегодня или просрочено",
   "rich.answer_a11y": "Ответ: {{text}}",
+  "rich.answer_jump_hint": "Прокручивает к полному ответу",
   "rich.answer_label": "Ответ",
   "rich.answer_part_label": "Ответ ({{part}})",
   "rich.arc_length": "Длина дуги:",
