@@ -127,6 +127,31 @@ describe("spliceMathInsert", () => {
     expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "der2")?.label).toBe("d^{2}/dx^{2}");
   });
 
+  it("keeps a letter typed after a word command out of its name", () => {
+    // `\alphax` and `\rfloory` are commands nobody typed.
+    const x = MATH_PAD_KEYS.find((s) => s.id === "var-x")!;
+    const two = MATH_PAD_KEYS.find((s) => s.id === "digit-2")!;
+    const typed = spliceMathInsert("$\\alpha$", { start: 7, end: 7 }, x);
+    expect(typed.text).toBe("$\\alpha x$");
+    expect(typed.selection.start).toBe(9);
+    expect(spliceMathInsert("$\\alpha$", { start: 7, end: 7 }, two).text).toBe("$\\alpha2$");
+    expect(spliceMathInsert("$\\alpha $", { start: 8, end: 8 }, x).text).toBe("$\\alpha x$");
+  });
+
+  it("keeps a letter typed after any key's closing command out of its name", () => {
+    // A closer may end on a word (`\rfloor`, no space to draw): what comes after it decides.
+    const x = MATH_PAD_KEYS.find((s) => s.id === "var-x")!;
+    const two = MATH_PAD_KEYS.find((s) => s.id === "digit-2")!;
+    const closers = MATH_KEYBOARD_SYMBOLS.filter((spec) => /\\[A-Za-z]+$/.test(spec.insert));
+    expect(closers.length).toBeGreaterThan(0);
+    for (const spec of closers) {
+      const typed = spliceMathInsert("", { start: 0, end: 0 }, spec);
+      const end = { start: typed.text.length - 1, end: typed.text.length - 1 };
+      expect(spliceMathInsert(typed.text, end, x).text).toBe(`$${spec.insert} x$`);
+      expect(spliceMathInsert(typed.text, end, two).text).toBe(`$${spec.insert}2$`);
+    }
+  });
+
   it("digits stay prose inside a convert draft", () => {
     const one = { id: "digit-1", label: "1", insert: "1", cursorOffset: 1, group: "pad" as const };
     const typed = spliceMathInsert("convert  km to mi", { start: 8, end: 8 }, one);

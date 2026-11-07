@@ -216,3 +216,24 @@ describe("InlineFlow", () => {
     expect(linked.getByText("link").props.onPress).toBeDefined();
   });
 });
+
+/** The right padding of every Text drawn, in tree order. */
+function rightPads(node: unknown): number[] {
+  if (Array.isArray(node)) return node.flatMap(rightPads);
+  if (node == null || typeof node !== "object") return [];
+  const { type, props, children } = node as { type?: string; props?: { style?: StyleProp<TextStyle> }; children?: unknown };
+  const own = type === "Text" ? [StyleSheet.flatten(props?.style)?.paddingRight ?? 0] : [];
+  return [...own.map(Number), ...rightPads(children)];
+}
+
+describe("a formula in prose takes no italic lean", () => {
+  // The words after `$v$` give its last letter room: an italic correction there only
+  // widened the gap before "is". Only the composer's draft leans (MathTextItalicLean).
+  it.each([
+    "where $v$ is the speed and $P$ the power.",
+    "Light takes $10^2$ s, so $v$ is fast and $P$, the power, is high.",
+  ])("draws %s with no room after a letter", async (content) => {
+    const { toJSON } = await render(<MarkdownContent content={content} />);
+    expect(rightPads(toJSON()).filter((pad) => pad > 0)).toEqual([]);
+  });
+});

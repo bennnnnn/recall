@@ -3,7 +3,7 @@
  * or a sent message shows it, a run's label, and the size a script is drawn at.
  */
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
-import type { DraftNode } from "@/lib/math/draftSlots";
+import type { DraftNode } from "@/lib/math/draftNodes";
 import { SCRIPT_RATIO } from "@/lib/math/layout";
 import { readableLatexFallback } from "@/lib/math/latexParse";
 import { isMostlyProsePaste } from "@/lib/math/pasteNormalize";

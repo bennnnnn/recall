@@ -1,3 +1,5 @@
+import { joinsCommandName } from "@/lib/math/commandName";
+
 export const MATH_KEYBOARD_GROUPS = [
   "basics",
   "symbols",
@@ -532,14 +534,11 @@ export function spliceMathInsert(
     return { text: next, selection: { start: caret, end: caret } };
   }
   const resolved = resolveInsert(text, start, spec);
-  let snippet = resolved.insert;
-  let cursorOffset = resolved.cursorOffset;
-  if (!isCursorInsideInlineMath(text, start) && !looksLikeUnitConvertDraft(text)) {
-    snippet = `$${resolved.insert}$`;
-    cursorOffset = resolved.cursorOffset + 1;
-  }
+  const wrap = !isCursorInsideInlineMath(text, start) && !looksLikeUnitConvertDraft(text);
+  const gap = !wrap && joinsCommandName(text.slice(0, start), resolved.insert) ? " " : "";
+  const snippet = wrap ? `$${resolved.insert}$` : gap + resolved.insert;
   const next = text.slice(0, start) + snippet + text.slice(end);
-  const caret = start + cursorOffset;
+  const caret = start + resolved.cursorOffset + (wrap ? 1 : gap.length);
   const select = resolved.select ?? 0;
   return { text: next, selection: { start: caret, end: caret + select } };
 }

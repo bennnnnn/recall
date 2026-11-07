@@ -20,6 +20,7 @@ import {
   hasTallMath,
   renderSegments,
 } from "@/components/rich/mathText/render";
+import { endsOnItalicLetter, ITALIC_LEAN_EM } from "@/components/rich/mathText/runs";
 
 type Props = {
   latex: string;
@@ -32,6 +33,9 @@ type Props = {
   /** Markdown's View host can constrain tall runs and scroll their full width.
    * Leave this off in editable math slots and hosts with their own viewport. */
   scrollOverflow?: boolean;
+  /** Room after a last italic letter, which the composer draft's own box cut off (`P`
+   * drew as `F`). Only that draft asks for it; a reply's maths is drawn without it. */
+  lean?: boolean;
 };
 
 
@@ -128,6 +132,7 @@ export const MathText = memo(function MathText({
   compact = false,
   fontSize = 16,
   scrollOverflow = false,
+  lean = false,
 }: Props) {
   const theme = useTheme();
   const color = textColor ?? theme.text;
@@ -156,7 +161,12 @@ export const MathText = memo(function MathText({
   // A short power stays a View so the exponent can rise, without the
   // horizontal scroller that stacked fractions use even when they fit.
   const scroll = scrollOverflow && (stacked || inlineMathNeedsScroll(contentWidth, windowWidth));
-  const runs = renderSegments(segments, layout.children, "m", ctx);
+  // A row of Views leans its last run; one Text leans its own box, below.
+  const runs = renderSegments(segments, layout.children, "m", tall && lean ? { ...ctx, leanLast: true } : ctx);
+  const last = segments.at(-1);
+  const leanPad = lean && last?.type === "text" && endsOnItalicLetter(last.value)
+    ? { paddingRight: ITALIC_LEAN_EM * fontSize * fontScale }
+    : null;
 
   // Stacked structures are a View root. Text > Text > View is what iOS lays
   // out as 0×0 and paints over the next line.
@@ -193,7 +203,7 @@ export const MathText = memo(function MathText({
       <InlineMathScroll label={own ? label : undefined} style={[styles.inlineViewport, { height: contentHeight }]}>
         <Text
           testID="math-text-wide"
-          style={[styles.base, { lineHeight, minWidth: contentWidth, flexShrink: 0 }]}
+          style={[styles.base, { lineHeight, minWidth: contentWidth, flexShrink: 0 }, leanPad]}
         >
           {runs}
         </Text>
@@ -202,7 +212,7 @@ export const MathText = memo(function MathText({
   }
 
   return (
-    <Text style={[styles.base, { lineHeight }]}>
+    <Text style={[styles.base, { lineHeight }, leanPad]}>
       {runs}
     </Text>
   );

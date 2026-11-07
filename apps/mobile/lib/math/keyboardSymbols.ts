@@ -12,8 +12,8 @@ export {
   caretInGroup,
   innermostSlot,
   readBraceGroup,
+  readCommandPair,
   readDelimGroup,
-  readSetBrace,
   tapAdvancesToNextSlot,
   type LatexGroup,
 } from "@/lib/math/keyboardSlots";

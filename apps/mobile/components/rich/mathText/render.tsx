@@ -150,20 +150,24 @@ export function renderSegments(
   const nodes: ReactNode[] = [];
   let leadingAtom = false;
   let layoutIndex = 0;
-  for (const atom of attachScripts(segments)) {
+  const atoms = attachScripts(segments);
+  const inner = ctx.leanLast ? { ...ctx, leanLast: false } : ctx;
+  for (const [n, atom] of atoms.entries()) {
     const key = `${keyPrefix}-${atom.index}`;
     const node = layouts[layoutIndex];
     layoutIndex += 1;
-    const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom };
+    // Only a truly last glyph leans: TeX sets a script right against its base.
+    const lean = ctx.leanLast === true && n === atoms.length - 1 && !atom.sup;
+    const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom, lean };
     leadingAtom = true;
-    const rendered = renderOneSegment(atom.segment, node, key, ctx, pad, false);
+    const rendered = renderOneSegment(atom.segment, node, key, inner, pad, false);
     if (atom.sup && atom.sub) {
       const column = layouts[layoutIndex];
       layoutIndex += 1;
       nodes.push(
         <View key={key} style={{ flexDirection: "row", alignItems: "center" }}>
           {rendered}
-          {renderScriptColumn(atom.sup, atom.sub, column, `${key}-col`, ctx)}
+          {renderScriptColumn(atom.sup, atom.sub, column, `${key}-col`, inner)}
         </View>,
       );
     } else if (rendered != null) {

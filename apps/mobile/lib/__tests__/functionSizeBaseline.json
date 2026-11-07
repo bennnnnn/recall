@@ -50,7 +50,6 @@
   "features/chat/components/ChatInlineError.tsx::ChatInlineError": 110,
   "features/chat/components/ChatMessageList.tsx::ChatMessageListComponent": 131,
   "features/chat/components/MathConverterPad.tsx::MathConverterPad": 154,
-  "features/chat/components/MathDraftPreview.tsx::DraftAtom": 102,
   "features/chat/components/MathDraftPreview.tsx::makeStyles": 128,
   "features/chat/components/MathKeyboardBar.tsx::MathKeyboardBar": 134,
   "features/chat/components/MessageBubble.tsx::MessageBubble": 240,

@@ -63,24 +63,51 @@ export function readDelimGroup(
   return null;
 }
 
+/** Delimiters written as commands, with the glyphs a draft draws for them. */
+const COMMAND_PAIRS = [
+  { open: "\\{", close: "\\}", glyphs: ["{", "}"] },
+  { open: "\\lfloor", close: "\\rfloor", glyphs: ["⌊", "⌋"] },
+  { open: "\\lceil", close: "\\rceil", glyphs: ["⌈", "⌉"] },
+] as const;
+
+type CommandPair = LatexGroup & { end: number; glyphs: readonly [string, string] };
+
+/** `cmd` at `i`, and not the front of a longer command name (`\lfloor`, not `\lfloors`). */
+function commandAt(text: string, i: number, cmd: string): boolean {
+  if (!text.startsWith(cmd, i)) return false;
+  return !/[A-Za-z]$/.test(cmd) || !/[A-Za-z]/.test(text[i + cmd.length] ?? "");
+}
+
+/** After a word command, the space that ends its name (`\lfloor x`, not `\lfloorx`). */
+function nameSpace(text: string, at: number, cmd: string): number {
+  return text[at] === " " && /[A-Za-z]$/.test(cmd) ? 1 : 0;
+}
+
 /**
- * `\{ … \}`. `open` is the `{`, `close` is the `\` of `\}`, so the box
- * between them is the same shape as `{…}` and `|…|`.
+ * `\{ … \}`, `\lfloor … \rfloor`, `\lceil … \rceil`. `open` is the opener's last
+ * character (the space a word command takes), `close` is the `\` of the closer, so
+ * the box between them is the same shape as `{…}` and `|…|`. `end` is past the closer
+ * and the space that keeps a letter after it out of its name (`\rfloor y`), so a
+ * backspace never takes that space without its pair.
  */
-export function readSetBrace(text: string, from: number): LatexGroup | null {
-  if (!text.startsWith("\\{", from)) return null;
+export function readCommandPair(text: string, from: number): CommandPair | null {
+  const pair = COMMAND_PAIRS.find((p) => commandAt(text, from, p.open));
+  if (!pair) return null;
+  let j = from + pair.open.length;
+  j += nameSpace(text, j, pair.open);
+  const open = j - 1;
   let depth = 1;
-  let j = from + 2;
   while (j < text.length) {
-    if (text.startsWith("\\{", j)) {
+    if (commandAt(text, j, pair.open)) {
       depth += 1;
-      j += 2;
+      j += pair.open.length;
       continue;
     }
-    if (text.startsWith("\\}", j)) {
+    if (commandAt(text, j, pair.close)) {
       depth -= 1;
-      if (depth === 0) return { open: from + 1, close: j };
-      j += 2;
+      const end = j + pair.close.length;
+      if (depth === 0) return { open, close: j, end: end + nameSpace(text, end, pair.close), glyphs: pair.glyphs };
+      j = end;
       continue;
     }
     j += 1;
@@ -88,12 +115,12 @@ export function readSetBrace(text: string, from: number): LatexGroup | null {
   return null;
 }
 
-/** Left-to-right editable `{…}` / `(…)` / `[…]` / `\{…\}` / `|…|` groups, including nested. */
+/** Left-to-right editable `{…}` / `(…)` / `[…]` / command-pair / `|…|` groups, including nested. */
 function findEditSlots(text: string): LatexGroup[] {
   const out: LatexGroup[] = [];
   for (let i = 0; i < text.length; i += 1) {
-    const setBrace = readSetBrace(text, i);
-    if (setBrace) out.push(setBrace);
+    const pair = readCommandPair(text, i);
+    if (pair) out.push({ open: pair.open, close: pair.close });
     const ch = text[i];
     const prev = text[i - 1];
     if (prev === "\\") continue;

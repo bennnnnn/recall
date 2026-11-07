@@ -291,6 +291,9 @@ describe("math keyboard keys", () => {
     ["nCr 5 2", ["binom", "digit-5", "binom", "digit-2"], "$\\binom{5}{2}$"],
     ["lim x→0 of x", ["lim", "var-x", "to", "digit-0", "→", "var-x"], "$\\lim_{x\\to 0}x$"],
     ["1/2 + 1", ["frac", "digit-1", "frac", "digit-2", "→", "plus", "digit-1"], "$\\frac{1}{2}+1$"],
+    // A letter after a closer gets a space (`\rfloory` would be a command); a digit needs none.
+    ["⌊x⌋y", ["floor", "var-x", "→", "var-y"], "$\\lfloor x\\rfloor y$"],
+    ["⌈x⌉·2y", ["ceil", "var-x", "→", "digit-2", "var-y"], "$\\lceil x\\rceil2y$"],
   ])("types %s with the keys", (_name, keys, expected) => {
     expect(typeKeys(keys)).toBe(expected);
   });
