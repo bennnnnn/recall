@@ -252,12 +252,7 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
     if data.operation == "determinant":
         det = mat.det()
         steps = [f"\\det = {latex(det)}"]
-        return MatrixResult(
-            operation="determinant",
-            determinant=float(det),
-            determinant_latex=latex(det),
-            steps=steps,
-        )
+        return MatrixResult(operation="determinant", determinant=float(det), steps=steps)
 
     if data.operation == "inverse":
         det = mat.det()
@@ -266,11 +261,7 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
         inv = mat.inv()
         steps = [f"\\det = {latex(det)}", f"\\text{{inverse}} = {latex(inv)}"]
         return MatrixResult(
-            operation="inverse",
-            determinant=float(det),
-            determinant_latex=latex(det),
-            inverse_latex=latex(inv),
-            steps=steps,
+            operation="inverse", determinant=float(det), inverse_latex=latex(inv), steps=steps
         )
 
     if data.operation == "multiply":

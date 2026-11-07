@@ -143,8 +143,6 @@ class MatrixInput(BaseModel):
 class MatrixResult(BaseModel):
     operation: MatrixOp
     determinant: float | None = None
-    # The determinant exactly (``\frac{1}{3}``, which the float rounds).
-    determinant_latex: str | None = None
     inverse_latex: str | None = None
     result_latex: str | None = None
     steps: list[str] = Field(default_factory=list)

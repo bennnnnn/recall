@@ -112,6 +112,26 @@ def _variable(expr: str, explicit: str | None) -> str:
     return variables[0] if len(variables) == 1 else "x"
 
 
+def _limit_request(request: str, actual: MathIntent) -> bool:
+    """``limit of f as x approaches a`` or ``limit as x approaches a of f``, read whole."""
+    point_first = _LIMIT_POINT_FIRST.fullmatch(request)
+    match = _LIMIT.fullmatch(request[len("limit of ") :])
+    if point_first:
+        variable, point, side, expr = point_first.groups()
+    elif match:
+        expr, variable, point, side = match.groups()
+    else:
+        return False
+    return bool(
+        actual.kind == "limit"
+        and _matches_expression(actual, expr)
+        and actual.variable == variable
+        and _point(actual.limit_point) == _point(point)
+        and actual.limit_direction
+        == {"left": "-", "right": "+", None: "+-"}[side.lower() if side else None]
+    )
+
+
 def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | None:
     """None is another family; False blocks partial asks from generic fallback.
 
@@ -286,22 +306,7 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
             and _point(actual.integral_upper) == _point(high)
         )
     if lower.startswith(("limit of ", "limit as ")):
-        point_first = _LIMIT_POINT_FIRST.fullmatch(request)
-        match = _LIMIT.fullmatch(request[len("limit of ") :])
-        if point_first:
-            variable, point, side, expr = point_first.groups()
-        elif match:
-            expr, variable, point, side = match.groups()
-        else:
-            return False
-        return bool(
-            actual.kind == "limit"
-            and _matches_expression(actual, expr)
-            and actual.variable == variable
-            and _point(actual.limit_point) == _point(point)
-            and actual.limit_direction
-            == {"left": "-", "right": "+", None: "+-"}[side.lower() if side else None]
-        )
+        return _limit_request(request, actual)
     for prefix in ("sum of ", "sum "):
         if not lower.startswith(prefix):
             continue

@@ -157,16 +157,14 @@ def _angle_line(atom: Any, factor: Any, over: SolveRange, ordered: list[Any]) ->
     ``cos 2x = 1/2`` for ``0 <= x < 2pi`` is ``cos u = 1/2`` for ``0 <= u < 4pi``; its
     angles, solved apart, must be exactly ``2x`` at the solutions, or the line is left out.
     """
-    from sympy import Dummy, FiniteSet, Poly, latex
+    from sympy import Dummy, FiniteSet, diff, expand, latex
     from sympy import Interval as Span
 
     angle, domain = atom.args[0], over.domain
-    try:
-        slope, offset = Poly(angle, over.variable).all_coeffs()
-    except Exception:
-        return None  # sin(x^2): no angle a line maps the interval onto
+    slope = diff(angle, over.variable)
+    offset = expand(angle - slope * over.variable)
     if slope.has(over.variable) or offset.has(over.variable) or slope == 0:
-        return None
+        return None  # sin(x^2): no angle a line maps the interval onto
     flipped = bool(slope < 0)
     low, high = sorted([slope * domain.start + offset, slope * domain.end + offset], key=float)
     left_open = domain.right_open if flipped else domain.left_open

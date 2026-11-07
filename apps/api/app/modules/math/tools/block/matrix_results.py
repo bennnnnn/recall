@@ -128,7 +128,9 @@ def _result(op: MatrixOp, rows: list[list[float]]) -> str | None:
     """The result's value as the card shows it, or None when there is none to show."""
     result = math_solve.compute_matrix(MatrixInput(operation=op, rows=rows))
     if op == "determinant":
-        return result.determinant_latex
+        from sympy import latex
+
+        return str(latex(_matrix(rows).det()))  # exact: the float rounds 1/3
     if op == "inverse":
         return result.inverse_latex
     return result.result_latex
@@ -191,10 +193,10 @@ def multi_result_matrix_block(
 
 def _closed_request(text: str | None) -> bool:
     """Whether the question asks for the listed results and nothing besides."""
+    from app.modules.math.match.leftover_words import leftover_non_math_request
     from app.modules.math.match.matrix_requests import without_matrix_cues
-    from app.modules.math.tools.direct import leftover_non_math_request
-    from app.modules.math.tools.lesson import strip_teaching_signals
+    from app.modules.math.response_intent import strip_math_response_wrappers
 
     if not text:
         return False
-    return not leftover_non_math_request(strip_teaching_signals(without_matrix_cues(text)))
+    return not leftover_non_math_request(strip_math_response_wrappers(without_matrix_cues(text)))

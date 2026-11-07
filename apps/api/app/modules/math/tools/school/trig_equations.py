@@ -11,6 +11,7 @@ from app.modules.math.schemas import EquationInput, MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.trig_equation_steps import (
     SolveRange,
+    ValuesText,
     identity_factor_steps,
     solutions_in,
 )
@@ -35,6 +36,24 @@ def _degrees_in_k(expr: Any, k: Any) -> str:
     if step != 0:
         parts.append(f"{latex(step)}^\\circ k")
     return " + ".join(parts) or "0^\\circ"
+
+
+def _values_text(*, degrees: bool, approximate: bool) -> ValuesText:
+    r"""How radian solutions read: ``= \frac{\pi}{6},\;\frac{5 \pi}{6}``, or ``\approx 19.47``."""
+    from sympy import latex, pi, simplify
+
+    suffix = "^\\circ" if degrees else ""
+
+    def text(values: list[Any]) -> str:
+        shown = [simplify(value * 180 / pi) for value in values] if degrees else values
+        joined = r",\;".join(
+            f"{float(value):.2f}{suffix}" if approximate else f"{latex(value)}{suffix}"
+            for value in shown
+        )
+        relation = r"\approx" if approximate else "="
+        return f"{relation} {joined}"
+
+    return text
 
 
 def bounded_equation_block(
@@ -95,18 +114,7 @@ def bounded_equation_block(
     )
     # ``asin(3/10)`` in degrees has no exact school form: two decimals.
     approximate = degrees and not all(value.is_Rational for value in display_values)
-    suffix = "^\\circ" if degrees else ""
-
-    def values_text(values: list[Any]) -> str:
-        """``= \\frac{\\pi}{6},\\;\\frac{5 \\pi}{6}``: radian solutions as the answer shows them."""
-        shown = [simplify(value * 180 / pi) for value in values] if degrees else values
-        joined = r",\;".join(
-            f"{float(value):.2f}{suffix}" if approximate else f"{latex(value)}{suffix}"
-            for value in shown
-        )
-        relation = r"\approx" if approximate else "="
-        return f"{relation} {joined}"
-
+    values_text = _values_text(degrees=degrees, approximate=approximate)
     if not display_values:
         answer = r"\text{no solution}"
     else:
