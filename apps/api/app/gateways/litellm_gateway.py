@@ -22,7 +22,7 @@ from app.gateways.stream_signals import (
     provider_fault,
     reasoning_delta,
 )
-from app.gateways.stream_tool_calls import StreamedToolCalls
+from app.gateways.stream_tool_calls import StreamedToolCalls, ToolOffer
 from app.gateways.stream_usage import apply_usage, merge_attempt_usage
 
 # The completion kinds split out of this module are its public surface too. They call
@@ -131,15 +131,15 @@ async def stream_chat_completion(
     may_try: Callable[[str], Awaitable[bool]] | None = None,
     tools: list[dict[str, Any]] | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
+    require_tool: str | None = None,
 ) -> AsyncIterator[str]:
     """Stream one reply, moving down ``fallback_aliases`` until a model answers.
 
-    ``attempts`` gets one record per model tried, in order: which failed (before
-    its text, or partway), and how fast each provider started. ``on_thinking``
-    runs when a model is seen reasoning before any of its text. ``may_try`` is
-    asked before each model but the last; False passes it by untried. ``tools``
-    go to a model that takes them, and the calls its reply makes land on
-    ``tool_calls``: a call answers too.
+    ``attempts`` records each model tried: which failed (before its text, or partway) and
+    how fast it started. ``on_thinking`` runs when one reasons before its text; ``may_try``
+    is asked before each but the last (False passes it by). ``tools`` go to a model that
+    takes them, its calls land on ``tool_calls`` (a call answers too), and it must call
+    ``require_tool`` when one is named.
     """
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -185,7 +185,7 @@ async def stream_chat_completion(
                 open_timeout_seconds=_open_wait(settings, has_next=has_next),
                 attempt=attempt,
                 on_thinking=on_thinking,
-                tools=tools,
+                tools=ToolOffer(tools, require_tool) if tools else None,
                 tool_calls=attempt_calls,
             ):
                 if not started:
@@ -285,14 +285,14 @@ def _call_kwargs(
     settings: Settings,
     route: ChatModel,
     thinking: bool | str | None,
-    tools: list[dict[str, Any]] | None,
+    offer: ToolOffer | None,
 ) -> tuple[dict[str, Any], StreamedToolCalls | None]:
     """The streamed call's provider arguments, and where its tool calls fold: None when
     the model was offered none (one that takes no tools gets none)."""
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
-    calls = StreamedToolCalls() if tools and route.supports_tools else None
-    if calls is not None:
-        kwargs.update(tools=tools, tool_choice="auto")
+    calls = StreamedToolCalls() if offer and offer.tools and route.supports_tools else None
+    if offer is not None and calls is not None:
+        kwargs.update(tools=offer.tools, tool_choice=offer.choice())
     return kwargs, calls
 
 
@@ -376,7 +376,7 @@ async def _stream_chat_once(
     thinking: bool | str | None = None,
     attempt: StreamAttempt | None = None,
     on_thinking: Callable[[], Awaitable[None]] | None = None,
-    tools: list[dict[str, Any]] | None = None,
+    tools: ToolOffer | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[str]:
     """One model's stream. ``first_content_timeout_seconds`` caps the wait for its

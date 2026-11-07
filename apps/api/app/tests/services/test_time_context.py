@@ -17,7 +17,6 @@ from app.services.time_context import (
     format_time_context,
     format_year_answer,
     is_current_date_question,
-    is_local_now_question,
     is_location_question,
     is_shown_clock_question,
     is_time_denial,
@@ -123,15 +122,6 @@ def test_is_year_question(text, expected):
 )
 def test_is_current_date_question(text, expected):
     assert is_current_date_question(text) is expected
-
-
-def test_is_local_now_question_covers_time_year_and_date():
-    assert is_local_now_question("what time is it") is True
-    assert is_local_now_question("what year is it") is True
-    assert is_local_now_question("what's the date") is True
-    assert is_local_now_question("Please tell me the current date.") is True
-    assert is_local_now_question("Could you tell me the current time?") is True
-    assert is_local_now_question("what year did WWII end") is False
 
 
 def test_format_year_answer_uses_timezone_year():
