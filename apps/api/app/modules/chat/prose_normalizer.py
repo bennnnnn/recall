@@ -159,8 +159,14 @@ def _unwrap_fenced_pipe_tables(text: str) -> str:
     return "\n".join(out)
 
 
+# A bullet with nothing after it: "### International\n*\n*   **Ukraine:** …" showed an empty
+# dot above the news (2026-11-06). A number alone stays: its step may be on the next line.
+_EMPTY_BULLETS = frozenset({"*", "-", "+", "•"})
+
+
 def normalize_prose_artifacts(text: str) -> str:
-    """Remove orphan colon lines and collapse excess blank lines outside fences."""
+    """Remove orphan colon lines and empty bullets, and collapse excess blank lines,
+    outside fences."""
     text = _unwrap_fenced_pipe_tables(text)
     lines = text.split("\n")
     owners = line_fences(text)
@@ -176,6 +182,8 @@ def normalize_prose_artifacts(text: str) -> str:
             blank_run += 1
             if blank_run < 2:
                 out.append("")
+            continue
+        if stripped in _EMPTY_BULLETS:
             continue
         if stripped == "":
             blank_run += 1
