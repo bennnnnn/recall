@@ -35,6 +35,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("gravitational potential energy", "potential energy"),
             result=("joule",),
             inputs=(frozenset({"m", "h"}), frozenset({"m", "g", "h"})),
+            # mgh holds near a surface: no orbit, and a height under 1% of Earth's radius.
+            excludes=("orbit", "satellite"),
+            requires=("63710 - h",),
         ),
     ),
     formula(

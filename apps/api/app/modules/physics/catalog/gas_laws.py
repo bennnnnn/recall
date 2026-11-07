@@ -29,6 +29,7 @@ _AFTER = (
     "ends at",
     "ended at",
     "ending at",
+    "finally at",
     "final",
     "finally",
     "becomes",

@@ -39,6 +39,10 @@ _GRAVITY_SETTING = re.compile(
     rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{NUMBER}(?:\s*m/s\^?2)?",
     re.IGNORECASE,
 )
+# Laws about a central body alone, whose results no orbiting or standing body's mass changes.
+_CENTRAL_ONLY = frozenset(
+    {"orbital_velocity", "escape_velocity", "surface_gravity", "gravitational_potential"}
+)
 # Derived values are sums or differences of a few givens; more is a guess.
 _MAX_OPERANDS = 4
 _MAX_SAME_KIND = 6
@@ -263,16 +267,13 @@ def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | N
     ]
     # "A 500 kg satellite orbits 400 km above the Earth": what orbits is no input of a law
     # about the body it orbits (``bodies.ORBITING_BODY_WORDS``), and its mass changes no
-    # answer of one. A law that takes it (the astronaut's weight) binds it.
-    if not any(
-        key in {"m", "m_body"} for intent in intents for key in (intent.physics_params or {})
-    ):
+    # answer of one. Only such a law: the force between two bodies takes both masses.
+    if all((intent.physics_op or "") in _CENTRAL_ONLY for intent in intents):
         orbiting = orbiting_body_masses(text)
         givens = [
             given
             for given in givens
             if not any(start <= given.start < end for start, end in orbiting)
-            or not all(intent.kind == "gravitation" for intent in intents)
         ]
     for given in givens:
         if _unused_situation(given, params, text):
@@ -304,3 +305,19 @@ def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | N
         )
         return given
     return None
+
+
+# A time measured from another event: "1 s after another ball", "1 s before it starts to
+# fall". Read as the time since the start, a ball dropped from 20 m "1 s after another"
+# hit the ground at 9.81 m/s for 19.8.
+_TIME_OFFSET = re.compile(
+    # "falls for 3 s before it hits the ground" is a duration, not an offset.
+    rf"(?<!for ){NUMBER}\s*(?:s|secs?|seconds?)\s+(?:before|earlier|later\s+than"
+    r"|after\s+(?:another|the\s+(?:other|first|second|bell|whistle|signal)))\b",
+    re.IGNORECASE,
+)
+
+
+def time_from_another_event(intent: PhysicsIntent, text: str) -> bool:
+    """The solve takes a time the question measures from another event than its start."""
+    return "t" in (intent.physics_params or {}) and _TIME_OFFSET.search(text) is not None

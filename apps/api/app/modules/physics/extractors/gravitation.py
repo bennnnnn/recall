@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.bodies import named_body, orbiting_body_masses
+from app.modules.physics.bodies import central_body, orbiting_body_masses
 from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
+    ordered_values,
     positioned_values,
 )
 from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
@@ -52,8 +53,8 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    body = named_body(lower)
-    masses = _central_masses(cleaned)
+    body = central_body(lower)
+    masses = ordered_values(cleaned, r"kg|tonnes?|tons?")
     radius = find_value_with_specific_unit(
         cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
@@ -72,7 +73,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     )
 
     if "escape" in lower:
-        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        planet_mass, planet_radius = _resolve_body(body, cleaned, radius)
         if planet_mass is None or planet_radius is None:
             return None
         return PhysicsIntent(
@@ -87,7 +88,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         # Vis-viva needs the semi-major axis. Circular orbital speed would drop it.
         if re.search(r"semi-?major|vis-?viva", lower):
             return None
-        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        planet_mass, planet_radius = _resolve_body(body, cleaned, radius)
         if planet_mass is None or planet_radius is None:
             return None
         # An orbit is measured from the centre, so an altitude adds to the
@@ -108,7 +109,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     if "gravitational potential" in lower and "energy" not in lower and "surface" in lower:
-        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        planet_mass, planet_radius = _resolve_body(body, cleaned, radius)
         if planet_mass is None or planet_radius is None:
             return None
         return PhysicsIntent(
@@ -120,7 +121,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     if "surface gravity" in lower or "gravitational field" in lower or "g on a planet" in lower:
-        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        planet_mass, planet_radius = _resolve_body(body, cleaned, radius)
         if planet_mass is None or planet_radius is None:
             return None
         return PhysicsIntent(
@@ -163,17 +164,20 @@ def _central_masses(cleaned: str) -> list[tuple[float, str]]:
 
 def _resolve_body(
     body: tuple[float, float] | None,
-    masses: list[tuple[float, str]],
+    cleaned: str,
     radius: tuple[float, str] | None,
 ) -> tuple[float | None, float | None]:
     """A named body, or a stated mass and radius - never a mix of guesses.
 
     A question that *describes* a planet without naming it and supplies only
     one of the two is refused: silently finishing it with Earth's other number
-    is the same defect as the projectile default, one layer up.
+    is the same defect as the projectile default, one layer up. The planet's mass is
+    never the mass of what orbits or stands on it (``_central_masses``); the force
+    between two bodies still takes both.
     """
     if body is not None:
         return body
+    masses = _central_masses(cleaned)
     if masses and radius is not None:
         return masses[0][0], radius[0]
     return None, None

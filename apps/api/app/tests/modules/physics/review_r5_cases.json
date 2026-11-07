@@ -1,0 +1,1203 @@
+[
+ {
+  "prompt": "0.5 kg of water at 30 °C absorbs 42 kJ of energy. What temperature does it reach?",
+  "answer": [
+   50.1,
+   "degC"
+  ]
+ },
+ {
+  "prompt": "2 kg of a liquid with specific heat 2000 J/kg K at 20 °C absorbs 40 kJ. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of oil with specific heat 2000 J/kg K at 20 °C absorbs 40 kJ. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of water absorbs 336 kJ of heat and ends at 40 °C. What was its initial temperature?",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of water absorbs 336 kJ of heat and ends at 60 °C. What was its initial temperature?",
+  "answer": [
+   19.9,
+   "degC"
+  ]
+ },
+ {
+  "prompt": "2 kg of water at 0 °C absorbs 336 kJ of heat. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of water at 20 °C absorbs 1000 kJ of heat. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of water at 20 °C absorbs 336 kJ of heat. Find its final temperature.",
+  "answer": [
+   60.1,
+   "degC"
+  ]
+ },
+ {
+  "prompt": "2 kg of water at 20 °C absorbs 336 kJ. By how much does its temperature rise?",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of water at 20 °C absorbs 336 kJ. Where does it end up?",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of water at 20 °C absorbs 672 kJ of heat. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "2 kg of water at 20 °C is given 336 kJ of heat by a heater. Find the final temperature.",
+  "answer": [
+   60.1,
+   "degC"
+  ]
+ },
+ {
+  "prompt": "2 kg of water at 80 °C loses 336 kJ of heat. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "3 kg of water is heated from 10 °C by supplying 504000 J. Find the new temperature.",
+  "answer": [
+   50.1,
+   "degC"
+  ]
+ },
+ {
+  "prompt": "A 0.5 million kg train accelerates at 0.2 m/s^2. Find the net force.",
+  "answer": null
+ },
+ {
+  "prompt": "A 1 kg ball falls one in every ten metres. How long does it take to fall 20 m?",
+  "answer": null
+ },
+ {
+  "prompt": "A 1000 kg probe falls toward Mars from far away. Find the escape velocity of Mars.",
+  "answer": [
+   5027.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A 1000 kg rocket is on the surface of a planet of mass 6e24 kg and radius 6.4e6 m. What is its weight?",
+  "answer": null
+ },
+ {
+  "prompt": "A 1000 kg rocket is on the surface of a planet of mass 6e24 kg and radius 6.4e6 m. What is the acceleration due to gravity at the surface?",
+  "answer": [
+   9.78,
+   "m/s^2"
+  ]
+ },
+ {
+  "prompt": "A 1000 kg satellite orbits at a radius of 8000 km. Mass of Earth 6e24 kg. Find its orbital speed.",
+  "answer": [
+   7075.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A 1200 kg satellite orbits Earth at an altitude of 400 km. Find its orbital period.",
+  "answer": [
+   5545.0,
+   "s"
+  ]
+ },
+ {
+  "prompt": "A 1200 kg satellite orbits Mars at a radius of 5000 km. Find its orbital period.",
+  "answer": [
+   10734.0,
+   "s"
+  ]
+ },
+ {
+  "prompt": "A 1200 kg satellite orbits a planet of mass 6.4e23 kg with a period of 2 hours. Find the radius of its orbit.",
+  "answer": [
+   3830000.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A 1200 kg satellite orbits the Moon with a period of 2 hours. Find the radius of its orbit.",
+  "answer": [
+   1860000.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A 1500 kg car going at twenty m/s brakes to rest in five seconds. Find the braking force.",
+  "answer": null
+ },
+ {
+  "prompt": "A 2 kg ball is dropped. For the first two seconds how far does it fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A 2 kg ball is dropped. How far does it fall in the third second?",
+  "answer": null
+ },
+ {
+  "prompt": "A 2 kg block of metal with specific heat 900 J/kg K at 20 °C absorbs 18 kJ of heat. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "A 2 kg mass is lifted ten metres. Find the gain in potential energy.",
+  "answer": null
+ },
+ {
+  "prompt": "A 2 kg rock on the Moon. What is its weight?",
+  "answer": [
+   3.24,
+   "N"
+  ]
+ },
+ {
+  "prompt": "A 2 kg rock sits on the surface of the Moon. What is its weight?",
+  "answer": [
+   3.24,
+   "N"
+  ]
+ },
+ {
+  "prompt": "A 2 kg sample at 20 °C with c = 900 J/kg K absorbs 18 kJ. Find its final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "A 2000 kg space station orbits a star of mass 2e30 kg at radius 1e11 m. Find its orbital speed.",
+  "answer": [
+   36536.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A 3 kg mass moving at four m/s collides with a 1 kg mass at rest and they stick. Find the speed after.",
+  "answer": null
+ },
+ {
+  "prompt": "A 5 kg ball and a 10 kg ball are 2 m apart. Find the gravitational force between them.",
+  "answer": [
+   8.34e-10,
+   "N"
+  ]
+ },
+ {
+  "prompt": "A 5 kg block and the one on the left is 2 kg. Find the total weight.",
+  "answer": null
+ },
+ {
+  "prompt": "A 5 kg box rests on Mars. Find the gravitational field strength at the surface of Mars.",
+  "answer": [
+   3.73,
+   "m/s^2"
+  ]
+ },
+ {
+  "prompt": "A 500 kg probe lands on an asteroid of mass 1e20 kg and radius 200 km. Find the escape velocity from the asteroid.",
+  "answer": null
+ },
+ {
+  "prompt": "A 500 kg probe lands on an asteroid of mass 1e20 kg and radius 200 km. Find the surface gravity of the asteroid.",
+  "answer": [
+   0.167,
+   "m/s^2"
+  ]
+ },
+ {
+  "prompt": "A 500 kg satellite orbits Earth at a radius of 7000 km. Find its kinetic energy.",
+  "answer": null
+ },
+ {
+  "prompt": "A 500 kg satellite orbits Earth at a radius of 7000 km. Find its total orbital energy.",
+  "answer": null
+ },
+ {
+  "prompt": "A 500 kg satellite orbits Earth at a radius of 7000 km. Find the gravitational force on it.",
+  "answer": null
+ },
+ {
+  "prompt": "A 500 kg satellite orbits a planet at a radius of 7000 km. Find its orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A 500 kg satellite orbits a planet of mass 6e24 kg at a radius of 7000 km. Find its orbital speed.",
+  "answer": [
+   7564.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A 500 kg satellite orbits at a radius of 7000 km around a star. The star has a mass of 2e30 kg. Find its orbital speed.",
+  "answer": [
+   4370000.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A 500 kg satellite orbits the earth at a radius of 7000 km. Find its orbital speed.",
+  "answer": [
+   7546.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A 60 kg diver steps off a ten-metre board. How fast is she going at the water?",
+  "answer": null
+ },
+ {
+  "prompt": "A 6e24 kg planet has a 500 kg satellite in orbit at a radius of 7000 km. Find the satellite's orbital speed.",
+  "answer": [
+   7564.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A 6e24 kg planet is orbited by a 7e22 kg moon at a radius of 3.8e8 m. Find the moon's orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A 70 kg astronaut floats 400 km above Earth. What is the gravitational force on him?",
+  "answer": [
+   609.0,
+   "N"
+  ]
+ },
+ {
+  "prompt": "A 70 kg astronaut is 400 km above the Earth's surface. Find the gravitational force of the Earth on the astronaut. Earth's mass is 6e24 kg and radius 6.4e6 m.",
+  "answer": [
+   606.0,
+   "N"
+  ]
+ },
+ {
+  "prompt": "A 70 kg man stands on Earth. The planet has a mass of 6e24 kg and a radius of 6.4e6 m. Find the gravitational force on him.",
+  "answer": [
+   684.0,
+   "N"
+  ]
+ },
+ {
+  "prompt": "A 70 kg man stands on a planet. The planet has a mass of 6e24 kg and a radius of 6.4e6 m. Find the acceleration due to gravity.",
+  "answer": [
+   9.78,
+   "m/s^2"
+  ]
+ },
+ {
+  "prompt": "A ball falls for half a second from rest. How far does it fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball falls from rest for 2 s before it starts to slow in water. How fast is it then?",
+  "answer": [
+   19.62,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A ball is dropped from 2 hundred metres. How long does it take to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from 20 m, 1 s after another ball. How fast does it hit the ground?",
+  "answer": [
+   19.8,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A ball is dropped from 20 m, one second after another ball. How fast does it hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from 20 m, two seconds after another ball. How fast does it hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from 20 m. It is released one second after the bell rings. How fast does it hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from 20 m. One second later another ball is dropped from the same height. How fast does the first ball hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from 45 m. One second later a second ball is dropped. How fast does the first ball hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from a few metres above a 1 m table. How long to hit the table?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from a quarter of a metre. How long does it take to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from half a metre. How long does it take to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from one hundred and twenty metres. How long does it take to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from one point two metres. How fast does it hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from one-and-a-half metres onto a 0.5 m step. How long until it lands on the step?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from ten metres and falls for half a second. How far has it fallen?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from ten metres onto a 1 m table. How long does it take to hit the table?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from ten metres. How long does it take to hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from three quarters of a metre onto a 0.25 m block. How long until it hits the block?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from three quarters of a metre. How long does it take to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from twenty metres. How fast does it hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from two point five metres. How long does it take to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is dropped from zero point eight metres. How long does it take to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is held for a second and then dropped from 20 m. How long does it take to fall?",
+  "answer": [
+   2.02,
+   "s"
+  ]
+ },
+ {
+  "prompt": "A ball is thrown up at 20 m/s and caught two seconds later at the same height. What is its maximum height?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is thrown up at 20 m/s. How high does it go before it starts to fall?",
+  "answer": [
+   20.4,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A ball is thrown up at 20 m/s. What is its speed 1 s before it starts to fall?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball is thrown up at ten m/s. One second later what is its velocity?",
+  "answer": null
+ },
+ {
+  "prompt": "A ball of mass 0.2 kg hits a wall at ten m/s and rebounds at eight m/s. Find the change in momentum.",
+  "answer": null
+ },
+ {
+  "prompt": "A ball of mass 0.5 kg is dropped on Mars from 10 m. How fast does it hit the ground?",
+  "answer": [
+   8.61,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A ball rolls a metre in two seconds. Find its speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A ball rolls one metre in 2 s. Find its speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A ball rolls ten metres in two seconds and then 5 m more. What is its average speed for the first part?",
+  "answer": null
+ },
+ {
+  "prompt": "A box is pushed ten m with a force of 20 N. How much work is done?",
+  "answer": null
+ },
+ {
+  "prompt": "A box of mass ten kg sits on a slope of 30 degrees. Find the component of its weight along the slope.",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 3 s and is now travelling at 15 m/s. How far did it go?",
+  "answer": [
+   36.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s and ends at 30 m/s. What was it doing initially?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s and ends at 30 m/s. What was the initial?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s and reaches 30 m/s. Find its starting value.",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s from 10 m/s. What was it doing at the start?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s. It is now going 30 m/s. What was its initial speed?",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s. It is then moving at 30 m/s. How far did it travel?",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s. Its speed is then 30 m/s. How far did it travel?",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for 5 s; it is then moving at 30 m/s. How far did it travel?",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 for ten seconds and a half. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates at 2 m/s^2 over 75 m and ends at 20 m/s. How long does it take?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates from 10 m/s at 2 m/s^2 for 5 s. How far does it travel?",
+  "answer": [
+   75.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car accelerates from 10 m/s at 2 m/s^2 for 5 s. What is it at the end?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates from rest at 2 m/s^2 for two and a half seconds. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates from rest at 2 m/s^2. Two seconds after it starts, a truck passes at 10 m/s. How fast is the car going after 5 s?",
+  "answer": null
+ },
+ {
+  "prompt": "A car accelerates from rest at three m/s^2 for four s. How far does it travel?",
+  "answer": null
+ },
+ {
+  "prompt": "A car at 20 m/s accelerates at 1 m/s^2 for 10 s and then is going at 30 m/s. How far did it travel?",
+  "answer": null
+ },
+ {
+  "prompt": "A car at a speed of 12 m/s accelerates uniformly at 2 m/s^2 over a distance of 64 m. Find its final speed.",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A car at twenty-five m/s brakes at 4 m/s^2 for half a second. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A car at twenty-five m/s brakes for half a second at 4 m/s^2. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A car at twenty-five m/s travels for half a minute. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A car brakes from 20 m/s to rest in a few metres. What is its deceleration if it stops in 4 s?",
+  "answer": null
+ },
+ {
+  "prompt": "A car covers half the distance of 100 m at 10 m/s. How long does that take?",
+  "answer": null
+ },
+ {
+  "prompt": "A car decelerates at 2 m/s^2 from 20 m/s. How far does it go in 4 s?",
+  "answer": [
+   64.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car ends at 20 m/s after accelerating at 2 m/s^2 over 75 m. How long did it take?",
+  "answer": null
+ },
+ {
+  "prompt": "A car goes from zero to 30 m/s in ten s. Find its acceleration.",
+  "answer": null
+ },
+ {
+  "prompt": "A car goes from zero to thirty m/s in 10 s. Find its acceleration.",
+  "answer": null
+ },
+ {
+  "prompt": "A car is accelerating at 3 m/s^2 for 4 s. Its speed is now 20 m/s. How far did it go?",
+  "answer": [
+   56.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car is driven at 20 m/s for a quarter of an hour. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A car is moving at 10 m/s. It accelerates at 2 m/s^2 over 75 m. What is its final speed?",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A car is now travelling at 15 m/s. It accelerates at 2 m/s^2 for 3 s. How far does it go?",
+  "answer": [
+   54.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car moving at 20 m/s stops over 50 m. Find the deceleration.",
+  "answer": null
+ },
+ {
+  "prompt": "A car moving at twenty m/s brakes at 4 m/s^2 for half a second. What is its speed afterwards?",
+  "answer": null
+ },
+ {
+  "prompt": "A car of mass 1.2 thousand kg accelerates at 2 m/s^2. Find the net force.",
+  "answer": null
+ },
+ {
+  "prompt": "A car of mass twelve hundred kg accelerates at 2 m/s^2. Find the net force.",
+  "answer": null
+ },
+ {
+  "prompt": "A car slows down uniformly from 25 m/s over 100 m, and now it is moving at 15 m/s. Find the deceleration.",
+  "answer": [
+   -2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "prompt": "A car that ends at 20 m/s accelerates at 2 m/s^2 over 75 m. What was its initial speed?",
+  "answer": [
+   10.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A car traveling at 10 m/s accelerates at 2 m/s^2 for 5 s. How far does it go?",
+  "answer": [
+   75.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car travelling 20 m/s takes 5 s to stop. How far does it travel?",
+  "answer": [
+   50.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A car travelling at twenty five metres per second travels for half an hour. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A car travels 2.5 thousand metres in 100 s. Find its average speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A car travels at twenty-five m/s for ten seconds. How far does it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A comet orbits the Sun at a radius of 2e11 m. Find its orbital speed.",
+  "answer": [
+   25760.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A crane lifts 1 thousand kg through 10 m. How much work is done?",
+  "answer": null
+ },
+ {
+  "prompt": "A crane lifts a 500 kg load through ten metres. How much work is done?",
+  "answer": null
+ },
+ {
+  "prompt": "A cyclist slows at 0.5 m/s^2 from 6 m/s to 2 m/s. How far does she go?",
+  "answer": [
+   32.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A diver jumps off a ten-metre diving board. How fast does she hit the water?",
+  "answer": null
+ },
+ {
+  "prompt": "A force of ten N acts on a 2 kg mass. Find the acceleration.",
+  "answer": null
+ },
+ {
+  "prompt": "A gas at 100 kPa and 2 L is compressed at constant temperature to 250 kPa. Find its new volume.",
+  "answer": [
+   0.8,
+   "L"
+  ]
+ },
+ {
+  "prompt": "A gas at 2 atm is compressed at constant temperature from 6 L to 2 L. What is it at the end?",
+  "answer": null
+ },
+ {
+  "prompt": "A gas at 2 atm is compressed from 6 L to 2 L at constant temperature. What was the original pressure?",
+  "answer": null
+ },
+ {
+  "prompt": "A gas at 2 atm occupies 4 L. It is compressed at constant temperature to 2 L. Find the new pressure.",
+  "answer": [
+   4.0,
+   "atm"
+  ]
+ },
+ {
+  "prompt": "A gas at 2 atm occupies 4 L. Its pressure is raised to 4 atm at constant temperature. Find the new volume.",
+  "answer": [
+   2.0,
+   "L"
+  ]
+ },
+ {
+  "prompt": "A gas at 300 K occupies 3 L at constant pressure. It is heated until its volume is 6 L. Find the final temperature.",
+  "answer": [
+   600.0,
+   "K"
+  ]
+ },
+ {
+  "prompt": "A gas at 6 L and 300 K is cooled at constant pressure to 4 L. Find its new temperature.",
+  "answer": [
+   200.0,
+   "K"
+  ]
+ },
+ {
+  "prompt": "A gas at constant volume ends at 4 atm and 600 K. It started at 300 K. Find its initial pressure.",
+  "answer": [
+   2.0,
+   "atm"
+  ]
+ },
+ {
+  "prompt": "A gas finally at 4 atm was at 2 L and 1 atm at constant temperature. Find its final volume.",
+  "answer": [
+   0.5,
+   "L"
+  ]
+ },
+ {
+  "prompt": "A gas initially at 300 K and 2 atm is heated at constant volume to 600 K. Find the final pressure.",
+  "answer": [
+   4.0,
+   "atm"
+  ]
+ },
+ {
+  "prompt": "A gas is compressed at constant temperature from 6 L to 2 L, ending at 3 atm. Find its initial pressure.",
+  "answer": [
+   1.0,
+   "atm"
+  ]
+ },
+ {
+  "prompt": "A gas is heated at constant pressure from 300 K. It ends at 6 L, having started at 3 L. Find the final temperature.",
+  "answer": [
+   600.0,
+   "K"
+  ]
+ },
+ {
+  "prompt": "A gas occupies 4 L at 2 atm. At constant temperature its pressure becomes 8 atm. What is its final volume?",
+  "answer": [
+   1.0,
+   "L"
+  ]
+ },
+ {
+  "prompt": "A heater supplies 2.4 thousand joules to 1 kg of water at 20 °C. Find the final temperature.",
+  "answer": null
+ },
+ {
+  "prompt": "A heater transfers 336 kJ to 2 kg of water at 20 °C. Find the final temperature of the water.",
+  "answer": null
+ },
+ {
+  "prompt": "A man of mass 70 kg is on the Moon. Find the gravitational force on him from the Moon.",
+  "answer": null
+ },
+ {
+  "prompt": "A man stands on a planet of mass 3e24 kg and radius 4e6 m. Find the acceleration due to gravity.",
+  "answer": [
+   12.5,
+   "m/s^2"
+  ]
+ },
+ {
+  "prompt": "A moon of mass 7e22 kg orbits a planet of mass 6e24 kg at a radius of 3.8e8 m. Find the moon's orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A pilot of 70 kg pulls five g in a turn. What force does the seat exert on him?",
+  "answer": null
+ },
+ {
+  "prompt": "A pilot of mass 70 kg experiences an acceleration of five g. Find the net force.",
+  "answer": null
+ },
+ {
+  "prompt": "A planet has a mass of 6e24 kg. A 1000 kg satellite orbits it at a radius of 8000 km. Find the orbital speed.",
+  "answer": [
+   7075.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A planet has a radius of 6.4 million metres and a mass of 6e24 kg. Find the surface gravity.",
+  "answer": null
+ },
+ {
+  "prompt": "A planet of mass 6e24 kg has a 500 kg satellite at a radius of 7000 km. What is the satellite's orbital speed?",
+  "answer": [
+   7564.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A probe from Earth orbits Venus at a radius of 7000 km. Find its orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A probe launched from Earth orbits Mars at a radius of 4000 km. What is its orbital period?",
+  "answer": [
+   7681.0,
+   "s"
+  ]
+ },
+ {
+  "prompt": "A probe sent from Earth orbits Mars at a radius of 4000 km. Find its orbital speed.",
+  "answer": [
+   3272.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A rectangle is ten metres long and 4 m wide. Find its area.",
+  "answer": null
+ },
+ {
+  "prompt": "A rock of mass 2 kg and a stone of mass 3 kg are 0.5 m apart. Find the gravitational force between them.",
+  "answer": [
+   1.6000000000000003e-09,
+   "N"
+  ]
+ },
+ {
+  "prompt": "A rocket climbs 2 thousand metres in 20 s. Find its average speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A rocket reaches 1.2 million metres in 600 s. Find its average speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A runner at five m/s runs half a lap of a 400 m track. How long does it take?",
+  "answer": null
+ },
+ {
+  "prompt": "A runner at ten m/s runs for half a minute. How far does she go?",
+  "answer": null
+ },
+ {
+  "prompt": "A runner covers 1.5 thousand m in 300 s. Find the average speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A runner covers 1.5 thousand metres in 300 s. Find the average speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A runner reaches 8 m/s after accelerating at 2 m/s^2. How long did it take from rest?",
+  "answer": [
+   4.0,
+   "s"
+  ]
+ },
+ {
+  "prompt": "A satellite is in orbit around Mars at a radius of 4000 km. Mars is smaller than Earth. Find the orbital speed.",
+  "answer": [
+   3272.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A satellite of mass 500 kg orbits Jupiter at a radius of 1e8 m. Find its orbital speed.",
+  "answer": [
+   35594.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A satellite of mass 6e24 kg orbits at a radius of 7000 km. Find its orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A satellite orbits Earth at a radius of 7000 km. Find the gravitational potential energy of the 500 kg satellite.",
+  "answer": null
+ },
+ {
+  "prompt": "A satellite orbits Mars at a radius of 4000 km. Find its orbital speed.",
+  "answer": [
+   3272.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A satellite orbits Venus at a radius of 7000 km. Find its orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A satellite orbits a body of mass 6e24 kg at a radius of 8000 km. Find its orbital speed.",
+  "answer": [
+   7075.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A satellite orbits at a height of 3.6 thousand km. What is ... it? Find the orbital speed around Earth.",
+  "answer": [
+   7910.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A satellite orbits the Sun at a radius of 1.5e11 m. Find its orbital speed.",
+  "answer": [
+   29745.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A sealed container of gas at 27 °C and 1 atm is heated to 127 °C. Find the new pressure.",
+  "answer": [
+   1.33,
+   "atm"
+  ]
+ },
+ {
+  "prompt": "A second ball of 2 kg is dropped from 5 m. What is its speed when it hits the ground?",
+  "answer": [
+   9.9,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A spacecraft leaves Earth and goes into orbit around the Moon at a radius of 2000 km. Find its orbital speed.",
+  "answer": [
+   1565.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A spring is stretched by ten cm with a force of 5 N. Find the spring constant.",
+  "answer": null
+ },
+ {
+  "prompt": "A spring stretches zero point two metres under a 10 N load. Find the spring constant.",
+  "answer": null
+ },
+ {
+  "prompt": "A stone falls from a cliff 80 m high. How fast is it moving one second before it hits the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A stone is dropped from 45 m. One second after release, how fast is it going?",
+  "answer": null
+ },
+ {
+  "prompt": "A stone is dropped from a couple of metres. How fast does it hit the ground?",
+  "answer": null
+ },
+ {
+  "prompt": "A train at 30 m/s brakes at 1.5 m/s^2 and then has a speed of 15 m/s. How far did it go?",
+  "answer": null
+ },
+ {
+  "prompt": "A train brakes at 1.5 m/s^2 for 10 s. It is then travelling at 15 m/s. How far did it go while braking?",
+  "answer": [
+   225.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "A train slows at 1 m/s^2 over 100 m and ends at 10 m/s. How fast was it before it began to brake?",
+  "answer": [
+   17.3,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A train slows at 1 m/s^2 over 100 m and ends at 10 m/s. How fast was it before it starts to brake?",
+  "answer": [
+   17.3,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "A train travels a hundred km in 2 h. Find its average speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A train travels a hundred km in two hours. Find its average speed.",
+  "answer": null
+ },
+ {
+  "prompt": "A train travels a hundred km in two hours. How fast is it going in km/h?",
+  "answer": null
+ },
+ {
+  "prompt": "A twelve hundred kilogram car accelerates at 2 m/s^2. Find the net force.",
+  "answer": null
+ },
+ {
+  "prompt": "After 5 s of acceleration at 2 m/s^2, the car is moving at 30 m/s. How far did it travel?",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "After accelerating at 2 m/s^2 for 5 s, the car reaches 30 m/s and then brakes. How far did it travel while accelerating?",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "After accelerating for 5 s at 2 m/s^2, its speed is 30 m/s. How far did it travel?",
+  "answer": [
+   125.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "After accelerating for 5 s at 4 m/s^2 a car is going at 30 m/s. How far did it travel in those 5 s?",
+  "answer": [
+   100.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "After accelerating for 5 s the car is moving at 30 m/s. It then brakes at 5 m/s^2. How far does it travel while braking?",
+  "answer": null
+ },
+ {
+  "prompt": "After braking for 4 s at 3 m/s^2 the car is moving at 8 m/s. How far did it travel while braking?",
+  "answer": [
+   56.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "An astronaut of mass 80 kg stands on a planet of mass 3e24 kg and radius 4e6 m. Find the astronaut's weight.",
+  "answer": null
+ },
+ {
+  "prompt": "An astronaut of mass 80 kg stands on a planet of mass 3e24 kg and radius 4e6 m. Find the gravitational field strength at the surface.",
+  "answer": [
+   12.5,
+   "m/s^2"
+  ]
+ },
+ {
+  "prompt": "At constant pressure a gas at 300 K occupies 3 L. It is heated to 600 K. Find the new volume.",
+  "answer": [
+   6.0,
+   "L"
+  ]
+ },
+ {
+  "prompt": "Convert five kilograms to pounds.",
+  "answer": null
+ },
+ {
+  "prompt": "Find the escape velocity from an asteroid of mass 1e20 kg and radius 200 km.",
+  "answer": null
+ },
+ {
+  "prompt": "Five 2 kg masses hang from a rope. Find the tension at the top.",
+  "answer": null
+ },
+ {
+  "prompt": "How many grams are in two moles of water?",
+  "answer": null
+ },
+ {
+  "prompt": "Jupiter orbits the Sun at a radius of 7.8e11 m. Find its orbital speed.",
+  "answer": [
+   13044.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "Mars orbits the Sun at a radius of 2.28e11 m. Find its orbital speed.",
+  "answer": [
+   24127.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "One kilogram of water is heated from 20 °C to 80 °C. How much heat is needed?",
+  "answer": null
+ },
+ {
+  "prompt": "One mole of an ideal gas at 300 K and 1 atm occupies what volume?",
+  "answer": null
+ },
+ {
+  "prompt": "The Earth has a radius of 6.4 thousand km and mass 6e24 kg. Find the surface gravity.",
+  "answer": null
+ },
+ {
+  "prompt": "The Earth orbits the Sun at a radius of 1.5e11 m. Find its orbital speed.",
+  "answer": [
+   29745.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "The Earth orbits the Sun at a radius of 1.5e11 m. What is its orbital period?",
+  "answer": [
+   31700000.0,
+   "s"
+  ]
+ },
+ {
+  "prompt": "The Moon orbits the Earth at a radius of 3.84e8 m. Find its orbital speed.",
+  "answer": [
+   1019.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "The Moon orbits the Earth at a radius of 3.84e8 m. The Moon's mass is 7.35e22 kg. Find its orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "The Moon, of mass 7.35e22 kg, orbits the Earth at a radius of 3.84e8 m. Find its orbital speed.",
+  "answer": null
+ },
+ {
+  "prompt": "The car is now at 20 m/s after accelerating at 2 m/s^2 for 5 s. How far did it travel?",
+  "answer": [
+   75.0,
+   "m"
+  ]
+ },
+ {
+  "prompt": "The first ball has mass 3 kg and the second 5 kg; they are 1 m apart. Find the gravitational force between them.",
+  "answer": [
+   1e-09,
+   "N"
+  ]
+ },
+ {
+  "prompt": "The mass of the satellite is 500 kg and it orbits a planet of mass 6e24 kg at a radius of 7000 km. Find the orbital speed.",
+  "answer": [
+   7564.0,
+   "m/s"
+  ]
+ },
+ {
+  "prompt": "The pressure of a gas at constant temperature is 2 atm when its volume is 4 L. Find its volume when the pressure is 1 atm.",
+  "answer": [
+   8.0,
+   "L"
+  ]
+ },
+ {
+  "prompt": "Two blocks: the one on the left is 5 kg and the one on the right is 3 kg. A 16 N force pushes both. Find the acceleration.",
+  "answer": null
+ },
+ {
+  "prompt": "Two moles of gas occupy ten litres at 300 K. Find the pressure.",
+  "answer": null
+ },
+ {
+  "prompt": "Two stars of mass 2e30 kg each are 1e11 m apart. Find the gravitational force between them.",
+  "answer": [
+   2.67e+28,
+   "N"
+  ]
+ },
+ {
+  "prompt": "Una pelota cae desde diez metros. ¿Cuánto tarda en caer?",
+  "answer": null
+ },
+ {
+  "prompt": "What is ten metres in feet?",
+  "answer": null
+ },
+ {
+  "prompt": "What is the mass of three moles of NaCl?",
+  "answer": null
+ }
+]

@@ -1,21 +1,20 @@
-"""A quantity written in words is read as its number, or the question declines.
+"""A quantity written in words is never read: the question declines (``spelled.py``).
 
 "A ball is dropped from ten metres onto a 1 m table" was solved with the 1 m: the
-reader never saw "ten metres". Answers worked by hand, g = 9.81 m/s².
+reader never saw "ten metres". Reading the words went wrong too ("1.5 thousand metres"
+was 1000 m, "two point five metres" 5 m, "one second later" a time of the fall).
 """
 
 from __future__ import annotations
-
-import math
 
 import pytest
 
 from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
-from app.tests.modules.physics.support import answer_number
+from app.modules.physics.numbers import quantity_unit_at
+from app.modules.physics.spelled import has_unread_quantity
 
 _SETTINGS = Settings(math_tools_enabled=True)
-_G = 9.81
 
 
 def _answer(text: str) -> str | None:
@@ -27,58 +26,62 @@ def _answer(text: str) -> str | None:
 
 
 @pytest.mark.parametrize(
-    ("text", "value", "unit"),
+    ("text", "unread"),
     [
-        (
-            "A ball is dropped from ten metres. How long does it take to hit the ground?",
-            math.sqrt(2 * 10 / _G),
-            "s",
-        ),
-        (
-            "A ball is dropped from a height of ten meters. How fast does it hit the ground?",
-            math.sqrt(2 * _G * 10),
-            "m/s",
-        ),
-        (
-            "A ball is dropped from a height of twenty-five metres. How long does it take to hit the ground?",
-            math.sqrt(2 * 25 / _G),
-            "s",
-        ),
-        ("A ball is thrown up at fifteen m/s. How high does it go?", 15**2 / (2 * _G), "m"),
-        (
-            "A car accelerates from rest at two m/s^2 for ten seconds. How far does it travel?",
-            100.0,
-            "m",
-        ),
-        ("A car travels a hundred metres in 5 s. What is its average speed?", 20.0, "m/s"),
-        (
-            "A train travels three hundred kilometres in two hours. What is its average speed?",
-            150.0,
-            "km/h",
-        ),
+        ("ten metres", True),
+        ("twenty-five m/s", True),
+        ("1.5 thousand metres", True),
+        ("2 hundred metres", True),
+        ("1.2 million", True),
+        ("two point five metres", True),
+        ("one-and-a-half metres", True),
+        ("three quarters of a metre", True),
+        ("half a lap", True),
+        ("half a second", True),
+        ("half the distance of 100 m", True),
+        ("half the time and 60 km/h for the other half", False),
+        ("one second later", True),
+        ("a ten-metre board", True),
+        ("twelve hundred kg", True),
+        ("a few metres", True),
+        ("One mole of an ideal gas", True),
+        # Not quantities: an ordinal, a pronoun, a count, a question word.
+        ("a second ball", False),
+        ("the one on the left", False),
+        ("one of the 2 kg blocks", False),
+        ("completing one turn every 2 s", False),
+        ("from zero to 27 m/s", False),
+        ("how many kWh", False),
     ],
 )
-def test_a_number_in_words_is_read(text: str, value: float, unit: str) -> None:
-    answer = _answer(text)
-    assert answer is not None, f"no verified answer for {text!r}"
-    assert math.isclose(answer_number(answer), value, rel_tol=0.01), (text, answer, value)
-    assert unit in answer, (text, answer)
+def test_a_spelled_quantity_is_unread(text: str, unread: bool) -> None:
+    assert has_unread_quantity(text, quantity_unit_at) is unread
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        # Read, the 10 m fall is two heights: the table's 1 m alone is never the fall.
         "A ball is dropped from ten metres onto a 1 m table. How long does it take to reach the table?",
-        # An amount that says no one number declines the whole question.
-        "A ball is dropped from a few metres onto a 1 m table. How long does it take to reach the table?",
-        "A ball is dropped from several metres. How long does it take to hit the ground?",
+        "A ball is dropped from ten metres. How long does it take to hit the ground?",
+        "A car travels at twenty-five m/s for ten seconds. How far does it go?",
+        "A car travels 2.5 thousand metres in 100 s. Find its average speed.",
+        "A ball is dropped from 2 hundred metres. How long does it take to fall?",
+        "A ball is dropped from two point five metres. How long does it take to fall?",
+        "A runner at five m/s runs half a lap of a 400 m track. How long does it take?",
+        "A car covers half the distance of 100 m at 10 m/s. How long does that take?",
+        "A ball is dropped from 45 m. One second later a second ball is dropped. "
+        "How fast does the first ball hit the ground?",
+        "A heater supplies 2.4 thousand joules to 1 kg of water at 20 °C. Find the final temperature.",
+        "A ball is dropped from a few metres above a 1 m table. How long to hit the table?",
     ],
 )
-def test_a_number_in_words_is_never_skipped(text: str) -> None:
-    answer = _answer(text)
-    assert answer is None or not math.isclose(
-        answer_number(answer), math.sqrt(2 * 1 / _G), rel_tol=0.01
-    ), (text, answer)
-    if "few" in text or "several" in text:
-        assert answer is None, (text, answer)
+def test_a_question_with_a_spelled_quantity_declines(text: str) -> None:
+    assert _answer(text) is None, (text, _answer(text))
+
+
+def test_a_count_in_words_is_still_read() -> None:
+    answer = _answer(
+        "A stone on a 1.5 m string is whirled in a horizontal circle, completing one turn "
+        "every 2 s. what is its speed?"
+    )
+    assert answer is not None and answer.startswith("4.71")

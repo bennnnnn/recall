@@ -42,10 +42,12 @@ flowchart LR
 2. **Read numbers** (`services/number_text.py`). `2 × 10^-6`, `2x10^-6`, `2·10⁻⁶` and
    `2 \times 10^{-6}` are all one number, folded to `2e-6` before anything scans the text.
    Without that, "2 × 10^-6 C" was a charge of −6 C. `numbers.py` then expands every literal
-   to a plain decimal, or refuses a malformed one. A number written in words beside its
-   unit is read as digits ("dropped from ten metres", "a hundred metres", "twenty-five
-   m/s", `number_text.spelled_quantities`); one that cannot be read ("a few metres") refuses
-   the whole question. Skipped, "dropped from ten metres onto a 1 m table" fell 1 m.
+   to a plain decimal, or refuses a malformed one. A number written in words, a scale word
+   or a fraction word beside a unit ("ten metres", "1.5 thousand metres", "two point five
+   metres", "half a second", "one second later") is never read: the question declines
+   (`spelled.py`). Skipped, "dropped from ten metres onto a 1 m table" fell 1 m; read, the
+   words went wrong in more ways than right. "A second ball" and "the one on the left" are
+   no quantities.
 3. **Extract** (`extract.py`, `registry.py`, `extractors/`). An ordered chain of extractors
    (`registry.PHYSICS_EXTRACTORS`) runs; the first to match returns a `PhysicsIntent`. The
    order is load-bearing and commented in place. Each extractor module reads one topic; a
@@ -97,7 +99,12 @@ flowchart LR
      mass `M` is named by its body ("a planet of mass 6e24 kg") or is the named body's own;
      "a 500 kg satellite", "a 70 kg astronaut" fill the orbiting body's `m_body`, which
      no orbit or surface-gravity result depends on (`bodies.ORBITING_BODY_WORDS`). Read as
-     M, a 500 kg satellite round Earth orbited at 6.9e-8 m/s for 7.55 km/s;
+     M, a 500 kg satellite round Earth orbited at 6.9e-8 m/s for 7.55 km/s. The force
+     between two bodies still takes both masses. The body is the one after "orbits",
+     "around", "orbit of" or "the surface of" when more than one is named
+     (`bodies.central_body`); one that orbits ("The Earth orbits the Sun") never is, and a
+     body the table has no numbers for (Venus) declines. mgh declines for an orbit or a
+     height past 1% of Earth's radius;
    - **A question never asks for a value it already states** (`services/law_binding/roles.py`,
      `asked_end_check.py`). An ask that names an end of the change ("its starting speed",
      "the original volume", "how fast was it going at first") is answered only by a law

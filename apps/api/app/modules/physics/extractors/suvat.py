@@ -38,6 +38,8 @@ _SUVAT_CUE_RES: tuple[re.Pattern[str], ...] = (
         r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\bto\s+(?:rest|a\s+(?:stop|halt))\b", re.IGNORECASE
     ),
     re.compile(r"\b(?:constant|uniform)\s+(?:ac|de)celeration\b", re.IGNORECASE),
+    # "travelling 20 m/s takes 5 s to stop": the stop is the end of a deceleration.
+    re.compile(r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\bto\s+stop\b", re.IGNORECASE),
     re.compile(r"\bslows?\b.{0,80}?\d\s*m/s\^?2", re.IGNORECASE),
     re.compile(
         r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\d\s*(?:m/s|km/h|mph)\b"
@@ -76,8 +78,11 @@ _FINAL_SPEED_RE = re.compile(
     r"\b(?:reach(?:es|ed|ing)?|final\s+(?:speed|velocity)(?:\s+(?:of|is))?|up\s+to|until\s+it\s+reaches"
     r"|(?:ends?|ending|finish(?:es)?|finishing)\s+(?:up\s+)?at|hits)"
     rf"\s+(?:a\s+(?:speed|velocity)\s+of\s+)?{_SPEED}"
-    rf"|{_CHANGE_VERB}{_IN_SENTENCE}\b(?:(?:is|was)\s+(?:then|now)\s+(?:going|moving|travell?ing"
-    rf"|doing)(?:\s+at)?|(?:then|now)\s+(?:has|had)\s+a\s+(?:speed|velocity)\s+of)\s+{_SPEED}"
+    # The change may be said in the sentence before: "accelerates ... for 5 s. It is then
+    # moving at 30 m/s", "Its speed is now 20 m/s".
+    rf"|{_CHANGE_VERB}[^?!]*?\b(?:(?:is|was)\s+(?:then|now)\s+(?:going|moving|travell?ing"
+    rf"|doing)(?:\s+at)?|(?:then|now)\s+(?:has|had)\s+a\s+(?:speed|velocity)\s+of"
+    rf"|(?:speed|velocity)\s+(?:is|was)\s+(?:then|now))\s+{_SPEED}"
     rf"|{_SPEED}\s+after\s+{_CHANGE}"
     rf"|(?:^|[.?!]\s+)after\s+{_CHANGE}(?:[^.?!]|(?<=\d)\.(?=\d))*?{_STATE}{_SPEED}"
     r"(?![^.?!]*\b(?:(?:ac|de)celerat|brak|slow))",
@@ -90,7 +95,14 @@ _AT_REST_END_RE = re.compile(
     re.IGNORECASE,
 )
 
-_DECELERATION_RE = re.compile(r"\bdecelerat\w*\b|\bslow(?:s|ing|ed)?\s+down\b", re.IGNORECASE)
+# Speeding up and then braking: two intervals with their own accelerations.
+_TWO_CHANGES = re.compile(
+    r"(?<!de)\baccelerat\w*\b[^?]*?\b(?:then\s+)?(?:brak(?:es|ing)\s+at|decelerat\w*\s+at)\b"
+)
+
+_DECELERATION_RE = re.compile(
+    r"\bdecelerat\w*\b|\bslow(?:s|ing|ed)?\s+(?:down\b|at\b)", re.IGNORECASE
+)
 
 _SUVAT_TIME_UNITS = r"seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
 
@@ -194,12 +206,20 @@ _SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+def _not_one_interval(lower: str) -> bool:
+    """Two moving bodies' speeds are not one body's u and v, nor two intervals one interval
+    ("accelerates for 5 s ... then brakes at 5 m/s²")."""
+    return (
+        any(word_pattern(phrase).search(lower) for phrase in TWO_BODIES)
+        or _TWO_CHANGES.search(lower) is not None
+    )
+
+
 def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
         return None
-    # Two moving bodies' speeds are not one body's u and v.
-    if any(word_pattern(phrase).search(lower) for phrase in TWO_BODIES):
+    if _not_one_interval(lower):
         return None
     if has_equation(strip_param_assignments(cleaned)):
         return None

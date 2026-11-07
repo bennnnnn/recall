@@ -12,7 +12,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from app.modules.physics.givens import unit_at
-from app.services.number_text import LITERAL_START, NUMERIC_LITERAL, spelled_quantities
+from app.services.number_text import LITERAL_START, NUMERIC_LITERAL
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST
 
 _GROUPED_CANDIDATE = re.compile(r"(?<![\w.])[+-]?\d(?:[\d,]*\d)?(?:\.\d+)?(?:[eE][+-]?\d+)?")
@@ -147,8 +147,7 @@ def normalize_physics_units(text: str) -> str:
         for pattern, replacement in _MACHINE_ABBREVIATIONS:
             normalized = pattern.sub(replacement, normalized)
         normalized = _LENGTH_BEFORE_PLANK.sub(r"\1 long \2", normalized)
-    # "dropped from ten metres": a number in words beside its unit is read as digits.
-    return spelled_quantities(normalized, quantity_unit_at).text
+    return normalized
 
 
 # "only 1/16 of a sample": a fraction of something, whose denominator has only
@@ -179,9 +178,6 @@ def normalize_physics_numbers(text: str) -> str | None:
     if len(text) > _MAX_INPUT_CHARS:
         return None
     text = normalize_physics_units(text).replace("\u2212", "-")
-    if spelled_quantities(text, quantity_unit_at).unread:
-        # "a few metres" left unread while a 1 m table is read answers another question.
-        return None
     text = _FRACTION_OF.sub(_exact_fraction, text)
     text = _GROUPED_CANDIDATE.sub(
         lambda match: (

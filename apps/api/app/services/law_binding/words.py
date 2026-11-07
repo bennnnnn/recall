@@ -44,6 +44,19 @@ def last_said(window: str, words: tuple[str, ...]) -> int:
     return max(ends, default=-1)
 
 
+def longest_said(window: str, words: tuple[str, ...], end: int) -> int:
+    """The length of the longest of these words that ends at ``end`` in the window."""
+    return max(
+        (
+            match.end() - match.start()
+            for word in words
+            for match in word_pattern(word).finditer(window)
+            if match.end() == end
+        ),
+        default=0,
+    )
+
+
 def first_said(window: str, words: tuple[str, ...]) -> int:
     """Where the first of these words starts in the window; -1 when none is there."""
     starts = [match.start() for word in words for match in word_pattern(word).finditer(window)]
@@ -167,6 +180,12 @@ def _pick(
         return None
     if latest >= 0:
         named = [option for position, option in said if position == latest]
+        if len(named) > 1:
+            # Two words end together: the longer says more. "finally at 4 atm" is the state
+            # after, though "at" alone names the state before.
+            spans = [(longest_said(before, option.words, latest), option) for option in named]
+            longest = max(length for length, _ in spans)
+            named = [option for length, option in spans if length == longest]
         return named[0] if len(named) == 1 else None
     if len(options) > 1:
         later = [(first_said(after, option.words), option) for option in options]

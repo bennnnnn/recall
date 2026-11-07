@@ -126,3 +126,94 @@ def test_the_central_mass_is_the_bodys_own(text: str, value: float, unit: str) -
     assert answer is not None, f"no verified answer for {text!r}"
     assert math.isclose(answer_number(answer), value, rel_tol=0.01), (text, answer, value)
     assert unit in answer, (text, answer)
+
+
+_SUN = 1.989e30
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        # With two bodies named, the one orbited is the central one; the orbiter never is.
+        (
+            "The Earth orbits the Sun at a radius of 1.5e11 m. Find its orbital speed.",
+            _orbit_speed(_SUN, 1.5e11),
+            "m/s",
+        ),
+        (
+            "Mars orbits the Sun at a radius of 2.28e11 m. Find its orbital speed.",
+            _orbit_speed(_SUN, 2.28e11),
+            "m/s",
+        ),
+        (
+            "The Moon orbits the Earth at a radius of 3.84e8 m. Find its orbital speed.",
+            _orbit_speed(_EARTH[0], 3.84e8),
+            "m/s",
+        ),
+        # Kepler on main: 579 years.
+        (
+            "The Earth orbits the Sun at a radius of 1.5e11 m. What is its orbital period?",
+            2 * math.pi * 1.5e11 / _orbit_speed(_SUN, 1.5e11),
+            "s",
+        ),
+        (
+            "A probe sent from Earth orbits Mars at a radius of 4000 km. Find its orbital speed.",
+            _orbit_speed(_MARS[0], 4.0e6),
+            "m/s",
+        ),
+        (
+            "A spacecraft leaves Earth and goes into orbit around the Moon at a radius of 2000 km. "
+            "Find its orbital speed.",
+            _orbit_speed(_MOON, 2.0e6),
+            "m/s",
+        ),
+        (
+            "A satellite orbits a body of mass 6e24 kg at a radius of 8000 km. Find its orbital speed.",
+            _orbit_speed(6e24, 8.0e6),
+            "m/s",
+        ),
+        # The force between two bodies takes both masses, whatever they are called.
+        (
+            "A 5 kg ball and a 10 kg ball are 2 m apart. Find the gravitational force between them.",
+            _G * 50 / 4,
+            "N",
+        ),
+        (
+            "A rock of mass 2 kg and a stone of mass 3 kg are 0.5 m apart. Find the gravitational "
+            "force between them.",
+            _G * 6 / 0.25,
+            "N",
+        ),
+        (
+            "A 70 kg man stands on Earth. The planet has a mass of 6e24 kg and a radius of 6.4e6 m. "
+            "Find the gravitational force on him.",
+            _G * 70 * 6e24 / 6.4e6**2,
+            "N",
+        ),
+    ],
+)
+def test_the_orbited_body_gives_the_mass(text: str, value: float, unit: str) -> None:
+    answer = _answer(text)
+    assert answer is not None, f"no verified answer for {text!r}"
+    assert math.isclose(answer_number(answer), value, rel_tol=0.01), (text, answer, value)
+    assert unit in answer, (text, answer)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Venus has no numbers in the table: Earth's mass answered 7546 m/s.
+        "A probe from Earth orbits Venus at a radius of 7000 km. Find its orbital speed.",
+        # The orbiting Moon's own mass is not the Earth's (113 m/s for 1019).
+        "The Moon orbits the Earth at a radius of 3.84e8 m. The Moon's mass is 7.35e22 kg. "
+        "Find its orbital speed.",
+        "The Moon, of mass 7.35e22 kg, orbits the Earth at a radius of 3.84e8 m. Find its orbital speed.",
+        # mgh is no orbit's energy (3.43e10 J with h = 7000 km).
+        "A satellite orbits Earth at a radius of 7000 km. Find the gravitational potential energy "
+        "of the 500 kg satellite.",
+        # No mass for the planet at all.
+        "A 500 kg satellite orbits a planet at a radius of 7000 km. Find its orbital speed.",
+    ],
+)
+def test_no_central_mass_is_guessed(text: str) -> None:
+    assert _answer(text) is None, (text, _answer(text))

@@ -113,78 +113,50 @@
   "id": "wd-01",
   "area": "spelled",
   "prompt": "A ball is dropped from ten metres. How long does it take to hit the ground?",
-  "expect": "answer",
-  "answer": [
-   1.42784,
-   "s"
-  ],
-  "note": "t = sqrt(2h/g)"
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
  },
  {
   "id": "wd-02",
   "area": "spelled",
   "prompt": "A ball is dropped from a height of ten meters. How fast does it hit the ground?",
-  "expect": "answer",
-  "answer": [
-   14.0071,
-   "m/s"
-  ],
-  "note": "v = sqrt(2gh)"
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
  },
  {
   "id": "wd-03",
   "area": "spelled",
   "prompt": "A ball is dropped from a height of twenty-five metres. How long does it take to hit the ground?",
-  "expect": "answer",
-  "answer": [
-   2.25762,
-   "s"
-  ],
-  "note": "t = sqrt(2h/g)"
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
  },
  {
   "id": "wd-04",
   "area": "spelled",
   "prompt": "A ball is thrown up at fifteen m/s. How high does it go?",
-  "expect": "answer",
-  "answer": [
-   11.4679,
-   "m"
-  ],
-  "note": "h = u^2/2g"
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
  },
  {
   "id": "wd-05",
   "area": "spelled",
   "prompt": "A car accelerates from rest at two m/s^2 for ten seconds. How far does it travel?",
-  "expect": "answer",
-  "answer": [
-   100.0,
-   "m"
-  ],
-  "note": "s = at^2/2"
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
  },
  {
   "id": "wd-06",
   "area": "spelled",
   "prompt": "A car travels a hundred metres in 5 s. What is its average speed?",
-  "expect": "answer",
-  "answer": [
-   20.0,
-   "m/s"
-  ],
-  "note": "100/5"
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
  },
  {
   "id": "wd-07",
   "area": "spelled",
   "prompt": "A train travels three hundred kilometres in two hours. What is its average speed?",
-  "expect": "answer",
-  "answer": [
-   150.0,
-   "km/h"
-  ],
-  "note": "300/2"
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
  },
  {
   "id": "wd-08",
