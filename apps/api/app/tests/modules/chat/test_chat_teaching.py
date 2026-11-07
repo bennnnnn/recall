@@ -465,6 +465,9 @@ async def _system_prompt(recent, query, memory=""):
         ("- Learning Python: reached Lesson 3, Dictionaries. Covered: Variables; Lists", False),
         # A course in another subject leaves this one's first lesson as it is.
         ("- Learning Spanish: reached Lesson 2, Greetings. Covered: Sounds", True),
+        # Review of #2318: a shared first word is no course ("the", "C" in "vitamin C").
+        ("- Learning the Go language: reached Lesson 2, Types. Covered: Values", True),
+        ("- Learning Python lists: reached Lesson 2, Slicing. Covered: Indexing", False),
     ],
 )
 async def test_a_course_in_progress_is_not_asked_for_a_new_lessons_code(memory, demanded):

@@ -33,11 +33,13 @@ PROGRESS_LINE = re.compile(r"\bLearning (?P<subject>[^\n:]{1,120}): reached Less
 def resumes_course(query: str, memory: str) -> bool:
     """Memory says they are already learning what this asks for ("Learning Python lists:
     reached Lesson 3" and "teach me python"): the reply asks where to pick up, so no new
-    lesson's code and quiz are demanded."""
-    asked = query.lower()
+    lesson's code and quiz are demanded. The asked subject is the saved one or its start;
+    a narrower ask ("teach me python dictionaries") gets its lesson."""
+    asked = (teach_subject(query) or "").lower().split()
+    if not asked:
+        return False
     for line in PROGRESS_LINE.finditer(memory or ""):
-        words = line.group("subject").lower().split()
-        if words and re.search(rf"(?<!\w){re.escape(words[0])}(?!\w)", asked):
+        if line.group("subject").lower().split()[: len(asked)] == asked:
             return True
     return False
 
