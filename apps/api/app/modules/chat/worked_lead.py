@@ -45,7 +45,8 @@ _GIVEN = re.compile(
 # 1 : 5.**") is a statement, and so is a bold value ("**x = 3**", "**25 m**": ``_a_heading``).
 _HEADING = re.compile(r"^\s*(?:#{1,6}\s|\*\*[^*]*[^*.!?\s]\*\*\s*$)")
 _VALUE_SIGN = re.compile(r"[=≈]")
-_NAMING_WORD = re.compile(r"[^\W\d_]{3,}")
+# A number with its unit ("25 m", "9.8m/s"): a value, where "Q7" or "Ex 4" names a part.
+_NUMBER_WITH_UNIT = re.compile(r"\d\s*[^\W\d_]")
 # Not a stated result: a photo, an image, a list, a table, display maths, a part's label,
 # a note or a warning.
 _KEEP = re.compile(
@@ -137,11 +138,12 @@ def _says_whole(text: str, statement: str) -> bool:
 
 
 def _a_heading(line: str) -> bool:
-    """A heading names something in words; one that says a value is a statement."""
+    """A heading names something ("## Q7", "**Stage 1**"); one that says a value ("**x = 3**",
+    "**25 m**") is a statement."""
     return (
         bool(_HEADING.match(line))
         and not _VALUE_SIGN.search(line)
-        and bool(_NAMING_WORD.search(line))
+        and not _NUMBER_WITH_UNIT.search(line)
     )
 
 
