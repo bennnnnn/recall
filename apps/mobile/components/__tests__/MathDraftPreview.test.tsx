@@ -261,6 +261,16 @@ describe("MathDraftPreview: one piece per draft node", () => {
     expect(set.getByText("}")).toBeOnTheScreen();
   });
 
+  it("draws floor and ceiling as a box, and an empty one holds the caret", async () => {
+    const floor = await render(<MathDraftPreview input={String.raw`$\lfloor x\rfloor$`} showCaret={false} />);
+    expect(floor.getByTestId("math-group")).toBeOnTheScreen();
+    expect(floor.getByText("⌊")).toBeOnTheScreen();
+    expect(floor.getByText("⌋")).toBeOnTheScreen();
+    const ceil = await render(<MathDraftPreview input={String.raw`$\lceil \rceil$`} caret={8} />);
+    expect(ceil.getByText("⌈")).toBeOnTheScreen();
+    expect(ceil.getByTestId("math-slot-group-caret")).toBeOnTheScreen();
+  });
+
   it("nests a structured slot's pieces inside it", async () => {
     const { getByTestId } = await render(
       <MathDraftPreview input={String.raw`$\sqrt{\frac{1}{x^{2}}}$`} showCaret={false} />,

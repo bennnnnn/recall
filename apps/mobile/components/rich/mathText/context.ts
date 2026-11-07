@@ -11,6 +11,8 @@ export type RenderCtx = {
   /** Device font scale only. Layout pixels are already at `em`. */
   fontScale: number;
   em: number;
+  /** The row is a View, so its last run is a box of its own and leans (`RunPad.lean`). */
+  leanLast?: boolean;
 };
 
 export function scaled(px: number, fontScale: number): number {

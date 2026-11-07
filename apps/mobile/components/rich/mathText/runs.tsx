@@ -20,8 +20,17 @@ import {
 /** The size a run draws at: layout pixels per em, and the device font scale. */
 type RunMetrics = { em: number; fontScale: number };
 
-/** Operator spacing for a run; `space: false` keeps a script's operators tight. */
-export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean };
+/**
+ * Operator spacing for a run; `space: false` keeps a script's operators tight. `lean`:
+ * the run is the last box of its row, so an italic last letter needs room to lean into.
+ */
+export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean; lean?: boolean };
+
+/**
+ * TeX's italic correction. An italic letter leans past its advance, and a box that ends
+ * on one cuts the lean off: `P` drew as `F`.
+ */
+export const ITALIC_LEAN_EM = 0.15;
 
 /** A run drawn without padding measures its glyphs at the stylesheet's 16px. */
 const UNPADDED_METRICS: RunMetrics = { em: 16, fontScale: 1 };
@@ -40,6 +49,12 @@ const MATH_LETTER_RUN = /[A-Za-z]+|[Ͱ-Ͽ]+/g;
 
 function isUprightWord(value: string): boolean {
   return UPRIGHT_MATH_WORDS.has(value.toLowerCase());
+}
+
+/** The run ends on an italic letter: a variable, not a digit, a symbol or `sin`. */
+export function endsOnItalicLetter(value: string): boolean {
+  const word = value.match(/(?:[A-Za-z]+|[Ͱ-Ͽ]+)$/)?.[0];
+  return word !== undefined && !isUprightWord(word);
 }
 
 export function renderNonVariableRun(
@@ -157,10 +172,12 @@ export function renderMathRun(
     }
     // Padding, not margin: nested Text on iOS ignores margin, so the
     // measured operator space would never appear.
+    const leanEm =
+      pad?.lean && pieceIndex === pieces.length - 1 && endsOnItalicLetter(piece.text) ? ITALIC_LEAN_EM : 0;
     const margin = pad
       ? {
           paddingLeft: piece.leftEm * pad.em * pad.fontScale,
-          paddingRight: piece.rightEm * pad.em * pad.fontScale,
+          paddingRight: (piece.rightEm + leanEm) * pad.em * pad.fontScale,
         }
       : null;
     return (

@@ -5,13 +5,8 @@ import { DraftRadical } from "@/features/chat/components/DraftRadical";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
-import {
-  caretAfterExpression,
-  caretBeforeExpression,
-  findDraftNodes,
-  shiftDraftNodes,
-  type DraftNode,
-} from "@/lib/math/draftSlots";
+import { findDraftNodes, shiftDraftNodes, type DraftNode } from "@/lib/math/draftNodes";
+import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { DRAFT_TEXT_SIZE, draftShowsMathPreview, scriptSize, spokenDraft, splitBeforeOperator, textRuns } from "@/lib/math/draftText";
 import { healDroppedCommandSlash } from "@/lib/math/healMathSource";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
@@ -136,6 +131,7 @@ export const MathDraftPreview = memo(function MathDraftPreview({
           before={before}
           after={after}
           onMoveCaret={onMoveCaret}
+          top
         />
       ))}
       {sent ? null : (
@@ -159,6 +155,7 @@ function DraftAtom({
   before,
   after,
   onMoveCaret,
+  top = false,
 }: {
   piece: { node: DraftNode; scripts: ScriptNode[] };
   input: string;
@@ -166,6 +163,8 @@ function DraftAtom({
   before: number;
   after: number;
   onMoveCaret?: (pos: number) => void;
+  /** A piece of the draft's own row, not inside a box: the only place a letter leans. */
+  top?: boolean;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -176,8 +175,8 @@ function DraftAtom({
   const kit = { input, caret, before, after, onMoveCaret };
   // An operator's limits sit on the operator alone: the text before it stays text.
   const split = (integral || limits) && piece.node.kind === "text" ? splitBeforeOperator(input, piece.node) : null;
-  const lead = split?.lead ? <DraftPiece node={split.lead} {...kit} /> : null;
-  const base = <DraftPiece node={split?.operator ?? piece.node} {...kit} />;
+  const lead = split?.lead ? <DraftPiece node={split.lead} {...kit} top={top} /> : null;
+  const base = <DraftPiece node={split?.operator ?? piece.node} {...kit} top={top} beforeScript={piece.scripts.length > 0} />;
   if (integral) {
     return (
       <>
@@ -187,24 +186,8 @@ function DraftAtom({
             ∫
           </Text>
           <View style={s.integralLimits} testID="math-integral-limits">
-            <ScriptStack
-              scripts={sup}
-              input={input}
-              caret={caret}
-              before={before}
-              after={after}
-              onMoveCaret={onMoveCaret}
-              place="over"
-            />
-            <ScriptStack
-              scripts={sub}
-              input={input}
-              caret={caret}
-              before={before}
-              after={after}
-              onMoveCaret={onMoveCaret}
-              place="over"
-            />
+            <ScriptStack scripts={sup} {...kit} place="over" />
+            <ScriptStack scripts={sub} {...kit} place="over" />
           </View>
         </View>
       </>
@@ -215,14 +198,7 @@ function DraftAtom({
       <View style={s.atom}>
         {base}
         {piece.scripts.length > 0 ? (
-          <ScriptStack
-            scripts={piece.scripts}
-            input={input}
-            caret={caret}
-            before={before}
-            after={after}
-            onMoveCaret={onMoveCaret}
-          />
+          <ScriptStack scripts={piece.scripts} {...kit} />
         ) : null}
       </View>
     );
@@ -231,25 +207,9 @@ function DraftAtom({
     <>
       {lead}
       <View style={s.limitAtom}>
-        <ScriptStack
-          scripts={sup}
-          input={input}
-          caret={caret}
-          before={before}
-          after={after}
-          onMoveCaret={onMoveCaret}
-          place="over"
-        />
+        <ScriptStack scripts={sup} {...kit} place="over" />
         {base}
-        <ScriptStack
-          scripts={sub}
-          input={input}
-          caret={caret}
-          before={before}
-          after={after}
-          onMoveCaret={onMoveCaret}
-          place="over"
-        />
+        <ScriptStack scripts={sub} {...kit} place="over" />
       </View>
     </>
   );
@@ -305,6 +265,10 @@ type PieceProps = {
   before: number;
   after: number;
   onMoveCaret?: (pos: number) => void;
+  /** In the draft's own row, where a last italic letter needs room to lean (`P` drew as `F`). */
+  top?: boolean;
+  /** A script follows the piece: its last letter sits against the script, with no lean. */
+  beforeScript?: boolean;
 };
 
 /** What a piece draws with: the draft and caret, the styles, and its slots' shared props. */
@@ -322,7 +286,7 @@ type PieceRenderer<K extends DraftNode["kind"]> = (
 ) => ReactElement | null;
 
 /** A run of plain draft text; a tap near its front puts the caret there, else at its end. */
-const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, s, theme, size }) => {
+const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, top, beforeScript, s, theme, size }) => {
   const runs = textRuns(input, node.start, node.end);
   if (runs.length === 0) return null;
   let start = node.start;
@@ -345,7 +309,7 @@ const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, o
         ) : null}
         {runs.map((run, i) =>
           run.math ? (
-            <MathText key={i} latex={run.text} textColor={theme.text} fontSize={size} />
+            <MathText key={i} latex={run.text} textColor={theme.text} fontSize={size} lean={top && (!beforeScript || i < runs.length - 1)} />
           ) : (
             <Text key={i} style={[s.prose, { fontSize: size }]}>
               {run.text}
@@ -423,17 +387,14 @@ const vecPiece: PieceRenderer<"vec"> = (node, { s, slot }) => (
   </View>
 );
 
-/** `\sin(x)`, `[a]`, `\{1,2\}`: the opening text as typed, the slot, the close. */
-const groupPiece: PieceRenderer<"group"> = (node, { input, s, slot }) => {
-  const prefix = `${input.slice(node.start, node.body.open).replace(/\\/g, "")}${node.open}`;
-  return (
-    <View style={s.inline} testID="math-group">
-      <Text style={s.prose}>{prefix}</Text>
-      <EditSlot {...slot} group={node.body} testID="math-slot-group" />
-      <Text style={s.prose}>{node.close}</Text>
-    </View>
-  );
-};
+/** `\sin(x)`, `[a]`, `\{1,2\}`, `\lfloor x \rfloor`: the opening, the slot, the close. */
+const groupPiece: PieceRenderer<"group"> = (node, { s, slot }) => (
+  <View style={s.inline} testID="math-group">
+    <Text style={s.prose}>{node.open}</Text>
+    <EditSlot {...slot} group={node.body} testID="math-slot-group" />
+    <Text style={s.prose}>{node.close}</Text>
+  </View>
+);
 
 /** One renderer per draft node kind. */
 const DRAFT_PIECES: { [K in DraftNode["kind"]]: PieceRenderer<K> } = {
@@ -448,13 +409,13 @@ const DRAFT_PIECES: { [K in DraftNode["kind"]]: PieceRenderer<K> } = {
   group: groupPiece,
 };
 
-function DraftPiece({ node, input, caret, before, after, onMoveCaret }: PieceProps & { node: DraftNode }) {
+function DraftPiece({ node, input, caret, before, after, onMoveCaret, top, beforeScript }: PieceProps & { node: DraftNode }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const size = useContext(DraftTextSize);
   const slot = { text: input, caret, before, after, onMoveCaret };
   const render = DRAFT_PIECES[node.kind] as PieceRenderer<DraftNode["kind"]>;
-  return render(node, { input, caret, before, after, onMoveCaret, s, theme, slot, size });
+  return render(node, { input, caret, before, after, onMoveCaret, top, beforeScript, s, theme, slot, size });
 }
 
 function EditSlot({
