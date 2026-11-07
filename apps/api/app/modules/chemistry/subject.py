@@ -184,7 +184,12 @@ class ChemistrySubject:
         return None
 
     def warm(self) -> None:
-        return None
+        # A worker's first chemistry solve otherwise imports the solvers, the unit tables and
+        # the element data inside that solve's 5 s budget: under load the first question
+        # after a restart ("How many moles are in 36 g of water?") timed out, unverified.
+        from app.modules.chemistry.context import warm_chemistry_solve
+
+        warm_chemistry_solve()
 
     def solve_timeouts(self) -> AbstractContextManager[list[str]]:
         return nullcontext([])
