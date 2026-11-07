@@ -17,13 +17,11 @@ from app.core.config import Settings
 from app.core.readings import begin_turn
 from app.modules.chat.turn_prep.reading import ask_turn_readings, read_turn
 from app.modules.turn_reading.turn import TurnReading, is_homework
-from app.modules.web_search.detection import web_search_fast_yes
 from app.modules.web_search.geo_intent import (
     is_distance_query,
     is_geo_query,
     is_places_list_query,
 )
-from app.modules.web_search.weather import is_weather_request
 from app.services.text_normalize import collapse_ws
 
 _SETTINGS = Settings.model_validate({})
@@ -153,32 +151,6 @@ def test_only_the_turns_own_message_is_known() -> None:
     assert contextvars.copy_context().run(run) == (True, True, False)
     # Outside a turn nothing is read.
     assert contextvars.Context().run(is_homework, problem) is False
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        # The plan splits these: the weather part keeps its search.
-        "What's the weather like today? Also solve 2x + 3 = 7",
-        "What's the weather today and how fast does a ball fall from 20 m?",
-        # The plan reads one request: its sentences are judged one by one.
-        "Will it rain tomorrow? And what's 15% of 80?",
-    ],
-)
-def test_a_weather_ask_beside_homework_keeps_its_search(text: str) -> None:
-    def run() -> tuple[str | None, bool, bool, bool]:
-        reading = _read_as_turn(text)
-        return (
-            reading.subject,
-            is_weather_request(text),
-            is_geo_query(text),
-            web_search_fast_yes(text),
-        )
-
-    subject, weather, geo, searches = contextvars.copy_context().run(run)
-
-    assert subject is not None
-    assert weather and geo and searches
 
 
 @pytest.mark.parametrize(

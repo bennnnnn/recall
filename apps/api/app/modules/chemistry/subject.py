@@ -176,6 +176,10 @@ class ChemistrySubject:
 
         return extract_chemistry_intent(text) is not None
 
+    def asks_of(self, setup: str, question: str) -> bool:
+        # Its readers take the joined line whole; a question its setup claims is its own.
+        return True
+
     def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
         # A chemistry answer's card is the server's: the fast model only presents it.
         return True

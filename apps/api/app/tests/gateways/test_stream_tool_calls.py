@@ -236,7 +236,7 @@ async def test_stream_counts_a_tool_call_as_the_first_content() -> None:
                 messages=_MESSAGES,
                 max_tokens=100,
                 first_content_timeout_seconds=0.1,
-                tools=[_TOOL],
+                tools=litellm_gateway.ToolOffer([_TOOL]),
                 tool_calls=calls,
             )
         ]

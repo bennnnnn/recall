@@ -13,7 +13,6 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
-from app.modules import web_search as web_search_service
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
@@ -37,7 +36,6 @@ from app.modules.turn_reading.plan import TurnPlan, solved_parts
 from app.modules.web_search.subject import (
     collect_prior_user_messages as _prompt_prior_user_messages,
 )
-from app.modules.web_search.subject import last_assistant_content
 from app.services.solving import VerifiedSolveBlock
 from app.services.subjects.dispatch import SubjectName, read_direct_reply, read_subject
 from app.services.subjects.registry import subject_adapter
@@ -110,9 +108,7 @@ async def gather_and_inject(
     ) or await _parts_subject(request, settings, plan)
     if instant_reply is None:
         start_model_read_shadow(request.content, settings, redis, subject=detected_subject)
-    needs_math, needs_search, needs_chem = _turn_needs(
-        request, settings, prompt_messages, followup, plan, detected_subject
-    )
+    needs_math, needs_chem = _turn_needs(request, settings, followup, detected_subject)
     if not _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -121,7 +117,6 @@ async def gather_and_inject(
         ambiguous_nearby=identity.geo.ambiguous_nearby,
         rich_context=mode.rich_context,
         needs_math=needs_math,
-        needs_search=needs_search,
         needs_chem=needs_chem,
     ):
         return Augmentation(prompt_messages, subject=detected_subject)
@@ -205,12 +200,11 @@ def _solve_parts(plan: TurnPlan) -> tuple[str, ...]:
 def _turn_needs(
     request: TurnRequest,
     settings: Settings,
-    prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
-    plan: TurnPlan,
     detected_subject: SubjectName | None,
-) -> tuple[bool, bool, bool]:
-    """Whether the turn needs maths, a web search and chemistry, in that order."""
+) -> tuple[bool, bool]:
+    """Whether the turn needs maths and chemistry, in that order. A search is the
+    reply's own call (``tool_loop.reply_calls``), never read here."""
     content = request.content
     needs_math = (
         settings.math_tools_enabled
@@ -222,15 +216,10 @@ def _turn_needs(
     ) or (
         settings.physics_enabled and (detected_subject == "physics" or followup.physics is not None)
     )
-    needs_search = web_search_service.needs_web_search(
-        content,
-        prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
-        prior_assistant=last_assistant_content(prompt_messages),
-    ) or (plan.multi and any(web_search_service.needs_web_search(text) for text in plan.texts()))
     needs_chem = settings.chemistry_enabled and (
         detected_subject == "chemistry" or followup.chemistry is not None
     )
-    return needs_math, needs_search, needs_chem
+    return needs_math, needs_chem
 
 
 async def _fetch_subject_with_priors(

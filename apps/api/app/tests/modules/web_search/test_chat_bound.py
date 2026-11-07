@@ -11,99 +11,10 @@ from __future__ import annotations
 import pytest
 
 from app.gateways.web_search_gateway import WebSearchHit
-from app.modules.web_search.chat_bound import ends_on_a_check, works_from_the_chat
-from app.modules.web_search.detection import web_search_skip
 from app.modules.web_search.source_quality import is_error_page
 
 _PRIOR = ["an earlier question"]
 _CHECK = "So V₂ = 2.34 L.\n\nDoes that make sense? 😊"
-
-
-@pytest.mark.parametrize(
-    ("text", "prior_assistant"),
-    [
-        # An answer to the reply's check.
-        ("Yes", _CHECK),
-        ("yeah that makes sense", _CHECK),
-        ("yes it does", _CHECK),
-        ("nope still confused", _CHECK),
-        ("yes", "Want me to give you a practice problem?"),
-        ("yes", "Ready for the next one?"),
-        ("sure", "Want to try one yourself?"),
-        ("yes", "Want to check your answer by plugging it back in?"),
-        ("yes", "Want to try binary search on an example?"),
-        # Something made from the chat.
-        ("sure give me a practice problem", _CHECK),
-        ("ok im done studying for today. can you summarize what we covered?", "He was French."),
-        ("summarize what we covered so i can review before thursday", "Good luck!"),
-        ("can you quiz me on gas laws? 3 quick questions", "Ready?"),
-        ("i want a practice problem", None),
-        ("practice problem please", None),
-        ("ok give me another", None),
-        ("another one", "Nice work!"),
-        ("recap", None),
-        ("repeat the last answer", None),
-        ("explain that again simpler", "It runs out first."),
-        ("walk me through an example", "Stoichiometry has four steps."),
-        ("give me a practice problem on Charles's law", None),
-    ],
-)
-def test_a_message_about_the_chat_never_searches(text: str, prior_assistant: str | None) -> None:
-    assert web_search_skip(text, prior_user_messages=_PRIOR, prior_assistant=prior_assistant)
-
-
-@pytest.mark.parametrize(
-    ("text", "prior_assistant"),
-    [
-        # A yes to an offer to look something up, however it is worded.
-        ("yes", "Want me to get the black-market rate too?"),
-        ("yes", "Should I list showtimes near you?"),
-        ("yes", "Would you like the latest reviews?"),
-        ("yes", "Want to know who scored?"),
-        ("yes", "They won 110-102. Want the full box score?"),
-        # An answer to a check that asks to look something up, or asks something live.
-        ("yes please search", _CHECK),
-        ("yes google it", _CHECK),
-        ("yes, what's the weather tomorrow?", _CHECK),
-        # A live ask that opens like a request about the chat.
-        ("one more question: what's the weather in Addis tomorrow?", None),
-        ("another question, is the iPhone 17 out yet?", None),
-        ("another question: who is the president of Kenya", None),
-        ("walk me through the visa requirements for Kenya", None),
-        ("walk me through what happened in the Lakers game last night", None),
-        ("Do problems with the new iOS update drain battery?", None),
-        ("show me problems people have with the Pixel 10", None),
-        ("give me a practice problem. what's the weather tomorrow?", None),
-        ("summarize today's news", None),
-        ("quiz me on current events this week", None),
-    ],
-)
-def test_a_live_ask_still_may_search(text: str, prior_assistant: str | None) -> None:
-    assert not web_search_skip(text, prior_user_messages=_PRIOR, prior_assistant=prior_assistant)
-
-
-@pytest.mark.parametrize(
-    ("prior_assistant", "checks"),
-    [
-        (_CHECK, True),
-        ("Got it?", True),
-        ("Any questions so far?", True),
-        ("Here are the steps. Can you find the limiting reactant in this one?", True),
-        ("Want the full box score?", False),
-        ("I can look up today's rate if you like. Want me to?", False),
-        ("Ready to see the latest scores from tonight's game and the full standings?", False),
-        ("No question here.", False),
-        (None, False),
-    ],
-)
-def test_a_check_is_the_replys_closing_question(prior_assistant: str | None, checks: bool) -> None:
-    assert ends_on_a_check(prior_assistant) is checks
-
-
-def test_a_request_is_read_whole() -> None:
-    assert works_from_the_chat("one more question")
-    assert not works_from_the_chat("summarize the news so i can catch up")
-    assert not works_from_the_chat("quiz me on what happened today")
 
 
 def _hit(title: str, snippet: str) -> WebSearchHit:

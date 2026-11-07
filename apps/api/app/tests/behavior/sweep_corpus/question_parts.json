@@ -11,8 +11,7 @@
   "area": "physics",
   "prompt": "A ball rolls off a table 1.2 m high. What is its speed? How long does it take to reach the floor?",
   "reply": "The time to fall depends only on the height: $t = \\sqrt{2h/g} = \\sqrt{2(1.2)/9.81} \\approx 0.49$ s. Its speed off the table isn't given, so I can't find its horizontal speed; it lands moving down at $gt \\approx 4.85$ m/s.",
-  "expect": "answer",
-  "gap": "Physics reads no subject in \"A ball rolls off a table 1.2 m high\" on its own, so it sets up no problem; the floor question, cut from it, reads as a trip and is searched."
+  "expect": "answer"
  },
  {
   "id": "qp-003",

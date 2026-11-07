@@ -238,6 +238,10 @@ class MathSubject:
 
         return extract_math_intent(text) is not None
 
+    def asks_of(self, setup: str, question: str) -> bool:
+        # Its readers take the joined line whole; a question its setup claims is its own.
+        return True
+
     def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
         """SymPy already covers these; a reasoning model only writes a CoT essay.
 

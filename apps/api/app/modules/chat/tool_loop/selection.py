@@ -1,9 +1,11 @@
 """Does this turn need the tool loop, and which tools may its round offer?
 
-Heuristic SymPy and Tavily already inject on the prompt path, so the pre-stream
-selection round only runs when the message still looks like search, unsolved
-math, a photo lookup or Pro image generation. Only the user's own words decide:
-web results, file text and other context the model reads never do.
+Heuristic SymPy already injects on the prompt path, so the pre-stream selection
+round only runs when the message still holds unsolved maths, a photo lookup or Pro
+image generation. Whether a turn searches is never decided here: the reply's own
+model call carries ``web_search`` (``reply_calls``) and calls it when the answer
+needs live facts. Only the user's own words decide: web results, file text and
+other context the model reads never do.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from app.core.config import Settings, get_settings
 from app.gateways.mcp import registry as mcp_registry
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
-from app.modules.chat.tool_loop.parts import live_parts, open_parts
+from app.modules.chat.tool_loop.parts import open_parts
 
 
 def last_user_content(messages: list[dict[str, Any]]) -> str:
@@ -88,8 +90,6 @@ def turn_needs_tool_loop(
     lightweight: bool = False,
     has_instant_reply: bool = False,
     has_verified_math: bool = False,
-    has_search_sources: bool = False,
-    web_search: bool | None = None,
     settings: Settings | None = None,
     user: User | None = None,
     skip_tools: frozenset[str] = frozenset(),
@@ -99,10 +99,9 @@ def turn_needs_tool_loop(
     Heuristic SymPy / Tavily already inject on the prompt path. Paying a full
     non-streaming LLM round on every other turn (then discarding the answer and
     streaming a second call) is what made ordinary chat sit on typing dots for
-    ~6s. Skip unless this message still looks like search, unsolved math,
-    or Pro image gen.
+    ~6s. Skip unless this message still holds unsolved maths, a photo lookup
+    or Pro image gen; a search is the reply's own call (``reply_calls``).
 
-    ``web_search``: optional classifier override (None = sync heuristic).
     ``skip_tools``: tools the turn already spent (``spent_tools``), no reason to loop.
     """
     if settings is not None and not settings.mcp_tool_loop_enabled:
@@ -120,15 +119,9 @@ def turn_needs_tool_loop(
     # into a silent "no tools" result.
     if "sympy" not in skip_tools and leftover_math_after_verified(text):
         return True
-    # A verified solve closes its own request only: "solve 2x + 5 = 17 and also
-    # what's the weather in Paris" still needs the weather searched.
+    # A verified solve closes its own request only: "solve 2x + 5 = 17 and draw
+    # me a cat" still needs the picture.
     parts = open_parts(text, has_verified_math=has_verified_math, settings=settings)
-    if not parts:
-        return False
-    if web_search is True:
-        return True
-    if web_search is not False and not has_search_sources and live_parts(parts):
-        return True
     return any(_needs_non_web_tool(part, settings, user, skip_tools) for part in parts)
 
 
@@ -189,28 +182,6 @@ def _needs_non_web_tool(
     ):
         return True
     return False
-
-
-def _search_before_the_model(
-    user_text: str,
-    settings: Settings,
-    user: User | None,
-    *,
-    web_search: bool | None,
-    has_verified_math: bool = False,
-    skip_tools: frozenset[str] = frozenset(),
-) -> bool:
-    """True when the reply only needs sources, so the selection model can be skipped."""
-    if not settings.web_search_enabled or not user_text:
-        return False
-    parts = open_parts(user_text, has_verified_math=has_verified_math, settings=settings)
-    if any(_needs_non_web_tool(part, settings, user, skip_tools) for part in parts or [user_text]):
-        return False
-    if web_search is True:
-        return True
-    if web_search is False:
-        return False
-    return bool(live_parts(parts or [user_text]))
 
 
 def _tools_for_user(

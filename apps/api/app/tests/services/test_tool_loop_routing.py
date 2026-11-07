@@ -1,4 +1,4 @@
-"""When the tool loop runs, and how forced search and classifiers behave."""
+"""When the tool loop runs; whether a turn searches is the model's call, never the loop's."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,10 +19,9 @@ from .tool_loop_support import settings
     [
         ("Explain photosynthesis in two sentences.", {}, False),
         ("hi", {"lightweight": True}, False),
-        ("What's the latest news on SpaceX?", {}, True),
-        ("What's the latest news on SpaceX?", {"has_search_sources": True}, False),
-        ("What's the latest news on SpaceX?", {"web_search": False}, False),
-        ("Explain photosynthesis in two sentences.", {"web_search": True}, True),
+        # A search is the reply's own call: news alone never runs the loop.
+        ("What's the latest news on SpaceX?", {}, False),
+        ("What is going on", {}, False),
         ("differentiate x^2", {}, True),
         ("differentiate x^2", {"has_verified_math": True}, False),
         (
@@ -93,13 +92,7 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     """Probe found no tools — stream the answer; never complete_with_tools twice."""
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "Tokyo is the capital.", "tool_calls": []})
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch(
-            "app.modules.chat.tool_loop.forced_search.run_cached_search",
-            AsyncMock(return_value=([], [])),
-        ),
-    ):
+    with patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete):
         out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True),
             messages=messages,
@@ -177,13 +170,7 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
     complete = AsyncMock(
         side_effect=ModelUnavailableError("down", failed_alias="free-chat"),
     )
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch(
-            "app.modules.chat.tool_loop.forced_search.run_cached_search",
-            AsyncMock(return_value=([], [])),
-        ),
-    ):
+    with patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete):
         out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True),
             messages=messages,
@@ -195,117 +182,32 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_registered):
-    messages = [{"role": "user", "content": "What's the latest news on SpaceX?"}]
-    hit = WebSearchHit(title="SpaceX", url="https://example.com/sx", snippet="landed")
+async def test_tool_loop_never_searches_when_the_model_does_not(web_search_registered):
+    """A round whose model calls no tool searches nothing: the server never searches
+    for it, whatever the words look like."""
+    messages = [{"role": "user", "content": "differentiate x^2, and what's the latest news?"}]
     complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
-    forced = AsyncMock(return_value=([hit], ["What's the latest news on SpaceX?"]))
+    invoke = AsyncMock(side_effect=AssertionError("no tool was called"))
     with (
         patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
+        patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
             messages=messages,
             usage={},
         )
-    complete.assert_not_awaited()
-    forced.assert_awaited_once()
-    assert hits == [hit]
-    assert any(
-        m.get("role") == "system"
-        and "BEGIN UNTRUSTED CONTENT — web search" in str(m.get("content"))
-        for m in out
-    )
+    complete.assert_awaited_once()
+    invoke.assert_not_awaited()
+    assert hits == []
+    assert out == messages
     assert verified is None
     assert terminal is None
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no(
-    web_search_registered,
-):
-    from app.modules.web_search.detection import needs_web_search
-
-    query = "How many employees does Anthropic have?"
-    assert needs_web_search(query) is False
-    messages = [{"role": "user", "content": query}]
-    hit = WebSearchHit(title="CEO", url="https://example.com/ceo", snippet="Dario Amodei")
-    complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
-    forced = AsyncMock(return_value=([hit], [query]))
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
-    ):
-        out, verified, terminal, hits = await tool_loop.run_tool_rounds(
-            settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            messages=messages,
-            usage={},
-            web_search=True,
-        )
-    complete.assert_not_awaited()
-    forced.assert_awaited_once()
-    assert hits == [hit]
-    assert any(
-        m.get("role") == "system"
-        and "BEGIN UNTRUSTED CONTENT — web search" in str(m.get("content"))
-        for m in out
-    )
-    assert verified is None
-    assert terminal is None
-
-
-@pytest.mark.asyncio
-async def test_tool_loop_skips_force_search_when_not_required_and_heuristic_no(
-    web_search_registered,
-):
-    from app.modules.web_search.detection import needs_web_search
-
-    query = "How many employees does Anthropic have?"
-    assert needs_web_search(query) is False
-    messages = [{"role": "user", "content": query}]
-    complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
-    forced = AsyncMock(return_value=([], [query]))
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
-    ):
-        out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
-            settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            messages=messages,
-            usage={},
-        )
-    forced.assert_not_awaited()
-    assert hits == []
-    assert all("returned no usable results" not in str(m.get("content")) for m in out)
-
-
-@pytest.mark.asyncio
-async def test_tool_loop_injects_empty_search_when_force_finds_nothing(web_search_registered):
-    messages = [{"role": "user", "content": "What's the latest news on SpaceX?"}]
-    complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
-    forced = AsyncMock(return_value=([], ["What's the latest news on SpaceX?"]))
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
-    ):
-        out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
-            settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            messages=messages,
-            usage={},
-        )
-    forced.assert_awaited_once()
-    assert hits == []
-    assert any(
-        m.get("role") == "system" and "could not verify that live" in str(m.get("content"))
-        for m in out
-    )
-
-
-@pytest.mark.asyncio
-async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_registered):
-    # A math turn still asks the model which tool to call. A pure lookup
-    # does not: that path searches before the selection round.
+async def test_a_search_that_finds_nothing_says_so_to_the_reply(web_search_registered):
+    # A math turn asks the model which tool to call; it may choose web_search.
     messages = [{"role": "user", "content": "differentiate x^2"}]
     complete = AsyncMock(
         return_value={
@@ -322,23 +224,17 @@ async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_regi
     invoke = AsyncMock(
         return_value=ToolResult(name="web_search", content="(no results)", data={"hits": []})
     )
-    forced = AsyncMock(return_value=([], ["What's the latest news on SpaceX?"]))
     with (
         patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
         patch("app.modules.chat.tool_loop.calls.mcp_registry.invoke_validated", invoke),
-        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
             messages=messages,
             usage={},
         )
-    forced.assert_not_awaited()
     assert hits == []
-    assert any(
-        m.get("role") == "system" and "could not verify that live" in str(m.get("content"))
-        for m in out
-    )
+    assert any(m.get("role") == "tool" and "(no results)" in str(m.get("content")) for m in out)
 
 
 @pytest.mark.asyncio
@@ -361,6 +257,7 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
     ctx.model = "free-chat"
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
+        patch("app.modules.chat.tool_loop.turn_needs_tool_loop", return_value=True),
         patch(
             "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [hit])),
@@ -429,90 +326,52 @@ async def test_tool_loop_keeps_a_chemistry_verified_block():
     assert ctx.verified_subject is chemistry
 
 
+@pytest.mark.parametrize(
+    "content",
+    ["What's the latest news on SpaceX?", "How many employees does Anthropic have?", "hi there"],
+)
 @pytest.mark.asyncio
-async def test_tool_loop_path_asks_the_search_gate_when_the_heuristic_is_weak():
+async def test_a_turn_that_does_not_loop_offers_its_reply_the_search(
+    web_search_registered, content: str
+):
+    """No word rule runs: the reply's model call carries web_search and decides."""
     from uuid import uuid4
 
     from app.modules.chat.stream_paths import run_tool_loop_path
+    from app.modules.chat.tool_loop.reply_calls import offers_search
 
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
     ctx.verified_subject = None
-    ctx.user_message_content = "How many employees does Anthropic have?"
+    ctx.user_message_content = content
     ctx.search_sources = []
     ctx.user = None
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
-    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
+    ctx.prompt_messages = [{"role": "user", "content": content}]
     ctx.model = "free-chat"
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
-    with (
-        patch(
-            "app.modules.chat.tool_loop.run_tool_rounds",
-            AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
-        ) as run,
-        patch(
-            "app.modules.web_search.detection.should_web_search",
-            MagicMock(return_value=True),
-        ) as gate,
+    with patch(
+        "app.modules.chat.tool_loop.run_tool_rounds",
+        AsyncMock(side_effect=AssertionError("no tool loop for a search")),
     ):
         await run_tool_loop_path(
             deps,
             AsyncMock(),
-            settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            settings(
+                mcp_tool_loop_enabled=True, web_search_enabled=True, reply_search_tool_enabled=True
+            ),
             ctx,
             usage={},
             on_status=None,
             should_cancel=None,
         )
-    gate.assert_called_once()
-    run.assert_awaited_once()
-    assert run.await_args.kwargs["web_search"] is True
+    assert offers_search(ctx.reply_tools)
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_path_skips_the_search_gate_when_heuristic_already_yes():
-    from uuid import uuid4
-
-    from app.modules.chat.stream_paths import run_tool_loop_path
-
-    ctx = MagicMock()
-    ctx.instant_reply = None
-    ctx.lightweight_turn = False
-    ctx.verified_subject = None
-    ctx.user_message_content = "What's the latest news on SpaceX?"
-    ctx.search_sources = []
-    ctx.user = None
-    ctx.user_id = uuid4()
-    ctx.chat_id = uuid4()
-    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
-    ctx.model = "free-chat"
-    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
-    with (
-        patch(
-            "app.modules.chat.tool_loop.run_tool_rounds",
-            AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
-        ),
-        patch(
-            "app.modules.web_search.detection.should_web_search",
-            MagicMock(side_effect=AssertionError("heuristic already yes")),
-        ) as gate,
-    ):
-        await run_tool_loop_path(
-            deps,
-            AsyncMock(),
-            settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            ctx,
-            usage={},
-            on_status=None,
-            should_cancel=None,
-        )
-    gate.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_tool_loop_path_skips_the_search_gate_when_spend_capped():
+async def test_tool_loop_path_skips_the_loop_when_spend_capped():
     from uuid import uuid4
 
     from app.modules.chat.stream_paths import run_tool_loop_path
@@ -529,16 +388,10 @@ async def test_tool_loop_path_skips_the_search_gate_when_spend_capped():
     ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
     ctx.model = "free-chat"
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=True)})
-    with (
-        patch(
-            "app.modules.web_search.detection.should_web_search",
-            MagicMock(side_effect=AssertionError("spend cap must skip the search gate")),
-        ) as gate,
-        patch(
-            "app.modules.chat.tool_loop.run_tool_rounds",
-            AsyncMock(side_effect=AssertionError("spend cap must skip tool loop")),
-        ) as run,
-    ):
+    with patch(
+        "app.modules.chat.tool_loop.run_tool_rounds",
+        AsyncMock(side_effect=AssertionError("spend cap must skip tool loop")),
+    ) as run:
         await run_tool_loop_path(
             deps,
             AsyncMock(),
@@ -548,5 +401,4 @@ async def test_tool_loop_path_skips_the_search_gate_when_spend_capped():
             on_status=None,
             should_cancel=None,
         )
-    gate.assert_not_called()
     run.assert_not_awaited()

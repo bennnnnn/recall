@@ -1,9 +1,10 @@
 """The reply's own model call carries web_search; a call runs and a second call answers.
 
-Production decided search with word rules alone, so "who won the champions league" and
-"what's the population of Ethiopia" were answered from training data.
+Word rules used to decide search: "who won the champions league" was answered from
+training data, and "What is going on" opening a chat was searched. The model decides now.
 """
 
+import asyncio
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
 from typing import Any
@@ -47,8 +48,6 @@ def _turn(content: str, **fields: Any) -> ReplyTurn:
         "has_instant_reply": False,
         "has_verified_math": False,
         "has_search_sources": False,
-        "prior_user_messages": None,
-        "prior_assistant": None,
         **fields,
     }
     return ReplyTurn(**values)
@@ -112,30 +111,19 @@ async def _reply(
         "who won the champions league",
         "what's the population of Ethiopia",
         "is the new iphone worth it",
-    ],
-)
-def test_reply_tools_offer_web_search_on_a_question_about_the_world(
-    web_search_tool: dict[str, Any], content: str
-) -> None:
-    assert reply_tools(_SETTINGS, _turn(content)) == [web_search_tool]
-
-
-@pytest.mark.parametrize(
-    "content",
-    [
+        # No word rule withholds the tool: the model answers these without calling it.
         "",
         "thanks!",
-        "hello there",
+        "What is going on",
         "remind me to call mom at 5pm",
-        "where do I work?",
         "what time is it in Tokyo",
         "why does this return undefined? function add(a, b) { a + b }",
     ],
 )
-def test_reply_tools_offer_nothing_when_nothing_is_to_look_up(
+def test_reply_tools_offer_web_search_on_every_reply_the_model_writes(
     web_search_tool: dict[str, Any], content: str
 ) -> None:
-    assert reply_tools(_SETTINGS, _turn(content)) == []
+    assert reply_tools(_SETTINGS, _turn(content)) == [web_search_tool]
 
 
 @pytest.mark.parametrize(
@@ -520,3 +508,71 @@ async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
     accum = StreamAccum()
     await _reply(ctx, llm, accum=accum)
     assert accum.reply_text() == "The Bears won."
+
+
+def _read(live: bool | None, query: str = "") -> asyncio.Future[Any]:
+    from app.modules.web_search.live_read import LiveRead
+
+    async def done() -> LiveRead | None:
+        return None if live is None else LiveRead(live=live, query=query)
+
+    return asyncio.ensure_future(done())
+
+
+@pytest.mark.parametrize(("live", "requires"), [(True, "web_search"), (False, None), (None, None)])
+@pytest.mark.asyncio
+async def test_a_live_read_without_a_query_makes_the_reply_search_first(
+    web_search_tool: dict[str, Any], live: bool | None, requires: str | None
+) -> None:
+    """The model read beside the prep said the answer depends on facts that change: the
+    reply's call must search, whatever its model would have chosen."""
+    ctx = _context("who won the last world cup")
+    ctx.live_read = _read(live)  # type: ignore[assignment]
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    await run_tool_loop_path(
+        deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
+    )
+    assert ctx.reply_tools == [web_search_tool]
+    assert ctx.reply_requires == requires
+
+
+@pytest.mark.asyncio
+async def test_a_live_read_searches_its_query_before_the_reply(
+    web_search_tool: dict[str, Any],
+) -> None:
+    """One model call answers: the read's query is searched in the prep, and the reply
+    reads the results with no second search on offer."""
+    ctx = _context("who won the last world cup")
+    ctx.live_read = _read(True, "2026 FIFA World Cup winner")  # type: ignore[assignment]
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    search = AsyncMock(return_value=([_HIT], ["q"]))
+    with patch("app.modules.web_search.tool.run_cached_search", search):
+        await run_tool_loop_path(
+            deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
+        )
+    assert search.await_args is not None and search.await_args.args[1][0].startswith(
+        "2026 FIFA World Cup winner"
+    )
+    assert ctx.reply_tools == []
+    assert ctx.reply_requires is None
+    assert [hit.url for hit in ctx.search_sources] == [_HIT.url]
+    call_turn, result = ctx.prompt_messages[-2:]
+    assert call_turn["tool_calls"][0]["function"]["name"] == "web_search"
+    assert result["role"] == "tool" and _HIT.url in result["content"]
+
+
+@pytest.mark.asyncio
+async def test_only_the_first_call_must_search(web_search_tool: dict[str, Any]) -> None:
+    ctx = _context("who won the last world cup")
+    ctx.reply_tools = [web_search_tool]
+    ctx.reply_requires = "web_search"
+    llm, seen = _model(([], [_SEARCH_CALL]), (["Spain won it."], []))
+
+    with patch(
+        "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
+    ):
+        text = await _reply(ctx, llm)
+
+    assert text == "Spain won it."
+    assert seen[0]["require_tool"] == "web_search"
+    assert seen[1]["require_tool"] is None

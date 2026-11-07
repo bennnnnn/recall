@@ -3,26 +3,6 @@
 import pytest
 
 from app.modules.web_search import names_its_place
-from app.modules.web_search.detection import needs_web_search_heuristic
-from app.modules.web_search.patterns import is_correspondence_request
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "What is the current in a circuit with 12 V across 4 ohms today?",
-        "What date is 100 days from tomorrow?",
-        "write a text to cancel my haircut at 2pm today",
-    ],
-)
-def test_not_news(text: str) -> None:
-    assert not needs_web_search_heuristic(text)
-
-
-def test_correspondence_requests() -> None:
-    assert is_correspondence_request("write a text to cancel my haircut at 2pm today")
-    assert is_correspondence_request("can you help me draft an email to my landlord")
-    assert not is_correspondence_request("what's the latest news today")
 
 
 @pytest.mark.parametrize(
@@ -39,20 +19,6 @@ def test_correspondence_requests() -> None:
 )
 def test_names_its_place(text: str, named: bool) -> None:
     assert names_its_place(text) is named
-
-
-def test_math_and_code_follow_ups_do_not_search() -> None:
-    from app.modules.web_search.detection import needs_web_search
-
-    assert not needs_web_search("add 25 and 38 by breaking them into tens and ones")
-    assert not needs_web_search(
-        "can you add 12 and 15 the same way?",
-        prior_user_messages=["add 25 + 38 by breaking them into tens"],
-    )
-    assert not needs_web_search(
-        "ok move this into a function",
-        prior_user_messages=["scores = [78, 92, 65, 88] why does this print 80.8"],
-    )
 
 
 def test_a_train_problem_is_not_a_distance_from_the_user() -> None:
@@ -121,58 +87,6 @@ def test_where_the_user_is_outweighs_stated_distances(text: str, geo: bool) -> N
     from app.modules.web_search.geo_intent import is_geo_query
 
     assert is_geo_query(text) is geo
-
-
-def test_more_live_cues() -> None:
-    from app.modules.web_search.detection import needs_web_search
-
-    assert needs_web_search("is it gonna rain tomorrow evening? i have gym at 6pm")
-    assert needs_web_search("breaking news from Gaza")
-    assert is_correspondence_request("add a line reminding him the rent for this month is paid")
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "if today is wednesday what day is it in 100 days",
-        "whats the next number after the latest one: 2, 6, 18, 54, ...",
-        "A news report says 3/5 of the 450 students passed the exam. How many failed?",
-        "tomorrows temperature is forecast to be 24°C. what is that in fahrenheit and kelvin?",
-        "I water the plants every 3 days and go to the gym every 4 days. if I did both today, "
-        "when will I do both on the same day again?",
-        "team A scored 3 goals in the first half and twice as many in the second half. "
-        "whats the final score",
-        "what's new with you",
-        "ugh forgot my umbrella today and its pouring",
-    ],
-)
-def test_word_problems_and_small_talk_do_not_search(text: str) -> None:
-    from app.modules.web_search.detection import needs_web_search
-
-    assert not needs_web_search(text)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "will it rain in 3 days in addis",
-        "what's the temperature in addis in fahrenheit today",
-        "who won the game last night",
-        "what's new in the world",
-        # A statement about the world with "today" is still news.
-        "Apple announced a new iPhone today in California",
-        "the price of gold went up again today in London",
-        "the boiling point of water in Addis today",
-        "the score of my team's game today",
-        # "my" with nothing said about it: a lookup, not a statement.
-        "the exchange rate in my country today",
-        "the gas prices in my area today",
-    ],
-)
-def test_live_questions_still_search(text: str) -> None:
-    from app.modules.web_search.detection import needs_web_search
-
-    assert needs_web_search(text)
 
 
 @pytest.mark.parametrize(
@@ -256,13 +170,6 @@ def test_weather_on_a_place_or_on_a_day(text: str, local: bool) -> None:
     assert is_local_weather_query(text) is local
 
 
-def test_weather_on_another_world_does_not_search() -> None:
-    from app.modules.web_search.detection import needs_web_search
-
-    assert not needs_web_search("whats the weather like on venus")
-    assert needs_web_search("what's the weather like on Mount Kenya")
-
-
 @pytest.mark.parametrize(
     ("text", "named"),
     [
@@ -274,56 +181,6 @@ def test_weather_on_another_world_does_not_search() -> None:
 )
 def test_names_its_place_after_the(text: str, named: bool) -> None:
     assert names_its_place(text) is named
-
-
-def test_a_forecast_that_also_mentions_a_planet_still_searches() -> None:
-    from app.modules.web_search.detection import needs_web_search
-
-    assert needs_web_search("what's the weather tonight? I want to see the rings on saturn")
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "the boiling point of my patience is low today",
-        "the battery of my brain is at 2 percent today",
-        "the freezing point of my enthusiasm hit a new low today",
-        "the energy levels in my office are really low today",
-        "the pressure in my head is through the roof today",
-    ],
-)
-def test_a_statement_about_the_user_is_not_news(text: str) -> None:
-    """Its "today" tells how the user is."""
-    from app.core.config import Settings
-    from app.modules.web_search.detection import needs_web_search, should_web_search
-
-    assert not needs_web_search(text)
-    settings = Settings(_env_file=None, web_search_enabled=True)  # type: ignore[call-arg]
-    assert not should_web_search(text, settings)
-
-
-@pytest.mark.parametrize(
-    ("text", "searches"),
-    [
-        # "In Mars" searched and found Marseille's forecast.
-        ("What is the weather like in mars", False),
-        ("weather in the planet Mars", False),
-        ("temperature of mars", False),
-        ("climate of jupiter", False),
-        ("weather on the sun", False),
-        # Sunlight, a real town, and real cities still search.
-        ("temperature in the sun today", True),
-        ("weather in Mars, Pennsylvania", True),
-        ("weather in Marseille", True),
-        ("is it going to rain in seattle", True),
-    ],
-)
-def test_weather_in_or_of_another_world_is_science_not_a_forecast(
-    text: str, searches: bool
-) -> None:
-    from app.modules.web_search.detection import needs_web_search
-
-    assert needs_web_search(text) is searches
 
 
 # A Class 8 book's "The lowest temperature at which a substance catches fire is called

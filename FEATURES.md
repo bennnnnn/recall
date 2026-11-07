@@ -212,25 +212,24 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
-- ✅ **Web search** — when the user's question needs fresh facts, the owned tool loop runs Tavily
-  (or the DuckDuckGo fallback) and the reply carries source chips (skipped on short A–D replies); if
-  the model skips `web_search` on a turn the search gate says needs live results, the backend
-  searches once. Empty hits inject a no-results instruction so the reply cannot look live from
-  training data. One Tavily
-  reservation per turn. A Redis reserve failure (or a missing user) fails closed to **DuckDuckGo
-  only** — DDG is uncapped (latency only). Search cache keys include `user_id`. The search gate is
-  deterministic (`should_web_search`: skip rules, the explicit fast path, then the heuristic); the
-  LLM classifier that once sat behind it was off in production and is gone. A turn the gate
-  neither searches nor rules out (chitchat, the user's own facts, a reminder, a sum, a greeting,
-  pasted code, the time somewhere) offers `web_search` to the reply's own model call
-  (`tool_loop/reply_calls.py`, `reply_search_tool_enabled`, on): the model answers at once, or
-  calls the tool and answers in a second call that reads the results, with source chips. "Who won
-  the champions league" and "the population of Ethiopia" search now; a reply that needs no search
-  costs nothing more.
-  An explicit request always searches: "do a search", "search it online", "google it", "check
-  that online", typos like "seearch" (`web_search/command.py`). When the request names no topic,
-  or a follow-up says "she" or "it", one cheap call reads the last turns and writes the query
-  (`services/conversation_reference.py`); the tool loop never searches the request's own words.
+- ✅ **Web search** — models decide when to search; no word rule does. Two read the message:
+  a fast model reads it as the turn loads (`modules/web_search/live_read.py`, `live_read_enabled`,
+  on) and says whether its answer depends on facts that change (news, scores, prices, rates,
+  weather, who holds an office now, the latest or next of anything, whether something is out
+  yet) and, if so, the query a person would type, written with the conversation in view. Its
+  query is searched before the reply, which answers from the results in one call. Otherwise
+  the reply's own model call carries `web_search` (`tool_loop/reply_calls.py`,
+  `reply_search_tool_enabled`, on) and may call it; the tool's description says when. The
+  keyword rules that used to decide (about 110 regexes) are gone: "What is going on" opening a
+  chat was searched and answered with a song, and "who won the last world cup" was answered
+  from memory. Measured on 70 live prompts before shipping: greetings, small talk, maths and
+  advice do not search; questions whose answer changed since training search 22 of 24 times
+  (the reply's model alone: 10 of 24). A greeting, a verified solve or a turn the server
+  answers itself is not offered the tool. Tavily (or the DuckDuckGo fallback) runs the search;
+  one Tavily reservation per turn. A Redis reserve failure (or a missing user) fails closed to
+  **DuckDuckGo only** — DDG is uncapped (latency only). Search cache keys include `user_id`. A
+  search that finds nothing or fails says so in the tool result, so the reply cannot look
+  live from training data.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Plus
   and Pro, **200/day**; on Free the mic opens the plans (the server refuses Free with 403). Not
@@ -1098,8 +1097,8 @@ only `GOOGLE_CLIENT_ID`.
   servers stay out of scope.
 - ✅ **Full tool-calling loop** — **on by default**, but **not on every turn.**
   Ordinary chat streams immediately. Pre-stream `complete_with_tools` runs only
-  when the turn still looks like web search (the deterministic search gate),
-  unsolved math, or image gen. If that round
+  when the turn still holds unsolved math, a photo lookup or image gen; a search is
+  the reply's own call. If that round
   finishes without tools, the text is shown — the stream does not call the model
   a second time. Pydantic-validated args, bounded by `mcp_tool_loop_max_rounds`.
   Heuristic SymPy still runs before the stream so homework does not wait on a tool
@@ -1176,8 +1175,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   stored on the attachment and the RAG prefix uses those ceilings, not a static
   500/200k claim. Not a second extract pipeline.
 - ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
-  SymPy still runs. Web search is the tool loop (source chips + wrap; forced search if
-  the model skips). See [§29](#29-next-actions-product-decisions).
+  SymPy still runs. Web search is the model's own call on the reply (source chips + wrap). See [§29](#29-next-actions-product-decisions).
 - 🔜 **Plugins / arbitrary user MCP servers** — owned server-side tools only today.
   Google Docs + GitHub (and similar) are later owned integrations, not user-hosted MCP.
 - 🔜 **Code execution** beyond sandboxed HTML/chart preview — later, not now. Keep the

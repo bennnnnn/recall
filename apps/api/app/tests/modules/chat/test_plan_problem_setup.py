@@ -29,11 +29,11 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
     [
         (
             "Will it rain tomorrow? And what's 15% of 80?",
-            [("Will it rain tomorrow?", "live"), ("what's 15% of 80?", "solve")],
+            [("Will it rain tomorrow?", "ask"), ("what's 15% of 80?", "solve")],
         ),
         (
             "What's the latest news on SpaceX? And what is 12 squared?",
-            [("What's the latest news on SpaceX?", "live"), ("what is 12 squared?", "solve")],
+            [("What's the latest news on SpaceX?", "ask"), ("what is 12 squared?", "solve")],
         ),
         (
             "A ball is dropped from 20 m. How long does it take to reach the ground? What's the "
@@ -43,7 +43,7 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
                     "A ball is dropped from 20 m. How long does it take to reach the ground?",
                     "solve",
                 ),
-                ("What's the weather like today?", "live"),
+                ("What's the weather like today?", "ask"),
             ],
         ),
         (
@@ -51,7 +51,7 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
             "game last night?",
             [
                 ("A ball is dropped from 20 m. How long does it take to land?", "solve"),
-                ("Who won the Arsenal game last night?", "live"),
+                ("Who won the Arsenal game last night?", "ask"),
             ],
         ),
         (
@@ -61,7 +61,7 @@ def test_a_question_of_numbers_alone_has_topics() -> None:
             # question has its own givens.
             [
                 ("How long does it take to reach the station 4 km away?", "solve"),
-                ("Are there coffee shops near me?", "live"),
+                ("Are there coffee shops near me?", "ask"),
             ],
         ),
     ],

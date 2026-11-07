@@ -28,20 +28,21 @@ from app.modules import todos, web_search
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan
+from app.modules.chat import conversation_reference
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.conversation import history as conversation_history
 from app.modules.conversation import service as conversation_service
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.repositories import usage, users
-from app.services import conversation_reference, quota
+from app.services import quota
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
     from app.gateways.stream_signals import StreamAttempt
     from app.gateways.web_search_gateway import WebSearchHit
     from app.modules.billing.entitlements import Feature
-    from app.services.conversation_reference import ReferenceKind, Turn
+    from app.modules.chat.conversation_reference import ReferenceKind, Turn
     from app.services.subjects.registry import SubjectFence
 
 SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
@@ -205,6 +206,7 @@ class ChatModel(Protocol):
         may_try: Callable[[str], Awaitable[bool]] | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         tool_calls: list[dict[str, Any]] | None = ...,
+        require_tool: str | None = ...,
     ) -> AsyncIterator[str]: ...
 
 

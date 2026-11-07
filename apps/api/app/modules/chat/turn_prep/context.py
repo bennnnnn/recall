@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from app.modules.images.answer_photo import AnswerPhoto
     from app.modules.images.reply_picture import ReplyPicture
+    from app.modules.web_search import LiveRead
     from app.services.subjects.registry import MoneyTurn
 
 
@@ -136,6 +137,11 @@ class StreamContext:
     # The tools the reply's own model call carries, when the tool loop leaves the
     # turn to it: ``web_search`` (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
+    # A model's read, started beside the prep, of whether the answer depends on facts that
+    # change (``web_search.live_read``); and the tool the reply's first call must make
+    # when it said so but wrote no query (``web_search``).
+    live_read: asyncio.Task[LiveRead | None] | None = None
+    reply_requires: str | None = None
     # Offered on a second call when the first, with no tool, says it can't see live
     # data (``tool_loop.live_denial``). Empty past the spend cap or after a search.
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)

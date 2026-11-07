@@ -10,7 +10,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import ConversationReference
-from app.services import conversation_reference as ref
+from app.modules.chat import conversation_reference as ref
 
 
 def _awaited(mock: AsyncMock) -> Any:

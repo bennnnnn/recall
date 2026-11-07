@@ -234,7 +234,7 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/images/search.py",
         "modules/memory/api.py",  # memory edits
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
-        # The resolver answers None on any failure: services/test_conversation_reference.py.
-        "services/conversation_reference.py",
+        # The resolver answers None on any failure: modules/chat/test_conversation_reference.py.
+        "modules/chat/conversation_reference.py",
         "services/scan_read.py",  # photo scans, every subject
     ]

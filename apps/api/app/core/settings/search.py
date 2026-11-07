@@ -7,10 +7,17 @@ class SearchSettings(BaseModel):
     tavily_api_key: str = ""
 
     web_search_enabled: bool = True
-    # The reply's own model call carries the web_search tool on a turn the word rules
-    # neither searched nor ruled out (``tool_loop.reply_calls``): the model searches
-    # what may have changed since it was trained. A reply that needs none costs nothing.
+    # The reply's own model call carries the web_search tool (``tool_loop.reply_calls``):
+    # the model decides whether to search. A reply that needs none costs nothing.
     reply_search_tool_enabled: bool = True
+    # A fast model reads each message beside the turn's prep and says whether its answer
+    # depends on facts that change (``web_search.live_read``): yes, and its query is
+    # searched before the reply. Off, or no answer in time, and the reply's model decides.
+    live_read_enabled: bool = True
+    live_read_timeout_seconds: float = 1.2
+    # How long the reply waits for a read still running when the prep is done (it starts
+    # when the turn loads, so most are in by then).
+    live_read_wait_seconds: float = 1.0
     # Reading what "search that" or "show me one" refers to in the conversation (one
     # small model call before the search). Foreground: kept short, no retry.
     reference_resolve_timeout_seconds: float = 4.0
