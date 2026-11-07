@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable, Sequence
 
 from app.core.readings import reading
+from app.modules.math.function_calls import functions_dropped
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match.literal_plot import literal_plot_point
 from app.modules.math.request_consumption import request_consumption_complete
@@ -177,6 +178,10 @@ def extract_math_intent(text: str) -> MathIntent | None:
     if intent is None or (intent.kind == "graph" and not intent.expr):
         intent = _heard_math_intent(text) or intent
     if intent is None or _numeric_statement(text, intent):
+        return None
+    if functions_dropped(text, intent):
+        # Each path reads part of the message (a caption's equation, the heard words);
+        # none may answer it without a function the message applies.
         return None
     if intent.kind == "complex":
         return _letter_i_reading(text, intent)

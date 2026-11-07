@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.modules.math.function_calls import functions_dropped
 from app.modules.math.schemas import MathIntent
 
 _ADDITIONAL_OPERATION = re.compile(
@@ -236,6 +237,8 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     if len(_LOG_TERM.findall(text)) > len(_LOG_TERM.findall(intent_text)):
         # "log base 2 of (x+1) = 3" kept only (x+1) = 3 and verified x = 2.
         leftovers.append("unconsumed logarithm")
+    if functions_dropped(text, intent):
+        leftovers.append("unconsumed function")
     root_request_text = _NAMED_RADICAL.sub("", text)
     if _GRAPH_REQUEST.search(text) and _ROOT_OUTPUT_REQUEST.search(root_request_text):
         # A graph intent has no typed roots result and a roots intent has no

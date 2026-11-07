@@ -29,6 +29,7 @@ from app.modules.math.solve.parse import (
     _expr_needs_real_domain,
     parse_expression,
 )
+from app.modules.math.solve.solved_functions import reject_unsolved_functions
 
 
 def compound_solution_set(
@@ -40,6 +41,7 @@ def compound_solution_set(
     low_e = parse_expression(low, [variable], real=True)
     mid_e = parse_expression(mid, [variable], real=True)
     high_e = parse_expression(high, [variable], real=True)
+    reject_unsolved_functions((low, mid, high), (low_e, mid_e, high_e), [variable])
     lower_rel, upper_rel = _compound_relations(
         low, low_op, mid, high_op, high, low_e, mid_e, high_e
     )
@@ -156,6 +158,7 @@ def inequality_solution_set(lhs: str, rhs: str, comparator: str, variable: str) 
     sym = Symbol(variable, real=True) if real else Symbol(variable)
     left = parse_expression(lhs, [variable], real=real)
     right = parse_expression(rhs, [variable], real=real)
+    reject_unsolved_functions((lhs, rhs), (left, right), [variable])
     rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
     if rel_cls is None:
         raise SolveServiceError(f"Unknown inequality comparator: {comparator}")

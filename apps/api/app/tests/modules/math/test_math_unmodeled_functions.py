@@ -1,0 +1,244 @@
+"""A function the maths readers do not model is never dropped and never certified.
+
+"solve floor(x) = 3" was read as (x) = 3 and certified x = 3 (the answer is 3 <= x < 4), and
+"solve sign(sin(x)) = 1 for 0 <= x <= 2pi" as sin(x) = 1, certified x = pi/2 (it is
+0 < x < pi). Two guards hold the class: a reading that lost a written function is no reading
+(``function_calls.py``, checked in ``extract_math_intent`` and the request audit), and an
+equation or inequality that applies a step, remainder, lattice or other unmodelled function to
+its unknown declines the solve (``solve/solved_functions.py``).
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.modules.math.function_calls import unread_functions, written_functions
+from app.modules.math.request_consumption import audit_math_request
+from app.modules.math.schemas import EquationInput, MathIntent, SystemOfEquationsInput
+from app.modules.math.solve.equations import solve_equation
+from app.modules.math.solve.inequalities import solve_compound_inequality, solve_inequality
+from app.modules.math.solve.systems import solve_system
+from app.modules.math.tools.extract import extract_math_intent
+from app.services.solving import SolveServiceError
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("solve floor(x) = 3", {"floor": 1}),
+        ("solve sign(sin(x)) = 1", {"sign": 1, "sin": 1}),
+        ("solve sgn(x) = 1", {"sign": 1}),
+        ("solve ceil(x) + ceiling(2x) = 5", {"ceiling": 2}),
+        ("solve foo(x) = 3", {"foo": 1}),
+        ("solve x mod 3 = 1", {"mod": 1}),
+        ("17 modulo 5", {"mod": 1}),
+        ("solve the floor of x equals 3", {"floor": 1}),
+        ("the greatest integer function of x", {"floor": 1}),
+        ("solve \\lfloor x \\rfloor = 3", {"floor": 1}),
+        ("solve ⌈x⌉ = 3", {"ceiling": 1}),
+        ("solve \\operatorname{sgn}(x) = 1", {"sign": 1}),
+        ("solve \\sin(x) = 1/2", {"sin": 1}),
+        ("solve arcsin(x) = 0.5", {"asin": 1}),
+        ("evaluate ln(5) + log(2)", {"log": 2}),
+        ("solve 2xsin(x) = 0", {"sin": 1}),
+        # Notation, products, request verbs, LaTeX brackets and prose are not functions.
+        ("f(x) = 2x + 3", {}),
+        ("solve ab(x+1) = 4", {}),
+        ("Solve(2x + 1 = 5)", {}),
+        ("factor(x^2 - 1)", {}),
+        ("solve \\left(x + 1\\right) = 3", {}),
+        ("what is the sign (positive or negative) of -3 * 4", {}),
+        ("round 3.456 to two decimal places", {}),
+        ("the floor area of a room is 12 by 15", {}),
+        ("find the max of y = -x^2 + 4x", {}),
+    ],
+)
+def test_written_functions_names_each_applied_function(text: str, expected: dict[str, int]) -> None:
+    assert dict(written_functions(text)) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "reading", "unread"),
+    [
+        ("solve floor(x) = 3", ["(x)", "3"], ("floor",)),
+        ("solve sign(sin(x)) = 1", ["(sin(x))", "1"], ("sign",)),
+        ("solve sin(x) + sin(2x) = 1", ["sin(x)", "1"], ("sin",)),
+        ("solve arcsin(x) = 0.5", ["asin (x)", "0.5"], ()),
+        ("solve |x| = 3", ["Abs(x)", "3"], ()),
+        ("solve abs(x - 3) = 5", ["Abs(x - 3)", "5"], ()),
+        ("gcd(12, 18)", ["gcd"], ()),
+        ("17 mod 5", ["mod"], ()),
+        ("integrate ln(x) dx", ["log(x)"], ()),
+    ],
+)
+def test_unread_functions_finds_what_a_reading_lost(
+    text: str, reading: list[str], unread: tuple[str, ...]
+) -> None:
+    assert unread_functions(text, reading) == unread
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "solve floor(x) = 3",
+        "solve sign(sin(x)) = 1 for 0 <= x <= 2pi",
+        "solve ceiling(x) = 3",
+        "solve ceil(x)=2",
+        "solve round(x) = 3",
+        "solve frac(x) = 0.5",
+        "solve sgn(x) = 1",
+        "solve sign(x) = 1",
+        "solve foo(x) = 3",
+        "solve heaviside(x) = 1",
+        "solve floor(x) + x = 5",
+        "solve x + floor(x) = 7",
+        "solve floor(2x - 1) = 4",
+        "solve floor(x) < 3",
+        "solve sign(x) > 0",
+        "solve the floor of x equals 3",
+        "solve \\lfloor x \\rfloor = 3",
+        "solve ⌊x⌋ = 3",
+        "solve \\operatorname{sgn}(x) = 1",
+        "solve floor(x) = 3 and x + y = 5",
+        "solve x + y = 5, floor(x) = y",
+        "solve factorial(x) = 24",
+        "floor(x) = 3",
+        "simplify floor(x) + x",
+        "evaluate sign(-3)",
+    ],
+)
+def test_extract_declines_a_reading_that_dropped_a_function(text: str) -> None:
+    assert extract_math_intent(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "solve abs(x - 3) = 5",
+        "solve |x - 3| = 5",
+        "solve abs(x) < 3",
+        "solve sin(x) = 1/2",
+        "solve 2cos(x) - 1 = 0 for 0 <= x <= 2pi",
+        "solve tan(x) = 1",
+        "solve log(x) = 2",
+        "solve ln(x) = 2",
+        "solve exp(x) = 5",
+        "solve sqrt(x + 1) = 3",
+        "solve arcsin(x) = 0.5",
+        "solve cosh(x) = 1",
+        "evaluate sqrt(16)",
+        "evaluate log(100)",
+        "evaluate sin(pi/6)",
+        "evaluate arctan(1)",
+        "evaluate floor(3.7)",
+        "evaluate ceiling(2.1)",
+        "evaluate 5!",
+        "evaluate 5C2",
+        "gcd(12, 18)",
+        "lcm(4, 6)",
+        "17 mod 5",
+        "derivative of sin(x)",
+        "d/dx(x^2)",
+        "integrate ln(x) dx",
+        "limit of sin(x)/x as x->0",
+        "solve 2x + 3 = 7",
+    ],
+)
+def test_extract_keeps_modelled_functions(text: str) -> None:
+    assert extract_math_intent(text) is not None
+
+
+def test_audit_refuses_a_model_reading_that_dropped_a_function() -> None:
+    """A model's reading is audited against the message as the regex readers' are."""
+    dropped = MathIntent(kind="equation", lhs="x", rhs="3", operation="solve")
+    kept = MathIntent(kind="equation", lhs="x + 1", rhs="3", operation="solve")
+    assert "unconsumed function" in audit_math_request("solve floor(x) = 3", dropped).leftovers
+    assert audit_math_request("solve x + 1 = 3", kept).complete
+
+
+@pytest.mark.parametrize(
+    ("lhs", "rhs"),
+    [
+        ("floor(x)", "3"),
+        ("ceiling(x)", "3"),
+        ("ceil(x)", "3"),
+        ("sign(x)", "1"),
+        ("frac(x)", "0.5"),
+        ("Mod(x, 3)", "1"),
+        ("x mod 3", "1"),
+        ("Max(x, 2)", "5"),
+        ("Min(x, 1)", "0"),
+        ("gcd(x, 6)", "3"),
+        ("lcm(x, 4)", "12"),
+        ("Heaviside(x)", "1"),
+        ("factorial(x)", "24"),
+        ("binomial(x, 2)", "10"),
+        ("Piecewise((x, x > 0), (0, True))", "2"),
+        ("re(x)", "2"),
+        ("arg(x)", "1"),
+        ("floor(x) + x", "5"),
+        ("\\lfloor x \\rfloor", "3"),
+    ],
+)
+def test_solve_equation_declines_an_unmodelled_function(lhs: str, rhs: str) -> None:
+    with pytest.raises(SolveServiceError):
+        solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+
+
+def test_a_maths_word_is_never_split_into_letters() -> None:
+    """The reading of "solve x mod 3 = 1" was mod 3 = 1 in d, solved as 3·m·o·d = 1."""
+    with pytest.raises(SolveServiceError):
+        solve_equation(EquationInput(lhs="mod 3", rhs="1", variables=["d"]))
+
+
+@pytest.mark.parametrize(
+    ("lhs", "rhs", "solutions"),
+    [
+        ("abs(x - 3)", "5", ["x = -2", "x = 8"]),
+        ("Abs(x)", "3", ["x = -3", "x = 3"]),
+        ("sqrt(x + 1)", "3", ["x = 8"]),
+        ("log(x)", "2", ["x = 100"]),
+        ("exp(x)", "1", ["x = 0"]),
+        ("2x + 3", "7", ["x = 2"]),
+        # A function of numbers alone is a number: the unknown is outside it.
+        ("x + floor(2.5)", "5", ["x = 3"]),
+    ],
+)
+def test_solve_equation_keeps_modelled_functions(lhs: str, rhs: str, solutions: list[str]) -> None:
+    result = solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    assert result.solutions_latex == solutions
+
+
+@pytest.mark.parametrize(
+    ("lhs", "rhs", "comparator"),
+    [
+        ("floor(x)", "3", "<"),
+        ("sign(x)", "0", ">"),
+        ("Mod(x, 3)", "1", "<"),
+        ("Max(x, 2)", "5", "<"),
+        ("ceiling(x)", "2", ">="),
+    ],
+)
+def test_solve_inequality_declines_an_unmodelled_function(
+    lhs: str, rhs: str, comparator: str
+) -> None:
+    with pytest.raises(SolveServiceError):
+        solve_inequality(lhs, rhs, "x", comparator)
+
+
+def test_solve_inequality_keeps_absolute_value() -> None:
+    assert solve_inequality("abs(x)", "3", "x", "<").solutions_latex == ["-3 < x < 3"]
+
+
+def test_compound_inequality_declines_an_unmodelled_function() -> None:
+    with pytest.raises(SolveServiceError):
+        solve_compound_inequality("0", "<", "floor(x)", "<", "3", "x")
+
+
+def test_system_declines_an_unmodelled_function() -> None:
+    with pytest.raises(SolveServiceError):
+        solve_system(
+            SystemOfEquationsInput(
+                equations=[("x + y", "5"), ("floor(x)", "y")], variables=["x", "y"]
+            )
+        )

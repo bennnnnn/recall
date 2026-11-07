@@ -58,6 +58,9 @@ def _written_letters(text: str) -> set[str]:
     letters: set[str] = set()
     for run in _LETTER_RUN_RE.findall(_UNIT_AFTER_NUMBER_RE.sub(" ", text)):
         lowered = run.lower()
+        if lowered in MATH_MULTI_LETTER:
+            # A maths word is one name: the letters of ``x mod 3`` are no m, o and d.
+            continue
         for word in _FUNCTION_WORDS:
             if lowered.startswith(word):
                 run = run[len(word) :]
