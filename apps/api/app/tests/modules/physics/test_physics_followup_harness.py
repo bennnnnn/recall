@@ -18,8 +18,9 @@ from dataclasses import dataclass
 
 import pytest
 
-from app.modules.physics.followup import _answers, physics_followup_problem
+from app.modules.physics.followup import physics_followup_problem
 from app.modules.physics.givens import PHYSICS_UNITS
+from app.modules.physics.verified_answers import answers
 from app.services.law_binding.fit import read_givens
 
 G = 9.81
@@ -42,6 +43,9 @@ class Problem:
     text: str
     params: tuple[Param, ...]
     formula: Callable[[dict[str, float]], float]
+    # The result is a component's own constant (R = V/I, k = F/x, C = Q/V): a change to
+    # one given keeps it, and the other given changes with it by the same factor.
+    kept: bool = False
 
 
 def _p(
@@ -256,6 +260,7 @@ PROBLEMS = {
         "A 12 V battery drives a current of 2 A through a resistor. Find the resistance.",
         (_p("V", 12, "voltage", owner="battery"), _p("I", 2, "current")),
         lambda v: 6.0,
+        kept=True,
     ),
     "bulb": Problem(
         "A 60 W bulb runs on 120 V. Find the current.",
@@ -271,11 +276,13 @@ PROBLEMS = {
         "A spring stretches 0.1 m under a 5 N force. Find the spring constant.",
         (_p("x", 0.1, "extension", "length"), _p("F", 5, "force")),
         lambda v: 50.0,
+        kept=True,
     ),
     "capacitor": Problem(
         "A capacitor stores a charge of 0.00006 C at 12 V. Find its capacitance.",
         (_p("Q", 6e-5, "charge"), _p("V", 12, "voltage")),
         lambda v: 5e-6,
+        kept=True,
     ),
     "metal": Problem(
         "4000 J of heat raises the temperature of 1 kg of a metal by 10 K. "
@@ -425,6 +432,19 @@ def _pairs() -> list[tuple[str, str, Reading]]:
     return pairs
 
 
+def _kept_other(problem: Problem, reading: Reading) -> float | None:
+    """The other given's new value when the reading scales one given of a component whose
+    constant is kept; None when the reading names no one given of the problem."""
+    if reading is None:
+        return None
+    quantity, _owner, _role, factor = reading
+    scaled = [p for p in problem.params if quantity in p.names]
+    if len(scaled) != 1 or len(problem.params) != 2:
+        return None
+    other = next(p for p in problem.params if p is not scaled[0])
+    return other.value * factor
+
+
 def _expected(problem: Problem, reading: Reading) -> float | None:
     """The answer the reading gives by the problem's formula; None when the problem's
     givens do not decide which one it scales."""
@@ -452,9 +472,9 @@ _POWER = re.compile(r"^(?P<a>-?[\d.]+) × 10(?P<n>[⁻⁰¹²³⁴⁵⁶⁷⁸�
 
 def _si(text: str) -> float:
     """The verified answer in SI, a power of ten too ("4e5 J"), which read_givens skips."""
-    answers = _answers(text)
-    assert answers, text
-    plain = answers[0][0].split(" (")[0]
+    found = answers(text)
+    assert found, text
+    plain = found[0][0].split(" (")[0]
     power = _POWER.match(plain)
     if power is not None:
         scale = float(power.group("a")) * 10 ** int(power.group("n").translate(_SUPERSCRIPT))
@@ -473,6 +493,11 @@ def test_a_scaling_follow_up_declines_or_gives_the_formulas_number(
     rewritten = physics_followup_problem(line, [("user", spec.text), ("assistant", "...")])
     if rewritten is None:
         return  # declining is always safe: the model answers
+    if spec.kept:
+        other = _kept_other(spec, reading)
+        assert other is not None, f"{line!r} re-solved {rewritten!r}, which the givens don't decide"
+        assert _si(rewritten) == pytest.approx(other, rel=0.02), rewritten
+        return
     expected = _expected(spec, reading)
     assert expected is not None, f"{line!r} re-solved {rewritten!r}, which the givens don't decide"
     before = spec.formula({p.key: p.value for p in spec.params})

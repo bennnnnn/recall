@@ -286,6 +286,23 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # The stretch a force gives a spring of known stiffness: x = F / k. "A spring of
+    # constant 100 N/m is pulled by 10 N; find the extension" had no law to answer it.
+    formula(
+        "spring_extension",
+        "spring",
+        "Hooke's law",
+        "x",
+        base_latex=r"x = \frac{F}{k}",
+        expression="F/k",
+        variables=(var("F", "F", "newton"), var("k", "k", "newton / meter")),
+        binding=Binding(
+            asks=("extension", "stretch", "compression"),
+            result=("meter",),
+            inputs=(frozenset({"F", "k"}),),
+            nonnegative=True,
+        ),
+    ),
     # A pendulum's length for a wanted period: L = g (T / 2 pi)^2.
     formula(
         "pendulum_length",

@@ -1,0 +1,94 @@
+[
+ {
+  "id": "se-01",
+  "area": "spring",
+  "prompt": "A spring of spring constant 100 N/m is stretched by a force of 10 N. Find the extension.",
+  "expect": "answer",
+  "answer": [
+   0.1,
+   "m"
+  ]
+ },
+ {
+  "id": "se-02",
+  "area": "spring",
+  "prompt": "A spring with k = 200 N/m is pulled with 50 N. How much does it stretch?",
+  "expect": "answer",
+  "answer": [
+   0.25,
+   "m"
+  ]
+ },
+ {
+  "id": "se-03",
+  "area": "spring",
+  "prompt": "A force of 30 N compresses a spring of stiffness 600 N/m. Find the compression.",
+  "expect": "answer",
+  "answer": [
+   0.05,
+   "m"
+  ]
+ },
+ {
+  "id": "se-04",
+  "area": "spring",
+  "prompt": "A 12 N force stretches a spring whose constant is 240 N/m. What is the extension in cm?",
+  "expect": "answer",
+  "answer": [
+   0.05,
+   "m"
+  ]
+ },
+ {
+  "id": "se-05",
+  "area": "spring",
+  "prompt": "How far does a spring of stiffness 50 N/m stretch when a 4 N force pulls it?",
+  "expect": "answer",
+  "answer": [
+   0.08,
+   "m"
+  ]
+ },
+ {
+  "id": "se-06",
+  "area": "spring",
+  "prompt": "A spring has a spring constant of 80 N/m. What force stretches it by 0.25 m?",
+  "expect": "answer",
+  "answer": [
+   20.0,
+   "N"
+  ]
+ },
+ {
+  "id": "se-07",
+  "area": "spring",
+  "prompt": "The extension of a spring is 0.2 m. Find the spring constant if the force is 8 N.",
+  "expect": "answer",
+  "answer": [
+   40.0,
+   "N/m"
+  ]
+ },
+ {
+  "id": "se-08",
+  "area": "spring",
+  "prompt": "A 2 kg mass hangs from a spring of constant 400 N/m. Find the extension.",
+  "expect": "answer",
+  "answer": [
+   0.04905,
+   "m"
+  ],
+  "note": "not answered yet: the hanging weight mg is not read as the force: x = mg/k has no law"
+ },
+ {
+  "id": "se-09",
+  "area": "spring",
+  "prompt": "A spring with a spring constant of 300 N/m is compressed by a 15 N force. By how much is it compressed?",
+  "expect": "answer",
+  "answer": [
+   0.05,
+   "m"
+  ],
+  "note": "not answered yet: \"by how much is it compressed\" is not read as asking the compression"
+ }
+]
