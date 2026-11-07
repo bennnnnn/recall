@@ -1,4 +1,4 @@
-"""A lesson reply carries its title and practice card, an outline its topics and question.
+"""A lesson reply carries its title and practice card; every teach-me is held as a lesson.
 
 The model's own words stay; the server adds only what is missing (``lesson_shape``).
 """
@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.modules.chat import lesson_calls
-from app.modules.chat.lesson_calls import LessonPractice, OutlineTopics, QuizCard
+from app.modules.chat.lesson_calls import LessonPractice, QuizCard
 from app.modules.chat.lesson_layout import lesson_contract, lesson_layout_of, prompt_lesson_layout
 from app.modules.chat.lesson_shape import hold_lesson_shape, next_lesson_number, teaches
 from app.modules.chat.prompt_constants.teaching import (
@@ -23,7 +23,7 @@ from app.modules.chat.prompt_constants.teaching import (
     TEACHING_HINT,
     WALKTHROUGH_HINT,
 )
-from app.modules.turn_reading.lesson_flow import lesson_step, lesson_topic, outline_topics
+from app.modules.turn_reading.lesson_flow import lesson_step, lesson_topic
 from app.services.md_fence_scan import iter_fences
 
 _QUIZ: dict[str, Any] = {
@@ -34,7 +34,6 @@ _QUIZ: dict[str, Any] = {
     "explanation": "It prints n, then counts down, and stops at 0.",
 }
 _PRACTICE: dict[str, Any] = {"topic": "Recursion", "quiz": _QUIZ}
-_TOPICS = {"topics": [{"name": f"Topic {n}", "what": f"does thing {n}"} for n in range(1, 7)]}
 
 _WALKTHROUGH_REPLY = (
     "Recursion trips up almost everyone at first, so you're in good company.\n\n"
@@ -257,80 +256,23 @@ async def test_a_spanish_lesson_gets_spanish_words(calls: _Calls) -> None:
     assert _quiz(out)["label"] == "Ejercicio 1"
 
 
-# ── Outlines ────────────────────────────────────────────────────────────
+# ── A teach-me that does not teach yet ─────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_outline_topics_get_bold_names(calls: _Calls) -> None:
-    reply = (
-        "American history is a big story.\n\n"
-        "1. Colonial America - how the colonies began.\n"
-        "2. 🗽 The Revolution: why they broke from Britain.\n"
-        "3. **Civil War** — the war over slavery.\n"
-        "4. Reconstruction\n"
-        "5. The Industrial Age – railroads and cities.\n\n"
-        "Where would you like to start?"
-    )
-    out = await hold_lesson_shape(
-        _state(reply, "teach me american history", contract=TEACH_CONTRACT)
-    )
-
-    assert "1. **Colonial America** — how the colonies began." in out
-    assert "2. 🗽 **The Revolution** — why they broke from Britain." in out
-    assert "3. **Civil War** — the war over slavery." in out
-    assert "4. **Reconstruction**" in out
-    assert "5. **The Industrial Age** — railroads and cities." in out
-    assert outline_topics(out) == 5
-    assert out.endswith("Where would you like to start?")
-    assert calls.asked == []
-
-
-@pytest.mark.asyncio
-async def test_an_outline_ends_on_its_question(calls: _Calls) -> None:
-    items = "\n".join(f"{n}. **Topic {n}** — what it does" for n in range(1, 6))
-    asked = f"Python opens a lot up.\n\n{items}\n\nNew to it?\n\nI'll start you on Lesson 1."
-    out = await hold_lesson_shape(_state(asked, "teach me python", contract=TEACH_CONTRACT))
-    assert out.endswith("I'll start you on Lesson 1.\n\nNew to it?")
-
-    silent = f"Python opens a lot up.\n\n{items}"
-    out = await hold_lesson_shape(_state(silent, "teach me python", contract=TEACH_CONTRACT))
-    assert out.endswith(
-        "Where would you like to start? Pick a number, or tell me what you already know."
-    )
-
-
-@pytest.mark.asyncio
-async def test_a_reply_with_only_questions_gets_the_topics_above_them(calls: _Calls) -> None:
-    calls.answer = _TOPICS
-    reply = (
-        "Python is a great pick!\n\n"
-        "Are you new to programming? And what do you want to build with it?"
-    )
-    out = await hold_lesson_shape(_state(reply, "teach me python", contract=TEACH_CONTRACT))
-
-    parts = out.split("\n\n")
-    assert parts[0] == "Python is a great pick!"
-    assert parts[1].startswith("1. **Topic 1** — does thing 1\n2. **Topic 2**")
-    assert parts[2].startswith("Are you new to programming?")
-    assert outline_topics(out) == 6
-    assert calls.asked == ["OutlineTopics"]
-
-
-@pytest.mark.asyncio
-async def test_a_list_of_its_own_gets_no_second_list(calls: _Calls) -> None:
-    calls.answer = _TOPICS
-    items = "\n".join(
-        f"{n}. Learn how step {n} of the language works in real code" for n in range(5)
-    )
-    reply = f"Here's the path.\n\n{items}\n\nWhere do you want to start?"
-    out = await hold_lesson_shape(_state(reply, "teach me python", contract=TEACH_CONTRACT))
-    assert out == reply
-    assert calls.asked == []
+async def test_a_short_teach_me_is_held_as_a_lesson_never_an_outline(calls: _Calls) -> None:
+    """Review of #2318: five plain steps once went to the outline pass, which bolded them
+    and added "Where would you like to start?"."""
+    steps = "\n".join(f"{n}. Step {n} of cooking rice." for n in range(1, 6))
+    state = _state(steps, "teach me how to cook rice", contract=TEACH_CONTRACT)
+    out = await hold_lesson_shape(state)
+    assert "### Lesson 1: " in out
+    assert "Where would you like to start" not in out
+    assert calls.asked == ["LessonPractice"]
 
 
 @pytest.mark.asyncio
 async def test_picking_up_where_memory_says_gets_no_list(calls: _Calls) -> None:
-    calls.answer = _TOPICS
     reply = "Last time we got to dictionaries. Pick up with functions, or start over?"
     memory = "- Learning Python: reached Lesson 3, Dictionaries. Covered: Variables"
     state = _state(reply, "teach me python", contract=TEACH_CONTRACT, memory=memory)
@@ -402,12 +344,6 @@ def test_the_lesson_topic_is_the_learners_words(message: str, topic: str | None)
     assert lesson_topic(message) == topic
 
 
-def test_an_outline_topic_may_lead_with_an_emoji() -> None:
-    reply = "Intro.\n\n1. 🐍 **Setup** — run it\n2. **Loops** - repeat\n3. Plain — no\n"
-    assert outline_topics(reply) == 2
-    assert outline_topics("```\n1. **In a fence**\n```") == 0
-
-
 @pytest.mark.parametrize(
     "quiz",
     [
@@ -423,7 +359,6 @@ def test_a_card_with_no_one_right_option_is_refused(quiz: dict[str, Any]) -> Non
 
 def test_the_call_schemas_accept_their_examples() -> None:
     assert LessonPractice.model_validate(_PRACTICE).quiz.options[0] == "2, 1"
-    assert len(OutlineTopics.model_validate(_TOPICS).topics) == 6
 
 
 def test_the_layout_is_read_from_the_hints_and_the_prompt() -> None:

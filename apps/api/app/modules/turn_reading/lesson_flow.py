@@ -12,7 +12,7 @@ from app.modules.turn_reading.teaching import (
     is_teaching_request,
 )
 from app.modules.turn_reading.walkthrough import walkthrough_topic
-from app.services.md_fence_scan import iter_fences, without_fences
+from app.services.md_fence_scan import iter_fences
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # "### Lesson 2: Dictionaries": a heading with the word Lesson in an app
@@ -190,12 +190,3 @@ def _named(rest: str) -> str | None:
     words = _SUBJECT_END.split(rest.strip(), maxsplit=1)[0].split()[:_SUBJECT_MAX_WORDS]
     subject = " ".join(words).strip()
     return subject[:1].upper() + subject[1:] if subject else None
-
-
-# A topic of an outline: "3. **Loops** — repeat a step", "1. 🐍 **Setup** - install it".
-_OUTLINE_TOPIC = re.compile(r"^\s{0,3}\d{1,2}[.)]\s+(?:[^\w\s*`]{1,4}\s*)?\*\*[^*\n]+\*\*", re.M)
-
-
-def outline_topics(text: str | None) -> int:
-    """How many numbered topics with a bold name an outline reply lists."""
-    return len(_OUTLINE_TOPIC.findall(without_fences(text or "", "")))
