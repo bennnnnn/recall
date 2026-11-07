@@ -60,10 +60,17 @@ class PlanAllowanceSettings(BaseModel):
     strong_everyday_model_plus: bool = False
     strong_everyday_model_pro: bool = True
 
-    # Chat tokens per UTC day (the per-user cost guardrail).
-    daily_token_limit: int = 100_000
-    daily_token_limit_plus: int = 500_000
-    daily_token_limit_pro: int = 500_000
+    # Chat messages per UTC day: what each plan offers and the meter shows. A turn's
+    # prompt (rules, memory, history) cost about 10k tokens, so a token allowance gave
+    # Free about ten messages and the paid plans about fifty (audit, 2026-11-06).
+    daily_message_limit: int = 10
+    daily_message_limit_plus: int = 200
+    daily_message_limit_pro: int = 1000
+    # Chat tokens per UTC day: a cost guardrail behind the message allowance, set well
+    # above what the plan's messages use, so only a runaway account meets it.
+    daily_token_limit: int = 400_000
+    daily_token_limit_plus: int = 4_000_000
+    daily_token_limit_pro: int = 15_000_000
     # UTC-day OpenRouter spend ceiling (foreground + background). 0 = unlimited
     # (dev/tests). Production boot requires a positive value.
     daily_global_spend_usd: float = 0.0

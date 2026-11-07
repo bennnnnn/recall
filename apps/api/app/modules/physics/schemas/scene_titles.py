@@ -9,6 +9,8 @@ from typing import Literal
 TitleKey = Literal[
     "projectile",
     "free_fall",
+    "thrown_up",
+    "thrown_down",
     "orbit",
     "satellite",
     "circular_motion",

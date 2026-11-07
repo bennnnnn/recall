@@ -32,12 +32,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then an answer record's note kept to a label, an explanation in a sentence after the block,
 # then owning a mistake on every turn and a number after a list naming its item
 # (OWN_MISTAKE_HINT, UNCLEAR_MESSAGE_HINT), then a layout that follows what the reply holds
-# (FORMAT_CONTRACT), a reply laid out to be scanned beside every message (READER_NOTE) and a fact the
-# user adds checked against the chat (OWN_MISTAKE_HINT), then a follow-up that leaves out what
-# it is about read as about the last reply (UNCLEAR_MESSAGE_HINT).
+# (FORMAT_CONTRACT), a reply laid out to be scanned beside every message (READER_NOTE) and a
+# fact the user adds checked against the chat (OWN_MISTAKE_HINT), then a follow-up that leaves
+# out what it is about read as about the last reply (UNCLEAR_MESSAGE_HINT), then a checked
+# answer redone from its unrounded values before it is given up (OWN_MISTAKE_HINT).
 _RULES = 175
-_RULE_GRAMS = 15560
-_RULE_GRAMS_SHA = "ddb0a01533686da4"
+_RULE_GRAMS = 15605
+_RULE_GRAMS_SHA = "9741ad654eb4ce44"
 
 
 def _rules() -> list[str]:

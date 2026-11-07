@@ -173,11 +173,11 @@ _CARD = "```answer\nverified: true\nx = 3\n```"
     [
         (
             "Divide.\n\n**Answer:** $x = 3$",
-            "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
+            "Divide.\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```",
         ),
         (
             "Divide.\n\n**Answer**:  $x = 3$  ",
-            "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
+            "Divide.\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```",
         ),
         (
             "Divide.\n\nAnswer: x = 3",
@@ -185,10 +185,10 @@ _CARD = "```answer\nverified: true\nx = 3\n```"
         ),
         (
             "Divide.\n\n## Answer\n\n$x = 3$",
-            "Divide.\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
+            "Divide.\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```",
         ),
-        ("**Answer**  \n- **$x = 3$**", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
-        ("**Answer**\n> $x = 3$\\", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```"),
+        ("**Answer**  \n- **$x = 3$**", "**Answer**\n\n```answer\nverified: false\nx = 3\n```"),
+        ("**Answer**\n> $x = 3$\\", "**Answer**\n\n```answer\nverified: false\nx = 3\n```"),
     ],
 )
 def test_land_puts_the_value_under_the_heading_in_a_card(reply: str, expected: str) -> None:
@@ -203,7 +203,7 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
     out = land_answer_card(reply, None)
     assert out == (
         "**Formula**  \n$v = gt$\n\n$v = 9.8 \\times 2$  \n\n**Answer**\n\n"
-        "```answer\nverified: false\n$v = 19.6\\ \\text{m/s}$\n```\n\n**Check**  \n$19.6 / 9.8 = 2$"
+        "```answer\nverified: false\nv = 19.6\\ \\text{m/s}\n```\n\n**Check**  \n$19.6 / 9.8 = 2$"
     )
     assert land_answer_card(out, None) == out
 
@@ -213,13 +213,13 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
     [
         (
             "**Answer**\n$x = 3$\nOnly the positive root counts.",
-            "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```\n\nOnly the positive root counts.",
+            "**Answer**\n\n```answer\nverified: false\nx = 3\n```\n\nOnly the positive root counts.",
         ),
         (
             "**Answer**\nx = 6 / 2\n\nx = 3",
             "x = 6 / 2\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```",
         ),
-        ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\nverified: false\n$x = 3$\n```\n\n"),
+        ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\nverified: false\nx = 3\n```\n\n"),
         ("**Answer**\n**x ≈ 1.5**", "**Answer**\n\n```answer\nverified: false\nx ≈ 1.5\n```"),
         (
             "**Answer**\nv = 9.8 × 2\nv ≈ 19.6 m/s",
@@ -235,7 +235,7 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
         ),
         (
             "**Answer**\nA = 3 × 4\nArea = 12 cm²\nSo the area is 12 square centimetres.",
-            "A = 3 × 4\n\n**Answer**\n\n```answer\nverified: false\nArea = $12\\,\\mathrm{cm²}$\n```\n\n"
+            "A = 3 × 4\n\n**Answer**\n\n```answer\nverified: false\nArea = $12\\,\\mathrm{cm}^{2}$\n```\n\n"
             "So the area is 12 square centimetres.",
         ),
         (
@@ -253,7 +253,7 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
         ),
         (
             "**Answer:** $x = 12 / 4$\n$x = 3$",
-            "$x = 12 / 4$\n\n**Answer**\n\n```answer\nverified: false\n$x = 3$\n```",
+            "$x = 12 / 4$\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```",
         ),
     ],
 )
@@ -310,7 +310,7 @@ def test_land_replaces_the_model_value_with_the_verified_card() -> None:
 def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
     reply = "**Answer**\n\n$2x = 4$\n\n$x = 2$.\n\nWant another one?"
     assert land_answer_card(reply, None) == (
-        "$2x = 4$\n\n**Answer**\n\n```answer\nverified: false\n$x = 2$\n```\n\nWant another one?"
+        "$2x = 4$\n\n**Answer**\n\n```answer\nverified: false\nx = 2\n```\n\nWant another one?"
     )
 
 

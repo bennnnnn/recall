@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useAccountSession } from "@/contexts/accountSession";
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { fetchTodayUsage } from "@/lib/cache/usageCache";
-import { usageUsedPercent } from "@/lib/quota";
+import { usageMessages, usageUsedPercent } from "@/lib/quota";
 import type { TurnUsage } from "@/features/chat/model/socketReduce";
 import {
   dismissQuotaNudgeToday,
@@ -12,6 +13,13 @@ import {
 
 // Show the upgrade nudge once the free user has used this much of today's quota.
 const QUOTA_NUDGE_THRESHOLD_PCT = 80;
+
+type Counted = { used: number; total: number };
+
+/** The share of the day's messages used, 0 to 100. */
+function percentOf(counted: Counted): number {
+  return Math.round(Math.min(100, (counted.used / counted.total) * 100));
+}
 
 type Options = {
   isPaid: boolean;
@@ -32,11 +40,15 @@ export function useQuotaNudge({ isPaid }: Options) {
   const { account, getToken } = useAccountSession();
   // A paid plan painted from the launch cache reads "free" until /auth/me answers.
   const planKnown = useAuthOptional()?.profileValidated ?? true;
+  const { t } = useTranslation();
   const [show, setShow] = useState(false);
   const [usedPct, setUsedPct] = useState(0);
+  // The day's messages when the server counts them: the banner says how many are left.
+  const [dayCount, setDayCount] = useState<Counted | null>(null);
 
-  const applyPercent = useCallback((pct: number) => {
+  const applyPercent = useCallback((pct: number, counted: Counted | null = null) => {
     setUsedPct(pct);
+    setDayCount(counted);
     if (pct >= QUOTA_NUDGE_THRESHOLD_PCT && !quotaNudgeDismissedToday()) {
       setShow(true);
     }
@@ -52,7 +64,8 @@ export function useQuotaNudge({ isPaid }: Options) {
     void (async () => {
       const usage = await fetchTodayUsage(account, token);
       if (cancelled || !usage) return;
-      applyPercent(Math.round(usageUsedPercent(usage)));
+      const counted = usageMessages(usage);
+      applyPercent(counted ? percentOf(counted) : Math.round(usageUsedPercent(usage)), counted);
     })();
     return () => {
       cancelled = true;
@@ -62,7 +75,13 @@ export function useQuotaNudge({ isPaid }: Options) {
   const applyTurnUsage = useCallback(
     (usage: TurnUsage) => {
       if (!account || isPaid || !planKnown || usage.daily_limit <= 0) return;
-      applyPercent(Math.round(Math.min(100, (usage.used_tokens / usage.daily_limit) * 100)));
+      const counted = usage.daily_messages
+        ? { used: Math.min(usage.daily_messages, usage.messages_used ?? 0), total: usage.daily_messages }
+        : null;
+      applyPercent(
+        counted ? percentOf(counted) : Math.round(Math.min(100, (usage.used_tokens / usage.daily_limit) * 100)),
+        counted,
+      );
     },
     [account, isPaid, planKnown, applyPercent],
   );
@@ -72,5 +91,8 @@ export function useQuotaNudge({ isPaid }: Options) {
     setShow(false);
   }, []);
 
-  return { show, usedPct, dismiss, applyTurnUsage };
+  const label = dayCount
+    ? t("chat.quota_nudge_messages", { left: dayCount.total - dayCount.used, total: dayCount.total })
+    : t("chat.quota_nudge_body", { pct: usedPct });
+  return { show, usedPct, label, dismiss, applyTurnUsage };
 }
