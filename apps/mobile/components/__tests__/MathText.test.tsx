@@ -5,7 +5,7 @@ import { MathText } from "@/components/rich/MathText";
 import { FRAC_SIZE_RATIO, layoutMath, SCRIPT_RATIO } from "@/lib/math/layout";
 import { findLayouts, layoutProblems } from "./layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
-import { parseSimpleLatex } from "@/lib/math/text";
+import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";
 
 function laidOut(latex: string, fontSize = 16) {
@@ -169,6 +169,23 @@ describe("MathText", () => {
     });
     expect(queryByText("x²")).toBeNull();
     expect(queryByText("²")).toBeNull();
+  });
+
+  it("reads an unscrolled tall formula as one element, in words", async () => {
+    const { getByTestId } = await render(<MathText latex={String.raw`\frac{1}{2} + \sqrt{4}`} />);
+    const tall = getByTestId("math-text-tall");
+    expect(tall.props.accessible).toBe(true);
+    expect(tall.props.accessibilityRole).toBe("text");
+    expect(tall.props.accessibilityLabel).toBe(readableLatexFallback(String.raw`\frac{1}{2} + \sqrt{4}`));
+    expect(tall.props.accessibilityLabel).not.toMatch(/\\|frac|sqrt/);
+  });
+
+  it("leaves the label to the scroller when a tall formula scrolls", async () => {
+    const { getByTestId } = await render(
+      <MathText latex={String.raw`\frac{1}{2}`} scrollOverflow />,
+    );
+    expect(getByTestId("math-text-scroll").props.accessible).toBe(true);
+    expect(getByTestId("math-text-tall").props.accessible).toBe(false);
   });
 
   it("renders nothing for empty latex", async () => {

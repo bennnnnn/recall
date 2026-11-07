@@ -157,4 +157,25 @@ describe("how an element looks", () => {
     expect(atomLabelColor("C")).toBe("#fff");
     expect(atomLabelColor("O")).toBe("#fff");
   });
+
+  it("lightens carbon on the dark card, with a dark label, and leaves the rest of the table", () => {
+    // Dark mode's card is #202023: CPK carbon (#3d3d3d) all but vanished on it.
+    expect(atomColor("C", true)).not.toBe(atomColor("C"));
+    expect(luminance(atomColor("C", true))).toBeGreaterThan(0.3);
+    expect(atomLabelColor("C", true)).toBe("#1a1a1a");
+    expect(atomColor("C", false)).toBe("#3d3d3d");
+    for (const element of ["H", "O", "N", "Cl", "Xx"]) {
+      expect(atomColor(element, true)).toBe(atomColor(element));
+      expect(atomLabelColor(element, true)).toBe(atomLabelColor(element));
+    }
+  });
 });
+
+/** WCAG relative luminance of `#rrggbb`. */
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((at) => {
+    const c = parseInt(hex.slice(at, at + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+}

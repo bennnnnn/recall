@@ -1,6 +1,8 @@
-import { render } from "@testing-library/react-native";
+import { render, within } from "@testing-library/react-native";
 
+import { nestedAccessibleElements } from "@/components/__tests__/a11yTree";
 import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
+import { DYNAMIC_TYPE_PICKER_MAX } from "@/lib/type";
 
 const BASE = {
   type: "arithmetic",
@@ -113,6 +115,78 @@ describe("ArithmeticWorkBlock", () => {
       getByTestId("arithmetic-division-product-0").props.accessibilityLabel,
     ).toBe("42");
     expect(queryByText("437 ÷ 6")).not.toBeOnTheScreen();
+  });
+
+  it("reads each row of digits as one VoiceOver element and caps digits to their cells", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "addition",
+      operator: "+",
+      expression: "478 + 356",
+      operands: ["478", "356"],
+      working_operands: ["478", "356"],
+      answer: "834",
+      addition_columns: [
+        { position: 0, place: "ones", addends: [8, 6], carry_in: 0, result_digit: 4, carry_out: 1 },
+      ],
+    });
+    const { getByTestId, toJSON } = await render(<ArithmeticWorkBlock content={content} />);
+    // The row is read once: its cells are not a second element inside it.
+    expect(nestedAccessibleElements(toJSON())).toEqual([]);
+    for (const id of ["arithmetic-annotation-row", "arithmetic-top-row", "arithmetic-result-row"]) {
+      expect(getByTestId(id).props.accessible).toBe(true);
+      expect(getByTestId(id).props.accessibilityRole).toBe("text");
+    }
+    expect(getByTestId("arithmetic-result-row").props.accessibilityLabel).toBe("834");
+    // Digits, the operator and the carry sit in fixed 25pt cells.
+    const cells = [
+      within(getByTestId("arithmetic-top-row")).getByText("8"),
+      within(getByTestId("arithmetic-bottom-row")).getByText("+"),
+      within(getByTestId("arithmetic-annotation-row")).getByText("1"),
+    ];
+    for (const cell of cells) expect(cell.props.maxFontSizeMultiplier).toBe(DYNAMIC_TYPE_PICKER_MAX);
+  });
+
+  it("keeps long division's invisible divisor spacers away from VoiceOver", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "division",
+      operator: "÷",
+      expression: "437 / 6",
+      operands: ["437", "6"],
+      working_operands: ["437", "6"],
+      answer: "72\\text{ remainder }5",
+      quotient: "72",
+      remainder: "5",
+      division_steps: [
+        {
+          index: 0,
+          column_end: 1,
+          partial_dividend: "43",
+          quotient_digit: 7,
+          product: "42",
+          remainder: "1",
+          bring_down: 7,
+          next_partial: "17",
+        },
+      ],
+    });
+    const view = await render(<ArithmeticWorkBlock content={content} />);
+    expect(view.getByTestId("arithmetic-quotient").props.accessible).toBe(true);
+    expect(nestedAccessibleElements(view.toJSON())).toEqual([]);
+    type Node = { type: string; props: Record<string, unknown>; children: (Node | string)[] | null };
+    const sixes: Node[] = [];
+    const walk = (node: Node | Node[] | string | null) => {
+      if (node == null || typeof node === "string") return;
+      if (Array.isArray(node)) return node.forEach(walk);
+      if (node.type === "Text" && node.children?.join("") === "6") sixes.push(node);
+      (node.children ?? []).forEach(walk);
+    };
+    walk(view.toJSON() as unknown as Node);
+    expect(sixes).toHaveLength(3);
+    expect(sixes.filter((node) => node.props.accessibilityElementsHidden === true)).toHaveLength(2);
+    // The drawn divisor, and the two that only hold its width.
+    expect(sixes.filter((node) => node.props.accessibilityElementsHidden)).toHaveLength(2);
   });
 
   it("renders carries for every multiplication partial product", async () => {

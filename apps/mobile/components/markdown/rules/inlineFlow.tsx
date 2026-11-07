@@ -22,6 +22,10 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import {
+  AccessibleElementChildren,
+  useInsideAccessibleElement,
+} from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
@@ -186,7 +190,10 @@ export function InlineFlow({
   collect(children, { style: [], props: {}, space: spaceFor([]) }, flow);
   const label = flow.label.join("").replace(/\s+/g, " ").trim();
   // One element for VoiceOver, not one per word. A link keeps its own focus.
-  const grouped = !flow.pressable && label.length > 0;
+  // Under an accessible parent (an answer card) that parent is the element.
+  const inside = useInsideAccessibleElement();
+  const grouped = !inside && !flow.pressable && label.length > 0;
+  const drawn = units(flow.pieces).map((unit, i) => renderUnit(unit, `w${i}`));
   return (
     <View
       testID={testID}
@@ -194,7 +201,7 @@ export function InlineFlow({
       accessible={grouped || undefined}
       accessibilityLabel={grouped ? label : undefined}
     >
-      {units(flow.pieces).map((unit, i) => renderUnit(unit, `w${i}`))}
+      {grouped ? <AccessibleElementChildren>{drawn}</AccessibleElementChildren> : drawn}
     </View>
   );
 }

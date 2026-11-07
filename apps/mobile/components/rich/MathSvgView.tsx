@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { parse, SvgAst, type JsxAST } from "react-native-svg";
 
+import {
+  AccessibleElementChildren,
+  useInsideAccessibleElement,
+} from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
 import {
   latexToSvgMath,
@@ -9,7 +13,11 @@ import {
   svgMathDrawing,
   type SvgMathResult,
 } from "@/lib/math/svgMath";
-import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
+import {
+  latexHasNestedMathView,
+  MATH_TALL_LINE_HEIGHT,
+  readableLatexFallback,
+} from "@/lib/math/text";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
@@ -19,7 +27,9 @@ const EX_PER_EM = 0.442;
 /**
  * Display maths is set at the reply's own text size, as TeX sets a display at the size of
  * its paragraph: the 20px em the retired KaTeX WebView used drew every display formula a
- * size larger than the inline maths and the words around it.
+ * size larger than the inline maths and the words around it. The drawing is then scaled
+ * by the reader's text size (Larger Text), as inline maths (`MathText`) and body copy
+ * scale: uncapped, and a formula wider than the line scrolls sideways.
  */
 export const MATH_SVG_EX_PX = Type.reading.fontSize * EX_PER_EM;
 
@@ -36,27 +46,38 @@ type Props = {
   align?: "start" | "center";
 };
 
+type FallbackProps = Required<Omit<Props, "minHeight">> & { label: string | undefined };
+
 /** What MathJax could not convert: the same formula in readable native maths. */
-function FallbackMath({ latex, textColor, em, align }: Required<Omit<Props, "minHeight">>) {
+function FallbackMath({ latex, textColor, em, align, label }: FallbackProps) {
   const justify = align === "start" ? styles.alignStart : null;
+  const own = label !== undefined;
   return (
-    <View style={[styles.wrap, styles.fallbackBox]} testID="math-svg-fallback">
-      <ScrollView
-        horizontal
-        nestedScrollEnabled
-        showsHorizontalScrollIndicator
-        contentContainerStyle={[styles.lineScroll, justify]}
-      >
-        {latexHasNestedMathView(latex) ? (
-          <View style={[styles.nestedRow, justify]}>
-            <MathText latex={latex} textColor={textColor} fontSize={em} />
-          </View>
-        ) : (
-          <Text style={[styles.line, align === "start" && styles.lineStart]} selectable>
-            <MathText latex={latex} textColor={textColor} fontSize={em} />
-          </Text>
-        )}
-      </ScrollView>
+    <View
+      style={[styles.wrap, styles.fallbackBox]}
+      testID="math-svg-fallback"
+      accessible={own}
+      accessibilityRole={own ? "text" : undefined}
+      accessibilityLabel={label}
+    >
+      <AccessibleElementChildren>
+        <ScrollView
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator
+          contentContainerStyle={[styles.lineScroll, justify]}
+        >
+          {latexHasNestedMathView(latex) ? (
+            <View style={[styles.nestedRow, justify]}>
+              <MathText latex={latex} textColor={textColor} fontSize={em} />
+            </View>
+          ) : (
+            <Text style={[styles.line, align === "start" && styles.lineStart]} selectable>
+              <MathText latex={latex} textColor={textColor} fontSize={em} />
+            </Text>
+          )}
+        </ScrollView>
+      </AccessibleElementChildren>
     </View>
   );
 }
@@ -76,8 +97,13 @@ export const MathSvgView = React.memo(function MathSvgView({
   em = Type.reading.fontSize,
   align = "center",
 }: Props) {
-  const exPx = em * EX_PER_EM;
+  const { fontScale } = useWindowDimensions();
+  const exPx = em * EX_PER_EM * fontScale;
   const justify = align === "start" ? styles.alignStart : null;
+  // VoiceOver reads the formula as words: an SVG has no text of its own. Under
+  // an accessible parent (an answer card) the parent reads it instead.
+  const own = !useInsideAccessibleElement();
+  const label = useMemo(() => (own ? readableLatexFallback(latex) : undefined), [own, latex]);
   // The conversion is held with the latex it was made from. A view whose
   // latex changes (a streaming answer growing, a reused row) never draws the
   // previous formula's result, not even for one frame: until its own result
@@ -128,7 +154,7 @@ export const MathSvgView = React.memo(function MathSvgView({
   }
 
   if (result === null || ast == null) {
-    return <FallbackMath latex={latex} textColor={textColor} em={em} align={align} />;
+    return <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} />;
   }
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
@@ -136,7 +162,13 @@ export const MathSvgView = React.memo(function MathSvgView({
   const width = Math.max(1, result.widthEx * exPx);
   const height = Math.max(1, result.heightEx * exPx);
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      testID="math-svg-view"
+      accessible={own}
+      accessibilityRole={own ? "text" : undefined}
+      accessibilityLabel={label}
+    >
       <ScrollView
         horizontal
         nestedScrollEnabled

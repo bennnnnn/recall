@@ -44,19 +44,29 @@ const ELEMENTS: Record<string, ElementLook> = {
 
 const UNKNOWN: ElementLook = { fill: "#c45c9a", radius: 0.7 };
 
+/**
+ * Dark mode's changes to the table. CPK carbon (#3d3d3d inside a near-black rim) all but
+ * vanished on the dark card (#202023): a light grey keeps the backbone readable, the rim
+ * still parts it from the light bonds, and its label turns dark to stay legible.
+ */
+const DARK_ELEMENTS: Record<string, ElementLook> = {
+  C: { fill: "#a3a3a8", radius: 0.7, lightFill: true },
+};
+
 /** Near-black ink: the rim drawn around every atom, and the label on a light fill. */
 export const ATOM_INK = "#1a1a1a";
 
-function look(element: string): ElementLook {
-  return ELEMENTS[element] ?? UNKNOWN;
+function look(element: string, dark = false): ElementLook {
+  return (dark ? DARK_ELEMENTS[element] : undefined) ?? ELEMENTS[element] ?? UNKNOWN;
 }
 
-export function atomColor(element: string): string {
-  return look(element).fill;
+/** The atom's fill; `dark` is the theme's `isDark`. */
+export function atomColor(element: string, dark = false): string {
+  return look(element, dark).fill;
 }
 
-export function atomLabelColor(element: string): string {
-  return look(element).lightFill ? ATOM_INK : "#fff";
+export function atomLabelColor(element: string, dark = false): string {
+  return look(element, dark).lightFill ? ATOM_INK : "#fff";
 }
 
 /** Stroke width of a bond line in this style. */

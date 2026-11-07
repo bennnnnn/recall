@@ -5,7 +5,9 @@ import {
   inlineCodeTextStyle,
   PARAGRAPH_GAP,
 } from "@/components/markdown/markdownContentStyles";
+import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { ChipText } from "@/components/rich/ChipText";
+import { richTextLabel } from "@/components/rich/RichMathBody";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { CODE_FACE } from "@/lib/fonts";
 import i18n from "@/lib/i18n";
@@ -72,29 +74,46 @@ export function ArrayBlock({ content }: Props) {
       style={s.card}
       accessible
       accessibilityRole="image"
-      accessibilityLabel={arrayText(fence)}
+      accessibilityLabel={arrayLabel(fence)}
       testID="array-block"
     >
-      {fence.title ? (
-        <ChipText style={s.title} chip={s.chip}>
-          {fence.title}
-        </ChipText>
-      ) : null}
-      {fits ? (
-        <View style={s.row}>{cells}</View>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <AccessibleElementChildren>
+        {fence.title ? (
+          <ChipText style={s.title} chip={s.chip}>
+            {fence.title}
+          </ChipText>
+        ) : null}
+        {fits ? (
           <View style={s.row}>{cells}</View>
-        </ScrollView>
-      )}
-      {fence.caption ? <Text style={s.caption}>{fence.caption}</Text> : null}
-      {fence.note ? (
-        <ChipText style={s.note} chip={s.chip}>
-          {fence.note}
-        </ChipText>
-      ) : null}
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={s.row}>{cells}</View>
+          </ScrollView>
+        )}
+        {fence.caption ? <Text style={s.caption}>{fence.caption}</Text> : null}
+        {fence.note ? (
+          <ChipText style={s.note} chip={s.chip}>
+            {fence.note}
+          </ChipText>
+        ) : null}
+      </AccessibleElementChildren>
     </View>
   );
+}
+
+/**
+ * The card is one screen-reader element: its line, the list, the caption and the
+ * note, each `$…$` read as words. Nothing inside it is a stop of its own.
+ */
+function arrayLabel(fence: Parameters<typeof arrayText>[0]): string {
+  return [
+    fence.title ? richTextLabel(fence.title) : "",
+    arrayText(fence),
+    fence.caption ?? "",
+    fence.note ? richTextLabel(fence.note) : "",
+  ]
+    .filter(Boolean)
+    .join(". ");
 }
 
 /** A list whose fence did not parse: its lines and values as plain text. */

@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react-native";
 
+import { nestedAccessibleElements } from "@/components/__tests__/a11yTree";
 import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
 import { spokenPrompt } from "@/features/suggestions/model/promptMath";
 
@@ -65,6 +66,13 @@ describe("RelatedPromptLines for a screen reader", () => {
     expect(button!.props.accessibilityLabel).toBe("What if v subscript f = 36 km/h?");
     fireEvent.press(getByLabelText("What if v subscript f = 36 km/h?"));
     expect(onSelect).toHaveBeenCalledWith(prompt);
+  });
+
+  it("keeps the line inside the button from being a second TalkBack stop", async () => {
+    const prompt = String.raw`Why is $\frac{1}{2} + \frac{1}{4} = \frac{3}{4}$?`;
+    const view = await render(<RelatedPromptLines prompts={[prompt, MATH]} onSelect={jest.fn()} />);
+    expect(view.getAllByTestId("rich-math-body").length).toBeGreaterThan(0);
+    expect(nestedAccessibleElements(view.toJSON())).toEqual([]);
   });
 });
 

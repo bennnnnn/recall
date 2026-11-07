@@ -1,6 +1,14 @@
 import { memo, useMemo, type ReactNode } from "react";
-import { ScrollView, Text, useWindowDimensions, View } from "react-native";
+import {
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
+import { useInsideAccessibleElement } from "@/components/rich/accessibleElement";
 import { inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
@@ -40,6 +48,7 @@ function TallMath({
   fontScale,
   minWidth,
   height,
+  label,
   children,
 }: {
   layout: ReturnType<typeof layoutMath>;
@@ -47,6 +56,8 @@ function TallMath({
   fontScale: number;
   minWidth: number;
   height: number;
+  /** The formula read as words, when this box is its one screen-reader element. */
+  label?: string;
   children: ReactNode;
 }) {
   // The measured height already includes the script raise. Padding keeps
@@ -61,6 +72,9 @@ function TallMath({
     <View
       testID="math-text-tall"
       collapsable={false}
+      accessible={label !== undefined}
+      accessibilityRole={label !== undefined ? "text" : undefined}
+      accessibilityLabel={label}
       style={[styles.tallRoot, {
         minWidth,
         height,
@@ -73,6 +87,36 @@ function TallMath({
       </Text>
       {children}
     </View>
+  );
+}
+
+/** A formula wider than the paragraph, scrolled sideways inside it; when it reads the
+ * formula to a screen reader (``label``), it is the formula's one element. */
+function InlineMathScroll({
+  label,
+  style,
+  children,
+}: {
+  label: string | undefined;
+  style: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  return (
+    <ScrollView
+      testID="math-text-scroll"
+      horizontal
+      nestedScrollEnabled
+      directionalLockEnabled
+      showsHorizontalScrollIndicator
+      bounces={false}
+      contentInsetAdjustmentBehavior="never"
+      accessible={label !== undefined}
+      accessibilityRole={label !== undefined ? "text" : undefined}
+      accessibilityLabel={label}
+      style={style}
+    >
+      {children}
+    </ScrollView>
   );
 }
 
@@ -100,6 +144,9 @@ export const MathText = memo(function MathText({
   const tall = useMemo(() => hasTallMath(segments), [segments]);
   const stacked = useMemo(() => hasStackedMath(segments), [segments]);
   const ctx: RenderCtx = { styles, color, fontScale, em: fontSize };
+  // Under an accessible parent (an answer card, a grouped paragraph) the parent
+  // reads the formula; a focusable box here would be a second TalkBack stop.
+  const own = !useInsideAccessibleElement();
 
   if (!latex.trim()) return null;
 
@@ -114,8 +161,19 @@ export const MathText = memo(function MathText({
   // Stacked structures are a View root. Text > Text > View is what iOS lays
   // out as 0×0 and paints over the next line.
   if (tall) {
+    // Unscrolled, the box is the formula's one screen-reader element: its
+    // pieces (a numerator, a radicand) would otherwise be read apart, or not
+    // at all. Scrolled, the ScrollView below carries the label.
+    const boxOwns = own && !scroll;
     const content = (
-      <TallMath layout={layout} styles={styles} fontScale={fontScale} minWidth={contentWidth} height={contentHeight}>
+      <TallMath
+        layout={layout}
+        styles={styles}
+        fontScale={fontScale}
+        minWidth={contentWidth}
+        height={contentHeight}
+        label={boxOwns ? label : undefined}
+      >
         {runs}
       </TallMath>
     );
@@ -123,47 +181,23 @@ export const MathText = memo(function MathText({
     // The viewport is the paragraph width. The formula keeps its measured
     // width and scrolls; it is not shrunk to fit.
     return (
-      <ScrollView
-        testID="math-text-scroll"
-        horizontal
-        nestedScrollEnabled
-        directionalLockEnabled
-        showsHorizontalScrollIndicator
-        bounces={false}
-        contentInsetAdjustmentBehavior="never"
-        accessible
-        accessibilityRole="text"
-        accessibilityLabel={label}
-        style={[styles.inlineViewport, { height: contentHeight }]}
-      >
+      <InlineMathScroll label={own ? label : undefined} style={[styles.inlineViewport, { height: contentHeight }]}>
         {content}
-      </ScrollView>
+      </InlineMathScroll>
     );
   }
 
   const lineHeight = Math.max(styles.base.lineHeight ?? 0, layout.height);
   if (scroll) {
     return (
-      <ScrollView
-        testID="math-text-scroll"
-        horizontal
-        nestedScrollEnabled
-        directionalLockEnabled
-        showsHorizontalScrollIndicator
-        bounces={false}
-        contentInsetAdjustmentBehavior="never"
-        accessible
-        accessibilityRole="text"
-        accessibilityLabel={label}
-        style={[styles.inlineViewport, { height: contentHeight }]}
-      >
+      <InlineMathScroll label={own ? label : undefined} style={[styles.inlineViewport, { height: contentHeight }]}>
         <Text
           testID="math-text-wide"
           style={[styles.base, { lineHeight, minWidth: contentWidth, flexShrink: 0 }]}
         >
           {runs}
         </Text>
-      </ScrollView>
+      </InlineMathScroll>
     );
   }
 

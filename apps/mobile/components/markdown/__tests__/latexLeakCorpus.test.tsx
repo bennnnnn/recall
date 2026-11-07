@@ -138,13 +138,18 @@ const VARIANTS: Record<string, string> = {
   "price times price": "$2 \\times $3 = $6",
   "price bold label": "**Total:** $80 \\times 7 = $560",
   "escaped prices in maths": "$\\$80 \\times 7 = \\$560$",
+  // Rich cards draw their own text: each must draw its maths too.
+  "steps":
+    "```steps\n1. Add 9: $x^2+6x+9 = 16$\n2. Take the root: **$x + 3 = \\pm 4$**\n3. So $x = \\frac{1}{2}$ or `x = -7`\n```",
+  "quiz options":
+    '```quiz\n{"question": "What is $\\\\frac{1}{2} + \\\\frac{1}{4}$?", "options": ["$\\\\frac{3}{4}$", "$\\\\frac{2}{6}$"], "answer": 0, "explanation": "Add the quarters."}\n```',
+  "quiz plain body": "```quiz\nSolve $x^2 = 9$ for $x$.\n```",
+  "callout": "```tip\nComplete the square: $(x+3)^2 = 16$.\n```",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",
   "bare tex in prose": "The speed is v = 5\\,\\text{m/s} and KE = \\frac{1}{2}mv^{2} here.",
   "unclosed dollar": "So $v = 5 and we are done.",
-  "quiz options":
-    '```quiz\n{"question": "What is $\\\\frac{1}{2} + \\\\frac{1}{4}$?", "options": ["$\\\\frac{3}{4}$", "$\\\\frac{2}{6}$"], "answer": 0, "explanation": "Add the quarters."}\n```',
 };
 
 const ENTRIES: Entry[] = [
@@ -161,7 +166,6 @@ const KNOWN_GAPS: Record<string, string> = {
   "variant:bare script": "a TeX script outside `$` (`m^{2}`) is not wrapped as maths",
   "variant:bare tex in prose": "a TeX script outside `$` (`mv^{2}`) is not wrapped as maths",
   "variant:table abs": "a `|` inside maths in a table cell splits the cell",
-  "variant:quiz options": "quiz questions and options are drawn by ChipText, which has no maths",
 };
 
 function textOf(node: any, seen: { visible: string[]; labels: string[] }): void {
