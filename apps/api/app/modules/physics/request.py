@@ -20,6 +20,7 @@ from app.modules.physics.extractors.unit_patterns import (
     NUMBER,
     VELOCITY_UNIT_PATTERN,
 )
+from app.modules.physics.motion import read_motion
 from app.modules.physics.numbers import (
     normalize_physics_numbers,
     normalize_physics_units,
@@ -434,13 +435,11 @@ def complete_physics_intent(
             if intent.physics_op == "suvat_distance"
             else "displacement" in request.text.lower()
         )
-        params = {**params, "distance_path": float(not displacement)}
-        intent = intent.model_copy(
-            update={
-                "physics_params": params,
-                "physics_units": {**(intent.physics_units or {}), "distance_path": ""},
-            }
-        )
+        # Brought to rest by its brakes, a body stays there; one thrown up comes back.
+        flags = {"distance_path": not displacement, "halts": read_motion(request.text).halts}
+        params = {**params, **{name: float(on) for name, on in flags.items()}}
+        units = {**(intent.physics_units or {}), **dict.fromkeys(flags, "")}
+        intent = intent.model_copy(update={"physics_params": params, "physics_units": units})
     if any(value < 0 for key, value in params.items() if key in {"m", "m1", "m2"}):
         return None
     spec = formula_spec(intent.physics_op or "")

@@ -62,8 +62,27 @@ _LENGTH = _kind("meter")
 # a push up an incline, a speed and a radius over a hump, a rolling body's size.
 # A stated acceleration too: "ends at 20 m/s after accelerating at 2 m/s² over 75 m" is
 # not d/v (3.75 s), which never reads it; it is 5 s.
+# An energy given too: "friction does 100 J of work" changes the speed it ends with.
 _SITUATION_KINDS = frozenset(
-    {_kind("newton"), _kind("meter / second"), _kind("meter / second ** 2"), _LENGTH, ANGLE},
+    {
+        _kind("newton"),
+        _kind("meter / second"),
+        _kind("meter / second ** 2"),
+        _LENGTH,
+        ANGLE,
+        _kind("joule"),
+    },
+)
+_TIME = _kind("second")
+# A time that names the moment the asked state holds: "after 2 s", "at t = 2 s", "3 s later",
+# "2 s after launch". Left out, a law answers the state at another moment (the top height
+# for "how high after 2 s"). A time that says how long something lasted ("in 5 s", "held for
+# a second", "1 s after another ball") may belong to another part or another event.
+_MOMENT_BEFORE = re.compile(r"\b(?:after|at(?:\s+t(?:ime)?\s*=)?|when\s+t\s*=)\s*$", re.IGNORECASE)
+_MOMENT_AFTER = re.compile(
+    r"\s*(?:later\b|after\s+(?:launch|release|it\b|being\b"
+    r"|the\s+(?:launch|throw|kick|release|start)\b))",
+    re.IGNORECASE,
 )
 # "a 2 m long plank", "a 30 cm wide box": a size, not where anything is.
 _SIZE_ONLY = re.compile(
@@ -225,15 +244,30 @@ def _clearly_irrelevant(given: Given, text: str) -> bool:
     return given.dimension == _LENGTH and _SIZE_ONLY.match(text, given.end) is not None
 
 
+def _a_moment(given: Given, text: str) -> bool:
+    """A time naming when the asked state holds ("after 2 s", "3 s later"), not how long
+    something lasted."""
+    return (
+        _MOMENT_BEFORE.search(text[: given.start]) is not None
+        or _MOMENT_AFTER.match(text, given.end) is not None
+    )
+
+
 def _unused_situation(given: Given, params: list[_Param], text: str) -> bool:
-    """A stated force, speed, acceleration, length or angle of a kind this solve never uses.
+    """A stated force, speed, acceleration, length, angle, energy or moment of a kind this
+    solve never uses.
 
     Those change the situation: a 30 N push along a slope, a car's speed and
-    the radius of the hump it crosses, a rolling sphere's radius. A law that
-    leaves one out answers a different question. A mass, a time or a
-    temperature beside a law that needs none is still a distractor.
+    the radius of the hump it crosses, a rolling sphere's radius, the 100 J
+    friction takes, the 2 s after which a height is asked. A law that leaves one
+    out answers a different question. A mass, a temperature or a time that only
+    says how long something lasted beside a law that needs none is still a
+    distractor.
     """
-    if given.dimension not in _SITUATION_KINDS:
+    situation = (
+        _a_moment(given, text) if given.dimension == _TIME else given.dimension in _SITUATION_KINDS
+    )
+    if not situation:
         return False
     if any(param.dimension == given.dimension for param in params):
         return False

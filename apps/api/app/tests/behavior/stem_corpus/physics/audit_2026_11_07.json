@@ -30,8 +30,7 @@
    50,
    "m"
   ],
-  "note": "stops: v = 0, so (u + v)t/2, not vt",
-  "gap": "a stop said another way is read as constant speed: extractors/rates.py runs first, and the binder's deny-list (catalog/kinematics.py) is weaker (audit 2026-11-07, Stage 1/2)"
+  "note": "stops: v = 0, so (u + v)t/2, not vt"
  },
  {
   "id": "au-standstill",
@@ -42,8 +41,7 @@
    90,
    "m"
   ],
-  "note": "(30 + 0) × 6 / 2",
-  "gap": "a stop said another way is read as constant speed: extractors/rates.py runs first, and the binder's deny-list (catalog/kinematics.py) is weaker (audit 2026-11-07, Stage 1/2)"
+  "note": "(30 + 0) × 6 / 2"
  },
  {
   "id": "au-stationary-to",
@@ -54,8 +52,7 @@
    9,
    "m"
   ],
-  "note": "u = 0, v = 6: (0 + 6) × 3 / 2",
-  "gap": "'initially stationary … accelerates to 6 m/s' is read as a constant 6 m/s (extractors/rates.py) (audit 2026-11-07)"
+  "note": "u = 0, v = 6: (0 + 6) × 3 / 2"
  },
  {
   "id": "au-halts",
@@ -66,8 +63,7 @@
    125,
    "m"
   ],
-  "note": "(25 + 0) × 10 / 2",
-  "gap": "a stop said another way is read as constant speed: extractors/rates.py runs first, and the binder's deny-list (catalog/kinematics.py) is weaker (audit 2026-11-07, Stage 1/2)"
+  "note": "(25 + 0) × 10 / 2"
  },
  {
   "id": "au-becomes-stationary",
@@ -78,8 +74,7 @@
    45,
    "m"
   ],
-  "note": "(15 + 0) × 6 / 2",
-  "gap": "a stop said another way is read as constant speed: extractors/rates.py runs first, and the binder's deny-list (catalog/kinematics.py) is weaker (audit 2026-11-07, Stage 1/2)"
+  "note": "(15 + 0) × 6 / 2"
  },
  {
   "id": "au-brake-past-v",
@@ -90,8 +85,7 @@
    0,
    "m/s"
   ],
-  "note": "it stops after u/a = 10 s and stays at rest",
-  "gap": "braking is carried past rest, so the car reverses (solvers/suvat.py _suvat_velocity) (audit 2026-11-07)"
+  "note": "it stops after u/a = 10 s and stays at rest"
  },
  {
   "id": "au-brake-past-d",
@@ -113,8 +107,7 @@
    300,
    "m"
   ],
-  "note": "stops after 20 s: u²/2a = 900/3",
-  "gap": "braking is carried past rest, so the train reverses (solvers/suvat.py _suvat_distance) (audit 2026-11-07)"
+  "note": "stops after 20 s: u²/2a = 900/3"
  },
  {
   "id": "au-up-after-2",
@@ -125,8 +118,7 @@
    10.38,
    "m"
   ],
-  "note": "h = ut − gt²/2 = 30 − 19.62; not the top height",
-  "gap": "the time given is dropped as a distractor and the top height answered (accounting.py _unused_situation) (audit 2026-11-07)"
+  "note": "h = ut − gt²/2 = 30 − 19.62; not the top height; declines until the moment a time names is read (Stage 2), never the wrong law"
  },
  {
   "id": "au-up-after-1",
@@ -137,8 +129,7 @@
    15.095,
    "m"
   ],
-  "note": "20 − 4.905",
-  "gap": "the time given is dropped as a distractor and the top height answered (accounting.py _unused_situation) (audit 2026-11-07)"
+  "note": "20 − 4.905; declines until the moment a time names is read (Stage 2), never the wrong law"
  },
  {
   "id": "au-ke-after",
@@ -149,8 +140,7 @@
    25.959,
    "J"
   ],
-  "note": "v = 10 − 9.81 × 0.5 = 5.095 m/s; KE = mv²/2",
-  "gap": "the time given is dropped as a distractor and the launch KE answered (accounting.py _unused_situation) (audit 2026-11-07)"
+  "note": "v = 10 − 9.81 × 0.5 = 5.095 m/s; KE = mv²/2; declines until the moment a time names is read (Stage 2), never the wrong law"
  },
  {
   "id": "au-pe-after",
@@ -161,8 +151,7 @@
    740.41,
    "J"
   ],
-  "note": "fallen 4.905 m, height 15.095 m; PE = mgh",
-  "gap": "the time given is dropped as a distractor and the starting PE answered (accounting.py _unused_situation) (audit 2026-11-07)"
+  "note": "fallen 4.905 m, height 15.095 m; PE = mgh; declines until the moment a time names is read (Stage 2), never the wrong law"
  },
  {
   "id": "au-friction-work",
@@ -173,8 +162,7 @@
    6.9354,
    "m/s"
   ],
-  "note": "mgh − 100 = 96.2 J = mv²/2",
-  "gap": "the 100 J of friction work is dropped as a distractor (accounting.py _unused_situation) (audit 2026-11-07)"
+  "note": "mgh − 100 = 96.2 J = mv²/2; declines until the moment a time names is read (Stage 2), never the wrong law"
  },
  {
   "id": "au-roll-cylinder",
@@ -281,8 +269,7 @@
    17.321,
    "m"
   ],
-  "note": "x = u cos30° t",
-  "gap": "the launch speed is used as the horizontal speed, without cos 30° (audit 2026-11-07)"
+  "note": "x = u cos30° t; declines until the moment a time names is read (Stage 2), never the wrong law"
  },
  {
   "id": "au-spring-kN",
@@ -398,5 +385,72 @@
   ],
   "note": "now it stops: u = 20, v = 0, t = 10",
   "gap": "a follow-up that changes the motion keeps the earlier law and swaps a number (followup.py physics_followup_problem) (audit 2026-11-07)"
+ },
+ {
+  "id": "au-avg-from-rest",
+  "area": "kinematics",
+  "prompt": "A sprinter starts from rest and covers 100 m in 12 s. What is her average speed?",
+  "expect": "answer",
+  "answer": [
+   8.33333,
+   "m/s"
+  ],
+  "note": "an average speed is total distance over total time, whatever the speed does: 100 / 12 (review of #2333)"
+ },
+ {
+  "id": "au-avg-velocity-accelerating",
+  "area": "kinematics",
+  "prompt": "A cyclist accelerates and travels 300 m in 20 s. What is her average velocity?",
+  "expect": "answer",
+  "answer": [
+   15,
+   "m/s"
+  ],
+  "note": "300 / 20; accelerating does not change what an average is"
+ },
+ {
+  "id": "au-avg-speed-given",
+  "area": "kinematics",
+  "prompt": "Starting from rest, a car reaches an average speed of 12 m/s over 30 s. How far did it go?",
+  "expect": "answer",
+  "answer": [
+   360,
+   "m"
+  ],
+  "note": "d = (average speed) × t = 12 × 30; 12 m/s is no final speed",
+  "gap": "SUVAT reads a stated average speed as the final speed: s = (0 + 12)/2 × 30 = 180 m, verified (found 2026-11-07 probing #2333)"
+ },
+ {
+  "id": "au-throw-decelerates",
+  "area": "kinematics",
+  "prompt": "A ball is thrown up at 20 m/s and decelerates at 9.8 m/s² under gravity. Find its velocity after 3 s.",
+  "expect": "answer",
+  "answer": [
+   -9.4,
+   "m/s"
+  ],
+  "note": "gravity turns it back: v = 20 - 9.8 × 3 (review of #2333; braking would stop it at 0)"
+ },
+ {
+  "id": "au-incline-decelerates",
+  "area": "kinematics",
+  "prompt": "A block slides up a frictionless incline at 6 m/s and decelerates at 4.9 m/s². Find its velocity after 2 s.",
+  "expect": "answer",
+  "answer": [
+   -3.8,
+   "m/s"
+  ],
+  "note": "on a frictionless incline it slides back: v = 6 - 4.9 × 2"
+ },
+ {
+  "id": "au-brakes-stay-stopped",
+  "area": "kinematics",
+  "prompt": "A car travelling at 20 m/s decelerates at 4 m/s². What is its velocity after 6 s?",
+  "expect": "answer",
+  "answer": [
+   0,
+   "m/s"
+  ],
+  "note": "it stops at 5 s and stays: brakes never reverse a car"
  }
 ]

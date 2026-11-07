@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.modules.physics.catalog.suvat import TWO_BODIES
+from app.modules.physics.motion import SPEED_CHANGE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 # A drop from a height and a sound's trip to a wall and back are not one
@@ -22,11 +23,9 @@ _NOT_CONSTANT_SPEED = (
     "echo",
     "echoes",
     "sonar",
-    # A speed that changes on the way: "takes 5 s to stop" covers half of 20 m/s for 5 s.
-    "to stop",
-    "to rest",
-    "to a stop",
-    "to a halt",
+    # A speed that changes on the way, however it is said (``motion.read_motion``): "takes
+    # 5 s to stop" covers half of 20 m/s for 5 s.
+    SPEED_CHANGE_MARKER,
     *TWO_BODIES,
 )
 # A radius covered once a turn is 2πr, not r: "a child sits 2.5 m from the

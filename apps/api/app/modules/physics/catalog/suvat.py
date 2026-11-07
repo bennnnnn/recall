@@ -121,6 +121,8 @@ def _with(*variables: VariableSpec) -> tuple[VariableSpec, ...]:
     return (
         *sorted(variables, key=lambda variable: variable.name),
         var("distance_path", "path", dimensionless=True, visible=False),
+        # Brought to rest by its brakes: it stops and stays (``motion.Motion.halts``).
+        var("halts", "halts", dimensionless=True, visible=False),
     )
 
 
