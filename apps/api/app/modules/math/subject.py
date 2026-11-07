@@ -238,6 +238,13 @@ class MathSubject:
 
         return extract_math_intent(text) is not None
 
+    def asks_of(self, setup: str, question: str) -> bool:
+        # Its readers take the joined line whole, so the setup claims any question after
+        # it; one that names something the problem never does is about that instead.
+        from app.modules.turn_reading.question_kinds import names_beyond
+
+        return not names_beyond(setup, question)
+
     def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
         """SymPy already covers these; a reasoning model only writes a CoT essay.
 

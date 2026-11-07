@@ -8,6 +8,7 @@ its save. ``deps`` is what a turn uses outside the chat module (``turn_deps``); 
 transports pass ``default_deps()``.
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
 from uuid import UUID
@@ -18,6 +19,7 @@ from app.core import readings
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Attachment, Chat, User
+from app.modules import web_search
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
@@ -57,6 +59,7 @@ from app.modules.chat.turn_resources import (
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import traced_turn
+from app.modules.web_search import LiveRead
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +121,18 @@ def _regenerate_images(
     )
 
 
+def _turn_settings(
+    settings: Settings, turn: NewTurn, content: str
+) -> tuple[Settings, asyncio.Task[LiveRead | None] | None]:
+    """The user's own switches (web search off) narrow the server's for this turn, and
+    the live read starts under them as early as the turn allows, beside the intercepts and
+    the prep: does the answer depend on facts that change? (``web_search.live_read``). An
+    intercepted turn leaves it to end on its own timeout."""
+    settings = profile_service.settings_for_user(settings, turn.user)
+    earlier = web_search.last_reply(turn.recent)
+    return settings, web_search.start_live_read(settings, content, earlier=earlier)
+
+
 @traced_turn("new")
 async def stream_chat_response(
     deps: ChatTurnDeps,
@@ -170,8 +185,7 @@ async def stream_chat_response(
             chat=chat,
             skip_usage_seed=skip_usage_seed,
         )
-        # The user's own switches (web search off) narrow the server's for this turn.
-        settings = profile_service.settings_for_user(settings, turn.user)
+        settings, live_read = _turn_settings(settings, turn, content)
         misses: set[str] = set()
         if not attachment_ids and await intercept_new_turn(
             deps,
@@ -217,6 +231,7 @@ async def stream_chat_response(
             unhealthy=turn.unhealthy,
             half_open=turn.half_open,
         )
+        ctx.live_read = live_read
         ctx.photo_missed = "photo" in misses
         try:
             ctx.reply_picture = start_reply_picture(

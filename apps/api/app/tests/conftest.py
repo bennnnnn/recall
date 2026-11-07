@@ -54,6 +54,9 @@ for _provider_key in (
 ):
     os.environ[_provider_key] = ""
 os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
+# The live read is a model call each turn starts (``web_search.live_read``): a test that
+# drives a turn never makes one; the read's own tests set it on a turn by hand.
+os.environ["LIVE_READ_ENABLED"] = "false"
 
 # Under pytest-xdist (CI runs ``-n``) each worker gets its own database and Redis index,
 # which CI copies from the migrated one: two runs sharing a database held each other's rows

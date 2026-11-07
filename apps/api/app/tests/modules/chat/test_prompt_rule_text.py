@@ -39,10 +39,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # reply that tells the truth (2026-11-06): no praise, knowledge note or recap
 # (NO_SELF_TALK_RULE, NO_RECAP_NOTE), no excuse for a wrong figure (OWN_MISTAKE_HINT), drafts
 # without invented details, earlier chats only when referred back to, no undated to-dos, and a
-# missed reply re-explained.
+# missed reply re-explained, then no "live" part in a message of several requests: whether one
+# needs the web is the reply model's call (multi_part).
 _RULES = 176
-_RULE_GRAMS = 15858
-_RULE_GRAMS_SHA = "16631d2794e77e63"
+_RULE_GRAMS = 15850
+_RULE_GRAMS_SHA = "6430c136c8c9e72d"
 
 
 def _rules() -> list[str]:

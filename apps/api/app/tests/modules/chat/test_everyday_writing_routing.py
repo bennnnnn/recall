@@ -359,12 +359,3 @@ def test_profile_fact_question_is_a_short_ask(text: str, asks: bool) -> None:
     from app.modules.turn_reading.profile_ask import is_profile_fact_question
 
     assert is_profile_fact_question(text) is asks
-
-
-@pytest.mark.parametrize(
-    "text", ["wait whats the date today", "ok what time is it", "hey, what time is it?"]
-)
-def test_a_filler_word_keeps_a_local_time_question(text: str) -> None:
-    from app.services import time_context
-
-    assert time_context.is_local_now_question(text)

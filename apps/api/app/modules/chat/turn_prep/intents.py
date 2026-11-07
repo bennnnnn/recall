@@ -1,11 +1,12 @@
 """Plan a turn: the separate requests one message holds, before anything answers it.
 
 "I need a new laptop, and I also want to find remote backend engineering jobs" is
-two requests: advice, and a live search. ``plan_turn`` cuts the message with the
+two requests, each answered for itself. ``plan_turn`` cuts the message with the
 text rules in ``clauses`` and labels each part with the classifier that already
-owns that kind of request (settings, picture, photo, reminder, a STEM solve, a
-live lookup), so the search gates, the tool loop and the settings and picture
-paths each take their own part instead of reading the whole line as one.
+owns that kind of request (settings, picture, photo, reminder, a STEM solve), so
+the tool loop and the settings and picture paths each take their own part instead
+of reading the whole line as one. Whether a part needs a search is the reply
+model's call.
 
 No model is asked. The plan is regex over the user's words: a one-part message
 (nearly every turn) stops after the splitter, and a multi-part one runs each
@@ -43,9 +44,9 @@ from app.modules.turn_reading.plan import (
     TurnPlan,
     single_plan,
 )
-from app.modules.web_search import asks_about_a_place, is_distance_query
-from app.modules.web_search.detection import needs_web_search
+from app.modules.web_search import asks_about_a_place
 from app.services.subjects.dispatch import detect_subject
+from app.services.subjects.registry import subject_adapter
 
 # After a sentence or comma, two open questions need this many words of their own.
 _MIN_OWN_TOPICS = 2
@@ -79,8 +80,6 @@ def part_kind(text: str, *, chemistry_enabled: bool = True) -> PartKind:
         return "reminder"
     if stem or detect_subject(body, chemistry_enabled=chemistry_enabled) is not None:
         return "solve"
-    if needs_web_search(body):
-        return "live"
     return "ask"
 
 
@@ -238,9 +237,8 @@ class _Problem:
         """Whether a question is about the problem: the subject claims it with the setup
         before it, and nothing of its own words sends it elsewhere. They do when it follows
         a strong cut ("Also, …"), another path owns it (a setting, a picture, a photo, a
-        reminder), it asks about a place or the weather, it is live by a cue of its own
-        (news, prices, scores; "how long does it take to reach the ground" is no trip
-        without the setup), or another subject claims it."""
+        reminder), it asks about a place or the weather, another subject claims it, or it
+        asks nothing of the problem ("Who won the Arsenal game last night?")."""
         if clause.setup:
             return True
         if self.setup is None or clause.cut == Cut.STRONG:
@@ -252,10 +250,12 @@ class _Problem:
         own = detect_subject(body, chemistry_enabled=self.chemistry_enabled)
         if own is not None:
             return own == self.subject
-        if asks_about_a_place(body) or (needs_web_search(body) and not is_distance_query(body)):
+        if asks_about_a_place(body):
             return False
         joined = detect_subject(f"{self.setup} {body}", chemistry_enabled=self.chemistry_enabled)
-        return joined == self.subject
+        if joined is None or joined != self.subject:
+            return False
+        return subject_adapter(joined).asks_of(self.setup, body)
 
     def separate_questions(self, last: Clause, clause: Clause) -> bool:
         """Two questions about the problem, each its own sentence: each is solved with the
@@ -270,12 +270,12 @@ class _Problem:
         )
 
     def kind(self, clause: Clause) -> PartKind:
-        """The clause's kind: read with the setup when its own words read as live, a lookup
-        it only seemed to be without its givens, and it is about the problem."""
+        """The clause's kind: read with the setup when its own words ask something, a
+        question it only seemed to be without its givens, and it is about the problem."""
         if clause.setup:
             return part_kind(self.joined(clause), chemistry_enabled=self.chemistry_enabled)
         alone = part_kind(clause.text, chemistry_enabled=self.chemistry_enabled)
-        if alone == "live" and self.carries(clause):
+        if alone == "ask" and self.carries(clause):
             return part_kind(
                 f"{self.setup} {clause.text}", chemistry_enabled=self.chemistry_enabled
             )

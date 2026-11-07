@@ -50,8 +50,6 @@ def _turn(content: str, **fields: Any) -> ReplyTurn:
         "has_instant_reply": False,
         "has_verified_math": False,
         "has_search_sources": False,
-        "prior_user_messages": None,
-        "prior_assistant": None,
         "may_recall": True,
         **fields,
     }
