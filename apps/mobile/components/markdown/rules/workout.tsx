@@ -279,6 +279,67 @@ function renderWorkoutLine(
 }
 
 /**
+ * Working inside Solution, step by step: the section's own heading over its first lines, and
+ * each "Solve for $d$" a heading of its own, bold at the margin, over the lines it reaches. A
+ * grey "Solve for" between two equations read as part of the calculation (November 2026).
+ */
+function renderWorkingSteps(
+  key: string,
+  section: { heading: string; lines: string[] },
+  lines: React.ReactElement[],
+  styles: StyleMap,
+  t: Theme,
+): React.ReactElement {
+  const label = subheadingStyle(styles, t);
+  const steps: { heading: ReactNode; lines: React.ReactElement[] }[] = [
+    {
+      heading: (
+        <Text testID="workout-subheading" style={label}>
+          {section.heading}
+        </Text>
+      ),
+      lines: [],
+    },
+  ];
+  section.lines.forEach((line, index) => {
+    const marked = splitStreamCaret(line);
+    if (!SOLVE_FOR.test(marked.text.trim())) {
+      steps[steps.length - 1]!.lines.push(lines[index]!);
+      return;
+    }
+    steps.push({
+      heading: (
+        <View
+          testID="workout-subheading"
+          style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline" }}
+        >
+          {workoutInline(marked.text.trim(), `${key}-solve-${index}`, label, t.assistantText)}
+          {marked.caret ? <StreamingCursor /> : null}
+        </View>
+      ),
+      lines: [],
+    });
+  });
+  return (
+    <View key={key} testID="workout-section" style={[styles.paragraphRun, { gap: Space.md }]}>
+      {steps.map((step, index) => (
+        <View key={`${key}-step-${index}`}>
+          {step.heading}
+          {step.lines.length ? (
+            <View
+              testID="workout-body"
+              style={{ gap: Space.xs, marginTop: WORK_GAP, paddingLeft: WORK_INDENT }}
+            >
+              {step.lines}
+            </View>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
  * A worked-solution section, at one of two levels. Given, Required, Solution and Answer
  * are sections: a heading at the margin, Given's and Required's lines behind a thin rule.
  * Every other section (a formula under its name, Substitution, Steps) is working inside
@@ -317,19 +378,7 @@ export function renderWorkoutSection(
     ),
   );
   if (working) {
-    return (
-      <View key={key} testID="workout-section" style={styles.paragraphRun}>
-        <Text testID="workout-subheading" style={subheadingStyle(styles, t)}>
-          {section.heading}
-        </Text>
-        <View
-          testID="workout-body"
-          style={{ gap: Space.xs, marginTop: WORK_GAP, paddingLeft: WORK_INDENT }}
-        >
-          {lines}
-        </View>
-      </View>
-    );
+    return renderWorkingSteps(key, section, lines, styles, t);
   }
   const heading = (
     <Text
