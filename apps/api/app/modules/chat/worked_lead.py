@@ -1,14 +1,17 @@
-"""A worked solution states its result once, after the working, never as a guess above it.
+"""A worked solution states its result once, after the working, never above it.
 
 Told to answer first, a model opened worked replies with a number it had not worked yet:
 "The ratio of fuel used … is **5 : 7**" over working and a card that found 4 : 5, and
 "The car covers **290 m**" over a sum of 310 m (a Class 9 book, 2026-10-30); the prompt
-saying a calculation opens with its working did not hold. In a reply with a worked section
-(Given, Working, Solution, Required, Formula, Substitution or Steps) and an answer card below
-it, a short lead above the section stating a number the working never reaches is that guess,
-and goes: a lead the working agrees with stays.
-A heading, a photo or a lead without a number stays, and so does a long lead, which may be
-an answer of its own.
+saying a calculation opens with its working did not hold. Right, it said the answer twice:
+"**x = 3**" over Given, Required, Solution and a card showing x = 3 (2026-11-07), where a
+textbook, and the reply's own layout, give the result once, at the end. In a reply with a
+worked section (Given, Working, Solution, Required, Formula, Substitution or Steps) and an
+answer card below it, a short lead above the section stating a number the working never
+reaches (a guess) or a number a card shows (the answer, early) goes.
+A heading, a photo, a part, a note or a lead with neither stays ("the car does not reach
+100 m in 5 s" over a card of 25 m), and so does a long lead, which may be an answer of its
+own.
 
 Below the cards it is not said again either (``drop_restated_tail``): asked to write
 nothing outside its ```worked block, a model still closed with "The car's speed is
@@ -34,8 +37,10 @@ _GIVEN = re.compile(
     re.I | re.M,
 )
 # A heading: "## Stage 1", "**Atomic structure of Mg**"; a bold sentence ("**The ratio is
-# 1 : 5.**") is a statement.
+# 1 : 5.**") is a statement, and so is a bold value ("**x = 3**", "**25 m**": ``_a_heading``).
 _HEADING = re.compile(r"^\s*(?:#{1,6}\s|\*\*[^*]*[^*.!?\s]\*\*\s*$)")
+_VALUE_SIGN = re.compile(r"[=≈]")
+_NAMING_WORD = re.compile(r"[^\W\d_]{3,}")
 # Not a stated result: a photo, an image, a list, a table, display maths, a part's label,
 # a note or a warning.
 _KEEP = re.compile(
@@ -72,24 +77,39 @@ def _numbers(text: str) -> set[str]:
     return ratios | plain
 
 
-def _a_guess(
-    lead: str, span: tuple[int, int], fenced: list[tuple[int, int]], worked: set[str]
+def _a_heading(line: str) -> bool:
+    """A heading names something in words; one that says a value is a statement."""
+    return (
+        bool(_HEADING.match(line))
+        and not _VALUE_SIGN.search(line)
+        and bool(_NAMING_WORD.search(line))
+    )
+
+
+def _states_a_result(
+    lead: str,
+    span: tuple[int, int],
+    fenced: list[tuple[int, int]],
+    worked: set[str],
+    shown: set[str],
 ) -> bool:
-    """Prose stating a number the working never reaches: "**5 : 7**" over working that
-    found 4 : 5. A lead whose numbers the working holds agrees with it and stays, and so
-    does a heading, a photo, a fence (a photo's query), a list, a part or a note."""
+    """Prose stating a number the working never reaches ("**5 : 7**" over working that
+    found 4 : 5) or one a card shows ("**x = 3**" over a card of x = 3). A heading, a photo,
+    a fence (a photo's query), a list, a part or a note stays, and so does a lead whose
+    numbers are only the question's."""
     begin, end = span
     if any(begin < fence_end and fence_start < end for fence_start, fence_end in fenced):
         return False
     stripped = lead[begin:end].strip()
-    if _HEADING.match(stripped) or _KEEP.match(stripped):
+    if _a_heading(stripped) or _KEEP.match(stripped):
         return False
-    return bool(_numbers(_ASIDE.sub(" ", stripped)) - worked)
+    numbers = _numbers(_ASIDE.sub(" ", stripped))
+    return bool(numbers - worked) or bool(numbers & shown)
 
 
 def drop_guessed_lead(text: str) -> str:
-    """``text`` without a short lead above its working that states a number the working
-    and its card never reach."""
+    """``text`` without a short lead above its working that states a result: a number the
+    working and its card never reach, or one a card shows."""
     given = _GIVEN.search(text)
     if given is None:
         return text
@@ -107,7 +127,8 @@ def drop_guessed_lead(text: str) -> str:
     spans = _paragraphs(lead)
     rest = text[given.start() :]
     worked = _numbers(rest) | {number.replace(",", "") for number in _NUMBER.findall(rest)}
-    kept = [span for span in spans if not _a_guess(lead, span, fenced, worked)]
+    shown = _card_numbers(rest)
+    kept = [span for span in spans if not _states_a_result(lead, span, fenced, worked, shown)]
     if len(kept) == len(spans):
         return text
     head = "\n\n".join(lead[begin:end].strip("\n") for begin, end in kept)

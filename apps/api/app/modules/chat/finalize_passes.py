@@ -215,7 +215,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
         before=CARD_PASSES,
     ),
-    FinalizePass("worked_lead", lambda s: drop_guessed_lead(s.text), kind=TEXT),
     # A changed reply commits; before the server's own pictures and chips are added.
     FinalizePass(
         "untrusted_media",
@@ -282,6 +281,14 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
     FinalizePass("unverified_notes", append_unverified_notes, kind=TEXT),
     FinalizePass("working_check", check_working, kind=TEXT),
+    # Once the working's own Answer has become its card: a lead above the working that
+    # guesses or repeats that card goes (a model's "**x = 3**" over its steps).
+    FinalizePass(
+        "worked_lead",
+        lambda s: drop_guessed_lead(s.text),
+        kind=TEXT,
+        after=frozenset({"working_check"}),
+    ),
     # Before the source chips: it reads the reply's prose, and a failure keeps it whole.
     FinalizePass(
         "claim_check",
