@@ -376,7 +376,7 @@
   "gallery.title": "Bibliothek",
   "gallery.use_in_chat": "Im Chat verwenden",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} von {{count}}",
-  "login.agree_line": "Mit dem Fortfahren stimmst du den <terms>Nutzungsbedingungen</terms> und der <privacy>Datenschutzerklärung</privacy> zu.",
+  "login.agree_line": "Wenn du fortfährst, stimmst du den <terms>Nutzungsbedingungen</terms> und der <privacy>Datenschutzerklärung</privacy> zu und erklärst dich einverstanden, dass deine Chats und deine Stimme von externen KI-Anbietern verarbeitet werden.",
   "login.apple": "Weiter mit Apple",
   "login.dev": "Als Dev-Benutzer fortfahren",
   "login.dev_expo_hint": "Google Sign-In braucht einen Dev-Build. Dev-Login funktioniert in Expo Go.",

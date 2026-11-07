@@ -381,7 +381,7 @@
   "gallery.title": "Biblioteca",
   "gallery.use_in_chat": "Usar no chat",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} de {{count}}",
-  "login.agree_line": "Ao continuar, você aceita os <terms>Termos</terms> e a <privacy>Política de Privacidade</privacy>.",
+  "login.agree_line": "Ao continuar, você aceita os <terms>Termos</terms> e a <privacy>Política de Privacidade</privacy> e o processamento dos seus chats e da sua voz por provedores de IA terceirizados.",
   "login.apple": "Continuar com a Apple",
   "login.dev": "Continuar como usuário Dev",
   "login.dev_expo_hint": "O login com Google precisa de uma build de desenvolvimento. O login Dev funciona no Expo Go.",
