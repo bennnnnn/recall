@@ -64,7 +64,10 @@ def add_search_sources(state: FinalizeState) -> str:
     if not ctx.search_sources:
         return text
     web_search = state.deps.web_search
-    text = web_search.strip_sources_from_text(text)
+    # The chips name the sources, so a bracket crediting one of them goes.
+    text = web_search.drop_source_credits(
+        web_search.strip_sources_from_text(text), ctx.search_sources
+    )
     if state.outcome is not None:
         state.outcome.search_sources = web_search.sources_payload(ctx.search_sources)
     sources_fence = web_search.format_sources_fence(ctx.search_sources)
