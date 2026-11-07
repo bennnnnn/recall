@@ -36,8 +36,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # user adds checked against the chat (OWN_MISTAKE_HINT), then a checked answer redone from its
 # unrounded values before it is given up (OWN_MISTAKE_HINT).
 _RULES = 175
-_RULE_GRAMS = 15360
-_RULE_GRAMS_SHA = "7fb54f30f4a0145f"
+_RULE_GRAMS = 15423
+_RULE_GRAMS_SHA = "e084c834dbb92a2c"
 
 
 def _rules() -> list[str]:
