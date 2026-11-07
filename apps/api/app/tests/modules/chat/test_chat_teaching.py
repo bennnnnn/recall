@@ -351,6 +351,8 @@ def test_a_plan_without_a_length_gets_no_label_contract():
         ("I've been learning for a year, plan the next 3 months of guitar", "Week 1", "Week 13"),
         ("learn spanish in 1.5 months", "Week 1", "Week 7"),
         ("Give me a 30 days of Python plan", "Day 1", "Day 30"),
+        ("I had a 30 day Python plan in mind, write it", "Day 1", "Day 30"),
+        ("Make a plan for the last 30 days before my exam", "Day 1", "Day 30"),
     ],
 )
 def test_a_plan_goes_by_the_finest_unit_that_stays_short(text, first, last):

@@ -43,8 +43,9 @@ _LENGTH_LEAD = frozenset({"in", "for", "within", "over", "under"})
 # A duration that is not the plan's: past study or experience ("studied for 2 months", "for
 # the past year", "10 years of experience", "2 weeks ago").
 _PAST = frozenset({"studied", "learned", "learnt", "been", "spent", "practiced", "practised"})
-_PAST |= {"worked", "had", "did", "took", "past", "last"}
+_PAST |= {"worked", "had", "did", "took", "past"}
 _NOT_A_LENGTH_AFTER = frozenset({"of", "ago", "old"})
+_CLAUSE_BREAK = re.compile(r"[,;:!?]|\.(?!\d)")
 # The plan's own length sits beside its name: "a 30 day Python plan", "a 6-month roadmap".
 _PLAN_WORDS = re.compile(
     r"\b(?:plans?|roadmaps?|courses?|schedules?|programs?|programmes?|curriculum|bootcamps?"
@@ -75,8 +76,9 @@ def _length(text: str) -> re.Match[str] | None:
     any other; "a week" counts only as "in a week" or "for a week"."""
     best: tuple[int, re.Match[str]] | None = None
     for match in _DURATION.finditer(text):
-        before = [word.lower().strip(",.;:!?") for word in text[: match.start()].split()]
-        after = [word.lower().strip(",.;:!?") for word in text[match.end() :].split()]
+        # Its own clause: "for a year, plan the next 3 months" puts "plan" beside the months.
+        before = _CLAUSE_BREAK.split(text[: match.start()])[-1].lower().split()
+        after = _CLAUSE_BREAK.split(text[match.end() :])[0].lower().split()
         lead = before[-1] if before else ""
         if match.group(1).lower() in ("a", "an") and lead not in _LENGTH_LEAD:
             continue
@@ -85,7 +87,9 @@ def _length(text: str) -> re.Match[str] | None:
         # "10 years of experience" is past; "the next 3 months of guitar" and "a 30 days of
         # Python plan" are the plan.
         spent = after and after[0] in _NOT_A_LENGTH_AFTER and lead != "next" and not beside_plan
-        if spent or _PAST & set(before[-3:]):
+        # Beside the plan's name it is the plan's, whatever came before ("I had a 30 day
+        # Python plan in mind").
+        if spent or (_PAST & set(before[-3:]) and not beside_plan):
             continue
         score = 2 if beside_plan else int(lead in _LENGTH_LEAD or lead == "next")
         if best is None or score > best[0]:
