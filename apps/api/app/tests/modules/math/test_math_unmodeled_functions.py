@@ -79,6 +79,9 @@ from app.services.solving import SolveServiceError
         ("solve 20% of x = 15", {}),
         ("the area is π(r + 1)", {}),
         ("is 17 ≡ 2 mod 5", {"mod": 1}),
+        # A call written after a word is one mod, not a call and a remainder (review of #2322).
+        ("evaluate mod(17,5)", {"mod": 1}),
+        ("find x if x mod(4) = 1", {"mod": 1}),
     ],
 )
 def test_written_functions_names_each_applied_function(text: str, expected: dict[str, int]) -> None:

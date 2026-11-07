@@ -117,6 +117,9 @@ def written_functions(text: str) -> Counter[str]:
     """Each function the message applies, by its one name, with how often it is applied."""
     found: Counter[str] = Counter()
     text = _plain_calls(text)
+    # Where each counted call's name starts: "mod(17, 5)" is a call, and the said form must
+    # not count its "mod" again.
+    called: set[int] = set()
     for match in _CALL.finditer(text):
         run, spaced, bar = match.group(1), bool(match.group(2)), match.group(3) == "|"
         if not run.isalpha() or (spaced and run.lower() not in MATH_FUNCTION_NAMES):
@@ -124,9 +127,12 @@ def written_functions(text: str) -> Counter[str]:
         name = _call_name(run, spaced, bar)
         if name is not None:
             found[name] += 1
+            called.add(match.start(1))
     if bars := _bar_pairs(text):
         found["abs"] += bars
     for match in _SAID.finditer(text):
+        if match.group("mod") and match.start("mod") in called:
+            continue
         if match.group("mod") or match.group("percent"):
             found["mod"] += 1
         else:
