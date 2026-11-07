@@ -16,7 +16,7 @@ holds the shape, for the turn whose prompt carried the lesson contract
 - A walkthrough is a lesson, unless the reply only asks back in a few lines ("Can you paste
   the message?"): the model read the message as no topic, and there is nothing to practise.
   A teach-me is a lesson when the reply teaches (a title, a card, code, numbered sections,
-  or a long explanation with no topic list), else an outline (``lesson_outline``).
+  or a long explanation with no topic list); a reply picking up a course memory has stays.
 - A lesson missing its card gets one written from the lesson by a cheap model
   (``lesson_calls.lesson_practice``), under the lesson's own "Your turn" heading, which
   replaces the prose practice under it, or under a new one that replaces a closing question.
@@ -43,7 +43,7 @@ from app.modules.chat.lesson_blocks import (
 from app.modules.chat.lesson_calls import QuizCard, lesson_practice
 from app.modules.chat.lesson_copy import LessonCopy, lesson_copy
 from app.modules.chat.lesson_layout import prompt_lesson_layout
-from app.modules.chat.lesson_outline import MIN_TOPICS, hold_outline, numbered_items
+from app.modules.chat.lesson_progress import PROGRESS_LINE
 from app.modules.turn_reading.lesson_flow import has_lesson_title, lesson_step, lesson_topic
 from app.services.md_fence_scan import iter_fences, without_fences
 
@@ -59,6 +59,26 @@ _CLOSER_MAX_CHARS = 400
 _NUMBERED_SECTION = re.compile(r"^\s{0,3}#{2,4}\s+\d{1,2}[.)]\s", re.MULTILINE)
 # A heading's marks and section number, before its words.
 _HEADING_NAME = re.compile(r"^#{1,6}\s+(?:\*\*)?(?:\d{1,2}[.)]\s+)?")
+
+
+# Fewer numbered items than this is no list of topics yet.
+MIN_TOPICS = 3
+_NUMBERED_ITEM = re.compile(r"^\s{0,3}\d{1,2}[.)]\s", re.MULTILINE)
+
+
+def numbered_items(text: str) -> int:
+    """How many numbered list items the reply has outside fences, bold names or not."""
+    return len(_NUMBERED_ITEM.findall(without_fences(text, "")))
+
+
+def _resumes_a_lesson(state: FinalizeState) -> bool:
+    """Memory says the learner is already on a lesson: the reply asks where to pick up
+    ("Last time we got to dictionaries. Pick up with functions, or start over?")."""
+    return any(
+        isinstance(message.get("content"), str) and PROGRESS_LINE.search(message["content"])
+        for message in state.ctx.prompt_messages
+        if message.get("role") == "system"
+    )
 
 
 def teaches(text: str) -> bool:
@@ -182,6 +202,13 @@ async def hold_lesson_shape(state: FinalizeState) -> str:
         return text
     user = state.ctx.user
     copy = lesson_copy(state.ctx.user_message_content or "", user.locale if user else None)
-    if layout == "teaching" and not teaches(text):
-        return await hold_outline(state, copy)
-    return text if layout == "walkthrough" and asks_back(text) else await hold_lesson(state, copy)
+    # Every teach-me is a lesson: a short one is still held to the lesson's shape, never
+    # turned into an outline ending "where would you like to start?". Only a reply that asks
+    # where to pick up a course memory has stays as written.
+    if layout == "teaching" and not teaches(text) and _resumes_a_lesson(state):
+        return text
+    # A reply that only asks back ("What would you like to learn?") stays as written: a
+    # practice card under it would quiz nothing.
+    if layout in ("walkthrough", "teaching") and asks_back(text):
+        return text
+    return await hold_lesson(state, copy)

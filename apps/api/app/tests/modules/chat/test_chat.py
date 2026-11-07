@@ -1896,7 +1896,6 @@ def _augment_kwargs(**overrides: object) -> dict[str, object]:
         "ambiguous_nearby": False,
         "rich_context": False,
         "needs_math": False,
-        "needs_search": False,
         "needs_chem": False,
     }
     base.update(overrides)
@@ -1909,7 +1908,6 @@ def test_should_augment_web_and_tools_skips_slim_casual_without_intent():
 
     assert _should_augment_web_and_tools(**_augment_kwargs()) is False
     assert _should_augment_web_and_tools(**_augment_kwargs(rich_context=True)) is True
-    assert _should_augment_web_and_tools(**_augment_kwargs(needs_search=True)) is True
     assert _should_augment_web_and_tools(**_augment_kwargs(needs_math=True)) is True
     assert _should_augment_web_and_tools(**_augment_kwargs(needs_chem=True)) is True
 
@@ -1961,15 +1959,6 @@ async def test_build_prompt_passes_client_timezone():
     load_todos.assert_awaited_once()
     assert load_todos.await_args.kwargs["client_timezone"] == "America/New_York"
     format_time.assert_called_once_with("America/New_York", "en", None)
-
-
-def test_is_short_letter_answer():
-    from app.modules.web_search.geo_intent import is_short_letter_answer
-
-    assert is_short_letter_answer("B") is True
-    assert is_short_letter_answer("c.") is True
-    assert is_short_letter_answer("Is it a?") is True
-    assert is_short_letter_answer("hello") is False
 
 
 def test_format_user_profile_block_includes_fields():

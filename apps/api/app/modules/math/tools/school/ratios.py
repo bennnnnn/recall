@@ -69,9 +69,14 @@ def _extract_colon_ratio(cleaned: str, lower: str) -> MathIntent | None:
     return None
 
 
+# A percent is a rate applied to an amount, never a term of a proportion: "costs 2400,
+# 15% off, then 16% VAT" was 15/2400 * 16 = 0.1, a checked card for what is paid.
+_RATE = re.compile(r"%|\bper\s*cent\b|\bpercent(?:age)?\b", re.IGNORECASE)
+
+
 def extract_proportion(cleaned: str, lower: str) -> MathIntent | None:
     values = _exactly_n_numbers(cleaned, 3)
-    if values is None:
+    if values is None or _RATE.search(cleaned):
         return None
     inverse = word_index(lower, "inverse") != -1
     direct = (

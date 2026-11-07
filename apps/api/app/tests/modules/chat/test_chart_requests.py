@@ -21,7 +21,6 @@ from app.modules.turn_reading.chart import (
     chart_of_public_facts,
     is_chart_question,
 )
-from app.modules.web_search.detection import needs_web_search
 from app.services.subjects.dispatch import detect_subject
 
 
@@ -139,22 +138,6 @@ def test_a_chart_asked_for_in_other_words_is_a_chart(text: str) -> None:
 )
 def test_what_is_not_a_chart_of_data_is_not_one(text: str) -> None:
     assert not is_chart_question(text)
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "compare iPhone 18 Pro and Pixel 11 prices in a chart",
-        "chart the top 5 programming languages by popularity",
-        "graph the population of Ethiopia over the last 10 years",
-        "show me a chart of world population by continent",
-        "make a graph of USD to ETB exchange rate this year",
-    ],
-)
-def test_a_chart_of_facts_the_user_did_not_give_searches(text: str) -> None:
-    """Drawn from memory, or refused ("those models haven't been released"), before."""
-    assert chart_of_public_facts(text)
-    assert needs_web_search(text)
 
 
 @pytest.mark.parametrize(

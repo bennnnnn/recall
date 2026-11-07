@@ -25,10 +25,6 @@ _CASES = [
     ("Integrate x^2", r"\frac{x^{3}}{3} + C"),
     ("Integrate x^2 from 0 to 1", r"\frac{1}{3}"),
     ("Find the limit of sin(x)/x as x approaches 0", "1"),
-    ("Find the limit of 1/x as x approaches 0 from the left", r"-\infty"),
-    ("Find the limit of 1/x as x approaches 0 from the right", r"\infty"),
-    ("Sum n from n=1 to 10", "55"),
-    ("Sum 1/n^2 from n=1 to infinity", r"\frac{\pi^{2}}{6}"),
     (
         "Find the Taylor series of exp(x) at 1 order 2",
         r"\frac{e \left(x - 1\right)^{2}}{2} + e \left(x - 1\right) + e",
@@ -139,8 +135,6 @@ def test_existing_simple_ode_keeps_its_constant_and_direct_behavior():
         "Find the second derivative of t^4",
         "Find the partial derivative of x^2*y wrt x",
         "Integrate t^2 dt from -1 to 2",
-        "Find the limit of 1/t as t approaches 0 from the left",
-        "Sum k^2 from k=2 to 5",
         "Find the Taylor series of exp(x) at -1 order 3",
     ],
 )
@@ -285,3 +279,22 @@ def test_undefined_or_divergent_improper_integrals_keep_explanation(query):
             "This ordinary improper integral does not converge. "
             "A Cauchy principal value is a separate convention and was not requested."
         )
+
+
+# A limit or a sum whose answer card would stand alone, with no method: the model writes
+# the method around the checked card instead of the server answering with the card alone.
+@pytest.mark.parametrize(
+    "query,answer",
+    [
+        ("Find the limit of 1/x as x approaches 0 from the left", r"-\infty"),
+        ("Find the limit of 1/x as x approaches 0 from the right", r"\infty"),
+        ("Find the limit of 1/t as t approaches 0 from the left", r"-\infty"),
+        ("Sum n from n=1 to 10", "55"),
+        ("Sum 1/n^2 from n=1 to infinity", r"\frac{\pi^{2}}{6}"),
+        ("Sum k^2 from k=2 to 5", "54"),
+    ],
+)
+def test_a_bare_card_leaves_the_method_to_the_model(query: str, answer: str) -> None:
+    block = _verified(query)
+    assert block.canonical_answer == answer
+    assert maybe_direct_math_reply(block, query) is None

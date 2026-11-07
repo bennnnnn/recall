@@ -186,6 +186,7 @@ jest.mock("expo-router", () => ({
   useRouter: () => mockRouter,
 }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => mockAuth }));
+jest.mock("@/features/billing/hooks/useWelcomePlans", () => ({ useWelcomePlans: () => undefined }));
 jest.mock("@/features/chat/drawer/ConversationList", () => ({ ConversationList: () => null }));
 jest.mock("@/features/chat/components/ChatScreenBody", () => ({
   ChatScreenBody: (props: unknown) => {

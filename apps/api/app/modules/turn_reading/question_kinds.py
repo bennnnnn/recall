@@ -183,13 +183,22 @@ def mentions_science(text: str) -> bool:
 # A named thing or a date: "an earthquake in Japan", "Is Ozempic safe", "Starlink
 # satellites", "sold in 2025". A capital inside a sentence names something in the world,
 # which may have news; the Earth, the Moon and the Sun are a book's.
-_NAMED = re.compile(r"(?<=[a-z,;]\s)(?!(?:Earth|Moon|Sun|I)\b)[A-Z][a-z]+|\b(?:19|20)\d\d\b")
+_NAME = r"(?<=[a-z,;]\s)(?!(?:Earth|Moon|Sun|I)\b)[A-Z][a-z]+"
+_NAMES = re.compile(_NAME)
+_NAMED = re.compile(rf"{_NAME}|\b(?:19|20)\d\d\b")
 _NEW = re.compile(r"\b(?:next|new|newly|recent\w*|just|latest|so\s+far|been\s+discovered)\b", re.I)
 
 
 def names_or_news(text: str) -> bool:
     """Names something in the world or something new: there may be news about it."""
     return _NAMED.search(text) is not None or _NEW.search(text) is not None
+
+
+def names_beyond(setup: str, question: str) -> bool:
+    """The question names something in the world its setup never does ("A rectangle is
+    4 cm by 6 cm. … Who is the president of France?"): it asks about that thing, not the
+    problem. A question about the problem uses the problem's own words."""
+    return any(name not in setup for name in _NAMES.findall(question))
 
 
 def is_science_question(query: str) -> bool:

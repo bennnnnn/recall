@@ -13,9 +13,16 @@ function partOfDay(now: Date): "morning" | "afternoon" | "evening" | "night" {
   return "night";
 }
 
+/** "bini" is greeted "Bini": the first letter capitalised, the rest as the account has it. */
+function capitalised(word: string): string {
+  const [initial = "", ...rest] = Array.from(word);
+  return initial.toLocaleUpperCase() + rest.join("");
+}
+
 /** "Good morning, Sam": the first word of the account's name, when it has one. */
 export function homeGreeting(name: string | null | undefined, now: Date = new Date()): string {
-  const first = name?.trim().split(/\s+/)[0];
+  const word = name?.trim().split(/\s+/)[0];
+  const first = word ? capitalised(word) : undefined;
   const part = partOfDay(now);
   return first
     ? i18n.t(`chat.home.greeting_${part}_name`, { name: first })

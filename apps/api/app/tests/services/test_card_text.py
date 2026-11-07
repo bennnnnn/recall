@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.services.answer_fence import land_answer_card
-from app.services.card_text import named_value, without_emphasis
+from app.services.card_text import card_maths, named_value, without_emphasis
 from app.services.part_answer_cards import answers_by_letter, land_part_answer_cards
 
 
@@ -85,3 +85,21 @@ def test_answers_by_letter_leaves_anything_else_alone(reply: str) -> None:
 def test_a_single_card_loses_its_bold_too() -> None:
     out = land_answer_card("**Answer**\nWork input = **1.2 J**", None)
     assert out == "**Answer**\n\n```answer\nverified: false\nWork input = $1.2\\,\\mathrm{J}$\n```"
+
+
+@pytest.mark.parametrize(
+    ("value", "card"),
+    [
+        # 2026-11-06: a triangle's parts, each card wrapped in $ and its unit spelled two ways.
+        ("$c = 15\\,\\mathrm{cm}$", "c = 15\\,\\mathrm{cm}"),
+        ("$A = 54\\,\\mathrm{cm²}$", "A = 54\\,\\mathrm{cm}^{2}"),
+        ("A = 54\\,\\mathrm{cm^2}", "A = 54\\,\\mathrm{cm}^{2}"),
+        ("V = 8\\,\\mathrm{m^{3}}", "V = 8\\,\\mathrm{m}^{3}"),
+        # Words and maths together, and two spans, keep their marks.
+        ("Work input = $1.2\\,\\mathrm{J}$", "Work input = $1.2\\,\\mathrm{J}$"),
+        ("$x = 2$ or $x = 3$", "$x = 2$ or $x = 3$"),
+        ("54\\ \\mathrm{cm}^{2}", "54\\ \\mathrm{cm}^{2}"),
+    ],
+)
+def test_a_card_holds_tex_with_its_unit_power_after_the_unit(value: str, card: str) -> None:
+    assert card_maths(value) == card

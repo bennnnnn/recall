@@ -49,6 +49,10 @@ class RoutingLanes:
     # candidate (number grounding and SymPy check it). JSON mode.
     word_problems: str
     math_extract: str
+    # Whether a message's answer depends on facts that change (``web_search.live_read``):
+    # the reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash read 8 of 8
+    # right in about 0.7s; GPT-6 Luna took over 2s).
+    live_read: str
 
 
 ROUTING = RoutingLanes(
@@ -64,4 +68,5 @@ ROUTING = RoutingLanes(
     titles="title-model",
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
+    live_read="title-model",
 )

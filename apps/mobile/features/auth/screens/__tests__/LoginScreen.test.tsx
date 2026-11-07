@@ -10,6 +10,15 @@ import { render, fireEvent } from "@testing-library/react-native";
 import LoginScreen from "@/features/auth/screens/LoginScreen";
 import { touchTargetHeight } from "@/lib/__tests__/support/touchTarget";
 
+// The agreement line's links are marked inside its one translated sentence.
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) =>
+      key === "login.agree_line"
+        ? "By continuing, you agree to the <terms>Terms</terms> and <privacy>Privacy Policy</privacy>."
+        : key,
+  }),
+}));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   selection: jest.fn(),
@@ -74,29 +83,20 @@ describe("LoginScreen", () => {
     mockSignedIn = null;
   });
 
-  it("reads the Terms and Privacy links, not the dot drawn between them", async () => {
-    const { getByRole, queryByText, getByText } = await render(<LoginScreen />);
-    expect(getByRole("link", { name: "login.terms" })).toBeOnTheScreen();
-    expect(getByRole("link", { name: "login.privacy" })).toBeOnTheScreen();
-    expect(getByText("·", { includeHiddenElements: true })).toBeTruthy();
-    expect(queryByText("·")).toBeNull();
+  it("says in one sentence that continuing agrees, with Terms and Privacy Policy as its links", async () => {
+    // The tap that signs in is the agreement (features/auth/api.ts sends it with the
+    // sign-in); the Privacy Policy the link opens says what the AI providers receive.
+    const { getByRole, getByText, queryByText, toJSON } = await render(<LoginScreen />);
+    expect(getByText("By continuing, you agree to the")).toBeOnTheScreen();
+    expect(getByRole("link", { name: "login.terms" })).toHaveTextContent("Terms");
+    expect(getByRole("link", { name: "login.privacy" })).toHaveTextContent("Privacy Policy");
+    expect(queryByText(/third-party/i)).toBeNull();
     // A 12pt line is about 17pt tall; hitSlop makes each link a 44pt target.
     expect(touchTargetHeight(getByRole("link", { name: "login.terms" }))).toBeGreaterThanOrEqual(44);
     expect(touchTargetHeight(getByRole("link", { name: "login.privacy" }))).toBeGreaterThanOrEqual(44);
-  });
-
-  it("says beside the buttons that continuing agrees, with the Terms and Privacy links", async () => {
-    // Apple 5.1.2(i): the line sits between the sign-in buttons and the two links, so the
-    // tap that signs in is the agreement (features/auth/api.ts sends it with the sign-in).
-    const { getByText, getByRole, toJSON } = await render(<LoginScreen />);
-    expect(getByText("login.consent_line")).toBeOnTheScreen();
-    expect(getByRole("link", { name: "login.terms" })).toBeOnTheScreen();
-    expect(getByRole("link", { name: "login.privacy" })).toBeOnTheScreen();
     const order = JSON.stringify(toJSON());
     const at = (text: string) => order.indexOf(`"${text}"`);
-    expect(at("login.google")).toBeLessThan(at("login.consent_line"));
-    expect(at("login.apple")).toBeLessThan(at("login.consent_line"));
-    expect(at("login.consent_line")).toBeLessThan(at("login.terms"));
+    expect(at("login.apple")).toBeLessThan(at("Terms"));
   });
 
   it("sends a sign-in the server answered without the agreement (an older API) to the AI consent screen", async () => {

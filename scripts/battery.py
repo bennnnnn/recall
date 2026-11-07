@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
 from app.models.model_catalog import estimate_cost_usd  # noqa: E402
-from app.modules.turn_reading.lesson_flow import lesson_step, outline_topics  # noqa: E402
+from app.modules.turn_reading.lesson_flow import lesson_step  # noqa: E402
 from app.tests.behavior.cases import CASES, CATEGORIES, Case  # noqa: E402
 
 TIMEZONE = "Africa/Nairobi"
@@ -209,7 +209,7 @@ class Battery:
         """Each case starts with no saved memory, as a new user would.
 
         Cleared only at the start, an earlier case's "wants to learn Python from scratch"
-        and its lesson line made "teach me python" open Lesson 1 instead of the outline it
+        and its lesson line made "teach me python" open as a later lesson instead of the first it
         asks for. The last case's post-turn jobs run first: a memory job still queued would
         otherwise write its facts into this case after the delete.
         """
@@ -364,10 +364,8 @@ def check(case: Case, turn: Turn) -> list[str]:
     if expect.instant == "location" and not turn.reply.startswith(LOCATION_OFF_START):
         misses.append("did not ask for location")
     lesson = {"teaching", "walkthrough"} & set(expect.hints)
-    if expect.outline:
-        misses.extend(_outline_misses(turn.reply))
     # In a reply to several requests, the request's own heading stands in for the title.
-    elif lesson and "multi_intent" not in expect.hints:
+    if lesson and "multi_intent" not in expect.hints:
         if lesson_step(turn.reply) is None:
             misses.append("no lesson title")
         if "```quiz" not in turn.reply:
@@ -376,23 +374,6 @@ def check(case: Case, turn: Turn) -> list[str]:
         misses.append("no map card")
     if "map" in expect.no_hints and "```map" in turn.reply:
         misses.append("map card shown")
-    return misses
-
-
-def _outline_misses(reply: str) -> list[str]:
-    """A whole subject: 5-8 bold topics in order and a closing question, no lesson yet.
-
-    A topic may lead with an emoji before its bold name ("1. 🐍 **Setup**"), as the
-    reply's Emoji rule allows; the server reads topics the same way (``outline_topics``).
-    """
-    misses: list[str] = []
-    if outline_topics(reply) < 5:
-        misses.append("no topic outline")
-    lines = reply.strip().splitlines()
-    if not lines or "?" not in lines[-1]:
-        misses.append("no closing question")
-    if lesson_step(reply) is not None or "```quiz" in reply:
-        misses.append("taught a lesson instead of the outline")
     return misses
 
 

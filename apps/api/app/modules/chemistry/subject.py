@@ -176,6 +176,13 @@ class ChemistrySubject:
 
         return extract_chemistry_intent(text) is not None
 
+    def asks_of(self, setup: str, question: str) -> bool:
+        # Its readers take the joined line whole, so the setup claims any question after
+        # it; one that names something the problem never does is about that instead.
+        from app.modules.turn_reading.question_kinds import names_beyond
+
+        return not names_beyond(setup, question)
+
     def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
         # A chemistry answer's card is the server's: the fast model only presents it.
         return True
@@ -184,7 +191,12 @@ class ChemistrySubject:
         return None
 
     def warm(self) -> None:
-        return None
+        # A worker's first chemistry solve otherwise imports the solvers, the unit tables and
+        # the element data inside that solve's 5 s budget: under load the first question
+        # after a restart ("How many moles are in 36 g of water?") timed out, unverified.
+        from app.modules.chemistry.context import warm_chemistry_solve
+
+        warm_chemistry_solve()
 
     def solve_timeouts(self) -> AbstractContextManager[list[str]]:
         return nullcontext([])

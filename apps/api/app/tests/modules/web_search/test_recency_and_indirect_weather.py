@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.modules.web_search import is_geo_query, turn_query
+from app.modules.web_search import is_geo_query
 from app.modules.web_search.patterns import is_weather_request
 from app.modules.web_search.recency import asks_for_newest
 from app.modules.web_search.tool import WebSearchAdapter
@@ -36,24 +36,6 @@ from app.tests.tool_context import tool_context
 )
 def test_asks_for_newest_reads_recency_words(text: str, newest: bool) -> None:
     assert asks_for_newest(text) is newest
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "message, expected",
-    [
-        ("what's the newest iphone", "what's the newest iphone"),
-        ("what's the latest iOS version", "what's the latest iOS version"),
-        ("search for the latest tesla model", "the latest tesla model"),
-        ("I'm new to python", "I'm new to python"),
-        ("latest news on AI", "latest news on AI"),
-    ],
-)
-async def test_turn_search_keeps_the_users_words(message: str, expected: str) -> None:
-    queries = await turn_query.search_queries_for_turn(
-        Settings(), message, [{"role": "user", "content": message}]
-    )
-    assert queries == [expected]
 
 
 @pytest.mark.asyncio

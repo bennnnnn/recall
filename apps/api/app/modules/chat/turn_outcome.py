@@ -23,6 +23,9 @@ class TurnUsage(BaseModel):
 
     used_tokens: int
     daily_limit: int
+    # The day's chat messages, what the phone's meter shows; None when unread.
+    messages_used: int | None = None
+    daily_messages: int | None = None
 
 
 @dataclass

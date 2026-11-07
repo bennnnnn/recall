@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,8 @@ import { useTodos } from "@/features/todos/context/TodosContext";
 import type { HomeUrgentTodo } from "@/lib/api";
 import { describeDueAt } from "@/features/todos/model/dueDate";
 import { homeGreeting } from "@/features/home/model/homeWelcome";
+import { homeOnScreen } from "@/features/home/model/homeOnScreen";
+import { HomeMark } from "@/features/home/components/HomeMark";
 import { filterHomeNudgeTodos } from "@/features/todos/model/homeReminderNudges";
 import { firstOverdueHomeTodo, listHomeUrgentTodos } from "@/features/todos/model/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
@@ -84,9 +86,12 @@ function OverdueReminderRow({
 type Props = {
   /** The composer holds a draft: the empty-chat canvas stays clear. The chat passes it. */
   composerActive: boolean;
+  /** What sits at the foot of the home, above the composer: the chat's last-chat card. */
+  footer?: ReactNode;
 };
 
-export function HomeStarters({ composerActive }: Props) {
+export function HomeStarters({ composerActive, footer }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
@@ -117,12 +122,20 @@ export function HomeStarters({ composerActive }: Props) {
     now,
   ]);
 
+  // While the home is up, the composer's placeholder shows things to ask.
+  useEffect(() => {
+    homeOnScreen.set(true);
+    return () => homeOnScreen.set(false);
+  }, []);
+
   // Once typing begins, leave the empty-chat canvas clear and focused.
   if (composerActive) return null;
 
   return (
     <View style={s.wrap}>
+      <HomeMark />
       <Text style={s.greeting} accessibilityRole="header">{homeGreeting(user?.name)}</Text>
+      <Text style={s.subtitle}>{t("chat.home.subtitle")}</Text>
 
       {overdueTodo ? (
         <OverdueReminderRow
@@ -132,17 +145,26 @@ export function HomeStarters({ composerActive }: Props) {
           theme={theme}
         />
       ) : null}
+      {footer}
     </View>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: { width: "100%", paddingHorizontal: Space.gutter, gap: Space.sm },
+    // The whole empty chat, so the last chat can sit at its foot, above the composer.
+    wrap: { flex: 1, width: "100%", paddingHorizontal: Space.gutter, gap: Space.sm },
     greeting: {
       ...Type.display,
       color: t.text,
       textAlign: "center",
+      marginTop: Space.xs,
+    },
+    subtitle: {
+      ...Type.body,
+      color: t.textSecondary,
+      textAlign: "center",
+      marginBottom: Space.xs,
     },
     sectionLabel: {
       ...Type.overline,

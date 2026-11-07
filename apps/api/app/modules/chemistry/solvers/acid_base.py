@@ -8,7 +8,7 @@ import math
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import KW, PKW
-from app.modules.chemistry.solvers.display import inp, num, p_value, verified
+from app.modules.chemistry.solvers.display import carried, inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import positive, require
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.modules.chemistry.species_facts import STRONG_ACIDS, STRONG_BASES
@@ -181,8 +181,8 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
             "pOH",
             *stated("strong_base_poh"),
             (
-                f"[OH-] = {factor} × {inp(concentration)} = {num(hydroxide)} mol/L",
-                f"pOH = −log10({num(hydroxide)})",
+                f"[OH-] = {factor} × {inp(concentration)} = {carried(hydroxide)} mol/L",
+                f"pOH = −log10({carried(hydroxide)})",
             ),
             f"pOH = {poh}",
             poh,
@@ -194,8 +194,8 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
         stated("strong_base_ph")[0],
         hydroxide_law,
         (
-            f"[OH-] = {factor} × {inp(concentration)} = {num(hydroxide)} mol/L",
-            f"pOH = −log10({num(hydroxide)}) = {poh}",
+            f"[OH-] = {factor} × {inp(concentration)} = {carried(hydroxide)} mol/L",
+            f"pOH = −log10({carried(hydroxide)}) = {poh}",
             f"pH = {PKW} − {poh} = {ph}",
         ),
         f"pH = {ph}",

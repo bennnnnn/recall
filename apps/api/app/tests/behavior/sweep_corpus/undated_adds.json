@@ -1,0 +1,191 @@
+[
+  {
+    "id": "ua-001",
+    "area": "todo",
+    "prompt": "put buy groceries on my todo list",
+    "reply": "Sure, adding **buy groceries** to your list now.\n\n```reminder\n{\"title\": \"Buy groceries\"}\n```",
+    "expect": "ask_time"
+  },
+  {
+    "id": "ua-002",
+    "area": "todo",
+    "prompt": "also add buy groceries to my list",
+    "reply": "Added to your list: **buy groceries**.",
+    "expect": "ask_time"
+  },
+  {
+    "id": "ua-003",
+    "area": "todo",
+    "prompt": "no time, just put it on the list",
+    "history": [
+      [
+        "user",
+        "also add buy groceries to my list"
+      ],
+      [
+        "assistant",
+        "When should I remind you?"
+      ]
+    ],
+    "reply": "Added to your list: **buy groceries**, with no reminder time set.",
+    "expect": "ask_time"
+  },
+  {
+    "id": "ua-004",
+    "area": "todo",
+    "prompt": "whenever, just add it",
+    "history": [
+      [
+        "user",
+        "add buy groceries to my list"
+      ],
+      [
+        "assistant",
+        "When should I remind you?"
+      ]
+    ],
+    "reply": "Got it, I'll keep **buy groceries** on your list with no time set.",
+    "expect": "ask_time"
+  },
+  {
+    "id": "ua-005",
+    "area": "todo",
+    "prompt": "add eggs to the shopping list",
+    "reply": "Sure thing, I'll add that now. It'll go on your list with no reminder set.",
+    "expect": "ask_time"
+  },
+  {
+    "id": "ua-006",
+    "area": "todo",
+    "prompt": "remind me to call mom tomorrow at 6",
+    "reply": "Got it, I'll set that for tomorrow at 6:00 PM.\n\n```reminder\n{\"title\": \"Call mom\", \"due_at\": \"2026-10-15T18:00:00+03:00\"}\n```",
+    "expect": "ask_time"
+  },
+  {
+    "id": "ua-007",
+    "area": "todo",
+    "prompt": "6pm",
+    "history": [
+      [
+        "user",
+        "remind me to call mom tomorrow at 6"
+      ],
+      [
+        "assistant",
+        "When should I remind you tomorrow: 6 am or 6 pm?"
+      ]
+    ],
+    "reply": "Got it, 6 pm tomorrow. I can't set reminders from this chat, though.",
+    "expect": "save"
+  },
+  {
+    "id": "ua-008",
+    "area": "todo",
+    "prompt": "pm",
+    "history": [
+      [
+        "user",
+        "remind me to water the plants on friday at 7"
+      ],
+      [
+        "assistant",
+        "When should I remind you on Friday: 7 am or 7 pm?"
+      ]
+    ],
+    "reply": "Got it.",
+    "expect": "save"
+  },
+  {
+    "id": "ua-009",
+    "area": "todo lookalike",
+    "prompt": "what should I add to my grocery list for a week of dinners?",
+    "reply": "Rice, beans, onions, tomatoes and eggs cover most of a week of dinners.",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-010",
+    "area": "todo lookalike",
+    "prompt": "put the list in alphabetical order",
+    "history": [
+      [
+        "user",
+        "list some fruits and veg"
+      ],
+      [
+        "assistant",
+        "Carrots, apples, dates, bananas."
+      ]
+    ],
+    "reply": "Apples, bananas, carrots, dates.",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-011",
+    "area": "todo lookalike",
+    "prompt": "add this to my list of reasons to move: the rent keeps going up",
+    "history": [
+      [
+        "user",
+        "help me list reasons to move"
+      ],
+      [
+        "assistant",
+        "1. Long commute"
+      ]
+    ],
+    "reply": "Updated list:\n\n1. Long commute\n2. Rent keeps going up",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-012",
+    "area": "todo lookalike",
+    "prompt": "no time to cook tonight, what's quick?",
+    "reply": "A wrap with eggs and spinach takes about ten minutes.",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-013",
+    "area": "todo lookalike",
+    "prompt": "whenever you have a sec, explain how compound interest works",
+    "reply": "Compound interest earns interest on the interest already added, so savings grow faster each year.",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-014",
+    "area": "todo lookalike",
+    "prompt": "pm",
+    "reply": "PM can mean post meridiem (after noon) or prime minister.",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-015",
+    "area": "todo lookalike",
+    "prompt": "the meeting is tomorrow at 6, what should I wear?",
+    "reply": "Smart casual works: a collared shirt and clean trousers.",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-016",
+    "area": "todo lookalike",
+    "prompt": "add 3 and 5",
+    "reply": "3 + 5 = 8.",
+    "expect": "answer"
+  },
+  {
+    "id": "ua-017",
+    "area": "todo",
+    "prompt": "no time, just put it on the list",
+    "history": [
+      [
+        "user",
+        "also add buy groceries to my list"
+      ],
+      [
+        "assistant",
+        "I can add it, but I need a time first. Chat to-dos need a date and a clock time, so when should I set \"Buy groceries\" for?"
+      ]
+    ],
+    "reply": "I can't add it to a list from here, since I don't have access to your to-do app.",
+    "expect": "ask_time"
+  }
+]
