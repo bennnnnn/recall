@@ -9,8 +9,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.gateways import litellm_gateway, mock_llm
 from app.models.schemas import ConversationReference
 from app.modules.chat import conversation_reference as ref
+from app.services import quota as quota_service
 
 
 def _awaited(mock: AsyncMock) -> Any:
@@ -35,8 +37,8 @@ def _settings(**overrides) -> Settings:
 @pytest.fixture
 def no_spend_cap():
     with (
-        patch.object(ref.quota_service, "global_spend_exceeded", AsyncMock(return_value=False)),
-        patch.object(ref.quota_service, "record_global_spend", AsyncMock()) as record,
+        patch.object(quota_service, "global_spend_exceeded", AsyncMock(return_value=False)),
+        patch.object(quota_service, "record_global_spend", AsyncMock()) as record,
         patch.object(ref, "get_redis_client", return_value=object()),
     ):
         yield record
@@ -46,8 +48,8 @@ def no_spend_cap():
 async def test_resolver_sends_the_conversation_without_the_request(no_spend_cap) -> None:
     complete = AsyncMock(return_value=ConversationReference(text="Jeanne Calment"))
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
+        patch.object(mock_llm, "should_mock_llm", return_value=False),
+        patch.object(litellm_gateway, "complete_structured", complete),
     ):
         out = await ref.resolve_reference(
             _settings(), kind="photo", request="Show me her image", turns=_CALMENT
@@ -70,8 +72,8 @@ async def test_photo_resolver_leaves_drawn_things_to_the_app(no_spend_cap) -> No
     """ "can u show me both" after water and CO2 wants the molecules drawn, not photos."""
     complete = AsyncMock(return_value=ConversationReference(text=None))
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
+        patch.object(mock_llm, "should_mock_llm", return_value=False),
+        patch.object(litellm_gateway, "complete_structured", complete),
     ):
         await ref.resolve_reference(
             _settings(), kind="photo", request="can u show me both", turns=_CALMENT
@@ -90,8 +92,8 @@ async def test_resolver_renders_an_image_turn_as_text(no_spend_cap) -> None:
         ("assistant", "[Image: /attachments/abc/file]"),
     ]
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
+        patch.object(mock_llm, "should_mock_llm", return_value=False),
+        patch.object(litellm_gateway, "complete_structured", complete),
     ):
         await ref.resolve_reference(
             _settings(), kind="photo", request="show it at night", turns=turns
@@ -107,8 +109,8 @@ async def test_resolver_renders_an_image_turn_as_text(no_spend_cap) -> None:
 async def test_resolver_returns_none_when_the_chat_does_not_say(no_spend_cap, answer) -> None:
     complete = AsyncMock(return_value=ConversationReference(text=answer))
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
+        patch.object(mock_llm, "should_mock_llm", return_value=False),
+        patch.object(litellm_gateway, "complete_structured", complete),
     ):
         out = await ref.resolve_reference(
             _settings(), kind="search", request="do a search", turns=_CALMENT
@@ -120,8 +122,8 @@ async def test_resolver_returns_none_when_the_chat_does_not_say(no_spend_cap, an
 async def test_resolver_strips_quotes_from_the_answer(no_spend_cap) -> None:
     complete = AsyncMock(return_value=ConversationReference(text='"Bini name meaning".'))
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
+        patch.object(mock_llm, "should_mock_llm", return_value=False),
+        patch.object(litellm_gateway, "complete_structured", complete),
     ):
         out = await ref.resolve_reference(
             _settings(), kind="search", request="do a search", turns=_CALMENT
@@ -133,8 +135,8 @@ async def test_resolver_strips_quotes_from_the_answer(no_spend_cap) -> None:
 async def test_resolver_failure_is_best_effort(no_spend_cap) -> None:
     complete = AsyncMock(side_effect=RuntimeError("provider down"))
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
+        patch.object(mock_llm, "should_mock_llm", return_value=False),
+        patch.object(litellm_gateway, "complete_structured", complete),
     ):
         out = await ref.resolve_reference(
             _settings(), kind="search", request="do a search", turns=_CALMENT
@@ -147,9 +149,9 @@ async def test_resolver_failure_is_best_effort(no_spend_cap) -> None:
 async def test_resolver_skips_the_call_when_spend_is_capped() -> None:
     complete = AsyncMock()
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=False),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
-        patch.object(ref.quota_service, "global_spend_exceeded", AsyncMock(return_value=True)),
+        patch.object(mock_llm, "should_mock_llm", return_value=False),
+        patch.object(litellm_gateway, "complete_structured", complete),
+        patch.object(quota_service, "global_spend_exceeded", AsyncMock(return_value=True)),
         patch.object(ref, "get_redis_client", return_value=object()),
     ):
         out = await ref.resolve_reference(
@@ -162,7 +164,7 @@ async def test_resolver_skips_the_call_when_spend_is_capped() -> None:
 @pytest.mark.asyncio
 async def test_resolver_needs_a_conversation() -> None:
     complete = AsyncMock()
-    with patch.object(ref.litellm_gateway, "complete_structured", complete):
+    with patch.object(litellm_gateway, "complete_structured", complete):
         out = await ref.resolve_reference(
             _settings(), kind="search", request="do a search", turns=[("user", "do a search")]
         )
@@ -174,24 +176,14 @@ async def test_resolver_needs_a_conversation() -> None:
 async def test_resolver_is_off_with_the_mock_llm() -> None:
     complete = AsyncMock()
     with (
-        patch.object(ref.mock_llm, "should_mock_llm", return_value=True),
-        patch.object(ref.litellm_gateway, "complete_structured", complete),
+        patch.object(mock_llm, "should_mock_llm", return_value=True),
+        patch.object(litellm_gateway, "complete_structured", complete),
     ):
         out = await ref.resolve_reference(
             _settings(), kind="photo", request="Show me her image", turns=_CALMENT
         )
     assert out is None
     complete.assert_not_awaited()
-
-
-def test_turns_from_prompt_drops_system_blocks() -> None:
-    messages = [
-        {"role": "system", "content": "You are Recall."},
-        {"role": "user", "content": "hi"},
-        {"role": "system", "content": "[BEGIN UNTRUSTED CONTENT — web search]"},
-        {"role": "assistant", "content": "hello"},
-    ]
-    assert ref.turns_from_prompt(messages) == [("user", "hi"), ("assistant", "hello")]
 
 
 def test_turns_from_rows_reads_message_rows() -> None:

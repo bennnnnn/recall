@@ -8,7 +8,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.gateways.litellm_gateway import ToolOffer, _call_kwargs
+from app.gateways.litellm_gateway import _call_kwargs
+from app.gateways.stream_tool_calls import ToolOffer
 from app.models import model_catalog
 from app.modules.web_search import live_read
 from app.tests.fakes import isolated_settings

@@ -11,7 +11,7 @@ import pytest
 
 from app.gateways import litellm_gateway
 from app.gateways.stream_signals import StreamAttempt
-from app.gateways.stream_tool_calls import StreamedToolCalls
+from app.gateways.stream_tool_calls import StreamedToolCalls, ToolOffer
 from app.tests.fakes import isolated_settings
 
 _SETTINGS = isolated_settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
@@ -236,7 +236,7 @@ async def test_stream_counts_a_tool_call_as_the_first_content() -> None:
                 messages=_MESSAGES,
                 max_tokens=100,
                 first_content_timeout_seconds=0.1,
-                tools=litellm_gateway.ToolOffer([_TOOL]),
+                tools=ToolOffer([_TOOL]),
                 tool_calls=calls,
             )
         ]
