@@ -3,8 +3,9 @@
 The source chips under the reply already name its sources, so a bracket that only credits
 this turn's own results is noise in the sentence (2026-11-06: "payment history is about 35%
 of your FICO score (Experian)"). The prompt says so, and a small model still writes them.
-A bracket naming anything else stays: an aside, a number, a source this turn never had, or
-the short form of the name just before it ("the Federal Trade Commission (FTC)").
+A bracket naming anything else stays: an aside, a number, a source this turn never had, the
+short form of the name just before it ("the Federal Trade Commission (FTC)"), or a name that
+is the content ("the bureaus (Equifax, Experian, TransUnion), since …").
 """
 
 from __future__ import annotations
@@ -81,9 +82,26 @@ def _spells(acronym: str, before: str) -> bool:
     return initials.upper() == acronym
 
 
+# A credit closes a claim: the sentence or line ends after it ("… 35% of your score
+# (Experian)."). A bracket going on into the sentence ("the bureaus (Equifax, Experian,
+# TransUnion), since …", "the Fed (Federal Reserve) raised") is the content.
+_CLOSES = re.compile(r"[*_]*(?:[.;!?]|[^\S\n]*(?:\n|$))")
+# … and one right after "the company" or "a bank" names the thing just said.
+_NAMES_THE_THING = re.compile(
+    r"\b(?:the|a|an|this|that|these|those)(?:\s+[\w'-]+){1,2}[*_]*$", re.I
+)
+
+
+def _is_credit(prose: str, match: re.Match[str]) -> bool:
+    before = prose[: match.start()]
+    return bool(_CLOSES.match(prose, match.end())) and not _NAMES_THE_THING.search(before)
+
+
 def _drop_credits(prose: str, outlets: list[_Outlet]) -> str:
     def drop(match: re.Match[str]) -> str:
         names = [name for name in _SEPARATOR.split(match.group(1).strip()) if name]
+        if not _is_credit(prose, match):
+            return match.group(0)
         if len(names) == 1 and _spells(names[0], prose[: match.start()]):
             return match.group(0)
         return "" if names and all(_credits(name, outlets) for name in names) else match.group(0)

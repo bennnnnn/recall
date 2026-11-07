@@ -28,12 +28,15 @@ _HITS = [
             "Payment history is about **35% of your FICO score** (Experian).",
             "Payment history is about **35% of your FICO score**.",
         ),
-        ("The higher your score, the better (USAGov, FTC).", "The higher your score, the better."),
         (
-            "Keep balances low (First Southwest Bank) and pay on time (Broadview).",
-            "Keep balances low and pay on time.",
+            "A higher score gets you lower rates (USAGov, FTC).",
+            "A higher score gets you lower rates.",
         ),
-        ("Fix mistakes with the bureaus (Experian and USA.gov).", "Fix mistakes with the bureaus."),
+        (
+            "Keep balances low (First Southwest Bank). Pay on time (Broadview)",
+            "Keep balances low. Pay on time",
+        ),
+        ("Errors drag your score down (Experian and USA.gov).", "Errors drag your score down."),
     ],
 )
 def test_a_bracket_crediting_this_turns_sources_goes(reply: str, kept: str) -> None:
@@ -51,6 +54,12 @@ def test_a_bracket_crediting_this_turns_sources_goes(reply: str, kept: str) -> N
         # A word that is only somewhere in a result's title (review of #2321).
         "Pay it (It helps).",
         "Weigh it (Credit).",
+        # A name that is the content, even when it is one of the results (review of #2321).
+        "Fix mistakes with the bureaus (Experian, USAGov), since errors drag it down.",
+        "Ask the bank (First Southwest Bank).",
+        "The lender (Broadview) raised rates.",
+        # A credit right after "the better" stays too: it reads like "the company (Tesla)".
+        "The higher your score, the better (USAGov, FTC).",
         "See [Experian](https://www.experian.com/b) for your report.",
         # The short form of the name just before it, which the reply may use again.
         "Complain to the Federal Trade Commission (FTC) if a bureau ignores you.",
