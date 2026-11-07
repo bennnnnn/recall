@@ -1,0 +1,215 @@
+[
+ {
+  "id": "arl-01",
+  "area": "asked_role",
+  "prompt": "After accelerating from 10 m/s at 2 m/s^2 for 5 s, how far has the car travelled?",
+  "expect": "answer",
+  "answer": [
+   75.0,
+   "m"
+  ],
+  "note": "s = ut + at^2/2: a speed 'from' which it accelerates is the start"
+ },
+ {
+  "id": "arl-02",
+  "area": "asked_role",
+  "prompt": "After braking begins, a car moving at 20 m/s decelerates at 4 m/s^2 for 3 s. How far does it travel?",
+  "expect": "answer",
+  "answer": [
+   42.0,
+   "m"
+  ],
+  "note": "60 - 18"
+ },
+ {
+  "id": "arl-03",
+  "area": "asked_role",
+  "prompt": "After braking begins, a car moving at 20 m/s decelerates at 4 m/s^2 for 3 s. What is its final speed?",
+  "expect": "answer",
+  "answer": [
+   8.0,
+   "m/s"
+  ],
+  "note": "20 - 12"
+ },
+ {
+  "id": "arl-04",
+  "area": "asked_role",
+  "prompt": "A car is now travelling at 15 m/s. It accelerates at 2 m/s^2 for 4 s. How far does it travel?",
+  "expect": "answer",
+  "answer": [
+   76.0,
+   "m"
+  ],
+  "note": "'now' before the change is the start: 60 + 16"
+ },
+ {
+  "id": "arl-05",
+  "area": "asked_role",
+  "prompt": "A car now has a speed of 10 m/s and accelerates at 2 m/s^2 for 5 s. How far does it travel?",
+  "expect": "answer",
+  "answer": [
+   75.0,
+   "m"
+  ],
+  "note": "50 + 25"
+ },
+ {
+  "id": "arl-06",
+  "area": "asked_role",
+  "prompt": "42 kJ of heat is added to 1 kg of water at 20 °C. What is the temperature change?",
+  "expect": "answer",
+  "answer": [
+   10.0334,
+   "K"
+  ],
+  "note": "a change, not the final temperature"
+ },
+ {
+  "id": "arl-07",
+  "area": "asked_role",
+  "prompt": "42 kJ of heat is added to 1 kg of water at 20 °C. By how much does the temperature rise?",
+  "expect": "answer",
+  "answer": [
+   10.0334,
+   "K"
+  ],
+  "note": "a change"
+ },
+ {
+  "id": "arl-08",
+  "area": "asked_role",
+  "prompt": "A ball is thrown upward at 20 m/s from a 5 m tall cliff. How high above the ground does it rise before it starts to fall?",
+  "expect": "answer",
+  "answer": [
+   25.3874,
+   "m"
+  ],
+  "note": "'before it starts to fall' is the top, not the start"
+ },
+ {
+  "id": "arl-09",
+  "area": "asked_role",
+  "prompt": "A car ends at 30 m/s after accelerating at 4 m/s^2 for 5 s. What is the final answer for its initial speed?",
+  "expect": "answer",
+  "answer": [
+   10.0,
+   "m/s"
+  ],
+  "note": "'final answer' names no end of a quantity"
+ },
+ {
+  "id": "arl-10",
+  "area": "asked_role",
+  "prompt": "A gas expands from 2 L to 3 L at constant pressure, ending at 450 K. What was its initial temperature?",
+  "expect": "answer",
+  "answer": [
+   300.0,
+   "K"
+  ],
+  "note": "T1 = T2 V1/V2"
+ },
+ {
+  "id": "arl-11",
+  "area": "asked_role",
+  "prompt": "A gas is cooled from 100 °C to 0 °C at constant pressure and ends with a volume of 2 L. What was its original volume?",
+  "expect": "answer",
+  "answer": [
+   2.7322,
+   "L"
+  ],
+  "note": "V1 = V2 T1/T2; main 1.46 L"
+ },
+ {
+  "id": "arl-12",
+  "area": "asked_role",
+  "prompt": "A gas at constant volume is heated from 20 °C to 80 °C, ending at a pressure of 150 kPa. What was its initial pressure?",
+  "expect": "answer",
+  "answer": [
+   124.515,
+   "kPa"
+  ],
+  "note": "P1 = P2 T1/T2; main 181 kPa"
+ },
+ {
+  "id": "arl-13",
+  "area": "asked_role",
+  "prompt": "A gas at 100 kPa occupies 6 L. It is compressed at constant temperature to 2 L. What is the new pressure?",
+  "expect": "answer",
+  "answer": [
+   300.0,
+   "kPa"
+  ],
+  "note": "look-alike"
+ },
+ {
+  "id": "arl-14",
+  "area": "asked_role",
+  "prompt": "2 kg of water at 50 °C transfers 84 kJ of heat to the room. What is its final temperature?",
+  "expect": "decline",
+  "note": "heat lost; read as a gain it was 60 °C, right 40 °C"
+ },
+ {
+  "id": "arl-15",
+  "area": "asked_role",
+  "prompt": "2 kg of water at 50 °C gives up 84 kJ of heat. What is its final temperature?",
+  "expect": "decline",
+  "note": "heat lost"
+ },
+ {
+  "id": "arl-16",
+  "area": "asked_role",
+  "prompt": "84 kJ of heat is taken from 2 kg of water at 50 °C. What is its final temperature?",
+  "expect": "decline",
+  "note": "heat lost"
+ },
+ {
+  "id": "arl-17",
+  "area": "asked_role",
+  "prompt": "2 kg of water at 50 °C radiates 84 kJ of heat. What is its final temperature?",
+  "expect": "decline",
+  "note": "heat lost"
+ },
+ {
+  "id": "arl-18",
+  "area": "asked_role",
+  "prompt": "2 kg of water at 90 °C absorbs 168 kJ. What is its final temperature?",
+  "expect": "decline",
+  "note": "would pass 100 °C: it boils"
+ },
+ {
+  "id": "arl-19",
+  "area": "asked_role",
+  "prompt": "50 kJ of heat is added to 1 kg of ice at -10 °C. What is its final temperature?",
+  "expect": "decline",
+  "note": "ice melts"
+ },
+ {
+  "id": "arl-20",
+  "area": "asked_role",
+  "prompt": "2 kg of water at 5 °C has Q = -84 kJ of heat added. What is its final temperature?",
+  "expect": "decline",
+  "note": "Q negative"
+ },
+ {
+  "id": "arl-21",
+  "area": "asked_role",
+  "prompt": "2 kg of water absorbs 336 kJ and ends at 30 °C. What was its initial temperature?",
+  "expect": "decline",
+  "note": "would start below 0 °C (-10.1 °C)"
+ },
+ {
+  "id": "arl-22",
+  "area": "asked_role",
+  "prompt": "A gas at 2 atm occupies 4 L. It is compressed at constant temperature to 1 L. What was its original pressure?",
+  "expect": "decline",
+  "note": "it states the original pressure; read as P2 it was 0.5 atm"
+ },
+ {
+  "id": "arl-23",
+  "area": "asked_role",
+  "prompt": "A car ends up at 20 m/s after accelerating at 2 m/s^2 over 75 m. How long did it take?",
+  "expect": "decline",
+  "note": "right is 5 s; d/v (3.75 s) never reads the acceleration"
+ }
+]

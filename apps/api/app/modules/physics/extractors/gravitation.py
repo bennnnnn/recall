@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.bodies import named_body
+from app.modules.physics.bodies import named_body, orbiting_body_masses
 from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
-    ordered_values,
+    positioned_values,
 )
 from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
 from app.modules.physics.schemas import PhysicsIntent
@@ -53,7 +53,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     body = named_body(lower)
-    masses = ordered_values(cleaned, r"kg|tonnes?|tons?")
+    masses = _central_masses(cleaned)
     radius = find_value_with_specific_unit(
         cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
@@ -148,6 +148,17 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
     return None
+
+
+def _central_masses(cleaned: str) -> list[tuple[float, str]]:
+    """The stated masses, without one written onto what orbits or stands on the body:
+    "a 500 kg satellite" is never the mass it orbits."""
+    orbiting = orbiting_body_masses(cleaned)
+    return [
+        (value, unit)
+        for at, value, unit in positioned_values(cleaned, r"kg|tonnes?|tons?")
+        if not any(start <= at < end for start, end in orbiting)
+    ]
 
 
 def _resolve_body(

@@ -11,7 +11,8 @@ import math
 import re
 from decimal import Decimal, InvalidOperation
 
-from app.services.number_text import LITERAL_START, NUMERIC_LITERAL
+from app.modules.physics.givens import unit_at
+from app.services.number_text import LITERAL_START, NUMERIC_LITERAL, spelled_quantities
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST
 
 _GROUPED_CANDIDATE = re.compile(r"(?<![\w.])[+-]?\d(?:[\d,]*\d)?(?:\.\d+)?(?:[eE][+-]?\d+)?")
@@ -123,6 +124,12 @@ _LENGTH_BEFORE_PLANK = re.compile(
 )
 
 
+def quantity_unit_at(text: str, end: int) -> tuple[str, str] | None:
+    """A unit of a quantity at ``end``: "one turn every 2 s" counts, it measures nothing."""
+    unit = unit_at(text, end)
+    return None if unit is None or unit[1] == "dimensionless" else unit
+
+
 def normalize_physics_units(text: str) -> str:
     """Canonicalize common spoken unit spellings before cue detection.
 
@@ -140,7 +147,8 @@ def normalize_physics_units(text: str) -> str:
         for pattern, replacement in _MACHINE_ABBREVIATIONS:
             normalized = pattern.sub(replacement, normalized)
         normalized = _LENGTH_BEFORE_PLANK.sub(r"\1 long \2", normalized)
-    return normalized
+    # "dropped from ten metres": a number in words beside its unit is read as digits.
+    return spelled_quantities(normalized, quantity_unit_at).text
 
 
 # "only 1/16 of a sample": a fraction of something, whose denominator has only
@@ -171,6 +179,9 @@ def normalize_physics_numbers(text: str) -> str | None:
     if len(text) > _MAX_INPUT_CHARS:
         return None
     text = normalize_physics_units(text).replace("\u2212", "-")
+    if spelled_quantities(text, quantity_unit_at).unread:
+        # "a few metres" left unread while a 1 m table is read answers another question.
+        return None
     text = _FRACTION_OF.sub(_exact_fraction, text)
     text = _GROUPED_CANDIDATE.sub(
         lambda match: (

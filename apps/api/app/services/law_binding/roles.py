@@ -104,10 +104,11 @@ _AFTER: dict[Role, re.Pattern[str]] = {
         r"\b(?:initially|originally|at\s+first|to\s+(?:begin|start)\s+with"
         r"|at\s+the\s+(?:start|beginning|outset))\b"
         # "how fast was it going before?", "... before it started to brake": before the
-        # change the question describes. "Before it hit the ground" is its other end.
+        # change the question describes. "Before it hit the ground" is its other end, and
+        # "before it starts to fall" the top of a rise, not its start.
         r"|\bbefore\s*$"
         r"|\bbefore\s+(?:(?:it|he|she|they|the\s+[a-z]+)\s+)?(?:(?:was|were|had|began|"
-        r"started)\s+(?:to\s+)?)?(?:start|began|begin|accelerat|decelerat|brak|slow|speed"
+        r"started|starts|begins)\s+(?:to\s+)?)?(?:accelerat|decelerat|brak|slow|speed"
         r"|heat|warm|cool|compress|expand|the\s+(?:brakes|change|acceleration))",
         re.IGNORECASE,
     ),
@@ -136,13 +137,13 @@ def contradicts(spec: FormulaSpec, role: Role | None, kind: str | None = None) -
 
     ``kind`` is the asked quantity's dimension: only a law whose result is of that kind
     answers it, so only such a law can contradict it ("find the distance and its initial
-    speed" rules out no distance law).
+    speed" rules out no distance law). An ask of no kind rules out nothing.
     """
     binding = spec.binding
     found = result_role(binding)
     if role is None or found is None or found == role or binding is None:
         return False
-    return kind is None or kind in {dimension_of(unit) for unit in binding.result}
+    return kind is not None and kind in {dimension_of(unit) for unit in binding.result}
 
 
 def counterparts(spec: FormulaSpec, role: Role, laws: Iterable[FormulaSpec]) -> list[FormulaSpec]:

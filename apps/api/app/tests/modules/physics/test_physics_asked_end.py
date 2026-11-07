@@ -380,3 +380,88 @@ def test_a_fall_speed_is_still_worked_from_the_launch() -> None:
         math.sqrt(25 + 2 * _G * 20),
         "m/s",
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        # A speed "from" or "at" which the change happens is its start.
+        (
+            "After accelerating from 10 m/s at 2 m/s^2 for 5 s, how far has the car travelled?",
+            75.0,
+            "m",
+        ),
+        (
+            "After braking begins, a car moving at 20 m/s decelerates at 4 m/s^2 for 3 s. "
+            "How far does it travel?",
+            42.0,
+            "m",
+        ),
+        # "Now" before the change is said is the start.
+        (
+            "A car is now travelling at 15 m/s. It accelerates at 2 m/s^2 for 4 s. How far does it travel?",
+            76.0,
+            "m",
+        ),
+        (
+            "A car now has a speed of 10 m/s and accelerates at 2 m/s^2 for 5 s. How far does it travel?",
+            75.0,
+            "m",
+        ),
+        # "Before it starts to fall" is the top of the rise: 5 + 20²/2g.
+        (
+            "A ball is thrown upward at 20 m/s from a 5 m tall cliff. How high above the ground "
+            "does it rise before it starts to fall?",
+            5 + 400 / (2 * _G),
+            "m",
+        ),
+        # "The final answer" names no end of the speed.
+        (
+            "A car ends at 30 m/s after accelerating at 4 m/s^2 for 5 s. "
+            "What is the final answer for its initial speed?",
+            10.0,
+            "m/s",
+        ),
+        (
+            "A gas expands from 2 L to 3 L at constant pressure, ending at 450 K. What was its initial temperature?",
+            300.0,
+            "K",
+        ),
+        (
+            "A gas is cooled from 100 °C to 0 °C at constant pressure and ends with a volume of 2 L. "
+            "What was its original volume?",
+            2 * 373.15 / 273.15,
+            "L",
+        ),
+    ],
+)
+def test_a_start_stays_a_start(text: str, value: float, unit: str) -> None:
+    _assert_answer(text, value, unit)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Heat taken out of the water, read as a gain, warmed it.
+        "2 kg of water at 50 °C transfers 84 kJ of heat to the room. What is its final temperature?",
+        "2 kg of water at 50 °C gives up 84 kJ of heat. What is its final temperature?",
+        "84 kJ of heat is taken from 2 kg of water at 50 °C. What is its final temperature?",
+        "2 kg of water at 50 °C radiates 84 kJ of heat. What is its final temperature?",
+        "2 kg of water at 50 °C dissipates 84 kJ of energy. What is its final temperature?",
+        "2 kg of water at 10 °C loses 168 kJ of heat. What is its final temperature?",
+        # Water that would leave 0-100 °C, ice, a negative Q.
+        "2 kg of water at 90 °C absorbs 168 kJ. What is its final temperature?",
+        "50 kJ of heat is added to 1 kg of ice at -10 °C. What is its final temperature?",
+        "2 kg of water at 5 °C has Q = -84 kJ of heat added. What is its final temperature?",
+        "2 kg of water absorbs 336 kJ and ends at 30 °C. What was its initial temperature?",
+        # Two asks: both answered, or neither.
+        "2 kg of water at 20 °C absorbs 42 kJ. What is the temperature change and the final temperature?",
+        # The original pressure stated, not P2.
+        "A gas at 2 atm occupies 4 L. It is compressed at constant temperature to 1 L. "
+        "What was its original pressure?",
+        # d/v never reads the stated acceleration (right: 5 s).
+        "A car ends up at 20 m/s after accelerating at 2 m/s^2 over 75 m. How long did it take?",
+    ],
+)
+def test_no_wrong_end_is_verified(text: str) -> None:
+    assert _answer(text) is None, (text, _answer(text))

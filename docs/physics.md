@@ -42,7 +42,10 @@ flowchart LR
 2. **Read numbers** (`services/number_text.py`). `2 × 10^-6`, `2x10^-6`, `2·10⁻⁶` and
    `2 \times 10^{-6}` are all one number, folded to `2e-6` before anything scans the text.
    Without that, "2 × 10^-6 C" was a charge of −6 C. `numbers.py` then expands every literal
-   to a plain decimal, or refuses a malformed one.
+   to a plain decimal, or refuses a malformed one. A number written in words beside its
+   unit is read as digits ("dropped from ten metres", "a hundred metres", "twenty-five
+   m/s", `number_text.spelled_quantities`); one that cannot be read ("a few metres") refuses
+   the whole question. Skipped, "dropped from ten metres onto a 1 m table" fell 1 m.
 3. **Extract** (`extract.py`, `registry.py`, `extractors/`). An ordered chain of extractors
    (`registry.PHYSICS_EXTRACTORS`) runs; the first to match returns a `PhysicsIntent`. The
    order is load-bearing and commented in place. Each extractor module reads one topic; a
@@ -90,6 +93,11 @@ flowchart LR
    - light that strikes, hits or enters a medium, read alone, came from air (n₁ = 1), and
      an angle "to the surface" is 90° less than the angle of incidence. Light that starts
      inside the glass or water does not take air's index;
+   - the mass of what orbits a body or stands on it is never the body's mass. A central
+     mass `M` is named by its body ("a planet of mass 6e24 kg") or is the named body's own;
+     "a 500 kg satellite", "a 70 kg astronaut" fill the orbiting body's `m_body`, which
+     no orbit or surface-gravity result depends on (`bodies.ORBITING_BODY_WORDS`). Read as
+     M, a 500 kg satellite round Earth orbited at 6.9e-8 m/s for 7.55 km/s;
    - **A question never asks for a value it already states** (`services/law_binding/roles.py`,
      `asked_end_check.py`). An ask that names an end of the change ("its starting speed",
      "the original volume", "how fast was it going at first") is answered only by a law
@@ -156,7 +164,9 @@ flowchart LR
    SUVAT reads a lone speed stated after the change as the final one: "reaches", "ends at",
    "is then going", "going 30 m/s after accelerating for 5 s", "After braking for 4 s it is
    moving at 8 m/s". Read as u, the car going 30 m/s after 5 s at 4 m/s² had covered 200 m,
-   not 100 m. SUVAT retains distance versus displacement. A reversal's travelled distance sums both
+   not 100 m. A speed "from" or "at" which the change happens stays its start ("After
+   braking begins, a car moving at 20 m/s ..."), and "now" or "then" marks the end only
+   once the change is said ("is now travelling at 15 m/s. It accelerates ..." starts at 15). SUVAT retains distance versus displacement. A reversal's travelled distance sums both
    portions of the path; a displacement remains signed. Its distance graph is cumulative
    and cannot decrease. Inconsistent givens and a negative elapsed time decline.
 6. **Block** (`block.py`). The block refuses a result unless every asked dimension is among

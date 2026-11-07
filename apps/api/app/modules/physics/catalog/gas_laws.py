@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.services.law_binding.roles import role_words
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 # The state before and the state after: "occupies 4 L at 2 atm", "is
@@ -27,6 +28,7 @@ _AFTER = (
     "new",
     "ends at",
     "ended at",
+    "ending at",
     "final",
     "finally",
     "becomes",
@@ -39,6 +41,11 @@ _AFTER = (
     "raised to",
     "changed to",
 )
+# How a question states the state before, or after, as the gas's own.
+_STATE_STARTS = {
+    True: ("a gas at", "gas is at", "initially at", "starts at", "started at"),
+    False: ("ends at", "ended at", "ending at", "finally at"),
+}
 _P1 = var("pres1", "P_1", "pascal", words=(*_FIRST["pres1"], *_BEFORE))
 _P2 = var("pres2", "P_2", "pascal", words=(*_SECOND["pres2"], *_AFTER))
 _V1 = var("vol1", "V_1", "meter ** 3", words=(*_FIRST["vol1"], *_BEFORE))
@@ -89,6 +96,12 @@ def _state_law(
     cues: tuple[str, ...],
 ) -> FormulaSpec:
     known = {spec.name: spec for spec in (_P1, _P2, _V1, _V2, _T1, _T2)}
+    # A value worded as the result's own state ("a gas at 2 atm" when the original
+    # pressure is asked) is the answer stated, never the other state's input. A bare "at"
+    # also places the other state ("at constant pressure ... a volume of 6 L"), so only
+    # words that name an end count.
+    (answer,) = (spec for spec in known.values() if spec.symbol == symbol)
+    stated_answer = (*role_words(answer.words), *_STATE_STARTS[answer.name in _FIRST])
     return formula(
         operation,
         "thermal",
@@ -103,6 +116,7 @@ def _state_law(
             result=(result,),
             inputs=(frozenset(variables),),
             cues=cues,
+            result_words=stated_answer,
             nonnegative=True,
         ),
     )

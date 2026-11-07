@@ -86,6 +86,65 @@ def named_body(lower: str) -> tuple[float, float] | None:
     return None
 
 
+# What a central mass is the mass of: the planet, star or hole a body orbits or stands on.
+CENTRAL_BODY_WORDS: tuple[str, ...] = (
+    *BODY_PROPERTIES,
+    "venus",
+    "mercury",
+    "saturn",
+    "uranus",
+    "neptune",
+    "pluto",
+    "planet",
+    "star",
+    "asteroid",
+    "black hole",
+    "neutron star",
+    "white dwarf",
+    "central",
+)
+# What orbits a central body, or stands on it: its mass is never the central mass. A
+# 500 kg satellite read as the mass Earth's orbit is about gave 6.9e-8 m/s for 7.55 km/s.
+ORBITING_BODY_WORDS: tuple[str, ...] = (
+    "satellite",
+    "probe",
+    "spacecraft",
+    "spaceship",
+    "space station",
+    "station",
+    "rocket",
+    "shuttle",
+    "capsule",
+    "lander",
+    "rover",
+    "astronaut",
+    "person",
+    "man",
+    "woman",
+    "student",
+    "ball",
+    "rock",
+    "stone",
+    "box",
+    "block",
+    "apple",
+)
+_ORBITING = "|".join(re.escape(word) for word in ORBITING_BODY_WORDS)
+_MASS_VALUE = r"(?<![\d.])\d[\d.]*(?:e[-+]?\d+)?\s*(?:kg|kilograms?|tonnes?|tons?|t)\b"
+# "a 500 kg satellite", "a satellite of mass 500 kg", "an astronaut weighing 70 kg".
+_ORBITING_MASS = re.compile(
+    rf"{_MASS_VALUE}\s+(?:[a-z-]+\s+)?(?:{_ORBITING})\b"
+    rf"|\b(?:{_ORBITING})\s+(?:of|with|has|having|weighing|whose\s+mass\s+is)\s+"
+    rf"(?:a\s+)?(?:mass\s+(?:of\s+)?)?(?:{_MASS_VALUE})",
+    re.IGNORECASE,
+)
+
+
+def orbiting_body_masses(text: str) -> list[tuple[int, int]]:
+    """Spans of the masses written onto a body that orbits or stands on another."""
+    return [match.span() for match in _ORBITING_MASS.finditer(text)]
+
+
 # The surface gravity (m/s²) a school question takes for a body it names.
 # Jupiter and the Sun have no agreed school value (it turns on the radius
 # quoted), so a solve that needs g there declines instead of using Earth's.

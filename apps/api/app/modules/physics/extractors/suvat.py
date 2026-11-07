@@ -59,19 +59,28 @@ _CHANGE = (
 )
 # A sentence, a decimal point kept inside it.
 _IN_SENTENCE = r"(?:[^.?!]|(?<=\d)\.(?=\d))*?"
+# A verb of the change itself, said before the speed it ends at.
+_CHANGE_VERB = r"\b(?:(?:ac|de)celerat|brak|slow)\w*"
+# A state at a time: "is moving at", "was going", "is doing".
+_STATE = (
+    r"\b(?:is|was)\s+(?:(?:moving|going|travell?ing|doing|running|driving|riding)\s+)?(?:at\s+)?"
+)
 # A lone speed the question says it ends at: "accelerates ... and reaches 18 m/s",
-# "ends at 12 m/s", "is then going 30 m/s", "is going 30 m/s after accelerating for
-# 5 s", "After accelerating for 5 s it is moving at 30 m/s". That is v: read as u, the
-# car going 30 m/s after 5 s at 4 m/s² had covered 200 m instead of 100 m. A question
-# for v that states it has nothing left to solve.
+# "ends at 12 m/s", "accelerates ... and is then going 30 m/s", "is going 30 m/s after
+# accelerating for 5 s", "After accelerating for 5 s it is moving at 30 m/s". That is v:
+# read as u, the car going 30 m/s after 5 s at 4 m/s² had covered 200 m instead of
+# 100 m. "Now" or "then" marks the end only after the change is said ("is now travelling
+# at 15 m/s. It accelerates ..." starts at 15), and a speed "from" or "at" which the
+# change happens is its start. A question for v that states it has nothing left to solve.
 _FINAL_SPEED_RE = re.compile(
     r"\b(?:reach(?:es|ed|ing)?|final\s+(?:speed|velocity)(?:\s+(?:of|is))?|up\s+to|until\s+it\s+reaches"
-    r"|(?:ends?|ending|finish(?:es)?|finishing)\s+(?:up\s+)?at|hits"
-    r"|(?:is|was)\s+(?:then|now)\s+(?:going|moving|travell?ing|doing)(?:\s+at)?"
-    r"|(?:then|now)\s+(?:has|had)\s+a\s+(?:speed|velocity)\s+of)"
+    r"|(?:ends?|ending|finish(?:es)?|finishing)\s+(?:up\s+)?at|hits)"
     rf"\s+(?:a\s+(?:speed|velocity)\s+of\s+)?{_SPEED}"
+    rf"|{_CHANGE_VERB}{_IN_SENTENCE}\b(?:(?:is|was)\s+(?:then|now)\s+(?:going|moving|travell?ing"
+    rf"|doing)(?:\s+at)?|(?:then|now)\s+(?:has|had)\s+a\s+(?:speed|velocity)\s+of)\s+{_SPEED}"
     rf"|{_SPEED}\s+after\s+{_CHANGE}"
-    rf"|(?:^|[.?!]\s+)after\s+{_CHANGE}{_IN_SENTENCE}{_SPEED}",
+    rf"|(?:^|[.?!]\s+)after\s+{_CHANGE}(?:[^.?!]|(?<=\d)\.(?=\d))*?{_STATE}{_SPEED}"
+    r"(?![^.?!]*\b(?:(?:ac|de)celerat|brak|slow))",
     re.IGNORECASE,
 )
 
