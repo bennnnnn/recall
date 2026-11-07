@@ -84,18 +84,16 @@ def _carried_facts(old: list[str], new: list[str], width: int) -> list[str]:
     ones go, longest first (the oldest of equals); a new fact stays. A fact is never
     judged restated by its words: "User earns $3,200" and "User's wife earns $2,800" share
     most of them (review, 2026-11-07)."""
-    seen: set[str] = set()
 
-    def once(facts: list[str]) -> list[str]:
-        kept = []
-        for fact in facts:
-            key = " ".join(fact.lower().rstrip(".").split())
-            if key not in seen:
-                seen.add(key)
-                kept.append(fact)
-        return kept
+    def key(fact: str) -> str:
+        return " ".join(fact.lower().rstrip(".").split())
 
-    earlier, fresh = once(_fact_sentences(old)), once(_fact_sentences(new))
+    fresh = list({key(fact): fact for fact in _fact_sentences(new)}.values())
+    # A fact said again moves to the end, where the later value holds: rent $1,100, then
+    # $1,250, then $1,100 again is $1,100 (review of #2337).
+    said_again = {key(fact) for fact in fresh}
+    earlier = list({key(fact): fact for fact in _fact_sentences(old)}.values())
+    earlier = [fact for fact in earlier if key(fact) not in said_again]
     while earlier and len(" ".join([*earlier, *fresh])) > width:
         earlier.pop(max(range(len(earlier)), key=lambda i: (len(earlier[i]), -i)))
     facts = [*earlier, *fresh]

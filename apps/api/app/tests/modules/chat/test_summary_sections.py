@@ -36,8 +36,9 @@ def test_a_fold_keeps_the_earlier_topics_whatever_the_model_writes() -> None:
     text = merged(_FIRST, fresh, 6000)
     topics = sections(text)["Topics"]
     assert [line.split(".")[0] for line in topics] == ["Zanzibar trip", "Dinner", "Roman Empire"]
-    # Facts are carried too (2026-11-07): the earlier ones in their order, "User is Bini." once.
-    assert sections(text)["Facts"] == ["User is Bini. Trip in December. Savings plan dropped."]
+    # Facts are carried too (2026-11-07): the earlier ones in their order, "User is Bini." once,
+    # where it was said last.
+    assert sections(text)["Facts"] == ["Trip in December. User is Bini. Savings plan dropped."]
 
 
 def test_a_topic_said_again_is_kept_once() -> None:
@@ -133,6 +134,14 @@ def test_two_facts_that_share_words_are_both_kept(earlier: str, later: str) -> N
     prior = f"Facts: {earlier}\n\nTopics:\nA.\n\nOpen: None"
     facts = sections(merged(prior, f"Facts: {later}\nTopics: B.\nOpen: None", 6000))["Facts"][0]
     assert earlier in facts and later in facts
+
+
+def test_a_value_that_changes_back_ends_last() -> None:
+    # Review of #2337: $1,100, then $1,250, then $1,100 again must read $1,100.
+    prior = "Facts: User's rent is $1,100. User's rent is $1,250.\n\nTopics:\nA.\n\nOpen: None"
+    fresh = "Facts: User's rent is $1,100.\nTopics: B.\nOpen: None"
+    facts = sections(merged(prior, fresh, 6000))["Facts"][0]
+    assert facts == "User's rent is $1,250. User's rent is $1,100."
 
 
 def test_a_fact_written_again_is_kept_once() -> None:

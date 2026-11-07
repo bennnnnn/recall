@@ -46,9 +46,9 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # by week or month, not by day (LEARNING_PLAN_HINT), then a **Choose A if** line only when the
 # user asks to pick between named options, and no word about how the search went (READER_NOTE),
 # then the chat's summary named as part of the conversation (SUMMARY_LEAD).
-_RULES = 175 15966 c9fc1ba120307a35
-_RULE_GRAMS = 
-_RULE_GRAMS_SHA = ""
+_RULES = 175
+_RULE_GRAMS = 15966
+_RULE_GRAMS_SHA = "c9fc1ba120307a35"
 
 
 def _rules() -> list[str]:
