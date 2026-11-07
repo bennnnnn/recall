@@ -272,6 +272,16 @@ async def test_a_short_teach_me_is_held_as_a_lesson_never_an_outline(calls: _Cal
 
 
 @pytest.mark.asyncio
+async def test_a_teach_me_answered_by_a_question_back_is_left_alone(calls: _Calls) -> None:
+    """Review of #2318: "teach me" with no topic, answered "What would you like to learn?",
+    once got a lesson title and a practice card about nothing."""
+    reply = "Happy to! What would you like to learn?"
+    state = _state(reply, "teach me", contract=TEACH_CONTRACT)
+    assert await hold_lesson_shape(state) == reply
+    assert calls.asked == []
+
+
+@pytest.mark.asyncio
 async def test_picking_up_where_memory_says_gets_no_list(calls: _Calls) -> None:
     reply = "Last time we got to dictionaries. Pick up with functions, or start over?"
     memory = "- Learning Python: reached Lesson 3, Dictionaries. Covered: Variables"

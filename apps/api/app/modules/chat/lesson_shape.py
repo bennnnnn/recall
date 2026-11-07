@@ -207,4 +207,8 @@ async def hold_lesson_shape(state: FinalizeState) -> str:
     # where to pick up a course memory has stays as written.
     if layout == "teaching" and not teaches(text) and _resumes_a_lesson(state):
         return text
-    return text if layout == "walkthrough" and asks_back(text) else await hold_lesson(state, copy)
+    # A reply that only asks back ("What would you like to learn?") stays as written: a
+    # practice card under it would quiz nothing.
+    if layout in ("walkthrough", "teaching") and asks_back(text):
+        return text
+    return await hold_lesson(state, copy)
