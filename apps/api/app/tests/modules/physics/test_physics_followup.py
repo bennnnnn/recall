@@ -139,9 +139,60 @@ def test_a_scaling_said_any_common_way_reverifies_the_problem(
     assert _answer(rewritten) == answer
 
 
+_DROP_MASS = "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+_SPEEDING = "A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m. Find its final speed."
+_THROWN = "A ball is thrown horizontally at 10 m/s from a 20 m cliff. How long is it in the air?"
+_TABLE = "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+_TO_SPEED = (
+    "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. "
+    "How long does it take?"
+)
+
+
+@pytest.mark.parametrize(
+    ("prior", "line", "answer"),
+    [
+        # The noun the line names is the quantity; "higher" only says which way.
+        (_DROP_MASS, "what if the mass was 3 times higher", "14 m/s"),
+        (_DROP_MASS, "what if the mass was twice as high", "14 m/s"),
+        (_DROP_MASS, "what if it was twice as high", "19.8 m/s"),
+        (_SPEEDING, "what if the speed was twice as high", "24.5 m/s"),
+        (_THROWN, "what if the speed was twice as high", "2.02 s"),
+        (_TABLE, "what if the speed was 3 times higher", "4.45 m"),
+        # A named object of the problem takes its adjective's quantity.
+        (_TABLE, "what if the table was twice as high", "2.1 m"),
+        # Initial and final name the value that says so.
+        (_SPEEDING, "what if the initial speed doubled", "24.5 m/s"),
+        (_TO_SPEED, "what if the final speed doubled", "20 s"),
+    ],
+)
+def test_a_scaling_names_the_quantity_the_student_wrote(prior: str, line: str, answer: str) -> None:
+    rewritten = physics_followup_problem(line, _recent(prior))
+    assert rewritten is not None
+    assert _answer(rewritten) == answer
+
+
 @pytest.mark.parametrize(
     ("prior", "line"),
     [
+        # Where it went is the answer, not a given.
+        (_TABLE, "what if it went twice as far"),
+        (_TABLE, "what if it landed twice as far"),
+        (_TABLE, "twice as far"),
+        # A speed of something the problem never had.
+        (_TABLE, "what if it rolled at double the speed of sound"),
+        (_KE, "half the speed of light"),
+        (_KE, "twice the mass of the earth"),
+        # A verb that is not the speed's: acceleration, falling, braking, spinning.
+        (_TO_SPEED, "what if it accelerated twice as fast"),
+        (_TO_SPEED, "what if it fell twice as fast"),
+        (_TO_SPEED, "what if it braked twice as fast"),
+        (_TO_SPEED, "what if it slowed down twice as fast"),
+        (_TO_SPEED, "what if it decelerated twice as fast"),
+        (_TO_SPEED, "what if it spun twice as fast"),
+        # It starts from rest: the 30 m/s it reaches is no initial speed.
+        (_TO_SPEED, "what if the initial speed doubled"),
+        (_TO_SPEED, "with twice the initial speed"),
         (_CLIFF, "double it"),
         (_CLIFF, "make it twice as long"),
         (_KE, "what if the mass doubles and the speed triples"),

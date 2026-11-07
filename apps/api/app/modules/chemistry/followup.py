@@ -113,7 +113,7 @@ def _adjacent_problem(prior: str, text: str) -> str | None:
     # Before the other shapes: "what if it was 3 times higher" is no new value.
     scaled = scaled_given(folded)
     if scaled is not None:
-        return _GIVENS.scaled(prior, *scaled)
+        return _GIVENS.scaled(prior, scaled)
     about = _ABOUT.fullmatch(folded)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))

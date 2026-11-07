@@ -82,7 +82,7 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     # Before the other shapes: "what if it was 3 times higher" is no new value.
     scaled = scaled_given(line)
     if scaled is not None:
-        return _GIVENS.scaled(prior, *scaled)
+        return _GIVENS.scaled(prior, scaled)
     about = _ABOUT.fullmatch(line)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))
@@ -309,4 +309,10 @@ def _dimension_of_phrase(phrase: str) -> str | None:
     return None if reading is None else reading[0]
 
 
-_GIVENS = GivenRewriter(PHYSICS_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)
+def _asked_dimensions(prior: str) -> set[str]:
+    return {ask.dimension for ask in asks(prior)}
+
+
+_GIVENS = GivenRewriter(
+    PHYSICS_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies, _asked_dimensions
+)

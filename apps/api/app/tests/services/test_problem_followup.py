@@ -16,7 +16,7 @@ from app.services.problem_followup import (
     scaled_value,
     with_sentences,
 )
-from app.services.scaled_followup import scaled_given
+from app.services.scaled_followup import Scaling, plays_role, scaled_given, scaled_name
 
 
 @pytest.mark.parametrize(
@@ -38,39 +38,39 @@ def test_asked_unit_reads_the_unit_alone(line: str, unit: str | None) -> None:
 @pytest.mark.parametrize(
     ("line", "found"),
     [
-        ("what if the mass doubles", ("mass", 2.0)),
-        ("what if the height is halved", ("height", 0.5)),
-        ("and if the speed triples", ("speed", 3.0)),
+        ("what if the mass doubles", ("mass", None, 2.0)),
+        ("what if the height is halved", ("height", None, 0.5)),
+        ("and if the speed triples", ("speed", None, 3.0)),
         # The quantity an unambiguous adjective stands for.
-        ("now what if the cliff was twice as high", ("height", 2.0)),
-        ("if it were three times as fast", ("speed", 3.0)),
-        ("half as heavy", ("mass", 0.5)),
-        ("what if it was 3 times higher", ("height", 3.0)),
-        ("what if it was 3x higher", ("height", 3.0)),
-        ("twice as far", ("distance", 2.0)),
-        ("what if it was thrown twice as fast", ("speed", 2.0)),
-        ("what if the tower were four times as tall", ("height", 4.0)),
-        ("make it twice as high", ("height", 2.0)),
+        ("now what if the cliff was twice as high", ("cliff", "height", 2.0)),
+        ("if it were three times as fast", (None, "speed", 3.0)),
+        ("half as heavy", (None, "mass", 0.5)),
+        ("what if it was 3 times higher", (None, "height", 3.0)),
+        ("what if it was 3x higher", (None, "height", 3.0)),
+        ("twice as far", (None, "distance", 2.0)),
+        ("what if it was thrown twice as fast", (None, "speed", 2.0)),
+        ("what if the tower were four times as tall", ("tower", "height", 4.0)),
+        ("make it twice as high", (None, "height", 2.0)),
         # The quantity named after the factor.
-        ("with twice the mass", ("mass", 2.0)),
-        ("double the height", ("height", 2.0)),
-        ("half the speed", ("speed", 0.5)),
-        ("and with 3 times the force", ("force", 3.0)),
-        ("what if it had twice the mass", ("mass", 2.0)),
-        ("what about twice the mass", ("mass", 2.0)),
-        ("what if I double the mass", ("mass", 2.0)),
-        ("what if we halve the speed", ("speed", 0.5)),
-        ("what if I cut the mass in half", ("mass", 0.5)),
-        ("double the mass of the ball", ("mass", 2.0)),
+        ("with twice the mass", ("mass", None, 2.0)),
+        ("double the height", ("height", None, 2.0)),
+        ("half the speed", ("speed", None, 0.5)),
+        ("and with 3 times the force", ("force", None, 3.0)),
+        ("what if it had twice the mass", ("mass", None, 2.0)),
+        ("what about twice the mass", ("mass", None, 2.0)),
+        ("what if I double the mass", ("mass", None, 2.0)),
+        ("what if we halve the speed", ("speed", None, 0.5)),
+        ("what if I cut the mass in half", ("mass", None, 0.5)),
+        ("double the mass of the ball", ("mass of the ball", None, 2.0)),
         # The quantity named before the scaling.
-        ("what if the mass were doubled", ("mass", 2.0)),
-        ("what if the voltage is doubled", ("voltage", 2.0)),
-        ("what if the resistance were halved instead", ("resistance", 0.5)),
-        ("if the speed was increased by a factor of 3", ("speed", 3.0)),
-        ("what if the speed was multiplied by a factor of 3", ("speed", 3.0)),
-        ("what if the mass is multiplied by 3", ("mass", 3.0)),
-        ("if the voltage were divided by 2", ("voltage", 0.5)),
-        ("What If The Mass Doubles", ("mass", 2.0)),
+        ("what if the mass were doubled", ("mass", None, 2.0)),
+        ("what if the voltage is doubled", ("voltage", None, 2.0)),
+        ("what if the resistance were halved instead", ("resistance", None, 0.5)),
+        ("if the speed was increased by a factor of 3", ("speed", None, 3.0)),
+        ("what if the speed was multiplied by a factor of 3", ("speed", None, 3.0)),
+        ("what if the mass is multiplied by 3", ("mass", None, 3.0)),
+        ("if the voltage were divided by 2", ("voltage", None, 0.5)),
+        ("What If The Mass Doubles", ("mass", None, 2.0)),
         # A new value, not a scaling.
         ("what if the mass was 4 kg", None),
         # No quantity: a pronoun, or the factor alone.
@@ -81,6 +81,24 @@ def test_asked_unit_reads_the_unit_alone(line: str, unit: str | None) -> None:
         ("make it twice as long", None),
         ("what if it was twice as big", None),
         ("is it twice as much fun", None),
+        # The noun the line names is the quantity; the adjective only says which way.
+        ("what if the mass was 3 times higher", ("mass", "height", 3.0)),
+        ("what if the speed was twice as high", ("speed", "height", 2.0)),
+        ("if the ball were going twice as fast", ("ball", "speed", 2.0)),
+        # "of" keeps what it belongs to, for the rewriter to find in the problem.
+        ("what if it rolled at double the speed of sound", ("speed of sound", None, 2.0)),
+        ("twice the mass of the earth", ("mass of the earth", None, 2.0)),
+        ("with twice the initial speed", ("initial speed", None, 2.0)),
+        # A verb that is not "is" or the motion a speed belongs to says something else.
+        ("what if it accelerated twice as fast", None),
+        ("what if it fell twice as fast", None),
+        ("what if it braked twice as fast", None),
+        ("what if it slowed down twice as fast", None),
+        ("what if it decelerated twice as fast", None),
+        ("what if it spun twice as fast", None),
+        ("what if it went twice as far", None),
+        ("what if it landed twice as far", None),
+        ("what if it was thrown twice as high", None),
         # Two scalings, a negation, or no change at all.
         ("what if the mass doubles and the speed triples", None),
         ("twice as high and twice as fast", None),
@@ -90,9 +108,10 @@ def test_asked_unit_reads_the_unit_alone(line: str, unit: str | None) -> None:
     ],
 )
 def test_scaled_given_reads_the_named_quantity_and_factor(
-    line: str, found: tuple[str, float] | None
+    line: str, found: tuple[str | None, str | None, float] | None
 ) -> None:
-    assert scaled_given(line) == found
+    expected = None if found is None else Scaling(found[2], found[0], found[1])
+    assert scaled_given(line) == expected
 
 
 @pytest.mark.parametrize(
@@ -161,11 +180,11 @@ def test_given_rewriter_replaces_the_one_given_of_that_kind(
 
 
 def test_given_rewriter_scales_the_one_named_given() -> None:
-    assert _REWRITER.scaled(_PRIOR, "the mass", 2.0) == (
+    assert _REWRITER.scaled(_PRIOR, Scaling(2.0, "the mass", None)) == (
         "A force of 10 N acts on a 4 kg mass. Find its acceleration."
     )
-    assert _REWRITER.scaled(_PRIOR, "time", 2.0) is None
-    assert _REWRITER.scaled(_PRIOR, "speed", 2.0) is None
+    assert _REWRITER.scaled(_PRIOR, Scaling(2.0, "time", None)) is None
+    assert _REWRITER.scaled(_PRIOR, Scaling(2.0, "speed", None)) is None
 
 
 @pytest.mark.parametrize(
@@ -238,3 +257,54 @@ def test_continues_reads_a_line_that_takes_up_the_problem(line: str, takes_up: b
 )
 def test_changes_relatively_reads_an_addition_or_a_difference(line: str, relative: bool) -> None:
     assert changes_relatively(line) is relative
+
+
+_IS_QUANTITY = {"mass", "speed", "height"}.__contains__
+
+
+@pytest.mark.parametrize(
+    ("scaling", "name"),
+    [
+        # A named quantity wins over the adjective.
+        (Scaling(3.0, "mass", "height"), ("mass", False)),
+        # An object of the problem takes its adjective's quantity; one it never had, nothing.
+        (Scaling(2.0, "cliff", "height"), ("height", False)),
+        (Scaling(2.0, "tower", "height"), None),
+        (Scaling(2.0, None, "height"), ("height", True)),
+        # "of" names the problem's quantity only when the problem has that object.
+        (Scaling(2.0, "mass of the stone", None), ("mass", False)),
+        (Scaling(2.0, "speed of sound", None), None),
+        (Scaling(2.0, "mass of the earth", None), None),
+    ],
+)
+def test_scaled_name_prefers_the_named_quantity(
+    scaling: Scaling, name: tuple[str, bool] | None
+) -> None:
+    prior = "A 2 kg stone is dropped from a 80 m cliff. How long to hit the water?"
+    assert scaled_name(prior, scaling, _IS_QUANTITY) == name
+
+
+@pytest.mark.parametrize(
+    ("prior", "name", "plays"),
+    [
+        (
+            "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s.",
+            "initial speed",
+            False,
+        ),
+        (
+            "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s.",
+            "final speed",
+            True,
+        ),
+        ("A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m.", "initial speed", True),
+        ("A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m.", "speed", True),
+        ("A car goes from 0 to 20 m/s in 5 s.", "final velocity", True),
+    ],
+)
+def test_plays_role_matches_initial_and_final_to_their_values(
+    prior: str, name: str, plays: bool
+) -> None:
+    # The last speed: "from 0 to 20 m/s" reads the 0 as a speed too.
+    given = [g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == "m/s"][-1]
+    assert plays_role(prior, given, name) is plays

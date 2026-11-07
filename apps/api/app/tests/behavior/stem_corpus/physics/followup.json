@@ -369,5 +369,432 @@
       ]
     ],
     "note": "no quantity, only sounds like a scaling"
+  },
+  {
+    "id": "fu-scale-14",
+    "area": "followup",
+    "prompt": "what if the mass was 3 times higher",
+    "expect": "answer",
+    "answer": [
+      14.007141035914502,
+      "m/s"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "the mass named: higher only says which way; the mass does not change the speed"
+  },
+  {
+    "id": "fu-scale-15",
+    "area": "followup",
+    "prompt": "what if the mass was twice as high",
+    "expect": "answer",
+    "answer": [
+      14.007141035914502,
+      "m/s"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "the mass, not the height"
+  },
+  {
+    "id": "fu-scale-16",
+    "area": "followup",
+    "prompt": "what if it was twice as high",
+    "expect": "answer",
+    "answer": [
+      19.809088823063014,
+      "m/s"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "no noun: twice as high is the 10 m"
+  },
+  {
+    "id": "fu-scale-17",
+    "area": "followup",
+    "prompt": "what if the speed was twice as high",
+    "expect": "answer",
+    "answer": [
+      24.49489742783178,
+      "m/s"
+    ],
+    "history": [
+      [
+        "user",
+        "A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m. Find its final speed."
+      ],
+      [
+        "assistant",
+        "v = 17.3 m/s"
+      ]
+    ],
+    "note": "the speed, not the 50 m"
+  },
+  {
+    "id": "fu-scale-18",
+    "area": "followup",
+    "prompt": "what if the speed was twice as high",
+    "expect": "answer",
+    "answer": [
+      2.019275109384609,
+      "s"
+    ],
+    "history": [
+      [
+        "user",
+        "A ball is thrown horizontally at 10 m/s from a 20 m cliff. How long is it in the air?"
+      ],
+      [
+        "assistant",
+        "t = 2.02 s"
+      ]
+    ],
+    "note": "a faster throw lands no later: not a 40 m cliff"
+  },
+  {
+    "id": "fu-scale-19",
+    "area": "followup",
+    "prompt": "what if the speed was 3 times higher",
+    "expect": "answer",
+    "answer": [
+      4.451574301465481,
+      "m"
+    ],
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "the speed, not the table"
+  },
+  {
+    "id": "fu-scale-20",
+    "area": "followup",
+    "prompt": "what if the table was twice as high",
+    "expect": "answer",
+    "answer": [
+      2.098492250348007,
+      "m"
+    ],
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "the table named: its height"
+  },
+  {
+    "id": "fu-scale-21",
+    "area": "followup",
+    "prompt": "what if the initial speed doubled",
+    "expect": "answer",
+    "answer": [
+      24.49489742783178,
+      "m/s"
+    ],
+    "history": [
+      [
+        "user",
+        "A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m. Find its final speed."
+      ],
+      [
+        "assistant",
+        "v = 17.3 m/s"
+      ]
+    ],
+    "note": "moving at 10 m/s is the initial speed"
+  },
+  {
+    "id": "fu-scale-22",
+    "area": "followup",
+    "prompt": "what if the final speed doubled",
+    "expect": "answer",
+    "answer": [
+      20.0,
+      "s"
+    ],
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "the 30 m/s it reaches is the final speed"
+  },
+  {
+    "id": "fu-scale-23",
+    "area": "followup",
+    "prompt": "what if it went twice as far",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "where it lands is the answer, not a given"
+  },
+  {
+    "id": "fu-scale-24",
+    "area": "followup",
+    "prompt": "what if it landed twice as far",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "where it lands is the answer, not a given"
+  },
+  {
+    "id": "fu-scale-25",
+    "area": "followup",
+    "prompt": "twice as far",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "the distance is what it asks: a bare twice as far may be the answer's"
+  },
+  {
+    "id": "fu-scale-26",
+    "area": "followup",
+    "prompt": "what if it rolled at double the speed of sound",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "the speed of sound is no given of this problem"
+  },
+  {
+    "id": "fu-scale-27",
+    "area": "followup",
+    "prompt": "half the speed of light",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ],
+    "note": "the speed of light is no given of this problem"
+  },
+  {
+    "id": "fu-scale-28",
+    "area": "followup",
+    "prompt": "twice the mass of the earth",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ],
+    "note": "the earth's mass is no given of this problem"
+  },
+  {
+    "id": "fu-scale-29",
+    "area": "followup",
+    "prompt": "what if it accelerated twice as fast",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "twice the acceleration, not twice the 30 m/s"
+  },
+  {
+    "id": "fu-scale-30",
+    "area": "followup",
+    "prompt": "what if it fell twice as fast",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "falling is not the speed it reaches"
+  },
+  {
+    "id": "fu-scale-31",
+    "area": "followup",
+    "prompt": "what if it braked twice as fast",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "braking is not the speed it reaches"
+  },
+  {
+    "id": "fu-scale-32",
+    "area": "followup",
+    "prompt": "what if it slowed down twice as fast",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "slowing is not the speed it reaches"
+  },
+  {
+    "id": "fu-scale-33",
+    "area": "followup",
+    "prompt": "what if it decelerated twice as fast",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "a deceleration, not the speed it reaches"
+  },
+  {
+    "id": "fu-scale-34",
+    "area": "followup",
+    "prompt": "what if it spun twice as fast",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "spinning is not the speed it reaches"
+  },
+  {
+    "id": "fu-scale-35",
+    "area": "followup",
+    "prompt": "what if the initial speed doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "it starts from rest: the 30 m/s is its final speed"
+  },
+  {
+    "id": "fu-scale-36",
+    "area": "followup",
+    "prompt": "with twice the initial speed",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. How long does it take?"
+      ],
+      [
+        "assistant",
+        "t = 10 s"
+      ]
+    ],
+    "note": "it starts from rest: the 30 m/s is its final speed"
   }
 ]
