@@ -11,6 +11,7 @@ import math
 import re
 from decimal import Decimal, InvalidOperation
 
+from app.modules.physics.givens import unit_at
 from app.services.number_text import LITERAL_START, NUMERIC_LITERAL
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST
 
@@ -121,6 +122,12 @@ _LENGTH_BEFORE_PLANK = re.compile(
     r"\b(?<!\.)(\d+(?:\.\d+)?\s*(?:m|cm|km|metres?|meters?))\s+(planks?|ramps?|slopes?|boards?)\b",
     re.IGNORECASE,
 )
+
+
+def quantity_unit_at(text: str, end: int) -> tuple[str, str] | None:
+    """A unit of a quantity at ``end``: "one turn every 2 s" counts, it measures nothing."""
+    unit = unit_at(text, end)
+    return None if unit is None or unit[1] == "dimensionless" else unit
 
 
 def normalize_physics_units(text: str) -> str:

@@ -8,7 +8,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
-from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout
@@ -40,8 +40,12 @@ def _verified_block_limit(
 
 
 def _limit_working(intent: MathIntent, answer: str) -> str | None:
-    """Substitute; or factor and cancel a 0/0; or one step of L'Hôpital's rule."""
-    from sympy import Expr, Symbol, cancel, factor, latex, limit, nan, simplify, zoo
+    """Substitute; or factor and cancel a 0/0; or L'Hôpital's rule, round by round.
+
+    Only a quotient as written is worked as 0/0: ``1/x - 1/sin x`` is ``∞ - ∞`` until
+    it is combined, so it keeps its card alone.
+    """
+    from sympy import Expr, Symbol, cancel, factor, fraction, latex, limit, nan, simplify, zoo
 
     with sympy_decline() as declined:
         expr = math_solve.parse_expression(intent.expr or "", [intent.variable])
@@ -68,16 +72,19 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
     lim = rf"\lim_{{{var} \to {at}}}"
 
     def operand(value: Any) -> str:
-        """``\\lim (x + 1)``: a sum after the limit sign is bracketed."""
-        return rf"\left({latex(value)}\right)" if value.is_Add else str(latex(value))
+        """``\\lim (x + 1)``: a sum, or a leading minus, after the limit sign is bracketed."""
+        shown = str(latex(value))
+        return rf"\left({shown}\right)" if value.is_Add or shown.startswith("-") else shown
 
     find = (math_line(f"{lim} {operand(expr)}"),)
     substitute = f"substitute ${var} = {at}$"
     if direct.is_finite and not direct.has(nan, zoo) and simplify(direct - value) == 0:
         steps: tuple[str, ...] = (math_line(f"{lim} {operand(expr)} = {latex(value)}", substitute),)
         return render_workout(Workout(find=find, steps=steps), answer)
-    numerator, denominator = expr.as_numer_denom()
-    if numerator.subs(symbol, point) != 0 or denominator.subs(symbol, point) != 0:
+    numerator, denominator = fraction(expr)  # as written: no terms combined
+    if denominator == 1 or simplify(numerator.subs(symbol, point)) != 0:
+        return None
+    if simplify(denominator.subs(symbol, point)) != 0:
         return None
     zero = math_line(r"\frac{0}{0}", f"substituting ${var} = {at}$ gives an indeterminate form")
     reduced = cancel(expr)
@@ -89,44 +96,49 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
             math_line(f"{lim} {operand(reduced)} = {latex(value)}", substitute),
         )
         return render_workout(Workout(find=find, steps=steps), answer)
-    rounds = _lhopital_rounds(numerator, denominator, symbol, point)
-    if rounds is None:
+    rows = _lhopital_rows(numerator, denominator, symbol, point, value)
+    if rows is None:
         return None
     rule = math_line(r"\lim \frac{f}{g} = \lim \frac{f'}{g'}", "L'Hôpital's rule")
-    rows = [zero]
-    before = latex(expr)
-    for index, (top, bottom) in enumerate(rounds):
-        note = "differentiate the top and the bottom"
-        if index:
-            note = f"still $\\frac{{0}}{{0}}$ at ${var} = {at}$: differentiate again"
-        after = latex(top) if bottom == 1 else rf"\frac{{{latex(top)}}}{{{latex(bottom)}}}"
-        rows.append(math_line(rf"{lim} {before} = {lim} {after}", note))
-        before = after
-    top, bottom = rounds[-1]
-    if simplify((top / bottom).subs(symbol, point) - value) != 0:
-        return None
-    rows.append(math_line(f"= {latex(value)}", substitute))
-    return render_workout(Workout(find=find, formula=(rule,), steps=tuple(rows)), answer)
+    first, *more = rows
+    steps = (
+        zero,
+        math_line(f"{lim} {operand(expr)} = {first}", "differentiate the top and the bottom"),
+        *(math_line(f"= {row}", "$\\frac{0}{0}$ again: differentiate again") for row in more),
+        math_line(f"= {latex(value)}", substitute),
+    )
+    return render_workout(Workout(find=find, formula=(rule,), steps=steps), answer)
 
 
-# "(1 - cos x)/x^2" is 0/0 after one round too: sin x / 2x. Three rounds cover school limits.
-_MAX_LHOPITAL_ROUNDS = 3
+# A school 0/0 limit settles within three rounds: (1 - cos x)/x^2 takes two.
+_LHOPITAL_ROUNDS = 3
 
 
-def _lhopital_rounds(numerator: Any, denominator: Any, symbol: Any, point: Any) -> list[Any] | None:
-    """Each round's derivatives of the top and the bottom, until the bottom is not 0 at the
-    point; None when it takes more rounds, or a round is not 0/0 and the bottom is 0."""
-    from sympy import diff, simplify
+@declines(None)
+def _lhopital_rows(
+    numerator: Any, denominator: Any, symbol: Any, point: Any, value: Any
+) -> list[str] | None:
+    """``\\lim \\frac{f'}{g'}`` for each round of L'Hôpital's rule, until one substitutes.
 
-    rounds: list[tuple[Any, Any]] = []
+    Each round is shown only when SymPy confirms its limit is the limit asked; a round
+    that is still 0/0 differentiates again, and one that is neither declines.
+    """
+    from sympy import diff, latex, limit, simplify
+
+    lim = rf"\lim_{{{latex(symbol)} \to {latex(point)}}}"
+    rows: list[str] = []
     top, bottom = numerator, denominator
-    while len(rounds) < _MAX_LHOPITAL_ROUNDS:
-        top, bottom = diff(top, symbol), diff(bottom, symbol)
-        rounds.append((top, bottom))
-        if simplify(bottom.subs(symbol, point)) != 0:
-            return rounds
-        if simplify(top.subs(symbol, point)) != 0:
-            return None  # a nonzero over zero: no finite limit this rule shows
+    for _ in range(_LHOPITAL_ROUNDS):
+        # Simplified, so a round reads as a student writes it: 2 tan x / cos^2 x.
+        top, bottom = simplify(diff(top, symbol)), simplify(diff(bottom, symbol))
+        if simplify(limit(top / bottom, symbol, point) - value) != 0:
+            return None
+        rows.append(rf"{lim} \frac{{{latex(top)}}}{{{latex(bottom)}}}")
+        at_top, at_bottom = simplify(top.subs(symbol, point)), simplify(bottom.subs(symbol, point))
+        if at_bottom != 0 and at_bottom.is_finite and at_top.is_finite:
+            return rows if simplify(at_top / at_bottom - value) == 0 else None
+        if at_top != 0 or at_bottom != 0:
+            return None
     return None
 
 

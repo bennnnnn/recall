@@ -32,6 +32,7 @@ SAMPLES: dict[str, float] = {
     "m1": 5.0,
     "m2": 3.0,
     "M": 5.9722e24,
+    "m_body": 500.0,
     "r": 7.0e6,
     "weight": 600.0,
     "inertia": 4.0,

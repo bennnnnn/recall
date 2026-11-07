@@ -18,6 +18,7 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.physics.accounting import competing_given_of
 from app.modules.physics.ask import Ask, asks, has_ask, result_reading
+from app.modules.physics.asked_end_check import answers_the_other_end
 from app.modules.physics.binding import (
     PHYSICS_SUBJECT,
     asks_another_thing,
@@ -102,6 +103,9 @@ def _intent(
             }
         )
     except ValueError:
+        return None
+    if answers is not None and answers_the_other_end(intent, request.text, asked[answers].words):
+        # "Hits the ground at 25 m/s … its initial speed?": the impact law took 25 m/s as v₀.
         return None
     own = () if answers is None else (asked[answers].dimension,)
     return complete_physics_intent(intent, request, step_of=own)

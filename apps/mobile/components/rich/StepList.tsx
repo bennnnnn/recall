@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { RichBodyText } from "@/components/rich/RichBodyText";
+import { RichMathBody } from "@/components/rich/RichMathBody";
 import { Theme, useTheme } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
@@ -10,6 +10,7 @@ import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = { steps: string[] };
 
+/** Numbered steps; a step's `$…$` is drawn as maths, as in a callout. */
 export function StepList({ steps }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -23,9 +24,7 @@ export function StepList({ steps }: Props) {
               {index + 1}
             </Text>
           </View>
-          <RichBodyText style={s.text} selectable>
-            {step}
-          </RichBodyText>
+          <RichMathBody content={step} style={s.text} />
         </View>
       ))}
     </View>

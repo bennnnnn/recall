@@ -22,6 +22,11 @@ _NOT_CONSTANT_SPEED = (
     "echo",
     "echoes",
     "sonar",
+    # A speed that changes on the way: "takes 5 s to stop" covers half of 20 m/s for 5 s.
+    "to stop",
+    "to rest",
+    "to a stop",
+    "to a halt",
     *TWO_BODIES,
 )
 # A radius covered once a turn is 2πr, not r: "a child sits 2.5 m from the

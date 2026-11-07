@@ -376,6 +376,7 @@ _BY_KIND: dict[tuple[str, str], str] = {
     ("suvat", "d"): "displacement",
     ("suvat", "v"): "final velocity",
     ("gravitation", "M"): "mass of the planet",
+    ("gravitation", "m_body"): "mass of the orbiting body",
     ("gravitation", "radius_body"): "radius of the planet",
     ("fluids", "rho"): "density of the fluid",
     ("fluids", "pres1"): "pressure at the first point",

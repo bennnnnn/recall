@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.spec import (
+    Binding,
+    FormulaSpec,
+    FormulaVariant,
+    VariableSpec,
+    formula,
+    var,
+)
 
 _LAW = "Specific-heat equation"
 _RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")
@@ -11,6 +18,36 @@ _MASS = var("m", "m", "kilogram")
 _C = var("c_heat", "c", "joule / kilogram / kelvin", fallback="water_specific_heat")
 _DELTA_TEMP = var("delta_temp", r"\Delta T", "kelvin", words=_RISE, needs_words=True)
 _LATENT = var("latent_heat", "L", "joule / kilogram")
+_T1 = var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at"))
+_T2 = var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final"))
+# Heat taken out of the sample: Q = mcΔT read as a gain would warm it. A temperature
+# reached by cooling is not read here.
+_HEAT_LOST = (
+    "cool",
+    "lose",
+    "loses",
+    "lost",
+    "release",
+    "removed",
+    "extract",
+    "gives off",
+    "gives up",
+    "given off",
+    "given up",
+    "taken from",
+    "taken out",
+    "radiat",
+    "dissipat",
+    "emit",
+    "transfer",
+    "to the room",
+    "to the surroundings",
+)
+# Asked how much it changes: the change is Q/(mc), not where it ends.
+_TEMPERATURE_CHANGE = ("change", "rise", "rises", "increase", "by how much", "go up", "goes up")
+# Water past either end of 0-100 °C, ice or steam: a phase changes, and Q = mcΔT no longer
+# says where it ends.
+_NOT_LIQUID_WATER = ("ice", "steam", "vapour", "vapor", "frozen")
 _PHASE_CHANGE = ("melt", "boil", "freez", "evaporat", "vapori", "condens", "latent", "solidif")
 # What a calorimetry question drops into the water.
 _OBJECT = (
@@ -61,7 +98,41 @@ def _heat_law(
 
 # Laws that hold only when every sample is water. The binder drops them when the question names
 # any other substance (``bodies.names_only_water``): water + ethanol was answered as water + water.
-WATER_ONLY = frozenset({"water_mixture_temperature"})
+WATER_ONLY = frozenset(
+    {"water_mixture_temperature", "heat_final_temperature", "heat_initial_temperature"}
+)
+
+
+def _end_temperature(
+    operation: str,
+    symbol: str,
+    expression: str,
+    asks: tuple[str, ...],
+    other_end: VariableSpec,
+    requires: tuple[str, ...],
+) -> FormulaSpec:
+    """Water heated from one temperature to the other: it stays liquid at both ends, and
+    the heat goes in (``requires``, in kelvin)."""
+    return formula(
+        operation,
+        "thermal",
+        _LAW,
+        symbol,
+        base_latex=r"Q = mc(T_2 - T_1)",
+        assumptions=("no heat is lost to the surroundings and nothing changes phase",),
+        expression=expression,
+        variables=(_HEAT, _MASS, _C, other_end),
+        binding=Binding(
+            asks=asks,
+            result=("kelvin",),
+            inputs=(frozenset({"heat", "m", "c_heat", other_end.name}),),
+            cues=("water",),
+            excludes=(*_PHASE_CHANGE, *_HEAT_LOST, *_TEMPERATURE_CHANGE, *_NOT_LIQUID_WATER),
+            nonnegative=True,
+            requires=("heat", *requires),
+        ),
+    )
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -81,8 +152,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             _C,
             _DELTA_TEMP,
             _MASS,
-            var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at")),
-            var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final")),
+            _T1,
+            _T2,
         ),
         binding=Binding(
             asks=("heat energy", "thermal energy", "energy", "heat"),
@@ -132,6 +203,24 @@ SPECS: tuple[FormulaSpec, ...] = (
         "c_heat",
         "delta_temp",
     ),
+    # The temperature heating ends at, or started from: T₂ = T₁ + Q/(mc). 336 kJ into
+    # 2 kg of water at 20 °C ends at 60 °C; ending at 80 °C, it started at 40 °C.
+    _end_temperature(
+        "heat_final_temperature",
+        "T_2",
+        "temp_initial + heat/(m*c_heat)",
+        ("final temperature", "new temperature", "temperature"),
+        _T1,
+        ("temp_initial - 273.15", "373.15 - temp_initial - heat/(m*c_heat)"),
+    ),
+    _end_temperature(
+        "heat_initial_temperature",
+        "T_1",
+        "temp_final - heat/(m*c_heat)",
+        ("initial temperature", "starting temperature", "original temperature"),
+        _T2,
+        ("temp_final - heat/(m*c_heat) - 273.15", "373.15 - temp_final"),
+    ),
     # A heater's time to warm a mass: t = mcΔT/P, with no heat lost. A 2 kW
     # kettle warms 1.5 kg of water by 80 K in 251 s.
     formula(
@@ -146,8 +235,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             _MASS,
             _C,
             var("power", "P", "watt"),
-            var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at")),
-            var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final")),
+            _T1,
+            _T2,
         ),
         binding=Binding(
             asks=("how long", "time"),

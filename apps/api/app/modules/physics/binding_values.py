@@ -12,7 +12,7 @@ from app.modules.physics.bodies import (
     SEA_LEVEL_PRESSURE,
     WATER_DENSITY,
     WATER_SPECIFIC_HEAT,
-    named_body,
+    central_body,
     named_particle_charge,
     named_particle_mass,
     names_only_water,
@@ -29,7 +29,7 @@ def fallback_value(variable: VariableSpec, text: str, lower: str) -> float | Non
     if fallback == "gravity":
         return detect_gravity(text)
     if fallback in {"body_mass", "body_radius"}:
-        body = named_body(lower)
+        body = central_body(lower)
         return None if body is None else body[0 if fallback == "body_mass" else 1]
     if fallback == "particle_charge":
         return named_particle_charge(lower)

@@ -237,6 +237,11 @@ _WORDS: dict[str, str] = {
     "degrees celsius": "degC",
     "kelvin": "kelvin",
     "kg": "kilogram",
+    # "a 5 kilogram box", "five kilograms": a mass in words was read as no value at all.
+    "kilograms": "kilogram",
+    "kilogram": "kilogram",
+    "grams": "gram",
+    "gram": "gram",
     "mg": "milligram",
     "tonnes": "metric_ton",
     "tonne": "metric_ton",

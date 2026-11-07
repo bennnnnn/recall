@@ -1,0 +1,175 @@
+[
+ {
+  "id": "cm-01",
+  "area": "central_mass",
+  "prompt": "A 500 kg satellite orbits the earth at a radius of 7000 km. Find its orbital speed.",
+  "expect": "answer",
+  "answer": [
+   7545.78,
+   "m/s"
+  ],
+  "note": "v = sqrt(GM/r), Earth's M; main read 500 kg as M and answered 6.9e-8 m/s"
+ },
+ {
+  "id": "cm-02",
+  "area": "central_mass",
+  "prompt": "A satellite orbits the earth at a radius of 7000 km. Find its orbital speed.",
+  "expect": "answer",
+  "answer": [
+   7545.78,
+   "m/s"
+  ],
+  "note": "main declined: the named body gives M"
+ },
+ {
+  "id": "cm-03",
+  "area": "central_mass",
+  "prompt": "A 1000 kg satellite orbits Mars at a radius of 4000 km. Find its orbital speed.",
+  "expect": "answer",
+  "answer": [
+   3272.12,
+   "m/s"
+  ],
+  "note": "Mars M = 6.417e23 kg"
+ },
+ {
+  "id": "cm-04",
+  "area": "central_mass",
+  "prompt": "A 2000 kg probe orbits the Moon at a radius of 2000 km. What is its orbital speed?",
+  "expect": "answer",
+  "answer": [
+   1565.26,
+   "m/s"
+  ],
+  "note": "Moon M = 7.342e22 kg"
+ },
+ {
+  "id": "cm-05",
+  "area": "central_mass",
+  "prompt": "A 500 kg satellite orbits the Earth at a radius of 7000 km. What is its orbital period?",
+  "expect": "answer",
+  "answer": [
+   5828.73,
+   "s"
+  ],
+  "note": "T = 2 pi r/v; main answered 6.37e14 s"
+ },
+ {
+  "id": "cm-06",
+  "area": "central_mass",
+  "prompt": "A 500 kg satellite orbits 400 km above the Earth. What is its orbital speed?",
+  "expect": "answer",
+  "answer": [
+   7672.32,
+   "m/s"
+  ],
+  "note": "r = R + h"
+ },
+ {
+  "id": "cm-07",
+  "area": "central_mass",
+  "prompt": "A 70 kg astronaut stands on the surface of Mars. What is the gravitational acceleration there?",
+  "expect": "answer",
+  "answer": [
+   3.72775,
+   "m/s^2"
+  ],
+  "note": "g = GM/R^2; main answered 4.07e-22"
+ },
+ {
+  "id": "cm-08",
+  "area": "central_mass",
+  "prompt": "A 1000 kg rocket leaves the Earth. What is the escape velocity?",
+  "expect": "answer",
+  "answer": [
+   11185.7,
+   "m/s"
+  ],
+  "note": "sqrt(2GM/R); the rocket's mass changes nothing"
+ },
+ {
+  "id": "cm-09",
+  "area": "central_mass",
+  "prompt": "A 70 kg astronaut is 400 km above the Earth. What is his weight?",
+  "expect": "answer",
+  "answer": [
+   608.553,
+   "N"
+  ],
+  "note": "look-alike: the weight takes the astronaut's mass"
+ },
+ {
+  "id": "cm-10",
+  "area": "central_mass",
+  "prompt": "A 500 kg satellite orbits a planet of mass 6e24 kg at a radius of 7000 km. Find its orbital speed.",
+  "expect": "answer",
+  "answer": [
+   7563.45,
+   "m/s"
+  ],
+  "note": "a stated central mass is named by its body"
+ },
+ {
+  "id": "wd-01",
+  "area": "spelled",
+  "prompt": "A ball is dropped from ten metres. How long does it take to hit the ground?",
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
+ },
+ {
+  "id": "wd-02",
+  "area": "spelled",
+  "prompt": "A ball is dropped from a height of ten meters. How fast does it hit the ground?",
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
+ },
+ {
+  "id": "wd-03",
+  "area": "spelled",
+  "prompt": "A ball is dropped from a height of twenty-five metres. How long does it take to hit the ground?",
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
+ },
+ {
+  "id": "wd-04",
+  "area": "spelled",
+  "prompt": "A ball is thrown up at fifteen m/s. How high does it go?",
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
+ },
+ {
+  "id": "wd-05",
+  "area": "spelled",
+  "prompt": "A car accelerates from rest at two m/s^2 for ten seconds. How far does it travel?",
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
+ },
+ {
+  "id": "wd-06",
+  "area": "spelled",
+  "prompt": "A car travels a hundred metres in 5 s. What is its average speed?",
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
+ },
+ {
+  "id": "wd-07",
+  "area": "spelled",
+  "prompt": "A train travels three hundred kilometres in two hours. What is its average speed?",
+  "expect": "decline",
+  "note": "a number in words is never read: the question declines"
+ },
+ {
+  "id": "wd-08",
+  "area": "spelled",
+  "prompt": "A ball is dropped from ten metres onto a 1 m table. How long does it take to reach the table?",
+  "expect": "decline",
+  "note": "right is sqrt(2*9/g) = 1.35 s; main read only the 1 m and answered 0.452 s"
+ },
+ {
+  "id": "wd-09",
+  "area": "spelled",
+  "prompt": "A ball is dropped from a few metres onto a 1 m table. How long does it take to reach the table?",
+  "expect": "decline",
+  "note": "a few metres says no number"
+ }
+]
