@@ -1498,11 +1498,7 @@
     "id": "fu-r3-05",
     "area": "followup",
     "prompt": "what if the distance doubled",
-    "expect": "answer",
-    "answer": [
-      1.0428124999999999e-10,
-      "N"
-    ],
+    "expect": "decline",
     "history": [
       [
         "user",
@@ -1513,7 +1509,7 @@
         "F = 4.17 × 10⁻¹⁰ N"
       ]
     ],
-    "note": "the 2 m apart, not the counted masses"
+    "note": "two in the sentence: every value of it may be shared"
   },
   {
     "id": "fu-r3-06",
@@ -2211,5 +2207,601 @@
       ]
     ],
     "note": "ten metres is a value no reading saw: the problem is not all read"
+  },
+  {
+    "id": "fu-r4-01",
+    "area": "followup",
+    "prompt": "what if the well was twice as deep",
+    "expect": "answer",
+    "answer": [
+      11.060025272186621,
+      "s"
+    ],
+    "history": [
+      [
+        "user",
+        "A 300 m deep well. A stone is dropped into the well. Find the time to hit the water."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ]
+  },
+  {
+    "id": "fu-r4-02",
+    "area": "followup",
+    "prompt": "what if the building was twice as high",
+    "expect": "answer",
+    "answer": [
+      1962.0000000000002,
+      "J"
+    ],
+    "history": [
+      [
+        "user",
+        "A 20 m high building has a 5 kg flowerpot on its roof. Find the potential energy of the flowerpot."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ]
+  },
+  {
+    "id": "fu-r4-03",
+    "area": "followup",
+    "prompt": "what if the flowerpot was twice as heavy",
+    "expect": "answer",
+    "answer": [
+      1962.0000000000002,
+      "J"
+    ],
+    "history": [
+      [
+        "user",
+        "A 20 m high building has a 5 kg flowerpot on its roof. Find the potential energy of the flowerpot."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ]
+  },
+  {
+    "id": "fu-r4-04",
+    "area": "followup",
+    "prompt": "what if the final temperature doubled",
+    "expect": "answer",
+    "answer": [
+      400000.0,
+      "Pa"
+    ],
+    "history": [
+      [
+        "user",
+        "A gas is heated at constant volume from 300 K to 600 K. Its initial pressure is 100 kPa. Find its final pressure."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ]
+  },
+  {
+    "id": "fu-r4-05",
+    "area": "followup",
+    "prompt": "what if the initial speed doubled",
+    "expect": "answer",
+    "answer": [
+      -12.5,
+      "m/s^2"
+    ],
+    "history": [
+      [
+        "user",
+        "A car slows from 30 m/s to 10 m/s in 4 s. Find its acceleration."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ]
+  },
+  {
+    "id": "fu-r4-06",
+    "area": "followup",
+    "prompt": "what if the final speed doubled",
+    "expect": "answer",
+    "answer": [
+      -2.5,
+      "m/s^2"
+    ],
+    "history": [
+      [
+        "user",
+        "A car slows from 30 m/s to 10 m/s in 4 s. Find its acceleration."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ]
+  },
+  {
+    "id": "fu-r4-07",
+    "area": "followup",
+    "prompt": "what if the mass doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A satellite orbits Earth at a radius of 7000000 m. The mass of Earth is 6e24 kg. Find its orbital speed."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-08",
+    "area": "followup",
+    "prompt": "what if the mass was doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A satellite orbits Earth at a radius of 7000000 m. The mass of Earth is 6e24 kg. Find its orbital speed."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-09",
+    "area": "followup",
+    "prompt": "what if the mass doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A moon orbits a planet of mass 2e27 kg at a radius of 4e8 m. Find its orbital period."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-10",
+    "area": "followup",
+    "prompt": "what if the voltage doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 12 V battery drives a current of 2 A through a resistor. Find the resistance."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-11",
+    "area": "followup",
+    "prompt": "what if the current doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 12 V battery drives a current of 2 A through a resistor. Find the resistance."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-12",
+    "area": "followup",
+    "prompt": "with twice the voltage",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 12 V battery drives a current of 2 A through a resistor. Find the resistance."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-13",
+    "area": "followup",
+    "prompt": "what if the voltage doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 60 W bulb runs on 120 V. Find the current."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-14",
+    "area": "followup",
+    "prompt": "what if the power doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 60 W bulb runs on 120 V. Find the current."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-15",
+    "area": "followup",
+    "prompt": "what if the voltage doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 1000 W heater runs on 230 V. Find its resistance."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-16",
+    "area": "followup",
+    "prompt": "what if the voltage was halved",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 1000 W heater runs on 230 V. Find its resistance."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-17",
+    "area": "followup",
+    "prompt": "what if the force doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A spring stretches 0.1 m under a 5 N force. Find the spring constant."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-18",
+    "area": "followup",
+    "prompt": "what if the extension doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A spring stretches 0.1 m under a 5 N force. Find the spring constant."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-19",
+    "area": "followup",
+    "prompt": "what if the voltage doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A capacitor stores a charge of 0.00006 C at 12 V. Find its capacitance."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-20",
+    "area": "followup",
+    "prompt": "what if the charge doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A capacitor stores a charge of 0.00006 C at 12 V. Find its capacitance."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-21",
+    "area": "followup",
+    "prompt": "what if the heat doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "4000 J of heat raises the temperature of 1 kg of a metal by 10 K. Find the specific heat capacity."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-22",
+    "area": "followup",
+    "prompt": "what if the mass doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "4000 J of heat raises the temperature of 1 kg of a metal by 10 K. Find the specific heat capacity."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-23",
+    "area": "followup",
+    "prompt": "what if the speed doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Light travels at 200000000 m/s in glass. Find the refractive index of the glass."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-24",
+    "area": "followup",
+    "prompt": "what if the speed was halved",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Light travels at 200000000 m/s in glass. Find the refractive index of the glass."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-25",
+    "area": "followup",
+    "prompt": "what if the resistance doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A battery with an emf of 9 V drives 0.5 A through a circuit. Find the terminal voltage if the internal resistance is 2 ohm."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-26",
+    "area": "followup",
+    "prompt": "what if the current doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A battery with an emf of 9 V drives 0.5 A through a circuit. Find the terminal voltage if the internal resistance is 2 ohm."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-27",
+    "area": "followup",
+    "prompt": "what if the mass doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Each of two spheres has mass 5 kg and they are 2 m apart. Find the gravitational force between them."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-28",
+    "area": "followup",
+    "prompt": "what if the mass doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Two spheres, each of mass 5 kg, are 2 m apart. Find the gravitational force between them."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-29",
+    "area": "followup",
+    "prompt": "what if the charge doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Two equal charges of 3e-6 C are 0.5 m apart. Find the force between them."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-30",
+    "area": "followup",
+    "prompt": "what if the charge doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Two charges of 3e-6 C each are 0.5 m apart. Find the force between them."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-31",
+    "area": "followup",
+    "prompt": "what if the charge doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Two identical charges of 3e-6 C are 0.5 m apart. Find the force between them."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-32",
+    "area": "followup",
+    "prompt": "what if the resistance doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Two resistors of 4 ohm each are connected in series to a 12 V battery. Find the current."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-33",
+    "area": "followup",
+    "prompt": "what if the ramp was twice as high",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg box slides down a 10 m long frictionless ramp from a height of 3 m. Find its speed at the bottom."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+  },
+  {
+    "id": "fu-r4-34",
+    "area": "followup",
+    "prompt": "what if the ramp was twice as tall",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg box slides down a 10 m long frictionless ramp from a height of 3 m. Find its speed at the bottom."
+      ],
+      [
+        "assistant",
+        "Here is the working."
+      ]
+    ],
+    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
   }
 ]

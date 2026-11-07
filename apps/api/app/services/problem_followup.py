@@ -24,7 +24,9 @@ from app.services.scaled_followup import (
     owns,
     plays_role,
     scaled_name,
+    subject_of,
     thrown_at,
+    written_owner,
 )
 
 # A line that asks only to have the previous result explained, read lowercase.
@@ -291,7 +293,7 @@ class GivenRewriter:
         matches = [
             g for g in self._of_dimension(prior, new_dim) if plays_role(prior, g, name or "")
         ]
-        if len(matches) != 1:
+        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
             return None
         rewritten = replace_given(prior, matches[0], value, written_unit)
         if rewritten == prior:
@@ -317,6 +319,9 @@ class GivenRewriter:
         given = matches[0]
         if counted(prior, given) or not _scales(prior, given):
             return None
+        # "The mass of Earth is 6e24 kg" in a satellite's problem: "the mass" may be either.
+        if owner is None and self._anothers(prior, given):
+            return None
         if scaling.thrown and not thrown_at(prior, given, scaling.thrown):
             return None
         rewritten = replace_given(
@@ -331,6 +336,16 @@ class GivenRewriter:
         if self.asked is not None and dimension in self.asked(prior):
             return False
         return self.fits is None or self.fits(prior, name)
+
+    def _anothers(self, prior: str, given: Given) -> bool:
+        """True when the problem writes a mass, speed or charge (what every body has) as a
+        body's that is not its subject: "the mass" of a satellite's problem that gives
+        Earth's may be either body's."""
+        if given.dimension not in {self.phrase_dimension(n) for n in _EVERY_BODYS}:
+            return False
+        owner = written_owner(prior, given, self._is_quantity)
+        subject = subject_of(prior, self._is_quantity)
+        return owner is not None and subject is not None and owner != subject
 
     def _is_quantity(self, name: str) -> bool:
         return self.phrase_dimension(given_name(name)) is not None
@@ -356,6 +371,8 @@ def fully_read(prior: str) -> bool:
 
 
 _KELVIN = frozenset({"k", "kelvin", "kelvins"})
+# What every body has, so "the mass" of a two-body problem may be either's.
+_EVERY_BODYS = ("mass", "speed", "charge")
 _CHANGE = re.compile(r"\b(?:by|change of|rise of|increase of|drop of|fall of)[ \t]*$", re.I)
 
 

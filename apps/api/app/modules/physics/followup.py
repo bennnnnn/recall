@@ -83,13 +83,13 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     # Before the other shapes: "what if it was 3 times higher" is no new value.
     scaled = scaled_given(line)
     if scaled is not None:
-        return None if _set_by_medium(prior) else _GIVENS.scaled(prior, scaled)
+        return None if _held_fixed(prior) else _GIVENS.scaled(prior, scaled)
     about = _ABOUT.fullmatch(line)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(line)
     if changed is not None:
-        if _set_by_medium(prior):
+        if _held_fixed(prior):
             return None
         rewritten = _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
@@ -103,26 +103,53 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _in_unit(prior, unit)
     value = new_value(written)
     if value is not None:
-        if _set_by_medium(prior):
+        if _held_fixed(prior):
             return None
         rewritten = _GIVENS.changed(prior, None, *value)
         return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
-    return None if _set_by_medium(prior) else _restated(prior, written)
+    return None if _held_fixed(prior) else _restated(prior, written)
 
 
-# Laws whose result is a property of the medium: v = fλ finds a wave's speed, but the
-# same string or the same air keeps that speed when the frequency changes; the
-# wavelength changes instead. Re-solving with one given changed would change the speed.
+# A result that is a property of the object or its medium, not of what is done to it:
+# a resistor's 6 Ω stays 6 Ω when the voltage doubles (the current doubles instead), a
+# string's wave speed stays when the frequency doubles, a spring's constant when the
+# force does. Re-solving with one given changed would change the property itself.
+_INTRINSIC = (
+    "resistance",
+    "resistivity",
+    "capacitance",
+    "spring constant",
+    "specific heat capacity",
+    "latent heat",
+    "density",
+    "refractive index",
+    "coefficient of friction",
+)
+# Laws whose asked speed is the medium's: v = fλ.
 _SET_BY_MEDIUM = frozenset({"wave_speed"})
+# A device's rating is a property too: "a 60 W bulb" on twice the voltage is no 60 W bulb.
+_RATING = re.compile(
+    r"\b\d[\d.,]*\s*(?:k?w|watts?|kilowatts?)\s+(?:[a-z]+\s+)?(?:bulb|lamp|light|heater|kettle"
+    r"|motor|toaster|iron|fan|oven|microwave|dryer|hairdryer|charger|appliance|tv|radio)s?\b",
+    re.IGNORECASE,
+)
+# A source with an internal resistance holds its emf fixed while the circuit changes.
+_INTERNAL = re.compile(r"\binternal resistance\b|\bemf\b|\be\.m\.f\b", re.IGNORECASE)
 
 
-def _set_by_medium(prior: str) -> bool:
-    """True when the problem asks for a result its medium sets, from givens that do not:
-    no changed given of it re-solves to a true number."""
-    intent = extract_physics_intent(prior)
-    if intent is None or intent.physics_op not in _SET_BY_MEDIUM:
+def _held_fixed(prior: str) -> bool:
+    """True when no changed given of the problem re-solves to a true number: it asks for
+    a property of the object or its medium, rates a device, or has a source whose emf
+    and internal resistance the change would hold wrongly."""
+    if _RATING.search(prior) or _INTERNAL.search(prior):
+        return True
+    asked = {ask.dimension for ask in asks(prior)}
+    if asked & {_dimension_of_phrase(name) for name in _INTRINSIC}:
+        return True
+    if not asked & {_dimension_of_phrase("speed")}:
         return False
-    return _dimension_of_phrase("speed") in {ask.dimension for ask in asks(prior)}
+    intent = extract_physics_intent(prior)
+    return intent is not None and intent.physics_op in _SET_BY_MEDIUM
 
 
 def _in_unit(prior: str, unit: str) -> str | None:

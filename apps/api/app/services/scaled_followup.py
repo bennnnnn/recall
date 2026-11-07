@@ -267,32 +267,48 @@ def scaled_name(
 
 
 _UNIT_AFTER = r"[ \t]*{unit}"
-# The one word that may stand between a value and its object: "1.2 m high table".
-_BESIDE = frozenset({"high", "tall", "deep", "long", "wide", "heavy"})
+# The one word that may stand between a value and its object, by the quantity it sizes:
+# "1.2 m high table" is the table's height, "10 m long ramp" never its height.
+_SIZE_FOR = {
+    "height": frozenset({"high", "tall", "deep"}),
+    "mass": frozenset({"heavy"}),
+    "length": frozenset({"long"}),
+    "width": frozenset({"wide"}),
+}
+_SIZES = frozenset().union(*_SIZE_FOR.values())
 
 
 def _clause_before(prior: str, given: Given) -> list[str]:
     return _words(re.split(r"[.?!,;]", prior[: given.start])[-1])
 
 
-def owns(prior: str, given: Given, owner: str, name: str = "") -> bool:
-    """True only when ``owner`` is written right beside the given: its value, its unit, at
-    most one word of size ("high", "tall", ...), then the owner ("80 m cliff", "1.2 m high
-    table"); or the owner just before "of" and the value ("a load of 50 kg", "a car of mass
-    900 kg"). "A 70 kg driver in a car" is the driver's, never the car's."""
-    wanted = _words(owner)
-    if not wanted:
-        return False
+def _after_value(prior: str, given: Given) -> list[str]:
+    """The clause's words after the value and its unit."""
     end = given.end
     unit = re.match(_UNIT_AFTER.format(unit=re.escape(given.unit)), prior[end:], re.IGNORECASE)
     if unit is not None:
         end += unit.end()
-    after = _words(re.split(r"[.?!,;]", prior[end:], maxsplit=1)[0])
-    size = 1 if after and after[0] in _BESIDE else 0
-    if after[size : size + len(wanted)] == wanted:
+    return _words(re.split(r"[.?!,;]", prior[end:], maxsplit=1)[0])
+
+
+def owns(prior: str, given: Given, owner: str, name: str = "") -> bool:
+    """True only when ``owner`` is written right beside the given: its value, its unit, at
+    most one word that sizes this quantity ("high" for a height), then the owner ("80 m
+    cliff", "1.2 m high table"); or the owner just before "of" and the value ("a load of
+    50 kg", "a car of mass 900 kg"). "A 70 kg driver in a car" is the driver's, never the
+    car's, and "a 10 m long ramp" is no height of the ramp."""
+    wanted = _words(owner)
+    if not wanted:
+        return False
+    named = _words(name)[-1:]
+    after = _after_value(prior, given)
+    if after and after[0] in _SIZES:
+        if not named or after[0] not in _SIZE_FOR.get(named[0], frozenset()):
+            return False
+        after = after[1:]
+    if after[: len(wanted)] == wanted:
         return True
     before = _clause_before(prior, given)
-    named = _words(name)[-1:]
     for lead in (["of"], ["of", *named] if named else None):
         if lead and before[-len(lead) :] == lead:
             if before[-len(lead) - len(wanted) : -len(lead)] == wanted:
@@ -300,15 +316,55 @@ def owns(prior: str, given: Given, owner: str, name: str = "") -> bool:
     return False
 
 
-# "Two 5 kg masses", "each 4 ohm resistor": a value that is more than one body's.
-_COUNTED = frozenset({"two", "three", "four", "both", "each", "pair"})
+def written_owner(prior: str, given: Given, is_quantity: Callable[[str], bool]) -> str | None:
+    """The body a problem writes a given as belonging to, when it says so outright: "the
+    mass of Earth is 6e24 kg", "a planet of mass 2e27 kg", "a 5 kg flowerpot". None for a
+    value with no such words, or one "of" a quantity ("a radius of 7000 km")."""
+    before = _clause_before(prior, given)
+    if len(before) >= 3 and before[-1] in {"is", "was", "equals"} and before[-3] == "of":
+        return before[-2]
+    if "of" in before[-2:]:
+        at = len(before) - 1 - before[::-1].index("of")
+        owner = before[at - 1] if at >= 1 else ""
+        two = " ".join(before[max(0, at - 2) : at])
+        if owner and not is_quantity(owner) and not is_quantity(two):
+            return owner
+        return None
+    if re.search(r"\b(?:a|an)[ \t]*$", prior[: given.start], re.IGNORECASE):
+        after = _after_value(prior, given)
+        after = after[1:] if after and after[0] in _SIZES else after
+        return after[0] if after and not is_quantity(after[0]) else None
+    return None
+
+
+_SUBJECT_NOUN = re.compile(
+    r"\b(?:a|an)\s+(?:[-+]?[\d.]+(?:e[-+]?\d+)?\s*[^\s]+\s+)?"
+    r"(?:(?:high|tall|deep|long|wide|heavy)\s+)?(?P<noun>[a-z]+)",
+    re.IGNORECASE,
+)
+
+
+def subject_of(prior: str, is_quantity: Callable[[str], bool]) -> str | None:
+    """The problem's first body, as "a" or "an" introduces it: "satellite" in "A satellite
+    orbits Earth", "ball" in "A 2 kg ball is dropped"; never a quantity ("A force of")."""
+    for match in _SUBJECT_NOUN.finditer(prior):
+        noun = match.group("noun").lower()
+        if not is_quantity(noun):
+            return noun
+    return None
+
+
+# "Two 5 kg masses", "each of mass 5 kg", "two identical charges": a value that may be
+# more than one body's, so scaling "the mass" may mean one of them or all.
+_COUNTED = frozenset({"two", "three", "four", "both", "each", "pair", "identical", "equal", "same"})
 
 
 def counted(prior: str, given: Given) -> bool:
-    """True when a count stands right before the value: doubling "the mass" of "two 5 kg
-    masses" may be one of them or both."""
-    before = _clause_before(prior, given)
-    return bool(before) and (before[-1] in _COUNTED or before[-2:] == ["pair", "of"])
+    """True when the value's sentence holds a count or a sameness word."""
+    start = max((m.end() for m in re.finditer(r"[.?!]\s", prior[: given.start])), default=0)
+    stop = re.search(r"[.?!](?:\s|$)", prior[given.end :])
+    sentence = prior[start : given.end + (stop.start() if stop else len(prior))]
+    return any(word in _COUNTED for word in re.findall(r"[a-z]+", sentence.lower()))
 
 
 def thrown_at(prior: str, given: Given, throw: str) -> bool:

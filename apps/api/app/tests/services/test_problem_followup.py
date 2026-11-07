@@ -25,6 +25,8 @@ from app.services.scaled_followup import (
     plays_role,
     scaled_given,
     scaled_name,
+    subject_of,
+    written_owner,
 )
 
 
@@ -371,7 +373,8 @@ def test_owns_reads_the_object_beside_the_value(
     prior: str, unit: str, owner: str, owned: bool
 ) -> None:
     given = next(g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == unit)
-    assert owns(prior, given, owner, "mass") is owned
+    name = {"kg": "mass", "m": "height", "m/s": "speed"}.get(unit, "")
+    assert owns(prior, given, owner, name) is owned
 
 
 @pytest.mark.parametrize(
@@ -381,7 +384,56 @@ def test_owns_reads_the_object_beside_the_value(
         ("Each 4 ohm resistor carries 2 A.", True),
         ("A pair of 3 kg blocks rest on a table.", True),
         ("A 5 kg mass is 2 m from another.", False),
+        # Anywhere in the value's sentence, and sameness as well as counts.
+        ("Each of two spheres has mass 5 kg and they are 2 m apart.", True),
+        ("Two spheres, each of mass 5 kg, are 2 m apart.", True),
+        ("Two equal charges of 3e-6 C are 0.5 m apart.", True),
+        ("Two charges of 3e-6 C each are 0.5 m apart.", True),
+        ("Two identical charges of 3e-6 C are 0.5 m apart.", True),
+        ("Two resistors of 4 ohm each are connected in series.", True),
+        ("A 2 kg cart hits a stationary cart of the same mass.", True),
+        ("A 2 kg ball is dropped. It falls next to two trees.", False),
     ],
 )
 def test_counted_reads_a_count_before_the_value(prior: str, counts: bool) -> None:
     assert counted(prior, read_givens(prior, PHYSICS_UNITS)[0]) is counts
+
+
+@pytest.mark.parametrize(
+    ("prior", "unit", "name", "owned"),
+    [
+        # A size word must size the quantity: "10 m long ramp" is no height of the ramp.
+        ("A 2 kg box slides down a 10 m long ramp.", "m", "height", False),
+        ("A box sits on a 1.2 m high table.", "m", "height", True),
+        ("A box sits on a 1.2 m high table.", "m", "length", False),
+        ("A 2 kg ball on a 20 m wide roof.", "m", "height", False),
+    ],
+)
+def test_owns_needs_a_size_word_of_the_quantity(
+    prior: str, unit: str, name: str, owned: bool
+) -> None:
+    given = next(g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == unit)
+    owner = "ramp" if "ramp" in prior else "roof" if "roof" in prior else "table"
+    assert owns(prior, given, owner, name) is owned
+
+
+@pytest.mark.parametrize(
+    ("prior", "unit", "owner", "subject"),
+    [
+        (
+            "A satellite orbits Earth at a radius of 7000000 m. The mass of Earth is 6e24 kg.",
+            "kg",
+            "earth",
+            "satellite",
+        ),
+        ("A moon orbits a planet of mass 2e27 kg.", "kg", "planet", "moon"),
+        ("A 2 kg ball is dropped from 10 m.", "kg", "ball", "ball"),
+        ("A satellite orbits Earth at a radius of 7000000 m.", "m", None, "satellite"),
+        ("A ball is dropped from 10 m.", "m", None, "ball"),
+    ],
+)
+def test_written_owner_and_subject(prior: str, unit: str, owner: str | None, subject: str) -> None:
+    given = next(g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == unit)
+    is_quantity = {"radius", "mass", "height"}.__contains__
+    assert written_owner(prior, given, is_quantity) == owner
+    assert subject_of(prior, is_quantity) == subject

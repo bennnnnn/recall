@@ -233,6 +233,89 @@ PROBLEMS = {
         (_p("m", 5, "mass", shared=True), _p("r", 2, "distance")),
         lambda v: 6.674e-11 * v["m"] ** 2 / v["r"] ** 2,
     ),
+    # The mass written as another body's than the subject's: "the mass" may be either.
+    "satellite": Problem(
+        "A satellite orbits Earth at a radius of 7000000 m. The mass of Earth is 6e24 kg. "
+        "Find its orbital speed.",
+        (
+            _p("M", 6e24, "mass", owner="earth", shared=True),
+            _p("r", 7e6, "radius", owner="satellite"),
+        ),
+        lambda v: math.sqrt(6.674e-11 * v["M"] / v["r"]),
+    ),
+    "planet": Problem(
+        "A moon orbits a planet of mass 2e27 kg at a radius of 4e8 m. Find its orbital period.",
+        (
+            _p("M", 2e27, "mass", owner="planet", shared=True),
+            _p("r", 4e8, "radius", owner="moon"),
+        ),
+        lambda v: 2 * math.pi * math.sqrt(v["r"] ** 3 / (6.674e-11 * v["M"])),
+    ),
+    # Properties of the object: they stay when what is done to it changes.
+    "resistor": Problem(
+        "A 12 V battery drives a current of 2 A through a resistor. Find the resistance.",
+        (_p("V", 12, "voltage", owner="battery"), _p("I", 2, "current")),
+        lambda v: 6.0,
+    ),
+    "bulb": Problem(
+        "A 60 W bulb runs on 120 V. Find the current.",
+        (_p("P", 60, "power", owner="bulb"), _p("V", 120, "voltage")),
+        lambda v: v["V"] / (120**2 / 60) if v["P"] == 60 else v["P"] / v["V"],
+    ),
+    "heater": Problem(
+        "A 1000 W heater runs on 230 V. Find its resistance.",
+        (_p("P", 1000, "power", owner="heater"), _p("V", 230, "voltage")),
+        lambda v: 230**2 / 1000,
+    ),
+    "spring": Problem(
+        "A spring stretches 0.1 m under a 5 N force. Find the spring constant.",
+        (_p("x", 0.1, "extension", "length"), _p("F", 5, "force")),
+        lambda v: 50.0,
+    ),
+    "capacitor": Problem(
+        "A capacitor stores a charge of 0.00006 C at 12 V. Find its capacitance.",
+        (_p("Q", 6e-5, "charge"), _p("V", 12, "voltage")),
+        lambda v: 5e-6,
+    ),
+    "metal": Problem(
+        "4000 J of heat raises the temperature of 1 kg of a metal by 10 K. "
+        "Find the specific heat capacity.",
+        (_p("Q", 4000, "heat", "energy"), _p("m", 1, "mass", owner="metal")),
+        lambda v: 400.0,
+    ),
+    "glass": Problem(
+        "Light travels at 200000000 m/s in glass. Find the refractive index of the glass.",
+        (_p("v", 2e8, *_SPEED, owner="light"),),
+        lambda v: 1.5,
+    ),
+    # An emf and an internal resistance: a change holds the wrong things fixed.
+    "emf": Problem(
+        "A battery with an emf of 9 V drives 0.5 A through a circuit. "
+        "Find the terminal voltage if the internal resistance is 2 ohm.",
+        (
+            _p("E", 9, "voltage", "emf", shared=True),
+            _p("I", 0.5, "current", shared=True),
+            _p("r", 2, "resistance", shared=True),
+        ),
+        lambda v: v["E"] - v["I"] * v["r"],
+    ),
+    # Counts and sameness anywhere in the sentence.
+    "each_sphere": Problem(
+        "Each of two spheres has mass 5 kg and they are 2 m apart. "
+        "Find the gravitational force between them.",
+        (_p("m", 5, "mass", shared=True), _p("r", 2, "distance", shared=True)),
+        lambda v: 6.674e-11 * v["m"] ** 2 / v["r"] ** 2,
+    ),
+    "equal_charges": Problem(
+        "Two equal charges of 3e-6 C are 0.5 m apart. Find the force between them.",
+        (_p("q", 3e-6, "charge", shared=True), _p("r", 0.5, "distance", shared=True)),
+        lambda v: 8.988e9 * v["q"] ** 2 / v["r"] ** 2,
+    ),
+    "two_resistors": Problem(
+        "Two resistors of 4 ohm each are connected in series to a 12 V battery. Find the current.",
+        (_p("R", 4, "resistance", shared=True), _p("V", 12, "voltage", shared=True)),
+        lambda v: v["V"] / (2 * v["R"]),
+    ),
     "gas_c": Problem(
         "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C.",
         (
@@ -274,6 +357,13 @@ TEMPLATES: list[tuple[str, Reading]] = [
     ("what if the radius doubled", ("radius", None, None, 2)),
     ("what if the time was halved", ("time", None, None, 0.5)),
     ("what if the temperature doubled", ("temperature", None, None, 2)),
+    ("what if the current doubled", ("current", None, None, 2)),
+    ("what if the force doubled", ("force", None, None, 2)),
+    ("what if the charge doubled", ("charge", None, None, 2)),
+    ("what if the power doubled", ("power", None, None, 2)),
+    ("what if the heat doubled", ("heat", None, None, 2)),
+    ("what if the resistance doubled", ("resistance", None, None, 2)),
+    ("what if the extension doubled", ("extension", None, None, 2)),
     ("what if it rolled at double the speed of sound", None),
 ]
 # Said of each object of the problem: the right given only when that object owns it.
@@ -311,6 +401,15 @@ OBJECTS = (
     "earth",
     "curve",
     "wave",
+    "satellite",
+    "planet",
+    "bulb",
+    "heater",
+    "spring",
+    "capacitor",
+    "metal",
+    "glass",
+    "sphere",
 )
 
 
@@ -339,7 +438,8 @@ def _expected(problem: Problem, reading: Reading) -> float | None:
         and (owner is None or p.owner == owner)
         and (role is None or p.role == role)
     ]
-    if len(found) != 1 or found[0].shared:
+    # A shared value is certain only when the line names its owner ("the planet had").
+    if len(found) != 1 or (found[0].shared and owner is None):
         return None
     values = {p.key: p.value for p in problem.params}
     values[found[0].key] *= factor
@@ -360,7 +460,8 @@ def _si(text: str) -> float:
         scale = float(power.group("a")) * 10 ** int(power.group("n").translate(_SUPERSCRIPT))
         plain = f"{scale:.6g} {power.group('unit')}".replace("e+", "e")
     values = [g.si for g in read_givens(plain, PHYSICS_UNITS) if g.si is not None]
-    assert values, answers
+    if not values:  # "1.5" (an index), "400 J/(kg·K)": the number in the card's own unit
+        values = [float(plain.split()[0])]
     return values[0]
 
 

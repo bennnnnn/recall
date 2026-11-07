@@ -188,6 +188,29 @@ _TEN_METRES = (
     "A 2 kg ball is dropped from ten metres onto a 1 m high table. "
     "Find its speed when it hits the table."
 )
+_SAT_EARTH = "A satellite orbits Earth at a radius of 7000000 m. The mass of Earth is 6e24 kg. Find its orbital speed."
+_PLANET = "A moon orbits a planet of mass 2e27 kg at a radius of 4e8 m. Find its orbital period."
+_RESISTOR = "A 12 V battery drives a current of 2 A through a resistor. Find the resistance."
+_BULB = "A 60 W bulb runs on 120 V. Find the current."
+_HEATER = "A 1000 W heater runs on 230 V. Find its resistance."
+_SPRING = "A spring stretches 0.1 m under a 5 N force. Find the spring constant."
+_CAPACITOR = "A capacitor stores a charge of 0.00006 C at 12 V. Find its capacitance."
+_METAL = "4000 J of heat raises the temperature of 1 kg of a metal by 10 K. Find the specific heat capacity."
+_GLASS = "Light travels at 200000000 m/s in glass. Find the refractive index of the glass."
+_EMF = "A battery with an emf of 9 V drives 0.5 A through a circuit. Find the terminal voltage if the internal resistance is 2 ohm."
+_EACH_SPHERE = "Each of two spheres has mass 5 kg and they are 2 m apart. Find the gravitational force between them."
+_SPHERES_EACH = (
+    "Two spheres, each of mass 5 kg, are 2 m apart. Find the gravitational force between them."
+)
+_EQUAL_Q = "Two equal charges of 3e-6 C are 0.5 m apart. Find the force between them."
+_Q_EACH = "Two charges of 3e-6 C each are 0.5 m apart. Find the force between them."
+_IDENTICAL_Q = "Two identical charges of 3e-6 C are 0.5 m apart. Find the force between them."
+_TWO_R = "Two resistors of 4 ohm each are connected in series to a 12 V battery. Find the current."
+_LONG_RAMP = "A 2 kg box slides down a 10 m long frictionless ramp from a height of 3 m. Find its speed at the bottom."
+_WELL = "A 300 m deep well. A stone is dropped into the well. Find the time to hit the water."
+_FLOWERPOT = "A 20 m high building has a 5 kg flowerpot on its roof. Find the potential energy of the flowerpot."
+_GAS_FROM_TO = "A gas is heated at constant volume from 300 K to 600 K. Its initial pressure is 100 kPa. Find its final pressure."
+_SLOWS = "A car slows from 30 m/s to 10 m/s in 4 s. Find its acceleration."
 _TO_SPEED = (
     "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. "
     "How long does it take?"
@@ -215,6 +238,12 @@ _TO_SPEED = (
         (_TRAILER, "what if the car was twice as heavy", "1.11 m/s²"),
         # The problem's own throw names the speed.
         (_UPWARD, "what if it was thrown twice as fast", "81.5 m"),
+        (_WELL, "what if the well was twice as deep", "11.1 s"),
+        (_FLOWERPOT, "what if the building was twice as high", "1962 J"),
+        (_FLOWERPOT, "what if the flowerpot was twice as heavy", "1962 J"),
+        (_GAS_FROM_TO, "what if the final temperature doubled", "400 kPa"),
+        (_SLOWS, "what if the initial speed doubled", "-12.5 m/s²"),
+        (_SLOWS, "what if the final speed doubled", "-2.5 m/s²"),
         # Kelvin scales; a gas at 27 °C keeps its other givens.
         (_GAS_K, "what if the temperature doubled", "9.98 × 10⁵ Pa"),
         (_GAS_C, "what if the volume was halved", "9.85 atm"),
@@ -340,6 +369,35 @@ def test_a_scaling_names_the_quantity_the_student_wrote(prior: str, line: str, a
         (_TEN_METRES, "what if the height doubled"),
         # A wavelength the problem never had is no other length.
         (_DROP_MASS, "what if the wavelength was halved"),
+        # A property of the object, a rating, an emf: the change holds the wrong thing.
+        (_SAT_EARTH, "what if the mass doubled"),
+        (_SAT_EARTH, "what if the mass was doubled"),
+        (_PLANET, "what if the mass doubled"),
+        (_RESISTOR, "what if the voltage doubled"),
+        (_RESISTOR, "what if the current doubled"),
+        (_RESISTOR, "with twice the voltage"),
+        (_BULB, "what if the voltage doubled"),
+        (_BULB, "what if the power doubled"),
+        (_HEATER, "what if the voltage doubled"),
+        (_HEATER, "what if the voltage was halved"),
+        (_SPRING, "what if the force doubled"),
+        (_SPRING, "what if the extension doubled"),
+        (_CAPACITOR, "what if the voltage doubled"),
+        (_CAPACITOR, "what if the charge doubled"),
+        (_METAL, "what if the heat doubled"),
+        (_METAL, "what if the mass doubled"),
+        (_GLASS, "what if the speed doubled"),
+        (_GLASS, "what if the speed was halved"),
+        (_EMF, "what if the resistance doubled"),
+        (_EMF, "what if the current doubled"),
+        (_EACH_SPHERE, "what if the mass doubled"),
+        (_SPHERES_EACH, "what if the mass doubled"),
+        (_EQUAL_Q, "what if the charge doubled"),
+        (_Q_EACH, "what if the charge doubled"),
+        (_IDENTICAL_Q, "what if the charge doubled"),
+        (_TWO_R, "what if the resistance doubled"),
+        (_LONG_RAMP, "what if the ramp was twice as high"),
+        (_LONG_RAMP, "what if the ramp was twice as tall"),
         (_CLIFF, "double it"),
         (_CLIFF, "make it twice as long"),
         (_KE, "what if the mass doubles and the speed triples"),
