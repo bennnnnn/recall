@@ -8,6 +8,8 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.web_search import drop_source_credits
 
 _HITS = [
+    WebSearchHit("Handwashing | CDC", "https://www.cdc.gov/handwashing", ""),
+    WebSearchHit("Employment Situation Summary", "https://www.bls.gov/news", ""),
     WebSearchHit("Credit Scores | Consumer Advice", "https://consumer.ftc.gov/articles/x", ""),
     WebSearchHit("Credit reports and scores | USAGov", "https://www.usa.gov/credit-reports", ""),
     WebSearchHit("What Affects Your Credit Scores? - Experian", "https://www.experian.com/b", ""),
@@ -63,6 +65,8 @@ def test_a_bracket_crediting_this_turns_sources_goes(reply: str, kept: str) -> N
         "See [Experian](https://www.experian.com/b) for your report.",
         # The short form of the name just before it, which the reply may use again.
         "Complain to the Federal Trade Commission (FTC) if a bureau ignores you.",
+        "Ask the Centers for Disease Control and Prevention (CDC).",
+        "Data from the Bureau of Labor Statistics (BLS).",
         '```json\n{"note": "from (Experian)"}\n```',
     ],
 )

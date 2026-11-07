@@ -74,12 +74,14 @@ def _credits(name: str, outlets: list[_Outlet]) -> bool:
 
 
 def _spells(acronym: str, before: str) -> bool:
-    """``acronym`` is the initials of the words just before it: "Federal Trade Commission
-    (FTC)" defines a short form the reply may use again."""
+    """``acronym``'s letters are, in order, the initials of capitalised words just before
+    it: "Federal Trade Commission (FTC)" and "Centers for Disease Control and Prevention
+    (CDC)" define a short form the reply may use again."""
     if not acronym.isupper() or not acronym.isalpha():
         return False
-    initials = "".join(word[0] for word in _WORD.findall(before)[-len(acronym) :])
-    return initials.upper() == acronym
+    words = _WORD.findall(before)[-(2 * len(acronym) + 2) :]
+    initials = iter(word[0] for word in words if word[0].isupper())
+    return all(letter in initials for letter in acronym)
 
 
 # A credit closes a claim: the sentence or line ends after it ("… 35% of your score
