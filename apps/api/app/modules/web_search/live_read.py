@@ -37,7 +37,11 @@ _SYSTEM = (
     "small talk, the user's own life and feelings, maths and science problems, writing, "
     "code, advice, how things work, history and other settled knowledge, and work on the "
     "conversation itself (a summary of it, another practice problem, explaining something "
-    'again). Reply with JSON only: {{"live": true}} or {{"live": false}}.'
+    "again). Reply with JSON only, two keys, query first: query is what a person would type "
+    "into a search engine to answer the message, standing alone (spell out who or what the "
+    "conversation is about, a full name or a place), in the message's language, with no "
+    'month or year unless the message names one, or "" when live is false. Example: '
+    '{{"query": "World Cup winner", "live": true}}.'
 )
 
 

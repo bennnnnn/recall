@@ -14,10 +14,10 @@ class SearchSettings(BaseModel):
     # depends on facts that change (``web_search.live_read``): yes, and its query is
     # searched before the reply. Off, or no answer in time, and the reply's model decides.
     live_read_enabled: bool = True
-    live_read_timeout_seconds: float = 1.2
+    live_read_timeout_seconds: float = 2.0
     # How long the reply waits for a read still running when the prep is done (it starts
     # when the turn loads, so most are in by then).
-    live_read_wait_seconds: float = 1.0
+    live_read_wait_seconds: float = 1.2
     # Reading what "search that" or "show me one" refers to in the conversation (one
     # small model call before the search). Foreground: kept short, no retry.
     reference_resolve_timeout_seconds: float = 4.0
