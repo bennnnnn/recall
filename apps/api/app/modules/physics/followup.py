@@ -129,7 +129,8 @@ _INTRINSIC = (
 _SET_BY_MEDIUM = frozenset({"wave_speed"})
 # A device's rating is a property too: "a 60 W bulb" on twice the voltage is no 60 W bulb.
 _RATING = re.compile(
-    r"\b\d[\d.,]*\s*(?:k?w|watts?|kilowatts?)\s+(?:[a-z]+\s+)?(?:bulb|lamp|light|heater|kettle"
+    # A number starts once, not at every digit of "1.1.1…": the scan stays linear.
+    r"(?<![\w.,])\d[\d.,]*\s*(?:k?w|watts?|kilowatts?)\s+(?:[a-z]+\s+)?(?:bulb|lamp|light|heater|kettle"
     r"|motor|toaster|iron|fan|oven|microwave|dryer|hairdryer|charger|appliance|tv|radio)s?\b",
     re.IGNORECASE,
 )
