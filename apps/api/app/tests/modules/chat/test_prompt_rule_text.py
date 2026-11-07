@@ -39,20 +39,14 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # reply that tells the truth (2026-11-06): no praise, knowledge note or recap
 # (NO_SELF_TALK_RULE, NO_RECAP_NOTE), no excuse for a wrong figure (OWN_MISTAKE_HINT), drafts
 # without invented details, earlier chats only when referred back to, no undated to-dos, and a
-# (FORMAT_CONTRACT), a reply laid out to be scanned beside every message (READER_NOTE) and a
-# fact the user adds checked against the chat (OWN_MISTAKE_HINT), then a follow-up that leaves
-# out what it is about read as about the last reply (UNCLEAR_MESSAGE_HINT), then a checked
-# answer redone from its unrounded values before it is given up (OWN_MISTAKE_HINT), then a
-# reply that tells the truth (2026-11-06): no praise, knowledge note or recap
-# (NO_SELF_TALK_RULE, NO_RECAP_NOTE), no excuse for a wrong figure (OWN_MISTAKE_HINT), drafts
-# without invented details, earlier chats only when referred back to, no undated to-dos, and a
 # missed reply re-explained, then no "live" part in a message of several requests: whether one
 # needs the web is the reply model's call (multi_part), then every teach-me taught at once, one
-# item per section (prompt_constants.teaching), then the person spoken to as
-# "you", never about, and memory never quoted (NO_SELF_TALK_RULE).
+# item per section (prompt_constants.teaching), then the person spoken to as "you", never
+# about, and memory never quoted (NO_SELF_TALK_RULE), then a plan in weeks or months laid out
+# by week or month, not by day (LEARNING_PLAN_HINT).
 _RULES = 174
-_RULE_GRAMS = 15831
-_RULE_GRAMS_SHA = "5bf708f346c9a6da"
+_RULE_GRAMS = 15872
+_RULE_GRAMS_SHA = "992986509ae62b44"
 
 
 def _rules() -> list[str]:

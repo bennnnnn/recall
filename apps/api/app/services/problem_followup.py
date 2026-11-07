@@ -2,22 +2,32 @@
 
 Physics and chemistry each replay their previous problem when a line only
 continues it: explain the result, ask for another quantity of the same setup,
-give the result in another unit, or replace or scale one given. Each subject
-keeps its own asks, units and check that the rewrite verifies; the message
-reading, the adjacent exchange, the follow-up phrases and the text rewrites
-are the same for both and live here.
+give the result in another unit, or replace or scale one given (``scaled_followup``
+reads the scaling). Each subject keeps its own asks, units and check that the
+rewrite verifies; the message reading, the adjacent exchange, the follow-up
+phrases and the text rewrites are the same for both and live here.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
+from app.services.scaled_followup import (
+    Scaling,
+    counted,
+    owns,
+    plays_role,
+    scaled_name,
+    subject_of,
+    thrown_at,
+    written_owner,
+)
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -45,26 +55,6 @@ _IN_UNIT = re.compile(
     r"(?:[ ,]+(?:please|pls|instead|too))*",
     re.IGNORECASE,
 )
-
-# "what if the mass doubles", "what if the height is halved".
-_SCALED = re.compile(
-    _LEAD + r"(?:what )?if (?:the |its |her |his |their )?(?P<name>[a-z][a-z ]{0,30}?) "
-    r"(?:(?:is|was|were|gets|got) )?"
-    r"(?P<how>doubled|doubles|double|halved|halves|tripled|triples|quadrupled|quadruples)"
-    r"(?: instead)?",
-    re.IGNORECASE,
-)
-_FACTORS = {
-    "double": 2.0,
-    "doubles": 2.0,
-    "doubled": 2.0,
-    "halves": 0.5,
-    "halved": 0.5,
-    "triples": 3.0,
-    "tripled": 3.0,
-    "quadruples": 4.0,
-    "quadrupled": 4.0,
-}
 
 # "and after 10 s", "what if it's dropped from 80 m", "and 0.001 M": one new value.
 _NEW_VALUE = re.compile(
@@ -119,14 +109,6 @@ def asked_unit(line: str) -> str | None:
     """The unit a line asks the previous result in: ``in km/h please`` → ``km/h``."""
     match = _IN_UNIT.fullmatch(line)
     return None if match is None else match.group("unit")
-
-
-def scaled_given(line: str) -> tuple[str, float] | None:
-    """``what if the mass doubles`` → ``("mass", 2.0)``."""
-    match = _SCALED.fullmatch(line)
-    if match is None:
-        return None
-    return match.group("name"), _FACTORS[match.group("how").lower()]
 
 
 # A clock time is not a quantity: "and at 5 pm?" is never 5 picometres.
@@ -290,6 +272,11 @@ class GivenRewriter:
     unit_dimension: Callable[[str], str | None]
     phrase_dimension: Callable[[str], str | None]
     verifies: Callable[[str], bool]
+    # The dimensions a problem asks for, when the subject reads them: a named given of the
+    # kind the problem asks for is never certain to be the one the line means.
+    asked: Callable[[str], Collection[str]] | None = None
+    # Whether the problem's words fit a named quantity: a string's 2 m is no "height".
+    fits: Callable[[str, str], bool] | None = None
 
     def changed(self, prior: str, name: str | None, value: str, unit: str | None) -> str | None:
         """``and after 10 s``, ``what if the mass was 4 kg``: that given replaced."""
@@ -297,31 +284,101 @@ class GivenRewriter:
             return None
         written_unit = " ".join(unit.split())
         new_dim = self.unit_dimension(written_unit)
-        if new_dim is None:
+        if new_dim is None or not fully_read(prior):
             return None
         if name:
             named_dim = self.phrase_dimension(given_name(name))
-            if named_dim is None or named_dim != new_dim:
+            if named_dim is None or named_dim != new_dim or not self._names(prior, name, named_dim):
                 return None
-        matches = self._of_dimension(prior, new_dim)
-        if len(matches) != 1:
+        matches = [
+            g for g in self._of_dimension(prior, new_dim) if plays_role(prior, g, name or "")
+        ]
+        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
             return None
         rewritten = replace_given(prior, matches[0], value, written_unit)
         if rewritten == prior:
             return None
         return rewritten if self.verifies(rewritten) else None
 
-    def scaled(self, prior: str, name: str, factor: float) -> str | None:
+    def scaled(self, prior: str, scaling: Scaling) -> str | None:
         """``what if the mass doubles``: the one given of that kind, times the factor."""
-        named_dim = self.phrase_dimension(given_name(name))
-        if named_dim is None:
+        reading = scaled_name(prior, scaling, self._is_quantity)
+        if reading is None or not fully_read(prior):
             return None
-        matches = self._of_dimension(prior, named_dim)
+        name, owner = reading
+        named_dim = self.phrase_dimension(given_name(name))
+        if named_dim is None or not self._names(prior, name, named_dim):
+            return None
+        matches = [
+            g
+            for g in self._of_dimension(prior, named_dim)
+            if plays_role(prior, g, name) and (owner is None or owns(prior, g, owner, name))
+        ]
         if len(matches) != 1:
             return None
         given = matches[0]
-        rewritten = replace_given(prior, given, scaled_value(given.value, factor), given.unit)
+        if counted(prior, given) or not _scales(prior, given):
+            return None
+        # "The mass of Earth is 6e24 kg" in a satellite's problem: "the mass" may be either.
+        if owner is None and self._anothers(prior, given):
+            return None
+        if scaling.thrown and not thrown_at(prior, given, scaling.thrown):
+            return None
+        rewritten = replace_given(
+            prior, given, scaled_value(given.value, scaling.factor), given.unit
+        )
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
+
+    def _names(self, prior: str, name: str, dimension: str) -> bool:
+        """False when ``name`` may not be a given of ``prior``: the problem asks for that
+        kind ("the distance doubled" after "how far does it land?"), or its words do not
+        fit the name (a string's 2 m is no height)."""
+        if self.asked is not None and dimension in self.asked(prior):
+            return False
+        return self.fits is None or self.fits(prior, name)
+
+    def _anothers(self, prior: str, given: Given) -> bool:
+        """True when the problem writes a mass, speed or charge (what every body has) as a
+        body's that is not its subject: "the mass" of a satellite's problem that gives
+        Earth's may be either body's."""
+        if given.dimension not in {self.phrase_dimension(n) for n in _EVERY_BODYS}:
+            return False
+        owner = written_owner(prior, given, self._is_quantity)
+        subject = subject_of(prior, self._is_quantity)
+        return owner is not None and subject is not None and owner != subject
+
+    def _is_quantity(self, name: str) -> bool:
+        return self.phrase_dimension(given_name(name)) is not None
 
     def _of_dimension(self, prior: str, dimension: str) -> list[Given]:
         return [given for given in read_givens(prior, self.units) if given.dimension == dimension]
+
+
+# A value written in words ("dropped from ten metres") is one no reading counts: a
+# problem with one may have more givens of a kind than the reader sees.
+_SPELLED_VALUE = re.compile(
+    r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty"
+    r"|thirty|forty|fifty|hundred|thousand) (?:(?:kilo|centi|milli)?met(?:re|er)s?|seconds?"
+    r"|minutes?|hours?|(?:kilo)?grams?|newtons?|joules?|volts?|amps?|ohms?|lit(?:re|er)s?"
+    r"|moles?|degrees?|kelvins?)\b",
+    re.IGNORECASE,
+)
+
+
+def fully_read(prior: str) -> bool:
+    """False when the problem states a value in words the reader does not count."""
+    return _SPELLED_VALUE.search(prior) is None
+
+
+_KELVIN = frozenset({"k", "kelvin", "kelvins"})
+# What every body has, so "the mass" of a two-body problem may be either's.
+_EVERY_BODYS = ("mass", "speed", "charge")
+_CHANGE = re.compile(r"\b(?:by|change of|rise of|increase of|drop of|fall of)[ \t]*$", re.I)
+
+
+def _scales(prior: str, given: Given) -> bool:
+    """False for a temperature on a scale with no true zero: 27 °C doubled is not 54 °C.
+    Kelvin scales, and so does a change ("raised by 10 °C")."""
+    if "temperature" not in (given.dimension or "") or given.unit.lower() in _KELVIN:
+        return True
+    return _CHANGE.search(prior[: given.start]) is not None

@@ -1,5 +1,7 @@
 """The follow-up shapes physics and chemistry share read only what they can name."""
 
+from typing import Any
+
 import pytest
 
 from app.modules.physics.givens import PHYSICS_UNITS
@@ -13,9 +15,18 @@ from app.services.problem_followup import (
     new_value,
     remove_given,
     same_quantities,
-    scaled_given,
     scaled_value,
     with_sentences,
+)
+from app.services.scaled_followup import (
+    Scaling,
+    counted,
+    owns,
+    plays_role,
+    scaled_given,
+    scaled_name,
+    subject_of,
+    written_owner,
 )
 
 
@@ -38,17 +49,91 @@ def test_asked_unit_reads_the_unit_alone(line: str, unit: str | None) -> None:
 @pytest.mark.parametrize(
     ("line", "found"),
     [
-        ("what if the mass doubles", ("mass", 2.0)),
-        ("what if the height is halved", ("height", 0.5)),
-        ("and if the speed triples", ("speed", 3.0)),
+        ("what if the mass doubles", ("mass", None, 2.0)),
+        ("what if the height is halved", ("height", None, 0.5)),
+        ("and if the speed triples", ("speed", None, 3.0)),
+        # The quantity an unambiguous adjective stands for, said of an object.
+        ("now what if the cliff was twice as high", ("cliff", "height", 2.0)),
+        ("what if the tower were four times as tall", ("tower", "height", 4.0)),
+        # A pronoun or nothing with an adjective may be any body: only a throw is read.
+        ("if it were three times as fast", None),
+        ("half as heavy", None),
+        ("what if it was 3 times higher", None),
+        ("what if it was 3x higher", None),
+        ("twice as far", None),
+        ("make it twice as high", None),
+        ("what if it was twice as heavy", None),
+        ("it's twice as high", None),
+        ("what if it was thrown twice as fast", (None, "speed", 2.0, None, "thrown")),
+        ("what if it was kicked twice as fast", (None, "speed", 2.0, None, "kicked")),
+        # The quantity named after the factor.
+        ("with twice the mass", ("mass", None, 2.0)),
+        ("double the height", ("height", None, 2.0)),
+        ("half the speed", ("speed", None, 0.5)),
+        ("and with 3 times the force", ("force", None, 3.0)),
+        ("what if it had twice the mass", ("mass", None, 2.0, "?")),
+        ("what if it fell from twice the height", ("height", None, 2.0, "?")),
+        ("what about twice the mass", ("mass", None, 2.0)),
+        ("what if I double the mass", ("mass", None, 2.0)),
+        ("what if we halve the speed", ("speed", None, 0.5)),
+        ("what if I cut the mass in half", ("mass", None, 0.5)),
+        ("double the mass of the ball", ("mass of the ball", None, 2.0)),
+        # The quantity named before the scaling.
+        ("what if the mass were doubled", ("mass", None, 2.0)),
+        ("what if the voltage is doubled", ("voltage", None, 2.0)),
+        ("what if the resistance were halved instead", ("resistance", None, 0.5)),
+        ("if the speed was increased by a factor of 3", ("speed", None, 3.0)),
+        ("what if the speed was multiplied by a factor of 3", ("speed", None, 3.0)),
+        ("what if the mass is multiplied by 3", ("mass", None, 3.0)),
+        ("if the voltage were divided by 2", ("voltage", None, 0.5)),
+        ("What If The Mass Doubles", ("mass", None, 2.0)),
+        # A new value, not a scaling.
         ("what if the mass was 4 kg", None),
+        # No quantity: a pronoun, or the factor alone.
         ("double it", None),
+        ("twice", None),
+        ("what if it was doubled", None),
+        # An adjective that names no one quantity, or none at all.
+        ("make it twice as long", None),
+        ("what if it was twice as big", None),
+        ("is it twice as much fun", None),
+        # The noun the line names is the quantity; the adjective only says which way.
+        ("what if the mass was 3 times higher", ("mass", "height", 3.0)),
+        ("what if the speed was twice as high", ("speed", "height", 2.0)),
+        # A motion said of an object is no object beside its value.
+        ("if the ball were going twice as fast", None),
+        ("what if the truck was going twice as fast", None),
+        # "of" keeps what it belongs to, for the rewriter to find in the problem.
+        ("what if it rolled at double the speed of sound", ("speed of sound", None, 2.0, "?")),
+        ("twice the mass of the earth", ("mass of the earth", None, 2.0)),
+        ("with twice the initial speed", ("initial speed", None, 2.0)),
+        # A verb that is not "is" or the motion a speed belongs to says something else.
+        ("what if it accelerated twice as fast", None),
+        ("what if it fell twice as fast", None),
+        ("what if it braked twice as fast", None),
+        ("what if it slowed down twice as fast", None),
+        ("what if it decelerated twice as fast", None),
+        ("what if it spun twice as fast", None),
+        ("what if it went twice as far", None),
+        ("what if it landed twice as far", None),
+        ("what if it was thrown twice as high", None),
+        # Two scalings, a negation, or no change at all.
+        ("what if the mass doubles and the speed triples", None),
+        # Who has the factor: an object, a body the problem lacks, or "we".
+        ("what if the car had twice the mass", ("mass", None, 2.0, "the car")),
+        ("what if the earth had twice the mass", ("mass", None, 2.0, "the earth")),
+        ("what if we had twice the mass", ("mass", None, 2.0, "?")),
+        ("twice as high and twice as fast", None),
+        ("what if the mass was not doubled", None),
+        ("what if it was 1 times as fast", None),
+        ("what if it was 500 times higher", None),
     ],
 )
 def test_scaled_given_reads_the_named_quantity_and_factor(
-    line: str, found: tuple[str, float] | None
+    line: str, found: tuple[Any, ...] | None
 ) -> None:
-    assert scaled_given(line) == found
+    expected = None if found is None else Scaling(found[2], found[0], found[1], *found[3:])
+    assert scaled_given(line) == expected
 
 
 @pytest.mark.parametrize(
@@ -117,11 +202,11 @@ def test_given_rewriter_replaces_the_one_given_of_that_kind(
 
 
 def test_given_rewriter_scales_the_one_named_given() -> None:
-    assert _REWRITER.scaled(_PRIOR, "the mass", 2.0) == (
+    assert _REWRITER.scaled(_PRIOR, Scaling(2.0, "the mass", None)) == (
         "A force of 10 N acts on a 4 kg mass. Find its acceleration."
     )
-    assert _REWRITER.scaled(_PRIOR, "time", 2.0) is None
-    assert _REWRITER.scaled(_PRIOR, "speed", 2.0) is None
+    assert _REWRITER.scaled(_PRIOR, Scaling(2.0, "time", None)) is None
+    assert _REWRITER.scaled(_PRIOR, Scaling(2.0, "speed", None)) is None
 
 
 @pytest.mark.parametrize(
@@ -194,3 +279,161 @@ def test_continues_reads_a_line_that_takes_up_the_problem(line: str, takes_up: b
 )
 def test_changes_relatively_reads_an_addition_or_a_difference(line: str, relative: bool) -> None:
     assert changes_relatively(line) is relative
+
+
+_IS_QUANTITY = {"mass", "speed", "height"}.__contains__
+
+
+@pytest.mark.parametrize(
+    ("scaling", "name"),
+    [
+        # A named quantity wins over the adjective.
+        (Scaling(3.0, "mass", "height"), ("mass", None)),
+        # An object of the problem takes its adjective's quantity; one it never had, nothing.
+        (Scaling(2.0, "cliff", "height"), ("height", "cliff")),
+        (Scaling(2.0, "tower", "height"), None),
+        # No subject: only a throw names its speed.
+        (Scaling(2.0, None, "height"), None),
+        (Scaling(2.0, None, "speed", thrown="thrown"), ("speed", None)),
+        # "of" names the problem's quantity only when the problem has that object.
+        (Scaling(2.0, "mass of the stone", None), ("mass", "the stone")),
+        (Scaling(2.0, "mass", None, "the stone"), ("mass", "the stone")),
+        # "the earth had twice the mass", "we had twice the mass": no body of the problem.
+        (Scaling(2.0, "mass", None, "the earth"), None),
+        (Scaling(2.0, "mass", None, "?"), None),
+        (Scaling(2.0, "speed of sound", None), None),
+        (Scaling(2.0, "mass of the earth", None), None),
+    ],
+)
+def test_scaled_name_prefers_the_named_quantity(
+    scaling: Scaling, name: tuple[str, str | None] | None
+) -> None:
+    prior = "A 2 kg stone is dropped from a 80 m cliff. How long to hit the water?"
+    assert scaled_name(prior, scaling, _IS_QUANTITY) == name
+
+
+@pytest.mark.parametrize(
+    ("prior", "name", "plays"),
+    [
+        (
+            "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s.",
+            "initial speed",
+            False,
+        ),
+        (
+            "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s.",
+            "final speed",
+            True,
+        ),
+        ("A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m.", "initial speed", False),
+        ("A ball is thrown upward at 20 m/s.", "initial speed", True),
+        ("A projectile is launched at 20 m/s at 30 degrees.", "launch speed", True),
+        ("A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m.", "speed", True),
+        ("A car goes from 0 to 20 m/s in 5 s.", "final velocity", True),
+        # No word right before the value says which end it is.
+        ("A car is going 30 m/s after accelerating for 5 s.", "initial speed", False),
+        ("A car is going 30 m/s after accelerating for 5 s.", "final speed", False),
+        ("A car whose speed was 10 m/s 5 s ago.", "initial speed", False),
+        ("A train slows down to 10 m/s.", "final speed", True),
+        ("A train slows down to 10 m/s.", "initial speed", False),
+    ],
+)
+def test_plays_role_matches_initial_and_final_to_their_values(
+    prior: str, name: str, plays: bool
+) -> None:
+    # The last speed: "from 0 to 20 m/s" reads the 0 as a speed too.
+    given = [g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == "m/s"][-1]
+    assert plays_role(prior, given, name) is plays
+
+
+@pytest.mark.parametrize(
+    ("prior", "unit", "owner", "owned"),
+    [
+        ("A 70 kg driver sits in a car braking at 5 m/s^2.", "kg", "driver", True),
+        ("A 70 kg driver sits in a car braking at 5 m/s^2.", "kg", "car", False),
+        ("A ball rolls off a 1.2 m high table at 3 m/s.", "m", "table", True),
+        ("A ball rolls off a 1.2 m high table at 3 m/s.", "m", "ball", False),
+        ("A stone is dropped from a 80 m cliff.", "m", "the cliff", True),
+        ("Dissolve 58.5 g of NaCl in 2 L of water.", "g", "water", False),
+        ("Dissolve 58.5 g of NaCl in 2 L of water.", "g", "nacl", False),
+        ("A car of mass 900 kg brakes.", "kg", "car", True),
+        ("A ball hits a wall at 10 m/s.", "m/s", "wall", False),
+        # Strictly beside: no word but one of size between the value and its object.
+        ("A 70 kg driver in a car braking at 5 m/s^2.", "kg", "car", False),
+        ("A 2 kg ball moving at 3 m/s hits a cart.", "kg", "cart", False),
+        ("A cart carrying a load of 50 kg accelerates.", "kg", "load", True),
+        ("A cart carrying a load of 50 kg accelerates.", "kg", "cart", False),
+        ("A 2 kg box on a 1 m high table.", "m", "table", True),
+        ("A 2 kg box on a 1 m high table.", "kg", "table", False),
+        ("A 1000 kg car tows a boat at 20 m/s.", "kg", "boat", False),
+        ("A 500 kg satellite orbits the earth.", "kg", "earth", False),
+    ],
+)
+def test_owns_reads_the_object_beside_the_value(
+    prior: str, unit: str, owner: str, owned: bool
+) -> None:
+    given = next(g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == unit)
+    name = {"kg": "mass", "m": "height", "m/s": "speed"}.get(unit, "")
+    assert owns(prior, given, owner, name) is owned
+
+
+@pytest.mark.parametrize(
+    ("prior", "counts"),
+    [
+        ("Two 5 kg masses are 2 m apart.", True),
+        ("Each 4 ohm resistor carries 2 A.", True),
+        ("A pair of 3 kg blocks rest on a table.", True),
+        ("A 5 kg mass is 2 m from another.", False),
+        # Anywhere in the value's sentence, and sameness as well as counts.
+        ("Each of two spheres has mass 5 kg and they are 2 m apart.", True),
+        ("Two spheres, each of mass 5 kg, are 2 m apart.", True),
+        ("Two equal charges of 3e-6 C are 0.5 m apart.", True),
+        ("Two charges of 3e-6 C each are 0.5 m apart.", True),
+        ("Two identical charges of 3e-6 C are 0.5 m apart.", True),
+        ("Two resistors of 4 ohm each are connected in series.", True),
+        ("A 2 kg cart hits a stationary cart of the same mass.", True),
+        ("A 2 kg ball is dropped. It falls next to two trees.", False),
+    ],
+)
+def test_counted_reads_a_count_before_the_value(prior: str, counts: bool) -> None:
+    assert counted(prior, read_givens(prior, PHYSICS_UNITS)[0]) is counts
+
+
+@pytest.mark.parametrize(
+    ("prior", "unit", "name", "owned"),
+    [
+        # A size word must size the quantity: "10 m long ramp" is no height of the ramp.
+        ("A 2 kg box slides down a 10 m long ramp.", "m", "height", False),
+        ("A box sits on a 1.2 m high table.", "m", "height", True),
+        ("A box sits on a 1.2 m high table.", "m", "length", False),
+        ("A 2 kg ball on a 20 m wide roof.", "m", "height", False),
+    ],
+)
+def test_owns_needs_a_size_word_of_the_quantity(
+    prior: str, unit: str, name: str, owned: bool
+) -> None:
+    given = next(g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == unit)
+    owner = "ramp" if "ramp" in prior else "roof" if "roof" in prior else "table"
+    assert owns(prior, given, owner, name) is owned
+
+
+@pytest.mark.parametrize(
+    ("prior", "unit", "owner", "subject"),
+    [
+        (
+            "A satellite orbits Earth at a radius of 7000000 m. The mass of Earth is 6e24 kg.",
+            "kg",
+            "earth",
+            "satellite",
+        ),
+        ("A moon orbits a planet of mass 2e27 kg.", "kg", "planet", "moon"),
+        ("A 2 kg ball is dropped from 10 m.", "kg", "ball", "ball"),
+        ("A satellite orbits Earth at a radius of 7000000 m.", "m", None, "satellite"),
+        ("A ball is dropped from 10 m.", "m", None, "ball"),
+    ],
+)
+def test_written_owner_and_subject(prior: str, unit: str, owner: str | None, subject: str) -> None:
+    given = next(g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == unit)
+    is_quantity = {"radius", "mass", "height"}.__contains__
+    assert written_owner(prior, given, is_quantity) == owner
+    assert subject_of(prior, is_quantity) == subject
