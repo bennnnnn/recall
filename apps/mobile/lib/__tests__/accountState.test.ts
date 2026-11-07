@@ -138,9 +138,12 @@ const NO_ACCOUNT_DATA = [
   "features/attachments/model/attachments.ts#nativePickerGeneration",
   "features/attachments/model/downloadChatAttachment.ts#swept",
   "features/attachments/model/galleryLayout.ts#cachedLayout",
+  // The plans offers' read-and-write queue: the offers file is the phone's, not an account's.
+  "features/billing/model/welcomePlans.ts#pending",
   "features/chat/drawer/drawer.ts#_onTitlePendingChange",
   "features/chat/hooks/useMathKeyboardInsert.ts#lastSystemKeyboardHeight",
   "features/chat/model/messageCache.ts#swept",
+  "features/home/model/homeOnScreen.ts#homeOnScreen",
   "features/images/components/dotField.ts#compiled",
   "features/speech/model/liveTalkSfx.ts#cueEpoch",
   "features/speech/model/liveTalkSfx.ts#cuePlayer",

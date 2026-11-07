@@ -10,7 +10,10 @@ import {
 import { withDeadline } from "@/lib/api/deadline";
 import { responseRequestId } from "@/lib/api/requestId";
 import type { AuthResult, User } from "@/lib/api/types";
-import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
+import {
+  AccountExistsError,
+  accountExistsProvider,
+} from "@/features/auth/model/accountExists";
 import {
   SignInRefusedError,
   signInRefusalKey,
@@ -20,9 +23,10 @@ import { deviceSessionFields } from "@/lib/deviceSession";
 
 /**
  * Every sign-in starts from a button on the sign-in page, under the line saying that
- * continuing agrees to the Terms, the Privacy Policy and outside AI processing
- * (`login.consent_line`): the tap is the agreement, and the server records it with the
- * sign-in, so the reply comes back agreed. Only those buttons call these functions.
+ * continuing agrees to the Terms, the Privacy Policy and the chats and voice going to
+ * third-party AI providers (`login.agree_line`): the tap is the agreement, and the server
+ * records it with the sign-in, so the reply comes back agreed. Only those buttons call these
+ * functions.
  */
 const AGREED_BY_SIGNING_IN = { ai_data_consent: true } as const;
 
@@ -47,24 +51,33 @@ function signIn(
   body: Record<string, unknown>,
   read: (response: Response) => Promise<AuthResult>,
 ): Promise<AuthResult> {
-  return withDeadline(AUTH_FETCH_TIMEOUT_MS, null, async (signal) => {
-    let response: Response;
-    try {
-      response = await fetchWithTimeout(apiUrl(path), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal,
-      });
-    } catch {
-      throw signInUnreachable();
-    }
-    return read(response);
-  }, signInUnreachable);
+  return withDeadline(
+    AUTH_FETCH_TIMEOUT_MS,
+    null,
+    async (signal) => {
+      let response: Response;
+      try {
+        response = await fetchWithTimeout(apiUrl(path), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal,
+        });
+      } catch {
+        throw signInUnreachable();
+      }
+      return read(response);
+    },
+    signInUnreachable,
+  );
 }
 
 export function loginWithGoogle(idToken: string): Promise<AuthResult> {
-  const body = { id_token: idToken, ...AGREED_BY_SIGNING_IN, ...deviceSessionFields() };
+  const body = {
+    id_token: idToken,
+    ...AGREED_BY_SIGNING_IN,
+    ...deviceSessionFields(),
+  };
   return signIn("/auth/google", body, async (response) => {
     if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
@@ -93,7 +106,12 @@ export function loginWithDev(
   email = "dev@recall.local",
   name = "bini",
 ): Promise<AuthResult> {
-  const body = { email, name, ...AGREED_BY_SIGNING_IN, ...deviceSessionFields() };
+  const body = {
+    email,
+    name,
+    ...AGREED_BY_SIGNING_IN,
+    ...deviceSessionFields(),
+  };
   return signIn("/auth/dev", body, async (response) => {
     if (!response.ok) throw await loginFailure(response);
     return (await response.json()) as AuthResult;
