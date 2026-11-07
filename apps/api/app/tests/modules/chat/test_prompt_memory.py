@@ -81,6 +81,23 @@ async def test_a_general_question_reads_no_memory(text):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "rich", "advice"),
+    [
+        # Live 2026-11-06: an old recipe chat's ingredients came back as "you're bringing
+        # those anyway", and an old landlord chat's draft as a new one.
+        ("what can we cook at camp thats easy, we only have one pot", False, True),
+        ("can u help me write an email to my landlord, the sink is leaking", True, False),
+        ("whats a good plan for my trip", True, False),
+    ],
+)
+async def test_a_personal_turn_reads_saved_memory_not_earlier_chats(text, rich, advice):
+    plan = await _plan(text, rich=rich, advice=advice)
+    assert plan.load_memory is True
+    assert plan.history_rag is False
+
+
+@pytest.mark.asyncio
 async def test_memory_off_stops_saved_facts_and_past_chat_recall():
     """M14: memory_enabled=False means no saved facts and no history RAG."""
     plan = await _plan("what did we decide last time about my wedding?", memory=False, rich=True)

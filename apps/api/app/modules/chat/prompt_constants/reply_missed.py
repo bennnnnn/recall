@@ -29,14 +29,35 @@ _ENGLISH = re.compile(
 # Said in many languages ("Pardon ?", "Eh?", "Hm?", "??"): the reply keeps its language.
 _ANY_LANGUAGE = re.compile(rf"^(?:huh\s*\?|eh\s*\?|hm+\s*\?|pardon\s*\?|\?+){_END}", re.IGNORECASE)
 
+# "i dont get it, explain it simpler without all the letters" after a worked age problem got
+# the answer restated and checked again (2026-11-06): what they missed is how it was found.
 REPLY_MISSED_HINT = (
     "The user did not follow your last reply. Say it again so they can: simpler and shorter, "
-    "the main point first, and if it may have been wrong, check it first. Do not ask what "
-    "they meant."
+    "in plain everyday words. When it worked something out, walk through how the answer is "
+    "found, step by step, with no symbols or letters standing for numbers unless they ask; "
+    "never just repeat the result or check a guess. If it may have been wrong, check it "
+    "first. Do not ask what they meant."
 )
 # "What?" after a Spanish reply to English messages wanted English, and a reply told only
 # "their latest message's language" kept the Spanish.
 _IN_ENGLISH = "Write it in English, the language of their message."
+
+
+# The same, with what they want next: "i don't get it, explain it simpler", "I'm lost, can
+# you go slower". And a request for the last reply in plainer words, alone: "explain it
+# simpler", "say that in plain english", "without all the letters".
+_LOST_LEAD = re.compile(
+    r"^(?:i don'?t (?:get|understand)(?: (?:it|that|this|you))?|i'?m (?:lost|confused)"
+    r"|(?:that|this) makes no sense)\s*[,.;!:-]+\s+\S",
+    re.IGNORECASE,
+)
+_PLAINER = re.compile(
+    r"^(?:(?:can|could) (?:you|u) )?(?:please )?(?:explain|say|put|write|do) (?:it|that|this)"
+    r"(?: again)? (?:(?:much |a bit |way )?(?:simpler|easier|more simply)|in (?:simpler|plain"
+    r"(?:er)?|easier|normal|everyday) (?:words|terms|english|language)|without (?:all )?the "
+    r"(?:letters|symbols|maths?|math|algebra|variables|formulas|jargon))\b",
+    re.IGNORECASE,
+)
 
 
 def reply_missed_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | None:
@@ -44,7 +65,7 @@ def reply_missed_hint(query: str, prior: Sequence[tuple[str, str]]) -> str | Non
     if not any(role == "assistant" and text.strip() for role, text in prior):
         return None
     text = collapse_ws(straighten_apostrophes(query)).strip()
-    if _ENGLISH.match(text):
+    if _ENGLISH.match(text) or _LOST_LEAD.match(text) or _PLAINER.match(text):
         return f"{REPLY_MISSED_HINT} {_IN_ENGLISH}"
     return REPLY_MISSED_HINT if _ANY_LANGUAGE.match(text) else None
 
