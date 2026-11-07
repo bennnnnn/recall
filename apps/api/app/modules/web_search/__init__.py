@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         TurnTavilyBudget,
         run_cached_search,
     )
+    from app.modules.web_search.source_credits import drop_source_credits
     from app.modules.web_search.tool import WebSearchAdapter
     from app.modules.web_search.turn_query import points_back_in_chat, search_queries_for_turn
 
@@ -58,6 +59,7 @@ _EXPORTS = {
     "WebSearchAdapter": "tool",
     "asks_about_a_place": "homework",
     "asks_only_whether_it_searches": "detection",
+    "drop_source_credits": "source_credits",
     "format_location_not_set_answer": "geo_intent",
     "format_places_fence": "formatting",
     "format_search_block": "formatting",
@@ -90,6 +92,7 @@ __all__ = [
     "WebSearchAdapter",
     "asks_about_a_place",
     "asks_only_whether_it_searches",
+    "drop_source_credits",
     "format_location_not_set_answer",
     "format_places_fence",
     "format_search_block",

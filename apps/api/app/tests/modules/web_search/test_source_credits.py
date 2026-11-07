@@ -1,0 +1,62 @@
+"""A searched reply's brackets that only credit its own sources go; the chips name them."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.web_search import drop_source_credits
+
+_HITS = [
+    WebSearchHit("Credit Scores | Consumer Advice", "https://consumer.ftc.gov/articles/x", ""),
+    WebSearchHit("Credit reports and scores | USAGov", "https://www.usa.gov/credit-reports", ""),
+    WebSearchHit("What Affects Your Credit Scores? - Experian", "https://www.experian.com/b", ""),
+    WebSearchHit(
+        "How to improve your credit score - Broadview Federal Credit Union",
+        "https://www.broadviewfcu.com/learn",
+        "",
+    ),
+    WebSearchHit("5 ways to build credit | First Southwest Bank", "https://www.fswb.bank/a", ""),
+]
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # 2026-11-06, "what is a credit score and how do i improve it" on the free model.
+        (
+            "Payment history is about **35% of your FICO score** (Experian).",
+            "Payment history is about **35% of your FICO score**.",
+        ),
+        ("The higher your score, the better (USAGov, FTC).", "The higher your score, the better."),
+        (
+            "Keep balances low (First Southwest Bank) and pay on time (Broadview).",
+            "Keep balances low and pay on time.",
+        ),
+        ("Fix mistakes with the bureaus (Experian and USA.gov).", "Fix mistakes with the bureaus."),
+    ],
+)
+def test_a_bracket_crediting_this_turns_sources_goes(reply: str, kept: str) -> None:
+    assert drop_source_credits(reply, _HITS) == kept
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # An aside, a number, a source this turn never had, a link.
+        "Keep card balances low (ideally under 30%).",
+        "Pay on time (this matters most).",
+        "Scores run 300-850 (FICO 8).",
+        "Reuters reported a rate cut (Reuters).",
+        "See [Experian](https://www.experian.com/b) for your report.",
+        # The short form of the name just before it, which the reply may use again.
+        "Complain to the Federal Trade Commission (FTC) if a bureau ignores you.",
+        '```json\n{"note": "from (Experian)"}\n```',
+    ],
+)
+def test_any_other_bracket_stays(reply: str) -> None:
+    assert drop_source_credits(reply, _HITS) == reply
+
+
+def test_a_turn_without_sources_is_left_alone() -> None:
+    assert drop_source_credits("A fact (Experian).", []) == "A fact (Experian)."
