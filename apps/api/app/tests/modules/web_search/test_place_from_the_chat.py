@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.web_search import needs_web_search, points_back_in_chat
+from app.modules.web_search import points_back_in_chat
 
 _TRIP = [
     {"role": "user", "content": "im thinking of going to zanzibar in december"},
@@ -46,10 +46,3 @@ def test_a_place_question_points_back_at_the_chat(message: str, back: bool) -> N
 
 def test_with_no_chat_before_it_nothing_points_back() -> None:
     assert points_back_in_chat("whats the weather like there now", []) is False
-
-
-@pytest.mark.parametrize(
-    "message", ["whats the weather like there now", "hows the weather in zanzibar today"]
-)
-def test_a_question_typed_without_its_apostrophe_still_searches(message: str) -> None:
-    assert needs_web_search(message) is True

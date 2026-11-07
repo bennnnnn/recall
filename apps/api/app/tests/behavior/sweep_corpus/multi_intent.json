@@ -50,7 +50,7 @@
  },
  {
   "id": "mi-code-and-score",
-  "area": "multi",
+  "area": "multi lookalike",
   "prompt": "write a function to reverse a list, and who won the champions league final last night",
   "reply": "### Reversing a list\n\n```python\ndef reverse(items):\n    return items[::-1]\n```\n\n### Last night's final\n\nReal Madrid won 2-1 after extra time.",
   "expect": [

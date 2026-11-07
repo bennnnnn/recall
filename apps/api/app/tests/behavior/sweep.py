@@ -55,8 +55,8 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.conversation import messages_repository
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
-from app.modules.todos.reply_check import NEED_A_TIME
-from app.modules.turn_reading.lesson_flow import has_lesson_title, outline_topics
+from app.modules.todos.reply_check import KEEP_AS_REMINDER, NEED_A_TIME
+from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
@@ -69,6 +69,7 @@ CORPUS = Path(__file__).with_name("sweep_corpus")
 # about reminders. On an ordinary turn any of them is a hijack.
 CANNED = (
     NEED_A_TIME,
+    KEEP_AS_REMINDER,
     "That time already passed.",
     "I didn't change your reminders.",
     "I didn't set a reminder.",
@@ -95,12 +96,6 @@ NO_SEARCH_AREAS = {
     "math", "physics", "chemistry", "writing", "code", "chitchat", "statement", "made data",
     "search capability",
 }  # fmt: skip
-# Asks nothing to look up ("great job today", "teach me something today", "give me
-# sample CSV data"): not even a model round that may choose to search.
-# Works on the chat itself ("Yes" to "Does that make sense?", "give me a practice problem",
-# "summarize what we covered"): a search wrapped these in unrelated pages.
-# "Can you search the web?" asks what Recall does: a search took the line before it.
-NO_SEARCH_ROUND_AREAS = {"statement", "made data", "chat bound", "search capability"}
 # Turns that answer the clarify card before them: they never ask again.
 AFTER_CARD_AREAS = {"clarify answer"}
 STEM_AREAS = {"math", "physics", "chemistry"}
@@ -176,9 +171,9 @@ MONEY_STANDING_AREAS = {"money standing"}
 LESSON_LOOKALIKE_AREAS = {"walkthrough lookalike", "teaching lookalike"}
 
 
-def _lesson_parts(text: str) -> tuple[bool, int, int]:
-    """A reply's lesson title, practice cards and outline topics."""
-    return has_lesson_title(text), text.count("```quiz"), outline_topics(text)
+def _lesson_parts(text: str) -> tuple[bool, int]:
+    """A reply's lesson title and practice cards."""
+    return has_lesson_title(text), text.count("```quiz")
 
 
 # Reminders already saved, so "mark call mom as done" has something to find.
@@ -525,10 +520,10 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
             problems.append(f"read as a settings change: {outcome.settings_changes}")
         if outcome.memory_command:
             problems.append("read as a memory command")
+        # Whether to search is the model's call (``web_search``'s description says when):
+        # the server itself searches none of these.
         if entry.area in NO_SEARCH_AREAS and route.search == "yes":
             problems.append("searched the web")
-        elif entry.area in NO_SEARCH_ROUND_AREAS and route.search == "ask":
-            problems.append("let the model decide to search")
         if entry.area in NOT_MATH_AREAS and (route.subject == "math" or route.solved):
             problems.append(f"read as maths (solved={route.solved})")
         if entry.area in NOT_PERSONAL_AREAS and route.memory and route.memory_scope != "work":

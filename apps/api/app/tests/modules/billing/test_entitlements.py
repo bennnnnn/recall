@@ -43,7 +43,8 @@ def test_live_talk_is_only_on_the_top_plan():
         (
             "free",
             {
-                "daily_tokens": 100_000,
+                "daily_messages": 10,
+                "daily_tokens": 400_000,
                 "daily_image_generations": 3,
                 "daily_speech_transcriptions": 0,
                 "daily_speech_tts": 0,
@@ -53,7 +54,8 @@ def test_live_talk_is_only_on_the_top_plan():
         (
             "plus",
             {
-                "daily_tokens": 500_000,
+                "daily_messages": 200,
+                "daily_tokens": 4_000_000,
                 "daily_image_generations": 10,
                 "daily_speech_transcriptions": 200,
                 "daily_speech_tts": 100,
@@ -63,7 +65,8 @@ def test_live_talk_is_only_on_the_top_plan():
         (
             "pro",
             {
-                "daily_tokens": 500_000,
+                "daily_messages": 1000,
+                "daily_tokens": 15_000_000,
                 "daily_image_generations": 15,
                 "daily_speech_transcriptions": 200,
                 "daily_speech_tts": 100,

@@ -123,7 +123,7 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
     },
     quotaNudge: {
       show: false,
-      usedPct: 0,
+      label: "",
       dismiss: quotaDismiss,
     },
     chatError: null,

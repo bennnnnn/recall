@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 
 import { useInsideAccessibleElement } from "@/components/rich/accessibleElement";
@@ -27,6 +27,61 @@ type Props = {
   scrollOverflow?: boolean;
 };
 
+
+/**
+ * A formula with raised, dropped or stacked parts, as a View. Its first child is an empty
+ * run in the formula's own face, centred as every run of the formula is, so the View's
+ * baseline is the formula's: a row that aligns by baseline sets `v_0` and `h_{max}` on
+ * the line of the words beside them, not centred on that line's box (where a subscript
+ * pulled the formula up and an exponent pushed it down).
+ */
+function TallMath({
+  layout,
+  styles,
+  fontScale,
+  minWidth,
+  height,
+  label,
+  children,
+}: {
+  layout: ReturnType<typeof layoutMath>;
+  styles: ReturnType<typeof makeStyles>;
+  fontScale: number;
+  minWidth: number;
+  height: number;
+  /** The formula read as words, when this box is its one screen-reader element. */
+  label?: string;
+  children: ReactNode;
+}) {
+  // The measured height already includes the script raise. Padding keeps
+  // that room inside the box so translateY lifts the exponent into it
+  // instead of painting past the top, where a ScrollView would clip it.
+  const padTop = scaled(layout.padTop ?? 0, fontScale);
+  const padBottom = scaled(layout.padBottom ?? 0, fontScale);
+  // The measured width is a floor, not the box: advances are estimates, and
+  // a box narrower than its glyphs let them paint over the space after the
+  // formula ("→ 2H₂Oshows"). The glyph runs inside widen it to their ink.
+  return (
+    <View
+      testID="math-text-tall"
+      collapsable={false}
+      accessible={label !== undefined}
+      accessibilityRole={label !== undefined ? "text" : undefined}
+      accessibilityLabel={label}
+      style={[styles.tallRoot, {
+        minWidth,
+        height,
+        ...(padTop > 0 ? { paddingTop: padTop } : null),
+        ...(padBottom > 0 ? { paddingBottom: padBottom } : null),
+      }]}
+    >
+      <Text testID="math-baseline" style={styles.base} accessible={false}>
+        {"\u200B"}
+      </Text>
+      {children}
+    </View>
+  );
+}
 
 /** Memoized: a markdown run re-renders on every streamed flush, and its unchanged formulas
  * keep their layout instead of being laid out again. */
@@ -69,34 +124,21 @@ export const MathText = memo(function MathText({
   // Stacked structures are a View root. Text > Text > View is what iOS lays
   // out as 0×0 and paints over the next line.
   if (tall) {
-    // The measured height already includes the script raise. Padding keeps
-    // that room inside the box so translateY lifts the exponent into it
-    // instead of painting past the top, where a ScrollView would clip it.
-    const padTop = scaled(layout.padTop ?? 0, fontScale);
-    const padBottom = scaled(layout.padBottom ?? 0, fontScale);
-    // The measured width is a floor, not the box: advances are estimates, and
-    // a box narrower than its glyphs let them paint over the space after the
-    // formula ("→ 2H₂Oshows"). The glyph runs inside widen it to their ink.
     // Unscrolled, the box is the formula's one screen-reader element: its
     // pieces (a numerator, a radicand) would otherwise be read apart, or not
     // at all. Scrolled, the ScrollView below carries the label.
     const boxOwns = own && !scroll;
     const content = (
-      <View
-        testID="math-text-tall"
-        collapsable={false}
-        accessible={boxOwns}
-        accessibilityRole={boxOwns ? "text" : undefined}
-        accessibilityLabel={boxOwns ? label : undefined}
-        style={[styles.tallRoot, {
-          minWidth: contentWidth,
-          height: contentHeight,
-          ...(padTop > 0 ? { paddingTop: padTop } : null),
-          ...(padBottom > 0 ? { paddingBottom: padBottom } : null),
-        }]}
+      <TallMath
+        layout={layout}
+        styles={styles}
+        fontScale={fontScale}
+        minWidth={contentWidth}
+        height={contentHeight}
+        label={boxOwns ? label : undefined}
       >
         {runs}
-      </View>
+      </TallMath>
     );
     if (!scroll) return content;
     // The viewport is the paragraph width. The formula keeps its measured

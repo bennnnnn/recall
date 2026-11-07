@@ -209,5 +209,5 @@ export function InlineFlow({
 const styles = StyleSheet.create({
   displayRow: { width: "100%" },
   lineBreak: { width: "100%", height: 0 },
-  unit: { flexDirection: "row", alignItems: "center", flexShrink: 1, maxWidth: "100%" },
+  unit: { flexDirection: "row", alignItems: "baseline", flexShrink: 1, maxWidth: "100%" },
 });

@@ -41,7 +41,6 @@ def _should_augment_web_and_tools(
     ambiguous_nearby: bool,
     rich_context: bool = True,
     needs_math: bool = False,
-    needs_search: bool = False,
     needs_chem: bool = False,
 ) -> bool:
     """Shared gate for routing-context prefetch and web/tools augmentation.
@@ -50,8 +49,8 @@ def _should_augment_web_and_tools(
     updates still suppress augmentation the same way as before.
 
     Slim/casual chat (not ``rich_context``) still augments when the turn
-    actually needs math, web search, or chemistry — otherwise skip prior
-    messages, Tavily/SymPy, and PubChem.
+    actually needs math or chemistry — otherwise skip prior messages, SymPy
+    and PubChem.
     """
     if not (
         instant_reply is None
@@ -61,7 +60,7 @@ def _should_augment_web_and_tools(
         and not ambiguous_nearby
     ):
         return False
-    return rich_context or needs_math or needs_search or needs_chem
+    return rich_context or needs_math or needs_chem
 
 
 # "I work 9am to 5:30pm with a 45 min lunch. How many hours do I work in a

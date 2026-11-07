@@ -1,8 +1,10 @@
 import { render, waitFor } from "@testing-library/react-native";
-import { Dimensions } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MATH_SVG_EX_PX, MathSvgView } from "@/components/rich/MathSvgView";
+import { MathBlock } from "@/components/rich/MathView";
+import { Type } from "@/lib/type";
 import { clearSvgMathCache, setSvgMathRendererForTest } from "@/lib/math/svgMath";
 import { readableLatexFallback } from "@/lib/math/text";
 
@@ -255,5 +257,39 @@ describe("MathSvgView fallback", () => {
       <MathSvgView latex={String.raw`\frac{1}{2} + \sqrt{4}`} textColor="#111111" />,
     );
     await findByTestId("math-svg-fallback");
+  });
+});
+
+describe("display maths reads with the text around it", () => {
+  beforeEach(() => {
+    setSvgMathRendererForTest(
+      () =>
+        '<mjx-container><svg xmlns="http://www.w3.org/2000/svg" width="10ex" height="2ex" viewBox="0 0 800 500">' +
+        '<path d="M0 0"></path></svg></mjx-container>',
+    );
+  });
+
+  it("sets a reply's display formula at the reply's text size, at the column's left edge", async () => {
+    const view = await render(<MathBlock latex={String.raw`v^2 = u^2 + 2as`} />);
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    const props = mockSvgXml.mock.calls[0][0];
+    // 18pt, the reply's own size (it was a fixed 20pt, a size larger than the words).
+    expect(props.width).toBeCloseTo(10 * Type.reading.fontSize * 0.442, 5);
+    const scroll = view.getByTestId("math-svg-scroll");
+    // Left, as the substitution lines below it are (it was centred).
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle)).toMatchObject({
+      justifyContent: "flex-start",
+      paddingLeft: 0,
+    });
+  });
+
+  it("keeps the answer card's formula centred in its box, at the card's size", async () => {
+    const view = await render(
+      <MathSvgView latex={String.raw`\begin{cases} x = 1 \\ y = 2 \end{cases}`} textColor="#111111" em={20} />,
+    );
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    expect(mockSvgXml.mock.calls[0][0].width).toBeCloseTo(10 * 20 * 0.442, 5);
+    const scroll = view.getByTestId("math-svg-scroll");
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle).justifyContent).toBe("center");
   });
 });

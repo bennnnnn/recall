@@ -1,4 +1,4 @@
-"""The turn's tool rounds: search first, or one selection round and its calls.
+"""The turn's tool rounds: one selection round and its calls.
 
 Tool-call rounds stay non-streaming. After tools run, the caller streams the
 user-visible answer (tools omitted): a leftover completion is never dumped as one
@@ -27,10 +27,8 @@ from app.models.orm import User
 from app.modules.chat.prompt_repeats import policies_once
 from app.modules.chat.stream_status import StreamStatusFn, announced_if_slow
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
-from app.modules.chat.tool_loop.forced_search import _force_web_search_if_needed
 from app.modules.chat.tool_loop.results import TerminalImageResult, ToolResults
 from app.modules.chat.tool_loop.selection import (
-    _search_before_the_model,
     _tools_for_user,
     last_user_content,
     user_words,
@@ -66,12 +64,9 @@ async def run_tool_rounds(
     user: User | None = None,
     redis: Redis | None = None,
     chat_id: UUID | None = None,
-    web_search: bool | None = None,
     user_timezone: str | None = None,
     user_text: str | None = None,
     user_location: str | None = None,
-    has_verified_math: bool = False,
-    search_parts: list[str] | None = None,
     skip_tools: frozenset[str] = frozenset(),
 ) -> ToolRoundsOutcome:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
@@ -80,9 +75,6 @@ async def run_tool_rounds(
     user-visible answer (tools omitted) instead of a discarded leftover completion.
     ``verified_math`` holds only tool results whose input matches ``user_text``
     (the user's own message; the last user prompt message when omitted).
-    ``has_verified_math``: the server already solved the turn's maths part.
-    ``search_parts``: the requests a classifier said need live results, when the
-    message holds more than one (``tool_loop.parts``); each is searched for itself.
     ``skip_tools``: tools the turn already spent (``selection.spent_tools``).
     """
     if not settings.mcp_tool_loop_enabled:
@@ -96,8 +88,7 @@ async def run_tool_rounds(
         return ToolRoundsOutcome(messages, None, None, [])
 
     user_text = last_user_content(messages)
-    # One context for the turn: every tool call and the forced search share
-    # its Tavily budget.
+    # One context for the turn: every tool call shares its Tavily budget.
     ctx = ToolContext(
         user=user,
         redis=redis,
@@ -108,32 +99,7 @@ async def run_tool_rounds(
         user_location=user_location,
         deadline=time.monotonic() + settings.mcp_tool_loop_total_timeout_seconds,
     )
-    # An obvious lookup used to spend a model round deciding to call
-    # web_search, then a second round writing the answer. Search first
-    # and let the caller stream the reply once. Math and image turns
-    # still need the selection round.
-    if _search_before_the_model(
-        user_text,
-        settings,
-        user,
-        web_search=web_search,
-        has_verified_math=has_verified_math,
-        skip_tools=skip_tools,
-    ):
-        working, hits = await _force_web_search_if_needed(
-            settings=settings,
-            messages=messages,
-            search_hits=[],
-            ctx=ctx,
-            on_status=on_status,
-            should_cancel=should_cancel,
-            search_required=True,
-            search_parts=search_parts,
-            has_verified_math=has_verified_math,
-        )
-        return ToolRoundsOutcome(working, None, None, hits)
-
-    working, verified, terminal, hits = await _run_rounds(
+    return await _run_rounds(
         settings=settings,
         messages=messages,
         usage=usage,
@@ -143,18 +109,6 @@ async def run_tool_rounds(
         should_cancel=should_cancel,
         user_texts=user_words(messages, user_text),
     )
-    working, hits = await _force_web_search_if_needed(
-        settings=settings,
-        messages=working,
-        search_hits=hits,
-        ctx=ctx,
-        on_status=on_status,
-        should_cancel=should_cancel,
-        search_required=web_search is True,
-        search_parts=search_parts,
-        has_verified_math=has_verified_math,
-    )
-    return ToolRoundsOutcome(working, verified, terminal, hits)
 
 
 async def _run_rounds(

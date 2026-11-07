@@ -19,7 +19,9 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 Search = Literal["yes", "ask", "no"]
-"""``yes``: searched with no model asked. ``ask``: a model decides. ``no``: no search."""
+"""``yes``: the server searched for what it works out itself (a money rate). ``ask``: the
+model may call ``web_search`` and decides. ``no``: the tool is not offered (a greeting
+answered at once, a verified solve, a turn the server answers itself)."""
 
 CATEGORIES = (
     "math",
@@ -61,9 +63,6 @@ class Expect:
     # A real photo above the model's answer (it opened with ```photo). Routing can
     # only check the hint that offers it; the live replay checks the photo.
     answer_photo: bool | None = None
-    # A whole subject ("teach me python") gets its topics in order and one question,
-    # never a lesson yet (prompt_constants.teaching._SUBJECT_OUTLINE).
-    outline: bool = False
     # The model the case's plan gets on Auto (``model_choice.resolve_user_model``).
     model: str | None = None
     # A multi-part message's picture, drawn above the model's answer to the rest.
@@ -492,42 +491,42 @@ CASES: tuple[Case, ...] = (
         "search-world-cup",
         "web search",
         "who won the last world cup",
-        Expect(search="yes", photo=NO_PHOTO),
+        Expect(search="ask", photo=NO_PHOTO),
         "The most recent winner, with a source chip.",
     ),
     Case(
         "search-stock",
         "web search",
         "what is tesla stock price today",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "Today's price with the time it was quoted and a source.",
     ),
     Case(
         "search-new-model",
         "web search",
         "tell me about the new tesla model",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "The newest Tesla model by name, from a search, not from training data.",
     ),
     Case(
         "search-ai-news",
         "web search",
         "latest news on AI",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "A few current headlines with sources.",
     ),
     Case(
         "search-weather-city",
         "web search",
         "what's the weather in Addis Ababa",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "Current conditions and temperature, with a source.",
     ),
     Case(
         "search-explicit",
         "web search",
         "search for the best laptop for programming",
-        Expect(search="yes", photo=NO_PHOTO),
+        Expect(search="ask", photo=NO_PHOTO),
         "Current picks from the search, with sources.",
     ),
     Case(
@@ -542,7 +541,7 @@ CASES: tuple[Case, ...] = (
         "search-bare-command",
         "web search",
         "do a search",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "Searches the topic of the chat (Jeanne Calment), not the words 'do a search'.",
         history=(
             ("user", "Who lived the longest?"),
@@ -573,7 +572,7 @@ CASES: tuple[Case, ...] = (
         "search-officeholder-followup",
         "web search",
         "What is the president?",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "Searches who is President of Ethiopia now (Taye Atske Selassie since October 2024), "
         "never a name from memory.",
         history=(
@@ -585,7 +584,7 @@ CASES: tuple[Case, ...] = (
         "search-newest-phone",
         "web search",
         "what's the newest iphone",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "The current newest iPhone by name, from a search.",
     ),
     Case(
@@ -613,21 +612,21 @@ CASES: tuple[Case, ...] = (
         "search-no-weather-poem",
         "web search",
         "write a poem about the weather",
-        Expect(search="no"),
+        Expect(search="ask"),
         "A short poem.",
     ),
     Case(
         "search-no-under-the-weather",
         "web search",
         "I feel under the weather today",
-        Expect(search="no"),
+        Expect(search="ask"),
         "Sympathy and simple care tips; no forecast.",
     ),
     Case(
         "search-no-boiling-point-idiom",
         "web search",
         "the boiling point of my patience is low today",
-        Expect(search="no", subject=NONE, instant=""),
+        Expect(search="ask", subject=NONE, instant=""),
         "A short, warm reply about a rough day; no lookup and no chemistry.",
     ),
     # ── Photos and maps ─────────────────────────────────────────────────────
@@ -1008,7 +1007,7 @@ CASES: tuple[Case, ...] = (
         "time-remote",
         "time and location",
         "what time is it in Tokyo",
-        Expect(search="no"),
+        Expect(search="ask"),
         "Tokyo's current time, computed from the user's clock.",
     ),
     Case(
@@ -1022,7 +1021,7 @@ CASES: tuple[Case, ...] = (
         "time-weekday",
         "time and location",
         "what day of the week is christmas this year",
-        Expect(search="no"),
+        Expect(search="ask"),
         "The weekday of December 25 this year.",
     ),
     Case(
@@ -1036,7 +1035,7 @@ CASES: tuple[Case, ...] = (
         "location-nearby-set",
         "time and location",
         "find a coffee shop near me",
-        Expect(search="yes", hints=("local_places",)),
+        Expect(search="ask", hints=("local_places",)),
         "A short list of nearby coffee shops around Nairobi, with sources.",
         location="Westlands, Nairobi, Kenya",
     ),
@@ -1052,7 +1051,7 @@ CASES: tuple[Case, ...] = (
         "location-weather-here",
         "time and location",
         "what's the weather like here",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "The weather in Nairobi from a search.",
         location="Westlands, Nairobi, Kenya",
     ),
@@ -1082,22 +1081,22 @@ CASES: tuple[Case, ...] = (
         "teach-python",
         "teaching",
         "teach me python",
-        Expect(hints=("teaching",), no_hints=("programming_lesson",), search="no", outline=True),
-        "One line on what Python opens up, 5-8 topics in order, then where they are and where "
-        "to start. No lesson, no code, no quiz yet.",
+        Expect(hints=("teaching", "programming_lesson"), search="ask"),
+        "Lesson 1 at once on its most useful first piece (printing and variables), with code "
+        "and a quiz; never a menu of topics or a question about their level first.",
     ),
     Case(
         "teach-python-scratch",
         "teaching",
         "I want to learn python from scratch",
-        Expect(hints=("teaching",), outline=True),
-        "The same outline as 'teach me python', tailored to starting from nothing.",
+        Expect(hints=("teaching",)),
+        "The same Lesson 1 as 'teach me python', tailored to starting from nothing.",
     ),
     Case(
         "teach-two-sum-understand",
         "teaching",
         "help me understand two sum in python",
-        Expect(hints=("walkthrough",), no_hints=("teaching",), search="no"),
+        Expect(hints=("walkthrough",), no_hints=("teaching",), search="ask"),
         "Lesson 1: Two Sum: index boxes, brute force line by line, the dictionary idea traced in "
         "step cards, a cost table, a quiz card.",
     ),
@@ -1112,8 +1111,8 @@ CASES: tuple[Case, ...] = (
         "teach-history-know",
         "teaching",
         "I want to know american history",
-        Expect(hints=("teaching",), search="ask", outline=True),
-        "The same outline as 'teach me american history': the eras in order, then where to start.",
+        Expect(hints=("teaching",), search="ask"),
+        "The same Lesson 1 as 'teach me american history': its most useful first piece, taught.",
     ),
     Case(
         "teach-no-know-fact",
@@ -1126,28 +1125,28 @@ CASES: tuple[Case, ...] = (
         "teach-walkthrough-recursion",
         "teaching",
         "I don't understand recursion",
-        Expect(hints=("walkthrough",), search="no"),
+        Expect(hints=("walkthrough",), search="ask"),
         "Lesson 1: Recursion: the idea, a call-by-call trace in step cards, the base case, a quiz.",
     ),
     Case(
         "teach-walkthrough-curly",
         "teaching",
         "I don\u2019t understand recursion",
-        Expect(hints=("walkthrough",), search="no"),
+        Expect(hints=("walkthrough",), search="ask"),
         "The iPhone keyboard's apostrophe: the same lesson as \"I don't understand recursion\".",
     ),
     Case(
         "teach-walkthrough-confused",
         "teaching",
         "I'm confused about pointers in C",
-        Expect(hints=("walkthrough",), search="no"),
+        Expect(hints=("walkthrough",), search="ask"),
         "Lesson 1: Pointers: what an address is, * and &, a trace, a quiz.",
     ),
     Case(
         "teach-walkthrough-no-sense",
         "teaching",
         "recursion makes no sense to me",
-        Expect(hints=("walkthrough",), search="no"),
+        Expect(hints=("walkthrough",), search="ask"),
         'The same lesson as "I don\'t understand recursion".',
     ),
     Case(
@@ -1168,21 +1167,21 @@ CASES: tuple[Case, ...] = (
         "teach-history",
         "teaching",
         "teach me american history",
-        Expect(hints=("teaching",), search="no", outline=True),
-        "The eras in order as an outline, then where to start. No lesson yet.",
+        Expect(hints=("teaching",), search="ask"),
+        "Lesson 1 at once on the most useful first piece, with dated examples and a quiz.",
     ),
     Case(
         "teach-eli10",
         "teaching",
         "explain recursion like I'm 10",
-        Expect(search="no"),
+        Expect(search="ask"),
         "A simple analogy (Russian dolls, mirrors), then a tiny example.",
     ),
     Case(
         "teach-plan",
         "teaching",
         "give me a 30 day plan to learn javascript",
-        Expect(hints=("learning_plan",), search="no"),
+        Expect(hints=("learning_plan",), search="ask"),
         "Day 1 to Day 30, one line each, with phases, code examples and milestones.",
     ),
     Case(
@@ -1193,7 +1192,7 @@ CASES: tuple[Case, ...] = (
         Expect(
             hints=("standing_preference",),
             no_hints=("answer_photo", "teaching", "personal_disclosure"),
-            search="no",
+            search="ask",
             photo=NO_PHOTO,
         ),
         "Agrees in a sentence, lists the plan (one concept at a time, a practical example, a "
@@ -1207,7 +1206,7 @@ CASES: tuple[Case, ...] = (
         Expect(
             hints=("standing_preference",),
             no_hints=("answer_photo", "teaching", "code_debug"),
-            search="no",
+            search="ask",
         ),
         "Agrees, lists the plan, and offers to go on with lists and indexes that way.",
         history=(
@@ -1226,7 +1225,7 @@ CASES: tuple[Case, ...] = (
         "teach-preference-from-now-on",
         "teaching",
         "From now on, always give me a practical example before the theory.",
-        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="no"),
+        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="ask"),
         "Agrees in a sentence and says examples will come first.",
     ),
     Case(
@@ -1236,7 +1235,7 @@ CASES: tuple[Case, ...] = (
         Expect(
             hints=("standing_preference",),
             no_hints=("answer_photo", "personal_disclosure"),
-            search="no",
+            search="ask",
         ),
         "Agrees, restates it (a quick question after each step), asks what to learn first.",
     ),
@@ -1244,7 +1243,7 @@ CASES: tuple[Case, ...] = (
         "teach-preference-hints",
         "teaching",
         "Don't give me the answer, give me hints.",
-        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="no"),
+        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="ask"),
         "Agrees to hint first and asks what they are working on.",
     ),
     Case(
@@ -1304,7 +1303,7 @@ CASES: tuple[Case, ...] = (
         "format-tips",
         "format",
         "give me 5 tips to sleep better",
-        Expect(search="no"),
+        Expect(search="ask"),
         "Exactly five short, scannable tips.",
     ),
     Case(
@@ -1333,7 +1332,7 @@ CASES: tuple[Case, ...] = (
         "format-howto",
         "format",
         "how do I make tea",
-        Expect(hints=("steps",), search="no"),
+        Expect(hints=("steps",), search="ask"),
         "Numbered steps.",
     ),
     Case(
@@ -1347,21 +1346,21 @@ CASES: tuple[Case, ...] = (
         "format-howto-feeling",
         "format",
         "how do I know if I'm ready to change jobs",
-        Expect(no_hints=("steps",), search="no"),
+        Expect(no_hints=("steps",), search="ask"),
         "Honest signs to weigh, not a numbered procedure.",
     ),
     Case(
         "format-email",
         "format",
         "write an email to my landlord about a broken heater",
-        Expect(hints=("email",), search="no"),
+        Expect(hints=("email",), search="ask"),
         "An email draft card with a subject, signed with the user's name.",
     ),
     Case(
         "format-text-landlord",
         "format",
         "text my landlord that the heater is broken",
-        Expect(hints=("email",), no_hints=("ask_purpose", "no_draft"), search="no"),
+        Expect(hints=("email",), no_hints=("ask_purpose", "no_draft"), search="ask"),
         "A message card saying the heater is broken and asking for a repair; no question "
         "about what it should say.",
     ),
@@ -1424,14 +1423,14 @@ CASES: tuple[Case, ...] = (
         "format-social",
         "format",
         "write a tweet about my new app",
-        Expect(search="no"),
+        Expect(search="ask"),
         "Asks what the app is, or one tweet-length draft; no invented stats.",
     ),
     Case(
         "format-brief",
         "format",
         "summarize the french revolution in 3 sentences",
-        Expect(hints=("brevity",), subject=NONE, search="no"),
+        Expect(hints=("brevity",), subject=NONE, search="ask"),
         "Exactly three sentences.",
     ),
     Case(
@@ -1492,7 +1491,7 @@ CASES: tuple[Case, ...] = (
         "chart-visualize-sales",
         "format",
         "can you visualize my sales: Q1 10k, Q2 15k, Q3 12k, Q4 20k",
-        Expect(hints=("chart",), subject=NONE, search="no"),
+        Expect(hints=("chart",), subject=NONE, search="ask"),
         "A bar chart of the four quarters.",
     ),
     Case(
@@ -1513,14 +1512,14 @@ CASES: tuple[Case, ...] = (
         "chart-population-searches",
         "format",
         "graph the population of Ethiopia over the last 10 years",
-        Expect(hints=("chart",), subject=NONE, search="yes"),
+        Expect(hints=("chart",), subject=NONE, search="ask"),
         "A line chart of the yearly figures a search found, with its source.",
     ),
     Case(
         "chart-prices-search",
         "format",
         "compare iPhone 18 Pro and Pixel 11 prices in a chart",
-        Expect(hints=("chart",), subject=NONE, search="yes"),
+        Expect(hints=("chart",), subject=NONE, search="ask"),
         "A bar chart of the two prices a search found.",
     ),
     Case(
@@ -1723,14 +1722,14 @@ CASES: tuple[Case, ...] = (
         "code",
         "write a python function to reverse a string",
         # The free plan has no smart tier: its strongest model takes the coding ask.
-        Expect(search="no", photo=NO_PHOTO, model="glm-5.3-flash"),
+        Expect(search="ask", photo=NO_PHOTO, model="glm-5.3-flash"),
         "A short tagged python block and one line on how it works.",
     ),
     Case(
         "code-function-pro",
         "code",
         "write a python function to reverse a string",
-        Expect(search="no", photo=NO_PHOTO, model="smart-chat"),
+        Expect(search="ask", photo=NO_PHOTO, model="smart-chat"),
         "A short tagged python block and one line on how it works.",
         pro=True,
     ),
@@ -1738,7 +1737,7 @@ CASES: tuple[Case, ...] = (
         "code-review-no-fence",
         "code",
         "can you review my function that reverses a linked list, it keeps looping forever",
-        Expect(search="no", photo=NO_PHOTO, model="smart-chat"),
+        Expect(search="ask", photo=NO_PHOTO, model="smart-chat"),
         "Names the likely cause (the next pointer never advances, or the list has a cycle), "
         "shows the fixed loop in a python fence and asks for the code if it needs it.",
         pro=True,
@@ -1765,14 +1764,14 @@ CASES: tuple[Case, ...] = (
         "code-html",
         "code",
         "make a simple calculator in html",
-        Expect(search="no"),
+        Expect(search="ask"),
         "One html block that runs in the preview.",
     ),
     Case(
         "code-run",
         "code",
         "run this python code: print(1+1)",
-        Expect(search="no", hints=("code_run",), no_hints=("answer_photo",)),
+        Expect(search="ask", hints=("code_run",), no_hints=("answer_photo",)),
         "Says Recall can't run Python, and that it would print 2.",
     ),
     Case(
@@ -1784,7 +1783,7 @@ CASES: tuple[Case, ...] = (
             hints=("code_explain", "code_ink"),
             no_hints=("answer_photo", "walkthrough", "teaching"),
             subject=NONE,
-            search="no",
+            search="ask",
             photo=NO_PHOTO,
         ),
         "One lead sentence; ### 1. The code in a python fence; ### 2. Explain each line with "
@@ -1796,7 +1795,7 @@ CASES: tuple[Case, ...] = (
         "code",
         "Explain this code line by line, then show the value of total after each iteration: "
         "total = 0 for n in [2, 4, 6]: total += n print(total)",
-        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="no"),
+        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="ask"),
         "Same shape; the code fence puts the pasted line back on four indented lines.",
     ),
     Case(
@@ -1804,7 +1803,7 @@ CASES: tuple[Case, ...] = (
         "code",
         "What does this Java code print? int sum = 0; for (int i = 1; i <= 3; i++) "
         "{ sum += i; } System.out.println(sum);",
-        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="no"),
+        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="ask"),
         "The code in a java fence, each line explained, sum after each pass (1, 3, 6), "
         "**Output:** 6.",
     ),
@@ -1817,7 +1816,7 @@ CASES: tuple[Case, ...] = (
             hints=("code_explain",),
             no_hints=("answer_photo", "walkthrough"),
             subject=NONE,
-            search="no",
+            search="ask",
         ),
         "A javascript fence, each line explained (map makes a new array), **Output:** [2, 4, 6].",
     ),
@@ -1829,7 +1828,7 @@ CASES: tuple[Case, ...] = (
             hints=("code_debug", "code_ink"),
             no_hints=("answer_photo", "code_explain"),
             subject=NONE,
-            search="no",
+            search="ask",
         ),
         "IndexError on line 2; ### Why it fails (indexes 0 to 2); ### The fix with "
         "numbers[2] or numbers[-1] in a python fence; **Output:** 3.",
@@ -1839,14 +1838,14 @@ CASES: tuple[Case, ...] = (
         "code",
         "I get this error, what's wrong?\nTraceback (most recent call last):\n"
         '  File "app.py", line 3, in <module>\n    print(user["name"])\nKeyError: \'name\'',
-        Expect(hints=("code_debug",), no_hints=("answer_photo",), search="no"),
+        Expect(hints=("code_debug",), no_hints=("answer_photo",), search="ask"),
         "KeyError: the dict has no 'name' key; why; the fix with user.get('name').",
     ),
     Case(
         "code-debug-js-undefined",
         "code",
         "why does this return undefined? function add(a, b) { a + b } console.log(add(2, 3))",
-        Expect(hints=("code_debug",), no_hints=("answer_photo",), subject=NONE, search="no"),
+        Expect(hints=("code_debug",), no_hints=("answer_photo",), subject=NONE, search="ask"),
         "The function has no return; the fix adds return a + b; **Output:** 5.",
     ),
     Case(
@@ -1862,7 +1861,7 @@ CASES: tuple[Case, ...] = (
         "code-correction-python-2",
         "code",
         "actually I meant Python 2, not 3",
-        Expect(hints=("correction",), search="no"),
+        Expect(hints=("correction",), search="ask"),
         'print "hello" as a Python 2 statement, a few words of acknowledgement at most, and '
         "nothing about Python 3 again.",
         history=(
@@ -1896,7 +1895,7 @@ CASES: tuple[Case, ...] = (
         "tone-emoji-mirror",
         "tone and emoji",
         "hey! 😊 how are you?",
-        Expect(search="no", photo=NO_PHOTO),
+        Expect(search="ask", photo=NO_PHOTO),
         "A short friendly reply; an emoji back is fine since the user used one.",
     ),
     Case(
@@ -1910,7 +1909,7 @@ CASES: tuple[Case, ...] = (
         "tone-birthday",
         "tone and emoji",
         "write a birthday message for my mom",
-        Expect(search="no"),
+        Expect(search="ask"),
         "A warm message card; an emoji or two is fine in a personal message.",
     ),
     Case(
@@ -1935,7 +1934,7 @@ CASES: tuple[Case, ...] = (
         Expect(
             hints=("compact",),
             no_hints=("answer_photo", "format_contract"),
-            search="no",
+            search="ask",
             photo=NO_PHOTO,
         ),
         "A short good morning back; no essay, no photo, no list of things it can do.",
@@ -1944,14 +1943,14 @@ CASES: tuple[Case, ...] = (
         "tone-hello-there",
         "tone and emoji",
         "hello there",
-        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="no"),
+        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="ask"),
         "A short hello back.",
     ),
     Case(
         "tone-how-are-you",
         "tone and emoji",
         "how are you?",
-        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="no"),
+        Expect(hints=("compact",), no_hints=("answer_photo", "format_contract"), search="ask"),
         "One or two friendly sentences, maybe asking what's up.",
     ),
     Case(
@@ -1966,21 +1965,21 @@ CASES: tuple[Case, ...] = (
         "personal-name",
         "personal",
         "what's my name",
-        Expect(search="no", photo=NO_PHOTO),
+        Expect(search="ask", photo=NO_PHOTO),
         "Bini.",
     ),
     Case(
         "personal-reminder",
         "personal",
         "remind me to call mom tomorrow at 5pm",
-        Expect(search="no"),
+        Expect(search="ask"),
         "Confirms a reminder for tomorrow 5 pm.",
     ),
     Case(
         "personal-reminder-clock-no-day",
         "personal",
         "remind me to plate the dinner at 7pm",
-        Expect(search="no", photo=NO_PHOTO, image_gen=False, subject=NONE),
+        Expect(search="ask", photo=NO_PHOTO, image_gen=False, subject=NONE),
         "A reminder card for 7 pm today (the next 7 pm) to tap; never 'I didn't change your "
         "reminders'. The sweep checks the card (sweep_corpus/routing_gaps.json).",
         pro=True,
@@ -1996,7 +1995,7 @@ CASES: tuple[Case, ...] = (
         "personal-correction-vegetarian",
         "personal",
         "no, I said I'm vegetarian",
-        Expect(hints=("correction",), search="no"),
+        Expect(hints=("correction",), search="ask"),
         "Vegetarian dinner ideas, no meat or fish, without a long apology.",
         history=(
             ("user", "I'm vegetarian. what should I cook tonight?"),
@@ -2007,7 +2006,7 @@ CASES: tuple[Case, ...] = (
         "personal-thanks-is-not-a-correction",
         "personal",
         "no, I said it was fine — thanks",
-        Expect(no_hints=("correction",), search="no"),
+        Expect(no_hints=("correction",), search="ask"),
         "A short you're welcome; nothing rewritten.",
         history=(
             ("user", "here's my cover letter intro, is it ok?"),
@@ -2018,7 +2017,7 @@ CASES: tuple[Case, ...] = (
         "personal-capabilities",
         "personal",
         "what can you do",
-        Expect(hints=("capabilities",), search="no"),
+        Expect(hints=("capabilities",), search="ask"),
         "A short list, including web search, photos, reminders and read-aloud.",
     ),
     # ── Multi-intent ────────────────────────────────────────────────────────
@@ -2028,7 +2027,7 @@ CASES: tuple[Case, ...] = (
         "multi-laptop-jobs",
         "multi-intent",
         "I need a new laptop, and I also want to find remote backend engineering jobs",
-        Expect(hints=("multi_intent",), search="yes"),
+        Expect(hints=("multi_intent",), search="ask"),
         "One reply, two ### sections: 2-3 laptop picks with the budget or use it assumed, "
         "then remote backend roles from the search results, with links.",
     ),
@@ -2043,35 +2042,37 @@ CASES: tuple[Case, ...] = (
         "multi-weather-and-solve",
         "multi-intent",
         "what's the weather in Paris tomorrow and also solve 2x + 5 = 17",
-        Expect(subject="math", solved=True, search="yes", hints=("multi_intent",)),
+        Expect(subject="math", solved=True, search="ask", hints=("multi_intent",)),
         "Tomorrow's Paris forecast from the results, and x = 6 from the verified solve.",
     ),
     Case(
         "multi-solve-then-weather",
         "multi-intent",
         "solve 2x + 5 = 17 and also what's the weather in Paris tomorrow",
-        Expect(subject="math", solved=True, search="yes", hints=("multi_intent",)),
+        Expect(subject="math", solved=True, search="ask", hints=("multi_intent",)),
         "x = 6 (verified), then tomorrow's Paris forecast from the results.",
     ),
     Case(
         "multi-teach-and-price",
         "multi-intent",
         "teach me python dictionaries, and what is the current price of bitcoin?",
-        Expect(search="yes", hints=("multi_intent", "teaching")),
+        Expect(search="ask", hints=("multi_intent", "teaching")),
         "A short lesson opener on dictionaries, then today's bitcoin price from the results.",
     ),
     Case(
         "multi-code-and-score",
         "multi-intent",
         "write a function to reverse a list, and who won the champions league final last night",
-        Expect(search="yes", hints=("multi_intent",)),
+        # One request: it was cut only so its second half was searched for itself, and a
+        # search is the reply model's own call over the whole message now.
+        Expect(search="ask"),
         "A short python function, then last night's final result from the results.",
     ),
     Case(
         "multi-reminder-and-weather",
         "multi-intent",
         "remind me to buy milk at 5pm and what's the weather in Nairobi today?",
-        Expect(search="yes", hints=("multi_intent",)),
+        Expect(search="ask", hints=("multi_intent",)),
         "A reminder card for 5 pm to tap, and today's Nairobi weather from the results.",
     ),
     Case(
@@ -2322,28 +2323,28 @@ CASES: tuple[Case, ...] = (
         "search-remote-jobs",
         "web search",
         "find remote backend engineering jobs",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "Current remote backend openings from the results, each with a link.",
     ),
     Case(
         "search-jobs-today",
         "web search",
         "find software jobs posted today",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "Today's software postings from the results, with links.",
     ),
     Case(
         "search-product-price",
         "web search",
         "how much does the iPhone 17 Pro cost?",
-        Expect(search="yes"),
+        Expect(search="ask"),
         "The current price from the results, with the storage tier it is for.",
     ),
     Case(
         "search-job-lookalike",
         "web search",
         "I got the job!",
-        Expect(search="no"),
+        Expect(search="ask"),
         "Congratulations, one or two warm lines.",
     ),
     # ── Memory: what a turn reads, and what it says when memory can't help ──

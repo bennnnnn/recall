@@ -94,7 +94,7 @@ def test_a_ratio_is_compared_as_a_pair() -> None:
 # The worked layout's cards as finalize lands them (``check_working``).
 _DISPLACEMENT = (
     "**Required**  \n$s$ (displacement)\n\n**Answer**\n\n"
-    "```answer\nverified: false\n$s = 2400\\,\\mathrm{m}\\ \\text{east}$\n```"
+    "```answer\nverified: false\ns = 2400\\,\\mathrm{m}\\ \\text{east}\n```"
 )
 _DISPLACEMENT_ASKED = (
     "A car moves at a speed of 20m/s for 120 seconds due East. What is the displacement?"
@@ -102,9 +102,9 @@ _DISPLACEMENT_ASKED = (
 _CAR_AND_TRAIN = (
     "**Required**  \n(a) $v$ (speed of the car)  \n(b) $v$ (speed of the train)\n\n"
     "**Solution**\n\n**(a) speed of the car**\n\n**Answer (a)**\n\n"
-    "```answer\nverified: false\n$20\\,\\mathrm{m/s}$\n```\n\n---\n\n"
+    "```answer\nverified: false\n20\\,\\mathrm{m/s}\n```\n\n---\n\n"
     "**(b) speed of the train**\n\n**Answer (b)**\n\n"
-    "```answer\nverified: false\n$30\\,\\mathrm{m/s}$\n```"
+    "```answer\nverified: false\n30\\,\\mathrm{m/s}\n```"
 )
 _CAR_AND_TRAIN_ASKED = (
     "A car goes 100 m in 5 s; find its speed. A train goes 300 m in 10 s; find its speed."
