@@ -34,6 +34,8 @@ _KNOWN = names_longest_first(tuple(WRITTEN))
 # A name's own letters before a bracket or an absolute-value bar. Whitespace is allowed only
 # after a name the readers already know (``sin (x)``): "the sign (positive or negative)" is prose.
 _CALL = re.compile(r"(?<![^\W\d]|\\)([^\W\d_]+)(\s*)([(|])")
+# A bracket that only makes the word plural: "root(s)", "box(es)".
+_PLURAL_MARK = re.compile(r"e?s\)", re.IGNORECASE)
 # π before a bracket multiplies (``π(r + 1)``).
 _MULTIPLYING_LETTERS = frozenset("πΠ")
 # What a function said in words is applied to: a variable, a bracket or a bare number. "The
@@ -123,6 +125,9 @@ def written_functions(text: str) -> Counter[str]:
     for match in _CALL.finditer(text):
         run, spaced, bar = match.group(1), bool(match.group(2)), match.group(3) == "|"
         if not run.isalpha() or (spaced and run.lower() not in MATH_FUNCTION_NAMES):
+            continue
+        # "root(s)", "sum(s)", "design(es)": a plural marker, not a call.
+        if _PLURAL_MARK.match(text, match.end(3)):
             continue
         name = _call_name(run, spaced, bar)
         if name is not None:

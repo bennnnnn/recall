@@ -82,6 +82,10 @@ from app.services.solving import SolveServiceError
         # A call written after a word is one mod, not a call and a remainder (review of #2322).
         ("evaluate mod(17,5)", {"mod": 1}),
         ("find x if x mod(4) = 1", {"mod": 1}),
+        # A plural marker is no call (review of #2322).
+        ("Find the root(s) of x^2 - 5x + 6 = 0", {}),
+        ("what are the sum(s) of the digits", {}),
+        ("list the design(s) and their box(es)", {}),
     ],
 )
 def test_written_functions_names_each_applied_function(text: str, expected: dict[str, int]) -> None:
