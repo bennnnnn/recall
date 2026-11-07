@@ -95,7 +95,7 @@ def test_the_card_keeps_the_value_and_a_remark_goes_under_it(
 def test_a_remark_after_the_answer_lands_under_its_card() -> None:
     reply = "**Solution**\n\nwork\n\n**Answer**\n\n$x = 3$, since 3 is greater than 2"
     landed = land_answer_card(reply, None)
-    assert landed.endswith("```answer\nverified: false\n$x = 3$\n```\n\nSince 3 is greater than 2.")
+    assert landed.endswith("```answer\nverified: false\nx = 3\n```\n\nSince 3 is greater than 2.")
 
 
 def test_the_rolling_sphere_card_holds_only_its_value() -> None:

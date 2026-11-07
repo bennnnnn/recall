@@ -15,6 +15,8 @@ from app.modules.todos.reply_claims import (
     CLAIM_VERBS,
     COLON_CLAIM_RE,
     PROSE_CLAIM_RE,
+    is_claim,
+    split_sentences,
     without_claim_lines,
 )
 from app.modules.todos.spoken_add import (
@@ -22,13 +24,23 @@ from app.modules.todos.spoken_add import (
     FILLER_RE,
     WORD_RE,
     adds_content,
+    asks_to_add,
+    is_reminder_request,
+    parse_spoken_add,
     user_named_a_clock,
+    which_half_question,
 )
 from app.modules.todos.spoken_change import parse_spoken_reminder_change
+from app.modules.todos.spoken_clauses import asked_when
 from app.services.draft_fences import has_draft
 from app.services.md_fence_scan import iter_fences, without_fences
+from app.services.text_normalize import straighten_apostrophes as straighten
 
 NEED_A_TIME = "When should I remind you?"
+# There is no undated list (.cursor/rules/chat-ux-bans.mdc §8): "put buy groceries on my
+# list" and "no time, just put it on the list" got "Added to your list" with nothing saved
+# (2026-11-06). What chat can keep is a reminder, and it needs a time.
+KEEP_AS_REMINDER = "I can keep that as a reminder with a time. When should I remind you?"
 _DECLINE_SAVE_RE = re.compile(
     r"\b(?:i (?:set|added|saved|scheduled)|reminder (?:is |was )?set)\b",
     re.IGNORECASE,
@@ -133,14 +145,21 @@ _DATED_CLAIM_RE = re.compile(
 
 
 def reply_when_nothing_saved(
-    text: str, user_text: str | None, *, about_reminders: bool = False
+    text: str,
+    user_text: str | None,
+    *,
+    about_reminders: bool = False,
+    prior_assistant: str | None = None,
+    prior_user: str | None = None,
 ) -> str:
     """The model must not confirm a reminder the server did not save.
 
     Only a reply about reminders is checked: one with a reminder fence
     (``about_reminders``), or one that talks about reminders or confirms a
     dated one. "Can you add 3 + 4?" answered with "3 + 4 = 7", or an answer
-    with a "Created: 1991" line, is not one.
+    with a "Created: 1991" line, is not one. ``prior_assistant`` and ``prior_user``: the
+    exchange before this turn; after it asked when to remind, or asked anything about an add
+    the user had just asked for, this message goes on with that add.
     """
     if not (
         about_reminders
@@ -149,34 +168,74 @@ def reply_when_nothing_saved(
     ):
         return text
     words = _without_code(text)
-    asked = _asked_to_change_or_add(user_text)
+    pending = asked_when(prior_assistant) or _asked_about_an_add(prior_assistant, prior_user)
+    asked = pending or _asked_to_change_or_add(user_text)
     colon = bool(COLON_CLAIM_RE.search(words))
-    prose = bool(asked and PROSE_CLAIM_RE.search(words))
-    needs_time = bool(
-        user_text
-        and ADD_REQUEST_RE.search(user_text)
-        and not user_named_a_clock(user_text)
-        and not adds_content(user_text)
-    )
+    prose = bool(asked and (PROSE_CLAIM_RE.search(words) or _claims_in(words)))
     lines = text.splitlines()
     kept = without_claim_lines(lines)
     changed = len(kept) != len(lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip() if changed else text
-    asks_when = bool(_ASKS_WHEN_RE.search(cleaned))
-    if needs_time:
-        if asks_when and not colon and not prose:
+    if _needs_time(user_text) or (pending and _wants_no_time(user_text)):
+        if _ASKS_WHEN_RE.search(cleaned) and not colon and not prose:
             return cleaned
-        return NEED_A_TIME
+        return _when_question(user_text)
     if explicitly_declines_reminder_creation(user_text) and _DECLINE_SAVE_RE.search(cleaned):
         if not _DECLINE_NEGATION_RE.search(cleaned):
             return "I didn't set a reminder."
     if colon or prose:
-        return "I didn't change your reminders."
+        # Asked when, they answered with no time: what chat can keep still needs one.
+        return KEEP_AS_REMINDER if pending and not user_named_a_clock(user_text) else _UNCHANGED
     if changed and not cleaned.strip():
-        return "I didn't change your reminders."
-    if not changed:
-        return text
-    return cleaned
+        return _UNCHANGED
+    return cleaned if changed else text
+
+
+_UNCHANGED = "I didn't change your reminders."
+
+
+def _asked_about_an_add(prior_assistant: str | None, prior_user: str | None) -> bool:
+    """The last reply asked a question about the add the user's message before asked for:
+    "when should I set 'Buy groceries' for?" after "add buy groceries to my list"."""
+    if not prior_assistant or not prior_assistant.rstrip().endswith("?"):
+        return False
+    return asks_to_add(prior_user)
+
+
+def _needs_time(user_text: str | None) -> bool:
+    """The message adds something (to a list, or as a reminder) and names no clock."""
+    if not user_text or adds_content(user_text) or user_named_a_clock(user_text):
+        return False
+    return bool(ADD_REQUEST_RE.search(user_text) or asks_to_add(user_text))
+
+
+# "No time, just put it on the list", "whenever", "I don't need a reminder, just add it".
+_NO_TIME_RE = re.compile(
+    r"\b(?:no (?:time|date|reminder|alarm|due date)|without (?:a |any )?(?:time|date|reminder)"
+    r"|any ?time|whenever|just (?:put|add|list|keep|save|write)"
+    r"|don'?t (?:need|want|set) (?:a |any )?(?:time|reminder|date|alarm))\b",
+    re.IGNORECASE,
+)
+
+
+def _wants_no_time(user_text: str | None) -> bool:
+    """The answer to "when?" asks for the item with no time, which chat cannot keep."""
+    return bool(user_text) and _NO_TIME_RE.search(straighten(user_text or "")) is not None
+
+
+def _when_question(user_text: str | None) -> str:
+    """What to ask for an add with no clock: only the half of the day when the user said
+    "tomorrow at 6"; when for a reminder they asked for; and for an add to a list, that it
+    can be kept only as a reminder with a time."""
+    half = which_half_question(parse_spoken_add(user_text))
+    if half is not None:
+        return half
+    return NEED_A_TIME if is_reminder_request(user_text) else KEEP_AS_REMINDER
+
+
+def _claims_in(words: str) -> bool:
+    """A sentence of the reply that says a change was made ("it's on your list")."""
+    return any(is_claim(part) for line in words.splitlines() for part in split_sentences(line))
 
 
 def mentions_reminders(text: str | None) -> bool:

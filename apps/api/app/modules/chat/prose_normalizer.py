@@ -159,14 +159,34 @@ def _unwrap_fenced_pipe_tables(text: str) -> str:
     return "\n".join(out)
 
 
+# A bullet with nothing after it: "### International\n*\n*   **Ukraine:** …" showed an empty
+# dot above the news (2026-11-06). A number alone stays: its step may be on the next line.
+_EMPTY_BULLETS = frozenset({"*", "-", "+", "•"})
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _empty_bullet(lines: list[str], index: int) -> bool:
+    """A line that is only a bullet marker and holds nothing: a next line indented
+    deeper is the item's own text ("-\n  **Ukraine:** …"), which keeps it."""
+    line = lines[index]
+    if line.strip() not in _EMPTY_BULLETS:
+        return False
+    after = lines[index + 1] if index + 1 < len(lines) else ""
+    return not after.strip() or _indent(after) <= _indent(line)
+
+
 def normalize_prose_artifacts(text: str) -> str:
-    """Remove orphan colon lines and collapse excess blank lines outside fences."""
+    """Remove orphan colon lines and empty bullets, and collapse excess blank lines,
+    outside fences."""
     text = _unwrap_fenced_pipe_tables(text)
     lines = text.split("\n")
     owners = line_fences(text)
     out: list[str] = []
     blank_run = 0
-    for line, fence in zip(lines, owners, strict=True):
+    for index, (line, fence) in enumerate(zip(lines, owners, strict=True)):
         stripped = line.strip()
         if fence is not None:
             blank_run = 0
@@ -176,6 +196,8 @@ def normalize_prose_artifacts(text: str) -> str:
             blank_run += 1
             if blank_run < 2:
                 out.append("")
+            continue
+        if _empty_bullet(lines, index):
             continue
         if stripped == "":
             blank_run += 1

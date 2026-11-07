@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field, replace
+from datetime import date
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -47,6 +48,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from app.modules.images.answer_photo import AnswerPhoto
     from app.modules.images.reply_picture import ReplyPicture
+    from app.modules.web_search import LiveRead
     from app.services.subjects.registry import MoneyTurn
 
 
@@ -70,6 +72,9 @@ class StreamContext:
     user_message_content: str
     reserved_tokens: int
     max_output_tokens: int
+    # The UTC day whose chat message this turn took (``TurnResources.message_day``): kept
+    # when a reply is saved, given back with ``reserved_tokens`` when none is.
+    message_day: date | None = None
     # Effective timezone for this request (profile preference overridden by
     # the current client timezone). Finalization must use the same zone that
     # prompt construction used for relative dates and reminder clocks.
@@ -136,6 +141,11 @@ class StreamContext:
     # The tools the reply's own model call carries, when the tool loop leaves the
     # turn to it: ``web_search`` (``tool_loop.reply_calls``).
     reply_tools: list[dict[str, Any]] = field(default_factory=list)
+    # A model's read, started beside the prep, of whether the answer depends on facts that
+    # change (``web_search.live_read``); and the tool the reply's first call must make
+    # when it said so but wrote no query (``web_search``).
+    live_read: asyncio.Task[LiveRead | None] | None = None
+    reply_requires: str | None = None
     # Offered on a second call when the first, with no tool, says it can't see live
     # data (``tool_loop.live_denial``). Empty past the spend cap or after a search.
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)
@@ -292,6 +302,10 @@ async def _load_turn_identity(request: TurnRequest, settings: Settings) -> TurnI
                 mode = classify_turn_mode(recent, request.content)
     if request.force_rich_context and not mode.rich_context:
         mode = replace(mode, rich_context=True)
+    # A photo is what the turn is about, sent alone or with a "hi": never small talk. A
+    # homework photo with no caption was answered on the small-talk prompt (2026-11-06).
+    if request.has_image_attachment and mode.lightweight:
+        mode = replace(mode, lightweight=False, lightweight_reason="not_light")
     geo = resolve_client_geo(
         user,
         request.content,

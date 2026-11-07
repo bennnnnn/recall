@@ -23,7 +23,7 @@ from app.modules.todos.spoken_add import (
     is_reminder_request,
     parse_spoken_add,
 )
-from app.modules.todos.spoken_when import parse_clock_only
+from app.modules.todos.spoken_when import half_of_day, parse_clock_only
 
 # What starts the first reminder; a later one starts at _NEXT_REMINDER_RE.
 _FIRST_REQUEST_RE = re.compile(
@@ -107,7 +107,8 @@ _TO_REMIND_RE = re.compile(r"\bremind|\breminder|\bset (?:it|that|this|one)\b", 
 _ASKED_NEAR_END = 300
 
 
-def _asked_when(prior_assistant: str | None) -> bool:
+def asked_when(prior_assistant: str | None) -> bool:
+    """The last reply asked when to remind (see above)."""
     tail = (prior_assistant or "").rstrip()[-_ASKED_NEAR_END:]
     return any(
         _WHEN_RE.search(clause) and _TO_REMIND_RE.search(clause)
@@ -138,8 +139,19 @@ async def answered_when(
     if clock is not None:
         dated = await pending_add(session, chat_id, current)
         if dated is not None:
-            return replace(dated, hour=clock[0], minute=clock[1])
-    if not widen or not _asked_when(prior_assistant):
+            return replace(dated, hour=clock[0], minute=clock[1], bare=None)
+    # "pm" after "6 am or 6 pm?": the bare hour the add already named, in that half.
+    half = half_of_day(current)
+    if half is not None:
+        named = await pending_add(session, chat_id, current, dated=False)
+        if named is not None and named.bare is not None:
+            hour, minute = named.bare
+            return _with_day(
+                replace(named, hour=hour % 12 + half, minute=minute, bare=None),
+                f"{_REQUEST}{named.title}",
+                user_timezone,
+            )
+    if not widen or not asked_when(prior_assistant):
         return None
     pending = await pending_add(session, chat_id, current, dated=False)
     if pending is None:

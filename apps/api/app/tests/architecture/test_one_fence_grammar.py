@@ -32,7 +32,6 @@ _ALLOWED = {
     "modules/turn_reading/diagrams.py": _USER_CUE,
     "modules/turn_reading/teaching.py": _USER_CUE,
     "modules/turn_reading/visuals.py": _USER_CUE,
-    "modules/web_search/patterns.py": _USER_CUE,
     "modules/chat/model_routing/route.py": (
         "the user's message: a ``` opening a line is code, ```print(1)``` on one line too"
     ),

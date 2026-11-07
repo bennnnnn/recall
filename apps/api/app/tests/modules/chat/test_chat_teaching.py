@@ -293,7 +293,7 @@ def test_programming_lesson_requires_a_tagged_code_example():
 @pytest.mark.parametrize("hint", [TEACHING_HINT, WALKTHROUGH_HINT])
 def test_lesson_hints_follow_the_chatgpt_lesson_shape(hint):
     assert "### Lesson N: <topic>" in hint
-    assert "`### 1. Understand the problem`" in hint
+    assert "`### 1. Eventually`" in hint
     assert "Your turn" in hint and "```quiz" in hint
     assert "```array" in hint and "```steps" in hint
     assert "$O(n^2)$" in hint
@@ -439,10 +439,10 @@ def _user():
     return user
 
 
-async def _system_prompt(recent, query):
+async def _system_prompt(recent, query, memory=""):
     with (
         patch.object(chats_repository, "get_by_id", AsyncMock(return_value=None)),
-        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value="")),
+        patch("app.modules.memory.retrieval.get_memory_block", AsyncMock(return_value=memory)),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
         patch.object(messages_repository, "list_recent", AsyncMock(return_value=recent)),
     ):
@@ -451,10 +451,31 @@ async def _system_prompt(recent, query):
             uuid4(),
             Settings(attachment_rag_enabled=False),
             query_text=query,
-            rich_context=False,
+            rich_context=bool(memory),
             current_user_message_id=recent[-1].id,
         )
     return system_prompt(messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("memory", "demanded"),
+    [
+        ("", True),
+        ("- Learning Python: reached Lesson 3, Dictionaries. Covered: Variables; Lists", False),
+        # A course in another subject leaves this one's first lesson as it is.
+        ("- Learning Spanish: reached Lesson 2, Greetings. Covered: Sounds", True),
+        # Review of #2318: a shared first word is no course ("the", "C" in "vitamin C").
+        ("- Learning the Go language: reached Lesson 2, Types. Covered: Values", True),
+        ("- Learning Python lists: reached Lesson 2, Slicing. Covered: Indexing", False),
+    ],
+)
+async def test_a_course_in_progress_is_not_asked_for_a_new_lessons_code(memory, demanded):
+    """Review of #2318: "teach me python" with Lesson 3 in memory asks where to pick up,
+    and the code-and-quiz check once demanded a whole new lesson on top of that."""
+    recent = [SimpleNamespace(id=uuid4(), role="user", content="teach me python")]
+    system = await _system_prompt(recent, "teach me python", memory=memory)
+    assert ("HARD PROGRAMMING-LESSON ACCEPTANCE CHECK" in system) is demanded
 
 
 @pytest.mark.asyncio
@@ -559,15 +580,10 @@ OUTLINE = (
 )
 
 
-def test_teaching_hint_outlines_a_whole_subject_and_teaches_one_idea():
-    assert "A whole subject" in TEACHING_HINT and "do not teach yet" in TEACHING_HINT
-    assert "One idea" in TEACHING_HINT and "nothing past it" in TEACHING_HINT
-    assert "an outline of a whole language has no code" in programming_lesson_contract(
-        "teach me python lists"
-    )
-    # A whole language is its outline: no code contract pulls it into Lesson 1 (2026-11-03).
-    assert programming_lesson_contract("teach me python") == ""
-    assert programming_lesson_contract("I want to learn python from scratch") == ""
+def test_a_whole_language_gets_its_first_lesson_with_code():
+    # "teach me python" is Lesson 1 now, not an outline: its code contract applies.
+    assert programming_lesson_contract("teach me python") != ""
+    assert programming_lesson_contract("I want to learn python from scratch") != ""
 
 
 def _turns(*pairs):

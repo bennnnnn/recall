@@ -1,36 +1,25 @@
 import { useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AuthScrollLayout } from "@/components/AuthScrollLayout";
-import { Icon } from "@/ui/icons/Icon";
 import { Button } from "@/ui/controls/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { FeatureShowcase } from "@/features/auth/components/landing/FeatureShowcase";
+import { offerPlansAfterSignIn } from "@/features/billing/model/welcomePlans";
 import { tap } from "@/lib/haptics";
-import { Graphic } from "@/lib/graphic";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
-const FEATURES = [
-  {
-    icon: "message-dots",
-    titleKey: "onboarding.chat_title",
-    bodyKey: "onboarding.chat_body",
-  },
-  {
-    icon: "sparkles",
-    titleKey: "onboarding.remember_title",
-    bodyKey: "onboarding.remember_body",
-  },
-] as const;
+const APP_ICON = require("@/assets/images/icon.png");
 
+/** The landing: what Recall does, shown as it does it, before sign-in. */
 export default function Onboarding() {
   const { onboarded, completeOnboarding } = useAuth();
   const router = useRouter();
@@ -51,7 +40,8 @@ export default function Onboarding() {
     finishingRef.current = true;
     setFinishing(true);
     try {
-      await completeOnboarding();
+      // A first visit sees the plans once after it signs in; it can keep Free.
+      await Promise.all([completeOnboarding(), offerPlansAfterSignIn()]);
       router.replace("/login");
     } catch {
       reportRecoverableError(feedback, t("common.error"));
@@ -63,27 +53,17 @@ export default function Onboarding() {
 
   return (
     <LinearGradient colors={gradientColors} style={s.root}>
-      <AuthScrollLayout justify="center">
-        <View style={s.hero}>
-          <View style={s.badge}>
-            <Text style={s.badgeStar} accessibilityElementsHidden importantForAccessibility="no">✦</Text>
+      <AuthScrollLayout justify="space-between">
+        <View>
+          <View style={s.brand}>
+            <Image source={APP_ICON} style={s.icon} accessibilityIgnoresInvertColors />
+            <Text style={s.name} accessibilityRole="header">{t("app.name")}</Text>
           </View>
-          <Text style={s.title} accessibilityRole="header">{t("onboarding.welcome")}</Text>
-          <Text style={s.subtitle}>{t("onboarding.subtitle")}</Text>
+          <Text style={s.tagline}>{t("onboarding.tagline")}</Text>
         </View>
 
-        <View style={s.features}>
-          {FEATURES.map((f) => (
-            <View key={f.titleKey} style={s.feature}>
-              <View style={s.featureIcon}>
-                <Icon name={f.icon} size={IconSize.sm} color={theme.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.featureTitle}>{t(f.titleKey)}</Text>
-                <Text style={s.featureBody}>{t(f.bodyKey)}</Text>
-              </View>
-            </View>
-          ))}
+        <View style={s.showcase}>
+          <FeatureShowcase />
         </View>
 
         <Button
@@ -92,6 +72,7 @@ export default function Onboarding() {
           loading={finishing}
           loadingLabel={t("onboarding.get_started")}
           disabled={finishing}
+          size="lg"
           style={s.cta}
         />
       </AuthScrollLayout>
@@ -101,49 +82,25 @@ export default function Onboarding() {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    root: {
-      flex: 1,
-    },
-    hero: { alignItems: "center", marginBottom: Space.xl + Space.xs },
-    badge: {
-      width: 72,
-      height: 72,
-      borderRadius: Radius.composer,
-      backgroundColor: theme.primary,
+    root: { flex: 1 },
+    brand: {
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: Space.md,
+      gap: Space.xs,
+      paddingTop: Space.sm,
     },
-    badgeStar: { ...Graphic.badgeMark, color: theme.onPrimary },
-    title: {
-      ...Type.display,
+    icon: { width: 32, height: 32, borderRadius: Radius.md },
+    name: { ...Type.title, ...Weight.bold, color: theme.text },
+    tagline: {
+      ...Type.title,
+      ...Weight.semibold,
       color: theme.text,
-    },
-    subtitle: {
-      ...Type.body,
-      color: theme.textSecondary,
-      marginTop: Space.xs,
       textAlign: "center",
+      marginTop: Space.md,
+      paddingHorizontal: Space.sm,
     },
-    features: { gap: Space.gutter, marginBottom: Space.xl + Space.xs },
-    feature: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
-    featureIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    featureTitle: {
-      ...Type.body,
-      ...Weight.bold,
-      color: theme.text,
-      marginBottom: 2,
-    },
-    featureBody: { ...Type.label, ...Weight.regular, color: theme.textSecondary },
-    cta: {
-      alignSelf: "stretch",
-    },
+    showcase: { marginVertical: Space.md },
+    cta: { alignSelf: "stretch" },
   });
 }

@@ -99,7 +99,7 @@ export interface ChatScreenChromeProps {
   scrollAwayCount: number;
   onScrollToLatest: () => void;
   quotaNudgeVisible: boolean;
-  quotaUsedPct: number;
+  quotaLabel: string;
   onQuotaUpgrade: () => void;
   onQuotaDismiss: () => void;
   chatError: ResolvedChatError | null;
@@ -258,7 +258,7 @@ const ChatOverlays = memo(function ChatOverlays({
           theme={theme}
           bottomOffset={composerClearance + 8}
           lift={keyboardLift}
-          usedPct={chrome.quotaUsedPct}
+          label={chrome.quotaLabel}
           onUpgrade={chrome.onQuotaUpgrade}
           onDismiss={chrome.onQuotaDismiss}
         />

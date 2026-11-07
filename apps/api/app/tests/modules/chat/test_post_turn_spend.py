@@ -337,8 +337,10 @@ async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
         {"role": "assistant", "tool_calls": [{"id": "c1"}]},
         {"role": "tool", "tool_call_id": "c1", "content": "hits"},
     ]
+    ctx.live_read = None
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
+        patch("app.modules.chat.tool_loop.turn_needs_tool_loop", return_value=True),
         patch(
             "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(tool_messages, None, None, [])),

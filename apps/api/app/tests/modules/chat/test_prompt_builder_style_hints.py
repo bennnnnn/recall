@@ -673,7 +673,7 @@ def _turn_prompt(
 
     from app.core.config import Settings
     from app.models.orm import User
-    from app.modules.chat.prompt_format import render_rules
+    from app.modules.chat.prompt_rules import render_rules
     from app.modules.chat.prompt_sections import (
         NEARBY_CONTRACTS,
         STABLE_SECTIONS,
@@ -804,8 +804,8 @@ def test_continue_resumes_the_last_reply_but_a_lesson_keeps_its_own_next_step():
     [
         ("I don't understand recursion", "LESSON_CONTRACT"),
         ("help me understand two sum in python", "LESSON_CONTRACT"),
-        ("teach me python", "OUTLINE_CONTRACT"),
-        ("I want to learn python from scratch", "OUTLINE_CONTRACT"),
+        ("teach me python", "TEACH_CONTRACT"),
+        ("I want to learn python from scratch", "TEACH_CONTRACT"),
         ("teach me python dictionaries", "TEACH_CONTRACT"),
         ("teach me american history", "TEACH_CONTRACT"),
         ("what is recursion", None),
@@ -821,5 +821,5 @@ def test_a_lesson_turn_restates_its_shape_beside_the_message(
     from app.modules.chat.prompt_constants import teaching
 
     _, nearby = _turn_prompt(query)
-    for name in ("LESSON_CONTRACT", "TEACH_CONTRACT", "OUTLINE_CONTRACT"):
+    for name in ("LESSON_CONTRACT", "TEACH_CONTRACT"):
         assert (getattr(teaching, name) in nearby) is (name == contract)

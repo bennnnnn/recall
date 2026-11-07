@@ -26,6 +26,27 @@ _LETTERED = re.compile(
 )
 
 
+# "**Answer (a):** $20.4\,\mathrm{m}$": a part's heading with its value on the same line.
+_HEADED_VALUE = re.compile(
+    r"^\s*(?P<head>(?:#{1,4}\s+)?\*\*Answer \([a-h]\))(?::\*\*|\*\*:)[ \t]*(?P<value>\S.*)$"
+)
+
+
+def own_line_part_answers(text: str) -> str:
+    """Each part's value on the line under its own Answer heading, as a heading alone reads.
+
+    Read as no part heading, "**Answer (a):** 20.4 m" and "**Answer (b):** 4.08 s" kept their
+    values and a closing card said both again, "20.4 m; 4.08 s" (2026-11-06).
+    """
+    lines = text.split("\n")
+    owners = line_fences(text)
+    out: list[str] = []
+    for line, owner in zip(lines, owners, strict=True):
+        match = _HEADED_VALUE.match(line) if owner is None else None
+        out.extend([f"{match.group('head')}**", "", match.group("value")] if match else [line])
+    return "\n".join(out)
+
+
 def answers_by_letter(text: str) -> str:
     """``text`` with the lettered lines under its last bare Answer heading, (a), (b) and so
     on in order, each under its own ``**Answer (a)**`` heading; else ``text`` as it is."""
@@ -74,7 +95,7 @@ def land_part_answer_cards(text: str) -> str | None:
     closing Answer heading ("**Answer:** It lands after 2 s.", "## Answer"): a summary,
     never one part's answer. A heading inside a code block is an example, not a part.
     """
-    text = answers_by_letter(text)
+    text = answers_by_letter(own_line_part_answers(text))
     lines = text.split("\n")
     prose = [number for number, owner in enumerate(line_fences(text)) if owner is None]
     headings = [number for number in prose if PART_ANSWER_HEADING.match(lines[number])]

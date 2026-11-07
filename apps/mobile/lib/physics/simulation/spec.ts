@@ -96,6 +96,8 @@ export type SimulationSolid = {
 export const SCENE_TITLE_KEYS = [
   "projectile",
   "free_fall",
+  "thrown_up",
+  "thrown_down",
   "orbit",
   "satellite",
   "circular_motion",

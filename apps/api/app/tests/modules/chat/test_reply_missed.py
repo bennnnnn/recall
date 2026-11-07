@@ -11,8 +11,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.modules.chat.message_notes import message_notes
-from app.modules.chat.prompt_constants.conversation import OWN_MISTAKE_HINT
-from app.modules.chat.prompt_constants.format import STEPS_NOTE
+from app.modules.chat.prompt_constants.conversation import NO_RECAP_NOTE, OWN_MISTAKE_HINT
+from app.modules.chat.prompt_constants.format import READER_NOTE
 from app.modules.chat.prompt_constants.reply_missed import (
     REPLY_HOW_HINT,
     REPLY_MISSED_HINT,
@@ -80,6 +80,35 @@ def test_other_messages_are_not_a_missed_reply(query: str) -> None:
     assert reply_missed_hint(query, _AFTER_A_REPLY) is None
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        # Live 2026-11-06, after a worked age problem: the answer came back restated.
+        "i dont get it, explain it simpler without all the letters",
+        "I'm lost, can you go slower",
+        "explain it simpler",
+        "can you explain that in plain english",
+        "say it without all the maths",
+        "put it in simpler terms please",
+    ],
+)
+def test_asking_for_it_plainer_is_a_missed_reply(query: str) -> None:
+    assert reply_missed_hint(query, _AFTER_A_REPLY) == f"{REPLY_MISSED_HINT} {_IN_ENGLISH}"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "explain the simpler version of photosynthesis",
+        "explain it to a 5 year old",
+        "I don't get why people like jazz",
+        "can you explain how simple interest works",
+    ],
+)
+def test_a_new_ask_in_plain_words_is_not_a_missed_reply(query: str) -> None:
+    assert reply_missed_hint(query, _AFTER_A_REPLY) is None
+
+
 def test_with_no_reply_before_there_is_nothing_to_follow() -> None:
     assert reply_missed_hint("What?", []) is None
     assert reply_missed_hint("What?", [("user", "hi")]) is None
@@ -91,13 +120,16 @@ def _exchange(*pairs: tuple[str, str]) -> list[SimpleNamespace]:
 
 def test_the_notes_sit_in_order_and_only_when_they_apply() -> None:
     rain = "Monthly rainfall: Jan 15, Feb 30, Mar 60, Apr 85"
-    # After a reply, owning a mistake rides along (``OWN_MISTAKE_HINT``); steps to follow are
-    # numbered on every message outside a lesson (``STEPS_NOTE``).
+    # After a reply, owning a mistake rides along (``OWN_MISTAKE_HINT``), and so does no
+    # recap of what the chat settled (``NO_RECAP_NOTE``); steps to follow are numbered on
+    # every message outside a lesson (``READER_NOTE``).
     assert message_notes("??", _exchange(*_AFTER_A_REPLY), _EN) == [
         REPLY_MISSED_HINT,
         OWN_MISTAKE_HINT,
-        STEPS_NOTE,
+        NO_RECAP_NOTE,
+        READER_NOTE,
     ]
+    assert NO_RECAP_NOTE not in message_notes("hi", [], _EN)
     assert message_notes(rain, [], _EN)[0].startswith(SHARED_NUMBERS_HINT)
     # The message's language comes last, nearest it.
     notes = message_notes("What?", _exchange(*_AFTER_A_REPLY), _EN)

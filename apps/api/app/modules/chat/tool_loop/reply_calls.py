@@ -1,20 +1,20 @@
 """The tools on the reply's own model call: ``web_search`` and ``recall_chats``.
 
-Word rules alone decided search in production: the classifier round that read the
-rest cost every turn a model call before its first word, so it was turned off, and
-"who won the champions league" or "what's the population of Ethiopia" was answered
-from training data. A turn the rules neither searched nor ruled out now offers the
-tool to the model writing the reply. It answers at once, or calls ``web_search`` and
-answers in a second call that reads the results. A reply that needs no search costs
-nothing more. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
+Word rules used to decide search, and each one misfired on its look-alikes: "What is
+going on" opening a chat matched a news pattern and was answered with a song. The
+model writing the reply now decides. Every turn it writes carries ``web_search``; it
+answers at once, or calls the tool and answers in a second call that reads the
+results. A reply that needs no search costs nothing more. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
 so the model, not a phrase list, decides when a turn reads the user's earlier chats.
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import time
 from collections.abc import Callable
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -31,11 +31,12 @@ from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
 from app.modules.memory.recall_tool import RECALL_TOOL
-from app.modules.turn_reading.coding import has_code_syntax
-from app.modules.turn_reading.conversation import is_social_opener
-from app.modules.turn_reading.school_question import has_nothing_to_look_up
-from app.modules.web_search import TurnTavilyBudget, web_search_skip
-from app.services.time_context import is_remote_time_question
+from app.modules.web_search import TurnTavilyBudget, live_read_result
+
+if TYPE_CHECKING:
+    from app.modules.chat.turn_prep.context import StreamContext
+
+logger = logging.getLogger(__name__)
 
 REPLY_TOOL = "web_search"
 
@@ -48,8 +49,6 @@ class ReplyTurn(NamedTuple):
     has_instant_reply: bool
     has_verified_math: bool
     has_search_sources: bool
-    prior_user_messages: list[str] | None
-    prior_assistant: str | None
     # Memory is on and the prompt holds no earlier-chat snippets already.
     may_recall: bool = False
 
@@ -76,9 +75,8 @@ def _recall_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
 
 def _search_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
     """``web_search``, or nothing when search is off (``web_search_enabled`` already
-    carries the user's switch), a quick reply or a verified solve answered the turn, a
-    search already ran, or no open request has anything to look up
-    (``_nothing_to_look_up``)."""
+    carries the user's switch), a quick reply or a verified solve answered the turn, or
+    a search already ran. Whether the turn needs one is the model's call."""
     if not (
         settings.mcp_tool_loop_enabled
         and settings.reply_search_tool_enabled
@@ -87,12 +85,9 @@ def _search_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
         return []
     if turn.lightweight or turn.has_instant_reply or turn.has_search_sources:
         return []
-    parts = open_parts(
+    if not open_parts(
         turn.content.strip(), has_verified_math=turn.has_verified_math, settings=settings
-    )
-    # One request reads the chat's earlier turns; parts of one message stand alone.
-    earlier = turn if len(parts) == 1 else None
-    if all(_nothing_to_look_up(part, earlier) for part in parts):
+    ):
         return []
     return web_search_tool(settings)
 
@@ -113,23 +108,6 @@ def web_search_tool(settings: Settings) -> list[dict[str, Any]]:
     adapter = mcp_registry.get(REPLY_TOOL)
     to_tool = getattr(adapter, "to_openai_tool", None)
     return [to_tool()] if callable(to_tool) else []
-
-
-def _nothing_to_look_up(part: str, turn: ReplyTurn | None) -> bool:
-    """A request the rules never search (chitchat, the user's own facts, a reminder, a
-    sum), a greeting, a question about the code it pastes, the time somewhere else (the
-    user's clock, moved to that place's zone, answers it), or a textbook question: "The
-    lowest temperature at which a substance catches fire is called its a) … b) …" was
-    answered from a YouTube comment (2026-10-30), though its note said not to search."""
-    if is_social_opener(part) or has_code_syntax(part) or is_remote_time_question(part):
-        return True
-    if has_nothing_to_look_up(part):
-        return True
-    return web_search_skip(
-        part,
-        prior_user_messages=turn.prior_user_messages if turn else None,
-        prior_assistant=turn.prior_assistant if turn else None,
-    )
 
 
 def tool_names(tools: list[dict[str, Any]]) -> frozenset[str]:
@@ -195,3 +173,92 @@ async def answer_reply_calls(
     if cut is not None:
         working = working[:cut]
     return ReplyCallsOutcome(working, collected.search_hits)
+
+
+async def answer_into_turn(
+    settings: Settings,
+    redis: Redis,
+    ctx: StreamContext,
+    calls: list[dict[str, Any]],
+    text_before: str,
+    *,
+    offered: frozenset[str],
+    on_status: StreamStatusFn | None,
+    should_cancel: Callable[[], bool] | None,
+) -> None:
+    """Run the reply's tool calls; the next model call reads their results.
+
+    The pages a search found become the turn's sources, so the reply gets their chips.
+    A search that breaks leaves the prompt as it was: the reply answers without it.
+    """
+    try:
+        answered = await answer_reply_calls(
+            settings=settings,
+            messages=ctx.prompt_messages,
+            calls=calls,
+            text_before=text_before,
+            offered=offered,
+            user=ctx.user,
+            redis=redis,
+            chat_id=ctx.chat_id,
+            user_timezone=ctx.user_timezone,
+            user_text=ctx.user_message_content,
+            user_location=ctx.search_location,
+            on_status=on_status,
+            should_cancel=should_cancel,
+        )
+    except Exception:
+        logger.exception("Reply tool calls failed chat_id=%s; answering without them", ctx.chat_id)
+        return
+    ctx.prompt_messages = answered.messages
+    if answered.search_hits and not ctx.search_sources:
+        ctx.search_sources = answered.search_hits
+
+
+async def search_the_live_read(
+    settings: Settings,
+    redis: Redis,
+    ctx: StreamContext,
+    *,
+    on_status: StreamStatusFn | None,
+    should_cancel: Callable[[], bool] | None,
+) -> None:
+    """A model read the message beside the prep (``web_search.live_read``). An answer that
+    depends on facts that change is searched with the read's own query, so the reply
+    answers from the results in one call; with no query, the reply's call must search."""
+    if ctx.live_read is not None and not ctx.live_read.done() and on_status is not None:
+        # A model is still reading the question: say so rather than show nothing. A search
+        # it asks for shows next, with its query ("Searching — …").
+        await on_status("thinking", None)
+    read = await live_read_result(ctx.live_read, settings)
+    if read is None:
+        return
+    if not read.query.strip():
+        ctx.reply_requires = REPLY_TOOL
+        return
+    call = {
+        "id": "live_read",
+        "type": "function",
+        "function": {
+            "name": REPLY_TOOL,
+            "arguments": json.dumps({"query": read.query.strip()}),
+        },
+    }
+    before = ctx.prompt_messages
+    await answer_into_turn(
+        settings,
+        redis,
+        ctx,
+        [call],
+        "",
+        offered=frozenset({REPLY_TOOL}),
+        on_status=on_status,
+        should_cancel=should_cancel,
+    )
+    if ctx.prompt_messages is before:
+        # The search broke: the reply's model still decides.
+        return
+    # One search a turn: the reply reads these results and carries no second search.
+    ctx.reply_tools = [
+        tool for tool in ctx.reply_tools if (tool.get("function") or {}).get("name") != REPLY_TOOL
+    ]

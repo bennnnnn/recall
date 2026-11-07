@@ -241,6 +241,30 @@ async def test_search_sources_final_content_matches_persisted_text(
 
 
 @pytest.mark.asyncio
+async def test_a_searched_reply_loses_brackets_crediting_its_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The chips under the reply name the sources: "(Experian)" after a fact is noise."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    hits = [WebSearchHit("What Affects Your Credit Scores", "https://www.experian.com/b", "s")]
+    prose = "Payment history is about **35%** of your score (Experian)."
+    persisted = await enrich_final_content(
+        _deps(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(search_sources=hits),
+        assistant_text=prose,
+        usage={"input": 10, "output": 20},
+        outcome=TurnOutcome(),
+        was_cancelled=False,
+        assistant_parts=[prose],
+        should_cancel=None,
+    )
+
+    assert persisted.startswith("Payment history is about **35%** of your score.\n\n```sources")
+
+
+@pytest.mark.asyncio
 async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.display import inp, num, qty, verified
+from app.modules.chemistry.solvers.display import carried, inp, num, qty, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
@@ -145,7 +145,7 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
         product_coeff = balanced.products[target]
         ratios = tuple(
             f"{name}: {inp(amount)} / {balanced.reactants[name]} = "
-            f"{num(amount / balanced.reactants[name])} reaction units"
+            f"{carried(amount / balanced.reactants[name])} reaction units"
             for name, amount in intent.species.items()
         )
         value = f"{num(limiting_result.product_amount)} mol {target}"

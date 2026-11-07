@@ -59,15 +59,6 @@ class LessonPractice(BaseModel):
     quiz: QuizCard
 
 
-class OutlineTopic(BaseModel):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
-    what: Annotated[str, StringConstraints(strip_whitespace=True, max_length=160)] = ""
-
-
-class OutlineTopics(BaseModel):
-    topics: list[OutlineTopic] = Field(min_length=5, max_length=8)
-
-
 _PRACTICE_SYSTEM = (
     "You write the practice card that ends a lesson. Read the lesson and write ONE "
     "multiple-choice question that checks its key idea, in the language the lesson is "
@@ -81,14 +72,6 @@ _PRACTICE_SYSTEM = (
     "in 1 to 5 words, in the lesson's language. Plain text, no LaTeX. Return JSON: "
     '{"topic": ..., "quiz": {"question": ..., "code": ..., "options": [...], "answer": ..., '
     '"explanation": ...}}.'
-)
-
-_TOPICS_SYSTEM = (
-    "A learner asked to be taught a whole subject. List 5 to 8 topics of that subject in the "
-    "order to learn them, tailored to any level or goal the learner or the reply mentions, in "
-    "the language of the reply. Each has a short `name` (1 to 5 words) and `what`: a few "
-    "words on what it lets them do. Return JSON: "
-    '{"topics": [{"name": ..., "what": ...}]}.'
 )
 
 
@@ -125,8 +108,3 @@ async def _ask[T: BaseModel](
 async def lesson_practice(state: FinalizeState) -> LessonPractice | None:
     """A practice card for the lesson in ``state.text``, or None."""
     return await _ask(state, _PRACTICE_SYSTEM, LessonPractice, 900)
-
-
-async def subject_topics(state: FinalizeState) -> OutlineTopics | None:
-    """The topics of the subject the learner asked for, in learning order, or None."""
-    return await _ask(state, _TOPICS_SYSTEM, OutlineTopics, 600)
