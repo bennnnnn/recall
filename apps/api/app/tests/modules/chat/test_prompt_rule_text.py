@@ -38,8 +38,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # excuse for a wrong figure (OWN_MISTAKE_HINT), drafts without invented details, earlier
 # chats only when referred back to, no undated to-dos, and a missed reply re-explained.
 _RULES = 176
-_RULE_GRAMS = 15568
-_RULE_GRAMS_SHA = "8ca78dfe88d4abdb"
+_RULE_GRAMS = 15631
+_RULE_GRAMS_SHA = "193d861a1ea482b2"
 
 
 def _rules() -> list[str]:
