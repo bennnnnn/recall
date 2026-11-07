@@ -118,13 +118,7 @@ def test_tool_selectors_are_tool_capable_catalog_aliases():
 async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_registered):
     messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch(
-            "app.modules.chat.tool_loop.forced_search.run_cached_search",
-            AsyncMock(return_value=([], [])),
-        ),
-    ):
+    with patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete):
         await tool_loop.run_tool_rounds(
             settings=settings(mcp_tool_loop_enabled=True),
             messages=messages,
@@ -245,6 +239,7 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
 
     hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
     ctx = MagicMock()
+    ctx.live_read = None
     ctx.instant_reply = None
     ctx.lightweight_turn = False
     ctx.verified_subject = None
@@ -294,6 +289,7 @@ async def test_tool_loop_keeps_a_chemistry_verified_block():
         canonical_answer="x = 2",
     )
     ctx = MagicMock()
+    ctx.live_read = None
     ctx.instant_reply = None
     ctx.lightweight_turn = False
     ctx.verified_subject = chemistry
@@ -341,6 +337,7 @@ async def test_a_turn_that_does_not_loop_offers_its_reply_the_search(
     from app.modules.chat.tool_loop.reply_calls import offers_search
 
     ctx = MagicMock()
+    ctx.live_read = None
     ctx.instant_reply = None
     ctx.lightweight_turn = False
     ctx.verified_subject = None
@@ -377,6 +374,7 @@ async def test_tool_loop_path_skips_the_loop_when_spend_capped():
     from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
+    ctx.live_read = None
     ctx.instant_reply = None
     ctx.lightweight_turn = False
     ctx.verified_subject = None
