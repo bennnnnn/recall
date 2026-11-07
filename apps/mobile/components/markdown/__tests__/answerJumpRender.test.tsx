@@ -1,6 +1,7 @@
 // A worked answer put its card three screens down, under Given, Required and every formula
-// (2026-11-06). The reply now opens with the answer, and a tap scrolls to the card.
-import { fireEvent, render } from "@testing-library/react-native";
+// (2026-11-06). The reply now opens with the answer in bold, and a tap scrolls to the card.
+import { StyleSheet } from "react-native";
+import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { ReplyMarkdown } from "@/components/markdown/ReplyMarkdown";
 import { ScrollToViewProvider } from "@/components/rich/answerJump";
@@ -56,8 +57,12 @@ describe("the answer line at the top of a worked reply", () => {
     const scrollTo = jest.fn();
     const view = await render(<ScrollToViewProvider scrollTo={scrollTo}>{reply(WORKED)}</ScrollToViewProvider>);
     const chip = view.getByTestId("answer-jump");
-    // "Answer 11.5 m · 3.06 s", each value typeset as its card sets it (keys stand for copy here).
-    expect(chip).toHaveTextContent(/^rich\.answer_label11\.5 m·3\.06 s$/);
+    // "11.5 m · 3.06 s" in bold, as a model opens with "**x = 3**": no label, no chevron
+    // (November 2026). Keys stand for copy here.
+    expect(chip).toHaveTextContent(/^11\.5 m·3\.06 s$/);
+    for (const value of within(chip).getAllByText(/^(11\.5 m|3\.06 s)$/)) {
+      expect(StyleSheet.flatten(value.props.style).fontWeight).toBe("700");
+    }
     expect(chip.props.accessibilityRole).toBe("button");
     expect(chip.props.accessibilityLabel).toBe("rich.answer_a11y");
     expect(chip.props.accessibilityHint).toBe("rich.answer_jump_hint");
@@ -78,6 +83,16 @@ describe("the answer line at the top of a worked reply", () => {
     expect(streaming.queryByTestId("answer-jump")).toBeNull();
     const outside = await render(reply(WORKED));
     expect(outside.queryByTestId("answer-jump")).toBeNull();
+  });
+
+  it("keeps a value with structure typeset", async () => {
+    const view = await render(
+      <ScrollToViewProvider scrollTo={jest.fn()}>
+        {reply(WORKED.replace(String.raw`11.5\,\mathrm{m}`, String.raw`\frac{1}{2}\,\mathrm{m}`))}
+      </ScrollToViewProvider>,
+    );
+    expect(view.getByTestId("answer-jump")).toBeOnTheScreen();
+    expect(view.queryByText(/frac|\\/)).toBeNull();
   });
 
   it("draws none for a short reply whose card is already in view", async () => {

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Text, View, type StyleProp, type TextStyle } from "react-native";
+import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 
 import { MathText } from "@/components/rich/MathText";
 import { splitStreamCaret } from "@/components/StreamingCursor";
@@ -10,10 +10,14 @@ import {
   openingStrong,
   unwrapSingle,
 } from "@/components/markdown/markdownAstHelpers";
-import type { StyleMap } from "@/components/markdown/markdownContentStyles";
+import {
+  STEP_BADGE,
+  type StyleMap,
+  WORK_INDENT,
+} from "@/components/markdown/markdownContentStyles";
 import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
+import { StepBadge } from "@/components/markdown/rules/stepBadge";
 import { subheadingStyle } from "@/components/markdown/rules/workout";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
@@ -55,14 +59,20 @@ export function lessonStepParts(
     : null;
 }
 
+/**
+ * A move's reason on its heading line, however the writer set it off: "— rule" (the
+ * server), "– rule", "- rule", ": rule" or "(rule)" (a model, November 2026).
+ */
+const STEP_REASON_RE = /^[ \t]*(?:[—–:-][ \t]*([^\n]*)|\(([^\n]*)\)[ \t]*(?=\n|$))/;
+
 function lessonStepTail(tail: string): { reason: string | null; formulas: string[] } | null {
   let rest = tail;
   let reason: string | null = null;
   // A reason sits on the heading line. A formula on that same line is ordinary
   // markdown (`**1. Result** $x^2$`); the working puts each equation on the next line.
-  const reasonMatch = /^[ \t]*—\s*([^\n]*)/.exec(rest);
+  const reasonMatch = STEP_REASON_RE.exec(rest);
   if (reasonMatch) {
-    reason = reasonMatch[1].trim() || null;
+    reason = (reasonMatch[1] ?? reasonMatch[2] ?? "").trim() || null;
     rest = rest.slice(reasonMatch[0].length);
   }
   if (!/^\s*\n/.test(rest)) return null;
@@ -80,7 +90,8 @@ function lessonStepTail(tail: string): { reason: string | null; formulas: string
   return { reason, formulas };
 }
 
-function lessonLabelNodes(
+/** A step's label, its maths typeset and the number it moves by in bold. */
+export function lessonLabelNodes(
   label: string,
   keyPrefix: string,
   textStyle: StyleProp<TextStyle>,
@@ -188,6 +199,8 @@ export function renderLessonStep(
   styles: StyleMap,
   t: Theme,
 ): React.ReactElement {
+  // A heading inside Solution, a level under the sections.
+  const label = subheadingStyle(styles, t);
   return (
     // A numbered move is working inside Solution, with no rule (only Given and Required
     // have one); a little extra space above it so its lines read as one block.
@@ -199,29 +212,11 @@ export function renderLessonStep(
       <View
         style={{
           flexDirection: "row",
-          alignItems: "center",
-          gap: Space.xs,
+          alignItems: "flex-start",
+          gap: STEP_BADGE.gap,
         }}
       >
-        <View
-          style={{
-            // A pill once large text makes the number wider than 22pt.
-            minWidth: 22,
-            minHeight: 22,
-            paddingHorizontal: Space.xxs,
-            borderRadius: Radius.full,
-            backgroundColor: t.surfaceAlt,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text
-            style={{ ...Type.caption, ...Weight.bold, color: t.text }}
-            maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
-          >
-            {step.n}
-          </Text>
-        </View>
+        <StepBadge n={step.n} t={t} lineHeight={StyleSheet.flatten(label)?.lineHeight} />
         <View
           testID="lesson-step-label"
           style={{
@@ -231,17 +226,11 @@ export function renderLessonStep(
             alignItems: "baseline",
           }}
         >
-          {lessonLabelNodes(
-            step.label,
-            `${key}-label`,
-            // A heading inside Solution, a level under the sections.
-            subheadingStyle(styles, t),
-            t.textSecondary,
-          )}
+          {lessonLabelNodes(step.label, `${key}-label`, label, t.textSecondary)}
         </View>
       </View>
       {step.reason || step.formulas.length ? (
-        <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl, gap: Space.xxs }}>
+        <View testID="lesson-step-formula" style={{ paddingLeft: WORK_INDENT, gap: Space.xxs }}>
           {step.reason ? renderLessonReason(key, step.reason, styles, t) : null}
           {step.formulas.map((formula, i) => (
             // A move's maths starts at the left edge its reason does, as every line of a

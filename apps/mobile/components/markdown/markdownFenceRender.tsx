@@ -87,7 +87,7 @@ function renderFenceInner(
   }
 
   if (decision.kind === "math") {
-    return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
+    return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} indent />;
   }
 
   if (decision.kind === "clock") {

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
-import { AnswerAnchorScope, AnswerJumpChip } from "@/components/rich/answerJump";
+import { AnswerAnchorScope, AnswerLead } from "@/components/rich/answerJump";
 import { answerJumpFor } from "@/lib/markdown/answerJump";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
@@ -29,7 +29,7 @@ export function ReplyMarkdown({ content, streaming, presented, userText, sources
   return (
     <LinkPreviewTrust userText={userText} sources={sources}>
       <AnswerAnchorScope>
-        {jump ? <AnswerJumpChip jump={jump} /> : null}
+        {jump ? <AnswerLead jump={jump} /> : null}
         <MarkdownContent
           content={content}
           streaming={streaming}

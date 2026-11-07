@@ -6,15 +6,17 @@ import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
 import {
   type AstNode,
   astText,
+  astTextWithBreaks,
   detectStandaloneLink,
   inTableCell,
   inTableHeader,
   parentHasType,
 } from "@/components/markdown/markdownAstHelpers";
-import type {
-  MdMathStyles,
-  MdTableStyles,
-  StyleMap,
+import {
+  type MdMathStyles,
+  type MdTableStyles,
+  type StyleMap,
+  WORK_INDENT,
 } from "@/components/markdown/markdownContentStyles";
 import { wrapInlineChildren } from "@/components/markdown/rules/inline";
 import { lessonStepParts, renderLessonStep } from "@/components/markdown/rules/lesson";
@@ -34,6 +36,21 @@ import type { Theme } from "@/lib/theme";
 function StandaloneLink({ url, text }: { url: string; text: ReactNode }) {
   const streaming = useReplyStreaming();
   return streaming ? <>{text}</> : <LinkPreviewCard url={url} />;
+}
+
+/** One formula alone on its line, with at most the punctuation that ends it. */
+const FORMULA_LINE = /^\$[^$\n]+\$[.,;:]?$/;
+
+/**
+ * A paragraph of formulas alone, one per line ("### 2. Divide by a" then "$x^2 + … = 0$"):
+ * working, so it starts in the column a worked solution's lines do (November 2026).
+ */
+function formulasOnly(node: AstNode): boolean {
+  const lines = astTextWithBreaks(node)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length > 0 && lines.every((line) => FORMULA_LINE.test(line));
 }
 
 export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyles) {
@@ -81,6 +98,10 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
     const runHeight = mathRunLineHeight(raw);
     // A loose list's paragraph: the item gap separates items, not a block gap.
     const inListItem = parentHasType(parent, "list_item");
+    const working =
+      !inListItem && !parentHasType(parent, "blockquote") && formulasOnly(node)
+        ? { paddingLeft: WORK_INDENT }
+        : null;
     return wrapInlineChildren(
       node,
       children,
@@ -90,8 +111,9 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
         styles.paragraphRun,
         inListItem && styles.listParagraph,
         runHeight != null && { lineHeight: runHeight },
+        working,
       ],
-      [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph],
+      [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph, working],
     );
   };
   return {

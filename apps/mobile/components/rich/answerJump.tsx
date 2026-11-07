@@ -14,18 +14,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { StyleSheet, Text, type HostInstance } from "react-native";
+import { Pressable, StyleSheet, Text, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 import { MathText } from "@/components/rich/MathText";
 import type { AnswerJump } from "@/lib/markdown/answerJump";
 import { readableLatexFallback } from "@/lib/math/text";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { Chip } from "@/ui/controls/Chip";
-import { Icon } from "@/ui/icons/Icon";
-import { IconSize } from "@/ui/icons/sizes";
 
 /** Scrolls the chat so `target` (a view inside a message) is in view. */
 export type ScrollToView = (target: HostInstance) => void;
@@ -73,6 +71,18 @@ export function useAnswerAnchorRef(): ((view: HostInstance | null) => void) | un
   );
 }
 
+/** Units, spacing and plain operators: what a value can hold and still be set as words. */
+const FLAT_LATEX = /\\(?:text|mathrm)\{[^{}]*\}|\\[,;:! ]|\\(?:times|cdot|approx|pm|degree)\b/g;
+
+/**
+ * A value with no structure ("x = 4", "50\ \mathrm{m}") as words, so the line is bold as
+ * a model's "**x = 3**" is; null for a fraction, power or root, which stays typeset.
+ */
+function flatValue(latex: string): string | null {
+  if (/[\\^_{}]/.test(latex.replace(FLAT_LATEX, ""))) return null;
+  return readableLatexFallback(latex).replace(/\s+/g, " ").trim();
+}
+
 function spoken(jump: AnswerJump): string {
   return jump.values
     .map((value) => (value.notation === "chemistry" ? value.text : readableLatexFallback(value.text)))
@@ -80,49 +90,54 @@ function spoken(jump: AnswerJump): string {
 }
 
 /**
- * "Answer 11.5 m · 3.06 s ⌄": the values of a reply's cards, typeset as the cards set
- * them, in a chip that scrolls to the first card. A value too long for one line is left
- * out and the chip only names the answer.
+ * "11.5 m · 3.06 s": the values of a reply's cards as its first line, in bold reply ink as
+ * a model opens with its answer, typeset as the cards set them. A tap scrolls to the first
+ * card, where the check is. No label and no chevron: the answer is a line of the reply, not
+ * a control beside it (November 2026).
  */
-export function AnswerJumpChip({ jump }: { jump: AnswerJump }) {
+export function AnswerLead({ jump }: { jump: AnswerJump }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const scrollTo = useContext(ScrollToViewContext);
   const anchors = useContext(AnswerAnchorContext);
   if (!scrollTo || !anchors?.present) return null;
-  const label = t("rich.answer_label");
-  const text = spoken(jump);
   const ink = { color: theme.text };
   return (
-    <Chip
-      label={label}
+    <Pressable
       testID="answer-jump"
-      accessibilityLabel={text ? t("rich.answer_a11y", { text }) : label}
+      accessibilityRole="button"
+      accessibilityLabel={t("rich.answer_a11y", { text: spoken(jump) })}
       accessibilityHint={t("rich.answer_jump_hint")}
       onPress={() => {
         const card = anchors.first();
         if (card) scrollTo(card);
       }}
-      style={styles.chip}
+      style={styles.lead}
     >
-      <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
       {jump.values.map((value, i) => (
         <Fragment key={i}>
           {i > 0 ? <Text style={[styles.value, ink]}>·</Text> : null}
-          {value.notation === "chemistry" ? (
-            <Text style={[styles.value, ink]}>{value.text}</Text>
+          {value.notation === "chemistry" || flatValue(value.text) != null ? (
+            <Text style={[styles.value, ink]}>
+              {value.notation === "chemistry" ? value.text : flatValue(value.text)}
+            </Text>
           ) : (
-            <MathText latex={value.text} textColor={theme.text} fontSize={Type.secondary.fontSize} />
+            <MathText latex={value.text} textColor={theme.text} fontSize={Type.reading.fontSize} />
           )}
         </Fragment>
       ))}
-      <Icon name="chevron-down" size={IconSize.xs} color={theme.textSecondary} />
-    </Chip>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  chip: { alignSelf: "flex-start", marginBottom: Space.sm },
-  label: { ...Type.secondary, ...Weight.semibold },
-  value: { ...Type.secondary },
+  lead: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: Space.xs,
+    marginBottom: PARAGRAPH_GAP,
+  },
+  value: { ...Type.reading, ...Weight.bold },
 });

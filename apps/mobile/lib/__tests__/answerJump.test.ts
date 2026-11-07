@@ -63,8 +63,21 @@ describe("the answer line a worked reply opens with", () => {
     expect(answerJumpFor(reply)).toBeNull();
   });
 
-  it("names the answer without a value too long for one line", () => {
+  it("draws none when a value is too long for one line: the card says it", () => {
     const reply = WORKED.replace(String.raw`11.5\,\mathrm{m}`, String.raw`\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}`);
-    expect(answerJumpFor(reply)).toEqual({ values: [] });
+    expect(answerJumpFor(reply)).toBeNull();
   });
+
+  it("draws none when the reply already opens with its own bold line", () => {
+    // A model writes "**x = 3**" first: the answer is said once at the top, once in the card.
+    expect(answerJumpFor(`**h = 11.5 m, t = 3.06 s**\n\n${WORKED}`)).toBeNull();
+  });
+
+  it.each([["**Given**"], ["**Solution**"], ["**1. Subtract 4 from both sides**"], ["**(a) Height**"]])(
+    "still opens with the answer when the first bold line is %s, a heading",
+    (heading) => {
+      const reply = heading === "**Given**" ? WORKED : `${heading}\n\n${WORKED}`;
+      expect(answerJumpFor(reply)?.values).toHaveLength(2);
+    },
+  );
 });
