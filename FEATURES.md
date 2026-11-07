@@ -789,13 +789,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Manual rename** — overrides the generated title.
 
 ## 9. Quotas & usage
-- ✅ **Daily token limit** — enforced in Redis with atomic **reserve → adjust → refund** (can't be
-  bypassed by parallel requests). Free **100k**/day; Plus and Pro **500k**/day
-  (`DAILY_TOKEN_LIMIT` / `_PLUS` / `_PRO`).
+- ✅ **Daily messages** — what each plan offers: Free **10**, Plus **200**, Pro **1,000** chat
+  messages a day (`DAILY_MESSAGE_LIMIT` / `_PLUS` / `_PRO`). A turn takes one before its reply
+  and gets it back when no reply is saved; an account deleted and made again keeps the day's.
+- ✅ **Daily token limit** — a cost guardrail behind the messages, enforced in Redis with atomic
+  **reserve → adjust → refund** (can't be bypassed by parallel requests): 400k / 4M / 15M a day
+  (`DAILY_TOKEN_LIMIT` / `_PLUS` / `_PRO`), well above what the plan's messages use.
 - ✅ **Plan-aware enforcement** — every cap reads the plan through
   `modules/billing/entitlements.py` (`allowance`, `can_use`); each number is a
   `core/config.py` setting with `_plus` / `_pro` variants.
-- ✅ **Usage meter** — the share of today's limit left, as the Usage row's value in Settings → Account.
+- ✅ **Usage meter** — today's messages left ("8 of 10 messages left today"), as the Usage row's value in Settings → Account; the chat's banner says the same near the end.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
 - ✅ **Paid plans** — higher daily limits when entitled; see [§12 Monetization](#12-monetization).
 

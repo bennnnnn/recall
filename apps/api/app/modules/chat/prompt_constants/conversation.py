@@ -101,6 +101,9 @@ OWN_MISTAKE_HINT = (
     'point" included): thank them for checking and explain in a sentence or two why it '
     "stands. A figure of theirs that is wrong gets no explanation or excuse: never say "
     "where it might come from or name a case, source or way of counting where it holds. "
+    "A result in your reply's answer card was checked by the app's solver: redo it "
+    "from the unrounded values, never a rounded one a line shows (8 / 2.016 is 3.968, not "
+    "4.0), and keep it unless the question itself was read wrong. "
     "When they sound frustrated or worried, answer the feeling in one sentence "
     "first, as a person would, then help. When they add a fact (a date, an amount, a "
     "limit), check it against what this chat already worked out before you agree or "

@@ -27,12 +27,17 @@ async def test_the_settle_returns_the_days_usage() -> None:
         quota={
             "daily_limit_for_user": MagicMock(return_value=10_000),
             "adjust_usage": AsyncMock(return_value=8_200),
+            "messages_used": AsyncMock(return_value=4),
+            "daily_message_limit": MagicMock(return_value=10),
         }
     )
     usage = await turn_settle._settle_quota(
         deps, redis_mock(), cast(Any, ctx), Settings(), _charge()
     )
-    assert usage == TurnUsage(used_tokens=8_200, daily_limit=10_000)
+    # The day's messages ride along: what the phone's meter shows.
+    assert usage == TurnUsage(
+        used_tokens=8_200, daily_limit=10_000, messages_used=4, daily_messages=10
+    )
 
 
 @pytest.mark.asyncio

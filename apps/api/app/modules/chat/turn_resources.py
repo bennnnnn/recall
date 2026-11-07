@@ -5,6 +5,7 @@ import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -43,7 +44,9 @@ class TurnResources:
 
     ``reserved_tokens`` is held from ``reserve`` until finalize settles it to
     the turn's actual usage (``ctx.reserved_tokens`` carries the same number).
-    An exception that leaves ``turn_resources`` refunds it, so a path that
+    ``message_day`` is the day whose message the turn took: kept once a reply is
+    saved, given back with the tokens otherwise (``ctx.message_day`` carries it).
+    An exception that leaves ``turn_resources`` refunds both, so a path that
     settles the reservation itself must not let an exception escape after.
     """
 
@@ -54,6 +57,7 @@ class TurnResources:
     lock_key: str
     lock_token: str
     reserved_tokens: int = 0
+    message_day: date | None = None
     _refunded: bool = False
 
     async def reserve(
@@ -67,6 +71,9 @@ class TurnResources:
         max_output: int | None = None,
         vision_extra: int = 0,
     ) -> int:
+        self.message_day = await self.deps.quota.reserve_message(self.redis, user, settings)
+        if self.message_day is None:
+            raise QuotaExceededError(quota_exceeded_message(user))
         self.reserved_tokens = await reserve_turn_quota(
             self.deps,
             self.redis,
@@ -81,13 +88,15 @@ class TurnResources:
         return self.reserved_tokens
 
     async def refund(self) -> None:
-        if self._refunded or self.reserved_tokens <= 0:
+        if self._refunded or (self.reserved_tokens <= 0 and self.message_day is None):
             return
         self._refunded = True
         # Marked refunded, it is never tried again: it runs to the end even when a
         # Stop cancels the turn meanwhile.
         refunding = create_background_task(
-            self.deps.quota.refund_usage(self.redis, str(self.user_id), self.reserved_tokens),
+            refund_turn_quota(
+                self.deps, self.redis, self.user_id, self.reserved_tokens, self.message_day
+            ),
             name="turn_quota_refund",
         )
         await asyncio.shield(refunding)
@@ -96,6 +105,16 @@ class TurnResources:
         """The turn's finalize now settles the reservation (actual usage, or its
         own refund on failure); an exception escaping later must not refund it too."""
         self._refunded = True
+
+
+async def refund_turn_quota(
+    deps: ChatTurnDeps, redis: Redis, user_id: UUID, tokens: int, message_day: date | None
+) -> None:
+    """Give back what a turn that saved no reply took: its tokens and its message."""
+    if tokens > 0:
+        await deps.quota.refund_usage(redis, str(user_id), tokens)
+    if message_day is not None:
+        await deps.quota.refund_message(redis, user_id, message_day)
 
 
 async def acquire_chatprep_lock(deps: ChatTurnDeps, redis: Redis, chat_id: UUID) -> tuple[str, str]:
@@ -240,7 +259,9 @@ async def top_up_reserve_for_prompt(
 
     Never refuses: the turn already holds a reservation and its context work
     is done. Finalize settles to actual usage and clips the counter at the limit.
+    The turn also learns the day its chat message was counted on, for a refund.
     """
+    ctx.message_day = res.message_day
     messages = ctx.prompt_messages
     if res.reserved_tokens <= 0 or not isinstance(messages, list):
         ctx.reserved_tokens = res.reserved_tokens

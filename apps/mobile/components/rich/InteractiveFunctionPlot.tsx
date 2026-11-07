@@ -1,16 +1,18 @@
-import { Suspense, useMemo, type RefObject } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from "react-native";
+import { Suspense, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { ExplorerModal } from "@/components/rich/ExplorerModal";
 import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
+import { MathText } from "@/components/rich/MathText";
 import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
 import { CHART_HEIGHT, GRAPH_CARD_INSET, useFunctionPlotState } from "@/components/rich/useFunctionPlotState";
 import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
 import { CODE_FACE } from "@/lib/fonts";
 import { formatGraphExpr } from "@/lib/math/graphBlock";
 import { xAxisInPi } from "@/lib/math/graphFit";
+import { graphRelationLatex } from "@/lib/math/graphLatex";
 import { type GraphSpec } from "@/lib/math/graphSpec";
 import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
@@ -20,6 +22,8 @@ import { Radius } from "@/lib/radius";
 import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 
 const MODAL_LIST_MAX = 220;
+/** A legend row's text and its maths: one size. */
+const LEGEND_SIZE = 15;
 
 type Props = {
   spec: GraphSpec;
@@ -34,7 +38,7 @@ type Props = {
 export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Props) {
   const { t } = useTranslation();
   const plot = useFunctionPlotState(spec, chartWidth, theme);
-  const { card, explorer, editor, holes, verticalX } = plot;
+  const { card, explorer, editor, points, verticalX } = plot;
   const explorerStyles = useMemo(() => makeExplorerStyles(theme), [theme]);
   const customTitle =
     spec.title != null && spec.title.trim() !== "" && spec.title.trim() !== spec.expr
@@ -42,17 +46,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
       : null;
   const seriesEditor = (rows: DrawnSeries[], mode: "card" | "modal") =>
     spec.type === "function" ? (
-      <SeriesList
-        rows={rows}
-        theme={theme}
-        styles={explorerStyles}
-        canAdd={editor.canAdd}
-        scrollRef={mode === "modal" ? editor.seriesListRef : undefined}
-        onChangeExpr={editor.setExpr}
-        onToggle={editor.toggleVisible}
-        onRemove={editor.removeSeries}
-        onAdd={mode === "modal" ? editor.addSeriesAndReveal : editor.addSeries}
-      />
+      <SeriesList rows={rows} theme={theme} styles={explorerStyles} editor={editor} mode={mode} variable={spec.variable ?? "x"} />
     ) : null;
   const svgCard = (
     <GraphCanvas
@@ -63,7 +57,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
       height={CHART_HEIGHT}
       bounds={card.bounds}
       drawn={card.drawn}
-      holes={holes}
+      points={points}
       verticalX={verticalX}
     />
   );
@@ -89,7 +83,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
           <Suspense fallback={svgCard}>
             <SkiaGraphCanvasLazy
               drawn={card.drawn}
-              holes={holes}
+              points={points}
               verticalX={verticalX}
               xName={spec.variable ?? "x"}
               yName="y"
@@ -126,7 +120,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
         bounds={explorer.viewport.bounds}
         gesture={explorer.viewport.gesture}
         drawn={explorer.drawn}
-        holes={holes}
+        points={points}
         verticalX={verticalX}
         editor={seriesEditor(explorer.drawn, "modal")}
         skia={plot.skia}
@@ -137,28 +131,27 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
   );
 }
 
+type Editor = ReturnType<typeof useFunctionPlotState>["editor"];
+
 function SeriesList({
   rows,
   theme,
   styles,
-  canAdd,
-  scrollRef,
-  onChangeExpr,
-  onToggle,
-  onRemove,
-  onAdd,
+  editor,
+  mode,
+  variable,
 }: {
   rows: DrawnSeries[];
   theme: Theme;
   styles: ReturnType<typeof makeExplorerStyles>;
-  canAdd: boolean;
-  scrollRef?: RefObject<ScrollViewInstance | null>;
-  onChangeExpr: (id: string, text: string) => void;
-  onToggle: (id: string) => void;
-  onRemove: (id: string) => void;
-  onAdd: () => void;
+  editor: Editor;
+  mode: "card" | "modal";
+  variable: string;
 }) {
   const { t } = useTranslation();
+  const { canAdd } = editor;
+  const scrollRef = mode === "modal" ? editor.seriesListRef : undefined;
+  const onAdd = mode === "modal" ? editor.addSeriesAndReveal : editor.addSeries;
   const body = (
     <>
       {rows.map((row) => (
@@ -167,9 +160,10 @@ function SeriesList({
           row={row}
           theme={theme}
           styles={styles}
-          onChangeExpr={(text) => onChangeExpr(row.id, text)}
-          onToggle={() => onToggle(row.id)}
-          onRemove={() => onRemove(row.id)}
+          variable={variable}
+          onChangeExpr={(text) => editor.setExpr(row.id, text)}
+          onToggle={() => editor.toggleVisible(row.id)}
+          onRemove={() => editor.removeSeries(row.id)}
         />
       ))}
       {canAdd ? (
@@ -204,10 +198,16 @@ function SeriesList({
   return <View style={styles.list}>{body}</View>;
 }
 
+/**
+ * A curve's row: its colour and its relation, drawn as maths (y = x² − 4x + 3) over the
+ * field that edits it. A tap edits the field, which shows the plain text while it has
+ * focus; a relation the plot grammar cannot read stays text.
+ */
 function SeriesRow({
   row,
   theme,
   styles,
+  variable,
   onChangeExpr,
   onToggle,
   onRemove,
@@ -215,12 +215,15 @@ function SeriesRow({
   row: DrawnSeries;
   theme: Theme;
   styles: ReturnType<typeof makeExplorerStyles>;
+  variable: string;
   onChangeExpr: (text: string) => void;
   onToggle: () => void;
   onRemove: () => void;
 }) {
   const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
   const inputId = row.locked ? "graph-expr-input" : `graph-expr-input-${row.id}`;
+  const latex = editing || row.invalid ? null : graphRelationLatex(row.expr, variable);
   useLiveAnnouncement(row.invalid ? t("rich.graph_invalid") : null);
   return (
     <View style={styles.row}>
@@ -229,6 +232,8 @@ function SeriesRow({
         <TextInput
           value={row.expr}
           onChangeText={onChangeExpr}
+          onFocus={() => setEditing(true)}
+          onBlur={() => setEditing(false)}
           autoCapitalize="none"
           autoCorrect={false}
           spellCheck={false}
@@ -239,9 +244,15 @@ function SeriesRow({
           style={[
             styles.input,
             row.invalid && styles.inputInvalid,
+            latex != null && styles.inputUnderMath,
             !row.visible && styles.dim,
           ]}
         />
+        {latex != null ? (
+          <View pointerEvents="none" testID={`${inputId}-math`} style={[styles.exprMath, !row.visible && styles.dim]}>
+            <MathText latex={latex} textColor={theme.text} fontSize={LEGEND_SIZE} />
+          </View>
+        ) : null}
         {row.invalid ? (
           <Text style={styles.invalidNote} accessibilityLiveRegion="polite">
             {t("rich.graph_invalid")}
@@ -339,11 +350,20 @@ const makeExplorerStyles = (theme: Theme) =>
       margin: 0,
       paddingVertical: 2,
       ...CODE_FACE,
-      fontSize: 15,
+      fontSize: LEGEND_SIZE,
       color: theme.text,
     },
     inputInvalid: {
       color: theme.danger,
+    },
+    // The field stays under the maths, tappable, its own text hidden until it is edited.
+    inputUnderMath: {
+      color: "transparent",
+    },
+    exprMath: {
+      ...StyleSheet.absoluteFill,
+      justifyContent: "center",
+      alignItems: "flex-start",
     },
     invalidNote: {
       ...Type.caption,

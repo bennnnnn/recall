@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -50,6 +50,8 @@ type Props = {
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** Drawn in place of the label's text (an answer's maths); `label` stays its spoken name. */
+  children?: ReactNode;
 };
 
 /** One chip for the whole app, so suggestions, filters, skills and tags match. */
@@ -71,6 +73,7 @@ export function Chip({
   accessibilityHint,
   style,
   testID,
+  children,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -81,17 +84,12 @@ export function Chip({
   const content = (
     <>
       {icon ? <Icon name={icon} size={IconSize.xxs} color={iconInk} /> : null}
-      <Text
-        style={[
-          variant === "tag" ? s.tagText : s.text,
-          { color: ink },
-          on && s.textOn,
-        ]}
-        numberOfLines={numberOfLines}
-      >
-        {prefix ? <Text style={s.prefix}>{`${prefix} `}</Text> : null}
-        {label}
-      </Text>
+      {children ?? (
+        <Text style={[variant === "tag" ? s.tagText : s.text, { color: ink }, on && s.textOn]} numberOfLines={numberOfLines}>
+          {prefix ? <Text style={s.prefix}>{`${prefix} `}</Text> : null}
+          {label}
+        </Text>
+      )}
       {variant === "input" && onRemove ? (
         <Pressable
           onPress={onRemove}

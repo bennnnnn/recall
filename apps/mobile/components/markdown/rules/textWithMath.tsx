@@ -1,5 +1,5 @@
 import { Fragment, ReactNode } from "react";
-import { Text, type StyleProp, type TextStyle } from "react-native";
+import { StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
 
 import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
 import { MathText } from "@/components/rich/MathText";
@@ -21,11 +21,19 @@ import {
 } from "@/components/markdown/rules/textWithMathSegments";
 import { latexHasNestedMathView } from "@/lib/math/text";
 import type { Theme } from "@/lib/theme";
-import { Italic, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 
 const CHECK_TICK_RE = /([✓✔✅])/u;
 
 type TakeCaret = (inText?: boolean) => ReactNode;
+
+/**
+ * The size of the text a formula sits in: inline maths is set at the size of the words
+ * around it (a reply's 18, a table cell's 16, a heading's own), never a fixed smaller one.
+ */
+export function mathSizeOf(style: StyleProp<TextStyle>): number {
+  return StyleSheet.flatten(style)?.fontSize ?? Type.reading.fontSize;
+}
 
 export function withGreenTicks(
   text: string,
@@ -61,6 +69,7 @@ function displayRuns(
   tickColor: string,
   takeCaret: TakeCaret,
 ): ReactNode[] {
+  const size = mathSizeOf(base);
   return runs.map((run, index) => {
     if (run.type === "formula") {
       return <DisplayRow key={`${nodeKey}-m-${run.at}`} latex={run.latex} />;
@@ -71,7 +80,7 @@ function displayRuns(
     );
     const caret = index === runs.length - 1 ? takeCaret(!nested) : null;
     const children = run.parts.map((part, i) => part.type === "math"
-      ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
+      ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} fontSize={size} />
       : <Text key={`${key}-${i}`} style={base} selectable>{withGreenTicks(part.value, tickColor, key)}</Text>);
     return nested
       ? <InlineFlow key={key} style={mdMath.inlineWrap}>{children}{caret}</InlineFlow>
@@ -90,15 +99,16 @@ function nestedRuns(
   tickColor: string,
   takeCaret: TakeCaret,
 ): ReactNode[] {
+  const size = mathSizeOf(base);
   return runs.map((run, index) => {
     if (run.type === "formula") {
-      return <MathText scrollOverflow key={`${nodeKey}-m-${run.at}`} latex={run.latex} />;
+      return <MathText scrollOverflow key={`${nodeKey}-m-${run.at}`} latex={run.latex} fontSize={size} />;
     }
     const key = `${nodeKey}-inline-${index}`;
     return (
       <Text key={key} style={base} selectable>
         {run.parts.map((part, i) => part.type === "math"
-          ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
+          ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} fontSize={size} />
           : withGreenTicks(part.value, tickColor, `${key}-${i}`))}
         {index === runs.length - 1 ? takeCaret(true) : null}
       </Text>
@@ -181,7 +191,7 @@ function renderTextWithMath(
     <Text key={node.key} style={base} selectable>
       {parts.map((part, i) =>
         part.type === "math" ? (
-          <MathText scrollOverflow key={`${node.key}-m-${i}`} latex={part.value} />
+          <MathText scrollOverflow key={`${node.key}-m-${i}`} latex={part.value} fontSize={mathSizeOf(base)} />
         ) : (
           withGreenTicks(part.value, tickColor, `${node.key}-t-${i}`)
         ),

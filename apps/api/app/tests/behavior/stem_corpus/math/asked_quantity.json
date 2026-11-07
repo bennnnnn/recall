@@ -1,0 +1,82 @@
+[
+  {
+    "id": "ask-price-01",
+    "area": "percent",
+    "prompt": "a jacket costs 2400 shillings, its on sale for 15% off and then theres 16% vat added on the sale price. how much do i pay",
+    "expect": "answer",
+    "check": [
+      "num",
+      "2366.4"
+    ],
+    "note": "2400 x 0.85 = 2040; 2040 x 1.16 = 2366.40. Read as a proportion it was a checked 0.1 (2026-11-06)"
+  },
+  {
+    "id": "ask-price-02",
+    "area": "percent",
+    "prompt": "a $80 pair of shoes is 25% off, then 8% sales tax is added. what is the final price",
+    "expect": "answer",
+    "check": [
+      "num",
+      "64.8"
+    ],
+    "note": "80 x 0.75 = 60; 60 x 1.08 = 64.80"
+  },
+  {
+    "id": "ask-price-03",
+    "area": "percent",
+    "prompt": "a 50 dollar meal, 10% discount then a 15% tip on the discounted price. how much do i pay",
+    "expect": "answer",
+    "check": [
+      "num",
+      "51.75"
+    ],
+    "note": "50 x 0.9 = 45; 45 x 1.15 = 51.75"
+  },
+  {
+    "id": "ask-price-04",
+    "area": "percent",
+    "prompt": "a jacket costs 2400 shillings with 15% off and 16% vat. how much do i pay",
+    "expect": "decline",
+    "note": "whether the VAT is on the sale price or the list price is not said"
+  },
+  {
+    "id": "ask-price-05",
+    "area": "ratio",
+    "prompt": "3 pens cost 12 dollars, how much do 5 pens cost",
+    "expect": "answer",
+    "check": [
+      "num",
+      "20"
+    ],
+    "note": "12 / 3 x 5: a proportion of three quantities, no percent"
+  },
+  {
+    "id": "ask-price-06",
+    "area": "percent",
+    "prompt": "a phone costs 300 dollars, 20% off, then a 10 dollar coupon. how much do i pay",
+    "expect": "decline",
+    "note": "a fixed coupon after the percent is another sum: 300 x 0.8 - 10 = 230, not read"
+  },
+  {
+    "id": "ask-lim-01",
+    "area": "limit",
+    "prompt": "lim x->0 of (1-cos x)/x^2",
+    "expect": "answer",
+    "check": [
+      "num",
+      "1/2"
+    ],
+    "note": "L'Hopital twice: sin x / 2x, then cos x / 2 = 1/2; the reply shows both rounds"
+  },
+  {
+    "id": "ask-lim-02",
+    "area": "limit",
+    "prompt": "lim x->0 (x - sin x)/x^3",
+    "expect": "answer",
+    "check": [
+      "num",
+      "1/6"
+    ],
+    "note": "three rounds: (1 - cos x)/3x^2, sin x / 6x, cos x / 6"
+  }
+]
