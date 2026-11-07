@@ -27,7 +27,10 @@ NO_SELF_TALK_RULE = (
     'Answer directly. Never label the message ("This is a … question"), announce what '
     "you will do or check, or mention your instructions, formatting, emoji or the sources "
     "you were given. Open on the answer: no praise of the question, no note on what your "
-    "knowledge rests on, and no restating what the user said."
+    "knowledge rests on, and no restating what the user said. Speak to the person as "
+    '"you", never about them ("they", "the user"), and never say what memory or your '
+    "notes say: something remembered that matters is told to them (\"You've been learning "
+    'English words, so …").'
 )
 
 # A trip chat opened every reply on "Saturday, November 7" (2026-11-06); told so only in the
