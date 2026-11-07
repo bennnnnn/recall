@@ -11,10 +11,27 @@ import { parseTeaching } from "@/lib/math/teachingBlock";
 import type { ArithmeticWorkSpec, FractionWorkSpec } from "@/lib/math/arithmeticBlock";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { DYNAMIC_TYPE_PICKER_MAX, Type } from "@/lib/type";
 
 const CELL_WIDTH = 25;
 const DOT_WIDTH = 12;
+/** Digits sit in fixed 25pt cells: past this text size they would spill into the next column. */
+const CELL_TEXT_MAX = DYNAMIC_TYPE_PICKER_MAX;
+
+/** A row of cells read as one element: its label, not one stop per digit. */
+function rowA11y(label: string) {
+  return {
+    accessible: label.length > 0,
+    accessibilityRole: label.length > 0 ? ("text" as const) : undefined,
+    accessibilityLabel: label || undefined,
+  };
+}
+
+/** The invisible copy of the divisor that only holds a column's width: never read aloud. */
+const HIDDEN = {
+  accessibilityElementsHidden: true,
+  importantForAccessibility: "no-hide-descendants" as const,
+};
 
 function cells(value: string, width: number): string[] {
   return value.padStart(width, " ").split("");
@@ -36,8 +53,10 @@ function DigitRow({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={s.digitRow} testID={testID} accessibilityLabel={value.trim()}>
-      <Text style={[s.operator, muted && s.muted]}>{operator ?? " "}</Text>
+    <View style={s.digitRow} testID={testID} {...rowA11y(value.trim())}>
+      <Text style={[s.operator, muted && s.muted]} maxFontSizeMultiplier={CELL_TEXT_MAX}>
+        {operator ?? " "}
+      </Text>
       <DigitCells value={value} width={width} muted={muted} />
     </View>
   );
@@ -57,11 +76,12 @@ function DigitCells({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={s.digitRow} testID={testID} accessibilityLabel={value.trim()}>
+    <View style={s.digitRow} testID={testID} {...rowA11y(value.trim())}>
       {cells(value, width).map((char, index) => (
         <Text
           key={`${index}-${char}`}
           style={[s.digit, char === "." && s.dot, muted && s.muted]}
+          maxFontSizeMultiplier={CELL_TEXT_MAX}
         >
           {char}
         </Text>
@@ -123,11 +143,11 @@ function AnnotationRow({
     <View
       style={s.digitRow}
       testID="arithmetic-annotation-row"
-      accessibilityLabel={annotationLabel(row)}
+      {...rowA11y(annotationLabel(row))}
     >
-      <Text style={s.operator}> </Text>
+      <Text style={s.operator} maxFontSizeMultiplier={CELL_TEXT_MAX}> </Text>
       {row.map(({ label, dot }, index) => (
-        <Text key={index} style={[s.annotation, dot && s.dot]}>
+        <Text key={index} style={[s.annotation, dot && s.dot]} maxFontSizeMultiplier={CELL_TEXT_MAX}>
           {label}
         </Text>
       ))}
@@ -200,11 +220,15 @@ function MultiplicationWork({ spec }: { spec: ArithmeticWorkSpec }) {
               <View
                 style={s.digitRow}
                 testID={`arithmetic-multiplication-carries-${index}`}
-                accessibilityLabel={annotationLabel(carryRow)}
+                {...rowA11y(annotationLabel(carryRow))}
               >
-                <Text style={s.operator}> </Text>
+                <Text style={s.operator} maxFontSizeMultiplier={CELL_TEXT_MAX}> </Text>
                 {carryRow.map(({ label, dot }, carryIndex) => (
-                  <Text key={carryIndex} style={[s.annotation, dot && s.dot]}>
+                  <Text
+                    key={carryIndex}
+                    style={[s.annotation, dot && s.dot]}
+                    maxFontSizeMultiplier={CELL_TEXT_MAX}
+                  >
                     {label}
                   </Text>
                 ))}
@@ -251,7 +275,9 @@ function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
   return (
     <View style={s.divisionWork} testID="arithmetic-division-layout">
       <View style={s.quotientRow}>
-        <Text style={s.divisorSpacer}>{divisor}</Text>
+        <Text style={s.divisorSpacer} maxFontSizeMultiplier={CELL_TEXT_MAX} {...HIDDEN}>
+          {divisor}
+        </Text>
         <DigitCells
           value={spec.quotient ?? ""}
           width={width}
@@ -259,13 +285,17 @@ function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
         />
       </View>
       <View style={s.dividendRow}>
-        <Text style={s.divisor}>{divisor}</Text>
+        <Text style={s.divisor} maxFontSizeMultiplier={CELL_TEXT_MAX}>
+          {divisor}
+        </Text>
         <View style={s.dividendBracket}>
           <DigitCells value={dividend} width={width} testID="arithmetic-dividend" />
         </View>
       </View>
       <View style={s.divisionSteps}>
-        <Text style={s.divisorSpacer}>{divisor}</Text>
+        <Text style={s.divisorSpacer} maxFontSizeMultiplier={CELL_TEXT_MAX} {...HIDDEN}>
+          {divisor}
+        </Text>
         <View style={s.divisionStepDigits}>
           {spec.division_steps.map((step) => {
             const productEnd = displayColumnEnd(dividend, step.column_end);

@@ -54,6 +54,14 @@ describe("AnswerBlock", () => {
     expect(within(box).getByTestId("answer-success-check")).toBeOnTheScreen();
   });
 
+  it("is one VoiceOver element that says the answer (iOS ignores a label on a non-accessible View)", async () => {
+    const { getByLabelText } = await render(<AnswerBlock content={"verified: true\n$x = \\frac{1}{2}$"} />);
+    const frame = getByLabelText(/^Answer: /);
+    expect(frame.props.accessible).toBe(true);
+    expect(frame.props.accessibilityRole).toBe("text");
+    expect(frame.props.accessibilityLabel).not.toMatch(/\\|frac|\$/);
+  });
+
   it("draws the Answer heading on a bare card too", async () => {
     const { getByTestId } = await render(<AnswerBlock content={"verified: true\n2 + 2 = 4"} />);
     expect(getByTestId("answer-label")).toBeOnTheScreen();

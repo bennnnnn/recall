@@ -73,10 +73,16 @@ export const MathText = memo(function MathText({
     // The measured width is a floor, not the box: advances are estimates, and
     // a box narrower than its glyphs let them paint over the space after the
     // formula ("→ 2H₂Oshows"). The glyph runs inside widen it to their ink.
+    // Unscrolled, the box is the formula's one screen-reader element: its
+    // pieces (a numerator, a radicand) would otherwise be read apart, or not
+    // at all. Scrolled, the ScrollView below carries the label.
     const content = (
       <View
         testID="math-text-tall"
         collapsable={false}
+        accessible={!scroll}
+        accessibilityRole={scroll ? undefined : "text"}
+        accessibilityLabel={scroll ? undefined : label}
         style={[styles.tallRoot, {
           minWidth: contentWidth,
           height: contentHeight,

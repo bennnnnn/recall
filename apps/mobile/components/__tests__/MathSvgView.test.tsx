@@ -1,7 +1,9 @@
 import { render, waitFor } from "@testing-library/react-native";
+import { Dimensions } from "react-native";
 
 import { MATH_SVG_EX_PX, MathSvgView } from "@/components/rich/MathSvgView";
 import { clearSvgMathCache, setSvgMathRendererForTest } from "@/lib/math/svgMath";
+import { readableLatexFallback } from "@/lib/math/text";
 
 // Capture the xml instead of mounting react-native-svg's native view: the
 // parsed tree is the xml it came from, and the drawing records its size.
@@ -24,7 +26,16 @@ jest.mock("react-native-svg", () => ({
     mockSvgXml({ xml: ast.xml, ...override }),
 }));
 
+// React Native's Jest preset reports a 2x text size; draw at the default unless a test sets one.
+let dimensions: jest.SpyInstance;
+beforeEach(() => {
+  dimensions = jest.spyOn(Dimensions, "get").mockReturnValue({
+    width: 390, height: 844, scale: 3, fontScale: 1,
+  });
+});
+
 afterEach(() => {
+  dimensions.mockRestore();
   setSvgMathRendererForTest(null);
   mockSvgXml.mockClear();
   mockParse.mockClear();
@@ -106,6 +117,26 @@ describe("MathSvgView does not stretch a short SVG to minHeight", () => {
     expect(props.height).toBeCloseTo(1.2 * MATH_SVG_EX_PX, 5);
     expect(props.width).toBeCloseTo(1.88 * MATH_SVG_EX_PX, 5);
     expect(props.height).toBeLessThan(48);
+  });
+
+  it("grows with the reader's text size (Larger Text), as inline maths does", async () => {
+    dimensions.mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1.6 });
+    await render(<MathSvgView latex="gt" textColor="#111111" />);
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    const props = mockSvgXml.mock.calls[0][0];
+    expect(props.height).toBeCloseTo(1.2 * MATH_SVG_EX_PX * 1.6, 5);
+    expect(props.width).toBeCloseTo(1.88 * MATH_SVG_EX_PX * 1.6, 5);
+  });
+
+  it("is one VoiceOver element that reads the formula as words", async () => {
+    const latex = String.raw`x = \frac{1}{2}`;
+    const { getByTestId } = await render(<MathSvgView latex={latex} textColor="#111111" />);
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    const view = getByTestId("math-svg-view");
+    expect(view.props.accessible).toBe(true);
+    expect(view.props.accessibilityRole).toBe("text");
+    expect(view.props.accessibilityLabel).toBe(readableLatexFallback(latex));
+    expect(view.props.accessibilityLabel).not.toMatch(/\\|frac/);
   });
 });
 
@@ -197,9 +228,11 @@ describe("MathSvgView fallback", () => {
     const { findByTestId, getByText } = await render(
       <MathSvgView latex="x + 1 = 2" textColor="#111111" />,
     );
-    await findByTestId("math-svg-fallback");
+    const fallback = await findByTestId("math-svg-fallback");
     expect(getByText("x + 1 = 2")).toBeOnTheScreen();
     expect(mockSvgXml).not.toHaveBeenCalled();
+    expect(fallback.props.accessible).toBe(true);
+    expect(fallback.props.accessibilityLabel).toBe("x + 1 = 2");
   });
 
   it("BUG FIX regression: nested \\frac/\\sqrt fallback hosts a View, not a clipped Text", async () => {

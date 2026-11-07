@@ -72,6 +72,7 @@ function AnswerFrame({
   return (
     <View
       style={s.section}
+      accessible
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
     >

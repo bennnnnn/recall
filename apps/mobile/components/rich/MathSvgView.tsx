@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { parse, SvgAst, type JsxAST } from "react-native-svg";
 
 import { MathText } from "@/components/rich/MathText";
@@ -9,13 +9,19 @@ import {
   svgMathDrawing,
   type SvgMathResult,
 } from "@/lib/math/svgMath";
-import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
+import {
+  latexHasNestedMathView,
+  MATH_TALL_LINE_HEIGHT,
+  readableLatexFallback,
+} from "@/lib/math/text";
 import { Space } from "@/lib/space";
 
 /**
  * MathJax metrics: the SVG viewBox runs 1000 units per em and 1ex ≈ 0.442em
  * (measured from MathJax output). Render display math at the same 20px em the
- * retired KaTeX WebView used.
+ * retired KaTeX WebView used, times the reader's text size (Larger Text), as
+ * inline maths (`MathText`) and body copy scale: uncapped, and a formula
+ * wider than the line scrolls sideways.
  */
 export const MATH_SVG_EX_PX = 20 * 0.442;
 
@@ -38,6 +44,9 @@ export const MathSvgView = React.memo(function MathSvgView({
   textColor,
   minHeight = 48,
 }: Props) {
+  const { fontScale } = useWindowDimensions();
+  // VoiceOver reads the formula as words: an SVG has no text of its own.
+  const label = useMemo(() => readableLatexFallback(latex), [latex]);
   // The conversion is held with the latex it was made from. A view whose
   // latex changes (a streaming answer growing, a reused row) never draws the
   // previous formula's result, not even for one frame: until its own result
@@ -90,7 +99,13 @@ export const MathSvgView = React.memo(function MathSvgView({
   if (result === null || ast == null) {
     const hasNestedView = latexHasNestedMathView(latex);
     return (
-      <View style={[styles.wrap, styles.fallbackBox]} testID="math-svg-fallback">
+      <View
+        style={[styles.wrap, styles.fallbackBox]}
+        testID="math-svg-fallback"
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={label}
+      >
         <ScrollView
           horizontal
           nestedScrollEnabled
@@ -113,10 +128,17 @@ export const MathSvgView = React.memo(function MathSvgView({
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
   // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
-  const width = Math.max(1, result.widthEx * MATH_SVG_EX_PX);
-  const height = Math.max(1, result.heightEx * MATH_SVG_EX_PX);
+  const exPx = MATH_SVG_EX_PX * fontScale;
+  const width = Math.max(1, result.widthEx * exPx);
+  const height = Math.max(1, result.heightEx * exPx);
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      testID="math-svg-view"
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={label}
+    >
       <ScrollView
         horizontal
         nestedScrollEnabled
