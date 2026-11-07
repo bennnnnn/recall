@@ -99,7 +99,7 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
     rows = _lhopital_rows(numerator, denominator, symbol, point, value)
     if rows is None:
         return None
-    rule = math_line(r"\lim \frac{f}{g} = \lim \frac{f'}{g'}", "L'Hôpital's rule, for a 0/0 limit")
+    rule = math_line(r"\lim \frac{f}{g} = \lim \frac{f'}{g'}", "L'Hôpital's rule")
     first, *more = rows
     steps = (
         zero,
