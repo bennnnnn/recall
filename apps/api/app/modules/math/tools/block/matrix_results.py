@@ -25,15 +25,28 @@ _NAMES: dict[MatrixOp, str] = {
     "transpose": "A^{T}",
     "rank": r"\operatorname{rank}(A)",
     "rref": r"\operatorname{rref}(A)",
-    "eigenvalues": r"\lambda",
+    "eigenvalues": r"\lambda(A)",
     "nullspace": r"\operatorname{Null}(A)",
     "columnspace": r"\operatorname{Col}(A)",
     "rowspace": r"\operatorname{Row}(A)",
 }
-# These results name their own parts (``\lambda = 1: …``, ``P = …,\quad D = …``).
+# These results name their own parts (``E_{1}(A) = …``, ``P = …,\quad D = …``).
 _SELF_NAMED = frozenset({"eigenvectors", "diagonalize"})
+
+
+def _named_parts(op: MatrixOp, value: str) -> str:
+    r"""Each part said as A's: ``\lambda=1:\ span{…}`` is the eigenspace ``E_{1}(A)``."""
+    if op == "diagonalize":
+        return f"A = PDP^{{-1}}:\\ {value}"
+    spaces = []
+    for part in value.split(r";\quad "):
+        head, basis = part.split(r":\ ", 1)
+        spaces.append(f"E_{{{head.removeprefix(r'\lambda=')}}}(A) = {basis}")
+    return ",\\quad ".join(spaces)
+
+
 _ASKED: dict[MatrixOp, str] = {
-    "eigenvectors": "the eigenvectors",
+    "eigenvectors": "the eigenvectors of $A$ (its eigenspaces $E_{\\lambda}(A)$)",
     "diagonalize": "$P$ and $D$ with $A = PDP^{-1}$",
 }
 
@@ -147,7 +160,7 @@ def multi_result_matrix_block(
             continue
         if value is None:
             return None
-        named = value if op in _SELF_NAMED else f"{_NAMES[op]} = {value}"
+        named = _named_parts(op, value) if op in _SELF_NAMED else f"{_NAMES[op]} = {value}"
         if op == "determinant":
             steps.extend(_determinant_lines(matrix))
         elif op == "inverse":

@@ -8,7 +8,7 @@ neither of them on its own: that is a composition, and the reader declines it.
 
 from __future__ import annotations
 
-from itertools import pairwise
+import re
 
 from app.modules.math.schemas.operations import MatrixOp
 from app.services.text_match import word_index
@@ -34,49 +34,81 @@ _BINARY_WORDS = ("multiply", "times", "product", "add", "plus")
 SQUARE_OPS = frozenset({"determinant", "inverse", "eigenvalues", "eigenvectors", "diagonalize"})
 
 
+def _starts(lower: str, cue: str) -> list[int]:
+    """Every place ``cue`` starts a word (the ``_WHOLE`` ones as whole words)."""
+    spots: list[int] = []
+    at = lower.find(cue)
+    while at != -1:
+        after = at + len(cue)
+        whole = cue not in _WHOLE or after >= len(lower) or not lower[after].isalpha()
+        if (at == 0 or not lower[at - 1].isalpha()) and whole:
+            spots.append(at)
+        at = lower.find(cue, at + 1)
+    return spots
+
+
 def _first_at(lower: str, cue: str) -> int:
     """Where ``cue`` first starts a word (``det`` also as ``det(``), or -1."""
-    if cue in _WHOLE:
-        return word_index(lower, cue)
-    start = 0
-    while (at := lower.find(cue, start)) != -1:
-        if at == 0 or not lower[at - 1].isalpha():
-            return at
-        start = at + 1
-    return -1
+    spots = _starts(lower, cue)
+    return spots[0] if spots else -1
 
 
-def _named(lower: str) -> list[tuple[int, int, MatrixOp]]:
-    """``(start, end, op)`` for each operation named, in the order the question names them."""
-    found: list[tuple[int, int, MatrixOp]] = []
+_OP_WORDS = "|".join(re.escape(cue) for _, cues in _CUES for cue in cues)
+# One operation applied to another's result: "the determinant of the inverse", "the
+# eigenvalues ... and of its inverse", "the inverse of that", "A times its inverse".
+# "Of this matrix [[…]]" and "the determinant and its inverse" are about A itself.
+_COMPOSED = re.compile(
+    rf"\bof\s+(?:the|its|this|that)\s+(?:{_OP_WORDS})"
+    r"|\bof\s+(?:that|this|it)\b(?!\s*(?:matrix|\[\[))"
+    r"|\bof\s+the\s+(?:result|answer)\b"
+    rf"|(?:\btimes|\bmultiplied\s+by|\bplus|\bminus|[*\u00d7+-])\s*(?:its|the)\s+(?:{_OP_WORDS})"
+)
+# The one matrix inside arithmetic: "[[…]] * 2", "2[[…]]", "[[…]]^2".
+_IN_ARITHMETIC = re.compile(r"\]\]\s*[*\u00d7+\-/^]|[*\u00d7+\-/^]\s*\[\[|\d\s*\[\[")
+# An operation named as the method, not as a result: "without computing the
+# determinant", "use the determinant to find …", "by row reduction".
+_AS_METHOD = re.compile(
+    r"\b(?:without|not|use|using|by|via)\s+(?:\w+ing\s+)?(?:the\s+|its\s+|a\s+)?$"
+)
+
+
+def _asked(lower: str) -> list[MatrixOp]:
+    """Each operation asked for as a result, in the order the question first asks it."""
+    found: list[tuple[int, MatrixOp]] = []
     for op, cues in _CUES:
-        spots = [(at, at + len(cue)) for cue in cues if (at := _first_at(lower, cue)) != -1]
+        spots = [
+            at
+            for cue in cues
+            for at in _starts(lower, cue)
+            if not _AS_METHOD.search(lower[max(0, at - 40) : at])
+        ]
         if spots:
-            start, end = min(spots)
-            found.append((start, end, op))
-    return sorted(found)
+            found.append((min(spots), op))
+    return [op for _, op in sorted(found)]
 
 
 def requested_matrix_ops(text: str) -> tuple[MatrixOp, ...] | None:
-    """Every result a one-matrix question lists, in order; None for a composition.
+    """Every result a one-matrix question asks for, in order; None for a composition.
 
-    ``find the determinant and inverse of [[2,1],[5,3]]`` → ``("determinant", "inverse")``.
-    ``the inverse of the transpose of [[…]]`` asks for one result of two operations, so
-    it is None: answering either operation alone would answer another question. A
-    question about two matrices, or naming fewer than two operations, is ``()``.
+    ``find the determinant and inverse of [[2,1],[5,3]]`` → ``("determinant", "inverse")``;
+    ``the inverse of [[…]] without computing the determinant`` → ``("inverse",)``: an
+    operation named as the method is no result. ``the inverse of the transpose of [[…]]``
+    and ``the inverse of [[…]] and the determinant of the inverse`` ask for a result of
+    two operations, so they are None, as is one matrix in a sum or a product ("… times
+    2"): an operation answered about A alone would answer another question. A question
+    about two matrices, or naming none, is ``()``.
     """
-    lower = text.lower()
-    if lower.count("[[") != 1 or any(word_index(lower, word) != -1 for word in _BINARY_WORDS):
+    lower = " ".join(text.lower().split())
+    if lower.count("[[") != 1:
         return ()
-    named = _named(lower)
-    if len(named) < 2:
-        return ()
-    for (_, end, _op), (start, _, _next) in pairwise(named):
-        gap = lower[end:start]
-        # "the determinant of the inverse": the next operation's argument is this one's.
-        if "[[" not in gap and word_index(gap, "of") != -1:
-            return None
-    return tuple(op for _, _, op in named)
+    if (
+        _COMPOSED.search(lower)
+        or _IN_ARITHMETIC.search(lower)
+        or any(word_index(lower, word) != -1 for word in _BINARY_WORDS)
+    ):
+        # "the determinant and rank of [[…]] times 2" asks about 2A, not A.
+        return None
+    return tuple(_asked(lower))
 
 
 def without_matrix_cues(text: str) -> str:

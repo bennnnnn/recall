@@ -276,22 +276,26 @@ def _extract_matrix_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math.match.discrete import bracket_matrices
     from app.modules.math.match.matrix_requests import SQUARE_OPS, requested_matrix_ops
 
-    signal = mtm.matrix_signal(cleaned)
     listed = requested_matrix_ops(cleaned)
-    if signal is None or listed is None:
-        # None: one operation applied to another's result ("inverse of the transpose").
-        return None
-    op, rows = signal
-    if len(listed) >= 2:
+    if listed is None:
+        return None  # one operation applied to another's result ("inverse of the transpose")
+    matrices = bracket_matrices(cleaned)
+    if listed and matrices:
+        # The results asked of one matrix; "without the determinant" asks for none.
+        rows = matrices[0]
         if any(len(row) != len(rows) for row in rows) and SQUARE_OPS.intersection(listed):
             return None
         return MathIntent(
             kind="matrix",
             matrix_op=listed[0],
-            matrix_ops=list(listed),
+            matrix_ops=list(listed) if len(listed) > 1 else None,
             matrix_rows=rows,
             operation="solve",
         )
+    signal = mtm.matrix_signal(cleaned)
+    if signal is None:
+        return None
+    op, rows = signal
     rows_b = None
     if op in {"multiply", "add"}:
         matrices = bracket_matrices(cleaned)

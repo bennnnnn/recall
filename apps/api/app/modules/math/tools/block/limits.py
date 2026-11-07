@@ -8,7 +8,7 @@ from typing import Any
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
 from app.modules.math.schemas import MathIntent
-from app.modules.math.solve.declines import sympy_decline
+from app.modules.math.solve.declines import declines, sympy_decline
 from app.modules.math.tools.block.canonical import finish_with_answer
 from app.services.solving import VerifiedMathBlock
 from app.services.workout import Workout, math_line, render_workout
@@ -40,8 +40,12 @@ def _verified_block_limit(
 
 
 def _limit_working(intent: MathIntent, answer: str) -> str | None:
-    """Substitute; or factor and cancel a 0/0; or one step of L'Hôpital's rule."""
-    from sympy import Expr, Symbol, cancel, factor, latex, limit, nan, simplify, zoo
+    """Substitute; or factor and cancel a 0/0; or L'Hôpital's rule, round by round.
+
+    Only a quotient as written is worked as 0/0: ``1/x - 1/sin x`` is ``∞ - ∞`` until
+    it is combined, so it keeps its card alone.
+    """
+    from sympy import Expr, Symbol, cancel, factor, fraction, latex, limit, nan, simplify, zoo
 
     with sympy_decline() as declined:
         expr = math_solve.parse_expression(intent.expr or "", [intent.variable])
@@ -68,16 +72,19 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
     lim = rf"\lim_{{{var} \to {at}}}"
 
     def operand(value: Any) -> str:
-        """``\\lim (x + 1)``: a sum after the limit sign is bracketed."""
-        return rf"\left({latex(value)}\right)" if value.is_Add else str(latex(value))
+        """``\\lim (x + 1)``: a sum, or a leading minus, after the limit sign is bracketed."""
+        shown = str(latex(value))
+        return rf"\left({shown}\right)" if value.is_Add or shown.startswith("-") else shown
 
     find = (math_line(f"{lim} {operand(expr)}"),)
     substitute = f"substitute ${var} = {at}$"
     if direct.is_finite and not direct.has(nan, zoo) and simplify(direct - value) == 0:
         steps: tuple[str, ...] = (math_line(f"{lim} {operand(expr)} = {latex(value)}", substitute),)
         return render_workout(Workout(find=find, steps=steps), answer)
-    numerator, denominator = expr.as_numer_denom()
-    if numerator.subs(symbol, point) != 0 or denominator.subs(symbol, point) != 0:
+    numerator, denominator = fraction(expr)  # as written: no terms combined
+    if denominator == 1 or simplify(numerator.subs(symbol, point)) != 0:
+        return None
+    if simplify(denominator.subs(symbol, point)) != 0:
         return None
     zero = math_line(r"\frac{0}{0}", f"substituting ${var} = {at}$ gives an indeterminate form")
     reduced = cancel(expr)
@@ -96,7 +103,7 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
     first, *more = rows
     steps = (
         zero,
-        math_line(f"{lim} {latex(expr)} = {first}", "differentiate the top and the bottom"),
+        math_line(f"{lim} {operand(expr)} = {first}", "differentiate the top and the bottom"),
         *(math_line(f"= {row}", "$\\frac{0}{0}$ again: differentiate again") for row in more),
         math_line(f"= {latex(value)}", substitute),
     )
@@ -107,6 +114,7 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
 _LHOPITAL_ROUNDS = 3
 
 
+@declines(None)
 def _lhopital_rows(
     numerator: Any, denominator: Any, symbol: Any, point: Any, value: Any
 ) -> list[str] | None:

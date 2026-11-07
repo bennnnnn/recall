@@ -33,10 +33,13 @@ async def _reply(text: str) -> tuple[str | None, str | None]:
         ("eigenvalues and eigenvectors of [[2,1],[1,2]]", ("eigenvalues", "eigenvectors")),
         ("det, rank and rref of [[1,2],[2,4]]", ("determinant", "rank", "rref")),
         ("the determinant of [[2,1],[5,3]] and its inverse", ("determinant", "inverse")),
-        # One operation, two matrices, or an operation between two: one result.
-        ("determinant of [[2,1],[5,3]]", ()),
+        ("determinant of [[2,1],[5,3]]", ("determinant",)),
+        ("find the determinant of this matrix [[2,1],[5,3]]", ("determinant",)),
+        # An operation named as the method is no result.
+        ("find the inverse of [[2,1],[5,3]] without computing the determinant", ("inverse",)),
+        ("use the determinant to find the inverse of [[2,1],[5,3]]", ("inverse",)),
+        # Two matrices: the single-operation reader owns them.
         ("multiply [[1,2],[3,4]] and [[0,1],[1,0]]", ()),
-        ("A = [[1,2],[3,4]] times its inverse", ()),
     ],
 )
 def test_requested_matrix_ops_lists_each_result_in_order(text: str, ops: tuple[str, ...]) -> None:
@@ -49,6 +52,17 @@ def test_requested_matrix_ops_lists_each_result_in_order(text: str, ops: tuple[s
         "find the inverse of the transpose of [[2,1],[5,3]]",
         "the determinant of the inverse of [[2,1],[5,3]]",
         "rank of the transpose of [[1,2],[3,4]]",
+        # 2026-11-06 review: each was answered about A.
+        "find the inverse of [[2,1],[5,4]] and the determinant of the inverse",
+        "find the inverse of [[2,1],[5,4]] and the eigenvalues of the inverse",
+        "the eigenvalues of [[2,0],[0,3]] and of its inverse",
+        "find the transpose of [[2,1],[5,3]] and then the inverse of that",
+        "find the determinant of [[2,1],[5,3]] and of its transpose",
+        "A = [[1,2],[3,4]] times its inverse",
+        "[[1,2],[3,4]] * its inverse",
+        # One matrix in arithmetic: the results are 2A's.
+        "determinant and rank of [[1,2],[3,4]] times 2",
+        "det 2[[1,2],[3,4]]",
     ],
 )
 def test_one_operation_of_another_is_a_composition_and_declines(text: str) -> None:
@@ -118,3 +132,25 @@ async def test_another_request_beside_the_results_keeps_the_model_with_both_veri
 async def test_one_result_keeps_its_single_card() -> None:
     answer, _ = await _reply("inverse of [[4,7],[2,6]]")
     assert answer is not None and not answer.startswith("A^{-1}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "find the inverse of [[2,1],[5,3]] without computing the determinant",
+        "use the determinant to find the inverse of [[2,1],[5,3]]",
+    ],
+)
+async def test_an_operation_named_as_the_method_is_not_on_the_card(text: str) -> None:
+    answer, _ = await _reply(text)
+    assert answer == r"\left[\begin{matrix}3 & -1\\-5 & 2\end{matrix}\right]"
+
+
+@pytest.mark.asyncio
+async def test_every_card_result_says_whose_it_is() -> None:
+    answer, _ = await _reply("find the eigenvalues and eigenvectors of [[2,1],[1,2]]")
+    assert answer is not None
+    assert answer.startswith(r"\lambda(A) = 1, 3,\quad E_{1}(A) = \operatorname{span}")
+    assert r",\quad E_{3}(A) = \operatorname{span}" in answer
+    assert r"\lambda=" not in answer

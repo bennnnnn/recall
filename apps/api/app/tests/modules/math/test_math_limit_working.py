@@ -85,3 +85,28 @@ async def test_the_limit_reply_shows_each_step(text: str, answer: str, lines: li
 async def test_a_limit_with_another_request_keeps_the_model() -> None:
     _, reply = await _reply("limit as x approaches 2 of (x^2-4)/(x-2) and tell me a joke")
     assert reply is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("limit of 1/x - 1/sin(x) as x approaches 0", "0"),
+        ("limit of (1/x - 1/(exp(x)-1)) as x approaches 0", r"\frac{1}{2}"),
+    ],
+)
+async def test_infinity_minus_infinity_is_not_worked_as_zero_over_zero(
+    text: str, answer: str
+) -> None:
+    got, reply = await _reply(text)
+    assert got == answer
+    assert reply is not None
+    assert r"\frac{0}{0}" not in reply
+    assert "L'Hôpital" not in reply
+
+
+def test_a_failing_limit_loses_the_working_not_the_turn() -> None:
+    from unittest.mock import patch
+
+    with patch("sympy.limit", side_effect=NotImplementedError("no limit")):
+        assert _lhopital_rows(sin(x), x, x, 0, 1) is None

@@ -8,7 +8,7 @@ interval solve drops roots its real solve finds.
 from __future__ import annotations
 
 import pytest
-from sympy import FiniteSet, Interval, Rational, Symbol, cos, pi, sin
+from sympy import FiniteSet, Interval, Max, Rational, Symbol, cos, pi, sign, sin
 
 from app.core.config import Settings
 from app.modules.math.tools.school.trig_equation_steps import (
@@ -51,6 +51,24 @@ def test_solutions_in_finds_every_root_in_the_interval(expr: object, roots: set[
 
 def test_solutions_in_declines_an_interval_of_solutions() -> None:
     assert solutions_in(sin(x) ** 2 + cos(x) ** 2 - 1, x, TURN) is None
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        # SymPy raises on both: never "no solution" built from the failures.
+        Max(sin(x), cos(x)) - Rational(1, 2),
+        sign(sin(x)) - 1,
+        # No root at all: declined, not certified empty.
+        sin(x) - 2,
+    ],
+)
+def test_solutions_in_declines_when_no_solve_finished(expr: object) -> None:
+    assert solutions_in(expr, x, TURN) is None
+
+
+def test_one_factor_with_no_root_in_the_interval_says_so() -> None:
+    assert solutions_in(sin(x) - 2, x, TURN, empty_allowed=True) == FiniteSet()
 
 
 def _steps(lhs: object, rhs: object) -> tuple[str, ...] | None:

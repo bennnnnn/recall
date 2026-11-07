@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from app.modules.math.solve.declines import sympy_decline
 from app.services.workout import math_line
 
 # Solutions in the interval as the answer shows them, with their relation:
@@ -89,36 +90,49 @@ def _rewrite(zeroed: Any, variable: Any) -> tuple[Any, list[Any]] | None:
     return None
 
 
-def solutions_in(expr: Any, variable: Any, domain: Any) -> Any | None:
-    """Every solution of ``expr = 0`` in the interval ``domain``, each checked; None if not finite.
+def solutions_in(
+    expr: Any, variable: Any, domain: Any, *, empty_allowed: bool = False
+) -> Any | None:
+    """The checked solutions of ``expr = 0`` in the interval ``domain``, or None.
 
-    SymPy's interval solve drops roots of a quadratic in one function: for
-    ``2 sin^2 x - sin x - 1`` on ``[0, 2pi)`` it gives ``pi/2`` alone, though its real
-    solve has ``7pi/6`` and ``11pi/6`` too. Both are asked, and a root either finds is
-    kept once substituting it gives 0.
+    The interval solve must finish with a finite set, or there is no answer: an
+    interval of solutions, a set SymPy cannot finish, or a solve that raised (``Max``,
+    ``sign``) is None, never "no solution". SymPy's interval solve also drops roots of a
+    quadratic in one function (``2 sin^2 x - sin x - 1`` on ``[0, 2pi)`` gives ``pi/2``
+    alone, though its real solve has ``7pi/6`` and ``11pi/6``), so the real solve's
+    roots in the interval are added. Each root must give 0 when substituted; an
+    interval root that does not, or no root at all, is None; ``empty_allowed`` (one
+    factor of an equation already solved) takes a finished empty solve as no root.
     """
     from sympy import FiniteSet, N, S, simplify, solveset
 
-    found: list[Any] = []
-    for over in (domain, S.Reals):
-        try:
-            solved = solveset(expr, variable, domain=over)
-            if over is S.Reals:
-                solved = solved.intersect(domain)
-        except Exception:  # noqa: S112 - one solve failing leaves the other
-            continue
-        if isinstance(solved, FiniteSet):
-            found.extend(solved)
-        elif over is domain:
-            return None  # an interval of solutions, or one SymPy cannot finish
+    with sympy_decline() as declined:
+        in_domain = solveset(expr, variable, domain=domain)
+    if declined:
+        return None
+    if in_domain == S.EmptySet and empty_allowed:
+        in_domain = FiniteSet()
+    elif not isinstance(in_domain, FiniteSet):
+        return None
+    extra: list[Any] = []
+    with sympy_decline() as declined:  # the real solve only adds roots
+        over_reals = solveset(expr, variable, domain=S.Reals).intersect(domain)
+        if isinstance(over_reals, FiniteSet):
+            known = list(in_domain)
+            extra = [value for value in over_reals if value not in known]
 
     def holds(value: Any) -> bool:
-        if domain.contains(value) is not S.true:
-            return False
-        rest = simplify(expr.subs(variable, value))
-        return bool(rest == 0 or abs(complex(N(rest, 30))) < 1e-20)
+        with sympy_decline():
+            if domain.contains(value) is not S.true:
+                return False
+            rest = simplify(expr.subs(variable, value))
+            return bool(rest == 0 or abs(complex(N(rest, 30))) < 1e-20)
+        return False  # the check itself failed: not shown to hold
 
-    return FiniteSet(*(value for value in found if holds(value)))
+    if not all(holds(value) for value in in_domain):
+        return None
+    kept = [*in_domain, *(value for value in extra if holds(value))]
+    return FiniteSet(*kept) if kept or empty_allowed else None
 
 
 @dataclass(frozen=True)
@@ -181,7 +195,7 @@ def _factor_line(
     values = solve(factor.subs(atom, stand_in), stand_in)
     if not values or any(value.has(variable) for value in values):
         return None
-    found = solutions_in(factor, variable, over.domain)
+    found = solutions_in(factor, variable, over.domain, empty_allowed=True)
     if found is None:
         return None
     chain = [head]
