@@ -21,16 +21,25 @@ import re
 from app.services.text_normalize import straighten_apostrophes
 
 # The person who asked, as the model's notes call them, or memory as the source.
-_ABOUT_THE_ASKER = re.compile(
+_NAMES_THE_ASKER = re.compile(
     r"\bthe (?:user|learner|student)(?:'s message)? (?:says|said|asks|asked|wants|wanted"
     r"|writes|wrote|is asking|is requesting|requests|requested|needs|is looking for"
     r"|is learning|has been learning|is on|knows|already knows|prefers|mentioned)\b"
-    r"|\bthey(?:'ve| have)? (?:asked|been learning|already know|mentioned|requested)\b"
-    r"|\bthey(?:'re| are) (?:asking|learning|on a|on lesson|new to|looking for)\b"
-    r"|\bthey (?:want|wanted|prefer)\b"
     # Memory as the source about them; never memory a program keeps ("kept in memory").
     r"|\b(?:my |their |saved )?memory (?:says|said|notes|mentions|indicates)\b"
     r"|\b(?:according to|based on) (?:the |their |my |saved )?memory\b",
+    re.IGNORECASE,
+)
+# A bare "they" is the asker only in talk about this turn: "They want a lesson on proverbs,
+# so I'll …"; "They asked me to stay, but I'll go." is a story.
+_THEY_THE_ASKER = re.compile(
+    r"\bthey(?:'ve| have)? (?:asked|been learning|already know|mentioned|requested)\b"
+    r"|\bthey(?:'re| are) (?:asking|learning|on a|on lesson|new to|looking for)\b"
+    r"|\bthey (?:want|wanted|prefer)\b",
+    re.IGNORECASE,
+)
+_ABOUT_THIS_TURN = re.compile(
+    r"\b(?:lessons?|subject|topic|question|request|message|memory|course|chat|conversation)\b",
     re.IGNORECASE,
 )
 _TO_THEM = re.compile(r"\byou(?:'ve|'re|'ll|'d)?\b|\byour\b", re.IGNORECASE)
@@ -54,13 +63,15 @@ _MEMORY_LEAD = re.compile(
 
 def narrates_the_turn(paragraph: str) -> bool:
     """``paragraph`` is short, talks about the person or memory without speaking to them,
-    and says what the model will do."""
+    and says what the model will do. One that opens on a quotation is a story's."""
     prose = straighten_apostrophes(paragraph)
+    if len(prose) > _PLAN_PARAGRAPH or prose.lstrip().startswith(('"', "\u201c")):
+        return False
+    about_them = _NAMES_THE_ASKER.search(prose) is not None or (
+        _THEY_THE_ASKER.search(prose) is not None and _ABOUT_THIS_TURN.search(prose) is not None
+    )
     return (
-        len(prose) <= _PLAN_PARAGRAPH
-        and _ABOUT_THE_ASKER.search(prose) is not None
-        and _TO_THEM.search(prose) is None
-        and _ANNOUNCES_PLAN.search(prose) is not None
+        about_them and _TO_THEM.search(prose) is None and _ANNOUNCES_PLAN.search(prose) is not None
     )
 
 

@@ -418,6 +418,9 @@ def test_a_reply_speaks_to_the_person_not_about_them(reply: str, kept: str) -> N
         # Memory a program keeps (review of #2326).
         "Variables are kept in memory, so I'll show how the stack works.\n\nThe stack grows down.",
         "The memory shows you the value of x at each step.\n\nSet a breakpoint first.",
+        # A story or dialogue (review of #2326).
+        "They asked me to stay, but I'll go.\n\nShe walked out into the rain.",
+        '"They want the money by Friday, so I\'ll pay," he said.\n\nShe nodded.',
         # Narration with nothing after it: the reply is left as written.
         "They want a lesson on proverbs, so I'll start with the ten most common.",
     ],
