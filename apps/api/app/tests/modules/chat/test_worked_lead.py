@@ -1,4 +1,5 @@
-"""A worked reply's result comes after its working, never as a guess above it (2026-10-30)."""
+"""A worked reply's result comes after its working, never above it: not as a guess
+(2026-10-30), and not said early either (2026-11-07)."""
 
 from __future__ import annotations
 
@@ -78,12 +79,89 @@ _CAR = (
         "![diagram](https://x/1.png)",
         "$$v = \\sqrt{2gh}$$",
         "- step 1 of 3",
-        "The car covers **25 m** (0.025 km).",
+        "Let's find how far the car goes in 5 s.",
     ],
 )
-def test_a_lead_the_working_agrees_with_stays(lead: str) -> None:
+def test_a_lead_that_states_no_result_stays(lead: str) -> None:
     text = f"{lead}\n\n{_CAR}"
     assert drop_guessed_lead(text) == text
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        "**s = 25 m**",
+        "The car covers **25 m** (0.025 km).",
+        "The car travels **25 m** before it stops, here is why:",
+    ],
+)
+def test_the_answer_said_above_the_working_goes(lead: str) -> None:
+    # Right but early: the card under the working says it, once, as a textbook does.
+    assert drop_guessed_lead(f"{lead}\n\n{_CAR}") == _CAR
+
+
+_SOLVE_X = "**Given**\n$5x - 3 = 12$\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```\n"
+
+
+@pytest.mark.parametrize(
+    ("lead", "worked"),
+    [
+        # Review (2026-11-07): a digit the card shares is not the card's result.
+        ("Let's solve 5x - 3 = 12 for x.", _SOLVE_X),
+        ("The car is 100 m from the wall when it brakes.", _CAR),
+    ],
+)
+def test_a_lead_sharing_a_number_with_the_card_stays(lead: str, worked: str) -> None:
+    text = f"{lead}\n\n{worked}"
+    assert drop_guessed_lead(text) == text
+
+
+def test_the_cards_statement_must_stand_whole() -> None:
+    # "x = 30" does not say x = 3, nor "125 m" 25 m; both are numbers the working holds.
+    worked = "**Given**\n$x = 30$, 125 m\n\n**Answer**\n\n```answer\nverified: true\nx = 3\n```\n"
+    for lead in ("Start from **x = 30**.", "The track is **125 m** long."):
+        text = f"{lead}\n\n{worked}"
+        assert drop_guessed_lead(text) == text
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "## Q7",
+        "**Ex 4**",
+        "## Set B2",
+        "**Stage 1**",
+        # Review (2026-11-07): a number followed by words still names a part.
+        "## Chapter 4 Kinematics",
+        "**Step 1 of 3**",
+        "## Question 12 Part b",
+        # Review (2026-11-07): the word after the number is no unit.
+        "## Section 2 Forces",
+        "## Problem 3 Heat",
+    ],
+)
+def test_a_short_heading_with_a_number_stays(heading: str) -> None:
+    # Review (2026-11-07): a heading names a part; its number is no stated result.
+    text = f"{heading}\n\n{_CAR}"
+    assert drop_guessed_lead(text) == text
+
+
+@pytest.mark.parametrize("lead", ["## 25 m", "**Answer: 9.8 m/s²**", "**42 km/h**"])
+def test_a_bold_line_ending_on_a_unit_says_a_value(lead: str) -> None:
+    # A heading that ends on a number and a unit states it; one the working lacks goes.
+    worked = "**Given**\n$d = 120$ m, $t = 12$ s\n\n```answer\nverified: false\nv = 10\\,\\mathrm{m/s}\n```\n"
+    assert drop_guessed_lead(f"{lead}\n\n{worked}") == worked
+
+
+def test_a_models_bold_answer_over_its_steps_goes() -> None:
+    # Live, 2026-11-07: "**x = 3**" over Given, Required, Solution and a card of x = 3.
+    worked = (
+        "**Given**\n$5 x - 3 = 12$\n\n**Required**\n$x = ?$\n\n**Solution**\n\n"
+        "**1. Add 3 to both sides** (addition property of equality)\n$5 x - 3 + 3 = 12 + 3$\n"
+        "$5 x = 15$\n\n**2. Divide both sides by 5**\n$x = 3$\n\n**Answer**\n\n"
+        "```answer\nverified: false\nx = 3\n```\n"
+    )
+    assert drop_guessed_lead("**x = 3**\n\n" + worked) == worked
 
 
 def test_a_ratio_is_compared_as_a_pair() -> None:
