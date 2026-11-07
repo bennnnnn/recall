@@ -9,6 +9,10 @@ import {
 } from "react-native";
 
 import { InlineCode } from "@/components/markdown/InlineCode";
+import {
+  AccessibleElementChildren,
+  useInsideAccessibleElement,
+} from "@/components/rich/accessibleElement";
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
@@ -22,6 +26,19 @@ import { Italic, Weight } from "@/lib/type";
 /** Whether a rich-card string holds `$…$` maths that only RichMathBody can draw. */
 export function hasRichMath(content: string): boolean {
   return parseRichMathText(content).some((part) => part.type === "math");
+}
+
+/**
+ * What a screen reader says for rich-card text: its words, with each `$…$`
+ * read as words ("x squared"), never the source. An accessible parent that
+ * holds a RichMathBody or ChipText (a quiz option) labels itself with this.
+ */
+export function richTextLabel(content: string): string {
+  return parseRichMathText(content)
+    .map((part) => (part.type === "math" ? ` ${readableLatexFallback(part.value)} ` : part.value))
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Style keys that place the text in its parent. With maths the words are
@@ -67,16 +84,11 @@ export function RichMathBody({
   const theme = useTheme();
   const parts = useMemo(() => parseRichMathText(content), [content]);
   const { row, text } = useMemo(() => splitLayout(style), [style]);
-  // One VoiceOver element for the line, its maths read as words, not one stop per word.
-  const label = useMemo(
-    () =>
-      parts
-        .map((part) => (part.type === "math" ? ` ${readableLatexFallback(part.value)} ` : part.value))
-        .join("")
-        .replace(/\s+/g, " ")
-        .trim(),
-    [parts],
-  );
+  // Standalone (a step, a callout) the line is one screen-reader element, its
+  // maths read as words, not one stop per word. Under an accessible parent the
+  // parent is that element (see accessibleElement.tsx).
+  const inside = useInsideAccessibleElement();
+  const label = useMemo(() => (inside ? undefined : richTextLabel(content)), [inside, content]);
   if (!parts.some((part) => part.type === "math")) {
     return <RichBodyText style={style} selectable={selectable}>{content}</RichBodyText>;
   }
@@ -85,36 +97,38 @@ export function RichMathBody({
     <View
       style={[styles.row, row]}
       testID="rich-math-body"
-      accessible
-      accessibilityRole="text"
+      accessible={!inside}
+      accessibilityRole={inside ? undefined : "text"}
       accessibilityLabel={label}
     >
-      {parts.flatMap((part, index) => {
-        if (part.type === "math") {
-          return [isHeavyInlineMath(part.value)
-            ? <MathBlock key={index} latex={part.value} />
-            : <MathText key={index} latex={part.value} textColor={mathColor} />];
-        }
-        if (part.type === "code") {
-          // One pill for the whole span, not a pill per word.
-          return [
-            <InlineCode key={index} style={[text, codeStyle ?? inlineCodeTextStyle(theme)]}>
-              {part.value}
-            </InlineCode>,
-          ];
-        }
-        // Separate words can wrap around a sized fraction/radical. Never nest
-        // those Views inside Text (iOS gives them a zero-sized attachment).
-        return part.value.split(/(\n|[^\S\n]+)/).filter(Boolean).map((word, wordIndex) =>
-          word === "\n" ? <View key={`${index}-${wordIndex}`} style={styles.break} /> : (
-            <Text key={`${index}-${wordIndex}`} selectable={selectable} style={[
-              text,
-              part.bold && styles.bold,
-              part.italic && styles.italic,
-            ]}>{word}</Text>
-          ),
-        );
-      })}
+      <AccessibleElementChildren>
+        {parts.flatMap((part, index) => {
+          if (part.type === "math") {
+            return [isHeavyInlineMath(part.value)
+              ? <MathBlock key={index} latex={part.value} />
+              : <MathText key={index} latex={part.value} textColor={mathColor} />];
+          }
+          if (part.type === "code") {
+            // One pill for the whole span, not a pill per word.
+            return [
+              <InlineCode key={index} style={[text, codeStyle ?? inlineCodeTextStyle(theme)]}>
+                {part.value}
+              </InlineCode>,
+            ];
+          }
+          // Separate words can wrap around a sized fraction/radical. Never nest
+          // those Views inside Text (iOS gives them a zero-sized attachment).
+          return part.value.split(/(\n|[^\S\n]+)/).filter(Boolean).map((word, wordIndex) =>
+            word === "\n" ? <View key={`${index}-${wordIndex}`} style={styles.break} /> : (
+              <Text key={`${index}-${wordIndex}`} selectable={selectable} style={[
+                text,
+                part.bold && styles.bold,
+                part.italic && styles.italic,
+              ]}>{word}</Text>
+            ),
+          );
+        })}
+      </AccessibleElementChildren>
     </View>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { RichMathBody } from "@/components/rich/RichMathBody";
 import {
   spokenPrompt,
@@ -46,16 +47,19 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
             style={({ pressed }) => [s.row, pressed && s.rowPressed]}
           >
             <Icon name="enter" size={IconSize.xs} color={theme.textTertiary} />
-            <View style={s.body}>
-              <View style={s.underlined}>
-                <RichMathBody
-                  content={wrapSuggestionMath(prompt)}
-                  style={s.line}
-                  textColor={theme.text}
-                />
-                <DottedUnderline color={theme.textTertiary} />
+            {/* The button's label reads the line; the line is not a stop of its own. */}
+            <AccessibleElementChildren>
+              <View style={s.body}>
+                <View style={s.underlined}>
+                  <RichMathBody
+                    content={wrapSuggestionMath(prompt)}
+                    style={s.line}
+                    textColor={theme.text}
+                  />
+                  <DottedUnderline color={theme.textTertiary} />
+                </View>
               </View>
-            </View>
+            </AccessibleElementChildren>
           </Pressable>
         </View>
       ))}

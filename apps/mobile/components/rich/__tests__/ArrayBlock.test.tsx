@@ -27,7 +27,9 @@ describe("ArrayBlock", () => {
     expect(view.getByText("rich.array_index:3")).toBeTruthy();
     expect(view.getByText("2 + 7 = 9")).toBeTruthy();
     expect(view.getByText("We return indexes, not the numbers.")).toBeTruthy();
-    expect(view.getByLabelText("nums = [2, 7, 11, 15]")).toBeTruthy();
+    expect(
+      view.getByLabelText("nums = [2, 7, 11, 15]. 2 + 7 = 9. We return indexes, not the numbers."),
+    ).toBeTruthy();
   });
 
   it("puts the title above the boxes and reads markdown in the note", async () => {

@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react-native";
 
+import { nestedAccessibleElements } from "@/components/__tests__/a11yTree";
 import { MarkdownContent } from "@/components/MarkdownContent";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
@@ -39,19 +40,19 @@ const C04_RESPONSE = "The partial derivative of \\(x^2 y\\) with respect to \\(y
 
 describe('C04 multiline inline math rendering', () => {
   it.each([false, true])('typesets the exact saved C04 list formula with streaming=%s', async (streaming) => {
-    const { getAllByTestId, getAllByText, queryByText } = await render(
+    const { getAllByLabelText, getAllByTestId, getAllByText, queryByText, toJSON } = await render(
       <MarkdownContent content={C04_RESPONSE} streaming={streaming} />,
     );
     expect(getAllByTestId("math-frac").length).toBeGreaterThanOrEqual(1);
     expect(getAllByText("∂").length).toBeGreaterThanOrEqual(2);
     expect(getAllByText("∂ y").length).toBeGreaterThanOrEqual(2);
-    const labels = getAllByTestId("math-text-scroll").map(
-      (node) => node.props.accessibilityLabel as string,
-    );
-    expect(labels).toEqual(expect.arrayContaining([
-      "∂/∂ y(x^2 y) = x^2 ⋅ 1",
-      "∂/∂ y(x^2 y) = x^2.",
-    ]));
+    // The formula's line is the screen-reader element and reads it in words;
+    // its scroller is no second TalkBack stop inside it.
+    expect(getAllByTestId("math-text-scroll").every((node) => node.props.accessible === false)).toBe(true);
+    const line = getAllByLabelText(/∂\/∂ y\(x\^2 y\) = x\^2 ⋅ 1/);
+    expect(line.length).toBeGreaterThanOrEqual(1);
+    expect(line[0]!.props.accessible).toBe(true);
+    expect(nestedAccessibleElements(toJSON())).toEqual([]);
     expect(queryByText(/\\frac|\\partial|\$/)).toBeNull();
   });
 });

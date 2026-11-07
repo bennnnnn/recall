@@ -1,8 +1,11 @@
 import { fireEvent, render } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
+import { nestedAccessibleElements } from "@/components/__tests__/a11yTree";
+import { ArrayBlock } from "@/components/rich/ArrayBlock";
 import { ChipText } from "@/components/rich/ChipText";
 import { QuizCard } from "@/components/rich/QuizCard";
+import { richTextLabel } from "@/components/rich/RichMathBody";
 import { StepList } from "@/components/rich/StepList";
 import { findLatexLeaks } from "@/lib/math/latexLeaks";
 import { DYNAMIC_TYPE_MAX, Weight } from "@/lib/type";
@@ -96,9 +99,34 @@ describe("quiz cards draw their maths", () => {
     expect(seen).not.toContain("\\frac");
     expect(findLatexLeaks(seen)).toEqual([]);
     expect(view.getByText("rich.quiz_correct")).toBeOnTheScreen();
+    // Rows that are their own element (the question, the explanation) read clean;
+    // an option's row leaves its words to the radio.
     for (const row of view.getAllByTestId("rich-math-body")) {
-      expect(findLatexLeaks(row.props.accessibilityLabel as string)).toEqual([]);
+      if (row.props.accessible) expect(findLatexLeaks(row.props.accessibilityLabel as string)).toEqual([]);
+      else expect(row.props.accessibilityLabel).toBeUndefined();
     }
+    for (const radio of view.getAllByRole("radio")) {
+      expect(findLatexLeaks(radio.props.accessibilityLabel as string)).toEqual([]);
+    }
+  });
+
+  it("says an option's maths as words on the radio itself, with nothing focusable inside it", async () => {
+    const view = await render(<QuizCard content={QUIZ} />);
+    const radios = view.getAllByRole("radio");
+    expect(radios.map((radio) => radio.props.accessibilityLabel)).toEqual([
+      richTextLabel("$\\frac{3}{4}$"),
+      richTextLabel("$x^2$"),
+      "numbers[2]",
+    ]);
+    for (const radio of radios.slice(0, 2)) {
+      const label = radio.props.accessibilityLabel as string;
+      expect(label.length).toBeGreaterThan(0);
+      expect(label).not.toContain("$");
+      expect(findLatexLeaks(label)).toEqual([]);
+    }
+    expect(radios[1]!.props.accessibilityLabel).toMatch(/x/);
+    // TalkBack reads a parent's words only from children that are not focusable.
+    expect(nestedAccessibleElements(view.toJSON())).toEqual([]);
   });
 
   it("keeps an option without maths as one chip text, and option words not selectable", async () => {
@@ -106,5 +134,27 @@ describe("quiz cards draw their maths", () => {
     expect(view.getByText("numbers[2]")).toBeOnTheScreen();
     const math = await render(<ChipText style={{}} chip={{}}>{"Pick $x$ now"}</ChipText>);
     expect(math.getByText("Pick").props.selectable).toBe(false);
+  });
+});
+
+describe("an array card with maths in its line and note", () => {
+  const ARRAY = JSON.stringify({
+    name: "xs",
+    title: "Squares of $n$: $n^2$",
+    values: [1, 4, 9],
+    caption: "3 values",
+    note: "So **$x^2 = 9$** has two roots.",
+  });
+
+  it("is one element whose label reads its line, list, caption and note, maths as words", async () => {
+    const view = await render(<ArrayBlock content={ARRAY} />);
+    const card = view.getByTestId("array-block");
+    const label = card.props.accessibilityLabel as string;
+    expect(label).toBe(
+      [richTextLabel("Squares of $n$: $n^2$"), "xs = [1, 4, 9]", "3 values", richTextLabel("So **$x^2 = 9$** has two roots.")].join(". "),
+    );
+    expect(label).not.toContain("$");
+    expect(findLatexLeaks(label)).toEqual([]);
+    expect(nestedAccessibleElements(view.toJSON())).toEqual([]);
   });
 });

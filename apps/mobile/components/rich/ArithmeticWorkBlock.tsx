@@ -57,7 +57,8 @@ function DigitRow({
       <Text style={[s.operator, muted && s.muted]} maxFontSizeMultiplier={CELL_TEXT_MAX}>
         {operator ?? " "}
       </Text>
-      <DigitCells value={value} width={width} muted={muted} />
+      {/* The row is the element: its cells are not read a second time. */}
+      <DigitCells value={value} width={width} muted={muted} inRow />
     </View>
   );
 }
@@ -67,16 +68,19 @@ function DigitCells({
   width,
   muted = false,
   testID,
+  inRow = false,
 }: {
   value: string;
   width: number;
   muted?: boolean;
   testID?: string;
+  /** Inside a DigitRow, which is the accessibility element. */
+  inRow?: boolean;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={s.digitRow} testID={testID} {...rowA11y(value.trim())}>
+    <View style={s.digitRow} testID={testID} {...(inRow ? null : rowA11y(value.trim()))}>
       {cells(value, width).map((char, index) => (
         <Text
           key={`${index}-${char}`}

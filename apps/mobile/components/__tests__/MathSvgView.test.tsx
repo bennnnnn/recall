@@ -1,6 +1,7 @@
 import { render, waitFor } from "@testing-library/react-native";
 import { Dimensions } from "react-native";
 
+import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MATH_SVG_EX_PX, MathSvgView } from "@/components/rich/MathSvgView";
 import { clearSvgMathCache, setSvgMathRendererForTest } from "@/lib/math/svgMath";
 import { readableLatexFallback } from "@/lib/math/text";
@@ -137,6 +138,18 @@ describe("MathSvgView does not stretch a short SVG to minHeight", () => {
     expect(view.props.accessibilityRole).toBe("text");
     expect(view.props.accessibilityLabel).toBe(readableLatexFallback(latex));
     expect(view.props.accessibilityLabel).not.toMatch(/\\|frac/);
+  });
+
+  it("leaves the reading to an accessible parent (an answer card): no second TalkBack stop", async () => {
+    const { getByTestId } = await render(
+      <AccessibleElementChildren>
+        <MathSvgView latex="gt" textColor="#111111" />
+      </AccessibleElementChildren>,
+    );
+    await waitFor(() => expect(mockSvgXml).toHaveBeenCalled());
+    const view = getByTestId("math-svg-view");
+    expect(view.props.accessible).toBe(false);
+    expect(view.props.accessibilityLabel).toBeUndefined();
   });
 });
 

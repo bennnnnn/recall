@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { parse, SvgAst, type JsxAST } from "react-native-svg";
 
+import {
+  AccessibleElementChildren,
+  useInsideAccessibleElement,
+} from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
 import {
   latexToSvgMath,
@@ -45,8 +49,10 @@ export const MathSvgView = React.memo(function MathSvgView({
   minHeight = 48,
 }: Props) {
   const { fontScale } = useWindowDimensions();
-  // VoiceOver reads the formula as words: an SVG has no text of its own.
-  const label = useMemo(() => readableLatexFallback(latex), [latex]);
+  // VoiceOver reads the formula as words: an SVG has no text of its own. Under
+  // an accessible parent (an answer card) the parent reads it instead.
+  const own = !useInsideAccessibleElement();
+  const label = useMemo(() => (own ? readableLatexFallback(latex) : undefined), [own, latex]);
   // The conversion is held with the latex it was made from. A view whose
   // latex changes (a streaming answer growing, a reused row) never draws the
   // previous formula's result, not even for one frame: until its own result
@@ -102,26 +108,28 @@ export const MathSvgView = React.memo(function MathSvgView({
       <View
         style={[styles.wrap, styles.fallbackBox]}
         testID="math-svg-fallback"
-        accessible
-        accessibilityRole="text"
+        accessible={own}
+        accessibilityRole={own ? "text" : undefined}
         accessibilityLabel={label}
       >
-        <ScrollView
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator
-          contentContainerStyle={styles.lineScroll}
-        >
-          {hasNestedView ? (
-            <View style={styles.nestedRow}>
-              <MathText latex={latex} textColor={textColor} />
-            </View>
-          ) : (
-            <Text style={styles.line} selectable>
-              <MathText latex={latex} textColor={textColor} />
-            </Text>
-          )}
-        </ScrollView>
+        <AccessibleElementChildren>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator
+            contentContainerStyle={styles.lineScroll}
+          >
+            {hasNestedView ? (
+              <View style={styles.nestedRow}>
+                <MathText latex={latex} textColor={textColor} />
+              </View>
+            ) : (
+              <Text style={styles.line} selectable>
+                <MathText latex={latex} textColor={textColor} />
+              </Text>
+            )}
+          </ScrollView>
+        </AccessibleElementChildren>
       </View>
     );
   }
@@ -135,8 +143,8 @@ export const MathSvgView = React.memo(function MathSvgView({
     <View
       style={styles.wrap}
       testID="math-svg-view"
-      accessible
-      accessibilityRole="text"
+      accessible={own}
+      accessibilityRole={own ? "text" : undefined}
       accessibilityLabel={label}
     >
       <ScrollView

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { ProseAnswer, ScrollingLine, spokenAnswer } from "@/components/rich/answerLines";
+import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerNotation } from "@/lib/answerNotation";
@@ -84,7 +85,8 @@ function AnswerFrame({
         </Text>
       </View>
       <View testID="answer-box" style={s.box}>
-        {children}
+        {/* The frame reads the value; nothing in the box is a second stop. */}
+        <AccessibleElementChildren>{children}</AccessibleElementChildren>
       </View>
     </View>
   );

@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 
+import { useInsideAccessibleElement } from "@/components/rich/accessibleElement";
 import { inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
@@ -51,6 +52,9 @@ export const MathText = memo(function MathText({
   const tall = useMemo(() => hasTallMath(segments), [segments]);
   const stacked = useMemo(() => hasStackedMath(segments), [segments]);
   const ctx: RenderCtx = { styles, color, fontScale, em: fontSize };
+  // Under an accessible parent (an answer card, a grouped paragraph) the parent
+  // reads the formula; a focusable box here would be a second TalkBack stop.
+  const own = !useInsideAccessibleElement();
 
   if (!latex.trim()) return null;
 
@@ -76,13 +80,14 @@ export const MathText = memo(function MathText({
     // Unscrolled, the box is the formula's one screen-reader element: its
     // pieces (a numerator, a radicand) would otherwise be read apart, or not
     // at all. Scrolled, the ScrollView below carries the label.
+    const boxOwns = own && !scroll;
     const content = (
       <View
         testID="math-text-tall"
         collapsable={false}
-        accessible={!scroll}
-        accessibilityRole={scroll ? undefined : "text"}
-        accessibilityLabel={scroll ? undefined : label}
+        accessible={boxOwns}
+        accessibilityRole={boxOwns ? "text" : undefined}
+        accessibilityLabel={boxOwns ? label : undefined}
         style={[styles.tallRoot, {
           minWidth: contentWidth,
           height: contentHeight,
@@ -105,9 +110,9 @@ export const MathText = memo(function MathText({
         showsHorizontalScrollIndicator
         bounces={false}
         contentInsetAdjustmentBehavior="never"
-        accessible
-        accessibilityRole="text"
-        accessibilityLabel={label}
+        accessible={own}
+        accessibilityRole={own ? "text" : undefined}
+        accessibilityLabel={own ? label : undefined}
         style={[styles.inlineViewport, { height: contentHeight }]}
       >
         {content}
@@ -126,9 +131,9 @@ export const MathText = memo(function MathText({
         showsHorizontalScrollIndicator
         bounces={false}
         contentInsetAdjustmentBehavior="never"
-        accessible
-        accessibilityRole="text"
-        accessibilityLabel={label}
+        accessible={own}
+        accessibilityRole={own ? "text" : undefined}
+        accessibilityLabel={own ? label : undefined}
         style={[styles.inlineViewport, { height: contentHeight }]}
       >
         <Text

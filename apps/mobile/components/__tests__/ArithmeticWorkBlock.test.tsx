@@ -1,5 +1,6 @@
 import { render, within } from "@testing-library/react-native";
 
+import { nestedAccessibleElements } from "@/components/__tests__/a11yTree";
 import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
 import { DYNAMIC_TYPE_PICKER_MAX } from "@/lib/type";
 
@@ -129,7 +130,9 @@ describe("ArithmeticWorkBlock", () => {
         { position: 0, place: "ones", addends: [8, 6], carry_in: 0, result_digit: 4, carry_out: 1 },
       ],
     });
-    const { getByTestId } = await render(<ArithmeticWorkBlock content={content} />);
+    const { getByTestId, toJSON } = await render(<ArithmeticWorkBlock content={content} />);
+    // The row is read once: its cells are not a second element inside it.
+    expect(nestedAccessibleElements(toJSON())).toEqual([]);
     for (const id of ["arithmetic-annotation-row", "arithmetic-top-row", "arithmetic-result-row"]) {
       expect(getByTestId(id).props.accessible).toBe(true);
       expect(getByTestId(id).props.accessibilityRole).toBe("text");
@@ -170,6 +173,7 @@ describe("ArithmeticWorkBlock", () => {
     });
     const view = await render(<ArithmeticWorkBlock content={content} />);
     expect(view.getByTestId("arithmetic-quotient").props.accessible).toBe(true);
+    expect(nestedAccessibleElements(view.toJSON())).toEqual([]);
     type Node = { type: string; props: Record<string, unknown>; children: (Node | string)[] | null };
     const sixes: Node[] = [];
     const walk = (node: Node | Node[] | string | null) => {

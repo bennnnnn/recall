@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
+import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { ChipText } from "@/components/rich/ChipText";
+import { richTextLabel } from "@/components/rich/RichMathBody";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import {
   inlineCodeTextStyle,
@@ -79,14 +81,19 @@ export function QuizCard({ content }: Props) {
               onPress={() => pick(index)}
               accessibilityRole="radio"
               accessibilityState={{ checked: picked }}
+              // The option's words, maths read as words: TalkBack takes none from a
+              // focusable child, so the radio must say them itself.
+              accessibilityLabel={richTextLabel(option)}
               style={({ pressed }) => [s.option, pressed && s.pressed]}
             >
               <View style={[s.radio, picked && s.radioPicked]}>
                 {picked ? <View style={s.radioDot} /> : null}
               </View>
-              <ChipText style={s.optionText} chip={s.chip}>
-                {option}
-              </ChipText>
+              <AccessibleElementChildren>
+                <ChipText style={s.optionText} chip={s.chip}>
+                  {option}
+                </ChipText>
+              </AccessibleElementChildren>
             </Pressable>
           );
         })}

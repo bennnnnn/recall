@@ -1,6 +1,7 @@
 import { render, within } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
+import { nestedAccessibleElements } from "@/components/__tests__/a11yTree";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { lightTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
@@ -60,6 +61,17 @@ describe("AnswerBlock", () => {
     expect(frame.props.accessible).toBe(true);
     expect(frame.props.accessibilityRole).toBe("text");
     expect(frame.props.accessibilityLabel).not.toMatch(/\\|frac|\$/);
+  });
+
+  it.each([
+    ["a stacked fraction", String.raw`x = \frac{1}{2}`],
+    ["prose with maths", "The speed is $v = \\frac{d}{t}$ metres per second"],
+    ["two roots", "x = 2 or x = -3"],
+    ["display maths", String.raw`\begin{cases} x = 1 \\ y = 2 \end{cases}`],
+  ])("holds no focusable element inside the frame: %s", async (_kind, value) => {
+    const view = await render(<AnswerBlock content={`verified: true\n${value}`} />);
+    expect(view.getByLabelText(/^Answer: /).props.accessible).toBe(true);
+    expect(nestedAccessibleElements(view.toJSON())).toEqual([]);
   });
 
   it("draws the Answer heading on a bare card too", async () => {
