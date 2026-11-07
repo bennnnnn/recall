@@ -48,6 +48,9 @@ def test_a_bracket_crediting_this_turns_sources_goes(reply: str, kept: str) -> N
         "Pay on time (this matters most).",
         "Scores run 300-850 (FICO 8).",
         "Reuters reported a rate cut (Reuters).",
+        # A word that is only somewhere in a result's title (review of #2321).
+        "Pay it (It helps).",
+        "Weigh it (Credit).",
         "See [Experian](https://www.experian.com/b) for your report.",
         # The short form of the name just before it, which the reply may use again.
         "Complain to the Federal Trade Commission (FTC) if a bureau ignores you.",

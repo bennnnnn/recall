@@ -10,6 +10,7 @@ the short form of the name just before it ("the Federal Trade Commission (FTC)")
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -26,23 +27,49 @@ _NAME = re.compile(r"[A-Z][^\d]*")
 _WORD = re.compile(r"[A-Za-z][A-Za-z.'-]*")
 
 
-def _squash(text: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", text.lower())
+# A title names its outlet after its last separator: "What Affects Your Credit Scores? -
+# Experian", "5 ways to build credit | First Southwest Bank".
+_TITLE_SEPARATOR = re.compile(r"\s+[|\-\u2013\u2014\u00b7:]\s+")
 
 
-def _source_keys(hits: list[WebSearchHit]) -> list[str]:
-    """Each result's title and site, squashed: "Credit Scores | Consumer Advice
-    consumerftcgov"."""
-    return [f"{_squash(hit.title)} {_squash(urlsplit(hit.url).hostname or '')}" for hit in hits]
+@dataclass(frozen=True)
+class _Outlet:
+    """One result's outlet: the name its title ends on, and its site's labels."""
+
+    name: tuple[str, ...]
+    site: tuple[str, ...]
+
+    def credited_by(self, words: list[str]) -> bool:
+        """The name opens the outlet's name ("Broadview" for Broadview Federal Credit
+        Union), or is its site ("FTC" for consumer.ftc.gov, "USA.gov" for usa.gov). A word
+        that is only somewhere in a title ("Credit") credits nothing."""
+        joined = "".join(words)
+        if self.name and tuple(words) == self.name[: len(words)]:
+            return True
+        # A site label, never its ending alone ("gov", "com").
+        return joined in self.site[:-1] or joined in ("".join(self.site), "".join(self.site[:-1]))
 
 
-def _credits(name: str, keys: list[str]) -> bool:
-    """Every word of ``name`` is in one result's title or site."""
+def _tokens(text: str) -> tuple[str, ...]:
+    return tuple(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def _outlets(hits: list[WebSearchHit]) -> list[_Outlet]:
+    outlets = []
+    for hit in hits:
+        parts = _TITLE_SEPARATOR.split(hit.title.strip())
+        host = (urlsplit(hit.url).hostname or "").lower().split(".")
+        site = tuple(label for label in host if label and label != "www")
+        outlets.append(_Outlet(_tokens(parts[-1]) if len(parts) > 1 else (), site))
+    return outlets
+
+
+def _credits(name: str, outlets: list[_Outlet]) -> bool:
+    """``name`` is one of this turn's outlets."""
     if not _NAME.fullmatch(name) or len(name.split()) > 4:
         return False
-    words = [_squash(word) for word in _WORD.findall(name)]
-    words = [word for word in words if word]
-    return bool(words) and any(all(word in key for word in words) for key in keys)
+    words = list(_tokens(name))
+    return bool(words) and any(outlet.credited_by(words) for outlet in outlets)
 
 
 def _spells(acronym: str, before: str) -> bool:
@@ -54,12 +81,12 @@ def _spells(acronym: str, before: str) -> bool:
     return initials.upper() == acronym
 
 
-def _drop_credits(prose: str, keys: list[str]) -> str:
+def _drop_credits(prose: str, outlets: list[_Outlet]) -> str:
     def drop(match: re.Match[str]) -> str:
         names = [name for name in _SEPARATOR.split(match.group(1).strip()) if name]
         if len(names) == 1 and _spells(names[0], prose[: match.start()]):
             return match.group(0)
-        return "" if names and all(_credits(name, keys) for name in names) else match.group(0)
+        return "" if names and all(_credits(name, outlets) for name in names) else match.group(0)
 
     return _BRACKET.sub(drop, prose)
 
@@ -67,7 +94,7 @@ def _drop_credits(prose: str, keys: list[str]) -> str:
 def drop_source_credits(text: str, hits: list[WebSearchHit]) -> str:
     """``text`` without the brackets that only name this turn's own sources; a fence's
     content is left as written."""
-    keys = _source_keys(hits)
-    if not keys:
+    outlets = _outlets(hits)
+    if not outlets:
         return text
-    return map_outside_fences(text, lambda prose: _drop_credits(prose, keys))
+    return map_outside_fences(text, lambda prose: _drop_credits(prose, outlets))
