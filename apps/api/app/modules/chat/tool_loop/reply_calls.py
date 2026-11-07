@@ -12,6 +12,7 @@ so the model, not a phrase list, decides when a turn reads the user's earlier ch
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable
 from typing import Any, NamedTuple
@@ -34,7 +35,10 @@ from app.modules.memory.recall_tool import RECALL_TOOL
 from app.modules.turn_reading.coding import has_code_syntax
 from app.modules.turn_reading.conversation import is_social_opener
 from app.modules.turn_reading.school_question import has_nothing_to_look_up
-from app.modules.web_search import TurnTavilyBudget, web_search_skip
+from app.modules.web_search import TurnTavilyBudget, asks_to_search, web_search_skip
+from app.services.answer_fence import VERIFIED_ANSWER_MARKER
+from app.services.md_fence_scan import iter_closed_fences
+from app.services.problem_followup import EXPLAIN_RE, asked_unit, new_value, scaled_given
 from app.services.time_context import is_remote_time_question
 
 REPLY_TOOL = "web_search"
@@ -125,10 +129,45 @@ def _nothing_to_look_up(part: str, turn: ReplyTurn | None) -> bool:
         return True
     if has_nothing_to_look_up(part):
         return True
+    if turn is not None and _varies_a_checked_answer(part, turn.prior_assistant):
+        return True
     return web_search_skip(
         part,
         prior_user_messages=turn.prior_user_messages if turn else None,
         prior_assistant=turn.prior_assistant if turn else None,
+    )
+
+
+# "now what if the cliff was twice as high?", "and with 3 kg?": the last problem again.
+_WHAT_IF = re.compile(
+    r"^(?:(?:and|but|so|ok(?:ay)?|now|then)[ ,]+)*(?:what|how)\s+(?:if|about)\b", re.IGNORECASE
+)
+_FOLLOWUP_WORDS = 14
+
+
+def _varies_a_checked_answer(part: str, prior_assistant: str | None) -> bool:
+    """A short follow-up to a server-checked answer: the same problem with one change, in
+    another unit, or explained. A search only found pages about the law: "now what if the
+    cliff was twice as high?" looked up standard gravity before its answer (2026-11-06)."""
+    if not prior_assistant or not _has_checked_answer(prior_assistant):
+        return False
+    line = " ".join(part.split()).rstrip(" ?.!")
+    if len(line.split()) > _FOLLOWUP_WORDS or asks_to_search(line):
+        return False
+    return bool(
+        _WHAT_IF.search(line)
+        or scaled_given(line)
+        or new_value(line)
+        or asked_unit(line)
+        or EXPLAIN_RE.match(line.lower())
+    )
+
+
+def _has_checked_answer(reply: str) -> bool:
+    """The reply holds a server-checked ```answer card (its first line ``verified: true``)."""
+    return any(
+        body.strip().lower().startswith(VERIFIED_ANSWER_MARKER)
+        for _start, _end, body in iter_closed_fences(reply, "answer")
     )
 
 

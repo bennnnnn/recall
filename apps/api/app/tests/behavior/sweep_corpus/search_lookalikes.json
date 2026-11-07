@@ -670,5 +670,47 @@
   "prompt": "what is the us unemployment rate right now",
   "reply": "The US unemployment rate was 4.4% in September.",
   "expect": "search"
+ },
+ {
+  "id": "sl-calc-hi",
+  "area": "homework",
+  "prompt": "x² + 5x + 6 = 0 को हल करें",
+  "reply": "गुणनखंड: $(x+2)(x+3)=0$, इसलिए $x=-2$ या $x=-3$।",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-calc-fr",
+  "area": "homework",
+  "prompt": "Une voiture roule à 72 km/h et freine jusqu'à l'arrêt en 4 s. Quelle est sa décélération ?",
+  "reply": "$72\\,\\mathrm{km/h} = 20\\,\\mathrm{m/s}$, donc $a = 20/4 = 5\\,\\mathrm{m/s^2}$.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-calc-de",
+  "area": "homework",
+  "prompt": "Ein Körper fällt aus 45 m Höhe. Wie lange dauert der Fall? g = 9,81 m/s²",
+  "reply": "$t = \\sqrt{2h/g} = \\sqrt{90/9{,}81} \\approx 3{,}03\\,\\mathrm{s}$.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-calc-es",
+  "area": "homework",
+  "prompt": "Resuelve 3x - 5 = 2x + 7",
+  "reply": "Restamos $2x$ y sumamos 5: $x = 12$.",
+  "expect": "answer"
+ },
+ {
+  "id": "sl-calc-news",
+  "area": "search",
+  "prompt": "Quelle est la population de la France en 2026 ?",
+  "reply": "Environ 68,6 millions d'habitants selon l'Insee.",
+  "expect": "search"
+ },
+ {
+  "id": "sl-calc-price",
+  "area": "search",
+  "prompt": "price of 2 kg of teff in Addis today",
+  "reply": "Around 260–300 birr per kg at Merkato this week, so about 520–600 birr for 2 kg.",
+  "expect": "search"
  }
 ]

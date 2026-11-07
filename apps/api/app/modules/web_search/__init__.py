@@ -10,6 +10,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from app.modules.web_search.command import asks_to_search
     from app.modules.web_search.detection import (
         asks_only_whether_it_searches,
         needs_web_search,
@@ -58,6 +59,7 @@ _EXPORTS = {
     "WebSearchAdapter": "tool",
     "asks_about_a_place": "homework",
     "asks_only_whether_it_searches": "detection",
+    "asks_to_search": "command",
     "format_location_not_set_answer": "geo_intent",
     "format_places_fence": "formatting",
     "format_search_block": "formatting",
@@ -90,6 +92,7 @@ __all__ = [
     "WebSearchAdapter",
     "asks_about_a_place",
     "asks_only_whether_it_searches",
+    "asks_to_search",
     "format_location_not_set_answer",
     "format_places_fence",
     "format_search_block",
