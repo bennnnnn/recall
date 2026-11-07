@@ -28,8 +28,9 @@ _ABOUT_THE_ASKER = re.compile(
     r"|\bthey(?:'ve| have)? (?:asked|been learning|already know|mentioned|requested)\b"
     r"|\bthey(?:'re| are) (?:asking|learning|on a|on lesson|new to|looking for)\b"
     r"|\bthey (?:want|wanted|prefer)\b"
-    r"|\bmemory (?:says|said|shows|notes|mentions|has|indicates|suggests)\b"
-    r"|\b(?:according to|per|based on|in) (?:the |their |my )?memory\b",
+    # Memory as the source about them; never memory a program keeps ("kept in memory").
+    r"|\b(?:my |their |saved )?memory (?:says|said|notes|mentions|indicates)\b"
+    r"|\b(?:according to|based on) (?:the |their |my |saved )?memory\b",
     re.IGNORECASE,
 )
 _TO_THEM = re.compile(r"\byou(?:'ve|'re|'ll|'d)?\b|\byour\b", re.IGNORECASE)
@@ -42,9 +43,11 @@ _ANNOUNCES_PLAN = re.compile(
 _PLAN_PARAGRAPH = 500
 _MOST_PARAGRAPHS = 2
 # "Memory says you're vegetarian, so …", "According to my memory, you …".
+# Only before a clause about them: "The memory shows you the value of x" is a debugger's.
 _MEMORY_LEAD = re.compile(
-    r"(?:(?:my |the |your )?memory (?:says|shows|notes|tells me)(?: that)?"
-    r"|(?:according to|based on) (?:my |the |your )?memory,?)\s+(?=you\b)",
+    r"(?:(?:my )?memory (?:says|notes|tells me)(?: that)?"
+    r"|(?:according to|based on) (?:my )?memory,?)\s+"
+    r"(?=you(?:'re|'ve|'d| are| have| were| live| like| prefer| want| work| study)\b)",
     re.IGNORECASE,
 )
 

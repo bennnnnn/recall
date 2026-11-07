@@ -415,6 +415,9 @@ def test_a_reply_speaks_to_the_person_not_about_them(reply: str, kept: str) -> N
         "The Romans built roads to move armies, and I'll explain how.\n\nThey paved them.",
         "They say actions speak louder than words, so let me explain it.\n\nIt means deeds.",
         "Farmers want rain in spring, so I'll explain irrigation.\n\nWater is piped in.",
+        # Memory a program keeps (review of #2326).
+        "Variables are kept in memory, so I'll show how the stack works.\n\nThe stack grows down.",
+        "The memory shows you the value of x at each step.\n\nSet a breakpoint first.",
         # Narration with nothing after it: the reply is left as written.
         "They want a lesson on proverbs, so I'll start with the ten most common.",
     ],
