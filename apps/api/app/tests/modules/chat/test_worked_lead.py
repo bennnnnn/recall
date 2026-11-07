@@ -100,6 +100,30 @@ def test_the_answer_said_above_the_working_goes(lead: str) -> None:
     assert drop_guessed_lead(f"{lead}\n\n{_CAR}") == _CAR
 
 
+_SOLVE_X = "**Given**\n$5x - 3 = 12$\n\n**Answer**\n\n```answer\nverified: false\nx = 3\n```\n"
+
+
+@pytest.mark.parametrize(
+    ("lead", "worked"),
+    [
+        # Review (2026-11-07): a digit the card shares is not the card's result.
+        ("Let's solve 5x - 3 = 12 for x.", _SOLVE_X),
+        ("The car is 100 m from the wall when it brakes.", _CAR),
+    ],
+)
+def test_a_lead_sharing_a_number_with_the_card_stays(lead: str, worked: str) -> None:
+    text = f"{lead}\n\n{worked}"
+    assert drop_guessed_lead(text) == text
+
+
+def test_the_cards_statement_must_stand_whole() -> None:
+    # "x = 30" does not say x = 3, nor "125 m" 25 m; both are numbers the working holds.
+    worked = "**Given**\n$x = 30$, 125 m\n\n**Answer**\n\n```answer\nverified: true\nx = 3\n```\n"
+    for lead in ("Start from **x = 30**.", "The track is **125 m** long."):
+        text = f"{lead}\n\n{worked}"
+        assert drop_guessed_lead(text) == text
+
+
 def test_a_models_bold_answer_over_its_steps_goes() -> None:
     # Live, 2026-11-07: "**x = 3**" over Given, Required, Solution and a card of x = 3.
     worked = (
