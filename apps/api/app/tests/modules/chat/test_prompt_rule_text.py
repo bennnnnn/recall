@@ -36,8 +36,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # user adds checked against the chat (OWN_MISTAKE_HINT), then no "live" part in a message of
 # several requests: whether one needs the web is the reply model's call (multi_part).
 _RULES = 174
-_RULE_GRAMS = 15298
-_RULE_GRAMS_SHA = "40bc0385ac7e22f8"
+_RULE_GRAMS = 15361
+_RULE_GRAMS_SHA = "47356a999c477b76"
 
 
 def _rules() -> list[str]:
