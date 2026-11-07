@@ -43,10 +43,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # needs the web is the reply model's call (multi_part), then every teach-me taught at once, one
 # item per section (prompt_constants.teaching), then the person spoken to as "you", never
 # about, and memory never quoted (NO_SELF_TALK_RULE), then a plan in weeks or months laid out
-# by week or month, not by day (LEARNING_PLAN_HINT).
+# by week or month, not by day (LEARNING_PLAN_HINT), then a **Choose A if** line only when the
+# user asks to pick between named options, and no word about how the search went (READER_NOTE).
 _RULES = 174
-_RULE_GRAMS = 15872
-_RULE_GRAMS_SHA = "992986509ae62b44"
+_RULE_GRAMS = 15921
+_RULE_GRAMS_SHA = "8a098e1accff867e"
 
 
 def _rules() -> list[str]:
