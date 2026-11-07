@@ -22,7 +22,8 @@ from app.modules.chat import stream_pipeline, turn_trace
 from app.modules.chat.finalize_passes import FALL_BACK, FinalizePass, FinalizeState, OnError
 from app.modules.chat.finalize_passes import _run_pass as run_pass
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
-from app.modules.chat.prompt_format import HINT_RULES, PromptRule, render_rules
+from app.modules.chat.prompt_format import HINT_RULES
+from app.modules.chat.prompt_rules import PromptRule, render_rules
 from app.modules.chat.prompt_sections import (
     CONTEXT_SECTIONS,
     NEARBY_CONTRACTS,

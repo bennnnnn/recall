@@ -9,12 +9,10 @@ from typing import Any
 
 from app.modules.turn_reading.teaching import (
     _TEACH_TURN,
-    PROGRAMMING_PATTERNS,
     is_teaching_request,
-    programming_tag,
 )
 from app.modules.turn_reading.walkthrough import walkthrough_topic
-from app.services.md_fence_scan import iter_fences, without_fences
+from app.services.md_fence_scan import iter_fences
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # "### Lesson 2: Dictionaries": a heading with the word Lesson in an app
@@ -171,23 +169,6 @@ def teach_subject(text: str | None) -> str | None:
     return _named(_SUBJECT_LEAD.sub("", cleaned[end:]))
 
 
-# What may stand beside a language's name in a subject that is still the whole language.
-_LANGUAGE_FILLER = frozenset({"the", "language", "programming", "coding", "code", "basics"})
-
-
-def names_a_whole_language(text: str | None) -> bool:
-    """A teach-me whose subject is a programming language and nothing narrower ("teach me
-    python", "I want to learn the go language"): a whole subject, so an outline first."""
-    subject = teach_subject(text)
-    tag = programming_tag(subject or "")
-    if subject is None or tag is None:
-        return False
-    rest = subject
-    for pattern, _tag in PROGRAMMING_PATTERNS:
-        rest = pattern.sub(" ", rest)
-    return all(word.casefold() in _LANGUAGE_FILLER for word in rest.split())
-
-
 # Where a stuck or walkthrough topic ends: "recursion yet", "pointers in C at all".
 _TOPIC_TAIL = re.compile(
     r"\s(?:to\s+me|for\s+me|at\s+all|yet|anymore|any\s+more|very\s+well|well)\s*$", re.IGNORECASE
@@ -209,12 +190,3 @@ def _named(rest: str) -> str | None:
     words = _SUBJECT_END.split(rest.strip(), maxsplit=1)[0].split()[:_SUBJECT_MAX_WORDS]
     subject = " ".join(words).strip()
     return subject[:1].upper() + subject[1:] if subject else None
-
-
-# A topic of an outline: "3. **Loops** — repeat a step", "1. 🐍 **Setup** - install it".
-_OUTLINE_TOPIC = re.compile(r"^\s{0,3}\d{1,2}[.)]\s+(?:[^\w\s*`]{1,4}\s*)?\*\*[^*\n]+\*\*", re.M)
-
-
-def outline_topics(text: str | None) -> int:
-    """How many numbered topics with a bold name an outline reply lists."""
-    return len(_OUTLINE_TOPIC.findall(without_fences(text or "", "")))

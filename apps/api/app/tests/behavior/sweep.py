@@ -56,7 +56,7 @@ from app.modules.conversation import messages_repository
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
 from app.modules.todos.reply_check import KEEP_AS_REMINDER, NEED_A_TIME
-from app.modules.turn_reading.lesson_flow import has_lesson_title, outline_topics
+from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
 from app.tests.behavior.cases import Case, Expect
@@ -171,9 +171,9 @@ MONEY_STANDING_AREAS = {"money standing"}
 LESSON_LOOKALIKE_AREAS = {"walkthrough lookalike", "teaching lookalike"}
 
 
-def _lesson_parts(text: str) -> tuple[bool, int, int]:
-    """A reply's lesson title, practice cards and outline topics."""
-    return has_lesson_title(text), text.count("```quiz"), outline_topics(text)
+def _lesson_parts(text: str) -> tuple[bool, int]:
+    """A reply's lesson title and practice cards."""
+    return has_lesson_title(text), text.count("```quiz")
 
 
 # Reminders already saved, so "mark call mom as done" has something to find.

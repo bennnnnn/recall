@@ -295,7 +295,7 @@ def test_a_lesson_shapes_only_its_part() -> None:
     ],
 )
 def test_one_part_turns_get_no_contract(text: str) -> None:
-    from app.modules.chat.prompt_format import render_rules
+    from app.modules.chat.prompt_rules import render_rules
     from app.modules.chat.prompt_sections import NEARBY_CONTRACTS, PromptTurn
 
     plan = plan_turn(text)
