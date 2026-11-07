@@ -17,9 +17,16 @@ extractors, so it only answers questions they declined.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from functools import lru_cache
 
-from app.modules.physics.ask import ask_clause, asked_dimensions, asked_unit
+from app.modules.physics.ask import (
+    AskedEnd,
+    ask_clause,
+    asked_dimensions,
+    asked_end,
+    asked_unit,
+)
 from app.modules.physics.binding_values import fallback_value, si_unit
 from app.modules.physics.bodies import names_only_water
 from app.modules.physics.catalog import CATALOG, WATER_ONLY
@@ -30,11 +37,13 @@ from app.modules.physics.optic_elements import diverging_element, signed_distanc
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.fit import (
     Subject,
+    admits,
     named_strength,
     only_strongest_fit,
     read_question,
 )
 from app.services.law_binding.model_read import excluded
+from app.services.law_binding.roles import contradicts, counterparts
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import dimension_of
 
@@ -161,7 +170,13 @@ def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
     # "The mirror is convex": a law that excludes a diverging element excludes it, however
     # the question words it.
     excluded = _with_markers(lower)
-    return [
+
+    def admitted(spec: FormulaSpec) -> bool:
+        return (only_water or spec.id not in WATER_ONLY) and (
+            spec.binding is not None and admits(spec.binding, excluded, cue_text=cue_text)
+        )
+
+    named = [
         (spec, strength)
         for spec in _bindable()
         if spec.binding is not None
@@ -172,6 +187,34 @@ def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
             )
         )
     ]
+    end = asked_end(text, clause)
+    return named if end is None else _at_the_asked_end(named, end, admitted)
+
+
+def _at_the_asked_end(
+    named: list[tuple[FormulaSpec, int]],
+    end: AskedEnd,
+    admitted: Callable[[FormulaSpec], bool],
+) -> list[tuple[FormulaSpec, int]]:
+    """The named laws whose result is at the asked end, each other one's place taken by
+    its counterpart there (``law_binding.roles``).
+
+    "How fast was it going at first?" names v = u + at by "how fast"; its starting
+    speed is u = v - at's, named as strongly. A counterpart still needs the question's
+    cues and nothing it excludes.
+    """
+    kept = {
+        spec.id: (spec, strength)
+        for spec, strength in named
+        if not contradicts(spec, end.role, end.dimension)
+    }
+    for spec, strength in named:
+        if not contradicts(spec, end.role, end.dimension):
+            continue
+        for law in counterparts(spec, end.role, _bindable()):
+            if law.id not in kept and admitted(law):
+                kept[law.id] = (law, strength)
+    return list(kept.values())
 
 
 def asks_another_thing(text: str) -> bool:

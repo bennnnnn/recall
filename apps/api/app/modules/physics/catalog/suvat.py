@@ -27,8 +27,38 @@ _INITIAL = (
     "travelling at",
     "traveling at",
 )
-_FINAL = ("final", "finally", "to", "reaches", "reaching", "until", "up to", "becomes", "ends at")
-_SLOWING = ("decelerat", "retard", "slows down at", "brakes at", "braking at")
+# The words that state a speed is the starting one. "Moving at" and "travelling at" only
+# lean that way: "is moving at 30 m/s after accelerating for 5 s" states the final speed,
+# so they never mark a speed as the starting speed a question asks for.
+_STARTS = tuple(
+    word for word in _INITIAL if word not in {"moving at", "travelling at", "traveling at"}
+)
+_FINAL = (
+    "final",
+    "finally",
+    "to",
+    "reaches",
+    "reaching",
+    "until",
+    "up to",
+    "becomes",
+    "ends at",
+    # "It is then travelling at 15 m/s" after the change: longer than "travelling at".
+    "then moving at",
+    "then travelling at",
+    "then traveling at",
+    "then going",
+    "is then",
+)
+_SLOWING = (
+    "decelerat",
+    "retard",
+    "slows down at",
+    "slows at",
+    "slowing at",
+    "brakes at",
+    "braking at",
+)
 
 # Two moving bodies: their two speeds are not one body's u and v. Two trains
 # 2.1 km apart closing at 72 and 54 km/h meet after 60 s; read as one train
@@ -56,6 +86,10 @@ TWO_BODIES = (
     "relative speed",
     "relative velocity",
 )
+
+# A second change after the first: "accelerates for 5 s ... It then brakes at 5 m/s²" is
+# two intervals, and the first one's time is not the second's.
+_TWO_STAGES = ("then brakes", "then decelerates", "then slows", "then accelerates")
 
 _U = var("u", "u", _SPEED, words=_INITIAL, implied=(("from rest", 0.0),))
 _V = var(
@@ -113,7 +147,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("final velocity", "final speed", "velocity", "speed", "how fast"),
             result=(_SPEED,),
-            excludes=TWO_BODIES,
+            excludes=(*TWO_BODIES, *_TWO_STAGES),
             inputs=_inputs("uat", "uad", "udt"),
             result_words=_FINAL,
         ),
@@ -153,7 +187,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("displacement", "distance", "how far"),
             result=("meter",),
-            excludes=TWO_BODIES,
+            excludes=(*TWO_BODIES, *_TWO_STAGES),
             inputs=_inputs("uat", "uva", "uvt", "vat"),
         ),
     ),
@@ -179,7 +213,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("how long", "time taken", "time"),
             result=("second",),
-            excludes=TWO_BODIES,
+            excludes=(*TWO_BODIES, *_TWO_STAGES),
             inputs=_inputs("uva", "uad", "uvd"),
         ),
     ),
@@ -205,7 +239,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("acceleration", "deceleration", "retardation"),
             result=(_ACCELERATION,),
-            excludes=TWO_BODIES,
+            excludes=(*TWO_BODIES, *_TWO_STAGES),
             inputs=_inputs("uvt", "uvd", "udt"),
         ),
     ),
@@ -238,9 +272,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("initial velocity", "initial speed", "starting speed", "starting velocity"),
             result=(_SPEED,),
-            excludes=TWO_BODIES,
+            excludes=(*TWO_BODIES, *_TWO_STAGES),
             inputs=_inputs("vat", "vad", "vdt", "adt"),
-            result_words=_INITIAL,
+            result_words=_STARTS,
         ),
     ),
 )

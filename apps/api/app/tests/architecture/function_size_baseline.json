@@ -45,7 +45,7 @@
   "modules/physics/extractors/projectile.py::_extract_projectile_intent": 126,
   "modules/physics/extractors/rates.py::extract_rate_intent": 129,
   "modules/physics/extractors/school_ac.py::extract_ac": 103,
-  "modules/physics/extractors/suvat.py::_extract_suvat_intent": 115,
+  "modules/physics/extractors/suvat.py::_extract_suvat_intent": 114,
   "modules/physics/extractors/torque.py::_extract_torque_intent": 194,
   "modules/physics/extractors/waves.py::_extract_waves_intent": 173,
   "modules/physics/solvers/circular.py::solve_circular": 134,

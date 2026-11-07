@@ -24,6 +24,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
 from app.services.law_binding.givens import Given, scan_givens
+from app.services.law_binding.roles import role_words
 from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec
 from app.services.law_binding.units import ANGLE, UnitTable, dimension_of, unit_dimension
 from app.services.law_binding.words import (
@@ -253,6 +254,8 @@ def fit(
     listed = word_pattern("respectively").search(lower) is not None
     previous = 0
     earlier = ""
+    filled: list[VariableSpec] = []
+    described = 0
     for index, given in enumerate(givens):
         kind = given_kind(given, subject.units)
         options = [
@@ -265,17 +268,22 @@ def fit(
                 continue
             return None
         before = words_before(lower, previous, given.start)
+        # The words that still describe the value before ("12 teeth on the input") are
+        # its own, not this one's.
+        own = words_before(lower, max(previous, described), given.start)
         # "at 100 kPa and 300 K": the words before a list name every value in it.
         if _LIST_LINK.fullmatch(before):
-            before = earlier
+            before, own = earlier, ""
         earlier = before
         following = givens[index + 1].start if index + 1 < len(givens) else len(lower)
         after = words_after(lower, given.end, following)
+        described = given.end + len(after)
         choice = choose(
             options, before, after, binding, _given_dimension(given) in produced, listed=listed
         )
-        if choice is None:
+        if choice is None or _names_a_filled_input(choice, filled, own):
             return None
+        filled.append(choice)
         negative = last_said(before, choice.negating) >= 0
         params[choice.name] = -given.value if negative else given.value
         units[choice.name] = given.unit
@@ -295,6 +303,24 @@ def fit(
     ):
         return None
     return Fit(spec, params, units, strength, stated)
+
+
+def _names_a_filled_input(choice: VariableSpec, filled: list[VariableSpec], before: str) -> bool:
+    """The words before a value name, as its end of the change, an input an earlier value
+    already filled.
+
+    "Compressed to 2 L at 300 kPa. Its initial pressure was 100 kPa": "at" put 300 kPa
+    at P₁, so the 100 kPa the words call initial was left only P₂, and answered 0.667 L
+    for 6 L. Two values for one input is not one way to fill the law. Only a word that
+    names an end counts ("initial", "started at"): "at" also places a value ("what volume
+    will it have at 127 °C").
+    """
+    own = last_said(before, choice.words)
+    kind = variable_kind(choice)
+    return any(
+        variable_kind(variable) == kind and last_said(before, role_words(variable.words)) > own
+        for variable in filled
+    )
 
 
 _ANGLE_WORD = re.compile(r"(?<![\w])angles?\b", re.IGNORECASE)
@@ -333,12 +359,17 @@ def named_strength(
     costs a few regex searches. ``cue_text`` is ``lower`` with any phrase the subject
     reads a cue from added.
     """
-    cues = lower if cue_text is None else cue_text
-    if binding.cues and not any(word_pattern(cue).search(cues) for cue in binding.cues):
-        return 0
-    if any(word_pattern(word).search(lower) for word in binding.excludes):
+    if not admits(binding, lower, cue_text=cue_text):
         return 0
     return ask_strength(clause, binding.asks, binding.result, units)
+
+
+def admits(binding: Binding, lower: str, *, cue_text: str | None = None) -> bool:
+    """The question says one of the law's cues, if it has any, and nothing it excludes."""
+    cues = lower if cue_text is None else cue_text
+    if binding.cues and not any(word_pattern(cue).search(cues) for cue in binding.cues):
+        return False
+    return not any(word_pattern(word).search(lower) for word in binding.excludes)
 
 
 def read_question(

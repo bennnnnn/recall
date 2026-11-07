@@ -17,6 +17,7 @@ from app.modules.physics.extractors.stated_values import (
 )
 from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.extractors.unit_patterns import NUMBER, VELOCITY_UNIT_PATTERN
+from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -227,6 +228,25 @@ def _read_energy_givens(cleaned: str) -> _EnergyGivens:
     )
 
 
+# mgh holds in a uniform field: near a surface, never for an orbit.
+_ORBIT_RE = re.compile(r"\b(?:orbit\w*|satellites?)\b")
+# A height past 1% of Earth's radius is no longer "near the surface".
+_MGH_MAX_HEIGHT = 63_710.0
+
+
+def uniform_field(lower: str, height: tuple[float, str]) -> bool:
+    """Whether mgh holds: no orbit, and a height small beside a planet's radius.
+
+    "A satellite orbits Earth at a radius of 7000 km ... the gravitational potential
+    energy of the 500 kg satellite" was mgh with h = 7000 km; it is -GMm/r.
+    """
+    if _ORBIT_RE.search(lower):
+        return False
+    reading = unit_dimension(unit_expression(height[1] or "m") or "meter")
+    scale = 1.0 if reading is None else reading[1]
+    return height[0] * scale <= _MGH_MAX_HEIGHT
+
+
 def _choose_energy_op(cleaned: str, lower: str, givens: _EnergyGivens) -> _EnergyOp | None:
     """The law the question names, or the one its givens solve; None when they cannot.
 
@@ -239,7 +259,9 @@ def _choose_energy_op(cleaned: str, lower: str, givens: _EnergyGivens) -> _Energ
     if "kinetic energy" in lower or _KE_ABBREV_RE.search(lower):
         return None if mass is None or velocity is None else "kinetic_energy"
     if "potential energy" in lower or _PE_ABBREV_RE.search(lower):
-        return None if mass is None or height is None else "potential_energy"
+        if mass is None or height is None or not uniform_field(lower, height):
+            return None
+        return "potential_energy"
     if "power" in lower:
         if _unstated_work_angle(cleaned):
             return None
@@ -257,7 +279,7 @@ def _choose_energy_op(cleaned: str, lower: str, givens: _EnergyGivens) -> _Energ
     # "energy of" / "conservation of energy" — pick whichever we can solve.
     if mass is not None and velocity is not None:
         return "kinetic_energy"
-    if mass is not None and height is not None:
+    if mass is not None and height is not None and uniform_field(lower, height):
         return "potential_energy"
     if force is not None and distance is not None:
         if _unstated_work_angle(cleaned):

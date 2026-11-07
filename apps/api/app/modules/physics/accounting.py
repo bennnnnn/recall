@@ -23,6 +23,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import combinations, product
 
+from app.modules.physics.bodies import orbiting_body_masses
 from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
@@ -37,6 +38,10 @@ logger = logging.getLogger(__name__)
 _GRAVITY_SETTING = re.compile(
     rf"\b(?:g\s*=|gravity\s*(?:of|is|=)?)\s*{NUMBER}(?:\s*m/s\^?2)?",
     re.IGNORECASE,
+)
+# Laws about a central body alone, whose results no orbiting or standing body's mass changes.
+_CENTRAL_ONLY = frozenset(
+    {"orbital_velocity", "escape_velocity", "surface_gravity", "gravitational_potential"}
 )
 # Derived values are sums or differences of a few givens; more is a guess.
 _MAX_OPERANDS = 4
@@ -55,8 +60,10 @@ def _kind(expression: str) -> str:
 _LENGTH = _kind("meter")
 # Kinds that set the situation itself. Left out, a law answers another question:
 # a push up an incline, a speed and a radius over a hump, a rolling body's size.
+# A stated acceleration too: "ends at 20 m/s after accelerating at 2 m/s² over 75 m" is
+# not d/v (3.75 s), which never reads it; it is 5 s.
 _SITUATION_KINDS = frozenset(
-    {_kind("newton"), _kind("meter / second"), _LENGTH, ANGLE},
+    {_kind("newton"), _kind("meter / second"), _kind("meter / second ** 2"), _LENGTH, ANGLE},
 )
 # "a 2 m long plank", "a 30 cm wide box": a size, not where anything is.
 _SIZE_ONLY = re.compile(
@@ -219,7 +226,7 @@ def _clearly_irrelevant(given: Given, text: str) -> bool:
 
 
 def _unused_situation(given: Given, params: list[_Param], text: str) -> bool:
-    """A stated force, speed, length or angle of a kind this solve never uses.
+    """A stated force, speed, acceleration, length or angle of a kind this solve never uses.
 
     Those change the situation: a 30 N push along a slope, a car's speed and
     the radius of the hump it crosses, a rolling sphere's radius. A law that
@@ -258,6 +265,16 @@ def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | N
         if given.dimension is not None
         and not any(start <= given.start < end for start, end in settings)
     ]
+    # "A 500 kg satellite orbits 400 km above the Earth": what orbits is no input of a law
+    # about the body it orbits (``bodies.ORBITING_BODY_WORDS``), and its mass changes no
+    # answer of one. Only such a law: the force between two bodies takes both masses.
+    if all((intent.physics_op or "") in _CENTRAL_ONLY for intent in intents):
+        orbiting = orbiting_body_masses(text)
+        givens = [
+            given
+            for given in givens
+            if not any(start <= given.start < end for start, end in orbiting)
+        ]
     for given in givens:
         if _unused_situation(given, params, text):
             logger.info(
@@ -288,3 +305,19 @@ def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | N
         )
         return given
     return None
+
+
+# A time measured from another event: "1 s after another ball", "1 s before it starts to
+# fall". Read as the time since the start, a ball dropped from 20 m "1 s after another"
+# hit the ground at 9.81 m/s for 19.8.
+_TIME_OFFSET = re.compile(
+    # "falls for 3 s before it hits the ground" is a duration, not an offset.
+    rf"(?<!for ){NUMBER}\s*(?:s|secs?|seconds?)\s+(?:before|earlier|later\s+than"
+    r"|after\s+(?:another|the\s+(?:other|first|second|bell|whistle|signal)))\b",
+    re.IGNORECASE,
+)
+
+
+def time_from_another_event(intent: PhysicsIntent, text: str) -> bool:
+    """The solve takes a time the question measures from another event than its start."""
+    return "t" in (intent.physics_params or {}) and _TIME_OFFSET.search(text) is not None

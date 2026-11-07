@@ -20,10 +20,15 @@ from app.modules.physics.extractors.unit_patterns import (
     NUMBER,
     VELOCITY_UNIT_PATTERN,
 )
-from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
+from app.modules.physics.numbers import (
+    normalize_physics_numbers,
+    normalize_physics_units,
+    quantity_unit_at,
+)
 from app.modules.physics.registry import has_supported_physics_cue
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.intent import ProjectileQuantity
+from app.modules.physics.spelled import has_unread_quantity
 from app.services.number_text import numeric_spans
 
 if TYPE_CHECKING:
@@ -335,6 +340,10 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
 def prepare_physics_request(text: str) -> PhysicsRequest:
     """Preflight at the dispatch boundary so refusals cannot fall into algebra."""
     unit_normalized = normalize_physics_units(text)
+    if has_unread_quantity(unit_normalized, quantity_unit_at):
+        # "dropped from ten metres onto a 1 m table": the ten metres unread, the 1 m table
+        # answered another question.
+        return PhysicsRequest(text, rejected=True)
     if not has_supported_physics_cue(unit_normalized):
         return PhysicsRequest(unit_normalized)
     normalized = normalize_physics_numbers(unit_normalized)
@@ -406,9 +415,14 @@ def complete_physics_intent(
     ``step_of`` makes this one law of a chain (``chain_solve``): it carries its own ask,
     and whether every stated value was used is checked over the whole chain.
     """
-    from app.modules.physics.accounting import competing_given
+    from app.modules.physics.accounting import competing_given, time_from_another_event
     from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
-    from app.modules.physics.bodies import SCHOOL_GRAVITY, names_body_without_school_gravity
+    from app.modules.physics.asked_end_check import answers_the_other_end
+    from app.modules.physics.bodies import (
+        SCHOOL_GRAVITY,
+        names_body_without_school_gravity,
+        orbiting_mass_fills,
+    )
     from app.modules.physics.catalog import formula_spec
     from app.modules.physics.counted import accounts_for_counted_items
 
@@ -448,9 +462,17 @@ def complete_physics_intent(
             params = {**params, "g": detected}
             units = {**(intent.physics_units or {}), "g": "m/s^2"}
             intent = intent.model_copy(update={"physics_params": params, "physics_units": units})
+    if intent.kind == "gravitation" and orbiting_mass_fills(params, request.text):
+        # "The Moon orbits the Earth. The Moon's mass is 7.35e22 kg": not the mass it orbits.
+        return None
     if step_of is not None:
         return intent.model_copy(update={"asked": step_of, "asked_unit": None})
-    if competing_given(intent, request.text) is not None:
+    if competing_given(intent, request.text) is not None or time_from_another_event(
+        intent, request.text
+    ):
+        return None
+    if answers_the_other_end(intent, request.text):
+        # "Going 30 m/s after accelerating … its starting speed?": 30 m/s is the final speed.
         return None
     if not accounts_for_counted_items(intent, request.text):
         # "Two 5 kg blocks", "two resistors, each 10 Ω": one value for several items.

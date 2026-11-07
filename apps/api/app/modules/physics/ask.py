@@ -19,11 +19,14 @@ from app.modules.physics.givens import ANGLE, unit_at, unit_dimension, unit_read
 from app.services.law_binding.ask import ASK_VERBS, SELF_NAMING
 from app.services.law_binding.ask import ask_clause as _verb_ask_clause
 from app.services.law_binding.ask import ask_clauses as _verb_ask_clauses
+from app.services.law_binding.roles import Role, asked_role
 
 __all__ = [
     "Ask",
+    "AskedEnd",
     "ask_clause",
     "asked_dimensions",
+    "asked_end",
     "asked_phrases",
     "asked_unit",
     "asks",
@@ -353,6 +356,31 @@ def asked_dimensions(text: str) -> tuple[str, ...]:
     if None in dimensions:
         return ()
     return tuple(dict.fromkeys(dimension for dimension in dimensions if dimension is not None))
+
+
+@dataclass(frozen=True, slots=True)
+class AskedEnd:
+    """The end of the change the asked quantity is at ("its starting speed"), and its kind."""
+
+    role: Role
+    dimension: str | None
+
+
+def asked_end(text: str, clause: str | None = None) -> AskedEnd | None:
+    """Which end of the change the question asks about: the first asked noun that names one.
+
+    ``clause`` is one asked part (a chain's ask); by default the last question's.
+    "What was its starting speed?" asks the initial end, "what is the new volume?" the
+    final one, and "what is its speed?" names neither.
+    """
+    clause = ask_clause(text) if clause is None else clause
+    if clause is None:
+        return None
+    for phrase, noun in _asked_nouns(clause, text):
+        role = asked_role(clause, noun.start(), noun.end())
+        if role is not None:
+            return AskedEnd(role, _dimension(phrase, text))
+    return None
 
 
 def result_reading(unit: str) -> tuple[str, float, float] | None:

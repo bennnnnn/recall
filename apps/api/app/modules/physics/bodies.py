@@ -78,12 +78,128 @@ def body_name(mass: float, radius: float) -> str | None:
     return None
 
 
-def named_body(lower: str) -> tuple[float, float] | None:
-    """(mass, radius) of the first body named in lowercased text, as a whole word."""
-    for name, properties in BODY_PROPERTIES.items():
-        if word_index(lower, name) != -1:
-            return properties
-    return None
+# Bodies a question may name that the table has no numbers for.
+_UNLISTED_BODIES = ("venus", "mercury", "saturn", "uranus", "neptune", "pluto")
+_BODY = "|".join((*BODY_PROPERTIES, *_UNLISTED_BODIES))
+_ANY_BODY = re.compile(rf"\b(?:{_BODY})\b")
+# The body something orbits or stands on: "orbits Mars", "in orbit around the Moon".
+_ORBITED = re.compile(
+    rf"\b(?:orbits?|orbiting|around|orbit\s+of|in\s+orbit\s+(?:around|about)"
+    rf"|(?:the\s+)?surface\s+of)\s+(?:the\s+)?({_BODY})\b"
+)
+# A body that does the orbiting: "The Earth orbits the Sun", "the Moon is in orbit".
+# "The Moon, of mass 7.35e22 kg, orbits the Earth" has its own words between.
+_ORBITER = re.compile(
+    rf"\b({_BODY})(?:\s*,[^,.?!]{{0,60}},)?\s+(?:orbits|is\s+in\s+orbit|goes\s+(?:a)?round)\b"
+)
+
+
+def central_body(lower: str) -> tuple[float, float] | None:
+    """(mass, radius) of the body a question's orbit or surface is about, or None.
+
+    With more than one body named, only the one after "orbits", "around", "orbit of" or
+    "the surface of" is it: "A probe from Earth orbits Mars" is about Mars, and the first
+    body in the table was Earth. A body that does the orbiting ("The Earth orbits the
+    Sun") is never it, and a body the table has no numbers for (Venus) gives none.
+    """
+    named = set(_ANY_BODY.findall(lower))
+    orbited = set(_ORBITED.findall(lower))
+    if len(orbited) == 1:
+        (name,) = orbited
+    elif not orbited and len(named) == 1 and not _ORBITER.search(lower):
+        (name,) = named
+    else:
+        return None
+    return BODY_PROPERTIES.get(name)
+
+
+# What a central mass is the mass of: the planet, star or hole a body orbits or stands on.
+CENTRAL_BODY_WORDS: tuple[str, ...] = (
+    *BODY_PROPERTIES,
+    "venus",
+    "mercury",
+    "saturn",
+    "uranus",
+    "neptune",
+    "pluto",
+    "planet",
+    "star",
+    "asteroid",
+    "black hole",
+    "neutron star",
+    "white dwarf",
+    "central",
+    # "a body of mass 6e24 kg": what orbits is never called a body (ORBITING_BODY_WORDS).
+    "body",
+)
+# What orbits a central body, or stands on it: its mass is never the central mass. A
+# 500 kg satellite read as the mass Earth's orbit is about gave 6.9e-8 m/s for 7.55 km/s.
+ORBITING_BODY_WORDS: tuple[str, ...] = (
+    "satellite",
+    "probe",
+    "spacecraft",
+    "spaceship",
+    "space station",
+    "station",
+    "rocket",
+    "shuttle",
+    "capsule",
+    "lander",
+    "rover",
+    "astronaut",
+    "person",
+    "man",
+    "woman",
+    "student",
+    "ball",
+    "rock",
+    "stone",
+    "box",
+    "block",
+    "apple",
+)
+_ORBITING = "|".join(re.escape(word) for word in ORBITING_BODY_WORDS)
+_MASS_VALUE = r"(?<![\d.])\d[\d.]*(?:e[-+]?\d+)?\s*(?:kg|kilograms?|tonnes?|tons?|t)\b"
+# "a 500 kg satellite", "a satellite of mass 500 kg", "an astronaut weighing 70 kg".
+_ORBITING_MASS = re.compile(
+    rf"{_MASS_VALUE}\s+(?:[a-z-]+\s+)?(?:{_ORBITING})\b"
+    rf"|\b(?:{_ORBITING})\s+(?:of|with|has|having|weighing|whose\s+mass\s+is)\s+"
+    rf"(?:a\s+)?(?:mass\s+(?:of\s+)?)?(?:{_MASS_VALUE})",
+    re.IGNORECASE,
+)
+
+
+_A_MASS = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?(?:e[-+]?\d+)?)\s*(?:kg|kilograms?|tonnes?|tons?)\b")
+
+
+def orbiting_body_masses(text: str) -> list[tuple[int, int]]:
+    """Spans of the masses written onto a body that orbits or stands on another: "a 500 kg
+    satellite", and a named body that orbits ("The Moon orbits the Earth. The Moon's mass
+    is 7.35e22 kg")."""
+    spans = [match.span() for match in _ORBITING_MASS.finditer(text)]
+    for name in {match.group(1) for match in _ORBITER.finditer(text.lower())}:
+        own = re.compile(
+            rf"\b{name}(?:'s)?\s+(?:has\s+a\s+)?mass\s+(?:is\s+|of\s+|=\s*)?{_MASS_VALUE}"
+            rf"|\bmass\s+of\s+(?:the\s+)?{name}\s+(?:is\s+|=\s*){_MASS_VALUE}"
+            rf"|\b{name}\s*\(\s*{_MASS_VALUE}"
+            rf"|\b{name},?\s+(?:of|with)\s+(?:a\s+)?mass\s+(?:of\s+)?{_MASS_VALUE}",
+            re.IGNORECASE,
+        )
+        spans.extend(match.span() for match in own.finditer(text))
+    return spans
+
+
+def orbiting_mass_fills(params: dict[str, float], text: str) -> bool:
+    """A stated mass written onto the orbiting body filled the central mass ``M``."""
+    if "M" not in params:
+        return False
+    spans = orbiting_body_masses(text)
+    return any(
+        start <= match.start() < end
+        and math.isclose(float(match.group(1)), params["M"], rel_tol=1e-9)
+        for match in _A_MASS.finditer(text)
+        for start, end in spans
+    )
 
 
 # The surface gravity (m/s²) a school question takes for a body it names.

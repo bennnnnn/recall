@@ -1,0 +1,317 @@
+[
+ {
+  "id": "ar-01",
+  "area": "asked_role",
+  "prompt": "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "m/s"
+  ],
+  "note": "u = v - at = 30 - 20; main read 30 m/s as u and answered 50"
+ },
+ {
+  "id": "ar-02",
+  "area": "asked_role",
+  "prompt": "After accelerating at 4 m/s^2 for 5 s a car is moving at 30 m/s. Find its initial velocity.",
+  "expect": "answer",
+  "answer": [
+   10,
+   "m/s"
+  ],
+  "note": "u = 30 - 4*5"
+ },
+ {
+  "id": "ar-03",
+  "area": "asked_role",
+  "prompt": "A bike accelerates at 2 m/s^2 for 3 s and ends at 12 m/s. What was its starting speed?",
+  "expect": "answer",
+  "answer": [
+   6,
+   "m/s"
+  ],
+  "note": "u = 12 - 2*3; main answered 18"
+ },
+ {
+  "id": "ar-04",
+  "area": "asked_role",
+  "prompt": "A car is moving at 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its original speed?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "m/s"
+  ]
+ },
+ {
+  "id": "ar-05",
+  "area": "asked_role",
+  "prompt": "A car is travelling at 30 m/s after accelerating at 4 m/s^2 for 5 s. How fast was it going at first?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "m/s"
+  ]
+ },
+ {
+  "id": "ar-06",
+  "area": "asked_role",
+  "prompt": "A car accelerates at 4 m/s^2 for 5 s and finishes at 30 m/s. How fast was it going before?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "m/s"
+  ]
+ },
+ {
+  "id": "ar-07",
+  "area": "asked_role",
+  "prompt": "A truck accelerates at 2 m/s^2 for 6 s and is now doing 20 m/s. What was its initial speed?",
+  "expect": "answer",
+  "answer": [
+   8,
+   "m/s"
+  ],
+  "note": "u = 20 - 12"
+ },
+ {
+  "id": "ar-08",
+  "area": "asked_role",
+  "prompt": "A cyclist accelerates at 1.5 m/s^2 for 4 s and then has a speed of 11 m/s. What was her speed at first?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "m/s"
+  ],
+  "note": "u = 11 - 6"
+ },
+ {
+  "id": "ar-09",
+  "area": "asked_role",
+  "prompt": "A runner accelerates at 0.5 m/s^2 for 8 s and hits 9 m/s. What was his starting speed?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "m/s"
+  ],
+  "note": "u = 9 - 4"
+ },
+ {
+  "id": "ar-10",
+  "area": "asked_role",
+  "prompt": "A car decelerates at 3 m/s^2 for 4 s and ends at 8 m/s. How fast was it going before it started braking?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "m/s"
+  ],
+  "note": "u = v - at = 8 + 12"
+ },
+ {
+  "id": "ar-11",
+  "area": "asked_role",
+  "prompt": "A car accelerates uniformly over 100 m and reaches 30 m/s at 4 m/s^2. What was its initial speed?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "m/s"
+  ],
+  "note": "u = sqrt(v^2 - 2as) = sqrt(900 - 800)"
+ },
+ {
+  "id": "ar-12",
+  "area": "asked_role",
+  "prompt": "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. How far did it travel?",
+  "expect": "answer",
+  "answer": [
+   100,
+   "m"
+  ],
+  "note": "s = vt - at^2/2 = 150 - 50; main read 30 m/s as u and answered 200"
+ },
+ {
+  "id": "ar-13",
+  "area": "asked_role",
+  "prompt": "A bike accelerates at 2 m/s^2 for 3 s and ends at 12 m/s. How far does it go?",
+  "expect": "answer",
+  "answer": [
+   27,
+   "m"
+  ],
+  "note": "s = 36 - 9; main answered 45"
+ },
+ {
+  "id": "ar-14",
+  "area": "asked_role",
+  "prompt": "A truck accelerates at 2 m/s^2 for 6 s and is now doing 20 m/s. How far did it travel?",
+  "expect": "answer",
+  "answer": [
+   84,
+   "m"
+  ],
+  "note": "s = 120 - 36; main answered 156"
+ },
+ {
+  "id": "ar-15",
+  "area": "asked_role",
+  "prompt": "A car starts at 10 m/s and accelerates at 4 m/s^2 for 5 s. What is its final speed?",
+  "expect": "answer",
+  "answer": [
+   30,
+   "m/s"
+  ],
+  "note": "look-alike: the stated speed is the start"
+ },
+ {
+  "id": "ar-16",
+  "area": "asked_role",
+  "prompt": "A car goes from rest to 30 m/s at 3 m/s^2. How long does it take?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "s"
+  ],
+  "note": "look-alike: t = 30/3"
+ },
+ {
+  "id": "ar-17",
+  "area": "asked_role",
+  "prompt": "A car is initially moving at 20 m/s and accelerates at 2 m/s^2 for 5 s. What is its final speed?",
+  "expect": "answer",
+  "answer": [
+   30,
+   "m/s"
+  ],
+  "note": "look-alike"
+ },
+ {
+  "id": "ar-18",
+  "area": "asked_role",
+  "prompt": "A car moving at 20 m/s accelerates at 2 m/s^2 for 5 s. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   30,
+   "m/s"
+  ],
+  "note": "look-alike: an unmarked ask is the end state"
+ },
+ {
+  "id": "ar-19",
+  "area": "asked_role",
+  "prompt": "A car moving at 10 m/s then accelerates at 4 m/s^2 for 5 s. How far does it travel?",
+  "expect": "answer",
+  "answer": [
+   100,
+   "m"
+  ],
+  "note": "look-alike: s = 50 + 50"
+ },
+ {
+  "id": "ar-20",
+  "area": "asked_role",
+  "prompt": "A car starts at 10 m/s and accelerates at 2 m/s^2 for 5 s. What was its initial speed?",
+  "expect": "decline",
+  "note": "it states its own answer"
+ },
+ {
+  "id": "ar-21",
+  "area": "asked_role",
+  "prompt": "2 kg of water absorbs 336000 J and ends at 80 °C. What was its starting temperature?",
+  "expect": "answer",
+  "answer": [
+   39.86622,
+   "degC"
+  ],
+  "note": "T1 = T2 - Q/(mc), c = 4186"
+ },
+ {
+  "id": "ar-22",
+  "area": "asked_role",
+  "prompt": "2 kg of water at 20 °C absorbs 336000 J. What is its final temperature?",
+  "expect": "answer",
+  "answer": [
+   60.13378,
+   "degC"
+  ],
+  "note": "T2 = T1 + Q/(mc)"
+ },
+ {
+  "id": "ar-23",
+  "area": "asked_role",
+  "prompt": "A gas is heated at constant pressure from 300 K to 400 K and ends with a volume of 6 L. What was its initial volume?",
+  "expect": "answer",
+  "answer": [
+   4.5,
+   "L"
+  ],
+  "note": "V1 = V2 T1/T2; main read 6 L as V1 and answered 8"
+ },
+ {
+  "id": "ar-24",
+  "area": "asked_role",
+  "prompt": "A gas is cooled at constant pressure from 400 K to 300 K and ends with a volume of 3 L. What was its original volume?",
+  "expect": "answer",
+  "answer": [
+   4,
+   "L"
+  ],
+  "note": "V1 = 3*400/300"
+ },
+ {
+  "id": "ar-25",
+  "area": "asked_role",
+  "prompt": "At constant temperature a gas is compressed from 6 L to 2 L. It ends at 300 kPa. What was its initial pressure?",
+  "expect": "answer",
+  "answer": [
+   100,
+   "kPa"
+  ],
+  "note": "P1 = P2 V2/V1; main answered 900"
+ },
+ {
+  "id": "ar-26",
+  "area": "asked_role",
+  "prompt": "A gas at constant volume is heated from 300 K to 600 K. Its pressure ends at 200 kPa. What was its initial pressure?",
+  "expect": "answer",
+  "answer": [
+   100,
+   "kPa"
+  ],
+  "note": "P1 = P2 T1/T2; main answered 400"
+ },
+ {
+  "id": "ar-27",
+  "area": "asked_role",
+  "prompt": "A gas at constant pressure occupies 4 L at 300 K. It is heated to 400 K. What is its new volume?",
+  "expect": "answer",
+  "answer": [
+   5.33333,
+   "L"
+  ],
+  "note": "look-alike"
+ },
+ {
+  "id": "ar-28",
+  "area": "asked_role",
+  "prompt": "At constant temperature a gas at 100 kPa is compressed from 6 L to 2 L. What is the final pressure?",
+  "expect": "answer",
+  "answer": [
+   300,
+   "kPa"
+  ],
+  "note": "look-alike"
+ },
+ {
+  "id": "ar-29",
+  "area": "asked_role",
+  "prompt": "A ball is thrown horizontally from a 20 m cliff and hits the ground at 25 m/s. What was its initial speed?",
+  "expect": "decline",
+  "note": "right is sqrt(625 - 392.4) = 15.3 m/s; main read 25 m/s as v0 and answered 31.9; no law reads it back"
+ },
+ {
+  "id": "ar-30",
+  "area": "asked_role",
+  "prompt": "A 2 kg block slides down a frictionless ramp and reaches the bottom at 6 m/s after dropping 1 m. What was its initial speed?",
+  "expect": "decline",
+  "note": "right is sqrt(36 - 19.62) = 4.05 m/s; main answered 7.46; no law reads it back"
+ }
+]

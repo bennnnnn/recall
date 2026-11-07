@@ -283,7 +283,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         assumptions=("no friction or air resistance",),
         expression="sqrt(u**2 + 2*g*h)",
         variables=(
-            var("u", "u", "meter / second"),
+            var("u", "u", "meter / second", words=("initial", "initially")),  # at the top
             var("h", "h", "meter"),
             var("g", "g", "meter / second ** 2", fallback="gravity"),
             var("m", "m", "kilogram"),
