@@ -32,15 +32,17 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then an answer record's note kept to a label, an explanation in a sentence after the block,
 # then owning a mistake on every turn and a number after a list naming its item
 # (OWN_MISTAKE_HINT, UNCLEAR_MESSAGE_HINT), then a layout that follows what the reply holds
-# (FORMAT_CONTRACT), steps to follow numbered beside every message (STEPS_NOTE) and a fact the
-# user adds checked against the chat (OWN_MISTAKE_HINT), then a checked answer redone from its
-# unrounded values before it is given up (OWN_MISTAKE_HINT), then a reply that tells the truth
-# (2026-11-06): no praise, knowledge note or recap (NO_SELF_TALK_RULE, NO_RECAP_NOTE), no
-# excuse for a wrong figure (OWN_MISTAKE_HINT), drafts without invented details, earlier
-# chats only when referred back to, no undated to-dos, and a missed reply re-explained.
+# (FORMAT_CONTRACT), a reply laid out to be scanned beside every message (READER_NOTE) and a
+# fact the user adds checked against the chat (OWN_MISTAKE_HINT), then a follow-up that leaves
+# out what it is about read as about the last reply (UNCLEAR_MESSAGE_HINT), then a checked
+# answer redone from its unrounded values before it is given up (OWN_MISTAKE_HINT), then a
+# reply that tells the truth (2026-11-06): no praise, knowledge note or recap
+# (NO_SELF_TALK_RULE, NO_RECAP_NOTE), no excuse for a wrong figure (OWN_MISTAKE_HINT), drafts
+# without invented details, earlier chats only when referred back to, no undated to-dos, and a
+# missed reply re-explained.
 _RULES = 176
-_RULE_GRAMS = 15676
-_RULE_GRAMS_SHA = "4bb31cf8063f0038"
+_RULE_GRAMS = 15858
+_RULE_GRAMS_SHA = "16631d2794e77e63"
 
 
 def _rules() -> list[str]:
