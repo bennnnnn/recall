@@ -266,6 +266,12 @@ def test_a_maths_word_is_never_split_into_letters() -> None:
         solve_equation(EquationInput(lhs="mod 3", rhs="1", variables=["d"]))
 
 
+def test_an_unknown_named_like_a_function_is_solved() -> None:
+    """``gamma`` declared as the unknown is a symbol, not Γ (review of #2322)."""
+    result = solve_equation(EquationInput(lhs="2*gamma + 1", rhs="7", variables=["gamma"]))
+    assert result.solutions_latex == [r"\gamma = 3"]
+
+
 @pytest.mark.parametrize(
     ("lhs", "rhs", "solutions"),
     [
@@ -336,6 +342,10 @@ def test_system_declines_an_unmodelled_function() -> None:
         ("3t + v_max", "t", False),
         ("x_re - 1", "x_re", False),
         ("x + floor(2.5)", "x", False),
+        # An unknown spelled like a function is the variable (review of #2322).
+        ("2*gamma + 1", "gamma", False),
+        ("mean - 3", "mean", False),
+        ("gamma(x) + 1", "x", True),
     ],
 )
 def test_unsolved_function_reads_names_not_subscripts(

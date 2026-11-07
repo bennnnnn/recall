@@ -54,8 +54,12 @@ def _argument(side: str, end: int) -> str:
 
 
 def _names_unknown(side: str, names: set[str]) -> bool:
-    """Whether an unsolved name in the side is applied to an unknown."""
+    """Whether an unsolved name in the side is applied to an unknown. A name that is
+    itself an unknown (``2 gamma + 1 = 7`` for gamma) is the variable, not a function."""
+    unknowns = {name.lower() for name in names}
     for match in _UNSOLVED_NAMES.finditer(side):
+        if match.group(0).lower() in unknowns:
+            continue
         argument = _argument(side, match.end())
         if any(re.search(_STANDALONE.format(re.escape(name)), argument) for name in names):
             return True
