@@ -98,7 +98,7 @@ def ask_clause(text: str) -> str | None:
 # The last phrase of the message, after its last stop or comma: "..., ignore air. speed
 # just before it hits the ground". A decimal point stays inside it.
 _CLOSING_PHRASE = re.compile(
-    r"(?:^|(?<!\d)[.,;:!]\s*|[.,;:!](?!\d)\s*|\n)\s*"
+    r"(?:^\s*|(?<!\d)[.,;:!][^\S\n]*|[.,;:!](?!\d)[^\S\n]*|\n[^\S\n]*)"
     r"(?P<ask>[a-z](?:[^.,;:!?\n]|(?<=\d)\.(?=\d)){0,80}?)[\s.!]*$",
     re.IGNORECASE,
 )
