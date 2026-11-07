@@ -58,6 +58,11 @@ class TestNormalizeProseArtifacts:
             "### International\n*   **Ukraine:** drones shot down.\n- **Russia:** gains slow."
         )
 
+    def test_a_bullet_whose_text_is_indented_below_it_stays(self):
+        # Review of #2323: in CommonMark the indented line is that item's own text.
+        text = "-\n  **Ukraine:** drones shot down.\n*\n    Russia: gains slow."
+        assert normalize_prose_artifacts(text) == text
+
     def test_a_number_alone_and_a_fenced_bullet_stay(self):
         text = "1.\n**Preheat** the oven.\n\n```markdown\n*\n```"
         assert normalize_prose_artifacts(text) == text
