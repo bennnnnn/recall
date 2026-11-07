@@ -34,9 +34,9 @@ from app.services.problem_followup import (
     remove_given,
     replace_given,
     same_quantities,
-    scaled_given,
     with_sentences,
 )
+from app.services.scaled_followup import scaled_given
 
 PHYSICS_FOLLOWUP_HINT = (
     "This short request continues the immediately preceding physics problem. "
@@ -79,6 +79,10 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return None
     if EXPLAIN_RE.fullmatch(line):
         return prior
+    # Before the other shapes: "what if it was 3 times higher" is no new value.
+    scaled = scaled_given(line)
+    if scaled is not None:
+        return _GIVENS.scaled(prior, *scaled)
     about = _ABOUT.fullmatch(line)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))
@@ -94,9 +98,6 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     unit = asked_unit(written)
     if unit is not None:
         return _in_unit(prior, unit)
-    scaled = scaled_given(line)
-    if scaled is not None:
-        return _GIVENS.scaled(prior, *scaled)
     value = new_value(written)
     if value is not None:
         rewritten = _GIVENS.changed(prior, None, *value)

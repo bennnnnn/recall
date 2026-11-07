@@ -2,10 +2,10 @@
 
 Physics and chemistry each replay their previous problem when a line only
 continues it: explain the result, ask for another quantity of the same setup,
-give the result in another unit, or replace or scale one given. Each subject
-keeps its own asks, units and check that the rewrite verifies; the message
-reading, the adjacent exchange, the follow-up phrases and the text rewrites
-are the same for both and live here.
+give the result in another unit, or replace or scale one given (``scaled_followup``
+reads the scaling). Each subject keeps its own asks, units and check that the
+rewrite verifies; the message reading, the adjacent exchange, the follow-up
+phrases and the text rewrites are the same for both and live here.
 """
 
 from __future__ import annotations
@@ -45,26 +45,6 @@ _IN_UNIT = re.compile(
     r"(?:[ ,]+(?:please|pls|instead|too))*",
     re.IGNORECASE,
 )
-
-# "what if the mass doubles", "what if the height is halved".
-_SCALED = re.compile(
-    _LEAD + r"(?:what )?if (?:the |its |her |his |their )?(?P<name>[a-z][a-z ]{0,30}?) "
-    r"(?:(?:is|was|were|gets|got) )?"
-    r"(?P<how>doubled|doubles|double|halved|halves|tripled|triples|quadrupled|quadruples)"
-    r"(?: instead)?",
-    re.IGNORECASE,
-)
-_FACTORS = {
-    "double": 2.0,
-    "doubles": 2.0,
-    "doubled": 2.0,
-    "halves": 0.5,
-    "halved": 0.5,
-    "triples": 3.0,
-    "tripled": 3.0,
-    "quadruples": 4.0,
-    "quadrupled": 4.0,
-}
 
 # "and after 10 s", "what if it's dropped from 80 m", "and 0.001 M": one new value.
 _NEW_VALUE = re.compile(
@@ -119,14 +99,6 @@ def asked_unit(line: str) -> str | None:
     """The unit a line asks the previous result in: ``in km/h please`` → ``km/h``."""
     match = _IN_UNIT.fullmatch(line)
     return None if match is None else match.group("unit")
-
-
-def scaled_given(line: str) -> tuple[str, float] | None:
-    """``what if the mass doubles`` → ``("mass", 2.0)``."""
-    match = _SCALED.fullmatch(line)
-    if match is None:
-        return None
-    return match.group("name"), _FACTORS[match.group("how").lower()]
 
 
 # A clock time is not a quantity: "and at 5 pm?" is never 5 picometres.

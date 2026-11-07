@@ -109,6 +109,51 @@ def test_physics_followup_reverifies_the_previous_problem(
     assert _answer(rewritten) == answer
 
 
+_CLIFF = "A stone is dropped from a 80 m cliff. How long to hit the water?"
+_KE = "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+_OHM = "A 12 V battery drives a 4 ohm resistor. Find the current."
+_PUSH = "A 10 N force acts on a 2 kg box. Find its acceleration."
+
+
+@pytest.mark.parametrize(
+    ("prior", "line", "answer"),
+    [
+        # The quantity an adjective stands for: "twice as high" is the height.
+        (_CLIFF, "now what if the cliff was twice as high?", "5.71 s"),
+        (_CLIFF, "what if it was 3 times higher", "6.99 s"),
+        (_KE, "what if it was twice as fast", "36 J"),
+        (_KE, "half as heavy", "4.5 J"),
+        # The quantity named with the factor.
+        (_KE, "with twice the mass", "18 J"),
+        (_KE, "if the speed was increased by a factor of 3", "81 J"),
+        (_OHM, "what if the voltage were doubled", "6 A"),
+        (_OHM, "what if I halve the resistance", "6 A"),
+        (_PUSH, "and with 3 times the force", "15 m/s²"),
+    ],
+)
+def test_a_scaling_said_any_common_way_reverifies_the_problem(
+    prior: str, line: str, answer: str
+) -> None:
+    rewritten = physics_followup_problem(line, _recent(prior))
+    assert rewritten is not None
+    assert _answer(rewritten) == answer
+
+
+@pytest.mark.parametrize(
+    ("prior", "line"),
+    [
+        (_CLIFF, "double it"),
+        (_CLIFF, "make it twice as long"),
+        (_KE, "what if the mass doubles and the speed triples"),
+        (_KE, "is it twice as much fun"),
+        # No length is given to scale: the distance is what it asks.
+        (_KE, "twice as far"),
+    ],
+)
+def test_a_scaling_look_alike_is_not_reverified(prior: str, line: str) -> None:
+    assert physics_followup_problem(line, _recent(prior)) is None
+
+
 @pytest.mark.parametrize(
     "line", ["show steps", "show me the working", "explain it", "step by step"]
 )

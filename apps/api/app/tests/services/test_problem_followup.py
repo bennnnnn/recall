@@ -13,10 +13,10 @@ from app.services.problem_followup import (
     new_value,
     remove_given,
     same_quantities,
-    scaled_given,
     scaled_value,
     with_sentences,
 )
+from app.services.scaled_followup import scaled_given
 
 
 @pytest.mark.parametrize(
@@ -41,8 +41,52 @@ def test_asked_unit_reads_the_unit_alone(line: str, unit: str | None) -> None:
         ("what if the mass doubles", ("mass", 2.0)),
         ("what if the height is halved", ("height", 0.5)),
         ("and if the speed triples", ("speed", 3.0)),
+        # The quantity an unambiguous adjective stands for.
+        ("now what if the cliff was twice as high", ("height", 2.0)),
+        ("if it were three times as fast", ("speed", 3.0)),
+        ("half as heavy", ("mass", 0.5)),
+        ("what if it was 3 times higher", ("height", 3.0)),
+        ("what if it was 3x higher", ("height", 3.0)),
+        ("twice as far", ("distance", 2.0)),
+        ("what if it was thrown twice as fast", ("speed", 2.0)),
+        ("what if the tower were four times as tall", ("height", 4.0)),
+        ("make it twice as high", ("height", 2.0)),
+        # The quantity named after the factor.
+        ("with twice the mass", ("mass", 2.0)),
+        ("double the height", ("height", 2.0)),
+        ("half the speed", ("speed", 0.5)),
+        ("and with 3 times the force", ("force", 3.0)),
+        ("what if it had twice the mass", ("mass", 2.0)),
+        ("what about twice the mass", ("mass", 2.0)),
+        ("what if I double the mass", ("mass", 2.0)),
+        ("what if we halve the speed", ("speed", 0.5)),
+        ("what if I cut the mass in half", ("mass", 0.5)),
+        ("double the mass of the ball", ("mass", 2.0)),
+        # The quantity named before the scaling.
+        ("what if the mass were doubled", ("mass", 2.0)),
+        ("what if the voltage is doubled", ("voltage", 2.0)),
+        ("what if the resistance were halved instead", ("resistance", 0.5)),
+        ("if the speed was increased by a factor of 3", ("speed", 3.0)),
+        ("what if the speed was multiplied by a factor of 3", ("speed", 3.0)),
+        ("what if the mass is multiplied by 3", ("mass", 3.0)),
+        ("if the voltage were divided by 2", ("voltage", 0.5)),
+        ("What If The Mass Doubles", ("mass", 2.0)),
+        # A new value, not a scaling.
         ("what if the mass was 4 kg", None),
+        # No quantity: a pronoun, or the factor alone.
         ("double it", None),
+        ("twice", None),
+        ("what if it was doubled", None),
+        # An adjective that names no one quantity, or none at all.
+        ("make it twice as long", None),
+        ("what if it was twice as big", None),
+        ("is it twice as much fun", None),
+        # Two scalings, a negation, or no change at all.
+        ("what if the mass doubles and the speed triples", None),
+        ("twice as high and twice as fast", None),
+        ("what if the mass was not doubled", None),
+        ("what if it was 1 times as fast", None),
+        ("what if it was 500 times higher", None),
     ],
 )
 def test_scaled_given_reads_the_named_quantity_and_factor(

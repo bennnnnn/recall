@@ -118,5 +118,256 @@
         "s = 25 m"
       ]
     ]
+  },
+  {
+    "id": "fu-scale-01",
+    "area": "followup",
+    "prompt": "now what if the cliff was twice as high?",
+    "expect": "answer",
+    "answer": [
+      5.711372491708258,
+      "s"
+    ],
+    "history": [
+      [
+        "user",
+        "A stone is dropped from a 80 m cliff. How long to hit the water?"
+      ],
+      [
+        "assistant",
+        "t = 4.04 s"
+      ]
+    ],
+    "note": "twice as high is the height: 160 m"
+  },
+  {
+    "id": "fu-scale-02",
+    "area": "followup",
+    "prompt": "what if it was 3 times higher",
+    "expect": "answer",
+    "answer": [
+      6.9949741678266895,
+      "s"
+    ],
+    "history": [
+      [
+        "user",
+        "A stone is dropped from a 80 m cliff. How long to hit the water?"
+      ],
+      [
+        "assistant",
+        "t = 4.04 s"
+      ]
+    ],
+    "note": "3 times higher reads as 3 × 80 m, not a new value of 3"
+  },
+  {
+    "id": "fu-scale-03",
+    "area": "followup",
+    "prompt": "what if it was twice as fast",
+    "expect": "answer",
+    "answer": [
+      36.0,
+      "J"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ],
+    "note": "twice as fast is the speed: 6 m/s"
+  },
+  {
+    "id": "fu-scale-04",
+    "area": "followup",
+    "prompt": "with twice the mass",
+    "expect": "answer",
+    "answer": [
+      18.0,
+      "J"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ]
+  },
+  {
+    "id": "fu-scale-05",
+    "area": "followup",
+    "prompt": "half as heavy",
+    "expect": "answer",
+    "answer": [
+      4.5,
+      "J"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ]
+  },
+  {
+    "id": "fu-scale-06",
+    "area": "followup",
+    "prompt": "if the speed was increased by a factor of 3",
+    "expect": "answer",
+    "answer": [
+      81.0,
+      "J"
+    ],
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ]
+  },
+  {
+    "id": "fu-scale-07",
+    "area": "followup",
+    "prompt": "what if the voltage were doubled",
+    "expect": "answer",
+    "answer": [
+      6.0,
+      "A"
+    ],
+    "history": [
+      [
+        "user",
+        "A 12 V battery drives a 4 ohm resistor. Find the current."
+      ],
+      [
+        "assistant",
+        "I = 3 A"
+      ]
+    ]
+  },
+  {
+    "id": "fu-scale-08",
+    "area": "followup",
+    "prompt": "what if I halve the resistance",
+    "expect": "answer",
+    "answer": [
+      6.0,
+      "A"
+    ],
+    "history": [
+      [
+        "user",
+        "A 12 V battery drives a 4 ohm resistor. Find the current."
+      ],
+      [
+        "assistant",
+        "I = 3 A"
+      ]
+    ]
+  },
+  {
+    "id": "fu-scale-09",
+    "area": "followup",
+    "prompt": "and with 3 times the force",
+    "expect": "answer",
+    "answer": [
+      15.0,
+      "m/s^2"
+    ],
+    "history": [
+      [
+        "user",
+        "A 10 N force acts on a 2 kg box. Find its acceleration."
+      ],
+      [
+        "assistant",
+        "a = 5 m/s²"
+      ]
+    ]
+  },
+  {
+    "id": "fu-scale-10",
+    "area": "followup",
+    "prompt": "double it",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A stone is dropped from a 80 m cliff. How long to hit the water?"
+      ],
+      [
+        "assistant",
+        "t = 4.04 s"
+      ]
+    ],
+    "note": "names no quantity to scale"
+  },
+  {
+    "id": "fu-scale-11",
+    "area": "followup",
+    "prompt": "make it twice as long",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A stone is dropped from a 80 m cliff. How long to hit the water?"
+      ],
+      [
+        "assistant",
+        "t = 4.04 s"
+      ]
+    ],
+    "note": "long may be the time or a length: not read"
+  },
+  {
+    "id": "fu-scale-12",
+    "area": "followup",
+    "prompt": "what if the mass doubles and the speed triples",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ],
+    "note": "two scalings, not one scaled given"
+  },
+  {
+    "id": "fu-scale-13",
+    "area": "followup",
+    "prompt": "is it twice as much fun",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball moves at 3 m/s. Find its kinetic energy."
+      ],
+      [
+        "assistant",
+        "KE = 9 J"
+      ]
+    ],
+    "note": "no quantity, only sounds like a scaling"
   }
 ]
