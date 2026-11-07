@@ -180,6 +180,12 @@ class PhysicsSubject:
 
         return extract_physics_intent(text) is not None
 
+    def asks_of(self, setup: str, question: str) -> bool:
+        from app.modules.physics.extract import extract_physics_intent
+
+        intent = extract_physics_intent(f"{setup} {question}")
+        return intent is not None and bool(intent.asked)
+
     def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
         from app.modules.physics.lane import physics_fast_lane
 

@@ -8,13 +8,11 @@ gets a multi-part contract only when there are two or more parts.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp import registry as mcp_registry
-from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat import tool_loop
 from app.modules.chat.prompt_constants import (
     BREVITY_REQUEST_HINT,
@@ -26,7 +24,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.multi_part import MULTI_PART_MARKER, multi_part_contract
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.chat.prompt_sections import part_shape_hints
-from app.modules.chat.tool_loop.parts import live_parts, open_parts, searchable_parts
+from app.modules.chat.tool_loop.parts import open_parts
 from app.modules.chat.turn_prep.clauses import points_back, request_clauses
 from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.turn_reading.plan import TurnPart, TurnPlan
@@ -58,16 +56,16 @@ def web_search_tool() -> Iterator[None]:
             "I need a new laptop, and I also want to find remote backend engineering jobs",
             [
                 ("I need a new laptop", "ask"),
-                ("I want to find remote backend engineering jobs", "live"),
+                ("I want to find remote backend engineering jobs", "ask"),
             ],
         ),
         (
             "what's the weather in Paris tomorrow and also solve 2x + 5 = 17",
-            [("what's the weather in Paris tomorrow", "live"), ("solve 2x + 5 = 17", "solve")],
+            [("what's the weather in Paris tomorrow", "ask"), ("solve 2x + 5 = 17", "solve")],
         ),
         (
             "solve 2x + 5 = 17 and also what's the weather in Paris tomorrow",
-            [("solve 2x + 5 = 17", "solve"), ("what's the weather in Paris tomorrow", "live")],
+            [("solve 2x + 5 = 17", "solve"), ("what's the weather in Paris tomorrow", "ask")],
         ),
         (
             "what's the capital of Australia? and how do I boil an egg?",
@@ -85,21 +83,26 @@ def web_search_tool() -> Iterator[None]:
             "remind me to buy milk at 5pm and what's the weather in Nairobi today?",
             [
                 ("remind me to buy milk at 5pm", "reminder"),
-                ("what's the weather in Nairobi today?", "live"),
+                ("what's the weather in Nairobi today?", "ask"),
             ],
         ),
         (
             "teach me python dictionaries, and what is the current price of bitcoin?",
             [
                 ("teach me python dictionaries", "ask"),
-                ("what is the current price of bitcoin?", "live"),
+                ("what is the current price of bitcoin?", "ask"),
             ],
         ),
         (
+            # One request now: the second half was cut only to be searched for itself, and a
+            # search is the reply's own call over the whole message.
             "write a function to reverse a list, and who won the champions league final last night",
             [
-                ("write a function to reverse a list", "ask"),
-                ("who won the champions league final last night", "live"),
+                (
+                    "write a function to reverse a list, and who won the champions league final "
+                    "last night",
+                    "ask",
+                ),
             ],
         ),
         (
@@ -119,7 +122,7 @@ def web_search_tool() -> Iterator[None]:
         ),
         (
             "how do I make cold brew? btw what's the weather in Addis today",
-            [("how do I make cold brew?", "ask"), ("what's the weather in Addis today", "live")],
+            [("how do I make cold brew?", "ask"), ("what's the weather in Addis today", "ask")],
         ),
         # Beside a solve, a search for something else and a maths command keep their parts.
         (
@@ -227,7 +230,9 @@ def test_contract_names_every_part_and_asks_for_sections() -> None:
     contract = multi_part_contract(plan, [part_shape_hints(text) for text in plan.texts()])
     assert contract.startswith(MULTI_PART_MARKER)
     assert '1. "I need a new laptop"' in contract
-    assert '2. "I want to find remote backend engineering jobs": a live question' in contract
+    assert '2. "I want to find remote backend engineering jobs"' in contract
+    # Whether a part needs the web is the reply model's call: no part is labelled live.
+    assert "a live question" not in contract
     assert "under its own `###` heading" in contract
     # Clarify within the part that needs it, and still answer the rest (I5).
     assert "ask about it inside that request's section and still answer the others" in contract
@@ -336,12 +341,26 @@ def test_one_part_turns_get_no_contract(text: str) -> None:
         ("I need a new laptop, and I also want to find remote backend engineering jobs", False),
     ],
 )
-def test_turn_needs_tool_loop_reads_each_part(text: str, verified: bool) -> None:
-    configured = _settings(mcp_tool_loop_enabled=True, web_search_enabled=True)
+def test_each_part_leaves_its_reply_the_search(text: str, verified: bool, web_search_tool) -> None:
+    """A part with live facts never runs the loop; the reply's call carries web_search
+    and searches each part it needs."""
+    from app.modules.chat.tool_loop.reply_calls import ReplyTurn, offers_search, reply_tools
+
+    configured = _settings(
+        mcp_tool_loop_enabled=True, web_search_enabled=True, reply_search_tool_enabled=True
+    )
     assert (
         tool_loop.turn_needs_tool_loop(text, settings=configured, has_verified_math=verified)
-        is True
+        is False
     )
+    turn = ReplyTurn(
+        content=text,
+        lightweight=False,
+        has_instant_reply=False,
+        has_verified_math=verified,
+        has_search_sources=False,
+    )
+    assert offers_search(reply_tools(configured, turn))
 
 
 def test_a_verified_single_solve_still_skips_the_loop() -> None:
@@ -360,90 +379,6 @@ def test_open_parts_leave_out_handled_and_verified_parts() -> None:
     assert open_parts("switch to dark mode and tell me a joke") == ["tell me a joke"]
     assert open_parts("What is a Python list?") == ["What is a Python list?"]
     assert open_parts("solve 2x + 5 = 17", has_verified_math=True) == []
-    assert live_parts(open_parts(text, has_verified_math=True)) == [
-        "what's the weather in Paris tomorrow"
-    ]
-
-
-def test_parts_are_read_without_the_chat() -> None:
-    verdicts = {"what's a good laptop for coding": False, "who is the mayor of Addis": True}
-
-    def gate(text: str, _settings: Settings, **kwargs: object) -> bool:
-        assert kwargs == {}
-        return verdicts[text]
-
-    with patch("app.modules.web_search.detection.should_web_search", side_effect=gate):
-        found = searchable_parts(
-            list(verdicts), _settings(), prior_user_messages=["earlier"], prior_assistant="x"
-        )
-    assert found == ["who is the mayor of Addis"]
-
-
-@pytest.mark.asyncio
-async def test_forced_search_queries_the_live_part_not_the_whole_line(web_search_tool) -> None:
-    """ "a laptop, and remote backend jobs" searches the jobs, in the user's words (I6)."""
-    text = "I need a new laptop, and I also want to find remote backend engineering jobs"
-    hit = WebSearchHit(title="Jobs", url="https://example.com/jobs", snippet="Remote backend")
-    forced = AsyncMock(return_value=([hit], ["q"]))
-    complete = AsyncMock(return_value={"content": "", "tool_calls": []})
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
-    ):
-        _out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
-            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            messages=[{"role": "user", "content": text}],
-            usage={},
-        )
-    complete.assert_not_awaited()
-    assert hits == [hit]
-    call = forced.await_args
-    assert call is not None
-    queries = call.args[1]
-    assert len(queries) == 1
-    assert "remote backend engineering jobs" in queries[0]
-    assert "laptop" not in queries[0]
-
-
-@pytest.mark.asyncio
-async def test_two_live_parts_search_each_and_share_the_results(web_search_tool) -> None:
-    text = "what's the weather in Paris tomorrow? Also, what is the current price of bitcoin?"
-    weather = WebSearchHit(title="Weather", url="https://example.com/w", snippet="Rain")
-    coin = WebSearchHit(title="BTC", url="https://example.com/b", snippet="$70k")
-
-    async def search(_settings: Settings, queries: list[str], **_kwargs: object):
-        return ([weather] if "weather" in queries[0] else [coin]), queries
-
-    with patch("app.modules.chat.tool_loop.forced_search.run_cached_search", side_effect=search):
-        _out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
-            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            messages=[{"role": "user", "content": text}],
-            usage={},
-        )
-    assert hits == [weather, coin]
-
-
-@pytest.mark.asyncio
-async def test_verified_maths_does_not_cancel_the_live_part(web_search_tool) -> None:
-    text = "what's the weather in Paris tomorrow and also solve 2x + 5 = 17"
-    hit = WebSearchHit(title="Paris", url="https://example.com/p", snippet="Sunny")
-    forced = AsyncMock(return_value=([hit], ["q"]))
-    complete = AsyncMock(return_value={"content": "", "tool_calls": []})
-    with (
-        patch("app.modules.chat.tool_loop.rounds.litellm_gateway.complete_with_tools", complete),
-        patch("app.modules.chat.tool_loop.forced_search.run_cached_search", forced),
-    ):
-        _out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
-            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
-            messages=[{"role": "user", "content": text}],
-            usage={},
-            has_verified_math=True,
-        )
-    # The server solved the maths: no selection round, one search for the weather.
-    complete.assert_not_awaited()
-    assert hits == [hit]
-    call = forced.await_args
-    assert call is not None and "2x" not in call.args[1][0]
 
 
 def test_a_multi_part_turn_is_never_offered_a_turn_ending_photo_tool() -> None:
@@ -465,5 +400,5 @@ def test_a_multi_part_turn_is_never_offered_a_turn_ending_photo_tool() -> None:
 
 
 def test_plan_type_is_plain_data() -> None:
-    plan = TurnPlan((TurnPart("a"), TurnPart("b", "live")), context="c")
-    assert plan.multi and plan.of_kind("live") == (TurnPart("b", "live"),)
+    plan = TurnPlan((TurnPart("a"), TurnPart("b", "solve")), context="c")
+    assert plan.multi and plan.of_kind("solve") == (TurnPart("b", "solve"),)

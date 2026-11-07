@@ -53,7 +53,7 @@ from app.modules.chat.prompt_constants.writing import (
 )
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
-from app.modules.chat.tool_loop.selection import _search_before_the_model
+from app.modules.chat.tool_loop.reply_calls import offers_search
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_intercepts import _chemistry_draws_it, reply_picture_prompt
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -78,7 +78,6 @@ from app.modules.money.block import (
 )
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.turn_reading.lesson_flow import active_lesson_step
-from app.modules.web_search.detection import needs_web_search
 from app.services.mcp import setup_mcp_adapters
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.workout import SELF_CHECK_PROMPT_RULE
@@ -471,16 +470,12 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             default_deps(), AsyncMock(), settings, ctx, usage={}, on_status=None, should_cancel=None
         )
 
-    loop_call = tool_rounds.await_args
-    loop_ran = loop_call is not None
-    web_flag = loop_call.kwargs.get("web_search") if loop_call is not None else None
-    verified_part = bool(loop_call and loop_call.kwargs.get("has_verified_math"))
-    direct = loop_ran and _search_before_the_model(
-        text, settings, user, web_search=web_flag, has_verified_math=verified_part
-    )
-    if prefetch_searched or direct or (loop_ran and needs_web_search(text)):
+    loop_ran = tool_rounds.await_args is not None
+    # The server searches only for what it works out itself (a money rate); whether
+    # anything else searches is the model's call, so a turn is offered the tool or not.
+    if prefetch_searched:
         search = "yes"
-    elif loop_ran or ctx.reply_tools:
+    elif loop_ran or offers_search(ctx.reply_tools or []):
         # The tool loop's model, or the reply's own model call, may call web_search.
         search = "ask"
     else:

@@ -6,9 +6,7 @@ import re
 
 from app.modules.turn_reading.question_kinds import (
     anyones,
-    is_science_question,
     mentions_science,
-    names_or_news,
 )
 from app.services.question_parts import labelled_parts
 
@@ -249,22 +247,6 @@ def needs_reasoned_choice(query: str) -> bool:
         return False
     verdict = _SCENARIO.search(text) is not None and _VERDICT.search(text) is not None
     return bool(option_choice(text) or ASSERTION.search(text) or verdict)
-
-
-def has_nothing_to_look_up(query: str) -> bool:
-    """An exercise in a textbook's own form (options, an assertion and its reason, a blank,
-    an assessment code), or a plain science question: a search only finds worse answers
-    ("…is called its a) Ignition temperature b) …" was answered from a YouTube comment)."""
-    text = query.strip()
-    if is_science_question(text):
-        return True
-    if anyones(text):
-        return False
-    # A science exercise written as an order: "Differentiate between RER and SER", "Explain
-    # osmosis with an example".
-    if is_school_exercise(text) and mentions_science(text) and not names_or_news(text):
-        return True
-    return in_textbook_form(text)
 
 
 def in_textbook_form(query: str) -> bool:

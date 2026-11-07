@@ -28,19 +28,15 @@ from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_health import ReplyHealth, probe_gate
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn, thinking_status
-from app.modules.chat.tool_gate import should_classify_tool_web_search
 from app.modules.chat.tool_loop import live_denial, reply_calls
-from app.modules.chat.tool_loop.parts import open_parts, searchable_parts
 from app.modules.chat.tool_loop.rounds import ToolRoundsOutcome
 from app.modules.chat.tool_verified import with_tool_verified
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
-from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.worked_stream import ReplyFilter
 from app.modules.chat.worked_turn import without_worked_contract
 from app.modules.memory.switch import memory_switch_on
-from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 from app.services.prompt_safety import holds_earlier_chats
 
 logger = logging.getLogger(__name__)
@@ -105,16 +101,12 @@ class _LoopGate:
             ),
         )
 
-    def needs_loop(
-        self, settings: Settings, user: User | None, *, web_search: bool | None = None
-    ) -> bool:
+    def needs_loop(self, settings: Settings, user: User | None) -> bool:
         return tool_loop.turn_needs_tool_loop(
             self.content,
             lightweight=self.lightweight,
             has_instant_reply=self.has_instant_reply,
             has_verified_math=self.has_verified_math,
-            has_search_sources=self.has_search_sources,
-            web_search=web_search,
             settings=settings,
             user=user,
             skip_tools=self.skip_tools,
@@ -132,40 +124,9 @@ class _LoopGate:
                 has_instant_reply=self.has_instant_reply,
                 has_verified_math=self.has_verified_math,
                 has_search_sources=self.has_search_sources,
-                prior_user_messages=collect_prior_user_messages(prompt, self.content) or None,
-                prior_assistant=last_assistant_content(prompt),
                 may_recall=memory_switch_on(user) and not holds_earlier_chats(prompt),
             ),
         )
-
-    def may_classify(self, settings: Settings, user: User | None) -> bool:
-        return should_classify_tool_web_search(
-            self.content,
-            settings,
-            lightweight=self.lightweight,
-            has_instant_reply=self.has_instant_reply,
-            has_verified_math=self.has_verified_math,
-            has_search_sources=self.has_search_sources,
-            user=user,
-        )
-
-
-def _web_verdict(
-    settings: Settings, ctx: StreamContext, gate: _LoopGate
-) -> tuple[bool | None, list[str] | None]:
-    """Whether the turn needs live results when that alone decides the loop, and the
-    requests to search: each request of the message read for itself
-    (``tool_loop.parts``). ``(None, None)``: the verdict cannot change the gate."""
-    if not gate.may_classify(settings, ctx.user):
-        return None, None
-    prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-    found = searchable_parts(
-        open_parts(gate.content, has_verified_math=gate.has_verified_math, settings=settings),
-        settings,
-        prior_user_messages=collect_prior_user_messages(prompt, gate.content) or None,
-        prior_assistant=last_assistant_content(prompt),
-    )
-    return bool(found), found if plan_of(gate.content, settings).multi else None
 
 
 def _apply_tool_rounds(ctx: StreamContext, rounds: ToolRoundsOutcome) -> None:
@@ -217,21 +178,22 @@ async def run_tool_loop_path(
     should_cancel: Callable[[], bool] | None,
 ) -> None:
     gate = _LoopGate.of(ctx)
-    web_search_flag: bool | None = None
-    search_parts: list[str] | None = None
     if await _tool_spend_blocked(deps, redis, settings, ctx):
         return
-    # Sync heuristic first (math / news). Classifier only when
-    # that gate is weak so we do not add an LLM round to already-needed turns.
+    # Whether to search is the model's call: the reply's own call carries
+    # ``web_search``, and so does the selection round of a turn that loops.
     if not gate.needs_loop(settings, ctx.user):
-        web_search_flag, search_parts = _web_verdict(settings, ctx, gate)
-        if not gate.needs_loop(settings, ctx.user, web_search=web_search_flag):
-            prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-            ctx.reply_tools = gate.reply_tools(settings, prompt, ctx.user)
-            searches = reply_calls.offers_search(ctx.reply_tools)
-            if not (searches or gate.has_search_sources or gate.has_instant_reply):
-                ctx.denial_retry_tools = reply_calls.web_search_tool(settings)
-            return
+        prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
+        ctx.reply_tools = gate.reply_tools(settings, prompt, ctx.user)
+        searches = reply_calls.offers_search(ctx.reply_tools)
+        if searches:
+            await reply_calls.search_the_live_read(
+                settings, redis, ctx, on_status=on_status, should_cancel=should_cancel
+            )
+            searches = reply_calls.offers_search(ctx.reply_tools) or bool(ctx.search_sources)
+        if not (searches or gate.has_search_sources or gate.has_instant_reply):
+            ctx.denial_retry_tools = reply_calls.web_search_tool(settings)
+        return
     rounds = await tool_loop.run_tool_rounds(
         settings=settings,
         messages=ctx.prompt_messages,
@@ -241,12 +203,9 @@ async def run_tool_loop_path(
         user=ctx.user,
         redis=redis,
         chat_id=ctx.chat_id,
-        web_search=web_search_flag,
         user_timezone=ctx.user_timezone,
         user_text=gate.content,
         user_location=ctx.search_location,
-        has_verified_math=gate.has_verified_math,
-        search_parts=search_parts,
         skip_tools=gate.skip_tools,
     )
     _apply_tool_rounds(ctx, rounds)
@@ -259,6 +218,8 @@ class _ReplyRound:
     tools: list[dict[str, Any]]
     # Goes out before the call's first token: a break after a retracted denial.
     lead: str = ""
+    # The tool this call must make: the turn's read said its answer is live.
+    require: str | None = None
     meta: dict[str, str] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
 
@@ -288,7 +249,7 @@ async def run_llm_token_stream(
         # Reserve top-up and the tool loop have finished. The interval from
         # here includes gateway routing/retries, not only upstream inference.
         ctx.timing.mark_phase("gateway_request_start")
-    reply_round = _ReplyRound(tools=list(ctx.reply_tools))
+    reply_round = _ReplyRound(tools=list(ctx.reply_tools), require=ctx.reply_requires)
     retry_tools = list(ctx.denial_retry_tools)
     try:
         while True:
@@ -321,7 +282,7 @@ async def run_llm_token_stream(
             if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
                 break
             text_before = "".join(accum.parts[written:])
-            await _answer_reply_calls(
+            await reply_calls.answer_into_turn(
                 settings,
                 redis,
                 ctx,
@@ -401,6 +362,7 @@ async def _stream_round(
         may_try=hooks.may_try,
         tools=reply_round.tools or None,
         tool_calls=reply_round.calls,
+        require_tool=reply_round.require,
     )
     guarded = until_control_run(llm_stream)
     try:
@@ -449,43 +411,3 @@ async def _stream_round(
                 )
             else:
                 await close()
-
-
-async def _answer_reply_calls(
-    settings: Settings,
-    redis: Redis,
-    ctx: StreamContext,
-    calls: list[dict[str, Any]],
-    text_before: str,
-    *,
-    offered: frozenset[str],
-    on_status: StreamStatusFn | None,
-    should_cancel: Callable[[], bool] | None,
-) -> None:
-    """Run the reply's tool calls; the next model call reads their results.
-
-    The pages a search found become the turn's sources, so the reply gets their chips.
-    A search that breaks leaves the prompt as it was: the reply answers without it.
-    """
-    try:
-        answered = await reply_calls.answer_reply_calls(
-            settings=settings,
-            messages=ctx.prompt_messages,
-            calls=calls,
-            text_before=text_before,
-            offered=offered,
-            user=ctx.user,
-            redis=redis,
-            chat_id=ctx.chat_id,
-            user_timezone=ctx.user_timezone,
-            user_text=ctx.user_message_content,
-            user_location=ctx.search_location,
-            on_status=on_status,
-            should_cancel=should_cancel,
-        )
-    except Exception:
-        logger.exception("Reply tool calls failed chat_id=%s; answering without them", ctx.chat_id)
-        return
-    ctx.prompt_messages = answered.messages
-    if answered.search_hits and not ctx.search_sources:
-        ctx.search_sources = answered.search_hits

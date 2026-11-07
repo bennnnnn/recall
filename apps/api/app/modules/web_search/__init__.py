@@ -1,7 +1,8 @@
-"""Live web search: whether a turn needs it, its queries, and the tool loop's search.
+"""Live web search: the ``web_search`` tool the model calls, its sources and their fences.
 
-The package stays lazy: the SymPy pool's workers read a message with ``detection``
-and must not load the search cache, which brings the ORM and the database with it.
+Whether a turn searches is the model's call (``chat.tool_loop.reply_calls``). The package
+stays lazy: the SymPy pool's workers read a message with ``geo_intent`` and must not load
+the search cache, which brings the ORM and the database with it.
 """
 
 from __future__ import annotations
@@ -10,11 +11,6 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.modules.web_search.detection import (
-        asks_only_whether_it_searches,
-        needs_web_search,
-        web_search_skip,
-    )
     from app.modules.web_search.formatting import (
         AMBIGUOUS_NEARBY_HINT,
         GEO_ACTIVE_LOCATION_HINT,
@@ -39,6 +35,12 @@ if TYPE_CHECKING:
         names_its_place,
     )
     from app.modules.web_search.homework import asks_about_a_place
+    from app.modules.web_search.live_read import (
+        LiveRead,
+        last_reply,
+        live_read_result,
+        start_live_read,
+    )
     from app.modules.web_search.recency import wants_dated_results
     from app.modules.web_search.search_cache import (
         TurnTavilyBudget,
@@ -46,19 +48,19 @@ if TYPE_CHECKING:
     )
     from app.modules.web_search.source_credits import drop_source_credits
     from app.modules.web_search.tool import WebSearchAdapter
-    from app.modules.web_search.turn_query import points_back_in_chat, search_queries_for_turn
+    from app.modules.web_search.turn_query import points_back_in_chat
 
 _EXPORTS = {
     "AMBIGUOUS_NEARBY_HINT": "formatting",
     "GEO_ACTIVE_LOCATION_HINT": "formatting",
     "GEO_DISTANCE_HINT": "formatting",
     "LOCAL_PLACES_FORMAT_HINT": "formatting",
+    "LiveRead": "live_read",
     "SearchSource": "formatting",
     "TurnTavilyBudget": "search_cache",
     "WEB_SEARCH_HINT": "formatting",
     "WebSearchAdapter": "tool",
     "asks_about_a_place": "homework",
-    "asks_only_whether_it_searches": "detection",
     "drop_source_credits": "source_credits",
     "format_location_not_set_answer": "geo_intent",
     "format_places_fence": "formatting",
@@ -69,15 +71,15 @@ _EXPORTS = {
     "is_distance_query": "geo_intent",
     "is_geo_query": "geo_intent",
     "is_places_list_query": "geo_intent",
+    "last_reply": "live_read",
+    "live_read_result": "live_read",
     "names_its_place": "geo_intent",
-    "needs_web_search": "detection",
     "points_back_in_chat": "turn_query",
     "run_cached_search": "search_cache",
-    "search_queries_for_turn": "turn_query",
     "sources_payload": "formatting",
+    "start_live_read": "live_read",
     "strip_duplicate_venue_list": "formatting",
     "strip_sources_from_text": "formatting",
-    "web_search_skip": "detection",
     "wants_dated_results": "recency",
 }
 
@@ -87,11 +89,11 @@ __all__ = [
     "GEO_DISTANCE_HINT",
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
+    "LiveRead",
     "SearchSource",
     "TurnTavilyBudget",
     "WebSearchAdapter",
     "asks_about_a_place",
-    "asks_only_whether_it_searches",
     "drop_source_credits",
     "format_location_not_set_answer",
     "format_places_fence",
@@ -102,17 +104,18 @@ __all__ = [
     "is_distance_query",
     "is_geo_query",
     "is_places_list_query",
+    "last_reply",
+    "live_read_result",
     "names_its_place",
-    "needs_web_search",
     "points_back_in_chat",
     "run_cached_search",
-    "search_queries_for_turn",
     "sources_payload",
+    "start_live_read",
     "strip_duplicate_venue_list",
     "strip_sources_from_text",
     "wants_dated_results",
-    "web_search_skip",
 ]
+
 
 # Seams the chat turn uses to decide on a search and read prior turns.
 _MODULE_EXPORTS = ("detection", "subject")

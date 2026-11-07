@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.config import Settings
@@ -69,17 +70,30 @@ class WebSearchAdapter:
         self.settings = settings
 
     def describe(self) -> str:
+        # The date where the model decides: told only in the system prompt, it answered
+        # "who won the last world cup" with 2022's final in November 2026.
+        today = datetime.now(UTC).strftime("%B %Y")
         return (
+            f"Today is {today}. "
             "Search the web for current information. Call it before you write anything "
             "when the answer may have changed since you were trained: who holds an office "
             "or a title, winners, results and scores, records and rankings, prices, rates "
             "and figures that move (a population, a statistic), releases and versions, "
             "news, events and schedules, laws and rules, and anything about this year or "
-            "the latest. Call it whenever the user asks you to search, look something up, "
-            "google it or check online. Do not call it for what stays true (definitions, "
-            "history, science, maths, how things work, code, writing), for what the user "
-            "told you about themselves, or for the date or time anywhere (the prompt has the "
-            "user's clock). The query must stand alone: spell out who or what "
+            "the latest. Your training stopped well before today's date (the prompt has "
+            "it): when the answer could have changed since, such as the most recent winner, "
+            "whether something has come out yet, or what comes next, search rather than "
+            "answer from memory. Call it whenever the user asks you to search, look something up, "
+            "google it or check online. Do not call it for a greeting or small talk, for what "
+            "stays true (definitions, history, science, maths, how things work, code, "
+            "writing, advice), for what the user tells you about their own life, for work on "
+            "this conversation itself (a summary of it, another practice problem, explaining "
+            "something again, made-up sample data), or for the date or time anywhere (the "
+            "prompt has the user's clock). A short opener such as "
+            "'what's going on?' or 'what's up?' with nothing named is a hello: answer it as "
+            "a friend would. A question about what you can do ('can you search the web?') is "
+            "answered, not searched. Never tell the user why you did or did not search. "
+            "The query must stand alone: spell out who or what "
             "the conversation is about (a full name, a place), never 'it', 'her' or 'do a "
             "search'. Write it as a person types into a search engine, with no month or "
             "year unless the question names one; set recent to false for a question about "
