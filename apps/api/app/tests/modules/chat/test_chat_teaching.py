@@ -323,6 +323,8 @@ def test_named_daily_plan_gets_every_required_label_in_order():
 def test_a_plan_without_a_length_gets_no_label_contract():
     assert learning_plan_contract("Create a Python learning roadmap") == ""
     assert learning_plan_contract("a 3 year plan to learn medicine") == ""
+    assert learning_plan_contract("Make me a week-by-week Python plan") == ""
+    assert learning_plan_contract("a month-by-month plan to learn guitar") == ""
 
 
 @pytest.mark.parametrize(
@@ -339,6 +341,10 @@ def test_a_plan_without_a_length_gets_no_label_contract():
         ("help me learn french in 2 weeks", "Day 1", "Day 14"),
         # How often is not how long.
         ("i practice 4 days a week, plan to learn guitar in 3 months", "Week 1", "Week 13"),
+        # Review of #2325: "twice a week" is how often, "week-by-week" a layout.
+        ("practicing twice a week, plan to learn guitar in 3 months", "Week 1", "Week 13"),
+        ("make me a week-by-week plan to learn spanish in 2 months", "Week 1", "Week 9"),
+        ("learn piano in a month", "Week 1", "Week 4"),
     ],
 )
 def test_a_plan_goes_by_the_finest_unit_that_stays_short(text, first, last):

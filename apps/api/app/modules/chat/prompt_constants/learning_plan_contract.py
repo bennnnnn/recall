@@ -31,16 +31,15 @@ _NUMBERS = {
 }
 _DAYS_IN = {"day": 1.0, "week": 7.0, "month": 365 / 12, "year": 365.0}
 # The plan's length: "70 days", "8-week", "in 3 months", "a year"; never a frequency
-# ("4 days a week", "2 days per week").
+# ("4 days a week", "2 days per week") or a layout ("week-by-week").
 _DURATION = re.compile(
     r"\b(\d{1,3}|" + "|".join(_NUMBERS) + r")[\s-]?(day|week|month|year)s?\b"
-    r"(?!\s+(?:a|an|per|each|every)\s+(?:day|week|month|year)\b)",
+    r"(?!-by-|\s+(?:a|an|per|each|every)\s+(?:day|week|month|year)\b)",
     re.IGNORECASE,
 )
-# "4 days a week", "3 times a week", "an hour a day": the word before "a week" says how often.
-_HOW_OFTEN = frozenset(
-    {"day", "days", "hour", "hours", "minute", "minutes", "mins", "time", "times", "sessions"}
-)
+# "a week" is a length only after one of these ("in a year", "for a month"); otherwise it is
+# how often ("twice a week", "an hour a day") or a layout ("a week-by-week plan").
+_LENGTH_LEAD = frozenset({"in", "for", "within", "over", "under"})
 # A named day count up to this many keeps a line per day (#1495).
 _MAX_DAYS = 90
 # Otherwise: days up to three weeks, weeks up to six months, months up to two years.
@@ -60,10 +59,12 @@ class _Coverage:
 
 
 def _length(text: str) -> re.Match[str] | None:
-    """The first duration that is the plan's length: "a week" after "4 days" is how often."""
+    """The first duration that is the plan's length: "a week" after "twice" is how often."""
     for match in _DURATION.finditer(text):
         before = text[: match.start()].split()
-        if match.group(1).lower() in ("a", "an") and before and before[-1].lower() in _HOW_OFTEN:
+        if match.group(1).lower() in ("a", "an") and not (
+            before and before[-1].lower() in _LENGTH_LEAD
+        ):
             continue
         return match
     return None
