@@ -216,6 +216,8 @@ def test_every_spend_gate_is_listed() -> None:
         "background/handlers.py",
         # Skips (never raises): the user's message is saved. test_index_jobs.py.
         "modules/attachments/jobs.py",
+        # The resolver answers None on any failure: modules/chat/test_conversation_reference.py.
+        "modules/chat/conversation_reference.py",
         # Skips: the turn's jobs. modules/chat/test_post_turn_spend.py.
         "modules/chat/post_turn.py",
         # No "saving is paused" note on an outage. modules/chat/test_prompt_memory.py.
@@ -234,7 +236,7 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/images/search.py",
         "modules/memory/api.py",  # memory edits
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
-        # The resolver answers None on any failure: modules/chat/test_conversation_reference.py.
-        "modules/chat/conversation_reference.py",
+        # The live read answers None past the cap: modules/web_search/test_live_read.py.
+        "modules/web_search/live_read.py",
         "services/scan_read.py",  # photo scans, every subject
     ]

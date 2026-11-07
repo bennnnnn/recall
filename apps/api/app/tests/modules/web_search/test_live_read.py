@@ -18,6 +18,23 @@ _SETTINGS = isolated_settings(web_search_enabled=True, mcp_tool_loop_enabled=Tru
 _STRUCTURED = "app.gateways.structured_completion.complete_structured"
 
 
+@pytest.fixture(autouse=True)
+def under_the_spend_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.core.redis.get_redis_client", lambda: object())
+    monkeypatch.setattr("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
+
+
+@pytest.mark.asyncio
+async def test_no_read_past_the_spend_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True))
+    ask = AsyncMock()
+    with patch(_STRUCTURED, ask):
+        assert (
+            await live_read.read_live(_SETTINGS, "who won the last world cup", earlier=None) is None
+        )
+    ask.assert_not_awaited()
+
+
 @pytest.mark.parametrize("live", [True, False])
 @pytest.mark.asyncio
 async def test_the_read_is_the_models_answer(live: bool) -> None:

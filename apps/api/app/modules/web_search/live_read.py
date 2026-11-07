@@ -66,9 +66,15 @@ async def read_live(settings: Settings, text: str, *, earlier: str | None) -> Li
     if not question:
         return None
     # Imported here: SymPy pool workers import this package, not the gateway.
+    from app.core.redis import get_redis_client
     from app.gateways.structured_completion import complete_structured
+    from app.services import quota as quota_service
 
     try:
+        # Past the day's spend cap, or with it unreadable, nothing is read: the reply's
+        # model still decides.
+        if await quota_service.global_spend_exceeded(get_redis_client(), settings):
+            return None
         read = await complete_structured(
             settings=settings,
             model_alias=ROUTING.live_read,
