@@ -16,7 +16,7 @@ from app.services.problem_followup import (
     scaled_value,
     with_sentences,
 )
-from app.services.scaled_followup import Scaling, plays_role, scaled_given, scaled_name
+from app.services.scaled_followup import Scaling, owns, plays_role, scaled_given, scaled_name
 
 
 @pytest.mark.parametrize(
@@ -101,6 +101,10 @@ def test_asked_unit_reads_the_unit_alone(line: str, unit: str | None) -> None:
         ("what if it was thrown twice as high", None),
         # Two scalings, a negation, or no change at all.
         ("what if the mass doubles and the speed triples", None),
+        # Who has the factor: an object, a body the problem lacks, or "we".
+        ("what if the car had twice the mass", ("mass", None, 2.0, "the car")),
+        ("what if the earth had twice the mass", ("mass", None, 2.0, "the earth")),
+        ("what if we had twice the mass", ("mass", None, 2.0, "?")),
         ("twice as high and twice as fast", None),
         ("what if the mass was not doubled", None),
         ("what if it was 1 times as fast", None),
@@ -108,9 +112,9 @@ def test_asked_unit_reads_the_unit_alone(line: str, unit: str | None) -> None:
     ],
 )
 def test_scaled_given_reads_the_named_quantity_and_factor(
-    line: str, found: tuple[str | None, str | None, float] | None
+    line: str, found: tuple[str | None, str | None, float] | tuple[str, None, float, str] | None
 ) -> None:
-    expected = None if found is None else Scaling(found[2], found[0], found[1])
+    expected = None if found is None else Scaling(found[2], found[0], found[1], *found[3:])
     assert scaled_given(line) == expected
 
 
@@ -266,19 +270,23 @@ _IS_QUANTITY = {"mass", "speed", "height"}.__contains__
     ("scaling", "name"),
     [
         # A named quantity wins over the adjective.
-        (Scaling(3.0, "mass", "height"), ("mass", False)),
+        (Scaling(3.0, "mass", "height"), ("mass", None)),
         # An object of the problem takes its adjective's quantity; one it never had, nothing.
-        (Scaling(2.0, "cliff", "height"), ("height", False)),
+        (Scaling(2.0, "cliff", "height"), ("height", "cliff")),
         (Scaling(2.0, "tower", "height"), None),
-        (Scaling(2.0, None, "height"), ("height", True)),
+        (Scaling(2.0, None, "height"), ("height", None)),
         # "of" names the problem's quantity only when the problem has that object.
-        (Scaling(2.0, "mass of the stone", None), ("mass", False)),
+        (Scaling(2.0, "mass of the stone", None), ("mass", "the stone")),
+        (Scaling(2.0, "mass", None, "the stone"), ("mass", "the stone")),
+        # "the earth had twice the mass", "we had twice the mass": no body of the problem.
+        (Scaling(2.0, "mass", None, "the earth"), None),
+        (Scaling(2.0, "mass", None, "?"), None),
         (Scaling(2.0, "speed of sound", None), None),
         (Scaling(2.0, "mass of the earth", None), None),
     ],
 )
 def test_scaled_name_prefers_the_named_quantity(
-    scaling: Scaling, name: tuple[str, bool] | None
+    scaling: Scaling, name: tuple[str, str | None] | None
 ) -> None:
     prior = "A 2 kg stone is dropped from a 80 m cliff. How long to hit the water?"
     assert scaled_name(prior, scaling, _IS_QUANTITY) == name
@@ -297,9 +305,17 @@ def test_scaled_name_prefers_the_named_quantity(
             "final speed",
             True,
         ),
-        ("A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m.", "initial speed", True),
+        ("A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m.", "initial speed", False),
+        ("A ball is thrown upward at 20 m/s.", "initial speed", True),
+        ("A projectile is launched at 20 m/s at 30 degrees.", "launch speed", True),
         ("A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m.", "speed", True),
         ("A car goes from 0 to 20 m/s in 5 s.", "final velocity", True),
+        # No word right before the value says which end it is.
+        ("A car is going 30 m/s after accelerating for 5 s.", "initial speed", False),
+        ("A car is going 30 m/s after accelerating for 5 s.", "final speed", False),
+        ("A car whose speed was 10 m/s 5 s ago.", "initial speed", False),
+        ("A train slows down to 10 m/s.", "final speed", True),
+        ("A train slows down to 10 m/s.", "initial speed", False),
     ],
 )
 def test_plays_role_matches_initial_and_final_to_their_values(
@@ -308,3 +324,24 @@ def test_plays_role_matches_initial_and_final_to_their_values(
     # The last speed: "from 0 to 20 m/s" reads the 0 as a speed too.
     given = [g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == "m/s"][-1]
     assert plays_role(prior, given, name) is plays
+
+
+@pytest.mark.parametrize(
+    ("prior", "unit", "owner", "owned"),
+    [
+        ("A 70 kg driver sits in a car braking at 5 m/s^2.", "kg", "driver", True),
+        ("A 70 kg driver sits in a car braking at 5 m/s^2.", "kg", "car", False),
+        ("A ball rolls off a 1.2 m high table at 3 m/s.", "m", "table", True),
+        ("A ball rolls off a 1.2 m high table at 3 m/s.", "m", "ball", False),
+        ("A stone is dropped from a 80 m cliff.", "m", "the cliff", True),
+        ("Dissolve 58.5 g of NaCl in 2 L of water.", "g", "water", False),
+        ("Dissolve 58.5 g of NaCl in 2 L of water.", "g", "nacl", True),
+        ("A car of mass 900 kg brakes.", "kg", "car", True),
+        ("A ball hits a wall at 10 m/s.", "m/s", "wall", False),
+    ],
+)
+def test_owns_reads_the_object_beside_the_value(
+    prior: str, unit: str, owner: str, owned: bool
+) -> None:
+    given = next(g for g in read_givens(prior, PHYSICS_UNITS) if g.unit == unit)
+    assert owns(prior, given, owner) is owned

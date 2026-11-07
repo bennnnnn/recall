@@ -143,6 +143,24 @@ _DROP_MASS = "A 2 kg ball is dropped from 10 m. Find its speed just before it hi
 _SPEEDING = "A car moving at 10 m/s accelerates at 2 m/s^2 over 50 m. Find its final speed."
 _THROWN = "A ball is thrown horizontally at 10 m/s from a 20 m cliff. How long is it in the air?"
 _TABLE = "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+_TRAIN = "A train slows down to 10 m/s from 30 m/s over 200 m. Find its deceleration."
+_FROM_TO = "A car accelerates from 10 m/s to 30 m/s in 5 s. Find its acceleration."
+_DRIVER = "A 70 kg driver sits in a car braking at 5 m/s^2. Find the force on the driver."
+_ELEVATOR = (
+    "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. "
+    "Find the normal force on the person."
+)
+_RAMP = "A 5 kg box rests on a ramp inclined at 30 degrees. Find the normal force on the box."
+_SWUNG = (
+    "A 0.5 kg ball tied to a 2 m string is swung in a horizontal circle at 4 m/s. Find the tension."
+)
+_SKIER = (
+    "A 60 kg skier starts from rest at the top of a 20 m high slope. Find her speed at the bottom."
+)
+_BATTERY = "A 12 V battery is connected to a 4 ohm resistor. Find the current."
+_GAS_C = "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C."
+_GAS_K = "Find the pressure of 2 mol of an ideal gas in a 0.01 m^3 container at 300 K."
+_GOING = "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?"
 _TO_SPEED = (
     "A car starts from rest and accelerates at 3 m/s^2 until it reaches 30 m/s. "
     "How long does it take?"
@@ -156,13 +174,19 @@ _TO_SPEED = (
         (_DROP_MASS, "what if the mass was 3 times higher", "14 m/s"),
         (_DROP_MASS, "what if the mass was twice as high", "14 m/s"),
         (_DROP_MASS, "what if it was twice as high", "19.8 m/s"),
-        (_SPEEDING, "what if the speed was twice as high", "24.5 m/s"),
         (_THROWN, "what if the speed was twice as high", "2.02 s"),
         (_TABLE, "what if the speed was 3 times higher", "4.45 m"),
-        # A named object of the problem takes its adjective's quantity.
-        (_TABLE, "what if the table was twice as high", "2.1 m"),
         # Initial and final name the value that says so.
-        (_SPEEDING, "what if the initial speed doubled", "24.5 m/s"),
+        (_TRAIN, "what if the initial speed doubled", "-8.75 m/s²"),
+        (_TRAIN, "what if the final speed doubled", "-1.25 m/s²"),
+        (_FROM_TO, "what if the initial speed was 5 m/s", "5 m/s²"),
+        # An object that owns the given, beside its value.
+        (_DRIVER, "what if the driver was twice as heavy", "700 N"),
+        (_SKIER, "what if the slope was twice as high", "28 m/s"),
+        (_BATTERY, "what if the battery had twice the voltage", "6 A"),
+        # Kelvin scales; a gas at 27 °C keeps its other givens.
+        (_GAS_K, "what if the temperature doubled", "9.98 × 10⁵ Pa"),
+        (_GAS_C, "what if the volume was halved", "9.85 atm"),
         (_TO_SPEED, "what if the final speed doubled", "20 s"),
     ],
 )
@@ -193,6 +217,46 @@ def test_a_scaling_names_the_quantity_the_student_wrote(prior: str, line: str, a
         # It starts from rest: the 30 m/s it reaches is no initial speed.
         (_TO_SPEED, "what if the initial speed doubled"),
         (_TO_SPEED, "with twice the initial speed"),
+        # The object named does not own the given: the driver's 70 kg is not the car's.
+        (_DRIVER, "what if the car was twice as heavy"),
+        (_DRIVER, "what if the car had twice the mass"),
+        (_DRIVER, "what if the mass of the car doubled"),
+        (_ELEVATOR, "what if the elevator was twice as heavy"),
+        (_ELEVATOR, "what if the elevator had twice the mass"),
+        (_ELEVATOR, "what if the mass of the elevator doubled"),
+        (_RAMP, "what if the ramp was twice as heavy"),
+        (_RAMP, "what if the ramp had twice the mass"),
+        (_SWUNG, "what if the string was twice as heavy"),
+        (_SWUNG, "what if the string had twice the mass"),
+        (_DROP_MASS, "what if the ball was twice as high"),
+        # A body the problem never had, or "we".
+        (_DROP_MASS, "what if the earth had twice the mass"),
+        (_DROP_MASS, "what if the planet had twice the mass"),
+        (_DROP_MASS, "what if the moon had twice the mass"),
+        (_DROP_MASS, "what if the mass of the earth doubled"),
+        (_DROP_MASS, "what if we had twice the mass"),
+        # A string's 2 m is no height and no distance.
+        (_SWUNG, "what if the height doubled"),
+        (_SWUNG, "what if the distance doubled"),
+        # 27 °C doubled is not 54 °C.
+        (_GAS_C, "what if the temperature doubled"),
+        (_GAS_C, "with twice the temperature"),
+        (_GAS_C, "at twice the temperature"),
+        # A named given of the kind the problem asks for may be the answer's.
+        (_TABLE, "what if the distance doubled"),
+        (_TABLE, "what if the range doubled"),
+        (_TABLE, "with twice the distance"),
+        (_TABLE, "what if the horizontal distance doubled"),
+        (_TABLE, "what if the table was twice as high"),
+        # "moving at", "rolls off at" say no end of a change.
+        (_TABLE, "what if the initial speed doubled"),
+        (_KE, "what if the initial speed doubled"),
+        (_SPEEDING, "what if the speed was twice as high"),
+        (_SPEEDING, "what if the initial speed doubled"),
+        (_GOING, "what if the initial speed doubled"),
+        (_GOING, "what if the initial speed was 20 m/s"),
+        (_GOING, "what if it was going twice as fast"),
+        (_GOING, "what if the final speed doubled"),
         (_CLIFF, "double it"),
         (_CLIFF, "make it twice as long"),
         (_KE, "what if the mass doubles and the speed triples"),

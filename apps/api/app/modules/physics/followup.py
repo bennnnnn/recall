@@ -29,6 +29,7 @@ from app.services.problem_followup import (
     changes_relatively,
     continues,
     followup_line,
+    given_name,
     in_unit,
     new_value,
     remove_given,
@@ -313,6 +314,29 @@ def _asked_dimensions(prior: str) -> set[str]:
     return {ask.dimension for ask in asks(prior)}
 
 
+# The words a problem uses for each kind of length: a length shares its dimension with
+# every other, so a named one needs its own words in the problem.
+_LENGTH_WORDS = {
+    "height": r"high|height|tall|drop|drops|dropped|falls?|fell|cliff|building|tower|hill"
+    r"|slope|above",
+    "distance": r"far|distance|travel(?:s|s?led|ed)?|over|covers?|covered|lands?|landed"
+    r"|across|away|apart",
+    "radius": r"radius|string|rope|cord|circle|orbit",
+    "length": r"length|long|string|rope|cord|pendulum|wire|rod",
+}
+
+
+def _fits(prior: str, name: str) -> bool:
+    words = given_name(name).split()
+    cue = _LENGTH_WORDS.get(words[-1]) if words else None
+    return cue is None or re.search(rf"\b(?:{cue})\b", prior, re.IGNORECASE) is not None
+
+
 _GIVENS = GivenRewriter(
-    PHYSICS_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies, _asked_dimensions
+    PHYSICS_UNITS,
+    _dimension_of_unit,
+    _dimension_of_phrase,
+    _verifies,
+    asked=_asked_dimensions,
+    fits=_fits,
 )

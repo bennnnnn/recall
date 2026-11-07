@@ -25,22 +25,27 @@ from app.services.law_binding.givens import Given
 @dataclass(frozen=True)
 class Scaling:
     """One scaled given as a line says it: the factor, the noun the line names ("mass",
-    "cliff", "speed of sound"), and the quantity its adjective stands for ("height")."""
+    "cliff", "speed of sound"), the quantity its adjective stands for ("height"), and the
+    object said to have it ("the car had twice the mass": "car")."""
 
     factor: float
     noun: str | None
     adjective: str | None
+    owner: str | None = None
 
 
 _LEAD = r"(?:(?:and|but|so|ok(?:ay)?|now|then|please|can you|could you)[ ,]+)*"
 _IF = r"(?:(?:(?:what )?if|suppose(?: that)?|say|what about|how about) )?"
-# The words that may open a factor before a named quantity: "with", "what if I", "it had".
-_OPENING = (
-    r"(?:(?:(?:what )?if|suppose|say|what about|how about|make|making|with|at|using|it|she"
-    r"|he|they)(?: [a-z']+){0,5} )?"
-)
 _ARTICLE = r"(?:the|its|her|his|their|this|that)"
 _NOUN = r"(?P<noun>[a-z]+(?: [a-z]+){0,2}?)"
+# Who has the factor before a named quantity, and how: "what if the car had", "it rolled
+# at", "I", "with". "I double the mass" is an agent; "we had twice the mass" an owner.
+_WHO = rf"(?P<who>it|she|he|they|i|we|you|{_ARTICLE} [a-z]+(?: [a-z]+){{0,2}}?)"
+_OPENING = (
+    rf"{_IF}(?:{_WHO}(?: (?P<verb>[a-z']+(?: [a-z']+){{0,2}}?))? )?"
+    r"(?:(?:with|at|using|from|to|for) )?"
+)
+_AGENTS = frozenset({"i", "we", "you"})
 # "the cliff was", "it's", "the ball were": a subject and the verb that carries an adjective.
 _COPULA = r"(?:'s| is| was| were| be| are| had been| has been| became| becomes| got| gets)"
 _SUBJECT = rf"(?:(?:it|she|he|they)|{_ARTICLE} {_NOUN}){_COPULA}"
@@ -155,15 +160,30 @@ def scaled_given(line: str) -> Scaling | None:
             noun = match.group("noun")
             if noun.lower().strip() in _PRONOUNS:
                 return None
-            return _reading(match.group("factor"), noun, None)
+            return _reading(match.group("factor"), noun, None, _owner(match))
     return None
 
 
-def _reading(written: str, noun: str | None, adjective: str | None) -> Scaling | None:
+def _owner(match: re.Match[str]) -> str | None:
+    """The object a factor's opening says has the quantity: "the car" in "the car had
+    twice the mass"; none for "it", "with" or an agent ("I double the mass"). "we" or "I"
+    having it is no body of the problem: "?" stands for an owner nothing can match."""
+    who = (match.groupdict().get("who") or "").lower()
+    if not who or who in {"it", "she", "he", "they"}:
+        return None
+    if who in _AGENTS:
+        return "?" if match.groupdict().get("verb") else None
+    return who
+
+
+def _reading(
+    written: str, noun: str | None, adjective: str | None, owner: str | None = None
+) -> Scaling | None:
     factor = _factor(written.lower())
     if factor is None or factor == 1.0 or not 0.0 < factor <= _LARGEST:
         return None
-    return Scaling(factor, None if noun is None else " ".join(noun.lower().split()), adjective)
+    noun = None if noun is None else " ".join(noun.lower().split())
+    return Scaling(factor, noun, adjective, owner)
 
 
 def _factor(written: str) -> float | None:
@@ -187,34 +207,73 @@ def _factor(written: str) -> float | None:
 _ARTICLES = frozenset({"the", "a", "an", "its", "her", "his", "their", "this", "that"})
 
 
+def _words(text: str) -> list[str]:
+    return [word for word in re.findall(r"[a-z]+", text.lower()) if word not in _ARTICLES]
+
+
 def _mentions(prior: str, phrase: str) -> bool:
     """True when every word of ``phrase`` but its articles is a word of the problem."""
     words = set(re.findall(r"[a-z]+", prior.lower()))
-    wanted = [word for word in re.findall(r"[a-z]+", phrase.lower()) if word not in _ARTICLES]
+    wanted = _words(phrase)
     return bool(wanted) and all(word in words for word in wanted)
 
 
 def scaled_name(
     prior: str, scaling: Scaling, is_quantity: Callable[[str], bool]
-) -> tuple[str, bool] | None:
-    """The quantity a scaling names in ``prior``, and whether only an adjective named it,
-    with no noun ("twice as far" may be the answer's distance, "the cliff" says whose).
+) -> tuple[str, str | None] | None:
+    """The quantity a scaling names in ``prior``, and the object that must own its given.
 
     A named quantity wins over the adjective ("the mass was 3 times higher" is the mass); a
-    named object of the problem takes its adjective's quantity ("the cliff was twice as
-    high"); "the speed of sound" is the problem's speed only when the problem has sound in
-    it. Anything else, an object the problem never had included, names nothing."""
+    named object takes its adjective's quantity and must own it ("the cliff was twice as
+    high"); "the mass of the car" and "the car had twice the mass" are the car's mass. An
+    owner the problem never mentions ("the earth", "we") names nothing."""
     noun = scaling.noun
+    owner = scaling.owner
     if noun is None:
-        return None if scaling.adjective is None else (scaling.adjective, True)
-    head, _, owner = noun.partition(" of ")
-    if owner and not _mentions(prior, owner):
-        return None
+        return None if scaling.adjective is None else (scaling.adjective, owner)
+    head, _, of_owner = noun.partition(" of ")
+    if of_owner:
+        if owner is not None:
+            return None
+        owner = of_owner
     if is_quantity(head):
-        return head, False
-    if scaling.adjective is not None and _mentions(prior, head):
-        return scaling.adjective, False
-    return None
+        name = head
+    elif scaling.adjective is not None and owner is None:
+        name, owner = scaling.adjective, head
+    else:
+        return None
+    if owner is not None and not _mentions(prior, owner):
+        return None
+    return name, owner
+
+
+_UNIT_AFTER = r"[ \t]*{unit}"
+_OWNER_GAP = 2
+
+
+def owns(prior: str, given: Given, owner: str) -> bool:
+    """True when ``owner`` sits beside the given's value in the problem: the value, its
+    unit, at most two words, then the owner ("70 kg driver", "1.2 m high table"), or the
+    owner and its quantity's words before "of" and the value ("a car of mass 900 kg")."""
+    wanted = _words(owner)
+    if not wanted:
+        return False
+    end = given.end
+    unit = re.match(_UNIT_AFTER.format(unit=re.escape(given.unit)), prior[end:], re.IGNORECASE)
+    if unit is not None:
+        end += unit.end()
+    after = _words(re.split(r"[.?!,;]", prior[end:], maxsplit=1)[0])
+    for start in range(min(_OWNER_GAP, len(after)) + 1):
+        if after[start : start + len(wanted)] == wanted:
+            return True
+    before = re.split(r"[.?!,;]", prior[: given.start])[-1]
+    tokens = _words(before)
+    # "a car of 900 kg", "a car of mass 900 kg": "of" last or before the quantity's word.
+    if "of" not in tokens[-2:]:
+        return False
+    of = len(tokens) - 1 - tokens[::-1].index("of")
+    window = tokens[max(0, of - _OWNER_GAP - len(wanted)) : of]
+    return any(window[i : i + len(wanted)] == wanted for i in range(len(window) - len(wanted) + 1))
 
 
 # A name that says which end of a change it is: "the initial speed", "the final velocity".
@@ -228,26 +287,33 @@ _ROLE_WORDS = {
     "end": "final",
     "ending": "final",
 }
-# The words before a value that say which end it is: "moving at 10 m/s", "reaches 30 m/s".
-_ROLE_CUES = re.compile(
-    r"\b(?P<initial>initial(?:ly)?|starts?|starting|started|from|launched|thrown|kicked"
-    r"|fired|moving|travell?ing|going)\b"
-    r"|\b(?P<final>final(?:ly)?|reach(?:es|ed|ing)?|until|to|ends?|ending|ended)\b",
+# The words directly before a value that say which end it is: "from 10 m/s", "launched at
+# 10 m/s", "reaches 30 m/s", "a final speed of 30 m/s". Nothing else counts: "moving at"
+# and "rolls off at" say no end.
+_INITIAL_CUE = re.compile(
+    r"(?:\bfrom|\binitially(?: at)?|\bstart(?:s|ing)? at"
+    r"|\b(?:launched|thrown|fired|kicked|shot|projected)(?: up(?:ward)?| horizontally"
+    r"| vertically(?: upward)?)? at"
+    r"|\b(?:initial|starting|launch) (?:speed|velocity) (?:of|is|was))[ \t]*$",
     re.IGNORECASE,
 )
-_CUE_REACH = 40
+_FINAL_CUE = re.compile(
+    r"(?:\bto|\breach(?:es|ed)?|\buntil it reaches"
+    r"|\bfinal (?:speed|velocity) (?:of|is|was))[ \t]*$",
+    re.IGNORECASE,
+)
 
 
 def plays_role(prior: str, given: Given, name: str) -> bool:
-    """False when ``name`` says initial or final and the words before ``given`` say the
-    other end, or neither: "the initial speed" is never the 30 m/s a car "reaches"."""
-    role = next(
-        (_ROLE_WORDS[word] for word in re.findall(r"[a-z]+", name.lower()) if word in _ROLE_WORDS),
-        None,
-    )
+    """False when ``name`` says initial or final and the words directly before ``given``
+    do not say that end alone: "the initial speed" is never the 30 m/s a car "reaches",
+    nor the 30 m/s it "is going" with no word for which end."""
+    role = next((_ROLE_WORDS[word] for word in _words(name) if word in _ROLE_WORDS), None)
     if role is None:
         return True
-    head = prior[max(0, given.start - _CUE_REACH) : given.start]
-    head = re.split(r"[.?!]\s", head)[-1]
-    cues = list(_ROLE_CUES.finditer(head))
-    return bool(cues) and cues[-1].lastgroup == role
+    head = re.split(r"[.?!,;]", prior[: given.start])[-1]
+    initial = _INITIAL_CUE.search(head) is not None
+    final = _FINAL_CUE.search(head) is not None
+    if initial == final:
+        return False
+    return (role == "initial") == initial

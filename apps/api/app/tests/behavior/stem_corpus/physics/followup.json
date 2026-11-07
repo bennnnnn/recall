@@ -437,11 +437,7 @@
     "id": "fu-scale-17",
     "area": "followup",
     "prompt": "what if the speed was twice as high",
-    "expect": "answer",
-    "answer": [
-      24.49489742783178,
-      "m/s"
-    ],
+    "expect": "decline",
     "history": [
       [
         "user",
@@ -452,7 +448,7 @@
         "v = 17.3 m/s"
       ]
     ],
-    "note": "the speed, not the 50 m"
+    "note": "it asks a speed: a named speed may be the answer's, so it declines"
   },
   {
     "id": "fu-scale-18",
@@ -500,11 +496,7 @@
     "id": "fu-scale-20",
     "area": "followup",
     "prompt": "what if the table was twice as high",
-    "expect": "answer",
-    "answer": [
-      2.098492250348007,
-      "m"
-    ],
+    "expect": "decline",
     "history": [
       [
         "user",
@@ -515,17 +507,13 @@
         "x = 1.48 m"
       ]
     ],
-    "note": "the table named: its height"
+    "note": "it asks a distance: a named length may be the answer's, so it declines"
   },
   {
     "id": "fu-scale-21",
     "area": "followup",
     "prompt": "what if the initial speed doubled",
-    "expect": "answer",
-    "answer": [
-      24.49489742783178,
-      "m/s"
-    ],
+    "expect": "decline",
     "history": [
       [
         "user",
@@ -536,7 +524,7 @@
         "v = 17.3 m/s"
       ]
     ],
-    "note": "moving at 10 m/s is the initial speed"
+    "note": "moving at says no end of the change, and it asks the final speed"
   },
   {
     "id": "fu-scale-22",
@@ -796,5 +784,666 @@
       ]
     ],
     "note": "it starts from rest: the 30 m/s is its final speed"
+  },
+  {
+    "id": "fu-own-01",
+    "area": "followup",
+    "prompt": "what if the driver was twice as heavy",
+    "expect": "answer",
+    "answer": [
+      700.0,
+      "N"
+    ],
+    "history": [
+      [
+        "user",
+        "A 70 kg driver sits in a car braking at 5 m/s^2. Find the force on the driver."
+      ],
+      [
+        "assistant",
+        "F = 350 N"
+      ]
+    ],
+    "note": "the 70 kg is the driver's"
+  },
+  {
+    "id": "fu-own-02",
+    "area": "followup",
+    "prompt": "what if the slope was twice as high",
+    "expect": "answer",
+    "answer": [
+      28.014282071829005,
+      "m/s"
+    ],
+    "history": [
+      [
+        "user",
+        "A 60 kg skier starts from rest at the top of a 20 m high slope. Find her speed at the bottom."
+      ],
+      [
+        "assistant",
+        "v = 19.8 m/s"
+      ]
+    ],
+    "note": "20 m high slope: the slope's height"
+  },
+  {
+    "id": "fu-own-03",
+    "area": "followup",
+    "prompt": "what if the battery had twice the voltage",
+    "expect": "answer",
+    "answer": [
+      6.0,
+      "A"
+    ],
+    "history": [
+      [
+        "user",
+        "A 12 V battery is connected to a 4 ohm resistor. Find the current."
+      ],
+      [
+        "assistant",
+        "I = 3 A"
+      ]
+    ],
+    "note": "12 V battery: the battery's voltage"
+  },
+  {
+    "id": "fu-own-04",
+    "area": "followup",
+    "prompt": "what if the temperature doubled",
+    "expect": "answer",
+    "answer": [
+      997735.51416,
+      "Pa"
+    ],
+    "history": [
+      [
+        "user",
+        "Find the pressure of 2 mol of an ideal gas in a 0.01 m^3 container at 300 K."
+      ],
+      [
+        "assistant",
+        "p = 4.99 × 10^5 Pa"
+      ]
+    ],
+    "note": "kelvin doubles"
+  },
+  {
+    "id": "fu-own-05",
+    "area": "followup",
+    "prompt": "what if the volume was halved",
+    "expect": "answer",
+    "answer": [
+      998234.3819170799,
+      "Pa"
+    ],
+    "history": [
+      [
+        "user",
+        "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C."
+      ],
+      [
+        "assistant",
+        "p = 4.93 atm"
+      ]
+    ],
+    "note": "the °C temperature is kept, not scaled"
+  },
+  {
+    "id": "fu-own-06",
+    "area": "followup",
+    "prompt": "what if the initial speed doubled",
+    "expect": "answer",
+    "answer": [
+      -8.75,
+      "m/s^2"
+    ],
+    "history": [
+      [
+        "user",
+        "A train slows down to 10 m/s from 30 m/s over 200 m. Find its deceleration."
+      ],
+      [
+        "assistant",
+        "a = −2 m/s²"
+      ]
+    ],
+    "note": "from 30 m/s is the initial speed"
+  },
+  {
+    "id": "fu-own-07",
+    "area": "followup",
+    "prompt": "what if the final speed doubled",
+    "expect": "answer",
+    "answer": [
+      -1.25,
+      "m/s^2"
+    ],
+    "history": [
+      [
+        "user",
+        "A train slows down to 10 m/s from 30 m/s over 200 m. Find its deceleration."
+      ],
+      [
+        "assistant",
+        "a = −2 m/s²"
+      ]
+    ],
+    "note": "to 10 m/s is the final speed"
+  },
+  {
+    "id": "fu-own-08",
+    "area": "followup",
+    "prompt": "what if the initial speed was 5 m/s",
+    "expect": "answer",
+    "answer": [
+      5.0,
+      "m/s^2"
+    ],
+    "history": [
+      [
+        "user",
+        "A car accelerates from 10 m/s to 30 m/s in 5 s. Find its acceleration."
+      ],
+      [
+        "assistant",
+        "a = 4 m/s²"
+      ]
+    ],
+    "note": "from 10 m/s is the initial speed"
+  },
+  {
+    "id": "fu-own-09",
+    "area": "followup",
+    "prompt": "what if the car was twice as heavy",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 70 kg driver sits in a car braking at 5 m/s^2. Find the force on the driver."
+      ],
+      [
+        "assistant",
+        "F = 350 N"
+      ]
+    ],
+    "note": "the 70 kg is the driver's, not the car's"
+  },
+  {
+    "id": "fu-own-10",
+    "area": "followup",
+    "prompt": "what if the car had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 70 kg driver sits in a car braking at 5 m/s^2. Find the force on the driver."
+      ],
+      [
+        "assistant",
+        "F = 350 N"
+      ]
+    ],
+    "note": "the 70 kg is the driver's, not the car's"
+  },
+  {
+    "id": "fu-own-11",
+    "area": "followup",
+    "prompt": "what if the mass of the car doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 70 kg driver sits in a car braking at 5 m/s^2. Find the force on the driver."
+      ],
+      [
+        "assistant",
+        "F = 350 N"
+      ]
+    ],
+    "note": "the 70 kg is the driver's, not the car's"
+  },
+  {
+    "id": "fu-own-12",
+    "area": "followup",
+    "prompt": "what if the elevator was twice as heavy",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. Find the normal force on the person."
+      ],
+      [
+        "assistant",
+        "N = 708.6 N"
+      ]
+    ],
+    "note": "the 60 kg is the person's"
+  },
+  {
+    "id": "fu-own-13",
+    "area": "followup",
+    "prompt": "what if the elevator had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. Find the normal force on the person."
+      ],
+      [
+        "assistant",
+        "N = 708.6 N"
+      ]
+    ],
+    "note": "the 60 kg is the person's"
+  },
+  {
+    "id": "fu-own-14",
+    "area": "followup",
+    "prompt": "what if the mass of the elevator doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. Find the normal force on the person."
+      ],
+      [
+        "assistant",
+        "N = 708.6 N"
+      ]
+    ],
+    "note": "the 60 kg is the person's"
+  },
+  {
+    "id": "fu-own-15",
+    "area": "followup",
+    "prompt": "what if the ramp was twice as heavy",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 5 kg box rests on a ramp inclined at 30 degrees. Find the normal force on the box."
+      ],
+      [
+        "assistant",
+        "N = 42.5 N"
+      ]
+    ],
+    "note": "the 5 kg is the box's"
+  },
+  {
+    "id": "fu-own-16",
+    "area": "followup",
+    "prompt": "what if the ramp had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 5 kg box rests on a ramp inclined at 30 degrees. Find the normal force on the box."
+      ],
+      [
+        "assistant",
+        "N = 42.5 N"
+      ]
+    ],
+    "note": "the 5 kg is the box's"
+  },
+  {
+    "id": "fu-own-17",
+    "area": "followup",
+    "prompt": "what if the string was twice as heavy",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 0.5 kg ball tied to a 2 m string is swung in a horizontal circle at 4 m/s. Find the tension."
+      ],
+      [
+        "assistant",
+        "T = 4 N"
+      ]
+    ],
+    "note": "the 0.5 kg is the ball's"
+  },
+  {
+    "id": "fu-own-18",
+    "area": "followup",
+    "prompt": "what if the string had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 0.5 kg ball tied to a 2 m string is swung in a horizontal circle at 4 m/s. Find the tension."
+      ],
+      [
+        "assistant",
+        "T = 4 N"
+      ]
+    ],
+    "note": "the 0.5 kg is the ball's"
+  },
+  {
+    "id": "fu-own-19",
+    "area": "followup",
+    "prompt": "what if the ball was twice as high",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "the 10 m is no height of the ball's"
+  },
+  {
+    "id": "fu-own-20",
+    "area": "followup",
+    "prompt": "what if the earth had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "the earth is no given of the problem"
+  },
+  {
+    "id": "fu-own-21",
+    "area": "followup",
+    "prompt": "what if the planet had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "no planet in the problem"
+  },
+  {
+    "id": "fu-own-22",
+    "area": "followup",
+    "prompt": "what if the moon had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "no moon in the problem"
+  },
+  {
+    "id": "fu-own-23",
+    "area": "followup",
+    "prompt": "what if the mass of the earth doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "the earth is no given of the problem"
+  },
+  {
+    "id": "fu-own-24",
+    "area": "followup",
+    "prompt": "what if we had twice the mass",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 2 kg ball is dropped from 10 m. Find its speed just before it hits the ground."
+      ],
+      [
+        "assistant",
+        "v = 14 m/s"
+      ]
+    ],
+    "note": "we are no body of the problem"
+  },
+  {
+    "id": "fu-own-25",
+    "area": "followup",
+    "prompt": "what if the height doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 0.5 kg ball tied to a 2 m string is swung in a horizontal circle at 4 m/s. Find the tension."
+      ],
+      [
+        "assistant",
+        "T = 4 N"
+      ]
+    ],
+    "note": "a string's 2 m is no height"
+  },
+  {
+    "id": "fu-own-26",
+    "area": "followup",
+    "prompt": "what if the distance doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A 0.5 kg ball tied to a 2 m string is swung in a horizontal circle at 4 m/s. Find the tension."
+      ],
+      [
+        "assistant",
+        "T = 4 N"
+      ]
+    ],
+    "note": "a string's 2 m is no distance"
+  },
+  {
+    "id": "fu-own-27",
+    "area": "followup",
+    "prompt": "what if the temperature doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C."
+      ],
+      [
+        "assistant",
+        "p = 4.93 atm"
+      ]
+    ],
+    "note": "27 °C doubled is not 54 °C"
+  },
+  {
+    "id": "fu-own-28",
+    "area": "followup",
+    "prompt": "with twice the temperature",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C."
+      ],
+      [
+        "assistant",
+        "p = 4.93 atm"
+      ]
+    ],
+    "note": "27 °C doubled is not 54 °C"
+  },
+  {
+    "id": "fu-own-29",
+    "area": "followup",
+    "prompt": "at twice the temperature",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "Find the pressure of 2 mol of an ideal gas in a 10 L container at 27 °C."
+      ],
+      [
+        "assistant",
+        "p = 4.93 atm"
+      ]
+    ],
+    "note": "27 °C doubled is not 54 °C"
+  },
+  {
+    "id": "fu-own-30",
+    "area": "followup",
+    "prompt": "what if the distance doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "it asks a distance: the 1.2 m is the table's height"
+  },
+  {
+    "id": "fu-own-31",
+    "area": "followup",
+    "prompt": "what if the range doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "it asks the range"
+  },
+  {
+    "id": "fu-own-32",
+    "area": "followup",
+    "prompt": "with twice the distance",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "it asks a distance: the 1.2 m is the table's height"
+  },
+  {
+    "id": "fu-own-33",
+    "area": "followup",
+    "prompt": "what if the horizontal distance doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A ball rolls off a 1.2 m high table at 3 m/s. How far from the table does it land?"
+      ],
+      [
+        "assistant",
+        "x = 1.48 m"
+      ]
+    ],
+    "note": "it asks the horizontal distance"
+  },
+  {
+    "id": "fu-own-34",
+    "area": "followup",
+    "prompt": "what if the initial speed doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?"
+      ],
+      [
+        "assistant",
+        "u = 10 m/s"
+      ]
+    ],
+    "note": "it asks the starting speed; going 30 m/s is the final one"
+  },
+  {
+    "id": "fu-own-35",
+    "area": "followup",
+    "prompt": "what if the initial speed was 20 m/s",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?"
+      ],
+      [
+        "assistant",
+        "u = 10 m/s"
+      ]
+    ],
+    "note": "it asks the starting speed"
+  },
+  {
+    "id": "fu-own-36",
+    "area": "followup",
+    "prompt": "what if it was going twice as fast",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?"
+      ],
+      [
+        "assistant",
+        "u = 10 m/s"
+      ]
+    ],
+    "note": "it asks a speed"
+  },
+  {
+    "id": "fu-own-37",
+    "area": "followup",
+    "prompt": "what if the final speed doubled",
+    "expect": "decline",
+    "history": [
+      [
+        "user",
+        "A car is going 30 m/s after accelerating at 4 m/s^2 for 5 s. What was its starting speed?"
+      ],
+      [
+        "assistant",
+        "u = 10 m/s"
+      ]
+    ],
+    "note": "it asks a speed"
   }
 ]

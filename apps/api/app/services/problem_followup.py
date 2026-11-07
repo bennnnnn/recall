@@ -18,7 +18,7 @@ from typing import Any
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
-from app.services.scaled_followup import Scaling, plays_role, scaled_name
+from app.services.scaled_followup import Scaling, owns, plays_role, scaled_name
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -263,9 +263,11 @@ class GivenRewriter:
     unit_dimension: Callable[[str], str | None]
     phrase_dimension: Callable[[str], str | None]
     verifies: Callable[[str], bool]
-    # The dimensions a problem asks for, when the subject reads them: a bare "twice as far"
-    # after "how far does it land?" may be the answer's distance, not the table's height.
+    # The dimensions a problem asks for, when the subject reads them: a named given of the
+    # kind the problem asks for is never certain to be the one the line means.
     asked: Callable[[str], Collection[str]] | None = None
+    # Whether the problem's words fit a named quantity: a string's 2 m is no "height".
+    fits: Callable[[str, str], bool] | None = None
 
     def changed(self, prior: str, name: str | None, value: str, unit: str | None) -> str | None:
         """``and after 10 s``, ``what if the mass was 4 kg``: that given replaced."""
@@ -277,7 +279,7 @@ class GivenRewriter:
             return None
         if name:
             named_dim = self.phrase_dimension(given_name(name))
-            if named_dim is None or named_dim != new_dim:
+            if named_dim is None or named_dim != new_dim or not self._names(prior, name, named_dim):
                 return None
         matches = [
             g for g in self._of_dimension(prior, new_dim) if plays_role(prior, g, name or "")
@@ -294,14 +296,16 @@ class GivenRewriter:
         reading = scaled_name(prior, scaling, self._is_quantity)
         if reading is None:
             return None
-        name, unowned = reading
+        name, owner = reading
         named_dim = self.phrase_dimension(given_name(name))
-        if named_dim is None:
+        if named_dim is None or not self._names(prior, name, named_dim):
             return None
-        if unowned and self.asked is not None and named_dim in self.asked(prior):
-            return None
-        matches = [g for g in self._of_dimension(prior, named_dim) if plays_role(prior, g, name)]
-        if len(matches) != 1:
+        matches = [
+            g
+            for g in self._of_dimension(prior, named_dim)
+            if plays_role(prior, g, name) and (owner is None or owns(prior, g, owner))
+        ]
+        if len(matches) != 1 or not _scales(prior, matches[0]):
             return None
         given = matches[0]
         rewritten = replace_given(
@@ -309,8 +313,28 @@ class GivenRewriter:
         )
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
 
+    def _names(self, prior: str, name: str, dimension: str) -> bool:
+        """False when ``name`` may not be a given of ``prior``: the problem asks for that
+        kind ("the distance doubled" after "how far does it land?"), or its words do not
+        fit the name (a string's 2 m is no height)."""
+        if self.asked is not None and dimension in self.asked(prior):
+            return False
+        return self.fits is None or self.fits(prior, name)
+
     def _is_quantity(self, name: str) -> bool:
         return self.phrase_dimension(given_name(name)) is not None
 
     def _of_dimension(self, prior: str, dimension: str) -> list[Given]:
         return [given for given in read_givens(prior, self.units) if given.dimension == dimension]
+
+
+_KELVIN = frozenset({"k", "kelvin", "kelvins"})
+_CHANGE = re.compile(r"\b(?:by|change of|rise of|increase of|drop of|fall of)[ \t]*$", re.I)
+
+
+def _scales(prior: str, given: Given) -> bool:
+    """False for a temperature on a scale with no true zero: 27 °C doubled is not 54 °C.
+    Kelvin scales, and so does a change ("raised by 10 °C")."""
+    if "temperature" not in (given.dimension or "") or given.unit.lower() in _KELVIN:
+        return True
+    return _CHANGE.search(prior[: given.start]) is not None
