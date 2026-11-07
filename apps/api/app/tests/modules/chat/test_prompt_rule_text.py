@@ -33,11 +33,10 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then owning a mistake on every turn and a number after a list naming its item
 # (OWN_MISTAKE_HINT, UNCLEAR_MESSAGE_HINT), then a layout that follows what the reply holds
 # (FORMAT_CONTRACT), steps to follow numbered beside every message (STEPS_NOTE) and a fact the
-# user adds checked against the chat (OWN_MISTAKE_HINT), then the unit symbols a calculation
-# in any language is read by (turn_reading.calculation).
-_RULES = 176
-_RULE_GRAMS = 15365
-_RULE_GRAMS_SHA = "dec359f8a20150c3"
+# user adds checked against the chat (OWN_MISTAKE_HINT).
+_RULES = 175
+_RULE_GRAMS = 15315
+_RULE_GRAMS_SHA = "b708166904cd3dc2"
 
 
 def _rules() -> list[str]:

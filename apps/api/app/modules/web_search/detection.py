@@ -6,7 +6,7 @@ import itertools
 import re
 
 from app.core.config import Settings
-from app.modules.turn_reading.calculation import states_a_calculation
+from app.modules.turn_reading.calculation import states_an_equation
 from app.modules.turn_reading.chart import chart_of_public_facts
 from app.modules.turn_reading.coding import has_code_syntax
 from app.modules.turn_reading.locale_cues import has_locale_cue
@@ -157,8 +157,8 @@ def web_search_skip(
         return False
     if is_word_problem(cleaned) and not is_weather_request(cleaned):
         return True
-    # The same sum in any language: an equation in a variable, or quantities with their units.
-    if states_a_calculation(cleaned) and not is_weather_request(cleaned):
+    # An equation to solve, in any language: its notation is the same in all of them.
+    if states_an_equation(cleaned):
         return True
     # "Great job today", "write a poem about today": a time word, nothing to find.
     if asks_nothing_to_look_up(cleaned):

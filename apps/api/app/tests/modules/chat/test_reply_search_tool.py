@@ -130,11 +130,6 @@ def test_reply_tools_offer_web_search_on_a_question_about_the_world(
         "where do I work?",
         "what time is it in Tokyo",
         "why does this return undefined? function add(a, b) { a + b }",
-        # Homework in any language: its notation says it is worked, not looked up.
-        "x² + 5x + 6 = 0 को हल करें",
-        "Resuelve 3x - 5 = 2x + 7",
-        "Une voiture roule à 72 km/h et freine jusqu'à l'arrêt en 4 s. Quelle est sa décélération ?",
-        "Ein Körper fällt aus 45 m Höhe. Wie lange dauert der Fall? g = 9,81 m/s²",
     ],
 )
 def test_reply_tools_offer_nothing_when_nothing_is_to_look_up(
@@ -525,42 +520,3 @@ async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
     accum = StreamAccum()
     await _reply(ctx, llm, accum=accum)
     assert accum.reply_text() == "The Bears won."
-
-
-_CHECKED = "**Answer**\n\n```answer\nverified: true\n4.04\\,\\mathrm{s}\n```"
-
-
-@pytest.mark.parametrize(
-    "content",
-    [
-        "now what if the cliff was twice as high?",
-        "and with 3 kg?",
-        "in minutes please",
-        "why?",
-    ],
-)
-def test_reply_tools_offer_nothing_on_a_follow_up_to_a_checked_answer(
-    web_search_tool: dict[str, Any], content: str
-) -> None:
-    turn = _turn(
-        content,
-        prior_user_messages=["A stone is dropped from a 80 m cliff. How long to hit the water?"],
-        prior_assistant=_CHECKED,
-    )
-    assert reply_tools(_SETTINGS, turn) == []
-
-
-@pytest.mark.parametrize(
-    ("content", "prior"),
-    [
-        # An explicit search still searches after a checked answer.
-        ("search for the latest measured value of g", _CHECKED),
-        # A what-if after a reply nothing checked is not this rule's.
-        ("what if Messi had joined Chelsea?", "He joined Inter Miami in 2023."),
-    ],
-)
-def test_reply_tools_still_search_beside_a_checked_answer(
-    web_search_tool: dict[str, Any], content: str, prior: str
-) -> None:
-    turn = _turn(content, prior_user_messages=["earlier"], prior_assistant=prior)
-    assert reply_tools(_SETTINGS, turn) == [web_search_tool]

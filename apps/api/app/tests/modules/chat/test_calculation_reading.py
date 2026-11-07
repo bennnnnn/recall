@@ -1,10 +1,10 @@
-"""A calculation is read from its notation, so homework in any language is never searched."""
+"""An equation is read from its notation, so one asked in any language is never searched."""
 
 from __future__ import annotations
 
 import pytest
 
-from app.modules.turn_reading.calculation import states_a_calculation
+from app.modules.turn_reading.calculation import states_an_equation
 from app.modules.web_search import web_search_skip
 
 
@@ -16,15 +16,12 @@ from app.modules.web_search import web_search_skip
         "Löse 2x + 3 = 11",
         "求解 x^2 - 5x + 6 = 0",
         "Calcule la dérivée de f(x) = ln(x^2 + 1)",
-        "Une voiture roule à 72 km/h et freine jusqu'à l'arrêt en 4 s. Quelle est sa décélération ?",
-        "Ein Körper fällt aus 45 m Höhe. Wie lange dauert der Fall? g = 9,81 m/s²",
-        "Un résistor de 10 Ω sous 5 V, quel courant ?",
-        "0,5 mol NaCl in 250 mL Wasser, Konzentration?",
-        "light at 3 × 10^8 m/s crosses 1.5 × 10^11 m: how long?",
+        "حل المعادلة x^2 - 5x + 6 = 0",
+        "Реши уравнение 2x + 3 = 11",
     ],
 )
-def test_states_a_calculation_reads_homework_in_any_language(text: str) -> None:
-    assert states_a_calculation(text)
+def test_an_equation_in_any_language_is_never_searched(text: str) -> None:
+    assert states_an_equation(text)
     assert web_search_skip(text)
 
 
@@ -32,18 +29,21 @@ def test_states_a_calculation_reads_homework_in_any_language(text: str) -> None:
     "text",
     [
         "who won the champions league",
-        "what is the population of Ethiopia in 2026",
-        "Quelle est la population de la France ?",
         "x = 5",
         "set a = b in my config",
-        "price of 2 kg of rice in Addis today",
-        "my flight leaves at 9 h and lands at 12 h",
         "if (x == 2) { y = 3*x }",
-        "Tesla Model 3 0-100 km/h time",
-        "how many km from Paris to Lyon",
-        # Data in one unit is a chart's, not a sum.
-        "show this in a graph: Mon 5h, Tue 7h, Wed 6h, Thu 8h, Fri 4h of sleep",
+        # A law named, not a sum: its history may be looked up.
+        "Who invented E = mc²?",
+        "E = mc^2 history who first wrote it",
+        # A link or markup holds "=" too.
+        "qué dice este video https://youtu.be/abc123?si=9xYz4kLm",
+        "https://example.com/search?q=2x+3&page=2 is this site safe?",
+        '<a href="x" width=3px>',
+        # Quantities with units are not read here: weather, specs and records still search.
+        "Wetter Berlin morgen 15 °C 20 km/h Wind?",
+        "Samsung 4K TV 120 Hz 65 inch reviews",
+        "Is Usain Bolt's 100 m 9.58 s record still standing?",
     ],
 )
-def test_states_a_calculation_leaves_look_alikes(text: str) -> None:
-    assert not states_a_calculation(text)
+def test_states_an_equation_leaves_look_alikes(text: str) -> None:
+    assert not states_an_equation(text)
