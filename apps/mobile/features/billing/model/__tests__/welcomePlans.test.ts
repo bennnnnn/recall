@@ -31,7 +31,9 @@ it("offers on the day's first open, and once more after a chat later that day", 
   expect(await takePlansOffer("open", at(0))).toBe("nudge");
   expect(await takePlansOffer("open", at(5))).toBeNull();
   expect(await takePlansOffer("chatted", at(1))).toBeNull();
-  expect(await takePlansOffer("chatted", at(0) + SECOND_OFFER_AFTER_MS)).toBe("nudge");
+  expect(await takePlansOffer("chatted", at(0) + SECOND_OFFER_AFTER_MS)).toBe(
+    "nudge",
+  );
   // Twice a day at most.
   expect(await takePlansOffer("chatted", at(12))).toBeNull();
   expect(await takePlansOffer("open", at(13))).toBeNull();
@@ -46,4 +48,15 @@ it("offers when the free allowance runs out, once that day", async () => {
   expect(await takeOutOfCreditOffer(at(3))).toBe(true);
   expect(await takeOutOfCreditOffer(at(4))).toBe(false);
   expect(await takeOutOfCreditOffer(at(25))).toBe(true);
+});
+
+it("keeps both offers when a reply is a chat and the allowance's end at once", async () => {
+  const [nudge, credit] = await Promise.all([
+    takePlansOffer("chatted", at(0)),
+    takeOutOfCreditOffer(at(0)),
+  ]);
+  expect([nudge, credit]).toEqual(["nudge", true]);
+  // Neither write dropped the other's: no second credit offer, no extra nudge that day.
+  expect(await takeOutOfCreditOffer(at(1))).toBe(false);
+  expect(await takePlansOffer("open", at(1))).toBeNull();
 });

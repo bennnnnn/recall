@@ -31,15 +31,33 @@ function dayOf(now: number): string {
 }
 
 async function readOffers(): Promise<Offers> {
-  const [day = "", shown = "", lastAt = "", creditDay = ""] =
-    ((await readPrefFile(prefFilePath(OFFERS_FILE))) ?? "").split("|");
-  const count = (text: string) => (Number.isFinite(Number(text)) ? Number(text) : 0);
+  const [day = "", shown = "", lastAt = "", creditDay = ""] = (
+    (await readPrefFile(prefFilePath(OFFERS_FILE))) ?? ""
+  ).split("|");
+  const count = (text: string) =>
+    Number.isFinite(Number(text)) ? Number(text) : 0;
   return { day, shown: count(shown), lastAt: count(lastAt), creditDay };
 }
 
 async function writeOffers(offers: Offers): Promise<void> {
   const { day, shown, lastAt, creditDay } = offers;
-  await writePrefFile(prefFilePath(OFFERS_FILE), [day, shown, lastAt, creditDay].join("|"));
+  await writePrefFile(
+    prefFilePath(OFFERS_FILE),
+    [day, shown, lastAt, creditDay].join("|"),
+  );
+}
+
+/**
+ * Each offer reads and writes the file in turn. A reply that uses up the allowance is a
+ * "chatted" moment and an out-of-credit one at once; both reading the old file, the later
+ * write would drop the other's.
+ */
+let pending: Promise<unknown> = Promise.resolve();
+
+function inTurn<T>(work: () => Promise<T>): Promise<T> {
+  const done = pending.then(work, work);
+  pending = done.catch(() => undefined);
+  return done;
 }
 
 export async function offerPlansAfterSignIn(): Promise<void> {
@@ -47,7 +65,17 @@ export async function offerPlansAfterSignIn(): Promise<void> {
 }
 
 /** The offer due at this moment, if any; one returned is used up. */
-export async function takePlansOffer(moment: OfferMoment, now: number = Date.now()): Promise<PlansOffer | null> {
+export function takePlansOffer(
+  moment: OfferMoment,
+  now: number = Date.now(),
+): Promise<PlansOffer | null> {
+  return inTurn(() => nextPlansOffer(moment, now));
+}
+
+async function nextPlansOffer(
+  moment: OfferMoment,
+  now: number,
+): Promise<PlansOffer | null> {
   const welcome = prefFilePath(WELCOME_FILE);
   const stored = await readOffers();
   const day = dayOf(now);
@@ -55,22 +83,31 @@ export async function takePlansOffer(moment: OfferMoment, now: number = Date.now
   if ((await readPrefFile(welcome)) === "1") {
     // Before the first answer, nothing is offered: no plans ahead of any value.
     if (moment !== "chatted") return null;
-    await Promise.all([writePrefFile(welcome, "0"), writeOffers({ ...offers, shown: 1, lastAt: now })]);
+    await Promise.all([
+      writePrefFile(welcome, "0"),
+      writeOffers({ ...offers, shown: 1, lastAt: now }),
+    ]);
     return "welcome";
   }
   const first = offers.shown === 0;
   const second =
-    moment === "chatted" && offers.shown < OFFERS_A_DAY && now - offers.lastAt >= SECOND_OFFER_AFTER_MS;
+    moment === "chatted" &&
+    offers.shown < OFFERS_A_DAY &&
+    now - offers.lastAt >= SECOND_OFFER_AFTER_MS;
   if (!first && !second) return null;
   await writeOffers({ ...offers, shown: offers.shown + 1, lastAt: now });
   return "nudge";
 }
 
 /** True once a day, when the day's free allowance has just run out. */
-export async function takeOutOfCreditOffer(now: number = Date.now()): Promise<boolean> {
-  const offers = await readOffers();
-  const day = dayOf(now);
-  if (offers.creditDay === day) return false;
-  await writeOffers({ ...offers, creditDay: day });
-  return true;
+export function takeOutOfCreditOffer(
+  now: number = Date.now(),
+): Promise<boolean> {
+  return inTurn(async () => {
+    const offers = await readOffers();
+    const day = dayOf(now);
+    if (offers.creditDay === day) return false;
+    await writeOffers({ ...offers, creditDay: day });
+    return true;
+  });
 }
