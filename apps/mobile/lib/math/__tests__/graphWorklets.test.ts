@@ -1,6 +1,7 @@
 import { graphAxisTicks } from "@/lib/math/graphBlock";
 import { defaultInteractiveBounds } from "@/lib/math/graphViewport";
 import {
+  markLabelW,
   axisTicksW,
   clampGraphViewW,
   dockAxisW,
@@ -122,5 +123,17 @@ describe("worklet tick formatting", () => {
     expect(formatShortW(2.567)).toBe("2.57");
     expect(formatShortW(3)).toBe("3");
     expect(formatShortW(-0)).toBe("0");
+  });
+});
+
+describe("a marked point's label", () => {
+  // A 320 × 240 plot inset 28: the label sits above and right of its dot, and moves
+  // left or below rather than leave the plot.
+  it.each([
+    ["in the open", 100, 100, { x: 106, y: 94 }],
+    ["at the right edge", 290, 100, { x: 234, y: 94 }],
+    ["at the top", 100, 30, { x: 106, y: 47 }],
+  ] as const)("sits inside the plot %s", (_where, px, py, spot) => {
+    expect(markLabelW(px, py, 50, 11, 320, 240, 28)).toEqual(spot);
   });
 });

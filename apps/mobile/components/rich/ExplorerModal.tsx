@@ -16,7 +16,8 @@ import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-ha
 import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { GraphCanvas, GRAPH_AXIS_PAD, type GraphHoleMarker } from "@/components/rich/GraphCanvas";
+import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
+import { type GraphPoints } from "@/components/rich/graphPoints";
 import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy";
 import { type DrawnSeries, useGraphViewport } from "@/hooks/useInteractiveGraph";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
@@ -45,7 +46,7 @@ export function ExplorerModal({
   bounds,
   gesture,
   drawn,
-  holes,
+  points,
   verticalX,
   editor,
   skia,
@@ -63,7 +64,7 @@ export function ExplorerModal({
   bounds: ReturnType<typeof defaultInteractiveBounds>;
   gesture: ReturnType<typeof useGraphViewport>["gesture"];
   drawn: DrawnSeries[];
-  holes: GraphHoleMarker[];
+  points: GraphPoints;
   verticalX?: number;
   editor: ReactNode;
   skia: boolean;
@@ -146,7 +147,7 @@ export function ExplorerModal({
                     >
                       <SkiaGraphCanvasLazy
                         drawn={drawn}
-                        holes={holes}
+                        points={points}
                         verticalX={verticalX}
                         xName={spec.variable ?? "x"}
                         yName="y"
@@ -178,7 +179,7 @@ export function ExplorerModal({
                       height={plot.height}
                       bounds={bounds}
                       drawn={drawn}
-                      holes={holes}
+                      points={points}
                       verticalX={verticalX}
                     />
                   </View>

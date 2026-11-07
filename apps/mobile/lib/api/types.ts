@@ -195,6 +195,10 @@ export type Usage = {
   remaining: number;
   context_token_budget?: number;
   recent_message_window?: number;
+  /** The day's chat messages: what a plan offers and what the phone shows. */
+  messages_used?: number;
+  daily_messages?: number;
+  messages_left?: number;
 };
 
 /** One entry of GET /models. The server also sends prices and quota

@@ -56,14 +56,19 @@ def test_quota_exceeded_message(settings):
 
 
 @pytest.mark.parametrize(
-    "plan, tokens, stt, tts, images",
-    [("free", 100_000, 0, 0, 3), ("plus", 500_000, 200, 100, 10), ("pro", 500_000, 200, 100, 15)],
+    "plan, messages, tokens, stt, tts, images",
+    [
+        ("free", 10, 400_000, 0, 0, 3),
+        ("plus", 200, 4_000_000, 200, 100, 10),
+        ("pro", 1000, 15_000_000, 200, 100, 15),
+    ],
 )
-def test_per_plan_daily_caps(plan, tokens, stt, tts, images):
+def test_per_plan_daily_caps(plan, messages, tokens, stt, tts, images):
     user = MagicMock()
     user.plan = plan
     # The built-in defaults, not a developer's .env overrides.
     settings = Settings(_env_file=None)
+    assert quota_service.daily_message_limit(user, settings) == messages
     assert quota_service.daily_limit_for_user(user, settings) == tokens
     assert counters.limit("speech_transcription", user, settings) == stt
     assert counters.limit("speech_tts", user, settings) == tts

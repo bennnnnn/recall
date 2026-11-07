@@ -99,4 +99,5 @@ def land_part_cards(text: str, cards: Sequence[str]) -> str | None:
         out.extend([line.strip(), "", verified_answer_fence(card)])
         if number < len(lines):
             out.append("")
-    return "\n".join(out)
+    # Each part has its card: a closing Answer heading left empty says nothing more.
+    return _EMPTY_CLOSING_ANSWER.sub("", "\n".join(out))

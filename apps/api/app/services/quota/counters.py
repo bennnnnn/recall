@@ -23,6 +23,8 @@ from app.services.quota.messages import (
     IMAGE_LIMIT_EXCEEDED_MESSAGE_PAID,
     IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_FREE,
     IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PAID,
+    QUOTA_EXCEEDED_MESSAGE_FREE,
+    QUOTA_EXCEEDED_MESSAGE_PAID,
     SPEECH_LIMIT_EXCEEDED_MESSAGE,
     SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE,
     plan_message,
@@ -157,6 +159,7 @@ async def raise_counter(redis: Redis, key: str, floor: int, *, ttl: int) -> None
 
 
 CounterName = Literal[
+    "chat_message",
     "image_upload",
     "document_upload",
     "speech_transcription",
@@ -186,6 +189,14 @@ class CounterSpec:
 # Account delete carries every prefix here to a new account for the same
 # sign-in (``carryover.read_carried_usage``).
 COUNTERS: dict[CounterName, CounterSpec] = {
+    # The day's chat messages: what a plan offers and the meter shows. A turn takes one
+    # before its reply and gets it back when no reply is saved (``turn_resources``).
+    "chat_message": CounterSpec(
+        prefix="chatmsg",
+        allowance="daily_messages",
+        message=(QUOTA_EXCEEDED_MESSAGE_FREE, QUOTA_EXCEEDED_MESSAGE_PAID),
+        refund=True,
+    ),
     # Vision/image inputs cost more than text and aren't well captured by the
     # text token reserve, so image uploads are capped per user per UTC day.
     "image_upload": CounterSpec(
@@ -276,6 +287,14 @@ async def refund(
     if not spec.refund:
         raise ValueError(f"{counter} slots are not refunded")
     await refund_daily(redis, daily_key(spec.prefix, user_id, day))
+
+
+async def used(
+    counter: CounterName, redis: Redis, user_id: UUID, *, day: date | None = None
+) -> int:
+    """How many of *counter*'s slots are taken today (0 for a day with none)."""
+    value = await redis.get(daily_key(COUNTERS[counter].prefix, user_id, day))
+    return max(0, int(value)) if value is not None else 0
 
 
 def limit_message(counter: CounterName, user: User) -> str:

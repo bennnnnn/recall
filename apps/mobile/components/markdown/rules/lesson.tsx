@@ -11,6 +11,7 @@ import {
   unwrapSingle,
 } from "@/components/markdown/markdownAstHelpers";
 import type { StyleMap } from "@/components/markdown/markdownContentStyles";
+import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
 import { subheadingStyle } from "@/components/markdown/rules/workout";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -102,6 +103,7 @@ function lessonLabelNodes(
         key={`${keyPrefix}-m-${i}`}
         latex={part.value}
         textColor={textColor}
+        fontSize={mathSizeOf(textStyle)}
       />
     ) : (
       <Text key={`${keyPrefix}-t-${i}`} style={textStyle} selectable>
@@ -151,7 +153,7 @@ function renderLessonReason(
       style={{
         flexDirection: "row",
         flexWrap: "wrap",
-        alignItems: "center",
+        alignItems: "baseline",
         marginBottom: Space.xxs,
       }}
     >
@@ -226,7 +228,7 @@ export function renderLessonStep(
             flex: 1,
             flexDirection: "row",
             flexWrap: "wrap",
-            alignItems: "center",
+            alignItems: "baseline",
           }}
         >
           {lessonLabelNodes(
@@ -242,14 +244,14 @@ export function renderLessonStep(
         <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl, gap: Space.xxs }}>
           {step.reason ? renderLessonReason(key, step.reason, styles, t) : null}
           {step.formulas.map((formula, i) => (
-            // A move's maths is centred, as in every worked section; the reason above it
-            // stays at the left.
+            // A move's maths starts at the left edge its reason does, as every line of a
+            // worked solution does.
             <View
               key={`${key}-formula-${i}`}
               testID="lesson-step-maths"
-              style={{ alignItems: "center", maxWidth: "100%" }}
+              style={{ alignItems: "flex-start", maxWidth: "100%" }}
             >
-              <MathText scrollOverflow latex={formula} />
+              <MathText scrollOverflow latex={formula} fontSize={mathSizeOf(styles.body)} />
             </View>
           ))}
         </View>

@@ -24,6 +24,7 @@ from app.modules.chat.finalize_registry import clear_pending_finalize
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome, TurnUsage
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.turn_resources import refund_turn_quota
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.quota import utc_today
@@ -272,9 +273,19 @@ async def _settle_quota(
             await deps.quota.record_global_spend(redis, charge.est_cost)
         except Exception:
             logger.exception("record_global_spend failed after successful finalize")
-    if used is None or daily_limit is None:
+    if used is None or daily_limit is None or ctx.user is None:
         return None
-    return TurnUsage(used_tokens=used, daily_limit=daily_limit)
+    try:
+        messages = await deps.quota.messages_used(redis, ctx.user_id)
+    except Exception:
+        logger.warning("Reading the day's messages failed after a turn", exc_info=True)
+        messages = None
+    return TurnUsage(
+        used_tokens=used,
+        daily_limit=daily_limit,
+        messages_used=messages,
+        daily_messages=deps.quota.daily_message_limit(ctx.user, settings),
+    )
 
 
 async def finalize_stream_turn_db(
@@ -316,9 +327,9 @@ async def finalize_stream_turn_db(
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         try:
-            await deps.quota.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+            await refund_turn_quota(deps, redis, ctx.user_id, ctx.reserved_tokens, ctx.message_day)
         except Exception:
-            logger.exception("refund_usage failed after finalize error")
+            logger.exception("Turn quota refund failed after finalize error")
         raise
     finally:
         await clear_pending_finalize(redis, ctx.chat_id)

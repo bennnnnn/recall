@@ -8,7 +8,7 @@ import math
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import GAS_R_J
-from app.modules.chemistry.solvers.display import const, inp, num, verified
+from app.modules.chemistry.solvers.display import carried, const, inp, num, verified
 from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import SolveServiceError
@@ -169,8 +169,8 @@ def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
         "[A]ₜ",
         *stated("second_order"),
         (
-            f"1/[A]ₜ = 1/({inp(initial)}) + ({inp(rate)})({inp(time)}) = {num(reciprocal)}",
-            f"[A]ₜ = 1 / {num(reciprocal)}",
+            f"1/[A]ₜ = 1/({inp(initial)}) + ({inp(rate)})({inp(time)}) = {carried(reciprocal)}",
+            f"[A]ₜ = 1 / {carried(reciprocal)}",
         ),
         shown,
         shown,

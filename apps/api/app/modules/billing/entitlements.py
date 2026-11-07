@@ -34,6 +34,7 @@ Feature = Literal[
 FEATURES: tuple[Feature, ...] = get_args(Feature)
 
 Allowance = Literal[
+    "daily_messages",
     "daily_tokens",
     "daily_image_uploads",
     "daily_document_uploads",
@@ -49,6 +50,7 @@ ALLOWANCES: tuple[Allowance, ...] = get_args(Allowance)
 
 # Allowance → the free-plan Settings field; ``_plus`` / ``_pro`` follow it.
 _ALLOWANCE_SETTING: dict[Allowance, str] = {
+    "daily_messages": "daily_message_limit",
     "daily_tokens": "daily_token_limit",
     "daily_image_uploads": "daily_image_limit",
     "daily_document_uploads": "daily_document_limit",
