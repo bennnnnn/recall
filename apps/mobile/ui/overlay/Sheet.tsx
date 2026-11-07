@@ -63,8 +63,8 @@ type Props = {
   floating?: boolean;
   /**
    * Extra lift for a floating panel, in addition to the safe area. The attach
-   * sheet does not use this — it sits on the bottom edge and stacks above the
-   * composer.
+   * sheet sits on the bottom edge over the composer, and rides up by the math
+   * keyboard's height while that is open, so it still covers the composer.
    */
   bottomOffset?: number;
   /** Style override for the panel (background, radius, padding). */

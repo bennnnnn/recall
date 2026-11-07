@@ -113,6 +113,8 @@ export interface ChatScreenChromeProps {
 export interface ChatScreenSheetsProps {
   attachSheetOpen: boolean;
   onCloseAttachSheet: () => void;
+  /** The math keyboard's height: open over it, the attach sheet covers the composer instead. */
+  attachSheetLift?: number;
   onAttachmentSource: (source: AttachmentSource) => void;
   mathScannerOpen: boolean;
   onCloseMathScanner: () => void;
@@ -286,6 +288,7 @@ const ChatOverlays = memo(function ChatOverlays({
 
       <AttachmentSourceSheet
         visible={sheets.attachSheetOpen && !drawerOpen}
+        bottomOffset={sheets.attachSheetLift}
         onClose={sheets.onCloseAttachSheet}
         onSelect={sheets.onAttachmentSource}
       />

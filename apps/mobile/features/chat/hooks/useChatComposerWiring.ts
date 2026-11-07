@@ -93,6 +93,7 @@ export function useChatComposerWiring({
       onOpenMathScanner: openMathScanner,
       onMathChromeHeightChange: setMathChromeExtra,
       onInputFrameExtraChange: setComposerInputExtra,
+      attachSheetLift: mathChromeExtra,
     },
     voice: {
       voiceAvailable: voiceInputAvailable,
