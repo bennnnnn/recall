@@ -73,7 +73,7 @@ export interface ChatScreenComposerProps {
   onRemoveAttachment: () => void;
   onPickAttachment: () => void;
   onOpenMathScanner?: () => void;
-  onMathChromeHeightChange?: (height: number) => void;
+  onMathChromeHeightChange?: (height: number, padHeight: number) => void;
   onInputFrameExtraChange?: (extra: number) => void;
   onSend: (text?: string) => void;
   onStop: () => void;

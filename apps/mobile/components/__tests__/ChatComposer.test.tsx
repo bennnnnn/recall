@@ -244,6 +244,9 @@ describe("ChatComposer math keyboard", () => {
     const chrome = onMathChromeHeightChange.mock.calls.at(-1)?.[0];
     expect(extra).toBeGreaterThan(0);
     expect(chrome).toBeGreaterThan(0);
+    // Review of #2334: the status line is chrome, but the pad is closed, so the attachment
+    // menu (which rises by the second value) stays on the bottom edge.
+    expect(onMathChromeHeightChange.mock.calls.at(-1)?.[1]).toBe(0);
     onInputFrameExtraChange.mockClear();
     onMathChromeHeightChange.mockClear();
 
@@ -603,6 +606,15 @@ describe("ChatComposer math keyboard", () => {
     const backIcon = within(getByTestId("math-converter-back")).getByTestId("math-converter-back-icon");
     expect(backIcon.props.name).toBe("backspace");
     expect(ink).toContain(backIcon.props.color);
+  });
+  it("reports the open pad's own height for the attachment menu to rise over", async () => {
+    const onMathChromeHeightChange = jest.fn();
+    await render(<ChatComposer {...baseProps} onMathChromeHeightChange={onMathChromeHeightChange} />);
+    expect(onMathChromeHeightChange.mock.calls.at(-1)?.[1]).toBe(0);
+    await openMathKeyboard();
+    const [chrome, padHeight] = onMathChromeHeightChange.mock.calls.at(-1) ?? [];
+    expect(padHeight).toBeGreaterThan(0);
+    expect(chrome).toBeGreaterThanOrEqual(padHeight);
   });
   it("leaves the thread free to scroll while the math keyboard is open", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);

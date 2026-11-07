@@ -91,7 +91,7 @@ type UseChatScreenBodyPropsParams = {
     closeMathScanner: () => void;
     handleMathScanCaptured: ChatScreenSheetsProps["onMathScanCaptured"];
     onOpenMathScanner?: () => void;
-    onMathChromeHeightChange?: (height: number) => void;
+    onMathChromeHeightChange?: (height: number, padHeight: number) => void;
     onInputFrameExtraChange?: (extra: number) => void;
     /** The math keyboard's height under the composer: the attach sheet rides above it. */
     attachSheetLift?: number;
