@@ -132,18 +132,18 @@ def test_the_empty_block_words_failure_apart_from_nothing_found() -> None:
     assert "no usable results" in empty and "failed" not in empty
 
 
-def test_results_that_miss_may_say_so_and_facts_are_attributed() -> None:
+def test_results_that_miss_may_say_so_and_facts_are_stated() -> None:
     """D11.2 and T5.10: the model may say nothing it found covers it, never fill in.
 
-    It says so in its own voice and names its sources: "according to the search results"
-    read as a machine talking (2026-10-24).
+    It states the facts in its own voice: "according to the search results" read as a
+    machine talking (2026-10-24), and "ESPN lists Spain as the champion" put the outlet
+    where the fact goes (2026-11-06); the source chips name the sources.
     """
     block = format_search_block([WebSearchHit(title="T", url="https://a.example", snippet="s")])
     assert "couldn't find a source that covers it" in block
     assert "do not fill the gap from memory" in block
     assert "Do NOT say search failed or came up dry" not in block
     assert "you MUST answer from those results" not in WEB_SEARCH_HINT
-    assert "According to" in WEB_SEARCH_HINT
     assert "link only pages from the results" in WEB_SEARCH_HINT  # safety phrase
     team = format_search_block(
         [WebSearchHit(title="T", url="https://a.example", snippet="s")], team="Kenya"

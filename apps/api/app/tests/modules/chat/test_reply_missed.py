@@ -12,7 +12,7 @@ import pytest
 
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants.conversation import NO_RECAP_NOTE, OWN_MISTAKE_HINT
-from app.modules.chat.prompt_constants.format import STEPS_NOTE
+from app.modules.chat.prompt_constants.format import READER_NOTE
 from app.modules.chat.prompt_constants.reply_missed import (
     REPLY_HOW_HINT,
     REPLY_MISSED_HINT,
@@ -122,12 +122,12 @@ def test_the_notes_sit_in_order_and_only_when_they_apply() -> None:
     rain = "Monthly rainfall: Jan 15, Feb 30, Mar 60, Apr 85"
     # After a reply, owning a mistake rides along (``OWN_MISTAKE_HINT``), and so does no
     # recap of what the chat settled (``NO_RECAP_NOTE``); steps to follow are numbered on
-    # every message outside a lesson (``STEPS_NOTE``).
+    # every message outside a lesson (``READER_NOTE``).
     assert message_notes("??", _exchange(*_AFTER_A_REPLY), _EN) == [
         REPLY_MISSED_HINT,
         OWN_MISTAKE_HINT,
         NO_RECAP_NOTE,
-        STEPS_NOTE,
+        READER_NOTE,
     ]
     assert NO_RECAP_NOTE not in message_notes("hi", [], _EN)
     assert message_notes(rain, [], _EN)[0].startswith(SHARED_NUMBERS_HINT)
