@@ -2383,7 +2383,11 @@
     "id": "fu-r4-10",
     "area": "followup",
     "prompt": "what if the voltage doubled",
-    "expect": "decline",
+    "expect": "answer",
+    "answer": [
+      4.0,
+      "A"
+    ],
     "history": [
       [
         "user",
@@ -2394,13 +2398,17 @@
         "Here is the working."
       ]
     ],
-    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+    "note": "a component's constant stays: the other given changes with the line's (R, k or C held)"
   },
   {
     "id": "fu-r4-11",
     "area": "followup",
     "prompt": "what if the current doubled",
-    "expect": "decline",
+    "expect": "answer",
+    "answer": [
+      24.0,
+      "V"
+    ],
     "history": [
       [
         "user",
@@ -2411,13 +2419,17 @@
         "Here is the working."
       ]
     ],
-    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+    "note": "a component's constant stays: the other given changes with the line's (R, k or C held)"
   },
   {
     "id": "fu-r4-12",
     "area": "followup",
     "prompt": "with twice the voltage",
-    "expect": "decline",
+    "expect": "answer",
+    "answer": [
+      4.0,
+      "A"
+    ],
     "history": [
       [
         "user",
@@ -2428,7 +2440,7 @@
         "Here is the working."
       ]
     ],
-    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+    "note": "a component's constant stays: the other given changes with the line's (R, k or C held)"
   },
   {
     "id": "fu-r4-13",
@@ -2502,7 +2514,11 @@
     "id": "fu-r4-17",
     "area": "followup",
     "prompt": "what if the force doubled",
-    "expect": "decline",
+    "expect": "answer",
+    "answer": [
+      0.2,
+      "m"
+    ],
     "history": [
       [
         "user",
@@ -2513,7 +2529,7 @@
         "Here is the working."
       ]
     ],
-    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+    "note": "a component's constant stays: the other given changes with the line's (R, k or C held)"
   },
   {
     "id": "fu-r4-18",
@@ -2553,7 +2569,11 @@
     "id": "fu-r4-20",
     "area": "followup",
     "prompt": "what if the charge doubled",
-    "expect": "decline",
+    "expect": "answer",
+    "answer": [
+      24.0,
+      "V"
+    ],
     "history": [
       [
         "user",
@@ -2564,7 +2584,7 @@
         "Here is the working."
       ]
     ],
-    "note": "the given is not certainly the one the line means, or the result is a property the change would hold wrongly"
+    "note": "a component's constant stays: the other given changes with the line's (R, k or C held)"
   },
   {
     "id": "fu-r4-21",

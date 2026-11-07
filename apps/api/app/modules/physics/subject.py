@@ -12,7 +12,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.modules.physics.extract import needs_physics
-from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
+from app.modules.physics.followup import (
+    PHYSICS_FOLLOWUP_HINT,
+    physics_followup_problem,
+    physics_followup_whole,
+)
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
 from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
@@ -224,16 +228,26 @@ class PhysicsSubject:
         has_image_attachment: bool,
         verified_request_text: str | None,
     ) -> str | None:
-        del verified_request_text
         if not isinstance(verified, VerifiedPhysicsBlock):
             return None
         from app.modules.physics.direct import maybe_direct_physics_reply
 
         return maybe_direct_physics_reply(
             verified,
-            user_text,
+            solved_text(user_text, verified_request_text),
             has_image_attachment=has_image_attachment,
         )
+
+
+def solved_text(user_text: str, followup_problem: str | None) -> str:
+    """The text the verified result answers: the problem a follow-up rewrote ("what if the
+    voltage doubled?" is "a resistance of 6 Ω and a voltage of 24 V, find the current"),
+    when that problem is all the line asks; else the line, which the model answers with
+    the verified result. "why?" wants the working explained, "and after 10 s, in km/h?"
+    a unit the rewrite does not carry."""
+    if followup_problem is None or not physics_followup_whole(user_text):
+        return user_text
+    return followup_problem
 
 
 PHYSICS_SUBJECT = PhysicsSubject()

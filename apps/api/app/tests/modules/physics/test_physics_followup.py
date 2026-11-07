@@ -373,17 +373,11 @@ def test_a_scaling_names_the_quantity_the_student_wrote(prior: str, line: str, a
         (_SAT_EARTH, "what if the mass doubled"),
         (_SAT_EARTH, "what if the mass was doubled"),
         (_PLANET, "what if the mass doubled"),
-        (_RESISTOR, "what if the voltage doubled"),
-        (_RESISTOR, "what if the current doubled"),
-        (_RESISTOR, "with twice the voltage"),
         (_BULB, "what if the voltage doubled"),
         (_BULB, "what if the power doubled"),
         (_HEATER, "what if the voltage doubled"),
         (_HEATER, "what if the voltage was halved"),
-        (_SPRING, "what if the force doubled"),
         (_SPRING, "what if the extension doubled"),
-        (_CAPACITOR, "what if the voltage doubled"),
-        (_CAPACITOR, "what if the charge doubled"),
         (_METAL, "what if the heat doubled"),
         (_METAL, "what if the mass doubled"),
         (_GLASS, "what if the speed doubled"),
@@ -408,6 +402,26 @@ def test_a_scaling_names_the_quantity_the_student_wrote(prior: str, line: str, a
 )
 def test_a_scaling_look_alike_is_not_reverified(prior: str, line: str) -> None:
     assert physics_followup_problem(line, _recent(prior)) is None
+
+
+@pytest.mark.parametrize(
+    ("prior", "line", "answer"),
+    [
+        # A component's constant stays: the resistor is still 6 Ω, so the current doubles.
+        (_RESISTOR, "what if the voltage doubled", "4 A"),
+        (_RESISTOR, "with twice the voltage", "4 A"),
+        (_RESISTOR, "what if the current doubled", "24 V"),
+        # k = 50 N/m: twice the force stretches it twice as far.
+        (_SPRING, "what if the force doubled", "0.2 m"),
+        # C = 5 µF: twice the charge needs twice the voltage.
+        (_CAPACITOR, "what if the charge doubled", "24 V"),
+        (_CAPACITOR, "what if the voltage doubled", "1.2 \u00d7 10\u207b\u2074 C"),
+    ],
+)
+def test_a_change_to_a_component_keeps_its_constant(prior: str, line: str, answer: str) -> None:
+    problem = physics_followup_problem(line, _recent(prior))
+    assert problem is not None
+    assert _answer(problem) == answer
 
 
 @pytest.mark.parametrize(
