@@ -174,7 +174,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ]
     ],
     "out": {}
@@ -215,7 +215,7 @@
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @FACTUAL_QUESTION_NOTE 1 @STEPS_NOTE 7 @PHYSICS_FOLLOWUP_HINT"
+      "4 @OWN_MISTAKE_HINT 1 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 7 @PHYSICS_FOLLOWUP_HINT"
      ]
     ],
     "out": {}
@@ -238,7 +238,7 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @STEPS_NOTE 8"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 8"
      ]
     ],
     "out": {}
@@ -261,7 +261,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ]
     ],
     "out": {}
@@ -284,7 +284,7 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @STEPS_NOTE 8"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 8"
      ]
     ],
     "out": {}
@@ -313,7 +313,7 @@
      ],
      [
       "system",
-      "9 @LOCAL_PLACES_FORMAT_HINT 10 @ADVICE_PERSONALIZE_HINT 1 @STEPS_NOTE"
+      "9 @LOCAL_PLACES_FORMAT_HINT 10 @ADVICE_PERSONALIZE_HINT 1 @READER_NOTE"
      ]
     ],
     "out": {}
@@ -336,7 +336,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ]
     ],
     "out": {}
@@ -359,7 +359,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ]
     ],
     "out": {}
@@ -382,7 +382,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "system",
@@ -410,7 +410,7 @@
      ],
      [
       "system",
-      "@STEPS_NOTE"
+      "@READER_NOTE"
      ]
     ],
     "out": {}
@@ -434,7 +434,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ]
     ],
     "out": {}
@@ -458,7 +458,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "system",
@@ -485,7 +485,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ]
     ],
     "out": {}
@@ -735,7 +735,7 @@
      ],
      [
       "system",
-      "39 @OWN_MISTAKE_HINT 1 @STEPS_NOTE"
+      "39 @OWN_MISTAKE_HINT 1 @READER_NOTE"
      ],
      [
       "user",
@@ -781,7 +781,7 @@
      ],
      [
       "system",
-      "42 @STEPS_NOTE"
+      "42 @READER_NOTE"
      ],
      [
       "user",
@@ -848,7 +848,7 @@
      ],
      [
       "system",
-      "49 @OWN_MISTAKE_HINT 1 @STEPS_NOTE"
+      "49 @OWN_MISTAKE_HINT 1 @READER_NOTE"
      ],
      [
       "system",
@@ -948,7 +948,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "system",
@@ -992,7 +992,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "user",
@@ -1026,7 +1026,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1062,7 +1062,7 @@
      ],
      [
       "system",
-      "62 @STEPS_NOTE 8"
+      "62 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1096,7 +1096,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "user",
@@ -1132,7 +1132,7 @@
      ],
      [
       "system",
-      "65 @CAREER_PERSONALIZE_HINT 1 @STEPS_NOTE"
+      "65 @CAREER_PERSONALIZE_HINT 1 @READER_NOTE"
      ],
      [
       "user",
@@ -1168,7 +1168,7 @@
      ],
      [
       "system",
-      "65 @PROFILE_FACT_HINT 1 @STEPS_NOTE"
+      "65 @PROFILE_FACT_HINT 1 @READER_NOTE"
      ],
      [
       "user",
@@ -1202,7 +1202,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1249,7 +1249,7 @@
      ],
      [
       "system",
-      "62 @OWN_MISTAKE_HINT 1 @STEPS_NOTE"
+      "62 @OWN_MISTAKE_HINT 1 @READER_NOTE"
      ]
     ],
     "out": {}
@@ -1279,7 +1279,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "system",
@@ -1317,7 +1317,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "user",
@@ -1351,7 +1351,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "system",
@@ -1477,7 +1477,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1527,7 +1527,7 @@
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @FACTUAL_QUESTION_NOTE 1 @STEPS_NOTE 1 @CHEMISTRY_FOLLOWUP_HINT"
+      "4 @OWN_MISTAKE_HINT 1 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 1 @CHEMISTRY_FOLLOWUP_HINT"
      ],
      [
       "user",
@@ -1561,7 +1561,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1595,7 +1595,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "user",
@@ -1629,7 +1629,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "user",
@@ -1679,7 +1679,7 @@
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @STEPS_NOTE 8"
+      "4 @OWN_MISTAKE_HINT 1 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1713,7 +1713,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1747,7 +1747,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 8"
+      "4 @READER_NOTE 8"
      ],
      [
       "user",
@@ -1781,7 +1781,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE 1 @PERSONAL_DISCLOSURE_HINT"
+      "4 @READER_NOTE 1 @PERSONAL_DISCLOSURE_HINT"
      ],
      [
       "user",
@@ -1831,7 +1831,7 @@
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @STEPS_NOTE"
+      "4 @OWN_MISTAKE_HINT 1 @READER_NOTE"
      ],
      [
       "user",
@@ -1881,7 +1881,7 @@
      ],
      [
       "system",
-      "4 @REPLY_HOW_HINT 1 @OWN_MISTAKE_HINT 1 @STEPS_NOTE 7 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT"
+      "4 @REPLY_HOW_HINT 1 @OWN_MISTAKE_HINT 1 @READER_NOTE 7 @MATH_REPLY_POLICY 1 @MATH_FOLLOWUP_HINT"
      ],
      [
       "user",
@@ -1915,7 +1915,7 @@
      ],
      [
       "system",
-      "4 @STEPS_NOTE"
+      "4 @READER_NOTE"
      ],
      [
       "user",
@@ -1949,7 +1949,7 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @STEPS_NOTE"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE"
      ],
      [
       "user",
@@ -1983,7 +1983,7 @@
      ],
      [
       "system",
-      "4 @FACTUAL_QUESTION_NOTE 1 @STEPS_NOTE 8"
+      "4 @FACTUAL_QUESTION_NOTE 1 @READER_NOTE 8"
      ],
      [
       "user",
@@ -2033,7 +2033,7 @@
      ],
      [
       "system",
-      "4 @OWN_MISTAKE_HINT 1 @STEPS_NOTE"
+      "4 @OWN_MISTAKE_HINT 1 @READER_NOTE"
      ],
      [
       "system",
@@ -2088,7 +2088,7 @@
      ],
      [
       "system",
-      "4 @ADVICE_PERSONALIZE_HINT 1 @OWN_MISTAKE_HINT 1 @STEPS_NOTE"
+      "4 @ADVICE_PERSONALIZE_HINT 1 @OWN_MISTAKE_HINT 1 @READER_NOTE"
      ],
      [
       "system",

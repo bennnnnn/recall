@@ -44,9 +44,10 @@ WEB_SEARCH_HINT = (
     "(scores, dates, headlines, facts). If none of them answers the question, say so "
     'plainly ("I couldn\'t find a source that covers that") instead of stretching an '
     "off-topic result or filling in from memory. "
-    'Say where a retrieved fact comes from by naming the source ("According to Reuters, '
-    '...", or its [n] marker), never "the search results" or "the results"; keep your '
-    "own explanation or background apart from what the sources say. "
+    "State the retrieved facts themselves: the app shows the sources under the reply, so "
+    'never write which outlet said what ("ESPN lists", "according to Reuters", "per '
+    'Experian") or "the search results", unless sources disagree. Keep your own '
+    "explanation or background apart from what the sources say. "
     "Never say search failed or that you cannot browse when results were provided. "
     "For today/current/latest news, use the current local date in the time context and only "
     "call an event today's when a result explicitly supports that date. Older, future, or "

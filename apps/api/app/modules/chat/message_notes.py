@@ -1,6 +1,6 @@
 """What the latest message is, said beside it: a list of values, "What?" or "How?" at the
-last reply, a number naming an item of its list, owning a mistake when told of one, steps
-to follow numbered, the user's Emoji setting, and the language it is written in.
+last reply, a number naming an item of its list, owning a mistake when told of one, how a
+reply is laid out to be scanned, the user's Emoji setting, and the language it is written in.
 
 These sit nearest the user's turn (``prompt_sections.CONTEXT_SECTIONS``): a small model
 follows the note closest to the message. A lesson, its outline and a clarify card read
@@ -16,7 +16,7 @@ from typing import Any
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs
 from app.modules.chat.prompt_constants.conversation import OWN_MISTAKE_HINT
-from app.modules.chat.prompt_constants.format import STEPS_NOTE
+from app.modules.chat.prompt_constants.format import READER_NOTE
 from app.modules.chat.prompt_constants.list_reference import list_reference_hint
 from app.modules.chat.prompt_constants.reply_missed import reply_how_hint, reply_missed_hint
 from app.modules.chat.prompt_constants.school_question import question_hint
@@ -49,7 +49,7 @@ def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str 
     pointed = None if own_way else list_reference_hint(query, pairs)
     # "I said …", "thats wrong", "u misunderstood me": the model checks and owns it.
     owned = OWN_MISTAKE_HINT if any(role == "assistant" for role, _ in pairs) else None
-    # A lesson lays out its own steps.
-    steps = None if lesson_like else STEPS_NOTE
-    notes = (shared_numbers_hint(query), missed, pointed, owned, school, steps, emoji, language)
+    # A lesson lays out its own sections; every other reply is written to be scanned.
+    reader = None if lesson_like else READER_NOTE
+    notes = (shared_numbers_hint(query), missed, pointed, owned, school, reader, emoji, language)
     return [note for note in notes if note]

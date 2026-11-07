@@ -159,8 +159,9 @@ PERSONAL_RECORD_HINT = (
     "memory or their profile. Do not invent a name, a city they live in, an "
     "employer, a job title, a skill, a tool, or a year of experience. A city "
     "they asked about is not where they live, and a job they asked you to find "
-    "is not a job they have held. If their name or their experience is missing, "
-    "ask one short question and do not draft the biography yet."
+    "is not a job they have held. When a detail is missing, write the whole piece now "
+    "with a short [placeholder] where it goes ([Your name], [Company], [a project you "
+    "built]), and after it one line offering to fill them in from what they tell you."
 )
 
 
