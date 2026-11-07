@@ -226,6 +226,10 @@ async def search_the_live_read(
     """A model read the message beside the prep (``web_search.live_read``). An answer that
     depends on facts that change is searched with the read's own query, so the reply
     answers from the results in one call; with no query, the reply's call must search."""
+    if ctx.live_read is not None and not ctx.live_read.done() and on_status is not None:
+        # A model is still reading the question: say so rather than show nothing. A search
+        # it asks for shows next, with its query ("Searching — …").
+        await on_status("thinking", None)
     read = await live_read_result(ctx.live_read, settings)
     if read is None:
         return

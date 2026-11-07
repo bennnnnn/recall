@@ -546,10 +546,19 @@ async def test_a_live_read_searches_its_query_before_the_reply(
     ctx.live_read = _read(True, "2026 FIFA World Cup winner")  # type: ignore[assignment]
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     search = AsyncMock(return_value=([_HIT], ["q"]))
+    statuses: list[tuple[str, str | None]] = []
+
+    async def on_status(
+        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> None:
+        statuses.append((phase, detail))
+
     with patch("app.modules.web_search.tool.run_cached_search", search):
         await run_tool_loop_path(
-            deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
+            deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=on_status, should_cancel=None
         )
+    # The user sees what is searched while it runs, never a blank screen.
+    assert ("searching", "2026 FIFA World Cup winner") in statuses
     assert search.await_args is not None and search.await_args.args[1][0].startswith(
         "2026 FIFA World Cup winner"
     )
@@ -559,6 +568,31 @@ async def test_a_live_read_searches_its_query_before_the_reply(
     call_turn, result = ctx.prompt_messages[-2:]
     assert call_turn["tool_calls"][0]["function"]["name"] == "web_search"
     assert result["role"] == "tool" and _HIT.url in result["content"]
+
+
+@pytest.mark.asyncio
+async def test_a_read_still_running_shows_thinking(web_search_tool: dict[str, Any]) -> None:
+    from app.modules.web_search.live_read import LiveRead
+
+    async def slow() -> LiveRead | None:
+        await asyncio.sleep(0.05)
+        return LiveRead(live=False)
+
+    ctx = _context("hello there")
+    ctx.live_read = asyncio.ensure_future(slow())
+    statuses: list[tuple[str, str | None]] = []
+
+    async def on_status(
+        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    ) -> None:
+        statuses.append((phase, detail))
+
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    await run_tool_loop_path(
+        deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=on_status, should_cancel=None
+    )
+    assert statuses == [("thinking", None)]
+    assert ctx.reply_requires is None
 
 
 @pytest.mark.asyncio
