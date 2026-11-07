@@ -77,9 +77,11 @@ _MATH_REQUEST_GLUE = frozenset(
 
 
 def _looks_math_token(tok: str) -> bool:
+    tok = tok.lstrip("(")  # "(x - sin x)/x^3", "lim x->0": a formula's function names
     if not tok:
         return True
-    if any(tok.startswith(f"{name}(") for name in ("sqrt", "sin", "cos", "tan", "log", "ln")):
+    names = ("sqrt", "sin", "cos", "tan", "sec", "csc", "cot", "log", "ln", "exp", "lim")
+    if tok in names or any(tok.startswith(f"{name}(") for name in names):
         return True
     return any(ch.isdigit() or ch in "=^*/+-%" for ch in tok)
 

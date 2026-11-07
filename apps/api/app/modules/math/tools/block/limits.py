@@ -41,7 +41,7 @@ def _verified_block_limit(
 
 def _limit_working(intent: MathIntent, answer: str) -> str | None:
     """Substitute; or factor and cancel a 0/0; or one step of L'Hôpital's rule."""
-    from sympy import Expr, Symbol, cancel, diff, factor, latex, limit, nan, simplify, zoo
+    from sympy import Expr, Symbol, cancel, factor, latex, limit, nan, simplify, zoo
 
     with sympy_decline() as declined:
         expr = math_solve.parse_expression(intent.expr or "", [intent.variable])
@@ -89,21 +89,49 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
             math_line(f"{lim} {operand(reduced)} = {latex(value)}", substitute),
         )
         return render_workout(Workout(find=find, steps=steps), answer)
-    top, bottom = diff(numerator, symbol), diff(denominator, symbol)
-    ratio = simplify(top / bottom)
-    at_point = ratio.subs(symbol, point)
-    if not at_point.is_finite or simplify(at_point - value) != 0:
+    rows = _lhopital_rows(numerator, denominator, symbol, point, value)
+    if rows is None:
         return None
     rule = math_line(r"\lim \frac{f}{g} = \lim \frac{f'}{g'}", "L'Hôpital's rule, for a 0/0 limit")
+    first, *more = rows
     steps = (
         zero,
-        math_line(
-            rf"{lim} {latex(expr)} = {lim} \frac{{{latex(top)}}}{{{latex(bottom)}}}",
-            "differentiate the top and the bottom",
-        ),
+        math_line(f"{lim} {latex(expr)} = {first}", "differentiate the top and the bottom"),
+        *(math_line(f"= {row}", "$\\frac{0}{0}$ again: differentiate again") for row in more),
         math_line(f"= {latex(value)}", substitute),
     )
     return render_workout(Workout(find=find, formula=(rule,), steps=steps), answer)
+
+
+# A school 0/0 limit settles within three rounds: (1 - cos x)/x^2 takes two.
+_LHOPITAL_ROUNDS = 3
+
+
+def _lhopital_rows(
+    numerator: Any, denominator: Any, symbol: Any, point: Any, value: Any
+) -> list[str] | None:
+    """``\\lim \\frac{f'}{g'}`` for each round of L'Hôpital's rule, until one substitutes.
+
+    Each round is shown only when SymPy confirms its limit is the limit asked; a round
+    that is still 0/0 differentiates again, and one that is neither declines.
+    """
+    from sympy import diff, latex, limit, simplify
+
+    lim = rf"\lim_{{{latex(symbol)} \to {latex(point)}}}"
+    rows: list[str] = []
+    top, bottom = numerator, denominator
+    for _ in range(_LHOPITAL_ROUNDS):
+        # Simplified, so a round reads as a student writes it: 2 tan x / cos^2 x.
+        top, bottom = simplify(diff(top, symbol)), simplify(diff(bottom, symbol))
+        if simplify(limit(top / bottom, symbol, point) - value) != 0:
+            return None
+        rows.append(rf"{lim} \frac{{{latex(top)}}}{{{latex(bottom)}}}")
+        at_top, at_bottom = simplify(top.subs(symbol, point)), simplify(bottom.subs(symbol, point))
+        if at_bottom != 0 and at_bottom.is_finite and at_top.is_finite:
+            return rows if simplify(at_top / at_bottom - value) == 0 else None
+        if at_top != 0 or at_bottom != 0:
+            return None
+    return None
 
 
 def _limit_at_infinity_working(

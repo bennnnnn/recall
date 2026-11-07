@@ -9,6 +9,11 @@ from typing import Any
 
 from app.modules.math.schemas import EquationInput, MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
+from app.modules.math.tools.school.trig_equation_steps import (
+    SolveRange,
+    identity_factor_steps,
+    solutions_in,
+)
 from app.services.workout import Workout, math_line, render_workout, text_line
 
 
@@ -46,15 +51,12 @@ def bounded_equation_block(
     Declines when the solutions in the interval are not a finite set.
     """
     from sympy import (
-        Eq,
-        FiniteSet,
         Interval,
         Symbol,
         latex,
         nsimplify,
         pi,
         simplify,
-        solveset,
     )
 
     from app.modules.math import solve as math_solve
@@ -84,8 +86,8 @@ def bounded_equation_block(
         left_open=intent.comparator == "<",
         right_open=intent.comparator_upper == "<",
     )
-    solved = solveset(Eq(lhs, rhs), variable, domain=domain)
-    if not isinstance(solved, FiniteSet):
+    solved = solutions_in(lhs - rhs, variable, domain)
+    if solved is None:
         return None
     radian_values = sorted(solved, key=lambda value: float(value))
     display_values = (
@@ -93,16 +95,22 @@ def bounded_equation_block(
     )
     # ``asin(3/10)`` in degrees has no exact school form: two decimals.
     approximate = degrees and not all(value.is_Rational for value in display_values)
+    suffix = "^\\circ" if degrees else ""
+
+    def values_text(values: list[Any]) -> str:
+        """``= \\frac{\\pi}{6},\\;\\frac{5 \\pi}{6}``: radian solutions as the answer shows them."""
+        shown = [simplify(value * 180 / pi) for value in values] if degrees else values
+        joined = r",\;".join(
+            f"{float(value):.2f}{suffix}" if approximate else f"{latex(value)}{suffix}"
+            for value in shown
+        )
+        relation = r"\approx" if approximate else "="
+        return f"{relation} {joined}"
+
     if not display_values:
         answer = r"\text{no solution}"
     else:
-        suffix = "^\\circ" if degrees else ""
-        joined = r",\;".join(
-            f"{float(value):.2f}{suffix}" if approximate else f"{latex(value)}{suffix}"
-            for value in display_values
-        )
-        relation = r"\approx" if approximate else "="
-        answer = f"{intent.variable} {relation} {joined}"
+        answer = f"{intent.variable} {values_text(radian_values)}"
     degree_suffix = "^\\circ" if degrees else ""
     left_comparator = r"\le" if intent.comparator == "<=" else "<"
     right_comparator = r"\le" if intent.comparator_upper == "<=" else "<"
@@ -113,7 +121,9 @@ def bounded_equation_block(
         f"{shown_low}{degree_suffix} {left_comparator} {intent.variable} "
         f"{right_comparator} {shown_high}{degree_suffix}"
     )
-    periodic = _periodic_steps(intent, lhs, rhs, variable, radian_values, domain_tex, degrees)
+    periodic = _periodic_steps(
+        intent, lhs, rhs, variable, radian_values, domain_tex, degrees
+    ) or identity_factor_steps(lhs, rhs, SolveRange(variable, domain, values_text, degrees), solved)
     direct = render_workout(
         Workout(
             given=(

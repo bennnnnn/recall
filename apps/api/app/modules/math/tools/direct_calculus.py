@@ -38,6 +38,12 @@ _LIMIT = re.compile(
     r"(?: from (?:the )?(left|right))?",
     re.IGNORECASE,
 )
+# "limit as x approaches 2 of (x^2-4)/(x-2)": the point named before the expression.
+_LIMIT_POINT_FIRST = re.compile(
+    rf"limit as ([a-zA-Z]) (?:approaches|goes to|tends to) ({_POINT})"
+    r"(?: from (?:the )?(left|right))? of (.+)",
+    re.IGNORECASE,
+)
 _SUM = re.compile(
     rf"(.+) from ([a-zA-Z])\s*=\s*({_INTEGER}) to ({_INTEGER}|infinity|inf|oo)",
     re.IGNORECASE,
@@ -279,16 +285,22 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
             and _point(actual.integral_lower) == _point(low)
             and _point(actual.integral_upper) == _point(high)
         )
-    if lower.startswith("limit of "):
+    if lower.startswith(("limit of ", "limit as ")):
+        point_first = _LIMIT_POINT_FIRST.fullmatch(request)
         match = _LIMIT.fullmatch(request[len("limit of ") :])
+        if point_first:
+            variable, point, side, expr = point_first.groups()
+        elif match:
+            expr, variable, point, side = match.groups()
+        else:
+            return False
         return bool(
-            match
-            and actual.kind == "limit"
-            and _matches_expression(actual, match[1])
-            and actual.variable == match[2]
-            and _point(actual.limit_point) == _point(match[3])
+            actual.kind == "limit"
+            and _matches_expression(actual, expr)
+            and actual.variable == variable
+            and _point(actual.limit_point) == _point(point)
             and actual.limit_direction
-            == {"left": "-", "right": "+", None: "+-"}[match[4].lower() if match[4] else None]
+            == {"left": "-", "right": "+", None: "+-"}[side.lower() if side else None]
         )
     for prefix in ("sum of ", "sum "):
         if not lower.startswith(prefix):

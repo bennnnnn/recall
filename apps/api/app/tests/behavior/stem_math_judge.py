@@ -226,6 +226,16 @@ def judge_check(check: tuple[str, Any], card: str, body: str) -> bool:
         return stated is not None and stated == sympify(value, locals={"x": x, "oo": oo})
     if kind == "regex":
         return bool(re.search(value, f"{card}\n{body}".lower()))
+    if kind == "parts":
+        # "\det(A) = 1,\quad A^{-1} = …": each result is one part of the card, judged on
+        # the value after its name, and every one asked must be there.
+        segments = [
+            segment.split("=", 1)[-1] for segment in re.split(r",\s*\\quad", card) if segment
+        ]
+        return all(
+            any(judge_check((sub[0], sub[1]), segment, body) for segment in segments)
+            for sub in value
+        )
     if kind == "matrix":
         flat = re.sub(r"-\s+", "-", latex_plain(card))
         numbers = [sympify(n) for n in re.findall(r"-?\(\(\d+\)/\(\d+\)\)|-?\d+", flat)]

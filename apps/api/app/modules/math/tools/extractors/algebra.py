@@ -274,11 +274,24 @@ def _extract_numerical_method_intent(cleaned: str) -> MathIntent | None:
 def _extract_matrix_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
     from app.modules.math.match.discrete import bracket_matrices
+    from app.modules.math.match.matrix_requests import SQUARE_OPS, requested_matrix_ops
 
     signal = mtm.matrix_signal(cleaned)
-    if signal is None:
+    listed = requested_matrix_ops(cleaned)
+    if signal is None or listed is None:
+        # None: one operation applied to another's result ("inverse of the transpose").
         return None
     op, rows = signal
+    if len(listed) >= 2:
+        if any(len(row) != len(rows) for row in rows) and SQUARE_OPS.intersection(listed):
+            return None
+        return MathIntent(
+            kind="matrix",
+            matrix_op=listed[0],
+            matrix_ops=list(listed),
+            matrix_rows=rows,
+            operation="solve",
+        )
     rows_b = None
     if op in {"multiply", "add"}:
         matrices = bracket_matrices(cleaned)
