@@ -19,6 +19,7 @@ import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyl
 import type { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
+import { useSheetsProps } from "@/features/chat/hooks/useSheetsProps";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
@@ -119,48 +120,6 @@ type UseChatScreenBodyPropsParams = {
   };
   liveTalkActive?: boolean;
 };
-
-/** The sheets the chat opens over its thread (attach, scanner, paywall), kept as one value. */
-function useSheetsProps(sheets: ChatScreenSheetsProps): ChatScreenSheetsProps {
-  const {
-    attachSheetOpen,
-    onCloseAttachSheet,
-    attachSheetLift,
-    onAttachmentSource,
-    mathScannerOpen,
-    onCloseMathScanner,
-    onMathScanCaptured,
-    upgradeVisible,
-    upgradeSource,
-    onCloseUpgrade,
-  } = sheets;
-  return useMemo(
-    () => ({
-      attachSheetOpen,
-      onCloseAttachSheet,
-      attachSheetLift,
-      onAttachmentSource,
-      mathScannerOpen,
-      onCloseMathScanner,
-      onMathScanCaptured,
-      upgradeVisible,
-      upgradeSource,
-      onCloseUpgrade,
-    }),
-    [
-      attachSheetOpen,
-      onCloseAttachSheet,
-      attachSheetLift,
-      onAttachmentSource,
-      mathScannerOpen,
-      onCloseMathScanner,
-      onMathScanCaptured,
-      upgradeVisible,
-      upgradeSource,
-      onCloseUpgrade,
-    ],
-  );
-}
 
 export function useChatScreenBodyProps({
   styles,

@@ -608,10 +608,14 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await openMathKeyboard();
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
-    const padHeight = StyleSheet.flatten(getByTestId("math-keyboard-pad").props.style).height;
+    // The pad's ground runs on past the screen's bottom edge (a negative bottom margin), so
+    // its top, where the fade sits, is its height less that overrun.
+    const pad = StyleSheet.flatten(getByTestId("math-keyboard-pad").props.style);
+    const padTop = (pad.height as number) + (pad.marginBottom as number);
     const fade = StyleSheet.flatten(getByTestId("composer-scroll-fade").props.style);
+    expect(pad.marginBottom).toBeLessThan(0);
     expect(fade.top).toBeUndefined();
-    expect(fade.bottom).toBe(padHeight);
+    expect(fade.bottom).toBe(padTop);
     expect(fade.height).toBe(MATH_KEYBOARD_GAP_FADE_HEIGHT);
     expect(StyleSheet.flatten(getByTestId("chat-composer").props.style).top).toBeUndefined();
     expect(queryByTestId("math-keyboard-dismiss")).toBeNull();

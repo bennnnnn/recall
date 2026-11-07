@@ -214,7 +214,8 @@ describe("ChatScreenBody", () => {
     expect(mockAttachmentSourceSheet).toHaveBeenLastCalledWith(
       expect.objectContaining({ visible: false }),
     );
-    expect(mockAttachmentSourceSheet.mock.calls.at(-1)?.[0]).not.toHaveProperty("bottomOffset");
+    // With the math keyboard down the sheet sits on the bottom edge, over the composer: no lift.
+    expect(mockAttachmentSourceSheet.mock.calls.at(-1)?.[0].bottomOffset).toBeUndefined();
     expect(mockChatMessageList).toHaveBeenLastCalledWith(
       expect.objectContaining({
         renderItem,
