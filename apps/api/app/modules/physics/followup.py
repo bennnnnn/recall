@@ -17,6 +17,10 @@ from app.modules.physics.ask import ask_clause, asks
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES
 from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.givens import ANGLE, PHYSICS_UNITS
+from app.modules.physics.kept_property import kept_property_problem
+from app.modules.physics.verified_answers import results as _results
+from app.modules.physics.verified_answers import verified_display as _verified_display
+from app.modules.physics.verified_answers import verifies as _verifies
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import unit_dimension
@@ -69,6 +73,27 @@ _HOW = re.compile(
 _HOW_QUANTITY = {"far": "distance", "long": "time", "high": "maximum height", "fast": "speed"}
 
 
+def physics_followup_whole(query: str | None) -> bool:
+    """The follow-up problem stands for all of this line: one change, one other quantity or
+    one unit, nothing besides. "and after 10 s, in km/h?" or "what if it was 3 m/s^2?
+    explain why" ask more than the problem rewritten from them answers, so the server does
+    not write their reply alone."""
+    written = followup_line(query)
+    if written is None:
+        return False
+    line = written.lower()
+    if EXPLAIN_RE.fullmatch(line):
+        return False
+    return (
+        scaled_given(line) is not None
+        or _CHANGED.fullmatch(line) is not None
+        or _ABOUT.fullmatch(line) is not None
+        or _HOW.fullmatch(line) is not None
+        or asked_unit(written) is not None
+        or new_value(written) is not None
+    )
+
+
 def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
     """The problem to verify again, or None when this line is not that follow-up."""
     written = followup_line(query)
@@ -83,17 +108,18 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     # Before the other shapes: "what if it was 3 times higher" is no new value.
     scaled = scaled_given(line)
     if scaled is not None:
-        return None if _held_fixed(prior) else _GIVENS.scaled(prior, scaled)
+        rewritten = _GIVENS.scaled(prior, scaled)
+        return _kept_or_declined(prior, rewritten) if _held_fixed(prior) else rewritten
     about = _ABOUT.fullmatch(line)
     if about is not None:
         return _another_quantity(prior, about.group("ask"))
     changed = _CHANGED.fullmatch(line)
     if changed is not None:
-        if _held_fixed(prior):
-            return None
         rewritten = _GIVENS.changed(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
+        if _held_fixed(prior):
+            return _kept_or_declined(prior, rewritten)
         return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
     how = _HOW.fullmatch(line)
     if how is not None:
@@ -103,9 +129,9 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _in_unit(prior, unit)
     value = new_value(written)
     if value is not None:
-        if _held_fixed(prior):
-            return None
         rewritten = _GIVENS.changed(prior, None, *value)
+        if _held_fixed(prior):
+            return _kept_or_declined(prior, rewritten)
         return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
     return None if _held_fixed(prior) else _restated(prior, written)
 
@@ -136,6 +162,15 @@ _RATING = re.compile(
 )
 # A source with an internal resistance holds its emf fixed while the circuit changes.
 _INTERNAL = re.compile(r"\binternal resistance\b|\bemf\b|\be\.m\.f\b", re.IGNORECASE)
+
+
+def _kept_or_declined(prior: str, rewritten: str | None) -> str | None:
+    """A problem whose result is held fixed: re-asked with the component's constant kept
+    (``kept_property``), or declined. A rated device or a source with an internal
+    resistance is never re-asked: the change holds neither its rating nor its emf."""
+    if rewritten is None or _RATING.search(prior) or _INTERNAL.search(prior):
+        return None
+    return kept_property_problem(prior, rewritten)
 
 
 def _held_fixed(prior: str) -> bool:
@@ -176,39 +211,6 @@ def _another_quantity(prior: str, ask: str) -> str | None:
         return None
     rewritten = ask_replaced(prior, phrase)
     return rewritten if _verifies(rewritten) else None
-
-
-def _verifies(text: str) -> bool:
-    """True when the server answers this wording whole, as a turn would: one law, the
-    laws chained, or each part."""
-    return _verified_display(text) is not None
-
-
-def _verified_display(text: str) -> str | None:
-    """The verified card's answer for this wording, or None when nothing verifies it."""
-    answers = _answers(text)
-    return None if answers is None else "; ".join(display for _, display in answers)
-
-
-def _answers(text: str) -> list[tuple[str, str]] | None:
-    """Each verified answer as (plain, LaTeX), in the order asked, or None."""
-    from app.core.config import get_settings
-    from app.modules.physics.prompt import solve_physics_request
-
-    outcome, block = solve_physics_request(text, get_settings(), True)
-    if outcome != "verified" or block is None or block.partial:
-        return None
-    if block.physics_parts:
-        return [(part.answer, part.display_answer) for part in block.physics_parts]
-    return [(block.canonical_answer or "", block.display_answer or block.canonical_answer or "")]
-
-
-def _results(text: str) -> list[Given] | None:
-    """The previous problem's answers as values with their kinds: "-5 m/s²; 40 m"."""
-    answers = _answers(text)
-    if answers is None:
-        return None
-    return [g for plain, _ in answers for g in read_givens(plain, PHYSICS_UNITS) if g.dimension]
 
 
 def _restated(prior: str, written: str) -> str | None:

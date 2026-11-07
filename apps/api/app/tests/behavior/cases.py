@@ -349,7 +349,7 @@ CASES: tuple[Case, ...] = (
         "physics",
         "how far does it go?",
         # The car, not the user: never "I don't have your location".
-        Expect(solved=True, instant="", search="no"),
+        Expect(solved=True, instant="solver", search="no"),
         "37.5 m from s = ½at², the same car and numbers.",
         history=(
             ("user", "A car accelerates from rest at 3 m/s^2 for 5 s. What is its final velocity?"),
@@ -360,7 +360,7 @@ CASES: tuple[Case, ...] = (
         "physics-followup-unit",
         "physics",
         "in km/h please",
-        Expect(solved=True, instant="", search="no"),
+        Expect(solved=True, instant="solver", search="no"),
         "54 km/h: the verified 15 m/s converted, never worked again unchecked.",
         history=(
             ("user", "A car accelerates from rest at 3 m/s^2 for 5 s. What is its final velocity?"),
@@ -371,7 +371,7 @@ CASES: tuple[Case, ...] = (
         "physics-followup-new-time",
         "physics",
         "and after 10 s?",
-        Expect(solved=True, instant="", search="no"),
+        Expect(solved=True, instant="solver", search="no"),
         "30 m/s: the same car after 10 s.",
         history=(
             ("user", "A car accelerates from rest at 3 m/s^2 for 5 s. What is its final velocity?"),

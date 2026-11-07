@@ -77,7 +77,9 @@ class Augmentation:
             request.content,
             settings,
             has_image_attachment=request.has_image_attachment,
-            verified_request_text=followup.math,
+            # The problem a follow-up solved again ("what if the voltage doubled?"): the
+            # verified result answers it, not the line.
+            verified_request_text=followup.math if followup.math is not None else followup.physics,
         )
 
 
