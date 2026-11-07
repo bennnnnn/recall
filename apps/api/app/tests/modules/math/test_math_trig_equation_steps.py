@@ -59,12 +59,15 @@ def test_solutions_in_declines_an_interval_of_solutions() -> None:
         # SymPy raises on both: never "no solution" built from the failures.
         Max(sin(x), cos(x)) - Rational(1, 2),
         sign(sin(x)) - 1,
-        # No root at all: declined, not certified empty.
-        sin(x) - 2,
     ],
 )
 def test_solutions_in_declines_when_no_solve_finished(expr: object) -> None:
     assert solutions_in(expr, x, TURN) is None
+
+
+def test_no_root_anywhere_is_no_solution() -> None:
+    """Both solves finish empty: "no solution", as main answered (review of #2319)."""
+    assert solutions_in(sin(x) - 2, x, TURN) == FiniteSet()
 
 
 def test_one_factor_with_no_root_in_the_interval_says_so() -> None:

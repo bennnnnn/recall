@@ -101,8 +101,10 @@ def solutions_in(
     quadratic in one function (``2 sin^2 x - sin x - 1`` on ``[0, 2pi)`` gives ``pi/2``
     alone, though its real solve has ``7pi/6`` and ``11pi/6``), so the real solve's
     roots in the interval are added. Each root must give 0 when substituted; an
-    interval root that does not, or no root at all, is None; ``empty_allowed`` (one
-    factor of an equation already solved) takes a finished empty solve as no root.
+    interval root that does not is None. No root at all is no solution (an empty set)
+    when both solves finished empty (``sin x = 2``), and None when the real solve did
+    not finish; ``empty_allowed`` (one factor of an equation already solved) takes a
+    finished empty interval solve as no root.
     """
     from sympy import FiniteSet, N, S, simplify, solveset
 
@@ -110,13 +112,15 @@ def solutions_in(
         in_domain = solveset(expr, variable, domain=domain)
     if declined:
         return None
-    if in_domain == S.EmptySet and empty_allowed:
+    if in_domain == S.EmptySet:
         in_domain = FiniteSet()
     elif not isinstance(in_domain, FiniteSet):
         return None
     extra: list[Any] = []
+    real_finished = False
     with sympy_decline() as declined:  # the real solve only adds roots
         over_reals = solveset(expr, variable, domain=S.Reals).intersect(domain)
+        real_finished = over_reals == S.EmptySet or isinstance(over_reals, FiniteSet)
         if isinstance(over_reals, FiniteSet):
             known = list(in_domain)
             extra = [value for value in over_reals if value not in known]
@@ -132,7 +136,7 @@ def solutions_in(
     if not all(holds(value) for value in in_domain):
         return None
     kept = [*in_domain, *(value for value in extra if holds(value))]
-    return FiniteSet(*kept) if kept or empty_allowed else None
+    return FiniteSet(*kept) if kept or empty_allowed or real_finished else None
 
 
 @dataclass(frozen=True)
