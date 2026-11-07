@@ -135,12 +135,22 @@ def test_the_cards_statement_must_stand_whole() -> None:
         "## Chapter 4 Kinematics",
         "**Step 1 of 3**",
         "## Question 12 Part b",
+        # Review (2026-11-07): the word after the number is no unit.
+        "## Section 2 Forces",
+        "## Problem 3 Heat",
     ],
 )
 def test_a_short_heading_with_a_number_stays(heading: str) -> None:
     # Review (2026-11-07): a heading names a part; its number is no stated result.
     text = f"{heading}\n\n{_CAR}"
     assert drop_guessed_lead(text) == text
+
+
+@pytest.mark.parametrize("lead", ["## 25 m", "**Answer: 9.8 m/s²**", "**42 km/h**"])
+def test_a_bold_line_ending_on_a_unit_says_a_value(lead: str) -> None:
+    # A heading that ends on a number and a unit states it; one the working lacks goes.
+    worked = "**Given**\n$d = 120$ m, $t = 12$ s\n\n```answer\nverified: false\nv = 10\\,\\mathrm{m/s}\n```\n"
+    assert drop_guessed_lead(f"{lead}\n\n{worked}") == worked
 
 
 def test_a_models_bold_answer_over_its_steps_goes() -> None:

@@ -31,6 +31,7 @@ from app.services.answer_fence import (
     UNCHECKED_ANSWER_MARKER,
     answer_fence_value,
 )
+from app.services.law_binding.units import dimension_of
 from app.services.md_fence_scan import iter_fences, line_fences
 from app.services.workout import REQUIRED_PATTERN
 
@@ -45,9 +46,9 @@ _GIVEN = re.compile(
 # 1 : 5.**") is a statement, and so is a bold value ("**x = 3**", "**25 m**": ``_a_heading``).
 _HEADING = re.compile(r"^\s*(?:#{1,6}\s|\*\*[^*]*[^*.!?\s]\*\*\s*$)")
 _VALUE_SIGN = re.compile(r"[=≈]")
-# A line ending on a number and a short unit ("25 m", "9.8 m/s²") says a value; "Q7", "Ex 4",
-# "Step 1 of 3" and "Chapter 4 Kinematics" name a part.
-_ENDS_ON_A_VALUE = re.compile(r"\d\s*[^\W\d_][\w/²³·^-]{0,5}\s*$")
+# A line ending on a number and a word ("25 m", "Chapter 4 Kinematics"): a value only when
+# the word is a unit. "Q7", "Ex 4" and "Step 1 of 3" end on no word at all.
+_ENDS_ON_A_WORD = re.compile(r"\d\s*([^\W\d_][\w/²³·^°-]*)\s*$")
 # Not a stated result: a photo, an image, a list, a table, display maths, a part's label,
 # a note or a warning.
 _KEEP = re.compile(
@@ -143,10 +144,14 @@ def _a_heading(line: str) -> bool:
     "**25 m**") is a statement."""
     words = line.strip().strip("#*").strip()
     return (
-        bool(_HEADING.match(line))
-        and not _VALUE_SIGN.search(line)
-        and not _ENDS_ON_A_VALUE.search(words)
+        bool(_HEADING.match(line)) and not _VALUE_SIGN.search(line) and not _ends_on_a_value(words)
     )
+
+
+def _ends_on_a_value(words: str) -> bool:
+    """ "**25 m**", "**9.8 m/s²**" say a value; "## Section 2 Forces" names a part."""
+    match = _ENDS_ON_A_WORD.search(words)
+    return match is not None and dimension_of(match.group(1)) is not None
 
 
 def _states_a_result(
