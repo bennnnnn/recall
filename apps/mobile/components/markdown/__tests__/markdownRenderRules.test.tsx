@@ -1027,6 +1027,37 @@ describe("markdown render rules", () => {
   });
 
   it.each([
+    ["formulas one per line", "$2x + 3 = 7$\n$x - 1 = 0$"],
+    ["a display block", "Solve:\n\n$$x^2 = 4$$"],
+  ])("never indents %s in the user's own sent message", async (_name, content) => {
+    const view = await render(<MarkdownContent content={content} compact />);
+    expect(JSON.stringify(view.toJSON())).not.toContain(`"paddingLeft":${WORK_INDENT}`);
+  });
+
+  it("indents a formula paragraph while it streams, so it never jumps when it settles", async () => {
+    const view = await render(
+      <MarkdownContent content={"### 1. Simplify\n\n$x + 1 = 3$"} streaming />,
+    );
+    expect(JSON.stringify(view.toJSON())).toContain(`"paddingLeft":${WORK_INDENT}`);
+  });
+
+  it("draws a step label's maths in the label's ink", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={"**2. Divide both sides by $a$**\n$x = \\frac{b}{a}$"} />,
+    );
+    const variable = within(getByTestId("lesson-step-label")).getAllByTestId("math-variable")[0]!;
+    expect(StyleSheet.flatten(variable.props.style).color).toBe(lightTheme.assistantText);
+  });
+
+  it.each([
+    ["its first equation on the heading line", "**1. Distribute**: $2(x+3)=14$\n$2x+6=14$"],
+    ["a minus sign after the heading", "**1. Multiply both sides by** -1\n$x = 2$"],
+  ])("keeps a step with %s as ordinary markdown, never a reason", async (_name, content) => {
+    const { queryByTestId } = await render(<MarkdownContent content={content} />);
+    expect(queryByTestId("lesson-step-reason")).toBeNull();
+  });
+
+  it.each([
     ["### 1. Start with the standard form", "1", "Start with the standard form"],
     ["## 2) Divide every term by a", "2", "Divide every term by a"],
     ["#### Step 3: Move the constant", "3", "Move the constant"],

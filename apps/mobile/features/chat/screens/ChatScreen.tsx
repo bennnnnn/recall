@@ -384,7 +384,7 @@ function ChatScreen() {
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <ChatReplyProviders saveEmailDraft={handleSaveEmailDraft} send={sendTappedLine} busy={streamActive || regenerating} listRef={listRef} topInset={layout.headerInset}>
+    <ChatReplyProviders saveEmailDraft={handleSaveEmailDraft} send={sendTappedLine} busy={streamActive || regenerating}>
       <View style={{ flex: 1 }}>
         <ChatScreenBody {...chatScreenBody.bodyProps} />
         <LazyLiveTalkOverlay

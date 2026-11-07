@@ -2,6 +2,7 @@ import React, { type ReactNode } from "react";
 import { View } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
+import { WORK_INDENT } from "@/components/markdown/markdownContentStyles";
 import { MarkdownPiece, type MarkdownProps } from "@/components/markdown/MarkdownPiece";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { MathText } from "@/components/rich/MathText";
@@ -28,7 +29,8 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
   const drawable = completeStreamingLatex(body);
   if (!drawable) return null;
   return (
-    <View style={{ marginVertical: Space.xxs }}>
+    // In the working column a closed block settles in (`MathBlock indent`), so it never jumps.
+    <View style={{ marginVertical: Space.xxs, paddingLeft: WORK_INDENT }}>
       <MathText latex={drawable} textColor={theme.text} fontSize={Type.reading.fontSize} />
     </View>
   );

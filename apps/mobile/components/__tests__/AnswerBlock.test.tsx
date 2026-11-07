@@ -37,8 +37,9 @@ describe("AnswerBlock", () => {
       <AnswerBlock content={"label: answer\nverified: true\nx = 0"} />,
     );
     expect(getByText("Answer")).toBeOnTheScreen();
+    // Bold as every other heading of the worked layout and a model's own headings are.
     expect(StyleSheet.flatten(getByTestId("answer-label").props.style)).toMatchObject({
-      ...Weight.semibold,
+      ...Weight.bold,
       color: lightTheme.assistantText,
     });
     // No side rule: the bordered box alone frames the answer, centred in it.

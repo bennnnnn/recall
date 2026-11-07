@@ -167,10 +167,11 @@ function workoutRule(t: Theme) {
 
 /**
  * A heading inside Solution (a formula's name, Substitution, a move): bold in the reply's
- * ink at the margin, its working indented under it (November 2026).
+ * ink at the margin, its working indented under it. Bold as a model's own headings and
+ * bold text are, so the server's and the model's replies read alike (November 2026).
  */
 export function subheadingStyle(styles: StyleMap, t: Theme): StyleProp<TextStyle> {
-  return [styles.body, styles.text, { ...Weight.semibold, color: t.assistantText }];
+  return [styles.body, styles.text, { ...Weight.bold, color: t.assistantText }];
 }
 
 // "Solve for $t$": a step of the working written as words, drawn as a move.
@@ -335,7 +336,7 @@ export function renderWorkoutSection(
       style={[
         styles.body,
         styles.text,
-        { ...Weight.semibold, color: t.assistantText },
+        { ...Weight.bold, color: t.assistantText },
       ]}
     >
       {section.heading}
@@ -435,7 +436,7 @@ export function renderWorkoutPart(
         {workoutInline(
           part.title,
           `${key}-part`,
-          [styles.body, styles.text, { ...Weight.semibold, color: t.accent }],
+          [styles.body, styles.text, { ...Weight.bold, color: t.accent }],
           t.accent,
         )}
       </View>

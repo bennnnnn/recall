@@ -61,9 +61,13 @@ export function lessonStepParts(
 
 /**
  * A move's reason on its heading line, however the writer set it off: "— rule" (the
- * server), "– rule", "- rule", ": rule" or "(rule)" (a model, November 2026).
+ * server), "– rule", "- rule", ": rule" or "(rule)" (a model, November 2026). A hyphen
+ * or en dash needs a space after it, so "-1" stays a number.
  */
-const STEP_REASON_RE = /^[ \t]*(?:[—–:-][ \t]*([^\n]*)|\(([^\n]*)\)[ \t]*(?=\n|$))/;
+const STEP_REASON_RE = /^[ \t]*(?:[—:][ \t]*([^\n]*)|[–-][ \t]+([^\n]*)|\(([^\n]*)\)[ \t]*(?=\n|$))/;
+
+/** A formula alone: the step's first equation written on its heading line, not a reason. */
+const LONE_FORMULA = /^\$[^$]+\$[.,;:]?$/;
 
 function lessonStepTail(tail: string): { reason: string | null; formulas: string[] } | null {
   let rest = tail;
@@ -72,7 +76,8 @@ function lessonStepTail(tail: string): { reason: string | null; formulas: string
   // markdown (`**1. Result** $x^2$`); the working puts each equation on the next line.
   const reasonMatch = STEP_REASON_RE.exec(rest);
   if (reasonMatch) {
-    reason = (reasonMatch[1] ?? reasonMatch[2] ?? "").trim() || null;
+    reason = (reasonMatch[1] ?? reasonMatch[2] ?? reasonMatch[3] ?? "").trim() || null;
+    if (reason && LONE_FORMULA.test(reason)) return null;
     rest = rest.slice(reasonMatch[0].length);
   }
   if (!/^\s*\n/.test(rest)) return null;
@@ -226,7 +231,7 @@ export function renderLessonStep(
             alignItems: "baseline",
           }}
         >
-          {lessonLabelNodes(step.label, `${key}-label`, label, t.textSecondary)}
+          {lessonLabelNodes(step.label, `${key}-label`, label, t.assistantText)}
         </View>
       </View>
       {step.reason || step.formulas.length ? (

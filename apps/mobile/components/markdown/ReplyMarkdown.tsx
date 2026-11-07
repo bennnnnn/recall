@@ -1,9 +1,5 @@
-import { useMemo } from "react";
-
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
-import { AnswerAnchorScope, AnswerLead } from "@/components/rich/answerJump";
-import { answerJumpFor } from "@/lib/markdown/answerJump";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
 type Props = {
@@ -20,23 +16,18 @@ type Props = {
 /**
  * An assistant reply's markdown. Only a link the user wrote or the server's
  * search returned may fetch a preview card; a link the model wrote on its own
- * stays a plain card (`lib/linkPreviewTrust.ts`). A settled reply whose answer
- * card sits under its working opens with the answer, a tap from the card
- * (`lib/markdown/answerJump.ts`), whatever the subject.
+ * stays a plain card (`lib/linkPreviewTrust.ts`). A worked reply says its answer
+ * once, in its card under the working, as a textbook does (November 2026).
  */
 export function ReplyMarkdown({ content, streaming, presented, userText, sources }: Props) {
-  const jump = useMemo(() => (streaming ? null : answerJumpFor(content)), [content, streaming]);
   return (
     <LinkPreviewTrust userText={userText} sources={sources}>
-      <AnswerAnchorScope>
-        {jump ? <AnswerLead jump={jump} /> : null}
-        <MarkdownContent
-          content={content}
-          streaming={streaming}
-          presented={presented}
-          mathFormat={formatAssistantMathExpr}
-        />
-      </AnswerAnchorScope>
+      <MarkdownContent
+        content={content}
+        streaming={streaming}
+        presented={presented}
+        mathFormat={formatAssistantMathExpr}
+      />
     </LinkPreviewTrust>
   );
 }

@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { renderBlockquote } from "@/components/markdown/blockquoteRender";
 import { useReplyStreaming } from "@/components/markdown/ReplyStreaming";
+import { splitStreamCaret } from "@/components/StreamingCursor";
 import {
   type AstNode,
   astText,
@@ -12,11 +13,10 @@ import {
   inTableHeader,
   parentHasType,
 } from "@/components/markdown/markdownAstHelpers";
-import {
-  type MdMathStyles,
-  type MdTableStyles,
-  type StyleMap,
-  WORK_INDENT,
+import type {
+  MdMathStyles,
+  MdTableStyles,
+  StyleMap,
 } from "@/components/markdown/markdownContentStyles";
 import { wrapInlineChildren } from "@/components/markdown/rules/inline";
 import { lessonStepParts, renderLessonStep } from "@/components/markdown/rules/lesson";
@@ -41,13 +41,21 @@ function StandaloneLink({ url, text }: { url: string; text: ReactNode }) {
 /** One formula alone on its line, with at most the punctuation that ends it. */
 const FORMULA_LINE = /^\$[^$\n]+\$[.,;:]?$/;
 
+const PLAIN_KIDS = new Set(["text", "textgroup", "softbreak", "hardbreak"]);
+
+function plainKids(node: AstNode): boolean {
+  return (node.children ?? []).every((kid) => PLAIN_KIDS.has(kid.type ?? "") && plainKids(kid));
+}
+
 /**
  * A paragraph of formulas alone, one per line ("### 2. Divide by a" then "$x^2 + … = 0$"):
- * working, so it starts in the column a worked solution's lines do (November 2026).
+ * working, so it starts in the column a worked solution's lines do (November 2026). A
+ * bold formula is a highlighted line, not working; the streaming caret is not part of it.
  */
 function formulasOnly(node: AstNode): boolean {
-  const lines = astTextWithBreaks(node)
-    .split("\n")
+  if (!plainKids(node)) return false;
+  const lines = splitStreamCaret(astTextWithBreaks(node))
+    .text.split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
   return lines.length > 0 && lines.every((line) => FORMULA_LINE.test(line));
@@ -100,7 +108,7 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
     const inListItem = parentHasType(parent, "list_item");
     const working =
       !inListItem && !parentHasType(parent, "blockquote") && formulasOnly(node)
-        ? { paddingLeft: WORK_INDENT }
+        ? styles.workIndent
         : null;
     return wrapInlineChildren(
       node,
