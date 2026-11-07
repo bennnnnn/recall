@@ -14,6 +14,10 @@ def _verified_block_matrix(
 ) -> VerifiedMathBlock | None:
     if intent.matrix_op is None or not intent.matrix_rows:
         return None
+    if intent.matrix_ops and len(intent.matrix_ops) > 1:
+        from app.modules.math.tools.block.matrix_results import multi_result_matrix_block
+
+        return multi_result_matrix_block(intent, intent.matrix_ops, lines)
     if intent.matrix_op == "inverse":
         determinant = math_solve.compute_matrix(
             MatrixInput(operation="determinant", rows=intent.matrix_rows)
