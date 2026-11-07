@@ -20,30 +20,9 @@ _BREVITY_MARKERS = (
     "briefly",
     "keep it short",
     "keep it brief",
+    "shorter",
     "tldr",
     "tl;dr",
-)
-
-
-# "Shorter" asks for a shorter reply when the reply is what it is about: "shorter" alone,
-# what is made shorter ("make it shorter", "keep answers shorter"), a reply's noun
-# ("shorter replies", "a shorter version"), or the assistant ("be shorter"). After a list of
-# books "anything shorter?" asks for a shorter book, and "a shorter route" is a route: the
-# model reads those with the conversation, as does "get me a shorter flight": what a verb
-# makes shorter is a pronoun or a reply's noun (2026-11-06; plurals, "be shorter" and
-# "make your last answer shorter" from the reviews of #2307).
-_REPLY_NOUN = (
-    r"(?:answers?|repl(?:y|ies)|responses?|versions?|summar(?:y|ies)|explanations?"
-    r"|texts?|drafts?|messages?|emails?)"
-)
-_SHORTER_REPLY = re.compile(
-    r"^(?:even |much |way |a bit |a little )?shorter[,.!?]*(?: (?:please|pls|plz)[.!?]*)?$"
-    r"|\b(?:make|keep|get|cut|write|rewrite|say|put) (?:(?:the|your|my|this|that) )?"
-    rf"(?:(?:last|previous|next) )?(?:it|that|this|them|{_REPLY_NOUN}) "
-    r"(?:a (?:bit|little|lot) |much |way |even )?shorter\b"
-    rf"|\bshorter {_REPLY_NOUN}\b"
-    rf"|\b(?:{_REPLY_NOUN}|you) (?:should|could|must|can|need to|have to)? ?(?:be|get) shorter\b"
-    r"|\bbe (?:a (?:bit|little|lot) |much |way |even )?shorter\b",
 )
 
 
@@ -86,13 +65,11 @@ _DETAIL_REQUEST = re.compile(
 
 def is_brevity_request(text: str) -> bool:
     """True when the user capped length (one sentence / briefly)."""
-    cleaned = collapse_ws(text).lower()
+    cleaned = text.strip().lower()
     if not cleaned:
         return False
-    return (
-        any(marker in cleaned for marker in _BREVITY_MARKERS)
-        or _SHORTER_REPLY.search(cleaned) is not None
-        or _LENGTH_CAP.search(cleaned) is not None
+    return any(marker in cleaned for marker in _BREVITY_MARKERS) or bool(
+        _LENGTH_CAP.search(cleaned)
     )
 
 
