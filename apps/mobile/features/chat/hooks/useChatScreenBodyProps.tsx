@@ -29,7 +29,8 @@ type Router = ReturnType<typeof useRouter>;
 
 type QuotaNudge = {
   show: boolean;
-  usedPct: number;
+  /** The banner's words: messages left, or the share of the day used. */
+  label: string;
   dismiss: () => void;
 };
 
@@ -400,7 +401,7 @@ export function useChatScreenBodyProps({
       scrollAwayCount,
       onScrollToLatest: scrollToLatest,
       quotaNudgeVisible: quotaNudge.show,
-      quotaUsedPct: quotaNudge.usedPct,
+      quotaLabel: quotaNudge.label,
       onQuotaUpgrade,
       onQuotaDismiss: quotaDismiss,
       chatError,
@@ -417,7 +418,7 @@ export function useChatScreenBodyProps({
       scrollAwayCount,
       scrollToLatest,
       quotaNudge.show,
-      quotaNudge.usedPct,
+      quotaNudge.label,
       onQuotaUpgrade,
       quotaDismiss,
       chatError,

@@ -18,6 +18,15 @@ let mockSkia = false;
 jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => mockSkia }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 
+type RenderNode = { type?: string; props?: Record<string, unknown>; children?: unknown[] | null };
+
+function nodesIn(value: unknown): RenderNode[] {
+  if (Array.isArray(value)) return value.flatMap(nodesIn);
+  if (!value || typeof value !== "object") return [];
+  const node = value as RenderNode;
+  return [node, ...(node.children ?? []).flatMap(nodesIn)];
+}
+
 const STYLES = { wrap: { marginVertical: 4 }, title: { color: "#111111" } };
 
 function spec(fence: Record<string, unknown>): GraphSpec {
@@ -75,6 +84,29 @@ describe("InteractiveFunctionPlot", () => {
     expect(queryByTestId("graph-add-function")).toBeNull();
   });
 
+  it("draws the legend as maths over its field, and the plain text while it is edited", async () => {
+    // The legend read `y = x^2 - 4x + 3` in a monospace field (2026-11-06).
+    const { getByTestId, queryByTestId } = await plot(
+      spec({ type: "function", expr: "x**2 - 4*x + 3", points: [[0, 3], [2, -1], [4, 3]] }),
+    );
+    const math = getByTestId("graph-expr-input-math");
+    expect(math.props.pointerEvents).toBe("none");
+    // Typeset: a raised 2 and a true minus sign.
+    expect(math).toHaveTextContent(/y = x2 − 4x \+ 3$/);
+    const field = getByTestId("graph-expr-input");
+    // The field under it keeps the plotting grammar's text, for editing.
+    expect(field.props.value).toBe("y = x^2 - 4*x + 3");
+    expect(StyleSheet.flatten(field.props.style).color).toBe("transparent");
+    await fireEvent(field, "focus");
+    expect(queryByTestId("graph-expr-input-math")).toBeNull();
+    expect(StyleSheet.flatten(getByTestId("graph-expr-input").props.style).color).toBe(lightTheme.text);
+    await fireEvent(getByTestId("graph-expr-input"), "blur");
+    expect(getByTestId("graph-expr-input-math")).toBeOnTheScreen();
+    // What the plot cannot read stays the text it is, in the danger ink.
+    await fireEvent.changeText(getByTestId("graph-expr-input"), "banana");
+    expect(queryByTestId("graph-expr-input-math")).toBeNull();
+  });
+
   it("adds, hides and removes a series in the card", async () => {
     const { getByTestId, queryByTestId } = await plot(PARABOLA);
     await fireEvent.press(getByTestId("graph-add-function"));
@@ -101,6 +133,40 @@ describe("InteractiveFunctionPlot", () => {
     expect(getByTestId("graph-hole-0")).toBeOnTheScreen();
     await fireEvent.changeText(getByTestId("graph-expr-input"), "x + 1");
     expect(queryByTestId("graph-hole-0")).toBeNull();
+  });
+
+  it("labels the points the fence marks, and drops them once the curve is edited", async () => {
+    // y = x² − 4x + 3 showed the curve only, though the reply named its roots, vertex and
+    // y-intercept (2026-11-06). SymPy's points arrive in the fence and are drawn as sent.
+    const marked = spec({
+      type: "function",
+      expr: "x**2 - 4*x + 3",
+      points: [[-1, 8], [0, 3], [1, 0], [2, -1], [3, 0], [4, 3], [5, 8]],
+      marks: [
+        { x: 1, y: 0, label: "(1, 0)" },
+        { x: 3, y: 0 },
+        { x: 2, y: -1, label: "vertex (2, −1)" },
+        { x: 0, y: 3, label: "(0, 3)" },
+        { x: "2", y: 1 },
+      ],
+    });
+    const { getByTestId, queryByTestId, toJSON } = await plot(marked);
+    // react-native-svg's text is a native RNSVGTSpan holding `content`.
+    const nodes = nodesIn(toJSON());
+    const label = (i: number) =>
+      nodesIn(nodes.find((node) => node.props?.testID === `graph-mark-label-${i}`))
+        .filter((node) => node.type === "RNSVGTSpan")
+        .map((node) => String(node.props?.content ?? ""))
+        .join("");
+    expect(label(0)).toBe("(1, 0)");
+    // A mark with no label of its own is labelled with its coordinates.
+    expect(label(1)).toBe("(3, 0)");
+    expect(label(2)).toBe("vertex (2, −1)");
+    expect(label(3)).toBe("(0, 3)");
+    // A malformed mark is left out, never the graph.
+    expect(queryByTestId("graph-mark-4")).toBeNull();
+    await fireEvent.changeText(getByTestId("graph-expr-input"), "x + 1");
+    expect(queryByTestId("graph-mark-0")).toBeNull();
   });
 
   it("moves the editor into the explorer while it is open, and back when it closes", async () => {

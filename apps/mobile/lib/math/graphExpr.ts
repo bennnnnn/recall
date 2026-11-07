@@ -4,8 +4,9 @@
  * docs/fixtures/graph_expr_cases.json holds it to the server's SymPy reading.
  */
 
-type GraphExprNode =
-  | { t: "num"; v: number }
+export type GraphExprNode =
+  /** `name`: the constant it was written as (`pi`, `e`), for drawing it as written. */
+  | { t: "num"; v: number; name?: string }
   | { t: "var" }
   | { t: "call"; name: string; arg: GraphExprNode }
   | { t: "unary"; arg: GraphExprNode }
@@ -360,7 +361,7 @@ class Parser {
         return { t: "call", name: t.v, arg };
       }
       if (t.v === this.variable) return { t: "var" };
-      if (CONSTS[t.v] != null) return { t: "num", v: CONSTS[t.v] };
+      if (CONSTS[t.v] != null) return { t: "num", v: CONSTS[t.v], name: t.v };
       return null;
     }
     if (t.k === "op" && t.v === "(") {

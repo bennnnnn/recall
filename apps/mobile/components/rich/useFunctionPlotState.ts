@@ -1,13 +1,14 @@
 /**
  * The state behind a function plot card and its explorer: the series being
- * edited, the hole markers, the card's plot size and view, and the
+ * edited, the hole and mark points, the card's plot size and view, and the
  * explorer's plot size, view and samples. `InteractiveFunctionPlot` draws it.
  */
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useWindowDimensions, type LayoutChangeEvent, type ScrollViewInstance } from "react-native";
 import { useSafeAreaInsets, type EdgeInsets } from "react-native-safe-area-context";
 
-import { GRAPH_AXIS_PAD, type GraphHoleMarker } from "@/components/rich/GraphCanvas";
+import { GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
+import { markLabel, type GraphPoints } from "@/components/rich/graphPoints";
 import { MODAL_PLOT_MIN } from "@/components/rich/ExplorerModal";
 import {
   drawGraphSeries,
@@ -36,22 +37,28 @@ function hasCurve2(spec: GraphSpec): boolean {
   return spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
 }
 
-/** Open points on a seeded curve, while it is shown and still the server's expression. */
-function useHoleMarkers(spec: GraphSpec, { series, palette }: Curves): GraphHoleMarker[] {
-  return useMemo<GraphHoleMarker[]>(() => {
-    if (spec.type !== "function") return [];
-    const markers: GraphHoleMarker[] = [];
-    const append = (
-      row: (typeof series)[number] | undefined,
-      points: [number, number][] | undefined,
-      color: string,
-    ) => {
-      if (!row?.visible || row.seedExpr !== row.expr) return;
-      for (const point of points ?? []) markers.push({ point, color });
+/**
+ * Open points and the server's marked points on a seeded curve, while it is shown and
+ * still the server's expression: an edited curve is no longer the one SymPy read.
+ */
+function useGraphPoints(spec: GraphSpec, { series, palette }: Curves): GraphPoints {
+  return useMemo<GraphPoints>(() => {
+    const points: GraphPoints = { holes: [], marks: [] };
+    if (spec.type !== "function") return points;
+    const seeded = (curve: 1 | 2) => {
+      const row = series[curve - 1];
+      return row?.visible && row.seedExpr === row.expr ? palette[(curve - 1) % palette.length] : null;
     };
-    append(series[0], spec.holes, palette[0]);
-    append(series[1], spec.holes2, palette[1 % palette.length]);
-    return markers;
+    const holes: [1 | 2, [number, number][] | undefined][] = [[1, spec.holes], [2, spec.holes2]];
+    for (const [curve, list] of holes) {
+      const color = seeded(curve);
+      if (color) for (const point of list ?? []) points.holes.push({ point, color });
+    }
+    for (const { x, y, label, curve } of spec.marks ?? []) {
+      const color = seeded(curve);
+      if (color) points.marks.push({ point: [x, y], color, label: markLabel(x, y, label) });
+    }
+    return points;
   }, [palette, series, spec]);
 }
 
@@ -162,7 +169,7 @@ export function useFunctionPlotState(spec: GraphSpec, chartWidth: number, theme:
     seedFallbacks,
   );
   const curves: Curves = { series, palette: theme.graphSeries, variable: spec.variable ?? "x" };
-  const holes = useHoleMarkers(spec, curves);
+  const points = useGraphPoints(spec, curves);
   const card = useCardPlot(spec, chartWidth, curves);
   const skia = isSkiaAvailable();
   const explorer = useExplorerPlot(spec, insets, skia, curves);
@@ -181,7 +188,7 @@ export function useFunctionPlotState(spec: GraphSpec, chartWidth: number, theme:
     insets,
     skia,
     verticalX: spec.type === "vertical" ? spec.x : undefined,
-    holes,
+    points,
     editor: { canAdd, setExpr, toggleVisible, removeSeries, addSeries, addSeriesAndReveal, seriesListRef },
     card: { ...card, clipId: cardClipId },
     explorer: { ...explorer, clipId: modalClipId },

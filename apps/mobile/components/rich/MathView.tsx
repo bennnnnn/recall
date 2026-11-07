@@ -37,7 +37,7 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
 
   return (
     <View style={styles.wrap}>
-      <MathSvgView latex={trimmed} textColor={theme.text} minHeight={48} />
+      <MathSvgView latex={trimmed} textColor={theme.text} minHeight={48} align="start" />
     </View>
   );
 });

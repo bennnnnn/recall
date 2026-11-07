@@ -17,7 +17,9 @@ fences that are missing so the client always gets the solver-owned
 diagram. The verified `` ```answer `` pill lands under the reply's **Answer**
 heading in place of the model's own final line (``land_answer_card``), or at
 the end when the reply has no Answer section. A *different* final value in the
-prose gets one correction line right above it. Every pill this module writes
+prose gets one correction line right above it when the user typed the equation or
+expression; a question in words worked to another value gets no check at all
+(``fence_conflict``), and one verified value checks one card. Every pill this module writes
 carries the server's ``verified: true`` marker; a model's own answer fence
 never does.
 """
@@ -31,6 +33,7 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from app.modules.math.fence_answer import reply_asks_instead_of_answering
+from app.modules.math.fence_conflict import contradicted_reading, rewrite_answer_fences
 from app.modules.math.fence_graph import densify_sparse_graph
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.text_plot import strip_text_plots
@@ -41,9 +44,7 @@ from app.modules.math.unverified_note import (
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
-    demote_answer_body,
     land_answer_card,
-    verified_answer_fence,
 )
 from app.services.md_fence_scan import (
     has_closed_fence,
@@ -406,36 +407,10 @@ def _with_correction(content: str, correction: str) -> str:
     return joined + content[opener:]
 
 
-def _replace_answer_fence(raw: str, answer_body: str | None) -> str:
-    """Rewrite ```answer / ```result / ```final from SymPy, or demote to prose.
-
-    A demoted fence keeps its value only (never a copied ``notation:`` header),
-    with a trailing newline so the next fence opener stays on its own line.
-    """
-    if not answer_body:
-        return demote_answer_body(raw)
-    # The scan consumed the closer's newline; give it back so following text
-    # never lands on the closing backticks.
-    return verified_answer_fence(answer_body) + "\n"
-
-
-def _function_call_json_to_graph_fence(raw: str) -> str:
-    """Drop ``!function_call:{...}`` blobs.
-
-    Graph calls used to be sampled into a ```graph fence from the model's
-    expr, which shipped unverified curves. Canonical graphs are appended
-    after rewrite instead. Parse only so a truncated blob still strips.
-    """
-    try:
-        json.loads(raw)
-    except json.JSONDecodeError:
-        return ""
-    return ""
-
-
 def convert_function_call_text(content: str) -> str:
     """Find ``!function_call:{...}`` blobs (balanced JSON, may span lines)
-    and strip each one. Canonical graph fences are appended separately."""
+    and strip each one. Graph calls were once sampled into a ```graph fence from the
+    model's expr, which shipped unverified curves; canonical graphs are appended instead."""
     marker = "!function_call:"
     out: list[str] = []
     i = 0
@@ -472,9 +447,7 @@ def convert_function_call_text(content: str) -> str:
                     if depth == 0:
                         end = j + 1
                         break
-        raw = content[start:end]
-        out.append(_function_call_json_to_graph_fence(raw))
-        i = end
+        i = end  # the blob goes whole, valid JSON or not
     return "".join(out)
 
 
@@ -509,6 +482,8 @@ def validate_math_fences(
         # whole model draft—not merely its answer fence—also blocks prose,
         # accessibility text, and copied equations from leaking the result.
         return verified.direct_reply.rstrip()
+    if correct and (left := contradicted_reading(content, verified, answer_body)) is not None:
+        return left  # a question in words worked to another value: no check
     if answer_only:
         # “Answer only” means exactly that: do not let a canonical number line,
         # graph, geometry card, or model-authored diagram trail the result.
@@ -517,16 +492,9 @@ def validate_math_fences(
     # A tool call written as text (!function_call:{...}) is stripped so unverified
     # graph JSON never ships. Canonical diagrams are appended after rewrite.
     content = convert_function_call_text(content)
-    for lang in _ANSWER_FENCE_LANGS:
-        content = map_closed_fences(
-            content,
-            lang,
-            lambda body: "" if withhold_answer else _replace_answer_fence(body, answer_body),
-            max_count=_MAX_ANSWER_FENCES,
-            # Past the cap a model fence is still the model's: demote it, never
-            # leave it standing as a card.
-            leftover=lambda body: "" if withhold_answer else demote_answer_body(body),
-        )
+    content = rewrite_answer_fences(
+        content, answer_body, withhold=withhold_answer, cap=_MAX_ANSWER_FENCES
+    )
     content = map_closed_fences(
         content,
         "arithmetic",

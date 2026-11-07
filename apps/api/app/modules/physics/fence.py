@@ -24,7 +24,7 @@ from app.services.md_fence_scan import (
     iter_fences,
     strip_closed_fences,
 )
-from app.services.part_answer_cards import land_part_answer_cards
+from app.services.part_answer_cards import land_part_answer_cards, own_line_part_answers
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.workout import as_formula_heading
 
@@ -107,7 +107,7 @@ def validate_physics_fences(
     ``user_text`` is the request: a flowchart it asked for survives the picture.
     """
     had_visual_fence = _has_picture_fence(content)
-    cleaned = _without_model_result_fences(content)
+    cleaned = own_line_part_answers(_without_model_result_fences(content))
     if verified is None:
         if had_visual_fence and not cleaned:
             return _DIAGRAM_FAILED

@@ -1,5 +1,6 @@
 import {
   formatUsageSummary,
+  usageMessages,
   usageRemainingPercent,
   usageUsedPercent,
   usageUsedTokens,
@@ -37,5 +38,15 @@ describe("quota helpers", () => {
 
     expect(formatUsageSummary(usage, false, t)).toBe("88% free left");
     expect(formatUsageSummary(usage, true, t)).toBe("88% pro left");
+  });
+
+  it("counts the day's messages when the server sends them, and says how many are left", () => {
+    const t = (key: string, opts?: Record<string, unknown>) => `${key} ${JSON.stringify(opts ?? {})}`;
+    const counted = { ...usage, messages_used: 7, daily_messages: 10, messages_left: 3 };
+    expect(usageMessages(counted)).toEqual({ used: 7, total: 10 });
+    expect(formatUsageSummary(counted, false, t)).toBe('settings.usage_messages_left {"left":3,"total":10}');
+    expect(formatUsageSummary({ ...counted, messages_used: 10 }, false, t)).toBe("settings.usage_exhausted {}");
+    // A server that counts only tokens keeps the percentage.
+    expect(usageMessages(usage)).toBeNull();
   });
 });

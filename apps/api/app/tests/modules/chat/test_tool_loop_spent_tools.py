@@ -8,6 +8,7 @@ offers that tool nor runs a selection round for it.
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -200,7 +201,11 @@ def _photo_deps(search: AsyncMock) -> Any:
         },
         chats={"get_by_id": AsyncMock(return_value=MagicMock(project_id=None))},
         messages={"list_recent": AsyncMock(return_value=[])},
-        quota={"daily_limit_for_user": MagicMock(return_value=100_000)},
+        quota={
+            "daily_limit_for_user": MagicMock(return_value=100_000),
+            "reserve_message": AsyncMock(return_value=date.today()),
+            "refund_message": AsyncMock(),
+        },
         plan={
             "resolve_user_model_override": MagicMock(return_value="free-chat"),
             "can_use": MagicMock(return_value=False),

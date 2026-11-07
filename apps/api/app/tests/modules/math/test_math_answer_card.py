@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.math.fence import validate_math_fences
-from app.services.answer_fence import VERIFIED_ANSWER_MARKER
+from app.services.answer_fence import UNCHECKED_ANSWER_MARKER, VERIFIED_ANSWER_MARKER
 from app.services.solving import VerifiedMathBlock
 
 
@@ -93,10 +93,12 @@ def test_a_model_answer_fence_is_replaced_in_place_and_flagged_when_prose_disagr
 def test_answer_fences_past_the_cap_are_demoted_not_left_as_cards() -> None:
     fences = "\n\n".join(f"```answer\nx = {n}\n```" for n in range(7, 13))
     out = validate_math_fences(fences, verified=_verified("x = 6"))
-    assert VERIFIED_ANSWER_MARKER in out
-    for body in out.split("```answer\n")[1:]:
-        assert body.startswith(VERIFIED_ANSWER_MARKER), out
-    assert "x = 12" in out
+    # One verified value checks one card; the model's other cards keep their own values,
+    # unchecked, and past the cap they are prose.
+    assert out.count(VERIFIED_ANSWER_MARKER) == 1
+    assert f"```answer\n{VERIFIED_ANSWER_MARKER}\nx = 6\n```" in out
+    assert f"```answer\n{UNCHECKED_ANSWER_MARKER}\nx = 8\n```" in out
+    assert "x = 12" in out and "```answer\nx = 12" not in out
 
 
 def test_a_wrong_value_in_an_untagged_fence_is_corrected_too() -> None:
