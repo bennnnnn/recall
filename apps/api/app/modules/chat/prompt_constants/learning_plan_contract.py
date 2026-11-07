@@ -80,12 +80,14 @@ def _length(text: str) -> re.Match[str] | None:
         lead = before[-1] if before else ""
         if match.group(1).lower() in ("a", "an") and lead not in _LENGTH_LEAD:
             continue
-        # "10 years of experience" is past; "the next 3 months of guitar" is the plan.
-        spent = after and after[0] in _NOT_A_LENGTH_AFTER and lead != "next"
+        near = " ".join(before[-3:] + after[:3])
+        beside_plan = _PLAN_WORDS.search(near) is not None
+        # "10 years of experience" is past; "the next 3 months of guitar" and "a 30 days of
+        # Python plan" are the plan.
+        spent = after and after[0] in _NOT_A_LENGTH_AFTER and lead != "next" and not beside_plan
         if spent or _PAST & set(before[-3:]):
             continue
-        near = " ".join(before[-3:] + after[:3])
-        score = 2 if _PLAN_WORDS.search(near) else int(lead in _LENGTH_LEAD or lead == "next")
+        score = 2 if beside_plan else int(lead in _LENGTH_LEAD or lead == "next")
         if best is None or score > best[0]:
             best = (score, match)
     return best[1] if best else None
