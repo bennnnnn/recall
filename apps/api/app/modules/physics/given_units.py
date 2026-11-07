@@ -103,6 +103,37 @@ _SYMBOLS: dict[str, str] = {
     "ns": "nanosecond",
     "mm": "millimeter",
     "Wb": "weber",
+    # Prefixed units the laws take, in their own case: unread, "k = 2 kN/m" was 2 N/m (audit).
+    "mHz": "millihertz",
+    "mN": "millinewton",
+    "kN/m": "kilonewton / meter",
+    "N/cm": "newton / centimeter",
+    "mJ": "millijoule",
+    "GJ": "gigajoule",
+    "GW": "gigawatt",
+    "Wh": "watt_hour",
+    "GeV": "gigaelectron_volt",
+    "kA": "kiloampere",
+    "uA": "microampere",
+    "µA": "microampere",
+    "μA": "microampere",
+    "uT": "microtesla",
+    "µT": "microtesla",
+    "μT": "microtesla",
+    "uH": "microhenry",
+    "µH": "microhenry",
+    "μH": "microhenry",
+    "cal": "calorie",
+    "kcal": "kilocalorie",
+    "Å": "angstrom",
+    "AU": "astronomical_unit",  # Pint reads "AU" as an absorbance
+    "ly": "light_year",
+    "g/s": "gram / second",
+    "kg/s": "kilogram / second",
+    "Ns/m": "newton * second / meter",
+    "N s/m": "newton * second / meter",
+    "N·s/m": "newton * second / meter",
+    "N*s/m": "newton * second / meter",
 }
 
 _WORDS: dict[str, str] = {
@@ -261,6 +292,16 @@ _WORDS: dict[str, str] = {
     "mile": "mile",
     "ft": "foot",
     "feet": "foot",
+    "light-years": "light_year",
+    "light-year": "light_year",
+    "light years": "light_year",
+    "light year": "light_year",
+    "astronomical units": "astronomical_unit",
+    "astronomical unit": "astronomical_unit",
+    "angstroms": "angstrom",
+    "angstrom": "angstrom",
+    "knots": "knot",
+    "knot": "knot",
     "inches": "inch",
     "inch": "inch",
     "metres": "meter",
@@ -291,6 +332,7 @@ _WORDS: dict[str, str] = {
     "joules": "joule",
     "joule": "joule",
     "kilojoules": "kilojoule",
+    "kilocalories": "kilocalorie",
     "watts": "watt",
     "watt": "watt",
     "kilowatts": "kilowatt",
@@ -338,6 +380,7 @@ _WORDS: dict[str, str] = {
     "pascals": "pascal",
     "pascal": "pascal",
     "atm": "atmosphere",
+    "torr": "torr",
     "bar": "bar",
     # A tyre's or a US textbook's pressure: "the gauge pressure in psi".
     "psi": "psi",
@@ -394,11 +437,18 @@ _WORDS: dict[str, str] = {
     "n·m/rad": "newton * meter / radian",
 }
 
-# Units the solvers convert that the scanner does not read: mostly symbols in
-# lowercase. The extractors' regexes match without case, so "kpa" and "n"
-# arrive lowercase, and Pint is case-sensitive: bare "pa" is a petayear, "t" a
-# tonne, and "w", "n", "j" and "hz" are no unit at all.
+# The only spellings read in a case the tables above do not list: an extractor's regex
+# matches without case, so "kpa" and "n" arrive lowercase, and Pint is case-sensitive
+# (bare "pa" is a petayear, "t" a tonne, "hz" no unit). Each is read in any case but its
+# SI prefix (units.keeps_prefix): "mhz" reads "MHZ" as megahertz, "mhz" as nothing. A
+# symbol listed only in another case has no reading: "Cal", a food Calorie, is no "cal".
 _LOWERCASE: dict[str, str] = {
+    "g": "gram",
+    "m": "meter",
+    "s": "second",
+    "mm": "millimeter",
+    "l": "liter",
+    "au": "astronomical_unit",
     "w": "watt",
     "kw": "kilowatt",
     "c/m": "coulomb / meter",

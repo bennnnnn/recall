@@ -280,8 +280,7 @@
    60,
    "N"
   ],
-  "note": "2000 N/m × 0.03 m",
-  "gap": "the unit after k = is assumed N/m, so kN/m loses its prefix (extractors/oscillations.py _SPRING_K_RE) (audit 2026-11-07)"
+  "note": "2000 N/m × 0.03 m"
  },
  {
   "id": "au-wave-mHz",
@@ -292,8 +291,7 @@
    1,
    "m/s"
   ],
-  "note": "millihertz: 0.5 Hz × 2 m",
-  "gap": "a caseless unit table reads millihertz as megahertz (given_units.py _WORDS) (audit 2026-11-07)"
+  "note": "millihertz: 0.5 Hz × 2 m"
  },
  {
   "id": "au-drag-g-per-s",
@@ -304,8 +302,1320 @@
    39.24,
    "m/s"
   ],
-  "note": "v = mg/k = 19.62 / 0.5",
-  "gap": "the drag constant's unit falls back to kg/s, so g/s loses its prefix (extractors/drag.py _K_VALUE) (audit 2026-11-07)"
+  "note": "v = mg/k = 19.62 / 0.5"
+ },
+ {
+  "id": "au-wave-MHz",
+  "area": "units",
+  "prompt": "A radio wave has a frequency of 100 MHz. What is its wavelength?",
+  "expect": "answer",
+  "answer": [
+   3,
+   "m"
+  ],
+  "note": "megahertz, the look-alike of au-wave-mHz: 3e8 / 1e8"
+ },
+ {
+  "id": "au-wave-mhz-lower",
+  "area": "units",
+  "prompt": "A wave has a frequency of 500 mhz and a wavelength of 2 m. What is its speed?",
+  "expect": "decline",
+  "note": "m is milli, so \"mhz\" is no megahertz, and \"hz\" no unit: not read in either"
+ },
+ {
+  "id": "au-spring-N-per-cm",
+  "area": "units",
+  "prompt": "A spring with spring constant 50 N/cm is stretched 3 cm. What force does it exert?",
+  "expect": "answer",
+  "answer": [
+   150,
+   "N"
+  ],
+  "note": "5000 N/m × 0.03 m"
+ },
+ {
+  "id": "au-spring-N-per-mm",
+  "area": "units",
+  "prompt": "A spring with k = 3 N/mm is stretched 2 cm. What force does it exert?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "N"
+  ],
+  "note": "3000 N/m × 0.02 m: a unit the table does not list is read, never taken for N/m"
+ },
+ {
+  "id": "au-force-kN",
+  "area": "units",
+  "prompt": "A force of 5 kN acts on a 1000 kg car. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "m/s^2"
+  ],
+  "note": "5000 N / 1000 kg"
+ },
+ {
+  "id": "au-field-uT",
+  "area": "units",
+  "prompt": "A 2 m wire carrying 3 A sits at right angles to a 50 µT field. What force acts on it?",
+  "expect": "answer",
+  "answer": [
+   0.0003,
+   "N"
+  ],
+  "note": "F = BIL = 5e-5 × 3 × 2"
+ },
+ {
+  "id": "au-g-ft",
+  "area": "units",
+  "prompt": "A ball is dropped from 64 ft. Using g = 32 ft/s^2, how long does it take to land?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "s"
+  ],
+  "note": "√(2 × 64 / 32): the g = 32 was read as 32 m/s²"
+ },
+ {
+  "id": "au-rv-loop-kohm",
+  "area": "units",
+  "prompt": "In a loop, a 12 V battery is connected to resistors of 2 kΩ and 4 kΩ. What is the current in the loop?",
+  "expect": "answer",
+  "answer": [
+   0.002,
+   "A"
+  ],
+  "note": "12 / 6000: the loop law took 2 kΩ for 2 Ω and answered 2 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv-loop-kv",
+  "area": "units",
+  "prompt": "In a loop, a 1.5 kV source drives current through resistors of 100 Ω and 200 Ω. Find the current in the loop.",
+  "expect": "answer",
+  "answer": [
+   5,
+   "A"
+  ],
+  "note": "1500 / 300"
+ },
+ {
+  "id": "au-rv-loop-three",
+  "area": "units",
+  "prompt": "In a loop, a 9 V battery is connected to resistors of 100 Ω, 200 Ω and 1.2 kΩ. What is the current in the loop?",
+  "expect": "answer",
+  "answer": [
+   0.006,
+   "A"
+  ],
+  "note": "9 / 1500"
+ },
+ {
+  "id": "au-rv-inductor-ma",
+  "area": "units",
+  "prompt": "A 2 H inductor has its current change from 20 mA to 50 mA in 0.01 s. What is the induced emf in the inductor?",
+  "expect": "answer",
+  "answer": [
+   6,
+   "V"
+  ],
+  "note": "2 × 0.03 / 0.01: read as 20 A to 50 A it was 6000 V (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv-inductor-ua",
+  "area": "units",
+  "prompt": "A 2 H inductor has its current change from 0 to 300 µA in 0.01 s. What is the induced emf in the inductor?",
+  "expect": "answer",
+  "answer": [
+   0.06,
+   "V"
+  ],
+  "note": "2 × 3e-4 / 0.01: it was 60000 V (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv-inductor-ka",
+  "area": "units",
+  "prompt": "A 3 H inductor has its current change from 0 to 2 kA in 4 s. What is the induced emf in the inductor?",
+  "expect": "answer",
+  "answer": [
+   1500,
+   "V"
+  ],
+  "note": "3 × 2000 / 4: it was 1.5 V (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv-junction-ma",
+  "area": "units",
+  "prompt": "Currents of 200 mA and 300 mA enter a junction. What current leaves the junction?",
+  "expect": "answer",
+  "answer": [
+   0.5,
+   "A"
+  ],
+  "note": "0.2 + 0.3: it was 500 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv-ohm-kohm",
+  "area": "units",
+  "prompt": "A 4.7 kΩ resistor is connected across a 9 V battery. What current flows through it?",
+  "expect": "answer",
+  "answer": [
+   0.0019149,
+   "A"
+  ],
+  "note": "9 / 4700"
+ },
+ {
+  "id": "au-rv-series-kohm",
+  "area": "units",
+  "prompt": "A 2 kΩ resistor and a 3 kΩ resistor are connected in series. What is the total resistance?",
+  "expect": "answer",
+  "answer": [
+   5000,
+   "ohm"
+  ],
+  "note": "2000 + 3000"
+ },
+ {
+  "id": "au-rv-series-current",
+  "area": "units",
+  "prompt": "A 2 kΩ resistor and a 3 kΩ resistor are connected in series across a 10 V battery. What is the current?",
+  "expect": "answer",
+  "answer": [
+   0.002,
+   "A"
+  ],
+  "note": "10 / 5000"
+ },
+ {
+  "id": "au-rv-terminal-ma",
+  "area": "units",
+  "prompt": "A battery of emf 12 V and internal resistance 0.5 Ω delivers 500 mA. What is the terminal voltage?",
+  "expect": "answer",
+  "answer": [
+   11.75,
+   "V"
+  ],
+  "note": "12 − 0.5 × 0.5"
+ },
+ {
+  "id": "au-rv-terminal-mohm",
+  "area": "units",
+  "prompt": "A battery of emf 12 V and internal resistance 500 mΩ delivers 2 A. What is the terminal voltage?",
+  "expect": "answer",
+  "answer": [
+   11,
+   "V"
+  ],
+  "note": "12 − 0.5 × 2"
+ },
+ {
+  "id": "au-rv-capacitance-kv",
+  "area": "units",
+  "prompt": "A capacitor holds 6 µC of charge at 2 kV. What is its capacitance?",
+  "expect": "answer",
+  "answer": [
+   3e-09,
+   "F"
+  ],
+  "note": "6e-6 / 2000"
+ },
+ {
+  "id": "au-rv-network-kv",
+  "area": "units",
+  "prompt": "A 2 Ω resistor is in series with a parallel combination of 3 Ω and 6 Ω. A 1.2 kV supply is connected. What current flows?",
+  "expect": "answer",
+  "answer": [
+   300,
+   "A"
+  ],
+  "note": "1200 / (2 + 2)"
+ },
+ {
+  "id": "au-rv-capacitor-energy-kv",
+  "area": "units",
+  "prompt": "A 10 µF capacitor is charged to 2 kV. How much energy does it store?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "J"
+  ],
+  "note": "½ × 1e-5 × 2000²"
+ },
+ {
+  "id": "au-rv-inductor-energy-ma",
+  "area": "units",
+  "prompt": "An inductor of 0.5 H carries a current of 200 mA. How much energy is stored in the inductor?",
+  "expect": "answer",
+  "answer": [
+   0.01,
+   "J"
+  ],
+  "note": "½ × 0.5 × 0.2²"
+ },
+ {
+  "id": "au-rv-force-mn",
+  "area": "units",
+  "prompt": "A force of 5 mN acts on a 2 g mass. What is the acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.5,
+   "m/s^2"
+  ],
+  "note": "0.005 / 0.002"
+ },
+ {
+  "id": "au-rv-coil-ut",
+  "area": "units",
+  "prompt": "A coil of 100 turns and area 0.02 m^2 sees the field drop from 500 µT to 100 µT in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   0.008,
+   "V"
+  ],
+  "note": "100 × 0.02 × 4e-4 / 0.1"
+ },
+ {
+  "id": "au-rv-forces-kn",
+  "area": "units",
+  "prompt": "Two forces of 3 kN and 4 kN act at right angles. What is the resultant force?",
+  "expect": "answer",
+  "answer": [
+   5000,
+   "N"
+  ],
+  "note": "√(3000² + 4000²)"
+ },
+ {
+  "id": "au-rv-spring-kn-energy",
+  "area": "units",
+  "prompt": "A spring with spring constant 2 kN/m is compressed 5 cm. How much elastic potential energy does it store?",
+  "expect": "answer",
+  "answer": [
+   2.5,
+   "J"
+  ],
+  "note": "½ × 2000 × 0.05²"
+ },
+ {
+  "id": "au-rv-g-n-per-kg",
+  "area": "units",
+  "prompt": "A ball is dropped from 20 m. Take g = 10 N kg^-1. How long does it take to land?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "s"
+  ],
+  "note": "√(2 × 20 / 10): read as newtons, the g was refused (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv-g-n-per-kg-super",
+  "area": "units",
+  "prompt": "A ball is dropped from 20 m. Take g = 10 N kg⁻¹. How long does it take to land?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "s"
+  ],
+  "note": "√(2 × 20 / 10)"
+ },
+ {
+  "id": "au-rv-g-per-second-per-second",
+  "area": "units",
+  "prompt": "A ball is dropped from 20 m. Take g = 9.8 meters per second per second. How long does it take to land?",
+  "expect": "answer",
+  "answer": [
+   2.0203,
+   "s"
+  ],
+  "note": "√(2 × 20 / 9.8)"
+ },
+ {
+  "id": "au-rv-g-ms-power",
+  "area": "units",
+  "prompt": "A pendulum of length 1 m swings where g = 1.6 ms^-2. What is its period?",
+  "expect": "answer",
+  "answer": [
+   4.9673,
+   "s"
+  ],
+  "note": "2π√(1 / 1.6): in a g, ms⁻² is m·s⁻², not a millisecond"
+ },
+ {
+  "id": "au-rv-g-ms-glued",
+  "area": "units",
+  "prompt": "A ball is dropped from 20 m. Take g = 10ms-2. How long does it take to land?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "s"
+  ],
+  "note": "√(2 × 20 / 10)"
+ },
+ {
+  "id": "au-rv-spring-nm-power",
+  "area": "units",
+  "prompt": "A spring with k = 200 Nm^-1 is stretched 0.1 m. What force does it exert?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "N"
+  ],
+  "note": "200 × 0.1: Nm⁻¹ is N·m⁻¹"
+ },
+ {
+  "id": "au-rv2-loop-voltmeter-mohm",
+  "area": "units",
+  "prompt": "In a loop, a 6 V cell drives current through a 1 kΩ resistor and a 2 kΩ resistor. A voltmeter of resistance 20 MΩ measures the voltage across the 2 kΩ resistor. What is the current in the loop?",
+  "expect": "answer",
+  "answer": [
+   0.002,
+   "A"
+  ],
+  "note": "6 / (1000 + 2000 ∥ 2e7): the meter's 20 MΩ and the 2 kΩ named again were summed in, 3e-7 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv2-loop-voltmeter-kohm",
+  "area": "units",
+  "prompt": "In a loop, a 6 V cell drives current through a 1 kΩ resistor and a 2 kΩ resistor. A voltmeter of resistance 2 kΩ measures the voltage across the 2 kΩ resistor. What is the current in the loop?",
+  "expect": "answer",
+  "answer": [
+   0.003,
+   "A"
+  ],
+  "note": "6 / (1000 + 2000 ∥ 2000)"
+ },
+ {
+  "id": "au-rv2-loop-voltmeter-parallel",
+  "area": "units",
+  "prompt": "In a loop, a 9 V battery drives current through a 10 Ω resistor and a 20 Ω resistor. A voltmeter of resistance 10 kΩ is connected in parallel with the 20 Ω resistor. What is the current in the loop?",
+  "expect": "answer",
+  "answer": [
+   0.30036,
+   "A"
+  ],
+  "note": "9 / (10 + 20 ∥ 10000): it was 8.96e-4 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv2-loop-voltmeter-1mohm",
+  "area": "units",
+  "prompt": "In a loop, a 12 V battery is connected to resistors of 100 Ω and 200 Ω. A voltmeter of resistance 1 MΩ is connected across the 200 Ω resistor. What is the current in the loop?",
+  "expect": "answer",
+  "answer": [
+   0.040003,
+   "A"
+  ],
+  "note": "12 / (100 + 200 ∥ 1e6): it was 1.2e-5 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv2-network-voltmeter",
+  "area": "units",
+  "prompt": "A 2 kΩ resistor and a 3 kΩ resistor are connected in parallel. A 6 kΩ voltmeter is connected across them. What is the combined resistance of the two resistors?",
+  "expect": "answer",
+  "answer": [
+   1200,
+   "ohm"
+  ],
+  "note": "2000 ∥ 3000: the meter's 6 kΩ is no resistor of the two"
+ },
+ {
+  "id": "au-rv2-inductor-increases-by",
+  "area": "units",
+  "prompt": "A 2 H inductor carries a steady current of 500 mA. The current then increases by 3 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1: read as 500 mA to 3 A it was 50 V (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv2-inductor-falls-from-to",
+  "area": "units",
+  "prompt": "A 2 H inductor carries a current that falls from 3 A to 500 mA in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   50,
+   "V"
+  ],
+  "note": "2 × 2.5 / 0.1"
+ },
+ {
+  "id": "au-rv2-field-ignored-first",
+  "area": "units",
+  "prompt": "Ignoring the Earth's 50 µT field, a 30 cm wire carrying 2 A sits in a 0.2 T field. What force acts on it?",
+  "expect": "answer",
+  "answer": [
+   0.12,
+   "N"
+  ],
+  "note": "0.2 × 2 × 0.3: the field set aside was taken for the field"
+ },
+ {
+  "id": "au-rv2-field-ignored-after",
+  "area": "units",
+  "prompt": "A 30 cm wire carrying 2 A sits in a 0.2 T field. Ignore the Earth's 50 µT field. What force acts on it?",
+  "expect": "answer",
+  "answer": [
+   0.12,
+   "N"
+  ],
+  "note": "0.2 × 2 × 0.3"
+ },
+ {
+  "id": "au-rv2-g-ms-squared",
+  "area": "units",
+  "prompt": "A stone falls from rest for 3 s. Take g = 9.8 ms². How far does it fall?",
+  "expect": "answer",
+  "answer": [
+   44.1,
+   "m"
+  ],
+  "note": "½ × 9.8 × 3²: ms² in a g is m/s² that lost its slash"
+ },
+ {
+  "id": "au-rv3-neglect-wires-parallel",
+  "area": "units",
+  "prompt": "Neglecting the wires 6 Ω and 3 Ω resistors are in parallel across 12 V. What is the current from the supply?",
+  "expect": "answer",
+  "answer": [
+   6,
+   "A"
+  ],
+  "note": "12 / (6 ∥ 3): the 6 Ω after \"Neglecting the wires\" was set aside, 4 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv3-ignore-internal-parallel",
+  "area": "units",
+  "prompt": "Ignoring internal resistance a 6 Ω and a 3 Ω resistor are connected in parallel to a 12 V battery. What current does the battery supply?",
+  "expect": "answer",
+  "answer": [
+   6,
+   "A"
+  ],
+  "note": "12 / 2: it was 4 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv3-neglect-internal-series",
+  "area": "units",
+  "prompt": "Neglecting internal resistance 4 Ω and 8 Ω resistors are in series with a 12 V battery. What is the current?",
+  "expect": "answer",
+  "answer": [
+   1,
+   "A"
+  ],
+  "note": "12 / 12: it was 1.5 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv3-neglect-the-internal-parallel",
+  "area": "units",
+  "prompt": "Neglecting the internal resistance 2 Ω and 4 Ω resistors are connected in parallel to a 6 V cell. What current does the cell supply?",
+  "expect": "answer",
+  "answer": [
+   4.5,
+   "A"
+  ],
+  "note": "6 / (2 ∥ 4): it was 1.5 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv3-ignore-resistance-series",
+  "area": "units",
+  "prompt": "Ignoring resistance the 2 Ω and 4 Ω resistors are in series with a 12 V battery. What is the current?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "A"
+  ],
+  "note": "12 / 6: it was 3 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv3-ignore-friction-forces",
+  "area": "units",
+  "prompt": "Ignoring friction forces of 3 N and 4 N act at right angles on a box. What is the resultant force?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "N"
+  ],
+  "note": "√(3² + 4²)"
+ },
+ {
+  "id": "au-rv3-neglect-friction-forces",
+  "area": "units",
+  "prompt": "Neglect friction two forces 30 N and 40 N act at right angles on a box. What is the resultant force?",
+  "expect": "answer",
+  "answer": [
+   50,
+   "N"
+  ],
+  "note": "√(30² + 40²)"
+ },
+ {
+  "id": "au-rv3-ignore-battery-series",
+  "area": "units",
+  "prompt": "Ignoring the battery 2 Ω and 3 Ω resistors are in series. What is the total resistance?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "ohm"
+  ],
+  "note": "2 + 3"
+ },
+ {
+  "id": "au-rv3-ignore-wires-parallel-r",
+  "area": "units",
+  "prompt": "Ignore the wires 6 Ω and 3 Ω resistors are in parallel across 12 V. What is the total resistance?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "ohm"
+  ],
+  "note": "6 ∥ 3"
+ },
+ {
+  "id": "au-rv3-ignore-losses-kettle",
+  "area": "units",
+  "prompt": "Ignoring losses a 2 kW kettle runs for 3 min. How much energy does it use?",
+  "expect": "answer",
+  "answer": [
+   360000,
+   "J"
+  ],
+  "note": "2000 × 180"
+ },
+ {
+  "id": "au-rv3-ignore-internal-closed",
+  "area": "units",
+  "prompt": "A 12 V battery drives a 3 Ω resistor. Ignore its 5 Ω internal resistance. What current flows?",
+  "expect": "answer",
+  "answer": [
+   4,
+   "A"
+  ],
+  "note": "12 / 3: the 5 Ω is set aside, a closed sentence of its own"
+ },
+ {
+  "id": "au-rv3-ignore-pulley-mass",
+  "area": "units",
+  "prompt": "Ignore the 2 kg mass of the pulley. Masses of 3 kg and 5 kg hang over it. What is the acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.4525,
+   "m/s^2"
+  ],
+  "note": "(5 − 3) × 9.81 / 8"
+ },
+ {
+  "id": "au-rv3-inductor-up-to",
+  "area": "units",
+  "prompt": "A 2 H inductor's current goes from 1 A up to 4 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv3-inductor-down-to",
+  "area": "units",
+  "prompt": "A 2 H inductor's current falls from 4 A down to 1 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv3-inductor-between",
+  "area": "units",
+  "prompt": "A 2 H inductor's current changes between 1 A and 4 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv3-inductor-to-from",
+  "area": "units",
+  "prompt": "A 2 H inductor's current rises to 4 A from 1 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv3-inductor-from-by",
+  "area": "units",
+  "prompt": "The current through a 2 H inductor increases from 1 A by 3 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv3-faraday-down-to",
+  "area": "units",
+  "prompt": "A coil of 200 turns and area 0.01 m^2 sees the field fall from 0.7 T down to 0.2 T in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "V"
+  ],
+  "note": "200 × 0.01 × 0.5 / 0.1"
+ },
+ {
+  "id": "au-rv3-faraday-at-first",
+  "area": "units",
+  "prompt": "A coil of 200 turns and area 0.01 m^2 is in a field that is 0.2 T at first and 0.7 T after 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "V"
+  ],
+  "note": "200 × 0.01 × 0.5 / 0.1"
+ },
+ {
+  "id": "au-rv3-faraday-into",
+  "area": "units",
+  "prompt": "A coil of 200 turns and area 0.01 m^2 is moved from a 0.7 T field into a 0.2 T field in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "V"
+  ],
+  "note": "200 × 0.01 × 0.5 / 0.1"
+ },
+ {
+  "id": "au-rv3-faraday-raised-to",
+  "area": "units",
+  "prompt": "A coil of 200 turns and area 0.01 m^2 in a 0.2 T field has the field raised to 0.7 T in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "V"
+  ],
+  "note": "200 × 0.01 × 0.5 / 0.1"
+ },
+ {
+  "id": "au-rv3-faraday-arrow",
+  "area": "units",
+  "prompt": "A coil of 200 turns and area 0.01 m^2 sees the field rise from 0.2 T → 0.7 T in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "V"
+  ],
+  "note": "200 × 0.01 × 0.5 / 0.1: an arrow joins a change's two ends"
+ },
+ {
+  "id": "au-rv3-ammeter-series",
+  "area": "units",
+  "prompt": "A 12 V battery is connected in series with a 5 Ω resistor and an ammeter of resistance 1 Ω. What is the current?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "A"
+  ],
+  "note": "12 / (5 + 1): an ammeter in series is part of the path"
+ },
+ {
+  "id": "au-rv3-galvanometer-series",
+  "area": "units",
+  "prompt": "A galvanometer of resistance 50 Ω is connected in series with a 950 Ω resistor across 1 V. What current flows?",
+  "expect": "answer",
+  "answer": [
+   0.001,
+   "A"
+  ],
+  "note": "1 / 1000"
+ },
+ {
+  "id": "au-rv3-branch-measured",
+  "area": "units",
+  "prompt": "In a loop, a 9 V battery drives a 3 Ω resistor and a 6 Ω resistor, and the branch current is measured. What is the current?",
+  "expect": "answer",
+  "answer": [
+   1,
+   "A"
+  ],
+  "note": "9 / 9: a measured branch current puts no part on a branch"
+ },
+ {
+  "id": "au-rv3-hours-capital",
+  "area": "units",
+  "prompt": "A 12 V battery drives 2 A through a resistor for 3 H. How much charge flows?",
+  "expect": "answer",
+  "answer": [
+   21600,
+   "C"
+  ],
+  "note": "2 × 3 × 3600: \"H\" is a henry; declining is accepted"
+ },
+ {
+  "id": "au-rv3-neglect-friction-mu",
+  "area": "units",
+  "prompt": "A 5 kg block slides down a 30° slope. The coefficient of friction is 0.2, but neglect friction. What is the acceleration?",
+  "expect": "answer",
+  "answer": [
+   4.905,
+   "m/s^2"
+  ],
+  "note": "9.81 × sin 30°: the μ set aside was used, 3.21 (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv3-ignore-friction-mu",
+  "area": "units",
+  "prompt": "A 10 kg crate is pulled by a 50 N force on a floor with μ = 0.3. Ignore friction. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "m/s^2"
+  ],
+  "note": "50 / 10: the μ set aside was used, 2.06 (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv4-possessive-resistor-heating",
+  "area": "units",
+  "prompt": "Ignoring the 6 Ω resistor's heating, what current flows when a 12 V battery is connected to it and a 3 Ω resistor in series?",
+  "expect": "answer",
+  "answer": [
+   1.3333,
+   "A"
+  ],
+  "note": "12 / 9: the possessive set the 6 Ω resistor itself aside, 4 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv4-possessive-lamp",
+  "area": "units",
+  "prompt": "Ignore the 4 Ω lamp's change in resistance, and find the current when a 12 V battery drives it in series with a 2 Ω resistor.",
+  "expect": "answer",
+  "answer": [
+   2,
+   "A"
+  ],
+  "note": "12 / 6: it was 6 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv4-possessive-car",
+  "area": "units",
+  "prompt": "Ignoring the 1200 kg car's rolling resistance, the car accelerates at 2 m/s². What is the net force?",
+  "expect": "answer",
+  "answer": [
+   2400,
+   "N"
+  ],
+  "note": "1200 × 2: the owner's mass is no set-aside value"
+ },
+ {
+  "id": "au-rv4-possessive-inductor",
+  "area": "units",
+  "prompt": "Ignoring the 2 H inductor's resistance, what emf is induced when its current rises from 1 A to 4 A in 0.1 s?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv4-possessive-field",
+  "area": "units",
+  "prompt": "Ignoring the 0.5 T field's edges, a 30 cm wire carrying 2 A sits in it at right angles. What force acts on the wire?",
+  "expect": "answer",
+  "answer": [
+   0.3,
+   "N"
+  ],
+  "note": "0.5 × 2 × 0.3"
+ },
+ {
+  "id": "au-rv4-possessive-pendulum",
+  "area": "units",
+  "prompt": "Neglecting the 2 m pendulum's air resistance, what is its period?",
+  "expect": "answer",
+  "answer": [
+   2.8371,
+   "s"
+  ],
+  "note": "2π√(2 / 9.81)"
+ },
+ {
+  "id": "au-rv4-possessive-mass",
+  "area": "units",
+  "prompt": "Ignoring the 5 kg mass's size, it hangs from a spring of k = 200 N/m. What is the period?",
+  "expect": "answer",
+  "answer": [
+   0.99346,
+   "s"
+  ],
+  "note": "2π√(5 / 200)"
+ },
+ {
+  "id": "au-rv4-possessive-bulb",
+  "area": "units",
+  "prompt": "Neglecting the 60 W bulb's heat output, how much energy does it use in 2 h?",
+  "expect": "answer",
+  "answer": [
+   432000,
+   "J"
+  ],
+  "note": "60 × 7200"
+ },
+ {
+  "id": "au-rv4-owner-with-value",
+  "area": "units",
+  "prompt": "Ignoring the 12 V battery's 0.5 Ω internal resistance, what current does it drive through a 4 Ω resistor?",
+  "expect": "answer",
+  "answer": [
+   3,
+   "A"
+  ],
+  "note": "12 / 4: the owner keeps its 12 V, what it owns is set aside; it was 2.67 A"
+ },
+ {
+  "id": "au-rv4-without-ignoring-friction",
+  "area": "units",
+  "prompt": "Without ignoring friction (μ = 0.3), a 10 kg crate is pulled by 50 N. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.057,
+   "m/s^2"
+  ],
+  "note": "5 − 0.3 × 9.81: negated, nothing is set aside"
+ },
+ {
+  "id": "au-rv4-friction-at-axle",
+  "area": "units",
+  "prompt": "Ignore friction at the axle. A 10 kg crate is pulled by 50 N across a floor with μ = 0.3. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.057,
+   "m/s^2"
+  ],
+  "note": "5 − 0.3 × 9.81: placed, friction is not set aside whole"
+ },
+ {
+  "id": "au-rv4-drag-first-second",
+  "area": "units",
+  "prompt": "A 2 kg ball falls with linear drag k = 0.5 kg/s. Ignore drag for the first second. What is its terminal velocity?",
+  "expect": "answer",
+  "answer": [
+   39.24,
+   "m/s"
+  ],
+  "note": "19.62 / 0.5: timed, drag is not set aside whole"
+ },
+ {
+  "id": "au-rv4-inductor-initially-later",
+  "area": "units",
+  "prompt": "The current in a 2 H inductor is 1 A initially and 4 A 0.1 s later. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv4-inductor-arrow",
+  "area": "units",
+  "prompt": "A 2 H inductor's current goes 1 A → 4 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv4-inductor-value-between",
+  "area": "units",
+  "prompt": "The current of 1 A in a 2 H inductor moves up to 4 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1: the 2 H between the ends is another quantity"
+ },
+ {
+  "id": "au-rv4-inductor-comma",
+  "area": "units",
+  "prompt": "A 2 H inductor's current increases from 1 A, going to 4 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv4-faraday-region",
+  "area": "units",
+  "prompt": "A coil of 200 turns and area 0.01 m^2 in a 0.7 T field goes to a region of 0.2 T in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "V"
+  ],
+  "note": "200 × 0.01 × 0.5 / 0.1"
+ },
+ {
+  "id": "au-rv4-loop-ammeter-branch",
+  "area": "units",
+  "prompt": "In a loop, a 12 V battery drives a 2 Ω resistor and a 4 Ω resistor, and the ammeter in the branch reads the current. What is the current?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "A"
+  ],
+  "note": "12 / 6: a meter in the branch puts no part there"
+ },
+ {
+  "id": "au-rv4-inductor-fuse",
+  "area": "units",
+  "prompt": "A 2 H inductor carries a current of 2 A that goes through it to a 5 A fuse. The current is switched off in 0.1 s. What emf is induced?",
+  "expect": "answer",
+  "answer": [
+   40,
+   "V"
+  ],
+  "note": "2 × 2 / 0.1: the fuse's 5 A is no end of the change; it was 60 V"
+ },
+ {
+  "id": "au-rv4-neglect-list-friction",
+  "area": "units",
+  "prompt": "Neglecting air resistance and friction, a 5 kg block is pushed by 20 N on a floor with μ = 0.2. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   4,
+   "m/s^2"
+  ],
+  "note": "20 / 5: the μ set aside was used, 2.04"
+ },
+ {
+  "id": "au-rv4-faraday-regions",
+  "area": "units",
+  "prompt": "A coil of 200 turns and area 0.01 m^2 is carried from a 0.2 T region to a 0.7 T region in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "V"
+  ],
+  "note": "200 × 0.01 × 0.5 / 0.1"
+ },
+ {
+  "id": "au-rv4-inductor-next-sentence",
+  "area": "units",
+  "prompt": "A 2 H inductor carries 1 A. Its current is raised to 4 A in 0.1 s. What is the induced emf?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1: the next sentence names the same current changing"
+ },
+ {
+  "id": "au-rv4-loop-named-again",
+  "area": "units",
+  "prompt": "In a loop, a 12 V battery is connected to a 4 Ω resistor and a 2 Ω resistor. What is the current through the 4 Ω resistor?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "A"
+  ],
+  "note": "12 / 6: the 4 Ω named again is one resistor; it was 1.2 A"
+ },
+ {
+  "id": "au-rv4-heating-named-again",
+  "area": "units",
+  "prompt": "A 12 V battery drives a 3 Ω resistor and a 6 Ω resistor in series. Ignore the 6 Ω resistor's heating. What is the current?",
+  "expect": "answer",
+  "answer": [
+   1.3333,
+   "A"
+  ],
+  "note": "12 / 9"
+ },
+ {
+  "id": "au-rv4-rated-not-an-end",
+  "area": "units",
+  "prompt": "A 2 H inductor carries 1 A, a good deal less than its rated 4 A. The current is switched off in 0.1 s. What emf is induced?",
+  "expect": "answer",
+  "answer": [
+   20,
+   "V"
+  ],
+  "note": "2 × 1 / 0.1: a rating is no end of the change; it was 60 V"
+ },
+ {
+  "id": "au-rv4-loop-bridged",
+  "area": "units",
+  "prompt": "In a loop, a 9 V battery drives a 3 Ω resistor and a 6 Ω resistor. The 6 Ω resistor is bridged by a 12 Ω resistor. What is the current from the battery?",
+  "expect": "answer",
+  "answer": [
+   1.2857,
+   "A"
+  ],
+  "note": "9 / (3 + 6 ∥ 12): a bridging part is no series resistor"
+ },
+ {
+  "id": "au-rv4-loop-across",
+  "area": "units",
+  "prompt": "In a loop, a 12 V battery drives a 2 Ω resistor and a 4 Ω resistor. A 3 Ω resistor is connected across the 4 Ω resistor. What is the current from the battery?",
+  "expect": "answer",
+  "answer": [
+   3.2308,
+   "A"
+  ],
+  "note": "12 / (2 + 4 ∥ 3): a part across another is no series resistor"
+ },
+ {
+  "id": "au-rv4-loop-not-parallel",
+  "area": "units",
+  "prompt": "In a loop, a 9 V battery drives a 3 Ω resistor and a 6 Ω resistor. The 6 Ω resistor is not in parallel with anything. What is the current?",
+  "expect": "answer",
+  "answer": [
+   1,
+   "A"
+  ],
+  "note": "9 / 9; main gave 0.6 A"
+ },
+ {
+  "id": "au-rv5-list-possessive",
+  "area": "units",
+  "prompt": "Ignoring the 2 Ω, 3 Ω and 5 Ω resistors' tolerances, what is their total resistance in series?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "ohm"
+  ],
+  "note": "2 + 3 + 5: the 2 Ω was set aside at the comma, 8 Ω (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv5-list-possessive-when",
+  "area": "units",
+  "prompt": "Ignoring the 2 Ω, 3 Ω and 5 Ω resistors' tolerances, what is the total resistance when they are connected in series?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "ohm"
+  ],
+  "note": "2 + 3 + 5"
+ },
+ {
+  "id": "au-rv5-list-possessive-the",
+  "area": "units",
+  "prompt": "Ignoring the 2 Ω, the 3 Ω and the 5 Ω resistors' tolerances, what is their total resistance in series?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "ohm"
+  ],
+  "note": "2 + 3 + 5"
+ },
+ {
+  "id": "au-rv5-list-possessive-ignore",
+  "area": "units",
+  "prompt": "Ignore the 2 Ω, 3 Ω and 5 Ω resistors' colour bands. What is their total resistance in series?",
+  "expect": "answer",
+  "answer": [
+   10,
+   "ohm"
+  ],
+  "note": "2 + 3 + 5"
+ },
+ {
+  "id": "au-rv5-list-parallel",
+  "area": "units",
+  "prompt": "Neglecting the 4 Ω, 6 Ω and 12 Ω resistors' heating, what is their combined resistance in parallel?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "ohm"
+  ],
+  "note": "1 / (1/4 + 1/6 + 1/12): it was 4 Ω (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv5-list-two-current",
+  "area": "units",
+  "prompt": "Ignoring the 10 Ω, 20 Ω resistors' tolerance, find the current from a 6 V battery through them in series.",
+  "expect": "answer",
+  "answer": [
+   0.2,
+   "A"
+  ],
+  "note": "6 / 30: it was 0.3 A (review 2026-11-07)"
+ },
+ {
+  "id": "au-rv5-list-disregarding",
+  "area": "units",
+  "prompt": "Disregarding the 2 Ω, 4 Ω resistors' temperature, what is their total resistance in series?",
+  "expect": "answer",
+  "answer": [
+   6,
+   "ohm"
+  ],
+  "note": "2 + 4"
+ },
+ {
+  "id": "au-rv5-list-forks",
+  "area": "units",
+  "prompt": "Ignoring the 440 Hz, 444 Hz forks' damping, what beat frequency do they make?",
+  "expect": "answer",
+  "answer": [
+   4,
+   "Hz"
+  ],
+  "note": "444 − 440"
+ },
+ {
+  "id": "au-rv5-comma-other-kind",
+  "area": "units",
+  "prompt": "Ignoring the 4 Ω, a 12 V battery drives a 6 Ω resistor. What current flows?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "A"
+  ],
+  "note": "12 / 6: the comma closes before a value of another kind"
+ },
+ {
+  "id": "au-rv5-never-neglect",
+  "area": "units",
+  "prompt": "Never neglect friction. A 10 kg crate on a floor with μ = 0.3 is pulled by 50 N. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.057,
+   "m/s^2"
+  ],
+  "note": "5 − 0.3 × 9.81: negated, nothing is set aside"
+ },
+ {
+  "id": "au-rv5-to-its-rated",
+  "area": "units",
+  "prompt": "A 2 H inductor's current rises from 1 A to its rated 4 A in 0.1 s. What emf is induced?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1: \"to its rated 4 A\" is the change's own end"
+ },
+ {
+  "id": "au-rv5-it-falls",
+  "area": "units",
+  "prompt": "The current in a 2 H inductor is 4 A. It falls to 1 A in 0.1 s. What emf is induced?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "V"
+  ],
+  "note": "2 × 3 / 0.1"
+ },
+ {
+  "id": "au-rv5-fuse-rated-to",
+  "area": "units",
+  "prompt": "A 2 H inductor carries 2 A, which goes through a fuse rated to 5 A. The current is switched off in 0.1 s. What emf is induced?",
+  "expect": "answer",
+  "answer": [
+   40,
+   "V"
+  ],
+  "note": "2 × 2 / 0.1: a rating is no end; it was 60 V"
+ },
+ {
+  "id": "au-rv5-two-coils",
+  "area": "units",
+  "prompt": "A 2 H inductor carries 1 A at first, and a second coil carries 4 A after 0.1 s. What emf is induced in the inductor?",
+  "expect": "decline",
+  "note": "the second current is another coil's: the inductor's change is not stated; it was 60 V"
+ },
+ {
+  "id": "au-rv5-neglect-and-find",
+  "area": "units",
+  "prompt": "A 10 kg crate on a floor with μ = 0.3 is pulled by 50 N. Neglect friction and find its acceleration.",
+  "expect": "answer",
+  "answer": [
+   5,
+   "m/s^2"
+  ],
+  "note": "50 / 10: the μ set aside was used, 2.06"
+ },
+ {
+  "id": "au-rv5-frictional-forces",
+  "area": "units",
+  "prompt": "A 10 kg crate on a floor with μ = 0.3 is pulled by 50 N. Neglecting frictional forces, what is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "m/s^2"
+  ],
+  "note": "50 / 10: it was 2.06"
+ },
+ {
+  "id": "au-rv5-moon-set-aside",
+  "area": "units",
+  "prompt": "Ignoring the Moon's 1.6 m/s², a ball is dropped from 20 m on Earth. How long does it take to land?",
+  "expect": "answer",
+  "answer": [
+   2.0193,
+   "s"
+  ],
+  "note": "√(2 × 20 / 9.81): the Moon only owns what is set aside; it was 5 s"
+ },
+ {
+  "id": "au-rv5-side-by-side",
+  "area": "units",
+  "prompt": "In a loop, a 12 V battery drives a 2 Ω resistor, a 4 Ω resistor and a 6 Ω resistor, the last two side by side between the same pair of points. What is the current from the battery?",
+  "expect": "answer",
+  "answer": [
+   2.7273,
+   "A"
+  ],
+  "note": "12 / (2 + 4 ∥ 6): it was 1 A"
+ },
+ {
+  "id": "au-rv5-owner-then-clause",
+  "area": "units",
+  "prompt": "Ignoring the trailer's 500 kg, a 1000 kg car accelerates at 2 m/s². What is the net force on the car?",
+  "expect": "answer",
+  "answer": [
+   2000,
+   "N"
+  ],
+  "note": "1000 × 2: after the comma, \"a 1000 kg car\" starts a new clause, not a list"
+ },
+ {
+  "id": "au-rv5-must-not-ignore",
+  "area": "units",
+  "prompt": "A battery of emf 12 V and internal resistance 0.5 Ω drives a 5.5 Ω resistor. You must not, however, ignore the 0.5 Ω internal resistance. What current flows?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "A"
+  ],
+  "note": "12 / (5.5 + 0.5)"
+ },
+ {
+  "id": "au-rv3-speed-increases-by",
+  "area": "units",
+  "prompt": "A car travelling at 10 m/s increases its speed by 10 m/s in 5 s. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "m/s^2"
+  ],
+  "note": "10 / 5: \"by 10 m/s\" is a change",
+  "gap": "a change \"by 10 m/s\" is bound as the final speed, so a = 0 (law_binding fit) (review 2026-11-07)"
  },
  {
   "id": "au-faster-than-light",

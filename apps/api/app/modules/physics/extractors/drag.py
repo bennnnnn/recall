@@ -12,6 +12,7 @@ from app.modules.physics.bodies import WATER_DENSITY
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, MASS_UNITS, NUMBER
+from app.modules.physics.extractors.written_unit import written_unit
 from app.modules.physics.schemas import PhysicsIntent
 
 _KV_FORCE = re.compile(
@@ -58,17 +59,12 @@ _ASKS_TIME = re.compile(
     r"\bhow long\b|\btime (?:until|to|before|does)\b",
     re.IGNORECASE,
 )
-_K_VALUE = re.compile(
-    rf"\bk\s*=\s*({NUMBER})(?:\s*(kg/s|N\s*[·*]\s*s\s*/\s*m|Ns/m))?",
-    re.IGNORECASE,
-)
-_B_VALUE = re.compile(
-    rf"\bb\s*=\s*({NUMBER})(?:\s*(kg/m))?",
-    re.IGNORECASE,
-)
+# The unit after each constant is read by the shared table (``written_unit``): its own
+# short list fell back to kg/s, so "k = 500 g/s" was 500 kg/s (audit 2026-11-07).
+_K_VALUE = re.compile(rf"\bk\s*=\s*({NUMBER})", re.IGNORECASE)
+_B_VALUE = re.compile(rf"\bb\s*=\s*({NUMBER})", re.IGNORECASE)
 _TIME = re.compile(
-    rf"\b(?:after|at)\s+({NUMBER})\s*(?:s|sec|secs|seconds)\b"
-    rf"|\bt\s*=\s*({NUMBER})\s*(?:s|sec|secs|seconds)?\b",
+    rf"\b(?:after|at)\s+({NUMBER})\s*(?:s|sec|secs|seconds)\b|\bt\s*=\s*({NUMBER})",
     re.IGNORECASE,
 )
 _SPEED = re.compile(
@@ -145,12 +141,13 @@ def _mass(text: str) -> tuple[float, str] | None:
     return find_value_with_specific_unit(text, MASS_UNITS, _MASS_WORDS)
 
 
-def _time(text: str) -> float | None:
+def _time(text: str) -> tuple[float, str] | None:
     match = _TIME.search(text)
     if match is None:
         return None
-    raw = match.group(1) or match.group(2)
-    return float(raw)
+    if match.group(1) is not None:
+        return float(match.group(1)), "s"
+    return float(match.group(2)), written_unit(text, match.end(2), "t") or "s"
 
 
 def _launch_speed(text: str) -> tuple[float, str] | None:
@@ -213,13 +210,12 @@ def _linear_intent(text: str) -> PhysicsIntent | None:
     params["m"] = mass[0]
     params["drag_k"] = k_value
     units["m"] = mass[1] or "kg"
-    units["drag_k"] = k_match.group(2) or "kg/s"
+    units["drag_k"] = written_unit(text, k_match.end(1), "drag_k") or "kg/s"
     when = _time(text)
     if when is not None:
-        if when < 0:
+        if when[0] < 0:
             return None
-        params["t"] = when
-        units["t"] = "s"
+        params["t"], units["t"] = when
     if upward:
         if speed is None:
             return None
@@ -274,12 +270,11 @@ def _quadratic_intent(text: str) -> PhysicsIntent | None:
     params["drag_b"] = b_value
     params["show_motion"] = 1.0 if from_rest or asks_v else 0.0
     units["m"] = mass[1] or "kg"
-    units["drag_b"] = b_match.group(2) or "kg/m"
+    units["drag_b"] = written_unit(text, b_match.end(1), "drag_b") or "kg/m"
     units["show_motion"] = ""
     when = _time(text)
     if when is not None and _FROM_REST.search(text):
-        params["t"] = when
-        units["t"] = "s"
+        params["t"], units["t"] = when
     return PhysicsIntent(
         kind="fluids",
         physics_op="quadratic_drag_fall",

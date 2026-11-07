@@ -426,6 +426,8 @@ def complete_physics_intent(
     )
     from app.modules.physics.catalog import formula_spec
     from app.modules.physics.counted import accounts_for_counted_items
+    from app.modules.physics.extractors.surface_gravity import gravity_unit_unread
+    from app.modules.physics.set_aside import uses_set_aside_part
 
     params = intent.physics_params or {}
     if intent.kind == "suvat":
@@ -444,6 +446,10 @@ def complete_physics_intent(
         return None
     spec = formula_spec(intent.physics_op or "")
     uses_g = spec is not None and _selection_uses_gravity(spec, params)
+    if uses_g and gravity_unit_unread(request.text):  # "g = 10 ms^-2" is no m/s²
+        return None
+    if uses_set_aside_part(params, request.text):  # "μ = 0.3 ... Ignore friction."
+        return None
     # "On Jupiter" with no g written: Earth's school value would answer another planet.
     # Only a selection that actually multiplies by g. Horizontal Bernoulli declares
     # g for its height variant and does not use it.

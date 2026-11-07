@@ -24,6 +24,7 @@ from app.modules.physics.extractors.unit_patterns import (
     NUMBER,
     TESLA_PATTERN,
     VELOCITY_UNIT_PATTERN,
+    with_prefixes,
 )
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
@@ -38,20 +39,24 @@ _MAGNETISM_CUES = (
     "charged particle radius",
 )
 
+# A cue reads no value, so it may read the table's prefixed teslas too: "a 50 µT field"
+# went unread (audit 2026-11-07). The field itself is read in its base unit.
+_TESLA = with_prefixes(TESLA_PATTERN)
+
 _MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
     # A tesla value beside a current or a charge is the signature itself.
     re.compile(
-        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
+        rf"\d\s*(?:{_TESLA})(?![A-Za-z0-9]).{{0,80}}?"
         rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9])"
     ),
     re.compile(
         rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9]).{{0,80}}?"
-        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9])"
+        rf"\d\s*(?:{_TESLA})(?![A-Za-z0-9])"
     ),
     # A named particle in a field: "a proton at 3e6 m/s in a 0.5 T field".
     re.compile(
         rf"\b(?:[Pp]roton|[Ee]lectron|[Aa]lpha particle)\b.{{0,80}}?"
-        rf"\d\s*(?:{TESLA_PATTERN})(?![A-Za-z0-9])"
+        rf"\d\s*(?:{_TESLA})(?![A-Za-z0-9])"
     ),
 )
 
