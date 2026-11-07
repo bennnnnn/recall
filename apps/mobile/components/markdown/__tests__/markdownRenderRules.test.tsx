@@ -491,18 +491,21 @@ describe("markdown render rules", () => {
     expect(
       getAllByTestId("workout-heading").map((node) => node.props.children),
     ).toEqual(["Given", "Required"]);
-    expect(
-      getAllByTestId("workout-subheading").map((node) => node.props.children),
-    ).toEqual(["Constant acceleration", "Substitution"]);
-    // Laid out like Formula: one row per state. Solving for the unknown is a step of its
-    // own between the law and its rearrangement; every line starts at the left edge.
-    const law = getAllByTestId("workout-body")[2]!;
-    const lines = within(law).getAllByTestId("workout-line");
-    expect(lines).toHaveLength(3);
-    expect(lines[1]).toHaveTextContent(/^Solve for\s*a$/);
-    expect(within(lines[1]!).getByTestId("workout-move")).toBeOnTheScreen();
-    for (const line of lines) {
-      expect(StyleSheet.flatten(line.props.style).justifyContent).toBe("flex-start");
+    const subheadings = getAllByTestId("workout-subheading");
+    expect(subheadings).toHaveLength(3);
+    expect(subheadings[0]).toHaveTextContent("Constant acceleration");
+    expect(subheadings[2]).toHaveTextContent("Substitution");
+    // Solving for the unknown is a step of its own: a bold heading at the margin over the
+    // rearrangement, never a grey line inside the law's working (November 2026).
+    expect(subheadings[1]).toHaveTextContent(/^Solve for\s*a$/);
+    const solveFor = within(subheadings[1]!).getByText(/Solve for/);
+    expect(StyleSheet.flatten(solveFor.props.style).fontWeight).toBe("700");
+    const [law, rearranged] = getAllByTestId("workout-body").slice(2);
+    for (const body of [law!, rearranged!]) {
+      const lines = within(body).getAllByTestId("workout-line");
+      expect(lines).toHaveLength(1);
+      expect(within(body).queryByTestId("workout-move")).toBeNull();
+      expect(StyleSheet.flatten(lines[0]!.props.style).justifyContent).toBe("flex-start");
     }
   });
 
@@ -627,9 +630,9 @@ describe("markdown render rules", () => {
     };
     expect(rightAligned(toJSON())).toBe(0);
     // A given and what is asked read inline ("v = 20 m/s (east)", "t (time)"); every other
-    // note is a line of its own.
+    // note is a line of its own, and "Solve for t" a step heading of its own.
     expect(getAllByTestId("workout-line")[0]).toHaveTextContent(/\(east\)$/);
-    expect(getAllByTestId("workout-move").map((move) => move.props.testID)).toHaveLength(5);
+    expect(getAllByTestId("workout-move").map((move) => move.props.testID)).toHaveLength(4);
   });
 
   it("starts every line of a worked solution at one left edge, on the text baseline", async () => {
