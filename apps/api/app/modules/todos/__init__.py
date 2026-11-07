@@ -97,6 +97,9 @@ if TYPE_CHECKING:
     from app.modules.todos.spoken_add import (
         is_reminder_request as is_reminder_request,
     )
+    from app.modules.todos.spoken_when import (
+        is_only_a_when as is_only_a_when,
+    )
     from app.modules.todos.write_asks import (
         todo_screen_reply as todo_screen_reply,
     )
@@ -113,6 +116,7 @@ _EXPORTS = {
     "without_denials": ("reply_denials", "without_denials"),
     "query_implies_todos": ("classification", "query_implies_todos"),
     "is_reminder_request": ("spoken_add", "is_reminder_request"),
+    "is_only_a_when": ("spoken_when", "is_only_a_when"),
     "accepted_offer_in": ("offer_reply", "accepted_offer_in"),
     "follows_reminder_card": ("offer_reply", "follows_reminder_card"),
     "TODO_LINK_FENCE": ("chat_language", "TODO_LINK_FENCE"),

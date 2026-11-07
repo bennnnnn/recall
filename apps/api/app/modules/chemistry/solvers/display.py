@@ -63,6 +63,27 @@ def num(value: float) -> str:
     return format_number(value)
 
 
+# Figures a carried value keeps beyond the answer's: two, so a line's result does not round
+# twice (3.97 x 18.015 = 71.5 reads as 72; 3.968 x 18.015 = 71.48 rounds to the 71 it is).
+_GUARD_FIGURES = 2
+
+
+def carried(value: float) -> str:
+    """A computed value a later line works with, kept past the answer's figures.
+
+    Rounded to the answer's figures, the working stopped adding up: "n = 8 / 2.016 = 4.0 mol"
+    and then "4.0 x 18.015 = 71 g", where 3.968 x 18.015 = 71.48 makes the 71 (2026-11-06).
+    Only the answer is rounded to the data's figures.
+    """
+    written = sig_figs.current()
+    if written is not None and written.additive and written.decimals is not None:
+        return fixed(value, written.decimals + 1)
+    if written is not None and written.figures is not None:
+        figures = min(written.figures + _GUARD_FIGURES, sig_figs.MAX_FIGURES + 1)
+        return format_number(value, significant=figures, keep_zeros=True)
+    return format_number(value)
+
+
 def mean(value: float) -> str:
     """A weighted mean of the givens (an average atomic mass), as ``sig_figs`` sets it.
 

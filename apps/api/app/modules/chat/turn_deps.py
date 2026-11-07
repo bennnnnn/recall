@@ -111,6 +111,16 @@ class Quota(Protocol):
 
     async def refund_usage(self, redis: Redis, user_id: str, amount: int) -> None: ...
 
+    async def reserve_message(
+        self, redis: Redis, user: User, settings: Settings
+    ) -> date | None: ...
+
+    async def refund_message(self, redis: Redis, user_id: UUID, day: date) -> None: ...
+
+    async def messages_used(self, redis: Redis, user_id: UUID) -> int: ...
+
+    def daily_message_limit(self, user: User, settings: Settings) -> int: ...
+
     async def adjust_usage(
         self,
         redis: Redis,

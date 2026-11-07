@@ -21,7 +21,7 @@ describe("touch targets", () => {
         styles={makeChatScreenStyles(lightTheme)}
         theme={lightTheme}
         bottomOffset={0}
-        usedPct={80}
+        label="2 messages left today"
         onUpgrade={jest.fn()}
         onDismiss={jest.fn()}
       />,

@@ -73,10 +73,12 @@ export function makeMdMath(t: Theme) {
     // Hosts stacked frac/sqrt Views as siblings of Text — iOS lays out a
     // View nested inside Text as 0×0 and paints the numerator over the
     // previous line. Row+wrap keeps bold/prose inline without that clip.
+    // Words and formulas share each line's baseline (a formula View's is its
+    // own text's, `MathText`), so `v_0` sits on the line, not centred in it.
     inlineWrap: {
       flexDirection: "row",
       flexWrap: "wrap",
-      alignItems: "center",
+      alignItems: "baseline",
       alignSelf: "stretch",
     },
     // Filled disc in the body ink. A colored or gray dot reads as decoration

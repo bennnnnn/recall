@@ -11,7 +11,7 @@ from app.modules.chemistry.solvers.acid_base import (
     ph_text,
 )
 from app.modules.chemistry.solvers.constants import KW, PKW, weak_dissociation
-from app.modules.chemistry.solvers.display import inp, num, p_value, verified
+from app.modules.chemistry.solvers.display import carried, inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.titration_curve import half_equivalence_ion, with_titration_scene
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -30,7 +30,7 @@ def _with_water_line(net: float, hydrogen: float) -> str:
     left = (
         f"{num(net)} mol/L of acid left over" if net >= 0 else f"{num(net)} mol/L (base left over)"
     )
-    return f"With water's own ions, {_WITH_WATER} = {num(hydrogen)} mol/L, where c = {left}"
+    return f"With water's own ions, {_WITH_WATER} = {carried(hydrogen)} mol/L, where c = {left}"
 
 
 def _titration_moles(intent: ChemistryIntent) -> tuple[float, float, float, float | None]:
@@ -73,7 +73,7 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
     lines = [
         f"n(H+) = MaVa = ({inp(ma)})({inp(va)}) = {num(acid_moles)} mol",
         f"n(OH-) = MbVb = ({inp(mb)})({inp(vb)}) = {num(base_moles)} mol",
-        f"V = Va + Vb = {inp(va)} + {inp(vb)} = {num(total)} L",
+        f"V = Va + Vb = {inp(va)} + {inp(vb)} = {carried(total)} L",
     ]
     if abs(acid_moles - base_moles) <= _TOLERANCE * scale:
         ph = p_value(7.0)
@@ -84,14 +84,14 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
         ph = ph_text(hydrogen)
         if acid_moles > base_moles:
             region = "before equivalence"
-            detail = f"before equivalence: [H+] = {num(hydrogen)}"
+            detail = f"before equivalence: [H+] = {carried(hydrogen)}"
             lines.append(f"[H+] = (n(H+) − n(OH-)) / V = {num(net)} mol/L")
         else:
             region = "after equivalence"
             detail = f"after equivalence: [OH-] = {num(-net)}"
             lines.append(f"[OH-] = (n(OH-) − n(H+)) / V = {num(-net)} mol/L")
         lines.append(_with_water_line(net, hydrogen))
-        lines.append(f"pH = −log10({num(hydrogen)}) = {ph}")
+        lines.append(f"pH = −log10({carried(hydrogen)}) = {ph}")
     return _done(
         intent,
         "Verified strong titration",
@@ -115,6 +115,16 @@ def solve_titration_weak(intent: ChemistryIntent) -> ChemistryResult:
     if intent.params.get("kb") is not None and intent.params.get("ka") is None:
         return _weak_titration(intent, acid=False)
     return _weak_titration(intent, acid=True)
+
+
+def _left_row(name: str, start: float, taken: float, left: float) -> str:
+    """What one reactant has left, each value carried into the next line."""
+    return f"n({name}) = {carried(start)} − {carried(taken)} = {carried(left)} mol"
+
+
+def _ratio_row(name: str, moles: float, volume: float, value: float) -> str:
+    """A concentration from moles and volume, each value carried into the next line."""
+    return f"[{name}] = {carried(moles)} / {carried(volume)} = {carried(value)} mol/L"
 
 
 def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
@@ -147,9 +157,9 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
     scale = max(analyte_moles, titrant_moles)
 
     lines = [
-        f"{analyte_name} = {num(analyte_moles)} mol",
-        f"{titrant_name} = {num(titrant_moles)} mol",
-        f"V = {inp(va)} + {inp(vb)} = {num(total)} L",
+        f"{analyte_name} = {carried(analyte_moles)} mol",
+        f"{titrant_name} = {carried(titrant_moles)} mol",
+        f"V = {inp(va)} + {inp(vb)} = {carried(total)} L",
     ]
     ph_of_p = (lambda p: p) if acid else (lambda p: PKW - p)  # pH from pKa, or from pKb via pOH
     if abs(titrant_moles - analyte_moles / 2) <= _TOLERANCE * scale:
@@ -176,21 +186,21 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
                 f"[{ion}] = {k_name} (C − [{ion}] + [{partner}]) / (C + [{ion}] − [{partner}])"
             )
             lines.append(f"n({titrant}) = n({weak}) / 2, so {conj} = {weak} = {num(buffer)} mol/L")
-            lines.append(f"{formula} = {num(amount)} mol/L")
+            lines.append(f"{formula} = {carried(amount)} mol/L")
             if acid:
-                lines.append(f"pH = −log10({num(amount)}) = {ph}")
+                lines.append(f"pH = −log10({carried(amount)}) = {ph}")
             else:
                 poh = p_value(-math.log10(amount))
-                lines.append(f"pOH = −log10({num(amount)}) = {poh}")
+                lines.append(f"pOH = −log10({carried(amount)}) = {poh}")
                 lines.append(f"pH = {PKW} − {poh} = {ph}")
     elif titrant_moles == 0:
         amount = weak_dissociation(constant, analyte_conc)
         governing = "H+" if acid else "OH-"
         lines.append(f"{symbol} = x^2 / (C − x), C = {inp(analyte_conc)} mol/L")
-        lines.append(f"[{governing}] = x = {num(amount)} mol/L")
+        lines.append(f"[{governing}] = x = {carried(amount)} mol/L")
         ph = p_value(-math.log10(amount) if acid else PKW + math.log10(amount))
         region = "start"
-        detail = f"before titrant is added: [{governing}] = {num(amount)}"
+        detail = f"before titrant is added: [{governing}] = {carried(amount)}"
         formula = f"{symbol} = x^2 / (C − x)"
     elif titrant_moles < analyte_moles - _TOLERANCE * scale:
         remaining = analyte_moles - titrant_moles
@@ -198,18 +208,16 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         ph_value = p_constant + offset
         ph = p_value(ph_value if acid else PKW - ph_value)
         region = "buffer region"
-        detail = f"buffer: [{conj}]/[{weak}] = {num(titrant_moles)} / {num(remaining)}"
+        detail = f"buffer: [{conj}]/[{weak}] = {carried(titrant_moles)} / {carried(remaining)}"
         formula = (
             f"pH = pKa + log10([{conj}]/[{weak}])"
             if acid
             else (f"pOH = pKb + log10([{conj}]/[{weak}])")
         )
         lines.append(f"{p_name} = −log10({inp(constant)}) = {p_value(p_constant)}")
-        lines.append(f"n({conj}) = n({titrant}) = {num(titrant_moles)} mol")
-        lines.append(
-            f"n({weak}) = {num(analyte_moles)} − {num(titrant_moles)} = {num(remaining)} mol"
-        )
-        ratio = f"{num(titrant_moles)} / {num(remaining)}"
+        lines.append(f"n({conj}) = n({titrant}) = {carried(titrant_moles)} mol")
+        lines.append(_left_row(weak, analyte_moles, titrant_moles, remaining))
+        ratio = f"{carried(titrant_moles)} / {carried(remaining)}"
         if acid:
             lines.append(f"pH = {p_value(p_constant)} + log10({ratio}) = {ph}")
         else:
@@ -220,15 +228,15 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         conj_constant = KW / constant
         amount = weak_dissociation(conj_constant, salt)
         produced = "OH-" if acid else "H+"
-        lines.append(f"[{conj}] = {num(analyte_moles)} / {num(total)} = {num(salt)} mol/L")
+        lines.append(_ratio_row(conj, analyte_moles, total, salt))
         conj_symbol = "Kb" if acid else "Ka"
         k_conj = num(conj_constant)
         lines.append(f"{conj_symbol} = Kw / {symbol} = ({num(KW)}) / ({inp(constant)}) = {k_conj}")
-        lines.append(f"x^2 + ({k_conj})x − ({k_conj})({num(salt)}) = 0")
-        lines.append(f"[{produced}] = x = {num(amount)} mol/L")
+        lines.append(f"x^2 + ({k_conj})x − ({k_conj})({carried(salt)}) = 0")
+        lines.append(f"[{produced}] = x = {carried(amount)} mol/L")
         ph = p_value(PKW + math.log10(amount) if acid else -math.log10(amount))
         region = "equivalence"
-        detail = f"equivalence: [{conj}] = {num(salt)}, {conj_symbol} = Kw/{symbol}"
+        detail = f"equivalence: [{conj}] = {carried(salt)}, {conj_symbol} = Kw/{symbol}"
         formula = f"{conj_symbol} = Kw / {symbol}"
     else:
         excess = (titrant_moles - analyte_moles) / total
@@ -242,11 +250,11 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         detail = f"after equivalence: [{ion}] = {num(excess)}"
         formula = _WITH_WATER
         lines.append(
-            f"[{ion}] = ({num(titrant_moles)} − {num(analyte_moles)}) / {num(total)} = "
+            f"[{ion}] = ({carried(titrant_moles)} − {carried(analyte_moles)}) / {carried(total)} = "
             f"{num(excess)} mol/L"
         )
         lines.append(_with_water_line(net, hydrogen))
-        lines.append(f"pH = −log10({num(hydrogen)}) = {ph}")
+        lines.append(f"pH = −log10({carried(hydrogen)}) = {ph}")
     return _done(
         intent,
         "Verified weak titration" if acid else "Verified weak-base titration",

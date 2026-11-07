@@ -13,6 +13,7 @@ from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import format_todos_block, should_inject_todos_prompt
 from app.modules.todos.prompt_hint import TODO_HINT
+from app.modules.todos.reply_check import KEEP_AS_REMINDER
 from app.modules.todos.schemas import TodoActionItem, TodoCreate, TodoUpdate
 from app.tests.fakes import FakeSessionCM, fake_session
 
@@ -713,7 +714,8 @@ async def test_add_milk_does_not_confirm_an_invented_time():
     assert created == 0
     create_mock.assert_not_awaited()
     assert "Added:" not in updated
-    assert updated == "When should I remind you?"
+    # An add, not a reminder request: chat keeps no undated list (2026-11-06).
+    assert updated == KEEP_AS_REMINDER
 
 
 @pytest.mark.asyncio
@@ -732,7 +734,8 @@ async def test_add_fence_with_a_time_the_user_did_not_say_is_not_saved():
     assert created == 0
     create_mock.assert_not_awaited()
     assert "```reminder" not in updated
-    assert updated == "When should I remind you?"
+    # An add, not a reminder request: chat keeps no undated list (2026-11-06).
+    assert updated == KEEP_AS_REMINDER
 
 
 @pytest.mark.asyncio
@@ -1702,7 +1705,8 @@ async def test_added_claim_without_a_clock_asks_instead_of_confirming():
             user_text="Add read for tomorrow",
         )
     assert created == 0
-    assert updated == "When should I remind you?"
+    # An add, not a reminder request: chat keeps no undated list (2026-11-06).
+    assert updated == KEEP_AS_REMINDER
     create_mock.assert_not_awaited()
 
 
@@ -1719,7 +1723,8 @@ async def test_add_milk_does_not_claim_a_grocery_list():
             user_text="Add milk",
         )
     assert created == 0
-    assert updated == "When should I remind you?"
+    # An add, not a reminder request: chat keeps no undated list (2026-11-06).
+    assert updated == KEEP_AS_REMINDER
     create_mock.assert_not_awaited()
 
 

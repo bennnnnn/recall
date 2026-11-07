@@ -1,4 +1,7 @@
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
+import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
+import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
+import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 
 /** Break only independent equation alternatives; each separator stays with
  * its following branch and trailing parameter conditions remain untouched. */
@@ -54,4 +57,19 @@ export function answerReadsAsProse(text: string): boolean {
   const prose = parts.filter((part) => part.type === "text").map((part) => part.value);
   if (prose.some((value) => /\\[A-Za-z]/.test(value))) return false;
   return prose.flatMap((value) => value.match(/[A-Za-z]{3,}/g) ?? []).length >= 2;
+}
+
+/**
+ * An answer card's value as it is drawn: `\boxed{…}` opened, the dollars a model wrapped
+ * around it dropped; a sentence keeps its dollars, so its words stay words.
+ */
+export function normalizeAnswerContent(raw: string): string {
+  const text = stripTrailingFenceCloser(raw.trim());
+  const boxed = text.match(/^\\boxed\{([\s\S]+)\}$/);
+  if (boxed) return rewriteSolutionSeparatorBars(boxed[1].trim());
+  // Unwrapped, a sentence's words would be typeset as italic variables.
+  if (answerReadsAsProse(text)) return text;
+  return rewriteSolutionSeparatorBars(
+    stripEmbeddedDollarWraps(stripRedundantDollarWrap(text)),
+  );
 }

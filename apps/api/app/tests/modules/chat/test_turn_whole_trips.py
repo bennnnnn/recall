@@ -82,6 +82,7 @@ _FIRST = ("memory", "topic", "message_index")
 _NEXT = ("memory", "message_index")
 _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
 _NEXT_FOLDS = ("memory", "compress", "message_index")
+# The day's chat message is counted when a turn starts (an INCR and its EXPIRE, two calls).
 # Measured with the user, today's usage and the chat already known to Redis, as for
 # every message after the day's first. To update: ``pytest -s`` prints every count.
 # A turn with follow-up questions reads what its chat already showed (one GET,
@@ -89,27 +90,27 @@ _NEXT_FOLDS = ("memory", "compress", "message_index")
 # The post-turn jobs are queued in one pipeline too (``jobs.enqueue_many``).
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=19, models=1),
+        Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
         Counts(sql=10, checkouts=4, transactions=4, redis=18, embeds=1),
         _FIRST,
     ),
     "question": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=23, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=23, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=25, models=2),
         Counts(sql=11, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
     "follow-up, long chat": Ceiling(
-        Counts(sql=8, checkouts=5, transactions=5, redis=25, models=2),
+        Counts(sql=8, checkouts=5, transactions=5, redis=27, models=2),
         Counts(sql=17, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
         _NEXT_FOLDS,
     ),
     "maths": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=20, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
@@ -118,17 +119,17 @@ CEILINGS: dict[str, Ceiling] = {
     # and answers from its results in another. A searched reply also gets one claim check (a
     # model call and its spend write) before it saves, so a claim no source made is cut.
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=33, models=4, searches=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=35, models=4, searches=2),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
     "reminder": Ceiling(
-        Counts(sql=10, checkouts=8, transactions=8, redis=29, models=1, embeds=1),
+        Counts(sql=10, checkouts=8, transactions=8, redis=31, models=1, embeds=1),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
     "photo lookup": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=26, models=2, searches=1),
+        Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2, searches=1),
         Counts(sql=12, checkouts=4, transactions=4, redis=21, models=2, embeds=1),
         _FIRST,
     ),
@@ -138,17 +139,17 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST_UNTOLD,
     ),
     "attachment question": Ceiling(
-        Counts(sql=13, checkouts=8, transactions=8, redis=34, models=2, embeds=1),
+        Counts(sql=13, checkouts=8, transactions=8, redis=36, models=2, embeds=1),
         Counts(sql=13, checkouts=5, transactions=5, redis=25, models=2, embeds=1),
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
-        Counts(sql=10, checkouts=3, transactions=3, redis=26, models=2),
+        Counts(sql=10, checkouts=3, transactions=3, redis=28, models=2),
         Counts(sql=14, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT_FOLDS,
     ),
     "clarify picks": Ceiling(
-        Counts(sql=9, checkouts=7, transactions=7, redis=32, models=2, embeds=1),
+        Counts(sql=9, checkouts=7, transactions=7, redis=34, models=2, embeds=1),
         Counts(sql=11, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
@@ -439,6 +440,8 @@ async def harness(
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(tmp_path))
     # Production runs with the global spend cap on; a turn and each job read it.
     monkeypatch.setenv("DAILY_GLOBAL_SPEND_USD", "1000")
+    # Every kind of turn runs for one free user: more than a free day's messages.
+    monkeypatch.setenv("DAILY_MESSAGE_LIMIT", "100")
     # The memory read's wait for its query embedding (0.75 s in production): past it the
     # read matches facts by words, with round trips of its own, as a loaded CI run showed.
     monkeypatch.setenv("MEMORY_QUERY_EMBED_TIMEOUT_SECONDS", "30")

@@ -376,6 +376,9 @@ describe("done event shapes (today's strings, ES-45's typed fields)", () => {
     expect(payload).not.toHaveProperty("used_tokens");
     expect(payload).not.toHaveProperty("daily_limit");
     expect(parseDone({ used_tokens: 0, daily_limit: 5 })?.usage).toEqual({ used_tokens: 0, daily_limit: 5 });
+    expect(
+      parseDone({ used_tokens: "9000", daily_limit: "400000", messages_used: "4", daily_messages: "10" })?.usage,
+    ).toEqual({ used_tokens: 9000, daily_limit: 400_000, messages_used: 4, daily_messages: 10 });
   });
 
   it.each<Record<string, unknown>>([

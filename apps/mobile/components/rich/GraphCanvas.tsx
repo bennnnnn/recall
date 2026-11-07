@@ -1,6 +1,7 @@
 import Svg, { Circle, G, Polygon, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
+import { NO_GRAPH_POINTS, SvgGraphPoints, type GraphPoints } from "@/components/rich/graphPoints";
 import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
 import {
   graphPolylinePoints,
@@ -27,13 +28,8 @@ type Props = {
   height: number;
   bounds: GraphView;
   drawn: DrawnSeries[];
-  holes?: GraphHoleMarker[];
+  points?: GraphPoints;
   verticalX?: number;
-};
-
-export type GraphHoleMarker = {
-  point: [number, number];
-  color: string;
 };
 
 export function GraphCanvas({
@@ -44,7 +40,7 @@ export function GraphCanvas({
   height,
   bounds,
   drawn,
-  holes = [],
+  points = NO_GRAPH_POINTS,
   verticalX,
 }: Props) {
   const isVerticalLine = verticalX != null;
@@ -60,20 +56,15 @@ export function GraphCanvas({
       : [];
   const vertex =
     !isVerticalLine && visibleSeries.length === 1 ? interiorVertex(primary.points) : null;
+  // The fence's own marks name the roots; these dots are for a fence without them.
   const rootMarkers =
-    vertex && Math.abs(vertex.y) >= SHIFTED_VERTEX_MIN
+    vertex && !points.marks.length && Math.abs(vertex.y) >= SHIFTED_VERTEX_MIN
       ? graphXIntercepts(primary.points)
           .filter((x) => x >= bounds.xMin && x <= bounds.xMax)
           .slice(0, 3)
           .map((x) => mapGraphPoint(x, 0, bounds, width, height, GRAPH_AXIS_PAD))
       : [];
   const clip = `url(#${clipId})`;
-  const holeMarkers = holes
-    .filter(({ point }) => inView(point))
-    .map(({ point: [x, y], color }) => ({
-      ...mapGraphPoint(x, y, bounds, width, height, GRAPH_AXIS_PAD),
-      color,
-    }));
 
   return (
     <Svg width={width} height={height}>
@@ -122,18 +113,7 @@ export function GraphCanvas({
       {rootMarkers.map(({ px, py }, i) => (
         <Circle key={`root-${i}`} cx={px} cy={py} r={4} fill={theme.danger} />
       ))}
-      {holeMarkers.map(({ px, py, color }, i) => (
-        <Circle
-          key={`hole-${i}`}
-          testID={`graph-hole-${i}`}
-          cx={px}
-          cy={py}
-          r={5}
-          fill={theme.elevated}
-          stroke={color}
-          strokeWidth={2.25}
-        />
-      ))}
+      <SvgGraphPoints points={points} bounds={bounds} width={width} height={height} pad={GRAPH_AXIS_PAD} theme={theme} />
     </Svg>
   );
 }

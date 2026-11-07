@@ -9,7 +9,7 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import water_vapor_mmhg
-from app.modules.chemistry.solvers.display import inp, num, verified
+from app.modules.chemistry.solvers.display import carried, inp, num, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
@@ -67,8 +67,8 @@ def _partial_from_moles(intent: ChemistryIntent) -> ChemistryResult:
         f"Partial pressure of {target}",
         *stated("partial_pressure"),
         (
-            f"X({target}) = {inp(amounts[target])} / ({every}) = {num(fraction)}",
-            f"P({target}) = ({num(fraction)})({inp(total)} {unit})",
+            f"X({target}) = {inp(amounts[target])} / ({every}) = {carried(fraction)}",
+            f"P({target}) = ({carried(fraction)})({inp(total)} {unit})",
         ),
         shown,
         shown,
@@ -118,8 +118,8 @@ def solve_gas_over_water(intent: ChemistryIntent) -> ChemistryResult:
         "Dry-gas pressure",
         *stated("gas_over_water"),
         (
-            f"Pwater = {num(vapor_same)} {unit} at {inp(temperature)} °C",
-            f"Pdry = {inp(total)} − {num(vapor_same)}",
+            f"Pwater = {carried(vapor_same)} {unit} at {inp(temperature)} °C",
+            f"Pdry = {inp(total)} − {carried(vapor_same)}",
         ),
         shown,
         shown,

@@ -465,15 +465,15 @@ def format_now_awareness(
     return (
         f"Current local time: {now.strftime('%A')}, {month} {now.day}, {now.year}, "
         f"{clock} {tzname}. Year {now.year}. Month {month}. "
-        "You know them: say them only when asked or the answer needs them, never as filler. "
+        "You know them and the dates below: name one only when asked or when it changes "
+        'the answer, never as filler or to open a reply ("Next weekend is …"). '
         "Never say you lack a clock. Told today is another day? Give today's date once, no sorry. "
         # A model's memory ends before today: "who won the last world cup" was answered
         # with a final that never happened.
         "What you remember ends well before this date: the latest winner, whether something "
         "is out yet, who holds a post now or what comes next may have changed since: look "
         "it up when you have web_search, and never give a memory as today's fact. "
-        # A weekday by its full date is checked before the reply is saved:
-        # "Christmas falls on a Monday" was wrong (2026's is a Friday).
+        # The weekday beside a full date is checked before saving (Christmas 2026 is a Friday).
         "When you name the weekday of a date, write the full date with it "
         '("Friday, December 25, 2026"). '
         # Read, not counted: "what is Tuesday" and "Christmas's weekday" were miscounted.

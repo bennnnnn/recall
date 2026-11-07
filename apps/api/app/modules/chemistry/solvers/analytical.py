@@ -7,7 +7,7 @@ import math
 
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.display import inp, num, verified
+from app.modules.chemistry.solvers.display import carried, inp, num, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
@@ -102,8 +102,8 @@ def solve_standard_deviation(intent: ChemistryIntent) -> ChemistryResult:
         *stated("standard_deviation"),
         (
             f"x̄ = ({' + '.join(inp(value) for value in values)}) / {len(values)} = {num(mean)}",
-            f"Σ(x − x̄)^2 = {num(squares)}",
-            f"s = √({num(squares)} / {len(values) - 1})",
+            f"Σ(x − x̄)^2 = {carried(squares)}",
+            f"s = √({carried(squares)} / {len(values) - 1})",
         ),
         shown,
         shown,
@@ -121,9 +121,9 @@ def solve_standard_error(intent: ChemistryIntent) -> ChemistryResult:
         "Standard error of the mean",
         *stated("standard_error"),
         (
-            f"x̄ = {num(mean)}, Σ(x − x̄)^2 = {num(squares)}",
-            f"s = √({num(squares)} / {len(values) - 1}) = {num(deviation)}",
-            f"SE = {num(deviation)} / √{len(values)}",
+            f"x̄ = {num(mean)}, Σ(x − x̄)^2 = {carried(squares)}",
+            f"s = √({carried(squares)} / {len(values) - 1}) = {carried(deviation)}",
+            f"SE = {carried(deviation)} / √{len(values)}",
         ),
         shown,
         shown,
@@ -267,9 +267,9 @@ def solve_selectivity(intent: ChemistryIntent) -> ChemistryResult:
         second = (later - dead) / dead
         given = (f"tR1 = {inp(earlier)}", f"tR2 = {inp(later)}", f"tM = {inp(dead)}")
         steps = (
-            f"k1 = ({inp(earlier)} - {inp(dead)}) / {inp(dead)} = {num(first)}",
-            f"k2 = ({inp(later)} - {inp(dead)}) / {inp(dead)} = {num(second)}",
-            f"α = {num(second)} / {num(first)}",
+            f"k1 = ({inp(earlier)} - {inp(dead)}) / {inp(dead)} = {carried(first)}",
+            f"k2 = ({inp(later)} - {inp(dead)}) / {inp(dead)} = {carried(second)}",
+            f"α = {carried(second)} / {carried(first)}",
         )
     shown = f"α = {num(second / first)}"
     return verified(

@@ -254,6 +254,9 @@ class DoneEvent(BaseModel):
         if self.usage:
             event["used_tokens"] = str(self.usage.used_tokens)
             event["daily_limit"] = str(self.usage.daily_limit)
+            if self.usage.messages_used is not None and self.usage.daily_messages is not None:
+                event["messages_used"] = str(self.usage.messages_used)
+                event["daily_messages"] = str(self.usage.daily_messages)
         if self.search_sources:
             event["search_sources"] = json.dumps(self.search_sources)
         # Empty is sent too: a fallback its safety passes emptied replaces the streamed text.

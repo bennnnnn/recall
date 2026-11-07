@@ -4,8 +4,9 @@ from __future__ import annotations
 
 # Reading the list: every turn that loads it gets this.
 TODO_READ_HINT = (
-    "Recall **To-do** holds tasks with an optional date and time. A plain to-do has no "
-    "date. A dated to-do can repeat and can fire a device notification, not email.\n\n"
+    "Recall **To-do** holds the user's tasks. One added from chat always has a date and a "
+    "time; only one the user made in the app may have none. A dated to-do can repeat and "
+    "can fire a device notification, not email.\n\n"
     "When they ask about tasks, to-dos, reminders, or what is due → use **To-do** below. "
     "When they ask what time / when something is (flight, meeting, appointment, …), answer "
     "from **To-do** if a matching item exists — do not ask "
@@ -29,7 +30,11 @@ _TODO_WRITE_HINT = (
     "A chat to-do needs a date and a clock the user actually said, or a time from now "
     "('in 20 minutes', 'in 2 hours'); the app works that out from their clock. If they "
     "gave neither, ask when. Do not invent a time, do not emit a fence, and do not say "
-    "it was added. due_at is the user's local date and clock as ISO-8601 with no "
+    "it was added. Chat keeps no undated list and writes no fence without a due_at: asked "
+    "to just put something on their list with no time, say you can keep it as a reminder "
+    "with a time and ask when. An hour "
+    "with no am or pm ('tomorrow at 6') is not a clock yet: keep the day and ask only "
+    "'6 am or 6 pm?'. due_at is the user's local date and clock as ISO-8601 with no "
     "offset (2026-07-19T15:00:00); the app applies their time zone. A time they gave "
     "for another place, convert to their local clock first. "
     "Repeat requires a due_at and may be daily, weekdays, weekly, or monthly.\n"
