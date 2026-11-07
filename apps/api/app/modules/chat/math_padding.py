@@ -18,9 +18,8 @@ from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outsid
 # The phone's rules (inlineMath.ts): a digit or a spaced amount after the closer is a price,
 # a body that opens with an amount and goes on in words is one, and two words of three
 # letters or more (outside a sub- or superscript) are prose. A TeX command makes it maths.
-_SPACED_AMOUNT = re.compile(r"[ \t]+\d")
 _PRICE_LEAD = re.compile(
-    r"\d[\d,.]*(?:[kKmMbB]|/[A-Za-z]+)?(?:[;:!?](?:\s|$)|\s+([A-Za-z]+)(.*))", re.DOTALL
+    r"\d[\d,.]*+(?:[kKmMbB]|/[A-Za-z]++)?(?:[;:!?](?:\s|$)|\s++([A-Za-z]++)(.*))", re.DOTALL
 )
 _MATH_WORD = re.compile(r"[a-z]|sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min", re.IGNORECASE)
 _TEX_COMMAND = re.compile(r"\\[A-Za-z]")
@@ -82,7 +81,9 @@ def _opens_price(line: str, dollar: int, body: str) -> bool:
         return True
     if not line[dollar - 1 : dollar].isspace() or not body.lstrip()[:1].isdigit():
         return False
-    return _SPACED_AMOUNT.match(line, dollar + 1) is not None
+    # Spaces or tabs, then a digit: "$ 5". Scanned, not matched, so a long run is one pass.
+    after = len(line) - len(line[dollar + 1 :].lstrip(" \t"))
+    return after > dollar + 1 and line[after : after + 1].isdigit()
 
 
 def _price_body(body: str) -> bool:
