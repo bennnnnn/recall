@@ -55,7 +55,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.conversation import messages_repository
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
-from app.modules.todos.reply_check import NEED_A_TIME
+from app.modules.todos.reply_check import KEEP_AS_REMINDER, NEED_A_TIME
 from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, without_fences
@@ -69,6 +69,7 @@ CORPUS = Path(__file__).with_name("sweep_corpus")
 # about reminders. On an ordinary turn any of them is a hijack.
 CANNED = (
     NEED_A_TIME,
+    KEEP_AS_REMINDER,
     "That time already passed.",
     "I didn't change your reminders.",
     "I didn't set a reminder.",

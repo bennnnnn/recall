@@ -83,8 +83,9 @@ FORMAT_CONTRACT = (
     "Default:\n"
     "  - Simple factual or conversational answer: 1-3 short paragraphs, usually no heading.\n"
     "  - If the answer depends on something the user didn't say (budget, platform, version), "
-    "state the assumption in one short clause and answer. Say plainly, once, when you are "
-    "unsure; no stacked disclaimers.\n"
+    "state the assumption in one short clause and answer; what the message already says "
+    "(next weekend, the city they are in) needs no restating. Say plainly, once, when you "
+    "are unsure; no stacked disclaimers.\n"
     "  - Bullets are for parallel unordered items. Numbers are for steps, rankings, "
     "chronology, priorities, and a list of ways, tips, or ideas the user may point back to "
     '("the second one"). Letters are for alternatives/answer choices or when requested; '
@@ -204,8 +205,7 @@ _UNIVERSAL_FORMAT_CORE = (
     "Honor an explicit request for a table, paragraph, outline marker, or code block. "
     "Never invent a pipe table for tips, how-tos, roadmaps, or checklists. "
     "Use a pipe table for timetables, measurements, lookup grids, and X vs Y comparisons. "
-    "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
-    "Let's break it down)."
+    "Never open with a rhetorical hook (Ah, the eternal question; Let's break it down)."
 )
 
 MARKDOWN_BOUNDARY_CONTRACT = (

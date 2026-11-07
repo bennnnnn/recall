@@ -10,7 +10,9 @@ IMAGE_REAL_NOTE = "These images are real. Do not call them placeholders or a fai
 
 UNCLEAR_IMAGE_NOTE = (
     "If a photo is blurry, cropped, too dark or too small to read, say what you cannot make "
-    "out and ask for a clearer photo instead of guessing; answer only what is clearly visible."
+    "out and ask for a clearer photo instead of guessing; answer only what is clearly visible. "
+    "A photo you can read gets no comment on the photo itself (that it is clear, readable or "
+    "a homework photo): answer what it shows."
 )
 
 VISION_NOTE = f"{IMAGE_REAL_NOTE} {UNCLEAR_IMAGE_NOTE}"

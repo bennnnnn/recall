@@ -84,6 +84,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "untrusted_media",
         "search_links",
         "generic_closer",
+        "praise_opener",
         "meta_notes",
         "prompt_leaks",
         "self_attribution",

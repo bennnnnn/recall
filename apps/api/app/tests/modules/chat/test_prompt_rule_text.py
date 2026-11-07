@@ -35,11 +35,14 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (FORMAT_CONTRACT), steps to follow numbered beside every message (STEPS_NOTE) and a fact the
 # user adds checked against the chat (OWN_MISTAKE_HINT), then a follow-up that leaves out what
 # it is about read as about the last reply (UNCLEAR_MESSAGE_HINT), then a checked answer redone
-# from its unrounded values before it is given up (OWN_MISTAKE_HINT), then every teach-me
-# taught at once, one item per section (prompt_constants.teaching).
-_RULES = 173
-_RULE_GRAMS = 15370
-_RULE_GRAMS_SHA = "2d0f28930dec57b5"
+# from its unrounded values before it is given up (OWN_MISTAKE_HINT), then a reply that tells
+# the truth (2026-11-06): no praise, knowledge note or recap (NO_SELF_TALK_RULE, NO_RECAP_NOTE),
+# no excuse for a wrong figure (OWN_MISTAKE_HINT), drafts without invented details, earlier
+# chats only when referred back to, no undated to-dos, and a missed reply re-explained, then
+# every teach-me taught at once, one item per section (prompt_constants.teaching).
+_RULES = 174
+_RULE_GRAMS = 15623
+_RULE_GRAMS_SHA = "77d20f5a7e2197a0"
 
 
 def _rules() -> list[str]:
