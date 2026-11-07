@@ -55,8 +55,9 @@ async function writeOffers(offers: Offers): Promise<void> {
 let pending: Promise<unknown> = Promise.resolve();
 
 function inTurn<T>(work: () => Promise<T>): Promise<T> {
-  const done = pending.then(work, work);
-  pending = done.catch(() => undefined);
+  const done = pending.then(work);
+  // The next offer waits for this one to settle; its caller still gets any error.
+  pending = Promise.allSettled([done]);
   return done;
 }
 
