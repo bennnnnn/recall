@@ -259,7 +259,9 @@ async def top_up_reserve_for_prompt(
 
     Never refuses: the turn already holds a reservation and its context work
     is done. Finalize settles to actual usage and clips the counter at the limit.
+    The turn also learns the day its chat message was counted on, for a refund.
     """
+    ctx.message_day = res.message_day
     messages = ctx.prompt_messages
     if res.reserved_tokens <= 0 or not isinstance(messages, list):
         ctx.reserved_tokens = res.reserved_tokens

@@ -14,16 +14,14 @@ from app.core.config import Settings
 from app.exceptions import QuotaExceededError
 from app.modules.chat import turn_resources
 from app.services import quota as quota_service
+from app.tests.fakes import make_user
 from app.tests.modules.chat.chat_test_support import FakeSessionCM, turn_deps
 
 _SETTINGS = Settings(max_output_tokens=1_000, daily_message_limit=3)
 
 
 def _user(plan: str = "free") -> MagicMock:
-    user = MagicMock()
-    user.id = uuid4()
-    user.plan = plan
-    return user
+    return make_user(plan=plan)
 
 
 def _no_session() -> FakeSessionCM:
