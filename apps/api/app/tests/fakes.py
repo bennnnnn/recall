@@ -117,6 +117,10 @@ def redis_mock(**replies: Any) -> AsyncMock:
     # answered an empty MagicMock, which no caller could pair with its keys.
     if "mget" not in replies:
         redis.mget = AsyncMock(side_effect=_mget_nothing)
+    # INCRBY answers the new count, as redis-py's does: a daily counter compares it with
+    # its cap (a turn takes one of the day's chat messages).
+    if "incrby" not in replies:
+        redis.incrby.return_value = 1
     for command, reply in replies.items():
         getattr(redis, command).return_value = reply
     return redis
