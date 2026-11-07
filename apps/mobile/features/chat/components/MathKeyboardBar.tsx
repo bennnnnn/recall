@@ -1,9 +1,11 @@
 import { memo, useMemo } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MathConverterPad } from "@/features/chat/components/MathConverterPad";
 import { MathKey } from "@/features/chat/components/MathKey";
+import { CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
 import { selection as hapticSelection } from "@/lib/haptics";
 import { PAD_GAP, TAB_ROW_HEIGHT, padKeyHeight } from "@/lib/math/keyboardPad";
 import {
@@ -37,6 +39,22 @@ type Props = {
   onGroupChange: (group: MathKeyboardGroup) => void;
 };
 
+/** How far past the composer's bottom strip the pad's ground runs: off screen, never seen. */
+const GROUND_OVERRUN = Space.lg;
+
+/**
+ * The pad's key size and its frame. Its ground runs on through the composer's strip under it
+ * (the home indicator) and past the screen's bottom edge, as the system keyboard's does, so
+ * no message shows under the keys (2026-11-07); the keys keep their place.
+ */
+function usePadLayout(height: number): { keyHeight: number; frame: ViewStyle } {
+  const below = Math.max(useSafeAreaInsets().bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD) + GROUND_OVERRUN;
+  return {
+    keyHeight: padKeyHeight(height),
+    frame: { height: height + below, marginBottom: -below, paddingBottom: Space.sm + below },
+  };
+}
+
 export const MathKeyboardBar = memo(function MathKeyboardBar({
   open,
   height,
@@ -54,7 +72,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const keyHeight = padKeyHeight(height);
+  const { keyHeight, frame } = usePadLayout(height);
   const page: SymbolPage = group === "converter" || group === "pad" ? "basics" : group;
   const rows = useMemo(() => padRows(page), [page]);
 
@@ -109,7 +127,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
 
   return (
     <View
-      style={[s.pad, { height }]}
+      style={[s.pad, frame]}
       accessibilityLabel={t("chat.math_keyboard_a11y")}
       testID="math-keyboard-pad"
     >
@@ -176,7 +194,8 @@ const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     pad: {
       marginTop: Space.xs,
-      marginHorizontal: -Space.sm,
+      // Edge to edge, as the system keyboard is: this cancels the composer's own side gutter.
+      marginHorizontal: -Space.md,
       paddingHorizontal: Space.xs,
       paddingTop: Space.xs,
       paddingBottom: Space.sm,

@@ -19,10 +19,12 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onSelect: (source: AttachmentSource) => void;
+  /** Lift above the bottom edge: the math keyboard's height, so the sheet covers the composer. */
+  bottomOffset?: number;
 };
 
 /** Attach / math-scan / math keyboard picker — same floating Sheet chrome as chat actions. */
-export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
+export function AttachmentSourceSheet({ visible, onClose, onSelect, bottomOffset }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -41,6 +43,7 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       floating
       embedded
       minBottomPadding={12}
+      bottomOffset={bottomOffset}
       contentContainerStyle={s.panel}
     >
       <ListRow

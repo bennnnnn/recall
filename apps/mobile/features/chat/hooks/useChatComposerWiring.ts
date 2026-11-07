@@ -35,6 +35,12 @@ export function useChatComposerWiring({
   onFirstReplyRef, t,
 }: Options) {
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
+  // The attachment menu rises over the maths pad alone, not the preview or hints above the field.
+  const [mathPadHeight, setMathPadHeight] = useState(0);
+  const onMathChromeHeightChange = useCallback((height: number, padHeight: number) => {
+    setMathChromeExtra(height);
+    setMathPadHeight(padHeight);
+  }, []);
   const [composerInputExtra, setComposerInputExtra] = useState(0);
 
   const {
@@ -91,8 +97,9 @@ export function useChatComposerWiring({
       closeMathScanner,
       handleMathScanCaptured: send.handleMathScanCaptured,
       onOpenMathScanner: openMathScanner,
-      onMathChromeHeightChange: setMathChromeExtra,
+      onMathChromeHeightChange,
       onInputFrameExtraChange: setComposerInputExtra,
+      attachSheetLift: mathPadHeight,
     },
     voice: {
       voiceAvailable: voiceInputAvailable,

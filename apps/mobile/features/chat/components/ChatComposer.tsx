@@ -107,7 +107,7 @@ type Props = {
    */
   liveTalkActive?: boolean;
   onOpenMathScanner?: () => void;
-  onMathChromeHeightChange?: (height: number) => void;
+  onMathChromeHeightChange?: (height: number, padHeight: number) => void;
   /** Extra field height past one line, so the thread moves up with the pill. */
   onInputFrameExtraChange?: (extra: number) => void;
 };
@@ -157,19 +157,18 @@ export const ChatComposer = memo(function ChatComposer({
     setInput: onChangeInput,
     onImageOnlyPaste: onOpenMathScanner ? () => setScanHint(true) : undefined,
   });
-  const showMathPreview = math.showMathPreview;
-  const mathBarOpen = math.mathBarOpen;
-  const toggleMathBar = math.toggleMathBar;
+  const { showMathPreview, mathBarOpen, toggleMathBar } = math;
+  const padUnder = math.mathBarOpen ? math.padHeight : 0;
   const mathChromeHeight =
-    (math.mathBarOpen ? math.padHeight : 0) +
+    padUnder +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? COMPOSER_SCAN_HINT_HEIGHT : 0) +
     (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
 
   // Kept while the drawer hides the composer, so opening it does not re-lay out the chat.
   useEffect(() => {
-    onMathChromeHeightChange?.(mathChromeHeight);
-  }, [mathChromeHeight, onMathChromeHeightChange]);
+    onMathChromeHeightChange?.(mathChromeHeight, padUnder);
+  }, [mathChromeHeight, onMathChromeHeightChange, padUnder]);
 
   useEffect(() => {
     if (!math.mathBarOpen) return;

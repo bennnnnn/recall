@@ -19,6 +19,7 @@ import type { ChatScreenStyles } from "@/features/chat/components/chatScreenStyl
 import type { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
+import { useSheetsProps } from "@/features/chat/hooks/useSheetsProps";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
@@ -90,8 +91,10 @@ type UseChatScreenBodyPropsParams = {
     closeMathScanner: () => void;
     handleMathScanCaptured: ChatScreenSheetsProps["onMathScanCaptured"];
     onOpenMathScanner?: () => void;
-    onMathChromeHeightChange?: (height: number) => void;
+    onMathChromeHeightChange?: (height: number, padHeight: number) => void;
     onInputFrameExtraChange?: (extra: number) => void;
+    /** The math keyboard's height under the composer: the attach sheet rides above it. */
+    attachSheetLift?: number;
   };
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
@@ -168,6 +171,7 @@ export function useChatScreenBodyProps({
     onOpenMathScanner,
     onMathChromeHeightChange,
     onInputFrameExtraChange,
+    attachSheetLift,
   },
   quotaNudge,
   chatError,
@@ -430,30 +434,18 @@ export function useChatScreenBodyProps({
     ],
   );
 
-  const sheetsProps = useMemo(
-    (): ChatScreenSheetsProps => ({
-      attachSheetOpen,
-      onCloseAttachSheet: closeAttachSheet,
-      onAttachmentSource,
-      mathScannerOpen,
-      onCloseMathScanner: closeMathScanner,
-      onMathScanCaptured: handleMathScanCaptured,
-      upgradeVisible,
-      upgradeSource,
-      onCloseUpgrade,
-    }),
-    [
-      attachSheetOpen,
-      closeAttachSheet,
-      onAttachmentSource,
-      mathScannerOpen,
-      closeMathScanner,
-      handleMathScanCaptured,
-      upgradeVisible,
-      upgradeSource,
-      onCloseUpgrade,
-    ],
-  );
+  const sheetsProps = useSheetsProps({
+    attachSheetOpen,
+    onCloseAttachSheet: closeAttachSheet,
+    attachSheetLift,
+    onAttachmentSource,
+    mathScannerOpen,
+    onCloseMathScanner: closeMathScanner,
+    onMathScanCaptured: handleMathScanCaptured,
+    upgradeVisible,
+    upgradeSource,
+    onCloseUpgrade,
+  });
 
   const bodyProps = useMemo(
     (): ChatScreenBodyProps => ({
