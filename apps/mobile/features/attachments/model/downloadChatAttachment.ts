@@ -1,4 +1,4 @@
-import { deleteAsync, getInfoAsync, moveAsync } from "expo-file-system/legacy";
+import { copyAsync, deleteAsync, getInfoAsync, makeDirectoryAsync, moveAsync } from "expo-file-system/legacy";
 import { randomUUID } from "expo-crypto";
 import * as MediaLibrary from "expo-media-library";
 
@@ -15,6 +15,7 @@ import {
   sweepAttachmentFiles,
 } from "@/features/attachments/model/attachmentFileStore";
 import { contentTypeForFileName } from "@/features/attachments/model/gallery";
+import { fileInFolder, newAccountFolder, sweepAccountFolders } from "@/lib/accountFiles";
 import { shareLocalFile } from "@/lib/shareFile";
 
 /** One native download, shared by every screen that asked for the same URL. */
@@ -245,7 +246,40 @@ export async function shareChatAttachment(options: {
   requireCurrent();
 
   const mimeType = contentType?.split(";")[0]?.trim() || contentTypeForFileName(safeName);
-  await shareLocalFile(localUri, { title: safeName, mimeType });
+  const shared = await sharedCopy(localUri, fileName);
+  requireCurrent();
+  await shareLocalFile(shared, { title: safeName, mimeType });
+}
+
+/** An hour: long past any app still reading a file shared to it. */
+const SHARE_COPY_MAX_AGE_MS = 60 * 60_000;
+
+/** The name a file goes out under: its own, with only what a file name cannot hold replaced. */
+function sharedFileName(fileName: string): string {
+  const cleaned = Array.from(fileName, (char) => (char.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(char) ? "_" : char))
+    .join("")
+    .trim();
+  return cleaned && cleaned !== "." && cleaned !== ".." ? cleaned.slice(0, 180) : safeFileName(fileName, "attachment");
+}
+
+/**
+ * The cached download under its own name ("report.xlsx"), in a folder of its own: shared as
+ * the cache names it, the app it went to showed "att-6cc2e003043008e6-e3b0c442-report.xlsx"
+ * (S23, 2026-11-07). A copy that cannot be made shares the cached file as before.
+ */
+async function sharedCopy(localUri: string, fileName: string): Promise<string> {
+  if (!localUri.startsWith("file://")) return localUri;
+  try {
+    await sweepAccountFolders("share", SHARE_COPY_MAX_AGE_MS);
+    const folder = newAccountFolder("share");
+    await makeDirectoryAsync(folder, { intermediates: true });
+    const target = fileInFolder(folder, sharedFileName(fileName));
+    await copyAsync({ from: localUri, to: target });
+    return target;
+  } catch (error) {
+    console.warn("[share] named copy failed; sharing the cached file", error instanceof Error ? error.name : typeof error);
+    return localUri;
+  }
 }
 
 /**

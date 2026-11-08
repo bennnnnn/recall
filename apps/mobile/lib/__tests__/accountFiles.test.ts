@@ -1,6 +1,13 @@
 import { deleteAsync, getInfoAsync, readDirectoryAsync } from "expo-file-system/legacy";
 
-import { deleteAccountFiles, namedPdfFile, sweepOldPickerCopies } from "@/lib/accountFiles";
+import {
+  deleteAccountFiles,
+  fileInFolder,
+  namedPdfFile,
+  newAccountFolder,
+  sweepAccountFolders,
+  sweepOldPickerCopies,
+} from "@/lib/accountFiles";
 
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
@@ -68,4 +75,37 @@ it("the launch sweep deletes only picker copies older than a week", async () => 
   expect(deleted.sort()).toEqual(
     ["file:///cache/ImagePicker/A1.jpg", "file:///cache/ImageManipulator/C3.jpg"].sort(),
   );
+});
+
+describe("share folders", () => {
+  const HOUR_MS = 60 * 60 * 1000;
+  const now = Date.UTC(2026, 10, 7, 23, 0);
+  const old = `recall-share-${now - 2 * HOUR_MS}-1`;
+  const fresh = `recall-share-${now - 5 * 60 * 1000}-2`;
+
+  beforeEach(() => {
+    jest.spyOn(Date, "now").mockReturnValue(now);
+    jest.mocked(readDirectoryAsync).mockImplementation(async (dir) =>
+      dir === "file:///cache/" ? [old, fresh, "recall-export-1.json"] : [],
+    );
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it("makes one folder per share under the account prefix", () => {
+    expect(newAccountFolder("share")).toMatch(new RegExp(`^file:///cache/recall-share-${now}-\\d+/$`));
+    expect(fileInFolder("file:///cache/recall-share-1-2/", "EduPilot model.xlsx")).toBe(
+      "file:///cache/recall-share-1-2/EduPilot%20model.xlsx",
+    );
+  });
+
+  it("sweeps only folders older than the age it is given; the app a file went to may still read a new one", async () => {
+    await sweepAccountFolders("share", HOUR_MS);
+    expect(jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri)).toEqual([`file:///cache/${old}`]);
+  });
+
+  it("sign-out deletes every share folder, new ones too", async () => {
+    await deleteAccountFiles();
+    const deleted = jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri);
+    expect(deleted).toEqual(expect.arrayContaining([`file:///cache/${old}`, `file:///cache/${fresh}`]));
+  });
 });

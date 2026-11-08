@@ -24,6 +24,8 @@ jest.mock("expo-file-system/legacy", () => ({
   readDirectoryAsync: jest.fn(),
   deleteAsync: jest.fn(),
   moveAsync: jest.fn(),
+  copyAsync: jest.fn(async () => undefined),
+  makeDirectoryAsync: jest.fn(async () => undefined),
 }));
 
 jest.mock("expo-media-library", () => ({
@@ -351,6 +353,29 @@ describe("share and save", () => {
     expect(shareAsync).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\/.*cat\.png$/), expect.objectContaining({ mimeType: "image/png" }));
     // Android's RN Share would send the cache path as text.
     expect(Share.share).not.toHaveBeenCalled();
+  });
+
+  it("shares a file under its own name, not the cache's", async () => {
+    // The receiving app showed "att-6cc2e003043008e6-e3b0c442-edupilot-financial-model.xlsx" (S23).
+    const legacy = jest.requireMock<{ copyAsync: jest.Mock; makeDirectoryAsync: jest.Mock }>("expo-file-system/legacy");
+    await shareChatAttachment({
+      uri: "http://127.0.0.1:8000/attachments/abc/file",
+      token: "tok",
+      fileName: "EduPilot financial model.xlsx",
+    });
+    const shared = jest.mocked(shareAsync).mock.calls.at(-1)![0];
+    expect(shared).toMatch(/^file:\/\/\/cache\/recall-share-\d+-\d+\/EduPilot%20financial%20model\.xlsx$/);
+    expect(legacy.makeDirectoryAsync).toHaveBeenCalledWith(expect.stringMatching(/recall-share-/), { intermediates: true });
+    expect(legacy.copyAsync).toHaveBeenCalledWith({ from: expect.stringMatching(/\/att-[^/]+$/), to: shared });
+  });
+
+  it("shares the cached file when a named copy cannot be made", async () => {
+    const legacy = jest.requireMock<{ copyAsync: jest.Mock }>("expo-file-system/legacy");
+    legacy.copyAsync.mockRejectedValueOnce(new Error("disk full"));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    await shareChatAttachment({ uri: "http://127.0.0.1:8000/attachments/abc/file", token: "tok", fileName: "cat.png" });
+    expect(jest.mocked(shareAsync).mock.calls.at(-1)![0]).toMatch(/\/att-[^/]+cat\.png$/);
+    warn.mockRestore();
   });
 
   it("prefers the item's own content type over the file name's", async () => {

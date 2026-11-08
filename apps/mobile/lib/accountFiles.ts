@@ -12,6 +12,11 @@ const ACCOUNT_FILE_PREFIX = {
   htmlPreview: "recall-preview-",
   /** A reply read aloud; deleted after it plays, unless the app stopped first. */
   speech: "recall-tts-",
+  /**
+   * A folder holding one shared file under its own name; the app it went to may still read
+   * it after the sheet closes, so a later share sweeps it once it is old.
+   */
+  share: "recall-share-",
 } as const;
 
 /**
@@ -32,6 +37,31 @@ export function newAccountFile(
   stem: string = String(Date.now()),
 ): string {
   return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${stem}.${extension}`;
+}
+
+/** A new, empty-named folder for `kind` in the cache directory: `recall-share-<ms>-<n>/`. */
+export function newAccountFolder(kind: keyof typeof ACCOUNT_FILE_PREFIX): string {
+  return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${Date.now()}-${Math.floor(Math.random() * 1e6)}/`;
+}
+
+/** `name` inside a folder from `newAccountFolder`, percent-encoded as `fileUri` explains. */
+export function fileInFolder(folder: string, name: string): string {
+  return fileUri(folder, name);
+}
+
+/** Delete `kind`'s folders made more than `maxAgeMs` ago; sign-out deletes the rest. */
+export async function sweepAccountFolders(kind: keyof typeof ACCOUNT_FILE_PREFIX, maxAgeMs: number): Promise<void> {
+  const cache = cacheDirectory;
+  if (!cache) return;
+  const prefix = ACCOUNT_FILE_PREFIX[kind];
+  const cutoff = Date.now() - maxAgeMs;
+  const old = (await filesIn(cache)).filter((name) => {
+    if (!name.startsWith(prefix)) return false;
+    const made = Number.parseInt(name.slice(prefix.length), 10);
+    return Number.isFinite(made) && made < cutoff;
+  });
+  // One folder that cannot go yet (an app still reading it) leaves the rest to go.
+  await Promise.allSettled(old.map((name) => deleteAsync(fileUri(cache, name), { idempotent: true })));
 }
 
 /** expo-print writes every PDF (chat exports) here, on iOS and Android alike. */
