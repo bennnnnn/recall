@@ -12,6 +12,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | --- | --- | --- |
 | Ask before acting (delete, sign out, disconnect) | `confirmDialog()` from `overlay/dialogs` | `Alert.alert` with buttons |
 | Tell something that needs reading (permission, Expo Go) | `alertDialog()` from `overlay/dialogs` | `Alert.alert` |
+| Offer Settings for a permission that is off (camera, microphone, photos, location, notifications) | `offerSettings(permission)` from `overlay/dialogs`: its own words, Not now / Open Settings | a hand-made `confirmDialog` + `Linking.openSettings()`, or opening Settings unasked |
 | A passing success or error | the toast: `useActionFeedback()` or `reportRecoverableError` | a dialog |
 | A toast over a full-screen viewer | mount an `ActionFeedbackProvider` inside the modal (`appearance="media"` on a black stage); while it is open every toast shows there | a dialog, or a toast hidden under the modal |
 | Actions on a thing (⋮, long-press) | `overlay/Menu`, anchored to the button or the touch point | a bottom sheet of actions |
