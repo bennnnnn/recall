@@ -3,7 +3,6 @@ import { StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { AccountSettingsSection } from "@/features/account/components/AccountSettingsSection";
 import { ProfileHeader } from "@/features/account/components/ProfileHeader";
 import {
@@ -77,9 +76,8 @@ export default function SettingsScreen() {
   const voiceValue = user?.tts_voice ? voiceLabel(user.tts_voice) : t("settings.voice_default");
 
   return (
-    <SettingsPage underStatusBar>
+    <SettingsPage ownBarTitle={t("settings.title")}>
       <View style={s.profileHeader}>
-        <StackBackButton style={s.backButton} />
         <ProfileHeader
           label={t("settings.profile")}
           onPress={() => router.push("/settings/profile")}
@@ -223,10 +221,5 @@ const s = StyleSheet.create({
   profileHeader: {
     alignItems: "center",
     paddingBottom: Space.xs,
-  },
-  backButton: {
-    position: "absolute",
-    left: 0,
-    top: 0,
   },
 });
