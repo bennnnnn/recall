@@ -679,6 +679,39 @@ describe("MathEquationScanner", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("steps back the same way on VoiceOver's escape scrub, which the scanner's page answers as Back", async () => {
+    const onClose = jest.fn();
+    const view = await render(<MathEquationScanner visible onClose={onClose} onCaptured={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    let failCut: (error: Error) => void = () => undefined;
+    jest.mocked(cropScanImage).mockImplementationOnce(
+      () => new Promise((_resolve, reject) => {
+        failCut = reject;
+      }),
+    );
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const escape = () => fireEvent(view.getByTestId("full-screen-modal-page"), "accessibilityEscape");
+
+    // While Solve cuts the shot the scrub does nothing, as Retake does nothing.
+    await act(async () => escape());
+    expect(view.getByTestId("math-scanner-preview")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // A failed cut leaves the crop screen up: now the scrub retakes, then closes.
+    await act(async () => {
+      failCut(new Error("no cut"));
+    });
+    await act(async () => escape());
+    expect(view.queryByTestId("math-scanner-preview")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => escape());
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("holds Back on the crop screen while Solve cuts the shot, as it holds Retake", async () => {
     const onClose = jest.fn();
     const onCaptured = jest.fn();
