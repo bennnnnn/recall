@@ -1,5 +1,19 @@
-const mockSplash = { preventAutoHideAsync: jest.fn(async () => true), hide: jest.fn() };
+const mockSplash = {
+  preventAutoHideAsync: jest.fn(async () => true),
+  hide: jest.fn(),
+  setOptions: jest.fn(),
+};
 jest.mock("expo-splash-screen", () => mockSplash);
+/** The phone the module loads on: read once, as it loads. */
+const mockPhone = { OS: "ios", expoGo: false };
+jest.mock("react-native", () => ({
+  Platform: {
+    get OS() {
+      return mockPhone.OS;
+    },
+  },
+}));
+jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockPhone.expoGo }));
 
 type LaunchSplash = typeof import("@/lib/launchSplash");
 
@@ -16,6 +30,8 @@ const FRAME_MS = 16;
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
+  mockPhone.OS = "ios";
+  mockPhone.expoGo = false;
   // One frame after the first screen is ready.
   globalThis.requestAnimationFrame = (callback: FrameRequestCallback) =>
     setTimeout(() => callback(0), FRAME_MS) as unknown as number;
@@ -85,5 +101,62 @@ describe("launch splash", () => {
     expect(mockSplash.hide).toHaveBeenCalledTimes(1);
     jest.advanceTimersByTime(10_000);
     expect(mockSplash.hide).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** Hide the splash the way a launch does, and say whether the reveal was told. */
+function hideOnce(splash: LaunchSplash): jest.Mock {
+  const told = jest.fn();
+  splash.subscribeLaunchSplashHidden(told);
+  for (const part of ["session", "fonts", "prefs"] as const) splash.markLaunchReady(part);
+  jest.advanceTimersByTime(FRAME_MS);
+  expect(mockSplash.hide).toHaveBeenCalledTimes(1);
+  return told;
+}
+
+describe("launch splash exit (the reveal starts when the native splash is gone)", () => {
+  it("on iOS leaves the native splash as it is, a cut, and starts the reveal with the hide", () => {
+    const splash = freshSplash();
+    expect(mockSplash.setOptions).not.toHaveBeenCalled();
+    const told = hideOnce(splash);
+    expect(told).toHaveBeenCalledTimes(1);
+    expect(splash.launchSplashHidden()).toBe(true);
+  });
+
+  it("on Android turns the native fade off, so the reveal is the only animation", () => {
+    // expo-splash-screen fades it out over 400 ms by default there, whatever `fade` says.
+    mockPhone.OS = "android";
+    const splash = freshSplash();
+    expect(mockSplash.setOptions).toHaveBeenCalledWith({ duration: 0 });
+    const told = hideOnce(splash);
+    expect(told).toHaveBeenCalledTimes(1);
+    expect(splash.launchSplashHidden()).toBe(true);
+  });
+
+  it("in Expo Go on Android, which keeps its fade, starts the reveal once the fade is over", () => {
+    mockPhone.OS = "android";
+    mockPhone.expoGo = true;
+    const splash = freshSplash();
+    expect(mockSplash.setOptions).not.toHaveBeenCalled();
+    const told = hideOnce(splash);
+    jest.advanceTimersByTime(399);
+    expect(told).not.toHaveBeenCalled();
+    expect(splash.launchSplashHidden()).toBe(false);
+    jest.advanceTimersByTime(1);
+    expect(told).toHaveBeenCalledTimes(1);
+    expect(splash.launchSplashHidden()).toBe(true);
+  });
+
+  it("starts the reveal even when the hide throws, so it never stays over the app", () => {
+    const splash = freshSplash();
+    const told = jest.fn();
+    splash.subscribeLaunchSplashHidden(told);
+    mockSplash.hide.mockImplementationOnce(() => {
+      throw new Error("no splash view");
+    });
+    // The error still reaches the timer, and the crash reporter after it.
+    expect(() => jest.advanceTimersByTime(2_000)).toThrow("no splash view");
+    expect(told).toHaveBeenCalledTimes(1);
+    expect(splash.launchSplashHidden()).toBe(true);
   });
 });

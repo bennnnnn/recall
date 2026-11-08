@@ -11,18 +11,26 @@
  * blank frame.
  */
 import * as SplashScreen from "expo-splash-screen";
+import { Platform } from "react-native";
 
+import { isExpoGo } from "@/lib/expoRuntime";
 import { createListenerSet } from "@/lib/listenerSet";
 
 export const SPLASH_MAX_MS = 1_000;
 /** If the app never draws at all (a crash before it), the splash still goes. */
 const SPLASH_BACKSTOP_MS = 2_000;
+/**
+ * expo-splash-screen's Android exit: it always fades the native splash out, over
+ * `setOptions`' `duration` (400 ms by default; its `fade` option is iOS only).
+ */
+const ANDROID_NATIVE_FADE_MS = 400;
 
 type LaunchPart = "session" | "fonts" | "prefs";
 const LAUNCH_PARTS: readonly LaunchPart[] = ["session", "fonts", "prefs"];
 
 const ready = new Set<LaunchPart>();
 let hidden = false;
+let exited = false;
 let deadlinePassed = false;
 const deadline = createListenerSet();
 const gone = createListenerSet();
@@ -32,8 +40,32 @@ function hideSplash(): void {
   hidden = true;
   clearTimeout(cap);
   clearTimeout(backstop);
-  SplashScreen.hide();
+  try {
+    SplashScreen.hide();
+  } finally {
+    // Even after a hide that threw, the reveal plays: it must never stay over the app.
+    if (NATIVE_EXIT_MS > 0) setTimeout(finishExit, NATIVE_EXIT_MS);
+    else finishExit();
+  }
+}
+
+function finishExit(): void {
+  exited = true;
   gone.emit();
+}
+
+/**
+ * How long the native splash takes to leave once hidden, so the launch reveal starts over
+ * the bare page and is the only animation. iOS cuts it already (expo-splash-screen's
+ * `fade` is off), so nothing changes there. Android would fade it over the reveal, a still
+ * icon over the moving one: told 0 it goes in one frame. Expo Go refuses `setOptions`, so
+ * there the reveal waits the default fade out.
+ */
+function nativeExitMs(): number {
+  if (Platform.OS !== "android") return 0;
+  if (isExpoGo()) return ANDROID_NATIVE_FADE_MS;
+  SplashScreen.setOptions({ duration: 0 });
+  return 0;
 }
 
 /** One frame for the commit that made the first screen ready (and the layout it starts). */
@@ -51,6 +83,7 @@ function passDeadline(): void {
 
 // expo-splash-screen asks for this in global scope, before anything renders.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+const NATIVE_EXIT_MS = nativeExitMs();
 const cap = setTimeout(passDeadline, SPLASH_MAX_MS);
 const backstop = setTimeout(hideSplash, SPLASH_BACKSTOP_MS);
 
@@ -74,9 +107,9 @@ export function markLaunchReady(part: LaunchPart): void {
   if (drawn) hideAfterThisFrame();
 }
 
-/** True once the native splash is gone. */
+/** True once the native splash is gone: hidden, and its exit over. */
 export function launchSplashHidden(): boolean {
-  return hidden;
+  return exited;
 }
 
 /** Told once, when the native splash goes (the launch reveal starts then). */
