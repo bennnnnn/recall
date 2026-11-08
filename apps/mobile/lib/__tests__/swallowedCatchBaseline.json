@@ -24,7 +24,6 @@
   "features/auth/hooks/useAiConsentActions.ts": 1,
   "features/auth/screens/OnboardingScreen.tsx": 1,
   "features/billing/hooks/useSubscriptionActions.ts": 1,
-  "features/chat/components/ChatShareSheet.tsx": 1,
   "features/chat/hooks/useChatActions.ts": 2,
   "features/chat/hooks/useChatComposerWiring.ts": 1,
   "features/chat/hooks/useChatScroll.ts": 1,
@@ -116,6 +115,5 @@
   "lib/tokenSubject.ts": 1,
   "lib/vendorAssets.ts": 1,
   "lib/webView.ts": 1,
-  "ui/share/ShareSheet.tsx": 2,
   "ui/share/useCopyText.ts": 1
 }

@@ -35,7 +35,6 @@ const KEPT_EVERYWHERE = new Set([
   "chat.live_talk_a11y", // Live talk is the feature's name in every locale
   "settings.live_talk_minutes",
   "upgrade.feature_live_talk_plain",
-  "share.action_pdf", // file format
   "share.attachment_pdf",
   "common.ok",
   "chat.math_converter_clear", // the calculator's AC key
