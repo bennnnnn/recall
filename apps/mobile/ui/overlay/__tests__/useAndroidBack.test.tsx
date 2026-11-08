@@ -55,6 +55,24 @@ describe("useAndroidBack", () => {
     expect(closePad).not.toHaveBeenCalled();
   });
 
+  it("orders two that open in the same render by where they sit: the later sibling closes first", async () => {
+    const back = fakeAndroidBack();
+    const closeFirst = jest.fn();
+    const closeSecond = jest.fn();
+    const tree = (open: boolean) => (
+      <>
+        <Mode open={open} onBack={closeFirst} />
+        <Mode open={open} onBack={closeSecond} />
+      </>
+    );
+    const view = await render(tree(false));
+    await view.rerender(tree(true));
+
+    back.press();
+    expect(closeSecond).toHaveBeenCalledTimes(1);
+    expect(closeFirst).not.toHaveBeenCalled();
+  });
+
   it("lets Back go to the screen pushed over the one that left something open", async () => {
     const back = fakeAndroidBack();
     const close = jest.fn();

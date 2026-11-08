@@ -23,8 +23,11 @@ export function AndroidBackScreen({ isOnTop, children }: { isOnTop: () => boolea
  *
  * While `active`, Back calls `onBack` and goes no further. React Native asks the newest
  * listener first, and this one is added when `active` turns on (not again while it stays
- * on, whatever `onBack` is), so the last thing opened is the first Back closes: a sheet
- * over the math pad, the drawer over the composer. iOS has no Back button.
+ * on, whatever `onBack` is). So of two things opened one after the other, Back closes the
+ * later first: a sheet over the math pad, the drawer over the composer. Two that turn on
+ * in the same render are added in the order React runs their effects (a child before its
+ * parent, then siblings in order), so the one drawn on top should sit later in the tree.
+ * iOS has no Back button.
  */
 export function useAndroidBack(active: boolean, onBack: () => void): void {
   const isOnTop = useContext(ScreenOnTop);
