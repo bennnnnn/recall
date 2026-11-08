@@ -1,7 +1,7 @@
 import { shareAsync } from "expo-sharing";
 import { Platform, Share } from "react-native";
 
-import { shareLocalFile, shareRoute } from "@/lib/shareFile";
+import { shareLocalFile, shareOneAtATime, shareRoute } from "@/lib/shareFile";
 import { shareFailureKey, SharingUnavailableError } from "@/lib/shareUnavailable";
 
 jest.mock("react-native", () => ({
@@ -85,4 +85,27 @@ it("keeps the caller's line for any other share failure", () => {
 it("treats a dismissed sheet as done", async () => {
   jest.mocked(shareAsync).mockRejectedValueOnce(new Error("User did not share"));
   await expect(shareLocalFile("file:///cache/a.pdf", { title: "a.pdf" })).resolves.toBeUndefined();
+});
+
+// Android's share module takes one request until its sheet closes and refused a second
+// tap's ("Another share request is being processed now"): the screen said the share failed.
+describe("one file share at a time", () => {
+  it("drops a share asked for while one runs, then takes the next once it is done", async () => {
+    let close: () => void = () => {};
+    const first = jest.fn(() => new Promise<void>((resolve) => { close = resolve; }));
+    const second = jest.fn(async () => undefined);
+    const running = shareOneAtATime(first);
+    await expect(shareOneAtATime(second)).resolves.toBe(false);
+    expect(second).not.toHaveBeenCalled();
+    close();
+    await expect(running).resolves.toBe(true);
+    await expect(shareOneAtATime(second)).resolves.toBe(true);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands a failure on and frees the next share", async () => {
+    await expect(shareOneAtATime(async () => { throw new Error("boom"); })).rejects.toThrow("boom");
+    const next = jest.fn(async () => undefined);
+    await expect(shareOneAtATime(next)).resolves.toBe(true);
+  });
 });

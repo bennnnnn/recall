@@ -65,6 +65,26 @@ function declaredType(
   };
 }
 
+/** A file share is running: from the tap, through any download or print, until its sheet closes. */
+let shareInFlight = false;
+
+/**
+ * Run one file share at a time, app-wide. Android's share module takes one request until
+ * its sheet closes and refuses the next ("Another share request is being processed now"),
+ * so a second tap on Share while a PDF downloaded said the export failed. A share asked
+ * for while one runs is dropped: false. Every Share button and export goes through here.
+ */
+export async function shareOneAtATime(share: () => Promise<void>): Promise<boolean> {
+  if (shareInFlight) return false;
+  shareInFlight = true;
+  try {
+    await share();
+    return true;
+  } finally {
+    shareInFlight = false;
+  }
+}
+
 /**
  * Open the share sheet for a `file://` URI. A dismissed sheet is not an
  * error; a build that cannot share a file on this platform throws `SharingUnavailableError`.

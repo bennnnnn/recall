@@ -28,6 +28,7 @@ import { notifyDestructive, tap } from "@/lib/haptics";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { shareOneAtATime } from "@/lib/shareFile";
 import { libraryActionMessage } from "@/features/attachments/model/attachmentErrors";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
@@ -49,7 +50,6 @@ export function useGalleryLibrary(
   const [actionPoint, setActionPoint] = useState<{ x: number; y: number } | null>(null);
   /** The item being shared or attached; its tile shows a spinner meanwhile. */
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
-  const sharingRef = useRef(false);
   const attachingRef = useRef(false);
   const deletingRef = useRef(new Set<string>());
   const itemsRef = useRef(items);
@@ -94,8 +94,6 @@ export function useGalleryLibrary(
     async (item: AttachmentListItem) => {
       const version = viewRef.current.version;
       if (!token || !isCurrent(version)) return;
-      // One share at a time; its tile already shows a spinner.
-      if (sharingRef.current) return;
       const uri = resolveAttachmentUri({
         attachmentId: item.id,
         path: item.download_url,
@@ -104,22 +102,21 @@ export function useGalleryLibrary(
         reportRecoverableError(feedback, t("common.share_failed"));
         return;
       }
-      sharingRef.current = true;
-      setBusyItemId(item.id);
       try {
-        await shareChatAttachment({
-          uri,
-          token,
-          fileName: galleryFileName(item.content_type, item.original_filename, item.source),
-          contentType: item.content_type,
+        // One share at a time, app-wide; its tile shows a spinner meanwhile.
+        const shared = await shareOneAtATime(async () => {
+          setBusyItemId(item.id);
+          await shareChatAttachment({
+            uri,
+            token,
+            fileName: galleryFileName(item.content_type, item.original_filename, item.source),
+            contentType: item.content_type,
+          }).finally(() => setBusyItemId((current) => (current === item.id ? null : current)));
         });
-        if (isCurrent(version)) setActionItem((current) => current?.id === item.id ? null : current);
+        if (shared && isCurrent(version)) setActionItem((current) => current?.id === item.id ? null : current);
       } catch (shareError) {
         if (!isCurrent(version)) return;
         reportRecoverableError(feedback, libraryActionMessage(shareError, "common.share_failed", t));
-      } finally {
-        sharingRef.current = false;
-        setBusyItemId((current) => (current === item.id ? null : current));
       }
     },
     [t, token, feedback, isCurrent],

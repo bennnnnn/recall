@@ -218,6 +218,8 @@ const NO_ACCOUNT_DATA = [
   "features/scanner/model/switchCue.ts#releaseTimer",
   "lib/sentry.ts#sdk",
   "lib/sentry.ts#starting",
+  // Only whether a share sheet is busy; the file it shares is its caller's.
+  "lib/shareFile.ts#shareInFlight",
   "lib/skiaAvailability.ts#cached",
   "lib/speech/voiceAudio.ts#audioModule",
   "lib/speech/voiceAudio.ts#exclusiveMicStop",
