@@ -3,7 +3,6 @@
  * had to scroll back up to leave (iOS Simulator pass, 2026-11-07). It now sits in a bar
  * outside the scrolling content.
  */
-import type { ReactTestRendererJSON } from "react-test-renderer";
 import { Animated, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
@@ -17,7 +16,8 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
 
-type Node = ReactTestRendererJSON;
+/** A rendered host element, as `toJSON()` gives it. */
+type Node = { type: string; props: Record<string, unknown>; children: (Node | string)[] | null };
 
 function contains(node: Node | string, testID: string): boolean {
   if (typeof node === "string") return false;
