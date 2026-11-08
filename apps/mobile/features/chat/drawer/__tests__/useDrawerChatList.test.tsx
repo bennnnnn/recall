@@ -207,3 +207,20 @@ it("keeps the chats shown and warns when an older page fails", async () => {
   expect(mockWarn).toHaveBeenCalledTimes(1);
 
 });
+
+it("keeps every chat when one is added after the list was dropped, and reads it again on the next open", async () => {
+  // iOS Simulator, 2026-11-07: after an unarchive in Settings dropped the cached list, a new
+  // chat built the list from empty and the drawer showed only the chats touched since.
+  (api.listChats as jest.Mock).mockResolvedValueOnce(initial);
+  const view = await render(<Probe />);
+  expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
+  await act(async () => { await invalidateChatListCache(); });
+  await act(async () => {
+    current.insertChatInGroups({ ...chat, id: "new", title: "New one", updated_at: "2026-11-07T00:00:00Z" });
+  });
+  expect(current.allChats.map((row) => row.id).sort()).toEqual(["new", "old"]);
+  (api.listChats as jest.Mock).mockResolvedValueOnce({ ...initial, today: [{ ...chat, id: "new", title: "New one" }] });
+  await view.rerender(<Probe open={false} />);
+  await act(async () => { await view.rerender(<Probe open />); });
+  expect(api.listChats).toHaveBeenCalledTimes(2);
+});

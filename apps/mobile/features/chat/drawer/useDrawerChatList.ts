@@ -192,27 +192,16 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
 
   useEffect(() => {
     hydrateFromCache();
-    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: hasLoadedOnceRef.current }) !== "skip") void load();
+    // A list dropped since (an unarchive in Settings) is read again: it was never fetched.
+    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: hasLoadedOnceRef.current && getChatListFetchedAt() != null }) !== "skip") void load();
   }, [isDrawerOpen, account, load, hydrateFromCache]);
   // The API back after an outage: the open drawer's chats, read as opening it reads them.
   const openRef = useLatestRef(isDrawerOpen);
   useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
 
-  const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
-    if (!account || !current()) return;
-    applyChatList(updateChatListCache(update), false);
-    publishChatChange(chatId, patch);
-  }, [account, current, applyChatList]);
-  const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
-    updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
-  }, [updateGroups]);
-  const insertChatInGroups = useCallback((chat: Chat) => {
-    updateGroups(chat.id, chat, (prev) => insertChatIntoGroups(prev, chat));
-  }, [updateGroups]);
-  const removeChatFromGroupsById = useCallback((chatId: string) => {
-    updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
-  }, [updateGroups]);
+  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById } = useListEdits(
+    account, current, applyChatList, groups,
+  );
   const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
     patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
   }, [patchChatInGroups]);
@@ -234,4 +223,33 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
     moveChatArchiveState, removeChatFromGroupsById,
   };
+}
+
+/**
+ * The drawer's own edits to its list (patch, insert, remove), cached and published. An edit
+ * after the list was dropped starts from `groups`, the list shown, never from an empty one.
+ */
+function useListEdits(
+  account: string | null,
+  current: () => boolean,
+  applyChatList: (data: ChatList, fetched?: boolean) => void,
+  groups: ChatList,
+) {
+  const shownRef = useLatestRef(groups);
+  const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
+    if (!account || !current()) return;
+    applyChatList(updateChatListCache(update, shownRef.current), false);
+    publishChatChange(chatId, patch);
+  }, [account, current, applyChatList, shownRef]);
+  const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
+    const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
+    updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
+  }, [updateGroups]);
+  const insertChatInGroups = useCallback((chat: Chat) => {
+    updateGroups(chat.id, chat, (prev) => insertChatIntoGroups(prev, chat));
+  }, [updateGroups]);
+  const removeChatFromGroupsById = useCallback((chatId: string) => {
+    updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
+  }, [updateGroups]);
+  return { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById };
 }

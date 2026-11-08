@@ -150,8 +150,15 @@ export function seedChatListCacheForTest(data: ChatList): void {
   resource.set(LIST, data);
 }
 
-/** Replay edits over an already-running read so it cannot restore a deleted/old row. */
-export function updateChatListCache(update: ResourceUpdate<ChatList>): ChatList {
+/**
+ * Replay edits over an already-running read so it cannot restore a deleted/old row. An edit
+ * after the list was dropped (an unarchive, archive or clear-all in Settings) starts from
+ * `shown`, the list on screen, never from an empty one: built on empty, the drawer showed only
+ * the chats touched since (iOS Simulator, 2026-11-07). The result is never fresh, so the next
+ * read replaces it.
+ */
+export function updateChatListCache(update: ResourceUpdate<ChatList>, shown?: ChatList): ChatList {
+  if (shown && resource.get(LIST) === undefined) resource.seed(LIST, shown, getSessionGeneration());
   return resource.update(LIST, update) ?? emptyChatList();
 }
 
