@@ -25,6 +25,7 @@ import { watchPhoneClock } from "@/lib/datetime/phoneClockSync";
 import { boundImageMemoryCache } from "@/lib/images/memoryCache";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { markLaunchReady } from "@/lib/launchSplash";
+import { LaunchReveal } from "@/components/LaunchReveal";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useStackHeaderOptions } from "@/lib/stackHeader";
@@ -144,6 +145,7 @@ export default function RootLayout() {
             ) : null}
           </AuthProvider>
         </ActionFeedbackProvider>
+        <LaunchReveal />
       </AppearanceProvider>
     </GestureHandlerRootView>
   );

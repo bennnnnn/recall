@@ -25,6 +25,7 @@ const ready = new Set<LaunchPart>();
 let hidden = false;
 let deadlinePassed = false;
 const deadline = createListenerSet();
+const gone = createListenerSet();
 
 function hideSplash(): void {
   if (hidden) return;
@@ -32,6 +33,7 @@ function hideSplash(): void {
   clearTimeout(cap);
   clearTimeout(backstop);
   SplashScreen.hide();
+  gone.emit();
 }
 
 /** One frame for the commit that made the first screen ready (and the layout it starts). */
@@ -70,4 +72,14 @@ export function markLaunchReady(part: LaunchPart): void {
     ? ready.has("fonts")
     : LAUNCH_PARTS.every((each) => ready.has(each));
   if (drawn) hideAfterThisFrame();
+}
+
+/** True once the native splash is gone. */
+export function launchSplashHidden(): boolean {
+  return hidden;
+}
+
+/** Told once, when the native splash goes (the launch reveal starts then). */
+export function subscribeLaunchSplashHidden(listener: () => void): () => void {
+  return gone.subscribe(listener);
 }
