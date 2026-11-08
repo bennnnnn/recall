@@ -1,6 +1,7 @@
 """A search hit's line is the message's words as a reader sees them, never its markdown."""
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -131,6 +132,18 @@ def test_snippet_cuts_a_long_word_where_it_falls():
         ("I saved $50 and **$92** today.", "I saved $50 and $92 today."),
         ("Run `echo $HOME $PATH` first.", "Run echo \\$HOME \\$PATH first."),
         ("```bash\necho $HOME $PATH\n```", "echo \\$HOME \\$PATH"),
+        # An answer in words is words: "$12 cm$" showed like a price.
+        ("```answer\nverified: false\n12 cm\n```", "12 cm"),
+        ("```answer\nverified: false\n5 cups of flour\n```", "5 cups of flour"),
+        # Code is set aside before formulas are found: `\(x\)` in code stays code.
+        (
+            'Use `\\(x\\)` and `re.match(r"\\(\\d+\\)")`, then \\(y\\).',
+            'Use \\(x\\) and re.match(r"\\(\\d+\\)"), then $y$.',
+        ),
+        ("$a$$b$ side by side", "$a$$b$ side by side"),
+        # A formula too long to show is "…", so a hit stays short.
+        ("x $" + "a+" * 1100 + "b$ y", "x … y"),
+        ("x\n$$\n" + "a+" * 1100 + "b\n$$\ny", "x … y"),
     ],
 )
 def test_reader_text_keeps_each_formula_whole(markdown, shown):
@@ -164,3 +177,34 @@ def test_snippet_keeps_the_matched_formula_whole_and_leaves_a_cut_one_out():
     assert snippet("Lead " + "word " * 20 + formula + " tail" * 30, "zzz") == (
         "Lead " + " ".join(["word"] * 20) + "…"
     )
+
+
+_SNIPPET_FIXTURE = _FIXTURES / "search_snippets.json"
+
+
+def test_snippet_fixture_holds_the_lines_the_server_cuts():
+    """The server's half of ``docs/fixtures/search_snippets.json``; the phone's
+    ``features/search/model/__tests__/snippetFixture.test.ts`` shows the same lines, so the two
+    cannot drift. ``UPDATE_SEARCH_SNIPPETS=1`` rewrites the lines after a deliberate change."""
+    data = json.loads(_SNIPPET_FIXTURE.read_text(encoding="utf-8"))
+    lines = [snippet(case["markdown"], case["query"]) for case in data["cases"]]
+    if os.environ.get("UPDATE_SEARCH_SNIPPETS"):
+        for case, line in zip(data["cases"], lines, strict=True):
+            case["snippet"] = line
+        text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        _SNIPPET_FIXTURE.write_text(text, encoding="utf-8")
+    assert lines == [case["snippet"] for case in data["cases"]]
+
+
+def test_snippet_matches_what_shows_not_a_command_name():
+    """ "time" inside ``\\times`` drew nothing highlighted; the hit is the visible "times"."""
+    body = "Use $a \\times b$ " + "x " * 40 + "then the times table."
+    assert snippet(body, "time").endswith("then the times table.")
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    ["\\[" * 50_000, "\\( a " * 50_000, "$$ a " * 50_000, "$x$ " * 50_000, "$" + "ab " * 100_000],
+)
+def test_reader_text_finds_formulas_in_linear_time(hostile):
+    assert isinstance(snippet(hostile, "a"), str)

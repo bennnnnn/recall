@@ -1,0 +1,111 @@
+{
+  "about": "Search hits as the server cuts them (apps/api app/modules/search/snippet.py) and as the phone's drawer shows them (features/search/model/snippetText.ts). The server test checks markdown -> snippet (UPDATE_SEARCH_SNIPPETS=1 rewrites the snippets); the phone test checks snippet -> shown.",
+  "cases": [
+    {
+      "name": "a worked reply: formulas whole, marks gone",
+      "markdown": "**Given**  \n$v_0 = 20\\,\\mathrm{m/s}$  \n$t = 4\\,\\mathrm{s}$  \nwhere $t$ = time\n\n**Required**  \n$a$",
+      "query": "time",
+      "snippet": "…$t = 4\\,\\mathrm{s}$ where $t$ = time Required $a$",
+      "shown": "…t = 4 s where t = time Required a"
+    },
+    {
+      "name": "display maths over lines is one formula",
+      "markdown": "The mean is\n$$\n\\bar{x} = \\frac{1}{n}\\sum x_i\n$$\nfor every sample.",
+      "query": "mean",
+      "snippet": "The mean is $\\bar{x} = \\frac{1}{n}\\sum x_i$ for every sample.",
+      "shown": "The mean is x̄ = (1/n)Σ x_i for every sample."
+    },
+    {
+      "name": "an answer card: its header gone, its TeX a formula",
+      "markdown": "**Answer**\n\n```answer\nverified: true\na = \\frac{v_f - v_i}{t}\n```",
+      "query": "answer",
+      "snippet": "Answer $a = \\frac{v_f - v_i}{t}$",
+      "shown": "Answer a = (v_f - v_i)/t"
+    },
+    {
+      "name": "an answer card in words stays words",
+      "markdown": "```answer\nverified: false\n12 cm\n```",
+      "query": "cm",
+      "snippet": "12 cm",
+      "shown": "12 cm"
+    },
+    {
+      "name": "an answer card sentence keeps its formula",
+      "markdown": "```answer\nverified: false\nIt moves $4\\,\\mathrm{m}$ north.\n```",
+      "query": "moves",
+      "snippet": "It moves $4\\,\\mathrm{m}$ north.",
+      "shown": "It moves 4 m north."
+    },
+    {
+      "name": "a math fence",
+      "markdown": "Energy:\n```math\nE = mc^2\n```",
+      "query": "energy",
+      "snippet": "Energy: $E = mc^2$",
+      "shown": "Energy: E = mc^2"
+    },
+    {
+      "name": "prices are not maths",
+      "markdown": "I saved $50 and **$92** today.",
+      "query": "saved",
+      "snippet": "I saved $50 and $92 today.",
+      "shown": "I saved $50 and $92 today."
+    },
+    {
+      "name": "code keeps its dollars and delimiters",
+      "markdown": "Run `echo $HOME $PATH` and `re.match(r\"\\(\\d+\\)\")` first, then \\(y^2\\).",
+      "query": "run",
+      "snippet": "Run echo \\$HOME \\$PATH and re.match(r\"\\(\\d+\\)\") first, then $y^2$.",
+      "shown": "Run echo $HOME $PATH and re.match(r\"\\(\\d+\\)\") first, then y^2.",
+      "code": true
+    },
+    {
+      "name": "a mixed number and a factor",
+      "markdown": "Add $2\\frac{1}{2}$ cups, then $20{,}000\\frac{0.005}{12}$ a month.",
+      "query": "cups",
+      "snippet": "Add $2\\frac{1}{2}$ cups, then $20{,}000\\frac{0.005}{12}$ a month.",
+      "shown": "Add 2 1/2 cups, then 20,000·0.005/12 a month."
+    },
+    {
+      "name": "a match inside a command name is not the match",
+      "markdown": "Use $a \\times b$ x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x then the times table.",
+      "query": "time",
+      "snippet": "…x x x x x x x x x x x x x x x then the times table.",
+      "shown": "…x x x x x x x x x x x x x x x then the times table."
+    },
+    {
+      "name": "formulas side by side",
+      "markdown": "$a$$b$ side by side",
+      "query": "side",
+      "snippet": "$a$$b$ side by side",
+      "shown": "ab side by side"
+    },
+    {
+      "name": "a formula the cut would split is left out",
+      "markdown": "Lead word word word word word word word word word word word word word word word word word word word word $v_0 = 20\\,\\mathrm{m/s} + \\frac{a+b}{c}$ tail",
+      "query": "zzz",
+      "snippet": "Lead word word word word word word word word word word word word word word word word word word word word…",
+      "shown": "Lead word word word word word word word word word word word word word word word word word word word word…"
+    },
+    {
+      "name": "a formula too long to show",
+      "markdown": "Start $a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+b$ end",
+      "query": "start",
+      "snippet": "Start … end",
+      "shown": "Start … end"
+    },
+    {
+      "name": "an upright formula with scripts",
+      "markdown": "The $\\mathrm{SO_4^{2-}}$ ion carries a charge.",
+      "query": "ion",
+      "snippet": "The $\\mathrm{SO_4^{2-}}$ ion carries a charge.",
+      "shown": "The SO_4^(2-) ion carries a charge."
+    },
+    {
+      "name": "a callout's prose",
+      "markdown": "```tip\nRemember **$F = ma$** always.\n```",
+      "query": "remember",
+      "snippet": "Remember $F = ma$ always.",
+      "shown": "Remember F = ma always."
+    }
+  ]
+}
