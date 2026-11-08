@@ -12,6 +12,7 @@ import { FeatureShowcase } from "@/features/auth/components/landing/FeatureShowc
 import { offerPlansAfterSignIn } from "@/features/billing/model/welcomePlans";
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
+import { BrandAccent } from "@/lib/accentRuntime";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
@@ -19,8 +20,16 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const APP_ICON = require("@/assets/images/icon.png");
 
-/** The landing: what Recall does, shown as it does it, before sign-in. */
+/** The landing: what Recall does, shown as it does it, before sign-in, in the brand's indigo. */
 export default function Onboarding() {
+  return (
+    <BrandAccent>
+      <Landing />
+    </BrandAccent>
+  );
+}
+
+function Landing() {
   const { onboarded, completeOnboarding } = useAuth();
   const router = useRouter();
   const theme = useTheme();
@@ -53,7 +62,20 @@ export default function Onboarding() {
 
   return (
     <LinearGradient colors={gradientColors} style={s.root}>
-      <AuthScrollLayout justify="space-between">
+      <AuthScrollLayout
+        justify="space-between"
+        footer={
+          <Button
+            title={t("onboarding.get_started")}
+            onPress={() => void finish()}
+            loading={finishing}
+            loadingLabel={t("onboarding.get_started")}
+            disabled={finishing}
+            size="lg"
+            style={s.cta}
+          />
+        }
+      >
         <View>
           <View style={s.brand}>
             <Image source={APP_ICON} style={s.icon} accessibilityIgnoresInvertColors />
@@ -65,16 +87,6 @@ export default function Onboarding() {
         <View style={s.showcase}>
           <FeatureShowcase />
         </View>
-
-        <Button
-          title={t("onboarding.get_started")}
-          onPress={() => void finish()}
-          loading={finishing}
-          loadingLabel={t("onboarding.get_started")}
-          disabled={finishing}
-          size="lg"
-          style={s.cta}
-        />
       </AuthScrollLayout>
     </LinearGradient>
   );

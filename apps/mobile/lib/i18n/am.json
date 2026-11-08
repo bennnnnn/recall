@@ -375,7 +375,7 @@
   "gallery.title": "ቤተ-መጻሕፍት",
   "gallery.use_in_chat": "በውይይት ውስጥ ተጠቀም",
   "gallery.viewer_image_a11y": "{{name}}፣ ከ{{count}} {{index}}ኛ",
-  "login.agree_line": "በመቀጠል <terms>ውሎቹን</terms> እና <privacy>የግላዊነት መመሪያውን</privacy> ይቀበላሉ፤ እንዲሁም ውይይቶችዎ እና ድምጽዎ በሶስተኛ ወገን የAI አቅራቢዎች እንዲስተናገዱ ይስማማሉ።",
+  "login.agree_line": "በመቀጠል <terms>ውሎቹን</terms> እና <privacy>የግላዊነት መመሪያውን</privacy> ይቀበላሉ።",
   "login.apple": "በ Apple ይቀጥሉ",
   "login.dev": "እንደ Dev ይቀጥሉ",
   "login.dev_expo_hint": "የGoogle መግቢያ ዴቭ ቢልድ ይፈልጋል። የDev መግቢያ በExpo Go ይሰራል።",

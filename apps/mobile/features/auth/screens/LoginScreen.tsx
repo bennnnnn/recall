@@ -1,10 +1,9 @@
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import {
   ActivityIndicator,
   Image,
   Platform,
   Pressable,
-  type PressableStateCallbackType,
   StyleSheet,
   Text,
   View,
@@ -27,6 +26,7 @@ import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@
 import { isExpoGo } from "@/lib/google-auth";
 import { Space } from "@/lib/space";
 import { shadowGlow } from "@/lib/shadow";
+import { BrandAccent } from "@/lib/accentRuntime";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
@@ -44,13 +44,101 @@ const HIGHLIGHTS = [
   { icon: "message-dots" as const, labelKey: "login.highlight_organize" },
 ];
 
+/** Sign-in, in the brand's indigo whatever accent the phone has picked. */
 export default function LoginScreen() {
+  return (
+    <BrandAccent>
+      <SignIn />
+    </BrandAccent>
+  );
+}
+
+function SignIn() {
   const { token, user, loading, onboarded } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { busyProvider, busy, handleApple, handleGoogle, handleDev } =
-    useLoginActions();
+
+  if (loading) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  // A tap here agrees, so a sign-in comes back agreed and opens the chat. An account the
+  // server answers without it (an older API) still sees the consent screen first.
+  if (token) return <Redirect href={needsAiDataConsent(user) ? AI_CONSENT_ROUTE : "/"} />;
+  if (!onboarded) return <Redirect href="/onboarding" />;
+
+  const gradientColors = [theme.primaryLight, theme.bg] as const;
+
+  return (
+    <LinearGradient colors={gradientColors} style={s.root}>
+      <AuthScrollLayout justify="space-between" footer={<SignInActions s={s} theme={theme} />}>
+        <View style={s.hero}>
+          <View style={s.logoGlow}>
+            <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
+          </View>
+          <Text style={s.title} accessibilityRole="header">{t("app.name")}</Text>
+          <Text style={s.subtitle}>{t("login.tagline")}</Text>
+
+          <View style={s.highlights}>
+            {HIGHLIGHTS.map((item) => (
+              <View key={item.labelKey} style={s.highlight}>
+                <View style={s.highlightIcon}>
+                  <Icon name={item.icon} size={IconSize.xs} color={theme.primary} />
+                </View>
+                <Text style={s.highlightText}>{t(item.labelKey)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+      </AuthScrollLayout>
+    </LinearGradient>
+  );
+}
+
+type Styles = ReturnType<typeof makeStyles>;
+
+type ProviderButtonProps = {
+  provider: LoginProvider;
+  busyProvider: LoginProvider | null;
+  label: string;
+  onPress: () => void;
+  base: ViewStyle;
+  spinnerColor: string;
+  s: Styles;
+  children: ReactNode;
+};
+
+/** One way in. Another provider's sign-in dims it; a press shows only while none is busy. */
+function ProviderButton({ provider, busyProvider, label, onPress, base, spinnerColor, s, children }: ProviderButtonProps) {
+  const busy = busyProvider !== null;
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        base,
+        busyProvider !== null && busyProvider !== provider && s.dim,
+        pressed && busyProvider === null && s.pressed,
+      ]}
+      onPress={onPress}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: busy, busy: busyProvider === provider }}
+    >
+      {busyProvider === provider ? <ActivityIndicator size="small" color={spinnerColor} /> : children}
+    </Pressable>
+  );
+}
+
+/** The ways in, and the line a tap agrees to: pinned under the hero by `AuthScrollLayout`. */
+function SignInActions({ s, theme }: { s: Styles; theme: Theme }) {
+  const { t } = useTranslation();
+  const { busyProvider, busy, handleApple, handleGoogle, handleDev } = useLoginActions();
   const showDevLogin = config.devAuthEnabled && __DEV__;
   const showGoogleLogin =
     !isExpoGo() &&
@@ -59,13 +147,6 @@ export default function LoginScreen() {
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
   // Expo Go signs in with neither Google nor Apple: dev login is the way in there.
   const expoGo = isExpoGo();
-  /** Another provider's sign-in dims this button; a press shows only while none is busy. */
-  const providerStyle =
-    (base: ViewStyle, provider: LoginProvider) => ({ pressed }: PressableStateCallbackType) => [
-      base,
-      busyProvider !== null && busyProvider !== provider && s.dim,
-      pressed && busyProvider === null && s.pressed,
-    ];
   const devBanner = (message: string) => (
     <View style={s.devBanner}>
       <Icon name="info" size={IconSize.sm} color={theme.primary} />
@@ -87,122 +168,71 @@ export default function LoginScreen() {
   const devSecondaryLogin = (
     <>
       <Text style={s.orText}>{t("login.or_dev")}</Text>
-      <Pressable
-        style={providerStyle(s.devSecondaryBtn, "dev")}
+      <ProviderButton
+        provider="dev"
+        busyProvider={busyProvider}
+        label={t("login.dev")}
         onPress={handleDev}
-        disabled={busy}
-        accessibilityRole="button"
-        accessibilityLabel={t("login.dev")}
-        accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
+        base={s.devSecondaryBtn}
+        spinnerColor={theme.primary}
+        s={s}
       >
-        {busyProvider === "dev" ? (
-          <ActivityIndicator size="small" color={theme.primary} />
-        ) : (
-          <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
-        )}
-      </Pressable>
+        <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+      </ProviderButton>
     </>
   );
 
-  if (loading) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
-
-  // A tap here agrees, so a sign-in comes back agreed and opens the chat. An account the
-  // server answers without it (an older API) still sees the consent screen first.
-  if (token) return <Redirect href={needsAiDataConsent(user) ? AI_CONSENT_ROUTE : "/"} />;
-  if (!onboarded) return <Redirect href="/onboarding" />;
-
-  const gradientColors = [theme.primaryLight, theme.bg] as const;
-
   return (
-    <LinearGradient colors={gradientColors} style={s.root}>
-      <AuthScrollLayout justify="space-between">
-        <View style={s.hero}>
-          <View style={s.logoGlow}>
-            <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
-          </View>
-          <Text style={s.title} accessibilityRole="header">{t("app.name")}</Text>
-          <Text style={s.subtitle}>{t("login.tagline")}</Text>
+    <View style={s.actions}>
+      {expoGo && showDevLogin ? (
+        <>
+          {devBanner(t(Platform.OS === "ios" ? "login.dev_expo_ios_hint" : "login.dev_expo_hint"))}
+          {devPrimaryLogin}
+        </>
+      ) : (
+        <>
+          {showAppleLogin ? (
+            <ProviderButton
+              provider="apple"
+              busyProvider={busyProvider}
+              label={t("login.apple")}
+              onPress={handleApple}
+              base={s.appleBtn}
+              spinnerColor={theme.brand.appleInk}
+              s={s}
+            >
+              <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
+              <Text style={s.appleText}>{t("login.apple")}</Text>
+            </ProviderButton>
+          ) : null}
+          {showGoogleLogin ? (
+            <ProviderButton
+              provider="google"
+              busyProvider={busyProvider}
+              label={t("login.google")}
+              onPress={handleGoogle}
+              base={s.googleBtn}
+              spinnerColor={theme.textSecondary}
+              s={s}
+            >
+              <BrandMark name="google" size={IconSize.sm} />
+              <Text style={s.googleText}>{t("login.google")}</Text>
+            </ProviderButton>
+          ) : showDevLogin && !showAppleLogin ? (
+            devBanner(t("login.error_not_configured"))
+          ) : null}
+          {googleOnlyDevBuild ? (
+            devSecondaryLogin
+          ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
+            devPrimaryLogin
+          ) : null}
+        </>
+      )}
 
-          <View style={s.highlights}>
-            {HIGHLIGHTS.map((item) => (
-              <View key={item.labelKey} style={s.highlight}>
-                <View style={s.highlightIcon}>
-                  <Icon name={item.icon} size={IconSize.xs} color={theme.primary} />
-                </View>
-                <Text style={s.highlightText}>{t(item.labelKey)}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={s.actions}>
-          {expoGo && showDevLogin ? (
-            <>
-              {devBanner(t(Platform.OS === "ios" ? "login.dev_expo_ios_hint" : "login.dev_expo_hint"))}
-              {devPrimaryLogin}
-            </>
-          ) : (
-            <>
-              {showAppleLogin ? (
-                <Pressable
-                  style={providerStyle(s.appleBtn, "apple")}
-                  onPress={handleApple}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("login.apple")}
-                  accessibilityState={{ disabled: busy, busy: busyProvider === "apple" }}
-                >
-                  {busyProvider === "apple" ? (
-                    <ActivityIndicator color={theme.brand.appleInk} />
-                  ) : (
-                    <>
-                      <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
-                      <Text style={s.appleText}>{t("login.apple")}</Text>
-                    </>
-                  )}
-                </Pressable>
-              ) : null}
-              {showGoogleLogin ? (
-                <Pressable
-                  style={providerStyle(s.googleBtn, "google")}
-                  onPress={handleGoogle}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("login.google")}
-                  accessibilityState={{ disabled: busy, busy: busyProvider === "google" }}
-                >
-                  {busyProvider === "google" ? (
-                    <ActivityIndicator color={theme.textSecondary} />
-                  ) : (
-                    <>
-                      <BrandMark name="google" size={IconSize.sm} />
-                      <Text style={s.googleText}>{t("login.google")}</Text>
-                    </>
-                  )}
-                </Pressable>
-              ) : showDevLogin && !showAppleLogin ? (
-                devBanner(t("login.error_not_configured"))
-              ) : null}
-              {googleOnlyDevBuild ? (
-                devSecondaryLogin
-              ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
-                devPrimaryLogin
-              ) : null}
-            </>
-          )}
-
-          {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
-              the sign-in); the Privacy Policy says what the AI providers receive. */}
-          <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
-        </View>
-      </AuthScrollLayout>
-    </LinearGradient>
+      {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
+          the sign-in); the Privacy Policy says what the AI providers receive. */}
+      <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
+    </View>
   );
 }
 

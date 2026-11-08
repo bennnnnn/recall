@@ -23,8 +23,8 @@ import { deviceSessionFields } from "@/lib/deviceSession";
 
 /**
  * Every sign-in starts from a button on the sign-in page, under the line saying that
- * continuing agrees to the Terms, the Privacy Policy and the chats and voice going to
- * third-party AI providers (`login.agree_line`): the tap is the agreement, and the server
+ * continuing agrees to the Terms and Privacy Policy (`login.agree_line`): the tap is also
+ * the account's AI-data consent, and the server
  * records it with the sign-in, so the reply comes back agreed. Only those buttons call these
  * functions.
  */

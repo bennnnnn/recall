@@ -8,6 +8,9 @@ import { act } from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 
 import LoginScreen from "@/features/auth/screens/LoginScreen";
+import { DEFAULT_ACCENT } from "@/lib/accent";
+import { setAccentSnapshot } from "@/lib/accentRuntime";
+import { lightTheme } from "@/lib/theme";
 import { touchTargetHeight } from "@/lib/__tests__/support/touchTarget";
 
 // The agreement line's links are marked inside its one translated sentence.
@@ -97,6 +100,23 @@ describe("LoginScreen", () => {
     const order = JSON.stringify(toJSON());
     const at = (text: string) => order.indexOf(`"${text}"`);
     expect(at("login.apple")).toBeLessThan(at("Terms"));
+  });
+
+  it("pins the ways in and the agreement line under the hero, in indigo whatever the accent", async () => {
+    // Galaxy S23, 2026-11-07: display zoom scrolled them under Android's navigation buttons,
+    // and a Berry pick in Settings turned the sign-in pink.
+    setAccentSnapshot("berry");
+    try {
+      const { getByTestId, getByLabelText, getByText, toJSON } = await render(<LoginScreen />);
+      const footer = getByTestId("auth-scroll-footer");
+      expect(footer).toContainElement(getByLabelText("login.google"));
+      expect(footer).toContainElement(getByText("By continuing, you agree to the"));
+      // The screen's root is its gradient (mocked as a View that keeps its props).
+      const root = toJSON() as unknown as { props: { colors: string[] } };
+      expect(root.props.colors[0]).toBe(lightTheme.primaryLight);
+    } finally {
+      setAccentSnapshot(DEFAULT_ACCENT);
+    }
   });
 
   it("sends a sign-in the server answered without the agreement (an older API) to the AI consent screen", async () => {

@@ -19,6 +19,20 @@ describe("AuthScrollLayout", () => {
     expect(getByTestId("auth-scroll-layout")).toBeTruthy();
   });
 
+  it("pins the footer under the scroll, above the system bars", async () => {
+    // Live, 2026-11-07: display zoom scrolled "Get started" under Android's navigation buttons.
+    const { getByTestId, getByText } = await render(
+      <AuthScrollLayout footer={<Text>get started</Text>}>
+        <Text>hero</Text>
+      </AuthScrollLayout>,
+    );
+
+    const footer = getByTestId("auth-scroll-footer");
+    expect(footer).toContainElement(getByText("get started"));
+    expect(getByTestId("auth-scroll-layout")).not.toContainElement(getByText("get started"));
+    expect(footer).toHaveStyle({ paddingBottom: 20 });
+  });
+
   it("caps the column width for tablet gutters", () => {
     expect(AUTH_COLUMN_MAX_WIDTH).toBe(420);
   });

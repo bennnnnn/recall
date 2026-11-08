@@ -42,7 +42,6 @@
   "features/attachments/hooks/useGalleryLibrary.ts::useGalleryLibrary": 239,
   "features/attachments/screens/GalleryScreen.tsx::GalleryScreen": 241,
   "features/auth/hooks/useLoginActions.ts::useLoginActions": 109,
-  "features/auth/screens/LoginScreen.tsx::LoginScreen": 161,
   "features/auth/screens/LoginScreen.tsx::makeStyles": 153,
   "features/billing/components/UpgradeSheet.tsx::UpgradeSheet": 191,
   "features/chat/components/ChatComposer.tsx::ChatComposer": 409,

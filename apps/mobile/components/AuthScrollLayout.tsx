@@ -17,6 +17,12 @@ type Props = {
   children: ReactNode;
   /** How to distribute hero vs actions when the column is taller than content. */
   justify?: "space-between" | "center";
+  /**
+   * The screen's actions, pinned under the scroll and above the system bars. A phone with
+   * display zoom up (a Galaxy S23 at 339 × 727 dp, 2026-11-07) scrolled "Get started" under
+   * Android's navigation buttons; a pinned footer is on screen at every size.
+   */
+  footer?: ReactNode;
 };
 
 /**
@@ -26,8 +32,10 @@ type Props = {
 export function AuthScrollLayout({
   children,
   justify = "space-between",
+  footer,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom, Space.md);
 
   return (
     <KeyboardAvoidingView
@@ -41,13 +49,18 @@ export function AuthScrollLayout({
           styles.scroll,
           {
             paddingTop: Math.max(insets.top, Space.md),
-            paddingBottom: Math.max(insets.bottom, Space.md),
+            paddingBottom: footer ? Space.md : bottom,
           },
         ]}
         testID="auth-scroll-layout"
       >
         <View style={[styles.column, { justifyContent: justify }]}>{children}</View>
       </ScrollView>
+      {footer ? (
+        <View style={[styles.footer, { paddingBottom: bottom }]} testID="auth-scroll-footer">
+          <View style={styles.footerColumn}>{footer}</View>
+        </View>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -60,6 +73,15 @@ const styles = StyleSheet.create({
   },
   column: {
     flexGrow: 1,
+    width: "100%",
+    maxWidth: AUTH_COLUMN_MAX_WIDTH,
+    alignSelf: "center",
+  },
+  footer: {
+    paddingTop: Space.sm,
+    paddingHorizontal: Space.lg,
+  },
+  footerColumn: {
     width: "100%",
     maxWidth: AUTH_COLUMN_MAX_WIDTH,
     alignSelf: "center",

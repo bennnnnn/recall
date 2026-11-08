@@ -908,8 +908,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
   the first sign-in.
 - ✅ **AI data consent** — agreed by signing in: the sign-in page says under its buttons "By
-  continuing, you agree to the Terms and Privacy Policy, and that your chats and voice are
-  processed by third-party AI providers." beside the Terms and Privacy links, and every
+  continuing, you agree to the Terms and Privacy Policy." with the Terms and Privacy links
+  in it (the user's wording), and every
   Google, Apple and dev sign-in sends `ai_data_consent: true`, so the server stores
   `users.ai_data_consent_at` with the sign-in and a new account opens the chat. An account
   without it (from before this, withdrawn, or signed in by a client that sends no flag)

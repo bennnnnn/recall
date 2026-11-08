@@ -2,8 +2,8 @@
  * "By continuing, you agree to the Terms and Privacy Policy", with the two names as links
  * in the sentence. It is one translated string whose links are marked `<terms>…</terms>`
  * and `<privacy>…</privacy>`, so each language keeps its own word order; the pieces wrap
- * as one centred line, and each link is a 44pt target. The line also says that chats and
- * voice go to third-party AI providers: the sign-in tap records that consent.
+ * as one centred line, and each link is a 44pt target. The sign-in tap below it also
+ * records the account's AI-data consent (`features/auth/api.ts`).
  */
 import {
   Pressable,
