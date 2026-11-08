@@ -41,3 +41,20 @@ it("finds the scroll containers it checks", () => {
     .reduce((count, file) => count + [...readSource(file).matchAll(SCROLLER)].length, 0);
   expect(found).toBeGreaterThan(30);
 });
+
+it("turns spell-check off wherever autocorrect is off", () => {
+  // Names and addresses are no dictionary words. With spell-check on, iOS hung its suggestion
+  // bubble ("Bini ↩ | mini | bin") over Edit profile's Save after a deletion, and the tap on
+  // Save went to the bubble (2026-11-07).
+  const FIELD = /(?<![\w.])<(TextInput|TextField)\b/g;
+  const unset = appFiles()
+    .filter((file) => file.endsWith(".tsx") && !isTest(file))
+    .flatMap((file) => {
+      const source = readSource(file);
+      return [...source.matchAll(FIELD)]
+        .map((m) => ({ m, tag: openingTag(source, m.index) }))
+        .filter(({ tag }) => tag.includes("autoCorrect={false}") && !tag.includes("spellCheck"))
+        .map(({ m }) => `${relative(file)}:${source.slice(0, m.index).split("\n").length}`);
+    });
+  expect(unset).toEqual([]);
+});

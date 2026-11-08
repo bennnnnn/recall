@@ -163,7 +163,7 @@ export function EmailCard({ draft }: Props) {
               placeholderTextColor={theme.textDisabled}
               autoCapitalize="none"
               keyboardType="email-address"
-              autoCorrect={false}
+              autoCorrect={false} spellCheck={false}
             />
             <Text style={s.fieldLabel}>{t("chat.email_card_subject")}</Text>
             <TextInput
