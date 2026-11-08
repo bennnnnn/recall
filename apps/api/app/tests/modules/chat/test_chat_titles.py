@@ -217,3 +217,24 @@ async def test_generate_title_reads_a_shared_files_words_not_its_path_or_padding
     assert "/attachments/" not in sent
     assert "  " not in sent
     assert "Chemistry Unit 4 Study Guide - Mr. Patel Test date: Friday" in sent
+
+
+@pytest.mark.asyncio
+async def test_generate_title_never_sends_an_empty_turn_for_a_photo_alone():
+    """Review (#2344): a photo-only message is only its path; stripped, the turn was empty."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway,
+        "complete_text",
+        new_callable=AsyncMock,
+        return_value="Golden Retriever Photo",
+    ) as complete:
+        title = await generate_title(
+            settings,
+            "[Image: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]",
+            "That's a golden retriever puppy.",
+        )
+    sent = complete.call_args.kwargs["messages"][1]["content"]
+    assert sent.strip()
+    assert "/attachments/" not in sent
+    assert title == "Golden Retriever Photo"

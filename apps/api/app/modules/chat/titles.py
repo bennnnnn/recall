@@ -73,6 +73,7 @@ _LATEX_INSIDE = re.compile(r"[\\^_{}]")
 _CARET_POWER = re.compile(r"\^(?:\{(-?\d+)\}|(-?\d+))(?!\d|[.,]\d)")
 # The head a title reads, before its padding and paths go: a long paste is not folded whole.
 _SOURCE_CHARS = 4000
+_NO_WORDS = "(a photo or file, sent with no words)"
 _TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
 
@@ -89,7 +90,9 @@ def _title_source(user_message: str) -> str:
         user_message[:_SOURCE_CHARS],
     )
     readable = collapse_ws(without_attachment_refs(unwrapped))
-    return fold_numeric_superscripts(fold_latex_marks(readable))
+    # A photo sent alone is nothing but its path: the reply says what it shows, and an empty
+    # turn is one a provider may refuse.
+    return fold_numeric_superscripts(fold_latex_marks(readable)) or _NO_WORDS
 
 
 def _superscript_powers(title: str) -> str:
