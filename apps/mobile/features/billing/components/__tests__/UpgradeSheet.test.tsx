@@ -5,6 +5,8 @@ import { getPlanPackages } from "@/features/billing/model/purchases";
 import { reportFailure } from "@/lib/sentry";
 
 const mockSyncSubscription = jest.fn();
+const mockRefreshUser = jest.fn(async () => undefined);
+const mockRecheck = jest.fn(async () => undefined);
 const mockPurchase = jest.fn();
 const mockRestore = jest.fn();
 const mockListPlans = jest.fn();
@@ -43,6 +45,7 @@ jest.mock("@/features/billing/hooks/useSubscriptionActions", () => ({
     user: mockUser,
     syncSubscription: mockSyncSubscription,
     devUpgrade: jest.fn(),
+    refreshUser: mockRefreshUser,
   }),
 }));
 jest.mock("@/lib/api", () => ({
@@ -72,6 +75,7 @@ jest.mock("@/features/billing/model/purchases", () => ({
     return () => mockStoreReady.listeners.delete(listener);
   },
   purchasePending: () => mockPending.value,
+  recheckPendingPurchase: () => mockRecheck(),
   subscribePendingPurchase: (listener: () => void) => {
     mockPending.listeners.add(listener);
     return () => mockPending.listeners.delete(listener);
@@ -120,6 +124,8 @@ beforeEach(() => {
   mockPurchasesConfigured = true;
   mockStoreReady.value = true;
   mockPending.value = null;
+  mockRefreshUser.mockClear();
+  mockRecheck.mockClear();
   jest.mocked(getPlanPackages).mockClear();
   jest.mocked(reportFailure).mockClear();
   mockUser = { plan: "free" };
@@ -313,6 +319,38 @@ it("waits for the store to be set up before reading it, never saying it is unava
   });
   expect(getPlanPackages).toHaveBeenCalledTimes(1);
   expect(screen.getByText('upgrade.subscribe_for {"plan":"plans.plus","price":"$7.99"}')).toBeOnTheScreen();
+});
+
+it("says the store is unavailable when the account was never confirmed, and Retry asks the server again", async () => {
+  // /auth/me failed at launch: the store is set up only once the server confirms the account.
+  jest.useFakeTimers();
+  try {
+    mockStoreReady.value = false;
+    const screen = await openSheet();
+    expect(screen.queryByText("upgrade.store_unavailable")).toBeNull();
+    await act(async () => {
+      jest.advanceTimersByTime(8_000);
+    });
+    expect(screen.getByText("upgrade.store_unavailable")).toBeOnTheScreen();
+    await act(async () => {
+      fireEvent.press(screen.getByText("common.retry"));
+    });
+    expect(mockRefreshUser).toHaveBeenCalledTimes(1);
+    // Confirmed: the store is set up and read.
+    await act(async () => {
+      setMockStore(mockStoreReady, true);
+    });
+    expect(getPlanPackages).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("upgrade.store_unavailable")).toBeNull();
+    expect(screen.getByText(/^\$7\.99/)).toBeOnTheScreen();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("reads a held purchase again as the sheet opens", async () => {
+  await openSheet();
+  expect(mockRecheck).toHaveBeenCalledTimes(1);
 });
 
 it("says a purchase waiting for approval is pending, and offers no second one", async () => {

@@ -23,5 +23,6 @@ export function useSubscriptionActions() {
     }
   };
 
-  return { token, user, syncSubscription, devUpgrade };
+  // The plans read the account again when it was never confirmed (a launch offline).
+  return { token, user, syncSubscription, devUpgrade, refreshUser };
 }

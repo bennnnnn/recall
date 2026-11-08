@@ -70,6 +70,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/onboarding.ts#writes": "clearOnboarded",
   "features/billing/model/purchases.ts#configuredAppUserId": "signOutRevenueCat",
   "features/billing/model/purchases.ts#pendingPurchase": "signOutRevenueCat",
+  // Raised at sign-out, so a set-up still running for the account that left records nothing.
+  "features/billing/model/purchases.ts#setupGeneration": "signOutRevenueCat",
   "features/billing/model/purchases.ts#storeSetUp": "signOutRevenueCat",
   "features/notifications/model/pushNotifications.ts#lastPushSync": "clearPushSyncRecord",
   // clearPushSyncRecord sets it back to false.

@@ -102,6 +102,9 @@ let configuredAppUserId: string | null = null;
  */
 const storeSetUp = createValueStore(false);
 
+/** Raised by each sign-out: a set-up still running for the account that left records nothing. */
+let setupGeneration = 0;
+
 export const subscribeStoreReady = storeSetUp.subscribe;
 
 /** The store can be read now: set up for this account, or not in this build at all. */
@@ -110,11 +113,13 @@ export function isStoreReady(): boolean {
 }
 
 export async function configurePurchases(appUserId: string): Promise<void> {
+  const generation = setupGeneration;
+  const current = () => generation === setupGeneration;
   const mod = await loadPurchases();
   const apiKey = revenueCatApiKey();
   if (!mod || !apiKey) {
     // Nothing to set up: each read reports the store unavailable.
-    storeSetUp.set(true);
+    if (current()) storeSetUp.set(true);
     return;
   }
   if (configuredAppUserId === appUserId) return;
@@ -126,27 +131,56 @@ export async function configurePurchases(appUserId: string): Promise<void> {
       // A second configure is unsupported; switching accounts is a logIn.
       await mod.default.logIn(appUserId);
     }
-    configuredAppUserId = appUserId;
+    // Signed out meanwhile: the store was logged out, so the next sign-in logs in again.
+    configuredAppUserId = current() ? appUserId : "";
   } finally {
-    storeSetUp.set(true);
+    if (current()) storeSetUp.set(true);
   }
 }
 
 /**
  * A purchase the store holds for approval (Ask to Buy, a Play pending payment, a bank's
- * check): the plan it was for, until the store grants it or the account signs out. While
- * one waits, no second purchase is offered; one that is declined is offered again at the
- * next launch.
+ * check): the plan it was for and when, until the store grants it, the hold lapses
+ * (`recheckPendingPurchase`) or the account signs out. While one waits, no second purchase
+ * is offered.
  */
-const pendingPurchase = createValueStore<PaidPlanId | null>(null);
+const pendingPurchase = createValueStore<{ plan: PaidPlanId; since: number } | null>(null);
+
+/**
+ * How long a held purchase blocks a second one while the store grants nothing: RevenueCat
+ * reports no declined Ask to Buy and no Play payment that was never made, so after this the
+ * hold lets go, and buying again only sends a new request.
+ */
+const PENDING_HOLD_MS = 30 * 60_000;
 
 export const subscribePendingPurchase = pendingPurchase.subscribe;
-export const purchasePending = pendingPurchase.get;
+
+export function purchasePending(): PaidPlanId | null {
+  return pendingPurchase.get()?.plan ?? null;
+}
 
 /** The store now grants `plan`: a purchase waiting for that plan or a lower one has gone through. */
 function settlePendingPurchase(plan: PlanId): void {
   const waiting = pendingPurchase.get();
-  if (waiting && PLAN_RANK[plan] >= PLAN_RANK[waiting]) pendingPurchase.set(null);
+  if (waiting && PLAN_RANK[plan] >= PLAN_RANK[waiting.plan]) pendingPurchase.set(null);
+}
+
+/**
+ * Reads the store again for a held purchase, as the sheet opens and as the app comes back:
+ * one the store now grants is done, and one it still does not after `PENDING_HOLD_MS` lets
+ * go. Never rejects.
+ */
+export async function recheckPendingPurchase(now: number = Date.now()): Promise<void> {
+  const held = pendingPurchase.get();
+  if (!held) return;
+  const mod = await loadPurchases();
+  if (!mod) return;
+  try {
+    settlePendingPurchase(planFromCustomerInfo(await mod.default.getCustomerInfo()));
+  } catch (error) {
+    reportStoreUnavailable(error);
+  }
+  if (pendingPurchase.get() === held && now - held.since >= PENDING_HOLD_MS) pendingPurchase.set(null);
 }
 
 export type PlanOffer = {
@@ -225,7 +259,7 @@ export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId | "p
     result = await mod.default.purchasePackage(pkg.native, null, await productChangeFor(mod, pkg));
   } catch (error) {
     if (!isPaymentPending(mod, error)) throw error;
-    pendingPurchase.set(pkg.plan);
+    pendingPurchase.set({ plan: pkg.plan, since: Date.now() });
     return "pending";
   }
   const plan = planFromCustomerInfo(result.customerInfo);
@@ -262,6 +296,7 @@ export async function restorePurchases(): Promise<PlanId> {
  */
 export async function signOutRevenueCat(): Promise<void> {
   // The next account waits for its own set-up, and inherits no purchase waiting for approval.
+  setupGeneration += 1;
   storeSetUp.set(false);
   pendingPurchase.set(null);
   const mod = await loadPurchases();

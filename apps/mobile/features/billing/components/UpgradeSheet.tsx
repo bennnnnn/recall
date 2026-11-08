@@ -24,10 +24,12 @@ import {
   type PlanOffer,
   purchasePending,
   purchasePlanPackage,
+  recheckPendingPurchase,
   restorePurchases,
   subscribePendingPurchase,
   subscribeStoreReady,
 } from "@/features/billing/model/purchases";
+import { onAppStateChange } from "@/lib/foregroundRefresh";
 import {
   type PaidPlanId,
   PLAN_RANK,
@@ -65,6 +67,9 @@ type Props = {
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
+const STORE_NOT_SET_UP: PlanOffer = { packages: {}, unavailable: true };
+/** How long the sheet waits for the store's set-up before saying the store is not answering. */
+const STORE_SETUP_WAIT_MS = 8_000;
 /** "200 messages a day": what a plan offers, never which model answers. */
 function messagesLine(info: PlanInfo | undefined, t: Translate): FeatureLine {
   const count = info?.allowances.daily_messages;
@@ -102,9 +107,11 @@ function planFeatureLines(
 /**
  * The store's plans while the sheet shows. RevenueCat answers nothing before it is set up
  * for this account (after the server confirms the account and its plan), so the read waits
- * for that, the button spinning, rather than saying the store is unavailable.
+ * for that, the button spinning. A launch that never reached the server leaves it waiting:
+ * after `STORE_SETUP_WAIT_MS` the store is said to be unavailable, and Retry reads the
+ * account again (`confirmAccount`), which sets the store up.
  */
-function useStoreOffer(visible: boolean) {
+function useStoreOffer(visible: boolean, confirmAccount: () => Promise<void>) {
   const purchasesReady = isPurchasesConfigured();
   const storeReady = useSyncExternalStore(subscribeStoreReady, isStoreReady);
   const [offer, setOffer] = useState<PlanOffer>(NO_OFFER);
@@ -117,7 +124,13 @@ function useStoreOffer(visible: boolean) {
       return;
     }
     setLoading(true);
-    if (!storeReady) return;
+    if (!storeReady) {
+      const late = setTimeout(() => {
+        setOffer(STORE_NOT_SET_UP);
+        setLoading(false);
+      }, STORE_SETUP_WAIT_MS);
+      return () => clearTimeout(late);
+    }
     let cancelled = false;
     void getPlanPackages()
       .then((next) => {
@@ -131,7 +144,21 @@ function useStoreOffer(visible: boolean) {
     };
   }, [visible, purchasesReady, storeReady, attempt]);
 
-  const retry = useCallback(() => setAttempt((count) => count + 1), []);
+  // A held purchase is read again as the sheet opens and as the app comes back.
+  useEffect(() => {
+    if (!visible) return;
+    void recheckPendingPurchase();
+    return onAppStateChange((_state, returned) => {
+      if (returned) void recheckPendingPurchase();
+    });
+  }, [visible]);
+
+  const retry = useCallback(() => {
+    if (!isStoreReady()) {
+      void confirmAccount().catch((error: unknown) => reportFailure("paywall_load", error));
+    }
+    setAttempt((count) => count + 1);
+  }, [confirmAccount]);
   return { offer, loadingOffer: loading, purchasesReady, retry };
 }
 
@@ -139,11 +166,11 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const { token, user, syncSubscription, devUpgrade } = useSubscriptionActions();
+  const { token, user, syncSubscription, devUpgrade, refreshUser } = useSubscriptionActions();
   const { account, getToken } = useAccountSession();
   const current = planOf(user);
   const targets = upgradeTargets(current);
-  const { offer, loadingOffer, purchasesReady, retry } = useStoreOffer(visible);
+  const { offer, loadingOffer, purchasesReady, retry } = useStoreOffer(visible, refreshUser);
   const packages = offer.packages;
   // A purchase the store holds for approval: said so, and not offered a second time.
   const pending = useSyncExternalStore(subscribePendingPurchase, purchasePending);
