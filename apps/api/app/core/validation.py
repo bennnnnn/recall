@@ -25,6 +25,17 @@ BORING_CHAT_TITLES = frozenset(
         "chat",
         "conversation",
         "new conversation",
+        # The slot's own name, not one for it: asked to name "Sí." or "thanks that helped",
+        # the title model answered "Title" and "Conversation Title".
+        "title",
+        "chat title",
+        "conversation title",
+        "new title",
+        "no title",
+        "untitled chat",
+        "untitled conversation",
+        "chat name",
+        "conversation name",
     }
 )
 
@@ -124,7 +135,7 @@ def normalize_chat_title(raw: str | None) -> str | None:
     title = unwrap_chat_title(raw)
     if not title:
         return None
-    if title.lower() in BORING_CHAT_TITLES:
+    if title.casefold() in BORING_CHAT_TITLES:
         return None
     if (len(title) < 3 and not _short_word_title(title)) or len(title) > 80:
         return None

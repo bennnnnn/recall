@@ -1,6 +1,7 @@
 """Tests for chat title normalization."""
 
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -82,6 +83,55 @@ def _reply_read(messages: list[dict[str, str]]) -> str:
 )
 def test_normalize_chat_title(raw: str | None, expected: str | None):
     assert normalize_chat_title(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Title",
+        "title",
+        "TITLE",
+        '"Title".',
+        "**Conversation Title**",
+        "Chat title:",
+        "New title",
+        "No title",
+        "Untitled chat",
+        "Untitled Conversation",
+        "Chat name",
+    ],
+)
+def test_a_label_for_the_title_is_never_saved_as_one(raw: str):
+    """Asked to name "Sí.", the title model answered "Title": a name for the slot, not one."""
+    assert normalize_chat_title(raw) is None
+    assert finalize_generated_title(raw, "Sí.") is None
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["Title IX explained", "Choosing a title for my novel", "Naming my conversation app"],
+)
+def test_a_title_about_titles_is_kept(raw: str):
+    assert normalize_chat_title(raw) == raw
+
+
+@pytest.mark.asyncio
+async def test_a_label_from_the_model_titles_nothing_and_raises_nothing():
+    """The topic job then applies nothing and is skipped, not failed: no retry loop."""
+    from app.modules.chat import titles as topic_service
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with (
+        patch.object(
+            litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="Title"
+        ),
+        patch("app.modules.conversation.chats_repository.set_title_if_empty") as set_title,
+    ):
+        applied = await topic_service.generate_chat_title(
+            settings, uuid4(), "Sí.", "Hi there. What's on your mind?", user_id=uuid4()
+        )
+    assert applied is False
+    set_title.assert_not_called()
 
 
 def test_needs_generated_title():

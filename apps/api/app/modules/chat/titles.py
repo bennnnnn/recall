@@ -118,14 +118,16 @@ _TITLE_RULES = (
     "Name what the user asked, sent or is doing, never the answer: nothing the reply "
     "concluded (a result, yes or no, a winner, 'no solution', 'not found'). The reply only "
     "shows what the message means, such as what a photo shows.\n"
-    "Write it in the language of the user's message.\n"
+    "Write it in the language and script of the user's message, never translated into "
+    "English.\n"
     "2-6 natural words in sentence case, from the user's side: 'Learning Spanish', never "
     "'Teaching Spanish'. No stacked nouns, no filler (Inquiry, Request, Calculation), never "
     "'user'.\n"
     "Plain text, no quotes, no end punctuation. Maths in symbols (2x + 5 = 17), never in "
     "words. Times, dates and numbers as written (4:14 AM, 3.5%, 300k). No generic label "
     "(New chat, Untitled, Chat).\n"
-    "A message that is only a greeting or small talk (hi, how are you) is named Greeting."
+    "A message that is only a greeting or small talk (hi, how are you), in any language, is "
+    "named Greeting."
 )
 # Room for six words in any script: a four-word Amharic title is 24 tokens; an unused
 # budget costs nothing.
@@ -180,7 +182,7 @@ def title_messages(user_message: str, assistant_message: str) -> list[dict[str, 
     messages.append(
         {
             "role": "user",
-            "content": f"{chat}\nName what was asked or sent, in the language of the message.",
+            "content": f"{chat}\nName what was asked or sent, in the message's language and script.",
         }
     )
     return messages
