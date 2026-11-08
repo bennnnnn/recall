@@ -152,6 +152,7 @@ _BARE_LATEX_START = re.compile(r"^\s*\\(?:frac|dfrac|int|lim|sum|prod|binom|sqrt
 def keyboard_math_to_plain(text: str) -> str:
     """Each ``$…$`` span in the plain notation the extractors read."""
     from app.modules.math.solve.latex_normalize import normalize_latex_to_sympy
+    from app.services.symbolic_text import pin_closing_factorial
 
     if "$" not in text and _BARE_LATEX_START.match(text):
         return normalize_latex_to_sympy(_template_to_words(text)).strip()
@@ -159,7 +160,7 @@ def keyboard_math_to_plain(text: str) -> str:
         return text
 
     def plain(match: re.Match[str]) -> str:
-        words = _template_to_words(match.group(1))
+        words = _template_to_words(pin_closing_factorial(match.group(1)))
         return normalize_latex_to_sympy(words).strip()
 
     return _SPAN_RE.sub(plain, text)

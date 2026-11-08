@@ -148,6 +148,7 @@
   "chat.math_keyboard_group_symbols": "Símbolos",
   "chat.math_keyboard_group_trig": "Trig",
   "chat.math_keyboard_paste": "Colar",
+  "chat.math_live_answer_a11y": "Resultado: {{value}}",
   "chat.math_keyboard_show": "Teclado",
   "chat.math_paste_scan_cta": "Escanear matemática",
   "chat.math_paste_scan_hint": "O que você colou parece uma imagem. Usar o scanner de matemática?",

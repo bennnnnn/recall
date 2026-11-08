@@ -48,6 +48,7 @@ from app.modules.math.match.graph import (
     vertical_line_x,
 )
 from app.modules.math.match.letter_runs import looks_like_math_expr
+from app.modules.math.match.modulo import power_mod_signal
 from app.modules.math.match.needs import needs_symbolic
 from app.modules.math.match.scan import has_equation, has_math_keyword, prepare
 from app.modules.math.match.written import (
@@ -88,6 +89,7 @@ __all__ = [
     "pi_form_or_value_set",
     "pi_value_set",
     "plot_point",
+    "power_mod_signal",
     "prepare",
     "spoken_power_request",
     "stats_signal",

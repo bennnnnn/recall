@@ -35,6 +35,7 @@ from app.modules.math.match.geometry import (
 )
 from app.modules.math.match.graph import bare_coord, graph_expr, plot_point, vertical_line_x
 from app.modules.math.match.literal_geometry import parse_named_rectangle_request
+from app.modules.math.match.modulo import power_mod_signal
 from app.modules.math.match.scan import (
     bare_equation_system,
     has_algebraic_equation,
@@ -247,6 +248,7 @@ def discrete(cleaned: str, lower: str) -> bool:
         or bivariate_stats_signal(cleaned) is not None
         or combinatorics_signal(cleaned) is not None
         or number_theory_signal(cleaned) is not None
+        or power_mod_signal(cleaned) is not None
         or gcd_lcm_list_signal(cleaned) is not None
         or matrix_signal(cleaned) is not None
     )

@@ -148,6 +148,7 @@
   "chat.math_keyboard_group_symbols": "Símbolos",
   "chat.math_keyboard_group_trig": "Trig",
   "chat.math_keyboard_paste": "Pegar",
+  "chat.math_live_answer_a11y": "Resultado: {{value}}",
   "chat.math_keyboard_show": "Teclado",
   "chat.math_paste_scan_cta": "Escanear matemáticas",
   "chat.math_paste_scan_hint": "Lo que pegaste parece una imagen. ¿Usar el escáner de matemáticas?",
