@@ -53,7 +53,7 @@ export type LiveScannerCameraProps = {
   /** Changes whenever the scanner's status starts over; the reading starts over with it. */
   readEpoch: number;
   onReady: () => void;
-  onError: () => void;
+  onError: (error: Error) => void;
   onDetectionChange: (detection: LiveScannerDetection) => void;
 };
 

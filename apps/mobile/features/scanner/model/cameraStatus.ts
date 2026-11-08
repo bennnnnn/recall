@@ -20,6 +20,13 @@ export type ScannerCameraStatus =
 /** A camera that has not started after this long is treated as unavailable. */
 export const CAMERA_START_TIMEOUT_MS = 4_000;
 
+/**
+ * How long an error while the camera starts waits for it to start anyway. VisionCamera
+ * reports a zoom or torch set before the camera opens as an error, and the camera starts
+ * about half a second later: shown at once, "couldn't start the camera" flashed on every open.
+ */
+export const CAMERA_ERROR_GRACE_MS = 1_500;
+
 export const CAMERA_STARTING: ScannerCameraStatus = { kind: "starting" };
 export const CAMERA_READY: ScannerCameraStatus = { kind: "ready" };
 

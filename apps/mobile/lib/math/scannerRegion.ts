@@ -15,15 +15,24 @@ export type ScanRegion = {
   height: number;
 };
 
-/** Ratio insets that keep the crop out from under top/bottom chrome. */
+/** Ratio insets that keep the crop out from under top/bottom chrome, and the smallest frame. */
 export type ScanChromeInset = {
   top: number;
   right: number;
   bottom: number;
   left: number;
+  /**
+   * The smallest frame, as ratios of the screen: `MIN_REGION_PX` both ways. Absent, it is
+   * `MIN_REGION_RATIO` of each side: on a phone twice as tall as wide, a frame twice as tall
+   * as wide (about 80 points by 40 on the S23), too tall to frame one line.
+   */
+  minWidth?: number;
+  minHeight?: number;
 };
 
 export const MIN_REGION_RATIO = 0.12;
+/** The smallest frame's side, in points: one printed line, with room for its handles. */
+export const MIN_REGION_PX = 48;
 export const MAX_REGION_RATIO = 0.92;
 export const DEFAULT_REGION_WIDTH = 0.82;
 export const DEFAULT_REGION_HEIGHT = 0.3;
@@ -49,6 +58,8 @@ export function scanChromeInset(
     right: 0,
     bottom: Math.min(0.4, bottomPx / windowHeight),
     left: 0,
+    minWidth: Math.min(1, MIN_REGION_PX / windowWidth),
+    minHeight: Math.min(1, MIN_REGION_PX / windowHeight),
   };
 }
 
@@ -68,8 +79,8 @@ export function clampScanRegion(
   const inset = chrome ?? ZERO_INSET;
   const availW = Math.max(0, 1 - inset.left - inset.right);
   const availH = Math.max(0, 1 - inset.top - inset.bottom);
-  const minW = Math.min(MIN_REGION_RATIO, availW);
-  const minH = Math.min(MIN_REGION_RATIO, availH);
+  const minW = Math.min(inset.minWidth ?? MIN_REGION_RATIO, availW);
+  const minH = Math.min(inset.minHeight ?? MIN_REGION_RATIO, availH);
   const maxW = Math.min(MAX_REGION_RATIO, availW);
   const maxH = Math.min(MAX_REGION_RATIO, availH);
   const width = Math.min(maxW, Math.max(minW, region.width));
@@ -126,8 +137,8 @@ export function resizeScanRegion(
   const inset = chrome ?? ZERO_INSET;
   const availW = Math.max(0, 1 - inset.left - inset.right);
   const availH = Math.max(0, 1 - inset.top - inset.bottom);
-  const minW = Math.min(MIN_REGION_RATIO, availW);
-  const minH = Math.min(MIN_REGION_RATIO, availH);
+  const minW = Math.min(inset.minWidth ?? MIN_REGION_RATIO, availW);
+  const minH = Math.min(inset.minHeight ?? MIN_REGION_RATIO, availH);
   const maxW = Math.min(MAX_REGION_RATIO, availW);
   const maxH = Math.min(MAX_REGION_RATIO, availH);
   let left = base.x;

@@ -66,15 +66,6 @@ export function shadowElevated(theme: Theme, level: ElevatedLevel): ViewStyle {
   };
 }
 
-/**
- * The FAB's shadow for a see-through view, such as an outline over the camera. A box shadow
- * is drawn only outside the view, where Android showed an elevation shadow through it, and
- * takes no elevation, which on Android lifts a view above later siblings' touches.
- */
-export function shadowOutline(theme: Theme): ViewStyle {
-  return { boxShadow: `0px 2px 20px rgba(0, 0, 0, ${theme.isDark ? 0.35 : 0.18})` };
-}
-
 /** Branded colored glow — the one logo/card glow tinted with a theme color
  *  (e.g. `theme.primary`). A named decision instead of an inline
  *  `Platform.select` exception; matches the neutral helpers above. */

@@ -14,7 +14,6 @@ import { useTranslation } from "react-i18next";
 
 import type { ScanHandle } from "@/lib/math/scannerRegion";
 import { Radius } from "@/lib/radius";
-import { shadowOutline } from "@/lib/shadow";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
@@ -57,6 +56,7 @@ export function MathScannerCropOverlay({
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const corners = s.corners[liveStatus];
   const [regionHeight, setRegionHeight] = useState(0);
   const shimmerProgress = useSharedValue(0);
 
@@ -92,12 +92,7 @@ export function MathScannerCropOverlay({
       <GestureDetector gesture={regionGesture}>
         <Animated.View
           testID={`math-scanner-frame-${liveStatus}`}
-          style={[
-            s.region,
-            liveStatus === "detecting" ? s.regionDetecting : null,
-            liveStatus === "ready" ? s.regionReady : null,
-            regionStyle,
-          ]}
+          style={[s.region, regionStyle]}
           collapsable={false}
           accessible
           accessibilityRole="adjustable"
@@ -131,15 +126,10 @@ export function MathScannerCropOverlay({
               </Animated.View>
             </View>
           ) : null}
-          <View style={s.cornerTL} />
-          <View style={s.cornerTR} />
-          <View style={s.cornerBL} />
-          <View style={s.cornerBR} />
-          {/* A grip in the middle of each side: the edges pull out too. */}
-          <View style={[s.gripRow, s.gripTop]}><View style={s.gripBar} /></View>
-          <View style={[s.gripRow, s.gripBottom]}><View style={s.gripBar} /></View>
-          <View style={[s.gripColumn, s.gripLeft]}><View style={s.gripPost} /></View>
-          <View style={[s.gripColumn, s.gripRight]}><View style={s.gripPost} /></View>
+          <View style={corners.tl} />
+          <View style={corners.tr} />
+          <View style={corners.bl} />
+          <View style={corners.br} />
         </Animated.View>
       </GestureDetector>
       {handles.map(({ handle, gesture, style }) => (
@@ -151,14 +141,39 @@ export function MathScannerCropOverlay({
   );
 }
 
-function makeStyles(theme: Theme) {
-  const corner = {
+/** How long a corner's arms are, at most; a small frame's are a third of its side. */
+const CORNER_ARM = 28;
+
+/**
+ * The frame is its four corners, in the accent alone (a white outline with accent corners
+ * was two colours, and a full rectangle the mask already draws). Steady text the live
+ * reader is sure of makes them heavier.
+ */
+function cornerStyles(color: string, thick: number) {
+  const arm = {
     position: "absolute" as const,
-    width: 24,
-    height: 24,
-    borderColor: theme.primary,
+    width: "34%" as const,
+    height: "34%" as const,
+    maxWidth: CORNER_ARM,
+    maxHeight: CORNER_ARM,
+    borderColor: color,
   };
+  const out = -thick / 2;
   return StyleSheet.create({
+    tl: { ...arm, top: out, left: out, borderTopWidth: thick, borderLeftWidth: thick, borderTopLeftRadius: Radius.sm },
+    tr: { ...arm, top: out, right: out, borderTopWidth: thick, borderRightWidth: thick, borderTopRightRadius: Radius.sm },
+    bl: { ...arm, bottom: out, left: out, borderBottomWidth: thick, borderLeftWidth: thick, borderBottomLeftRadius: Radius.sm },
+    br: { ...arm, bottom: out, right: out, borderBottomWidth: thick, borderRightWidth: thick, borderBottomRightRadius: Radius.sm },
+  });
+}
+
+function makeStyles(theme: Theme) {
+  const corners: Record<LiveScanFrameStatus, ReturnType<typeof cornerStyles>> = {
+    idle: cornerStyles(theme.primary, 4),
+    detecting: cornerStyles(theme.primary, 4),
+    ready: cornerStyles(theme.primary, 6),
+  };
+  return { corners, ...StyleSheet.create({
     maskLayer: {
       ...StyleSheet.absoluteFill,
     },
@@ -181,19 +196,9 @@ function makeStyles(theme: Theme) {
     },
     region: {
       position: "absolute",
-      borderColor: withAlpha(theme.onMedia, 0.95),
-      borderWidth: 2,
       borderRadius: Radius.sm,
       backgroundColor: "transparent",
       zIndex: 4,
-      ...shadowOutline(theme),
-    },
-    regionDetecting: {
-      borderColor: withAlpha(theme.primary, 0.72),
-    },
-    regionReady: {
-      borderColor: theme.primary,
-      borderWidth: 3,
     },
     shimmerClip: {
       ...StyleSheet.absoluteFill,
@@ -218,17 +223,5 @@ function makeStyles(theme: Theme) {
       position: "absolute",
       zIndex: 8,
     },
-    gripRow: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-    gripColumn: { position: "absolute", top: 0, bottom: 0, justifyContent: "center" },
-    gripTop: { top: -3 },
-    gripBottom: { bottom: -3 },
-    gripLeft: { left: -3 },
-    gripRight: { right: -3 },
-    gripBar: { width: 28, height: 4, borderRadius: Radius.full, backgroundColor: theme.primary },
-    gripPost: { width: 4, height: 28, borderRadius: Radius.full, backgroundColor: theme.primary },
-    cornerTL: { ...corner, top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: Radius.xs },
-    cornerTR: { ...corner, top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: Radius.xs },
-    cornerBL: { ...corner, bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: Radius.xs },
-    cornerBR: { ...corner, bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: Radius.xs },
-  });
+  }) };
 }

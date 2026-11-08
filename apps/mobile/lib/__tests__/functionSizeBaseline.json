@@ -89,7 +89,7 @@
   "features/scanner/components/MathEquationScanner.tsx::MathEquationScanner": 356,
   "features/scanner/components/MathScannerChrome.tsx::MathScannerChrome": 173,
   "features/scanner/components/MathScannerChrome.tsx::makeStyles": 144,
-  "features/scanner/components/MathScannerCropOverlay.tsx::MathScannerCropOverlay": 110,
+  "features/scanner/components/MathScannerCropOverlay.tsx::MathScannerCropOverlay": 101,
   "features/scanner/hooks/useMathScannerCrop.ts::useMathScannerCrop": 287,
   "features/search/hooks/useDrawerSearch.ts::useDrawerSearch": 127,
   "features/speech/hooks/useLiveTalk.ts::useLiveTalk": 383,

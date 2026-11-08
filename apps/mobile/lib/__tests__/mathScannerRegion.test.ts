@@ -1,5 +1,6 @@
 import {
   MAX_REGION_RATIO,
+  MIN_REGION_PX,
   MIN_REGION_RATIO,
   clampCameraZoom,
   clampScanRegion,
@@ -151,6 +152,20 @@ describe("resizeScanRegion", () => {
     const resized = resizeScanRegion(base, "b", 0, -0.9);
     expect(resized.y).toBeCloseTo(0.2, 5);
     expect(resized.height).toBeCloseTo(MIN_REGION_RATIO, 5);
+  });
+
+  it("squeezes to one line: the smallest frame is as many points high as wide", () => {
+    // A tall phone, in points. 12% of each side stopped a frame twice as high as its
+    // narrowest, about 80 points on the S23: two or three lines (S23, 2026-11-08).
+    const [W, H] = [411, 882];
+    const inset = scanChromeInset(W, H, { top: 40, bottom: 24 });
+    const base = { x: 0.1, y: 0.3, width: 0.8, height: 0.3 };
+    const flat = resizeScanRegion(base, "b", 0, -0.9, inset);
+    expect(flat.height * H).toBeCloseTo(MIN_REGION_PX, 5);
+    expect(flat.y).toBeCloseTo(0.3, 5);
+    const narrow = resizeScanRegion(base, "l", 0.9, 0, inset);
+    expect(narrow.width * W).toBeCloseTo(MIN_REGION_PX, 5);
+    expect(clampScanRegion({ x: 0.4, y: 0.4, width: 0, height: 0 }, inset).height * H).toBeCloseTo(MIN_REGION_PX, 5);
   });
 
   it("keeps clear of the scanner's controls", () => {

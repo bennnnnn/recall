@@ -3,9 +3,10 @@ import { Dimensions, StyleSheet } from "react-native";
 import { deleteAsync } from "expo-file-system/legacy";
 
 import { pickFromPhotoLibrary, pickImageDocument } from "@/features/attachments/model/attachments";
-import { act, fireEvent, render, within } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/features/scanner/components/MathEquationScanner";
+import { CAMERA_ERROR_GRACE_MS, CAMERA_START_TIMEOUT_MS } from "@/features/scanner/model/cameraStatus";
 import * as contentFit from "@/features/scanner/model/contentFit";
 import { shotCutMaxEdge } from "@/features/scanner/model/contentFit";
 import { readTextLines } from "@/features/scanner/model/readTextLines";
@@ -39,7 +40,7 @@ jest.mock("@/features/scanner/components/LiveMathScannerCamera", () => {
     (
       props: {
         onReady?: () => void;
-        onError?: () => void;
+        onError?: (error: Error) => void;
         onUnavailable?: () => void;
         onDetectionChange?: (detection: {
           hasText: boolean;
@@ -240,9 +241,17 @@ describe("MathEquationScanner", () => {
       const view = await render(
         <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
       );
-      await act(async () => {
-        view.getByTestId("mock-live-scanner-camera").props[signal]?.();
-      });
+      jest.useFakeTimers();
+      try {
+        await act(async () => {
+          view.getByTestId("mock-live-scanner-camera").props[signal]?.(new Error("Camera is in use"));
+        });
+        await act(async () => {
+          jest.advanceTimersByTime(CAMERA_ERROR_GRACE_MS);
+        });
+      } finally {
+        jest.useRealTimers();
+      }
       const panel = within(view.getByTestId(`math-scanner-camera-unavailable-${reason}`));
       expect(panel.getByText(words)).toBeTruthy();
       // The black frame's aiming aids go; the shutter is visibly off, never a silent tap.
@@ -260,6 +269,58 @@ describe("MathEquationScanner", () => {
       expect(view.queryByTestId("math-scanner-error")).toBeNull();
     },
   );
+
+  it("shows nothing for an error while the camera starts when it starts a moment later", async () => {
+    // On the S23 the zoom and torch, set before the camera opened, came back as errors and
+    // "couldn't start the camera" flashed on every open until it started half a second later.
+    mockCamera.startsReady = false;
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    jest.useFakeTimers();
+    try {
+      const camera = view.getByTestId("mock-live-scanner-camera");
+      await act(async () => {
+        camera.props.onError(new Error("Camera is not active."));
+        camera.props.onError(new Error("Camera is not active."));
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(CAMERA_ERROR_GRACE_MS - 100);
+      });
+      expect(view.queryByTestId("math-scanner-camera-unavailable-failed")).toBeNull();
+      expect(view.getByTestId("math-scanner-shutter-starting")).toBeTruthy();
+      await act(async () => {
+        camera.props.onReady();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(CAMERA_START_TIMEOUT_MS);
+      });
+      expect(view.queryByTestId("math-scanner-camera-unavailable-failed")).toBeNull();
+      expect(shutterState(view)).toMatchObject({ disabled: false });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("keeps a running camera running through an error", async () => {
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await waitFor(() => expect(shutterState(view)).toMatchObject({ disabled: false }));
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        view.getByTestId("mock-live-scanner-camera").props.onError(new Error("Camera is not active."));
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(CAMERA_START_TIMEOUT_MS);
+      });
+      expect(view.queryByTestId("math-scanner-camera-unavailable-failed")).toBeNull();
+      expect(shutterState(view)).toMatchObject({ disabled: false });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
   it("shows the shutter starting until the camera is ready, then captures", async () => {
     mockCamera.startsReady = false;
