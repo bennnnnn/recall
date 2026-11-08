@@ -102,6 +102,8 @@ it("deletes the account's export, previews, read-aloud audio and PDFs, and nothi
     "file:///cache/Audio/recording-2.m4a",
     "file:///cache/ExpoAudio/recording-1.m4a",
     "file:///cache/Print/0A1B.pdf",
+    // expo-sharing's iOS staging folder, deleted whole.
+    "file:///cache/expo-sharing-tmp/",
     "file:///cache/recall-export-1.json",
     "file:///cache/recall-preview-2.html",
     "file:///cache/recall-tts-3.mp3",
@@ -112,5 +114,6 @@ it("still clears memory when the cache directory cannot be read", async () => {
   saveQuizAttempt("quiz-fence", { picked: 1, checked: false });
   await clearSignedOutAccount(undefined);
   expect(quizAttempt("quiz-fence")).toBeUndefined();
-  expect(mockDeleted).toEqual([]);
+  // Only the staging folder goes: its path needs no listing.
+  expect(mockDeleted).toEqual(["file:///cache/expo-sharing-tmp/"]);
 });
