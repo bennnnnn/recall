@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
@@ -12,15 +11,14 @@ import type { Message } from "@/lib/api";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import {
-  buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
   type ComposerSendDraft,
   type SendMessageOptions,
 } from "@/features/chat/model/sendLogic";
 import { canSend } from "@/features/chat/model/sendGuards";
-import { markChatBubblePainted, markChatTtftStart } from "@/features/chat/model/latency";
 import { useComposerAttachmentSheet } from "@/features/chat/hooks/useComposerAttachmentSheet";
 import { useChatSendRoute, type PaintedSend } from "@/features/chat/hooks/useChatSendRoute";
+import { usePaintUserTurn } from "@/features/chat/hooks/usePaintUserTurn";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useMathScanSend } from "@/features/chat/hooks/useMathScanSend";
 import { useRestoreFailedSend, type SendTurn } from "@/features/chat/hooks/useRestoreFailedSend";
@@ -31,7 +29,7 @@ import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration"
 import { type LocationSwitch, queryNeedsClientGeo } from "@/features/chat/model/resolveClientGeoForQuery";
 import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import type { EditThread } from "@/features/chat/model/threadEdit";
-import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
+import { discardDraftAttachment } from "@/features/attachments/model/attachments";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -283,30 +281,9 @@ export function useChatSend({
     getThreadKey, restoreFailedSend,
   ]);
 
-  /** Clears the composer (unless the line is not its own) and paints the user's bubble, with typing dots when they can go up. */
-  const paintUserTurn = useCallback((text: string, attached: PendingAttachment | null, tappedAt: number, leaveComposer = false) => {
-    // Clear the composer immediately so the next draft can be typed.
-    // Keep Send/Attach busy until the turn is accepted — an idle button
-    // with sendInFlightRef set looked finished and ate the next tap.
-    if (!leaveComposer) {
-      setInput("");
-      setPendingAttachment(null);
-    }
-    Keyboard.dismiss();
-
-    const optimisticId = `local-${tappedAt}`;
-    const createdAt = new Date(tappedAt).toISOString();
-    // From the tap, not the paint: anything that ever delays the bubble counts.
-    markChatTtftStart(optimisticId, tappedAt, Boolean(attached));
-    setPendingOutboundId(optimisticId);
-    editThread(
-      (prev) => [...prev, buildOptimisticUserMessage({ text, attached, optimisticId, createdAt })],
-      "optimistic_send",
-    );
-    newMessageCountRef.current += 1;
-    requestAnimationFrame(() => markChatBubblePainted(optimisticId));
-    return { optimisticId, dots: sendStart.beginDots() };
-  }, [setInput, setPendingAttachment, editThread, newMessageCountRef, sendStart]);
+  const { clearComposer, paintUserTurn } = usePaintUserTurn({
+    setInput, setPendingAttachment, setPendingOutboundId, editThread, newMessageCountRef, sendStart,
+  });
 
   /** A send to a chat that does not exist yet: it waits for the new chat's id. */
   const sendToNewChat = useCallback(
@@ -363,11 +340,6 @@ export function useChatSend({
       if (verdict === "streaming") onStreamBusy?.();
       if (verdict !== "send") return false;
       tap();
-      if (beforeSend) {
-        sendInFlightRef.current = true;
-        await beforeSend();
-        sendInFlightRef.current = false;
-      }
       const isCurrentSession = () => session === getSessionGeneration();
       const turn: SendTurn = {
         text,
@@ -378,18 +350,39 @@ export function useChatSend({
         isCurrentView: () => isCurrentSession() && viewRef.current.version === version,
         leavesComposer,
       };
+      // A send from a window waits for the newest page. The field empties at the tap, as any
+      // send's does: this send is what it held then, and text typed meanwhile is the next draft.
+      const clearedAtTap = Boolean(beforeSend) && !leavesComposer;
+      if (beforeSend) {
+        if (clearedAtTap) clearComposer();
+        sendInFlightRef.current = true;
+        // Send shows busy: an idle button refused the next tap without a word.
+        setSendPhase("preparing");
+        try {
+          await beforeSend();
+        } finally {
+          sendInFlightRef.current = false;
+        }
+        // Another chat or account opened meanwhile: the text goes back to the chat it was typed in.
+        if (!turn.isCurrentView()) {
+          restoreFailedSend(turn, `local-${tappedAt}`, turn.attachment);
+          return false;
+        }
+      }
       // Paint first: the bubble, an empty composer and typing dots in this
       // frame, before any network call. Where the turn goes is decided after.
       sendInFlightRef.current = true;
       setSendPhase(queryNeedsClientGeo(text) ? "locating" : turn.attachment ? "uploading" : "preparing");
-      const painted = paintUserTurn(text, turn.attachment, tappedAt, leavesComposer);
+      const painted = paintUserTurn(
+        text, turn.attachment, tappedAt, leavesComposer ? "leave" : clearedAtTap ? "cleared" : "clear",
+      );
       await routeSend({ ...turn, ...painted, version });
       return true;
     },
     [
       session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
       token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey, paintUserTurn, routeSend,
-      beforeSend,
+      beforeSend, clearComposer, restoreFailedSend,
     ],
   );
 
