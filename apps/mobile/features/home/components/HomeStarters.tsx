@@ -10,7 +10,6 @@ import type { HomeUrgentTodo } from "@/lib/api";
 import { describeDueAt } from "@/features/todos/model/dueDate";
 import { homeGreeting } from "@/features/home/model/homeWelcome";
 import { homeOnScreen } from "@/features/home/model/homeOnScreen";
-import { HomeMark } from "@/features/home/components/HomeMark";
 import { filterHomeNudgeTodos } from "@/features/todos/model/homeReminderNudges";
 import { firstOverdueHomeTodo, listHomeUrgentTodos } from "@/features/todos/model/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
@@ -91,7 +90,6 @@ type Props = {
 };
 
 export function HomeStarters({ composerActive, footer }: Props) {
-  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
@@ -122,7 +120,7 @@ export function HomeStarters({ composerActive, footer }: Props) {
     now,
   ]);
 
-  // While the home is up, the composer's placeholder shows things to ask.
+  // While the home is up, the composer asks ("Ask Recall") instead of "Reply to Recall".
   useEffect(() => {
     homeOnScreen.set(true);
     return () => homeOnScreen.set(false);
@@ -131,11 +129,17 @@ export function HomeStarters({ composerActive, footer }: Props) {
   // Once typing begins, leave the empty-chat canvas clear and focused.
   if (composerActive) return null;
 
+  const { hello, question } = homeGreeting(user?.name);
+  // Pinned near the top, left-aligned: centred in the free space, the greeting moved when
+  // the keyboard opened and read like a splash screen.
   return (
     <View style={s.wrap}>
-      <HomeMark />
-      <Text style={s.greeting} accessibilityRole="header">{homeGreeting(user?.name)}</Text>
-      <Text style={s.subtitle}>{t("chat.home.subtitle")}</Text>
+      <View style={s.greeting} accessible accessibilityRole="header" accessibilityLabel={`${hello}. ${question}`}>
+        <Text style={s.hello}>{hello}</Text>
+        <Text style={s.question} textBreakStrategy="balanced" lineBreakStrategyIOS="standard">
+          {question}
+        </Text>
+      </View>
 
       {overdueTodo ? (
         <OverdueReminderRow
@@ -154,18 +158,9 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     // The whole empty chat, so the last chat can sit at its foot, above the composer.
     wrap: { flex: 1, width: "100%", paddingHorizontal: Space.gutter, gap: Space.sm },
-    greeting: {
-      ...Type.display,
-      color: t.text,
-      textAlign: "center",
-      marginTop: Space.xs,
-    },
-    subtitle: {
-      ...Type.body,
-      color: t.textSecondary,
-      textAlign: "center",
-      marginBottom: Space.xs,
-    },
+    greeting: { paddingTop: Space.xl, marginBottom: Space.xs },
+    hello: { ...Type.greeting, color: t.primary },
+    question: { ...Type.greeting, color: t.textTertiary },
     sectionLabel: {
       ...Type.overline,
       color: t.textTertiary,

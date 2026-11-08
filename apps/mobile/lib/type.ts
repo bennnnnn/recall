@@ -118,6 +118,13 @@ export const Type = {
     ...face("700"),
     letterSpacing: -0.5,
   },
+  /** The home's greeting: two large lines, the name in the accent over the question in grey. */
+  greeting: {
+    fontSize: 32,
+    lineHeight: 40,
+    ...face("600"),
+    letterSpacing: -0.6,
+  },
   /** Large clock numerals (time picker header). Tabular so digits don't jiggle. */
   clock: {
     fontSize: 56,

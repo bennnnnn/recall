@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
 import { HomeStarters } from "@/features/home/components/HomeStarters";
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
@@ -25,7 +25,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
   }),
 }));
 jest.mock("@/features/home/model/homeWelcome", () => ({
-  homeGreeting: () => "Good morning",
+  homeGreeting: () => ({ hello: "Hi, Bini", question: "What are you working on?" }),
 }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/features/todos/model/dueDate", () => ({
@@ -52,18 +52,59 @@ afterEach(async () => {
 
 it("shows the greeting without starter chips", async () => {
   const view = await render(<HomeStarters composerActive={false} />);
-  expect(await view.findByText("Good morning")).toBeTruthy();
+  expect(await view.findByText("Hi, Bini")).toBeTruthy();
   expect(view.queryByText("Help me think")).toBeNull();
   expect(view.queryByText("What can you do?")).toBeNull();
 });
 
+it("greets in two lines at the top: hi in the accent, the question in grey; no icon or subtitle", async () => {
+  const view = await render(<HomeStarters composerActive={false} />);
+  const greeting = await view.findByRole("header");
+  expect(greeting.props.accessibilityLabel).toBe("Hi, Bini. What are you working on?");
+  expect(view.getByText("What are you working on?")).toBeTruthy();
+  expect(view.queryByText("chat.home.subtitle")).toBeNull();
+  expect(view.queryByText("app.name")).toBeNull();
+  const root = screen.root;
+  if (!root) throw new Error("nothing rendered");
+  expect(root.queryAll((node) => node.props.source != null)).toHaveLength(0);
+  // Pinned to the top: centred in the free space, it jumped when the keyboard opened. The
+  // greeting is the home's first child, and nothing above it centres or pushes it down.
+  const home = greeting.parent;
+  expect(home?.children[0]).toBe(greeting);
+  for (let node = home; node; node = node.parent) {
+    expect(StyleSheet.flatten(node.props.style ?? {}).justifyContent).not.toBe("center");
+  }
+});
+
+/** WCAG 1.4.3: the greeting is large text (32pt semibold), 3:1 on the page. */
+const LARGE_TEXT = 3;
+
+it.each(["light", "dark"] as const)("%s: both lines read 3:1 on the page in every accent", async (scheme) => {
+  mockScheme = scheme;
+  const failures: string[] = [];
+  for (const accent of ACCENT_OPTIONS) {
+    await act(async () => setAccentSnapshot(accent));
+    const C = themeFor(scheme, accent);
+    const ui = await render(<HomeStarters composerActive={false} />);
+    const ink = (words: string) => String(StyleSheet.flatten(ui.getByText(words).props.style).color);
+    expect({ accent, hello: ink("Hi, Bini"), question: ink("What are you working on?") })
+      .toEqual({ accent, hello: C.primary, question: C.textTertiary });
+    for (const [what, fg] of [["hello", C.primary], ["question", C.textTertiary]] as const) {
+      const ratio = contrastRatio(fg, C.bg);
+      if (ratio < LARGE_TEXT) failures.push(`${accent} ${what} ${ratio.toFixed(2)}`);
+    }
+    await ui.unmount();
+  }
+  expect(failures).toEqual([]);
+});
+
 it("hides the greeting while the composer is in use", async () => {
   const view = await render(<HomeStarters composerActive={false} />);
-  expect(await view.findByText("Good morning")).toBeTruthy();
+  expect(await view.findByText("Hi, Bini")).toBeTruthy();
 
   await view.rerender(<HomeStarters composerActive />);
 
-  expect(view.queryByText("Good morning")).toBeNull();
+  expect(view.queryByText("Hi, Bini")).toBeNull();
 });
 
 it("keeps one overdue reminder", async () => {

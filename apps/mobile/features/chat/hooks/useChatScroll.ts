@@ -43,7 +43,9 @@ type Options = {
  * and not dragging, every time the rows grow (streamed text, a settling reply's
  * chrome, follow-up questions, an image) the list follows them in the frame
  * they grew, after FlashList measured them. FlashList's own autoscroll is off:
- * two writers fought, and it ran a tick late.
+ * two writers fought, and it ran a tick late. An empty chat (the home) is never
+ * pinned: there is no thread to keep in view, and following the keyboard's spacer
+ * as it grew scrolled the greeting off the top until the keyboard settled.
  */
 export function useChatScroll({
   chatId,
@@ -189,13 +191,13 @@ export function useChatScroll({
     (source: "rows" | "content", height: number) => {
       const grew = height > followedRef.current[source] + 0.5;
       followedRef.current[source] = height;
-      const still = !readerMovingRef.current && !openingRef.current && !heldRef.current;
+      const still = messagesLenRef.current > 0 && !readerMovingRef.current && !openingRef.current && !heldRef.current;
       if (!grew || !atBottomRef.current || !still) return;
       const metrics = measureScrollMetrics();
       if (metrics && !shouldScrollToEndWhenPinned(metrics.maxOffset)) return;
       scrollToEndNow();
     },
-    [measureScrollMetrics, scrollToEndNow, openingRef, readerMovingRef],
+    [measureScrollMetrics, scrollToEndNow, openingRef, readerMovingRef, messagesLenRef],
   );
 
   useEffect(() => {
@@ -297,8 +299,8 @@ export function useChatScroll({
   // An interactive dismiss is the reader's own drag; an opening or held list is
   // placed by its own rules.
   const keyboardMayMoveList = useCallback(
-    () => !readerMovingRef.current && !openingRef.current && !heldRef.current,
-    [readerMovingRef, openingRef],
+    () => messagesLenRef.current > 0 && !readerMovingRef.current && !openingRef.current && !heldRef.current,
+    [readerMovingRef, openingRef, messagesLenRef],
   );
 
   // Each step restarts the wait, so the thread catches up wherever the keyboard

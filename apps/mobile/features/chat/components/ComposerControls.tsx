@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { COMPOSER_INPUT_LINE_HEIGHT } from "@/features/chat/model/composerLogic";
-import { HOME_EXAMPLE_MS, HOME_EXAMPLES, useHomeOnScreen } from "@/features/home/model/homeOnScreen";
+import { useHomeOnScreen } from "@/features/home/model/homeOnScreen";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX, Type } from "@/lib/type";
@@ -67,15 +66,26 @@ export function ComposerAttachButton({
 }
 
 /**
+ * What the empty field asks: "Ask Recall" on the home, before a chat starts, and "Reply to
+ * Recall" in a chat. The placeholder shows it and the field's label reads it, so a screen
+ * reader and Voice Control name the field by the words on screen. (Examples cycled here,
+ * and most were cut off on a narrow phone.)
+ */
+export function useComposerPrompt(): string {
+  const { t } = useTranslation();
+  const onHome = useHomeOnScreen();
+  return t(onHome ? "chat.placeholder_home" : "chat.placeholder");
+}
+
+/**
  * The empty field's placeholder, on the text box's one line (`bottom` is the field's
  * centring slack). The field's native placeholder wraps; this one stays on one line at
  * any language and text size and ends in an ellipsis. Screen readers hear the field's
- * own label instead. On the home it cycles through things to ask (`HOME_EXAMPLES`).
+ * own label instead.
  */
 export function ComposerPlaceholder({ bottom }: { bottom: number }) {
-  const { t } = useTranslation();
   const theme = useTheme();
-  const example = useHomeExample();
+  const prompt = useComposerPrompt();
   return (
     <View
       style={[placeholderStyles.box, { bottom }]}
@@ -90,22 +100,10 @@ export function ComposerPlaceholder({ bottom }: { bottom: number }) {
         ellipsizeMode="tail"
         maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
       >
-        {example ? t(example) : t("chat.placeholder")}
+        {prompt}
       </Text>
     </View>
   );
-}
-
-/** The home's current example to ask, moving on every few seconds; null off the home. */
-function useHomeExample(): string | null {
-  const onHome = useHomeOnScreen();
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    if (!onHome) return;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % HOME_EXAMPLES.length), HOME_EXAMPLE_MS);
-    return () => clearInterval(timer);
-  }, [onHome]);
-  return onHome ? HOME_EXAMPLES[index] : null;
 }
 
 const placeholderStyles = StyleSheet.create({

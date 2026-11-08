@@ -30,7 +30,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
   }),
 }));
 jest.mock("@/features/home/model/homeWelcome", () => ({
-  homeGreeting: () => "Good afternoon",
+  homeGreeting: () => ({ hello: "Hi, Bini", question: "What's next?" }),
 }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/features/todos/model/dueDate", () => ({
@@ -43,7 +43,7 @@ jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
 it("shows a reminder as overdue once the clock passes its due time", async () => {
   const view = await render(<HomeStarters composerActive={false} />);
-  expect(await view.findByText("Good afternoon")).toBeTruthy();
+  expect(await view.findByText("Hi, Bini")).toBeTruthy();
   expect(view.queryByText("Start anatomy study session")).toBeNull();
 
   mockNow = new Date("2026-10-24T12:06:00.000Z");
@@ -60,7 +60,7 @@ it("shows an overdue reminder from its notify_at, after quiet hours, as push doe
   }];
   mockNow = new Date("2026-10-24T23:45:00.000Z");
   const view = await render(<HomeStarters composerActive={false} />);
-  expect(await view.findByText("Good afternoon")).toBeTruthy();
+  expect(await view.findByText("Hi, Bini")).toBeTruthy();
   expect(view.queryByText("Call Sam")).toBeNull();
 
   mockNow = new Date("2026-10-25T07:00:00.000Z");
