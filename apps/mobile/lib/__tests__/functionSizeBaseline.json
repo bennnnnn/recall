@@ -54,15 +54,14 @@
   "features/chat/components/MessageBubble.tsx::MessageBubble": 240,
   "features/chat/components/UserMessageContent.tsx::UserMessageContent": 103,
   "features/chat/components/chatComposerStyles.ts::makeChatComposerStyles": 152,
-  "features/chat/drawer/ConversationList.tsx::ConversationList": 355,
+  "features/chat/drawer/ConversationList.tsx::ConversationList": 348,
   "features/chat/drawer/DrawerChatFlashList.tsx::DrawerChatFlashList": 218,
   "features/chat/drawer/DrawerShell.tsx::DrawerShell": 269,
   "features/chat/drawer/conversationListStyles.ts::makeConversationListStyles": 173,
   "features/chat/drawer/useDrawerChatList.ts::useDrawerChatList": 184,
   "features/chat/hooks/useChat.ts::useChat": 122,
-  "features/chat/hooks/useChatActions.ts::useChatActions": 200,
+  "features/chat/hooks/useChatActions.ts::useChatActions": 187,
   "features/chat/hooks/useChatBulkActions.ts::useChatBulkActions": 113,
-  "features/chat/hooks/useChatMenuActions.ts::useChatMenuActions": 114,
   "features/chat/hooks/useChatMessageList.tsx::useChatMessageList": 118,
   "features/chat/hooks/useChatPaging.ts::useChatPaging": 121,
   "features/chat/hooks/useChatRouteLoader.ts::useChatRouteLoader": 408,
@@ -117,6 +116,5 @@
   "ui/overlay/Sheet.tsx::Sheet": 194,
   "ui/pickers/ClockDial.tsx::ClockDial": 175,
   "ui/pickers/DatePickerDialog.tsx::DatePickerDialog": 230,
-  "ui/pickers/TimePickerDialog.tsx::TimePickerDialog": 223,
-  "ui/share/ShareSheet.tsx::ShareSheet": 201
+  "ui/pickers/TimePickerDialog.tsx::TimePickerDialog": 223
 }

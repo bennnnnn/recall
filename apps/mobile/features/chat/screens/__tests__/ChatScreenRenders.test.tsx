@@ -117,8 +117,6 @@ const mockChatActions = {
   handleFeedback: mockNoop,
   handleSaveEmailDraft: async () => true,
   confirmRename: mockAsyncNoop,
-  shareVisible: false,
-  closeShare: mockNoop,
   loadTranscriptMessages: async () => [],
   onShareFromMenu: mockNoop,
   onExportPdfFromMenu: mockNoop,

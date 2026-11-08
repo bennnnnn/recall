@@ -1,4 +1,3 @@
-import type { Message } from "@/lib/api";
 import type { ChatScreenMenuSheetsProps } from "@/features/chat/components/ChatScreenMenuSheets";
 
 /** What the chat's actions (useChatActions) hold for the header menu and its sheets. */
@@ -16,12 +15,9 @@ type MenuActions = {
   setRenameText: (text: string) => void;
   setRenameVisible: (visible: boolean) => void;
   confirmRename: () => Promise<unknown>;
-  shareVisible: boolean;
-  closeShare: () => void;
-  loadTranscriptMessages: () => Promise<Message[]>;
 };
 
-/** The menu, rename and share sheets' props from the chat's actions and the chat on screen;
+/** The menu and rename sheet's props from the chat's actions and the chat on screen;
  * the header's anchor ref is passed on its own, never read while rendering. */
 export function chatMenuSheetProps(
   actions: MenuActions,
@@ -42,8 +38,5 @@ export function chatMenuSheetProps(
     onRenameTextChange: actions.setRenameText,
     onCloseRename: () => actions.setRenameVisible(false),
     onConfirmRename: () => void actions.confirmRename(),
-    shareVisible: actions.shareVisible,
-    onCloseShare: actions.closeShare,
-    loadShareMessages: actions.loadTranscriptMessages,
   };
 }

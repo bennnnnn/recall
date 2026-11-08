@@ -4,8 +4,7 @@ import type { IconName } from "@/ui/icons/names";
 
 import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/features/chat/model/messageCache";
-import { NothingToExportError } from "@/features/chat/model/nothingToExport";
-import { isShareCancelled } from "@/lib/shareCancelled";
+import { exportChatAsPdf, shareChatAsText } from "@/features/chat/model/chatExport";
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
@@ -13,7 +12,6 @@ import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { shareFailureKey } from "@/lib/shareUnavailable";
 import { useLatestRef } from "@/lib/latestRef";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 
@@ -48,7 +46,6 @@ export function useChatActions({
   const messagesRef = useLatestRef(messages);
   const emailSavesRef = useRef(new Map<string, Promise<boolean>>());
   const [menuVisible, setMenuVisible] = useState(false);
-  const [shareVisible, setShareVisible] = useState(false);
   const [actionBanner, setActionBanner] = useState<{
     message: string;
     icon?: IconName;
@@ -140,25 +137,16 @@ export function useChatActions({
     return api.listAllMessages(token, chatId);
   }, [token, chatId, messages]);
 
-  const handleExportPdf = useCallback(async () => {
-    showActionBanner(t("chat.status.preparing"), "file-text");
-    try {
-      // MathJax and expo-print load when a PDF is asked for, not with the chat.
-      const [transcript, { exportConversationAsPdf }] = await Promise.all([
-        loadTranscriptMessages(),
-        import("@/features/chat/model/exportMessagePdf"),
-      ]);
-      // "Preparing" stays up until the share sheet opens: the first export takes seconds.
-      await exportConversationAsPdf(chatTitle, transcript, dismissActionBanner);
-    } catch (error) {
-      dismissActionBanner();
-      if (isShareCancelled(error)) return;
-      reportRecoverableError(
-        feedback,
-        t(error instanceof NothingToExportError ? "chat.export_pdf_empty" : shareFailureKey(error, "chat.export_pdf_failed")),
-      );
-    }
-  }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, feedback, t]);
+  const failWith = useCallback((key: string) => reportRecoverableError(feedback, t(key)), [feedback, t]);
+  const handleExportPdf = useCallback(
+    () =>
+      exportChatAsPdf(chatTitle, loadTranscriptMessages, {
+        preparing: () => showActionBanner(t("chat.status.preparing"), "file-text"),
+        ready: dismissActionBanner,
+        fail: failWith,
+      }),
+    [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, failWith, t],
+  );
 
   const {
     renameVisible, setRenameVisible, renameText, setRenameText,
@@ -169,12 +157,11 @@ export function useChatActions({
   });
 
   // The menu row plays the haptic; these handlers add none (one per tap).
-  /** ⋮ Share opens the share sheet, which loads the transcript itself. */
+  /** ⋮ Share opens the OS share menu with the chat as text. */
   const onShareFromMenu = useCallback(() => {
     closeMenu();
-    setShareVisible(true);
-  }, [closeMenu]);
-  const closeShare = useCallback(() => setShareVisible(false), []);
+    void shareChatAsText(chatTitle, loadTranscriptMessages, failWith);
+  }, [closeMenu, chatTitle, loadTranscriptMessages, failWith]);
 
   const onExportPdfFromMenu = useCallback(() => {
     closeMenu();
@@ -214,8 +201,6 @@ export function useChatActions({
     closeMenu,
     handleFeedback,
     handleSaveEmailDraft,
-    shareVisible,
-    closeShare,
     loadTranscriptMessages,
     handleExportPdf,
     openRename,

@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { api, Chat } from "@/lib/api";
+import type { Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { useLatestRef } from "@/lib/latestRef";
 import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { useChatExportActions } from "@/features/chat/hooks/useChatExportActions";
 import {
   confirmAndDeleteChat,
   renameChat,
@@ -33,15 +33,12 @@ export function useChatMenuActions({
   const feedback = useActionFeedbackOptional();
   const session = getSessionGeneration();
   const { view, owns, mounted } = useViewOwner(`${session}:${isDrawerOpen}`);
-  // The menu, rename sheet and share sheet each belong to the view they opened in.
+  // The menu and rename sheet each belong to the view they opened in.
   const [menu, setMenu] = useState<{ chat: Chat; view: object } | null>(null);
   const [rename, setRename] = useState<{ chat: Chat; view: object } | null>(null);
   const [renameText, setRenameText] = useState("");
-  const [share, setShare] = useState<{ chat: Chat; view: object } | null>(null);
   const menuChat = menu?.view === view ? menu.chat : null;
   const renameTarget = rename?.view === view ? rename.chat : null;
-  const shareChat = share?.view === view ? share.chat : null;
-  const shareRef = useLatestRef(shareChat);
   const [actionBanner, setActionBanner] = useState<{ message: string; icon?: IconName } | null>(null);
   const current = useCallback(() => mounted() && session === getSessionGeneration(), [mounted, session]);
   const currentView = useCallback(() => current() && isDrawerOpen && owns(), [current, isDrawerOpen, owns]);
@@ -49,7 +46,6 @@ export function useChatMenuActions({
     setMenu(null);
     setRename(null);
     setActionBanner(null);
-    setShare(null);
   }, [session, isDrawerOpen]);
 
   const showActionBanner = useCallback((message: string, icon?: IconName) => {
@@ -62,21 +58,9 @@ export function useChatMenuActions({
   }, [currentView, view]);
   const closeRename = useCallback(() => setRename(null), []);
 
-  const openShareChat = useCallback(() => {
-    if (!menuChat || !currentView()) return;
-    const chat = getCachedChat(menuChat.id) ?? menuChat;
-    closeMenu();
-    setShare({ chat, view });
-  }, [menuChat, currentView, closeMenu, view]);
-  const closeShare = useCallback(() => setShare(null), []);
-  /** Private history reaches the share sheet only while the drawer and account are unchanged. */
-  const loadShareMessages = useCallback(async () => {
-    const chat = shareRef.current;
-    if (!token || !chat || !currentView()) throw new Error("share_closed");
-    const msgs = await api.listAllMessages(token, chat.id);
-    if (!currentView() || shareRef.current !== chat) throw new Error("share_closed");
-    return msgs;
-  }, [token, currentView, shareRef]);
+  const { openShareChat, exportChatPdf } = useChatExportActions({
+    token, chat: menuChat, currentView, closeMenu, showActionBanner, dismissActionBanner,
+  });
 
   const openRenameFromMenu = useCallback(() => {
     if (!menuChat || !currentView()) return;
@@ -136,7 +120,7 @@ export function useChatMenuActions({
     renameVisible: renameTarget !== null,
     renameText, setRenameText, actionBanner, dismissActionBanner, showActionBanner,
     closeMenu, showRowMenu, openRenameFromMenu, confirmRename,
-    shareChat, openShareChat, closeShare, loadShareMessages,
+    openShareChat, exportChatPdf,
     togglePinChat, toggleArchiveChat, confirmDeleteChat, closeRename,
   };
 }

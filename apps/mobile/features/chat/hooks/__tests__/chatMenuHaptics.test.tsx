@@ -80,7 +80,6 @@ jest.mock("@/features/chat/drawer/useDrawerChatSelection", () => ({
 jest.mock("@/features/todos/hooks/useReminderBadgeCount", () => ({ useReminderBadgeCount: () => ({}) }));
 jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
 jest.mock("@/features/chat/components/ChatRenameSheet", () => ({ ChatRenameSheet: () => null }));
-jest.mock("@/features/chat/components/ChatShareSheet", () => ({ ChatShareSheet: () => null }));
 jest.mock("@/features/chat/drawer/DrawerListHeader", () => ({ DrawerListHeader: () => null }));
 jest.mock("@/features/chat/drawer/DrawerFooter", () => ({ DrawerFooter: () => null }));
 jest.mock("@/features/chat/drawer/DrawerNavLinks", () => ({ DrawerNavLinks: () => null }));
