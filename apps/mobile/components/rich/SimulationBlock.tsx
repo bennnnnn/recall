@@ -248,21 +248,19 @@ export function SimulationBlock({ content }: Props) {
             />
           ))}
           {/* Labels last, over every line, each with a halo so nothing strikes it through. */}
-          {font ? (
-            <SceneLabels
-              spec={spec}
-              layout={layout}
-              font={font}
-              fallbacks={fallbacks}
-              wheel={wheel}
-              theme={theme}
-              progress={progress}
-              centre={centre}
-              slope={slope}
-              canvasWidth={width}
-              canvasHeight={height}
-            />
-          ) : null}
+          <SceneLabels
+            spec={spec}
+            layout={layout}
+            font={font}
+            fallbacks={fallbacks}
+            wheel={wheel}
+            theme={theme}
+            progress={progress}
+            centre={centre}
+            slope={slope}
+            canvasWidth={width}
+            canvasHeight={height}
+          />
         </Canvas>
         {RENDER_TEST_MARKERS ? (
           <SceneMarkers

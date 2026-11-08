@@ -1,25 +1,60 @@
 /**
- * Canvas text across more than one font.
+ * Canvas text across more than one font, its numbers tabular.
  *
- * A Skia font draws nothing for a character it has no glyph for, and the
- * figures' label face (SpaceMono) has no Greek: "τ = 15 N·m" came out as
- * "= 15 N·m", and an ohm sign would vanish the same way. A label is split
- * into runs, each in the first font that can draw it, and the runs are set
- * side by side.
+ * A Skia font draws nothing for a character it has no glyph for: when the
+ * figures' labels were set in SpaceMono, "τ = 15 N·m" came out as "= 15 N·m".
+ * A label is split into runs, each in the first font that can draw it, and the
+ * runs are set side by side.
+ *
+ * A Skia font cannot ask for a face's tabular figures (the UI's text does, with
+ * `fontVariant`), and the system face's digits are proportional. In such a face
+ * each digit is set in one cell, the widest digit's advance, so a column of
+ * numbers lines up; a face whose digits are one width already is drawn as is.
  */
-import type { SkFont } from "@shopify/react-native-skia";
+import type { Glyph, SkFont } from "@shopify/react-native-skia";
 
 type FontRun = { text: string; font: SkFont; dx: number };
+
+const DIGIT = /^[0-9]$/;
+const digitCells = new WeakMap<SkFont, { cell: number; varies: boolean }>();
+
+/** The widest digit's advance in `font` (the cell every digit is set in), and whether they differ. */
+function digitCell(font: SkFont): { cell: number; varies: boolean } {
+  let digits = digitCells.get(font);
+  if (digits === undefined) {
+    const widths = font.getGlyphWidths(font.getGlyphIDs("0123456789"));
+    const cell = Math.max(0, ...widths);
+    digits = { cell, varies: widths.some((width) => cell - width > 0.01) };
+    digitCells.set(font, digits);
+  }
+  return digits;
+}
+
+/** Whether `text` has digits `font` draws at different widths: they are then set in cells. */
+export function needsTabular(font: SkFont, text: string): boolean {
+  return /[0-9]/.test(text) && digitCell(font).varies;
+}
+
+/** `text`'s glyphs in `font` placed from 0, each digit centred in its cell, and their width. */
+export function tabularGlyphs(font: SkFont, text: string): { glyphs: Glyph[]; width: number } {
+  const chars = Array.from(text);
+  const ids = font.getGlyphIDs(text);
+  const widths = font.getGlyphWidths(ids);
+  const cell = chars.some((char) => DIGIT.test(char)) ? digitCell(font).cell : 0;
+  let x = 0;
+  const glyphs = ids.map((id, at) => {
+    const own = widths[at] ?? 0;
+    const advance = DIGIT.test(chars[at] ?? "") ? cell : own;
+    const glyph = { id, pos: { x: x + (advance - own) / 2, y: 0 } };
+    x += advance;
+    return glyph;
+  });
+  return { glyphs, width: x };
+}
 
 function hasGlyph(font: SkFont, char: string): boolean {
   const ids = font.getGlyphIDs(char);
   return ids.length > 0 && ids[0] !== 0;
-}
-
-/** Advance width of `text` in one font. */
-function advanceWidth(font: SkFont, text: string): number {
-  if (!text) return 0;
-  return font.getGlyphWidths(font.getGlyphIDs(text)).reduce((sum, width) => sum + width, 0);
 }
 
 /**
@@ -38,7 +73,7 @@ export function fontRuns(text: string, fonts: readonly SkFont[]): FontRun[] {
   let dx = 0;
   for (const run of runs) {
     run.dx = dx;
-    dx += advanceWidth(run.font, run.text);
+    dx += tabularGlyphs(run.font, run.text).width;
   }
   return runs;
 }
@@ -49,14 +84,11 @@ export function needsFallback(text: string, fonts: readonly SkFont[]): boolean {
   return runs.length > 1 || (runs.length === 1 && runs[0].font !== fonts[0]);
 }
 
-/**
- * The width a label takes. A single-font label keeps the font's own measure,
- * so a figure whose labels never leave it lays out exactly as before.
- */
+/** The width a label takes, as `HaloText` sets it. */
 export function measureRuns(text: string, fonts: readonly SkFont[]): number {
   if (fonts.length === 0) return 0;
-  if (!needsFallback(text, fonts)) return fonts[0].measureText(text).width;
+  if (!needsFallback(text, fonts)) return tabularGlyphs(fonts[0], text).width;
   const runs = fontRuns(text, fonts);
   const last = runs[runs.length - 1];
-  return last.dx + advanceWidth(last.font, last.text);
+  return last.dx + tabularGlyphs(last.font, last.text).width;
 }

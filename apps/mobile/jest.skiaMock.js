@@ -24,6 +24,13 @@ const makeBuilder = () => {
 };
 
 const Canvas = ({ children, ...rest }) => React.createElement(View, rest, children);
+
+// The system face `matchFont` hands back: every glyph 6.6 wide, ids by code point.
+const systemFont = {
+  measureText: (text) => ({ x: 0, y: 0, width: Array.from(text).length * 6.6, height: 11 }),
+  getGlyphIDs: (text) => Array.from(text).map((char) => char.codePointAt(0)),
+  getGlyphWidths: (ids) => ids.map(() => 6.6),
+};
 const Group = ({ children }) => (children ?? null);
 const Null = () => null;
 
@@ -36,6 +43,7 @@ module.exports = {
   RoundedRect: Null,
   DashPathEffect: Null,
   Text: Null,
+  Glyphs: Null,
   Fill: Null,
   Shader: Null,
   Skia: {
@@ -47,4 +55,5 @@ module.exports = {
     Color: () => new Float32Array([0, 0, 0, 1]),
   },
   useFont: () => null,
+  matchFont: () => systemFont,
 };

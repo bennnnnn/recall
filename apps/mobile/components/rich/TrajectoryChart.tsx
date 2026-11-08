@@ -2,7 +2,7 @@
 import { useCallback, useMemo } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Canvas, Circle, Group, Path, Skia, useFont } from "@shopify/react-native-skia";
+import { Canvas, Circle, Group, Path, Skia } from "@shopify/react-native-skia";
 import { useDerivedValue } from "react-native-reanimated";
 
 import { formatGraphExpr, mapGraphPoint } from "@/lib/math/graphBlock";
@@ -16,20 +16,20 @@ import {
 } from "@/lib/math/trajectory";
 import { Motion } from "@/lib/motion";
 import { Theme } from "@/lib/theme";
+import { TRAJECTORY_CHART_HEIGHT } from "@/components/rich/graphPlaceholder";
 import { PlaybackButton } from "@/components/rich/PlaybackButton";
 import { usePlayback } from "@/components/rich/usePlayback";
+import { useFigureFont } from "@/components/rich/skia/figureFont";
+import { measureRuns } from "@/components/rich/skia/fontRuns";
 import { HaloText } from "@/components/rich/skia/HaloText";
 import { pointsPath } from "@/components/rich/skia/paths";
 
-/** Changing either breaks TrajectoryGraphTicks.test.tsx, which pins tick geometry. */
+/** Changing it or the chart's height breaks TrajectoryGraphTicks.test.tsx, which pins tick geometry. */
 const TRAJECTORY_PAD = 40;
-const TRAJECTORY_CHART_HEIGHT = 220;
 
 const DOT_RADIUS = 5.5;
 const CURVE_STROKE = 2.5;
 const TICK_FONT_SIZE = 11;
-/** Until the font loads, a rough SpaceMono advance keeps the layout sane. */
-const FALLBACK_CHAR_WIDTH = 6.7;
 
 type Props = {
   spec: GraphSpec;
@@ -40,7 +40,7 @@ type Props = {
 
 export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
   const { t } = useTranslation();
-  const font = useFont(require("../../assets/fonts/SpaceMono-Regular.ttf"), TICK_FONT_SIZE);
+  const font = useFigureFont(TICK_FONT_SIZE);
 
   const bounds = useMemo(() => trajectoryBounds(spec.points), [spec.points]);
   const screenPoints = useMemo(
@@ -106,10 +106,7 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
   const xLabel = spec.x_label ?? "x";
   const yLabel = spec.y_label ?? "y";
   const title = formatGraphExpr(spec.title ?? "Trajectory");
-  const measure = useCallback(
-    (value: string) => font?.measureText(value).width ?? value.length * FALLBACK_CHAR_WIDTH,
-    [font],
-  );
+  const measure = useCallback((value: string) => measureRuns(value, [font]), [font]);
   const xCaption = trajectoryAxisCaptionPosition(
     measure(xLabel),
     chartWidth,
@@ -119,18 +116,9 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
   const showOrigin =
     bounds.xMin <= 0 && bounds.xMax >= 0 && bounds.yMin <= 0 && bounds.yMax >= 0;
   const originLabel = trajectoryOriginLabelPosition(axes.origin, measure("0"));
-  const label = (key: string, x: number, y: number, text: string) =>
-    font ? (
-      <HaloText
-        key={key}
-        x={x}
-        y={y}
-        text={text}
-        font={font}
-        color={theme.textSecondary}
-        halo={theme.bg}
-      />
-    ) : null;
+  const label = (key: string, x: number, y: number, text: string) => (
+    <HaloText key={key} x={x} y={y} text={text} font={font} color={theme.textSecondary} halo={theme.bg} />
+  );
 
   return (
     <View style={styles.wrap}>
@@ -177,7 +165,7 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
           onPlay={play}
           onPause={pause}
           playLabel={t("rich.graph_play_a11y")}
-          pauseLabel={t("rich.simulation_pause_a11y")}
+          pauseLabel={t("rich.graph_pause_a11y")}
         />
       ) : null}
     </View>

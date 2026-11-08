@@ -64,7 +64,12 @@ jest.mock("@shopify/react-native-skia", () => {
       },
       XYWHRect: (x: number, y: number, width: number, height: number) => ({ x, y, width, height }),
     },
-    useFont: () => ({ size: 12 }),
+    // One width for every glyph: its digits are tabular already, so labels stay text.
+    useFont: () => ({
+      size: 12,
+      getGlyphIDs: (text: string) => Array.from(text).map((char) => char.codePointAt(0) ?? 0),
+      getGlyphWidths: (ids: number[]) => ids.map(() => 6),
+    }),
   };
 });
 

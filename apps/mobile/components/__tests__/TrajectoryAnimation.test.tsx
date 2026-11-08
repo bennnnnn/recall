@@ -73,7 +73,8 @@ describe("native trajectory playback", () => {
 
     await fireEvent.press(getByLabelText("rich.graph_play_a11y"));
     expect(getByTestId("trajectory-stop-symbol").props.name).toBe("pause");
-    await fireEvent.press(getByLabelText("rich.simulation_pause_a11y"));
+    // A graph's button names the graph: it said "the trajectory animation" on a v–t graph.
+    await fireEvent.press(getByLabelText("rich.graph_pause_a11y"));
     expect(getByTestId("trajectory-play-symbol").props.name).toBe("play");
   });
 
