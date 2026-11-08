@@ -12,9 +12,11 @@ from app.core.validation import normalize_chat_title as normalize_chat_title
 from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
 from app.models.routing_lanes import ROUTING
+from app.modules.attachments.markers import without_attachment_refs
 from app.modules.conversation import service as conversation_service
 from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS
 from app.services.symbolic_text import fold_latex_marks, fold_numeric_superscripts
+from app.services.text_normalize import collapse_ws
 
 GREETING_CHAT_TITLE = "Greeting"
 
@@ -72,12 +74,19 @@ _TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
 
 def _title_source(user_message: str) -> str:
-    """The user's message as the title model reads it: keypad LaTeX folded to plain powers."""
+    """The user's message as the title model reads it: keypad LaTeX folded to plain powers.
+
+    A shared PDF's text comes padded with runs of spaces, behind a storage-path line: the
+    model's 300 characters held "Make me 3 quiz questions from this", a path and blanks, and
+    it titled the chat with the user's words. Without the path and the padding, the file's
+    own words ("Chemistry Unit 4 Study Guide") fit.
+    """
     unwrapped = _DOLLAR_SPAN.sub(
         lambda span: span.group(2) if _LATEX_INSIDE.search(span.group(2)) else span.group(0),
         user_message,
     )
-    return fold_numeric_superscripts(fold_latex_marks(unwrapped))
+    readable = collapse_ws(without_attachment_refs(unwrapped))
+    return fold_numeric_superscripts(fold_latex_marks(readable))
 
 
 def _superscript_powers(title: str) -> str:
@@ -140,7 +149,7 @@ async def generate_title(
             ),
         },
         {"role": "user", "content": _title_source(user_message)[:300]},
-        {"role": "assistant", "content": assistant_message[:300]},
+        {"role": "assistant", "content": collapse_ws(assistant_message)[:300]},
         {"role": "user", "content": "Title?"},
     ]
     raw = await litellm_gateway.complete_text(

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.gateways import litellm_gateway
 from app.models.schemas import ChatOut
 from app.modules.chat.titles import (
     GREETING_CHAT_TITLE,
@@ -180,8 +181,9 @@ async def test_generate_title_greeting_skips_model():
 )
 async def test_generate_title_reads_keypad_maths_as_plain_powers(message: str, model_reads: str):
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
-    with patch(
-        "app.modules.chat.titles.litellm_gateway.complete_text",
+    with patch.object(
+        litellm_gateway,
+        "complete_text",
         new_callable=AsyncMock,
         return_value="Quadratic Equation 3x^2-2x=8",
     ) as complete:
@@ -189,3 +191,28 @@ async def test_generate_title_reads_keypad_maths_as_plain_powers(message: str, m
     sent = complete.call_args.kwargs["messages"][1]["content"]
     assert sent == model_reads
     assert title == "Quadratic Equation 3x²-2x=8"
+
+
+@pytest.mark.asyncio
+async def test_generate_title_reads_a_shared_files_words_not_its_path_or_padding():
+    """A PDF's text came padded with spaces behind a path line, and the chat was titled with
+    the user's own words ("3 Quiz Questions From This")."""
+    message = (
+        "Make me 3 quiz questions from this\n\n"
+        "[File: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]\n"
+        "[File (application/pdf)]\n"
+        "[page 1] Chemistry Unit 4 Study Guide - Mr. Patel" + " " * 200 + "\n" + " " * 80 + "\n"
+        "Test date: Friday, November 6."
+    )
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway,
+        "complete_text",
+        new_callable=AsyncMock,
+        return_value="Chemistry Unit 4 Quiz",
+    ) as complete:
+        await generate_title(settings, message, "```quiz\n{}\n```")
+    sent = complete.call_args.kwargs["messages"][1]["content"]
+    assert "/attachments/" not in sent
+    assert "  " not in sent
+    assert "Chemistry Unit 4 Study Guide - Mr. Patel Test date: Friday" in sent
