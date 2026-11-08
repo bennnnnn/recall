@@ -1470,7 +1470,7 @@ describe("useChatSend send steps", () => {
     resolveGeo.mockResolvedValue({ ok: true, clientGeo });
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
     await send();
-    expect(resolveGeo).toHaveBeenCalledWith("token", "coffee near me", expect.any(Function), expect.any(Function));
+    expect(resolveGeo).toHaveBeenCalledWith("token", "coffee near me", expect.any(Function), expect.any(Function), false);
     const [bubble] = setMessages.mock.calls[0][0]([]);
     expect(bubble).toMatchObject({ id: expect.stringMatching(/^local-/), role: "user", content: "coffee near me" });
     expect(sendMessage).toHaveBeenCalledWith("coffee near me", {

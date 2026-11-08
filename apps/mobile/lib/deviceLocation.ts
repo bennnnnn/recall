@@ -61,6 +61,19 @@ async function runWithLocationPermission<T>(
   }
 }
 
+/** The phone already lets Recall read the location: asking would show no system sheet. */
+export async function hasLocationPermission(): Promise<boolean> {
+  if (!canUseDeviceLocation()) return false;
+  try {
+    const Location = await import("expo-location");
+    return (await Location.getForegroundPermissionsAsync()).status === "granted";
+  } catch {
+    // Read as not allowed: a geo ask then goes the asking way, which says what failed.
+    console.warn("[location] permission could not be read");
+    return false;
+  }
+}
+
 /**
  * A fix this recent and this precise answers "near me" or "where am I" without
  * a new one. Accuracy is not distance moved: two minutes on foot is a few hundred

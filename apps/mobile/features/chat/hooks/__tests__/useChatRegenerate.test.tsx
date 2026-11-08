@@ -33,16 +33,19 @@ function Probe({
   regenerateResponse,
   beginRegenerateUi,
   cancelRegenerateUi,
+  locationEnabled = false,
 }: {
   messages: Message[];
   regenerateResponse: jest.Mock;
   beginRegenerateUi?: jest.Mock;
   cancelRegenerateUi?: jest.Mock;
+  locationEnabled?: boolean | null;
 }) {
   const result = useChatRegenerate({
     token: "tok",
     messages,
     updateUser: jest.fn(),
+    locationEnabled,
     regenerateResponse,
     beginRegenerateUi,
     cancelRegenerateUi,
@@ -78,6 +81,16 @@ describe("useChatRegenerate", () => {
     await act(async () => { finish({ ok: true, clientGeo: null }); await pending; });
     expect(regenerateResponse).not.toHaveBeenCalled();
     expect(cancelRegenerateUi).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false, null])("reads the location under the account's switch (%p), never past it", async (locationEnabled) => {
+    await render(<Probe
+      messages={[msg("user", "coffee near me", "u1"), msg("assistant", "answer", "a1")]}
+      regenerateResponse={jest.fn()}
+      locationEnabled={locationEnabled}
+    />);
+    await act(async () => { await currentRegenerate("free-chat"); });
+    expect(resolveGeo).toHaveBeenCalledWith("tok", "coffee near me", expect.any(Function), expect.any(Function), locationEnabled);
   });
 
   it("asks for no location and sends nothing when the start was refused mid-reply", async () => {

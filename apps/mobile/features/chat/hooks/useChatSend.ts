@@ -82,8 +82,9 @@ type Options = {
   messages: Message[];
   selectedModel: string;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
-  /** The profile's location switch is on (a location question then need not wait for it to save). */
-  locationEnabled?: boolean;
+  /** The profile's location switch (a location question need not wait for an on one to save);
+   * null until the server has said, the launch cache knowing no switch. */
+  locationEnabled?: boolean | null;
   t: (key: string, options?: Record<string, unknown>) => string;
   onStreamBusy?: () => void;
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */

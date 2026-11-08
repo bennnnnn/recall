@@ -42,8 +42,8 @@ type Options = {
   sendMessage: (text: string, opts?: SendMessageOptions) => Promise<boolean>;
   sendStart: SendTurnStart;
   updateUser: (patch: Partial<User>) => Promise<void>;
-  /** The profile's location switch is already on: the turn need not wait for it to save. */
-  locationEnabled: boolean;
+  /** The profile's location switch, null until the server has said: on, the turn need not wait for it to save. */
+  locationEnabled: boolean | null;
   t: (key: string, options?: Record<string, unknown>) => string;
   pendingAttachmentRef: MutableRefObject<PendingAttachment | null>;
   setPendingAttachment: (value: PendingAttachment | null) => void;
@@ -175,13 +175,13 @@ export function useChatSendRoute({
       const authToken = token;
       if (!authToken) return giveBack();
       // The fix goes with the turn. The server reads one only from a user whose
-      // location is on, so only switching it on has to save before the turn goes.
+      // location is on, so only the system sheet's Allow switching it on has to save first.
       const persistLocation = (patch: Partial<User>) => {
         const saving = updateUser(patch);
         if (!locationEnabled) return saving;
         void saving.catch(() => undefined);
       };
-      const geo = await resolveClientGeoForQuery(authToken, send.text, t, persistLocation);
+      const geo = await resolveClientGeoForQuery(authToken, send.text, t, persistLocation, locationEnabled);
       if (!geo.ok || !stillSending()) return giveBack();
       // The fix is in: "Locating…" gives way to the upload, or to nothing.
       setSendPhase(attached ? "uploading" : "preparing");

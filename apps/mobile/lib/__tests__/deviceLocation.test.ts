@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 
-import { getDeviceLocationLabel, requestDeviceGeo } from "@/lib/deviceLocation";
+import { getDeviceLocationLabel, hasLocationPermission, requestDeviceGeo } from "@/lib/deviceLocation";
 
 jest.mock("@/lib/expoRuntime", () => ({ canUseDeviceLocation: () => true }));
 jest.mock("expo-location", () => ({
@@ -106,5 +106,23 @@ describe("requestDeviceGeo", () => {
     mocked.getForegroundPermissionsAsync.mockResolvedValue({ status: "denied", canAskAgain: false });
     await expect(requestDeviceGeo({ quick: true })).resolves.toEqual({ status: "blocked" });
     expect(mocked.getLastKnownPositionAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe("hasLocationPermission", () => {
+  it.each([
+    [{ status: "granted", canAskAgain: true }, true],
+    [{ status: "undetermined", canAskAgain: true }, false],
+    [{ status: "denied", canAskAgain: false }, false],
+  ])("reads %j without asking: %p", async (permission, allowed) => {
+    jest.clearAllMocks();
+    mocked.getForegroundPermissionsAsync.mockResolvedValue(permission);
+    await expect(hasLocationPermission()).resolves.toBe(allowed);
+    expect(mocked.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it("is false when the permission cannot be read", async () => {
+    mocked.getForegroundPermissionsAsync.mockRejectedValue(new Error("no module"));
+    await expect(hasLocationPermission()).resolves.toBe(false);
   });
 });

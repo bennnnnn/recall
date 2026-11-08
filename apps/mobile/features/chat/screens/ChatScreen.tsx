@@ -49,7 +49,9 @@ import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGenera
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
-  const { token, user, updateUser } = useAuth();
+  const { token, user, updateUser, profileValidated } = useAuth();
+  // The launch cache knows no location switch: null until the server has said.
+  const locationEnabled = profileValidated ? user?.location_enabled === true : null;
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
@@ -218,7 +220,7 @@ function ChatScreen() {
     messages,
     selectedModel,
     updateUser,
-    locationEnabled: user?.location_enabled === true,
+    locationEnabled,
     t,
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,
@@ -268,12 +270,7 @@ function ChatScreen() {
   });
 
   const { regenerate: handleRegenerate, regenerating } = useChatRegenerate({
-    token,
-    messages,
-    updateUser,
-    regenerateResponse,
-    beginRegenerateUi,
-    cancelRegenerateUi,
+    token, messages, updateUser, locationEnabled, regenerateResponse, beginRegenerateUi, cancelRegenerateUi,
   });
   const retryChatError = useChatErrorRecovery({
     error: chatError,

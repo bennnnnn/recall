@@ -2,7 +2,7 @@ import { Linking } from "react-native";
 
 import { getSessionGeneration } from "@/lib/auth";
 import type { ClientGeo } from "@/features/chat/model/clientGeo";
-import { requestDeviceGeo } from "@/lib/deviceLocation";
+import { hasLocationPermission, requestDeviceGeo } from "@/lib/deviceLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/places/localPlacesQuery";
 import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
@@ -45,6 +45,10 @@ function alertOpenDeviceSettings(t: Translate): void {
  * Resolve device geo for nearby / where-am-I asks.
  * Show the system permission sheet immediately — do not ask the model for a city,
  * and do not insert an in-app "Turn on" alert in front of the OS prompt.
+ * Location switched off while the phone already allows it is the user's choice, never
+ * undone here: nothing is read or sent, and the server's reply asks for the place.
+ * Before the server has said (`locationOn` null, the launch cache) a fix goes with the
+ * turn and nothing is saved: the server applies the switch.
  * A recent fix serves, and the waits are bounded: with no fix in time the turn
  * goes without one. `persistLocation` is awaited only as far as it says: the
  * caller decides whether the turn must wait for the profile to save. Coordinates
@@ -56,8 +60,14 @@ export async function resolveClientGeoForQuery(
   queryText: string,
   t: Translate,
   persistLocation: PersistLocation,
+  locationOn: boolean | null,
 ): Promise<ClientGeoResolveResult> {
   if (!queryNeedsClientGeo(queryText)) {
+    return { ok: true, clientGeo: null };
+  }
+
+  const allowedBefore = locationOn === true || (await hasLocationPermission());
+  if (locationOn === false && allowedBefore) {
     return { ok: true, clientGeo: null };
   }
 
@@ -76,8 +86,14 @@ export async function resolveClientGeoForQuery(
       latitude: geo.latitude,
       longitude: geo.longitude,
     };
+    // The switch is the user's: only their Allow on the system sheet, just now, turns it on.
+    // One that is on keeps its place fresh; one not yet read from the server saves nothing.
+    const justAllowed = !allowedBefore;
+    if (!justAllowed && locationOn !== true) return { ok: true, clientGeo };
+    const named = place ? { location: place } : null;
     try {
-      await persistLocation(place ? { location: place, location_enabled: true } : { location_enabled: true });
+      if (justAllowed) await persistLocation({ ...named, location_enabled: true });
+      else if (named) await persistLocation(named);
     } catch {
       // Still use this turn's fix; Settings may catch up on next refresh.
     }
