@@ -141,6 +141,60 @@ async def test_realtime_client_secret_binds_session_config_and_retries_connects(
     assert "Do not invent speech from silence" in transcription["prompt"]
 
 
+def _secret_response(status_code: int, body: dict | None = None) -> MagicMock:
+    response = MagicMock()
+    response.status_code = status_code
+    response.text = str(body or {})
+    response.json.return_value = body or {}
+    if status_code >= 400:
+        response.raise_for_status = MagicMock(side_effect=RuntimeError(f"HTTP {status_code}"))
+    else:
+        response.raise_for_status = MagicMock()
+    return response
+
+
+# A code the transcriber does not take (Amharic the likeliest) failed every call in that
+# language with a 502: the session is minted again without the language.
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "language, statuses, sent_languages, minted",
+    [
+        ("am", [400, 200], ["am", None], True),
+        ("am", [422, 200], ["am", None], True),
+        ("am", [400, 400], ["am", None], False),
+        ("am", [401], ["am"], False),
+        ("am", [500], ["am"], False),
+        (None, [400], [None], False),
+        ("de", [200], ["de"], True),
+    ],
+)
+async def test_mint_without_the_language_when_openai_refuses_it(
+    caplog, language, statuses, sent_languages, minted
+):
+    client = MagicMock()
+    client.post = AsyncMock(
+        side_effect=[
+            _secret_response(code, {"value": "ek_test", "expires_at": 123} if code == 200 else None)
+            for code in statuses
+        ]
+    )
+    settings = Settings(openai_api_key="sk-test", speech_realtime_voice_enabled=True)
+
+    with patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client):
+        result = await openai_speech_gateway.create_realtime_client_secret(
+            settings, instructions="Recall", safety_identifier="user-hash", language=language
+        )
+
+    sent = [
+        call.kwargs["json"]["session"]["audio"]["input"]["transcription"].get("language")
+        for call in client.post.call_args_list
+    ]
+    assert sent == sent_languages
+    assert (result is not None) is minted
+    if sent_languages == ["am", None]:
+        assert "minting it without the language" in caplog.text
+
+
 def _realtime_app(user, settings: Settings):
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user

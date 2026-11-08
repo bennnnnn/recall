@@ -14,6 +14,8 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+import httpx
+
 from app.core.config import Settings
 from app.gateways.http_client import get_pooled_client
 from app.gateways.speech_gateway import stt_language_code
@@ -33,6 +35,10 @@ _REALTIME_CONNECT_RETRIES = 2
 _LIVE_TALK_ALIAS = "live-talk-model"
 _DEFAULT_REALTIME_VOICE = "marin"
 _REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-live-transcribe"
+# OpenAI refused the session as a bad request: one that named a transcription language is
+# minted again without it, so a code the transcriber does not take never fails live talk
+# for everyone in that language.
+_REFUSED_SESSION = frozenset({400, 422})
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,25 +168,33 @@ async def create_realtime_client_secret(
         _REALTIME_TIMEOUT_SECONDS,
         connect_retries=_REALTIME_CONNECT_RETRIES,
     )
-    try:
-        response = await client.post(
-            _OPENAI_REALTIME_CLIENT_SECRETS_URL,
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
-                "OpenAI-Safety-Identifier": safety_identifier[:128],
-            },
-            json={
-                "session": realtime_session_config(
-                    settings,
-                    instructions,
-                    barge_in=barge_in,
-                    tools_enabled=tools_enabled,
-                    voice=voice,
-                    language=language,
-                )
-            },
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "OpenAI-Safety-Identifier": safety_identifier[:128],
+    }
+
+    def session(spoken: str | None) -> dict[str, object]:
+        return realtime_session_config(
+            settings,
+            instructions,
+            barge_in=barge_in,
+            tools_enabled=tools_enabled,
+            voice=voice,
+            language=spoken,
         )
+
+    try:
+        response = await _post_client_secret(client, headers, session(language))
+        if response.status_code in _REFUSED_SESSION and stt_language_code(language):
+            logger.warning(
+                "OpenAI Realtime refused the session with transcription language=%s "
+                "status=%s body=%s; minting it without the language",
+                stt_language_code(language),
+                response.status_code,
+                response.text[:400],
+            )
+            response = await _post_client_secret(client, headers, session(None))
         if response.status_code >= 400:
             logger.warning(
                 "OpenAI Realtime client-secret failed model=%s status=%s body=%s",
@@ -199,6 +213,14 @@ async def create_realtime_client_secret(
     except Exception:
         logger.exception("Could not mint OpenAI Realtime client secret")
         return None
+
+
+async def _post_client_secret(
+    client: httpx.AsyncClient, headers: dict[str, str], session: dict[str, object]
+) -> httpx.Response:
+    return await client.post(
+        _OPENAI_REALTIME_CLIENT_SECRETS_URL, headers=headers, json={"session": session}
+    )
 
 
 def _call_id_from_location(location: str) -> str | None:
