@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ScanHandle } from "@/lib/math/scannerRegion";
 import { Radius } from "@/lib/radius";
-import { shadowElevated } from "@/lib/shadow";
+import { shadowOutline } from "@/lib/shadow";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
@@ -186,7 +186,7 @@ function makeStyles(theme: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: "transparent",
       zIndex: 4,
-      ...shadowElevated(theme, "fab"),
+      ...shadowOutline(theme),
     },
     regionDetecting: {
       borderColor: withAlpha(theme.primary, 0.72),
@@ -212,11 +212,11 @@ function makeStyles(theme: Theme) {
       opacity: 0.42,
       transform: [{ translateY: -9 }],
     },
-    // Above the frame on Android too: its shadow's elevation would otherwise take the touch.
+    // Above the frame for touches. No elevation: Android drew a shadow through these
+    // see-through areas, a dark band inside the frame's edges.
     handle: {
       position: "absolute",
       zIndex: 8,
-      elevation: 12,
     },
     gripRow: { position: "absolute", left: 0, right: 0, alignItems: "center" },
     gripColumn: { position: "absolute", top: 0, bottom: 0, justifyContent: "center" },
