@@ -108,7 +108,8 @@ export function createInOrder() {
   let last: Promise<unknown> = Promise.resolve();
   return <T>(task: () => Promise<T>): Promise<T> => {
     const next = last.then(task);
-    last = next.catch(() => undefined);
+    // The next waits for this one to settle; its caller meets the failure, if any.
+    last = Promise.allSettled([next]);
     return next;
   };
 }

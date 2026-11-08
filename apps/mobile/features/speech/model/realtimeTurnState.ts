@@ -75,10 +75,7 @@ export type RealtimeTurnState = {
   playingResponseId: string | null;
   userSpeaking: boolean;
   suppressCurrentInputTurn: boolean;
-  /**
-   * The last utterance dropped (echo, muted, too early), by its own id. The accepted one before it
-   * stays active, so its late line must not be taken for the dropped one's and lost with it.
-   */
+  /** The last utterance dropped (echo, muted, too early), by its own id: not the active one's. */
   suppressedInputId: string | null;
   acceptedUserUtterance: boolean;
   responseFinished: boolean;
@@ -243,8 +240,7 @@ function onSpeechStopped(s: RealtimeTurnState, out: Out): void {
     s.acceptedUserUtterance = false;
     return;
   }
-  // Muted mid-sentence (or a turn an error cut short) asks for no reply: the phone waited
-  // for one in "thinking" for good.
+  // Muted mid-sentence (or cut short by an error), none is asked for: the phone waited in "thinking".
   const replying = liveTalkShouldCreateResponse(s);
   emit(out, { type: "speech_stopped", replying });
   if (!replying) return;
@@ -279,10 +275,8 @@ function onResponseCreated(s: RealtimeTurnState, out: Out, response: { id?: stri
 }
 
 /**
- * The user's line, for the utterance it names. A line can land after the next utterance began:
- * it still belongs to its own turn, so it is said with its id rather than dropped. A line for an
- * utterance never accepted (echo, muted, too early) is dropped, by that utterance's own id: the
- * accepted one before it stays active, and its late line was once dropped in the other's place.
+ * The user's line, for the utterance it names: one landing after the next utterance began is
+ * said with its id. A dropped utterance's line goes by that one's own id, never the active one's.
  */
 function onInputTranscript(s: RealtimeTurnState, out: Out, event: Record<string, unknown>): void {
   // A line that names no utterance is the one being heard: the dropped one, if any.
