@@ -9,8 +9,8 @@
  * Green, pink and warm hues are welcome, but no preset may read as a status:
  * its primary stays a clear step (CIEDE2000 ≥ 12) from success, warning and
  * danger in both schemes, so a primary button never looks like a done check,
- * an overdue time or a warning. Forest is a yellower, more vivid green than
- * success's jade; rose is pink, not danger's red; mocha is a muted brown, not
+ * an overdue time or a warning. Green is a yellower, more vivid green than
+ * success's jade; pink is pink, not danger's red; mocha is a muted brown, not
  * warning's orange.
  */
 
@@ -83,7 +83,7 @@ export const ACCENTS = {
       onPrimary: "#0F0F10",
     },
   },
-  forest: {
+  green: {
     light: {
       primary: "#2A6C02",
       primaryLight: "#E2F3DD",
@@ -153,12 +153,12 @@ export const ACCENTS = {
       onPrimary: "#0F0F10",
     },
   },
-  rose: {
+  pink: {
     light: {
-      primary: "#B51B5E",
-      primaryLight: "#FFE6EC",
-      primaryDark: "#9A134E",
-      userBubble: "#FEF2F5",
+      primary: "#C4246C",
+      primaryLight: "#FCE4EF",
+      primaryDark: "#A41E5A",
+      userBubble: "#FDF0F6",
       onPrimary: "#FFFFFF",
     },
     dark: {

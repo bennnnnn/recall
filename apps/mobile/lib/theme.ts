@@ -2,7 +2,7 @@
  * App theme — one palette via `useTheme()`. Neutral surfaces + one accent
  * (indigo by default, or the user's pick in `lib/accent.ts`) for primary
  * actions, selection, progress, links, and focus.
- * Success / goal-met stays jade green, and every accent (forest included) keeps a
+ * Success / goal-met stays jade green, and every accent (green included) keeps a
  * clear step from it, so “done” never reads as brand.
  * Do not hardcode hex in components — add a token here instead.
  *
