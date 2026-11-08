@@ -7,6 +7,12 @@ import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 /**
+ * Two lines (22 + 16pt) fill most of the 44pt bar at the default size, and the native title
+ * does not grow with Dynamic Type either: at iOS XX-Large they stood 47pt, taller than the bar.
+ */
+const HEADER_TITLE_MAX_SCALE = 1;
+
+/**
  * The To-do header's title, with the list's view on a line under it ("Today", "Completed").
  * The view was named only inside the ⋯ menu, so a list gave no sign of which one it showed.
  * Null `view` (a to-do's own page) draws the title alone.
@@ -24,11 +30,19 @@ export function TodosHeaderTitle({ view }: { view: TodoView | null }) {
       accessibilityRole="header"
       accessibilityLabel={viewLabel ? `${title}, ${viewLabel}` : title}
     >
-      <Text style={[Type.navTitle, { color: C.text }]} numberOfLines={1}>
+      <Text
+        style={[Type.navTitle, { color: C.text }]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={HEADER_TITLE_MAX_SCALE}
+      >
         {title}
       </Text>
       {viewLabel ? (
-        <Text style={[Type.caption, { color: C.textSecondary }]} numberOfLines={1}>
+        <Text
+          style={[Type.caption, { color: C.textSecondary }]}
+          numberOfLines={1}
+          maxFontSizeMultiplier={HEADER_TITLE_MAX_SCALE}
+        >
           {viewLabel}
         </Text>
       ) : null}
