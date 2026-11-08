@@ -50,7 +50,6 @@ function TallMath({
   layout,
   styles,
   fontScale,
-  minWidth,
   height,
   label,
   children,
@@ -58,7 +57,6 @@ function TallMath({
   layout: ReturnType<typeof layoutMath>;
   styles: ReturnType<typeof makeStyles>;
   fontScale: number;
-  minWidth: number;
   height: number;
   /** The formula read as words, when this box is its one screen-reader element. */
   label?: string;
@@ -69,9 +67,11 @@ function TallMath({
   // instead of painting past the top, where a ScrollView would clip it.
   const padTop = scaled(layout.padTop ?? 0, fontScale);
   const padBottom = scaled(layout.padBottom ?? 0, fontScale);
-  // The measured width is a floor, not the box: advances are estimates, and
-  // a box narrower than its glyphs let them paint over the space after the
-  // formula ("→ 2H₂Oshows"). The glyph runs inside widen it to their ink.
+  // The box is as wide as what it draws: its glyph runs measure their own ink, and its
+  // fractions and roots carry their laid-out widths. The estimated width is neither a cap
+  // nor a floor. As a cap the glyphs ran past it over the next word ("→ 2H₂Oshows"); as a
+  // floor its overestimate (a 0.33 em space where KaTeX_Main draws 0.25) was empty room
+  // after the last glyph, a gap before the mark that follows ("15 m/s ?").
   return (
     <View
       testID="math-text-tall"
@@ -80,7 +80,6 @@ function TallMath({
       accessibilityRole={label !== undefined ? "text" : undefined}
       accessibilityLabel={label}
       style={[styles.tallRoot, {
-        minWidth,
         height,
         ...(padTop > 0 ? { paddingTop: padTop } : null),
         ...(padBottom > 0 ? { paddingBottom: padBottom } : null),
@@ -180,7 +179,6 @@ export const MathText = memo(function MathText({
         layout={layout}
         styles={styles}
         fontScale={fontScale}
-        minWidth={contentWidth}
         height={contentHeight}
         label={boxOwns ? label : undefined}
       >
@@ -188,7 +186,7 @@ export const MathText = memo(function MathText({
       </TallMath>
     );
     if (!scroll) return content;
-    // The viewport is the paragraph width. The formula keeps its measured
+    // The viewport is the paragraph width. The formula keeps its full
     // width and scrolls; it is not shrunk to fit.
     return (
       <InlineMathScroll label={own ? label : undefined} style={[styles.inlineViewport, { height: contentHeight }]}>
