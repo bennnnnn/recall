@@ -110,6 +110,22 @@ describe("reduceRealtimeTurn: echo drop (half duplex)", () => {
     expect(state).toMatchObject({ suppressCurrentInputTurn: true, acceptedUserUtterance: false, activeInputId: "u1" });
   });
 
+  // An echo heard during the reply kept the user's own turn active; the echo's drop flag was
+  // then applied to that turn's late line, which was saved with no line (and the server keeps
+  // no reply without one).
+  it("keeps the user's late line while an echo of the reply is being dropped", () => {
+    const { commands } = run(
+      replying(false),
+      server({ type: "input_audio_buffer.speech_started", item_id: "echo" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "What is the capital of France?" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "echo", transcript: "The capital" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", transcript: "the capital" }),
+    );
+    const lines = commands.flatMap((command) =>
+      command.type === "emit" && command.event.type === "user_transcript" ? [command.event] : []);
+    expect(lines).toEqual([{ type: "user_transcript", text: "What is the capital of France?", turnId: "u1" }]);
+  });
+
   it("drops a transcript that repeats the assistant's last line", () => {
     const { commands } = run(
       replying(false),
@@ -118,6 +134,42 @@ describe("reduceRealtimeTurn: echo drop (half duplex)", () => {
     );
     expect(commands.at(-1)).toEqual({ type: "send", payload: { type: "input_audio_buffer.clear" } });
     expect(commands).not.toContainEqual(expect.objectContaining({ event: expect.objectContaining({ type: "user_transcript" }) }));
+  });
+});
+
+describe("reduceRealtimeTurn: the user's line and the reply it asks for", () => {
+  const ready = () => run(initialRealtimeTurnState(true), { type: "session_ready", reason: "test" }).state;
+  const emitted = (commands: RealtimeTurnCommand[]) =>
+    commands.flatMap((command) => (command.type === "emit" ? [command.event] : []));
+
+  it.each<[string, RealtimeTurnEvent[], boolean]>([
+    ["asks for a reply when the user stops talking", [], true],
+    ["asks for none when the user muted mid-sentence", [{ type: "set_muted", muted: true }], false],
+  ])("%s", (_label, between, replying) => {
+    const { commands } = run(
+      ready(),
+      server({ type: "input_audio_buffer.speech_started", item_id: "u1" }),
+      ...between,
+      server({ type: "input_audio_buffer.speech_stopped", item_id: "u1" }),
+    );
+    expect(emitted(commands)).toContainEqual({ type: "speech_stopped", replying });
+    expect(commands.some((command) => command.type === "send" && command.payload.type === "response.create")).toBe(replying);
+  });
+
+  it("names the utterance a late line transcribes, and drops one never accepted", () => {
+    const { commands } = run(
+      ready(),
+      server({ type: "input_audio_buffer.speech_started", item_id: "u1" }),
+      server({ type: "input_audio_buffer.speech_stopped", item_id: "u1" }),
+      server({ type: "input_audio_buffer.speech_started", item_id: "u2" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "First" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u0", transcript: "Never heard" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u2", transcript: "Second" }),
+    );
+    expect(emitted(commands).filter((event) => event.type === "user_transcript")).toEqual([
+      { type: "user_transcript", text: "First", turnId: "u1" },
+      { type: "user_transcript", text: "Second", turnId: "u2" },
+    ]);
   });
 });
 

@@ -3,6 +3,8 @@ import { Linking } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { transcribeSpeech } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
+import { readAloudSession, startReadAloud } from "@/features/speech/model/readAloudSession";
 import { deleteVoiceRecording, startVoiceRecording, type VoiceRecorder } from "@/lib/speech/voiceAudio";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 
@@ -114,6 +116,19 @@ describe("useVoiceInput microphone ownership", () => {
     expect(deleteVoiceRecording).toHaveBeenCalledWith("file:///rec.m4a");
   });
 
+  // Dictation took down Recall's own voice reading a reply as the user's message.
+  it("stops a reply read aloud before the mic opens", async () => {
+    const stopReading = jest.fn();
+    startReadAloud("message-1", stopReading);
+    startMock.mockResolvedValueOnce(fakeRecorder());
+    await render(<Probe />);
+    await act(async () => { await voice.startRecording(); });
+
+    expect(stopReading).toHaveBeenCalledTimes(1);
+    expect(readAloudSession.get()).toBeNull();
+    expect(stopReading.mock.invocationCallOrder[0]).toBeLessThan(startMock.mock.invocationCallOrder[0]!);
+  });
+
   it("deletes a recording the user cancelled (LEAK-04)", async () => {
     startMock.mockResolvedValueOnce(fakeRecorder());
     await render(<Probe />);
@@ -221,7 +236,16 @@ describe("useVoiceInput permission and transcription errors (F8.2)", () => {
 });
 
 describe("useVoiceInput plan refusal", () => {
-  it("opens the plans when the server says voice input is not in the plan", async () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Every 403 opened the plans: an account that had not agreed to outside AI services was
+  // offered an upgrade on top of the consent step the API client opens.
+  it.each([
+    [{ code: "not_in_plan", message: "Voice input isn't part of your plan." }, 1],
+    [{ code: "consent_required", message: "Agree to how Recall uses outside AI services to continue." }, 0],
+  ])("opens the plans only when voice input is not in the plan: %j", async (detail, paywalls) => {
     const { reportRecoverableError } = jest.requireMock("@/lib/reportRecoverableError") as {
       reportRecoverableError: jest.Mock;
     };
@@ -247,13 +271,11 @@ describe("useVoiceInput plan refusal", () => {
       }),
     } satisfies VoiceRecorder;
     startMock.mockResolvedValueOnce(recorder);
-    (transcribeSpeech as jest.Mock).mockRejectedValueOnce(
-      Object.assign(new Error("Voice input isn't part of your plan."), { status: 403 }),
-    );
+    (transcribeSpeech as jest.Mock).mockRejectedValueOnce(new ApiRequestError(403, JSON.stringify({ detail })));
     await render(<PlanProbe />);
     await act(async () => { await planVoice.startRecording(); });
     await act(async () => { await planVoice.finishRecording(); });
-    expect(onPlanRequired).toHaveBeenCalledTimes(1);
+    expect(onPlanRequired).toHaveBeenCalledTimes(paywalls);
     expect(reportRecoverableError).not.toHaveBeenCalled();
   });
 });

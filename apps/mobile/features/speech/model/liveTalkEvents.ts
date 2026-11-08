@@ -18,12 +18,14 @@ function liveTalkLocalIds(turnId: string): { user: string; assistant: string } {
   };
 }
 
+/** A new row goes last, or just above the row `beforeId` names when it is there. */
 function upsertLiveTalkMessage(
   messages: Message[],
   id: string,
   role: "user" | "assistant",
   content: string,
   model: string | null,
+  beforeId?: string,
 ): Message[] {
   const index = messages.findIndex((row) => row.id === id);
   if (index >= 0) {
@@ -31,16 +33,10 @@ function upsertLiveTalkMessage(
     next[index] = { ...next[index], content };
     return next;
   }
-  return [
-    ...messages,
-    {
-      id,
-      role,
-      content,
-      model,
-      created_at: new Date().toISOString(),
-    },
-  ];
+  const row: Message = { id, role, content, model, created_at: new Date().toISOString() };
+  const before = beforeId ? messages.findIndex((existing) => existing.id === beforeId) : -1;
+  if (before < 0) return [...messages, row];
+  return [...messages.slice(0, before), row, ...messages.slice(before)];
 }
 
 export function applyLiveTalkChatEvent(
@@ -50,7 +46,9 @@ export function applyLiveTalkChatEvent(
 ): Message[] {
   const ids = liveTalkLocalIds(turnId);
   if (event.type === "user" && event.text.trim()) {
-    return upsertLiveTalkMessage(messages, ids.user, "user", event.text, null);
+    // The user's line is transcribed beside the reply and often lands after it: it goes
+    // above the reply it prompted, never below it.
+    return upsertLiveTalkMessage(messages, ids.user, "user", event.text, null, ids.assistant);
   }
   if (event.type === "assistant" && event.text.trim()) {
     return upsertLiveTalkMessage(

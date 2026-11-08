@@ -285,7 +285,8 @@ describe("the read-aloud player", () => {
     mockPlayers[0].emit({ didJustFinish: true });
     await flush();
 
-    expect(speak).toHaveBeenCalledWith("lead|timed out", expect.anything());
+    // The phone's voice reads on from the clip that did not come, not from the start again.
+    expect(speak).toHaveBeenCalledWith("timed out", expect.anything());
     requestRaw.mockReset();
     requestRaw.mockImplementation(async () => ({
       ok: true,
@@ -293,6 +294,42 @@ describe("the read-aloud player", () => {
     }));
     info.mockRestore();
   });
+
+  // A later clip refused (the day's limit, a 502) ended the reading as done after its first sentence.
+  it.each([[true, "the phone's voice reads the rest"], [false, "it fails"]])(
+    "a later clip refused: with the phone's voice to fall back on (%s), %s",
+    async (preferCloud) => {
+      const { requestRaw } = jest.requireMock<{ requestRaw: jest.Mock }>("@/lib/api/client");
+      const { speak } = jest.requireMock<{ speak: jest.Mock }>("expo-speech");
+      if (preferCloud) speak.mockImplementationOnce((_text: string, options: { onDone: () => void }) => options.onDone());
+      // The lead plays; the clip after it is refused when fetched ahead and again when reached.
+      requestRaw
+        .mockImplementationOnce(async () => ({
+          ok: true,
+          json: async () => ({ audio_base64: "QUJD", content_type: "audio/mpeg" }),
+        }))
+        .mockImplementation(async () => ({ ok: false, status: 429, json: async () => ({}) }));
+      const rest = `refused rest ${preferCloud}`;
+      const reading = readReplyAloud("m1", `lead|${rest}`, "en-US", { token: "tok", preferCloud });
+      await flush();
+      mockPlayers[0].emit({ didJustFinish: true });
+      await flush();
+
+      if (preferCloud) {
+        await expect(reading).resolves.toEqual({ ok: true });
+        expect(speak).toHaveBeenCalledWith(rest, expect.anything());
+      } else {
+        await expect(reading).resolves.toEqual({ ok: false, reason: "error" });
+        expect(speak).not.toHaveBeenCalled();
+      }
+      expect(mockPlayers).toHaveLength(1);
+      requestRaw.mockReset();
+      requestRaw.mockImplementation(async () => ({
+        ok: true,
+        json: async () => ({ audio_base64: "QUJD", content_type: "audio/mpeg" }),
+      }));
+    },
+  );
 
   it("closes the player and ends the reading on Stop", async () => {
     const reading = readReplyAloud("m1", "first|second", "en-US", { token: "tok", preferCloud: true });

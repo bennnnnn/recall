@@ -1,3 +1,4 @@
+import { CONSENT_REQUIRED_CODE } from "@/lib/api/consentRefusal";
 import { isServiceUnavailable } from "@/lib/api/errorBody";
 
 /**
@@ -26,4 +27,27 @@ function errorCode(error: unknown): string {
 export function voiceRefusalKey(error: unknown): string | undefined {
   // A Redis outage said "Too many recordings in a row", then "Could not transcribe".
   return VOICE_REFUSALS[errorCode(error)] ?? (isServiceUnavailable(error) ? "common.service_unavailable" : undefined);
+}
+
+/** The plan has no voice input (403 `not_in_plan`): the plans open instead of a message. */
+export function dictationNeedsPlan(error: unknown): boolean {
+  return errorCode(error) === "not_in_plan";
+}
+
+const NETWORK_FAILED = /network request failed|failed to fetch|timeout|timed out|could not reach/i;
+
+/**
+ * What a failed dictation says, or null when it says nothing: a 403 `consent_required` has
+ * already opened the consent step (`lib/api/client.ts`). Every 403 opened the plans instead,
+ * this one too, so an account that had not agreed was offered an upgrade it did not need.
+ */
+export function dictationFailureKey(error: unknown): string | null {
+  if (errorCode(error) === CONSENT_REQUIRED_CODE) return null;
+  const refusal = voiceRefusalKey(error);
+  if (refusal) return refusal;
+  const message = error instanceof Error ? error.message : "";
+  if (NETWORK_FAILED.test(message)) return "chat.voice_network_failed";
+  if (message.includes("recording_empty")) return "chat.voice_recording_empty";
+  if (message.includes("transcribe_empty")) return "chat.voice_transcribe_empty";
+  return "chat.voice_transcribe_failed";
 }

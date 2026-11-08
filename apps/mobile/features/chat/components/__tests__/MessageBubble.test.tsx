@@ -91,7 +91,7 @@ jest.mock("@/features/chat/components/StreamProgressLabel", () => {
 jest.mock("@/features/drafts/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
-let mockAuthUser: { plan: string; features: string[]; locale: string } | null = null;
+let mockAuthUser: { plan: string; features: string[]; locale: string; tts_voice?: string } | null = null;
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: mockAuthUser }),
   useAuthUserReader: () => () => mockAuthUser,
@@ -346,7 +346,7 @@ describe("MessageBubble copy feedback timers", () => {
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
       const options = jest.mocked(readReplyAloud).mock.calls.at(-1)?.[3];
-      expect(options).toEqual({ token: null, preferCloud: false });
+      expect(options).toEqual({ token: null, preferCloud: false, voice: null });
     });
 
     it("uses the natural voice on a plan that includes read-aloud", async () => {
@@ -354,11 +354,13 @@ describe("MessageBubble copy feedback timers", () => {
         plan: "plus",
         features: ["all_models", "image_generation", "speech_transcription", "speech_tts"],
         locale: "en",
+        tts_voice: "cedar",
       };
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
       const options = jest.mocked(readReplyAloud).mock.calls.at(-1)?.[3];
-      expect(options).toEqual({ token: "token", preferCloud: true });
+      // The voice keys the clips kept for a reply: a voice changed since is asked for anew.
+      expect(options).toEqual({ token: "token", preferCloud: true, voice: "cedar" });
     });
 
     it("keeps reading when the reply leaves the screen; the player over the composer stops it", async () => {

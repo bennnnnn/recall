@@ -210,7 +210,7 @@ describe("echo drop (half duplex)", () => {
     jest.advanceTimersByTime(500);
     call.userTurn("u3");
     call.emit({ type: "conversation.item.input_audio_transcription.completed", item_id: "u3", transcript: "And Spain?" });
-    expect(call.events.at(-1)).toEqual({ type: "user_transcript", text: "And Spain?" });
+    expect(call.events.at(-1)).toEqual({ type: "user_transcript", text: "And Spain?", turnId: "u3" });
   });
 
   it("keeps a transcript that repeats the assistant when echo cancellation is on", async () => {
@@ -220,7 +220,7 @@ describe("echo drop (half duplex)", () => {
     call.emit({ type: "output_audio_buffer.stopped", response_id: "a1" });
     call.userTurn("u2");
     call.emit({ type: "conversation.item.input_audio_transcription.completed", item_id: "u2", transcript: "Paris" });
-    expect(call.events.at(-1)).toEqual({ type: "user_transcript", text: "Paris" });
+    expect(call.events.at(-1)).toEqual({ type: "user_transcript", text: "Paris", turnId: "u2" });
   });
 });
 
@@ -247,6 +247,17 @@ describe("turn rules", () => {
     expect(types()).toEqual(["connected", "speech_started", "speech_stopped"]);
   });
 
+  // Muted mid-sentence: no reply was asked for, yet the phone waited for one in "thinking".
+  it("says no reply is coming when the user mutes mid-sentence", async () => {
+    const { session, emit, sent, events } = await start("phone");
+    jest.advanceTimersByTime(1_500);
+    emit({ type: "input_audio_buffer.speech_started", item_id: "u1" });
+    session.setMuted(true);
+    emit({ type: "input_audio_buffer.speech_stopped", item_id: "u1" });
+    expect(events.at(-1)).toEqual({ type: "speech_stopped", replying: false });
+    expect(sent().filter((payload) => payload.type === "response.create")).toHaveLength(0);
+  });
+
   it("drops muted speech and asks for no reply", async () => {
     const { session, userTurn, sent, types, mic } = await start("phone");
     jest.advanceTimersByTime(1_500);
@@ -263,6 +274,16 @@ describe("turn rules", () => {
     userTurn("u1");
     emit({ type: "input_audio_buffer.speech_stopped", item_id: "u1" });
     expect(sent().filter((payload) => payload.type === "response.create")).toHaveLength(1);
+  });
+
+  // The line came after the next utterance began and was dropped: its turn kept no line.
+  it("says a late line with the earlier utterance it transcribes", async () => {
+    const { emit, userTurn, events } = await start("phone");
+    jest.advanceTimersByTime(1_500);
+    userTurn("u1");
+    emit({ type: "input_audio_buffer.speech_started", item_id: "u2" });
+    emit({ type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "What is the capital of France?" });
+    expect(events.at(-1)).toEqual({ type: "user_transcript", text: "What is the capital of France?", turnId: "u1" });
   });
 
   it("ignores silence hallucinations and transcripts of another utterance", async () => {
