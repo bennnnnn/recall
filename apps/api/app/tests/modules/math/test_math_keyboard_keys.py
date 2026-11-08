@@ -118,6 +118,16 @@ def test_keyboard_latex_reads_as_plain_notation(typed: str, plain: str) -> None:
         (r"$\mathrm{i}^{2}$", "-1"),
         (r"$2\pi \times 3$", r"6 \pi"),
         (r"$17\bmod 5$", "2"),
+        # The n! key closing the span: a factorial, not an exclamation mark (2 + 3 = 5).
+        (r"$2+3!$", "8"),
+        (r"$2\times 3!$", "12"),
+        (r"$12-4!$", "-12"),
+        # The whole power is the dividend: read as its 10, this was 10 mod 7 = 3.
+        (r"$2^{10}\bmod 7$", "2"),
+        ("evaluate 2^10 mod 7", "2"),
+        # Worked by modular exponentiation; 3^100 is never built.
+        ("3^100 mod 7", "4"),
+        (r"$2^{1000}\bmod 7$", "2"),
         (r"$\lfloor 3.7\rfloor $", "3"),
         (r"$\lceil 3.2\rceil $", "4"),
         (r"$\prod_{n=1}^{5}n$", "120"),
@@ -194,3 +204,49 @@ def test_guess_variables_skips_function_names_after_a_number(
     from app.modules.math.solve.discrete import guess_variables
 
     assert guess_variables(equation) == variables
+
+
+@pytest.mark.parametrize(
+    ("tex", "pinned"),
+    [
+        ("2+3!", "2+(3!)"),
+        ("2+13!", "2+(13!)"),
+        (r"2\times 3!", r"2\times (3!)"),
+        # Left whole: the factorial reader has these, or they are not one factorial.
+        ("5!", "5!"),
+        ("3!+2", "3!+2"),
+        ("2.5!", "2.5!"),
+        ("3!!", "3!!"),
+        ("(2+3)!", "(2+3)!"),
+    ],
+)
+def test_pin_closing_factorial_brackets_the_keys_factorial(tex: str, pinned: str) -> None:
+    from app.services.symbolic_text import pin_closing_factorial
+
+    assert pin_closing_factorial(tex) == pinned
+
+
+@pytest.mark.asyncio
+async def test_a_closing_bang_in_words_is_still_punctuation() -> None:
+    # Only the keyboard's span says the ! is a factorial; typed prose keeps its reading.
+    assert await _answer("what is 2+3!") == "5"
+
+
+@pytest.mark.parametrize(
+    "typed",
+    [
+        r"$10\bmod 3+1$",
+        r"$2+10\bmod 3$",
+        "10 mod 3 + 1",
+        "2 + 10 mod 3",
+        "10 mod 3!",
+        "3 + 2^10 mod 7",
+        "2^10 mod 7 + 1",
+        "x^10 mod 7",
+        "2^10 mod 0",
+    ],
+)
+@pytest.mark.asyncio
+async def test_mod_inside_a_longer_sum_is_not_verified_as_the_mod_alone(typed: str) -> None:
+    # ``10 mod 3 + 1`` was verified as 1: the reader took ``10 mod 3`` and dropped the rest.
+    assert await _answer(typed) is None

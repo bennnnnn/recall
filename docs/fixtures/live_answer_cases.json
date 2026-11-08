@@ -1,5 +1,5 @@
 {
-  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), null for no live answer. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. server_gap names a draft the turn still misreads (a strict expected failure until it is fixed). See docs/math.md.",
+  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), null for no live answer. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. A case may carry server_gap, a draft the turn still misreads: a strict expected failure until the fix deletes the line. See docs/math.md.",
   "cases": [
     {
       "id": "sum-then-product",
@@ -329,8 +329,25 @@
       "id": "mod-then-plus",
       "draft": "$10\\bmod 3+1$",
       "sympy": "Mod(10, 3)+1",
-      "value": "2",
-      "server_gap": "the turn verifies 10 mod 3 = 1 and drops the + 1"
+      "value": "2"
+    },
+    {
+      "id": "plus-then-mod",
+      "draft": "$2+10\\bmod 3$",
+      "sympy": "2+Mod(10, 3)",
+      "value": "3"
+    },
+    {
+      "id": "power-then-mod",
+      "draft": "$2^{10}\\bmod 7$",
+      "sympy": "Mod(2**10, 7)",
+      "value": "2"
+    },
+    {
+      "id": "big-power-then-mod",
+      "draft": "$3^{100}\\bmod 7$",
+      "sympy": "Mod(3**100, 7)",
+      "value": "4"
     },
     {
       "id": "sin-bare-degrees",
@@ -516,8 +533,19 @@
       "id": "plus-factorial",
       "draft": "$2+3!$",
       "sympy": "2+factorial(3)",
-      "value": "8",
-      "server_gap": "the turn verifies 2 + 3 = 5: written arithmetic strips a closing ! as punctuation (modules/math/match/written.py)"
+      "value": "8"
+    },
+    {
+      "id": "times-factorial",
+      "draft": "$2\\times 3!$",
+      "sympy": "2*factorial(3)",
+      "value": "12"
+    },
+    {
+      "id": "minus-factorial",
+      "draft": "$12-4!$",
+      "sympy": "12-factorial(4)",
+      "value": "-12"
     },
     {
       "id": "power-of-factorial",

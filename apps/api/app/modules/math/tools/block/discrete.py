@@ -97,6 +97,7 @@ def _verified_block_number_theory(
             operation=intent.numtheory_op,
             a=intent.numtheory_a,
             b=intent.numtheory_b,
+            exponent=intent.numtheory_exponent,
             values=intent.numtheory_values,
         )
     )

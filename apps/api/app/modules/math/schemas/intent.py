@@ -170,6 +170,8 @@ class MathIntent(BaseModel):
     numtheory_op: NumberTheoryOp | None = None
     numtheory_a: int | None = None
     numtheory_b: int | None = None
+    # ``a^e mod b``: the exponent, worked by modular exponentiation.
+    numtheory_exponent: int | None = None
     # gcd/lcm of three or more numbers ("lcm of 12, 18 and 30"), in order.
     numtheory_values: list[int] | None = None
     # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;

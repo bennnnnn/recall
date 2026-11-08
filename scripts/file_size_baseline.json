@@ -50,7 +50,7 @@
       "why": "Over 500 before the standards; tracked in ES-40"
     },
     "apps/api/app/modules/math/match/discrete.py": {
-      "lines": 573,
+      "lines": 571,
       "why": "Over 500 before the standards; tracked in ES-09"
     },
     "apps/api/app/modules/math/match/graph.py": {
