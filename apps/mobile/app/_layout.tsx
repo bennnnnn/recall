@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
+import { OpenedDocumentBootstrap } from "@/features/chat/components/OpenedDocumentBootstrap";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
@@ -135,6 +136,7 @@ export default function RootLayout() {
                 <TodosProvider>
                   <NetworkProvider>
                     <PushNotificationBootstrap />
+                    <OpenedDocumentBootstrap />
                     <AiConsentRedirect />
                     <RootNavigator />
                     <DialogHost />

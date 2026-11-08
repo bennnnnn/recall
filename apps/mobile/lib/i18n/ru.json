@@ -182,6 +182,8 @@
   "chat.new_chat": "Новый чат",
   "chat.offline_body": "Подключитесь к интернету, чтобы отправлять сообщения.",
   "chat.open_drawer_a11y": "Открыть меню",
+  "chat.opened_file_too_large": "Файл больше {{limit}} МБ, поэтому Recall не может его прикрепить.",
+  "chat.opened_file_unreadable": "Recall не удалось открыть файл. Откройте его ещё раз из другого приложения.",
   "chat.pdf_close_a11y": "Закрыть PDF",
   "chat.pdf_export_failed": "Не удалось экспортировать этот PDF.",
   "chat.pdf_open_a11y": "Открыть PDF {{fileName}}",

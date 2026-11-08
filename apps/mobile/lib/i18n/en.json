@@ -182,6 +182,8 @@
   "chat.new_chat": "New chat",
   "chat.offline_body": "Reconnect to the internet to send messages.",
   "chat.open_drawer_a11y": "Open menu",
+  "chat.opened_file_too_large": "That file is over {{limit}} MB, so Recall can’t attach it.",
+  "chat.opened_file_unreadable": "Recall couldn’t open that file. Try opening it again from the other app.",
   "chat.pdf_close_a11y": "Close PDF",
   "chat.pdf_export_failed": "Could not export this PDF.",
   "chat.pdf_open_a11y": "Open PDF {{fileName}}",

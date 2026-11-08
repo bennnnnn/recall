@@ -16,6 +16,8 @@ const listing: Record<string, string[]> = {
   "file:///cache/ImagePicker/": ["A1.jpg"],
   "file:///cache/DocumentPicker/": ["B2.pdf"],
   "file:///cache/ImageManipulator/": ["C3.jpg"],
+  // A PDF another app opened in Recall, copied for the composer.
+  "file:///cache/OpenedFiles/": ["opened-1.pdf", "opened-2.pdf"],
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -25,6 +27,8 @@ const ageDays: Record<string, number> = {
   "file:///cache/ImagePicker/A1.jpg": 8,
   "file:///cache/DocumentPicker/B2.pdf": 2,
   "file:///cache/ImageManipulator/C3.jpg": 30,
+  "file:///cache/OpenedFiles/opened-1.pdf": 9,
+  "file:///cache/OpenedFiles/opened-2.pdf": 1,
 };
 
 beforeEach(() => {
@@ -58,6 +62,9 @@ it("sign-out deletes a named PDF by the URI it was written under", async () => {
       "file:///cache/ImagePicker/A1.jpg",
       "file:///cache/DocumentPicker/B2.pdf",
       "file:///cache/ImageManipulator/C3.jpg",
+      // And every file another app opened in Recall.
+      "file:///cache/OpenedFiles/opened-1.pdf",
+      "file:///cache/OpenedFiles/opened-2.pdf",
     ].sort(),
   );
 });
@@ -66,6 +73,10 @@ it("the launch sweep deletes only picker copies older than a week", async () => 
   await sweepOldPickerCopies(NOW);
   const deleted = jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri);
   expect(deleted.sort()).toEqual(
-    ["file:///cache/ImagePicker/A1.jpg", "file:///cache/ImageManipulator/C3.jpg"].sort(),
+    [
+      "file:///cache/ImagePicker/A1.jpg",
+      "file:///cache/ImageManipulator/C3.jpg",
+      "file:///cache/OpenedFiles/opened-1.pdf",
+    ].sort(),
   );
 });

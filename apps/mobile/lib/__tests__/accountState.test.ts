@@ -35,6 +35,9 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/downloadChatAttachment.ts#localFileCache": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#refetch": "clearLocalAttachmentFileCache",
   "features/attachments/model/galleryListCache.ts#resource": "invalidateGalleryCache",
+  // A file opened in Recall while an account was signed in goes with that account; one that came
+  // while no one was signed in is no account's and waits for the next sign-in (openedDocument.ts).
+  "features/attachments/model/openedDocument.ts#held": "clearOpenedDocument",
   "features/chat/model/chatListCache.ts#resource": "invalidateChatListCache",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
   "features/chat/model/messageCache.ts#backgroundAt": "clearAllCachedChatMessages",

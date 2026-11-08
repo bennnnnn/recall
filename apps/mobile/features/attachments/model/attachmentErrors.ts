@@ -48,6 +48,19 @@ export function attachmentErrorMessage(error: unknown, t: Translate): string {
 }
 
 /**
+ * The toast for a file another app opened in Recall that could not be attached. Its own
+ * words for a file too large or unreadable: "Choose a smaller one" and "Try choosing it
+ * again" speak of a pick, and nothing here was picked.
+ */
+export function openedFileErrorMessage(error: unknown, t: Translate): string {
+  if (error instanceof AttachmentError && error.reason === "too_large") {
+    return t("chat.opened_file_too_large", { limit: MAX_ATTACHMENT_MEGABYTES });
+  }
+  if (error instanceof AttachmentError && error.reason === "unreadable") return t("chat.opened_file_unreadable");
+  return attachmentErrorMessage(error, t);
+}
+
+/**
  * The words for a failed action on a stored file (the Library's share, attach and delete; a
  * PDF card's share), always the phone's own. A refusal from the API: over a request limit,
  * Recall down, or the action's own line. Its English showed ("Too many requests. Please

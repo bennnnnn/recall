@@ -28,6 +28,7 @@ const ROOT_CATCHES = new Map([
   ["app/onboarding.tsx", "the sign-in flow, before any account screen"],
   ["app/consent.tsx", "the sign-in flow, before any account screen"],
   ["app/+not-found.tsx", "draws only a link home"],
+  ["app/+native-intent.tsx", "no screen: it turns a file another app opened in Recall into the chat route"],
 ]);
 
 const SOURCES = new Set(appFiles().map(relative));
