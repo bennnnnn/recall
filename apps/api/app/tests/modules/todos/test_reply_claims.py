@@ -161,6 +161,10 @@ def test_without_claims_keeps_everything_but_the_claim(reply: str, kept: str) ->
         # No condition on the user, or the assistant says it did it: the claim clause goes.
         ("After that, your reminder is set.", "After that."),
         ("When you asked, I've set your reminder.", "When you asked."),
+        # Review of #2338: the assistant as subject in any tense is still its own claim.
+        ("When you're ready, I'll set that for you.", "When you're ready."),
+        ("If you like, I'll remind you at 5.", "If you like."),
+        ("Once you confirm, I'm setting your reminder for 6 PM.", "Once you confirm."),
         # Re-review, 2026-11-07: past, by someone else, plural, and a condition with a claim.
         ("Your reminders for Wednesday are set.", ""),
         (

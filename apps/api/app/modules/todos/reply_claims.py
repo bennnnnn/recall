@@ -237,10 +237,11 @@ def _line_without_claims(line: str, titles: tuple[str, ...]) -> str | None:
 
 
 # "Once you tap the card, your reminder is saved": what follows a condition on the user is
-# its outcome, unless the assistant says it did it ("If you need more, ask, and I've set
-# it"). "After that, your reminder is set" has no condition on the user, so it stays a claim.
+# its outcome, unless the assistant is its subject, in any tense ("..., and I've set it",
+# "When you're ready, I'll set that", review of #2338). "After that, your reminder is set"
+# has no condition on the user, so it stays a claim.
 _CONDITION_HEAD = re.compile(r"^\W*(?:once|when|after|if|as soon as)\s+you\b", re.IGNORECASE)
-_SAYS_IT_DID = re.compile(r"\bi(?:'ve|\u2019ve| have)\b", re.IGNORECASE)
+_SAYS_IT_DID = re.compile(r"\b(?:i|we)(?:['\u2019](?:ve|ll|m|d|re))?\b", re.IGNORECASE)
 
 
 def _without_claim_tail(sentence: str, titles: tuple[str, ...]) -> str:
