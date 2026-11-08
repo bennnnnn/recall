@@ -3,7 +3,12 @@ import { act, render } from "@testing-library/react-native";
 import { watchAndroidOpenedDocuments } from "@/features/attachments/model/androidOpenedDocuments";
 import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import { claimOpenedDocument, receiveOpenedDocument } from "@/features/attachments/model/openedDocument";
+import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
+import {
+  claimOpenedDocument,
+  receiveOpenedDocument,
+  setOpenedDocumentSignIn,
+} from "@/features/attachments/model/openedDocument";
 import { copyOpenedDocument } from "@/features/attachments/model/openedDocumentCopy";
 import {
   resetComposerAttachmentQueue,
@@ -35,6 +40,13 @@ jest.mock("expo-file-system", () => ({
   File: class {
     readonly exists = true;
     delete() {}
+  },
+  // The launch sweep finds no Inbox left behind.
+  Directory: class {
+    readonly exists = false;
+    list() {
+      return [];
+    }
   },
 }));
 jest.mock("expo-router", () => ({
@@ -88,7 +100,8 @@ beforeEach(() => {
 afterEach(async () => {
   // Whatever a case left held goes, so the next starts with nothing.
   signIn(mockSession.generation);
-  await claimOpenedDocument(true);
+  setOpenedDocumentSignIn(true);
+  await claimOpenedDocument();
 });
 
 it("holds a file opened while signed out through sign-in, then puts it in New chat's composer", async () => {
@@ -104,7 +117,7 @@ it("holds a file opened while signed out through sign-in, then puts it in New ch
   await screen.rerender(<OpenedDocumentBootstrap />);
   await settle();
 
-  expect(copy).toHaveBeenCalledWith(OPENED, undefined);
+  expect(copy).toHaveBeenCalledWith(OPENED, {});
   expect(takeQueuedComposerAttachment("new")).toBe(PDF);
   // The sign-in flow ends on New chat by itself: nothing is pushed over it.
   expect(mockDismissTo).not.toHaveBeenCalled();
@@ -191,6 +204,19 @@ it("never puts a file opened under one account in the next account's composer", 
   await settle();
   expect(takeQueuedComposerAttachment("new")).toBeNull();
   expect(startNewChatGlobal).not.toHaveBeenCalled();
+});
+
+it("lets a newer file replace one still waiting for New chat's composer, and deletes the older copy", async () => {
+  // Consent is on screen: no composer takes the file yet.
+  mockPathname = "/consent";
+  const newer: PendingAttachment = { ...PDF, localUri: "file:///cache/OpenedFiles/opened-2.pdf", fileName: "Invoice.pdf" };
+  await render(<OpenedDocumentBootstrap />);
+  await open();
+  copy.mockResolvedValue(newer);
+  await open("file:///var/mobile/Containers/Data/Application/APP/Documents/Inbox/Invoice.pdf");
+
+  expect(discardLocalCopy).toHaveBeenCalledWith(PDF.localUri);
+  expect(takeQueuedComposerAttachment("new")).toBe(newer);
 });
 
 it("says why a file cannot be attached, and moves nothing", async () => {

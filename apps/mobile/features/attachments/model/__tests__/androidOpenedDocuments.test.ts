@@ -31,16 +31,17 @@ beforeEach(() => {
 
 it("takes the file that launched Recall, then each one Android hands it while it runs", async () => {
   mockNative.takeDocumentAsync
-    .mockResolvedValueOnce({ uri: SHARED, name: "Lease.pdf" })
-    .mockResolvedValueOnce({ uri: "content://downloads/document/7", name: null });
+    .mockResolvedValueOnce({ uri: SHARED, name: "Lease.pdf", size: 2048, type: "application/pdf" })
+    .mockResolvedValueOnce({ uri: "content://downloads/document/7", name: null, size: null, type: null });
   const stop = watchAndroidOpenedDocuments();
   await settle();
   expect(mockNative.addListener).toHaveBeenCalledWith("onDocument", expect.any(Function));
-  expect(received).toHaveBeenCalledWith(SHARED, "Lease.pdf");
+  // The name, size and type the provider gave, read off the JS thread.
+  expect(received).toHaveBeenCalledWith(SHARED, { name: "Lease.pdf", size: 2048, type: "application/pdf" });
 
   mockArrival?.();
   await settle();
-  expect(received).toHaveBeenLastCalledWith("content://downloads/document/7", undefined);
+  expect(received).toHaveBeenLastCalledWith("content://downloads/document/7", {});
 
   stop();
   expect(mockRemove).toHaveBeenCalled();
@@ -56,6 +57,13 @@ it("holds nothing when no file is waiting or the read fails", async () => {
   expect(received).not.toHaveBeenCalled();
   expect(warn).toHaveBeenCalledWith("[openedFile]", { stage: "take", error: "Error" });
   warn.mockRestore();
+});
+
+it("drops what is not a name, a size or a type", async () => {
+  mockNative.takeDocumentAsync.mockResolvedValueOnce({ uri: SHARED, name: 7, size: -1, type: "" });
+  watchAndroidOpenedDocuments();
+  await settle();
+  expect(received).toHaveBeenCalledWith(SHARED, {});
 });
 
 it("watches nothing in a build without the module (iOS, Expo Go, an older build)", () => {

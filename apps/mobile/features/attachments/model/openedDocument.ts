@@ -1,7 +1,8 @@
-import { File, Paths } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
+import type { OpenedFileInfo } from "@/features/attachments/model/openedDocumentCopy";
 import { getSessionGeneration, hasSessionToken } from "@/lib/auth";
 import { createListenerSet } from "@/lib/listenerSet";
 
@@ -9,42 +10,58 @@ import { createListenerSet } from "@/lib/listenerSet";
  * A file another app opened in Recall (iOS: Open in, or Recall in the share sheet's app
  * row; Android: Open with, or Share), held until New chat takes it into its composer.
  *
- * It belongs to the account signed in when it came, and only that account takes it. One
- * that came while no one was signed in (the sign-in screen, or a launch that has not read
- * the saved sign-in yet) belongs to no account: whoever signs in next takes it, once the
- * API has confirmed that sign-in, so a saved sign-in that turns out expired (and signs
- * out) never takes it into a composer its sign-out then empties.
+ * It belongs to the account whose sign-in was confirmed when it came, and only that account
+ * takes it. One that came before a sign-in was confirmed (the sign-in screen, or a launch
+ * whose saved sign-in the API has not answered for yet) belongs to no account: whoever
+ * signs in takes it once the API confirms them, so a saved sign-in that turns out revoked
+ * or expired (and signs out) neither takes it nor drops it.
  */
 type OpenedDocument = {
   uri: string;
-  /** The name the other app gave it: an Android content URI does not carry one. */
-  name?: string;
-  /** The sign-in session it came in; null when no one was signed in. */
+  info: OpenedFileInfo;
+  /** The confirmed sign-in session it came in; null when there was none. */
   owner: number | null;
 };
 
 let held: OpenedDocument | null = null;
+/** The session the chat saw the API confirm (or offline, where it cannot ask); null while none is. */
+let confirmedSession: number | null = null;
+/** Counts the files taken: a copy that a newer file overtook gives way to it. */
+let claims = 0;
 const listeners = createListenerSet();
+
+/** `a/./b/../c` as `a/c`: a path is compared as the file system resolves it. */
+function resolvedPath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (part === "..") parts.pop();
+    else if (part && part !== ".") parts.push(part);
+  }
+  return `/${parts.join("/")}${path.endsWith("/") ? "/" : ""}`;
+}
 
 /**
  * A `file:` URL's path as the file system reads it: fully decoded (an encoded "/" is a "/"
- * there too). iOS spells the container `/private/var/…` as well as `/var/…`.
+ * there too), its dot segments resolved. iOS spells the container `/private/var/…` as well
+ * as `/var/…`.
  */
 function filePath(uri: string): string | null {
   if (!/^file:\/\//i.test(uri)) return null;
+  let decoded: string;
   try {
-    return decodeURIComponent(uri.replace(/^file:\/\//i, "")).replace(/^\/private\/var\//, "/var/");
+    decoded = decodeURIComponent(uri.replace(/^file:\/\//i, ""));
   } catch (error) {
     // A malformed escape names no file iOS made.
     if (error instanceof URIError) return null;
     throw error;
   }
+  return resolvedPath(decoded).replace(/^\/private\/var\//, "/var/");
 }
 
-/** This app's container: the folder that holds Documents/, Library/ and tmp/. */
+/** This iOS app's container: the folder that holds Documents/, Library/ and tmp/. */
 function containerPath(): string | null {
   const documents = filePath(Paths.document.uri);
-  return documents ? documents.replace(/Documents\/?$/, "") : null;
+  return documents && /\/Documents\/$/.test(documents) ? documents.replace(/Documents\/$/, "") : null;
 }
 
 /** Where iOS copies a file opened in an app: Documents/Inbox, or tmp/<bundle id>-Inbox. */
@@ -64,8 +81,14 @@ export function isOpenedInboxFile(uri: string): boolean {
   const path = filePath(uri);
   const container = containerPath();
   if (!path || !container || !path.startsWith(container)) return false;
-  const name = INBOX_COPY.exec(path.slice(container.length))?.[1];
-  return name !== undefined && name !== "." && name !== "..";
+  return INBOX_COPY.test(path.slice(container.length));
+}
+
+/** A file of Recall's own container that is no Inbox copy: its private data, never an opened file. */
+function isOwnFile(uri: string): boolean {
+  const path = filePath(uri);
+  const container = containerPath();
+  return Boolean(path && container && path.startsWith(container)) && !isOpenedInboxFile(uri);
 }
 
 /** iOS leaves the Inbox copy for the app to delete: once it is read, or no longer wanted. */
@@ -85,11 +108,25 @@ function inboxCopyGone(uri: string): boolean {
   return isOpenedInboxFile(uri) && !new File(uri).exists;
 }
 
+/** The confirmed session now, or null: a file coming now is its, and only it may take one. */
+function confirmedNow(): number | null {
+  const session = getSessionGeneration();
+  return confirmedSession === session && hasSessionToken() ? session : null;
+}
+
+/**
+ * The chat says whether the API has confirmed this sign-in (or the phone is offline, where it
+ * cannot ask). Until it has, a file waits and belongs to no account.
+ */
+export function setOpenedDocumentSignIn(confirmed: boolean): void {
+  confirmedSession = confirmed ? getSessionGeneration() : null;
+}
+
 /** Hold a file another app opened in Recall; it replaces one New chat has not taken yet. */
-export function receiveOpenedDocument(uri: string, name?: string): void {
-  if (inboxCopyGone(uri)) return;
+export function receiveOpenedDocument(uri: string, info: OpenedFileInfo = {}): void {
+  if (isOwnFile(uri) || inboxCopyGone(uri)) return;
   const previous = held;
-  held = { uri, name, owner: hasSessionToken() ? getSessionGeneration() : null };
+  held = { uri, info, owner: confirmedNow() };
   if (previous && previous.uri !== uri) deleteInboxCopy(previous.uri);
   listeners.emit();
 }
@@ -100,27 +137,30 @@ export function subscribeOpenedDocument(listener: () => void): () => void {
 
 /**
  * New chat takes the held file, copied into the cache and checked like a pick (size, type).
- * `signInConfirmed`: the API has confirmed this session (or the phone is offline and cannot
- * ask); a file that came before anyone signed in waits for it. Null when nothing is held,
- * when the file waits, when it belonged to an account since signed out, or when the account
- * changed while it was copied. A file Recall cannot attach throws its AttachmentError.
+ * Null when nothing is held, when no confirmed sign-in may take it yet, when it belonged to
+ * an account since signed out, when a newer file overtook it, or when the account changed
+ * while it was copied (a copy that failed then says nothing: the sign-in screen has no
+ * composer). A file Recall cannot attach throws its AttachmentError.
  */
-export async function claimOpenedDocument(signInConfirmed: boolean): Promise<PendingAttachment | null> {
+export async function claimOpenedDocument(): Promise<PendingAttachment | null> {
   const document = held;
-  if (!document || !hasSessionToken()) return null;
-  if (document.owner === null && !signInConfirmed) return null;
+  const session = confirmedNow();
+  if (!document || session === null) return null;
   held = null;
-  const session = getSessionGeneration();
+  const claim = ++claims;
   if (document.owner !== null && document.owner !== session) {
     deleteInboxCopy(document.uri);
     return null;
   }
   try {
     const { copyOpenedDocument } = await import("@/features/attachments/model/openedDocumentCopy");
-    const pending = await copyOpenedDocument(document.uri, document.name);
-    if (session === getSessionGeneration()) return pending;
+    const pending = await copyOpenedDocument(document.uri, document.info);
+    if (session === getSessionGeneration() && claim === claims) return pending;
     discardLocalCopy(pending.localUri);
     return null;
+  } catch (error) {
+    if (session !== getSessionGeneration() || claim !== claims) return null;
+    throw error;
   } finally {
     deleteInboxCopy(document.uri);
   }
@@ -128,11 +168,41 @@ export async function claimOpenedDocument(signInConfirmed: boolean): Promise<Pen
 
 /**
  * Sign-out: a file that came while that account was signed in goes with it. One that came
- * before anyone signed in was no account's, and waits for the next sign-in.
+ * before a sign-in was confirmed was no account's, and waits for the next sign-in.
  */
 export function clearOpenedDocument(): void {
+  confirmedSession = null;
   if (!held || held.owner === null) return;
   deleteInboxCopy(held.uri);
   held = null;
   listeners.emit();
+}
+
+/** The Inbox folders iOS fills in this container: Documents/Inbox and each tmp/<bundle id>-Inbox. */
+function inboxFolders(container: string): Directory[] {
+  const folders = [new Directory(`file://${container}Documents/Inbox/`)];
+  const tmp = new Directory(`file://${container}tmp/`);
+  if (!tmp.exists) return folders;
+  return folders.concat(tmp.list().filter((entry): entry is Directory =>
+    entry instanceof Directory && /-Inbox\/?$/.test(entry.uri)));
+}
+
+/**
+ * At launch: delete Inbox copies a run that ended before New chat took them left behind (iOS
+ * keeps them, and backs them up). Only files directly inside an Inbox, never the one held now.
+ */
+export function sweepOpenedInboxCopies(): void {
+  const container = containerPath();
+  if (!container) return;
+  const keep = held ? filePath(held.uri) : null;
+  try {
+    for (const folder of inboxFolders(container)) {
+      if (!folder.exists) continue;
+      for (const entry of folder.list()) {
+        if (entry instanceof File && isOpenedInboxFile(entry.uri) && filePath(entry.uri) !== keep) entry.delete();
+      }
+    }
+  } catch (error) {
+    warn("sweep_inbox", error);
+  }
 }

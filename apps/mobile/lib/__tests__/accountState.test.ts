@@ -84,6 +84,8 @@ const SCOPED_TO_SESSION = [
   "features/attachments/model/attachmentIndexStatus.ts#pollers",
   "features/attachments/model/attachmentIndexStatus.ts#settledLoad",
   "features/attachments/model/pendingComposerAttachment.ts#queued",
+  // The sign-in the chat saw confirmed, read only while it is the session (cleared at sign-out too).
+  "features/attachments/model/openedDocument.ts#confirmedSession",
   "features/chat/drawer/drawer.ts#chatMutationRevisions",
   "features/chat/drawer/drawer.ts#mutationSession",
   "features/chat/model/pageReads.ts#pageReads",
@@ -141,6 +143,8 @@ const NO_ACCOUNT_DATA = [
   "features/attachments/model/attachments.ts#nativePickerGeneration",
   "features/attachments/model/downloadChatAttachment.ts#swept",
   "features/attachments/model/galleryLayout.ts#cachedLayout",
+  // How many opened files were taken: a copy a newer one overtook gives way.
+  "features/attachments/model/openedDocument.ts#claims",
   // The plans offers' read-and-write queue: the offers file is the phone's, not an account's.
   "features/billing/model/welcomePlans.ts#pending",
   "features/chat/drawer/drawer.ts#_onTitlePendingChange",

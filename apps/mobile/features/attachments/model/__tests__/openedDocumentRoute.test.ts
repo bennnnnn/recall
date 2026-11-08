@@ -1,5 +1,6 @@
+// The route file itself: Expo Router reads `redirectSystemPath` from app/+native-intent.tsx.
+import { redirectSystemPath } from "@/app/+native-intent";
 import { receiveOpenedDocument } from "@/features/attachments/model/openedDocument";
-import { redirectSystemPath } from "@/features/attachments/model/openedDocumentRoute";
 
 const INBOX_FILE = "file:///private/var/mobile/Containers/Data/Application/APP/tmp/com.recall.app-Inbox/Lease.pdf";
 

@@ -95,21 +95,10 @@ describe("Android", () => {
     }
   });
 
-  it("autolinks the module that reads Share's EXTRA_STREAM and the file's name", () => {
-    const moduleRoot = `${ROOT}/modules/opened-document`;
-    expect(JSON.parse(readSource(`${moduleRoot}/expo-module.config.json`))).toEqual({
+  it("autolinks the Android module that reads Share's EXTRA_STREAM and the file's name", () => {
+    expect(JSON.parse(readSource(`${ROOT}/modules/opened-document/expo-module.config.json`))).toEqual({
       platforms: ["android"],
       android: { modules: ["expo.modules.recallopeneddocument.OpenedDocumentModule"] },
     });
-    const sources = `${moduleRoot}/android/src/main/java/expo/modules/recallopeneddocument`;
-    // Autolinking registers a `*Package.kt` that implements Expo's Package: it hears the intents.
-    expect(readSource(`${sources}/OpenedDocumentPackage.kt`)).toMatch(/import expo\.modules\.core\.interfaces\.Package\b/);
-    expect(readSource(`${sources}/OpenedDocumentModule.kt`)).toContain('Name("RecallOpenedDocument")');
   });
-});
-
-it("routes a system URL through the opened-file reader, never to +not-found", () => {
-  expect(readSource(`${ROOT}/app/+native-intent.tsx`).trim()).toBe(
-    'export { redirectSystemPath } from "@/features/attachments/model/openedDocumentRoute";',
-  );
 });

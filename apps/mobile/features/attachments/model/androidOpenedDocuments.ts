@@ -1,9 +1,22 @@
 import { requireOptionalNativeModule } from "expo-modules-core";
 
 import { receiveOpenedDocument } from "@/features/attachments/model/openedDocument";
+import type { OpenedFileInfo } from "@/features/attachments/model/openedDocumentCopy";
 
-/** What `modules/opened-document` reads from the intent: the file's URI and the name its app gave it. */
-type NativeDocument = { uri?: unknown; name?: unknown };
+/**
+ * What `modules/opened-document` reads from the intent: the file's URI, and from its provider,
+ * off the JS thread, the name its app gave it, its size and its type.
+ */
+type NativeDocument = { uri?: unknown; name?: unknown; size?: unknown; type?: unknown };
+
+function infoOf(document: NativeDocument): OpenedFileInfo {
+  const { name, size, type } = document;
+  return {
+    ...(typeof name === "string" && name ? { name } : {}),
+    ...(typeof size === "number" && Number.isFinite(size) && size >= 0 ? { size } : {}),
+    ...(typeof type === "string" && type ? { type } : {}),
+  };
+}
 
 type OpenedDocumentModule = {
   takeDocumentAsync: () => Promise<NativeDocument | null>;
@@ -31,7 +44,7 @@ export function watchAndroidOpenedDocuments(): () => void {
   const take = () => {
     native.takeDocumentAsync().then((document) => {
       if (typeof document?.uri !== "string" || !document.uri) return;
-      receiveOpenedDocument(document.uri, typeof document.name === "string" ? document.name : undefined);
+      receiveOpenedDocument(document.uri, infoOf(document));
     }, (error: unknown) => {
       // An intent the module could not read leaves the chat as it was.
       console.warn("[openedFile]", { stage: "take", error: error instanceof Error ? error.name : typeof error });

@@ -7,8 +7,17 @@ import { useAuthOptional } from "@/contexts/AuthContext";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { watchAndroidOpenedDocuments } from "@/features/attachments/model/androidOpenedDocuments";
 import { openedFileErrorMessage } from "@/features/attachments/model/attachmentErrors";
-import { claimOpenedDocument, subscribeOpenedDocument } from "@/features/attachments/model/openedDocument";
-import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
+import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
+import {
+  claimOpenedDocument,
+  setOpenedDocumentSignIn,
+  subscribeOpenedDocument,
+  sweepOpenedInboxCopies,
+} from "@/features/attachments/model/openedDocument";
+import {
+  queueComposerAttachment,
+  takeQueuedComposerAttachment,
+} from "@/features/attachments/model/pendingComposerAttachment";
 import { closeDrawer, startNewChatGlobal } from "@/features/chat/drawer/drawer";
 import { COMPOSER_NEW_THREAD_KEY } from "@/features/chat/model/composerThreadDraft";
 import { useLatestRef } from "@/lib/latestRef";
@@ -65,13 +74,19 @@ export function OpenedDocumentBootstrap() {
   const leftRef = useRef<string | null>(null);
 
   useEffect(() => watchAndroidOpenedDocuments(), []);
+  // After a cold start's file is held: the Inbox copies a run that was killed left behind go.
+  useEffect(() => sweepOpenedInboxCopies(), []);
   useEffect(() => subscribeOpenedDocument(() => setArrivals((count) => count + 1)), []);
 
   useEffect(() => {
+    setOpenedDocumentSignIn(signedIn && signInConfirmed);
     if (!signedIn) return;
-    claimOpenedDocument(signInConfirmed).then(
+    claimOpenedDocument().then(
       (pending) => {
         if (!pending) return;
+        // A file still waiting for New chat's composer gives way to the newer one, and its copy goes.
+        const waiting = takeQueuedComposerAttachment(COMPOSER_NEW_THREAD_KEY);
+        if (waiting) discardLocalCopy(waiting.localUri);
         queueComposerAttachment(pending, COMPOSER_NEW_THREAD_KEY);
         if (showNewChat(router, place.current)) leftRef.current = place.current.pathname;
       },
