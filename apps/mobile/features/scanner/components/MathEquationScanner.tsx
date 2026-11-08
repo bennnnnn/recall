@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useCameraPermissions } from "expo-image-picker";
-import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -16,16 +16,15 @@ import { MathScannerChrome } from "@/features/scanner/components/MathScannerChro
 import { MathScannerCropOverlay } from "@/features/scanner/components/MathScannerCropOverlay";
 import { LiveMathScannerCamera } from "@/features/scanner/components/LiveMathScannerCamera";
 import { ScannerCameraUnavailable } from "@/features/scanner/components/ScannerCameraUnavailable";
-import { ScannerFocusRing } from "@/features/scanner/components/ScannerFocusRing";
+import { ScannerFocusArea, ScannerFocusRing } from "@/features/scanner/components/ScannerFocusRing";
 import { ScannerPermission } from "@/features/scanner/components/ScannerPermission";
 import { ScannerPreviewImage } from "@/features/scanner/components/ScannerPreviewImage";
-import { ScannerSubjectGuide } from "@/features/scanner/components/ScannerSubjectGuide";
 import { useLiveScanStatus } from "@/features/scanner/hooks/useLiveScanStatus";
 import { useMathScannerCrop } from "@/features/scanner/hooks/useMathScannerCrop";
 import { useScanContentFit } from "@/features/scanner/hooks/useScanContentFit";
 import { useScannerCamera } from "@/features/scanner/hooks/useScannerCamera";
 import { useScannerFocus } from "@/features/scanner/hooks/useScannerFocus";
-import { boxIn, type ImageBox, shotCrop } from "@/features/scanner/model/contentFit";
+import { boxIn, type ImageBox, shotCrop, shotCutMaxEdge } from "@/features/scanner/model/contentFit";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   NativePickerBusyError,
@@ -44,7 +43,7 @@ import {
   scanChromeInset,
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
-import { cropScanImage, measureScanImage, ScanFiles } from "@/features/scanner/model/scanImage";
+import { cropScanImage, measureScanImage, SCAN_MAX_EDGE, ScanFiles } from "@/features/scanner/model/scanImage";
 import {
   playScannerSwitchCue,
   stopScannerSwitchCue,
@@ -120,7 +119,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const sessionRef = useRef(0);
   const [zoom, setZoom] = useState(0);
   const [liveRegion, setLiveRegion] = useState<ScanRegion | null>(null);
-  const { liveStatus, resetLive, handleLiveDetection } = useLiveScanStatus();
+  const { liveStatus, readEpoch, resetLive, handleLiveDetection } = useLiveScanStatus();
   // One shot at a time: a capture or a preview Solve, never two.
   const shotPendingRef = useRef(false);
   const inset = useMemo(
@@ -266,7 +265,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           framed.inPhoto = boxIn(frame, size);
           framed.inCut = shot.aim;
           return shot.crop;
-        });
+        }, shotCutMaxEdge(SCAN_MAX_EDGE));
       } catch (error) {
         // The photo could not be cut: the whole photo comes up with the frame where it was aimed.
         console.warn("[scanner] could not cut the shot; showing the whole photo", error instanceof Error ? error.message : typeof error);
@@ -385,6 +384,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
                 scanRegion={scanRegion}
                 viewSize={view}
                 subject={subject}
+                readEpoch={readEpoch}
                 onReady={camera.onReady}
                 onError={camera.onError}
                 onUnavailable={camera.onUnavailable}
@@ -392,31 +392,21 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
               />
             </View> : null}
             {granted && !preview && cameraStatus.kind === "ready" ? (
-              <GestureDetector gesture={focus.tapGesture}>
-                <View style={StyleSheet.absoluteFill} testID="math-scanner-focus-area" />
-              </GestureDetector>
+              <ScannerFocusArea gesture={focus.tapGesture} inset={inset} viewHeight={view.height} />
             ) : null}
             {granted && !preview && cameraStatus.kind === "unavailable" ? (
               <ScannerCameraUnavailable reason={cameraStatus.reason} onChoosePhoto={choosePhoto} />
             ) : null}
-            {granted && !preview && !cameraOff ? <ScannerSubjectGuide subject={subject} /> : null}
             {preview ? <ScannerPreviewImage uri={preview.localUri} frame={previewFrame} view={view} /> : null}
             {preview || (granted && !cameraOff) ? (
               <MathScannerCropOverlay
                 regionGesture={crop.regionGesture}
-                cornerTL={crop.cornerTL}
-                cornerTR={crop.cornerTR}
-                cornerBL={crop.cornerBL}
-                cornerBR={crop.cornerBR}
+                handles={crop.handles}
                 regionStyle={crop.regionStyle}
                 maskTopStyle={crop.maskTopStyle}
                 maskBottomStyle={crop.maskBottomStyle}
                 maskLeftStyle={crop.maskLeftStyle}
                 maskRightStyle={crop.maskRightStyle}
-                handleTLStyle={crop.handleTLStyle}
-                handleTRStyle={crop.handleTRStyle}
-                handleBLStyle={crop.handleBLStyle}
-                handleBRStyle={crop.handleBRStyle}
                 scanning={Boolean(preview) && !busy}
                 liveStatus={preview ? "idle" : liveStatus}
                 onGrow={crop.growRegion}

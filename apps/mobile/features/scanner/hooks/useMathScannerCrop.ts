@@ -13,18 +13,19 @@ import {
 import { Motion, motionMs } from "@/lib/motion";
 import {
   type ScanChromeInset,
-  type ScanCorner,
+  type ScanHandle,
   type ScanRegion,
   clampScanRegion,
   defaultScanRegion,
   DEFAULT_REGION_HEIGHT,
   DEFAULT_REGION_WIDTH,
-  resizeScanRegionFromCorner,
+  resizeScanRegion,
+  SCAN_HANDLES,
   scaleScanRegion,
   translateScanRegion,
   zoomFromPinch,
 } from "@/lib/math/scannerRegion";
-import { useCornerHandleStyles } from "@/features/scanner/hooks/useCornerHandleStyles";
+import { useFrameHandleStyles } from "@/features/scanner/hooks/useFrameHandleStyles";
 
 const ZOOM_PUSH_DELTA = 0.02;
 /** theme.scrim is ~0.40 idle; multiply by this while dragging → ~0.25. */
@@ -65,7 +66,7 @@ export function useMathScannerCrop({
   const panBase = useSharedValue<ScanRegion>(defaultScanRegion(inset));
   const panOriginX = useSharedValue(0);
   const panOriginY = useSharedValue(0);
-  const cornerBase = useSharedValue<ScanRegion>(defaultScanRegion(inset));
+  const resizeBase = useSharedValue<ScanRegion>(defaultScanRegion(inset));
 
   useEffect(() => {
     insetSv.value = inset;
@@ -106,9 +107,10 @@ export function useMathScannerCrop({
         .onBegin(() => {
           pinchStartZoom.value = zoomSv.value;
           pinchStartRegion.value = region.value;
-          dragging.value = 1;
         })
+        // The mask lightens once a gesture is really under way, so a tap does not flash it.
         .onStart(() => {
+          dragging.value = 1;
           if (previewSv.value) runOnJS(adjust)();
         })
         .onUpdate((e) => {
@@ -119,12 +121,9 @@ export function useMathScannerCrop({
           zoomSv.value = zoomFromPinch(pinchStartZoom.value, e.scale);
         })
         .onEnd(() => {
+          dragging.value = withTiming(0, { duration: dragDuration });
           if (previewSv.value) runOnJS(pushRegion)(region.value);
           else runOnJS(onZoom)(zoomSv.value);
-        })
-        // A touch that never became a pinch (a tap) ends here too, not in onEnd.
-        .onFinalize(() => {
-          dragging.value = withTiming(0, { duration: dragDuration });
         }),
     [
       adjust,
@@ -145,10 +144,8 @@ export function useMathScannerCrop({
     () =>
       Gesture.Pan()
         .maxPointers(1)
-        .onBegin(() => {
-          dragging.value = 1;
-        })
         .onStart((e) => {
+          dragging.value = 1;
           panBase.value = region.value;
           panOriginX.value = e.translationX;
           panOriginY.value = e.translationY;
@@ -160,10 +157,8 @@ export function useMathScannerCrop({
           region.value = translateScanRegion(panBase.value, dx, dy, insetSv.value);
         })
         .onEnd(() => {
-          runOnJS(pushRegion)(region.value);
-        })
-        .onFinalize(() => {
           dragging.value = withTiming(0, { duration: dragDuration });
+          runOnJS(pushRegion)(region.value);
         }),
     [
       adjust,
@@ -180,15 +175,13 @@ export function useMathScannerCrop({
     ],
   );
 
-  const makeCornerGesture = useCallback(
-    (corner: ScanCorner) =>
+  const makeHandleGesture = useCallback(
+    (handle: ScanHandle) =>
       Gesture.Pan()
         .maxPointers(1)
-        .onBegin(() => {
-          dragging.value = 1;
-        })
         .onStart((e) => {
-          cornerBase.value = region.value;
+          dragging.value = 1;
+          resizeBase.value = region.value;
           panOriginX.value = e.translationX;
           panOriginY.value = e.translationY;
           runOnJS(adjust)();
@@ -196,17 +189,15 @@ export function useMathScannerCrop({
         .onUpdate((e) => {
           const dx = (e.translationX - panOriginX.value) / windowWidth;
           const dy = (e.translationY - panOriginY.value) / windowHeight;
-          region.value = resizeScanRegionFromCorner(cornerBase.value, corner, dx, dy, insetSv.value);
+          region.value = resizeScanRegion(resizeBase.value, handle, dx, dy, insetSv.value);
         })
         .onEnd(() => {
-          runOnJS(pushRegion)(region.value);
-        })
-        .onFinalize(() => {
           dragging.value = withTiming(0, { duration: dragDuration });
+          runOnJS(pushRegion)(region.value);
         }),
     [
       adjust,
-      cornerBase,
+      resizeBase,
       dragDuration,
       dragging,
       insetSv,
@@ -219,14 +210,11 @@ export function useMathScannerCrop({
     ],
   );
 
-  const cornerTL = useMemo(() => makeCornerGesture("tl"), [makeCornerGesture]);
-  const cornerTR = useMemo(() => makeCornerGesture("tr"), [makeCornerGesture]);
-  const cornerBL = useMemo(() => makeCornerGesture("bl"), [makeCornerGesture]);
-  const cornerBR = useMemo(() => makeCornerGesture("br"), [makeCornerGesture]);
+  const handleGestures = useMemo(() => SCAN_HANDLES.map(makeHandleGesture), [makeHandleGesture]);
 
   const tapGesture = useMemo(
     () =>
-      Gesture.Tap().onEnd((e) => {
+      Gesture.Tap().maxDistance(10).onEnd((e) => {
         const r = region.value;
         runOnJS(tap)({ x: r.x * windowWidth + e.x, y: r.y * windowHeight + e.y });
       }),
@@ -278,17 +266,24 @@ export function useMathScannerCrop({
     };
   });
 
-  const handleStyles = useCornerHandleStyles(region, windowWidth, windowHeight);
+  const handleStyles = useFrameHandleStyles(region, windowWidth, windowHeight);
+  // Each edge and corner of the frame, with what it draws and does.
+  const handles = SCAN_HANDLES.map((handle, index) => ({ handle, gesture: handleGestures[index]!, style: handleStyles[handle] }));
 
+  // Read when a fit starts: a fit that changed with Reduce Motion reset the student's frame.
+  const fitMsRef = useRef(0);
+  useEffect(() => {
+    fitMsRef.current = motionMs(Motion.duration.short, reduceMotion);
+  }, [reduceMotion]);
   /** Move the frame onto a still's problem (`fitToContent`), gliding unless motion is reduced. */
   const fitRegion = useCallback((next: ScanRegion) => {
-    const duration = motionMs(Motion.duration.short, reduceMotion);
+    const duration = fitMsRef.current;
     runOnUI((requested: ScanRegion) => {
       const target = clampScanRegion(requested, insetSv.value);
       region.value = duration > 0 ? withTiming(target, { duration }) : target;
       runOnJS(pushRegion)(target);
     })(next);
-  }, [insetSv, pushRegion, reduceMotion, region]);
+  }, [insetSv, pushRegion, region]);
 
   const resetRegion = useCallback((next?: ScanRegion) => {
     runOnUI((requested?: ScanRegion) => {
@@ -328,16 +323,12 @@ export function useMathScannerCrop({
 
   return {
     regionGesture,
-    cornerTL,
-    cornerTR,
-    cornerBL,
-    cornerBR,
+    handles,
     regionStyle,
     maskTopStyle,
     maskBottomStyle,
     maskLeftStyle,
     maskRightStyle,
-    ...handleStyles,
     resetRegion,
     fitRegion,
     growRegion,

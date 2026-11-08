@@ -9,7 +9,7 @@ const WORD = /\p{L}{2,}/gu;
 /** A question in words ("Explain how enzymes work"): enough for any subject but maths. */
 const SENTENCE_WORDS = 3;
 
-export function normalizeLiveText(text: string): string {
+function normalizeLiveText(text: string): string {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
 }
 

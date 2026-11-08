@@ -12,6 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
+import type { ScanHandle } from "@/lib/math/scannerRegion";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Motion, useReduceMotion } from "@/lib/motion";
@@ -22,21 +23,17 @@ type DetectorGesture = GestureType | LegacyComposedGesture;
 
 export type LiveScanFrameStatus = "idle" | "detecting" | "ready";
 
+/** An edge or corner of the frame to drag: its touch area and its resize gesture. */
+type FrameHandle = { handle: ScanHandle; gesture: DetectorGesture; style: AnimStyle };
+
 type Props = {
   regionGesture: DetectorGesture;
-  cornerTL: DetectorGesture;
-  cornerTR: DetectorGesture;
-  cornerBL: DetectorGesture;
-  cornerBR: DetectorGesture;
+  handles: FrameHandle[];
   regionStyle: AnimStyle;
   maskTopStyle: AnimStyle;
   maskBottomStyle: AnimStyle;
   maskLeftStyle: AnimStyle;
   maskRightStyle: AnimStyle;
-  handleTLStyle: AnimStyle;
-  handleTRStyle: AnimStyle;
-  handleBLStyle: AnimStyle;
-  handleBRStyle: AnimStyle;
   scanning: boolean;
   liveStatus?: LiveScanFrameStatus;
   onGrow: () => void;
@@ -45,19 +42,12 @@ type Props = {
 
 export function MathScannerCropOverlay({
   regionGesture,
-  cornerTL,
-  cornerTR,
-  cornerBL,
-  cornerBR,
+  handles,
   regionStyle,
   maskTopStyle,
   maskBottomStyle,
   maskLeftStyle,
   maskRightStyle,
-  handleTLStyle,
-  handleTRStyle,
-  handleBLStyle,
-  handleBRStyle,
   scanning,
   liveStatus = "idle",
   onGrow,
@@ -145,20 +135,18 @@ export function MathScannerCropOverlay({
           <View style={s.cornerTR} />
           <View style={s.cornerBL} />
           <View style={s.cornerBR} />
+          {/* A grip in the middle of each side: the edges pull out too. */}
+          <View style={[s.gripRow, s.gripTop]}><View style={s.gripBar} /></View>
+          <View style={[s.gripRow, s.gripBottom]}><View style={s.gripBar} /></View>
+          <View style={[s.gripColumn, s.gripLeft]}><View style={s.gripPost} /></View>
+          <View style={[s.gripColumn, s.gripRight]}><View style={s.gripPost} /></View>
         </Animated.View>
       </GestureDetector>
-      <GestureDetector gesture={cornerTL}>
-        <Animated.View style={[s.handle, handleTLStyle]} accessible={false} />
-      </GestureDetector>
-      <GestureDetector gesture={cornerTR}>
-        <Animated.View style={[s.handle, handleTRStyle]} accessible={false} />
-      </GestureDetector>
-      <GestureDetector gesture={cornerBL}>
-        <Animated.View style={[s.handle, handleBLStyle]} accessible={false} />
-      </GestureDetector>
-      <GestureDetector gesture={cornerBR}>
-        <Animated.View style={[s.handle, handleBRStyle]} accessible={false} />
-      </GestureDetector>
+      {handles.map(({ handle, gesture, style }) => (
+        <GestureDetector key={handle} gesture={gesture}>
+          <Animated.View style={[s.handle, style]} testID={`math-scanner-handle-${handle}`} accessible={false} />
+        </GestureDetector>
+      ))}
     </View>
   );
 }
@@ -224,10 +212,20 @@ function makeStyles(theme: Theme) {
       opacity: 0.42,
       transform: [{ translateY: -9 }],
     },
+    // Above the frame on Android too: its shadow's elevation would otherwise take the touch.
     handle: {
       position: "absolute",
       zIndex: 8,
+      elevation: 12,
     },
+    gripRow: { position: "absolute", left: 0, right: 0, alignItems: "center" },
+    gripColumn: { position: "absolute", top: 0, bottom: 0, justifyContent: "center" },
+    gripTop: { top: -3 },
+    gripBottom: { bottom: -3 },
+    gripLeft: { left: -3 },
+    gripRight: { right: -3 },
+    gripBar: { width: 28, height: 4, borderRadius: Radius.full, backgroundColor: theme.primary },
+    gripPost: { width: 4, height: 28, borderRadius: Radius.full, backgroundColor: theme.primary },
     cornerTL: { ...corner, top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: Radius.xs },
     cornerTR: { ...corner, top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: Radius.xs },
     cornerBL: { ...corner, bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: Radius.xs },

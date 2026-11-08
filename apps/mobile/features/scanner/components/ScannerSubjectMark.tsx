@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -7,29 +7,24 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Ellipse, Line, Path } from "react-native-svg";
-import { useTranslation } from "react-i18next";
 
 import { Motion, motionMs, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
-import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Theme, useTheme } from "@/lib/theme";
 
-type Props = {
-  subject: ScannerSubject;
-};
+/** The shutter's disc. */
+const DISC = 60;
+const MARK = 36;
 
-const LABEL_KEYS: Record<ScannerSubject, string> = {
-  math: "chat.math_scan_subject_math",
-  physics: "chat.math_scan_subject_physics",
-  chemistry: "chat.math_scan_subject_chemistry",
-  biology: "chat.math_scan_subject_biology",
-};
-
-export function ScannerSubjectGuide({ subject }: Props) {
-  const { t } = useTranslation();
+/**
+ * The shutter's white disc, showing the subject tab's mark, so the button says what a shot
+ * is for. A new subject's mark grows in.
+ */
+export function ShutterSubjectDisc({ subject }: { subject: ScannerSubject }) {
   const theme = useTheme();
-  const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const reduceMotion = useReduceMotion();
   const reveal = useSharedValue(1);
   const transitionMs = motionMs(Motion.duration.standard, reduceMotion);
 
@@ -45,30 +40,26 @@ export function ScannerSubjectGuide({ subject }: Props) {
   }, [reduceMotion, reveal, subject, transitionMs]);
 
   const revealStyle = useAnimatedStyle(() => ({
-    opacity: 0.4 + reveal.value * 0.6,
-    transform: [{ scale: 0.9 + reveal.value * 0.1 }],
+    opacity: 0.3 + reveal.value * 0.7,
+    transform: [{ scale: 0.8 + reveal.value * 0.2 }],
   }));
 
   return (
-    <View style={s.position} pointerEvents="none">
-      <Animated.View
-        key={subject}
-        testID={`scanner-subject-guide-${subject}`}
-        style={[s.badge, revealStyle]}
-        accessible
-        accessibilityRole="image"
-        accessibilityLabel={t(LABEL_KEYS[subject])}
-      >
-        <SubjectMark subject={subject} primary={theme.primary} ink={theme.onMedia} />
+    <Animated.View style={s.disc} testID="math-scanner-shutter-disc">
+      <Animated.View key={subject} testID={`scanner-subject-mark-${subject}`} style={revealStyle}>
+        <SubjectMark subject={subject} size={MARK} primary={theme.primary} ink={theme.mediaScrim} />
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 }
 
-function SubjectMark({ subject, primary, ink }: Props & { primary: string; ink: string }) {
+type MarkProps = { subject: ScannerSubject; size: number; primary: string; ink: string };
+
+/** A subject's line drawing: Σ for maths, an atom, a flask, a double helix. */
+function SubjectMark({ subject, size, primary, ink }: MarkProps) {
   if (subject === "physics") {
     return (
-      <Svg width={62} height={62} viewBox="0 0 64 64">
+      <Svg width={size} height={size} viewBox="0 0 64 64">
         <Ellipse cx={32} cy={32} rx={25} ry={10} fill="none" stroke={ink} strokeWidth={2.4} />
         <Ellipse
           cx={32}
@@ -100,7 +91,7 @@ function SubjectMark({ subject, primary, ink }: Props & { primary: string; ink: 
 
   if (subject === "chemistry") {
     return (
-      <Svg width={62} height={62} viewBox="0 0 64 64">
+      <Svg width={size} height={size} viewBox="0 0 64 64">
         <Path
           d="M26 8h12M28 8v16L16 52a6 6 0 0 0 5 8h22a6 6 0 0 0 5-8L36 24V8"
           fill="none"
@@ -116,7 +107,7 @@ function SubjectMark({ subject, primary, ink }: Props & { primary: string; ink: 
 
   if (subject === "biology") {
     return (
-      <Svg width={62} height={62} viewBox="0 0 64 64">
+      <Svg width={size} height={size} viewBox="0 0 64 64">
         <Path
           d="M18 7c0 12 28 12 28 25S18 45 18 57"
           fill="none"
@@ -140,7 +131,7 @@ function SubjectMark({ subject, primary, ink }: Props & { primary: string; ink: 
   }
 
   return (
-    <Svg width={62} height={62} viewBox="0 0 64 64">
+    <Svg width={size} height={size} viewBox="0 0 64 64">
       <Path
         d="M48 10H20L34 32 20 54h28"
         fill="none"
@@ -158,23 +149,13 @@ function SubjectMark({ subject, primary, ink }: Props & { primary: string; ink: 
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    position: {
-      position: "absolute",
-      top: 94,
-      left: 0,
-      right: 0,
-      alignItems: "center",
-      zIndex: 4,
-    },
-    badge: {
-      width: 82,
-      height: 82,
+    disc: {
+      width: DISC,
+      height: DISC,
+      borderRadius: Radius.full,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: Radius.xl,
-      backgroundColor: withAlpha(theme.mediaScrim, 0.3),
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: withAlpha(theme.onMedia, 0.26),
+      backgroundColor: theme.onMedia,
     },
   });
 }

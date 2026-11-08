@@ -31,10 +31,12 @@ export async function readTextLines(uri: string, size: { width: number; height: 
       .flatMap((block) => block.lines)
       .filter((line) => line.text.trim().length > 0)
       .map(({ bounds }) => ({
-        x: bounds.left / read.width,
-        y: bounds.top / read.height,
-        width: bounds.width / read.width,
-        height: bounds.height / read.height,
+        // From the edges, whichever way round: the plugin names a line's bottom edge `top`
+        // on iOS (`top: bounds.maxY`), and its top edge `top` on Android.
+        x: Math.min(bounds.left, bounds.right) / read.width,
+        y: Math.min(bounds.top, bounds.bottom) / read.height,
+        width: Math.abs(bounds.right - bounds.left) / read.width,
+        height: Math.abs(bounds.bottom - bounds.top) / read.height,
       }));
   } catch (error) {
     console.warn("[scanner] could not read the still's text", error instanceof Error ? error.message : typeof error);

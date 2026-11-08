@@ -23,15 +23,17 @@ const SAME_EDGE = 0.005;
  *   than the aim. It grows to take in whole a line the aim cut, since the student aimed at
  *   that line; a line whose middle is above or below the aim is the next problem, not a cut
  *   one. Text it cannot see, a diagram or faint handwriting, is never cut off.
- * - Without (a photo or a file) it takes every line, dropping the margins and the desk.
+ * - Without (a photo or a file) it takes every line, dropping the margins and the desk,
+ *   with a wide margin: a diagram or handwriting next to the text may be unread.
  *
- * Padded by a share of the image or half a line, whichever is more.
+ * Padded by a share of the image or part of a line, whichever is more.
  */
 export function fitToContent(lines: ImageBox[], size: Size, aim: ImageBox | null): ImageBox | null {
   const text = lines.filter((line) => line.height >= MIN_LINE_HEIGHT && line.width > 0);
   const kept = aim ? text.filter((line) => cutByAim(line, aim)) : text;
   if (kept.length === 0) return null;
-  const padded = clampToImage(pad(union(kept), padding(kept, size)));
+  const margin = aim ? { share: 0.02, lines: 0.5 } : { share: 0.06, lines: 1 };
+  const padded = clampToImage(pad(union(kept), padding(kept, size, margin)));
   const fit = aim ? union([padded, aim]) : padded;
   if (aim) return sameBox(fit, aim) ? null : fit;
   return fit.width * fit.height >= TRIM_WORTH ? null : fit;
@@ -52,11 +54,14 @@ function union(boxes: ImageBox[]): ImageBox {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
-/** 2% of the image's short side, or half the middle line height: as ratios of each side. */
-function padding(lines: ImageBox[], size: Size): { x: number; y: number } {
+/**
+ * A share of the image's short side, or some of the middle line's height, whichever is more:
+ * the same in pixels on every side, as ratios of each.
+ */
+function padding(lines: ImageBox[], size: Size, margin: { share: number; lines: number }): { x: number; y: number } {
   const heights = lines.map((line) => line.height * size.height).sort((a, b) => a - b);
   const median = heights[Math.floor(heights.length / 2)] ?? 0;
-  const px = Math.max(0.02 * Math.min(size.width, size.height), median / 2);
+  const px = Math.max(margin.share * Math.min(size.width, size.height), median * margin.lines);
   return { x: px / size.width, y: px / size.height };
 }
 
@@ -77,7 +82,12 @@ function sameBox(a: ImageBox, b: ImageBox): boolean {
 }
 
 /** Room a camera shot keeps around the live frame, as a share of the frame's size each side. */
-export const SHOT_CONTEXT = 0.2;
+const SHOT_CONTEXT = 0.2;
+
+/** How long a shot's cut may be, so the part aimed at keeps the reader's full `maxEdge`. */
+export function shotCutMaxEdge(maxEdge: number): number {
+  return Math.round(maxEdge * (1 + 2 * SHOT_CONTEXT));
+}
 
 type PixelCrop = { originX: number; originY: number; width: number; height: number };
 

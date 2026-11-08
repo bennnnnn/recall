@@ -7,8 +7,9 @@ import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/features/scanner/components/MathEquationScanner";
 import * as contentFit from "@/features/scanner/model/contentFit";
+import { shotCutMaxEdge } from "@/features/scanner/model/contentFit";
 import { readTextLines } from "@/features/scanner/model/readTextLines";
-import { cropScanImage, measureScanImage } from "@/features/scanner/model/scanImage";
+import { cropScanImage, measureScanImage, SCAN_MAX_EDGE } from "@/features/scanner/model/scanImage";
 import { selection } from "@/lib/haptics";
 import { playScannerSwitchCue } from "@/features/scanner/model/switchCue";
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
@@ -196,7 +197,16 @@ describe("MathEquationScanner", () => {
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
     expect(getByTestId("mock-live-scanner-camera")).toBeTruthy();
     expect(getByTestId("math-scanner-frame-idle")).toBeTruthy();
-    expect(getByTestId("scanner-subject-guide-math")).toBeTruthy();
+    // Every edge and corner of the frame pulls out.
+    for (const handle of ["tl", "t", "tr", "r", "br", "b", "bl", "l"]) {
+      expect(getByTestId(`math-scanner-handle-${handle}`)).toBeTruthy();
+    }
+    // Each subject tab keeps its name on one line, in a row that scrolls sideways.
+    expect(getByTestId("scanner-subject-switcher").props.horizontal).toBe(true);
+    expect(within(getByTestId("scanner-subject-chemistry")).getByText("chat.math_scan_subject_chemistry").props.numberOfLines).toBe(1);
+    // The subject's mark sits in the shutter, not over the viewfinder.
+    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-math")).toBeTruthy();
+    expect(queryByTestId("scanner-subject-guide-math")).toBeNull();
   });
 
   it("marks the live frame ready after stable on-device OCR", async () => {
@@ -364,7 +374,7 @@ describe("MathEquationScanner", () => {
     });
     expect(selection).toHaveBeenCalled();
     expect(playScannerSwitchCue).toHaveBeenCalledWith(1);
-    expect(getByTestId("scanner-subject-guide-physics")).toBeTruthy();
+    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-physics")).toBeTruthy();
   });
 
   it("takes a chemistry shot to the crop screen and sends it as chemistry on Solve", async () => {
@@ -389,14 +399,15 @@ describe("MathEquationScanner", () => {
     );
   });
 
-  it("shows the biology guide when biology is selected", async () => {
+  it("shows biology's mark in the shutter when biology is selected", async () => {
     const { getByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     await act(async () => {
       fireEvent.press(getByTestId("scanner-subject-biology"));
     });
-    expect(getByTestId("scanner-subject-guide-biology")).toBeTruthy();
+    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-biology")).toBeTruthy();
+    expect(getByTestId("scanner-subject-biology").props.accessibilityState).toEqual({ selected: true });
   });
 
   it("does not take hidden camera photos while the scanner is idle", async () => {
@@ -468,7 +479,9 @@ describe("MathEquationScanner", () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
     });
     expect(mockTakePictureAsync).toHaveBeenCalledTimes(1);
-    expect(cropScanImage).toHaveBeenCalledWith("file:///shot.jpg", expect.any(Function));
+    // The cut keeps room around the frame, so it may be longer than a scan and still send the
+    // aimed part at full size.
+    expect(cropScanImage).toHaveBeenCalledWith("file:///shot.jpg", expect.any(Function), shotCutMaxEdge(SCAN_MAX_EDGE));
     // The framed shot, with its own crop frame, Retake and Solve; nothing is sent yet.
     expect(view.getByTestId("math-scanner-preview").props.source).toEqual({ uri: "file:///cropped.jpg" });
     expect(view.getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();

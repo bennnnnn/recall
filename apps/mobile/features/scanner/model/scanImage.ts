@@ -51,6 +51,7 @@ export async function measureScanImage(uri: string): Promise<ImageSize> {
 export async function cropScanImage(
   uri: string,
   cropFor: (size: ImageSize) => PixelCrop,
+  maxEdge = SCAN_MAX_EDGE,
 ): Promise<{ uri: string } & ImageSize> {
   const context = ImageManipulator.manipulate(uri);
   let source: ImageRef | undefined;
@@ -59,7 +60,7 @@ export async function cropScanImage(
     source = await context.renderAsync();
     const crop = cropFor(validSize(source));
     context.crop(crop);
-    const resize = scanResize(crop);
+    const resize = scanResize(crop, maxEdge);
     if (resize) context.resize(resize);
     result = await context.renderAsync();
     const saved = await result.saveAsync({ compress: SCAN_JPEG_QUALITY, format: SaveFormat.JPEG });

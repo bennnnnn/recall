@@ -15,9 +15,11 @@ export function useScannerFocus(cameraRef: RefObject<LiveScannerCameraHandle | n
     cameraRef.current?.focusAt(point);
     setFocusPoint((last) => ({ ...point, id: (last?.id ?? 0) + 1 }));
   }, [cameraRef, live]);
-  // Outside the frame: the frame's own gesture reports taps inside it (`onTap`).
+  // Outside the frame: the frame's own gesture reports taps inside it (`onTap`). The tap
+  // area starts below the top controls; the camera fills the scanner's full-screen window,
+  // so a point in that window is a point on the camera view.
   const tapGesture = useMemo(
-    () => Gesture.Tap().runOnJS(true).onEnd((event) => focusAt({ x: event.x, y: event.y })),
+    () => Gesture.Tap().maxDistance(10).runOnJS(true).onEnd((event) => focusAt({ x: event.absoluteX, y: event.absoluteY })),
     [focusAt],
   );
   return { focusPoint: live ? focusPoint : null, focusAt, tapGesture };

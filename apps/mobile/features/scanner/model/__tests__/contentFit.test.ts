@@ -30,17 +30,18 @@ describe("fitToContent on a camera shot (an aim)", () => {
 });
 
 describe("fitToContent on a photo (no aim)", () => {
-  it("takes every line, dropping the margins and the desk", () => {
+  it("takes every line, dropping the margins and the desk, with a wide margin", () => {
+    // 6% of the photo: room for a diagram or handwriting beside the text that went unread.
     const fit = fitToContent([line(0.3, 0.3, 0.3), line(0.3, 0.36, 0.25)], SIZE, null)!;
-    expect(fit.x).toBeCloseTo(0.3 - 0.02, 5);
-    expect(fit.y).toBeCloseTo(0.3 - 0.02, 5);
-    expect(fit.x + fit.width).toBeCloseTo(0.6 + 0.02, 5);
-    expect(fit.y + fit.height).toBeCloseTo(0.4 + 0.02, 5);
+    expect(fit.x).toBeCloseTo(0.3 - 0.06, 5);
+    expect(fit.y).toBeCloseTo(0.3 - 0.06, 5);
+    expect(fit.x + fit.width).toBeCloseTo(0.6 + 0.06, 5);
+    expect(fit.y + fit.height).toBeCloseTo(0.4 + 0.06, 5);
   });
 
-  it("pads by half a line when lines are tall", () => {
+  it("pads by a whole line when lines are tall", () => {
     const fit = fitToContent([line(0.3, 0.3, 0.3, 0.1)], SIZE, null)!;
-    expect(fit.y).toBeCloseTo(0.25, 5);
+    expect(fit.y).toBeCloseTo(0.2, 5);
   });
 
   it("ignores specks, and moves nothing for a photo with no text", () => {

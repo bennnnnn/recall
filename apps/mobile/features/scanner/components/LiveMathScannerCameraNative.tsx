@@ -50,6 +50,8 @@ export type LiveScannerCameraProps = {
   viewSize: Size;
   /** The subject tab: what counts as a problem's text (`hasUsefulScannerText`). */
   subject: ScannerSubject;
+  /** Changes whenever the scanner's status starts over; the reading starts over with it. */
+  readEpoch: number;
   onReady: () => void;
   onError: () => void;
   onDetectionChange: (detection: LiveScannerDetection) => void;
@@ -81,6 +83,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
       scanRegion,
       viewSize,
       subject,
+      readEpoch,
       onReady,
       onError,
       onDetectionChange,
@@ -123,11 +126,12 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
     const lastReadAt = useMemo(() => createSynchronizable(0), []);
     const readRef = useRef<LiveReadState>({ text: "", count: 0 });
     const lastDetectionKeyRef = useRef("");
-    // A moved frame or another subject starts the reading over, as the scanner's status does.
+    // The scanner's status started over (a moved frame, another subject, a retake): so does
+    // the reading, or a steady read would never be published again.
     useEffect(() => {
       readRef.current = { text: "", count: 0 };
       lastDetectionKeyRef.current = "";
-    }, [scanRegion.x, scanRegion.y, scanRegion.width, scanRegion.height, subject]);
+    }, [readEpoch]);
 
     const publishFrameText = useCallback(
       (rawText: string, frameWidth: number, frameHeight: number) => {
@@ -164,10 +168,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
       },
     });
 
-    const outputs = useMemo(
-      () => [photoOutput, frameOutput],
-      [frameOutput, photoOutput],
-    );
+    const outputs = useMemo(() => [photoOutput, frameOutput], [frameOutput, photoOutput]);
     const constraints = useMemo(() => [{ fps: 30 }], []);
 
     const cameraZoom = useMemo(() => {

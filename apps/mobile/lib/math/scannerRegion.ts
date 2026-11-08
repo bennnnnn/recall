@@ -28,10 +28,6 @@ export const MAX_REGION_RATIO = 0.92;
 export const DEFAULT_REGION_WIDTH = 0.82;
 export const DEFAULT_REGION_HEIGHT = 0.3;
 
-/** Matches `Space.minTouch`. Handles shrink toward HANDLE_HIT_MIN. */
-export const HANDLE_HIT_MAX = 44;
-export const HANDLE_HIT_MIN = 16;
-
 /** Pixel chrome used to derive `ScanChromeInset` (matches MathScannerChrome). */
 export const SCANNER_TOP_CONTROL_PX = 44;
 export const SCANNER_SHUTTER_PX = 76;
@@ -78,17 +74,11 @@ export function clampScanRegion(
   const maxH = Math.min(MAX_REGION_RATIO, availH);
   const width = Math.min(maxW, Math.max(minW, region.width));
   const height = Math.min(maxH, Math.max(minH, region.height));
-  const x = Math.min(1 - inset.right - width, Math.max(inset.left, region.x));
-  const y = Math.min(1 - inset.bottom - height, Math.max(inset.top, region.y));
+  // A frame grown to the smallest size (a one-line fit) grows around its middle, so it
+  // stays on what it framed instead of reaching right and down.
+  const x = Math.min(1 - inset.right - width, Math.max(inset.left, region.x + (region.width - width) / 2));
+  const y = Math.min(1 - inset.bottom - height, Math.max(inset.top, region.y + (region.height - height) / 2));
   return { x, y, width, height };
-}
-
-export function handleHitSize(regionWidthPx: number, regionHeightPx: number): number {
-  "worklet";
-  const room = Math.min(regionWidthPx, regionHeightPx);
-  if (!(room > 0)) return HANDLE_HIT_MIN;
-  const size = Math.min(HANDLE_HIT_MAX, Math.max(HANDLE_HIT_MIN, room * 0.4));
-  return size;
 }
 
 /** Resize `base` around its own center by `scale`, then re-clamp. */
@@ -116,49 +106,39 @@ export function translateScanRegion(
   return clampScanRegion({ ...base, x: base.x + dxRatio, y: base.y + dyRatio }, inset);
 }
 
-export type ScanCorner = "tl" | "tr" | "bl" | "br";
+/** A handle on the crop frame: an edge (top, bottom, left, right) or a corner. */
+export type ScanHandle = "t" | "b" | "l" | "r" | "tl" | "tr" | "bl" | "br";
+export const SCAN_HANDLES: readonly ScanHandle[] = ["tl", "t", "tr", "r", "br", "b", "bl", "l"];
 
-/** Resize by dragging one corner. The opposite corner stays put until min-size. */
-export function resizeScanRegionFromCorner(
+/**
+ * Resize by dragging an edge or a corner. Only the edges it holds move, and each stops at
+ * the free screen and at the smallest and largest frame, so the opposite edges stay put
+ * (a corner pushed off the screen used to shove the far side across instead).
+ */
+export function resizeScanRegion(
   base: ScanRegion,
-  corner: ScanCorner,
+  handle: ScanHandle,
   dxRatio: number,
   dyRatio: number,
   chrome?: ScanChromeInset,
 ): ScanRegion {
   "worklet";
   const inset = chrome ?? ZERO_INSET;
-  let left = base.x;
-  let top = base.y;
-  let right = base.x + base.width;
-  let bottom = base.y + base.height;
-  if (corner === "tl" || corner === "bl") left += dxRatio;
-  if (corner === "tr" || corner === "br") right += dxRatio;
-  if (corner === "tl" || corner === "tr") top += dyRatio;
-  if (corner === "bl" || corner === "br") bottom += dyRatio;
-
   const availW = Math.max(0, 1 - inset.left - inset.right);
   const availH = Math.max(0, 1 - inset.top - inset.bottom);
   const minW = Math.min(MIN_REGION_RATIO, availW);
   const minH = Math.min(MIN_REGION_RATIO, availH);
-
-  if (right - left < minW) {
-    if (corner === "tl" || corner === "bl") left = right - minW;
-    else right = left + minW;
-  }
-  if (bottom - top < minH) {
-    if (corner === "tl" || corner === "tr") top = bottom - minH;
-    else bottom = top + minH;
-  }
-  return clampScanRegion(
-    {
-      x: left,
-      y: top,
-      width: right - left,
-      height: bottom - top,
-    },
-    inset,
-  );
+  const maxW = Math.min(MAX_REGION_RATIO, availW);
+  const maxH = Math.min(MAX_REGION_RATIO, availH);
+  let left = base.x;
+  let top = base.y;
+  let right = base.x + base.width;
+  let bottom = base.y + base.height;
+  if (handle.includes("l")) left = Math.min(right - minW, Math.max(inset.left, right - maxW, left + dxRatio));
+  if (handle.includes("r")) right = Math.max(left + minW, Math.min(1 - inset.right, left + maxW, right + dxRatio));
+  if (handle.includes("t")) top = Math.min(bottom - minH, Math.max(inset.top, bottom - maxH, top + dyRatio));
+  if (handle.includes("b")) bottom = Math.max(top + minH, Math.min(1 - inset.bottom, top + maxH, bottom + dyRatio));
+  return clampScanRegion({ x: left, y: top, width: right - left, height: bottom - top }, inset);
 }
 
 export function regionsClose(a: ScanRegion, b: ScanRegion, epsilon = 1e-3): boolean {

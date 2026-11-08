@@ -1,15 +1,12 @@
 import {
-  HANDLE_HIT_MAX,
-  HANDLE_HIT_MIN,
   MAX_REGION_RATIO,
   MIN_REGION_RATIO,
   clampCameraZoom,
   clampScanRegion,
   defaultScanRegion,
-  handleHitSize,
   regionToImageCrop,
   regionsClose,
-  resizeScanRegionFromCorner,
+  resizeScanRegion,
   scaleScanRegion,
   scanChromeInset,
   translateScanRegion,
@@ -36,6 +33,13 @@ describe("clampScanRegion", () => {
     const tooBig = clampScanRegion({ x: 0, y: 0, width: 5, height: 5 });
     expect(tooBig.width).toBe(MAX_REGION_RATIO);
     expect(tooBig.height).toBe(MAX_REGION_RATIO);
+  });
+
+  it("grows a frame too small around its middle, staying on what it framed", () => {
+    const line = clampScanRegion({ x: 0.3, y: 0.5, width: 0.4, height: 0.04 });
+    expect(line.height).toBe(MIN_REGION_RATIO);
+    expect(line.y + line.height / 2).toBeCloseTo(0.52, 10);
+    expect(line.x).toBeCloseTo(0.3, 10);
   });
 
   it("keeps the region fully on-screen (0..1) by clamping position", () => {
@@ -95,10 +99,10 @@ describe("translateScanRegion", () => {
   });
 });
 
-describe("resizeScanRegionFromCorner", () => {
+describe("resizeScanRegion", () => {
   it("grows the bottom-right corner while keeping the opposite corner", () => {
     const base = { x: 0.2, y: 0.2, width: 0.4, height: 0.3 };
-    const resized = resizeScanRegionFromCorner(base, "br", 0.1, 0.05);
+    const resized = resizeScanRegion(base, "br", 0.1, 0.05);
     expect(resized.x).toBeCloseTo(0.2, 5);
     expect(resized.y).toBeCloseTo(0.2, 5);
     expect(resized.width).toBeCloseTo(0.5, 5);
@@ -107,7 +111,7 @@ describe("resizeScanRegionFromCorner", () => {
 
   it("shrinks from the top-left without inverting the rectangle", () => {
     const base = { x: 0.3, y: 0.3, width: 0.4, height: 0.4 };
-    const resized = resizeScanRegionFromCorner(base, "tl", 0.2, 0.2);
+    const resized = resizeScanRegion(base, "tl", 0.2, 0.2);
     expect(resized.width).toBeGreaterThanOrEqual(MIN_REGION_RATIO);
     expect(resized.height).toBeGreaterThanOrEqual(MIN_REGION_RATIO);
     expect(resized.x + resized.width).toBeCloseTo(0.7, 5);
@@ -116,11 +120,43 @@ describe("resizeScanRegionFromCorner", () => {
 
   it("stays fully on-screen when a corner is dragged off the edge", () => {
     const base = { x: 0.1, y: 0.1, width: 0.4, height: 0.4 };
-    const resized = resizeScanRegionFromCorner(base, "tl", -0.5, -0.5);
+    const resized = resizeScanRegion(base, "tl", -0.5, -0.5);
     expect(resized.x).toBe(0);
     expect(resized.y).toBe(0);
     expect(resized.x + resized.width).toBeLessThanOrEqual(1);
     expect(resized.y + resized.height).toBeLessThanOrEqual(1);
+  });
+
+  it.each([
+    ["t", 0, -0.1, { x: 0.2, y: 0.1, width: 0.4, height: 0.4 }],
+    ["b", 0, 0.1, { x: 0.2, y: 0.2, width: 0.4, height: 0.4 }],
+    ["l", -0.1, 0, { x: 0.1, y: 0.2, width: 0.5, height: 0.3 }],
+    ["r", 0.1, 0, { x: 0.2, y: 0.2, width: 0.5, height: 0.3 }],
+  ] as const)("pulls the %s edge out alone, whichever way the finger also drifts", (edge, dx, dy, expected) => {
+    const base = { x: 0.2, y: 0.2, width: 0.4, height: 0.3 };
+    // A drag along an edge drifts sideways too; only the edge's own direction counts.
+    const resized = resizeScanRegion(base, edge, dx + (dx === 0 ? 0.07 : 0), dy + (dy === 0 ? 0.07 : 0));
+    for (const key of ["x", "y", "width", "height"] as const) expect(resized[key]).toBeCloseTo(expected[key], 5);
+  });
+
+  it("stops an edge at the screen and keeps the far side where it was", () => {
+    const base = { x: 0.5, y: 0.3, width: 0.3, height: 0.3 };
+    const resized = resizeScanRegion(base, "r", 0.5, 0);
+    expect(resized.x).toBeCloseTo(0.5, 5);
+    expect(resized.x + resized.width).toBeCloseTo(1, 5);
+  });
+
+  it("stops at the smallest frame when an edge is pushed past the far one", () => {
+    const base = { x: 0.2, y: 0.2, width: 0.4, height: 0.3 };
+    const resized = resizeScanRegion(base, "b", 0, -0.9);
+    expect(resized.y).toBeCloseTo(0.2, 5);
+    expect(resized.height).toBeCloseTo(MIN_REGION_RATIO, 5);
+  });
+
+  it("keeps clear of the scanner's controls", () => {
+    const inset = { top: 0.1, right: 0, bottom: 0.25, left: 0 };
+    const resized = resizeScanRegion({ x: 0.2, y: 0.3, width: 0.4, height: 0.3 }, "b", 0, 0.5, inset);
+    expect(resized.y + resized.height).toBeCloseTo(0.75, 5);
   });
 });
 
@@ -147,13 +183,7 @@ describe("clampCameraZoom / zoomFromPinch", () => {
   });
 });
 
-describe("handleHitSize / scanChromeInset", () => {
-  it("shrinks handle hits so a min-size rect stays pannable", () => {
-    expect(handleHitSize(200, 200)).toBe(HANDLE_HIT_MAX);
-    expect(handleHitSize(40, 40)).toBe(HANDLE_HIT_MIN);
-    expect(handleHitSize(47, 47)).toBeLessThan(HANDLE_HIT_MAX);
-  });
-
+describe("scanChromeInset", () => {
   it("converts safe-area chrome into ratio insets", () => {
     const inset = scanChromeInset(390, 844, { top: 47, bottom: 34 });
     expect(inset.top).toBeGreaterThan(0);

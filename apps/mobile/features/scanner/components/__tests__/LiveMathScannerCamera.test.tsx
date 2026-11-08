@@ -36,6 +36,7 @@ const props = {
   scanRegion: { x: 0.1, y: 0.3, width: 0.8, height: 0.3 },
   viewSize: { width: 390, height: 844 },
   subject: "math" as const,
+  readEpoch: 0,
   onReady: jest.fn(),
   onError: jest.fn(),
   onDetectionChange: jest.fn(),

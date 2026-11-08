@@ -34,9 +34,9 @@ it("opens on the whole photo, then moves onto its text once read", async () => {
   expect(readTextLines).toHaveBeenCalledWith("file:///page.jpg", PHOTO);
   await land();
   const [fit] = crop.fitRegion.mock.calls[0]!;
-  // The text (0.4..0.6 of the photo, padded by 0.02) drawn in the middle half of the view.
-  expect(fit.x).toBeCloseTo(0.25 + 0.38 * 0.5, 5);
-  expect(fit.width).toBeCloseTo(0.24 * 0.5, 5);
+  // The text (0.4..0.6 of the photo, padded by 0.06) drawn in the middle half of the view.
+  expect(fit.x).toBeCloseTo(0.25 + 0.34 * 0.5, 5);
+  expect(fit.width).toBeCloseTo(0.32 * 0.5, 5);
 });
 
 it("opens a camera shot where the student aimed", async () => {

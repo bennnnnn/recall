@@ -37,6 +37,12 @@ it("reads a small still as it is, as ratios of it", async () => {
   expect(lines).toEqual([{ x: 0.1, y: 0.1, width: 0.4, height: 0.08 }]);
 });
 
+it("reads a line the same from iOS, whose `top` is the line's bottom edge", async () => {
+  readsLines({ text: "2x + 3 = 7", bounds: { ...bounds(100, 50, 400, 40), top: 90, bottom: 50 } });
+  const lines = await readTextLines("file:///cut.jpg", { width: 1000, height: 500 });
+  expect(lines).toEqual([{ x: 0.1, y: 0.1, width: 0.4, height: 0.08 }]);
+});
+
 it("reads a large still through a smaller copy ML Kit accepts, and deletes the copy", async () => {
   jest.mocked(shrinkScanImage).mockResolvedValue({ uri: "file:///read-copy.jpg", width: 1600, height: 1200 });
   readsLines({ text: "F = ma", bounds: bounds(160, 120, 800, 60) });
