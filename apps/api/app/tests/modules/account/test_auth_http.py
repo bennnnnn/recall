@@ -197,6 +197,12 @@ def test_me_patch_records_the_location_choice_at_the_server_clock(enabled):
     assert isinstance(stored, datetime) and before <= stored <= datetime.now(UTC)
 
 
+def test_me_patch_refuses_a_null_location_switch():
+    status, captured = _patch_capturing_fields({"location_enabled": None})
+    assert status == 422
+    assert captured == {}
+
+
 def test_me_patch_leaves_the_location_choice_alone_otherwise():
     status, captured = _patch_capturing_fields(
         {"location": "Oakland, CA", "location_chosen_at": "2000-01-01T00:00:00Z"}

@@ -173,6 +173,34 @@ class UserUpdate(BaseModel):
     country: UserText | None = Field(default=None, max_length=64)
     job: UserText | None = Field(default=None, max_length=128)
 
+    # Settings every account stores a value for: null is no value for one (written as is,
+    # it failed the NOT NULL column with a 500). Leaving a field out leaves it alone.
+    @field_validator(
+        "default_model",
+        "response_tone",
+        "emoji_use",
+        "memory_enabled",
+        "follow_up_suggestions_enabled",
+        "memory_include_sensitive",
+        "web_search_enabled",
+        "push_notifications_enabled",
+        "push_reminders_enabled",
+        "email_reminders_enabled",
+        "reminder_lead_minutes",
+        "quiet_hours_enabled",
+        "quiet_hours_start_minute",
+        "quiet_hours_end_minute",
+        "locale",
+        "timezone",
+        "location_enabled",
+        mode="before",
+    )
+    @classmethod
+    def reject_null_setting(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("This setting needs a value; leave it out to keep it.")
+        return value
+
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str | None) -> str | None:

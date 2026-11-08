@@ -218,3 +218,27 @@ def test_location_choice_column_is_nullable_without_a_default():
     column = User.__table__.c.location_chosen_at
     assert column.nullable is True
     assert column.default is None and column.server_default is None
+
+
+def _update_fields_by_column(nullable: bool) -> list[str]:
+    from app.models.orm import User
+
+    columns = User.__table__.c
+    return [
+        name
+        for name in UserUpdate.model_fields
+        if name in columns and columns[name].nullable is nullable
+    ]
+
+
+@pytest.mark.parametrize("field", _update_fields_by_column(nullable=False))
+def test_user_update_rejects_null_for_a_setting_stored_not_null(field):
+    # Written as is, a null failed the column with a 500; a field left out is left alone.
+    with pytest.raises(ValueError):
+        UserUpdate.model_validate({field: None})
+    assert field not in UserUpdate.model_validate({}).model_dump(exclude_unset=True)
+
+
+@pytest.mark.parametrize("field", _update_fields_by_column(nullable=True))
+def test_user_update_still_clears_a_nullable_field_with_null(field):
+    assert UserUpdate.model_validate({field: None}).model_dump(exclude_unset=True) == {field: None}

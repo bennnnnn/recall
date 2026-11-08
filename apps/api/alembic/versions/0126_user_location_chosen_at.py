@@ -10,8 +10,11 @@ never asked an account that had never chosen (a second account on the phone, an 
 deny allowed later in Settings). ``location_chosen_at`` is stamped by the server each
 time the switch is written; NULL is never chosen, and the account API reports that as
 ``location_enabled: null``. Existing rows start NULL: nothing recorded a choice, and a
-switch that is on stays on. A nullable column, and ``location_enabled`` keeps its shape
-for the release before this one: an expand.
+switch that is on stays on. A switch a user had turned off reads as never chosen after
+this, so the phone may ask that user once more; nothing told the two apart to backfill
+from, and production starts from a fresh database at launch (docs/PRODUCTION.md §0), so
+no real choice is lost. A nullable column, and ``location_enabled`` keeps its shape for
+the release before this one: an expand.
 """
 
 from collections.abc import Sequence
