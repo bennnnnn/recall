@@ -34,7 +34,7 @@ const KEYBOARD_CORRECTION_MS = 180;
  */
 export const KEYBOARD_EVENT_TAIL_MS = 100;
 
-export type KeyboardCorrection = {
+type KeyboardCorrection = {
   /** The stale height Reanimated keeps reporting, or `NO_KEYBOARD_CORRECTION`. */
   heldAt: SharedValue<number>;
   /** Where the keyboard really is, while `heldAt` holds. */

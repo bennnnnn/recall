@@ -5,7 +5,7 @@ import { useLatestRef } from "@/lib/latestRef";
 import { symbolA11yLabel, type MathKeyboardSymbol } from "@/lib/math/keyboardCatalog";
 
 /** The composer field's side of the maths pad. */
-export type MathPadField = {
+type MathPadField = {
   /** The pad's insert: `insertSymbol`, announced on Android. */
   insert: (spec: MathKeyboardSymbol) => void;
   /** After ABC: focus the field to type into, unless the pad is back up by then. */
