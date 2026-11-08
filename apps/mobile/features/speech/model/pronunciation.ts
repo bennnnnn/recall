@@ -21,7 +21,12 @@ import {
   readAloudPlaying,
   startReadAloud,
 } from "@/features/speech/model/readAloudSession";
-import { ensureChunk, ensurePrefetchState, prefetchChunk } from "@/features/speech/model/ttsClipFetch";
+import {
+  ensureChunk,
+  ensurePrefetchState,
+  prefetchChunk,
+  type ClipVoice,
+} from "@/features/speech/model/ttsClipFetch";
 import { currentSpeechRate, getSpeechRate } from "@/features/speech/model/speechRate";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL } from "@/features/speech/model/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
@@ -73,6 +78,8 @@ function loadSpeech(): SpeechModule | null {
 }
 
 type SpeakResult = { ok: true } | { ok: false; reason: "unavailable" | "error" };
+/** A cloud reading that stopped short carries what its voice had not read yet. */
+type CloudReading = { ok: true } | { ok: false; reason: "unavailable" | "error"; unread: string };
 
 function isCurrentSpeak(generation: number): boolean {
   return generation === speakGeneration;
@@ -295,45 +302,62 @@ async function beginDeviceSpeech(
   });
 }
 
+/** A clip after the first, or null when it cannot be had: refused (a 429 or 502), or its download failed. */
+function laterClip(state: ReturnType<typeof ensurePrefetchState>, index: number, token: string, signal: AbortSignal) {
+  return ensureChunk(state, index, token, signal).catch((error: unknown) => {
+    logTtsLatency("clip_failed", { chunk: index, error: error instanceof Error ? error.name : typeof error });
+    return null;
+  });
+}
+
 async function playChunkPipeline(
   token: string,
   text: string,
-  language: string,
-  model: string,
+  voice: ClipVoice,
   generation: number,
   signal: AbortSignal,
-): Promise<SpeakResult> {
-  const state = ensurePrefetchState(text, model);
+): Promise<CloudReading> {
+  const state = ensurePrefetchState(text, voice);
   const first = state.chunks[0];
-  if (!first) return { ok: false, reason: "error" };
+  if (!first) return { ok: false, reason: "error", unread: text };
   const cached = Boolean(state.clips[0]);
   logTtsLatency("lead_request", {
     leadChars: first.length,
     chunks: state.chunks.length,
     cached,
   });
-  const leadClip = await ensureChunk(state, 0, token, language, signal);
+  const leadClip = await ensureChunk(state, 0, token, signal);
   if (!isCurrentSpeak(generation)) return { ok: true };
   if (!leadClip) {
     logTtsLatency("lead_failed");
-    return { ok: false, reason: "error" };
+    return { ok: false, reason: "error", unread: text };
   }
   logTtsLatency("lead_ready", { leadChars: first.length, cached });
 
   for (let index = 0; index < state.chunks.length; index += 1) {
     if (!isCurrentSpeak(generation)) return { ok: true };
-    const clip =
-      index === 0 ? leadClip : await ensureChunk(state, index, token, language, signal);
-    if (!clip) return index === 0 ? { ok: false, reason: "error" } : { ok: true };
+    const clip = index === 0 ? leadClip : await laterClip(state, index, token, signal);
+    if (!isCurrentSpeak(generation)) return { ok: true };
+    // A later clip that could not be had ended the reading as if it had finished, after its
+    // first sentence: it fails as the first clip does, with the rest still to read.
+    const unread = state.chunks.slice(index).join(" ");
+    if (!clip) return { ok: false, reason: "error", unread };
     if (index + 1 < state.chunks.length) {
-      void prefetchChunk(state, index + 1, token, language, signal);
+      void prefetchChunk(state, index + 1, token, signal);
     }
     readAloudChunk(index, state.chunks.length);
     const played = await playCloudBase64(clip.audio_base64, clip.content_type, generation);
-    if (!played.ok) return played;
+    if (!played.ok) return { ...played, unread };
   }
   return { ok: true };
 }
+
+type SpeakOptions = {
+  token?: string | null;
+  preferCloud?: boolean;
+  /** The account's voice setting: the server speaks with it, so a clip kept for another is not reused. */
+  voice?: string | null;
+};
 
 /**
  * Cloud TTS plays a finished WAV/MP3 for the first sentence, then the rest.
@@ -342,7 +366,7 @@ async function playChunkPipeline(
 export async function speakPlainText(
   text: string,
   language = "en-US",
-  options?: { token?: string | null; preferCloud?: boolean; preferFast?: boolean },
+  options?: SpeakOptions & { preferFast?: boolean },
 ): Promise<SpeakResult> {
   markTtsTap();
   logTtsLatency("tap");
@@ -368,16 +392,12 @@ export async function speakPlainText(
   const ac = new AbortController();
   ttsAbort = ac;
   try {
-    const played = await playChunkPipeline(
-      token,
-      plain,
-      language,
-      cloudModel,
-      generation,
-      ac.signal,
-    );
-    if (played.ok || !isCurrentSpeak(generation) || !options?.preferCloud) return played;
-    return beginDeviceSpeech(plain, language, generation);
+    const voice = { model: cloudModel, voice: options?.voice ?? null, language };
+    const played = await playChunkPipeline(token, plain, voice, generation, ac.signal);
+    if (played.ok) return played;
+    if (!isCurrentSpeak(generation) || !options?.preferCloud) return { ok: false, reason: played.reason };
+    // The phone's voice reads on from where the cloud voice stopped (all of it when nothing played).
+    return beginDeviceSpeech(played.unread, language, generation);
   } catch (error) {
     // Stop and the next reading end this one (a new generation). A clip's deadline is an
     // AbortError as well, and still a failure: the phone's voice reads it instead.
@@ -403,7 +423,7 @@ export async function readReplyAloud(
   messageId: string,
   markdown: string,
   language: string,
-  options?: { token?: string | null; preferCloud?: boolean },
+  options?: SpeakOptions,
 ): Promise<SpeakResult> {
   const id = startReadAloud(messageId, stopSpeaking);
   try {

@@ -18,6 +18,7 @@ import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlu
 import { notifyWarning, tap } from "@/lib/haptics";
 import * as latency from "@/features/chat/model/latency";
 import {
+  type LocationSwitch,
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
 } from "@/features/chat/model/resolveClientGeoForQuery";
@@ -140,7 +141,7 @@ function Probe({
   imageGenerating,
   draft,
   updateUser = jest.fn(),
-  locationEnabled,
+  locationSwitch,
   beforeSend,
 }: {
   offline?: boolean;
@@ -157,7 +158,7 @@ function Probe({
   imageGenerating?: boolean;
   draft?: Record<string, unknown>;
   updateUser?: jest.Mock;
-  locationEnabled?: boolean;
+  locationSwitch?: LocationSwitch;
   beforeSend?: () => Promise<void>;
 }) {
   const result = useChatSend({
@@ -184,7 +185,7 @@ function Probe({
     messages,
     selectedModel: "free-chat",
     updateUser,
-    locationEnabled,
+    locationSwitch,
     t: (key) => key,
     onStreamBusy,
     isOffline: offline,
@@ -1470,7 +1471,7 @@ describe("useChatSend send steps", () => {
     resolveGeo.mockResolvedValue({ ok: true, clientGeo });
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
     await send();
-    expect(resolveGeo).toHaveBeenCalledWith("token", "coffee near me", expect.any(Function), expect.any(Function));
+    expect(resolveGeo).toHaveBeenCalledWith("token", "coffee near me", expect.any(Function), expect.any(Function), "unknown");
     const [bubble] = setMessages.mock.calls[0][0]([]);
     expect(bubble).toMatchObject({ id: expect.stringMatching(/^local-/), role: "user", content: "coffee near me" });
     expect(sendMessage).toHaveBeenCalledWith("coffee near me", {
@@ -1608,9 +1609,10 @@ describe("useChatSend send steps", () => {
   });
 
   it.each([
-    [true, 1],
-    [false, 0],
-  ])("a location question with location already on=%p sends before the profile saves: %p", async (locationEnabled, sentEarly) => {
+    ["on", 1],
+    ["never_chosen", 0],
+    ["unknown", 0],
+  ] as const)("a location question with the switch %p sends before the profile saves: %p", async (locationSwitch, sentEarly) => {
     inputRef.current = "coffee near me";
     needsGeo.mockReturnValue(true);
     let saved!: () => void;
@@ -1621,7 +1623,7 @@ describe("useChatSend send steps", () => {
     });
     const sendMessage = sent();
     await render(
-      <Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationEnabled={locationEnabled} />,
+      <Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationSwitch={locationSwitch} />,
     );
     let sending!: Promise<boolean>;
     await act(async () => { sending = current.handleSend(); });
@@ -1645,7 +1647,7 @@ describe("useChatSend send steps", () => {
       return { ok: true, clientGeo: null };
     });
     const sendMessage = sent();
-    await render(<Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationEnabled />);
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} updateUser={updateUser} locationSwitch="on" />);
     await send();
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });

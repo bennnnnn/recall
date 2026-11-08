@@ -3,7 +3,14 @@ from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    computed_field,
+    field_validator,
+)
 
 from app.core.validation import (
     LOCALE_NAMES,
@@ -58,7 +65,11 @@ class UserOut(BaseModel):
     locale: str = "en"
     timezone: str = "UTC"
     location: str | None = None
-    location_enabled: bool = False
+    # When the user last set the Location switch; read before ``location_enabled`` below.
+    location_chosen_at: datetime | None = None
+    # On, off, or null when never chosen: the phone asks then, through the system sheet,
+    # and never turns an off back on.
+    location_enabled: bool | None = None
     custom_instructions: str | None = None
     age: int | None = None
     country: str | None = None
@@ -66,6 +77,14 @@ class UserOut(BaseModel):
     created_at: datetime
     google_sub: str | None = Field(default=None, exclude=True)
     apple_sub: str | None = Field(default=None, exclude=True)
+
+    @field_validator("location_enabled")
+    @classmethod
+    def location_never_chosen_is_null(cls, value: bool | None, info: ValidationInfo) -> bool | None:
+        """The stored switch starts false: off only once the user chose (``location_chosen_at``)."""
+        if value:
+            return True
+        return False if info.data.get("location_chosen_at") is not None else None
 
     # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
@@ -153,6 +172,34 @@ class UserUpdate(BaseModel):
     age: int | None = Field(default=None, ge=13, le=120)
     country: UserText | None = Field(default=None, max_length=64)
     job: UserText | None = Field(default=None, max_length=128)
+
+    # Settings every account stores a value for: null is no value for one (written as is,
+    # it failed the NOT NULL column with a 500). Leaving a field out leaves it alone.
+    @field_validator(
+        "default_model",
+        "response_tone",
+        "emoji_use",
+        "memory_enabled",
+        "follow_up_suggestions_enabled",
+        "memory_include_sensitive",
+        "web_search_enabled",
+        "push_notifications_enabled",
+        "push_reminders_enabled",
+        "email_reminders_enabled",
+        "reminder_lead_minutes",
+        "quiet_hours_enabled",
+        "quiet_hours_start_minute",
+        "quiet_hours_end_minute",
+        "locale",
+        "timezone",
+        "location_enabled",
+        mode="before",
+    )
+    @classmethod
+    def reject_null_setting(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("This setting needs a value; leave it out to keep it.")
+        return value
 
     @field_validator("name")
     @classmethod

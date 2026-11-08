@@ -9,7 +9,7 @@ jest.mock("@/features/chat/model/resolveClientGeoForQuery", () => ({
   resolveClientGeoForQuery: jest.fn(async () => ({ ok: true, clientGeo: null })),
 }));
 
-import { resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
+import { type LocationSwitch, resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 
 const resolveGeo = resolveClientGeoForQuery as jest.Mock;
 
@@ -33,16 +33,19 @@ function Probe({
   regenerateResponse,
   beginRegenerateUi,
   cancelRegenerateUi,
+  locationSwitch = "unknown",
 }: {
   messages: Message[];
   regenerateResponse: jest.Mock;
   beginRegenerateUi?: jest.Mock;
   cancelRegenerateUi?: jest.Mock;
+  locationSwitch?: LocationSwitch;
 }) {
   const result = useChatRegenerate({
     token: "tok",
     messages,
     updateUser: jest.fn(),
+    locationSwitch,
     regenerateResponse,
     beginRegenerateUi,
     cancelRegenerateUi,
@@ -78,6 +81,16 @@ describe("useChatRegenerate", () => {
     await act(async () => { finish({ ok: true, clientGeo: null }); await pending; });
     expect(regenerateResponse).not.toHaveBeenCalled();
     expect(cancelRegenerateUi).not.toHaveBeenCalled();
+  });
+
+  it.each(["on", "off", "never_chosen", "unknown"] as const)("reads the location under the account's switch (%p), never past it", async (locationSwitch) => {
+    await render(<Probe
+      messages={[msg("user", "coffee near me", "u1"), msg("assistant", "answer", "a1")]}
+      regenerateResponse={jest.fn()}
+      locationSwitch={locationSwitch}
+    />);
+    await act(async () => { await currentRegenerate("free-chat"); });
+    expect(resolveGeo).toHaveBeenCalledWith("tok", "coffee near me", expect.any(Function), expect.any(Function), locationSwitch);
   });
 
   it("asks for no location and sends nothing when the start was refused mid-reply", async () => {

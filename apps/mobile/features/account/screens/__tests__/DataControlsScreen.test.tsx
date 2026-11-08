@@ -108,6 +108,24 @@ it("turns location on with the device's place", async () => {
   );
 });
 
+it.each([
+  [null, false],
+  [false, false],
+  [true, true],
+])("draws a Location switch the server reports %p as %p (never chosen reads off)", async (enabled, on) => {
+  mockUser = { name: "bini", location: null, location_enabled: enabled };
+  const view = await render(<DataControlsScreen />);
+  const location = view.getByRole("switch", { name: "settings.use_current_location" });
+  expect(location.props.accessibilityState.checked).toBe(on);
+});
+
+it("turns location off as the user's own choice, clearing the place", async () => {
+  mockUser = { name: "bini", location: "Oakland, CA", location_enabled: true };
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByRole("switch", { name: "settings.use_current_location" }));
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ location_enabled: false, location: null }));
+});
+
 it("clears all chats only after a confirmation that says what stays", async () => {
   const view = await render(<DataControlsScreen />);
   await fireEvent.press(view.getByText("settings.delete_all_chats"));

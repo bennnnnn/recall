@@ -28,7 +28,7 @@ import { useSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import type { SendTurnStart } from "@/features/chat/hooks/useTurnStart";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
-import { queryNeedsClientGeo } from "@/features/chat/model/resolveClientGeoForQuery";
+import { type LocationSwitch, queryNeedsClientGeo } from "@/features/chat/model/resolveClientGeoForQuery";
 import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 import { discardDraftAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
@@ -82,8 +82,8 @@ type Options = {
   messages: Message[];
   selectedModel: string;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
-  /** The profile's location switch is on (a location question then need not wait for it to save). */
-  locationEnabled?: boolean;
+  /** The account's Location switch: a location question need not wait for an on one to save. */
+  locationSwitch?: LocationSwitch;
   t: (key: string, options?: Record<string, unknown>) => string;
   onStreamBusy?: () => void;
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
@@ -113,7 +113,7 @@ export function useChatSend({
   messages,
   selectedModel,
   updateUser,
-  locationEnabled = false,
+  locationSwitch = "unknown",
   t,
   onStreamBusy,
   onOfflineBlocked,
@@ -330,7 +330,7 @@ export function useChatSend({
 
   const routeSend = useChatSendRoute({
     token, chatId, messages, selectedModel, imageGenerating, onGenerateImage, sendMessage, sendStart, updateUser,
-    locationEnabled, t,
+    locationSwitch, t,
     pendingAttachmentRef, setPendingAttachment, setPendingOutboundId, sendInFlightRef, setSendPhase,
     restoreFailedSend, sendToNewChat,
   });

@@ -52,7 +52,8 @@ export function useChatComposerWiring({
     cancelVoiceInput,
   } = useComposerDictation({ token, user, routeChatId, setInput: send.setInput, openUpgradeRef, t });
 
-  // Live talk runs without a saved chat when none can be made, as it always has.
+  // A chat that cannot be made is null: live talk then says so and does not start, since
+  // a call with nowhere to save its turns spent minutes and kept nothing.
   const ensureLiveTalkChatId = useCallback(() => ensureChatId().catch(() => null), [ensureChatId]);
   const liveTalk = useLiveTalk({
     token,

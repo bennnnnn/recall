@@ -2,6 +2,8 @@ import { resetComposerDraftsForAccount } from "@/features/chat/model/composerDra
 import { deleteAccountFiles } from "@/lib/accountFiles";
 import { clearCachedModels } from "@/lib/cachedModels";
 import { signOutGoogle } from "@/lib/google-auth";
+import { ensureLocale } from "@/lib/i18n";
+import { clearImageCaches } from "@/lib/images/imageCaches";
 import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
 import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
@@ -14,6 +16,9 @@ import { forgetSyncRecords } from "@/lib/syncRecords";
  * is cleared here or scoped to the session (`lib/__tests__/accountState.test.ts`).
  * Backend session revocation is separate, so an offline server never holds logout UI. */
 export async function clearSignedOutAccount(userId: string | undefined): Promise<void> {
+  // The sign-in screen is drawn in English, as a launch with no account is: the language
+  // was the account's. The next account's own comes with it (contexts/AuthContext.tsx).
+  void ensureLocale("en");
   resetComposerDraftsForAccount();
   clearQuizAttempts();
   clearCalculatorPositions();
@@ -39,6 +44,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/lib/cache/usageCache").then(({ invalidateUsageCache }) => invalidateUsageCache()),
     import("@/features/notifications/model/pushNotifications").then(({ clearPushSyncRecord }) => clearPushSyncRecord()),
     clearCachedModels(),
+    // The account's photos and avatar, kept by expo-image in memory and on disk.
+    clearImageCaches(),
     import("@/features/billing/model/purchases").then(({ signOutRevenueCat }) => signOutRevenueCat()),
     signOutGoogle(),
     ...(userId ? [

@@ -98,7 +98,9 @@ def _parse_pcm_params(content_type: str) -> tuple[int, int]:
     return rate, channels
 
 
-def _stt_language_code(language: str | None) -> str | None:
+def stt_language_code(language: str | None) -> str | None:
+    """``language`` (a locale such as ``pt-BR``) as the ISO-639-1 code OpenAI's
+    transcription takes, or None when it names none."""
     raw = (language or "").strip().lower().replace("_", "-")
     if not raw:
         return None
@@ -121,7 +123,7 @@ async def transcribe_via_openai(
         "model": model.removeprefix("openai/"),
         "response_format": "json",
     }
-    lang = _stt_language_code(language)
+    lang = stt_language_code(language)
     if lang:
         payload["language"] = lang
     try:

@@ -4,13 +4,30 @@ jest.mock("@/lib/expoRuntime", () => ({
   isExpoGo: () => false,
 }));
 
-jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
+const mockPlatform = { OS: "ios" };
+jest.mock("react-native", () => ({ Platform: mockPlatform }));
 jest.mock("@/lib/sentry", () => ({ reportStoreUnavailable: jest.fn() }));
+// The phone's cache files, in memory: a held purchase on Android is kept in one.
+const mockDisk = new Map<string, string>();
+jest.mock("@/lib/cache/cacheFile", () => ({
+  cacheFile: (name: string) => ({
+    read: async () => mockDisk.get(name) ?? null,
+    readSync: () => mockDisk.get(name) ?? null,
+    write: async (contents: string) => {
+      mockDisk.set(name, contents);
+    },
+    clear: async () => {
+      mockDisk.delete(name);
+    },
+  }),
+}));
 
 jest.mock("react-native-purchases", () => {
   const listeners: Array<(info: { entitlements: { active: Record<string, unknown> } }) => void> = [];
   const api = {
     LOG_LEVEL: { DEBUG: 0, WARN: 1 },
+    PURCHASES_ERROR_CODE: { PAYMENT_PENDING_ERROR: "20" },
+    PRORATION_MODE: { IMMEDIATE_WITH_TIME_PRORATION: 1 },
     setLogLevel: jest.fn(),
     configure: jest.fn(),
     logIn: jest.fn(async () => ({})),
@@ -44,10 +61,16 @@ import {
   configurePurchases,
   getPlanPackages,
   isPurchaseCancelled,
+  isStoreReady,
   planFromCustomerInfo,
+  purchasePlanPackage,
+  recheckPendingPurchase,
   registerPlanChangeListener,
+  restorePurchases,
   signOutRevenueCat,
+  subscribeStoreReady,
 } from "@/features/billing/model/purchases";
+import { heldPurchase as purchasePending } from "@/features/billing/model/heldPurchase";
 
 // Force the purchases module to be "configured" (API key present + not Expo Go).
 process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "test-ios-key";
@@ -155,14 +178,175 @@ describe("getPlanPackages", () => {
 describe("configurePurchases", () => {
   it("configures once, then switches accounts with logIn", async () => {
     (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+    // RevenueCat answers no read before it is set up: the store is not ready until then.
+    expect(isStoreReady()).toBe(false);
     await configurePurchases("user-a");
+    expect(isStoreReady()).toBe(true);
     await configurePurchases("user-a");
     expect(purchasesMod.default.configure).toHaveBeenCalledTimes(1);
     expect(purchasesMod.default.logIn).not.toHaveBeenCalled();
 
     await signOutRevenueCat();
+    // The next account waits for its own set-up.
+    expect(isStoreReady()).toBe(false);
     await configurePurchases("user-b");
+    expect(isStoreReady()).toBe(true);
     expect(purchasesMod.default.configure).toHaveBeenCalledTimes(1);
     expect(purchasesMod.default.logIn).toHaveBeenCalledWith("user-b");
+  });
+
+  it("records nothing for an account that signed out while its set-up ran", async () => {
+    await signOutRevenueCat();
+    let loggedIn!: () => void;
+    purchasesMod.default.logIn.mockImplementationOnce(() => new Promise<void>((resolve) => { loggedIn = resolve; }));
+    const settingUp = configurePurchases("user-d");
+    await Promise.resolve();
+    await signOutRevenueCat();
+    loggedIn();
+    await settingUp;
+    // Not ready while no one is signed in, and the next sign-in logs in again.
+    expect(isStoreReady()).toBe(false);
+    purchasesMod.default.logIn.mockClear();
+    await configurePurchases("user-d");
+    expect(purchasesMod.default.logIn).toHaveBeenCalledWith("user-d");
+    expect(isStoreReady()).toBe(true);
+  });
+
+  it("is ready when a set-up that hung is run again (the plans sheet's Retry)", async () => {
+    await signOutRevenueCat();
+    purchasesMod.default.logIn.mockImplementationOnce(() => new Promise<never>(() => undefined));
+    void configurePurchases("user-f");
+    await Promise.resolve();
+    expect(isStoreReady()).toBe(false);
+    await configurePurchases("user-f");
+    expect(purchasesMod.default.logIn).toHaveBeenLastCalledWith("user-f");
+    expect(isStoreReady()).toBe(true);
+  });
+
+  it("is ready once a set-up that failed has run: the store's own failure is then said", async () => {
+    await signOutRevenueCat();
+    purchasesMod.default.logIn.mockRejectedValueOnce(new Error("offline"));
+    await expect(configurePurchases("user-c")).rejects.toThrow("offline");
+    expect(isStoreReady()).toBe(true);
+  });
+});
+
+describe("a purchase the store holds for approval", () => {
+  const plus = { plan: "plus" as const, priceString: "$7.99", productId: "recall_plus", native: {} as never };
+  const pending = Object.assign(new Error("The payment is pending."), { code: "20", userCancelled: false });
+
+  beforeEach(async () => {
+    await signOutRevenueCat();
+    purchasesMod.default.purchasePackage.mockReset();
+  });
+
+  it("is pending, not failed, until the store grants the plan", async () => {
+    purchasesMod.default.purchasePackage.mockRejectedValueOnce(pending);
+    await expect(purchasePlanPackage(plus)).resolves.toBe("pending");
+    expect(purchasePending()).toBe("plus");
+
+    const changes: string[] = [];
+    const cleanup = await registerPlanChangeListener((plan) => changes.push(plan));
+    purchasesMod.default.__fire({ entitlements: { active: {} } });
+    expect(purchasePending()).toBe("plus");
+    // Approved: the store's update lands the plan.
+    purchasesMod.default.__fire({ entitlements: { active: { plus: {} } } });
+    expect(purchasePending()).toBeNull();
+    cleanup?.();
+  });
+
+  it.each([
+    ["finds the plan", { pro: {} }, "pro"],
+    // The user's way out of a payment that never came.
+    ["finds nothing", {}, "free"],
+  ])("a restore that %s lets go of the hold, and sign-out forgets it", async (_case, active, plan) => {
+    purchasesMod.default.purchasePackage.mockRejectedValue(pending);
+    await purchasePlanPackage(plus);
+    purchasesMod.default.restorePurchases.mockResolvedValueOnce({ entitlements: { active } });
+    await expect(restorePurchases()).resolves.toBe(plan);
+    expect(purchasePending()).toBeNull();
+
+    await purchasePlanPackage(plus);
+    await signOutRevenueCat();
+    expect(purchasePending()).toBeNull();
+  });
+
+  describe("read again as the sheet opens or the app comes back", () => {
+    const HOLD_MS = 30 * 60_000;
+
+    beforeEach(() => {
+      purchasesMod.default.getCustomerInfo.mockReset();
+      jest.mocked(reportStoreUnavailable).mockClear();
+    });
+
+    const SINCE = Date.UTC(2026, 10, 8, 12);
+
+    /** A held Plus, held at SINCE exactly: the clock never drifts under the hold's age. */
+    async function hold() {
+      purchasesMod.default.purchasePackage.mockRejectedValueOnce(pending);
+      const clock = jest.spyOn(Date, "now").mockReturnValue(SINCE);
+      try {
+        await purchasePlanPackage(plus);
+      } finally {
+        clock.mockRestore();
+      }
+      return SINCE;
+    }
+
+    it("lets go once the store grants the plan", async () => {
+      const since = await hold();
+      purchasesMod.default.getCustomerInfo.mockResolvedValueOnce({ entitlements: { active: { plus: {} } } });
+      await recheckPendingPurchase(since + 1_000);
+      expect(purchasePending()).toBeNull();
+    });
+
+    it("keeps a recent hold the store does not grant yet, and lets go of one that lapsed", async () => {
+      const since = await hold();
+      purchasesMod.default.getCustomerInfo.mockResolvedValue({ entitlements: { active: {} } });
+      await recheckPendingPurchase(since + 60_000);
+      expect(purchasePending()).toBe("plus");
+      // A declined Ask to Buy leaves no trace in the store's answer: the hold lapses.
+      await recheckPendingPurchase(since + HOLD_MS);
+      expect(purchasePending()).toBeNull();
+    });
+
+    it("keeps a recent hold when the store cannot be read, and says so", async () => {
+      const since = await hold();
+      purchasesMod.default.getCustomerInfo.mockRejectedValueOnce(new Error("offline"));
+      await expect(recheckPendingPurchase(since + 1_000)).resolves.toBeUndefined();
+      expect(purchasePending()).toBe("plus");
+      expect(reportStoreUnavailable).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("on Android has an earlier launch's hold in place before the store can sell, past 30 minutes", async () => {
+    mockPlatform.OS = "android";
+    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "test-android-key";
+    try {
+      // A Plus slow payment held at the last launch.
+      const since = Date.now() - 2 * 24 * 60 * 60_000;
+      mockDisk.set("recall-held-purchase.txt", `user-e|plus|${since}`);
+      let heldWhenReady: string | null | undefined;
+      const stop = subscribeStoreReady(() => {
+        if (isStoreReady()) heldWhenReady = purchasePending();
+      });
+      await configurePurchases("user-e");
+      stop();
+      expect(heldWhenReady).toBe("plus");
+      // A Pro bought now would be a second subscription: still held.
+      purchasesMod.default.getCustomerInfo.mockResolvedValueOnce({ entitlements: { active: {} } });
+      await recheckPendingPurchase(Date.now() + 31 * 60_000);
+      expect(purchasePending()).toBe("plus");
+    } finally {
+      mockPlatform.OS = "ios";
+      delete process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
+    }
+  });
+
+  it("still rejects any other store failure", async () => {
+    const declined = Object.assign(new Error("not allowed"), { code: "3" });
+    purchasesMod.default.purchasePackage.mockRejectedValueOnce(declined);
+    await expect(purchasePlanPackage(plus)).rejects.toBe(declined);
+    expect(purchasePending()).toBeNull();
   });
 });

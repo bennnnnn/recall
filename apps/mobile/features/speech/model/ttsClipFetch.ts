@@ -12,9 +12,17 @@ const TTS_JSON_TIMEOUT_MS = 60_000;
 
 type TtsClip = { audio_base64: string; content_type: string; lead_hash?: string | null };
 
+/**
+ * Everything the server's audio depends on besides the text: the model, the user's voice
+ * (the server reads it off the account) and the language. The speed is not here: the phone
+ * applies it to the player. Keyed on the model alone, a reply replayed after the voice changed
+ * played the old voice.
+ */
+export type ClipVoice = { model: string; voice: string | null; language: string };
+
 type PrefetchState = {
   key: string;
-  model: string;
+  voice: ClipVoice;
   chunks: string[];
   abort: AbortController;
   clips: (TtsClip | null)[];
@@ -24,8 +32,8 @@ type PrefetchState = {
 
 let prefetch: PrefetchState | null = null;
 
-function prefetchCacheKey(text: string, model: string): string {
-  return `${model}\0${text}`;
+function prefetchCacheKey(text: string, { model, voice, language }: ClipVoice): string {
+  return [model, voice ?? "", language, text].join("\0");
 }
 
 async function fetchCloudTtsClip(
@@ -79,14 +87,14 @@ function ttsPartForChunk(index: number, total: number): "full" | "lead" | "rest"
   return index === 0 ? "lead" : "rest";
 }
 
-export function ensurePrefetchState(text: string, model: string): PrefetchState {
-  const key = prefetchCacheKey(text, model);
+export function ensurePrefetchState(text: string, voice: ClipVoice): PrefetchState {
+  const key = prefetchCacheKey(text, voice);
   if (prefetch?.key === key) return prefetch;
   prefetch?.abort.abort();
   const chunks = splitTtsChunks(text);
   const next: PrefetchState = {
     key,
-    model,
+    voice,
     chunks,
     abort: new AbortController(),
     clips: chunks.map(() => null),
@@ -101,7 +109,6 @@ export function ensureChunk(
   state: PrefetchState,
   index: number,
   token: string,
-  language: string,
   signal: AbortSignal,
 ): Promise<TtsClip | null> {
   const cached = state.clips[index];
@@ -116,8 +123,8 @@ export function ensureChunk(
   const request = fetchCloudTtsClip(
     token,
     chunk,
-    language,
-    state.model,
+    state.voice.language,
+    state.voice.model,
     ttsPartForChunk(index, state.chunks.length),
     signal,
     state.leadHash,
@@ -150,10 +157,9 @@ export function prefetchChunk(
   state: PrefetchState,
   index: number,
   token: string,
-  language: string,
   signal: AbortSignal,
 ): Promise<void> {
-  return ensureChunk(state, index, token, language, signal).then(
+  return ensureChunk(state, index, token, signal).then(
     () => undefined,
     (error: unknown) => {
       if (signal.aborted) return;

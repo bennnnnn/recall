@@ -4,6 +4,7 @@ import { act, render } from "@testing-library/react-native";
 
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { api } from "@/lib/api";
+import type { Message } from "@/lib/api/types";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { readAloudSession, startReadAloud } from "@/features/speech/model/readAloudSession";
 import { createRealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
@@ -530,5 +531,164 @@ describe("useLiveTalk when the phone takes the call's audio", () => {
     expect(stopReading.mock.invocationCallOrder[0]).toBeLessThan(
       jest.mocked(createRealtimeVoiceSession).mock.invocationCallOrder[0]!,
     );
+  });
+});
+
+describe("useLiveTalk's turns, mute and limits", () => {
+  let thread: Message[] = [];
+  let ensureChat: () => Promise<string | null> = async () => "chat-1";
+  let maxDurationSeconds = 600;
+
+  function ThreadProbe() {
+    const value = useLiveTalk({
+      token: "tok",
+      chatId: "chat-1",
+      ensureChatId: () => ensureChat(),
+      editThread: (update) => {
+        thread = typeof update === "function" ? update(thread) : update;
+      },
+      isOffline: false,
+      onUpgrade,
+      onScrollToLatest: jest.fn(),
+      newMessageCountRef: { current: 0 },
+      onFirstReply: jest.fn(),
+      t: (key: string) => key,
+    });
+    React.useLayoutEffect(() => {
+      live = value;
+    });
+    return null;
+  }
+
+  async function openThreadCall(): Promise<(event: { type: string; [key: string]: unknown }) => void> {
+    let emit!: (event: { type: string; [key: string]: unknown }) => void;
+    (createRealtimeVoiceSession as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+      emit = onEvent;
+      return { callId: "call-1", maxDurationSeconds, setMuted: jest.fn(), cancelResponse: jest.fn(), close: jest.fn() };
+    });
+    await render(<ThreadProbe />);
+    await act(async () => {
+      await live.open();
+    });
+    expect(live.visible).toBe(true);
+    return emit;
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    thread = [];
+    ensureChat = async () => "chat-1";
+    maxDurationSeconds = 600;
+  });
+
+  // The line is transcribed beside the reply: it showed under the reply, and a turn saved
+  // before it came kept no line (the server keeps no reply without one).
+  it("shows a line that lands after its reply above it, and saves the two as one turn", async () => {
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockResolvedValueOnce(undefined);
+    const emit = await openThreadCall();
+    await act(async () => {
+      emit({ type: "speech_started", turnId: "u1" });
+      emit({ type: "speech_stopped", replying: true });
+      emit({ type: "response_started" });
+      emit({ type: "assistant_transcript", text: "Paris.", final: true });
+      emit({ type: "response_done" });
+    });
+    expect(api.persistRealtimeLiveTalkTurn).not.toHaveBeenCalled();
+
+    await act(async () => {
+      emit({ type: "user_transcript", text: "What is the capital of France?", turnId: "u1" });
+    });
+
+    expect(thread.map((row) => [row.role, row.content])).toEqual([
+      ["user", "What is the capital of France?"],
+      ["assistant", "Paris."],
+    ]);
+    expect(jest.mocked(api.persistRealtimeLiveTalkTurn).mock.calls).toEqual([["tok", {
+      chatId: "chat-1",
+      callId: "call-1",
+      userText: "What is the capital of France?",
+      assistantText: "Paris.",
+      turnId: "u1",
+    }]]);
+  });
+
+  // Two turns freed together were saved at once and raced on the server: the later one could
+  // be written first, and the hang-up's end could close saving before a queued save landed.
+  it("saves the turns one after another, and ends the call only after the last save", async () => {
+    const pending: (() => void)[] = [];
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockImplementation(
+      () => new Promise((resolve) => pending.push(() => resolve(undefined))),
+    );
+    const savedTurns = () => jest.mocked(api.persistRealtimeLiveTalkTurn).mock.calls.map(([, body]) => body.turnId);
+    const emit = await openThreadCall();
+    await act(async () => {
+      // u1's reply is done and waits for its line; u2 is heard and answered meanwhile.
+      emit({ type: "speech_started", turnId: "u1" });
+      emit({ type: "assistant_transcript", text: "Paris.", final: true });
+      emit({ type: "response_done" });
+      emit({ type: "speech_started", turnId: "u2" });
+      emit({ type: "user_transcript", text: "And Spain?", turnId: "u2" });
+      emit({ type: "assistant_transcript", text: "Madrid.", final: true });
+      emit({ type: "response_done" });
+      // u1's line lands: both turns are ready at once.
+      emit({ type: "user_transcript", text: "What is the capital of France?", turnId: "u1" });
+    });
+    expect(savedTurns()).toEqual(["u1"]);
+
+    await act(async () => pending[0]!());
+    expect(savedTurns()).toEqual(["u1", "u2"]);
+
+    await act(async () => live.close());
+    expect(api.endRealtimeSession).not.toHaveBeenCalled();
+    await act(async () => pending[1]!());
+    expect(jest.mocked(api.endRealtimeSession).mock.calls).toEqual([["tok", "call-1"]]);
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockReset();
+  });
+
+  // Muted mid-sentence, no reply is asked for: the face waited in "thinking" for good.
+  it.each([
+    [true, "thinking"],
+    [false, "recording"],
+  ])("waits for a reply only when one was asked for (replying: %s)", async (replying, phase) => {
+    const emit = await openThreadCall();
+    await act(async () => {
+      emit({ type: "speech_started", turnId: "u1" });
+      emit({ type: "speech_stopped", replying });
+    });
+    expect(live.phase).toBe(phase);
+  });
+
+  // The call hung up at its time limit with no word.
+  it.each([
+    [1800, "chat.live_talk_time_up"],
+    [60, "chat.live_talk_limit_body"],
+  ])("hangs up at the call's time limit and says why (%i s left when it began)", async (secondsLeft, line) => {
+    jest.mocked(api.liveTalkStatus).mockResolvedValueOnce({
+      enabled: true,
+      entitled: true,
+      remaining: Math.floor(secondsLeft / 60),
+      limit: 60,
+      remaining_seconds: secondsLeft,
+      min_session_seconds: 60,
+    });
+    maxDurationSeconds = 0.05;
+    await openThreadCall();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+    expect(live.visible).toBe(false);
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, line]]);
+  });
+
+  // It ran, spending minutes, with nowhere to save a turn and nothing said.
+  it("starts no call, and says why, when no chat can be made to save it to", async () => {
+    ensureChat = async () => null;
+    await render(<ThreadProbe />);
+    await act(async () => {
+      await live.open();
+    });
+    expect(createRealtimeVoiceSession).not.toHaveBeenCalled();
+    expect(live.visible).toBe(false);
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_no_chat"]]);
   });
 });

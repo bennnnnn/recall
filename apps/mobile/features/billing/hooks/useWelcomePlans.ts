@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 
+import { useAuthOptional } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
+import { isStoreReady, subscribeStoreReady } from "@/features/billing/model/purchases";
 import {
   type OfferMoment,
   takeOutOfCreditOffer,
@@ -22,12 +24,18 @@ type Options = {
 /**
  * Offers a free account the plans when one is due (`welcomePlans`): as the app opens or comes
  * back, after a reply, and when the day's allowance runs out. A paid account never sees it.
+ *
+ * The launch cache paints every plan "free" (`lib/cachedUser.ts`), so nothing is offered until
+ * the server has said the plan, nor before the store can sell: RevenueCat answers no read
+ * before it is set up for the account, and the sheet said "store unavailable".
  */
 export function useWelcomePlans({ user, busy, outOfCredit, open }: Options) {
   const openRef = useRef(open);
   const busyRef = useRef(busy);
   const wasBusy = useRef(busy);
-  const free = user !== null && planOf(user) === "free";
+  const planKnown = useAuthOptional()?.profileValidated ?? false;
+  const storeReady = useSyncExternalStore(subscribeStoreReady, isStoreReady);
+  const free = planKnown && storeReady && user !== null && planOf(user) === "free";
   useEffect(() => {
     openRef.current = open;
     busyRef.current = busy;

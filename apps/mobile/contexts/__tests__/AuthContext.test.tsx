@@ -10,6 +10,7 @@ import { ensureLocale } from "@/lib/i18n";
 import { reportCorruptSessionCleared } from "@/lib/sentry";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
+import { clearImageCaches } from "@/lib/images/imageCaches";
 import { onAppEvent } from "@/lib/appEvents";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
@@ -44,6 +45,7 @@ jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), sign
 jest.mock("@/lib/signOutCleanup", () => ({ clearSignedOutAccount: jest.fn() }));
 jest.mock("@/lib/sentry", () => ({ reportCorruptSessionCleared: jest.fn() }));
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
+jest.mock("@/lib/images/imageCaches", () => ({ clearImageCaches: jest.fn(async () => undefined) }));
 jest.mock("@/features/notifications/model/pushNotifications", () => ({ devicePushToken: jest.fn(async () => null) }));
 // The owed-logout queue is lib/pendingLogout.test.ts's: here it hands the logout straight on.
 jest.mock("@/lib/pendingLogout", () => ({
@@ -438,6 +440,21 @@ it("forgets the push and location sync records when an account signs in", async 
   await mount();
   await act(async () => { await current.signInWithDev(); });
   expect(forgetSyncRecords).toHaveBeenCalledTimes(1);
+  expect(current.user?.id).toBe(userB.id);
+});
+
+it("clears the last account's pictures before another signs in, should its sign-out not have", async () => {
+  (getToken as jest.Mock).mockResolvedValueOnce(null);
+  const cleared = deferred<void>();
+  (clearImageCaches as jest.Mock).mockReturnValueOnce(cleared.promise);
+  await mount();
+  let signingIn!: Promise<void>;
+  await act(async () => { signingIn = current.signInWithDev(); });
+  // The new account's token is saved only once the pictures are gone.
+  expect(clearImageCaches).toHaveBeenCalledTimes(1);
+  expect(setTokenPair).not.toHaveBeenCalled();
+  await act(async () => { cleared.resolve(); await signingIn; });
+  expect(setTokenPair).toHaveBeenCalledWith("access-b", "refresh-b", expect.any(Number));
   expect(current.user?.id).toBe(userB.id);
 });
 

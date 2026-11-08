@@ -82,6 +82,18 @@ def test_session_speaks_in_the_chosen_voice(voice, expected):
     assert config["audio"]["output"] == {"voice": expected}
 
 
+# With no language named, a short reply was transcribed in another one ("Gut.", "Sí.").
+@pytest.mark.parametrize(
+    "locale, expected",
+    [("en", "en"), ("pt-BR", "pt"), ("am", "am"), (None, None), ("", None), ("x-klingon", None)],
+)
+def test_session_transcribes_the_user_in_the_apps_language(locale, expected):
+    config = openai_speech_gateway.realtime_session_config(Settings(), "Recall", language=locale)
+    transcription = config["audio"]["input"]["transcription"]
+    assert transcription.get("language") == expected
+    assert transcription["model"] == "gpt-live-transcribe"
+
+
 @pytest.mark.asyncio
 async def test_realtime_client_secret_binds_session_config_and_retries_connects():
     response = MagicMock()
@@ -127,6 +139,60 @@ async def test_realtime_client_secret_binds_session_config_and_retries_connects(
     transcription = session["audio"]["input"]["transcription"]
     assert transcription["model"] == "gpt-live-transcribe"
     assert "Do not invent speech from silence" in transcription["prompt"]
+
+
+def _secret_response(status_code: int, body: dict | None = None) -> MagicMock:
+    response = MagicMock()
+    response.status_code = status_code
+    response.text = str(body or {})
+    response.json.return_value = body or {}
+    if status_code >= 400:
+        response.raise_for_status = MagicMock(side_effect=RuntimeError(f"HTTP {status_code}"))
+    else:
+        response.raise_for_status = MagicMock()
+    return response
+
+
+# A code the transcriber does not take (Amharic the likeliest) failed every call in that
+# language with a 502: the session is minted again without the language.
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "language, statuses, sent_languages, minted",
+    [
+        ("am", [400, 200], ["am", None], True),
+        ("am", [422, 200], ["am", None], True),
+        ("am", [400, 400], ["am", None], False),
+        ("am", [401], ["am"], False),
+        ("am", [500], ["am"], False),
+        (None, [400], [None], False),
+        ("de", [200], ["de"], True),
+    ],
+)
+async def test_mint_without_the_language_when_openai_refuses_it(
+    caplog, language, statuses, sent_languages, minted
+):
+    client = MagicMock()
+    client.post = AsyncMock(
+        side_effect=[
+            _secret_response(code, {"value": "ek_test", "expires_at": 123} if code == 200 else None)
+            for code in statuses
+        ]
+    )
+    settings = Settings(openai_api_key="sk-test", speech_realtime_voice_enabled=True)
+
+    with patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client):
+        result = await openai_speech_gateway.create_realtime_client_secret(
+            settings, instructions="Recall", safety_identifier="user-hash", language=language
+        )
+
+    sent = [
+        call.kwargs["json"]["session"]["audio"]["input"]["transcription"].get("language")
+        for call in client.post.call_args_list
+    ]
+    assert sent == sent_languages
+    assert (result is not None) is minted
+    if sent_languages == ["am", None]:
+        assert "minting it without the language" in caplog.text
 
 
 def _realtime_app(user, settings: Settings):
@@ -495,8 +561,8 @@ def test_realtime_session_keeps_the_ephemeral_key_and_returns_the_recall_session
     assert "UNTRUSTED CONTENT — memory" not in instructions
 
 
-def test_realtime_session_uses_the_users_voice():
-    user = api_user(plan="pro", tts_voice="sage")
+def test_realtime_session_uses_the_users_voice_and_language():
+    user = api_user(plan="pro", tts_voice="sage", locale="de")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -509,6 +575,7 @@ def test_realtime_session_uses_the_users_voice():
         r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
     assert r.status_code == 200
     assert mint.await_args.kwargs["voice"] == "sage"
+    assert mint.await_args.kwargs["language"] == "de"
 
 
 def test_realtime_session_injects_memory_and_custom_instructions():
