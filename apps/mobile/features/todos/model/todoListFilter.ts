@@ -1,4 +1,4 @@
-import type { Todo } from "@/lib/api";
+import type { Todo } from "@/lib/api/types";
 import { localDateKey } from "@/features/todos/model/dateKey";
 
 export type TodoView = "all" | "open" | "completed" | "today";
