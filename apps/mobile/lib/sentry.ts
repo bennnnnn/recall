@@ -178,6 +178,17 @@ export function reportStoreUnavailable(error: unknown): void {
 }
 
 /**
+ * The native splash refused a call at launch: `hide`, or Android's `setOptions`. The launch
+ * goes on (the reveal plays, and Android waits out the native fade instead); this says how
+ * often it happens.
+ */
+export function reportLaunchSplashFailed(step: "hide" | "set_options", error: unknown): void {
+  report((Sentry) => {
+    Sentry.captureException(error, { tags: { area: "launch_splash", step } });
+  });
+}
+
+/**
  * Pause or resume of a reading aloud failed (a clip's player gone, the phone's voice
  * refusing). The player keeps its state; this says how often it happens.
  */
