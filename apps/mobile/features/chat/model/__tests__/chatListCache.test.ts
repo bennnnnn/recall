@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import {
+  chatListRowsRemoved,
   fetchChatList,
   fetchMoreArchivedChats,
   fetchOlderChats,
@@ -195,14 +196,46 @@ it("replays local edits on a late list response while retaining other server row
 });
 
 it("keeps optimistic first-chat insertion from suppressing the first full list read", async () => {
-  invalidateChatListCache();
-  updateChatListCache((groups) => ({ ...groups, today: sample.today }));
+  // A new session, never read: the first chat is listed before the list is.
+  mockSession++;
+  expect(updateChatListCache((groups) => ({ ...groups, today: sample.today }))?.today).toEqual(sample.today);
   expect(isChatListFresh()).toBe(false);
   listChats.mockResolvedValueOnce(sample);
   await fetchChatList("token");
   expect(isChatListFresh()).toBe(true);
 });
 
+
+it("makes no list from an edit after a drop, and replays one made during the next read over it", async () => {
+  // Built on an empty list, an unarchive left only the chats touched since; built on the rows
+  // shown, Delete all brought its chats back (iOS Simulator, 2026-11-07).
+  seedChatListCacheForTest(sample);
+  await invalidateChatListCache({ rowsRemoved: true });
+  const made = { ...sample.today[0], id: "new" };
+  const insert = (groups: ChatList) => ({ ...groups, today: [made, ...groups.today] });
+  expect(updateChatListCache(insert)).toBeUndefined();
+  expect(getCachedChatList()).toBeUndefined();
+  expect(getCachedChat("c1")).toBeUndefined();
+  let finish!: (value: ChatList) => void;
+  listChats.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  const read = fetchChatList("token");
+  expect(updateChatListCache(insert)).toBeUndefined();
+  finish({ ...sample, today: [] });
+  expect((await read).data?.today.map((chat) => chat.id)).toEqual(["new"]);
+  expect(getCachedChat("c1")).toBeUndefined();
+});
+
+it("says the rows shown went with the list only for a change that removed them, until a read", async () => {
+  await invalidateChatListCache();
+  expect(chatListRowsRemoved()).toBe(false);
+  await invalidateChatListCache({ rowsRemoved: true });
+  expect(chatListRowsRemoved()).toBe(true);
+  listChats.mockResolvedValueOnce(sample);
+  await fetchChatList("token");
+  expect(chatListRowsRemoved()).toBe(false);
+  mockSession++;
+  expect(chatListRowsRemoved()).toBe(false);
+});
 
 it("does not return current cached history to a token from an old account", async () => {
   seedChatListCacheForTest(sample);
@@ -275,6 +308,8 @@ describe("the list kept on disk", () => {
   });
 
   it("writes edits made to a restored list, but never a list of edits alone", async () => {
+    // A new session, never read: the edit makes a list of its own.
+    mockSession++;
     updateChatListCache((groups) => ({ ...groups, today: sample.today }));
     await idle();
     expect(writeStoredChatList).not.toHaveBeenCalled();

@@ -1,5 +1,5 @@
 import { useAccountSession } from "@/contexts/accountSession";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import {
   activeChatsFromGroups,
@@ -12,6 +12,7 @@ import {
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
 import {
+  chatListRowsRemoved,
   fetchChatList,
   fetchMoreArchivedChats,
   fetchOlderChats,
@@ -20,6 +21,7 @@ import {
   isChatListFresh,
   regroupCachedChatList,
   restoreChatList,
+  subscribeChatList,
   updateChatListCache,
 } from "@/features/chat/model/chatListCache";
 import {
@@ -37,7 +39,7 @@ import {
 } from "@/features/chat/drawer/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { isExpectedReadFailure } from "@/lib/cache/sessionResource";
+import { isExpectedReadFailure, type ResourceUpdate } from "@/lib/cache/sessionResource";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
@@ -50,11 +52,22 @@ function initialCollapsedSections(): Record<string, boolean> {
     .map((key) => [key, defaultChatSectionCollapsed(key)]));
 }
 
+type Snapshot = { session: number; groups: ChatList };
+
+/**
+ * The rows to show for `session`: a list, or an edit of the rows shown now (the drawer's own
+ * while a dropped list is not read again). Queued in order, so edits in one tick all land.
+ */
+function nextSnapshot(prev: Snapshot, session: number, data: ChatList | ResourceUpdate<ChatList>): Snapshot {
+  const groups = typeof data === "function" ? data(prev.session === session ? prev.groups : emptyChatList()) : data;
+  return prev.session === session && prev.groups === groups ? prev : { session, groups };
+}
+
 /** The drawer's chats, kept per account: the hourly token rotation reads nothing (NET-11). */
 export function useDrawerChatList({ isDrawerOpen }: Params) {
   const { account, getToken } = useAccountSession();
   const session = getSessionGeneration();
-  const [snapshot, setSnapshot] = useState(() => ({ session, groups: emptyChatList() }));
+  const [snapshot, setSnapshot] = useState<Snapshot>(() => ({ session, groups: emptyChatList() }));
   const groups = useMemo(() => snapshot.session === session && account ? snapshot.groups : emptyChatList(), [snapshot, session, account]);
   const [loading, setLoading] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState(initialCollapsedSections);
@@ -90,9 +103,9 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     setCollapsedSections((prev) => ({ ...prev, [key]: !(prev[key] ?? defaultChatSectionCollapsed(key)) }));
   }, []);
 
-  const applyChatList = useCallback((data: ChatList, fetched = true) => {
+  const applyChatList = useCallback((data: ChatList | ResourceUpdate<ChatList>, fetched = true) => {
     if (!current()) return;
-    setSnapshot((prev) => prev.session === session && prev.groups === data ? prev : { session, groups: data });
+    setSnapshot((prev) => nextSnapshot(prev, session, data));
     if (fetched) hasLoadedOnceRef.current = true;
   }, [current, session]);
   const hydrateFromCache = useCallback(() => {
@@ -199,9 +212,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   const openRef = useLatestRef(isDrawerOpen);
   useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
 
-  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById } = useListEdits(
-    account, current, applyChatList, groups,
-  );
+  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById } = useListEdits({ account, current, applyChatList, load, openRef });
   const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
     patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
   }, [patchChatInGroups]);
@@ -225,22 +236,31 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   };
 }
 
+type ListEditDeps = {
+  account: string | null;
+  current: () => boolean;
+  applyChatList: (data: ChatList | ResourceUpdate<ChatList>, fetched?: boolean) => void;
+  load: () => Promise<void>;
+  openRef: RefObject<boolean>;
+};
+
 /**
- * The drawer's own edits to its list (patch, insert, remove), cached and published. An edit
- * after the list was dropped starts from `groups`, the list shown, never from an empty one.
+ * The drawer's own edits to its list (patch, insert, remove), cached and published. A list
+ * Settings dropped takes no edit until it is read again (`updateChatListCache`): the edit lands
+ * on the rows shown, which an unarchive left in place. A drop that removed rows (Delete all,
+ * Archive all) clears them here first, so an edit can never bring one back.
  */
-function useListEdits(
-  account: string | null,
-  current: () => boolean,
-  applyChatList: (data: ChatList, fetched?: boolean) => void,
-  groups: ChatList,
-) {
-  const shownRef = useLatestRef(groups);
+function useListEdits({ account, current, applyChatList, load, openRef }: ListEditDeps) {
+  useEffect(() => subscribeChatList(() => {
+    if (!current() || !chatListRowsRemoved()) return;
+    applyChatList(emptyChatList(), false);
+    if (openRef.current) void load();
+  }), [current, applyChatList, load, openRef]);
   const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
     if (!account || !current()) return;
-    applyChatList(updateChatListCache(update, shownRef.current), false);
+    applyChatList(updateChatListCache(update) ?? update, false);
     publishChatChange(chatId, patch);
-  }, [account, current, applyChatList, shownRef]);
+  }, [account, current, applyChatList]);
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
     const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
     updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));

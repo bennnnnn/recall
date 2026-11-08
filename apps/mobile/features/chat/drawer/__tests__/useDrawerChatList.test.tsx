@@ -3,9 +3,14 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useDrawerChatList } from "@/features/chat/drawer/useDrawerChatList";
 import { api, type ChatList } from "@/lib/api";
-import { getCachedChatList, invalidateChatListCache, seedChatListCacheForTest } from "@/features/chat/model/chatListCache";
+import {
+  getCachedChat,
+  getCachedChatList,
+  invalidateChatListCache,
+  seedChatListCacheForTest,
+} from "@/features/chat/model/chatListCache";
 import { readStoredChatList } from "@/features/chat/model/chatListFile";
-import { emptyChatList } from "@/features/chat/model/listSections";
+import { allChatsFromGroups, emptyChatList } from "@/features/chat/model/listSections";
 import { patchChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
 
 let mockSession = 0;
@@ -223,4 +228,62 @@ it("keeps every chat when one is added after the list was dropped, and reads it 
   await view.rerender(<Probe open={false} />);
   await act(async () => { await view.rerender(<Probe open />); });
   expect(api.listChats).toHaveBeenCalledTimes(2);
+});
+
+describe("after a Settings change took away the chats shown", () => {
+  // Review of the fix above: an edit seeded the dropped list from the rows shown, so a late
+  // title or a new chat after Delete all brought the deleted chats back.
+  async function dropAfterRead() {
+    (api.listChats as jest.Mock).mockResolvedValueOnce(initial);
+    const view = await render(<Probe />);
+    expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
+    // Settings opens over a closed drawer.
+    await view.rerender(<Probe open={false} />);
+    await act(async () => { await invalidateChatListCache({ rowsRemoved: true }); });
+    expect(current.allChats).toEqual([]);
+    return view;
+  }
+  const deletedAnywhere = () =>
+    [...allChatsFromGroups(current.groups), ...allChatsFromGroups(getCachedChatList() ?? emptyChatList())]
+      .some((row) => row.id === "old") || getCachedChat("old") !== undefined;
+
+  it("lists only a chat made after Delete all, in the cache and in the drawer", async () => {
+    const view = await dropAfterRead();
+    const made = { ...chat, id: "new", title: "New one", updated_at: "2026-11-07T00:00:00Z" };
+    await act(async () => { current.insertChatInGroups(made); });
+    expect(current.allChats.map((row) => row.id)).toEqual(["new"]);
+    expect(getCachedChatList()).toBeUndefined();
+    expect(deletedAnywhere()).toBe(false);
+    (api.listChats as jest.Mock).mockResolvedValueOnce({ ...emptyChatList(), today: [made] });
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect(current.allChats.map((row) => row.id)).toEqual(["new"]);
+    expect(allChatsFromGroups(getCachedChatList()!).map((row) => row.id)).toEqual(["new"]);
+    expect(deletedAnywhere()).toBe(false);
+  });
+
+  it("keeps an archived chat off the list when its title lands after Archive all", async () => {
+    const view = await dropAfterRead();
+    await act(async () => { current.patchChatInGroups("old", { title: "Late title" }); });
+    expect(current.allChats).toEqual([]);
+    expect(getCachedChatList()).toBeUndefined();
+    (api.listChats as jest.Mock).mockResolvedValueOnce({
+      ...emptyChatList(), archived: [{ ...chat, archived: true, title: "Late title" }],
+    });
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(current.allChats).toEqual([]);
+    expect(current.groups.archived.map((row) => row.id)).toEqual(["old"]);
+  });
+
+  it("shows none of the deleted chats when the read after Delete all fails offline", async () => {
+    const view = await dropAfterRead();
+    await act(async () => { current.patchChatInGroups("old", { title: "Late title" }); });
+    (api.listChats as jest.Mock).mockRejectedValueOnce(new TypeError("Network request failed"));
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect(current.allChats).toEqual([]);
+    expect(current.error).toBe(true);
+    expect(getCachedChatList()).toBeUndefined();
+    expect(deletedAnywhere()).toBe(false);
+  });
 });

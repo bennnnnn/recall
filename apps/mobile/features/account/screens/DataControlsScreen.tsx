@@ -137,7 +137,7 @@ export default function DataControlsScreen() {
       async () => {
         if (!token) return;
         await api.archiveAllChats(token);
-        invalidateChatListCache();
+        invalidateChatListCache({ rowsRemoved: true });
       },
       {
         confirm: {
@@ -156,7 +156,7 @@ export default function DataControlsScreen() {
         if (!token) return;
         await api.deleteAllChats(token);
         notifyDestructive();
-        invalidateChatListCache();
+        invalidateChatListCache({ rowsRemoved: true });
       },
       {
         confirm: {

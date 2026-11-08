@@ -91,7 +91,7 @@ export default function ArchivedChatsScreen() {
       async () => {
         await api.deleteChat(token, chat.id);
         notifyDestructive();
-        invalidateChatListCache();
+        invalidateChatListCache({ rowsRemoved: true });
         drop(chat);
       },
       {

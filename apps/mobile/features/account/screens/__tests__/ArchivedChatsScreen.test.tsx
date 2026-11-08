@@ -2,6 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { Alert } from "react-native";
 
 import ArchivedChatsScreen from "@/features/account/screens/ArchivedChatsScreen";
+import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
 
 const mockListChats = jest.fn();
 const mockDeleteChat = jest.fn();
@@ -157,6 +158,8 @@ it("haptics only after confirmed archived-chat deletion succeeds", async () => {
 
   await act(async () => { pending.resolve(); });
   expect(mockDestructive).toHaveBeenCalledTimes(1);
+  // The deleted chat leaves the drawer with the list; it never comes back from the rows shown.
+  expect(invalidateChatListCache).toHaveBeenCalledWith({ rowsRemoved: true });
 });
 
 it("reads archived chats past the first page when the list end is reached", async () => {

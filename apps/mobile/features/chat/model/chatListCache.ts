@@ -26,13 +26,19 @@ type ListSession = {
   stored?: ChatList;
   restore?: Promise<boolean>;
   saveQueued?: boolean;
+  /**
+   * Set when a change to many chats dropped the list (`invalidateChatListCache`): "rows-removed"
+   * when that change took away rows a screen shows (Delete all, Archive all, a deleted chat).
+   */
+  dropped?: "rows-kept" | "rows-removed";
 };
 
 const LIST = "chats";
 const resource = new SessionResourceCache<typeof LIST, ChatList, ListSession>({
   staleMs: CHAT_LIST_STALE_MS,
-  // The first chat is inserted before the first full read and must not count as one.
-  empty: emptyChatList,
+  // The first chat is inserted before the first full read and must not count as one. A
+  // dropped list is unknown: an edit then waits for the read, never makes a list of its own.
+  empty: (): ChatList | undefined => (resource.state().dropped ? undefined : emptyChatList()),
   sessionState: () => ({}),
 });
 resource.subscribe(saveSoon);
@@ -151,22 +157,30 @@ export function seedChatListCacheForTest(data: ChatList): void {
 }
 
 /**
- * Replay edits over an already-running read so it cannot restore a deleted/old row. An edit
- * after the list was dropped (an unarchive, archive or clear-all in Settings) starts from
- * `shown`, the list on screen, never from an empty one: built on empty, the drawer showed only
- * the chats touched since (iOS Simulator, 2026-11-07). The result is never fresh, so the next
- * read replaces it.
+ * Replay edits over an already-running read so it cannot restore a deleted/old row. After a
+ * drop it returns nothing until the list is read again: the edit only rides on a read running.
+ * Built on an empty list, the drawer showed only the chats touched since an unarchive, and
+ * built on the rows shown, Delete all brought its chats back (iOS Simulator, 2026-11-07).
  */
-export function updateChatListCache(update: ResourceUpdate<ChatList>, shown?: ChatList): ChatList {
-  if (shown && resource.get(LIST) === undefined) resource.seed(LIST, shown, getSessionGeneration());
-  return resource.update(LIST, update) ?? emptyChatList();
+export function updateChatListCache(update: ResourceUpdate<ChatList>): ChatList | undefined {
+  return resource.update(LIST, update);
 }
 
-/** Sign-out, or a change to many chats at once: forget the list, on disk too. */
-export function invalidateChatListCache(): Promise<void> {
-  resource.invalidate();
+/**
+ * Sign-out, or a change to many chats at once: forget the list, on disk too. Until it is read
+ * again the drawer keeps the rows it shows (an unarchive left every one in place), unless
+ * `rowsRemoved` says the change took some away (Delete all, Archive all, a deleted chat):
+ * then the drawer drops them too, so none comes back.
+ */
+export function invalidateChatListCache({ rowsRemoved = false } = {}): Promise<void> {
+  resource.invalidate({ dropped: rowsRemoved ? "rows-removed" : "rows-kept" });
   clearKnownAssistantChats();
   return listFile().then((file) => file.clearStoredChatList()).catch(() => {});
+}
+
+/** The rows a screen shows were removed with the list (Delete all), and it is not read since. */
+export function chatListRowsRemoved(): boolean {
+  return resource.get(LIST) === undefined && resource.state().dropped === "rows-removed";
 }
 
 export async function fetchChatList(
