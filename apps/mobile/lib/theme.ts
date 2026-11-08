@@ -2,7 +2,8 @@
  * App theme — one palette via `useTheme()`. Neutral surfaces + one accent
  * (indigo by default, or the user's pick in `lib/accent.ts`) for primary
  * actions, selection, progress, links, and focus.
- * Success / goal-met stays green so “done” is not the same hue as brand.
+ * Success / goal-met stays jade green, and every accent (forest included) keeps a
+ * clear step from it, so “done” never reads as brand.
  * Do not hardcode hex in components — add a token here instead.
  *
  * Canonical names used across the app:
@@ -63,8 +64,8 @@ export type Theme = {
   /** Placeholders and non-readable decoration only — not helper or metadata copy. */
   textDisabled: string;
 
-  // Bubbles — user chip is a quiet brand tint, not success-green.
-  // Indigo = Recall / interactive; green is reserved for success.
+  // Bubbles — user chip is a quiet tint of the accent, never success's own green.
+  // Indigo = Recall / interactive by default; the user may pick another accent.
   userBubble: string;
   userText: string;
   assistantBubble: string;
@@ -270,8 +271,8 @@ export function applyAccent(theme: Theme, accent: AccentPreference): Theme {
     onPrimary: tones.onPrimary,
     graphSeries: [
       tones.primary,
-      theme.graphSeries[1],
-      theme.graphSeries[2],
+      "series2" in tones ? tones.series2 : theme.graphSeries[1],
+      "series3" in tones ? tones.series3 : theme.graphSeries[2],
       "series4" in tones ? tones.series4 : theme.graphSeries[3],
     ],
   };
