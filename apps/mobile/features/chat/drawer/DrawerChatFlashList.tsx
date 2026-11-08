@@ -39,7 +39,6 @@ type Props = {
   error: boolean;
   isSectionCollapsed: (key: ChatListSectionKey) => boolean;
   toggleSectionCollapsed: (key: ChatListSectionKey) => void;
-  highlightedIds?: Set<string>;
   /** Chat currently open on the home screen (drawer active indicator). */
   activeChatId?: string | null;
   onOpenChat: (id: string, messageId?: string | null) => void;
@@ -54,6 +53,8 @@ type Props = {
   refreshing: boolean;
   onRefresh: () => void;
   searchOpen?: boolean;
+  /** A query is being searched: the list holds its results alone, or nothing while they load. */
+  searching?: boolean;
   /** What was searched: the results highlight it. */
   searchQuery?: string;
   searchResults?: SearchResult[];
@@ -75,7 +76,6 @@ export function DrawerChatFlashList({
   error,
   isSectionCollapsed,
   toggleSectionCollapsed,
-  highlightedIds,
   activeChatId = null,
   onOpenChat,
   onOpenSearchResult,
@@ -89,6 +89,7 @@ export function DrawerChatFlashList({
   refreshing,
   onRefresh,
   searchOpen = false,
+  searching = false,
   searchQuery = "",
   searchResults = [],
   searchHasMore = false,
@@ -145,10 +146,9 @@ export function DrawerChatFlashList({
     return items;
   }, [activeChatCount, groups, isSectionCollapsed, onLoadMoreArchived, t]);
 
-  const chatListData = useMemo(
-    () => (searchItems.length > 0 ? [...searchItems, ...chatItems] : chatItems),
-    [searchItems, chatItems],
-  );
+  // A search shows what it found, not the chat list under it; an empty search says so in
+  // the list header's chrome.
+  const chatListData = searching || searchItems.length > 0 ? searchItems : chatItems;
 
   const renderChatItem = useCallback(
     ({ item }: { item: DrawerChatListItem }) => {
@@ -209,7 +209,6 @@ export function DrawerChatFlashList({
         <ConversationRow
           chat={item.chat}
           rowStyles={rowStyles}
-          highlighted={highlightedIds?.has(item.chat.id) ?? false}
           active={activeChatId != null && item.chat.id === activeChatId}
           titleGenerating={isChatTitleGenerating(item.chat.id)}
           onOpen={onOpenChat}
@@ -223,7 +222,6 @@ export function DrawerChatFlashList({
     [
       s,
       rowStyles,
-      highlightedIds,
       activeChatId,
       isSectionCollapsed,
       toggleSectionCollapsed,

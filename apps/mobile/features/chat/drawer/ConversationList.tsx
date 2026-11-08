@@ -151,11 +151,6 @@ export function ConversationList() {
     enabled: Boolean(token),
   });
 
-  const matchingChatIds = useMemo(
-    () => new Set(searchResults.map((result) => result.chat_id)),
-    [searchResults],
-  );
-
   const openChat = useCallback(
     (id: string, messageId?: string | null) => {
       clearChatHighlightGlobal();
@@ -218,7 +213,6 @@ export function ConversationList() {
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
 
-  const highlightedIds = searchOpen ? matchingChatIds : undefined;
   // Snapshot when the drawer opens — isOpen flip re-renders this list.
   const activeChatId = isOpen ? getActiveChatIdGlobal() : null;
 
@@ -303,7 +297,6 @@ export function ConversationList() {
         error={error}
         isSectionCollapsed={isSectionCollapsed}
         toggleSectionCollapsed={toggleSectionCollapsed}
-        highlightedIds={highlightedIds}
         activeChatId={activeChatId}
         onOpenChat={openChat}
         onOpenSearchResult={openSearchResult}
@@ -317,6 +310,7 @@ export function ConversationList() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         searchOpen={searchOpen}
+        searching={searchOpen && hasSearchQuery}
         searchQuery={searchQuery}
         searchResults={searchResults}
         searchHasMore={hasMore}

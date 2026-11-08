@@ -1,8 +1,14 @@
 """A search hit's line is the message's words as a reader sees them, never its markdown."""
 
+import json
+from pathlib import Path
+
 import pytest
 
 from app.modules.search.snippet import reader_text, snippet
+from app.tests.behavior.latex_check import latex_problems
+
+_FIXTURES = Path(__file__).resolve().parents[6] / "docs" / "fixtures"
 
 
 @pytest.mark.parametrize(
@@ -27,7 +33,7 @@ from app.modules.search.snippet import reader_text, snippet
         ("| Item | Cost |\n|---|---:|\n| Rent | $900 |", "Item · Cost Rent · $900"),
         ("Above\n\n---\n\nBelow", "Above Below"),
         ("line one<br>line two", "line one line two"),
-        ("Area is \\(\\pi r^2\\) here.", "Area is \\pi r^2 here."),
+        ("Area is \\(\\pi r^2\\) here.", "Area is $\\pi r^2$ here."),
         (
             "A 2*3*4 product, a snake_case_name and List<String>.",
             "A 2*3*4 product, a snake_case_name and List<String>.",
@@ -97,3 +103,64 @@ def test_snippet_cuts_a_long_word_where_it_falls():
     body = "a" * 300 + " needle " + "b" * 300
     shown = snippet(body, "needle")
     assert shown == "…" + "a" * 39 + " needle " + "b" * 79 + "…"
+
+
+# A worked reply's hit showed its TeX: "…$t$ = time Required $a$…", "$v_0 = 20\\,\\mathrm{m/s}$".
+# Each formula is kept whole between ``$`` marks for the phone to show as symbols.
+@pytest.mark.parametrize(
+    "markdown, shown",
+    [
+        ("where $t$ = time **Required** $a$", "where $t$ = time Required $a$"),
+        (
+            "The mean is\n$$\n\\bar{x} = \\frac{1}{n}\n$$\nhere.",
+            "The mean is $\\bar{x} = \\frac{1}{n}$ here.",
+        ),
+        ("Solve:\n\\[ x = \\pm 2 \\]", "Solve: $x = \\pm 2$"),
+        ("```math\nE = mc^2\n```", "$E = mc^2$"),
+        (
+            "**Answer**\n```answer\nverified: true\n3.97\\,\\mathrm{J}\n```",
+            "Answer $3.97\\,\\mathrm{J}$",
+        ),
+        (
+            "```answer\nverified: false\nIt moves $4\\,\\mathrm{m}$.\n```",
+            "It moves $4\\,\\mathrm{m}$.",
+        ),
+        ("```answer\nnotation: chemistry\n2H₂ + O₂ → 2H₂O\n```", "2H₂ + O₂ → 2H₂O"),
+        ("```tip\nRemember **$F = ma$**.\n```", "Remember $F = ma$."),
+        ("Let $a_1 * b_2$ and *this*.", "Let $a_1 * b_2$ and this."),
+        ("I saved $50 and **$92** today.", "I saved $50 and $92 today."),
+        ("Run `echo $HOME $PATH` first.", "Run echo \\$HOME \\$PATH first."),
+        ("```bash\necho $HOME $PATH\n```", "echo \\$HOME \\$PATH"),
+    ],
+)
+def test_reader_text_keeps_each_formula_whole(markdown, shown):
+    assert reader_text(markdown) == shown
+
+
+def _replies(name: str) -> list[str]:
+    data = json.loads((_FIXTURES / name).read_text(encoding="utf-8"))
+    return [entry["reply"] for entry in data["replies"].values()]
+
+
+@pytest.mark.parametrize(
+    "reply", _replies("physics_replies.json") + _replies("chemistry_replies.json")
+)
+def test_snippet_of_a_server_reply_shows_no_tex_outside_a_formula(reply):
+    """Wherever the cut falls, a formula is whole or left out: no TeX reaches the words."""
+    text = reader_text(reply)
+    assert "verified:" not in text
+    for word in {word.strip(".,:()") for word in text.split() if word.isalpha() and len(word) > 3}:
+        shown = snippet(reply, word)
+        assert not [problem for problem in latex_problems(shown) if "outside" in problem], shown
+
+
+def test_snippet_keeps_the_matched_formula_whole_and_leaves_a_cut_one_out():
+    formula = "$v_0 = 20\\,\\mathrm{m/s} + \\frac{a+b}{c}$"
+    body = "Lead " + "word " * 10 + formula + " and then the time required " + "tail " * 30
+    assert formula in snippet(body, "frac")
+    shown = snippet(body, "time")
+    assert shown.startswith("…and then the time required")
+    # No match: the opening words, ending before a formula the length would cut.
+    assert snippet("Lead " + "word " * 20 + formula + " tail" * 30, "zzz") == (
+        "Lead " + " ".join(["word"] * 20) + "…"
+    )

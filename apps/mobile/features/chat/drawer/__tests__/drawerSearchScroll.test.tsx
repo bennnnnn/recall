@@ -1,7 +1,7 @@
 /**
- * A new search's results go in above the chat rows, and FlashList keeps the rows on
- * screen, which pushed the results up out of sight. A new search shows from the top;
- * loading more results keeps the place.
+ * A new search's results take the chat rows' place, and FlashList kept its scroll offset,
+ * out of sight of them. A new search shows from the top; loading more results keeps the
+ * place.
  */
 import { render } from "@testing-library/react-native";
 
