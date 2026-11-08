@@ -1,5 +1,9 @@
 import {
+  correctedKeyboardHeight,
+  keyboardCorrection,
+  keyboardEventHeight,
   keyboardLiftAbove,
+  NO_KEYBOARD_CORRECTION,
   settledKeyboardHeight,
   shouldPushKeyboardHeight,
 } from "@/lib/keyboardInset";
@@ -65,5 +69,74 @@ describe("shouldPushKeyboardHeight", () => {
 
   it("suppresses no-op repeats at the same height", () => {
     expect(shouldPushKeyboardHeight(300, 300, 4)).toBe(false);
+  });
+});
+
+describe("keyboardEventHeight", () => {
+  it("measures an Android keyboard from the screen's bottom edge, the navigation bar included", () => {
+    expect(keyboardEventHeight(252, 48)).toBe(300);
+  });
+
+  it.each([0, -48])("reads a keyboard that covers no bottom edge as down (%i)", (height) => {
+    expect(keyboardEventHeight(height, 48)).toBe(0);
+  });
+});
+
+describe("keyboardCorrection", () => {
+  it("puts down a keyboard Reanimated still holds up after it closed", () => {
+    expect(keyboardCorrection(300, 0)).toBe(0);
+  });
+
+  it("puts down one stopped part of the way through its hide", () => {
+    expect(keyboardCorrection(137, 0)).toBe(0);
+  });
+
+  it("lifts the composer onto a keyboard Reanimated never saw rise", () => {
+    expect(keyboardCorrection(0, 300)).toBe(300);
+  });
+
+  it.each([
+    [0, 0],
+    [300, 300],
+    // Two readings of an open keyboard that differ stay Reanimated's: it measures the inset itself.
+    [300, 296],
+    [336, 300],
+  ])("leaves Reanimated's keyboard alone when it agrees with the real one (%i, %i)", (reported, real) => {
+    expect(keyboardCorrection(reported, real)).toBeNull();
+  });
+
+  it("corrects nothing before the first keyboard event", () => {
+    expect(keyboardCorrection(300, null)).toBeNull();
+  });
+
+  it("puts down a keyboard Reanimated stopped following on the way down", () => {
+    expect(keyboardCorrection(137, 0, { rose: false, fell: true })).toBe(0);
+  });
+
+  it("trusts Reanimated rising after the last hide: it follows a show whose event has not come", () => {
+    expect(keyboardCorrection(300, 0, { rose: true, fell: false })).toBeNull();
+  });
+
+  it("trusts Reanimated falling after the last show: it follows a hide whose event has not come", () => {
+    expect(keyboardCorrection(0, 300, { rose: true, fell: true })).toBeNull();
+  });
+});
+
+describe("correctedKeyboardHeight", () => {
+  it("draws Reanimated's height while no correction holds", () => {
+    expect(correctedKeyboardHeight(300, NO_KEYBOARD_CORRECTION, 0)).toBe(300);
+  });
+
+  it("draws the real keyboard while Reanimated keeps reporting the stale height", () => {
+    expect(correctedKeyboardHeight(300, 300, 0)).toBe(0);
+    expect(correctedKeyboardHeight(0, 0, 300)).toBe(300);
+  });
+
+  it("follows Reanimated again the moment it reports anything else", () => {
+    expect(correctedKeyboardHeight(120, 300, 0)).toBe(120);
+  });
+
+  it("never draws a negative height", () => {
+    expect(correctedKeyboardHeight(-4, NO_KEYBOARD_CORRECTION, 0)).toBe(0);
   });
 });

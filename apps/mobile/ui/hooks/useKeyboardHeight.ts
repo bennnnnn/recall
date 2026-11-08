@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
 import { Keyboard, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { keyboardEventHeight } from "@/lib/keyboardInset";
 
 /**
- * OS keyboard height via Keyboard events (works inside Modals; Android activity
- * resize does not). When `enabled` is false, height resets to 0.
+ * The OS keyboard's height, from the bottom edge of the screen, via Keyboard events
+ * (which reach Modals too). Nothing resizes for the keyboard: Android apps are edge to
+ * edge (enforced from Android 15), so `adjustResize` no longer shrinks the window, a
+ * Modal's included, and whatever avoids the keyboard lifts itself by this height.
+ * iOS measures the keyboard from the screen's edge; Android measures it above the
+ * navigation bar, which an edge-to-edge window draws under, so the bar is added back.
+ * When `enabled` is false, height resets to 0.
  */
 export function useKeyboardHeight(enabled = true): number {
+  const { bottom: navigationBar } = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
@@ -13,19 +22,21 @@ export function useKeyboardHeight(enabled = true): number {
       setKeyboardHeight(0);
       return;
     }
+    const fromScreenEdge = (height: number) =>
+      Platform.OS === "android" ? keyboardEventHeight(height, navigationBar) : Math.max(0, height);
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(Math.max(0, e.endCoordinates.height));
+      setKeyboardHeight(fromScreenEdge(e.endCoordinates.height));
     });
     const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
     const metrics = Keyboard.metrics();
-    if (metrics?.height) setKeyboardHeight(Math.max(0, metrics.height));
+    if (metrics?.height) setKeyboardHeight(fromScreenEdge(metrics.height));
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, [enabled]);
+  }, [enabled, navigationBar]);
 
   return keyboardHeight;
 }

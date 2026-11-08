@@ -189,6 +189,75 @@ describe("Sheet", () => {
     expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 400 });
   });
 
+  describe("on Android, edge to edge", () => {
+    /** The test's safe-area mock: the navigation bar a window draws under. */
+    const NAV_BAR = 34;
+    const handlers = new Map<string, (e?: KeyboardEvent) => void>();
+    const keyboard = (event: "keyboardDidShow" | "keyboardDidHide", height = 0) =>
+      act(async () => {
+        handlers.get(event)?.({
+          endCoordinates: { height, screenX: 0, screenY: 0, width: 0 },
+        } as KeyboardEvent);
+      });
+
+    beforeEach(() => {
+      jest.replaceProperty(Platform, "OS", "android");
+      handlers.clear();
+      jest.spyOn(Keyboard, "addListener").mockImplementation((event, handler) => {
+        handlers.set(event, handler as (e?: KeyboardEvent) => void);
+        return fakeSubscription();
+      });
+    });
+
+    it("lifts a Modal sheet by the keyboard and the navigation bar it measures above", async () => {
+      const { getByTestId } = await render(
+        <Sheet visible onClose={jest.fn()} keyboardAvoiding>
+          <Text>rename</Text>
+        </Sheet>,
+      );
+      expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 0 });
+
+      await keyboard("keyboardDidShow", 300);
+      expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 300 + NAV_BAR });
+
+      await keyboard("keyboardDidHide");
+      expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 0 });
+    });
+
+    it("lifts an embedded sheet too: the window no longer resizes for the keyboard", async () => {
+      const { getByTestId } = await render(
+        <Sheet visible embedded onClose={jest.fn()} keyboardAvoiding>
+          <Text>to-do</Text>
+        </Sheet>,
+      );
+
+      await keyboard("keyboardDidShow", 300);
+      expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 300 + NAV_BAR });
+    });
+
+    it("lifts a sheet opened while the keyboard is already up", async () => {
+      jest.spyOn(Keyboard, "metrics").mockReturnValue({ height: 300, screenX: 0, screenY: 0, width: 0 });
+      const { getByTestId } = await render(
+        <Sheet visible onClose={jest.fn()} keyboardAvoiding>
+          <Text>memory</Text>
+        </Sheet>,
+      );
+
+      expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 300 + NAV_BAR });
+    });
+
+    it("keeps a floating keyboard, which covers no bottom edge, from lifting the sheet", async () => {
+      const { getByTestId } = await render(
+        <Sheet visible onClose={jest.fn()} keyboardAvoiding>
+          <Text>rename</Text>
+        </Sheet>,
+      );
+
+      await keyboard("keyboardDidShow", -NAV_BAR);
+      expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 0 });
+    });
+  });
+
   it("exposes dialog semantics and a localized scrim label", async () => {
     const { getByTestId, getByLabelText } = await render(
       <Sheet visible onClose={jest.fn()}>

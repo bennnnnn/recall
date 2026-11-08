@@ -179,6 +179,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
       <ChatComposer
         visible={!drawerOpen}
         animatedContainerStyle={composer.animatedStyle}
+        keyboardLift={keyboardLift}
         streaming={composerShowsStop(composer)}
         attachPicking={composer.attachPicking}
         sendBusy={composer.sendBusy}

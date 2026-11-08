@@ -7,7 +7,11 @@ import {
   useDerivedValue,
 } from "react-native-reanimated";
 
+import { useKeyboardCorrection } from "@/hooks/useKeyboardCorrection";
 import {
+  correctedKeyboardHeight,
+  KEYBOARD_CLOSED,
+  KEYBOARD_OPEN,
   keyboardLiftAbove,
   settledKeyboardHeight,
   shouldPushKeyboardHeight,
@@ -38,7 +42,9 @@ export type KeyboardSteps = { subscribe: (listener: (height: number) => void) =>
  * composer) follows it frame by frame on the UI thread. Each frame also
  * reaches JS, where none of them renders: every ~48 pt of travel is a step the
  * thread scrolls along with, and React state takes the height only once the
- * keyboard has settled, so a show or a hide renders the screen once.
+ * keyboard has settled, so a show or a hide renders the screen once. On
+ * Android a keyboard Reanimated lost is put right by `useKeyboardCorrection`:
+ * all of it draws against the corrected height, never Reanimated's alone.
  */
 export function useKeyboardInset({ idleBottomPad }: Options) {
   const keyboard = useAnimatedKeyboard();
@@ -54,8 +60,23 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
     setKeyboardHeight(height);
   }, []);
 
+  /** A correction lands at once: the thread steps to it and React takes it. */
+  const settle = useCallback(
+    (height: number) => {
+      tracked.current.step = height;
+      tracked.current.frame = height;
+      steps.emit(height);
+      commit(height);
+    },
+    [commit, steps],
+  );
+  const { heldAt, real, onFrame } = useKeyboardCorrection(keyboard.height, settle);
+
   const onKeyboardFrame = useCallback(
-    (state: number, height: number) => {
+    (reportedState: number, reported: number) => {
+      const height = onFrame(reported);
+      // A correction holds: the keyboard is at rest where it really is.
+      const state = height === reported ? reportedState : height > 0 ? KEYBOARD_OPEN : KEYBOARD_CLOSED;
       const last = tracked.current;
       if (shouldPushKeyboardHeight(height, last.step, KEYBOARD_STEP_PX, last.frame)) {
         last.step = height;
@@ -66,7 +87,7 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
       if (settled !== null) commit(settled);
       else scheduleTimeout(stillTimer, KEYBOARD_STILL_MS, () => commit(height));
     },
-    [commit, steps],
+    [commit, onFrame, steps],
   );
 
   useAnimatedReaction(
@@ -78,16 +99,20 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
 
   useEffect(() => () => clearScheduledTimeout(stillTimer), []);
 
+  /** The keyboard's height this frame: Reanimated's, or the real one while a correction holds. */
+  const height = useDerivedValue(() =>
+    correctedKeyboardHeight(keyboard.height.value, heldAt.value, real.value),
+  );
   /** How far the keyboard has lifted the composer above its resting place, this frame. */
   const keyboardLift = useDerivedValue(
-    () => keyboardLiftAbove(keyboard.height.value, idleBottomPad),
+    () => keyboardLiftAbove(height.value, idleBottomPad),
     [idleBottomPad],
   );
 
   const composerAnimatedStyle = useAnimatedStyle(() => {
-    const open = keyboard.height.value > 0;
+    const open = height.value > 0;
     return {
-      bottom: Math.max(0, keyboard.height.value),
+      bottom: height.value,
       paddingBottom: open ? 0 : idleBottomPad,
     };
   }, [idleBottomPad]);

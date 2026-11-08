@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -39,9 +39,8 @@ export function AddFab({ onPress, accessibilityLabel, wave = false }: Props) {
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight(true);
   const s = makeStyles(theme);
-  // Android activity resize already shrinks the window — only lift on iOS.
-  const keyboardLift = Platform.OS === "ios" ? keyboardHeight : 0;
-  const bottom = fabBottom(insets.bottom) + keyboardLift;
+  // Nothing resizes for the keyboard (Android is edge to edge): the button rides above it.
+  const bottom = fabBottom(insets.bottom) + keyboardHeight;
 
   return (
     <View

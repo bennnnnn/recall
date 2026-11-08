@@ -1,4 +1,4 @@
-import { Dimensions, StyleSheet } from "react-native";
+import { Dimensions, Platform, StyleSheet, TextInput } from "react-native";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { mathKeyboardRequests } from "@/features/chat/model/mathKeyboardRequest";
@@ -708,5 +708,51 @@ describe("ChatComposer math keyboard", () => {
     for (const id of ["der", "oint", "binom", "perm", "e-const", "prime"]) {
       expect(getByTestId(`math-key-${id}`)).toBeTruthy();
     }
+  });
+});
+
+describe("ChatComposer math pad and the phone's keyboard", () => {
+  /** The composer field's focus calls (the jest TextInput shares one mock across instances). */
+  let focus: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Already a jest mock on the shared prototype: spyOn hands it back with its old calls.
+    focus = jest.spyOn(TextInput.prototype, "focus");
+    focus.mockClear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  const nextFrame = () =>
+    act(async () => {
+      jest.runOnlyPendingTimers();
+    });
+
+  it("on Android opens the pad with the field unfocused and ABC focuses it for typing", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+    await openMathKeyboard();
+    await nextFrame();
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    expect(focus).not.toHaveBeenCalled();
+    expect(getByTestId("chat-composer-input").props.showSoftInputOnFocus).toBe(false);
+
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
+    await nextFrame();
+    expect(getByTestId("chat-composer-input").props.showSoftInputOnFocus).toBe(true);
+    expect(focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("on iOS keeps the field focused under the pad, as before", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+    await openMathKeyboard();
+    await nextFrame();
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    expect(focus).toHaveBeenCalledTimes(1);
   });
 });

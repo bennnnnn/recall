@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -24,13 +24,13 @@ type Props = {
 
 /**
  * "Tell Recall what to change": a plain-words edit box docked under the memory
- * pages. On iOS it rides above the keyboard; Android resizes the window itself.
+ * pages. It rides above the keyboard: nothing resizes for it (Android is edge to edge).
  */
 export function MemoryComposer({ placeholder, onSubmit }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const keyboard = useKeyboardHeight(Platform.OS === "ios");
+  const keyboard = useKeyboardHeight();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
