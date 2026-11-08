@@ -39,19 +39,26 @@ export function keyboardEventHeight(eventHeight: number, navigationBar: number):
 export type KeyboardMotion = { rose: boolean; fell: boolean };
 
 /**
+ * Two readings of an open keyboard this close are the same keyboard: React Native and the
+ * safe area report fractions of a point, Reanimated whole points.
+ */
+export const KEYBOARD_AGREE_DP = 8;
+
+/**
  * Where the composer should sit when Reanimated's keyboard, at rest, disagrees
  * with the real one, or null when they agree. On Android Reanimated ignores a
  * zero-height inset while it thinks the keyboard is open, and follows
  * keyboard changes without an inset animation only while it is open, so a hide
  * it never saw (an animation cut short, a sheet or another app taking the
- * window) leaves its height where the keyboard's top was. `real` is the
+ * window) leaves its height where the keyboard's top was, and a keyboard that
+ * changes height without animating (the emoji panel, the suggestions strip, a
+ * floating keyboard docked) can leave it at the old height. `real` is the
  * keyboard React Native's own events report (null before the first one).
  *
- * Only a keyboard Reanimated has plainly lost is corrected: one it reports up
- * that is down, or down that is up. Two heights that merely differ stay
- * Reanimated's, which measures the inset itself; and so does a keyboard
- * Reanimated has moved toward since the last event (`motion`), since then it
- * is following a show or a hide whose event has not come.
+ * A keyboard Reanimated has moved toward since the last event (`motion`) stays
+ * Reanimated's: it is following a show or a hide whose event has not come.
+ * Otherwise one it reports up that is down, or down that is up, is corrected,
+ * and so is an open one more than `KEYBOARD_AGREE_DP` from the real height.
  */
 export function keyboardCorrection(
   reported: number,
@@ -60,7 +67,9 @@ export function keyboardCorrection(
 ): number | null {
   if (real === null) return null;
   if (real <= 0) return reported > 0 && !motion.rose ? 0 : null;
-  return reported <= 0 && !motion.fell ? real : null;
+  if (reported <= 0) return motion.fell ? null : real;
+  if (motion.rose || motion.fell) return null;
+  return Math.abs(reported - real) > KEYBOARD_AGREE_DP ? real : null;
 }
 
 /**

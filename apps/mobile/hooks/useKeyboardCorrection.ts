@@ -44,10 +44,13 @@ export type KeyboardCorrection = {
  * Android only: keeps the chat on the keyboard that is really there. Reanimated tracks the
  * keyboard frame by frame, but its Android tracker can lose it (see `keyboardCorrection`);
  * React Native's keyboardDidShow / keyboardDidHide read the window's insets on every
- * layout, whatever closed the keyboard (Back, the hide key, a swipe, a sheet, another
- * app). Once Reanimated has been still for `KEYBOARD_CHECK_MS` and the two disagree, the
- * composer glides to the real keyboard and `onCorrect` hands the thread and React state
- * that height. iOS keeps Reanimated's tracking untouched.
+ * layout, whatever moved the keyboard (Back, the hide key, a swipe, a sheet's own field,
+ * another app). Once Reanimated has been still for `KEYBOARD_CHECK_MS` and the two
+ * disagree, the composer glides to the real keyboard and `onCorrect` hands the thread and
+ * React state that height. A correction holds until Reanimated reports a new height (it is
+ * tracking again: the UI thread lets go in the same frame) or a later reading agrees with
+ * Reanimated (the composer glides back onto Reanimated's height, and React takes it). iOS
+ * keeps Reanimated's tracking untouched.
  */
 export function useKeyboardCorrection(
   reported: SharedValue<number>,
@@ -58,8 +61,6 @@ export function useKeyboardCorrection(
   const real = useSharedValue(0);
   /** The keyboard React Native last reported, in Reanimated's measure; null before any event. */
   const actual = useRef<number | null>(null);
-  /** Bumped by each keyboard event: a correction decided before it no longer applies. */
-  const reading = useRef(0);
   /** JS's copy of the correction the UI thread holds. */
   const held = useRef<{ stale: number; target: number } | null>(null);
   const lastFrame = useRef(0);
@@ -68,26 +69,37 @@ export function useKeyboardCorrection(
   const timer = useRef<TimeoutHandle>(null);
   const onCorrectRef = useLatestRef(onCorrect);
 
+  /** The UI thread moved the composer to `target`: JS mirrors it, and React takes the height. */
   const corrected = useCallback(
-    (stale: number, target: number, at: number) => {
-      if (at !== reading.current) return;
-      held.current = { stale, target };
+    (stale: number, target: number) => {
+      held.current = target === stale ? null : { stale, target };
       onCorrectRef.current(target);
     },
     [onCorrectRef],
   );
 
   const check = useCallback(() => {
-    const target = keyboardCorrection(lastFrame.current, actual.current, motion.current);
-    if (target === null || held.current?.stale === lastFrame.current) return;
-    runOnUI((stale: number, to: number, at: number) => {
+    const stale = lastFrame.current;
+    const holding = held.current;
+    // The real keyboard; or, once a held correction agrees with Reanimated again, Reanimated's height.
+    const target = keyboardCorrection(stale, actual.current, motion.current) ?? (holding ? stale : null);
+    if (target === null) return;
+    if (holding !== null && holding.stale === stale && holding.target === target) return;
+    runOnUI((from: number, to: number) => {
       // Reanimated has moved since that frame: it is tracking the keyboard again.
-      if (reported.value !== stale) return;
-      heldAt.set(stale);
-      real.set(stale);
-      real.set(withTiming(to, { duration: KEYBOARD_CORRECTION_MS }));
-      runOnJS(corrected)(stale, to, at);
-    })(lastFrame.current, target, reading.current);
+      if (reported.value !== from) return;
+      // A new correction starts where the composer is drawn (Reanimated's height); a held one
+      // glides on from wherever it is.
+      if (heldAt.value !== from) real.set(from);
+      heldAt.set(from);
+      real.set(
+        withTiming(to, { duration: KEYBOARD_CORRECTION_MS }, (finished) => {
+          // Back on Reanimated's height: nothing is left to hold.
+          if (finished && to === from && heldAt.value === from) heldAt.set(NO_KEYBOARD_CORRECTION);
+        }),
+      );
+      runOnJS(corrected)(from, to);
+    })(stale, target);
   }, [corrected, heldAt, real, reported]);
 
   // Reanimated reports a new height: it is tracking the keyboard again, the correction ends.
@@ -117,13 +129,12 @@ export function useKeyboardCorrection(
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
+    // A reading is checked once Reanimated is still. A correction it ends glides back then;
+    // letting go at once could reach the UI thread before Reanimated's first frame does and
+    // flash the stale height.
     const learn = (height: number) => {
       actual.current = height;
       motion.current = { rose: false, fell: false };
-      reading.current += 1;
-      // A fresh reading: Reanimated leads again until it settles and is checked.
-      held.current = null;
-      heldAt.set(NO_KEYBOARD_CORRECTION);
       scheduleTimeout(timer, KEYBOARD_CHECK_MS, check);
     };
     const shown = Keyboard.addListener("keyboardDidShow", (event) =>
@@ -135,7 +146,7 @@ export function useKeyboardCorrection(
       hidden.remove();
       clearScheduledTimeout(timer);
     };
-  }, [check, heldAt, navigationBar]);
+  }, [check, navigationBar]);
 
   return { heldAt, real, onFrame };
 }

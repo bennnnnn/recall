@@ -49,7 +49,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
 import { useComposerRowFit } from "@/features/chat/hooks/useComposerRowFit";
 import { useMathKeyboardInsert, useMathKeyboardRequests } from "@/features/chat/hooks/useMathKeyboardInsert";
-import { focusForTyping, useMathPadField } from "@/features/chat/hooks/useMathPadField";
+import { focusForTyping, focusUnlessPadIsUp, useMathPadField } from "@/features/chat/hooks/useMathPadField";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
@@ -82,8 +82,8 @@ const COMPOSER_STATUS_LINE_HEIGHT = 18;
 type Props = {
   visible: boolean;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
-  /** How far the keyboard lifts the composer, frame by frame (the chat's corrected keyboard). */
-  keyboardLift?: SharedValue<number>;
+  /** The keyboard's height, frame by frame (the chat's corrected keyboard). */
+  keyboardHeight?: SharedValue<number>;
   streaming: boolean;
   /** A picked file is still being prepared: Send and Attach wait for it. */
   attachPicking?: boolean;
@@ -118,7 +118,7 @@ type Props = {
 export const ChatComposer = memo(function ChatComposer({
   visible,
   animatedContainerStyle,
-  keyboardLift,
+  keyboardHeight,
   streaming,
   attachPicking = false,
   sendBusy = false,
@@ -174,7 +174,7 @@ export const ChatComposer = memo(function ChatComposer({
     onMathChromeHeightChange?.(mathChromeHeight, padUnder);
   }, [mathChromeHeight, onMathChromeHeightChange, padUnder]);
 
-  useMathPadField(math.mathBarOpen, inputRef);
+  const insertFromPad = useMathPadField(math.mathBarOpen, inputRef, math.insertSymbol);
 
   // The system keyboard dismisses on send and stays down while a reply streams.
   // The math pad is not a system keyboard, so close it the same way.
@@ -218,7 +218,7 @@ export const ChatComposer = memo(function ChatComposer({
     // The math pad fills the home-indicator gap. A scrim there would paint
     // across the keys instead of the messages above the pill.
     const pad =
-      (keyboardLift?.value ?? 0) > 0 || composerExpanded || mathBarOpen ? 0 : bottomPad;
+      (keyboardHeight?.value ?? 0) > 0 || composerExpanded || mathBarOpen ? 0 : bottomPad;
     // Inline the height. Calling an imported helper here runs on the UI
     // thread and aborts the app.
     const height = pad <= 0 ? 0 : pad * 2 + COMPOSER_GAP_FADE_OVERLAP;
@@ -357,7 +357,7 @@ export const ChatComposer = memo(function ChatComposer({
                 expanded={composerExpanded}
                 onPress={() => {
                   toggleExpanded();
-                  requestAnimationFrame(() => inputRef.current?.focus());
+                  requestAnimationFrame(() => focusUnlessPadIsUp(inputRef.current, math.mathBarOpen));
                 }}
               />
             ) : null}
@@ -499,7 +499,7 @@ export const ChatComposer = memo(function ChatComposer({
               open
               height={math.padHeight}
               onToggle={onToggleMathBar}
-              onInsert={math.insertSymbol}
+              onInsert={insertFromPad}
               onCaret={math.stepCaret}
               onAsk={sendAndCloseMath}
               onStop={onStop}

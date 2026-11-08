@@ -115,7 +115,11 @@ function DialogCard({
   });
 
   return (
-    <View style={[s.center, { paddingBottom: Space.lg + keyboardHeight }]} pointerEvents="box-none">
+    <View
+      style={[s.center, { paddingBottom: Space.lg + keyboardHeight }]}
+      pointerEvents="box-none"
+      testID="app-dialog-frame"
+    >
       <Animated.View
         style={[s.card, { width: cardWidth }, cardStyle]}
         accessibilityViewIsModal

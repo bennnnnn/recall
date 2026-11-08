@@ -160,7 +160,7 @@ describe("useKeyboardCorrection", () => {
     expect(kb.onCorrect).toHaveBeenCalledTimes(1);
   });
 
-  it("follows Reanimated again when the keyboard comes back without it moving", async () => {
+  it("glides back onto Reanimated when the keyboard comes back without it moving", async () => {
     const kb = await setup();
     open(kb);
     keyboardEvent("keyboardDidHide");
@@ -168,8 +168,47 @@ describe("useKeyboardCorrection", () => {
     expect(kb.drawn()).toBe(0);
 
     keyboardEvent("keyboardDidShow", KEYBOARD - NAV_BAR);
+    // Held until the reading is checked: letting go at once could flash the stale height.
+    expect(kb.drawn()).toBe(0);
+    kb.settle();
+    expect(kb.drawn()).toBe(KEYBOARD);
+    expect(kb.onCorrect).toHaveBeenLastCalledWith(KEYBOARD);
+    // JS holds nothing: the next frame is Reanimated's own.
+    expect(kb.frame(KEYBOARD)).toBe(KEYBOARD);
+  });
+
+  it("brings React back down when a keyboard Reanimated never saw closes (a Modal sheet's field)", async () => {
+    const kb = await setup();
+    keyboardEvent("keyboardDidShow", KEYBOARD - NAV_BAR);
+    kb.settle();
+    expect(kb.drawn()).toBe(KEYBOARD);
+    expect(kb.onCorrect).toHaveBeenLastCalledWith(KEYBOARD);
+
+    keyboardEvent("keyboardDidHide");
     expect(kb.drawn()).toBe(KEYBOARD);
     kb.settle();
+    expect(kb.drawn()).toBe(0);
+    expect(kb.onCorrect).toHaveBeenLastCalledWith(0);
+    expect(kb.onCorrect).toHaveBeenCalledTimes(2);
+  });
+
+  it("follows a keyboard that changes height without Reanimated following (the emoji panel)", async () => {
+    const kb = await setup();
+    open(kb);
+    keyboardEvent("keyboardDidShow", 400 - NAV_BAR);
+    kb.settle();
+
+    expect(kb.drawn()).toBe(400);
+    expect(kb.onCorrect).toHaveBeenCalledWith(400);
+  });
+
+  it("leaves an open keyboard a few points off the real one to Reanimated", async () => {
+    const kb = await setup();
+    open(kb);
+    keyboardEvent("keyboardDidShow", KEYBOARD - NAV_BAR + 5.5);
+    kb.settle();
+
+    expect(kb.onCorrect).not.toHaveBeenCalled();
     expect(kb.drawn()).toBe(KEYBOARD);
   });
 

@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useState, type MutableRefObject, type ReactElement, type RefObject } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle, type HostInstance } from "react-native";
-import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
+import { type NativeScrollEvent, type NativeSyntheticEvent, type HostInstance } from "react-native";
+import { type SharedValue } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
 import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
@@ -25,6 +25,7 @@ import type { PendingAttachment } from "@/features/attachments/model/attachments
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import { openDrawer } from "@/features/chat/drawer/drawer";
 import type { Theme } from "@/lib/theme";
+import type { ComposerKeyboard } from "@/hooks/useKeyboardInset";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -101,7 +102,7 @@ type UseChatScreenBodyPropsParams = {
   isPaid: boolean;
   retryChatError: () => void;
   dismissChatError: () => void;
-  composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
+  composerKeyboard?: ComposerKeyboard;
   keyboardLift: SharedValue<number>;
   streaming: boolean;
   replySaving: boolean;
@@ -178,7 +179,7 @@ export function useChatScreenBodyProps({
   isPaid,
   retryChatError,
   dismissChatError,
-  composerAnimatedStyle,
+  composerKeyboard,
   keyboardLift,
   streaming,
   replySaving,
@@ -346,7 +347,7 @@ export function useChatScreenBodyProps({
 
   const composerProps = useMemo(
     (): ChatScreenComposerProps => ({
-      animatedStyle: composerAnimatedStyle,
+      keyboard: composerKeyboard,
       streaming,
       replySaving,
       attachPicking,
@@ -371,7 +372,7 @@ export function useChatScreenBodyProps({
       liveTalkActive,
     }),
     [
-      composerAnimatedStyle,
+      composerKeyboard,
       streaming,
       replySaving,
       attachPicking,

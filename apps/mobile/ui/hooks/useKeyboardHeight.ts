@@ -14,7 +14,10 @@ import { keyboardEventHeight } from "@/lib/keyboardInset";
  * When `enabled` is false, height resets to 0.
  */
 export function useKeyboardHeight(enabled = true): number {
-  const { bottom: navigationBar } = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
+  // Only Android adds the bar back; iOS re-subscribing on an inset change (iPad) could
+  // re-apply stale keyboard metrics.
+  const navigationBar = Platform.OS === "android" ? insets.bottom : 0;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {

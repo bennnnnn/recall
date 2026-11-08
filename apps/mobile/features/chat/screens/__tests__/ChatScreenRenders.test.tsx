@@ -525,6 +525,19 @@ describe("ChatScreen on Android when the keyboard closes without Reanimated foll
     expect(lastBody().layout.emptyHeight).toBe(resting);
   });
 
+  it("lays the thread out at rest again after a keyboard Reanimated never saw closes (a sheet's field)", async () => {
+    await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
+    await keyboardEvent("keyboardDidShow", KEYBOARD_HEIGHT);
+    await wait(KEYBOARD_CHECK_MS);
+    expect(lastBody().layout.emptyHeight).toBe(emptyHeightWith(resting, KEYBOARD_HEIGHT));
+
+    await keyboardEvent("keyboardDidHide");
+    await wait(KEYBOARD_CHECK_MS);
+    expect(lastBody().layout.keyboardLift.value).toBe(0);
+    expect(lastBody().layout.emptyHeight).toBe(resting);
+  });
+
   it("leaves a hide Reanimated follows to Reanimated", async () => {
     await render(<HomeScreen />);
     const resting = lastBody().layout.emptyHeight;

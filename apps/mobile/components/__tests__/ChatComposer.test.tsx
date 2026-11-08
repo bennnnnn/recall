@@ -744,6 +744,9 @@ describe("ChatComposer math pad and the phone's keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     await nextFrame();
     expect(getByTestId("chat-composer-input").props.showSoftInputOnFocus).toBe(true);
+    expect(focus).not.toHaveBeenCalled();
+    // A frame more: the focus lands once showSoftInputOnFocus is back on.
+    await nextFrame();
     expect(focus).toHaveBeenCalledTimes(1);
   });
 

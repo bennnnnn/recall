@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -40,12 +40,17 @@ export function AddFab({ onPress, accessibilityLabel, wave = false }: Props) {
   const keyboardHeight = useKeyboardHeight(true);
   const s = makeStyles(theme);
   // Nothing resizes for the keyboard (Android is edge to edge): the button rides above it.
-  const bottom = fabBottom(insets.bottom) + keyboardHeight;
+  // Android's height already counts the navigation bar that fabBottom clears; iOS keeps its lift.
+  const bottom =
+    Platform.OS === "android" && keyboardHeight > 0
+      ? fabBottom(0) + keyboardHeight
+      : fabBottom(insets.bottom) + keyboardHeight;
 
   return (
     <View
       pointerEvents="box-none"
       style={[s.slot, { bottom, right: Space.md + insets.right }]}
+      testID="add-fab-slot"
     >
       {wave ? <FabWave color={theme.primary} /> : null}
       <Pressable

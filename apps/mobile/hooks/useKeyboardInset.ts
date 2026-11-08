@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ViewStyle } from "react-native";
 import {
   runOnJS,
   useAnimatedKeyboard,
   useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
+  type AnimatedStyle,
+  type SharedValue,
 } from "react-native-reanimated";
 
 import { useKeyboardCorrection } from "@/hooks/useKeyboardCorrection";
@@ -32,6 +35,14 @@ const KEYBOARD_STEP_PX = 48;
  * counter that can stick when a listener attaches mid-animation.
  */
 const KEYBOARD_STILL_MS = 100;
+
+/** What the composer draws against the keyboard, frame by frame on the UI thread. */
+export type ComposerKeyboard = {
+  /** Its position: on the keyboard, or on the idle bottom pad with the keyboard down. */
+  style: AnimatedStyle<ViewStyle>;
+  /** The keyboard's height this frame, corrected on Android (`useKeyboardCorrection`). */
+  height: SharedValue<number>;
+};
 
 /** The keyboard's steps as plain events, for the thread to follow while the keyboard moves. */
 export type KeyboardSteps = { subscribe: (listener: (height: number) => void) => () => void };
@@ -117,6 +128,10 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
     };
   }, [idleBottomPad]);
 
+  const composerKeyboard = useMemo(
+    (): ComposerKeyboard => ({ style: composerAnimatedStyle, height }),
+    [composerAnimatedStyle, height],
+  );
   const keyboardSteps: KeyboardSteps = steps;
-  return { keyboardHeight, keyboardLift, keyboardSteps, composerAnimatedStyle };
+  return { keyboardHeight, keyboardLift, keyboardSteps, composerKeyboard };
 }

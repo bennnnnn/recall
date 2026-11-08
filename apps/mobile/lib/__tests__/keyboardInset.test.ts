@@ -1,5 +1,6 @@
 import {
   correctedKeyboardHeight,
+  KEYBOARD_AGREE_DP,
   keyboardCorrection,
   keyboardEventHeight,
   keyboardLiftAbove,
@@ -98,11 +99,23 @@ describe("keyboardCorrection", () => {
   it.each([
     [0, 0],
     [300, 300],
-    // Two readings of an open keyboard that differ stay Reanimated's: it measures the inset itself.
-    [300, 296],
-    [336, 300],
-  ])("leaves Reanimated's keyboard alone when it agrees with the real one (%i, %i)", (reported, real) => {
+    // React Native and the safe area report fractions, Reanimated whole points.
+    [300, 296.5],
+    [300, 300 + KEYBOARD_AGREE_DP],
+  ])("leaves Reanimated's keyboard alone when it agrees with the real one (%d, %d)", (reported, real) => {
     expect(keyboardCorrection(reported, real)).toBeNull();
+  });
+
+  it("moves an open keyboard to a real height Reanimated did not follow (the emoji panel)", () => {
+    expect(keyboardCorrection(137, 300)).toBe(300);
+    expect(keyboardCorrection(300, 400)).toBe(400);
+  });
+
+  it.each([
+    { rose: true, fell: false },
+    { rose: false, fell: true },
+  ])("leaves an open keyboard Reanimated is moving to Reanimated (%o)", (motion) => {
+    expect(keyboardCorrection(137, 300, motion)).toBeNull();
   });
 
   it("corrects nothing before the first keyboard event", () => {
