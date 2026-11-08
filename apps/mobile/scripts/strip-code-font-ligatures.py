@@ -26,5 +26,8 @@ for script in gsub.ScriptList.ScriptRecord:
     for lang in filter(None, langs):
         lang.FeatureIndex = [remap[i] for i in lang.FeatureIndex if i in remap]
         lang.FeatureCount = len(lang.FeatureIndex)
+# The signature covered the font as shipped; edited, it no longer holds, so it goes.
+if "DSIG" in font:
+    del font["DSIG"]
 font.save(PATH)
 print("kept features:", sorted({rec.FeatureTag for rec in gsub.FeatureList.FeatureRecord}))
