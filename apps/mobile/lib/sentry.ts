@@ -393,6 +393,8 @@ export type FailureArea =
   | "chat_load"
   | "chat_refresh"
   | "chat_page"
+  /** A thumb up or down on a reply (`useMessageFeedback`). */
+  | "message_feedback"
   | "attachment_upload"
   | "paywall_load"
   | "purchase"

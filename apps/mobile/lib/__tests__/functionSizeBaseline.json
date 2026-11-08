@@ -60,7 +60,7 @@
   "features/chat/drawer/conversationListStyles.ts::makeConversationListStyles": 173,
   "features/chat/drawer/useDrawerChatList.ts::useDrawerChatList": 169,
   "features/chat/hooks/useChat.ts::useChat": 122,
-  "features/chat/hooks/useChatActions.ts::useChatActions": 187,
+  "features/chat/hooks/useChatActions.ts::useChatActions": 164,
   "features/chat/hooks/useChatBulkActions.ts::useChatBulkActions": 113,
   "features/chat/hooks/useChatMessageList.tsx::useChatMessageList": 118,
   "features/chat/hooks/useChatPaging.ts::useChatPaging": 121,

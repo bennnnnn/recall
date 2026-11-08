@@ -48,6 +48,12 @@ jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));
 
+const mockReportFailure = jest.fn();
+jest.mock("@/lib/sentry", () => ({
+  ...jest.requireActual("@/lib/sentry"),
+  reportFailure: (...args: unknown[]) => mockReportFailure(...args),
+}));
+
 const mockFeedbackError = jest.fn();
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => ({ error: mockFeedbackError }),
@@ -349,5 +355,61 @@ describe("useChatActions email draft", () => {
       body: "Hello",
     });
     expect(messagesState[0]?.content).toContain("Subject: Bye");
+  });
+});
+
+describe("useChatActions thumbs", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const REPLY_ID = "22222222-2222-2222-2222-222222222222";
+  let thread: Message[] = [];
+  const editThread = jest.fn((update: React.SetStateAction<Message[]>) => {
+    thread = typeof update === "function" ? update(thread) : update;
+  });
+  const reply = (id: string): Message => ({ id, role: "assistant", content: "Answer.", model: null, created_at: "t" });
+  function ThumbsProbe() {
+    const result = useChatActions({
+      token: "tok", chatId: "chat-1", chatTitle: "Old title", messages: thread, pinned: false,
+      setPinned: jest.fn(), archived: false, setArchived: jest.fn(), setChatTitle: jest.fn(), editThread,
+      t: (key) => key,
+    });
+    useLayoutEffect(() => { actions = result; });
+    return <Text>thumbs</Text>;
+  }
+
+  it("says a rating did not save and takes it back", async () => {
+    thread = [reply(REPLY_ID)];
+    const failure = Object.assign(new Error("Request failed: 500"), { status: 500 });
+    (api.setMessageFeedback as jest.Mock).mockRejectedValueOnce(failure);
+    await act(async () => { render(<ThumbsProbe />); });
+    await act(async () => { actions.handleFeedback(REPLY_ID, "up"); });
+    expect(thread[0]?.feedback ?? null).toBeNull();
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.feedback_failed");
+    expect(mockReportFailure).toHaveBeenCalledWith("message_feedback", failure);
+  });
+
+  // A failed earlier tap put back the rating from before it, over the newer tap shown.
+  it("keeps a newer tap when an earlier one fails", async () => {
+    thread = [reply(REPLY_ID)];
+    let failFirst!: (error: Error) => void;
+    (api.setMessageFeedback as jest.Mock)
+      .mockReturnValueOnce(new Promise((_resolve, reject) => { failFirst = reject; }))
+      .mockResolvedValueOnce(reply(REPLY_ID));
+    await act(async () => { render(<ThumbsProbe />); });
+    await act(async () => { actions.handleFeedback(REPLY_ID, "up"); });
+    await act(async () => { actions.handleFeedback(REPLY_ID, "down"); });
+    await act(async () => { failFirst(new Error("offline")); });
+    expect(thread[0]?.feedback).toBe("down");
+  });
+
+  // A reply with no saved id yet (stopped before its id came): the thumb filled and the
+  // rating never reached the server, without a word.
+  it("does not fill the thumb of a reply the server has not saved, and says so", async () => {
+    thread = [reply("streamed-1")];
+    await act(async () => { render(<ThumbsProbe />); });
+    await act(async () => { actions.handleFeedback("streamed-1", "up"); });
+    expect(thread[0]?.feedback ?? null).toBeNull();
+    expect(api.setMessageFeedback).not.toHaveBeenCalled();
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.feedback_failed");
   });
 });
