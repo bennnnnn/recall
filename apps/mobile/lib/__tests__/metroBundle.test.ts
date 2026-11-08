@@ -175,6 +175,9 @@ const NATIVE_ANSWERS: Record<string, unknown> = {
   logOut: { entitlements: { active: {} } },
 };
 
+/** A method the native store refuses in one case, with what its bridge rejects. */
+const mockNativeRefusals = new Map<string, unknown>();
+
 /** Every call into RNPurchases, the native module. */
 const mockNativeCalls: { method: string; args: unknown[] }[] = [];
 const mockNativePurchases = new Proxy(
@@ -185,6 +188,7 @@ const mockNativePurchases = new Proxy(
         ? undefined
         : (...args: unknown[]) => {
             mockNativeCalls.push({ method, args });
+            if (mockNativeRefusals.has(method)) return Promise.reject(mockNativeRefusals.get(method));
             return method in NATIVE_ANSWERS ? Promise.resolve(NATIVE_ANSWERS[method]) : undefined;
           },
   },
@@ -202,6 +206,7 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
   beforeEach(() => {
     jest.resetModules();
     mockNativeCalls.length = 0;
+    mockNativeRefusals.clear();
     mockNativeEvents.clear();
     mockWebSdkReads.length = 0;
     mockPlatform.OS = "ios";
@@ -238,6 +243,15 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
       },
     }));
     jest.doMock("@/lib/expoRuntime", () => ({ isExpoGo: () => false }));
+    // A held purchase's file (features/billing/model/heldPurchase.ts): nothing on disk here.
+    jest.doMock("@/lib/cache/cacheFile", () => ({
+      cacheFile: () => ({
+        read: async () => null,
+        readSync: () => null,
+        write: async () => undefined,
+        clear: async () => undefined,
+      }),
+    }));
   });
 
   it("loads and configures on the native store", () => {
@@ -287,5 +301,21 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
     expect(nativeCalls("restorePurchases")).toEqual([[]]);
     expect(nativeCalls("logOut")).toEqual([[]]);
     expect(mockWebSdkReads).toEqual([]);
+  });
+
+  it("calls a purchase the store holds for approval pending, as the bridge rejects it", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded after the mocks above
+    const purchases = require("@/features/billing/model/purchases") as typeof import("@/features/billing/model/purchases");
+    // What RNPurchases rejects for Ask to Buy or a Play pending payment: the code, its name nested.
+    mockNativeRefusals.set("purchasePackage", Object.assign(new Error("The payment is pending."), {
+      code: "20",
+      userInfo: { readableErrorCode: "PAYMENT_PENDING_ERROR" },
+    }));
+    await purchases.configurePurchases("user-1");
+    const { pro } = (await purchases.getPlanPackages()).packages;
+    await expect(purchases.purchasePlanPackage(pro!)).resolves.toBe("pending");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- the copy purchases.ts loaded
+    const held = require("@/features/billing/model/heldPurchase") as typeof import("@/features/billing/model/heldPurchase");
+    expect(held.heldPurchase()).toBe("pro");
   });
 });

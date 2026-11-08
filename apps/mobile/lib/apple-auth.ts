@@ -52,6 +52,10 @@ function newRawNonce(): string {
 
 /** Map native / Metro errors to a key the login screen words, never the error's English. */
 export function formatAppleSignInError(error: unknown): string {
+  // Closing the Apple sheet: the native code says so, whatever its message's wording.
+  if ((error as { code?: unknown } | null)?.code === "ERR_REQUEST_CANCELED") {
+    return "cancelled";
+  }
   const message =
     error instanceof Error ? error.message : typeof error === "string" ? error : "";
   if (/could not load bundle/i.test(message)) {
@@ -120,11 +124,6 @@ export type AppleDeleteConsent =
   | { kind: "cancelled" }
   | { kind: "unavailable" };
 
-function isAppleCancel(error: unknown): boolean {
-  const code = (error as { code?: unknown } | null)?.code;
-  return code === "ERR_REQUEST_CANCELED" || formatAppleSignInError(error) === "cancelled";
-}
-
 export async function appleConsentForAccountDelete(): Promise<AppleDeleteConsent> {
   if (!isAppleSignInPlatform()) return { kind: "unavailable" };
   try {
@@ -135,6 +134,6 @@ export async function appleConsentForAccountDelete(): Promise<AppleDeleteConsent
     const code = credential.authorizationCode?.trim();
     return code ? { kind: "code", code } : { kind: "unavailable" };
   } catch (error) {
-    return isAppleCancel(error) ? { kind: "cancelled" } : { kind: "unavailable" };
+    return formatAppleSignInError(error) === "cancelled" ? { kind: "cancelled" } : { kind: "unavailable" };
   }
 }

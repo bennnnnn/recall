@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 
+import { useAuthOptional } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
@@ -58,7 +59,10 @@ export function useComposerDictation({
     cancelVoiceInput();
   }, [routeChatId, cancelVoiceInput]);
 
-  const canDictate = hasPlanFeature(user, "speech_transcription");
+  // The launch cache paints every plan "free": until the server says the plan, the take goes
+  // and the server decides (its refusal opens the plans above), never a paid account's offer.
+  const planKnown = useAuthOptional()?.profileValidated ?? true;
+  const canDictate = !planKnown || hasPlanFeature(user, "speech_transcription");
   const handleToggleVoiceInput = useCallback(() => {
     if (!voiceRecording && !voiceTranscribing) {
       // Don't record what the plan cannot send; show the plans instead.

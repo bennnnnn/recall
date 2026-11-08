@@ -205,6 +205,9 @@ jestGlobals.mock("expo-image", () => {
       }),
   );
   Image.displayName = "ExpoImageMock";
+  // The cache controls sign-out and sign-in call (lib/images/imageCaches.ts).
+  Image.clearMemoryCache = () => Promise.resolve(true);
+  Image.clearDiskCache = () => Promise.resolve(true);
   return { Image };
 });
 

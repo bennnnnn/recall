@@ -1104,6 +1104,7 @@
   "upgrade.feature_live_talk": "Live talk: {{count}} minuti al mese",
   "upgrade.feature_live_talk_plain": "Live talk",
   "upgrade.purchase_failed": "Acquisto non completato. Riprova.",
+  "upgrade.purchase_pending": "Il tuo acquisto è ancora in sospeso. Il tuo piano si aggiornerà appena andrà a buon fine; fino ad allora non si può acquistare un altro piano. “Ripristina acquisti” controlla di nuovo.",
   "upgrade.restore": "Ripristina acquisti",
   "upgrade.restore_empty": "Nessun abbonamento attivo per questo account.",
   "upgrade.store_unavailable": "Lo store non risponde. Riprova tra poco.",

@@ -25,6 +25,7 @@ import { accessTokenNeedsRefresh, freshAccessToken, refreshedAccount } from "@/l
 import { signInWithAppleCredentials } from "@/lib/apple-auth";
 import { signInWithGoogleIdToken } from "@/lib/google-auth";
 import { ensureLocale } from "@/lib/i18n";
+import { clearImageCaches } from "@/lib/images/imageCaches";
 import {
   clearOnboarded,
   clearToken,
@@ -284,10 +285,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     const result = await login(() => isCurrent(generation));
     if (!result || !isCurrent(generation)) return;
     // A crash between the credential write and cache write must not pair a
-    // newly signed-in account's token with the previous account's display,
-    // and a sync record a sign-out failed to delete must not skip this
-    // sign-in's push registration (lib/syncRecords.ts).
-    await Promise.all([clearCachedUser(), forgetSyncRecords()]);
+    // newly signed-in account's token with the previous account's display; what
+    // a sign-out failed to clear must not skip this sign-in's push registration
+    // (lib/syncRecords.ts) nor leave the last account's pictures on the phone.
+    await Promise.all([clearCachedUser(), forgetSyncRecords(), clearImageCaches()]);
     if (!isCurrent(generation)) return;
     const saved = await setTokenPair(result.access_token, result.refresh_token, generation);
     if (!saved || !isCurrent(generation)) return;

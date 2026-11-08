@@ -34,3 +34,8 @@ it.each([
 ])("Apple: %j → %s", (message, key) => {
   expect(formatAppleSignInError(new Error(message))).toBe(key);
 });
+
+it("Apple: closing the sheet is a cancel by its code, whatever the message says", () => {
+  const closed = Object.assign(new Error("Die Anmeldung wurde abgebrochen."), { code: "ERR_REQUEST_CANCELED" });
+  expect(formatAppleSignInError(closed)).toBe("cancelled");
+});

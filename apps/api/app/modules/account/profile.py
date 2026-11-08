@@ -76,3 +76,15 @@ def with_ai_data_consent(fields: Mapping[str, Any], *, now: datetime) -> dict[st
     if agreed is not None:
         updated["ai_data_consent_at"] = now if agreed else None
     return updated
+
+
+def with_location_choice(fields: Mapping[str, Any], *, now: datetime) -> dict[str, Any]:
+    """Profile fields to write, with a Location switch the user set stamped as chosen.
+
+    ``location_chosen_at`` tells a switch turned off from one never chosen, which the phone
+    asks about; only an on or off from the client stamps it (``now``, the server's clock).
+    """
+    updated = dict(fields)
+    if isinstance(fields.get("location_enabled"), bool):
+        updated["location_chosen_at"] = now
+    return updated

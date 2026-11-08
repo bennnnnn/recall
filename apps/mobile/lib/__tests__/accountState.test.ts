@@ -69,6 +69,12 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/onboarding.ts#generation": "clearOnboarded",
   "lib/onboarding.ts#writes": "clearOnboarded",
   "features/billing/model/purchases.ts#configuredAppUserId": "signOutRevenueCat",
+  // A purchase held for approval, and Android's copy on disk: signOutRevenueCat releases both.
+  "features/billing/model/heldPurchase.ts#held": "signOutRevenueCat",
+  "features/billing/model/heldPurchase.ts#heldFile": "signOutRevenueCat",
+  // Raised at sign-out, so a set-up still running for the account that left records nothing.
+  "features/billing/model/purchases.ts#setupGeneration": "signOutRevenueCat",
+  "features/billing/model/purchases.ts#storeSetUp": "signOutRevenueCat",
   "features/notifications/model/pushNotifications.ts#lastPushSync": "clearPushSyncRecord",
   // clearPushSyncRecord sets it back to false.
   "features/notifications/model/pushRegistration.ts#registered": "clearPushSyncRecord",
@@ -260,6 +266,24 @@ it("lists every module-level store under how it keeps accounts apart", () => {
 
 it("lists each store once", () => {
   expect(listed.filter((store, index) => listed.indexOf(store) !== index)).toEqual([]);
+});
+
+/**
+ * Native caches the store scan cannot see: expo-image keeps what it draws on disk (an
+ * account's photos, avatar, chat images) unless told otherwise, so any use of it needs
+ * its cache cleared at sign-out and sign-in.
+ */
+const NATIVE_CACHES = [{ keeps: /from "expo-image"/, clear: "clearImageCaches" }];
+
+it("clears every native cache a view keeps an account's pictures in, at sign-out and sign-in", () => {
+  const sources = productionFiles().map((file) => ts.sys.readFile(file) ?? "");
+  const kept = NATIVE_CACHES.filter(({ keeps }) => sources.some((text) => keeps.test(text)));
+  const missing = kept.flatMap(({ clear }) => {
+    const calls = new RegExp(`\\b${clear}\\(`);
+    return SIGN_OUT_FILES.filter((file) => !calls.test(ts.sys.readFile(`${ROOT}/${file}`) ?? ""))
+      .map((file) => `${file}: ${clear}`);
+  });
+  expect(missing).toEqual([]);
 });
 
 it("calls each store's clear function on sign-out", () => {
