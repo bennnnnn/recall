@@ -51,6 +51,7 @@ export async function measureScanImage(uri: string): Promise<ImageSize> {
 export async function cropScanImage(
   uri: string,
   cropFor: (size: ImageSize) => PixelCrop,
+  maxEdge = SCAN_MAX_EDGE,
 ): Promise<{ uri: string } & ImageSize> {
   const context = ImageManipulator.manipulate(uri);
   let source: ImageRef | undefined;
@@ -59,7 +60,26 @@ export async function cropScanImage(
     source = await context.renderAsync();
     const crop = cropFor(validSize(source));
     context.crop(crop);
-    const resize = scanResize(crop);
+    const resize = scanResize(crop, maxEdge);
+    if (resize) context.resize(resize);
+    result = await context.renderAsync();
+    const saved = await result.saveAsync({ compress: SCAN_JPEG_QUALITY, format: SaveFormat.JPEG });
+    return { uri: saved.uri, width: saved.width, height: saved.height };
+  } finally {
+    result?.release();
+    source?.release();
+    context.release();
+  }
+}
+
+/** A copy of a scan no longer than `maxEdge` on its long side; the caller deletes it. */
+export async function shrinkScanImage(uri: string, maxEdge: number): Promise<{ uri: string } & ImageSize> {
+  const context = ImageManipulator.manipulate(uri);
+  let source: ImageRef | undefined;
+  let result: ImageRef | undefined;
+  try {
+    source = await context.renderAsync();
+    const resize = scanResize(validSize(source), maxEdge);
     if (resize) context.resize(resize);
     result = await context.renderAsync();
     const saved = await result.saveAsync({ compress: SCAN_JPEG_QUALITY, format: SaveFormat.JPEG });

@@ -17,6 +17,7 @@ import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
+import { ShutterSubjectDisc } from "@/features/scanner/components/ScannerSubjectMark";
 import { ScannerSubjectSwitcher } from "@/features/scanner/components/ScannerSubjectSwitcher";
 import { IconSize } from "@/ui/icons/sizes";
 import {
@@ -202,7 +203,7 @@ export function MathScannerChrome({
                 {capturing || cameraStarting ? (
                   <ActivityIndicator color={capturing ? theme.text : theme.onMedia} />
                 ) : (
-                  <View style={s.shutterInner} testID="math-scanner-shutter-disc" />
+                  <ShutterSubjectDisc subject={subject} />
                 )}
               </Animated.View>
             </GHPressable>
@@ -337,12 +338,6 @@ function makeStyles(theme: Theme) {
     // Not ready yet, or no camera: visibly not a button that takes a photo now.
     dimmed: {
       opacity: 0.4,
-    },
-    shutterInner: {
-      width: 60,
-      height: 60,
-      borderRadius: Radius.full,
-      backgroundColor: theme.onMedia,
     },
     previewActions: {
       position: "absolute",

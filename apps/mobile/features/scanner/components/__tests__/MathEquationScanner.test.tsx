@@ -3,10 +3,14 @@ import { Dimensions, StyleSheet } from "react-native";
 import { deleteAsync } from "expo-file-system/legacy";
 
 import { pickFromPhotoLibrary, pickImageDocument } from "@/features/attachments/model/attachments";
-import { act, fireEvent, render, within } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/features/scanner/components/MathEquationScanner";
-import { cropScanImage, measureScanImage } from "@/features/scanner/model/scanImage";
+import { CAMERA_ERROR_GRACE_MS, CAMERA_START_TIMEOUT_MS } from "@/features/scanner/model/cameraStatus";
+import * as contentFit from "@/features/scanner/model/contentFit";
+import { shotCutMaxEdge } from "@/features/scanner/model/contentFit";
+import { readTextLines } from "@/features/scanner/model/readTextLines";
+import { cropScanImage, measureScanImage, SCAN_MAX_EDGE } from "@/features/scanner/model/scanImage";
 import { selection } from "@/lib/haptics";
 import { playScannerSwitchCue } from "@/features/scanner/model/switchCue";
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
@@ -36,7 +40,7 @@ jest.mock("@/features/scanner/components/LiveMathScannerCamera", () => {
     (
       props: {
         onReady?: () => void;
-        onError?: () => void;
+        onError?: (error: Error) => void;
         onUnavailable?: () => void;
         onDetectionChange?: (detection: {
           hasText: boolean;
@@ -46,7 +50,7 @@ jest.mock("@/features/scanner/components/LiveMathScannerCamera", () => {
       },
       ref: React.Ref<unknown>,
     ) => {
-      ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync }));
+      ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync, focusAt: jest.fn() }));
       ReactNative.useEffect(() => {
         let cancelled = false;
         queueMicrotask(() => {
@@ -75,6 +79,8 @@ jest.mock("expo-image-manipulator", () => ({
   SaveFormat: { JPEG: "jpeg" },
 }));
 jest.mock("expo-file-system/legacy", () => ({ deleteAsync: jest.fn(async () => undefined) }));
+// The phone reads no text from a still unless a test says it does.
+jest.mock("@/features/scanner/model/readTextLines", () => ({ readTextLines: jest.fn(async () => []) }));
 jest.mock("@/features/scanner/model/scanImage", () => ({
   ...jest.requireActual("@/features/scanner/model/scanImage"),
   cropScanImage: jest.fn(),
@@ -192,7 +198,16 @@ describe("MathEquationScanner", () => {
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
     expect(getByTestId("mock-live-scanner-camera")).toBeTruthy();
     expect(getByTestId("math-scanner-frame-idle")).toBeTruthy();
-    expect(getByTestId("scanner-subject-guide-math")).toBeTruthy();
+    // Every edge and corner of the frame pulls out.
+    for (const handle of ["tl", "t", "tr", "r", "br", "b", "bl", "l"]) {
+      expect(getByTestId(`math-scanner-handle-${handle}`)).toBeTruthy();
+    }
+    // Each subject tab keeps its name on one line, in a row that scrolls sideways.
+    expect(getByTestId("scanner-subject-switcher").props.horizontal).toBe(true);
+    expect(within(getByTestId("scanner-subject-chemistry")).getByText("chat.math_scan_subject_chemistry").props.numberOfLines).toBe(1);
+    // The subject's mark sits in the shutter, not over the viewfinder.
+    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-math")).toBeTruthy();
+    expect(queryByTestId("scanner-subject-guide-math")).toBeNull();
   });
 
   it("marks the live frame ready after stable on-device OCR", async () => {
@@ -226,9 +241,17 @@ describe("MathEquationScanner", () => {
       const view = await render(
         <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
       );
-      await act(async () => {
-        view.getByTestId("mock-live-scanner-camera").props[signal]?.();
-      });
+      jest.useFakeTimers();
+      try {
+        await act(async () => {
+          view.getByTestId("mock-live-scanner-camera").props[signal]?.(new Error("Camera is in use"));
+        });
+        await act(async () => {
+          jest.advanceTimersByTime(CAMERA_ERROR_GRACE_MS);
+        });
+      } finally {
+        jest.useRealTimers();
+      }
       const panel = within(view.getByTestId(`math-scanner-camera-unavailable-${reason}`));
       expect(panel.getByText(words)).toBeTruthy();
       // The black frame's aiming aids go; the shutter is visibly off, never a silent tap.
@@ -246,6 +269,58 @@ describe("MathEquationScanner", () => {
       expect(view.queryByTestId("math-scanner-error")).toBeNull();
     },
   );
+
+  it("shows nothing for an error while the camera starts when it starts a moment later", async () => {
+    // On the S23 the zoom and torch, set before the camera opened, came back as errors and
+    // "couldn't start the camera" flashed on every open until it started half a second later.
+    mockCamera.startsReady = false;
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    jest.useFakeTimers();
+    try {
+      const camera = view.getByTestId("mock-live-scanner-camera");
+      await act(async () => {
+        camera.props.onError(new Error("Camera is not active."));
+        camera.props.onError(new Error("Camera is not active."));
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(CAMERA_ERROR_GRACE_MS - 100);
+      });
+      expect(view.queryByTestId("math-scanner-camera-unavailable-failed")).toBeNull();
+      expect(view.getByTestId("math-scanner-shutter-starting")).toBeTruthy();
+      await act(async () => {
+        camera.props.onReady();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(CAMERA_START_TIMEOUT_MS);
+      });
+      expect(view.queryByTestId("math-scanner-camera-unavailable-failed")).toBeNull();
+      expect(shutterState(view)).toMatchObject({ disabled: false });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("keeps a running camera running through an error", async () => {
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await waitFor(() => expect(shutterState(view)).toMatchObject({ disabled: false }));
+    jest.useFakeTimers();
+    try {
+      await act(async () => {
+        view.getByTestId("mock-live-scanner-camera").props.onError(new Error("Camera is not active."));
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(CAMERA_START_TIMEOUT_MS);
+      });
+      expect(view.queryByTestId("math-scanner-camera-unavailable-failed")).toBeNull();
+      expect(shutterState(view)).toMatchObject({ disabled: false });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
   it("shows the shutter starting until the camera is ready, then captures", async () => {
     mockCamera.startsReady = false;
@@ -360,7 +435,7 @@ describe("MathEquationScanner", () => {
     });
     expect(selection).toHaveBeenCalled();
     expect(playScannerSwitchCue).toHaveBeenCalledWith(1);
-    expect(getByTestId("scanner-subject-guide-physics")).toBeTruthy();
+    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-physics")).toBeTruthy();
   });
 
   it("takes a chemistry shot to the crop screen and sends it as chemistry on Solve", async () => {
@@ -385,14 +460,15 @@ describe("MathEquationScanner", () => {
     );
   });
 
-  it("shows the biology guide when biology is selected", async () => {
+  it("shows biology's mark in the shutter when biology is selected", async () => {
     const { getByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     await act(async () => {
       fireEvent.press(getByTestId("scanner-subject-biology"));
     });
-    expect(getByTestId("scanner-subject-guide-biology")).toBeTruthy();
+    expect(within(getByTestId("math-scanner-shutter")).getByTestId("scanner-subject-mark-biology")).toBeTruthy();
+    expect(getByTestId("scanner-subject-biology").props.accessibilityState).toEqual({ selected: true });
   });
 
   it("does not take hidden camera photos while the scanner is idle", async () => {
@@ -464,7 +540,9 @@ describe("MathEquationScanner", () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
     });
     expect(mockTakePictureAsync).toHaveBeenCalledTimes(1);
-    expect(cropScanImage).toHaveBeenCalledWith("file:///shot.jpg", expect.any(Function));
+    // The cut keeps room around the frame, so it may be longer than a scan and still send the
+    // aimed part at full size.
+    expect(cropScanImage).toHaveBeenCalledWith("file:///shot.jpg", expect.any(Function), shotCutMaxEdge(SCAN_MAX_EDGE));
     // The framed shot, with its own crop frame, Retake and Solve; nothing is sent yet.
     expect(view.getByTestId("math-scanner-preview").props.source).toEqual({ uri: "file:///cropped.jpg" });
     expect(view.getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();
@@ -482,6 +560,56 @@ describe("MathEquationScanner", () => {
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "math",
     );
+  });
+
+  it("keeps room around a capture, and Solve sends just what was aimed at", async () => {
+    const shot = jest.spyOn(contentFit, "shotCrop");
+    const view = await render(<MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    const [frame] = shot.mock.calls[0]!;
+    const { crop, aim } = shot.mock.results[0]!.value as ReturnType<typeof contentFit.shotCrop>;
+    // The cut has room above and below the live frame, to widen the frame over a cut line.
+    expect(crop.height).toBeGreaterThan(frame.height);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const [, cropFor] = jest.mocked(cropScanImage).mock.calls.at(-1)!;
+    const { width, height } = MOCK_SIZES["file:///cropped.jpg"]!;
+    const sent = cropFor({ width, height });
+    expect(sent.originX / width).toBeCloseTo(aim.x, 2);
+    expect(sent.originY / height).toBeCloseTo(aim.y, 2);
+    expect(sent.width / width).toBeCloseTo(aim.width, 2);
+    expect(sent.height / height).toBeCloseTo(aim.height, 2);
+    shot.mockRestore();
+  });
+
+  it("brings up the whole photo, framed where it was aimed, when a capture cannot be cut", async () => {
+    const shot = jest.spyOn(contentFit, "shotCrop");
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.mocked(cropScanImage).mockImplementationOnce(async (uri, cropFor) => {
+      cropFor(MOCK_SIZES[uri]!);
+      throw new Error("unexpected camera geometry");
+    });
+    const view = await render(<MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    expect(view.getByTestId("math-scanner-preview").props.source).toEqual({ uri: "file:///shot.jpg" });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const [frame] = shot.mock.calls[0]!;
+    const [, cropFor] = jest.mocked(cropScanImage).mock.calls.at(-1)!;
+    const sent = cropFor(MOCK_SIZES["file:///shot.jpg"]!);
+    // What was aimed at, not the whole photo.
+    for (const key of ["originX", "originY", "width", "height"] as const) {
+      expect(Math.abs(sent[key] - frame[key])).toBeLessThanOrEqual(2);
+    }
+    expect(warn).toHaveBeenCalledWith("[scanner] could not cut the shot; showing the whole photo", "unexpected camera geometry");
+    shot.mockRestore();
+    warn.mockRestore();
   });
 
   it("retakes from the crop screen back to the live camera without sending", async () => {
@@ -566,6 +694,26 @@ describe("imported math scanner photos", () => {
       );
     },
   );
+
+  it("moves the frame onto a photo's text once the phone has read it", async () => {
+    jest.mocked(readTextLines).mockResolvedValueOnce([{ x: 0.3, y: 0.4, width: 0.4, height: 0.1 }]);
+    const view = await render(<MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    expect(readTextLines).toHaveBeenCalledWith("file:///landscape.png", expect.objectContaining({ width: 1200, height: 700 }));
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const [, cropFor] = jest.mocked(cropScanImage).mock.calls[0]!;
+    const sent = cropFor({ width: 1200, height: 700 });
+    // The text, with a margin, instead of the whole photo.
+    expect(sent.width).toBeLessThan(1200 * 0.6);
+    expect(sent.originX).toBeLessThanOrEqual(0.3 * 1200);
+    expect(sent.originX + sent.width).toBeGreaterThanOrEqual(0.7 * 1200);
+    expect(sent.originY).toBeLessThanOrEqual(0.4 * 700);
+    expect(sent.originY + sent.height).toBeGreaterThanOrEqual(0.5 * 700);
+  });
 
   it("keeps manual crop for imported photos", async () => {
     const view = await render(
