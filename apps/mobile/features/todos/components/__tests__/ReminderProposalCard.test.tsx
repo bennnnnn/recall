@@ -68,7 +68,7 @@ describe("ReminderProposalCard", () => {
 
     await waitFor(() => expect(view.getByText("todos.alerts_off")).toBeTruthy());
     expect(view.getByText("todos.proposal_done_add")).toBeTruthy();
-    await fireEvent.press(view.getByText("todos.alerts_open_settings"));
+    await fireEvent.press(view.getByText("common.open_settings"));
     expect(openSettings).toHaveBeenCalled();
   });
 

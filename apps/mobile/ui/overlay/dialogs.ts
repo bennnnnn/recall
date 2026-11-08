@@ -1,4 +1,4 @@
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 
 import i18n, { t } from "i18next";
 
@@ -14,8 +14,8 @@ export type DialogRequest = {
 
 type Host = (request: DialogRequest) => void;
 
-/** Shared button copy. Falls back to the key before i18n has started. */
-function label(key: "common.ok" | "common.cancel"): string {
+/** Shared copy. Falls back to the key before i18n has started. */
+function label(key: string): string {
   const text = i18n.isInitialized ? t(key) : "";
   return typeof text === "string" && text ? text : key;
 }
@@ -132,4 +132,31 @@ export function alertDialog(options: AlertOptions): Promise<void> {
     }));
     show({ title: options.title, message: options.message, actions, onDismiss: finish }, !custom);
   });
+}
+
+/** A permission the OS asks for once; after a refusal only Settings can turn it back on. */
+export type SettingsPermission = "camera" | "microphone" | "photos" | "location" | "notifications";
+
+/**
+ * Offer Settings for a permission that is off: a dialog that names it, with Not now and
+ * Open Settings, and the app is left only on Open Settings. Each permission asks in its
+ * own words, and every offer is this one dialog. Resolves true once Settings opened; when
+ * it cannot open, says so.
+ */
+export async function offerSettings(permission: SettingsPermission): Promise<boolean> {
+  const open = await confirmDialog({
+    title: label(`permissions.${permission}_title`),
+    message: label(`permissions.${permission}_body`),
+    cancelLabel: label("common.not_now"),
+    confirmLabel: label("common.open_settings"),
+  });
+  if (!open) return false;
+  try {
+    await Linking.openSettings();
+    return true;
+  } catch (error) {
+    console.warn("[settings] could not open Settings", error instanceof Error ? error.name : typeof error);
+    void alertDialog({ title: label("common.open_settings_failed") });
+    return false;
+  }
 }

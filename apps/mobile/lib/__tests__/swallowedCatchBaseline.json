@@ -8,7 +8,7 @@
   "contexts/AuthContext.tsx": 3,
   "features/account/components/settingsUi.tsx": 1,
   "features/account/hooks/useFocusedList.ts": 1,
-  "features/account/hooks/useProfileEditor.ts": 2,
+  "features/account/hooks/useProfileEditor.ts": 1,
   "features/account/hooks/usePushNotificationToggle.ts": 2,
   "features/account/screens/HelpScreen.tsx": 1,
   "features/account/screens/ModelsSettingsScreen.tsx": 1,

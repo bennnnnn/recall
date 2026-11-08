@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from "react";
-import { Linking, Text } from "react-native";
+import { Alert, Linking, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
@@ -173,15 +173,21 @@ it("a pick being prepared shows as attachPicking until it lands", async () => {
   expect(current.pendingAttachment).toEqual(photo);
 });
 
-it("sends a denied photo permission to Settings when it needs them", async () => {
+// It opened Settings at once, leaving the app without asking, under a toast.
+it("asks before sending a denied photo permission to Settings", async () => {
   const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
   const denied = new PhotoLibraryPermissionError(true);
   (pickFromPhotoLibrary as jest.Mock).mockRejectedValueOnce(denied);
   await render(<Probe />);
   await select("photo");
+  expect(openSettings).not.toHaveBeenCalled();
+  expect(alert).toHaveBeenCalledWith("permissions.photos_title", "permissions.photos_body", expect.any(Array));
+  expect(mockFeedback.error).not.toHaveBeenCalled();
+  await act(async () => { alert.mock.calls[0]?.[2]?.[1]?.onPress?.(); });
   expect(openSettings).toHaveBeenCalledTimes(1);
-  expect(mockFeedback.error).toHaveBeenCalledWith("chat.photos_permission");
   openSettings.mockRestore();
+  alert.mockRestore();
 });
 
 it("ignores a pick while a reply streams or signed out", async () => {

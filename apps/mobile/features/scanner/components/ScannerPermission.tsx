@@ -23,7 +23,7 @@ export function ScannerPermission({ permission, requestPermission, onChoosePhoto
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const settings = cameraPermissionNeedsSettings(permission);
-  const allow = settings ? t("chat.location_open_settings") : t("chat.math_scan_allow_camera");
+  const allow = settings ? t("common.open_settings") : t("chat.math_scan_allow_camera");
 
   return (
     <View style={s.center}>
