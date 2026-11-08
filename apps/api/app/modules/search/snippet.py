@@ -3,7 +3,14 @@
 Messages are stored as the markdown the phone draws, so a snippet cut from the raw body
 showed its marks (``…taught by **Ms. Okafor**.``), and a cut through a pair left half of it
 that no client could draw. The body is read as plain text first and cut after, here, so
-every client (the phone's drawer, the web) gets the same readable line.
+every client gets the same line.
+
+Maths is the one thing left for the client to read: its TeX shown as written was source on
+screen (``…$t$ = time Required $a$…``), and only a client's own maths reader turns it into
+what its screen draws. Every formula (inline, display, a ``math`` fence, an answer card's
+value) is kept whole as one ``$...$`` span, never cut through, and a dollar that is not
+maths because it sits in code is written ``\\$``. The phone shows each span as one line of
+symbols (``features/search/model/snippetText.ts``).
 
 A card's fence (a calculator, a chart, a scene: a JSON body) is not words, and is left
 out; any other fence keeps its body, as code reads as itself, also code that opens with a
@@ -16,6 +23,11 @@ from __future__ import annotations
 import json
 import re
 
+from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    CHEMISTRY_NOTATION_LINE,
+    answer_header_and_value,
+)
 from app.services.md_fence_scan import iter_fences
 from app.services.text_normalize import collapse_ws
 
@@ -45,6 +57,36 @@ _HIDDEN = 0xE000
 _SHOW_HIDDEN = {_HIDDEN + code: chr(code) for code in range(128)}
 _MATH_DELIMITER = re.compile(r"\$\$|\\[()\[\]]")
 
+# The longest formula a hit shows; a longer one is "…", so the line stays short.
+_FORMULA = 2_000
+# A formula with explicit delimiters, over lines for display maths. A body stops at the
+# next opener and holds no backtick (code), so each opener scans only to the next one.
+_DELIMITED_MATH = re.compile(
+    r"\$\$((?:[^$\\`]|\\[^`])+?)\$\$"
+    r"|\\\[((?:[^\\`]|\\[^\]\[`])+?)\\\]"
+    r"|\\\(((?:[^\\`]|\\[^)(`])+?)\\\)"
+)
+# Inline ``$...$`` as pandoc reads it: the opener before a non-space, the closer after one
+# and not before a digit, so "$5 and $10" stays two prices. A body stops at the next dollar.
+_INLINE_MATH = re.compile(r"(?<!\\)\$(?=[^\s$])(?:[^$\\\n]|\\.)+?(?<=[^\s\\])\$(?!\d)")
+# An answer card's value that is TeX, not words ("12 cm", "5 cups of flour" are words).
+_TEX = re.compile(r"\\[A-Za-z]|[\^_{}]")
+_COMMAND = re.compile(r"\\[A-Za-z]+")
+_UNESCAPED_DOLLAR = re.compile(r"(?<!\\)\$")
+# Where a formula waits while the marks around it are read (outside the escapes' range).
+_HELD = "\ue100"
+_HELD_END = "\ue101"
+_HELD_FORMULA = re.compile(f"{_HELD}(\\d{{1,6}}){_HELD_END}")
+# Where a code span waits while the formulas around it are found: inside backticks, so no
+# formula's body reaches across it.
+_HELD_CODE = "\ue102"
+_HELD_CODE_SPAN = re.compile(f"`{_HELD_CODE}(\\d{{1,6}})`")
+_MATH_FENCE_LANGS = frozenset({"math", "latex", "tex"})
+# Fences whose body is the model's prose, maths and marks included (the phone's callouts).
+_PROSE_FENCE_LANGS = frozenset(
+    {"tip", "note", "warning", "info", "important", "callout", "quote", "blockquote"}
+)
+
 _HEADING = re.compile(r"^\s{0,3}#{1,6}\s+")
 _QUOTE = re.compile(r"^\s{0,3}(?:>\s?)+")
 _BULLET = re.compile(r"^\s{0,12}[-*+]\s+(?:\[[ xX]\]\s+)?")
@@ -55,17 +97,46 @@ _TABLE_SEPARATOR = re.compile(
 
 
 def reader_text(markdown: str) -> str:
-    """The message as one line of the words a reader sees, its markdown marks gone."""
+    """The message as one line of the words a reader sees, its markdown marks gone.
+
+    Each formula stays TeX, whole, between ``$`` marks.
+    """
     pieces: list[str] = []
     cursor = 0
     for fence in iter_fences(markdown):
         pieces.append(_prose_text(markdown[cursor : fence.start]))
-        body = markdown[fence.body_start : fence.body_end]
-        if not _is_card_data(body):
-            pieces.append(body)
+        pieces.append(_fence_text(fence.lang, markdown[fence.body_start : fence.body_end]))
         cursor = fence.end
     pieces.append(_prose_text(markdown[cursor:]))
     return collapse_ws(" ".join(pieces))
+
+
+def _fence_text(lang: str, body: str) -> str:
+    if lang in _MATH_FENCE_LANGS:
+        return _formula(body)
+    if lang in _PROSE_FENCE_LANGS or lang.startswith("callout-"):
+        return _prose_text(body)
+    if lang in ANSWER_FENCE_LANGS:
+        # The card's protocol lines (``verified: true``) are not words a reader sees.
+        headers, value = answer_header_and_value(body)
+        if CHEMISTRY_NOTATION_LINE in headers:
+            return _code_text(value)
+        has_maths = "$" in value or "\\(" in value
+        return _formula(value) if _TEX.search(value) and not has_maths else _prose_text(value)
+    return "" if _is_card_data(body) else _code_text(body)
+
+
+def _formula(tex: str) -> str:
+    """TeX as one ``$...$`` span on one line; a formula too long to show is "…"."""
+    tex = collapse_ws(_UNESCAPED_DOLLAR.sub("", tex)).rstrip("\\ ")
+    if len(tex) > _FORMULA:
+        return "…"
+    return f"${tex}$" if tex else ""
+
+
+def _code_text(code: str) -> str:
+    # A dollar in code (``$HOME``) is not maths: escaped, no client pairs it.
+    return _UNESCAPED_DOLLAR.sub(r"\\$", code)
 
 
 def _is_card_data(body: str) -> bool:
@@ -86,11 +157,12 @@ def snippet(content: str, query: str, max_len: int = 120) -> str:
     The cut lands between words where one is near, so no word is shown in part.
     """
     text = reader_text(content)
-    idx = text.lower().find(query.lower())
+    formulas = [(found.start(), found.end()) for found in _INLINE_MATH.finditer(text)]
+    idx = _visible_match(text, query, formulas)
     if idx == -1:
         if len(text) <= max_len:
             return text
-        return _trim_end(text, max_len) + "…"
+        return _trim_end(text, max_len, formulas) + "…"
     start = max(0, idx - 40)
     end = min(len(text), idx + len(query) + 80)
     if start > 0 and text[start - 1] != " ":
@@ -101,6 +173,7 @@ def snippet(content: str, query: str, max_len: int = 120) -> str:
         space = text.rfind(" ", max(idx + len(query), end - _WORD_REACH), end)
         if space != -1:
             end = space
+    start, end = _clear_of_formulas(formulas, start, end, idx, idx + len(query))
     cut = text[start:end].strip()
     if start > 0:
         cut = "…" + cut
@@ -109,12 +182,59 @@ def snippet(content: str, query: str, max_len: int = 120) -> str:
     return cut
 
 
-def _trim_end(text: str, max_len: int) -> str:
+def _visible_match(text: str, query: str, formulas: list[tuple[int, int]]) -> int:
+    """Where ``query`` first shows: never inside a TeX command's name ("time" in ``\\times``)."""
+    hidden = [
+        (command.start(), command.end())
+        for first, last in formulas
+        for command in _COMMAND.finditer(text, first, last)
+    ]
+    lower, needle = text.lower(), query.lower()
+    idx = lower.find(needle)
+    while idx != -1 and any(start < idx + len(needle) and idx < end for start, end in hidden):
+        idx = lower.find(needle, idx + 1)
+    return idx
+
+
+def _trim_end(text: str, max_len: int, formulas: list[tuple[int, int]]) -> str:
     space = text.rfind(" ", max_len - _WORD_REACH, max_len)
-    return text[: space if space != -1 else max_len].rstrip()
+    end = space if space != -1 else max_len
+    for first, last in formulas:
+        if first < end < last:
+            end = first
+    return text[:end].rstrip()
+
+
+def _clear_of_formulas(
+    formulas: list[tuple[int, int]], start: int, end: int, match: int, match_end: int
+) -> tuple[int, int]:
+    """Edges moved off any formula they cut: the matched one is kept whole, another left out."""
+    for first, last in formulas:
+        holds_match = first < match_end and match < last
+        if first < start < last:
+            start = first if holds_match else last
+        if first < end < last:
+            end = last if holds_match else first
+    return start, end
 
 
 def _prose_text(prose: str) -> str:
+    # Display maths may run over lines: each formula is one span on one line first. Code
+    # spans wait aside meanwhile, so `\\(x\\)` in code stays code.
+    spans: list[str] = []
+
+    def hold(found: re.Match[str]) -> str:
+        spans.append(found.group())
+        return f"`{_HELD_CODE}{len(spans) - 1}`"
+
+    def put_back(held: re.Match[str]) -> str:
+        index = int(held.group(1))
+        return spans[index] if index < len(spans) else held.group()
+
+    prose = _DELIMITED_MATH.sub(
+        lambda found: _formula(next(g for g in found.groups() if g)), _CODE.sub(hold, prose)
+    )
+    prose = _HELD_CODE_SPAN.sub(put_back, prose)
     return " ".join(_line_text(line) for line in prose.split("\n"))
 
 
@@ -133,7 +253,28 @@ def _line_text(line: str) -> str:
 def _inline_text(line: str) -> str:
     # Odd pieces are code spans: their text is shown as written, marks and all.
     pieces = _CODE.split(line)
-    return "".join(piece if index % 2 else _marks_text(piece) for index, piece in enumerate(pieces))
+    return "".join(
+        _code_text(piece) if index % 2 else _prose_marks_text(piece)
+        for index, piece in enumerate(pieces)
+    )
+
+
+def _prose_marks_text(prose: str) -> str:
+    # A formula's ``_`` and ``*`` are TeX, not marks: each waits behind a placeholder while
+    # the marks are read, so a pair around it (``**$x = 3$**``) still goes.
+    formulas: list[str] = []
+
+    def hold(found: re.Match[str]) -> str:
+        formula = found.group()
+        formulas.append(formula if len(formula) <= _FORMULA + 2 else "…")
+        return f"{_HELD}{len(formulas) - 1}{_HELD_END}"
+
+    def put_back(held: re.Match[str]) -> str:
+        index = int(held.group(1))
+        # A message that itself holds the placeholder's characters keeps them as written.
+        return formulas[index] if index < len(formulas) else held.group()
+
+    return _HELD_FORMULA.sub(put_back, _marks_text(_INLINE_MATH.sub(hold, prose)))
 
 
 def _marks_text(line: str) -> str:

@@ -137,6 +137,30 @@ function normalizeNativeDerivativePrimes(source: string): string {
   return out;
 }
 
+function upright(text: string): string {
+  return text ? `${NATIVE_UPRIGHT_START_MARKER}${text}${NATIVE_UPRIGHT_END_MARKER}` : "";
+}
+
+/** An upright group as drawn: a script inside it (`\mathrm{SO_4^{2-}}`, `\mathrm{H_2O}`) is a
+ * real script on the upright letters, as in TeX, never its `_4^{2-}` source. */
+function uprightRuns(value: string): string {
+  let out = "";
+  let run = "";
+  for (let i = 0; i < value.length;) {
+    if ((value[i] === "_" || value[i] === "^") && value[i - 1] !== "\\" && i + 1 < value.length) {
+      const group = value[i + 1] === "{" ? readGroup(value, i + 1) : null;
+      const end = group ? group.next : i + 2;
+      out += upright(run) + value.slice(i, end);
+      run = "";
+      i = end;
+      continue;
+    }
+    run += value[i];
+    i += 1;
+  }
+  return out + upright(run);
+}
+
 function preserveNativeUprightRuns(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
@@ -153,9 +177,7 @@ function preserveNativeUprightRuns(source: string): string {
           // Markdown attaches sentence punctuation to a math run as
           // `\text{.}` / `\text{,}`. Keep that punctuation in the adjacent
           // run so copy, wrapping, and tests see one continuous expression.
-          out += /^[\s.,;:!?]+$/.test(group.value)
-            ? group.value
-            : `${NATIVE_UPRIGHT_START_MARKER}${group.value}${NATIVE_UPRIGHT_END_MARKER}`;
+          out += /^[\s.,;:!?]+$/.test(group.value) ? group.value : uprightRuns(group.value);
           i = group.next;
           continue;
         }

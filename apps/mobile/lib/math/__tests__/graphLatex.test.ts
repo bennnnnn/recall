@@ -1,5 +1,5 @@
 import { graphRelationLatex } from "@/lib/math/graphLatex";
-import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
+import { parseSimpleLatex, formulaText } from "@/lib/math/text";
 
 describe("a graph legend in the maths face", () => {
   it.each([
@@ -21,7 +21,7 @@ describe("a graph legend in the maths face", () => {
   });
 
   it("reads back as the expression it came from", () => {
-    expect(readableLatexFallback(graphRelationLatex("y = x^2 - 4x + 3")!)).toBe("y = x^2 - 4x + 3");
+    expect(formulaText(graphRelationLatex("y = x^2 - 4x + 3")!)).toBe("y = x^2 - 4x + 3");
     expect(parseSimpleLatex(graphRelationLatex("y = x^2 - 4x + 3")!).some((seg) => seg.type === "sup")).toBe(true);
   });
 

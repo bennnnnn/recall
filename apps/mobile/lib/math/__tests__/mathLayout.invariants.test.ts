@@ -7,7 +7,7 @@ import {
 } from "@/lib/math/layout";
 import { findLayouts, layoutProblems } from "@/components/__tests__/layoutChecks";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
-import { parseSimpleLatex, readableLatexFallback, segmentsToPlain } from "@/lib/math/text";
+import { parseSimpleLatex, formulaText, segmentsToPlain } from "@/lib/math/text";
 
 /**
  * Appearance invariants for the native math layout tree. These catch a bar
@@ -103,7 +103,7 @@ describe("native math layout invariants", () => {
     expect(layout.height).toBeGreaterThan(0);
     const plain = segmentsToPlain(segments);
     expect(plain).not.toMatch(/\\[a-zA-Z]+/);
-    expect(readableLatexFallback(latex)).not.toMatch(/\\[a-zA-Z]+/);
+    expect(formulaText(latex)).not.toMatch(/\\[a-zA-Z]+/);
     if (kind) expect(findLayouts(layout, kind).length).toBeGreaterThan(0);
   });
 

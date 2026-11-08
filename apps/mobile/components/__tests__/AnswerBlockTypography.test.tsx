@@ -55,7 +55,7 @@ describe("standalone answer typography", () => {
     expect(answer.getByText("6")).toHaveStyle({ fontSize: 17.5 });
     expect(answer.getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
     expectFormulaBox(answer.getByTestId("math-text-tall"), { width: layout.width, height: layout.height });
-    expect(answer.getByLabelText("Answer: π^2/6")).toBeOnTheScreen();
+    expect(answer.getByLabelText("Answer: π squared over 6")).toBeOnTheScreen();
     expect(mockFormula).not.toHaveBeenCalled();
 
     const inline = await render(<MathText latex={latex} />);
@@ -84,7 +84,7 @@ describe("standalone answer typography", () => {
     const { getByLabelText, getByTestId } = await render(
       <AnswerBlock content={String.raw`x = \pm 1`} />,
     );
-    expect(getByLabelText("Answer: x = ± 1")).toBeOnTheScreen();
+    expect(getByLabelText("Answer: x = plus or minus 1")).toBeOnTheScreen();
     expect(getByTestId("math-variable")).toHaveTextContent("x");
     expect(getByTestId("math-variable")).toHaveStyle({
       fontFamily: "KaTeX_MathItalic",

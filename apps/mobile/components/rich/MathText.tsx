@@ -11,7 +11,7 @@ import {
 import { useInsideAccessibleElement } from "@/components/rich/accessibleElement";
 import { inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
-import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
+import { parseSimpleLatex, spokenFormula } from "@/lib/math/text";
 import { useTheme } from "@/lib/theme";
 import { makeStyles } from "@/components/rich/mathText/styles";
 import { scaled, type RenderCtx } from "@/components/rich/mathText/context";
@@ -157,7 +157,7 @@ export const MathText = memo(function MathText({
 
   const contentWidth = scaled(layout.width, fontScale);
   const contentHeight = scaled(layout.height, fontScale);
-  const label = readableLatexFallback(latex);
+  const label = spokenFormula(latex);
   // A short power stays a View so the exponent can rise, without the
   // horizontal scroller that stacked fractions use even when they fit.
   const scroll = scrollOverflow && (stacked || inlineMathNeedsScroll(contentWidth, windowWidth));

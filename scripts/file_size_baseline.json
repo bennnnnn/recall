@@ -153,10 +153,6 @@
       "lines": 544,
       "why": "Exception: Key and accessibility tables (321 lines of data)"
     },
-    "apps/mobile/lib/math/latexParse.ts": {
-      "lines": 508,
-      "why": "Exception: One parser; ES-38 split its one long function"
-    },
     "apps/mobile/lib/physics/optics.ts": {
       "lines": 599,
       "why": "Exception: One diagram's parsing and pure geometry; tested by `optics.test.ts`"

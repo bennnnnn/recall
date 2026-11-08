@@ -1,6 +1,7 @@
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
+import { spokenFormula } from "@/lib/math/spokenFormula";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 
 /** Break only independent equation alternatives; each separator stays with
@@ -57,6 +58,18 @@ export function answerReadsAsProse(text: string): boolean {
   const prose = parts.filter((part) => part.type === "text").map((part) => part.value);
   if (prose.some((value) => /\\[A-Za-z]/.test(value))) return false;
   return prose.flatMap((value) => value.match(/[A-Za-z]{3,}/g) ?? []).length >= 2;
+}
+
+/**
+ * What an answer card's value says, the same for its screen-reader label and for read-aloud:
+ * a formula as words, or a sentence with each of its formulas read out ("It moves 4 m.").
+ * A chemistry value is text and is read as written by its callers.
+ */
+export function spokenAnswerValue(raw: string): string {
+  const text = normalizeAnswerContent(raw);
+  const parts = splitInlineMath(text);
+  if (!parts.some((part) => part.type === "math")) return spokenFormula(text);
+  return parts.map((part) => (part.type === "math" ? spokenFormula(part.value) : part.value)).join("");
 }
 
 /**

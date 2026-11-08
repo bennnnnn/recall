@@ -29,7 +29,7 @@ export function useDrawerSearchItems({
   onSearchLoadMore,
 }: Options) {
   // Each keystroke starts a new search with new result handlers. They ride on the search
-  // items, so the chat rows under them keep their items and renderItem and are not redrawn.
+  // items, so the chat rows keep their items and renderItem and are not redrawn.
   const searchItems = useMemo<DrawerChatListItem[]>(() => {
     if (!searchOpen || searchResults.length === 0) return NO_ITEMS;
     const items: DrawerChatListItem[] = [];
@@ -60,9 +60,10 @@ export function useDrawerSearchItems({
     searchResults,
   ]);
 
-  // A new search's results go in above the chat rows. Keeping the rows on screen (the
-  // list's visible-position rule, off while searching) pushed them out of sight. A new
-  // first result is a new search: show it from the top. Load more keeps the place.
+  // A new search's results take the chat rows' place, and the list kept the offset it was
+  // scrolled to, out of sight of them (as its visible-position rule did, off while
+  // searching). A new first result is a new search: show it from the top. Load more keeps
+  // the place.
   const listRef = useRef<FlashListRef<DrawerChatListItem>>(null);
   const firstSearchKey = searchItems[0]?.key;
   useEffect(() => {

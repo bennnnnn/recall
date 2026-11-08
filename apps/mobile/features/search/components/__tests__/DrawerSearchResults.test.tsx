@@ -131,3 +131,22 @@ it("highlights what was searched in the title and the words", async () => {
     onOpenChat={jest.fn()} />);
   expect(view.getAllByText(/^rain$/i).map((node) => node.props.children)).toEqual(["rain", "Rain", "rain"]);
 });
+
+// A worked physics reply showed "…$t$ = time Required $a$…" and "$v_0 = 20\,\mathrm{m/s}$".
+it("shows a hit's formulas as symbols, never TeX, and highlights the words searched", async () => {
+  const result: SearchResult = { chat_id: "chat", message_id: "m", chat_title: "Braking",
+    content: String.raw`…where $t$ = time Required $a$, given $v_0 = 20\,\mathrm{m/s}$ and \$5…`,
+    match_type: "message", role: "assistant", created_at: "2026-01-01" };
+  const view = await render(<DrawerSearchResultRow query="time" result={result} title="Braking"
+    onOpenChat={jest.fn()} />);
+  expect(view.getByText("…where t = time Required a, given v_0 = 20 m/s and $5…")).toBeTruthy();
+  expect(view.getByText("time")).toBeTruthy();
+  expect(view.queryByText(/\\|\$[a-z]/)).toBeNull();
+});
+
+it("tags a title hit in plain words", async () => {
+  const result: SearchResult = { chat_id: "chat", message_id: null, chat_title: "Rain",
+    content: "Rain", match_type: "title", role: "chat", created_at: "2026-01-01" };
+  const view = await render(<DrawerSearchResultRow query="rain" result={result} title="Rain" onOpenChat={jest.fn()} />);
+  expect(view.getByText("search.title_match")).toBeTruthy();
+});
