@@ -18,7 +18,8 @@ let mockList: {
   onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[]; view: string;
   onOpen: (row: { id: string; content: string }) => void; onSelect: (row: { id: string }) => void;
 };
-let mockHeader: { onRetry: () => void };
+let mockHeader: { onRetry: () => void; showEmpty: boolean };
+let mockOlderCompleted = false;
 let mockViewMenu: { onView: (view: string) => void };
 const mockOpenTodo = jest.fn();
 const mockCreate = jest.fn();
@@ -96,12 +97,12 @@ jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (p
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ info: mockInfo }) }));
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: mockTodos, loading: false, error: false,
   getTodos: mockGetTodos, isCurrentSession: mockCurrentSession, markSeenIds: mockMarkSeenIds,
-  refresh: mockRefresh, setTodos: jest.fn(),
+  refresh: mockRefresh, setTodos: jest.fn(), olderCompleted: mockOlderCompleted,
 }) }));
 
 beforeEach(() => {
   jest.clearAllMocks(); mockSession++; mockToken = "token-a"; mockFocused = true;
-  mockRouteParams = {}; mockTodos = [];
+  mockRouteParams = {}; mockTodos = []; mockOlderCompleted = false;
   mockRefresh.mockResolvedValue();
 });
 
@@ -251,4 +252,13 @@ it("names the list's view under the header title, and follows a change from the 
   expect(title.getByText("todos.menu_completed")).toBeTruthy();
   expect(title.queryByText("todos.menu_today")).toBeNull();
   expect(mockList.view).toBe("completed");
+});
+
+it("keeps \"No to-dos yet\" off the page while older completed to-dos are left out", async () => {
+  await render(<TodosScreen />);
+  expect(mockHeader.showEmpty).toBe(true);
+  mockOlderCompleted = true;
+  await render(<TodosScreen />);
+  // The view's own empty state shows instead, over "Show older completed".
+  expect(mockHeader.showEmpty).toBe(false);
 });

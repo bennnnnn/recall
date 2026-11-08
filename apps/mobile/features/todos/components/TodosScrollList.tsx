@@ -160,7 +160,7 @@ export function TodosScrollList({
           </View>
         ) : null
       }
-      ListEmptyComponent={!showEmpty && !error ? <TodosViewEmpty view={view} /> : null}
+      ListEmptyComponent={!showEmpty && !error ? <TodosViewEmpty view={view} olderHidden={Boolean(onShowOlder)} /> : null}
       renderItem={({ item, index }) => {
         if (item.kind === "heading") {
           const title = item.section === "date" && item.dayKey

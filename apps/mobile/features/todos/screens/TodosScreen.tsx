@@ -68,7 +68,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const refreshingRef = useRef(false);
 
-  const showTodosEmptyHero = todos.length === 0;
+  const showTodosEmptyHero = todos.length === 0 && !olderCompleted;
 
   const actions = useTodosActions({
     token,

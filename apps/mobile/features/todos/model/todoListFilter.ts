@@ -3,6 +3,9 @@ import { localDateKey } from "@/features/todos/model/dateKey";
 
 export type TodoView = "all" | "open" | "completed" | "today";
 
+/** Completed to-dos older than this stay on the server until the list asks for them. */
+export const RECENT_COMPLETED_DAYS = 30;
+
 /** Narrow the list for the header menu. Today is open items due today or overdue. */
 export function todosForView(todos: Todo[], view: TodoView, now = new Date()): Todo[] {
   if (view === "completed") return todos.filter((todo) => todo.checked);

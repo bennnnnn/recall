@@ -29,11 +29,12 @@ jest.mock("@/ui/feedback/StateView", () => {
 
 beforeEach(() => { mockStates.length = 0; });
 
-function emptyView(view: TodoView, showEmpty = false) {
+function emptyView(view: TodoView, showEmpty = false, onShowOlder?: () => void) {
   const noop = jest.fn();
   return render(
     <TodosScrollList rows={[]} now={new Date()} showEmpty={showEmpty} view={view} error={false}
-      listHeader={<></>} busyTodoIds={new Set()} onToggle={noop} onOpen={noop} onDeleteItem={noop} />,
+      listHeader={<></>} busyTodoIds={new Set()} onToggle={noop} onOpen={noop} onDeleteItem={noop}
+      onShowOlder={onShowOlder} />,
   );
 }
 
@@ -52,3 +53,13 @@ it("leaves the empty list to the list header's hero when there are no to-dos at 
   await emptyView("today", true);
   expect(mockStates).toEqual([]);
 });
+
+it.each(["completed", "all"] as const)(
+  "an empty %s view with older completed to-dos left out says the window, not none at all",
+  async (view) => {
+    const ui = await emptyView(view, false, jest.fn());
+    // "No completed tasks" stood over "Show older completed".
+    expect(ui.getByText("todos.view_empty_completed_recent")).toBeTruthy();
+    expect(ui.queryByText("todos.view_empty_completed")).toBeNull();
+  },
+);
