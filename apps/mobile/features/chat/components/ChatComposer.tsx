@@ -22,7 +22,6 @@ import {
   composerGapFadeColors,
 } from "@/features/chat/components/chromeFade";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 
 import { type MeterLevel, VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
 import {
@@ -33,6 +32,7 @@ import {
   ComposerAttachButton,
   ComposerExpandControl,
   ComposerPlaceholder,
+  useComposerPrompt,
   ComposerScanHint,
   COMPOSER_SCAN_HINT_HEIGHT,
 } from "@/features/chat/components/ComposerControls";
@@ -138,7 +138,7 @@ export const ChatComposer = memo(function ChatComposer({
   onMathChromeHeightChange,
   onInputFrameExtraChange,
 }: Props) {
-  const { t } = useTranslation();
+  const prompt = useComposerPrompt();
   const token = useAuthToken();
   const insets = useSafeAreaInsets();
   // Native text scales the field's line box with the system text size.
@@ -427,7 +427,7 @@ export const ChatComposer = memo(function ChatComposer({
                           },
                       parkInput ? s.inputParked : null,
                     ]}
-                    accessibilityLabel={t("chat.placeholder")}
+                    accessibilityLabel={prompt}
                     maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
                     value={input}
                     // Messaging traits while the system keyboard is up. The math

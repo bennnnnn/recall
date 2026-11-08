@@ -448,6 +448,8 @@ describe("ChatScreen when the keyboard changes size, turns back or never reports
 
 describe("ChatScreen thread while the keyboard moves", () => {
   it("catches up with the keyboard while it opens and while it closes, not only once it stops", async () => {
+    // A thread: an empty chat (the home) is never pinned (useChatScroll).
+    mockMessages = [{ id: "m1" }, { id: "m2" }];
     await render(<HomeScreen />);
     const list = attachList();
 

@@ -49,6 +49,50 @@ async function mountScroll(fake: ReturnType<typeof fakeList>, initial: Props) {
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 
+describe("useChatScroll on an empty chat (the home)", () => {
+  it("never pins: the greeting stays while the keyboard's spacer grows under it", async () => {
+    // On the S23 the keyboard's spacer grew under the home frame by frame, the list
+    // followed it to its end, and the greeting left the top until the keyboard settled.
+    const listeners = new Set<(height: number) => void>();
+    const keyboardSteps = {
+      subscribe: (listener: (height: number) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const fake = fakeList(800);
+    const hook = await renderHook(() =>
+      useChatScroll({ chatId: null, messagesLength: 0, streamActive: false, windowHeight: 800, keyboardSteps }),
+    );
+    (hook.result.current.listRef as { current: unknown }).current = fake.list;
+    for (const step of [80, 160, 240, 320]) {
+      fake.state.rows = 800 + step;
+      await act(async () => {
+        listeners.forEach((listener) => listener(step));
+        hook.result.current.listScroll.onContentSizeChange(390, 800 + step);
+        hook.result.current.listScroll.onLayoutCommit();
+        jest.advanceTimersByTime(100);
+      });
+    }
+    expect(fake.scroller.scrollToEnd).not.toHaveBeenCalled();
+    expect(fake.list.scrollToEnd).not.toHaveBeenCalled();
+  });
+
+  it("pins again once the first message lands", async () => {
+    const fake = fakeList(600);
+    const hook = await mountScroll(fake, { chatId: null, messagesLength: 0, streamActive: false });
+    await act(async () => {
+      hook.result.current.listScroll.onLayoutCommit();
+    });
+    await hook.rerender({ chatId: null, messagesLength: 2, streamActive: true });
+    fake.state.rows = 1300;
+    await act(async () => {
+      hook.result.current.listScroll.onLayoutCommit();
+    });
+    expect(fake.scroller.scrollToEnd).toHaveBeenCalledWith({ animated: false });
+  });
+});
+
 describe("useChatScroll pins to the bottom from layout", () => {
   const props: Props = { chatId: "chat-a", messagesLength: 4, streamActive: true };
 

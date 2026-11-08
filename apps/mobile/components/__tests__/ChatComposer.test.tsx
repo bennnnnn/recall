@@ -8,6 +8,7 @@ import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatCo
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
+import { homeOnScreen } from "@/features/home/model/homeOnScreen";
 
 import { DraftHarness } from "./DraftHarness";
 
@@ -338,6 +339,35 @@ describe("ChatComposer math keyboard", () => {
 
     await fireEvent.changeText(getByTestId("chat-composer-input"), "Hi");
     expect(queryByTestId("chat-composer-placeholder", HIDDEN_TOO)).toBeNull();
+  });
+
+  it("asks on the home and replies in a chat, with no examples cycling", async () => {
+    // Five examples cycled on the home, and on a narrow phone most were cut off ("Snap a
+    // math proble…"): the home reads "Ask Recall" and a chat "Reply to Recall".
+    jest.useFakeTimers();
+    try {
+      const { getByTestId } = await render(
+        <DraftHarness>
+          <ChatComposer {...baseProps} />
+        </DraftHarness>,
+      );
+      const words = () => getByTestId("chat-composer-placeholder", HIDDEN_TOO).props.children;
+      const label = () => getByTestId("chat-composer-input").props.accessibilityLabel;
+      await act(async () => homeOnScreen.set(true));
+      expect(words()).toBe("chat.placeholder_home");
+      // A screen reader and Voice Control name the field by the words it shows.
+      expect(label()).toBe("chat.placeholder_home");
+      await act(async () => {
+        jest.advanceTimersByTime(20_000);
+      });
+      expect(words()).toBe("chat.placeholder_home");
+      await act(async () => homeOnScreen.set(false));
+      expect(words()).toBe("chat.placeholder");
+      expect(label()).toBe("chat.placeholder");
+    } finally {
+      homeOnScreen.set(false);
+      jest.useRealTimers();
+    }
   });
 
   it("grows to the next line when text reaches the end of the field", async () => {
