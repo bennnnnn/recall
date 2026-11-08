@@ -70,7 +70,7 @@
   "features/chat/hooks/useChatScroll.ts::useChatScroll": 315,
   "features/chat/hooks/useChatSend.ts::useChatSend": 348,
   "features/chat/hooks/useChatSendRoute.ts::useChatSendRoute": 144,
-  "features/chat/hooks/useChatTitlePolling.ts::useChatTitlePolling": 116,
+  "features/chat/hooks/useChatTitlePolling.ts::useChatTitlePolling": 114,
   "features/chat/hooks/useChatTransport.ts::useChatTransport": 269,
   "features/chat/hooks/useChatTurnActions.ts::useChatTurnActions": 137,
   "features/chat/hooks/useComposerFieldLayout.ts::useComposerFieldLayout": 140,

@@ -12,6 +12,7 @@ import {
 import { readStoredChatList } from "@/features/chat/model/chatListFile";
 import { allChatsFromGroups, emptyChatList } from "@/features/chat/model/listSections";
 import { patchChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
+import { emitAppEvent } from "@/lib/appEvents";
 
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({
@@ -219,6 +220,8 @@ it("keeps every chat when one is added after the list was dropped, and reads it 
   (api.listChats as jest.Mock).mockResolvedValueOnce(initial);
   const view = await render(<Probe />);
   expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
+  // Settings opens over a closed drawer.
+  await view.rerender(<Probe open={false} />);
   await act(async () => { await invalidateChatListCache(); });
   await act(async () => {
     current.insertChatInGroups({ ...chat, id: "new", title: "New one", updated_at: "2026-11-07T00:00:00Z" });
@@ -285,5 +288,73 @@ describe("after a Settings change took away the chats shown", () => {
     expect(current.error).toBe(true);
     expect(getCachedChatList()).toBeUndefined();
     expect(deletedAnywhere()).toBe(false);
+  });
+});
+
+describe("after Settings dropped the list", () => {
+  const idle = async () => {
+    mockIdle.splice(0).forEach((task) => task());
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  };
+  const made = { ...chat, id: "new", title: null, updated_at: "2026-11-07T00:00:00Z" };
+  async function readThenClose(list: ChatList = initial) {
+    (api.listChats as jest.Mock).mockResolvedValueOnce(list);
+    const view = await render(<Probe />);
+    await view.rerender(<Probe open={false} />);
+    return view;
+  }
+
+  it("reads it again in the background, so Home's last chat comes back without the drawer", async () => {
+    // Review: after an unarchive nothing read the list until the drawer opened, and Home's
+    // last chat card (it reads the cached list) stayed hidden.
+    const view = await readThenClose();
+    await act(async () => { await invalidateChatListCache(); });
+    expect(getCachedChatList()).toBeUndefined();
+    expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
+    (api.listChats as jest.Mock).mockResolvedValueOnce({ ...initial, today: [{ ...chat, id: "back" }] });
+    await act(idle);
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect(allChatsFromGroups(getCachedChatList()!).map((row) => row.id).sort()).toEqual(["back", "old"]);
+    expect(current.allChats.map((row) => row.id).sort()).toEqual(["back", "old"]);
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads it again at once while the drawer is open", async () => {
+    (api.listChats as jest.Mock).mockResolvedValueOnce(initial);
+    await render(<Probe />);
+    let finish!: (value: ChatList) => void;
+    (api.listChats as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    await act(async () => { await invalidateChatListCache({ rowsRemoved: true }); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect(current.loading).toBe(true);
+    expect(current.allChats).toEqual([]);
+    await act(async () => { finish({ ...emptyChatList(), today: [{ ...chat, id: "kept" }] }); });
+    expect(current.loading).toBe(false);
+    expect(current.allChats.map((row) => row.id)).toEqual(["kept"]);
+  });
+
+  it("keeps both of two edits made in one tick on the rows shown", async () => {
+    await readThenClose();
+    await act(async () => { await invalidateChatListCache(); });
+    await act(async () => {
+      current.insertChatInGroups(made);
+      current.patchChatInGroups("new", { title: "Named at once" });
+    });
+    expect(getCachedChatList()).toBeUndefined();
+    expect(current.allChats.map((row) => [row.id, row.title])).toEqual([["new", "Named at once"], ["old", "Original"]]);
+  });
+
+  it("drops only the archived chat deleted in Settings, and keeps every other row", async () => {
+    const archived = { ...chat, id: "gone", archived: true, title: "Archived" };
+    await readThenClose({ ...initial, archived: [archived, { ...archived, id: "stays" }] });
+    // ArchivedChatsScreen: the one chat, then a drop that keeps the rows.
+    await act(async () => {
+      emitAppEvent("chatsDeleted", { chatIds: ["gone"] });
+      await invalidateChatListCache();
+    });
+    expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
+    expect(current.groups.archived.map((row) => row.id)).toEqual(["stays"]);
+    expect(getCachedChat("gone")).toBeUndefined();
   });
 });

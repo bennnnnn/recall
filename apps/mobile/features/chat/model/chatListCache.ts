@@ -28,7 +28,7 @@ type ListSession = {
   saveQueued?: boolean;
   /**
    * Set when a change to many chats dropped the list (`invalidateChatListCache`): "rows-removed"
-   * when that change took away rows a screen shows (Delete all, Archive all, a deleted chat).
+   * when that change took away rows a screen shows (Delete all, Archive all).
    */
   dropped?: "rows-kept" | "rows-removed";
 };
@@ -167,10 +167,10 @@ export function updateChatListCache(update: ResourceUpdate<ChatList>): ChatList 
 }
 
 /**
- * Sign-out, or a change to many chats at once: forget the list, on disk too. Until it is read
- * again the drawer keeps the rows it shows (an unarchive left every one in place), unless
- * `rowsRemoved` says the change took some away (Delete all, Archive all, a deleted chat):
- * then the drawer drops them too, so none comes back.
+ * Sign-out, or a change to many chats at once: forget the list, on disk too. The drawer reads
+ * it again (in the background, so Home's last chat comes back), keeping the rows it shows
+ * meanwhile (an unarchive left every one in place), unless `rowsRemoved` says the change
+ * took them away (Delete all, Archive all): then it drops them too, so none comes back.
  */
 export function invalidateChatListCache({ rowsRemoved = false } = {}): Promise<void> {
   resource.invalidate({ dropped: rowsRemoved ? "rows-removed" : "rows-kept" });
@@ -178,9 +178,14 @@ export function invalidateChatListCache({ rowsRemoved = false } = {}): Promise<v
   return listFile().then((file) => file.clearStoredChatList()).catch(() => {});
 }
 
+/** The list was dropped (`invalidateChatListCache`) and is not read since. */
+export function isChatListDropped(): boolean {
+  return resource.get(LIST) === undefined && resource.state().dropped !== undefined;
+}
+
 /** The rows a screen shows were removed with the list (Delete all), and it is not read since. */
 export function chatListRowsRemoved(): boolean {
-  return resource.get(LIST) === undefined && resource.state().dropped === "rows-removed";
+  return isChatListDropped() && resource.state().dropped === "rows-removed";
 }
 
 export async function fetchChatList(

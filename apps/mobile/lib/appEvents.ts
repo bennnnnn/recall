@@ -6,7 +6,7 @@
 import type { User } from "@/lib/api/types";
 
 type AppEvents = {
-  /** Chats deleted: the gallery drops their photos and files. */
+  /** Chats deleted: the gallery drops their photos and files, the drawer their rows. */
   chatsDeleted: { chatIds: readonly string[] };
   /** A photo or file deleted from the gallery: the chat that showed it reads again. */
   attachmentDeleted: { attachmentId: string; chatId: string | null };

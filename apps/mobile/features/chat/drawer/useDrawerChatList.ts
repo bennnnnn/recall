@@ -18,6 +18,7 @@ import {
   fetchOlderChats,
   getCachedChatList,
   getChatListFetchedAt,
+  isChatListDropped,
   isChatListFresh,
   regroupCachedChatList,
   restoreChatList,
@@ -38,6 +39,7 @@ import {
   shouldWarmClosedDrawerChatList,
 } from "@/features/chat/drawer/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
+import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
 import { isExpectedReadFailure, type ResourceUpdate } from "@/lib/cache/sessionResource";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
@@ -240,7 +242,7 @@ type ListEditDeps = {
   account: string | null;
   current: () => boolean;
   applyChatList: (data: ChatList | ResourceUpdate<ChatList>, fetched?: boolean) => void;
-  load: () => Promise<void>;
+  load: (background?: boolean) => Promise<void>;
   openRef: RefObject<boolean>;
 };
 
@@ -248,13 +250,16 @@ type ListEditDeps = {
  * The drawer's own edits to its list (patch, insert, remove), cached and published. A list
  * Settings dropped takes no edit until it is read again (`updateChatListCache`): the edit lands
  * on the rows shown, which an unarchive left in place. A drop that removed rows (Delete all,
- * Archive all) clears them here first, so an edit can never bring one back.
+ * Archive all) clears them here first, so an edit can never bring one back. Either drop reads
+ * the list again: at once with the drawer open, else in the background, so Home's last chat
+ * and a new chat's title poll have it without the drawer.
  */
 function useListEdits({ account, current, applyChatList, load, openRef }: ListEditDeps) {
   useEffect(() => subscribeChatList(() => {
-    if (!current() || !chatListRowsRemoved()) return;
-    applyChatList(emptyChatList(), false);
+    if (!current() || !isChatListDropped()) return;
+    if (chatListRowsRemoved()) applyChatList(emptyChatList(), false);
     if (openRef.current) void load();
+    else scheduleIdleTask(() => void load(true));
   }), [current, applyChatList, load, openRef]);
   const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
     if (!account || !current()) return;
@@ -271,5 +276,9 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
   const removeChatFromGroupsById = useCallback((chatId: string) => {
     updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
   }, [updateGroups]);
+  // A chat deleted elsewhere (Settings' archived chats) leaves only its own row.
+  useEffect(() => onAppEvent("chatsDeleted", ({ chatIds }) => {
+    chatIds.forEach((chatId) => removeChatFromGroupsById(chatId));
+  }), [removeChatFromGroupsById]);
   return { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById };
 }

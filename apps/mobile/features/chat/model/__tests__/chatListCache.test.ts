@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import {
   chatListRowsRemoved,
   fetchChatList,
+  isChatListDropped,
   fetchMoreArchivedChats,
   fetchOlderChats,
   getCachedChat,
@@ -227,14 +228,14 @@ it("makes no list from an edit after a drop, and replays one made during the nex
 
 it("says the rows shown went with the list only for a change that removed them, until a read", async () => {
   await invalidateChatListCache();
-  expect(chatListRowsRemoved()).toBe(false);
+  expect([isChatListDropped(), chatListRowsRemoved()]).toEqual([true, false]);
   await invalidateChatListCache({ rowsRemoved: true });
-  expect(chatListRowsRemoved()).toBe(true);
+  expect([isChatListDropped(), chatListRowsRemoved()]).toEqual([true, true]);
   listChats.mockResolvedValueOnce(sample);
   await fetchChatList("token");
-  expect(chatListRowsRemoved()).toBe(false);
+  expect([isChatListDropped(), chatListRowsRemoved()]).toEqual([false, false]);
   mockSession++;
-  expect(chatListRowsRemoved()).toBe(false);
+  expect([isChatListDropped(), chatListRowsRemoved()]).toEqual([false, false]);
 });
 
 it("does not return current cached history to a token from an old account", async () => {

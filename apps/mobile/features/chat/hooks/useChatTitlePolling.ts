@@ -12,6 +12,7 @@ import {
   isChatTitleGenerating,
   patchChatGlobal,
   setChatTitleGenerating,
+  subscribeChatChanges,
 } from "@/features/chat/drawer/drawer";
 
 type Options = {
@@ -49,7 +50,12 @@ export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserT
     if (existing) return existing.task;
     const ownerSession = session;
     const owner = currentView();
-    let revision = getChatMutationRevision(cid);
+    // A rename owns the title, and a deleted chat must not come back: the drawer says both as it
+    // makes them, with or without a cached list (a dropped one has none). A pin polls on.
+    let settled = false;
+    const stopListening = subscribeChatChanges((id, patch) => {
+      if (id === cid && (patch === null || Boolean(patch.title?.trim()))) settled = true;
+    });
     let cancelled = false;
     let wake: (() => void) | undefined;
     const isCurrent = () => mounted.current && !cancelled && ownerSession === getSessionGeneration();
@@ -69,18 +75,10 @@ export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserT
             wake = () => { clearTimeout(timer); resolve(); };
           });
           wake = undefined;
-          if (!isCurrent()) return;
-          const latestRevision = getChatMutationRevision(cid);
-          if (revision !== latestRevision) {
-            const latest = getCachedChat(cid);
-            // An optimistic rename already owns the displayed title. A removed
-            // row must not be revived by a poll that started before deletion.
-            if (!latest || latest.title?.trim()) return;
-            revision = latestRevision;
-          }
+          if (!isCurrent() || settled) return;
           try {
             const updated = await api.getChat(tid, cid);
-            if (!isCurrent() || revision !== getChatMutationRevision(cid)) return;
+            if (!isCurrent() || settled) return;
             // API titles are persisted values; short manual labels are valid too.
             if (updated.title?.trim()) {
               patchChatGlobal(cid, { title: updated.title });
@@ -92,6 +90,7 @@ export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserT
           }
         }
       } finally {
+        stopListening();
         if (ownsHeader()) setTitleGenerating(false);
         if (ownerSession === getSessionGeneration() && isChatTitleGenerating(cid)) {
           setChatTitleGenerating(null);
