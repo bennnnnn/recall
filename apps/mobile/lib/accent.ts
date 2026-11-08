@@ -6,7 +6,12 @@
  * Every preset passes, in both schemes (checked in `__tests__/accent.test.tsx`):
  * primary on the page ≥ 4.5:1 (links and selected text), onPrimary on primary
  * ≥ 4.5:1 (button labels), and the bubble text on userBubble ≥ 7:1.
- * No green (reads as success) and no red (reads as danger).
+ * Green, pink and warm hues are welcome, but no preset may read as a status:
+ * its primary stays a clear step (CIEDE2000 ≥ 12) from success, warning and
+ * danger in both schemes, so a primary button never looks like a done check,
+ * an overdue time or a warning. Green is a yellower, more vivid green than
+ * success's jade; pink is pink, not danger's red; mocha is a muted brown, not
+ * warning's orange.
  */
 
 type AccentTones = {
@@ -19,7 +24,11 @@ type AccentTones = {
   userBubble: string;
   /** Ink on a primary fill. */
   onPrimary: string;
-  /** The fourth graph series, when the default violet sits too near this hue. */
+  /** The second graph series (and a scene's second body), when the default green sits too near this hue. */
+  series2?: string;
+  /** The third graph series (and a ray diagram's rays), when the default orange sits too near this hue. */
+  series3?: string;
+  /** The fourth graph series, when the default fuchsia sits too near this hue. */
   series4?: string;
 };
 
@@ -74,6 +83,24 @@ export const ACCENTS = {
       onPrimary: "#0F0F10",
     },
   },
+  green: {
+    light: {
+      primary: "#2A6C02",
+      primaryLight: "#E2F3DD",
+      primaryDark: "#215A00",
+      userBubble: "#F0F9EE",
+      onPrimary: "#FFFFFF",
+      series2: "#0E7490",
+    },
+    dark: {
+      primary: "#86DF65",
+      primaryLight: "#264819",
+      primaryDark: "#6DD144",
+      userBubble: "#264819",
+      onPrimary: "#0F0F10",
+      series2: "#22D3EE",
+    },
+  },
   violet: {
     light: {
       primary: "#7426D9",
@@ -124,6 +151,40 @@ export const ACCENTS = {
       primaryDark: "#F475C6",
       userBubble: "#62284D",
       onPrimary: "#0F0F10",
+    },
+  },
+  pink: {
+    light: {
+      primary: "#C4246C",
+      primaryLight: "#FCE4EF",
+      primaryDark: "#A41E5A",
+      userBubble: "#FDF0F6",
+      onPrimary: "#FFFFFF",
+    },
+    dark: {
+      primary: "#FFA6BF",
+      primaryLight: "#63273B",
+      primaryDark: "#FF8BAE",
+      userBubble: "#63273B",
+      onPrimary: "#0F0F10",
+    },
+  },
+  mocha: {
+    light: {
+      primary: "#7E5A42",
+      primaryLight: "#FAEAE0",
+      primaryDark: "#6B4B36",
+      userBubble: "#FCF4EF",
+      onPrimary: "#FFFFFF",
+      series3: "#0E7490",
+    },
+    dark: {
+      primary: "#D1B099",
+      primaryLight: "#4F3B2E",
+      primaryDark: "#C89F83",
+      userBubble: "#4F3B2E",
+      onPrimary: "#0F0F10",
+      series3: "#22D3EE",
     },
   },
   graphite: {

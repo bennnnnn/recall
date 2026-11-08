@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 
+from app.modules.math.match.modulo import mod_signal
 from app.modules.math.schemas.operations import (
     CombinatoricsOp,
     MatrixOp,
@@ -419,12 +420,9 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
         after = _digits_immediately_after(text, phi_at + 4)
         if after is not None:
             return "totient", after[0], None
-    idx = lower.find(" mod ")
-    if idx != -1:
-        a = _digits_immediately_before(text, idx)
-        after = _digits_immediately_after(text, idx + len(" mod "))
-        if a is not None and after is not None:
-            return "mod", a, after[0]
+    modulo = mod_signal(text)
+    if modulo is not None:
+        return "mod", modulo[0], modulo[1]
     return None
 
 

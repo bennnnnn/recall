@@ -182,8 +182,12 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
         else:
             if b == 0:
                 raise SolveServiceError("Modulo by zero is undefined")
-            result = a % b
-            steps = [f"{a} \\bmod {b} = {result}"]
+            if data.exponent is not None:
+                result = pow(a, data.exponent, b)
+                steps = [f"{a}^{{{data.exponent}}} \\bmod {b} = {result}"]
+            else:
+                result = a % b
+                steps = [f"{a} \\bmod {b} = {result}"]
         return NumberTheoryResult(
             operation=data.operation, a=a, b=b, result_int=result, steps=steps
         )

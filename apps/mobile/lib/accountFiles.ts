@@ -84,11 +84,20 @@ const RECORDING_DIRECTORIES = ["ExpoAudio/", "Audio/"] as const;
 const RECORDING_PREFIX = "recording-";
 
 /**
- * The copy of each photo or file picked (expo-image-picker, expo-document-picker),
- * and each re-encode or crop (expo-image-manipulator: composer photos, scanner
- * crops, profile photos). Every file in them is one the person chose.
+ * Where a file another app opened in Recall (Open in, Open with, Share) is copied for
+ * the composer (features/attachments/model/openedDocumentCopy.ts).
  */
-const PICKER_COPY_DIRECTORIES = ["ImagePicker/", "DocumentPicker/", "ImageManipulator/"] as const;
+export const OPENED_FILE_DIRECTORY = "OpenedFiles";
+
+/**
+ * The copy of each photo or file picked (expo-image-picker, expo-document-picker),
+ * each re-encode or crop (expo-image-manipulator: composer photos, scanner crops,
+ * profile photos), and each file opened in Recall from another app. Every file in
+ * them is one the person chose.
+ */
+const PICKER_COPY_DIRECTORIES = [
+  "ImagePicker/", "DocumentPicker/", "ImageManipulator/", `${OPENED_FILE_DIRECTORY}/`,
+] as const;
 /** A week: long past any pick a new run could still be handed. */
 const PICKER_COPY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 

@@ -24,7 +24,8 @@ _REPO = APP_ROOT.parents[2]
 _SKIP_DIRS = frozenset(
     {".git", "node_modules", "__pycache__", ".venv", "tmp", "ios", "android", ".expo", "dist"}
 )
-_PATH = re.compile(r"(?<![\w/.:-])((?:[\w-]+/)*[\w.-]+\.(?:py|tsx?|json|md|toml))(?![\w/])")
+# A file name may hold "+": Expo Router's own routes are `+native-intent.tsx`, `+not-found.tsx`.
+_PATH = re.compile(r"(?<![\w/.:+-])((?:[\w-]+/)*[\w.+-]+\.(?:py|tsx?|json|md|toml))(?![\w/])")
 
 
 @cache
@@ -106,3 +107,8 @@ def test_the_path_check_reads_both_sides() -> None:
     # A URL's path is not a repo path.
     found = [m.group(1) for m in _PATH.finditer("see routers/auth.py and https://x.dev/a.md")]
     assert found == ["routers/auth.py"]
+    # An Expo Router route keeps its "+" (read as "native-intent.tsx", it named no file).
+    routes = [
+        m.group(1) for m in _PATH.finditer("Expo Router hands it to `app/+native-intent.tsx`")
+    ]
+    assert routes == ["app/+native-intent.tsx"] and _exists(routes[0])

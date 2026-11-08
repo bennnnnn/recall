@@ -27,6 +27,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/chat/model/quotaNudgeDismissal").then(({ resetQuotaNudgeDismissal }) => resetQuotaNudgeDismissal()),
     import("@/features/attachments/model/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
     import("@/features/attachments/model/attachmentStatusFile").then(({ clearSettledStatuses }) => clearSettledStatuses()),
+    // A file another app opened in Recall while this account was signed in, not yet in a composer.
+    import("@/features/attachments/model/openedDocument").then(({ clearOpenedDocument }) => clearOpenedDocument()),
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/chat/model/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
     // A reply read aloud stops with the account, and its player closes.

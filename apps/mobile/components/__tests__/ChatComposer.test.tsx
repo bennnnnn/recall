@@ -3,6 +3,7 @@ import { act, fireEvent, render, waitFor, within } from "@testing-library/react-
 
 import { mathKeyboardRequests } from "@/features/chat/model/mathKeyboardRequest";
 import { ChatComposer, COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
+import { MATH_LIVE_ANSWER_HEIGHT } from "@/features/chat/components/MathLiveAnswer";
 import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
@@ -614,8 +615,43 @@ describe("ChatComposer math keyboard", () => {
     await openMathKeyboard();
     const [chrome, padHeight] = onMathChromeHeightChange.mock.calls.at(-1) ?? [];
     expect(padHeight).toBeGreaterThan(0);
-    expect(chrome).toBeGreaterThanOrEqual(padHeight);
+    expect(chrome).toBeGreaterThanOrEqual(padHeight + MATH_LIVE_ANSWER_HEIGHT);
   });
+
+  it("shows the draft's answer as each key lands, and keeps its room between answers", async () => {
+    const onSend = jest.fn();
+    const { getByTestId, getByLabelText, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} onSend={onSend} />
+      </DraftHarness>,
+    );
+    expect(queryByTestId("math-live-answer")).toBeNull();
+    await openMathKeyboard();
+    type Node = { children: (Node | string)[] };
+    const text = (node: Node | string): string =>
+      typeof node === "string" ? node : node.children.map(text).join("");
+    // MathText spaces with a thin space; read it as a plain one.
+    const answer = () => text(getByTestId("math-live-answer") as unknown as Node).replace(/\s+/g, " ");
+    const press = async (...keys: string[]) => {
+      for (const key of keys) await fireEvent.press(getByTestId(`math-key-${key}`));
+    };
+    expect(answer()).toBe("");
+    await press("digit-3", "plus", "digit-1", "times", "digit-2");
+    expect(answer()).toBe("= 5");
+    await press("plus", "digit-2");
+    expect(answer()).toBe("= 7");
+    await press("plus");
+    expect(answer()).toBe("");
+    expect(getByTestId("math-live-answer").props.accessible).toBe(false);
+    await press("backspace");
+    expect(answer()).toBe("= 7");
+    expect(getByTestId("math-live-answer").props.accessibilityLabel).toBe("chat.math_live_answer_a11y");
+    // Send still asks the server; the answer was only a preview.
+    await fireEvent.press(getByLabelText("chat.send_a11y"));
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(queryByTestId("math-live-answer")).toBeNull();
+  });
+
   it("leaves the thread free to scroll while the math keyboard is open", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await openMathKeyboard();

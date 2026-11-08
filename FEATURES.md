@@ -360,7 +360,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   LaTeX on one 6 × 6 grid per page: Basics (digits, the four operations, x and y, fractions,
   roots, powers), Symbols (relations, sets, geometry), Trig, Calc and Greek, each ending in
   ← → ⌫. A key types into the box the caret is in; → leaves it. Converter sends a
-  "convert … to …" question with **Ask**. See [docs/math.md](./docs/math.md).
+  "convert … to …" question with **Ask**. While the keypad is open the composer shows a
+  **live answer** under a draft made only of numbers as each key lands (`3+1×2` → `= 5`,
+  `+2` → `= 7`), worked on the phone with exact fractions; nothing is sent until **Send**,
+  which still gets the server's checked answer. Letters, equations, inequalities and
+  calculus show none. See [docs/math.md](./docs/math.md).
 - ✅ **Recurring pay through a date** — questions such as “I make $3,400 every two
   weeks; how much by December 11?” use the device-local date and a deterministic
   calendar calculator, not a chat model or web search. The reply shows complete
@@ -1370,6 +1374,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Library (drawer grid of generated + uploaded images and files; lookup photos stay on the chat) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
+| Open with Recall (a PDF shared or opened from Files, Mail, WhatsApp… lands attached in New chat; iOS `CFBundleDocumentTypes`, Android VIEW/SEND filters + `modules/opened-document`; held through sign-in, fenced per account) | ✅ iOS verified on the Simulator (share sheet, cold, warm); Android built and unit-tested, device check pending. Needs a native build |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Live talk (speech-to-speech, Pro, 60 min/month) | ✅ WebRTC + OpenAI Realtime; physical-device barge-in implemented, live validation pending; Simulator half-duplex |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
