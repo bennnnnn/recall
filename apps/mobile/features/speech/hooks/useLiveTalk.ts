@@ -239,11 +239,10 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "response_interrupted") {
-        // Realtime transcripts can run ahead of audio playback. There is no
-        // reliable client word-to-audio alignment; don't save unspoken text
-        // as if it was delivered. OpenAI truncates its own conversation buffer.
-        const stopped = t("chat.generation_stopped");
-        applyEvent({ type: "assistant", text: stopped }, turns.assistant(stopped));
+        // Transcripts run ahead of the audio, so the unspoken text is not saved,
+        // nor a "Stopped" label as if Recall said it: the turn keeps the user's
+        // line alone. OpenAI truncates its own conversation buffer.
+        if (turns.current()) applyEvent({ type: "assistant_cut" }, turns.assistant(""));
         turns.replied();
         setPhase("recording");
         return;

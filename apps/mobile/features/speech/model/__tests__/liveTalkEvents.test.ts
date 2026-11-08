@@ -59,4 +59,12 @@ describe("liveTalkEvents", () => {
     });
     expect(messages.map((row) => row.id)).toEqual(["u1", "a1"]);
   });
+  it("takes a cut-off reply off the thread and leaves the user's line", () => {
+    let rows: Message[] = [];
+    rows = applyLiveTalkChatEvent(rows, "t1", { type: "user", text: "Tell me about Paris" });
+    rows = applyLiveTalkChatEvent(rows, "t1", { type: "assistant", text: "Paris is" });
+    rows = applyLiveTalkChatEvent(rows, "t2", { type: "user", text: "Next" });
+    rows = applyLiveTalkChatEvent(rows, "t1", { type: "assistant_cut" });
+    expect(rows.map((row) => row.id)).toEqual(["local-live-user-t1", "local-live-user-t2"]);
+  });
 });

@@ -692,3 +692,57 @@ describe("useLiveTalk's turns, mute and limits", () => {
     expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_no_chat"]]);
   });
 });
+
+describe("useLiveTalk when the user cuts a reply off", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // The thread showed, and the chat saved, "Generation stopped." as Recall's reply.
+  it("saves the user's line alone and takes the unspoken reply off the thread", async () => {
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockResolvedValueOnce(null as never);
+    let thread: Message[] = [];
+    const editThread = (update: React.SetStateAction<Message[]>) => {
+      thread = typeof update === "function" ? update(thread) : update;
+    };
+    let emit!: (event: { type: string; [key: string]: unknown }) => void;
+    (createRealtimeVoiceSession as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+      emit = onEvent;
+      return { callId: "call-1", maxDurationSeconds: 600, setMuted: jest.fn(), cancelResponse: jest.fn(), close: jest.fn() };
+    });
+    function CutProbe() {
+      const value = useLiveTalk({
+        token: "tok",
+        chatId: "chat-1",
+        ensureChatId: async () => "chat-1",
+        editThread,
+        isOffline: false,
+        onUpgrade,
+        onScrollToLatest: jest.fn(),
+        newMessageCountRef: { current: 0 },
+        onFirstReply: jest.fn(),
+        t: (key: string) => key,
+      });
+      React.useLayoutEffect(() => {
+        live = value;
+      });
+      return null;
+    }
+    await render(<CutProbe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    await act(async () => {
+      emit({ type: "speech_started", turnId: "turn-1" });
+      emit({ type: "user_transcript", text: "Tell me about Paris" });
+      emit({ type: "assistant_transcript", text: "Paris is the capital of France and" });
+      emit({ type: "response_interrupted" });
+    });
+
+    expect(api.persistRealtimeLiveTalkTurn).toHaveBeenCalledWith("tok", expect.objectContaining({
+      userText: "Tell me about Paris", assistantText: "",
+    }));
+    expect(thread.map((row) => [row.role, row.content])).toEqual([["user", "Tell me about Paris"]]);
+  });
+});
