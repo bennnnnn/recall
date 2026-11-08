@@ -1,6 +1,6 @@
 /**
- * Home overdue / due-soon cards stay until the user dismisses (X) or completes
- * the reminder. Dismiss is persisted across restarts.
+ * Home's overdue card stays until the user dismisses (X) or completes the reminder.
+ * Dismiss is persisted across restarts.
  */
 import {
   deletePrefFile,
@@ -9,7 +9,6 @@ import {
   safePrefUserId,
   writePrefFile,
 } from "@/lib/filePrefs";
-import type { HomeUrgentTodo } from "@/lib/api";
 
 type HomeNudgeState = {
   dismissed: Set<string>;
@@ -69,12 +68,4 @@ export function pruneHomeNudgeState(
 
 export async function clearHomeNudgeState(userId: string): Promise<void> {
   await deletePrefFile(filePath(userId));
-}
-
-/** Hide only explicitly dismissed reminders. Overdue stays until X or done. */
-export function filterHomeNudgeTodos(
-  urgent: HomeUrgentTodo[],
-  state: HomeNudgeState,
-): HomeUrgentTodo[] {
-  return urgent.filter((todo) => !state.dismissed.has(todo.id));
 }

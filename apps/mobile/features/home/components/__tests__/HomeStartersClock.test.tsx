@@ -13,6 +13,7 @@ let mockTodos: { id: string; content: string; due_at: string; checked: boolean; 
   },
 ];
 let mockNow = new Date("2026-10-24T12:00:00.000Z");
+let mockDismissed = new Set<string>();
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
@@ -24,7 +25,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
     todos: mockTodos,
     loading: false,
     remindersReady: true,
-    homeNudgeDismissed: new Set<string>(),
+    homeNudgeDismissed: mockDismissed,
     dismissReminderNudge: jest.fn(),
     now: mockNow,
   }),
@@ -35,9 +36,6 @@ jest.mock("@/features/home/model/homeWelcome", () => ({
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/features/todos/model/dueDate", () => ({
   describeDueAt: () => ({ label: "Overdue today", tone: "overdue" }),
-}));
-jest.mock("@/features/todos/model/homeReminderNudges", () => ({
-  filterHomeNudgeTodos: (todos: unknown[]) => todos,
 }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
@@ -66,4 +64,17 @@ it("shows an overdue reminder from its notify_at, after quiet hours, as push doe
   mockNow = new Date("2026-10-25T07:00:00.000Z");
   await view.rerender(<HomeStarters composerActive={false} />);
   expect(await view.findByText("Call Sam")).toBeTruthy();
+});
+
+it("shows the next overdue reminder once the older ones are dismissed, however many", async () => {
+  // Seven overdue reminders, the five longest overdue dismissed with X.
+  mockTodos = Array.from({ length: 7 }, (_, index) => ({
+    id: `todo-${index}`, content: `Task ${index}`, checked: false,
+    due_at: new Date(Date.parse("2026-10-24T11:00:00.000Z") - index * 60_000).toISOString(),
+  }));
+  mockDismissed = new Set(["todo-6", "todo-5", "todo-4", "todo-3", "todo-2"]);
+  mockNow = new Date("2026-10-24T12:00:00.000Z");
+  const view = await render(<HomeStarters composerActive={false} />);
+  expect(await view.findByText("Task 1")).toBeTruthy();
+  expect(view.queryByText("Task 6")).toBeNull();
 });

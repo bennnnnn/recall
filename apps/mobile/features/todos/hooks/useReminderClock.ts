@@ -6,7 +6,7 @@ import { onAppStateChange } from "@/lib/foregroundRefresh";
 
 /** Older than this, the clock reads again before it schedules the next change. */
 const STALE_MS = 1000;
-/** A due time has passed once its minute has (`minutes_until` floors): wake just after. */
+/** A due time has passed once the clock is past it: wake just after. */
 const AFTER_MS = 500;
 /** The longest a timer can wait; a later change is scheduled when it fires. */
 const MAX_WAIT_MS = 2_147_483_647;

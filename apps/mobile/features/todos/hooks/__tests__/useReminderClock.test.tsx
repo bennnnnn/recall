@@ -5,10 +5,7 @@ import {
   nextReminderChange,
   useReminderClock,
 } from "@/features/todos/hooks/useReminderClock";
-import {
-  firstOverdueHomeTodo,
-  listHomeUrgentTodos,
-} from "@/features/todos/model/homeUrgentTodos";
+import { firstOverdueHomeTodo } from "@/features/todos/model/homeUrgentTodos";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import { todosForView } from "@/features/todos/model/todoListFilter";
 
@@ -88,7 +85,7 @@ describe("useReminderClock", () => {
     ];
     const { result } = await renderHook(() => useReminderClock(todos));
     expect(
-      firstOverdueHomeTodo(listHomeUrgentTodos(todos, result.current)),
+      firstOverdueHomeTodo(todos, new Set(), result.current),
     ).toBeUndefined();
 
     await act(async () => {
@@ -99,7 +96,7 @@ describe("useReminderClock", () => {
       Date.parse("2026-10-24T12:05:00.000Z"),
     );
     expect(
-      firstOverdueHomeTodo(listHomeUrgentTodos(todos, result.current))?.id,
+      firstOverdueHomeTodo(todos, new Set(), result.current)?.id,
     ).toBe("Start anatomy study session");
   });
 
@@ -132,7 +129,7 @@ describe("useReminderClock", () => {
     });
 
     expect(
-      firstOverdueHomeTodo(listHomeUrgentTodos(saved, result.current))?.id,
+      firstOverdueHomeTodo(saved, new Set(), result.current)?.id,
     ).toBe("Call mom");
   });
 

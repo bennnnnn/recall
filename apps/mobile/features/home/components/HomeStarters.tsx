@@ -6,12 +6,11 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
-import type { HomeUrgentTodo } from "@/lib/api";
+import type { Todo } from "@/lib/api";
 import { describeDueAt } from "@/features/todos/model/dueDate";
 import { homeGreeting } from "@/features/home/model/homeWelcome";
 import { homeOnScreen } from "@/features/home/model/homeOnScreen";
-import { filterHomeNudgeTodos } from "@/features/todos/model/homeReminderNudges";
-import { firstOverdueHomeTodo, listHomeUrgentTodos } from "@/features/todos/model/homeUrgentTodos";
+import { firstOverdueHomeTodo } from "@/features/todos/model/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -25,7 +24,7 @@ function OverdueReminderRow({
   styles: s,
   theme,
 }: {
-  todo: HomeUrgentTodo;
+  todo: Todo;
   onDismiss: (todoId: string) => void;
   styles: ReturnType<typeof makeStyles>;
   theme: Theme;
@@ -108,10 +107,7 @@ export function HomeStarters({ composerActive, footer }: Props) {
     if (todosLoading || !remindersReady) return undefined;
     // `now` moves on as reminders go out and fall due: one that does while the app is open
     // shows here, at the to-do's notify_at, as push and the phone's alert do.
-    const urgent = listHomeUrgentTodos(todos, now);
-    return firstOverdueHomeTodo(
-      filterHomeNudgeTodos(urgent, { dismissed: homeNudgeDismissed }),
-    );
+    return firstOverdueHomeTodo(todos, homeNudgeDismissed, now);
   }, [
     todos,
     todosLoading,

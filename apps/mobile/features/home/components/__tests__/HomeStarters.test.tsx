@@ -20,7 +20,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
     todos: [],
     loading: false,
     remindersReady: true,
-    homeNudgeDismissed: {},
+    homeNudgeDismissed: new Set<string>(),
     dismissReminderNudge: jest.fn(),
   }),
 }));
@@ -31,12 +31,8 @@ jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/features/todos/model/dueDate", () => ({
   describeDueAt: () => ({ label: "2d overdue", tone: "overdue" }),
 }));
-jest.mock("@/features/todos/model/homeReminderNudges", () => ({
-  filterHomeNudgeTodos: (todos: unknown[]) => todos,
-}));
 jest.mock("@/features/todos/model/homeUrgentTodos", () => ({
   firstOverdueHomeTodo: () => mockOverdue,
-  listHomeUrgentTodos: () => [],
 }));
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
