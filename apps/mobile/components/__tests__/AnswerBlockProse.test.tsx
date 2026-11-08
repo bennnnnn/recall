@@ -51,7 +51,7 @@ describe("AnswerBlock with a sentence answer", () => {
 
   it("reads the sentence aloud with its formulas spoken", async () => {
     const { getByLabelText } = await render(<AnswerBlock content={INCLINE} />);
-    expect(getByLabelText(/^Answer: a = g\(sin.*, which at 30° gives a = 4\.9 .* down the slope\.$/)).toBeOnTheScreen();
+    expect(getByLabelText(/^Answer: a = g\(sin.*, which at 30 degrees gives a = 4\.9 .* down the slope\.$/)).toBeOnTheScreen();
   });
 });
 

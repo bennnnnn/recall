@@ -2,7 +2,8 @@
  * What redraws the drawer's chat rows. FlashList redraws a cell only when its item,
  * renderItem or extraData changes, and a memoized row only when one of its props does.
  * Typing in the search redraws none of them: every keystroke used to change renderItem
- * (the new search's result handlers) and the list's items (a new empty result list).
+ * (the new search's result handlers) and the list's items (a new empty result list). While
+ * a query is searched the list holds its results alone; the rows come back as they were.
  */
 import { act, fireEvent, render } from "@testing-library/react-native";
 
@@ -44,13 +45,13 @@ beforeEach(() => {
 });
 afterEach(() => { jest.useRealTimers(); });
 
-it("keeps every chat row's item and the renderItem while the search is typed", async () => {
+it("gives back every chat row's item and the renderItem when a typed search is taken back", async () => {
   const ui = await render(<ConversationList />);
   await fireEvent.press(ui.getByLabelText("search.open_accessibility"));
   await act(async () => { jest.advanceTimersByTime(50); });
   const before = mockLists.at(-1)!;
   expect(before.data.filter((item) => item.type === "row")).toHaveLength(43);
-  for (const query of ["p", "pi", "piz", "pizz", "pizza"]) {
+  for (const query of ["p", "pi", "piz", "pizz", "pizza", "pizz", "piz", "pi"]) {
     await fireEvent.changeText(ui.getByPlaceholderText("search.placeholder"), query);
   }
   const after = mockLists.at(-1)!;
@@ -58,6 +59,19 @@ it("keeps every chat row's item and the renderItem while the search is typed", a
   expect(after.extraData).toBe(before.extraData);
   expect(after.data).toHaveLength(before.data.length);
   after.data.forEach((item, index) => expect(item).toBe(before.data[index]));
+});
+
+// The results sat above the whole chat list, which went on under them.
+it("shows a search's results alone, and nothing of the list while they load", async () => {
+  const hit = { match_type: "message", message_id: "m1", chat_id: "chat-5", chat_title: "Chat 5",
+    content: "pizza dough", role: "user", created_at: "2026-01-01T00:00:00Z" } as const;
+  jest.mocked(api.search).mockResolvedValue({ items: [hit], next_cursor: null });
+  const ui = await render(<ConversationList />);
+  await fireEvent.press(ui.getByLabelText("search.open_accessibility"));
+  await fireEvent.changeText(ui.getByPlaceholderText("search.placeholder"), "pizza");
+  expect(mockLists.at(-1)!.data).toEqual([]);
+  await act(async () => { jest.advanceTimersByTime(300); });
+  expect(mockLists.at(-1)!.data.map((item) => item.type)).toEqual(["searchRow"]);
 });
 
 // The select handler is renewed with each selection and each drawer open; a row only

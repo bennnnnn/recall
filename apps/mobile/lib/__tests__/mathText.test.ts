@@ -83,7 +83,7 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\vec\mathbf{F}`))).toBe("F⃗");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt\text{x}`))).toBe("√x̅");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt\{y\}`))).toBe("√y̅");
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`x^\frac{1}{2}`))).toBe("x^1/2");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x^\frac{1}{2}`))).toBe("x^(1/2)");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`x_\max`))).toBe("x_max");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\text{\textit{\mathrm{kg}}}`))).toBe("kg");
     expect(parseSimpleLatex(String.raw`\textit{don't}`)).toEqual([
@@ -131,7 +131,7 @@ describe("parseSimpleLatex", () => {
   it("BUG FIX regression: braced 2/3 exponent is one sup (not 3 then 2 then /3)", () => {
     const segs = parseSimpleLatex("3^{2/3}");
     expect(segs.some((s) => s.type === "sup" && s.value === "2/3")).toBe(true);
-    expect(segmentsToPlain(segs)).toBe("3^2/3");
+    expect(segmentsToPlain(segs)).toBe("3^(2/3)");
   });
 
   it("BUG FIX regression: unicode superscripts/subscripts parse as real scripts", () => {
@@ -168,7 +168,7 @@ describe("parseSimpleLatex", () => {
 
   it("parses \\cancel as a cancelled factor, not cancel(3) function notation", () => {
     const segs = parseSimpleLatex(String.raw`\frac{\cancel{3} x}{\cancel{3}}`);
-    expect(segmentsToPlain(segs)).toBe("3 x/3");
+    expect(segmentsToPlain(segs)).toBe("(3 x)/3");
     expect(segmentsToPlain(segs)).not.toContain("cancel");
     const frac = segs.find((s) => s.type === "frac");
     expect(frac?.type).toBe("frac");
@@ -294,7 +294,7 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\sin(x) + \cos(x)`))).toBe(
       "sin(x) + cos(x)",
     );
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\lim_{x \to 0}`))).toBe("lim_x → 0");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\lim_{x \to 0}`))).toBe("lim_(x → 0)");
   });
 
   it("keeps an operation's argument in readable notation, never an unknown command's name", () => {
@@ -367,7 +367,7 @@ describe("parseSimpleLatex", () => {
   it("BUG FIX regression: \\sum/\\prod/\\int render as unicode glyphs, not the literal words", () => {
     // These were misfiled into ROMAN_FUNCTIONS and rendered as "sum(...)"/
     // "prod(...)"/"int(...)" instead of the actual big-operator symbols.
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sum_{i=1}^{n} i`))).toBe("Σ_i=1^n i");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sum_{i=1}^{n} i`))).toBe("Σ_(i=1)^n i");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\prod_{i=1}^{n} i`))).toContain("∏");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\int_0^1 x\,dx`))).toContain("∫");
   });

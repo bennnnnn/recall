@@ -13,28 +13,6 @@ import {
 } from "@/lib/math/textMarkers";
 import type { MathAccentKind, MathSegment } from "@/lib/math/textTypes";
 
-// Copy and read-aloud still spell an accent as a combining mark. The screen
-// draws a measured rule from the accent segment; these marks are not painted.
-const ACCENT_MARK: Record<MathAccentKind, string> = {
-  overline: "̅",
-  underline: "̲",
-  hat: "̂",
-  tilde: "̃",
-  vec: "⃗",
-  vecLeft: "⃖",
-  bar: "̄",
-  ddot: "̈",
-  dot: "̇",
-};
-
-/** Combining mark applied per-character so copy spells the whole accented
- * run. The screen draws one measured rule; these marks are not painted. */
-function markEachChar(text: string, mark: string): string {
-  return Array.from(text)
-    .map((ch) => (ch === " " ? ch : `${ch}${mark}`))
-    .join("");
-}
-
 /** Braced scripts and root indexes that are only ordinary letters stay
  * strings. Upright runs keep their segment so the renderer preserves their
  * font style inside a subscript (for example, `t_{\mathrm{flight}}`). */
@@ -178,32 +156,6 @@ function commandName(word: string): string | undefined {
 
 /** What `^\circ` parses to: a raised ring, which in a superscript is a degree sign. */
 export const DEGREE_RING = "∘";
-
-function segmentToPlain(seg: MathSegment): string {
-  if (seg.type === "text" || seg.type === "upright") return seg.value;
-  if (seg.type === "sup" || seg.type === "sub") {
-    if (seg.body) {
-      const inner = segmentsToPlain(seg.body);
-      return seg.type === "sup" ? `^${inner}` : `_${inner}`;
-    }
-    if (seg.type === "sup" && seg.value === DEGREE_RING) return "°";
-    return seg.type === "sup" ? `^${seg.value}` : `_${seg.value}`;
-  }
-  if (seg.type === "cancel") return segmentsToPlain(seg.body);
-  if (seg.type === "accent") {
-    return markEachChar(segmentsToPlain(seg.body), ACCENT_MARK[seg.kind]);
-  }
-  if (seg.type === "sqrt") {
-    // Radicand under a combining overline ("4̅"), not "(4)" in parens — the
-    // bar itself delimits what's under the root, closer to how it's drawn
-    // on paper. Nested content (a fraction, superscript, …) is flattened
-    // to plain text first since there's no way to draw it under a bar too.
-    const body = markEachChar(segmentsToPlain(seg.body), "̅");
-    const indexText = seg.index ? segmentsToPlain(seg.index) : seg.degree;
-    return indexText ? `√[${indexText}]${body}` : `√${body}`;
-  }
-  return `${segmentsToPlain(seg.num)}/${segmentsToPlain(seg.den)}`;
-}
 
 /** `\text{flight}` after a bare `_` or `^` is one upright script.
  * Taking only the private-use start marker made iOS draw it as an emoji
@@ -495,14 +447,3 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   // Nothing drawn (a lone `\displaystyle`, an unknown name): never the source.
   return state.out.length ? state.out : [{ type: "text", value: "" }];
 }
-
-export function segmentsToPlain(segments: MathSegment[]): string {
-  return segments.map(segmentToPlain).join("");
-}
-
-/** The formula as plain words (a screen reader's label), never a leftover `\\command`. */
-export function readableLatexFallback(latex: string): string {
-  const plain = segmentsToPlain(parseSimpleLatex(latex));
-  return plain.replace(/\\[a-zA-Z]+/g, (cmd) => cmd.slice(1));
-}
-

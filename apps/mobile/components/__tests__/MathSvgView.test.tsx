@@ -6,7 +6,6 @@ import { MATH_SVG_EX_PX, MathSvgView } from "@/components/rich/MathSvgView";
 import { MathBlock } from "@/components/rich/MathView";
 import { Type } from "@/lib/type";
 import { clearSvgMathCache, setSvgMathRendererForTest } from "@/lib/math/svgMath";
-import { readableLatexFallback } from "@/lib/math/text";
 
 // Capture the xml instead of mounting react-native-svg's native view: the
 // parsed tree is the xml it came from, and the drawing records its size.
@@ -138,7 +137,7 @@ describe("MathSvgView does not stretch a short SVG to minHeight", () => {
     const view = getByTestId("math-svg-view");
     expect(view.props.accessible).toBe(true);
     expect(view.props.accessibilityRole).toBe("text");
-    expect(view.props.accessibilityLabel).toBe(readableLatexFallback(latex));
+    expect(view.props.accessibilityLabel).toBe("x = 1 over 2");
     expect(view.props.accessibilityLabel).not.toMatch(/\\|frac/);
   });
 

@@ -28,7 +28,7 @@ import {
 } from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
-import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
+import { latexHasNestedMathView, spokenFormula } from "@/lib/math/text";
 
 /** A space between word items, as a share of the font size (a text space is about a quarter em). */
 const SPACE_EM = 0.26;
@@ -115,7 +115,7 @@ function collect(node: ReactNode, ctx: Ctx, flow: Flow): void {
   }
   if (node.type === DisplayRow) {
     flow.pieces.push({ kind: "block", node });
-    if (latex) flow.label.push(` ${readableLatexFallback(latex)} `);
+    if (latex) flow.label.push(` ${spokenFormula(latex)} `);
     return;
   }
   if (node.type === Text) {
@@ -129,7 +129,7 @@ function collect(node: ReactNode, ctx: Ctx, flow: Flow): void {
   }
   const inText = node.type === Text || (node.type === MathText && latex != null && !latexHasNestedMathView(latex));
   flow.pieces.push({ kind: "atom", node, space: 0, inText });
-  flow.label.push(latex ? readableLatexFallback(latex) : node.type === Text ? plainText(props.children) : "");
+  flow.label.push(latex ? spokenFormula(latex) : node.type === Text ? plainText(props.children) : "");
 }
 
 /** Items with no space between them (`(`, a formula, `).`) stay one unbreakable box. */

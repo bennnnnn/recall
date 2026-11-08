@@ -17,7 +17,6 @@ type ConversationRowStyles = {
   title: TextStyle;
   titlePending: TextStyle;
   titleActive: TextStyle;
-  rowHighlighted: ViewStyle;
   rowActive: ViewStyle;
   rowSelected: ViewStyle;
   rowPressed: ViewStyle;
@@ -37,7 +36,6 @@ type Props = {
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (chatId: string) => void;
-  highlighted?: boolean;
   /** Currently open chat on the home screen. */
   active?: boolean;
   titleGenerating?: boolean;
@@ -51,7 +49,6 @@ export const ConversationRow = memo(function ConversationRow({
   selectionMode = false,
   selected = false,
   onToggleSelect,
-  highlighted = false,
   active = false,
   titleGenerating = false,
   rowStyles: r,
@@ -64,7 +61,6 @@ export const ConversationRow = memo(function ConversationRow({
     <Pressable
       style={({ pressed }) => [
         r.row,
-        highlighted && r.rowHighlighted,
         active && !selectionMode && r.rowActive,
         selected && r.rowSelected,
         pressed && r.rowPressed,
@@ -125,12 +121,6 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     titlePending: { color: theme.textTertiary, ...Italic.regular },
     // Wash already signals active — keep ink on theme.text, just bolder.
     titleActive: { ...Weight.bold },
-    rowHighlighted: {
-      backgroundColor: theme.primaryLight,
-      borderRadius: Radius.sm,
-      marginHorizontal: Space.xs,
-      paddingHorizontal: Space.xs,
-    },
     rowActive: {
       backgroundColor: theme.surfaceAlt,
       borderRadius: Radius.sm,

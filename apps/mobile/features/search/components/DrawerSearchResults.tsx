@@ -11,6 +11,7 @@ import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
 
 import { matchParts } from "../model/matchParts";
+import { snippetText } from "../model/snippetText";
 
 type ChromeProps = {
   hasSearchQuery: boolean;
@@ -99,14 +100,18 @@ export function DrawerSearchResultRow({ result, title, query, onOpenChat }: RowP
           <Highlighted text={title} query={query} matchStyle={s.match} />
         </Text>
         {result.match_type === "title" ? (
-          <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
+          <Text style={s.searchResultBadge}>{t("search.title_match")}</Text>
         ) : null}
         {result.archived ? (
           <Text style={s.searchResultBadge}>{t("search.archived_tag")}</Text>
         ) : null}
       </View>
       <Text style={s.searchResultSnippet} numberOfLines={2}>
-        <Highlighted text={result.content} query={query} matchStyle={s.match} />
+        <Highlighted
+          text={result.match_type === "message" ? snippetText(result.content) : result.content}
+          query={query}
+          matchStyle={s.match}
+        />
       </Text>
     </Pressable>
   );

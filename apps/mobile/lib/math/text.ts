@@ -13,12 +13,9 @@ export {
   PROTECTED_MATH_UNDERSCORE_MARKER,
   restoreMathEscapes,
 } from "@/lib/math/textMarkers";
-export {
-  DEGREE_RING,
-  parseSimpleLatex,
-  readableLatexFallback,
-  segmentsToPlain,
-} from "@/lib/math/latexParse";
+export { DEGREE_RING, parseSimpleLatex } from "@/lib/math/latexParse";
+export { formulaText, segmentsToPlain } from "@/lib/math/formulaText";
+export { spokenFormula } from "@/lib/math/spokenFormula";
 
 /**
  * Stacked frac/sqrt need a taller parent `lineHeight` than body prose (16/23).

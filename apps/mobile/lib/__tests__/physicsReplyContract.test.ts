@@ -4,7 +4,7 @@
  */
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import { markdownToCopyText, markdownToSpeechText } from "@/lib/markdown/plain";
-import { readableLatexFallback } from "@/lib/math/text";
+import { spokenFormula } from "@/lib/math/text";
 
 import fixture from "../../../../docs/fixtures/physics_replies.json";
 
@@ -29,8 +29,8 @@ describe("server physics replies", () => {
     expect(body.includes("\\") || /^[-+]?\d+(?:\.\d+)?$/.test(body.trim())).toBe(true);
   });
 
-  it.each(replies)("%s: the readable fallback has no raw commands", (_name, entry) => {
-    expect(readableLatexFallback(answerCard(entry.reply))).not.toMatch(/\\[A-Za-z,]/);
+  it.each(replies)("%s: the spoken label has no raw commands", (_name, entry) => {
+    expect(spokenFormula(answerCard(entry.reply))).not.toMatch(/\\[A-Za-z,]/);
   });
 
   it.each(replies)("%s: copy and read-aloud carry the answer's numbers", (_name, entry) => {

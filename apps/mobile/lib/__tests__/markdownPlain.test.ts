@@ -4,6 +4,7 @@ import {
   markdownToSpeechText,
 } from "@/lib/markdown/plain";
 import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
+import { spokenAnswerValue } from "@/lib/math/answerLayout";
 
 describe("markdownPlain", () => {
   it("strips fences and markdown emphasis for TTS", () => {
@@ -83,6 +84,13 @@ describe("markdownPlain", () => {
     expect(radical).toBe("the square root of a over b");
     expect(radical).not.toContain("\\");
     expect(radical).not.toContain("frac");
+  });
+
+  // Read-aloud heard "It moves $4 m$ north." where the card's label said "It moves 4 m north.".
+  it("reads a sentence answer as its card's label reads it", () => {
+    const body = String.raw`It moves $4\,\mathrm{m}$ north.`;
+    expect(markdownToSpeechText(`\`\`\`answer\nverified: false\n${body}\n\`\`\``)).toBe("It moves 4 m north.");
+    expect(spokenAnswerValue(body)).toBe("It moves 4 m north.");
   });
 
   it("does not strip a numeric-only answer fence", () => {

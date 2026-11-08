@@ -6,7 +6,7 @@ import { FRAC_SIZE_RATIO, layoutMath, SCRIPT_RATIO } from "@/lib/math/layout";
 import { findLayouts, layoutProblems } from "./layoutChecks";
 import { expectFormulaBox } from "./support/mathInk";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
-import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
+import { parseSimpleLatex } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";
 
 function laidOut(latex: string, fontSize = 16) {
@@ -177,7 +177,7 @@ describe("MathText", () => {
     const tall = getByTestId("math-text-tall");
     expect(tall.props.accessible).toBe(true);
     expect(tall.props.accessibilityRole).toBe("text");
-    expect(tall.props.accessibilityLabel).toBe(readableLatexFallback(String.raw`\frac{1}{2} + \sqrt{4}`));
+    expect(tall.props.accessibilityLabel).toBe("1 over 2 + the square root of 4");
     expect(tall.props.accessibilityLabel).not.toMatch(/\\|frac|sqrt/);
   });
 

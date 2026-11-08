@@ -65,6 +65,13 @@ describe("i18n locale files", () => {
       expect(wrong).toEqual([]);
     });
   }
+
+  // The app's ellipsis is one character ("Loading preview…"); two search fields showed three dots.
+  it("writes an ellipsis as one character in every language", () => {
+    const dotted = Object.entries({ en, ...LOCALES }).flatMap(([code, bundle]) =>
+      Object.entries(bundle).filter(([, value]) => value.includes("...")).map(([key]) => `${code}:${key}`));
+    expect(dotted).toEqual([]);
+  });
 });
 
 describe("i18n runtime", () => {
