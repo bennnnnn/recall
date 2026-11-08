@@ -75,6 +75,36 @@ function playCue(kind: "start" | "end"): Promise<void> {
     .catch(() => {});
 }
 
+/** Why live talk did not start, or stopped: the plans, Settings for the mic, or a message. */
+function showLiveTalkGate(
+  gate: LiveTalkGate,
+  { feedback, onUpgrade, t }: {
+    feedback: ReturnType<typeof useActionFeedbackOptional>;
+    onUpgrade: () => void;
+    t: (key: string) => string;
+  },
+): void {
+  if (gate === "upgrade") {
+    onUpgrade();
+    return;
+  }
+  // The API client already sent the account to the consent step.
+  if (gate === "consent") return;
+  if (gate === "mic_permission") {
+    // The OS asks only once; after a denial only Settings can turn it on.
+    void confirmDialog({
+      title: t("chat.live_talk_mic_permission_title"),
+      message: t("chat.live_talk_mic_permission_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("chat.location_open_settings"),
+    }).then((open) => {
+      if (open) void Linking.openSettings();
+    });
+    return;
+  }
+  reportRecoverableError(feedback, t(liveTalkGateMessageKey(gate)));
+}
+
 export function useLiveTalk({
   token,
   chatId,
@@ -109,29 +139,11 @@ export function useLiveTalk({
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeRef = useRef<() => void>(() => {});
+  /** Aborts the call still connecting: a hang-up gives its route, mic and minutes back at once. */
+  const connectingRef = useRef<AbortController | null>(null);
 
   const alertForGate = useCallback(
-    (gate: LiveTalkGate) => {
-      if (gate === "upgrade") {
-        onUpgrade();
-        return;
-      }
-      // The API client already sent the account to the consent step.
-      if (gate === "consent") return;
-      if (gate === "mic_permission") {
-        // The OS asks only once; after a denial only Settings can turn it on.
-        void confirmDialog({
-          title: t("chat.live_talk_mic_permission_title"),
-          message: t("chat.live_talk_mic_permission_body"),
-          cancelLabel: t("common.cancel"),
-          confirmLabel: t("chat.location_open_settings"),
-        }).then((open) => {
-          if (open) void Linking.openSettings();
-        });
-        return;
-      }
-      reportRecoverableError(feedback, t(liveTalkGateMessageKey(gate)));
-    },
+    (gate: LiveTalkGate) => showLiveTalkGate(gate, { feedback, onUpgrade, t }),
     [feedback, onUpgrade, t],
   );
 
@@ -322,6 +334,8 @@ export function useLiveTalk({
 
   const close = useCallback(() => {
     sessionGenRef.current += 1;
+    connectingRef.current?.abort();
+    connectingRef.current = null;
     const shouldCueEnd = visibleRef.current || sessionRef.current != null;
     visibleRef.current = false;
     if (finishTimerRef.current != null) {
@@ -389,11 +403,15 @@ export function useLiveTalk({
       // expo-audio player keeps the session in playback and WebRTC is mute.
       await playCue("start");
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
+      const connecting = new AbortController();
+      connectingRef.current = connecting;
       const session = await voice.createRealtimeVoiceSession({
         token,
         chatId: activeChatId,
         onEvent: handleRealtimeEvent,
+        signal: connecting.signal,
       });
+      if (connectingRef.current === connecting) connectingRef.current = null;
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) {
         session.close();
         if (session.callId) void api.endRealtimeSession(token, session.callId).catch(() => {});

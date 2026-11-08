@@ -80,4 +80,20 @@ describe("a clip fetched ahead of the reading", () => {
     await expect(prefetch).resolves.toBeUndefined();
     expect(requestRaw).toHaveBeenCalledTimes(1);
   });
+
+  it("takes the request's own deadline for a failure, not a Stop", async () => {
+    // A deadline is an AbortError too, with the reading's own signal untouched.
+    const reading = new AbortController();
+    requestRaw.mockRejectedValueOnce(abortError());
+    await expect(ensureChunk(freshReading(), 1, "tok", "en-US", reading.signal)).rejects.toMatchObject({
+      name: "AbortError",
+    });
+
+    requestRaw.mockRejectedValueOnce(abortError());
+    await expect(prefetchChunk(freshReading(), 1, "tok", "en-US", reading.signal)).resolves.toBeUndefined();
+    expect(console.info).toHaveBeenCalledWith(
+      "[tts-latency]",
+      expect.objectContaining({ stage: "prefetch_failed", chunk: 1, error: "AbortError" }),
+    );
+  });
 });

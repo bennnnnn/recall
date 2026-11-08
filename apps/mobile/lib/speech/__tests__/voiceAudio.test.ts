@@ -94,14 +94,14 @@ describe("the dictation waveform's level", () => {
     expect(meteringLevel(0, "average")).toBeCloseTo(1);
   });
 
-  it("draws Android's peak readings as the average they stand for", () => {
-    // The same voice: its peaks read about 12 dB over its average power.
-    expect(meteringLevel(-18, "peak")).toBeCloseTo(meteringLevel(-30, "average"));
-    // A quiet room's peaks stay near the floor; speech and a loud voice climb the bars.
-    expect(meteringLevel(-50, "peak")).toBeLessThan(0.2);
-    expect(meteringLevel(-15, "peak")).toBeGreaterThan(0.55);
-    expect(meteringLevel(-3, "peak")).toBeGreaterThan(0.75);
-    expect(meteringLevel(0, "peak")).toBeLessThanOrEqual(1);
+  it("maps Android's peaks from 12 dB above the average's floor to full scale", () => {
+    // A voice's peaks read about 12 dB over its average power: a quiet room rests on the floor.
+    expect(meteringLevel(-48, "peak")).toBeCloseTo(meteringLevel(-60, "average"));
+    expect(meteringLevel(-50, "peak")).toBeCloseTo(0.1);
+    // Speech climbs the bars, and a loud voice fills them (a peak never reads over 0 dBFS).
+    expect(meteringLevel(-15, "peak")).toBeGreaterThan(0.6);
+    expect(meteringLevel(-3, "peak")).toBeGreaterThan(0.9);
+    expect(meteringLevel(0, "peak")).toBeCloseTo(1);
   });
 
   it("moves with the voice on both platforms", () => {

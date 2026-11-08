@@ -376,3 +376,37 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
     addListener.mockRestore();
   });
 });
+
+describe("useLiveTalk hang-up while the call connects", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("aborts the connect at once, so its route, mic and minutes go back without waiting for it", async () => {
+    let connecting!: AbortSignal;
+    (createRealtimeVoiceSession as jest.Mock).mockImplementationOnce(
+      ({ signal }: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          connecting = signal;
+          signal.addEventListener("abort", () => reject(Object.assign(new Error("Request canceled"), { name: "AbortError" })));
+        }),
+    );
+    await render(<Probe />);
+    let opening!: Promise<void>;
+    await act(async () => {
+      opening = live.open();
+    });
+    expect(connecting.aborted).toBe(false);
+
+    await act(async () => {
+      live.close();
+      await opening;
+    });
+
+    expect(connecting.aborted).toBe(true);
+    expect(live.visible).toBe(false);
+    // A hang-up is no failure: nothing is said about it.
+    expect(reportRecoverableError).not.toHaveBeenCalled();
+    expect(confirmDialog).not.toHaveBeenCalled();
+  });
+});

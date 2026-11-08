@@ -34,6 +34,20 @@ describe("live talk's call route", () => {
     expect(native.stopAsync).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the live call's route when a stale call hangs up after it", async () => {
+    const native = callAudioModule();
+    nativeModule.mockReturnValue(native);
+
+    const stale = await startCallAudio();
+    const live = await startCallAudio();
+    stale.stop();
+    // The call hung up while it connected let go after the next one routed: the route stays.
+    expect(native.stopAsync).not.toHaveBeenCalled();
+
+    live.stop();
+    expect(native.stopAsync).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves the route alone in a build without the module (iOS, Expo Go, before a rebuild)", async () => {
     nativeModule.mockReturnValue(null);
     const route = await startCallAudio();

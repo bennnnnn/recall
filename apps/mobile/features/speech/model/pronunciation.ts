@@ -1,6 +1,5 @@
 /** Device TTS via expo-speech; optional cloud TTS via /speech/tts. */
 
-import { isAbortError } from "@/lib/api/abort";
 import { cacheDirectory, deleteAsync, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import { AppState, Platform } from "react-native";
 
@@ -380,9 +379,12 @@ export async function speakPlainText(
     if (played.ok || !isCurrentSpeak(generation) || !options?.preferCloud) return played;
     return beginDeviceSpeech(plain, language, generation);
   } catch (error) {
-    if (isAbortError(error) || !isCurrentSpeak(generation)) {
+    // Stop and the next reading end this one (a new generation). A clip's deadline is an
+    // AbortError as well, and still a failure: the phone's voice reads it instead.
+    if (!isCurrentSpeak(generation)) {
       return { ok: true };
     }
+    logTtsLatency("cloud_failed", { error: error instanceof Error ? error.name : typeof error });
     if (options?.preferCloud) {
       return beginDeviceSpeech(plain, language, generation);
     }

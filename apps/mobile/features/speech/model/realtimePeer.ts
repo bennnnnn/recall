@@ -183,6 +183,12 @@ function enableRemoteAudioTrack(track: WebRtcTrack | null | undefined): void {
   }
 }
 
+/** Stops the mic's tracks and frees its native stream. */
+export function closeRealtimeMicrophone(stream: WebRtcStream): void {
+  for (const track of stream.getTracks()) track.stop();
+  releaseStream(stream);
+}
+
 /**
  * Hands the mic from expo-audio to WebRTC; throws microphone_unavailable without an audio
  * track. That is the device (the mic in use or missing), not an app without WebRTC.
@@ -196,8 +202,7 @@ export async function openRealtimeMicrophone(
   const stream = await webrtc.mediaDevices.getUserMedia({ audio, video: false });
   const audioTracks = stream.getAudioTracks();
   if (audioTracks.length === 0) {
-    for (const track of stream.getTracks()) track.stop();
-    releaseStream(stream);
+    closeRealtimeMicrophone(stream);
     throw new Error("microphone_unavailable");
   }
   debugRealtime("microphone-ready", {
@@ -301,12 +306,29 @@ async function waitForConnection(connected: Promise<void>): Promise<void> {
   }
 }
 
+/** The peer for the mic it is handed; one that cannot be built still frees that mic. */
 export function createRealtimePeer(
   webrtc: NativeWebRtc,
   localStream: WebRtcStream,
   handlers: RealtimePeerHandlers,
 ): RealtimePeer {
-  const pc = new webrtc.RTCPeerConnection({});
+  let pc: WebRtcPeerConnection | null = null;
+  try {
+    pc = new webrtc.RTCPeerConnection({});
+    return buildRealtimePeer(webrtc, pc, localStream, handlers);
+  } catch (error) {
+    closeRealtimeMicrophone(localStream);
+    pc?.close();
+    throw error;
+  }
+}
+
+function buildRealtimePeer(
+  webrtc: NativeWebRtc,
+  pc: WebRtcPeerConnection,
+  localStream: WebRtcStream,
+  handlers: RealtimePeerHandlers,
+): RealtimePeer {
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
   }

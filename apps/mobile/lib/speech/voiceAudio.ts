@@ -62,19 +62,23 @@ function platformMeterKind(): MeterKind {
   return Platform.OS === "android" ? "peak" : "average";
 }
 
-/** A voice's peaks stand about this far above its average power (speech's crest factor). */
-const PEAK_OVER_AVERAGE_DB = 12;
+/**
+ * Where each kind of reading rests, in dBFS. A voice's peaks stand about 12 dB over its average
+ * power (speech's crest factor), so a quiet room's peaks sit 12 dB higher than its average does.
+ * Both fill at full scale (0 dBFS), the loudest a peak can read.
+ */
+const METER_FLOOR_DB: Record<MeterKind, number> = { average: -60, peak: -48 };
 
 /**
- * Map a recorder's dB metering to a 0–1 visual level, on one scale for both platforms: a
- * peak reading is brought down to the average it stands for, so the same voice draws the
- * same bars on either phone and a quiet room stays low on Android too.
+ * Map a recorder's dB metering to a 0–1 visual level, from the floor its kind rests at to full
+ * scale: the same voice draws much the same bars on either phone, a quiet room stays low on
+ * Android too, and a loud voice reaches full height on both.
  */
 export function meteringLevel(db: number | undefined, kind: MeterKind = platformMeterKind()): number {
   if (db == null || db <= -160) return 0.12;
-  const average = kind === "peak" ? db - PEAK_OVER_AVERAGE_DB : db;
-  const clamped = Math.max(-60, Math.min(0, average));
-  return 0.1 + ((clamped + 60) / 60) * 0.9;
+  const floor = METER_FLOOR_DB[kind];
+  const clamped = Math.max(floor, Math.min(0, db));
+  return 0.1 + ((clamped - floor) / -floor) * 0.9;
 }
 
 export function normalizeRecordingUri(uri: string): string {

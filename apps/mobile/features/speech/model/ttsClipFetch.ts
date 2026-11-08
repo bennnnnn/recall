@@ -4,7 +4,6 @@
  * reply being read, so a second tap on the same reply plays without asking again.
  */
 
-import { isAbortError } from "@/lib/api/abort";
 import { requestRaw } from "@/lib/api/client";
 import { readAloudPart } from "@/features/speech/model/readAloudLength";
 import { splitTtsChunks } from "@/features/speech/model/ttsLead";
@@ -131,7 +130,9 @@ export function ensureChunk(
     })
     .catch((error: unknown) => {
       if (state.inflight[index] === request) state.inflight[index] = null;
-      if (isAbortError(error)) return state.clips[index];
+      // Only the reading's own Stop is a cancel. A deadline is an AbortError too, and a failure:
+      // the reading falls back to the phone's voice rather than end mid-reply.
+      if (signal.aborted) return state.clips[index];
       throw error;
     });
   state.inflight[index] = request;
@@ -140,10 +141,10 @@ export function ensureChunk(
 
 /**
  * Ask for a chunk before the reading reaches it. Nothing awaits this request yet, so its
- * rejection is handled here: a cancel (Stop, or the next reply read) is no failure, and any
- * other is the reading's to meet when it asks for the chunk again on reaching it. Left to
- * `void`, a Stop during the first clip logged the second clip's cancelled download as
- * "Uncaught (in promise)".
+ * rejection is handled here: a cancel (Stop, or the next reply read) settles it unseen, and a
+ * failure (a deadline included) is the reading's to meet when it asks for the chunk again on
+ * reaching it. Left to `void`, a Stop during the first clip logged the second clip's cancelled
+ * download as "Uncaught (in promise)".
  */
 export function prefetchChunk(
   state: PrefetchState,
@@ -155,7 +156,7 @@ export function prefetchChunk(
   return ensureChunk(state, index, token, language, signal).then(
     () => undefined,
     (error: unknown) => {
-      if (isAbortError(error)) return;
+      if (signal.aborted) return;
       console.info("[tts-latency]", { stage: "prefetch_failed", chunk: index, error: errorName(error) });
     },
   );
