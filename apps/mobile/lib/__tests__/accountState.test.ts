@@ -127,6 +127,7 @@ const IN_FLIGHT = [
 
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
+  "components/LaunchReveal.tsx#played",
   "components/CodeBlock.tsx#cachedTokenizer",
   "components/CodeBlock.tsx#tokenStyles",
   "components/rich/LazyHeavyRich.tsx#simulationSizing",
@@ -179,6 +180,7 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
   "lib/launchSplash.ts#deadlinePassed",
+  "lib/launchSplash.ts#exited",
   "lib/launchSplash.ts#hidden",
   "lib/launchSplash.ts#ready",
   // How many previews are loading, and a counter raised at sign-out (waiting ones never go).

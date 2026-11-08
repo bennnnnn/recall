@@ -41,6 +41,7 @@ export function ScrollingLine({
   };
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       ref={ref}
       testID={testID}
       horizontal

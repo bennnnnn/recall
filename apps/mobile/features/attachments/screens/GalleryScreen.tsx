@@ -241,7 +241,7 @@ export default function GalleryScreen() {
           retryLabel={t("common.retry")}
         />
       ) : (
-        <FlashList
+        <FlashList keyboardShouldPersistTaps="handled"
           key={layout}
           data={items}
           keyExtractor={(item) => item.id}

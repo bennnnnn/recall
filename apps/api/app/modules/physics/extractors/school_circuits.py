@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.extractors.circuit_patterns import resistor_values
 from app.modules.physics.extractors.school_common import (
     _HENRY,
     _SECOND,
@@ -13,7 +14,8 @@ from app.modules.physics.extractors.school_common import (
     _one,
     _sum_directed,
 )
-from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.stated_change import stated_change
+from app.modules.physics.extractors.stated_values import ordered_values, positioned_values
 from app.modules.physics.extractors.unit_patterns import AMP_PATTERN, OHM_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 
@@ -35,11 +37,28 @@ def extract_junction(text: str, lower: str) -> PhysicsIntent | None:
     )
 
 
+# A part on a path of its own: in parallel, side by side, a shunt, bridging or across another
+# part, or on a branch. A branch current that is measured, or a meter in the branch, puts no
+# part there.
+_PARALLEL_PART = re.compile(
+    r"\bparallel\b|\bshunt\b|\bside\s+by\s+side\b|\bbridg\w*"
+    r"|\bacross\s+(?:the|a|an)\s+(?:\S+\s+){0,2}(?:resistor|lamp|bulb|heater)"
+    r"|(?<!meter )(?<!meters )\b(?:on|in)\s+"
+    r"(?:a\s+|the\s+|another\s+|its\s+own\s+|a\s+separate\s+)?branch(?:es)?\b"
+)
+
+
 def extract_loop(text: str, lower: str) -> PhysicsIntent | None:
     if "loop" not in lower:
         return None
+    # The loop rule sums one series path. A part in parallel or a meter's own resistance is
+    # none of it, and a resistor named again is one resistor: a 20 MΩ voltmeter "across the
+    # 2 kΩ resistor" was summed in with that resistor twice, 3e-7 A for 2 mA (review
+    # 2026-11-07). ``resistor_values`` refuses a meter's value and a part named again.
+    if _PARALLEL_PART.search(lower):
+        return None
     volts = ordered_values(text, r"V|volts?")
-    resistors = [value for value, _unit in ordered_values(text, OHM_PATTERN)]
+    resistors = resistor_values(text)
     if len(volts) != 1 or not 2 <= len(resistors) <= 4:
         return None
     params = {"V": volts[0][0]}
@@ -67,15 +86,9 @@ def extract_inductor(text: str, lower: str) -> PhysicsIntent | None:
             {"inductance": inductance[0], "I": current[0]},
             {"inductance": henry, "I": current[1] or "A"},
         )
-    amps = ordered_values(text, AMP_PATTERN)
     seconds = _one(text, _SECOND, ("in", "over", "during"), require_keyword=True)
-    if seconds is None or not amps:
-        return None
-    if len(amps) == 1:
-        delta = amps[0][0]
-    elif len(amps) == 2:
-        delta = abs(amps[1][0] - amps[0][0])
-    else:
+    delta = stated_change(text, positioned_values(text, AMP_PATTERN))
+    if seconds is None or delta is None:
         return None
     return _intent(
         "circuit",

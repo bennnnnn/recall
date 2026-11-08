@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/lib/theme";
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
-import { ChatShareSheet } from "@/features/chat/components/ChatShareSheet";
 import { ChatActionsMenu } from "@/features/chat/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/features/chat/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";
@@ -99,10 +98,8 @@ export function ConversationList() {
     showActionBanner,
     closeMenu,
     showRowMenu,
-    shareChat,
     openShareChat,
-    closeShare,
-    loadShareMessages,
+    exportChatPdf,
     openRenameFromMenu,
     confirmRename,
     togglePinChat,
@@ -285,17 +282,12 @@ export function ConversationList() {
         archived={menuChat?.archived ?? false}
         onClose={closeMenu}
         onShare={openShareChat}
+        onExportPdf={exportChatPdf}
         onRename={openRenameFromMenu}
         onTogglePin={() => void togglePinChat()}
         onToggleArchive={() => void toggleArchiveChat()}
         onDelete={confirmDeleteChat}
         onSelectChats={handleSelectFromMenu}
-      />
-      <ChatShareSheet
-        visible={shareChat != null}
-        onClose={closeShare}
-        title={shareChat?.title ?? null}
-        loadMessages={loadShareMessages}
       />
       <ChatRenameSheet
         visible={renameVisible}

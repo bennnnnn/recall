@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.modules.chat.clarify_card import CLARIFY_FENCE
-from app.modules.chat.follow_up_repeats import repeats_earlier
+from app.modules.chat.follow_up_repeats import changes_a_kept_symbol, repeats_earlier
 from app.modules.chat.follow_up_thread import subject_for_related, thread_problem
 from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD, topic_words
 from app.modules.turn_reading.personal import is_personal_disclosure_turn
@@ -311,7 +311,7 @@ def accepted_questions(
         prepared = _prepare_question(item)
         if prepared is None or not _keep_question(question, prepared, problem, anchors):
             continue
-        if repeats_earlier(prepared, [*earlier, *kept]):
+        if repeats_earlier(prepared, [*earlier, *kept]) or changes_a_kept_symbol(prepared, kept):
             continue
         kept.append(prepared)
         if len(kept) == MAX_QUESTIONS:

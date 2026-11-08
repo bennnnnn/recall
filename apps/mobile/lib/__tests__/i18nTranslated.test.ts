@@ -35,7 +35,6 @@ const KEPT_EVERYWHERE = new Set([
   "chat.live_talk_a11y", // Live talk is the feature's name in every locale
   "settings.live_talk_minutes",
   "upgrade.feature_live_talk_plain",
-  "share.action_pdf", // file format
   "share.attachment_pdf",
   "common.ok",
   "chat.math_converter_clear", // the calculator's AC key
@@ -147,7 +146,8 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
   ],
 };
 
-const PLACEHOLDER = /\{\{\s*([^}\s]+)\s*\}\}/g;
+// "{{left}}" and "{{left, number}}" (i18next's formatter) both name the value "left".
+const PLACEHOLDER = /\{\{\s*([^},\s]+)\s*(?:,[^}]*)?\}\}/g;
 
 function placeholders(value: string): string[] {
   return [...value.matchAll(PLACEHOLDER)].map((match) => match[1] ?? "").sort();
@@ -171,6 +171,7 @@ describe("i18n translations", () => {
   it("sees an English value and a dropped placeholder", () => {
     expect(untranslated("de", { "chat.stop": "Stop", "app.name": "Recall" })).toEqual(["chat.stop"]);
     expect(placeholders("Open PDF {{fileName}}")).toEqual(["fileName"]);
+    expect(placeholders("{{left, number}} of {{total, number}}")).toEqual(["left", "total"]);
     expect(hasWords("{{status}}, {{percent}}")).toBe(false);
   });
 

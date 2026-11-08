@@ -12,6 +12,8 @@ from app.modules.physics.extractors.cues import (
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.surface_gravity import EARTH_G, detect_gravity
 from app.modules.physics.extractors.unit_patterns import DECIMAL, LENGTH_UNIT_PATTERN
+from app.modules.physics.extractors.written_unit import written_unit
+from app.modules.physics.givens import scan_givens
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -30,6 +32,9 @@ _SPRING_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 _SPRING_K_RE = re.compile(r"\bk\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+
+# A stiffness as the givens scan writes its dimension: N/m is kg/s².
+_STIFFNESS = "[mass]^1 * [time]^-2"
 
 _DISPLACEMENT_KEYWORDS = (
     "stretched",
@@ -152,6 +157,23 @@ def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
     )
 
 
+def _spring_constant(cleaned: str) -> tuple[float, str] | None:
+    """The spring constant with the unit it is written in, as the givens scan reads it.
+
+    A stiffness in any unit the shared table reads ("2 kN/m", "50 N/cm"), else the
+    number after "k =" with whatever unit follows it ("k = 200" alone is in N/m). The
+    unit after "k =" was taken for N/m: "k = 2 kN/m" answered 0.06 N for 60 N (audit
+    2026-11-07).
+    """
+    for given in scan_givens(cleaned):
+        if given.dimension == _STIFFNESS:
+            return given.value, given.unit
+    assigned = _SPRING_K_RE.search(cleaned)
+    if assigned is None:
+        return None
+    return float(assigned.group(1)), written_unit(cleaned, assigned.end(1), "k") or "N/m"
+
+
 def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
@@ -174,13 +196,8 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     if _MOTION_ASK_RE.search(cleaned):
         return None
 
-    k_match = find_value_with_specific_unit(cleaned, r"N/m")
-    if k_match is not None:
-        k: float | None = k_match[0]
-    else:
-        k_assign = _SPRING_K_RE.search(cleaned)
-        k = float(k_assign.group(1)) if k_assign else None
-    if k is None:
+    stiffness = _spring_constant(cleaned)
+    if stiffness is None:
         return None
 
     displacement = find_value_with_specific_unit(
@@ -214,8 +231,8 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     else:
         return None
 
-    params: dict[str, float] = {"k": k}
-    units: dict[str, str] = {"k": "N/m"}
+    params: dict[str, float] = {"k": stiffness[0]}
+    units: dict[str, str] = {"k": stiffness[1]}
     if displacement is not None and op != "shm_frequency":
         params["x"] = displacement[0]
         units["x"] = displacement[1] or "m"

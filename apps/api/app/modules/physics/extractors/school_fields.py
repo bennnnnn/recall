@@ -11,7 +11,8 @@ from app.modules.physics.extractors.school_common import (
     _one,
     _turns,
 )
-from app.modules.physics.extractors.stated_values import ordered_values
+from app.modules.physics.extractors.stated_change import change_ends
+from app.modules.physics.extractors.stated_values import positioned_values
 from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER, TESLA_PATTERN
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import word_index
@@ -107,7 +108,12 @@ def extract_faraday(text: str, lower: str) -> PhysicsIntent | None:
             {"turns": "", "delta_flux": flux[1] or "Wb", "dt": seconds[1] or "s"},
         )
     area = _one(text, r"m\^?2|cm\^?2")
-    fields = ordered_values(text, TESLA_PATTERN)
+    placed = positioned_values(text, TESLA_PATTERN)
+    if len(placed) == 2 and not change_ends(text, placed[0][0], placed[1][0]):
+        # Two fields the words do not make one change's ends are two fields, not one
+        # changing: the first and last values of a unit are no change (review 2026-11-07).
+        return None
+    fields = [(value, unit) for _start, value, unit in placed]
     if len(fields) == 1:
         # "drops from 0.5 T to 0": the second reading shares the first's unit.
         to_bare = re.search(

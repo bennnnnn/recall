@@ -225,7 +225,7 @@ function MenuCard({
       {/* Shadow lives on the outer card. overflow:hidden there clips it, which
           left a white menu flat on a white page. */}
       <View style={[s.clip, { maxHeight: placement.maxHeight }]}>
-        <ScrollView
+        <ScrollView keyboardShouldPersistTaps="handled"
           bounces={false}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.content}

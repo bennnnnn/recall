@@ -182,15 +182,21 @@ def _derived(given: Given, others: list[Given], params: list[_Param]) -> bool:
     """Whether a bound value is a signed sum of this given and a few others.
 
     Resistances may instead be combined in parallel. That check stays on the
-    ohm dimension, so 4 m and 12 m are not "derived" by a length of 3 m.
+    ohm dimension, so 4 m and 12 m are not "derived" by a length of 3 m. Written
+    numbers add up only in one unit: 4 kΩ - 2 kΩ "derived" a 2 Ω resistor and a
+    loop current came out 2 A for 2 mA (review 2026-11-07).
     """
     if len(others) > _MAX_SAME_KIND:
         return False
-    targets = [abs(param.raw) for param in params]
     si_targets = [abs(param.si) for param in params if param.si is not None]
     for size in range(1, _MAX_OPERANDS):
         for group in combinations(others, size):
             operands = (given, *group)
+            targets = [
+                abs(param.raw)
+                for param in params
+                if all(_same_scale(item, param) for item in operands)
+            ]
             for signs in product((1.0, -1.0), repeat=len(group)):
                 raw = given.value + sum(s * g.value for s, g in zip(signs, group, strict=True))
                 if any(_same(abs(raw), target) for target in targets):

@@ -2,6 +2,7 @@ import { render, within } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
 import { MathText } from "@/components/rich/MathText";
+import { expectFormulaBox } from "@/components/__tests__/support/mathInk";
 import { layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
@@ -33,8 +34,7 @@ describe("inline tall math overflow", () => {
     // made the scroll frame as wide as the math, so the tail could not move.
     expect(contentStyle.width).toBeUndefined();
     expect(frameStyle.width).toBeUndefined();
-    expect(contentStyle.minWidth).toBe(contentWidth(slantHeight));
-    expect(contentStyle.minWidth).toBeGreaterThan(390);
+    expectFormulaBox(formula, { widerThan: 390 });
     const uprightRuns = within(viewport).getAllByTestId("math-upright-run");
     expect(uprightRuns[0]).toHaveTextContent("Slant Height");
     expect(uprightRuns[0]).toHaveStyle({ fontFamily: "KaTeX_Main", fontSize: 16 });
@@ -51,9 +51,7 @@ describe("inline tall math overflow", () => {
     );
     const formula = getByTestId("math-text-tall");
     const style = StyleSheet.flatten(formula.props.style);
-    const latex = String.raw`\sqrt{99999999999999999999}`;
-    expect(style.minWidth).toBe(contentWidth(latex));
-    expect(style.minWidth).toBeGreaterThan(160);
+    expectFormulaBox(formula, { widerThan: 160 });
     expect(style.width).toBeUndefined();
     expect(style.maxWidth).toBeUndefined();
     expect(style.flexShrink).toBe(0);
@@ -68,7 +66,7 @@ describe("inline tall math overflow", () => {
     const height = layoutMath(parseSimpleLatex(fixImplicitExponents(latex)), 16).height;
     expect(StyleSheet.flatten(getByTestId("math-text-scroll").props.style).width).toBeUndefined();
     expect(getByTestId("math-text-scroll")).toHaveStyle({ height, maxWidth: "100%" });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: width, height });
+    expectFormulaBox(getByTestId("math-text-tall"), { width, height });
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 

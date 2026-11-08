@@ -22,9 +22,16 @@ function fileUri(directory: string, name: string): string {
   return `${directory}${encodeURIComponent(name)}`;
 }
 
-/** A new file for `kind` in the cache directory; the caller has checked the directory exists. */
-export function newAccountFile(kind: keyof typeof ACCOUNT_FILE_PREFIX, extension: string): string {
-  return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${Date.now()}.${extension}`;
+/**
+ * A new file for `kind` in the cache directory; the caller has checked the directory exists.
+ * `stem` names it after the prefix when a person sees the name (a share sheet), else the time.
+ */
+export function newAccountFile(
+  kind: keyof typeof ACCOUNT_FILE_PREFIX,
+  extension: string,
+  stem: string = String(Date.now()),
+): string {
+  return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${stem}.${extension}`;
 }
 
 /** expo-print writes every PDF (chat exports) here, on iOS and Android alike. */

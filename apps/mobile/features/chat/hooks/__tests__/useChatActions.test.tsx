@@ -42,6 +42,8 @@ jest.mock("@/features/chat/model/exportMessagePdf", () => ({
   exportConversationAsPdf: jest.fn(),
 }));
 
+const mockShare = jest.fn(async (_options: { message: string; title?: string | null }) => {});
+jest.mock("@/lib/share", () => ({ presentShareSheet: (options: { message: string; title?: string | null }) => mockShare(options) }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));
@@ -127,7 +129,9 @@ describe("useChatActions", () => {
     );
   });
 
-  it("opens the share sheet from ⋮ and closes the menu", async () => {
+  it("shares the chat as text straight through the OS share menu from ⋮", async () => {
+    // The user wants the share sheet with contacts and apps, not one of Recall's first (2026-11-07).
+    (api.listAllMessages as jest.Mock).mockResolvedValueOnce([{ id: "m1", role: "user", content: "hi" }]);
     await act(async () => {
       render(<Probe />);
     });
@@ -139,11 +143,8 @@ describe("useChatActions", () => {
     });
 
     expect(actions.menuVisible).toBe(false);
-    expect(actions.shareVisible).toBe(true);
-    await act(async () => {
-      actions.closeShare();
-    });
-    expect(actions.shareVisible).toBe(false);
+    expect(mockShare).toHaveBeenCalledTimes(1);
+    expect(mockShare.mock.calls[0][0].message).toContain("hi");
   });
 
   it("exports the whole chat as a PDF through the module it loads on demand", async () => {

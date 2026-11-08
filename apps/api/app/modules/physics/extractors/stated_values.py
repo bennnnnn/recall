@@ -5,7 +5,10 @@ from __future__ import annotations
 import re
 from bisect import bisect_left, bisect_right
 
-from app.modules.physics.extractors.unit_patterns import NUMBER
+from app.modules.physics.extractors.unit_patterns import NUMBER, in_base_unit, with_prefixes
+from app.modules.physics.extractors.written_unit import written_unit
+from app.modules.physics.givens import PHYSICS_UNITS
+from app.modules.physics.set_aside import set_aside
 
 VALUE_UNIT_RE = re.compile(
     rf"({NUMBER})\s*"
@@ -23,11 +26,19 @@ VALUE_UNIT_RE = re.compile(
 )
 
 
+def _value_and_unit(window: str, match: re.Match[str]) -> tuple[float, str]:
+    """The number a ``VALUE_UNIT_RE`` match read, with the unit written after it."""
+    return float(match.group(1)), (match.group(2) or "").strip() or written_unit(
+        window, match.end(1)
+    )
+
+
 def find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     """Find the first number near a keyword (e.g. "height of 20m", "20m high").
 
     Returns (value, unit) where unit is "" if no unit was found. The unit is
-    not validated here — the solver runs it through Pint.
+    not validated here — the solver runs it through Pint. One the pattern does not
+    list is read by the shared table (``written_unit``): "20 km/s" is no 20 m/s.
     """
     lower = text.lower()
     for kw in keywords:
@@ -37,18 +48,14 @@ def find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, s
         # Search a window after the keyword for a number (the common case:
         # "height of 20m", "velocity 15 m/s"). Also search a small window
         # *before* the keyword ("20m high", "15 m/s initial velocity").
-        after = text[idx + len(kw) : idx + len(kw) + 40]
-        m = VALUE_UNIT_RE.match(after.strip())
+        after = text[idx + len(kw) : idx + len(kw) + 40].strip()
+        m = VALUE_UNIT_RE.match(after)
         if m:
-            val = float(m.group(1))
-            unit = (m.group(2) or "").strip()
-            return val, unit
+            return _value_and_unit(after, m)
         before = text[max(0, idx - 40) : idx]
         m = VALUE_UNIT_RE.search(before)
         if m:
-            val = float(m.group(1))
-            unit = (m.group(2) or "").strip()
-            return val, unit
+            return _value_and_unit(before, m)
     return None
 
 
@@ -62,10 +69,10 @@ def find_value_after_keyword(text: str, keywords: tuple[str, ...]) -> tuple[floa
         idx = lower.find(kw)
         if idx == -1:
             continue
-        after = text[idx + len(kw) : idx + len(kw) + 40]
-        m = VALUE_UNIT_RE.match(after.strip())
+        after = text[idx + len(kw) : idx + len(kw) + 40].strip()
+        m = VALUE_UNIT_RE.match(after)
         if m:
-            return float(m.group(1)), (m.group(2) or "").strip()
+            return _value_and_unit(after, m)
     return None
 
 
@@ -160,11 +167,11 @@ def find_value_with_specific_unit(
     matches = [
         m
         for m in re.finditer(
-            rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({with_prefixes(unit_pattern)})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
-        if not part_label(text, m)
+        if not part_label(text, m) and not set_aside(text, m.start(), m.end(1), PHYSICS_UNITS)
     ]
     if not matches:
         return None
@@ -199,19 +206,19 @@ def find_value_with_specific_unit(
         elif require_keyword:
             return None
 
-    return float(match.group(1)), match.group(2)
+    return in_base_unit(float(match.group(1)), match.group(2), unit_pattern)
 
 
 def labeled_value(text: str, label: str, unit: str) -> tuple[float, str] | None:
     """The value a label names, with its unit: ``initial speed of 4 m/s`` → ``(4.0, "m/s")``."""
     match = re.search(
-        rf"\b(?:{label})(?:\s+of)?\s+({NUMBER})\s*({unit})\b",
+        rf"\b(?:{label})(?:\s+of)?\s+({NUMBER})\s*({with_prefixes(unit)})\b",
         text,
         re.IGNORECASE,
     )
     if match is None:
         return None
-    return float(match.group(1)), match.group(2)
+    return in_base_unit(float(match.group(1)), match.group(2), unit)
 
 
 def part_label(text: str, match: re.Match[str]) -> bool:
@@ -242,13 +249,13 @@ def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     The keyword-nearest search the other extractors use cannot express that.
     """
     return [
-        (float(m.group(1)), m.group(2))
+        in_base_unit(float(m.group(1)), m.group(2), unit_pattern)
         for m in re.finditer(
-            rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({with_prefixes(unit_pattern)})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
-        if not part_label(text, m)
+        if not part_label(text, m) and not set_aside(text, m.start(), m.end(1), PHYSICS_UNITS)
     ]
 
 
@@ -259,11 +266,11 @@ def positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, st
     written order alone cannot say.
     """
     return [
-        (m.start(), float(m.group(1)), m.group(2))
+        (m.start(), *in_base_unit(float(m.group(1)), m.group(2), unit_pattern))
         for m in re.finditer(
-            rf"({NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({NUMBER})\s*({with_prefixes(unit_pattern)})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
-        if not part_label(text, m)
+        if not part_label(text, m) and not set_aside(text, m.start(), m.end(1), PHYSICS_UNITS)
     ]

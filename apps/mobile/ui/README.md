@@ -24,7 +24,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | A full-screen viewer only some visits open (the chat's photo viewer, the scanner) | `overlay/lazyOverlay(() => import(...))`: its code loads on first open, then it stays mounted | a static import the chat screen evaluates at launch |
 | A time | `pickers/TimePickerDialog` (Android clock: dial, AM/PM, keyboard entry) | `@react-native-community/datetimepicker` |
 | A date (month grid, year list, min/max) | `pickers/DatePickerDialog` | the native picker |
-| Share a chat or a summary | `share/ShareSheet` (preview card, Share / Copy / PDF) | `Share.share` straight from a menu |
+| Share text through the OS share menu | `presentShareSheet` (`lib/share.ts`): a cancel is not an error | a sheet of our own in front of the OS menu |
 | Copy text with a check mark | `share/useCopyText` (one timing, success haptic, a refused copy reported) | `Clipboard.setStringAsync` plus a timer in the component |
 | Back, close, menu, ⋮ in a header | `controls/HeaderButton` (`plate`, `plain` in a `HeaderButtonGroup`, `media` over photos); `StackBackButton` in stacks | a hand-styled circle |
 | A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon; `media` is the white pill over a photo, like the viewer's Share; `bubble` is the user's message-bubble tint, following their accent, for a card's one action, like a clarify card's button) | a `Pressable` styled as a button |
@@ -47,7 +47,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
   `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal, lazyOverlay.
 - `pickers/`: ClockDial, TimePickerDialog, DatePickerDialog. The
   geometry and calendar rules live in `lib/datetime/clockDial.ts` and `calendarGrid.ts`.
-- `share/`: ShareSheet, useCopyText.
+- `share/`: useCopyText.
 - `icons/`: Icon, BrandMark, the icon manifest and generated glyphs, IconSize.
 - `feedback/`: ActionBanner (the toast), StateView, SkeletonLoader, CountBadge, ActionShimmer.
 - `hooks/`: useKeyboardHeight, useBottomLiftStyle (bottom chrome that rides a keyboard-lifted composer on the UI thread),
@@ -67,7 +67,8 @@ weights, spacing, radii and hex colors outside a short list of domain graphics.
 `FullWindowOverlay`, so it can open over a sheet or another modal; on Android it is a
 transparent `Modal`, which already stacks. It stays mounted through its closing fade.
 `Sheet` is a real `Modal`: keep a sheet open while the OS share menu is on top of it, since
-closing the presenter takes the share menu down with it on iOS (`ShareSheet` does this for you).
+closing the presenter takes the share menu down with it on iOS. A menu is an `Overlay`, not a
+presenter, so a menu row can close the menu and open the OS share menu at once.
 
 ## Guardrails
 
@@ -79,6 +80,10 @@ closing the presenter takes the share menu down with it on iOS (`ShareSheet` doe
 - Controls play their own haptic (`lib/haptics`): a `Menu` row, a `SegmentedControl` segment, a
   filter `Chip`, a switch `ListRow`, picker steps, `Dialog` actions, `useCopyText`'s success. The
   action behind them adds none, so one press is one haptic.
+- Every `ScrollView`, `FlatList`, `SectionList` and `FlashList` sets `keyboardShouldPersistTaps`
+  (usually `"handled"`). A sheet drawn inside a page's scroller has it above it in the React tree,
+  and one left at the default spends the first tap on a button closing the keyboard
+  (`lib/__tests__/scrollKeyboardTaps.test.ts`).
 
 ## Adding an icon
 
