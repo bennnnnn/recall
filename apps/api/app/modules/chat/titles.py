@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 from uuid import UUID
 
 from app.core.config import Settings
@@ -11,7 +12,11 @@ from app.core.validation import normalize_chat_title as normalize_chat_title
 from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
 from app.models.routing_lanes import ROUTING
+from app.modules.attachments.markers import without_attachment_refs
 from app.modules.conversation import service as conversation_service
+from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS
+from app.services.symbolic_text import fold_latex_marks, fold_numeric_superscripts
+from app.services.text_normalize import collapse_ws
 
 GREETING_CHAT_TITLE = "Greeting"
 
@@ -58,6 +63,44 @@ _CASUAL_OPENERS = frozenset(
 
 _logger = logging.getLogger(__name__)
 
+# Maths the keypad sends as LaTeX ("$3x^{2}-2x=8$"). Read raw, the title model dropped the
+# braces and the caret and titled it "3x2-2x=8", another expression; folded to "3x^2-2x=8"
+# first, it keeps the power. Only a dollar span with LaTeX in it is unwrapped: "$25,000" is money.
+_DOLLAR_SPAN = re.compile(r"(\${1,2})([^$\n]+?)\1")
+_LATEX_INSIDE = re.compile(r"[\\^_{}]")
+# A whole-number power, as the title model writes it ("3x^2", "10^{-3}"); "x^2.5" and
+# "x^25.5" stay as they are (the digits never back off to make a whole number).
+_CARET_POWER = re.compile(r"\^(?:\{(-?\d+)\}|(-?\d+))(?!\d|[.,]\d)")
+# The head a title reads, before its padding and paths go: a long paste is not folded whole.
+_SOURCE_CHARS = 4000
+_NO_WORDS = "(a photo or file, sent with no words)"
+_TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
+
+
+def _title_source(user_message: str) -> str:
+    """The user's message as the title model reads it: keypad LaTeX folded to plain powers.
+
+    A shared PDF's text comes padded with runs of spaces, behind a storage-path line: the
+    model's 300 characters held "Make me 3 quiz questions from this", a path and blanks, and
+    it titled the chat with the user's words. Without the path and the padding, the file's
+    own words ("Chemistry Unit 4 Study Guide") fit.
+    """
+    unwrapped = _DOLLAR_SPAN.sub(
+        lambda span: span.group(2) if _LATEX_INSIDE.search(span.group(2)) else span.group(0),
+        user_message[:_SOURCE_CHARS],
+    )
+    readable = collapse_ws(without_attachment_refs(unwrapped))
+    # A photo sent alone is nothing but its path: the reply says what it shows, and an empty
+    # turn is one a provider may refuse.
+    return fold_numeric_superscripts(fold_latex_marks(readable)) or _NO_WORDS
+
+
+def _superscript_powers(title: str) -> str:
+    """Powers as a book prints them, in the drawer: "3x^2 - 2x = 8" → "3x² - 2x = 8"."""
+    return _CARET_POWER.sub(
+        lambda power: (power.group(1) or power.group(2)).translate(_TO_SUPERSCRIPT), title
+    )
+
 
 def needs_generated_title(title: str | None) -> bool:
     """True when the chat still needs the topic job (empty or a placeholder)."""
@@ -81,7 +124,8 @@ def finalize_generated_title(raw: str | None, user_message: str) -> str | None:
     """Greetings get a topic label; otherwise keep a normalized model title."""
     if is_casual_opener(user_message):
         return GREETING_CHAT_TITLE
-    return normalize_chat_title(raw)
+    title = normalize_chat_title(raw)
+    return _superscript_powers(title) if title else None
 
 
 async def generate_title(
@@ -110,8 +154,8 @@ async def generate_title(
                 "Greetings (hi, hello, good morning) get a short topic label such as Greeting."
             ),
         },
-        {"role": "user", "content": user_message[:300]},
-        {"role": "assistant", "content": assistant_message[:300]},
+        {"role": "user", "content": _title_source(user_message)[:300]},
+        {"role": "assistant", "content": collapse_ws(assistant_message)[:300]},
         {"role": "user", "content": "Title?"},
     ]
     raw = await litellm_gateway.complete_text(
