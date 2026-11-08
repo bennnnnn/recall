@@ -117,7 +117,7 @@ export default function ArchivedChatsScreen() {
   }
 
   return (
-    <FlashList
+    <FlashList keyboardShouldPersistTaps="handled"
       data={chats}
       keyExtractor={(chat) => chat.id}
       style={{ flex: 1, backgroundColor: theme.bg }}

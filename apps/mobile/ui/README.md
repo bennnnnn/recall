@@ -80,6 +80,10 @@ presenter, so a menu row can close the menu and open the OS share menu at once.
 - Controls play their own haptic (`lib/haptics`): a `Menu` row, a `SegmentedControl` segment, a
   filter `Chip`, a switch `ListRow`, picker steps, `Dialog` actions, `useCopyText`'s success. The
   action behind them adds none, so one press is one haptic.
+- Every `ScrollView`, `FlatList`, `SectionList` and `FlashList` sets `keyboardShouldPersistTaps`
+  (usually `"handled"`). A sheet drawn inside a page's scroller has it above it in the React tree,
+  and one left at the default spends the first tap on a button closing the keyboard
+  (`lib/__tests__/scrollKeyboardTaps.test.ts`).
 
 ## Adding an icon
 

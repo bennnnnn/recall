@@ -52,7 +52,11 @@ export function SettingsPage({
   const contentStyle = useSettingsContentStyle({ underStatusBar });
   if (!token) return <Redirect href="/login" />;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={contentStyle}>
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      style={{ flex: 1, backgroundColor: theme.bg }}
+      contentContainerStyle={contentStyle}
+    >
       {children}
     </ScrollView>
   );

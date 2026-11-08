@@ -373,6 +373,7 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
   return (
     <View style={styles.arithmeticWork} testID="arithmetic-work-inline">
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.workScroll}

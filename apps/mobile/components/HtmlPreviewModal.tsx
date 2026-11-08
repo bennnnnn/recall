@@ -267,6 +267,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
         <View style={s.body}>
           {tab === "code" ? (
             <ScrollView
+              keyboardShouldPersistTaps="handled"
               style={s.codeScroll}
               contentContainerStyle={s.codeScrollContent}
               showsVerticalScrollIndicator
