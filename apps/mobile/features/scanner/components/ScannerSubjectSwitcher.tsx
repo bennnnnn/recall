@@ -9,6 +9,7 @@ import { SCANNER_SUBJECTS, type ScannerSubject } from "@/lib/scanner/subjects";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { tabRole } from "@/ui/controls/a11yRoles";
 
 type Props = {
   value: ScannerSubject;
@@ -76,7 +77,7 @@ export function ScannerSubjectSwitcher({ value, onChange }: Props) {
               tabsRef.current.set(subject, event.nativeEvent.layout);
               if (selected) reveal(subject);
             }}
-            accessibilityRole="tab"
+            accessibilityRole={tabRole()}
             accessibilityState={{ selected }}
             accessibilityLabel={t(LABEL_KEYS[subject])}
           >

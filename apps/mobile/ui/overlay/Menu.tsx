@@ -20,6 +20,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
+import { menuItemRole } from "../controls/a11yRoles";
 import { Icon } from "../icons/Icon";
 import type { IconName } from "../icons/names";
 import { IconSize } from "../icons/sizes";
@@ -36,7 +37,10 @@ type MenuItem = {
   /** Red ink — Delete and other actions that lose data. */
   destructive?: boolean;
   disabled?: boolean;
-  /** Selectable menus: shows the check on the current choice. */
+  /**
+   * Shows the check on the current choice. A row that has it is a choice for a screen reader
+   * too (a radio, checked or not), even among actions: the To-do list's views beside Select.
+   */
   selected?: boolean;
   /** `chevron` for rows that open more choices; a string shows a value. */
   trailing?: "chevron" | string;
@@ -169,12 +173,8 @@ function MenuCard({
           onClose();
           entry.onPress();
         }}
-        accessibilityRole={selectable ? "radio" : "menuitem"}
         accessibilityLabel={entry.label}
-        accessibilityState={{
-          disabled: Boolean(entry.disabled),
-          ...(selectable ? { checked: Boolean(entry.selected) } : null),
-        }}
+        {...rowAccessibility(entry, selectable)}
         testID={entry.testID}
       >
         {entry.swatch ? (
@@ -244,6 +244,18 @@ function MenuCard({
       </View>
     </Animated.View>
   );
+}
+
+/** A choice is a radio with its check; any other row is an action (`menuItemRole`). */
+function rowAccessibility(entry: MenuItem, selectable: boolean) {
+  const choice = selectable || entry.selected !== undefined;
+  return {
+    accessibilityRole: choice ? ("radio" as const) : menuItemRole(),
+    accessibilityState: {
+      disabled: Boolean(entry.disabled),
+      ...(choice ? { checked: Boolean(entry.selected) } : null),
+    },
+  };
 }
 
 function makeStyles(t: Theme) {

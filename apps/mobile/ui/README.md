@@ -20,6 +20,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | Pick a number in a range (an amount, a rate, a term) | `controls/Slider` (label and value above the track; an optional marker for a reference value, tap to jump; screen-reader steps; math in `sliderValue.ts`) | a hand-built track and thumb |
 | A form, the attach sources, sharing | `overlay/Sheet` | a raw `Modal` |
 | Something the user opened in the screen, not in a Modal (an `embedded` Sheet does it itself, the drawer, the math pad, the full-height editor) | `overlay/useAndroidBack(open, close)`: Android Back closes the last one opened before it leaves the screen; a screen that stays mounted under others wraps itself in `AndroidBackScreen` | a `BackHandler` listener of its own |
+| A tab in a row of tabs, or an action row of your own | `controls/a11yRoles` (`tabRole()`, `menuItemRole()`): VoiceOver has no word for `tab` or `menuitem`, so iOS reads a button with "Selected" and TalkBack the real role | a bare `"tab"` or `"menuitem"` role |
 | Edit one text value (a profile field, a memory) | `overlay/FieldSheet` (title, hint, Save) | a hand-built sheet with a field |
 | A full-screen viewer (photo, PDF, scanner) | `overlay/FullScreenModal` | a raw `Modal` |
 | A full-screen viewer only some visits open (the chat's photo viewer, the scanner) | `overlay/lazyOverlay(() => import(...))`: its code loads on first open, then it stays mounted | a static import the chat screen evaluates at launch |
@@ -42,7 +43,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 
 - `controls/`: Button, IconButton, HeaderButton (+ HeaderButtonGroup), StackBackButton, Chip,
   SegmentedControl, Slider (`sliderValue.ts`), TextField, SearchField, AddFab (`addFabLayout.ts` gives a list the bottom
-  padding that clears it).
+  padding that clears it), `a11yRoles.ts` (the tab and menu-row roles per platform).
 - `list/`: ListRow, ListGroup, ListSeparator.
 - `overlay/`: Overlay (the one floating layer), Menu, SelectMenu, Dialog + DialogHost +
   `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal, lazyOverlay, useAndroidBack.

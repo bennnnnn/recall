@@ -1,8 +1,9 @@
 import { StyleSheet } from "react-native";
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { AttachmentLightboxChrome } from "@/features/attachments/components/AttachmentLightboxChrome";
 import { lightTheme as mockLightTheme, withAlpha } from "@/lib/theme";
+import { menuItemRole } from "@/ui/controls/a11yRoles";
 
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
@@ -55,10 +56,14 @@ it("opens the overflow as the shared popover and runs the picked row", async () 
   } as const;
   const ui = await render(<AttachmentLightboxChrome {...props} />);
   const hidden = { includeHiddenElements: true };
-  const rows = ui.getAllByRole("menuitem", hidden).map((row) => row.props.accessibilityLabel);
+  // The menu's rows: on iOS a row is a button, as the chrome's controls and the scrim are.
+  const rows = within(ui.getByTestId("lightbox-overflow-menu", hidden))
+    .getAllByRole(menuItemRole(), hidden)
+    .filter((row) => row.props.testID !== "lightbox-overflow-menu-scrim")
+    .map((row) => row.props.accessibilityLabel);
   expect(rows).toEqual(["gallery.use_in_chat", "gallery.open_chat", "common.delete"]);
 
-  await fireEvent.press(ui.getByRole("menuitem", { name: "gallery.open_chat", ...hidden }));
+  await fireEvent.press(ui.getByRole(menuItemRole(), { name: "gallery.open_chat", ...hidden }));
   expect(actions.onCloseOverflow).toHaveBeenCalledTimes(1);
   expect(actions.onOpenChat).toHaveBeenCalledTimes(1);
   expect(actions.onDelete).not.toHaveBeenCalled();
