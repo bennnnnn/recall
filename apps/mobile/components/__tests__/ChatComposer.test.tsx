@@ -719,7 +719,7 @@ describe("ChatComposer math pad and the phone's keyboard", () => {
     jest.useFakeTimers();
     // Already a jest mock on the shared prototype: spyOn hands it back with its old calls.
     focus = jest.spyOn(TextInput.prototype, "focus");
-    focus.mockClear();
+    focus.mockReset();
   });
 
   afterEach(() => {
@@ -727,35 +727,60 @@ describe("ChatComposer math pad and the phone's keyboard", () => {
     jest.restoreAllMocks();
   });
 
-  const nextFrame = () =>
+  /** Every queued frame runs: what a test checks is where the field ends up. */
+  const settle = () =>
     act(async () => {
-      jest.runOnlyPendingTimers();
+      jest.runAllTimers();
     });
 
-  it("on Android opens the pad with the field unfocused and ABC focuses it for typing", async () => {
-    jest.replaceProperty(Platform, "OS", "android");
-    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
-    await openMathKeyboard();
-    await nextFrame();
-    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
-    expect(focus).not.toHaveBeenCalled();
-    expect(getByTestId("chat-composer-input").props.showSoftInputOnFocus).toBe(false);
+  /** What the composer showed each time a focus landed on the field. */
+  function watchFocus(view: Awaited<ReturnType<typeof render>>) {
+    const landed: { padUp: boolean; asksForKeyboard: boolean }[] = [];
+    focus.mockImplementation(() => {
+      landed.push({
+        padUp: view.queryByTestId("math-keyboard-pad") !== null,
+        asksForKeyboard: view.getByTestId("chat-composer-input").props.showSoftInputOnFocus,
+      });
+    });
+    return landed;
+  }
 
-    await fireEvent.press(getByTestId("math-keyboard-abc"));
-    await nextFrame();
-    expect(getByTestId("chat-composer-input").props.showSoftInputOnFocus).toBe(true);
-    expect(focus).not.toHaveBeenCalled();
-    // A frame more: the focus lands once showSoftInputOnFocus is back on.
-    await nextFrame();
-    expect(focus).toHaveBeenCalledTimes(1);
+  it("on Android opens the pad with the field unfocused, and ABC focuses it for the phone's keyboard", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const view = await render(<ChatComposer {...baseProps} />);
+    const landed = watchFocus(view);
+    await openMathKeyboard();
+    await settle();
+    expect(view.getByTestId("math-keyboard-pad")).toBeTruthy();
+    expect(landed).toEqual([]);
+
+    await fireEvent.press(view.getByTestId("math-keyboard-abc"));
+    await settle();
+    expect(view.queryByTestId("math-keyboard-pad")).toBeNull();
+    expect(landed).toEqual([{ padUp: false, asksForKeyboard: true }]);
+  });
+
+  it("on Android leaves the field to the pad when it is opened again before ABC's focus lands", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    const view = await render(<ChatComposer {...baseProps} />);
+    const landed = watchFocus(view);
+    await openMathKeyboard();
+    await settle();
+    await fireEvent.press(view.getByTestId("math-keyboard-abc"));
+    await openMathKeyboard();
+    await settle();
+
+    expect(view.getByTestId("math-keyboard-pad")).toBeTruthy();
+    expect(landed).toEqual([]);
   });
 
   it("on iOS keeps the field focused under the pad, as before", async () => {
     jest.replaceProperty(Platform, "OS", "ios");
-    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+    const view = await render(<ChatComposer {...baseProps} />);
+    const landed = watchFocus(view);
     await openMathKeyboard();
-    await nextFrame();
-    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
-    expect(focus).toHaveBeenCalledTimes(1);
+    await settle();
+
+    expect(landed).toEqual([{ padUp: true, asksForKeyboard: false }]);
   });
 });

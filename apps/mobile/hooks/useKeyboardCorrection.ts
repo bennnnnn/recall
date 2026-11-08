@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Keyboard, Platform } from "react-native";
 import {
   runOnJS,
@@ -27,6 +27,12 @@ import { clearScheduledTimeout, scheduleTimeout, type TimeoutHandle } from "@/li
 export const KEYBOARD_CHECK_MS = 150;
 /** The composer glides onto the real keyboard rather than jumping. */
 const KEYBOARD_CORRECTION_MS = 180;
+/**
+ * A frame this soon after a keyboard event is the tail of the move the event cut short (it
+ * was on its way to JS), not a move toward a keyboard whose event has not come: it does not
+ * count as `motion`, so a hide that stops part of the way after it is still corrected.
+ */
+export const KEYBOARD_EVENT_TAIL_MS = 100;
 
 export type KeyboardCorrection = {
   /** The stale height Reanimated keeps reporting, or `NO_KEYBOARD_CORRECTION`. */
@@ -57,10 +63,15 @@ export function useKeyboardCorrection(
   onCorrect: (height: number) => void,
 ): KeyboardCorrection {
   const { bottom: navigationBar } = useSafeAreaInsets();
+  const navigationBarRef = useLatestRef(navigationBar);
   const heldAt = useSharedValue(NO_KEYBOARD_CORRECTION);
   const real = useSharedValue(0);
-  /** The keyboard React Native last reported, in Reanimated's measure; null before any event. */
-  const actual = useRef<number | null>(null);
+  /**
+   * React Native's last keyboard event, as it measures it (above the navigation bar, 0 for a
+   * hide), and when it came; null before any. It is measured against the bar at check time,
+   * so a bar that changes re-measures it.
+   */
+  const lastEvent = useRef<KeyboardReading | null>(null);
   /** JS's copy of the correction the UI thread holds. */
   const held = useRef<{ stale: number; target: number } | null>(null);
   const lastFrame = useRef(0);
@@ -81,8 +92,10 @@ export function useKeyboardCorrection(
   const check = useCallback(() => {
     const stale = lastFrame.current;
     const holding = held.current;
+    const event = lastEvent.current;
+    const actual = event === null ? null : keyboardEventHeight(event.height, navigationBarRef.current);
     // The real keyboard; or, once a held correction agrees with Reanimated again, Reanimated's height.
-    const target = keyboardCorrection(stale, actual.current, motion.current) ?? (holding ? stale : null);
+    const target = keyboardCorrection(stale, actual, motion.current) ?? (holding ? stale : null);
     if (target === null) return;
     if (holding !== null && holding.stale === stale && holding.target === target) return;
     runOnUI((from: number, to: number) => {
@@ -100,7 +113,7 @@ export function useKeyboardCorrection(
       );
       runOnJS(corrected)(from, to);
     })(stale, target);
-  }, [corrected, heldAt, real, reported]);
+  }, [corrected, heldAt, navigationBarRef, real, reported]);
 
   // Reanimated reports a new height: it is tracking the keyboard again, the correction ends.
   useAnimatedReaction(
@@ -118,8 +131,9 @@ export function useKeyboardCorrection(
         held.current = null;
         heldAt.set(NO_KEYBOARD_CORRECTION);
       }
-      if (height > lastFrame.current) motion.current.rose = true;
-      if (height < lastFrame.current) motion.current.fell = true;
+      const tail = lastEvent.current !== null && Date.now() - lastEvent.current.at < KEYBOARD_EVENT_TAIL_MS;
+      if (!tail && height > lastFrame.current) motion.current.rose = true;
+      if (!tail && height < lastFrame.current) motion.current.fell = true;
       lastFrame.current = height;
       scheduleTimeout(timer, KEYBOARD_CHECK_MS, check);
       return held.current ? held.current.target : height;
@@ -127,26 +141,50 @@ export function useKeyboardCorrection(
     [check, heldAt],
   );
 
+  const scheduleCheck = useCallback(() => scheduleTimeout(timer, KEYBOARD_CHECK_MS, check), [check]);
+  // A reading is checked once Reanimated is still. A correction it ends glides back then;
+  // letting go at once could reach the UI thread before Reanimated's first frame does and
+  // flash the stale height.
+  const onReading = useCallback(() => {
+    motion.current = { rose: false, fell: false };
+    scheduleCheck();
+  }, [scheduleCheck]);
+  useKeyboardReadings(lastEvent, navigationBar, onReading, scheduleCheck);
+  useEffect(() => () => clearScheduledTimeout(timer), []);
+
+  return { heldAt, real, onFrame };
+}
+
+/** React Native's keyboard event as it measured it (above the navigation bar, 0 for a hide), and when it came. */
+type KeyboardReading = { height: number; at: number };
+
+/**
+ * React Native's keyboard events, Android only: each is kept in `lastEvent`, then `onReading`
+ * runs. A new navigation bar re-measures the last one (it is measured against the bar when
+ * checked), so `onRemeasure` runs.
+ */
+function useKeyboardReadings(
+  lastEvent: RefObject<KeyboardReading | null>,
+  navigationBar: number,
+  onReading: () => void,
+  onRemeasure: () => void,
+): void {
   useEffect(() => {
     if (Platform.OS !== "android") return;
-    // A reading is checked once Reanimated is still. A correction it ends glides back then;
-    // letting go at once could reach the UI thread before Reanimated's first frame does and
-    // flash the stale height.
     const learn = (height: number) => {
-      actual.current = height;
-      motion.current = { rose: false, fell: false };
-      scheduleTimeout(timer, KEYBOARD_CHECK_MS, check);
+      lastEvent.current = { height, at: Date.now() };
+      onReading();
     };
-    const shown = Keyboard.addListener("keyboardDidShow", (event) =>
-      learn(keyboardEventHeight(event.endCoordinates.height, navigationBar)),
-    );
+    const shown = Keyboard.addListener("keyboardDidShow", (event) => learn(event.endCoordinates.height));
     const hidden = Keyboard.addListener("keyboardDidHide", () => learn(0));
     return () => {
       shown.remove();
       hidden.remove();
-      clearScheduledTimeout(timer);
     };
-  }, [check, navigationBar]);
+  }, [lastEvent, onReading]);
 
-  return { heldAt, real, onFrame };
+  useEffect(() => {
+    if (Platform.OS !== "android" || lastEvent.current === null) return;
+    onRemeasure();
+  }, [lastEvent, navigationBar, onRemeasure]);
 }

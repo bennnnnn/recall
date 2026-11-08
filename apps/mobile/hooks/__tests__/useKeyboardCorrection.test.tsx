@@ -3,7 +3,7 @@ import type { SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { renderHook } from "@testing-library/react-native";
 
-import { KEYBOARD_CHECK_MS, useKeyboardCorrection } from "@/hooks/useKeyboardCorrection";
+import { KEYBOARD_CHECK_MS, KEYBOARD_EVENT_TAIL_MS, useKeyboardCorrection } from "@/hooks/useKeyboardCorrection";
 import { correctedKeyboardHeight, NO_KEYBOARD_CORRECTION } from "@/lib/keyboardInset";
 
 /** The S23's 3-button navigation bar; React Native's events measure the keyboard above it. */
@@ -42,6 +42,11 @@ async function setup() {
   return {
     onCorrect,
     correction,
+    /** The safe area reports a new navigation bar (gesture navigation turned on, a rotation). */
+    async navigationBar(bottom: number) {
+      jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 0, left: 0, right: 0, bottom });
+      await hook.rerender({});
+    },
     /** One frame Reanimated reports; returns the height JS takes for it. */
     frame(height: number) {
       reported.value = height;
@@ -243,6 +248,54 @@ describe("useKeyboardCorrection", () => {
 
     expect(kb.onCorrect).not.toHaveBeenCalled();
     expect(kb.drawn()).toBe(0);
+  });
+
+  it("keeps a pending check when the navigation bar changes, and measures against the new bar", async () => {
+    const kb = await setup();
+    keyboardEvent("keyboardDidShow", KEYBOARD - NAV_BAR);
+    // Gesture navigation: a 24 pt bar, before the check for a keyboard Reanimated never saw.
+    await kb.navigationBar(24);
+    kb.settle();
+
+    expect(kb.drawn()).toBe(KEYBOARD - NAV_BAR + 24);
+    expect(kb.onCorrect).toHaveBeenCalledWith(KEYBOARD - NAV_BAR + 24);
+  });
+
+  it("still corrects a missed hide that arrives with a navigation bar change", async () => {
+    const kb = await setup();
+    open(kb);
+    keyboardEvent("keyboardDidHide");
+    await kb.navigationBar(24);
+    kb.settle();
+
+    expect(kb.drawn()).toBe(0);
+    expect(kb.onCorrect).toHaveBeenCalledWith(0);
+  });
+
+  it("corrects a hide whose show was still rising when it came, then stopped part of the way", async () => {
+    const kb = await setup();
+    keyboardEvent("keyboardDidShow", KEYBOARD - NAV_BAR);
+    kb.frame(60);
+    kb.frame(180);
+    keyboardEvent("keyboardDidHide");
+    // The show's last frame reaches JS after the hide's event; then Reanimated stops.
+    kb.frame(240);
+    kb.settle();
+
+    expect(kb.drawn()).toBe(0);
+    expect(kb.onCorrect).toHaveBeenCalledWith(0);
+  });
+
+  it("still trusts a rise that starts well after the hide: a show whose event has not come", async () => {
+    const kb = await setup();
+    open(kb);
+    keyboardEvent("keyboardDidHide");
+    kb.settle(KEYBOARD_EVENT_TAIL_MS);
+    for (const height of [90, KEYBOARD]) kb.frame(height);
+    kb.settle();
+
+    expect(kb.onCorrect).not.toHaveBeenCalled();
+    expect(kb.drawn()).toBe(KEYBOARD);
   });
 
   it("changes nothing on iOS, where Reanimated tracks the keyboard itself", async () => {

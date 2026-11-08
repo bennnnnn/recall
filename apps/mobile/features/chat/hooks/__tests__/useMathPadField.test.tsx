@@ -2,7 +2,7 @@ import { createRef } from "react";
 import { AccessibilityInfo, Keyboard, Platform, type TextInputInstance } from "react-native";
 import { act, renderHook } from "@testing-library/react-native";
 
-import { focusForTyping, focusUnlessPadIsUp, useMathPadField } from "@/features/chat/hooks/useMathPadField";
+import { useMathPadField } from "@/features/chat/hooks/useMathPadField";
 import { MATH_KEYBOARD_SYMBOLS } from "@/lib/math/keyboardSymbols";
 import { symbolA11yLabel } from "@/lib/math/keyboardCatalog";
 
@@ -46,6 +46,12 @@ async function renderPad(open: boolean, ref: { current: TextInputInstance | null
 }
 
 const FRAC = MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === "frac")!;
+
+/** Every queued frame runs: what a test checks is where the field ends up. */
+const settle = () =>
+  act(async () => {
+    jest.runAllTimers();
+  });
 
 describe("useMathPadField", () => {
   let platform: jest.ReplaceProperty<typeof Platform.OS>;
@@ -116,39 +122,66 @@ describe("useMathPadField", () => {
       expect(field.blur).not.toHaveBeenCalled();
     });
 
-    it("ABC lets go of a field focused under the pad before focusing it, which brings the keyboard up", () => {
+    it("ABC lets go of a field focused under the pad, then focuses it, which brings the keyboard up", async () => {
       const { field, ref } = fakeField(true);
-      focusForTyping(ref.current);
-      expect(field.blur).toHaveBeenCalledTimes(1);
-      // A frame later, once showSoftInputOnFocus is back on.
-      expect(field.focus).not.toHaveBeenCalled();
-      jest.runOnlyPendingTimers();
+      const hook = await renderPad(true, ref);
+      field.focused = true;
+      await hook.rerender({ isOpen: false });
+      hook.result.current.focusForTyping();
+      await settle();
 
-      expect(field.focus).toHaveBeenCalledTimes(1);
+      expect(field.focused).toBe(true);
+      expect(field.blur.mock.invocationCallOrder.at(-1)).toBeLessThan(field.focus.mock.invocationCallOrder[0]);
     });
 
-    it("ABC focuses a field that holds no focus a frame later", () => {
+    it("ABC focuses a field that holds no focus", async () => {
       const { field, ref } = fakeField(false);
-      focusForTyping(ref.current);
-      jest.runOnlyPendingTimers();
+      const hook = await renderPad(false, ref);
+      hook.result.current.focusForTyping();
+      await settle();
 
       expect(field.blur).not.toHaveBeenCalled();
-      expect(field.focus).toHaveBeenCalledTimes(1);
+      expect(field.focused).toBe(true);
     });
 
-    it("the full-height editor's button leaves the field unfocused under the pad", () => {
+    it("ABC's focus does not land if the pad is opened again before it does", async () => {
       const { field, ref } = fakeField(false);
-      focusUnlessPadIsUp(ref.current, true);
+      const hook = await renderPad(false, ref);
+      hook.result.current.focusForTyping();
+      await hook.rerender({ isOpen: true });
+      await settle();
+
+      expect(field.focus).not.toHaveBeenCalled();
+      expect(field.focused).toBe(false);
+    });
+
+    it("the full-height editor's button leaves the field unfocused under the pad", async () => {
+      const { field, ref } = fakeField(false);
+      const hook = await renderPad(true, ref);
+      hook.result.current.focusSoon();
+      await settle();
       expect(field.focus).not.toHaveBeenCalled();
 
-      focusUnlessPadIsUp(ref.current, false);
-      expect(field.focus).toHaveBeenCalledTimes(1);
+      await hook.rerender({ isOpen: false });
+      hook.result.current.focusSoon();
+      await settle();
+      expect(field.focused).toBe(true);
+    });
+
+    it("the full-height editor's focus does not land if the pad opens before it does", async () => {
+      const { field, ref } = fakeField(false);
+      const hook = await renderPad(false, ref);
+      hook.result.current.focusSoon();
+      await hook.rerender({ isOpen: true });
+      await settle();
+
+      expect(field.focus).not.toHaveBeenCalled();
     });
 
     it("announces each key the pad types, since TalkBack reads no unfocused field", async () => {
       const { ref } = fakeField(false);
       const hook = await renderPad(true, ref);
-      hook.result.current(FRAC);
+      hook.result.current.insert(FRAC);
 
       expect(insertSymbol).toHaveBeenCalledWith(FRAC);
       expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(symbolA11yLabel(FRAC));
@@ -171,25 +204,29 @@ describe("useMathPadField", () => {
       expect(listeners.size).toBe(0);
     });
 
-    it("ABC focuses the field without letting go: its keyboard swaps back in place", () => {
+    it("ABC focuses the field without letting go: its keyboard swaps back in place", async () => {
       const { field, ref } = fakeField(true);
-      focusForTyping(ref.current);
+      const hook = await renderPad(false, ref);
+      hook.result.current.focusForTyping();
+      await settle();
 
       expect(field.blur).not.toHaveBeenCalled();
-      expect(field.focus).toHaveBeenCalledTimes(1);
+      expect(field.focus).toHaveBeenCalled();
     });
 
-    it("focuses the field for the full-height editor under the pad, as before", () => {
-      const { field, ref } = fakeField(true);
-      focusUnlessPadIsUp(ref.current, true);
+    it("focuses the field for the full-height editor under the pad, as before", async () => {
+      const { field, ref } = fakeField(false);
+      const hook = await renderPad(true, ref);
+      hook.result.current.focusSoon();
+      await settle();
 
-      expect(field.focus).toHaveBeenCalledTimes(1);
+      expect(field.focused).toBe(true);
     });
 
     it("types the pad's keys without announcing them: VoiceOver reads the focused field", async () => {
       const { ref } = fakeField(false);
       const hook = await renderPad(true, ref);
-      hook.result.current(FRAC);
+      hook.result.current.insert(FRAC);
 
       expect(insertSymbol).toHaveBeenCalledWith(FRAC);
       expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();

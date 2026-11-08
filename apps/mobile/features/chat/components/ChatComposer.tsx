@@ -49,7 +49,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
 import { useComposerRowFit } from "@/features/chat/hooks/useComposerRowFit";
 import { useMathKeyboardInsert, useMathKeyboardRequests } from "@/features/chat/hooks/useMathKeyboardInsert";
-import { focusForTyping, focusUnlessPadIsUp, useMathPadField } from "@/features/chat/hooks/useMathPadField";
+import { useMathPadField } from "@/features/chat/hooks/useMathPadField";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
@@ -174,7 +174,7 @@ export const ChatComposer = memo(function ChatComposer({
     onMathChromeHeightChange?.(mathChromeHeight, padUnder);
   }, [mathChromeHeight, onMathChromeHeightChange, padUnder]);
 
-  const insertFromPad = useMathPadField(math.mathBarOpen, inputRef, math.insertSymbol);
+  const padField = useMathPadField(math.mathBarOpen, inputRef, math.insertSymbol);
 
   // The system keyboard dismisses on send and stays down while a reply streams.
   // The math pad is not a system keyboard, so close it the same way.
@@ -233,9 +233,9 @@ export const ChatComposer = memo(function ChatComposer({
     const wasOpen = mathBarOpen;
     toggleMathBar();
     if (wasOpen) {
-      requestAnimationFrame(() => focusForTyping(inputRef.current));
+      padField.focusForTyping();
     }
-  }, [mathBarOpen, streaming, toggleMathBar]);
+  }, [mathBarOpen, padField, streaming, toggleMathBar]);
 
   useMathKeyboardRequests(mathBarOpen ? noopOpen : onToggleMathBar);
 
@@ -357,7 +357,7 @@ export const ChatComposer = memo(function ChatComposer({
                 expanded={composerExpanded}
                 onPress={() => {
                   toggleExpanded();
-                  requestAnimationFrame(() => focusUnlessPadIsUp(inputRef.current, math.mathBarOpen));
+                  padField.focusSoon();
                 }}
               />
             ) : null}
@@ -499,7 +499,7 @@ export const ChatComposer = memo(function ChatComposer({
               open
               height={math.padHeight}
               onToggle={onToggleMathBar}
-              onInsert={insertFromPad}
+              onInsert={padField.insert}
               onCaret={math.stepCaret}
               onAsk={sendAndCloseMath}
               onStop={onStop}
