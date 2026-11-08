@@ -236,9 +236,10 @@ def _line_without_claims(line: str, titles: tuple[str, ...]) -> str | None:
     return f"{prefix}{joined}" if _WORD_RE.search(joined) else None
 
 
-# "Once you tap the card, your reminder is saved": what follows a condition is its outcome,
-# unless the assistant says it did it ("If you need more, ask, and I've set it").
-_CONDITION_HEAD = re.compile(r"^\W*(?:once|when|after|if|as soon as)\b", re.IGNORECASE)
+# "Once you tap the card, your reminder is saved": what follows a condition on the user is
+# its outcome, unless the assistant says it did it ("If you need more, ask, and I've set
+# it"). "After that, your reminder is set" has no condition on the user, so it stays a claim.
+_CONDITION_HEAD = re.compile(r"^\W*(?:once|when|after|if|as soon as)\s+you\b", re.IGNORECASE)
 _SAYS_IT_DID = re.compile(r"\bi(?:'ve|\u2019ve| have)\b", re.IGNORECASE)
 
 
@@ -250,6 +251,8 @@ def _without_claim_tail(sentence: str, titles: tuple[str, ...]) -> str:
             continue
         if _WORD_RE.search(head) and not is_claim(head, titles) and is_claim(tail, titles):
             return head.rstrip(" ,;\u2014\u2013-") + "."
+    if _CONDITION_HEAD.match(sentence) and not _SAYS_IT_DID.search(sentence):
+        return sentence
     return "" if is_claim(sentence, titles) else sentence
 
 

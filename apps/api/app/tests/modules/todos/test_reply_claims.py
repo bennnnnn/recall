@@ -152,6 +152,15 @@ def test_without_claims_keeps_everything_but_the_claim(reply: str, kept: str) ->
             "Once you tap the card, your reminder for tomorrow is saved.",
             "Once you tap the card, your reminder for tomorrow is saved.",
         ),
+        # Review of #2338: without "for …" the whole-sentence check cut it.
+        (
+            "Once you tap the card, your reminder is saved.",
+            "Once you tap the card, your reminder is saved.",
+        ),
+        ("When you confirm, the reminder is set.", "When you confirm, the reminder is set."),
+        # No condition on the user, or the assistant says it did it: the claim clause goes.
+        ("After that, your reminder is set.", "After that."),
+        ("When you asked, I've set your reminder.", "When you asked."),
         # Re-review, 2026-11-07: past, by someone else, plural, and a condition with a claim.
         ("Your reminders for Wednesday are set.", ""),
         (
