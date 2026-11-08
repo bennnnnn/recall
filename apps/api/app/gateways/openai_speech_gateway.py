@@ -16,6 +16,7 @@ from typing import Literal
 
 from app.core.config import Settings
 from app.gateways.http_client import get_pooled_client
+from app.gateways.speech_gateway import stt_language_code
 from app.models.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,24 @@ def realtime_model(settings: Settings) -> str:
     return override or openrouter_slug(_LIVE_TALK_ALIAS).removeprefix("openai/")
 
 
+def _input_transcription(language: str | None) -> dict[str, str]:
+    """How the user's own words are transcribed. With no language named, a short reply came
+    back in another one ("Gut.", "Sí." for "Good", "Yes"): the app's language is the hint,
+    as dictation's is."""
+    transcription = {
+        "model": _REALTIME_INPUT_TRANSCRIBE_MODEL,
+        "prompt": (
+            "Transcribe only words actually spoken by the user. "
+            "Do not invent speech from silence, background noise, "
+            "music, or assistant speaker playback."
+        ),
+    }
+    code = stt_language_code(language)
+    if code:
+        transcription["language"] = code
+    return transcription
+
+
 def realtime_session_config(
     settings: Settings,
     instructions: str,
@@ -71,6 +90,7 @@ def realtime_session_config(
     barge_in: bool = False,
     tools_enabled: bool = False,
     voice: str | None = None,
+    language: str | None = None,
 ) -> dict[str, object]:
     config: dict[str, object] = {
         "type": "realtime",
@@ -90,14 +110,7 @@ def realtime_session_config(
                     "create_response": False,
                     "interrupt_response": barge_in,
                 },
-                "transcription": {
-                    "model": _REALTIME_INPUT_TRANSCRIBE_MODEL,
-                    "prompt": (
-                        "Transcribe only words actually spoken by the user. "
-                        "Do not invent speech from silence, background noise, "
-                        "music, or assistant speaker playback."
-                    ),
-                },
+                "transcription": _input_transcription(language),
             },
             "output": {"voice": voice or _DEFAULT_REALTIME_VOICE},
         },
@@ -137,6 +150,7 @@ async def create_realtime_client_secret(
     barge_in: bool = False,
     tools_enabled: bool = False,
     voice: str | None = None,
+    language: str | None = None,
 ) -> RealtimeClientSecretResult | None:
     """Mint a short-lived key that mobile can use for direct WebRTC setup."""
     key = settings.openai_api_key.strip()
@@ -163,6 +177,7 @@ async def create_realtime_client_secret(
                     barge_in=barge_in,
                     tools_enabled=tools_enabled,
                     voice=voice,
+                    language=language,
                 )
             },
         )

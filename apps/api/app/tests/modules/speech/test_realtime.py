@@ -82,6 +82,18 @@ def test_session_speaks_in_the_chosen_voice(voice, expected):
     assert config["audio"]["output"] == {"voice": expected}
 
 
+# With no language named, a short reply was transcribed in another one ("Gut.", "Sí.").
+@pytest.mark.parametrize(
+    "locale, expected",
+    [("en", "en"), ("pt-BR", "pt"), ("am", "am"), (None, None), ("", None), ("x-klingon", None)],
+)
+def test_session_transcribes_the_user_in_the_apps_language(locale, expected):
+    config = openai_speech_gateway.realtime_session_config(Settings(), "Recall", language=locale)
+    transcription = config["audio"]["input"]["transcription"]
+    assert transcription.get("language") == expected
+    assert transcription["model"] == "gpt-live-transcribe"
+
+
 @pytest.mark.asyncio
 async def test_realtime_client_secret_binds_session_config_and_retries_connects():
     response = MagicMock()
@@ -495,8 +507,8 @@ def test_realtime_session_keeps_the_ephemeral_key_and_returns_the_recall_session
     assert "UNTRUSTED CONTENT — memory" not in instructions
 
 
-def test_realtime_session_uses_the_users_voice():
-    user = api_user(plan="pro", tts_voice="sage")
+def test_realtime_session_uses_the_users_voice_and_language():
+    user = api_user(plan="pro", tts_voice="sage", locale="de")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
@@ -509,6 +521,7 @@ def test_realtime_session_uses_the_users_voice():
         r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
     assert r.status_code == 200
     assert mint.await_args.kwargs["voice"] == "sage"
+    assert mint.await_args.kwargs["language"] == "de"
 
 
 def test_realtime_session_injects_memory_and_custom_instructions():
