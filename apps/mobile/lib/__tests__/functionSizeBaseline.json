@@ -44,7 +44,7 @@
   "features/auth/hooks/useLoginActions.ts::useLoginActions": 109,
   "features/auth/screens/LoginScreen.tsx::makeStyles": 153,
   "features/billing/components/UpgradeSheet.tsx::UpgradeSheet": 191,
-  "features/chat/components/ChatComposer.tsx::ChatComposer": 407,
+  "features/chat/components/ChatComposer.tsx::ChatComposer": 403,
   "features/chat/components/ChatHeader.tsx::ChatHeader": 107,
   "features/chat/components/ChatInlineError.tsx::ChatInlineError": 110,
   "features/chat/components/ChatMessageList.tsx::ChatMessageListComponent": 131,
@@ -111,7 +111,7 @@
   "ui/icons/brand.tsx::BrandMark": 104,
   "ui/list/ListRow.tsx::ListRow": 149,
   "ui/overlay/Menu.tsx::MenuCard": 159,
-  "ui/overlay/Sheet.tsx::Sheet": 194,
+  "ui/overlay/Sheet.tsx::Sheet": 191,
   "ui/pickers/ClockDial.tsx::ClockDial": 175,
   "ui/pickers/DatePickerDialog.tsx::DatePickerDialog": 230,
   "ui/pickers/TimePickerDialog.tsx::TimePickerDialog": 223

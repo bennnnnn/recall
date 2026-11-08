@@ -4,7 +4,6 @@ import {
   Dimensions,
   findNodeHandle,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,10 +33,11 @@ type Props = {
   variant?: "bottom" | "center";
   animation?: "slide" | "fade" | "none";
   /**
-   * Lift the sheet above the OS keyboard. Uses Keyboard events (not
-   * KeyboardAvoidingView) so Android Modals work — activity `resize` does not
-   * apply inside RN Modal windows. Tall sheets (e.g. add reminder + date)
-   * also get a max-height + scroll so the input is not pushed off-screen.
+   * Lift the sheet above the OS keyboard by its height from the screen's edge
+   * (`useKeyboardHeight`), in a Modal or embedded, on both platforms: no window
+   * resizes for the keyboard on Android (edge to edge). Tall sheets (e.g. add
+   * reminder + date) also get a max-height + scroll so the input is not pushed
+   * off-screen.
    */
   keyboardAvoiding?: boolean;
   /** Reset a keyboard-avoiding sheet to the top when this value changes. */
@@ -120,12 +120,9 @@ export function Sheet({
     : (animation ?? (variant === "center" ? "fade" : "slide"));
   const showHandle = withHandle ?? variant === "bottom";
   const keyboardOpen = keyboardAvoiding && keyboardHeight > 0;
-  // Android already shrinks an in-screen sheet when the keyboard opens.
-  // A second inset on that path lifts the form twice. Modals and iOS still need it.
-  const manualKeyboardInset = keyboardAvoiding && (Platform.OS === "ios" || !embedded);
   const windowHeight = Dimensions.get("window").height;
   const panelMaxHeight =
-    manualKeyboardInset && variant === "bottom"
+    keyboardAvoiding && variant === "bottom"
       ? Math.max(200, windowHeight - keyboardHeight - Math.max(insets.top, 12))
       : undefined;
 
@@ -231,7 +228,7 @@ export function Sheet({
       style={[
         s.overlay,
         variant === "center" && s.overlayCenter,
-        manualKeyboardInset && variant === "bottom" && { paddingBottom: keyboardHeight },
+        keyboardAvoiding && variant === "bottom" && { paddingBottom: keyboardHeight },
       ]}
       testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
     >

@@ -1,6 +1,8 @@
+import { Keyboard, Platform, type KeyboardEvent } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import { act, render } from "@testing-library/react-native";
 
+import { KEYBOARD_CHECK_MS } from "@/hooks/useKeyboardCorrection";
 import HomeScreen from "@/features/chat/screens/ChatScreen";
 import { closeDrawer, openDrawer } from "@/features/chat/drawer/drawer";
 
@@ -26,11 +28,18 @@ jest.mock("react-native-reanimated", () => {
     default: { View, createAnimatedComponent: id },
     createAnimatedComponent: id,
     runOnJS: id,
+    runOnUI: id,
     withSpring: id,
     withTiming: id,
     useAnimatedKeyboard: () => keyboard,
     useAnimatedStyle: (factory: () => object) => factory(),
-    useSharedValue: <T,>(value: T) => React.useRef({ value }).current,
+    useSharedValue: <T,>(value: T) =>
+      React.useRef({
+        value,
+        set(next: T) {
+          this.value = next;
+        },
+      }).current,
     useDerivedValue: <T,>(factory: () => T) => {
       const latest = React.useRef(factory);
       latest.current = factory;
@@ -474,5 +483,71 @@ describe("ChatScreen thread while the keyboard moves", () => {
     await rendersDuring(emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]));
     await wait(500);
     expect(pinnedAt).toEqual([]);
+  });
+});
+
+describe("ChatScreen on Android when the keyboard closes without Reanimated following it", () => {
+  const listeners = new Map<string, Set<(event: KeyboardEvent) => void>>();
+  const keyboardEvent = (name: string, height = 0) =>
+    act(async () => {
+      const event = { endCoordinates: { height, screenX: 0, screenY: 0, width: 0 } } as KeyboardEvent;
+      for (const listener of listeners.get(name) ?? []) listener(event);
+    });
+
+  beforeEach(() => {
+    jest.replaceProperty(Platform, "OS", "android");
+    listeners.clear();
+    jest.spyOn(Keyboard, "addListener").mockImplementation(((name: string, listener: (event: KeyboardEvent) => void) => {
+      const set = listeners.get(name) ?? new Set();
+      set.add(listener);
+      listeners.set(name, set);
+      return { remove: () => set.delete(listener) };
+    }) as never);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("puts the composer back down on the keyboard that is really there", async () => {
+    await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
+    await keyboardEvent("keyboardDidShow", KEYBOARD_HEIGHT);
+    await rendersDuring(emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]));
+    expect(lastBody().layout.keyboardLift.value).toBe(KEYBOARD_HEIGHT - IDLE_BOTTOM_PAD);
+
+    // Back, a sheet or another app closes it; Reanimated, still OPEN, ignores the zero inset.
+    await keyboardEvent("keyboardDidHide");
+    expect(lastBody().layout.keyboardLift.value).toBe(KEYBOARD_HEIGHT - IDLE_BOTTOM_PAD);
+    expect(await wait(KEYBOARD_CHECK_MS)).toBe(1);
+
+    expect(lastBody().layout.keyboardLift.value).toBe(0);
+    expect(lastBody().layout.emptyHeight).toBe(resting);
+  });
+
+  it("lays the thread out at rest again after a keyboard Reanimated never saw closes (a sheet's field)", async () => {
+    await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
+    await keyboardEvent("keyboardDidShow", KEYBOARD_HEIGHT);
+    await wait(KEYBOARD_CHECK_MS);
+    expect(lastBody().layout.emptyHeight).toBe(emptyHeightWith(resting, KEYBOARD_HEIGHT));
+
+    await keyboardEvent("keyboardDidHide");
+    await wait(KEYBOARD_CHECK_MS);
+    expect(lastBody().layout.keyboardLift.value).toBe(0);
+    expect(lastBody().layout.emptyHeight).toBe(resting);
+  });
+
+  it("leaves a hide Reanimated follows to Reanimated", async () => {
+    await render(<HomeScreen />);
+    const resting = lastBody().layout.emptyHeight;
+    await keyboardEvent("keyboardDidShow", KEYBOARD_HEIGHT);
+    await rendersDuring(emitAll([...openingFrames, { state: OPEN, height: KEYBOARD_HEIGHT }]));
+    await keyboardEvent("keyboardDidHide");
+
+    const hide = await rendersDuring(emitAll([...closingFrames, { state: CLOSED, height: 0 }]));
+    expect(hide + (await wait(KEYBOARD_CHECK_MS))).toBe(1);
+    expect(lastBody().layout.keyboardLift.value).toBe(0);
+    expect(lastBody().layout.emptyHeight).toBe(resting);
   });
 });

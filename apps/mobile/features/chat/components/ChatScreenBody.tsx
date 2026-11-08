@@ -1,7 +1,7 @@
 import { memo, ReactElement, RefObject, useEffect, useMemo } from "react";
-import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
+import { View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { type AnimatedStyle, type SharedValue } from "react-native-reanimated";
+import { type SharedValue } from "react-native-reanimated";
 
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
@@ -31,6 +31,7 @@ import type { IconName } from "@/ui/icons/names";
 import type { Theme } from "@/lib/theme";
 import { useDrawerOpen } from "@/contexts/DrawerContext";
 import { ChatKeyboardSpacer } from "@/features/chat/components/ChatKeyboardSpacer";
+import type { ComposerKeyboard } from "@/hooks/useKeyboardInset";
 
 export interface ChatScreenLayoutProps {
   styles: ChatScreenStyles;
@@ -62,7 +63,8 @@ export interface ChatScreenListProps {
 }
 
 export interface ChatScreenComposerProps {
-  animatedStyle?: AnimatedStyle<ViewStyle>;
+  /** The composer's place on the keyboard and the keyboard's corrected height. */
+  keyboard?: ComposerKeyboard;
   streaming: boolean;
   /** The reply's text is all in and only its save is left: Send works, Stop is gone. */
   replySaving: boolean;
@@ -178,7 +180,8 @@ export const ChatScreenBody = memo(function ChatScreenBody({
 
       <ChatComposer
         visible={!drawerOpen}
-        animatedContainerStyle={composer.animatedStyle}
+        animatedContainerStyle={composer.keyboard?.style}
+        keyboardHeight={composer.keyboard?.height}
         streaming={composerShowsStop(composer)}
         attachPicking={composer.attachPicking}
         sendBusy={composer.sendBusy}

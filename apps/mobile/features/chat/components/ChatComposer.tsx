@@ -10,9 +10,9 @@ import {
   type TextInputInstance,
 } from "react-native";
 import Animated, {
-  useAnimatedKeyboard,
   useAnimatedStyle,
   type AnimatedStyle,
+  type SharedValue,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -51,6 +51,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
 import { useComposerRowFit } from "@/features/chat/hooks/useComposerRowFit";
 import { useMathKeyboardInsert, useMathKeyboardRequests } from "@/features/chat/hooks/useMathKeyboardInsert";
+import { useMathPadField } from "@/features/chat/hooks/useMathPadField";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
@@ -77,6 +78,8 @@ const COMPOSER_STATUS_LINE_HEIGHT = 18;
 type Props = {
   visible: boolean;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
+  /** The keyboard's height, frame by frame (the chat's corrected keyboard). */
+  keyboardHeight?: SharedValue<number>;
   streaming: boolean;
   /** A picked file is still being prepared: Send and Attach wait for it. */
   attachPicking?: boolean;
@@ -111,6 +114,7 @@ type Props = {
 export const ChatComposer = memo(function ChatComposer({
   visible,
   animatedContainerStyle,
+  keyboardHeight,
   streaming,
   attachPicking = false,
   sendBusy = false,
@@ -167,11 +171,7 @@ export const ChatComposer = memo(function ChatComposer({
     onMathChromeHeightChange?.(mathChromeHeight, padUnder);
   }, [mathChromeHeight, onMathChromeHeightChange, padUnder]);
 
-  useEffect(() => {
-    if (!math.mathBarOpen) return;
-    const id = requestAnimationFrame(() => inputRef.current?.focus());
-    return () => cancelAnimationFrame(id);
-  }, [math.mathBarOpen]);
+  const padField = useMathPadField(math.mathBarOpen, inputRef, math.insertSymbol);
 
   // The system keyboard dismisses on send and stays down while a reply streams.
   // The math pad is not a system keyboard, so close it the same way.
@@ -210,13 +210,12 @@ export const ChatComposer = memo(function ChatComposer({
   const stacked = rowFit.wraps || composerExpanded;
 
   const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
-  const keyboard = useAnimatedKeyboard();
   const gapFadeStyle = useAnimatedStyle(() => {
     "worklet";
     // The math pad fills the home-indicator gap. A scrim there would paint
     // across the keys instead of the messages above the pill.
     const pad =
-      keyboard.height.value > 0 || composerExpanded || mathBarOpen ? 0 : bottomPad;
+      (keyboardHeight?.value ?? 0) > 0 || composerExpanded || mathBarOpen ? 0 : bottomPad;
     // Inline the height. Calling an imported helper here runs on the UI
     // thread and aborts the app.
     const height = pad <= 0 ? 0 : pad * 2 + COMPOSER_GAP_FADE_OVERLAP;
@@ -231,9 +230,9 @@ export const ChatComposer = memo(function ChatComposer({
     const wasOpen = mathBarOpen;
     toggleMathBar();
     if (wasOpen) {
-      requestAnimationFrame(() => inputRef.current?.focus());
+      padField.focusForTyping();
     }
-  }, [mathBarOpen, streaming, toggleMathBar]);
+  }, [mathBarOpen, padField, streaming, toggleMathBar]);
 
   useMathKeyboardRequests(mathBarOpen ? noopOpen : onToggleMathBar);
 
@@ -355,7 +354,7 @@ export const ChatComposer = memo(function ChatComposer({
                 expanded={composerExpanded}
                 onPress={() => {
                   toggleExpanded();
-                  requestAnimationFrame(() => inputRef.current?.focus());
+                  padField.focusSoon();
                 }}
               />
             ) : null}
@@ -498,7 +497,7 @@ export const ChatComposer = memo(function ChatComposer({
               open
               height={math.padHeight}
               onToggle={onToggleMathBar}
-              onInsert={math.insertSymbol}
+              onInsert={padField.insert}
               onCaret={math.stepCaret}
               onAsk={sendAndCloseMath}
               onStop={onStop}

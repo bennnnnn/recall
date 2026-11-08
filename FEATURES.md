@@ -1352,9 +1352,14 @@ lock, attachment byte verification on GET, graph `points: []` rejection, live mo
 
 Still open (non-blocking):
 
-- ⚠️ **Android chat keyboard** — `softwareKeyboardLayoutMode: resize` is set for Reanimated's
-  `useAnimatedKeyboard`; needs an **Android dev-client rebuild** and on-device composer smoke test
-  (iOS confirmed smooth; Android unverified).
+- ⚠️ **Android keyboard** — the app is edge to edge (enforced from Android 15), so nothing
+  resizes for the keyboard. The chat composer follows Reanimated's `useAnimatedKeyboard`, put
+  right from React Native's keyboard events when Reanimated loses the keyboard
+  (`hooks/useKeyboardCorrection.ts`); keyboard-avoiding sheets, the to-do add button and the
+  memory composer lift by the keyboard's height from the screen's edge, navigation bar included
+  (`ui/hooks/useKeyboardHeight.ts`); the maths pad holds no field focus on Android, so the phone's
+  keyboard never stacks under it (`features/chat/hooks/useMathPadField.ts`). Needs an on-device
+  smoke test (Galaxy S23, Nov 2026).
 - ✅ **Memory consolidation (pair-merge)** — exact duplicate facts are deleted without an LLM
   call; near-duplicate pairs (token Jaccard) merge with the same ≥20% anchor gate. Triggered
   on GET /memories as before.

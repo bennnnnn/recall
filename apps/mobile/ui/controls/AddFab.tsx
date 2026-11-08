@@ -39,14 +39,18 @@ export function AddFab({ onPress, accessibilityLabel, wave = false }: Props) {
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight(true);
   const s = makeStyles(theme);
-  // Android activity resize already shrinks the window — only lift on iOS.
-  const keyboardLift = Platform.OS === "ios" ? keyboardHeight : 0;
-  const bottom = fabBottom(insets.bottom) + keyboardLift;
+  // Nothing resizes for the keyboard (Android is edge to edge): the button rides above it.
+  // Android's height already counts the navigation bar that fabBottom clears; iOS keeps its lift.
+  const bottom =
+    Platform.OS === "android" && keyboardHeight > 0
+      ? fabBottom(0) + keyboardHeight
+      : fabBottom(insets.bottom) + keyboardHeight;
 
   return (
     <View
       pointerEvents="box-none"
       style={[s.slot, { bottom, right: Space.md + insets.right }]}
+      testID="add-fab-slot"
     >
       {wave ? <FabWave color={theme.primary} /> : null}
       <Pressable

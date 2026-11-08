@@ -109,7 +109,7 @@ function ChatScreen() {
   }, []);
 
   const idleComposerBottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
-  const { keyboardHeight, keyboardLift, keyboardSteps, composerAnimatedStyle } = useKeyboardInset({
+  const { keyboardHeight, keyboardLift, keyboardSteps, composerKeyboard } = useKeyboardInset({
     idleBottomPad: idleComposerBottomPad,
   });
 
@@ -360,7 +360,7 @@ function ChatScreen() {
     isPaid,
     retryChatError,
     dismissChatError,
-    composerAnimatedStyle,
+    composerKeyboard,
     keyboardLift,
     streaming: streamActive,
     replySaving: finalizing,

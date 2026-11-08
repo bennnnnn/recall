@@ -1,4 +1,6 @@
 import React from "react";
+import { Keyboard, Platform, type KeyboardEvent } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { act, render } from "@testing-library/react-native";
 import { ConversationList } from "@/features/chat/drawer/ConversationList";
 import { api, type SearchResult } from "@/lib/api";
@@ -11,7 +13,7 @@ const mockPush = jest.fn();
 const mockCloseDrawer = jest.fn();
 const mockClearHighlight = jest.fn();
 let mockHeader: { onSettings: () => void };
-let mockFooter: { onOpenSearch: () => void; onSearchChange: (value: string) => void };
+let mockFooter: { onOpenSearch: () => void; onSearchChange: (value: string) => void; keyboardHeight: number };
 let mockList: { onOpenChat: (id: string, messageId?: string | null) => void; onOpenSearchResult?: (id: string, messageId?: string | null) => void };
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
@@ -47,7 +49,7 @@ beforeEach(() => {
   jest.clearAllMocks(); jest.useFakeTimers(); mockSession = 0; mockToken = "token"; mockDrawerOpen = true;
   jest.mocked(api.search).mockResolvedValue({ items: [result], next_cursor: null });
 });
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 async function search() {
   const view = await render(<ConversationList />);
   await act(async () => { mockFooter.onOpenSearch(); });
@@ -104,4 +106,21 @@ it("clears a previous message highlight when opening a title result", async () =
   await act(async () => { press("chat", null); });
   expect(mockSetParams).toHaveBeenCalledWith({ chatId: "chat", highlightMessage: undefined });
   expect(mockClearHighlight).toHaveBeenCalledTimes(1);
+});
+
+it("on Android sets the search field on the keyboard, the navigation bar it is measured above included", async () => {
+  const NAV_BAR = 48;
+  jest.replaceProperty(Platform, "OS", "android");
+  jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 0, left: 0, right: 0, bottom: NAV_BAR });
+  const listeners = new Map<string, (event: KeyboardEvent) => void>();
+  jest.spyOn(Keyboard, "addListener").mockImplementation(((name: string, listener: (event: KeyboardEvent) => void) => {
+    listeners.set(name, listener);
+    return { remove: jest.fn() };
+  }) as never);
+  await render(<ConversationList />);
+  await act(async () => { mockFooter.onOpenSearch(); });
+  await act(async () => {
+    listeners.get("keyboardDidShow")?.({ endCoordinates: { height: 252, screenX: 0, screenY: 0, width: 0 } } as KeyboardEvent);
+  });
+  expect(mockFooter.keyboardHeight).toBe(252 + NAV_BAR);
 });
