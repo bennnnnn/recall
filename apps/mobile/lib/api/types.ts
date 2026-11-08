@@ -50,7 +50,8 @@ export type User = {
   locale: string;
   timezone: string;
   location: string | null;
-  location_enabled: boolean;
+  /** The Location switch: null until the user has chosen (the phone then asks, by the system sheet). */
+  location_enabled: boolean | null;
   custom_instructions: string | null;
   age: number | null;
   country: string | null;

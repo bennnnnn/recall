@@ -3,14 +3,14 @@ import { useTranslation } from "react-i18next";
 
 import type { ClientGeo } from "@/features/chat/model/clientGeo";
 import type { Message, User } from "@/lib/api";
-import { resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
+import { type LocationSwitch, resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 
 type Params = {
   token: string | null;
   messages: Message[];
   updateUser: (patch: Partial<User>) => Promise<void>;
-  /** The profile's location switch, null until the server has said. */
-  locationEnabled: boolean | null;
+  /** The account's Location switch, which the location read keeps to. */
+  locationSwitch: LocationSwitch;
   regenerateResponse: (model?: string | null, clientGeo?: ClientGeo | null) => Promise<void>;
   /** Show typing before geo; optional guard invalidates preparation on Stop/navigation. */
   beginRegenerateUi?: () => (() => boolean) | void;
@@ -22,7 +22,7 @@ export function useChatRegenerate({
   token,
   messages,
   updateUser,
-  locationEnabled,
+  locationSwitch,
   regenerateResponse,
   beginRegenerateUi,
   cancelRegenerateUi,
@@ -46,7 +46,7 @@ export function useChatRegenerate({
           lastUser?.content ?? "",
           t,
           updateUser,
-          locationEnabled,
+          locationSwitch,
         );
         if (isCurrentAttempt && !isCurrentAttempt()) return;
         if (!result.ok) {
@@ -67,7 +67,7 @@ export function useChatRegenerate({
       cancelRegenerateUi,
       t,
       updateUser,
-      locationEnabled,
+      locationSwitch,
     ],
   );
 

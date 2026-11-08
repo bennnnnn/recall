@@ -105,6 +105,11 @@ class User(Base):
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
     location: Mapped[str | None] = mapped_column(String(128), nullable=True)
     location_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # When the user last set the Location switch (Data controls, or Allow on the phone's
+    # sheet). NULL: never chosen, which reads as off here but lets the phone ask.
+    location_chosen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     country: Mapped[str | None] = mapped_column(String(64), nullable=True)
     job: Mapped[str | None] = mapped_column(String(128), nullable=True)

@@ -74,6 +74,7 @@ _PROFILE_FIELDS = (
     "timezone",
     "location",
     "location_enabled",
+    "location_chosen_at",
     "age",
     "country",
     "job",

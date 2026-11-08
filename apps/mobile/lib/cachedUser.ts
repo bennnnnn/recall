@@ -51,7 +51,7 @@ const DEFAULT_USER_FIELDS: Omit<User, keyof CachedUser> = {
   reminder_lead_minutes: 0,
   timezone: "",
   location: null,
-  location_enabled: false,
+  location_enabled: null,
   custom_instructions: null,
   age: null,
   country: null,

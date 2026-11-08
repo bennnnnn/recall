@@ -142,6 +142,7 @@ def make_user(**columns: Any) -> MagicMock:
         "follow_up_suggestions_enabled": True,
         "web_search_enabled": True,
         "location_enabled": False,
+        "location_chosen_at": None,
         "location": None,
         "response_tone": "casual",
         "emoji_use": "some",

@@ -189,3 +189,32 @@ def test_ai_data_consent_column_is_nullable_without_a_default():
     assert column.nullable is True
     assert column.default is None and column.server_default is None
     assert UserUpdate(ai_data_consent=True).ai_data_consent is True
+
+
+@pytest.mark.parametrize(
+    "fields, stamped",
+    [
+        ({"location_enabled": False, "location": None}, True),
+        ({"location_enabled": True}, True),
+        ({"location": "Oakland, CA"}, False),
+        ({"location_enabled": None}, False),
+    ],
+)
+def test_with_location_choice_stamps_only_a_switch_the_user_set(fields, stamped):
+    from datetime import UTC, datetime
+
+    from app.modules.account.profile import with_location_choice
+
+    now = datetime(2026, 11, 8, tzinfo=UTC)
+    snapshot = dict(fields)
+    expected = {**fields, "location_chosen_at": now} if stamped else fields
+    assert with_location_choice(fields, now=now) == expected
+    assert fields == snapshot
+
+
+def test_location_choice_column_is_nullable_without_a_default():
+    from app.models.orm import User
+
+    column = User.__table__.c.location_chosen_at
+    assert column.nullable is True
+    assert column.default is None and column.server_default is None

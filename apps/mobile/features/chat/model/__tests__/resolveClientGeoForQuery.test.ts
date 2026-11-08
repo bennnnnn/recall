@@ -18,7 +18,7 @@ jest.mock("@/lib/places/localPlacesQuery", () => ({
 
 import { Alert, Linking } from "react-native";
 
-import { resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
+import { locationSwitchOf, resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 import { hasLocationPermission, requestDeviceGeo } from "@/lib/deviceLocation";
 import { isGeoQuery } from "@/lib/places/localPlacesQuery";
 
@@ -35,7 +35,7 @@ describe("resolveClientGeoForQuery", () => {
     (hasLocationPermission as jest.Mock).mockResolvedValue(false);
   });
 
-  it("BUG FIX regression: shows the OS permission sheet even when the in-app toggle is off", async () => {
+  it("BUG FIX regression: shows the OS permission sheet for a switch never chosen (#1058)", async () => {
     (requestDeviceGeo as jest.Mock).mockResolvedValue({
       status: "granted",
       geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 },
@@ -46,7 +46,7 @@ describe("resolveClientGeoForQuery", () => {
       "Best coffee shops near me",
       t,
       persistLocation,
-      false,
+      "never_chosen",
     );
 
     expect(requestDeviceGeo).toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe("resolveClientGeoForQuery", () => {
       "Where am I right now",
       t,
       persistLocation,
-      false,
+      "never_chosen",
     );
 
     expect(result).toEqual({
@@ -102,7 +102,7 @@ describe("resolveClientGeoForQuery", () => {
       "Where am I right now",
       t,
       persistLocation,
-      false,
+      "never_chosen",
     );
 
     expect(result).toEqual({ ok: false });
@@ -130,7 +130,7 @@ describe("resolveClientGeoForQuery", () => {
       "Where am I right now",
       t,
       persistLocation,
-      false,
+      "never_chosen",
     );
 
     expect(result).toEqual({ ok: false });
@@ -145,7 +145,7 @@ describe("resolveClientGeoForQuery", () => {
       "Best coffee shops near me",
       t,
       persistLocation,
-      false,
+      "never_chosen",
     );
 
     expect(result).toEqual({ ok: false });
@@ -158,14 +158,14 @@ describe("resolveClientGeoForQuery", () => {
 
   it("reads quickly: a recent fix serves, and the waits are bounded", async () => {
     (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "no_fix" });
-    await resolveClientGeoForQuery("tok", "Where am I right now", t, persistLocation, false);
+    await resolveClientGeoForQuery("tok", "Where am I right now", t, persistLocation, "never_chosen");
     expect(requestDeviceGeo).toHaveBeenCalledWith({ quick: true });
   });
 
   it("sends the turn without a fix when none comes in time, saving nothing", async () => {
     (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "no_fix" });
 
-    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, false);
+    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "never_chosen");
 
     expect(result).toEqual({ ok: true, clientGeo: null });
     expect(persistLocation).not.toHaveBeenCalled();
@@ -177,24 +177,49 @@ describe("resolveClientGeoForQuery", () => {
       status: "granted",
       geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 },
     });
-    (hasLocationPermission as jest.Mock).mockResolvedValue(true);
     // A save the caller does not wait for (location already on) returns nothing to await.
     const saveInBackground = jest.fn(() => undefined);
-    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, saveInBackground, true);
+    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, saveInBackground, "on");
     // The switch is on already: only its place is kept fresh.
     expect(saveInBackground).toHaveBeenCalledWith({ location: "Oakland, CA" });
     expect(result).toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
   });
 
   describe("the user's Location switch", () => {
-    it("switched off in Data controls is never turned back on: the phone already allowing it, nothing is read, saved or sent", async () => {
+    const oakland = { status: "granted", geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 } };
+
+    it("switched off in Data controls is never turned back on: nothing is read, saved or sent", async () => {
       (hasLocationPermission as jest.Mock).mockResolvedValue(true);
-      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, false);
+      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "off");
       // The turn goes without a place; the server's reply asks for one.
       expect(result).toEqual({ ok: true, clientGeo: null });
       expect(requestDeviceGeo).not.toHaveBeenCalled();
       expect(persistLocation).not.toHaveBeenCalled();
       expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      // A second account on a phone the first already allowed, or iOS allowed later in Settings.
+      ["the phone already allows location", true],
+      ["the system sheet asks", false],
+    ])("never chosen, a fix is used and turns it on when %s", async (_case, allowed) => {
+      (hasLocationPermission as jest.Mock).mockResolvedValue(allowed);
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "never_chosen");
+      expect(result).toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
+      expect(persistLocation).toHaveBeenCalledWith({ location: "Oakland, CA", location_enabled: true });
+    });
+
+    it("never chosen after a save that failed, the next ask saves again", async () => {
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      persistLocation.mockRejectedValueOnce(new Error("offline"));
+      await expect(
+        resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "never_chosen"),
+      ).resolves.toMatchObject({ ok: true });
+      // The server still has it never chosen: the next question asks the same way.
+      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "never_chosen");
+      expect(persistLocation).toHaveBeenCalledTimes(2);
+      expect(persistLocation).toHaveBeenLastCalledWith({ location: "Oakland, CA", location_enabled: true });
     });
 
     it("before the server has said the switch, sends a fix with the turn and saves nothing", async () => {
@@ -204,7 +229,7 @@ describe("resolveClientGeoForQuery", () => {
         status: "granted",
         geo: { label: null, latitude: 37.8, longitude: -122.27, lateLabel: new Promise((resolve) => { named = resolve; }) },
       });
-      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, null);
+      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "unknown");
       expect(result).toMatchObject({ ok: true, clientGeo: { latitude: 37.8, longitude: -122.27 } });
       named("Oakland, CA");
       await new Promise<void>((resolve) => setImmediate(resolve));
@@ -212,12 +237,19 @@ describe("resolveClientGeoForQuery", () => {
     });
 
     it("before the server has said, the system sheet's Allow is the user's yes", async () => {
-      (requestDeviceGeo as jest.Mock).mockResolvedValue({
-        status: "granted",
-        geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 },
-      });
-      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, null);
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "unknown");
       expect(persistLocation).toHaveBeenCalledWith({ location: "Oakland, CA", location_enabled: true });
+    });
+
+    it.each([
+      [true, true, "on"],
+      [false, true, "off"],
+      [null, true, "never_chosen"],
+      [undefined, true, "never_chosen"],
+      [true, false, "unknown"],
+    ])("reads the server's %p (confirmed %p) as %p", (enabled, confirmed, expected) => {
+      expect(locationSwitchOf(enabled, confirmed)).toBe(expected);
     });
   });
 
@@ -234,7 +266,7 @@ describe("resolveClientGeoForQuery", () => {
 
     it("sends the coordinates with the turn but never saves them as the profile's place", async () => {
       slowName();
-      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, false);
+      const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "never_chosen");
       expect(result).toEqual({
         ok: true,
         clientGeo: { label: "37.8000, -122.2700", latitude: 37.8, longitude: -122.27 },
@@ -245,7 +277,7 @@ describe("resolveClientGeoForQuery", () => {
 
     it("saves the name when the lookup finishes", async () => {
       const name = slowName();
-      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, false);
+      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "never_chosen");
       name("Oakland, CA, United States");
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(persistLocation).toHaveBeenLastCalledWith({ location: "Oakland, CA, United States" });
@@ -256,7 +288,7 @@ describe("resolveClientGeoForQuery", () => {
       ["another account", () => { mockSessionGeneration += 1; return "Oakland, CA"; }],
     ])("saves nothing more for %s", async (_case, outcome) => {
       const name = slowName();
-      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, false);
+      await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, persistLocation, "never_chosen");
       name(outcome());
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(persistLocation).toHaveBeenCalledTimes(1);

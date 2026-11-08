@@ -9,7 +9,7 @@ jest.mock("@/features/chat/model/resolveClientGeoForQuery", () => ({
   resolveClientGeoForQuery: jest.fn(async () => ({ ok: true, clientGeo: null })),
 }));
 
-import { resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
+import { type LocationSwitch, resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 
 const resolveGeo = resolveClientGeoForQuery as jest.Mock;
 
@@ -33,19 +33,19 @@ function Probe({
   regenerateResponse,
   beginRegenerateUi,
   cancelRegenerateUi,
-  locationEnabled = false,
+  locationSwitch = "unknown",
 }: {
   messages: Message[];
   regenerateResponse: jest.Mock;
   beginRegenerateUi?: jest.Mock;
   cancelRegenerateUi?: jest.Mock;
-  locationEnabled?: boolean | null;
+  locationSwitch?: LocationSwitch;
 }) {
   const result = useChatRegenerate({
     token: "tok",
     messages,
     updateUser: jest.fn(),
-    locationEnabled,
+    locationSwitch,
     regenerateResponse,
     beginRegenerateUi,
     cancelRegenerateUi,
@@ -83,14 +83,14 @@ describe("useChatRegenerate", () => {
     expect(cancelRegenerateUi).not.toHaveBeenCalled();
   });
 
-  it.each([true, false, null])("reads the location under the account's switch (%p), never past it", async (locationEnabled) => {
+  it.each(["on", "off", "never_chosen", "unknown"] as const)("reads the location under the account's switch (%p), never past it", async (locationSwitch) => {
     await render(<Probe
       messages={[msg("user", "coffee near me", "u1"), msg("assistant", "answer", "a1")]}
       regenerateResponse={jest.fn()}
-      locationEnabled={locationEnabled}
+      locationSwitch={locationSwitch}
     />);
     await act(async () => { await currentRegenerate("free-chat"); });
-    expect(resolveGeo).toHaveBeenCalledWith("tok", "coffee near me", expect.any(Function), expect.any(Function), locationEnabled);
+    expect(resolveGeo).toHaveBeenCalledWith("tok", "coffee near me", expect.any(Function), expect.any(Function), locationSwitch);
   });
 
   it("asks for no location and sends nothing when the start was refused mid-reply", async () => {

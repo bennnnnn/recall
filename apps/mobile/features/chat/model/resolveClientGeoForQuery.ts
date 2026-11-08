@@ -12,10 +12,9 @@ type ClientGeoResolveResult =
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-type PersistLocation = (patch: {
-  location?: string;
-  location_enabled?: boolean;
-}) => void | Promise<void>;
+type LocationPatch = { location?: string; location_enabled?: true };
+
+type PersistLocation = (patch: LocationPatch) => void | Promise<void>;
 
 export function queryNeedsClientGeo(queryText: string): boolean {
   return Boolean(
@@ -42,13 +41,37 @@ function alertOpenDeviceSettings(t: Translate): void {
 }
 
 /**
+ * The account's Location switch as the server last said it. Never chosen (null on the
+ * server) asks through the system sheet; off is the user's own choice in Data controls;
+ * "unknown" before the server has said (the launch cache holds no switch).
+ */
+export type LocationSwitch = "on" | "off" | "never_chosen" | "unknown";
+
+export function locationSwitchOf(enabled: boolean | null | undefined, confirmed: boolean): LocationSwitch {
+  if (!confirmed) return "unknown";
+  if (enabled === true) return "on";
+  return enabled === false ? "off" : "never_chosen";
+}
+
+/**
+ * What a fix saves to the profile. Only the user turns Location on: their Allow on the
+ * system sheet, or a fix for a switch never chosen (the flow before there was a choice).
+ * One that is on keeps its place fresh; a switch not yet read saves nothing.
+ */
+function locationPatch(locationSwitch: LocationSwitch, justAllowed: boolean, place: string | null): LocationPatch | null {
+  const named = place ? { location: place } : {};
+  if (locationSwitch === "never_chosen" || justAllowed) return { ...named, location_enabled: true };
+  return locationSwitch === "on" && place ? named : null;
+}
+
+/**
  * Resolve device geo for nearby / where-am-I asks.
  * Show the system permission sheet immediately — do not ask the model for a city,
  * and do not insert an in-app "Turn on" alert in front of the OS prompt.
- * Location switched off while the phone already allows it is the user's choice, never
- * undone here: nothing is read or sent, and the server's reply asks for the place.
- * Before the server has said (`locationOn` null, the launch cache) a fix goes with the
- * turn and nothing is saved: the server applies the switch.
+ * Location switched off is the user's choice, never undone here: nothing is read or
+ * sent, and the server's reply asks for the place. Before the server has said
+ * (`unknown`), a fix the phone already allows goes with the turn and nothing is
+ * saved: the server applies the switch.
  * A recent fix serves, and the waits are bounded: with no fix in time the turn
  * goes without one. `persistLocation` is awaited only as far as it says: the
  * caller decides whether the turn must wait for the profile to save. Coordinates
@@ -60,17 +83,13 @@ export async function resolveClientGeoForQuery(
   queryText: string,
   t: Translate,
   persistLocation: PersistLocation,
-  locationOn: boolean | null,
+  locationSwitch: LocationSwitch,
 ): Promise<ClientGeoResolveResult> {
-  if (!queryNeedsClientGeo(queryText)) {
+  if (!queryNeedsClientGeo(queryText) || locationSwitch === "off") {
     return { ok: true, clientGeo: null };
   }
 
-  const allowedBefore = locationOn === true || (await hasLocationPermission());
-  if (locationOn === false && allowedBefore) {
-    return { ok: true, clientGeo: null };
-  }
-
+  const allowedBefore = locationSwitch !== "unknown" || (await hasLocationPermission());
   const session = getSessionGeneration();
   const result = await requestDeviceGeo({ quick: true });
 
@@ -86,14 +105,10 @@ export async function resolveClientGeoForQuery(
       latitude: geo.latitude,
       longitude: geo.longitude,
     };
-    // The switch is the user's: only their Allow on the system sheet, just now, turns it on.
-    // One that is on keeps its place fresh; one not yet read from the server saves nothing.
-    const justAllowed = !allowedBefore;
-    if (!justAllowed && locationOn !== true) return { ok: true, clientGeo };
-    const named = place ? { location: place } : null;
+    const patch = locationPatch(locationSwitch, !allowedBefore, place);
+    if (!patch && locationSwitch !== "on") return { ok: true, clientGeo };
     try {
-      if (justAllowed) await persistLocation({ ...named, location_enabled: true });
-      else if (named) await persistLocation(named);
+      if (patch) await persistLocation(patch);
     } catch {
       // Still use this turn's fix; Settings may catch up on next refresh.
     }

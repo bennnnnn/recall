@@ -169,6 +169,42 @@ def test_me_patch_ignores_a_client_supplied_consent_time():
     assert captured["name"] == "Ada"
 
 
+# The Location switch: on, off, or never chosen, which the phone asks about.
+@pytest.mark.parametrize(
+    "enabled, chosen_at, expected",
+    [
+        (False, None, None),
+        (False, datetime(2026, 11, 8, tzinfo=UTC), False),
+        (True, datetime(2026, 11, 8, tzinfo=UTC), True),
+        # Turned on before the choice was recorded: on stays on.
+        (True, None, True),
+    ],
+)
+def test_me_reports_a_never_chosen_location_switch_as_null(enabled, chosen_at, expected):
+    user = api_user(location_enabled=enabled, location_chosen_at=chosen_at)
+    me = TestClient(app_with_user(user)).get("/auth/me", headers={"Authorization": "Bearer tok"})
+    assert me.status_code == 200
+    assert me.json()["location_enabled"] is expected
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_me_patch_records_the_location_choice_at_the_server_clock(enabled):
+    before = datetime.now(UTC)
+    status, captured = _patch_capturing_fields({"location_enabled": enabled})
+    assert status == 200
+    assert captured["location_enabled"] is enabled
+    stored = captured["location_chosen_at"]
+    assert isinstance(stored, datetime) and before <= stored <= datetime.now(UTC)
+
+
+def test_me_patch_leaves_the_location_choice_alone_otherwise():
+    status, captured = _patch_capturing_fields(
+        {"location": "Oakland, CA", "location_chosen_at": "2000-01-01T00:00:00Z"}
+    )
+    assert status == 200
+    assert captured == {"location": "Oakland, CA"}
+
+
 def test_me_patch_rejects_blank_name():
     user = api_user()
     client = TestClient(app_with_user(user))
