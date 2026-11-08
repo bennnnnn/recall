@@ -148,6 +148,7 @@ def test_is_casual_opener(raw: str, expected: bool):
         ("Quadratic Equation 3x^2-2x=8", "$3x^{2}-2x=8$", "Quadratic Equation 3x²-2x=8"),
         ("Scientific notation 10^{-3}", "what is 10^-3", "Scientific notation 10⁻³"),
         ("Power rule x^2.5", "derivative of x^2.5", "Power rule x^2.5"),
+        ("Powers x^25.5 and 2^10.5", "x^25.5", "Powers x^25.5 and 2^10.5"),
         ("Exponential decay e^{-2t}", "e^(-2t)", "Exponential decay e^{-2t}"),
     ],
 )

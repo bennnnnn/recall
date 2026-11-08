@@ -68,8 +68,11 @@ _logger = logging.getLogger(__name__)
 # first, it keeps the power. Only a dollar span with LaTeX in it is unwrapped: "$25,000" is money.
 _DOLLAR_SPAN = re.compile(r"(\${1,2})([^$\n]+?)\1")
 _LATEX_INSIDE = re.compile(r"[\\^_{}]")
-# A whole-number power, as the title model writes it ("3x^2", "10^{-3}"); "x^2.5" stays as is.
-_CARET_POWER = re.compile(r"\^(?:\{(-?\d+)\}|(-?\d+))(?![.,]\d)")
+# A whole-number power, as the title model writes it ("3x^2", "10^{-3}"); "x^2.5" and
+# "x^25.5" stay as they are (the digits never back off to make a whole number).
+_CARET_POWER = re.compile(r"\^(?:\{(-?\d+)\}|(-?\d+))(?!\d|[.,]\d)")
+# The head a title reads, before its padding and paths go: a long paste is not folded whole.
+_SOURCE_CHARS = 4000
 _TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
 
@@ -83,7 +86,7 @@ def _title_source(user_message: str) -> str:
     """
     unwrapped = _DOLLAR_SPAN.sub(
         lambda span: span.group(2) if _LATEX_INSIDE.search(span.group(2)) else span.group(0),
-        user_message,
+        user_message[:_SOURCE_CHARS],
     )
     readable = collapse_ws(without_attachment_refs(unwrapped))
     return fold_numeric_superscripts(fold_latex_marks(readable))
