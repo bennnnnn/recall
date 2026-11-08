@@ -11,6 +11,7 @@ import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismis
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { clearSettledStatuses } from "@/features/attachments/model/attachmentStatusFile";
 import { clearOpenedDocument } from "@/features/attachments/model/openedDocument";
+import { clearSavedComposerDrafts } from "@/features/chat/model/composerDraftFile";
 import { Image } from "expo-image";
 import { ensureLocale } from "@/lib/i18n";
 
@@ -43,6 +44,7 @@ jest.mock("@/features/attachments/model/attachmentStatusFile", () => ({ clearSet
 jest.mock("@/features/attachments/model/openedDocument", () => ({ clearOpenedDocument: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearAllCachedChatMessages: jest.fn() }));
+jest.mock("@/features/chat/model/composerDraftFile", () => ({ clearSavedComposerDrafts: jest.fn() }));
 jest.mock("@/features/memory/model/memoryListCache", () => ({ invalidateMemoriesCache: jest.fn() }));
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/features/chat/model/chatListCache", () => ({ invalidateChatListCache: jest.fn() }));
@@ -86,6 +88,8 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(clearSettledStatuses).toHaveBeenCalled();
   // A file another app opened in Recall under this account, not yet in a composer.
   expect(clearOpenedDocument).toHaveBeenCalled();
+  // The unsent text of each chat's composer.
+  expect(clearSavedComposerDrafts).toHaveBeenCalled();
 });
 
 it("forgets the account's photos, which expo-image keeps in memory and on disk", async () => {

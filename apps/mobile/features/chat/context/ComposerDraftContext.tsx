@@ -12,6 +12,7 @@ import {
   type SetStateAction,
 } from "react";
 
+import { useSavedComposerDrafts } from "@/features/chat/hooks/useSavedComposerDrafts";
 import { subscribeComposerDraftReset } from "@/features/chat/model/composerDraftReset";
 import { isSendEcho, type ClearedText } from "@/features/chat/model/composerSendEcho";
 import {
@@ -69,6 +70,13 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
   );
   const draftsRef = useRef(new Map<string, string>());
   const threadKeyRef = useRef(COMPOSER_NEW_THREAD_KEY);
+  const restoreOpenDraft = useCallback((text: string) => {
+    setInput(text);
+    setRevision((value) => value + 1);
+  }, [setInput]);
+  // On disk too: the phone closing the app in the background took every draft with it.
+  const saveDraftsSoon = useSavedComposerDrafts({ draftsRef, threadKeyRef, inputRef, restoreOpenDraft });
+  useEffect(() => saveDraftsSoon(input === ""), [input, revision, saveDraftsSoon]);
 
   const resetForNewSession = useCallback(() => {
     clearAllComposerDrafts(draftsRef.current);
@@ -107,15 +115,17 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
           nextKey,
           inputRef.current,
         );
+        saveDraftsSoon();
       },
       stashFailedDraftForThread: (key: string, failedText: string) => {
         if (threadKeyRef.current === key) return;
         stashFailedSendDraft(draftsRef.current, key, failedText);
+        saveDraftsSoon();
       },
       resetForNewSession,
       getThreadKey: () => threadKeyRef.current,
     }),
-    [resetForNewSession, inputRef, setInput, typeInput],
+    [resetForNewSession, inputRef, setInput, typeInput, saveDraftsSoon],
   );
   const value = useMemo<ComposerDraftValue>(() => ({ input, revision }), [input, revision]);
   const hasContent = input.length > 0;
