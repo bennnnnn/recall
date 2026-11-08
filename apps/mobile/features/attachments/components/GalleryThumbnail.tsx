@@ -62,16 +62,13 @@ function GalleryThumbnailBase({
   tokenRef.current = token;
 
   const clearLoadTimer = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
   };
 
-  // Fallback: a load that shows no progress for the timeout is marked failed (React Native's
-  // Image doesn't always call onError for corrupt/missing data). The clock restarts when the
-  // load starts and with every chunk that arrives: counted from mount, a tile still arriving
-  // on a slow connection turned into Retry at 20 s.
+  // Fallback for corrupt/missing data, which doesn't always call onError: no progress for the
+  // timeout marks the load failed. The clock restarts as it starts and with every chunk: counted
+  // from mount, a tile still arriving on a slow connection turned into Retry at 20 s.
   const armLoadTimer = () => {
     if (settledRef.current) return;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -107,9 +104,7 @@ function GalleryThumbnailBase({
     <View style={[s.wrap, dimension]}>
       {failed ? (
         <View style={[s.fallback, dimension]}>
-          {compact ? null : (
-            <Icon name="image" size={IconSize.md} color={C.textTertiary} />
-          )}
+          {compact ? null : <Icon name="image" size={IconSize.md} color={C.textTertiary} />}
           <MediaLoadRetry
             compact={compact}
             onRetry={() => setAttempt((n) => n + 1)}
