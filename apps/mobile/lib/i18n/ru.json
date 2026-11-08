@@ -385,7 +385,7 @@
   "gallery.title": "Библиотека",
   "gallery.use_in_chat": "Использовать в чате",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} из {{count}}",
-  "login.agree_line": "Продолжая, вы принимаете <terms>Условия</terms> и <privacy>Политику конфиденциальности</privacy> и соглашаетесь, что ваши чаты и голос обрабатываются сторонними поставщиками ИИ.",
+  "login.agree_line": "Продолжая, вы принимаете <terms>Условия</terms> и <privacy>Политику конфиденциальности</privacy>.",
   "login.apple": "Продолжить с Apple",
   "login.dev": "Продолжить как Dev-пользователь",
   "login.dev_expo_hint": "Вход через Google требует dev-сборку. Dev-вход работает в Expo Go.",

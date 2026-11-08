@@ -1,9 +1,8 @@
 import en from "@/lib/i18n/en.json";
 
-it("says at sign-in that chats and voice go to third-party AI providers", () => {
-  // The sign-in tap records AI-data consent (features/auth/api.ts), so the line above the
-  // buttons must say what is agreed to, not only the Terms and the Privacy Policy.
-  expect(en["login.agree_line"]).toMatch(
-    /chats and voice are processed by third-party AI providers/,
+it("says only that continuing agrees to the Terms and Privacy Policy", () => {
+  // The user's wording (2026-11-06). A later commit lengthened it without asking; this holds it.
+  expect(en["login.agree_line"]).toBe(
+    "By continuing, you agree to the <terms>Terms</terms> and <privacy>Privacy Policy</privacy>.",
   );
 });
