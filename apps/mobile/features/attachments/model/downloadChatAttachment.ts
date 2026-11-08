@@ -1,4 +1,4 @@
-import { deleteAsync, getInfoAsync, moveAsync } from "expo-file-system/legacy";
+import { copyAsync, deleteAsync, getInfoAsync, makeDirectoryAsync, moveAsync } from "expo-file-system/legacy";
 import { randomUUID } from "expo-crypto";
 import * as MediaLibrary from "expo-media-library";
 
@@ -15,6 +15,7 @@ import {
   sweepAttachmentFiles,
 } from "@/features/attachments/model/attachmentFileStore";
 import { contentTypeForFileName } from "@/features/attachments/model/gallery";
+import { fileInFolder, newAccountFolder, sweepAccountFolders } from "@/lib/accountFiles";
 import { shareLocalFile } from "@/lib/shareFile";
 
 /** One native download, shared by every screen that asked for the same URL. */
@@ -245,7 +246,78 @@ export async function shareChatAttachment(options: {
   requireCurrent();
 
   const mimeType = contentType?.split(";")[0]?.trim() || contentTypeForFileName(safeName);
-  await shareLocalFile(localUri, { title: safeName, mimeType });
+  const name = sharedFileName(fileName) ?? safeName;
+  const shared = await sharedCopy(localUri, name);
+  try {
+    requireCurrent();
+  } catch (error) {
+    // Signed out during the copy: the copy is that account's file.
+    if (shared.folder) await discardShareFolder(shared.folder);
+    throw error;
+  }
+  await shareLocalFile(shared.uri, { title: name, mimeType });
+}
+
+/** An hour: long past any app still reading a file shared to it. */
+const SHARE_COPY_MAX_AGE_MS = 60 * 60_000;
+
+/** A file name holds 255 bytes; a shared one keeps to this many, in UTF-8. */
+const SHARED_NAME_MAX_BYTES = 200;
+
+function utf8Length(char: string): number {
+  const code = char.codePointAt(0) ?? 0;
+  return code < 0x80 ? 1 : code < 0x800 ? 2 : code < 0x10000 ? 3 : 4;
+}
+
+/**
+ * The name a file goes out under: its own, with only what a file name cannot hold replaced.
+ * A long one is cut before its extension, by whole characters, so it keeps its type and fits
+ * (124 Amharic letters are 364 bytes). `null` when nothing of it is left.
+ */
+function sharedFileName(fileName: string): string | null {
+  const cleaned = Array.from(fileName, (char) => (char.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(char) ? "_" : char))
+    .join("")
+    .trim();
+  if (!cleaned || /^\.+$/.test(cleaned)) return null;
+  const extension = cleaned.match(/.\.[a-zA-Z0-9]{1,12}$/)?.[0].slice(1) ?? "";
+  let room = SHARED_NAME_MAX_BYTES - extension.length;
+  const stem: string[] = [];
+  for (const char of cleaned.slice(0, cleaned.length - extension.length)) {
+    room -= utf8Length(char);
+    if (room < 0) break;
+    stem.push(char);
+  }
+  return `${stem.join("")}${extension}`;
+}
+
+/** The shared copy, and the folder it is in; none when the cached file goes as it is. */
+type SharedCopy = { uri: string; folder: string | null };
+
+/**
+ * The cached download under its own name ("report.xlsx"), in a folder of its own: shared as
+ * the cache names it, the app it went to showed "att-6cc2e003043008e6-e3b0c442-report.xlsx"
+ * (S23, 2026-11-07). A copy that cannot be made shares the cached file as before.
+ */
+async function sharedCopy(localUri: string, name: string): Promise<SharedCopy> {
+  if (!localUri.startsWith("file://")) return { uri: localUri, folder: null };
+  let folder: string | null = null;
+  try {
+    await sweepAccountFolders("share", SHARE_COPY_MAX_AGE_MS);
+    folder = newAccountFolder("share");
+    await makeDirectoryAsync(folder, { intermediates: true });
+    const target = fileInFolder(folder, name);
+    await copyAsync({ from: localUri, to: target });
+    return { uri: target, folder };
+  } catch (error) {
+    console.warn("[share] named copy failed; sharing the cached file", error instanceof Error ? error.name : typeof error);
+    if (folder) await discardShareFolder(folder);
+    return { uri: localUri, folder: null };
+  }
+}
+
+async function discardShareFolder(folder: string): Promise<void> {
+  await deleteAsync(folder, { idempotent: true }).catch((error: unknown) =>
+    console.warn("[share] could not delete a share folder", error instanceof Error ? error.name : typeof error));
 }
 
 /**
