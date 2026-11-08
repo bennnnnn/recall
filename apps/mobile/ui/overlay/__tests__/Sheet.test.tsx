@@ -196,7 +196,7 @@ describe("Sheet", () => {
       </Sheet>,
     );
 
-    expect(getByTestId("app-sheet-dialog").props.accessibilityRole).toBe("dialog");
+    expect(getByTestId("app-sheet-dialog").props.role).toBe("dialog");
     expect(getByTestId("app-sheet-dialog").props.accessibilityViewIsModal).toBe(true);
     expect(getByLabelText("common.close")).toBeTruthy();
   });
