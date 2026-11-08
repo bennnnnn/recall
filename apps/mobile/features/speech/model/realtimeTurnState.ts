@@ -18,9 +18,11 @@ import type { SearchSource } from "@/lib/api/types";
 export type RealtimeVoiceEvent =
   | { type: "connected" }
   | { type: "speech_started"; turnId?: string }
-  | { type: "speech_stopped" }
+  /** ``replying``: a reply was asked for. Muted mid-sentence, none is, and the call listens again. */
+  | { type: "speech_stopped"; replying: boolean }
   | { type: "response_started" }
-  | { type: "user_transcript"; text: string }
+  /** ``turnId``: the utterance it transcribes, which may be one before the latest. */
+  | { type: "user_transcript"; text: string; turnId?: string }
   | { type: "assistant_transcript"; text: string; final: boolean }
   | { type: "response_done" }
   | { type: "response_interrupted" }
@@ -73,10 +75,14 @@ export type RealtimeTurnState = {
   playingResponseId: string | null;
   userSpeaking: boolean;
   suppressCurrentInputTurn: boolean;
+  /** The last utterance dropped (echo, muted, too early), by its own id: not the active one's. */
+  suppressedInputId: string | null;
   acceptedUserUtterance: boolean;
   responseFinished: boolean;
   sawOutputAudioStopped: boolean;
   activeInputId: string;
+  /** The last accepted utterances, newest last: a transcript can land after the next one began. */
+  acceptedInputIds: readonly string[];
   activeResponseId: string | null;
   /** Bumped by each accepted utterance and by stop; a lookup from an older epoch is stale. */
   turnEpoch: number;
@@ -91,6 +97,7 @@ type RealtimeTurnStep = { state: RealtimeTurnState; commands: RealtimeTurnComman
 const PLAYBACK_UNMUTE_FALLBACK_MS = 12_000;
 const MAX_TOOL_CALLS_PER_RESPONSE = 8;
 const MAX_LOOKUPS_PER_TURN = 2;
+const ACCEPTED_INPUTS_KEPT = 4;
 
 export function initialRealtimeTurnState(bargeIn: boolean): RealtimeTurnState {
   return {
@@ -103,10 +110,12 @@ export function initialRealtimeTurnState(bargeIn: boolean): RealtimeTurnState {
     playingResponseId: null,
     userSpeaking: false,
     suppressCurrentInputTurn: false,
+    suppressedInputId: null,
     acceptedUserUtterance: false,
     responseFinished: false,
     sawOutputAudioStopped: false,
     activeInputId: "",
+    acceptedInputIds: [],
     activeResponseId: null,
     turnEpoch: 0,
     toolCallsThisTurn: 0,
@@ -198,6 +207,8 @@ function emitError(s: RealtimeTurnState, out: Out, message: string, fatal = fals
 
 function onSpeechStarted(s: RealtimeTurnState, out: Out, event: Record<string, unknown>, receivedAt: number): void {
   s.suppressCurrentInputTurn = (!s.bargeIn && s.assistantSpeaking) || s.userMuted || !s.sessionReadyForTurns;
+  const inputId = typeof event.item_id === "string" ? event.item_id : String(receivedAt);
+  s.suppressedInputId = s.suppressCurrentInputTurn ? inputId : null;
   if (s.suppressCurrentInputTurn) {
     s.acceptedUserUtterance = false;
     dropEchoInput(out, "speech-before-user-turn", false);
@@ -213,7 +224,8 @@ function onSpeechStarted(s: RealtimeTurnState, out: Out, event: Record<string, u
   }
   // The user has the floor: any reply audio is over (half duplex) or being cut.
   setAudioPlaying(s, out, false);
-  s.activeInputId = typeof event.item_id === "string" ? event.item_id : String(receivedAt);
+  s.activeInputId = inputId;
+  s.acceptedInputIds = [...s.acceptedInputIds, s.activeInputId].slice(-ACCEPTED_INPUTS_KEPT);
   s.userSpeaking = true;
   s.turnEpoch += 1;
   s.toolCallsThisTurn = 0;
@@ -228,8 +240,10 @@ function onSpeechStopped(s: RealtimeTurnState, out: Out): void {
     s.acceptedUserUtterance = false;
     return;
   }
-  emit(out, { type: "speech_stopped" });
-  if (!liveTalkShouldCreateResponse(s)) return;
+  // Muted mid-sentence (or cut short by an error), none is asked for: the phone waited in "thinking".
+  const replying = liveTalkShouldCreateResponse(s);
+  emit(out, { type: "speech_stopped", replying });
+  if (!replying) return;
   s.acceptedUserUtterance = false;
   s.assistantSpeaking = true;
   syncMic(s, out);
@@ -260,13 +274,23 @@ function onResponseCreated(s: RealtimeTurnState, out: Out, response: { id?: stri
   emit(out, { type: "response_started" });
 }
 
+/**
+ * The user's line, for the utterance it names: one landing after the next utterance began is
+ * said with its id. A dropped utterance's line goes by that one's own id, never the active one's.
+ */
 function onInputTranscript(s: RealtimeTurnState, out: Out, event: Record<string, unknown>): void {
-  if (typeof event.item_id === "string" && event.item_id !== s.activeInputId) return;
+  // A line that names no utterance is the one being heard: the dropped one, if any.
+  const turnId = typeof event.item_id === "string" ? event.item_id : (s.suppressedInputId ?? s.activeInputId);
+  const current = turnId === s.activeInputId;
+  if (turnId === s.suppressedInputId || (!current && !s.acceptedInputIds.includes(turnId))) {
+    log(out, "ignored-unaccepted-transcript", turnId);
+    return;
+  }
   const text = liveTalkTranscriptText(event);
   const echoSource = s.lastAssistantText || s.assistantTranscript;
-  if (s.suppressCurrentInputTurn || (!s.bargeIn && text && isLikelyAssistantEcho(text, echoSource))) {
-    dropEchoInput(out, "echo-transcript", false);
-    s.suppressCurrentInputTurn = false;
+  if (!s.bargeIn && text && isLikelyAssistantEcho(text, echoSource)) {
+    // Only the current utterance's audio is still in the buffer to clear.
+    if (current) dropEchoInput(out, "echo-transcript", false);
     log(out, "ignored-assistant-echo-transcript", text);
     return;
   }
@@ -274,7 +298,7 @@ function onInputTranscript(s: RealtimeTurnState, out: Out, event: Record<string,
     log(out, "ignored-silence-hallucination", text);
     return;
   }
-  if (text) emit(out, { type: "user_transcript", text });
+  if (text) emit(out, { type: "user_transcript", text, turnId });
 }
 
 function onOutputAudioStopped(s: RealtimeTurnState, out: Out): void {

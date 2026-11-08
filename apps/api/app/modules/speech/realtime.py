@@ -184,6 +184,8 @@ async def create_realtime_session(
             barge_in=body.barge_in,
             tools_enabled=body.tools_enabled,
             voice=user.tts_voice,
+            # The app's language: the user's words are transcribed in it.
+            language=user.locale,
         )
     except BaseException:
         await quota_service.release_live_talk_seconds(redis, user.id, seconds=reserved)

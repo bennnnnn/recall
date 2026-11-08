@@ -17,7 +17,7 @@ import {
   liveTalkGateMessageKey,
   liveTalkSaveEndsCall,
 } from "@/features/speech/model/liveTalkLogic";
-import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
+import { dictationFailureKey, dictationNeedsPlan, voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
 jest.mock("@/lib/auth", () => ({
@@ -114,6 +114,16 @@ it.each([
   ["refresh_rate_limited", "chat.rate_limited"],
 ])("words a refused dictation: %s", (name, words) => {
   expect(voiceRefusalKey(refused(name))).toBe(words);
+});
+
+// Every 403 opened the plans, consent_required too, on top of the consent step: a refused
+// consent now says nothing of its own, and only not_in_plan opens the plans.
+it.each([
+  ["consent_required", false, null],
+  ["live_talk_not_in_plan", true, "chat.voice_transcribe_failed"],
+])("sends a refused dictation 403 by its code: %s", (name, plans, words) => {
+  expect(dictationNeedsPlan(refused(name))).toBe(plans);
+  expect(dictationFailureKey(refused(name))).toBe(words);
 });
 
 // Every 503 said "Live talk isn't set up on this server yet", a Redis outage included.

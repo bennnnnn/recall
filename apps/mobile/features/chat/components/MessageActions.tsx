@@ -136,6 +136,7 @@ function useReadAloud(messageId: string, markdown: string) {
     const result = await readReplyAloud(messageId, markdown, speechLocale(user?.locale), {
       token: cloudVoice ? token : null,
       preferCloud: cloudVoice,
+      voice: user?.tts_voice ?? null,
     });
     if (!result.ok) {
       reportRecoverableError(
