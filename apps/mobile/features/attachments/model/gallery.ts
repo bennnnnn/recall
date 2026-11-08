@@ -186,6 +186,18 @@ export function galleryDisplayName(
   return galleryFileName(item.content_type, item.original_filename, item.source);
 }
 
+/**
+ * A file tile's two parts: its name without the extension, in the name's own case, and the
+ * extension as the type badge (`Cell-Biology-Notes.pdf` → `Cell-Biology-Notes` and `PDF`).
+ * The badge keeps the type readable when a long name is cut at its end. A name with no
+ * extension takes its type's; null when neither says one.
+ */
+export function galleryFileParts(name: string, contentType: string): { stem: string; type: string | null } {
+  const named = name.match(/^(.+)\.([A-Za-z0-9]{1,8})$/);
+  if (named) return { stem: named[1], type: named[2].toUpperCase() };
+  return { stem: name, type: extensionForContentType(contentType)?.toUpperCase() ?? null };
+}
+
 export function galleryThumbSize(listWidth: number, columns: number, gap: number): number {
   if (listWidth <= 0 || columns <= 0) return 1;
   return Math.max(1, Math.floor((listWidth - gap * (columns - 1)) / columns));

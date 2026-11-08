@@ -6,6 +6,7 @@ import {
   galleryDisplayName,
   galleryEmptyKey,
   galleryFileName,
+  galleryFileParts,
   galleryGridLayout,
   galleryImageIndex,
   galleryItemActions,
@@ -178,5 +179,16 @@ describe("gallery helpers", () => {
 
   it("keys the gallery cache by filter and trimmed query", () => {
     expect(galleryListCacheKey("all", "  cat ")).toBe("all:cat");
+  });
+
+  it("splits a file tile's name from its type badge, keeping the name's own case", () => {
+    expect(galleryFileParts("Cell-Biology-Notes.pdf", "application/pdf"))
+      .toEqual({ stem: "Cell-Biology-Notes", type: "PDF" });
+    expect(galleryFileParts("budget.v2.xlsx", "application/octet-stream"))
+      .toEqual({ stem: "budget.v2", type: "XLSX" });
+    // No extension in the name: the content type gives it; neither gives none.
+    expect(galleryFileParts("README", "text/markdown")).toEqual({ stem: "README", type: "MD" });
+    expect(galleryFileParts("blob", "")).toEqual({ stem: "blob", type: null });
+    expect(galleryFileParts(".env", "text/plain")).toEqual({ stem: ".env", type: "TXT" });
   });
 });

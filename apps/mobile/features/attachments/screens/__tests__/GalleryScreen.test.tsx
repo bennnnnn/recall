@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import GalleryScreen from "@/features/attachments/screens/GalleryScreen";
@@ -127,11 +128,15 @@ describe("GalleryScreen", () => {
     expect(mockLibrary.confirmDelete).toHaveBeenCalledWith(pdf);
   });
 
-  it("cuts a file tile's name in the middle so the extension shows", async () => {
+  it("writes a file tile's name in its own case over two lines, its type as a badge", async () => {
+    mockData = data({ items: [{ ...pdf, original_filename: "Cell-Biology-Lecture-Notes.pdf" }] });
     const view = await render(<GalleryScreen />);
-    const label = view.getByText("quarterly-report.pdf");
-    expect(label.props.numberOfLines).toBe(1);
-    expect(label.props.ellipsizeMode).toBe("middle");
+    // The extension lives in the badge, so a name cut at its end still says what the file is.
+    const label = view.getByText("Cell-Biology-Lecture-Notes");
+    expect(label.props.numberOfLines).toBe(2);
+    expect(StyleSheet.flatten(label.props.style).textTransform).toBeUndefined();
+    expect(view.getByText("PDF")).toBeTruthy();
+    expect(view.getByRole("button", { name: "Cell-Biology-Lecture-Notes.pdf" })).toBeTruthy();
   });
 
   it("shows a spinner on the item being attached from its menu, and offers the menu to screen readers", async () => {
