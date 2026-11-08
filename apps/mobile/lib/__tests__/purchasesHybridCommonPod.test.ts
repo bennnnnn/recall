@@ -63,6 +63,21 @@ describe("withPodLine", () => {
     expect(plugin.withPodLine(once, "20.1.0")).toBe(once);
   });
 
+  it("reads a Podfile saved with Windows line endings, and keeps them", () => {
+    const crlf = PODFILE.replace(/\n/g, "\r\n");
+    const once = plugin.withPodLine(crlf, "20.1.0");
+    expect(once).toBe(plugin.withPodLine(PODFILE, "20.1.0").replace(/\n/g, "\r\n"));
+    const upgraded = plugin.withPodLine(once, "20.2.0");
+    expect(upgraded).toBe(plugin.withPodLine(PODFILE, "20.2.0").replace(/\n/g, "\r\n"));
+  });
+
+  it("replaces a line left as the file's last, with no newline after it", () => {
+    const atEnd = `${PODFILE}  pod 'PurchasesHybridCommon', :podspec => '${spec("20.1.0")}'`;
+    const upgraded = plugin.withPodLine(atEnd, "20.2.0");
+    expect(upgraded.match(/pod 'PurchasesHybridCommon'/g)).toHaveLength(1);
+    expect(upgraded).toBe(plugin.withPodLine(PODFILE, "20.2.0"));
+  });
+
   it("fails the prebuild, by name, when the Podfile has no use_expo_modules! line", () => {
     const changed = PODFILE.replace("  use_expo_modules!\n", "  use_expo_modules!(exclude: [])\n");
     expect(() => plugin.withPodLine(changed, "20.1.0")).toThrow(/purchasesHybridCommonPod: .*use_expo_modules!/);

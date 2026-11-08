@@ -20,9 +20,13 @@ function requiredVersion(projectRoot) {
   return match[1];
 }
 
-const ANCHOR = "  use_expo_modules!\n";
-/** Any line this plugin (or a hand edit) left: one written for an older version included. */
-const POD_LINE = /^[ \t]*pod ['"]PurchasesHybridCommon['"].*\n/gm;
+/** The line it goes after, with its line ending: a Podfile saved on Windows ends in \r\n. */
+const ANCHOR = / {2}use_expo_modules!(\r?\n)/;
+/**
+ * Any line this plugin (or a hand edit) left, one written for an older version included:
+ * with either line ending, or none when it is the file's last line.
+ */
+const POD_LINE = /^[ \t]*pod ['"]PurchasesHybridCommon['"][^\r\n]*(?:\r?\n|$)/gm;
 
 /**
  * The Podfile with exactly one PurchasesHybridCommon line, for `version`, after
@@ -32,14 +36,14 @@ const POD_LINE = /^[ \t]*pod ['"]PurchasesHybridCommon['"].*\n/gm;
 function withPodLine(contents, version) {
   const spec = `https://raw.githubusercontent.com/RevenueCat/purchases-hybrid-common/${version}/PurchasesHybridCommon.podspec`;
   const rest = contents.replace(POD_LINE, "");
-  if (!rest.includes(ANCHOR)) {
+  if (!ANCHOR.test(rest)) {
     throw new Error(
       "purchasesHybridCommonPod: ios/Podfile has no `  use_expo_modules!` line to add PurchasesHybridCommon " +
         "after, so `pod install` would look for it on CocoaPods trunk, which lacks it. Expo's Podfile " +
         "template changed: update ANCHOR in plugins/purchasesHybridCommonPod.js.",
     );
   }
-  return rest.replace(ANCHOR, `${ANCHOR}  pod 'PurchasesHybridCommon', :podspec => '${spec}'\n`);
+  return rest.replace(ANCHOR, (anchor, eol) => `${anchor}  pod 'PurchasesHybridCommon', :podspec => '${spec}'${eol}`);
 }
 
 function withPurchasesHybridCommonPod(config) {
