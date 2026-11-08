@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  type AccessibilityRole,
   type StyleProp,
   type ViewStyle,
   type HostInstance,
@@ -182,7 +181,7 @@ export function Sheet({
   const panel = (
     <View
       ref={dialogRef}
-      accessibilityRole={"dialog" as AccessibilityRole}
+      role="dialog" // not accessibilityRole: Android's has no "dialog" (lib/__tests__/accessibilityRoles)
       accessibilityViewIsModal
       // VoiceOver's two-finger scrub closes it, as the scrim and Android back do.
       onAccessibilityEscape={dismissible ? requestClose : undefined}
