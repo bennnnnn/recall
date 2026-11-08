@@ -7,6 +7,7 @@ import {
   INDEX_POLL_MAX_MS,
   resetAttachmentIndexStatus,
 } from "@/features/attachments/model/attachmentIndexStatus";
+import { ApiRequestError } from "@/lib/api/errorBody";
 
 let mockToken = "token";
 jest.mock("@/contexts/AuthContext", () => ({
@@ -181,6 +182,43 @@ describe("useAttachmentIndexed", () => {
   });
 });
 
+it("stops asking about a file the server no longer has, and never says it failed", async () => {
+  jest.useFakeTimers();
+  mockGetAttachmentUrl.mockRejectedValue(new ApiRequestError(404, '{"detail":"Not found"}'));
+  try {
+    await render(<Probe attachmentId="deleted" />);
+    await waitFor(() => expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      jest.advanceTimersByTime(INDEX_POLL_MAX_MS * 2);
+    });
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+    expect(failed).toBe(false);
+    // No "Indexing…" either: there is nothing left to index.
+    expect(indexed).toBe(true);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("keeps polling through a failure that is not a 404", async () => {
+  jest.useFakeTimers();
+  mockGetAttachmentUrl
+    .mockRejectedValueOnce(new ApiRequestError(503, ""))
+    .mockResolvedValue({ indexed: true });
+  try {
+    await render(<Probe attachmentId="busy" />);
+    await waitFor(() => expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1));
+    expect(indexed).toBe(false);
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+    });
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(2);
+    expect(indexed).toBe(true);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 it("does not report the next attachment ready while its status request is pending", async () => {
   mockGetAttachmentUrl.mockResolvedValueOnce({ indexed: true });
   const view = await render(<Probe attachmentId="ready" />);
@@ -332,6 +370,19 @@ describe("settled statuses across app runs", () => {
     await showInNewRun("file");
     await waitFor(() => expect(fileName).toBe("b.pdf"));
     expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not ask again in a later run about a file the server no longer has", async () => {
+    mockToken = tokenFor("user-a");
+    mockGetAttachmentUrl.mockRejectedValue(new ApiRequestError(404, ""));
+    const first = await showInNewRun("deleted");
+    await waitFor(() => expect(indexed).toBe(true));
+    await first.unmount();
+
+    await showInNewRun("deleted");
+    expect(indexed).toBe(true);
+    expect(failed).toBe(false);
+    expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
   });
 
   it("keeps only the server's final word, not a file still indexing", async () => {
