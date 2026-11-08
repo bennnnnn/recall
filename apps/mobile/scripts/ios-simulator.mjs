@@ -49,6 +49,7 @@ if (iosHasAppleSignIn() || iosHasMLKit()) {
   console.log("Regenerating ios/ without Sign in with Apple and ML Kit, for the simulator.");
   expo(["prebuild", "--platform", "ios", "--clean"]);
 } else {
-  expo(["prebuild", "--platform", "ios"]);
+  // Pods install in run:ios, and only when they are stale.
+  expo(["prebuild", "--platform", "ios", "--no-install"]);
 }
 expo(["run:ios", ...process.argv.slice(2)]);
