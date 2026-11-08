@@ -255,6 +255,10 @@ function watchConnection(
     resolveConnected = resolve;
     rejectConnected = reject;
   });
+  // The call can fail or be hung up before `connect` awaits this; its rejection then had no
+  // reader and surfaced as "Uncaught (in promise) Realtime voice connection failed". The
+  // failure still reaches `handlers.onPeerFailed` and any later await.
+  connectedPromise.catch(() => undefined);
   const failConnection = (message: string) => {
     if (connectionSettled) return;
     connectionSettled = true;
