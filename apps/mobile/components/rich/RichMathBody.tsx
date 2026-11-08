@@ -93,6 +93,8 @@ export function RichMathBody({
     return <RichBodyText style={style} selectable={selectable}>{content}</RichBodyText>;
   }
   const mathColor = textColor ?? (typeof text.color === "string" ? text.color : theme.text);
+  // Maths the size of the words beside it: a follow-up's 15 pt line drew its maths at 16.
+  const mathSize = typeof text.fontSize === "number" ? text.fontSize : undefined;
   return (
     <View
       style={[styles.row, row]}
@@ -106,7 +108,7 @@ export function RichMathBody({
           if (part.type === "math") {
             return [isHeavyInlineMath(part.value)
               ? <MathBlock key={index} latex={part.value} />
-              : <MathText key={index} latex={part.value} textColor={mathColor} />];
+              : <MathText key={index} latex={part.value} textColor={mathColor} fontSize={mathSize} />];
           }
           if (part.type === "code") {
             // One pill for the whole span, not a pill per word.

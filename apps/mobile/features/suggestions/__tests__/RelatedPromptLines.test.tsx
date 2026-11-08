@@ -127,4 +127,23 @@ describe("RelatedPromptLines maths before a question mark", () => {
     const { getByTestId } = await render(<RelatedPromptLines prompts={[prompt]} onSelect={jest.fn()} />);
     expect(readLine(getByTestId("rich-math-body") as unknown as Element)).toBe(line);
   });
+
+  it("draws a line's maths the size of its words", async () => {
+    // A follow-up's words are 15 pt (Type.secondary); its maths drew at the default 16.
+    const { toJSON } = await render(
+      <RelatedPromptLines prompts={["What if $v_0 = 15$ m/s instead?"]} onSelect={jest.fn()} />,
+    );
+    const sizes = new Set<number>();
+    const walk = (node: unknown) => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node)) return node.forEach(walk);
+      const element = node as { props?: { style?: unknown }; children?: unknown };
+      const flat = [element.props?.style].flat(Infinity) as Array<{ fontSize?: number } | null>;
+      for (const style of flat) if (style && typeof style.fontSize === "number") sizes.add(style.fontSize);
+      walk(element.children);
+    };
+    walk(toJSON());
+    expect(sizes.has(15)).toBe(true);
+    expect(sizes.has(16)).toBe(false);
+  });
 });
