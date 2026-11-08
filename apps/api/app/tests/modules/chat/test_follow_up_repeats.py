@@ -18,7 +18,11 @@ import pytest
 from app.core.config import Settings
 from app.modules.account.lifecycle import purge_user_redis_keys
 from app.modules.chat import related_prompts
-from app.modules.chat.follow_up_repeats import repeats_earlier
+from app.modules.chat.follow_up_repeats import (
+    changed_symbol,
+    changes_a_kept_symbol,
+    repeats_earlier,
+)
 from app.modules.chat.related_prompts import (
     RelatedQuestions,
     generate_related_questions,
@@ -275,3 +279,77 @@ def test_numbers_are_read_one_way(text: str, numbers: list[str]) -> None:
     from app.modules.chat.follow_up_units import quantities
 
     assert [str(quantity) for quantity in quantities(text)] == numbers
+
+
+@pytest.mark.parametrize(
+    "text, symbol",
+    [
+        ("What if $v_0$ was 30 m/s?", "v0"),
+        ("What if $v_0 = 10\\text{ m/s}$?", "v0"),
+        ("What if v0 was 40 m/s?", "v0"),
+        ("What if v_{0} was 5 m/s?", "v0"),
+        ("What if $\\theta$ was 45°?", "\\theta"),
+        ("What if x was 4?", "x"),
+        ("How high with $v_0 = 30\\text{ m/s}$?", "v0"),
+        ("How long to rise with $g = 10$?", "g"),
+        # Words, an equation, another kind of question: nothing to compare by symbol.
+        ("What if air resistance mattered?", None),
+        ("What if a ball was heavier?", None),
+        ("What if it took 2 s?", None),
+        ("What if $3x + 3 = 5$?", None),
+        ("Why use $v_0^2$ in the formula?", None),
+        ("Why does $v^2 = v_0^2 - 2gh$ hold?", None),
+        # An explanation names a value; an equation or a parity is no new number.
+        ("Why is $g = 9.8$ m/s² here?", None),
+        ("What if $y = 3x + 1$?", None),
+        ("What if $x \\geq 3$?", None),
+        ("What if n is even?", None),
+        ("How high with $v_0 = 15\\text{ m/s}$?", "v0"),
+        # An evaluation at a value asks about the variable; it changes nothing (#2345 review).
+        ("What is the speed at $t = 2$ s?", None),
+        ("What is the sum for $n = 5$?", None),
+    ],
+)
+def test_changed_symbol_reads_one_name_however_written(text: str, symbol: str | None) -> None:
+    assert changed_symbol(text) == symbol
+
+
+def test_one_set_varies_each_quantity_once() -> None:
+    """Live (2026-11-07): three chips were v_0 at 30, 40 and 50 m/s under a thrown ball."""
+    question = "A ball is thrown straight up at 20 m/s. How high does it go?"
+    kept = accepted_questions(
+        question,
+        [
+            "What if $v_0$ was 30 m/s?",
+            "What if $v_0$ was 40 m/s?",
+            "What if v0 was 50 m/s?",
+            "What if $g$ was $1.6\\text{ m/s}^2$?",
+            "How long does it take to rise?",
+        ],
+    )
+    assert kept == [
+        "What if $v_0$ was 30 m/s?",
+        "What if $g$ was $1.6\\text{ m/s}^2$?",
+        "How long does it take to rise?",
+    ]
+
+
+def test_an_explanation_or_an_equation_never_blocks_a_what_if() -> None:
+    """Review (2026-11-07): "Why is $g = 9.8$ m/s² here?" dropped "What if $g$ was 1.6 m/s²
+    on the Moon?", and "What if $y = 3x + 1$?" dropped "What if $y = 2x - 4$?"."""
+    assert not changes_a_kept_symbol(
+        "What if $g$ was 1.6 m/s² on the Moon?", ["Why is $g = 9.8$ m/s² here?"]
+    )
+    assert not changes_a_kept_symbol("What if $y = 2x - 4$?", ["What if $y = 3x + 1$?"])
+    assert not changes_a_kept_symbol("What if n is odd?", ["What if n is even?"])
+    assert changes_a_kept_symbol("How high with $v_0 = 30$ m/s?", ["What if $v_0$ was 40 m/s?"])
+
+
+def test_two_evaluations_of_one_variable_are_two_chips() -> None:
+    """Review (#2345): "the speed at $t = 2$ s" dropped "the height at $t = 4$ s"."""
+    assert not changes_a_kept_symbol(
+        "What is the height at $t = 4$ s?", ["What is the speed at $t = 2$ s?"]
+    )
+    assert not changes_a_kept_symbol(
+        "What is the sum for $n = 10$?", ["What is the sum for $n = 5$?"]
+    )
