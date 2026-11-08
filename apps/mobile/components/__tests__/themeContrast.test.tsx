@@ -1,5 +1,6 @@
 import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
-import { darkTheme, lightTheme } from "@/lib/theme";
+import { ACCENT_OPTIONS } from "@/lib/accent";
+import { darkTheme, lightTheme, themeFor } from "@/lib/theme";
 
 describe("semantic text contrast", () => {
   it.each([
@@ -156,5 +157,24 @@ describe("hairline contrast", () => {
     ["dark", darkTheme],
   ] as const)("%s quote rule (textDisabled) reads as a line on the page", (_name, theme) => {
     expect(contrastRatio(theme.textDisabled, theme.bg)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/** WCAG 1.4.11: a control's parts and state against what is next to them. */
+const NON_TEXT = 3;
+
+describe("switch contrast", () => {
+  const themes = (["light", "dark"] as const).flatMap((scheme) =>
+    ACCENT_OPTIONS.map((accent) => [`${scheme} ${accent}`, themeFor(scheme, accent)] as const),
+  );
+
+  // A switch row sits on a Settings group, the page, a card or a sheet. Its thumb is `bg`.
+  it.each(themes)("%s: an off switch shows on every plane, its thumb on its track", (_name, theme) => {
+    for (const plane of [theme.bg, theme.surface, theme.settingsSurface, theme.elevated]) {
+      expect(contrastRatio(theme.switchOff, plane)).toBeGreaterThanOrEqual(NON_TEXT);
+      expect(contrastRatio(theme.primary, plane)).toBeGreaterThanOrEqual(NON_TEXT);
+    }
+    expect(contrastRatio(theme.bg, theme.switchOff)).toBeGreaterThanOrEqual(NON_TEXT);
+    expect(contrastRatio(theme.bg, theme.primary)).toBeGreaterThanOrEqual(NON_TEXT);
   });
 });

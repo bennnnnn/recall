@@ -53,6 +53,12 @@ export type Theme = {
    * all; kept quieter than `border`.
    */
   separator: string;
+  /**
+   * A switch's track when off. At least 3:1 on every plane a row sits on (bg, surface,
+   * settingsSurface, elevated) and to the `bg` thumb: on `border` an off switch all but
+   * vanished, in dark mode most of all (1.4:1 on the row, 1.7:1 to its thumb).
+   */
+  switchOff: string;
   /** Press feedback wash laid over any surface. */
   pressed: string;
 
@@ -153,6 +159,7 @@ export const lightTheme: Theme = {
   border: "#D9D9DE",
   borderStrong: "#C2C2C9",
   separator: "#DCDCE0",
+  switchOff: "#808089",
   pressed: "rgba(17,17,19,0.06)",
 
   text: "#111113",
@@ -215,6 +222,7 @@ export const darkTheme: Theme = {
   border: "#3A3A42",
   borderStrong: "#505059",
   separator: "#38383F",
+  switchOff: "#76767E",
   pressed: "rgba(255,255,255,0.08)",
 
   text: "#F5F5F6",
