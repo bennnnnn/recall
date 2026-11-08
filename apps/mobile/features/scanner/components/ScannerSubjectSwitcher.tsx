@@ -65,6 +65,9 @@ export function ScannerSubjectSwitcher({ value, onChange }: Props) {
             key={subject}
             testID={`scanner-subject-${subject}`}
             style={[s.tab, selected ? s.tabSelected : null]}
+            // A 36 pt pill in a row padded 4 pt above and below: the row's edge is the 44 pt
+            // target's (a scroll view takes no touch outside itself on Android).
+            hitSlop={{ top: Space.xxs, bottom: Space.xxs }}
             onPress={() => {
               if (!selected) onChange(subject);
             }}
@@ -99,10 +102,13 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: Space.xs,
       paddingHorizontal: Space.md,
+      paddingVertical: Space.xxs,
     },
+    // Grows with the reader's text size: a fixed height clipped the label at large text.
     tab: {
-      height: 36,
+      minHeight: Space.minTouch - Space.xs,
       paddingHorizontal: Space.md,
+      paddingVertical: Space.xxs,
       borderRadius: Radius.full,
       alignItems: "center",
       justifyContent: "center",
