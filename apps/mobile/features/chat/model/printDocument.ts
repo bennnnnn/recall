@@ -268,13 +268,16 @@ function readList(lines: string[], start: number, depth: number): { html: string
   const first = LIST_ITEM.exec(lines[start] ?? "")!;
   const indent = first[1].length;
   const ordered = /\d/.test(first[2]);
-  const sameList = (match: RegExpExecArray | null) =>
-    match != null && match[1].length === indent && /\d/.test(match[2]) === ordered;
+  // A rule ("* * *") looks like an item but ends the list, as in the chat.
+  const sameList = (line: string) => {
+    const match = THEMATIC_BREAK.test(line) ? null : LIST_ITEM.exec(line);
+    return match != null && match[1].length === indent && /\d/.test(match[2]) === ordered;
+  };
   const items: string[][] = [];
   let i = start;
   while (i < lines.length) {
     const item = LIST_ITEM.exec(lines[i] ?? "");
-    if (!sameList(item)) break;
+    if (!sameList(lines[i] ?? "")) break;
     const contentIndent = indent + item![2].length + 1;
     const body = [item![3]];
     i += 1;
@@ -292,7 +295,7 @@ function readList(lines: string[], start: number, depth: number): { html: string
       }
       if (leadingSpaces(line) >= contentIndent) {
         body.push(line.slice(contentIndent));
-      } else if (leadingSpaces(line) > indent && !sameList(LIST_ITEM.exec(line))) {
+      } else if (leadingSpaces(line) > indent && !sameList(line)) {
         body.push(line.trimStart());
       } else if (!startsBlock(line) && body[body.length - 1]?.trim()) {
         body.push(line.trim()); // a lazy continuation of the item's paragraph
@@ -304,7 +307,7 @@ function readList(lines: string[], start: number, depth: number): { html: string
     items.push(body);
     let next = i;
     while (next < lines.length && !(lines[next] ?? "").trim()) next += 1;
-    if (next > i && sameList(LIST_ITEM.exec(lines[next] ?? ""))) i = next;
+    if (next > i && sameList(lines[next] ?? "")) i = next;
   }
   const tag = ordered ? "ol" : "ul";
   const number = ordered ? Number.parseInt(first[2], 10) : 1;

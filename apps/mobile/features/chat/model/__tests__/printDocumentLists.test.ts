@@ -75,3 +75,12 @@ it("prints a list nested past any sense as text, without overflowing", async () 
   expect(html).toContain("deep");
   expect(html.split("<ul>").length - 1).toBeLessThanOrEqual(13);
 });
+
+it("ends a list at a rule written like its items", async () => {
+  // Review (#2346): "* * *" after "* b" became another item holding a nested list.
+  for (const source of ["* a\n* b\n* * *\nAfter", "- a\n- - -\nAfter", "* a\n* b\n\n* * *\n\nAfter"]) {
+    const html = await body(source);
+    expect(html).toContain("</ul><hr>");
+    expect(html).not.toContain("<li><ul>");
+  }
+});
