@@ -73,7 +73,7 @@ export function UserMessageContent({ message, actionsHint }: Props) {
   const nonPdfFileLabel =
     message.local_file_name ??
     fileUploadName ??
-    fileLabelFromContentType(nonPdfFile?.contentType, t("chat.attached_file"));
+    fileLabelFromContentType(nonPdfFile?.contentType, t);
   const nonPdfFileStatus = fileIndexFailed
     ? t("chat.file_index_failed")
     : fileIndexed

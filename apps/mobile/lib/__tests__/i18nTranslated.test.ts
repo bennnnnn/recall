@@ -81,6 +81,7 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
   ],
   fr: [
     "chat.attach_photo",
+    "chat.title_image",
     "chat.math_converter_cat_amount", // Moles
     "chat.math_converter_cat_angle",
     "chat.math_converter_cat_charge",
@@ -116,6 +117,7 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
   ],
   it: [
     "chat.attach_file",
+    "chat.title_file",
     "chat.math_converter_cat_area",
     "chat.math_converter_cat_volume",
     "login.privacy",

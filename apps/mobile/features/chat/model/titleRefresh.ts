@@ -1,4 +1,5 @@
 import type { Chat } from "@/lib/api";
+import i18n from "@/lib/i18n";
 import { chatNeedsGeneratedTitle, provisionalAttachmentTitle } from "@/features/chat/model/title";
 
 type FirstReplyTitlePlan = {
@@ -30,7 +31,8 @@ export function firstReplyTitlePlan(
   if (chat.title && (listed || !chatNeedsGeneratedTitle(chat.title))) {
     return { insert: chat, fetch: false, poll: false };
   }
-  const overlay = provisionalAttachmentTitle(firstUserText);
+  // In the app's language now: the drawer keeps it only until the topic job's title lands.
+  const overlay = provisionalAttachmentTitle(firstUserText, (key) => i18n.t(key));
   return {
     insert: overlay ? { ...chat, title: overlay } : chat,
     fetch: false,
