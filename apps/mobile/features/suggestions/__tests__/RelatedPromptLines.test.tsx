@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react-native";
+import { Dimensions } from "react-native";
 
 import { nestedAccessibleElements } from "@/components/__tests__/a11yTree";
+import { readLine, type Element } from "@/components/__tests__/support/mathInk";
 import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
 import { spokenPrompt } from "@/features/suggestions/model/promptMath";
 
@@ -105,5 +107,24 @@ describe("RelatedPromptLines underline", () => {
     });
     // 2pt dots, 3pt apart: 10 across 50pt.
     expect(underline.children).toHaveLength(10);
+  });
+});
+
+describe("RelatedPromptLines maths before a question mark", () => {
+  beforeEach(() => {
+    jest.spyOn(Dimensions, "get").mockReturnValue({ width: 440, height: 956, scale: 3, fontScale: 1 });
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    cleanup();
+  });
+
+  // Drawn "What if v₀ = 15 m/s ?": the formula's box ran on past its glyphs.
+  it.each([
+    [String.raw`What if $v_0 = 15\text{ m/s}$?`, "What if v₀ = 15 m/s?"],
+    [String.raw`How high does it go with $g = 9.81\text{ m/s}^2$?`, "How high does it go with g = 9.81 m/s²?"],
+  ])("sets the mark against %s", async (prompt, line) => {
+    const { getByTestId } = await render(<RelatedPromptLines prompts={[prompt]} onSelect={jest.fn()} />);
+    expect(readLine(getByTestId("rich-math-body") as unknown as Element)).toBe(line);
   });
 });

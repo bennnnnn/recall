@@ -5,8 +5,9 @@
 // expo-linear-gradient) unrelated to what this file tests — stubbed so
 // import-time stays safe, mirroring markdownFenceRender.test.tsx's pattern.
 import { act, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 
+import { readLine, type Element } from "@/components/__tests__/support/mathInk";
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
 import { AA, contrastRatio } from "@/lib/__tests__/support/contrast";
 import { ACCENT_OPTIONS, DEFAULT_ACCENT } from "@/lib/accent";
@@ -170,6 +171,21 @@ describe("UserMessageContent math/markdown rendering", () => {
       />,
     );
     expect(queryByTestId("math-draft-preview")).toBeNull();
+  });
+});
+
+describe("UserMessageContent maths before a question mark", () => {
+  let window: jest.SpyInstance;
+  beforeEach(() => {
+    window = jest.spyOn(Dimensions, "get").mockReturnValue({ width: 440, height: 956, scale: 3, fontScale: 1 });
+  });
+  afterEach(() => window.mockRestore());
+
+  it("sets the mark against the formula it follows", async () => {
+    const { getByTestId } = await render(
+      <UserMessageContent message={userMessage(String.raw`What if $g$ was $10\text{ m/s}^2$?`)} />,
+    );
+    expect(readLine(getByTestId("md-math-inline-wrap") as unknown as Element)).toBe("What if g was 10 m/s²?");
   });
 });
 
