@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
 import {
+  liveTalkCallEnds,
   liveTalkCallErrorKey,
   liveTalkErrorGate,
   liveTalkGateMessageKey,
@@ -28,6 +29,7 @@ import {
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
+import { stopReadAloud } from "@/features/speech/model/readAloudSession";
 import type { RealtimeVoiceEvent, RealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
@@ -61,6 +63,11 @@ type CompletedTurn = {
 };
 
 const REALTIME_TRANSCRIPT_GRACE_MS = 350;
+
+function clearTimer(timer: MutableRefObject<ReturnType<typeof setTimeout> | null>): void {
+  if (timer.current != null) clearTimeout(timer.current);
+  timer.current = null;
+}
 
 // The WebRTC session, its turn state and the chimes load when Live Talk is
 // started, not with the chat screen. The hook itself stays static.
@@ -245,10 +252,7 @@ export function useLiveTalk({
   }, [captureCurrentTurn, finishTurn]);
 
   const flushPendingTurn = useCallback(() => {
-    if (finishTimerRef.current != null) {
-      clearTimeout(finishTimerRef.current);
-      finishTimerRef.current = null;
-    }
+    clearTimer(finishTimerRef);
     if (turnIdRef.current && (userTextRef.current || assistantTextRef.current)) {
       finalizeCurrentTurn();
     }
@@ -322,11 +326,11 @@ export function useLiveTalk({
         }, REALTIME_TRANSCRIPT_GRACE_MS);
         return;
       }
-      if (event.type === "error") {
-        reportRecoverableError(feedback, t(liveTalkCallErrorKey(event.fatal)));
+      if (event.type === "error" || event.type === "interrupted") {
+        reportRecoverableError(feedback, t(liveTalkCallErrorKey(event)));
         setPhase("idle");
-        // The connection is gone: left open, the mic kept recording into a dead peer.
-        if (event.fatal) closeRef.current();
+        // The same hang-up as the user's: the turn so far is saved and the call ended once.
+        if (liveTalkCallEnds(event)) closeRef.current();
       }
     },
     [applyEvent, feedback, finalizeCurrentTurn, flushPendingTurn, t],
@@ -338,14 +342,8 @@ export function useLiveTalk({
     connectingRef.current = null;
     const shouldCueEnd = visibleRef.current || sessionRef.current != null;
     visibleRef.current = false;
-    if (finishTimerRef.current != null) {
-      clearTimeout(finishTimerRef.current);
-      finishTimerRef.current = null;
-    }
-    if (sessionLimitTimerRef.current != null) {
-      clearTimeout(sessionLimitTimerRef.current);
-      sessionLimitTimerRef.current = null;
-    }
+    clearTimer(finishTimerRef);
+    clearTimer(sessionLimitTimerRef);
     const completed = captureCurrentTurn();
     if (completed && (completed.userText || completed.assistantText)) {
       void finishTurn(completed);
@@ -395,6 +393,9 @@ export function useLiveTalk({
       const activeChatId = await ensureChatId();
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       turnChatIdRef.current = activeChatId;
+      // A reply still read aloud stops as the call takes over: a clip that failed then fell back
+      // to the phone's voice, which reset the audio mode under the call.
+      stopReadAloud();
       visibleRef.current = true;
       setMuted(false);
       setPhase("thinking");
@@ -419,9 +420,7 @@ export function useLiveTalk({
       }
       sessionRef.current = session;
       callIdRef.current = session.callId;
-      if (sessionLimitTimerRef.current != null) {
-        clearTimeout(sessionLimitTimerRef.current);
-      }
+      clearTimer(sessionLimitTimerRef);
       sessionLimitTimerRef.current = setTimeout(() => {
         sessionLimitTimerRef.current = null;
         closeRef.current();

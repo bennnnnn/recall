@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -29,6 +30,10 @@ import java.util.concurrent.Executor
  * (expo-audio's setAudioModeAsync). When the call ends the route and the focus are given back,
  * and the mode is normal again.
  *
+ * A phone call comes first. Refused the focus (the phone is on a call), start takes nothing and
+ * rejects with ERR_AUDIO_FOCUS_REFUSED; a phone call or another app that takes the focus mid-call
+ * sends onInterrupted, and JS hangs up.
+ *
  * One route for the app: the JS side counts the calls holding it (features/speech/model/callAudio.ts).
  */
 class CallAudioModule : Module() {
@@ -46,8 +51,19 @@ class CallAudioModule : Module() {
     override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) = reroute()
   }
 
-  /** The call keeps the voice even when another app takes focus for a moment (a notification). */
-  private val focusChanges = AudioManager.OnAudioFocusChangeListener { }
+  /**
+   * A phone call ringing takes the focus for a while, another app's music or call for good. Left
+   * on, the voice talked over the ringtone, the open mic heard the other audio and could start a
+   * reply, and a call answered with the app still open kept the minutes running: JS hangs up.
+   * A notification's moment (it may duck) keeps the call. With the focus back the call takes its
+   * mode and device again: before Android 12 no mode listener does that after a phone call.
+   */
+  private val focusChanges = AudioManager.OnAudioFocusChangeListener { change ->
+    when (change) {
+      AudioManager.AUDIOFOCUS_LOSS, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> interrupted()
+      AudioManager.AUDIOFOCUS_GAIN -> reroute(reassertMode = true)
+    }
+  }
 
   /**
    * Android 12+: set back to normal mid-call (expo-audio's setAudioModeAsync does, with the
@@ -60,6 +76,8 @@ class CallAudioModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("RecallCallAudio")
+
+    Events(INTERRUPTED)
 
     // On the main thread, one after another: a quick hang-up and redial keep their order.
     AsyncFunction("startAsync") {
@@ -82,10 +100,12 @@ class CallAudioModule : Module() {
       ?: (appContext.reactContext?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)
       ?: return
     if (callManager == null) {
+      // The phone is on a call: its mode and its speaker stay as that call set them (before
+      // Android 12 our speakerphone would have moved the phone call onto the loudspeaker).
+      if (!requestFocus(manager)) throw AudioFocusRefusedException()
       callManager = manager
       @Suppress("DEPRECATION")
       speakerBefore = manager.isSpeakerphoneOn
-      requestFocus(manager)
       manager.registerAudioDeviceCallback(deviceChanges, mainHandler)
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) watchRouteChanges(manager)
     }
@@ -93,32 +113,46 @@ class CallAudioModule : Module() {
     route(manager)
   }
 
+  /** Each step by itself: one that throws must not leave the mode, the focus or the device held. */
   @Synchronized
   private fun stop() {
     val manager = callManager ?: return
     callManager = null
-    runCatching {
-      manager.unregisterAudioDeviceCallback(deviceChanges)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        unwatchRouteChanges(manager)
-        manager.clearCommunicationDevice()
-      } else {
-        stopSco(manager)
-        // A phone call answered mid-session owns the speaker now: leave it as that call set it.
+    giveBack("the device listener") { manager.unregisterAudioDeviceCallback(deviceChanges) }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      giveBack("the mode listener") { unwatchRouteChanges(manager) }
+      giveBack("the call's device") { manager.clearCommunicationDevice() }
+    } else {
+      giveBack("Bluetooth") { stopSco(manager) }
+      // A phone call answered mid-session owns the speaker now: leave it as that call set it.
+      giveBack("the speaker") {
         @Suppress("DEPRECATION")
         if (manager.mode == AudioManager.MODE_IN_COMMUNICATION) manager.isSpeakerphoneOn = speakerBefore
       }
-      abandonFocus(manager)
-      // Normal, never the mode found at start: that could be another app's call, held for it.
-      manager.mode = AudioManager.MODE_NORMAL
-    }.onFailure { Log.w(TAG, "Could not give the call's audio route back", it) }
+    }
+    giveBack("audio focus") { abandonFocus(manager) }
+    // Last, and normal, never the mode found at start: that could be another app's call, held for it.
+    giveBack("the mode") { manager.mode = AudioManager.MODE_NORMAL }
+  }
+
+  private inline fun giveBack(what: String, step: () -> Unit) {
+    runCatching { step() }.onFailure { Log.w(TAG, "Could not give back $what", it) }
   }
 
   @Synchronized
   private fun reroute(reassertMode: Boolean = false) {
     val manager = callManager ?: return
-    if (reassertMode) manager.mode = AudioManager.MODE_IN_COMMUNICATION
+    // Only when it changed: focus back after a notification finds the call's mode still set.
+    if (reassertMode && manager.mode != AudioManager.MODE_IN_COMMUNICATION) {
+      manager.mode = AudioManager.MODE_IN_COMMUNICATION
+    }
     route(manager)
+  }
+
+  /** The call lost the focus: JS hangs up (useLiveTalk). A call already given back says nothing. */
+  @Synchronized
+  private fun interrupted() {
+    if (callManager != null) sendEvent(INTERRUPTED)
   }
 
   /** Never throws: a headset that leaves while it is chosen must not crash the app from a callback. */
@@ -175,8 +209,12 @@ class CallAudioModule : Module() {
     manager.removeOnModeChangedListener(modeChanges)
   }
 
-  private fun requestFocus(manager: AudioManager) {
-    runCatching {
+  /**
+   * False only when Android refuses the focus, which it does while the phone is on a call. A
+   * request that throws still routes the call, as before there was any focus.
+   */
+  private fun requestFocus(manager: AudioManager): Boolean {
+    val result = runCatching {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val attributes = AudioAttributes.Builder()
           .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
@@ -186,27 +224,38 @@ class CallAudioModule : Module() {
           .setAudioAttributes(attributes)
           .setOnAudioFocusChangeListener(focusChanges, mainHandler)
           .build()
-        focusRequest = request
-        manager.requestAudioFocus(request)
+        manager.requestAudioFocus(request).also {
+          if (it != AudioManager.AUDIOFOCUS_REQUEST_FAILED) focusRequest = request
+        }
       } else {
         @Suppress("DEPRECATION")
         manager.requestAudioFocus(focusChanges, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
       }
     }.onFailure { Log.w(TAG, "Could not take audio focus for the call", it) }
+    return result.getOrNull() != AudioManager.AUDIOFOCUS_REQUEST_FAILED
   }
 
   private fun abandonFocus(manager: AudioManager) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      focusRequest?.let(manager::abandonAudioFocusRequest)
+      // Cleared first: an abandon that throws must not leave the next call this one's request.
+      val request = focusRequest ?: return
       focusRequest = null
+      manager.abandonAudioFocusRequest(request)
     } else {
       @Suppress("DEPRECATION")
       manager.abandonAudioFocus(focusChanges)
     }
   }
 
+  /** The code is spelled out: a release build's minifier renames the class it would come from. */
+  private class AudioFocusRefusedException :
+    CodedException("ERR_AUDIO_FOCUS_REFUSED", "The phone is on a call: Android refused the call audio focus", null)
+
   private companion object {
     const val TAG = "RecallCallAudio"
+
+    /** Another call or app took the audio; features/speech/model/callAudio.ts listens for it. */
+    const val INTERRUPTED = "onInterrupted"
 
     val WIRED_HEADSETS = setOf(
       AudioDeviceInfo.TYPE_WIRED_HEADSET,

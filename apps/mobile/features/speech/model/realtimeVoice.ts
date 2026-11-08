@@ -94,10 +94,16 @@ type MicStream = Parameters<typeof createRealtimePeer>[1];
 
 /**
  * The call's route and microphone, or neither. The route comes first, so WebRTC's audio starts
- * on it; a mic that fails, or a hang-up while it opens, gives both back.
+ * on it; a mic that fails, or a hang-up while it opens, gives both back. A phone call or
+ * another app that takes the audio while the route is held is said as `interrupted`.
  */
-async function openCallMedia(webrtc: NativeWebRtc, mic: ReturnType<typeof webRtcMicConstraints>, hangUp: AbortSignal) {
-  const callAudio = await startCallAudio();
+async function openCallMedia(
+  webrtc: NativeWebRtc,
+  mic: ReturnType<typeof webRtcMicConstraints>,
+  hangUp: AbortSignal,
+  onEvent: (event: RealtimeVoiceEvent) => void,
+) {
+  const callAudio = await startCallAudio(() => onEvent({ type: "interrupted" }));
   try {
     if (hangUp.aborted) throw abortError();
     const media = await openRealtimeMicrophone(webrtc, mic);
@@ -140,7 +146,7 @@ export async function createRealtimeVoiceSession(options: {
   }
   const hangUp = options.signal ?? new AbortController().signal;
   const mic = webRtcMicConstraints();
-  const { callAudio, stream, audioTracks } = await openCallMedia(webrtc, mic, hangUp);
+  const { callAudio, stream, audioTracks } = await openCallMedia(webrtc, mic, hangUp, options.onEvent);
 
   let callId: string | null = null;
   let maxDurationSeconds: number | null = null;
@@ -187,17 +193,20 @@ export async function createRealtimeVoiceSession(options: {
   });
 
   try {
-    // A hang-up does not wait for the connect: the call is torn down as it happens.
+    // A hang-up does not wait for the connect: the call is torn down as it happens. The work
+    // below stops there too: the offer still went to Recall, which opened a call nobody was on.
     await untilAborted((async () => {
       const offerSdp = await peer.createOffer();
+      if (hangUp.aborted) throw abortError();
       const credential = await credentialPromise;
+      if (hangUp.aborted) throw abortError();
       callId = credential.call_id;
       maxDurationSeconds = credential.max_duration_seconds ?? null;
       debugRealtime("session-ready", {
         model: credential.model,
         expiresAt: credential.expires_at,
       });
-      await peer.connect(options.token, credential.call_id, offerSdp);
+      await peer.connect(options.token, credential.call_id, offerSdp, hangUp);
     })(), hangUp);
   } catch (error) {
     dispatch({ type: "close" });

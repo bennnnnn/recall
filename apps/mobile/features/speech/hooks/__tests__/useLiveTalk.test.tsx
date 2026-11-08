@@ -5,6 +5,7 @@ import { act, render } from "@testing-library/react-native";
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { api } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
+import { readAloudSession, startReadAloud } from "@/features/speech/model/readAloudSession";
 import { createRealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
@@ -408,5 +409,126 @@ describe("useLiveTalk hang-up while the call connects", () => {
     // A hang-up is no failure: nothing is said about it.
     expect(reportRecoverableError).not.toHaveBeenCalled();
     expect(confirmDialog).not.toHaveBeenCalled();
+  });
+});
+
+describe("useLiveTalk when the phone takes the call's audio", () => {
+  function callSession() {
+    return { callId: "call-1", maxDurationSeconds: 600, setMuted: jest.fn(), cancelResponse: jest.fn(), close: jest.fn() };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // A phone call rang under live talk: the voice talked over the ringtone, the open mic could
+  // start a reply, and a call answered with the app open kept charging minutes.
+  it("hangs up as the user's hang-up does, once, saying why", async () => {
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockResolvedValueOnce(null as never);
+    const session = callSession();
+    let emit!: (event: { type: string; [key: string]: unknown }) => void;
+    (createRealtimeVoiceSession as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+      emit = onEvent;
+      return session;
+    });
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    await act(async () => {
+      emit({ type: "speech_started", turnId: "turn-1" });
+      emit({ type: "user_transcript", text: "what time is it" });
+      emit({ type: "interrupted" });
+    });
+    await act(async () => {
+      live.close();
+    });
+
+    expect(live.visible).toBe(false);
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_interrupted"]]);
+    // The turn heard so far is saved, and the server's session ends once.
+    expect(api.persistRealtimeLiveTalkTurn).toHaveBeenCalledWith("tok", expect.objectContaining({
+      callId: "call-1", userText: "what time is it",
+    }));
+    expect(session.close).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(api.endRealtimeSession).mock.calls).toEqual([["tok", "call-1"]]);
+  });
+
+  it("hangs up a call that is still connecting, saying why", async () => {
+    let connecting!: AbortSignal;
+    (createRealtimeVoiceSession as jest.Mock).mockImplementationOnce(
+      ({ onEvent, signal }: { onEvent: (event: { type: string }) => void; signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          connecting = signal;
+          signal.addEventListener("abort", () => reject(Object.assign(new Error("Request canceled"), { name: "AbortError" })));
+          onEvent({ type: "interrupted" });
+        }),
+    );
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(connecting.aborted).toBe(true);
+    expect(live.visible).toBe(false);
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_interrupted"]]);
+    // No call id yet: the session's own release gives the minted minutes back.
+    expect(api.endRealtimeSession).not.toHaveBeenCalled();
+  });
+
+  it("says the phone is on a call when Android refused the call its audio", async () => {
+    (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce(new Error("phone_busy"));
+    await render(<Probe />);
+    await act(async () => {
+      await live.open();
+    });
+
+    expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_phone_busy"]]);
+    expect(live.visible).toBe(false);
+  });
+
+  it("ends a call that connected after its hang-up once, however often it is closed", async () => {
+    const session = callSession();
+    let connected!: (value: ReturnType<typeof callSession>) => void;
+    (createRealtimeVoiceSession as jest.Mock).mockReturnValueOnce(
+      new Promise((resolve) => {
+        connected = resolve;
+      }),
+    );
+    await render(<Probe />);
+    let opening!: Promise<void>;
+    await act(async () => {
+      opening = live.open();
+    });
+
+    await act(async () => {
+      live.close();
+      live.close();
+    });
+    await act(async () => {
+      connected(session);
+      await opening;
+    });
+    await act(async () => {
+      live.close();
+    });
+
+    expect(session.close).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(api.endRealtimeSession).mock.calls).toEqual([["tok", "call-1"]]);
+  });
+
+  // A reply read aloud went on into the call: when its clip failed it fell back to the phone's
+  // voice, which reset the audio mode, and the call's voice left its route.
+  it("stops a reply read aloud before the call takes the audio", async () => {
+    const stopReading = jest.fn();
+    startReadAloud("message-1", stopReading);
+    await openCall();
+
+    expect(stopReading).toHaveBeenCalledTimes(1);
+    expect(readAloudSession.get()).toBeNull();
+    expect(stopReading.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(createRealtimeVoiceSession).mock.invocationCallOrder[0]!,
+    );
   });
 });

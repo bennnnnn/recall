@@ -10,11 +10,23 @@ import { requireOptionalNativeModule } from "expo-modules-core";
  * Live talk never calls expo-audio's `setAudioModeAsync` during a call: on Android it resets the
  * mode and turns the speakerphone on. From Android 12 the module takes the route back, though
  * the voice jumps; before it, the call would stay off its route.
+ *
+ * A phone call comes first: the module refuses a call while the phone is on one (`phone_busy`),
+ * and says when one, or another app, takes the audio mid-call (`onInterrupted`).
  */
-type CallAudioModule = { startAsync: () => Promise<void>; stopAsync: () => Promise<void> };
+type Subscription = { remove: () => void };
+type CallAudioModule = {
+  startAsync: () => Promise<void>;
+  stopAsync: () => Promise<void>;
+  /** The native module's events; a build made before them has none. */
+  addListener?: (event: "onInterrupted", listener: () => void) => Subscription;
+};
 
 /** A call's hold on the route: stop lets go of it, once. */
 type CallAudio = { stop: () => void };
+
+/** The module's rejection when Android refused the call its audio focus: the phone is on a call. */
+const FOCUS_REFUSED = "ERR_AUDIO_FOCUS_REFUSED";
 
 /**
  * The phone has one route and every call shares it: the calls holding it now. A call hung up
@@ -34,16 +46,35 @@ function logRouteFailed(stage: "start" | "stop", error: unknown): void {
   console.info("[LiveTalk/audio]", { stage, error: error instanceof Error ? error.name : typeof error });
 }
 
-/** Route the call before WebRTC opens the mic, so its audio starts on the call's route. */
-export async function startCallAudio(): Promise<CallAudio> {
+function listenForInterruption(native: CallAudioModule, onInterrupted: () => void): Subscription | null {
+  try {
+    return native.addListener?.("onInterrupted", onInterrupted) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function focusRefused(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { code?: unknown }).code === FOCUS_REFUSED;
+}
+
+/**
+ * Route the call before WebRTC opens the mic, so its audio starts on the call's route.
+ * `onInterrupted` runs while the route is held, when a phone call or another app takes the audio.
+ * Rejects with `phone_busy`, holding nothing, while the phone is on a call.
+ */
+export async function startCallAudio(onInterrupted: () => void = () => undefined): Promise<CallAudio> {
   const native = loadCallAudio();
   if (!native) return { stop: () => undefined };
   holders += 1;
   let held = true;
+  // Before the route is taken: focus can be lost as soon as it is granted.
+  const interruption = listenForInterruption(native, onInterrupted);
   const hold: CallAudio = {
     stop: () => {
       if (!held) return;
       held = false;
+      interruption?.remove();
       holders -= 1;
       if (holders > 0) return;
       native.stopAsync().catch((error: unknown) => logRouteFailed("stop", error));
@@ -53,6 +84,11 @@ export async function startCallAudio(): Promise<CallAudio> {
     // Each call asks again: the module keeps one route and sets its mode and device once more.
     await native.startAsync();
   } catch (error) {
+    if (focusRefused(error)) {
+      // The module took neither the mode nor the route: the call must not start over the phone call.
+      hold.stop();
+      throw new Error("phone_busy");
+    }
     // The call still connects, on the phone's own route.
     logRouteFailed("start", error);
   }

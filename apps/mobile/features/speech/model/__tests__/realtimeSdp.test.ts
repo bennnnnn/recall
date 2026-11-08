@@ -21,11 +21,13 @@ describe("exchangeRealtimeSdp", () => {
     connect.mockResolvedValueOnce({ sdp: "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111" });
 
     const localSdp = "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=sendrecv";
-    await expect(exchangeRealtimeSdp("tok", "session-1", localSdp)).resolves.toBe(
+    const hangUp = new AbortController();
+    await expect(exchangeRealtimeSdp("tok", "session-1", localSdp, hangUp.signal)).resolves.toBe(
       "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111",
     );
 
-    expect(connect).toHaveBeenCalledWith("tok", { callId: "session-1", sdp: localSdp }, 15_000);
+    // The hang-up's signal goes with the request: a call hung up cancels it.
+    expect(connect).toHaveBeenCalledWith("tok", { callId: "session-1", sdp: localSdp }, 15_000, hangUp.signal);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -92,8 +92,11 @@ type RealtimePeer = {
   send: (payload: Record<string, unknown>) => void;
   /** The local offer, after ICE gathering off iOS. */
   createOffer: () => Promise<string>;
-  /** Exchanges SDP through Recall's API for the minted session and waits for the data channel. */
-  connect: (token: string, sessionId: string, offerSdp: string) => Promise<void>;
+  /**
+   * Exchanges SDP through Recall's API for the minted session and waits for the data channel.
+   * `signal` (the hang-up) cancels the exchange's request.
+   */
+  connect: (token: string, sessionId: string, offerSdp: string, signal?: AbortSignal) => Promise<void>;
   closeChannel: () => void;
   /** Silences remote audio, stops the mic and closes the peer. */
   close: () => void;
@@ -370,8 +373,8 @@ function buildRealtimePeer(
   return {
     send: (payload) => sendRealtimePayload(dataChannel, payload),
     createOffer: () => createLocalOffer(pc),
-    connect: async (token, sessionId, offerSdp) => {
-      const answerSdp = await exchangeRealtimeSdp(token, sessionId, offerSdp);
+    connect: async (token, sessionId, offerSdp, signal) => {
+      const answerSdp = await exchangeRealtimeSdp(token, sessionId, offerSdp, signal);
       debugRealtime("received-sdp-answer", {
         transport: "server-relayed",
         hasAudio: answerSdp.includes("m=audio"),

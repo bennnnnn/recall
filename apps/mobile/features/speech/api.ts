@@ -47,11 +47,16 @@ export const speechApi = {
       }),
     }),
   /** The WebRTC offer for a minted session: the server opens the OpenAI call and answers with its SDP. */
-  connectRealtimeSession: (token: string, body: { callId: string; sdp: string }, timeoutMs: number) =>
+  connectRealtimeSession: (
+    token: string,
+    body: { callId: string; sdp: string },
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ) =>
     request<{ sdp: string }>(
       "/speech/live/connect",
       token,
-      { method: "POST", body: JSON.stringify({ call_id: body.callId, sdp: body.sdp }) },
+      { method: "POST", body: JSON.stringify({ call_id: body.callId, sdp: body.sdp }), signal },
       true,
       timeoutMs,
     ),
