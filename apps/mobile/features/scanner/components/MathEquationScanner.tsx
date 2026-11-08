@@ -7,7 +7,6 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useCameraPermissions } from "expo-image-picker";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -22,6 +21,7 @@ import { ScannerPreviewImage } from "@/features/scanner/components/ScannerPrevie
 import { useLiveScanStatus } from "@/features/scanner/hooks/useLiveScanStatus";
 import { useMathScannerCrop } from "@/features/scanner/hooks/useMathScannerCrop";
 import { useScanContentFit } from "@/features/scanner/hooks/useScanContentFit";
+import { useScannerCameraPermission } from "@/features/scanner/hooks/useScannerCameraPermission";
 import { useScannerCamera } from "@/features/scanner/hooks/useScannerCamera";
 import { useScannerFocus } from "@/features/scanner/hooks/useScannerFocus";
 import { boxIn, type ImageBox, shotCrop, shotCutMaxEdge } from "@/features/scanner/model/contentFit";
@@ -102,7 +102,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   }, []);
   const s = useMemo(() => makeStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission] = useScannerCameraPermission(visible);
   const granted = Boolean(permission?.granted);
   const [hosted, setHosted] = useState(visible);
   const [busy, setBusy] = useState(false);
@@ -169,8 +169,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     if (Platform.OS === "ios") return;
     const timer = setTimeout(() => setHosted(false), ANDROID_DISMISS_MS);
     return () => clearTimeout(timer);
-    // Reset live session when opening; crop helpers are stable enough per open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- open-only reset
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open-only reset: the crop helpers are stable enough per open
   }, [visible]);
 
   useEffect(() => () => {
@@ -299,14 +298,15 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     });
   }, [busy, crop, deliverCrop, preview, previewFrame, runShot]);
 
-  /** Back to the live camera; every file from the last shot is deleted. */
+  /** Back to the live camera, by Retake or Android Back (held while Solve cuts the shot); the last shot's files are deleted. */
   const retake = useCallback(() => {
+    if (busy) return;
     files.discardAll();
     resetLive();
     crop.resetRegion();
     setPreview(null);
     setError(null);
-  }, [crop, files, resetLive]);
+  }, [busy, crop, files, resetLive]);
 
   const changeSubject = useCallback((next: ScannerSubject) => {
     if (next === subject) return;
@@ -357,7 +357,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       animationType="fade"
       presentationStyle="fullScreen"
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={preview ? retake : onClose}
       onDismiss={() => setHosted(false)}
       testID="math-scanner-modal"
     >
