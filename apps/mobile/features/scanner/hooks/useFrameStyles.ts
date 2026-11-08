@@ -84,11 +84,14 @@ export function useFrameStyles(region: SharedValue<ScanRegion>, dragging: Shared
       opacity: 1 - dragging.value * (1 - MASK_DRAG_OPACITY),
     };
   });
+  // Its own width, as the left mask has: from `left` alone it was zero wide, and the
+  // camera showed undimmed beside a frame pulled in from the right.
   const maskRightStyle = useAnimatedStyle(() => {
     const r = region.value;
     return {
       top: r.y * windowHeight,
       left: (r.x + r.width) * windowWidth,
+      width: Math.max(0, 1 - r.x - r.width) * windowWidth,
       height: r.height * windowHeight,
       opacity: 1 - dragging.value * (1 - MASK_DRAG_OPACITY),
     };
