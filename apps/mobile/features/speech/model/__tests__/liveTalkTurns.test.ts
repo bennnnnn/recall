@@ -1,4 +1,9 @@
-import { createLiveTalkTurns, LIVE_TALK_USER_LINE_WAIT_MS, type LiveTalkTurn } from "@/features/speech/model/liveTalkTurns";
+import {
+  createInOrder,
+  createLiveTalkTurns,
+  LIVE_TALK_USER_LINE_WAIT_MS,
+  type LiveTalkTurn,
+} from "@/features/speech/model/liveTalkTurns";
 
 function call() {
   const saved: LiveTalkTurn[] = [];
@@ -94,5 +99,29 @@ describe("live talk turns", () => {
     turns.finishAll();
     expect(saved.map((turn) => turn.id)).toEqual(["u1", "u2"]);
     expect(jest.getTimerCount()).toBe(0);
+  });
+});
+
+describe("the call's saves, in order", () => {
+  it("starts each when the one before settles, a failed one included", async () => {
+    const inOrder = createInOrder();
+    const started: string[] = [];
+    let finishFirst!: () => void;
+    const first = inOrder(() => {
+      started.push("first");
+      return new Promise<void>((_resolve, reject) => {
+        finishFirst = () => reject(new Error("refused"));
+      });
+    });
+    const second = inOrder(async () => {
+      started.push("second");
+      return "saved";
+    });
+    await Promise.resolve();
+    expect(started).toEqual(["first"]);
+    finishFirst();
+    await expect(first).rejects.toThrow("refused");
+    await expect(second).resolves.toBe("saved");
+    expect(started).toEqual(["first", "second"]);
   });
 });

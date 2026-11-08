@@ -97,3 +97,18 @@ export function createLiveTalkTurns(save: (turn: LiveTalkTurn) => void) {
     },
   };
 }
+
+/**
+ * Runs the call's saves one after another. Saves sent together raced on the server: a later
+ * turn could be written first (a chat's rows sort by when they were written), and both read the
+ * chat as untitled and queued its title twice. The hang-up's end of the call waits behind them
+ * too: it closes saving, so a save still queued would be refused.
+ */
+export function createInOrder() {
+  let last: Promise<unknown> = Promise.resolve();
+  return <T>(task: () => Promise<T>): Promise<T> => {
+    const next = last.then(task);
+    last = next.catch(() => undefined);
+    return next;
+  };
+}

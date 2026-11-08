@@ -13,7 +13,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
-import { createLiveTalkTurns, type LiveTalkTurn } from "@/features/speech/model/liveTalkTurns";
+import { createInOrder, createLiveTalkTurns, type LiveTalkTurn } from "@/features/speech/model/liveTalkTurns";
 import {
   liveTalkCallEnds,
   liveTalkCallErrorKey,
@@ -140,6 +140,8 @@ export function useLiveTalk({
   const [turns] = useState(() => createLiveTalkTurns((turn) => {
     void finishTurnRef.current({ ...turn, chatId: turnChatIdRef.current, callId: callIdRef.current });
   }));
+  // The saves, and the hang-up's end after them, go one at a time (createInOrder).
+  const [inOrder] = useState(createInOrder);
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeRef = useRef<() => void>(() => {});
   /** Aborts the call still connecting: a hang-up gives its route, mic and minutes back at once. */
@@ -165,14 +167,10 @@ export function useLiveTalk({
       // RAG indexing stay outside the audio path. Snapshot the completed turn
       // so a later utterance cannot mutate what gets saved.
       if (token && completed.chatId && completed.callId && (completed.userText || completed.assistantText)) {
-        void api
-          .persistRealtimeLiveTalkTurn(token, {
-            chatId: completed.chatId,
-            callId: completed.callId,
-            userText: completed.userText,
-            assistantText: completed.assistantText,
-            turnId: completed.id,
-          })
+        const save = { chatId: completed.chatId, callId: completed.callId, turnId: completed.id };
+        void inOrder(() => api.persistRealtimeLiveTalkTurn(token, {
+          ...save, userText: completed.userText, assistantText: completed.assistantText,
+        }))
           .then((saved) => {
             // Reconcile this turn in place, never replace the whole thread
             // with a delayed list fetch while the next utterance is streaming.
@@ -220,7 +218,7 @@ export function useLiveTalk({
         );
       }
     },
-    [alertForGate, applyEvent, feedback, newMessageCountRef, onFirstReply, onScrollToLatest, status, t, token],
+    [alertForGate, applyEvent, feedback, inOrder, newMessageCountRef, onFirstReply, onScrollToLatest, status, t, token],
   );
   finishTurnRef.current = finishTurn;
 
@@ -307,8 +305,7 @@ export function useLiveTalk({
     // session never reported stays charged for its whole reservation).
     const endedCallId = callIdRef.current;
     if (token && endedCallId) {
-      void api
-        .endRealtimeSession(token, endedCallId)
+      void inOrder(() => api.endRealtimeSession(token, endedCallId))
         .then((next) => setStatus(next))
         .catch(() => {});
     }
@@ -319,7 +316,7 @@ export function useLiveTalk({
     setPhase("idle");
     setVisible(false);
     if (shouldCueEnd) void playCue("end");
-  }, [token, turns]);
+  }, [inOrder, token, turns]);
   closeRef.current = close;
 
   const open = useCallback(async () => {

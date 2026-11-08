@@ -612,6 +612,39 @@ describe("useLiveTalk's turns, mute and limits", () => {
     }]]);
   });
 
+  // Two turns freed together were saved at once and raced on the server: the later one could
+  // be written first, and the hang-up's end could close saving before a queued save landed.
+  it("saves the turns one after another, and ends the call only after the last save", async () => {
+    const pending: (() => void)[] = [];
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockImplementation(
+      () => new Promise((resolve) => pending.push(() => resolve(undefined))),
+    );
+    const savedTurns = () => jest.mocked(api.persistRealtimeLiveTalkTurn).mock.calls.map(([, body]) => body.turnId);
+    const emit = await openThreadCall();
+    await act(async () => {
+      // u1's reply is done and waits for its line; u2 is heard and answered meanwhile.
+      emit({ type: "speech_started", turnId: "u1" });
+      emit({ type: "assistant_transcript", text: "Paris.", final: true });
+      emit({ type: "response_done" });
+      emit({ type: "speech_started", turnId: "u2" });
+      emit({ type: "user_transcript", text: "And Spain?", turnId: "u2" });
+      emit({ type: "assistant_transcript", text: "Madrid.", final: true });
+      emit({ type: "response_done" });
+      // u1's line lands: both turns are ready at once.
+      emit({ type: "user_transcript", text: "What is the capital of France?", turnId: "u1" });
+    });
+    expect(savedTurns()).toEqual(["u1"]);
+
+    await act(async () => pending[0]!());
+    expect(savedTurns()).toEqual(["u1", "u2"]);
+
+    await act(async () => live.close());
+    expect(api.endRealtimeSession).not.toHaveBeenCalled();
+    await act(async () => pending[1]!());
+    expect(jest.mocked(api.endRealtimeSession).mock.calls).toEqual([["tok", "call-1"]]);
+    jest.mocked(api.persistRealtimeLiveTalkTurn).mockReset();
+  });
+
   // Muted mid-sentence, no reply is asked for: the face waited in "thinking" for good.
   it.each([
     [true, "thinking"],
