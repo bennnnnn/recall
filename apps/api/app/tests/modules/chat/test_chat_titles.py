@@ -150,10 +150,10 @@ async def test_a_rejected_name_costs_one_call_and_still_names_the_chat(raw: str)
     """Left unnamed, the chat was read and titled again every 5 minutes (the message-page
     backfill), a model call each time: the user's own words name it at once."""
     from app.modules.chat import titles as topic_service
-    from app.tests.fakes import FakeSessionCM
+    from app.tests.fakes import FakeSessionCM, fake_session
 
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
-    session = AsyncMock()
+    session = fake_session()
     with (
         patch.object(
             litellm_gateway, "complete_text", new_callable=AsyncMock, return_value=raw
