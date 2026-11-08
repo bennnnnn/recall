@@ -1,10 +1,9 @@
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import {
   ActivityIndicator,
   Image,
   Platform,
   Pressable,
-  type PressableStateCallbackType,
   StyleSheet,
   Text,
   View,
@@ -59,60 +58,6 @@ function SignIn() {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { busyProvider, busy, handleApple, handleGoogle, handleDev } =
-    useLoginActions();
-  const showDevLogin = config.devAuthEnabled && __DEV__;
-  const showGoogleLogin =
-    !isExpoGo() &&
-    (Platform.OS === "android" ? isGoogleWebClientConfigured() : isGoogleSignInConfigured());
-  const showAppleLogin = shouldShowAppleSignInButton();
-  const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
-  // Expo Go signs in with neither Google nor Apple: dev login is the way in there.
-  const expoGo = isExpoGo();
-  /** Another provider's sign-in dims this button; a press shows only while none is busy. */
-  const providerStyle =
-    (base: ViewStyle, provider: LoginProvider) => ({ pressed }: PressableStateCallbackType) => [
-      base,
-      busyProvider !== null && busyProvider !== provider && s.dim,
-      pressed && busyProvider === null && s.pressed,
-    ];
-  const devBanner = (message: string) => (
-    <View style={s.devBanner}>
-      <Icon name="info" size={IconSize.sm} color={theme.primary} />
-      <Text style={s.devBannerText}>{message}</Text>
-    </View>
-  );
-  /** Dev login as the only way in (Expo Go on Android, or no sign-in configured). */
-  const devPrimaryLogin = (
-    <Button
-      title={t("login.dev")}
-      onPress={handleDev}
-      loading={busyProvider === "dev"}
-      loadingLabel={t("login.dev")}
-      disabled={busy}
-      style={s.primaryBtn}
-    />
-  );
-  /** Dev login under a real sign-in button. */
-  const devSecondaryLogin = (
-    <>
-      <Text style={s.orText}>{t("login.or_dev")}</Text>
-      <Pressable
-        style={providerStyle(s.devSecondaryBtn, "dev")}
-        onPress={handleDev}
-        disabled={busy}
-        accessibilityRole="button"
-        accessibilityLabel={t("login.dev")}
-        accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
-      >
-        {busyProvider === "dev" ? (
-          <ActivityIndicator size="small" color={theme.primary} />
-        ) : (
-          <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
-        )}
-      </Pressable>
-    </>
-  );
 
   if (loading) {
     return (
@@ -129,72 +74,9 @@ function SignIn() {
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;
 
-  const actions = (
-    <View style={s.actions}>
-      {expoGo && showDevLogin ? (
-        <>
-          {devBanner(t(Platform.OS === "ios" ? "login.dev_expo_ios_hint" : "login.dev_expo_hint"))}
-          {devPrimaryLogin}
-        </>
-      ) : (
-        <>
-          {showAppleLogin ? (
-            <Pressable
-              style={providerStyle(s.appleBtn, "apple")}
-              onPress={handleApple}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel={t("login.apple")}
-              accessibilityState={{ disabled: busy, busy: busyProvider === "apple" }}
-            >
-              {busyProvider === "apple" ? (
-                <ActivityIndicator color={theme.brand.appleInk} />
-              ) : (
-                <>
-                  <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
-                  <Text style={s.appleText}>{t("login.apple")}</Text>
-                </>
-              )}
-            </Pressable>
-          ) : null}
-          {showGoogleLogin ? (
-            <Pressable
-              style={providerStyle(s.googleBtn, "google")}
-              onPress={handleGoogle}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel={t("login.google")}
-              accessibilityState={{ disabled: busy, busy: busyProvider === "google" }}
-            >
-              {busyProvider === "google" ? (
-                <ActivityIndicator color={theme.textSecondary} />
-              ) : (
-                <>
-                  <BrandMark name="google" size={IconSize.sm} />
-                  <Text style={s.googleText}>{t("login.google")}</Text>
-                </>
-              )}
-            </Pressable>
-          ) : showDevLogin && !showAppleLogin ? (
-            devBanner(t("login.error_not_configured"))
-          ) : null}
-          {googleOnlyDevBuild ? (
-            devSecondaryLogin
-          ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
-            devPrimaryLogin
-          ) : null}
-        </>
-      )}
-
-      {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
-          the sign-in); the Privacy Policy says what the AI providers receive. */}
-      <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
-    </View>
-  );
-
   return (
     <LinearGradient colors={gradientColors} style={s.root}>
-      <AuthScrollLayout justify="space-between" footer={actions}>
+      <AuthScrollLayout justify="space-between" footer={<SignInActions s={s} theme={theme} />}>
         <View style={s.hero}>
           <View style={s.logoGlow}>
             <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
@@ -216,6 +98,141 @@ function SignIn() {
 
       </AuthScrollLayout>
     </LinearGradient>
+  );
+}
+
+type Styles = ReturnType<typeof makeStyles>;
+
+type ProviderButtonProps = {
+  provider: LoginProvider;
+  busyProvider: LoginProvider | null;
+  label: string;
+  onPress: () => void;
+  base: ViewStyle;
+  spinnerColor: string;
+  s: Styles;
+  children: ReactNode;
+};
+
+/** One way in. Another provider's sign-in dims it; a press shows only while none is busy. */
+function ProviderButton({ provider, busyProvider, label, onPress, base, spinnerColor, s, children }: ProviderButtonProps) {
+  const busy = busyProvider !== null;
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        base,
+        busyProvider !== null && busyProvider !== provider && s.dim,
+        pressed && busyProvider === null && s.pressed,
+      ]}
+      onPress={onPress}
+      disabled={busy}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: busy, busy: busyProvider === provider }}
+    >
+      {busyProvider === provider ? <ActivityIndicator size="small" color={spinnerColor} /> : children}
+    </Pressable>
+  );
+}
+
+/** The ways in, and the line a tap agrees to: pinned under the hero by `AuthScrollLayout`. */
+function SignInActions({ s, theme }: { s: Styles; theme: Theme }) {
+  const { t } = useTranslation();
+  const { busyProvider, busy, handleApple, handleGoogle, handleDev } = useLoginActions();
+  const showDevLogin = config.devAuthEnabled && __DEV__;
+  const showGoogleLogin =
+    !isExpoGo() &&
+    (Platform.OS === "android" ? isGoogleWebClientConfigured() : isGoogleSignInConfigured());
+  const showAppleLogin = shouldShowAppleSignInButton();
+  const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
+  // Expo Go signs in with neither Google nor Apple: dev login is the way in there.
+  const expoGo = isExpoGo();
+  const devBanner = (message: string) => (
+    <View style={s.devBanner}>
+      <Icon name="info" size={IconSize.sm} color={theme.primary} />
+      <Text style={s.devBannerText}>{message}</Text>
+    </View>
+  );
+  /** Dev login as the only way in (Expo Go on Android, or no sign-in configured). */
+  const devPrimaryLogin = (
+    <Button
+      title={t("login.dev")}
+      onPress={handleDev}
+      loading={busyProvider === "dev"}
+      loadingLabel={t("login.dev")}
+      disabled={busy}
+      style={s.primaryBtn}
+    />
+  );
+  /** Dev login under a real sign-in button. */
+  const devSecondaryLogin = (
+    <>
+      <Text style={s.orText}>{t("login.or_dev")}</Text>
+      <ProviderButton
+        provider="dev"
+        busyProvider={busyProvider}
+        label={t("login.dev")}
+        onPress={handleDev}
+        base={s.devSecondaryBtn}
+        spinnerColor={theme.primary}
+        s={s}
+      >
+        <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+      </ProviderButton>
+    </>
+  );
+
+  return (
+    <View style={s.actions}>
+      {expoGo && showDevLogin ? (
+        <>
+          {devBanner(t(Platform.OS === "ios" ? "login.dev_expo_ios_hint" : "login.dev_expo_hint"))}
+          {devPrimaryLogin}
+        </>
+      ) : (
+        <>
+          {showAppleLogin ? (
+            <ProviderButton
+              provider="apple"
+              busyProvider={busyProvider}
+              label={t("login.apple")}
+              onPress={handleApple}
+              base={s.appleBtn}
+              spinnerColor={theme.brand.appleInk}
+              s={s}
+            >
+              <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
+              <Text style={s.appleText}>{t("login.apple")}</Text>
+            </ProviderButton>
+          ) : null}
+          {showGoogleLogin ? (
+            <ProviderButton
+              provider="google"
+              busyProvider={busyProvider}
+              label={t("login.google")}
+              onPress={handleGoogle}
+              base={s.googleBtn}
+              spinnerColor={theme.textSecondary}
+              s={s}
+            >
+              <BrandMark name="google" size={IconSize.sm} />
+              <Text style={s.googleText}>{t("login.google")}</Text>
+            </ProviderButton>
+          ) : showDevLogin && !showAppleLogin ? (
+            devBanner(t("login.error_not_configured"))
+          ) : null}
+          {googleOnlyDevBuild ? (
+            devSecondaryLogin
+          ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
+            devPrimaryLogin
+          ) : null}
+        </>
+      )}
+
+      {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
+          the sign-in); the Privacy Policy says what the AI providers receive. */}
+      <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
+    </View>
   );
 }
 
