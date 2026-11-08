@@ -28,7 +28,7 @@ type AccentTones = {
   series2?: string;
   /** The third graph series (and a ray diagram's rays), when the default orange sits too near this hue. */
   series3?: string;
-  /** The fourth graph series, when the default violet sits too near this hue. */
+  /** The fourth graph series, when the default fuchsia sits too near this hue. */
   series4?: string;
 };
 

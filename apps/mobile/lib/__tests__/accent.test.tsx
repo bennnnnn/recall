@@ -141,3 +141,24 @@ describe("BrandAccent", () => {
     expect(getAllByText(applyAccent(lightTheme, "berry").primary)).toHaveLength(1);
   });
 });
+
+describe("graph lines", () => {
+  // Every curve on a graph or body in a simulation is told apart by its colour alone. The
+  // accent takes the first line, so a preset near another line's hue replaces that line
+  // (series2/3/4); this holds every pair apart, the overrides included.
+  it("keeps every pair of graph lines clearly apart, for every accent in both schemes", () => {
+    const close: string[] = [];
+    for (const accent of ACCENT_OPTIONS) {
+      for (const base of SCHEMES) {
+        const lines = applyAccent(base, accent).graphSeries;
+        lines.forEach((a, i) =>
+          lines.slice(i + 1).forEach((b, k) => {
+            const difference = colorDifference(a, b);
+            if (difference < 10) close.push(`${accent} ${base.scheme} ${i + 1}~${i + k + 2}: ${difference.toFixed(1)}`);
+          }),
+        );
+      }
+    }
+    expect(close).toEqual([]);
+  });
+});
