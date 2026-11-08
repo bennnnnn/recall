@@ -93,7 +93,7 @@
   "features/scanner/hooks/useMathScannerCrop.ts::useMathScannerCrop": 287,
   "features/search/hooks/useDrawerSearch.ts::useDrawerSearch": 127,
   "features/speech/hooks/useLiveTalk.ts::useLiveTalk": 383,
-  "features/speech/hooks/useVoiceInput.ts::useVoiceInput": 219,
+  "features/speech/hooks/useVoiceInput.ts::useVoiceInput": 210,
   "features/todos/components/TodoDateFields.tsx::TodoDateFields": 209,
   "features/todos/components/TodoEditorSheet.tsx::TodoEditorSheet": 239,
   "features/todos/components/TodoRow.tsx::TodoRow": 127,

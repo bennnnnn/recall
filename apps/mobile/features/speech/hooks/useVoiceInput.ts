@@ -5,7 +5,8 @@ import { useSharedValue } from "react-native-reanimated";
 import { transcribeSpeech } from "@/lib/api";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { voiceRefusalKey } from "@/features/speech/model/voiceRefusal";
+import { stopReadAloud } from "@/features/speech/model/readAloudSession";
+import { dictationFailureKey, dictationNeedsPlan } from "@/features/speech/model/voiceRefusal";
 import {
   deleteVoiceRecording,
   isVoiceInputAvailable,
@@ -21,15 +22,9 @@ type Options = {
   token: string | null;
   onTranscript: (text: string) => void;
   t: (key: string) => string;
-  /** The server said the plan has no voice input (HTTP 403): show the plans. */
+  /** The server said the plan has no voice input (403 `not_in_plan`): show the plans. */
   onPlanRequired?: () => void;
 };
-
-function errorStatus(error: unknown): unknown {
-  return error && typeof error === "object" && "status" in error
-    ? (error as { status: unknown }).status
-    : undefined;
-}
 
 const VOICE_SPEECH_LEVEL = 0.28;
 const VOICE_MIN_SPEECH_SAMPLES = 2;
@@ -112,6 +107,8 @@ export function useVoiceInput({
         });
         return false;
       }
+      // A reply read aloud stops first: the mic took down Recall's own voice as the message.
+      stopReadAloud();
       const next = await startVoiceRecording();
       if (gen !== captureGenRef.current) {
         if (next) void next.stop().then(deleteVoiceRecording).catch(() => undefined);
@@ -166,23 +163,12 @@ export function useVoiceInput({
       return text;
     } catch (error) {
       if (gen !== captureGenRef.current) return null;
-      if (errorStatus(error) === 403 && onPlanRequired) {
+      if (dictationNeedsPlan(error) && onPlanRequired) {
         onPlanRequired();
         return null;
       }
-      const message = error instanceof Error ? error.message : "";
-      const refusal = voiceRefusalKey(error);
-      if (refusal) {
-        reportRecoverableError(feedback, t(refusal));
-      } else if (/network request failed|failed to fetch|timeout|timed out|could not reach/i.test(message)) {
-        reportRecoverableError(feedback, t("chat.voice_network_failed"));
-      } else if (message.includes("recording_empty")) {
-        reportRecoverableError(feedback, t("chat.voice_recording_empty"));
-      } else if (message.includes("transcribe_empty")) {
-        reportRecoverableError(feedback, t("chat.voice_transcribe_empty"));
-      } else {
-        reportRecoverableError(feedback, t("chat.voice_transcribe_failed"));
-      }
+      const failure = dictationFailureKey(error);
+      if (failure) reportRecoverableError(feedback, t(failure));
       return null;
     } finally {
       // Sent or not, the recording is not kept (code-health audit LEAK-04).
