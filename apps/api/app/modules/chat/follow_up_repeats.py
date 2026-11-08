@@ -19,6 +19,10 @@ Live (2026-11-02): "What if the time was 4 s?" and "What if t was 4 s?" were two
 chips. Two what-ifs that set the same values, each with its unit, make the same change: one
 question, unless both name what changes the same way (in words, or by symbols) and the names
 differ ("the initial speed" and "the final speed", $v_i$ and $v_f$, x and y).
+
+Live (2026-11-07): "What if $v_0$ was 30 m/s?", "… 40 m/s?" and "… 50 m/s?" were the
+three chips under a thrown ball, though the prompt asks for one what-if per quantity. Within
+one set, a second what-if that changes the same symbol is the same suggestion again.
 """
 
 from __future__ import annotations
@@ -164,3 +168,48 @@ def _same_topic(first: frozenset[str], second: frozenset[str]) -> bool:
     if len(small) < _MIN_TOPIC_WORDS or not any(_WORD.fullmatch(word) for word in small):
         return False
     return small <= large and len(large) - len(small) <= 1
+
+
+# The symbol right after "what if", in maths or bare: $v_0$, $v_0 = 10$, v0, v_{0}. Not "a"
+# or "I", which open words ("What if a ball…").
+_SYMBOL_AFTER = re.compile(r"(?![aAI]\b)([A-Za-z](?:_\{?[A-Za-z0-9]{1,3}\}?|\d{1,2})?)(?=\s|=|$)")
+
+
+# A value set inside an equation: "How high with $v_0 = 30\\text{ m/s}$?" sets v_0.
+_SETS_A_VALUE = re.compile(r"^\s*([^=<>]+?)\s*=\s*-?\d")
+
+
+def changed_symbol(text: str) -> str | None:
+    """The symbol a question changes, one way however it is written: "What if $v_0$ was 30
+    m/s?", "What if $v_0 = 10\\text{ m/s}$?", "What if v0 was 40 m/s?" and "How high with
+    $v_0 = 30$ m/s?" all change v0. None for a what-if in words ("What if air resistance
+    mattered?") or a question that sets no value."""
+    opening = _WHAT_IF.match(text)
+    if opening is None:
+        for maths in _MATH_SPAN.finditer(text):
+            setting = _SETS_A_VALUE.match(maths.group(1))
+            if setting is not None:
+                return _symbol_key(setting.group(1))
+        return None
+    rest = text[opening.end() :].lstrip()
+    span = _MATH_SPAN.match(rest)
+    if span is not None:
+        name = _RELATION.split(span.group(1), maxsplit=1)[0].strip()
+    else:
+        bare = _SYMBOL_AFTER.match(rest)
+        if bare is None:
+            return None
+        name = bare.group(1)
+    return _symbol_key(name)
+
+
+def _symbol_key(name: str) -> str | None:
+    """v_{0}, v_0 and v0 as one key; None when ``name`` is no single symbol ("3x + 3")."""
+    folded = re.sub(r"[\s{}_]", "", name)
+    return folded if re.fullmatch(r"\\?[A-Za-z][A-Za-z0-9]{0,4}", folded) else None
+
+
+def changes_a_kept_symbol(candidate: str, kept: Iterable[str]) -> bool:
+    """Whether ``candidate`` is a what-if on a symbol one of ``kept`` already changes."""
+    name = changed_symbol(candidate)
+    return name is not None and any(changed_symbol(line) == name for line in kept)

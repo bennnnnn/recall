@@ -18,7 +18,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.account.lifecycle import purge_user_redis_keys
 from app.modules.chat import related_prompts
-from app.modules.chat.follow_up_repeats import repeats_earlier
+from app.modules.chat.follow_up_repeats import changed_symbol, repeats_earlier
 from app.modules.chat.related_prompts import (
     RelatedQuestions,
     generate_related_questions,
@@ -275,3 +275,47 @@ def test_numbers_are_read_one_way(text: str, numbers: list[str]) -> None:
     from app.modules.chat.follow_up_units import quantities
 
     assert [str(quantity) for quantity in quantities(text)] == numbers
+
+
+@pytest.mark.parametrize(
+    "text, symbol",
+    [
+        ("What if $v_0$ was 30 m/s?", "v0"),
+        ("What if $v_0 = 10\\text{ m/s}$?", "v0"),
+        ("What if v0 was 40 m/s?", "v0"),
+        ("What if v_{0} was 5 m/s?", "v0"),
+        ("What if $\\theta$ was 45°?", "\\theta"),
+        ("What if x was 4?", "x"),
+        ("How high with $v_0 = 30\\text{ m/s}$?", "v0"),
+        ("How long to rise with $g = 10$?", "g"),
+        # Words, an equation, another kind of question: nothing to compare by symbol.
+        ("What if air resistance mattered?", None),
+        ("What if a ball was heavier?", None),
+        ("What if it took 2 s?", None),
+        ("What if $3x + 3 = 5$?", None),
+        ("Why use $v_0^2$ in the formula?", None),
+        ("Why does $v^2 = v_0^2 - 2gh$ hold?", None),
+    ],
+)
+def test_changed_symbol_reads_one_name_however_written(text: str, symbol: str | None) -> None:
+    assert changed_symbol(text) == symbol
+
+
+def test_one_set_varies_each_quantity_once() -> None:
+    """Live (2026-11-07): three chips were v_0 at 30, 40 and 50 m/s under a thrown ball."""
+    question = "A ball is thrown straight up at 20 m/s. How high does it go?"
+    kept = accepted_questions(
+        question,
+        [
+            "What if $v_0$ was 30 m/s?",
+            "What if $v_0$ was 40 m/s?",
+            "What if v0 was 50 m/s?",
+            "What if $g$ was $1.6\\text{ m/s}^2$?",
+            "How long does it take to rise?",
+        ],
+    )
+    assert kept == [
+        "What if $v_0$ was 30 m/s?",
+        "What if $g$ was $1.6\\text{ m/s}^2$?",
+        "How long does it take to rise?",
+    ]
