@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,6 +24,13 @@ export function SettingsPinnedBar({ title, scrollY }: { title: string; scrollY: 
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
+  // Drawn, the bar keeps a tap on it from pressing the row hidden under it; unseen at rest,
+  // it lets every tap through to the profile.
+  const [covering, setCovering] = useState(false);
+  useEffect(() => {
+    const id = scrollY.addListener(({ value }) => setCovering(value > FADE_DISTANCE / 2));
+    return () => scrollY.removeListener(id);
+  }, [scrollY]);
   return (
     <View
       pointerEvents="box-none"
@@ -30,7 +38,8 @@ export function SettingsPinnedBar({ title, scrollY }: { title: string; scrollY: 
       testID="settings-pinned-bar"
     >
       <Animated.View
-        pointerEvents="none"
+        pointerEvents={covering ? "auto" : "none"}
+        testID="settings-pinned-bar-backdrop"
         style={[
           StyleSheet.absoluteFill,
           { backgroundColor: theme.bg, borderBottomColor: theme.separator, opacity: shown },
@@ -39,6 +48,7 @@ export function SettingsPinnedBar({ title, scrollY }: { title: string; scrollY: 
       />
       <StackBackButton />
       <Animated.Text
+        pointerEvents="none"
         style={[s.title, { color: theme.text, opacity: shown }]}
         numberOfLines={1}
         importantForAccessibility="no"

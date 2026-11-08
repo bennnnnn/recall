@@ -42,7 +42,8 @@ type Props = {
   accessory?: "chevron" | "check";
   /**
    * Buttons of the row's own at the far right (an archived chat's Unarchive and Delete),
-   * in place of `accessory`. Give such a row no `onPress`: each button is its own target.
+   * in place of `accessory`. Give such a row no `onPress` and no `accessibilityLabel`: each button
+   * is its own target, and a labelled row would read as one element that hides them.
    */
   trailing?: ReactNode;
   /** Makes the row a switch; the whole row toggles it. */

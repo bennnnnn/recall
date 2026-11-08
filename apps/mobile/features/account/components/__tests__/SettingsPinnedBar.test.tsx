@@ -4,9 +4,10 @@
  * outside the scrolling content.
  */
 import type { ReactTestRendererJSON } from "react-test-renderer";
-import { Text } from "react-native";
-import { render } from "@testing-library/react-native";
+import { Animated, Text } from "react-native";
+import { act, render } from "@testing-library/react-native";
 
+import { SettingsPinnedBar } from "@/features/account/components/SettingsPinnedBar";
 import { SettingsPage } from "@/features/account/components/settingsUi";
 
 jest.mock("expo-router", () => ({
@@ -57,4 +58,19 @@ it("draws no bar of its own on a page under a stack header", async () => {
   );
   expect(ui.queryByTestId("settings-pinned-bar")).toBeNull();
   expect(ui.queryByTestId("stack-back")).toBeNull();
+});
+
+it("lets taps through while unseen, and holds them once drawn over the rows", async () => {
+  const scrollY = new Animated.Value(0);
+  const ui = await render(<SettingsPinnedBar title="Settings" scrollY={scrollY} />);
+  const backdrop = () =>
+    ui.getByTestId("settings-pinned-bar-backdrop", { includeHiddenElements: true });
+  expect(backdrop().props.pointerEvents).toBe("none");
+  expect(ui.getByText("Settings", { includeHiddenElements: true }).props.pointerEvents).toBe("none");
+
+  await act(async () => scrollY.setValue(200));
+  expect(backdrop().props.pointerEvents).toBe("auto");
+
+  await act(async () => scrollY.setValue(0));
+  expect(backdrop().props.pointerEvents).toBe("none");
 });
