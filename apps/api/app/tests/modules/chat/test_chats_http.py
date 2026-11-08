@@ -507,3 +507,82 @@ def test_bulk_chats_runs_one_request_and_caps_the_selection():
     assert bulk.await_args.kwargs["action"] == "archive"
     assert [str(i) for i in bulk.await_args.kwargs["chat_ids"]] == ids
     assert (too_many.status_code, wrong.status_code) == (422, 422)
+
+
+def _page_message(role: str, content: str):
+    from app.models.orm import Message
+
+    message = MagicMock(spec=Message)
+    message.role, message.content, message.id = role, content, uuid4()
+    message.model, message.feedback, message.completion = "free-chat", None, None
+    message.recalled, message.memory_hints = False, None
+    message.context_summarized, message.search_sources = None, None
+    message.created_at = datetime(2024, 1, 1)
+    return message
+
+
+def test_a_rejected_title_is_named_once_and_the_backfill_stops():
+    """A model answer the title rejects ("Title") left the chat unnamed, and every page read
+    after 5 minutes queued the title job again, a model call each time. It is now named from
+    the user's words on that one call, and the next page read queues nothing."""
+    import asyncio
+
+    import fakeredis.aioredis
+
+    from app.core import jobs
+    from app.core.deps import get_redis
+    from app.gateways import litellm_gateway
+    from app.models.orm import Chat
+    from app.modules.chat import titles
+    from app.tests.fakes import FakeSessionCM
+
+    user = api_user()
+    app = app_with_user(user)
+    app.dependency_overrides[get_redis] = lambda: fakeredis.aioredis.FakeRedis(
+        decode_responses=True
+    )
+    chat_id = uuid4()
+    chat = MagicMock(spec=Chat)
+    chat.id, chat.title = chat_id, None
+    page = [_page_message("user", "Explain Rust ownership"), _page_message("assistant", "Rust...")]
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+    with (
+        patch("app.modules.conversation.chats_repository.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.modules.conversation.messages_repository.list_page",
+            AsyncMock(return_value=(page, False)),
+        ),
+        patch.object(jobs, "enqueue", AsyncMock()) as enqueue_job,
+        patch.object(
+            litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="Title"
+        ) as complete,
+        patch.object(titles, "SessionLocal", side_effect=[FakeSessionCM(AsyncMock())]),
+        patch(
+            "app.modules.conversation.chats_repository.set_title_if_empty",
+            AsyncMock(return_value=True),
+        ) as set_title,
+    ):
+        client = TestClient(app)
+        client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
+        payload = enqueue_job.call_args.args[2]
+        applied = asyncio.run(
+            titles.generate_chat_title(
+                settings,
+                chat_id,
+                payload["user_message"],
+                payload["assistant_message"],
+                user_id=user.id,
+            )
+        )
+        chat.title = set_title.await_args.args[2]
+        # A fresh Redis: the 5-minute backfill lock has run out, and still nothing queues.
+        app.dependency_overrides[get_redis] = lambda: fakeredis.aioredis.FakeRedis(
+            decode_responses=True
+        )
+        client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
+
+    assert applied is True
+    complete.assert_awaited_once()
+    assert chat.title == "Explain Rust ownership"
+    enqueue_job.assert_awaited_once()

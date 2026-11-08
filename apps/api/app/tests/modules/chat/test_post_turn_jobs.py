@@ -213,3 +213,17 @@ async def test_a_photo_sent_with_no_words_is_titled_from_its_marker_not_the_repl
         await titles.generate_title(settings, topic["user_message"], topic["assistant_message"])
     read = complete.call_args.kwargs["messages"][-1]["content"]
     assert read.startswith(f"User (with a photo): {titles._NO_WORDS}\n")
+
+
+@pytest.mark.asyncio
+async def test_the_title_job_carries_only_what_the_title_reads() -> None:
+    """A stored message holds every file's text, up to ten files: the queue carried all of
+    it, though the title reads the first 4,000 characters."""
+    from app.modules.chat.titles import TITLE_SOURCE_CHARS
+
+    stored = "Summarize these\n\n" + "[File (text/plain)]\n" + "word " * 20_000
+    payloads: dict[str, dict[str, str]] = {}
+    await _enqueued(_turn(stored_user_message=stored), reply="r" * 20_000, payloads=payloads)
+    topic = payloads["topic"]
+    assert topic["user_message"] == stored[:TITLE_SOURCE_CHARS]
+    assert len(topic["assistant_message"]) == TITLE_SOURCE_CHARS

@@ -23,7 +23,7 @@ from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.models.orm import Message, User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
-from app.modules.chat.titles import title_job_key
+from app.modules.chat.titles import title_job_key, title_job_payload
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
     memory_extract_user_text,
@@ -175,12 +175,12 @@ async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
     return [
         PostTurnJob(
             "topic",
-            {
-                "chat_id": str(saved.chat_id),
-                "user_id": str(saved.user_id),
-                "user_message": user_message,
-                "assistant_message": assistant_message,
-            },
+            title_job_payload(
+                chat_id=saved.chat_id,
+                user_id=saved.user_id,
+                user_message=user_message,
+                assistant_message=assistant_message,
+            ),
             title_job_key(saved.chat_id),
         )
     ]

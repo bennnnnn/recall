@@ -26,7 +26,7 @@ from app.modules.chat.related_prompts import (
     forget_related_prompts,
     load_related_prompts,
 )
-from app.modules.chat.titles import sanitize_manual_chat_title, title_job_key
+from app.modules.chat.titles import sanitize_manual_chat_title, title_job_key, title_job_payload
 from app.modules.conversation import history as conversation_history
 from app.modules.conversation import service as conversation_service
 from app.repositories import usage as usage_repo
@@ -342,12 +342,12 @@ async def list_messages_page(
                     await jobs.enqueue(
                         redis,
                         "topic",
-                        {
-                            "chat_id": str(chat_id),
-                            "user_id": str(user.id),
-                            "user_message": user_msg.content,
-                            "assistant_message": asst_msg.content,
-                        },
+                        title_job_payload(
+                            chat_id=chat_id,
+                            user_id=user.id,
+                            user_message=user_msg.content,
+                            assistant_message=asst_msg.content,
+                        ),
                         dedupe_key=title_job_key(chat_id),
                     )
             except Exception:

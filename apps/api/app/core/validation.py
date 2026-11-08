@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from uuid import UUID
 
 # ISO 639-1 codes supported by the mobile app (see apps/mobile/lib/i18n/languages.ts).
@@ -81,13 +82,18 @@ def normalize_locale_code(locale: str | None) -> str:
 
 # Straight + curly quotes models often wrap titles with.
 _TITLE_QUOTES = "\"'" + "\u201c\u201d\u2018\u2019"
-# Trailing sentence punctuation that can sit outside the closing quote.
-_TITLE_TRAIL_PUNCT = ".!?,;:"
-# Spanish opens a question or exclamation: with its closing mark gone, "¿Qué tal" is left.
-_TITLE_LEAD_PUNCT = "¿¡"
-# Past the Latin letters (U+02FF): a two-letter title there is a word ("ዜና", "问候"),
-# where two Latin letters ("ab") are not.
-_LATIN_END = 0x2FF
+# Trailing sentence punctuation that can sit outside the closing quote, in every script a
+# title comes in: Ethiopic (full stop, question mark, commas), CJK full-width, Arabic,
+# Devanagari, Greek, Armenian, and an ellipsis. "ዜና።" is the title "ዜና".
+_TITLE_TRAIL_PUNCT = (
+    ".!?,;:\u2026"
+    "\u1361\u1362\u1363\u1364\u1365\u1366\u1367\u1368"
+    "\u3001\u3002\uff01\uff0c\uff0e\uff1a\uff1b\uff1f"
+    "\u060c\u061b\u061f\u06d4\u0964\u0965\u037e\u0589"
+)
+# Scripts where two characters make a word ("ዜና" news, "问候" greeting, "인사"): two
+# Latin, Cyrillic or Greek letters ("ab", a Russian "yes") do not name a chat.
+_SHORT_WORD_SCRIPTS = ("ETHIOPIC", "CJK", "HIRAGANA", "KATAKANA", "HANGUL")
 # One-shot unwrap: leading quotes, or trailing quotes + optional punct.
 _TITLE_WRAP_RE = re.compile(
     rf"^[{re.escape(_TITLE_QUOTES)}]+|[{re.escape(_TITLE_QUOTES)}]+[{re.escape(_TITLE_TRAIL_PUNCT)}]*$"
@@ -118,15 +124,18 @@ def unwrap_chat_title(raw: str) -> str:
         prev = title
         title = _strip_title_emphasis(title)
         title = _TITLE_WRAP_RE.sub("", title).strip()
-        title = title.rstrip(_TITLE_TRAIL_PUNCT).lstrip(_TITLE_LEAD_PUNCT).strip()
+        title = title.rstrip(_TITLE_TRAIL_PUNCT).strip()
         title = title.strip(_TITLE_QUOTES).strip()
         if title == prev:
             return title
 
 
 def _short_word_title(title: str) -> bool:
-    """Two letters of a script past Latin: Amharic and Chinese say a topic in two."""
-    return len(title) == 2 and all(ch.isalpha() and ord(ch) > _LATIN_END for ch in title)
+    """Two characters of a script that writes a word in two: Amharic, Chinese, Japanese,
+    Korean."""
+    return len(title) == 2 and all(
+        ch.isalpha() and unicodedata.name(ch, "").startswith(_SHORT_WORD_SCRIPTS) for ch in title
+    )
 
 
 def normalize_chat_title(raw: str | None) -> str | None:

@@ -67,18 +67,27 @@ def _reply_read(messages: list[dict[str, str]]) -> str:
         ("ab", None),
         ("", None),
         (None, None),
-        # Two letters of a script past Latin are a word: Amharic "news", Chinese "greeting".
+        # Two characters make a word in Ethiopic, Chinese, Japanese and Korean.
         ("ዜና", "ዜና"),
         ("问候", "问候"),
-        # Junk stays out: one letter, digits, marks.
+        ("인사", "인사"),
+        ("カメ", "カメ"),
+        # Not in Latin, Cyrillic or Greek, and never junk: one letter, digits, marks.
+        ("Да", None),
+        ("Не", None),
+        ("ΑΙ", None),
         ("ዜ", None),
         ("42", None),
         ("??", None),
         ("a.", None),
-        # Spanish opens what its closing mark ends: both go.
-        ("¿Qué tal?", "Qué tal"),
-        ("¡Feliz cumpleaños!", "Feliz cumpleaños"),
-        ('"¿Final del Mundial 2022?"', "Final del Mundial 2022"),
+        # Every script's end marks go, as "?" does.
+        ("ዜና።", "ዜና"),
+        ("ምንድን ነው፧", "ምንድን ነው"),
+        ("天气怎么样？", "天气怎么样"),
+        ("今日のニュース。", "今日のニュース"),
+        ("ما هو الطقس؟", "ما هو الطقس"),
+        # A question's opening mark is the user's on display: only a model's title drops it.
+        ("¿Qué es Python? Guía", "¿Qué es Python? Guía"),
     ],
 )
 def test_normalize_chat_title(raw: str | None, expected: str | None):
@@ -105,6 +114,8 @@ def test_a_label_for_the_title_is_never_saved_as_one(raw: str):
     """Asked to name "Sí.", the title model answered "Title": a name for the slot, not one."""
     assert normalize_chat_title(raw) is None
     assert finalize_generated_title(raw, "Sí.") is None
+    # The chat is named from the user's words instead: "Sí" names nothing, so Greeting.
+    assert titles.fallback_title("Sí.") == GREETING_CHAT_TITLE
 
 
 @pytest.mark.parametrize(
@@ -115,23 +126,58 @@ def test_a_title_about_titles_is_kept(raw: str):
     assert normalize_chat_title(raw) == raw
 
 
+@pytest.mark.parametrize(
+    "message, title",
+    [
+        ("explain rust ownership to me like i'm five please", "Explain rust ownership to me like"),
+        ("iPhone 17 battery life", "iPhone 17 battery life"),
+        ("3x+4=4", "3x+4=4"),
+        ("Sí.", GREETING_CHAT_TITLE),
+        ("ok", GREETING_CHAT_TITLE),
+        (_PHOTO, "Photo"),
+        (f"{SCANNER_CAMERA_PROMPTS['math']}\n\n{_PHOTO}", "Photo"),
+        (_FILE, "File"),
+        ("ዜና", "ዜና"),
+    ],
+)
+def test_fallback_title_is_the_users_first_words(message: str, title: str):
+    assert titles.fallback_title(message) == title
+
+
 @pytest.mark.asyncio
-async def test_a_label_from_the_model_titles_nothing_and_raises_nothing():
-    """The topic job then applies nothing and is skipped, not failed: no retry loop."""
+@pytest.mark.parametrize("raw", ["Title", "Conversation Title", "", "ab", "x" * 81, "New chat"])
+async def test_a_rejected_name_costs_one_call_and_still_names_the_chat(raw: str):
+    """Left unnamed, the chat was read and titled again every 5 minutes (the message-page
+    backfill), a model call each time: the user's own words name it at once."""
     from app.modules.chat import titles as topic_service
+    from app.tests.fakes import FakeSessionCM
 
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    session = AsyncMock()
     with (
         patch.object(
-            litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="Title"
-        ),
-        patch("app.modules.conversation.chats_repository.set_title_if_empty") as set_title,
+            litellm_gateway, "complete_text", new_callable=AsyncMock, return_value=raw
+        ) as complete,
+        patch.object(topic_service, "SessionLocal", side_effect=[FakeSessionCM(session)]),
+        patch(
+            "app.modules.conversation.chats_repository.set_title_if_empty",
+            AsyncMock(return_value=True),
+        ) as set_title,
     ):
         applied = await topic_service.generate_chat_title(
-            settings, uuid4(), "Sí.", "Hi there. What's on your mind?", user_id=uuid4()
+            settings, uuid4(), "Explain Rust ownership", "Rust ownership is...", user_id=uuid4()
         )
-    assert applied is False
-    set_title.assert_not_called()
+    assert applied is True
+    complete.assert_awaited_once()
+    assert set_title.await_args is not None
+    assert set_title.await_args.args[2] == "Explain Rust ownership"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_provider_names_nothing_so_a_later_request_may_ask():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(litellm_gateway, "complete_text", new_callable=AsyncMock, return_value=None):
+        assert await generate_title(settings, "Explain Rust ownership", "Rust...") is None
 
 
 def test_needs_generated_title():
@@ -183,6 +229,9 @@ def test_chat_out_strips_markdown_emphasis_from_stored_title():
         ("ab", "ab"),
         ("", None),
         ("x" * 81, None),
+        # A rename keeps what the user typed: the opening mark is theirs.
+        ("¿Qué es Python? Guía", "¿Qué es Python? Guía"),
+        ("¿?", "¿"),
     ],
 )
 def test_sanitize_manual_chat_title(raw: str, expected: str | None):
@@ -235,6 +284,12 @@ def test_is_casual_opener(raw: str, expected: bool):
         ("Power rule x^2.5", "derivative of x^2.5", "Power rule x^2.5"),
         ("Powers x^25.5 and 2^10.5", "x^25.5", "Powers x^25.5 and 2^10.5"),
         ("Exponential decay e^{-2t}", "e^(-2t)", "Exponential decay e^{-2t}"),
+        # A model's Spanish question loses its "?" in the unwrap, and its "¿" with it; a
+        # pair still closed inside stays whole.
+        ("¿Qué tal?", "¿qué tal?", "Qué tal"),
+        ("¡Feliz cumpleaños!", "felicítame", "Feliz cumpleaños"),
+        ('"¿Final del Mundial 2022?"', "¿quién ganó?", "Final del Mundial 2022"),
+        ("¿Qué es Python? Guía", "python", "¿Qué es Python? Guía"),
     ],
 )
 def test_finalize_generated_title(raw: str, user: str, expected: str | None):
@@ -354,6 +409,21 @@ def test_title_reads_a_scans_confirmed_reading_as_the_problem():
     caption = SCANNER_CAMERA_PROMPTS["math"]
     message = f"{caption}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15\n\n{_PHOTO}"
     assert _words_read(title_messages(message, "x = 4")) == "2x+7=15"
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "[File attached: application/zip. Recall can't read this file type yet — tell the "
+        "user to try a PDF, Word (.docx), or plain text file instead.]",
+        "[File note: only the first 30 pages were read; later pages may be missing.]",
+    ],
+)
+def test_title_never_reads_the_servers_own_file_notes(note: str):
+    """A note for the model invited "Unsupported file" titles."""
+    message = f"Look at this\n\n{_FILE}\n{note}"
+    assert _words_read(title_messages(message, "I can't open zip files.")) == "Look at this"
+    assert _words_read(title_messages(f"{_FILE}\n{note}", "I can't.")) == titles._NO_WORDS
 
 
 @pytest.mark.parametrize(

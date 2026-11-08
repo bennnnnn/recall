@@ -30,6 +30,19 @@ def title_job_key(chat_id: UUID) -> str:
     return f"topic:{chat_id}"
 
 
+def title_job_payload(
+    *, chat_id: UUID, user_id: UUID, user_message: str, assistant_message: str
+) -> dict[str, str]:
+    """The ``topic`` job's payload, cut to what the title reads: a stored message holds
+    every file's text (up to ten), and none of it past the head ever reaches the model."""
+    return {
+        "chat_id": str(chat_id),
+        "user_id": str(user_id),
+        "user_message": user_message[:TITLE_SOURCE_CHARS],
+        "assistant_message": assistant_message[:TITLE_SOURCE_CHARS],
+    }
+
+
 # Exact first-line openers after unwrap + casefold. Longer first messages
 # still go to title-model (e.g. "good morning, help me with physics").
 _CASUAL_OPENERS = frozenset(
@@ -76,7 +89,7 @@ _LATEX_INSIDE = re.compile(r"[\\^_{}]")
 # "x^25.5" stay as they are (the digits never back off to make a whole number).
 _CARET_POWER = re.compile(r"\^(?:\{(-?\d+)\}|(-?\d+))(?!\d|[.,]\d)")
 # The head a title reads, before its padding and paths go: a long paste is not folded whole.
-_SOURCE_CHARS = 4000
+TITLE_SOURCE_CHARS = 4000
 _NO_WORDS = "(a photo or file, sent with no words)"
 _TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
@@ -96,7 +109,7 @@ def _own_words(user_message: str) -> str:
     """
     unwrapped = _DOLLAR_SPAN.sub(
         lambda span: span.group(2) if _LATEX_INSIDE.search(span.group(2)) else span.group(0),
-        words_after_scanner_caption(user_message)[:_SOURCE_CHARS],
+        words_after_scanner_caption(user_message)[:TITLE_SOURCE_CHARS],
     )
     readable = collapse_ws(without_attachment_refs(unwrapped))
     return fold_numeric_superscripts(fold_latex_marks(readable))
@@ -126,8 +139,8 @@ _TITLE_RULES = (
     "Plain text, no quotes, no end punctuation. Maths in symbols (2x + 5 = 17), never in "
     "words. Times, dates and numbers as written (4:14 AM, 3.5%, 300k). No generic label "
     "(New chat, Untitled, Chat).\n"
-    "A message that is only a greeting or small talk (hi, how are you), in any language, is "
-    "named Greeting."
+    "A message that is only a greeting or small talk (hi, how are you) is named Greeting, "
+    "in English whatever its language."
 )
 # Room for six words in any script: a four-word Amharic title is 24 tokens; an unused
 # budget costs nothing.
@@ -213,12 +226,50 @@ def is_casual_opener(user_message: str) -> bool:
     return bool(line) and line in _CASUAL_OPENERS
 
 
+def _without_open_mark(title: str) -> str:
+    """A model's "¿Qué tal?" loses its "?" in the unwrap; its "¿" goes with it. A pair still
+    closed inside ("¿Qué es Python? Guía") stays whole. Only for a model's title: a user's
+    own rename keeps what they typed."""
+    for opening, closing in ("¿?", "¡!"):
+        if title.startswith(opening) and closing not in title:
+            title = title[1:].strip()
+    return title
+
+
 def finalize_generated_title(raw: str | None, user_message: str) -> str | None:
     """Greetings get a topic label; otherwise keep a normalized model title."""
     if is_casual_opener(user_message):
         return GREETING_CHAT_TITLE
     title = normalize_chat_title(raw)
+    title = normalize_chat_title(_without_open_mark(title)) if title else None
     return _superscript_powers(title) if title else None
+
+
+# A fallback name is the user's first words, as many as a title holds.
+_FALLBACK_WORDS = 6
+_FALLBACK_CHARS = 60
+
+
+def fallback_title(user_message: str) -> str:
+    """The name a chat gets when the model's is rejected (empty, a label like "Title", too
+    short or too long): the user's own first words. Left unnamed, the chat was read again
+    and titled again every 5 minutes (the message-page backfill), paying a call each time.
+
+    Words too few to name anything ("Sí", "ok") are small talk: Greeting. A photo or file
+    with no words is Photo or File.
+    """
+    words = _own_words(user_message).split()
+    if not words:
+        return "Photo" if image_attachment_ids_from_text(user_message) else "File"
+    head = words[0]
+    for word in words[1:_FALLBACK_WORDS]:
+        if len(head) + 1 + len(word) > _FALLBACK_CHARS:
+            break
+        head = f"{head} {word}"
+    head = head[:_FALLBACK_CHARS]
+    if words[0].isalpha() and words[0].islower():
+        head = head[0].upper() + head[1:]
+    return normalize_chat_title(head) or GREETING_CHAT_TITLE
 
 
 async def generate_title(
@@ -233,7 +284,7 @@ async def generate_title(
         return finalize_generated_title(
             await mock_llm.mock_title(_own_words(user_message) or assistant_message),
             user_message,
-        )
+        ) or fallback_title(user_message)
 
     raw = await litellm_gateway.complete_text(
         settings=settings,
@@ -242,8 +293,10 @@ async def generate_title(
         max_tokens=_TITLE_MAX_TOKENS,
     )
     if raw is None:
+        # The provider failed: a later request may ask again.
         return None
-    return finalize_generated_title(raw, user_message)
+    # One call per chat: a rejected name falls back to the user's words, never another call.
+    return finalize_generated_title(raw, user_message) or fallback_title(user_message)
 
 
 async def generate_chat_title(
