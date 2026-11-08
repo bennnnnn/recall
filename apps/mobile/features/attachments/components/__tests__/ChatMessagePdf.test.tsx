@@ -27,6 +27,8 @@ jest.mock("@/features/attachments/components/AttachmentPdfViewer", () => ({
   },
 }));
 jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn() }));
+const mockWarning = jest.fn();
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ warning: mockWarning }) }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: "Icon" }));
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
@@ -77,7 +79,7 @@ it.each([
 
 // A second tap on Share while the PDF downloaded reached Android's share module while the
 // first was still open, which refused it, and the viewer said the export failed.
-it("ignores a second Share while the first is downloading, and spins until it is done", async () => {
+it("tries no second Share while the first is downloading, says so, and spins until it is done", async () => {
   let finish: () => void = () => {};
   jest.mocked(alertDialog).mockClear();
   jest.mocked(downloadChatAttachment).mockClear();
@@ -88,6 +90,7 @@ it("ignores a second Share while the first is downloading, and spins until it is
   expect(mockSharing).toBe(true);
   await act(async () => { await mockShare?.(); });
   expect(downloadChatAttachment).toHaveBeenCalledTimes(1);
+  expect(mockWarning).toHaveBeenCalledWith("common.share_in_progress");
   await act(async () => { finish(); await first; });
   expect(mockSharing).toBe(false);
   expect(alertDialog).not.toHaveBeenCalled();

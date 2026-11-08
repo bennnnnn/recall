@@ -3,7 +3,7 @@
 import { Platform, Share } from "react-native";
 
 import { isShareCancelled } from "@/lib/shareCancelled";
-import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { ShareInProgressError, SharingUnavailableError } from "@/lib/shareUnavailable";
 
 type SharingModule = {
   shareAsync: (url: string, options?: { mimeType?: string; UTI?: string; dialogTitle?: string }) => Promise<void>;
@@ -67,22 +67,49 @@ function declaredType(
 
 /** A file share is running: from the tap, through any download or print, until its sheet closes. */
 let shareInFlight = false;
+/** Which share holds the guard; one the watchdog or sign-out let go of no longer frees it. */
+let shareGeneration = 0;
 
 /**
- * Run one file share at a time, app-wide. Android's share module takes one request until
- * its sheet closes and refuses the next ("Another share request is being processed now"),
- * so a second tap on Share while a PDF downloaded said the export failed. A share asked
- * for while one runs is dropped: false. Every Share button and export goes through here.
+ * A share that never settles must not leave sharing dead until the app restarts: iOS presents
+ * no sheet over a view that is still presenting (a viewer closed while its file downloaded),
+ * and the promise never ends; a download can stall. Past this the guard is let go, quietly:
+ * a sheet left open this long (a mail being written in it) is not a failure.
  */
-export async function shareOneAtATime(share: () => Promise<void>): Promise<boolean> {
-  if (shareInFlight) return false;
+const SHARE_WATCHDOG_MS = 180_000;
+
+/**
+ * Run one file share at a time, app-wide. Android's share module takes one request until its
+ * sheet closes and refuses the next ("Another share request is being processed now"), and
+ * iOS silently presents no second sheet, so a second tap on Share while a PDF downloaded said
+ * the export failed. A share asked for while one runs throws `ShareInProgressError`, which
+ * `shareFailureKey` words. Every Share button and export goes through here.
+ */
+export async function shareOneAtATime(share: () => Promise<void>): Promise<void> {
+  if (shareInFlight) throw new ShareInProgressError();
   shareInFlight = true;
+  const generation = ++shareGeneration;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await share();
-    return true;
+    await Promise.race([
+      share(),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn("[share] a share did not finish in time; sharing is free again");
+          resolve();
+        }, SHARE_WATCHDOG_MS);
+      }),
+    ]);
   } finally {
-    shareInFlight = false;
+    if (timer !== undefined) clearTimeout(timer);
+    if (generation === shareGeneration) shareInFlight = false;
   }
+}
+
+/** Sign-out: a share the last account left hanging does not hold the next one's. */
+export function resetShareGuard(): void {
+  shareGeneration++;
+  shareInFlight = false;
 }
 
 /**

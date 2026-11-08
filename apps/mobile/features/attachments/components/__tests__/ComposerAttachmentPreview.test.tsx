@@ -6,6 +6,8 @@ import { shareLocalFile } from "@/lib/shareFile";
 
 jest.mock("@/ui/icons/Icon", () => ({ Icon: "Icon" }));
 jest.mock("@/lib/shareFile", () => ({ ...jest.requireActual("@/lib/shareFile"), shareLocalFile: jest.fn() }));
+const mockWarning = jest.fn();
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ warning: mockWarning }) }));
 jest.mock("@/features/attachments/components/LazyDraftAttachmentViewers", () => {
   const { Pressable, View } = jest.requireActual("react-native");
   const viewer = (testID: string) =>
@@ -77,6 +79,7 @@ describe("a picked attachment, seen before it is sent", () => {
     await fireEvent.press(view.getByTestId("viewer-share"));
     await fireEvent.press(view.getByTestId("viewer-share"));
     expect(shareLocalFile).toHaveBeenCalledTimes(1);
+    expect(mockWarning).toHaveBeenCalledWith("common.share_in_progress");
     expect(view.getByTestId("viewer-share").props.accessibilityState.busy).toBe(true);
     await act(async () => close());
     expect(view.getByTestId("viewer-share").props.accessibilityState.busy).toBe(false);

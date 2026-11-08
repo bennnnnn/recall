@@ -103,7 +103,7 @@ it("exports the long-pressed chat as a PDF", async () => {
 
 // The menu opens again while the first PDF is still preparing: a second export reached
 // Android's share module while the first sheet was open, which refused it ("couldn't export").
-it("drops a second PDF export asked for while the first is preparing", async () => {
+it("starts no second PDF export while the first is preparing, and says so", async () => {
   let finish: () => void = () => {};
   mockPdf.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
   (api.listAllMessages as jest.Mock).mockResolvedValue([{ content: "hello" }]);
@@ -113,8 +113,9 @@ it("drops a second PDF export asked for while the first is preparing", async () 
   await act(async () => { current.showRowMenu(chat); });
   await act(async () => { current.exportChatPdf(); });
   expect(mockPdf).toHaveBeenCalledTimes(1);
+  expect(mockError).toHaveBeenCalledWith("common.share_in_progress");
   await act(async () => finish());
-  expect(mockError).not.toHaveBeenCalled();
+  expect(mockError).toHaveBeenCalledTimes(1);
 });
 
 it.each([

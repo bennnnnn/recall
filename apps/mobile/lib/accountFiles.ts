@@ -1,4 +1,4 @@
-import { cacheDirectory, deleteAsync, getInfoAsync, readDirectoryAsync } from "expo-file-system/legacy";
+import { cacheDirectory, deleteAsync, getInfoAsync, makeDirectoryAsync, readDirectoryAsync } from "expo-file-system/legacy";
 
 /**
  * Files in the cache directory that hold one account's content. Each writer names
@@ -8,7 +8,7 @@ import { cacheDirectory, deleteAsync, getInfoAsync, readDirectoryAsync } from "e
 const ACCOUNT_FILE_PREFIX = {
   /** Settings → Data controls: the whole account export (chats, memories). */
   export: "recall-export-",
-  /** A chat's HTML opened in the system browser. */
+  /** A chat's HTML opened in the system browser, as earlier versions wrote it; it now goes in a share folder. */
   htmlPreview: "recall-preview-",
   /** A reply read aloud; deleted after it plays, unless the app stopped first. */
   speech: "recall-tts-",
@@ -40,20 +40,26 @@ export function newAccountFile(
 }
 
 /** An hour: a share folder older than this is swept by a later share, long past any app still reading it. */
-export const SHARE_COPY_MAX_AGE_MS = 60 * 60_000;
+const SHARE_COPY_MAX_AGE_MS = 60 * 60_000;
 
 /** Characters a file system refuses in a name, and control characters. */
 const UNSAFE_NAME = /[\\/:*?"<>|\u0000-\u001f]+/g;
 
-/** The name a document goes out under (`Spanish verbs.pdf`): its title, safe for any file system. */
+/** A shared name keeps to this many code points, counted whole. */
+const DOCUMENT_NAME_MAX_CHARS = 80;
+
+/**
+ * The name a document goes out under (`Spanish verbs.pdf`): its title, safe for any file system.
+ * A long title is cut by whole code points: cut by UTF-16 units, an emoji at the cut was split
+ * in half, and encoding the file's URI threw (URIError), so the share failed.
+ */
 export function documentFileName(title: string, extension: string): string {
-  const base = title
+  const cleaned = title
     .replace(new RegExp(`\\.${extension}$`, "i"), "")
     .replace(UNSAFE_NAME, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80)
     .trim();
+  const base = Array.from(cleaned).slice(0, DOCUMENT_NAME_MAX_CHARS).join("").trim();
   return `${base || "Recall"}.${extension}`;
 }
 
@@ -65,6 +71,19 @@ export function newAccountFolder(kind: keyof typeof ACCOUNT_FILE_PREFIX): string
 /** `name` inside a folder from `newAccountFolder`, percent-encoded as `fileUri` explains. */
 export function fileInFolder(folder: string, name: string): string {
   return fileUri(folder, name);
+}
+
+/**
+ * Where a file is shared under its own name ("Spanish verbs.txt"): a new share folder, made
+ * after sweeping those older than an hour (the app it went to may still be reading one);
+ * sign-out deletes the rest.
+ */
+export async function newShareFile(name: string): Promise<{ folder: string; file: string }> {
+  if (!cacheDirectory) throw new Error("share_no_cache");
+  await sweepAccountFolders("share", SHARE_COPY_MAX_AGE_MS);
+  const folder = newAccountFolder("share");
+  await makeDirectoryAsync(folder, { intermediates: true });
+  return { folder, file: fileInFolder(folder, name) };
 }
 
 /**

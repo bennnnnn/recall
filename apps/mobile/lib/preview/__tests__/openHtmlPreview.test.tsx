@@ -13,6 +13,9 @@ import { shareLocalFile } from "@/lib/shareFile";
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
+  makeDirectoryAsync: jest.fn(async () => undefined),
+  readDirectoryAsync: jest.fn(async () => []),
+  deleteAsync: jest.fn(async () => undefined),
   EncodingType: { UTF8: "utf8" },
 }));
 jest.mock("expo-web-browser", () => ({
@@ -166,10 +169,11 @@ describe("exported HTML (Open in browser, Share)", () => {
 describe("Share and Open in browser hand over the file", () => {
   const share = () => jest.spyOn(Share, "share");
 
-  it("shares the page itself, never its path or its source as text", async () => {
+  // It went out as "recall-preview-1731…html" at the cache's root, which only sign-out cleared.
+  it("shares the page itself under a name a person reads, from a share folder swept like the rest", async () => {
     await sharedDocument("<p>hi</p>");
     const [uri] = jest.mocked(shareLocalFile).mock.calls[0] ?? [];
-    expect(String(uri)).toMatch(/^file:\/\/\/cache\/recall-preview-\d+\.html$/);
+    expect(String(uri)).toMatch(/^file:\/\/\/cache\/recall-share-\d+-\d+\/HTML%20preview\.html$/);
     expect(share()).not.toHaveBeenCalled();
   });
 

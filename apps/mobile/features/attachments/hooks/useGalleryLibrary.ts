@@ -104,7 +104,7 @@ export function useGalleryLibrary(
       }
       try {
         // One share at a time, app-wide; its tile shows a spinner meanwhile.
-        const shared = await shareOneAtATime(async () => {
+        await shareOneAtATime(async () => {
           setBusyItemId(item.id);
           await shareChatAttachment({
             uri,
@@ -113,7 +113,7 @@ export function useGalleryLibrary(
             contentType: item.content_type,
           }).finally(() => setBusyItemId((current) => (current === item.id ? null : current)));
         });
-        if (shared && isCurrent(version)) setActionItem((current) => current?.id === item.id ? null : current);
+        if (isCurrent(version)) setActionItem((current) => current?.id === item.id ? null : current);
       } catch (shareError) {
         if (!isCurrent(version)) return;
         reportRecoverableError(feedback, libraryActionMessage(shareError, "common.share_failed", t));

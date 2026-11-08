@@ -64,11 +64,12 @@ describe("share sheet", () => {
     ).resolves.toBeUndefined();
   });
 
-  // Android hands shared text over inside the share intent, which a very long chat
-  // overflows (the 1 MB Binder buffer): the share failed as "Could not share this chat".
+  // Android hands shared text over inside the share intent, twice (EXTRA_TEXT and its
+  // ClipData), which a very long chat overflows (the 1 MB Binder buffer): the share failed as
+  // "Could not share this chat".
   it("sends a very long text on Android as a .txt file named after it", async () => {
     Platform.OS = "android";
-    const message = "x".repeat(100_001);
+    const message = "x".repeat(50_001);
     await presentShareSheet({ message, title: "Spanish: verbs" });
     expect(Share.share).not.toHaveBeenCalled();
     const [file, text] = writeAsStringAsync.mock.calls[0] ?? [];
@@ -78,7 +79,7 @@ describe("share sheet", () => {
   });
 
   it.each([
-    ["Android, under the limit", "android", 100_000],
+    ["Android, under the limit", "android", 50_000],
     ["iOS, however long", "ios", 300_000],
   ])("keeps the text as text on %s", async (_case, os, length) => {
     platform.OS = os;

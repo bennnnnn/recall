@@ -1,10 +1,12 @@
-import { deleteAsync, getInfoAsync, readDirectoryAsync } from "expo-file-system/legacy";
+import { deleteAsync, getInfoAsync, makeDirectoryAsync, readDirectoryAsync } from "expo-file-system/legacy";
 
 import {
   deleteAccountFiles,
+  documentFileName,
   fileInFolder,
   namedPdfFile,
   newAccountFolder,
+  newShareFile,
   sweepAccountFolders,
   sweepOldPickerCopies,
 } from "@/lib/accountFiles";
@@ -13,6 +15,7 @@ jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   deleteAsync: jest.fn(async () => undefined),
   getInfoAsync: jest.fn(),
+  makeDirectoryAsync: jest.fn(async () => undefined),
   readDirectoryAsync: jest.fn(async () => []),
 }));
 
@@ -118,11 +121,33 @@ describe("share folders", () => {
     expect(jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri)).toEqual([`file:///cache/${old}`, `file:///cache/${ahead}`]);
   });
 
+  it("puts a shared file under its own name in a new folder, after sweeping the old ones", async () => {
+    const { folder, file } = await newShareFile("HTML preview.html");
+    expect(jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri)).toEqual([`file:///cache/${old}`, `file:///cache/${ahead}`]);
+    expect(makeDirectoryAsync).toHaveBeenCalledWith(folder, { intermediates: true });
+    expect(folder).toMatch(new RegExp(`^file:///cache/recall-share-${now}-\\d+/$`));
+    expect(file).toBe(`${folder}HTML%20preview.html`);
+  });
+
   it("sign-out deletes every share folder, new ones too, and expo-sharing's iOS staging", async () => {
     await deleteAccountFiles();
     const deleted = jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri);
     expect(deleted).toEqual(expect.arrayContaining([
       `file:///cache/${old}`, `file:///cache/${fresh}`, "file:///cache/expo-sharing-tmp/",
     ]));
+  });
+});
+
+// Cut at 80 UTF-16 units, a title with an emoji at the cut kept half of it, and encoding the
+// file's URI threw (URIError): "Could not share this chat".
+describe("documentFileName", () => {
+  it.each([
+    ["an emoji at the cut", `${"a".repeat(79)}😀 and more`, `${"a".repeat(79)}😀.txt`],
+    ["a short title", "Spanish: verbs", "Spanish verbs.txt"],
+    ["nothing usable", " / ", "Recall.txt"],
+  ])("cuts %s by whole code points", (_case, title, name) => {
+    const named = documentFileName(title, "txt");
+    expect(named).toBe(name);
+    expect(() => encodeURIComponent(named)).not.toThrow();
   });
 });

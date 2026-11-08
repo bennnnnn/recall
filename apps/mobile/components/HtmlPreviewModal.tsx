@@ -38,6 +38,7 @@ import {
   HTML_RUN_ORIGIN_WHITELIST,
 } from "@/lib/webView";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { alertDialog } from "@/ui/overlay/dialogs";
 import { useFileShare } from "@/hooks/useFileShare";
 import { shareFailureKey } from "@/lib/shareUnavailable";
@@ -281,68 +282,71 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View
-        style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-      >
-        {tab === "run" && interactive && !canUseNativeWebView ? (
-          <View style={s.interactiveBanner}>
-            <Icon name="zap" size={IconSize.xs} color={theme.primary} />
-            <Text style={s.interactiveBannerText}>{t("preview.expo_go_banner")}</Text>
-          </View>
-        ) : null}
+      {/* Toasts (a share already running) show over the preview, not under it. */}
+      <ActionFeedbackProvider>
+        <View
+          style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
+        >
+          {tab === "run" && interactive && !canUseNativeWebView ? (
+            <View style={s.interactiveBanner}>
+              <Icon name="zap" size={IconSize.xs} color={theme.primary} />
+              <Text style={s.interactiveBannerText}>{t("preview.expo_go_banner")}</Text>
+            </View>
+          ) : null}
 
-        <View style={s.body}>
-          {tab === "code" ? (
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              style={s.codeScroll}
-              contentContainerStyle={s.codeScrollContent}
-              showsVerticalScrollIndicator
-            >
-              <CodeBlock code={html} lang="html" />
-            </ScrollView>
-          ) : canUseNativeWebView ? (
-            <PreviewRenderBoundary
-              resetKey={html}
-              errorColor={theme.danger}
-              errorMessage={t("preview.render_failed")}
-            >
+          <View style={s.body}>
+            {tab === "code" ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                style={s.codeScroll}
+                contentContainerStyle={s.codeScrollContent}
+                showsVerticalScrollIndicator
+              >
+                <CodeBlock code={html} lang="html" />
+              </ScrollView>
+            ) : canUseNativeWebView ? (
+              <PreviewRenderBoundary
+                resetKey={html}
+                errorColor={theme.danger}
+                errorMessage={t("preview.render_failed")}
+              >
+                <LiveWebPreview html={html} theme={theme} styles={s} />
+              </PreviewRenderBoundary>
+            ) : StaticHtmlPreview ? (
+              <StaticHtmlPreview html={html} contentWidth={contentWidth} theme={theme} styles={s} />
+            ) : (
               <LiveWebPreview html={html} theme={theme} styles={s} />
-            </PreviewRenderBoundary>
-          ) : StaticHtmlPreview ? (
-            <StaticHtmlPreview html={html} contentWidth={contentWidth} theme={theme} styles={s} />
-          ) : (
-            <LiveWebPreview html={html} theme={theme} styles={s} />
-          )}
-        </View>
+            )}
+          </View>
 
-        <View style={s.toolbar}>
-          <ToolbarItem
-            icon="close"
-            label={t("preview.close")}
-            onPress={onClose}
-            theme={theme}
-            styles={s}
-          />
-          <ToolbarItem
-            icon="code"
-            label={t("preview.code_tab")}
-            onPress={() => setTab("code")}
-            active={tab === "code"}
-            theme={theme}
-            styles={s}
-          />
-          <ToolbarItem
-            icon="play"
-            label={t("preview.run_tab")}
-            onPress={() => setTab("run")}
-            active={tab === "run"}
-            theme={theme}
-            styles={s}
-          />
-          <ShareToolbarItem html={html} theme={theme} styles={s} />
+          <View style={s.toolbar}>
+            <ToolbarItem
+              icon="close"
+              label={t("preview.close")}
+              onPress={onClose}
+              theme={theme}
+              styles={s}
+            />
+            <ToolbarItem
+              icon="code"
+              label={t("preview.code_tab")}
+              onPress={() => setTab("code")}
+              active={tab === "code"}
+              theme={theme}
+              styles={s}
+            />
+            <ToolbarItem
+              icon="play"
+              label={t("preview.run_tab")}
+              onPress={() => setTab("run")}
+              active={tab === "run"}
+              theme={theme}
+              styles={s}
+            />
+            <ShareToolbarItem html={html} theme={theme} styles={s} />
+          </View>
         </View>
-      </View>
+      </ActionFeedbackProvider>
     </FullScreenModal>
   );
 }

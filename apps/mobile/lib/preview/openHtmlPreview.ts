@@ -1,11 +1,7 @@
-import {
-  cacheDirectory,
-  writeAsStringAsync,
-  EncodingType,
-} from "expo-file-system/legacy";
+import { writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import * as WebBrowser from "expo-web-browser";
 import { Linking } from "react-native";
-import { newAccountFile } from "@/lib/accountFiles";
+import { documentFileName, newShareFile } from "@/lib/accountFiles";
 import { shareLocalFile } from "@/lib/shareFile";
 import { stripScripts } from "@/lib/preview/htmlScriptStrip";
 import { HTML_EXPORT_CSP, cspMetaTag, injectAtHeadStart } from "@/lib/preview/previewSandbox";
@@ -71,12 +67,14 @@ const EXPORT_CHARSET_META = '<meta charset="utf-8">';
 /** Android's share targets read the page's type; iOS reads it from the `.html` name. */
 const HTML_MIME_TYPE = "text/html";
 
-/** The page as a file in the cache directory, which sign-out clears. */
-async function writeHtmlPreviewFile(html: string): Promise<string> {
-  if (!cacheDirectory) throw new Error("html_preview_no_cache");
-  const fileUri = newAccountFile("htmlPreview", "html");
-  await writeAsStringAsync(fileUri, UTF8_BOM + html, { encoding: EncodingType.UTF8 });
-  return fileUri;
+/**
+ * The page as `<title>.html` ("HTML preview.html", not "recall-preview-1731….html") in a share
+ * folder of its own, swept an hour on like every shared copy, and at sign-out.
+ */
+async function writeHtmlPreviewFile(html: string, title: string): Promise<string> {
+  const { file } = await newShareFile(documentFileName(title, "html"));
+  await writeAsStringAsync(file, UTF8_BOM + html, { encoding: EncodingType.UTF8 });
+  return file;
 }
 
 /**
@@ -124,7 +122,7 @@ export async function openHtmlInBrowser(html: string, title: string): Promise<vo
   const fullHtml = htmlExportDocument(html);
   const small = fullHtml.length < DATA_URL_MAX_CHARS;
   if (small && (await showInBrowser(`data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`))) return;
-  const fileUri = await writeHtmlPreviewFile(fullHtml);
+  const fileUri = await writeHtmlPreviewFile(fullHtml, title);
   if (await showInBrowser(fileUri)) return;
   await shareLocalFile(fileUri, { title, mimeType: HTML_MIME_TYPE });
 }
@@ -134,6 +132,6 @@ export async function openHtmlInBrowser(html: string, title: string): Promise<vo
  * dismissed sheet is not a failure; anything else is thrown for the caller to report.
  */
 export async function shareHtmlPreview(html: string, title: string): Promise<void> {
-  const fileUri = await writeHtmlPreviewFile(htmlExportDocument(html));
+  const fileUri = await writeHtmlPreviewFile(htmlExportDocument(html), title);
   await shareLocalFile(fileUri, { title, mimeType: HTML_MIME_TYPE });
 }

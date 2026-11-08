@@ -20,6 +20,9 @@ jest.mock("@expo/dom-webview", () => {
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
+  makeDirectoryAsync: jest.fn(async () => undefined),
+  readDirectoryAsync: jest.fn(async () => []),
+  deleteAsync: jest.fn(async () => undefined),
   EncodingType: { UTF8: "utf8" },
 }));
 
@@ -84,6 +87,19 @@ describe("HtmlPreviewModal Share", () => {
     expect(view.getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: true });
     await act(async () => close());
     expect(view.getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: false });
+  });
+
+  // A second tap was dropped with no word, so nothing seemed to happen.
+  it("says a share is already running when Share is tapped again", async () => {
+    let close: () => void = () => {};
+    jest.mocked(shareLocalFile).mockImplementationOnce(() => new Promise<void>((resolve) => { close = resolve; }));
+    const view = await render(<HtmlPreviewModal visible html="<p>Plain paragraph</p>" onClose={() => {}} />);
+    await fireEvent.press(view.getByLabelText("preview.share"));
+    await act(async () => { await Promise.resolve(); });
+    await fireEvent.press(view.getByLabelText("preview.share"));
+    expect(await view.findByText("common.share_in_progress")).toBeOnTheScreen();
+    expect(alertDialog).not.toHaveBeenCalled();
+    await act(async () => close());
   });
 
   it.each([

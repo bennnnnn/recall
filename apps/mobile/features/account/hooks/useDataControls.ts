@@ -23,8 +23,9 @@ export function useDataControls() {
     try {
       const raw = await api.exportDataText(token, controller.signal);
       if (controller.signal.aborted) return false;
-      // Cancel lets a new export start while the last one's sheet may still be open.
-      return await shareOneAtATime(() => shareAccountExport(formatExportJsonForShare(raw)));
+      // Cancel lets a new export start while the last one's sheet may still be open: it says so.
+      await shareOneAtATime(() => shareAccountExport(formatExportJsonForShare(raw)));
+      return true;
     } catch (error) {
       if (controller.signal.aborted) return false;
       throw error;
