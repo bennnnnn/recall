@@ -1,7 +1,7 @@
 /** Guarded loader for expo-audio — probe the native registry before requiring JS. */
 
 import type { PermissionResponse } from "expo-audio";
-import { requireOptionalNativeModule } from "expo-modules-core";
+import { Platform, requireOptionalNativeModule } from "expo-modules-core";
 import { deleteAsync, getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
 
 
@@ -51,10 +51,29 @@ export type VoiceRecorder = {
   subscribeMetering: (listener: MeterListener) => () => void;
 };
 
-/** Map expo-audio dB metering (-160…0) to a 0–1 visual level. */
-function normalizeMetering(db?: number): number {
+/**
+ * What a recorder's `metering` measures, in dBFS (-160 is no reading). iOS reports the
+ * average power of the sound (AVAudioRecorder `averagePower`); Android the loudest sample
+ * since the last read (MediaRecorder `getMaxAmplitude`, as 20·log10(peak / 32767)).
+ */
+type MeterKind = "average" | "peak";
+
+function platformMeterKind(): MeterKind {
+  return Platform.OS === "android" ? "peak" : "average";
+}
+
+/** A voice's peaks stand about this far above its average power (speech's crest factor). */
+const PEAK_OVER_AVERAGE_DB = 12;
+
+/**
+ * Map a recorder's dB metering to a 0–1 visual level, on one scale for both platforms: a
+ * peak reading is brought down to the average it stands for, so the same voice draws the
+ * same bars on either phone and a quiet room stays low on Android too.
+ */
+export function meteringLevel(db: number | undefined, kind: MeterKind = platformMeterKind()): number {
   if (db == null || db <= -160) return 0.12;
-  const clamped = Math.max(-60, Math.min(0, db));
+  const average = kind === "peak" ? db - PEAK_OVER_AVERAGE_DB : db;
+  const clamped = Math.max(-60, Math.min(0, average));
   return 0.1 + ((clamped + 60) / 60) * 0.9;
 }
 
@@ -139,6 +158,19 @@ export function meteredRecordingOptions(highQuality: RecordingPreset): Recording
   return { ...highQuality, isMeteringEnabled: true };
 }
 
+/**
+ * The options a native recorder is built with: the shared fields and this platform's own
+ * block, flattened as expo-audio's `useAudioRecorder` does (its `createRecordingOptions` is
+ * not exported). Android takes metering on or off from these alone: `prepareToRecordAsync`'s
+ * options never turn it on (expo-audio 58, AudioRecorder.kt), so a recorder built with `{}`
+ * reported no level and the waveform barely moved.
+ */
+export function nativeRecorderOptions(preset: RecordingPreset, os: string): Record<string, unknown> {
+  const { ios, android, web, ...shared } = preset;
+  const own = os === "ios" ? ios : os === "android" ? android : web;
+  return { ...shared, ...own };
+}
+
 let exclusiveMicStop: (() => Promise<void>) | null = null;
 
 /** Stop dictation so WebRTC can take the mic. Do not call expo-audio
@@ -178,8 +210,10 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
     playsInSilentMode: true,
   });
 
-  const recorder = new mod.AudioModule.AudioRecorder({});
   const preset = meteredRecordingOptions(mod.RecordingPresets.HIGH_QUALITY);
+  const recorder = new mod.AudioModule.AudioRecorder(
+    nativeRecorderOptions(preset, Platform.OS) as ConstructorParameters<typeof mod.AudioModule.AudioRecorder>[0],
+  );
   try {
     await recorder.prepareToRecordAsync(
       preset as Parameters<typeof recorder.prepareToRecordAsync>[0],
@@ -197,7 +231,7 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
   const tick = setInterval(() => {
     if (!recorder.isRecording) return;
     try {
-      const level = normalizeMetering(recorder.getStatus().metering);
+      const level = meteringLevel(recorder.getStatus().metering);
       listeners.forEach((listener) => listener(level));
     } catch {
       /* best-effort metering */

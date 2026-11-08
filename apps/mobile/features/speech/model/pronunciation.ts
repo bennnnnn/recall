@@ -22,7 +22,7 @@ import {
   readAloudPlaying,
   startReadAloud,
 } from "@/features/speech/model/readAloudSession";
-import { ensureChunk, ensurePrefetchState } from "@/features/speech/model/ttsClipFetch";
+import { ensureChunk, ensurePrefetchState, prefetchChunk } from "@/features/speech/model/ttsClipFetch";
 import { currentSpeechRate, getSpeechRate } from "@/features/speech/model/speechRate";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL } from "@/features/speech/model/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
@@ -327,7 +327,7 @@ async function playChunkPipeline(
       index === 0 ? leadClip : await ensureChunk(state, index, token, language, signal);
     if (!clip) return index === 0 ? { ok: false, reason: "error" } : { ok: true };
     if (index + 1 < state.chunks.length) {
-      void ensureChunk(state, index + 1, token, language, signal);
+      void prefetchChunk(state, index + 1, token, language, signal);
     }
     readAloudChunk(index, state.chunks.length);
     const played = await playCloudBase64(clip.audio_base64, clip.content_type, generation);

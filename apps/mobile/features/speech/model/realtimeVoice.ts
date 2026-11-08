@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 
 import { speechApi } from "@/features/speech/api";
+import { startCallAudio } from "@/features/speech/model/callAudio";
 import { createRealtimeMicGate } from "@/features/speech/model/realtimeMicGate";
 import {
   createRealtimePeer,
@@ -95,7 +96,11 @@ export async function createRealtimeVoiceSession(options: {
     throw new Error("webrtc_unavailable");
   }
   const mic = webRtcMicConstraints();
-  const { stream, audioTracks } = await openRealtimeMicrophone(webrtc, mic);
+  const callAudio = await startCallAudio();
+  const { stream, audioTracks } = await openRealtimeMicrophone(webrtc, mic).catch((error: unknown) => {
+    callAudio.stop();
+    throw error;
+  });
 
   let callId: string | null = null;
   let maxDurationSeconds: number | null = null;
@@ -135,6 +140,7 @@ export async function createRealtimeVoiceSession(options: {
   const tearDown = () => {
     gate.clearAll();
     peer.close();
+    callAudio.stop();
   };
 
   // Mint the session while local ICE gathering proceeds. No OpenAI key or

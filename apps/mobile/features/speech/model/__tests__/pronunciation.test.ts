@@ -235,6 +235,37 @@ describe("the read-aloud player", () => {
     expect(readAloudSession.get()).toBeNull();
   });
 
+  it("cancels the next clip's download on Stop, and the cancel is no failure", async () => {
+    const { requestRaw } = jest.requireMock<{ requestRaw: jest.Mock }>("@/lib/api/client");
+    const signals: AbortSignal[] = [];
+    // The lead downloads; the clip after it waits until Stop cancels it, then rejects as the
+    // API client rejects a cancel. Nothing awaited that download: its rejection went unhandled.
+    requestRaw
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ audio_base64: "QUJD", content_type: "audio/mpeg" }),
+      }))
+      .mockImplementationOnce(
+        (_path: string, _token: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            if (init.signal) signals.push(init.signal);
+            init.signal?.addEventListener("abort", () =>
+              reject(Object.assign(new Error("Request canceled"), { name: "AbortError" })),
+            );
+          }),
+      );
+    const reading = readReplyAloud("m1", "lead|rest", "en-US", { token: "tok", preferCloud: true });
+    await flush();
+    mockPlayers[0].emit({ playing: true });
+    expect(signals).toHaveLength(1);
+
+    stopReadingAloud();
+    await flush();
+
+    expect(signals[0]?.aborted).toBe(true);
+    await expect(reading).resolves.toEqual({ ok: true });
+  });
+
   it("closes the player and ends the reading on Stop", async () => {
     const reading = readReplyAloud("m1", "first|second", "en-US", { token: "tok", preferCloud: true });
     await flush();
