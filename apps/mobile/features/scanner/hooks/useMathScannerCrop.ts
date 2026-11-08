@@ -5,7 +5,6 @@ import {
   runOnJS,
   runOnUI,
   useAnimatedReaction,
-  useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
@@ -25,11 +24,9 @@ import {
   translateScanRegion,
   zoomFromPinch,
 } from "@/lib/math/scannerRegion";
-import { useFrameHandleStyles } from "@/features/scanner/hooks/useFrameHandleStyles";
+import { useFrameHandleStyles, useFrameStyles } from "@/features/scanner/hooks/useFrameStyles";
 
 const ZOOM_PUSH_DELTA = 0.02;
-/** theme.scrim is ~0.40 idle; multiply by this while dragging → ~0.25. */
-const MASK_DRAG_OPACITY = 0.625;
 
 type Point = { x: number; y: number };
 
@@ -67,6 +64,13 @@ export function useMathScannerCrop({
   const panOriginX = useSharedValue(0);
   const panOriginY = useSharedValue(0);
   const resizeBase = useSharedValue<ScanRegion>(defaultScanRegion(inset));
+  // A handle and the frame never move it at once: with a finger on each, both wrote the frame
+  // and it jumped between the two. The handle dragging it (-1: none), the frame gestures
+  // holding it, and whether the pan and the pinch each took a hold.
+  const handleOwner = useSharedValue(-1);
+  const frameHolds = useSharedValue(0);
+  const panHolds = useSharedValue(false);
+  const pinchHolds = useSharedValue(false);
 
   useEffect(() => {
     insetSv.value = inset;
@@ -111,26 +115,35 @@ export function useMathScannerCrop({
         // The mask lightens once a gesture is really under way, so a tap does not flash it.
         .onStart(() => {
           dragging.value = 1;
-          if (previewSv.value) runOnJS(adjust)();
+          if (!previewSv.value || handleOwner.value >= 0) return;
+          pinchHolds.value = true;
+          frameHolds.value += 1;
+          runOnJS(adjust)();
         })
         .onUpdate((e) => {
           if (previewSv.value) {
-            region.value = scaleScanRegion(pinchStartRegion.value, e.scale, insetSv.value);
+            if (pinchHolds.value) region.value = scaleScanRegion(pinchStartRegion.value, e.scale, insetSv.value);
             return;
           }
           zoomSv.value = zoomFromPinch(pinchStartZoom.value, e.scale);
         })
         .onEnd(() => {
           dragging.value = withTiming(0, { duration: dragDuration });
-          if (previewSv.value) runOnJS(pushRegion)(region.value);
-          else runOnJS(onZoom)(zoomSv.value);
+          if (!previewSv.value) runOnJS(onZoom)(zoomSv.value);
+          if (!pinchHolds.value) return;
+          pinchHolds.value = false;
+          frameHolds.value -= 1;
+          runOnJS(pushRegion)(region.value);
         }),
     [
       adjust,
       dragDuration,
       dragging,
+      frameHolds,
+      handleOwner,
       insetSv,
       onZoom,
+      pinchHolds,
       pinchStartRegion,
       pinchStartZoom,
       previewSv,
@@ -145,6 +158,9 @@ export function useMathScannerCrop({
       Gesture.Pan()
         .maxPointers(1)
         .onStart((e) => {
+          if (handleOwner.value >= 0) return;
+          panHolds.value = true;
+          frameHolds.value += 1;
           dragging.value = 1;
           panBase.value = region.value;
           panOriginX.value = e.translationX;
@@ -152,11 +168,15 @@ export function useMathScannerCrop({
           runOnJS(adjust)();
         })
         .onUpdate((e) => {
+          if (!panHolds.value) return;
           const dx = (e.translationX - panOriginX.value) / windowWidth;
           const dy = (e.translationY - panOriginY.value) / windowHeight;
           region.value = translateScanRegion(panBase.value, dx, dy, insetSv.value);
         })
         .onEnd(() => {
+          if (!panHolds.value) return;
+          panHolds.value = false;
+          frameHolds.value -= 1;
           dragging.value = withTiming(0, { duration: dragDuration });
           runOnJS(pushRegion)(region.value);
         }),
@@ -164,8 +184,11 @@ export function useMathScannerCrop({
       adjust,
       dragDuration,
       dragging,
+      frameHolds,
+      handleOwner,
       insetSv,
       panBase,
+      panHolds,
       panOriginX,
       panOriginY,
       pushRegion,
@@ -176,10 +199,12 @@ export function useMathScannerCrop({
   );
 
   const makeHandleGesture = useCallback(
-    (handle: ScanHandle) =>
+    (handle: ScanHandle, index: number) =>
       Gesture.Pan()
         .maxPointers(1)
         .onStart((e) => {
+          if (frameHolds.value > 0 || handleOwner.value >= 0) return;
+          handleOwner.value = index;
           dragging.value = 1;
           resizeBase.value = region.value;
           panOriginX.value = e.translationX;
@@ -187,11 +212,14 @@ export function useMathScannerCrop({
           runOnJS(adjust)();
         })
         .onUpdate((e) => {
+          if (handleOwner.value !== index) return;
           const dx = (e.translationX - panOriginX.value) / windowWidth;
           const dy = (e.translationY - panOriginY.value) / windowHeight;
           region.value = resizeScanRegion(resizeBase.value, handle, dx, dy, insetSv.value);
         })
         .onEnd(() => {
+          if (handleOwner.value !== index) return;
+          handleOwner.value = -1;
           dragging.value = withTiming(0, { duration: dragDuration });
           runOnJS(pushRegion)(region.value);
         }),
@@ -200,6 +228,8 @@ export function useMathScannerCrop({
       resizeBase,
       dragDuration,
       dragging,
+      frameHolds,
+      handleOwner,
       insetSv,
       panOriginX,
       panOriginY,
@@ -226,52 +256,13 @@ export function useMathScannerCrop({
     [pinchGesture, panGesture, tapGesture],
   );
 
-  const regionStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    return {
-      left: r.x * windowWidth,
-      top: r.y * windowHeight,
-      width: r.width * windowWidth,
-      height: r.height * windowHeight,
-    };
-  });
-
-  const maskTopStyle = useAnimatedStyle(() => ({
-    height: region.value.y * windowHeight,
-    opacity: 1 - dragging.value * (1 - MASK_DRAG_OPACITY),
-  }));
-  const maskBottomStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    return {
-      top: (r.y + r.height) * windowHeight,
-      opacity: 1 - dragging.value * (1 - MASK_DRAG_OPACITY),
-    };
-  });
-  const maskLeftStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    return {
-      top: r.y * windowHeight,
-      width: r.x * windowWidth,
-      height: r.height * windowHeight,
-      opacity: 1 - dragging.value * (1 - MASK_DRAG_OPACITY),
-    };
-  });
-  const maskRightStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    return {
-      top: r.y * windowHeight,
-      left: (r.x + r.width) * windowWidth,
-      height: r.height * windowHeight,
-      opacity: 1 - dragging.value * (1 - MASK_DRAG_OPACITY),
-    };
-  });
-
+  const frameStyles = useFrameStyles(region, dragging, windowWidth, windowHeight);
   const handleStyles = useFrameHandleStyles(region, windowWidth, windowHeight);
   // Each edge and corner of the frame, with what it draws and does.
   const handles = SCAN_HANDLES.map((handle, index) => ({ handle, gesture: handleGestures[index]!, style: handleStyles[handle] }));
 
   // Read when a fit starts: a fit that changed with Reduce Motion reset the student's frame.
-  const fitMsRef = useRef(0);
+  const fitMsRef = useRef(motionMs(Motion.duration.short, reduceMotion));
   useEffect(() => {
     fitMsRef.current = motionMs(Motion.duration.short, reduceMotion);
   }, [reduceMotion]);
@@ -297,9 +288,13 @@ export function useMathScannerCrop({
         insetSv.value,
       );
       region.value = nextRegion;
+      // A reset (open, retake, a new still) starts with nothing holding the frame.
+      handleOwner.value = -1;
+      frameHolds.value = 0;
+      panHolds.value = pinchHolds.value = false;
       runOnJS(pushRegion)(nextRegion);
     })(next);
-  }, [insetSv, pushRegion, region]);
+  }, [frameHolds, handleOwner, insetSv, panHolds, pinchHolds, pushRegion, region]);
 
   const scaleRegion = useCallback((factor: number) => {
     adjust();
@@ -324,11 +319,7 @@ export function useMathScannerCrop({
   return {
     regionGesture,
     handles,
-    regionStyle,
-    maskTopStyle,
-    maskBottomStyle,
-    maskLeftStyle,
-    maskRightStyle,
+    ...frameStyles,
     resetRegion,
     fitRegion,
     growRegion,

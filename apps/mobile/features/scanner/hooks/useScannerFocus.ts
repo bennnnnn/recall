@@ -8,7 +8,7 @@ import type { FocusPoint } from "@/features/scanner/components/ScannerFocusRing"
  * Tap to focus: a tap on the live viewfinder, inside the frame or outside it, focuses the
  * camera there and shows a ring while it does. `live` is a running camera with no still up.
  */
-export function useScannerFocus(cameraRef: RefObject<LiveScannerCameraHandle | null>, live: boolean) {
+export function useScannerFocus(cameraRef: RefObject<LiveScannerCameraHandle | null>, live: boolean, areaTop: number) {
   const [focusPoint, setFocusPoint] = useState<FocusPoint | null>(null);
   const focusAt = useCallback((point: { x: number; y: number }) => {
     if (!live) return;
@@ -16,11 +16,10 @@ export function useScannerFocus(cameraRef: RefObject<LiveScannerCameraHandle | n
     setFocusPoint((last) => ({ ...point, id: (last?.id ?? 0) + 1 }));
   }, [cameraRef, live]);
   // Outside the frame: the frame's own gesture reports taps inside it (`onTap`). The tap
-  // area starts below the top controls; the camera fills the scanner's full-screen window,
-  // so a point in that window is a point on the camera view.
+  // area (`ScannerFocusArea`) starts `areaTop` points below the camera view's top.
   const tapGesture = useMemo(
-    () => Gesture.Tap().maxDistance(10).runOnJS(true).onEnd((event) => focusAt({ x: event.absoluteX, y: event.absoluteY })),
-    [focusAt],
+    () => Gesture.Tap().maxDistance(10).runOnJS(true).onEnd((event) => focusAt({ x: event.x, y: event.y + areaTop })),
+    [areaTop, focusAt],
   );
   return { focusPoint: live ? focusPoint : null, focusAt, tapGesture };
 }

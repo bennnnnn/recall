@@ -50,6 +50,7 @@ export function ScannerSubjectSwitcher({ value, onChange }: Props) {
       ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       testID="scanner-subject-switcher"
       accessibilityRole="tablist"
       accessibilityLabel={t("chat.math_scan_subject_a11y")}

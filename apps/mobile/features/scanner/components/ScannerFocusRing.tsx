@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import { GestureDetector, type GestureType } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
@@ -22,10 +22,12 @@ export function ScannerFocusRing({ point }: { point: FocusPoint | null }) {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(1);
   const id = point?.id;
+  const shownRef = useRef<number | undefined>(undefined);
 
   // Only a new tap rings: an old point shown again (after a retake) stays faded out.
   useEffect(() => {
-    if (id === undefined) return;
+    if (id === undefined || id === shownRef.current) return;
+    shownRef.current = id;
     opacity.value = 1;
     opacity.value = withDelay(HOLD_MS, withTiming(0, { duration: motionMs(Motion.duration.short, reduceMotion) }));
     scale.value = reduceMotion ? 1 : 1.25;

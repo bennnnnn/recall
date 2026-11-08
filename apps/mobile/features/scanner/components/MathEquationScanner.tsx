@@ -130,7 +130,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     setLiveRegion((current) => (current && regionsClose(current, region) ? current : region));
     resetLive();
   }, [resetLive]);
-  const focus = useScannerFocus(cameraRef, granted && visible && !preview && cameraStatus.kind === "ready");
+  const focus = useScannerFocus(cameraRef, granted && visible && !preview && cameraStatus.kind === "ready", inset.top * view.height);
   const crop = useMathScannerCrop({
     windowWidth: view.width,
     windowHeight: view.height,
