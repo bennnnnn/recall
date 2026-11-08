@@ -75,6 +75,11 @@ export type RealtimeTurnState = {
   playingResponseId: string | null;
   userSpeaking: boolean;
   suppressCurrentInputTurn: boolean;
+  /**
+   * The last utterance dropped (echo, muted, too early), by its own id. The accepted one before it
+   * stays active, so its late line must not be taken for the dropped one's and lost with it.
+   */
+  suppressedInputId: string | null;
   acceptedUserUtterance: boolean;
   responseFinished: boolean;
   sawOutputAudioStopped: boolean;
@@ -108,6 +113,7 @@ export function initialRealtimeTurnState(bargeIn: boolean): RealtimeTurnState {
     playingResponseId: null,
     userSpeaking: false,
     suppressCurrentInputTurn: false,
+    suppressedInputId: null,
     acceptedUserUtterance: false,
     responseFinished: false,
     sawOutputAudioStopped: false,
@@ -204,6 +210,8 @@ function emitError(s: RealtimeTurnState, out: Out, message: string, fatal = fals
 
 function onSpeechStarted(s: RealtimeTurnState, out: Out, event: Record<string, unknown>, receivedAt: number): void {
   s.suppressCurrentInputTurn = (!s.bargeIn && s.assistantSpeaking) || s.userMuted || !s.sessionReadyForTurns;
+  const inputId = typeof event.item_id === "string" ? event.item_id : String(receivedAt);
+  s.suppressedInputId = s.suppressCurrentInputTurn ? inputId : null;
   if (s.suppressCurrentInputTurn) {
     s.acceptedUserUtterance = false;
     dropEchoInput(out, "speech-before-user-turn", false);
@@ -219,7 +227,7 @@ function onSpeechStarted(s: RealtimeTurnState, out: Out, event: Record<string, u
   }
   // The user has the floor: any reply audio is over (half duplex) or being cut.
   setAudioPlaying(s, out, false);
-  s.activeInputId = typeof event.item_id === "string" ? event.item_id : String(receivedAt);
+  s.activeInputId = inputId;
   s.acceptedInputIds = [...s.acceptedInputIds, s.activeInputId].slice(-ACCEPTED_INPUTS_KEPT);
   s.userSpeaking = true;
   s.turnEpoch += 1;
@@ -273,20 +281,22 @@ function onResponseCreated(s: RealtimeTurnState, out: Out, response: { id?: stri
 /**
  * The user's line, for the utterance it names. A line can land after the next utterance began:
  * it still belongs to its own turn, so it is said with its id rather than dropped. A line for an
- * utterance never accepted (echo, muted, too early) is dropped.
+ * utterance never accepted (echo, muted, too early) is dropped, by that utterance's own id: the
+ * accepted one before it stays active, and its late line was once dropped in the other's place.
  */
 function onInputTranscript(s: RealtimeTurnState, out: Out, event: Record<string, unknown>): void {
-  const turnId = typeof event.item_id === "string" ? event.item_id : s.activeInputId;
+  // A line that names no utterance is the one being heard: the dropped one, if any.
+  const turnId = typeof event.item_id === "string" ? event.item_id : (s.suppressedInputId ?? s.activeInputId);
   const current = turnId === s.activeInputId;
-  if (!current && !s.acceptedInputIds.includes(turnId)) return;
+  if (turnId === s.suppressedInputId || (!current && !s.acceptedInputIds.includes(turnId))) {
+    log(out, "ignored-unaccepted-transcript", turnId);
+    return;
+  }
   const text = liveTalkTranscriptText(event);
   const echoSource = s.lastAssistantText || s.assistantTranscript;
-  if ((current && s.suppressCurrentInputTurn) || (!s.bargeIn && text && isLikelyAssistantEcho(text, echoSource))) {
+  if (!s.bargeIn && text && isLikelyAssistantEcho(text, echoSource)) {
     // Only the current utterance's audio is still in the buffer to clear.
-    if (current) {
-      dropEchoInput(out, "echo-transcript", false);
-      s.suppressCurrentInputTurn = false;
-    }
+    if (current) dropEchoInput(out, "echo-transcript", false);
     log(out, "ignored-assistant-echo-transcript", text);
     return;
   }

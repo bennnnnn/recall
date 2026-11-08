@@ -110,6 +110,22 @@ describe("reduceRealtimeTurn: echo drop (half duplex)", () => {
     expect(state).toMatchObject({ suppressCurrentInputTurn: true, acceptedUserUtterance: false, activeInputId: "u1" });
   });
 
+  // An echo heard during the reply kept the user's own turn active; the echo's drop flag was
+  // then applied to that turn's late line, which was saved with no line (and the server keeps
+  // no reply without one).
+  it("keeps the user's late line while an echo of the reply is being dropped", () => {
+    const { commands } = run(
+      replying(false),
+      server({ type: "input_audio_buffer.speech_started", item_id: "echo" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "What is the capital of France?" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "echo", transcript: "The capital" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", transcript: "the capital" }),
+    );
+    const lines = commands.flatMap((command) =>
+      command.type === "emit" && command.event.type === "user_transcript" ? [command.event] : []);
+    expect(lines).toEqual([{ type: "user_transcript", text: "What is the capital of France?", turnId: "u1" }]);
+  });
+
   it("drops a transcript that repeats the assistant's last line", () => {
     const { commands } = run(
       replying(false),
