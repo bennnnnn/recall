@@ -62,6 +62,7 @@ function FallbackMath({ latex, textColor, em, align, label }: FallbackProps) {
     >
       <AccessibleElementChildren>
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           horizontal
           nestedScrollEnabled
           showsHorizontalScrollIndicator
@@ -170,6 +171,7 @@ export const MathSvgView = React.memo(function MathSvgView({
       accessibilityLabel={label}
     >
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         horizontal
         nestedScrollEnabled
         showsHorizontalScrollIndicator

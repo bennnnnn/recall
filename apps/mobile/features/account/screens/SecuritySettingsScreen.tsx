@@ -91,7 +91,7 @@ export default function SecuritySettingsScreen() {
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <FlashList
+    <FlashList keyboardShouldPersistTaps="handled"
       data={sessions}
       keyExtractor={(session) => session.id}
       style={{ flex: 1, backgroundColor: theme.bg }}

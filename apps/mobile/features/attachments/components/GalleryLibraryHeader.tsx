@@ -50,6 +50,7 @@ export function GalleryLibraryHeader({
       {/* One line in every language: the chips scroll, the layout toggle stays put. */}
       <View style={s.tabsRow}>
         <ScrollView
+          keyboardShouldPersistTaps="handled"
           horizontal
           showsHorizontalScrollIndicator={false}
           style={s.tabsScroll}

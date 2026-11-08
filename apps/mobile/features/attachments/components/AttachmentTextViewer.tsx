@@ -81,6 +81,7 @@ export function AttachmentTextViewer({ visible, attachmentId, localUri, path, ..
           <Text style={s.error}>{t("gallery.file_preview_failed")}</Text>
         ) : (
           <ScrollView
+            keyboardShouldPersistTaps="handled"
             testID="attachment-text-preview"
             contentContainerStyle={s.scroll}
           >

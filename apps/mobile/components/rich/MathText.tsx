@@ -106,6 +106,7 @@ function InlineMathScroll({
 }) {
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       testID="math-text-scroll"
       horizontal
       nestedScrollEnabled

@@ -67,6 +67,7 @@ export function FadingHorizontalScroll({
   return (
     <View style={[s.frame, style]}>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         ref={scrollRef}
         testID={testID}
         horizontal

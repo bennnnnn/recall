@@ -63,6 +63,7 @@ export function MathConverterUnitSheet({
         </Pressable>
       </View>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.cats}

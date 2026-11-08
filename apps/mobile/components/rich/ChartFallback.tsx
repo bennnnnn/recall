@@ -29,7 +29,7 @@ export function ChartFallback({ table }: Props) {
         <Text style={s.noteText}>{t(table ? "rich.chart_data_instead" : "rich.chart_error")}</Text>
       </View>
       {table ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false}>
           <View style={s.table}>
             {[table.columns, ...table.rows].map((row, r) => (
               <View key={r} style={[s.row, r > 0 && s.rowBorder]}>

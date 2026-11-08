@@ -94,6 +94,7 @@ export function FeatureShowcase() {
   return (
     <View onLayout={onLayout} testID="landing-showcase">
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         ref={scroller}
         horizontal
         pagingEnabled
