@@ -40,3 +40,14 @@ export function appVersion(): AppVersion {
 export function versionLabel({ version, build }: AppVersion): string {
   return build ? `${version} (${build})` : version;
 }
+
+/**
+ * What support needs to tell this app from another, as one line per field: the version and,
+ * when it runs one, the over-the-air update (About copies it, Help's reports carry it).
+ */
+export function supportVersionText(app: AppVersion, t: (key: string) => string): string {
+  return [
+    `${t("settings.about_version")}: ${versionLabel(app)}`,
+    ...(app.update ? [`${t("settings.about_update")}: ${app.update}`] : []),
+  ].join("\n");
+}

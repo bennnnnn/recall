@@ -143,9 +143,27 @@ export function SettingsLinkRow({
   );
 }
 
-/** A row that only shows a value. */
-export function SettingsValueRow(row: Omit<RowBase, "disabled" | "busy" | "accessibilityHint">) {
-  return <ListRow {...row} />;
+/**
+ * A row that shows a value. A long press (copying it, say) is offered to a screen reader
+ * too, named by `longPressLabel`.
+ */
+export function SettingsValueRow({
+  onLongPress,
+  longPressLabel,
+  ...row
+}: Omit<RowBase, "disabled" | "busy" | "accessibilityHint"> & {
+  onLongPress?: () => void;
+  longPressLabel?: string;
+}) {
+  const actions = onLongPress && longPressLabel ? [{ name: "longpress", label: longPressLabel }] : undefined;
+  return (
+    <ListRow
+      {...row}
+      onLongPress={onLongPress}
+      accessibilityActions={actions}
+      onAccessibilityAction={actions ? () => onLongPress?.() : undefined}
+    />
+  );
 }
 
 export function SettingsSwitchRow({
