@@ -61,3 +61,17 @@ it("reads a tight bullet list and a numbered list that follows as two lists", as
   const html = await body("- a\n- b\n\n1. c\n2. d");
   expect(html).toContain("<ul><li>a</li><li>b</li></ul><ol><li>c</li><li>d</li></ol>");
 });
+
+it("prints a thematic break as a rule, not as nested lists", async () => {
+  for (const rule of ["* * *", "***", "---", "- - -"]) {
+    const html = await body(`Before\n\n${rule}\n\nAfter`);
+    expect(html).toContain("<p>Before</p><hr><p>After</p>");
+    expect(html).not.toContain("<ul>");
+  }
+});
+
+it("prints a list nested past any sense as text, without overflowing", async () => {
+  const html = await body(`${"- ".repeat(3000)}deep`);
+  expect(html).toContain("deep");
+  expect(html.split("<ul>").length - 1).toBeLessThanOrEqual(13);
+});

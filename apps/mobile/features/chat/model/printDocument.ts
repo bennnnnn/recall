@@ -134,7 +134,7 @@ function structuredPrintBody(markdown: string): string {
 }
 
 /** Markdown lines as print blocks; a list item's own lines come back through here. */
-function renderBlocks(lines: string[]): string {
+function renderBlocks(lines: string[], depth = 0): string {
   const parts: string[] = [];
   let i = 0;
   let paragraph: string[] = [];
@@ -205,9 +205,16 @@ function renderBlocks(lines: string[]): string {
       continue;
     }
 
+    if (THEMATIC_BREAK.test(line)) {
+      flushParagraph();
+      parts.push("<hr>");
+      i += 1;
+      continue;
+    }
+
     if (LIST_ITEM.test(line)) {
       flushParagraph();
-      const list = readList(lines, i);
+      const list = readList(lines, i, depth);
       parts.push(list.html);
       i = list.next;
       continue;
@@ -229,6 +236,10 @@ function renderBlocks(lines: string[]): string {
 
 /** A list item: its indent, its marker ("-" or "3."), and the text after the marker. */
 const LIST_ITEM = /^( *)([-*+]|\d{1,9}[.)])\s+(.*)$/;
+/** "---", "***" or "* * *": a rule, as the chat draws it; read before a list, which "* * *" also looks like. */
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?: *\1){2,} *$/;
+/** Lists inside lists past this print as text: a line of a thousand "- " must not overflow the stack. */
+const MAX_LIST_DEPTH = 12;
 
 function startsBlock(line: string): boolean {
   return (
@@ -236,6 +247,7 @@ function startsBlock(line: string): boolean {
     /^(#{1,4})\s+/.test(line) ||
     /^>/.test(line) ||
     looksLikePipeRow(line) ||
+    THEMATIC_BREAK.test(line) ||
     LIST_ITEM.test(line)
   );
 }
@@ -252,7 +264,7 @@ function leadingSpaces(line: string): number {
  * number. Before, each item's paragraph ended the list, so every item printed as "1."
  * with a stray backslash (2026-11-07).
  */
-function readList(lines: string[], start: number): { html: string; next: number } {
+function readList(lines: string[], start: number, depth: number): { html: string; next: number } {
   const first = LIST_ITEM.exec(lines[start] ?? "")!;
   const indent = first[1].length;
   const ordered = /\d/.test(first[2]);
@@ -297,12 +309,14 @@ function readList(lines: string[], start: number): { html: string; next: number 
   const tag = ordered ? "ol" : "ul";
   const number = ordered ? Number.parseInt(first[2], 10) : 1;
   const startAttr = ordered && number !== 1 ? ` start="${number}"` : "";
-  return { html: `<${tag}${startAttr}>${items.map(listItemHtml).join("")}</${tag}>`, next: i };
+  const html = items.map((body) => listItemHtml(body, depth + 1)).join("");
+  return { html: `<${tag}${startAttr}>${html}</${tag}>`, next: i };
 }
 
 /** A tight item (no blank line in it) prints its text bare, as CommonMark does; a loose one keeps its paragraphs. */
-function listItemHtml(body: string[]): string {
-  const inner = renderBlocks(body);
+function listItemHtml(body: string[], depth: number): string {
+  if (depth > MAX_LIST_DEPTH) return `<li>${inlineMarkdownToHtml(body.join(" ").trim())}</li>`;
+  const inner = renderBlocks(body, depth);
   const tight = body.every((line) => line.trim() !== "");
   return `<li>${tight ? inner.replace(/^<p>([\s\S]*?)<\/p>/, "$1") : inner}</li>`;
 }
