@@ -167,6 +167,8 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           didActivate.value = 0;
         })
         .onTouchesMove((e, manager) => {
+          // Claimed once, stays claimed: failing an active drag cancels it on Android (S23 edge swipe).
+          if (didActivate.value !== 0) return;
           const t = e.changedTouches[0];
           if (!t) return;
           const dx = t.absoluteX - touchStartX.value;
@@ -186,6 +188,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           const onScrimClose = openNow && touchStartX.value >= w && dx < 0;
           const onEdgeOpen = !openNow && touchStartX.value <= EDGE_WIDTH && dx > 0;
           if (onPanel || onScrimClose || onEdgeOpen) {
+            didActivate.value = 1;
             manager.activate();
           } else {
             manager.fail();
@@ -194,12 +197,8 @@ export function DrawerShell({ children }: { children: ReactNode }) {
         // A tap never moves enough to activate. Fail on release so the button
         // underneath gets the press — otherwise the undecided pan swallows it
         // and search, New chat, and the nav rows do nothing.
-        .onTouchesUp((_e, manager) => {
-          if (didActivate.value === 0) manager.fail();
-        })
-        .onTouchesCancelled((_e, manager) => {
-          if (didActivate.value === 0) manager.fail();
-        })
+        .onTouchesUp((_e, manager) => { if (didActivate.value === 0) manager.fail(); })
+        .onTouchesCancelled((_e, manager) => { if (didActivate.value === 0) manager.fail(); })
         .onStart(() => {
           didActivate.value = 1;
           dragStartX.value = translateX.value;
