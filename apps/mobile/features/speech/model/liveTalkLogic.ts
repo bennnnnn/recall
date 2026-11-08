@@ -32,7 +32,9 @@ export type LiveTalkGate =
   | "outage"
   | "mic_permission"
   /** The microphone gave no audio (in use, or missing): the device, not the app's age. */
-  | "mic_unavailable";
+  | "mic_unavailable"
+  /** Android refused the call its audio while the phone is on a call (`callAudio.ts`). */
+  | "phone_busy";
 
 /** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
 export type LiveTalkStatus = {
@@ -199,6 +201,7 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   if (error instanceof Error && error.message === "microphone_unavailable") {
     return "mic_unavailable";
   }
+  if (error instanceof Error && error.message === "phone_busy") return "phone_busy";
   if (!error || typeof error !== "object") return "connect_failed";
   const { status, code } = error as { status?: unknown; code?: unknown };
   if (status === undefined && isMicPermissionDenied(error)) {
@@ -236,6 +239,7 @@ const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
   outage: "common.service_unavailable",
   unconfigured: "chat.live_talk_not_configured",
   mic_unavailable: "chat.live_talk_mic_unavailable",
+  phone_busy: "chat.live_talk_phone_busy",
 };
 
 /** The line a gate says as a recoverable error; upgrade, consent and the microphone open their own. */
@@ -243,13 +247,25 @@ export function liveTalkGateMessageKey(gate: LiveTalkGate): string {
   return (GATE_MESSAGE_KEYS as Partial<Record<LiveTalkGate, string>>)[gate] ?? "chat.live_talk_failed";
 }
 
+/** What a call says from inside it that may end it: an error, or the phone taking its audio. */
+type LiveTalkCallTrouble = { type: "error"; fatal?: boolean } | { type: "interrupted" };
+
 /**
  * An error during a call, in the phone's words: it showed the provider's English ("Realtime
  * voice data channel failed"). A lost connection could not connect; any other error failed
- * this reply, and the call goes on.
+ * this reply, and the call goes on. A phone call or another app that took the audio ended it.
  */
-export function liveTalkCallErrorKey(fatal: boolean | undefined): string {
-  return fatal ? liveTalkGateMessageKey("connect_failed") : "chat.error_generic";
+export function liveTalkCallErrorKey(trouble: LiveTalkCallTrouble): string {
+  if (trouble.type === "interrupted") return "chat.live_talk_interrupted";
+  return trouble.fatal ? liveTalkGateMessageKey("connect_failed") : "chat.error_generic";
+}
+
+/**
+ * The call hangs up: its connection is gone, or the phone took its audio. Left open, the mic
+ * kept recording into a dead peer, or under a phone call, where it could start a reply.
+ */
+export function liveTalkCallEnds(trouble: LiveTalkCallTrouble): boolean {
+  return trouble.type === "interrupted" || trouble.fatal === true;
 }
 
 /**

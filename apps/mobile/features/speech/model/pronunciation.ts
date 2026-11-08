@@ -1,6 +1,5 @@
 /** Device TTS via expo-speech; optional cloud TTS via /speech/tts. */
 
-import { isAbortError } from "@/lib/api/abort";
 import { cacheDirectory, deleteAsync, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import { AppState, Platform } from "react-native";
 
@@ -22,7 +21,7 @@ import {
   readAloudPlaying,
   startReadAloud,
 } from "@/features/speech/model/readAloudSession";
-import { ensureChunk, ensurePrefetchState } from "@/features/speech/model/ttsClipFetch";
+import { ensureChunk, ensurePrefetchState, prefetchChunk } from "@/features/speech/model/ttsClipFetch";
 import { currentSpeechRate, getSpeechRate } from "@/features/speech/model/speechRate";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL } from "@/features/speech/model/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
@@ -327,7 +326,7 @@ async function playChunkPipeline(
       index === 0 ? leadClip : await ensureChunk(state, index, token, language, signal);
     if (!clip) return index === 0 ? { ok: false, reason: "error" } : { ok: true };
     if (index + 1 < state.chunks.length) {
-      void ensureChunk(state, index + 1, token, language, signal);
+      void prefetchChunk(state, index + 1, token, language, signal);
     }
     readAloudChunk(index, state.chunks.length);
     const played = await playCloudBase64(clip.audio_base64, clip.content_type, generation);
@@ -380,9 +379,12 @@ export async function speakPlainText(
     if (played.ok || !isCurrentSpeak(generation) || !options?.preferCloud) return played;
     return beginDeviceSpeech(plain, language, generation);
   } catch (error) {
-    if (isAbortError(error) || !isCurrentSpeak(generation)) {
+    // Stop and the next reading end this one (a new generation). A clip's deadline is an
+    // AbortError as well, and still a failure: the phone's voice reads it instead.
+    if (!isCurrentSpeak(generation)) {
       return { ok: true };
     }
+    logTtsLatency("cloud_failed", { error: error instanceof Error ? error.name : typeof error });
     if (options?.preferCloud) {
       return beginDeviceSpeech(plain, language, generation);
     }

@@ -14,6 +14,7 @@ import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
 import {
+  liveTalkCallEnds,
   liveTalkCallErrorKey,
   liveTalkErrorGate,
   liveTalkGateMessageKey,
@@ -28,6 +29,7 @@ import {
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/features/speech/model/liveTalkLogic";
+import { stopReadAloud } from "@/features/speech/model/readAloudSession";
 import type { RealtimeVoiceEvent, RealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
@@ -62,6 +64,11 @@ type CompletedTurn = {
 
 const REALTIME_TRANSCRIPT_GRACE_MS = 350;
 
+function clearTimer(timer: MutableRefObject<ReturnType<typeof setTimeout> | null>): void {
+  if (timer.current != null) clearTimeout(timer.current);
+  timer.current = null;
+}
+
 // The WebRTC session, its turn state and the chimes load when Live Talk is
 // started, not with the chat screen. The hook itself stays static.
 function loadRealtimeVoice() {
@@ -73,6 +80,36 @@ function playCue(kind: "start" | "end"): Promise<void> {
   return import("@/features/speech/model/liveTalkSfx")
     .then(({ playLiveTalkCue }) => playLiveTalkCue(kind))
     .catch(() => {});
+}
+
+/** Why live talk did not start, or stopped: the plans, Settings for the mic, or a message. */
+function showLiveTalkGate(
+  gate: LiveTalkGate,
+  { feedback, onUpgrade, t }: {
+    feedback: ReturnType<typeof useActionFeedbackOptional>;
+    onUpgrade: () => void;
+    t: (key: string) => string;
+  },
+): void {
+  if (gate === "upgrade") {
+    onUpgrade();
+    return;
+  }
+  // The API client already sent the account to the consent step.
+  if (gate === "consent") return;
+  if (gate === "mic_permission") {
+    // The OS asks only once; after a denial only Settings can turn it on.
+    void confirmDialog({
+      title: t("chat.live_talk_mic_permission_title"),
+      message: t("chat.live_talk_mic_permission_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("chat.location_open_settings"),
+    }).then((open) => {
+      if (open) void Linking.openSettings();
+    });
+    return;
+  }
+  reportRecoverableError(feedback, t(liveTalkGateMessageKey(gate)));
 }
 
 export function useLiveTalk({
@@ -109,29 +146,11 @@ export function useLiveTalk({
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeRef = useRef<() => void>(() => {});
+  /** Aborts the call still connecting: a hang-up gives its route, mic and minutes back at once. */
+  const connectingRef = useRef<AbortController | null>(null);
 
   const alertForGate = useCallback(
-    (gate: LiveTalkGate) => {
-      if (gate === "upgrade") {
-        onUpgrade();
-        return;
-      }
-      // The API client already sent the account to the consent step.
-      if (gate === "consent") return;
-      if (gate === "mic_permission") {
-        // The OS asks only once; after a denial only Settings can turn it on.
-        void confirmDialog({
-          title: t("chat.live_talk_mic_permission_title"),
-          message: t("chat.live_talk_mic_permission_body"),
-          cancelLabel: t("common.cancel"),
-          confirmLabel: t("chat.location_open_settings"),
-        }).then((open) => {
-          if (open) void Linking.openSettings();
-        });
-        return;
-      }
-      reportRecoverableError(feedback, t(liveTalkGateMessageKey(gate)));
-    },
+    (gate: LiveTalkGate) => showLiveTalkGate(gate, { feedback, onUpgrade, t }),
     [feedback, onUpgrade, t],
   );
 
@@ -233,10 +252,7 @@ export function useLiveTalk({
   }, [captureCurrentTurn, finishTurn]);
 
   const flushPendingTurn = useCallback(() => {
-    if (finishTimerRef.current != null) {
-      clearTimeout(finishTimerRef.current);
-      finishTimerRef.current = null;
-    }
+    clearTimer(finishTimerRef);
     if (turnIdRef.current && (userTextRef.current || assistantTextRef.current)) {
       finalizeCurrentTurn();
     }
@@ -310,11 +326,11 @@ export function useLiveTalk({
         }, REALTIME_TRANSCRIPT_GRACE_MS);
         return;
       }
-      if (event.type === "error") {
-        reportRecoverableError(feedback, t(liveTalkCallErrorKey(event.fatal)));
+      if (event.type === "error" || event.type === "interrupted") {
+        reportRecoverableError(feedback, t(liveTalkCallErrorKey(event)));
         setPhase("idle");
-        // The connection is gone: left open, the mic kept recording into a dead peer.
-        if (event.fatal) closeRef.current();
+        // The same hang-up as the user's: the turn so far is saved and the call ended once.
+        if (liveTalkCallEnds(event)) closeRef.current();
       }
     },
     [applyEvent, feedback, finalizeCurrentTurn, flushPendingTurn, t],
@@ -322,16 +338,12 @@ export function useLiveTalk({
 
   const close = useCallback(() => {
     sessionGenRef.current += 1;
+    connectingRef.current?.abort();
+    connectingRef.current = null;
     const shouldCueEnd = visibleRef.current || sessionRef.current != null;
     visibleRef.current = false;
-    if (finishTimerRef.current != null) {
-      clearTimeout(finishTimerRef.current);
-      finishTimerRef.current = null;
-    }
-    if (sessionLimitTimerRef.current != null) {
-      clearTimeout(sessionLimitTimerRef.current);
-      sessionLimitTimerRef.current = null;
-    }
+    clearTimer(finishTimerRef);
+    clearTimer(sessionLimitTimerRef);
     const completed = captureCurrentTurn();
     if (completed && (completed.userText || completed.assistantText)) {
       void finishTurn(completed);
@@ -381,6 +393,9 @@ export function useLiveTalk({
       const activeChatId = await ensureChatId();
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       turnChatIdRef.current = activeChatId;
+      // A reply still read aloud stops as the call takes over: a clip that failed then fell back
+      // to the phone's voice, which reset the audio mode under the call.
+      stopReadAloud();
       visibleRef.current = true;
       setMuted(false);
       setPhase("thinking");
@@ -389,11 +404,15 @@ export function useLiveTalk({
       // expo-audio player keeps the session in playback and WebRTC is mute.
       await playCue("start");
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
+      const connecting = new AbortController();
+      connectingRef.current = connecting;
       const session = await voice.createRealtimeVoiceSession({
         token,
         chatId: activeChatId,
         onEvent: handleRealtimeEvent,
+        signal: connecting.signal,
       });
+      if (connectingRef.current === connecting) connectingRef.current = null;
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) {
         session.close();
         if (session.callId) void api.endRealtimeSession(token, session.callId).catch(() => {});
@@ -401,9 +420,7 @@ export function useLiveTalk({
       }
       sessionRef.current = session;
       callIdRef.current = session.callId;
-      if (sessionLimitTimerRef.current != null) {
-        clearTimeout(sessionLimitTimerRef.current);
-      }
+      clearTimer(sessionLimitTimerRef);
       sessionLimitTimerRef.current = setTimeout(() => {
         sessionLimitTimerRef.current = null;
         closeRef.current();

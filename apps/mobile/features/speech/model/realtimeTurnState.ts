@@ -28,7 +28,9 @@ export type RealtimeVoiceEvent =
   /** The reply's audio started or stopped playing on the phone (WebRTC output buffer events). */
   | { type: "output_audio"; playing: boolean }
   /** ``fatal``: the connection itself is gone (peer or channel failed); the session must close. */
-  | { type: "error"; message: string; fatal?: boolean };
+  | { type: "error"; message: string; fatal?: boolean }
+  /** A phone call or another app took the phone's audio (Android's call-audio module): hang up. */
+  | { type: "interrupted" };
 
 /** session_ready ends the connect warmup; mic_resume ends playback. */
 export type RealtimeTimer = "session_ready" | "mic_resume";

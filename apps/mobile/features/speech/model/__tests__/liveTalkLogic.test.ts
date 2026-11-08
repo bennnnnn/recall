@@ -1,6 +1,7 @@
 import {
   LIVE_TALK_CONNECT_WARMUP_MS,
   LIVE_TALK_PLAYBACK_TAIL_MS,
+  liveTalkCallEnds,
   liveTalkCallErrorKey,
   liveTalkErrorGate,
   liveTalkGateMessageKey,
@@ -219,9 +220,22 @@ describe("liveTalkErrorGate", () => {
 
   // Both showed the provider's English ("Realtime voice data channel failed").
   it("words an error during a call: a lost connection, or this reply", () => {
-    expect(liveTalkCallErrorKey(true)).toBe("chat.live_talk_connect_failed");
-    expect(liveTalkCallErrorKey(false)).toBe("chat.error_generic");
-    expect(liveTalkCallErrorKey(undefined)).toBe("chat.error_generic");
+    expect(liveTalkCallErrorKey({ type: "error", fatal: true })).toBe("chat.live_talk_connect_failed");
+    expect(liveTalkCallErrorKey({ type: "error", fatal: false })).toBe("chat.error_generic");
+    expect(liveTalkCallErrorKey({ type: "error" })).toBe("chat.error_generic");
+  });
+
+  // A phone call rang under the call: the voice talked over it and the open mic could start a reply.
+  it("ends the call, saying why, when a phone call or another app takes the audio", () => {
+    expect(liveTalkCallErrorKey({ type: "interrupted" })).toBe("chat.live_talk_interrupted");
+    expect(liveTalkCallEnds({ type: "interrupted" })).toBe(true);
+    expect(liveTalkCallEnds({ type: "error", fatal: true })).toBe(true);
+    expect(liveTalkCallEnds({ type: "error" })).toBe(false);
+  });
+
+  it("says the phone is on a call when Android refused the call its audio", () => {
+    expect(liveTalkErrorGate(new Error("phone_busy"))).toBe("phone_busy");
+    expect(liveTalkGateMessageKey("phone_busy")).toBe("chat.live_talk_phone_busy");
   });
 
   // Any other refused save showed the server's English ("Chat not found").

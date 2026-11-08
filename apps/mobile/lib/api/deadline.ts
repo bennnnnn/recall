@@ -11,6 +11,18 @@ export function abortError(): Error {
   return error;
 }
 
+/**
+ * What a fetch its own signal cancelled rejects with: an AbortError, however the runtime
+ * words it. Expo's native fetch (`expo/fetch`) rejects a cancel with a plain Error, "fetch
+ * failed: Fetch request has been canceled", which no `isAbortError` check took for one: a
+ * read-aloud clip that Stop cancelled reached the console as an unhandled failure.
+ * A request's own deadline aborts the same signal, so it is an AbortError too, as web fetch
+ * gives (`isServerUnreachable`): a caller that must tell its own cancel reads its own signal.
+ */
+export function cancelAsAbort(error: unknown, signal: AbortSignal | null | undefined): unknown {
+  return signal?.aborted && !isAbortError(error) ? abortError() : error;
+}
+
 /** `promise`, or an AbortError as soon as `signal` aborts (the work itself runs on). */
 export function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(abortError());

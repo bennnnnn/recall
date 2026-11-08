@@ -15,6 +15,8 @@ import {
   isVoiceInputAvailable,
   loadExpoAudio,
   meteredRecordingOptions,
+  meteringLevel,
+  nativeRecorderOptions,
   normalizeRecordingUri,
   speechUploadFromUri,
 } from "@/lib/speech/voiceAudio";
@@ -52,5 +54,61 @@ describe("voiceAudio", () => {
       sampleRate: 44100,
       isMeteringEnabled: true,
     });
+  });
+
+  it("builds the native recorder with metering on and this platform's own block", () => {
+    const preset = meteredRecordingOptions({
+      extension: ".m4a",
+      sampleRate: 44100,
+      android: { outputFormat: "mpeg4", audioEncoder: "aac" },
+      ios: { audioQuality: 127 },
+      web: { mimeType: "audio/webm" },
+    });
+    // Android reads metering's switch from the recorder's own options only: built with `{}`,
+    // it never reported a level and the waveform barely moved.
+    expect(nativeRecorderOptions(preset, "android")).toEqual({
+      extension: ".m4a",
+      sampleRate: 44100,
+      isMeteringEnabled: true,
+      outputFormat: "mpeg4",
+      audioEncoder: "aac",
+    });
+    expect(nativeRecorderOptions(preset, "ios")).toEqual({
+      extension: ".m4a",
+      sampleRate: 44100,
+      isMeteringEnabled: true,
+      audioQuality: 127,
+    });
+  });
+});
+
+describe("the dictation waveform's level", () => {
+  it("rests low with no reading", () => {
+    expect(meteringLevel(undefined, "average")).toBe(0.12);
+    expect(meteringLevel(-160, "peak")).toBe(0.12);
+  });
+
+  it("maps iOS's average power from -60 dB (floor) to 0 dB (full)", () => {
+    expect(meteringLevel(-60, "average")).toBeCloseTo(0.1);
+    expect(meteringLevel(-30, "average")).toBeCloseTo(0.55);
+    expect(meteringLevel(0, "average")).toBeCloseTo(1);
+  });
+
+  it("maps Android's peaks from 12 dB above the average's floor to full scale", () => {
+    // A voice's peaks read about 12 dB over its average power: a quiet room rests on the floor.
+    expect(meteringLevel(-48, "peak")).toBeCloseTo(meteringLevel(-60, "average"));
+    expect(meteringLevel(-50, "peak")).toBeCloseTo(0.1);
+    // Speech climbs the bars, and a loud voice fills them (a peak never reads over 0 dBFS).
+    expect(meteringLevel(-15, "peak")).toBeGreaterThan(0.6);
+    expect(meteringLevel(-3, "peak")).toBeGreaterThan(0.9);
+    expect(meteringLevel(0, "peak")).toBeCloseTo(1);
+  });
+
+  it("moves with the voice on both platforms", () => {
+    for (const kind of ["average", "peak"] as const) {
+      const levels = [-55, -40, -25, -10].map((db) => meteringLevel(db, kind));
+      expect(levels).toEqual([...levels].sort((a, b) => a - b));
+      expect(levels[3] - levels[0]).toBeGreaterThan(0.45);
+    }
   });
 });

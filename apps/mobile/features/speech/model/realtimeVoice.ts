@@ -1,8 +1,10 @@
 import { Platform } from "react-native";
 
 import { speechApi } from "@/features/speech/api";
+import { startCallAudio } from "@/features/speech/model/callAudio";
 import { createRealtimeMicGate } from "@/features/speech/model/realtimeMicGate";
 import {
+  closeRealtimeMicrophone,
   createRealtimePeer,
   debugRealtime,
   loadWebRtc,
@@ -16,6 +18,7 @@ import {
   type RealtimeTurnEvent,
   type RealtimeVoiceEvent,
 } from "@/features/speech/model/realtimeTurnState";
+import { abortError, untilAborted } from "@/lib/api/deadline";
 import { isPhysicalDevice } from "@/lib/expoRuntime";
 
 export type { RealtimeVoiceEvent };
@@ -85,17 +88,65 @@ function releaseMintedSession(
     .catch(() => {});
 }
 
+type NativeWebRtc = NonNullable<ReturnType<typeof loadWebRtc>>;
+type CallAudio = Awaited<ReturnType<typeof startCallAudio>>;
+type MicStream = Parameters<typeof createRealtimePeer>[1];
+
+/**
+ * The call's route and microphone, or neither. The route comes first, so WebRTC's audio starts
+ * on it; a mic that fails, or a hang-up while it opens, gives both back. A phone call or
+ * another app that takes the audio while the route is held is said as `interrupted`.
+ */
+async function openCallMedia(
+  webrtc: NativeWebRtc,
+  mic: ReturnType<typeof webRtcMicConstraints>,
+  hangUp: AbortSignal,
+  onEvent: (event: RealtimeVoiceEvent) => void,
+) {
+  const callAudio = await startCallAudio(() => onEvent({ type: "interrupted" }));
+  try {
+    if (hangUp.aborted) throw abortError();
+    const media = await openRealtimeMicrophone(webrtc, mic);
+    if (hangUp.aborted) {
+      closeRealtimeMicrophone(media.stream);
+      throw abortError();
+    }
+    return { callAudio, ...media };
+  } catch (error) {
+    callAudio.stop();
+    throw error;
+  }
+}
+
+/** The call's peer, reporting to its turn; one that cannot be built gives the route back (it frees the mic). */
+function createCallPeer(webrtc: NativeWebRtc, stream: MicStream, callAudio: CallAudio, dispatch: (event: RealtimeTurnEvent) => void) {
+  try {
+    return createRealtimePeer(webrtc, stream, {
+      onOpen: () => dispatch({ type: "channel_open" }),
+      onMessage: (event) => dispatch({ type: "server_event", event, receivedAt: Date.now() }),
+      onPeerFailed: (message) => dispatch({ type: "peer_failed", message }),
+      onChannelFailed: (message) => dispatch({ type: "channel_failed", message }),
+    });
+  } catch (error) {
+    callAudio.stop();
+    throw error;
+  }
+}
+
 export async function createRealtimeVoiceSession(options: {
   token: string;
   chatId?: string | null;
   onEvent: (event: RealtimeVoiceEvent) => void;
+  /** Aborts on a hang-up while the call connects: its route, mic and minutes go back at once. */
+  signal?: AbortSignal;
 }): Promise<RealtimeVoiceSession> {
   const webrtc = loadWebRtc();
   if (!webrtc) {
     throw new Error("webrtc_unavailable");
   }
+  const hangUp = options.signal ?? new AbortController().signal;
   const mic = webRtcMicConstraints();
-  const { stream, audioTracks } = await openRealtimeMicrophone(webrtc, mic);
+  const { callAudio, stream, audioTracks } = await openCallMedia(webrtc, mic, hangUp, options.onEvent);
 
   let callId: string | null = null;
   let maxDurationSeconds: number | null = null;
@@ -126,15 +177,11 @@ export async function createRealtimeVoiceSession(options: {
   };
 
   const gate = createRealtimeMicGate(audioTracks, dispatch);
-  const peer = createRealtimePeer(webrtc, stream, {
-    onOpen: () => dispatch({ type: "channel_open" }),
-    onMessage: (event) => dispatch({ type: "server_event", event, receivedAt: Date.now() }),
-    onPeerFailed: (message) => dispatch({ type: "peer_failed", message }),
-    onChannelFailed: (message) => dispatch({ type: "channel_failed", message }),
-  });
+  const peer = createCallPeer(webrtc, stream, callAudio, dispatch);
   const tearDown = () => {
     gate.clearAll();
     peer.close();
+    callAudio.stop();
   };
 
   // Mint the session while local ICE gathering proceeds. No OpenAI key or
@@ -146,15 +193,21 @@ export async function createRealtimeVoiceSession(options: {
   });
 
   try {
-    const offerSdp = await peer.createOffer();
-    const credential = await credentialPromise;
-    callId = credential.call_id;
-    maxDurationSeconds = credential.max_duration_seconds ?? null;
-    debugRealtime("session-ready", {
-      model: credential.model,
-      expiresAt: credential.expires_at,
-    });
-    await peer.connect(options.token, credential.call_id, offerSdp);
+    // A hang-up does not wait for the connect: the call is torn down as it happens. The work
+    // below stops there too: the offer still went to Recall, which opened a call nobody was on.
+    await untilAborted((async () => {
+      const offerSdp = await peer.createOffer();
+      if (hangUp.aborted) throw abortError();
+      const credential = await credentialPromise;
+      if (hangUp.aborted) throw abortError();
+      callId = credential.call_id;
+      maxDurationSeconds = credential.max_duration_seconds ?? null;
+      debugRealtime("session-ready", {
+        model: credential.model,
+        expiresAt: credential.expires_at,
+      });
+      await peer.connect(options.token, credential.call_id, offerSdp, hangUp);
+    })(), hangUp);
   } catch (error) {
     dispatch({ type: "close" });
     tearDown();

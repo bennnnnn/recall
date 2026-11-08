@@ -227,6 +227,45 @@ describe("api client", () => {
     ).rejects.toThrow("Could not reach the Recall server");
   });
 
+  /** How Expo's native fetch (`expo/fetch`) rejects a request its signal cancelled. */
+  const expoFetchCancel = () => new Error("fetch failed: Fetch request has been canceled");
+
+  it("requestRaw rejects a cancel with an AbortError, however the native fetch words it", async () => {
+    const caller = new AbortController();
+    mockFetch.mockImplementationOnce((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(expoFetchCancel()));
+    }));
+    const outcome = requestRaw("/speech/tts", "access-token", { signal: caller.signal }).catch(
+      (error: unknown) => error,
+    );
+    await Promise.resolve();
+    caller.abort();
+    await expect(outcome).resolves.toMatchObject({ name: "AbortError" });
+  });
+
+  it("requestRaw keeps a failure its signal did not cause", async () => {
+    mockFetch.mockRejectedValueOnce(expoFetchCancel());
+    await expect(requestRaw("/speech/tts", "access-token")).rejects.toThrow(
+      "fetch failed: Fetch request has been canceled",
+    );
+  });
+
+  it("fetchWithTimeout reads the native fetch's cancel at its deadline as no answer", async () => {
+    jest.useFakeTimers();
+    try {
+      mockFetch.mockImplementationOnce((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(expoFetchCancel()));
+      }));
+      const outcome = fetchWithTimeout("http://test.local/auth/login", { method: "POST" }).catch(
+        (error: unknown) => error,
+      );
+      await jest.advanceTimersByTimeAsync(15_000);
+      await expect(outcome).resolves.toMatchObject({ message: expect.stringContaining("Could not reach") });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("requestRaw returns the raw Response on success and adds Authorization", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

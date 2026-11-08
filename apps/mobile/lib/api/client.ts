@@ -1,6 +1,6 @@
 import { ApiRequestError, readErrorBody, readRetryAfter, UNAVAILABLE_STATUSES } from "@/lib/api/errorBody";
 import { isAbortError } from "@/lib/api/abort";
-import { abortError, serverUnreachableError, untilAborted, withDeadline } from "@/lib/api/deadline";
+import { abortError, cancelAsAbort, serverUnreachableError, untilAborted, withDeadline } from "@/lib/api/deadline";
 import { getApiUrl } from "@/lib/config";
 import {
   getRefreshToken,
@@ -72,7 +72,7 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
   try {
     return await fetch(url, { ...init, headers, signal: controller.signal });
   } catch (error) {
-    if (isAbortError(error)) throw serverUnreachableError();
+    if (isAbortError(cancelAsAbort(error, controller.signal))) throw serverUnreachableError();
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -260,7 +260,8 @@ async function fetchApi(path: string, init: RequestInit, generation: number): Pr
     return response;
   } catch (error) {
     unreachable = !init.signal?.aborted && !isAbortError(error);
-    throw error;
+    // A cancel or a deadline is an AbortError to every caller, whatever the fetch called it.
+    throw cancelAsAbort(error, init.signal);
   } finally {
     if (unreachable && generation === getSessionGeneration()) reportConnectionFailure();
     if (answered) reportConnectionAnswered(sentAt);

@@ -2,6 +2,8 @@ const mockSetAudioModeAsync = jest.fn(async (_mode: unknown) => undefined);
 const mockRelease = jest.fn();
 const mockPrepare = jest.fn(async (_preset: unknown) => undefined);
 const mockRecord = jest.fn();
+const mockConstructed = jest.fn((_options: unknown) => undefined);
+const mockMetering: { value: number | undefined } = { value: undefined };
 
 jest.mock("expo-file-system/legacy", () => ({
   deleteAsync: jest.fn(async () => undefined),
@@ -10,17 +12,31 @@ jest.mock("expo-file-system/legacy", () => ({
 }));
 
 jest.mock("expo-modules-core", () => ({
+  Platform: { OS: "android" },
   requireOptionalNativeModule: jest.fn(() => ({})),
 }));
 
 jest.mock("expo-audio", () => ({
   setAudioModeAsync: (mode: unknown) => mockSetAudioModeAsync(mode),
-  RecordingPresets: { HIGH_QUALITY: { extension: ".m4a" } },
+  RecordingPresets: {
+    HIGH_QUALITY: { extension: ".m4a", ios: { audioQuality: 127 }, android: { audioEncoder: "aac" } },
+  },
   AudioModule: {
     AudioRecorder: class {
       isRecording = false;
+      constructor(options: unknown) {
+        mockConstructed(options);
+      }
       prepareToRecordAsync = (preset: unknown) => mockPrepare(preset);
-      record = () => mockRecord();
+      record = () => {
+        mockRecord();
+        this.isRecording = true;
+      };
+      getStatus = () => ({ metering: mockMetering.value });
+      stop = async () => {
+        this.isRecording = false;
+      };
+      uri = "";
       release = () => mockRelease();
     },
   },
@@ -63,5 +79,37 @@ describe("startVoiceRecording when the mic cannot start", () => {
       allowsRecording: true,
       playsInSilentMode: true,
     });
+    // Its level poll runs until the recorder stops.
+    await recorder?.stop();
+  });
+});
+
+describe("startVoiceRecording's level", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it("builds the recorder with metering on, as Android reads it from the recorder alone", async () => {
+    await startVoiceRecording();
+    expect(mockConstructed).toHaveBeenCalledWith({
+      extension: ".m4a",
+      isMeteringEnabled: true,
+      audioEncoder: "aac",
+    });
+  });
+
+  it("hands each reading to the waveform as it changes", async () => {
+    const recorder = await startVoiceRecording();
+    const levels: number[] = [];
+    recorder?.subscribeMetering((level) => levels.push(level));
+    for (const db of [-55, -30, -10]) {
+      mockMetering.value = db;
+      jest.advanceTimersByTime(60);
+    }
+    expect(levels).toHaveLength(3);
+    expect(levels[2]).toBeGreaterThan(levels[1]);
+    expect(levels[1]).toBeGreaterThan(levels[0]);
   });
 });

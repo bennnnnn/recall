@@ -154,6 +154,8 @@ const NO_ACCOUNT_DATA = [
   "features/chat/model/messageCache.ts#swept",
   "features/home/model/homeOnScreen.ts#homeOnScreen",
   "features/images/components/dotField.ts#compiled",
+  // The calls holding the phone's one audio route, counted so a stale hang-up keeps the live one's.
+  "features/speech/model/callAudio.ts#holders",
   "features/speech/model/liveTalkSfx.ts#cueEpoch",
   "features/speech/model/liveTalkSfx.ts#cuePlayer",
   "features/speech/model/pronunciation.ts#speechModule",
