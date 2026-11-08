@@ -28,9 +28,9 @@ export function useChatExportActions({ token, chat: menuChat, currentView, close
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
 
-  const target = useCallback(() => {
-    if (!token || !menuChat || !currentView()) return null;
-    const chat = getCachedChat(menuChat.id) ?? menuChat;
+  const target = useCallback((chosen: Chat | null) => {
+    if (!token || !chosen || !currentView()) return null;
+    const chat = getCachedChat(chosen.id) ?? chosen;
     closeMenu();
     const load = async () => {
       const msgs = await api.listAllMessages(token, chat.id);
@@ -41,22 +41,23 @@ export function useChatExportActions({ token, chat: menuChat, currentView, close
       if (currentView()) reportRecoverableError(feedback, t(key));
     };
     return { title: chat.title ?? null, load, fail };
-  }, [token, menuChat, currentView, closeMenu, feedback, t]);
+  }, [token, currentView, closeMenu, feedback, t]);
 
-  const openShareChat = useCallback(() => {
-    const chat = target();
+  /** Shares `chat`: the menu's, or a row's when a screen reader picks Share on it. */
+  const shareChat = useCallback((chosen: Chat) => {
+    const chat = target(chosen);
     if (chat) void shareChatAsText(chat.title, chat.load, chat.fail);
   }, [target]);
 
   const exportChatPdf = useCallback(() => {
-    const chat = target();
+    const chat = target(menuChat);
     if (!chat) return;
     void exportChatAsPdf(chat.title, chat.load, {
       preparing: () => showActionBanner(t("chat.status.preparing"), "file-text"),
       ready: dismissActionBanner,
       fail: chat.fail,
     });
-  }, [target, showActionBanner, dismissActionBanner, t]);
+  }, [target, menuChat, showActionBanner, dismissActionBanner, t]);
 
-  return { openShareChat, exportChatPdf };
+  return { shareChat, exportChatPdf };
 }

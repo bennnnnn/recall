@@ -20,6 +20,8 @@ import { Type, Weight } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
+const CARD_SLOP = { top: Space.xxs, bottom: Space.xxs };
+
 export function LastChatCard() {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -34,6 +36,9 @@ export function LastChatCard() {
     <View style={s.wrap}>
       <Pressable
         style={({ pressed }) => [s.card, pressed && s.pressed]}
+        // A one-line pill 41pt tall: the slop makes it a 44pt target inside `wrap` (Android
+        // takes no touch outside the parent), and the pill keeps its size.
+        hitSlop={CARD_SLOP}
         onPress={() => {
           tap();
           router.setParams({ chatId: chat.id, highlightMessage: undefined });
@@ -54,7 +59,7 @@ export function LastChatCard() {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    wrap: { gap: Space.xxs, marginTop: "auto", paddingBottom: Space.xs },
+    wrap: { gap: Space.xxs, marginTop: "auto", paddingTop: CARD_SLOP.top, paddingBottom: Space.xs },
     card: {
       flexDirection: "row",
       alignItems: "center",

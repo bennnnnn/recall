@@ -1,5 +1,14 @@
-import { memo } from "react";
-import { Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
+import { createContext, memo, useContext } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  TextStyle,
+  type AccessibilityActionInfo,
+} from "react-native";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -7,6 +16,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Italic, Type, Weight } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/features/chat/model/title";
+import type { ChatRowAction } from "@/features/chat/hooks/useChatMenuActions";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -42,6 +52,29 @@ type Props = {
   rowStyles: ConversationRowStyles;
 };
 
+/**
+ * Runs a screen reader's action on a row (the drawer's `rowAction`). One handler for every row,
+ * so a row redraws only when its own chat does.
+ */
+export const ChatRowActions = createContext<((chat: Chat, action: ChatRowAction) => void) | null>(null);
+
+/**
+ * The long-press menu's actions, offered to a screen reader on the row itself: they were
+ * reached only by a long-press, where the Library's tiles list theirs. Select stays in the menu.
+ */
+function rowActions(chat: Chat, t: TFunction): AccessibilityActionInfo[] {
+  const actions: AccessibilityActionInfo[] = [
+    { name: "share", label: t("chat.share") },
+    { name: "rename", label: t("chat.rename") },
+  ];
+  if (!chat.archived) actions.push({ name: "pin", label: t(chat.pinned ? "chat.unpin" : "chat.pin") });
+  actions.push(
+    { name: "archive", label: t(chat.archived ? "chat.unarchive" : "chat.archive") },
+    { name: "delete", label: t("common.delete") },
+  );
+  return actions;
+}
+
 export const ConversationRow = memo(function ConversationRow({
   chat,
   onOpen,
@@ -56,6 +89,7 @@ export const ConversationRow = memo(function ConversationRow({
   const { t } = useTranslation();
   const theme = useTheme();
   const label = displayChatTitle(chat.title, { generating: titleGenerating }, t);
+  const onAction = useContext(ChatRowActions);
 
   return (
     <Pressable
@@ -78,6 +112,8 @@ export const ConversationRow = memo(function ConversationRow({
       accessibilityState={
         selectionMode ? { checked: selected } : { selected: active }
       }
+      accessibilityActions={selectionMode || !onAction ? undefined : rowActions(chat, t)}
+      onAccessibilityAction={(event) => onAction?.(chat, event.nativeEvent.actionName as ChatRowAction)}
     >
       {selectionMode ? (
         <View style={r.rowIcon}>

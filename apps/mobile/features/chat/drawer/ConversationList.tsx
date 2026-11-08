@@ -27,6 +27,7 @@ import {
 import { tap } from "@/lib/haptics";
 import { useKeyboardHeight } from "@/ui/hooks/useKeyboardHeight";
 import { chatsFromSelection, selectableChats } from "@/features/chat/drawer/drawerChatSelection";
+import { ChatRowActions } from "@/features/chat/drawer/ConversationRow";
 import { DrawerChatFlashList } from "@/features/chat/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/features/chat/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/features/chat/drawer/DrawerFooter";
@@ -39,6 +40,20 @@ import {
   makeConversationListStyles,
   TOP_CHROME,
 } from "@/features/chat/drawer/conversationListStyles";
+
+/** A row's long-press: its menu opens where the finger was. */
+function useRowMenuAt(showRowMenu: (chat: Chat) => void) {
+  const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | null>(null);
+  const onShowRowMenu = useCallback(
+    (chat: Chat, point: { x: number; y: number }) => {
+      tap();
+      setMenuPoint(point);
+      showRowMenu(chat);
+    },
+    [showRowMenu],
+  );
+  return { menuPoint, onShowRowMenu };
+}
 
 export function ConversationList() {
   const token = useAuthToken();
@@ -106,6 +121,7 @@ export function ConversationList() {
     toggleArchiveChat,
     confirmDeleteChat,
     closeRename,
+    rowAction,
   } = useChatMenuActions({
     token,
     isDrawerOpen: isOpen,
@@ -173,15 +189,7 @@ export function ConversationList() {
 
   const { newChat, openSettings, openReminders, openGallery } = useDrawerNavigation(token);
 
-  const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | null>(null);
-  const onShowRowMenu = useCallback(
-    (chat: Chat, point: { x: number; y: number }) => {
-      tap();
-      setMenuPoint(point);
-      showRowMenu(chat);
-    },
-    [showRowMenu],
-  );
+  const { menuPoint, onShowRowMenu } = useRowMenuAt(showRowMenu);
 
   const selectedChats = useMemo(
     () => chatsFromSelection(groups, selectedIds),
@@ -290,37 +298,39 @@ export function ConversationList() {
         onClose={closeRename}
         onSave={() => void confirmRename()}
       />
-      <DrawerChatFlashList
-        groups={groups}
-        activeChatCount={allChats.length}
-        loading={loading}
-        error={error}
-        isSectionCollapsed={isSectionCollapsed}
-        toggleSectionCollapsed={toggleSectionCollapsed}
-        activeChatId={activeChatId}
-        onOpenChat={openChat}
-        onOpenSearchResult={openSearchResult}
-        onShowRowMenu={onShowRowMenu}
-        selectionMode={selectionMode}
-        selectedIds={selectedIds}
-        onToggleSelect={toggleSelected}
-        listHeader={listHeader}
-        contentPaddingTop={topInset}
-        contentPaddingBottom={bottomInset}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-        searchOpen={searchOpen}
-        searching={searchOpen && hasSearchQuery}
-        searchQuery={searchQuery}
-        searchResults={searchResults}
-        searchHasMore={hasMore}
-        searchLoadingMore={loadingMore}
-        searchLoadingMoreError={loadingMoreError}
-        onSearchLoadMore={loadMore}
-        onLoadOlderChats={hasOlderChats ? loadOlderChats : undefined}
-        onLoadMoreArchived={hasMoreArchived ? loadMoreArchivedChats : undefined}
-        archivedPaging={archivedPaging}
-      />
+      <ChatRowActions.Provider value={rowAction}>
+        <DrawerChatFlashList
+          groups={groups}
+          activeChatCount={allChats.length}
+          loading={loading}
+          error={error}
+          isSectionCollapsed={isSectionCollapsed}
+          toggleSectionCollapsed={toggleSectionCollapsed}
+          activeChatId={activeChatId}
+          onOpenChat={openChat}
+          onOpenSearchResult={openSearchResult}
+          onShowRowMenu={onShowRowMenu}
+          selectionMode={selectionMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelected}
+          listHeader={listHeader}
+          contentPaddingTop={topInset}
+          contentPaddingBottom={bottomInset}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          searchOpen={searchOpen}
+          searching={searchOpen && hasSearchQuery}
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          searchHasMore={hasMore}
+          searchLoadingMore={loadingMore}
+          searchLoadingMoreError={loadingMoreError}
+          onSearchLoadMore={loadMore}
+          onLoadOlderChats={hasOlderChats ? loadOlderChats : undefined}
+          onLoadMoreArchived={hasMoreArchived ? loadMoreArchivedChats : undefined}
+          archivedPaging={archivedPaging}
+        />
+      </ChatRowActions.Provider>
 
       <LinearGradient
         colors={topFade.colors}

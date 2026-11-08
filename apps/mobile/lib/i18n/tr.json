@@ -107,6 +107,8 @@
   "chat.live_talk_unmute_a11y": "Mikrofonu aç",
   "chat.load_earlier": "Önceki mesajları yükle",
   "chat.load_newer": "Daha yeni mesajları yükle",
+  "chat.loading_earlier": "Önceki mesajlar yükleniyor…",
+  "chat.loading_newer": "Daha yeni mesajlar yükleniyor…",
   "chat.locating": "Konumunuz alınıyor…",
   "chat.location_open_settings": "Ayarları aç",
   "chat.location_required_body": "Recall için konum kapalı. Erişime izin vermek için Ayarlar'ı açın, sonra tekrar deneyin.",

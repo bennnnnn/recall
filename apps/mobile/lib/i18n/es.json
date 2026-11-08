@@ -107,6 +107,8 @@
   "chat.live_talk_unmute_a11y": "Activar micrófono",
   "chat.load_earlier": "Cargar mensajes anteriores",
   "chat.load_newer": "Cargar mensajes más recientes",
+  "chat.loading_earlier": "Cargando mensajes anteriores…",
+  "chat.loading_newer": "Cargando mensajes más recientes…",
   "chat.locating": "Obteniendo tu ubicación…",
   "chat.location_open_settings": "Abrir Ajustes",
   "chat.location_required_body": "La ubicación está desactivada para Recall. Abre Ajustes para permitir el acceso e inténtalo de nuevo.",
