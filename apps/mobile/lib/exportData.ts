@@ -24,6 +24,12 @@ export function formatExportJsonForShare(raw: string): string {
   }
 }
 
+/** The share sheet shows the file's name: "recall-export-2026-11-07", not a count of milliseconds. */
+export function exportDay(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 /**
  * The export as a file in the share sheet. React Native's Share sends a file only on iOS
  * (Android ignores `url`, so nothing was shared there); shareLocalFile hands the file over
@@ -36,7 +42,7 @@ export async function shareAccountExport(payload: string): Promise<void> {
     return;
   }
 
-  const fileUri = newAccountFile("export", "json");
+  const fileUri = newAccountFile("export", "json", exportDay(new Date()));
   try {
     await writeAsStringAsync(fileUri, payload, { encoding: EncodingType.UTF8 });
     await shareLocalFile(fileUri, { title: EXPORT_TITLE, mimeType: "application/json" });
