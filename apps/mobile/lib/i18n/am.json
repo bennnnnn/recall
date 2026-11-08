@@ -148,6 +148,7 @@
   "chat.math_keyboard_group_symbols": "ምልክቶች",
   "chat.math_keyboard_group_trig": "ትሪግ",
   "chat.math_keyboard_paste": "ለጥፍ",
+  "chat.math_live_answer_a11y": "መልስ፦ {{value}}",
   "chat.math_keyboard_show": "የቁልፍ ሰሌዳ",
   "chat.math_paste_scan_cta": "ሒሳብ ቃኝ",
   "chat.math_paste_scan_hint": "የለጠፉት ምስል ይመስላል። በምትኩ የሒሳብ ስካነሩን ይጠቀሙ?",

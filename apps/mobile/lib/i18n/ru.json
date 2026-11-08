@@ -148,6 +148,7 @@
   "chat.math_keyboard_group_symbols": "Символы",
   "chat.math_keyboard_group_trig": "Триг",
   "chat.math_keyboard_paste": "Вставить",
+  "chat.math_live_answer_a11y": "Ответ: {{value}}",
   "chat.math_keyboard_show": "Клавиатура",
   "chat.math_paste_scan_cta": "Сканировать задачу",
   "chat.math_paste_scan_hint": "Похоже, вы вставили изображение. Воспользоваться сканером задач?",

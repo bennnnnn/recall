@@ -68,7 +68,9 @@ designed and a long one can be justified. What CI can check reliably, it checks 
   `service`, `api`), never its solvers or extractors. A law two subjects use has one owner
   (the STEM corpus `shared` field names it).
 - The phone renders verified results and walks sampled paths; it never solves or re-derives
-  (CLAUDE.md rule 7).
+  (CLAUDE.md rule 7). Its one exception is the math keyboard's live answer, a typing preview
+  of a draft made only of numbers (`lib/math/live/`), held to the server's value by
+  `docs/fixtures/live_answer_cases.json`.
 - A new subject (biology) is a new module with its own catalog, extractors, solvers, fence and
   STEM corpus folder, plugged in at the existing seams (its adapter in the subject registry,
   `services/subjects/registry.py`; its step in the subject order; `lib/fenceRegistry.ts`). It

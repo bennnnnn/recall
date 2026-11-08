@@ -360,7 +360,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   LaTeX on one 6 × 6 grid per page: Basics (digits, the four operations, x and y, fractions,
   roots, powers), Symbols (relations, sets, geometry), Trig, Calc and Greek, each ending in
   ← → ⌫. A key types into the box the caret is in; → leaves it. Converter sends a
-  "convert … to …" question with **Ask**. See [docs/math.md](./docs/math.md).
+  "convert … to …" question with **Ask**. While the keypad is open the composer shows a
+  **live answer** under a draft made only of numbers as each key lands (`3+1×2` → `= 5`,
+  `+2` → `= 7`), worked on the phone with exact fractions; nothing is sent until **Send**,
+  which still gets the server's checked answer. Letters, equations, inequalities and
+  calculus show none. See [docs/math.md](./docs/math.md).
 - ✅ **Recurring pay through a date** — questions such as “I make $3,400 every two
   weeks; how much by December 11?” use the device-local date and a deterministic
   calendar calculator, not a chat model or web search. The reply shows complete

@@ -27,6 +27,14 @@ export function bottomChromeFadeColors(theme: Theme): readonly string[] {
   ];
 }
 
+export const COMPOSER_GAP_FADE_LOCATIONS = [0, 1] as const;
+
+/** The composer's home-indicator gap: washed out at both ends. A clear stop left a sharp
+ * line directly under the pill. */
+export function composerGapFadeColors(bg: string): [string, string] {
+  return [withAlpha(bg, 0.92), bg];
+}
+
 function clampUnit(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
