@@ -197,6 +197,10 @@ export async function clearCachedChatMessages(chatId: string): Promise<void> {
 onAppEvent("attachmentDeleted", ({ chatId }) => {
   if (chatId) void clearCachedChatMessages(chatId);
 });
+// A deleted chat takes its saved thread with it, one deleted in Settings too.
+onAppEvent("chatsDeleted", ({ chatIds }) => {
+  chatIds.forEach((chatId) => void clearCachedChatMessages(chatId));
+});
 
 export async function clearAllCachedChatMessages(): Promise<void> {
   clearGeneration++;

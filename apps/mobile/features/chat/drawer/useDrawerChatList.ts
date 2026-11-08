@@ -65,6 +65,16 @@ function nextSnapshot(prev: Snapshot, session: number, data: ChatList | Resource
   return prev.session === session && prev.groups === groups ? prev : { session, groups };
 }
 
+/** True while the component is mounted. */
+function useMountedRef(): RefObject<boolean> {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  return mounted;
+}
+
 /** The drawer's chats, kept per account: the hourly token rotation reads nothing (NET-11). */
 export function useDrawerChatList({ isDrawerOpen }: Params) {
   const { account, getToken } = useAccountSession();
@@ -76,7 +86,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedOnceRef = useRef(false);
-  const mountedRef = useRef(true);
+  const mountedRef = useMountedRef();
   const loadIdRef = useRef(0);
   const [, setTitlePendingTick] = useState(0);
   const reportFailure = useReadFailureReport();
@@ -85,11 +95,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     hasLoadedOnceRef.current = false;
     loadIdRef.current++;
   }, [session]);
-  const current = useCallback(() => mountedRef.current && session === getSessionGeneration(), [session]);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
+  const current = useCallback(() => mountedRef.current && session === getSessionGeneration(), [session, mountedRef]);
   useEffect(() => {
     setLoading(false);
     setRefreshing(false);
@@ -132,7 +138,9 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     // A failed read hands back the list already shown (one restored from disk, say): not loaded yet.
     if (result.data) applyChatList(getCachedChatList() ?? result.data, !result.error);
     if (result.error && !background) setError(true);
-    if (!background) setLoading(false);
+    // The latest read ends the spinner, a background one too: it can overtake the drawer's own
+    // (the read after Settings dropped the list), which then returns above and leaves it on.
+    setLoading(false);
   }, [account, getToken, current, hydrateFromCache, applyChatList, reportFailure]);
 
   const olderInFlightRef = useRef(false);

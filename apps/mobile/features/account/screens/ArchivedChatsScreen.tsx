@@ -19,10 +19,10 @@ import { api, type Chat } from "@/lib/api";
 import {
   fetchChatList,
   fetchMoreArchivedChats,
+  forgetDeletedChat,
   getChatListFetchedAt,
   invalidateChatListCache,
 } from "@/features/chat/model/chatListCache";
-import { emitAppEvent } from "@/lib/appEvents";
 import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
@@ -35,12 +35,6 @@ async function readArchivedChats(token: string): Promise<Chat[]> {
   const { data, error } = await fetchChatList(token);
   if (error || !data) throw error ?? new Error("chat list unavailable");
   return data.archived ?? [];
-}
-
-/** A deleted archived chat leaves the drawer (that row only) and the gallery; the list is read again. */
-function forgetDeletedChat(chatId: string): void {
-  emitAppEvent("chatsDeleted", { chatIds: [chatId] });
-  void invalidateChatListCache();
 }
 
 export default function ArchivedChatsScreen() {
@@ -98,7 +92,7 @@ export default function ArchivedChatsScreen() {
       async () => {
         await api.deleteChat(token, chat.id);
         notifyDestructive();
-        forgetDeletedChat(chat.id);
+        void forgetDeletedChat(chat.id);
         drop(chat);
       },
       {

@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import {
   chatListRowsRemoved,
   fetchChatList,
+  forgetDeletedChat,
   isChatListDropped,
   fetchMoreArchivedChats,
   fetchOlderChats,
@@ -18,6 +19,8 @@ import {
   updateChatListCache,
 } from "@/features/chat/model/chatListCache";
 import { clearStoredChatList, writeStoredChatList } from "@/features/chat/model/chatListFile";
+import { registerNewChat, setActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
+import { onAppEvent } from "@/lib/appEvents";
 import {
   markChatHasAssistant,
   shouldProbePreviousChat,
@@ -236,6 +239,19 @@ it("says the rows shown went with the list only for a change that removed them, 
   expect([isChatListDropped(), chatListRowsRemoved()]).toEqual([false, false]);
   mockSession++;
   expect([isChatListDropped(), chatListRowsRemoved()]).toEqual([false, false]);
+});
+
+it("lets a chat deleted in Settings go as the drawer's delete does, keeping every other row", async () => {
+  // Review: an archived chat open under Settings stayed on screen after it was deleted.
+  seedChatListCacheForTest(sample);
+  const newChat = jest.fn();
+  const deleted = jest.fn();
+  const stops = [setActiveChatIdGlobal("c1"), registerNewChat(newChat), onAppEvent("chatsDeleted", deleted)];
+  await forgetDeletedChat("c1");
+  stops.forEach((stop) => stop());
+  expect(deleted).toHaveBeenCalledWith({ chatIds: ["c1"] });
+  expect(newChat).toHaveBeenCalledWith({ force: true });
+  expect([isChatListDropped(), chatListRowsRemoved()]).toEqual([true, false]);
 });
 
 it("does not return current cached history to a token from an old account", async () => {

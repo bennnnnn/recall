@@ -334,6 +334,28 @@ describe("after Settings dropped the list", () => {
     expect(current.allChats.map((row) => row.id)).toEqual(["kept"]);
   });
 
+  it("ends the spinner of a drawer read the background read after Delete all overtook", async () => {
+    // Review: the overtaken read returned without ending its spinner, so with no chat left the
+    // drawer showed its skeleton, never the empty list, until a pull to refresh.
+    let slow!: (value: ChatList) => void;
+    (api.listChats as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { slow = resolve; }));
+    const view = await render(<Probe />);
+    expect(current.loading).toBe(true);
+    await view.rerender(<Probe open={false} />);
+    await act(async () => { await invalidateChatListCache({ rowsRemoved: true }); });
+    (api.listChats as jest.Mock).mockResolvedValueOnce(emptyChatList());
+    await act(idle);
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    await act(async () => { slow(initial); });
+    expect(current.loading).toBe(false);
+    expect(current.error).toBe(false);
+    expect(current.allChats).toEqual([]);
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect(current.loading).toBe(false);
+    expect(current.allChats).toEqual([]);
+  });
+
   it("keeps both of two edits made in one tick on the rows shown", async () => {
     await readThenClose();
     await act(async () => { await invalidateChatListCache(); });

@@ -1,5 +1,6 @@
 import { api, type Chat, type ChatList } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import { clearKnownAssistantChats } from "@/features/chat/model/draftLogic";
 import {
   allChatsFromGroups,
@@ -15,6 +16,7 @@ import {
   type ResourceUpdate,
 } from "@/lib/cache/sessionResource";
 import { CHAT_LIST_STALE_MS } from "@/features/chat/drawer/drawerChatList";
+import { emitAppEvent } from "@/lib/appEvents";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { tokenSubject } from "@/lib/tokenSubject";
 
@@ -176,6 +178,17 @@ export function invalidateChatListCache({ rowsRemoved = false } = {}): Promise<v
   resource.invalidate({ dropped: rowsRemoved ? "rows-removed" : "rows-kept" });
   clearKnownAssistantChats();
   return listFile().then((file) => file.clearStoredChatList()).catch(() => {});
+}
+
+/**
+ * A chat deleted outside the chat screens (Settings' archived chats) goes as the drawer's own
+ * delete takes it: its row, saved thread and files (`chatsDeleted`), the open chat if it is
+ * that one, and the list read again with every other row kept.
+ */
+export function forgetDeletedChat(chatId: string): Promise<void> {
+  emitAppEvent("chatsDeleted", { chatIds: [chatId] });
+  abandonActiveChatIfDeleted([chatId]);
+  return invalidateChatListCache();
 }
 
 /** The list was dropped (`invalidateChatListCache`) and is not read since. */
