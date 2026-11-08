@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values mutate `.value` in gestures. */
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Gesture } from "react-native-gesture-handler";
 import {
   runOnJS,
@@ -19,16 +19,18 @@ import {
   defaultScanRegion,
   DEFAULT_REGION_HEIGHT,
   DEFAULT_REGION_WIDTH,
-  handleHitSize,
   resizeScanRegionFromCorner,
   scaleScanRegion,
   translateScanRegion,
   zoomFromPinch,
 } from "@/lib/math/scannerRegion";
+import { useCornerHandleStyles } from "@/features/scanner/hooks/useCornerHandleStyles";
 
 const ZOOM_PUSH_DELTA = 0.02;
 /** theme.scrim is ~0.40 idle; multiply by this while dragging → ~0.25. */
 const MASK_DRAG_OPACITY = 0.625;
+
+type Point = { x: number; y: number };
 
 type Args = {
   windowWidth: number;
@@ -38,6 +40,8 @@ type Args = {
   reduceMotion: boolean;
   onZoom: (zoom: number) => void;
   onRegionChange?: (region: ScanRegion) => void;
+  /** A tap inside the frame, in view points (the camera focuses there). */
+  onTap?: (point: Point) => void;
 };
 
 export function useMathScannerCrop({
@@ -48,6 +52,7 @@ export function useMathScannerCrop({
   reduceMotion,
   onZoom,
   onRegionChange,
+  onTap,
 }: Args) {
   const region = useSharedValue<ScanRegion>(defaultScanRegion(inset));
   const dragging = useSharedValue(0);
@@ -78,6 +83,12 @@ export function useMathScannerCrop({
     (next: ScanRegion) => onRegionChange?.(next),
     [onRegionChange],
   );
+  // Times the student moved or resized the frame; a frame fit compares it (`useScanContentFit`).
+  const adjustCount = useRef(0);
+  const adjust = useCallback(() => {
+    adjustCount.current += 1;
+  }, []);
+  const tap = useCallback((point: Point) => onTap?.(point), [onTap]);
 
   useAnimatedReaction(
     () => zoomSv.value,
@@ -97,6 +108,9 @@ export function useMathScannerCrop({
           pinchStartRegion.value = region.value;
           dragging.value = 1;
         })
+        .onStart(() => {
+          if (previewSv.value) runOnJS(adjust)();
+        })
         .onUpdate((e) => {
           if (previewSv.value) {
             region.value = scaleScanRegion(pinchStartRegion.value, e.scale, insetSv.value);
@@ -105,11 +119,15 @@ export function useMathScannerCrop({
           zoomSv.value = zoomFromPinch(pinchStartZoom.value, e.scale);
         })
         .onEnd(() => {
-          dragging.value = withTiming(0, { duration: dragDuration });
           if (previewSv.value) runOnJS(pushRegion)(region.value);
           else runOnJS(onZoom)(zoomSv.value);
+        })
+        // A touch that never became a pinch (a tap) ends here too, not in onEnd.
+        .onFinalize(() => {
+          dragging.value = withTiming(0, { duration: dragDuration });
         }),
     [
+      adjust,
       dragDuration,
       dragging,
       insetSv,
@@ -134,6 +152,7 @@ export function useMathScannerCrop({
           panBase.value = region.value;
           panOriginX.value = e.translationX;
           panOriginY.value = e.translationY;
+          runOnJS(adjust)();
         })
         .onUpdate((e) => {
           const dx = (e.translationX - panOriginX.value) / windowWidth;
@@ -141,10 +160,13 @@ export function useMathScannerCrop({
           region.value = translateScanRegion(panBase.value, dx, dy, insetSv.value);
         })
         .onEnd(() => {
-          dragging.value = withTiming(0, { duration: dragDuration });
           runOnJS(pushRegion)(region.value);
+        })
+        .onFinalize(() => {
+          dragging.value = withTiming(0, { duration: dragDuration });
         }),
     [
+      adjust,
       dragDuration,
       dragging,
       insetSv,
@@ -169,23 +191,21 @@ export function useMathScannerCrop({
           cornerBase.value = region.value;
           panOriginX.value = e.translationX;
           panOriginY.value = e.translationY;
+          runOnJS(adjust)();
         })
         .onUpdate((e) => {
           const dx = (e.translationX - panOriginX.value) / windowWidth;
           const dy = (e.translationY - panOriginY.value) / windowHeight;
-          region.value = resizeScanRegionFromCorner(
-            cornerBase.value,
-            corner,
-            dx,
-            dy,
-            insetSv.value,
-          );
+          region.value = resizeScanRegionFromCorner(cornerBase.value, corner, dx, dy, insetSv.value);
         })
         .onEnd(() => {
-          dragging.value = withTiming(0, { duration: dragDuration });
           runOnJS(pushRegion)(region.value);
+        })
+        .onFinalize(() => {
+          dragging.value = withTiming(0, { duration: dragDuration });
         }),
     [
+      adjust,
       cornerBase,
       dragDuration,
       dragging,
@@ -204,9 +224,18 @@ export function useMathScannerCrop({
   const cornerBL = useMemo(() => makeCornerGesture("bl"), [makeCornerGesture]);
   const cornerBR = useMemo(() => makeCornerGesture("br"), [makeCornerGesture]);
 
+  const tapGesture = useMemo(
+    () =>
+      Gesture.Tap().onEnd((e) => {
+        const r = region.value;
+        runOnJS(tap)({ x: r.x * windowWidth + e.x, y: r.y * windowHeight + e.y });
+      }),
+    [region, tap, windowHeight, windowWidth],
+  );
+
   const regionGesture = useMemo(
-    () => Gesture.Simultaneous(pinchGesture, panGesture),
-    [pinchGesture, panGesture],
+    () => Gesture.Simultaneous(pinchGesture, panGesture, tapGesture),
+    [pinchGesture, panGesture, tapGesture],
   );
 
   const regionStyle = useAnimatedStyle(() => {
@@ -249,46 +278,17 @@ export function useMathScannerCrop({
     };
   });
 
-  const handleTLStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    const hit = handleHitSize(r.width * windowWidth, r.height * windowHeight);
-    return {
-      left: r.x * windowWidth - hit / 2,
-      top: r.y * windowHeight - hit / 2,
-      width: hit,
-      height: hit,
-    };
-  });
-  const handleTRStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    const hit = handleHitSize(r.width * windowWidth, r.height * windowHeight);
-    return {
-      left: (r.x + r.width) * windowWidth - hit / 2,
-      top: r.y * windowHeight - hit / 2,
-      width: hit,
-      height: hit,
-    };
-  });
-  const handleBLStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    const hit = handleHitSize(r.width * windowWidth, r.height * windowHeight);
-    return {
-      left: r.x * windowWidth - hit / 2,
-      top: (r.y + r.height) * windowHeight - hit / 2,
-      width: hit,
-      height: hit,
-    };
-  });
-  const handleBRStyle = useAnimatedStyle(() => {
-    const r = region.value;
-    const hit = handleHitSize(r.width * windowWidth, r.height * windowHeight);
-    return {
-      left: (r.x + r.width) * windowWidth - hit / 2,
-      top: (r.y + r.height) * windowHeight - hit / 2,
-      width: hit,
-      height: hit,
-    };
-  });
+  const handleStyles = useCornerHandleStyles(region, windowWidth, windowHeight);
+
+  /** Move the frame onto a still's problem (`fitToContent`), gliding unless motion is reduced. */
+  const fitRegion = useCallback((next: ScanRegion) => {
+    const duration = motionMs(Motion.duration.short, reduceMotion);
+    runOnUI((requested: ScanRegion) => {
+      const target = clampScanRegion(requested, insetSv.value);
+      region.value = duration > 0 ? withTiming(target, { duration }) : target;
+      runOnJS(pushRegion)(target);
+    })(next);
+  }, [insetSv, pushRegion, reduceMotion, region]);
 
   const resetRegion = useCallback((next?: ScanRegion) => {
     runOnUI((requested?: ScanRegion) => {
@@ -306,23 +306,19 @@ export function useMathScannerCrop({
     })(next);
   }, [insetSv, pushRegion, region]);
 
-  const growRegion = useCallback(() => {
+  const scaleRegion = useCallback((factor: number) => {
+    adjust();
     runOnUI(() => {
-      const next = scaleScanRegion(region.value, 1.08, insetSv.value);
+      const next = scaleScanRegion(region.value, factor, insetSv.value);
       region.value = next;
       runOnJS(pushRegion)(next);
     })();
-  }, [insetSv, pushRegion, region]);
-
-  const shrinkRegion = useCallback(() => {
-    runOnUI(() => {
-      const next = scaleScanRegion(region.value, 0.92, insetSv.value);
-      region.value = next;
-      runOnJS(pushRegion)(next);
-    })();
-  }, [insetSv, pushRegion, region]);
+  }, [adjust, insetSv, pushRegion, region]);
+  const growRegion = useCallback(() => scaleRegion(1.08), [scaleRegion]);
+  const shrinkRegion = useCallback(() => scaleRegion(0.92), [scaleRegion]);
 
   const readRegion = useCallback((): ScanRegion => region.value, [region]);
+  const adjustments = useCallback(() => adjustCount.current, []);
 
   const resetZoom = useCallback(() => {
     zoomSv.value = 0;
@@ -341,14 +337,13 @@ export function useMathScannerCrop({
     maskBottomStyle,
     maskLeftStyle,
     maskRightStyle,
-    handleTLStyle,
-    handleTRStyle,
-    handleBLStyle,
-    handleBRStyle,
+    ...handleStyles,
     resetRegion,
+    fitRegion,
     growRegion,
     shrinkRegion,
     readRegion,
+    adjustments,
     resetZoom,
   };
 }

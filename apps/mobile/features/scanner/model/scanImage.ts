@@ -71,6 +71,25 @@ export async function cropScanImage(
   }
 }
 
+/** A copy of a scan no longer than `maxEdge` on its long side; the caller deletes it. */
+export async function shrinkScanImage(uri: string, maxEdge: number): Promise<{ uri: string } & ImageSize> {
+  const context = ImageManipulator.manipulate(uri);
+  let source: ImageRef | undefined;
+  let result: ImageRef | undefined;
+  try {
+    source = await context.renderAsync();
+    const resize = scanResize(validSize(source), maxEdge);
+    if (resize) context.resize(resize);
+    result = await context.renderAsync();
+    const saved = await result.saveAsync({ compress: SCAN_JPEG_QUALITY, format: SaveFormat.JPEG });
+    return { uri: saved.uri, width: saved.width, height: saved.height };
+  } finally {
+    result?.release();
+    source?.release();
+    context.release();
+  }
+}
+
 /** Delete a scan file from the cache. Idempotent; a failed delete never blocks the scanner. */
 function discardScanFile(uri: string): void {
   void deleteAsync(uri, { idempotent: true }).catch(() => undefined);

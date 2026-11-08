@@ -16,7 +16,16 @@ const SCANNER_HYBRID_OBJECTS = ["CameraFactory", "VisionCameraMLKit"] as const;
  * and only when its own native module is in the build.
  */
 export async function nativeScannerLinked(): Promise<boolean> {
+  return hybridObjectsLinked(SCANNER_HYBRID_OBJECTS);
+}
+
+/** Whether ML Kit's text reader is in this build, to read a still with (`readTextLines`). */
+export async function textReaderLinked(): Promise<boolean> {
+  return hybridObjectsLinked(["VisionCameraMLKit"]);
+}
+
+async function hybridObjectsLinked(names: readonly string[]): Promise<boolean> {
   if (TurboModuleRegistry.get("NitroModules") == null) return false;
   const { NitroModules } = await import("react-native-nitro-modules");
-  return SCANNER_HYBRID_OBJECTS.every((name) => NitroModules.hasHybridObject(name));
+  return names.every((name) => NitroModules.hasHybridObject(name));
 }

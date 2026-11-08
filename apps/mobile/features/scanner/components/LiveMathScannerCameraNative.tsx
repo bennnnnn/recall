@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -9,6 +10,7 @@ import {
 import { StyleSheet, View } from "react-native";
 import {
   Camera,
+  type CameraRef,
   CommonResolutions,
   useCameraDevice,
   useFrameOutput,
@@ -21,8 +23,9 @@ import {
 import { createSynchronizable, scheduleOnRN } from "react-native-worklets";
 
 import { type ScanRegion, viewRegionToImageRegion } from "@/lib/math/scannerRegion";
+import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { LIVE_READ_INTERVAL_MS, shouldReadFrame } from "@/features/scanner/model/frameThrottle";
-import { hasUsefulScannerText, normalizeLiveText } from "@/features/scanner/model/liveText";
+import { type LiveReadState, nextLiveRead } from "@/features/scanner/model/liveText";
 
 export type LiveScannerDetection = {
   hasText: boolean;
@@ -33,6 +36,8 @@ export type LiveScannerDetection = {
 export type LiveScannerCameraHandle = {
   /** A full-resolution capture in the cache; the caller deletes it. */
   takePictureAsync: () => Promise<{ uri: string } | null>;
+  /** Focus on a point of the view the preview covers (a tap). */
+  focusAt: (point: { x: number; y: number }) => void;
 };
 
 export type LiveScannerCameraProps = {
@@ -43,6 +48,8 @@ export type LiveScannerCameraProps = {
   scanRegion: ScanRegion;
   /** The measured size of the view the preview covers. */
   viewSize: Size;
+  /** The subject tab: what counts as a problem's text (`hasUsefulScannerText`). */
+  subject: ScannerSubject;
   onReady: () => void;
   onError: () => void;
   onDetectionChange: (detection: LiveScannerDetection) => void;
@@ -50,7 +57,6 @@ export type LiveScannerCameraProps = {
 
 type Size = { width: number; height: number };
 
-const STABLE_FRAMES = 3;
 const FRAME_RESOLUTION = CommonResolutions.VGA_16_9;
 
 /** The app is portrait-only, so an upright frame is the taller way round. */
@@ -74,6 +80,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
       zoom,
       scanRegion,
       viewSize,
+      subject,
       onReady,
       onError,
       onDetectionChange,
@@ -81,6 +88,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
     ref,
   ) {
     const device = useCameraDevice("back");
+    const cameraRef = useRef<CameraRef>(null);
     const photoOutput = usePhotoOutput({
       targetResolution: CommonResolutions.UHD_4_3,
       containerFormat: "jpeg",
@@ -113,9 +121,13 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
     // When the camera thread last read a frame; it checks and sets this frame to frame,
     // as VisionCamera's own async runner keeps its busy flag.
     const lastReadAt = useMemo(() => createSynchronizable(0), []);
-    const lastTextRef = useRef("");
-    const stableCountRef = useRef(0);
+    const readRef = useRef<LiveReadState>({ text: "", count: 0 });
     const lastDetectionKeyRef = useRef("");
+    // A moved frame or another subject starts the reading over, as the scanner's status does.
+    useEffect(() => {
+      readRef.current = { text: "", count: 0 };
+      lastDetectionKeyRef.current = "";
+    }, [scanRegion.x, scanRegion.y, scanRegion.width, scanRegion.height, subject]);
 
     const publishFrameText = useCallback(
       (rawText: string, frameWidth: number, frameHeight: number) => {
@@ -123,26 +135,14 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
         setFrameSize((current) =>
           current.width === upright.width && current.height === upright.height ? current : upright,
         );
-        const normalized = normalizeLiveText(rawText);
-        const hasText = hasUsefulScannerText(rawText);
-
-        if (!hasText) {
-          lastTextRef.current = "";
-          stableCountRef.current = 0;
-        } else if (normalized === lastTextRef.current) {
-          stableCountRef.current += 1;
-        } else {
-          lastTextRef.current = normalized;
-          stableCountRef.current = 1;
-        }
-
-        const stable = hasText && stableCountRef.current >= STABLE_FRAMES;
-        const key = `${hasText ? 1 : 0}:${stable ? 1 : 0}:${normalized}`;
+        const { state, hasText, stable } = nextLiveRead(readRef.current, rawText, subject);
+        readRef.current = state;
+        const key = `${hasText ? 1 : 0}:${stable ? 1 : 0}`;
         if (key === lastDetectionKeyRef.current) return;
         lastDetectionKeyRef.current = key;
         onDetectionChange({ hasText, stable, text: rawText.trim() });
       },
-      [onDetectionChange],
+      [onDetectionChange, subject],
     );
 
     const frameOutput = useFrameOutput({
@@ -194,6 +194,11 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
             uri: `file://${photo.filePath}`,
           };
         },
+        focusAt(point) {
+          // A camera that cannot focus there (or is not started) keeps its own focus.
+          void cameraRef.current?.focusTo(point)
+            .catch((error: unknown) => console.warn("[scanner] focus failed", error instanceof Error ? error.message : typeof error));
+        },
       }),
       [active, device, photoOutput],
     );
@@ -204,6 +209,7 @@ export const LiveMathScannerCameraNative = forwardRef<LiveScannerCameraHandle, L
 
     return (
       <Camera
+        ref={cameraRef}
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={active}

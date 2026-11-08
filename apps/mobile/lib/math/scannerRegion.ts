@@ -260,6 +260,16 @@ export function containedPhotoRegion(
   };
 }
 
+/** A box in a photo (ratios of it) as a region of the view the photo is contained in. */
+export function photoBoxToViewRegion(box: ScanRegion, photoRegion: ScanRegion): ScanRegion {
+  return {
+    x: photoRegion.x + box.x * photoRegion.width,
+    y: photoRegion.y + box.y * photoRegion.height,
+    width: box.width * photoRegion.width,
+    height: box.height * photoRegion.height,
+  };
+}
+
 /** Intersect a screen crop with the imported image, excluding letterbox space. */
 export function regionToContainedImageCrop(
   region: ScanRegion,

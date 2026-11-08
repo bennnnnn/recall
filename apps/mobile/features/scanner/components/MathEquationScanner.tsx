@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   type LayoutChangeEvent,
   Platform,
   StyleSheet,
@@ -9,24 +8,24 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useCameraPermissions } from "expo-image-picker";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { MathScannerChrome } from "@/features/scanner/components/MathScannerChrome";
-import {
-  MathScannerCropOverlay,
-  type LiveScanFrameStatus,
-} from "@/features/scanner/components/MathScannerCropOverlay";
-import {
-  LiveMathScannerCamera,
-  type LiveScannerDetection,
-} from "@/features/scanner/components/LiveMathScannerCamera";
+import { MathScannerCropOverlay } from "@/features/scanner/components/MathScannerCropOverlay";
+import { LiveMathScannerCamera } from "@/features/scanner/components/LiveMathScannerCamera";
 import { ScannerCameraUnavailable } from "@/features/scanner/components/ScannerCameraUnavailable";
+import { ScannerFocusRing } from "@/features/scanner/components/ScannerFocusRing";
 import { ScannerPermission } from "@/features/scanner/components/ScannerPermission";
+import { ScannerPreviewImage } from "@/features/scanner/components/ScannerPreviewImage";
 import { ScannerSubjectGuide } from "@/features/scanner/components/ScannerSubjectGuide";
+import { useLiveScanStatus } from "@/features/scanner/hooks/useLiveScanStatus";
 import { useMathScannerCrop } from "@/features/scanner/hooks/useMathScannerCrop";
+import { useScanContentFit } from "@/features/scanner/hooks/useScanContentFit";
 import { useScannerCamera } from "@/features/scanner/hooks/useScannerCamera";
+import { useScannerFocus } from "@/features/scanner/hooks/useScannerFocus";
+import { boxIn, type ImageBox, shotCrop } from "@/features/scanner/model/contentFit";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   NativePickerBusyError,
@@ -66,16 +65,21 @@ type Props = {
   onCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
 };
 
-/** A still on the crop screen, with the subject its tab had when it was taken or picked. */
-type ScanShot = PendingAttachment & { width: number; height: number; subject: ScannerSubject };
+/**
+ * A still on the crop screen, with the subject its tab had when it was taken or picked, and
+ * for a camera shot where the live frame was in it (the crop frame opens there).
+ */
+type ScanShot = PendingAttachment & { width: number; height: number; subject: ScannerSubject; aim?: ImageBox | null };
 
 const ANDROID_DISMISS_MS = 400;
 
 /**
- * Keep the crop frame live over the camera so the student aims before capture.
- * A camera shot is cut to that live region and shown as a still with its own
- * adjustable crop, as an imported photo is; nothing is sent until Solve. Solve
- * sends the crop to the chat with the subject, and the turn reads and solves it.
+ * Keep the crop frame live over the camera so the student aims before capture; a tap
+ * focuses there. A camera shot is cut to that live region with room around it and shown
+ * as a still with its own adjustable crop, opening on the live frame, as an imported
+ * photo is; once the phone has read the still's text the frame moves onto it
+ * (`useScanContentFit`). Nothing is sent until Solve. Solve sends the crop to the chat
+ * with the subject, and the turn reads and solves it.
  *
  * Capture is never a silent tap: while the camera starts the shutter says so, and
  * a camera that cannot run says why in the viewfinder and offers a photo instead.
@@ -116,22 +120,18 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const sessionRef = useRef(0);
   const [zoom, setZoom] = useState(0);
   const [liveRegion, setLiveRegion] = useState<ScanRegion | null>(null);
-  const [liveStatus, setLiveStatus] = useState<LiveScanFrameStatus>("idle");
-  const liveReadyRef = useRef(false);
+  const { liveStatus, resetLive, handleLiveDetection } = useLiveScanStatus();
   // One shot at a time: a capture or a preview Solve, never two.
   const shotPendingRef = useRef(false);
   const inset = useMemo(
     () => scanChromeInset(view.width, view.height, insets),
     [view.width, view.height, insets.top, insets.bottom],
   );
-  const resetLive = useCallback(() => {
-    setLiveStatus("idle");
-    liveReadyRef.current = false;
-  }, []);
   const handleRegionChange = useCallback((region: ScanRegion) => {
     setLiveRegion((current) => (current && regionsClose(current, region) ? current : region));
     resetLive();
   }, [resetLive]);
+  const focus = useScannerFocus(cameraRef, granted && visible && !preview && cameraStatus.kind === "ready");
   const crop = useMathScannerCrop({
     windowWidth: view.width,
     windowHeight: view.height,
@@ -140,19 +140,9 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     reduceMotion,
     onZoom: setZoom,
     onRegionChange: handleRegionChange,
+    onTap: focus.focusAt,
   });
   const scanRegion = liveRegion ?? defaultScanRegion(inset);
-
-  const handleLiveDetection = useCallback((detection: LiveScannerDetection) => {
-    const next: LiveScanFrameStatus = detection.stable
-      ? "ready"
-      : detection.hasText
-        ? "detecting"
-        : "idle";
-    setLiveStatus(next);
-    if (detection.stable && !liveReadyRef.current) selection();
-    liveReadyRef.current = detection.stable;
-  }, []);
 
   const previewFrame = useMemo(
     () => preview
@@ -160,10 +150,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       : null,
     [inset, preview, view.height, view.width],
   );
-  const resetCropRegion = crop.resetRegion;
-  useEffect(() => {
-    if (previewFrame) resetCropRegion(previewFrame);
-  }, [previewFrame, resetCropRegion]);
+  useScanContentFit({ preview, previewFrame, crop });
 
   useEffect(() => {
     sessionRef.current += 1;
@@ -192,12 +179,12 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     files.discardAll();
   }, [files]);
 
-  /** Show a shot for a manual crop, sized in the space the crop is cut in. */
+  /** Show a shot for a manual crop, sized in the space the crop is cut in; `aim` is the live frame in it. */
   const showShot = useCallback(
-    async (pending: PendingAttachment, shotSubject: ScannerSubject, isCurrent: () => boolean) => {
+    async (pending: PendingAttachment, shotSubject: ScannerSubject, isCurrent: () => boolean, aim: ImageBox | null = null) => {
       try {
         const size = await measureScanImage(pending.localUri);
-        if (isCurrent()) setPreview({ ...pending, ...size, subject: shotSubject });
+        if (isCurrent()) setPreview({ ...pending, ...size, subject: shotSubject, aim });
         else files.discard(pending.localUri);
       } catch {
         files.discard(pending.localUri);
@@ -269,14 +256,21 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         fileName: `${shotSubject}-scan-${Date.now()}.jpg`,
         kind: "image",
       };
+      // Where the live frame is in the whole photo, and in the cut with room around it (`shotCrop`).
+      const framed: { inPhoto?: ImageBox; inCut?: ImageBox } = {};
       let cropped: { uri: string };
       try {
-        cropped = await cropScanImage(photo.uri, (size) =>
-          regionToImageCrop(region, size.width, size.height, viewWidth, viewHeight),
-        );
-      } catch {
-        // Keep a recoverable path if a device reports unexpected camera geometry.
-        await showShot(pending, shotSubject, isCurrent);
+        cropped = await cropScanImage(photo.uri, (size) => {
+          const frame = regionToImageCrop(region, size.width, size.height, viewWidth, viewHeight);
+          const shot = shotCrop(frame, size);
+          framed.inPhoto = boxIn(frame, size);
+          framed.inCut = shot.aim;
+          return shot.crop;
+        });
+      } catch (error) {
+        // The photo could not be cut: the whole photo comes up with the frame where it was aimed.
+        console.warn("[scanner] could not cut the shot; showing the whole photo", error instanceof Error ? error.message : typeof error);
+        await showShot(pending, shotSubject, isCurrent, framed.inPhoto ?? null);
         return;
       }
       // The full-resolution capture is not needed once it is cropped.
@@ -284,7 +278,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       files.track(cropped.uri);
       if (isCurrent()) resetLive();
       // The framed shot waits on the crop screen: nothing is sent before Solve.
-      await showShot({ ...pending, localUri: cropped.uri }, shotSubject, isCurrent);
+      await showShot({ ...pending, localUri: cropped.uri }, shotSubject, isCurrent, framed.inCut ?? null);
     });
   }, [busy, cameraRef, cameraStatus.kind, crop, files, preview, resetLive, runShot, showShot, subject, t, view]);
 
@@ -390,32 +384,23 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
                 zoom={zoom}
                 scanRegion={scanRegion}
                 viewSize={view}
+                subject={subject}
                 onReady={camera.onReady}
                 onError={camera.onError}
                 onUnavailable={camera.onUnavailable}
                 onDetectionChange={handleLiveDetection}
               />
             </View> : null}
+            {granted && !preview && cameraStatus.kind === "ready" ? (
+              <GestureDetector gesture={focus.tapGesture}>
+                <View style={StyleSheet.absoluteFill} testID="math-scanner-focus-area" />
+              </GestureDetector>
+            ) : null}
             {granted && !preview && cameraStatus.kind === "unavailable" ? (
               <ScannerCameraUnavailable reason={cameraStatus.reason} onChoosePhoto={choosePhoto} />
             ) : null}
             {granted && !preview && !cameraOff ? <ScannerSubjectGuide subject={subject} /> : null}
-            {preview ? (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.mediaScrim }]}>
-                <Image
-                  source={{ uri: preview.localUri }}
-                  testID="math-scanner-preview"
-                  style={previewFrame ? {
-                    position: "absolute",
-                    left: previewFrame.x * view.width,
-                    top: previewFrame.y * view.height,
-                    width: previewFrame.width * view.width,
-                    height: previewFrame.height * view.height,
-                  } : StyleSheet.absoluteFill}
-                  resizeMode="contain"
-                />
-              </View>
-            ) : null}
+            {preview ? <ScannerPreviewImage uri={preview.localUri} frame={previewFrame} view={view} /> : null}
             {preview || (granted && !cameraOff) ? (
               <MathScannerCropOverlay
                 regionGesture={crop.regionGesture}
@@ -438,6 +423,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
                 onShrink={crop.shrinkRegion}
               />
             ) : null}
+            <ScannerFocusRing point={focus.focusPoint} />
           </View>
         )}
         <MathScannerChrome

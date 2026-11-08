@@ -6,6 +6,8 @@ import { pickFromPhotoLibrary, pickImageDocument } from "@/features/attachments/
 import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/features/scanner/components/MathEquationScanner";
+import * as contentFit from "@/features/scanner/model/contentFit";
+import { readTextLines } from "@/features/scanner/model/readTextLines";
 import { cropScanImage, measureScanImage } from "@/features/scanner/model/scanImage";
 import { selection } from "@/lib/haptics";
 import { playScannerSwitchCue } from "@/features/scanner/model/switchCue";
@@ -46,7 +48,7 @@ jest.mock("@/features/scanner/components/LiveMathScannerCamera", () => {
       },
       ref: React.Ref<unknown>,
     ) => {
-      ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync }));
+      ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync, focusAt: jest.fn() }));
       ReactNative.useEffect(() => {
         let cancelled = false;
         queueMicrotask(() => {
@@ -75,6 +77,8 @@ jest.mock("expo-image-manipulator", () => ({
   SaveFormat: { JPEG: "jpeg" },
 }));
 jest.mock("expo-file-system/legacy", () => ({ deleteAsync: jest.fn(async () => undefined) }));
+// The phone reads no text from a still unless a test says it does.
+jest.mock("@/features/scanner/model/readTextLines", () => ({ readTextLines: jest.fn(async () => []) }));
 jest.mock("@/features/scanner/model/scanImage", () => ({
   ...jest.requireActual("@/features/scanner/model/scanImage"),
   cropScanImage: jest.fn(),
@@ -484,6 +488,56 @@ describe("MathEquationScanner", () => {
     );
   });
 
+  it("keeps room around a capture, and Solve sends just what was aimed at", async () => {
+    const shot = jest.spyOn(contentFit, "shotCrop");
+    const view = await render(<MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    const [frame] = shot.mock.calls[0]!;
+    const { crop, aim } = shot.mock.results[0]!.value as ReturnType<typeof contentFit.shotCrop>;
+    // The cut has room above and below the live frame, to widen the frame over a cut line.
+    expect(crop.height).toBeGreaterThan(frame.height);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const [, cropFor] = jest.mocked(cropScanImage).mock.calls.at(-1)!;
+    const { width, height } = MOCK_SIZES["file:///cropped.jpg"]!;
+    const sent = cropFor({ width, height });
+    expect(sent.originX / width).toBeCloseTo(aim.x, 2);
+    expect(sent.originY / height).toBeCloseTo(aim.y, 2);
+    expect(sent.width / width).toBeCloseTo(aim.width, 2);
+    expect(sent.height / height).toBeCloseTo(aim.height, 2);
+    shot.mockRestore();
+  });
+
+  it("brings up the whole photo, framed where it was aimed, when a capture cannot be cut", async () => {
+    const shot = jest.spyOn(contentFit, "shotCrop");
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.mocked(cropScanImage).mockImplementationOnce(async (uri, cropFor) => {
+      cropFor(MOCK_SIZES[uri]!);
+      throw new Error("unexpected camera geometry");
+    });
+    const view = await render(<MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    expect(view.getByTestId("math-scanner-preview").props.source).toEqual({ uri: "file:///shot.jpg" });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const [frame] = shot.mock.calls[0]!;
+    const [, cropFor] = jest.mocked(cropScanImage).mock.calls.at(-1)!;
+    const sent = cropFor(MOCK_SIZES["file:///shot.jpg"]!);
+    // What was aimed at, not the whole photo.
+    for (const key of ["originX", "originY", "width", "height"] as const) {
+      expect(Math.abs(sent[key] - frame[key])).toBeLessThanOrEqual(2);
+    }
+    expect(warn).toHaveBeenCalledWith("[scanner] could not cut the shot; showing the whole photo", "unexpected camera geometry");
+    shot.mockRestore();
+    warn.mockRestore();
+  });
+
   it("retakes from the crop screen back to the live camera without sending", async () => {
     const onCaptured = jest.fn();
     const view = await render(
@@ -566,6 +620,26 @@ describe("imported math scanner photos", () => {
       );
     },
   );
+
+  it("moves the frame onto a photo's text once the phone has read it", async () => {
+    jest.mocked(readTextLines).mockResolvedValueOnce([{ x: 0.3, y: 0.4, width: 0.4, height: 0.1 }]);
+    const view = await render(<MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />);
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    expect(readTextLines).toHaveBeenCalledWith("file:///landscape.png", expect.objectContaining({ width: 1200, height: 700 }));
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const [, cropFor] = jest.mocked(cropScanImage).mock.calls[0]!;
+    const sent = cropFor({ width: 1200, height: 700 });
+    // The text, with a margin, instead of the whole photo.
+    expect(sent.width).toBeLessThan(1200 * 0.6);
+    expect(sent.originX).toBeLessThanOrEqual(0.3 * 1200);
+    expect(sent.originX + sent.width).toBeGreaterThanOrEqual(0.7 * 1200);
+    expect(sent.originY).toBeLessThanOrEqual(0.4 * 700);
+    expect(sent.originY + sent.height).toBeGreaterThanOrEqual(0.5 * 700);
+  });
 
   it("keeps manual crop for imported photos", async () => {
     const view = await render(

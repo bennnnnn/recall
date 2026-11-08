@@ -42,6 +42,9 @@ export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
         async takePictureAsync() {
           return (await nativeRef.current?.takePictureAsync()) ?? null;
         },
+        focusAt(point) {
+          nativeRef.current?.focusAt(point);
+        },
       }),
       [],
     );
