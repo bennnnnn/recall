@@ -9,7 +9,8 @@ package expo.modules.recallopeneddocument
  * `super.onCreate(null)`, so no saved state marks either one. The launch that brought a document
  * is named by the device's boot, the task and the document, and recorded once Recall has handled
  * the document (taken it into a composer, or dropped it on purpose): the same launch again is
- * then refused. Until then it is handed over again, so a process that dies first loses nothing.
+ * then refused. Until then a recreated activity hands it over again: a process that died before
+ * that loses the file only until the user returns from the launcher or the activity is recreated.
  * A share while the task exists reaches the activity as a new intent, which is never refused, so
  * the same file shared again is still taken.
  */

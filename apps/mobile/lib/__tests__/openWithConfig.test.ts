@@ -153,6 +153,35 @@ describe("Android", () => {
     );
   });
 
+  it.each([
+    ["a qualified Intent", "override fun onNewIntent(intent: android.content.Intent) {\n"],
+    ["a comment after the brace", "override fun onNewIntent(intent: Intent) { // deep links\n"],
+    ["a declared return type", "override fun onNewIntent(intent: Intent): Unit {\n"],
+  ])("joins an existing onNewIntent with %s", (_case, opening) => {
+    const own = TEMPLATE_MAIN_ACTIVITY.replace(
+      "class MainActivity : ReactActivity() {\n",
+      `class MainActivity : ReactActivity() {\n  ${opening}    super.onNewIntent(intent)\n  }\n`,
+    );
+    const patched = addOpenedDocumentHook(own);
+    expect(patched.match(/fun onNewIntent/g)).toHaveLength(1);
+    expect(patched).toContain(
+      `${opening}    expo.modules.recallopeneddocument.OpenedDocumentIntents.onNewIntent(this, intent)\n`,
+    );
+  });
+
+  it("fails the prebuild on an onNewIntent it cannot join, rather than adding a second", () => {
+    const own = TEMPLATE_MAIN_ACTIVITY.replace(
+      "class MainActivity : ReactActivity() {\n",
+      "class MainActivity : ReactActivity() {\n  override fun onNewIntent(intent: Intent) = super.onNewIntent(intent)\n",
+    );
+    expect(() => addOpenedDocumentHook(own)).toThrow(/cannot join/);
+  });
+
+  it("imports Intent in a MainActivity with no package line", () => {
+    const patched = addOpenedDocumentHook(TEMPLATE_MAIN_ACTIVITY.replace("package com.recall.app\n\n", ""));
+    expect(patched.startsWith("import android.content.Intent\n")).toBe(true);
+  });
+
   it("autolinks the Android module that reads Share's EXTRA_STREAM and the file's name", () => {
     expect(JSON.parse(readSource(`${ROOT}/modules/opened-document/expo-module.config.json`))).toEqual({
       platforms: ["android"],

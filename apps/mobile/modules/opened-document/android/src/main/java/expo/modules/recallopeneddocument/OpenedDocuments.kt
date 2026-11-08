@@ -21,10 +21,7 @@ internal object OpenedDocuments {
   private const val PREFERENCES = "recall_opened_document"
   private const val HANDLED_LAUNCH = "handled_launch"
 
-  /** A waiting document; `launch` names the launch that brought it, null for a new intent. */
-  private class Waiting(val uri: Uri, val launch: String?)
-
-  private var pending: Waiting? = null
+  private var pending: WaitingDocument? = null
 
   /** Set while the module is alive: tells JS a document is waiting. */
   @Volatile
@@ -35,21 +32,21 @@ internal object OpenedDocuments {
     val uri = documentUri(intent) ?: return
     val launch = LaunchMarkers.of(bootCount(context), taskId, uri.toString())
     val handled = runCatching { LaunchMarkers(preferencesStore(context)).isHandled(launch) }.getOrDefault(false)
-    if (!handled) hold(context, Waiting(uri, launch))
+    if (!handled) hold(context, uri, launch)
   }
 
   /** An intent the running activity was handed: always a new one. */
   fun receive(context: Context, intent: Intent?) {
     val uri = intent?.let(::documentUri) ?: return
-    hold(context, Waiting(uri, null))
+    hold(context, uri, null)
   }
 
   /** The waiting document as `{ uri, name, size, type, launch }`, once; null when there is none. */
   fun take(context: Context?): Map<String, Any?>? {
     val waiting = synchronized(this) { pending.also { pending = null } } ?: return null
-    val details = context?.let { describe(it, waiting.uri) }
+    val details = context?.let { describe(it, Uri.parse(waiting.uri)) }
     return mapOf(
-      "uri" to waiting.uri.toString(),
+      "uri" to waiting.uri,
       "name" to details?.name,
       "size" to details?.size,
       "type" to details?.type,
@@ -63,9 +60,17 @@ internal object OpenedDocuments {
     runCatching { LaunchMarkers(preferencesStore(context)).markHandled(launch) }
   }
 
-  private fun hold(context: Context, waiting: Waiting) {
-    if (!isForeignContent(context, waiting.uri)) return
-    synchronized(this) { pending = waiting }
+  private fun hold(context: Context, uri: Uri, launch: String?) {
+    if (!isForeignContent(context, uri)) return
+    val next = WaitingDocument(uri.toString(), launch)
+    // A dead process's launch file, replaced by a share before JS took it, would come back with
+    // the next recreated activity: its launch is done with (WaitingDocument).
+    val handledLaunch = synchronized(this) {
+      val replacement = pending?.replacedBy(next)
+      pending = replacement?.waiting ?: next
+      replacement?.handledLaunch
+    }
+    handledLaunch?.let { markLaunchHandled(context, it) }
     runCatching { onArrival?.invoke() }
   }
 
