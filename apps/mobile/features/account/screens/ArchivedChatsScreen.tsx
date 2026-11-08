@@ -1,13 +1,15 @@
 import { useRef } from "react";
+import { StyleSheet } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 import { StateView } from "@/ui/feedback/StateView";
+import { ListSeparator } from "@/ui/list/ListGroup";
+import { ListRow } from "@/ui/list/ListRow";
 import { SettingsSkeleton } from "@/features/account/components/SettingsSkeleton";
 import {
-  SettingsGroup,
-  SettingsLinkRow,
   useSettingsAction,
   useSettingsContentStyle,
 } from "@/features/account/components/settingsUi";
@@ -20,7 +22,10 @@ import {
   getChatListFetchedAt,
   invalidateChatListCache,
 } from "@/features/chat/model/chatListCache";
+import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 /** The drawer's chat list holds the archived rows too: a fresh one is read from memory,
@@ -121,27 +126,79 @@ export default function ArchivedChatsScreen() {
       data={chats}
       keyExtractor={(chat) => chat.id}
       style={{ flex: 1, backgroundColor: theme.bg }}
-      contentContainerStyle={contentStyle}
+      contentContainerStyle={[contentStyle, s.list]}
       onEndReached={() => void loadMore()}
       onEndReachedThreshold={0.5}
-      renderItem={({ item: chat }) => (
-        <SettingsGroup>
-          <SettingsLinkRow
-            title={chat.title?.trim() || t("common.untitled")}
-            value={t("chat.unarchive")}
-            busy={action.busy === `unarchive:${chat.id}`}
-            disabled={action.busy !== null}
-            onPress={() => unarchive(chat)}
-          />
-          <SettingsLinkRow
-            title={t("chat.delete")}
-            danger
-            busy={action.busy === `delete:${chat.id}`}
-            disabled={action.busy !== null}
-            onPress={() => remove(chat)}
-          />
-        </SettingsGroup>
+      ItemSeparatorComponent={ListSeparator}
+      renderItem={({ item: chat, index }) => (
+        <ArchivedChatRow
+          chat={chat}
+          edge={{ first: index === 0, last: index === chats.length - 1 }}
+          busy={action.busy}
+          onUnarchive={unarchive}
+          onDelete={remove}
+        />
       )}
     />
   );
 }
+
+/**
+ * One archived chat: its title and last date, and its two actions as buttons on the row,
+ * so nothing reads as a subtitle and Delete is plainly this chat's. The rows draw as one
+ * rounded group, like the rest of Settings.
+ */
+function ArchivedChatRow({
+  chat,
+  edge,
+  busy,
+  onUnarchive,
+  onDelete,
+}: {
+  chat: Chat;
+  edge: { first: boolean; last: boolean };
+  busy: string | null;
+  onUnarchive: (chat: Chat) => void;
+  onDelete: (chat: Chat) => void;
+}) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const title = chat.title?.trim() || t("common.untitled");
+  const updated = new Date(chat.updated_at);
+  return (
+    <ListRow
+      title={title}
+      subtitle={Number.isNaN(updated.getTime()) ? undefined : formatDate(updated, "monthDayYear")}
+      numberOfLines={1}
+      style={[edge.first && s.firstRow, edge.last && s.lastRow]}
+      trailing={
+        <>
+          <HeaderButton
+            icon="unarchive"
+            variant="plain"
+            accessibilityLabel={`${t("chat.unarchive")}, ${title}`}
+            busy={busy === `unarchive:${chat.id}`}
+            disabled={busy !== null}
+            onPress={() => onUnarchive(chat)}
+          />
+          <HeaderButton
+            icon="trash"
+            variant="plain"
+            color={theme.danger}
+            accessibilityLabel={`${t("chat.delete")}, ${title}`}
+            busy={busy === `delete:${chat.id}`}
+            disabled={busy !== null}
+            onPress={() => onDelete(chat)}
+          />
+        </>
+      }
+    />
+  );
+}
+
+const s = StyleSheet.create({
+  // The gap a Settings group keeps under the header.
+  list: { paddingTop: Space.lg },
+  firstRow: { borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
+  lastRow: { borderBottomLeftRadius: Radius.xl, borderBottomRightRadius: Radius.xl },
+});

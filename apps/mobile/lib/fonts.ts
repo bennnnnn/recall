@@ -6,9 +6,12 @@ import { Weight } from "@/lib/type";
 export const CODE_FONT = "SpaceMono";
 
 /**
- * The code face for any text style. Ligatures off: Space Mono joins "fi"
- * and "fl" into one glyph, so `fib` read as "ﬁb" and `floor` as "ﬂoor".
- * Every code style spreads this instead of naming CODE_FONT alone.
+ * The code face for any text style: code shows the characters it holds. Space Mono joins
+ * "fi" and "fl" into one glyph (`fib` read "ﬁb") and draws `->` as an arrow; React Native's
+ * new architecture ignores `fontVariant` ligature settings on iOS, so the font file itself
+ * ships without those substitutions (scripts/strip-code-font-ligatures.py). The variant
+ * stays for any renderer that honours it. Every code style spreads this instead of naming
+ * CODE_FONT alone.
  */
 export const CODE_FACE: TextStyle = {
   fontFamily: CODE_FONT,

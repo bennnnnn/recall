@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, type HostInstance } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Animated, ScrollView, StyleSheet, View, type HostInstance } from "react-native";
 import { type Href, Redirect, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { SettingsPinnedBar } from "@/features/account/components/SettingsPinnedBar";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
@@ -37,28 +38,50 @@ export function useSettingsContentStyle(options?: { underStatusBar?: boolean }) 
 
 /**
  * A Settings page: sends a signed-out visitor to login, then scrolls its
- * groups with the shared padding. `underStatusBar` is for the page without
- * a header (Settings home).
+ * groups with the shared padding. The page without a stack header (Settings
+ * home) passes `ownBarTitle`: it starts under the status bar and keeps its own
+ * Back on screen (SettingsPinnedBar).
  */
 export function SettingsPage({
   children,
-  underStatusBar,
+  ownBarTitle,
 }: {
   children: ReactNode;
-  underStatusBar?: boolean;
+  ownBarTitle?: string;
 }) {
   const { token } = useAuth();
   const theme = useTheme();
-  const contentStyle = useSettingsContentStyle({ underStatusBar });
+  const contentStyle = useSettingsContentStyle({ underStatusBar: ownBarTitle != null });
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
+    [scrollY],
+  );
   if (!token) return <Redirect href="/login" />;
+  if (ownBarTitle == null) {
+    return (
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        style={{ flex: 1, backgroundColor: theme.bg }}
+        contentContainerStyle={contentStyle}
+      >
+        {children}
+      </ScrollView>
+    );
+  }
   return (
-    <ScrollView
-      keyboardShouldPersistTaps="handled"
-      style={{ flex: 1, backgroundColor: theme.bg }}
-      contentContainerStyle={contentStyle}
-    >
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <Animated.ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={contentStyle}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
+        {children}
+      </Animated.ScrollView>
+      <SettingsPinnedBar title={ownBarTitle} scrollY={scrollY} />
+    </View>
   );
 }
 
