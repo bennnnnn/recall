@@ -79,6 +79,11 @@ function restoreUnconfirmed(generation: number) {
   setOpenedDocumentSignIn(false);
 }
 
+/** Lets a claim reach its copy: the copy module loads with import(). */
+function untilCopying(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 function signOut() {
   mockSession = { generation: mockSession.generation + 1, signedIn: false };
   clearOpenedDocument();
@@ -278,6 +283,50 @@ it("passes on why a file cannot be attached, and still deletes its Inbox copy", 
   expect(mockDeleted).toEqual([OPENED]);
 });
 
+describe("telling Android a launch's file was handled", () => {
+  it("waits until the file is copied for New chat, so a process that dies first loses nothing", async () => {
+    const handled = jest.fn();
+    let finish: (pending: PendingAttachment) => void = () => undefined;
+    copy.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    restoreUnconfirmed(1);
+    receiveOpenedDocument(SHARED, {}, handled);
+    expect(await claimOpenedDocument()).toBeNull();
+    expect(handled).not.toHaveBeenCalled();
+
+    signIn(1);
+    const claim = claimOpenedDocument();
+    await untilCopying();
+    expect(copy).toHaveBeenCalled();
+    expect(handled).not.toHaveBeenCalled();
+    finish(PDF);
+    expect(await claim).toBe(PDF);
+    expect(handled).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells it too when the file is dropped: replaced, refused, or gone with its account", async () => {
+    const replaced = jest.fn();
+    const refused = jest.fn();
+    const signedOut = jest.fn();
+    receiveOpenedDocument(SHARED, {}, replaced);
+    receiveOpenedDocument("content://downloads/document/7", {}, refused);
+    expect(replaced).toHaveBeenCalledTimes(1);
+    signIn(3);
+    await claimOpenedDocument();
+    expect(refused).toHaveBeenCalledTimes(1);
+
+    receiveOpenedDocument(SHARED, {}, signedOut);
+    signOut();
+    expect(signedOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not told when a recreated activity hands over the file it already holds", () => {
+    const first = jest.fn();
+    receiveOpenedDocument(SHARED, {}, first);
+    receiveOpenedDocument(SHARED, {}, jest.fn());
+    expect(first).not.toHaveBeenCalled();
+  });
+});
+
 describe("sweepOpenedInboxCopies", () => {
   const TMP_INBOX = `${CONTAINER}tmp/com.recall.app-Inbox/`;
 
@@ -297,5 +346,19 @@ describe("sweepOpenedInboxCopies", () => {
     receiveOpenedDocument(OPENED);
     sweepOpenedInboxCopies();
     expect(mockDeleted).toEqual([`${TMP_INBOX}Left behind.pdf`]);
+  });
+
+  it("keeps the file being copied, which nothing holds any more", async () => {
+    let finish: (pending: PendingAttachment) => void = () => undefined;
+    copy.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    receiveOpenedDocument(OPENED);
+    const claim = claimOpenedDocument();
+    await untilCopying();
+    expect(copy).toHaveBeenCalled();
+    // The chat remounted mid-copy and swept again.
+    sweepOpenedInboxCopies();
+    expect(mockDeleted).toEqual([`${TMP_INBOX}Left behind.pdf`]);
+    finish(PDF);
+    await claim;
   });
 });

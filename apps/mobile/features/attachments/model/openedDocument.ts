@@ -21,6 +21,8 @@ type OpenedDocument = {
   info: OpenedFileInfo;
   /** The confirmed sign-in session it came in; null when there was none. */
   owner: number | null;
+  /** Told once Recall is done with the file: taken into a composer, replaced, or dropped. */
+  handled?: () => void;
 };
 
 let held: OpenedDocument | null = null;
@@ -28,6 +30,8 @@ let held: OpenedDocument | null = null;
 let confirmedSession: number | null = null;
 /** Counts the files taken: a copy that a newer file overtook gives way to it. */
 let claims = 0;
+/** The files being copied now, by URI: the launch sweep leaves them alone. */
+const copying = new Set<string>();
 const listeners = createListenerSet();
 
 /** `a/./b/../c` as `a/c`: a path is compared as the file system resolves it. */
@@ -122,12 +126,23 @@ export function setOpenedDocumentSignIn(confirmed: boolean): void {
   confirmedSession = confirmed ? getSessionGeneration() : null;
 }
 
-/** Hold a file another app opened in Recall; it replaces one New chat has not taken yet. */
-export function receiveOpenedDocument(uri: string, info: OpenedFileInfo = {}): void {
+/** The file leaves the store: its Inbox copy goes, and whoever handed it over is told. */
+function letGo(document: OpenedDocument): void {
+  deleteInboxCopy(document.uri);
+  document.handled?.();
+}
+
+/**
+ * Hold a file another app opened in Recall; it replaces one New chat has not taken yet.
+ * `handled` is told once Recall is done with it (Android's module then refuses the launch
+ * that brought it, should a recreated activity carry it again).
+ */
+export function receiveOpenedDocument(uri: string, info: OpenedFileInfo = {}, handled?: () => void): void {
   if (isOwnFile(uri) || inboxCopyGone(uri)) return;
   const previous = held;
-  held = { uri, info, owner: confirmedNow() };
-  if (previous && previous.uri !== uri) deleteInboxCopy(previous.uri);
+  held = { uri, info, owner: confirmedNow(), handled };
+  // The same file handed over again (a recreated activity) is the one held: nothing is done with it yet.
+  if (previous && previous.uri !== uri) letGo(previous);
   listeners.emit();
 }
 
@@ -149,9 +164,10 @@ export async function claimOpenedDocument(): Promise<PendingAttachment | null> {
   held = null;
   const claim = ++claims;
   if (document.owner !== null && document.owner !== session) {
-    deleteInboxCopy(document.uri);
+    letGo(document);
     return null;
   }
+  copying.add(document.uri);
   try {
     const { copyOpenedDocument } = await import("@/features/attachments/model/openedDocumentCopy");
     const pending = await copyOpenedDocument(document.uri, document.info);
@@ -162,7 +178,8 @@ export async function claimOpenedDocument(): Promise<PendingAttachment | null> {
     if (session !== getSessionGeneration() || claim !== claims) return null;
     throw error;
   } finally {
-    deleteInboxCopy(document.uri);
+    copying.delete(document.uri);
+    letGo(document);
   }
 }
 
@@ -173,8 +190,9 @@ export async function claimOpenedDocument(): Promise<PendingAttachment | null> {
 export function clearOpenedDocument(): void {
   confirmedSession = null;
   if (!held || held.owner === null) return;
-  deleteInboxCopy(held.uri);
+  const dropped = held;
   held = null;
+  letGo(dropped);
   listeners.emit();
 }
 
@@ -189,17 +207,18 @@ function inboxFolders(container: string): Directory[] {
 
 /**
  * At launch: delete Inbox copies a run that ended before New chat took them left behind (iOS
- * keeps them, and backs them up). Only files directly inside an Inbox, never the one held now.
+ * keeps them, and backs them up). Only files directly inside an Inbox, never one held or
+ * being copied now.
  */
 export function sweepOpenedInboxCopies(): void {
   const container = containerPath();
   if (!container) return;
-  const keep = held ? filePath(held.uri) : null;
+  const keep = new Set([...(held ? [held.uri] : []), ...copying].map(filePath));
   try {
     for (const folder of inboxFolders(container)) {
       if (!folder.exists) continue;
       for (const entry of folder.list()) {
-        if (entry instanceof File && isOpenedInboxFile(entry.uri) && filePath(entry.uri) !== keep) entry.delete();
+        if (entry instanceof File && isOpenedInboxFile(entry.uri) && !keep.has(filePath(entry.uri))) entry.delete();
       }
     }
   } catch (error) {

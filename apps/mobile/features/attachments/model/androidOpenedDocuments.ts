@@ -5,9 +5,10 @@ import type { OpenedFileInfo } from "@/features/attachments/model/openedDocument
 
 /**
  * What `modules/opened-document` reads from the intent: the file's URI, and from its provider,
- * off the JS thread, the name its app gave it, its size and its type.
+ * off the JS thread, the name its app gave it, its size and its type. `launch` names the launch
+ * that brought it, when it came with the intent MainActivity was created with.
  */
-type NativeDocument = { uri?: unknown; name?: unknown; size?: unknown; type?: unknown };
+type NativeDocument = { uri?: unknown; name?: unknown; size?: unknown; type?: unknown; launch?: unknown };
 
 function infoOf(document: NativeDocument): OpenedFileInfo {
   const { name, size, type } = document;
@@ -20,14 +21,33 @@ function infoOf(document: NativeDocument): OpenedFileInfo {
 
 type OpenedDocumentModule = {
   takeDocumentAsync: () => Promise<NativeDocument | null>;
+  markLaunchHandledAsync: (launch: string) => Promise<void>;
   addListener: (event: "onDocument", listener: () => void) => { remove: () => void };
 };
 
 function loadModule(): OpenedDocumentModule | null {
   const native = requireOptionalNativeModule<Partial<OpenedDocumentModule>>("RecallOpenedDocument");
-  return typeof native?.takeDocumentAsync === "function" && typeof native.addListener === "function"
+  return typeof native?.takeDocumentAsync === "function" &&
+    typeof native.markLaunchHandledAsync === "function" &&
+    typeof native.addListener === "function"
     ? (native as OpenedDocumentModule)
     : null;
+}
+
+function warn(stage: string, error: unknown): void {
+  console.warn("[openedFile]", { stage, error: error instanceof Error ? error.name : typeof error });
+}
+
+/**
+ * Once Recall is done with a launch's file, the module refuses that launch: a recreated
+ * activity (a font size change, a return after the process died) carries it again. Until then
+ * it is handed over again, so a process that dies before the file is taken loses nothing.
+ */
+function handledBy(native: OpenedDocumentModule, launch: unknown): (() => void) | undefined {
+  if (typeof launch !== "string" || !launch) return undefined;
+  return () => {
+    native.markLaunchHandledAsync(launch).catch((error: unknown) => warn("mark_handled", error));
+  };
 }
 
 /**
@@ -44,10 +64,10 @@ export function watchAndroidOpenedDocuments(): () => void {
   const take = () => {
     native.takeDocumentAsync().then((document) => {
       if (typeof document?.uri !== "string" || !document.uri) return;
-      receiveOpenedDocument(document.uri, infoOf(document));
+      receiveOpenedDocument(document.uri, infoOf(document), handledBy(native, document.launch));
     }, (error: unknown) => {
       // An intent the module could not read leaves the chat as it was.
-      console.warn("[openedFile]", { stage: "take", error: error instanceof Error ? error.name : typeof error });
+      warn("take", error);
     });
   };
   const subscription = native.addListener("onDocument", take);

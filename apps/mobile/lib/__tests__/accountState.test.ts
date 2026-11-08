@@ -104,6 +104,7 @@ const SCOPED_TO_SESSION = [
 const IN_FLIGHT = [
   "features/account/model/profilePhoto.ts#generatedPhotos",
   "features/attachments/model/localAttachmentFile.ts#ownedCopies",
+  "features/attachments/model/openedDocument.ts#copying",
   "features/chat/drawer/drawer.ts#_pendingTitleChatIds",
   "features/chat/model/draftLogic.ts#emptyChatChecks",
   "features/chat/model/latency.ts#pending",
