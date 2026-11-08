@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { act, render } from "@testing-library/react-native";
 import TodosScreen from "@/features/todos/screens/TodosScreen";
 
@@ -14,10 +15,11 @@ let mockSheet: {
   onSave: (content: string, due: Date | null, recurrence: null, topic: string) => void;
 };
 let mockList: {
-  onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[];
+  onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[]; view: string;
   onOpen: (row: { id: string; content: string }) => void; onSelect: (row: { id: string }) => void;
 };
 let mockHeader: { onRetry: () => void };
+let mockViewMenu: { onView: (view: string) => void };
 const mockOpenTodo = jest.fn();
 const mockCreate = jest.fn();
 const mockInfo = jest.fn();
@@ -76,6 +78,7 @@ jest.mock("@/features/todos/components/TodoEditorSheet", () => ({
 }));
 jest.mock("@/features/todos/components/TodosScrollList", () => ({ TodosScrollList: (props: typeof mockList & { listHeader: React.ReactNode }) => { mockList = props; return props.listHeader; } }));
 jest.mock("@/features/todos/components/TodosListHeader", () => ({ TodosListHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
+jest.mock("@/features/todos/components/TodosViewMenu", () => ({ TodosViewMenu: (props: typeof mockViewMenu) => { mockViewMenu = props; return null; } }));
 jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (params: typeof mockActionParams) => {
   mockActionParams = params;
   return {
@@ -233,4 +236,19 @@ it.each([
   expect(mockSheet.visible).toBe(false);
   if (moved) expect(mockInfo).toHaveBeenCalledWith("todos.added_shown_open");
   else expect(mockInfo).not.toHaveBeenCalled();
+});
+
+it("names the list's view under the header title, and follows a change from the menu", async () => {
+  const headerTitle = async () => {
+    const options = mockNavigation.setOptions.mock.calls.at(-1)![0] as { headerTitle: () => ReactElement };
+    return render(options.headerTitle());
+  };
+  await render(<TodosScreen />);
+  expect((await headerTitle()).getByText("todos.menu_today")).toBeTruthy();
+
+  await act(() => { mockViewMenu.onView("completed"); });
+  const title = await headerTitle();
+  expect(title.getByText("todos.menu_completed")).toBeTruthy();
+  expect(title.queryByText("todos.menu_today")).toBeNull();
+  expect(mockList.view).toBe("completed");
 });

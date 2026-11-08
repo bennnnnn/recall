@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { todoViewCopy } from "@/features/todos/components/todoViews";
+import type { TodoView } from "@/features/todos/model/todoListFilter";
 import { StateView } from "@/ui/feedback/StateView";
 
 type Props = {
@@ -34,4 +36,14 @@ export function TodosListHeader({
       ) : null}
     </>
   );
+}
+
+/**
+ * A view with nothing in it while other to-dos exist. It read "Nothing in this view" with no
+ * icon, and the view was named only inside the ⋯ menu; its title now names the view.
+ */
+export function TodosViewEmpty({ view }: { view: TodoView }) {
+  const { t } = useTranslation();
+  const { emptyIcon, emptyTitle } = todoViewCopy(view);
+  return <StateView variant="empty" icon={emptyIcon} title={t(emptyTitle)} />;
 }

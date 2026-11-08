@@ -9,6 +9,7 @@ import { HeaderButton } from "@/ui/controls/HeaderButton";
 import { plainHeaderItems, StackBackButton } from "@/ui/controls/StackBackButton";
 import { TodosListHeader } from "@/features/todos/components/TodosListHeader";
 import { TodoDetailMenu } from "@/features/todos/components/TodoDetailMenu";
+import { TodosHeaderTitle } from "@/features/todos/components/TodosHeaderTitle";
 import { TodoEditorSheet, type TodoEditorHandle } from "@/features/todos/components/TodoEditorSheet";
 import { TodoSelectionBar } from "@/features/todos/components/TodoSelectionBar";
 import { TodosScrollList } from "@/features/todos/components/TodosScrollList";
@@ -170,7 +171,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       );
     }
     navigation.setOptions({
-      title: t("drawer.reminders"),
+      headerTitle: () => <TodosHeaderTitle view={detailOpen ? null : view} />,
       headerStyle: { backgroundColor: detailOpen ? C.surface : C.bg },
       headerShadowVisible: false,
       headerLeft: () => headerLeftElement,
@@ -178,7 +179,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       headerRight: () => headerRightElement,
       unstable_headerRightItems: () => plainHeaderItems(headerRightElement),
     });
-  }, [navigation, t, selecting, detailOpen, editingId, C.primary, C.surface, C.bg]);
+  }, [navigation, t, selecting, detailOpen, editingId, view, C.primary, C.surface, C.bg]);
 
   const onPullRefresh = useCallback(async () => {
     if (!isCurrentView() || refreshingRef.current) return;
@@ -186,8 +187,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setPullRefreshing(true);
     try {
       await refresh({ silent: true, force: true });
-    }
-    finally {
+    } finally {
       refreshingRef.current = false;
       if (isCurrentView()) setPullRefreshing(false);
     }
@@ -266,6 +266,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         rows={rows}
         now={now}
         showEmpty={showTodosEmptyHero}
+        view={view}
         error={Boolean(error)}
         listHeader={listHeader}
         refreshing={pullRefreshing}
