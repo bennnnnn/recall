@@ -1490,5 +1490,158 @@
     ],
     "reply": "That was John Steinbeck.",
     "expect": "answer"
+  },
+  {
+    "id": "rl-shape-table",
+    "area": "todo",
+    "prompt": "Can you put that in a table",
+    "reply": "| Day | Plan |\n|---|---|\n| Mon | Gym |",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
+    "id": "rl-shape-list",
+    "area": "todo",
+    "prompt": "put it in a list",
+    "reply": "- Gym\n- Study",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
+    "id": "rl-shape-bullets",
+    "area": "todo",
+    "prompt": "can you put that in bullet points",
+    "reply": "- Gym\n- Study",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
+    "id": "rl-shape-language",
+    "area": "todo",
+    "prompt": "put that in Spanish",
+    "reply": "Lunes: gimnasio",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
+    "id": "rl-shape-email",
+    "area": "todo",
+    "prompt": "put it in an email to my boss",
+    "reply": "Subject: Next week\n\nHi, here is my plan.",
+    "expect": "answer",
+    "history": [
+      [
+        "user",
+        "make me a plan for next week. i work sun mon tue wed nights. i want to study A+, go to gym 3 times, fix the car brakes and her birthday is friday"
+      ],
+      [
+        "assistant",
+        "Here's a week that fits your Sunday to Wednesday night shifts, with study and gym on the days you're off and the brakes and birthday slotted in around them.\n\n1. **Thursday, November 12 — Study and gym** — Do a **25-minute** A+ study block in the morning, then a full-body gym session in the afternoon since you're off the night before.\n2. **Friday, November 13 — Birthday day** — Keep it light: a short study block before you get ready, then the birthday plans. Leave the gym for another day.\n3. **Saturday, November 14 — Brakes and gym** — Call the Honda shop first thing about the brakes, then go to the gym after you've had a rest.\n4. **Sunday, November 8 — Study, before your shift** — Use a **25-minute** study block right after you wake up, since your energy is better early.\n5. **Monday, November 9 — Gym and call the shop** — Make the call to the Honda shop at **9:00 AM** as you set in your reminder, then do a gym session.\n6. **Tuesday, November 10 — Study and rest** — Do one more A+ block and keep the night light so you're rested for the shift.\n\n**Choose the Saturday brakes plan if** the shop is open and you can drop the car off then, and **the Monday call plan if** you need to book the repair earlier in the week."
+      ]
+    ]
+  },
+  {
+    "id": "rl-move-named-list",
+    "area": "todo",
+    "prompt": "put it in Work",
+    "reply": "Moved.",
+    "expect": "change",
+    "history": [
+      [
+        "user",
+        "remind me to call mom tomorrow at 6pm"
+      ],
+      [
+        "assistant",
+        "Set: call mom — tomorrow, 6:00 PM."
+      ]
+    ]
+  },
+  {
+    "id": "rl-move-category",
+    "area": "todo",
+    "prompt": "put it under family",
+    "reply": "Moved.",
+    "expect": "change",
+    "history": [
+      [
+        "user",
+        "remind me to call mom tomorrow at 6pm"
+      ],
+      [
+        "assistant",
+        "Set: call mom — tomorrow, 6:00 PM."
+      ]
+    ]
+  },
+  {
+    "id": "rl-edit-after-long-plan-time",
+    "area": "todo",
+    "prompt": "make it 7pm",
+    "reply": "Done, moved it to 7 PM.",
+    "expect": "change",
+    "history": [
+      [
+        "user",
+        "how should I plan my day?"
+      ],
+      [
+        "assistant",
+        "Here is a plan for your day.\n\n1. **Block 1** — focused work on the report, with a short break after.\n2. **Block 2** — focused work on the report, with a short break after.\n3. **Block 3** — focused work on the report, with a short break after.\n4. **Block 4** — focused work on the report, with a short break after.\n5. **Block 5** — focused work on the report, with a short break after.\n6. **Block 6** — focused work on the report, with a short break after.\n7. **Block 7** — focused work on the report, with a short break after.\n8. **Block 8** — focused work on the report, with a short break after.\n9. **Block 9** — focused work on the report, with a short break after.\n10. **Block 10** — focused work on the report, with a short break after.\n11. **Block 11** — focused work on the report, with a short break after.\n\nYou also have your reminder to call mom at 6 PM, so stop by 5:45."
+      ]
+    ]
+  },
+  {
+    "id": "rl-edit-after-long-plan-delete",
+    "area": "todo",
+    "prompt": "delete it",
+    "reply": "Deleted.",
+    "expect": "change",
+    "history": [
+      [
+        "user",
+        "how should I plan my day?"
+      ],
+      [
+        "assistant",
+        "Here is a plan for your day.\n\n1. **Block 1** — focused work on the report, with a short break after.\n2. **Block 2** — focused work on the report, with a short break after.\n3. **Block 3** — focused work on the report, with a short break after.\n4. **Block 4** — focused work on the report, with a short break after.\n5. **Block 5** — focused work on the report, with a short break after.\n6. **Block 6** — focused work on the report, with a short break after.\n7. **Block 7** — focused work on the report, with a short break after.\n8. **Block 8** — focused work on the report, with a short break after.\n9. **Block 9** — focused work on the report, with a short break after.\n10. **Block 10** — focused work on the report, with a short break after.\n11. **Block 11** — focused work on the report, with a short break after.\n\nYou also have your reminder to call mom at 6 PM, so stop by 5:45."
+      ]
+    ]
   }
 ]

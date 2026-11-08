@@ -136,6 +136,8 @@ _SAVED_TALK_RE = re.compile(
     re.IGNORECASE,
 )
 _INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
+# A reply about reminders says so in its first lines.
+_LEAD_CHARS = 240
 _DATED_CLAIM_RE = re.compile(
     rf"(?:^|\n|!\s*)\s*{CLAIM_VERBS}\s*:\s+[^\n]+?\s[\u2014\u2013]\s+[^\n]*"
     r"(?:\d|today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday"
@@ -291,6 +293,21 @@ def about_saved_reminders(text: str | None) -> bool:
         or _DATED_CLAIM_RE.search(words)
         or claims_a_reminder_change(text)
     )
+
+
+def opens_on_saved_reminders(text: str | None) -> bool:
+    """A reply about reminders from its first lines: a card, a result line, or reminder talk
+    near the top, or a reply short enough to be one. A plan or an answer that mentions "your
+    reminder" in passing, 900 characters in, is about something else (live, 2026-11-07)."""
+    if not about_saved_reminders(text) or text is None:
+        return False
+    if any(fence.lang == "reminder_proposal" for fence in iter_fences(text)):
+        return True
+    words = _FACT_REMINDER_RE.sub(" ", _without_code(text))
+    if _DATED_CLAIM_RE.search(words) or len(words) <= 2 * _LEAD_CHARS:
+        return True
+    talk = _SAVED_TALK_RE.search(words)
+    return talk is not None and talk.start() < _LEAD_CHARS
 
 
 def _without_code(text: str) -> str:

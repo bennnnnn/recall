@@ -128,3 +128,62 @@ def test_is_claim_leaves_ordinary_sentences(sentence: str) -> None:
 )
 def test_without_claims_keeps_everything_but_the_claim(reply: str, kept: str) -> None:
     assert without_claims(reply, ["call the dentist", "buy milk"]) == kept
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # Live, 2026-11-07: above an untapped card, the reply said the reminder was set.
+        (
+            "Your reminder for Wednesday is set for **Wednesday, November 11, 2026 at 5:00 PM** to buy her gift.",
+            "",
+        ),
+        ("Your reminder to buy her gift on Wednesday has been saved.", ""),
+        ("The reminder about the brakes is now scheduled for Monday at 9 AM.", ""),
+        ("Water boils at 100 C. Your reminder for tea is set for 4 PM.", "Water boils at 100 C."),
+        # Not claims: another thing is set, a reminder is advice, a general fact, or the
+        # card's own promise (review, 2026-11-07).
+        ("The meeting is set for Friday.", "The meeting is set for Friday."),
+        (
+            "Reminders on iPhone are saved in iCloud and sync across your devices.",
+            "Reminders on iPhone are saved in iCloud and sync across your devices.",
+        ),
+        (
+            "Once you tap the card, your reminder for tomorrow is saved.",
+            "Once you tap the card, your reminder for tomorrow is saved.",
+        ),
+        # Review of #2338: without "for …" the whole-sentence check cut it.
+        (
+            "Once you tap the card, your reminder is saved.",
+            "Once you tap the card, your reminder is saved.",
+        ),
+        ("When you confirm, the reminder is set.", "When you confirm, the reminder is set."),
+        # No condition on the user, or the assistant says it did it: the claim clause goes.
+        ("After that, your reminder is set.", "After that."),
+        ("When you asked, I've set your reminder.", "When you asked."),
+        # Review of #2338: the assistant as subject in any tense is still its own claim.
+        ("When you're ready, I'll set that for you.", "When you're ready."),
+        ("If you like, I'll remind you at 5.", "If you like."),
+        ("Once you confirm, I'm setting your reminder for 6 PM.", "Once you confirm."),
+        # Re-review, 2026-11-07: past, by someone else, plural, and a condition with a claim.
+        ("Your reminders for Wednesday are set.", ""),
+        (
+            "The reminder for the meeting was set by your manager, so I can't change it.",
+            "The reminder for the meeting was set by your manager, so I can't change it.",
+        ),
+        (
+            "Your reminder for the dentist was set last week and is still active.",
+            "Your reminder for the dentist was set last week and is still active.",
+        ),
+        (
+            "If you need anything else, just ask, and I've set your reminder for 5 PM.",
+            "If you need anything else, just ask.",
+        ),
+        (
+            "A reminder for the dentist is a good idea, set it for the morning.",
+            "A reminder for the dentist is a good idea, set it for the morning.",
+        ),
+    ],
+)
+def test_a_reminder_said_to_be_set_for_something_is_a_claim(reply: str, kept: str) -> None:
+    assert without_claims(reply, ["Buy her gift"]) == kept

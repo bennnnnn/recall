@@ -81,6 +81,13 @@ _CLAIM_RE = re.compile(
             r"(?:reminders?|notifications?|nudges?|pings?|alerts?))\b",
             r"\breminders?(?:'s|\s+(?:is|are|was|were|has been|have been))?\s+(?:now\s+|all\s+)?"
             r"(?:set|saved|added|scheduled|created|booked)\b",
+            # "Your reminder for Wednesday is set for 5 PM" (live, 2026-11-07): a sentence that
+            # opens on the user's reminder, carrying what it is for, said done now. "Reminders
+            # on iPhone are saved in iCloud", "it was set last week" and "set by your manager"
+            # are not.
+            r"^(?:your|the)\s+reminders?\s+(?:for|to|about|on|at)\b[^.!?]{0,60}?"
+            r"\s+(?:is|are|has been|have been)\s+(?:now\s+|all\s+)?(?:set|saved|added|scheduled"
+            r"|created|booked)\b(?!\s+by\b)",
             rf"\b(?:added|saved|put)\s+(?:(?:it|that|this|them)\s+)?(?:to|on|in|into)\s+{_YOUR_LIST}\b",
             rf"\b(?:it|that|this|they)(?:'s|'re| is| are| has been| have been)\s+(?:now\s+)?"
             rf"(?:on|in)\s+{_YOUR_LIST}\b",
@@ -229,12 +236,24 @@ def _line_without_claims(line: str, titles: tuple[str, ...]) -> str | None:
     return f"{prefix}{joined}" if _WORD_RE.search(joined) else None
 
 
+# "Once you tap the card, your reminder is saved": what follows a condition on the user is
+# its outcome, unless the assistant is its subject, in any tense ("..., and I've set it",
+# "When you're ready, I'll set that", review of #2338). "After that, your reminder is set"
+# has no condition on the user, so it stays a claim.
+_CONDITION_HEAD = re.compile(r"^\W*(?:once|when|after|if|as soon as)\s+you\b", re.IGNORECASE)
+_SAYS_IT_DID = re.compile(r"\b(?:i|we)(?:['\u2019](?:ve|ll|m|d|re))?\b", re.IGNORECASE)
+
+
 def _without_claim_tail(sentence: str, titles: tuple[str, ...]) -> str:
     """The sentence with its claim clause cut off, or "" when all of it is a claim."""
     for boundary in _CLAUSE_RE.finditer(sentence):
         head, tail = sentence[: boundary.start()], sentence[boundary.end() :]
+        if _CONDITION_HEAD.match(head) and not _SAYS_IT_DID.search(tail):
+            continue
         if _WORD_RE.search(head) and not is_claim(head, titles) and is_claim(tail, titles):
             return head.rstrip(" ,;\u2014\u2013-") + "."
+    if _CONDITION_HEAD.match(sentence) and not _SAYS_IT_DID.search(sentence):
+        return sentence
     return "" if is_claim(sentence, titles) else sentence
 
 
