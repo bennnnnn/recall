@@ -143,6 +143,11 @@ def test_is_casual_opener(raw: str, expected: bool):
         ("Anything", "good morning", GREETING_CHAT_TITLE),
         ("Tonight leftovers", "What's still open?", "Tonight leftovers"),
         ("New chat", "What's still open?", None),
+        # Powers show as a book prints them; a decimal power and an exponent letter stay.
+        ("Quadratic Equation 3x^2-2x=8", "$3x^{2}-2x=8$", "Quadratic Equation 3x²-2x=8"),
+        ("Scientific notation 10^{-3}", "what is 10^-3", "Scientific notation 10⁻³"),
+        ("Power rule x^2.5", "derivative of x^2.5", "Power rule x^2.5"),
+        ("Exponential decay e^{-2t}", "e^(-2t)", "Exponential decay e^{-2t}"),
     ],
 )
 def test_finalize_generated_title(raw: str, user: str, expected: str | None):
@@ -159,3 +164,28 @@ async def test_generate_title_greeting_skips_model():
         title = await generate_title(settings, "good morning", "Hello!")
     assert title == GREETING_CHAT_TITLE
     complete.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message, model_reads",
+    [
+        # The keypad's LaTeX: read raw, "3x^{2}" was titled "3x2" (a different expression).
+        ("$3x^{2}-2x=8$", "3x^2-2x=8"),
+        ("solve $2x^{2}+3x-5=0$ please", "solve 2x^2+3x-5=0 please"),
+        ("f^{\\prime}(x) for $x^{3}$", "f'(x) for x^3"),
+        # Money keeps its dollar signs: no LaTeX inside.
+        ("Car loan: $25,000 at 6% or $30,000?", "Car loan: $25,000 at 6% or $30,000?"),
+    ],
+)
+async def test_generate_title_reads_keypad_maths_as_plain_powers(message: str, model_reads: str):
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch(
+        "app.modules.chat.titles.litellm_gateway.complete_text",
+        new_callable=AsyncMock,
+        return_value="Quadratic Equation 3x^2-2x=8",
+    ) as complete:
+        title = await generate_title(settings, message, "Worked answer.")
+    sent = complete.call_args.kwargs["messages"][1]["content"]
+    assert sent == model_reads
+    assert title == "Quadratic Equation 3x²-2x=8"
