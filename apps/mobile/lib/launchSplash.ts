@@ -15,6 +15,7 @@ import { Platform } from "react-native";
 
 import { isExpoGo } from "@/lib/expoRuntime";
 import { createListenerSet } from "@/lib/listenerSet";
+import { reportLaunchSplashFailed } from "@/lib/sentry";
 
 export const SPLASH_MAX_MS = 1_000;
 /** If the app never draws at all (a crash before it), the splash still goes. */
@@ -42,11 +43,13 @@ function hideSplash(): void {
   clearTimeout(backstop);
   try {
     SplashScreen.hide();
-  } finally {
-    // Even after a hide that threw, the reveal plays: it must never stay over the app.
-    if (NATIVE_EXIT_MS > 0) setTimeout(finishExit, NATIVE_EXIT_MS);
-    else finishExit();
+  } catch (error) {
+    // Reported, never thrown on: from a frame or a timer React Native takes it as fatal,
+    // and a release build would close. The reveal still plays, so it never stays over the app.
+    reportLaunchSplashFailed("hide", error);
   }
+  if (NATIVE_EXIT_MS > 0) setTimeout(finishExit, NATIVE_EXIT_MS);
+  else finishExit();
 }
 
 function finishExit(): void {
@@ -59,13 +62,19 @@ function finishExit(): void {
  * the bare page and is the only animation. iOS cuts it already (expo-splash-screen's
  * `fade` is off), so nothing changes there. Android would fade it over the reveal, a still
  * icon over the moving one: told 0 it goes in one frame. Expo Go refuses `setOptions`, so
- * there the reveal waits the default fade out.
+ * there (or if the call fails) the reveal waits the default fade out.
  */
 function nativeExitMs(): number {
   if (Platform.OS !== "android") return 0;
   if (isExpoGo()) return ANDROID_NATIVE_FADE_MS;
-  SplashScreen.setOptions({ duration: 0 });
-  return 0;
+  try {
+    SplashScreen.setOptions({ duration: 0 });
+    return 0;
+  } catch (error) {
+    // This runs as the module loads: a throw here would leave the launch with no splash timers.
+    reportLaunchSplashFailed("set_options", error);
+    return ANDROID_NATIVE_FADE_MS;
+  }
 }
 
 /** One frame for the commit that made the first screen ready (and the layout it starts). */

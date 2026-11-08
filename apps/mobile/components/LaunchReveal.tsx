@@ -5,7 +5,7 @@
  * the app shows through: the user asked for an icon animation on the first paint
  * (2026-11-07). Reduce Motion: a short fade. Touches pass through while it plays.
  */
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Image, StyleSheet, useColorScheme } from "react-native";
 import Animated, {
   Easing,
@@ -37,6 +37,17 @@ export const REDUCED_FADE_MS = 200;
  */
 export const SETTING_WAIT_MS = 250;
 
+/**
+ * Once per process: the root error boundary's Try again remounts the layout after the
+ * splash went, and the app must not open a second time.
+ */
+let played = false;
+
+/** Tests: a fresh launch. */
+export function resetLaunchRevealForTest(): void {
+  played = false;
+}
+
 type RevealValues = { page: SharedValue<number>; icon: SharedValue<number>; scale: SharedValue<number> };
 
 /**
@@ -64,20 +75,19 @@ export function LaunchReveal() {
   // `null` until the OS answers: a guessed `false` would start the full motion.
   const reduceMotion = useReduceMotionSetting();
   const splashGone = useSyncExternalStore(subscribeLaunchSplashHidden, launchSplashHidden);
-  const [done, setDone] = useState(false);
-  const started = useRef(false);
+  const [done, setDone] = useState(() => played);
   const page = useSharedValue(1);
   const icon = useSharedValue(1);
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    if (!splashGone || started.current) return undefined;
+    if (!splashGone || played) return undefined;
     const finish = (finished?: boolean) => {
       "worklet";
       if (finished) runOnJS(setDone)(true);
     };
     const play = (reduced: boolean) => {
-      started.current = true;
+      played = true;
       playReveal({ page, icon, scale }, reduced, finish);
     };
     if (reduceMotion !== null) {

@@ -14,6 +14,8 @@ jest.mock("react-native", () => ({
   },
 }));
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockPhone.expoGo }));
+const mockReportSplash = jest.fn();
+jest.mock("@/lib/sentry", () => ({ reportLaunchSplashFailed: mockReportSplash }));
 
 type LaunchSplash = typeof import("@/lib/launchSplash");
 
@@ -147,16 +149,34 @@ describe("launch splash exit (the reveal starts when the native splash is gone)"
     expect(splash.launchSplashHidden()).toBe(true);
   });
 
-  it("starts the reveal even when the hide throws, so it never stays over the app", () => {
+  it("reports a hide that throws, never throws it on, and still starts the reveal", () => {
     const splash = freshSplash();
     const told = jest.fn();
     splash.subscribeLaunchSplashHidden(told);
+    const failure = new Error("no splash view");
     mockSplash.hide.mockImplementationOnce(() => {
-      throw new Error("no splash view");
+      throw failure;
     });
-    // The error still reaches the timer, and the crash reporter after it.
-    expect(() => jest.advanceTimersByTime(2_000)).toThrow("no splash view");
+    // Thrown from a frame or a timer, React Native would take it as fatal.
+    expect(() => jest.advanceTimersByTime(2_000)).not.toThrow();
+    expect(mockReportSplash).toHaveBeenCalledWith("hide", failure);
     expect(told).toHaveBeenCalledTimes(1);
     expect(splash.launchSplashHidden()).toBe(true);
+  });
+
+  it("on Android, a setOptions that throws is reported and the reveal waits the native fade out", () => {
+    mockPhone.OS = "android";
+    const failure = new Error("no splash module");
+    mockSplash.setOptions.mockImplementationOnce(() => {
+      throw failure;
+    });
+    // It runs as the module loads: the module still loads, timers and all.
+    const splash = freshSplash();
+    expect(mockReportSplash).toHaveBeenCalledWith("set_options", failure);
+    const told = hideOnce(splash);
+    jest.advanceTimersByTime(399);
+    expect(told).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(told).toHaveBeenCalledTimes(1);
   });
 });

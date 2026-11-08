@@ -4,6 +4,7 @@ import appJson from "../../app.json";
 import {
   LaunchReveal,
   REDUCED_FADE_MS,
+  resetLaunchRevealForTest,
   SETTING_WAIT_MS,
   SPLASH_BACKGROUND,
   SPLASH_ICON_SIZE,
@@ -38,6 +39,7 @@ const reanimated = jest.requireMock("react-native-reanimated") as {
 let timings: TimingConfig[] = [];
 
 beforeEach(() => {
+  resetLaunchRevealForTest();
   mockSplash.gone = false;
   mockSplash.listeners.clear();
   mockReduceMotion.mockReturnValue(false);
@@ -125,4 +127,16 @@ it("starts at once when mounted after the splash went", async () => {
   const { queryByTestId } = await render(<LaunchReveal />);
   expect(timings).toEqual([{ duration: REDUCED_FADE_MS, reduceMotion: "never" }]);
   expect(queryByTestId("launch-reveal", HIDDEN)).toBeNull();
+});
+
+it("plays once per process: a remount after it (the root boundary's Try again) draws nothing", async () => {
+  const first = await render(<LaunchReveal />);
+  await goneNow();
+  expect(first.queryByTestId("launch-reveal", HIDDEN)).toBeNull();
+  await first.unmount();
+
+  timings = [];
+  const again = await render(<LaunchReveal />);
+  expect(again.queryByTestId("launch-reveal", HIDDEN)).toBeNull();
+  expect(timings).toEqual([]);
 });
