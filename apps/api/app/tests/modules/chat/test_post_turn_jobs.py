@@ -40,11 +40,19 @@ def _turn(**overrides: Any) -> StreamContext:
     return StreamContext(**fields)
 
 
-async def _enqueued(ctx: StreamContext, *, spend_capped: bool = False) -> list[tuple[str, Any]]:
+async def _enqueued(
+    ctx: StreamContext,
+    *,
+    spend_capped: bool = False,
+    reply: str = _REPLY,
+    payloads: dict[str, dict[str, str]] | None = None,
+) -> list[tuple[str, Any]]:
     calls: list[tuple[str, Any]] = []
 
     async def enqueue(_redis: object, name: str, payload: dict[str, str], dedupe_key=None):
         calls.append((name, dedupe_key))
+        if payloads is not None:
+            payloads[name] = payload
 
     settings = Settings(history_compression_enabled=True, chat_history_rag_enabled=True)
     with (
@@ -54,7 +62,7 @@ async def _enqueued(ctx: StreamContext, *, spend_capped: bool = False) -> list[t
             AsyncMock(return_value=spend_capped),
         ),
     ):
-        await post_turn.enqueue_post_turn_jobs(AsyncMock(), settings, ctx, _REPLY)
+        await post_turn.enqueue_post_turn_jobs(AsyncMock(), settings, ctx, reply)
     return calls
 
 
@@ -153,3 +161,55 @@ async def test_a_turn_without_its_window_queues_the_compress_job() -> None:
         _turn(prior_count=2),
     ):
         assert "compress" in dict(await _enqueued(ctx))
+
+
+@pytest.mark.asyncio
+async def test_a_photo_sent_with_no_words_is_titled_from_its_marker_not_the_reply() -> None:
+    """The live turn's message is its words only: a photo sent alone was empty, so the topic
+    job read the reply as the user's words and saved its verdict ("No Math Problem Found").
+    The job reads the message as its row keeps it, the photo's marker too."""
+    from unittest.mock import MagicMock
+
+    from app.gateways import litellm_gateway
+    from app.modules.chat import titles
+    from app.modules.chat.turn_prep import prepare
+    from app.modules.chat.turn_prep.persist import UserTurn
+    from app.tests.modules.chat.chat_test_support import prompt_bundle
+
+    marker = f"[Image: /attachments/{UUID(int=9)}/file]"
+    turn = UserTurn(
+        user_id=_USER,
+        chat_id=_CHAT,
+        message_id=UUID(int=8),
+        content="",
+        stored_content=marker,
+        attachment_ids=[UUID(int=9)],
+        has_image_attachment=True,
+        model_alias=None,
+        recent_messages=[],
+        lesson_active=False,
+        user=MagicMock(id=_USER, memory_enabled=True),
+        chat=MagicMock(id=_CHAT, title=None),
+        model="free-chat",
+        prior_count=0,
+    )
+    bundle = prompt_bundle(lightweight=True, rich_context=False)
+    ctx = prepare._stream_context(
+        bundle, turn, Settings(), reserved_tokens=10, timing=None, persist=None
+    )
+    assert ctx.user_message_content == ""
+
+    verdict = "This image doesn't contain a math problem: it's a screenshot of a settings panel."
+    payloads: dict[str, dict[str, str]] = {}
+    await _enqueued(ctx, reply=verdict, payloads=payloads)
+    topic = payloads["topic"]
+    assert topic["user_message"] == marker
+    assert topic["assistant_message"] == verdict
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="Settings screenshot"
+    ) as complete:
+        await titles.generate_title(settings, topic["user_message"], topic["assistant_message"])
+    read = complete.call_args.kwargs["messages"][-1]["content"]
+    assert read.startswith(f"User (with a photo): {titles._NO_WORDS}\n")

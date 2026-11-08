@@ -270,6 +270,7 @@ def _stream_context(
         chat_id=turn.chat_id,
         model=model,
         user_message_content=turn.content,
+        stored_user_message=turn.stored_content,
         reserved_tokens=reserved_tokens,
         user=user,
         prior_count=prior_count,

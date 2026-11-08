@@ -82,6 +82,8 @@ class StreamContext:
     # The device location when this turn needs one ("coffee near me"); a
     # search for it names the place.
     search_location: str | None = None
+    # The user's message as its row keeps it, photo markers too: what the chat title reads.
+    stored_user_message: str | None = None
     user: User | None = None
     # Pre-assigned id for the assistant row so `done` can be sent to the client
     # before the background DB insert commits.
@@ -199,6 +201,7 @@ def stream_context_from_bundle(
     reserved_tokens: int,
     user: User,
     prior_count: int,
+    stored_user_message: str | None = None,
     timing: TurnTimingTracker | None = None,
     run_title: bool | None = None,
     skip_memory_jobs: bool | None = None,
@@ -227,6 +230,7 @@ def stream_context_from_bundle(
         max_output_tokens=bundle.max_out,
         user_timezone=bundle.local_tz,
         search_location=_search_location(bundle.geo),
+        stored_user_message=stored_user_message,
         user=user,
         recalled_count=bundle.stats.recalled,
         memory_hints=list(bundle.stats.memory_hints),

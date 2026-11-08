@@ -31,8 +31,13 @@ def _chat_turn(messages: list[dict[str, str]]) -> str:
 
 def _words_read(messages: list[dict[str, str]]) -> str:
     """The user's words as the title model read them, from the chat's turn."""
-    _, _, rest = _chat_turn(messages).partition(":\n")
-    return rest.split("\n\nThe assistant's reply", 1)[0]
+    _, _, rest = _chat_turn(messages).partition(": ")
+    return rest.split("\nReply (context only): ", 1)[0]
+
+
+def _reply_read(messages: list[dict[str, str]]) -> str:
+    """The reply as the title model read it, from the chat's turn."""
+    return _chat_turn(messages).split("\nReply (context only): ", 1)[1].split("\n", 1)[0]
 
 
 @pytest.mark.parametrize(
@@ -61,6 +66,18 @@ def _words_read(messages: list[dict[str, str]]) -> str:
         ("ab", None),
         ("", None),
         (None, None),
+        # Two letters of a script past Latin are a word: Amharic "news", Chinese "greeting".
+        ("ዜና", "ዜና"),
+        ("问候", "问候"),
+        # Junk stays out: one letter, digits, marks.
+        ("ዜ", None),
+        ("42", None),
+        ("??", None),
+        ("a.", None),
+        # Spanish opens what its closing mark ends: both go.
+        ("¿Qué tal?", "Qué tal"),
+        ("¡Feliz cumpleaños!", "Feliz cumpleaños"),
+        ('"¿Final del Mundial 2022?"', "Final del Mundial 2022"),
     ],
 )
 def test_normalize_chat_title(raw: str | None, expected: str | None):
@@ -269,7 +286,7 @@ async def test_generate_title_reads_the_reply_as_context_not_as_the_chats_last_t
     # The real reply is never an assistant turn: those are the worked examples' titles.
     assert all("bini" not in m["content"] for m in messages if m["role"] == "assistant")
     # Six words in any script fit: a four-word Amharic title is 24 tokens.
-    assert complete.call_args.kwargs["max_tokens"] >= 40
+    assert complete.call_args.kwargs["max_tokens"] >= 64
     assert title == "Asking my name"
 
 
@@ -279,13 +296,14 @@ def test_title_reads_a_bare_scan_as_a_photo_with_no_words(caption: str):
     was titled "No Math Problem Found"."""
     messages = title_messages(f"{caption}\n\n{_PHOTO}", "It shows a settings panel.")
     assert _words_read(messages) == titles._NO_WORDS
-    assert "(sent with a photo)" in _chat_turn(messages)
+    assert "(with a photo)" in _chat_turn(messages)
 
 
 def test_title_reads_a_scans_confirmed_reading_as_the_problem():
+    """The reading is the student's problem; "I read this as:" is the app's words."""
     caption = SCANNER_CAMERA_PROMPTS["math"]
     message = f"{caption}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15\n\n{_PHOTO}"
-    assert _words_read(title_messages(message, "x = 4")) == f"{SCAN_CONFIRMED_PREFIX} 2x+7=15"
+    assert _words_read(title_messages(message, "x = 4")) == "2x+7=15"
 
 
 @pytest.mark.parametrize(
@@ -299,30 +317,46 @@ def test_title_reads_a_scans_confirmed_reading_as_the_problem():
     ],
 )
 def test_title_says_when_a_photo_came_with_the_message(message: str, photo: bool):
-    assert ("(sent with a photo)" in _chat_turn(title_messages(message, "Reply."))) is photo
+    assert ("(with a photo)" in _chat_turn(title_messages(message, "Reply."))) is photo
 
 
+def test_title_reads_300_characters_of_the_message_and_200_of_the_reply():
+    """Every word the title model reads is paid on every chat: the chat is cut to 500."""
+    messages = title_messages("plan my trip " * 60, "Here is a plan. " * 60)
+    assert len(_words_read(messages)) == 300
+    assert len(_reply_read(messages)) == 200
+
+
+def test_title_prompt_stays_near_500_tokens():
+    """Rules, worked examples and the longest chat in under 2,000 characters (about 500
+    tokens of English): one call per chat, at about half the first version's size."""
+    messages = title_messages("word " * 200, "reply " * 200)
+    assert sum(len(m["content"]) for m in messages) <= 2000
+    assert len(titles._TITLE_EXAMPLES) <= 3
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "rule",
+    "message, reply, title",
     [
-        # What the user asked, never what the reply concluded.
-        "It names the question, never the answer.",
-        "Nothing the reply concluded goes in the name",
-        # A photo or file by what it shows.
-        "A photo or file is named by what it shows or holds",
-        # Natural wording, from the user's side, in their language.
-        "No stacked nouns",
-        "never 'user'",
-        "Write the name in the same language as the user's message.",
-        # The rules kept from before.
-        "Keep times, dates and numbers exactly as written",
-        "Write maths with symbols, never in words",
-        "Never use generic labels",
-        "is named Greeting",
+        # A scan in dev's mock mode: the caption is the app's, so the reply names it.
+        (
+            f"{SCANNER_CAMERA_PROMPTS['math']}\n\n{_PHOTO}",
+            "That's a cat on a laptop.",
+            "That's a cat on",
+        ),
+        # A confirmed reading is the student's problem, without the app's prefix.
+        (
+            f"{SCANNER_CAMERA_PROMPTS['math']}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15",
+            "x = 4",
+            "2x+7=15",
+        ),
+        ("plan my week please", "Here's a plan.", "plan my week please"),
     ],
 )
-def test_title_rules_hold_the_naming_contract(rule: str):
-    assert rule in titles._TITLE_RULES
+async def test_mock_titles_read_the_users_own_words(message: str, reply: str, title: str):
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    assert await generate_title(settings, message, reply) == title
 
 
 def test_title_worked_examples_are_titles_the_rules_allow():
@@ -331,6 +365,8 @@ def test_title_worked_examples_are_titles_the_rules_allow():
     messages = title_messages("Plan my week", "Here's a plan.")
     examples = messages[1:-1]
     assert [m["role"] for m in examples] == ["user", "assistant"] * len(titles._TITLE_EXAMPLES)
-    for *_, title in titles._TITLE_EXAMPLES:
+    for _, _, reply, title in titles._TITLE_EXAMPLES:
         assert normalize_chat_title(title) == title
         assert len(title) <= 32
+        # The example shows the reply as context only: its title is no line of the reply.
+        assert title.casefold() not in {line.strip().casefold() for line in reply.split(".")}

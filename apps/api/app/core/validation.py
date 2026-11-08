@@ -72,6 +72,11 @@ def normalize_locale_code(locale: str | None) -> str:
 _TITLE_QUOTES = "\"'" + "\u201c\u201d\u2018\u2019"
 # Trailing sentence punctuation that can sit outside the closing quote.
 _TITLE_TRAIL_PUNCT = ".!?,;:"
+# Spanish opens a question or exclamation: with its closing mark gone, "¿Qué tal" is left.
+_TITLE_LEAD_PUNCT = "¿¡"
+# Past the Latin letters (U+02FF): a two-letter title there is a word ("ዜና", "问候"),
+# where two Latin letters ("ab") are not.
+_LATIN_END = 0x2FF
 # One-shot unwrap: leading quotes, or trailing quotes + optional punct.
 _TITLE_WRAP_RE = re.compile(
     rf"^[{re.escape(_TITLE_QUOTES)}]+|[{re.escape(_TITLE_QUOTES)}]+[{re.escape(_TITLE_TRAIL_PUNCT)}]*$"
@@ -102,10 +107,15 @@ def unwrap_chat_title(raw: str) -> str:
         prev = title
         title = _strip_title_emphasis(title)
         title = _TITLE_WRAP_RE.sub("", title).strip()
-        title = title.rstrip(_TITLE_TRAIL_PUNCT).strip()
+        title = title.rstrip(_TITLE_TRAIL_PUNCT).lstrip(_TITLE_LEAD_PUNCT).strip()
         title = title.strip(_TITLE_QUOTES).strip()
         if title == prev:
             return title
+
+
+def _short_word_title(title: str) -> bool:
+    """Two letters of a script past Latin: Amharic and Chinese say a topic in two."""
+    return len(title) == 2 and all(ch.isalpha() and ord(ch) > _LATIN_END for ch in title)
 
 
 def normalize_chat_title(raw: str | None) -> str | None:
@@ -116,7 +126,7 @@ def normalize_chat_title(raw: str | None) -> str | None:
         return None
     if title.lower() in BORING_CHAT_TITLES:
         return None
-    if len(title) < 3 or len(title) > 80:
+    if (len(title) < 3 and not _short_word_title(title)) or len(title) > 80:
         return None
     return title
 

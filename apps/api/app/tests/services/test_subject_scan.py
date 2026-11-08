@@ -118,12 +118,16 @@ def test_with_confirmed_reading_states_the_reading_under_the_caption() -> None:
         # A bare scan: the caption is all there is.
         (MATH_CAMERA_PROMPT, ""),
         (f"  {PHYSICS_CAMERA_PROMPT}\n\n[Image: x]  ", "[Image: x]"),
-        # What follows the caption stays: a confirmed reading, a typed note.
+        # What follows the caption stays: a confirmed reading (its prefix is the app's
+        # words too), a typed note.
+        (f"{MATH_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15", "2x+7=15"),
         (
-            f"{MATH_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15",
-            f"{SCAN_CONFIRMED_PREFIX} 2x+7=15",
+            f"{PHYSICS_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX.upper()} v = 3 m/s\n\npart b",
+            "v = 3 m/s\n\npart b",
         ),
         (f"{CHEMISTRY_CAMERA_PROMPT.upper()}\n\nonly part b", "only part b"),
+        # The prefix alone, outside a scan, is the user's own words.
+        (f"{SCAN_CONFIRMED_PREFIX} 2x+7=15", f"{SCAN_CONFIRMED_PREFIX} 2x+7=15"),
         # No scanner caption: unchanged, even when the words are close to one.
         ("Solve the math problem in this image", "Solve the math problem in this image"),
         ("What's in this image?", "What's in this image?"),
