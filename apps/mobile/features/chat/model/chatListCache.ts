@@ -1,5 +1,6 @@
 import { api, type Chat, type ChatList } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import { clearKnownAssistantChats } from "@/features/chat/model/draftLogic";
 import {
   allChatsFromGroups,
@@ -15,6 +16,7 @@ import {
   type ResourceUpdate,
 } from "@/lib/cache/sessionResource";
 import { CHAT_LIST_STALE_MS } from "@/features/chat/drawer/drawerChatList";
+import { emitAppEvent } from "@/lib/appEvents";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { tokenSubject } from "@/lib/tokenSubject";
 
@@ -26,13 +28,19 @@ type ListSession = {
   stored?: ChatList;
   restore?: Promise<boolean>;
   saveQueued?: boolean;
+  /**
+   * Set when a change to many chats dropped the list (`invalidateChatListCache`): "rows-removed"
+   * when that change took away rows a screen shows (Delete all, Archive all).
+   */
+  dropped?: "rows-kept" | "rows-removed";
 };
 
 const LIST = "chats";
 const resource = new SessionResourceCache<typeof LIST, ChatList, ListSession>({
   staleMs: CHAT_LIST_STALE_MS,
-  // The first chat is inserted before the first full read and must not count as one.
-  empty: emptyChatList,
+  // The first chat is inserted before the first full read and must not count as one. A
+  // dropped list is unknown: an edit then waits for the read, never makes a list of its own.
+  empty: (): ChatList | undefined => (resource.state().dropped ? undefined : emptyChatList()),
   sessionState: () => ({}),
 });
 resource.subscribe(saveSoon);
@@ -150,16 +158,47 @@ export function seedChatListCacheForTest(data: ChatList): void {
   resource.set(LIST, data);
 }
 
-/** Replay edits over an already-running read so it cannot restore a deleted/old row. */
-export function updateChatListCache(update: ResourceUpdate<ChatList>): ChatList {
-  return resource.update(LIST, update) ?? emptyChatList();
+/**
+ * Replay edits over an already-running read so it cannot restore a deleted/old row. After a
+ * drop it returns nothing until the list is read again: the edit only rides on a read running.
+ * Built on an empty list, the drawer showed only the chats touched since an unarchive, and
+ * built on the rows shown, Delete all brought its chats back (iOS Simulator, 2026-11-07).
+ */
+export function updateChatListCache(update: ResourceUpdate<ChatList>): ChatList | undefined {
+  return resource.update(LIST, update);
 }
 
-/** Sign-out, or a change to many chats at once: forget the list, on disk too. */
-export function invalidateChatListCache(): Promise<void> {
-  resource.invalidate();
+/**
+ * Sign-out, or a change to many chats at once: forget the list, on disk too. The drawer reads
+ * it again (in the background, so Home's last chat comes back), keeping the rows it shows
+ * meanwhile (an unarchive left every one in place), unless `rowsRemoved` says the change
+ * took them away (Delete all, Archive all): then it drops them too, so none comes back.
+ */
+export function invalidateChatListCache({ rowsRemoved = false } = {}): Promise<void> {
+  resource.invalidate({ dropped: rowsRemoved ? "rows-removed" : "rows-kept" });
   clearKnownAssistantChats();
   return listFile().then((file) => file.clearStoredChatList()).catch(() => {});
+}
+
+/**
+ * A chat deleted outside the chat screens (Settings' archived chats) goes as the drawer's own
+ * delete takes it: its row, saved thread and files (`chatsDeleted`), the open chat if it is
+ * that one, and the list read again with every other row kept.
+ */
+export function forgetDeletedChat(chatId: string): Promise<void> {
+  emitAppEvent("chatsDeleted", { chatIds: [chatId] });
+  abandonActiveChatIfDeleted([chatId]);
+  return invalidateChatListCache();
+}
+
+/** The list was dropped (`invalidateChatListCache`) and is not read since. */
+export function isChatListDropped(): boolean {
+  return resource.get(LIST) === undefined && resource.state().dropped !== undefined;
+}
+
+/** The rows a screen shows were removed with the list (Delete all), and it is not read since. */
+export function chatListRowsRemoved(): boolean {
+  return isChatListDropped() && resource.state().dropped === "rows-removed";
 }
 
 export async function fetchChatList(

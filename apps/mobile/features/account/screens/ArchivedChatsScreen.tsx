@@ -19,6 +19,7 @@ import { api, type Chat } from "@/lib/api";
 import {
   fetchChatList,
   fetchMoreArchivedChats,
+  forgetDeletedChat,
   getChatListFetchedAt,
   invalidateChatListCache,
 } from "@/features/chat/model/chatListCache";
@@ -91,7 +92,7 @@ export default function ArchivedChatsScreen() {
       async () => {
         await api.deleteChat(token, chat.id);
         notifyDestructive();
-        invalidateChatListCache();
+        void forgetDeletedChat(chat.id);
         drop(chat);
       },
       {

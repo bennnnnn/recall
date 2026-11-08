@@ -26,8 +26,8 @@ type CacheOptions<T, S> = {
   staleMs: number;
   /** Keep at most this many keys, dropping the least recently used. */
   maxEntries?: number;
-  /** The value a local edit starts from before the first read; without it, such edits wait for one. */
-  empty?: () => T;
+  /** The value a local edit starts from before the first read; without it (or when it gives none), such edits wait for one. */
+  empty?: () => T | undefined;
   /** Extra state that lives and dies with one account's cache (created chat, deleted ids). */
   sessionState: () => S;
 };
@@ -177,9 +177,12 @@ export class SessionResourceCache<Key, T, S = undefined> {
     this.notify();
   }
 
-  /** Drop everything; reads already running can no longer land. */
-  invalidate(): void {
-    this.owner = this.newOwner(getSessionGeneration());
+  /**
+   * Drop everything; reads already running can no longer land. `state` starts the new
+   * owner's session state (why it was dropped), set before subscribers hear of it.
+   */
+  invalidate(state?: S): void {
+    this.owner = this.newOwner(getSessionGeneration(), state);
     this.notify();
   }
 
@@ -264,13 +267,13 @@ export class SessionResourceCache<Key, T, S = undefined> {
     return this.owner;
   }
 
-  private newOwner(session: number): Owner<Key, T, S> {
+  private newOwner(session: number, state: S = this.options.sessionState()): Owner<Key, T, S> {
     return {
       session,
       entries: new StaleResourceCache<Key, T>(this.options.staleMs, this.options.maxEntries),
       reads: new Map(),
       reported: new Set(),
-      state: this.options.sessionState(),
+      state,
     };
   }
 

@@ -95,6 +95,14 @@ describe("chatMessageCache", () => {
     expect(deleteAsync).toHaveBeenNthCalledWith(1, "/mock-cache/chat-pages/chat-1.json", { idempotent: true });
   });
 
+  it("forgets the threads of deleted chats, one deleted in Settings too", async () => {
+    emitAppEvent("chatsDeleted", { chatIds: ["chat-1", "chat-2"] });
+    await clearCachedChatMessages("chat-3");
+    expect(deleteAsync).toHaveBeenCalledTimes(3);
+    expect(deleteAsync).toHaveBeenNthCalledWith(1, "/mock-cache/chat-pages/chat-1.json", { idempotent: true });
+    expect(deleteAsync).toHaveBeenNthCalledWith(2, "/mock-cache/chat-pages/chat-2.json", { idempotent: true });
+  });
+
   it("patches one cached message without dropping has_more", async () => {
     (getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
     (readAsStringAsync as jest.Mock).mockResolvedValue(

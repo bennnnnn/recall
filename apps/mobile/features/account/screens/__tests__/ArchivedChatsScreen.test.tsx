@@ -2,6 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { Alert } from "react-native";
 
 import ArchivedChatsScreen from "@/features/account/screens/ArchivedChatsScreen";
+import { forgetDeletedChat } from "@/features/chat/model/chatListCache";
 
 const mockListChats = jest.fn();
 const mockDeleteChat = jest.fn();
@@ -50,6 +51,7 @@ jest.mock("@shopify/flash-list", () => {
 });
 jest.mock("@/features/chat/model/chatListCache", () => ({
   invalidateChatListCache: jest.fn(),
+  forgetDeletedChat: jest.fn(),
   fetchMoreArchivedChats: (...args: unknown[]) => mockMoreArchived(...args),
   fetchChatList: async (...args: unknown[]) => {
     try {
@@ -157,6 +159,8 @@ it("haptics only after confirmed archived-chat deletion succeeds", async () => {
 
   await act(async () => { pending.resolve(); });
   expect(mockDestructive).toHaveBeenCalledTimes(1);
+  // Only the deleted chat leaves the drawer and its cache; every other row stays shown.
+  expect(forgetDeletedChat).toHaveBeenCalledWith("archived");
 });
 
 it("reads archived chats past the first page when the list end is reached", async () => {
