@@ -117,7 +117,7 @@ describe("AnswerBlock", () => {
     const { getByLabelText } = await render(
       <AnswerBlock content={String.raw`x = \pm 2`} />,
     );
-    expect(getByLabelText("Answer: x = ± 2")).toBeOnTheScreen();
+    expect(getByLabelText("Answer: x = plus or minus 2")).toBeOnTheScreen();
     expect(mockFormula).not.toHaveBeenCalled();
   });
 

@@ -16,7 +16,7 @@ import {
 import {
   latexHasNestedMathView,
   MATH_TALL_LINE_HEIGHT,
-  readableLatexFallback,
+  spokenFormula,
 } from "@/lib/math/text";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -104,7 +104,7 @@ export const MathSvgView = React.memo(function MathSvgView({
   // VoiceOver reads the formula as words: an SVG has no text of its own. Under
   // an accessible parent (an answer card) the parent reads it instead.
   const own = !useInsideAccessibleElement();
-  const label = useMemo(() => (own ? readableLatexFallback(latex) : undefined), [own, latex]);
+  const label = useMemo(() => (own ? spokenFormula(latex) : undefined), [own, latex]);
   // The conversion is held with the latex it was made from. A view whose
   // latex changes (a streaming answer growing, a reused row) never draws the
   // previous formula's result, not even for one frame: until its own result

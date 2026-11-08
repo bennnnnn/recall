@@ -5,7 +5,7 @@
  */
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
-import { readableLatexFallback, segmentsToPlain, parseSimpleLatex } from "@/lib/math/text";
+import { formulaText, segmentsToPlain, parseSimpleLatex } from "@/lib/math/text";
 import { findStableMarkdownPrefixLen, preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
 
 const BACKSLASH_CMD = /\\[a-zA-Z]+/;
@@ -28,17 +28,17 @@ describe("math render corpus (preprocess → typeset, never raw \\cmd)", () => {
   it("inline $x^2$", () => {
     const spans = mathSpansAfterPreprocess("Let $x^2$ be the square.");
     expect(spans).toEqual(["x^2"]);
-    expect(readableLatexFallback(spans[0])).toBe("x^2");
-    expect(readableLatexFallback(spans[0])).not.toMatch(BACKSLASH_CMD);
+    expect(formulaText(spans[0])).toBe("x^2");
+    expect(formulaText(spans[0])).not.toMatch(BACKSLASH_CMD);
   });
 
   it("reads the equilibrium arrows chemistry writes between species", () => {
-    const equilibrium = readableLatexFallback("N_2 + 3H_2 \\rightleftharpoons 2NH_3");
+    const equilibrium = formulaText("N_2 + 3H_2 \\rightleftharpoons 2NH_3");
     expect(equilibrium).toContain("⇌");
     expect(equilibrium).not.toMatch(BACKSLASH_CMD);
     expect(equilibrium).not.toContain("rightleftharpoons");
-    expect(readableLatexFallback("A \\leftrightharpoons B")).toContain("⇋");
-    expect(readableLatexFallback("A \\leftrightarrow B")).toContain("↔");
+    expect(formulaText("A \\leftrightharpoons B")).toContain("⇋");
+    expect(formulaText("A \\leftrightarrow B")).toContain("↔");
   });
 
   it("converts $$ display math into a ```math fence", () => {
@@ -54,7 +54,7 @@ describe("math render corpus (preprocess → typeset, never raw \\cmd)", () => {
     expect(out).not.toContain("\\(");
     const spans = mathSpansAfterPreprocess("Cancel \\(\\frac{m}{m}\\) since \\(m \\neq 0\\).");
     expect(spans.some((s) => s.includes("\\frac{m}{m}"))).toBe(true);
-    expect(readableLatexFallback("\\frac{m}{m}")).toBe("m/m");
+    expect(formulaText("\\frac{m}{m}")).toBe("m/m");
   });
 
   it("converts \\[...\\] display math into a ```math fence", () => {
@@ -67,7 +67,7 @@ describe("math render corpus (preprocess → typeset, never raw \\cmd)", () => {
   it("keeps a ```math fence as a fence (not inline $)", () => {
     const out = preprocessMarkdown("```math\n\\frac{1}{2}\n```");
     expect(out).toContain("```math");
-    expect(readableLatexFallback("\\frac{1}{2}")).toBe("1/2");
+    expect(formulaText("\\frac{1}{2}")).toBe("1/2");
   });
 
   it("numbered steps with inline math still produce math spans", () => {
@@ -190,7 +190,7 @@ describe("real-world inline math corpus (full pipeline, never raw \\cmd)", () =>
       const spans = mathSpansAfterPreprocess(input);
       expect(spans.length).toBeGreaterThanOrEqual(1);
       for (const span of spans) {
-        const rendered = readableLatexFallback(span);
+        const rendered = formulaText(span);
         // The core invariant: no leftover `\command` paints as raw LaTeX.
         expect(rendered).not.toMatch(BACKSLASH_CMD);
         expect(rendered).not.toContain("\\begin");

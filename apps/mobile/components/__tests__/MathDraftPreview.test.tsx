@@ -30,7 +30,7 @@ describe("MathDraftPreview for a screen reader", () => {
       <MathDraftPreview input={String.raw`Solve $\frac{1}{2}x = 3$`} sent showCaret={false} />,
     );
     expect(queryAllByRole("button", READER)).toHaveLength(0);
-    expect(getByRole("text", { name: "Solve 1/2x = 3", ...READER })).toBeOnTheScreen();
+    expect(getByRole("text", { name: "Solve 1 over 2, x = 3", ...READER })).toBeOnTheScreen();
   });
 });
 

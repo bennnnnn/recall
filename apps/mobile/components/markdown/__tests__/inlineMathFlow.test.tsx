@@ -66,7 +66,7 @@ describe("inline maths flows inside the line", () => {
     expect(within(row).getByTestId("math-text-tall")).toBeOnTheScreen();
     expect(within(row).getByText("seconds")).toBeOnTheScreen();
     expect(within(row).getByText("(about")).toBeOnTheScreen();
-    expect(getByLabelText(/^Light takes approximately 8\.3 × 10\^2 seconds \(about 500 seconds\) to travel/)).toBeOnTheScreen();
+    expect(getByLabelText(/^Light takes approximately 8\.3 times 10 squared seconds \(about 500 seconds\) to travel/)).toBeOnTheScreen();
     // The prose keeps reading leading; only the formula's own box is taller.
     expect(lineHeightOf(getByText("travel"))).toBe(Type.reading.lineHeight);
   });

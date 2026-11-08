@@ -18,7 +18,7 @@ import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
-import { readableLatexFallback } from "@/lib/math/text";
+import { spokenFormula } from "@/lib/math/text";
 import { parseRichMathText } from "@/lib/markdown/richMathText";
 import { useTheme } from "@/lib/theme";
 import { Italic, Weight } from "@/lib/type";
@@ -35,7 +35,7 @@ export function hasRichMath(content: string): boolean {
  */
 export function richTextLabel(content: string): string {
   return parseRichMathText(content)
-    .map((part) => (part.type === "math" ? ` ${readableLatexFallback(part.value)} ` : part.value))
+    .map((part) => (part.type === "math" ? ` ${spokenFormula(part.value)} ` : part.value))
     .join("")
     .replace(/\s+/g, " ")
     .trim();

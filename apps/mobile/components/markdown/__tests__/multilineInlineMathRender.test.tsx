@@ -49,7 +49,7 @@ describe('C04 multiline inline math rendering', () => {
     // The formula's line is the screen-reader element and reads it in words;
     // its scroller is no second TalkBack stop inside it.
     expect(getAllByTestId("math-text-scroll").every((node) => node.props.accessible === false)).toBe(true);
-    const line = getAllByLabelText(/∂\/∂ y\(x\^2 y\) = x\^2 ⋅ 1/);
+    const line = getAllByLabelText(/∂ over ∂ y, \(x squared y\) = x squared dot 1/);
     expect(line.length).toBeGreaterThanOrEqual(1);
     expect(line[0]!.props.accessible).toBe(true);
     expect(nestedAccessibleElements(toJSON())).toEqual([]);

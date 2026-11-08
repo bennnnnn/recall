@@ -71,7 +71,7 @@ describe("MarkdownContent math rendering", () => {
       <MarkdownContent content={String.raw`- Convert angle: $90^\circ = \frac{\pi}{2}$ radians
 - Calculation: $4 \times \frac{\pi}{2} = 2\pi \approx 6.28$`} />,
     );
-    expect(getByLabelText("Convert angle: 90° = π/2 radians")).toBeOnTheScreen();
+    expect(getByLabelText("Convert angle: 90 degrees = π over 2 radians")).toBeOnTheScreen();
     expect(getByText("radians")).toBeOnTheScreen();
     expect(getByText(/= 2π/)).toBeOnTheScreen();
     expect(getByText(/≈ 6.28/)).toBeOnTheScreen();
@@ -123,7 +123,7 @@ describe("MarkdownContent math rendering", () => {
       <MarkdownContent content={String.raw`Evaluate $\int_0^1 x\,dx$${punctuation} then compare.`} />,
     );
     expect(getByText(`x dx${punctuation}`)).toBeOnTheScreen();
-    expect(getByLabelText(`Evaluate ∫_0^1 x dx${punctuation} then compare.`)).toBeOnTheScreen();
+    expect(getByLabelText(`Evaluate ∫ subscript 0 to the power of 1 x dx${punctuation} then compare.`)).toBeOnTheScreen();
     expect(queryByText(/^[,;]\s*then compare\./)).toBeNull();
   });
 
@@ -145,7 +145,7 @@ describe("MarkdownContent math rendering", () => {
     const { getByLabelText, queryByText, getByTestId, getAllByTestId } = await render(
       <MarkdownContent content={String.raw`Use $\sqrt{2}$, then compare $x^2$ with 4.`} />,
     );
-    expect(getByLabelText(/^Use .+, then compare x\^2 with 4\.$/)).toBeOnTheScreen();
+    expect(getByLabelText(/^Use the square root of 2, then compare x squared with 4\.$/)).toBeOnTheScreen();
     expect(getByTestId("math-script")).toHaveTextContent("2");
     expect(queryByText(/^, then compare/)).toBeNull();
     expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();

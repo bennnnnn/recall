@@ -14,7 +14,8 @@ import {
 } from "@/lib/math/answerLayout";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
-import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
+import { latexHasNestedMathView, spokenFormula } from "@/lib/math/text";
+import type { InlineMathPart } from "@/lib/markdown/inlineMath";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
@@ -41,6 +42,11 @@ function answerNeedsDisplayMath(text: string): boolean {
 }
 
 type Styles = ReturnType<typeof makeStyles>;
+
+/** What the card says aloud: its formula as words, or a sentence with each formula read out. */
+function spokenValue(text: string, parts: InlineMathPart[]): string {
+  return parts.some((part) => part.type === "math") ? spokenAnswer(parts) : spokenFormula(text);
+}
 
 /**
  * The card's heading ("Answer", "Answer (a)") and its box. A value no solver checked
@@ -161,7 +167,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
 
   if (useSvgMath) {
     return frame(
-      readableLatexFallback(text),
+      spokenValue(text, parts),
       <>
         <View style={s.fill}>
           <MathSvgView latex={text} textColor={theme.text} minHeight={48} em={ANSWER_FONT_SIZE} />
@@ -173,7 +179,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
   if (hasNestedView) {
     // The check sits on the last line's row, so it scrolls with that line.
     return frame(
-      readableLatexFallback(text),
+      spokenValue(text, parts),
       <View style={s.fill}>
         {nativeLines.map((line, lineIndex) => (
           <ScrollingLine
@@ -212,7 +218,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
     );
   }
   return frame(
-    readableLatexFallback(text),
+    spokenValue(text, parts),
     <>
       {hasInlineMath ? (
         <Text style={s.answer} selectable>

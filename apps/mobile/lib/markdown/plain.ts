@@ -19,7 +19,7 @@ import {
   DEGREE_RING,
   parseSimpleLatex,
   segmentsToPlain,
-  type MathAccentKind,
+  spokenFormula,
   type MathSegment,
 } from "@/lib/math/text";
 import { looksLikePipeRow } from "@/lib/markdown/streamTableHold";
@@ -183,105 +183,6 @@ function stripMarkdownChrome(text: string): string {
   return out;
 }
 
-const MAX_SPEAK_MATH_DEPTH = 12;
-
-const ACCENT_WORD: Record<MathAccentKind, string> = {
-  overline: "bar",
-  underline: "underlined",
-  hat: "hat",
-  tilde: "tilde",
-  vec: "vector",
-  vecLeft: "vector",
-  bar: "bar",
-  dot: "dot",
-  ddot: "double dot",
-};
-
-/** Spoken operators. The parser has already turned `\times` into `×`. */
-function speakPlainMath(value: string): string {
-  let out = value
-    .replaceAll("±", " plus or minus ")
-    .replaceAll("×", " times ")
-    .replaceAll("⋅", " dot ")
-    .replaceAll("·", " dot ");
-  if (out.includes("\\")) {
-    out = out
-      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "$1 over $2")
-      .replace(/\\sqrt\{([^{}]+)\}/g, "the square root of $1")
-      .replace(/\\times(?![a-zA-Z])/g, " times ")
-      .replace(/\\cdot(?![a-zA-Z])/g, " dot ")
-      .replace(/\\pm(?![a-zA-Z])/g, " plus or minus ")
-      .replace(/\\[a-zA-Z]+/g, " ")
-      .replace(/[{}]/g, "");
-  }
-  return out;
-}
-
-function speakScript(value: string, depth: number, kind: "sup" | "sub"): string {
-  const spoken = (
-    depth >= MAX_SPEAK_MATH_DEPTH ? value : speakMathSegments(parseSimpleLatex(value), depth + 1)
-  ).trim();
-  if (!spoken) return "";
-  if (kind === "sub") return ` subscript ${spoken}`;
-  // `30^\circ` is thirty degrees, never a power.
-  if (spoken === DEGREE_RING) return " degrees";
-  if (spoken === "2") return " squared";
-  if (spoken === "3") return " cubed";
-  return ` to the power of ${spoken}`;
-}
-
-/** Read-aloud walks the same segments as copy. A `[^}]+` fraction regex
- * never matches `x^{2}`, and stripping the leftover braces speaks `fracx^24`. */
-function speakMathSegments(segments: MathSegment[], depth = 0): string {
-  if (depth > MAX_SPEAK_MATH_DEPTH) {
-    return segments.map((segment) => ("value" in segment ? segment.value : "")).join(" ");
-  }
-  return segments.map((segment) => {
-    switch (segment.type) {
-      case "text":
-      case "upright":
-        return speakPlainMath(segment.value);
-      case "sup":
-      case "sub": {
-        const spoken = segment.body
-          ? speakMathSegments(segment.body, depth + 1).trim()
-          : segment.value;
-        return speakScript(spoken, depth, segment.type);
-      }
-      case "frac": {
-        const num = speakMathSegments(segment.num, depth + 1).trim();
-        const den = speakMathSegments(segment.den, depth + 1).trim();
-        return `${num} over ${den}`;
-      }
-      case "sqrt": {
-        const body = speakMathSegments(segment.body, depth + 1).trim();
-        const degree = segment.index
-          ? speakMathSegments(segment.index, depth + 1).trim()
-          : segment.degree
-            ? speakMathSegments(parseSimpleLatex(segment.degree), depth + 1).trim()
-            : "";
-        if (!degree) return `the square root of ${body}`;
-        if (degree === "3") return `the cube root of ${body}`;
-        return `the ${degree} root of ${body}`;
-      }
-      case "cancel":
-        return speakMathSegments(segment.body, depth + 1);
-      case "accent": {
-        const body = speakMathSegments(segment.body, depth + 1).trim();
-        return `${body} ${ACCENT_WORD[segment.kind]}`;
-      }
-      default: {
-        const _exhaustive: never = segment;
-        return _exhaustive;
-      }
-    }
-  }).join("");
-}
-
-function speakMath(latex: string): string {
-  return speakMathSegments(parseSimpleLatex(latex)).replace(/\s+/g, " ").trim();
-}
-
 /** Copy needs explicit grouping; visual fraction bars and radical overbars vanish. */
 function copyMathSegments(segments: MathSegment[], depth = 0): string {
   const fractionSide = (side: MathSegment[]): string => {
@@ -402,7 +303,7 @@ function rewriteInlineMath(text: string, convert: (latex: string) => string): st
 function convertProse(prose: string, mode: "copy" | "speech"): string {
   let text = pipeTablesToPlain(prose);
   text = stripMarkdownChrome(text);
-  if (mode === "speech") text = rewriteInlineMath(text, speakMath);
+  if (mode === "speech") text = rewriteInlineMath(text, spokenFormula);
   else text = rewriteInlineMath(text, copyMath);
   return text;
 }
@@ -414,7 +315,7 @@ const PLAIN_READERS: Record<FencePlainReader, (body: string, mode: PlainMode) =>
   // A teaching picture speaks its worked lines; without them it is a diagram like any other.
   worked: (body, mode) => {
     const spoken = teachingSpeech(body);
-    return spoken ? withTexRuns(spoken, mode === "speech" ? speakMath : copyMath) : null;
+    return spoken ? withTexRuns(spoken, mode === "speech" ? spokenFormula : copyMath) : null;
   },
   // Each reads what its card shows: a plain-text body as that text, never a quiz's answer.
   quiz: quizCardText,
@@ -438,10 +339,10 @@ function convertFence(lang: string, body: string, mode: PlainMode): string {
     // A chemistry answer is text (H₂O, Fe³⁺, →); the header line only tells the renderer so.
     const { notation, body: answer } = splitAnswerNotation(trimmed);
     if (notation === "chemistry") return answer;
-    return mode === "speech" ? speakMath(answer) : copyMath(answer);
+    return mode === "speech" ? spokenFormula(answer) : copyMath(answer);
   }
   if (isMathFenceLang(lang)) {
-    return mode === "speech" ? speakMath(trimmed) : copyMath(trimmed);
+    return mode === "speech" ? spokenFormula(trimmed) : copyMath(trimmed);
   }
   if (lang.startsWith("callout-")) return convertProse(trimmed, mode);
   return trimmed;
@@ -485,5 +386,5 @@ function withTexRuns(text: string, render: (latex: string) => string): string {
 
 /** A sentence that carries bare TeX ("cosine \frac{\sqrt{3}}{2}"), as words to read aloud. */
 export function spokenText(text: string): string {
-  return withTexRuns(text, speakMath);
+  return withTexRuns(text, spokenFormula);
 }
