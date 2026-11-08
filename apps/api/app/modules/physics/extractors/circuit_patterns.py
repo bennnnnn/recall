@@ -217,6 +217,8 @@ def _stated_resistances(text: str) -> list[float]:
     values = [value for _, value, _ in found]
     starts = [start for start, _, _ in found]
     ends = [_value_end(text, start) for start in starts]
+    if any(_meter_off_the_path(text, start, end) for start, end in zip(starts, ends, strict=True)):
+        return []
     group = [0] * len(found)
     for index in range(1, len(found)):
         joined = _joins_list(text[ends[index - 1] : starts[index]])
@@ -229,6 +231,45 @@ def _stated_resistances(text: str) -> list[float]:
         if not all(_introduces(befores[index]) for index in places):
             return _one_part_named_again(text, values, befores)
     return values
+
+
+# A meter named by its own resistance: "a voltmeter of resistance 20 MΩ", "an ammeter with
+# a resistance of 50 mΩ", "a 10 MΩ voltmeter". Across a part, as a voltmeter always is, its
+# resistance is no resistor of the path: a voltmeter's 20 MΩ was summed into a loop (review
+# 2026-11-07). An ammeter or a galvanometer in series is part of the path.
+_METER_RE = re.compile(r"(?:volt|am|milliam|microam|galvano|multi|ohm)meters?\b")
+_METER_NAME_WORDS = frozenset(
+    "of with a an its own internal resistance has having whose is".split()
+)
+_OFF_PATH_RE = re.compile(r"\b(?:across|parallel|shunt)\b")
+_SENTENCE_END_RE = re.compile(r"[.!?](?=\s|\Z)")
+
+
+def _meter_of(text: str, start: int, end: int) -> str | None:
+    """The meter whose own resistance the value at ``start`` is, by the words beside it."""
+    after = text[end : end + 30].lower().split()[1:2]
+    if after and _METER_RE.match(after[0]):
+        return after[0]
+    words = text[max(0, start - 60) : start].lower().replace("(", " ").replace(",", " ").split()
+    for count, word in enumerate(reversed(words)):
+        if _METER_RE.fullmatch(word):
+            return word
+        if word not in _METER_NAME_WORDS or count >= 5:
+            return None
+    return None
+
+
+def _meter_off_the_path(text: str, start: int, end: int) -> bool:
+    """The value is the resistance of a meter wired across a part, not in the path."""
+    meter = _meter_of(text, start, end)
+    if meter is None:
+        return False
+    if meter.startswith("volt"):
+        return True
+    begins = max((stop.end() for stop in _SENTENCE_END_RE.finditer(text, 0, start)), default=0)
+    stop = _SENTENCE_END_RE.search(text, end)
+    sentence = text[begins : len(text) if stop is None else stop.start()].lower()
+    return "series" not in sentence and _OFF_PATH_RE.search(sentence) is not None
 
 
 def _one_part_named_again(text: str, values: list[float], befores: list[str]) -> list[float]:

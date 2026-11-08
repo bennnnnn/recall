@@ -49,6 +49,10 @@ def scan_givens(text: str, units: UnitTable) -> list[Given]:
             continue
         if _NOT_A_GIVEN_AFTER.match(text, end - 1):
             continue
+        if units.aside is not None and units.aside(text, start, end, units):
+            # A quantity the question sets aside ("Ignoring the Earth's 50 µT field") is no
+            # given for the binder, the accounting or any reader of the scan.
+            continue
         # "carbon-14", "U-238": a mass number written onto its element names it.
         if _ISOTOPE_LABEL.search(text, max(0, start - 2), start):
             continue

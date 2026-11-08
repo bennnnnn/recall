@@ -13,7 +13,7 @@ import re
 from collections.abc import Callable, Mapping
 from decimal import Decimal
 from fractions import Fraction
-from functools import lru_cache
+from functools import cached_property, lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +117,38 @@ def _power_spellings(table: Mapping[str, str]) -> dict[str, str]:
     return spellings
 
 
+# The SI prefixes the unit tables write, by symbol: Pint's name and the power of ten.
+SI_PREFIXES: dict[str, tuple[str, int]] = {
+    "P": ("peta", 15),
+    "G": ("giga", 9),
+    "M": ("mega", 6),
+    "k": ("kilo", 3),
+    "c": ("centi", -2),
+    "m": ("milli", -3),
+    "µ": ("micro", -6),
+    "μ": ("micro", -6),
+    "u": ("micro", -6),
+    "n": ("nano", -9),
+    "p": ("pico", -12),
+}
+
+
+def keeps_prefix(written: str, expression: str) -> bool:
+    """Whether ``expression`` reads the SI prefix ``written`` opens with in its written case.
+
+    A prefix whose symbol in the other case is another prefix (m milli and M mega, p pico
+    and P peta) is read as written: caselessly, "500 mHz" was megahertz and a wave ran at
+    1e9 m/s (audit 2026-11-07). So "mhz" is no megahertz and "Ms" no millisecond. A prefix
+    with no such twin folds ("Kg", "KHz"), one spelled out has no case ("Milliohms"), and
+    capitals throughout say nothing of case: "760 MMHG" is mmHg, "500 MG" milligrams.
+    """
+    letter = written[:1]
+    twin = SI_PREFIXES.get(letter.swapcase()) if letter in SI_PREFIXES else None
+    if twin is None or written == written.upper():
+        return True
+    return not expression.startswith(twin[0]) or written.lower().startswith(twin[0])
+
+
 def _alternation(spellings: list[str]) -> str:
     """The spellings longest first; an empty table matches nothing, not an empty unit."""
     if not spellings:
@@ -128,9 +160,11 @@ class UnitTable:
     """The unit spellings one subject reads, each mapped to a Pint expression.
 
     ``symbols`` are case-sensitive (a lowercase "a" is an article, "v" a variable);
-    ``words`` are keyed in lowercase and matched without case. ``special`` reads a unit
+    ``words`` are keyed in lowercase and matched without case, but never across an SI
+    prefix (``keeps_prefix``): "Mg" is no milligram. ``special`` reads a unit
     no table can list, such as physics' "0.8c"; ``exact`` names a spelling's expression
-    when only ``special`` produces it.
+    when only ``special`` produces it; ``aside`` says a number at (start, end) is one the
+    question sets aside, which the givens scan then skips.
     """
 
     def __init__(
@@ -140,10 +174,12 @@ class UnitTable:
         *,
         special: SpecialUnit | None = None,
         exact: Mapping[str, str] | None = None,
+        aside: Callable[[str, int, int, UnitTable], bool] | None = None,
     ) -> None:
         self.symbols = _power_spellings(symbols)
         self.words = _power_spellings(words)
         self._special = special
+        self.aside = aside
         self._exact = dict(exact or {})
         self._symbol_re = re.compile(rf"[ \t]?(?P<unit>{_alternation(list(self.symbols))}){_END}")
         self._word_re = re.compile(
@@ -155,7 +191,32 @@ class UnitTable:
         exact = self._exact.get(spelling)
         if exact is not None:
             return exact
-        return self.symbols.get(spelling) or self.words.get(spelling.lower())
+        return self.symbols.get(spelling) or self.word(spelling)
+
+    @cached_property
+    def prefixed(self) -> dict[str, str]:
+        """Each listed spelling that is an SI prefix on another listed one: "kN" → "N".
+
+        Read from the expressions, so a spelling that only starts like one is not:
+        "min" is a minute, not a milli-inch.
+        """
+        bases: dict[str, str] = {}
+        for spelling, expression in (*self.symbols.items(), *self.words.items()):
+            for symbol, (name, _power) in SI_PREFIXES.items():
+                rest = spelling[len(symbol) :]
+                if (
+                    rest
+                    and spelling.startswith(symbol)
+                    and expression.startswith(name)
+                    and self.expression(rest) == expression[len(name) :]
+                ):
+                    bases[spelling] = rest
+        return bases
+
+    def word(self, spelling: str) -> str | None:
+        """The Pint expression of a spelling read without case, its SI prefix as written."""
+        expression = self.words.get(spelling.lower())
+        return expression if expression is not None and keeps_prefix(spelling, expression) else None
 
     def at(self, text: str, end: int) -> tuple[str, str] | None:
         """The unit written right after a number: (spelling, Pint expression)."""
@@ -164,6 +225,8 @@ class UnitTable:
             if special is not None:
                 return special
         word = self._word_re.match(text, end)
+        if word is not None and self.word(word.group("unit")) is None:
+            word = None
         symbol = self._symbol_re.match(text, end)
         # The longer spelling wins: "m/s" over "m", "kg" over "g", "ms" over "m".
         # At equal length the case-sensitive symbol wins: "Nm" is a newton
