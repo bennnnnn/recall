@@ -62,22 +62,45 @@ export function joinsDirectly(next: MathSegment | undefined): boolean {
   return /^[\p{L}\p{N}(√]/u.test(next.value);
 }
 
+/** The piece before is written straight onto this one (2√3, 20,000·0.005/12), with no space or operator. */
+export function followsDirectly(prev: MathSegment | undefined): boolean {
+  if (!prev) return false;
+  if (prev.type !== "text" && prev.type !== "upright") return true;
+  return /[\p{L}\p{N})\]]$/u.test(prev.value);
+}
+
+const WHOLE = /^\d+$/;
+
+function isWhole(side: MathSegment[]): boolean {
+  const [only] = side;
+  return side.length === 1 && only?.type === "text" && WHOLE.test(only.value.trim());
+}
+
+/** 2\frac{1}{2}: a whole number written onto a fraction of whole numbers is a mixed number. */
+export function isMixedNumber(prev: MathSegment | undefined, seg: Extract<MathSegment, { type: "frac" }>): boolean {
+  return prev?.type === "text" && /(?:^|[^\d.,])\d+$/.test(prev.value) && isWhole(seg.num) && isWhole(seg.den);
+}
+
 function scriptToPlain(seg: Extract<MathSegment, { type: "sup" | "sub" }>): string {
   if (seg.type === "sup" && !seg.body && seg.value === DEGREE_RING) return "°";
   const inner = (seg.body ? segmentsToPlain(seg.body) : seg.value).trim();
   return `${seg.type === "sup" ? "^" : "_"}${scriptIsAtom(seg) ? inner : `(${inner})`}`;
 }
 
-function fractionToPlain(seg: Extract<MathSegment, { type: "frac" }>, next: MathSegment | undefined): string {
+type Neighbours = { prev: MathSegment | undefined; next: MathSegment | undefined };
+
+function fractionToPlain(seg: Extract<MathSegment, { type: "frac" }>, { prev, next }: Neighbours): string {
   const side = (part: MathSegment[]) => {
     const text = segmentsToPlain(part).trim();
     return isAtom(part, SIDE_ATOM) ? text : `(${text})`;
   };
   const fraction = `${side(seg.num)}/${side(seg.den)}`;
-  return joinsDirectly(next) ? `(${fraction})` : fraction;
+  // A number written onto it is a mixed number (2 1/2) or a factor (20,000·0.005/12): "21/2" read as 21 halves.
+  const lead = !followsDirectly(prev) ? "" : isMixedNumber(prev, seg) ? " " : "·";
+  return lead + (joinsDirectly(next) ? `(${fraction})` : fraction);
 }
 
-function segmentToPlain(seg: MathSegment, next: MathSegment | undefined): string {
+function segmentToPlain(seg: MathSegment, around: Neighbours): string {
   if (seg.type === "text" || seg.type === "upright") return seg.value;
   if (seg.type === "sup" || seg.type === "sub") return scriptToPlain(seg);
   if (seg.type === "cancel") return segmentsToPlain(seg.body);
@@ -93,11 +116,13 @@ function segmentToPlain(seg: MathSegment, next: MathSegment | undefined): string
     const indexText = seg.index ? segmentsToPlain(seg.index) : seg.degree;
     return indexText ? `√[${indexText}]${body}` : `√${body}`;
   }
-  return fractionToPlain(seg, next);
+  return fractionToPlain(seg, around);
 }
 
 export function segmentsToPlain(segments: MathSegment[]): string {
-  return segments.map((segment, index) => segmentToPlain(segment, segments[index + 1])).join("");
+  return segments
+    .map((segment, index) => segmentToPlain(segment, { prev: segments[index - 1], next: segments[index + 1] }))
+    .join("");
 }
 
 /** The formula as one line of symbols, never a leftover `\\command`. */

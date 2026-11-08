@@ -12,7 +12,6 @@ import {
 import { DisplayRow, InlineFlow } from "@/components/markdown/rules/inlineFlow";
 import { MathText } from "@/components/rich/MathText";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
-import { spokenFormula } from "@/lib/math/text";
 import type { InlineMathPart } from "@/lib/markdown/inlineMath";
 import { useTheme } from "@/lib/theme";
 
@@ -63,13 +62,6 @@ export function ScrollingLine({
       {children}
     </ScrollView>
   );
-}
-
-/** What a sentence answer says aloud: its words, and each formula read out. */
-export function spokenAnswer(parts: InlineMathPart[]): string {
-  return parts
-    .map((part) => (part.type === "math" ? spokenFormula(part.value) : part.value))
-    .join("");
 }
 
 /**
