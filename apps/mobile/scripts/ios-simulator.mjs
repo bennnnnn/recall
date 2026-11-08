@@ -6,7 +6,10 @@
  * simulator. RECALL_IOS_SIMULATOR=1 leaves it out (app.config.ts); dev login and Google
  * still work. It also leaves out ML Kit, whose simulator slice is Intel only
  * (react-native.config.js); the live scanner is unavailable there. An ios/ folder that still
- * carries the entitlement or ML Kit is regenerated once.
+ * carries the entitlement or ML Kit is regenerated from scratch.
+ * Every run prebuilds, so app.json and plugin changes reach the build: an existing ios/ folder
+ * used to be built as it was, and a new Info.plist key (Open with Recall's document types,
+ * 2026-11-07) never reached the app.
  * Extra arguments go to `expo run:ios`: `pnpm ios:sim --device "iPhone 17 Pro Max"`.
  */
 import { spawnSync } from "node:child_process";
@@ -45,5 +48,7 @@ function iosHasMLKit() {
 if (iosHasAppleSignIn() || iosHasMLKit()) {
   console.log("Regenerating ios/ without Sign in with Apple and ML Kit, for the simulator.");
   expo(["prebuild", "--platform", "ios", "--clean"]);
+} else {
+  expo(["prebuild", "--platform", "ios"]);
 }
 expo(["run:ios", ...process.argv.slice(2)]);
