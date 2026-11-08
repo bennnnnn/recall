@@ -19,6 +19,16 @@ describe("liveTalkEvents", () => {
     expect(applyLiveTalkChatEvent([], "old", { type: "done", remaining: 0, limit: 0,
       user_message: next[0], assistant_message: next[1] })).toEqual([]);
   });
+  // The user's line is transcribed beside the reply and often lands after it began.
+  it("puts a line that lands after its reply above that reply, not below it", () => {
+    let rows: Message[] = [];
+    rows = applyLiveTalkChatEvent(rows, "old", { type: "user", text: "Hi" });
+    rows = applyLiveTalkChatEvent(rows, "old", { type: "assistant", text: "Hello" });
+    rows = applyLiveTalkChatEvent(rows, "t1", { type: "assistant", text: "Paris." });
+    rows = applyLiveTalkChatEvent(rows, "t1", { type: "user", text: "What is the capital of France?" });
+    expect(rows.map((row) => row.content)).toEqual(["Hi", "Hello", "What is the capital of France?", "Paris."]);
+  });
+
   it("upserts local bubbles then swaps in persisted messages", () => {
     const user: Message = {
       id: "u1",

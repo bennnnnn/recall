@@ -34,7 +34,9 @@ export type LiveTalkGate =
   /** The microphone gave no audio (in use, or missing): the device, not the app's age. */
   | "mic_unavailable"
   /** Android refused the call its audio while the phone is on a call (`callAudio.ts`). */
-  | "phone_busy";
+  | "phone_busy"
+  /** No chat could be made to save the call's turns to: the call does not start. */
+  | "no_chat";
 
 /** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
 export type LiveTalkStatus = {
@@ -60,6 +62,17 @@ export function liveTalkSessionLimitMs(maxDurationSeconds: number | null | undef
   }
   return LIVE_TALK_MAX_SESSION_MS;
 }
+
+/**
+ * Why a call hung up at its time limit, from the minutes left when it began: this month's
+ * minutes ran out with it (the next call would be refused), or only this call's own length.
+ */
+export function liveTalkTimeUpKey(atStart: LiveTalkStatus, callMs: number): string {
+  const secondsLeft = (atStart.remaining_seconds ?? atStart.remaining * 60) - callMs / 1000;
+  const monthUsed = secondsLeft <= 0 || secondsLeft < (atStart.min_session_seconds ?? 1);
+  return monthUsed ? liveTalkGateMessageKey("limit") : "chat.live_talk_time_up";
+}
+
 /** Local tail after `output_audio_buffer.stopped` before the mic reopens. */
 export const LIVE_TALK_PLAYBACK_TAIL_MS = 500;
 /** Ignore connect/track-start noise before the first real user utterance. */
@@ -240,6 +253,7 @@ const GATE_MESSAGE_KEYS: Readonly<Record<SaidGate, string>> = {
   unconfigured: "chat.live_talk_not_configured",
   mic_unavailable: "chat.live_talk_mic_unavailable",
   phone_busy: "chat.live_talk_phone_busy",
+  no_chat: "chat.live_talk_no_chat",
 };
 
 /** The line a gate says as a recoverable error; upgrade, consent and the microphone open their own. */

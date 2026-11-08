@@ -13,6 +13,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
+import { createLiveTalkTurns, type LiveTalkTurn } from "@/features/speech/model/liveTalkTurns";
 import {
   liveTalkCallEnds,
   liveTalkCallErrorKey,
@@ -25,6 +26,7 @@ import {
   liveTalkShouldAttachSession,
   liveTalkShouldCloseOnAppState,
   liveTalkShouldCloseOnChatChange,
+  liveTalkTimeUpKey,
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
@@ -42,7 +44,7 @@ import { confirmDialog } from "@/ui/overlay/dialogs";
 type Options = {
   token: string | null;
   chatId: string | null;
-  /** The open chat's id, or a new chat made the open one; null when none could be made. */
+  /** The open chat's id, or a new chat made the open one; null when none could be made (no call then). */
   ensureChatId: () => Promise<string | null>;
   /** Changes the thread on screen, which the chat owns: live talk's turns, named "live_talk". */
   editThread: (update: SetStateAction<Message[]>, source: "live_talk") => void;
@@ -54,15 +56,8 @@ type Options = {
   t: (key: string) => string;
 };
 
-type CompletedTurn = {
-  id: string;
-  chatId: string | null;
-  callId: string | null;
-  userText: string;
-  assistantText: string;
-};
-
-const REALTIME_TRANSCRIPT_GRACE_MS = 350;
+/** A turn handed on to be saved, with the chat and call it was spoken in. */
+type CompletedTurn = LiveTalkTurn & { chatId: string | null; callId: string | null };
 
 function clearTimer(timer: MutableRefObject<ReturnType<typeof setTimeout> | null>): void {
   if (timer.current != null) clearTimeout(timer.current);
@@ -136,14 +131,15 @@ export function useLiveTalk({
   const [status, setStatus] = useState<LiveTalkStatus | null>(null);
   const sessionRef = useRef<RealtimeVoiceSession | null>(null);
   const callIdRef = useRef<string | null>(null);
-  const turnIdRef = useRef("");
   const turnChatIdRef = useRef<string | null>(null);
-  const assistantTextRef = useRef("");
   const sourcesRef = useRef<Message["search_sources"]>([]);
-  const userTextRef = useRef("");
   const visibleRef = useRef(false);
   const sessionGenRef = useRef(0);
-  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishTurnRef = useRef<(completed: CompletedTurn) => Promise<void>>(async () => {});
+  // Each turn is saved with the chat and call it was spoken in, read as it is handed on.
+  const [turns] = useState(() => createLiveTalkTurns((turn) => {
+    void finishTurnRef.current({ ...turn, chatId: turnChatIdRef.current, callId: callIdRef.current });
+  }));
   const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeRef = useRef<() => void>(() => {});
   /** Aborts the call still connecting: a hang-up gives its route, mic and minutes back at once. */
@@ -155,28 +151,11 @@ export function useLiveTalk({
   );
 
   const applyEvent = useCallback(
-    (event: LiveTalkSpeakEvent, turnId = turnIdRef.current) => {
-      if (!turnId) return;
+    (event: LiveTalkSpeakEvent, turnId: string) => {
       editThread((prev) => applyLiveTalkChatEvent(prev, turnId, event), "live_talk");
     },
     [editThread],
   );
-
-  const captureCurrentTurn = useCallback((): CompletedTurn | null => {
-    const id = turnIdRef.current;
-    if (!id) return null;
-    const completed: CompletedTurn = {
-      id,
-      chatId: turnChatIdRef.current,
-      callId: callIdRef.current,
-      userText: userTextRef.current.trim(),
-      assistantText: assistantTextRef.current.trim(),
-    };
-    turnIdRef.current = "";
-    userTextRef.current = "";
-    assistantTextRef.current = "";
-    return completed;
-  }, []);
 
   const finishTurn = useCallback(
     async (completed: CompletedTurn) => {
@@ -243,20 +222,7 @@ export function useLiveTalk({
     },
     [alertForGate, applyEvent, feedback, newMessageCountRef, onFirstReply, onScrollToLatest, status, t, token],
   );
-
-  const finalizeCurrentTurn = useCallback(() => {
-    const completed = captureCurrentTurn();
-    if (!completed) return;
-    setPhase("idle");
-    void finishTurn(completed);
-  }, [captureCurrentTurn, finishTurn]);
-
-  const flushPendingTurn = useCallback(() => {
-    clearTimer(finishTimerRef);
-    if (turnIdRef.current && (userTextRef.current || assistantTextRef.current)) {
-      finalizeCurrentTurn();
-    }
-  }, [finalizeCurrentTurn]);
+  finishTurnRef.current = finishTurn;
 
   const handleRealtimeEvent = useCallback(
     (event: RealtimeVoiceEvent) => {
@@ -268,12 +234,8 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "speech_started") {
-        // A new accepted utterance while the prior turn is still flushing:
-        // persist that snapshot before starting a new one.
-        flushPendingTurn();
-        turnIdRef.current = event.turnId ?? String(Date.now());
-        userTextRef.current = "";
-        assistantTextRef.current = "";
+        // The turn before is saved now, or once its own line lands (liveTalkTurns).
+        turns.utterance(event.turnId ?? String(Date.now()));
         sourcesRef.current = [];
         setPhase("recording");
         return;
@@ -282,48 +244,43 @@ export function useLiveTalk({
         // Realtime transcripts can run ahead of audio playback. There is no
         // reliable client word-to-audio alignment; don't save unspoken text
         // as if it was delivered. OpenAI truncates its own conversation buffer.
-        assistantTextRef.current = t("chat.generation_stopped");
-        applyEvent({ type: "assistant", text: assistantTextRef.current });
-        flushPendingTurn();
+        const stopped = t("chat.generation_stopped");
+        applyEvent({ type: "assistant", text: stopped }, turns.assistant(stopped));
+        turns.replied();
         setPhase("recording");
         return;
       }
       if (event.type === "search_sources") {
         sourcesRef.current = event.sources;
-        if (assistantTextRef.current) applyEvent({ type: "assistant", text: assistantTextRef.current, sources: event.sources });
+        const turn = turns.current();
+        if (turn?.assistantText) applyEvent({ type: "assistant", text: turn.assistantText, sources: event.sources }, turn.id);
         return;
       }
       if (event.type === "speech_stopped") {
-        setPhase("thinking");
+        setPhase(event.replying ? "thinking" : "recording");
         return;
       }
       if (event.type === "response_started") {
-        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
+        turns.replyStarted();
         setPhase("thinking");
         return;
       }
       if (event.type === "user_transcript") {
-        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
-        userTextRef.current = event.text;
-        applyEvent({ type: "user", text: event.text });
+        // Shown above the reply it prompted, then saved with it (a turn waiting for it saves now).
+        const turnId = turns.turnFor(event.turnId);
+        if (!turnId) return;
+        applyEvent({ type: "user", text: event.text }, turnId);
+        turns.user(turnId, event.text);
         return;
       }
       if (event.type === "assistant_transcript") {
-        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
-        assistantTextRef.current = event.text;
-        applyEvent({ type: "assistant", text: event.text, sources: sourcesRef.current });
+        applyEvent({ type: "assistant", text: event.text, sources: sourcesRef.current }, turns.assistant(event.text));
         setPhase("speaking");
         return;
       }
       if (event.type === "response_done") {
-        if (finishTimerRef.current != null) clearTimeout(finishTimerRef.current);
-        // This grace affects only persistence/UI canonicalization, never audible
-        // audio. It allows the final input-transcription event to arrive if it
-        // trails response.done by a few network frames.
-        finishTimerRef.current = setTimeout(() => {
-          finishTimerRef.current = null;
-          finalizeCurrentTurn();
-        }, REALTIME_TRANSCRIPT_GRACE_MS);
+        turns.replied();
+        setPhase("idle");
         return;
       }
       if (event.type === "error" || event.type === "interrupted") {
@@ -333,7 +290,7 @@ export function useLiveTalk({
         if (liveTalkCallEnds(event)) closeRef.current();
       }
     },
-    [applyEvent, feedback, finalizeCurrentTurn, flushPendingTurn, t],
+    [applyEvent, feedback, t, turns],
   );
 
   const close = useCallback(() => {
@@ -342,12 +299,9 @@ export function useLiveTalk({
     connectingRef.current = null;
     const shouldCueEnd = visibleRef.current || sessionRef.current != null;
     visibleRef.current = false;
-    clearTimer(finishTimerRef);
     clearTimer(sessionLimitTimerRef);
-    const completed = captureCurrentTurn();
-    if (completed && (completed.userText || completed.assistantText)) {
-      void finishTurn(completed);
-    }
+    // Every turn still open is saved, under this call's id, before it is let go.
+    turns.finishAll();
     sessionRef.current?.close();
     // Settle this month's minutes to the time actually used (best-effort: a
     // session never reported stays charged for its whole reservation).
@@ -365,7 +319,7 @@ export function useLiveTalk({
     setPhase("idle");
     setVisible(false);
     if (shouldCueEnd) void playCue("end");
-  }, [captureCurrentTurn, finishTurn, token]);
+  }, [token, turns]);
   closeRef.current = close;
 
   const open = useCallback(async () => {
@@ -392,6 +346,8 @@ export function useLiveTalk({
       }
       const activeChatId = await ensureChatId();
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
+      // Its turns are saved to this chat: without one, a call spent minutes and kept nothing.
+      if (!activeChatId) return alertForGate("no_chat");
       turnChatIdRef.current = activeChatId;
       // A reply still read aloud stops as the call takes over: a clip that failed then fell back
       // to the phone's voice, which reset the audio mode under the call.
@@ -421,10 +377,13 @@ export function useLiveTalk({
       sessionRef.current = session;
       callIdRef.current = session.callId;
       clearTimer(sessionLimitTimerRef);
+      const limitMs = liveTalkSessionLimitMs(session.maxDurationSeconds);
       sessionLimitTimerRef.current = setTimeout(() => {
         sessionLimitTimerRef.current = null;
         closeRef.current();
-      }, liveTalkSessionLimitMs(session.maxDurationSeconds));
+        // It hung up with no word: say whether the month's minutes or only this call ran out.
+        reportRecoverableError(feedback, t(liveTalkTimeUpKey(next, limitMs)));
+      }, limitMs);
       setPhase("recording");
     } catch (error) {
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
@@ -433,7 +392,7 @@ export function useLiveTalk({
       setPhase("idle");
       alertForGate(liveTalkErrorGate(error));
     }
-  }, [token, isOffline, alertForGate, ensureChatId, handleRealtimeEvent]);
+  }, [token, isOffline, alertForGate, ensureChatId, handleRealtimeEvent, feedback, t]);
 
   const toggleMute = useCallback(() => {
     const next = !muted;

@@ -121,6 +121,42 @@ describe("reduceRealtimeTurn: echo drop (half duplex)", () => {
   });
 });
 
+describe("reduceRealtimeTurn: the user's line and the reply it asks for", () => {
+  const ready = () => run(initialRealtimeTurnState(true), { type: "session_ready", reason: "test" }).state;
+  const emitted = (commands: RealtimeTurnCommand[]) =>
+    commands.flatMap((command) => (command.type === "emit" ? [command.event] : []));
+
+  it.each<[string, RealtimeTurnEvent[], boolean]>([
+    ["asks for a reply when the user stops talking", [], true],
+    ["asks for none when the user muted mid-sentence", [{ type: "set_muted", muted: true }], false],
+  ])("%s", (_label, between, replying) => {
+    const { commands } = run(
+      ready(),
+      server({ type: "input_audio_buffer.speech_started", item_id: "u1" }),
+      ...between,
+      server({ type: "input_audio_buffer.speech_stopped", item_id: "u1" }),
+    );
+    expect(emitted(commands)).toContainEqual({ type: "speech_stopped", replying });
+    expect(commands.some((command) => command.type === "send" && command.payload.type === "response.create")).toBe(replying);
+  });
+
+  it("names the utterance a late line transcribes, and drops one never accepted", () => {
+    const { commands } = run(
+      ready(),
+      server({ type: "input_audio_buffer.speech_started", item_id: "u1" }),
+      server({ type: "input_audio_buffer.speech_stopped", item_id: "u1" }),
+      server({ type: "input_audio_buffer.speech_started", item_id: "u2" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u1", transcript: "First" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u0", transcript: "Never heard" }),
+      server({ type: "conversation.item.input_audio_transcription.completed", item_id: "u2", transcript: "Second" }),
+    );
+    expect(emitted(commands).filter((event) => event.type === "user_transcript")).toEqual([
+      { type: "user_transcript", text: "First", turnId: "u1" },
+      { type: "user_transcript", text: "Second", turnId: "u2" },
+    ]);
+  });
+});
+
 describe("reduceRealtimeTurn: turn rules", () => {
   it("answers a lookup from an older turn as cancelled and asks for no reply", () => {
     const call = { type: "function_call", name: "web_search", call_id: "t1", arguments: '{"query":"q"}' };
