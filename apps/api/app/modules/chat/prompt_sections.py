@@ -59,6 +59,7 @@ from app.modules.chat.prompt_constants import (
     repeated_greeting_hint,
     writing_format_hint,
 )
+from app.modules.chat.prompt_constants.conversation import SUMMARY_LEAD
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
 from app.modules.chat.prompt_context_hints import integration_hints, lookup_hints, slim_geo_hints
@@ -354,11 +355,10 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
     # recent window from the prompt — without the summary the model loses all
     # context from earlier in the conversation. The summary is already
     # computed and is just a string, so including it is free.
+    # "Summarize today" once listed only the last 6 of a 100-turn chat's topics (2026-11-07).
     PromptSection(
         lambda t: bool(t.summary),
-        lambda t: [
-            wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{t.summary}")
-        ],
+        lambda t: [wrap_untrusted("conversation summary", f"{SUMMARY_LEAD}\n{t.summary}")],
         name="summary",
     ),
 )

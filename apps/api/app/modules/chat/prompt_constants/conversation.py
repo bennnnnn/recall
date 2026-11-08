@@ -127,3 +127,12 @@ CONFIRMED_HINT = (
     "Treat it as settled and give the answer it was for now, using those values. Never ask "
     "them to confirm, double-check or restate it again."
 )
+
+
+# Above the chat's rolling summary: it is part of the conversation, so "what did we talk
+# about today" and "what laptop do I have" answer from it, not only from the window.
+SUMMARY_LEAD = (
+    "Summary of this chat before the messages you can see. It is part of the conversation: "
+    "a question about what the user said or what you talked about answers from it as well "
+    "as from the messages. When two of its facts give different values, the later one holds."
+)

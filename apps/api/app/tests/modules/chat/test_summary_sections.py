@@ -36,7 +36,9 @@ def test_a_fold_keeps_the_earlier_topics_whatever_the_model_writes() -> None:
     text = merged(_FIRST, fresh, 6000)
     topics = sections(text)["Topics"]
     assert [line.split(".")[0] for line in topics] == ["Zanzibar trip", "Dinner", "Roman Empire"]
-    assert sections(text)["Facts"] == ["User is Bini. Savings plan dropped."]
+    # Facts are carried too (2026-11-07): the earlier ones in their order, "User is Bini." once,
+    # where it was said last.
+    assert sections(text)["Facts"] == ["Trip in December. User is Bini. Savings plan dropped."]
 
 
 def test_a_topic_said_again_is_kept_once() -> None:
@@ -67,7 +69,9 @@ def test_a_chat_with_more_topics_than_the_cap_holds_keeps_the_newest_and_open() 
     assert len(text) <= 6000
     assert read["Topics"][-1] == "Newest. Outcome: done."
     assert read["Open"] == ["Pick a date."]
-    assert len(read["Topics"]) > 100  # the oldest are cut to a subject before any goes
+    # The oldest are cut to a subject before any goes. Facts may fill half the cap first
+    # (2026-11-07), so a summary whose facts overflow keeps about 70 subjects, not 100.
+    assert len(read["Topics"]) > 60
 
 
 @pytest.mark.asyncio
@@ -90,3 +94,114 @@ async def test_a_topic_outlives_many_folds() -> None:
     assert [line.split(".")[0] for line in sections(summary)["Topics"]] == [
         "Zanzibar trip", "Dinner", "Savings", "Roman Empire", "Jokes", "Books",
     ]  # fmt: skip
+
+
+_LAPTOP = (
+    "Facts: User has a 2017 Dell Inspiron with Windows 10, an HDD and 8 GB of RAM. User drives "
+    "a 2011 Honda Civic. User's take-home pay is $3,200 a month and rent is $1,100. User's rent "
+    "is $1,100.\n\nTopics:\nSlow laptop. Outcome: SSD.\n\nOpen: None"
+)
+
+
+def test_a_fold_keeps_the_earlier_facts_whatever_the_model_writes() -> None:
+    # Live, 2026-11-07: 70 turns on, "what laptop do I have" got "I don't have any record".
+    fresh = "Facts: User asked for a reminder to call the Honda shop.\nTopics: Brakes.\nOpen: None"
+    facts = sections(merged(_LAPTOP, fresh, 6000))["Facts"][0]
+    assert "2017 Dell Inspiron" in facts
+    assert "2011 Honda Civic" in facts
+    assert facts.endswith("User asked for a reminder to call the Honda shop.")
+
+
+def test_a_changed_fact_is_kept_after_the_old_one() -> None:
+    # SUMMARY_LEAD tells the reader the later one holds; code never guesses a restatement.
+    fresh = "Facts: User's rent is $1,250 now.\nTopics: Rent.\nOpen: None"
+    facts = sections(merged(_LAPTOP, fresh, 6000))["Facts"][0]
+    assert facts.index("rent is $1,100") < facts.index("User's rent is $1,250 now.")
+    assert "take-home pay is $3,200" in facts
+
+
+@pytest.mark.parametrize(
+    ("earlier", "later"),
+    [
+        # Review, 2026-11-07: a word-overlap test dropped each first fact.
+        ("User earns $3,200 a month.", "User's wife earns $2,800 a month."),
+        ("User's son is 7 years old.", "User's daughter is 4 years old."),
+        ("Assistant taught the idiom 'touch base'.", "Assistant taught the idiom 'bandwidth'."),
+        ("User is Bini.", "Bini's sister is Hana."),
+    ],
+)
+def test_two_facts_that_share_words_are_both_kept(earlier: str, later: str) -> None:
+    prior = f"Facts: {earlier}\n\nTopics:\nA.\n\nOpen: None"
+    facts = sections(merged(prior, f"Facts: {later}\nTopics: B.\nOpen: None", 6000))["Facts"][0]
+    assert earlier in facts and later in facts
+
+
+def test_a_value_that_changes_back_ends_last() -> None:
+    # Review of #2337: $1,100, then $1,250, then $1,100 again must read $1,100.
+    prior = "Facts: User's rent is $1,100. User's rent is $1,250.\n\nTopics:\nA.\n\nOpen: None"
+    fresh = "Facts: User's rent is $1,100.\nTopics: B.\nOpen: None"
+    facts = sections(merged(prior, fresh, 6000))["Facts"][0]
+    assert facts == "User's rent is $1,250. User's rent is $1,100."
+
+
+def test_a_fact_written_again_is_kept_once() -> None:
+    prior = "Facts: User drives a 2011 Honda Civic.\n\nTopics:\nA.\n\nOpen: None"
+    fresh = "Facts: User drives a 2011 Honda Civic\nTopics: B.\nOpen: None"
+    assert sections(merged(prior, fresh, 6000))["Facts"][0].count("Honda Civic") == 1
+
+
+def test_over_their_share_narrations_go_before_short_facts() -> None:
+    # The longest earlier fact goes first: a narration before a short durable fact.
+    narration = (
+        "User asked about renting versus buying in Columbus and got a long comparison of "
+        "prices, rates and the break-even point."
+    )
+    old = f"Facts: User drives a 2011 Honda Civic. {narration}\n\nTopics:\nA.\n\nOpen: None"
+    fresh = "Facts: User's rent is $1,100.\nTopics: B.\nOpen: None"
+    facts = sections(merged(old, fresh, 2 * 70))["Facts"][0]
+    assert "2011 Honda Civic" in facts and "rent is $1,100" in facts
+    assert "renting versus buying" not in facts
+
+
+def test_a_new_fact_is_never_dropped_the_fold_it_arrives() -> None:
+    # Review, 2026-11-07: with a full share of short facts, longest-first eviction dropped a
+    # longer new fact at once and left the stale rent as the only figure.
+    short = " ".join(f"User said thanks {n}." for n in range(150))
+    old = f"Facts: User's rent is $1,100. {short}\n\nTopics:\nA.\n\nOpen: None"
+    fresh = (
+        "Facts: User's rent went up to $1,250 a month starting in October.\nTopics: B.\nOpen: None"
+    )
+    facts = sections(merged(old, fresh, 6000))["Facts"][0]
+    assert facts.endswith("User's rent went up to $1,250 a month starting in October.")
+    assert "rent is $1,100" not in facts  # the longest earlier fact went instead
+
+
+@pytest.mark.parametrize(
+    "placeholder",
+    ["None", "None.", "N/A", "No new facts.", "No new durable facts this time.", "Nothing new."],
+)
+def test_a_fold_with_no_facts_adds_no_placeholder(placeholder: str) -> None:
+    # Review of #2337: "Facts: None" was kept as a new fact and moved to the end each fold.
+    fresh = f"Facts: {placeholder}\nTopics: B.\nOpen: None"
+    facts = sections(merged(_LAPTOP, fresh, 6000))["Facts"][0]
+    assert facts.endswith("User's rent is $1,100.")
+    assert placeholder.rstrip(".") not in facts.replace("User's rent is $1,100.", "")
+
+
+def test_a_fact_that_starts_with_no_is_kept() -> None:
+    fresh = "Facts: No sugar for the user's son. User has no car.\nTopics: B.\nOpen: None"
+    facts = sections(merged(None, fresh, 6000))["Facts"][0]
+    assert facts == "No sugar for the user's son. User has no car."
+
+
+def test_facts_split_in_other_scripts_and_keep_titles_whole() -> None:
+    from app.modules.chat.summary_sections import _fact_sentences
+
+    line = "User's doctor is Dr. Smith. Аренда 40 000. Аренда теперь 45 000. ቤት አለኝ። መኪና አለኝ።"
+    assert _fact_sentences([line]) == [
+        "User's doctor is Dr. Smith.",
+        "Аренда 40 000.",
+        "Аренда теперь 45 000.",
+        "ቤት አለኝ።",
+        "መኪና አለኝ።",
+    ]
