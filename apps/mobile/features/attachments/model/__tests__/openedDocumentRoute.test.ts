@@ -1,14 +1,20 @@
 import { receiveOpenedDocument } from "@/features/attachments/model/openedDocument";
 import { redirectSystemPath } from "@/features/attachments/model/openedDocumentRoute";
 
-const INBOX_FILE = "file:///private/var/mobile/Containers/Data/Application/APP/Documents/Inbox/Lease.pdf";
+const INBOX_FILE = "file:///private/var/mobile/Containers/Data/Application/APP/tmp/com.recall.app-Inbox/Lease.pdf";
 
-jest.mock("@/features/attachments/model/openedDocument", () => ({
-  isOpenedInboxFile: (uri: string) => uri.includes("/Documents/Inbox/"),
-  receiveOpenedDocument: jest.fn(),
+const mockPlatform = { OS: "ios" };
+jest.mock("react-native", () => ({
+  get Platform() {
+    return mockPlatform;
+  },
 }));
+jest.mock("@/features/attachments/model/openedDocument", () => ({ receiveOpenedDocument: jest.fn() }));
 
-beforeEach(() => jest.mocked(receiveOpenedDocument).mockReset());
+beforeEach(() => {
+  jest.mocked(receiveOpenedDocument).mockReset();
+  mockPlatform.OS = "ios";
+});
 
 it.each([
   "recall://chat?chatId=chat-1",
@@ -21,7 +27,7 @@ it.each([
   expect(receiveOpenedDocument).not.toHaveBeenCalled();
 });
 
-it("holds iOS's Inbox copy for New chat: a launch opens on the chat, a running app stays put", () => {
+it("holds the file iOS opened Recall with: a launch opens on the chat, a running app stays put", () => {
   expect(redirectSystemPath({ path: INBOX_FILE, initial: true })).toBe("/");
   expect(redirectSystemPath({ path: INBOX_FILE, initial: false })).toBeNull();
   expect(receiveOpenedDocument).toHaveBeenNthCalledWith(1, INBOX_FILE);
@@ -29,16 +35,17 @@ it("holds iOS's Inbox copy for New chat: a launch opens on the chat, a running a
 });
 
 it("keeps Android's content URL off the router; the opened-document module reads it with its name", () => {
+  mockPlatform.OS = "android";
   const path = "content://com.android.providers.downloads.documents/document/42";
   expect(redirectSystemPath({ path, initial: true })).toBe("/");
   expect(redirectSystemPath({ path, initial: false })).toBeNull();
   expect(receiveOpenedDocument).not.toHaveBeenCalled();
 });
 
-it("never routes another file URL, and never holds it", () => {
-  const path = "FILE:///var/mobile/Containers/Data/Application/APP/Library/Caches/x.pdf";
+it("never holds a file URL on Android, where one could name Recall's own files", () => {
+  mockPlatform.OS = "android";
+  const path = "FILE:///data/user/0/com.recall.app/files/secret.json";
   expect(redirectSystemPath({ path, initial: true })).toBe("/");
-  expect(redirectSystemPath({ path, initial: false })).toBeNull();
   expect(receiveOpenedDocument).not.toHaveBeenCalled();
 });
 

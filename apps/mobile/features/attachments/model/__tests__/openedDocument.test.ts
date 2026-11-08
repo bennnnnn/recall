@@ -10,7 +10,8 @@ import {
 } from "@/features/attachments/model/openedDocument";
 import { copyOpenedDocument } from "@/features/attachments/model/openedDocumentCopy";
 
-const DOCUMENTS = "file:///var/mobile/Containers/Data/Application/APP/Documents/";
+const CONTAINER = "file:///var/mobile/Containers/Data/Application/APP/";
+const DOCUMENTS = `${CONTAINER}Documents/`;
 /** iOS opens Recall with its Inbox copy, naming the container /private/var/…. */
 const OPENED = "file:///private/var/mobile/Containers/Data/Application/APP/Documents/Inbox/Lease%20draft.pdf";
 const SECOND = `${DOCUMENTS}Inbox/Invoice.pdf`;
@@ -74,7 +75,13 @@ afterEach(async () => {
 });
 
 describe("isOpenedInboxFile", () => {
-  it.each([OPENED, SECOND, `${DOCUMENTS}Inbox/r%C3%A9sum%C3%A9.pdf`])("knows %s as iOS's Inbox copy", (uri) => {
+  it.each([
+    OPENED,
+    SECOND,
+    `${DOCUMENTS}Inbox/r%C3%A9sum%C3%A9.pdf`,
+    // Newer iOS copies into tmp/ instead.
+    `${CONTAINER}tmp/com.recall.app-Inbox/Lease.pdf`,
+  ])("knows %s as iOS's Inbox copy", (uri) => {
     expect(isOpenedInboxFile(uri)).toBe(true);
   });
 
@@ -83,11 +90,21 @@ describe("isOpenedInboxFile", () => {
     `${DOCUMENTS}Inbox/`,
     `${DOCUMENTS}Inbox/old/Lease.pdf`,
     `${DOCUMENTS}Inbox/..%2Fnotes.pdf`,
+    `${CONTAINER}tmp/Lease.pdf`,
+    `${CONTAINER}Library/Caches/Lease.pdf`,
     "file:///var/mobile/Containers/Data/Application/OTHER/Documents/Inbox/Lease.pdf",
     SHARED,
   ])("refuses %s", (uri) => {
     expect(isOpenedInboxFile(uri)).toBe(false);
   });
+});
+
+it("reads a file iOS opened Recall with outside the Inbox, and never deletes it: it is the original", async () => {
+  const original = "file:///Users/me/Desktop/Lease.pdf";
+  receiveOpenedDocument(original);
+  expect(await claimOpenedDocument(true)).toBe(PDF);
+  expect(copy).toHaveBeenCalledWith(original, undefined);
+  expect(mockDeleted).toEqual([]);
 });
 
 describe("a file opened while no one is signed in", () => {

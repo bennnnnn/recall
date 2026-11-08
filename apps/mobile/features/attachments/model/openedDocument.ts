@@ -41,10 +41,14 @@ function filePath(uri: string): string | null {
   }
 }
 
-function inboxPath(): string | null {
+/** This app's container: the folder that holds Documents/, Library/ and tmp/. */
+function containerPath(): string | null {
   const documents = filePath(Paths.document.uri);
-  return documents ? `${documents.replace(/\/?$/, "/")}Inbox/` : null;
+  return documents ? documents.replace(/Documents\/?$/, "") : null;
 }
+
+/** Where iOS copies a file opened in an app: Documents/Inbox, or tmp/<bundle id>-Inbox. */
+const INBOX_COPY = /^(?:Documents\/Inbox|tmp\/[^/]+-Inbox)\/([^/]+)$/;
 
 /** A failure this file works around, by kind only: a file system error can carry the file's path. */
 function warn(stage: string, error: unknown): void {
@@ -52,15 +56,16 @@ function warn(stage: string, error: unknown): void {
 }
 
 /**
- * A file iOS copied into this app's Documents/Inbox when another app opened it in Recall
- * (`LSSupportsOpeningDocumentsInPlace` is false). Only a file directly inside it.
+ * The copy iOS made in this app's container when another app opened a file in Recall
+ * (`LSSupportsOpeningDocumentsInPlace` is false): a file directly inside its Inbox. Only
+ * such a copy is Recall's to delete; any other file URL is the original's.
  */
 export function isOpenedInboxFile(uri: string): boolean {
   const path = filePath(uri);
-  const inbox = inboxPath();
-  if (!path || !inbox || !path.startsWith(inbox)) return false;
-  const name = path.slice(inbox.length);
-  return name.length > 0 && !name.includes("/") && name !== "." && name !== "..";
+  const container = containerPath();
+  if (!path || !container || !path.startsWith(container)) return false;
+  const name = INBOX_COPY.exec(path.slice(container.length))?.[1];
+  return name !== undefined && name !== "." && name !== "..";
 }
 
 /** iOS leaves the Inbox copy for the app to delete: once it is read, or no longer wanted. */
