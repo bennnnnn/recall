@@ -1,10 +1,14 @@
+import type { ReactNode } from "react";
 import { Keyboard, Platform, type KeyboardEvent } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import { act, render } from "@testing-library/react-native";
 
+import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
+import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
 import { KEYBOARD_CHECK_MS } from "@/hooks/useKeyboardCorrection";
 import HomeScreen from "@/features/chat/screens/ChatScreen";
-import { closeDrawer, openDrawer } from "@/features/chat/drawer/drawer";
+import { closeDrawer, isDrawerOpenGlobal, openDrawer } from "@/features/chat/drawer/drawer";
+import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";
 
 /**
  * The chat screen while the keyboard and the drawer move: how often it
@@ -78,6 +82,10 @@ jest.mock("react-native-reanimated", () => {
 
 const mockChatRenders = jest.fn();
 const mockBodyProps = jest.fn();
+/** The chat is the screen on top, unless a test pushes another over it. */
+const mockScreen = { onTop: true };
+/** What the stubbed body draws: nothing, unless a test puts real views in it. */
+const mockBody: { content: (() => ReactNode) | null } = { content: null };
 const mockNoop = () => {};
 const mockAsyncNoop = async () => {};
 let mockMessages: { id: string }[] = [];
@@ -190,6 +198,7 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("expo-router", () => ({
   Redirect: () => null,
   useLocalSearchParams: () => ({}),
+  useNavigation: () => ({ isFocused: () => mockScreen.onTop }),
   useRouter: () => mockRouter,
 }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => mockAuth }));
@@ -198,7 +207,7 @@ jest.mock("@/features/chat/drawer/ConversationList", () => ({ ConversationList: 
 jest.mock("@/features/chat/components/ChatScreenBody", () => ({
   ChatScreenBody: (props: unknown) => {
     mockBodyProps(props);
-    return null;
+    return mockBody.content?.() ?? null;
   },
 }));
 jest.mock("@/features/chat/components/ChatScreenMenuSheets", () => ({ ChatScreenMenuSheets: () => null }));
@@ -338,6 +347,8 @@ function attachList(offset = 2000) {
 beforeEach(() => {
   jest.useFakeTimers();
   mockMessages = [];
+  mockScreen.onTop = true;
+  mockBody.content = null;
   // Nothing is mounted yet, so this only puts the shared keyboard back down.
   mockEmitKeyboard({ state: CLOSED, height: 0 });
 });
@@ -551,5 +562,44 @@ describe("ChatScreen on Android when the keyboard closes without Reanimated foll
     expect(hide + (await wait(KEYBOARD_CHECK_MS))).toBe(1);
     expect(lastBody().layout.keyboardLift.value).toBe(0);
     expect(lastBody().layout.emptyHeight).toBe(resting);
+  });
+});
+
+describe("ChatScreen under a screen pushed over it", () => {
+  it("leaves Android Back to that screen: the + sheet, the math pad and the drawer stay as they are", async () => {
+    const back = fakeAndroidBack();
+    const closeSheet = jest.fn();
+    const pad: { current: ReturnType<typeof useMathKeyboardInsert> | null } = { current: null };
+    function Body() {
+      const math = useMathKeyboardInsert({ input: "", setInput: mockNoop });
+      pad.current = math;
+      return <AttachmentSourceSheet visible onClose={closeSheet} onSelect={mockNoop} />;
+    }
+    mockBody.content = () => <Body />;
+    await render(<HomeScreen />);
+    await act(async () => pad.current?.openMathBar());
+    await act(async () => openDrawer());
+
+    // Settings, To-do or Memory is on top: Back is theirs, and nothing in the chat moves.
+    mockScreen.onTop = false;
+    expect(back.press()).toBe(false);
+    expect(isDrawerOpenGlobal()).toBe(true);
+    expect(pad.current?.mathBarOpen).toBe(true);
+    expect(closeSheet).not.toHaveBeenCalled();
+
+    // Back on the chat, Back closes the last one opened first.
+    mockScreen.onTop = true;
+    await act(async () => {
+      back.press();
+    });
+    expect(isDrawerOpenGlobal()).toBe(false);
+    await act(async () => {
+      back.press();
+    });
+    expect(pad.current?.mathBarOpen).toBe(false);
+    expect(closeSheet).not.toHaveBeenCalled();
+    back.press();
+    expect(closeSheet).toHaveBeenCalledTimes(1);
+    jest.restoreAllMocks();
   });
 });

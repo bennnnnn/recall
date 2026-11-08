@@ -3,7 +3,9 @@ import { Pressable, Text } from "react-native";
 
 import { DrawerShell } from "@/features/chat/drawer/DrawerShell";
 import { useDrawerControls, useDrawerOpen } from "@/contexts/DrawerContext";
-import { closeDrawer, openDrawer } from "@/features/chat/drawer/drawer";
+import { closeDrawer, isDrawerOpenGlobal, openDrawer } from "@/features/chat/drawer/drawer";
+import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
+import { useAndroidBack } from "@/ui/overlay/useAndroidBack";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("@/features/chat/drawer/ConversationList", () => {
@@ -103,5 +105,37 @@ describe("DrawerShell", () => {
     await act(async () => fireEvent(host, "accessibilityEscape"));
     expect(screen.getByText("Send")).toBeTruthy();
     expect(screen.queryByText("Drawer row")).toBeNull();
+  });
+
+  it("closes on Android Back before the math pad it was opened over", async () => {
+    const back = fakeAndroidBack();
+    const closePad = jest.fn();
+    /** Stands in for the composer's math pad, opened after the chat mounted and before the drawer. */
+    function MathPad({ open }: { open: boolean }) {
+      useAndroidBack(open, closePad);
+      return null;
+    }
+    const view = await render(
+      <DrawerShell>
+        <MathPad open={false} />
+      </DrawerShell>,
+    );
+    await view.rerender(
+      <DrawerShell>
+        <MathPad open />
+      </DrawerShell>,
+    );
+    await act(async () => openDrawer());
+    expect(isDrawerOpenGlobal()).toBe(true);
+
+    await act(async () => {
+      back.press();
+    });
+    expect(isDrawerOpenGlobal()).toBe(false);
+    expect(closePad).not.toHaveBeenCalled();
+
+    back.press();
+    expect(closePad).toHaveBeenCalledTimes(1);
+    jest.restoreAllMocks();
   });
 });

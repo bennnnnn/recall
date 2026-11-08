@@ -8,6 +8,7 @@ import {
   type KeyboardEvent,
 } from "react-native";
 
+import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
 import { Layer } from "@/lib/layer";
 import { Space } from "@/lib/space";
 
@@ -289,6 +290,38 @@ describe("Sheet", () => {
     );
     await fireEvent(locked.getByTestId("app-sheet-modal"), "requestClose");
     expect(blocked).not.toHaveBeenCalled();
+  });
+
+  it("closes an embedded sheet on Android Back instead of letting Back leave the screen", async () => {
+    // No Modal hears Back for a sheet drawn in the screen (the + sheet over the composer).
+    const back = fakeAndroidBack();
+    const dismissed = jest.fn();
+    const view = await render(
+      <Sheet visible embedded onClose={dismissed}>
+        <Text>attach</Text>
+      </Sheet>,
+    );
+    expect(back.press()).toBe(true);
+    expect(dismissed).toHaveBeenCalledTimes(1);
+
+    // A blocking one keeps Back, as its Modal would, and stays open.
+    const blocked = jest.fn();
+    await view.rerender(
+      <Sheet visible embedded onClose={blocked} backdropDismiss={false}>
+        <Text>attach</Text>
+      </Sheet>,
+    );
+    expect(back.press()).toBe(true);
+    expect(blocked).not.toHaveBeenCalled();
+
+    // A closed one is not listening.
+    await view.rerender(
+      <Sheet visible={false} embedded onClose={dismissed}>
+        <Text>attach</Text>
+      </Sheet>,
+    );
+    expect(back.listening()).toBe(0);
+    expect(back.press()).toBe(false);
   });
 
   it("closes on VoiceOver's escape scrub only when it may be dismissed", async () => {

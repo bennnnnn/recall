@@ -1,6 +1,7 @@
 import type { LayoutChangeEvent } from "react-native";
 import { act, renderHook } from "@testing-library/react-native";
 
+import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
 import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLayout";
 
 const fieldLayout = (width: number) =>
@@ -63,5 +64,24 @@ describe("useComposerFieldLayout", () => {
       useComposerFieldLayout({ input: "", draftRevision: 0, fontScale: 1, onInputFrameExtraChange }),
     );
     expect(onInputFrameExtraChange).toHaveBeenLastCalledWith(0);
+  });
+
+  it("folds the full-height editor on Android Back, and lets the next Back leave the chat", async () => {
+    const back = fakeAndroidBack();
+    const { result } = await renderHook(() =>
+      useComposerFieldLayout({ input: DRAFT, draftRevision: 0, fontScale: 1 }),
+    );
+    await act(() => result.current.toggleExpanded());
+    expect(result.current.composerExpanded).toBe(true);
+
+    let handled = false;
+    await act(() => {
+      handled = back.press();
+    });
+
+    expect(handled).toBe(true);
+    expect(result.current.composerExpanded).toBe(false);
+    expect(back.press()).toBe(false);
+    jest.restoreAllMocks();
   });
 });
