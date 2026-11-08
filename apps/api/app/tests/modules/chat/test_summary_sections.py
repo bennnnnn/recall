@@ -176,6 +176,24 @@ def test_a_new_fact_is_never_dropped_the_fold_it_arrives() -> None:
     assert "rent is $1,100" not in facts  # the longest earlier fact went instead
 
 
+@pytest.mark.parametrize(
+    "placeholder",
+    ["None", "None.", "N/A", "No new facts.", "No new durable facts this time.", "Nothing new."],
+)
+def test_a_fold_with_no_facts_adds_no_placeholder(placeholder: str) -> None:
+    # Review of #2337: "Facts: None" was kept as a new fact and moved to the end each fold.
+    fresh = f"Facts: {placeholder}\nTopics: B.\nOpen: None"
+    facts = sections(merged(_LAPTOP, fresh, 6000))["Facts"][0]
+    assert facts.endswith("User's rent is $1,100.")
+    assert placeholder.rstrip(".") not in facts.replace("User's rent is $1,100.", "")
+
+
+def test_a_fact_that_starts_with_no_is_kept() -> None:
+    fresh = "Facts: No sugar for the user's son. User has no car.\nTopics: B.\nOpen: None"
+    facts = sections(merged(None, fresh, 6000))["Facts"][0]
+    assert facts == "No sugar for the user's son. User has no car."
+
+
 def test_facts_split_in_other_scripts_and_keep_titles_whole() -> None:
     from app.modules.chat.summary_sections import _fact_sentences
 

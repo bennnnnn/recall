@@ -41,6 +41,12 @@ _FACT_SENTENCE = re.compile(
 # first: an old topic line shortens to its subject, a fact is gone when it goes.
 _FACTS_SHARE = 2
 _OPEN_SHARE = 8
+# A fold with nothing to keep writes a placeholder ("None.", "No new facts."), never a fact
+# (review of #2337).
+_NO_FACTS = re.compile(
+    r"^\W*(?:none|n/?a|nil|nothing(?:\s+new)?|no\s+(?:new\s+)?(?:\w+\s+)?facts?\b[^.!?]*)\W*$",
+    re.IGNORECASE,
+)
 
 
 def sections(summary: str | None) -> dict[str, list[str]]:
@@ -101,7 +107,8 @@ def _carried_facts(old: list[str], new: list[str], width: int) -> list[str]:
 
 
 def _fact_sentences(lines: list[str]) -> list[str]:
-    return [part.strip() for line in lines for part in _FACT_SENTENCE.split(line) if part.strip()]
+    parts = (part.strip() for line in lines for part in _FACT_SENTENCE.split(line))
+    return [part for part in parts if part and _NO_FACTS.match(part) is None]
 
 
 def _clipped(line: str, width: int) -> str:
