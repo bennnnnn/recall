@@ -5,7 +5,11 @@ import {
   normalizeAccentPreference,
   type AccentPreference,
 } from "@/lib/accent";
-import { applyAccent, darkTheme, lightTheme, themeFor } from "@/lib/theme";
+import { Text } from "react-native";
+import { render } from "@testing-library/react-native";
+
+import { BrandAccent, setAccentSnapshot } from "@/lib/accentRuntime";
+import { applyAccent, darkTheme, lightTheme, themeFor, useTheme } from "@/lib/theme";
 
 /** WCAG 2.1 relative luminance of a #RRGGBB color. */
 function luminance(hex: string): number {
@@ -82,5 +86,28 @@ describe("accent presets", () => {
     for (const accent of ACCENT_OPTIONS) {
       expect(normalizeAccentPreference(accent)).toBe<AccentPreference>(accent);
     }
+  });
+});
+
+describe("BrandAccent", () => {
+  afterEach(() => setAccentSnapshot(DEFAULT_ACCENT));
+
+  function Swatch() {
+    return <Text>{useTheme().primary}</Text>;
+  }
+
+  it("keeps the screens before sign-in indigo when the phone picked another accent", async () => {
+    // Live, 2026-11-07: a Berry pick turned the landing pink.
+    setAccentSnapshot("berry");
+    const { getAllByText } = await render(
+      <>
+        <BrandAccent>
+          <Swatch />
+        </BrandAccent>
+        <Swatch />
+      </>,
+    );
+    expect(getAllByText(lightTheme.primary)).toHaveLength(1);
+    expect(getAllByText(applyAccent(lightTheme, "berry").primary)).toHaveLength(1);
   });
 });

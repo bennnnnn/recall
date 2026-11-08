@@ -27,6 +27,7 @@ import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@
 import { isExpoGo } from "@/lib/google-auth";
 import { Space } from "@/lib/space";
 import { shadowGlow } from "@/lib/shadow";
+import { BrandAccent } from "@/lib/accentRuntime";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
@@ -44,7 +45,16 @@ const HIGHLIGHTS = [
   { icon: "message-dots" as const, labelKey: "login.highlight_organize" },
 ];
 
+/** Sign-in, in the brand's indigo whatever accent the phone has picked. */
 export default function LoginScreen() {
+  return (
+    <BrandAccent>
+      <SignIn />
+    </BrandAccent>
+  );
+}
+
+function SignIn() {
   const { token, user, loading, onboarded } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
@@ -119,9 +129,72 @@ export default function LoginScreen() {
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;
 
+  const actions = (
+    <View style={s.actions}>
+      {expoGo && showDevLogin ? (
+        <>
+          {devBanner(t(Platform.OS === "ios" ? "login.dev_expo_ios_hint" : "login.dev_expo_hint"))}
+          {devPrimaryLogin}
+        </>
+      ) : (
+        <>
+          {showAppleLogin ? (
+            <Pressable
+              style={providerStyle(s.appleBtn, "apple")}
+              onPress={handleApple}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={t("login.apple")}
+              accessibilityState={{ disabled: busy, busy: busyProvider === "apple" }}
+            >
+              {busyProvider === "apple" ? (
+                <ActivityIndicator color={theme.brand.appleInk} />
+              ) : (
+                <>
+                  <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
+                  <Text style={s.appleText}>{t("login.apple")}</Text>
+                </>
+              )}
+            </Pressable>
+          ) : null}
+          {showGoogleLogin ? (
+            <Pressable
+              style={providerStyle(s.googleBtn, "google")}
+              onPress={handleGoogle}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={t("login.google")}
+              accessibilityState={{ disabled: busy, busy: busyProvider === "google" }}
+            >
+              {busyProvider === "google" ? (
+                <ActivityIndicator color={theme.textSecondary} />
+              ) : (
+                <>
+                  <BrandMark name="google" size={IconSize.sm} />
+                  <Text style={s.googleText}>{t("login.google")}</Text>
+                </>
+              )}
+            </Pressable>
+          ) : showDevLogin && !showAppleLogin ? (
+            devBanner(t("login.error_not_configured"))
+          ) : null}
+          {googleOnlyDevBuild ? (
+            devSecondaryLogin
+          ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
+            devPrimaryLogin
+          ) : null}
+        </>
+      )}
+
+      {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
+          the sign-in); the Privacy Policy says what the AI providers receive. */}
+      <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
+    </View>
+  );
+
   return (
     <LinearGradient colors={gradientColors} style={s.root}>
-      <AuthScrollLayout justify="space-between">
+      <AuthScrollLayout justify="space-between" footer={actions}>
         <View style={s.hero}>
           <View style={s.logoGlow}>
             <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
@@ -141,66 +214,6 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        <View style={s.actions}>
-          {expoGo && showDevLogin ? (
-            <>
-              {devBanner(t(Platform.OS === "ios" ? "login.dev_expo_ios_hint" : "login.dev_expo_hint"))}
-              {devPrimaryLogin}
-            </>
-          ) : (
-            <>
-              {showAppleLogin ? (
-                <Pressable
-                  style={providerStyle(s.appleBtn, "apple")}
-                  onPress={handleApple}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("login.apple")}
-                  accessibilityState={{ disabled: busy, busy: busyProvider === "apple" }}
-                >
-                  {busyProvider === "apple" ? (
-                    <ActivityIndicator color={theme.brand.appleInk} />
-                  ) : (
-                    <>
-                      <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
-                      <Text style={s.appleText}>{t("login.apple")}</Text>
-                    </>
-                  )}
-                </Pressable>
-              ) : null}
-              {showGoogleLogin ? (
-                <Pressable
-                  style={providerStyle(s.googleBtn, "google")}
-                  onPress={handleGoogle}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("login.google")}
-                  accessibilityState={{ disabled: busy, busy: busyProvider === "google" }}
-                >
-                  {busyProvider === "google" ? (
-                    <ActivityIndicator color={theme.textSecondary} />
-                  ) : (
-                    <>
-                      <BrandMark name="google" size={IconSize.sm} />
-                      <Text style={s.googleText}>{t("login.google")}</Text>
-                    </>
-                  )}
-                </Pressable>
-              ) : showDevLogin && !showAppleLogin ? (
-                devBanner(t("login.error_not_configured"))
-              ) : null}
-              {googleOnlyDevBuild ? (
-                devSecondaryLogin
-              ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
-                devPrimaryLogin
-              ) : null}
-            </>
-          )}
-
-          {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
-              the sign-in); the Privacy Policy says what the AI providers receive. */}
-          <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
-        </View>
       </AuthScrollLayout>
     </LinearGradient>
   );

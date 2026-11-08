@@ -12,6 +12,7 @@ import { getLegalPrivacyUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { BrandAccent } from "@/lib/accentRuntime";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
@@ -25,7 +26,16 @@ import { IconSize } from "@/ui/icons/sizes";
  * Agreeing here keeps the user signed in; signing out leads back to the sign-in page,
  * whose tap agrees too.
  */
+/** The AI-data consent, in the brand's indigo like the rest of sign-in. */
 export default function AiConsentScreen() {
+  return (
+    <BrandAccent>
+      <AiConsent />
+    </BrandAccent>
+  );
+}
+
+function AiConsent() {
   const { token, user } = useAuth();
   const theme = useTheme();
   const { t } = useTranslation();
@@ -37,9 +47,41 @@ export default function AiConsentScreen() {
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;
 
+  const actions = (
+    <View style={s.actions}>
+      <Button
+        title={t("onboarding.consent_agree")}
+        onPress={() => void agree()}
+        size="lg"
+        loading={busy === "agree"}
+        loadingLabel={t("onboarding.consent_agree")}
+        disabled={busy !== null}
+        style={s.cta}
+      />
+      <Button
+        title={t("onboarding.consent_decline")}
+        onPress={() => void decline()}
+        variant="ghost"
+        loading={busy === "decline"}
+        loadingLabel={t("onboarding.consent_decline")}
+        disabled={busy !== null}
+        style={s.cta}
+      />
+      <Button
+        title={t("onboarding.consent_delete")}
+        onPress={() => void deleteAccount()}
+        variant="ghost"
+        loading={busy === "delete"}
+        loadingLabel={t("onboarding.consent_delete")}
+        disabled={busy !== null}
+        style={s.cta}
+      />
+    </View>
+  );
+
   return (
     <LinearGradient colors={gradientColors} style={s.root}>
-      <AuthScrollLayout justify="space-between">
+      <AuthScrollLayout justify="space-between" footer={actions}>
         <View>
           <View style={s.hero}>
             <View style={s.badge}>
@@ -77,35 +119,6 @@ export default function AiConsentScreen() {
           </Pressable>
         </View>
 
-        <View style={s.actions}>
-          <Button
-            title={t("onboarding.consent_agree")}
-            onPress={() => void agree()}
-            size="lg"
-            loading={busy === "agree"}
-            loadingLabel={t("onboarding.consent_agree")}
-            disabled={busy !== null}
-            style={s.cta}
-          />
-          <Button
-            title={t("onboarding.consent_decline")}
-            onPress={() => void decline()}
-            variant="ghost"
-            loading={busy === "decline"}
-            loadingLabel={t("onboarding.consent_decline")}
-            disabled={busy !== null}
-            style={s.cta}
-          />
-          <Button
-            title={t("onboarding.consent_delete")}
-            onPress={() => void deleteAccount()}
-            variant="ghost"
-            loading={busy === "delete"}
-            loadingLabel={t("onboarding.consent_delete")}
-            disabled={busy !== null}
-            style={s.cta}
-          />
-        </View>
       </AuthScrollLayout>
     </LinearGradient>
   );
