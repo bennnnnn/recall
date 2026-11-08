@@ -1,7 +1,8 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  type LayoutChangeEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -94,7 +95,7 @@ export function MathScannerChrome({
   const cameraStarting = camera === "starting";
   const cameraOff = camera === "unavailable";
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
-  const errorBottom = bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl;
+  const errorBanner = useErrorBannerBottom(bottomPad);
   useLiveAnnouncement(error);
 
   const closeButton = (
@@ -117,7 +118,7 @@ export function MathScannerChrome({
       ) : null}
 
       {error ? (
-        <View style={[s.error, { bottom: errorBottom }]} testID="math-scanner-error">
+        <View style={[s.error, { bottom: errorBanner.bottom }]} testID="math-scanner-error">
           <Icon
             name="alert-circle"
             size={IconSize.sm}
@@ -160,7 +161,7 @@ export function MathScannerChrome({
           </GHPressable>
         </View>
       ) : granted ? (
-        <View style={[s.bottom, { paddingBottom: bottomPad }]}>
+        <View style={[s.bottom, { paddingBottom: bottomPad }]} onLayout={errorBanner.onControlsLayout} testID="math-scanner-controls">
           <View style={s.bottomScrim} pointerEvents="none" />
           <ScannerSubjectSwitcher value={subject} onChange={onSubjectChange} />
           <View style={s.controls}>
@@ -232,6 +233,20 @@ export function MathScannerChrome({
       ) : null}
     </View>
   );
+}
+
+/**
+ * Where the error banner sits: above the shutter and the subject tabs. The tabs grow with the
+ * reader's text size, so once the controls are measured the banner clears them as drawn.
+ */
+function useErrorBannerBottom(bottomPad: number) {
+  const [controlsHeight, setControlsHeight] = useState(0);
+  const onControlsLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = Math.ceil(event.nativeEvent.layout.height);
+    setControlsHeight((current) => (current === height ? current : height));
+  }, []);
+  const atDefaultSize = bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl;
+  return { bottom: Math.max(atDefaultSize, controlsHeight + Space.sm), onControlsLayout };
 }
 
 function makeStyles(theme: Theme) {

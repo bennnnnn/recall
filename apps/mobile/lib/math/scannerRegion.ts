@@ -40,7 +40,15 @@ export const DEFAULT_REGION_HEIGHT = 0.3;
 /** Pixel chrome used to derive `ScanChromeInset` (matches MathScannerChrome). */
 export const SCANNER_TOP_CONTROL_PX = 44;
 export const SCANNER_SHUTTER_PX = 76;
-export const SCANNER_SUBJECT_SWITCHER_PX = 42;
+/** A subject tab's pill at the default text size, and the room above and below it in its row. */
+export const SCANNER_SUBJECT_TAB_PX = 36;
+export const SCANNER_SUBJECT_ROW_PAD_PX = 4;
+/**
+ * The subject tabs' row at the default text size (ScannerSubjectSwitcher draws it from the two
+ * above): the pill and its padding, the tabs' 44 pt target. A larger text size grows it, and
+ * the chrome measures it then.
+ */
+export const SCANNER_SUBJECT_SWITCHER_PX = SCANNER_SUBJECT_TAB_PX + 2 * SCANNER_SUBJECT_ROW_PAD_PX;
 
 const ZERO_INSET: ScanChromeInset = { top: 0, right: 0, bottom: 0, left: 0 };
 
