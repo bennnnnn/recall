@@ -42,14 +42,16 @@ function loadCallAudio(): CallAudioModule | null {
     : null;
 }
 
-function logRouteFailed(stage: "start" | "stop", error: unknown): void {
+function logRouteFailed(stage: "start" | "stop" | "listen", error: unknown): void {
   console.info("[LiveTalk/audio]", { stage, error: error instanceof Error ? error.name : typeof error });
 }
 
 function listenForInterruption(native: CallAudioModule, onInterrupted: () => void): Subscription | null {
   try {
     return native.addListener?.("onInterrupted", onInterrupted) ?? null;
-  } catch {
+  } catch (error) {
+    // A build without the event still routes the call; it only cannot hear an interruption.
+    logRouteFailed("listen", error);
     return null;
   }
 }
