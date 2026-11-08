@@ -33,6 +33,7 @@ import {
 } from "@/lib/math/healMathSource";
 import { mathPadHeight } from "@/lib/math/keyboardPad";
 import { useLatestRef } from "@/lib/latestRef";
+import { useAndroidBack } from "@/ui/overlay/useAndroidBack";
 
 function hasEditableMath(text: string): boolean {
   return text.includes("$") && !isMostlyProsePaste(text);
@@ -226,11 +227,19 @@ export function useMathKeyboardInsert(options: {
     setMathBarOpen(true);
   }, [enablePreview, textRef]);
 
-  const dismissMathBar = useCallback(() => {
+  /** The pad goes down for typing: the caret after the maths, and the next focus asks for the phone's keyboard. */
+  const closeMathBar = useCallback(() => {
     if (!mathBarOpenRef.current) return;
+    resumeMathRef.current = false;
+    setResumeMathOnFocus(false);
     mathBarOpenRef.current = false;
+    const caret = caretAfterMathBarClose(textRef.current);
+    pinSelection({ start: caret, end: caret });
     setMathBarOpen(false);
-  }, []);
+  }, [pinSelection, textRef]);
+
+  // Android Back puts the pad down as it puts the phone's keyboard down, and goes no further.
+  useAndroidBack(mathBarOpen, closeMathBar);
 
   const onComposerFocus = useCallback(() => {
     if (!resumeMathRef.current || mathBarOpenRef.current) return;
@@ -316,18 +325,9 @@ export function useMathKeyboardInsert(options: {
   );
 
   const toggleMathBar = useCallback(() => {
-    if (mathBarOpenRef.current) {
-      resumeMathRef.current = false;
-      setResumeMathOnFocus(false);
-      mathBarOpenRef.current = false;
-      const text = textRef.current;
-      const caret = caretAfterMathBarClose(text);
-      pinSelection({ start: caret, end: caret });
-      setMathBarOpen(false);
-      return;
-    }
-    openMathBar();
-  }, [openMathBar, pinSelection, textRef]);
+    if (mathBarOpenRef.current) closeMathBar();
+    else openMathBar();
+  }, [closeMathBar, openMathBar]);
 
   return {
     mathBarOpen,
@@ -336,7 +336,6 @@ export function useMathKeyboardInsert(options: {
     resumeMathOnFocus,
     toggleMathBar,
     openMathBar,
-    dismissMathBar,
     onComposerFocus,
     mathGroup,
     setMathGroup,

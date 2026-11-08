@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
+import { useAndroidBack } from "./useAndroidBack";
 import { useSheetPanDismiss } from "./useSheetPanDismiss";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Layer } from "@/lib/layer";
@@ -74,7 +75,8 @@ type Props = {
   onShow?: () => void;
   /**
    * Draw the sheet in the current screen instead of a Modal, so a real choice
-   * Modal can open over it without moving this sheet.
+   * Modal can open over it without moving this sheet. Android Back still closes
+   * it first (`useAndroidBack`).
    */
   embedded?: boolean;
   children: ReactNode;
@@ -249,12 +251,7 @@ export function Sheet({
   );
 
   if (embedded) {
-    if (!visible) return null;
-    return (
-      <View style={s.embedded} testID="app-sheet-embedded">
-        {frame}
-      </View>
-    );
+    return visible ? <EmbeddedSheet style={s.embedded} onBack={requestClose}>{frame}</EmbeddedSheet> : null;
   }
 
   return (
@@ -269,6 +266,28 @@ export function Sheet({
     >
       <GestureHandlerRootView style={s.flex}>{frame}</GestureHandlerRootView>
     </Modal>
+  );
+}
+
+/**
+ * A sheet drawn in the screen has no Modal to take Android Back for it, so it listens
+ * itself from the moment it is up: Back closes it (a blocking one stays) and goes no
+ * further, as it does for a sheet in a Modal.
+ */
+function EmbeddedSheet({
+  style,
+  onBack,
+  children,
+}: {
+  style: StyleProp<ViewStyle>;
+  onBack: () => void;
+  children: ReactNode;
+}) {
+  useAndroidBack(true, onBack);
+  return (
+    <View style={style} testID="app-sheet-embedded">
+      {children}
+    </View>
   );
 }
 

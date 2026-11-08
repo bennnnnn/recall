@@ -6,6 +6,7 @@ import type {
 
 import type { ComposerTextSize } from "@/features/chat/components/ComposerTextMeasure";
 import { useLatestRef } from "@/lib/latestRef";
+import { useAndroidBack } from "@/ui/overlay/useAndroidBack";
 import {
   COMPOSER_CONTROL_SIZE,
   composerInputFrameForLines,
@@ -68,9 +69,9 @@ export function useComposerFieldLayout({
   }, []);
 
   // Expanded chrome belongs to the active draft, not the mounted screen.
-  useEffect(() => {
-    setComposerExpanded(false);
-  }, [draftRevision]);
+  useEffect(() => setComposerExpanded(false), [draftRevision]);
+  // Android Back folds the full-height editor before it leaves the chat (the phone's keyboard takes the first).
+  useAndroidBack(composerExpanded, () => setComposerExpanded(false));
 
   useEffect(() => {
     // iOS can retain the last multiline content size after a controlled

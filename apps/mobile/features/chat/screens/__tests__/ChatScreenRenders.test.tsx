@@ -190,6 +190,7 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("expo-router", () => ({
   Redirect: () => null,
   useLocalSearchParams: () => ({}),
+  useNavigation: () => ({ isFocused: () => true }),
   useRouter: () => mockRouter,
 }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => mockAuth }));

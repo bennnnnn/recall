@@ -5,11 +5,12 @@ import {
   type HostInstance,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import type { IconName } from "@/ui/icons/names";
+import { AndroidBackScreen } from "@/ui/overlay/useAndroidBack";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/features/chat/components/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/features/chat/components/ChatScreenMenuSheets";
@@ -401,11 +402,14 @@ function ChatScreen() {
 }
 
 export default function HomeScreen() {
+  const navigation = useNavigation();
   return (
-    <DrawerShell>
-      <ComposerDraftProvider>
-        <ChatScreen />
-      </ComposerDraftProvider>
-    </DrawerShell>
+    <AndroidBackScreen isOnTop={navigation.isFocused}>
+      <DrawerShell>
+        <ComposerDraftProvider>
+          <ChatScreen />
+        </ComposerDraftProvider>
+      </DrawerShell>
+    </AndroidBackScreen>
   );
 }
