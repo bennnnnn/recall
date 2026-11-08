@@ -304,7 +304,10 @@ def test_numbers_are_read_one_way(text: str, numbers: list[str]) -> None:
         ("What if $y = 3x + 1$?", None),
         ("What if $x \\geq 3$?", None),
         ("What if n is even?", None),
-        ("What is $h_{max}$ for $v_0 = 15\\text{ m/s}$?", "v0"),
+        ("How high with $v_0 = 15\\text{ m/s}$?", "v0"),
+        # An evaluation at a value asks about the variable; it changes nothing (#2345 review).
+        ("What is the speed at $t = 2$ s?", None),
+        ("What is the sum for $n = 5$?", None),
     ],
 )
 def test_changed_symbol_reads_one_name_however_written(text: str, symbol: str | None) -> None:
@@ -340,3 +343,13 @@ def test_an_explanation_or_an_equation_never_blocks_a_what_if() -> None:
     assert not changes_a_kept_symbol("What if $y = 2x - 4$?", ["What if $y = 3x + 1$?"])
     assert not changes_a_kept_symbol("What if n is odd?", ["What if n is even?"])
     assert changes_a_kept_symbol("How high with $v_0 = 30$ m/s?", ["What if $v_0$ was 40 m/s?"])
+
+
+def test_two_evaluations_of_one_variable_are_two_chips() -> None:
+    """Review (#2345): "the speed at $t = 2$ s" dropped "the height at $t = 4$ s"."""
+    assert not changes_a_kept_symbol(
+        "What is the height at $t = 4$ s?", ["What is the speed at $t = 2$ s?"]
+    )
+    assert not changes_a_kept_symbol(
+        "What is the sum for $n = 10$?", ["What is the sum for $n = 5$?"]
+    )

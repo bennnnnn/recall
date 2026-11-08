@@ -180,9 +180,10 @@ _SYMBOL_AFTER = re.compile(r"(?![aAI]\b)([A-Za-z](?:_\{?[A-Za-z0-9]{1,3}\}?|\d{1
 _SETS_A_VALUE = re.compile(
     r"^\s*([^=<>]+?)\s*=\s*-?\d[\d.,]*(?:\s*\\.*|\s+[^+\-=<>]*|\s*[%°].*)?\s*$"
 )
-# A question that sets a value as its condition: "How high with $v_0 = 30$?", "… for $g = 1.6$".
-# "Why is $g = 9.8$ here?" explains the value it names; it changes nothing.
-_CONDITION_SPAN = re.compile(r"\b(?:with|for|when|at|if)\s+(\$[^$\n]+\$)", re.IGNORECASE)
+# A question that sets a value as its condition: "How high with $v_0 = 30$?", "… if $g = 1.6$".
+# "Why is $g = 9.8$ here?" explains the value it names, and "the speed at $t = 2$ s" and "the
+# height at $t = 4$ s" ask two things about one variable: neither changes a quantity.
+_CONDITION_SPAN = re.compile(r"\b(?:with|if)\s+(\$[^$\n]+\$)", re.IGNORECASE)
 
 
 def changed_symbol(text: str) -> str | None:
