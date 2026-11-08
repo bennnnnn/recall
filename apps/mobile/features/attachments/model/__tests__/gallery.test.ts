@@ -181,14 +181,23 @@ describe("gallery helpers", () => {
     expect(galleryListCacheKey("all", "  cat ")).toBe("all:cat");
   });
 
-  it("splits a file tile's name from its type badge, keeping the name's own case", () => {
-    expect(galleryFileParts("Cell-Biology-Notes.pdf", "application/pdf"))
-      .toEqual({ stem: "Cell-Biology-Notes", type: "PDF" });
-    expect(galleryFileParts("budget.v2.xlsx", "application/octet-stream"))
-      .toEqual({ stem: "budget.v2", type: "XLSX" });
+  it.each([
+    ["Cell-Biology-Notes.pdf", "application/pdf", "Cell-Biology-Notes", "PDF"],
+    ["Report.PDF", "application/pdf", "Report", "PDF"],
+    ["photo.jpeg", "image/jpeg", "photo", "JPEG"],
+    ["data.json", "application/json; charset=utf-8", "data", "JSON"],
+    // A type that names no extension: any suffix that is not a number is one.
+    ["budget.v2.xlsx", "application/octet-stream", "budget.v2", "XLSX"],
+    // A dot that is part of the name: the name stays whole and the type gives the badge.
+    ["Chapter 3.2", "application/pdf", "Chapter 3.2", "PDF"],
+    ["v1.0", "text/plain", "v1.0", "TXT"],
+    ["Release 2.10", "application/octet-stream", "Release 2.10", null],
+    ["notes.final", "text/plain", "notes.final", "TXT"],
     // No extension in the name: the content type gives it; neither gives none.
-    expect(galleryFileParts("README", "text/markdown")).toEqual({ stem: "README", type: "MD" });
-    expect(galleryFileParts("blob", "")).toEqual({ stem: "blob", type: null });
-    expect(galleryFileParts(".env", "text/plain")).toEqual({ stem: ".env", type: "TXT" });
+    ["README", "text/markdown", "README", "MD"],
+    ["blob", "", "blob", null],
+    [".env", "text/plain", ".env", "TXT"],
+  ])("splits %s (%s) into its name and type badge", (name, contentType, stem, type) => {
+    expect(galleryFileParts(name, contentType)).toEqual({ stem, type });
   });
 });
