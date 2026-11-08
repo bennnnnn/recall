@@ -4,6 +4,7 @@
  * server's was English only and replaced the translated one (code-health audit NET-10). */
 
 import i18n from "@/lib/i18n";
+import { capitalisedName } from "@/lib/profile";
 
 /**
  * What the home asks under the hello, in turn. One stays for `QUESTION_HOURS`, so the home
@@ -28,12 +29,6 @@ function questionAt(now: Date): (typeof QUESTIONS)[number] {
   return QUESTIONS[Math.floor(localHours / QUESTION_HOURS) % QUESTIONS.length] ?? "help_with";
 }
 
-/** "bini" is greeted "Bini": the first letter capitalised, the rest as the account has it. */
-function capitalised(word: string): string {
-  const [initial = "", ...rest] = Array.from(word);
-  return initial.toLocaleUpperCase() + rest.join("");
-}
-
 /**
  * The home's two lines: "Hi, Sam" (the first word of the account's name, when it has one)
  * and the slot's question, "What are you working on?".
@@ -43,7 +38,7 @@ export function homeGreeting(
   now: Date = new Date(),
 ): { hello: string; question: string } {
   const word = name?.trim().split(/\s+/)[0];
-  const first = word ? capitalised(word) : undefined;
+  const first = word ? capitalisedName(word, i18n.language) : undefined;
   return {
     hello: first ? i18n.t("chat.home.hello_name", { name: first }) : i18n.t("chat.home.hello"),
     question: i18n.t(`chat.home.question_${questionAt(now)}`),

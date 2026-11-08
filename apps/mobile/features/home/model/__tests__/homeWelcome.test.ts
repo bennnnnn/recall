@@ -2,6 +2,7 @@ import i18n from "@/lib/i18n";
 import { homeGreeting } from "@/features/home/model/homeWelcome";
 import en from "@/lib/i18n/en.json";
 import fr from "@/lib/i18n/fr.json";
+import tr from "@/lib/i18n/tr.json";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -14,7 +15,10 @@ const question = (now: Date) => homeGreeting(null, now).question;
 
 describe("homeGreeting", () => {
   beforeAll(async () => {
-    await i18n.init({ lng: "en", resources: { en: { translation: en }, fr: { translation: fr } } });
+    await i18n.init({
+      lng: "en",
+      resources: { en: { translation: en }, fr: { translation: fr }, tr: { translation: tr } },
+    });
   });
 
   afterEach(async () => {
@@ -65,6 +69,14 @@ describe("homeGreeting", () => {
     const now = at(0, 9);
     expect(homeGreeting("mcKenzie", now).hello).toBe("Hi, McKenzie");
     expect(homeGreeting("élodie", now).hello).toBe("Hi, Élodie");
+  });
+
+  // Turkish writes a capital "i" as "İ": the phone's own locale said "Irem".
+  it("capitalises in the app's language, whatever the phone's", async () => {
+    await i18n.changeLanguage("tr");
+    expect(homeGreeting("irem", at(0, 9)).hello).toContain("İrem");
+    await i18n.changeLanguage("en");
+    expect(homeGreeting("irem", at(0, 9)).hello).toBe("Hi, Irem");
   });
 
   it("speaks the phone's language, not the server's", async () => {
