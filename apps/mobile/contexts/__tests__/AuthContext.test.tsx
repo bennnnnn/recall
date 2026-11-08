@@ -445,9 +445,16 @@ it("forgets the push and location sync records when an account signs in", async 
 
 it("clears the last account's pictures before another signs in, should its sign-out not have", async () => {
   (getToken as jest.Mock).mockResolvedValueOnce(null);
+  const cleared = deferred<void>();
+  (clearImageCaches as jest.Mock).mockReturnValueOnce(cleared.promise);
   await mount();
-  await act(async () => { await current.signInWithDev(); });
+  let signingIn!: Promise<void>;
+  await act(async () => { signingIn = current.signInWithDev(); });
+  // The new account's token is saved only once the pictures are gone.
   expect(clearImageCaches).toHaveBeenCalledTimes(1);
+  expect(setTokenPair).not.toHaveBeenCalled();
+  await act(async () => { cleared.resolve(); await signingIn; });
+  expect(setTokenPair).toHaveBeenCalledWith("access-b", "refresh-b", expect.any(Number));
   expect(current.user?.id).toBe(userB.id);
 });
 

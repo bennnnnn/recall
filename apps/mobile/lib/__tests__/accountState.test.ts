@@ -267,10 +267,11 @@ it("lists each store once", () => {
 });
 
 /**
- * Native caches the store scan cannot see: a view that keeps what it draws on disk (an
- * account's photos, avatar, chat images) needs its cache cleared at sign-out and sign-in.
+ * Native caches the store scan cannot see: expo-image keeps what it draws on disk (an
+ * account's photos, avatar, chat images) unless told otherwise, so any use of it needs
+ * its cache cleared at sign-out and sign-in.
  */
-const NATIVE_CACHES = [{ keeps: /cachePolicy="(?:memory-)?disk"/, clear: "clearImageCaches" }];
+const NATIVE_CACHES = [{ keeps: /from "expo-image"/, clear: "clearImageCaches" }];
 
 it("clears every native cache a view keeps an account's pictures in, at sign-out and sign-in", () => {
   const sources = productionFiles().map((file) => ts.sys.readFile(file) ?? "");
