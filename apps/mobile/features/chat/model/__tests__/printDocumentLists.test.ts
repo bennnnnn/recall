@@ -84,3 +84,12 @@ it("ends a list at a rule written like its items", async () => {
     expect(html).not.toContain("<li><ul>");
   }
 });
+
+it("keeps a fenced block's indentation under an item indented less than its text", async () => {
+  // Review (#2346): a fence two spaces under "1." lost its code's indentation.
+  const html = await markdownToStructuredPrintHtml(
+    "Chat",
+    "1. Run:\n  ```python\n  def f():\n      return 1\n  ```",
+  );
+  expect(html).toContain("def f():\n    return 1");
+});

@@ -280,6 +280,9 @@ function readList(lines: string[], start: number, depth: number): { html: string
     if (!sameList(lines[i] ?? "")) break;
     const contentIndent = indent + item![2].length + 1;
     const body = [item![3]];
+    // The item's own indent, from its first indented line: every line under it loses that
+    // much, so a fence indented two spaces under "1." keeps its code's indentation.
+    let strip: number | null = null;
     i += 1;
     while (i < lines.length) {
       const line = lines[i] ?? "";
@@ -293,10 +296,10 @@ function readList(lines: string[], start: number, depth: number): { html: string
         }
         break;
       }
-      if (leadingSpaces(line) >= contentIndent) {
-        body.push(line.slice(contentIndent));
-      } else if (leadingSpaces(line) > indent && !sameList(line)) {
-        body.push(line.trimStart());
+      const spaces = leadingSpaces(line);
+      if (spaces >= contentIndent || (spaces > indent && !sameList(line))) {
+        strip ??= Math.min(spaces, contentIndent);
+        body.push(line.slice(Math.min(spaces, strip)));
       } else if (!startsBlock(line) && body[body.length - 1]?.trim()) {
         body.push(line.trim()); // a lazy continuation of the item's paragraph
       } else {
