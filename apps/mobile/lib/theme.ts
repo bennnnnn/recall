@@ -2,7 +2,8 @@
  * App theme — one palette via `useTheme()`. Neutral surfaces + one accent
  * (indigo by default, or the user's pick in `lib/accent.ts`) for primary
  * actions, selection, progress, links, and focus.
- * Success / goal-met stays green so “done” is not the same hue as brand.
+ * Success / goal-met stays jade green, and every accent (green included) keeps a
+ * clear step from it, so “done” never reads as brand.
  * Do not hardcode hex in components — add a token here instead.
  *
  * Canonical names used across the app:
@@ -63,8 +64,8 @@ export type Theme = {
   /** Placeholders and non-readable decoration only — not helper or metadata copy. */
   textDisabled: string;
 
-  // Bubbles — user chip is a quiet brand tint, not success-green.
-  // Indigo = Recall / interactive; green is reserved for success.
+  // Bubbles — user chip is a quiet tint of the accent, never success's own green.
+  // Indigo = Recall / interactive by default; the user may pick another accent.
   userBubble: string;
   userText: string;
   assistantBubble: string;
@@ -177,7 +178,7 @@ export const lightTheme: Theme = {
   success: "#137A54",
   successLight: "#EAF7F3",
   onPrimary: "#FFFFFF",
-  graphSeries: ["#4F56E5", "#16845B", "#B54708", "#7C3AED"],
+  graphSeries: ["#4F56E5", "#16845B", "#B54708", "#A21CAF"],
 
   codeBg: "#F7F7F8",
   codeText: "#111113",
@@ -239,7 +240,7 @@ export const darkTheme: Theme = {
   success: "#32C48D",
   successLight: "rgba(50, 196, 141, 0.18)",
   onPrimary: "#0F0F10",
-  graphSeries: ["#B4B8FF", "#32C48D", "#F5A524", "#C4B5FD"],
+  graphSeries: ["#B4B8FF", "#32C48D", "#F5A524", "#E879F9"],
 
   codeBg: "#171719",
   codeText: "#F5F5F6",
@@ -270,8 +271,8 @@ export function applyAccent(theme: Theme, accent: AccentPreference): Theme {
     onPrimary: tones.onPrimary,
     graphSeries: [
       tones.primary,
-      theme.graphSeries[1],
-      theme.graphSeries[2],
+      "series2" in tones ? tones.series2 : theme.graphSeries[1],
+      "series3" in tones ? tones.series3 : theme.graphSeries[2],
       "series4" in tones ? tones.series4 : theme.graphSeries[3],
     ],
   };
