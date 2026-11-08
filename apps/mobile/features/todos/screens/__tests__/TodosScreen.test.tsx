@@ -74,7 +74,9 @@ jest.mock("@/features/todos/components/TodoEditorSheet", () => ({
     // The screen renders two instances: the add sheet (no editTodo prop) and
     // the edit sheet (editTodo, possibly null). Tests observe the add sheet.
     if (!("editTodo" in props)) mockSheet = props;
-    return null;
+    // The add sheet, drawn beside what it covers: a screen reader must still reach it.
+    const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
+    return !("editTodo" in props) && props.visible ? <MockView testID="todo-add-sheet" accessible /> : null;
   },
 }));
 jest.mock("@/features/todos/components/TodosScrollList", () => ({ TodosScrollList: (props: typeof mockList & { listHeader: React.ReactNode }) => {
@@ -278,9 +280,11 @@ it("hides the header and the list under the new to-do sheet from a screen reader
   expect((await header()).getByText("todos.menu_today")).toBeTruthy();
   expect(ui.getByTestId("todos-list")).toBeTruthy();
 
+  expect(ui.queryByTestId("todo-add-sheet")).toBeNull();
   await act(() => { mockAdd.onPress(); });
   expect(ui.queryByTestId("todos-list")).toBeNull();
   expect(ui.getByTestId("todos-list", { includeHiddenElements: true })).toBeTruthy();
+  expect(ui.getByTestId("todo-add-sheet")).toBeTruthy();
   const covered = await header();
   expect(covered.queryByText("todos.menu_today")).toBeNull();
   expect(covered.getByText("todos.menu_today", { includeHiddenElements: true })).toBeTruthy();

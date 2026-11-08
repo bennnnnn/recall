@@ -16,7 +16,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Italic, Type, Weight } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/features/chat/model/title";
-import type { ChatRowAction } from "@/features/chat/hooks/useChatMenuActions";
+import { isChatRowAction, type ChatRowAction } from "@/features/chat/model/chatRowActions";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -113,7 +113,9 @@ export const ConversationRow = memo(function ConversationRow({
         selectionMode ? { checked: selected } : { selected: active }
       }
       accessibilityActions={selectionMode || !onAction ? undefined : rowActions(chat, t)}
-      onAccessibilityAction={(event) => onAction?.(chat, event.nativeEvent.actionName as ChatRowAction)}
+      onAccessibilityAction={({ nativeEvent: { actionName } }) => {
+        if (isChatRowAction(actionName)) onAction?.(chat, actionName);
+      }}
     >
       {selectionMode ? (
         <View style={r.rowIcon}>

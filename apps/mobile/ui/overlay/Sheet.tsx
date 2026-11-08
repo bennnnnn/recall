@@ -311,6 +311,9 @@ export function SheetCover({
   return (
     <View
       style={style}
+      // Uncovered, a bare View is flattened away: each open and close would create it and
+      // re-parent everything under it (the list, the composer's field, header buttons).
+      collapsable={false}
       accessibilityElementsHidden={covered}
       importantForAccessibility={covered ? "no-hide-descendants" : "auto"}
     >

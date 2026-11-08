@@ -15,11 +15,9 @@ import {
   type ChatOperationContext,
 } from "@/features/chat/model/chatOperations";
 import type { IconName } from "@/ui/icons/names";
+import { isChatRowAction, type ChatRowAction } from "@/features/chat/model/chatRowActions";
 import { useLatestRef } from "@/lib/latestRef";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-
-/** What a drawer row's long-press menu does to its chat, also offered to screen readers on the row. */
-export type ChatRowAction = "share" | "rename" | "pin" | "archive" | "delete";
 
 type Params = {
   token: string | null;
@@ -92,7 +90,7 @@ export function useChatMenuActions({
   // One of a chat's actions on the chat itself: from its row menu, or a screen reader's action
   // on the row (no menu open).
   const runChatAction = useCallback(async (target: Chat, action: ChatRowAction) => {
-    if (!currentView()) return;
+    if (!isChatRowAction(action) || !currentView()) return;
     const chat = getCachedChat(target.id) ?? target;
     if (action === "share") return shareChat(chat);
     if (action === "rename") {
@@ -104,7 +102,7 @@ export function useChatMenuActions({
     closeMenu();
     if (action === "pin") await setChatPinned(operations, chat, !chat.pinned);
     else if (action === "archive") await setChatArchived(operations, chat, !chat.archived);
-    else confirmAndDeleteChat(operations, chat.id, chat);
+    else if (action === "delete") confirmAndDeleteChat(operations, chat.id, chat);
   }, [currentView, shareChat, view, closeMenu, operations]);
   const onMenuChat = (action: ChatRowAction) => async () => {
     if (menuChat) await runChatAction(menuChat, action);

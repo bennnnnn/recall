@@ -2,6 +2,7 @@ import React from "react";
 import { Alert, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useChatMenuActions } from "@/features/chat/hooks/useChatMenuActions";
+import type { ChatRowAction } from "@/features/chat/model/chatRowActions";
 import { api, type Chat } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
@@ -200,4 +201,15 @@ it("never pins an archived chat from its row", async () => {
   await render(<Probe />);
   await act(async () => { current.rowAction({ ...chat, archived: true, pinned: false }, "pin"); });
   expect(api.setPin).not.toHaveBeenCalled();
+});
+
+// Only the menu's own actions run: an unknown name used to fall through to Delete.
+it("ignores an action it does not know, and leaves an open menu open", async () => {
+  await render(<Probe />);
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => { current.rowAction(chat, "activate" as ChatRowAction); });
+  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(api.deleteChat).not.toHaveBeenCalled();
+  expect(current.renameVisible).toBe(false);
+  expect(current.menuChat).toEqual(chat);
 });

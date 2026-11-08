@@ -339,8 +339,14 @@ describe("Sheet", () => {
     );
     const view = await render(page(false));
     expect(view.getByText("page")).toBeTruthy();
+    // Kept as one native view whatever its state, so nothing under it is re-parented.
+    const coverView = () => view.getByText("page", { includeHiddenElements: true }).parent!;
+    expect(coverView().props.collapsable).toBe(false);
+    const mounted = coverView();
 
     await view.rerender(page(true));
+    expect(coverView()).toBe(mounted);
+    expect(coverView().props.collapsable).toBe(false);
     expect(view.getByTestId("app-sheet-embedded").props.accessibilityViewIsModal).toBe(true);
     expect(view.queryByText("page")).toBeNull();
     const cover = view.getByText("page", { includeHiddenElements: true }).parent!;

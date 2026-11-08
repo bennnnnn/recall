@@ -36,8 +36,12 @@ it("offers the long-press menu's actions and runs the one picked on its chat", a
     "archive:chat.archive",
     "delete:common.delete",
   ]);
-  fireEvent(element, "accessibilityAction", { nativeEvent: { actionName: "rename" } });
+  await fireEvent(element, "accessibilityAction", { nativeEvent: { actionName: "rename" } });
   expect(onAction).toHaveBeenCalledWith(chat, "rename");
+
+  // A name the row did not offer (a platform's own) runs nothing.
+  await fireEvent(element, "accessibilityAction", { nativeEvent: { actionName: "activate" } });
+  expect(onAction).toHaveBeenCalledTimes(1);
 });
 
 it("follows the chat's state, as the menu does: Unpin, and no pin on an archived chat", async () => {
