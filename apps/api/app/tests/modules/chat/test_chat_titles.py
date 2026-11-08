@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.models.schemas import ChatOut
+from app.modules.chat import titles
 from app.modules.chat.titles import (
     GREETING_CHAT_TITLE,
     finalize_generated_title,
@@ -14,7 +15,24 @@ from app.modules.chat.titles import (
     is_casual_opener,
     normalize_chat_title,
     sanitize_manual_chat_title,
+    title_messages,
 )
+from app.services.subject_scan import SCAN_CONFIRMED_PREFIX, SCANNER_CAMERA_PROMPTS
+
+_PHOTO = "[Image: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]"
+_FILE = "[File: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]"
+
+
+def _chat_turn(messages: list[dict[str, str]]) -> str:
+    """The turn that holds the chat being named: the last one, after the worked examples."""
+    assert messages[-1]["role"] == "user"
+    return messages[-1]["content"]
+
+
+def _words_read(messages: list[dict[str, str]]) -> str:
+    """The user's words as the title model read them, from the chat's turn."""
+    _, _, rest = _chat_turn(messages).partition(":\n")
+    return rest.split("\n\nThe assistant's reply", 1)[0]
 
 
 @pytest.mark.parametrize(
@@ -189,8 +207,7 @@ async def test_generate_title_reads_keypad_maths_as_plain_powers(message: str, m
         return_value="Quadratic Equation 3x^2-2x=8",
     ) as complete:
         title = await generate_title(settings, message, "Worked answer.")
-    sent = complete.call_args.kwargs["messages"][1]["content"]
-    assert sent == model_reads
+    assert _words_read(complete.call_args.kwargs["messages"]) == model_reads
     assert title == "Quadratic Equation 3x²-2x=8"
 
 
@@ -213,7 +230,7 @@ async def test_generate_title_reads_a_shared_files_words_not_its_path_or_padding
         return_value="Chemistry Unit 4 Quiz",
     ) as complete:
         await generate_title(settings, message, "```quiz\n{}\n```")
-    sent = complete.call_args.kwargs["messages"][1]["content"]
+    sent = _words_read(complete.call_args.kwargs["messages"])
     assert "/attachments/" not in sent
     assert "  " not in sent
     assert "Chemistry Unit 4 Study Guide - Mr. Patel Test date: Friday" in sent
@@ -229,12 +246,91 @@ async def test_generate_title_never_sends_an_empty_turn_for_a_photo_alone():
         new_callable=AsyncMock,
         return_value="Golden Retriever Photo",
     ) as complete:
-        title = await generate_title(
-            settings,
-            "[Image: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]",
-            "That's a golden retriever puppy.",
-        )
-    sent = complete.call_args.kwargs["messages"][1]["content"]
+        title = await generate_title(settings, _PHOTO, "That's a golden retriever puppy.")
+    sent = _words_read(complete.call_args.kwargs["messages"])
     assert sent.strip()
     assert "/attachments/" not in sent
     assert title == "Golden Retriever Photo"
+
+
+@pytest.mark.asyncio
+async def test_generate_title_reads_the_reply_as_context_not_as_the_chats_last_turn():
+    """Given the reply as the chat's last turn, the model named chats by its verdict
+    ("Equation No Solution"): the reply now sits under the user's words, as context."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="Asking my name"
+    ) as complete:
+        title = await generate_title(settings, "What is my name", "Your name is **bini**.")
+    messages = complete.call_args.kwargs["messages"]
+    turn = _chat_turn(messages)
+    assert turn.index("What is my name") < turn.index("Your name is **bini**.")
+    assert "context only" in turn
+    # The real reply is never an assistant turn: those are the worked examples' titles.
+    assert all("bini" not in m["content"] for m in messages if m["role"] == "assistant")
+    # Six words in any script fit: a four-word Amharic title is 24 tokens.
+    assert complete.call_args.kwargs["max_tokens"] >= 40
+    assert title == "Asking my name"
+
+
+@pytest.mark.parametrize("caption", list(SCANNER_CAMERA_PROMPTS.values()))
+def test_title_reads_a_bare_scan_as_a_photo_with_no_words(caption: str):
+    """The scanner's caption is the app's words: read as the ask, a screenshot sent with it
+    was titled "No Math Problem Found"."""
+    messages = title_messages(f"{caption}\n\n{_PHOTO}", "It shows a settings panel.")
+    assert _words_read(messages) == titles._NO_WORDS
+    assert "(sent with a photo)" in _chat_turn(messages)
+
+
+def test_title_reads_a_scans_confirmed_reading_as_the_problem():
+    caption = SCANNER_CAMERA_PROMPTS["math"]
+    message = f"{caption}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15\n\n{_PHOTO}"
+    assert _words_read(title_messages(message, "x = 4")) == f"{SCAN_CONFIRMED_PREFIX} 2x+7=15"
+
+
+@pytest.mark.parametrize(
+    "message, photo",
+    [
+        (_PHOTO, True),
+        (f"When is my chemistry test?\n\n{_PHOTO}", True),
+        # A file's own text stays in the words, so it needs no mark of its own.
+        (f"Summarize this\n\n{_FILE}\n[page 1] Unit 4 study guide", False),
+        ("what's 15% of 240", False),
+    ],
+)
+def test_title_says_when_a_photo_came_with_the_message(message: str, photo: bool):
+    assert ("(sent with a photo)" in _chat_turn(title_messages(message, "Reply."))) is photo
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        # What the user asked, never what the reply concluded.
+        "It names the question, never the answer.",
+        "Nothing the reply concluded goes in the name",
+        # A photo or file by what it shows.
+        "A photo or file is named by what it shows or holds",
+        # Natural wording, from the user's side, in their language.
+        "No stacked nouns",
+        "never 'user'",
+        "Write the name in the same language as the user's message.",
+        # The rules kept from before.
+        "Keep times, dates and numbers exactly as written",
+        "Write maths with symbols, never in words",
+        "Never use generic labels",
+        "is named Greeting",
+    ],
+)
+def test_title_rules_hold_the_naming_contract(rule: str):
+    assert rule in titles._TITLE_RULES
+
+
+def test_title_worked_examples_are_titles_the_rules_allow():
+    """Each example the model reads first is a user turn and the title it should get: a
+    title the drawer keeps as written, short enough for one line."""
+    messages = title_messages("Plan my week", "Here's a plan.")
+    examples = messages[1:-1]
+    assert [m["role"] for m in examples] == ["user", "assistant"] * len(titles._TITLE_EXAMPLES)
+    for *_, title in titles._TITLE_EXAMPLES:
+        assert normalize_chat_title(title) == title
+        assert len(title) <= 32
