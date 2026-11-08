@@ -12,6 +12,7 @@
  * left to right (`6÷2(1+2)` is 9), `^` binds tighter than a leading minus (`-3^2` is −9)
  * and groups to the right (`2^3^2` is 512).
  */
+import { guard, refuse } from "@/lib/fenceValidate";
 
 export type LiveFunction =
   | "sin" | "cos" | "tan" | "cot" | "sec" | "csc"
@@ -33,8 +34,6 @@ export type LiveNode =
   | { kind: "factorial" | "percent" | "degrees" | "radians" | "abs" | "floor" | "ceil"; operand: LiveNode }
   | { kind: "call"; fn: LiveFunction; arg: LiveNode; base: LiveNode | null }
   | { kind: "binom" | "perm"; n: LiveNode; k: LiveNode };
-
-class NotACalculation extends Error {}
 
 const MAX_LENGTH = 400;
 const MAX_DEPTH = 48;
@@ -64,12 +63,12 @@ class Reader {
   read(): LiveNode {
     const node = this.expression();
     this.space();
-    if (this.pos !== this.src.length) throw new NotACalculation();
+    if (this.pos !== this.src.length) refuse();
     return node;
   }
 
   private fail(): never {
-    throw new NotACalculation();
+    return refuse();
   }
 
   /** The command at the cursor (`\frac` → `frac`, `\%` → `%`), without moving. */
@@ -323,10 +322,5 @@ export function readCalculation(draft: string): LiveNode | null {
   } else if (!/\d/.test(text)) {
     return null;
   }
-  try {
-    return new Reader(math).read();
-  } catch (error) {
-    if (error instanceof NotACalculation) return null;
-    throw error;
-  }
+  return guard(() => new Reader(math).read());
 }

@@ -14,7 +14,6 @@ import Animated, {
   useAnimatedStyle,
   type AnimatedStyle,
 } from "react-native-reanimated";
-import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   BOTTOM_CHROME_FADE_LOCATIONS,
@@ -61,6 +60,7 @@ import {
   composerShowsMic,
   composerShowsSend,
 } from "@/features/chat/model/composerLogic";
+import { pasteClipboardText } from "@/lib/clipboard";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
@@ -504,11 +504,7 @@ export const ChatComposer = memo(function ChatComposer({
               onStop={onStop}
               streaming={streaming}
               onBackspace={math.backspace}
-              onPaste={() => {
-                void Clipboard.getStringAsync().then((text) => {
-                  if (text) void math.pasteText(text);
-                });
-              }}
+              onPaste={() => pasteClipboardText(math.pasteText)}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}
             />

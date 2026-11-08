@@ -10,6 +10,7 @@
  * radians, and a bare number is degrees (`\sin(30)` is ½, the school shorthand the server
  * keeps). An angle that is none of these (`\sin(1+1)`) gives no value.
  */
+import { guard, refuse } from "@/lib/fenceValidate";
 import type { LiveFunction, LiveNode } from "@/lib/math/live/read";
 import {
   add,
@@ -29,11 +30,8 @@ import {
 
 export type LiveValue = { kind: "exact"; r: Rational } | { kind: "approx"; x: number };
 
-class NoValue extends Error {}
-
-const fail = (): never => {
-  throw new NoValue();
-};
+/** No value: the calculation is not one real number. */
+const fail = (): never => refuse();
 
 /** The largest n in n!, nCk and nPk. */
 const MAX_COUNT = 170;
@@ -283,10 +281,5 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
 
 /** The calculation's value, or `null` when it is not one real number. */
 export function evaluateCalculation(node: LiveNode): LiveValue | null {
-  try {
-    return evaluate(node);
-  } catch (error) {
-    if (error instanceof NoValue) return null;
-    throw error;
-  }
+  return guard(() => evaluate(node));
 }
