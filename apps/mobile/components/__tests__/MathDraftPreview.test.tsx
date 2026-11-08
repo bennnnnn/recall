@@ -1,7 +1,7 @@
 import { configure, fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
-import { sentMessageShowsMathPreview } from "@/lib/math/draftText";
+import { sentMessageShowsMathPreview, spacedDraftMath } from "@/lib/math/draftText";
 import { lightTheme } from "@/lib/theme";
 
 // These tests read the drawing. The composer's preview is hidden from screen readers (its
@@ -13,6 +13,32 @@ describe("sentMessageShowsMathPreview", () => {
   it("keeps a question around an equation as text", () => {
     expect(sentMessageShowsMathPreview("Why does $x^2 = 9$ have two solutions?")).toBe(false);
     expect(sentMessageShowsMathPreview("$x^2 = 9$")).toBe(true);
+  });
+});
+
+// The keys type `\times ` with a space that ends the command and `+` with none, so the
+// typed `3+1\times 2` drew "3+1× 2".
+describe("spacedDraftMath", () => {
+  it.each([
+    [String.raw`3+1\times 2`, String.raw`3 + 1 \times 2`],
+    [String.raw`a\le b`, String.raw`a \le b`],
+    ["x=5", "x = 5"],
+    ["-3+x", "-3 + x"],
+    ["(-x)", "(-x)"],
+    ["a, -b", "a, -b"],
+    [String.raw`2\pi r`, String.raw`2\pi{}r`],
+    [String.raw`\alpha+1`, String.raw`\alpha + 1`],
+    [String.raw`\sin x`, String.raw`\sin x`],
+    ["x^{n+1}", "x^{n+1}"],
+    ["3+", String.raw`3 +\,`],
+  ])("spaces %s as a reply would: %s", (draft, drawn) => {
+    expect(spacedDraftMath(draft)).toBe(drawn);
+  });
+
+  it("spaces an operation after a fraction or root, and keeps a script's close", () => {
+    expect(spacedDraftMath("+3", { termBefore: true })).toBe(String.raw`\,+ 3`);
+    expect(spacedDraftMath("+3")).toBe("+3");
+    expect(spacedDraftMath("n+1", { tight: true })).toBe("n+1");
   });
 });
 
@@ -162,12 +188,29 @@ describe("MathDraftPreview", () => {
   });
 });
 
+describe("MathDraftPreview operator spacing", () => {
+  type Node = { children: (Node | string)[] | null };
+  const drawn = (node: Node | string): string =>
+    typeof node === "string" ? node : (node.children ?? []).map(drawn).join("");
+
+  it("spaces every operation evenly, whichever key typed it", async () => {
+    const view = await render(<MathDraftPreview input={String.raw`3+1\times 2`} caret={0} />);
+    expect(drawn(view.toJSON() as Node).replace(/\u00a0/g, " ")).toBe("3 + 1 × 2");
+  });
+
+  it("spaces an operation that follows a fraction", async () => {
+    const view = await render(<MathDraftPreview input={String.raw`$\frac{1}{2}+3$`} caret={0} />);
+    expect(drawn(view.toJSON() as Node).replace(/\u00a0/g, " ")).toBe("12 + 3");
+  });
+});
+
 describe("MathDraftPreview: one piece per draft node", () => {
   const press = (locationX: number) => ({ nativeEvent: { locationX } });
 
   it("draws plain text in the math face and a command run as math", async () => {
     const plain = await render(<MathDraftPreview input="$x+1$" showCaret={false} />);
-    expect(plain.getByText("x+1")).toHaveStyle({ fontSize: 16 });
+    // Spaced as a reply is: the renderer draws each space as a no-break one.
+    expect(plain.getByText(/^x\s\+\s1$/)).toHaveStyle({ fontSize: 16 });
     const command = await render(<MathDraftPreview input={String.raw`$\pi r$`} showCaret={false} />);
     expect(command.queryByText(String.raw`\pi r`)).toBeNull();
     expect(command.getByTestId("math-slot-text")).toBeOnTheScreen();

@@ -1,9 +1,9 @@
 /**
  * A sideways ScrollView that shows where it is cut: a soft fade over each
  * clipped edge (the right one until the end is reached, the left one once
- * scrolled). The fade is the screen background, so it reads in light and
- * dark. iOS keeps no scrollbar on screen, so the indicator also flashes once
- * when the content first overflows.
+ * scrolled). The fade is the surface behind the row (the screen background
+ * unless told), so it reads in light and dark. iOS keeps no scrollbar on
+ * screen, so the indicator also flashes once when the content first overflows.
  */
 import { ReactNode, useRef, useState } from "react";
 import {
@@ -34,28 +34,38 @@ export function hiddenScrollEdges(offset: number, viewport: number, content: num
 
 type Props = {
   testID?: string;
-  /** Width of what scrolls, and of the window it scrolls in. */
-  contentWidth: number;
-  viewportWidth: number;
+  /** Width of what scrolls, and of the window it scrolls in; measured when not given. */
+  contentWidth?: number;
+  viewportWidth?: number;
+  /** The surface behind the row, which the fades blend into. */
+  fadeColor?: string;
   style?: StyleProp<ViewStyle>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
   children: ReactNode;
 };
 
 export function FadingHorizontalScroll({
   testID,
-  contentWidth,
-  viewportWidth,
+  contentWidth: givenContent,
+  viewportWidth: givenViewport,
+  fadeColor,
   style,
+  contentContainerStyle,
   children,
 }: Props) {
   const theme = useTheme();
   const scrollRef = useRef<ScrollViewInstance>(null);
   const flashed = useRef(false);
+  const [measured, setMeasured] = useState({ content: 0, viewport: 0 });
+  const contentWidth = givenContent ?? measured.content;
+  const viewportWidth = givenViewport ?? measured.viewport;
   const scrollable = contentWidth > viewportWidth + 1;
   const [offset, setOffset] = useState(0);
   const hidden = hiddenScrollEdges(offset, viewportWidth, contentWidth);
-  const clear = withAlpha(theme.bg, 0);
-  const solid = withAlpha(theme.bg, 0.9);
+  const clear = withAlpha(fadeColor ?? theme.bg, 0);
+  const solid = withAlpha(fadeColor ?? theme.bg, 0.9);
+  const measure = (key: "content" | "viewport", width: number) =>
+    setMeasured((prev) => (prev[key] === width ? prev : { ...prev, [key]: width }));
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = Math.max(0, e.nativeEvent.contentOffset.x);
@@ -80,13 +90,16 @@ export function FadingHorizontalScroll({
         scrollEnabled={scrollable}
         scrollEventThrottle={32}
         onScroll={scrollable ? onScroll : undefined}
-        onContentSizeChange={() => {
-          if (!scrollable || flashed.current) return;
+        onLayout={givenViewport == null ? (e) => measure("viewport", e.nativeEvent.layout.width) : undefined}
+        onContentSizeChange={(width) => {
+          if (givenContent == null) measure("content", width);
+          const overflows = viewportWidth > 0 && (givenContent ?? width) > viewportWidth + 1;
+          if (!overflows || flashed.current) return;
           flashed.current = true;
           scrollRef.current?.flashScrollIndicators?.();
         }}
         style={s.scroll}
-        contentContainerStyle={scrollable ? { width: contentWidth } : undefined}
+        contentContainerStyle={[contentContainerStyle, scrollable && givenContent != null ? { width: contentWidth } : null]}
       >
         {children}
       </ScrollView>

@@ -7,7 +7,7 @@ import { MathText } from "@/components/rich/MathText";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { findDraftNodes, shiftDraftNodes, type DraftNode } from "@/lib/math/draftNodes";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
-import { DRAFT_TEXT_SIZE, draftShowsMathPreview, scriptSize, spokenDraft, splitBeforeOperator, textRuns } from "@/lib/math/draftText";
+import { DRAFT_TEXT_SIZE, draftShowsMathPreview, draftTermBefore, scriptSize, spacedDraftMath, spokenDraft, splitBeforeOperator, textRuns } from "@/lib/math/draftText";
 import { healDroppedCommandSlash } from "@/lib/math/healMathSource";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
 import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
@@ -309,7 +309,7 @@ const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, o
         ) : null}
         {runs.map((run, i) =>
           run.math ? (
-            <MathText key={i} latex={run.text} textColor={theme.text} fontSize={size} lean={top && (!beforeScript || i < runs.length - 1)} />
+            <MathText key={i} latex={spacedDraftMath(run.text, { termBefore: i === 0 && draftTermBefore(input, node.start), tight: size < DRAFT_TEXT_SIZE })} textColor={theme.text} fontSize={size} lean={top && (!beforeScript || i < runs.length - 1)} />
           ) : (
             <Text key={i} style={[s.prose, { fontSize: size }]}>
               {run.text}
@@ -490,7 +490,7 @@ function EditSlot({
           <>
             {inner && atStart ? <MathComposerCaret testID={`${testID}-caret-start`} /> : null}
             {inner ? (
-              <MathText latex={inner} textColor={theme.text} compact={compact} fontSize={fontSize ?? size} />
+              <MathText latex={spacedDraftMath(inner, { tight: (fontSize ?? size) < DRAFT_TEXT_SIZE })} textColor={theme.text} compact={compact} fontSize={fontSize ?? size} />
             ) : active ? (
               <View style={s.placeholderActive}>
                 <MathComposerCaret testID={`${testID}-caret`} />
