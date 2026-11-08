@@ -19,6 +19,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | Pick one of two to four in place | `controls/SegmentedControl` | a row of hand-made chips |
 | Pick a number in a range (an amount, a rate, a term) | `controls/Slider` (label and value above the track; an optional marker for a reference value, tap to jump; screen-reader steps; math in `sliderValue.ts`) | a hand-built track and thumb |
 | A form, the attach sources, sharing | `overlay/Sheet` | a raw `Modal` |
+| Something the user opened in the screen, not in a Modal (an `embedded` Sheet does it itself, the drawer, the math pad, the full-height editor) | `overlay/useAndroidBack(open, close)`: Android Back closes the last one opened before it leaves the screen; a screen that stays mounted under others wraps itself in `AndroidBackScreen` | a `BackHandler` listener of its own |
 | Edit one text value (a profile field, a memory) | `overlay/FieldSheet` (title, hint, Save) | a hand-built sheet with a field |
 | A full-screen viewer (photo, PDF, scanner) | `overlay/FullScreenModal` | a raw `Modal` |
 | A full-screen viewer only some visits open (the chat's photo viewer, the scanner) | `overlay/lazyOverlay(() => import(...))`: its code loads on first open, then it stays mounted | a static import the chat screen evaluates at launch |
@@ -44,7 +45,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
   padding that clears it).
 - `list/`: ListRow, ListGroup, ListSeparator.
 - `overlay/`: Overlay (the one floating layer), Menu, SelectMenu, Dialog + DialogHost +
-  `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal, lazyOverlay.
+  `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal, lazyOverlay, useAndroidBack.
 - `pickers/`: ClockDial, TimePickerDialog, DatePickerDialog. The
   geometry and calendar rules live in `lib/datetime/clockDial.ts` and `calendarGrid.ts`.
 - `share/`: useCopyText.

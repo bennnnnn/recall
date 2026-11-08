@@ -12,7 +12,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AccessibilityInfo,
-  BackHandler,
   findNodeHandle,
   Keyboard,
   Pressable,
@@ -40,6 +39,7 @@ import { useReduceMotion } from "@/lib/reduceMotion";
 import { shadowOverlay } from "@/lib/shadow";
 import { type Theme, useTheme } from "@/lib/theme";
 import { useLatestRef } from "@/lib/latestRef";
+import { useAndroidBack } from "@/ui/overlay/useAndroidBack";
 
 /** Left-edge hit slop for swipe-to-open (pt). Must stay a local const — Reanimated worklets cannot read imported names here. */
 const EDGE_WIDTH = 28;
@@ -132,14 +132,9 @@ export function DrawerShell({ children }: { children: ReactNode }) {
 
   useEffect(() => registerDrawer(open, close, () => drawerOpenRef.current), [open, close, drawerOpenRef]);
 
-  useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!drawerOpenRef.current) return false;
-      close();
-      return true;
-    });
-    return () => sub.remove();
-  }, [close, drawerOpenRef]);
+  // Listening from the moment it opens, so Back closes the drawer before the math pad or
+  // the full-height editor it covers.
+  useAndroidBack(drawerOpen, close);
 
   // A screen reader moves into the panel when it opens, as it does into a Sheet.
   useEffect(() => {

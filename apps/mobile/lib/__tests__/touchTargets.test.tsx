@@ -3,9 +3,12 @@
  * stays smaller. Heights are read from styles at the default text size (support/touchTarget).
  */
 import { render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { ChatQuotaNudge } from "@/features/chat/components/ChatQuotaNudge";
 import { makeChatScreenStyles } from "@/features/chat/components/chatScreenStyles";
+import { ScannerSubjectSwitcher } from "@/features/scanner/components/ScannerSubjectSwitcher";
+import { SCANNER_SUBJECTS } from "@/lib/scanner/subjects";
 import { lightTheme } from "@/lib/theme";
 import { SearchField } from "@/ui/controls/SearchField";
 import { SegmentedControl } from "@/ui/controls/SegmentedControl";
@@ -50,5 +53,14 @@ describe("touch targets", () => {
       />,
     );
     expect(touchTargetHeight(view.getByRole("radio", { name: "A" }))).toBeGreaterThanOrEqual(MIN_TOUCH);
+  });
+
+  it("a scanner subject tab reaches 44pt and grows with its label instead of clipping it", async () => {
+    const view = await render(<ScannerSubjectSwitcher value="math" onChange={jest.fn()} />);
+    for (const subject of SCANNER_SUBJECTS) {
+      const tab = view.getByTestId(`scanner-subject-${subject}`);
+      expect(touchTargetHeight(tab)).toBeGreaterThanOrEqual(MIN_TOUCH);
+      expect(StyleSheet.flatten(tab.props.style).height).toBeUndefined();
+    }
   });
 });

@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 import { useState } from "react";
 
+import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
 import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";
 import { MATH_KEYBOARD_SYMBOLS } from "@/lib/math/keyboardSymbols";
 import { clipboardIsImageOnly } from "@/lib/clipboard";
@@ -126,6 +127,30 @@ describe("useMathKeyboardInsert", () => {
     const n = "solve $x^2+1$".length;
     expect(result.current.math.selection).toEqual({ start: n, end: n });
     expect(result.current.math.selection.start).not.toBe(0);
+  });
+
+  it("puts the pad down on Android Back, as ABC does, and leaves later Backs to the screen", async () => {
+    const back = fakeAndroidBack();
+    const { result } = await renderHook(() => useHarness("solve $x^2+1$"));
+    expect(back.press()).toBe(false);
+    await act(() => {
+      result.current.math.toggleMathBar();
+    });
+    expect(result.current.math.resumeMathOnFocus).toBe(true);
+
+    let handled = false;
+    await act(() => {
+      handled = back.press();
+    });
+
+    expect(handled).toBe(true);
+    expect(result.current.math.mathBarOpen).toBe(false);
+    // The next tap on the field asks for the phone's keyboard, the caret after the maths.
+    expect(result.current.math.resumeMathOnFocus).toBe(false);
+    const n = "solve $x^2+1$".length;
+    expect(result.current.math.selection).toEqual({ start: n, end: n });
+    expect(back.press()).toBe(false);
+    jest.restoreAllMocks();
   });
 
   it("does not replace a derivative with raw frac when a slash is dropped", async () => {

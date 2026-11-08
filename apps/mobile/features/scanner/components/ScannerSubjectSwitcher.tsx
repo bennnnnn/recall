@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type LayoutRectangle, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { SCANNER_SUBJECT_ROW_PAD_PX, SCANNER_SUBJECT_TAB_PX } from "@/lib/math/scannerRegion";
 import { useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { SCANNER_SUBJECTS, type ScannerSubject } from "@/lib/scanner/subjects";
@@ -65,6 +66,9 @@ export function ScannerSubjectSwitcher({ value, onChange }: Props) {
             key={subject}
             testID={`scanner-subject-${subject}`}
             style={[s.tab, selected ? s.tabSelected : null]}
+            // A 36 pt pill in a row padded 4 pt above and below: the row's edge is the 44 pt
+            // target's (a scroll view takes no touch outside itself on Android).
+            hitSlop={{ top: SCANNER_SUBJECT_ROW_PAD_PX, bottom: SCANNER_SUBJECT_ROW_PAD_PX }}
             onPress={() => {
               if (!selected) onChange(subject);
             }}
@@ -99,10 +103,13 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: Space.xs,
       paddingHorizontal: Space.md,
+      paddingVertical: SCANNER_SUBJECT_ROW_PAD_PX,
     },
+    // Grows with the reader's text size: a fixed height clipped the label at large text.
     tab: {
-      height: 36,
+      minHeight: SCANNER_SUBJECT_TAB_PX,
       paddingHorizontal: Space.md,
+      paddingVertical: Space.xxs,
       borderRadius: Radius.full,
       alignItems: "center",
       justifyContent: "center",
