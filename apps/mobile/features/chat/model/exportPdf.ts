@@ -3,22 +3,12 @@
 import * as Print from "expo-print";
 import { copyAsync, deleteAsync } from "expo-file-system/legacy";
 
-import { namedPdfFile } from "@/lib/accountFiles";
+import { documentFileName, namedPdfFile } from "@/lib/accountFiles";
 import { shareLocalFile } from "@/lib/shareFile";
-
-/** Characters a file system refuses in a name, and control characters. */
-const UNSAFE_NAME = /[\\/:*?"<>|\u0000-\u001f]+/g;
 
 /** The file name the share sheet shows: the chat's title, safe for any file system. */
 export function pdfFileName(title: string): string {
-  const base = title
-    .replace(/\.pdf$/i, "")
-    .replace(UNSAFE_NAME, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80)
-    .trim();
-  return `${base || "Recall"}.pdf`;
+  return documentFileName(title, "pdf");
 }
 
 async function removeQuietly(uri: string): Promise<void> {

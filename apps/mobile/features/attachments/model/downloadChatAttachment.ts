@@ -15,7 +15,7 @@ import {
   sweepAttachmentFiles,
 } from "@/features/attachments/model/attachmentFileStore";
 import { contentTypeForFileName } from "@/features/attachments/model/gallery";
-import { fileInFolder, newAccountFolder, sweepAccountFolders } from "@/lib/accountFiles";
+import { fileInFolder, newAccountFolder, SHARE_COPY_MAX_AGE_MS, sweepAccountFolders } from "@/lib/accountFiles";
 import { shareLocalFile } from "@/lib/shareFile";
 
 /** One native download, shared by every screen that asked for the same URL. */
@@ -257,9 +257,6 @@ export async function shareChatAttachment(options: {
   }
   await shareLocalFile(shared.uri, { title: name, mimeType });
 }
-
-/** An hour: long past any app still reading a file shared to it. */
-const SHARE_COPY_MAX_AGE_MS = 60 * 60_000;
 
 /** A file name holds 255 bytes; a shared one keeps to this many, in UTF-8. */
 const SHARED_NAME_MAX_BYTES = 200;

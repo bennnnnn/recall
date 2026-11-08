@@ -19,10 +19,11 @@ type Fail = (key: string) => void;
 /** Every message of the chat, read when the export starts; it throws when the chat is gone. */
 type Load = () => Promise<Message[]>;
 
+/** A very long chat goes to Android's sheet as a file (`presentShareSheet`): one share at a time. */
 export async function shareChatAsText(title: string | null, load: Load, fail: Fail): Promise<void> {
   try {
     const message = conversationTranscript(title, await load());
-    await presentShareSheet({ message, title: title?.trim() || i18n.t("share.default_title") });
+    await shareOneAtATime(() => presentShareSheet({ message, title: title?.trim() || i18n.t("share.default_title") }));
   } catch (error) {
     if (!isShareCancelled(error)) fail(shareFailureKey(error, "chat.share_failed"));
   }

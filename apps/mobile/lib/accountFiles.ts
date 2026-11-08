@@ -39,6 +39,24 @@ export function newAccountFile(
   return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${stem}.${extension}`;
 }
 
+/** An hour: a share folder older than this is swept by a later share, long past any app still reading it. */
+export const SHARE_COPY_MAX_AGE_MS = 60 * 60_000;
+
+/** Characters a file system refuses in a name, and control characters. */
+const UNSAFE_NAME = /[\\/:*?"<>|\u0000-\u001f]+/g;
+
+/** The name a document goes out under (`Spanish verbs.pdf`): its title, safe for any file system. */
+export function documentFileName(title: string, extension: string): string {
+  const base = title
+    .replace(new RegExp(`\\.${extension}$`, "i"), "")
+    .replace(UNSAFE_NAME, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80)
+    .trim();
+  return `${base || "Recall"}.${extension}`;
+}
+
 /** A new, empty-named folder for `kind` in the cache directory: `recall-share-<ms>-<n>/`. */
 export function newAccountFolder(kind: keyof typeof ACCOUNT_FILE_PREFIX): string {
   return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${Date.now()}-${Math.floor(Math.random() * 1e6)}/`;
