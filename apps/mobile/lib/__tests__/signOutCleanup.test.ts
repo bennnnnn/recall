@@ -11,6 +11,8 @@ import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismis
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { clearSettledStatuses } from "@/features/attachments/model/attachmentStatusFile";
 import { clearOpenedDocument } from "@/features/attachments/model/openedDocument";
+import { Image } from "expo-image";
+import { ensureLocale } from "@/lib/i18n";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -48,6 +50,10 @@ jest.mock("@/lib/cache/usageCache", () => ({ invalidateUsageCache: jest.fn() }))
 jest.mock("@/features/billing/model/purchases", () => ({ signOutRevenueCat: jest.fn() }));
 jest.mock("@/features/todos/model/reminderSeen", () => ({ clearSeenReminderIds: jest.fn() }));
 jest.mock("@/features/todos/model/homeReminderNudges", () => ({ clearHomeNudgeState: jest.fn() }));
+jest.mock("expo-image", () => ({
+  Image: { clearMemoryCache: jest.fn(async () => true), clearDiskCache: jest.fn(async () => true) },
+}));
+jest.mock("@/lib/i18n", () => ({ ensureLocale: jest.fn(async () => undefined) }));
 
 beforeEach(() => {
   mockDeleted.length = 0;
@@ -80,6 +86,17 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(clearSettledStatuses).toHaveBeenCalled();
   // A file another app opened in Recall under this account, not yet in a composer.
   expect(clearOpenedDocument).toHaveBeenCalled();
+});
+
+it("forgets the account's photos, which expo-image keeps in memory and on disk", async () => {
+  await clearSignedOutAccount("user-1");
+  expect(Image.clearMemoryCache).toHaveBeenCalledTimes(1);
+  expect(Image.clearDiskCache).toHaveBeenCalledTimes(1);
+});
+
+it("draws the sign-in screen in English, as a launch with no account does", async () => {
+  await clearSignedOutAccount("user-1");
+  expect(ensureLocale).toHaveBeenCalledWith("en");
 });
 
 it("deletes the account's export, previews, read-aloud audio and PDFs, and nothing else", async () => {

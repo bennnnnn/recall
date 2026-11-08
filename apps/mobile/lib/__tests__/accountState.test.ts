@@ -264,6 +264,23 @@ it("lists each store once", () => {
   expect(listed.filter((store, index) => listed.indexOf(store) !== index)).toEqual([]);
 });
 
+/**
+ * Native caches the store scan cannot see: a view that keeps what it draws on disk (an
+ * account's photos, avatar, chat images) needs its cache cleared at sign-out and sign-in.
+ */
+const NATIVE_CACHES = [{ keeps: /cachePolicy="(?:memory-)?disk"/, clear: "clearImageCaches" }];
+
+it("clears every native cache a view keeps an account's pictures in, at sign-out and sign-in", () => {
+  const sources = productionFiles().map((file) => ts.sys.readFile(file) ?? "");
+  const kept = NATIVE_CACHES.filter(({ keeps }) => sources.some((text) => keeps.test(text)));
+  const missing = kept.flatMap(({ clear }) => {
+    const calls = new RegExp(`\\b${clear}\\(`);
+    return SIGN_OUT_FILES.filter((file) => !calls.test(ts.sys.readFile(`${ROOT}/${file}`) ?? ""))
+      .map((file) => `${file}: ${clear}`);
+  });
+  expect(missing).toEqual([]);
+});
+
 it("calls each store's clear function on sign-out", () => {
   const signOut = SIGN_OUT_FILES.map((file) => ts.sys.readFile(`${ROOT}/${file}`) ?? "").join("\n");
   const missing = [...new Set(Object.values(CLEARED_AT_SIGN_OUT))].filter(
