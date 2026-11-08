@@ -1,0 +1,16 @@
+diff --git a/android/src/main/java/com/swmansion/gesturehandler/core/GestureHandler.kt b/android/src/main/java/com/swmansion/gesturehandler/core/GestureHandler.kt
+--- a/android/src/main/java/com/swmansion/gesturehandler/core/GestureHandler.kt
++++ b/android/src/main/java/com/swmansion/gesturehandler/core/GestureHandler.kt
+@@ -610,6 +610,12 @@
+       (newState == STATE_END || newState == STATE_CANCELLED || newState == STATE_FAILED)
+     ) {
+       cancelPointers()
++
++      // `cancelPointers` dispatches the event synchronously and its callback may change the state
++      // (e.g. via `GestureStateManager.fail`), in which case the transition is already complete.
++      if (state == STATE_END || state == STATE_CANCELLED || state == STATE_FAILED) {
++        return
++      }
+     }
+ 
+     val oldState = state
