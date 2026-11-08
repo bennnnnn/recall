@@ -175,32 +175,38 @@ def _same_topic(first: frozenset[str], second: frozenset[str]) -> bool:
 _SYMBOL_AFTER = re.compile(r"(?![aAI]\b)([A-Za-z](?:_\{?[A-Za-z0-9]{1,3}\}?|\d{1,2})?)(?=\s|=|$)")
 
 
-# A value set inside an equation: "How high with $v_0 = 30\\text{ m/s}$?" sets v_0.
-_SETS_A_VALUE = re.compile(r"^\s*([^=<>]+?)\s*=\s*-?\d")
+# A value set inside an equation: a number, then nothing, a LaTeX unit or a spaced unit with no
+# operator. "$v_0 = 30\\text{ m/s}$" sets v_0; "$y = 3x + 1$" and "$y = 3x$" set no value.
+_SETS_A_VALUE = re.compile(
+    r"^\s*([^=<>]+?)\s*=\s*-?\d[\d.,]*(?:\s*\\.*|\s+[^+\-=<>]*|\s*[%°].*)?\s*$"
+)
+# A question that sets a value as its condition: "How high with $v_0 = 30$?", "… for $g = 1.6$".
+# "Why is $g = 9.8$ here?" explains the value it names; it changes nothing.
+_CONDITION_SPAN = re.compile(r"\b(?:with|for|when|at|if)\s+(\$[^$\n]+\$)", re.IGNORECASE)
 
 
 def changed_symbol(text: str) -> str | None:
-    """The symbol a question changes, one way however it is written: "What if $v_0$ was 30
-    m/s?", "What if $v_0 = 10\\text{ m/s}$?", "What if v0 was 40 m/s?" and "How high with
-    $v_0 = 30$ m/s?" all change v0. None for a what-if in words ("What if air resistance
-    mattered?") or a question that sets no value."""
+    """The symbol a question changes to a new number, one way however it is written: "What
+    if $v_0$ was 30 m/s?", "What if $v_0 = 10\\text{ m/s}$?", "What if v0 was 40 m/s?" and
+    "How high with $v_0 = 30$ m/s?" all change v0. None for a what-if in words ("What if air
+    resistance mattered?"), an equation ("What if $y = 3x + 1$?"), a what-if with no number
+    ("What if n is even?") or a question that explains a value ("Why is $g = 9.8$ here?")."""
     opening = _WHAT_IF.match(text)
     if opening is None:
-        for maths in _MATH_SPAN.finditer(text):
-            setting = _SETS_A_VALUE.match(maths.group(1))
-            if setting is not None:
-                return _symbol_key(setting.group(1))
-        return None
+        condition = _CONDITION_SPAN.search(text)
+        setting = _SETS_A_VALUE.match(condition.group(1)[1:-1]) if condition else None
+        return _symbol_key(setting.group(1)) if setting is not None else None
     rest = text[opening.end() :].lstrip()
+    if not re.search(r"\d", rest):
+        return None
     span = _MATH_SPAN.match(rest)
     if span is not None:
-        name = _RELATION.split(span.group(1), maxsplit=1)[0].strip()
-    else:
-        bare = _SYMBOL_AFTER.match(rest)
-        if bare is None:
-            return None
-        name = bare.group(1)
-    return _symbol_key(name)
+        if not _RELATION.search(span.group(1)):
+            return _symbol_key(span.group(1))
+        setting = _SETS_A_VALUE.match(span.group(1))
+        return _symbol_key(setting.group(1)) if setting is not None else None
+    bare = _SYMBOL_AFTER.match(rest)
+    return _symbol_key(bare.group(1)) if bare is not None else None
 
 
 def _symbol_key(name: str) -> str | None:

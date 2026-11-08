@@ -18,7 +18,11 @@ import pytest
 from app.core.config import Settings
 from app.modules.account.lifecycle import purge_user_redis_keys
 from app.modules.chat import related_prompts
-from app.modules.chat.follow_up_repeats import changed_symbol, repeats_earlier
+from app.modules.chat.follow_up_repeats import (
+    changed_symbol,
+    changes_a_kept_symbol,
+    repeats_earlier,
+)
 from app.modules.chat.related_prompts import (
     RelatedQuestions,
     generate_related_questions,
@@ -295,6 +299,12 @@ def test_numbers_are_read_one_way(text: str, numbers: list[str]) -> None:
         ("What if $3x + 3 = 5$?", None),
         ("Why use $v_0^2$ in the formula?", None),
         ("Why does $v^2 = v_0^2 - 2gh$ hold?", None),
+        # An explanation names a value; an equation or a parity is no new number.
+        ("Why is $g = 9.8$ m/s² here?", None),
+        ("What if $y = 3x + 1$?", None),
+        ("What if $x \\geq 3$?", None),
+        ("What if n is even?", None),
+        ("What is $h_{max}$ for $v_0 = 15\\text{ m/s}$?", "v0"),
     ],
 )
 def test_changed_symbol_reads_one_name_however_written(text: str, symbol: str | None) -> None:
@@ -319,3 +329,14 @@ def test_one_set_varies_each_quantity_once() -> None:
         "What if $g$ was $1.6\\text{ m/s}^2$?",
         "How long does it take to rise?",
     ]
+
+
+def test_an_explanation_or_an_equation_never_blocks_a_what_if() -> None:
+    """Review (2026-11-07): "Why is $g = 9.8$ m/s² here?" dropped "What if $g$ was 1.6 m/s²
+    on the Moon?", and "What if $y = 3x + 1$?" dropped "What if $y = 2x - 4$?"."""
+    assert not changes_a_kept_symbol(
+        "What if $g$ was 1.6 m/s² on the Moon?", ["Why is $g = 9.8$ m/s² here?"]
+    )
+    assert not changes_a_kept_symbol("What if $y = 2x - 4$?", ["What if $y = 3x + 1$?"])
+    assert not changes_a_kept_symbol("What if n is odd?", ["What if n is even?"])
+    assert changes_a_kept_symbol("How high with $v_0 = 30$ m/s?", ["What if $v_0$ was 40 m/s?"])
