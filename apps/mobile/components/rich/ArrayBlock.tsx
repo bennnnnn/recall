@@ -86,7 +86,7 @@ export function ArrayBlock({ content }: Props) {
         {fits ? (
           <View style={s.row}>{cells}</View>
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false}>
             <View style={s.row}>{cells}</View>
           </ScrollView>
         )}

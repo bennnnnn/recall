@@ -48,6 +48,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...(sentryPlugin ? [sentryPlugin] : []),
     // A simulator build also leaves out ML Kit (react-native.config.js unlinks it).
     ...(base.plugins ?? []).filter((plugin) => !simulator || !simulatorOmits(plugin)),
+    // PurchasesHybridCommon from RevenueCat's release tag when CocoaPods trunk lacks it.
+    "./plugins/purchasesHybridCommonPod.js",
   ];
   const iosUrlScheme = iosUrlSchemeFromClientId(
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "",

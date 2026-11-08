@@ -35,6 +35,9 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/downloadChatAttachment.ts#localFileCache": "clearLocalAttachmentFileCache",
   "features/attachments/model/downloadChatAttachment.ts#refetch": "clearLocalAttachmentFileCache",
   "features/attachments/model/galleryListCache.ts#resource": "invalidateGalleryCache",
+  // A file opened in Recall while an account was signed in goes with that account; one that came
+  // while no one was signed in is no account's and waits for the next sign-in (openedDocument.ts).
+  "features/attachments/model/openedDocument.ts#held": "clearOpenedDocument",
   "features/chat/model/chatListCache.ts#resource": "invalidateChatListCache",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
   "features/chat/model/messageCache.ts#backgroundAt": "clearAllCachedChatMessages",
@@ -81,6 +84,8 @@ const SCOPED_TO_SESSION = [
   "features/attachments/model/attachmentIndexStatus.ts#pollers",
   "features/attachments/model/attachmentIndexStatus.ts#settledLoad",
   "features/attachments/model/pendingComposerAttachment.ts#queued",
+  // The sign-in the chat saw confirmed, read only while it is the session (cleared at sign-out too).
+  "features/attachments/model/openedDocument.ts#confirmedSession",
   "features/chat/drawer/drawer.ts#chatMutationRevisions",
   "features/chat/drawer/drawer.ts#mutationSession",
   "features/chat/model/pageReads.ts#pageReads",
@@ -99,6 +104,7 @@ const SCOPED_TO_SESSION = [
 const IN_FLIGHT = [
   "features/account/model/profilePhoto.ts#generatedPhotos",
   "features/attachments/model/localAttachmentFile.ts#ownedCopies",
+  "features/attachments/model/openedDocument.ts#copying",
   "features/chat/drawer/drawer.ts#_pendingTitleChatIds",
   "features/chat/model/draftLogic.ts#emptyChatChecks",
   "features/chat/model/latency.ts#pending",
@@ -127,6 +133,7 @@ const IN_FLIGHT = [
 
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
+  "components/LaunchReveal.tsx#played",
   "components/CodeBlock.tsx#cachedTokenizer",
   "components/CodeBlock.tsx#tokenStyles",
   "components/rich/LazyHeavyRich.tsx#simulationSizing",
@@ -138,6 +145,8 @@ const NO_ACCOUNT_DATA = [
   "features/attachments/model/attachments.ts#nativePickerGeneration",
   "features/attachments/model/downloadChatAttachment.ts#swept",
   "features/attachments/model/galleryLayout.ts#cachedLayout",
+  // How many opened files were taken: a copy a newer one overtook gives way.
+  "features/attachments/model/openedDocument.ts#claims",
   // The plans offers' read-and-write queue: the offers file is the phone's, not an account's.
   "features/billing/model/welcomePlans.ts#pending",
   "features/chat/drawer/drawer.ts#_onTitlePendingChange",
@@ -179,6 +188,7 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
   "lib/launchSplash.ts#deadlinePassed",
+  "lib/launchSplash.ts#exited",
   "lib/launchSplash.ts#hidden",
   "lib/launchSplash.ts#ready",
   // How many previews are loading, and a counter raised at sign-out (waiting ones never go).

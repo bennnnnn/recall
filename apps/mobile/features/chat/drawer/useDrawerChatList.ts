@@ -1,5 +1,5 @@
 import { useAccountSession } from "@/contexts/accountSession";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import {
   activeChatsFromGroups,
@@ -12,14 +12,17 @@ import {
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
 import {
+  chatListRowsRemoved,
   fetchChatList,
   fetchMoreArchivedChats,
   fetchOlderChats,
   getCachedChatList,
   getChatListFetchedAt,
+  isChatListDropped,
   isChatListFresh,
   regroupCachedChatList,
   restoreChatList,
+  subscribeChatList,
   updateChatListCache,
 } from "@/features/chat/model/chatListCache";
 import {
@@ -36,8 +39,9 @@ import {
   shouldWarmClosedDrawerChatList,
 } from "@/features/chat/drawer/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
+import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
-import { isExpectedReadFailure } from "@/lib/cache/sessionResource";
+import { isExpectedReadFailure, type ResourceUpdate } from "@/lib/cache/sessionResource";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
@@ -50,18 +54,39 @@ function initialCollapsedSections(): Record<string, boolean> {
     .map((key) => [key, defaultChatSectionCollapsed(key)]));
 }
 
+type Snapshot = { session: number; groups: ChatList };
+
+/**
+ * The rows to show for `session`: a list, or an edit of the rows shown now (the drawer's own
+ * while a dropped list is not read again). Queued in order, so edits in one tick all land.
+ */
+function nextSnapshot(prev: Snapshot, session: number, data: ChatList | ResourceUpdate<ChatList>): Snapshot {
+  const groups = typeof data === "function" ? data(prev.session === session ? prev.groups : emptyChatList()) : data;
+  return prev.session === session && prev.groups === groups ? prev : { session, groups };
+}
+
+/** True while the component is mounted. */
+function useMountedRef(): RefObject<boolean> {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  return mounted;
+}
+
 /** The drawer's chats, kept per account: the hourly token rotation reads nothing (NET-11). */
 export function useDrawerChatList({ isDrawerOpen }: Params) {
   const { account, getToken } = useAccountSession();
   const session = getSessionGeneration();
-  const [snapshot, setSnapshot] = useState(() => ({ session, groups: emptyChatList() }));
+  const [snapshot, setSnapshot] = useState<Snapshot>(() => ({ session, groups: emptyChatList() }));
   const groups = useMemo(() => snapshot.session === session && account ? snapshot.groups : emptyChatList(), [snapshot, session, account]);
   const [loading, setLoading] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState(initialCollapsedSections);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedOnceRef = useRef(false);
-  const mountedRef = useRef(true);
+  const mountedRef = useMountedRef();
   const loadIdRef = useRef(0);
   const [, setTitlePendingTick] = useState(0);
   const reportFailure = useReadFailureReport();
@@ -70,11 +95,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     hasLoadedOnceRef.current = false;
     loadIdRef.current++;
   }, [session]);
-  const current = useCallback(() => mountedRef.current && session === getSessionGeneration(), [session]);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
+  const current = useCallback(() => mountedRef.current && session === getSessionGeneration(), [session, mountedRef]);
   useEffect(() => {
     setLoading(false);
     setRefreshing(false);
@@ -90,9 +111,9 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     setCollapsedSections((prev) => ({ ...prev, [key]: !(prev[key] ?? defaultChatSectionCollapsed(key)) }));
   }, []);
 
-  const applyChatList = useCallback((data: ChatList, fetched = true) => {
+  const applyChatList = useCallback((data: ChatList | ResourceUpdate<ChatList>, fetched = true) => {
     if (!current()) return;
-    setSnapshot((prev) => prev.session === session && prev.groups === data ? prev : { session, groups: data });
+    setSnapshot((prev) => nextSnapshot(prev, session, data));
     if (fetched) hasLoadedOnceRef.current = true;
   }, [current, session]);
   const hydrateFromCache = useCallback(() => {
@@ -117,7 +138,9 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     // A failed read hands back the list already shown (one restored from disk, say): not loaded yet.
     if (result.data) applyChatList(getCachedChatList() ?? result.data, !result.error);
     if (result.error && !background) setError(true);
-    if (!background) setLoading(false);
+    // The latest read ends the spinner, a background one too: it can overtake the drawer's own
+    // (the read after Settings dropped the list), which then returns above and leaves it on.
+    setLoading(false);
   }, [account, getToken, current, hydrateFromCache, applyChatList, reportFailure]);
 
   const olderInFlightRef = useRef(false);
@@ -192,27 +215,14 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
 
   useEffect(() => {
     hydrateFromCache();
-    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: hasLoadedOnceRef.current }) !== "skip") void load();
+    // A list dropped since (an unarchive in Settings) is read again: it was never fetched.
+    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: hasLoadedOnceRef.current && getChatListFetchedAt() != null }) !== "skip") void load();
   }, [isDrawerOpen, account, load, hydrateFromCache]);
   // The API back after an outage: the open drawer's chats, read as opening it reads them.
   const openRef = useLatestRef(isDrawerOpen);
   useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
 
-  const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
-    if (!account || !current()) return;
-    applyChatList(updateChatListCache(update), false);
-    publishChatChange(chatId, patch);
-  }, [account, current, applyChatList]);
-  const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
-    updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
-  }, [updateGroups]);
-  const insertChatInGroups = useCallback((chat: Chat) => {
-    updateGroups(chat.id, chat, (prev) => insertChatIntoGroups(prev, chat));
-  }, [updateGroups]);
-  const removeChatFromGroupsById = useCallback((chatId: string) => {
-    updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
-  }, [updateGroups]);
+  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById } = useListEdits({ account, current, applyChatList, load, openRef });
   const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
     patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
   }, [patchChatInGroups]);
@@ -234,4 +244,49 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
     moveChatArchiveState, removeChatFromGroupsById,
   };
+}
+
+type ListEditDeps = {
+  account: string | null;
+  current: () => boolean;
+  applyChatList: (data: ChatList | ResourceUpdate<ChatList>, fetched?: boolean) => void;
+  load: (background?: boolean) => Promise<void>;
+  openRef: RefObject<boolean>;
+};
+
+/**
+ * The drawer's own edits to its list (patch, insert, remove), cached and published. A list
+ * Settings dropped takes no edit until it is read again (`updateChatListCache`): the edit lands
+ * on the rows shown, which an unarchive left in place. A drop that removed rows (Delete all,
+ * Archive all) clears them here first, so an edit can never bring one back. Either drop reads
+ * the list again: at once with the drawer open, else in the background, so Home's last chat
+ * and a new chat's title poll have it without the drawer.
+ */
+function useListEdits({ account, current, applyChatList, load, openRef }: ListEditDeps) {
+  useEffect(() => subscribeChatList(() => {
+    if (!current() || !isChatListDropped()) return;
+    if (chatListRowsRemoved()) applyChatList(emptyChatList(), false);
+    if (openRef.current) void load();
+    else scheduleIdleTask(() => void load(true));
+  }), [current, applyChatList, load, openRef]);
+  const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
+    if (!account || !current()) return;
+    applyChatList(updateChatListCache(update) ?? update, false);
+    publishChatChange(chatId, patch);
+  }, [account, current, applyChatList]);
+  const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
+    const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
+    updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
+  }, [updateGroups]);
+  const insertChatInGroups = useCallback((chat: Chat) => {
+    updateGroups(chat.id, chat, (prev) => insertChatIntoGroups(prev, chat));
+  }, [updateGroups]);
+  const removeChatFromGroupsById = useCallback((chatId: string) => {
+    updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
+  }, [updateGroups]);
+  // A chat deleted elsewhere (Settings' archived chats) leaves only its own row.
+  useEffect(() => onAppEvent("chatsDeleted", ({ chatIds }) => {
+    chatIds.forEach((chatId) => removeChatFromGroupsById(chatId));
+  }), [removeChatFromGroupsById]);
+  return { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById };
 }

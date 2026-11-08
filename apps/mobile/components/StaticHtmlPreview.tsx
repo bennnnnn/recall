@@ -84,6 +84,7 @@ export function StaticHtmlPreview({
 
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
       showsVerticalScrollIndicator

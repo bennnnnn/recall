@@ -40,6 +40,12 @@ type Props = {
   iconColor?: string;
   /** What sits at the far right. A switch row passes `switchValue` instead. */
   accessory?: "chevron" | "check";
+  /**
+   * Buttons of the row's own at the far right (an archived chat's Unarchive and Delete),
+   * in place of `accessory`. Give such a row no `onPress` and no `accessibilityLabel`: each button
+   * is its own target, and a labelled row would read as one element that hides them.
+   */
+  trailing?: ReactNode;
   /** Makes the row a switch; the whole row toggles it. */
   switchValue?: boolean;
   onSwitchChange?: (next: boolean) => void;
@@ -90,6 +96,7 @@ export function ListRow({
   leading,
   iconColor,
   accessory,
+  trailing,
   switchValue,
   onSwitchChange,
   busy = false,
@@ -155,32 +162,14 @@ export function ListRow({
           </Text>
         </View>
       ) : null}
-      {busy ? (
-        <View
-          accessible={isSwitch}
-          accessibilityRole={isSwitch ? "progressbar" : undefined}
-          accessibilityState={isSwitch ? { busy: true } : undefined}
-          accessibilityElementsHidden={!isSwitch}
-          importantForAccessibility={isSwitch ? "auto" : "no-hide-descendants"}
-        >
-          <ActivityIndicator size="small" color={theme.primary} />
-        </View>
-      ) : isSwitch ? (
-        <Switch
-          value={switchValue}
-          disabled={disabled}
-          thumbColor={theme.bg}
-          trackColor={{ false: theme.border, true: theme.primary }}
-          onValueChange={onSwitchChange}
-          pointerEvents="none"
-          importantForAccessibility="no-hide-descendants"
-          accessibilityElementsHidden
-        />
-      ) : accessory === "chevron" ? (
-        <Icon name="chevron-right" size={IconSize.xs} color={theme.textTertiary} />
-      ) : accessory === "check" ? (
-        <Icon name="check" size={IconSize.sm} color={theme.primary} />
-      ) : null}
+      <RowEnd
+        busy={busy}
+        switchValue={switchValue}
+        onSwitchChange={onSwitchChange}
+        disabled={disabled}
+        trailing={trailing}
+        accessory={accessory}
+      />
     </>
   );
 
@@ -246,6 +235,60 @@ export function ListRow({
     </Pressable>
   );
 }
+
+/** The row's far right: a spinner while busy, else its switch, own buttons or accessory. */
+function RowEnd({
+  busy,
+  switchValue,
+  onSwitchChange,
+  disabled,
+  trailing,
+  accessory,
+}: Pick<Props, "switchValue" | "onSwitchChange" | "trailing" | "accessory"> & {
+  busy: boolean;
+  disabled: boolean;
+}) {
+  const theme = useTheme();
+  const isSwitch = switchValue !== undefined;
+  if (busy) {
+    return (
+      <View
+        accessible={isSwitch}
+        accessibilityRole={isSwitch ? "progressbar" : undefined}
+        accessibilityState={isSwitch ? { busy: true } : undefined}
+        accessibilityElementsHidden={!isSwitch}
+        importantForAccessibility={isSwitch ? "auto" : "no-hide-descendants"}
+      >
+        <ActivityIndicator size="small" color={theme.primary} />
+      </View>
+    );
+  }
+  if (isSwitch) {
+    return (
+      <Switch
+        value={switchValue}
+        disabled={disabled}
+        thumbColor={theme.bg}
+        trackColor={{ false: theme.border, true: theme.primary }}
+        onValueChange={onSwitchChange}
+        pointerEvents="none"
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
+      />
+    );
+  }
+  // Pulled into the row's padding so touch-sized buttons' icons line up with a chevron's.
+  if (trailing) return <View style={endStyles.trailing}>{trailing}</View>;
+  if (accessory === "chevron") {
+    return <Icon name="chevron-right" size={IconSize.xs} color={theme.textTertiary} />;
+  }
+  if (accessory === "check") return <Icon name="check" size={IconSize.sm} color={theme.primary} />;
+  return null;
+}
+
+const endStyles = StyleSheet.create({
+  trailing: { flexDirection: "row", alignItems: "center", marginRight: -Space.sm },
+});
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({

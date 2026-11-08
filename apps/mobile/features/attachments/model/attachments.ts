@@ -132,7 +132,11 @@ function normalizeContentType(mimeType: string | null | undefined, uri: string):
   return "application/octet-stream";
 }
 
-async function assetToPending(asset: PickedAsset): Promise<PendingAttachment> {
+/**
+ * A pick, or a file another app opened in Recall (openedDocumentCopy.ts), as a composer
+ * attachment: its type normalized, then prepared and checked like every pick.
+ */
+export async function assetToPending(asset: PickedAsset): Promise<PendingAttachment> {
   return preparePickedAsset({
     ...asset,
     contentType: normalizeContentType(asset.contentType, asset.fileName || asset.uri),

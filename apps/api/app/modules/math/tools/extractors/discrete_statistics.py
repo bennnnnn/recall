@@ -91,6 +91,17 @@ def _extract_number_theory_intent(cleaned: str) -> MathIntent | None:
             vec_a=[float(rem_a), float(mod_m), float(rem_b), float(mod_n)],
             operation="solve",
         )
+    power = mtm.power_mod_signal(cleaned)
+    if power is not None:
+        base, exponent, modulus = power
+        return MathIntent(
+            kind="number_theory",
+            numtheory_op="mod",
+            numtheory_a=base,
+            numtheory_b=modulus,
+            numtheory_exponent=exponent,
+            operation="solve",
+        )
     signal = mtm.number_theory_signal(cleaned)
     if signal is None:
         from app.modules.math.match.discrete import gcd_lcm_list_signal

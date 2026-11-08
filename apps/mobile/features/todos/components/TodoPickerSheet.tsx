@@ -41,6 +41,7 @@ function PickerBody({
 
   return (
     <ScrollView
+      keyboardShouldPersistTaps="handled"
       style={s.scroll}
       bounces={false}
       showsVerticalScrollIndicator={false}

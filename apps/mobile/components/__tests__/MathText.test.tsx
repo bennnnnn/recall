@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react-native";
 import { MathText } from "@/components/rich/MathText";
 import { FRAC_SIZE_RATIO, layoutMath, SCRIPT_RATIO } from "@/lib/math/layout";
 import { findLayouts, layoutProblems } from "./layoutChecks";
+import { expectFormulaBox } from "./support/mathInk";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex, readableLatexFallback } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";
@@ -233,7 +234,7 @@ describe("MathText", () => {
     const { layout, problems } = laidOut("\\frac{1}{2}");
     const frac = findLayouts(layout, "frac")[0];
     expect(problems).toEqual([]);
-    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: layout.width, height: layout.height });
+    expectFormulaBox(getByTestId("math-text-tall"), { width: layout.width, height: layout.height });
     expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
     expect(frac.width).toBeGreaterThanOrEqual(frac.contentWidth ?? 0);
     expect(frac.pad ?? 0).toBeLessThanOrEqual(16 * 0.5);
@@ -288,7 +289,7 @@ describe("MathText", () => {
     const { layout } = laidOut(String.raw`\frac{\pi}{2}`);
     const frac = findLayouts(layout, "frac")[0];
     expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: layout.width, height: layout.height });
+    expectFormulaBox(getByTestId("math-text-tall"), { width: layout.width, height: layout.height });
   });
 
   it("groups sums and scripts using the fraction bar without adding source characters", async () => {
@@ -385,7 +386,7 @@ describe("MathText", () => {
     expect(problems).toEqual([]);
     expect(getByTestId("math-sqrt")).toHaveStyle({ alignItems: "flex-start" });
     expect(getByTestId("math-sqrt")).toHaveStyle({ width: radical.width, height: radical.height });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: layout.width, height: layout.height });
+    expectFormulaBox(getByTestId("math-text-tall"), { width: layout.width, height: layout.height });
     expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
       marginLeft: radical.lead,
       marginTop: radical.bodyTop,
@@ -406,7 +407,7 @@ describe("MathText", () => {
     const frac = findLayouts(layout, "frac")[0];
     expect(problems).toEqual([]);
     expect(getByTestId("math-sqrt")).toHaveStyle({ width: radical.width, height: radical.height });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: layout.width, height: layout.height });
+    expectFormulaBox(getByTestId("math-text-tall"), { width: layout.width, height: layout.height });
     expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
       marginLeft: radical.lead,
       marginTop: radical.bodyTop,
@@ -528,8 +529,8 @@ describe("MathText", () => {
     const { layout } = laidOut(String.raw`\frac{1}{2}`);
     const frac = findLayouts(layout, "frac")[0];
     expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width * 1.5, height: frac.height * 1.5 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({
-      minWidth: layout.width * 1.5,
+    expectFormulaBox(getByTestId("math-text-tall"), {
+      width: layout.width * 1.5,
       height: layout.height * 1.5,
     });
     expect(getByText("1")).toHaveStyle({ fontSize: 14 });

@@ -2,6 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { Alert } from "react-native";
 
 import ArchivedChatsScreen from "@/features/account/screens/ArchivedChatsScreen";
+import { forgetDeletedChat } from "@/features/chat/model/chatListCache";
 
 const mockListChats = jest.fn();
 const mockDeleteChat = jest.fn();
@@ -50,6 +51,7 @@ jest.mock("@shopify/flash-list", () => {
 });
 jest.mock("@/features/chat/model/chatListCache", () => ({
   invalidateChatListCache: jest.fn(),
+  forgetDeletedChat: jest.fn(),
   fetchMoreArchivedChats: (...args: unknown[]) => mockMoreArchived(...args),
   fetchChatList: async (...args: unknown[]) => {
     try {
@@ -71,6 +73,7 @@ jest.mock("@/lib/haptics", () => ({
   notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
 }));
 jest.mock("@/lib/theme", () => ({
+  ...jest.requireActual("@/lib/theme"),
   useTheme: () => ({
     bg: "#fff",
     settingsSurface: "#eee",
@@ -80,6 +83,10 @@ jest.mock("@/lib/theme", () => ({
     textSecondary: "#555",
     textTertiary: "#777",
     danger: "#f00",
+    // A header button's colours (the row's Unarchive and Delete).
+    control: "#eee",
+    onMedia: "#fff",
+    pressed: "#ddd",
   }),
 }));
 
@@ -141,7 +148,7 @@ it("haptics only after confirmed archived-chat deletion succeeds", async () => {
   mockDeleteChat.mockReturnValue(pending.promise);
   const ui = await render(<ArchivedChatsScreen />);
 
-  await fireEvent.press(ui.getByText("chat.delete"));
+  await fireEvent.press(ui.getByLabelText("chat.delete, Archived chat"));
   expect(mockDestructive).not.toHaveBeenCalled();
   const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)[2];
   const confirm = buttons.find(
@@ -152,6 +159,8 @@ it("haptics only after confirmed archived-chat deletion succeeds", async () => {
 
   await act(async () => { pending.resolve(); });
   expect(mockDestructive).toHaveBeenCalledTimes(1);
+  // Only the deleted chat leaves the drawer and its cache; every other row stays shown.
+  expect(forgetDeletedChat).toHaveBeenCalledWith("archived");
 });
 
 it("reads archived chats past the first page when the list end is reached", async () => {
@@ -174,4 +183,33 @@ it("reads archived chats past the first page when the list end is reached", asyn
   });
   expect(mockMoreArchived).toHaveBeenCalledWith("token");
   expect(ui.getByText("Chat a2")).toBeTruthy();
+});
+
+it("shows each archived chat as one row with its date, Unarchive and Delete its own buttons", async () => {
+  const { api } = jest.requireMock<{ api: { setArchive: jest.Mock } }>("@/lib/api");
+  api.setArchive.mockResolvedValue(undefined);
+  mockListChats.mockResolvedValue({
+    archived: [
+      {
+        id: "trip",
+        title: "Seattle weather forecast",
+        model: "free-chat",
+        pinned: false,
+        archived: true,
+        created_at: "2026-11-07T10:00:00Z",
+        updated_at: "2026-11-07T10:00:00Z",
+      },
+    ],
+  });
+  const ui = await render(<ArchivedChatsScreen />);
+
+  expect(ui.getByText("Seattle weather forecast")).toBeTruthy();
+  expect(ui.getByText(/Nov \d+, 2026/)).toBeTruthy();
+  // The actions are buttons named for the chat, not a subtitle and a second row.
+  expect(ui.queryByText("chat.unarchive")).toBeNull();
+  expect(ui.queryByText("chat.delete")).toBeNull();
+
+  await fireEvent.press(ui.getByLabelText("chat.unarchive, Seattle weather forecast"));
+  expect(api.setArchive).toHaveBeenCalledWith("token", "trip", false);
+  expect(ui.getByText("settings.archived_chats_empty")).toBeTruthy();
 });

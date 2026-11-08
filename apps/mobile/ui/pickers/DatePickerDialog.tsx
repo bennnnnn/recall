@@ -323,6 +323,7 @@ function YearGrid({
 
   return (
     <FlatList
+      keyboardShouldPersistTaps="handled"
       data={rows}
       keyExtractor={(row) => String(row[0])}
       getItemLayout={(_data, index) => ({ length: YEAR_ROW, offset: YEAR_ROW * index, index })}

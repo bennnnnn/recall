@@ -173,7 +173,7 @@ export function CodeBlock({
           },
         ]}
       >
-        <ScrollView
+        <ScrollView keyboardShouldPersistTaps="handled"
           testID="code-block-scroll"
           horizontal
           showsHorizontalScrollIndicator={false}

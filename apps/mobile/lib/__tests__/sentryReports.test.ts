@@ -242,3 +242,17 @@ describe("a LaTeX command the renderer has no entry for", () => {
     expect(sdk().captureMessage).toHaveBeenCalledTimes(10);
   });
 });
+
+describe("a native splash call that failed at launch", () => {
+  it("names the call it was, and waits for the SDK when it comes before it", async () => {
+    const { mod, sdk } = await freshSentry(false);
+    const failure = new Error("no splash view");
+    mod.reportLaunchSplashFailed("hide", failure);
+    expect(sdk().captureException).not.toHaveBeenCalled();
+
+    await mod.initMobileSentry();
+    expect(sdk().captureException).toHaveBeenCalledWith(failure, {
+      tags: { area: "launch_splash", step: "hide" },
+    });
+  });
+});

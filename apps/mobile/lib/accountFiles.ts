@@ -22,9 +22,16 @@ function fileUri(directory: string, name: string): string {
   return `${directory}${encodeURIComponent(name)}`;
 }
 
-/** A new file for `kind` in the cache directory; the caller has checked the directory exists. */
-export function newAccountFile(kind: keyof typeof ACCOUNT_FILE_PREFIX, extension: string): string {
-  return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${Date.now()}.${extension}`;
+/**
+ * A new file for `kind` in the cache directory; the caller has checked the directory exists.
+ * `stem` names it after the prefix when a person sees the name (a share sheet), else the time.
+ */
+export function newAccountFile(
+  kind: keyof typeof ACCOUNT_FILE_PREFIX,
+  extension: string,
+  stem: string = String(Date.now()),
+): string {
+  return `${cacheDirectory}${ACCOUNT_FILE_PREFIX[kind]}${stem}.${extension}`;
 }
 
 /** expo-print writes every PDF (chat exports) here, on iOS and Android alike. */
@@ -39,11 +46,20 @@ const RECORDING_DIRECTORIES = ["ExpoAudio/", "Audio/"] as const;
 const RECORDING_PREFIX = "recording-";
 
 /**
- * The copy of each photo or file picked (expo-image-picker, expo-document-picker),
- * and each re-encode or crop (expo-image-manipulator: composer photos, scanner
- * crops, profile photos). Every file in them is one the person chose.
+ * Where a file another app opened in Recall (Open in, Open with, Share) is copied for
+ * the composer (features/attachments/model/openedDocumentCopy.ts).
  */
-const PICKER_COPY_DIRECTORIES = ["ImagePicker/", "DocumentPicker/", "ImageManipulator/"] as const;
+export const OPENED_FILE_DIRECTORY = "OpenedFiles";
+
+/**
+ * The copy of each photo or file picked (expo-image-picker, expo-document-picker),
+ * each re-encode or crop (expo-image-manipulator: composer photos, scanner crops,
+ * profile photos), and each file opened in Recall from another app. Every file in
+ * them is one the person chose.
+ */
+const PICKER_COPY_DIRECTORIES = [
+  "ImagePicker/", "DocumentPicker/", "ImageManipulator/", `${OPENED_FILE_DIRECTORY}/`,
+] as const;
 /** A week: long past any pick a new run could still be handed. */
 const PICKER_COPY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 

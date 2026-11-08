@@ -85,6 +85,7 @@ function SearchSourcesSheet({
     <Sheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
       <Text style={s.title} accessibilityRole="header">{t("chat.sources_title")}</Text>
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         style={[s.list, { maxHeight: listMaxHeight }]}
         bounces={false}
         showsVerticalScrollIndicator={false}

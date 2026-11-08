@@ -29,12 +29,27 @@ jest.mock("@/features/chat/drawer/drawer", () => {
       pending = id;
     }),
     isChatTitleGenerating: jest.fn((id: string) => pending === id),
+    subscribeChatChanges: jest.fn(),
   };
 });
 
 import { api } from "@/lib/api";
 import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
-import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/features/chat/drawer/drawer";
+import {
+  insertChatGlobal,
+  patchChatGlobal,
+  setChatTitleGenerating,
+  subscribeChatChanges,
+} from "@/features/chat/drawer/drawer";
+import type { Chat } from "@/lib/api";
+
+type ChatChange = (chatId: string, patch: Partial<Chat> | null) => void;
+const changeListeners = new Set<ChatChange>();
+/** A drawer edit, told as the drawer tells it (`publishChatChange`). */
+function publishChatChange(chatId: string, patch: Partial<Chat> | null): void {
+  mockRevision++;
+  changeListeners.forEach((listener) => listener(chatId, patch));
+}
 
 const getChat = api.getChat as jest.Mock;
 const peekCreated = peekCreatedChat as jest.Mock;
@@ -79,6 +94,11 @@ describe("useChatTitlePolling", () => {
     peekCreated.mockReturnValue(undefined);
     listedChat.mockReturnValue(undefined);
     getChat.mockResolvedValue({ title: "A's title" });
+    changeListeners.clear();
+    (subscribeChatChanges as jest.Mock).mockImplementation((listener: ChatChange) => {
+      changeListeners.add(listener);
+      return () => { changeListeners.delete(listener); };
+    });
   });
 
   afterEach(() => {
@@ -324,7 +344,7 @@ describe("useChatTitlePolling", () => {
     let pending!: Promise<void>;
     await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
     await act(async () => { jest.advanceTimersByTime(2000); });
-    if (change === "rename") mockRevision++;
+    if (change === "rename") publishChatChange("chat-a", { title: "Mine" });
     if (change === "logout") mockSession++;
     if (change === "unmount") await view.unmount();
     if (change === "return") {
@@ -343,11 +363,52 @@ describe("useChatTitlePolling", () => {
     await render(<Probe chatId="chat-a" />);
     let pending!: Promise<void>;
     await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
-    mockRevision++;
-    listedChat.mockReturnValue({ id: "chat-a", title: "My manual title" });
+    publishChatChange("chat-a", { title: "My manual title" });
     await act(async () => { jest.advanceTimersByTime(2000); await pending; });
     expect(getChat).not.toHaveBeenCalled();
     expect(patchChat).not.toHaveBeenCalled();
+  });
+
+  // Review, 2026-11-07: with no list cached (Delete all dropped it), a pin made while the poll
+  // waited read as a deleted chat, and the new chat's title never arrived.
+  it.each([
+    ["while the poll waits", false],
+    ["while the title is being read", true],
+  ])("keeps polling through a pin made %s, with no list cached", async (_when, duringRead) => {
+    let resolve!: (value: { title: string }) => void;
+    if (duringRead) getChat.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
+    if (!duringRead) publishChatChange("chat-a", { pinned: true });
+    await act(async () => { jest.advanceTimersByTime(2000); });
+    if (duringRead) {
+      publishChatChange("chat-a", { pinned: true });
+      await act(async () => { resolve({ title: "A's title" }); });
+    }
+    await act(async () => { await pending; });
+    expect(listedChat).not.toHaveBeenCalled();
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "A's title" });
+    expect(screenTitle).toBe("A's title");
+  });
+
+  it("stops polling for a chat deleted meanwhile, with no list cached", async () => {
+    await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
+    publishChatChange("chat-a", null);
+    await act(async () => { jest.advanceTimersByTime(2000); await pending; });
+    expect(getChat).not.toHaveBeenCalled();
+    expect(patchChat).not.toHaveBeenCalled();
+  });
+
+  it("is not stopped by an edit to another chat", async () => {
+    await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
+    publishChatChange("chat-b", null);
+    await act(async () => { jest.advanceTimersByTime(2000); await pending; });
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "A's title" });
   });
 
   it("rejects retained title callbacks from an ended account session", async () => {

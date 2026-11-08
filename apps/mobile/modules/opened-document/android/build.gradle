@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.recallopeneddocument'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.recallopeneddocument"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  // LaunchMarkersTest: ./gradlew :opened-document:testDebugUnitTest
+  testImplementation 'junit:junit:4.13.2'
+}

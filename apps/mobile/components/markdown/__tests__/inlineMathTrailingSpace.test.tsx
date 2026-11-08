@@ -6,10 +6,7 @@ import { render, within, type RenderResult } from "@testing-library/react-native
 import { Dimensions, StyleSheet, type ViewStyle } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { layoutMath } from "@/lib/math/layout";
-import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
-import { parseSimpleLatex } from "@/lib/math/text";
-import { Type } from "@/lib/type";
+import { drawnBox, type Element } from "@/components/__tests__/support/mathInk";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
@@ -32,7 +29,6 @@ jest.mock("@/components/rich/AnswerBlock", () => ({
 
 const BALANCED = String.raw`The balanced equation is $2H_2 + O_2 \rightarrow 2H_2O$. This means 1 mole of $H_2$ produces 1 mole of $H_2O$.`;
 const REACTION = String.raw`The reaction $2H_2 + O_2 \rightarrow 2H_2O$ shows that 2 moles of hydrogen make 2 moles of water.`;
-const REACTION_LATEX = String.raw`2H_2 + O_2 \rightarrow 2H_2O`;
 
 const SUBSCRIPT: Record<string, string> = Object.fromEntries(
   Array.from("0123456789").map((digit, i) => [digit, String.fromCharCode(0x2080 + i)]),
@@ -76,16 +72,17 @@ function visibleText(node: unknown): string {
   return gap > 0 ? `${text} ` : text;
 }
 
-/** Inline maths is set at the reply's text size. */
-function measuredWidth(latex: string): number {
-  return layoutMath(parseSimpleLatex(fixImplicitExponents(latex)), Type.reading.fontSize).width;
-}
-
-/** The formula's own box: a floor at the measured width, never a cap below its glyphs. */
-function expectGrowableBox(view: RenderResult, latex: string): void {
-  const box = styleOf(view.getAllByTestId("math-text-tall")[0] as unknown as Node);
+/**
+ * The formula's own box: as wide as its glyphs (measured from KaTeX's advances), never a
+ * cap below them that they paint past, nor a floor that leaves room after them.
+ */
+function expectGlyphWideBox(view: RenderResult): void {
+  const formula = view.getAllByTestId("math-text-tall")[0] as unknown as Element;
+  const box = styleOf(formula as Node);
   expect(box.width).toBeUndefined();
-  expect(box.minWidth).toBeCloseTo(measuredWidth(latex), 5);
+  expect(box.minWidth).toBeUndefined();
+  const { box: drawn, ink } = drawnBox(formula);
+  expect(drawn).toBeCloseTo(ink, 1);
 }
 
 function rowText(view: RenderResult): string {
@@ -103,7 +100,7 @@ describe("the space after an inline formula", () => {
     expect(rowText(view)).toBe(
       "The balanced equation is 2H₂ + O₂ → 2H₂O. This means 1 mole of H₂ produces 1 mole of H₂O.",
     );
-    expectGrowableBox(view, `${REACTION_LATEX}\\text{.}`);
+    expectGlyphWideBox(view);
   });
 
   it("keeps \"2H₂O shows\" after a reaction arrow", async () => {
@@ -111,7 +108,7 @@ describe("the space after an inline formula", () => {
     expect(rowText(view)).toBe(
       "The reaction 2H₂ + O₂ → 2H₂O shows that 2 moles of hydrogen make 2 moles of water.",
     );
-    expectGrowableBox(view, REACTION_LATEX);
+    expectGlyphWideBox(view);
     // The gap belongs to the formula's item, so the next word cannot touch it.
     const formula = view.getByTestId("math-text-tall");
     expect(styleOf(formula.parent as unknown as Node).marginRight).toBeGreaterThan(0);
@@ -123,7 +120,7 @@ describe("the space after an inline formula", () => {
       <MarkdownContent content={String.raw`Burn it: $CH_4 + 2O_2 \rightarrow CO_2 + 2H_2O$, which releases heat.`} />,
     );
     expect(rowText(view)).toBe("Burn it: CH₄ + 2O₂ → CO₂ + 2H₂O, which releases heat.");
-    expectGrowableBox(view, String.raw`CH_4 + 2O_2 \rightarrow CO_2 + 2H_2O\text{,}`);
+    expectGlyphWideBox(view);
   });
 
   it.each([
@@ -133,14 +130,14 @@ describe("the space after an inline formula", () => {
   ])("keeps \"2H₂O shows\" in %s", async (_host, content) => {
     const view = await render(<MarkdownContent content={content} />);
     expect(visibleText(view.toJSON()).replace(/ {2,}/g, " ")).toContain("2H₂O shows that");
-    expectGrowableBox(view, REACTION_LATEX);
+    expectGlyphWideBox(view);
   });
 
   it("keeps the space while the reply streams and once it settles", async () => {
     const partial = String.raw`The balanced equation is $2H_2 + O_2 \rightarrow 2H_2O$. This means`;
     const streaming = await render(<MarkdownContent content={partial} streaming />);
     expect(visibleText(streaming.toJSON())).toContain("2H₂O. This means");
-    expectGrowableBox(streaming, `${REACTION_LATEX}\\text{.}`);
+    expectGlyphWideBox(streaming);
     await streaming.rerender(<MarkdownContent content={BALANCED} />);
     expect(rowText(streaming)).toContain("2H₂O. This means 1 mole");
   });
@@ -153,7 +150,7 @@ describe("the space after an inline formula", () => {
     expect(styleOf(scroller as unknown as Node).marginRight ?? styleOf(scroller.parent as unknown as Node).marginRight)
       .toBeGreaterThan(0);
     expect(rowText(view)).toMatch(/6H₂O shows the cycle\.$/);
-    expectGrowableBox(view, wide);
+    expectGlyphWideBox(view);
   });
 
   it("keeps the space after an arrow drawn inside the line of text", async () => {

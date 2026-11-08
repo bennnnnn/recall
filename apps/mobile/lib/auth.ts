@@ -46,6 +46,14 @@ export function invalidateSession(): number {
   return ++sessionGeneration;
 }
 
+/**
+ * A signed-in session holds its tokens now: none while a launch has not read the saved
+ * sign-in yet, during a sign-in, or after a sign-out.
+ */
+export function hasSessionToken(): boolean {
+  return sessionAccessTokens.size > 0;
+}
+
 /** Accept refresh-era tokens only while their original account session remains active. */
 export function requireTokenSession(token: string): void {
   if (!sessionAccessTokens.has(token)) throw new SessionChangedError();

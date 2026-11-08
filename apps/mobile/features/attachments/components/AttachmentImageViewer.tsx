@@ -306,7 +306,7 @@ function ViewerContent({
         style={[s.root, { backgroundColor: theme.mediaScrim }, rootAnimatedStyle]}
       >
         {items.length > 1 ? (
-          <FlatList
+          <FlatList keyboardShouldPersistTaps="handled"
             ref={pagerRef}
             testID="attachment-viewer-pager"
             style={s.pager}

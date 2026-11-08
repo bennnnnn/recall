@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS, SUPERSCRIPT_SIGNED
 from app.services.text_normalize import collapse_ws
 
@@ -18,8 +20,32 @@ _SUP_SIGNS = "⁻⁺"
 _SUP_TABLE = SUPERSCRIPT_SIGNED
 
 
+_MATH_SPAN = re.compile(r"\$([^$]+)\$")
+# A factorial closing a span (``2+3!``), and what comes before it.
+# The whole number must start after a sign or a command: ``2+13!``, not ``2+1(3!)``; and
+# not after a point (``2.5!`` is no factorial).
+_CLOSING_FACTORIAL = re.compile(r"^(.*[^\s\d.])(\s*)(\d+)!\s*$", re.DOTALL)
+
+
+def pin_closing_factorial(tex: str) -> str:
+    """``2+3!`` → ``2+(3!)``: the math keyboard's n! key, never an exclamation mark.
+
+    A closing ``!`` reads as punctuation in prose ("what is 2+3!"), and the readers drop
+    it once the ``$`` are gone, so ``$2+3!$`` was verified as 5. Inside a span it was
+    typed with the n! key; bracketed, no reader takes it for punctuation. A span that is
+    only ``5!`` stays as it is: the factorial reader has it whole.
+    """
+    match = _CLOSING_FACTORIAL.match(tex)
+    if match is None:
+        return tex
+    before, space, number = match.groups()
+    return f"{before}{space}({number}!)"
+
+
 def strip_inline_math_delimiters(text: str) -> str:
     """Remove composer delimiters without changing the enclosed expression."""
+    if "!$" in text.replace(" ", ""):
+        text = _MATH_SPAN.sub(lambda span: f"${pin_closing_factorial(span.group(1))}$", text)
     return (
         text.replace("$$", "")
         .replace("$", "")

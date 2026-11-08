@@ -14,11 +14,12 @@ import Animated, {
   type AnimatedStyle,
   type SharedValue,
 } from "react-native-reanimated";
-import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   BOTTOM_CHROME_FADE_LOCATIONS,
   bottomChromeFadeColors,
+  COMPOSER_GAP_FADE_LOCATIONS,
+  composerGapFadeColors,
 } from "@/features/chat/components/chromeFade";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -39,6 +40,7 @@ import { ComposerSendControls } from "@/features/chat/components/ComposerSendCon
 import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
+import { MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
@@ -59,20 +61,14 @@ import {
   composerShowsMic,
   composerShowsSend,
 } from "@/features/chat/model/composerLogic";
+import { pasteClipboardText } from "@/lib/clipboard";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { Space } from "@/lib/space";
-import { useTheme, withAlpha } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX } from "@/lib/type";
 
 function noopComposerInput(_text: string) {}
 function noopOpen() {}
-
-const GAP_FADE_LOCATIONS = [0, 1] as const;
-
-/** Washed out at both ends. A clear stop left a sharp line directly under the pill. */
-function gapFadeColors(bg: string): [string, string] {
-  return [withAlpha(bg, 0.92), bg];
-}
 
 // One 36 pt row (+, the field, mic and live talk) + the card's 1 pt border and 4 pt padding
 // above and below + 6 pt shell air above and below.
@@ -165,6 +161,7 @@ export const ChatComposer = memo(function ChatComposer({
   const padUnder = math.mathBarOpen ? math.padHeight : 0;
   const mathChromeHeight =
     padUnder +
+    (math.mathBarOpen ? MATH_LIVE_ANSWER_HEIGHT : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? COMPOSER_SCAN_HINT_HEIGHT : 0) +
     (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
@@ -318,8 +315,8 @@ export const ChatComposer = memo(function ChatComposer({
         testID="composer-bottom-fade"
       >
         <LinearGradient
-          colors={gapFadeColors(theme.bg)}
-          locations={[...GAP_FADE_LOCATIONS]}
+          colors={composerGapFadeColors(theme.bg)}
+          locations={[...COMPOSER_GAP_FADE_LOCATIONS]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -467,6 +464,7 @@ export const ChatComposer = memo(function ChatComposer({
               )}
               {stacked ? null : trailingControls}
             </View>
+            {math.mathBarOpen ? <MathLiveAnswer input={input} /> : null}
             {stacked ? (
               <View style={s.controlsRow} testID="composer-controls-row">
                 {attachButton}
@@ -505,11 +503,7 @@ export const ChatComposer = memo(function ChatComposer({
               onStop={onStop}
               streaming={streaming}
               onBackspace={math.backspace}
-              onPaste={() => {
-                void Clipboard.getStringAsync().then((text) => {
-                  if (text) void math.pasteText(text);
-                });
-              }}
+              onPaste={() => pasteClipboardText(math.pasteText)}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}
             />

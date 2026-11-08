@@ -130,7 +130,11 @@ function paragraphHtml(lines: string[]): string {
 
 function structuredPrintBody(markdown: string): string {
   const prepared = preprocessMarkdown(markdown.replace(/\r\n/g, "\n"));
-  const lines = prepared.split("\n");
+  return renderBlocks(prepared.split("\n")) || `<p class="empty"></p>`;
+}
+
+/** Markdown lines as print blocks; a list item's own lines come back through here. */
+function renderBlocks(lines: string[], depth = 0): string {
   const parts: string[] = [];
   let i = 0;
   let paragraph: string[] = [];
@@ -201,25 +205,18 @@ function structuredPrintBody(markdown: string): string {
       continue;
     }
 
-    if (/^\s*[-*+]\s+/.test(line)) {
+    if (THEMATIC_BREAK.test(line)) {
       flushParagraph();
-      const items: string[] = [];
-      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i] ?? "")) {
-        items.push((lines[i] ?? "").replace(/^\s*[-*+]\s+/, ""));
-        i += 1;
-      }
-      parts.push(`<ul>${items.map((item) => `<li>${inlineMarkdownToHtml(item)}</li>`).join("")}</ul>`);
+      parts.push("<hr>");
+      i += 1;
       continue;
     }
 
-    if (/^\s*\d+\.\s+/.test(line)) {
+    if (LIST_ITEM.test(line)) {
       flushParagraph();
-      const items: string[] = [];
-      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i] ?? "")) {
-        items.push((lines[i] ?? "").replace(/^\s*\d+\.\s+/, ""));
-        i += 1;
-      }
-      parts.push(`<ol>${items.map((item) => `<li>${inlineMarkdownToHtml(item)}</li>`).join("")}</ol>`);
+      const list = readList(lines, i, depth);
+      parts.push(list.html);
+      i = list.next;
       continue;
     }
 
@@ -234,7 +231,100 @@ function structuredPrintBody(markdown: string): string {
   }
   flushParagraph();
 
-  return parts.join("\n") || `<p class="empty"></p>`;
+  return parts.join("\n");
+}
+
+/** A list item: its indent, its marker ("-" or "3."), and the text after the marker. */
+const LIST_ITEM = /^( *)([-*+]|\d{1,9}[.)])\s+(.*)$/;
+/** "---", "***" or "* * *": a rule, as the chat draws it; read before a list, which "* * *" also looks like. */
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?: *\1){2,} *$/;
+/** Lists inside lists past this print as text: a line of a thousand "- " must not overflow the stack. */
+const MAX_LIST_DEPTH = 12;
+
+function startsBlock(line: string): boolean {
+  return (
+    fenceAfterLine(null, line) != null ||
+    /^(#{1,4})\s+/.test(line) ||
+    /^>/.test(line) ||
+    looksLikePipeRow(line) ||
+    THEMATIC_BREAK.test(line) ||
+    LIST_ITEM.test(line)
+  );
+}
+
+function leadingSpaces(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
+/**
+ * One list from `start`, read as CommonMark reads it, so the PDF numbers and nests what the
+ * chat shows: an item keeps its indented lines (a model writes "1. **Read widely**\" then
+ * the paragraph under it), a blank line keeps the item when more of it follows, items of
+ * the same kind after a blank line stay one list, and an ordered list starts at its first
+ * number. Before, each item's paragraph ended the list, so every item printed as "1."
+ * with a stray backslash (2026-11-07).
+ */
+function readList(lines: string[], start: number, depth: number): { html: string; next: number } {
+  const first = LIST_ITEM.exec(lines[start] ?? "")!;
+  const indent = first[1].length;
+  const ordered = /\d/.test(first[2]);
+  // A rule ("* * *") looks like an item but ends the list, as in the chat.
+  const sameList = (line: string) => {
+    const match = THEMATIC_BREAK.test(line) ? null : LIST_ITEM.exec(line);
+    return match != null && match[1].length === indent && /\d/.test(match[2]) === ordered;
+  };
+  const items: string[][] = [];
+  let i = start;
+  while (i < lines.length) {
+    const item = LIST_ITEM.exec(lines[i] ?? "");
+    if (!sameList(lines[i] ?? "")) break;
+    const contentIndent = indent + item![2].length + 1;
+    const body = [item![3]];
+    // The item's own indent, from its first indented line: every line under it loses that
+    // much, so a fence indented two spaces under "1." keeps its code's indentation.
+    let strip: number | null = null;
+    i += 1;
+    while (i < lines.length) {
+      const line = lines[i] ?? "";
+      if (!line.trim()) {
+        let next = i;
+        while (next < lines.length && !(lines[next] ?? "").trim()) next += 1;
+        if (next < lines.length && leadingSpaces(lines[next] ?? "") >= contentIndent) {
+          body.push(...lines.slice(i, next).map(() => ""));
+          i = next;
+          continue;
+        }
+        break;
+      }
+      const spaces = leadingSpaces(line);
+      if (spaces >= contentIndent || (spaces > indent && !sameList(line))) {
+        strip ??= Math.min(spaces, contentIndent);
+        body.push(line.slice(Math.min(spaces, strip)));
+      } else if (!startsBlock(line) && body[body.length - 1]?.trim()) {
+        body.push(line.trim()); // a lazy continuation of the item's paragraph
+      } else {
+        break;
+      }
+      i += 1;
+    }
+    items.push(body);
+    let next = i;
+    while (next < lines.length && !(lines[next] ?? "").trim()) next += 1;
+    if (next > i && sameList(lines[next] ?? "")) i = next;
+  }
+  const tag = ordered ? "ol" : "ul";
+  const number = ordered ? Number.parseInt(first[2], 10) : 1;
+  const startAttr = ordered && number !== 1 ? ` start="${number}"` : "";
+  const html = items.map((body) => listItemHtml(body, depth + 1)).join("");
+  return { html: `<${tag}${startAttr}>${html}</${tag}>`, next: i };
+}
+
+/** A tight item (no blank line in it) prints its text bare, as CommonMark does; a loose one keeps its paragraphs. */
+function listItemHtml(body: string[], depth: number): string {
+  if (depth > MAX_LIST_DEPTH) return `<li>${inlineMarkdownToHtml(body.join(" ").trim())}</li>`;
+  const inner = renderBlocks(body, depth);
+  const tight = body.every((line) => line.trim() !== "");
+  return `<li>${tight ? inner.replace(/^<p>([\s\S]*?)<\/p>/, "$1") : inner}</li>`;
 }
 
 /** An answer card: its maths typeset, or its text when it is chemistry or a sentence. */

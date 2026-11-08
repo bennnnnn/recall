@@ -69,6 +69,8 @@ class NumberTheoryInput(BaseModel):
     # for a single simple schema rather than a second near-identical one.
     a: int = Field(ge=-100_000_000, le=100_000_000)
     b: int | None = Field(default=None, ge=-100_000_000, le=100_000_000)
+    # ``a^exponent mod b`` (mod only): Python's three-argument pow never builds the power.
+    exponent: int | None = Field(default=None, ge=0, le=1_000_000)
     # gcd/lcm of three or more numbers ("lcm of 12, 18 and 30"); ``a`` and
     # ``b`` repeat the first two.
     values: list[int] | None = Field(default=None, min_length=3, max_length=10)

@@ -50,6 +50,7 @@ jestGlobals.mock("react-native-reanimated", () => {
       out: () => id,
       in: () => id,
     },
+    ReduceMotion: { System: "system", Always: "always", Never: "never" },
     runOnJS: (fn) => fn,
     runOnUI: (fn) => (...args) => fn(...args),
     useAnimatedKeyboard: () => ({ height: { value: 0 }, state: { value: 0 } }),

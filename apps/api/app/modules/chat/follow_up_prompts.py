@@ -22,7 +22,9 @@ SUBJECT_SYSTEM = (
     "2. What if: the same problem with one number or condition changed. "
     "3. Go further: the next idea this problem leads to. "
     "4 and 5: one more of any of those kinds. "
-    "No two ask the same thing: one what-if per changed value, named once. "
+    "No two ask the same thing: at most one what-if per quantity, never two for the same "
+    "one ($v_0$ to 30 and to 40). A what-if moves a value to one this chat has not worked: "
+    "never back to the first numbers of the problem, or to a value the reply compares with. "
     "Name the quantity, never restate the whole problem: "
     '"Why convert km/h to m/s first?", "What if it took 10 s instead?", '
     '"How far does the car go in 5 s?". '

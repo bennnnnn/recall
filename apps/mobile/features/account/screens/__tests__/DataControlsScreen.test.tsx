@@ -4,6 +4,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import DataControlsScreen from "@/features/account/screens/DataControlsScreen";
 import fixture from "../../../../../../docs/fixtures/error_codes.json";
 import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
 
 const mockUpdateUser = jest.fn();
 const mockLocationLabel = jest.fn();
@@ -118,6 +119,14 @@ it("clears all chats only after a confirmation that says what stays", async () =
       destructive: true,
     }),
   );
+  // The drawer drops the deleted chats with the list, so no later edit brings one back.
+  await waitFor(() => expect(invalidateChatListCache).toHaveBeenCalledWith({ rowsRemoved: true }));
+});
+
+it("archives every chat and drops the rows the drawer shows with the list", async () => {
+  const view = await render(<DataControlsScreen />);
+  await fireEvent.press(view.getByText("settings.archive_all_chats"));
+  await waitFor(() => expect(invalidateChatListCache).toHaveBeenCalledWith({ rowsRemoved: true }));
 });
 
 it("keeps every chat when the clear is cancelled", async () => {

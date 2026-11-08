@@ -10,6 +10,7 @@ import { render } from "@testing-library/react-native";
 
 import { BrandAccent, setAccentSnapshot } from "@/lib/accentRuntime";
 import { applyAccent, darkTheme, lightTheme, themeFor, useTheme } from "@/lib/theme";
+import { colorDifference } from "@/lib/__tests__/support/colorDifference";
 
 /** WCAG 2.1 relative luminance of a #RRGGBB color. */
 function luminance(hex: string): number {
@@ -47,6 +48,30 @@ describe("accent presets", () => {
     }
   });
 
+  // A green, pink or brown accent is welcome; one a reader takes for a done check, an
+  // overdue time or a warning is not. The theme's own danger and warning sit 10.7 apart.
+  it.each(ACCENT_OPTIONS)("%s never reads as success, warning or danger", (accent) => {
+    for (const base of SCHEMES) {
+      const { primary } = applyAccent(base, accent);
+      const apart = (["success", "warning", "danger"] as const).map((status) => ({
+        status,
+        clear: colorDifference(primary, base[status]) >= 12,
+      }));
+      expect({ scheme: base.scheme, apart }).toEqual({
+        scheme: base.scheme,
+        apart: apart.map(({ status }) => ({ status, clear: true })),
+      });
+    }
+  });
+
+  it("measures color difference as a reader sees it", () => {
+    expect(colorDifference("#FFFFFF", "#000000")).toBeCloseTo(100, 0);
+    expect(colorDifference("#137A54", "#137A54")).toBe(0);
+    // Two greens a reader tells apart, and two blues one step apart in the picker.
+    expect(colorDifference("#137A54", "#2A6C02")).toBeGreaterThan(12);
+    expect(colorDifference("#4F56E5", "#1661C3")).toBeLessThan(12);
+  });
+
   it("indigo is the default and leaves the palette exactly as it was", () => {
     expect(DEFAULT_ACCENT).toBe("indigo");
     expect(themeFor("light", "indigo")).toBe(lightTheme);
@@ -64,7 +89,12 @@ describe("accent presets", () => {
         expect(theme.accent).toBe(tones.primary);
         expect(theme.accentLight).toBe(tones.primaryLight);
         expect(theme.accentDark).toBe(tones.primaryDark);
-        expect(theme.graphSeries[0]).toBe(tones.primary);
+        expect(theme.graphSeries).toEqual([
+          tones.primary,
+          "series2" in tones ? tones.series2 : base.graphSeries[1],
+          "series3" in tones ? tones.series3 : base.graphSeries[2],
+          "series4" in tones ? tones.series4 : base.graphSeries[3],
+        ]);
         expect(theme.success).toBe(base.success);
         expect(theme.danger).toBe(base.danger);
         expect(theme.text).toBe(base.text);
@@ -109,5 +139,26 @@ describe("BrandAccent", () => {
     );
     expect(getAllByText(lightTheme.primary)).toHaveLength(1);
     expect(getAllByText(applyAccent(lightTheme, "berry").primary)).toHaveLength(1);
+  });
+});
+
+describe("graph lines", () => {
+  // Every curve on a graph or body in a simulation is told apart by its colour alone. The
+  // accent takes the first line, so a preset near another line's hue replaces that line
+  // (series2/3/4); this holds every pair apart, the overrides included.
+  it("keeps every pair of graph lines clearly apart, for every accent in both schemes", () => {
+    const close: string[] = [];
+    for (const accent of ACCENT_OPTIONS) {
+      for (const base of SCHEMES) {
+        const lines = applyAccent(base, accent).graphSeries;
+        lines.forEach((a, i) =>
+          lines.slice(i + 1).forEach((b, k) => {
+            const difference = colorDifference(a, b);
+            if (difference < 10) close.push(`${accent} ${base.scheme} ${i + 1}~${i + k + 2}: ${difference.toFixed(1)}`);
+          }),
+        );
+      }
+    }
+    expect(close).toEqual([]);
   });
 });

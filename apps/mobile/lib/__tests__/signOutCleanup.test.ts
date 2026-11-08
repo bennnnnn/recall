@@ -10,6 +10,7 @@ import { clearSavedProposals } from "@/features/todos/model/reminderProposal";
 import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { clearSettledStatuses } from "@/features/attachments/model/attachmentStatusFile";
+import { clearOpenedDocument } from "@/features/attachments/model/openedDocument";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -37,6 +38,7 @@ jest.mock("@/features/todos/model/reminderProposal", () => ({ clearSavedProposal
 jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeDismissal: jest.fn() }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
 jest.mock("@/features/attachments/model/attachmentStatusFile", () => ({ clearSettledStatuses: jest.fn() }));
+jest.mock("@/features/attachments/model/openedDocument", () => ({ clearOpenedDocument: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearAllCachedChatMessages: jest.fn() }));
 jest.mock("@/features/memory/model/memoryListCache", () => ({ invalidateMemoriesCache: jest.fn() }));
@@ -76,6 +78,8 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(forgetSyncRecords).toHaveBeenCalled();
   // The files' names and statuses this account's chats showed.
   expect(clearSettledStatuses).toHaveBeenCalled();
+  // A file another app opened in Recall under this account, not yet in a composer.
+  expect(clearOpenedDocument).toHaveBeenCalled();
 });
 
 it("deletes the account's export, previews, read-aloud audio and PDFs, and nothing else", async () => {
