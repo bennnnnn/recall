@@ -50,6 +50,11 @@ type Props = {
   header?: ReactElement | null;
   /** After the last message, inside the scroll content (the keyboard spacer). */
   footer?: ReactElement | null;
+  /**
+   * Live talk's call is drawn over the thread, under the header: a screen reader skips the
+   * messages it covers, as it skips a page under a sheet.
+   */
+  covered?: boolean;
 };
 
 /** What the list draws beyond the screen, and how many rows it keeps off it for reuse. */
@@ -76,6 +81,7 @@ function ChatMessageListComponent({
   scroll,
   header,
   footer,
+  covered = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -137,6 +143,8 @@ function ChatMessageListComponent({
         contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
+        accessibilityElementsHidden={covered}
+        importantForAccessibility={covered ? "no-hide-descendants" : "auto"}
         ListHeaderComponent={
           hasMoreOlder ? (
             <PageButton label={t("chat.load_earlier")} loadingLabel={t("chat.loading_earlier")}

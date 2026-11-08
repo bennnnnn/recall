@@ -272,7 +272,9 @@ export function Sheet({
 /**
  * A sheet drawn in the screen has no Modal to take Android Back for it, so it listens
  * itself from the moment it is up: Back closes it (a blocking one stays) and goes no
- * further, as it does for a sheet in a Modal.
+ * further, as it does for a sheet in a Modal. Nor is it a window of its own to a screen
+ * reader: iOS skips what is drawn beside it in the screen (`accessibilityViewIsModal`);
+ * the rest, and everything on Android, the screen hides with `SheetCover`.
  */
 function EmbeddedSheet({
   style,
@@ -285,7 +287,33 @@ function EmbeddedSheet({
 }) {
   useAndroidBack(true, onBack);
   return (
-    <View style={style} testID="app-sheet-embedded">
+    <View style={style} accessibilityViewIsModal testID="app-sheet-embedded">
+      {children}
+    </View>
+  );
+}
+
+/**
+ * What an `embedded` sheet is drawn over: wrap the screen's content in it, beside the sheet,
+ * not around it. While `covered` (the sheet is up) a screen reader skips the content. With the
+ * attach sheet open, VoiceOver and TalkBack still reached the chat, its header and composer
+ * behind it: Android has no modal flag, and iOS's skips only the sheet's own siblings.
+ */
+export function SheetCover({
+  covered,
+  style,
+  children,
+}: {
+  covered: boolean;
+  style?: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  return (
+    <View
+      style={style}
+      accessibilityElementsHidden={covered}
+      importantForAccessibility={covered ? "no-hide-descendants" : "auto"}
+    >
       {children}
     </View>
   );

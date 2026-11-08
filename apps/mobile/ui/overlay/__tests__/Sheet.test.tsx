@@ -12,7 +12,7 @@ import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
 import { Layer } from "@/lib/layer";
 import { Space } from "@/lib/space";
 
-import { floatingSheetBottomMargin, Sheet } from "../Sheet";
+import { floatingSheetBottomMargin, Sheet, SheetCover } from "../Sheet";
 
 /** A stand-in keyboard subscription: the sheet only ever removes it. */
 function fakeSubscription(): EmitterSubscription {
@@ -322,6 +322,35 @@ describe("Sheet", () => {
     );
     expect(back.listening()).toBe(0);
     expect(back.press()).toBe(false);
+  });
+
+  // An embedded sheet is no window of its own: the page beside it stayed in reach of a screen
+  // reader (the chat behind the attach sheet, 2026-11-08).
+  it("keeps a screen reader in an embedded sheet: modal on iOS, the page beside it hidden", async () => {
+    const page = (covered: boolean) => (
+      <>
+        <SheetCover covered={covered}>
+          <Text>page</Text>
+        </SheetCover>
+        <Sheet visible={covered} embedded onClose={jest.fn()}>
+          <Text>attach</Text>
+        </Sheet>
+      </>
+    );
+    const view = await render(page(false));
+    expect(view.getByText("page")).toBeTruthy();
+
+    await view.rerender(page(true));
+    expect(view.getByTestId("app-sheet-embedded").props.accessibilityViewIsModal).toBe(true);
+    expect(view.queryByText("page")).toBeNull();
+    const cover = view.getByText("page", { includeHiddenElements: true }).parent!;
+    expect(cover.props).toEqual(
+      expect.objectContaining({ accessibilityElementsHidden: true, importantForAccessibility: "no-hide-descendants" }),
+    );
+    expect(view.getByText("attach")).toBeTruthy();
+
+    await view.rerender(page(false));
+    expect(view.getByText("page")).toBeTruthy();
   });
 
   it("closes on VoiceOver's escape scrub only when it may be dismissed", async () => {

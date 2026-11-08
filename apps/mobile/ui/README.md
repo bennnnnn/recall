@@ -20,6 +20,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | Pick a number in a range (an amount, a rate, a term) | `controls/Slider` (label and value above the track; an optional marker for a reference value, tap to jump; screen-reader steps; math in `sliderValue.ts`) | a hand-built track and thumb |
 | A form, the attach sources, sharing | `overlay/Sheet` | a raw `Modal` |
 | Something the user opened in the screen, not in a Modal (an `embedded` Sheet does it itself, the drawer, the math pad, the full-height editor) | `overlay/useAndroidBack(open, close)`: Android Back closes the last one opened before it leaves the screen; a screen that stays mounted under others wraps itself in `AndroidBackScreen` | a `BackHandler` listener of its own |
+| A sheet drawn in the screen (`Sheet embedded`, so a real Modal can open over it) | wrap the screen's content beside it in `overlay/SheetCover covered={open}`: a screen reader skips that content while the sheet is up (iOS also skips the sheet's siblings on its own; Android has no modal flag) | leaving the page behind it in reach |
 | A tab in a row of tabs, or an action row of your own | `controls/a11yRoles` (`tabRole()`, `menuItemRole()`): VoiceOver has no word for `tab` or `menuitem`, so iOS reads a button with "Selected" and TalkBack the real role | a bare `"tab"` or `"menuitem"` role |
 | Edit one text value (a profile field, a memory) | `overlay/FieldSheet` (title, hint, Save) | a hand-built sheet with a field |
 | A full-screen viewer (photo, PDF, scanner) | `overlay/FullScreenModal` | a raw `Modal` |
@@ -46,7 +47,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
   padding that clears it), `a11yRoles.ts` (the tab and menu-row roles per platform).
 - `list/`: ListRow, ListGroup, ListSeparator.
 - `overlay/`: Overlay (the one floating layer), Menu, SelectMenu, Dialog + DialogHost +
-  `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal, lazyOverlay, useAndroidBack.
+  `dialogs.ts`, Sheet (+ SheetCover), SheetFormHeader, FullScreenModal, lazyOverlay, useAndroidBack.
 - `pickers/`: ClockDial, TimePickerDialog, DatePickerDialog. The
   geometry and calendar rules live in `lib/datetime/clockDial.ts` and `calendarGrid.ts`.
 - `share/`: useCopyText.
