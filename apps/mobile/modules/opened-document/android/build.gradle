@@ -13,3 +13,8 @@ android {
     versionName "1.0.0"
   }
 }
+
+dependencies {
+  // LaunchMarkersTest: ./gradlew :opened-document:testDebugUnitTest
+  testImplementation 'junit:junit:4.13.2'
+}
