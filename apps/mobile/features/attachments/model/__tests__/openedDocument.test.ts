@@ -284,7 +284,7 @@ it("passes on why a file cannot be attached, and still deletes its Inbox copy", 
 });
 
 describe("telling Android a launch's file was handled", () => {
-  it("waits until the file is copied for New chat, so a process that dies first loses nothing", async () => {
+  it("waits until the file is copied for New chat: until then a recreated activity hands it over again", async () => {
     const handled = jest.fn();
     let finish: (pending: PendingAttachment) => void = () => undefined;
     copy.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
@@ -325,6 +325,17 @@ describe("telling Android a launch's file was handled", () => {
     receiveOpenedDocument(SHARED, {}, jest.fn());
     expect(first).not.toHaveBeenCalled();
   });
+
+  it("is still told when the same file is shared again while the launch's copy waits for sign-in", async () => {
+    const launch = jest.fn();
+    restoreUnconfirmed(1);
+    receiveOpenedDocument(SHARED, {}, launch);
+    // Shared once more: a new intent, which names no launch.
+    receiveOpenedDocument(SHARED, {});
+    signIn(1);
+    expect(await claimOpenedDocument()).toBe(PDF);
+    expect(launch).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("sweepOpenedInboxCopies", () => {
@@ -346,6 +357,24 @@ describe("sweepOpenedInboxCopies", () => {
     receiveOpenedDocument(OPENED);
     sweepOpenedInboxCopies();
     expect(mockDeleted).toEqual([`${TMP_INBOX}Left behind.pdf`]);
+  });
+
+  it("keeps an Inbox copy two claims of the same file are copying until the last one ends", async () => {
+    const finishes: ((pending: PendingAttachment) => void)[] = [];
+    copy.mockImplementation(() => new Promise((resolve) => finishes.push(resolve)));
+    receiveOpenedDocument(OPENED);
+    const first = claimOpenedDocument();
+    await untilCopying();
+    // iOS hands the same file over again before the first copy ends.
+    receiveOpenedDocument(OPENED);
+    const second = claimOpenedDocument();
+    await untilCopying();
+    finishes[0]?.(PDF);
+    expect(await first).toBeNull();
+    expect(mockDeleted).toEqual([]);
+    finishes[1]?.(NEWER);
+    expect(await second).toBe(NEWER);
+    expect(mockDeleted).toEqual([OPENED]);
   });
 
   it("keeps the file being copied, which nothing holds any more", async () => {

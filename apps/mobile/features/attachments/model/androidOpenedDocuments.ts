@@ -41,7 +41,8 @@ function warn(stage: string, error: unknown): void {
 /**
  * Once Recall is done with a launch's file, the module refuses that launch: a recreated
  * activity (a font size change, a return after the process died) carries it again. Until then
- * it is handed over again, so a process that dies before the file is taken loses nothing.
+ * a recreated activity hands it over again, so a process that died before the file was taken
+ * gets it back when the user returns from the launcher or the activity is recreated.
  */
 function handledBy(native: OpenedDocumentModule, launch: unknown): (() => void) | undefined {
   if (typeof launch !== "string" || !launch) return undefined;

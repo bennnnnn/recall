@@ -30,8 +30,8 @@ let held: OpenedDocument | null = null;
 let confirmedSession: number | null = null;
 /** Counts the files taken: a copy that a newer file overtook gives way to it. */
 let claims = 0;
-/** The files being copied now, by URI: the launch sweep leaves them alone. */
-const copying = new Set<string>();
+/** How many claims are copying each file now, by URI: neither the sweep nor a finished claim deletes it. */
+const copying = new Map<string, number>();
 const listeners = createListenerSet();
 
 /** `a/./b/../c` as `a/c`: a path is compared as the file system resolves it. */
@@ -126,10 +126,23 @@ export function setOpenedDocumentSignIn(confirmed: boolean): void {
   confirmedSession = confirmed ? getSessionGeneration() : null;
 }
 
-/** The file leaves the store: its Inbox copy goes, and whoever handed it over is told. */
+/**
+ * The file leaves the store: whoever handed it over is told, and its Inbox copy goes, unless
+ * the same file is held again or another claim is copying it.
+ */
 function letGo(document: OpenedDocument): void {
-  deleteInboxCopy(document.uri);
+  if (held?.uri !== document.uri && !copying.has(document.uri)) deleteInboxCopy(document.uri);
   document.handled?.();
+}
+
+function startCopying(uri: string): void {
+  copying.set(uri, (copying.get(uri) ?? 0) + 1);
+}
+
+function stopCopying(uri: string): void {
+  const left = (copying.get(uri) ?? 1) - 1;
+  if (left > 0) copying.set(uri, left);
+  else copying.delete(uri);
 }
 
 /**
@@ -140,9 +153,11 @@ function letGo(document: OpenedDocument): void {
 export function receiveOpenedDocument(uri: string, info: OpenedFileInfo = {}, handled?: () => void): void {
   if (isOwnFile(uri) || inboxCopyGone(uri)) return;
   const previous = held;
-  held = { uri, info, owner: confirmedNow(), handled };
-  // The same file handed over again (a recreated activity) is the one held: nothing is done with it yet.
-  if (previous && previous.uri !== uri) letGo(previous);
+  const again = previous?.uri === uri;
+  // The same file handed over again (a recreated activity, or shared once more) is the one held:
+  // nothing is done with it yet, and a launch that brought it is still told once it is.
+  held = { uri, info, owner: confirmedNow(), handled: handled ?? (again ? previous?.handled : undefined) };
+  if (previous && !again) letGo(previous);
   listeners.emit();
 }
 
@@ -167,7 +182,7 @@ export async function claimOpenedDocument(): Promise<PendingAttachment | null> {
     letGo(document);
     return null;
   }
-  copying.add(document.uri);
+  startCopying(document.uri);
   try {
     const { copyOpenedDocument } = await import("@/features/attachments/model/openedDocumentCopy");
     const pending = await copyOpenedDocument(document.uri, document.info);
@@ -178,7 +193,7 @@ export async function claimOpenedDocument(): Promise<PendingAttachment | null> {
     if (session !== getSessionGeneration() || claim !== claims) return null;
     throw error;
   } finally {
-    copying.delete(document.uri);
+    stopCopying(document.uri);
     letGo(document);
   }
 }
@@ -213,7 +228,7 @@ function inboxFolders(container: string): Directory[] {
 export function sweepOpenedInboxCopies(): void {
   const container = containerPath();
   if (!container) return;
-  const keep = new Set([...(held ? [held.uri] : []), ...copying].map(filePath));
+  const keep = new Set([...(held ? [held.uri] : []), ...copying.keys()].map(filePath));
   try {
     for (const folder of inboxFolders(container)) {
       if (!folder.exists) continue;
