@@ -28,6 +28,12 @@ jest.mock("@/features/speech/hooks/useVoiceInput", () => ({
   },
 }));
 
+// Whether the server has said the plan: the launch cache paints every plan "free".
+let mockProfileValidated = true;
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthOptional: () => ({ profileValidated: mockProfileValidated }),
+}));
+
 let input = "";
 const setInput = jest.fn((next: string | ((prev: string) => string)) => {
   input = typeof next === "function" ? next(input) : next;
@@ -55,6 +61,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   input = "";
   mockRecording = false;
+  mockProfileValidated = true;
 });
 
 it("appends a transcript after the typed text, or fills an empty composer", async () => {
@@ -90,6 +97,14 @@ it("opens the plans instead of recording when the plan has no dictation", async 
   await act(async () => { current.toggleVoiceInput(); });
   expect(openUpgrade).toHaveBeenCalledWith("voice");
   expect(mockToggle).not.toHaveBeenCalled();
+});
+
+it("records on the launch cache's plan and lets the server decide, never offering a paid account the plans", async () => {
+  mockProfileValidated = false;
+  await render(<Probe routeChatId="chat-1" user={freeUser} />);
+  await act(async () => { current.toggleVoiceInput(); });
+  expect(mockToggle).toHaveBeenCalledTimes(1);
+  expect(openUpgrade).not.toHaveBeenCalled();
 });
 
 it("still stops a take already running, whatever the plan", async () => {

@@ -9,6 +9,13 @@ const mockPurchase = jest.fn();
 const mockRestore = jest.fn();
 const mockListPlans = jest.fn();
 let mockPurchasesConfigured = true;
+// The store's set-up and a purchase held for approval, as purchases.ts keeps them.
+const mockStoreReady = { value: true, listeners: new Set<() => void>() };
+const mockPending = { value: null as string | null, listeners: new Set<() => void>() };
+function setMockStore(store: { value: unknown; listeners: Set<() => void> }, value: unknown) {
+  store.value = value;
+  store.listeners.forEach((listener) => listener());
+}
 const mockTrack = jest.fn();
 let mockUser: { plan: string } = { plan: "free" };
 
@@ -59,6 +66,16 @@ jest.mock("@/features/billing/model/purchases", () => ({
   })),
   purchasePlanPackage: (...args: unknown[]) => mockPurchase(...args),
   restorePurchases: (...args: unknown[]) => mockRestore(...args),
+  isStoreReady: () => mockStoreReady.value,
+  subscribeStoreReady: (listener: () => void) => {
+    mockStoreReady.listeners.add(listener);
+    return () => mockStoreReady.listeners.delete(listener);
+  },
+  purchasePending: () => mockPending.value,
+  subscribePendingPurchase: (listener: () => void) => {
+    mockPending.listeners.add(listener);
+    return () => mockPending.listeners.delete(listener);
+  },
 }));
 
 const CATALOG = {
@@ -101,6 +118,8 @@ beforeEach(() => {
   mockTrack.mockReset();
   mockListPlans.mockReset().mockResolvedValue(CATALOG);
   mockPurchasesConfigured = true;
+  mockStoreReady.value = true;
+  mockPending.value = null;
   jest.mocked(getPlanPackages).mockClear();
   jest.mocked(reportFailure).mockClear();
   mockUser = { plan: "free" };
@@ -281,4 +300,46 @@ it("a nudge to a free account also keeps Free one tap away", async () => {
   await act(async () => {});
   expect(screen.getByTestId("upgrade-continue-free")).toBeOnTheScreen();
   expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", { source: "nudge" });
+});
+
+it("waits for the store to be set up before reading it, never saying it is unavailable", async () => {
+  mockStoreReady.value = false;
+  const screen = await openSheet();
+  expect(getPlanPackages).not.toHaveBeenCalled();
+  expect(screen.queryByText("upgrade.store_unavailable")).toBeNull();
+  expect(screen.getByTestId("upgrade-subscribe").props.accessibilityState.busy).toBe(true);
+  await act(async () => {
+    setMockStore(mockStoreReady, true);
+  });
+  expect(getPlanPackages).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('upgrade.subscribe_for {"plan":"plans.plus","price":"$7.99"}')).toBeOnTheScreen();
+});
+
+it("says a purchase waiting for approval is pending, and offers no second one", async () => {
+  mockPurchase.mockImplementation(async () => {
+    setMockStore(mockPending, "plus");
+    return "pending";
+  });
+  const screen = await openSheet();
+  await buy(screen, "plus");
+  expect(screen.getByText("upgrade.purchase_pending")).toBeOnTheScreen();
+  expect(screen.queryByText("upgrade.purchase_failed")).toBeNull();
+  expect(mockTrack).not.toHaveBeenCalledWith("purchase_failed", expect.anything());
+  expect(mockSyncSubscription).not.toHaveBeenCalled();
+  expect(screen.getByTestId("upgrade-subscribe").props.accessibilityState.disabled).toBe(true);
+  await buy(screen, "pro");
+  expect(mockPurchase).toHaveBeenCalledTimes(1);
+  // Approved: the store lands the plan and the sheet sells again.
+  await act(async () => {
+    setMockStore(mockPending, null);
+  });
+  expect(screen.queryByText("upgrade.purchase_pending")).toBeNull();
+});
+
+it("shows a pending purchase when the sheet opens again", async () => {
+  mockPending.value = "pro";
+  const screen = await openSheet();
+  expect(screen.getByText("upgrade.purchase_pending")).toBeOnTheScreen();
+  await buy(screen, "plus");
+  expect(mockPurchase).not.toHaveBeenCalled();
 });

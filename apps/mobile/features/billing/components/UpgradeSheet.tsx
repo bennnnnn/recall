@@ -1,5 +1,5 @@
 import { useAccountSession } from "@/contexts/accountSession";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
@@ -20,12 +20,17 @@ import {
   getPlanPackages,
   isPurchaseCancelled,
   isPurchasesConfigured,
+  isStoreReady,
   type PlanOffer,
+  purchasePending,
   purchasePlanPackage,
   restorePurchases,
+  subscribePendingPurchase,
+  subscribeStoreReady,
 } from "@/features/billing/model/purchases";
 import {
   type PaidPlanId,
+  PLAN_RANK,
   type PlanCatalog,
   type PlanId,
   type PlanInfo,
@@ -58,8 +63,6 @@ type Props = {
 };
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
-
-const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
 
 const NO_OFFER: PlanOffer = { packages: {}, unavailable: false };
 /** "200 messages a day": what a plan offers, never which model answers. */
@@ -96,6 +99,42 @@ function planFeatureLines(
   return lines;
 }
 
+/**
+ * The store's plans while the sheet shows. RevenueCat answers nothing before it is set up
+ * for this account (after the server confirms the account and its plan), so the read waits
+ * for that, the button spinning, rather than saying the store is unavailable.
+ */
+function useStoreOffer(visible: boolean) {
+  const purchasesReady = isPurchasesConfigured();
+  const storeReady = useSyncExternalStore(subscribeStoreReady, isStoreReady);
+  const [offer, setOffer] = useState<PlanOffer>(NO_OFFER);
+  const [attempt, setAttempt] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!visible || !purchasesReady) {
+      setOffer(NO_OFFER);
+      return;
+    }
+    setLoading(true);
+    if (!storeReady) return;
+    let cancelled = false;
+    void getPlanPackages()
+      .then((next) => {
+        if (!cancelled) setOffer(next);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, purchasesReady, storeReady, attempt]);
+
+  const retry = useCallback(() => setAttempt((count) => count + 1), []);
+  return { offer, loadingOffer: loading, purchasesReady, retry };
+}
+
 export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -104,17 +143,16 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const { account, getToken } = useAccountSession();
   const current = planOf(user);
   const targets = upgradeTargets(current);
-  const [offer, setOffer] = useState<PlanOffer>(NO_OFFER);
-  const [offerAttempt, setOfferAttempt] = useState(0);
+  const { offer, loadingOffer, purchasesReady, retry } = useStoreOffer(visible);
   const packages = offer.packages;
+  // A purchase the store holds for approval: said so, and not offered a second time.
+  const pending = useSyncExternalStore(subscribePendingPurchase, purchasePending);
   const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
-  const [loadingOffer, setLoadingOffer] = useState(false);
   const [busy, setBusy] = useState<PaidPlanId | "restore" | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The plan the one button buys: the first one up from the current plan to start.
   const [picked, setPicked] = useState<PaidPlanId | null>(null);
   const chosen = picked && targets.includes(picked) ? picked : (targets[0] ?? null);
-  const purchasesReady = isPurchasesConfigured();
   const wasVisible = useRef(false);
 
   useEffect(() => {
@@ -141,25 +179,6 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     };
   }, [visible, account, getToken]);
 
-  useEffect(() => {
-    if (!visible || !purchasesReady) {
-      setOffer(NO_OFFER);
-      return;
-    }
-    let cancelled = false;
-    setLoadingOffer(true);
-    void getPlanPackages()
-      .then((next) => {
-        if (!cancelled) setOffer(next);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingOffer(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, purchasesReady, offerAttempt]);
-
   /** The server reads the store again. The store took the payment, so a failure here says
    * "pending", never that it failed: the plan listener and the webhook still land it. */
   const syncAfterStore = async () => {
@@ -175,11 +194,11 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
 
   const onSubscribe = async (plan: PaidPlanId) => {
     const pkg = packages[plan];
-    if (!token || !pkg || busy) return;
+    if (!token || !pkg || busy || pending) return;
     setBusy(plan);
     setError(null);
     trackProductEvent("purchase_started", { plan });
-    let purchased: PlanId = "free";
+    let purchased: PlanId | "pending" = "free";
     try {
       purchased = await purchasePlanPackage(pkg);
     } catch (purchaseError) {
@@ -190,6 +209,11 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       });
       if (!cancelled) reportFailure("purchase", purchaseError);
       if (!cancelled) setError(t("upgrade.purchase_failed"));
+      setBusy(null);
+      return;
+    }
+    // Neither bought nor failed: the store waits for approval, and the plan listener lands it.
+    if (purchased === "pending") {
       setBusy(null);
       return;
     }
@@ -249,7 +273,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           price={packages[chosen]?.priceString}
           purchasesReady={purchasesReady}
           loading={busy === chosen || (loadingOffer && !packages[chosen])}
-          disabled={(purchasesReady && !packages[chosen]) || (busy != null && busy !== chosen)}
+          disabled={pending != null || (purchasesReady && !packages[chosen]) || (busy != null && busy !== chosen)}
           onBuy={() => void onSubscribe(chosen)}
           onDevEnable={() => {
             void devUpgrade(chosen).then((ok) => {
@@ -265,12 +289,13 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           <Text style={s.error}>{t("upgrade.store_unavailable")}</Text>
           <Button
             title={t("common.retry")}
-            onPress={() => setOfferAttempt((attempt) => attempt + 1)}
+            onPress={retry}
             variant="secondary"
             style={s.primaryBtn}
           />
         </>
       ) : null}
+      {pending ? <Text style={s.note} testID="upgrade-pending">{t("upgrade.purchase_pending")}</Text> : null}
       {error ? <Text style={s.error}>{error}</Text> : null}
       {welcome ? (
         <Pressable onPress={onClose} disabled={busy != null} style={s.freeLink} accessibilityRole="button" testID="upgrade-continue-free">
@@ -278,7 +303,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         </Pressable>
       ) : null}
       {/* A build with no store keys (Expo Go, a local build) cannot sell: say so, never "Coming soon". */}
-      {purchasesReady ? null : <Text style={s.storeMissing}>{t("upgrade.store_not_in_build")}</Text>}
+      {purchasesReady ? null : <Text style={s.note}>{t("upgrade.store_not_in_build")}</Text>}
       <PlansSmallPrint
         renews={t("upgrade.subscription_terms")}
         links={{ terms: t("terms.title"), privacy: t("privacy.title") }}
@@ -371,7 +396,7 @@ const makeStyles = (theme: Theme) =>
     primaryBtn: {
       marginTop: Space.xxs,
     },
-    storeMissing: {
+    note: {
       ...Type.secondary,
       color: theme.textSecondary,
       textAlign: "center",

@@ -11,6 +11,8 @@ jest.mock("react-native-purchases", () => {
   const listeners: Array<(info: { entitlements: { active: Record<string, unknown> } }) => void> = [];
   const api = {
     LOG_LEVEL: { DEBUG: 0, WARN: 1 },
+    PURCHASES_ERROR_CODE: { PAYMENT_PENDING_ERROR: "20" },
+    PRORATION_MODE: { IMMEDIATE_WITH_TIME_PRORATION: 1 },
     setLogLevel: jest.fn(),
     configure: jest.fn(),
     logIn: jest.fn(async () => ({})),
@@ -44,8 +46,12 @@ import {
   configurePurchases,
   getPlanPackages,
   isPurchaseCancelled,
+  isStoreReady,
   planFromCustomerInfo,
+  purchasePending,
+  purchasePlanPackage,
   registerPlanChangeListener,
+  restorePurchases,
   signOutRevenueCat,
 } from "@/features/billing/model/purchases";
 
@@ -155,14 +161,71 @@ describe("getPlanPackages", () => {
 describe("configurePurchases", () => {
   it("configures once, then switches accounts with logIn", async () => {
     (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+    // RevenueCat answers no read before it is set up: the store is not ready until then.
+    expect(isStoreReady()).toBe(false);
     await configurePurchases("user-a");
+    expect(isStoreReady()).toBe(true);
     await configurePurchases("user-a");
     expect(purchasesMod.default.configure).toHaveBeenCalledTimes(1);
     expect(purchasesMod.default.logIn).not.toHaveBeenCalled();
 
     await signOutRevenueCat();
+    // The next account waits for its own set-up.
+    expect(isStoreReady()).toBe(false);
     await configurePurchases("user-b");
+    expect(isStoreReady()).toBe(true);
     expect(purchasesMod.default.configure).toHaveBeenCalledTimes(1);
     expect(purchasesMod.default.logIn).toHaveBeenCalledWith("user-b");
+  });
+
+  it("is ready once a set-up that failed has run: the store's own failure is then said", async () => {
+    await signOutRevenueCat();
+    purchasesMod.default.logIn.mockRejectedValueOnce(new Error("offline"));
+    await expect(configurePurchases("user-c")).rejects.toThrow("offline");
+    expect(isStoreReady()).toBe(true);
+  });
+});
+
+describe("a purchase the store holds for approval", () => {
+  const plus = { plan: "plus" as const, priceString: "$7.99", productId: "recall_plus", native: {} as never };
+  const pending = Object.assign(new Error("The payment is pending."), { code: "20", userCancelled: false });
+
+  beforeEach(async () => {
+    await signOutRevenueCat();
+    purchasesMod.default.purchasePackage.mockReset();
+  });
+
+  it("is pending, not failed, until the store grants the plan", async () => {
+    purchasesMod.default.purchasePackage.mockRejectedValueOnce(pending);
+    await expect(purchasePlanPackage(plus)).resolves.toBe("pending");
+    expect(purchasePending()).toBe("plus");
+
+    const changes: string[] = [];
+    const cleanup = await registerPlanChangeListener((plan) => changes.push(plan));
+    purchasesMod.default.__fire({ entitlements: { active: {} } });
+    expect(purchasePending()).toBe("plus");
+    // Approved: the store's update lands the plan.
+    purchasesMod.default.__fire({ entitlements: { active: { plus: {} } } });
+    expect(purchasePending()).toBeNull();
+    cleanup?.();
+  });
+
+  it("a restore that finds the plan settles it, and sign-out forgets it", async () => {
+    purchasesMod.default.purchasePackage.mockRejectedValue(pending);
+    await purchasePlanPackage(plus);
+    purchasesMod.default.restorePurchases.mockResolvedValueOnce({ entitlements: { active: { pro: {} } } });
+    await expect(restorePurchases()).resolves.toBe("pro");
+    expect(purchasePending()).toBeNull();
+
+    await purchasePlanPackage(plus);
+    await signOutRevenueCat();
+    expect(purchasePending()).toBeNull();
+  });
+
+  it("still rejects any other store failure", async () => {
+    const declined = Object.assign(new Error("not allowed"), { code: "3" });
+    purchasesMod.default.purchasePackage.mockRejectedValueOnce(declined);
+    await expect(purchasePlanPackage(plus)).rejects.toBe(declined);
+    expect(purchasePending()).toBeNull();
   });
 });

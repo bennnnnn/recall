@@ -3,7 +3,8 @@ import { Platform } from "react-native";
 import type { PurchasesPackage } from "react-native-purchases";
 
 import { isExpoGo } from "@/lib/expoRuntime";
-import type { PaidPlanId, PlanId } from "@/lib/plan";
+import { createValueStore } from "@/lib/listenerSet";
+import { PLAN_RANK, type PaidPlanId, type PlanId } from "@/lib/plan";
 import { reportStoreUnavailable } from "@/lib/sentry";
 
 /**
@@ -94,19 +95,58 @@ async function loadPurchases(): Promise<PurchasesModule | null> {
 /** App user id RevenueCat is set up for in this process (configure runs once). */
 let configuredAppUserId: string | null = null;
 
+/**
+ * RevenueCat answers no read before it is set up for the signed-in account, and that waits
+ * for the server to confirm the account: a read before then came back "store unavailable".
+ * True once the set-up has run, whatever it found (a failure then is the store's own).
+ */
+const storeSetUp = createValueStore(false);
+
+export const subscribeStoreReady = storeSetUp.subscribe;
+
+/** The store can be read now: set up for this account, or not in this build at all. */
+export function isStoreReady(): boolean {
+  return !isPurchasesConfigured() || storeSetUp.get();
+}
+
 export async function configurePurchases(appUserId: string): Promise<void> {
   const mod = await loadPurchases();
   const apiKey = revenueCatApiKey();
-  if (!mod || !apiKey) return;
-  if (configuredAppUserId === appUserId) return;
-  if (configuredAppUserId == null) {
-    mod.default.setLogLevel(__DEV__ ? mod.LOG_LEVEL.DEBUG : mod.LOG_LEVEL.WARN);
-    await mod.default.configure({ apiKey, appUserID: appUserId });
-  } else {
-    // A second configure is unsupported; switching accounts is a logIn.
-    await mod.default.logIn(appUserId);
+  if (!mod || !apiKey) {
+    // Nothing to set up: each read reports the store unavailable.
+    storeSetUp.set(true);
+    return;
   }
-  configuredAppUserId = appUserId;
+  if (configuredAppUserId === appUserId) return;
+  try {
+    if (configuredAppUserId == null) {
+      mod.default.setLogLevel(__DEV__ ? mod.LOG_LEVEL.DEBUG : mod.LOG_LEVEL.WARN);
+      await mod.default.configure({ apiKey, appUserID: appUserId });
+    } else {
+      // A second configure is unsupported; switching accounts is a logIn.
+      await mod.default.logIn(appUserId);
+    }
+    configuredAppUserId = appUserId;
+  } finally {
+    storeSetUp.set(true);
+  }
+}
+
+/**
+ * A purchase the store holds for approval (Ask to Buy, a Play pending payment, a bank's
+ * check): the plan it was for, until the store grants it or the account signs out. While
+ * one waits, no second purchase is offered; one that is declined is offered again at the
+ * next launch.
+ */
+const pendingPurchase = createValueStore<PaidPlanId | null>(null);
+
+export const subscribePendingPurchase = pendingPurchase.subscribe;
+export const purchasePending = pendingPurchase.get;
+
+/** The store now grants `plan`: a purchase waiting for that plan or a lower one has gone through. */
+function settlePendingPurchase(plan: PlanId): void {
+  const waiting = pendingPurchase.get();
+  if (waiting && PLAN_RANK[plan] >= PLAN_RANK[waiting]) pendingPurchase.set(null);
 }
 
 export type PlanOffer = {
@@ -164,29 +204,46 @@ export async function getPlanPackages(): Promise<PlanOffer> {
   return { packages: found, unavailable: false };
 }
 
+/** RevenueCat rejects a purchase the store holds for approval with this code, on both stores. */
+function isPaymentPending(mod: PurchasesModule, error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === mod.PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR;
+}
+
 /**
- * Buy a plan; resolves with the plan the store now reports. On Android a move
+ * Buy a plan; resolves with the plan the store now reports, or "pending" when the
+ * store holds the purchase for approval (`purchasePending`). On Android a move
  * from Plus to Pro replaces the Plus subscription (prorated) instead of
  * stacking a second one; on iOS both live in one subscription group, so the
  * App Store does that itself.
  */
-export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId> {
+export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId | "pending"> {
   const mod = await loadPurchases();
   if (!mod) return "free";
-  let productChange: ProductChange = null;
-  if (Platform.OS === "android" && pkg.plan === "pro") {
-    const info = await mod.default.getCustomerInfo();
-    const plusProduct = info.entitlements.active[PLAN_ENTITLEMENT_IDS.plus]?.productIdentifier;
-    const oldProduct = plusProduct?.split(":")[0];
-    if (oldProduct && oldProduct !== pkg.productId.split(":")[0]) {
-      productChange = {
-        oldProductIdentifier: oldProduct,
-        prorationMode: mod.default.PRORATION_MODE.IMMEDIATE_WITH_TIME_PRORATION,
-      };
-    }
+  let result: Awaited<ReturnType<PurchasesModule["default"]["purchasePackage"]>>;
+  try {
+    result = await mod.default.purchasePackage(pkg.native, null, await productChangeFor(mod, pkg));
+  } catch (error) {
+    if (!isPaymentPending(mod, error)) throw error;
+    pendingPurchase.set(pkg.plan);
+    return "pending";
   }
-  const result = await mod.default.purchasePackage(pkg.native, null, productChange);
-  return planFromCustomerInfo(result.customerInfo);
+  const plan = planFromCustomerInfo(result.customerInfo);
+  settlePendingPurchase(plan);
+  return plan;
+}
+
+/** Android: the Plus subscription a Pro purchase replaces, prorated; null otherwise. */
+async function productChangeFor(mod: PurchasesModule, pkg: PlanPackage): Promise<ProductChange> {
+  if (Platform.OS !== "android" || pkg.plan !== "pro") return null;
+  const info = await mod.default.getCustomerInfo();
+  const plusProduct = info.entitlements.active[PLAN_ENTITLEMENT_IDS.plus]?.productIdentifier;
+  const oldProduct = plusProduct?.split(":")[0];
+  if (!oldProduct || oldProduct === pkg.productId.split(":")[0]) return null;
+  return {
+    oldProductIdentifier: oldProduct,
+    prorationMode: mod.default.PRORATION_MODE.IMMEDIATE_WITH_TIME_PRORATION,
+  };
 }
 
 /** Restore store purchases; resolves with the plan they grant. */
@@ -194,7 +251,9 @@ export async function restorePurchases(): Promise<PlanId> {
   const mod = await loadPurchases();
   if (!mod) return "free";
   const info = await mod.default.restorePurchases();
-  return planFromCustomerInfo(info);
+  const plan = planFromCustomerInfo(info);
+  settlePendingPurchase(plan);
+  return plan;
 }
 
 /**
@@ -202,6 +261,9 @@ export async function restorePurchases(): Promise<PlanId> {
  * entitlements / customer info. No-op when Purchases isn't configured.
  */
 export async function signOutRevenueCat(): Promise<void> {
+  // The next account waits for its own set-up, and inherits no purchase waiting for approval.
+  storeSetUp.set(false);
+  pendingPurchase.set(null);
   const mod = await loadPurchases();
   if (!mod) return;
   try {
@@ -231,6 +293,8 @@ export async function registerPlanChangeListener(
   let lastPlan: PlanId | null = null;
   const listener = (info: CustomerInfoLike) => {
     const plan = planFromCustomerInfo(info);
+    // An approved Ask to Buy or pending payment arrives here.
+    settlePendingPurchase(plan);
     if (plan === lastPlan) return;
     lastPlan = plan;
     onChange(plan);

@@ -57,6 +57,9 @@ export function hasPlanFeature(holder: PlanHolder, feature: PlanFeature): boolea
   return fallbackFeatures(planOf(holder)).includes(feature);
 }
 
+/** Free below Plus below Pro: whether one plan grants at least what another does. */
+export const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
+
 /** The plan to offer next: free sees both, Plus sees Pro, Pro sees none. */
 export function upgradeTargets(current: PlanId): PaidPlanId[] {
   if (current === "free") return ["plus", "pro"];
