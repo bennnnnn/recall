@@ -46,6 +46,22 @@ it("hands the file, its type and its title to expo-sharing", async () => {
   expect(Share.share).not.toHaveBeenCalled();
 });
 
+it.each([
+  ["file:///cache/recall-share-1-2/photo.jpg", { mimeType: "image/jpeg" }],
+  ["file:///cache/Print/Scan.PDF", { mimeType: "application/pdf", uti: "com.adobe.pdf" }],
+])("on iOS declares no type for %s, which expo-sharing would name again (photo.jpg.jpeg)", async (uri, type) => {
+  await shareLocalFile(uri, { title: "t", ...type });
+  expect(shareAsync).toHaveBeenCalledWith(uri, { dialogTitle: "t" });
+});
+
+it("on iOS declares the type of a file with no extension, so it does not open as plain data", async () => {
+  await shareLocalFile("file:///cache/recall-share-1-2/notes", { title: "notes", mimeType: "text/markdown" });
+  expect(shareAsync).toHaveBeenCalledWith("file:///cache/recall-share-1-2/notes", {
+    dialogTitle: "notes",
+    mimeType: "text/markdown",
+  });
+});
+
 it("falls back to a file url on iOS builds without expo-sharing", async () => {
   mockHasSharing = false;
   await shareLocalFile("file:///cache/a.pdf", { title: "a.pdf" });

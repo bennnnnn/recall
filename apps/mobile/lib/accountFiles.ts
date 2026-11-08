@@ -49,18 +49,21 @@ export function fileInFolder(folder: string, name: string): string {
   return fileUri(folder, name);
 }
 
-/** Delete `kind`'s folders made more than `maxAgeMs` ago; sign-out deletes the rest. */
+/**
+ * Delete `kind`'s folders made more than `maxAgeMs` ago, or dated that far ahead (the clock was
+ * set back since); sign-out deletes the rest.
+ */
 export async function sweepAccountFolders(kind: keyof typeof ACCOUNT_FILE_PREFIX, maxAgeMs: number): Promise<void> {
   const cache = cacheDirectory;
   if (!cache) return;
   const prefix = ACCOUNT_FILE_PREFIX[kind];
-  const cutoff = Date.now() - maxAgeMs;
+  const now = Date.now();
   const old = (await filesIn(cache)).filter((name) => {
     if (!name.startsWith(prefix)) return false;
     const made = Number.parseInt(name.slice(prefix.length), 10);
-    return Number.isFinite(made) && made < cutoff;
+    return Number.isFinite(made) && Math.abs(now - made) > maxAgeMs;
   });
-  // One folder that cannot go yet (an app still reading it) leaves the rest to go.
+  // One folder that fails to go leaves the rest to go.
   await Promise.allSettled(old.map((name) => deleteAsync(fileUri(cache, name), { idempotent: true })));
 }
 
@@ -71,6 +74,11 @@ const PRINTED_PDF_DIRECTORY = "Print/";
 export function namedPdfFile(name: string): string | null {
   return cacheDirectory ? fileUri(`${cacheDirectory}${PRINTED_PDF_DIRECTORY}`, name) : null;
 }
+/**
+ * expo-sharing (iOS) links a file it shares with a declared type here, under that type's
+ * extension, and clears it only on a later share or app start.
+ */
+const SHARE_STAGING_DIRECTORY = "expo-sharing-tmp/";
 /** expo-audio writes each voice recording here (iOS, Android): `recording-<id>.m4a`. */
 const RECORDING_DIRECTORIES = ["ExpoAudio/", "Audio/"] as const;
 const RECORDING_PREFIX = "recording-";
@@ -109,6 +117,7 @@ export async function deleteAccountFiles(): Promise<void> {
     ...names.filter((name) => PREFIXES.some((prefix) => name.startsWith(prefix))).map((name) => fileUri(cache, name)),
     ...printed.filter((name) => name.toLowerCase().endsWith(".pdf")).map((name) => fileUri(pdfs, name)),
     ...picked,
+    `${cache}${SHARE_STAGING_DIRECTORY}`,
     // A recording a crash or a kill left behind (each is deleted once sent, LEAK-04).
     ...recordings.flatMap((files, index) =>
       files.filter((name) => name.startsWith(RECORDING_PREFIX)).map((name) => fileUri(recordingDirs[index]!, name))),

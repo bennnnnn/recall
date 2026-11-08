@@ -65,6 +65,8 @@ it("sign-out deletes a named PDF by the URI it was written under", async () => {
       "file:///cache/ImagePicker/A1.jpg",
       "file:///cache/DocumentPicker/B2.pdf",
       "file:///cache/ImageManipulator/C3.jpg",
+      // A file expo-sharing staged under its type's extension (iOS).
+      "file:///cache/expo-sharing-tmp/",
     ].sort(),
   );
 });
@@ -82,11 +84,13 @@ describe("share folders", () => {
   const now = Date.UTC(2026, 10, 7, 23, 0);
   const old = `recall-share-${now - 2 * HOUR_MS}-1`;
   const fresh = `recall-share-${now - 5 * 60 * 1000}-2`;
+  // Made before the clock was set back two hours.
+  const ahead = `recall-share-${now + 2 * HOUR_MS}-3`;
 
   beforeEach(() => {
     jest.spyOn(Date, "now").mockReturnValue(now);
     jest.mocked(readDirectoryAsync).mockImplementation(async (dir) =>
-      dir === "file:///cache/" ? [old, fresh, "recall-export-1.json"] : [],
+      dir === "file:///cache/" ? [old, fresh, ahead, "recall-export-1.json"] : [],
     );
   });
   afterEach(() => jest.restoreAllMocks());
@@ -100,12 +104,14 @@ describe("share folders", () => {
 
   it("sweeps only folders older than the age it is given; the app a file went to may still read a new one", async () => {
     await sweepAccountFolders("share", HOUR_MS);
-    expect(jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri)).toEqual([`file:///cache/${old}`]);
+    expect(jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri)).toEqual([`file:///cache/${old}`, `file:///cache/${ahead}`]);
   });
 
-  it("sign-out deletes every share folder, new ones too", async () => {
+  it("sign-out deletes every share folder, new ones too, and expo-sharing's iOS staging", async () => {
     await deleteAccountFiles();
     const deleted = jest.mocked(deleteAsync).mock.calls.map(([uri]) => uri);
-    expect(deleted).toEqual(expect.arrayContaining([`file:///cache/${old}`, `file:///cache/${fresh}`]));
+    expect(deleted).toEqual(expect.arrayContaining([
+      `file:///cache/${old}`, `file:///cache/${fresh}`, "file:///cache/expo-sharing-tmp/",
+    ]));
   });
 });

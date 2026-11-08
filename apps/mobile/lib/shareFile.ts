@@ -40,6 +40,31 @@ export function shareRoute(platform: string, hasSharing: boolean): ShareRoute {
   return platform === "ios" ? "rn-share" : "unavailable";
 }
 
+/** The URI's file name ends in an extension: `photo.jpg`, `Scan.PDF`. */
+function hasExtension(uri: string): boolean {
+  const name = uri.split(/[?#]/)[0]!.split("/").pop() ?? "";
+  return /.\.[A-Za-z0-9]{1,10}$/.test(name);
+}
+
+/**
+ * The type expo-sharing is told. Android sends it as the intent's type. The iOS sheet reads the
+ * type from the file's extension, and expo-sharing uses a declared one only to rename the file
+ * to that type's preferred extension: "photo.jpg" went out as "photo.jpg.jpeg" and "Scan.PDF"
+ * as "Scan.PDF.pdf". So iOS declares one only for a file with no extension; without it such a
+ * file (a PDF among them) would open as plain data.
+ */
+function declaredType(
+  platform: string,
+  localUri: string,
+  options: { mimeType?: string | null; uti?: string },
+): { mimeType?: string; UTI?: string } {
+  if (platform === "ios" && hasExtension(localUri)) return {};
+  return {
+    ...(options.mimeType ? { mimeType: options.mimeType } : {}),
+    ...(options.uti ? { UTI: options.uti } : {}),
+  };
+}
+
 /**
  * Open the share sheet for a `file://` URI. A dismissed sheet is not an
  * error; a build that cannot share a file on this platform throws `SharingUnavailableError`.
@@ -55,12 +80,7 @@ export async function shareLocalFile(
   }
   try {
     if (route === "expo-sharing" && sharing) {
-      await sharing.shareAsync(localUri, {
-        dialogTitle: options.title,
-        ...(options.mimeType ? { mimeType: options.mimeType } : {}),
-        // iOS reads the file's type from its UTI; without it a PDF can open as plain data.
-        ...(options.uti ? { UTI: options.uti } : {}),
-      });
+      await sharing.shareAsync(localUri, { dialogTitle: options.title, ...declaredType(Platform.OS, localUri, options) });
     } else {
       await Share.share({ url: localUri, title: options.title });
     }

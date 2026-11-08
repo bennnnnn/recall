@@ -363,19 +363,45 @@ describe("share and save", () => {
       token: "tok",
       fileName: "EduPilot financial model.xlsx",
     });
-    const shared = jest.mocked(shareAsync).mock.calls.at(-1)![0];
+    const [shared, sheet] = jest.mocked(shareAsync).mock.calls.at(-1)!;
     expect(shared).toMatch(/^file:\/\/\/cache\/recall-share-\d+-\d+\/EduPilot%20financial%20model\.xlsx$/);
+    // iOS: the sheet reads the type from ".xlsx" and titles it by the same name.
+    expect(sheet).toEqual({ dialogTitle: "EduPilot financial model.xlsx" });
     expect(legacy.makeDirectoryAsync).toHaveBeenCalledWith(expect.stringMatching(/recall-share-/), { intermediates: true });
     expect(legacy.copyAsync).toHaveBeenCalledWith({ from: expect.stringMatching(/\/att-[^/]+$/), to: shared });
   });
 
-  it("shares the cached file when a named copy cannot be made", async () => {
-    const legacy = jest.requireMock<{ copyAsync: jest.Mock }>("expo-file-system/legacy");
+  it.each([
+    ["Amharic letters, 3 bytes each", `${"ሰላም".repeat(60)}.xlsx`, ".xlsx"],
+    ["an emoji across the cut", `${"a".repeat(195)}😀.pdf`, ".pdf"],
+  ])("shortens a long name (%s) before its extension, by whole characters, to fit a file name", async (_case, fileName, extension) => {
+    await shareChatAttachment({ uri: "http://127.0.0.1:8000/attachments/abc/file", token: "tok", fileName });
+    const shared = jest.mocked(shareAsync).mock.calls.at(-1)![0];
+    const name = decodeURIComponent(shared.match(/^file:\/\/\/cache\/recall-share-\d+-\d+\/(.+)$/)![1]!);
+    expect(name.endsWith(extension)).toBe(true);
+    expect(fileName.startsWith(name.slice(0, -extension.length))).toBe(true);
+    expect(new TextEncoder().encode(name).length).toBeLessThanOrEqual(200);
+  });
+
+  it("shares the cached file, and leaves no folder, when a named copy cannot be made", async () => {
+    const legacy = jest.requireMock<{ copyAsync: jest.Mock; makeDirectoryAsync: jest.Mock }>("expo-file-system/legacy");
     legacy.copyAsync.mockRejectedValueOnce(new Error("disk full"));
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     await shareChatAttachment({ uri: "http://127.0.0.1:8000/attachments/abc/file", token: "tok", fileName: "cat.png" });
     expect(jest.mocked(shareAsync).mock.calls.at(-1)![0]).toMatch(/\/att-[^/]+cat\.png$/);
+    expect(deleteAsync).toHaveBeenCalledWith(legacy.makeDirectoryAsync.mock.calls.at(-1)![0], { idempotent: true });
     warn.mockRestore();
+  });
+
+  it("deletes the named copy, and opens no sheet, when the account changes during the copy", async () => {
+    const legacy = jest.requireMock<{ copyAsync: jest.Mock; makeDirectoryAsync: jest.Mock }>("expo-file-system/legacy");
+    legacy.copyAsync.mockImplementationOnce(async () => {
+      mockGeneration++;
+    });
+    await expect(shareChatAttachment({ uri: "https://api.test/attachments/abc/file", token: "tok", fileName: "cat.png" }))
+      .rejects.toThrow("Session changed");
+    expect(deleteAsync).toHaveBeenCalledWith(legacy.makeDirectoryAsync.mock.calls.at(-1)![0], { idempotent: true });
+    expect(shareAsync).not.toHaveBeenCalled();
   });
 
   it("prefers the item's own content type over the file name's", async () => {
