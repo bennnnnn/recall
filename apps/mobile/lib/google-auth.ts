@@ -82,16 +82,19 @@ async function signInWithGoogleNative(): Promise<string> {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     }
     const response = await GoogleSignin.signIn();
-    const idToken = response.data?.idToken;
+    // Backing out of the account picker resolves `{ type: "cancelled" }`, never rejects (the
+    // library turns its cancel code into that answer): read as a token-less success, it said
+    // "Sign-in failed".
+    if (response.type === "cancelled") {
+      throw new Error("Sign-in cancelled");
+    }
+    const idToken = response.data.idToken;
     if (!idToken) {
       throw new Error("Google Sign-In did not return an ID token.");
     }
     return idToken;
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
-    if (err.code === statusCodes.SIGN_IN_CANCELLED) {
-      throw new Error("Sign-in cancelled");
-    }
     if (err.code === statusCodes.IN_PROGRESS) {
       throw new Error("Sign-in already in progress");
     }
