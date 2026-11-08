@@ -234,6 +234,7 @@
     "plugins": [
       "expo-router",
       "expo-asset",
+      "./plugins/withOpenedDocumentIntent.js",
       [
         "expo-secure-store",
         {

@@ -7,14 +7,19 @@ import android.os.Bundle
 import expo.modules.core.interfaces.Package
 import expo.modules.core.interfaces.ReactActivityLifecycleListener
 
-/** Hears the intents MainActivity is started and reopened with (autolinked by its name). */
+/** Hears the intent MainActivity is created with (autolinked by its name). */
 class OpenedDocumentPackage : Package {
   override fun createReactActivityLifecycleListeners(activityContext: Context?): List<ReactActivityLifecycleListener> {
-    return listOf(OpenedDocumentActivityListener(activityContext))
+    return listOf(OpenedDocumentActivityListener())
   }
 }
 
-private class OpenedDocumentActivityListener(private val activityContext: Context?) : ReactActivityLifecycleListener {
+/**
+ * Expo calls `onCreate` at once, even while it delays the app's load. A new intent is read by
+ * MainActivity itself (OpenedDocumentIntents): Expo hands one that comes while the app loads to
+ * no listener.
+ */
+private class OpenedDocumentActivityListener : ReactActivityLifecycleListener {
   override fun onCreate(activity: Activity?, savedInstanceState: Bundle?) {
     if (activity == null) return
     runCatching {
@@ -25,11 +30,5 @@ private class OpenedDocumentActivityListener(private val activityContext: Contex
       // savedInstanceState never tells (MainActivity passes null): LaunchMarkers does.
       OpenedDocuments.receiveLaunch(activity, intent, activity.taskId)
     }
-  }
-
-  override fun onNewIntent(intent: Intent?): Boolean {
-    activityContext?.let { context -> runCatching { OpenedDocuments.receive(context, intent) } }
-    // React Native still reads the intent (Linking); Expo Router keeps a content: URL off the routes.
-    return false
   }
 }

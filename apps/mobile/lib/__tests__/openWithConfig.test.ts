@@ -18,6 +18,41 @@ type DocumentType = {
   LSItemContentTypes?: string[];
 };
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- a config plugin is CommonJS, as Expo loads it
+const { addOpenedDocumentHook } = require("../../plugins/withOpenedDocumentIntent.js") as {
+  addOpenedDocumentHook: (source: string) => string;
+};
+
+/** Expo 58's MainActivity.kt (node_modules/expo/template.tgz), its comments and back-button override left out. */
+const TEMPLATE_MAIN_ACTIVITY = `package com.recall.app
+
+import android.os.Build
+import android.os.Bundle
+
+import com.facebook.react.ReactActivity
+import com.facebook.react.ReactActivityDelegate
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
+import com.facebook.react.defaults.DefaultReactActivityDelegate
+
+import expo.modules.ReactActivityDelegateWrapper
+
+class MainActivity : ReactActivity() {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    setTheme(R.style.AppTheme);
+    super.onCreate(null)
+  }
+
+  override fun getMainComponentName(): String = "main"
+
+  override fun createReactActivityDelegate(): ReactActivityDelegate {
+    return ReactActivityDelegateWrapper(
+          this,
+          BuildConfig.IS_NEW_ARCHITECTURE_ENABLED,
+          object : DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled){})
+  }
+}
+`;
+
 function resolvedConfig(): ExpoConfig {
   return appConfig({ projectRoot: "", staticConfigPath: null, packageJsonPath: null, config: {} });
 }
@@ -93,6 +128,29 @@ describe("Android", () => {
     for (const filter of renderedFilters()) {
       expect(filter.category ?? []).not.toContain("android.intent.category.BROWSABLE");
     }
+  });
+
+  it("reads every new intent in MainActivity, before Expo's wrapper can drop it while the app loads", () => {
+    expect(appJson.expo.plugins).toContain("./plugins/withOpenedDocumentIntent.js");
+    const patched = addOpenedDocumentHook(TEMPLATE_MAIN_ACTIVITY);
+    expect(patched).toMatch(/^import android\.content\.Intent$/m);
+    expect(patched).toMatch(
+      /override fun onNewIntent\(intent: Intent\) \{\n\s+expo\.modules\.recallopeneddocument\.OpenedDocumentIntents\.onNewIntent\(this, intent\)\n\s+super\.onNewIntent\(intent\)\n/,
+    );
+    // A prebuild over an existing android/ applies it again: nothing changes.
+    expect(addOpenedDocumentHook(patched)).toBe(patched);
+  });
+
+  it("joins an onNewIntent MainActivity already has", () => {
+    const own = TEMPLATE_MAIN_ACTIVITY.replace(
+      "class MainActivity : ReactActivity() {\n",
+      "class MainActivity : ReactActivity() {\n  override fun onNewIntent(next: Intent) {\n    super.onNewIntent(next)\n  }\n",
+    );
+    const patched = addOpenedDocumentHook(own);
+    expect(patched.match(/override fun onNewIntent/g)).toHaveLength(1);
+    expect(patched).toContain(
+      "override fun onNewIntent(next: Intent) {\n    expo.modules.recallopeneddocument.OpenedDocumentIntents.onNewIntent(this, next)\n",
+    );
   });
 
   it("autolinks the Android module that reads Share's EXTRA_STREAM and the file's name", () => {

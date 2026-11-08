@@ -7,9 +7,11 @@ package expo.modules.recallopeneddocument
  * it does not handle (locale, font size, display size) and when its process died in the
  * background and the user comes back (from Recents or the launcher). Expo's MainActivity calls
  * `super.onCreate(null)`, so no saved state marks either one. The launch that brought a document
- * is remembered by the device's boot, the task and the document: the same three again are that
- * launch again. A new share starts a new task (or reaches the running one through onNewIntent),
- * so the same file shared later is still taken.
+ * is named by the device's boot, the task and the document, and recorded once Recall has handled
+ * the document (taken it into a composer, or dropped it on purpose): the same launch again is
+ * then refused. Until then it is handed over again, so a process that dies first loses nothing.
+ * A share while the task exists reaches the activity as a new intent, which is never refused, so
+ * the same file shared again is still taken.
  */
 internal class LaunchMarkers(private val store: Store) {
   interface Store {
@@ -18,11 +20,13 @@ internal class LaunchMarkers(private val store: Store) {
     fun write(marker: String)
   }
 
-  /** True for a launch Recall has not handled yet, and it is recorded; false for one seen before. */
-  fun isNew(bootCount: Int, taskId: Int, uri: String): Boolean {
-    val marker = "$bootCount:$taskId:$uri"
-    if (store.read() == marker) return false
-    store.write(marker)
-    return true
+  /** Recall handled this launch's document already. */
+  fun isHandled(marker: String): Boolean = store.read() == marker
+
+  /** Recall has handled this launch's document: a recreated activity carrying it is refused. */
+  fun markHandled(marker: String) = store.write(marker)
+
+  companion object {
+    fun of(bootCount: Int, taskId: Int, uri: String): String = "$bootCount:$taskId:$uri"
   }
 }

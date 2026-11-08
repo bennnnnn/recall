@@ -2,6 +2,7 @@ package expo.modules.recallopeneddocument
 
 import android.content.Context
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.os.Parcelable
@@ -11,50 +12,60 @@ import android.provider.Settings
 /**
  * The PDF another app handed Recall, until the app takes it: Open with (ACTION_VIEW, the URI in
  * the intent's data) and Share (ACTION_SEND, the URI in EXTRA_STREAM, which React Native's
- * Linking never reads). Only the newest is kept. The activity listener fills it, the module
- * hands it to JS (features/attachments/model/androidOpenedDocuments.ts). Nothing here may throw
- * into the activity: any app can send Recall a malformed intent.
+ * Linking never reads). Only the newest is kept. MainActivity's creation (the activity listener)
+ * and its new intents (OpenedDocumentIntents) fill it; the module hands it to JS
+ * (features/attachments/model/androidOpenedDocuments.ts). Nothing here may throw into the
+ * activity: any app can send Recall a malformed intent.
  */
 internal object OpenedDocuments {
   private const val PREFERENCES = "recall_opened_document"
   private const val HANDLED_LAUNCH = "handled_launch"
 
-  private var pending: Uri? = null
+  /** A waiting document; `launch` names the launch that brought it, null for a new intent. */
+  private class Waiting(val uri: Uri, val launch: String?)
+
+  private var pending: Waiting? = null
 
   /** Set while the module is alive: tells JS a document is waiting. */
   @Volatile
   var onArrival: (() -> Unit)? = null
 
-  /** The intent MainActivity was created with: taken once per launch (LaunchMarkers). */
+  /** The intent MainActivity was created with: refused once Recall has handled it (LaunchMarkers). */
   fun receiveLaunch(context: Context, intent: Intent, taskId: Int) {
     val uri = documentUri(intent) ?: return
-    val isNew = runCatching {
-      LaunchMarkers(preferencesStore(context)).isNew(bootCount(context), taskId, uri.toString())
-    }.getOrDefault(true)
-    if (isNew) hold(context, uri)
+    val launch = LaunchMarkers.of(bootCount(context), taskId, uri.toString())
+    val handled = runCatching { LaunchMarkers(preferencesStore(context)).isHandled(launch) }.getOrDefault(false)
+    if (!handled) hold(context, Waiting(uri, launch))
   }
 
-  /** An intent the running activity was handed (onNewIntent): always a new one. */
+  /** An intent the running activity was handed: always a new one. */
   fun receive(context: Context, intent: Intent?) {
     val uri = intent?.let(::documentUri) ?: return
-    hold(context, uri)
+    hold(context, Waiting(uri, null))
   }
 
-  /** The waiting document as `{ uri, name, size, type }`, once; null when there is none. */
+  /** The waiting document as `{ uri, name, size, type, launch }`, once; null when there is none. */
   fun take(context: Context?): Map<String, Any?>? {
-    val uri = synchronized(this) { pending.also { pending = null } } ?: return null
-    val details = context?.let { describe(it, uri) }
+    val waiting = synchronized(this) { pending.also { pending = null } } ?: return null
+    val details = context?.let { describe(it, waiting.uri) }
     return mapOf(
-      "uri" to uri.toString(),
+      "uri" to waiting.uri.toString(),
       "name" to details?.name,
       "size" to details?.size,
       "type" to details?.type,
+      "launch" to waiting.launch,
     )
   }
 
-  private fun hold(context: Context, uri: Uri) {
-    if (!isForeignContent(context, uri)) return
-    synchronized(this) { pending = uri }
+  /** JS has handled the document `launch` brought: a recreated activity carrying it is refused. */
+  fun markLaunchHandled(context: Context?, launch: String) {
+    if (context == null) return
+    runCatching { LaunchMarkers(preferencesStore(context)).markHandled(launch) }
+  }
+
+  private fun hold(context: Context, waiting: Waiting) {
+    if (!isForeignContent(context, waiting.uri)) return
+    synchronized(this) { pending = waiting }
     runCatching { onArrival?.invoke() }
   }
 
@@ -66,9 +77,13 @@ internal object OpenedDocuments {
     }
   }.getOrNull()
 
-  /** EXTRA_STREAM when it is a Uri: another Parcelable, or one that will not unparcel, is no document. */
+  /**
+   * EXTRA_STREAM when it is a Uri: another Parcelable, or one that will not unparcel, is no
+   * document. The typed lookup only from Android 14: Android 13's has a bug (AndroidX
+   * IntentCompat waits for 34 too), so before it the untyped one, checked here.
+   */
   private fun streamOf(intent: Intent): Uri? {
-    val stream: Parcelable? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    val stream: Parcelable? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
       intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
     } else {
       legacyStreamOf(intent)
@@ -100,7 +115,7 @@ internal object OpenedDocuments {
   /**
    * The name the other app gives the file ("Lease.pdf"), its size and its type. Asked here, off
    * the JS thread: expo-file-system measures a provider that gives no size by reading the whole
-   * file, on whichever thread asks.
+   * file, on whichever thread asks. Each is read on its own: a provider's odd size keeps its name.
    */
   private fun describe(context: Context, uri: Uri): Details {
     val resolver = context.contentResolver
@@ -109,16 +124,20 @@ internal object OpenedDocuments {
     return runCatching {
       resolver.query(uri, columns, null, null, null)?.use { cursor ->
         if (!cursor.moveToFirst()) return@use null
-        val nameColumn = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        val sizeColumn = cursor.getColumnIndex(OpenableColumns.SIZE)
         Details(
-          name = if (nameColumn >= 0 && !cursor.isNull(nameColumn)) cursor.getString(nameColumn) else null,
-          size = if (sizeColumn >= 0 && !cursor.isNull(sizeColumn)) cursor.getLong(sizeColumn) else null,
+          name = cursor.column(OpenableColumns.DISPLAY_NAME) { getString(it) },
+          size = cursor.column(OpenableColumns.SIZE) { getLong(it) },
           type = type,
         )
       }
     }.getOrNull() ?: Details(null, null, type)
   }
+
+  /** One column of the cursor's row: null when it is missing, null, or will not read as `T`. */
+  private inline fun <T> Cursor.column(name: String, read: Cursor.(Int) -> T): T? = runCatching {
+    val index = getColumnIndex(name)
+    if (index < 0 || isNull(index)) null else read(index)
+  }.getOrNull()
 
   private fun bootCount(context: Context): Int =
     runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT) }.getOrDefault(-1)

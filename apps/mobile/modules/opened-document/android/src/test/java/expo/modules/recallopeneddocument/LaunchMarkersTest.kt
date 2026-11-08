@@ -20,35 +20,35 @@ class LaunchMarkersTest {
   private val invoice = "content://com.whatsapp.provider.media/item/9"
 
   @Test
-  fun takesALaunchOnceThroughAConfigurationChangeAndAProcessDeath() {
+  fun handsALaunchOverAgainUntilRecallHasHandledIt() {
     val store = MemoryStore()
-    assertTrue(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = lease))
-    // The font size changed: MainActivity is created again with the same intent.
-    assertFalse(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = lease))
-    // The process died in the background and the user came back from the launcher.
-    assertFalse(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = lease))
+    val launch = LaunchMarkers.of(bootCount = 7, taskId = 120, uri = lease)
+    assertFalse(LaunchMarkers(store).isHandled(launch))
+    // The process died while the file waited for sign-in: the next launch hands it over again.
+    assertFalse(LaunchMarkers(store).isHandled(launch))
+    LaunchMarkers(store).markHandled(launch)
+    // Then a font size change or a return after a process death carries it in vain.
+    assertTrue(LaunchMarkers(store).isHandled(launch))
   }
 
   @Test
   fun takesTheSameFileSharedAgainOnceItsTaskIsGone() {
     val store = MemoryStore()
-    assertTrue(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = lease))
-    assertTrue(LaunchMarkers(store).isNew(bootCount = 7, taskId = 121, uri = lease))
+    LaunchMarkers(store).markHandled(LaunchMarkers.of(bootCount = 7, taskId = 120, uri = lease))
+    assertFalse(LaunchMarkers(store).isHandled(LaunchMarkers.of(bootCount = 7, taskId = 121, uri = lease)))
   }
 
   @Test
   fun takesALaunchAfterTheDeviceRestartsEvenWithATaskIdUsedBefore() {
     val store = MemoryStore()
-    assertTrue(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = lease))
-    assertTrue(LaunchMarkers(store).isNew(bootCount = 8, taskId = 120, uri = lease))
+    LaunchMarkers(store).markHandled(LaunchMarkers.of(bootCount = 7, taskId = 120, uri = lease))
+    assertFalse(LaunchMarkers(store).isHandled(LaunchMarkers.of(bootCount = 8, taskId = 120, uri = lease)))
   }
 
   @Test
   fun takesAnotherFileThatStartsTheSameTask() {
     val store = MemoryStore()
-    assertTrue(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = lease))
-    assertTrue(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = invoice))
-    // Only the newest launch is the one a recreated activity can carry.
-    assertFalse(LaunchMarkers(store).isNew(bootCount = 7, taskId = 120, uri = invoice))
+    LaunchMarkers(store).markHandled(LaunchMarkers.of(bootCount = 7, taskId = 120, uri = lease))
+    assertFalse(LaunchMarkers(store).isHandled(LaunchMarkers.of(bootCount = 7, taskId = 120, uri = invoice)))
   }
 }
