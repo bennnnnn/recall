@@ -243,6 +243,15 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
       },
     }));
     jest.doMock("@/lib/expoRuntime", () => ({ isExpoGo: () => false }));
+    // A held purchase's file (features/billing/model/heldPurchase.ts): nothing on disk here.
+    jest.doMock("@/lib/cache/cacheFile", () => ({
+      cacheFile: () => ({
+        read: async () => null,
+        readSync: () => null,
+        write: async () => undefined,
+        clear: async () => undefined,
+      }),
+    }));
   });
 
   it("loads and configures on the native store", () => {
@@ -305,6 +314,8 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
     await purchases.configurePurchases("user-1");
     const { pro } = (await purchases.getPlanPackages()).packages;
     await expect(purchases.purchasePlanPackage(pro!)).resolves.toBe("pending");
-    expect(purchases.purchasePending()).toBe("pro");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- the copy purchases.ts loaded
+    const held = require("@/features/billing/model/heldPurchase") as typeof import("@/features/billing/model/heldPurchase");
+    expect(held.heldPurchase()).toBe("pro");
   });
 });

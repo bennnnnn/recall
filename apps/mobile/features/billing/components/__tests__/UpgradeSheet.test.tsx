@@ -5,7 +5,7 @@ import { getPlanPackages } from "@/features/billing/model/purchases";
 import { reportFailure } from "@/lib/sentry";
 
 const mockSyncSubscription = jest.fn();
-const mockRefreshUser = jest.fn(async () => undefined);
+const mockSetUpStore = jest.fn(async () => undefined);
 const mockRecheck = jest.fn(async () => undefined);
 const mockPurchase = jest.fn();
 const mockRestore = jest.fn();
@@ -45,7 +45,7 @@ jest.mock("@/features/billing/hooks/useSubscriptionActions", () => ({
     user: mockUser,
     syncSubscription: mockSyncSubscription,
     devUpgrade: jest.fn(),
-    refreshUser: mockRefreshUser,
+    setUpStore: mockSetUpStore,
   }),
 }));
 jest.mock("@/lib/api", () => ({
@@ -74,9 +74,11 @@ jest.mock("@/features/billing/model/purchases", () => ({
     mockStoreReady.listeners.add(listener);
     return () => mockStoreReady.listeners.delete(listener);
   },
-  purchasePending: () => mockPending.value,
   recheckPendingPurchase: () => mockRecheck(),
-  subscribePendingPurchase: (listener: () => void) => {
+}));
+jest.mock("@/features/billing/model/heldPurchase", () => ({
+  heldPurchase: () => mockPending.value,
+  subscribeHeldPurchase: (listener: () => void) => {
     mockPending.listeners.add(listener);
     return () => mockPending.listeners.delete(listener);
   },
@@ -124,7 +126,7 @@ beforeEach(() => {
   mockPurchasesConfigured = true;
   mockStoreReady.value = true;
   mockPending.value = null;
-  mockRefreshUser.mockClear();
+  mockSetUpStore.mockClear();
   mockRecheck.mockClear();
   jest.mocked(getPlanPackages).mockClear();
   jest.mocked(reportFailure).mockClear();
@@ -321,8 +323,8 @@ it("waits for the store to be set up before reading it, never saying it is unava
   expect(screen.getByText('upgrade.subscribe_for {"plan":"plans.plus","price":"$7.99"}')).toBeOnTheScreen();
 });
 
-it("says the store is unavailable when the account was never confirmed, and Retry asks the server again", async () => {
-  // /auth/me failed at launch: the store is set up only once the server confirms the account.
+it("says the store is unavailable when its set-up never came, and Retry sets it up again", async () => {
+  // /auth/me failed at launch, or the set-up hung: the store has not been set up.
   jest.useFakeTimers();
   try {
     mockStoreReady.value = false;
@@ -335,7 +337,7 @@ it("says the store is unavailable when the account was never confirmed, and Retr
     await act(async () => {
       fireEvent.press(screen.getByText("common.retry"));
     });
-    expect(mockRefreshUser).toHaveBeenCalledTimes(1);
+    expect(mockSetUpStore).toHaveBeenCalledTimes(1);
     // Confirmed: the store is set up and read.
     await act(async () => {
       setMockStore(mockStoreReady, true);

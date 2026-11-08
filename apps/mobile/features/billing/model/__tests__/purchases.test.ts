@@ -4,8 +4,23 @@ jest.mock("@/lib/expoRuntime", () => ({
   isExpoGo: () => false,
 }));
 
-jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
+const mockPlatform = { OS: "ios" };
+jest.mock("react-native", () => ({ Platform: mockPlatform }));
 jest.mock("@/lib/sentry", () => ({ reportStoreUnavailable: jest.fn() }));
+// The phone's cache files, in memory: a held purchase on Android is kept in one.
+const mockDisk = new Map<string, string>();
+jest.mock("@/lib/cache/cacheFile", () => ({
+  cacheFile: (name: string) => ({
+    read: async () => mockDisk.get(name) ?? null,
+    readSync: () => mockDisk.get(name) ?? null,
+    write: async (contents: string) => {
+      mockDisk.set(name, contents);
+    },
+    clear: async () => {
+      mockDisk.delete(name);
+    },
+  }),
+}));
 
 jest.mock("react-native-purchases", () => {
   const listeners: Array<(info: { entitlements: { active: Record<string, unknown> } }) => void> = [];
@@ -48,13 +63,14 @@ import {
   isPurchaseCancelled,
   isStoreReady,
   planFromCustomerInfo,
-  purchasePending,
   purchasePlanPackage,
   recheckPendingPurchase,
   registerPlanChangeListener,
   restorePurchases,
   signOutRevenueCat,
+  subscribeStoreReady,
 } from "@/features/billing/model/purchases";
+import { heldPurchase as purchasePending } from "@/features/billing/model/heldPurchase";
 
 // Force the purchases module to be "configured" (API key present + not Expo Go).
 process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "test-ios-key";
@@ -196,6 +212,17 @@ describe("configurePurchases", () => {
     expect(isStoreReady()).toBe(true);
   });
 
+  it("is ready when a set-up that hung is run again (the plans sheet's Retry)", async () => {
+    await signOutRevenueCat();
+    purchasesMod.default.logIn.mockImplementationOnce(() => new Promise<never>(() => undefined));
+    void configurePurchases("user-f");
+    await Promise.resolve();
+    expect(isStoreReady()).toBe(false);
+    await configurePurchases("user-f");
+    expect(purchasesMod.default.logIn).toHaveBeenLastCalledWith("user-f");
+    expect(isStoreReady()).toBe(true);
+  });
+
   it("is ready once a set-up that failed has run: the store's own failure is then said", async () => {
     await signOutRevenueCat();
     purchasesMod.default.logIn.mockRejectedValueOnce(new Error("offline"));
@@ -228,11 +255,15 @@ describe("a purchase the store holds for approval", () => {
     cleanup?.();
   });
 
-  it("a restore that finds the plan settles it, and sign-out forgets it", async () => {
+  it.each([
+    ["finds the plan", { pro: {} }, "pro"],
+    // The user's way out of a payment that never came.
+    ["finds nothing", {}, "free"],
+  ])("a restore that %s lets go of the hold, and sign-out forgets it", async (_case, active, plan) => {
     purchasesMod.default.purchasePackage.mockRejectedValue(pending);
     await purchasePlanPackage(plus);
-    purchasesMod.default.restorePurchases.mockResolvedValueOnce({ entitlements: { active: { pro: {} } } });
-    await expect(restorePurchases()).resolves.toBe("pro");
+    purchasesMod.default.restorePurchases.mockResolvedValueOnce({ entitlements: { active } });
+    await expect(restorePurchases()).resolves.toBe(plan);
     expect(purchasePending()).toBeNull();
 
     await purchasePlanPackage(plus);
@@ -248,11 +279,18 @@ describe("a purchase the store holds for approval", () => {
       jest.mocked(reportStoreUnavailable).mockClear();
     });
 
+    const SINCE = Date.UTC(2026, 10, 8, 12);
+
+    /** A held Plus, held at SINCE exactly: the clock never drifts under the hold's age. */
     async function hold() {
       purchasesMod.default.purchasePackage.mockRejectedValueOnce(pending);
-      const since = Date.now();
-      await purchasePlanPackage(plus);
-      return since;
+      const clock = jest.spyOn(Date, "now").mockReturnValue(SINCE);
+      try {
+        await purchasePlanPackage(plus);
+      } finally {
+        clock.mockRestore();
+      }
+      return SINCE;
     }
 
     it("lets go once the store grants the plan", async () => {
@@ -279,6 +317,30 @@ describe("a purchase the store holds for approval", () => {
       expect(purchasePending()).toBe("plus");
       expect(reportStoreUnavailable).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("on Android has an earlier launch's hold in place before the store can sell, past 30 minutes", async () => {
+    mockPlatform.OS = "android";
+    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "test-android-key";
+    try {
+      // A Plus slow payment held at the last launch.
+      const since = Date.now() - 2 * 24 * 60 * 60_000;
+      mockDisk.set("recall-held-purchase.txt", `user-e|plus|${since}`);
+      let heldWhenReady: string | null | undefined;
+      const stop = subscribeStoreReady(() => {
+        if (isStoreReady()) heldWhenReady = purchasePending();
+      });
+      await configurePurchases("user-e");
+      stop();
+      expect(heldWhenReady).toBe("plus");
+      // A Pro bought now would be a second subscription: still held.
+      purchasesMod.default.getCustomerInfo.mockResolvedValueOnce({ entitlements: { active: {} } });
+      await recheckPendingPurchase(Date.now() + 31 * 60_000);
+      expect(purchasePending()).toBe("plus");
+    } finally {
+      mockPlatform.OS = "ios";
+      delete process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
+    }
   });
 
   it("still rejects any other store failure", async () => {

@@ -69,7 +69,9 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/onboarding.ts#generation": "clearOnboarded",
   "lib/onboarding.ts#writes": "clearOnboarded",
   "features/billing/model/purchases.ts#configuredAppUserId": "signOutRevenueCat",
-  "features/billing/model/purchases.ts#pendingPurchase": "signOutRevenueCat",
+  // A purchase held for approval, and Android's copy on disk: signOutRevenueCat releases both.
+  "features/billing/model/heldPurchase.ts#held": "signOutRevenueCat",
+  "features/billing/model/heldPurchase.ts#heldFile": "signOutRevenueCat",
   // Raised at sign-out, so a set-up still running for the account that left records nothing.
   "features/billing/model/purchases.ts#setupGeneration": "signOutRevenueCat",
   "features/billing/model/purchases.ts#storeSetUp": "signOutRevenueCat",

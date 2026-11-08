@@ -2,9 +2,17 @@ import { Platform } from "react-native";
 
 import type { PurchasesPackage } from "react-native-purchases";
 
+import {
+  expireHeldPurchase,
+  heldPurchase,
+  holdPurchase,
+  loadHeldPurchase,
+  releaseHeldPurchase,
+  settleHeldPurchase,
+} from "@/features/billing/model/heldPurchase";
 import { isExpoGo } from "@/lib/expoRuntime";
 import { createValueStore } from "@/lib/listenerSet";
-import { PLAN_RANK, type PaidPlanId, type PlanId } from "@/lib/plan";
+import type { PaidPlanId, PlanId } from "@/lib/plan";
 import { reportStoreUnavailable } from "@/lib/sentry";
 
 /**
@@ -134,53 +142,29 @@ export async function configurePurchases(appUserId: string): Promise<void> {
     // Signed out meanwhile: the store was logged out, so the next sign-in logs in again.
     configuredAppUserId = current() ? appUserId : "";
   } finally {
-    if (current()) storeSetUp.set(true);
+    if (current()) {
+      // An Android hold from an earlier launch is in place before anything can be bought.
+      await loadHeldPurchase(appUserId);
+      if (current()) storeSetUp.set(true);
+    }
   }
 }
 
 /**
- * A purchase the store holds for approval (Ask to Buy, a Play pending payment, a bank's
- * check): the plan it was for and when, until the store grants it, the hold lapses
- * (`recheckPendingPurchase`) or the account signs out. While one waits, no second purchase
- * is offered.
- */
-const pendingPurchase = createValueStore<{ plan: PaidPlanId; since: number } | null>(null);
-
-/**
- * How long a held purchase blocks a second one while the store grants nothing: RevenueCat
- * reports no declined Ask to Buy and no Play payment that was never made, so after this the
- * hold lets go, and buying again only sends a new request.
- */
-const PENDING_HOLD_MS = 30 * 60_000;
-
-export const subscribePendingPurchase = pendingPurchase.subscribe;
-
-export function purchasePending(): PaidPlanId | null {
-  return pendingPurchase.get()?.plan ?? null;
-}
-
-/** The store now grants `plan`: a purchase waiting for that plan or a lower one has gone through. */
-function settlePendingPurchase(plan: PlanId): void {
-  const waiting = pendingPurchase.get();
-  if (waiting && PLAN_RANK[plan] >= PLAN_RANK[waiting.plan]) pendingPurchase.set(null);
-}
-
-/**
- * Reads the store again for a held purchase, as the sheet opens and as the app comes back:
- * one the store now grants is done, and one it still does not after `PENDING_HOLD_MS` lets
- * go. Never rejects.
+ * Reads the store again for a held purchase (`heldPurchase.ts`), as the sheet opens and as
+ * the app comes back: one the store now grants is done, and one past its time lets go.
+ * Never rejects.
  */
 export async function recheckPendingPurchase(now: number = Date.now()): Promise<void> {
-  const held = pendingPurchase.get();
-  if (!held) return;
+  if (!heldPurchase()) return;
   const mod = await loadPurchases();
   if (!mod) return;
   try {
-    settlePendingPurchase(planFromCustomerInfo(await mod.default.getCustomerInfo()));
+    settleHeldPurchase(planFromCustomerInfo(await mod.default.getCustomerInfo()));
   } catch (error) {
     reportStoreUnavailable(error);
   }
-  if (pendingPurchase.get() === held && now - held.since >= PENDING_HOLD_MS) pendingPurchase.set(null);
+  expireHeldPurchase(now);
 }
 
 export type PlanOffer = {
@@ -246,7 +230,7 @@ function isPaymentPending(mod: PurchasesModule, error: unknown): boolean {
 
 /**
  * Buy a plan; resolves with the plan the store now reports, or "pending" when the
- * store holds the purchase for approval (`purchasePending`). On Android a move
+ * store holds the purchase for approval (`heldPurchase.ts`). On Android a move
  * from Plus to Pro replaces the Plus subscription (prorated) instead of
  * stacking a second one; on iOS both live in one subscription group, so the
  * App Store does that itself.
@@ -259,11 +243,11 @@ export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId | "p
     result = await mod.default.purchasePackage(pkg.native, null, await productChangeFor(mod, pkg));
   } catch (error) {
     if (!isPaymentPending(mod, error)) throw error;
-    pendingPurchase.set({ plan: pkg.plan, since: Date.now() });
+    holdPurchase(configuredAppUserId ?? "", pkg.plan);
     return "pending";
   }
   const plan = planFromCustomerInfo(result.customerInfo);
-  settlePendingPurchase(plan);
+  settleHeldPurchase(plan);
   return plan;
 }
 
@@ -280,14 +264,16 @@ async function productChangeFor(mod: PurchasesModule, pkg: PlanPackage): Promise
   };
 }
 
-/** Restore store purchases; resolves with the plan they grant. */
+/**
+ * Restore store purchases; resolves with the plan they grant. A restore also lets go of a
+ * held purchase: it is the user's way to check again after a payment that never came.
+ */
 export async function restorePurchases(): Promise<PlanId> {
   const mod = await loadPurchases();
   if (!mod) return "free";
   const info = await mod.default.restorePurchases();
-  const plan = planFromCustomerInfo(info);
-  settlePendingPurchase(plan);
-  return plan;
+  await releaseHeldPurchase();
+  return planFromCustomerInfo(info);
 }
 
 /**
@@ -298,7 +284,7 @@ export async function signOutRevenueCat(): Promise<void> {
   // The next account waits for its own set-up, and inherits no purchase waiting for approval.
   setupGeneration += 1;
   storeSetUp.set(false);
-  pendingPurchase.set(null);
+  await releaseHeldPurchase();
   const mod = await loadPurchases();
   if (!mod) return;
   try {
@@ -329,7 +315,7 @@ export async function registerPlanChangeListener(
   const listener = (info: CustomerInfoLike) => {
     const plan = planFromCustomerInfo(info);
     // An approved Ask to Buy or pending payment arrives here.
-    settlePendingPurchase(plan);
+    settleHeldPurchase(plan);
     if (plan === lastPlan) return;
     lastPlan = plan;
     onChange(plan);
