@@ -1370,6 +1370,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Library (drawer grid of generated + uploaded images and files; lookup photos stay on the chat) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
+| Open with Recall (a PDF shared or opened from Files, Mail, WhatsApp… lands attached in New chat; iOS `CFBundleDocumentTypes`, Android VIEW/SEND filters + `modules/opened-document`; held through sign-in, fenced per account) | ✅ iOS verified on the Simulator (share sheet, cold, warm); Android built and unit-tested, device check pending. Needs a native build |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Live talk (speech-to-speech, Pro, 60 min/month) | ✅ WebRTC + OpenAI Realtime; physical-device barge-in implemented, live validation pending; Simulator half-duplex |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
