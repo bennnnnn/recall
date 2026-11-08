@@ -182,6 +182,8 @@
   "chat.new_chat": "Yeni sohbet",
   "chat.offline_body": "Mesaj göndermek için internete yeniden bağlanın.",
   "chat.open_drawer_a11y": "Menüyü aç",
+  "chat.opened_file_too_large": "Bu dosya {{limit}} MB'tan büyük, bu yüzden Recall onu ekleyemiyor.",
+  "chat.opened_file_unreadable": "Recall bu dosyayı açamadı. Diğer uygulamadan yeniden açmayı deneyin.",
   "chat.pdf_close_a11y": "PDF'yi kapat",
   "chat.pdf_export_failed": "Bu PDF dışa aktarılamadı.",
   "chat.pdf_open_a11y": "PDF'yi aç: {{fileName}}",
