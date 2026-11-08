@@ -10,7 +10,7 @@
   "features/attachments/api.ts": 1,
   "features/attachments/components/AttachmentImageStage.tsx": 1,
   "features/attachments/model/attachmentFileStore.ts": 1,
-  "features/attachments/model/attachmentIndexStatus.ts": 2,
+  "features/attachments/model/attachmentIndexStatus.ts": 1,
   "features/attachments/model/attachmentStatusFile.ts": 1,
   "features/attachments/model/attachments.ts": 3,
   "features/attachments/model/downloadChatAttachment.ts": 4,

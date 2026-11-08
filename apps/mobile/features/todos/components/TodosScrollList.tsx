@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { TodoRow } from "@/features/todos/components/TodoRow";
+import { TodosViewEmpty } from "@/features/todos/components/TodosListHeader";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import type { Todo } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
@@ -14,6 +15,7 @@ import {
   type TodoListRow,
   type TodoSection,
 } from "@/features/todos/model/todoListRows";
+import type { TodoView } from "@/features/todos/model/todoListFilter";
 import { useTheme } from "@/lib/theme";
 import { addFabClearance } from "@/ui/controls/addFabLayout";
 import { Button } from "@/ui/controls/Button";
@@ -23,6 +25,8 @@ type Props = {
   /** The to-do clock (useReminderClock): a time it has passed reads as overdue. */
   now: Date;
   showEmpty: boolean;
+  /** The view the rows are of: its empty state when it holds nothing. */
+  view: TodoView;
   error: boolean;
   listHeader: ReactElement;
   refreshing?: boolean;
@@ -108,6 +112,7 @@ export function TodosScrollList({
   rows,
   now,
   showEmpty,
+  view,
   error,
   listHeader,
   refreshing = false,
@@ -136,7 +141,7 @@ export function TodosScrollList({
       getItemType={(item) => item.kind}
       style={s.list}
       contentContainerStyle={[
-        showEmpty && !error ? s.listEmpty : undefined,
+        items.length === 0 && !error ? s.listEmpty : undefined,
         s.listContent,
         { paddingBottom: addFabClearance(insets.bottom) },
       ]}
@@ -155,11 +160,7 @@ export function TodosScrollList({
           </View>
         ) : null
       }
-      ListEmptyComponent={
-        !showEmpty && !error ? (
-          <Text style={s.filterEmpty}>{t("todos.filter_empty")}</Text>
-        ) : null
-      }
+      ListEmptyComponent={!showEmpty && !error ? <TodosViewEmpty view={view} olderHidden={Boolean(onShowOlder)} /> : null}
       renderItem={({ item, index }) => {
         if (item.kind === "heading") {
           const title = item.section === "date" && item.dayKey

@@ -1,15 +1,11 @@
-import { useMemo } from "react";
-import { StyleSheet, View, type AccessibilityActionEvent, type AccessibilityActionInfo } from "react-native";
+import { StyleSheet, type AccessibilityActionEvent, type AccessibilityActionInfo } from "react-native";
 
+import { GalleryFileTile } from "@/features/attachments/components/GalleryFileTile";
 import { GalleryThumbnail } from "@/features/attachments/components/GalleryThumbnail";
-import { Icon } from "@/ui/icons/Icon";
 import { ListRow } from "@/ui/list/ListRow";
 import { type AttachmentListItem } from "@/lib/api";
 import { COLUMN_THUMB_SIZE, isGalleryImage } from "@/features/attachments/model/gallery";
 import { Space } from "@/lib/space";
-import { Theme, useTheme } from "@/lib/theme";
-import { Radius } from "@/lib/radius";
-import { IconSize } from "@/ui/icons/sizes";
 
 /** Where a column row's separator starts: under the text, past the thumbnail. */
 export const GALLERY_COLUMN_SEPARATOR_INSET = Space.md + COLUMN_THUMB_SIZE + Space.sm;
@@ -41,15 +37,13 @@ export function GalleryColumnRow({
   accessibilityActions,
   onAccessibilityAction,
 }: Props) {
-  const C = useTheme();
-  const s = useMemo(() => makeStyles(C), [C]);
   const isImage = isGalleryImage(item.content_type);
   const chatTitle = item.chat_title?.trim() || undefined;
 
   return (
     <ListRow
       appearance="plain"
-      style={s.row}
+      style={styles.row}
       title={title}
       subtitle={chatTitle}
       numberOfLines={1}
@@ -60,14 +54,11 @@ export function GalleryColumnRow({
         isImage ? (
           <GalleryThumbnail
             attachmentId={item.id}
-            downloadUrl={item.download_url}
             size={COLUMN_THUMB_SIZE}
             onMissing={onMissing}
           />
         ) : (
-          <View style={s.fileThumb}>
-            <Icon name="file" size={IconSize.lg} color={C.textTertiary} />
-          </View>
+          <GalleryFileTile name={title} contentType={item.content_type} size={COLUMN_THUMB_SIZE} />
         )
       }
       onPress={onPress}
@@ -82,23 +73,11 @@ export function GalleryColumnRow({
   );
 }
 
-function makeStyles(C: Theme) {
-  return StyleSheet.create({
-    // Edge to edge, so the press highlight spans the screen.
-    row: {
-      borderRadius: 0,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.xs,
-    },
-    fileThumb: {
-      width: COLUMN_THUMB_SIZE,
-      height: COLUMN_THUMB_SIZE,
-      borderRadius: Radius.sm,
-      backgroundColor: C.surfaceAlt,
-      borderWidth: 1,
-      borderColor: C.border,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-  });
-}
+const styles = StyleSheet.create({
+  // Edge to edge, so the press highlight spans the screen.
+  row: {
+    borderRadius: 0,
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.xs,
+  },
+});

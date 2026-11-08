@@ -294,4 +294,27 @@ describe("pull to refresh", () => {
     expect(ok).toBe(true);
     expect(latest?.items.map((row) => row.id)).toEqual(["a", "b"]);
   });
+
+  it("clears its spinner when another read of the page starts while it waits", async () => {
+    // Coming back to the screen or the API answering after an outage reads the page again.
+    const list = api.listAttachments as jest.Mock;
+    let finish!: (value: unknown) => void;
+    list
+      .mockResolvedValueOnce({ items: [item("a")], next_cursor: null })
+      .mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }))
+      .mockResolvedValue({ items: [item("a"), item("b")], next_cursor: null });
+    await render(<Probe />);
+
+    let pulled: Promise<boolean> | undefined;
+    await act(async () => { pulled = latest?.refresh(); });
+    expect(latest?.pullRefreshing).toBe(true);
+    let read: Promise<boolean> | undefined;
+    await act(async () => { read = latest?.retry({ force: true }); });
+    await act(async () => {
+      finish({ items: [item("a")], next_cursor: null });
+      await pulled;
+      await read;
+    });
+    expect(latest?.pullRefreshing).toBe(false);
+  });
 });

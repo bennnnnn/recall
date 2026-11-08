@@ -32,7 +32,7 @@ function fileItem(): AttachmentListItem {
 describe("GalleryColumnRow", () => {
   it("puts the filename to the right of the thumb and shows the chat title", async () => {
     const onPress = jest.fn();
-    const { getByText } = await render(
+    const { getByText, queryByText } = await render(
       <GalleryColumnRow
         item={fileItem()}
         title="notes.pdf"
@@ -44,6 +44,9 @@ describe("GalleryColumnRow", () => {
 
     expect(getByText("notes.pdf")).toBeTruthy();
     expect(getByText("Trip")).toBeTruthy();
+    // The thumb says the type; the title beside it already names the file.
+    expect(getByText("PDF", { includeHiddenElements: true })).toBeTruthy();
+    expect(queryByText("notes", { includeHiddenElements: true })).toBeNull();
     await fireEvent.press(getByText("notes.pdf"));
     expect(onPress).toHaveBeenCalled();
   });

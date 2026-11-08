@@ -4,7 +4,6 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
   type AccessibilityActionEvent,
@@ -19,11 +18,11 @@ import {
   GALLERY_COLUMN_SEPARATOR_INSET,
   GalleryColumnRow,
 } from "@/features/attachments/components/GalleryColumnRow";
+import { GalleryFileTile } from "@/features/attachments/components/GalleryFileTile";
 import { GalleryLibraryHeader } from "@/features/attachments/components/GalleryLibraryHeader";
 import { GalleryMediaModals } from "@/features/attachments/components/GalleryMediaModals";
 import { GalleryThumbnail } from "@/features/attachments/components/GalleryThumbnail";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { Icon } from "@/ui/icons/Icon";
 import { ListSeparator } from "@/ui/list/ListGroup";
 import { SkeletonGrid, SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
@@ -43,9 +42,7 @@ import {
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
-import { IconSize } from "@/ui/icons/sizes";
 
 /** One gap between grid tiles, across and down. */
 const GRID_GAP = Space.xs;
@@ -164,17 +161,11 @@ export default function GalleryScreen() {
             {isImage ? (
               <GalleryThumbnail
                 attachmentId={item.id}
-                downloadUrl={item.download_url}
                 size={thumbSize}
                 onMissing={removeItem}
               />
             ) : (
-              <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
-                <Icon name="file" size={IconSize.xl} color={C.textTertiary} />
-                <Text style={s.fileLabel} numberOfLines={1} ellipsizeMode="middle">
-                  {name}
-                </Text>
-              </View>
+              <GalleryFileTile name={name} contentType={item.content_type} size={thumbSize} showName />
             )}
             {busy ? (
               <View style={[s.busy, { width: thumbSize, height: thumbSize }]} testID="gallery-item-busy">
@@ -308,21 +299,6 @@ function makeStyles(C: Theme) {
     footer: {
       paddingVertical: Space.md,
       alignItems: "center",
-    },
-    fileTile: {
-      borderRadius: Radius.sm,
-      backgroundColor: C.surfaceAlt,
-      borderWidth: 1,
-      borderColor: C.border,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xs,
-      paddingHorizontal: Space.xs,
-    },
-    fileLabel: {
-      ...Type.overline,
-      ...Weight.semibold,
-      color: C.textTertiary,
     },
     busy: {
       position: "absolute",

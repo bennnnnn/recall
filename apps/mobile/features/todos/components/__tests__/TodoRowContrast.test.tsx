@@ -64,7 +64,7 @@ function list(item: Todo, state: State, todos = OVERDUE) {
     <TodosScrollList
       rows={buildTodoListRows(todos, NOW)}
       now={NOW}
-      showEmpty={false}
+      showEmpty={false} view="all"
       error={false}
       listHeader={<View />}
       busyTodoIds={new Set()}

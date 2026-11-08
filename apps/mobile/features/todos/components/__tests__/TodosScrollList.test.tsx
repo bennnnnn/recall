@@ -39,7 +39,7 @@ function todo(id: string, due: Date | null, content = id): Todo {
 function list(todos: Todo[]) {
   const noop = jest.fn();
   return render(
-    <TodosScrollList rows={buildTodoListRows(todos, NOW)} now={NOW} showEmpty={false} error={false} listHeader={<></>}
+    <TodosScrollList rows={buildTodoListRows(todos, NOW)} now={NOW} showEmpty={false} view="all" error={false} listHeader={<></>}
       busyTodoIds={new Set()} onToggle={noop} onOpen={noop} onDeleteItem={noop} />,
   );
 }
@@ -84,7 +84,7 @@ it("builds a handful of date formatters for a long list, and none to draw it aga
     expect(builds()).toBeLessThanOrEqual(3);
     built.mockClear();
     await ui.rerender(
-      <TodosScrollList rows={buildTodoListRows(todos, NOW)} now={NOW} showEmpty={false} error={false}
+      <TodosScrollList rows={buildTodoListRows(todos, NOW)} now={NOW} showEmpty={false} view="all" error={false}
         listHeader={<></>} busyTodoIds={new Set()} onToggle={jest.fn()} onOpen={jest.fn()} onDeleteItem={jest.fn()} />,
     );
     expect(built).not.toHaveBeenCalled();

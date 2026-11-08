@@ -36,7 +36,7 @@ function list(now: Date, todos = [TODO]) {
     <TodosScrollList
       rows={buildTodoListRows(todos, now)}
       now={now}
-      showEmpty={false}
+      showEmpty={false} view="all"
       error={false}
       listHeader={<View />}
       busyTodoIds={BUSY}

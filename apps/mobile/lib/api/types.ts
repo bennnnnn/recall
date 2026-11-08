@@ -164,14 +164,6 @@ export type SearchResult = {
   archived?: boolean;
 };
 
-export type HomeUrgentTodo = {
-  id: string;
-  content: string;
-  topic: string;
-  due_at: string;
-  minutes_until: number;
-};
-
 export type ChatList = {
   pinned: Chat[];
   today: Chat[];

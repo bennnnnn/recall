@@ -186,6 +186,25 @@ export function galleryDisplayName(
   return galleryFileName(item.content_type, item.original_filename, item.source);
 }
 
+/**
+ * A file tile's two parts: its name without the extension, in the name's own case, and the
+ * extension as the type badge (`Cell-Biology-Notes.pdf` → `Cell-Biology-Notes` and `PDF`).
+ * The badge keeps the type readable when a long name is cut at its end. A dot suffix is the
+ * extension only when it is one: not all digits, and the file's type when that names one
+ * (`Chapter 3.2` stays whole, badged `PDF`, not `Chapter 3` badged `2`). Otherwise the name
+ * stays whole and the type gives the badge; null when neither says one.
+ */
+export function galleryFileParts(name: string, contentType: string): { stem: string; type: string | null } {
+  const typeExt = extensionForContentType(contentType);
+  const named = name.match(/^(.+)\.([A-Za-z0-9]{1,8})$/);
+  const suffix = named?.[2]?.toLowerCase();
+  const base = contentType.split(";")[0]?.trim().toLowerCase();
+  const isExtension = suffix !== undefined && !/^\d+$/.test(suffix)
+    && (typeExt === null || suffix === typeExt || contentTypeForFileName(name) === base);
+  if (named && isExtension) return { stem: named[1]!, type: suffix.toUpperCase() };
+  return { stem: name, type: typeExt?.toUpperCase() ?? null };
+}
+
 export function galleryThumbSize(listWidth: number, columns: number, gap: number): number {
   if (listWidth <= 0 || columns <= 0) return 1;
   return Math.max(1, Math.floor((listWidth - gap * (columns - 1)) / columns));

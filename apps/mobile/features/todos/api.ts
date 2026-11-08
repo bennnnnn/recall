@@ -1,10 +1,9 @@
 import { request, requestRevalidated } from "@/lib/api/client";
 import type { Page, RecurrenceRule, Todo } from "@/lib/api/types";
+import { RECENT_COMPLETED_DAYS } from "@/features/todos/model/todoListFilter";
 
 /** The API's largest to-do page (`modules/todos/api.py`); a larger `limit` is refused. */
 const TODO_PAGE_SIZE = 200;
-/** Completed to-dos older than this stay on the server until asked for. */
-const RECENT_COMPLETED_DAYS = 30;
 
 type TodoPage = Page<Todo> & { older_completed?: boolean };
 

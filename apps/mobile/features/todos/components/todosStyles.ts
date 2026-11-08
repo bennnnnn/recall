@@ -150,12 +150,6 @@ export function makeTodosStyles(C: Theme) {
     },
     fieldGrow: { flex: 1 },
     todoRowSelected: { backgroundColor: C.primaryLight },
-    filterEmpty: {
-      ...Type.body,
-      color: C.textSecondary,
-      textAlign: "center",
-      padding: Space.lg,
-    },
     olderFooter: {
       alignItems: "center",
       paddingVertical: Space.md,

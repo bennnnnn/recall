@@ -48,6 +48,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const inFlightRef = useRef(false);
   const genRef = useRef(0);
+  const latestPullRef = useRef(0);
   const failedResetRef = useRef(true);
 
   if (pageKey !== cacheKey) {
@@ -136,13 +137,12 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     readAt: () => galleryPageReadAt(filter, debouncedQuery),
   });
 
-  /** Pull to refresh. Resolves false when it failed and the list kept older items. */
+  /** Pull to refresh; the latest pull clears its spinner. False: it failed and older items stayed. */
   const refresh = useCallback(async (): Promise<boolean> => {
+    const pull = ++latestPullRef.current;
     setPullRefreshing(true);
-    const pending = load({ reset: true, silent: true, force: true });
-    const generation = genRef.current;
-    const ok = await pending;
-    if (generation !== genRef.current) return true;
+    const ok = await load({ reset: true, silent: true, force: true });
+    if (pull !== latestPullRef.current) return true;
     setPullRefreshing(false);
     return ok;
   }, [load]);

@@ -1,25 +1,19 @@
-import type { HomeUrgentTodo, Todo } from "@/lib/api";
+import type { Todo } from "@/lib/api";
 import { listUrgentReminders } from "@/features/todos/model/reminderBadge";
 
 /**
- * Open reminders that have gone out (their `notify_at` has come, the badge's rule), the
- * five due soonest. Home shows the first overdue one.
+ * The one overdue reminder Home shows: an open reminder that has gone out (its `notify_at`
+ * has come, the badge's rule), is past its due time and was not dismissed, the longest
+ * overdue first. Dismissed ones are left out before the pick: picking from the five oldest
+ * first let five dismissals hide every later overdue reminder for good.
  */
-export function listHomeUrgentTodos(todos: Todo[], now = new Date()): HomeUrgentTodo[] {
-  return listUrgentReminders(todos, now)
-    .sort((a, b) => Date.parse(a.due_at!) - Date.parse(b.due_at!))
-    .slice(0, 5)
-    .map((todo) => ({
-      id: todo.id,
-      content: todo.content,
-      topic: todo.topic,
-      due_at: todo.due_at!,
-      minutes_until: Math.floor((Date.parse(todo.due_at!) - now.getTime()) / 60_000),
-    }));
-}
-
 export function firstOverdueHomeTodo(
-  urgent: HomeUrgentTodo[],
-): HomeUrgentTodo | undefined {
-  return urgent.find((item) => item.minutes_until < 0);
+  todos: Todo[],
+  dismissed: ReadonlySet<string>,
+  now = new Date(),
+): Todo | undefined {
+  const nowMs = now.getTime();
+  return listUrgentReminders(todos, now)
+    .filter((todo) => !dismissed.has(todo.id) && Date.parse(todo.due_at!) < nowMs)
+    .sort((a, b) => Date.parse(a.due_at!) - Date.parse(b.due_at!))[0];
 }

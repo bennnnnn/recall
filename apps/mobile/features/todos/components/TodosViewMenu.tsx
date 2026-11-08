@@ -2,15 +2,9 @@ import type { RefObject } from "react";
 import type { HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { TODO_VIEWS } from "@/features/todos/components/todoViews";
 import type { TodoView } from "@/features/todos/model/todoListFilter";
 import { Menu } from "@/ui/overlay/Menu";
-
-const VIEWS: { id: TodoView; label: string }[] = [
-  { id: "all", label: "todos.menu_all" },
-  { id: "open", label: "todos.menu_open" },
-  { id: "completed", label: "todos.menu_completed" },
-  { id: "today", label: "todos.menu_today" },
-];
 
 /** To-do list ⋮: start selecting, or switch which to-dos the list shows. */
 export function TodosViewMenu({
@@ -39,7 +33,7 @@ export function TodosViewMenu({
       items={[
         { key: "select", icon: "select", label: t("todos.menu_select"), onPress: onSelect },
         "separator",
-        ...VIEWS.map((item) => ({
+        ...TODO_VIEWS.map((item) => ({
           key: item.id,
           label: t(item.label),
           selected: item.id === view,
