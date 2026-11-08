@@ -7,11 +7,7 @@ import { lightTheme as mockLightTheme } from "@/lib/theme";
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "tok",
 }));
-jest.mock("@/features/attachments/model/attachmentUri", () => ({
-  resolveAttachmentUri: ({ attachmentId, width }: { attachmentId: string; width?: number }) =>
-    `http://test.local/${attachmentId}${width ? `?w=${width}` : ""}`,
-  attachmentThumbWidth: (width: number) => Math.min(512, Math.max(1, Math.round(width))),
-}));
+jest.mock("@/lib/config", () => ({ getApiUrl: () => "http://test.local" }));
 jest.mock("@/lib/api", () => ({
   attachmentRecordExists: jest.fn(async () => true),
 }));
@@ -52,17 +48,11 @@ describe("GalleryThumbnail", () => {
     expect(getByTestId("gallery-thumb-loading")).toBeTruthy();
   });
 
-  it("sends Bearer on /file even when downloadUrl is an absolute R2 URL", async () => {
-    const { getByTestId } = await render(
-      <GalleryThumbnail
-        attachmentId="a"
-        downloadUrl="https://r2.example/presigned"
-        size={40}
-      />,
-    );
-    expect(getByTestId("gallery-thumb-image").props.source.headers).toEqual({
-      Authorization: "Bearer tok",
-    });
+  it("sends Bearer to the API's own /file", async () => {
+    const { getByTestId } = await render(<GalleryThumbnail attachmentId="a" size={40} />);
+    const { source } = getByTestId("gallery-thumb-image").props;
+    expect(source.uri).toBe("http://test.local/attachments/a/file?w=80");
+    expect(source.headers).toEqual({ Authorization: "Bearer tok" });
   });
 
   it("keeps a loaded image after the timeout", async () => {
@@ -93,6 +83,53 @@ describe("GalleryThumbnail", () => {
     expect(getByTestId("media-load-retry")).toBeTruthy();
   });
 
+  it("keeps loading while the image arrives, and shows Retry once it stalls", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <GalleryThumbnail attachmentId="slow" size={40} />,
+    );
+    const progress = (loaded: number) =>
+      getByTestId("gallery-thumb-image").props.onProgress({ loaded, total: 100 });
+    await act(async () => {
+      jest.advanceTimersByTime(LOAD_TIMEOUT_MS - 1_000);
+      progress(40);
+      jest.advanceTimersByTime(LOAD_TIMEOUT_MS - 1_000);
+      progress(80);
+      jest.advanceTimersByTime(LOAD_TIMEOUT_MS - 1_000);
+    });
+    // Three timeouts' worth since mount, never one without progress.
+    expect(queryByTestId("media-load-retry")).toBeNull();
+    expect(getByTestId("gallery-thumb-loading")).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1_000);
+    });
+    expect(getByTestId("media-load-retry")).toBeTruthy();
+  });
+
+  it("starts the clock when the load starts, not when the tile mounts", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <GalleryThumbnail attachmentId="queued" size={40} />,
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(LOAD_TIMEOUT_MS - 1_000);
+      getByTestId("gallery-thumb-image").props.onLoadStart();
+      jest.advanceTimersByTime(LOAD_TIMEOUT_MS - 1_000);
+    });
+    expect(queryByTestId("media-load-retry")).toBeNull();
+  });
+
+  it("never turns a loaded image into Retry on a late progress event", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <GalleryThumbnail attachmentId="a" size={40} />,
+    );
+    await act(async () => {
+      getByTestId("gallery-thumb-image").props.onLoad();
+      getByTestId("gallery-thumb-image").props.onProgress({ loaded: 100, total: 100 });
+      jest.advanceTimersByTime(LOAD_TIMEOUT_MS * 2);
+    });
+    expect(queryByTestId("media-load-retry")).toBeNull();
+    expect(getByTestId("gallery-thumb-image")).toBeTruthy();
+  });
+
   it("keeps the row and shows Retry on error when the record still exists", async () => {
     const onMissing = jest.fn();
     const { getByTestId, queryByTestId } = await render(
@@ -121,9 +158,11 @@ describe("GalleryThumbnail", () => {
 
   it("asks for a 2x thumbnail, capped at the 512px the API serves", async () => {
     const phone = await render(<GalleryThumbnail attachmentId="a" size={120} />);
-    expect(phone.getByTestId("gallery-thumb-image").props.source.uri).toBe("http://test.local/a?w=240");
+    expect(phone.getByTestId("gallery-thumb-image").props.source.uri)
+      .toBe("http://test.local/attachments/a/file?w=240");
     const tablet = await render(<GalleryThumbnail attachmentId="b" size={400} />);
-    expect(tablet.getByTestId("gallery-thumb-image").props.source.uri).toBe("http://test.local/b?w=512");
+    expect(tablet.getByTestId("gallery-thumb-image").props.source.uri)
+      .toBe("http://test.local/attachments/b/file?w=512");
   });
 
   it("reloads the image when Retry is pressed", async () => {

@@ -164,7 +164,6 @@ export default function GalleryScreen() {
             {isImage ? (
               <GalleryThumbnail
                 attachmentId={item.id}
-                downloadUrl={item.download_url}
                 size={thumbSize}
                 onMissing={removeItem}
               />

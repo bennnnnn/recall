@@ -60,7 +60,6 @@ export function GalleryColumnRow({
         isImage ? (
           <GalleryThumbnail
             attachmentId={item.id}
-            downloadUrl={item.download_url}
             size={COLUMN_THUMB_SIZE}
             onMissing={onMissing}
           />
