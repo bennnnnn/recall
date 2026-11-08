@@ -51,6 +51,22 @@ def is_scanner_camera_prompt(text: str) -> bool:
     return scanner_camera_subject(text) is not None
 
 
+def words_after_scanner_caption(text: str) -> str:
+    """``text`` without the scanner's words: its caption and a confirmed reading's prefix.
+
+    Both are the app's words, not the student's. The reading stays, and what follows it
+    (a typed note). A scan with nothing after its caption is empty; text that is no
+    scanner caption is unchanged.
+    """
+    subject = scanner_camera_subject(text)
+    if subject is None:
+        return text
+    rest = text.strip()[len(SCANNER_CAMERA_PROMPTS[subject]) :].strip()
+    if rest.casefold().startswith(SCAN_CONFIRMED_PREFIX.casefold()):
+        rest = rest[len(SCAN_CONFIRMED_PREFIX) :].strip()
+    return rest
+
+
 def confirmed_scan_reading(text: str) -> str | None:
     """The reading the student confirmed in the scanner, from a photo caption.
 

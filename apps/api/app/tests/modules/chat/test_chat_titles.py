@@ -1,12 +1,14 @@
 """Tests for chat title normalization."""
 
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.models.schemas import ChatOut
+from app.modules.chat import titles
 from app.modules.chat.titles import (
     GREETING_CHAT_TITLE,
     finalize_generated_title,
@@ -14,7 +16,29 @@ from app.modules.chat.titles import (
     is_casual_opener,
     normalize_chat_title,
     sanitize_manual_chat_title,
+    title_messages,
 )
+from app.services.subject_scan import SCAN_CONFIRMED_PREFIX, SCANNER_CAMERA_PROMPTS
+
+_PHOTO = "[Image: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]"
+_FILE = "[File: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]"
+
+
+def _chat_turn(messages: list[dict[str, str]]) -> str:
+    """The turn that holds the chat being named: the last one, after the worked examples."""
+    assert messages[-1]["role"] == "user"
+    return messages[-1]["content"]
+
+
+def _words_read(messages: list[dict[str, str]]) -> str:
+    """The user's words as the title model read them, from the chat's turn."""
+    _, _, rest = _chat_turn(messages).partition(": ")
+    return rest.split("\nReply (context only): ", 1)[0]
+
+
+def _reply_read(messages: list[dict[str, str]]) -> str:
+    """The reply as the title model read it, from the chat's turn."""
+    return _chat_turn(messages).split("\nReply (context only): ", 1)[1].split("\n", 1)[0]
 
 
 @pytest.mark.parametrize(
@@ -43,10 +67,117 @@ from app.modules.chat.titles import (
         ("ab", None),
         ("", None),
         (None, None),
+        # Two characters make a word in Ethiopic, Chinese, Japanese and Korean.
+        ("ዜና", "ዜና"),
+        ("问候", "问候"),
+        ("인사", "인사"),
+        ("カメ", "カメ"),
+        # Not in Latin, Cyrillic or Greek, and never junk: one letter, digits, marks.
+        ("Да", None),
+        ("Не", None),
+        ("ΑΙ", None),
+        ("ዜ", None),
+        ("42", None),
+        ("??", None),
+        ("a.", None),
+        # Every script's end marks go, as "?" does.
+        ("ዜና።", "ዜና"),
+        ("ምንድን ነው፧", "ምንድን ነው"),
+        ("天气怎么样？", "天气怎么样"),
+        ("今日のニュース。", "今日のニュース"),
+        ("ما هو الطقس؟", "ما هو الطقس"),
+        # A question's opening mark is the user's on display: only a model's title drops it.
+        ("¿Qué es Python? Guía", "¿Qué es Python? Guía"),
     ],
 )
 def test_normalize_chat_title(raw: str | None, expected: str | None):
     assert normalize_chat_title(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Title",
+        "title",
+        "TITLE",
+        '"Title".',
+        "**Conversation Title**",
+        "Chat title:",
+        "New title",
+        "No title",
+        "Untitled chat",
+        "Untitled Conversation",
+        "Chat name",
+    ],
+)
+def test_a_label_for_the_title_is_never_saved_as_one(raw: str):
+    """Asked to name "Sí.", the title model answered "Title": a name for the slot, not one."""
+    assert normalize_chat_title(raw) is None
+    assert finalize_generated_title(raw, "Sí.") is None
+    # The chat is named from the user's words instead: "Sí" names nothing, so Greeting.
+    assert titles.fallback_title("Sí.") == GREETING_CHAT_TITLE
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["Title IX explained", "Choosing a title for my novel", "Naming my conversation app"],
+)
+def test_a_title_about_titles_is_kept(raw: str):
+    assert normalize_chat_title(raw) == raw
+
+
+@pytest.mark.parametrize(
+    "message, title",
+    [
+        ("explain rust ownership to me like i'm five please", "Explain rust ownership to me like"),
+        ("iPhone 17 battery life", "iPhone 17 battery life"),
+        ("3x+4=4", "3x+4=4"),
+        ("Sí.", GREETING_CHAT_TITLE),
+        ("ok", GREETING_CHAT_TITLE),
+        (_PHOTO, "Photo"),
+        (f"{SCANNER_CAMERA_PROMPTS['math']}\n\n{_PHOTO}", "Photo"),
+        (_FILE, "File"),
+        ("ዜና", "ዜና"),
+    ],
+)
+def test_fallback_title_is_the_users_first_words(message: str, title: str):
+    assert titles.fallback_title(message) == title
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw", ["Title", "Conversation Title", "", "ab", "x" * 81, "New chat"])
+async def test_a_rejected_name_costs_one_call_and_still_names_the_chat(raw: str):
+    """Left unnamed, the chat was read and titled again every 5 minutes (the message-page
+    backfill), a model call each time: the user's own words name it at once."""
+    from app.modules.chat import titles as topic_service
+    from app.tests.fakes import FakeSessionCM, fake_session
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    session = fake_session()
+    with (
+        patch.object(
+            litellm_gateway, "complete_text", new_callable=AsyncMock, return_value=raw
+        ) as complete,
+        patch.object(topic_service, "SessionLocal", side_effect=[FakeSessionCM(session)]),
+        patch(
+            "app.modules.conversation.chats_repository.set_title_if_empty",
+            AsyncMock(return_value=True),
+        ) as set_title,
+    ):
+        applied = await topic_service.generate_chat_title(
+            settings, uuid4(), "Explain Rust ownership", "Rust ownership is...", user_id=uuid4()
+        )
+    assert applied is True
+    complete.assert_awaited_once()
+    assert set_title.await_args is not None
+    assert set_title.await_args.args[2] == "Explain Rust ownership"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_provider_names_nothing_so_a_later_request_may_ask():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(litellm_gateway, "complete_text", new_callable=AsyncMock, return_value=None):
+        assert await generate_title(settings, "Explain Rust ownership", "Rust...") is None
 
 
 def test_needs_generated_title():
@@ -98,6 +229,9 @@ def test_chat_out_strips_markdown_emphasis_from_stored_title():
         ("ab", "ab"),
         ("", None),
         ("x" * 81, None),
+        # A rename keeps what the user typed: the opening mark is theirs.
+        ("¿Qué es Python? Guía", "¿Qué es Python? Guía"),
+        ("¿?", "¿"),
     ],
 )
 def test_sanitize_manual_chat_title(raw: str, expected: str | None):
@@ -150,6 +284,12 @@ def test_is_casual_opener(raw: str, expected: bool):
         ("Power rule x^2.5", "derivative of x^2.5", "Power rule x^2.5"),
         ("Powers x^25.5 and 2^10.5", "x^25.5", "Powers x^25.5 and 2^10.5"),
         ("Exponential decay e^{-2t}", "e^(-2t)", "Exponential decay e^{-2t}"),
+        # A model's Spanish question loses its "?" in the unwrap, and its "¿" with it; a
+        # pair still closed inside stays whole.
+        ("¿Qué tal?", "¿qué tal?", "Qué tal"),
+        ("¡Feliz cumpleaños!", "felicítame", "Feliz cumpleaños"),
+        ('"¿Final del Mundial 2022?"', "¿quién ganó?", "Final del Mundial 2022"),
+        ("¿Qué es Python? Guía", "python", "¿Qué es Python? Guía"),
     ],
 )
 def test_finalize_generated_title(raw: str, user: str, expected: str | None):
@@ -189,8 +329,7 @@ async def test_generate_title_reads_keypad_maths_as_plain_powers(message: str, m
         return_value="Quadratic Equation 3x^2-2x=8",
     ) as complete:
         title = await generate_title(settings, message, "Worked answer.")
-    sent = complete.call_args.kwargs["messages"][1]["content"]
-    assert sent == model_reads
+    assert _words_read(complete.call_args.kwargs["messages"]) == model_reads
     assert title == "Quadratic Equation 3x²-2x=8"
 
 
@@ -213,7 +352,7 @@ async def test_generate_title_reads_a_shared_files_words_not_its_path_or_padding
         return_value="Chemistry Unit 4 Quiz",
     ) as complete:
         await generate_title(settings, message, "```quiz\n{}\n```")
-    sent = complete.call_args.kwargs["messages"][1]["content"]
+    sent = _words_read(complete.call_args.kwargs["messages"])
     assert "/attachments/" not in sent
     assert "  " not in sent
     assert "Chemistry Unit 4 Study Guide - Mr. Patel Test date: Friday" in sent
@@ -229,12 +368,125 @@ async def test_generate_title_never_sends_an_empty_turn_for_a_photo_alone():
         new_callable=AsyncMock,
         return_value="Golden Retriever Photo",
     ) as complete:
-        title = await generate_title(
-            settings,
-            "[Image: /attachments/039ccfd7-28a8-4fae-a739-cf8210779b1a/file]",
-            "That's a golden retriever puppy.",
-        )
-    sent = complete.call_args.kwargs["messages"][1]["content"]
+        title = await generate_title(settings, _PHOTO, "That's a golden retriever puppy.")
+    sent = _words_read(complete.call_args.kwargs["messages"])
     assert sent.strip()
     assert "/attachments/" not in sent
     assert title == "Golden Retriever Photo"
+
+
+@pytest.mark.asyncio
+async def test_generate_title_reads_the_reply_as_context_not_as_the_chats_last_turn():
+    """Given the reply as the chat's last turn, the model named chats by its verdict
+    ("Equation No Solution"): the reply now sits under the user's words, as context."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="Asking my name"
+    ) as complete:
+        title = await generate_title(settings, "What is my name", "Your name is **bini**.")
+    messages = complete.call_args.kwargs["messages"]
+    turn = _chat_turn(messages)
+    assert turn.index("What is my name") < turn.index("Your name is **bini**.")
+    assert "context only" in turn
+    # The real reply is never an assistant turn: those are the worked examples' titles.
+    assert all("bini" not in m["content"] for m in messages if m["role"] == "assistant")
+    # Six words in any script fit: a four-word Amharic title is 24 tokens.
+    assert complete.call_args.kwargs["max_tokens"] >= 64
+    assert title == "Asking my name"
+
+
+@pytest.mark.parametrize("caption", list(SCANNER_CAMERA_PROMPTS.values()))
+def test_title_reads_a_bare_scan_as_a_photo_with_no_words(caption: str):
+    """The scanner's caption is the app's words: read as the ask, a screenshot sent with it
+    was titled "No Math Problem Found"."""
+    messages = title_messages(f"{caption}\n\n{_PHOTO}", "It shows a settings panel.")
+    assert _words_read(messages) == titles._NO_WORDS
+    assert "(with a photo)" in _chat_turn(messages)
+
+
+def test_title_reads_a_scans_confirmed_reading_as_the_problem():
+    """The reading is the student's problem; "I read this as:" is the app's words."""
+    caption = SCANNER_CAMERA_PROMPTS["math"]
+    message = f"{caption}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15\n\n{_PHOTO}"
+    assert _words_read(title_messages(message, "x = 4")) == "2x+7=15"
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "[File attached: application/zip. Recall can't read this file type yet — tell the "
+        "user to try a PDF, Word (.docx), or plain text file instead.]",
+        "[File note: only the first 30 pages were read; later pages may be missing.]",
+    ],
+)
+def test_title_never_reads_the_servers_own_file_notes(note: str):
+    """A note for the model invited "Unsupported file" titles."""
+    message = f"Look at this\n\n{_FILE}\n{note}"
+    assert _words_read(title_messages(message, "I can't open zip files.")) == "Look at this"
+    assert _words_read(title_messages(f"{_FILE}\n{note}", "I can't.")) == titles._NO_WORDS
+
+
+@pytest.mark.parametrize(
+    "message, photo",
+    [
+        (_PHOTO, True),
+        (f"When is my chemistry test?\n\n{_PHOTO}", True),
+        # A file's own text stays in the words, so it needs no mark of its own.
+        (f"Summarize this\n\n{_FILE}\n[page 1] Unit 4 study guide", False),
+        ("what's 15% of 240", False),
+    ],
+)
+def test_title_says_when_a_photo_came_with_the_message(message: str, photo: bool):
+    assert ("(with a photo)" in _chat_turn(title_messages(message, "Reply."))) is photo
+
+
+def test_title_reads_300_characters_of_the_message_and_200_of_the_reply():
+    """Every word the title model reads is paid on every chat: the chat is cut to 500."""
+    messages = title_messages("plan my trip " * 60, "Here is a plan. " * 60)
+    assert len(_words_read(messages)) == 300
+    assert len(_reply_read(messages)) == 200
+
+
+def test_title_prompt_stays_near_500_tokens():
+    """Rules, worked examples and the longest chat in under 2,000 characters (about 500
+    tokens of English): one call per chat, at about half the first version's size."""
+    messages = title_messages("word " * 200, "reply " * 200)
+    assert sum(len(m["content"]) for m in messages) <= 2000
+    assert len(titles._TITLE_EXAMPLES) <= 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message, reply, title",
+    [
+        # A scan in dev's mock mode: the caption is the app's, so the reply names it.
+        (
+            f"{SCANNER_CAMERA_PROMPTS['math']}\n\n{_PHOTO}",
+            "That's a cat on a laptop.",
+            "That's a cat on",
+        ),
+        # A confirmed reading is the student's problem, without the app's prefix.
+        (
+            f"{SCANNER_CAMERA_PROMPTS['math']}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15",
+            "x = 4",
+            "2x+7=15",
+        ),
+        ("plan my week please", "Here's a plan.", "plan my week please"),
+    ],
+)
+async def test_mock_titles_read_the_users_own_words(message: str, reply: str, title: str):
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    assert await generate_title(settings, message, reply) == title
+
+
+def test_title_worked_examples_are_titles_the_rules_allow():
+    """Each example the model reads first is a user turn and the title it should get: a
+    title the drawer keeps as written, short enough for one line."""
+    messages = title_messages("Plan my week", "Here's a plan.")
+    examples = messages[1:-1]
+    assert [m["role"] for m in examples] == ["user", "assistant"] * len(titles._TITLE_EXAMPLES)
+    for _, _, reply, title in titles._TITLE_EXAMPLES:
+        assert normalize_chat_title(title) == title
+        assert len(title) <= 32
+        # The example shows the reply as context only: its title is no line of the reply.
+        assert title.casefold() not in {line.strip().casefold() for line in reply.split(".")}

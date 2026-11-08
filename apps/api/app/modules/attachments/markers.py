@@ -154,15 +154,29 @@ def _strip_image_markers(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+# The server's own notes beside a file ("[File attached: application/zip. Recall can't read
+# this file type yet — tell the user…]", "[File note: only the first 30 pages…]"): words
+# for the model, never the user's.
+_SERVER_NOTE_PREFIXES = ("[File attached:", "[File note:")
+
+
+def _is_server_note_line(line: str) -> bool:
+    s = line.strip()
+    return s.startswith(_SERVER_NOTE_PREFIXES) and s.endswith("]")
+
+
 def without_attachment_refs(text: str) -> str:
-    """The message without its ``[Image: …]`` and ``[File: …]`` path lines; a file's text stays.
+    """The message without its ``[Image: …]`` and ``[File: …]`` path lines and the server's
+    notes beside a file; a file's text stays.
 
     A reader that wants what the message is about (the chat title) gets the file's words,
-    not a storage path in their place.
+    not a storage path in their place, nor a note that invites "Unsupported file".
     """
     lines = [
         line
         for line in text.splitlines()
-        if not (_is_image_marker_line(line) or _is_file_ref_line(line))
+        if not (
+            _is_image_marker_line(line) or _is_file_ref_line(line) or _is_server_note_line(line)
+        )
     ]
     return "\n".join(lines).strip()

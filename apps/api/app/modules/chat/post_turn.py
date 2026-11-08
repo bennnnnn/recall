@@ -23,7 +23,7 @@ from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.models.orm import Message, User
 from app.modules.chat.context_window import compute_history_split, should_run_compression
-from app.modules.chat.titles import title_job_key
+from app.modules.chat.titles import title_job_key, title_job_payload
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
     memory_extract_user_text,
@@ -72,6 +72,9 @@ class SavedTurn:
     # (``StreamContext.recent_messages``). None when the turn did not read them, or
     # replaced a reply (a regenerate): the rows saved then are not these plus the reply.
     window: Sequence[Any] | None = None
+    # The user's message as its row keeps it (``StreamContext.stored_user_message``):
+    # the title's, which reads a photo's marker. None: ``user_message`` is that already.
+    title_message: str | None = None
 
     @classmethod
     def from_context(cls, ctx: StreamContext, assistant_text: str) -> "SavedTurn":
@@ -86,6 +89,7 @@ class SavedTurn:
             run_title=ctx.run_title,
             skip_memory_jobs=ctx.skip_memory_jobs,
             window=None if ctx.regenerate_backup is not None else ctx.recent_messages,
+            title_message=ctx.stored_user_message,
         )
 
 
@@ -162,20 +166,21 @@ async def _lesson_progress_job(turn: FinishedTurn) -> list[PostTurnJob]:
 async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
     saved = turn.saved
     # A voice turn may have one side only (a transcript came back empty): the title
-    # reads the side there is.
-    user_message = saved.user_message or saved.assistant_text
+    # reads the side there is. A photo sent with no words is its marker, not empty: read
+    # as the user's words, the reply's verdict named the chat ("No Math Problem Found").
+    user_message = saved.title_message or saved.user_message or saved.assistant_text
     assistant_message = saved.assistant_text or saved.user_message
     if not saved.run_title or not (user_message and assistant_message):
         return []
     return [
         PostTurnJob(
             "topic",
-            {
-                "chat_id": str(saved.chat_id),
-                "user_id": str(saved.user_id),
-                "user_message": user_message,
-                "assistant_message": assistant_message,
-            },
+            title_job_payload(
+                chat_id=saved.chat_id,
+                user_id=saved.user_id,
+                user_message=user_message,
+                assistant_message=assistant_message,
+            ),
             title_job_key(saved.chat_id),
         )
     ]
