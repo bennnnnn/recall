@@ -32,9 +32,8 @@ type Props = {
   onPress: () => void;
   variant?: Variant;
   size?: Size;
-  /** Icon beside the label, e.g. `arrow-right` on a get-started button. */
+  /** Icon before the label, e.g. `calendar` on Open To-do. */
   icon?: IconName;
-  iconPlacement?: "start" | "end";
   loading?: boolean;
   loadingLabel?: string;
   disabled?: boolean;
@@ -54,7 +53,6 @@ export function Button({
   variant = "primary",
   size = "md",
   icon,
-  iconPlacement = "start",
   loading = false,
   loadingLabel,
   disabled = false,
@@ -130,7 +128,7 @@ export function Button({
         <ActivityIndicator color={spinner} />
       ) : (
         <>
-          {icon && iconPlacement === "start" ? <Icon name={icon} size={IconSize.sm} color={ink} /> : null}
+          {icon ? <Icon name={icon} size={IconSize.sm} color={ink} /> : null}
           <Text
             style={[
               s.label,
@@ -146,7 +144,6 @@ export function Button({
           >
             {title}
           </Text>
-          {icon && iconPlacement === "end" ? <Icon name={icon} size={IconSize.sm} color={ink} /> : null}
         </>
       )}
     </Pressable>

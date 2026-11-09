@@ -14,7 +14,6 @@ type Props = {
   saveLabel: string;
   saving?: boolean;
   saveDisabled?: boolean;
-  cancelDisabled?: boolean;
 };
 
 /** Cancel / title / Save row for form Sheets (rename, settings, reminder, due). */
@@ -26,12 +25,10 @@ export function SheetFormHeader({
   saveLabel,
   saving = false,
   saveDisabled = false,
-  cancelDisabled = false,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const saveBlocked = saving || saveDisabled;
-  const cancelBlocked = saving || cancelDisabled;
 
   return (
     <View style={s.header}>
@@ -41,11 +38,11 @@ export function SheetFormHeader({
           onCancel();
         }}
         hitSlop={8}
-        disabled={cancelBlocked}
+        disabled={saving}
         accessible
         accessibilityRole="button"
         accessibilityLabel={cancelLabel}
-        accessibilityState={{ disabled: cancelBlocked }}
+        accessibilityState={{ disabled: saving }}
         testID="sheet-form-header-cancel"
         style={s.side}
       >

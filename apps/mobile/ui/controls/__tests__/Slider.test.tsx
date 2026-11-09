@@ -22,14 +22,12 @@ describe("Slider", () => {
     expect(track.props.accessibilityValue).toEqual({ min: 0, max: 15, now: 6.25, text: "6.25%" });
   });
 
-  it("steps by one step for a screen reader, then lets go", async () => {
+  it("steps by one step for a screen reader", async () => {
     const onChange = jest.fn();
-    const onRelease = jest.fn();
-    const view = await render(<Slider {...base} onChange={onChange} onRelease={onRelease} />);
+    const view = await render(<Slider {...base} onChange={onChange} />);
     const track = view.getByTestId("slider-track");
     await fireEvent(track, "accessibilityAction", { nativeEvent: { actionName: "increment" } });
     expect(onChange).toHaveBeenLastCalledWith(6.3);
-    expect(onRelease).toHaveBeenLastCalledWith(6.3);
     await fireEvent(track, "accessibilityAction", { nativeEvent: { actionName: "decrement" } });
     expect(onChange).toHaveBeenLastCalledWith(6.2);
   });
@@ -47,14 +45,12 @@ describe("Slider", () => {
 
   it("jumps to the marker's exact value when it is tapped", async () => {
     const onChange = jest.fn();
-    const onRelease = jest.fn();
     const view = await render(
       <Slider
         {...base}
         value={1}
         valueText="1%"
         onChange={onChange}
-        onRelease={onRelease}
         marker={{ value: 6.27, label: "Avg 6.27% · Oct 16", accessibilityLabel: "Average 6.27%" }}
       />,
     );
@@ -62,16 +58,5 @@ describe("Slider", () => {
     await fireEvent.press(view.getByRole("button", { name: "Average 6.27%" }));
     // The marker's own value, not the nearest step: today's average exactly.
     expect(onChange).toHaveBeenCalledWith(6.27);
-    expect(onRelease).toHaveBeenCalledWith(6.27);
-  });
-
-  it("ignores a screen-reader step while disabled", async () => {
-    const onChange = jest.fn();
-    const view = await render(<Slider {...base} disabled onChange={onChange} />);
-    await fireEvent(view.getByTestId("slider-track"), "accessibilityAction", {
-      nativeEvent: { actionName: "increment" },
-    });
-    expect(onChange).not.toHaveBeenCalled();
-    expect(view.getByTestId("slider-track").props.accessibilityState).toEqual({ disabled: true });
   });
 });

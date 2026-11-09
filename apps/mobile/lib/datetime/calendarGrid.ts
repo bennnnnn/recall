@@ -65,29 +65,6 @@ export function isSameDay(a: Date, b: Date): boolean {
   return compareDays(a, b) === 0;
 }
 
-export function dayOutOfRange(date: Date, min?: Date | null, max?: Date | null): boolean {
-  return (min != null && compareDays(date, min) < 0) || (max != null && compareDays(date, max) > 0);
-}
-
-/** Whether any day of the month can be picked. */
-export function monthInRange(at: YearMonth, min?: Date | null, max?: Date | null): boolean {
-  const first = new Date(at.year, at.month, 1);
-  const last = new Date(at.year, at.month, daysInMonth(at.year, at.month));
-  return !dayOutOfRange(last, min, null) && !dayOutOfRange(first, null, max);
-}
-
-/** The nearest pickable day, keeping the time of day. */
-export function clampDay(date: Date, min?: Date | null, max?: Date | null): Date {
-  const pick = (day: Date) => {
-    const next = new Date(date.getTime());
-    next.setFullYear(day.getFullYear(), day.getMonth(), day.getDate());
-    return next;
-  };
-  if (min != null && compareDays(date, min) < 0) return pick(min);
-  if (max != null && compareDays(date, max) > 0) return pick(max);
-  return new Date(date.getTime());
-}
-
 /** `date` on another calendar day, keeping the time of day. */
 export function withDay(date: Date, at: YearMonth, day: number): Date {
   const next = new Date(date.getTime());
@@ -95,10 +72,10 @@ export function withDay(date: Date, at: YearMonth, day: number): Date {
   return next;
 }
 
-/** Years the year grid lists: a century back and fifty ahead, inside min/max, always with `selected`. */
-export function yearRange(selected: number, min?: Date | null, max?: Date | null, now = new Date()): number[] {
-  const first = Math.min(selected, min?.getFullYear() ?? now.getFullYear() - 100);
-  const last = Math.max(selected, max?.getFullYear() ?? now.getFullYear() + 50);
+/** Years the year grid lists: a century back and fifty ahead, always with `selected`. */
+export function yearRange(selected: number, now = new Date()): number[] {
+  const first = Math.min(selected, now.getFullYear() - 100);
+  const last = Math.max(selected, now.getFullYear() + 50);
   const years: number[] = [];
   for (let year = first; year <= last; year++) years.push(year);
   return years;

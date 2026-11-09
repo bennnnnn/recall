@@ -17,12 +17,9 @@ import { useTranslation } from "react-i18next";
 
 import {
   addMonths,
-  clampDay,
-  dayOutOfRange,
   firstDayOfWeek,
   isSameDay,
   monthGrid,
-  monthInRange,
   monthYearLabel,
   weekdayLabels,
   withDay,
@@ -59,28 +56,18 @@ type Props = {
   onConfirm: (date: Date) => void;
   /** Cancel, scrim tap, or Android back. */
   onCancel: () => void;
-  /** Earliest pickable day (time ignored). */
-  minimumDate?: Date | null;
-  /** Latest pickable day (time ignored). */
-  maximumDate?: Date | null;
-  /** Heading. Defaults to "Select date". */
-  title?: string;
   testID?: string;
 };
 
 /**
  * Month calendar in a dialog: arrows or a sideways swipe change the month,
- * tapping "September 2026" opens the years. Today has a ring; days outside
- * min/max are greyed. Nothing changes until OK.
+ * tapping "September 2026" opens the years. Today has a ring. Nothing changes until OK.
  */
 export function DatePickerDialog({
   visible,
   value,
   onConfirm,
   onCancel,
-  minimumDate,
-  maximumDate,
-  title,
   testID = "date-picker",
 }: Props) {
   const { t } = useTranslation();
@@ -89,7 +76,7 @@ export function DatePickerDialog({
   const screen = useWindowDimensions();
   const reduceMotion = useReduceMotion();
 
-  const [draft, setDraft] = useState(() => clampDay(value, minimumDate, maximumDate));
+  const [draft, setDraft] = useState(() => new Date(value.getTime()));
   const [shown, setShown] = useState<YearMonth>({ year: draft.getFullYear(), month: draft.getMonth() });
   const [years, setYears] = useState(false);
   const confirmed = useRef(false);
@@ -99,7 +86,7 @@ export function DatePickerDialog({
   useEffect(() => {
     if (!visible) return;
     confirmed.current = false;
-    const start = clampDay(value, minimumDate, maximumDate);
+    const start = new Date(value.getTime());
     setDraft(start);
     setShown({ year: start.getFullYear(), month: start.getMonth() });
     setYears(false);
@@ -118,10 +105,7 @@ export function DatePickerDialog({
   const weeks = useMemo(() => monthGrid(shown.year, shown.month, weekStart), [shown, weekStart]);
   const today = new Date();
 
-  const canGo = (delta: number) => monthInRange(addMonths(shown, delta), minimumDate, maximumDate);
-
   const go = (delta: number) => {
-    if (!canGo(delta)) return;
     selection();
     setShown((current) => addMonths(current, delta));
     if (!reduceMotion) {
@@ -154,12 +138,7 @@ export function DatePickerDialog({
 
   const pickYear = (year: number) => {
     selection();
-    let month = shown.month;
-    const min = minimumDate;
-    const max = maximumDate;
-    if (min && year === min.getFullYear()) month = Math.max(month, min.getMonth());
-    if (max && year === max.getFullYear()) month = Math.min(month, max.getMonth());
-    setShown({ year, month });
+    setShown({ year, month: shown.month });
     setYears(false);
   };
 
@@ -172,7 +151,7 @@ export function DatePickerDialog({
   return (
     <Dialog
       visible={visible}
-      title={title ?? t("picker.select_date")}
+      title={t("picker.select_date")}
       titleVariant="label"
       width={DATE_PICKER_WIDTH}
       onClose={handleClose}
@@ -215,7 +194,6 @@ export function DatePickerDialog({
             <IconButton
               name="chevron-left"
               onPress={() => go(-1)}
-              disabled={!canGo(-1)}
               color={theme.textSecondary}
               accessibilityLabel={t("picker.previous_month")}
               testID={`${testID}-previous`}
@@ -223,7 +201,6 @@ export function DatePickerDialog({
             <IconButton
               name="chevron-right"
               onPress={() => go(1)}
-              disabled={!canGo(1)}
               color={theme.textSecondary}
               accessibilityLabel={t("picker.next_month")}
               testID={`${testID}-next`}
@@ -237,7 +214,7 @@ export function DatePickerDialog({
           <YearGrid
             selected={shown.year}
             current={today.getFullYear()}
-            years={yearRange(shown.year, minimumDate, maximumDate)}
+            years={yearRange(shown.year)}
             onPick={pickYear}
             styles={s}
             testID={`${testID}-year`}
@@ -263,7 +240,6 @@ export function DatePickerDialog({
                       key={column}
                       date={date}
                       cell={cell}
-                      disabled={dayOutOfRange(date, minimumDate, maximumDate)}
                       selected={isSameDay(date, draft)}
                       isToday={isSameDay(date, today)}
                       onPick={setDraft}
@@ -285,7 +261,6 @@ export function DatePickerDialog({
 function DayCell({
   date,
   cell,
-  disabled,
   selected,
   isToday,
   onPick,
@@ -294,7 +269,6 @@ function DayCell({
 }: {
   date: Date;
   cell: number;
-  disabled: boolean;
   selected: boolean;
   isToday: boolean;
   onPick: (date: Date) => void;
@@ -309,11 +283,10 @@ function DayCell({
         selection();
         onPick(date);
       }}
-      disabled={disabled}
       style={[s.day, { width: cell, height: DAY_ROW }]}
       accessibilityRole="button"
       accessibilityLabel={isToday ? `${t("picker.today")}, ${spoken}` : spoken}
-      accessibilityState={{ selected, disabled }}
+      accessibilityState={{ selected }}
       testID={testID}
     >
       <View
@@ -329,7 +302,6 @@ function DayCell({
             s.dayText,
             isToday && s.dayTextToday,
             selected && s.dayTextSelected,
-            disabled && s.dayTextDisabled,
           ]}
           maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
         >
@@ -437,7 +409,6 @@ function makeStyles(t: Theme) {
     dayText: { ...Type.secondary, color: t.text, fontVariant: ["tabular-nums"] },
     dayTextToday: { color: t.primary },
     dayTextSelected: { color: t.onPrimary, ...Weight.semibold },
-    dayTextDisabled: { color: t.textDisabled, opacity: 0.6 },
     yearRow: { height: YEAR_ROW, flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
     year: {
       width: 72,

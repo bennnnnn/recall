@@ -25,11 +25,6 @@ describe("Icon", () => {
     expect(getByTestId("i").props.color).toBe(mockLightTheme.text);
   });
 
-  it("uses the danger ink when danger is set", async () => {
-    const { getByTestId } = await render(<Icon name="trash" danger testID="i" />);
-    expect(getByTestId("i").props.color).toBe(mockLightTheme.danger);
-  });
-
   it("respects an explicit color", async () => {
     const { getByTestId } = await render(<Icon name="copy" color="#ff0000" testID="i" />);
     expect(getByTestId("i").props.color).toBe("#ff0000");

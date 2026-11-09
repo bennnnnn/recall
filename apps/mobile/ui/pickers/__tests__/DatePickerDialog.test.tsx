@@ -72,10 +72,7 @@ describe("DatePickerDialog", () => {
     const { view } = await open();
     expect(view.getByText("September 2026", hidden)).toBeTruthy();
     expect(view.getByTestId("date-picker-headline", hidden)).toHaveTextContent("Sat, Sep 26");
-    expect(view.getByTestId("date-picker-day-26", hidden).props.accessibilityState).toEqual({
-      selected: true,
-      disabled: false,
-    });
+    expect(view.getByTestId("date-picker-day-26", hidden).props.accessibilityState).toEqual({ selected: true });
   });
 
   // A day's circle alone was the target: 40pt, 32pt on a narrow phone.
@@ -107,27 +104,6 @@ describe("DatePickerDialog", () => {
     expect(view.getByText("August 2026", hidden)).toBeTruthy();
     await fireEvent.press(view.getByTestId("date-picker-ok", hidden));
     expect(parts(onConfirm.mock.calls[0][0])).toEqual([2026, 9, 1, 8, 30]);
-  });
-
-  it("greys out days and months outside the limits", async () => {
-    const { view } = await open({
-      minimumDate: new Date(2026, 8, 10),
-      maximumDate: new Date(2026, 9, 15),
-    });
-    expect(view.getByTestId("date-picker-day-9", hidden).props.accessibilityState.disabled).toBe(true);
-    expect(view.getByTestId("date-picker-day-10", hidden).props.accessibilityState.disabled).toBe(false);
-    expect(view.getByTestId("date-picker-previous", hidden).props.accessibilityState).toEqual({ disabled: true });
-    await fireEvent.press(view.getByTestId("date-picker-next", hidden));
-    expect(view.getByTestId("date-picker-day-16", hidden).props.accessibilityState.disabled).toBe(true);
-    expect(view.getByTestId("date-picker-next", hidden).props.accessibilityState).toEqual({ disabled: true });
-  });
-
-  it("starts inside the limits when the value is outside them", async () => {
-    const { view } = await open({
-      value: new Date(2026, 0, 1, 9, 0),
-      minimumDate: new Date(2026, 8, 10),
-    });
-    expect(view.getByTestId("date-picker-headline", hidden)).toHaveTextContent("Thu, Sep 10");
   });
 
   it("jumps to another year from the year list", async () => {

@@ -48,7 +48,6 @@ type Props = {
   avoidKeyboard?: boolean;
   /** Scrim tap / Android back. */
   onClose: () => void;
-  dismissible?: boolean;
   /** Content width. Defaults to 340 (narrower on small screens). */
   width?: number;
   testID?: string;
@@ -67,7 +66,6 @@ export function Dialog(props: Props) {
       visible={props.visible}
       onRequestClose={props.onClose}
       scrim="dim"
-      dismissible={props.dismissible ?? true}
       testID={props.testID}
     >
       <DialogCard {...props} />

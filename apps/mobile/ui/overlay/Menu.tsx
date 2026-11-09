@@ -61,12 +61,11 @@ type Props = {
   title?: string;
   /** Rows are choices: radio semantics and a check on `selected`. */
   selectable?: boolean;
-  width?: number;
   testID?: string;
 };
 
 const ROW_HEIGHT = 52;
-const DEFAULT_WIDTH = 264;
+const MENU_WIDTH = 264;
 /** A missing measurement never keeps the menu invisible for long. */
 const MEASURE_TIMEOUT_MS = 120;
 
@@ -98,7 +97,6 @@ function MenuCard({
   anchorPoint,
   title,
   selectable = false,
-  width = DEFAULT_WIDTH,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -141,7 +139,7 @@ function MenuCard({
     Space.xs * 2;
   const placement = placePopover({
     anchor: hasAnchor ? anchor : null,
-    width,
+    width: MENU_WIDTH,
     height: contentHeight ?? estimatedHeight,
     screen,
     insets,
@@ -212,7 +210,7 @@ function MenuCard({
         {
           top: placement.top,
           left: placement.left,
-          width: Math.min(width, screen.width - Space.sm * 2),
+          width: Math.min(MENU_WIDTH, screen.width - Space.sm * 2),
           maxHeight: placement.maxHeight,
           transformOrigin: [placement.origin.x, placement.origin.y, 0],
         },

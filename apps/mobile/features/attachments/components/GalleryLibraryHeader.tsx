@@ -60,7 +60,6 @@ export function GalleryLibraryHeader({
           {filters.map((tab) => (
             <Chip
               key={tab.key}
-              variant="filter"
               accessibilityRole="radio"
               label={tab.label}
               selected={tab.key === filter}
