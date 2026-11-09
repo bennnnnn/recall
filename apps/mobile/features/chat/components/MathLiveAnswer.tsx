@@ -22,8 +22,8 @@ const ANSWER_SIZE = 20;
 
 /**
  * While the math keyboard is open the composer opens full height, as its expand control
- * would: the draft at the top, its answer at the bottom. Its empty caret and placeholder sit
- * on the draft's first line, not on the field's midline or its last.
+ * would: the draft at the top, its answer at the bottom. Expanded, its empty caret and
+ * placeholder sit on the draft's first line, not on the field's midline or its last.
  */
 export const mathCardStyles = StyleSheet.create({
   // The field fills the card's height, so the draft starts at its top, not by the buttons.

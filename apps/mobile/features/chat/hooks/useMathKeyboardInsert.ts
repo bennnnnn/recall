@@ -18,6 +18,7 @@ import {
   type MathKeyboardSymbol,
   type TextSelection,
 } from "@/lib/math/keyboardSymbols";
+import { isPadMathDraft, notePadMathDraft } from "@/features/chat/model/padMathDrafts";
 import { applyPinnedTextChange, caretAfterMathBarClose, nativeEditRange } from "@/lib/math/composerChange";
 import {
   extractInsertedDelta,
@@ -51,14 +52,13 @@ function rememberSystemKeyboard(height: number | undefined) {
 }
 
 /**
- * A draft brought back (another chat's, or one saved as the app closed): its maths show as
- * maths with the caret after them, as the pad leaves them going down. Plain text keeps the
- * phone's caret, at its end.
+ * A draft brought back (another chat's, or one saved as the app closed), its caret at the end:
+ * maths the math keyboard wrote show drawn, the caret pinned there. Text typed on the phone's
+ * keyboard, `$` and all, stays text with the phone's caret.
  */
 function restoredDraft(input: string): { math: boolean; caret: TextSelection; pin: TextSelection | null } {
-  const math = hasEditableMath(input);
-  const at = math ? caretAfterMathBarClose(input) : input.length;
-  const caret = { start: at, end: at };
+  const math = isPadMathDraft(input) && hasEditableMath(input);
+  const caret = { start: input.length, end: input.length };
   return { math, caret, pin: math ? caret : null };
 }
 
@@ -116,7 +116,8 @@ export function useMathKeyboardInsert(options: {
 
   useEffect(() => {
     if (!input) setPreview(false);
-  }, [input, setPreview]);
+    else if (previewEnabled && hasEditableMath(input)) notePadMathDraft(input);
+  }, [input, previewEnabled, setPreview]);
 
   useLayoutEffect(() => {
     if (draftRevisionRef.current === draftRevision) return;

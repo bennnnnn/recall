@@ -115,20 +115,23 @@ describe("useMathKeyboardInsert", () => {
     await rerender({ draftRevision: 2 });
     expect(result.current.showMathPreview).toBe(true);
     expect(result.current.mathBarOpen).toBe(false);
-    const after = "$x^2$".length;
-    expect(result.current.selection).toEqual({ start: after, end: after });
+    const end = "$x^2$ is".length;
+    expect(result.current.selection).toEqual({ start: end, end });
   });
 
-  it("leaves another owner's plain draft to the phone's caret, at its end", async () => {
-    const { result, rerender } = await renderHook(
-      ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input: "hello", setInput: jest.fn(), draftRevision }),
-      { initialProps: { draftRevision: 1 } },
-    );
-    await rerender({ draftRevision: 2 });
-    expect(result.current.showMathPreview).toBe(false);
-    expect(result.current.forcedSelection).toBeUndefined();
-    expect(result.current.selection).toEqual({ start: 5, end: 5 });
-  });
+  it.each(["hello", "The price is $5", "$x$ typed by hand"])(
+    "leaves another owner's typed draft %p as text, the phone's caret at its end",
+    async (input) => {
+      const { result, rerender } = await renderHook(
+        ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input, setInput: jest.fn(), draftRevision }),
+        { initialProps: { draftRevision: 1 } },
+      );
+      await rerender({ draftRevision: 2 });
+      expect(result.current.showMathPreview).toBe(false);
+      expect(result.current.forcedSelection).toBeUndefined();
+      expect(result.current.selection).toEqual({ start: input.length, end: input.length });
+    },
+  );
 
   it("pins the caret after the last formula when the bar closes", async () => {
     const { result } = await renderHook(() => useHarness("solve $x^2+1$"));

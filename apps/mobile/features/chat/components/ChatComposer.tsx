@@ -204,7 +204,7 @@ export const ChatComposer = memo(function ChatComposer({
     input,
     draftRevision: draft?.revision,
     fontScale,
-    buttonRowBelow: rowFit.wraps,
+    buttonRowBelow: rowFit.wraps && !mathBarOpen, // the math keyboard's answer row is in its chrome
     onInputFrameExtraChange,
     mathPadOpen: mathBarOpen,
   });
@@ -383,8 +383,8 @@ export const ChatComposer = memo(function ChatComposer({
                   testID="chat-composer-field"
                   accessible={false} // a tap area; screen readers reach the text field inside
                   onPress={() => {
-                    if (math.mathBarOpen || showMathPreview) return;
-                    if (math.resumeMathOnFocus) math.openMathBar();
+                    if (math.mathBarOpen) return;
+                    if (showMathPreview || math.resumeMathOnFocus) math.openMathBar(); // drawn maths edit on the pad
                   }}
                 >
                   {showMathPreview ? (
@@ -401,6 +401,7 @@ export const ChatComposer = memo(function ChatComposer({
                         if (pos <= before) math.moveCaret(0);
                         else if (pos >= after) math.moveCaret(input.length);
                         else math.moveCaret(pos);
+                        math.openMathBar();
                       }}
                     />
                   ) : null}
@@ -453,9 +454,9 @@ export const ChatComposer = memo(function ChatComposer({
                     multiline
                     returnKeyType="default"
                   />
-                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} top={mathBarOpen} />}
+                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} top={mathBarOpen && composerExpanded} />}
                   {showEmptyCaret ? (
-                    <View style={[s.emptyCaret, mathCardStyles.emptyCaret]} pointerEvents="none">
+                    <View style={[s.emptyCaret, composerExpanded && mathCardStyles.emptyCaret]} pointerEvents="none">
                       <MathComposerCaret testID="math-composer-caret" />
                     </View>
                   ) : null}

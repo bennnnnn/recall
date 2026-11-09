@@ -146,6 +146,22 @@ describe("ChatComposer math keyboard", () => {
     }
   });
 
+  // With the pad down (ABC, Back), drawn maths took no tap: the field under them is parked.
+  it.each(["chat-composer-field", "math-slot-after"])("reopens the math keyboard on a tap on drawn maths (%s)", async (target) => {
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} />
+      </DraftHarness>,
+    );
+    await openMathKeyboard();
+    await fireEvent.press(getByTestId("math-key-frac"));
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+    expect(getByTestId("math-draft-preview", HIDDEN_TOO)).toBeTruthy();
+    await fireEvent.press(getByTestId(target, HIDDEN_TOO));
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+  });
+
   it("keeps a saved native draft literal after switching away from a math draft", async () => {
     let api: ReturnType<typeof useComposerDraftApi>;
     function ApiProbe() {
