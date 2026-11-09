@@ -49,9 +49,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   const signedIn = Boolean(token);
   // The zone the server has: the profile's, or the one its last answer gave.
   const serverZone = useRef(timezone);
-  useLayoutEffect(() => {
-    serverZone.current = timezone;
-  });
+  useLayoutEffect(() => { serverZone.current = timezone; });
   const zoneReport = useRef<ZoneReport>({ flight: null, again: false, refused: null, latest: null });
   // The phone's zone, sent the moment it differs from the server's: at sign-in, when the OS
   // reports a change (a new zone while the app runs) and on each return to the foreground

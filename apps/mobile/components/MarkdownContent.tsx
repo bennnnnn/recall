@@ -83,19 +83,18 @@ export function MarkdownContent({
   useEffect(() => {
     if (!streaming) streamPreprocessRef.current = null;
   }, [streaming]);
-  const renderContent = content;
   // Incremental: streaming content grows append-only, so rescan just the new
   // suffix per flush instead of splitting/scanning the whole message.
   /* eslint-disable react-hooks/refs -- incremental parse caches: each render goes on from the last one's, and a render React drops costs the next one a fuller rescan */
   const previewScanRef = useRef<PreviewScanState | null>(null);
-  const previewScan = advancePreviewFilesScan(previewScanRef.current, renderContent);
+  const previewScan = advancePreviewFilesScan(previewScanRef.current, content);
   previewScanRef.current = previewScan;
   const previewFiles = previewScan.files;
   const prepared = useMemo(() => {
     try {
       if (streaming) {
         const { prepared: streamed, cache } = preprocessMarkdownForStream(
-          renderContent,
+          content,
           streamPreprocessRef.current,
           mathFormat,
           { presented },
@@ -104,13 +103,13 @@ export function MarkdownContent({
         return streamed;
       }
       // A reply that just finished streaming keeps the parts its stream preprocessed.
-      return preprocessSettledMarkdown(renderContent, streamPreprocessRef.current, mathFormat, {
+      return preprocessSettledMarkdown(content, streamPreprocessRef.current, mathFormat, {
         presented,
       });
     } catch {
-      return renderContent;
+      return content;
     }
-  }, [renderContent, streaming, mathFormat, presented]);
+  }, [content, streaming, mathFormat, presented]);
 
   const leadingTop = leadingHeadingMargin(prepared, mdStyles);
   const leadingOffset = leadingTop > 0 ? { marginTop: -leadingTop } : null;

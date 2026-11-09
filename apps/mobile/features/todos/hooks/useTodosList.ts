@@ -56,7 +56,6 @@ export function useTodosList(token: string | null | undefined, userId: string | 
     error: false, loaded: resource.current.loaded, retainedOpenIds: resource.current.retainedOpenIds,
     olderCompleted: resource.current.olderCompleted && !resource.current.allCompleted };
   const [state, setState] = useState(initial);
-  /* eslint-enable react-hooks/refs */
   const view = state.owner === owner ? state : initial;
   const isCurrentSession = useCallback(() => mounted.current && owner.signedIn &&
     currentOwner.current === owner && getSessionGeneration() === owner.session, [owner, currentOwner]);
@@ -135,7 +134,6 @@ export function useTodosList(token: string | null | undefined, userId: string | 
   // Read again past FOREGROUND_STALE_MS.todos (the 20 s isContextFresh window), once the
   // zone report the same return started has landed: its read (userUpdated) is this one.
   useOnForeground(() => void zoneReportSettled().then(() => refresh({ silent: true })), signedIn);
-  /* eslint-disable react-hooks/refs -- the account's list cache: render reads it as the state until the first publish, and every write publishes */
   return { todos: view.todos, loading: view.loading, error: view.error, loaded: view.loaded,
     retainedOpenIds: view.retainedOpenIds, olderCompleted: view.olderCompleted, showOlderCompleted,
     setTodos, getTodos, readTodosAt, refresh, isCurrentSession };

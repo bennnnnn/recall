@@ -52,10 +52,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const failedResetRef = useRef(true);
 
   // Another filter, search or account: a read still out for the last one lands nowhere.
-  useLayoutEffect(() => {
-    genRef.current += 1;
-    inFlightRef.current = false;
-  }, [cacheKey]);
+  useLayoutEffect(() => { genRef.current += 1; inFlightRef.current = false; }, [cacheKey]);
   if (pageKey !== cacheKey) {
     const next = pageFromCache(snapshot);
     setPageKey(cacheKey);

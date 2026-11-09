@@ -84,10 +84,7 @@ export function useMathScannerCrop({
   }, [preview, previewSv]);
 
   const dragDuration = motionMs(Motion.duration.standard, reduceMotion);
-  const pushRegion = useCallback(
-    (next: ScanRegion) => onRegionChange?.(next),
-    [onRegionChange],
-  );
+  const pushRegion = useCallback((next: ScanRegion) => onRegionChange?.(next), [onRegionChange]);
   // Times the student moved or resized the frame; a frame fit compares it (`useScanContentFit`).
   const adjustCount = useRef(0);
   const adjust = useCallback(() => {

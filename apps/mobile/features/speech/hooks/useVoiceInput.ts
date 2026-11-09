@@ -170,10 +170,7 @@ export function useVoiceInput({
     }
   }, [token, stopRecording, onTranscript, onPlanRequired, feedback, t]);
 
-  // Bound once the render commits: the recording's time limit, set before it, stops through it.
-  useLayoutEffect(() => {
-    finishRecordingRef.current = finishRecording;
-  });
+  useLayoutEffect(() => { finishRecordingRef.current = finishRecording; }); // the time limit calls it
 
   const cancelVoiceInput = useCallback(() => {
     captureGenRef.current += 1;

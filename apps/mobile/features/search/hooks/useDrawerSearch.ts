@@ -49,11 +49,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
   const mountedRef = useRef(true);
   const tokenRef = useLatestRef(token);
 
-  const viewLive = view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen;
-  const currentView = useCallback(
-    () => mountedRef.current && viewRef.current === view && view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen,
-    [view, viewRef],
-  );
+  const currentView = useCallback(() => mountedRef.current && viewRef.current === view && view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen, [view, viewRef]);
   const current = useCallback((cycle: SearchCycle) => currentView() && cycleRef.current === cycle && cycle.view === view && cycle.open, [currentView, view]);
   const cancelPending = useCallback(() => {
     if (timerRef.current != null) clearTimeout(timerRef.current);
@@ -146,7 +142,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
   }, [isCurrentSearch, renderCycle, snapshot.searchError, snapshot.searchQuery, cancelPending, view, fetchPage]);
 
   // A changed account/drawer cannot display its predecessor's snapshot before effects reset it.
-  const visible = viewLive && snapshot.cycle.view === view;
+  const visible = view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen && snapshot.cycle.view === view;
   return {
     searchOpen: visible && snapshot.searchOpen,
     searchQuery: visible ? snapshot.searchQuery : "",
