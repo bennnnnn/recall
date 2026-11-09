@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,9 +51,12 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const latestPullRef = useRef(0);
   const failedResetRef = useRef(true);
 
-  if (pageKey !== cacheKey) {
+  // Another filter, search or account: a read still out for the last one lands nowhere.
+  useLayoutEffect(() => {
     genRef.current += 1;
     inFlightRef.current = false;
+  }, [cacheKey]);
+  if (pageKey !== cacheKey) {
     const next = pageFromCache(snapshot);
     setPageKey(cacheKey);
     setItems(next.items);

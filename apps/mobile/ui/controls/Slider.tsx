@@ -104,6 +104,7 @@ export function Slider({
     if (next !== current.value) current.onChange(next);
   }, []);
 
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
       .activeOffsetX([-4, 4])
@@ -128,6 +129,7 @@ export function Slider({
       });
     return Gesture.Exclusive(pan, tap);
   }, [finger, finish, moveTo, release, usableWidth]);
+  /* eslint-enable react-hooks/refs */
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: (finger.value >= 0 ? finger.value : at) * usableWidth.value }],

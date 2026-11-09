@@ -38,6 +38,7 @@ import { IconButton } from "../controls/IconButton";
 import { Icon } from "../icons/Icon";
 import { IconSize } from "../icons/sizes";
 import { Dialog } from "../overlay/Dialog";
+import { useLatestRef } from "@/lib/latestRef";
 
 const DATE_PICKER_WIDTH = 328;
 const CELL = 40;
@@ -116,8 +117,8 @@ export function DatePickerDialog({
     }
   };
 
-  const goRef = useRef(go);
-  goRef.current = go;
+  const goRef = useLatestRef(go);
+  /* eslint-disable react-hooks/refs -- the swipe's callbacks read refs on touch, not in render */
   const swipe = useMemo(
     () =>
       PanResponder.create({
@@ -128,7 +129,8 @@ export function DatePickerDialog({
           else if (gesture.dx >= SWIPE) goRef.current(-1);
         },
       }),
-    [],
+    [goRef],
+  /* eslint-enable react-hooks/refs */
   );
 
   const monthStyle = useAnimatedStyle(() => ({

@@ -14,6 +14,7 @@ import {
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Props = {
   /** Attachment id — used to build the authenticated /file URL. */
@@ -56,10 +57,8 @@ function GalleryThumbnailBase({
   const dimension = { width: size, height: size };
   const compact = size < RETRY_LABEL_MIN_SIZE;
 
-  const onMissingRef = useRef(onMissing);
-  onMissingRef.current = onMissing;
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
+  const onMissingRef = useLatestRef(onMissing);
+  const tokenRef = useLatestRef(token);
 
   const clearLoadTimer = () => {
     if (timerRef.current) clearTimeout(timerRef.current);

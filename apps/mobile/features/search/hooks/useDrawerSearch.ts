@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { TextInputInstance } from "react-native";
 
 import { api, type SearchResult } from "@/lib/api";
@@ -10,6 +10,7 @@ import {
   isValidDrawerSearchQuery,
   mergeDrawerSearchResults,
 } from "@/features/search/model/drawerSearchLogic";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = { token: string | null; isDrawerOpen: boolean };
 type View = { session: number; signedIn: boolean; isDrawerOpen: boolean };
@@ -35,22 +36,24 @@ function emptySnapshot(cycle: SearchCycle) {
 export function useDrawerSearch({ token, isDrawerOpen }: Options) {
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
-  const viewRef = useRef<View>({ session, signedIn, isDrawerOpen });
-  if (viewRef.current.session !== session || viewRef.current.signedIn !== signedIn || viewRef.current.isDrawerOpen !== isDrawerOpen) {
-    viewRef.current = { session, signedIn, isDrawerOpen };
-  }
-  const view = viewRef.current;
-  const cycleRef = useRef(emptyCycle(view));
-  const [snapshot, setSnapshot] = useState(() => emptySnapshot(cycleRef.current));
+  // One view per account, sign-in and drawer state; the one on screen once the render commits.
+  const view = useMemo<View>(() => ({ session, signedIn, isDrawerOpen }), [session, signedIn, isDrawerOpen]);
+  const viewRef = useLatestRef(view);
+  const [firstCycle] = useState(() => emptyCycle(view));
+  const cycleRef = useRef(firstCycle);
+  const [snapshot, setSnapshot] = useState(() => emptySnapshot(firstCycle));
   const searchInputRef = useRef<TextInputInstance>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusFrameRef = useRef<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
+  const tokenRef = useLatestRef(token);
 
-  const currentView = useCallback(() => mountedRef.current && viewRef.current === view && view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen, [view]);
+  const viewLive = view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen;
+  const currentView = useCallback(
+    () => mountedRef.current && viewRef.current === view && view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen,
+    [view, viewRef],
+  );
   const current = useCallback((cycle: SearchCycle) => currentView() && cycleRef.current === cycle && cycle.view === view && cycle.open, [currentView, view]);
   const cancelPending = useCallback(() => {
     if (timerRef.current != null) clearTimeout(timerRef.current);
@@ -74,7 +77,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
 
   const closeSearch = useCallback(() => {
     if (mountedRef.current && viewRef.current === view && session === getSessionGeneration()) reset();
-  }, [view, session, reset]);
+  }, [view, session, reset, viewRef]);
   const openSearch = useCallback(() => {
     if (!currentView()) return;
     const cycle = cycleRef.current;
@@ -113,7 +116,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
       if (current(cycle)) setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchLoading: false, loadingMore: false } : prev);
       if (controllerRef.current === controller) controllerRef.current = null;
     }
-  }, [current]);
+  }, [current, tokenRef]);
 
   const onSearchChange = useCallback((text: string) => {
     if (!currentView() || !cycleRef.current.open) return;
@@ -143,7 +146,7 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
   }, [isCurrentSearch, renderCycle, snapshot.searchError, snapshot.searchQuery, cancelPending, view, fetchPage]);
 
   // A changed account/drawer cannot display its predecessor's snapshot before effects reset it.
-  const visible = currentView() && snapshot.cycle.view === view;
+  const visible = viewLive && snapshot.cycle.view === view;
   return {
     searchOpen: visible && snapshot.searchOpen,
     searchQuery: visible ? snapshot.searchQuery : "",

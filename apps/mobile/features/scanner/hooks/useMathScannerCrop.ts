@@ -104,6 +104,7 @@ export function useMathScannerCrop({
     },
   );
 
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const pinchGesture = useMemo(
     () =>
       Gesture.Pinch()
@@ -240,6 +241,7 @@ export function useMathScannerCrop({
   );
 
   const handleGestures = useMemo(() => SCAN_HANDLES.map(makeHandleGesture), [makeHandleGesture]);
+  /* eslint-enable react-hooks/refs */
 
   const tapGesture = useMemo(
     () =>

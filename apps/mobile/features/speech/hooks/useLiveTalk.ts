@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type MutableRefObject,
@@ -130,6 +131,7 @@ export function useLiveTalk({
   const sessionGenRef = useRef(0);
   const finishTurnRef = useRef<(completed: CompletedTurn) => Promise<void>>(async () => {});
   // Each turn is saved with the chat and call it was spoken in, read as it is handed on.
+  // eslint-disable-next-line react-hooks/refs -- the turns save through it when a turn ends, never in render
   const [turns] = useState(() => createLiveTalkTurns((turn) => {
     void finishTurnRef.current({ ...turn, chatId: turnChatIdRef.current, callId: callIdRef.current });
   }));
@@ -213,7 +215,10 @@ export function useLiveTalk({
     },
     [alertForGate, applyEvent, feedback, inOrder, newMessageCountRef, onFirstReply, onScrollToLatest, status, t, token],
   );
-  finishTurnRef.current = finishTurn;
+  // Bound once the render commits: the turns, made first, save through it.
+  useLayoutEffect(() => {
+    finishTurnRef.current = finishTurn;
+  });
 
   const handleRealtimeEvent = useCallback(
     (event: RealtimeVoiceEvent) => {
@@ -309,7 +314,9 @@ export function useLiveTalk({
     setVisible(false);
     if (shouldCueEnd) void playCue("end");
   }, [inOrder, token, turns]);
-  closeRef.current = close;
+  useLayoutEffect(() => {
+    closeRef.current = close;
+  });
 
   const open = useCallback(async () => {
     if (!token) return;

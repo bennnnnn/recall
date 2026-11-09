@@ -331,9 +331,11 @@ module.exports = defineConfig([
     },
   },
   {
-    // The chat turn is a reducer held outside render (code-health audit CLAR-04): chat
-    // code reads refs in callbacks and effects only, never while rendering.
-    files: ["features/chat/**/*.{ts,tsx}"],
+    // Refs are read in callbacks and effects, never while rendering (code-health audit
+    // CLAR-04): a render React throws away must not leak its values. The latest value a
+    // callback needs is `useLatestRef` (lib/latestRef.ts). A gesture builder's callbacks and
+    // a few render caches say why at their own `eslint-disable`.
+    files: ["**/*.{ts,tsx}"],
     ignores: TEST_FILES,
     rules: {
       "react-hooks/refs": "error",

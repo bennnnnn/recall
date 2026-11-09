@@ -3,6 +3,7 @@ import type { Todo } from "@/lib/api";
 import { loadSeenReminderIds, pruneSeenReminderIds, saveSeenReminderIds } from "@/features/todos/model/reminderSeen";
 import { loadHomeNudgeState, pruneHomeNudgeState, saveHomeNudgeState } from "@/features/todos/model/homeReminderNudges";
 import { countUnseenUrgentReminders, listUrgentReminderIds } from "@/features/todos/model/reminderBadge";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = { userId?: string; todos: Todo[]; retainedOpenIds?: Set<string>;
   getTodos: () => Todo[]; isCurrentSession: () => boolean;
@@ -14,10 +15,10 @@ export function useTodoReminderState({ userId, todos, retainedOpenIds, getTodos,
   const owner = useMemo(() => ({ isCurrentSession }), [isCurrentSession]);
   const resource = useRef({ owner, seen: new Set<string>(), dismissed: new Set<string>(),
     seenDirty: false, dismissedDirty: false, hydrated: false, queue: Promise.resolve() });
+  // eslint-disable-next-line react-hooks/refs -- an account's reminder state, replaced in render when the account changes
   if (resource.current.owner !== owner) resource.current = { owner, seen: new Set(), dismissed: new Set(),
     seenDirty: false, dismissedDirty: false, hydrated: false, queue: Promise.resolve() };
-  const latest = useRef({ retainedOpenIds });
-  latest.current = { retainedOpenIds };
+  const latest = useLatestRef({ retainedOpenIds });
   const empty = { owner, seen: new Set<string>(), dismissed: new Set<string>(), ready: false };
   const [state, setState] = useState(empty);
   const view = state.owner === owner ? state : empty;
@@ -65,7 +66,7 @@ export function useTodoReminderState({ userId, todos, retainedOpenIds, getTodos,
     });
     store.queue = work;
     return work;
-  }, [owner, userId, isCurrentSession, getTodos]);
+  }, [owner, userId, isCurrentSession, getTodos, latest]);
 
   useEffect(() => { void run(); }, [run, todos, retainedOpenIds]);
   const markSeenIds = useCallback((ids: string[]) => run(() => {

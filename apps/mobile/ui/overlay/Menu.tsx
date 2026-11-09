@@ -121,7 +121,7 @@ function MenuCard({
     return () => clearTimeout(timer);
   }, [visible, anchorPoint, anchorRef]);
 
-  const hasAnchor = Boolean(anchorPoint || anchorRef);
+  const hasAnchor = anchorPoint != null || anchorRef != null;
   const ready = !hasAnchor || anchor != null || waitedForAnchor;
 
   useEffect(() => {

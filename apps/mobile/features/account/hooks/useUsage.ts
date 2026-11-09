@@ -13,6 +13,7 @@ import {
   usageReadAt,
 } from "@/lib/cache/usageCache";
 import { useOnForeground } from "@/lib/foregroundRefresh";
+import { useLatestRef } from "@/lib/latestRef";
 
 type UsageState = {
   account: string | null;
@@ -31,8 +32,7 @@ function todayUsage(usage: Usage | null | undefined): Usage | null {
 export function useUsage() {
   const { account, getToken } = useAccountSession();
   const generation = getSessionGeneration();
-  const accountRef = useRef(account);
-  accountRef.current = account;
+  const accountRef = useLatestRef(account);
   const mountedRef = useRef(false);
   const requestRef = useRef(0);
   const [state, setState] = useState<UsageState>(() => ({
@@ -75,7 +75,7 @@ export function useUsage() {
     // phone's, a clock a minute fast hid it as an error for that minute before each UTC
     // midnight, and Retry asked again for the same answer.
     setState({ account, generation, usage: data, loading: false, error: !data });
-  }, [account, generation, getToken]);
+  }, [account, generation, getToken, accountRef]);
 
   useFocusEffect(
     useCallback(() => {

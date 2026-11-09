@@ -86,6 +86,7 @@ export function MarkdownContent({
   const renderContent = content;
   // Incremental: streaming content grows append-only, so rescan just the new
   // suffix per flush instead of splitting/scanning the whole message.
+  /* eslint-disable react-hooks/refs -- incremental parse caches: each render goes on from the last one's, and a render React drops costs the next one a fuller rescan */
   const previewScanRef = useRef<PreviewScanState | null>(null);
   const previewScan = advancePreviewFilesScan(previewScanRef.current, renderContent);
   previewScanRef.current = previewScan;
@@ -122,6 +123,7 @@ export function MarkdownContent({
     ? advanceStreamBlocks(streamBlocksRef.current, prepared, cache?.preparedStable.length ?? 0)
     : settleStreamBlocks(streamBlocksRef.current, prepared);
   streamBlocksRef.current = blocks;
+  /* eslint-enable react-hooks/refs */
   const settledEnd = blocks.settledText.length;
   const end: StreamingEnd = streaming
     ? streamingEnd(prepared, settledEnd, cache, md)
