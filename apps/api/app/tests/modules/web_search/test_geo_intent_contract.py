@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from app.modules.web_search.geo_intent import (
+    finds_places_near_the_user,
     is_ambiguous_local_places_query,
     is_distance_query,
     is_proximity_query,
@@ -30,6 +31,7 @@ READERS: dict[str, Callable[[str], bool]] = {
     "distance": is_distance_query,
     "location_question": is_location_question,
     "ambiguous_places": is_ambiguous_local_places_query,
+    "places_near_user": finds_places_near_the_user,
 }
 CASES = [(group, case) for group, rows in CONTRACT["cases"].items() for case in rows]
 

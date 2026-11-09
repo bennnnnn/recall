@@ -444,7 +444,9 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
                 content=text,
                 model=model,
                 client_timezone=USER_TIMEZONE,
-                client_location=case.location,
+                # The phone sends no fix while the place it saved is recent: the turn
+                # reads the account's.
+                client_location=None,
                 client_latitude=None,
                 client_longitude=None,
                 user=user,
@@ -609,6 +611,5 @@ async def saved_reply(route: Route, settings: Settings | None = None) -> str:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[route.instant_text],
         should_cancel=None,
     )

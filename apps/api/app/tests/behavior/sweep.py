@@ -151,6 +151,8 @@ LOOKALIKE_HINTS = {
     "forget lookalike": "memory_forget",
     # "How do I stop mentioning my ex in every conversation?" asks for advice.
     "mute lookalike": "memory_mute",
+    # "The best restaurants in Addis Ababa" names its place: no near-you places card.
+    "places lookalike": "local_places",
 }
 # "Fix my code", "is my answer right?", "oh my god": a "my" that names nothing of the
 # user's life (an idiom, or the text the message hands over) reads no personal memory.
@@ -441,7 +443,6 @@ async def _run_entry(entry: Entry) -> Outcome:
             usage={},
             outcome=TurnOutcome(),
             was_cancelled=False,
-            assistant_parts=[entry.reply],
             should_cancel=None,
         )
     outcome.problems = (

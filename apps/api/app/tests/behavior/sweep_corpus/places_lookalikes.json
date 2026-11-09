@@ -1,0 +1,114 @@
+[
+ {
+  "id": "nmp-001",
+  "area": "places lookalike",
+  "prompt": "What are the best restaurants in Addis Ababa?",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **Yod Abyssinia** — traditional food and dancing in Bole\n2. **Kategna** — kitfo and tibs\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-002",
+  "area": "places lookalike",
+  "prompt": "best coffee in Bole?",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **Tomoca** — the classic roaster\n2. **Kaldi's Coffee** — busy and reliable\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-003",
+  "area": "places lookalike",
+  "prompt": "Where should we eat in Rome tonight?",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **Da Enzo al 29** — Trastevere trattoria\n2. **Roscioli** — carbonara and a deli counter\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-004",
+  "area": "places lookalike",
+  "prompt": "What's the closest airport to Seattle?",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **Seattle-Tacoma International (SEA)** — about 14 miles south of downtown\n2. **Paine Field (PAE)** — a smaller airport in Everett\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-005",
+  "area": "places lookalike",
+  "prompt": "Where can I get coffee at JFK?",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **Blue Bottle (Terminal 4)** — after security\n2. **Joe Coffee (Terminal 5)** — near gate 20\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-006",
+  "area": "places lookalike",
+  "prompt": "nearest hospital to Union Square",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **NYU Langone** — about 1.5 miles east\n2. **Mount Sinai Beth Israel** — First Avenue at 16th Street\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-007",
+  "area": "places lookalike",
+  "prompt": "Best Ethiopian restaurant in DC?",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **Letena** — Columbia Heights, great kitfo\n2. **Chercher** — Shaw, a Bib Gourmand pick\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-008",
+  "area": "places lookalike",
+  "prompt": "What are some good hotels near Times Square?",
+  "reply": "Here are a few well-reviewed places there:\n\n1. **Pod Times Square** — small rooms, low prices\n2. **Hotel Edison** — a few steps from the theatres\n\nWant me to narrow it down by budget?",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-009",
+  "area": "places",
+  "prompt": "What's the weather tomorrow?",
+  "reply": "Tomorrow in San Francisco: **foggy morning**, high of **64°F**, low of **52°F**.",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-010",
+  "area": "places",
+  "prompt": "weather tomorrow",
+  "reply": "Tomorrow in San Francisco: **sunny**, high of **68°F**.",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-011",
+  "area": "places",
+  "prompt": "Is it going to rain today?",
+  "reply": "No rain expected in San Francisco today, just morning fog.",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-012",
+  "area": "places",
+  "prompt": "coffee shops near me in Bole",
+  "reply": "Coffee spots in Bole:\n\n1. **Tomoca** — 0.4 km\n2. **Galani Coffee** — 1.2 km",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-013",
+  "area": "places",
+  "prompt": "What's the best restaurant in this area?",
+  "reply": "Close to you:\n\n1. **Zuni Café** — Market Street\n2. **Nopa** — Divisadero",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-014",
+  "area": "places",
+  "prompt": "best restaurants near me at Christmas",
+  "reply": "Open on Christmas near you:\n\n1. **Zuni Café** — dinner service\n2. **Z & Y** — Chinatown",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ }
+]

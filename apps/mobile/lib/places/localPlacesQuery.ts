@@ -301,9 +301,44 @@ export function isDistanceQuery(text: string): boolean {
   return true;
 }
 
+/** `word` in any case, as the server's `(?i:…)` group reads it: "to" is `[Tt][Oo]`. */
+function anyCase(word: string): string {
+  return Array.from(word, (letter) => `[${letter.toUpperCase()}${letter}]`).join("");
+}
+
+const PLACE_PREPOSITIONS = ["in", "near", "around", "at", "from", "to", "across", "over", "through", "along"];
+
+/**
+ * Server `names_its_place` (`_NAMED_PLACE`): a preposition, then a capitalised name ("in
+ * Addis Ababa", "to Seattle", "at JFK"). Only the name's capital is read as written.
+ */
+const NAMED_PLACE = new RegExp(
+  String.raw`\b(?:${PLACE_PREPOSITIONS.map(anyCase).join("|")})\s+(?:the\s+)?[A-Z](?![\s'\u2019])`,
+);
+
+/** Server `around_the_user` (`weather._AROUND_THE_USER`): near me, in my area, from my location. */
+const AROUND_THE_USER = new RegExp(
+  [
+    String.raw`\b(?:(?:near|close\s+to|around)\s+(?:me|here|my\s+(?:house|home|place|hotel|office|location))`,
+    String.raw`|in\s+my\s+(?:area|neighbou?rhood|city|town)`,
+    String.raw`|(?:from|at|for|to)\s+my\s+(?:current\s+)?location`,
+    String.raw`|within\s+(?:walking\s+distance|\d+(?:\.\d+)?\s*[a-z]+\s+of\s+(?:me|here|my\s+\w+)))\b`,
+  ].join(""),
+  "i",
+);
+
+/**
+ * A places ask the user's own location answers (server `finds_places_near_the_user`). One
+ * that names its place ("the best restaurants in Addis Ababa") is searched there, so the
+ * phone reads no GPS for it, unless it says near me as well ("coffee near me in Bole").
+ */
+export function findsPlacesNearTheUser(text: string): boolean {
+  return isProximityQuery(text) && (AROUND_THE_USER.test(text) || !NAMED_PLACE.test(text));
+}
+
 /** Needs user GPS / profile location — nearby, distance, or "where am I". */
 export function isGeoQuery(text: string): boolean {
-  return isProximityQuery(text) || isDistanceQuery(text) || isLocationQuestion(text);
+  return findsPlacesNearTheUser(text) || isDistanceQuery(text) || isLocationQuestion(text);
 }
 
 export function isAmbiguousLocalPlacesQuery(text: string): boolean {

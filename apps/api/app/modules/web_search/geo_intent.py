@@ -118,19 +118,32 @@ def is_distance_query(text: str) -> bool:
     return True
 
 
+def finds_places_near_the_user(text: str) -> bool:
+    """A places ask the user's own location answers.
+
+    One that names its place is searched there, never near the phone: "What are the best
+    restaurants in Addis Ababa?" from San Francisco found a San Francisco to Addis Ababa
+    time converter and Los Angeles restaurants (2026-11-08). "Coffee near me in Bole" says
+    near me as well, so the user's location still answers it.
+    """
+    return is_proximity_query(text) and (around_the_user(text) or not names_its_place(text))
+
+
 def is_geo_query(text: str) -> bool:
     """Any query that needs the user's location — places OR distance. Venue-agnostic.
 
     Each reader leaves a worked problem to its subject (``weather.is_worked_problem``).
     """
-    return is_proximity_query(text) or is_distance_query(text) or is_local_weather_query(text)
+    return (
+        finds_places_near_the_user(text) or is_distance_query(text) or is_local_weather_query(text)
+    )
 
 
 def is_places_list_query(text: str) -> bool:
-    """Render the native ```places card (find venues, not mileage-only answers)."""
+    """Render the native ```places card (find venues near the user, not mileage-only answers)."""
     if is_ambiguous_local_places_query(text):
         return False
-    return is_proximity_query(text)
+    return finds_places_near_the_user(text)
 
 
 def is_ambiguous_local_places_query(text: str) -> bool:

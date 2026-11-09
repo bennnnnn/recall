@@ -73,6 +73,57 @@ def test_resolve_client_geo_uses_client_when_location_enabled():
     assert geo.has_geo_fix is True
 
 
+@pytest.mark.parametrize(
+    "content", ["What's the weather tomorrow?", "best restaurant near me?", "Where am I"]
+)
+def test_resolve_client_geo_uses_the_saved_place_when_the_turn_sends_none(content: str):
+    """The phone sends a fix only when its saved place is old: with Location on, "What's
+    the weather tomorrow?" got "I don't have your location yet" (2026-11-08)."""
+    user = make_user(location_enabled=True, location="San Francisco, CA, United States")
+    geo = resolve_client_geo(
+        user, content, client_location=None, client_latitude=None, client_longitude=None
+    )
+    assert geo.geo_query is True
+    assert geo.user_location == "San Francisco, CA, United States"
+    assert geo.has_geo_fix is True
+
+
+@pytest.mark.parametrize("enabled, saved", [(True, ""), (True, None), (False, "Oakland, CA")])
+def test_resolve_client_geo_an_account_with_no_place_has_no_fix(enabled: bool, saved: str | None):
+    user = make_user(location_enabled=enabled, location=saved)
+    geo = resolve_client_geo(
+        user,
+        "What's the weather tomorrow?",
+        client_location=None,
+        client_latitude=None,
+        client_longitude=None,
+    )
+    assert geo.user_location is None
+    assert geo.has_geo_fix is False
+
+
+@pytest.mark.parametrize(
+    "content, near_the_user",
+    [
+        ("What are the best restaurants in Addis Ababa?", False),
+        ("What's the closest airport to Seattle?", False),
+        ("coffee shops near me in Bole", True),
+        ("best restaurant near me?", True),
+    ],
+)
+def test_resolve_client_geo_a_question_naming_its_place_is_not_about_the_user(
+    content: str, near_the_user: bool
+):
+    """From San Francisco, "the best restaurants in Addis Ababa" was searched near the phone
+    and listed San Francisco and Los Angeles pages (2026-11-08)."""
+    user = make_user(location_enabled=True, location="San Francisco, CA")
+    geo = resolve_client_geo(
+        user, content, client_location=None, client_latitude=None, client_longitude=None
+    )
+    assert geo.geo_query is near_the_user
+    assert geo.local_places is near_the_user
+
+
 def test_estimate_tokens_minimum():
     assert estimate_tokens("") == 1
     assert estimate_tokens("hello") == 1

@@ -98,13 +98,13 @@ def resolve_client_geo(
     client_coordinates = profile_service.normalize_client_coordinates(
         client_latitude, client_longitude
     )
+    # The phone's fix when the turn carries one, else the place the phone last saved (only
+    # the phone writes it: Data controls, its daily sync, a turn's fix). The phone sends a
+    # fix only when that place is old, so "What's the weather tomorrow?" with Location on
+    # got "I don't have your location yet" when the fix was required (2026-11-08).
     user_location = profile_service.effective_location_label(user, normalized_client_location)
     geo_query = web_search_service.is_geo_query(content)
     location_question = time_context_service.is_location_question(content)
-    # "Where am I?" and nearby asks must use the fresh device fix, not a stale
-    # profile city (or prior-chat place names).
-    if geo_query or location_question:
-        user_location = normalized_client_location
     client_lat = client_coordinates[0] if client_coordinates else None
     client_lng = client_coordinates[1] if client_coordinates else None
     has_geo_fix = bool(user_location) or client_coordinates is not None

@@ -1,10 +1,11 @@
 {
-  "about": "Geo intent shared by apps/api/app/modules/web_search/{patterns,distance_patterns,geo_intent}.py (with is_location_question in app/services/time_context.py) and apps/mobile/lib/places/localPlacesQuery.ts, which the phone runs before sending to decide whether to read GPS. Both test suites ask every reader about every case: `reads` lists the readers that say yes, and every other reader must say no. Change a rule on both sides and update these cases in the same change. The composite is_geo_query is not held here: the server adds a local-weather ask, the phone a where-am-I ask.",
+  "about": "Geo intent shared by apps/api/app/modules/web_search/{patterns,distance_patterns,geo_intent}.py (with is_location_question in app/services/time_context.py) and apps/mobile/lib/places/localPlacesQuery.ts, which the phone runs before sending to decide whether to read GPS. Both test suites ask every reader about every case: `reads` lists the readers that say yes, and every other reader must say no. Change a rule on both sides and update these cases in the same change. The composite is_geo_query is not held here: each side takes its places asks from places_near_user, and the server adds a local-weather ask, the phone a where-am-I ask.",
   "readers": {
     "proximity": "is_proximity_query / isProximityQuery",
     "distance": "is_distance_query / isDistanceQuery",
     "location_question": "is_location_question / isLocationQuestion",
-    "ambiguous_places": "is_ambiguous_local_places_query / isAmbiguousLocalPlacesQuery"
+    "ambiguous_places": "is_ambiguous_local_places_query / isAmbiguousLocalPlacesQuery",
+    "places_near_user": "finds_places_near_the_user / findsPlacesNearTheUser"
   },
   "rules": {
     "distance_intent": "_DISTANCE_INTENT: how far, driving time, directions to. A fixed A-to-B distance (distance between, distance from the sun) names its own origin and needs no GPS unless the origin is the user (_FROM_USER).",
@@ -13,7 +14,8 @@
     "location_question": "is_location_question (app/services/time_context.py): the whole message asks where the user is, typos and curly apostrophes included; a sentence that only starts that way does not.",
     "proximity": "_NEARBY_INTENT / _IMPLICIT_LOCAL / best_near_phrase / non_geographic_nearest: near me, nearest, where should we eat. Nearest prime, closest friend or a number line is not a place; the best-in and nearest-word scans look 120 characters ahead, across lines.",
     "ambiguous_places": "_AMBIGUOUS_NEARBY_SUBJECT / _QUALIFIED_NEARBY: a nearby home or property ask without sale, rent or an address is clarified before searching.",
-    "trip_the_question_measures": "_HOW_FAR_IT_MOVED / _ALONG_A_PLACE / _TIMETABLE / _UNIT_CONVERSION: how far something moved, a walk across or around a named place, a trip between two stated times, or a stated amount converted is not a trip from the user; how far is it to, arrive by and is it to still are."
+    "trip_the_question_measures": "_HOW_FAR_IT_MOVED / _ALONG_A_PLACE / _TIMETABLE / _UNIT_CONVERSION: how far something moved, a walk across or around a named place, a trip between two stated times, or a stated amount converted is not a trip from the user; how far is it to, arrive by and is it to still are.",
+    "places_near_user": "finds_places_near_the_user: a nearby ask the user's own location answers. One that names its place (names_its_place: the best restaurants in Addis Ababa, the closest airport to Seattle) is searched there, never near the phone, unless it also says near me or around here (_AROUND_THE_USER)."
   },
   "cases": {
     "distance_intent": [
@@ -28,10 +30,10 @@
       {"text": "walking distance to the beach", "reads": ["distance"]},
       {"text": "commute time to downtown", "reads": ["distance"]},
       {"text": "is the mall 10 minutes from here?", "reads": ["distance"]},
-      {"text": "directions to the nearest pharmacy", "reads": ["proximity", "distance"]},
+      {"text": "directions to the nearest pharmacy", "reads": ["proximity", "distance", "places_near_user"]},
       {"text": "distance from here to the airport", "reads": ["distance"]},
-      {"text": "how far is the nearest pharmacy from me", "reads": ["proximity", "distance"]},
-      {"text": "How far is the closest eyeglasses store from me?", "reads": ["proximity", "distance"]},
+      {"text": "how far is the nearest pharmacy from me", "reads": ["proximity", "distance", "places_near_user"]},
+      {"text": "How far is the closest eyeglasses store from me?", "reads": ["proximity", "distance", "places_near_user"]},
       {"text": "What's the driving distance to the airport? My flight is at 6 and I want enough time for parking, security and the long walk to the gate, so I'm torn between leaving at 3 or 4.", "reads": ["distance"]},
       {"text": "how far is the stadium where they kicked off the season", "reads": ["distance"]},
       {"text": "explain Python decorators", "reads": []},
@@ -82,7 +84,7 @@
       {"text": "how many km from Addis to Adama", "reads": ["distance"]},
       {"text": "HOW MANY MINUTES TO BOLE", "reads": ["distance"]},
       {"text": "how many minutes tO Bole", "reads": ["distance"]},
-      {"text": "how many miles away is the closest gas station", "reads": ["proximity", "distance"]},
+      {"text": "how many miles away is the closest gas station", "reads": ["proximity", "distance", "places_near_user"]},
       {"text": "how many minutes in a good nap", "reads": []},
       {"text": "how many minutes in an hour?", "reads": []},
       {"text": "how many minutes should I boil an egg", "reads": []},
@@ -137,18 +139,18 @@
       {"text": "where\u2019s my phone", "reads": []}
     ],
     "proximity": [
-      {"text": "The nearest gas station", "reads": ["proximity"]},
-      {"text": "nearest hospital", "reads": ["proximity"]},
-      {"text": "closest casino", "reads": ["proximity"]},
-      {"text": "Best coffee shops near me", "reads": ["proximity"]},
-      {"text": "Best restaurants near me", "reads": ["proximity"]},
-      {"text": "coffee shops nearby", "reads": ["proximity"]},
-      {"text": "libraries around here", "reads": ["proximity"]},
-      {"text": "pharmacies close to me", "reads": ["proximity"]},
-      {"text": "best pizza in town", "reads": ["proximity"]},
+      {"text": "The nearest gas station", "reads": ["proximity", "places_near_user"]},
+      {"text": "nearest hospital", "reads": ["proximity", "places_near_user"]},
+      {"text": "closest casino", "reads": ["proximity", "places_near_user"]},
+      {"text": "Best coffee shops near me", "reads": ["proximity", "places_near_user"]},
+      {"text": "Best restaurants near me", "reads": ["proximity", "places_near_user"]},
+      {"text": "coffee shops nearby", "reads": ["proximity", "places_near_user"]},
+      {"text": "libraries around here", "reads": ["proximity", "places_near_user"]},
+      {"text": "pharmacies close to me", "reads": ["proximity", "places_near_user"]},
+      {"text": "best pizza in town", "reads": ["proximity", "places_near_user"]},
       {"text": "Best Ethiopian restaurant in DC?", "reads": ["proximity"]},
-      {"text": "where should we eat tonight?", "reads": ["proximity"]},
-      {"text": "what's open nearby?", "reads": ["proximity"]},
+      {"text": "where should we eat tonight?", "reads": ["proximity", "places_near_user"]},
+      {"text": "what's open nearby?", "reads": ["proximity", "places_near_user"]},
       {"text": "find the nearest prime number", "reads": []},
       {"text": "round 2.7 to the nearest whole number", "reads": []},
       {"text": "who is my closest friend", "reads": []},
@@ -156,19 +158,19 @@
       {"text": "explain the nearest neighbor algorithm", "reads": []},
       {"text": "best friends forever", "reads": []},
       {"text": "Which is nearest to 1?\n0.95 or 1.04, show it on a number line", "reads": []},
-      {"text": "Where's the nearest pharmacy that's still open? My son has a fever and I need children's ibuprofen before bed, so please be quick. I'll text my friend after.", "reads": ["proximity"]},
+      {"text": "Where's the nearest pharmacy that's still open? My son has a fever and I need children's ibuprofen before bed, so please be quick. I'll text my friend after.", "reads": ["proximity", "places_near_user"]},
       {"text": "What's the best way to end this essay? I have an introduction and two body paragraphs about climate policy already, and every conclusion I write keeps going around in circles?", "reads": []}
     ],
     "ambiguous_places": [
-      {"text": "Nearest house", "reads": ["proximity", "ambiguous_places"]},
-      {"text": "homes near me", "reads": ["proximity", "ambiguous_places"]},
-      {"text": "closest property", "reads": ["proximity", "ambiguous_places"]},
-      {"text": "apartments nearby", "reads": ["proximity", "ambiguous_places"]},
-      {"text": "nearest house for sale", "reads": ["proximity"]},
-      {"text": "nearest house near 123 Market St", "reads": ["proximity"]},
-      {"text": "apartments for rent near me", "reads": ["proximity"]},
-      {"text": "Places near me", "reads": ["proximity"]},
-      {"text": "nearest gas station", "reads": ["proximity"]}
+      {"text": "Nearest house", "reads": ["proximity", "ambiguous_places", "places_near_user"]},
+      {"text": "homes near me", "reads": ["proximity", "ambiguous_places", "places_near_user"]},
+      {"text": "closest property", "reads": ["proximity", "ambiguous_places", "places_near_user"]},
+      {"text": "apartments nearby", "reads": ["proximity", "ambiguous_places", "places_near_user"]},
+      {"text": "nearest house for sale", "reads": ["proximity", "places_near_user"]},
+      {"text": "nearest house near 123 Market St", "reads": ["proximity", "places_near_user"]},
+      {"text": "apartments for rent near me", "reads": ["proximity", "places_near_user"]},
+      {"text": "Places near me", "reads": ["proximity", "places_near_user"]},
+      {"text": "nearest gas station", "reads": ["proximity", "places_near_user"]}
     ],
     "trip_the_question_measures": [
       {"text": "how far did it go in that time", "reads": []},
@@ -188,6 +190,18 @@
       {"text": "how long is the trip", "reads": ["distance"]},
       {"text": "how many miles is it to Hawassa", "reads": ["distance"]},
       {"text": "how many minutes is the drive to work", "reads": ["distance"]}
+    ],
+    "named_place": [
+      {"text": "What are the best restaurants in Addis Ababa?", "reads": ["proximity"]},
+      {"text": "best coffee in Bole?", "reads": ["proximity"]},
+      {"text": "Where should we eat in Rome tonight?", "reads": ["proximity"]},
+      {"text": "What's the closest airport to Seattle?", "reads": ["proximity"]},
+      {"text": "nearest hospital to Union Square", "reads": ["proximity"]},
+      {"text": "Where can I get coffee at JFK?", "reads": ["proximity"]},
+      {"text": "coffee shops near me in Bole", "reads": ["proximity", "places_near_user"]},
+      {"text": "Is there a pharmacy around here? I'm staying in Kazanchis", "reads": ["proximity", "places_near_user"]},
+      {"text": "best restaurants near me at Christmas", "reads": ["proximity", "places_near_user"]},
+      {"text": "What's the best restaurant in this area?", "reads": ["proximity", "places_near_user"]}
     ]
   }
 }
