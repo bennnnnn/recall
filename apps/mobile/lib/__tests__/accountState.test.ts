@@ -149,6 +149,8 @@ const NO_ACCOUNT_DATA = [
   "components/CodeBlock.tsx#tokenStyles",
   "components/rich/LazyHeavyRich.tsx#simulationSizing",
   "components/rich/LazyHeavyRich.tsx#simulationSizingLoad",
+  // Each canvas font's digit widths, a property of the face.
+  "components/rich/skia/fontRuns.ts#digitCells",
   "components/markdown/LinkPreviewTrust.tsx#NO_PREVIEWS",
   "features/attachments/model/attachmentIndexStatus.ts#offline",
   "features/attachments/model/attachmentIndexStatus.ts#stopWatchingNetwork",

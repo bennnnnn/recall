@@ -1,8 +1,9 @@
 import { memo, useMemo } from "react";
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FadingHorizontalScroll } from "@/components/markdown/FadingHorizontalScroll";
 import { MathConverterPad } from "@/features/chat/components/MathConverterPad";
 import { MathKey } from "@/features/chat/components/MathKey";
 import { CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
@@ -132,7 +133,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
       testID="math-keyboard-pad"
     >
       <View style={s.tabs}>
-        <GroupTabs group={group} onGroupChange={onGroupChange} style={s.tabRow} />
+        <GroupTabs group={group} onGroupChange={onGroupChange} style={s.tabScroll} contentStyle={s.tabRow} />
         <IconButton
           name="clipboard"
           size={IconSize.sm}
@@ -173,23 +174,26 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   );
 });
 
-/** The pad's groups (Basics, Algebra, Greek…): a row of tabs over the keys. */
+/** The pad's groups (Basics, Algebra, Greek…): a row of tabs over the keys, faded where more scroll. */
 function GroupTabs({
   group,
   onGroupChange,
   style,
+  contentStyle,
 }: {
   group: MathKeyboardGroup;
   onGroupChange: (group: MathKeyboardGroup) => void;
   style: StyleProp<ViewStyle>;
+  contentStyle: StyleProp<ViewStyle>;
 }) {
   const { t } = useTranslation();
+  const theme = useTheme();
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={style}
-      keyboardShouldPersistTaps="handled"
+    <FadingHorizontalScroll
+      testID="math-keyboard-tabs"
+      fadeColor={theme.surfaceAlt}
+      style={style}
+      contentContainerStyle={contentStyle}
       accessibilityRole="tablist"
     >
       {MATH_KEYBOARD_GROUPS.map((id) => (
@@ -203,7 +207,7 @@ function GroupTabs({
           testID={`math-keyboard-tab-${id}`}
         />
       ))}
-    </ScrollView>
+    </FadingHorizontalScroll>
   );
 }
 
@@ -228,6 +232,8 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       gap: Space.xxs,
     },
+    // The tabs run on behind Paste and ABC: the cut edge fades, so the last ones read as more.
+    tabScroll: { flex: 1 },
     tabRow: { flexDirection: "row", alignItems: "center", gap: Space.xxs, paddingRight: Space.xxs },
     keys: { flex: 1, gap: PAD_GAP },
     row: { flexDirection: "row", gap: PAD_GAP },

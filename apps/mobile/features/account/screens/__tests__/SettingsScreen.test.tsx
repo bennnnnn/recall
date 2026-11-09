@@ -99,7 +99,8 @@ describe("settings home", () => {
 
   it("shows the account in one group without the profile fields or restore", async () => {
     const { queryByText, getByText } = await render(<SettingsScreen />);
-    expect(getByText("bini")).toBeTruthy();
+    // Capitalised as Home greets it; the account stores "bini".
+    expect(getByText("Bini")).toBeTruthy();
     expect(getByText("dev@recall.local")).toBeTruthy();
     expect(getByText("settings.signed_in_with")).toBeTruthy();
     expect(getByText("settings.manage_subscription")).toBeTruthy();

@@ -13,10 +13,16 @@ import { useTheme } from "@/lib/theme";
 
 /**
  * The answer's height, which the row of buttons under the draft takes while the math keyboard
- * is open, answer or not, so the composer does not jump between keys (`3+1×` has none,
- * `3+1×2` has one); it is tall enough for a stacked fraction.
+ * is open. Once the draft has a key in it the row keeps it, answer or not, so the composer
+ * does not jump between keys (`3+1×` has none, `3+1×2` has one); it is tall enough for a
+ * stacked fraction.
  */
 export const MATH_LIVE_ANSWER_HEIGHT = MATH_TALL_LINE_HEIGHT;
+/** The answer's row waits for the draft's first key: an empty draft is one line, not three. */
+export function liveAnswerShows(input: string): boolean {
+  return input.trim().length > 0;
+}
+
 /** Larger than the draft's 16, as a calculator's result is. */
 const ANSWER_SIZE = 20;
 

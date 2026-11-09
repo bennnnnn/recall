@@ -2,7 +2,7 @@
 import { useCallback, useMemo } from "react";
 import { useWindowDimensions } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useFont, type SkFont } from "@shopify/react-native-skia";
+import { useFont } from "@shopify/react-native-skia";
 
 import {
   inclineDirections,
@@ -28,16 +28,15 @@ import { Motion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 import { makeFigureFrameStyles } from "@/components/rich/diagrams/DiagramFrame";
 import { figureWidth } from "@/components/rich/figure";
+import { useFigureFont } from "@/components/rich/skia/figureFont";
 import { usePlayback } from "@/components/rich/usePlayback";
 import { measureRuns } from "@/components/rich/skia/fontRuns";
 import { pointsPath } from "@/components/rich/skia/paths";
 import { LABEL_FONT_SIZE } from "@/components/rich/simulation/labels";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
 
-/** The math faces set a size larger, so a τ stands as tall as SpaceMono's x-height beside it. */
+/** The math faces set a size larger, so a fallback glyph stands as tall as the labels beside it. */
 const FALLBACK_FONT_SIZE = 13;
-/** Until the font loads, a rough SpaceMono advance keeps the layout sane. */
-const FALLBACK_CHAR_WIDTH = 6.7;
 
 /** A circuit, rays and a wave reach `PhysicsDiagram`; any other type is no kind this build draws. */
 const SCENE_BODY = { json: true, kinds: { field: "type", known: [...SCENE_KINDS, ...DIAGRAM_KINDS] } };
@@ -49,9 +48,9 @@ export function useSimulationScene(content: string) {
   const theme = useTheme();
   const { t } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
-  const font = useFont(require("@/assets/fonts/SpaceMono-Regular.ttf"), LABEL_FONT_SIZE);
-  // SpaceMono has no Greek: τ, θ, λ and Ω come from the math faces instead,
-  // upright for units and capitals, italic for lower-case variables.
+  const font = useFigureFont(LABEL_FONT_SIZE);
+  // A symbol the system face has no glyph for comes from the math faces instead,
+  // upright first, then italic.
   const upright = useFont(require("@/assets/fonts/KaTeX_Main-Regular.ttf"), FALLBACK_FONT_SIZE);
   const italic = useFont(require("@/assets/fonts/KaTeX_Math-Italic.ttf"), FALLBACK_FONT_SIZE);
   const fallbacks = useMemo(() => [upright, italic], [italic, upright]);
@@ -78,10 +77,7 @@ export function useSimulationScene(content: string) {
   );
   const animated = useMemo(() => (spec ? simulationIsAnimated(spec) : false), [spec]);
   const measure = useCallback(
-    (text: string) =>
-      font
-        ? measureRuns(text, [font, ...fallbacks.filter((face): face is SkFont => face !== null)])
-        : text.length * FALLBACK_CHAR_WIDTH,
+    (text: string) => measureRuns(text, [font, ...fallbacks]),
     [fallbacks, font],
   );
   const layout = useMemo(

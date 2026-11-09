@@ -252,18 +252,20 @@ export function guessFileNameFromCaption(caption: string, fallback = "document.p
   return fallback;
 }
 
-const FILE_TYPE_LABELS: Record<string, string> = {
-  "text/plain": "Text file",
-  "text/markdown": "Markdown file",
-  "text/csv": "CSV file",
-  "application/json": "JSON file",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
+/** What a sent file is called by its type, in the app's language. */
+const FILE_TYPE_LABEL_KEYS: Record<string, string> = {
+  "text/plain": "chat.file_kind_text",
+  "text/markdown": "chat.file_kind_markdown",
+  "text/csv": "chat.file_kind_csv",
+  "application/json": "chat.file_kind_json",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "chat.file_kind_word",
 };
 
+/** A file's kind ("Text file", "Word document"), or "Attached file" for any other type. */
 export function fileLabelFromContentType(
   contentType: string | null | undefined,
-  fallback = "File",
+  t: (key: string) => string,
 ): string {
   const base = (contentType ?? "").split(";")[0].trim().toLowerCase();
-  return FILE_TYPE_LABELS[base] ?? fallback;
+  return t(FILE_TYPE_LABEL_KEYS[base] ?? "chat.attached_file");
 }

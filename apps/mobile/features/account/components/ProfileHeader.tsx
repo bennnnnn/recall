@@ -12,7 +12,7 @@ import { Type, Weight } from "@/lib/type";
 /** The avatar and name at the top of Settings and Profile. */
 export function ProfileHeader({ label, onPress }: { label: string; onPress: () => void }) {
   const { user, token } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
@@ -28,7 +28,7 @@ export function ProfileHeader({ label, onPress }: { label: string; onPress: () =
         onPress={onPress}
       />
       <Text style={s.name} accessibilityRole="header">
-        {getDisplayName(user?.name, t("common.you"))}
+        {getDisplayName(user?.name, t("common.you"), i18n.language)}
       </Text>
     </>
   );

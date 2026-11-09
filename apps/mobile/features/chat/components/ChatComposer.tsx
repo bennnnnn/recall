@@ -40,7 +40,7 @@ import { ComposerSendControls } from "@/features/chat/components/ComposerSendCon
 import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
-import { MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer, mathCardStyles } from "@/features/chat/components/MathLiveAnswer";
+import { liveAnswerShows, MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer, mathCardStyles } from "@/features/chat/components/MathLiveAnswer";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
@@ -161,7 +161,7 @@ export const ChatComposer = memo(function ChatComposer({
   const padUnder = math.mathBarOpen ? math.padHeight : 0;
   const mathChromeHeight =
     padUnder +
-    (math.mathBarOpen ? MATH_LIVE_ANSWER_HEIGHT : 0) +
+    (math.mathBarOpen && liveAnswerShows(input) ? MATH_LIVE_ANSWER_HEIGHT : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? COMPOSER_SCAN_HINT_HEIGHT : 0) +
     (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
@@ -189,6 +189,8 @@ export const ChatComposer = memo(function ChatComposer({
   const voiceActive = voiceRecording || voiceTranscribing;
   // While the waveform takes the field's place, the row never splits.
   const rowFit = useComposerRowFit(voiceActive ? "" : input, fontScale);
+  // From the draft's first key, the math keyboard's answer takes the row of buttons under it.
+  const answerShows = mathBarOpen && liveAnswerShows(input);
   const {
     composerExpanded,
     toggleExpanded,
@@ -204,11 +206,11 @@ export const ChatComposer = memo(function ChatComposer({
     input,
     draftRevision: draft?.revision,
     fontScale,
-    buttonRowBelow: rowFit.wraps && !mathBarOpen, // the math keyboard's answer row is in its chrome
+    buttonRowBelow: rowFit.wraps && !answerShows, // the answer's row is in the math chrome
     onInputFrameExtraChange,
     mathPadOpen: mathBarOpen,
   });
-  const stacked = rowFit.wraps || composerExpanded || mathBarOpen;
+  const stacked = rowFit.wraps || composerExpanded || answerShows;
 
   const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const gapFadeStyle = useAnimatedStyle(() => {
@@ -263,9 +265,7 @@ export const ChatComposer = memo(function ChatComposer({
     hasSendableContent,
   });
   const blockStyle = s.composerBlock;
-  const expandedBlockStyle = composerExpanded
-    ? [s.composerBlockExpanded, { top: insets.top + Space.xs }]
-    : null;
+  const expandedBlockStyle = composerExpanded ? [s.composerBlockExpanded, { top: insets.top + Space.xs }] : null;
   const containerStyle = [blockStyle, animatedContainerStyle, expandedBlockStyle];
   const attachButton = (
     <ComposerAttachButton
@@ -467,7 +467,7 @@ export const ChatComposer = memo(function ChatComposer({
             {stacked ? (
               <View style={s.controlsRow} testID="composer-controls-row">
                 {attachButton}
-                {mathBarOpen ? <MathLiveAnswer input={input} /> : null}
+                {answerShows ? <MathLiveAnswer input={input} /> : null}
                 {trailingControls}
               </View>
             ) : null}

@@ -1,5 +1,6 @@
 import { firstReplyTitlePlan, shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh";
 import type { Chat } from "@/lib/api";
+import i18n, { ensureLocale } from "@/lib/i18n";
 
 function chat(id: string, title: string | null): Chat {
   return {
@@ -51,6 +52,19 @@ describe("firstReplyTitlePlan", () => {
       fetch: false,
       poll: true,
     });
+  });
+
+  // A photo-only first turn was titled "Image" whatever the app's language.
+  it("titles an attachment-only first turn in the app's language", async () => {
+    const created = chat("new", null);
+    try {
+      await ensureLocale("de");
+      expect(firstReplyTitlePlan(created, undefined, "[Image: local]").insert?.title).toBe("Bild");
+      expect(firstReplyTitlePlan(created, undefined, "[File: notes.pdf]").insert?.title).toBe("Datei");
+    } finally {
+      await ensureLocale("en");
+    }
+    expect(i18n.language).toBe("en");
   });
 
   it("does not stamp the first user line as the title (poll for the topic job)", () => {

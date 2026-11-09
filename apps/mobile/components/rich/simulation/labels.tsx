@@ -65,7 +65,7 @@ function MovingLabel({
 }: {
   spot: SharedValue<LabelSpot>;
   text: string;
-  font: SkFont;
+  font: SkFont | null;
   fallbacks: readonly (SkFont | null)[];
   color: string;
   theme: Theme;
@@ -104,7 +104,7 @@ function RidingVectorLabel({
   track: ScreenPoint[];
   progress: SharedValue<number>;
   wheel: Wheel;
-  font: SkFont;
+  font: SkFont | null;
   fallbacks: readonly (SkFont | null)[];
   theme: Theme;
   canvasWidth: number;
@@ -165,7 +165,7 @@ export function SceneLabels({
 }: {
   spec: SimulationSpec;
   layout: SceneLayout;
-  font: SkFont;
+  font: SkFont | null;
   fallbacks: readonly (SkFont | null)[];
   wheel: Wheel;
   theme: Theme;
@@ -295,7 +295,7 @@ function DerivedArrowLabel({
   ...context
 }: {
   label: ArrowLabelLayout;
-  font: SkFont;
+  font: SkFont | null;
   fallbacks: readonly (SkFont | null)[];
   theme: Theme;
   progress: SharedValue<number>;
@@ -352,7 +352,7 @@ function BodyLabel({
   layout: BodyLabelLayout;
   track: ScreenPoint[];
   progress: SharedValue<number>;
-  font: SkFont;
+  font: SkFont | null;
   fallbacks: readonly (SkFont | null)[];
   theme: Theme;
   canvasWidth: number;

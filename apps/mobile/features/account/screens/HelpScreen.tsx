@@ -10,7 +10,7 @@ import {
 import { openSettingsLink } from "@/features/account/model/openSettingsLink";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
-import { appVersion, versionLabel } from "@/lib/appVersion";
+import { appVersion, supportVersionText } from "@/lib/appVersion";
 import { planNameKey, planOf } from "@/lib/plan";
 import { config } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
@@ -38,8 +38,7 @@ export default function HelpScreen() {
     [
       title,
       "",
-      `${t("settings.about_version")}: ${versionLabel(app)}`,
-      ...(app.update ? [`${t("settings.about_update")}: ${app.update}`] : []),
+      supportVersionText(app, t),
       `${t("settings.plan_label")}: ${t(planNameKey(planOf(user)))}`,
       `${t("settings.language")}: ${user?.locale ?? "en"}`,
     ].join("\n");

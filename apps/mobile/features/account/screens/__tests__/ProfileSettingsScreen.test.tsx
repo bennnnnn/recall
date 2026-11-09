@@ -55,7 +55,8 @@ beforeEach(() => {
 
 it("shows the name and the facts about you; location lives under Privacy", async () => {
   const { getByText, queryByText } = await render(<ProfileSettingsScreen />);
-  expect(getByText("bini")).toBeTruthy();
+  // Capitalised as Home greets it; the account stores "bini".
+  expect(getByText("Bini")).toBeTruthy();
   expect(getByText("settings.about_you")).toBeTruthy();
   expect(getByText("54")).toBeTruthy();
   expect(getByText("Ethiopia")).toBeTruthy();
