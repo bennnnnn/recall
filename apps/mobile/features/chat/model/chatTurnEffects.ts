@@ -3,6 +3,7 @@ import { AccessibilityInfo } from "react-native";
 
 import type { Message } from "@/lib/api";
 import { notifyConsentRequired } from "@/lib/api/consentRefusal";
+import { noteChatListChanged } from "@/features/chat/model/chatListCache";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
 import { withdrawFromOpenedPage } from "@/features/chat/model/openedPage";
 import type { createStreamCueGate } from "@/features/chat/model/streamFeedback";
@@ -68,6 +69,9 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       return;
     case "first_reply":
       effects.onFirstReply?.();
+      return;
+    case "reply_saved":
+      noteChatListChanged();
       return;
     case "todos_changed":
       effects.onTodosSync?.();

@@ -62,6 +62,7 @@ function onDone(s: ChatTurnState, out: Out, payload: ChatSsePayload, now: number
     s.firstReply = true;
     out.push({ type: "first_reply" });
   }
+  out.push({ type: "reply_saved" });
   // Rows the turn wrote: one reload (code-health audit NET-14).
   if (payload.todos_changed) out.push({ type: "todos_changed" });
   if (payload.usage) out.push({ type: "usage", usage: payload.usage });

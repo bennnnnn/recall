@@ -115,6 +115,8 @@ export type ChatTurnCommand =
   /** The server's words when it sent some, else `key` translated. */
   | { type: "report_error"; message?: string; key: string; code?: string }
   | { type: "first_reply" }
+  /** A reply was saved: its chat moved up the drawer's list, which reads it again on its next open. */
+  | { type: "reply_saved" }
   | { type: "todos_changed" }
   | { type: "usage"; usage: TurnUsage }
   | { type: "drop_socket" }
