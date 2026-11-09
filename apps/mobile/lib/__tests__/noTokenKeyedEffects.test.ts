@@ -12,6 +12,8 @@ import { appFiles, isTest, readSource, relative } from "@/lib/__tests__/support/
 /** `file` → why its token-keyed effect does no I/O. */
 const ALLOWED: Record<string, string> = {
   "features/attachments/components/ChatMessageImage.tsx": "clears a failed image so it retries with the new token",
+  "features/chat/hooks/useChatRefetch.ts":
+    "subscribes the app-state listener again and sends nothing; a return reads with the token of the moment",
 };
 
 const CLOSES_DEPS = /^(\s*)\}, \[([^\]]*)\]\);/;

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Message } from "@/lib/api";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
@@ -7,9 +7,10 @@ import {
   keepCachedChatPage,
   markCachedChatPageStale,
 } from "@/features/chat/model/messageCache";
+import { noteChatPageRead } from "@/features/chat/model/pageReads";
 
 /** The server read the shown thread rests on; none until this open's read lands. */
-export type ChatPageSync = {
+type ChatPageSync = {
   chatId: string;
   /**
    * Null when this open's page landed after a turn that went out first and was
@@ -18,6 +19,23 @@ export type ChatPageSync = {
    */
   fetchedAt: number | null;
 };
+
+/**
+ * The read the shown thread rests on, kept in one place: a page that landed (`notePageRead`)
+ * is also this sign-in's newest read of the chat (`noteChatPageRead`), so a return or the API
+ * coming back within the stale window reads it no more; a page left unmerged
+ * (`notePageUnmerged`) backs nothing yet.
+ */
+export function useChatPageSync() {
+  const [sync, setSync] = useState<ChatPageSync | null>(null);
+  const notePageRead = useCallback((chatId: string, fetchedAt = Date.now()) => {
+    noteChatPageRead(chatId, fetchedAt);
+    setSync({ chatId, fetchedAt });
+  }, []);
+  const notePageUnmerged = useCallback((chatId: string) => setSync({ chatId, fetchedAt: null }), []);
+  const clearPageSync = useCallback(() => setSync(null), []);
+  return { sync, notePageRead, notePageUnmerged, clearPageSync };
+}
 
 type Options = {
   chatId: string | null;

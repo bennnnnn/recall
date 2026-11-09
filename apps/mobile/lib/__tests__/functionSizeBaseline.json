@@ -64,8 +64,6 @@
   "features/chat/hooks/useChatBulkActions.ts::useChatBulkActions": 113,
   "features/chat/hooks/useChatMessageList.tsx::useChatMessageList": 118,
   "features/chat/hooks/useChatPaging.ts::useChatPaging": 121,
-  "features/chat/hooks/useChatRouteLoader.ts::useChatRouteLoader": 407,
-  "features/chat/hooks/useChatRouteLoader.ts::useChatRouteLoader.useEffect()": 130,
   "features/chat/hooks/useChatScreenBodyProps.tsx::useChatScreenBodyProps": 339,
   "features/chat/hooks/useChatScroll.ts::useChatScroll": 315,
   "features/chat/hooks/useChatSend.ts::useChatSend": 346,

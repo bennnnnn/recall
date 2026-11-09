@@ -4,6 +4,7 @@ import { act, render, waitFor } from "@testing-library/react-native";
 
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
+import * as foregroundRefresh from "@/lib/foregroundRefresh";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
 import {
   clearAllCachedChatMessages,
@@ -485,6 +486,23 @@ describe("chat history navigation races", () => {
     expect(clearCachedChatMessages).toHaveBeenCalledWith("chat-a");
   });
 
+  it.each(["home", "new chat"])("leaves no chat on screen on %s: no thread, title, pin or older page", async (via) => {
+    (api.getChat as jest.Mock).mockImplementation(async (_token, id) => ({
+      id, title: "Trip", pinned: true, archived: true, project_id: null,
+    }));
+    const view = await render(<RouteProbe routeId="chat-a" />);
+    await waitFor(() => expect(routeState.chatLoading).toBe(false));
+    expect(routeState).toMatchObject({ chatTitle: "Trip", pinned: true, archived: true, hasMoreOlder: true });
+    expect(visibleMessages).toEqual([current]);
+
+    if (via === "home") await view.rerender(<RouteProbe routeId={undefined as unknown as string} />);
+    else await act(async () => routeState.startNewChat());
+    expect(visibleMessages).toEqual([]);
+    expect(routeState).toMatchObject({
+      chatTitle: null, pinned: false, archived: false, hasMoreOlder: false, chatLoading: false,
+    });
+  });
+
   it("keeps cached history during a temporary service failure", async () => {
     (readCachedChatMessages as jest.Mock).mockResolvedValue({ messages: [current], has_more: true });
     (api.listMessages as jest.Mock).mockRejectedValue(new ApiRequestError(503, "Unavailable"));
@@ -856,6 +874,36 @@ describe("opening a chat", () => {
     expect(routeState.historyPending).toBe(false);
     expect(api.listMessages).toHaveBeenCalledWith("token", "chat-a", { limit: 40 });
     expect(readCachedChatMessages).not.toHaveBeenCalled();
+  });
+
+  it("listens to the app's state once while a reply streams in, not again for each message", async () => {
+    const subscribe = jest.spyOn(foregroundRefresh, "onAppStateChange");
+    try {
+      const view = await render(<RouteProbe routeId="chat-a" />);
+      await waitFor(() => expect(routeState.chatLoading).toBe(false));
+      const listening = subscribe.mock.calls.length;
+      await act(async () => {
+        setThread((prev) => [...prev, sent, streamingRow]);
+        view.rerender(<RouteProbe routeId="chat-a" streaming />);
+      });
+      for (const word of ["Once", "Once upon", "Once upon a time"]) {
+        await act(async () => {
+          setThread((prev) => [...prev.filter((m) => m.id !== "streaming"), { ...streamingRow, content: word }]);
+        });
+        await act(async () => {
+          setThread((prev) => [...prev, message(`tail-${word}`, word)]);
+        });
+      }
+      expect(subscribe.mock.calls.length).toBe(listening);
+      // The one listener still reads the chat on a return.
+      await act(async () => { for (const handler of [...appStateHandlers]) handler("background"); });
+      (api.listMessages as jest.Mock).mockClear();
+      await view.rerender(<RouteProbe routeId="chat-a" />);
+      await act(async () => { for (const handler of [...appStateHandlers]) handler("active"); });
+      await waitFor(() => expect(api.listMessages).toHaveBeenCalledWith("token", "chat-a", { limit: 40 }));
+    } finally {
+      subscribe.mockRestore();
+    }
   });
 
   it("keeps the thread once a turn finishes, so the next open paints it", async () => {
