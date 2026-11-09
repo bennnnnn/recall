@@ -12,6 +12,7 @@ import { shouldUseHtmlPreview } from "@/lib/codeHighlight";
 import {
   isExplicitCodeLang,
   isStructuredDraftLang,
+  looksLikeCode,
   looksLikeMathAnswer,
   looksLikeExplicitDraftContent,
   shouldRenderAsCodeBlock,
@@ -24,6 +25,7 @@ import {
   fenceSpecForLang,
   isDataBodyFenceId,
   isMathDiagramLang,
+  isPlainTextFenceLang,
 } from "@/lib/fenceRegistry";
 import {
   isMathFenceInterruptLine,
@@ -66,10 +68,9 @@ function looksLikeMisparsedMarkdownWalkthrough(content: string): boolean {
   return content.split("\n").some((line) => isMathFenceInterruptLine(line));
 }
 
-/** Untagged / copy / prose tags — the only place content heuristics may run. */
+/** Untagged / copy / plain-text tags — the only place content heuristics may run. */
 export function allowsContentHeuristic(lang: string): boolean {
-  const l = lang.trim().toLowerCase();
-  return !l || l === "copy" || l === "text" || l === "plain" || l === "clike";
+  return isPlainTextFenceLang(lang) || fenceIdForLang(lang) === "copy";
 }
 
 export function classifyFence(lang: string, content: string): FenceDecision {
@@ -155,6 +156,9 @@ export function classifyOpenFencePreview(lang: string, body: string): OpenFenceP
   }
   if (decision.kind === "answer") return "answer";
   if (decision.kind === "math") return "math";
+  // Words in an untagged fence stream as words, in any language: a closed one of prose
+  // is unwrapped to prose (unwrapNonCodeFences), never a gray code card.
+  if (decision.kind === "code" && allowsContentHeuristic(lang) && !looksLikeCode(body)) return "prose";
   // Server already appended 3D after SMILES; the model's extra open
   // ```molecule3d was a pulsing gray box under "3D Structure" that vanished
   // when the fence closed and the leftover was dropped. Hold nothing.
