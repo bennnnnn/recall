@@ -231,6 +231,20 @@ describe("a chat started on another device", () => {
     expect(api.listChats).toHaveBeenCalledTimes(1);
     expect(getCachedChatList()?.today.map((row) => row.id)).toEqual(["phone"]);
   });
+
+  // A read nobody asked for warns of nothing: a return during a server error toasted with the drawer shut.
+  it("keeps the rows and warns of nothing when a read behind them fails", async () => {
+    seedChatListCacheForTest(initial);
+    const view = await render(<Probe open={false} />);
+    (api.listChats as jest.Mock).mockRejectedValue(Object.assign(new Error("Request failed: 500"), { status: 500 }));
+    later(60_000);
+    await act(async () => { mockForeground?.(); });
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalled();
+    expect(current.allChats).toEqual([chat]);
+    expect(current.error).toBe(false);
+    expect(mockWarn).not.toHaveBeenCalled();
+  });
 });
 
 it("reads older chats once at a time and appends them (CLAR-12)", async () => {

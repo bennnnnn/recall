@@ -127,14 +127,14 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     return fetched;
   }, [account, current, applyChatList]);
 
-  const load = useCallback(async (background = false, force = false) => {
+  const load = useCallback(async (background = false, force = false, quiet = false) => {
     const token = getToken();
     if (!account || !token || !current()) return;
     if (!force && isChatListFresh() && hydrateFromCache()) return;
     const loadId = ++loadIdRef.current;
     if (!background) setLoading(true);
     setError(false);
-    const result = await fetchChatList(token, { force, report: reportFailure });
+    const result = await fetchChatList(token, { force, report: quiet ? undefined : reportFailure });
     if (!current() || loadId !== loadIdRef.current) return;
     // A failed read hands back the list already shown (one restored from disk, say): not loaded yet.
     if (result.data) applyChatList(getCachedChatList() ?? result.data, !result.error);
@@ -243,7 +243,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
 type RereadDeps = {
   isDrawerOpen: boolean;
   account: string | null;
-  load: (background?: boolean) => Promise<void>;
+  load: (background?: boolean, force?: boolean, quiet?: boolean) => Promise<void>;
   hydrateFromCache: () => boolean;
   hasLoadedOnceRef: RefObject<boolean>;
 };
@@ -252,7 +252,9 @@ type RereadDeps = {
  * When the drawer reads its list again, besides its own edits: its first open (with the
  * spinner), each later open once the rows are stale and each return from the background
  * (behind the rows: another device may have started or renamed a chat), and the API back
- * after an outage while it is open. Returns whether the drawer is open, as a ref.
+ * after an outage while it is open. A read behind the rows warns of nothing when it fails, as
+ * the closed drawer's warm-up: the user did not ask for it, and the rows stay. Returns whether
+ * the drawer is open, as a ref.
  */
 function useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef }: RereadDeps) {
   useEffect(() => {
@@ -262,10 +264,10 @@ function useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoad
     const mode = drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: loadedOnce });
     if (mode === "full") void load();
     // `load` skips a list still fresh, so a drawer opened and closed again reads nothing more.
-    else if (mode === "revalidate") void load(true);
+    else if (mode === "revalidate") void load(true, false, true);
   }, [isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef]);
   // Past FOREGROUND_STALE_MS.chatList; Home's last chat reads this list too.
-  useOnForeground(() => void load(true), Boolean(account));
+  useOnForeground(() => void load(true, false, true), Boolean(account));
   // The API back after an outage: the open drawer's chats, read as opening it reads them.
   const openRef = useLatestRef(isDrawerOpen);
   useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
