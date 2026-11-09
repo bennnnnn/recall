@@ -1,5 +1,4 @@
 import React from "react";
-import { Linking } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { transcribeSpeech } from "@/lib/api";
@@ -11,7 +10,7 @@ import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 jest.mock("@/lib/api", () => ({ transcribeSpeech: jest.fn() }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
-jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => false) }));
+jest.mock("@/ui/overlay/dialogs", () => ({ offerSettings: jest.fn(async () => false) }));
 jest.mock("@/lib/speech/voiceAudio", () => ({
   VOICE_MAX_RECORDING_MS: 45_000,
   isVoiceInputAvailable: () => true,
@@ -143,7 +142,7 @@ describe("useVoiceInput permission and transcription errors (F8.2)", () => {
   const { reportRecoverableError } = jest.requireMock("@/lib/reportRecoverableError") as {
     reportRecoverableError: jest.Mock;
   };
-  const { confirmDialog } = jest.requireMock("@/ui/overlay/dialogs") as { confirmDialog: jest.Mock };
+  const { offerSettings } = jest.requireMock("@/ui/overlay/dialogs") as { offerSettings: jest.Mock };
   const { requestVoicePermission } = jest.requireMock("@/lib/speech/voiceAudio") as {
     requestVoicePermission: jest.Mock;
   };
@@ -195,27 +194,9 @@ describe("useVoiceInput permission and transcription errors (F8.2)", () => {
     await act(async () => { started = await voice.startRecording(); });
 
     expect(started).toBe(false);
-    expect(confirmDialog).toHaveBeenCalledWith({
-      title: "chat.voice_permission_title",
-      message: "chat.voice_permission_body",
-      cancelLabel: "common.cancel",
-      confirmLabel: "chat.location_open_settings",
-    });
+    expect(offerSettings).toHaveBeenCalledWith("microphone");
     expect(startMock).not.toHaveBeenCalled();
     expect(voice.voiceRecording).toBe(false);
-  });
-
-  it.each([
-    [true, 1],
-    [false, 0],
-  ])("opens Settings only when the user taps it (tapped: %s)", async (tapped, opens) => {
-    const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
-    confirmDialog.mockResolvedValueOnce(tapped);
-    requestVoicePermission.mockResolvedValueOnce({ granted: false, canAskAgain: false });
-    await render(<Probe />);
-    await act(async () => { await voice.startRecording(); });
-    expect(openSettings).toHaveBeenCalledTimes(opens);
-    openSettings.mockRestore();
   });
 
   it("says the network failed when the upload could not reach the server", async () => {

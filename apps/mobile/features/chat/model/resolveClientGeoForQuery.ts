@@ -1,10 +1,8 @@
-import { Linking } from "react-native";
-
 import { getSessionGeneration } from "@/lib/auth";
 import type { ClientGeo } from "@/features/chat/model/clientGeo";
 import { hasLocationPermission, requestDeviceGeo } from "@/lib/deviceLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/places/localPlacesQuery";
-import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
+import { alertDialog, offerSettings } from "@/ui/overlay/dialogs";
 
 type ClientGeoResolveResult =
   | { ok: true; clientGeo: ClientGeo | null }
@@ -26,18 +24,6 @@ export function queryNeedsClientGeo(queryText: string): boolean {
 
 function formatCoordLabel(latitude: number, longitude: number): string {
   return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-}
-
-function alertOpenDeviceSettings(t: Translate): void {
-  void confirmDialog({
-    title: t("chat.location_required_title"),
-    message: t("chat.location_required_body"),
-    cancelLabel: t("common.cancel"),
-    confirmLabel: t("chat.location_open_settings"),
-  }).then((ok) => {
-    if (!ok) return;
-    void Linking.openSettings();
-  });
 }
 
 /**
@@ -122,7 +108,7 @@ export async function resolveClientGeoForQuery(
   }
 
   if (result.status === "blocked") {
-    alertOpenDeviceSettings(t);
+    void offerSettings("location");
     return { ok: false };
   }
 

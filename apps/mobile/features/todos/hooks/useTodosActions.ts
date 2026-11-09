@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Linking } from "react-native";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
@@ -11,7 +10,7 @@ import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features/todos/model/optimisticTodo";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
-import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
+import { alertDialog, confirmDialog, offerSettings } from "@/ui/overlay/dialogs";
 
 type Params = {
   token: string | null;
@@ -75,14 +74,8 @@ export function useTodosActions({ token, userId, todos, getTodos,
   // a user who said no is told once per session, with a way to Settings, without holding the save.
   const askForAlerts = useCallback(async (dueIso: string | null) => {
     if (!dueIso || (await allowReminderAlerts()) === "on" || !shouldTellAlertsOff()) return;
-    void confirmDialog({
-      title: t("todos.alerts_off_title"),
-      message: t("todos.alerts_off"),
-      confirmLabel: t("todos.alerts_open_settings"),
-    }).then((open) => {
-      if (open) void Linking.openSettings();
-    });
-  }, [t]);
+    void offerSettings("notifications");
+  }, []);
   const latestTodo = useCallback((id: string) => (getTodos?.() ?? todosRef.current).find((item) => item.id === id), [getTodos]);
   const applyTodos = useCallback((update: (rows: Todo[]) => Todo[]) => {
     if (isSameOwner()) setTodos(update);

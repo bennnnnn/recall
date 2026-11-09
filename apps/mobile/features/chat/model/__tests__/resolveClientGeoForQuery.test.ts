@@ -107,15 +107,15 @@ describe("resolveClientGeoForQuery", () => {
 
     expect(result).toEqual({ ok: false });
     expect(Alert.alert).toHaveBeenCalledWith(
-      "chat.location_required_title",
-      "chat.location_required_body",
+      "permissions.location_title",
+      "permissions.location_body",
       expect.arrayContaining([
-        expect.objectContaining({ text: "common.cancel" }),
-        expect.objectContaining({ text: "chat.location_open_settings" }),
+        expect.objectContaining({ text: "common.not_now" }),
+        expect.objectContaining({ text: "common.open_settings" }),
       ]),
     );
     const openSettingsAction = (Alert.alert as jest.Mock).mock.calls[0][2].find(
-      (a: { text: string }) => a.text === "chat.location_open_settings",
+      (a: { text: string }) => a.text === "common.open_settings",
     );
     openSettingsAction.onPress();
     await new Promise<void>((resolve) => setImmediate(resolve));

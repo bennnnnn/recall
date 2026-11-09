@@ -1,4 +1,4 @@
-import { copyAsync, deleteAsync, getInfoAsync, makeDirectoryAsync, moveAsync } from "expo-file-system/legacy";
+import { copyAsync, deleteAsync, getInfoAsync, moveAsync } from "expo-file-system/legacy";
 import { randomUUID } from "expo-crypto";
 import * as MediaLibrary from "expo-media-library";
 
@@ -15,8 +15,8 @@ import {
   sweepAttachmentFiles,
 } from "@/features/attachments/model/attachmentFileStore";
 import { contentTypeForFileName } from "@/features/attachments/model/gallery";
-import { fileInFolder, newAccountFolder, sweepAccountFolders } from "@/lib/accountFiles";
-import { shareLocalFile } from "@/lib/shareFile";
+import { newShareFile } from "@/lib/accountFiles";
+import { shareLocalFile, shareOneAtATime } from "@/lib/shareFile";
 
 /** One native download, shared by every screen that asked for the same URL. */
 type Download = {
@@ -258,9 +258,6 @@ export async function shareChatAttachment(options: {
   await shareLocalFile(shared.uri, { title: name, mimeType });
 }
 
-/** An hour: long past any app still reading a file shared to it. */
-const SHARE_COPY_MAX_AGE_MS = 60 * 60_000;
-
 /** A file name holds 255 bytes; a shared one keeps to this many, in UTF-8. */
 const SHARED_NAME_MAX_BYTES = 200;
 
@@ -302,12 +299,10 @@ async function sharedCopy(localUri: string, name: string): Promise<SharedCopy> {
   if (!localUri.startsWith("file://")) return { uri: localUri, folder: null };
   let folder: string | null = null;
   try {
-    await sweepAccountFolders("share", SHARE_COPY_MAX_AGE_MS);
-    folder = newAccountFolder("share");
-    await makeDirectoryAsync(folder, { intermediates: true });
-    const target = fileInFolder(folder, name);
-    await copyAsync({ from: localUri, to: target });
-    return { uri: target, folder };
+    const target = await newShareFile(name);
+    folder = target.folder;
+    await copyAsync({ from: localUri, to: target.file });
+    return { uri: target.file, folder };
   } catch (error) {
     console.warn("[share] named copy failed; sharing the cached file", error instanceof Error ? error.name : typeof error);
     if (folder) await discardShareFolder(folder);
@@ -350,7 +345,8 @@ export async function saveChatAttachmentToLibrary(options: {
       requireCurrent();
     }
   }
-  await shareChatAttachment({ uri: localUri, fileName });
+  // A share sheet, like every other: one at a time.
+  await shareOneAtATime(() => shareChatAttachment({ uri: localUri, fileName }));
   return "shared";
 }
 

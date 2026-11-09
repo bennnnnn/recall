@@ -31,6 +31,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/todos/model/reminderProposal").then(({ clearSavedProposals }) => clearSavedProposals()),
     import("@/features/chat/model/quotaNudgeDismissal").then(({ resetQuotaNudgeDismissal }) => resetQuotaNudgeDismissal()),
     import("@/features/attachments/model/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
+    // A share the last account left hanging does not hold the next one's.
+    import("@/lib/shareFile").then(({ resetShareGuard }) => resetShareGuard()),
     import("@/features/attachments/model/attachmentStatusFile").then(({ clearSettledStatuses }) => clearSettledStatuses()),
     // A file another app opened in Recall while this account was signed in, not yet in a composer.
     import("@/features/attachments/model/openedDocument").then(({ clearOpenedDocument }) => clearOpenedDocument()),

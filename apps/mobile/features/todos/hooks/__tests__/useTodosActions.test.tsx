@@ -277,7 +277,7 @@ describe("useTodosActions reminders", () => {
 describe("useTodosActions alerts", () => {
   const due = new Date("2026-08-24T18:00:00.000Z");
   const alertsOffDialog = () =>
-    (Alert.alert as jest.Mock).mock.calls.find((call) => call[0] === "todos.alerts_off_title");
+    (Alert.alert as jest.Mock).mock.calls.find((call) => call[0] === "permissions.notifications_title");
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -318,9 +318,9 @@ describe("useTodosActions alerts", () => {
     });
     expect(api.createTodo).toHaveBeenCalled();
     const dialog = alertsOffDialog();
-    expect(dialog?.[1]).toBe("todos.alerts_off");
+    expect(dialog?.[1]).toBe("permissions.notifications_body");
     const open = (dialog?.[2] as { text: string; onPress: () => void }[]).find(
-      (action) => action.text === "todos.alerts_open_settings",
+      (action) => action.text === "common.open_settings",
     );
     await act(async () => {
       open?.onPress();

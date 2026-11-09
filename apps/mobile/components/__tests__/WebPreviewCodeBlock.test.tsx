@@ -19,6 +19,8 @@ jest.mock("@/lib/preview/htmlPreviewBundle", () => {
 });
 jest.mock("@/lib/preview/openHtmlPreview", () => ({ openHtmlInBrowser: jest.fn(async () => undefined) }));
 jest.mock("@/components/HtmlPreviewModal", () => ({ HtmlPreviewModal: () => null }));
+const mockError = jest.fn();
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 
 const HTML = "<html><head></head><body><p>hi</p></body></html>";
 const css = (content: string): PreviewFile[] => [
@@ -51,6 +53,15 @@ describe("WebPreviewCodeBlock", () => {
   it("bundles the current siblings when the page opens in the browser", async () => {
     const view = await render(block(css("body{color:red}")));
     await fireEvent.press(view.getByLabelText("preview.open_in_browser"));
-    expect(openHtmlInBrowser).toHaveBeenCalledWith(expect.stringContaining("body{color:red}"));
+    expect(openHtmlInBrowser).toHaveBeenCalledWith(expect.stringContaining("body{color:red}"), "preview.share_title");
+  });
+
+  // A page nothing could open ended in silence: the result was thrown away.
+  it("says so when nothing could open the page", async () => {
+    jest.mocked(openHtmlInBrowser).mockRejectedValueOnce(new Error("no browser"));
+    const view = await render(block(css("body{}")));
+    await fireEvent.press(view.getByLabelText("preview.open_in_browser"));
+    await act(async () => { await Promise.resolve(); });
+    expect(mockError).toHaveBeenCalledWith("preview.open_failed");
   });
 });

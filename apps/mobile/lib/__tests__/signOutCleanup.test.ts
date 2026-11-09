@@ -14,6 +14,7 @@ import { clearOpenedDocument } from "@/features/attachments/model/openedDocument
 import { clearSavedComposerDrafts } from "@/features/chat/model/composerDraftFile";
 import { Image } from "expo-image";
 import { ensureLocale } from "@/lib/i18n";
+import { resetShareGuard } from "@/lib/shareFile";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -42,6 +43,7 @@ jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeD
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
 jest.mock("@/features/attachments/model/attachmentStatusFile", () => ({ clearSettledStatuses: jest.fn() }));
 jest.mock("@/features/attachments/model/openedDocument", () => ({ clearOpenedDocument: jest.fn() }));
+jest.mock("@/lib/shareFile", () => ({ resetShareGuard: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearAllCachedChatMessages: jest.fn() }));
 jest.mock("@/features/chat/model/composerDraftFile", () => ({ clearSavedComposerDrafts: jest.fn() }));
@@ -88,6 +90,8 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(clearSettledStatuses).toHaveBeenCalled();
   // A file another app opened in Recall under this account, not yet in a composer.
   expect(clearOpenedDocument).toHaveBeenCalled();
+  // A share the last account left hanging does not hold the next one's.
+  expect(resetShareGuard).toHaveBeenCalled();
   // The unsent text of each chat's composer.
   expect(clearSavedComposerDrafts).toHaveBeenCalled();
 });

@@ -6,6 +6,7 @@ import { AttachmentPdfViewer } from "@/features/attachments/components/Attachmen
 import { Icon } from "@/ui/icons/Icon";
 
 import { useAuthToken } from "@/contexts/AuthContext";
+import { useFileShare } from "@/hooks/useFileShare";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
@@ -46,17 +47,19 @@ export function ChatMessagePdf({
     [attachmentId, localUri, path],
   );
 
+  // One share at a time: a second tap during the download was refused on Android.
+  const { sharing, share } = useFileShare();
   const handleShare = useCallback(async () => {
     if (!remoteUri) return;
     try {
-      await downloadChatAttachment({ uri: remoteUri, token, fileName });
+      await share(() => downloadChatAttachment({ uri: remoteUri, token, fileName }));
     } catch (error) {
       void alertDialog({
         title: t("common.download_failed"),
         message: libraryActionMessage(error, "chat.pdf_export_failed", t),
       });
     }
-  }, [remoteUri, token, fileName, t]);
+  }, [remoteUri, token, fileName, t, share]);
 
   if (!remoteUri) return null;
 
@@ -90,6 +93,7 @@ export function ChatMessagePdf({
         path={path}
         fileName={fileName}
         onShare={handleShare}
+        sharing={sharing}
       />
     </>
   );

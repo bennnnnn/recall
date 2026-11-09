@@ -71,7 +71,7 @@ export function ReminderProposalCard({ proposal }: Props) {
         <View style={s.alertsOff}>
           <Text style={s.detail}>{t("todos.alerts_off")}</Text>
           <Button
-            title={t("todos.alerts_open_settings")}
+            title={t("common.open_settings")}
             variant="secondary"
             size="sm"
             onPress={() => void Linking.openSettings()}
