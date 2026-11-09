@@ -1,5 +1,5 @@
 import React from "react";
-import { BackHandler, Linking } from "react-native";
+import { BackHandler } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
@@ -9,14 +9,14 @@ import { ApiRequestError } from "@/lib/api/errorBody";
 import { readAloudSession, startReadAloud } from "@/features/speech/model/readAloudSession";
 import { createRealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { confirmDialog } from "@/ui/overlay/dialogs";
+import { offerSettings } from "@/ui/overlay/dialogs";
 
 let mockDrawerOpen = false;
 const mockDrawerControls = { open: jest.fn(), close: jest.fn(), isOpenNow: () => mockDrawerOpen };
 jest.mock("@/contexts/DrawerContext", () => ({ useDrawerControls: () => mockDrawerControls }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
-jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => true) }));
+jest.mock("@/ui/overlay/dialogs", () => ({ offerSettings: jest.fn(async () => true) }));
 jest.mock("@/features/speech/model/liveTalkSfx", () => ({ playLiveTalkCue: jest.fn(async () => undefined) }));
 jest.mock("@/features/speech/model/realtimeVoice", () => ({
   createRealtimeVoiceSession: jest.fn(),
@@ -80,7 +80,6 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
   });
 
   it("asks for the microphone with Open Settings instead of the generic unavailable", async () => {
-    const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
     (createRealtimeVoiceSession as jest.Mock).mockRejectedValueOnce({
       name: "SecurityError",
       message: "Permission denied.",
@@ -90,16 +89,9 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
       await live.open();
     });
 
-    expect(confirmDialog).toHaveBeenCalledWith({
-      title: "chat.live_talk_mic_permission_title",
-      message: "chat.live_talk_mic_permission_body",
-      cancelLabel: "common.cancel",
-      confirmLabel: "chat.location_open_settings",
-    });
+    expect(offerSettings).toHaveBeenCalledWith("microphone");
     expect(reportRecoverableError).not.toHaveBeenCalled();
-    expect(openSettings).toHaveBeenCalledTimes(1);
     expect(live.visible).toBe(false);
-    openSettings.mockRestore();
   });
 
   it("still says unavailable when WebRTC itself is missing", async () => {
@@ -109,7 +101,7 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
       await live.open();
     });
 
-    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(offerSettings).not.toHaveBeenCalled();
     expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.live_talk_unavailable_body");
   });
 
@@ -121,7 +113,7 @@ describe("useLiveTalk microphone denial (F8.8)", () => {
       await live.open();
     });
 
-    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(offerSettings).not.toHaveBeenCalled();
     expect(jest.mocked(reportRecoverableError).mock.calls).toEqual([[null, "chat.live_talk_mic_unavailable"]]);
     expect(live.visible).toBe(false);
   });
@@ -409,7 +401,7 @@ describe("useLiveTalk hang-up while the call connects", () => {
     expect(live.visible).toBe(false);
     // A hang-up is no failure: nothing is said about it.
     expect(reportRecoverableError).not.toHaveBeenCalled();
-    expect(confirmDialog).not.toHaveBeenCalled();
+    expect(offerSettings).not.toHaveBeenCalled();
   });
 });
 

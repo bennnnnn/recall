@@ -1,6 +1,9 @@
-import { render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
+import { shareLocalFile } from "@/lib/shareFile";
+import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 // Same guard pattern as MermaidBlock.test.tsx —
 // without either WebView backend linked, the Run tab must fall back to the
@@ -17,6 +20,9 @@ jest.mock("@expo/dom-webview", () => {
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
+  makeDirectoryAsync: jest.fn(async () => undefined),
+  readDirectoryAsync: jest.fn(async () => []),
+  deleteAsync: jest.fn(async () => undefined),
   EncodingType: { UTF8: "utf8" },
 }));
 
@@ -24,6 +30,8 @@ jest.mock("expo-file-system/legacy", () => ({
 jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
 }));
+jest.mock("@/lib/shareFile", () => ({ ...jest.requireActual("@/lib/shareFile"), shareLocalFile: jest.fn() }));
+jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn() }));
 
 // A settings-style demo page: a decorative gear icon sits in static markup,
 // but the actual content only exists inside the <script> that populates
@@ -57,5 +65,51 @@ describe("HtmlPreviewModal static fallback (no dev-build WebView linked)", () =>
     );
 
     expect(getByText("Plain paragraph")).toBeOnTheScreen();
+  });
+});
+
+// Share sent Android the file's path as text, under an English title, and its failure was dropped.
+describe("HtmlPreviewModal Share", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("shares the page as a file under a translated title, once while the sheet is open", async () => {
+    let close: () => void = () => {};
+    jest.mocked(shareLocalFile).mockImplementationOnce(() => new Promise<void>((resolve) => { close = resolve; }));
+    const view = await render(<HtmlPreviewModal visible html="<p>Plain paragraph</p>" onClose={() => {}} />);
+    await fireEvent.press(view.getByLabelText("preview.share"));
+    await act(async () => { await Promise.resolve(); });
+    await fireEvent.press(view.getByLabelText("preview.share"));
+    expect(shareLocalFile).toHaveBeenCalledTimes(1);
+    expect(shareLocalFile).toHaveBeenCalledWith(expect.stringMatching(/\.html$/), {
+      title: "preview.share_title",
+      mimeType: "text/html",
+    });
+    expect(view.getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: true });
+    await act(async () => close());
+    expect(view.getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: false });
+  });
+
+  // A second tap was dropped with no word, so nothing seemed to happen.
+  it("says a share is already running when Share is tapped again", async () => {
+    let close: () => void = () => {};
+    jest.mocked(shareLocalFile).mockImplementationOnce(() => new Promise<void>((resolve) => { close = resolve; }));
+    const view = await render(<HtmlPreviewModal visible html="<p>Plain paragraph</p>" onClose={() => {}} />);
+    await fireEvent.press(view.getByLabelText("preview.share"));
+    await act(async () => { await Promise.resolve(); });
+    await fireEvent.press(view.getByLabelText("preview.share"));
+    expect(await view.findByText("common.share_in_progress")).toBeOnTheScreen();
+    expect(alertDialog).not.toHaveBeenCalled();
+    await act(async () => close());
+  });
+
+  it.each([
+    ["a build that cannot share files", new SharingUnavailableError(), "common.share_needs_update"],
+    ["any other failure", new Error("boom"), "common.share_failed"],
+  ])("says when the share failed: %s", async (_case, failure, key) => {
+    jest.mocked(shareLocalFile).mockRejectedValueOnce(failure);
+    const view = await render(<HtmlPreviewModal visible html="<p>Plain paragraph</p>" onClose={() => {}} />);
+    await fireEvent.press(view.getByLabelText("preview.share"));
+    await act(async () => { await Promise.resolve(); });
+    expect(alertDialog).toHaveBeenCalledWith({ title: key });
   });
 });

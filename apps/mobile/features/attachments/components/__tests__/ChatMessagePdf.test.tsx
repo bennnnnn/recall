@@ -18,13 +18,17 @@ jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
   downloadChatAttachment: jest.fn(),
 }));
 let mockShare: (() => Promise<void>) | null = null;
+let mockSharing: boolean | undefined;
 jest.mock("@/features/attachments/components/AttachmentPdfViewer", () => ({
-  AttachmentPdfViewer: ({ onShare }: { onShare: () => Promise<void> }) => {
+  AttachmentPdfViewer: ({ onShare, sharing }: { onShare: () => Promise<void>; sharing?: boolean }) => {
     mockShare = onShare;
+    mockSharing = sharing;
     return null;
   },
 }));
 jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn() }));
+const mockWarning = jest.fn();
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ warning: mockWarning }) }));
 jest.mock("@/ui/icons/Icon", () => ({ Icon: "Icon" }));
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
@@ -71,4 +75,23 @@ it.each([
   await render(<ChatMessagePdf attachmentId="doc" fileName="lease-notes.pdf" />);
   await act(async () => { await mockShare?.(); });
   expect(alertDialog).toHaveBeenLastCalledWith({ title: "common.download_failed", message: key });
+});
+
+// A second tap on Share while the PDF downloaded reached Android's share module while the
+// first was still open, which refused it, and the viewer said the export failed.
+it("tries no second Share while the first is downloading, says so, and spins until it is done", async () => {
+  let finish: () => void = () => {};
+  jest.mocked(alertDialog).mockClear();
+  jest.mocked(downloadChatAttachment).mockClear();
+  jest.mocked(downloadChatAttachment).mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+  await render(<ChatMessagePdf attachmentId="doc" fileName="lease-notes.pdf" />);
+  let first: Promise<void> | undefined;
+  await act(async () => { first = mockShare?.(); });
+  expect(mockSharing).toBe(true);
+  await act(async () => { await mockShare?.(); });
+  expect(downloadChatAttachment).toHaveBeenCalledTimes(1);
+  expect(mockWarning).toHaveBeenCalledWith("common.share_in_progress");
+  await act(async () => { finish(); await first; });
+  expect(mockSharing).toBe(false);
+  expect(alertDialog).not.toHaveBeenCalled();
 });

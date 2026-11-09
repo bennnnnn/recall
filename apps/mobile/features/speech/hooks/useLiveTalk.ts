@@ -6,7 +6,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import { AppState, BackHandler, Linking } from "react-native";
+import { AppState, BackHandler } from "react-native";
 
 import { useDrawerControls } from "@/contexts/DrawerContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -34,7 +34,7 @@ import {
 import { stopReadAloud } from "@/features/speech/model/readAloudSession";
 import type { RealtimeVoiceEvent, RealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { confirmDialog } from "@/ui/overlay/dialogs";
+import { offerSettings } from "@/ui/overlay/dialogs";
 
 /**
  * What live talk takes from the chat screen it runs on: the chat a turn lands in and
@@ -94,14 +94,7 @@ function showLiveTalkGate(
   if (gate === "consent") return;
   if (gate === "mic_permission") {
     // The OS asks only once; after a denial only Settings can turn it on.
-    void confirmDialog({
-      title: t("chat.live_talk_mic_permission_title"),
-      message: t("chat.live_talk_mic_permission_body"),
-      cancelLabel: t("common.cancel"),
-      confirmLabel: t("chat.location_open_settings"),
-    }).then((open) => {
-      if (open) void Linking.openSettings();
-    });
+    void offerSettings("microphone");
     return;
   }
   reportRecoverableError(feedback, t(liveTalkGateMessageKey(gate)));

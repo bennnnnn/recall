@@ -32,8 +32,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator } from "expo-image-manipulator";
 
-jest.mock("@/ui/overlay/dialogs", () => ({ confirmDialog: jest.fn(async () => true) }));
-const confirmDialog = jest.requireMock<{ confirmDialog: jest.Mock }>("@/ui/overlay/dialogs").confirmDialog;
+jest.mock("@/ui/overlay/dialogs", () => ({ offerSettings: jest.fn(async () => true) }));
+const offerSettings = jest.requireMock<{ offerSettings: jest.Mock }>("@/ui/overlay/dialogs").offerSettings;
 jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 const mockRead = jest.fn();
@@ -238,12 +238,8 @@ it("asks for camera permission only after the system rejects the launch", async 
   expect(Linking.openSettings).not.toHaveBeenCalled();
 });
 
-it.each([
-  [true, 1],
-  [false, 0],
-])("asks before opening Settings when camera access cannot be requested again (open=%p)", async (open, opened) => {
-  confirmDialog.mockClear().mockResolvedValueOnce(open);
-  jest.mocked(Linking.openSettings).mockClear();
+it("asks before opening Settings when camera access cannot be requested again", async () => {
+  offerSettings.mockClear();
   jest.mocked(ImagePicker.launchCameraAsync).mockRejectedValue(
     new Error("Missing camera or camera roll permission"),
   );
@@ -253,10 +249,7 @@ it.each([
   } as ImagePicker.CameraPermissionResponse);
   // The dialog said what is needed; the pick ends quietly instead of a second error.
   await expect(pickFromCamera()).resolves.toBeNull();
-  expect(confirmDialog).toHaveBeenCalledWith(
-    expect.objectContaining({ title: "chat.camera_permission", confirmLabel: "chat.location_open_settings" }),
-  );
-  expect(Linking.openSettings).toHaveBeenCalledTimes(opened);
+  expect(offerSettings).toHaveBeenCalledWith("camera");
   expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
 });
 

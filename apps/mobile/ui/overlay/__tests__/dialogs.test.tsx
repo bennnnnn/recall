@@ -1,8 +1,9 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 
 import { DialogHost } from "../DialogHost";
-import { alertDialog, confirmDialog } from "../dialogs";
+import { alertDialog, confirmDialog, offerSettings, type SettingsPermission } from "../dialogs";
+import en from "@/lib/i18n/en.json";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 jest.mock("@/lib/theme", () => ({
@@ -77,5 +78,58 @@ describe("DialogHost", () => {
     await waitFor(() => expect(view.getByText("Second")).toBeTruthy());
     await fireEvent.press(view.getByRole("button", { name: "common.ok" }));
     await second;
+  });
+});
+
+// Six copies of this dialog had their own words and cancel labels (Cancel, Not now), named
+// the camera, microphone and photos with the location key, and one left for Settings unasked.
+describe("offerSettings()", () => {
+  const permissions: SettingsPermission[] = ["camera", "microphone", "photos", "location", "notifications"];
+  let alert: jest.SpyInstance;
+  let open: jest.SpyInstance;
+  beforeEach(() => {
+    alert = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+    open = jest.spyOn(Linking, "openSettings").mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    alert.mockRestore();
+    open.mockRestore();
+  });
+  const buttons = () => alert.mock.calls.at(-1)?.[2] as { text: string; onPress?: () => void }[];
+  const strings = en as Record<string, string>;
+
+  it.each(permissions)("asks for %s in its own words, with Not now and Open Settings", async (permission) => {
+    const answer = offerSettings(permission);
+    expect(alert).toHaveBeenLastCalledWith(
+      `permissions.${permission}_title`,
+      `permissions.${permission}_body`,
+      expect.any(Array),
+    );
+    expect(buttons().map((button) => button.text)).toEqual(["common.not_now", "common.open_settings"]);
+    expect([strings[`permissions.${permission}_title`], strings[`permissions.${permission}_body`]]).toEqual([
+      expect.any(String),
+      expect.any(String),
+    ]);
+    expect(open).not.toHaveBeenCalled();
+    buttons()[1]?.onPress?.();
+    await expect(answer).resolves.toBe(true);
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays in the app on Not now", async () => {
+    const answer = offerSettings("camera");
+    buttons()[0]?.onPress?.();
+    await expect(answer).resolves.toBe(false);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("says so when Settings cannot open", async () => {
+    open.mockRejectedValueOnce(new Error("no settings"));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const answer = offerSettings("photos");
+    buttons()[1]?.onPress?.();
+    await expect(answer).resolves.toBe(false);
+    expect(alert).toHaveBeenLastCalledWith("common.open_settings_failed");
+    warn.mockRestore();
   });
 });

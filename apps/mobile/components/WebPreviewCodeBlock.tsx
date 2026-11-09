@@ -4,9 +4,13 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useFileShare } from "@/hooks/useFileShare";
 import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/preview/htmlPreviewBundle";
 import { useHtmlPreviewFiles } from "@/lib/preview/htmlPreviewFiles";
 import { openHtmlInBrowser } from "@/lib/preview/openHtmlPreview";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { shareFailureKey } from "@/lib/shareUnavailable";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -36,6 +40,15 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
     () => (modalOpen ? bundleHtmlPreview(code, siblingFiles) : ""),
     [modalOpen, code, siblingFiles],
   );
+  // Where no browser takes the page (iOS), it goes to the share sheet: one share at a time.
+  const { share } = useFileShare();
+  const feedback = useActionFeedbackOptional();
+  const openInBrowser = () => {
+    const html = bundleHtmlPreview(code, siblingFiles);
+    void share(() => openHtmlInBrowser(html, t("preview.share_title"))).catch((error: unknown) =>
+      reportRecoverableError(feedback, t(shareFailureKey(error, "preview.open_failed"))),
+    );
+  };
   const previewLabel = previewHasSiblingAssets(siblingFiles)
     ? t("preview.preview_html_bundled")
     : t("preview.preview_html");
@@ -75,7 +88,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             </TouchableOpacity>
             <TouchableOpacity
               style={s.iconBtn}
-              onPress={() => void openHtmlInBrowser(bundleHtmlPreview(code, siblingFiles))}
+              onPress={openInBrowser}
               activeOpacity={0.6}
               hitSlop={4}
               accessibilityRole="button"

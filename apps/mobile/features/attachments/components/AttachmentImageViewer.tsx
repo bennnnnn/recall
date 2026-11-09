@@ -34,6 +34,7 @@ import {
   type AttachmentViewerImage,
 } from "@/features/attachments/model/imageViewer";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { shareOneAtATime } from "@/lib/shareFile";
 import { shareFailureKey } from "@/lib/shareUnavailable";
 import { useTheme } from "@/lib/theme";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
@@ -255,11 +256,11 @@ function ViewerContent({
     if (!remoteUri || busy) return;
     setBusy("share");
     try {
-      await shareChatAttachment({
+      await shareOneAtATime(() => shareChatAttachment({
         uri: remoteUri,
         token,
         fileName: currentName,
-      });
+      }));
     } catch (error) {
       feedback.error(t(shareFailureKey(error, "common.share_image_error")));
     } finally {

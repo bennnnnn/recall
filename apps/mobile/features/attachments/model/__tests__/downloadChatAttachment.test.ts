@@ -4,6 +4,8 @@ import { shareAsync } from "expo-sharing";
 import { Platform, Share } from "react-native";
 
 import { downloadAttachmentFile } from "@/features/attachments/model/fetchAttachmentBytes";
+import { shareOneAtATime } from "@/lib/shareFile";
+import { ShareInProgressError } from "@/lib/shareUnavailable";
 import {
   ensureLocalAttachmentFile,
   getCachedAttachmentFile,
@@ -462,5 +464,18 @@ describe("share and save", () => {
     await expect(saveChatAttachmentToLibrary({ uri: "https://files.test/share-failure", token: "tok" }))
       .rejects.toThrow("Share unavailable");
     expect(shareAsync).toHaveBeenCalledTimes(1);
+  });
+
+  // Photos refused, the photo went to the share sheet past the one-at-a-time guard: a share
+  // already open there was refused on Android and the save said it failed.
+  it("sends a refused save to the share sheet only when no other share is open", async () => {
+    jest.mocked(MediaLibrary.requestPermissionsAsync).mockResolvedValueOnce({ granted: false } as MediaLibrary.PermissionResponse);
+    let close: () => void = () => {};
+    const open = shareOneAtATime(() => new Promise<void>((resolve) => { close = resolve; }));
+    await expect(saveChatAttachmentToLibrary({ uri: "https://files.test/while-sharing.jpg", token: "tok" }))
+      .rejects.toBeInstanceOf(ShareInProgressError);
+    expect(shareAsync).not.toHaveBeenCalled();
+    close();
+    await open;
   });
 });

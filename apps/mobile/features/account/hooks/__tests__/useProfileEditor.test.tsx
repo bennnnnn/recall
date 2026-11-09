@@ -200,16 +200,16 @@ it.each([
   expect(editor).toMatchObject({ picking: false, error: key, visible: true });
 });
 
-it("offers photo permission settings and ignores a retained alert action after editor closure", async () => {
+it("asks before opening Settings for photo library access, and opens them on Open Settings", async () => {
   jest.mocked(pickProfilePhoto).mockRejectedValue(new PhotoLibraryPermissionError(true));
   await setup();
   await act(async () => { await editor.choosePhoto(); });
-  expect(Alert.alert).toHaveBeenCalledWith("settings.change_photo", "settings.photo_permission", expect.any(Array));
+  expect(Alert.alert).toHaveBeenCalledWith("permissions.photos_title", "permissions.photos_body", expect.any(Array));
+  expect(Linking.openSettings).not.toHaveBeenCalled();
   const action = jest.mocked(Alert.alert).mock.calls.at(-1)?.[2]?.[1]?.onPress;
   await act(async () => { action?.(); });
   expect(Linking.openSettings).toHaveBeenCalledTimes(1);
-  await act(async () => { editor.close(); editor.open(); action?.(); });
-  expect(Linking.openSettings).toHaveBeenCalledTimes(1);
+  expect(editor).toMatchObject({ picking: false, error: null });
 });
 
 it("locks cancellation while picking and discards a late selection after an account switch", async () => {

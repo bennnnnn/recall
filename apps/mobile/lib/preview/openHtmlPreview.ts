@@ -1,11 +1,8 @@
-import {
-  cacheDirectory,
-  writeAsStringAsync,
-  EncodingType,
-} from "expo-file-system/legacy";
+import { writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import * as WebBrowser from "expo-web-browser";
-import { Linking, Platform, Share } from "react-native";
-import { newAccountFile } from "@/lib/accountFiles";
+import { Linking } from "react-native";
+import { documentFileName, newShareFile } from "@/lib/accountFiles";
+import { shareLocalFile } from "@/lib/shareFile";
 import { stripScripts } from "@/lib/preview/htmlScriptStrip";
 import { HTML_EXPORT_CSP, cspMetaTag, injectAtHeadStart } from "@/lib/preview/previewSandbox";
 import type { Theme } from "@/lib/theme";
@@ -67,19 +64,17 @@ const UTF8_BOM = "\uFEFF";
 /** First in the export, ahead of its CSP and the page: a second guard on the charset. */
 const EXPORT_CHARSET_META = '<meta charset="utf-8">';
 
-async function writeHtmlPreviewFile(html: string): Promise<string | null> {
-  const dir = cacheDirectory;
-  if (!dir) return null;
+/** Android's share targets read the page's type; iOS reads it from the `.html` name. */
+const HTML_MIME_TYPE = "text/html";
 
-  const fileUri = newAccountFile("htmlPreview", "html");
-  try {
-    await writeAsStringAsync(fileUri, UTF8_BOM + html, {
-      encoding: EncodingType.UTF8,
-    });
-    return fileUri;
-  } catch {
-    return null;
-  }
+/**
+ * The page as `<title>.html` ("HTML preview.html", not "recall-preview-1731….html") in a share
+ * folder of its own, swept an hour on like every shared copy, and at sign-out.
+ */
+async function writeHtmlPreviewFile(html: string, title: string): Promise<string> {
+  const { file } = await newShareFile(documentFileName(title, "html"));
+  await writeAsStringAsync(file, UTF8_BOM + html, { encoding: EncodingType.UTF8 });
+  return file;
 }
 
 /**
@@ -97,84 +92,46 @@ function htmlExportDocument(html: string): string {
   );
 }
 
-/** Open rendered HTML in the system browser (works in Expo Go); static view only. */
-export async function openHtmlInBrowser(html: string): Promise<boolean> {
-  const fullHtml = htmlExportDocument(html);
+/** Short enough to open as a `data:` URL; a longer page is opened from a file. */
+const DATA_URL_MAX_CHARS = 120_000;
 
-  if (fullHtml.length < 120_000) {
-    const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`;
+/** The ways a page is shown, in turn: the system's handler for the URL, then an in-app browser. */
+const BROWSER_OPENERS = [(url: string) => Linking.openURL(url), (url: string) => WebBrowser.openBrowserAsync(url)];
+
+/** True once a browser shows `url`. */
+async function showInBrowser(url: string): Promise<boolean> {
+  for (const open of BROWSER_OPENERS) {
     try {
-      await Linking.openURL(dataUrl);
+      await open(url);
       return true;
-    } catch {
-      try {
-        await WebBrowser.openBrowserAsync(dataUrl);
-        return true;
-      } catch {
-        /* fall through */
-      }
+    } catch (error) {
+      // Expected on iOS, which opens neither data: nor file: URLs: the next way is tried.
+      if (typeof __DEV__ !== "undefined" && __DEV__) console.info("[preview] a browser refused the page", error);
     }
   }
-
-  const fileUri = await writeHtmlPreviewFile(fullHtml);
-  if (!fileUri) return false;
-
-  try {
-    await Linking.openURL(fileUri);
-    return true;
-  } catch {
-    /* fall through */
-  }
-
-  try {
-    await WebBrowser.openBrowserAsync(fileUri);
-    return true;
-  } catch {
-    /* try next */
-  }
-
-  if (Platform.OS === "ios" || Platform.OS === "android") {
-    try {
-      await Share.share(
-        Platform.OS === "ios"
-          ? { url: fileUri, title: "HTML Preview" }
-          : { message: fileUri, title: "HTML Preview" },
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   return false;
 }
 
-/** Share rendered HTML via the system share sheet; static view only. */
-export async function shareHtmlPreview(html: string): Promise<boolean> {
+/**
+ * Open rendered HTML in the system browser (works in Expo Go); static view only. Where no
+ * browser takes the page (iOS opens neither data: nor file: URLs) it goes to the share
+ * sheet, as a file, whose apps can open it; `title` names that sheet. Throws when nothing
+ * could show the page.
+ */
+export async function openHtmlInBrowser(html: string, title: string): Promise<void> {
   const fullHtml = htmlExportDocument(html);
-  const fileUri = await writeHtmlPreviewFile(fullHtml);
+  const small = fullHtml.length < DATA_URL_MAX_CHARS;
+  if (small && (await showInBrowser(`data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`))) return;
+  const fileUri = await writeHtmlPreviewFile(fullHtml, title);
+  if (await showInBrowser(fileUri)) return;
+  await shareLocalFile(fileUri, { title, mimeType: HTML_MIME_TYPE });
+}
 
-  if (fileUri) {
-    try {
-      await Share.share(
-        Platform.OS === "ios"
-          ? { url: fileUri, title: "HTML Preview" }
-          : { message: fileUri, title: "HTML Preview" },
-      );
-      return true;
-    } catch {
-      /* fall through */
-    }
-  }
-
-  if (fullHtml.length < 120_000) {
-    try {
-      await Share.share({ message: fullHtml, title: "HTML Preview" });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
+/**
+ * Share rendered HTML as a file through the system share sheet; static view only. A
+ * dismissed sheet is not a failure; anything else is thrown for the caller to report.
+ */
+export async function shareHtmlPreview(html: string, title: string): Promise<void> {
+  const fileUri = await writeHtmlPreviewFile(htmlExportDocument(html), title);
+  await shareLocalFile(fileUri, { title, mimeType: HTML_MIME_TYPE });
 }

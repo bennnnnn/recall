@@ -61,6 +61,9 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/cache/usageCache.ts#resource": "invalidateUsageCache",
   "lib/cachedModels.ts#cachedModelsFile": "clearCachedModels",
   "lib/cachedUser.ts#cachedUserFile": "clearCachedUser",
+  // Only whether a share is busy, but one the last account left hanging must not hold the next's.
+  "lib/shareFile.ts#shareGeneration": "resetShareGuard",
+  "lib/shareFile.ts#shareInFlight": "resetShareGuard",
   "lib/lesson/quizAttempts.ts#attempts": "clearQuizAttempts",
   "lib/linkPreview.ts#cache": "clearLinkPreviewCache",
   "lib/money/calculatorPositions.ts#positions": "clearCalculatorPositions",

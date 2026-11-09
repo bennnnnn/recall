@@ -4,6 +4,8 @@ import { Platform } from "react-native";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import type { AppleDeleteConsent } from "@/lib/apple-auth";
+import { shareOneAtATime } from "@/lib/shareFile";
+import { shareFailureKey } from "@/lib/shareUnavailable";
 
 const mockExportText = jest.fn();
 const mockShare = jest.fn();
@@ -58,6 +60,24 @@ it("exports and shares the file", async () => {
   expect(done).toBe(true);
   expect(mockShare).toHaveBeenCalledWith("{}");
   expect(result.current.progress).toBe("idle");
+});
+
+// An export whose download finished while another share's sheet was still open shared
+// nothing and said nothing: the screen now reads "already in progress" from the error.
+it("says a share is already running instead of sharing nothing quietly", async () => {
+  mockExportText.mockResolvedValue("{}");
+  let close: () => void = () => {};
+  const open = shareOneAtATime(() => new Promise<void>((resolve) => { close = resolve; }));
+  const { result } = await renderHook(() => useDataControls());
+  let failure: unknown;
+  await act(async () => {
+    failure = await result.current.exportData().catch((error: unknown) => error);
+  });
+  expect(shareFailureKey(failure, "settings.export_failed")).toBe("common.share_in_progress");
+  expect(mockShare).not.toHaveBeenCalled();
+  expect(result.current.progress).toBe("idle");
+  close();
+  await open;
 });
 
 it("cancelling stops the request and shares nothing", async () => {

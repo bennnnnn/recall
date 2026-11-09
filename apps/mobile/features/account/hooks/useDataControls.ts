@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { type AccountDeleteOutcome, useAccountDelete } from "@/hooks/useAccountDelete";
 import { api } from "@/lib/api";
 import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
+import { shareOneAtATime } from "@/lib/shareFile";
 
 type DataControlsProgress = "idle" | "exporting" | "deleting";
 
@@ -22,7 +23,8 @@ export function useDataControls() {
     try {
       const raw = await api.exportDataText(token, controller.signal);
       if (controller.signal.aborted) return false;
-      await shareAccountExport(formatExportJsonForShare(raw));
+      // Cancel lets a new export start while the last one's sheet may still be open: it says so.
+      await shareOneAtATime(() => shareAccountExport(formatExportJsonForShare(raw)));
       return true;
     } catch (error) {
       if (controller.signal.aborted) return false;

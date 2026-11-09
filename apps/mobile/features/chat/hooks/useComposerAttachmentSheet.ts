@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type MutableRefObject } from "react";
-import { Keyboard, Linking } from "react-native";
+import { Keyboard } from "react-native";
 
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
@@ -16,6 +16,7 @@ import {
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
 import { getSessionGeneration } from "@/lib/auth";
+import { offerSettings } from "@/ui/overlay/dialogs";
 
 type Options = {
   token: string | null;
@@ -93,8 +94,9 @@ export function useComposerAttachmentSheet({
       } catch (error) {
         if (!current()) return;
         if (error instanceof PhotoLibraryPermissionError) {
-          if (error.needsSettings) void Linking.openSettings();
-          feedback?.error(t("chat.photos_permission"));
+          // Only Settings can turn it back on: ask before leaving the app.
+          if (error.needsSettings) void offerSettings("photos");
+          else feedback?.error(t("chat.photos_permission"));
         } else if (error instanceof NativePickerBusyError || error instanceof NativePickerTimeoutError) {
           feedback?.error(t("chat.picker_busy"));
         } else {

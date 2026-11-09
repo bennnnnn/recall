@@ -4,6 +4,7 @@ import { Image, type ImageLoadEventData } from "expo-image";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
+import { useFileShare } from "@/hooks/useFileShare";
 import {
   LazyAttachmentPdfViewer,
   LazyAttachmentTextViewer,
@@ -55,16 +56,17 @@ function PendingAttachmentViewer({ attachment, open, onClose }: {
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { sharing, share } = useFileShare();
   const { localUri, fileName, contentType } = attachment;
   if (attachment.kind === "image") {
     return <LazyComposerImageEnlarge visible={open} uri={localUri} onClose={onClose} />;
   }
   const onShare = () => {
-    void shareLocalFile(localUri, { title: fileName, mimeType: contentType }).catch((error: unknown) =>
+    void share(() => shareLocalFile(localUri, { title: fileName, mimeType: contentType })).catch((error: unknown) =>
       alertDialog({ title: t(shareFailureKey(error, "common.share_failed")) }),
     );
   };
-  const props = { visible: open, onClose, localUri, fileName, onShare };
+  const props = { visible: open, onClose, localUri, fileName, onShare, sharing };
   const viewer = fileViewer(contentType);
   if (viewer === "pdf") return <LazyAttachmentPdfViewer {...props} />;
   return viewer === "text" ? <LazyAttachmentTextViewer {...props} /> : null;
