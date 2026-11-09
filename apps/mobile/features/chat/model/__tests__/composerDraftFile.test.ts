@@ -3,6 +3,7 @@ import {
   readComposerDrafts,
   writeComposerDrafts,
 } from "@/features/chat/model/composerDraftFile";
+import { isPadMathDraft, notePadMathDraft } from "@/features/chat/model/padMathDrafts";
 
 const mockFiles = new Map<string, string>();
 jest.mock("expo-file-system/legacy", () => ({
@@ -21,6 +22,21 @@ it("reads back each chat's draft this account wrote, and leaves out empty ones",
   await writeComposerDrafts("user-1", new Map([["new", "Plan a trip"], ["chat-1", "  "], ["chat-2", "and the second"]]));
   const drafts = await readComposerDrafts("user-1");
   expect([...drafts]).toEqual([["new", "Plan a trip"], ["chat-2", "and the second"]]);
+});
+
+// A math draft saved as the app closed came back as `$\frac{5}{3}$` in the field.
+it("remembers which drafts the math keyboard wrote, and only those", async () => {
+  notePadMathDraft("$\\frac{5}{3}$");
+  await writeComposerDrafts("user-1", new Map([["new", "$\\frac{5}{3}$"], ["chat-1", "The price is $5"]]));
+  expect(JSON.parse(mockFiles.get(PATH) ?? "{}").math).toEqual(["new"]);
+  await clearSavedComposerDrafts();
+  expect(isPadMathDraft("$\\frac{5}{3}$")).toBe(false);
+
+  mockFiles.set(PATH, JSON.stringify({ user_id: "user-1", drafts: { new: "$x^2$", "chat-1": "The price is $5" }, math: ["new"] }));
+  await readComposerDrafts("user-1");
+  expect(isPadMathDraft("$x^2$")).toBe(true);
+  expect(isPadMathDraft("The price is $5")).toBe(false);
+  await clearSavedComposerDrafts();
 });
 
 it("never gives one account another's drafts", async () => {

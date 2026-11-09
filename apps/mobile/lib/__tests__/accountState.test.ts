@@ -40,6 +40,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/openedDocument.ts#held": "clearOpenedDocument",
   "features/chat/model/chatListCache.ts#resource": "invalidateChatListCache",
   "features/chat/model/composerDraftFile.ts#draftsFile": "clearSavedComposerDrafts",
+  "features/chat/model/padMathDrafts.ts#padMathTexts": "clearSavedComposerDrafts",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
   "features/chat/model/messageCache.ts#backgroundAt": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#cancelSave": "clearAllCachedChatMessages",
