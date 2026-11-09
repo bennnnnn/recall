@@ -142,6 +142,14 @@ const FROM_SUBSCRIPT: Record<string, string> = Object.fromEntries(
   Object.entries(SUBSCRIPT).map(([ascii, uni]) => [uni, ascii]),
 );
 
+/** A script glyph's own character and whether it is lowered or raised (`ₒ` is a lowered "o"),
+ * or null for any other character. */
+export function scriptGlyphBase(ch: string): { base: string; kind: "sub" | "sup" } | null {
+  if (ch in FROM_SUBSCRIPT) return { base: FROM_SUBSCRIPT[ch]!, kind: "sub" };
+  if (ch in FROM_SUPERSCRIPT) return { base: FROM_SUPERSCRIPT[ch]!, kind: "sup" };
+  return null;
+}
+
 function isSuperscriptChar(ch: string): boolean {
   return ch in FROM_SUPERSCRIPT;
 }
