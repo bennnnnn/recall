@@ -15,7 +15,7 @@ import {
 import { shouldInsertDrawerRowOnLeave } from "@/features/chat/model/titleRefresh";
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightScroll";
-import { useChatMetadata } from "@/features/chat/hooks/useChatMetadata";
+import type { ChatMetadata } from "@/features/chat/hooks/useChatMetadata";
 import { useChatPaging } from "@/features/chat/hooks/useChatPaging";
 import { useChatPageCacheWriter, useChatPageSync } from "@/features/chat/hooks/useChatPageCacheWriter";
 import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect";
@@ -40,10 +40,12 @@ type Options = {
   editThread: EditThread;
   messages: Message[];
   streaming: boolean;
-  /** Latest image-gen in-flight flag — AppState/focus closures must not snapshot it. */
-  imageGeneratingRef?: React.MutableRefObject<boolean>;
+  /** A picture is being made: the turn is busy, as while a reply streams. */
+  imageGenerating?: boolean;
   stopGeneration: () => void;
   listRef: React.RefObject<FlashListRef<Message> | null>;
+  /** The open chat's title and flags (useChatMetadata): an open sets them, leaving puts them back. */
+  metadata: Pick<ChatMetadata, "setChatTitle" | "applyMetadata" | "resetMetadata">;
   showActionBanner: (message: string, icon?: IconName) => void;
   t: (key: string) => string;
 };
@@ -108,12 +110,11 @@ function useLeaveOpenChat({ routeChatId, chatId, stopGeneration, draft, messages
 
 export function useChatRouteLoader({
   token, routeChatId, routeHighlightMessage, router, draft, chatId, setChatId, editThread, messages, streaming,
-  imageGeneratingRef, stopGeneration, listRef, showActionBanner, t,
+  imageGenerating = false, stopGeneration, listRef, metadata, showActionBanner, t,
 }: Options) {
   const messagesRef = useLatestRef(messages);
   const getFirstUserText = useCallback(() => firstUserText(messagesRef.current), [messagesRef]);
-  const { chatTitle, setChatTitle, pinned, setPinned, archived, setArchived, applyMetadata, resetMetadata } =
-    useChatMetadata(chatId);
+  const { setChatTitle, applyMetadata, resetMetadata } = metadata;
   const { titleGenerating, pollForTitle, handleFirstReply } = useChatTitlePolling({
     token, chatId, setChatTitle, getFirstUserText,
   });
@@ -129,13 +130,14 @@ export function useChatRouteLoader({
   // AppState closures must read the latest streaming/loading flags.
   const streamingRef = useLatestRef(streaming);
   const chatLoadingRef = useLatestRef(chatLoading);
+  const imageGeneratingRef = useLatestRef(imageGenerating);
   const knownAssistantChatId = chatId ?? routeChatId ?? null;
   const messagesHadContent = chatHasThreadContent(messages);
   useEffect(() => {
     if (knownAssistantChatId && messagesHadContent) markChatHasAssistant(knownAssistantChatId);
   }, [knownAssistantChatId, messagesHadContent]);
   const turnBusy = useCallback(
-    () => streamingRef.current || Boolean(imageGeneratingRef?.current),
+    () => streamingRef.current || imageGeneratingRef.current,
     [imageGeneratingRef, streamingRef],
   );
 
@@ -178,13 +180,7 @@ export function useChatRouteLoader({
   });
 
   return {
-    chatTitle,
-    setChatTitle,
     titleGenerating,
-    pinned,
-    setPinned,
-    archived,
-    setArchived,
     chatLoading,
     // Send waits only while nothing of the routed chat is on screen.
     historyPending: chatLoading && (messages.length === 0 || chatId !== (routeChatId ?? null)),

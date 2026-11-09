@@ -85,7 +85,7 @@ type ForegroundOptions = {
   // streaming" view after ws.onclose commits a partial reply.
   streamingRef: RefObject<boolean>;
   chatLoadingRef: RefObject<boolean>;
-  imageGeneratingRef?: RefObject<boolean>;
+  imageGeneratingRef: RefObject<boolean>;
   refetch: Refetch;
 };
 
@@ -106,7 +106,7 @@ export function useForegroundRefetch({
       if (state === "background" || state === "inactive") {
         // Another device may write to any chat while this one is away.
         if (state === "background") markCachedChatPagesStale();
-        if (streamingRef.current || Boolean(imageGeneratingRef?.current)) {
+        if (streamingRef.current || imageGeneratingRef.current) {
           wasStreamingWhenBackgroundedRef.current = true;
         }
         // An unused draft is dropped by useDraftChat, once, on background.
@@ -126,7 +126,7 @@ export function useForegroundRefetch({
           chatId: openChatId,
           streaming: streamingRef.current,
           chatLoading: chatLoadingRef.current,
-          imageGenerating: Boolean(imageGeneratingRef?.current),
+          imageGenerating: imageGeneratingRef.current,
         })
       ) {
         return;

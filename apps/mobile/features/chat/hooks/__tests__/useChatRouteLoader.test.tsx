@@ -2,6 +2,7 @@ import React, { memo, useLayoutEffect, useState } from "react";
 import { AppState, Text } from "react-native";
 import { act, render, waitFor } from "@testing-library/react-native";
 
+import { useChatMetadata, type ChatMetadata } from "@/features/chat/hooks/useChatMetadata";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
 import * as foregroundRefresh from "@/lib/foregroundRefresh";
@@ -82,6 +83,7 @@ const setChatId = jest.fn();
 const setMessages = jest.fn();
 
 function Probe() {
+  const metadata = useChatMetadata(null);
   const result = useChatRouteLoader({
     token: "token",
     routeChatId: "chat-1",
@@ -104,6 +106,7 @@ function Probe() {
     streaming: false,
     stopGeneration: jest.fn(),
     listRef: { current: null },
+    metadata,
     showActionBanner: jest.fn(),
     t: (key) => key,
   });
@@ -188,6 +191,7 @@ describe("useChatRouteLoader", () => {
     const setParams = jest.fn();
     let startNewChat: ((opts?: { force?: boolean }) => void) | undefined;
     function StreamingProbe() {
+      const metadata = useChatMetadata("open-1");
       const result = useChatRouteLoader({
         token: "token",
         routeChatId: "open-1",
@@ -225,6 +229,7 @@ describe("useChatRouteLoader", () => {
         streaming: true,
         stopGeneration,
         listRef: { current: null },
+        metadata,
         showActionBanner: jest.fn(),
         t: (key) => key,
       });
@@ -248,6 +253,7 @@ describe("useChatRouteLoader", () => {
     const stopGeneration = jest.fn();
     let startNewChat: ((opts?: { force?: boolean }) => void) | undefined;
     function DeletedProbe() {
+      const metadata = useChatMetadata("open-1");
       const result = useChatRouteLoader({
         token: "token",
         routeChatId: "open-1",
@@ -278,6 +284,7 @@ describe("useChatRouteLoader", () => {
         streaming: true,
         stopGeneration,
         listRef: { current: null },
+        metadata,
         showActionBanner: jest.fn(),
         t: (key) => key,
       });
@@ -306,7 +313,8 @@ function deferred<T>() {
 const message = (id: string, content: string): Message => ({
   id, content, role: "assistant", model: null, created_at: "2026-01-01T00:00:00Z",
 });
-let routeState: ReturnType<typeof useChatRouteLoader>;
+/** The loader's state and the chat's title and flags it sets, as the screen reads them. */
+let routeState: ReturnType<typeof useChatRouteLoader> & ChatMetadata;
 let visibleMessages: Message[];
 const routeDraft = {
   draftChatIdRef: { current: null },
@@ -322,15 +330,16 @@ let setThread: React.Dispatch<React.SetStateAction<Message[]>>;
 function useRouteProbe(routeId: string, token: string, streaming: boolean) {
   const [chatId, updateChatId] = useState<string | null>(null);
   const [messages, updateMessages] = useState<Message[]>([]);
+  const metadata = useChatMetadata(chatId);
   const result = useChatRouteLoader({
     token, routeChatId: routeId, routeHighlightMessage: undefined,
     router: { setParams: jest.fn() } as never,
     draft: routeDraft as never,
     chatId, setChatId: updateChatId, messages, editThread: updateMessages,
-    streaming, stopGeneration: jest.fn(), listRef: { current: null },
+    streaming, stopGeneration: jest.fn(), listRef: { current: null }, metadata,
     showActionBanner: banner, t: translate,
   });
-  useLayoutEffect(() => { routeState = result; visibleMessages = messages; });
+  useLayoutEffect(() => { routeState = { ...result, ...metadata }; visibleMessages = messages; });
   useLayoutEffect(() => { setThread = updateMessages; }, [updateMessages]);
   return { result, messages };
 }

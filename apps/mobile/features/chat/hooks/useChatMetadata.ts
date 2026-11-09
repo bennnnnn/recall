@@ -37,3 +37,5 @@ export function useChatMetadata(chatId: string | null) {
 
   return { chatTitle, setChatTitle, pinned, setPinned, archived, setArchived, applyMetadata, resetMetadata };
 }
+
+export type ChatMetadata = ReturnType<typeof useChatMetadata>;
