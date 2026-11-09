@@ -160,6 +160,11 @@ const SPACED_OPERATOR_NAMES = new Set([
   "sim", "cong", "to", "in", "notin", "subset", "subseteq", "cup", "cap",
 ]);
 const SPACED_OPERATOR_CHARS = new Set(["+", "-", "=", "<", ">"]);
+/** Groups whose words are text, not maths (`\text{x-ray}`): nothing in them is spaced. */
+const TEXT_GROUP_COMMANDS = new Set([
+  "\\text", "\\textrm", "\\textbf", "\\textit", "\\textsf", "\\texttt", "\\textup",
+  "\\textnormal", "\\mathrm", "\\operatorname", "\\mbox",
+]);
 /** After one of these a `-` or `+` is a sign (`(-3`, `x^-1`, `a, -b`), not an operation. */
 const OPENS_TERM = new Set(["(", "[", "{", "\\{", ",", "^", "_"]);
 const DRAFT_TOKEN = /\\[A-Za-z]+|\\.|\s+|./gsu;
@@ -195,7 +200,7 @@ export function spacedDraftMath(latex: string, { termBefore = false, tight = fal
   let afterTerm = termBefore;
   let last: (DraftToken & { spaced: boolean }) | null = null;
   let space = false;
-  // Each open brace, and whether it holds a script (`x^{n+1}`), which stays close.
+  // Each open brace, and whether it stays close: a script (`x^{n+1}`) or a text group.
   const groups: boolean[] = [];
   for (const [text] of latex.matchAll(DRAFT_TOKEN)) {
     if (!text.trim()) {
@@ -203,7 +208,7 @@ export function spacedDraftMath(latex: string, { termBefore = false, tight = fal
       continue;
     }
     const token = draftToken(text);
-    if (text === "{") groups.push(last?.text === "^" || last?.text === "_");
+    if (text === "{") groups.push(last?.text === "^" || last?.text === "_" || TEXT_GROUP_COMMANDS.has(last?.text ?? ""));
     if (text === "}") groups.pop();
     if (token.operator && afterTerm && !tight && !groups.includes(true)) {
       out = `${out.trimEnd() || EDGE_SPACE}${out.trim() ? " " : ""}${text} `;

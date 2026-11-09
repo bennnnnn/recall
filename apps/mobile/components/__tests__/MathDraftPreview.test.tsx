@@ -31,6 +31,9 @@ describe("spacedDraftMath", () => {
     [String.raw`\sin x`, String.raw`\sin x`],
     ["x^{n+1}", "x^{n+1}"],
     ["3+", String.raw`3 +\,`],
+    // Words in a text group are text: `x-ray` stays one word.
+    [String.raw`\text{x-ray}+1`, String.raw`\text{x-ray} + 1`],
+    [String.raw`\mathrm{a=b}`, String.raw`\mathrm{a=b}`],
   ])("spaces %s as a reply would: %s", (draft, drawn) => {
     expect(spacedDraftMath(draft)).toBe(drawn);
   });
