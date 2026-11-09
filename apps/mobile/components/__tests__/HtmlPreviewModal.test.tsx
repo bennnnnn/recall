@@ -76,17 +76,17 @@ describe("HtmlPreviewModal Share", () => {
     let close: () => void = () => {};
     jest.mocked(shareLocalFile).mockImplementationOnce(() => new Promise<void>((resolve) => { close = resolve; }));
     const view = await render(<HtmlPreviewModal visible html="<p>Plain paragraph</p>" onClose={() => {}} />);
-    await fireEvent.press(view.getByLabelText("preview.share"));
+    await fireEvent.press(view.getByLabelText("common.share"));
     await act(async () => { await Promise.resolve(); });
-    await fireEvent.press(view.getByLabelText("preview.share"));
+    await fireEvent.press(view.getByLabelText("common.share"));
     expect(shareLocalFile).toHaveBeenCalledTimes(1);
     expect(shareLocalFile).toHaveBeenCalledWith(expect.stringMatching(/\.html$/), {
       title: "preview.share_title",
       mimeType: "text/html",
     });
-    expect(view.getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: true });
+    expect(view.getByLabelText("common.share").props.accessibilityState).toMatchObject({ busy: true });
     await act(async () => close());
-    expect(view.getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: false });
+    expect(view.getByLabelText("common.share").props.accessibilityState).toMatchObject({ busy: false });
   });
 
   // A second tap was dropped with no word, so nothing seemed to happen.
@@ -94,9 +94,9 @@ describe("HtmlPreviewModal Share", () => {
     let close: () => void = () => {};
     jest.mocked(shareLocalFile).mockImplementationOnce(() => new Promise<void>((resolve) => { close = resolve; }));
     const view = await render(<HtmlPreviewModal visible html="<p>Plain paragraph</p>" onClose={() => {}} />);
-    await fireEvent.press(view.getByLabelText("preview.share"));
+    await fireEvent.press(view.getByLabelText("common.share"));
     await act(async () => { await Promise.resolve(); });
-    await fireEvent.press(view.getByLabelText("preview.share"));
+    await fireEvent.press(view.getByLabelText("common.share"));
     expect(await view.findByText("common.share_in_progress")).toBeOnTheScreen();
     expect(alertDialog).not.toHaveBeenCalled();
     await act(async () => close());
@@ -108,7 +108,7 @@ describe("HtmlPreviewModal Share", () => {
   ])("says when the share failed: %s", async (_case, failure, key) => {
     jest.mocked(shareLocalFile).mockRejectedValueOnce(failure);
     const view = await render(<HtmlPreviewModal visible html="<p>Plain paragraph</p>" onClose={() => {}} />);
-    await fireEvent.press(view.getByLabelText("preview.share"));
+    await fireEvent.press(view.getByLabelText("common.share"));
     await act(async () => { await Promise.resolve(); });
     expect(alertDialog).toHaveBeenCalledWith({ title: key });
   });

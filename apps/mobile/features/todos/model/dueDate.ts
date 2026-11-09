@@ -31,7 +31,7 @@ export function describeDueAt(iso: string | null | undefined): {
       tone: "today",
     };
   }
-  if (dayDiff === 1) return { label: i18n.t("calendar.tomorrow_heading"), tone: "soon" };
+  if (dayDiff === 1) return { label: i18n.t("todos.group_tomorrow"), tone: "soon" };
   if (dayDiff <= 7) {
     return {
       label: formatDate(due, "weekdayDate"),

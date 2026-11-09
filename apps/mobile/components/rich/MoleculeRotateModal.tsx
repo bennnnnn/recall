@@ -71,7 +71,7 @@ export function MoleculeRotateModal({ visible, onClose, onGrant, onMove, childre
                 icon="close"
                 onPress={onClose}
                 testID="molecule-rotate-close"
-                accessibilityLabel={t("preview.close")}
+                accessibilityLabel={t("common.close")}
               />
             </View>
             <GestureDetector gesture={gesture}>

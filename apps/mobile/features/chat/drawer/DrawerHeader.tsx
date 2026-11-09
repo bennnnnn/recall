@@ -90,10 +90,10 @@ export function DrawerHeader({
                 onNewChat();
               }}
               accessibilityRole="button"
-              accessibilityLabel={t("drawer.new_chat")}
+              accessibilityLabel={t("chat.new_chat")}
             >
               <Icon name="edit" size={IconSize.sm} color={theme.onPrimary} />
-              <Text style={s.newChatText}>{t("drawer.new_chat")}</Text>
+              <Text style={s.newChatText}>{t("chat.new_chat")}</Text>
             </Pressable>
           </View>
         )}

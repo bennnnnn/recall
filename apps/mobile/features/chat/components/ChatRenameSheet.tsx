@@ -37,7 +37,7 @@ export function ChatRenameSheet({
         onCancel={onClose}
         onSave={onSave}
         cancelLabel={t("common.cancel")}
-        saveLabel={t("settings.save")}
+        saveLabel={t("common.save")}
       />
       <View style={s.body}>
         <TextField

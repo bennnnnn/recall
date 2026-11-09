@@ -64,7 +64,7 @@ export const ChatRowActions = createContext<((chat: Chat, action: ChatRowAction)
  */
 function rowActions(chat: Chat, t: TFunction): AccessibilityActionInfo[] {
   const actions: AccessibilityActionInfo[] = [
-    { name: "share", label: t("chat.share") },
+    { name: "share", label: t("common.share") },
     { name: "rename", label: t("chat.rename") },
   ];
   if (!chat.archived) actions.push({ name: "pin", label: t(chat.pinned ? "chat.unpin" : "chat.pin") });

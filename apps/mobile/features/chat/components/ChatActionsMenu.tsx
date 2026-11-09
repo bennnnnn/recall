@@ -50,7 +50,7 @@ export function ChatActionsMenu({
 
   const items = useMemo(() => {
     const rows: MenuEntry[] = [
-      { key: "share", icon: "share", label: t("chat.share"), onPress: onShare },
+      { key: "share", icon: "share", label: t("common.share"), onPress: onShare },
     ];
     if (onExportPdf) {
       rows.push({ key: "export-pdf", icon: "file-text", label: t("chat.export_pdf"), onPress: onExportPdf });

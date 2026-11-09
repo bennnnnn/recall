@@ -56,7 +56,7 @@ it("asks before closing with changed text, and stays open to keep editing", asyn
   expect(onClose).not.toHaveBeenCalled();
   expect(view.getByTestId("open-state").props.children).toBe("open");
 
-  await fireEvent.press(view.getByText("settings.cancel"));
+  await fireEvent.press(view.getByText("common.cancel"));
   await act(async () => mockAnswer(true));
   expect(onClose).toHaveBeenCalledTimes(1);
 });
