@@ -51,8 +51,8 @@ describe("drawerChatFetchMode", () => {
     expect(drawerChatFetchMode(base)).toBe("full");
   });
 
-  it("does not refetch GET /chats when the list is already painted", () => {
-    expect(drawerChatFetchMode({ ...base, hasLoadedOnce: true })).toBe("skip");
+  it("reads a painted list again behind its rows (useDrawerChatList skips a fresh one)", () => {
+    expect(drawerChatFetchMode({ ...base, hasLoadedOnce: true })).toBe("revalidate");
   });
 
   it("does not idle-warm GET /chats after the drawer already listed chats", () => {

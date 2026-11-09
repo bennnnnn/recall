@@ -38,6 +38,12 @@ const mockIdle: (() => void)[] = [];
 jest.mock("@/lib/scheduleIdle", () => ({
   scheduleIdleTask: (task: () => void) => { mockIdle.push(task); return jest.fn(); },
 }));
+// A return from the background, as the app's one AppState subscription reports it.
+let mockForeground: (() => void) | null = null;
+jest.mock("@/lib/foregroundRefresh", () => ({
+  ...jest.requireActual("@/lib/foregroundRefresh"),
+  useOnForeground: (refresh: () => void, enabled = true) => { mockForeground = enabled ? refresh : null; },
+}));
 const mockWarn = jest.fn();
 jest.mock("@/lib/reportRecoverableError", () => ({
   reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
@@ -185,6 +191,46 @@ it("reads the list on the next drawer open when the first read after a cold star
   await act(async () => { await Promise.resolve(); });
   expect(api.listChats).toHaveBeenCalledTimes(2);
   expect(current.allChats.map((row) => row.title)).toEqual(["Created on laptop"]);
+});
+
+describe("a chat started on another device", () => {
+  const phone = { ...emptyChatList(), today: [{ ...chat, id: "phone", title: "Started on the phone" }], older: [chat] };
+  const later = (ms: number) => jest.spyOn(Date, "now").mockReturnValue(Date.now() + ms);
+  afterEach(() => jest.restoreAllMocks());
+
+  // The drawer read its list once a run: a chat made on the S23 never showed on the iPhone.
+  it("shows when the drawer opens once the list is stale, read behind the rows shown", async () => {
+    seedChatListCacheForTest(initial);
+    const view = await render(<Probe open={false} />);
+    let finish!: (value: ChatList) => void;
+    (api.listChats as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    later(21_000);
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(1);
+    expect(current.loading).toBe(false);
+    expect(current.allChats).toEqual([chat]);
+    await act(async () => { finish(phone); });
+    expect(current.allChats.map((row) => row.id)).toEqual(["phone", "old"]);
+  });
+
+  it("is not read for again when the drawer opens within 20 s of the last read", async () => {
+    seedChatListCacheForTest(initial);
+    const view = await render(<Probe open={false} />);
+    await act(async () => { await view.rerender(<Probe open />); });
+    await act(async () => { await view.rerender(<Probe open={false} />); });
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).not.toHaveBeenCalled();
+  });
+
+  it("shows after a return from the background, with the drawer closed (Home's last chat)", async () => {
+    seedChatListCacheForTest(initial);
+    await render(<Probe open={false} />);
+    (api.listChats as jest.Mock).mockResolvedValueOnce(phone);
+    later(60_000);
+    await act(async () => { mockForeground?.(); });
+    expect(api.listChats).toHaveBeenCalledTimes(1);
+    expect(getCachedChatList()?.today.map((row) => row.id)).toEqual(["phone"]);
+  });
 });
 
 it("reads older chats once at a time and appends them (CLAR-12)", async () => {
