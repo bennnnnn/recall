@@ -1,3 +1,4 @@
+import { looksLikeCode } from "@/lib/copyBlock";
 import { classifyFence, classifyOpenFencePreview } from "@/lib/fence/dispatch";
 
 describe("classifyFence — explicit tags win", () => {
@@ -87,6 +88,48 @@ describe("classifyFence — explicit tags win", () => {
     "streams an open %s fence as prose, never as code",
     (lang) => {
       expect(classifyOpenFencePreview(lang, "Draft still streaming")).toBe("prose");
+    },
+  );
+});
+
+// Shape decides, never English words. A local review of the change that removed the
+// English lists found drafts losing their card to weak code signals, and code streaming
+// as prose: these are its cases.
+describe("a fence's shape", () => {
+  it.each([
+    ["email", "Liebe Kolleg(inn)en,\n\nich möchte euch an das Treffen am Freitag um zehn Uhr im Büro erinnern.\n\nViele Grüße\nBini"],
+    ["email", "Cher·e·s collègues,\n\nJe vous écris pour confirmer la réunion de vendredi.\nMerci aux étudiant(e)s qui ont aidé à préparer la salle.\n\nBien à vous,\nBini"],
+    ["email", "Estimada Ana:\n\nTe escribo para confirmar la reunión del viernes a las diez en la oficina central.\n\nSaludos,\nBini\nTel: +1(555) 123-4567"],
+    ["linkedin", "Excited to share that our team is hiring for several role(s) this spring.\nIf you love building products people use every day, reach out to me!"],
+  ])("keeps a tagged %s draft its card, brackets and all", (lang, body) => {
+    expect(classifyFence(lang, body).kind).toBe("rich");
+  });
+
+  it("keeps a copy card for a poem with an indented line", () => {
+    const poem = "Roses are red, violets are blue,\n    sugar is sweet, and so are you.\nHappy Valentine's Day, my dear friend, with love from all of us.";
+    expect(classifyFence("copy", poem).kind).toBe("copy");
+  });
+
+  it.each([
+    "Bring your ID(s) and a printed copy of the booking to the front desk.\nArrive by nine so there is time to check in before the tour.",
+    "Pack light for the trip, since the bus has little room for bags;\nbring water, a hat and sunscreen for the afternoon walk in the park.",
+    "Remember to call the landlord about the heater before Friday, and\nusing the portal, pay the rent for December so it is not late again.",
+  ])("reads untagged sentences as prose: %p", (body) => {
+    expect(looksLikeCode(body)).toBe(false);
+    expect(classifyOpenFencePreview("", body)).toBe("prose");
+  });
+
+  it("keeps untagged code its card, a comment of words and all", () => {
+    const js = "function add(a, b) {\n  return a + b;\n}\nconst total = add(1, 2);\nconsole.log(total); // prints 3 as expected\n";
+    expect(looksLikeCode(js)).toBe(true);
+    expect(classifyFence("", js).kind).toBe("code");
+    expect(classifyOpenFencePreview("", js)).toBe("code");
+  });
+
+  it.each(["npm install express", "npm install express\nconst app = express();", "{", '{\n  "type": "graph",'])(
+    "streams the start of untagged code as code, not prose first: %p",
+    (body) => {
+      expect(classifyOpenFencePreview("", body)).toBe("code");
     },
   );
 });

@@ -39,6 +39,15 @@ it("offers on the day's first open, and once more after a chat later that day", 
   expect(await takePlansOffer("open", at(13))).toBeNull();
 });
 
+// The file wrote "2026-11-6" before the day keys were padded: read as written, the day's
+// offers started over and its out-of-credit offer showed twice.
+it("reads a day the old file wrote unpadded as the same day", async () => {
+  // The day's offers used up, and its out-of-credit offer shown.
+  mockFiles.set("recall.plans_offers.txt", `2026-11-6|9|${at(0)}|2026-11-6`);
+  expect(await takePlansOffer("chatted", at(0) + SECOND_OFFER_AFTER_MS)).toBeNull();
+  expect(await takeOutOfCreditOffer(at(1))).toBe(false);
+});
+
 it("starts again the next day", async () => {
   await takePlansOffer("open", at(0));
   expect(await takePlansOffer("open", at(24))).toBe("nudge");
