@@ -7,6 +7,7 @@ import { MATH_LIVE_ANSWER_HEIGHT } from "@/features/chat/components/MathLiveAnsw
 import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
+import { ACCENTS } from "@/lib/accent";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/features/chat/context/ComposerDraftContext";
 import { homeOnScreen } from "@/features/home/model/homeOnScreen";
 
@@ -668,6 +669,20 @@ describe("ChatComposer math keyboard", () => {
     expect(answer()).toBe("");
     await press("digit-3", "plus", "digit-1", "times", "digit-2");
     expect(answer()).toBe("= 5");
+    // At the bottom, between + and Send, in the green accent whatever accent the app wears.
+    const row = getByTestId("composer-controls-row");
+    expect(within(row).getByTestId("math-live-answer")).toBeTruthy();
+    type Inked = { props?: { style?: unknown; color?: string; fill?: string }; children?: (Inked | string)[] };
+    const inks = (node: Inked | string): (string | undefined)[] =>
+      typeof node === "string"
+        ? []
+        : [
+            (StyleSheet.flatten(node.props?.style as never) as { color?: string } | undefined)?.color,
+            node.props?.color,
+            node.props?.fill,
+            ...(node.children ?? []).flatMap(inks),
+          ];
+    expect(inks(getByTestId("math-live-answer") as unknown as Inked)).toContain(ACCENTS.green.light.primary);
     await press("plus", "digit-2");
     expect(answer()).toBe("= 7");
     await press("plus");
@@ -682,10 +697,19 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-live-answer")).toBeNull();
   });
 
-  it("leaves the thread free to scroll while the math keyboard is open", async () => {
+  it("opens full height with the math keyboard, and leaves the thread free to scroll once folded", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await openMathKeyboard();
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    // As its expand control would make it: pinned under the top bar, the draft over the pad.
+    const top = () => StyleSheet.flatten(getByTestId("chat-composer").props.style).top;
+    expect(top()).toBeGreaterThan(0);
+    expect(queryByTestId("composer-scroll-fade")).toBeNull();
+    // An emptied draft does not fold it while the keyboard is open.
+    await fireEvent.press(getByTestId("math-key-digit-3"));
+    await fireEvent.press(getByTestId("math-key-backspace"));
+    expect(top()).toBeGreaterThan(0);
+    await fireEvent.press(getByTestId("composer-expand"));
     // The pad's ground runs on past the screen's bottom edge (a negative bottom margin), so
     // its top, where the fade sits, is its height less that overrun.
     const pad = StyleSheet.flatten(getByTestId("math-keyboard-pad").props.style);

@@ -40,7 +40,7 @@ import { ComposerSendControls } from "@/features/chat/components/ComposerSendCon
 import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
-import { MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
+import { MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer, mathCardStyles } from "@/features/chat/components/MathLiveAnswer";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
@@ -206,8 +206,9 @@ export const ChatComposer = memo(function ChatComposer({
     fontScale,
     buttonRowBelow: rowFit.wraps,
     onInputFrameExtraChange,
+    mathPadOpen: mathBarOpen,
   });
-  const stacked = rowFit.wraps || composerExpanded;
+  const stacked = rowFit.wraps || composerExpanded || mathBarOpen;
 
   const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const gapFadeStyle = useAnimatedStyle(() => {
@@ -265,9 +266,7 @@ export const ChatComposer = memo(function ChatComposer({
   const expandedBlockStyle = composerExpanded
     ? [s.composerBlockExpanded, { top: insets.top + Space.xs }]
     : null;
-  const containerStyle = animatedContainerStyle
-    ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
-    : [blockStyle, expandedBlockStyle];
+  const containerStyle = [blockStyle, animatedContainerStyle, expandedBlockStyle];
   const attachButton = (
     <ComposerAttachButton
       s={s}
@@ -379,7 +378,7 @@ export const ChatComposer = memo(function ChatComposer({
                     // Keeps one line on the field's midline. Extra lines grow above the caret.
                     { paddingBottom: field.slack / 2 },
                     stacked && s.inputFieldStacked,
-                    composerExpanded && s.inputFieldExpanded,
+                    composerExpanded && s.inputFieldExpanded, mathBarOpen && mathCardStyles.field,
                   ]}
                   testID="chat-composer-field"
                   accessible={false} // a tap area; screen readers reach the text field inside
@@ -454,9 +453,9 @@ export const ChatComposer = memo(function ChatComposer({
                     multiline
                     returnKeyType="default"
                   />
-                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} />}
+                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} top={mathBarOpen} />}
                   {showEmptyCaret ? (
-                    <View style={s.emptyCaret} pointerEvents="none">
+                    <View style={[s.emptyCaret, mathCardStyles.emptyCaret]} pointerEvents="none">
                       <MathComposerCaret testID="math-composer-caret" />
                     </View>
                   ) : null}
@@ -464,10 +463,10 @@ export const ChatComposer = memo(function ChatComposer({
               )}
               {stacked ? null : trailingControls}
             </View>
-            {math.mathBarOpen ? <MathLiveAnswer input={input} /> : null}
             {stacked ? (
               <View style={s.controlsRow} testID="composer-controls-row">
                 {attachButton}
+                {mathBarOpen ? <MathLiveAnswer input={input} /> : null}
                 {trailingControls}
               </View>
             ) : null}

@@ -28,6 +28,8 @@ type Options = {
   buttonRowBelow?: boolean;
   /** Extra field height past one line, so the thread moves up with the pill. */
   onInputFrameExtraChange?: (extra: number) => void;
+  /** The math keyboard is open: the editor opens full height, and stays so while it is. */
+  mathPadOpen?: boolean;
 };
 
 /**
@@ -43,6 +45,7 @@ export function useComposerFieldLayout({
   fontScale,
   buttonRowBelow = false,
   onInputFrameExtraChange,
+  mathPadOpen = false,
 }: Options) {
   const [inputHeight, setInputHeight] = useState<number>(COMPOSER_CONTROL_SIZE);
   const [inputContentWidth, setInputContentWidth] = useState(0);
@@ -68,10 +71,10 @@ export function useComposerFieldLayout({
     setInputHeight(height);
   }, []);
 
-  // Expanded chrome belongs to the active draft, not the mounted screen.
-  useEffect(() => setComposerExpanded(false), [draftRevision]);
-  // Android Back folds the full-height editor before it leaves the chat (the phone's keyboard takes the first).
-  useAndroidBack(composerExpanded, () => setComposerExpanded(false));
+  // Expanded chrome belongs to the active draft; the math keyboard opens it full height until it closes.
+  useEffect(() => setComposerExpanded(mathPadOpen), [draftRevision, mathPadOpen]);
+  // Android Back folds the full-height editor (the phone's keyboard takes the first; the math pad's closes both).
+  useAndroidBack(composerExpanded && !mathPadOpen, () => setComposerExpanded(false));
 
   useEffect(() => {
     // iOS can retain the last multiline content size after a controlled
@@ -84,7 +87,7 @@ export function useComposerFieldLayout({
     if (!input) {
       setMeasuredContent(null);
       commitInputHeight(COMPOSER_CONTROL_SIZE);
-      setComposerExpanded(false);
+      if (!mathPadOpen) setComposerExpanded(false); // the math keyboard holds it open
       return;
     }
     const retained = retainedComposerContentHeight(measuredContentRef.current, revision, input);
@@ -96,7 +99,7 @@ export function useComposerFieldLayout({
       estimatedLines,
     );
     commitInputHeight(frame.height);
-  }, [commitInputHeight, draftRevision, estimatedLines, fontScale, input, inputContentWidth, measuredContentRef]);
+  }, [commitInputHeight, draftRevision, estimatedLines, fontScale, input, inputContentWidth, mathPadOpen, measuredContentRef]);
 
   const onTextMeasure = (size: ComposerTextSize) => {
     if (measuredHeightRef.current === size.height) return;
@@ -117,9 +120,7 @@ export function useComposerFieldLayout({
     onInputFrameExtraChange?.(inputFrameExtra);
   }, [inputFrameExtra, onInputFrameExtraChange]);
 
-  const measuredNow = input
-    ? retainedComposerContentHeight(measuredContent, draftRevision ?? 0, input)
-    : 0;
+  const measuredNow = input ? retainedComposerContentHeight(measuredContent, draftRevision ?? 0, input) : 0;
   const field = composerInputMetrics(fontScale);
   const frameNow =
     measuredHeight > 0
@@ -172,7 +173,7 @@ export function useComposerFieldLayout({
     // line sits on the field's midline.
     textBoxHeight: composerInputTextBoxHeight(fieldHeight, fontScale),
     fieldOverflows,
-    showExpandControl: fieldOverflows || composerExpanded,
+    showExpandControl: fieldOverflows || composerExpanded || mathPadOpen,
     onInputLayout,
     onInputContentSizeChange,
   };
