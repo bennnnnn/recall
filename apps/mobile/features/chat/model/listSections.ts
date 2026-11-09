@@ -156,6 +156,47 @@ export function appendArchivedChats(groups: ChatList, page: Page<Chat>): ChatLis
   };
 }
 
+/** The same row: a chat edited since (renamed, written to) is not where the old page put it. */
+const sameRow = (a: Chat) => (b: Chat) => a.id === b.id && a.updated_at === b.updated_at;
+
+/**
+ * The rows `shown` holds past the end of a fresh first page: those after the page's last row,
+ * when `shown` holds that row unchanged (the page still leads into them), less any the page
+ * holds itself. Null when the page is the whole list or no longer leads into the rows below.
+ */
+function rowsBelow<R extends { chat: Chat }>(shown: R[], page: R[], more: unknown, inPage: Set<string>): R[] | null {
+  const last = page.at(-1);
+  if (!more || !last) return null;
+  const at = shown.findIndex((row) => sameRow(last.chat)(row.chat));
+  if (at < 0) return null;
+  const below = shown.slice(at + 1).filter((row) => !inPage.has(row.chat.id));
+  return below.length ? below : null;
+}
+
+/**
+ * A fresh first page over a list that read further (older dated chats, archived "Show
+ * more"): it replaces only what it covers, and the pages read below it stay, with their
+ * cursor. A re-read put the list back to its first page, under the user's thumb.
+ */
+export function keepLoadedPages(shown: ChatList, fresh: ChatList): ChatList {
+  const inPage = new Set(allChatsFromGroups(fresh).map((chat) => chat.id));
+  const dated = (groups: ChatList) => CHAT_DATE_SECTIONS.flatMap((key) => groups[key].map((chat) => ({ chat, key })));
+  const next: ChatList = { ...fresh };
+  const olderRows = rowsBelow(dated(shown), dated(fresh), fresh.next_cursor, inPage);
+  if (olderRows) {
+    for (const key of CHAT_DATE_SECTIONS) next[key] = [...fresh[key]];
+    for (const { chat, key } of olderRows) next[key].push(chat);
+    next.next_cursor = shown.next_cursor ?? null;
+  }
+  const archive = (groups: ChatList) => groups.archived.map((chat) => ({ chat }));
+  const archivedRows = rowsBelow(archive(shown), archive(fresh), fresh.archived_next_cursor, inPage);
+  if (archivedRows) {
+    next.archived = [...fresh.archived, ...archivedRows.map(({ chat }) => chat)];
+    next.archived_next_cursor = shown.archived_next_cursor ?? null;
+  }
+  return next;
+}
+
 export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {
   const key = chat.archived ? ARCHIVED_CHAT_SECTION : chat.pinned ? PINNED_CHAT_SECTION : chatRecencySection(chat);
   return { ...groups, [key]: [...groups[key], chat].sort(newestFirst) };

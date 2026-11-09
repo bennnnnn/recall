@@ -23,6 +23,11 @@ import {
   resolveClientGeoForQuery,
 } from "@/features/chat/model/resolveClientGeoForQuery";
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
+const mockReportFailure = jest.fn();
+jest.mock("@/lib/sentry", () => ({
+  ...jest.requireActual("@/lib/sentry"),
+  reportFailure: (...args: unknown[]) => mockReportFailure(...args),
+}));
 beforeEach(() => {
   (getSessionGeneration as jest.Mock).mockReturnValue(0);
   dotsUp = true;
@@ -576,6 +581,110 @@ describe("useChatSend", () => {
     });
     expect(setMessages).toHaveBeenCalledTimes(1);
     expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  // Text typed while a send from a window waited for the newest page was wiped when the
+  // bubble painted, and the send carried the text from before.
+  it("sends what the field held at the tap and keeps what is typed while the newest page loads", async () => {
+    inputRef.current = "and then?";
+    let back: () => void = () => undefined;
+    const beforeSend = jest.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    const sendMessage = sent();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} beforeSend={beforeSend} />);
+    });
+    let sendPromise: Promise<boolean> = Promise.resolve(true);
+    await act(async () => {
+      sendPromise = current.handleSend();
+      await Promise.resolve();
+    });
+    // The field empties at the tap, as any send's does, and Send shows busy.
+    expect(mockSetInput).toHaveBeenCalledWith("");
+    expect(current.sendPhase).toBe("preparing");
+    mockSetInput.mockClear();
+    inputRef.current = "next question";
+
+    await act(async () => {
+      back();
+      await sendPromise;
+    });
+    expect(sendMessage).toHaveBeenCalledWith("and then?", expect.anything());
+    expect(mockSetInput).not.toHaveBeenCalled();
+  });
+
+  // A send in chat 1 waiting for its newest page cleared the in-flight flag of chat 2's send.
+  it("leaves another chat's send in flight when its own wait for the newest page ends", async () => {
+    mockThreadKey = "chat-1";
+    inputRef.current = "and then?";
+    let back: () => void = () => undefined;
+    const beforeSend = jest.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    const sendMessage = sent();
+    const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} beforeSend={beforeSend} />);
+    let first: Promise<boolean> = Promise.resolve(true);
+    await act(async () => {
+      first = current.handleSend();
+      await Promise.resolve();
+    });
+    mockThreadKey = "chat-2";
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" sendMessage={sendMessage} />);
+    // Chat 2's send waits for the server's reading of it.
+    mockImageIntent.mockReturnValue(new Promise(() => {}));
+    inputRef.current = "draw a cat";
+    await act(async () => {
+      void current.handleSend();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      back();
+      await first;
+    });
+    let tapped: boolean | undefined;
+    await act(async () => { tapped = await current.handleSend("A follow-up", { leaveComposer: true }); });
+    expect(tapped).toBe(false);
+  });
+
+  it("still sends the text from the tap when going back to the newest page fails", async () => {
+    inputRef.current = "and then?";
+    const failure = new Error("page");
+    const beforeSend = jest.fn(async () => { throw failure; });
+    const sendMessage = sent();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} beforeSend={beforeSend} />);
+    });
+    let went: boolean | undefined;
+    await act(async () => { went = await current.handleSend(); });
+    expect(went).toBe(true);
+    expect(sendMessage).toHaveBeenCalledWith("and then?", expect.anything());
+    expect(mockReportFailure).toHaveBeenCalledWith("chat_page", failure);
+  });
+
+  it("gives the text back to its chat when another chat opens while the newest page loads", async () => {
+    mockThreadKey = "chat-1";
+    inputRef.current = "and then?";
+    let back: () => void = () => undefined;
+    const beforeSend = jest.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    const sendMessage = sent();
+    const setMessages = jest.fn();
+    const view = await render(
+      <Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} setMessages={setMessages} beforeSend={beforeSend} />,
+    );
+    let went: Promise<boolean> = Promise.resolve(true);
+    await act(async () => {
+      went = current.handleSend();
+      await Promise.resolve();
+    });
+    mockThreadKey = "chat-2";
+    await view.rerender(
+      <Probe chatId="chat-2" routeChatId="chat-2" sendMessage={sendMessage} setMessages={setMessages} beforeSend={beforeSend} />,
+    );
+    await act(async () => {
+      back();
+      await went;
+    });
+    await expect(went).resolves.toBe(false);
+    expect(setMessages).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "and then?");
   });
 
   it("gives the draft back when geo is cancelled", async () => {

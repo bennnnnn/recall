@@ -9,6 +9,12 @@ export function composerThreadKey(
     : COMPOSER_NEW_THREAD_KEY;
 }
 
+/** Each write moves its thread to the end: the map runs from the least recently written (kept on disk in that order). */
+function writeDraft(drafts: Map<string, string>, key: string, text: string): void {
+  drafts.delete(key);
+  drafts.set(key, text);
+}
+
 /** Save the leaving thread's text and return the draft for `toKey`. Mutates `drafts`. */
 export function takeThreadDraft(
   drafts: Map<string, string>,
@@ -17,7 +23,7 @@ export function takeThreadDraft(
   currentText: string,
 ): string {
   if (fromKey === toKey) return currentText;
-  drafts.set(fromKey, currentText);
+  writeDraft(drafts, fromKey, currentText);
   return drafts.get(toKey) ?? "";
 }
 
@@ -34,8 +40,8 @@ export function adoptNewComposerThread(
 ): string {
   if (fromKey === toKey) return toKey;
   if (fromKey !== COMPOSER_NEW_THREAD_KEY) return fromKey;
-  drafts.set(COMPOSER_NEW_THREAD_KEY, "");
-  drafts.set(toKey, currentText);
+  writeDraft(drafts, COMPOSER_NEW_THREAD_KEY, "");
+  writeDraft(drafts, toKey, currentText);
   return toKey;
 }
 
@@ -59,7 +65,7 @@ export function stashFailedSendDraft(
 ): void {
   const stored = drafts.get(key) ?? "";
   if (shouldRestoreFailedSend(stored, failedText)) {
-    drafts.set(key, failedText);
+    writeDraft(drafts, key, failedText);
   }
 }
 

@@ -38,6 +38,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/attachments/model/openedDocument").then(({ clearOpenedDocument }) => clearOpenedDocument()),
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/chat/model/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
+    // The unsent text of each chat's composer, kept for the next run.
+    import("@/features/chat/model/composerDraftFile").then(({ clearSavedComposerDrafts }) => clearSavedComposerDrafts()),
     // A reply read aloud stops with the account, and its player closes.
     import("@/features/speech/model/pronunciation").then(({ stopReadingAloud }) => stopReadingAloud()),
     import("@/features/memory/model/memoryListCache").then(({ invalidateMemoriesCache }) => invalidateMemoriesCache()),
