@@ -126,6 +126,18 @@ function replacedToken(token: string, generation: number): string | null {
   return last?.generation === generation && last.token !== token ? last.token : null;
 }
 
+/**
+ * A token for `token`, which is about to expire: the one the last refresh issued while that is
+ * good, else a refresh (the shared one). Screens a launch mounted hold the stored token for a
+ * moment after it was refreshed; each that asked then found no flight to join and refreshed it
+ * again (two POST /auth/refresh at one launch in the 2026-11-08 feature test).
+ */
+function renewedToken(token: string, generation: number): Promise<string | null> {
+  const replaced = replacedToken(token, generation);
+  if (replaced && !accessTokenNeedsRefresh(replaced)) return Promise.resolve(replaced);
+  return refreshAccessToken();
+}
+
 /** One POST /auth/refresh: the new pair, or null when the server refused the token (401).
  * Any other failure throws; only a refused token may sign the user out. */
 async function askForRefresh(refreshToken: string, signal: AbortSignal, generation: number): Promise<AuthResult | null> {
@@ -202,7 +214,7 @@ async function refreshAccessToken(): Promise<string | null> {
 export async function freshAccessToken(token: string | null): Promise<string | null> {
   if (!token || !accessTokenNeedsRefresh(token)) return token;
   const generation = getSessionGeneration();
-  const refreshed = await refreshAccessToken();
+  const refreshed = await renewedToken(token, generation);
   return generation === getSessionGeneration() ? (refreshed ?? token) : null;
 }
 
@@ -398,7 +410,7 @@ export async function requestRaw(
     // as long as its own deadline and its caller allow (code-health audit NET-17).
     if (effectiveToken && allowRefresh && accessTokenNeedsRefresh(effectiveToken)) {
       refreshAttempted = true;
-      const refreshed = await untilAborted(refreshAccessToken(), controller.signal);
+      const refreshed = await untilAborted(renewedToken(effectiveToken, generation), controller.signal);
       requireSession(generation);
       requireNotAborted(controller.signal);
       if (refreshed) effectiveToken = refreshed;
@@ -448,7 +460,7 @@ export async function authorizeNativeTransfer(
   let refreshAttempted = false;
   if (effectiveToken && allowRefresh && accessTokenNeedsRefresh(effectiveToken)) {
     refreshAttempted = true;
-    const refreshed = await refreshAccessToken();
+    const refreshed = await renewedToken(effectiveToken, generation);
     requireSession(generation);
     if (refreshed) effectiveToken = refreshed;
   }

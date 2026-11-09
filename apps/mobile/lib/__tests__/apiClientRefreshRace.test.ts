@@ -119,10 +119,34 @@ it("sends one refresh for two copies of the client module, and stays signed in",
   expect(signOuts).toEqual([]);
   // One valid session: the pair the phone stored is the one the server holds.
   expect(server.live).toEqual(new Set([mockStore.refreshToken]));
-  // The next refresh starts a new flight, with the rotated token.
+  // Once the token that refresh issued expires too, the next refresh starts a new flight,
+  // with the rotated token.
   mockStore.refreshToken = [...server.live][0];
-  await first.request("/me", expired());
+  const now = Date.now();
+  const later = jest.spyOn(Date, "now").mockReturnValue(now + 2 * 3_600_000);
+  try {
+    await first.request("/me", expired());
+  } finally {
+    later.mockRestore();
+  }
   expect(server.refreshes).toEqual(["r0", "r1"]);
+  expect(signOuts).toEqual([]);
+});
+
+it("sends one refresh at launch when a screen asks with the expired token after it landed", async () => {
+  // 2026-11-08 feature test: a launch sent two POST /auth/refresh. The app restores the
+  // stored (expired) token, refreshes it, and screens that mounted with the stored token
+  // keep asking with it for a moment: one that asked after the refresh finished found no
+  // flight to join and refreshed again. It now takes the token that refresh issued.
+  const server = serve();
+  const signOuts: string[] = [];
+  const client = loadClient(signOuts, "app");
+  const stored = expired();
+  const fresh = await client.freshAccessToken(stored);
+  expect(fresh).not.toBe(stored);
+  await expect(client.request("/todos/page", stored)).resolves.toEqual({});
+  await expect(client.request("/chats", stored)).resolves.toEqual({});
+  expect(server.refreshes).toEqual(["r0"]);
   expect(signOuts).toEqual([]);
 });
 
