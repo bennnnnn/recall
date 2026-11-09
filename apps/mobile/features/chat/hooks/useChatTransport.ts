@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import { AppState } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
+import { useFocusEffect } from "expo-router";
 
 import { useAccountSession } from "@/contexts/accountSession";
 import { chatWebSocketUrl } from "@/lib/api";
@@ -9,7 +10,7 @@ import type { ClientGeo } from "@/features/chat/model/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isNetworkPathChange } from "@/lib/networkStatus";
 import { shouldAbortPriorSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";
-import { createWsBackoff } from "@/features/chat/model/wsBackoff";
+import { createWsBackoff, type WsBackoff } from "@/features/chat/model/wsBackoff";
 import { ChatWsTransport, type ChatWsFallbackSignal } from "@/features/chat/model/wsTransport";
 import { useLatestRef } from "@/lib/latestRef";
 
@@ -27,6 +28,89 @@ function isQuiet(transport: ChatWsTransport): boolean {
   return !transport.isTurnActive() && !transport.expectsFollowUps();
 }
 
+type SocketRefs = {
+  wsTransportRef: MutableRefObject<ChatWsTransport | null>;
+  backoffRef: MutableRefObject<WsBackoff>;
+};
+
+/**
+ * When a chat's socket goes with no send to make: the view unmounts, a screen covers the
+ * chat (To-do, Settings, Library), the app goes to the background, or the network path
+ * changes (a turn in flight is probed instead). Returns what a new transport reads: whether
+ * the chat is in view, and the release a frame received in the background runs.
+ */
+function useSocketLeaves({ wsTransportRef, backoffRef }: SocketRefs) {
+  const backgroundedRef = useRef(false);
+  /** The chat is the screen on top (no To-do, Settings or Library over it). */
+  const inViewRef = useRef(true);
+
+  /** In the background an idle socket only answers the server's keepalive
+   * pings, which wakes the radio every 20 seconds. A turn in flight keeps it
+   * until its done or error; the next send opens a new one. */
+  const releaseIdleInBackground = useCallback(() => {
+    const transport = wsTransportRef.current;
+    if (!backgroundedRef.current || !transport || transport.isTurnActive()) return;
+    wsTransportRef.current = null;
+    transport.close();
+  }, [wsTransportRef]);
+
+  useEffect(() => {
+    return () => {
+      const transport = wsTransportRef.current;
+      wsTransportRef.current = null;
+      transport?.close();
+    };
+  }, [wsTransportRef]);
+
+  // A screen over the chat (To-do, Settings, Library): its socket goes once nothing is due.
+  useFocusEffect(useCallback(() => {
+    inViewRef.current = true;
+    return () => {
+      inViewRef.current = false;
+      wsTransportRef.current?.leftView();
+    };
+  }, [wsTransportRef]));
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "background") {
+        backgroundedRef.current = true;
+        releaseIdleInBackground();
+        return;
+      }
+      if (state !== "active") return;
+      backgroundedRef.current = false;
+      // A turn kept its socket in the background, where the radio may have dropped it.
+      const kept = wsTransportRef.current;
+      if (kept?.isTurnActive()) kept.probe();
+    });
+    return () => sub.remove();
+  }, [wsTransportRef, releaseIdleInBackground]);
+
+  // Wi-Fi ⇄ cellular, or back online: a socket opened on the old path can be
+  // half-open. A turn's socket is probed (dropped if it does not answer); one
+  // with no turn is closed, and the next send opens one on the new path.
+  // Failures on the old path do not hold the new one back.
+  useEffect(() => {
+    let previous: NetInfoState | null = null;
+    return NetInfo.addEventListener((state) => {
+      const changed = isNetworkPathChange(previous, state);
+      previous = state;
+      if (!changed || backgroundedRef.current) return;
+      backoffRef.current = createWsBackoff();
+      const transport = wsTransportRef.current;
+      if (transport?.isTurnActive()) {
+        transport.probe();
+        return;
+      }
+      wsTransportRef.current = null;
+      transport?.close();
+    });
+  }, [wsTransportRef, backoffRef]);
+
+  return { inViewRef, releaseIdleInBackground };
+}
+
 type Options = {
   chatId: string | null;
   isCurrentView: () => boolean;
@@ -40,9 +124,10 @@ type Options = {
 /**
  * WebSocket and SSE pipes for one chat view. Message state stays in useChat;
  * this hook only opens, sends, and tears down the connection. A socket lives as
- * long as its use: a send opens it (`connect`), and it closes itself once the turn
- * and what follows its done are over (`ChatWsTransport.releaseWhenQuiet`), when the
- * view changes (`detach`) or the app goes to the background. Reading a chat,
+ * long as its use: a send opens it (`connect`), the conversation's next messages
+ * reuse it, and it closes itself a minute after its last turn
+ * (`ChatWsTransport.releaseWhenQuiet`), or as soon as the user leaves the chat:
+ * another chat (`detach`), a screen over it, the background. Reading a chat,
  * typing in it or switching chats opens none (2026-11-08 feature test: 49 opens in
  * 48 turns, and an idle one left behind each chat the user moved on from).
  */
@@ -66,7 +151,7 @@ export function useChatTransport({
   const backoffRef = useRef(createWsBackoff());
   const sseAbortRef = useRef<AbortController | null>(null);
   const sseAbortChatIdRef = useRef<string | null>(null);
-  const backgroundedRef = useRef(false);
+  const { inViewRef, releaseIdleInBackground } = useSocketLeaves({ wsTransportRef, backoffRef });
   const isCurrentViewRef = useLatestRef(isCurrentView);
   const ttftTurnIdRef = useLatestRef(ttftTurnId);
   const onPayloadRef = useLatestRef(onPayload);
@@ -83,16 +168,6 @@ export function useChatTransport({
     sseAbortChatIdRef.current = chatId;
     return controller.signal;
   }, [chatId]);
-
-  /** In the background an idle socket only answers the server's keepalive
-   * pings, which wakes the radio every 20 seconds. A turn in flight keeps it
-   * until its done or error; the next send opens a new one. */
-  const releaseIdleInBackground = useCallback(() => {
-    const transport = wsTransportRef.current;
-    if (!backgroundedRef.current || !transport || transport.isTurnActive()) return;
-    wsTransportRef.current = null;
-    transport.close();
-  }, []);
 
   const openSocket = useCallback((): Promise<void> => {
     const token = getToken();
@@ -111,6 +186,7 @@ export function useChatTransport({
         getToken,
         clientTimezone: getDeviceTimezone,
         backoff: backoffRef.current,
+        inView: () => inViewRef.current,
         onPayload: (payload) => {
           if (wsTransportRef.current !== transport) return;
           onPayloadRef.current(chatId, payload, ttftTurnIdRef.current());
@@ -123,7 +199,8 @@ export function useChatTransport({
     }
     return transport.connect();
   }, [
-    account, chatId, getToken, releaseIdleInBackground, isCurrentViewRef, onFallbackRef, onPayloadRef, ttftTurnIdRef,
+    account, chatId, getToken, releaseIdleInBackground, inViewRef, isCurrentViewRef, onFallbackRef, onPayloadRef,
+    ttftTurnIdRef,
   ]);
 
   const connect = useCallback((): Promise<void> => {
@@ -133,51 +210,6 @@ export function useChatTransport({
     if (!accessTokenNeedsRefresh(token)) return openSocket();
     return freshAccessToken(token).then((fresh) => (fresh ? openSocket() : undefined));
   }, [account, getToken, openSocket]);
-  useEffect(() => {
-    return () => {
-      const transport = wsTransportRef.current;
-      wsTransportRef.current = null;
-      transport?.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "background") {
-        backgroundedRef.current = true;
-        releaseIdleInBackground();
-        return;
-      }
-      if (state !== "active") return;
-      backgroundedRef.current = false;
-      // A turn kept its socket in the background, where the radio may have dropped it.
-      const kept = wsTransportRef.current;
-      if (kept?.isTurnActive()) kept.probe();
-    });
-    return () => sub.remove();
-  }, [releaseIdleInBackground]);
-
-  // Wi-Fi ⇄ cellular, or back online: a socket opened on the old path can be
-  // half-open. A turn's socket is probed (dropped if it does not answer); one
-  // with no turn is closed, and the next send opens one on the new path.
-  // Failures on the old path do not hold the new one back.
-  useEffect(() => {
-    let previous: NetInfoState | null = null;
-    return NetInfo.addEventListener((state) => {
-      const changed = isNetworkPathChange(previous, state);
-      previous = state;
-      if (!changed || backgroundedRef.current) return;
-      backoffRef.current = createWsBackoff();
-      const transport = wsTransportRef.current;
-      if (transport?.isTurnActive()) {
-        transport.probe();
-        return;
-      }
-      wsTransportRef.current = null;
-      transport?.close();
-    });
-  }, []);
-
   const sendViaSse = useCallback(
     async (content: string, options?: SendSseOptions) => {
       const token = getToken();

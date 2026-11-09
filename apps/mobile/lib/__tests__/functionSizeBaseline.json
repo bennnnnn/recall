@@ -67,7 +67,7 @@
   "features/chat/hooks/useChatScroll.ts::useChatScroll": 315,
   "features/chat/hooks/useChatSend.ts::useChatSend": 346,
   "features/chat/hooks/useChatSendRoute.ts::useChatSendRoute": 144,
-  "features/chat/hooks/useChatTransport.ts::useChatTransport": 232,
+  "features/chat/hooks/useChatTransport.ts::useChatTransport": 179,
   "features/chat/hooks/useChatTurnActions.ts::useChatTurnActions": 137,
   "features/chat/hooks/useComposerFieldLayout.ts::useComposerFieldLayout": 139,
   "features/chat/hooks/useMathKeyboardInsert.ts::useMathKeyboardInsert": 298,

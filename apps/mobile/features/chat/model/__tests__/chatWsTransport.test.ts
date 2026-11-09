@@ -10,8 +10,9 @@ import {
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
   WS_FOLLOW_UPS_WAIT_MS,
-  WS_PROBE_TIMEOUT_MS,
+  WS_IDLE_KEEP_MS,
   WS_LINGER_MS,
+  WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 import {
   ChatWsTransport,
@@ -47,7 +48,7 @@ class FakeSocket {
   }
 }
 
-function setupTransport() {
+function setupTransport(inView?: () => boolean) {
   // The first socket is ready before connect(); each later connect gets a new one.
   const socket = new FakeSocket();
   const sockets = [socket];
@@ -61,6 +62,7 @@ function setupTransport() {
     onPayload,
     onFallback,
     backoff: createWsBackoff(),
+    inView,
     createSocket: () => {
       if (handedOut > 0) sockets.push(new FakeSocket());
       return sockets[handedOut++] as unknown as WebSocket;
@@ -114,8 +116,8 @@ function sentFrames(socket: FakeSocket): unknown[] {
 }
 
 /** Open the transport's socket; `answersPing`: its server answers the connect ping. */
-async function openTransport(answersPing = false) {
-  const setup = setupTransport();
+async function openTransport(answersPing = false, inView?: () => boolean) {
+  const setup = setupTransport(inView);
   const connecting = setup.transport.connect();
   setup.socket.open();
   await connecting;
@@ -307,25 +309,39 @@ describe("ChatWsTransport", () => {
   // read, and stayed open behind the chat the user moved on from until the server's 5-minute
   // idle close (49 opens in 48 turns). It lives for its turn and what follows its done.
   describe("a socket's life", () => {
-    it("is let go once the reply's follow-up questions and the chat's title came", async () => {
-      const { socket, transport } = await openTransport(true);
-      transport.sendMessage(MESSAGE);
-      socket.emit({ type: "start" });
-      socket.emit({ type: "done", message_id: "m1", title_pending: "1" });
-      expect(socket.close).not.toHaveBeenCalled();
-      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
-      jest.advanceTimersByTime(WS_LINGER_MS);
-      expect(socket.close).not.toHaveBeenCalled();
-      socket.emit({ type: "title", title: "Heater repair" });
-      expect(socket.close).toHaveBeenCalledTimes(1);
+    /** The chat on screen (true) or under To-do, Settings, Library (false), as the hook says. */
+    let inView = true;
+    const sentTurn = async () => {
+      const setup = await openTransport(true, () => inView);
+      setup.transport.sendMessage(MESSAGE);
+      setup.socket.emit({ type: "start" });
+      return setup;
+    };
+    beforeEach(() => {
+      inView = true;
     });
 
-    it("is let go after the follow-ups wait when they never came", async () => {
-      const { socket, transport } = await openTransport(true);
-      transport.sendMessage(MESSAGE);
-      socket.emit({ type: "start" });
+    it("is kept a minute after its turn while the chat is on screen, then let go", async () => {
+      const { socket, transport, onFallback } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1", title_pending: "1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      socket.emit({ type: "title", title: "Heater repair" });
+      jest.advanceTimersByTime(WS_IDLE_KEEP_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      expect(socket.close).toHaveBeenCalledTimes(1);
+      expect(transport.isOpen()).toBe(false);
+      expect(onFallback).not.toHaveBeenCalled();
+    });
+
+    it("carries the conversation's next message within the minute, and keeps it for the one after", async () => {
+      const { socket, transport } = await sentTurn();
       socket.emit({ type: "done", message_id: "m1" });
-      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS - 1);
+      jest.advanceTimersByTime(WS_IDLE_KEEP_MS - 1_000);
+      expect(transport.sendMessage({ ...MESSAGE, client_message_id: "name-2" })).toBe(true);
+      socket.emit({ type: "start" });
+      socket.emit({ type: "done", persisting: true });
+      jest.advanceTimersByTime(WS_IDLE_KEEP_MS - 1);
       expect(socket.close).not.toHaveBeenCalled();
       jest.advanceTimersByTime(1);
       expect(socket.close).toHaveBeenCalledTimes(1);
@@ -335,37 +351,51 @@ describe("ChatWsTransport", () => {
       ["a reply still saving", { type: "done", persisting: true }],
       ["an error", { type: "error", message: "nope" }],
       ["a duplicate", { type: "duplicate" }],
-    ])("is kept a moment for a send at once after %s, then let go", async (_label, frame) => {
-      const { socket, transport, onFallback } = await openTransport(true);
-      transport.sendMessage(MESSAGE);
+    ])("is kept for a Retry or the next message after %s", async (_label, frame) => {
+      const { socket, onFallback } = await sentTurn();
       socket.emit(frame);
-      jest.advanceTimersByTime(WS_LINGER_MS - 1);
+      jest.advanceTimersByTime(WS_IDLE_KEEP_MS - 1);
       expect(socket.close).not.toHaveBeenCalled();
       jest.advanceTimersByTime(1);
       expect(socket.close).toHaveBeenCalledTimes(1);
       expect(onFallback).not.toHaveBeenCalled();
     });
 
-    it("carries the next send while it waits for follow-ups, then is let go after that turn", async () => {
-      const { socket, transport } = await openTransport(true);
-      transport.sendMessage(MESSAGE);
-      socket.emit({ type: "done", message_id: "m1" });
-      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS / 2);
-      expect(transport.sendMessage({ ...MESSAGE, client_message_id: "name-2" })).toBe(true);
-      socket.emit({ type: "start" });
-      socket.emit({ type: "keepalive" });
-      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS);
-      expect(socket.close).not.toHaveBeenCalled();
+    it("is let go at once when the user leaves the chat with nothing due", async () => {
+      const { socket, transport } = await sentTurn();
       socket.emit({ type: "done", persisting: true });
-      jest.advanceTimersByTime(WS_LINGER_MS);
+      inView = false;
+      transport.leftView();
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    it("left during a turn, is let go once the turn's follow-ups and title are in", async () => {
+      const { socket, transport } = await sentTurn();
+      inView = false;
+      transport.leftView();
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "done", message_id: "m1", title_pending: "1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "title", title: "Heater repair" });
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    it("left, is let go after the follow-ups wait when they never came", async () => {
+      const { socket, transport } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1" });
+      inView = false;
+      transport.leftView();
+      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
       expect(socket.close).toHaveBeenCalledTimes(1);
     });
 
     it("opens a new socket for the send after it was let go", async () => {
-      const { socket, sockets, transport } = await openTransport(true);
-      transport.sendMessage(MESSAGE);
+      const { socket, sockets, transport } = await sentTurn();
       socket.emit({ type: "done", persisting: true });
-      jest.advanceTimersByTime(WS_LINGER_MS);
+      transport.leftView();
       expect(transport.isOpen()).toBe(false);
       const connecting = transport.connect();
       expect(sockets).toHaveLength(2);

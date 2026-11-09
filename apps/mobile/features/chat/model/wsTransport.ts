@@ -9,6 +9,7 @@ import {
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
   WS_FOLLOW_UPS_WAIT_MS,
+  WS_IDLE_KEEP_MS,
   WS_LINGER_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
@@ -62,6 +63,8 @@ type ChatWsTransportOptions = {
   createSocket?: (url: string) => WebSocket;
   /** When the socket may be tried again after a failure; one view's transports share it. */
   backoff?: WsBackoff;
+  /** The chat is on screen: a socket idle after a turn is kept for the next one (`WS_IDLE_KEEP_MS`). */
+  inView?: () => boolean;
 };
 
 /**
@@ -96,7 +99,7 @@ export class ChatWsTransport {
   private followUpsDue = new Set<string>();
   /**
    * A socket just opened is kept this long for the send it was opened for, and one whose turn
-   * just ended for a send that follows at once (Retry after an error, the next message).
+   * ended, while its chat is on screen, for the conversation's next message.
    */
   private lingerUntil = 0;
   private releaseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -373,7 +376,7 @@ export class ChatWsTransport {
    */
   private endTurn(last: ChatWsPayload): void {
     this.turnActive = false;
-    this.lingerUntil = Date.now() + WS_LINGER_MS;
+    this.lingerUntil = this.options.inView?.() === false ? 0 : Date.now() + WS_IDLE_KEEP_MS;
     this.clearTurnTimers();
     if (last.type !== "done") return;
     this.backoff.succeed();
@@ -383,10 +386,20 @@ export class ChatWsTransport {
   }
 
   /**
-   * A socket with no turn and nothing due after the last one is closed, as the server closes
-   * one idle between turns, and without a word: the next send opens another. An idle socket
-   * kept open woke the radio for the server's pings and, left behind a chat the user had
-   * moved on from, stayed until the server's 5-minute idle close (2026-11-08 feature test).
+   * The user left the chat (To-do, Settings, Library): the socket goes once its turn and what
+   * follows the turn's done are in, with no idle wait for a next message.
+   */
+  leftView(): void {
+    this.lingerUntil = 0;
+    this.releaseWhenQuiet();
+  }
+
+  /**
+   * A socket with no turn, nothing due after the last one and no next message in sight is
+   * closed, as the server closes one idle between turns, and without a word: the next send
+   * opens another. An idle socket kept open woke the radio for the server's pings and, left
+   * behind a chat the user had moved on from, stayed until the server's 5-minute idle close
+   * (2026-11-08 feature test).
    */
   private releaseWhenQuiet(): void {
     this.clearReleaseTimer();

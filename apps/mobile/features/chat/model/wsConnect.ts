@@ -8,13 +8,15 @@
  */
 export const WS_CONNECT_TIMEOUT_MS = 2_500;
 
-/**
- * How long a socket with nothing due is kept after it opened, or after its turn ended, for a
- * send that comes at once (Retry, the next message); a send that never went (Stop, the view
- * left) is not waited on longer. Shorter than the server's 20 s keepalive ping, which would
- * wake the radio.
- */
+/** A socket opened for a send that never went (Stop, the view left) is let go this long after. */
 export const WS_LINGER_MS = 5_000;
+
+/**
+ * While its chat is on screen, a socket is kept this long after its last turn ended: the
+ * conversation's next message reuses it instead of paying a new handshake (TLS in production)
+ * before its first token. Leaving the chat or the app closes it at once.
+ */
+export const WS_IDLE_KEEP_MS = 60_000;
 
 /** Server sends start before turn preparation. This bounds an OPEN but silent
  * connection without imposing a deadline on acknowledged model/tool work. */

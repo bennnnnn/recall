@@ -47,6 +47,7 @@ beforeEach(() => {
   jest.spyOn(Math, "random").mockReturnValue(0.5);
   mockToken = "token";
   mockZone = "UTC";
+  mockFocused = true;
 });
 afterEach(() => { jest.mocked(Math.random).mockRestore(); });
 
@@ -71,6 +72,18 @@ jest.mock("@react-native-community/netinfo", () => ({
     },
   },
 }));
+/** The chat screen is on top (no To-do, Settings or Library pushed over it). */
+let mockFocused = true;
+jest.mock("expo-router", () => {
+  const React = jest.requireActual("react");
+  return {
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      // Read as the hook renders: a rerender after `mockFocused` changes runs the effect again.
+      const focused = mockFocused;
+      React.useEffect(() => (focused ? effect() : undefined), [effect, focused]);
+    },
+  };
+});
 jest.mock("@/features/chat/model/sse", () => ({
   streamChatMessageSse: jest.fn(),
   streamChatRegenerateSse: jest.fn(),
@@ -1822,7 +1835,7 @@ describe("useChat socket recovery", () => {
     expect(frames(latestSocket())[0]).toEqual({ token: "token-3", client_timezone: "UTC" });
   });
 
-  it("lets a refreshed token's socket go when no follow-ups come, and the next send uses the new token", async () => {
+  it("replaces a refreshed token's kept socket on the next send when no follow-ups come", async () => {
     mockToken = "token-1";
     await render(<Probe chatId="a" />);
     const first = await openSocket();
@@ -1833,12 +1846,42 @@ describe("useChat socket recovery", () => {
     mockToken = "token-2";
     await act(async () => { first.emit({ type: "done", message_id: "saved", final_content: "answer" }); });
     await act(async () => { jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS); });
-    expect(first.close).toHaveBeenCalledTimes(1);
-    expect(FakeSocket.instances).toHaveLength(1);
+    // Kept for the conversation's next message, which the old token would see refused.
+    expect(first.close).not.toHaveBeenCalled();
     await act(async () => { void current.connect(); });
+    expect(first.close).toHaveBeenCalledTimes(1);
     await act(async () => { latestSocket().open(); });
     expect(FakeSocket.instances).toHaveLength(2);
     expect(frames(latestSocket())[0]).toEqual({ token: "token-2", client_timezone: "UTC" });
+  });
+
+  it("keeps a turn's socket for the next message while the chat is on screen, and closes it on leaving", async () => {
+    const view = await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("first");
+      socket.emit({ type: "start" });
+      socket.emit({ type: "done", message_id: "saved-1", final_content: "one" });
+    });
+    await act(async () => { jest.advanceTimersByTime(30_000); });
+    await act(async () => {
+      await current.sendMessage("second");
+      socket.emit({ type: "start" });
+      socket.emit({ type: "done", message_id: "saved-2", final_content: "two" });
+    });
+    expect(FakeSocket.instances).toHaveLength(1);
+    expect(frames(socket).filter((frame) => frame.type === "message")).toHaveLength(2);
+    expect(socket.close).not.toHaveBeenCalled();
+    // To-do over the chat: its follow-ups are in, so the socket goes at once.
+    await act(async () => { socket.emit({ type: "related_prompts", message_id: "saved-2", prompts: ["Why?"] }); });
+    mockFocused = false;
+    await view.rerender(<Probe chatId="a" />);
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    // Back on the chat, reading it opens none.
+    mockFocused = true;
+    await view.rerender(<Probe chatId="a" />);
+    await act(async () => { jest.advanceTimersByTime(60_000); });
+    expect(FakeSocket.instances).toHaveLength(1);
   });
 
   it("closes an idle socket after a network switch and opens none until a send", async () => {

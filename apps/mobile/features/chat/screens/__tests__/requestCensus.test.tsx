@@ -680,13 +680,12 @@ const CEILINGS: Record<string, number> = {
   "open chat 2": 1,
   // The page this run kept is shown without a read.
   "open chat 1 again within 20 s": 0,
-  // The turn's socket, which closes once its reply and follow-ups are in.
+  // The conversation's socket, kept a minute after each reply while the chat is on screen.
   "send in chat 1": 1,
   "the reply finishes": 0,
   "20 s after the reply": 0,
-  // The turn's socket (the last one closed after its reply), and the to-do list the reply
-  // changed: one read of it.
-  "a reply that changes a to-do": 2,
+  // On the socket kept since the last reply; the to-do list the reply changed: one read of it.
+  "a reply that changes a to-do": 1,
   // This phone finished turns since the drawer read its chats: read again behind the rows
   // shown (ETag, 304). With nothing changed an open reads nothing (useDrawerChatList.test).
   "open the drawer": 1,
@@ -713,7 +712,7 @@ const CEILINGS: Record<string, number> = {
   "switch chats 3 to 6 quickly": 4,
   "new chat": 0,
   // The chat and its socket: the title follows the reply on that socket (it was read every 2 s
-  // until the topic job wrote it, three reads here).
+  // until the topic job wrote it, three reads here). Each screen opened since closed the last.
   "send in a new chat": 2,
   "20 s after the new chat's reply": 0,
   // No push registration this time: the last one is under 12 hours old.
@@ -879,16 +878,16 @@ it("keeps every step of an everyday session within its requests", async () => {
  * chat, then the To-do page. Before: 23 requests and sockets. A socket opened on the first
  * keystroke and another for the old chat, and one stayed open throughout, under To-do too, until
  * the server's 5-minute idle close; the new chat's title was read three times, "Make it
- * friendlier" asked whether it was a picture, and each drawer open read the list again. Now 18,
- * and no socket is open between turns.
+ * friendlier" asked whether it was a picture, and each drawer open read the list again. Now 16:
+ * the conversation's one socket opens with its first message and closes a minute after its last.
  */
 const TYPICAL_CEILINGS: Record<string, number> = {
   "open the app": 9,
   // The chat (made as its first message is typed) and the turn's socket; the title comes on it.
   "a first message in a new chat": 2,
-  // Each turn its socket, closed once the reply and its follow-ups are in.
-  "a second message": 1,
-  "a third message": 1,
+  // Within a minute of the last reply: the conversation's socket, kept for it.
+  "a second message": 0,
+  "a third message": 0,
   // The phone finished turns since the last read: the list once (its ETag answers a 304 when the
   // phone already has it all), then nothing.
   "open the drawer": 1,
@@ -900,7 +899,7 @@ const TYPICAL_CEILINGS: Record<string, number> = {
   "go to To-do and stay 3 minutes": 0,
 };
 
-it("keeps the owner's typical session light: a socket per turn, closed after, and no rereads", async () => {
+it("keeps the owner's typical session light: one socket for the conversation, and no rereads", async () => {
   jest.spyOn(Math, "random").mockReturnValue(0.5);
   steps.length = 0;
   liveSockets.clear();
@@ -947,9 +946,43 @@ it("keeps the owner's typical session light: a socket per turn, closed after, an
   step("go to To-do and stay 3 minutes");
   opened.push(liveSockets.size);
   expectWithin(TYPICAL_CEILINGS);
-  // No socket outlives its turn: none is open while the user reads, browses or sits on To-do.
-  expect(opened).toEqual([0, 0, 0, 0, 0]);
+  // One socket carried the three messages; none is open once the conversation went quiet (a
+  // minute after its last reply), while the user reads another chat or sits on To-do.
+  expect(steps.flatMap((s) => s.requests).filter((r) => r.startsWith("WS "))).toHaveLength(1);
+  expect(opened).toEqual([1, 1, 1, 0, 0]);
   expect(steps.flatMap((s) => s.requests).filter((r) => /^GET \/chats\/[^/?]+($|\?)/.test(r))).toEqual([]);
+});
+
+it("closes the conversation's socket at once when the user leaves for To-do, and opens none to read", async () => {
+  jest.spyOn(Math, "random").mockReturnValue(0.5);
+  steps.length = 0;
+  liveSockets.clear();
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  mark = mockLog.length;
+  for (const text of ["Plan my week", "Add the gym on Monday", "Make Friday lighter"]) {
+    await send(app, text);
+    await settle(15_000);
+  }
+  step("three messages within a minute");
+  expect(liveSockets.size).toBe(1);
+  await app.show("todos");
+  await settle(500);
+  step("To-do");
+  expect(liveSockets.size).toBe(0);
+  await settle(3 * 60_000);
+  await app.show(null);
+  await settle(60_000);
+  step("back on the chat for a minute");
+  expect(liveSockets.size).toBe(0);
+  expect(steps.map((s) => s.requests.filter((r) => r.startsWith("WS ")).length)).toEqual([1, 0, 0]);
 });
 
 /** Every step this test took stayed under its ceiling, and every ceiling was a step. */
