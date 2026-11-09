@@ -2,6 +2,7 @@ import React from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useDrawerChatList } from "@/features/chat/drawer/useDrawerChatList";
+import { useDrawerChatSelection } from "@/features/chat/drawer/useDrawerChatSelection";
 import { api, type ChatList } from "@/lib/api";
 import {
   getCachedChat,
@@ -230,6 +231,63 @@ describe("a chat started on another device", () => {
     await act(async () => { mockForeground?.(); });
     expect(api.listChats).toHaveBeenCalledTimes(1);
     expect(getCachedChatList()?.today.map((row) => row.id)).toEqual(["phone"]);
+  });
+
+  // The re-read is the first page: it put the list back to it, under the user's thumb.
+  it("keeps the older chats read below the first page", async () => {
+    (api.listChats as jest.Mock).mockResolvedValue({ ...initial, next_cursor: "after-old" });
+    (api.listOlderChats as jest.Mock).mockResolvedValueOnce({ ...emptyChatList(), older: [{ ...chat, id: "older", title: "Older" }], next_cursor: null });
+    const view = await render(<Probe />);
+    await act(async () => {});
+    await act(async () => { await current.loadOlderChats(); });
+    await act(async () => { await view.rerender(<Probe open={false} />); });
+    later(21_000);
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect(current.allChats.map((row) => row.id)).toEqual(["old", "older"]);
+    expect(current.hasOlderChats).toBe(false);
+  });
+
+  it("keeps the rows picked in selection mode", async () => {
+    (api.listChats as jest.Mock).mockResolvedValue({ ...initial, next_cursor: "after-old" });
+    (api.listOlderChats as jest.Mock).mockResolvedValueOnce({ ...emptyChatList(), older: [{ ...chat, id: "older", title: "Older" }], next_cursor: null });
+    let picked: ReturnType<typeof useDrawerChatSelection>;
+    function SelectingProbe() {
+      const list = useDrawerChatList({ isDrawerOpen: true });
+      const selection = useDrawerChatSelection({
+        token: mockToken, isDrawerOpen: true, listedChats: list.allChats, selectableChats: list.allChats,
+      });
+      React.useLayoutEffect(() => { current = list; picked = selection; });
+      return null;
+    }
+    await render(<SelectingProbe />);
+    await act(async () => {});
+    await act(async () => { await current.loadOlderChats(); });
+    await act(async () => { picked.enterSelectionMode("older"); });
+    later(60_000);
+    await act(async () => { mockForeground?.(); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    expect([...picked!.selectedIds]).toEqual(["older"]);
+  });
+
+  it("tries a failed read behind the rows again after 20 s, not on every open", async () => {
+    seedChatListCacheForTest(initial);
+    const view = await render(<Probe open={false} />);
+    (api.listChats as jest.Mock).mockRejectedValue(new TypeError("Network request failed"));
+    const now = Date.now();
+    const at = (ms: number) => jest.spyOn(Date, "now").mockReturnValue(now + ms);
+    const toggle = async () => {
+      await act(async () => { await view.rerender(<Probe open />); });
+      await act(async () => { await view.rerender(<Probe open={false} />); });
+    };
+    at(21_000);
+    await toggle();
+    at(30_000);
+    await toggle();
+    expect(api.listChats).toHaveBeenCalledTimes(1);
+    at(42_000);
+    await toggle();
+    expect(api.listChats).toHaveBeenCalledTimes(2);
   });
 
   // A read nobody asked for warns of nothing: a return during a server error toasted with the drawer shut.

@@ -41,6 +41,7 @@ import {
 import { Chat, ChatList } from "@/lib/api";
 import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
+import { isContextFresh } from "@/lib/cache/contextRefresh";
 import { isExpectedReadFailure, type ResourceUpdate } from "@/lib/cache/sessionResource";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
@@ -257,17 +258,24 @@ type RereadDeps = {
  * the drawer is open, as a ref.
  */
 function useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef }: RereadDeps) {
+  // A fresh list is not read again; nor, for the same 20 s, is one whose read just failed (an outage
+  // sent one per open).
+  const triedAt = useRef<number | undefined>(undefined);
+  const reread = useCallback(() => {
+    if (isChatListFresh() || isContextFresh(triedAt.current)) return;
+    triedAt.current = Date.now();
+    void load(true, false, true);
+  }, [load]);
   useEffect(() => {
     hydrateFromCache();
     // A list dropped since (an unarchive in Settings) is read again: it was never fetched.
     const loadedOnce = hasLoadedOnceRef.current && getChatListFetchedAt() != null;
     const mode = drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: loadedOnce });
     if (mode === "full") void load();
-    // `load` skips a list still fresh, so a drawer opened and closed again reads nothing more.
-    else if (mode === "revalidate") void load(true, false, true);
-  }, [isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef]);
+    else if (mode === "revalidate") reread();
+  }, [isDrawerOpen, account, load, reread, hydrateFromCache, hasLoadedOnceRef]);
   // Past FOREGROUND_STALE_MS.chatList; Home's last chat reads this list too.
-  useOnForeground(() => void load(true, false, true), Boolean(account));
+  useOnForeground(reread, Boolean(account));
   // The API back after an outage: the open drawer's chats, read as opening it reads them.
   const openRef = useLatestRef(isDrawerOpen);
   useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });

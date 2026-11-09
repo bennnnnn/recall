@@ -7,6 +7,7 @@ import {
   appendArchivedChats,
   appendOlderChats,
   emptyChatList,
+  keepLoadedPages,
   regroupChatsByRecency,
 } from "@/features/chat/model/listSections";
 import {
@@ -207,7 +208,10 @@ export async function fetchChatList(
 ): Promise<ResourceResult<ChatList>> {
   const result = await resource.fetch(LIST, token, async () => {
     const data = await api.listChats(token);
-    return { ...data, archived: data.archived ?? [] };
+    const fresh = { ...data, archived: data.archived ?? [] };
+    // GET /chats is the first page: the pages this session read below it stay (a restored list's do not).
+    const shown = resource.fetchedAt(LIST) === undefined ? undefined : resource.get(LIST);
+    return shown ? keepLoadedPages(shown, fresh) : fresh;
   }, opts);
   if (!result.error) ownerOf(token);
   return result;
