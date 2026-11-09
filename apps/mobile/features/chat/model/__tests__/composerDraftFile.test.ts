@@ -47,6 +47,14 @@ it("keeps the newest fifty", async () => {
   expect(drafts.get("chat-59")).toBe("draft 59");
 });
 
+it("keeps the first 20,000 characters of a longer draft, never half a character", async () => {
+  const pasted = `${"a".repeat(19_999)}😀${"b".repeat(5_000)}`;
+  await writeComposerDrafts("user-1", new Map([["new", pasted]]));
+  const kept = (await readComposerDrafts("user-1")).get("new");
+  expect(Array.from(kept ?? "")).toHaveLength(20_000);
+  expect(kept?.endsWith("😀")).toBe(true);
+});
+
 it("reads an unreadable file as no drafts", async () => {
   mockFiles.set(PATH, "{not json");
   expect((await readComposerDrafts("user-1")).size).toBe(0);

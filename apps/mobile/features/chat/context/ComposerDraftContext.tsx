@@ -60,14 +60,6 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
     },
     [inputRef],
   );
-  const typeInput = useCallback(
-    (text: string) => {
-      if (isSendEcho(clearedRef.current, text, Date.now())) return;
-      clearedRef.current = null;
-      setInputState(text);
-    },
-    [],
-  );
   const draftsRef = useRef(new Map<string, string>());
   const threadKeyRef = useRef(COMPOSER_NEW_THREAD_KEY);
   const restoreOpenDraft = useCallback((text: string) => {
@@ -75,8 +67,22 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
     setRevision((value) => value + 1);
   }, [setInput]);
   // On disk too: the phone closing the app in the background took every draft with it.
-  const saveDraftsSoon = useSavedComposerDrafts({ draftsRef, threadKeyRef, inputRef, restoreOpenDraft });
+  const { saveSoon: saveDraftsSoon, noteEdited } = useSavedComposerDrafts({ draftsRef, threadKeyRef, inputRef, restoreOpenDraft });
   useEffect(() => saveDraftsSoon(input === ""), [input, revision, saveDraftsSoon]);
+  const typeInput = useCallback(
+    (text: string) => {
+      if (isSendEcho(clearedRef.current, text, Date.now())) return;
+      clearedRef.current = null;
+      noteEdited(threadKeyRef.current);
+      setInputState(text);
+    },
+    [noteEdited],
+  );
+  // What the chat writes (a send's clear, a restored draft) is the open thread's edit, as typing is.
+  const setOpenInput = useCallback<Dispatch<SetStateAction<string>>>((next) => {
+    noteEdited(threadKeyRef.current);
+    setInput(next);
+  }, [noteEdited, setInput]);
 
   const resetForNewSession = useCallback(() => {
     clearAllComposerDrafts(draftsRef.current);
@@ -92,17 +98,12 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
 
   const api = useMemo<ComposerDraftApi>(
     () => ({
-      setInput,
+      setInput: setOpenInput,
       typeInput,
       inputRef,
       switchThread: (nextKey: string) => {
         const fromKey = threadKeyRef.current;
-        const nextText = takeThreadDraft(
-          draftsRef.current,
-          fromKey,
-          nextKey,
-          inputRef.current,
-        );
+        const nextText = takeThreadDraft(draftsRef.current, fromKey, nextKey, inputRef.current);
         if (fromKey === nextKey) return;
         threadKeyRef.current = nextKey;
         setInput(nextText);
@@ -115,17 +116,20 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
           nextKey,
           inputRef.current,
         );
+        noteEdited(COMPOSER_NEW_THREAD_KEY);
+        noteEdited(nextKey);
         saveDraftsSoon();
       },
       stashFailedDraftForThread: (key: string, failedText: string) => {
         if (threadKeyRef.current === key) return;
         stashFailedSendDraft(draftsRef.current, key, failedText);
+        noteEdited(key);
         saveDraftsSoon();
       },
       resetForNewSession,
       getThreadKey: () => threadKeyRef.current,
     }),
-    [resetForNewSession, inputRef, setInput, typeInput, saveDraftsSoon],
+    [resetForNewSession, inputRef, setInput, setOpenInput, typeInput, saveDraftsSoon, noteEdited],
   );
   const value = useMemo<ComposerDraftValue>(() => ({ input, revision }), [input, revision]);
   const hasContent = input.length > 0;

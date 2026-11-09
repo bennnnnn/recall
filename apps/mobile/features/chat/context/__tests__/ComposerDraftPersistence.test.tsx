@@ -106,6 +106,27 @@ it("drops a draft once it is sent, without waiting", async () => {
   expect(mockStored.get("user-1")?.size).toBe(0);
 });
 
+// The file is read just after launch: a draft typed and sent (emptied) before it landed came back.
+it("never brings back a draft this run emptied before the file was read", async () => {
+  mockStored.set("user-1", new Map([["new", "Plan a weekend"]]));
+  const { readComposerDrafts } = jest.requireMock("@/features/chat/model/composerDraftFile") as {
+    readComposerDrafts: jest.Mock;
+  };
+  let land!: () => void;
+  readComposerDrafts.mockImplementationOnce((owner: string) => new Promise((resolve) => {
+    land = () => resolve(new Map(mockStored.get(owner) ?? []));
+  }));
+  const view = await render(<App />);
+  await fireEvent.press(view.getByTestId("type"));
+  await fireEvent.press(view.getByTestId("send"));
+  await act(async () => { land(); });
+  await settle();
+  expect(view.getByTestId("draft").props.children).toBe("");
+  await act(async () => { mockAppState.forEach((listener) => listener("background")); });
+  await settle();
+  expect(mockWrites.at(-1)).toEqual(["user-1", {}]);
+});
+
 it("reads and writes nothing while no one is signed in", async () => {
   mockStored.set("user-1", new Map([["new", "Plan a weekend"]]));
   const view = await render(<App account={null} />);

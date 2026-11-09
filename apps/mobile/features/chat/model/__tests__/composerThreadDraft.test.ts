@@ -38,6 +38,16 @@ describe("takeThreadDraft", () => {
     expect(takeThreadDraft(drafts, "a", "b", "from a")).toBe("");
     expect(drafts.get("a")).toBe("from a");
   });
+
+  // The file keeps the newest fifty in this order: a rewrite kept its first place, and left first.
+  it("moves the thread it writes to the end, the most recently written", () => {
+    const drafts = new Map<string, string>([["a", "first"], ["b", "second"]]);
+    takeThreadDraft(drafts, "a", "c", "first, again");
+    stashFailedSendDraft(drafts, "b", "second");
+    expect([...drafts.keys()]).toEqual(["a", "b"]);
+    takeThreadDraft(drafts, "a", "b", "first, once more");
+    expect([...drafts.keys()]).toEqual(["b", "a"]);
+  });
 });
 
 describe("adoptNewComposerThread", () => {

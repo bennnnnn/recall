@@ -33,12 +33,15 @@ type FileState = {
  * account, and puts them back on the next run. Nothing is written before this account's
  * file is read, so a run that has not read it never writes over the drafts it holds.
  * Returns `saveSoon`: after typing settles, or at once when `now` (an emptied field is a
- * sent draft, which must not come back if the app is closed next).
+ * sent draft, which must not come back if the app is closed next); and `noteEdited`, for
+ * each thread this run writes: its text is newer than the file's, even emptied.
  */
 export function useSavedComposerDrafts({ draftsRef, threadKeyRef, inputRef, restoreOpenDraft }: Options) {
   const { account, getToken } = useAccountSession();
   const accountRef = useLatestRef(account);
   const file = useRef<FileState>({ owner: null, account: null, loaded: false, timer: null });
+  const edited = useRef(new Set<string>());
+  const noteEdited = useCallback((key: string) => { edited.current.add(key); }, []);
 
   const saveNow = useCallback(() => {
     const state = file.current;
@@ -66,17 +69,26 @@ export function useSavedComposerDrafts({ draftsRef, threadKeyRef, inputRef, rest
     const owner = token ? tokenSubject(token) : null;
     const state = file.current;
     Object.assign(state, { owner, account, loaded: false });
+    edited.current.clear();
     if (!owner) return;
     let cancelled = false;
     void draftFile().then((stored) => stored.readComposerDrafts(owner)).then((saved) => {
       if (cancelled) return;
       const openKey = threadKeyRef.current;
-      // Text typed this run is newer than the file's; the open thread's draft is its field's.
-      for (const [key, text] of saved) {
-        if (key !== openKey && !draftsRef.current.get(key)) draftsRef.current.set(key, text);
-      }
+      // A thread this run wrote (typed, emptied, sent) keeps its text; the open one's is its field's.
+      const kept = [...saved].filter(([key]) => key !== openKey && !edited.current.has(key));
+      // The file's drafts are older than this run's: they go first, and leave first at the cap. An
+      // empty slot this run left without writing it (the field was empty at a switch) takes the file's.
+      const drafts = new Map(kept);
+      draftsRef.current.forEach((text, key) => {
+        if (!text && drafts.has(key)) return;
+        drafts.delete(key);
+        drafts.set(key, text);
+      });
+      draftsRef.current.clear();
+      drafts.forEach((text, key) => draftsRef.current.set(key, text));
       const open = saved.get(openKey);
-      if (open && !inputRef.current) restoreOpenDraft(open);
+      if (open && !edited.current.has(openKey) && !inputRef.current) restoreOpenDraft(open);
       state.loaded = true;
     });
     return () => { cancelled = true; };
@@ -89,5 +101,5 @@ export function useSavedComposerDrafts({ draftsRef, threadKeyRef, inputRef, rest
   // So does leaving the chat screen.
   useEffect(() => saveNow, [saveNow]);
 
-  return saveSoon;
+  return { saveSoon, noteEdited };
 }
