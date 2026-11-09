@@ -40,7 +40,7 @@ import { ComposerSendControls } from "@/features/chat/components/ComposerSendCon
 import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
-import { liveAnswerShows, MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
+import { liveAnswerShows, MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer, mathCardStyles } from "@/features/chat/components/MathLiveAnswer";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
@@ -189,6 +189,8 @@ export const ChatComposer = memo(function ChatComposer({
   const voiceActive = voiceRecording || voiceTranscribing;
   // While the waveform takes the field's place, the row never splits.
   const rowFit = useComposerRowFit(voiceActive ? "" : input, fontScale);
+  // From the draft's first key, the math keyboard's answer takes the row of buttons under it.
+  const answerShows = mathBarOpen && liveAnswerShows(input);
   const {
     composerExpanded,
     toggleExpanded,
@@ -204,10 +206,11 @@ export const ChatComposer = memo(function ChatComposer({
     input,
     draftRevision: draft?.revision,
     fontScale,
-    buttonRowBelow: rowFit.wraps,
+    buttonRowBelow: rowFit.wraps && !answerShows, // the answer's row is in the math chrome
     onInputFrameExtraChange,
+    mathPadOpen: mathBarOpen,
   });
-  const stacked = rowFit.wraps || composerExpanded;
+  const stacked = rowFit.wraps || composerExpanded || answerShows;
 
   const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const gapFadeStyle = useAnimatedStyle(() => {
@@ -262,12 +265,8 @@ export const ChatComposer = memo(function ChatComposer({
     hasSendableContent,
   });
   const blockStyle = s.composerBlock;
-  const expandedBlockStyle = composerExpanded
-    ? [s.composerBlockExpanded, { top: insets.top + Space.xs }]
-    : null;
-  const containerStyle = animatedContainerStyle
-    ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
-    : [blockStyle, expandedBlockStyle];
+  const expandedBlockStyle = composerExpanded ? [s.composerBlockExpanded, { top: insets.top + Space.xs }] : null;
+  const containerStyle = [blockStyle, animatedContainerStyle, expandedBlockStyle];
   const attachButton = (
     <ComposerAttachButton
       s={s}
@@ -379,13 +378,13 @@ export const ChatComposer = memo(function ChatComposer({
                     // Keeps one line on the field's midline. Extra lines grow above the caret.
                     { paddingBottom: field.slack / 2 },
                     stacked && s.inputFieldStacked,
-                    composerExpanded && s.inputFieldExpanded,
+                    composerExpanded && s.inputFieldExpanded, mathBarOpen && mathCardStyles.field,
                   ]}
                   testID="chat-composer-field"
                   accessible={false} // a tap area; screen readers reach the text field inside
                   onPress={() => {
-                    if (math.mathBarOpen || showMathPreview) return;
-                    if (math.resumeMathOnFocus) math.openMathBar();
+                    if (math.mathBarOpen) return;
+                    if (showMathPreview || math.resumeMathOnFocus) math.openMathBar(); // drawn maths edit on the pad
                   }}
                 >
                   {showMathPreview ? (
@@ -402,6 +401,7 @@ export const ChatComposer = memo(function ChatComposer({
                         if (pos <= before) math.moveCaret(0);
                         else if (pos >= after) math.moveCaret(input.length);
                         else math.moveCaret(pos);
+                        math.openMathBar();
                       }}
                     />
                   ) : null}
@@ -454,9 +454,9 @@ export const ChatComposer = memo(function ChatComposer({
                     multiline
                     returnKeyType="default"
                   />
-                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} />}
+                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} top={mathBarOpen && composerExpanded} />}
                   {showEmptyCaret ? (
-                    <View style={s.emptyCaret} pointerEvents="none">
+                    <View style={[s.emptyCaret, composerExpanded && mathCardStyles.emptyCaret]} pointerEvents="none">
                       <MathComposerCaret testID="math-composer-caret" />
                     </View>
                   ) : null}
@@ -464,10 +464,10 @@ export const ChatComposer = memo(function ChatComposer({
               )}
               {stacked ? null : trailingControls}
             </View>
-            {math.mathBarOpen && liveAnswerShows(input) ? <MathLiveAnswer input={input} /> : null}
             {stacked ? (
               <View style={s.controlsRow} testID="composer-controls-row">
                 {attachButton}
+                {answerShows ? <MathLiveAnswer input={input} /> : null}
                 {trailingControls}
               </View>
             ) : null}
