@@ -88,7 +88,7 @@
   "lib/filePrefs.ts": 1,
   "lib/images/imageUriPolicy.ts": 2,
   "lib/installationId.ts": 1,
-  "lib/jsonFence.ts": 2,
+  "lib/fence/json.ts": 2,
   "lib/lesson/lessonFences.ts": 1,
   "lib/linkPreviewTrust.ts": 1,
   "lib/linkSchemePolicy.ts": 2,

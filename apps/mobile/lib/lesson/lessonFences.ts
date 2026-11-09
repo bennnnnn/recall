@@ -11,7 +11,7 @@
  * then pull out whatever words it still holds.
  */
 
-import { parseJsonRecord } from "@/lib/jsonFence";
+import { parseJsonRecord } from "@/lib/fence/json";
 import { scanFences } from "@/lib/fence/scan";
 
 export type QuizFence = {

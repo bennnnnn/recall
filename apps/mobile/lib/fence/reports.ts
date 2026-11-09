@@ -5,7 +5,7 @@
  */
 import type { FenceRenderKind } from "@/lib/fence/dispatch";
 import type { FenceId } from "@/lib/fence/registry";
-import { isJsonRecord, readJson } from "@/lib/jsonFence";
+import { isJsonRecord, readJson } from "@/lib/fence/json";
 
 /** A fence as a report names it: its registry id, else the block it was drawn as (`code`, `html`). */
 export type FenceReportName = FenceId | FenceRenderKind;

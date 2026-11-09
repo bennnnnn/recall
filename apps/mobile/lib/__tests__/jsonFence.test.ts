@@ -1,4 +1,4 @@
-import { isUnfinishedJson, readJson } from "@/lib/jsonFence";
+import { isUnfinishedJson, readJson } from "@/lib/fence/json";
 
 describe("isUnfinishedJson", () => {
   it.each([

@@ -1,6 +1,6 @@
 import { forgetPadMathDrafts, isPadMathDraft, notePadMathDraft } from "@/features/chat/model/padMathDrafts";
 import { cacheFile } from "@/lib/cache/cacheFile";
-import { parseJsonRecord } from "@/lib/jsonFence";
+import { parseJsonRecord } from "@/lib/fence/json";
 
 /**
  * The composer's unsent text for each chat (and New Chat), kept on disk for this

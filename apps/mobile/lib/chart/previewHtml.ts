@@ -11,7 +11,7 @@ import { CHART_PREVIEW_CSP, injectPreviewCsp, inlineScript } from "@/lib/preview
 import type { Theme } from "@/lib/theme";
 import { presentChartSpec } from "@/lib/chart/presentation";
 import { parseChartBody } from "@/lib/chart/seriesSpec";
-import { isJsonRecord as isRecord } from "@/lib/jsonFence";
+import { isJsonRecord as isRecord } from "@/lib/fence/json";
 import { asVegaSpec } from "@/lib/chart/spec";
 
 type ChartPreviewTheme = Pick<

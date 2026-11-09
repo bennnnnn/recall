@@ -17,7 +17,7 @@ import {
   isMathFenceLang,
   type FenceDocumentBlock,
 } from "@/lib/fence/registry";
-import { parseJsonRecord } from "@/lib/jsonFence";
+import { parseJsonRecord } from "@/lib/fence/json";
 import { fenceToCopyText, mapFenceRegions, proseToCopyText } from "@/lib/markdown/plain";
 
 /** A card shown in the document as its label alone (each fence's `inDocument` row). */

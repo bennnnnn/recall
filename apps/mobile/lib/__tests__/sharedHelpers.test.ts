@@ -17,7 +17,7 @@ const ONE_HOME: [string, RegExp, string][] = [
   ["an odd backslash run escaping a character", /slashes % 2 === 1/, "lib/markdown/inlineCode.ts"],
   ["a pipe table row (looksLikePipeRow)", /startsWith\("\|"\) && \w+\.indexOf\("\|", 1\)/, "lib/markdown/streamTableHold.ts"],
   ["a Skia line or segments path", /function (?:linePath|segmentsPath)\(/, "components/rich/skia/paths.ts"],
-  ["a JSON object check (isJsonRecord)", /typeof (\w+) === "object" &&[^\n]*!Array\.isArray\(\1\)/, "lib/jsonFence.ts"],
+  ["a JSON object check (isJsonRecord)", /typeof (\w+) === "object" &&[^\n]*!Array\.isArray\(\1\)/, "lib/fence/json.ts"],
 ];
 
 describe("shared helpers", () => {

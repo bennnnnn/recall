@@ -13,7 +13,7 @@
  * - Tooltips are dropped (the card shows none), and pre-binned bars get their bin end.
  */
 import { type JsonRecord } from "@/lib/chart/seriesSpec";
-import { isJsonRecord as isRecord } from "@/lib/jsonFence";
+import { isJsonRecord as isRecord } from "@/lib/fence/json";
 
 const COMPOSITE_KEYS = ["layer", "hconcat", "vconcat", "concat"] as const;
 const BAND_PX = 28;

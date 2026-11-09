@@ -17,7 +17,7 @@ import {
   seriesChartToVegaLite,
   type JsonRecord,
 } from "@/lib/chart/seriesSpec";
-import { isJsonRecord as isRecord } from "@/lib/jsonFence";
+import { isJsonRecord as isRecord } from "@/lib/fence/json";
 
 export type ChartTable = { columns: string[]; rows: string[][] };
 
