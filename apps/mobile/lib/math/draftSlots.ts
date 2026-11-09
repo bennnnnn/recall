@@ -8,6 +8,7 @@ import {
   type DraftTemplate,
 } from "@/lib/math/draftNodes";
 import { caretInGroup, type LatexGroup, type TextSelection } from "@/lib/math/keyboardSymbols";
+import { readGroup } from "@/lib/math/latexGroups";
 
 /** Caret just after an opening `$` so the next insert/delete is at the front. */
 export function caretBeforeExpression(text: string): number {
@@ -46,17 +47,14 @@ function firstTokenLength(s: string): number {
   return s.length > 0 ? 1 : 0;
 }
 
+/** The opener whose group ends at `closeIdx`, at `min` or after; an escaped mark is no group's. */
 function matchingCloserOpen(text: string, closeIdx: number, min: number): number | null {
-  const closeCh = text[closeIdx];
+  const closeCh = text[closeIdx] ?? "";
   const openCh = closeCh === "}" ? "{" : closeCh === "]" ? "[" : closeCh === ")" ? "(" : "";
   if (!openCh) return null;
-  let depth = 0;
-  for (let i = closeIdx; i >= min; i -= 1) {
-    if (text[i] === closeCh) depth += 1;
-    else if (text[i] === openCh) {
-      depth -= 1;
-      if (depth === 0) return i;
-    }
+  for (let i = closeIdx - 1; i >= min; i -= 1) {
+    if (text[i] !== openCh || text[i - 1] === "\\") continue;
+    if (readGroup(text, i, openCh, closeCh)?.next === closeIdx + 1) return i;
   }
   return null;
 }

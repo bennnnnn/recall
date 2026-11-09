@@ -7,6 +7,7 @@
 
 import { markdownToSpeechText } from "@/lib/markdown/plain";
 import { repairLeakedMath } from "@/lib/math/healMathSource";
+import { readGroup } from "@/lib/math/latexGroups";
 
 const MATH_ISLAND =
   /[A-Za-z](?:\s*[\^_]\s*(?:\{[^{}\n]+\}|\d+))+(?:\s*[-+*/=]\s*(?:[A-Za-z]|\d+(?:\.\d+)?))*/g;
@@ -35,19 +36,7 @@ function spaceMathSpan(span: string): string {
     }
     if (ch === "^" || ch === "_") {
       if (span[i + 1] === "{") {
-        let depth = 0;
-        let j = i + 1;
-        while (j < span.length) {
-          if (span[j] === "{") depth += 1;
-          else if (span[j] === "}") {
-            depth -= 1;
-            if (depth === 0) {
-              j += 1;
-              break;
-            }
-          }
-          j += 1;
-        }
+        const j = readGroup(span, i + 1)?.next ?? span.length;
         out += span.slice(i, j);
         i = j;
         continue;

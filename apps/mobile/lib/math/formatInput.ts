@@ -15,6 +15,7 @@ import {
   applyImplicitPowerNotation,
   fixImplicitExponents,
 } from "@/lib/math/normalizeImplicit";
+import { readGroup } from "@/lib/math/latexGroups";
 
 type MathFormatOptions = {
   /** `x2` → `x^2` (OCR's dropped caret). Default true. */
@@ -75,18 +76,9 @@ function skipLatexArgs(s: string, i: number): number {
   return j;
 }
 
+/** Past the `{…}` group at `i`; an unclosed one runs to the end. */
 function skipBraceGroup(s: string, i: number): number {
-  let depth = 0;
-  let j = i;
-  while (j < s.length) {
-    if (s[j] === "{") depth += 1;
-    else if (s[j] === "}") {
-      depth -= 1;
-      if (depth === 0) return j + 1;
-    }
-    j += 1;
-  }
-  return j;
+  return readGroup(s, i)?.next ?? s.length;
 }
 
 function readAtom(s: string, i: number): { atom: string; next: number } | null {

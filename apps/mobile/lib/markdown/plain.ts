@@ -24,6 +24,7 @@ import {
   type MathSegment,
 } from "@/lib/math/text";
 import { looksLikePipeRow } from "@/lib/markdown/streamTableHold";
+import { readGroup } from "@/lib/math/latexGroups";
 
 /** Walk prose and fenced blocks, converting each; the fence's markers are not kept. */
 export function mapFenceRegions(
@@ -235,16 +236,9 @@ function hasStructuredScript(latex: string): boolean {
     let open = i + 1;
     while (/\s/.test(latex[open] ?? "") && open < latex.length) open += 1;
     if (latex[open] !== "{") continue;
-    let depth = 1;
-    let close = open + 1;
-    for (; close < latex.length; close += 1) {
-      if (latex[close] === "\\") { close += 1; continue; }
-      if (latex[close] === "{") depth += 1;
-      else if (latex[close] === "}") depth -= 1;
-      if (depth === 0) break;
-    }
-    if (depth !== 0 || /\\(?:[dct]?frac|sqrt)\b|[_^]/.test(latex.slice(open + 1, close))) return true;
-    i = close;
+    const group = readGroup(latex, open);
+    if (!group || /\\(?:[dct]?frac|sqrt)\b|[_^]/.test(group.value)) return true;
+    i = group.next - 1;
   }
   return false;
 }
