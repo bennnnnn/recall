@@ -30,6 +30,8 @@ const systemFont = {
   measureText: (text) => ({ x: 0, y: 0, width: Array.from(text).length * 6.6, height: 11 }),
   getGlyphIDs: (text) => Array.from(text).map((char) => char.codePointAt(0)),
   getGlyphWidths: (ids) => ids.map(() => 6.6),
+  setSubpixel: () => {},
+  setLinearMetrics: () => {},
 };
 const Group = ({ children }) => (children ?? null);
 const Null = () => null;

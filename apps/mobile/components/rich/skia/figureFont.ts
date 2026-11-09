@@ -45,6 +45,6 @@ export function useFigureFont(size: number): SkFont | null {
     system ? null : require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
     size,
   );
-  const bundled = useMemo(() => (loaded ? evenlySpaced(loaded) : null), [loaded]);
+  const bundled = useMemo(() => (system || !loaded ? null : evenlySpaced(loaded)), [system, loaded]);
   return system ?? bundled;
 }
