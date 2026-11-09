@@ -61,7 +61,7 @@ describe("MermaidBlock card", () => {
     expect(full?.scrollEnabled).toBe(true);
     expect(full?.domStorageEnabled).toBe(false);
 
-    await fireEvent.press(getByLabelText("preview.close"));
+    await fireEvent.press(getByLabelText("common.close"));
     expect(queryByTestId("mermaid-full-screen-diagram")).toBeNull();
   });
 

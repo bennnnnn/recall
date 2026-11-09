@@ -32,7 +32,7 @@ describe("ChatActionsMenu", () => {
   it("renders a popover menu under the chat title", async () => {
     const { getByRole, getByText } = await render(<ChatActionsMenu {...baseProps} />);
 
-    expect(getByRole(menuItemRole(), { name: "chat.share" })).toBeTruthy();
+    expect(getByRole(menuItemRole(), { name: "common.share" })).toBeTruthy();
     expect(getByText("Trip ideas")).toBeTruthy();
   });
 

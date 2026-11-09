@@ -33,7 +33,6 @@ export const accountApi = {
     request<User>("/auth/me/sync-subscription", token, { method: "POST" }),
   /** Every plan with what it includes and its numbers (prices come from the store). */
   listPlans: (token: string) => request<PlanCatalog>("/billing/plans", token),
-  exportData: (token: string) => request<unknown>("/auth/me/export", token),
   exportDataText: (token: string, signal?: AbortSignal) => fetchExportText(token, true, signal),
   /** With a fresh Sign in with Apple code, the server also revokes the Apple grant. */
   deleteAccount: (token: string, appleAuthorizationCode?: string | null) =>

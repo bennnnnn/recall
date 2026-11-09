@@ -5,7 +5,7 @@ import { act, render, waitFor } from "@testing-library/react-native";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import {
   INDEX_POLL_MAX_MS,
-  resetAttachmentIndexStatus,
+  resetAttachmentIndexStatusForTest,
 } from "@/features/attachments/model/attachmentIndexStatus";
 import { ApiRequestError } from "@/lib/api/errorBody";
 
@@ -60,7 +60,7 @@ function setConnected(isConnected: boolean) {
 
 beforeEach(() => {
   mockGetAttachmentUrl.mockReset();
-  resetAttachmentIndexStatus();
+  resetAttachmentIndexStatusForTest();
   mockNetListeners.clear();
   mockFiles.clear();
   mockToken = "token";
@@ -335,7 +335,7 @@ it("stops polling when no row shows the attachment", async () => {
 describe("settled statuses across app runs", () => {
   async function showInNewRun(attachmentId: string) {
     // A new run: nothing in memory, the cache directory as the last run left it.
-    resetAttachmentIndexStatus();
+    resetAttachmentIndexStatusForTest();
     fileName = undefined;
     indexed = false;
     const view = await render(<Probe attachmentId={attachmentId} />);

@@ -64,7 +64,7 @@ export function DrawerSelectionBar({
             disabled && s.selectionActionTextDisabled,
           ]}
         >
-          {t("drawer.bulk_delete")}
+          {t("common.delete")}
         </Text>
       </Pressable>
     </View>

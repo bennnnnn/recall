@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -153,11 +153,11 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   }, [begin, updateUser, reportError, finish]);
 
   // The dialog keeps its title and time through the closing fade.
-  const quietShown = useRef<"start" | "end">("start");
+  const [quietShown, setQuietShown] = useState<"start" | "end">("start");
   const openQuietPicker = useCallback(
     (which: "start" | "end") => {
       if (!isCurrent()) return;
-      quietShown.current = which;
+      setQuietShown(which);
       setPickingQuiet(which);
     },
     [isCurrent],
@@ -262,11 +262,11 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
       <TimePickerDialog
         visible={pickingQuiet !== null && quietEnabled}
         title={t(
-          quietShown.current === "end"
+          quietShown === "end"
             ? "settings.quiet_hours_end"
             : "settings.quiet_hours_start",
         )}
-        value={timeFromMinutes(quietShown.current === "end" ? quietEnd : quietStart)}
+        value={timeFromMinutes(quietShown === "end" ? quietEnd : quietStart)}
         onCancel={() => setPickingQuiet(null)}
         onConfirm={(time) => {
           const which = pickingQuiet;

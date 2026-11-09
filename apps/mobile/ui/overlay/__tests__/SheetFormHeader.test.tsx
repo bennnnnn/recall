@@ -33,8 +33,8 @@ describe("SheetFormHeader", () => {
         title="Name"
         onCancel={jest.fn()}
         onSave={jest.fn()}
-        cancelLabel="settings.cancel"
-        saveLabel="settings.save"
+        cancelLabel="common.cancel"
+        saveLabel="common.save"
         saving
       />,
     );

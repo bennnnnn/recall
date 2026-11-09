@@ -12,7 +12,7 @@ it("disables Archive for an archived-only selection while keeping Delete availab
   const view = await render(<DrawerSelectionBar styles={{} as ConversationListStyles} theme={{} as Theme}
     paddingBottom={0} selectedCount={2} archivableCount={0} onArchive={archive} onDelete={remove} />);
   const archiveButton = view.getByRole("button", { name: "drawer.bulk_archive" });
-  const deleteButton = view.getByRole("button", { name: "drawer.bulk_delete" });
+  const deleteButton = view.getByRole("button", { name: "common.delete" });
   expect(archiveButton).toBeDisabled();
   expect(deleteButton).not.toBeDisabled();
   await fireEvent.press(archiveButton);

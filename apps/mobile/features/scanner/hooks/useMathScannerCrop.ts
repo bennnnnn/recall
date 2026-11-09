@@ -84,10 +84,7 @@ export function useMathScannerCrop({
   }, [preview, previewSv]);
 
   const dragDuration = motionMs(Motion.duration.standard, reduceMotion);
-  const pushRegion = useCallback(
-    (next: ScanRegion) => onRegionChange?.(next),
-    [onRegionChange],
-  );
+  const pushRegion = useCallback((next: ScanRegion) => onRegionChange?.(next), [onRegionChange]);
   // Times the student moved or resized the frame; a frame fit compares it (`useScanContentFit`).
   const adjustCount = useRef(0);
   const adjust = useCallback(() => {
@@ -102,9 +99,9 @@ export function useMathScannerCrop({
       lastPushedZoom.value = current;
       runOnJS(onZoom)(current);
     },
-    [onZoom],
   );
 
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const pinchGesture = useMemo(
     () =>
       Gesture.Pinch()
@@ -241,6 +238,7 @@ export function useMathScannerCrop({
   );
 
   const handleGestures = useMemo(() => SCAN_HANDLES.map(makeHandleGesture), [makeHandleGesture]);
+  /* eslint-enable react-hooks/refs */
 
   const tapGesture = useMemo(
     () =>

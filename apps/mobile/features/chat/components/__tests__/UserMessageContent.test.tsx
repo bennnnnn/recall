@@ -9,8 +9,8 @@ import { Dimensions, StyleSheet } from "react-native";
 
 import { readLine, type Element } from "@/components/__tests__/support/mathInk";
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
-import { AA, contrastRatio } from "@/lib/__tests__/support/contrast";
-import { ACCENT_OPTIONS, DEFAULT_ACCENT } from "@/lib/accent";
+import { AA, contrastRatio, SCHEME_ACCENTS } from "@/lib/__tests__/support/contrast";
+import { DEFAULT_ACCENT } from "@/lib/accent";
 import { setAccentSnapshot } from "@/lib/accentRuntime";
 import type { Message } from "@/lib/api/types";
 
@@ -242,26 +242,24 @@ describe("UserMessageContent attachments", () => {
 
   // Secondary ink on the bubble measured 4.07-4.48:1 in dark mode with the
   // graphite, sapphire, berry and orchid accents.
-  it.each(["light", "dark"] as const)(
-    "keeps a file's name AA on every accent's bubble in %s mode",
-    async (scheme) => {
+  it.each(SCHEME_ACCENTS)(
+    "keeps a file's name AA on the bubble in %s mode, %s accent",
+    async (scheme, accent) => {
       mockScheme = scheme;
       mockIndexStatus.mockImplementation(named);
       const docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       const content = `[File: /attachments/${NOTES}/file]\n[File (${docx})]\nMinutes of the meeting.`;
       try {
-        for (const accent of ACCENT_OPTIONS) {
-          await act(async () => setAccentSnapshot(accent));
-          const { getByText, unmount } = await render(<UserMessageContent message={userMessage(content)} />);
-          const name = getByText("minutes.docx");
-          let plane: string | undefined;
-          for (let node = name.parent; node && !plane; node = node.parent) {
-            plane = StyleSheet.flatten(node.props.style)?.backgroundColor as string | undefined;
-          }
-          const ink = String(StyleSheet.flatten(name.props.style).color);
-          expect({ accent, aa: contrastRatio(ink, String(plane)) >= AA }).toEqual({ accent, aa: true });
-          await unmount();
+        await act(async () => setAccentSnapshot(accent));
+        const { getByText, unmount } = await render(<UserMessageContent message={userMessage(content)} />);
+        const name = getByText("minutes.docx");
+        let plane: string | undefined;
+        for (let node = name.parent; node && !plane; node = node.parent) {
+          plane = StyleSheet.flatten(node.props.style)?.backgroundColor as string | undefined;
         }
+        const ink = String(StyleSheet.flatten(name.props.style).color);
+        expect(contrastRatio(ink, String(plane))).toBeGreaterThanOrEqual(AA);
+        await unmount();
       } finally {
         mockScheme = "light";
         await act(async () => setAccentSnapshot(DEFAULT_ACCENT));

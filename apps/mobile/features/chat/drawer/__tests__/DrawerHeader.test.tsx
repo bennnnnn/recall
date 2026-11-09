@@ -34,7 +34,7 @@ it("puts the profile and new chat at the top", async () => {
   await fireEvent.press(view.getByRole("button", { name: "settings.title" }));
   expect(onSettings).toHaveBeenCalledTimes(1);
   expect(onNewChat).not.toHaveBeenCalled();
-  await fireEvent.press(view.getByRole("button", { name: "drawer.new_chat" }));
+  await fireEvent.press(view.getByRole("button", { name: "chat.new_chat" }));
   expect(onNewChat).toHaveBeenCalledTimes(1);
 });
 

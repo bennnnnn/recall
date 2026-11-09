@@ -1,14 +1,14 @@
 import { resolveColorScheme } from "@/lib/appearance";
 import {
   getAppearancePreferenceSnapshot,
-  resetAppearanceRuntime,
+  resetAppearanceRuntimeForTest,
   setAppearancePreferenceSnapshot,
   subscribeAppearancePreference,
 } from "@/lib/appearanceRuntime";
 
 describe("appearanceRuntime", () => {
   beforeEach(() => {
-    resetAppearanceRuntime();
+    resetAppearanceRuntimeForTest();
   });
 
   it("notifies subscribers when preference changes", () => {

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values mutate `.value` in gestures and effects. */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, type ImageLoadEventData } from "expo-image";
 import {
   ActivityIndicator,
@@ -39,6 +39,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { fitImageToStage } from "@/lib/fitImageToStage";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
+import { useLatestRef } from "@/lib/latestRef";
 
 /** Settles without bounce, so a released photo never shows the stage edge. */
 const ZOOM_SPRING = { damping: 30, stiffness: 300, overshootClamping: true } as const;
@@ -120,15 +121,13 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
   }, [stage.width, stage.height, fitted?.width, fitted?.height, stageW, stageH, contentW, contentH]);
 
   // Gestures call back through refs, so a parent re-render does not rebuild them mid-pinch.
-  const onPressRef = useRef(onPress);
-  onPressRef.current = onPress;
-  const onZoomChangeRef = useRef(onZoomChange);
-  onZoomChangeRef.current = onZoomChange;
-  const firePress = useCallback(() => onPressRef.current?.(), []);
+  const onPressRef = useLatestRef(onPress);
+  const onZoomChangeRef = useLatestRef(onZoomChange);
+  const firePress = useCallback(() => onPressRef.current?.(), [onPressRef]);
   const reportZoom = useCallback((next: boolean) => {
     setZoomed(next);
     onZoomChangeRef.current?.(next);
-  }, []);
+  }, [onZoomChangeRef]);
 
   // Paging away or showing another photo starts it at 1x again.
   useEffect(() => {
@@ -141,6 +140,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
     }
   }, [active, remoteUri, scale, offsetX, offsetY, zoomedOnUi, reportZoom]);
 
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const gesture = useMemo(() => {
     const syncZoomed = (next: boolean) => {
       "worklet";
@@ -245,6 +245,7 @@ export function AttachmentImageStage({ item, active, onPress, onZoomChange, acce
     contentW,
     contentH,
   ]);
+  /* eslint-enable react-hooks/refs */
 
   const zoomStyle = useAnimatedStyle(() => ({
     transform: [

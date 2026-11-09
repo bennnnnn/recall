@@ -18,7 +18,7 @@ const STORE_PATTERNS = [
   /^(?:export )?let (\w+)/,
   /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*new (?:Map|Set|WeakMap|WeakSet)(?:<.*>)?\(\s*\)/,
   /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*new \w*ResourceCache\b/,
-  /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*(?:createValueStore|cacheFile)\b/,
+  /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*(?:createValueStore|cacheFile|createFilePref)\b/,
 ];
 
 /** Holds an account's data; sign-out calls the named function. */
@@ -69,9 +69,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/money/calculatorPositions.ts#positions": "clearCalculatorPositions",
   "lib/math/svgMath.ts#cache": "clearSvgMathCache",
   "lib/math/svgMath.ts#drawings": "clearSvgMathCache",
-  "lib/onboarding.ts#cached": "clearOnboarded",
-  "lib/onboarding.ts#generation": "clearOnboarded",
-  "lib/onboarding.ts#writes": "clearOnboarded",
+  "lib/onboarding.ts#onboardedPref": "clearOnboarded",
   "features/billing/model/purchases.ts#configuredAppUserId": "signOutRevenueCat",
   // A purchase held for approval, and Android's copy on disk: signOutRevenueCat releases both.
   "features/billing/model/heldPurchase.ts#held": "signOutRevenueCat",
@@ -156,7 +154,7 @@ const NO_ACCOUNT_DATA = [
   "features/attachments/model/attachments.ts#nativePickerActive",
   "features/attachments/model/attachments.ts#nativePickerGeneration",
   "features/attachments/model/downloadChatAttachment.ts#swept",
-  "features/attachments/model/galleryLayout.ts#cachedLayout",
+  "features/attachments/model/galleryLayout.ts#layoutPref",
   // How many opened files were taken: a copy a newer one overtook gives way.
   "features/attachments/model/openedDocument.ts#claims",
   // The plans offers' read-and-write queue: the offers file is the phone's, not an account's.
@@ -175,16 +173,16 @@ const NO_ACCOUNT_DATA = [
   "features/speech/model/readAloudSession.ts#clipMs",
   "features/speech/model/readAloudSession.ts#heardClipsMs",
   "features/speech/model/readAloudSession.ts#lastId",
-  "features/speech/model/speechRate.ts#cachedRate",
-  "features/speech/model/ttsPreference.ts#cachedPreference",
+  "features/speech/model/speechRate.ts#ratePref",
+  "features/speech/model/ttsPreference.ts#ttsModelPref",
   "features/todos/model/optimisticTodo.ts#optimisticTodoSeq",
   "features/todos/model/reminderAlerts.ts#toldAlertsOff",
-  "lib/accentPrefs.ts#cachedAccent",
+  "lib/accentPrefs.ts#accentPref",
   "lib/accentRuntime.ts#accent",
   "lib/api/client.ts#onTokenRefresh",
   "lib/api/client.ts#onUnauthorized",
   "lib/api/consentRefusal.ts#onConsentRequired",
-  "lib/appearancePrefs.ts#cachedPreference",
+  "lib/appearancePrefs.ts#appearancePref",
   "lib/appearanceRuntime.ts#preference",
   "lib/apple-auth.ts#appleModule",
   "lib/clockTick.ts#intervalId",
@@ -201,6 +199,7 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#configured",
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
+  "lib/hapticsPrefs.ts#hapticsPref",
   "lib/launchSplash.ts#deadlinePassed",
   "lib/launchSplash.ts#exited",
   "lib/launchSplash.ts#hidden",

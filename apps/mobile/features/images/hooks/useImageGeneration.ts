@@ -97,16 +97,13 @@ export function useImageGeneration({
   const [generating, setGenerating] = useState(false);
   // Refs so submitPrompt never no-ops on a stale streaming/generating closure
   // from a prior Fast Refresh or a turn that just finished.
-  const generatingRef = useRef(false);
-  const streamingRef = useRef(streaming);
-  const tokenRef = useRef(token);
+  const generatingRef = useLatestRef(generating);
+  const streamingRef = useLatestRef(streaming);
+  const tokenRef = useLatestRef(token);
   const abortRef = useRef<AbortController | null>(null);
   const userCancelRef = useRef(false);
   const lastSubmitRef = useRef<ImageGenSubmit | null>(null);
   const optimisticUserIdRef = useRef<string | null>(null);
-  generatingRef.current = generating;
-  streamingRef.current = streaming;
-  tokenRef.current = token;
 
   const submitPrompt = useCallback(
     async (input: ImageGenSubmit) => {
@@ -289,6 +286,9 @@ export function useImageGeneration({
       onOpenUpgrade,
       feedback,
       t,
+      tokenRef,
+      generatingRef,
+      streamingRef,
     ],
   );
 
@@ -297,7 +297,7 @@ export function useImageGeneration({
     userCancelRef.current = true;
     abortRef.current?.abort();
     abortRef.current = null;
-  }, []);
+  }, [generatingRef]);
 
   // Every message row takes `retry`: it keeps one identity, or each chat screen render
   // (submitPrompt is rebuilt with its callers' callbacks) redrew every visible row.
@@ -306,7 +306,7 @@ export function useImageGeneration({
     const last = lastSubmitRef.current;
     if (!last || generatingRef.current) return;
     void submitRef.current(last);
-  }, [submitRef]);
+  }, [submitRef, generatingRef]);
 
   return {
     generating,

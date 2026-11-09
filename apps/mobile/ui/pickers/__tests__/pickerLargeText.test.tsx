@@ -7,6 +7,12 @@ import { UI_LINE_EM } from "@/lib/uiFont";
 import { DatePickerDialog } from "../DatePickerDialog";
 import { TimePickerDialog } from "../TimePickerDialog";
 
+// A 12-hour phone: the readout's AM/PM boxes are part of what must fit.
+jest.mock("@/lib/datetime/phoneClock", () => ({
+  ...jest.requireActual<typeof import("@/lib/datetime/phoneClock")>("@/lib/datetime/phoneClock"),
+  readPhoneClock: () => ({ timeZone: "UTC", hourCycle: "h12" }),
+}));
+
 const hidden = { includeHiddenElements: true };
 
 /** iOS text sizes as React Native scales them: default, xLarge, xxLarge, xxxLarge, AX1, AX5. */
@@ -50,7 +56,6 @@ describe("time picker at large text sizes", () => {
       <TimePickerDialog
         visible
         value={{ hour: 21, minute: 11 }}
-        is24Hour={false}
         onConfirm={jest.fn()}
         onCancel={jest.fn()}
       />,

@@ -71,8 +71,8 @@ export function AttachmentTextViewer({ visible, attachmentId, localUri, path, ..
     <AttachmentViewerChrome
       {...chrome}
       visible={visible}
-      closeLabel={t("preview.close")}
-      shareLabel={t("preview.share")}
+      closeLabel={t("common.close")}
+      shareLabel={t("common.share")}
     >
       <View style={s.body}>
         {loading ? (

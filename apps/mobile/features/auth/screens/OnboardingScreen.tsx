@@ -81,7 +81,7 @@ function Landing() {
             <Image source={APP_ICON} style={s.icon} accessibilityIgnoresInvertColors />
             <Text style={s.name} accessibilityRole="header">{t("app.name")}</Text>
           </View>
-          <Text style={s.tagline}>{t("onboarding.tagline")}</Text>
+          <Text style={s.tagline}>{t("login.tagline")}</Text>
         </View>
 
         <View style={s.showcase}>

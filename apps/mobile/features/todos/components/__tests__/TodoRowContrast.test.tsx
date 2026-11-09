@@ -11,8 +11,8 @@ import { act, render, screen } from "@testing-library/react-native";
 
 import { TodosScrollList } from "@/features/todos/components/TodosScrollList";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
-import { AA, contrastRatio } from "@/lib/__tests__/support/contrast";
-import { ACCENT_OPTIONS, DEFAULT_ACCENT } from "@/lib/accent";
+import { AA, contrastRatio, SCHEME_ACCENTS } from "@/lib/__tests__/support/contrast";
+import { DEFAULT_ACCENT } from "@/lib/accent";
 import { setAccentSnapshot } from "@/lib/accentRuntime";
 import type { Todo } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
@@ -127,23 +127,21 @@ afterEach(async () => {
   await act(async () => setAccentSnapshot(DEFAULT_ACCENT));
 });
 
-it.each(["light", "dark"] as const)(
-  "%s: an overdue time is AA and marked as overdue in every accent and row state",
-  async (scheme) => {
+it.each(SCHEME_ACCENTS)(
+  "%s %s: an overdue time is AA and marked as overdue in every row state",
+  async (scheme, accent) => {
     mockScheme = scheme;
+    await act(async () => setAccentSnapshot(accent));
     const failures: string[] = [];
-    for (const accent of ACCENT_OPTIONS) {
-      await act(async () => setAccentSnapshot(accent));
-      for (const item of OVERDUE) {
-        for (const state of STATES) {
-          const { ink, plane, mark } = await drawn(item, state);
-          const where = `${accent} ${item.id} ${state}`;
-          const ratio = contrastRatio(ink, plane);
-          if (ratio < AA) failures.push(`${where}: time ${ratio.toFixed(3)}`);
-          if (!mark) failures.push(`${where}: no overdue mark`);
-          else if (contrastRatio(mark.ink, mark.plane) < NON_TEXT) {
-            failures.push(`${where}: mark ${contrastRatio(mark.ink, mark.plane).toFixed(3)}`);
-          }
+    for (const item of OVERDUE) {
+      for (const state of STATES) {
+        const { ink, plane, mark } = await drawn(item, state);
+        const where = `${item.id} ${state}`;
+        const ratio = contrastRatio(ink, plane);
+        if (ratio < AA) failures.push(`${where}: time ${ratio.toFixed(3)}`);
+        if (!mark) failures.push(`${where}: no overdue mark`);
+        else if (contrastRatio(mark.ink, mark.plane) < NON_TEXT) {
+          failures.push(`${where}: mark ${contrastRatio(mark.ink, mark.plane).toFixed(3)}`);
         }
       }
     }
@@ -151,40 +149,36 @@ it.each(["light", "dark"] as const)(
   },
 );
 
-it.each(["light", "dark"] as const)(
-  "%s: an unlit overdue time keeps its danger ink on the card; a lit row is primaryLight",
-  async (scheme) => {
+it.each(SCHEME_ACCENTS)(
+  "%s %s: an unlit overdue time keeps its danger ink on the card; a lit row is primaryLight",
+  async (scheme, accent) => {
     mockScheme = scheme;
-    for (const accent of ACCENT_OPTIONS) {
-      await act(async () => setAccentSnapshot(accent));
-      const C = themeFor(scheme, accent);
-      const unlit = await drawn(OVERDUE[0]!, "unlit");
-      expect({ accent, ink: unlit.ink, plane: unlit.plane }).toEqual({ accent, ink: C.danger, plane: C.surface });
-      const lit = await drawn(OVERDUE[0]!, "highlighted");
-      expect({ accent, plane: lit.plane, mark: lit.mark?.ink }).toEqual({ accent, plane: C.primaryLight, mark: C.danger });
-    }
+    await act(async () => setAccentSnapshot(accent));
+    const C = themeFor(scheme, accent);
+    const unlit = await drawn(OVERDUE[0]!, "unlit");
+    expect({ ink: unlit.ink, plane: unlit.plane }).toEqual({ ink: C.danger, plane: C.surface });
+    const lit = await drawn(OVERDUE[0]!, "highlighted");
+    expect({ plane: lit.plane, mark: lit.mark?.ink }).toEqual({ plane: C.primaryLight, mark: C.danger });
   },
 );
 
-it.each(["light", "dark"] as const)(
-  "%s: every text on a lit row is AA and its checkbox 3:1, in every accent",
-  async (scheme) => {
+it.each(SCHEME_ACCENTS)(
+  "%s %s: every text on a lit row is AA and its checkbox 3:1",
+  async (scheme, accent) => {
     mockScheme = scheme;
+    await act(async () => setAccentSnapshot(accent));
     const failures: string[] = [];
-    for (const accent of ACCENT_OPTIONS) {
-      await act(async () => setAccentSnapshot(accent));
-      for (const item of EVERY_ROW) {
-        for (const state of LIT) {
-          const { texts, box } = await rowInks(item, state);
-          const where = `${accent} ${item.id} ${state}`;
-          expect({ where, plane: box.plane }).toEqual({ where, plane: themeFor(scheme, accent).primaryLight });
-          for (const text of texts) {
-            const ratio = contrastRatio(text.ink, text.plane);
-            if (ratio < AA) failures.push(`${where}: "${text.what}" ${ratio.toFixed(2)}`);
-          }
-          const boxRatio = contrastRatio(box.ink, box.plane);
-          if (boxRatio < NON_TEXT) failures.push(`${where}: checkbox ${boxRatio.toFixed(2)}`);
+    for (const item of EVERY_ROW) {
+      for (const state of LIT) {
+        const { texts, box } = await rowInks(item, state);
+        const where = `${item.id} ${state}`;
+        expect({ where, plane: box.plane }).toEqual({ where, plane: themeFor(scheme, accent).primaryLight });
+        for (const text of texts) {
+          const ratio = contrastRatio(text.ink, text.plane);
+          if (ratio < AA) failures.push(`${where}: "${text.what}" ${ratio.toFixed(2)}`);
         }
+        const boxRatio = contrastRatio(box.ink, box.plane);
+        if (boxRatio < NON_TEXT) failures.push(`${where}: checkbox ${boxRatio.toFixed(2)}`);
       }
     }
     expect(failures).toEqual([]);

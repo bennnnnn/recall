@@ -203,13 +203,13 @@ describe("AttachmentImageViewer", () => {
         onDelete={jest.fn()}
       />,
     );
-    expect(getByLabelText("preview.close")).toBeTruthy();
+    expect(getByLabelText("common.close")).toBeTruthy();
     const header = getByLabelText("preview.more_a11y").parent!;
     const order = header.children
       .filter((child): child is NonNullable<typeof child> & { props: { accessibilityLabel?: string } } =>
         typeof child !== "string")
       .map((child) => child.props.accessibilityLabel);
-    expect(order).toEqual(["preview.more_a11y", "common.download", "preview.share"]);
+    expect(order).toEqual(["preview.more_a11y", "common.download", "common.share"]);
     expect(queryByLabelText("gallery.use_in_chat")).toBeNull();
     expect(queryByLabelText("common.delete")).toBeNull();
     // Nothing at the bottom: no page dots.
@@ -220,7 +220,7 @@ describe("AttachmentImageViewer", () => {
     const { getByLabelText, queryByLabelText } = await render(
       <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
-    expect(getByLabelText("preview.share")).toBeTruthy();
+    expect(getByLabelText("common.share")).toBeTruthy();
     expect(getByLabelText("common.download")).toBeTruthy();
     expect(queryByLabelText("preview.more_a11y")).toBeNull();
   });
@@ -236,13 +236,13 @@ describe("AttachmentImageViewer", () => {
     const { getByTestId, getByLabelText, queryByLabelText } = await render(
       <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
-    expect(getByLabelText("preview.close")).toBeTruthy();
+    expect(getByLabelText("common.close")).toBeTruthy();
     await fireEvent.press(getByTestId("attachment-viewer-tap"));
-    expect(queryByLabelText("preview.close")).toBeNull();
-    expect(queryByLabelText("preview.share")).toBeNull();
+    expect(queryByLabelText("common.close")).toBeNull();
+    expect(queryByLabelText("common.share")).toBeNull();
     await fireEvent.press(getByTestId("attachment-viewer-tap"));
-    expect(getByLabelText("preview.close")).toBeTruthy();
-    expect(getByLabelText("preview.share")).toBeTruthy();
+    expect(getByLabelText("common.close")).toBeTruthy();
+    expect(getByLabelText("common.share")).toBeTruthy();
   });
 
   it("lets a screen reader toggle the controls by activating the photo", async () => {
@@ -253,19 +253,19 @@ describe("AttachmentImageViewer", () => {
     expect(photo.props.accessibilityRole).toBe("image");
     expect(photo.props.accessibilityLabel).toBe("cat.png");
     await fireEvent(photo, "accessibilityAction", { nativeEvent: { actionName: "activate" } });
-    expect(queryByLabelText("preview.close")).toBeNull();
+    expect(queryByLabelText("common.close")).toBeNull();
   });
 
   it("puts round media chips on the left and a white Share pill on the right", async () => {
     const { getByLabelText } = await render(
       <AttachmentImageViewer onClose={onClose} visible attachmentId="a" />,
     );
-    const close = StyleSheet.flatten(getByLabelText("preview.close").props.style);
+    const close = StyleSheet.flatten(getByLabelText("common.close").props.style);
     expect(close.backgroundColor).toBeTruthy();
     expect(close.borderRadius).toBeGreaterThan(20);
     const download = StyleSheet.flatten(getByLabelText("common.download").props.style);
     expect(download.backgroundColor).toBe(close.backgroundColor);
-    const share = StyleSheet.flatten(getByLabelText("preview.share").props.style);
+    const share = StyleSheet.flatten(getByLabelText("common.share").props.style);
     expect(share.backgroundColor).toBe(mockLightTheme.onMedia);
     expect(share.minHeight).toBe(44);
   });
@@ -327,7 +327,7 @@ describe("AttachmentImageViewer", () => {
         <AttachmentImageViewer onClose={onClose} visible images={photos("a", "c")} initialIndex={1} onDelete={onDelete} onIndexChange={onIndexChange} />,
       );
       expect(onIndexChange).toHaveBeenLastCalledWith(expect.objectContaining({ attachmentId: "c" }), 1);
-      await fireEvent.press(view.getByLabelText("preview.share"));
+      await fireEvent.press(view.getByLabelText("common.share"));
       expect(shareChatAttachment).toHaveBeenCalledWith(expect.objectContaining({ uri: "http://test.local/c" }));
     });
 
@@ -338,7 +338,7 @@ describe("AttachmentImageViewer", () => {
       await pageTo(view, 0);
       // Deleting a elsewhere shifts every index; the viewer must keep showing what it showed.
       await view.rerender(<AttachmentImageViewer onClose={onClose} visible images={photos("x", "a", "b", "c")} initialIndex={3} />);
-      await fireEvent.press(view.getByLabelText("preview.share"));
+      await fireEvent.press(view.getByLabelText("common.share"));
       expect(shareChatAttachment).toHaveBeenLastCalledWith(expect.objectContaining({ uri: "http://test.local/a" }));
       const labels = view.getAllByTestId("attachment-viewer-tap").map((stage) => stage.props.accessibilityLabel);
       expect(labels).toContain("gallery.viewer_image_a11y:a.png|2|4");
@@ -398,7 +398,7 @@ describe("AttachmentImageViewer", () => {
       jest.mocked(shareChatAttachment).mockRejectedValueOnce(new Error("boom"));
       const view = await render(<AttachmentImageViewer onClose={onClose} visible attachmentId="a" />);
       await act(async () => {
-        await fireEvent.press(view.getByLabelText("preview.share"));
+        await fireEvent.press(view.getByLabelText("common.share"));
       });
       expect(view.getByText("common.share_image_error")).toBeTruthy();
       expect(alertDialog).not.toHaveBeenCalled();
@@ -406,7 +406,7 @@ describe("AttachmentImageViewer", () => {
 
     // Android without expo-sharing (lib/shareFile.ts): Share, and Save's share-sheet fallback.
     it.each([
-      ["a share", "preview.share", shareChatAttachment],
+      ["a share", "common.share", shareChatAttachment],
       ["a save that fell back to sharing", "common.download", saveChatAttachmentToLibrary],
     ] as const)("says to update the app when this build cannot share files: %s", async (_label, button, action) => {
       jest.mocked(action).mockRejectedValueOnce(new SharingUnavailableError());

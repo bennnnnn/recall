@@ -1,4 +1,4 @@
-import { reportStoreUnavailable } from "@/lib/sentry";
+import { reportFailure } from "@/lib/sentry";
 
 jest.mock("@/lib/expoRuntime", () => ({
   isExpoGo: () => false,
@@ -6,7 +6,7 @@ jest.mock("@/lib/expoRuntime", () => ({
 
 const mockPlatform = { OS: "ios" };
 jest.mock("react-native", () => ({ Platform: mockPlatform }));
-jest.mock("@/lib/sentry", () => ({ reportStoreUnavailable: jest.fn() }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
 // The phone's cache files, in memory: a held purchase on Android is kept in one.
 const mockDisk = new Map<string, string>();
 jest.mock("@/lib/cache/cacheFile", () => ({
@@ -133,7 +133,7 @@ describe("planFromCustomerInfo", () => {
 });
 
 describe("getPlanPackages", () => {
-  beforeEach(() => jest.mocked(reportStoreUnavailable).mockClear());
+  beforeEach(() => jest.mocked(reportFailure).mockClear());
   const pkg = (identifier: string, price: string) => ({
     identifier,
     product: { priceString: price, identifier: `recall_${identifier}` },
@@ -163,15 +163,17 @@ describe("getPlanPackages", () => {
   });
 
   it.each([
-    ["a failed read", () => purchasesMod.default.getOfferings.mockRejectedValueOnce(new Error("store down"))],
-    ["no current offering", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({ current: null })],
-    ["an offering with no plan", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({
+    ["a failed read", undefined, () => purchasesMod.default.getOfferings.mockRejectedValueOnce(new Error("store down"))],
+    ["no current offering", "no_current_offering", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({ current: null })],
+    ["an offering with no plan", "no_plan_in_offering", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({
       current: { monthly: null, availablePackages: [pkg("annual", "$99")] },
     })],
-  ])("calls %s unavailable and reports it, never an empty shop (CLAR-08)", async (_, arrange) => {
+  ])("calls %s unavailable and reports it, never an empty shop (CLAR-08)", async (_, code, arrange) => {
     arrange();
     await expect(getPlanPackages()).resolves.toEqual({ packages: {}, unavailable: true });
-    expect(reportStoreUnavailable).toHaveBeenCalledTimes(1);
+    expect(reportFailure).toHaveBeenCalledTimes(1);
+    // The report keeps a code and drops the text, so an empty shop still says which it was.
+    expect(reportFailure).toHaveBeenCalledWith("store", code ? expect.objectContaining({ code }) : expect.any(Error));
   });
 });
 
@@ -276,7 +278,7 @@ describe("a purchase the store holds for approval", () => {
 
     beforeEach(() => {
       purchasesMod.default.getCustomerInfo.mockReset();
-      jest.mocked(reportStoreUnavailable).mockClear();
+      jest.mocked(reportFailure).mockClear();
     });
 
     const SINCE = Date.UTC(2026, 10, 8, 12);
@@ -315,7 +317,7 @@ describe("a purchase the store holds for approval", () => {
       purchasesMod.default.getCustomerInfo.mockRejectedValueOnce(new Error("offline"));
       await expect(recheckPendingPurchase(since + 1_000)).resolves.toBeUndefined();
       expect(purchasePending()).toBe("plus");
-      expect(reportStoreUnavailable).toHaveBeenCalledTimes(1);
+      expect(reportFailure).toHaveBeenCalledTimes(1);
     });
   });
 

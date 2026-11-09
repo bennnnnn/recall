@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAccountSession } from "@/contexts/accountSession";
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { fetchTodayUsage } from "@/lib/cache/usageCache";
-import { usageMessages, usageUsedPercent } from "@/lib/quota";
+import { dayUsedPercent, usageMessages } from "@/lib/quota";
 import type { TurnUsage } from "@/features/chat/model/socketReduce";
 import {
   dismissQuotaNudgeToday,
@@ -15,11 +15,6 @@ import {
 const QUOTA_NUDGE_THRESHOLD_PCT = 80;
 
 type Counted = { used: number; total: number };
-
-/** The share of the day's messages used, 0 to 100. */
-function percentOf(counted: Counted): number {
-  return Math.round(Math.min(100, (counted.used / counted.total) * 100));
-}
 
 type Options = {
   isPaid: boolean;
@@ -64,8 +59,7 @@ export function useQuotaNudge({ isPaid }: Options) {
     void (async () => {
       const usage = await fetchTodayUsage(account, token);
       if (cancelled || !usage) return;
-      const counted = usageMessages(usage);
-      applyPercent(counted ? percentOf(counted) : Math.round(usageUsedPercent(usage)), counted);
+      applyPercent(dayUsedPercent(usage), usageMessages(usage));
     })();
     return () => {
       cancelled = true;
@@ -75,13 +69,7 @@ export function useQuotaNudge({ isPaid }: Options) {
   const applyTurnUsage = useCallback(
     (usage: TurnUsage) => {
       if (!account || isPaid || !planKnown || usage.daily_limit <= 0) return;
-      const counted = usage.daily_messages
-        ? { used: Math.min(usage.daily_messages, usage.messages_used ?? 0), total: usage.daily_messages }
-        : null;
-      applyPercent(
-        counted ? percentOf(counted) : Math.round(Math.min(100, (usage.used_tokens / usage.daily_limit) * 100)),
-        counted,
-      );
+      applyPercent(dayUsedPercent(usage), usageMessages(usage));
     },
     [account, isPaid, planKnown, applyPercent],
   );

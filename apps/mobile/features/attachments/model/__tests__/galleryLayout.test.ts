@@ -2,7 +2,7 @@ import * as FileSystem from "expo-file-system/legacy";
 
 import {
   getGalleryLayout,
-  resetGalleryLayoutCache,
+  resetGalleryLayoutForTest,
   setGalleryLayout,
 } from "@/features/attachments/model/galleryLayout";
 
@@ -27,7 +27,7 @@ const writeAsStringAsync = FileSystem.writeAsStringAsync as jest.Mock;
 describe("galleryLayout", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    resetGalleryLayoutCache();
+    resetGalleryLayoutForTest();
     getInfoAsync.mockResolvedValue({ exists: false });
   });
 

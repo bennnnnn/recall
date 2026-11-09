@@ -1,7 +1,16 @@
-import { formatCalculatorValue, formatPercent } from "@/lib/money/format";
+import { formatCalculatorValue, formatPercent, numberFormat } from "@/lib/money/format";
 
 const translate = (key: string, options?: Record<string, unknown>) => `${key}:${String(options?.count)}`;
 const en = { locale: "en", currency: "USD", translate };
+
+describe("numberFormat", () => {
+  it("formats in the app's language, and in English for a tag Intl rejects", () => {
+    // Settings → Voice built its own formatter, which threw on such a tag.
+    expect(numberFormat("de").format(1.25)).toBe("1,25");
+    expect(() => new Intl.NumberFormat("not a tag")).toThrow(RangeError);
+    expect(numberFormat("not a tag").format(1.25)).toBe("1.25");
+  });
+});
 
 describe("formatCalculatorValue", () => {
   it("prints money with cents only when a small amount has them", () => {

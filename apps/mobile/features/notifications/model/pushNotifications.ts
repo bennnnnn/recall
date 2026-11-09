@@ -15,7 +15,7 @@ import {
   TONE_ANDROID_CHANNELS,
 } from "@/features/notifications/model/notificationChannels";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
-import { reportPushUnregisterFailed } from "@/lib/sentry";
+import { reportFailure } from "@/lib/sentry";
 import { devicePushTokenFingerprint } from "@/features/notifications/model/devicePushToken";
 import { forgetSyncRecords, recentSyncAt, recordSync } from "@/lib/syncRecords";
 import { setRemotePushRegistered } from "@/features/notifications/model/pushRegistration";
@@ -184,7 +184,7 @@ export async function unregisterRemotePushToken(
     await api.unregisterPushToken(apiToken, { expo_push_token: expoPushToken });
     return true;
   } catch (error) {
-    reportPushUnregisterFailed(error);
+    reportFailure("push_unregister", error);
     return false;
   }
 }

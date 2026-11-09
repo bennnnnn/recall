@@ -16,6 +16,7 @@ import {
   unmapPointW,
   zoomGraphViewW,
 } from "@/lib/math/graphWorklets";
+import { useLatestRef } from "@/lib/latestRef";
 
 const MAX_GRAPH_SERIES = 4;
 const SCATTER_MAX_POINTS = 20;
@@ -163,13 +164,12 @@ export function useGraphViewport({ width, height, pad, initialView: requestedIni
     [plotAspect, requestedInitialView],
   );
   const [bounds, setBounds] = useState<GraphView>(initialView);
-  const boundsRef = useRef(bounds);
-  boundsRef.current = bounds;
+  const boundsRef = useLatestRef(bounds);
   const startRef = useRef(bounds);
 
   const captureStart = useCallback(() => {
     startRef.current = boundsRef.current;
-  }, []);
+  }, [boundsRef]);
 
   const applyPinch = useCallback(
     (scale: number, focalX: number, focalY: number) => {
@@ -194,6 +194,7 @@ export function useGraphViewport({ width, height, pad, initialView: requestedIni
     setBounds(clampGraphViewW(next));
   }, []);
 
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const gesture = useMemo(() => {
     // Pinch must not sit behind Exclusive(doubleTap, …) — that waits for a
     // second tap timeout and the in-chat FlashList never receives the pinch.
@@ -220,6 +221,7 @@ export function useGraphViewport({ width, height, pad, initialView: requestedIni
       });
     return Gesture.Simultaneous(pinch, pan, doubleTap);
   }, [applyPan, applyPinch, captureStart, resetView]);
+  /* eslint-enable react-hooks/refs */
 
   return { bounds, gesture, resetView, commitBounds };
 }

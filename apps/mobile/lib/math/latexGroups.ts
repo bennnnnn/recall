@@ -1,14 +1,23 @@
-/** A `{...}` group. An escaped brace is content, not structure. */
-export function readGroup(input: string, start: number): { value: string; next: number } | null {
-  if (input[start] !== "{") return null;
+/**
+ * A `{...}` group at `start` (or a `(...)` or `[...]` one, given its pair). An escaped
+ * character is content, not structure: `\{` and `\}` are set braces, never this group's.
+ * The one reader of TeX groups; seven copies once differed on exactly that.
+ */
+export function readGroup(
+  input: string,
+  start: number,
+  open = "{",
+  close = "}",
+): { value: string; next: number } | null {
+  if (input[start] !== open) return null;
   let depth = 0;
   for (let i = start; i < input.length; i += 1) {
     if (input[i] === "\\" && i + 1 < input.length) {
       i += 1;
       continue;
     }
-    if (input[i] === "{") depth += 1;
-    else if (input[i] === "}") {
+    if (input[i] === open) depth += 1;
+    else if (input[i] === close) {
       depth -= 1;
       if (depth === 0) {
         return { value: input.slice(start + 1, i), next: i + 1 };

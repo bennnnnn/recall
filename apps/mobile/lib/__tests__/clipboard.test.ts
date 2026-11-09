@@ -1,11 +1,22 @@
 import * as Clipboard from "expo-clipboard";
 
-import { clipboardIsImageOnly } from "@/lib/clipboard";
+import { clipboardIsImageOnly, copyToClipboard } from "@/lib/clipboard";
 
 jest.mock("expo-clipboard", () => ({
   getStringAsync: jest.fn(),
   hasImageAsync: jest.fn(),
+  setStringAsync: jest.fn(),
 }));
+
+describe("copyToClipboard", () => {
+  it("writes the text, and passes on a refusal", async () => {
+    (Clipboard.setStringAsync as jest.Mock).mockResolvedValueOnce(true);
+    await expect(copyToClipboard("x = 2")).resolves.toBeUndefined();
+    expect(Clipboard.setStringAsync).toHaveBeenCalledWith("x = 2");
+    (Clipboard.setStringAsync as jest.Mock).mockRejectedValueOnce(new Error("denied"));
+    await expect(copyToClipboard("x")).rejects.toThrow("denied");
+  });
+});
 
 describe("clipboardIsImageOnly", () => {
   beforeEach(() => {

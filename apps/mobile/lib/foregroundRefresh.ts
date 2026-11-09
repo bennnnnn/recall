@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
+import { useLatestRef } from "@/lib/latestRef";
 
 /**
  * What the app reads again when it comes back to the foreground, and how old each
@@ -63,12 +64,11 @@ export function onAppStateChange(listener: Listener): () => void {
 
 /** `refresh` (the latest one) each time the app comes back from the background. */
 export function useOnForeground(refresh: () => void, enabled = true): void {
-  const latest = useRef(refresh);
-  latest.current = refresh;
+  const latest = useLatestRef(refresh);
   useEffect(() => {
     if (!enabled) return;
     return onAppStateChange((_state, returned) => {
       if (returned) latest.current();
     });
-  }, [enabled]);
+  }, [enabled, latest]);
 }

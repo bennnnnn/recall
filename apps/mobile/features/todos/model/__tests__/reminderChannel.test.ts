@@ -13,7 +13,7 @@ jest.mock("@/lib/api", () => ({ api: {} }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1, getToken: jest.fn(async () => "tok") }));
 jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key } }));
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => false, isPhysicalDevice: () => true }));
-jest.mock("@/lib/sentry", () => ({ reportPushUnregisterFailed: jest.fn() }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
 jest.mock("@/lib/installationId", () => ({ getInstallationId: jest.fn(async () => "dev-1") }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableWarning: jest.fn() }));
 jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: jest.fn(), recordSync: jest.fn(), forgetSyncRecords: jest.fn() }));

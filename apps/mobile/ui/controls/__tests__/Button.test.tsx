@@ -50,12 +50,11 @@ describe("Button", () => {
     expect(view.getByRole("button", { name: "Large" })).toHaveStyle({ minHeight: 52 });
   });
 
-  it("puts the icon before or after the label", async () => {
-    const view = await render(
-      <Button title="Get started" icon="arrow-right" iconPlacement="end" onPress={jest.fn()} />,
-    );
-    const children = view.getByRole("button", { name: "Get started" }).children;
+  it("puts the icon before the label", async () => {
+    const view = await render(<Button title="Open To-do" icon="calendar" onPress={jest.fn()} />);
+    const children = view.getByRole("button", { name: "Open To-do" }).children as { props: { name?: string } }[];
     expect(children).toHaveLength(2);
+    expect(children[0]?.props.name).toBe("calendar");
   });
 
   it("has a media pill: white with black ink, for chrome over a photo", async () => {

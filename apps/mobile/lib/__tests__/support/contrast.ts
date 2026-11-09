@@ -3,8 +3,19 @@
  * component tests that check a pair as it is drawn.
  */
 
+import { ACCENT_OPTIONS } from "@/lib/accent";
+
 /** Normal-size text (WCAG AA). */
 export const AA = 4.5;
+
+/**
+ * Each scheme with each accent, for `it.each`: a sweep that draws a screen is one test per
+ * pair, so a failure names its accent and no test draws them all (one that did ran past
+ * Jest's 5 s on a slower CI host).
+ */
+export const SCHEME_ACCENTS = (["light", "dark"] as const).flatMap((scheme) =>
+  ACCENT_OPTIONS.map((accent) => [scheme, accent] as const),
+);
 
 /** WCAG 2.x relative luminance of a #RRGGBB color (sRGB). */
 function relativeLuminance(hex: string): number {

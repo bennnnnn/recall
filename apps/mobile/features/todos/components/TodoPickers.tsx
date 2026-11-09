@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { SelectMenu } from "@/ui/overlay/SelectMenu";
@@ -11,6 +11,7 @@ import { withCalendarDate } from "@/features/todos/model/dueDate";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { RECURRENCE_RULES } from "@/lib/api/types";
 import { timeFromDate, withTimeOfDay } from "@/lib/datetime/clockDial";
+import { useLatestRef } from "@/lib/latestRef";
 
 export type TodoPicker = "category" | SchedulePanel;
 
@@ -45,16 +46,15 @@ export function TodoPickers({
 }) {
   const { t } = useTranslation();
   const due = dueDate ?? new Date();
-  const opened = useRef({ picker: null as TodoPicker | null, count: 0 });
-  if (picker !== opened.current.picker) {
-    opened.current = { picker, count: opened.current.count + (picker ? 1 : 0) };
-  }
-  const openedCount = opened.current.count;
-  const disabledRef = useRef(disabled);
-  disabledRef.current = disabled;
+  // Each opening is counted, so a dialog from an older one can tell it is not the current one.
+  const [opened, setOpened] = useState({ picker: null as TodoPicker | null, count: 0 });
+  const openedCount = picker === opened.picker ? opened.count : opened.count + (picker ? 1 : 0);
+  if (picker !== opened.picker) setOpened({ picker, count: openedCount });
+  const latestOpened = useLatestRef(openedCount);
+  const disabledRef = useLatestRef(disabled);
   const apply = (next: Date) => {
     // An older opening leaves whatever is open now alone.
-    if (opened.current.count !== openedCount) return;
+    if (latestOpened.current !== openedCount) return;
     if (!disabledRef.current) onDueDate(next);
     onClose();
   };

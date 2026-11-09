@@ -1,7 +1,7 @@
 import { getSessionGeneration } from "@/lib/auth";
 import {
   queueComposerAttachment,
-  resetComposerAttachmentQueue,
+  resetComposerAttachmentQueueForTest,
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
 } from "@/features/attachments/model/pendingComposerAttachment";
@@ -10,7 +10,7 @@ beforeEach(() => { (getSessionGeneration as jest.Mock).mockReturnValue(0); });
 
 describe("pendingComposerAttachment", () => {
   afterEach(() => {
-    resetComposerAttachmentQueue();
+    resetComposerAttachmentQueueForTest();
   });
 
   it("hands the pick to a subscriber and clears after take", () => {
