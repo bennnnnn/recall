@@ -23,6 +23,7 @@ from app.modules.chat.turn_prep import augment
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.whole_question import answers_with, whole_question_fetch
 from app.modules.turn_reading.readable import (
+    has_english_word,
     has_other_language_word,
     in_other_script,
     misread_number,
@@ -269,3 +270,20 @@ def test_in_other_script(text: str, other_script: bool):
 )
 def test_has_other_language_word(text: str, open_language: bool):
     assert has_other_language_word(text) is open_language
+
+
+# English on evidence, for a chat title's prompt line: a word only English writes.
+@pytest.mark.parametrize(
+    ("text", "english"),
+    [
+        ("Draw a cat", True),
+        ("Teach me photosynthesis", True),
+        ("Remember that I am vegetarian.", True),
+        ("Quiero aprender guitarra", False),
+        ("Necesito ayuda", False),
+        ("2x + 3 = 7", False),
+        ("python", False),
+    ],
+)
+def test_has_english_word(text: str, english: bool):
+    assert has_english_word(text) is english

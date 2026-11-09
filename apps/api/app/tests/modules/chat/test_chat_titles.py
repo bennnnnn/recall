@@ -552,7 +552,9 @@ async def test_a_title_about_the_user_names_the_chat_in_the_users_words():
     [
         ("Remember that I am vegetarian.", "in English."),
         ("Draw a cat", "in English."),
-        ("python", "in English."),
+        ("python", "in the message's language and script."),
+        ("Quiero aprender guitarra", "in the message's language and script."),
+        ("Necesito ayuda", "in the message's language and script."),
         ("¿Cómo hago pan de masa madre?", "in the message's language and script."),
         ("Como hago un for loop en Python?", "in the message's language and script."),
         ("ስለ ፎቶሲንተሲስ አስተምረኝ", "in the message's language and script."),
@@ -568,7 +570,8 @@ def test_the_title_model_is_told_english_outright_for_english_words(message: str
 @pytest.mark.parametrize(
     ("message", "locale", "language"),
     [
-        ("2x + 3 = 7", "en", "in English."),
+        ("2x + 3 = 7", "en", "in the message's language and script."),
+        ("Explain 2x + 3 = 7", "en", "in English."),
         ("Erkläre mir die Photosynthese", "de", "in the message's language and script."),
         ("2x + 3 = 7", "de", "in the message's language and script."),
         ("Draw a cat", "en", "in English."),

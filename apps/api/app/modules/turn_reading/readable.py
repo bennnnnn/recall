@@ -126,6 +126,25 @@ def in_other_script(text: str) -> bool:
     return sum(map(_other_script, plain)) >= _OTHER_SCRIPT_LETTERS
 
 
+# Everyday English a request writes and the other languages do not, beside the question words
+# above: pronouns and the verbs that ask for something ("Draw a cat", "Teach me photosynthesis").
+_ENGLISH_REQUEST = frozenset(
+    """
+    i i'm i've me my mine you your yours we our us please thanks about draw write explain make
+    show tell give help remember remind teach plan suggest describe compare list translate
+    summarize summarise create build fix check
+    """.split()
+)
+
+
+def has_english_word(text: str) -> bool:
+    """``text`` holds a word only English writes: a question word ("the", "of", "what") or an
+    everyday request's ("my", "please", "draw"). "Quiero aprender guitarra" holds none."""
+    plain = _MATH.sub(" ", _without_code(text))
+    english = _ENGLISH | _ENGLISH_REQUEST
+    return any(match.group().casefold() in english for match in _WORD.finditer(plain))
+
+
 def has_other_language_word(text: str) -> bool:
     """``text`` holds a word only the app's other languages write, or another script: weak
     evidence, enough to leave a language open ("Como hago un for loop"), never to call the

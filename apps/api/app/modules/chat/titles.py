@@ -21,7 +21,11 @@ from app.modules.attachments.markers import (
     without_attachment_refs,
 )
 from app.modules.conversation import service as conversation_service
-from app.modules.turn_reading.readable import has_other_language_word, in_other_script
+from app.modules.turn_reading.readable import (
+    has_english_word,
+    has_other_language_word,
+    in_other_script,
+)
 from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS
 from app.services.subject_scan import words_after_scanner_caption
 from app.services.symbolic_text import fold_latex_marks, fold_numeric_superscripts
@@ -211,12 +215,12 @@ def title_messages(
     )
     # The rule again where a small model reads last, naming English outright: told only "the
     # message's language", it named one English chat in seven in Spanish, after the example.
-    # An English-language user's words with no word of another language are English ("Draw a
-    # cat", "2x + 3 = 7"); one such word leaves it open ("Como hago un for loop"), as does
-    # another app language and a photo with no words. A job queued without one reads English.
+    # English only on evidence: an English-language user's words with an English word and none
+    # of another language ("Draw a cat"). "Quiero aprender guitarra", "2x + 3 = 7", another app
+    # language and a photo with no words leave it open. A job queued without one reads English.
     words = _own_words(user_message)
     english_user = normalize_locale_code(locale or "en") == "en"
-    english = english_user and bool(words) and not has_other_language_word(words)
+    english = english_user and has_english_word(words) and not has_other_language_word(words)
     language = "English" if english else "the message's language and script"
     messages.append(
         {"role": "user", "content": f"{chat}\nName what was asked or sent, in {language}."}
