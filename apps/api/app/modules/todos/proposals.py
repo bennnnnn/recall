@@ -26,6 +26,7 @@ from app.core.timezone import resolve_timezone
 from app.exceptions import DomainError
 from app.modules.conversation import service as conversation_service
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.due_day import has_time
 from app.modules.todos.models import TodoItem
 from app.modules.todos.recurrence import completed_fields, next_recurring_due
 from app.modules.todos.write_log import PlannedWrite
@@ -43,6 +44,7 @@ _WRITABLE = frozenset(
         "topic",
         "chat_id",
         "due_at",
+        "due_has_time",
         "recurrence_rule",
         "sort_order",
         "checked",
@@ -112,14 +114,17 @@ def card_item(write: PlannedWrite, user_timezone: str | None) -> CardItem:
 
     action = card_action(write)
     shows_time = action in {"add", "set_due", "move"} and write.due_at is not None
+    # A date alone sends no instant, which the phone would draw at midnight: the card shows
+    # its ``when``, the day and repeat as words.
+    instant = shows_time and write.has_time
     return CardItem(
         action=action,
         title=write.title.strip(),
-        due_at=write.due_at if shows_time else None,
-        repeat=write.repeat if shows_time else None,
+        due_at=write.due_at if instant else None,
+        repeat=write.repeat if instant else None,
         topic=write.topic if action == "move" else None,
         when=(
-            format_schedule_when(write.due_at, user_timezone, write.repeat)
+            format_schedule_when(write.due_at, user_timezone, write.repeat, has_time=write.has_time)
             if shows_time and write.due_at is not None
             else None
         ),
@@ -251,6 +256,9 @@ async def _apply(
             timezone=stored.user_timezone,
             now=datetime.now(UTC),
         )
+        if "due_at" in fields:
+            # Ticking a repeating date alone moves it to its next day, still without a time.
+            fields.setdefault("due_has_time", has_time(row))
         await todos_repo.update(session, row, commit=False, **fields)
         written.append(row.id)
     await session.commit()

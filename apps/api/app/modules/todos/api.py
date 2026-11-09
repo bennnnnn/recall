@@ -98,6 +98,7 @@ async def create_todo(
         chat_id=body.chat_id,
         due_at=body.due_at,
         recurrence_rule=body.recurrence_rule,
+        due_has_time=body.due_has_time,
     )
     return _todo_out(item, user)
 

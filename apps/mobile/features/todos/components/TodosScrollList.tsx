@@ -10,6 +10,7 @@ import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import type { Todo } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
 import { clashClusters, groupBySameTime, type ClashCluster } from "@/features/todos/model/reminderOverlap";
+import { overdueAt } from "@/features/todos/model/dueDate";
 import {
   todoListRowKey,
   type TodoListRow,
@@ -22,7 +23,8 @@ import { Button } from "@/ui/controls/Button";
 
 type Props = {
   rows: TodoListRow[];
-  /** The to-do clock (useReminderClock): a time it has passed reads as overdue. */
+  /** The to-do clock (useReminderClock): a time it has passed reads as overdue, a date alone
+   * once its day has ended. */
   now: Date;
   showEmpty: boolean;
   /** The view the rows are of: its empty state when it holds nothing. */
@@ -192,7 +194,7 @@ export function TodosScrollList({
                   <TodoRow
                     todo={todo}
                     section={item.section}
-                    pastDue={todo.due_at != null && Date.parse(todo.due_at) < now.getTime()}
+                    pastDue={(overdueAt(todo) ?? Infinity) < now.getTime()}
                     highlighted={highlight === todo.id}
                     busy={busyTodoIds.has(todo.id)}
                     onToggle={onToggle}

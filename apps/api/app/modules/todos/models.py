@@ -71,6 +71,11 @@ class TodoItem(Base):
     topic: Mapped[str] = mapped_column(String(200), nullable=False, default="General")
     checked: Mapped[bool] = mapped_column(Boolean, default=False)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # False: a date alone, held at the start of its day, with no reminder (due_day.py,
+    # migration 0127). An undated to-do keeps true.
+    due_has_time: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
     recurrence_rule: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notification_sent_at: Mapped[datetime | None] = mapped_column(

@@ -12,6 +12,7 @@ from app.models.orm import TodoItem, User
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.chat_language import writes_todos_in_todo_screen
 from app.modules.todos.classification import query_implies_todos
+from app.modules.todos.due_day import describe_due, has_time, overdue_from
 from app.modules.todos.prompt_hint import TODO_HINT, TODO_READ_ONLY_HINT
 from app.modules.todos.repository import DEFAULT_TOPIC
 from app.services import day_planning as day_planning_service
@@ -65,6 +66,13 @@ def _due_local(due_at: datetime, user_timezone: str | None) -> datetime:
     return due.astimezone(tz)
 
 
+def _overdue(todo: TodoItem, now: datetime, user_timezone: str | None) -> bool:
+    """Its time has passed, or for a date alone its day has ended."""
+    if todo.due_at is None:
+        return False
+    return overdue_from(todo.due_at, user_timezone, has_time=has_time(todo)) < now
+
+
 def _todo_group(todo: TodoItem, user_timezone: str | None) -> tuple[str, str]:
     """Sort key and heading matching the mobile To-do list."""
     if todo.checked:
@@ -74,7 +82,7 @@ def _todo_group(todo: TodoItem, user_timezone: str | None) -> tuple[str, str]:
     tz = time_context_service.resolve_timezone(user_timezone)
     now = datetime.now(tz)
     due_local = _due_local(todo.due_at, user_timezone)
-    if due_local < now:
+    if _overdue(todo, now, user_timezone):
         return ("0", "Overdue")
     due_date = due_local.date()
     if due_date == now.date():
@@ -96,7 +104,7 @@ def _todo_priority(
     bucket = 50
     if item.due_at is not None:
         due_local = _due_local(item.due_at, user_timezone)
-        if not item.checked and due_local < now:
+        if not item.checked and _overdue(item, now, user_timezone):
             bucket = 0
         elif due_local.date() == now.date():
             bucket = 1
@@ -148,7 +156,7 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
         for item in items
         if item.due_at is not None
         if not item.checked
-        and time_context_service.describe_due_at(item.due_at, user_timezone).startswith("overdue")
+        and describe_due(item.due_at, user_timezone, has_time=has_time(item)).startswith("overdue")
     ]
 
     lines: list[str] = []
@@ -184,15 +192,14 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
             if todo.due_at is None:
                 lines.append(f"- {mark} {todo.content} ({status}, no date, topic: {topic})")
             else:
-                due_local = _due_local(todo.due_at, user_timezone)
-                clock = due_local.strftime("%H:%M")
-                due_label = time_context_service.describe_due_at(
-                    todo.due_at, user_timezone, checked=todo.checked
+                due_label = describe_due(
+                    todo.due_at, user_timezone, has_time=has_time(todo), checked=todo.checked
                 )
                 rel = f", {due_label}" if due_label else ""
                 repeat = f", repeats {todo.recurrence_rule}" if todo.recurrence_rule else ""
                 lines.append(
-                    f"- {mark} {todo.content} at {clock}{rel}{repeat} ({status}, topic: {topic})"
+                    f"- {mark} {todo.content} {_at(todo, user_timezone)}{rel}{repeat} "
+                    f"({status}, topic: {topic})"
                 )
 
     return "\n".join(lines)
@@ -225,17 +232,23 @@ def format_todos_voice_block(items: list[TodoItem], *, user_timezone: str | None
             if todo.due_at is None:
                 lines.append(f"{heading}: {todo.content} ({status}, no date)")
             else:
-                due_local = _due_local(todo.due_at, user_timezone)
-                clock = due_local.strftime("%H:%M")
-                lines.append(f"{heading}: {todo.content} at {clock} ({status})")
+                lines.append(f"{heading}: {todo.content} {_at(todo, user_timezone)} ({status})")
     return "\n".join(lines)
+
+
+def _at(todo: TodoItem, user_timezone: str | None) -> str:
+    """The clock the model reads ("at 14:30"), or that a date alone has none: it must not
+    read a time into one."""
+    if todo.due_at is None or not has_time(todo):
+        return "(date only, no time)"
+    return f"at {_due_local(todo.due_at, user_timezone).strftime('%H:%M')}"
 
 
 def _has_overdue_open_reminders(items: list[TodoItem], user_timezone: str | None) -> bool:
     for item in items:
         if item.checked or item.due_at is None:
             continue
-        label = time_context_service.describe_due_at(item.due_at, user_timezone)
+        label = describe_due(item.due_at, user_timezone, has_time=has_time(item))
         if label.startswith("overdue"):
             return True
     return False

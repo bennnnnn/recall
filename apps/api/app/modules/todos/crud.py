@@ -13,12 +13,13 @@ from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
 from app.modules.conversation import history as chat_history
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.due_day import has_time, overdue_from, stored_due
 from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.recurrence import (
     RecurrenceRule,
     completed_fields,
     is_recurrence_rule,
-    next_recurring_due,
+    next_open_due,
     snap_first_due,
 )
 from app.modules.todos.schedule_repository import advance_schedules_if_current
@@ -58,9 +59,10 @@ async def list_todos_page(
     page_ids = [item.id for item in items]
     # Preserve this boundary even when catch-up races a deletion of the last row.
     next_cursor = page_ids[-1] if len(selected) > limit else None
-    if not _reminder_pushes_on(user) and await advance_past_recurring(
-        session, items, timezone=user.timezone
-    ):
+    # A push moves a timed repeat on as it goes out. Nothing goes out for a date alone,
+    # so the list moves one on once its day has ended, whatever the push settings.
+    passed = items if not _reminder_pushes_on(user) else [i for i in items if not has_time(i)]
+    if await advance_past_recurring(session, passed, timezone=user.timezone):
         items = await todos_repo.list_by_ids(session, user_id, page_ids)
     return items, next_cursor
 
@@ -79,12 +81,13 @@ async def create_todo(
     chat_id: UUID | None,
     due_at: datetime | None,
     recurrence_rule: RecurrenceRule | None = None,
+    due_has_time: bool = True,
 ) -> TodoItem:
     if chat_id is not None:
         chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
             raise TodosError("Chat not found", status_code=400)
-    normalized_due = normalize_due_at(due_at, user.timezone)
+    normalized_due = stored_due(due_at, user.timezone, has_time=due_has_time)
     if normalized_due is not None and recurrence_rule:
         normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
     if normalized_due is None:
@@ -100,6 +103,7 @@ async def create_todo(
             chat_id=chat_id,
             due_at=normalized_due,
             recurrence_rule=recurrence_rule,
+            due_has_time=due_has_time,
         )
     except IntegrityError as exc:
         if not todos_repo.is_open_content_due_conflict(exc) or normalized_due is None:
@@ -124,15 +128,14 @@ async def update_todo(
     if not item:
         raise TodosError("Todo not found", status_code=404)
     patch = dict(fields)
-    if "due_at" in patch:
-        if patch["due_at"] is None:
-            if is_recurrence_rule(patch.get("recurrence_rule")):
-                raise TodosError("recurrence_rule requires due_at", status_code=422)
-            # An undated item cannot recur. Clearing its date therefore clears
-            # the repeat rule atomically instead of leaving an invalid pair.
-            patch["recurrence_rule"] = None
-        else:
-            patch["due_at"] = normalize_due_at(patch["due_at"], user.timezone)
+    if "due_at" in patch and patch["due_at"] is None:
+        if is_recurrence_rule(patch.get("recurrence_rule")):
+            raise TodosError("recurrence_rule requires due_at", status_code=422)
+        # An undated item cannot recur. Clearing its date therefore clears
+        # the repeat rule atomically instead of leaving an invalid pair.
+        patch["recurrence_rule"] = None
+    if "due_at" in patch or "due_has_time" in patch:
+        patch.update(_stored_due_fields(item, patch, user.timezone))
     rule = patch.get("recurrence_rule", item.recurrence_rule)
     due = patch["due_at"] if "due_at" in patch else item.due_at
     if is_recurrence_rule(rule) and due is None:
@@ -146,6 +149,9 @@ async def update_todo(
         timezone=user.timezone,
         now=datetime.now(UTC),
     )
+    if "due_at" in patch:
+        # Ticking a repeating date alone moves it to its next day, still without a time.
+        patch.setdefault("due_has_time", has_time(item))
     try:
         return await todos_repo.update(session, item, **patch)
     except IntegrityError as exc:
@@ -153,6 +159,22 @@ async def update_todo(
             raise
         await session.rollback()
         raise _duplicate() from exc
+
+
+def _stored_due_fields(
+    item: TodoItem, patch: dict[str, Any], timezone: str | None
+) -> dict[str, Any]:
+    """The due date and its flag as an edit stores them. A ``due_at`` sent without the flag
+    is a time, which is all an app before date-only to-dos could mean, unless it is the one
+    saved (a title edit sends it back); a date alone is held at the start of its day."""
+    due = patch["due_at"] if "due_at" in patch else item.due_at
+    if due is None:
+        return {"due_has_time": True}
+    timed = patch.get("due_has_time")
+    if timed is None:
+        changed = "due_at" in patch and normalize_due_at(due, timezone) != item.due_at
+        timed = changed or has_time(item)
+    return {"due_at": stored_due(due, timezone, has_time=timed), "due_has_time": timed}
 
 
 async def advance_past_recurring(
@@ -172,12 +194,13 @@ async def advance_past_recurring(
         rule = item.recurrence_rule
         if item.checked or item.due_at is None or not is_recurrence_rule(rule):
             continue
-        if item.due_at > when:
+        timed = has_time(item)
+        if overdue_from(item.due_at, timezone, has_time=timed) > when:
             continue
         advances.append(
             (
                 TodoScheduleSnapshot.from_todo(item),
-                next_recurring_due(item.due_at, rule, now=when, timezone=timezone),
+                next_open_due(item.due_at, rule, has_time=timed, now=when, timezone=timezone),
             )
         )
     if not advances:

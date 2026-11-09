@@ -1048,6 +1048,7 @@
   "todos.proposal_to_list": "{{topic}} listesine",
   "todos.proposal_uncheck": "Yeniden aç",
   "todos.remove_date": "Tarihi kaldır",
+  "todos.remove_time": "Saati kaldır",
   "todos.todo_label": "Yapılacak",
   "todos.todo_placeholder": "Ne yapmanız gerekiyor?",
   "todos.change_due": "Tarihi değiştir",

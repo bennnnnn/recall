@@ -66,16 +66,19 @@ def format_schedule_when(
     due_at: datetime,
     user_timezone: str | None,
     repeat: RecurrenceRule | str | None = None,
+    *,
+    has_time: bool = True,
 ) -> str:
+    """The day and clock of a result line, "Thursday, Oct 15, 6:00 PM"; a date alone has
+    no clock, "Thursday, Oct 15"."""
     tz = time_context_service.resolve_timezone(user_timezone)
     due_local = (
         due_at.astimezone(tz) if due_at.tzinfo else due_at.replace(tzinfo=UTC).astimezone(tz)
     )
     hour = due_local.strftime("%I").lstrip("0") or "0"
-    when = (
-        f"{due_local.strftime('%A')}, {due_local.strftime('%b')} {due_local.day}, "
-        f"{hour}:{due_local.strftime('%M')} {due_local.strftime('%p')}"
-    )
+    when = f"{due_local.strftime('%A')}, {due_local.strftime('%b')} {due_local.day}"
+    if has_time:
+        when = f"{when}, {hour}:{due_local.strftime('%M')} {due_local.strftime('%p')}"
     if repeat:
         when = f"{when} · {repeat}"
     return when
@@ -89,13 +92,15 @@ def format_schedule_result(
     repeat: RecurrenceRule | str | None,
     user_timezone: str | None,
     ok: bool,
+    has_time: bool = True,
 ) -> str:
     if not ok:
         verb = _FAIL_VERB.get(action, "update")
         return f"Could not {verb} {title}."
     prefix = _OK_PREFIX.get(action, "Set")
     if action in ("add", "set_due") and due_at is not None:
-        return f"{prefix}: {title} — {format_schedule_when(due_at, user_timezone, repeat)}."
+        when = format_schedule_when(due_at, user_timezone, repeat, has_time=has_time)
+        return f"{prefix}: {title} — {when}."
     return f"{prefix}: {title}."
 
 

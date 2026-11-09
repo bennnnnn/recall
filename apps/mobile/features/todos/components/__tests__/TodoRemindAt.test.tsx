@@ -8,7 +8,7 @@
  * With quiet hours 22:00-07:00, a to-do due at 23:30 showed 23:20 (due - lead) here while
  * push waited until 07:00.
  */
-import { act, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { TodoDateFields } from "@/features/todos/components/TodoDateFields";
 import { TodoEditorSheet } from "@/features/todos/components/TodoEditorSheet";
@@ -48,7 +48,7 @@ function savedTodo(due: Date, notifyAt: Date | null): Todo {
 function Fields({ due, saved }: { due: Date | null; saved?: Todo | null }) {
   const remindAt = useRemindAt({ dueDate: due, repeat: null, saved, enabled: true });
   return (
-    <TodoDateFields review dueDate={due} onDueDateChange={noop} repeat={null} onRepeatChange={noop}
+    <TodoDateFields review due={due && { date: due, hasTime: true }} onDueChange={noop} repeat={null} onRepeatChange={noop}
       todos={[]} remindAt={remindAt} leadMinutes={mockAuth.user.reminder_lead_minutes} onOpen={noop} />
   );
 }
@@ -181,4 +181,33 @@ it("the detail page shows the list's notify_at for the to-do, and follows it whe
   expect(view.getByText(dayTime(new Date(2026, 10, 3, 7, 0)))).toBeTruthy();
   await advance(1000);
   expect(previews()).toEqual([]);
+});
+
+describe("a date alone on the detail page", () => {
+  const page = (shown: Todo) => (
+    <TodoEditorSheet page visible saving={false} todos={[shown]} editTodo={shown} savedTodo={shown}
+      leadMinutes={10} onClose={noop} onSave={noop} />
+  );
+
+  it("shows no time and no Remind at, and asks the server nothing", async () => {
+    const day = new Date(2026, 10, 2);
+    const rent = { ...savedTodo(day, null), due_has_time: false };
+    const view = await render(page(rent));
+    expect(view.getByText("—")).toBeTruthy();
+    expect(remindAtLabel(view)).toBeUndefined();
+    expect(view.queryByLabelText("todos.remove_time")).toBeNull();
+    await advance(1000);
+    expect(previews()).toEqual([]);
+  });
+
+  it("is what taking the time off leaves: the Remind at row goes with the time", async () => {
+    const due = new Date(2026, 10, 2, 9, 0);
+    const view = await render(page(savedTodo(due, new Date(2026, 10, 2, 8, 50))));
+    expect(remindAtLabel(view)).toBeDefined();
+    await fireEvent.press(view.getByLabelText("todos.remove_time"));
+    expect(remindAtLabel(view)).toBeUndefined();
+    expect(view.getByText("—")).toBeTruthy();
+    await advance(1000);
+    expect(previews()).toEqual([]);
+  });
 });

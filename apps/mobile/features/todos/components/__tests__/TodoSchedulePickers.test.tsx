@@ -1,7 +1,10 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { TodoEditorSheet } from "@/features/todos/components/TodoEditorSheet";
+import { defaultDueDate } from "@/features/todos/model/dueDate";
 import type { Todo } from "@/lib/api";
+import { isSameDay } from "@/lib/datetime/calendarGrid";
+import { timeFromDate } from "@/lib/datetime/clockDial";
 
 type TimeOfDay = { hour: number; minute: number };
 type DateDialog = { visible: boolean; value: Date; onConfirm: (date: Date) => void; onCancel: () => void };
@@ -41,6 +44,7 @@ jest.mock("@/ui/overlay/SheetFormHeader", () => ({
 }));
 
 const original = new Date(2026, 8, 4, 9, 30);
+const timed = (date: Date) => ({ date, hasTime: true });
 const todo = { id: "todo-a", content: "Call Mom", due_at: original.toISOString(), checked: false } as Todo;
 function editProps(save = jest.fn(), extra: Record<string, unknown> = {}) {
   return { visible: true, saving: false, todos: [todo], editTodo: todo, onClose: jest.fn(), onSave: save, ...extra };
@@ -61,7 +65,7 @@ it("creates a reminder from the date dialog and the clock", async () => {
   await act(() => { mockTime.onConfirm({ hour: 17, minute: 45 }); });
   expect(mockTime.visible).toBe(false);
   await act(() => { mockForm.onSave(); });
-  expect(save).toHaveBeenCalledWith("Call Mom", new Date(2026, 9, 12, 17, 45), null, "General");
+  expect(save).toHaveBeenCalledWith("Call Mom", timed(new Date(2026, 9, 12, 17, 45)), null, "General");
 });
 
 it("creates a plain to-do without opening the date picker", async () => {
@@ -92,7 +96,7 @@ it("edits the day and the time separately, keeping the other part", async () => 
   await act(() => { mockTime.onConfirm({ hour: 14, minute: 15 }); });
   await act(() => { mockForm.onSave(); });
   expect(save).toHaveBeenCalledTimes(1);
-  expect(save).toHaveBeenCalledWith("Call Mom", new Date(2026, 10, 2, 14, 15), null, "General");
+  expect(save).toHaveBeenCalledWith("Call Mom", timed(new Date(2026, 10, 2, 14, 15)), null, "General");
 });
 
 it.each(["date", "time"] as const)("cancels a %s selection without changing the due date", async (step) => {
@@ -104,7 +108,7 @@ it.each(["date", "time"] as const)("cancels a %s selection without changing the 
   await act(() => { dialog.onCancel(); });
   expect((step === "date" ? mockDate : mockTime).visible).toBe(false);
   await act(() => { mockForm.onSave(); });
-  expect(save).toHaveBeenCalledWith("Call Mom", original, null, "General");
+  expect(save).toHaveBeenCalledWith("Call Mom", timed(original), null, "General");
 });
 
 it("ignores a picker answer after unmount", async () => {
@@ -129,7 +133,7 @@ it("drops an earlier to-do's picker answer after changing targets", async () => 
   await act(() => { stale(new Date(2027, 0, 1)); });
   expect(mockDate.visible).toBe(true);
   await act(() => { mockForm.onSave(); });
-  expect(save).toHaveBeenCalledWith("Call Mom", original, null, "General");
+  expect(save).toHaveBeenCalledWith("Call Mom", timed(original), null, "General");
 });
 
 it("closes but keeps the date when OK arrives while saving", async () => {
@@ -142,7 +146,7 @@ it("closes but keeps the date when OK arrives while saving", async () => {
   expect(mockDate.visible).toBe(false);
   await ui.rerender(<TodoEditorSheet {...props} />);
   await act(() => { mockForm.onSave(); });
-  expect(save).toHaveBeenCalledWith("Call Mom", original, null, "General");
+  expect(save).toHaveBeenCalledWith("Call Mom", timed(original), null, "General");
 });
 
 it("saves a repeat change from the edit sheet", async () => {
@@ -151,5 +155,70 @@ it("saves a repeat change from the edit sheet", async () => {
   await fireEvent.press(ui.getByLabelText("todos.repeat_label, todos.repeat_none"));
   await fireEvent.press(ui.getByLabelText("todos.repeat_weekly"));
   await act(() => { mockForm.onSave(); });
-  expect(save).toHaveBeenCalledWith("Call Mom", original, "weekly", "General");
+  expect(save).toHaveBeenCalledWith("Call Mom", timed(original), "weekly", "General");
+});
+
+describe("a date alone", () => {
+  it("is what a date picked on an undated to-do gives, and only once OK is pressed", async () => {
+    const save = jest.fn();
+    const ui = await render(<TodoEditorSheet visible saving={false} todos={[]} onClose={jest.fn()} onSave={save} />);
+    await fireEvent.changeText(ui.getByPlaceholderText("todos.todo_placeholder"), "Pay rent");
+    await fireEvent.press(ui.getByLabelText("todos.add_date"));
+    // Open, it starts at today and the to-do is still undated.
+    expect(mockDate.visible).toBe(true);
+    expect(isSameDay(mockDate.value, new Date())).toBe(true);
+    expect(ui.queryByLabelText("todos.remove_date")).toBeNull();
+    await act(() => { mockDate.onCancel(); });
+    await act(() => { mockForm.onSave(); });
+    expect(save).toHaveBeenLastCalledWith("Pay rent", null, null, "General");
+
+    await fireEvent.press(ui.getByLabelText("todos.add_date"));
+    await act(() => { mockDate.onConfirm(new Date(2026, 9, 12, 14, 20)); });
+    // No time, so nothing to take off and no reminder.
+    expect(ui.getByText("—")).toBeTruthy();
+    expect(ui.queryByLabelText("todos.remove_time")).toBeNull();
+    await act(() => { mockForm.onSave(); });
+    expect(save).toHaveBeenLastCalledWith("Pay rent", { date: new Date(2026, 9, 12), hasTime: false }, null, "General");
+  });
+
+  it("gets a time from the suggested one, keeping its day; Cancel leaves it alone", async () => {
+    const save = jest.fn();
+    const rent = { ...todo, due_at: new Date(2026, 8, 4).toISOString(), due_has_time: false } as Todo;
+    const ui = await render(<TodoEditorSheet {...editProps(save)} editTodo={rent} todos={[rent]} />);
+    expect(ui.getByText("—")).toBeTruthy();
+    await fireEvent.press(ui.getByLabelText("todos.time_label"));
+    expect(mockTime.visible).toBe(true);
+    expect(mockTime.value).toEqual(timeFromDate(defaultDueDate()));
+    await act(() => { mockTime.onCancel(); });
+    await act(() => { mockForm.onSave(); });
+    expect(save).toHaveBeenLastCalledWith("Call Mom", { date: new Date(2026, 8, 4), hasTime: false }, null, "General");
+
+    await fireEvent.press(ui.getByLabelText("todos.time_label"));
+    await act(() => { mockTime.onConfirm({ hour: 18, minute: 0 }); });
+    await act(() => { mockForm.onSave(); });
+    expect(save).toHaveBeenLastCalledWith("Call Mom", timed(new Date(2026, 8, 4, 18, 0)), null, "General");
+  });
+
+  it("is what taking a time off leaves, with the day and its repeat", async () => {
+    const save = jest.fn();
+    const weekly = { ...todo, recurrence_rule: "weekly" as const };
+    const ui = await render(<TodoEditorSheet {...editProps(save)} editTodo={weekly} />);
+    await fireEvent.press(ui.getByLabelText("todos.remove_time"));
+    expect(ui.queryByLabelText("todos.remove_time")).toBeNull();
+    expect(ui.getByText("—")).toBeTruthy();
+    await act(() => { mockForm.onSave(); });
+    expect(save).toHaveBeenCalledWith("Call Mom", { date: new Date(2026, 8, 4), hasTime: false }, "weekly", "General");
+  });
+
+  it("is the date a repeat picked on an undated to-do gives: today, with no time", async () => {
+    const save = jest.fn();
+    const ui = await render(<TodoEditorSheet visible saving={false} todos={[]} onClose={jest.fn()} onSave={save} />);
+    await fireEvent.changeText(ui.getByPlaceholderText("todos.todo_placeholder"), "Water plants");
+    await fireEvent.press(ui.getByLabelText("todos.repeat_label, todos.repeat_none"));
+    await fireEvent.press(ui.getByLabelText("todos.repeat_daily"));
+    await act(() => { mockForm.onSave(); });
+    const today = new Date();
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    expect(save).toHaveBeenCalledWith("Water plants", { date: day, hasTime: false }, "daily", "General");
+  });
 });

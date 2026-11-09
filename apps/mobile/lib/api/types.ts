@@ -142,6 +142,9 @@ export type Todo = {
   topic: string;
   checked: boolean;
   due_at: string | null;
+  /** False: a date alone, with no time and no reminder; `due_at` is the start of that day.
+   * Absent on a row an older server or cache wrote, which has a time. */
+  due_has_time?: boolean;
   recurrence_rule?: RecurrenceRule | null;
   sort_order: number | null;
   chat_id: string | null;

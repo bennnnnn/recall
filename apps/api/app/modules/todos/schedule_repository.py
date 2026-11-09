@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Any, cast
+from uuid import UUID
 
 from sqlalchemy import and_, case, func, or_, update
 from sqlalchemy.engine import CursorResult
@@ -54,5 +55,18 @@ async def advance_schedules_if_current(
             notification_sent_at=None,
             email_sent_at=None,
         )
+        .execution_options(synchronize_session=False)
+    )
+
+
+async def move_due_days(session: AsyncSession, moves: dict[UUID, datetime]) -> None:
+    """Set each to-do's ``due_at`` in one statement; no commit. Holding a date alone on its
+    day is not an edit: ``updated_at``, which dates a completed row, stays."""
+    if not moves:
+        return
+    await session.execute(
+        update(TodoItem)
+        .where(TodoItem.id.in_(list(moves)))
+        .values(due_at=case(moves, value=TodoItem.id), updated_at=TodoItem.updated_at)
         .execution_options(synchronize_session=False)
     )

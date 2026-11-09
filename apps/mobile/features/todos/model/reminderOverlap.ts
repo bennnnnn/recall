@@ -1,8 +1,10 @@
 import type { Todo } from "@/lib/api";
+import { isDateOnly } from "@/features/todos/model/dueDate";
 
 /** Reminders within this window are treated as overlapping. */
 export const REMINDER_OVERLAP_MS = 15 * 60 * 1000;
 
+/** A to-do whose time falls within the window of `dueDate`. A date alone has no time to share. */
 export function findOverlappingReminder(
   todos: Todo[],
   dueDate: Date,
@@ -12,7 +14,7 @@ export function findOverlappingReminder(
   if (Number.isNaN(target)) return null;
 
   for (const todo of todos) {
-    if (todo.id === options?.excludeId || todo.checked || !todo.due_at) continue;
+    if (todo.id === options?.excludeId || todo.checked || !todo.due_at || isDateOnly(todo)) continue;
     const other = new Date(todo.due_at).getTime();
     if (Number.isNaN(other)) continue;
     if (Math.abs(other - target) < REMINDER_OVERLAP_MS) return todo;
@@ -21,14 +23,15 @@ export function findOverlappingReminder(
 }
 
 function sameScheduledTime(a: Todo, b: Todo): boolean {
-  if (a.checked || b.checked || !a.due_at || !b.due_at) return false;
+  if (a.checked || b.checked || !a.due_at || !b.due_at || isDateOnly(a) !== isDateOnly(b)) return false;
   const aTime = new Date(a.due_at).getTime();
   const bTime = new Date(b.due_at).getTime();
   if (Number.isNaN(aTime) || Number.isNaN(bTime)) return false;
   return Math.abs(aTime - bTime) < REMINDER_OVERLAP_MS;
 }
 
-/** Keep same-time to-dos in one card. A new card starts when the clock moves. */
+/** Keep same-time to-dos in one card. A new card starts when the clock moves; a day's dates
+ * alone share one card. */
 export function groupBySameTime(todos: Todo[]): Todo[][] {
   const groups: Todo[][] = [];
   for (const todo of todos) {
@@ -46,13 +49,13 @@ export type ClashCluster = {
 };
 
 /**
- * Open to-dos in one day sheet that fall in the same overlap window.
+ * Open to-dos with a time in one day sheet that fall in the same overlap window.
  * Names follow due time. `at` is the earliest due instant in the cluster.
  */
 export function clashClusters(todos: Todo[]): ClashCluster[] {
   const open: { todo: Todo; time: number }[] = [];
   for (const todo of todos) {
-    if (todo.checked || !todo.due_at) continue;
+    if (todo.checked || !todo.due_at || isDateOnly(todo)) continue;
     const time = new Date(todo.due_at).getTime();
     if (Number.isNaN(time)) continue;
     open.push({ todo, time });

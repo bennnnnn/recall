@@ -4,7 +4,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { notifyDestructive } from "@/lib/haptics";
-import { toDueAtIso } from "@/features/todos/model/dueDate";
+import { dueFields, dueFieldsToSend, dueOfTodo, sameDue, type TodoDue } from "@/features/todos/model/dueDate";
 import { allowReminderAlerts, shouldTellAlertsOff } from "@/features/todos/model/reminderAlerts";
 import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features/todos/model/optimisticTodo";
@@ -114,7 +114,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
 
   const handleCreateTodo = useCallback(async (
     content: string,
-    dueDate: Date | null,
+    due: TodoDue | null,
     onCreated: () => void,
     recurrence: RecurrenceRule | null = null,
     topic: string = DEFAULT_TOPIC,
@@ -122,28 +122,28 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (!token || !canAct()) return;
     const trimmed = content.trim();
     if (!trimmed) return;
-    if (dueDate && !Number.isFinite(dueDate.getTime())) {
+    if (due && !Number.isFinite(due.date.getTime())) {
       reportError("todos.error_create");
       return;
     }
-    const dueIso = dueDate ? toDueAtIso(dueDate) : null;
-    await askForAlerts(dueIso);
+    const shown = dueFields(due);
+    await askForAlerts(due?.hasTime ? shown.due_at : null);
     if (!canAct()) return;
-    const recurrenceRule = dueIso ? recurrence : null;
+    const recurrenceRule = due ? recurrence : null;
     const nextTopic = topic.trim() || DEFAULT_TOPIC;
     const optimistic = buildOptimisticTodo({
       content: trimmed,
       topic: nextTopic,
-      dueAt: dueIso,
+      dueAt: shown.due_at, dueHasTime: shown.due_has_time,
       recurrenceRule,
     });
     const release = beginTodoMutation(owner.mutations, optimistic.id, "create");
     if (!release) return;
     applyTodos((rows) => [optimistic, ...rows]);
     try {
+      const sent = dueFieldsToSend(due);
       const created = await api.createTodo(token, trimmed, nextTopic, {
-        dueAt: dueIso,
-        recurrenceRule,
+        dueAt: sent.due_at, dueHasTime: sent.due_has_time, recurrenceRule,
       });
       applyTodos((rows) => replaceTodoById(rows, optimistic.id, created));
       if (created.due_at && isSameOwner()) {
@@ -209,7 +209,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const handleUpdateTodo = useCallback(async (
     todo: Todo,
     content: string,
-    date: Date | null,
+    due: TodoDue | null,
     recurrence: RecurrenceRule | null,
     topic: string = todo.topic,
     closeOnSave = true,
@@ -218,30 +218,30 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (editorRef.current.owner !== owner || editorRef.current.value?.id !== todo.id) return false;
     const trimmed = content.trim();
     if (!trimmed) return false;
-    if (date && !Number.isFinite(date.getTime())) {
+    if (due && !Number.isFinite(due.date.getTime())) {
       reportError("todos.error_due");
       return false;
     }
-    const dueIso = date ? toDueAtIso(date) : null;
-    if (dueIso && dueIso !== todo.due_at) {
-      await askForAlerts(dueIso);
+    const shown = dueFields(due);
+    if (due?.hasTime && shown.due_at !== todo.due_at) {
+      await askForAlerts(shown.due_at);
       if (!canAct()) return false;
     }
-    const recurrenceRule = dueIso ? recurrence : null;
+    const recurrenceRule = due ? recurrence : null;
     const nextTopic = topic.trim() || DEFAULT_TOPIC;
     const saved = await mutateRow(todo.id, (snapshot) => ({
       ...snapshot,
       content: trimmed,
       topic: nextTopic,
-      due_at: dueIso,
+      ...shown,
       recurrence_rule: recurrenceRule,
       // A new time's reminder instant is the server's to work out: no alert until it answers.
-      notify_at: dueIso === snapshot.due_at ? snapshot.notify_at : null,
+      notify_at: sameDue(dueOfTodo(snapshot), due) ? snapshot.notify_at : null,
     }),
       () => api.updateTodo(token, todo.id, {
         content: trimmed,
         topic: nextTopic,
-        due_at: dueIso,
+        ...dueFieldsToSend(due, todo),
         recurrence_rule: recurrenceRule,
       }), "todos.error_update");
     if (saved && closeOnSave && editorRef.current.value?.id === todo.id) setEditingTodo(null);

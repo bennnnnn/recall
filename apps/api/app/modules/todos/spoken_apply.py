@@ -13,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.todos.due_day import has_time
 from app.modules.todos.recurrence import is_recurrence_rule
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
@@ -170,6 +171,7 @@ async def _apply_saved_fields(
 
     fields: dict[str, Any] = {}
     due = getattr(item, "due_at", None)
+    timed = has_time(item)
     repeat = spoken.repeat or _kept_repeat(item)
     if spoken.keep_date:
         retimed = _due_with_clock(
@@ -190,6 +192,7 @@ async def _apply_saved_fields(
             ), False
         fields["due_at"] = retimed
         due = retimed
+        timed = True
     if spoken.day or spoken.shift_days:
         moved = _moved_due(item, spoken, user_timezone=user_timezone)
         if moved is None:
@@ -203,6 +206,9 @@ async def _apply_saved_fields(
             ), False
         fields["due_at"] = moved
         due = moved
+    if "due_at" in fields:
+        # A clock said gives it a time; a new day alone keeps a date alone without one.
+        fields["due_has_time"] = timed
     if spoken.repeat:
         if not isinstance(due, datetime):
             return format_schedule_result(
@@ -228,7 +234,11 @@ async def _apply_saved_fields(
         ), False
     await todos_repo.update(session, item, commit=False, **fields)
     if spoken.topic:
-        when = format_schedule_when(due, user_timezone, repeat) if isinstance(due, datetime) else ""
+        when = (
+            format_schedule_when(due, user_timezone, repeat, has_time=timed)
+            if isinstance(due, datetime)
+            else ""
+        )
         if when:
             return f"Moved: {title} to {spoken.topic} — {when}.", True
         return f"Moved: {title} to {spoken.topic}.", True
@@ -239,6 +249,7 @@ async def _apply_saved_fields(
         repeat=repeat,
         user_timezone=user_timezone,
         ok=True,
+        has_time=timed,
     ), True
 
 
@@ -279,7 +290,7 @@ def format_reminder_reading(items: Sequence[Any], user_timezone: str | None) -> 
         due = getattr(item, "due_at", None)
         repeat = _kept_repeat(item)
         if isinstance(due, datetime):
-            when = format_schedule_when(due, user_timezone, repeat)
+            when = format_schedule_when(due, user_timezone, repeat, has_time=has_time(item))
             stamp = due if due.tzinfo else due.replace(tzinfo=UTC)
         else:
             when = "no time"

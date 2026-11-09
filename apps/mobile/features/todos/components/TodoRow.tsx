@@ -9,6 +9,7 @@ import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import type { Todo } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
 import { categoryText } from "@/features/todos/model/todoCategories";
+import { isDateOnly } from "@/features/todos/model/dueDate";
 import type { TodoSection } from "@/features/todos/model/todoListRows";
 import { selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
@@ -110,12 +111,11 @@ export const TodoRow = memo(function TodoRow({
     return parts.length ? parts.join(" · ") : null;
   })();
 
-  const timeLabel = !todo.checked && dueOk && due ? formatDate(due, "time") : null;
-  const overdue = dueOk && (section === "overdue" || pastDue);
-  // Spoken as drawn: the title, its time, and "overdue" where the time carries the danger mark.
-  const spokenLabel = timeLabel
-    ? `${todo.content}, ${timeLabel}${overdue ? `, ${t("todos.row_overdue")}` : ""}`
-    : todo.content;
+  // A date alone has no time to show: its day heading, or in Overdue the date, says when.
+  const timeLabel = !todo.checked && dueOk && due && !isDateOnly(todo) ? formatDate(due, "time") : null;
+  const overdue = !todo.checked && dueOk && (section === "overdue" || pastDue);
+  // Spoken as drawn: the title, its time, and "overdue" where the danger mark shows.
+  const spokenLabel = [todo.content, timeLabel, overdue && t("todos.row_overdue")].filter(Boolean).join(", ");
   // A lit row (opened from Home or a push, or picked to select) sits on primaryLight, where
   // danger ink is under 4.5:1 in every dark accent and light violet, and grey ink in four dark
   // accents. Its grey lines and its time take the text ink there (a time later today keeps
@@ -171,14 +171,12 @@ export const TodoRow = memo(function TodoRow({
           </Text>
         ) : null}
       </Pressable>
-      {timeLabel ? (
+      {timeLabel || overdue ? (
         <View style={s.todoTimeWrap}>
           {overdue ? (
             <Icon name="alert-circle" size={IconSize.xs} color={C.danger} testID="todo-overdue-mark" />
           ) : null}
-          <Text style={[s.todoTime, timeTone]} numberOfLines={1}>
-            {timeLabel}
-          </Text>
+          {timeLabel ? <Text style={[s.todoTime, timeTone]} numberOfLines={1}>{timeLabel}</Text> : null}
         </View>
       ) : null}
     </View>

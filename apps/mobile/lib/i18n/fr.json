@@ -1058,6 +1058,7 @@
   "todos.proposal_to_list": "Vers {{topic}}",
   "todos.proposal_uncheck": "Rouvrir",
   "todos.remove_date": "Supprimer la date",
+  "todos.remove_time": "Supprimer l’heure",
   "todos.todo_label": "Tâche",
   "todos.todo_placeholder": "Que devez-vous faire ?",
   "todos.change_due": "Modifier la date",

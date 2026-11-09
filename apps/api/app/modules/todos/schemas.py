@@ -23,6 +23,8 @@ class TodoOut(BaseModel):
     topic: str
     checked: bool
     due_at: datetime | None = None
+    # False: a date alone (due_at at the start of its day), with no reminder.
+    due_has_time: bool = True
     recurrence_rule: RecurrenceRule | None = None
     sort_order: int | None = None
     chat_id: UUID | None = None
@@ -59,6 +61,8 @@ class TodoCreate(BaseModel):
     topic: UserText = Field(default="General", min_length=1, max_length=200)
     chat_id: UUID | None = None
     due_at: datetime | None = None
+    # False: only due_at's day counts (on the user's clock), and nothing reminds of it.
+    due_has_time: bool = True
     recurrence_rule: RecurrenceRule | None = None
 
     @field_validator("content")
@@ -83,10 +87,12 @@ class TodoUpdate(BaseModel):
     topic: UserText | None = Field(default=None, min_length=1, max_length=200)
     checked: bool | None = None
     due_at: datetime | None = None
+    # Left out with a new due_at: a time, as every app before date-only to-dos meant.
+    due_has_time: bool | None = None
     recurrence_rule: RecurrenceRule | None = None
     sort_order: int | None = Field(default=None, ge=0)
 
-    @field_validator("content", "topic", "checked")
+    @field_validator("content", "topic", "checked", "due_has_time")
     @classmethod
     def supplied_value_cannot_be_null(cls, value: str | bool | None) -> str | bool:
         if value is None:

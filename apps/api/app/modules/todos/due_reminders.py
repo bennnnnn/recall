@@ -18,12 +18,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, false, func, select, tuple_
+from sqlalchemy import ColumnElement, false, func, select, true, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.models.orm import PushToken, TodoItem, User
 from app.modules.todos.crud import advance_past_recurring
+from app.modules.todos.due_day import has_time
 from app.modules.todos.email_repository import mark_email_sent_if_current
 from app.modules.todos.occurrences import TodoEmailSnapshot, TodoScheduleSnapshot
 from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due, snap_first_due
@@ -79,8 +80,9 @@ async def due_reminder_page(
     after: PageKey | None = None,
     limit: int = 500,
 ) -> list[tuple[TodoItem, User]]:
-    """Open dated to-dos in the window ``[now - 48 h, now + the longest lead]`` the channel
-    has not sent, ordered by ``(due_at, id)`` and starting after ``after``.
+    """Open to-dos with a time in the window ``[now - 48 h, now + the longest lead]`` the
+    channel has not sent, ordered by ``(due_at, id)`` and starting after ``after``. A date
+    alone has no reminder.
 
     ``checked == false()`` renders ``checked = false``, the predicate the partial index
     has; ``IS false`` might not let the planner use it.
@@ -91,6 +93,7 @@ async def due_reminder_page(
         .where(
             TodoItem.checked == false(),
             TodoItem.due_at.isnot(None),
+            TodoItem.due_has_time == true(),
             channel.sent_at.is_(None),
             TodoItem.due_at >= now - timedelta(hours=OVERDUE_MAX_HOURS),
             TodoItem.due_at <= now + timedelta(minutes=MAX_REMINDER_LEAD_MINUTES),
@@ -118,9 +121,10 @@ def reminder_page_key(rows: list[tuple[TodoItem, User]]) -> PageKey | None:
 
 def reminder_instant(todo: TodoItem, user: User) -> datetime | None:
     """When ``todo``'s reminder goes out for ``user``: the to-do list's ``notify_at``, which
-    the phone schedules its own alert at, and the moment push and email send. None: never.
+    the phone schedules its own alert at, and the moment push and email send. None: never,
+    as for a date alone.
     """
-    if todo.checked or todo.due_at is None:
+    if todo.checked or todo.due_at is None or not has_time(todo):
         return None
     return reminder_at(
         todo.due_at,
@@ -171,6 +175,7 @@ async def tokenless_recurring_overdue(
         .where(
             TodoItem.checked == false(),
             TodoItem.due_at.isnot(None),
+            TodoItem.due_has_time == true(),
             TodoItem.notification_sent_at.is_(None),
             TodoItem.recurrence_rule.isnot(None),
             TodoItem.due_at >= now - timedelta(hours=OVERDUE_MAX_HOURS),
@@ -190,7 +195,8 @@ async def aged_out_unsent(
 ) -> int:
     """How many of the channel's reminders crossed the 48 h overdue line unsent in ``window``.
 
-    Only users the channel reaches count, so a row that aged out is a delivery failure.
+    Only users the channel reaches count, so a row that aged out is a delivery failure; a
+    date alone never had a reminder to send.
     """
     cutoff = now - timedelta(hours=OVERDUE_MAX_HOURS)
     raw = await session.scalar(
@@ -200,6 +206,7 @@ async def aged_out_unsent(
         .where(
             TodoItem.checked == false(),
             TodoItem.due_at.isnot(None),
+            TodoItem.due_has_time == true(),
             channel.sent_at.is_(None),
             TodoItem.due_at < cutoff,
             TodoItem.due_at >= cutoff - window,

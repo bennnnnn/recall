@@ -7,7 +7,8 @@ import { api, type RecurrenceRule, type Todo } from "@/lib/api";
 const PREVIEW_DELAY_MS = 300;
 
 export type RemindAt =
-  /** No reminder: no due time, or the server sends none (more than 48 hours past due). */
+  /** No reminder: no due time (a date alone has none), or the server sends none (more than
+   * 48 hours past due). */
   | { status: "none" }
   | { status: "at"; at: Date }
   /** Not known yet: the server is being asked, or could not be. */
@@ -36,6 +37,7 @@ export function useRemindAt({
   saved,
   enabled,
 }: {
+  /** The time on screen; null for a date alone, which has no reminder. */
   dueDate: Date | null;
   repeat: RecurrenceRule | null;
   /** The to-do as the list holds it now; none for a new one. */
@@ -51,8 +53,9 @@ export function useRemindAt({
       user.quiet_hours_end_minute, user.timezone].join("|")
     : "";
   const dueIso = dueDate ? dueDate.toISOString() : null;
+  // A saved date alone has no notify_at to show for a time given it at its midnight.
   const asSaved = Boolean(saved?.due_at && dueIso && Date.parse(saved.due_at) === Date.parse(dueIso)
-    && (saved.recurrence_rule ?? null) === repeat);
+    && saved.due_has_time !== false && (saved.recurrence_rule ?? null) === repeat);
   const key = enabled && dueIso && !asSaved ? `${dueIso}|${repeat ?? ""}|${profile}` : null;
   const [preview, setPreview] = useState<Preview | null>(null);
 

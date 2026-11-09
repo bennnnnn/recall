@@ -1,9 +1,21 @@
 import i18n from "@/lib/i18n";
+import type { Todo } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
+import { localDateKey } from "@/features/todos/model/dateKey";
 
 type DueTone = "overdue" | "today" | "soon" | "later";
 
-export function describeDueAt(iso: string | null | undefined): {
+/**
+ * A to-do's due date, and whether it has a time. A date alone (`due_has_time` false) has
+ * no time and no reminder, and is overdue once its day has ended; its `date` is the start
+ * of that day. Picking a date used to write a time with it (9:00, or the next hour), so a
+ * date alone came with a "Remind at" and a reminder.
+ */
+export type TodoDue = { date: Date; hasTime: boolean };
+
+type DueFields = Pick<Todo, "due_at" | "due_has_time">;
+
+export function describeDueAt(iso: string | null | undefined, hasTime = true): {
   label: string;
   tone: DueTone;
 } | null {
@@ -18,16 +30,17 @@ export function describeDueAt(iso: string | null | undefined): {
     (startOfDue.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000),
   );
 
-  if (due.getTime() < now.getTime()) {
+  // A date alone is overdue only once its day has ended, and has no time to name.
+  if (hasTime ? due.getTime() < now.getTime() : dayDiff < 0) {
     if (dayDiff === 0) return { label: i18n.t("todos.overdue_today"), tone: "overdue" };
     const days = Math.max(1, Math.abs(dayDiff));
     return { label: i18n.t("todos.overdue_days", { count: days }), tone: "overdue" };
   }
   if (dayDiff === 0) {
     return {
-      label: i18n.t("todos.due_today_time", {
-        time: formatDate(due, "time"),
-      }),
+      label: hasTime
+        ? i18n.t("todos.due_today_time", { time: formatDate(due, "time") })
+        : i18n.t("todos.group_today"),
       tone: "today",
     };
   }
@@ -42,10 +55,6 @@ export function describeDueAt(iso: string | null | undefined): {
     label: formatDate(due, "monthDayYear"),
     tone: "later",
   };
-}
-
-export function toDueAtIso(date: Date): string {
-  return date.toISOString();
 }
 
 /** Keep the clock time and take the calendar day, including the year. */
@@ -65,4 +74,54 @@ export function defaultDueDate(): Date {
   nextHour.setMinutes(0, 0, 0);
   nextHour.setHours(nextHour.getHours() + 1);
   return nextHour;
+}
+
+/** `date`'s day alone, held at its start on the phone's clock. */
+export function dateOnly(date: Date): TodoDue {
+  return { date: new Date(date.getFullYear(), date.getMonth(), date.getDate()), hasTime: false };
+}
+
+/** A saved to-do's due date, as the editor holds it; null when it has none. */
+export function dueOfTodo(todo: DueFields): TodoDue | null {
+  if (!todo.due_at) return null;
+  const date = new Date(todo.due_at);
+  return Number.isFinite(date.getTime()) ? { date, hasTime: todo.due_has_time !== false } : null;
+}
+
+/** The same due date, with a time or without one. */
+export function sameDue(a: TodoDue | null, b: TodoDue | null): boolean {
+  if (!a || !b) return a === b;
+  return a.date.getTime() === b.date.getTime() && a.hasTime === b.hasTime;
+}
+
+/**
+ * When a to-do is overdue, as epoch ms: its time, or for a date alone the end of its day
+ * (until then it is Today's). Null when it has no date.
+ */
+export function overdueAt(todo: DueFields): number | null {
+  const due = dueOfTodo(todo);
+  if (!due) return null;
+  const day = due.date;
+  return due.hasTime ? day.getTime() : new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime();
+}
+
+/** A date alone: no time, and nothing reminds of it. */
+export function isDateOnly(todo: DueFields): boolean {
+  return Boolean(todo.due_at) && todo.due_has_time === false;
+}
+
+/** The due fields the list holds for `due` until the server answers. */
+export function dueFields(due: TodoDue | null): Required<DueFields> {
+  return { due_at: due ? due.date.toISOString() : null, due_has_time: due?.hasTime ?? true };
+}
+
+/**
+ * The due fields a save sends. A date alone goes as its day at 00:00 with no zone: the
+ * server files it under that day on the user's clock, even before it holds the phone's zone
+ * (a new account, just after a flight). One still as `saved` has it goes back as saved.
+ */
+export function dueFieldsToSend(due: TodoDue | null, saved?: Todo): Required<DueFields> {
+  if (!due || due.hasTime) return dueFields(due);
+  if (saved?.due_at && sameDue(dueOfTodo(saved), due)) return { due_at: saved.due_at, due_has_time: false };
+  return { due_at: `${localDateKey(due.date)}T00:00:00`, due_has_time: false };
 }

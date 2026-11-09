@@ -31,7 +31,7 @@ function OverdueReminderRow({
 }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const due = describeDueAt(todo.due_at);
+  const due = describeDueAt(todo.due_at, todo.due_has_time !== false);
 
   return (
     <View style={s.urgentBlock}>

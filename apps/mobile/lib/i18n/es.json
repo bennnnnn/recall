@@ -1058,6 +1058,7 @@
   "todos.proposal_to_list": "A {{topic}}",
   "todos.proposal_uncheck": "Reabrir",
   "todos.remove_date": "Quitar fecha",
+  "todos.remove_time": "Quitar hora",
   "todos.todo_label": "Tarea",
   "todos.todo_placeholder": "¿Qué necesitas hacer?",
   "todos.change_due": "Cambiar fecha",

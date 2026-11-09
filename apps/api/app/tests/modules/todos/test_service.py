@@ -69,7 +69,10 @@ async def test_update_todo_clears_due_at_and_recurrence():
     ):
         result = await todos_crud.update_todo(session, user, uuid4(), {"due_at": None})
     assert result is updated
-    update.assert_awaited_once_with(session, item, due_at=None, recurrence_rule=None)
+    # An undated row keeps its flag true: only a date can be a date alone.
+    update.assert_awaited_once_with(
+        session, item, due_at=None, recurrence_rule=None, due_has_time=True
+    )
 
 
 @pytest.mark.asyncio

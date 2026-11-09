@@ -1,17 +1,18 @@
 import type { Todo } from "@/lib/api";
+import { overdueAt } from "@/features/todos/model/dueDate";
 
 /**
  * When an open dated to-do's reminder goes out, as epoch ms: its `notify_at`, which the
  * server works out (the lead time, after quiet hours) and push and the phone's own alert
  * fire at. The badge, Home and the to-do clock read this one time; the phone keeps no copy
- * of the rule. A to-do the server gave none (more than 48 hours past due, or a due time
- * whose save has not answered yet) counts from its due time, once it is overdue. Null for
- * a done or undated to-do.
+ * of the rule. A to-do the server gave none (more than 48 hours past due, a due time whose
+ * save has not answered yet, or a date alone, which never has one) counts from when it is
+ * overdue: its time, or the end of its day. Null for a done or undated to-do.
  */
 export function reminderGoesOutAt(todo: Todo): number | null {
   if (todo.checked || !todo.due_at) return null;
-  const at = Date.parse(todo.notify_at ?? todo.due_at);
-  return Number.isNaN(at) ? null : at;
+  const at = todo.notify_at ? Date.parse(todo.notify_at) : overdueAt(todo);
+  return at === null || Number.isNaN(at) ? null : at;
 }
 
 /** Open reminders that have gone out by `now`; an overdue one stays until it is done. */

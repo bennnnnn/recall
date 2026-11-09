@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
@@ -29,7 +29,11 @@ async def list_due_soon(
     *,
     before_utc: datetime,
 ) -> list[TodoItem]:
-    """Open todos with due_at at or before *before_utc*, soonest first."""
+    """Open todos with due_at at or before *before_utc*, soonest first.
+
+    A date alone is held at the start of its day, so today's would come before a time
+    that passed this morning; it is left out until its day has surely ended.
+    """
     result = await session.execute(
         select(TodoItem)
         .where(
@@ -37,6 +41,10 @@ async def list_due_soon(
             TodoItem.checked.is_(False),
             TodoItem.due_at.isnot(None),
             TodoItem.due_at <= before_utc,
+            or_(
+                TodoItem.due_has_time.is_(True),
+                TodoItem.due_at <= before_utc - timedelta(days=1),
+            ),
         )
         .order_by(TodoItem.due_at.asc())
         .limit(5)
@@ -166,6 +174,7 @@ async def create(
     due_at: datetime | None = None,
     recurrence_rule: str | None = None,
     sort_order: int | None = None,
+    due_has_time: bool = True,
     commit: bool = True,
 ) -> TodoItem:
     normalized_topic = topic.strip() or DEFAULT_TOPIC
@@ -178,6 +187,7 @@ async def create(
         topic=normalized_topic,
         chat_id=chat_id,
         due_at=due_at,
+        due_has_time=due_has_time or due_at is None,
         recurrence_rule=recurrence_rule,
         sort_order=resolved_sort,
     )
@@ -201,6 +211,10 @@ async def update(
         fields["email_sent_at"] = None
         # Its reminder instant reads when the time was set; no other edit moves it.
         fields["due_set_at"] = datetime.now(UTC)
+        # A new due_at is a time unless the write says otherwise: chat and live talk always
+        # give one, and a cleared date leaves the undated row's flag true. A write that
+        # moves a date alone (a repeat's next day) passes its flag.
+        fields.setdefault("due_has_time", True)
     changes: dict[str, Any] = {}
     for key, value in fields.items():
         if hasattr(todo, key):
@@ -234,6 +248,18 @@ async def delete_by_id(
     if commit:
         await session.commit()
     return result.rowcount > 0
+
+
+async def list_date_only(session: AsyncSession, user_id: UUID) -> list[TodoItem]:
+    """The user's to-dos with a date and no time, done ones too."""
+    result = await session.execute(
+        select(TodoItem).where(
+            TodoItem.user_id == user_id,
+            TodoItem.due_at.isnot(None),
+            TodoItem.due_has_time.is_(False),
+        )
+    )
+    return list(result.scalars().all())
 
 
 async def delete_all_for_user(session: AsyncSession, user_id: UUID) -> None:

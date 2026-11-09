@@ -1058,6 +1058,7 @@
   "todos.proposal_to_list": "Para {{topic}}",
   "todos.proposal_uncheck": "Reabrir",
   "todos.remove_date": "Remover data",
+  "todos.remove_time": "Remover hora",
   "todos.todo_label": "Tarefa",
   "todos.todo_placeholder": "O que você precisa fazer?",
   "todos.change_due": "Alterar data",

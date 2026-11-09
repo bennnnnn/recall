@@ -4,6 +4,7 @@ import { act, render } from "@testing-library/react-native";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { api, type Todo } from "@/lib/api";
 import { syncTodoReminders, cancelTodoReminder } from "@/features/todos/model/todoReminders";
+import type { TodoDue } from "@/features/todos/model/dueDate";
 
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
@@ -25,6 +26,7 @@ const A: Todo = { id: "a", content: "Tea", topic: "General", checked: false,
   due_at: "2026-09-04T18:00:00.000Z", sort_order: null, chat_id: null,
   created_at: "2026-09-04", updated_at: "2026-09-04", notify_at: null };
 const B: Todo = { ...A, id: "b", content: "Books" };
+const timed = (date: Date): TodoDue => ({ date, hasTime: true });
 let rows: Todo[];
 let currentView = true;
 const setTodos = jest.fn((update: React.SetStateAction<Todo[]>) => {
@@ -89,7 +91,7 @@ it("keeps a failed create draft open and removes only its temporary row", async 
   mockApi.createTodo.mockRejectedValue(new Error("offline"));
   const onCreated = jest.fn();
   await render(<Probe />);
-  await act(async () => { await actions.handleCreateTodo("New", new Date(A.due_at!), onCreated); });
+  await act(async () => { await actions.handleCreateTodo("New", timed(new Date(A.due_at!)), onCreated); });
   expect(onCreated).not.toHaveBeenCalled();
   expect(rows).toEqual([A, B]);
   expect(actions.savingTodo).toBe(false);
@@ -99,11 +101,11 @@ it("rejects an invalid date without wedging create", async () => {
   mockApi.createTodo.mockResolvedValue({ ...A, id: "created" });
   await render(<Probe />);
   await act(async () => {
-    await expect(actions.handleCreateTodo("Invalid", new Date(NaN), jest.fn())).resolves.toBeUndefined();
+    await expect(actions.handleCreateTodo("Invalid", timed(new Date(NaN)), jest.fn())).resolves.toBeUndefined();
   });
   expect(actions.savingTodo).toBe(false);
   expect(mockApi.createTodo).not.toHaveBeenCalled();
-  await act(async () => { await actions.handleCreateTodo("Valid", new Date(A.due_at!), jest.fn()); });
+  await act(async () => { await actions.handleCreateTodo("Valid", timed(new Date(A.due_at!)), jest.fn()); });
   expect(mockApi.createTodo).toHaveBeenCalledTimes(1);
 });
 
@@ -155,11 +157,11 @@ it("keeps create locked across visits without closing a different visit's sheet"
   const first = await render(<Probe />);
   const onCreated = jest.fn();
   let pending!: Promise<void>;
-  await act(async () => { pending = actions.handleCreateTodo("New", new Date(A.due_at!), onCreated); });
+  await act(async () => { pending = actions.handleCreateTodo("New", timed(new Date(A.due_at!)), onCreated); });
   await first.unmount();
   await render(<Probe />);
   expect(actions.savingTodo).toBe(true);
-  await act(async () => { await actions.handleCreateTodo("Duplicate", new Date(A.due_at!), jest.fn()); });
+  await act(async () => { await actions.handleCreateTodo("Duplicate", timed(new Date(A.due_at!)), jest.fn()); });
   expect(mockApi.createTodo).toHaveBeenCalledTimes(1);
   await act(async () => { creating.resolve({ ...A, id: "created" }); await pending; });
   expect(onCreated).not.toHaveBeenCalled();
@@ -174,7 +176,7 @@ it("applies a saved due date even when its original view is no longer active", a
   await act(async () => { actions.openTodoEditor(A); });
   let pending!: Promise<boolean>;
   await act(async () => {
-    pending = actions.handleUpdateTodo(A, A.content, new Date("2026-09-06T18:00:00.000Z"), null);
+    pending = actions.handleUpdateTodo(A, A.content, timed(new Date("2026-09-06T18:00:00.000Z")), null);
   });
   currentView = false;
   await act(async () => { updating.resolve({ ...A, due_at: "2026-09-07T18:00:00.000Z" }); await pending; });
@@ -197,7 +199,7 @@ it("deduplicates a created row already delivered by a list refresh", async () =>
   mockApi.createTodo.mockReturnValue(creating.promise);
   await render(<Probe />);
   let pending!: Promise<void>;
-  await act(async () => { pending = actions.handleCreateTodo("New", new Date(A.due_at!), jest.fn()); });
+  await act(async () => { pending = actions.handleCreateTodo("New", timed(new Date(A.due_at!)), jest.fn()); });
   const created = { ...A, id: "created", content: "Server new" };
   rows = [...rows, created];
   await act(async () => { creating.resolve(created); await pending; });
@@ -224,7 +226,7 @@ it("does not save a replaced reminder edit through a retained save callback", as
   const update = actions.handleUpdateTodo;
   await act(async () => { actions.openTodoEditor(B); });
   await act(async () => {
-    await update(A, A.content, new Date(A.due_at!), null);
+    await update(A, A.content, timed(new Date(A.due_at!)), null);
   });
   expect(mockApi.updateTodo).not.toHaveBeenCalled();
   expect(actions.editingTodo?.id).toBe(B.id);
