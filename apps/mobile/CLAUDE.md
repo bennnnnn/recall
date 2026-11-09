@@ -80,7 +80,7 @@ on one it doesn't know.
    inline list), `SettingsLinkRow`, `SettingsValueRow`. `useSettingsAction()` runs one
    action at a time with confirm and error reporting.
 2. A server-side preference is a `User` field written with `updateUser` from `useAuth()`.
-3. A device-only preference is a file pref (`lib/filePrefs.ts`), never SecureStore.
+3. A device-only preference is a `createFilePref` (`lib/filePrefs.ts`), never SecureStore.
 
 ## Copy, dialogs and feedback
 
