@@ -40,7 +40,6 @@ def _state(text: str, money: MoneyTurn | None, *, cancelled: bool = False) -> Fi
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=cancelled,
-        assistant_parts=[text],
         should_cancel=None,
     )
 

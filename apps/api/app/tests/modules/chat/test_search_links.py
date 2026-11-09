@@ -41,7 +41,6 @@ def _state(
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
 

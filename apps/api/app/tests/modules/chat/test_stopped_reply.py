@@ -89,7 +89,6 @@ async def _finalize(reply: str, *, user_stopped: bool) -> tuple[str, TurnOutcome
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=user_stopped,
-        assistant_parts=[reply],
         should_cancel=(lambda: True) if user_stopped else None,
         user_stopped=user_stopped,
     )

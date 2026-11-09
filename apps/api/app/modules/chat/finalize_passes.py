@@ -119,7 +119,6 @@ class FinalizeState:
     usage: dict[str, int]
     outcome: TurnOutcome | None
     was_cancelled: bool
-    assistant_parts: list[str]
     should_cancel: Callable[[], bool] | None
     # The text as of the last side effect (a linked photo, source chips). A failed
     # pass falls back to it, never to the raw reply (ES-03).
@@ -434,7 +433,6 @@ async def enrich_final_content(
     usage: dict[str, int],
     outcome: TurnOutcome | None,
     was_cancelled: bool,
-    assistant_parts: list[str],
     should_cancel: Callable[[], bool] | None,
     user_stopped: bool = False,
     on_status: StreamStatusFn | None = None,
@@ -454,7 +452,6 @@ async def enrich_final_content(
         usage=usage,
         outcome=outcome,
         was_cancelled=was_cancelled,
-        assistant_parts=assistant_parts,
         should_cancel=should_cancel,
         user_stopped=user_stopped,
         on_status=on_status,

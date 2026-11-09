@@ -150,21 +150,3 @@ _PROXIMITY_PHRASES = (
     r"\b(?:the\s+)?(?:nearest|closest)\b",
     r"\bbest\b",
 )
-
-
-_STREET_SUFFIX = (
-    r"(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Way|Pl|Place|"
-    r"Ct|Court|Sq|Square|Pkwy|Parkway)"
-)
-
-
-_ADDRESS_RE = re.compile(
-    rf"\b(\d+\s+[\w\s.'#-]{{2,40}}{_STREET_SUFFIX}\b(?:,\s*[\w\s.'-]{{2,30}})?)",
-    re.IGNORECASE,
-)
-
-
-_PRICE_RE = re.compile(r"(?<![\w$])(\$\$\$|\$\$|\$)(?![\w$])")
-
-
-_NUMBERED_VENUE_LINE = re.compile(r"^\s*\d+\.\s+")

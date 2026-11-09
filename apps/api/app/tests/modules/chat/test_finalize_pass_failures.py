@@ -67,7 +67,6 @@ def _state(text: str) -> FinalizeState:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[text],
         should_cancel=None,
     )
 
