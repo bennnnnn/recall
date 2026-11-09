@@ -77,7 +77,7 @@ export function useSimulationScene(content: string) {
   );
   const animated = useMemo(() => (spec ? simulationIsAnimated(spec) : false), [spec]);
   const measure = useCallback(
-    (text: string) => measureRuns(text, [font, ...fallbacks.filter((face): face is SkFont => face !== null)]),
+    (text: string) => measureRuns(text, [font, ...fallbacks]),
     [fallbacks, font],
   );
   const layout = useMemo(

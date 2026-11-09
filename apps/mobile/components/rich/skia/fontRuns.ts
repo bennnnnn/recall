@@ -84,9 +84,10 @@ export function needsFallback(text: string, fonts: readonly SkFont[]): boolean {
   return runs.length > 1 || (runs.length === 1 && runs[0].font !== fonts[0]);
 }
 
-/** The width a label takes, as `HaloText` sets it. */
-export function measureRuns(text: string, fonts: readonly SkFont[]): number {
-  if (fonts.length === 0) return 0;
+/** The width a label takes, as `HaloText` sets it; nothing while its face has not loaded. */
+export function measureRuns(text: string, given: readonly (SkFont | null)[]): number {
+  const fonts = given.filter((font): font is SkFont => font !== null);
+  if (fonts.length === 0 || given[0] === null) return 0;
   if (!needsFallback(text, fonts)) return tabularGlyphs(fonts[0], text).width;
   const runs = fontRuns(text, fonts);
   const last = runs[runs.length - 1];

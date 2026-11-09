@@ -22,7 +22,8 @@ type Props = {
   x: Coordinate;
   y: Coordinate;
   text: string;
-  font: SkFont;
+  /** Null while the label's face loads: the label waits for it. */
+  font: SkFont | null;
   color: string;
   /** The surface behind the canvas (`theme.bg`). */
   halo: string;
@@ -30,16 +31,19 @@ type Props = {
   fallbacks?: readonly (SkFont | null)[];
 };
 
-export function HaloText({ fallbacks, ...props }: Props) {
+type LabelProps = Omit<Props, "fallbacks" | "font"> & { font: SkFont };
+
+export function HaloText({ fallbacks, font, ...props }: Props) {
   const fonts = useMemo(
-    () => [props.font, ...(fallbacks ?? []).filter((font): font is SkFont => font !== null)],
-    [fallbacks, props.font],
+    () => (font ? [font, ...(fallbacks ?? []).filter((face): face is SkFont => face !== null)] : []),
+    [fallbacks, font],
   );
   const split = useMemo(
     () => fonts.length > 1 && needsFallback(props.text, fonts),
     [fonts, props.text],
   );
-  return split ? <HaloRuns {...props} fonts={fonts} /> : <HaloLine {...props} />;
+  if (!font) return null;
+  return split ? <HaloRuns {...props} font={font} fonts={fonts} /> : <HaloLine {...props} font={font} />;
 }
 
 /** One font's ink for `text`: plain text, or glyphs placed in cells when its digits vary. */
@@ -60,7 +64,7 @@ function Ink({
   );
 }
 
-function HaloLine({ x, y, text, font, color, halo }: Omit<Props, "fallbacks">) {
+function HaloLine({ x, y, text, font, color, halo }: LabelProps) {
   return (
     <>
       <Ink x={x} y={y} text={text} font={font} color={halo} halo />
@@ -76,7 +80,7 @@ function HaloRuns({
   color,
   halo,
   fonts,
-}: Omit<Props, "fallbacks"> & { fonts: readonly SkFont[] }) {
+}: LabelProps & { fonts: readonly SkFont[] }) {
   const runs = useMemo(() => fontRuns(text, fonts), [fonts, text]);
   // The runs are set from the label's origin, wherever that is this frame.
   const transform = useDerivedValue(() => {

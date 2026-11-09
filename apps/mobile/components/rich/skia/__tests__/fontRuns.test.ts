@@ -66,6 +66,10 @@ describe("tabular digits", () => {
     expect(needsTabular(proportional, "10.5")).toBe(true);
   });
 
+  it("measures nothing while a label's face has not loaded", () => {
+    expect(measureRuns("10.5", [null, mono])).toBe(0);
+  });
+
   it("leaves a face whose digits are one width, and a label with no digits, as text", () => {
     expect(needsTabular(mono, "F = 15 N")).toBe(false);
     expect(needsTabular(proportional, "m/s")).toBe(false);

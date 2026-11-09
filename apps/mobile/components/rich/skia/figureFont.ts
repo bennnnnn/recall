@@ -1,19 +1,39 @@
 import { useMemo } from "react";
-import { matchFont, type SkFont } from "@shopify/react-native-skia";
+import { Platform } from "react-native";
+import { matchFont, useFont, type SkFont } from "@shopify/react-native-skia";
 
 import { Type } from "@/lib/type";
 
 /**
- * The app's own face for the words and numbers on a figure's canvas (a graph's axes, a
- * scene's labels), at the figure's label `size`: the meta role's family and weight
- * (`lib/type`), which Skia takes from the system's fonts. Nothing loads, so the labels draw
- * with the figure, and the face carries Greek. `HaloText` sets its digits tabular.
+ * The UI face by the name Skia's font manager knows it. iOS maps "System" to San Francisco;
+ * Android's manager reads the phone's font list, where Roboto is "sans-serif" and "System"
+ * names nothing, so a font matched by it draws nothing.
  */
-export function useFigureFont(size: number): SkFont {
-  return useMemo(
-    () =>
-      // matchFont reads the role's family and weight; the size is the figure's.
-      matchFont({ ...Type.meta, fontStyle: "normal", fontSize: size }),
-    [size],
+function systemFamily(): string {
+  return Platform.OS === "ios" ? Type.meta.fontFamily : "sans-serif";
+}
+
+/** A face that draws nothing (a family the manager lacks) has no glyph for "0". */
+function drawsDigits(font: SkFont): boolean {
+  return (font.getGlyphIDs("0")[0] ?? 0) !== 0;
+}
+
+/**
+ * The app's own face for the words and numbers on a figure's canvas (a graph's axes, a
+ * scene's labels), at the figure's label `size`: the meta role's weight (`lib/type`) in the
+ * system's UI face. Nothing loads, so the labels draw with the figure, and the face carries
+ * Greek. `HaloText` sets its digits tabular. On a phone whose font manager has no such face
+ * the diagrams' bundled sans is loaded instead, and labels wait for it (null until then).
+ */
+export function useFigureFont(size: number): SkFont | null {
+  const system = useMemo(() => {
+    // matchFont reads the role's family and weight; the size is the figure's.
+    const font = matchFont({ ...Type.meta, fontFamily: systemFamily(), fontStyle: "normal", fontSize: size });
+    return drawsDigits(font) ? font : null;
+  }, [size]);
+  const bundled = useFont(
+    system ? null : require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
+    size,
   );
+  return system ?? bundled;
 }
