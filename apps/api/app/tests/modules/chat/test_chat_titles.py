@@ -16,6 +16,7 @@ from app.modules.chat.titles import (
     is_casual_opener,
     normalize_chat_title,
     sanitize_manual_chat_title,
+    title_job_payload,
     title_messages,
 )
 from app.services.subject_scan import SCAN_CONFIRMED_PREFIX, SCANNER_CAMERA_PROMPTS
@@ -560,3 +561,33 @@ async def test_a_title_about_the_user_names_the_chat_in_the_users_words():
 )
 def test_the_title_model_is_told_english_outright_for_english_words(message: str, language: str):
     assert _chat_turn(title_messages(message, "Reply.")).endswith(language)
+
+
+# The app language decides what words alone can't: German capitalises its nouns, so
+# "Erkläre mir die Photosynthese" shows no German word; "2x + 3 = 7" shows no language.
+@pytest.mark.parametrize(
+    ("message", "locale", "language"),
+    [
+        ("2x + 3 = 7", "en", "in English."),
+        ("Erkläre mir die Photosynthese", "de", "in the message's language and script."),
+        ("2x + 3 = 7", "de", "in the message's language and script."),
+        ("Draw a cat", "en", "in English."),
+        ("Draw a cat", None, "in English."),
+    ],
+)
+def test_the_app_language_decides_what_the_words_cannot(
+    message: str, locale: str | None, language: str
+):
+    assert _chat_turn(title_messages(message, "Reply.", locale=locale)).endswith(language)
+
+
+def test_the_title_job_carries_the_app_language_when_known():
+    chat_id, user_id = uuid4(), uuid4()
+    known = title_job_payload(
+        chat_id=chat_id, user_id=user_id, user_message="Hi", assistant_message="Hey", locale="de"
+    )
+    unknown = title_job_payload(
+        chat_id=chat_id, user_id=user_id, user_message="Hi", assistant_message="Hey"
+    )
+    assert known["locale"] == "de"
+    assert "locale" not in unknown

@@ -180,6 +180,9 @@ async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
                 user_id=saved.user_id,
                 user_message=user_message,
                 assistant_message=assistant_message,
+                # The title's language hint (a string or nothing, ``title_job_payload``):
+                # nothing about it may fail the turn's jobs.
+                locale=getattr(saved.user, "locale", None),
             ),
             title_job_key(saved.chat_id),
         )

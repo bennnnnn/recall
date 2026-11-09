@@ -68,7 +68,7 @@ async def _typed() -> None:
 
 
 async def _voice() -> None:
-    user = MagicMock(id=_USER, memory_enabled=True, timezone="UTC")
+    user = MagicMock(id=_USER, memory_enabled=True, timezone="UTC", locale="en")
     rows = [MagicMock(id=uuid4(), content=_SAID), MagicMock(id=_ASSISTANT, content=_REPLY)]
     session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)

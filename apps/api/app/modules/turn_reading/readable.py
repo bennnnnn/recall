@@ -135,7 +135,12 @@ def has_other_language_word(text: str) -> bool:
     plain = _MATH.sub(" ", _without_code(text))
     for match in _WORD.finditer(plain):
         word, folded = match.group(), match.group().casefold()
-        if folded in _FOREIGN or (word == folded and _FOREIGN_LETTERS.intersection(folded)):
+        # A label ("MIT", "OS") or a name's particle ("El Niño", "le Chatelier") is no
+        # evidence; a lowercase word with a letter English does not write is ("süße":
+        # casefold turns its ß into "ss", so the word is tested, not its folding).
+        if _SYMBOL.fullmatch(word) or folded in _PARTICLES:
+            continue
+        if folded in _FOREIGN or (word.islower() and _FOREIGN_LETTERS.intersection(folded)):
             return True
     return False
 

@@ -9,7 +9,11 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.validation import BORING_CHAT_TITLES as BORING_CHAT_TITLES
 from app.core.validation import normalize_chat_title as normalize_chat_title
-from app.core.validation import normalize_stored_chat_title, unwrap_chat_title
+from app.core.validation import (
+    normalize_locale_code,
+    normalize_stored_chat_title,
+    unwrap_chat_title,
+)
 from app.gateways import litellm_gateway, mock_llm
 from app.models.routing_lanes import ROUTING
 from app.modules.attachments.markers import (
@@ -32,16 +36,26 @@ def title_job_key(chat_id: UUID) -> str:
 
 
 def title_job_payload(
-    *, chat_id: UUID, user_id: UUID, user_message: str, assistant_message: str
+    *,
+    chat_id: UUID,
+    user_id: UUID,
+    user_message: str,
+    assistant_message: str,
+    locale: str | None = None,
 ) -> dict[str, str]:
     """The ``topic`` job's payload, cut to what the title reads: a stored message holds
-    every file's text (up to ten), and none of it past the head ever reaches the model."""
-    return {
+    every file's text (up to ten), and none of it past the head ever reaches the model.
+    The app language tells the title an English chat from one in another language whose
+    words show none ("Erkläre mir die Photosynthese", "2x + 3 = 7")."""
+    payload = {
         "chat_id": str(chat_id),
         "user_id": str(user_id),
         "user_message": user_message[:TITLE_SOURCE_CHARS],
         "assistant_message": assistant_message[:TITLE_SOURCE_CHARS],
     }
+    if isinstance(locale, str) and locale:
+        payload["locale"] = locale
+    return payload
 
 
 # Exact first-line openers after unwrap + casefold. Longer first messages
@@ -181,7 +195,9 @@ def _title_turn(source: str, *, photo: bool, reply: str) -> str:
     return f"User{' (with a photo)' if photo else ''}: {source}\nReply (context only): {reply}"
 
 
-def title_messages(user_message: str, assistant_message: str) -> list[dict[str, str]]:
+def title_messages(
+    user_message: str, assistant_message: str, *, locale: str | None = None
+) -> list[dict[str, str]]:
     """The title model's prompt: the rules, the worked examples, then this chat."""
     messages = [{"role": "system", "content": _TITLE_RULES}]
     for source, photo, reply, title in _TITLE_EXAMPLES:
@@ -195,10 +211,12 @@ def title_messages(user_message: str, assistant_message: str) -> list[dict[str, 
     )
     # The rule again where a small model reads last, naming English outright: told only "the
     # message's language", it named one English chat in seven in Spanish, after the example.
-    # Words with no word of another language are English ("Draw a cat"); one such word leaves
-    # it open ("Como hago un for loop"), and a photo with no words is named in the reply's.
+    # An English-language user's words with no word of another language are English ("Draw a
+    # cat", "2x + 3 = 7"); one such word leaves it open ("Como hago un for loop"), as does
+    # another app language and a photo with no words. A job queued without one reads English.
     words = _own_words(user_message)
-    english = bool(words) and not has_other_language_word(words)
+    english_user = normalize_locale_code(locale or "en") == "en"
+    english = english_user and bool(words) and not has_other_language_word(words)
     language = "English" if english else "the message's language and script"
     messages.append(
         {"role": "user", "content": f"{chat}\nName what was asked or sent, in {language}."}
@@ -306,6 +324,8 @@ async def generate_title(
     settings: Settings,
     user_message: str,
     assistant_message: str,
+    *,
+    locale: str | None = None,
 ) -> str | None:
     if is_casual_opener(user_message):
         return GREETING_CHAT_TITLE
@@ -319,7 +339,7 @@ async def generate_title(
     raw = await litellm_gateway.complete_text(
         settings=settings,
         model_alias=ROUTING.titles,
-        messages=title_messages(user_message, assistant_message),
+        messages=title_messages(user_message, assistant_message, locale=locale),
         max_tokens=_TITLE_MAX_TOKENS,
     )
     if raw is None:
@@ -336,6 +356,7 @@ async def generate_chat_title(
     assistant_message: str,
     *,
     user_id: UUID,
+    locale: str | None = None,
 ) -> bool:
     """Title the chat from its first exchange (the ``topic`` job); True when one applied.
 
@@ -346,7 +367,7 @@ async def generate_chat_title(
         return False
     try:
         title = await asyncio.wait_for(
-            generate_title(settings, user_message, assistant_message),
+            generate_title(settings, user_message, assistant_message, locale=locale),
             timeout=15.0,
         )
         title = normalize_chat_title(title)

@@ -258,6 +258,10 @@ def test_in_other_script(text: str, other_script: bool):
         ("can you explain the schrodinger equation", False),
         ("Como hago un for loop en Python?", True),
         ("llamar a mamá mañana", True),
+        ("süße Kartoffeln", True),
+        ("MIT OpenCourseWare notes", False),
+        ("explain le chatelier", False),
+        ("What are El Niño effects?", False),
         # A capitalised word with an accent is a name: "Schrödinger" is no Spanish.
         ("Schrödinger's cat", False),
         ("ስለ ፎቶሲንተሲስ", True),

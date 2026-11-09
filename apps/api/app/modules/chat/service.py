@@ -347,6 +347,7 @@ async def list_messages_page(
                             user_id=user.id,
                             user_message=user_msg.content,
                             assistant_message=asst_msg.content,
+                            locale=user.locale,
                         ),
                         dedupe_key=title_job_key(chat_id),
                     )
