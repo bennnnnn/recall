@@ -15,6 +15,7 @@ import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 import { Icon } from "../icons/Icon";
+import { tabRole } from "./a11yRoles";
 import type { IconName } from "../icons/names";
 import { IconSize } from "../icons/sizes";
 
@@ -44,7 +45,10 @@ type Props = {
   /** Assist chips may wrap a long suggestion onto a second line. */
   numberOfLines?: number;
   disabled?: boolean;
-  /** Filter chips default to a radio when the choices exclude each other. */
+  /**
+   * Filter chips default to a radio when the choices exclude each other; `tab` for a row that
+   * switches what is shown under it (in a `tablist`), read as a button on iOS (`tabRole`).
+   */
   accessibilityRole?: "button" | "radio" | "checkbox" | "tab";
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -143,7 +147,7 @@ export function Chip({
       onLongPress={onLongPress}
       disabled={disabled}
       style={({ pressed }) => [...shape, pressed && s.pressed]}
-      accessibilityRole={accessibilityRole}
+      accessibilityRole={accessibilityRole === "tab" ? tabRole() : accessibilityRole}
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={

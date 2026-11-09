@@ -1,6 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { ChatActionsMenu } from "@/features/chat/components/ChatActionsMenu";
+import { menuItemRole } from "@/ui/controls/a11yRoles";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
@@ -31,7 +32,7 @@ describe("ChatActionsMenu", () => {
   it("renders a popover menu under the chat title", async () => {
     const { getByRole, getByText } = await render(<ChatActionsMenu {...baseProps} />);
 
-    expect(getByRole("menuitem", { name: "chat.share" })).toBeTruthy();
+    expect(getByRole(menuItemRole(), { name: "chat.share" })).toBeTruthy();
     expect(getByText("Trip ideas")).toBeTruthy();
   });
 
@@ -53,13 +54,13 @@ describe("ChatActionsMenu", () => {
       <ChatActionsMenu {...baseProps} onClose={onClose} onDelete={onDelete} />,
     );
 
-    await fireEvent.press(getByRole("menuitem", { name: "common.delete" }));
+    await fireEvent.press(getByRole(menuItemRole(), { name: "common.delete" }));
     expect(order).toEqual(["close", "delete"]);
   });
 
   it("offers Unpin with the pin-off glyph for a pinned chat", async () => {
     const { getByRole } = await render(<ChatActionsMenu {...baseProps} pinned />);
-    expect(getByRole("menuitem", { name: "chat.unpin" })).toBeTruthy();
+    expect(getByRole(menuItemRole(), { name: "chat.unpin" })).toBeTruthy();
   });
 
   it("shows Select when onSelectChats is provided", async () => {

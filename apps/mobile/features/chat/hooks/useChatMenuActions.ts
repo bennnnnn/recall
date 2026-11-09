@@ -15,6 +15,8 @@ import {
   type ChatOperationContext,
 } from "@/features/chat/model/chatOperations";
 import type { IconName } from "@/ui/icons/names";
+import { isChatRowAction, type ChatRowAction } from "@/features/chat/model/chatRowActions";
+import { useLatestRef } from "@/lib/latestRef";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Params = {
@@ -58,17 +60,9 @@ export function useChatMenuActions({
   }, [currentView, view]);
   const closeRename = useCallback(() => setRename(null), []);
 
-  const { openShareChat, exportChatPdf } = useChatExportActions({
+  const { shareChat, exportChatPdf } = useChatExportActions({
     token, chat: menuChat, currentView, closeMenu, showActionBanner, dismissActionBanner,
   });
-
-  const openRenameFromMenu = useCallback(() => {
-    if (!menuChat || !currentView()) return;
-    const chat = getCachedChat(menuChat.id) ?? menuChat;
-    setRename({ chat, view });
-    setRenameText(chat.title ?? "");
-    closeMenu();
-  }, [menuChat, currentView, closeMenu, view]);
 
   const operations = useMemo<ChatOperationContext | null>(
     () =>
@@ -93,34 +87,36 @@ export function useChatMenuActions({
     if (renameChat(operations, chat, renameText)) closeRename();
   }, [operations, renameTarget, currentView, renameText, closeRename]);
 
-  const togglePinChat = useCallback(async () => {
-    if (!operations || !menuChat || !currentView()) return;
-    const chat = getCachedChat(menuChat.id) ?? menuChat;
-    if (chat.archived) return;
+  // One of a chat's actions on the chat itself: from its row menu, or a screen reader's action
+  // on the row (no menu open).
+  const runChatAction = useCallback(async (target: Chat, action: ChatRowAction) => {
+    if (!isChatRowAction(action) || !currentView()) return;
+    const chat = getCachedChat(target.id) ?? target;
+    if (action === "share") return shareChat(chat);
+    if (action === "rename") {
+      setRename({ chat, view });
+      setRenameText(chat.title ?? "");
+      return closeMenu();
+    }
+    if (!operations || (action === "pin" && chat.archived)) return;
     closeMenu();
-    await setChatPinned(operations, chat, !chat.pinned);
-  }, [operations, menuChat, currentView, closeMenu]);
-
-  const toggleArchiveChat = useCallback(async () => {
-    if (!operations || !menuChat || !currentView()) return;
-    const chat = getCachedChat(menuChat.id) ?? menuChat;
-    closeMenu();
-    await setChatArchived(operations, chat, !chat.archived);
-  }, [operations, menuChat, currentView, closeMenu]);
-
-  const confirmDeleteChat = useCallback(() => {
-    if (!operations || !menuChat || !currentView()) return;
-    const chat = menuChat;
-    closeMenu();
-    confirmAndDeleteChat(operations, chat.id, getCachedChat(chat.id) ?? chat);
-  }, [operations, menuChat, currentView, closeMenu]);
+    if (action === "pin") await setChatPinned(operations, chat, !chat.pinned);
+    else if (action === "archive") await setChatArchived(operations, chat, !chat.archived);
+    else if (action === "delete") confirmAndDeleteChat(operations, chat.id, chat);
+  }, [currentView, shareChat, view, closeMenu, operations]);
+  const onMenuChat = (action: ChatRowAction) => async () => {
+    if (menuChat) await runChatAction(menuChat, action);
+  };
+  // Every row holds this one: a handler renewed with each menu would redraw them all.
+  const latestAction = useLatestRef(runChatAction);
+  const rowAction = useCallback((chat: Chat, action: ChatRowAction) => void latestAction.current(chat, action), [latestAction]);
 
   return {
     menuChat,
     renameVisible: renameTarget !== null,
     renameText, setRenameText, actionBanner, dismissActionBanner, showActionBanner,
-    closeMenu, showRowMenu, openRenameFromMenu, confirmRename,
-    openShareChat, exportChatPdf,
-    togglePinChat, toggleArchiveChat, confirmDeleteChat, closeRename,
+    closeMenu, showRowMenu, openRenameFromMenu: onMenuChat("rename"), confirmRename,
+    openShareChat: onMenuChat("share"), exportChatPdf, rowAction,
+    togglePinChat: onMenuChat("pin"), toggleArchiveChat: onMenuChat("archive"), confirmDeleteChat: onMenuChat("delete"), closeRename,
   };
 }
