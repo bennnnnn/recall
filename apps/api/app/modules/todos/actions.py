@@ -163,9 +163,13 @@ def _set_due_fields(
     due_at: datetime,
     action: TodoActionItem,
     timezone: str | None,
-) -> dict[str, datetime | RecurrenceRule]:
+) -> dict[str, datetime | RecurrenceRule | bool]:
     effective_due = _rescheduled_due(item, due_at, timezone)
-    fields: dict[str, datetime | RecurrenceRule] = {"due_at": effective_due}
+    # Chat always gives a time: a date alone it moves becomes a timed to-do, with a reminder.
+    fields: dict[str, datetime | RecurrenceRule | bool] = {
+        "due_at": effective_due,
+        "due_has_time": True,
+    }
     if action.recurrence_rule is not None:
         fields["recurrence_rule"] = action.recurrence_rule
         fields["due_at"] = snap_first_due(effective_due, action.recurrence_rule, timezone=timezone)

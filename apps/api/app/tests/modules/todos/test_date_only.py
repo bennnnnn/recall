@@ -32,6 +32,7 @@ from app.modules.todos import api as todos_router
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import due_day, prompt_context, proposals, service
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.actions import apply_todo_actions
 from app.modules.todos.due_reminders import (
     PUSH_REMINDERS,
     aged_out_unsent,
@@ -46,7 +47,7 @@ from app.modules.todos.reminder_writes import (
     format_schedule_when,
 )
 from app.modules.todos.schedule_repository import move_due_day_if_current
-from app.modules.todos.schemas import TodoUpdate
+from app.modules.todos.schemas import TodoActionItem, TodoUpdate
 from app.modules.todos.spoken_apply import _apply_saved_fields, format_reminder_reading
 from app.modules.todos.write_log import PlannedWrite
 from app.repositories import users as users_repo
@@ -550,6 +551,77 @@ async def test_an_edit_clash_on_a_date_alone_says_day_not_time() -> None:
     ):
         await todos_crud.update_todo(fake_session(), user, uuid4(), {"content": "Rent"})
     assert refused.value.detail == "You already have this to-do on that day."
+
+
+# ── chat's times and a profile update that names no zone ──
+
+
+@pytest.mark.asyncio
+async def test_a_time_chat_sets_on_a_date_alone_makes_it_timed() -> None:
+    # "Remind me at midnight" on the 10th's date alone: the same instant, now a time.
+    update = AsyncMock()
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[_date_alone()])),
+        patch.object(todos_repo, "update", update),
+    ):
+        applied = await apply_todo_actions(
+            fake_session(),
+            user_id=uuid4(),
+            actions=[
+                TodoActionItem(
+                    action="set_due", topic="General", content="Pay rent", due_at=NOV_10_NY
+                )
+            ],
+            user_timezone="America/New_York",
+        )
+    assert applied == 1 and _call(update).kwargs["due_has_time"] is True
+
+
+def _card(fields: dict[str, Any], row: TodoItem) -> Any:
+    write = proposals._StoredWrite(kind="update", todo_id=row.id, title="Pay rent", fields=fields)
+    return proposals._Stored(
+        chat_id=uuid4(), user_timezone="America/New_York", writes=[write], items=[]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("fields", "flag"),
+    [
+        # A tapped time keeps the time its write named, and never the row's date-alone flag.
+        ({"due_at": "2032-01-06T22:00:00+00:00", "due_has_time": True}, True),
+        ({"due_at": "2032-01-06T22:00:00+00:00"}, None),
+        # A tick moves a repeating date alone to its next day, still without a time.
+        ({"checked": True}, False),
+    ],
+)
+async def test_a_tapped_card_keeps_the_rows_flag_only_for_a_repeats_next_day(
+    fields: dict[str, Any], flag: bool | None
+) -> None:
+    row = _date_alone(due_at=datetime(2032, 1, 6, tzinfo=NEW_YORK), recurrence_rule="daily")
+    update = AsyncMock()
+    with (
+        patch.object(todos_repo, "get_by_id", AsyncMock(return_value=row)),
+        patch.object(todos_repo, "update", update),
+    ):
+        await proposals._apply(fake_session(), row.user_id, _card(fields, row))
+    assert _call(update).kwargs.get("due_has_time") is flag
+
+
+@pytest.mark.asyncio
+async def test_a_profile_update_that_names_no_zone_never_reads_the_old_one() -> None:
+    from app.modules.account import lifecycle
+
+    # An account fake with no timezone at all: nothing here may read it.
+    user: Any = SimpleNamespace(id=uuid4(), memory_enabled=True, name="Bini")
+    update = AsyncMock(return_value=user)
+    with (
+        patch.object(lifecycle.users_repo, "update", update),
+        patch.object(lifecycle.todos_service, "keep_date_only_days", AsyncMock()) as keep,
+    ):
+        await lifecycle.update_account(fake_session(), user, isolated_settings(), {"name": "B"})
+    keep.assert_not_awaited()
+    assert _call(update).kwargs == {"name": "B"}
 
 
 # ── against Postgres ───────────────────────────────────────────────────────

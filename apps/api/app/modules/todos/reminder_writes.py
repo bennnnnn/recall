@@ -163,11 +163,14 @@ async def create_one(state: ReminderWrites, draft: ReminderFence) -> tuple[str, 
                     state.session,
                     match,
                     due_at=due_at,
+                    due_has_time=True,
                     recurrence_rule=draft.repeat,
                     commit=False,
                 )
             else:
-                match = await todos_repo.update(state.session, match, due_at=due_at, commit=False)
+                match = await todos_repo.update(
+                    state.session, match, due_at=due_at, due_has_time=True, commit=False
+                )
         elif draft.repeat is not None and match.recurrence_rule != draft.repeat:
             match = await todos_repo.update(
                 state.session, match, recurrence_rule=draft.repeat, commit=False

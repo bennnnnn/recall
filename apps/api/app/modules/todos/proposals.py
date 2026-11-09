@@ -256,6 +256,7 @@ async def _apply(
             raise ProposalError(f"{write.title} is no longer in your to-dos.", status_code=409)
         if "due_at" in fields:
             fields = _upcoming(fields, stored.user_timezone)
+        stepped = "due_at" not in fields
         fields = completed_fields(
             fields,
             due_at=fields.get("due_at", row.due_at),
@@ -263,9 +264,10 @@ async def _apply(
             timezone=stored.user_timezone,
             now=datetime.now(UTC),
         )
-        if "due_at" in fields:
-            # Ticking a repeating date alone moves it to its next day, still without a time.
-            fields.setdefault("due_has_time", has_time(row))
+        if stepped and "due_at" in fields:
+            # Ticking a repeating date alone moves it to its next day, still without a time. A
+            # time the card sets says so itself (actions._set_due_fields).
+            fields["due_has_time"] = has_time(row)
         await todos_repo.update(session, row, commit=False, **fields)
         written.append(row.id)
     await session.commit()

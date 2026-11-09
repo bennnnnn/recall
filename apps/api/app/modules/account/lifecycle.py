@@ -52,18 +52,20 @@ async def update_account(
     memory_changed = (
         "memory_enabled" in fields and fields["memory_enabled"] != user.memory_enabled
     ) or ("name" in fields and fields["name"] != user.name)
-    old_zone, new_zone = user.timezone, fields.get("timezone")
-    zone_moved = isinstance(new_zone, str) and bool(new_zone) and new_zone != old_zone
+    # Only a PATCH that names a zone reads the old one.
+    new_zone = fields.get("timezone")
+    zones = (user.timezone, new_zone) if isinstance(new_zone, str) and new_zone else None
+    zone_moved = zones is not None and zones[0] != zones[1]
     if fields.get("avatar_url") or zone_moved:
         try:
             if fields.get("avatar_url"):
                 fields["avatar_url"] = await _claimed_avatar(session, user, fields["avatar_url"])
             updated = await users_repo.update(session, user, commit=False, **fields)
             user_id = updated.id
-            if zone_moved:
+            if zones is not None and zone_moved:
                 # A date alone stays on its day in the new zone, in the same commit.
                 await todos_service.keep_date_only_days(
-                    session, user_id, old_timezone=old_zone, new_timezone=new_zone
+                    session, user_id, old_timezone=zones[0], new_timezone=zones[1]
                 )
             await session.commit()
             await user_cache.publish_change(user_id)
