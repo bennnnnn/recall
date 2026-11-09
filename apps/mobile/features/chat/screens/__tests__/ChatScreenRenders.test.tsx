@@ -107,13 +107,6 @@ const mockChat = {
 };
 const mockRouteLoader = {
   handleFirstReply: mockAsyncNoop,
-  chatTitle: null,
-  setChatTitle: mockNoop,
-  titleGenerating: false,
-  pinned: false,
-  setPinned: mockNoop,
-  archived: false,
-  setArchived: mockNoop,
   chatLoading: false,
   hasMoreOlder: false,
   loadingOlder: false,

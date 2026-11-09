@@ -39,8 +39,11 @@ const NOT_A_DOMAIN = new Set(["vendor"]);
 /** How many flat modules sharing a first word make a domain that needs its folder. */
 const FOLDER_AT = 3;
 
-/** First words that name no domain: `appEvents`, `appFonts` and `appVersion` only share it. */
-const NOT_A_DOMAIN_WORD = new Set(["app"]);
+/**
+ * First words that name no domain: `appEvents`, `appFonts` and `appVersion` only share it,
+ * and a hook's `use` or a test's `is` says what a module is, not what it is about.
+ */
+const NOT_A_DOMAIN_WORD = new Set(["app", "use", "is"]);
 
 /**
  * Domains still flat from before the rule, each at its size then. None may grow: the
@@ -103,7 +106,8 @@ function flatDomains(modules: string[], folders: string[]): Record<string, strin
   const domains: Record<string, string[]> = {};
   for (const module of modules) {
     const word = firstWord(module);
-    if (NOT_A_DOMAIN_WORD.has(word) || folders.includes(word)) continue;
+    // `cachedUser` beside `cache/` is no `cached` domain asking for a folder of its own.
+    if (NOT_A_DOMAIN_WORD.has(word) || folders.some((folder) => word.startsWith(folder))) continue;
     (domains[word] ??= []).push(module);
   }
   return domains;
