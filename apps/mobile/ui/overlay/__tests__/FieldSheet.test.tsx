@@ -10,7 +10,7 @@ jest.mock("react-native-safe-area-context", () => ({
 jest.mock("@/lib/reduceMotion", () => ({ useReduceMotion: () => false }));
 let mockAnswer: (discard: boolean) => void = () => undefined;
 const mockConfirm = jest.fn(
-  () => new Promise<boolean>((resolve) => { mockAnswer = resolve; }),
+  (_options: unknown) => new Promise<boolean>((resolve) => { mockAnswer = resolve; }),
 );
 jest.mock("@/ui/overlay/dialogs", () => ({
   confirmDialog: (options: unknown) => mockConfirm(options),
