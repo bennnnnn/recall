@@ -9,7 +9,7 @@ ended, a repeat moves its day, and it stays on its day when the user's zone chan
 from __future__ import annotations
 
 import importlib.util
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -40,7 +40,12 @@ from app.modules.todos.due_reminders import (
     reminder_instant,
 )
 from app.modules.todos.recurrence import next_open_due
-from app.modules.todos.reminder_writes import format_schedule_when
+from app.modules.todos.reminder_writes import (
+    ReminderWrites,
+    _existing_open_match,
+    format_schedule_when,
+)
+from app.modules.todos.schedule_repository import move_due_day_if_current
 from app.modules.todos.schemas import TodoUpdate
 from app.modules.todos.spoken_apply import _apply_saved_fields, format_reminder_reading
 from app.modules.todos.write_log import PlannedWrite
@@ -338,34 +343,58 @@ class _Savepoint:
         return False
 
 
+def _apia(day: int) -> TodoItem:
+    return _date_alone(
+        due_at=due_day.stored_due(datetime(2026, 11, day), "Pacific/Apia", has_time=False)
+    )
+
+
 @pytest.mark.asyncio
-async def test_a_new_zone_keeps_each_date_alone_on_its_day() -> None:
+async def test_a_new_zone_moves_each_date_alone_furthest_first_and_only_if_unchanged() -> None:
+    # Apia to Pago Pago: the 10th's new start is the 11th's old one.
     session = fake_session()
     session.begin_nested = MagicMock(return_value=_Savepoint())
-    rent = _date_alone()
-    move = AsyncMock()
+    tenth, eleventh = _apia(10), _apia(11)
+    move = AsyncMock(return_value=True)
     with (
-        patch.object(todos_repo, "list_date_only", AsyncMock(return_value=[rent])),
-        patch.object(service, "move_due_days", move),
+        patch.object(todos_repo, "list_date_only", AsyncMock(return_value=[tenth, eleventh])),
+        patch.object(service, "move_due_day_if_current", move),
     ):
         await service.keep_date_only_days(
-            session, rent.user_id, old_timezone="America/New_York", new_timezone="Europe/Paris"
+            session, tenth.user_id, old_timezone="Pacific/Apia", new_timezone="Pacific/Pago_Pago"
         )
-    assert _call(move).args[1] == {rent.id: datetime(2026, 11, 9, 23, tzinfo=UTC)}
+    first, second = ((*c.args[1:], c.kwargs["was"], c.kwargs["to"]) for c in move.await_args_list)
+    assert first[0] == eleventh.id and second[0] == tenth.id
+    # Each names the day it was read at, so an edit made meanwhile is left alone.
+    assert first[1] == eleventh.due_at and second[1] == tenth.due_at
+    assert second[2] == eleventh.due_at
 
 
 @pytest.mark.asyncio
-async def test_a_clash_at_the_new_midnight_never_refuses_the_new_zone() -> None:
+async def test_a_clash_at_one_new_midnight_never_holds_the_others_back() -> None:
     session = fake_session()
     session.begin_nested = MagicMock(return_value=_Savepoint())
     clash = IntegrityError("UPDATE", {}, Exception("uq_todo_open_content_due"))
+    move = AsyncMock(side_effect=[clash, True])
     with (
-        patch.object(todos_repo, "list_date_only", AsyncMock(return_value=[_date_alone()])),
-        patch.object(service, "move_due_days", AsyncMock(side_effect=clash)),
+        patch.object(todos_repo, "list_date_only", AsyncMock(return_value=[_apia(10), _apia(20)])),
+        patch.object(service, "move_due_day_if_current", move),
     ):
         await service.keep_date_only_days(
             session, uuid4(), old_timezone="UTC", new_timezone="Asia/Tokyo"
         )
+    assert move.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_a_moved_day_writes_only_the_row_as_it_was_read() -> None:
+    session = fake_session()
+    session.execute.return_value = MagicMock(rowcount=0)
+    later = NOV_10_NY + timedelta(hours=3)
+    moved = await move_due_day_if_current(session, uuid4(), was=NOV_10_NY, to=later)
+    sql = _sql(_call(session.execute).args[0])
+    assert not moved
+    assert "todo_items.due_at = " in sql and "todo_items.due_has_time IS false" in sql
 
 
 @pytest.mark.asyncio
@@ -391,6 +420,136 @@ async def test_a_new_profile_zone_moves_the_days_in_the_same_commit(zone: str) -
     assert order == ["keep", "commit"]
     assert _call(update).kwargs["commit"] is False
     assert _call(keep).kwargs == {"old_timezone": "America/New_York", "new_timezone": zone}
+
+
+# ── review: a card for today, an older app, the profile's zone, duplicates ──
+
+
+def test_a_card_can_move_a_date_alone_to_today() -> None:
+    today = due_day.start_of_day(datetime.now(UTC), "UTC")
+    alone = {"due_at": today, "due_has_time": False}
+    assert proposals._upcoming(alone, "UTC") == alone
+    daily = proposals._upcoming({**alone, "recurrence_rule": "daily"}, "UTC")
+    assert daily["due_at"] == today
+    with pytest.raises(proposals.ProposalError):
+        proposals._upcoming({**alone, "due_at": today - timedelta(days=1)}, "UTC")
+    with pytest.raises(proposals.ProposalError):
+        proposals._upcoming({"due_at": datetime.now(UTC) - timedelta(minutes=1)}, "UTC")
+
+
+@pytest.mark.asyncio
+async def test_an_older_app_moving_a_date_alone_keeps_it_alone() -> None:
+    # An app without the flag keeps the 00:00 it showed: the 12th's start in New York.
+    twelfth = datetime(2026, 11, 12, 5, tzinfo=UTC)
+    written = await _patched(_date_alone(), {"due_at": twelfth})
+    assert written == {"due_at": twelfth, "due_has_time": False}
+
+
+def test_the_phone_reads_a_date_alone_by_the_day_the_profile_holds() -> None:
+    tokyo = "Asia/Tokyo"
+    held = due_day.stored_due(datetime(2026, 11, 10), tokyo, has_time=False)
+    stamp = datetime(2026, 11, 1, tzinfo=UTC)
+    rent = _date_alone(due_at=held, created_at=stamp, updated_at=stamp)
+    # The instant is the 9th in UTC; the day is Tokyo's 10th.
+    out = todos_router._todo_out(rent, make_user(timezone=tokyo))
+    assert out.due_date == date(2026, 11, 10)
+    rent.due_has_time = True
+    assert todos_router._todo_out(rent, make_user(timezone=tokyo)).due_date is None
+
+
+def _spoken(**change: Any) -> Any:
+    fields: dict[str, Any] = {
+        "keep_date": False,
+        "hour": None,
+        "minute": None,
+        "day": None,
+        "shift_days": 0,
+        "repeat": None,
+        "topic": None,
+    }
+    return SimpleNamespace(**(fields | change))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "change", [{"day": "friday"}, {"keep_date": True, "hour": 18, "minute": 0}]
+)
+async def test_a_spoken_change_reads_a_date_alone_in_the_profiles_zone(
+    change: dict[str, Any],
+) -> None:
+    # Profile New York, phone in Los Angeles, where New York's midnight is 21:00 the day before.
+    session = fake_session()
+    session.get = AsyncMock(return_value=SimpleNamespace(timezone="America/New_York"))
+    tuesday = _date_alone(due_at=datetime(2032, 1, 6, tzinfo=NEW_YORK))
+    update = AsyncMock()
+    with patch.object(todos_repo, "update", update):
+        said, ok = await _apply_saved_fields(
+            session,
+            tuesday,
+            _spoken(**change),
+            title="Pay rent",
+            user_timezone="America/Los_Angeles",
+        )
+    moved = _call(update).kwargs["due_at"]
+    if change.get("day"):
+        assert due_day.local_day(moved, "America/New_York").weekday() == 4
+        assert moved == due_day.start_of_day(moved, "America/New_York")
+        assert ok and said.startswith("Moved: Pay rent — Friday, ")
+    else:
+        # The clock said is the phone's, on the date alone's own day.
+        los_angeles = ZoneInfo("America/Los_Angeles")
+        assert moved.astimezone(los_angeles) == datetime(2032, 1, 6, 18, tzinfo=los_angeles)
+
+
+@pytest.mark.asyncio
+async def test_a_date_alone_never_comes_back_as_a_timed_duplicate() -> None:
+    user: Any = SimpleNamespace(id=uuid4(), timezone="America/New_York")
+    clash = IntegrityError("insert", {}, Exception("uq_todo_open_content_due"))
+    duplicate = AsyncMock(return_value=None)
+    with (
+        patch.object(todos_repo, "create", AsyncMock(side_effect=clash)),
+        patch.object(todos_repo, "get_open_dated_duplicate", duplicate),
+        pytest.raises(todos_crud.TodosError) as refused,
+    ):
+        await todos_crud.create_todo(
+            fake_session(),
+            user,
+            content="Pay rent",
+            topic=None,
+            chat_id=None,
+            due_at=datetime(2026, 11, 10),
+            due_has_time=False,
+        )
+    assert _call(duplicate).kwargs["due_has_time"] is False
+    assert refused.value.detail == "You already have this to-do on that day."
+
+
+@pytest.mark.asyncio
+async def test_a_duplicate_is_one_of_the_same_kind() -> None:
+    session = fake_session()
+    await todos_repo.get_open_dated_duplicate(
+        session, uuid4(), content="Pay rent", due_at=NOV_10_NY, due_has_time=False
+    )
+    assert "todo_items.due_has_time IS false" in _sql(_call(session.execute).args[0])
+    state = ReminderWrites(
+        session=fake_session(), user_id=uuid4(), chat_id=uuid4(), user_timezone="America/New_York"
+    )
+    state.existing = [_date_alone()]
+    # Chat's "pay rent at midnight" is not the date alone at that midnight.
+    assert _existing_open_match(state, "Pay rent", NOV_10_NY) is None
+
+
+@pytest.mark.asyncio
+async def test_an_edit_clash_on_a_date_alone_says_day_not_time() -> None:
+    user: Any = SimpleNamespace(id=uuid4(), timezone="America/New_York")
+    clash = IntegrityError("update", {}, Exception("uq_todo_open_content_due"))
+    with (
+        patch.object(todos_repo, "get_by_id", AsyncMock(return_value=_date_alone())),
+        patch.object(todos_repo, "update", AsyncMock(side_effect=clash)),
+        pytest.raises(todos_crud.TodosError) as refused,
+    ):
+        await todos_crud.update_todo(fake_session(), user, uuid4(), {"content": "Rent"})
+    assert refused.value.detail == "You already have this to-do on that day."
 
 
 # ── against Postgres ───────────────────────────────────────────────────────
@@ -462,6 +621,68 @@ async def test_a_new_zone_moves_a_date_alone_and_keeps_its_updated_at(db_session
     assert rent.updated_at == edited
 
 
+async def test_same_titled_days_cross_the_date_line_together(db_session: Any) -> None:
+    user = await _user(db_session, timezone="Pacific/Apia")
+    stamp = datetime(2026, 11, 1, tzinfo=UTC)
+    days = [
+        TodoItem(
+            user_id=user.id,
+            content="Gym",
+            due_at=due_day.stored_due(datetime(2026, 11, day), "Pacific/Apia", has_time=False),
+            due_has_time=False,
+            due_set_at=stamp,
+        )
+        for day in (10, 11)
+    ]
+    db_session.add_all(days)
+    await db_session.flush()
+    await service.keep_date_only_days(
+        db_session, user.id, old_timezone="Pacific/Apia", new_timezone="Pacific/Pago_Pago"
+    )
+    for row, day in zip(days, (10, 11), strict=True):
+        await db_session.refresh(row)
+        assert row.due_at is not None
+        assert due_day.local_day(row.due_at, "Pacific/Pago_Pago") == date(2026, 11, day)
+
+
+async def test_a_date_alone_and_a_time_at_its_midnight_are_two_to_dos(db_session: Any) -> None:
+    user = await _user(db_session, timezone="America/New_York")
+    timed = await todos_crud.create_todo(
+        db_session, user, content="Pay rent", topic=None, chat_id=None, due_at=NOV_10_NY
+    )
+    alone = await todos_crud.create_todo(
+        db_session,
+        user,
+        content="Pay rent",
+        topic=None,
+        chat_id=None,
+        due_at=NOV_10_NY,
+        due_has_time=False,
+    )
+    assert alone.id != timed.id and alone.due_has_time is False
+
+
+async def test_a_new_zone_leaves_a_date_alone_edited_meanwhile(db_session: Any) -> None:
+    user = await _user(db_session, timezone="America/New_York")
+    rent = TodoItem(
+        user_id=user.id,
+        content="Pay rent",
+        due_at=datetime(2032, 1, 2, tzinfo=NEW_YORK),
+        due_has_time=False,
+        due_set_at=datetime(2031, 12, 1, tzinfo=UTC),
+    )
+    db_session.add(rent)
+    await db_session.flush()
+    read_at = datetime(2032, 1, 2, tzinfo=NEW_YORK)
+    rent.due_at = datetime(2032, 1, 5, tzinfo=NEW_YORK)
+    await db_session.flush()
+    moved = await move_due_day_if_current(
+        db_session, rent.id, was=read_at, to=datetime(2032, 1, 2, tzinfo=ZoneInfo("Europe/Paris"))
+    )
+    await db_session.refresh(rent)
+    assert not moved and rent.due_at == datetime(2032, 1, 5, tzinfo=NEW_YORK)
+
+
 # ── the migration ──────────────────────────────────────────────────────────
 
 
@@ -477,5 +698,9 @@ def test_every_existing_to_do_keeps_its_time() -> None:
     table, column = op.add_column.call_args.args
     assert table == "todo_items" and column.name == "due_has_time"
     assert isinstance(column.type, sa.Boolean) and column.nullable is False
-    assert column.server_default is not None and op.execute.call_count == 0
+    assert column.server_default is not None
+    # The open-duplicate unique, under its name, tells a date alone from a time.
+    created = " ".join(str(c.args[0]) for c in op.execute.call_args_list)
+    assert "CREATE UNIQUE INDEX uq_todo_open_content_due" in created
+    assert "lower(content), due_at, due_has_time)" in created
     assert module.down_revision == "0126_user_location_chosen_at"

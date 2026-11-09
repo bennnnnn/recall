@@ -9,7 +9,7 @@ import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import type { Todo } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
 import { categoryText } from "@/features/todos/model/todoCategories";
-import { isDateOnly } from "@/features/todos/model/dueDate";
+import { dueOfTodo, isDateOnly } from "@/features/todos/model/dueDate";
 import type { TodoSection } from "@/features/todos/model/todoListRows";
 import { selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
@@ -90,7 +90,7 @@ export const TodoRow = memo(function TodoRow({
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const due = todo.due_at ? new Date(todo.due_at) : null;
+  const due = dueOfTodo(todo)?.date ?? null;
   const dueOk = due != null && Number.isFinite(due.getTime());
   const choose = () => {
     selection();

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import TodoItem
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.due_day import same_day_in
-from app.modules.todos.schedule_repository import move_due_days
+from app.modules.todos.schedule_repository import move_due_day_if_current
 
 logger = logging.getLogger(__name__)
 
@@ -43,20 +43,24 @@ async def keep_date_only_days(
     A date alone is held at the start of its day on the user's clock, and is overdue when
     that day ends there. Left at the old zone's midnight, a flight from New York to Los
     Angeles showed it on the day before and called it overdue a day early.
+
+    Each row moves in its own savepoint, so one that would meet a same-titled open to-do at
+    its new midnight stays where it was and the rest still move. They move in the direction
+    of the shift, the furthest first: across the date line (Apia to Pago Pago) each day's
+    new start is the next day's old one, which a same-titled next day still held.
     """
-    rows = await todos_repo.list_date_only(session, user_id)
-    moves = {
-        row.id: same_day_in(row.due_at, old_timezone, new_timezone)
-        for row in rows
+    moves = [
+        (row.id, row.due_at, same_day_in(row.due_at, old_timezone, new_timezone))
+        for row in await todos_repo.list_date_only(session, user_id)
         if row.due_at is not None
-    }
-    try:
-        # A savepoint: a same-titled to-do already at the new midnight leaves the days
-        # where they were rather than refusing the new zone.
-        async with session.begin_nested():
-            await move_due_days(session, moves)
-    except IntegrityError:
-        logger.warning("Date-only to-dos kept their old zone's days user_id=%s", user_id)
+    ]
+    later = any(to > was for _id, was, to in moves)
+    for todo_id, was, to in sorted(moves, key=lambda move: move[1], reverse=later):
+        try:
+            async with session.begin_nested():
+                await move_due_day_if_current(session, todo_id, was=was, to=to)
+        except IntegrityError:
+            logger.warning("A date-only to-do kept its old zone's day todo_id=%s", todo_id)
 
 
 async def delete_user_rows(session: AsyncSession, user_id: UUID) -> None:

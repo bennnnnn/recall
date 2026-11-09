@@ -9,7 +9,7 @@ only a to-do with a time. It is overdue once its day has ended there, not at its
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from app.core.timezone import resolve_timezone
 from app.services import time_context as time_context_service
@@ -31,6 +31,12 @@ def _day_start(day_offset: int, due_at: datetime, timezone: str | None) -> datet
     zone = resolve_timezone(timezone)
     day = _local(due_at, timezone).date() + timedelta(days=day_offset)
     return datetime.combine(day, time(), zone).astimezone(UTC)
+
+
+def local_day(due_at: datetime, timezone: str | None) -> date:
+    """The calendar day ``due_at`` falls on in the user's zone: a date alone's day where it
+    is held, which the phone shows as is (``TodoOut.due_date``)."""
+    return _local(due_at, timezone).date()
 
 
 def start_of_day(due_at: datetime, timezone: str | None) -> datetime:

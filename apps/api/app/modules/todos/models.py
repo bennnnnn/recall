@@ -53,9 +53,9 @@ class TodoItem(Base):
                 "AND due_at IS NOT NULL"
             ),
         ),
-        # Partial unique on (user_id, lower(content), due_at) for open dated
-        # rows lives in migration 0084 (`uq_todo_open_content_due`) so SQLite
-        # `__table__.create()` fixtures are not bound to a Postgres expression.
+        # Partial unique on (user_id, lower(content), due_at, due_has_time) for
+        # open dated rows lives in migrations 0084 and 0127 (`uq_todo_open_content_due`)
+        # so SQLite `__table__.create()` fixtures are not bound to a Postgres expression.
         Index("ix_todo_user_id", "user_id", "id"),
         CheckConstraint("source IN ('user')", name="ck_todo_items_source"),
     )

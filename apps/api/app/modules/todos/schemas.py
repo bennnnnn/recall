@@ -1,6 +1,6 @@
 """Request and response schemas for to-dos with optional due dates."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal, Self
 from uuid import UUID
 
@@ -25,6 +25,9 @@ class TodoOut(BaseModel):
     due_at: datetime | None = None
     # False: a date alone (due_at at the start of its day), with no reminder.
     due_has_time: bool = True
+    # A date alone's day on the user's clock, where the server holds it: the phone shows
+    # this day, not the day due_at falls on in its own zone. Null for a time or no date.
+    due_date: date | None = None
     recurrence_rule: RecurrenceRule | None = None
     sort_order: int | None = None
     chat_id: UUID | None = None
@@ -38,6 +41,14 @@ class TodoOut(BaseModel):
     @classmethod
     def _coerce_recurrence_rule(cls, value: object) -> RecurrenceRule | None:
         if value in ("daily", "weekdays", "weekly", "monthly"):
+            return value
+        return None
+
+    @field_validator("due_date", mode="before")
+    @classmethod
+    def _a_day_or_none(cls, value: object) -> object:
+        # A row has no due_date: the API works it out (``api._todo_out``).
+        if isinstance(value, str) or (isinstance(value, date) and not isinstance(value, datetime)):
             return value
         return None
 

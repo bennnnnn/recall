@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import TodoItem
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.actions import _ACTION_RELOAD_LIMIT, REMINDER_TOPIC, apply_todo_actions
+from app.modules.todos.due_day import has_time
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.reminder_fence_parse import ReminderFence
 from app.modules.todos.schemas import RecurrenceRule, TodoActionItem
@@ -132,7 +133,8 @@ def _existing_open_match(
         matches.append(item)
     if due_at is None:
         return matches[0] if matches else None
-    exact = next((item for item in matches if item.due_at == due_at), None)
+    # A date alone at the same midnight is another to-do: chat's always has a time.
+    exact = next((item for item in matches if item.due_at == due_at and has_time(item)), None)
     if exact is not None:
         return exact
     return next((item for item in matches if item.due_at is None), None)

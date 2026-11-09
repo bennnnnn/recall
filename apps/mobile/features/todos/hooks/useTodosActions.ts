@@ -133,7 +133,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     const optimistic = buildOptimisticTodo({
       content: trimmed,
       topic: nextTopic,
-      dueAt: shown.due_at, dueHasTime: shown.due_has_time,
+      dueAt: shown.due_at, dueHasTime: shown.due_has_time, dueDate: shown.due_date,
       recurrenceRule,
     });
     const release = beginTodoMutation(owner.mutations, optimistic.id, "create");

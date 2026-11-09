@@ -26,9 +26,9 @@ from app.core.timezone import resolve_timezone
 from app.exceptions import DomainError
 from app.modules.conversation import service as conversation_service
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.due_day import has_time
+from app.modules.todos.due_day import has_time, overdue_from
 from app.modules.todos.models import TodoItem
-from app.modules.todos.recurrence import completed_fields, next_recurring_due
+from app.modules.todos.recurrence import completed_fields, next_open_due
 from app.modules.todos.write_log import PlannedWrite
 from app.services.md_fence_scan import map_fence_blocks, strip_closed_fences
 
@@ -193,17 +193,24 @@ def _row_fields(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _upcoming(fields: dict[str, Any], user_timezone: str | None) -> dict[str, Any]:
-    """A repeating time that passed moves to its next turn; a one-off one is refused."""
+    """A repeating time that passed moves to its next turn; a one-off one is refused.
+
+    A date alone has passed only once its day has ended: "move the dentist to today" is held
+    at today's start, which was refused as a passed time, and a card for tomorrow tapped
+    after midnight is today's.
+    """
     due = fields.get("due_at")
     if not isinstance(due, datetime) or fields.get("checked"):
         return fields
     now = datetime.now(UTC)
-    if due > now:
+    timed = fields.get("due_has_time", True) is not False
+    if overdue_from(due, user_timezone, has_time=timed) > now:
         return fields
     rule = fields.get("recurrence_rule")
     if not rule:
         raise ProposalError("That time has passed. Ask again with a new time.", status_code=409)
-    return {**fields, "due_at": next_recurring_due(due, rule, now=now, timezone=user_timezone)}
+    nxt = next_open_due(due, rule, has_time=timed, now=now, timezone=user_timezone)
+    return {**fields, "due_at": nxt}
 
 
 @dataclass(frozen=True)

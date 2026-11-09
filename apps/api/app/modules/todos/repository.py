@@ -151,13 +151,16 @@ async def get_open_dated_duplicate(
     *,
     content: str,
     due_at: datetime,
+    due_has_time: bool = True,
 ) -> TodoItem | None:
-    """Open reminder with the same case-insensitive title and due instant."""
+    """Open reminder with the same case-insensitive title, due instant and kind: a date
+    alone is not the same to-do as a time at its midnight (the unique, migration 0127)."""
     result = await session.execute(
         select(TodoItem).where(
             TodoItem.user_id == user_id,
             func.lower(TodoItem.content) == content.strip().lower(),
             TodoItem.due_at == due_at,
+            TodoItem.due_has_time.is_(due_has_time),
             TodoItem.checked.is_(False),
         )
     )

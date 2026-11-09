@@ -12,6 +12,7 @@ from app.core.etag import conditional_json
 from app.models.orm import TodoItem, User
 from app.modules.todos import crud as todos_crud
 from app.modules.todos import proposals as reminder_proposals
+from app.modules.todos.due_day import has_time, local_day
 from app.modules.todos.due_reminders import preview_instant, reminder_instant
 from app.modules.todos.schemas import (
     RecurrenceRule,
@@ -31,9 +32,11 @@ _MAX_TODOS_PAGE = 200
 
 
 def _todo_out(item: TodoItem, user: User) -> TodoOut:
-    """A row as the phone reads it, with the instant its reminder goes out."""
+    """A row as the phone reads it, with the instant its reminder goes out and a date
+    alone's day."""
+    day = None if item.due_at is None or has_time(item) else local_day(item.due_at, user.timezone)
     return TodoOut.model_validate(item).model_copy(
-        update={"notify_at": reminder_instant(item, user)}
+        update={"notify_at": reminder_instant(item, user), "due_date": day}
     )
 
 

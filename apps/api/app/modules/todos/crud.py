@@ -13,7 +13,7 @@ from app.exceptions import DomainError
 from app.models.orm import TodoItem, User
 from app.modules.conversation import history as chat_history
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.due_day import has_time, overdue_from, stored_due
+from app.modules.todos.due_day import has_time, overdue_from, start_of_day, stored_due
 from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.recurrence import (
     RecurrenceRule,
@@ -30,10 +30,12 @@ class TodosError(DomainError):
     """A to-do refusal."""
 
 
-def _duplicate() -> TodosError:
-    """Another open to-do already has this title at this time (uq_todo_open_content_due)."""
+def _duplicate(*, has_time: bool = True) -> TodosError:
+    """Another open to-do already has this title at this time, or as a date alone on this
+    day (uq_todo_open_content_due)."""
+    when = "at that time" if has_time else "on that day"
     return TodosError(
-        "You already have this to-do at that time.", status_code=409, code="todo_duplicate"
+        f"You already have this to-do {when}.", status_code=409, code="todo_duplicate"
     )
 
 
@@ -110,10 +112,10 @@ async def create_todo(
             raise
         await session.rollback()
         existing = await todos_repo.get_open_dated_duplicate(
-            session, user_id, content=content, due_at=normalized_due
+            session, user_id, content=content, due_at=normalized_due, due_has_time=due_has_time
         )
         if existing is None:
-            raise _duplicate() from exc
+            raise _duplicate(has_time=due_has_time) from exc
         return existing
     return item
 
@@ -152,28 +154,35 @@ async def update_todo(
     if "due_at" in patch:
         # Ticking a repeating date alone moves it to its next day, still without a time.
         patch.setdefault("due_has_time", has_time(item))
+    # Read before the try: a rollback expires the row.
+    timed = patch.get("due_has_time", has_time(item))
     try:
         return await todos_repo.update(session, item, **patch)
     except IntegrityError as exc:
         if not todos_repo.is_open_content_due_conflict(exc):
             raise
         await session.rollback()
-        raise _duplicate() from exc
+        raise _duplicate(has_time=timed) from exc
 
 
 def _stored_due_fields(
     item: TodoItem, patch: dict[str, Any], timezone: str | None
 ) -> dict[str, Any]:
-    """The due date and its flag as an edit stores them. A ``due_at`` sent without the flag
-    is a time, which is all an app before date-only to-dos could mean, unless it is the one
-    saved (a title edit sends it back); a date alone is held at the start of its day."""
+    """The due date and its flag as an edit stores them; a date alone is held at the start
+    of its day.
+
+    A ``due_at`` sent without the flag comes from an app before date-only to-dos. It meant
+    a time, unless the to-do is a date alone and ``due_at`` is still a day's start: a title
+    edit sends the saved one back, and a new date keeps the 00:00 that app showed. Read as
+    a time, that date alone was reminded of at about 23:45 the night before.
+    """
     due = patch["due_at"] if "due_at" in patch else item.due_at
     if due is None:
         return {"due_has_time": True}
     timed = patch.get("due_has_time")
     if timed is None:
-        changed = "due_at" in patch and normalize_due_at(due, timezone) != item.due_at
-        timed = changed or has_time(item)
+        sent = normalize_due_at(due, timezone)
+        timed = has_time(item) or (sent is not None and sent != start_of_day(sent, timezone))
     return {"due_at": stored_due(due, timezone, has_time=timed), "due_has_time": timed}
 
 
