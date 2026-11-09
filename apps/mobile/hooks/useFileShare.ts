@@ -18,8 +18,12 @@ export function useFileShare(): { sharing: boolean; share: (task: () => Promise<
   const feedback = useActionFeedbackOptional();
   const [sharing, setSharing] = useState(false);
   const share = useCallback(async (task: () => Promise<void>) => {
+    // Only the press that started a share stops its spinner: a second press, refused while
+    // the first runs, must leave the first one's spinner on.
+    let started = false;
     try {
       await shareOneAtATime(async () => {
+        started = true;
         setSharing(true);
         await task();
       });
@@ -27,7 +31,7 @@ export function useFileShare(): { sharing: boolean; share: (task: () => Promise<
       if (!(error instanceof ShareInProgressError)) throw error;
       reportRecoverableWarning(feedback, t("common.share_in_progress"));
     } finally {
-      setSharing(false);
+      if (started) setSharing(false);
     }
   }, [feedback, t]);
   return { sharing, share };
