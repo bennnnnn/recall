@@ -4,6 +4,14 @@ type ClipboardWithImage = typeof Clipboard & {
   hasImageAsync?: () => Promise<boolean>;
 };
 
+/**
+ * Puts `text` on the clipboard: every write goes through here (a copy control with its check
+ * and haptic is `useCopyText`). Rejects when the system refuses it.
+ */
+export async function copyToClipboard(text: string): Promise<void> {
+  await Clipboard.setStringAsync(text);
+}
+
 /** The clipboard's text handed to `paste`, when there is any (the math pad's Paste key). */
 export function pasteClipboardText(paste: (text: string) => unknown): void {
   void Clipboard.getStringAsync().then((text) => {

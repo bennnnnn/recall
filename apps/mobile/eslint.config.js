@@ -40,6 +40,14 @@ const CONTROLS_OWNED_BY_UI_KIT = [
   },
 ];
 
+/** The clipboard is written in one place, so every copy behaves the same. Tests may mock it. */
+const CLIPBOARD_OWNED_BY_LIB = [
+  {
+    name: "expo-clipboard",
+    message: "Use copyToClipboard (or pasteClipboardText) from @/lib/clipboard; a copy control uses useCopyText.",
+  },
+];
+
 const TEST_FILES = ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"];
 
 const UI_LEAF = {
@@ -152,6 +160,17 @@ const RAW_COLOR_RULES = [
 const DATE_FORMAT_MESSAGE =
   "Format dates and times with formatDate (or formatMinuteOfDay, formatCalendarDay, formatTimeZoneName) from @/lib/datetime/format.";
 
+const DATES_FORMATTED_BY_LIB_DATETIME = [
+  { object: "Intl", property: "DateTimeFormat", message: DATE_FORMAT_MESSAGE },
+  { object: "Intl", property: "RelativeTimeFormat", message: `${DATE_FORMAT_MESSAGE} Add a relative style there.` },
+  { property: "toLocaleDateString", message: DATE_FORMAT_MESSAGE },
+  { property: "toLocaleTimeString", message: DATE_FORMAT_MESSAGE },
+  {
+    property: "toLocaleString",
+    message: `${DATE_FORMAT_MESSAGE} A number: Intl.NumberFormat in the app's language (lib/money/format.ts).`,
+  },
+];
+
 /**
  * Reanimated hooks and the argument a dependency array would take. The worklets Babel plugin
  * reads a worklet's dependencies from its closure; on native an array passed there is
@@ -189,16 +208,6 @@ const recallRules = {
     },
   },
 };
-const DATES_FORMATTED_BY_LIB_DATETIME = [
-  { object: "Intl", property: "DateTimeFormat", message: DATE_FORMAT_MESSAGE },
-  { object: "Intl", property: "RelativeTimeFormat", message: `${DATE_FORMAT_MESSAGE} Add a relative style there.` },
-  { property: "toLocaleDateString", message: DATE_FORMAT_MESSAGE },
-  { property: "toLocaleTimeString", message: DATE_FORMAT_MESSAGE },
-  {
-    property: "toLocaleString",
-    message: `${DATE_FORMAT_MESSAGE} A number: Intl.NumberFormat in the app's language (lib/money/format.ts).`,
-  },
-];
 
 /** Palettes and drawn data keep their own colors. */
 const RAW_COLORS_ALLOWED = [
@@ -232,7 +241,14 @@ module.exports = defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
+        {
+          paths: [
+            ...REPLACED_BY_UI_KIT,
+            ...POPUPS_OWNED_BY_UI_KIT,
+            ...CONTROLS_OWNED_BY_UI_KIT,
+            ...CLIPBOARD_OWNED_BY_LIB,
+          ],
+        },
       ],
       // Import cycles are caught by lib/__tests__/importCycles.test.ts, which,
       // unlike import/no-cycle, also sees type-only imports.
@@ -265,7 +281,10 @@ module.exports = defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT], patterns: [UI_LEAF] },
+        {
+          paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB],
+          patterns: [UI_LEAF],
+        },
       ],
     },
   },
@@ -274,7 +293,20 @@ module.exports = defineConfig([
     files: ["ui/overlay/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
     rules: {
-      "no-restricted-imports": ["error", { paths: REPLACED_BY_UI_KIT, patterns: [UI_LEAF] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [...REPLACED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB], patterns: [UI_LEAF] },
+      ],
+    },
+  },
+  {
+    // The one place that writes and reads the clipboard.
+    files: ["lib/clipboard.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
+      ],
     },
   },
   {

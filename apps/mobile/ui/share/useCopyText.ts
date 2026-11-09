@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { setStringAsync } from "expo-clipboard";
-
+import { copyToClipboard } from "@/lib/clipboard";
 import { notifySuccess } from "@/lib/haptics";
 
 /** How long every copy control shows its check after copying. */
@@ -27,7 +26,7 @@ export function useCopyText(onFailed?: () => void) {
   const copy = useCallback(async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
     try {
-      await setStringAsync(text);
+      await copyToClipboard(text);
     } catch {
       failed.current?.();
       return false;
