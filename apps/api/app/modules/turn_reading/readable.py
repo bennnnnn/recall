@@ -126,21 +126,18 @@ def in_other_script(text: str) -> bool:
     return sum(map(_other_script, plain)) >= _OTHER_SCRIPT_LETTERS
 
 
-def other_language_words(text: str) -> set[str]:
-    """The words of ``text`` (casefolded) that only the app's other Latin-script languages
-    write: a listed word ("que", "del", "un") or one holding a letter English does not write
-    ("mañana"). Unlike ``other_language`` one is enough: a short title has no more."""
+def has_other_language_word(text: str) -> bool:
+    """``text`` holds a word only the app's other languages write, or another script: weak
+    evidence, enough to leave a language open ("Como hago un for loop"), never to call the
+    text another language (``other_language`` asks for more)."""
+    if in_other_script(text):
+        return True
     plain = _MATH.sub(" ", _without_code(text))
-    words = (match.group().casefold() for match in _WORD.finditer(plain))
-    return {word for word in words if word in _FOREIGN or _FOREIGN_LETTERS.intersection(word)}
-
-
-def written_in_english(text: str) -> bool:
-    """``text`` is English on positive evidence: a word only English writes ("the", "of",
-    "that") and no other language's. "python" or "¿quién ganó?" says neither."""
-    plain = _MATH.sub(" ", _without_code(text))
-    english = any(match.group().casefold() in _ENGLISH for match in _WORD.finditer(plain))
-    return english and not other_language(text)
+    for match in _WORD.finditer(plain):
+        word, folded = match.group(), match.group().casefold()
+        if folded in _FOREIGN or (word == folded and _FOREIGN_LETTERS.intersection(folded)):
+            return True
+    return False
 
 
 def other_language(text: str) -> bool:

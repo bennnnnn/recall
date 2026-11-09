@@ -23,11 +23,11 @@ from app.modules.chat.turn_prep import augment
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.whole_question import answers_with, whole_question_fetch
 from app.modules.turn_reading.readable import (
+    has_other_language_word,
     in_other_script,
     misread_number,
     other_language,
     unreadable,
-    written_in_english,
 )
 from app.services.solving import VerifiedSolveBlock
 
@@ -232,21 +232,36 @@ async def test_the_tool_matches_no_unread_earlier_line(thread_sympy_executor: No
     assert await _tool_call_matches_user(args, texts, Settings(), "en")
 
 
-# What a chat title is checked against (modules/chat/titles.py): English only on its own words,
-# another script only on its letters; a message that shows neither says nothing.
+# What a chat title is checked against (modules/chat/titles.py): letters of a script that is
+# not Latin or maths notation. Greek in a formula is notation.
 @pytest.mark.parametrize(
-    ("text", "english", "other_script"),
+    ("text", "other_script"),
     [
-        ("Remember that I am vegetarian.", True, False),
-        ("Draw a watercolor of a lighthouse at sunset", True, False),
-        ("python", False, False),
-        ("¿quién ganó?", False, False),
-        ("¿Cómo hago pan de masa madre?", False, False),
-        ("ስለ ፎቶሲንተሲስ አስተምረኝ", False, True),
-        ("Объясни фотосинтез", False, True),
-        ("Find θ when sin θ = 0.5", True, False),
+        ("Remember that I am vegetarian.", False),
+        ("¿Cómo hago pan de masa madre?", False),
+        ("Schrödinger equation", False),
+        ("ስለ ፎቶሲንተሲስ አስተምረኝ", True),
+        ("Объясни фотосинтез", True),
+        ("Find θ when sin θ = 0.5", False),
     ],
 )
-def test_written_in_english_and_in_other_script(text: str, english: bool, other_script: bool):
-    assert written_in_english(text) is english
+def test_in_other_script(text: str, other_script: bool):
     assert in_other_script(text) is other_script
+
+
+# Enough to leave a chat title's language open: one word only another language writes.
+@pytest.mark.parametrize(
+    ("text", "open_language"),
+    [
+        ("Draw a cat", False),
+        ("Remember I am vegetarian", False),
+        ("can you explain the schrodinger equation", False),
+        ("Como hago un for loop en Python?", True),
+        ("llamar a mamá mañana", True),
+        # A capitalised word with an accent is a name: "Schrödinger" is no Spanish.
+        ("Schrödinger's cat", False),
+        ("ስለ ፎቶሲንተሲስ", True),
+    ],
+)
+def test_has_other_language_word(text: str, open_language: bool):
+    assert has_other_language_word(text) is open_language

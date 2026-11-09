@@ -492,37 +492,37 @@ def test_title_worked_examples_are_titles_the_rules_allow():
         assert title.casefold() not in {line.strip().casefold() for line in reply.split(".")}
 
 
-# The title model named English chats in Spanish ("Soy vegetariana" for "Remember that I am
-# vegetarian", one chat in seven, 2026-11-08) and an Amharic lesson in English; and wrote the
-# chat as a profile note ("User is vegetarian") every time it was told to remember something.
+# The title model named English chats in Spanish (one chat in seven, 2026-11-08) and an Amharic
+# lesson in English, and wrote "User is vegetarian" every time it was told to remember
+# something. The prompt names English outright for English words; after it, only the script
+# and a "User" the user never wrote reject a title: names and loanwords stay.
 @pytest.mark.parametrize(
     ("raw", "message", "expected"),
     [
-        ("Recordar que soy vegetariano", "Remember that I am vegetarian.", None),
-        ("Dibujo de un faro al atardecer", "Draw a watercolor of a lighthouse at sunset", None),
-        ("Acuarela de faro al atardecer", "Draw a watercolor of a lighthouse at sunset", None),
-        ("El Niño and its effects", "What are the effects of El Niño?", "El Niño and its effects"),
-        ("Solving x² + x + 2 = 0", "solve x^2 + x + 2 = 0 for me", "Solving x² + x + 2 = 0"),
-        ("Recordar llamar a mamá mañana", "Remind me to call mom tomorrow at 5 pm", None),
         ("Learning about photosynthesis", "ስለ ፎቶሲንተሲስ አስተምረኝ", None),
         ("ስለ ፎቶሲንተሲስ መማር", "ስለ ፎቶሲንተሲስ አስተምረኝ", "ስለ ፎቶሲንተሲስ መማር"),
+        ("Объяснение фотосинтеза", "Explain photosynthesis", None),
+        ("Установка Python на Mac", "Как установить Python на Mac?", "Установка Python на Mac"),
         (
             "Cómo hacer pan de masa madre",
             "¿Cómo hago pan de masa madre?",
             "Cómo hacer pan de masa madre",
         ),
         (
-            "Demande de congé vendredi",
-            "Écris un e-mail à mon patron pour demander vendredi",
-            "Demande de congé vendredi",
+            "Schrödinger equation explained",
+            "can you explain the schrodinger equation",
+            "Schrödinger equation explained",
         ),
-        (
-            "Watercolor of a lighthouse at sunset",
-            "Draw a watercolor of a lighthouse at sunset",
-            "Watercolor of a lighthouse at sunset",
-        ),
+        ("Le Chatelier's principle", "explain le chatelier", "Le Chatelier's principle"),
+        ("Las Vegas trip ideas", "plan a weekend in vegas", "Las Vegas trip ideas"),
         ("User is vegetarian", "Remember that I am vegetarian.", None),
+        ("User loves hiking", "I love hiking", None),
         ("The user wants a reminder", "Remind me to call mom", None),
+        (
+            "User is not defined error",
+            "Why do I get User is not defined?",
+            "User is not defined error",
+        ),
         (
             "User interface design basics",
             "Explain user interface design",
@@ -530,33 +530,33 @@ def test_title_worked_examples_are_titles_the_rules_allow():
         ),
     ],
 )
-def test_finalize_generated_title_keeps_the_message_language(
+def test_finalize_generated_title_keeps_the_message_script(
     raw: str, message: str, expected: str | None
 ):
     assert finalize_generated_title(raw, message) == expected
 
 
 @pytest.mark.asyncio
-async def test_a_title_in_another_language_names_the_chat_in_the_users_words():
+async def test_a_title_about_the_user_names_the_chat_in_the_users_words():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
     with patch.object(
-        litellm_gateway,
-        "complete_text",
-        new_callable=AsyncMock,
-        return_value="Recordar llamar a mamá mañana",
+        litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="User is vegetarian"
     ):
-        title = await generate_title(settings, "Remind me to call mom tomorrow at 5 pm", "Saved.")
-    assert title == "Remind me to call mom tomorrow"
+        title = await generate_title(settings, "Remember that I am vegetarian.", "Got it.")
+    assert title == "Remember that I am vegetarian"
 
 
 @pytest.mark.parametrize(
     ("message", "language"),
     [
         ("Remember that I am vegetarian.", "in English."),
+        ("Draw a cat", "in English."),
+        ("python", "in English."),
         ("¿Cómo hago pan de masa madre?", "in the message's language and script."),
+        ("Como hago un for loop en Python?", "in the message's language and script."),
         ("ስለ ፎቶሲንተሲስ አስተምረኝ", "in the message's language and script."),
-        ("python", "in the message's language and script."),
+        (_PHOTO, "in the message's language and script."),
     ],
 )
-def test_the_title_model_is_told_english_outright_for_an_english_chat(message: str, language: str):
+def test_the_title_model_is_told_english_outright_for_english_words(message: str, language: str):
     assert _chat_turn(title_messages(message, "Reply.")).endswith(language)
