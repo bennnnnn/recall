@@ -2,7 +2,7 @@
 import { useCallback, useMemo } from "react";
 import { useWindowDimensions } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useFont, type SkFont } from "@shopify/react-native-skia";
+import { useFont } from "@shopify/react-native-skia";
 
 import {
   inclineDirections,
