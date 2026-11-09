@@ -19,6 +19,22 @@ describe("deriveAssistantMessageContent", () => {
     }
   });
 
+  it("keeps a places list where the model wrote it, streaming and settled alike", () => {
+    // Settled, the list was pulled out of the reply and drawn at the bubble's end: it
+    // jumped there from mid-reply when the reply finished (2026-11-08).
+    const content = [
+      "The top pick near you is Copra.",
+      '```places\n[{"name":"Copra","url":"https://maps.example/copra"}]\n```',
+      "🚩 Copra books up fast, so reserve ahead.",
+    ].join("\n\n");
+    const streaming = deriveAssistantMessageContent({ ...base, content, layoutFrozen: true, isGenerating: true });
+    const settled = deriveAssistantMessageContent({ ...base, content });
+    expect(settled.markdownContent).toBe(streaming.markdownContent);
+    const text = settled.markdownContent;
+    expect(text.indexOf("Copra.")).toBeLessThan(text.indexOf("```places"));
+    expect(text.indexOf("```places")).toBeLessThan(text.indexOf("reserve ahead"));
+  });
+
   it("returns empty markdown flags for user rows", () => {
     const result = deriveAssistantMessageContent({
       ...base,

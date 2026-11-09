@@ -58,7 +58,6 @@
   "lib/launchPrefs.ts": 1,
   "lib/launchSplash.ts": 1,
   "lib/math/svgMath.ts": 1,
-  "lib/places/placesList.ts": 1,
   "lib/preview/previewPageFile.ts": 3,
   "lib/productAnalytics.ts": 1,
   "lib/sentry.ts": 1,
