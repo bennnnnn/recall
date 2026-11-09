@@ -15,7 +15,11 @@ type FormatContext = {
   translate: Translate;
 };
 
-function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
+/**
+ * A number format in the app's language. A language tag Intl rejects (it throws a RangeError)
+ * falls back to English, so a number on screen never takes the screen down with it.
+ */
+export function numberFormat(locale: string, options: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
   try {
     return new Intl.NumberFormat(locale, options);
   } catch {

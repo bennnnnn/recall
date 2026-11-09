@@ -167,7 +167,19 @@ const DATES_FORMATTED_BY_LIB_DATETIME = [
   { property: "toLocaleTimeString", message: DATE_FORMAT_MESSAGE },
   {
     property: "toLocaleString",
-    message: `${DATE_FORMAT_MESSAGE} A number: Intl.NumberFormat in the app's language (lib/money/format.ts).`,
+    message: `${DATE_FORMAT_MESSAGE} A number: numberFormat from @/lib/money/format, in the app's language.`,
+  },
+];
+
+/**
+ * A number on screen goes through numberFormat (lib/money/format.ts): a language tag Intl
+ * rejects throws, and that one falls back to English instead.
+ */
+const NUMBERS_FORMATTED_BY_LIB_MONEY = [
+  {
+    object: "Intl",
+    property: "NumberFormat",
+    message: "Format numbers with numberFormat from @/lib/money/format; it falls back when Intl rejects the language.",
   },
 ];
 
@@ -330,6 +342,12 @@ module.exports = defineConfig([
   {
     files: ["**/*.{ts,tsx}"],
     ignores: [...TEST_FILES, "lib/datetime/**"],
+    rules: {
+      "no-restricted-properties": ["error", ...DATES_FORMATTED_BY_LIB_DATETIME, ...NUMBERS_FORMATTED_BY_LIB_MONEY],
+    },
+  },
+  {
+    files: ["lib/money/format.ts"],
     rules: { "no-restricted-properties": ["error", ...DATES_FORMATTED_BY_LIB_DATETIME] },
   },
   {
