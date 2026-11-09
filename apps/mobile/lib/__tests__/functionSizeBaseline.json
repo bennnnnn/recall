@@ -74,7 +74,7 @@
   "features/chat/hooks/useChatTransport.ts::useChatTransport": 269,
   "features/chat/hooks/useChatTurnActions.ts::useChatTurnActions": 137,
   "features/chat/hooks/useComposerFieldLayout.ts::useComposerFieldLayout": 139,
-  "features/chat/hooks/useMathKeyboardInsert.ts::useMathKeyboardInsert": 297,
+  "features/chat/hooks/useMathKeyboardInsert.ts::useMathKeyboardInsert": 298,
   "features/chat/model/wsTransport.ts::ChatWsTransport.connect": 133,
   "features/chat/screens/ChatScreen.tsx::ChatScreen": 349,
   "features/drafts/components/EmailCard.tsx::EmailCard": 179,

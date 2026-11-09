@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
 import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";
+import { isPadMathDraft } from "@/features/chat/model/padMathDrafts";
 import { MATH_KEYBOARD_SYMBOLS } from "@/lib/math/keyboardSymbols";
 import { clipboardIsImageOnly } from "@/lib/clipboard";
 
@@ -117,6 +118,22 @@ describe("useMathKeyboardInsert", () => {
     expect(result.current.mathBarOpen).toBe(false);
     const end = "$x^2$ is".length;
     expect(result.current.selection).toEqual({ start: end, end });
+  });
+
+  // The switch's render still held the pad's preview from the last draft: the next draft,
+  // typed by hand, was marked as the pad's.
+  it("does not mark the next owner's typed draft as the pad's on the switch", async () => {
+    const typed = "The price is $5 and $x$";
+    const { result, rerender } = await renderHook(
+      ({ input, draftRevision }: { input: string; draftRevision: number }) =>
+        useMathKeyboardInsert({ input, setInput: jest.fn(), draftRevision }),
+      { initialProps: { input: "$y^2$", draftRevision: 1 } },
+    );
+    await act(() => result.current.toggleMathBar());
+    expect(result.current.showMathPreview).toBe(true);
+    await rerender({ input: typed, draftRevision: 2 });
+    expect(isPadMathDraft(typed)).toBe(false);
+    expect(result.current.showMathPreview).toBe(false);
   });
 
   it.each(["hello", "The price is $5", "$x$ typed by hand"])(

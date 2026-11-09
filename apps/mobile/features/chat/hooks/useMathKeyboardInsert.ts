@@ -114,9 +114,10 @@ export function useMathKeyboardInsert(options: {
     setForcedSelection(forced);
   }, []);
 
+  // The ref: on a thread switch the layout effect below set it for the new draft; the state is the old one's.
   useEffect(() => {
     if (!input) setPreview(false);
-    else if (previewEnabled && hasEditableMath(input)) notePadMathDraft(input);
+    else if (previewEnabledRef.current && hasEditableMath(input)) notePadMathDraft(input);
   }, [input, previewEnabled, setPreview]);
 
   useLayoutEffect(() => {
