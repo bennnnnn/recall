@@ -13,6 +13,7 @@ import {
   isExplicitCodeLang,
   isStructuredDraftLang,
   looksLikeCode,
+  readsAsSentences,
   looksLikeMathAnswer,
   looksLikeExplicitDraftContent,
   shouldRenderAsCodeBlock,
@@ -157,8 +158,11 @@ export function classifyOpenFencePreview(lang: string, body: string): OpenFenceP
   if (decision.kind === "answer") return "answer";
   if (decision.kind === "math") return "math";
   // Words in an untagged fence stream as words, in any language: a closed one of prose
-  // is unwrapped to prose (unwrapNonCodeFences), never a gray code card.
-  if (decision.kind === "code" && allowsContentHeuristic(lang) && !looksLikeCode(body)) return "prose";
+  // is unwrapped to prose (unwrapNonCodeFences), never a gray code card. It waits for a
+  // sentence: `npm install express` or a lone `{` is the start of code, not of prose.
+  if (decision.kind === "code" && allowsContentHeuristic(lang) && readsAsSentences(body) && !looksLikeCode(body)) {
+    return "prose";
+  }
   // Server already appended 3D after SMILES; the model's extra open
   // ```molecule3d was a pulsing gray box under "3D Structure" that vanished
   // when the fence closed and the leftover was dropped. Hold nothing.

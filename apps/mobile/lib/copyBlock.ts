@@ -29,10 +29,47 @@ function looksLikeFailedDiagram(content: string): boolean {
   return /^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(content.slice(0, 800).trim());
 }
 
+/**
+ * Sentences, in any language: most of the words sit on lines of six words or more (a
+ * letter's "Hi Ana," and "Thanks," are short), and code's brackets are rare among the
+ * letters. "Bring your ID(s)…" or a line that ends in `;` is still a sentence; only the
+ * strong evidence below makes it code.
+ */
+export function readsAsSentences(content: string): boolean {
+  const lines = content.split("\n").map((line) => line.trim().split(/\s+/).filter(Boolean).length);
+  const words = lines.reduce((sum, count) => sum + count, 0);
+  const inSentences = lines.filter((count) => count >= 6).reduce((sum, count) => sum + count, 0);
+  const letters = content.match(/\p{L}/gu)?.length ?? 0;
+  const marks = content.match(/[{}()[\];=<>]/g)?.length ?? 0;
+  return words > 0 && inSentences * 2 >= words && marks * 40 <= letters;
+}
+
+/** A line no sentence writes: a declaration, an arrow or strict comparison, a print or hook call, a tag, or `;` `{` `}` at its end. */
+const SOURCE_LINE = [
+  /^\s*(def|class|function|import|export|const|var|let|public|private|protected|fn|func|struct|interface|enum|package|SELECT|INSERT|UPDATE|DELETE|CREATE)\s+[\w$.{*]+.*[({=:;]/,
+  /^\s*#include\b/,
+  /=>|===|!==|::|\+\+|&&|\|\|/,
+  /\b(console\.\w+|print|fmt\.Print\w*|System\.out\.\w+|useState|useEffect)\(/,
+  /^\s*<\/?[a-z][\w-]*[\s/>]/,
+  /[;{}]\s*$/,
+];
+
+/**
+ * Source code by strong evidence only: two such lines, or more than half the lines. A draft the
+ * model tagged (```email, ```linkedin, ```copy) is code only so: "Liebe Kolleg(inn)en", a
+ * phone number "+1(555)" or an indented line of a poem kept its card on main and keeps it.
+ */
+export function looksLikeSourceCode(content: string): boolean {
+  const lines = content.slice(0, 2000).split("\n").filter((line) => line.trim());
+  const source = lines.filter((line) => SOURCE_LINE.some((rule) => rule.test(line))).length;
+  return source >= 2 || (source >= 1 && source * 2 > lines.length);
+}
+
 /** Heuristic: content is source code, not copy-ready prose. */
 export function looksLikeCode(content: string): boolean {
   if (looksLikeMarkdownProse(content)) return false;
   if (looksLikeMathFenceBody(content)) return false;
+  if (readsAsSentences(content)) return looksLikeSourceCode(content);
   const sample = content.slice(0, 2000);
   // Keywords as code spells them: "Class starts at 9" or "Update the wiki" opens
   // a sentence in a message, and read as code it lost the draft its card.
@@ -89,7 +126,7 @@ export function shouldRenderAsCodeBlock(
 ): boolean {
   if (looksLikeFailedDiagram(content)) return false;
   if (looksLikeMarkdownProse(content)) return false;
-  if (isSendableFenceLang(lang) && !looksLikeCode(content)) return false;
+  if (isSendableFenceLang(lang) && !looksLikeSourceCode(content)) return false;
   if (isExplicitCodeLang(lang)) return true;
   return looksLikeCode(content);
 }
@@ -105,7 +142,7 @@ export function looksLikeExplicitDraftContent(content: string): boolean {
   if (/^fence!?\b/i.test(trimmed)) return false;
   if (trimmed.includes("```")) return false;
   if (/^#{1,6}\s/m.test(trimmed)) return false;
-  return !looksLikeCode(trimmed);
+  return !looksLikeSourceCode(trimmed);
 }
 
 export function isStructuredDraftLang(lang: string): boolean {

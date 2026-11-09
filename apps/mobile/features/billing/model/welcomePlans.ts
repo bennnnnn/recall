@@ -25,13 +25,22 @@ export type OfferMoment = "open" | "chatted";
 
 type Offers = { day: string; shown: number; lastAt: number; creditDay: string };
 
+/**
+ * A day as `localDayKey` writes it. Files from before it wrote "2026-11-8"; read as written,
+ * that day's offers counted from zero again, and its out-of-credit offer showed twice.
+ */
+function paddedDay(day: string): string {
+  const parts = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(day);
+  return parts ? `${parts[1]}-${parts[2]!.padStart(2, "0")}-${parts[3]!.padStart(2, "0")}` : day;
+}
+
 async function readOffers(): Promise<Offers> {
   const [day = "", shown = "", lastAt = "", creditDay = ""] = (
     (await readPrefFile(prefFilePath(OFFERS_FILE))) ?? ""
   ).split("|");
   const count = (text: string) =>
     Number.isFinite(Number(text)) ? Number(text) : 0;
-  return { day, shown: count(shown), lastAt: count(lastAt), creditDay };
+  return { day: paddedDay(day), shown: count(shown), lastAt: count(lastAt), creditDay: paddedDay(creditDay) };
 }
 
 async function writeOffers(offers: Offers): Promise<void> {
