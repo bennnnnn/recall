@@ -8,7 +8,7 @@
  * cases (`docs/fixtures/emoji_placement_cases.json`), so the draft is already the
  * reply that will be saved.
  */
-import { fencedLines } from "@/lib/mdFenceScan";
+import { fencedLines } from "@/lib/fence/scan";
 import { normalizeEmojiUse } from "@/lib/responseTone";
 
 // The server's `prompt_constants.routing.EMOJI` (emoji, flags and their joiners), as

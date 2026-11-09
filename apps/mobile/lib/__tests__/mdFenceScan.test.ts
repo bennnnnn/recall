@@ -6,7 +6,7 @@ import {
   replaceFirstClosedFenceBody,
   scanFences,
   stripLangFence,
-} from "@/lib/mdFenceScan";
+} from "@/lib/fence/scan";
 
 describe("replaceFirstClosedFenceBody", () => {
   it("rewrites the first closed fence and keeps surrounding prose", () => {

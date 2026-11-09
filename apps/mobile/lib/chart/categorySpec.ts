@@ -19,7 +19,7 @@ import {
   titleText,
   type JsonRecord,
   type SeriesValue,
-} from "@/lib/chartSeriesSpec";
+} from "@/lib/chart/seriesSpec";
 import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 
 const LABEL_KEYS = ["labels", "categories", "x"];

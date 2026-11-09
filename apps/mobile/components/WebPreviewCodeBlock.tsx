@@ -10,7 +10,7 @@ import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/preview/htmlPr
 import { useHtmlPreviewFiles } from "@/lib/preview/htmlPreviewFiles";
 import { openHtmlInBrowser } from "@/lib/preview/openHtmlPreview";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { shareFailureKey } from "@/lib/share/unavailable";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

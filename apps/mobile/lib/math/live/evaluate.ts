@@ -10,7 +10,7 @@
  * radians, and a bare number is degrees (`\sin(30)` is ½, the school shorthand the server
  * keeps). An angle that is none of these (`\sin(1+1)`) gives no value.
  */
-import { guard, refuse } from "@/lib/fenceValidate";
+import { guard, refuse } from "@/lib/fence/validate";
 import type { LiveFunction, LiveNode } from "@/lib/math/live/read";
 import {
   add,

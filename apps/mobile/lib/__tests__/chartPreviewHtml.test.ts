@@ -1,6 +1,6 @@
-import { buildVegaPageHtml, CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
-import { presentChartSpec } from "@/lib/chartPresentation";
-import { type JsonRecord } from "@/lib/chartSeriesSpec";
+import { buildVegaPageHtml, CHART_PAGE, chartPreviewConfig } from "@/lib/chart/previewHtml";
+import { presentChartSpec } from "@/lib/chart/presentation";
+import { type JsonRecord } from "@/lib/chart/seriesSpec";
 import { PREVIEW_PAGE_LINK_KIND } from "@/lib/preview/previewPage";
 import { CHART_PREVIEW_CSP, PREVIEW_CSP } from "@/lib/preview/previewSandbox";
 

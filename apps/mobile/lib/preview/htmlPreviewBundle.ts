@@ -5,7 +5,7 @@
  * execution outside the existing WebView sandbox.
  */
 
-import { scanFences } from "@/lib/mdFenceScan";
+import { scanFences } from "@/lib/fence/scan";
 import { inlineScript } from "@/lib/preview/previewSandbox";
 
 const HTML_PREVIEW_MAX_FILES = 8;

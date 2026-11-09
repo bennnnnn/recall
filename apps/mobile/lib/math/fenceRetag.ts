@@ -1,6 +1,6 @@
-import { isMathFenceLang } from "@/lib/fenceRegistry";
+import { isMathFenceLang } from "@/lib/fence/registry";
 import { escapedAt } from "@/lib/markdown/inlineCode";
-import { closesFence, mapClosedFences, readFenceMarkerLoose } from "@/lib/mdFenceScan";
+import { closesFence, mapClosedFences, readFenceMarkerLoose } from "@/lib/fence/scan";
 import { restoreMathEscapes } from "@/lib/math/text";
 
 // Trailing (?=[^a-zA-Z]|$) instead of \b: \b treats `_` as a word char, so it

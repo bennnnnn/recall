@@ -31,7 +31,7 @@ import { QuizCard } from "@/components/rich/QuizCard";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
-import type { FenceId } from "@/lib/fenceRegistry";
+import type { FenceId } from "@/lib/fence/registry";
 import {
   isMessageLang,
   parseCalloutKind,

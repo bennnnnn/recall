@@ -11,7 +11,7 @@ import {
   text,
   type JsonRecord,
   type SeriesValue,
-} from "@/lib/chartSeriesSpec";
+} from "@/lib/chart/seriesSpec";
 import { isJsonRecord as isRecord } from "@/lib/jsonFence";
 
 const PIE_TYPES = new Set(["pie", "doughnut", "polararea"]);

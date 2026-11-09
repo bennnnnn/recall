@@ -1,6 +1,6 @@
 /**
  * What a fence whose tag leaves it open draws: code, a copy card, a final answer, or prose.
- * The tag decides first (lib/fenceRegistry.ts); only for no tag, a plain-text one and ```copy
+ * The tag decides first (lib/fence/registry.ts); only for no tag, a plain-text one and ```copy
  * does the body decide, and then by its shape, never by English words: a 9-language app
  * cannot read "Hi … Regards" or "As a …" as the mark of a draft or of advice. A draft is
  * tagged (```email, ```message, ```copy …, as the prompt asks); an untagged fence of
@@ -12,7 +12,7 @@ import {
   isNeverCodeBlockLang,
   isPlainTextFenceLang,
   isSendableFenceLang,
-} from "@/lib/fenceRegistry";
+} from "@/lib/fence/registry";
 import { markdownToCopyText } from "@/lib/markdown/plain";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/fenceRetag";
 
@@ -196,7 +196,7 @@ export function isAnswerLang(lang: string): boolean {
 
 /** Any non-prose fence language tag (python, js, …) → always a code block. */
 export function isExplicitCodeLang(lang: string): boolean {
-  // The exclusion list lives in lib/fenceRegistry.ts (`neverCodeBlock`) so it
+  // The exclusion list lives in lib/fence/registry.ts (`neverCodeBlock`) so it
   // cannot drift from the structured-fence list again.
   return !isPlainTextFenceLang(lang) && !isNeverCodeBlockLang(lang);
 }

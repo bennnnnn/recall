@@ -16,7 +16,7 @@ import {
   isControlFenceLang,
   isMathFenceLang,
   type FenceDocumentBlock,
-} from "@/lib/fenceRegistry";
+} from "@/lib/fence/registry";
 import { parseJsonRecord } from "@/lib/jsonFence";
 import { fenceToCopyText, mapFenceRegions, proseToCopyText } from "@/lib/markdown/plain";
 

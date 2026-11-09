@@ -3,7 +3,7 @@ import {
   MERMAID_MAX_HEIGHT,
   MERMAID_MIN_HEIGHT,
   MERMAID_PREVIEW_HEIGHT,
-} from "@/lib/mermaidPreviewHeight";
+} from "@/lib/mermaid/previewHeight";
 
 const { clamp: clampMermaidPreviewHeight, next: nextMermaidPreviewHeight } = MERMAID_PREVIEW_HEIGHT;
 

@@ -9,7 +9,7 @@
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import { parseGraphSpec } from "@/lib/math/graphSpec";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
-import { fenceIdForLang, fallbackKindForLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang, fallbackKindForLang } from "@/lib/fence/registry";
 import { parseJsonRecord } from "@/lib/jsonFence";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";
 import { parseSearchSourcesJson } from "@/lib/searchSources";

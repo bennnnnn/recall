@@ -2,7 +2,7 @@ import {
   buildMermaidPageHtml,
   MERMAID_PAGE,
   mermaidPreviewConfig,
-} from "@/lib/mermaidPreviewHtml";
+} from "@/lib/mermaid/previewHtml";
 import { PREVIEW_CSP } from "@/lib/preview/previewSandbox";
 
 import { previewPageSandbox, settle } from "./fixtures/previewPageSandbox";

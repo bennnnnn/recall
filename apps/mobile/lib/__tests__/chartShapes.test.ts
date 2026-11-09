@@ -7,7 +7,7 @@
  * (chartBodies.test.ts). A spec that draws nothing makes the page report an error, so
  * the card shows its data instead.
  */
-import { readChart } from "@/lib/chartSpec";
+import { readChart } from "@/lib/chart/spec";
 
 import { CARD_WIDTH, drawChart } from "./fixtures/chartPage";
 

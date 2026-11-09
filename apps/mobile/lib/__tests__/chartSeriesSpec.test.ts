@@ -1,5 +1,5 @@
-import { chartPreviewConfig } from "@/lib/chartPreviewHtml";
-import { parseChartBody, seriesChartToVegaLite } from "@/lib/chartSeriesSpec";
+import { chartPreviewConfig } from "@/lib/chart/previewHtml";
+import { parseChartBody, seriesChartToVegaLite } from "@/lib/chart/seriesSpec";
 
 const theme = {
   bg: "#fff",

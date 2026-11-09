@@ -1,8 +1,8 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
-import { shareLocalFile } from "@/lib/shareFile";
-import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { shareLocalFile } from "@/lib/share/file";
+import { SharingUnavailableError } from "@/lib/share/unavailable";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
 // Same guard pattern as MermaidBlock.test.tsx —
@@ -30,7 +30,7 @@ jest.mock("expo-file-system/legacy", () => ({
 jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
 }));
-jest.mock("@/lib/shareFile", () => ({ ...jest.requireActual("@/lib/shareFile"), shareLocalFile: jest.fn() }));
+jest.mock("@/lib/share/file", () => ({ ...jest.requireActual("@/lib/share/file"), shareLocalFile: jest.fn() }));
 jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn() }));
 
 // A settings-style demo page: a decorative gear icon sits in static markup,

@@ -8,7 +8,7 @@ import {
   listItemCut,
   type OpenList,
 } from "@/lib/markdown/streamListCuts";
-import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
+import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
 /** A link reference definition the reply holds, and where. */
 export type Definition = { at: number; line: string };

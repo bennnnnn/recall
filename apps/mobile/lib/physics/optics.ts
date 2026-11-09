@@ -22,7 +22,7 @@ import {
   requireNumber,
   requirePoint,
   requireRecord,
-} from "@/lib/fenceValidate";
+} from "@/lib/fence/validate";
 import { boxesOverlap, type Box } from "@/lib/physics/boxes";
 
 type OpticsElement =

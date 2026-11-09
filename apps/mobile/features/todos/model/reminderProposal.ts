@@ -11,7 +11,7 @@
 
 import type { RecurrenceRule } from "@/lib/api/types";
 import { RECURRENCE_RULES } from "@/lib/api/types";
-import { collectClosedFenceBodies, stripLangFence } from "@/lib/mdFenceScan";
+import { collectClosedFenceBodies, stripLangFence } from "@/lib/fence/scan";
 
 export type ReminderProposalAction =
   | "add"

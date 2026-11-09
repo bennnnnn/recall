@@ -1,4 +1,4 @@
-import { fencedLines } from "@/lib/mdFenceScan";
+import { fencedLines } from "@/lib/fence/scan";
 
 /**
  * What is asked: **Required**, or **Find** in a reply written before November 2026 (and in

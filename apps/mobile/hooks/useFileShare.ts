@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
-import { shareOneAtATime } from "@/lib/shareFile";
-import { ShareInProgressError } from "@/lib/shareUnavailable";
+import { shareOneAtATime } from "@/lib/share/file";
+import { ShareInProgressError } from "@/lib/share/unavailable";
 
 /**
  * A Share button's press and its busy state: busy from the tap, through any download, until

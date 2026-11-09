@@ -2,7 +2,7 @@
 
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import { spokenAnswerValue } from "@/lib/math/answerLayout";
-import { closesFence, readFenceMarker } from "@/lib/mdFenceScan";
+import { closesFence, readFenceMarker } from "@/lib/fence/scan";
 import {
   type FencePlainReader,
   fenceIdForLang,
@@ -11,7 +11,7 @@ import {
   isMathFenceLang,
   isVisualDiagramFenceLang,
   fenceSpecForLang,
-} from "@/lib/fenceRegistry";
+} from "@/lib/fence/registry";
 import { clarifyText, parseClarifyCard } from "@/lib/clarify/clarifyCard";
 import { arrayCardText, quizCardText } from "@/lib/lesson/cardBody";
 import { plainFenceText } from "@/lib/lesson/lessonFences";

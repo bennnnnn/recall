@@ -1,4 +1,4 @@
-import { classifyFence, classifyOpenFencePreview } from "@/lib/fenceDispatch";
+import { classifyFence, classifyOpenFencePreview } from "@/lib/fence/dispatch";
 
 describe("classifyFence — explicit tags win", () => {
   it.each([

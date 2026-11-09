@@ -28,7 +28,7 @@ import { notifyDestructive, tap } from "@/lib/haptics";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 import { pendingFromLibraryItem } from "@/features/attachments/model/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { shareOneAtATime } from "@/lib/shareFile";
+import { shareOneAtATime } from "@/lib/share/file";
 import { libraryActionMessage } from "@/features/attachments/model/attachmentErrors";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 import { useLatestRef } from "@/lib/latestRef";

@@ -16,7 +16,7 @@ import {
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { latexHasNestedMathView } from "@/lib/math/text";
-import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
+import { stripTrailingFenceCloser } from "@/lib/fence/openTail";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

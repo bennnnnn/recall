@@ -4,7 +4,7 @@
  * vm sandbox. Vega-Embed is stood in for by a few lines that do what it does with the
  * page's options (compile, set the view's width, run).
  */
-import { buildVegaPageHtml, chartPreviewConfig } from "@/lib/chartPreviewHtml";
+import { buildVegaPageHtml, chartPreviewConfig } from "@/lib/chart/previewHtml";
 
 import { previewPageSandbox, settle } from "./previewPageSandbox";
 

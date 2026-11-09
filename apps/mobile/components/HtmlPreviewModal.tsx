@@ -41,7 +41,7 @@ import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { alertDialog } from "@/ui/overlay/dialogs";
 import { useFileShare } from "@/hooks/useFileShare";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { shareFailureKey } from "@/lib/share/unavailable";
 
 // Expo Go has no react-native-webview: a static render (scripts stripped) stands in
 // there. A build with the WebView never needs it, so a production bundle leaves the

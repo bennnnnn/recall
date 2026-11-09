@@ -6,7 +6,7 @@ import { darkTheme, lightTheme } from "@/lib/theme";
 
 import { openHtmlInBrowser, shareHtmlPreview, wrapFullDocument } from "@/lib/preview/openHtmlPreview";
 import { HTML_EXPORT_CSP } from "@/lib/preview/previewSandbox";
-import { shareLocalFile } from "@/lib/shareFile";
+import { shareLocalFile } from "@/lib/share/file";
 
 // openHtmlPreview pulls in expo-file-system (Share/export path) and
 // expo-web-browser, whose native modules aren't linked in this jest env.
@@ -22,7 +22,7 @@ jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
 }));
 // How a file reaches the sheet on each platform is shareFile.test.ts's.
-jest.mock("@/lib/shareFile", () => ({ shareLocalFile: jest.fn(async () => undefined) }));
+jest.mock("@/lib/share/file", () => ({ shareLocalFile: jest.fn(async () => undefined) }));
 
 beforeEach(() => {
   jest.restoreAllMocks();

@@ -1,7 +1,7 @@
-import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
-import { FENCES } from "@/lib/fenceRegistry";
+import { classifyOpenFencePreview } from "@/lib/fence/dispatch";
+import { FENCES } from "@/lib/fence/registry";
 import { preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
-import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
+import { classifyOpenStreamTail } from "@/lib/fence/openTail";
 
 /**
  * Replay a reply one character at a time through the same branch

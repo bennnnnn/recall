@@ -6,7 +6,7 @@
  */
 
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { mapClosedFences, scanFences } from "@/lib/mdFenceScan";
+import { mapClosedFences, scanFences } from "@/lib/fence/scan";
 
 const DIGITAL_TIME_ONLY =
   /^\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?$/i;

@@ -22,14 +22,14 @@ jest.mock("expo-file-system/legacy", () => ({
   deleteAsync: jest.fn(async () => undefined),
   getInfoAsync: jest.fn(),
 }));
-jest.mock("@/lib/shareFile", () => ({ ...jest.requireActual("@/lib/shareFile"), shareLocalFile: jest.fn() }));
+jest.mock("@/lib/share/file", () => ({ ...jest.requireActual("@/lib/share/file"), shareLocalFile: jest.fn() }));
 
 import { Platform, Share } from "react-native";
 
-import { presentShareSheet } from "@/lib/share";
+import { presentShareSheet } from "@/lib/share/text";
 
 const { writeAsStringAsync } = jest.requireMock<{ writeAsStringAsync: jest.Mock }>("expo-file-system/legacy");
-const { shareLocalFile } = jest.requireMock<{ shareLocalFile: jest.Mock }>("@/lib/shareFile");
+const { shareLocalFile } = jest.requireMock<{ shareLocalFile: jest.Mock }>("@/lib/share/file");
 
 describe("share sheet", () => {
   beforeEach(() => {

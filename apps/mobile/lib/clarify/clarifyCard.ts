@@ -9,7 +9,7 @@
  * shape would draw a broken card.
  */
 import { parseJsonRecord } from "@/lib/jsonFence";
-import { collectClosedFenceBodies } from "@/lib/mdFenceScan";
+import { collectClosedFenceBodies } from "@/lib/fence/scan";
 
 export type ClarifyQuestion = {
   id: string;

@@ -2,7 +2,7 @@ import {
   collectClosedFenceBodies,
   mapClosedLangFence,
   stripClosedLangFence,
-} from "@/lib/mdFenceScan";
+} from "@/lib/fence/scan";
 
 export type PlaceItem = {
   name: string;

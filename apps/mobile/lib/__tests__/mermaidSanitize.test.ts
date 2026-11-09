@@ -1,4 +1,4 @@
-import { sanitizeMermaidNodeLabels } from "@/lib/mermaidSanitize";
+import { sanitizeMermaidNodeLabels } from "@/lib/mermaid/sanitize";
 
 const GRIND = "D --> E[Grind Beans (Medium Grind)]";
 const GRIND_QUOTED = 'D --> E["Grind Beans (Medium Grind)"]';

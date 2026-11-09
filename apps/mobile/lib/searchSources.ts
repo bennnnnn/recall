@@ -3,7 +3,7 @@ import {
   collectClosedFenceBodies,
   dropFences,
   mapUnlabeledClosedFences,
-} from "@/lib/mdFenceScan";
+} from "@/lib/fence/scan";
 
 export type SearchSource = {
   title: string;

@@ -5,7 +5,7 @@
 import { act, renderHook } from "@testing-library/react-native";
 
 import { useFileShare } from "@/hooks/useFileShare";
-import { resetShareGuard } from "@/lib/shareFile";
+import { resetShareGuard } from "@/lib/share/file";
 
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableWarning: jest.fn() }));

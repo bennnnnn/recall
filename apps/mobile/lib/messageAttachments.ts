@@ -1,5 +1,5 @@
 import { attachmentIdFromRef } from "@/lib/attachmentRef";
-import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
+import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 import { SCANNER_CAMERA_PROMPTS } from "@/lib/scanner/subjects";
 
 // resolveAttachmentUri loads no other scheme; file: and local refs never leave the phone.

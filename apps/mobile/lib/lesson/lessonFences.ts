@@ -12,7 +12,7 @@
  */
 
 import { parseJsonRecord } from "@/lib/jsonFence";
-import { scanFences } from "@/lib/mdFenceScan";
+import { scanFences } from "@/lib/fence/scan";
 
 export type QuizFence = {
   /** The pill at the top of the card, such as "Exercise 1". */

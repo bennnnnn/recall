@@ -28,7 +28,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 | A full-screen viewer only some visits open (the chat's photo viewer, the scanner) | `overlay/lazyOverlay(() => import(...))`: its code loads on first open, then it stays mounted | a static import the chat screen evaluates at launch |
 | A time | `pickers/TimePickerDialog` (Android clock: dial, AM/PM, keyboard entry) | `@react-native-community/datetimepicker` |
 | A date (month grid, year list) | `pickers/DatePickerDialog` | the native picker |
-| Share text through the OS share menu | `presentShareSheet` (`lib/share.ts`): a cancel is not an error | a sheet of our own in front of the OS menu |
+| Share text through the OS share menu | `presentShareSheet` (`lib/share/text.ts`): a cancel is not an error | a sheet of our own in front of the OS menu |
 | Copy text with a check mark | `share/useCopyText` (one timing, success haptic, a refused copy reported) | `Clipboard.setStringAsync` plus a timer in the component |
 | Back, close, menu, ⋮ in a header | `controls/HeaderButton` (`plate`, `plain` in a `HeaderButtonGroup`, `media` over photos); `StackBackButton` in stacks | a hand-styled circle |
 | A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon; `media` is the white pill over a photo, like the viewer's Share; `bubble` is the user's message-bubble tint, following their accent, for a card's one action, like a clarify card's button) | a `Pressable` styled as a button |

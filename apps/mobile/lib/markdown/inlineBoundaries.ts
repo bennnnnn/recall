@@ -8,7 +8,7 @@
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { leaveProseLine, PRICE_TIER } from "@/lib/markdown/markdownRegions";
 import { ALNUM, charAt, LETTER, lastChar } from "@/lib/markdown/unicodeChars";
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 
 const OPEN_PUNCT = new Set("([{\"“‘«".split(""));
 const CLOSE_PUNCT = new Set(".,;:!?)]}\"”’»…—–/%".split(""));

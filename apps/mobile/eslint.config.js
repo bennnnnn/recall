@@ -92,7 +92,7 @@ const RAW_DESIGN_VALUES_ALLOWED = [
   "features/chat/components/MathDraftPreview.tsx",
   "lib/graphic.ts",
   // Vega specs for the chart WebView: a pie slice's label is Vega text, not React Native.
-  "lib/chartPresentation.ts",
+  "lib/chart/presentation.ts",
   "lib/type.ts",
 ];
 

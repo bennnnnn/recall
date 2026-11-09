@@ -5,7 +5,7 @@ import {
   finishSegmentedPrefix,
   type SegmentedPrefix,
 } from "@/lib/markdown/segmentedPreprocess";
-import { fenceAfterLine, type OpenFence } from "@/lib/mdFenceScan";
+import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
 export type StreamingPreprocessCache = {
   /** Raw byte length covered by `preparedStable`. */
