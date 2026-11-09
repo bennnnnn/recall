@@ -612,6 +612,37 @@ describe("useChatSend", () => {
     expect(mockSetInput).not.toHaveBeenCalled();
   });
 
+  // A send in chat 1 waiting for its newest page cleared the in-flight flag of chat 2's send.
+  it("leaves another chat's send in flight when its own wait for the newest page ends", async () => {
+    mockThreadKey = "chat-1";
+    inputRef.current = "and then?";
+    let back: () => void = () => undefined;
+    const beforeSend = jest.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    const sendMessage = sent();
+    const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} beforeSend={beforeSend} />);
+    let first: Promise<boolean> = Promise.resolve(true);
+    await act(async () => {
+      first = current.handleSend();
+      await Promise.resolve();
+    });
+    mockThreadKey = "chat-2";
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" sendMessage={sendMessage} />);
+    // Chat 2's send waits for the server's reading of it.
+    mockImageIntent.mockReturnValue(new Promise(() => {}));
+    inputRef.current = "draw a cat";
+    await act(async () => {
+      void current.handleSend();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      back();
+      await first;
+    });
+    let tapped: boolean | undefined;
+    await act(async () => { tapped = await current.handleSend("A follow-up", { leaveComposer: true }); });
+    expect(tapped).toBe(false);
+  });
+
   it("still sends the text from the tap when going back to the newest page fails", async () => {
     inputRef.current = "and then?";
     const failure = new Error("page");

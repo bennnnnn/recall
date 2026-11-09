@@ -365,7 +365,7 @@ export function useChatSend({
           // The send goes on, as after a newest page that did not load (that read says so itself).
           reportFailure("chat_page", error);
         } finally {
-          sendInFlightRef.current = false;
+          if (turn.isCurrentView()) sendInFlightRef.current = false; // Another chat's own send may be out.
         }
         // Another chat or account opened meanwhile: the text goes back to the chat it was typed in.
         if (!turn.isCurrentView()) {
