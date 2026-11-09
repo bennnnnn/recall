@@ -215,8 +215,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     // The root layout already provides GestureHandlerRootView — a nested one
     // here steals gesture routing (see lessons: drawer pan vs mic press).
     <View style={s.root}>
-      {/* What the new to-do sheet covers; the sheets and menus are drawn beside it. */}
-      <SheetCover covered={editorOpen} style={s.root}>
+      {/* What the new to-do sheet covers (sheets and menus sit beside it); empty while a to-do's page is open. */}
+      <SheetCover covered={editorOpen} style={detailOpen ? null : s.root}>
         {detailOpen ? null : (
         <TodosScrollList
           rows={rows}
