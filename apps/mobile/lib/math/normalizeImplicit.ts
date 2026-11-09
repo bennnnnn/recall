@@ -7,7 +7,14 @@ import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@
 import { applyOutsideFences } from "@/lib/fence/scan";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
-const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;
+// A bracketed formula, and the name or number glued to its "(" when there is one (with
+// the caret of a power whose exponent the brackets hold: "e^(x^2 + 1)").
+const MATH_IN_PARENS_RE = /([A-Za-z]+\^?|\d+(?:\.\d+)?\^?)?\(\s*([^()\n]{1,180}?)\s*\)/g;
+// Names whose bracket holds their argument, drawn upright as LaTeX draws them.
+const FUNCTION_HEADS = new Set([
+  "sin", "cos", "tan", "sec", "csc", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh",
+  "tanh", "log", "ln", "lg", "exp",
+]);
 // Line-start ``` fences are skipped via applyOutsideFences (a following
 // ```math is an opener, never a closer). Mid-line ```math is still prose, so
 // a glued `isolate x: ```math` + `\frac` still gets `$...$` wrapping.
@@ -141,6 +148,41 @@ function wrapMath(expr: string, format?: (expr: string) => string): string {
   const inner = uprightJoiningWords(unwrapParens(expr));
   const body = format ? format(inner) : fixImplicitExponents(inner);
   return `$${body}$`;
+}
+
+/**
+ * A bracket glued to what comes before it groups an argument or a factor: "ln(x^2 + 1)",
+ * "f(x^2)", "2(x^2 + 1)", ")(x^2)". Its brackets carry meaning and stay; only a bracket
+ * set off by a space is a model's math delimiter ("( x^2 = 6 )"). Unwrapped, a sent
+ * "ln(x^2 + 1)" drew as "ln x² + 1", another function. A function's name joins the
+ * formula, a letter or a number the product; a longer word stays prose beside it. Null
+ * leaves a word's bracketed power ("exp^(x + 1)") as written.
+ */
+function wrapGrouped(head: string, inner: string, format?: (expr: string) => string): string | null {
+  const joined = uprightJoiningWords(inner.trim());
+  const body = format ? format(joined) : fixImplicitExponents(joined);
+  const term = head.length <= 1 || /^\d/.test(head);
+  if (head.endsWith("^")) {
+    // The brackets hold the exponent; raised, it needs no brackets to stay one.
+    const base = head.slice(0, -1);
+    return base.length <= 1 || /^\d/.test(base) ? `$${base}^{${body}}$` : null;
+  }
+  if (FUNCTION_HEADS.has(head.toLowerCase())) return `$\\${head.toLowerCase()}(${body})$`;
+  return term ? `$${head}(${body})$` : `${head}$(${body})$`;
+}
+
+/** Each bracketed formula in a prose segment as maths, its brackets kept when they group. */
+function wrapBracketedMath(seg: string, format?: (expr: string) => string): string {
+  return seg.replace(
+    MATH_IN_PARENS_RE,
+    (full, head: string | undefined, inner: string, offset: number) => {
+      // A command's name (`\sqrt(`) is the command's: wrapInlineLatexCommands reads it.
+      if (!isMathLike(inner) || seg[offset - 1] === "\\") return full;
+      const glued = head !== undefined || /[)\]}^_]/.test(seg[offset - 1] ?? "");
+      if (!glued) return wrapMath(inner, format);
+      return wrapGrouped(head ?? "", inner, format) ?? full;
+    },
+  );
 }
 
 /** Index just past any {...} groups immediately following `start` (balanced
@@ -373,11 +415,7 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
     return out.replace(trimmed, wrapMath(trimmed, format));
   }
 
-  out = applyOutsideInlineMath(out, (seg) =>
-    seg.replace(MATH_IN_PARENS_RE, (full, inner: string) =>
-      isMathLike(String(inner)) ? wrapMath(String(inner), format) : full,
-    ),
-  );
+  out = applyOutsideInlineMath(out, (seg) => wrapBracketedMath(seg, format));
 
   out = wrapInlineLatexCommands(out);
   // Model often wraps a whole prose bullet as `$- Base = 8 cm$`. Only unwrap

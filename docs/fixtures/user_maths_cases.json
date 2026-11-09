@@ -1,0 +1,41 @@
+{
+  "about": "Maths a user types as plain text, as the phone draws it in the sent bubble and as the server reads it. The phone (apps/mobile/lib/math/__tests__/userMathsFixture.test.ts) turns each `text` into the markdown its bubble draws (lib/math/normalizeImplicit.ts) and expects `drawn`; the server (apps/api/app/tests/behavior/test_user_maths_fixture.py) reads the maths in `drawn` with its LaTeX path and `typed`, the words of `text` that hold it, with the parser a turn reads a message with, and holds both to one SymPy expression. A bracket glued to a name, a number or a caret groups an argument, a factor or an exponent, and keeps its meaning: \"ln(x^2 + 1)\" once drew as \"ln x² + 1\". A bracket set off by a space is only a delimiter.",
+  "cases": [
+    {
+      "id": "function-argument",
+      "text": "Find the derivative of ln(x^2 + 1)",
+      "drawn": "Find the derivative of $\\ln(x^2 + 1)$",
+      "typed": "ln(x^2 + 1)"
+    },
+    {
+      "id": "trig-argument",
+      "text": "Integrate sin(x^2) dx",
+      "drawn": "Integrate $\\sin(x^2)$ dx",
+      "typed": "sin(x^2)"
+    },
+    {
+      "id": "number-factor",
+      "text": "Expand 3(x^2 - 4)",
+      "drawn": "Expand $3(x^2 - 4)$",
+      "typed": "3(x^2 - 4)"
+    },
+    {
+      "id": "letter-factor",
+      "text": "Simplify a(a^2 + 1)",
+      "drawn": "Simplify $a(a^2 + 1)$",
+      "typed": "a(a^2 + 1)"
+    },
+    {
+      "id": "bracketed-exponent",
+      "text": "Differentiate e^(x^2 + 1)",
+      "drawn": "Differentiate $e^{x^2 + 1}$",
+      "typed": "e^(x^2 + 1)"
+    },
+    {
+      "id": "spaced-delimiter",
+      "text": "Solve (x^2 = 9) for x",
+      "drawn": "Solve $x^2 = 9$ for x",
+      "typed": "x^2 = 9"
+    }
+  ]
+}
