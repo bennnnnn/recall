@@ -295,3 +295,32 @@ def test_the_last_line_saying_the_cards_value_goes(worked: str, said: str, kept:
 )
 def test_working_that_says_more_than_the_card_stays(worked: str) -> None:
     assert drop_restated_step(worked) == worked
+
+
+@pytest.mark.parametrize(
+    ("worked", "kept"),
+    [
+        # A chain's last link, "≈ 28.27", only says the card; 9π is the value unrounded.
+        (
+            "**Substitution**  \n$A = \\pi(3)^2 = 9\\pi \\approx 28.27$\n\n"
+            + _card("\\approx 28.27\\ \\mathrm{cm}^{2}"),
+            "$A = \\pi(3)^2 = 9\\pi$\n\n**Answer**",
+        ),
+        # The same link on a row of its own, without the card's unit.
+        (
+            "**Substitution**  \n$c = \\sqrt{34}$  \n$c \\approx 5.831$\n\n"
+            + _card("\\approx 5.831\\ \\mathrm{units}"),
+            "$c = \\sqrt{34}$\n\n**Answer**",
+        ),
+    ],
+)
+def test_a_last_link_saying_the_rounded_card_goes(worked: str, kept: str) -> None:
+    assert kept in drop_restated_step(worked)
+
+
+def test_a_value_the_card_only_rounds_stays() -> None:
+    # 29.22 g is what the arithmetic reaches; the card rounds it to 29 g.
+    worked = "**Substitution**  \n$m = (0.5)(58.44)$  \n$m = 29.22\\,\\mathrm{g}$\n\n" + _card(
+        "m(\\mathrm{NaCl}) = 29\\,\\mathrm{g}"
+    )
+    assert drop_restated_step(worked) == worked

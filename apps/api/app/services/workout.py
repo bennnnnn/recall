@@ -381,10 +381,10 @@ _WORKOUT_ONE_EXPRESSION = (
 _PHYSICS_WORKING = (
     "A given in a unit that is not SI stays one line, with the factor that converts it: "
     "`$v = 100\\ \\text{km/h} \\times 1000/3600 = 27.78\\ \\text{m/s}$`, never the "
-    "symbol written twice. Carry **Substitution** one step at a time to the final value "
-    "with its unit: `$a = \\frac{27.78 - 0}{8}$`, `$a = \\frac{27.78}{8}$`, "
-    "`$a = 3.47\\ \\text{m/s}^2$`. Write **Answer** once, the value under it, never a "
-    "second `Answer:` line."
+    "symbol written twice. Carry **Substitution** one step at a time to the value it "
+    "reaches, unrounded, with its unit: `$a = \\frac{27.78 - 0}{8}$`, "
+    "`$a = \\frac{27.78}{8}$`, `$a = 3.4725\\ \\text{m/s}^2$`. Write **Answer** once, "
+    "the value under it rounded (`3.47 m/s²`), never a second `Answer:` line."
 )
 
 

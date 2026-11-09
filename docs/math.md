@@ -83,10 +83,16 @@ the model prompts state the same layout (`WORKOUT_PROMPT_RULE`). The sections ar
 **Required** (what is asked; replies before November 2026 say **Find**, and every reader still
 takes it), **Formula**, **Substitution** (values into a formula) or **Steps** (an equation changed
 one move at a time), and **Answer**, in that order and each only when it has lines. The
-answer is said once, at the end: a last line of working that only states the card's value
-(`= \frac{2x}{x^2 + 1}` over a card of 2x/(x² + 1), `m = 29 g` over `m(NaCl) = 29 g`) is
-dropped when the reply saves, and a numbered step that held only it goes whole
-(`worked_lead.drop_restated_step`, the `worked_lead` finalize pass). Each line
+answer is said once, at the end, in the card: a last line of working that only states the
+card's value (`= \frac{2x}{x^2 + 1}` over a card of 2x/(x² + 1), `A ≈ 28.27` after
+`A = 9\pi` over a card of ≈ 28.27 cm²) is dropped when the reply saves, and a numbered step
+that held only it goes whole (`chat/worked_lead.drop_restated_step`, the `worked_lead`
+finalize pass). A card that rounds has the value unrounded once, as the working's last line:
+an exact multiple of π (`V = \frac{32}{3}\pi`, `direct_geometry_working/layout.pi_value`), a
+root (`c = \sqrt{34}`), or in physics and chemistry the worked number
+(`a = 4.905 m/s²` over 4.9 m/s², `m = 29.22 g` over 29 g). That line differs from the card by
+rounding, so it stays. A step's rule is not written beside it when the Formula already
+states it (the chain rule once, not twice). Each line
 is one state; its move is a short note after ` — `. A formula rearranged for the unknown is not
 a note: a line `Solve for $t$` (`solve_for_line`, one wording wherever a subject writes it:
 physics' law rows, maths' slope-intercept form and geometry rearrangements) comes before the

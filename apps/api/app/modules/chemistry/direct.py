@@ -78,12 +78,15 @@ class _Rows:
         return self.line(result.formula)
 
     def substitution(self) -> tuple[str, ...]:
-        """The values put in, worked to the answer's value as physics' are: ``n = 36 g /
-        18.015 g/mol`` then ``n = 2.0 mol``."""
+        """The values put in, worked to their value as physics' are: ``n = 36 g /
+        18.015 g/mol`` then ``n = 1.998 mol``. The working's last value is unrounded; the card
+        rounds it to the data's figures (2.0 mol) and says it once."""
         rows = list(self.result.substitution)
         closing = _closing_row(rows, self.result.answer)
         if closing is not None and self.tex(closing) is not None:
             rows.append(closing)
+        if rows:
+            rows[-1] = _unrounded_value(rows[-1], self.result.unrounded)
         return tuple(self.line(row) for row in rows)
 
 
@@ -113,6 +116,19 @@ def _closing_row(rows: list[str], answer: str) -> str | None:
     if _VALUE.fullmatch(final) or _base(symbol) != _base(asked):
         return None
     return f"{symbol.strip()} = {value}"
+
+
+def _unrounded_value(row: str, unrounded: tuple[tuple[str, str], ...]) -> str:
+    """``m = 29 g`` → ``m = 29.22 g``: a row ending on a value the solve rounded ends on it
+    unrounded, as worked; a row whose value nothing rounded stays."""
+    head, equals, value = row.rpartition(" = ")
+    if not equals:
+        return row
+    value = value.strip()
+    for text, worked in sorted(unrounded, key=lambda pair: -len(pair[0])):
+        if value == text or value.startswith(f"{text} "):
+            return f"{head} = {worked}{value[len(text) :]}"
+    return row
 
 
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:

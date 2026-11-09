@@ -11,9 +11,11 @@ from collections.abc import Mapping
 from app.modules.math.schemas import GeometryRequest
 from app.modules.math.tools.direct_geometry_working.layout import (
     display,
+    exact,
     figure_unit,
     given,
     number,
+    pi_value,
     section,
 )
 
@@ -92,14 +94,20 @@ def cylinder(request: GeometryRequest, spec: Spec, result: str) -> str | None:
             "Volume ($V$)",
             "Cylinder volume formula",
             [r"V = \pi r^2h"],
-            [rf"V = \pi({r})^2({h}) \approx {result}"],
+            [pi_value(rf"V = \pi({r})^2({h})", exact(radius) ** 2 * exact(height), result)],
         )
     return section(
         givens,
         "Surface area ($S$)",
         "Closed cylinder surface area formula",
         [r"S = 2\pi r(r+h)"],
-        [rf"S = 2\pi({r})({r}+{h}) \approx {result}"],
+        [
+            pi_value(
+                rf"S = 2\pi({r})({r}+{h})",
+                2 * exact(radius) * (exact(radius) + exact(height)),
+                result,
+            )
+        ],
     )
 
 
@@ -115,7 +123,13 @@ def cone(request: GeometryRequest, spec: Spec, result: str) -> str | None:
             "Volume ($V$)",
             "Cone volume formula",
             [r"V = \frac{1}{3}\pi r^2h"],
-            [rf"V = \frac{{1}}{{3}}\pi({r})^2({h}) \approx {result}"],
+            [
+                pi_value(
+                    rf"V = \frac{{1}}{{3}}\pi({r})^2({h})",
+                    exact(radius) ** 2 * exact(height) / 3,
+                    result,
+                )
+            ],
         )
     slant = display(math.hypot(radius, height))
     return section(
@@ -138,14 +152,20 @@ def sphere(request: GeometryRequest, spec: Spec, result: str) -> str | None:
             "Volume ($V$)",
             "Sphere volume formula",
             [r"V = \frac{4}{3}\pi r^3"],
-            [rf"V = \frac{{4}}{{3}}\pi({display(radius)})^3 \approx {result}"],
+            [
+                pi_value(
+                    rf"V = \frac{{4}}{{3}}\pi({display(radius)})^3",
+                    4 * exact(radius) ** 3 / 3,
+                    result,
+                )
+            ],
         )
     return section(
         givens,
         "Surface area ($S$)",
         "Sphere surface area formula",
         [r"S = 4\pi r^2"],
-        [rf"S = 4\pi({display(radius)})^2 \approx {result}"],
+        [pi_value(rf"S = 4\pi({display(radius)})^2", 4 * exact(radius) ** 2, result)],
     )
 
 
