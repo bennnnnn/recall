@@ -5,11 +5,12 @@ import { matchFont, useFont } from "@shopify/react-native-skia";
 import { useFigureFont } from "@/components/rich/skia/figureFont";
 import { Type } from "@/lib/type";
 
+const spacing = () => ({ setSubpixel: jest.fn(), setLinearMetrics: jest.fn() });
 /** A face that draws: "0" has a glyph. */
-const SYSTEM = { name: "system", getGlyphIDs: () => [19] };
+const SYSTEM = { name: "system", getGlyphIDs: () => [19], ...spacing() };
 /** What a family the font manager lacks gives: a face with no glyph at all. */
-const EMPTY = { name: "empty", getGlyphIDs: () => [0] };
-const mockBundled = { name: "bundled" };
+const EMPTY = { name: "empty", getGlyphIDs: () => [0], ...spacing() };
+const mockBundled = { name: "bundled", setSubpixel: jest.fn(), setLinearMetrics: jest.fn() };
 
 jest.mock("@shopify/react-native-skia", () => ({
   matchFont: jest.fn(),
@@ -51,5 +52,14 @@ describe("useFigureFont", () => {
     const { result } = await renderHook(() => useFigureFont(11));
     expect(result.current).toBe(mockBundled);
     expect(jest.mocked(useFont).mock.lastCall?.[0]).toBeTruthy();
+    expect(mockBundled.setSubpixel).toHaveBeenCalledWith(true);
+  });
+
+  // Each glyph's width rounded to a whole point left uneven gaps in a label ("Veloc ity").
+  it("places letters at their true widths", async () => {
+    jest.mocked(matchFont).mockReturnValue(SYSTEM as never);
+    await renderHook(() => useFigureFont(11));
+    expect(SYSTEM.setSubpixel).toHaveBeenCalledWith(true);
+    expect(SYSTEM.setLinearMetrics).toHaveBeenCalledWith(true);
   });
 });
