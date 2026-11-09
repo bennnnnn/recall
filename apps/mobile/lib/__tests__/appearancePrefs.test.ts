@@ -4,10 +4,10 @@ import * as SecureStore from "expo-secure-store";
 import {
   getAppearancePreference,
   readAppearancePreferenceSync,
-  resetAppearancePreferenceCache,
+  resetAppearancePreferenceForTest,
   setAppearancePreference,
 } from "@/lib/appearancePrefs";
-import { resetAppearanceRuntime } from "@/lib/appearanceRuntime";
+import { resetAppearanceRuntimeForTest } from "@/lib/appearanceRuntime";
 
 /** The synchronous file system the first frame reads (`lib/syncFileRead.ts`). */
 const mockSyncFiles = new Map<string, string>();
@@ -48,8 +48,8 @@ const writeAsStringAsync = FileSystem.writeAsStringAsync as jest.Mock;
 describe("appearancePrefs", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    resetAppearanceRuntime();
-    resetAppearancePreferenceCache();
+    resetAppearanceRuntimeForTest();
+    resetAppearancePreferenceForTest();
     getInfoAsync.mockResolvedValue({ exists: false });
     (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
     mockSyncFiles.clear();

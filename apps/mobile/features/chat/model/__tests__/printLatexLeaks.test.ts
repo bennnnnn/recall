@@ -3,13 +3,13 @@
  * (`components/markdown/__tests__/latexLeakCorpus.test.tsx`: the API's behaviour-sweep
  * replies and the shared presentation, physics and chemistry fixtures) is printed as the
  * PDF prints it; with its drawn formulas and its code left out, the text must hold no
- * source (`lib/math/latexLeaks.ts`) and none of the placeholders the chat's preprocessing
+ * source (`lib/__tests__/support/latexLeaks.ts`) and none of the placeholders the chat's preprocessing
  * puts in maths. The PDF once printed `R_1 = 2\,\Omega` as a red KaTeX error.
  */
 import { markdownToStructuredPrintHtml } from "@/features/chat/model/printDocument";
 import { conversationMarkdownBody } from "@/features/chat/model/transcript";
 import type { Message } from "@/lib/api";
-import { findLatexLeaks } from "@/lib/math/latexLeaks";
+import { findLatexLeaks } from "@/lib/__tests__/support/latexLeaks";
 
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,

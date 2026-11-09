@@ -11,7 +11,7 @@ import {
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { HomeStarters } from "@/features/home/components/HomeStarters";
+import { HomeContent } from "@/features/home/components/HomeContent";
 import { LastChatCard } from "@/features/chat/components/LastChatCard";
 import type { ChatListScroll } from "@/features/chat/hooks/useChatScroll";
 import { useWarmMathRenderer } from "@/features/chat/hooks/useWarmMathRenderer";
@@ -169,7 +169,7 @@ function ChatMessageListComponent({
             </View>
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
-              <HomeStarters composerActive={composerActive} footer={<LastChatCard />} />
+              <HomeContent composerActive={composerActive} footer={<LastChatCard />} />
             </View>
           )
         }

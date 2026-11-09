@@ -101,8 +101,8 @@ export function FieldSheet({
         title={title}
         onCancel={close}
         onSave={onSave}
-        cancelLabel={t("settings.cancel")}
-        saveLabel={t("settings.save")}
+        cancelLabel={t("common.cancel")}
+        saveLabel={t("common.save")}
         saving={saving}
       />
       <View style={s.body}>

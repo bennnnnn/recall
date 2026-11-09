@@ -1,12 +1,9 @@
 import {
   addMonths,
-  clampDay,
   compareDays,
   daysInMonth,
-  dayOutOfRange,
   firstDayOfWeek,
   monthGrid,
-  monthInRange,
   monthYearLabel,
   weekdayLabels,
   withDay,
@@ -89,39 +86,13 @@ describe("month and day arithmetic", () => {
   });
 });
 
-describe("limits", () => {
-  const min = new Date(2026, 8, 10);
-  const max = new Date(2026, 10, 5);
-
-  it("marks days outside min and max", () => {
-    expect(dayOutOfRange(new Date(2026, 8, 9, 23), min, max)).toBe(true);
-    expect(dayOutOfRange(new Date(2026, 8, 10, 0), min, max)).toBe(false);
-    expect(dayOutOfRange(new Date(2026, 10, 5, 23), min, max)).toBe(false);
-    expect(dayOutOfRange(new Date(2026, 10, 6), min, max)).toBe(true);
-    expect(dayOutOfRange(new Date(1990, 0, 1))).toBe(false);
-  });
-
-  it("allows a month when any of its days can be picked", () => {
-    expect(monthInRange({ year: 2026, month: 7 }, min, max)).toBe(false);
-    expect(monthInRange({ year: 2026, month: 8 }, min, max)).toBe(true);
-    expect(monthInRange({ year: 2026, month: 10 }, min, max)).toBe(true);
-    expect(monthInRange({ year: 2026, month: 11 }, min, max)).toBe(false);
-  });
-
-  it("clamps to the nearest allowed day and keeps the time", () => {
-    const early = clampDay(new Date(2026, 0, 1, 7, 45), min, max);
-    expect([early.getMonth(), early.getDate(), early.getHours(), early.getMinutes()]).toEqual([8, 10, 7, 45]);
-    const late = clampDay(new Date(2027, 0, 1), min, max);
-    expect([late.getMonth(), late.getDate()]).toEqual([10, 5]);
-  });
-
-  it("lists years inside the limits and always the selected one", () => {
+describe("years", () => {
+  it("lists a century back and fifty ahead, and always the selected one", () => {
     const now = new Date(2026, 8, 26);
-    expect(yearRange(2026, min, max, now)).toEqual([2026]);
-    const open = yearRange(2026, null, null, now);
+    const open = yearRange(2026, now);
     expect(open[0]).toBe(1926);
     expect(open.at(-1)).toBe(2076);
-    expect(yearRange(1900, null, null, now)[0]).toBe(1900);
+    expect(yearRange(1900, now)[0]).toBe(1900);
   });
 });
 

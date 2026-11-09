@@ -276,7 +276,7 @@ export const TodoEditorSheet = forwardRef<
         onCancel={handleClose}
         onSave={handleSave}
         cancelLabel={t("common.cancel")}
-        saveLabel={t("todos.save")}
+        saveLabel={t("common.save")}
         saving={saving}
         saveDisabled={text.trim().length === 0}
       />

@@ -52,7 +52,7 @@ type TodoListItem =
   | { kind: "heading"; key: string; section: TodoSection; dayKey?: string }
   | { kind: "card"; key: string; section: TodoSection; todos: Todo[] };
 
-/** The heading of a later day: its local noon (`localDateKey` read the day in the user's zone). */
+/** The heading of a later day: its local noon (`localDayKey` read the day in the user's zone). */
 function futureDayLabel(dayKey: string): string {
   const date = new Date(`${dayKey}T12:00:00`);
   if (!Number.isFinite(date.getTime())) return dayKey;

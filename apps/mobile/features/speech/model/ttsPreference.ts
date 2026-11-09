@@ -1,7 +1,7 @@
 /**
  * Which cloud TTS alias to send to POST /speech/tts. Not a secret — filesystem.
  */
-import { prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
+import { createFilePref } from "@/lib/filePrefs";
 
 export const TTS_DEVICE_MODEL = "device";
 export const TTS_QUALITY_MODEL = "speech-tts-model";
@@ -11,27 +11,11 @@ type TtsModelAlias =
   | typeof TTS_QUALITY_MODEL
   | typeof TTS_FAST_MODEL;
 
-const FILE_NAME = "recall.tts-model.txt";
-
-let cachedPreference: TtsModelAlias | null = null;
-
 export function normalizeTtsModel(raw: string | null | undefined): TtsModelAlias {
   if (raw === TTS_DEVICE_MODEL) return TTS_DEVICE_MODEL;
   return TTS_QUALITY_MODEL;
 }
 
-export async function getTtsModel(): Promise<TtsModelAlias> {
-  if (cachedPreference !== null) return cachedPreference;
-  cachedPreference = normalizeTtsModel(await readPrefFile(prefFilePath(FILE_NAME)));
-  return cachedPreference;
-}
+const ttsModelPref = createFilePref<TtsModelAlias>("recall.tts-model.txt", normalizeTtsModel);
 
-export async function setTtsModel(model: TtsModelAlias): Promise<void> {
-  cachedPreference = model;
-  await writePrefFile(prefFilePath(FILE_NAME), model);
-}
-
-/** Test helper — reset in-memory cache between cases. */
-export function resetTtsModelCache(): void {
-  cachedPreference = null;
-}
+export const { get: getTtsModel, set: setTtsModel, reset: resetTtsModelForTest } = ttsModelPref;

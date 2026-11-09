@@ -23,7 +23,7 @@ type UseChatOptions = {
   onFirstReply?: () => void;
   /** Called when the server or socket reports an error */
   onError?: (message: string, code?: string) => void;
-  /** Refresh lists/reminders after chat may have synced todos */
+  /** Refresh the to-dos after a turn may have changed them */
   onTodosSync?: () => void;
   /** The day's usage a finished turn reports. */
   onUsage?: (usage: TurnUsage) => void;

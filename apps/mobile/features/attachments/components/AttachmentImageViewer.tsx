@@ -323,7 +323,7 @@ function ViewerContent({
               offset: screenWidth * index,
               index,
             })}
-            initialScrollIndex={scrolledRef.current.index}
+            initialScrollIndex={pageIndex}
             onScrollToIndexFailed={() => undefined}
             onMomentumScrollEnd={onPageScrollEnd}
             renderItem={({ item, index }) =>

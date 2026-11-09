@@ -2,7 +2,7 @@ import {
   chatNeedsGeneratedTitle,
   displayChatTitle,
   provisionalAttachmentTitle,
-  provisionalChatTitle,
+  provisionalChatTitleForTest,
   sanitizeManualChatTitle,
 } from "@/features/chat/model/title";
 
@@ -33,21 +33,21 @@ describe("chatTitle", () => {
     expect(chatNeedsGeneratedTitle("Homework")).toBe(false);
   });
 
-  it("provisionalChatTitle uses the first line and truncates", () => {
-    expect(provisionalChatTitle("What's still open for me to finish tonight?", t)).toBe(
+  it("provisionalChatTitleForTest uses the first line and truncates", () => {
+    expect(provisionalChatTitleForTest("What's still open for me to finish tonight?", t)).toBe(
       "What's still open for me to finish tonight",
     );
-    expect(provisionalChatTitle("  Hello\nsecond line", t)).toBe("Hello");
-    expect(provisionalChatTitle("   ", t)).toBeNull();
-    expect(provisionalChatTitle("x".repeat(60), t)).toBe(`${"x".repeat(47)}…`);
+    expect(provisionalChatTitleForTest("  Hello\nsecond line", t)).toBe("Hello");
+    expect(provisionalChatTitleForTest("   ", t)).toBeNull();
+    expect(provisionalChatTitleForTest("x".repeat(60), t)).toBe(`${"x".repeat(47)}…`);
     expect(
-      provisionalChatTitle(
+      provisionalChatTitleForTest(
         "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
         t,
       ),
     ).toBe("Image");
-    expect(provisionalChatTitle("[File: notes.pdf]", t)).toBe("File");
-    expect(provisionalChatTitle("What's in this image?\n\n[Image: local]", t)).toBe(
+    expect(provisionalChatTitleForTest("[File: notes.pdf]", t)).toBe("File");
+    expect(provisionalChatTitleForTest("What's in this image?\n\n[Image: local]", t)).toBe(
       "Image",
     );
   });

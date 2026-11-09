@@ -3,7 +3,7 @@ import {
   useChatErrorHandlers,
   useChatErrorRecovery,
   useChatStreamLifecycle,
-} from "@/features/chat/hooks/useChatScreenError";
+} from "@/features/chat/hooks/useChatErrorHandlers";
 
 it("clears the previous chat's rejection while preserving unrelated errors", async () => {
   const { result } = await renderHook(() => useChatErrorHandlers(false));

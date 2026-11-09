@@ -76,7 +76,7 @@ describe("TodoEditorSheet", () => {
     await fireEvent.changeText(ui.getByLabelText("todos.category_placeholder"), "School");
     await fireEvent(ui.getByLabelText("todos.category_placeholder"), "submitEditing");
     expect(ui.getByLabelText("todos.category_label, School")).toBeTruthy();
-    await fireEvent.press(ui.getByLabelText("todos.save"));
+    await fireEvent.press(ui.getByLabelText("common.save"));
     expect(onSave).toHaveBeenCalledWith("Call Mom", null, null, "School");
   });
 });

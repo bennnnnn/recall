@@ -1,11 +1,15 @@
 import type { Usage } from "@/lib/api";
 
-export function usageUsedTokens(usage: Usage): number {
+/** The day's count as GET /usage/today gives it, or a turn's `done` (which has no `remaining`). */
+type DayCount = Pick<Usage, "daily_limit" | "used_tokens" | "messages_used" | "daily_messages"> &
+  Partial<Pick<Usage, "remaining">>;
+
+export function usageUsedTokens(usage: DayCount): number {
   if (usage.used_tokens != null) return usage.used_tokens;
-  return Math.max(0, usage.daily_limit - usage.remaining);
+  return Math.max(0, usage.daily_limit - (usage.remaining ?? usage.daily_limit));
 }
 
-export function usageUsedPercent(usage: Usage): number {
+export function usageUsedPercent(usage: DayCount): number {
   if (usage.daily_limit <= 0) return 0;
   return Math.min(100, (usageUsedTokens(usage) / usage.daily_limit) * 100);
 }
@@ -16,9 +20,16 @@ export function usageRemainingPercent(usage: Usage): number {
 }
 
 /** The day's messages as used and offered, or null from a server that counts only tokens. */
-export function usageMessages(usage: Usage): { used: number; total: number } | null {
+export function usageMessages(usage: DayCount): { used: number; total: number } | null {
   const total = usage.daily_messages ?? 0;
   return total > 0 ? { used: Math.min(total, usage.messages_used ?? 0), total } : null;
+}
+
+/** The share of the day used, a whole 0 to 100: by messages when the server counts them. */
+export function dayUsedPercent(usage: DayCount): number {
+  const messages = usageMessages(usage);
+  if (messages) return Math.round(Math.min(100, (messages.used / messages.total) * 100));
+  return Math.round(usageUsedPercent(usage));
 }
 
 export function formatUsageSummary(

@@ -4,7 +4,7 @@ import {
   currentSpeechRate,
   getSpeechRate,
   normalizeSpeechRate,
-  resetSpeechRateCache,
+  resetSpeechRateForTest,
   setSpeechRate,
 } from "@/features/speech/model/speechRate";
 
@@ -29,7 +29,7 @@ const writeAsStringAsync = FileSystem.writeAsStringAsync as jest.Mock;
 describe("speechRate", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    resetSpeechRateCache();
+    resetSpeechRateForTest();
   });
 
   it.each([

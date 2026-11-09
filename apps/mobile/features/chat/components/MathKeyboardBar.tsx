@@ -199,7 +199,6 @@ function GroupTabs({
       {MATH_KEYBOARD_GROUPS.map((id) => (
         <Chip
           key={id}
-          variant="filter"
           label={t(`chat.math_keyboard_group_${id}`)}
           selected={id === group}
           onPress={() => onGroupChange(id)}

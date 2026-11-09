@@ -71,7 +71,7 @@ export function AttachmentLightboxChrome({
           variant="media"
           icon="close"
           onPress={onClose}
-          accessibilityLabel={t("preview.close")}
+          accessibilityLabel={t("common.close")}
         />
 
         <View style={s.headerActions}>
@@ -94,7 +94,7 @@ export function AttachmentLightboxChrome({
           />
           <Button
             variant="media"
-            title={t("preview.share")}
+            title={t("common.share")}
             onPress={onShare}
             loading={busy === "share"}
             disabled={!canShare || busy === "download"}

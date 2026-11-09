@@ -22,6 +22,7 @@ import {
   TTS_QUALITY_MODEL,
 } from "@/features/speech/model/ttsPreference";
 import { USER_VOICES, voiceLabel } from "@/features/speech/model/voices";
+import { numberFormat } from "@/lib/money/format";
 
 const DEFAULT_VOICE = "default";
 
@@ -56,7 +57,7 @@ export default function VoiceSettingsScreen() {
     [t],
   );
   const rateLabel = useMemo(() => {
-    const format = new Intl.NumberFormat(i18n.language);
+    const format = numberFormat(i18n.language);
     return (value: number) => `${format.format(value)}×`;
   }, [i18n.language]);
   const rateOptions = SPEECH_RATES.map((value) => ({

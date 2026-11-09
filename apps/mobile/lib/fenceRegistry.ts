@@ -341,19 +341,8 @@ const FENCE_TABLE = [
   {
     id: "social",
     langs: [
-      "twitter",
-      "tweet",
-      "x",
-      "linkedin",
-      "facebook",
-      "fb",
-      "instagram",
-      "insta",
-      "ig",
-      "tiktok",
-      "threads",
-      "caption",
-      "social",
+      "twitter", "tweet", "x", "linkedin", "facebook", "fb", "instagram", "insta", "ig", "tiktok",
+      "threads", "caption", "social",
     ],
     structured: true,
     neverCodeBlock: true,
@@ -411,6 +400,22 @@ export function fenceSpecForLang(lang: string): FenceSpec | null {
 
 export function fenceIdForLang(lang: string): FenceId | null {
   return fenceSpecForLang(lang)?.id ?? null;
+}
+
+/**
+ * Tags that say nothing of the body: none, or one that only means "plain text". With these
+ * (and ```copy) the body decides what draws (lib/fenceDispatch.ts).
+ */
+const PLAIN_TEXT_LANGS: ReadonlySet<string> = new Set(["", "text", "plain", "clike"]);
+
+export function isPlainTextFenceLang(lang: string): boolean {
+  return PLAIN_TEXT_LANGS.has(normalize(lang));
+}
+
+/** Text meant to be copied and sent as it is: a drafted message (`draft`) or ```copy. */
+export function isSendableFenceLang(lang: string): boolean {
+  const spec = fenceSpecForLang(lang);
+  return spec?.draft === true || spec?.id === "copy";
 }
 
 /** Routed through the rich fence renderer. */

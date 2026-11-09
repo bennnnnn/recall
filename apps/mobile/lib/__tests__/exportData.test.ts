@@ -21,7 +21,7 @@ jest.mock("react-native", () => ({
 
 jest.mock("@/lib/shareFile", () => ({ shareLocalFile: jest.fn() }));
 
-import { exportDay, formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
+import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
 
 const { shareLocalFile } = jest.requireMock<typeof import("@/lib/shareFile")>("@/lib/shareFile");
 
@@ -79,13 +79,5 @@ describe("shareAccountExport", () => {
     (shareLocalFile as jest.Mock).mockRejectedValueOnce(unavailable);
     await expect(shareAccountExport("{}")).rejects.toBe(unavailable);
     expect(deleteAsync).toHaveBeenCalledWith(expect.stringMatching(/recall-export-/), { idempotent: true });
-  });
-});
-
-describe("exportDay", () => {
-  it("names the file by the phone's own day, zero-padded", () => {
-    // The share sheet showed "recall-export-1794113219708" (2026-11-07).
-    expect(exportDay(new Date(2026, 10, 7, 23, 59))).toBe("2026-11-07");
-    expect(exportDay(new Date(2027, 0, 3, 0, 1))).toBe("2027-01-03");
   });
 });

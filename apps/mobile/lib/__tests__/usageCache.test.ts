@@ -15,8 +15,6 @@ const todayUsage = api.todayUsage as jest.Mock;
 
 const sample = {
   date: "2026-08-24",
-  input_tokens: 10,
-  output_tokens: 20,
   daily_limit: 100_000,
   remaining: 99_970,
 };

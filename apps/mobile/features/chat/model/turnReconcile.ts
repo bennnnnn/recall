@@ -15,8 +15,6 @@ export const DROPPED_TURN_POLL_MS = 2_000;
  * once, and phones that polled on the same beat would arrive together.
  */
 const POLL_JITTER = 0.25;
-/** The longest one wait can be. */
-export const DROPPED_TURN_MAX_WAIT_MS = DROPPED_TURN_POLL_MS * (1 + POLL_JITTER);
 /**
  * Rows a poll reads: the dropped turn and the exchange before it. The full page is
  * read once, when the reply has landed (code-health audit NET-14).

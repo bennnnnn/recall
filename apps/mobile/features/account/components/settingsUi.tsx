@@ -52,7 +52,7 @@ export function SettingsPage({
   const { token } = useAuth();
   const theme = useTheme();
   const contentStyle = useSettingsContentStyle({ underStatusBar: ownBarTitle != null });
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const [scrollY] = useState(() => new Animated.Value(0));
   const onScroll = useMemo(
     () =>
       Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),

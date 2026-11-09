@@ -73,7 +73,7 @@ export default function DotWaveCanvas({ width, height, palette }: Props) {
     };
   }, [width, height, palette]);
 
-  const uniforms = useDerivedValue(() => ({ ...still, uTime: time.value }), [still]);
+  const uniforms = useDerivedValue(() => ({ ...still, uTime: time.value }));
 
   if (!effect) return null;
   return (

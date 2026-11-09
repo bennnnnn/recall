@@ -27,7 +27,7 @@ export function subscribeStreamingDraft(listener: () => void): () => void {
   return listeners.subscribe(listener);
 }
 
-export function resetStreamingDraftStore(): void {
+export function resetStreamingDraftStoreForTest(): void {
   draft = null;
   listeners.clear();
 }

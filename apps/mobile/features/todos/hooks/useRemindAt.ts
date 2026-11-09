@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
+import { useLatestRef } from "@/lib/latestRef";
 
 /** How long a picked due time stays before its reminder time is asked for. */
 const PREVIEW_DELAY_MS = 300;
@@ -43,8 +44,7 @@ export function useRemindAt({
   enabled: boolean;
 }): RemindAt {
   const auth = useAuthOptional();
-  const tokenRef = useRef(auth?.token ?? null);
-  tokenRef.current = auth?.token ?? null;
+  const tokenRef = useLatestRef(auth?.token ?? null);
   const user = auth?.user;
   const profile = user
     ? [user.reminder_lead_minutes, user.quiet_hours_enabled, user.quiet_hours_start_minute,
@@ -74,7 +74,7 @@ export function useRemindAt({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [key, dueIso, repeat]);
+  }, [key, dueIso, repeat, tokenRef]);
 
   if (!dueIso) return NONE;
   if (asSaved) return remindAtOf(saved?.notify_at);

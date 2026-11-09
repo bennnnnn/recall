@@ -1,7 +1,7 @@
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
 import {
-  resetComposerAttachmentQueue,
+  resetComposerAttachmentQueueForTest,
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
 } from "@/features/attachments/model/pendingComposerAttachment";
@@ -42,7 +42,7 @@ describe("a turn sent while the opened chat's page is read", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
-    resetComposerAttachmentQueue();
+    resetComposerAttachmentQueueForTest();
   });
   afterEach(() => jest.useRealTimers());
 

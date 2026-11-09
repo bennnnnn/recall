@@ -5,6 +5,7 @@ import { isContextFresh } from "@/lib/cache/contextRefresh";
 import { useOnForeground } from "@/lib/foregroundRefresh";
 import { zoneReportSettled } from "@/lib/zoneReport";
 import { getTodoMutationState, type TodoMutationState } from "@/features/todos/model/todoMutationState";
+import { useLatestRef } from "@/lib/latestRef";
 
 type TodosRefreshOptions = { silent?: boolean; force?: boolean; afterPending?: boolean };
 type Update = (rows: Todo[]) => Todo[];
@@ -39,12 +40,11 @@ export function useTodosList(token: string | null | undefined, userId: string | 
   const session = getSessionGeneration();
   const signedIn = Boolean(token && userId);
   const owner = useMemo(() => ({ session, signedIn, userId }), [session, signedIn, userId]);
+  /* eslint-disable react-hooks/refs -- the account's list cache: render reads it as the state until the first publish, and every write publishes */
   const resource = useRef(createResource(owner));
   if (resource.current.owner !== owner) resource.current = createResource(owner);
-  const currentOwner = useRef(owner);
-  currentOwner.current = owner;
-  const accessToken = useRef(token);
-  accessToken.current = token;
+  const currentOwner = useLatestRef(owner);
+  const accessToken = useLatestRef(token);
   const mounted = useRef(true);
   useEffect(() => {
     const cache = resource.current;
@@ -58,7 +58,7 @@ export function useTodosList(token: string | null | undefined, userId: string | 
   const [state, setState] = useState(initial);
   const view = state.owner === owner ? state : initial;
   const isCurrentSession = useCallback(() => mounted.current && owner.signedIn &&
-    currentOwner.current === owner && getSessionGeneration() === owner.session, [owner]);
+    currentOwner.current === owner && getSessionGeneration() === owner.session, [owner, currentOwner]);
   const publish = useCallback((patch: { loading?: boolean; error?: boolean } = {}) => {
     if (!isCurrentSession()) return;
     setState((previous) => !isCurrentSession() ? previous : ({
@@ -121,7 +121,7 @@ export function useTodosList(token: string | null | undefined, userId: string | 
       }
     })();
     return pending.task;
-  }, [isCurrentSession, owner, publish]);
+  }, [isCurrentSession, owner, publish, accessToken]);
 
   /** Read the completed to-dos the list left out (older than 30 days), for this session. */
   const showOlderCompleted = useCallback(async () => {
@@ -137,4 +137,5 @@ export function useTodosList(token: string | null | undefined, userId: string | 
   return { todos: view.todos, loading: view.loading, error: view.error, loaded: view.loaded,
     retainedOpenIds: view.retainedOpenIds, olderCompleted: view.olderCompleted, showOlderCompleted,
     setTodos, getTodos, readTodosAt, refresh, isCurrentSession };
+  /* eslint-enable react-hooks/refs */
 }

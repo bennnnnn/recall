@@ -9,6 +9,7 @@ import { useCallback, useRef, useState } from "react";
 
 import type { PreviewHeightRules } from "@/lib/preview/webPreviewHeight";
 import { reportFenceRefused } from "@/lib/sentry";
+import { useLatestRef } from "@/lib/latestRef";
 
 type PreviewMessage = { kind?: string; message?: string; height?: number };
 
@@ -34,8 +35,7 @@ export function useWebPreviewHeight({
   const [previewHeight, setPreviewHeight] = useState(policy.min);
   const [reportedHeight, setReportedHeight] = useState(0);
   const heightRef = useRef(policy.min);
-  const expandedRef = useRef(expanded);
-  expandedRef.current = expanded;
+  const expandedRef = useLatestRef(expanded);
 
   const maxHeight = expanded ? policy.maxExpanded : policy.max;
   const height = Math.min(previewHeight, maxHeight);
@@ -63,7 +63,7 @@ export function useWebPreviewHeight({
       setRenderError(errorText);
       reportFenceRefused(page, "draw_failed");
     }
-  }, [errorText, page, policy, rules]);
+  }, [errorText, page, policy, rules, expandedRef]);
 
   const toggleExpanded = useCallback(() => {
     setExpanded((was) => {

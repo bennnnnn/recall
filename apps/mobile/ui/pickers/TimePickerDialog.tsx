@@ -58,8 +58,6 @@ type Props = {
   onCancel: () => void;
   /** Heading. Defaults to "Select time". */
   title?: string;
-  /** Force a 12- or 24-hour clock. Defaults to the phone's setting, as times are formatted. */
-  is24Hour?: boolean;
   testID?: string;
 };
 
@@ -74,14 +72,14 @@ export function TimePickerDialog({
   onConfirm,
   onCancel,
   title,
-  is24Hour: forced24Hour,
   testID = "time-picker",
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const screen = useWindowDimensions();
-  const is24Hour = forced24Hour ?? userUses24HourClock();
+  // The phone's 12- or 24-hour setting, as every time on screen is formatted.
+  const is24Hour = userUses24HourClock();
   const periods = dayPeriodLabels();
 
   const [draft, setDraft] = useState<TimeOfDay>(value);

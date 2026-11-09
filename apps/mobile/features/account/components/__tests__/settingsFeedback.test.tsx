@@ -112,7 +112,7 @@ describe("settings action feedback", () => {
     );
 
     expect(getByPlaceholderText("Your name").props.editable).toBe(false);
-    expect(getByLabelText("settings.save").props.accessibilityState).toEqual({
+    expect(getByLabelText("common.save").props.accessibilityState).toEqual({
       disabled: true,
       busy: true,
     });

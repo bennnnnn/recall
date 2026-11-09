@@ -30,7 +30,7 @@ const names = (element: { props: { accessibilityActions?: { name: string; label?
 it("offers the long-press menu's actions and runs the one picked on its chat", async () => {
   const { element, onAction } = await row();
   expect(names(element)).toEqual([
-    "share:chat.share",
+    "share:common.share",
     "rename:chat.rename",
     "pin:chat.pin",
     "archive:chat.archive",
@@ -50,7 +50,7 @@ it("follows the chat's state, as the menu does: Unpin, and no pin on an archived
   await screen.unmount();
   const archived = await row({ chat: { ...chat, archived: true } });
   expect(names(archived.element)).toEqual([
-    "share:chat.share",
+    "share:common.share",
     "rename:chat.rename",
     "archive:chat.unarchive",
     "delete:common.delete",

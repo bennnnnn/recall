@@ -1,6 +1,6 @@
 import {
   allowReminderAlerts,
-  resetAlertsOffNotice,
+  resetAlertsOffNoticeForTest,
   shouldTellAlertsOff,
 } from "@/features/todos/model/reminderAlerts";
 import { ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
@@ -9,7 +9,7 @@ jest.mock("@/features/notifications/model/pushNotifications", () => ({ ensureNot
 
 beforeEach(() => {
   jest.clearAllMocks();
-  resetAlertsOffNotice();
+  resetAlertsOffNoticeForTest();
 });
 
 it.each([
@@ -28,6 +28,6 @@ it("a failed ask counts as off, never as an error", async () => {
 it("tells the user once per launch", () => {
   expect(shouldTellAlertsOff()).toBe(true);
   expect(shouldTellAlertsOff()).toBe(false);
-  resetAlertsOffNotice();
+  resetAlertsOffNoticeForTest();
   expect(shouldTellAlertsOff()).toBe(true);
 });

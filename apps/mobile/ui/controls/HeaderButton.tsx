@@ -91,19 +91,11 @@ export function HeaderButton({
 }
 
 /** Two or more `plain` header buttons in one pill, like chat's new chat + ⋮. */
-export function HeaderButtonGroup({
-  children,
-  style,
-  testID,
-}: {
-  children: ReactNode;
-  style?: StyleProp<ViewStyle>;
-  testID?: string;
-}) {
+export function HeaderButtonGroup({ children, testID }: { children: ReactNode; testID?: string }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={[s.group, style]} testID={testID}>
+    <View style={s.group} testID={testID}>
       {children}
     </View>
   );

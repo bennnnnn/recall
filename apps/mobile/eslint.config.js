@@ -40,6 +40,14 @@ const CONTROLS_OWNED_BY_UI_KIT = [
   },
 ];
 
+/** The clipboard is written in one place, so every copy behaves the same. Tests may mock it. */
+const CLIPBOARD_OWNED_BY_LIB = [
+  {
+    name: "expo-clipboard",
+    message: "Use copyToClipboard (or pasteClipboardText) from @/lib/clipboard; a copy control uses useCopyText.",
+  },
+];
+
 const TEST_FILES = ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"];
 
 const UI_LEAF = {
@@ -151,6 +159,7 @@ const RAW_COLOR_RULES = [
  */
 const DATE_FORMAT_MESSAGE =
   "Format dates and times with formatDate (or formatMinuteOfDay, formatCalendarDay, formatTimeZoneName) from @/lib/datetime/format.";
+
 const DATES_FORMATTED_BY_LIB_DATETIME = [
   { object: "Intl", property: "DateTimeFormat", message: DATE_FORMAT_MESSAGE },
   { object: "Intl", property: "RelativeTimeFormat", message: `${DATE_FORMAT_MESSAGE} Add a relative style there.` },
@@ -158,9 +167,59 @@ const DATES_FORMATTED_BY_LIB_DATETIME = [
   { property: "toLocaleTimeString", message: DATE_FORMAT_MESSAGE },
   {
     property: "toLocaleString",
-    message: `${DATE_FORMAT_MESSAGE} A number: Intl.NumberFormat in the app's language (lib/money/format.ts).`,
+    message: `${DATE_FORMAT_MESSAGE} A number: numberFormat from @/lib/money/format, in the app's language.`,
   },
 ];
+
+/**
+ * A number on screen goes through numberFormat (lib/money/format.ts): a language tag Intl
+ * rejects throws, and that one falls back to English instead.
+ */
+const NUMBERS_FORMATTED_BY_LIB_MONEY = [
+  {
+    object: "Intl",
+    property: "NumberFormat",
+    message: "Format numbers with numberFormat from @/lib/money/format; it falls back when Intl rejects the language.",
+  },
+];
+
+/**
+ * Reanimated hooks and the argument a dependency array would take. The worklets Babel plugin
+ * reads a worklet's dependencies from its closure; on native an array passed there is
+ * ignored, and a dev build logs "[Reanimated] Dependencies should only be used on the web"
+ * for each one. The phone is the only client that runs Reanimated.
+ */
+const WORKLET_DEPS_ARGUMENT = new Map([
+  ["useAnimatedStyle", 1],
+  ["useAnimatedProps", 1],
+  ["useDerivedValue", 1],
+  ["useAnimatedScrollHandler", 1],
+  ["useAnimatedReaction", 2],
+]);
+
+const recallRules = {
+  rules: {
+    "no-worklet-deps": {
+      meta: {
+        type: "problem",
+        messages: {
+          deps: "Reanimated ignores a dependency array on native and warns in dev; the worklet's closure is its dependencies. Drop the array.",
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          CallExpression(node) {
+            const at = node.callee.type === "Identifier" ? WORKLET_DEPS_ARGUMENT.get(node.callee.name) : undefined;
+            if (at !== undefined && node.arguments.length > at) {
+              context.report({ node: node.arguments[at], messageId: "deps" });
+            }
+          },
+        };
+      },
+    },
+  },
+};
 
 /** Palettes and drawn data keep their own colors. */
 const RAW_COLORS_ALLOWED = [
@@ -185,11 +244,23 @@ module.exports = defineConfig([
   },
   {
     files: ["**/*.{ts,tsx}"],
+    plugins: { recall: recallRules },
+    rules: { "recall/no-worklet-deps": "error" },
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
     ignores: TEST_FILES,
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
+        {
+          paths: [
+            ...REPLACED_BY_UI_KIT,
+            ...POPUPS_OWNED_BY_UI_KIT,
+            ...CONTROLS_OWNED_BY_UI_KIT,
+            ...CLIPBOARD_OWNED_BY_LIB,
+          ],
+        },
       ],
       // Import cycles are caught by lib/__tests__/importCycles.test.ts, which,
       // unlike import/no-cycle, also sees type-only imports.
@@ -222,7 +293,10 @@ module.exports = defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT], patterns: [UI_LEAF] },
+        {
+          paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB],
+          patterns: [UI_LEAF],
+        },
       ],
     },
   },
@@ -231,7 +305,20 @@ module.exports = defineConfig([
     files: ["ui/overlay/**/*.{ts,tsx}"],
     ignores: TEST_FILES,
     rules: {
-      "no-restricted-imports": ["error", { paths: REPLACED_BY_UI_KIT, patterns: [UI_LEAF] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [...REPLACED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB], patterns: [UI_LEAF] },
+      ],
+    },
+  },
+  {
+    // The one place that writes and reads the clipboard.
+    files: ["lib/clipboard.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
+      ],
     },
   },
   {
@@ -244,9 +331,11 @@ module.exports = defineConfig([
     },
   },
   {
-    // The chat turn is a reducer held outside render (code-health audit CLAR-04): chat
-    // code reads refs in callbacks and effects only, never while rendering.
-    files: ["features/chat/**/*.{ts,tsx}"],
+    // Refs are read in callbacks and effects, never while rendering (code-health audit
+    // CLAR-04): a render React throws away must not leak its values. The latest value a
+    // callback needs is `useLatestRef` (lib/latestRef.ts). A gesture builder's callbacks and
+    // a few render caches say why at their own `eslint-disable`.
+    files: ["**/*.{ts,tsx}"],
     ignores: TEST_FILES,
     rules: {
       "react-hooks/refs": "error",
@@ -255,6 +344,12 @@ module.exports = defineConfig([
   {
     files: ["**/*.{ts,tsx}"],
     ignores: [...TEST_FILES, "lib/datetime/**"],
+    rules: {
+      "no-restricted-properties": ["error", ...DATES_FORMATTED_BY_LIB_DATETIME, ...NUMBERS_FORMATTED_BY_LIB_MONEY],
+    },
+  },
+  {
+    files: ["lib/money/format.ts"],
     rules: { "no-restricted-properties": ["error", ...DATES_FORMATTED_BY_LIB_DATETIME] },
   },
   {

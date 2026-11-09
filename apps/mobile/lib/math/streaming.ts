@@ -1,5 +1,6 @@
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
+import { readGroup } from "@/lib/math/latexGroups";
 import {
   PROTECTED_ESCAPE_MARKER,
   PROTECTED_LITERAL_DOLLAR,
@@ -27,16 +28,9 @@ export function hasIncompleteStreamingLatex(body: string): boolean {
     let at = match.index + match[0].length;
     for (let arg = 0; arg < 2; arg += 1) {
       while (/\s/.test(body[at] ?? "") && at < body.length) at += 1;
-      if (body[at] !== "{") return true;
-      let depth = 1;
-      at += 1;
-      while (at < body.length && depth > 0) {
-        if (body[at] === "\\") at += 1;
-        else if (body[at] === "{") depth += 1;
-        else if (body[at] === "}") depth -= 1;
-        at += 1;
-      }
-      if (depth > 0) return true;
+      const group = readGroup(body, at);
+      if (!group) return true;
+      at = group.next;
     }
   }
   return false;

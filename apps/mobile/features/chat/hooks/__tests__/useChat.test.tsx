@@ -5,7 +5,7 @@ import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
-  DROPPED_TURN_MAX_WAIT_MS,
+  DROPPED_TURN_POLL_MS,
   DROPPED_TURN_POLLS,
   DROPPED_TURN_PROBE_ROWS,
   DUPLICATE_TURN_POLLS,
@@ -22,7 +22,7 @@ import {
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 import { REPLY_SAVE_GRACE_MS, type DotsTicket } from "@/features/chat/hooks/useTurnStart";
-import { getStreamingDraft, resetStreamingDraftStore } from "@/features/chat/model/streamingDraftStore";
+import { getStreamingDraft, resetStreamingDraftStoreForTest } from "@/features/chat/model/streamingDraftStore";
 import { beginOpenedPageRead, OPENED_PAGE_WAIT_MS } from "@/features/chat/model/openedPage";
 import { emitAppEvent } from "@/lib/appEvents";
 import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
@@ -30,6 +30,9 @@ import { mergeOpenedPage } from "@/features/chat/model/messageMerge";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
+
+/** The longest one reload waits: the poll spread by its 25% jitter (`droppedTurnWaitMs`). */
+const DROPPED_TURN_MAX_WAIT_MS = DROPPED_TURN_POLL_MS * 1.25;
 
 /** Let a dropped turn's reloads run out (each waits at most DROPPED_TURN_MAX_WAIT_MS). */
 async function waitOutReconcile(polls = DROPPED_TURN_POLLS) {
@@ -135,7 +138,7 @@ describe("useChat transport lifecycle", () => {
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
     globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
-    resetStreamingDraftStore();
+    resetStreamingDraftStoreForTest();
   });
   afterEach(async () => {
     await cleanup();
@@ -1488,7 +1491,7 @@ describe("useChat socket while the app is in the background", () => {
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
     globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
-    resetStreamingDraftStore();
+    resetStreamingDraftStoreForTest();
     appStateHandlers.clear();
     addListener.mockImplementation((event: string, handler: (state: string) => void) => {
       if (event !== "change") return { remove: jest.fn() };
@@ -1573,7 +1576,7 @@ describe("useChat socket recovery", () => {
     (streamChatMessageSse as jest.Mock).mockReset();
     (streamChatRegenerateSse as jest.Mock).mockReset();
     globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
-    resetStreamingDraftStore();
+    resetStreamingDraftStoreForTest();
   });
   afterEach(async () => {
     await cleanup();
@@ -1916,7 +1919,7 @@ describe("useChat while the opened chat's page is read", () => {
     FakeSocket.instances = [];
     mockSessionGeneration = 0;
     globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
-    resetStreamingDraftStore();
+    resetStreamingDraftStoreForTest();
   });
   afterEach(async () => {
     await cleanup();

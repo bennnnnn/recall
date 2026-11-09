@@ -1,9 +1,9 @@
 import { StyleSheet } from "react-native";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
-import { HomeStarters } from "@/features/home/components/HomeStarters";
-import { AA, compositeOver, contrastRatio } from "@/lib/__tests__/support/contrast";
-import { ACCENT_OPTIONS, DEFAULT_ACCENT } from "@/lib/accent";
+import { HomeContent } from "@/features/home/components/HomeContent";
+import { AA, compositeOver, contrastRatio, SCHEME_ACCENTS } from "@/lib/__tests__/support/contrast";
+import { DEFAULT_ACCENT } from "@/lib/accent";
 import { setAccentSnapshot } from "@/lib/accentRuntime";
 import { themeFor } from "@/lib/theme";
 
@@ -47,14 +47,14 @@ afterEach(async () => {
 });
 
 it("shows the greeting without starter chips", async () => {
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Hi, Bini")).toBeTruthy();
   expect(view.queryByText("Help me think")).toBeNull();
   expect(view.queryByText("What can you do?")).toBeNull();
 });
 
 it("greets in two lines at the top: hi in the accent, the question in grey; no icon or subtitle", async () => {
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   const greeting = await view.findByRole("header");
   expect(greeting.props.accessibilityLabel).toBe("Hi, Bini. What are you working on?");
   expect(view.getByText("What are you working on?")).toBeTruthy();
@@ -75,30 +75,28 @@ it("greets in two lines at the top: hi in the accent, the question in grey; no i
 /** WCAG 1.4.3: the greeting is large text (32pt semibold), 3:1 on the page. */
 const LARGE_TEXT = 3;
 
-it.each(["light", "dark"] as const)("%s: both lines read 3:1 on the page in every accent", async (scheme) => {
+it.each(SCHEME_ACCENTS)("%s %s: both lines read 3:1 on the page", async (scheme, accent) => {
   mockScheme = scheme;
+  await act(async () => setAccentSnapshot(accent));
   const failures: string[] = [];
-  for (const accent of ACCENT_OPTIONS) {
-    await act(async () => setAccentSnapshot(accent));
-    const C = themeFor(scheme, accent);
-    const ui = await render(<HomeStarters composerActive={false} />);
-    const ink = (words: string) => String(StyleSheet.flatten(ui.getByText(words).props.style).color);
-    expect({ accent, hello: ink("Hi, Bini"), question: ink("What are you working on?") })
-      .toEqual({ accent, hello: C.primary, question: C.textTertiary });
-    for (const [what, fg] of [["hello", C.primary], ["question", C.textTertiary]] as const) {
-      const ratio = contrastRatio(fg, C.bg);
-      if (ratio < LARGE_TEXT) failures.push(`${accent} ${what} ${ratio.toFixed(2)}`);
-    }
-    await ui.unmount();
+  const C = themeFor(scheme, accent);
+  const ui = await render(<HomeContent composerActive={false} />);
+  const ink = (words: string) => String(StyleSheet.flatten(ui.getByText(words).props.style).color);
+  expect({ hello: ink("Hi, Bini"), question: ink("What are you working on?") })
+    .toEqual({ hello: C.primary, question: C.textTertiary });
+  for (const [what, fg] of [["hello", C.primary], ["question", C.textTertiary]] as const) {
+    const ratio = contrastRatio(fg, C.bg);
+    if (ratio < LARGE_TEXT) failures.push(`${what} ${ratio.toFixed(2)}`);
   }
+  await ui.unmount();
   expect(failures).toEqual([]);
 });
 
 it("hides the greeting while the composer is in use", async () => {
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Hi, Bini")).toBeTruthy();
 
-  await view.rerender(<HomeStarters composerActive />);
+  await view.rerender(<HomeContent composerActive />);
 
   expect(view.queryByText("Hi, Bini")).toBeNull();
 });
@@ -109,7 +107,7 @@ it("keeps one overdue reminder", async () => {
     content: "Pay rent",
     due_at: "2026-07-01T12:00:00.000Z",
   };
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Pay rent")).toBeTruthy();
   expect(view.getByText("chat.home.overdue")).toBeTruthy();
   await act(async () => {
@@ -122,37 +120,35 @@ const NON_TEXT = 3;
 
 // Red like the to-do row's overdue time and mark. Its heading sits on the chat page (bg);
 // the rest on the card's own fill, laid over that page.
-it.each(["light", "dark"] as const)(
-  "%s: the overdue card is danger, AA for its text and 3:1 for its icons, in every accent",
-  async (scheme) => {
+it.each(SCHEME_ACCENTS)(
+  "%s %s: the overdue card is danger, AA for its text and 3:1 for its icons",
+  async (scheme, accent) => {
     mockScheme = scheme;
     mockOverdue = { id: "todo-1", content: "Pay rent", due_at: "2026-07-01T12:00:00.000Z" };
+    await act(async () => setAccentSnapshot(accent));
     const failures: string[] = [];
-    for (const accent of ACCENT_OPTIONS) {
-      await act(async () => setAccentSnapshot(accent));
-      const C = themeFor(scheme, accent);
-      const ui = await render(<HomeStarters composerActive={false} />);
-      const card = ui.getByLabelText("Pay rent");
-      const cardStyle = StyleSheet.flatten(card.props.style);
-      const plane = compositeOver(String(cardStyle.backgroundColor), C.bg);
-      const ink = (node: ReturnType<typeof ui.getByText>) => String(StyleSheet.flatten(node.props.style).color);
-      const heading = ink(ui.getByText("chat.home.overdue"));
-      const due = ink(ui.getByText("2d overdue"));
-      const icons = card.queryAll((node) => typeof node.props.name === "string");
-      expect({ accent, heading, due, border: cardStyle.borderColor, icons: icons.map((icon) => icon.props.color) })
-        .toEqual({ accent, heading: C.danger, due: C.danger, border: C.danger, icons: [C.danger, C.danger] });
-      const pairs: [string, string, string, number][] = [
-        ["heading", heading, C.bg, AA],
-        ["title", ink(ui.getByText("Pay rent")), plane, AA],
-        ["due", due, plane, AA],
-        ...icons.map((icon): [string, string, string, number] => [icon.props.name, icon.props.color, plane, NON_TEXT]),
-      ];
-      for (const [what, fg, bg, floor] of pairs) {
-        const ratio = contrastRatio(fg, bg);
-        if (ratio < floor) failures.push(`${accent} ${what} ${ratio.toFixed(2)}`);
-      }
-      await ui.unmount();
+    const C = themeFor(scheme, accent);
+    const ui = await render(<HomeContent composerActive={false} />);
+    const card = ui.getByLabelText("Pay rent");
+    const cardStyle = StyleSheet.flatten(card.props.style);
+    const plane = compositeOver(String(cardStyle.backgroundColor), C.bg);
+    const ink = (node: ReturnType<typeof ui.getByText>) => String(StyleSheet.flatten(node.props.style).color);
+    const heading = ink(ui.getByText("chat.home.overdue"));
+    const due = ink(ui.getByText("2d overdue"));
+    const icons = card.queryAll((node) => typeof node.props.name === "string");
+    expect({ heading, due, border: cardStyle.borderColor, icons: icons.map((icon) => icon.props.color) })
+      .toEqual({ heading: C.danger, due: C.danger, border: C.danger, icons: [C.danger, C.danger] });
+    const pairs: [string, string, string, number][] = [
+      ["heading", heading, C.bg, AA],
+      ["title", ink(ui.getByText("Pay rent")), plane, AA],
+      ["due", due, plane, AA],
+      ...icons.map((icon): [string, string, string, number] => [icon.props.name, icon.props.color, plane, NON_TEXT]),
+    ];
+    for (const [what, fg, bg, floor] of pairs) {
+      const ratio = contrastRatio(fg, bg);
+      if (ratio < floor) failures.push(`${what} ${ratio.toFixed(2)}`);
     }
+    await ui.unmount();
     expect(failures).toEqual([]);
   },
 );

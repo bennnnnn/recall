@@ -49,10 +49,19 @@ describe("date lint", () => {
       "const f = formatDate(due, \"time\");",
       "const options: Intl.DateTimeFormatOptions = { hour: \"numeric\" };",
       "let cached: Intl.DateTimeFormat | null = null;",
-      "const n = new Intl.NumberFormat(locale).format(3);",
+      "const n = numberFormat(locale).format(3);",
       "const l = new Intl.ListFormat(locale).format(names);",
     ].join("\n");
     expect(flagged(code, "features/todos/components/TodoRow.tsx")).toEqual([]);
+  });
+
+  // Settings → Voice built a number format of its own, without the fallback for a language
+  // tag Intl rejects; lib/money/format.ts is the one that builds them.
+  it("flags a number format built outside lib/money/format.ts", () => {
+    const code = "const n = new Intl.NumberFormat(locale).format(3);";
+    expect(flagged(code, "features/account/screens/VoiceSettingsScreen.tsx")).toEqual([1]);
+    expect(flagged(code, "lib/money/format.ts")).toEqual([]);
+    expect(flagged(DIRECT, "lib/money/format.ts")).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   it.each(["lib/datetime/format.ts", "lib/datetime/phoneClock.ts", "features/todos/components/__tests__/TodoRow.test.tsx"])(

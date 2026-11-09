@@ -10,38 +10,34 @@ jest.mock("@/lib/haptics", () => ({ selection: jest.fn(), tap: jest.fn() }));
 describe("Chip", () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
-  it("is a 44 tall tappable suggestion", async () => {
+  it("is a 44 tall choice, and a picked one is checked and indigo", async () => {
     const onPress = jest.fn();
-    const view = await render(<Chip label="Plan my week" icon="sparkles" onPress={onPress} />);
-    const chip = view.getByRole("button", { name: "Plan my week" });
-    expect(chip).toHaveStyle({ minHeight: 44, backgroundColor: lightTheme.surface });
-    await fireEvent.press(chip);
-    expect(onPress).toHaveBeenCalledTimes(1);
-  });
-
-  it("marks a picked filter as checked and turns it indigo", async () => {
     const view = await render(
       <>
-        <Chip variant="filter" accessibilityRole="radio" label="All" selected onPress={jest.fn()} />
-        <Chip variant="filter" accessibilityRole="radio" label="Files" onPress={jest.fn()} />
+        <Chip accessibilityRole="radio" label="All" selected onPress={jest.fn()} />
+        <Chip accessibilityRole="radio" label="Files" onPress={onPress} />
       </>,
     );
     const all = view.getByRole("radio", { name: "All" });
-    expect(all.props.accessibilityState).toEqual({ checked: true, disabled: false });
-    expect(all).toHaveStyle({ backgroundColor: lightTheme.primaryLight, borderColor: lightTheme.primary });
-    expect(view.getByRole("radio", { name: "Files" }).props.accessibilityState.checked).toBe(false);
+    expect(all.props.accessibilityState).toEqual({ checked: true });
+    expect(all).toHaveStyle({ minHeight: 44, backgroundColor: lightTheme.primaryLight, borderColor: lightTheme.primary });
+    const files = view.getByRole("radio", { name: "Files" });
+    expect(files.props.accessibilityState.checked).toBe(false);
+    expect(files).toHaveStyle({ backgroundColor: lightTheme.surface });
+    await fireEvent.press(files);
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it("ticks once when a filter changes, as a segment does, and not for the one already picked", async () => {
+  it("ticks once when the choice changes, as a segment does, and not for the one already picked", async () => {
     const onPress = jest.fn();
     const view = await render(
       <>
-        <Chip variant="filter" accessibilityRole="radio" label="All" selected onPress={onPress} />
-        <Chip variant="filter" accessibilityRole="radio" label="Files" onPress={onPress} />
-        <Chip variant="filter" accessibilityRole="tab" label="Greek" onPress={onPress} />
-        <Chip label="Plan my week" onPress={onPress} />
+        <Chip accessibilityRole="radio" label="All" selected onPress={onPress} />
+        <Chip accessibilityRole="radio" label="Files" onPress={onPress} />
+        <Chip accessibilityRole="tab" label="Greek" onPress={onPress} />
       </>,
     );
     await fireEvent.press(view.getByRole("radio", { name: "All" }));
@@ -49,51 +45,25 @@ describe("Chip", () => {
     await fireEvent.press(view.getByRole("radio", { name: "Files" }));
     await fireEvent.press(view.getByRole("button", { name: "Greek" }));
     expect(selection).toHaveBeenCalledTimes(2);
-    // A suggestion chip is a send, not a selection: its action owns any haptic.
-    await fireEvent.press(view.getByRole("button", { name: "Plan my week" }));
-    expect(selection).toHaveBeenCalledTimes(2);
     expect(tap).not.toHaveBeenCalled();
-    expect(onPress).toHaveBeenCalledTimes(4);
+    expect(onPress).toHaveBeenCalledTimes(3);
   });
 
   // React Native gives VoiceOver nothing for `tab`: the math keyboard's tabs read as bare text.
   it("reads a tab as a button on iOS and a tab on Android, the current one selected", async () => {
     const tabs = () => (
       <>
-        <Chip variant="filter" accessibilityRole="tab" label="Basics" selected onPress={jest.fn()} />
-        <Chip variant="filter" accessibilityRole="tab" label="Greek" onPress={jest.fn()} />
+        <Chip accessibilityRole="tab" label="Basics" selected onPress={jest.fn()} />
+        <Chip accessibilityRole="tab" label="Greek" onPress={jest.fn()} />
       </>
     );
     const ios = await render(tabs());
-    expect(ios.getByRole("button", { name: "Basics" }).props.accessibilityState).toEqual({ selected: true, disabled: false });
+    expect(ios.getByRole("button", { name: "Basics" }).props.accessibilityState).toEqual({ selected: true });
     expect(ios.getByRole("button", { name: "Greek" }).props.accessibilityState.selected).toBe(false);
     await ios.unmount();
 
     jest.replaceProperty(Platform, "OS", "android");
     const android = await render(tabs());
     expect(android.getByRole("tab", { name: "Basics" }).props.accessibilityState.selected).toBe(true);
-  });
-
-  it("removes an added value from its own button", async () => {
-    const onRemove = jest.fn();
-    const view = await render(
-      <Chip variant="input" label="Python" onRemove={onRemove} removeLabel="Remove Python" testID="skill" />,
-    );
-    expect(view.getByText("Python")).toBeTruthy();
-    await fireEvent.press(view.getByRole("button", { name: "Remove Python" }));
-    expect(onRemove).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows a read-only tag with a muted lead-in", async () => {
-    const view = await render(<Chip variant="tag" prefix="Pay" label="$120k" testID="salary" />);
-    expect(view.getByTestId("salary")).toHaveTextContent("Pay $120k");
-    expect(view.queryByRole("button")).toBeNull();
-  });
-
-  it("does not press while disabled", async () => {
-    const onPress = jest.fn();
-    const view = await render(<Chip variant="filter" label="10 jobs" disabled onPress={onPress} />);
-    await fireEvent.press(view.getByRole("button", { name: "10 jobs" }));
-    expect(onPress).not.toHaveBeenCalled();
   });
 });

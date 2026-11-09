@@ -1,7 +1,7 @@
 /**
  * No LaTeX source on screen. Every reply below is rendered through
  * MarkdownContent and the text a reader sees, and the labels a screen reader
- * hears, are scanned for source (`lib/math/latexLeaks.ts`). Display maths is
+ * hears, are scanned for source (`lib/__tests__/support/latexLeaks.ts`). Display maths is
  * drawn here by the native fallback, the stricter of its two renderers; each
  * formula also goes through MathJax, whose SVG must never paint a backslash.
  * A reply may also not use a command the native renderer has no entry for.
@@ -13,7 +13,7 @@
 import { cleanup, render } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { findLatexLeaks } from "@/lib/math/latexLeaks";
+import { findLatexLeaks } from "@/lib/__tests__/support/latexLeaks";
 import { subscribeUnknownLatexCommands } from "@/lib/math/latexNames";
 import { latexToSvgMath } from "@/lib/math/svgMath";
 
