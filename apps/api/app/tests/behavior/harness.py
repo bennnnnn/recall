@@ -364,6 +364,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory_enabled=case.memory_enabled,
         location=case.location,
         location_enabled=case.location is not None,
+        # The phone saved its place a moment ago, as it does when the app opens.
+        location_saved_at=datetime.now(UTC) if case.location else None,
     )
     chat = Chat(id=uuid4(), user_id=user.id, title=None)
     rows = _rows(case)

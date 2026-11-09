@@ -208,7 +208,24 @@ def test_me_patch_leaves_the_location_choice_alone_otherwise():
         {"location": "Oakland, CA", "location_chosen_at": "2000-01-01T00:00:00Z"}
     )
     assert status == 200
-    assert captured == {"location": "Oakland, CA"}
+    assert set(captured) == {"location", "location_saved_at"}
+    assert captured["location"] == "Oakland, CA"
+
+
+@pytest.mark.parametrize("place", ["Oakland, CA", None])
+def test_me_patch_dates_the_place_the_phone_saves(place):
+    """A turn trusts a saved place only while it is recent: San Francisco saved in the
+    morning answered the weather in New York that evening (review, 2026-11-09)."""
+    before = datetime.now(UTC)
+    status, captured = _patch_capturing_fields(
+        {"location": place, "location_saved_at": "2000-01-01T00:00:00Z"}
+    )
+    assert status == 200
+    stored = captured["location_saved_at"]
+    if place is None:
+        assert stored is None
+    else:
+        assert isinstance(stored, datetime) and before <= stored <= datetime.now(UTC)
 
 
 def test_me_patch_rejects_blank_name():

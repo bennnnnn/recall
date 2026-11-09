@@ -449,7 +449,7 @@ async def build_stream_prompt_context(
             advice_memory=mode.advice_memory,
             accepted_offer=mode.accepted_offer,
             client_timezone=request.client_timezone,
-            prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
+            prompt_location=geo.prompt_place(identity.local_tz),
             omit_message_ids=request.omit_message_ids,
             probe_attachment_rag=request.probe_attachment_rag,
             recent_messages=request.recent_messages,

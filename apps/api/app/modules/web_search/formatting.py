@@ -163,8 +163,10 @@ GEO_DISTANCE_HINT = (
 )
 
 GEO_ACTIVE_LOCATION_HINT = (
-    "The user's current device location for this nearby/distance query is shown above. "
-    "Use that location in your answer — do not substitute another city from memory or profile."
+    "The user's location for this nearby/distance query is shown above: the phone's, or "
+    "the place it last reported when marked so. Use that location in your answer — do not "
+    "substitute another city from memory or profile. When it is the phone's last report, "
+    "say which place the answer is for."
 )
 
 

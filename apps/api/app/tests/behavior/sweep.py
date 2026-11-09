@@ -99,6 +99,9 @@ NO_SEARCH_AREAS = {
 # Turns that answer the clarify card before them: they never ask again.
 AFTER_CARD_AREAS = {"clarify answer"}
 STEM_AREAS = {"math", "physics", "chemistry"}
+# A places ask the user's own location answers, whatever other capital it holds ("coffee
+# shops nearby, answer in Spanish"): the near-you list's hint is in the prompt.
+NEAR_USER_AREAS = {"places near user"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
 SINGLE_PART_AREAS = {"multi lookalike"}
@@ -484,6 +487,8 @@ def judge(outcome: Outcome) -> list[str]:
         problems.append("not read as more than one request")
     if entry.area in SINGLE_PART_AREAS and "multi_intent" in route.hints:
         problems.append("split into separate requests")
+    if entry.area in NEAR_USER_AREAS and "local_places" not in route.hints:
+        problems.append("not read as places near the user")
     return problems
 
 

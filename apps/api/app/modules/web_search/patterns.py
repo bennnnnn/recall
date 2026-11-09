@@ -21,7 +21,7 @@ _NEWS = re.compile(
 
 
 # Proximity intent — any "near me / nearest / closest …" ask, not a venue-type list.
-_NEARBY_INTENT = re.compile(
+NEARBY_INTENT = re.compile(
     r"\b("
     r"near\s+me|nearby|around\s+here|in\s+(?:this\s+)?town"
     r"|close\s+(?:by|to\s+me)"
@@ -111,7 +111,7 @@ def best_near_phrase(text: str) -> bool:
 
 
 # Implicit nearby intent without saying "near me" (e.g. "where should I eat tonight?").
-_IMPLICIT_LOCAL = re.compile(
+IMPLICIT_LOCAL = re.compile(
     r"\b(?:"
     r"where\s+(?:should|can|do)\s+(?:I|we)\s+(?:eat|get|find|go|stay|park)"
     r"|where\s+to\s+(?:eat|go|get|stay|park)"

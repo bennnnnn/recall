@@ -79,6 +79,10 @@ async def test_model_written_search_names_the_place(
     [
         ("What are the best restaurants in Addis Ababa?", "best restaurants Addis Ababa"),
         ("Where should we eat in Rome tonight?", "best restaurants Rome"),
+        # "Near me in Bole" says where "me" is: the phone's city is no part of it (review,
+        # 2026-11-09; it searched "coffee shops near San Francisco, CA, United States in Bole").
+        ("coffee shops near me in Bole", "coffee shops near me in Bole"),
+        ("Is there a pharmacy around here? I'm staying in Kazanchis", "pharmacy near me"),
     ],
 )
 async def test_a_question_that_names_its_place_is_searched_there(

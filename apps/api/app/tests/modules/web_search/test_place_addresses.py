@@ -79,6 +79,88 @@ def test_the_place_s_own_page_gives_its_address_anywhere() -> None:
     assert _places(keep_given_addresses(card, [page]))[0]["address"] == "2801 Taylor Street"
 
 
+_COPRA_ON_YELP = WebSearchHit(
+    title=(
+        "COPRA - Updated November 2026 - 1200 Photos & 500 Reviews - 1700 Post St, "
+        "San Francisco, California - Indian - Yelp"
+    ),
+    url="https://www.yelp.com/biz/copra-sf",
+    snippet="Specialties: South Indian cooking from chef Srijith Gopinathan.",
+)
+_ESSENTIALS = WebSearchHit(
+    title="The 38 Essential San Francisco Restaurants",
+    url="https://sf.eater.com/maps/best",
+    snippet=(
+        "Copra. Srijith Gopinathan, who earned two Michelin stars at Campton Place, opened "
+        "this Japantown restaurant to showcase the cooking of his native Kerala; the tasting "
+        "menu is a tour of the coast, the dining room is warm and the cocktail list is one of "
+        "the best in town for anyone who loves spice. 1700 Post St, San Francisco, CA 94115"
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "page, place",
+    [
+        # A directory writes the address in its title.
+        (_COPRA_ON_YELP, {"name": "Copra", "address": "1700 Post St, San Francisco"}),
+        # A long write-up, its address at the end: the next place on the card is the limit,
+        # not a count of characters.
+        (_ESSENTIALS, {"name": "Copra", "address": "1700 Post St, San Francisco"}),
+        # Pages leave out the name's "The".
+        (
+            WebSearchHit(
+                title="Best", url="https://x.test", snippet="Slanted Door, 1 Ferry Building #3."
+            ),
+            {"name": "The Slanted Door", "address": "1 Ferry Building, San Francisco"},
+        ),
+        # "2 blocks from Dolores St" says how far, not where.
+        (
+            WebSearchHit(
+                title="Best",
+                url="https://x.test",
+                snippet="Tartine Bakery is 2 blocks from Dolores St; find it at 600 Guerrero St.",
+            ),
+            {"name": "Tartine Bakery", "address": "600 Guerrero St, San Francisco"},
+        ),
+        # A range of house numbers holds the one the card gives.
+        (
+            WebSearchHit(
+                title="Best", url="https://x.test", snippet="Zuni Café, 1658-1660 Market St."
+            ),
+            {"name": "Zuni Café", "address": "1658 Market St, San Francisco"},
+        ),
+    ],
+)
+def test_a_correct_address_stays(page: WebSearchHit, place: dict[str, str]) -> None:
+    """Review of the first rule (2026-11-09): each of these lost a right address."""
+    card = _card(place)
+    assert keep_given_addresses(card, [page]) == card
+
+
+def test_a_venue_list_fenced_as_json_is_checked_too() -> None:
+    # The phone draws a ```json venue array as a places list.
+    card = (
+        "Here.\n\n```json\n"
+        + json.dumps(
+            [
+                {"name": "Copra", "address": "725 Columbus Avenue, SF", "rating": 5},
+                {"name": "Lunette", "address": "725 Columbus Avenue, SF"},
+            ]
+        )
+        + "\n```\n"
+    )
+    out = keep_given_addresses(card, [_LIST_ARTICLE])
+    assert out.startswith("Here.\n\n```json\n")
+    copra, lunette = json.loads(out.split("```json\n")[1].split("\n```")[0])
+    assert "address" not in copra
+    assert copra["rating"] == 5
+    assert lunette["address"] == "725 Columbus Avenue, SF"
+    # A ```json fence of anything else is left alone.
+    other = '```json\n[{"title": "x", "address": "725 Columbus Avenue"}]\n```'
+    assert keep_given_addresses(other, [_LIST_ARTICLE]) == other
+
+
 def test_a_maps_link_built_on_a_dropped_address_finds_the_name_in_town() -> None:
     card = _card(
         {
@@ -86,12 +168,14 @@ def test_a_maps_link_built_on_a_dropped_address_finds_the_name_in_town() -> None
             "url": "https://www.google.com/maps/search/?api=1&query=Copra%2C+725+Columbus+Avenue",
             "address": "725 Columbus Avenue, San Francisco, CA 94133",
         },
-        {"name": "Copra Bar", "url": "https://copra.example", "address": "9 Nowhere St, SF"},
+        {"name": "Lunette", "url": "https://lunette.example", "address": "9 Nowhere St, SF"},
     )
-    copra, bar = _places(keep_given_addresses(card, [_LIST_ARTICLE]))
+    copra, lunette = _places(keep_given_addresses(card, [_LIST_ARTICLE]))
+    assert "address" not in copra
     assert copra["url"].endswith("query=Copra%2C%20San%20Francisco%2C%20CA%2094133")
     # A venue's own site is no search: it stays.
-    assert bar["url"] == "https://copra.example"
+    assert "address" not in lunette
+    assert lunette["url"] == "https://lunette.example"
 
 
 @pytest.mark.parametrize(

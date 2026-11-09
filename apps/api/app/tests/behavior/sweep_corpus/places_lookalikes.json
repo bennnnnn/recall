@@ -89,15 +89,15 @@
  },
  {
   "id": "nmp-012",
-  "area": "places",
+  "area": "places lookalike",
   "prompt": "coffee shops near me in Bole",
-  "reply": "Coffee spots in Bole:\n\n1. **Tomoca** — 0.4 km\n2. **Galani Coffee** — 1.2 km",
-  "expect": "search",
+  "reply": "Coffee spots in Bole:\n\n1. **Tomoca** — the classic roaster\n2. **Galani Coffee** — good for working",
+  "expect": "answer",
   "location": "San Francisco, CA, United States"
  },
  {
   "id": "nmp-013",
-  "area": "places",
+  "area": "places near user",
   "prompt": "What's the best restaurant in this area?",
   "reply": "Close to you:\n\n1. **Zuni Café** — Market Street\n2. **Nopa** — Divisadero",
   "expect": "search",
@@ -105,10 +105,82 @@
  },
  {
   "id": "nmp-014",
-  "area": "places",
+  "area": "places near user",
   "prompt": "best restaurants near me at Christmas",
   "reply": "Open on Christmas near you:\n\n1. **Zuni Café** — dinner service\n2. **Z & Y** — Chinatown",
   "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-015",
+  "area": "places near user",
+  "prompt": "coffee shops nearby, answer in Spanish",
+  "reply": "Cafeterías cerca de ti:\n\n1. **Sightglass** — SoMa\n2. **Ritual** — Valencia St",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-016",
+  "area": "places near user",
+  "prompt": "nearest hospital? I'm visiting from Canada",
+  "reply": "The closest emergency room to you is **UCSF Medical Center**, about 1.2 miles away.",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-017",
+  "area": "places near user",
+  "prompt": "Where's the nearest train station to get to Boston?",
+  "reply": "The nearest Amtrak station to you is **Emeryville**; trains to Boston change in Chicago.",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-018",
+  "area": "places near user",
+  "prompt": "Where should we eat in January?",
+  "reply": "A few places near you that are lovely in January:\n\n1. **Zuni Café** — Market St\n2. **Nopa** — Divisadero",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-019",
+  "area": "places near user",
+  "prompt": "Where to eat at Thanksgiving?",
+  "reply": "Open near you on Thanksgiving:\n\n1. **Zuni Café** — dinner service\n2. **Foreign Cinema** — prix fixe",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-020",
+  "area": "places near user",
+  "prompt": "Where's the nearest hospital? Reply in English",
+  "reply": "The nearest hospital to you is **UCSF Medical Center**, about 1.2 miles away.",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-021",
+  "area": "places lookalike",
+  "prompt": "Where should we eat tonight? We're in Rome",
+  "reply": "In Rome tonight:\n\n1. **Da Enzo al 29** — Trastevere\n2. **Roscioli** — near Campo de' Fiori",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-022",
+  "area": "places lookalike",
+  "prompt": "In Addis Ababa, where should we eat?",
+  "reply": "In Addis Ababa:\n\n1. **Yod Abyssinia** — Bole\n2. **Kategna** — kitfo",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-023",
+  "area": "places lookalike",
+  "prompt": "best restaurants, cafes and bars in Rome?",
+  "reply": "In Rome:\n\n1. **Roscioli** — deli and dining\n2. **Sant'Eustachio** — coffee",
+  "expect": "answer",
   "location": "San Francisco, CA, United States"
  }
 ]

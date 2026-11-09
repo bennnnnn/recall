@@ -116,10 +116,10 @@ def test_a_card_keeps_only_the_addresses_its_pages_give() -> None:
             title="The best restaurants in San Francisco right now",
             url="https://www.timeout.com/sf",
             snippet=(
-                "Copra. Indian. Japantown. Srijith Gopinathan's South Indian cooking is the "
-                "most talked-about in town, and the dining room is as warm as the food. Book "
-                "weeks ahead for the tasting menu, or sit at the bar for curries and dosas. "
-                "Liguria Bakery. Focaccia only, sold until it runs out. 725 Columbus Avenue."
+                "Copra. Indian. Japantown. 1700 Post St. Srijith Gopinathan's South Indian "
+                "cooking is the most talked-about in town. Book weeks ahead for the tasting "
+                "menu. Liguria Bakery. Focaccia only, sold until it runs out. "
+                "725 Columbus Avenue."
             ),
         ),
     ]

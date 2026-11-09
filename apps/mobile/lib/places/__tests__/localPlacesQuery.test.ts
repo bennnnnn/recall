@@ -13,10 +13,17 @@ import {
   isLocationQuestion,
   isProximityQuery,
 } from "@/lib/places/localPlacesQuery";
+import { isLocalWeatherQuery } from "@/lib/places/localWeatherQuery";
 
 import fixture from "@/../../docs/fixtures/geo_intent_cases.json";
 
-type Reader = "proximity" | "distance" | "location_question" | "ambiguous_places" | "places_near_user";
+type Reader =
+  | "proximity"
+  | "distance"
+  | "location_question"
+  | "ambiguous_places"
+  | "places_near_user"
+  | "local_weather";
 type GeoCase = { text: string; reads: string[] };
 type Contract = { readers: Record<string, string>; cases: Record<string, GeoCase[]> };
 
@@ -26,6 +33,7 @@ const READERS: Record<Reader, (text: string) => boolean> = {
   location_question: isLocationQuestion,
   ambiguous_places: isAmbiguousLocalPlacesQuery,
   places_near_user: findsPlacesNearTheUser,
+  local_weather: isLocalWeatherQuery,
 };
 const READER_NAMES = Object.keys(READERS) as Reader[];
 
@@ -49,11 +57,11 @@ describe("geo intent contract", () => {
 });
 
 describe("isGeoQuery", () => {
-  // The phone's composite: a places ask near the user, a distance or a where-am-I ask
-  // needs a fix ("the best restaurants in Addis Ababa" names its place: none). The
-  // server's is_geo_query adds a local-weather ask instead, so this half is the
+  // The phone's composite: a places ask near the user, a distance, the weather here or a
+  // where-am-I ask needs a fix ("the best restaurants in Addis Ababa" names its place:
+  // none). The server reads where-am-I beside its is_geo_query, so the composite is the
   // phone's own and is not in the shared fixture.
-  const needsFix = new Set<string>(["places_near_user", "distance", "location_question"]);
+  const needsFix = new Set<string>(["places_near_user", "distance", "local_weather", "location_question"]);
 
   it.each(cases)("%s", (_label, c) => {
     expect(isGeoQuery(c.text)).toBe(c.reads.some((name) => needsFix.has(name)));

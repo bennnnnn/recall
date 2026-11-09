@@ -34,7 +34,7 @@ def slim_geo_hints(
         return []
     if not web_search_service.is_geo_query(query_text):
         return []
-    parts = [f"The user's current location: {prompt_location}."] if prompt_location else []
+    parts = [f"The user's location: {prompt_location}."] if prompt_location else []
     return parts + _geo_hints(query_text, prompt_location)
 
 

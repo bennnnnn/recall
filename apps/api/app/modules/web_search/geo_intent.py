@@ -16,14 +16,15 @@ from app.modules.web_search.distance_patterns import (
 )
 from app.modules.web_search.patterns import (
     _AMBIGUOUS_NEARBY_SUBJECT,
-    _IMPLICIT_LOCAL,
-    _NEARBY_INTENT,
     _PROXIMITY_PHRASES,
     _QUALIFIED_NEARBY,
+    IMPLICIT_LOCAL,
+    NEARBY_INTENT,
     best_near_phrase,
     is_weather_request,
     non_geographic_nearest,
 )
+from app.modules.web_search.venue_place import venue_place
 from app.modules.web_search.weather import around_the_user, is_worked_problem
 
 _LOCATIONLESS_WEATHER = re.compile(
@@ -89,9 +90,9 @@ def is_proximity_query(text: str) -> bool:
     # near me within 2 km, max 5 km" lost its location (2026-11-01).
     if is_worked_problem(cleaned) and not around_the_user(cleaned):
         return False
-    if _NEARBY_INTENT.search(cleaned):
+    if NEARBY_INTENT.search(cleaned):
         return True
-    if _IMPLICIT_LOCAL.search(cleaned):
+    if IMPLICIT_LOCAL.search(cleaned):
         return True
     return bool(best_near_phrase(cleaned) and "?" in cleaned)
 
@@ -121,12 +122,13 @@ def is_distance_query(text: str) -> bool:
 def finds_places_near_the_user(text: str) -> bool:
     """A places ask the user's own location answers.
 
-    One that names its place is searched there, never near the phone: "What are the best
-    restaurants in Addis Ababa?" from San Francisco found a San Francisco to Addis Ababa
+    One that names its venues' place is searched there, never near the phone: "What are the
+    best restaurants in Addis Ababa?" from San Francisco found a San Francisco to Addis Ababa
     time converter and Los Angeles restaurants (2026-11-08). "Coffee near me in Bole" says
-    near me as well, so the user's location still answers it.
+    where "me" is: Bole, not the phone's city. Which capital is that place is read from the
+    sentence (``venue_place``), not from any capital in it.
     """
-    return is_proximity_query(text) and (around_the_user(text) or not names_its_place(text))
+    return is_proximity_query(text) and venue_place(text) is None
 
 
 def is_geo_query(text: str) -> bool:

@@ -343,8 +343,11 @@ async def update_me(
     settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
     now = datetime.now(UTC)
-    fields = profile_service.with_location_choice(
-        profile_service.with_ai_data_consent(body.model_dump(exclude_unset=True), now=now),
+    fields = profile_service.with_location_saved(
+        profile_service.with_location_choice(
+            profile_service.with_ai_data_consent(body.model_dump(exclude_unset=True), now=now),
+            now=now,
+        ),
         now=now,
     )
     try:

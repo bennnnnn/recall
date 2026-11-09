@@ -6,6 +6,9 @@
  * holds this file and the server to the same answers.
  */
 
+import { isLocalWeatherQuery } from "@/lib/places/localWeatherQuery";
+import { venuePlace } from "@/lib/places/venuePlace";
+
 const NEARBY_INTENT =
   /\b(near\s+me|nearby|around\s+here|in(?:\s+this)?\s+town|close\s+(?:by|to\s+me)|(?:the\s+)?(?:nearest|closest))\b/i;
 
@@ -301,44 +304,28 @@ export function isDistanceQuery(text: string): boolean {
   return true;
 }
 
-/** `word` in any case, as the server's `(?i:…)` group reads it: "to" is `[Tt][Oo]`. */
-function anyCase(word: string): string {
-  return Array.from(word, (letter) => `[${letter.toUpperCase()}${letter}]`).join("");
+/** Where the places ask starts (server `venue_place._ask_start`): "near me", "nearest", "where should we eat", "best". */
+function askStart(text: string): number | null {
+  const starts = [NEARBY_INTENT.exec(text), IMPLICIT_LOCAL.exec(text)].flatMap((found) => (found ? [found.index] : []));
+  const best = /\bbest\b/i.exec(text);
+  if (best && wordFollows(text, "best", BEST_NEAR_WORDS)) starts.push(best.index);
+  return starts.length > 0 ? Math.min(...starts) : null;
 }
-
-const PLACE_PREPOSITIONS = ["in", "near", "around", "at", "from", "to", "across", "over", "through", "along"];
-
-/**
- * Server `names_its_place` (`_NAMED_PLACE`): a preposition, then a capitalised name ("in
- * Addis Ababa", "to Seattle", "at JFK"). Only the name's capital is read as written.
- */
-const NAMED_PLACE = new RegExp(
-  String.raw`\b(?:${PLACE_PREPOSITIONS.map(anyCase).join("|")})\s+(?:the\s+)?[A-Z](?![\s'\u2019])`,
-);
-
-/** Server `around_the_user` (`weather._AROUND_THE_USER`): near me, in my area, from my location. */
-const AROUND_THE_USER = new RegExp(
-  [
-    String.raw`\b(?:(?:near|close\s+to|around)\s+(?:me|here|my\s+(?:house|home|place|hotel|office|location))`,
-    String.raw`|in\s+my\s+(?:area|neighbou?rhood|city|town)`,
-    String.raw`|(?:from|at|for|to)\s+my\s+(?:current\s+)?location`,
-    String.raw`|within\s+(?:walking\s+distance|\d+(?:\.\d+)?\s*[a-z]+\s+of\s+(?:me|here|my\s+\w+)))\b`,
-  ].join(""),
-  "i",
-);
 
 /**
  * A places ask the user's own location answers (server `finds_places_near_the_user`). One
- * that names its place ("the best restaurants in Addis Ababa") is searched there, so the
- * phone reads no GPS for it, unless it says near me as well ("coffee near me in Bole").
+ * that names its venues' place ("the best restaurants in Addis Ababa", "coffee near me in
+ * Bole") is searched there, so the phone reads no GPS for it (`venuePlace`).
  */
 export function findsPlacesNearTheUser(text: string): boolean {
-  return isProximityQuery(text) && (AROUND_THE_USER.test(text) || !NAMED_PLACE.test(text));
+  return isProximityQuery(text) && venuePlace(text, askStart(text)) === null;
 }
 
-/** Needs user GPS / profile location — nearby, distance, or "where am I". */
+/** Needs user GPS / profile location — nearby, distance, the weather here, or "where am I". */
 export function isGeoQuery(text: string): boolean {
-  return findsPlacesNearTheUser(text) || isDistanceQuery(text) || isLocationQuestion(text);
+  return (
+    findsPlacesNearTheUser(text) || isDistanceQuery(text) || isLocalWeatherQuery(text) || isLocationQuestion(text)
+  );
 }
 
 export function isAmbiguousLocalPlacesQuery(text: string): boolean {
