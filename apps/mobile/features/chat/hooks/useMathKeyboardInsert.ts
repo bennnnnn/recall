@@ -50,6 +50,18 @@ function rememberSystemKeyboard(height: number | undefined) {
   if (height && height > 0) lastSystemKeyboardHeight = height;
 }
 
+/**
+ * A draft brought back (another chat's, or one saved as the app closed): its maths show as
+ * maths with the caret after them, as the pad leaves them going down. Plain text keeps the
+ * phone's caret, at its end.
+ */
+function restoredDraft(input: string): { math: boolean; caret: TextSelection; pin: TextSelection | null } {
+  const math = hasEditableMath(input);
+  const at = math ? caretAfterMathBarClose(input) : input.length;
+  const caret = { start: at, end: at };
+  return { math, caret, pin: math ? caret : null };
+}
+
 export function useMathKeyboardInsert(options: {
   input: string;
   draftRevision?: number;
@@ -85,9 +97,9 @@ export function useMathKeyboardInsert(options: {
     return () => sub.remove();
   }, []);
 
-  const enablePreview = useCallback(() => {
-    previewEnabledRef.current = true;
-    setPreviewEnabled(true);
+  const setPreview = useCallback((on: boolean) => {
+    previewEnabledRef.current = on;
+    setPreviewEnabled(on);
   }, []);
 
   /** The caret the composer shows, and the one forced onto the native field (undefined: native owns it). */
@@ -103,24 +115,22 @@ export function useMathKeyboardInsert(options: {
   }, []);
 
   useEffect(() => {
-    if (input) return;
-    previewEnabledRef.current = false;
-    setPreviewEnabled(false);
-  }, [input]);
+    if (!input) setPreview(false);
+  }, [input, setPreview]);
 
   useLayoutEffect(() => {
     if (draftRevisionRef.current === draftRevision) return;
     draftRevisionRef.current = draftRevision;
     setSeenRevision(draftRevision);
-    previewEnabledRef.current = false;
-    setPreviewEnabled(false);
+    const restored = restoredDraft(input);
+    setPreview(restored.math);
     mathBarOpenRef.current = false;
     setMathBarOpen(false);
     resumeMathRef.current = false;
     setResumeMathOnFocus(false);
-    pinRef.current = null;
-    commitSelection({ start: input.length, end: input.length }, undefined);
-  }, [commitSelection, draftRevision, input]);
+    pinRef.current = restored.pin;
+    commitSelection(restored.caret, restored.pin ?? undefined);
+  }, [commitSelection, draftRevision, input, setPreview]);
 
   const pinSelection = useCallback((sel: TextSelection) => {
     pinRef.current = sel;
@@ -201,10 +211,7 @@ export function useMathKeyboardInsert(options: {
         pinRef.current = nextSelection;
         commitSelection(nextSelection, undefined);
       }
-      if (!changed.text) {
-        previewEnabledRef.current = false;
-        setPreviewEnabled(false);
-      }
+      if (!changed.text) setPreview(false);
       const delta = extractInsertedDelta(previous, next);
       if (delta && onImageOnlyPaste && shouldProbeClipboardForImagePaste(delta)) {
         void clipboardIsImageOnly().then((imageOnly) => {
@@ -212,20 +219,20 @@ export function useMathKeyboardInsert(options: {
         });
       }
     },
-    [commitSelection, onImageOnlyPaste, pinSelection, selection, setInput, textRef],
+    [commitSelection, onImageOnlyPaste, pinSelection, selection, setInput, setPreview, textRef],
   );
 
   const openMathBar = useCallback(() => {
     if (mathBarOpenRef.current) return;
     rememberSystemKeyboard(Keyboard.metrics()?.height);
-    if (hasEditableMath(textRef.current)) enablePreview();
+    if (hasEditableMath(textRef.current)) setPreview(true);
     setPadHeight(mathPadHeight(lastSystemKeyboardHeight));
     Keyboard.dismiss();
     resumeMathRef.current = true;
     setResumeMathOnFocus(true);
     mathBarOpenRef.current = true;
     setMathBarOpen(true);
-  }, [enablePreview, textRef]);
+  }, [setPreview, textRef]);
 
   /** The pad goes down for typing: the caret after the maths, and the next focus asks for the phone's keyboard. */
   const closeMathBar = useCallback(() => {
@@ -248,7 +255,7 @@ export function useMathKeyboardInsert(options: {
 
   const insertSymbol = useCallback(
     (spec: MathKeyboardSymbol) => {
-      enablePreview();
+      setPreview(true);
       const sel = pinRef.current ?? selection;
       const text = textRef.current;
       const jump = tapAdvancesToNextSlot(text, sel.start, spec.id);
@@ -272,7 +279,7 @@ export function useMathKeyboardInsert(options: {
         advanced != null ? { start: advanced, end: advanced } : result.selection,
       );
     },
-    [enablePreview, pinSelection, selection, setInput, textRef],
+    [pinSelection, selection, setInput, setPreview, textRef],
   );
 
   const backspace = useCallback(() => {
@@ -287,7 +294,7 @@ export function useMathKeyboardInsert(options: {
   const pasteText = useCallback(
     async (text: string) => {
       if (!text) return;
-      enablePreview();
+      setPreview(true);
       const sel = pinRef.current ?? selection;
       const before = textRef.current.slice(0, sel.start);
       const after = textRef.current.slice(sel.end);
@@ -298,7 +305,7 @@ export function useMathKeyboardInsert(options: {
       setInput(spliced);
       pinSelection({ start: caret, end: caret });
     },
-    [enablePreview, pinSelection, selection, setInput, textRef],
+    [pinSelection, selection, setInput, setPreview, textRef],
   );
 
   const stepCaret = useCallback(

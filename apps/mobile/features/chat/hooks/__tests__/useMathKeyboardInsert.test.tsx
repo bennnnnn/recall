@@ -103,17 +103,31 @@ describe("useMathKeyboardInsert", () => {
     expect(result.current.input).toBe("$2 \\times 3$");
   });
 
-  it("resets math editing for another owner even when the draft text is identical", async () => {
+  // A draft saved as the app closed came back as `$\frac{5}{3}$` in the field.
+  it("starts another owner's draft fresh, its maths drawn and the caret after them", async () => {
     const { result, rerender } = await renderHook(
-      ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input: "$x^2$", setInput: jest.fn(), draftRevision }),
+      ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input: "$x^2$ is", setInput: jest.fn(), draftRevision }),
       { initialProps: { draftRevision: 1 } },
     );
     await act(() => result.current.toggleMathBar());
+    await act(() => result.current.moveCaret(1));
     expect(result.current.showMathPreview).toBe(true);
     await rerender({ draftRevision: 2 });
-    expect(result.current.showMathPreview).toBe(false);
+    expect(result.current.showMathPreview).toBe(true);
     expect(result.current.mathBarOpen).toBe(false);
+    const after = "$x^2$".length;
+    expect(result.current.selection).toEqual({ start: after, end: after });
+  });
+
+  it("leaves another owner's plain draft to the phone's caret, at its end", async () => {
+    const { result, rerender } = await renderHook(
+      ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input: "hello", setInput: jest.fn(), draftRevision }),
+      { initialProps: { draftRevision: 1 } },
+    );
+    await rerender({ draftRevision: 2 });
+    expect(result.current.showMathPreview).toBe(false);
     expect(result.current.forcedSelection).toBeUndefined();
+    expect(result.current.selection).toEqual({ start: 5, end: 5 });
   });
 
   it("pins the caret after the last formula when the bar closes", async () => {
