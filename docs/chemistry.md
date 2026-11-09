@@ -124,7 +124,8 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    of LaTeX. Either way with the green check. Image questions remain on the vision/model
    path because OCR text was not the typed extractor input. Substitution is the
    formula with the numbers put in, then (as physics') the same symbol equal to the
-   answer's value when the last row stops at an operation.
+   answer's value when the last row stops at an operation. The saved reply says that value
+   once, in the card: a closing row equal to it is dropped (`worked_lead.drop_restated_step`).
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
    structure fences and appends the solver's copies (the card marked `verified: true`).
    Prose whose own final value differs (`pH = 1.00` against `2.00`) gets one line above

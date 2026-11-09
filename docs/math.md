@@ -82,7 +82,11 @@ Every verified reply in maths, physics, and chemistry is built by `app/services/
 the model prompts state the same layout (`WORKOUT_PROMPT_RULE`). The sections are **Given**,
 **Required** (what is asked; replies before November 2026 say **Find**, and every reader still
 takes it), **Formula**, **Substitution** (values into a formula) or **Steps** (an equation changed
-one move at a time), and **Answer**, in that order and each only when it has lines. Each line
+one move at a time), and **Answer**, in that order and each only when it has lines. The
+answer is said once, at the end: a last line of working that only states the card's value
+(`= \frac{2x}{x^2 + 1}` over a card of 2x/(x² + 1), `m = 29 g` over `m(NaCl) = 29 g`) is
+dropped when the reply saves, and a numbered step that held only it goes whole
+(`worked_lead.drop_restated_step`, the `worked_lead` finalize pass). Each line
 is one state; its move is a short note after ` — `. A formula rearranged for the unknown is not
 a note: a line `Solve for $t$` (`solve_for_line`, one wording wherever a subject writes it:
 physics' law rows, maths' slope-intercept form and geometry rearrangements) comes before the

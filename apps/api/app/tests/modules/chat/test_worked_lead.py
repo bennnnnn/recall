@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.worked_lead import drop_guessed_lead, drop_restated_tail
+from app.modules.chat.quality import _collect_format_signals
+from app.modules.chat.worked_lead import drop_guessed_lead, drop_restated_step, drop_restated_tail
 
 _WORKED = (
     "**Given**\n$m_1 = 160\\ \\text{kg}$\n\n**Formula**\n$E = \\frac{1}{2}Mv^2$\n\n"
@@ -240,3 +241,57 @@ def test_a_picture_after_a_restatement_stays() -> None:
 def test_a_reply_without_a_card_is_unchanged() -> None:
     text = "**Answer**\n\n$s = 2400$\n\nThe displacement is 2400 m.\n"
     assert drop_restated_tail(text, _DISPLACEMENT_ASKED) == text
+
+
+def _card(value: str) -> str:
+    return f"**Answer**\n\n```answer\nverified: true\n{value}\n```\n"
+
+
+_DERIVATIVE = (
+    "**1. Chain rule with inside $x^{2} + 1$** — Chain rule  \n"
+    "$\\frac{d}{dx}\\left(\\ln{\\left(x^{2} + 1 \\right)}\\right) = \\frac{1}{x^{2} + 1} \\times 2 x$  \n"
+    "$= \\frac{2 x}{x^{2} + 1}$\n\n" + _card("\\frac{2 x}{x^{2} + 1}")
+)
+_NACL = (
+    "**Substitution**  \n$m = (0.5\\,\\mathrm{mol})(58.440\\,\\mathrm{g/mol})$  \n"
+    "$m = 29.2\\,\\mathrm{g}$\n\n" + _card("m(\\mathrm{NaCl}) = 29.2\\,\\mathrm{g}")
+)
+_INTEGRAL = (
+    "**3. Integrate what is left**  \n$\\int \\cos{\\left(x \\right)}\\,dx = \\sin{\\left(x \\right)}$\n\n"
+    "**4. Combine**  \n$- x \\cos{\\left(x \\right)} + \\sin{\\left(x \\right)} + C$\n\n"
+    + _card("- x \\cos{\\left(x \\right)} + \\sin{\\left(x \\right)} + C")
+)
+
+
+@pytest.mark.parametrize(
+    ("worked", "said", "kept"),
+    [
+        # The chain's last link, "= 2x/(x^2 + 1)", over a card of 2x/(x^2 + 1).
+        (_DERIVATIVE, "$= \\frac{2 x}{x^{2} + 1}$", "\\times 2 x$\n\n**Answer**"),
+        # "m = 29.2 g" over "m(NaCl) = 29.2 g": the name set to the card's value.
+        (_NACL, "$m = 29.2\\,\\mathrm{g}$", "\\mathrm{g/mol})$\n\n**Answer**"),
+        # A numbered step that only says the card goes whole.
+        (_INTEGRAL, "**4. Combine**", "\\sin{\\left(x \\right)}$\n\n**Answer**"),
+    ],
+)
+def test_the_last_line_saying_the_cards_value_goes(worked: str, said: str, kept: str) -> None:
+    # Every worked card in maths, physics and chemistry said its answer twice (2026-11-08).
+    out = drop_restated_step(worked)
+    assert said not in out
+    assert kept in out
+    assert not any(signal.code == "duplicate_answer" for signal in _collect_format_signals(out))
+
+
+@pytest.mark.parametrize(
+    "worked",
+    [
+        # A section's one line stays: it is never left empty.
+        "**Substitution**  \n$a = 4.9\\,\\mathrm{m/s^2}$\n\n" + _card("4.9\\,\\mathrm{m/s^2}"),
+        # Working that says more than the value: arithmetic, or another value.
+        "**Substitution**  \n$a = 2 \\times 3$  \n$a = 9.81 \\times 0.5$\n\n"
+        + _card("4.9\\,\\mathrm{m/s^2}"),
+        "**Steps**  \n$x - 1 = 0$  \n$x = 1.5$\n\n" + _card("x = \\frac{3}{2}"),
+    ],
+)
+def test_working_that_says_more_than_the_card_stays(worked: str) -> None:
+    assert drop_restated_step(worked) == worked

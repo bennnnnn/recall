@@ -20,6 +20,13 @@ nothing outside its ```worked block, a model still closed with "The car's speed 
 (2026-11-02). A short paragraph after the last card that states only the cards' numbers,
 in words the reply or the question already holds, goes; a picture, or a sentence with a
 number or a word of its own (a caveat, a direction the card lacks), stays.
+
+Nor just above them (``drop_restated_step``): every worked card in maths, physics and
+chemistry came after a last line of working that said its value, "$= \\frac{2x}{x^2 + 1}$"
+over a card of 2x/(x² + 1) and "$m = 29\\,\\mathrm{g}$" over "m(NaCl) = 29 g" (the
+``duplicate_answer`` quality flag on ten turns, 2026-11-08). That line goes: the working
+ends on the step that reaches the value, and the card states it. A numbered step that only
+said it goes whole; a section's one line stays, so the section is never left empty.
 """
 
 from __future__ import annotations
@@ -30,6 +37,7 @@ from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
     answer_fence_value,
+    answer_heading,
 )
 from app.services.law_binding.units import dimension_of
 from app.services.md_fence_scan import iter_fences, line_fences
@@ -280,3 +288,78 @@ def drop_restated_tail(text: str, question: str = "") -> str:
     if len(kept) == len(pieces):
         return text
     return "\n\n".join([head, *kept]) + ("\n" if text.endswith("\n") else "")
+
+
+# A line of working that is one formula: "$a = 4.9\,\mathrm{m/s^2}$", with a hard break.
+_MATHS_LINE = re.compile(r"^[^\S\n]*\$(?P<tex>[^$\n]+)\$[^\S\n]*$")
+# A numbered step's own line: "**4. Combine**", "**1. Factor the left side** — Factoring".
+_STEP_LINE = re.compile(r"^[^\S\n]*\*\*\d+\.\s")
+# What a line or a card names before its value: "x", "d_i", "m(nacl)", "\theta"; none ("= 5").
+_NAME = re.compile(r"(?:\\?[^\W\d_][\w\\']*(?:\([^()=]*\))?)?")
+
+
+def _says_value(line: str, value: str) -> bool:
+    """``line`` states ``value`` and nothing more: the same, or a name set to its value."""
+    said, shown = _flat(line), _flat(value)
+    if said == shown:
+        return True
+    if "=" not in said:
+        return False
+    name, right = said.rsplit("=", 1)
+    return bool(right) and right == shown.rsplit("=", 1)[-1] and _NAME.fullmatch(name) is not None
+
+
+def _card_value(text: str, start: int, end: int) -> str:
+    """A card's value: one line, never a card in parts."""
+    lines = [
+        line
+        for line in answer_fence_value(text[start:end]).splitlines()
+        if line.strip() and not _CARD_META.match(line.strip())
+    ]
+    return lines[0] if len(lines) == 1 else ""
+
+
+def _restated_above(lines: list[str], heading: int, value: str) -> list[int]:
+    """The lines to drop above the Answer heading at ``heading``: the last line of working when
+    it only states ``value``, and its numbered step's own line when it was the step's only one."""
+    last = heading - 1
+    while last >= 0 and not lines[last].strip():
+        last -= 1
+    match = _MATHS_LINE.match(lines[last]) if last > 0 else None
+    if match is None or not _says_value(match.group("tex"), value):
+        return []
+    above = lines[last - 1]
+    if _STEP_LINE.match(above):
+        return [last - 1, last]
+    # A section's one line ("**Substitution**" over it) stays: the section is never emptied.
+    return [last] if _MATHS_LINE.match(above) else []
+
+
+def drop_restated_step(text: str) -> str:
+    """``text`` without the last line of working above an answer card that only says the
+    card's value (module docstring)."""
+    lines = text.split("\n")
+    drop: set[int] = set()
+    for fence in iter_fences(text):
+        if fence.lang not in ANSWER_FENCE_LANGS or not fence.closed:
+            continue
+        value = _card_value(text, fence.body_start, fence.body_end)
+        opener = text.count("\n", 0, fence.start)
+        heading = opener - 1
+        while heading >= 0 and not lines[heading].strip():
+            heading -= 1
+        if value and heading > 0 and answer_heading(lines[heading]) == "":
+            drop.update(_restated_above(lines, heading, value))
+    if not drop:
+        return text
+    kept: list[str] = []
+    for number, line in enumerate(lines):
+        if number in drop:
+            continue
+        if number + 1 in drop:
+            # The line that now ends the working ends its block: no hard break after it.
+            line = line.rstrip()
+        if number - 1 in drop and not line.strip() and kept and not kept[-1].strip():
+            continue  # a dropped step leaves one blank line between its neighbours
+        kept.append(line)
+    return "\n".join(kept)
