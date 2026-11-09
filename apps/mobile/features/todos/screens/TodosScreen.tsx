@@ -1,21 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import { Redirect, useLocalSearchParams, useNavigation, usePreventRemove } from "expo-router";
-import { Keyboard, Pressable, Text, View, type HostInstance } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Redirect, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { Keyboard, View, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/ui/controls/AddFab";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
-import { HeaderButton } from "@/ui/controls/HeaderButton";
-import { plainHeaderItems, StackBackButton } from "@/ui/controls/StackBackButton";
 import { TodosListHeader } from "@/features/todos/components/TodosListHeader";
 import { TodoDetailMenu } from "@/features/todos/components/TodoDetailMenu";
-import { TodosHeaderTitle } from "@/features/todos/components/TodosHeaderTitle";
 import { TodoEditorSheet, type TodoEditorHandle } from "@/features/todos/components/TodoEditorSheet";
 import { TodoSelectionBar } from "@/features/todos/components/TodoSelectionBar";
 import { TodosScrollList } from "@/features/todos/components/TodosScrollList";
 import { TodosViewMenu } from "@/features/todos/components/TodosViewMenu";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
+import { useTodosHeader } from "@/features/todos/hooks/useTodosHeader";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -24,8 +22,8 @@ import { useTodos } from "@/features/todos/context/TodosContext";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import { todosForView, type TodoView, viewForNewTodo } from "@/features/todos/model/todoListFilter";
 import { useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 import { confirmDialog } from "@/ui/overlay/dialogs";
+import { SheetCover } from "@/ui/overlay/Sheet";
 
 export default function TodosScreen() {
   const view = useAccountViewOwner();
@@ -38,7 +36,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const feedback = useActionFeedbackOptional();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const navigation = useNavigation();
   const { highlight } = useLocalSearchParams<{
     highlight?: string;
   }>();
@@ -114,18 +111,13 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setDetailMenu(false);
     editRef.current?.leave();
   }, []);
-  // The native header keeps the first button it mounted. Route the press
-  // through a ref so that button still opens this page's menu.
-  const headerRightAction = useRef<() => void>(() => {});
-  const headerBackAction = useRef<() => void>(() => {});
-  headerBackAction.current = leaveDetail;
   // Back from a to-do's page returns to the list; any other navigation goes ahead.
   usePreventRemove(detailOpen, ({ data, repeat }) => {
     const type = data.action.type;
     if (type === "GO_BACK" || type === "POP") leaveDetail();
     else repeat();
   });
-  headerRightAction.current = () => {
+  const onHeaderMenu = () => {
     Keyboard.dismiss();
     if (detailOpen && editingId) {
       setDetailMenu((open) => !open);
@@ -138,48 +130,10 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setMenuOpen((open) => !open);
   };
 
-  useLayoutEffect(() => {
-    const headerLeftElement = detailOpen ? (
-      <HeaderButton
-        icon="arrow-left"
-        variant="plain"
-        accessibilityLabel={t("common.back")}
-        onPress={() => headerBackAction.current()}
-      />
-    ) : (
-      <StackBackButton />
-    );
-    let headerRightElement: ReactElement | null = null;
-    if (!(detailOpen && !editingId)) {
-      headerRightElement = !detailOpen && selecting ? (
-        <Pressable
-          onPress={() => headerRightAction.current()}
-          accessibilityRole="button"
-          accessibilityLabel={t("todos.selection_done")}
-          hitSlop={12}
-        >
-          <Text style={[Type.body, { color: C.primary }]}>{t("todos.selection_done")}</Text>
-        </Pressable>
-      ) : (
-        <HeaderButton
-          ref={menuAnchorRef}
-          icon="more-horizontal"
-          variant="plain"
-          accessibilityLabel={detailOpen ? t("todos.detail_menu") : t("todos.menu")}
-          onPress={() => headerRightAction.current()}
-        />
-      );
-    }
-    navigation.setOptions({
-      headerTitle: () => <TodosHeaderTitle view={detailOpen ? null : view} />,
-      headerStyle: { backgroundColor: detailOpen ? C.surface : C.bg },
-      headerShadowVisible: false,
-      headerLeft: () => headerLeftElement,
-      unstable_headerLeftItems: () => plainHeaderItems(headerLeftElement),
-      headerRight: () => headerRightElement,
-      unstable_headerRightItems: () => plainHeaderItems(headerRightElement),
-    });
-  }, [navigation, t, selecting, detailOpen, editingId, view, C.primary, C.surface, C.bg]);
+  useTodosHeader({
+    view, detailOpen, editingId, selecting, covered: editorOpen, menuAnchorRef,
+    onLeaveDetail: leaveDetail, onMenu: onHeaderMenu,
+  });
 
   const onPullRefresh = useCallback(async () => {
     if (!isCurrentView() || refreshingRef.current) return;
@@ -261,29 +215,49 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     // The root layout already provides GestureHandlerRootView — a nested one
     // here steals gesture routing (see lessons: drawer pan vs mic press).
     <View style={s.root}>
-      {detailOpen ? null : (
-      <TodosScrollList
-        rows={rows}
-        now={now}
-        showEmpty={showTodosEmptyHero}
-        view={view}
-        error={Boolean(error)}
-        listHeader={listHeader}
-        refreshing={pullRefreshing}
-        onRefresh={onPullRefresh}
-        highlight={highlight}
-        busyTodoIds={actions.busyTodoIds}
-        onToggle={actions.handleToggle}
-        onOpen={openTodo}
-        onDeleteItem={actions.handleDeleteItem}
-        selecting={selecting}
-        selectedIds={selected}
-        onSelect={toggleSelected}
-        onShowOlder={olderCompleted && !selecting && (view === "all" || view === "completed")
-          ? () => void showOlderCompleted()
-          : undefined}
-      />
-      )}
+      {/* What the new to-do sheet covers; the sheets and menus are drawn beside it. */}
+      <SheetCover covered={editorOpen} style={s.root}>
+        {detailOpen ? null : (
+        <TodosScrollList
+          rows={rows}
+          now={now}
+          showEmpty={showTodosEmptyHero}
+          view={view}
+          error={Boolean(error)}
+          listHeader={listHeader}
+          refreshing={pullRefreshing}
+          onRefresh={onPullRefresh}
+          highlight={highlight}
+          busyTodoIds={actions.busyTodoIds}
+          onToggle={actions.handleToggle}
+          onOpen={openTodo}
+          onDeleteItem={actions.handleDeleteItem}
+          selecting={selecting}
+          selectedIds={selected}
+          onSelect={toggleSelected}
+          onShowOlder={olderCompleted && !selecting && (view === "all" || view === "completed")
+            ? () => void showOlderCompleted()
+            : undefined}
+        />
+        )}
+
+        {selecting ? (
+          <TodoSelectionBar
+            count={selectedIds.length}
+            onComplete={() => {
+              void actions.handleMarkDone(selectedIds);
+              leaveSelection();
+            }}
+            onDelete={deleteSelected}
+          />
+        ) : detailOpen ? null : (
+          <AddFab
+            wave
+            onPress={openEditor}
+            accessibilityLabel={t("todos.add_todo")}
+          />
+        )}
+      </SheetCover>
 
       <TodosViewMenu
         visible={menuOpen && !selecting && !detailOpen}
@@ -299,23 +273,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }}
         onClose={() => setMenuOpen(false)}
       />
-
-      {selecting ? (
-        <TodoSelectionBar
-          count={selectedIds.length}
-          onComplete={() => {
-            void actions.handleMarkDone(selectedIds);
-            leaveSelection();
-          }}
-          onDelete={deleteSelected}
-        />
-      ) : detailOpen ? null : (
-        <AddFab
-          wave
-          onPress={openEditor}
-          accessibilityLabel={t("todos.add_todo")}
-        />
-      )}
 
       <TodoEditorSheet
         visible={editorOpen}

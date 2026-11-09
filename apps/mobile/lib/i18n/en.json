@@ -103,6 +103,8 @@
   "chat.live_talk_unmute_a11y": "Unmute microphone",
   "chat.load_earlier": "Load earlier messages",
   "chat.load_newer": "Load newer messages",
+  "chat.loading_earlier": "Loading earlier messages…",
+  "chat.loading_newer": "Loading newer messages…",
   "chat.locating": "Getting your location…",
   "chat.location_required_title": "Location access",
   "chat.math_converter_ask": "Ask",

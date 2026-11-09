@@ -1,5 +1,13 @@
 import { memo, ReactElement, RefObject, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
@@ -42,6 +50,11 @@ type Props = {
   header?: ReactElement | null;
   /** After the last message, inside the scroll content (the keyboard spacer). */
   footer?: ReactElement | null;
+  /**
+   * Live talk's call is drawn over the thread, under the header: a screen reader skips the
+   * messages it covers, as it skips a page under a sheet.
+   */
+  covered?: boolean;
 };
 
 /** What the list draws beyond the screen, and how many rows it keeps off it for reuse. */
@@ -68,6 +81,7 @@ function ChatMessageListComponent({
   scroll,
   header,
   footer,
+  covered = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -129,36 +143,20 @@ function ChatMessageListComponent({
         contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
+        accessibilityElementsHidden={covered}
+        importantForAccessibility={covered ? "no-hide-descendants" : "auto"}
         ListHeaderComponent={
           hasMoreOlder ? (
-            <Pressable
-              style={s.loadEarlier}
-              hitSlop={{ top: 5, bottom: 5 }}
-              onPress={onLoadOlder}
-              disabled={loadingOlder}
-              accessibilityRole="button"
-              accessibilityLabel={t("chat.load_earlier")}
-            >
-              <Text style={s.loadEarlierText}>
-                {loadingOlder ? "…" : t("chat.load_earlier")}
-              </Text>
-            </Pressable>
+            <PageButton label={t("chat.load_earlier")} loadingLabel={t("chat.loading_earlier")}
+              loading={loadingOlder} onPress={onLoadOlder} styles={s} />
           ) : null
         }
         ListFooterComponent={
           newerPage || footer ? (
             <>
               {newerPage ? (
-                <Pressable
-                  style={s.loadEarlier}
-                  hitSlop={{ top: 5, bottom: 5 }}
-                  onPress={() => void newerPage.load()}
-                  disabled={newerPage.loading}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("chat.load_newer")}
-                >
-                  <Text style={s.loadEarlierText}>{newerPage.loading ? "…" : t("chat.load_newer")}</Text>
-                </Pressable>
+                <PageButton label={t("chat.load_newer")} loadingLabel={t("chat.loading_newer")}
+                  loading={newerPage.loading} onPress={() => void newerPage.load()} styles={s} />
               ) : null}
               {footer}
             </>
@@ -184,6 +182,41 @@ function ChatMessageListComponent({
 
 export const ChatMessageList = memo(ChatMessageListComponent);
 
+/**
+ * Load earlier (or newer) messages. While the page loads it says so, with a spinner, and a
+ * screen reader hears it busy: it showed "…" and kept its old name.
+ */
+function PageButton({
+  label,
+  loadingLabel,
+  loading,
+  onPress,
+  styles: s,
+}: {
+  label: string;
+  loadingLabel: string;
+  loading: boolean;
+  onPress: () => void;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  const theme = useTheme();
+  const shown = loading ? loadingLabel : label;
+  return (
+    <Pressable
+      style={s.loadEarlier}
+      hitSlop={{ top: 5, bottom: 5 }}
+      onPress={onPress}
+      disabled={loading}
+      accessibilityRole="button"
+      accessibilityLabel={shown}
+      accessibilityState={{ busy: loading, disabled: loading }}
+    >
+      {loading ? <ActivityIndicator size="small" color={theme.primary} /> : null}
+      <Text style={s.loadEarlierText}>{shown}</Text>
+    </Pressable>
+  );
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     messagesArea: { flex: 1 },
@@ -192,6 +225,9 @@ function makeStyles(theme: Theme) {
     listContent: { paddingVertical: Space.xs },
     loadEarlier: {
       alignSelf: "center",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
       marginVertical: Space.sm,
       paddingHorizontal: Space.md,
       paddingVertical: Space.xs,

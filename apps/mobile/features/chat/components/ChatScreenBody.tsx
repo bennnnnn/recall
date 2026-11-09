@@ -1,5 +1,5 @@
 import { memo, ReactElement, RefObject, useEffect, useMemo } from "react";
-import { View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type SharedValue } from "react-native-reanimated";
 
@@ -30,6 +30,7 @@ import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import type { IconName } from "@/ui/icons/names";
 import type { Theme } from "@/lib/theme";
 import { useDrawerOpen } from "@/contexts/DrawerContext";
+import { SheetCover } from "@/ui/overlay/Sheet";
 import { ChatKeyboardSpacer } from "@/features/chat/components/ChatKeyboardSpacer";
 import type { ComposerKeyboard } from "@/hooks/useKeyboardInset";
 
@@ -156,90 +157,101 @@ export const ChatScreenBody = memo(function ChatScreenBody({
 
   return (
     <View style={s.container}>
-      <StreamingDraftProvider>
-        <ChatMessageList
-          listRef={list.listRef}
-          messages={messages}
-          headerInset={layout.headerInset}
-          listBottomPad={layout.restingListBottomPad}
-          hasMoreOlder={list.hasMoreOlder}
-          loadingOlder={list.loadingOlder}
-          newerPage={list.newerPage}
-          chatLoading={list.chatLoading}
-          routeChatId={list.routeChatId}
-          emptyHeight={layout.emptyHeight}
-          renderItem={list.renderItem}
-          onLoadOlder={list.onLoadOlder}
-          onScroll={list.onScroll}
-          onScrollEnd={list.onScrollEnd}
-          scroll={list.scroll}
-          header={list.header}
-          footer={keyboardSpacer}
+      {/* Everything the attach sheet covers; the sheets and the toast are drawn beside it. */}
+      <SheetCover covered={sheets.attachSheetOpen && !drawerOpen} style={coverStyles.fill}>
+        <StreamingDraftProvider>
+          <ChatMessageList
+            listRef={list.listRef}
+            messages={messages}
+            headerInset={layout.headerInset}
+            listBottomPad={layout.restingListBottomPad}
+            hasMoreOlder={list.hasMoreOlder}
+            loadingOlder={list.loadingOlder}
+            newerPage={list.newerPage}
+            chatLoading={list.chatLoading}
+            routeChatId={list.routeChatId}
+            emptyHeight={layout.emptyHeight}
+            renderItem={list.renderItem}
+            onLoadOlder={list.onLoadOlder}
+            onScroll={list.onScroll}
+            onScrollEnd={list.onScrollEnd}
+            scroll={list.scroll}
+            header={list.header}
+            footer={keyboardSpacer}
+            covered={composer.liveTalkActive}
+          />
+        </StreamingDraftProvider>
+
+        <ChatComposer
+          visible={!drawerOpen}
+          animatedContainerStyle={composer.keyboard?.style}
+          keyboardHeight={composer.keyboard?.height}
+          streaming={composerShowsStop(composer)}
+          attachPicking={composer.attachPicking}
+          sendBusy={composer.sendBusy}
+          sendStatus={composer.sendStatus}
+          pendingAttachment={composer.pendingAttachment}
+          onRemoveAttachment={composer.onRemoveAttachment}
+          onCloseAttachSheet={sheets.onCloseAttachSheet}
+          onPickAttachment={composer.onPickAttachment}
+          onSend={composer.onSend}
+          onStop={composer.onStop}
+          isOffline={composer.isOffline}
+          voiceAvailable={composer.voiceAvailable}
+          voiceRecording={composer.voiceRecording}
+          voiceTranscribing={composer.voiceTranscribing}
+          voiceMeterLevel={composer.voiceMeterLevel}
+          onVoicePress={composer.onVoicePress}
+          onCancelVoice={composer.onCancelVoice}
+          onLiveTalkPress={composer.onLiveTalkPress}
+          liveTalkActive={composer.liveTalkActive}
+          onOpenMathScanner={composer.onOpenMathScanner}
+          onMathChromeHeightChange={composer.onMathChromeHeightChange}
+          onInputFrameExtraChange={composer.onInputFrameExtraChange}
         />
-      </StreamingDraftProvider>
 
-      <ChatComposer
-        visible={!drawerOpen}
-        animatedContainerStyle={composer.keyboard?.style}
-        keyboardHeight={composer.keyboard?.height}
-        streaming={composerShowsStop(composer)}
-        attachPicking={composer.attachPicking}
-        sendBusy={composer.sendBusy}
-        sendStatus={composer.sendStatus}
-        pendingAttachment={composer.pendingAttachment}
-        onRemoveAttachment={composer.onRemoveAttachment}
-        onCloseAttachSheet={sheets.onCloseAttachSheet}
-        onPickAttachment={composer.onPickAttachment}
-        onSend={composer.onSend}
-        onStop={composer.onStop}
-        isOffline={composer.isOffline}
-        voiceAvailable={composer.voiceAvailable}
-        voiceRecording={composer.voiceRecording}
-        voiceTranscribing={composer.voiceTranscribing}
-        voiceMeterLevel={composer.voiceMeterLevel}
-        onVoicePress={composer.onVoicePress}
-        onCancelVoice={composer.onCancelVoice}
-        onLiveTalkPress={composer.onLiveTalkPress}
-        liveTalkActive={composer.liveTalkActive}
-        onOpenMathScanner={composer.onOpenMathScanner}
-        onMathChromeHeightChange={composer.onMathChromeHeightChange}
-        onInputFrameExtraChange={composer.onInputFrameExtraChange}
-      />
+        <ChatChrome
+          layout={layout}
+          drawerOpen={drawerOpen}
+          chrome={chrome}
+          onStop={composer.onStop}
+          quotaUpgradeLabel={t("chat.quota_nudge_cta")}
+        />
+      </SheetCover>
 
-      <ChatOverlays
-        layout={layout}
-        drawerOpen={drawerOpen}
-        chrome={chrome}
-        sheets={sheets}
-        onStop={composer.onStop}
-        quotaUpgradeLabel={t("chat.quota_nudge_cta")}
-      />
+      <ChatSheets layout={layout} drawerOpen={drawerOpen} chrome={chrome} sheets={sheets} />
     </View>
   );
 });
 
-type ChatOverlaysProps = {
+const coverStyles = StyleSheet.create({ fill: { flex: 1 } });
+
+/**
+ * Clearance above the composer for what floats over it: the read-aloud player sits on the
+ * composer, so while it shows, the rest rides above it.
+ */
+function useComposerClearance(resting: number): number {
+  return resting + (useReadAloudShowing() ? READ_ALOUD_PLAYER_HEIGHT + 8 : 0);
+}
+
+type ChatChromeProps = {
   layout: ChatScreenLayoutProps;
   drawerOpen: boolean;
   chrome: ChatScreenChromeProps;
-  sheets: ChatScreenSheetsProps;
   onStop: () => void;
   quotaUpgradeLabel: string;
 };
 
-const ChatOverlays = memo(function ChatOverlays({
+/** What floats over the chat: read-aloud, jump to latest, the quota nudge, an error. */
+const ChatChrome = memo(function ChatChrome({
   layout,
   drawerOpen,
   chrome,
-  sheets,
   onStop,
   quotaUpgradeLabel,
-}: ChatOverlaysProps) {
+}: ChatChromeProps) {
   const { styles, theme, restingComposerClearance, keyboardLift } = layout;
-  // The read-aloud player sits on the composer; what floats there too rides above it.
-  const playerShowing = useReadAloudShowing();
-  const composerClearance =
-    restingComposerClearance + (playerShowing ? READ_ALOUD_PLAYER_HEIGHT + 8 : 0);
+  const composerClearance = useComposerClearance(restingComposerClearance);
 
   return (
     <>
@@ -280,12 +292,28 @@ const ChatOverlays = memo(function ChatOverlays({
         onChangeModel={chrome.onChangeModel}
         onDismiss={chrome.onDismissChatError}
       />
+    </>
+  );
+});
 
+type ChatSheetsProps = {
+  layout: ChatScreenLayoutProps;
+  drawerOpen: boolean;
+  chrome: ChatScreenChromeProps;
+  sheets: ChatScreenSheetsProps;
+};
+
+/** The toast and the sheets over the chat: drawn beside what the attach sheet covers. */
+const ChatSheets = memo(function ChatSheets({ layout, drawerOpen, chrome, sheets }: ChatSheetsProps) {
+  const composerClearance = useComposerClearance(layout.restingComposerClearance);
+
+  return (
+    <>
       <ActionBanner
         message={chrome.actionBanner?.message ?? null}
         icon={chrome.actionBanner?.icon}
         bottomOffset={composerClearance + 12}
-        lift={keyboardLift}
+        lift={layout.keyboardLift}
         onDismiss={chrome.onDismissActionBanner}
       />
 

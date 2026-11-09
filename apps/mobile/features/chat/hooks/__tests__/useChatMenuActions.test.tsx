@@ -2,6 +2,7 @@ import React from "react";
 import { Alert, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useChatMenuActions } from "@/features/chat/hooks/useChatMenuActions";
+import type { ChatRowAction } from "@/features/chat/model/chatRowActions";
 import { api, type Chat } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
@@ -192,4 +193,40 @@ it.each(["pin", "archive"])("uses the returned state for the drawer %s confirmat
   expect(current.actionBanner).toEqual(kind === "pin"
     ? { message: "chat.pinned_toast", icon: "pin" }
     : { message: "chat.unarchived_toast", icon: "unarchive" });
+});
+
+// A screen reader's actions on a drawer row: the menu's own, run on that row's chat, no menu open.
+it("runs a row's action on its chat with no menu open, through one handler for every row", async () => {
+  (api.setPin as jest.Mock).mockResolvedValueOnce({ ...chat, pinned: false });
+  await render(<Probe />);
+  const handler = current.rowAction;
+  await act(async () => { current.rowAction(chat, "pin"); });
+  expect(api.setPin).toHaveBeenCalledWith("token", "one", false);
+  expect(patch).toHaveBeenCalledWith("one", { pinned: false });
+
+  await act(async () => { current.rowAction({ ...chat, id: "two", title: "Second" }, "rename"); });
+  expect(current.renameVisible).toBe(true);
+  expect(current.renameText).toBe("Second");
+
+  // Opening and closing a menu renews the menu's handlers, never the rows'.
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => { current.closeMenu(); });
+  expect(current.rowAction).toBe(handler);
+});
+
+it("never pins an archived chat from its row", async () => {
+  await render(<Probe />);
+  await act(async () => { current.rowAction({ ...chat, archived: true, pinned: false }, "pin"); });
+  expect(api.setPin).not.toHaveBeenCalled();
+});
+
+// Only the menu's own actions run: an unknown name used to fall through to Delete.
+it("ignores an action it does not know, and leaves an open menu open", async () => {
+  await render(<Probe />);
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => { current.rowAction(chat, "activate" as ChatRowAction); });
+  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(api.deleteChat).not.toHaveBeenCalled();
+  expect(current.renameVisible).toBe(false);
+  expect(current.menuChat).toEqual(chat);
 });

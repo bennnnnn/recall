@@ -103,6 +103,8 @@
   "chat.live_talk_unmute_a11y": "ማይክሮፎኑን አብራ",
   "chat.load_earlier": "የቀድሞ መልእክቶችን ጫን",
   "chat.load_newer": "አዳዲስ መልእክቶችን ጫን",
+  "chat.loading_earlier": "የቀድሞ መልእክቶችን በመጫን ላይ…",
+  "chat.loading_newer": "አዳዲስ መልእክቶችን በመጫን ላይ…",
   "chat.locating": "አካባቢዎን በማግኘት ላይ…",
   "chat.location_required_title": "የአካባቢ መዳረሻ",
   "chat.math_converter_ask": "ጠይቅ",

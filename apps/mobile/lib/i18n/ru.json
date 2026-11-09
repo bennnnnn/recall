@@ -103,6 +103,8 @@
   "chat.live_talk_unmute_a11y": "Включить микрофон",
   "chat.load_earlier": "Загрузить ранние сообщения",
   "chat.load_newer": "Загрузить новые сообщения",
+  "chat.loading_earlier": "Загрузка ранних сообщений…",
+  "chat.loading_newer": "Загрузка новых сообщений…",
   "chat.locating": "Определяем ваше местоположение…",
   "chat.location_required_title": "Доступ к геопозиции",
   "chat.math_converter_ask": "Спросить",

@@ -70,8 +70,9 @@ jest.mock("@/ui/feedback/ActionBanner", () => ({
 }));
 jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
   AttachmentSourceSheet: (props: { visible?: boolean }) => {
+    const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
     mockAttachmentSourceSheet(props);
-    return null;
+    return props.visible ? <MockView testID="attach-sheet" accessible /> : null;
   },
 }));
 jest.mock("@/features/scanner/components/MathEquationScanner", () => ({
@@ -277,7 +278,8 @@ describe("ChatScreenBody", () => {
         <ChatScreenBody {...props} />
       </DrawerProvider>,
     );
-    expect(view.getByTestId("composer-idle")).toBeTruthy();
+    // Under the attach sheet the composer is drawn, but a screen reader skips it.
+    expect(view.getByTestId("composer-idle", { includeHiddenElements: true })).toBeTruthy();
     expect(mockScrollFab).toHaveBeenLastCalledWith(expect.objectContaining({ visible: true }));
     expect(mockAttachmentSourceSheet).toHaveBeenLastCalledWith(expect.objectContaining({ visible: true }));
     const listRenders = mockChatMessageList.mock.calls.length;
@@ -292,6 +294,23 @@ describe("ChatScreenBody", () => {
     expect(mockAttachmentSourceSheet).toHaveBeenLastCalledWith(expect.objectContaining({ visible: false }));
     // The thread itself is untouched by the drawer.
     expect(mockChatMessageList).toHaveBeenCalledTimes(listRenders);
+  });
+
+  // VoiceOver and TalkBack still reached the chat, its header and the composer behind the attach
+  // sheet (iPhone 17 Pro Max Simulator, 2026-11-08): it is drawn in the screen, not a Modal.
+  it("hides the chat from a screen reader while the attach sheet is up, and only the chat", async () => {
+    const view = await render(<ChatScreenBody {...baseProps} />);
+    expect(view.getByText("Hello")).toBeTruthy();
+    expect(view.getByTestId("composer-idle")).toBeTruthy();
+
+    await view.rerender(<ChatScreenBody {...baseProps} sheets={{ ...baseProps.sheets, attachSheetOpen: true }} />);
+    expect(view.queryByText("Hello")).toBeNull();
+    expect(view.queryByTestId("composer-idle")).toBeNull();
+    expect(view.getByText("Hello", { includeHiddenElements: true })).toBeTruthy();
+    expect(view.getByTestId("attach-sheet")).toBeTruthy();
+
+    await view.rerender(<ChatScreenBody {...baseProps} />);
+    expect(view.getByText("Hello")).toBeTruthy();
   });
 
   it("closes the math scanner when the drawer opens over it", async () => {

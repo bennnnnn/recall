@@ -103,6 +103,8 @@
   "chat.live_talk_unmute_a11y": "Activer le micro",
   "chat.load_earlier": "Messages précédents",
   "chat.load_newer": "Messages suivants",
+  "chat.loading_earlier": "Chargement des messages précédents…",
+  "chat.loading_newer": "Chargement des messages suivants…",
   "chat.locating": "Localisation en cours…",
   "chat.location_required_title": "Accès à la localisation",
   "chat.math_converter_ask": "Demander",

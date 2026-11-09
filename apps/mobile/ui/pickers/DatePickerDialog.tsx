@@ -44,6 +44,11 @@ import { Dialog } from "../overlay/Dialog";
 
 const DATE_PICKER_WIDTH = 328;
 const CELL = 40;
+/**
+ * A week's height: each day is a target this tall around its circle. The circle is `CELL` or
+ * less (32pt on a narrow phone), and it alone was the target.
+ */
+const DAY_ROW = Space.minTouch;
 const YEAR_ROW = 52;
 const SWIPE = 40;
 
@@ -227,7 +232,7 @@ export function DatePickerDialog({
         )}
       </View>
 
-      <View style={{ height: cell * 7 }}>
+      <View style={{ height: cell + DAY_ROW * 6 }}>
         {years ? (
           <YearGrid
             selected={shown.year}
@@ -251,43 +256,20 @@ export function DatePickerDialog({
             {weeks.map((week, row) => (
               <View key={row} style={s.week}>
                 {week.map((day, column) => {
-                  if (day == null) return <View key={column} style={{ width: cell, height: cell }} />;
+                  if (day == null) return <View key={column} style={{ width: cell, height: DAY_ROW }} />;
                   const date = withDay(draft, shown, day);
-                  const disabled = dayOutOfRange(date, minimumDate, maximumDate);
-                  const selected = isSameDay(date, draft);
-                  const isToday = isSameDay(date, today);
-                  const spoken = formatDate(date, "fullDate");
                   return (
-                    <Pressable
+                    <DayCell
                       key={column}
-                      onPress={() => {
-                        selection();
-                        setDraft(date);
-                      }}
-                      disabled={disabled}
-                      style={[
-                        s.day,
-                        { width: cell, height: cell, borderRadius: cell / 2 },
-                        isToday && !selected && s.dayToday,
-                        selected && s.daySelected,
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={isToday ? `${t("picker.today")}, ${spoken}` : spoken}
-                      accessibilityState={{ selected, disabled }}
+                      date={date}
+                      cell={cell}
+                      disabled={dayOutOfRange(date, minimumDate, maximumDate)}
+                      selected={isSameDay(date, draft)}
+                      isToday={isSameDay(date, today)}
+                      onPick={setDraft}
+                      styles={s}
                       testID={`${testID}-day-${day}`}
-                    >
-                      <Text
-                        style={[
-                          s.dayText,
-                          isToday && s.dayTextToday,
-                          selected && s.dayTextSelected,
-                          disabled && s.dayTextDisabled,
-                        ]}
-                        maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
-                      >
-                        {day}
-                      </Text>
-                    </Pressable>
+                    />
                   );
                 })}
               </View>
@@ -296,6 +278,65 @@ export function DatePickerDialog({
         )}
       </View>
     </Dialog>
+  );
+}
+
+/** One day: a circle `cell` across, drawn in the middle of a target the week's full height. */
+function DayCell({
+  date,
+  cell,
+  disabled,
+  selected,
+  isToday,
+  onPick,
+  styles: s,
+  testID,
+}: {
+  date: Date;
+  cell: number;
+  disabled: boolean;
+  selected: boolean;
+  isToday: boolean;
+  onPick: (date: Date) => void;
+  styles: ReturnType<typeof makeStyles>;
+  testID: string;
+}) {
+  const { t } = useTranslation();
+  const spoken = formatDate(date, "fullDate");
+  return (
+    <Pressable
+      onPress={() => {
+        selection();
+        onPick(date);
+      }}
+      disabled={disabled}
+      style={[s.day, { width: cell, height: DAY_ROW }]}
+      accessibilityRole="button"
+      accessibilityLabel={isToday ? `${t("picker.today")}, ${spoken}` : spoken}
+      accessibilityState={{ selected, disabled }}
+      testID={testID}
+    >
+      <View
+        style={[
+          s.day,
+          { width: cell, height: cell, borderRadius: cell / 2 },
+          isToday && !selected && s.dayToday,
+          selected && s.daySelected,
+        ]}
+      >
+        <Text
+          style={[
+            s.dayText,
+            isToday && s.dayTextToday,
+            selected && s.dayTextSelected,
+            disabled && s.dayTextDisabled,
+          ]}
+          maxFontSizeMultiplier={DYNAMIC_TYPE_PICKER_MAX}
+        >
+          {date.getDate()}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 

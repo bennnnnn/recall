@@ -11,6 +11,7 @@ import { ConversationList } from "@/features/chat/drawer/ConversationList";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { api, type Chat } from "@/lib/api";
 import { impactMedium, notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
+import { menuItemRole } from "@/ui/controls/a11yRoles";
 
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
@@ -140,7 +141,7 @@ it.each(ROWS)("the chat header's ⋮ %s plays one haptic", async (row) => {
   const view = await render(<HeaderMenu />);
   expect(actions).toBeDefined();
   await act(async () => {
-    fireEvent.press(view.getByRole("menuitem", { name: row }));
+    fireEvent.press(view.getByRole(menuItemRole(), { name: row }));
   });
   expect(hapticCount()).toBe(1);
   expect(selection).toHaveBeenCalledTimes(1);
@@ -151,7 +152,7 @@ it.each([...ROWS.filter((row) => row !== "chat.export_pdf"), "drawer.select"])(
   async (row) => {
     const view = await render(<ConversationList />);
     await act(async () => {
-      fireEvent.press(view.getByRole("menuitem", { name: row }));
+      fireEvent.press(view.getByRole(menuItemRole(), { name: row }));
     });
     expect(hapticCount()).toBe(1);
     expect(selection).toHaveBeenCalledTimes(1);

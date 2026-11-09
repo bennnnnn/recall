@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
+import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -132,24 +132,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
       testID="math-keyboard-pad"
     >
       <View style={s.tabs}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.tabRow}
-          keyboardShouldPersistTaps="handled"
-        >
-          {MATH_KEYBOARD_GROUPS.map((id) => (
-            <Chip
-              key={id}
-              variant="filter"
-              label={t(`chat.math_keyboard_group_${id}`)}
-              selected={id === group}
-              onPress={() => onGroupChange(id)}
-              accessibilityRole="tab"
-              testID={`math-keyboard-tab-${id}`}
-            />
-          ))}
-        </ScrollView>
+        <GroupTabs group={group} onGroupChange={onGroupChange} style={s.tabRow} />
         <IconButton
           name="clipboard"
           size={IconSize.sm}
@@ -189,6 +172,40 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
     </View>
   );
 });
+
+/** The pad's groups (Basics, Algebra, Greek…): a row of tabs over the keys. */
+function GroupTabs({
+  group,
+  onGroupChange,
+  style,
+}: {
+  group: MathKeyboardGroup;
+  onGroupChange: (group: MathKeyboardGroup) => void;
+  style: StyleProp<ViewStyle>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={style}
+      keyboardShouldPersistTaps="handled"
+      accessibilityRole="tablist"
+    >
+      {MATH_KEYBOARD_GROUPS.map((id) => (
+        <Chip
+          key={id}
+          variant="filter"
+          label={t(`chat.math_keyboard_group_${id}`)}
+          selected={id === group}
+          onPress={() => onGroupChange(id)}
+          accessibilityRole="tab"
+          testID={`math-keyboard-tab-${id}`}
+        />
+      ))}
+    </ScrollView>
+  );
+}
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
