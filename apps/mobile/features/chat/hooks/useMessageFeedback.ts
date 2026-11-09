@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 import { api } from "@/lib/api";
 import { isServerMessageId } from "@/lib/serverMessageId";
@@ -17,6 +17,8 @@ type Options = {
 /** A thumb up or down on a reply: shown at once, saved, and taken back with a word when it cannot be. */
 export function useMessageFeedback({ token, chatId, editThread, t }: Options) {
   const feedback = useActionFeedbackOptional();
+  // Each reply's taps, counted: only the latest tap's failure takes its rating back.
+  const taps = useRef(new Map<string, number>());
   return useCallback(
     (messageId: string, next: "up" | "down" | null) => {
       // A reply the server has not saved yet (one stopped before its id came) cannot keep a
@@ -25,6 +27,8 @@ export function useMessageFeedback({ token, chatId, editThread, t }: Options) {
         reportRecoverableError(feedback, t("chat.feedback_failed"));
         return;
       }
+      const tap = (taps.current.get(messageId) ?? 0) + 1;
+      taps.current.set(messageId, tap);
       let previous: "up" | "down" | null = null;
       editThread(
         (prev) =>
@@ -36,14 +40,14 @@ export function useMessageFeedback({ token, chatId, editThread, t }: Options) {
         "feedback",
       );
       void api.setMessageFeedback(token, chatId, messageId, next).catch((error: unknown) => {
-        // Only this tap goes back: a newer tap on the same reply keeps its rating.
+        reportFailure("message_feedback", error);
+        // A newer tap on the same reply went out after this one: its rating stands, whatever it shows.
+        if (taps.current.get(messageId) !== tap) return;
         editThread(
-          (prev) => prev.map((mm) =>
-            mm.id === messageId && (mm.feedback ?? null) === next ? { ...mm, feedback: previous } : mm),
+          (prev) => prev.map((mm) => (mm.id === messageId ? { ...mm, feedback: previous } : mm)),
           "feedback",
         );
         reportRecoverableError(feedback, t("chat.feedback_failed"));
-        reportFailure("message_feedback", error);
       });
     },
     [token, chatId, editThread, feedback, t],

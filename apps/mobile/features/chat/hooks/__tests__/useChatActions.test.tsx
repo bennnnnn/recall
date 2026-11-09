@@ -402,6 +402,22 @@ describe("useChatActions thumbs", () => {
     expect(thread[0]?.feedback).toBe("down");
   });
 
+  // Up, clear, up: the first request's failure put the reply back to empty, while the server kept "up".
+  it("takes back only the latest tap when an earlier one fails", async () => {
+    thread = [reply(REPLY_ID)];
+    let failFirst!: (error: Error) => void;
+    (api.setMessageFeedback as jest.Mock)
+      .mockReturnValueOnce(new Promise((_resolve, reject) => { failFirst = reject; }))
+      .mockResolvedValue(reply(REPLY_ID));
+    await act(async () => { render(<ThumbsProbe />); });
+    await act(async () => { actions.handleFeedback(REPLY_ID, "up"); });
+    await act(async () => { actions.handleFeedback(REPLY_ID, null); });
+    await act(async () => { actions.handleFeedback(REPLY_ID, "up"); });
+    await act(async () => { failFirst(new Error("offline")); });
+    expect(thread[0]?.feedback).toBe("up");
+    expect(mockFeedbackError).not.toHaveBeenCalled();
+  });
+
   // A reply with no saved id yet (stopped before its id came): the thumb filled and the
   // rating never reached the server, without a word.
   it("does not fill the thumb of a reply the server has not saved, and says so", async () => {
