@@ -5,6 +5,7 @@ import { useAccountSession } from "@/contexts/accountSession";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import type { Usage } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { utcDayKey } from "@/lib/datetime/dayKey";
 import {
   fetchTodayUsage,
   getCachedUsage,
@@ -23,7 +24,7 @@ type UsageState = {
 
 /** A kept value is shown only on the UTC day the server counted it for (`usage/today`). */
 function todayUsage(usage: Usage | null | undefined): Usage | null {
-  return usage?.date === new Date().toISOString().slice(0, 10) ? usage : null;
+  return usage?.date === utcDayKey(new Date()) ? usage : null;
 }
 
 /** Today's usage, kept per account: the hourly token rotation reads nothing again (NET-11). */

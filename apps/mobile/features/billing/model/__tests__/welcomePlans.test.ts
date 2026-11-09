@@ -60,3 +60,9 @@ it("keeps both offers when a reply is a chat and the allowance's end at once", a
   expect(await takeOutOfCreditOffer(at(1))).toBe(false);
   expect(await takePlansOffer("open", at(1))).toBeNull();
 });
+
+it("keeps the day as every other day key on the phone spells it", async () => {
+  // It was "2027-1-3" here and "2027-01-03" in to-dos and the export (lib/datetime/dayKey).
+  await takePlansOffer("open", new Date(2027, 0, 3, 8).getTime());
+  expect(mockFiles.get("recall.plans_offers.txt")?.split("|")[0]).toBe("2027-01-03");
+});
