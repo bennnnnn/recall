@@ -119,10 +119,34 @@ def _other_script(char: str) -> bool:
     return not name.startswith(_NOTATION_SCRIPTS)
 
 
+def in_other_script(text: str) -> bool:
+    """``text`` holds letters of a script that is not Latin or maths notation (Ethiopic,
+    Cyrillic, Arabic, …)."""
+    plain = _MATH.sub(" ", _without_code(text))
+    return sum(map(_other_script, plain)) >= _OTHER_SCRIPT_LETTERS
+
+
+def other_language_words(text: str) -> set[str]:
+    """The words of ``text`` (casefolded) that only the app's other Latin-script languages
+    write: a listed word ("que", "del", "un") or one holding a letter English does not write
+    ("mañana"). Unlike ``other_language`` one is enough: a short title has no more."""
+    plain = _MATH.sub(" ", _without_code(text))
+    words = (match.group().casefold() for match in _WORD.finditer(plain))
+    return {word for word in words if word in _FOREIGN or _FOREIGN_LETTERS.intersection(word)}
+
+
+def written_in_english(text: str) -> bool:
+    """``text`` is English on positive evidence: a word only English writes ("the", "of",
+    "that") and no other language's. "python" or "¿quién ganó?" says neither."""
+    plain = _MATH.sub(" ", _without_code(text))
+    english = any(match.group().casefold() in _ENGLISH for match in _WORD.finditer(plain))
+    return english and not other_language(text)
+
+
 def other_language(text: str) -> bool:
     """``text`` is written in a language other than English, on positive evidence."""
     plain = _MATH.sub(" ", _without_code(text))
-    if sum(map(_other_script, plain)) >= _OTHER_SCRIPT_LETTERS:
+    if in_other_script(text):
         return True
     foreign: list[str] = []
     english = 0

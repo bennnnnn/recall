@@ -22,7 +22,13 @@ from app.modules.chat.tool_verified import with_tool_verified
 from app.modules.chat.turn_prep import augment
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.whole_question import answers_with, whole_question_fetch
-from app.modules.turn_reading.readable import misread_number, other_language, unreadable
+from app.modules.turn_reading.readable import (
+    in_other_script,
+    misread_number,
+    other_language,
+    unreadable,
+    written_in_english,
+)
 from app.services.solving import VerifiedSolveBlock
 
 _DROPPED = SubjectFetch(None, None, False, None, None)
@@ -224,3 +230,23 @@ async def test_the_tool_matches_no_unread_earlier_line(thread_sympy_executor: No
     texts = ["check it with sympy please", "1.200 + 800"]
     assert not await _tool_call_matches_user(args, texts, Settings(), "es")
     assert await _tool_call_matches_user(args, texts, Settings(), "en")
+
+
+# What a chat title is checked against (modules/chat/titles.py): English only on its own words,
+# another script only on its letters; a message that shows neither says nothing.
+@pytest.mark.parametrize(
+    ("text", "english", "other_script"),
+    [
+        ("Remember that I am vegetarian.", True, False),
+        ("Draw a watercolor of a lighthouse at sunset", True, False),
+        ("python", False, False),
+        ("¿quién ganó?", False, False),
+        ("¿Cómo hago pan de masa madre?", False, False),
+        ("ስለ ፎቶሲንተሲስ አስተምረኝ", False, True),
+        ("Объясни фотосинтез", False, True),
+        ("Find θ when sin θ = 0.5", True, False),
+    ],
+)
+def test_written_in_english_and_in_other_script(text: str, english: bool, other_script: bool):
+    assert written_in_english(text) is english
+    assert in_other_script(text) is other_script

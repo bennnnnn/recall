@@ -17,6 +17,11 @@ from app.modules.attachments.markers import (
     without_attachment_refs,
 )
 from app.modules.conversation import service as conversation_service
+from app.modules.turn_reading.readable import (
+    in_other_script,
+    other_language_words,
+    written_in_english,
+)
 from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS
 from app.services.subject_scan import words_after_scanner_caption
 from app.services.symbolic_text import fold_latex_marks, fold_numeric_superscripts
@@ -186,17 +191,17 @@ def title_messages(user_message: str, assistant_message: str) -> list[dict[str, 
     for source, photo, reply, title in _TITLE_EXAMPLES:
         messages.append({"role": "user", "content": _title_turn(source, photo=photo, reply=reply)})
         messages.append({"role": "assistant", "content": title})
+    source = _title_source(user_message)
     chat = _title_turn(
-        _title_source(user_message)[:_MESSAGE_CHARS],
+        source[:_MESSAGE_CHARS],
         photo=bool(image_attachment_ids_from_text(user_message)),
         reply=collapse_ws(assistant_message)[:_REPLY_CHARS],
     )
-    # The rule again where a small model reads last.
+    # The rule again where a small model reads last, naming English outright: told only "the
+    # message's language", it named one English chat in eight in Spanish, after the example.
+    language = "English" if written_in_english(source) else "the message's language and script"
     messages.append(
-        {
-            "role": "user",
-            "content": f"{chat}\nName what was asked or sent, in the message's language and script.",
-        }
+        {"role": "user", "content": f"{chat}\nName what was asked or sent, in {language}."}
     )
     return messages
 
@@ -236,12 +241,37 @@ def _without_open_mark(title: str) -> str:
     return title
 
 
+# The chat in the third person, as a profile note ("User is vegetarian", "User wants a
+# reminder"): the rules say never "user", and the title model wrote it every time it was
+# told to remember something. "User interface design" names a subject and stays.
+_ABOUT_THE_USER = re.compile(
+    r"^(?:the\s+)?user(?:'s|\u2019s)?\s+(?:is|was|has|had|wants|wanted|asks|asked|needs|likes|prefers|lives|works)\b",
+    re.IGNORECASE,
+)
+
+
+def _in_message_language(title: str, user_message: str) -> bool:
+    """English chats are named in English and others in theirs: the title model named
+    "Draw a watercolor of a lighthouse" "Dibujo de un faro al atardecer" and an Amharic
+    lesson in English. An English chat's name holds no word of another language the user
+    did not write ("El Niño" they typed stays). Judged only on evidence: a message that
+    shows no language ("python", "¿quién ganó?", a photo with no words) keeps the model's
+    name."""
+    words = _own_words(user_message)
+    if written_in_english(words):
+        return not other_language_words(title) - other_language_words(words)
+    return not in_other_script(words) or in_other_script(title)
+
+
 def finalize_generated_title(raw: str | None, user_message: str) -> str | None:
-    """Greetings get a topic label; otherwise keep a normalized model title."""
+    """Greetings get a topic label; otherwise keep a normalized model title in the message's
+    language (another is rejected: the user's own words name the chat instead)."""
     if is_casual_opener(user_message):
         return GREETING_CHAT_TITLE
     title = normalize_chat_title(raw)
     title = normalize_chat_title(_without_open_mark(title)) if title else None
+    if title and (_ABOUT_THE_USER.match(title) or not _in_message_language(title, user_message)):
+        return None
     return _superscript_powers(title) if title else None
 
 

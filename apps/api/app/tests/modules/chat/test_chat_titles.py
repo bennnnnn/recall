@@ -490,3 +490,73 @@ def test_title_worked_examples_are_titles_the_rules_allow():
         assert len(title) <= 32
         # The example shows the reply as context only: its title is no line of the reply.
         assert title.casefold() not in {line.strip().casefold() for line in reply.split(".")}
+
+
+# The title model named English chats in Spanish ("Soy vegetariana" for "Remember that I am
+# vegetarian", one chat in seven, 2026-11-08) and an Amharic lesson in English; and wrote the
+# chat as a profile note ("User is vegetarian") every time it was told to remember something.
+@pytest.mark.parametrize(
+    ("raw", "message", "expected"),
+    [
+        ("Recordar que soy vegetariano", "Remember that I am vegetarian.", None),
+        ("Dibujo de un faro al atardecer", "Draw a watercolor of a lighthouse at sunset", None),
+        ("Acuarela de faro al atardecer", "Draw a watercolor of a lighthouse at sunset", None),
+        ("El Niño and its effects", "What are the effects of El Niño?", "El Niño and its effects"),
+        ("Solving x² + x + 2 = 0", "solve x^2 + x + 2 = 0 for me", "Solving x² + x + 2 = 0"),
+        ("Recordar llamar a mamá mañana", "Remind me to call mom tomorrow at 5 pm", None),
+        ("Learning about photosynthesis", "ስለ ፎቶሲንተሲስ አስተምረኝ", None),
+        ("ስለ ፎቶሲንተሲስ መማር", "ስለ ፎቶሲንተሲስ አስተምረኝ", "ስለ ፎቶሲንተሲስ መማር"),
+        (
+            "Cómo hacer pan de masa madre",
+            "¿Cómo hago pan de masa madre?",
+            "Cómo hacer pan de masa madre",
+        ),
+        (
+            "Demande de congé vendredi",
+            "Écris un e-mail à mon patron pour demander vendredi",
+            "Demande de congé vendredi",
+        ),
+        (
+            "Watercolor of a lighthouse at sunset",
+            "Draw a watercolor of a lighthouse at sunset",
+            "Watercolor of a lighthouse at sunset",
+        ),
+        ("User is vegetarian", "Remember that I am vegetarian.", None),
+        ("The user wants a reminder", "Remind me to call mom", None),
+        (
+            "User interface design basics",
+            "Explain user interface design",
+            "User interface design basics",
+        ),
+    ],
+)
+def test_finalize_generated_title_keeps_the_message_language(
+    raw: str, message: str, expected: str | None
+):
+    assert finalize_generated_title(raw, message) == expected
+
+
+@pytest.mark.asyncio
+async def test_a_title_in_another_language_names_the_chat_in_the_users_words():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway,
+        "complete_text",
+        new_callable=AsyncMock,
+        return_value="Recordar llamar a mamá mañana",
+    ):
+        title = await generate_title(settings, "Remind me to call mom tomorrow at 5 pm", "Saved.")
+    assert title == "Remind me to call mom tomorrow"
+
+
+@pytest.mark.parametrize(
+    ("message", "language"),
+    [
+        ("Remember that I am vegetarian.", "in English."),
+        ("¿Cómo hago pan de masa madre?", "in the message's language and script."),
+        ("ስለ ፎቶሲንተሲስ አስተምረኝ", "in the message's language and script."),
+        ("python", "in the message's language and script."),
+    ],
+)
+def test_the_title_model_is_told_english_outright_for_an_english_chat(message: str, language: str):
+    assert _chat_turn(title_messages(message, "Reply.")).endswith(language)
