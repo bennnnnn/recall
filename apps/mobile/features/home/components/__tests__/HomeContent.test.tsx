@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 
-import { HomeStarters } from "@/features/home/components/HomeStarters";
+import { HomeContent } from "@/features/home/components/HomeContent";
 import { AA, compositeOver, contrastRatio, SCHEME_ACCENTS } from "@/lib/__tests__/support/contrast";
 import { DEFAULT_ACCENT } from "@/lib/accent";
 import { setAccentSnapshot } from "@/lib/accentRuntime";
@@ -47,14 +47,14 @@ afterEach(async () => {
 });
 
 it("shows the greeting without starter chips", async () => {
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Hi, Bini")).toBeTruthy();
   expect(view.queryByText("Help me think")).toBeNull();
   expect(view.queryByText("What can you do?")).toBeNull();
 });
 
 it("greets in two lines at the top: hi in the accent, the question in grey; no icon or subtitle", async () => {
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   const greeting = await view.findByRole("header");
   expect(greeting.props.accessibilityLabel).toBe("Hi, Bini. What are you working on?");
   expect(view.getByText("What are you working on?")).toBeTruthy();
@@ -80,7 +80,7 @@ it.each(SCHEME_ACCENTS)("%s %s: both lines read 3:1 on the page", async (scheme,
   await act(async () => setAccentSnapshot(accent));
   const failures: string[] = [];
   const C = themeFor(scheme, accent);
-  const ui = await render(<HomeStarters composerActive={false} />);
+  const ui = await render(<HomeContent composerActive={false} />);
   const ink = (words: string) => String(StyleSheet.flatten(ui.getByText(words).props.style).color);
   expect({ hello: ink("Hi, Bini"), question: ink("What are you working on?") })
     .toEqual({ hello: C.primary, question: C.textTertiary });
@@ -93,10 +93,10 @@ it.each(SCHEME_ACCENTS)("%s %s: both lines read 3:1 on the page", async (scheme,
 });
 
 it("hides the greeting while the composer is in use", async () => {
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Hi, Bini")).toBeTruthy();
 
-  await view.rerender(<HomeStarters composerActive />);
+  await view.rerender(<HomeContent composerActive />);
 
   expect(view.queryByText("Hi, Bini")).toBeNull();
 });
@@ -107,7 +107,7 @@ it("keeps one overdue reminder", async () => {
     content: "Pay rent",
     due_at: "2026-07-01T12:00:00.000Z",
   };
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Pay rent")).toBeTruthy();
   expect(view.getByText("chat.home.overdue")).toBeTruthy();
   await act(async () => {
@@ -128,7 +128,7 @@ it.each(SCHEME_ACCENTS)(
     await act(async () => setAccentSnapshot(accent));
     const failures: string[] = [];
     const C = themeFor(scheme, accent);
-    const ui = await render(<HomeStarters composerActive={false} />);
+    const ui = await render(<HomeContent composerActive={false} />);
     const card = ui.getByLabelText("Pay rent");
     const cardStyle = StyleSheet.flatten(card.props.style);
     const plane = compositeOver(String(cardStyle.backgroundColor), C.bg);

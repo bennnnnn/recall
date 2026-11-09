@@ -265,7 +265,7 @@ function spaceOperators(s: string): string {
 
 /**
  * Unicode radical → LaTeX: `√(49)` and bare `√49` alike. Model replies (and
- * pasted text before `mathPasteNormalize` runs) use the Unicode glyph, but
+ * pasted text before `normalizePastedMath` runs) use the Unicode glyph, but
  * the native math renderer (`components/rich/MathText.tsx`) only stacks a vinculum for the
  * literal `\sqrt{...}` command — an unconverted `√` is drawn as a plain
  * character with no radicand grouping.
