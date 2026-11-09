@@ -51,6 +51,7 @@ export function SearchField({
         placeholderTextColor={theme.textDisabled}
         autoCapitalize="none"
         autoCorrect={false}
+        spellCheck={false}
         returnKeyType="search"
         clearButtonMode={clearButtonMode}
       />
