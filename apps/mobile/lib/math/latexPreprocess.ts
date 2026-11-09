@@ -1,4 +1,4 @@
-import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
+import { normalizeUnicodeScripts, normalizeUnicodeSubscripts } from "@/lib/unicodeSupSub";
 
 import { repairLeakedMath } from "@/lib/math/healMathSource";
 import { rewriteLatexChemistry } from "@/lib/math/latexChemistry";
@@ -6,6 +6,7 @@ import { CMD_REPLACEMENTS } from "@/lib/math/latexCommands";
 import { rewriteLatexDialects } from "@/lib/math/latexDialects";
 import { uprightNotation } from "@/lib/math/latexUpright";
 import { braceFractionArguments, isParenthesizedArgument, readGroup } from "@/lib/math/latexGroups";
+import { latexNameKind, symbolGlyph } from "@/lib/math/latexNames";
 import { rewriteLatexStructure } from "@/lib/math/latexStructure";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import {
@@ -161,6 +162,18 @@ function uprightRuns(value: string): string {
   return out + upright(run);
 }
 
+/**
+ * A text group's own commands as the characters they set: `\text{\textdegree}` is "°" and
+ * `\text{50\%}` "50%". Drawn as written, a follow-up read "45^\textdegree".
+ */
+function textModeSymbols(value: string): string {
+  return value
+    .replace(/\\([A-Za-z]+)(?![A-Za-z]) ?/g, (command, name: string) =>
+      latexNameKind(name) === "symbol" ? symbolGlyph(name) : command,
+    )
+    .replace(/\\([%&$#_])/g, "$1");
+}
+
 function preserveNativeUprightRuns(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
@@ -177,7 +190,9 @@ function preserveNativeUprightRuns(source: string): string {
           // Markdown attaches sentence punctuation to a math run as
           // `\text{.}` / `\text{,}`. Keep that punctuation in the adjacent
           // run so copy, wrapping, and tests see one continuous expression.
-          out += /^[\s.,;:!?]+$/.test(group.value) ? group.value : uprightRuns(group.value);
+          out += /^[\s.,;:!?]+$/.test(group.value)
+            ? group.value
+            : uprightRuns(normalizeUnicodeSubscripts(textModeSymbols(group.value)));
           i = group.next;
           continue;
         }
@@ -189,13 +204,65 @@ function preserveNativeUprightRuns(source: string): string {
   return out;
 }
 
+/** Where the brace group ending just before `end` opens, or -1. */
+function groupStartBefore(source: string, end: number): number {
+  let depth = 0;
+  for (let i = end - 1; i >= 0; i -= 1) {
+    if (source[i] === "}" && source[i - 1] !== "\\") depth += 1;
+    else if (source[i] === "{" && source[i - 1] !== "\\") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** A function's name as a command: `\ln`, `\sin`, `\arg`, `\operatorname` (whose own
+ * group is the name). `\frac` and `\sqrt` take their groups as arguments of another kind. */
+function functionCommand(name: string): boolean {
+  const kind = latexNameKind(name);
+  return name === "operatorname" || kind === "function" || kind === "operator";
+}
+
+/**
+ * Whether a brace group at `at` is a function's argument: it follows a function command
+ * (`\ln{`, `\sin^{2}{`, `\operatorname{acot}{`) or a one-letter name (`f{`). SymPy braces
+ * every function's argument; a command's was left whole and drew `ln((x² + 1 ))`.
+ */
+function followsFunctionHead(source: string, at: number): boolean {
+  let end = at;
+  if (source[end - 1] === "}") {
+    const open = groupStartBefore(source, end);
+    if (open < 0) return false;
+    // A power on the name (`\sin^{2}`) or the name itself in braces (`\operatorname{acot}`).
+    end = source[open - 1] === "^" || source[open - 1] === "_" ? open - 1 : open;
+    if (end < open) {
+      const name = /\\([A-Za-z]+)$/.exec(source.slice(0, end))?.[1];
+      return name !== undefined && functionCommand(name);
+    }
+  }
+  let start = end;
+  while (start > 0 && /[A-Za-z]/.test(source[start - 1] ?? "")) start -= 1;
+  if (start === end) return false;
+  if (source[start - 1] === "\\") return functionCommand(source.slice(start, end));
+  return end - start === 1;
+}
+
+/** TeX sets no space inside `\left( x \right)`. Drawn as written, SymPy's `x^{2} + 1 \right)`
+ * read "x² + 1 )". Only beside a one-character bracket: `\left\langle x` keeps the space
+ * that ends its name, and so does its `\right\rangle`. */
+function tightSizedDelimiters(source: string): string {
+  return source
+    .replace(/(\\left\s*[([|])\s+/g, "$1")
+    .replace(/\s+(\\right\s*[)\]|])/g, "$1");
+}
+
 /** Unwrap only SymPy's invisible function-argument group, before escaped
  * set braces lose their backslashes. Ordinary brace groups stay unchanged. */
 function unwrapSympyFunctionArguments(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
-    if (source.startsWith("{\\left(", i) && /[A-Za-z]/.test(source[i - 1] ?? "") &&
-      !/[A-Za-z]/.test(source[i - 2] ?? "")) {
+    if (source.startsWith("{\\left(", i) && followsFunctionHead(source, i)) {
       const group = readGroup(source, i);
       if (!group) { out += source.slice(i); break; }
       const body = group.value.trim();
@@ -241,7 +308,9 @@ export function preprocessLatex(latex: string): string {
   const source = rewriteLatexChemistry(
     uprightNotation(rewriteLatexDialects(restoreMathEscapes(latex.trim()))),
   );
-  let s = repairLeakedMath(normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(source)));
+  let s = repairLeakedMath(
+    normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(tightSizedDelimiters(source))),
+  );
   s = preserveNativeUprightRuns(s);
   // Protect visible set delimiters before command replacement turns `\{`
   // into an ordinary `{`, which is otherwise indistinguishable from an
