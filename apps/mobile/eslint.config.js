@@ -151,6 +151,44 @@ const RAW_COLOR_RULES = [
  */
 const DATE_FORMAT_MESSAGE =
   "Format dates and times with formatDate (or formatMinuteOfDay, formatCalendarDay, formatTimeZoneName) from @/lib/datetime/format.";
+
+/**
+ * Reanimated hooks and the argument a dependency array would take. The worklets Babel plugin
+ * reads a worklet's dependencies from its closure; on native an array passed there is
+ * ignored, and a dev build logs "[Reanimated] Dependencies should only be used on the web"
+ * for each one. The phone is the only client that runs Reanimated.
+ */
+const WORKLET_DEPS_ARGUMENT = new Map([
+  ["useAnimatedStyle", 1],
+  ["useAnimatedProps", 1],
+  ["useDerivedValue", 1],
+  ["useAnimatedScrollHandler", 1],
+  ["useAnimatedReaction", 2],
+]);
+
+const recallRules = {
+  rules: {
+    "no-worklet-deps": {
+      meta: {
+        type: "problem",
+        messages: {
+          deps: "Reanimated ignores a dependency array on native and warns in dev; the worklet's closure is its dependencies. Drop the array.",
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          CallExpression(node) {
+            const at = node.callee.type === "Identifier" ? WORKLET_DEPS_ARGUMENT.get(node.callee.name) : undefined;
+            if (at !== undefined && node.arguments.length > at) {
+              context.report({ node: node.arguments[at], messageId: "deps" });
+            }
+          },
+        };
+      },
+    },
+  },
+};
 const DATES_FORMATTED_BY_LIB_DATETIME = [
   { object: "Intl", property: "DateTimeFormat", message: DATE_FORMAT_MESSAGE },
   { object: "Intl", property: "RelativeTimeFormat", message: `${DATE_FORMAT_MESSAGE} Add a relative style there.` },
@@ -182,6 +220,11 @@ module.exports = defineConfig([
   expoConfig,
   {
     ignores: ["dist/*", "vendor/**", ".expo/**"],
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    plugins: { recall: recallRules },
+    rules: { "recall/no-worklet-deps": "error" },
   },
   {
     files: ["**/*.{ts,tsx}"],

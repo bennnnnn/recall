@@ -23,7 +23,6 @@ type Frame = { bounds: SharedValue<GraphViewW>; width: number; height: number; p
 function usePlaced({ bounds, width, height, pad }: Frame, point: [number, number]) {
   return useDerivedValue(
     () => mapPointW(point[0], point[1], bounds.value, width, height, pad),
-    [point, width, height, pad],
   );
 }
 
@@ -55,7 +54,6 @@ function SkiaMark({
   const textWidth = font ? font.measureText(mark.label).width : markLabelWidth(mark.label);
   const spot = useDerivedValue(
     () => markLabelW(at.value.px, at.value.py, textWidth, GRAPH_TICK_FONT_SIZE, width, height, pad),
-    [textWidth, width, height, pad],
   );
   const cx = useDerivedValue(() => at.value.px);
   const cy = useDerivedValue(() => at.value.py);

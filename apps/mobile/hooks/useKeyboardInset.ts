@@ -117,7 +117,6 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
   /** How far the keyboard has lifted the composer above its resting place, this frame. */
   const keyboardLift = useDerivedValue(
     () => keyboardLiftAbove(height.value, idleBottomPad),
-    [idleBottomPad],
   );
 
   const composerAnimatedStyle = useAnimatedStyle(() => {
@@ -126,7 +125,7 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
       bottom: height.value,
       paddingBottom: open ? 0 : idleBottomPad,
     };
-  }, [idleBottomPad]);
+  });
 
   const composerKeyboard = useMemo(
     (): ComposerKeyboard => ({ style: composerAnimatedStyle, height }),

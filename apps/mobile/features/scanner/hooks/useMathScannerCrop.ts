@@ -102,7 +102,6 @@ export function useMathScannerCrop({
       lastPushedZoom.value = current;
       runOnJS(onZoom)(current);
     },
-    [onZoom],
   );
 
   const pinchGesture = useMemo(
