@@ -6,6 +6,7 @@ import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/features/chat/model/messageCache";
 import { exportChatAsPdf, shareChatAsText } from "@/features/chat/model/chatExport";
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";
+import { useMessageFeedback } from "@/features/chat/hooks/useMessageFeedback";
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
 import type { EmailDraft } from "@/lib/richBlocks";
@@ -62,30 +63,7 @@ export function useChatActions({
 
   const closeMenu = useCallback(() => setMenuVisible(false), []);
 
-  const handleFeedback = useCallback(
-    (messageId: string, next: "up" | "down" | null) => {
-      let previous: "up" | "down" | null = null;
-      editThread(
-        (prev) =>
-          prev.map((mm) => {
-            if (mm.id !== messageId) return mm;
-            previous = mm.feedback ?? null;
-            return { ...mm, feedback: next };
-          }),
-        "feedback",
-      );
-      if (token && chatId && isServerMessageId(messageId)) {
-        void api.setMessageFeedback(token, chatId, messageId, next).catch(() => {
-          editThread(
-            (prev) => prev.map((mm) => (mm.id === messageId ? { ...mm, feedback: previous } : mm)),
-            "feedback",
-          );
-          reportRecoverableError(feedback, t("chat.feedback_failed"));
-        });
-      }
-    },
-    [token, chatId, editThread, feedback, t],
-  );
+  const handleFeedback = useMessageFeedback({ token, chatId, editThread, t });
 
   const handleSaveEmailDraft = useCallback(
     (messageId: string, draft: EmailDraft): Promise<boolean> => {

@@ -668,23 +668,25 @@ const CEILINGS: Record<string, number> = {
   "20 s after the reply": 0,
   // The reply changed the to-do list: one read of it.
   "a reply that changes a to-do": 1,
-  "open the drawer": 0,
+  // The drawer's chats, older than 20 s by now, read again behind the rows shown (ETag, 304):
+  // a chat started on another device showed only after a pull-to-refresh or a relaunch.
+  "open the drawer": 1,
   ...Object.fromEntries(SCREENS.map((name) => [`open ${name}`, SCREEN_READS[name] ?? 0])),
   ...Object.fromEntries(SCREENS.map((name) => [`leave ${name}`, 0])),
   // Memory and Security read on every visit; unchanged, the second read is a 304 (asserted below).
   ...Object.fromEntries(REVISITED.map((name) => [`open ${name} again`, 1])),
   ...Object.fromEntries(REVISITED.map((name) => [`leave ${name} again`, 0])),
   "a minute in the background": 0,
-  // To-dos and the open chat (ETag, 304), the check, the socket.
-  "return after a minute": 4,
+  // To-dos, the open chat and the drawer's chats (ETag, 304), the check, the socket.
+  "return after a minute": 5,
   // And the model list (older than 5 minutes).
-  "return after 10 minutes": 5,
+  "return after 10 minutes": 6,
   // iOS goes inactive and back without leaving: nothing is read again.
   "Control Centre and back, 6 minutes on": 0,
   // The zone sent to the server, and the to-dos read again for their new notify_at.
   "the phone's zone changes while the app runs": 2,
   // A return's reads, the zone sent, and the to-dos read once: after the zone landed.
-  "return after 10 minutes, in another zone": 6,
+  "return after 10 minutes, in another zone": 7,
   "50 minutes in the foreground": 0,
   // One refresh before the read, then the page and the socket.
   "open chat 2 after the token expired": 3,
@@ -893,10 +895,10 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   // before): one landed since the outage.
   "the 30 s after, the API back": 2,
   "a minute in the background": 0,
-  // The return's reads (to-dos, the chat, the socket) fail once; the connection check backs off
-  // (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API. Once it passes, the
-  // page on screen is read again, 0 to 10 s later.
-  "return while the API is down 30 s, then 30 s": 15,
+  // The return's reads (to-dos, the chat, the drawer's chats, the socket) fail once; the connection
+  // check backs off (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API. Once it
+  // passes, the page on screen is read again, 0 to 10 s later.
+  "return while the API is down 30 s, then 30 s": 16,
   // One socket try, then the send over SSE, refused: the phone says so and stops. The 503 asks
   // for a connection check, which shows the banner; its loop checks again at 1.5 s and 3 s.
   "send while the API answers 503": 8,

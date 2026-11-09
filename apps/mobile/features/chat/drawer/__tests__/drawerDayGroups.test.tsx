@@ -103,9 +103,11 @@ it("moves a list held across midnight to the new day's headings when the drawer 
 
   // 00:15: a new chat is filed under Today; the one from 23:50 is yesterday's now.
   jest.setSystemTime(new Date("2026-10-24T18:30:00Z"));
+  // The list, stale by now, is read again behind the rows: they move before it lands.
+  (api.listChats as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
   await view.rerender(<Probe open />);
   await act(async () => { insertChatGlobal(chat("new", "2026-10-24T18:30:00Z")); });
 
   expect(headings()).toEqual({ today: ["new"], yesterday: ["late"] });
-  expect(api.listChats).not.toHaveBeenCalled();
+  expect(api.listChats).toHaveBeenCalledTimes(1);
 });
