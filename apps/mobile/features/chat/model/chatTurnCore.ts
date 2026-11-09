@@ -114,7 +114,9 @@ export type ChatTurnCommand =
   | { type: "consent_required" }
   /** The server's words when it sent some, else `key` translated. */
   | { type: "report_error"; message?: string; key: string; code?: string }
-  | { type: "first_reply" }
+  | { type: "first_reply"; reply: FirstReply }
+  /** A new chat's title, which followed the first reply's `done` on its stream (null: none came). */
+  | { type: "title"; chatId: string | null; title: string | null }
   /** A reply was saved: its chat moved up the drawer's list, which reads it again on its next open. */
   | { type: "reply_saved" }
   | { type: "todos_changed" }
@@ -131,6 +133,9 @@ export type ChatTurnCommand =
   | { type: "withdraw_unsent"; chatId: string | null; pending: PendingSend | null };
 
 export type ChatTurnStep = { state: ChatTurnState; commands: ChatTurnCommand[] };
+
+/** A view's first saved reply; `titleOnStream`: the chat's title follows on the turn's stream. */
+export type FirstReply = { titleOnStream: boolean };
 
 /** The handlers update a copy of the state and append the commands it implies, in order. */
 export type Out = ChatTurnCommand[];

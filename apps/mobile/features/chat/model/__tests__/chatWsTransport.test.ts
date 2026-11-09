@@ -11,6 +11,7 @@ import {
   WS_FIRST_EVENT_TIMEOUT_MS,
   WS_FOLLOW_UPS_WAIT_MS,
   WS_PROBE_TIMEOUT_MS,
+  WS_LINGER_MS,
 } from "@/features/chat/model/wsConnect";
 import {
   ChatWsTransport,
@@ -285,7 +286,7 @@ describe("ChatWsTransport", () => {
     expect(onPayload).toHaveBeenCalledTimes(2);
   });
 
-  it("puts no deadline on a finished turn", async () => {
+  it("puts no deadline on a finished turn: its socket is let go without a word", async () => {
     const { socket, transport, onFallback } = setupTransport();
     const connecting = transport.connect();
     socket.open();
@@ -297,8 +298,89 @@ describe("ChatWsTransport", () => {
     jest.advanceTimersByTime(5 * STREAM_IDLE_TIMEOUT_MS);
 
     expect(onFallback).not.toHaveBeenCalled();
-    expect(socket.close).not.toHaveBeenCalled();
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(transport.isOpen()).toBe(false);
     expect(sentFrames(socket).at(-1)).toEqual({ type: "regenerate", ...REGENERATE, client_timezone: "UTC" });
+  });
+
+  // 2026-11-08 feature test: a chat's socket opened on its first keystroke or when it was only
+  // read, and stayed open behind the chat the user moved on from until the server's 5-minute
+  // idle close (49 opens in 48 turns). It lives for its turn and what follows its done.
+  describe("a socket's life", () => {
+    it("is let go once the reply's follow-up questions and the chat's title came", async () => {
+      const { socket, transport } = await openTransport(true);
+      transport.sendMessage(MESSAGE);
+      socket.emit({ type: "start" });
+      socket.emit({ type: "done", message_id: "m1", title_pending: "1" });
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      jest.advanceTimersByTime(WS_LINGER_MS);
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "title", title: "Heater repair" });
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    it("is let go after the follow-ups wait when they never came", async () => {
+      const { socket, transport } = await openTransport(true);
+      transport.sendMessage(MESSAGE);
+      socket.emit({ type: "start" });
+      socket.emit({ type: "done", message_id: "m1" });
+      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["a reply still saving", { type: "done", persisting: true }],
+      ["an error", { type: "error", message: "nope" }],
+      ["a duplicate", { type: "duplicate" }],
+    ])("is kept a moment for a send at once after %s, then let go", async (_label, frame) => {
+      const { socket, transport, onFallback } = await openTransport(true);
+      transport.sendMessage(MESSAGE);
+      socket.emit(frame);
+      jest.advanceTimersByTime(WS_LINGER_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      expect(socket.close).toHaveBeenCalledTimes(1);
+      expect(onFallback).not.toHaveBeenCalled();
+    });
+
+    it("carries the next send while it waits for follow-ups, then is let go after that turn", async () => {
+      const { socket, transport } = await openTransport(true);
+      transport.sendMessage(MESSAGE);
+      socket.emit({ type: "done", message_id: "m1" });
+      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS / 2);
+      expect(transport.sendMessage({ ...MESSAGE, client_message_id: "name-2" })).toBe(true);
+      socket.emit({ type: "start" });
+      socket.emit({ type: "keepalive" });
+      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS);
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "done", persisting: true });
+      jest.advanceTimersByTime(WS_LINGER_MS);
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    it("opens a new socket for the send after it was let go", async () => {
+      const { socket, sockets, transport } = await openTransport(true);
+      transport.sendMessage(MESSAGE);
+      socket.emit({ type: "done", persisting: true });
+      jest.advanceTimersByTime(WS_LINGER_MS);
+      expect(transport.isOpen()).toBe(false);
+      const connecting = transport.connect();
+      expect(sockets).toHaveLength(2);
+      sockets[1].open();
+      await connecting;
+      expect(transport.sendMessage(MESSAGE)).toBe(true);
+    });
+
+    it("lets go a socket opened for a send that never went (Stop, a left view)", async () => {
+      const { socket } = await openTransport(true);
+      jest.advanceTimersByTime(WS_LINGER_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("probes a quiet send and drops the socket when the ping goes unanswered", async () => {
@@ -581,7 +663,7 @@ describe("ChatWsTransport", () => {
   });
 
   it("ends a stopped turn when its last frame comes", async () => {
-    const { socket, transport } = await openTransport(true);
+    const { socket, transport, onFallback } = await openTransport(true);
     transport.sendMessage(MESSAGE);
     socket.emit({ type: "start" });
     transport.cancel();
@@ -589,7 +671,9 @@ describe("ChatWsTransport", () => {
     socket.emit({ type: "done", message_id: "m1" });
     expect(transport.isTurnActive()).toBe(false);
     jest.advanceTimersByTime(5 * STREAM_IDLE_TIMEOUT_MS);
-    expect(socket.close).not.toHaveBeenCalled();
+    // Let go once its follow-ups were due, never dropped for the stop.
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(onFallback).not.toHaveBeenCalled();
   });
 
   it.each([

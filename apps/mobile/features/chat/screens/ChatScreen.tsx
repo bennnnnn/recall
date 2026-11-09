@@ -28,7 +28,6 @@ import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useChatComposerWiring } from "@/features/chat/hooks/useChatComposerWiring";
-import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
 import { useChatMetadata } from "@/features/chat/hooks/useChatMetadata";
@@ -49,6 +48,7 @@ import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/featu
 import { locationSwitchOf } from "@/features/chat/model/resolveClientGeoForQuery";
 import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
+import type { FirstReply } from "@/features/chat/model/chatTurnCore";
 
 /** The route's chat and the message a search hit opens it at; anything but one id names none. */
 function useChatRouteParams() {
@@ -80,13 +80,13 @@ function ChatScreen() {
   const quotaNudge = useQuotaNudge({ isPaid });
   // The one hook cycle left: useChat calls it on the first reply, and the title poll that
   // answers it (the route loader's) reads the thread useChat holds. Bound once the render commits.
-  const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
+  const onFirstReplyRef = useRef<(id?: string | null, reply?: FirstReply) => Promise<void>>(async () => {});
   const todosCtx = useTodosOptional();
   const handleTodosSync = useCallback(() => {
     void todosCtx?.refresh({ silent: true, force: true });
   }, [todosCtx]);
   const chat = useChat(token, draft.activeChatId, {
-    onFirstReply: () => onFirstReplyRef.current(),
+    onFirstReply: (reply) => onFirstReplyRef.current(undefined, reply),
     onError: errors.handleChatError,
     onTodosSync: handleTodosSync,
     onUsage: quotaNudge.applyTurnUsage,
@@ -168,7 +168,6 @@ function ChatScreen() {
     [startNewChat, dismissChatError],
   );
   const scrollToLatest = newerPage ? () => void jumpToLatest().then(scroll.scrollToLatest) : scroll.scrollToLatest;
-  useChatDraftWarmup({ chatId, streaming: streamActive, draftChatId: draft.draftChatId, connect: chat.connect });
 
   const { regenerate: handleRegenerate, regenerating } = useChatRegenerate({
     token, messages, updateUser, locationSwitch, regenerateResponse: chat.regenerateResponse,

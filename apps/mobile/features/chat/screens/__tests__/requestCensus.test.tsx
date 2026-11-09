@@ -275,9 +275,14 @@ const MESSAGES = Array.from({ length: 30 }, (_, i) => ({
 /** A turn the server finished after its socket dropped: on the chat's page once saved. */
 let savedTurn: object[] = [];
 
-/** A new chat's title lands after this many reads of it (the topic job runs after the reply). */
+/**
+ * A new chat's title lands after this many plain reads of it (the topic job runs after the
+ * reply). A read that waits for it (`wait_for_title`), or the reply's own stream, brings it.
+ */
 const TITLE_AFTER_READS = 2;
 const titleReads = new Map<string, number>();
+/** Chats made this run that have no reply yet: their first reply's stream brings the title. */
+const untitledChats = new Set<string>();
 let refreshes = 0;
 let created = 0;
 
@@ -305,6 +310,7 @@ function serverBody(method: string, path: string, body?: string): unknown {
   if (p === "/chats/usage/today") return { date: "2026-10-24", tokens_used: 0, daily_limit: 100000 };
   if (p === "/chats" && method === "POST") {
     created += 1;
+    untitledChats.add(chatId(100 + created));
     return { ...CHATS[0], id: chatId(100 + created), title: null };
   }
   if (p === "/chats") {
@@ -318,7 +324,8 @@ function serverBody(method: string, path: string, body?: string): unknown {
     const id = p.split("/")[2];
     const reads = (titleReads.get(id) ?? 0) + 1;
     titleReads.set(id, reads);
-    return { ...CHATS[0], id, title: reads > TITLE_AFTER_READS ? "A new question" : null };
+    const titled = reads > TITLE_AFTER_READS || path.includes("wait_for_title=true");
+    return { ...CHATS[0], id, title: titled ? "A new question" : null };
   }
   if (p === "/memories/documents") return { documents: [], scanning: false };
   if (p === "/memories") return [];
@@ -345,6 +352,7 @@ function revalidated(method: string, path: string): boolean {
 }
 
 type FakeSocket = {
+  url: string;
   sent: string[];
   closed: boolean;
   onmessage: ((event: { data: string }) => void) | null;
@@ -377,6 +385,9 @@ function answerFrame(socket: FakeSocket, raw: string): void {
   if (frame.type !== "message") return;
   replies += 1;
   const id = uuid(3, replies);
+  // A new chat's first reply: its title follows done on the stream (title_event).
+  const chat = socket.url.split("/ws/chats/")[1]?.split("?")[0] ?? "";
+  const titled = untitledChats.delete(chat);
   const todosChanged = nextReplyChangesTodos;
   nextReplyChangesTodos = false;
   setTimeout(() => serverFrame(socket, { type: "start" }), 50);
@@ -386,9 +397,10 @@ function answerFrame(socket: FakeSocket, raw: string): void {
   setTimeout(() => serverFrame(socket, { type: "stream_end" }), 600);
   setTimeout(() => serverFrame(socket, {
     type: "done", message_id: id, todos_changed: todosChanged,
-    usage: { used_tokens: 10, daily_limit: 100000 },
+    usage: { used_tokens: 10, daily_limit: 100000 }, ...(titled ? { title_pending: "1" } : {}),
   }), 700);
   setTimeout(() => serverFrame(socket, { type: "related_prompts", message_id: id, prompts: ["a?", "b?"] }), 900);
+  if (titled) setTimeout(() => serverFrame(socket, { type: "title", title: "A new question" }), 2000);
 }
 
 const mockAppStateListeners = new Set<(state: string) => void>();
@@ -410,6 +422,8 @@ const redisDown = () => outage !== null && outage !== "down" && outage.code === 
 const socketDrops: number[] = [];
 /** Sockets open now: a restart closes them all. */
 const openSockets = new Set<{ drop: (code: number) => void }>();
+/** Sockets the phone holds open now, whoever closes them (the phone, or the server). */
+const liveSockets = new Set<object>();
 
 /** Every open socket closes with `code`. */
 function dropSockets(code: number): void {
@@ -465,7 +479,7 @@ function installServer(): void {
     onerror: (() => void) | null = null;
     sent: string[] = [];
     closed = false;
-    constructor(url: string) {
+    constructor(readonly url: string) {
       const refused = outage !== null && !redisDown();
       mockLog.push({ method: "WS", path: url.replace(/^wss?:\/\/[^/]+/, ""), status: refused ? 0 : 101, at: Date.now() });
       const handle = { drop: (code: number) => this.drop(code) };
@@ -479,6 +493,7 @@ function installServer(): void {
         }
         this.readyState = 1;
         openSockets.add(handle);
+        liveSockets.add(this);
         this.onopen?.();
       }, 20);
     }
@@ -495,6 +510,7 @@ function installServer(): void {
     close() {
       this.closed = true;
       this.readyState = 3;
+      liveSockets.delete(this);
     }
   }
   globalThis.WebSocket = ServerSocket as unknown as typeof WebSocket;
@@ -658,18 +674,21 @@ const CEILINGS: Record<string, number> = {
   // /auth/me, the day's usage (free plan), to-dos, models, the check, the push token, the drawer;
   // a free account's first open of the day offers the plans: their list and its paywall_viewed.
   "cold start after sign-in": 9,
-  // The newest page, each file's status (three), the socket.
-  "open chat 1": 5,
-  "open chat 2": 2,
-  // The page this run kept is shown without a read; the socket reopens.
-  "open chat 1 again within 20 s": 1,
-  "send in chat 1": 0,
+  // The newest page, each file's status (three). Reading a chat opens no socket: a send does
+  // (2026-11-08 feature test: a socket per chat opened or switched to, 49 in 48 turns).
+  "open chat 1": 4,
+  "open chat 2": 1,
+  // The page this run kept is shown without a read.
+  "open chat 1 again within 20 s": 0,
+  // The turn's socket, which closes once its reply and follow-ups are in.
+  "send in chat 1": 1,
   "the reply finishes": 0,
   "20 s after the reply": 0,
-  // The reply changed the to-do list: one read of it.
-  "a reply that changes a to-do": 1,
-  // The drawer's chats, older than 20 s by now, read again behind the rows shown (ETag, 304):
-  // a chat started on another device showed only after a pull-to-refresh or a relaunch.
+  // The turn's socket (the last one closed after its reply), and the to-do list the reply
+  // changed: one read of it.
+  "a reply that changes a to-do": 2,
+  // This phone finished turns since the drawer read its chats: read again behind the rows
+  // shown (ETag, 304). With nothing changed an open reads nothing (useDrawerChatList.test).
   "open the drawer": 1,
   ...Object.fromEntries(SCREENS.map((name) => [`open ${name}`, SCREEN_READS[name] ?? 0])),
   ...Object.fromEntries(SCREENS.map((name) => [`leave ${name}`, 0])),
@@ -677,29 +696,30 @@ const CEILINGS: Record<string, number> = {
   ...Object.fromEntries(REVISITED.map((name) => [`open ${name} again`, 1])),
   ...Object.fromEntries(REVISITED.map((name) => [`leave ${name} again`, 0])),
   "a minute in the background": 0,
-  // To-dos, the open chat and the drawer's chats (ETag, 304), the check, the socket.
-  "return after a minute": 5,
+  // To-dos, the open chat and the drawer's chats (ETag, 304), the check; no socket until a send.
+  "return after a minute": 4,
   // And the model list (older than 5 minutes).
-  "return after 10 minutes": 6,
+  "return after 10 minutes": 5,
   // iOS goes inactive and back without leaving: nothing is read again.
   "Control Centre and back, 6 minutes on": 0,
   // The zone sent to the server, and the to-dos read again for their new notify_at.
   "the phone's zone changes while the app runs": 2,
   // A return's reads, the zone sent, and the to-dos read once: after the zone landed.
-  "return after 10 minutes, in another zone": 7,
+  "return after 10 minutes, in another zone": 6,
   "50 minutes in the foreground": 0,
-  // One refresh before the read, then the page and the socket.
-  "open chat 2 after the token expired": 3,
-  // One read per chat passed through, then the last one's socket.
-  "switch chats 3 to 6 quickly": 5,
+  // One refresh before the read, then the page.
+  "open chat 2 after the token expired": 2,
+  // One read per chat passed through.
+  "switch chats 3 to 6 quickly": 4,
   "new chat": 0,
-  // The chat, its socket, and the title read until the topic job has written it.
-  "send in a new chat": 2 + TITLE_AFTER_READS + 1,
+  // The chat and its socket: the title follows the reply on that socket (it was read every 2 s
+  // until the topic job wrote it, three reads here).
+  "send in a new chat": 2,
   "20 s after the new chat's reply": 0,
   // No push registration this time: the last one is under 12 hours old.
   "cold start again": 6,
   // The page; the files' statuses the first run settled come from disk.
-  "open chat 1 after the relaunch": 2,
+  "open chat 1 after the relaunch": 1,
   // The token has expired: one refresh, which answers with the account (no /auth/me),
   // then the day's usage, to-dos, models, the check and the drawer.
   "cold start two hours later": 6,
@@ -853,6 +873,85 @@ it("keeps every step of an everyday session within its requests", async () => {
   expect(steps.find((s) => s.title === "open security again")?.requests).toEqual(["GET /auth/sessions (304)"]);
 });
 
+/**
+ * The owner's typical session (2026-11-08 feature test, "we want to have a light weight app that
+ * doesn't drain battery"): open the app, three messages in a new chat, the drawer twice, an old
+ * chat, then the To-do page. Before: 23 requests and sockets. A socket opened on the first
+ * keystroke and another for the old chat, and one stayed open throughout, under To-do too, until
+ * the server's 5-minute idle close; the new chat's title was read three times, "Make it
+ * friendlier" asked whether it was a picture, and each drawer open read the list again. Now 18,
+ * and no socket is open between turns.
+ */
+const TYPICAL_CEILINGS: Record<string, number> = {
+  "open the app": 9,
+  // The chat (made as its first message is typed) and the turn's socket; the title comes on it.
+  "a first message in a new chat": 2,
+  // Each turn its socket, closed once the reply and its follow-ups are in.
+  "a second message": 1,
+  "a third message": 1,
+  // The phone finished turns since the last read: the list once (its ETag answers a 304 when the
+  // phone already has it all), then nothing.
+  "open the drawer": 1,
+  "open the drawer again": 0,
+  // The old chat's page and its three files' statuses (this server's pages carry files);
+  // reading it opens no socket.
+  "open an old chat": 4,
+  // From the drawer, unchanged since; nothing while it sits there.
+  "go to To-do and stay 3 minutes": 0,
+};
+
+it("keeps the owner's typical session light: a socket per turn, closed after, and no rereads", async () => {
+  jest.spyOn(Math, "random").mockReturnValue(0.5);
+  steps.length = 0;
+  liveSockets.clear();
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mark = mockLog.length;
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  step("open the app");
+  const opened: number[] = [];
+  for (const [title, text] of [
+    ["a first message in a new chat", "Write a short message to my landlord"],
+    ["a second message", "Make it friendlier"],
+    ["a third message", "Add that I am home after 6"],
+  ]) {
+    await send(app, text);
+    // The reply, its follow-ups and title, then the user reads it for 20 s.
+    await settle(25_000);
+    step(title);
+    opened.push(liveSockets.size);
+  }
+  const { openDrawer, closeDrawer } = await import("@/features/chat/drawer/drawer");
+  // Half a minute apart, as a person goes: past the 20 s a read of the list stayed fresh.
+  for (const title of ["open the drawer", "open the drawer again"]) {
+    await rtl.act(async () => { openDrawer(); });
+    await settle(2000);
+    await rtl.act(async () => { closeDrawer(); });
+    await settle(30_000);
+    step(title);
+  }
+  await openChat(app, 2, 30_000);
+  step("open an old chat");
+  opened.push(liveSockets.size);
+  await rtl.act(async () => { openDrawer(); });
+  await settle(1000);
+  await app.show("todos");
+  await rtl.act(async () => { closeDrawer(); });
+  await settle(3 * 60_000);
+  step("go to To-do and stay 3 minutes");
+  opened.push(liveSockets.size);
+  expectWithin(TYPICAL_CEILINGS);
+  // No socket outlives its turn: none is open while the user reads, browses or sits on To-do.
+  expect(opened).toEqual([0, 0, 0, 0, 0]);
+  expect(steps.flatMap((s) => s.requests).filter((r) => /^GET \/chats\/[^/?]+($|\?)/.test(r))).toEqual([]);
+});
+
 /** Every step this test took stayed under its ceiling, and every ceiling was a step. */
 function expectWithin(ceilings: Record<string, number>): void {
   if (process.env.CENSUS) {
@@ -874,16 +973,13 @@ function expectWithin(ceilings: Record<string, number>): void {
  */
 const OUTAGE_CEILINGS: Record<string, number> = {
   "cold start after sign-in": 9,
-  "open chat 1": 5,
-  // The sockets close (1012) and nothing reconnects until the user moves.
+  "open chat 1": 4,
+  // No socket is open between turns, and nothing reconnects until the user sends.
   "a deploy with the chat open, down 30 s, then a minute": 0,
-  // One socket try; the next waits out its backoff. Refused, it asks for a connection check
-  // (the API, then Google), which shows the banner; its loop checks again 1.5 s later, and may
-  // a third time within the 5 s (3 s on, a fifth early). Before, a socket asked for none.
-  "typing while the API is down": 7,
-  // The deploy closed the socket: the send opens one. Before it, the loop's check finds the API
-  // back and the page on screen is read again (a 304): the banner the socket's refusal showed.
-  "send in chat 1": 3,
+  // Typing opens no socket (it opened one, refused here, then seven requests of connection checks).
+  "typing while the API is down": 0,
+  // The send opens the socket, the API back by then.
+  "send in chat 1": 1,
   // The reply's socket closes mid-stream. The phone reads the chat's newest rows until the
   // reply is saved, waiting as long as each 503's Retry-After (5 s) asks: at 1.5 to 2.5 s, then 5
   // to 6.25 s apart, so five or six (at 2 s apart it was fourteen). The first 503 asks for a
@@ -895,10 +991,10 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   // before): one landed since the outage.
   "the 30 s after, the API back": 2,
   "a minute in the background": 0,
-  // The return's reads (to-dos, the chat, the drawer's chats, the socket) fail once; the connection
-  // check backs off (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is the API. Once it
-  // passes, the page on screen is read again, 0 to 10 s later.
-  "return while the API is down 30 s, then 30 s": 16,
+  // The return's reads (to-dos, the chat, the drawer's chats; no socket until a send) fail once;
+  // the connection check backs off (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is
+  // the API. Once it passes, the page on screen is read again, 0 to 10 s later.
+  "return while the API is down 30 s, then 30 s": 15,
   // One socket try, then the send over SSE, refused: the phone says so and stops. The 503 asks
   // for a connection check, which shows the banner; its loop checks again at 1.5 s and 3 s.
   "send while the API answers 503": 8,
@@ -1308,22 +1404,20 @@ const REDIS_DOWN: Outage = { status: 503, retryAfter: "5", live: true, code: "un
 
 /**
  * An outage only the chat's socket meets: no read fails to tell the connection check. A socket
- * reported none, so no banner showed and nothing was read again when the outage ended.
+ * reported none, so no banner showed and nothing was read again when the outage ended. A socket
+ * opens for a send (none is kept open between turns), so each case meets the outage with one.
  */
-const SOCKET_OUTAGES: { title: string; outage: Outage; before?: () => void; meet: (app: App) => Promise<void> }[] = [
-  // The open socket answers a send `unavailable`, then closes 1013 (ws_api._close_while_down).
-  { title: "Redis down, a send on the open socket", outage: REDIS_DOWN, meet: (app) => send(app, "Hello there") },
-  // A deploy closed the socket (1012, no check); typing opens one, which the outage meets.
+const SOCKET_OUTAGES: { title: string; outage: Outage; meet: (app: App) => Promise<void>; shown: string[] }[] = [
+  // The send's socket answers it `unavailable`, then closes 1013 (ws_api._close_while_down).
   {
-    title: "Redis down, a new socket", outage: REDIS_DOWN, before: restartServer,
-    meet: (app) => rtl.fireEvent.changeText(app.ui.getByTestId("chat-composer-input"), "Hel"),
+    title: "Redis down, a send's socket", outage: REDIS_DOWN, meet: (app) => send(app, "Hello there"),
+    shown: ["WS", CHECK, "google/generate_204"],
   },
+  // Refused, the send goes over SSE, which the outage refuses too.
   {
-    title: "a new socket refused", outage: "down", before: restartServer,
-    meet: (app) => rtl.fireEvent.changeText(app.ui.getByTestId("chat-composer-input"), "Hel"),
+    title: "a send's socket refused", outage: "down", meet: (app) => send(app, "Hello there"),
+    shown: ["WS", `/chats/${chatId(11)}/messages/stream`, CHECK, "google/generate_204"],
   },
-  // The open socket drops (no close frame) with the API gone.
-  { title: "the open socket dropped", outage: "down", meet: () => rtl.act(async () => { dropSockets(1006); }) },
 ];
 
 it("checks the connection once for a socket that meets an outage, and shows the banner", async () => {
@@ -1339,10 +1433,9 @@ it("checks the connection once for a socket that meets an outage, and shows the 
   const app = await launch();
   await settle(10_000);
 
-  for (const [i, { title, outage: kind, before, meet }] of SOCKET_OUTAGES.entries()) {
+  for (const [i, { title, outage: kind, meet, shown: expected }] of SOCKET_OUTAGES.entries()) {
     // A chat not opened before: its socket opens with no failure behind it.
     await openChat(app, 10 + i, 20_000);
-    if (before) await rtl.act(async () => { before(); });
     await settle(1000);
     mark = mockLog.length;
     const since = statusChanges.length;
@@ -1354,10 +1447,10 @@ it("checks the connection once for a socket that meets an outage, and shows the 
     const out = steps[steps.length - 1];
     const banner = statusChanges.slice(since).find((c) => c.status !== "online");
     expect({ title, banner: banner?.status }).toEqual({ title, banner: "api_unreachable" });
-    // Before the banner: the new socket, if one opened, then one check (the API, then Google).
+    // Before the banner: the send's socket (and what it fell back to), then one check (the API,
+    // then Google).
     const shown = out.sent.filter((r) => r.at <= (banner?.at ?? -1));
-    expect(shown.map((r) => (r.method === "WS" ? "WS" : r.path)))
-      .toEqual([...(before ? ["WS"] : []), CHECK, "google/generate_204"]);
+    expect(shown.map((r) => (r.method === "WS" ? "WS" : r.path))).toEqual(expected);
     // The loop's first wait (1.5 s, a fifth either way) after the server closed the socket.
     const dropped = socketDrops.filter((at) => at >= metAt);
     expect(dropped).toHaveLength(1);

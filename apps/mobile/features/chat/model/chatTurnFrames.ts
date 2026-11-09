@@ -60,7 +60,7 @@ function onDone(s: ChatTurnState, out: Out, payload: ChatSsePayload, now: number
   messages(out, (previous) => mergeDoneIntoMessages(previous, buildDoneMergeInput(payload, draft, now, stoppedId)));
   if (!s.firstReply) {
     s.firstReply = true;
-    out.push({ type: "first_reply" });
+    out.push({ type: "first_reply", reply: { titleOnStream: payload.title_pending === true } });
   }
   out.push({ type: "reply_saved" });
   // Rows the turn wrote: one reload (code-health audit NET-14).
@@ -197,6 +197,9 @@ export function applyFrame(
       if (prompts) messages(out, (previous) => applyRelatedPrompts(previous, messageId, prompts));
       return;
     }
+    case "title":
+      out.push({ type: "title", chatId: s.chatId, title: typeof payload.title === "string" && payload.title.trim() ? payload.title : null });
+      return;
     case "error":
       onError(s, out, payload, ttftTurnId, now);
       return;

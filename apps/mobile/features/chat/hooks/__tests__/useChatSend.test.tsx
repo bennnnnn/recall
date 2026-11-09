@@ -263,10 +263,12 @@ describe("useChatSend", () => {
     }));
   });
 
+  // "draw" asks the server, which gives the molecule to chemistry; a lens question's "image"
+  // names no picture asked for, and goes to chat without the round trip (2026-11-08 feature test).
   it.each([
-    ["draw ethanol", "chemistry"],
-    ["A lens has focal length 15 cm. Where's the image?", "physics"],
-  ])("leaves %j to its subject as chat, not generation", async (text, subject) => {
+    ["draw ethanol", "chemistry", true],
+    ["A lens has focal length 15 cm. Where's the image?", "physics", false],
+  ])("leaves %j to its subject as chat, not generation", async (text, subject, asked) => {
     inputRef.current = text;
     mockImageIntent.mockResolvedValue(verdict({ subject }));
     const sendMessage = sent();
@@ -276,7 +278,8 @@ describe("useChatSend", () => {
     await act(async () => {
       await current.handleSend();
     });
-    expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest(text, "chat-1"));
+    if (asked) expect(mockImageIntent).toHaveBeenCalledWith("token", intentRequest(text, "chat-1"));
+    else expect(mockImageIntent).not.toHaveBeenCalled();
     expect(onGenerateImage).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledWith(text, expect.anything());
     expect(current.sendPhase).toBe("idle");

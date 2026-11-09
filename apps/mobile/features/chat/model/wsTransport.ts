@@ -9,6 +9,7 @@ import {
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
   WS_FOLLOW_UPS_WAIT_MS,
+  WS_LINGER_MS,
   WS_PROBE_TIMEOUT_MS,
 } from "@/features/chat/model/wsConnect";
 import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
@@ -16,76 +17,18 @@ import { UNAVAILABLE_CODE } from "@/lib/api/errorBody";
 import { getSessionGeneration } from "@/lib/auth";
 import { newRequestId, withRequestId } from "@/lib/api/requestId";
 import { noteApiFailure } from "@/lib/sentry";
-
-const WS_TURN_EVENT_TYPES = new Set([
-  "start",
-  "status",
-  "token",
-  "reasoning",
-  "stream_end",
-  "done",
-  "error",
-  "duplicate",
-  // Sent while a turn is quiet: proof of life, nothing to show.
-  "keepalive",
-]);
+import {
+  OUTAGE_CLOSE_CODES,
+  RECONNECT_CLOSE_CODES,
+  UNREAD_CLOSE_CODES,
+  WS_TURN_EVENT_TYPES,
+  WS_UNAUTHORIZED_CODE,
+  type ChatWsAuthFrame,
+  type ChatWsMessageFrame,
+  type ChatWsRegenerateFrame,
+} from "@/features/chat/model/wsFrames";
 
 const WS_OPEN_STATE = 1;
-/** The socket's sign-in was refused (`ws_limits.socket_error_payload`): use SSE. */
-const WS_UNAUTHORIZED_CODE = "unauthorized";
-
-/** The server closed a socket idle between turns (`ws_limits.WS_IDLE_CLOSE_CODE`). */
-const WS_IDLE_CLOSE_CODE = 4408;
-/** Over the per-user socket cap (`ws_limits.WS_TOO_MANY_SOCKETS_CLOSE_CODE`): use SSE. */
-const WS_TOO_MANY_SOCKETS_CLOSE_CODE = 4429;
-const WS_GOING_AWAY_CLOSE_CODE = 1001;
-/** uvicorn's close when the server restarts (deploy): the next socket reaches the new machine. */
-const WS_SERVICE_RESTART_CLOSE_CODE = 1012;
-/** A deliberate close: the next send opens a new socket instead of falling back to SSE. */
-const RECONNECT_CLOSE_CODES: ReadonlySet<number> = new Set([
-  WS_IDLE_CLOSE_CODE,
-  WS_GOING_AWAY_CLOSE_CODE,
-  WS_SERVICE_RESTART_CLOSE_CODE,
-]);
-/** Closes the server makes without reading a turn's frame: a send in flight is safe to replay. */
-const UNREAD_CLOSE_CODES: ReadonlySet<number> = new Set([
-  WS_IDLE_CLOSE_CODE,
-  WS_TOO_MANY_SOCKETS_CLOSE_CODE,
-]);
-/**
- * Closes that find no API, as a request's no answer or 502/503 does: no close frame (refused
- * or dropped), a gateway with nothing behind it (1014), and the server's Try Again Later (1013,
- * `ws_api._WS_TRY_AGAIN_LATER_CLOSE_CODE`: its Redis down). A deliberate close is none.
- */
-const OUTAGE_CLOSE_CODES: ReadonlySet<number> = new Set([1006, 1013, 1014]);
-
-type ChatWsAuthFrame = {
-  token: string;
-  client_timezone: string;
-};
-
-/** The phone's zone as a turn is sent: it can change while a socket stays open. */
-type ChatWsTurnZone = { client_timezone: string };
-
-type ChatWsMessageFrame = ChatWsTurnZone & {
-  type: "message";
-  content: string;
-  attachment_ids: string[];
-  model: string | null;
-  /** The message's name, the same on every send of it: the server runs one turn per name. */
-  client_message_id: string;
-  client_location: string | null;
-  client_latitude: number | null;
-  client_longitude: number | null;
-};
-
-type ChatWsRegenerateFrame = ChatWsTurnZone & {
-  type: "regenerate";
-  model: string | null;
-  client_location: string | null;
-  client_latitude: number | null;
-  client_longitude: number | null;
-};
 
 export type ChatWsFallbackSignal =
   | { reason: "connect_timeout"; duringTurn: false }
@@ -144,8 +87,19 @@ export class ChatWsTransport {
   private answersPing = false;
   /** The send went quiet before that answer came: probe as soon as it does. */
   private probeOnPong = false;
-  /** `related_prompts` for the last reply may still come on this socket until then. */
+  /**
+   * What a saved reply's `done` says follows it on this socket (its follow-up questions, and
+   * a new chat's title when `title_pending`), until then at the latest. Past that, or once
+   * they all came, the socket has nothing left to carry and is let go (`releaseWhenQuiet`).
+   */
   private followUpsUntil = 0;
+  private followUpsDue = new Set<string>();
+  /**
+   * A socket just opened is kept this long for the send it was opened for, and one whose turn
+   * just ended for a send that follows at once (Retry after an error, the next message).
+   */
+  private lingerUntil = 0;
+  private releaseTimer: ReturnType<typeof setTimeout> | null = null;
   /** Frames the current socket delivered: a probe is answered when this moves. */
   private framesSeen = 0;
   private closed = false;
@@ -159,11 +113,6 @@ export class ChatWsTransport {
     return this.socket?.readyState === WS_OPEN_STATE;
   }
 
-  /** A socket is open or opening (not closed by the server, a failure or `close`). */
-  holdsSocket(): boolean {
-    return this.socket !== null;
-  }
-
   /** Sends go over SSE while the socket cools down after a failure, or once its token was refused. */
   shouldUseSse(): boolean {
     return this.authRejected || this.backoff.cooling();
@@ -174,9 +123,9 @@ export class ChatWsTransport {
     return this.turnActive;
   }
 
-  /** The last reply's follow-up questions may still arrive: closing now would lose them. */
+  /** The last reply's follow-up questions or title may still arrive: closing now would lose them. */
   expectsFollowUps(): boolean {
-    return this.socket !== null && Date.now() < this.followUpsUntil;
+    return this.socket !== null && Date.now() < this.followUpsUntil && this.followUpsDue.size > 0;
   }
 
   /** A socket that names itself, so the API's lines for this connection and the crumb an
@@ -240,6 +189,9 @@ export class ChatWsTransport {
       } satisfies ChatWsAuthFrame);
       // Its pong says this server can be probed (an older one ignores pings).
       this.sendFrame({ type: "ping" });
+      // Opened for a send: one Stop or a left view took back meanwhile is not waited on.
+      this.lingerUntil = Date.now() + WS_LINGER_MS;
+      this.releaseWhenQuiet();
       this.finishConnect();
     };
 
@@ -305,17 +257,10 @@ export class ChatWsTransport {
         return;
       }
 
-      if (payload.type === "done" || payload.type === "error" || payload.type === "duplicate") {
-        this.turnActive = false;
-        this.clearTurnTimers();
-      }
-      if (payload.type === "done") {
-        this.backoff.succeed();
-        // The server sends a saved reply's follow-up questions after its done.
-        this.followUpsUntil = payload.message_id ? Date.now() + WS_FOLLOW_UPS_WAIT_MS : 0;
-      }
-      if (payload.type === "related_prompts") this.followUpsUntil = 0;
+      if (payload.type === "done" || payload.type === "error" || payload.type === "duplicate") this.endTurn(payload);
+      this.followUpsDue.delete(payload.type);
       this.options.onPayload(payload);
+      this.releaseWhenQuiet();
     };
 
     return this.connectPromise;
@@ -379,6 +324,7 @@ export class ChatWsTransport {
     this.closed = true;
     this.clearConnectTimer();
     this.clearTurnTimers();
+    this.clearReleaseTimer();
     this.finishConnect();
     this.turnActive = false;
     const socket = this.socket;
@@ -392,7 +338,9 @@ export class ChatWsTransport {
     if (!this.isOpen()) return false;
     this.turnActive = true;
     this.turnStopped = false;
+    this.lingerUntil = 0;
     this.clearTurnTimers();
+    this.clearReleaseTimer();
     this.firstEventTimer = setTimeout(() => {
       if (!this.turnActive || !this.socket) return;
       const socket = this.socket;
@@ -417,6 +365,46 @@ export class ChatWsTransport {
     }, WS_ACK_PROBE_MS);
     this.sendFrame(frame);
     return true;
+  }
+
+  /**
+   * The turn's last frame. After a saved reply's done the server sends its follow-up questions
+   * and, for a new chat, its title: the socket waits for those (`followUpsUntil`).
+   */
+  private endTurn(last: ChatWsPayload): void {
+    this.turnActive = false;
+    this.lingerUntil = Date.now() + WS_LINGER_MS;
+    this.clearTurnTimers();
+    if (last.type !== "done") return;
+    this.backoff.succeed();
+    this.followUpsDue = new Set(last.message_id ? ["related_prompts"] : []);
+    if (last.message_id && last.title_pending) this.followUpsDue.add("title");
+    this.followUpsUntil = this.followUpsDue.size > 0 ? Date.now() + WS_FOLLOW_UPS_WAIT_MS : 0;
+  }
+
+  /**
+   * A socket with no turn and nothing due after the last one is closed, as the server closes
+   * one idle between turns, and without a word: the next send opens another. An idle socket
+   * kept open woke the radio for the server's pings and, left behind a chat the user had
+   * moved on from, stayed until the server's 5-minute idle close (2026-11-08 feature test).
+   */
+  private releaseWhenQuiet(): void {
+    this.clearReleaseTimer();
+    const socket = this.socket;
+    if (!socket || this.turnActive) return;
+    const waitMs = Math.max(this.expectsFollowUps() ? this.followUpsUntil : 0, this.lingerUntil) - Date.now();
+    if (waitMs > 0) {
+      this.releaseTimer = setTimeout(() => this.releaseWhenQuiet(), waitMs);
+      return;
+    }
+    this.socket = null;
+    this.followUpsUntil = 0;
+    socket.close();
+  }
+
+  private clearReleaseTimer(): void {
+    if (this.releaseTimer != null) clearTimeout(this.releaseTimer);
+    this.releaseTimer = null;
   }
 
   private dropUnresponsive(socket: WebSocket): void {

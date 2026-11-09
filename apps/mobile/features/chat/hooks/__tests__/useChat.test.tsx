@@ -1507,7 +1507,7 @@ describe("useChat socket while the app is in the background", () => {
     addListener.mockImplementation(defaultAddListener);
   });
 
-  it("closes an idle chat socket in the background and reopens it on return", async () => {
+  it("closes an idle chat socket in the background, and the next send opens one", async () => {
     await render(<Probe chatId="a" />);
     const socket = await openSocket();
     // An idle socket left open only answers the server's keepalive pings,
@@ -1518,12 +1518,16 @@ describe("useChat socket while the app is in the background", () => {
     expect(socket.close).toHaveBeenCalledTimes(1);
     expect(FakeSocket.instances).toHaveLength(1);
 
+    // A return opens none: a chat on screen is read, not sent to (2026-11-08 feature test).
     await setAppState("active");
+    await act(async () => { await jest.advanceTimersByTimeAsync(60_000); });
+    expect(FakeSocket.instances).toHaveLength(1);
+    let sending!: Promise<unknown>;
+    await act(async () => { sending = current.sendMessage("after resume"); });
     expect(FakeSocket.instances).toHaveLength(2);
     const reopened = FakeSocket.instances[1];
     expect(reopened.url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+$/);
-    await act(async () => { reopened.open(); });
-    await sendAndStream(reopened, "after resume");
+    await act(async () => { reopened.open(); await sending; });
     expect(reopened.send).toHaveBeenCalledWith(expect.stringContaining("\"type\":\"message\""));
     expect(streamChatMessageSse).not.toHaveBeenCalled();
   });
@@ -1743,9 +1747,15 @@ describe("useChat socket recovery", () => {
     expect(current.rejectedSend?.content).toBe("question");
     expect(onError).toHaveBeenLastCalledWith("chat.error_unreachable", "send_rejected");
 
-    await act(async () => { await current.retryRejectedSend(); });
-    expect(sent()).toHaveLength(3);
-    expect(sent()[2].client_message_id).not.toBe(sent()[0].client_message_id);
+    // The socket was let go once the duplicate ended its turn: the Retry opens one.
+    let retrying!: Promise<unknown>;
+    await act(async () => { retrying = current.retryRejectedSend(); });
+    const next = latestSocket();
+    expect(next).not.toBe(socket);
+    await act(async () => { next.open(); await retrying; });
+    const resent = frames(next).filter((frame) => frame.type === "message");
+    expect(resent).toHaveLength(1);
+    expect(resent[0].client_message_id).not.toBe(sent()[0].client_message_id);
     expect(current.messages.filter((message) => message.role === "user")).toHaveLength(1);
   });
 
@@ -1773,7 +1783,7 @@ describe("useChat socket recovery", () => {
     expect(streamChatMessageSse).toHaveBeenCalledTimes(2);
   });
 
-  it("opens a new socket with a refreshed token once the old one's reply and follow-ups are in", async () => {
+  it("opens the next send's socket with a refreshed token once the old one's reply and follow-ups are in", async () => {
     mockToken = "token-1";
     await render(<Probe chatId="a" />);
     const first = await openSocket();
@@ -1795,6 +1805,9 @@ describe("useChat socket recovery", () => {
     });
     expect(current.messages.find((message) => message.id === "saved")?.related_prompts)
       .toEqual(["Why does it work?"]);
+    // Nothing more is due: no socket is opened for the new token until a send asks for one.
+    expect(FakeSocket.instances).toHaveLength(1);
+    await act(async () => { void current.connect(); });
     expect(first.close).toHaveBeenCalledTimes(1);
     const second = latestSocket();
     expect(FakeSocket.instances).toHaveLength(2);
@@ -1809,7 +1822,7 @@ describe("useChat socket recovery", () => {
     expect(frames(latestSocket())[0]).toEqual({ token: "token-3", client_timezone: "UTC" });
   });
 
-  it("replaces a refreshed token's socket on the next intent when no follow-ups come", async () => {
+  it("lets a refreshed token's socket go when no follow-ups come, and the next send uses the new token", async () => {
     mockToken = "token-1";
     await render(<Probe chatId="a" />);
     const first = await openSocket();
@@ -1820,14 +1833,15 @@ describe("useChat socket recovery", () => {
     mockToken = "token-2";
     await act(async () => { first.emit({ type: "done", message_id: "saved", final_content: "answer" }); });
     await act(async () => { jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS); });
-    expect(first.close).not.toHaveBeenCalled();
-    await act(async () => { void current.connect(); });
     expect(first.close).toHaveBeenCalledTimes(1);
+    expect(FakeSocket.instances).toHaveLength(1);
+    await act(async () => { void current.connect(); });
     await act(async () => { latestSocket().open(); });
+    expect(FakeSocket.instances).toHaveLength(2);
     expect(frames(latestSocket())[0]).toEqual({ token: "token-2", client_timezone: "UTC" });
   });
 
-  it("replaces an idle socket after a network switch and stays off it while offline", async () => {
+  it("closes an idle socket after a network switch and opens none until a send", async () => {
     await render(<Probe chatId="a" />);
     const first = await openSocket();
     await network(WIFI);
@@ -1835,14 +1849,16 @@ describe("useChat socket recovery", () => {
 
     await network(CELLULAR);
     expect(first.close).toHaveBeenCalledTimes(1);
+    await network({ type: "none", isConnected: false, isInternetReachable: false, details: null });
+    await network(WIFI);
+    expect(FakeSocket.instances).toHaveLength(1);
+
+    let sending!: Promise<unknown>;
+    await act(async () => { sending = current.sendMessage("on the new network"); });
     expect(FakeSocket.instances).toHaveLength(2);
     expect(latestSocket().url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+$/);
-
-    await network({ type: "none", isConnected: false, isInternetReachable: false, details: null });
-    expect(latestSocket().close).toHaveBeenCalledTimes(1);
-    expect(FakeSocket.instances).toHaveLength(2);
-    await network(WIFI);
-    expect(FakeSocket.instances).toHaveLength(3);
+    await act(async () => { latestSocket().open(); await sending; });
+    expect(frames(latestSocket()).at(-1)).toMatchObject({ type: "message", content: "on the new network" });
   });
 
   it("leaves a socket the server closed for idling closed on a network switch", async () => {

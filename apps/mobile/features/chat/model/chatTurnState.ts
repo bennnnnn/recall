@@ -195,8 +195,10 @@ function settleWithServerPage(s: ChatTurnState, out: Out, page: Message[]): void
   cue(out, "complete");
   if (!s.firstReply) {
     s.firstReply = true;
-    out.push({ type: "first_reply" });
+    // The reply came with a reload, not its stream: no title follows it.
+    out.push({ type: "first_reply", reply: { titleOnStream: false } });
   }
+  out.push({ type: "reply_saved" });
 }
 
 function settleDroppedSocketTurn(s: ChatTurnState, out: Out, pending: PendingSend | null, messageSaved: boolean, now: number): void {

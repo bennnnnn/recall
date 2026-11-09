@@ -1,19 +1,20 @@
 /**
  * Max wait for the WebSocket handshake before sends go over SSE.
- * A healthy socket opens well inside this budget, and the eager connect starts it
- * when the chat opens, so a send rarely waits on it. It still covers a handshake's
- * round trips on high-latency cellular (a tighter budget failed there and pushed
- * the chat onto SSE), while a path that silently drops WS costs one send this long
- * before SSE (the backoff then keeps later sends off the socket).
+ * A send opens its chat's socket (none is kept open while the chat is only read or
+ * typed in), and a healthy one opens well inside this budget. It still covers a
+ * handshake's round trips on high-latency cellular (a tighter budget failed there and
+ * pushed the chat onto SSE), while a path that silently drops WS costs one send this
+ * long before SSE (the backoff then keeps later sends off the socket).
  */
 export const WS_CONNECT_TIMEOUT_MS = 2_500;
 
 /**
- * Start the eager socket almost immediately after a chat becomes active so
- * navigation/typing time hides the handshake, while keeping a small debounce
- * to avoid opening a socket for every row during a fast list fling.
+ * How long a socket with nothing due is kept after it opened, or after its turn ended, for a
+ * send that comes at once (Retry, the next message); a send that never went (Stop, the view
+ * left) is not waited on longer. Shorter than the server's 20 s keepalive ping, which would
+ * wake the radio.
  */
-export const EAGER_CONNECT_DEBOUNCE_MS = 100;
+export const WS_LINGER_MS = 5_000;
 
 /** Server sends start before turn preparation. This bounds an OPEN but silent
  * connection without imposing a deadline on acknowledged model/tool work. */
@@ -27,8 +28,9 @@ export const WS_ACK_PROBE_MS = 3_000;
  * after a Wi-Fi/cellular switch) and the send is replayed. */
 export const WS_PROBE_TIMEOUT_MS = 3_000;
 
-/** A saved reply's follow-up questions come on its socket after `done` (the
- * server gives their model call 6 s): a socket being replaced waits this long. */
+/** A saved reply's follow-up questions, and a new chat's title, come on its socket after
+ * `done` (the server gives the questions' model call 6 s and waits 8 s for the title): the
+ * socket is kept this long for them at most, then let go. */
 export const WS_FOLLOW_UPS_WAIT_MS = 10_000;
 
 /**

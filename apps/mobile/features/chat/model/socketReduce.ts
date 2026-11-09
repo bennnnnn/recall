@@ -36,6 +36,10 @@ export type ChatWsPayload = {
   feature?: string;
   /** Follow-up questions on a `related_prompts` event. The message field stays `related_prompts`. */
   prompts?: unknown;
+  /** On `done`: a `title` event follows on this stream (a new chat's first reply). */
+  title_pending?: boolean;
+  /** On `title`: the chat's new title, or null when none came in the server's wait. */
+  title?: string | null;
 };
 
 const STOPPED_STREAM_DELTA_TYPES = new Set([
@@ -91,12 +95,14 @@ function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
     daily_limit: dailyLimit,
     messages_used: messagesUsed,
     daily_messages: dailyMessages,
+    title_pending: titlePending,
     ...rest
   } = wire;
   const payload = rest as ChatWsPayload;
   const searchSources = searchSourcesFromField(sources);
   if (searchSources.length > 0) payload.search_sources = searchSources;
   if (todosChanged === true || todosSync === "1") payload.todos_changed = true;
+  if (titlePending === true || titlePending === "1") payload.title_pending = true;
   const usage = turnUsageFrom(usedTokens, dailyLimit, messagesUsed, dailyMessages);
   if (usage) payload.usage = usage;
   return payload;

@@ -219,7 +219,6 @@ jest.mock("@/features/chat/hooks/useChat", () => ({
 jest.mock("@/features/chat/hooks/useChatActions", () => ({ useChatActions: () => mockChatActions }));
 jest.mock("@/features/chat/hooks/useChatComposerState", () => ({ useChatComposerState: () => mockComposerState }));
 jest.mock("@/features/chat/hooks/useComposerDictation", () => ({ useComposerDictation: () => mockDictation }));
-jest.mock("@/features/chat/hooks/useChatDraftWarmup", () => ({ useChatDraftWarmup: () => {} }));
 jest.mock("@/features/chat/hooks/useChatMessageList", () => ({ useChatMessageList: () => mockMessageList }));
 jest.mock("@/features/chat/hooks/useChatRegenerate", () => ({ useChatRegenerate: () => mockRegenerate }));
 const mockRouteLoaderOptions: { showActionBanner?: unknown; imageGenerating?: boolean; stopGeneration?: () => void }[] = [];
