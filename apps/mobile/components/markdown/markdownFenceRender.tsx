@@ -17,13 +17,13 @@ import {
 import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import i18n from "@/lib/i18n";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fence/registry";
 import {
   classifyFence,
   looksLikeMathMeta,
   shouldHideCopyOnCodeFallback,
-} from "@/lib/fenceDispatch";
-import { fenceReportName, refusalOf, type FenceReportName } from "@/lib/fenceReports";
+} from "@/lib/fence/dispatch";
+import { fenceReportName, refusalOf, type FenceReportName } from "@/lib/fence/reports";
 import { reportFenceCrash, reportFenceRefused } from "@/lib/sentry";
 import { FenceErrorBoundary } from "@/components/markdown/FenceErrorBoundary";
 import { PARAGRAPH_GAP, type StyleMap } from "@/components/markdown/markdownContentStyles";

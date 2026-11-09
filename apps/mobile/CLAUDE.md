@@ -91,7 +91,7 @@ on one it doesn't know.
   `reportRecoverableError`. Never `Alert`, `Modal` or `Switch` from `react-native`.
 - A permission only Settings can turn back on is offered with `offerSettings(permission)`
   (`ui/overlay/dialogs`), never `Linking.openSettings()` unasked.
-- A file goes to the share sheet through `shareLocalFile` (`lib/shareFile.ts`), and every Share
+- A file goes to the share sheet through `shareLocalFile` (`lib/share/file.ts`), and every Share
   button or export runs one at a time: `useFileShare()` (`hooks/useFileShare.ts`) or
   `shareOneAtATime`.
 

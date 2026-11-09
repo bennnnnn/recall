@@ -14,7 +14,7 @@ import {
   documentFormForLang,
   drawsBareJson,
   fenceSpecForLang,
-} from "@/lib/fenceRegistry";
+} from "@/lib/fence/registry";
 
 /**
  * Characterization test: the registry must reproduce the pre-existing language
@@ -409,7 +409,7 @@ describe("per-fence predicates accept exactly these fences", () => {
     expect(accepted(isMathFenceLang)).toEqual(["math"]);
   });
 
-  // The lists plain.ts, document.ts and fenceDispatch.ts kept beside the registry (ST-09), now rows.
+  // The lists plain.ts, document.ts and fence/dispatch.ts kept beside the registry (ST-09), now rows.
   it("bodies copy and read-aloud draw with their own reader", () => {
     const readers = FENCES.flatMap((spec) => {
       const reader = spec.plainReader;

@@ -1,5 +1,5 @@
 import type { Message } from "@/lib/api";
-import { isJsonRecord } from "@/lib/jsonFence";
+import { isJsonRecord } from "@/lib/fence/json";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 
 type OrphanFile = {

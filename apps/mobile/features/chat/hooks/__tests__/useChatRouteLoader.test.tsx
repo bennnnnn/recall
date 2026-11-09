@@ -2,8 +2,10 @@ import React, { memo, useLayoutEffect, useState } from "react";
 import { AppState, Text } from "react-native";
 import { act, render, waitFor } from "@testing-library/react-native";
 
+import { useChatMetadata, type ChatMetadata } from "@/features/chat/hooks/useChatMetadata";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
+import * as foregroundRefresh from "@/lib/foregroundRefresh";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
 import {
   clearAllCachedChatMessages,
@@ -81,6 +83,7 @@ const setChatId = jest.fn();
 const setMessages = jest.fn();
 
 function Probe() {
+  const metadata = useChatMetadata(null);
   const result = useChatRouteLoader({
     token: "token",
     routeChatId: "chat-1",
@@ -103,6 +106,7 @@ function Probe() {
     streaming: false,
     stopGeneration: jest.fn(),
     listRef: { current: null },
+    metadata,
     showActionBanner: jest.fn(),
     t: (key) => key,
   });
@@ -187,6 +191,7 @@ describe("useChatRouteLoader", () => {
     const setParams = jest.fn();
     let startNewChat: ((opts?: { force?: boolean }) => void) | undefined;
     function StreamingProbe() {
+      const metadata = useChatMetadata("open-1");
       const result = useChatRouteLoader({
         token: "token",
         routeChatId: "open-1",
@@ -224,6 +229,7 @@ describe("useChatRouteLoader", () => {
         streaming: true,
         stopGeneration,
         listRef: { current: null },
+        metadata,
         showActionBanner: jest.fn(),
         t: (key) => key,
       });
@@ -247,6 +253,7 @@ describe("useChatRouteLoader", () => {
     const stopGeneration = jest.fn();
     let startNewChat: ((opts?: { force?: boolean }) => void) | undefined;
     function DeletedProbe() {
+      const metadata = useChatMetadata("open-1");
       const result = useChatRouteLoader({
         token: "token",
         routeChatId: "open-1",
@@ -277,6 +284,7 @@ describe("useChatRouteLoader", () => {
         streaming: true,
         stopGeneration,
         listRef: { current: null },
+        metadata,
         showActionBanner: jest.fn(),
         t: (key) => key,
       });
@@ -305,7 +313,8 @@ function deferred<T>() {
 const message = (id: string, content: string): Message => ({
   id, content, role: "assistant", model: null, created_at: "2026-01-01T00:00:00Z",
 });
-let routeState: ReturnType<typeof useChatRouteLoader>;
+/** The loader's state and the chat's title and flags it sets, as the screen reads them. */
+let routeState: ReturnType<typeof useChatRouteLoader> & ChatMetadata;
 let visibleMessages: Message[];
 const routeDraft = {
   draftChatIdRef: { current: null },
@@ -321,15 +330,16 @@ let setThread: React.Dispatch<React.SetStateAction<Message[]>>;
 function useRouteProbe(routeId: string, token: string, streaming: boolean) {
   const [chatId, updateChatId] = useState<string | null>(null);
   const [messages, updateMessages] = useState<Message[]>([]);
+  const metadata = useChatMetadata(chatId);
   const result = useChatRouteLoader({
     token, routeChatId: routeId, routeHighlightMessage: undefined,
     router: { setParams: jest.fn() } as never,
     draft: routeDraft as never,
     chatId, setChatId: updateChatId, messages, editThread: updateMessages,
-    streaming, stopGeneration: jest.fn(), listRef: { current: null },
+    streaming, stopGeneration: jest.fn(), listRef: { current: null }, metadata,
     showActionBanner: banner, t: translate,
   });
-  useLayoutEffect(() => { routeState = result; visibleMessages = messages; });
+  useLayoutEffect(() => { routeState = { ...result, ...metadata }; visibleMessages = messages; });
   useLayoutEffect(() => { setThread = updateMessages; }, [updateMessages]);
   return { result, messages };
 }
@@ -483,6 +493,23 @@ describe("chat history navigation races", () => {
     await waitFor(() => expect(routeState.chatLoading).toBe(false));
     expect(visibleMessages).toEqual([]);
     expect(clearCachedChatMessages).toHaveBeenCalledWith("chat-a");
+  });
+
+  it.each(["home", "new chat"])("leaves no chat on screen on %s: no thread, title, pin or older page", async (via) => {
+    (api.getChat as jest.Mock).mockImplementation(async (_token, id) => ({
+      id, title: "Trip", pinned: true, archived: true, project_id: null,
+    }));
+    const view = await render(<RouteProbe routeId="chat-a" />);
+    await waitFor(() => expect(routeState.chatLoading).toBe(false));
+    expect(routeState).toMatchObject({ chatTitle: "Trip", pinned: true, archived: true, hasMoreOlder: true });
+    expect(visibleMessages).toEqual([current]);
+
+    if (via === "home") await view.rerender(<RouteProbe routeId={undefined as unknown as string} />);
+    else await act(async () => routeState.startNewChat());
+    expect(visibleMessages).toEqual([]);
+    expect(routeState).toMatchObject({
+      chatTitle: null, pinned: false, archived: false, hasMoreOlder: false, chatLoading: false,
+    });
   });
 
   it("keeps cached history during a temporary service failure", async () => {
@@ -856,6 +883,36 @@ describe("opening a chat", () => {
     expect(routeState.historyPending).toBe(false);
     expect(api.listMessages).toHaveBeenCalledWith("token", "chat-a", { limit: 40 });
     expect(readCachedChatMessages).not.toHaveBeenCalled();
+  });
+
+  it("listens to the app's state once while a reply streams in, not again for each message", async () => {
+    const subscribe = jest.spyOn(foregroundRefresh, "onAppStateChange");
+    try {
+      const view = await render(<RouteProbe routeId="chat-a" />);
+      await waitFor(() => expect(routeState.chatLoading).toBe(false));
+      const listening = subscribe.mock.calls.length;
+      await act(async () => {
+        setThread((prev) => [...prev, sent, streamingRow]);
+        view.rerender(<RouteProbe routeId="chat-a" streaming />);
+      });
+      for (const word of ["Once", "Once upon", "Once upon a time"]) {
+        await act(async () => {
+          setThread((prev) => [...prev.filter((m) => m.id !== "streaming"), { ...streamingRow, content: word }]);
+        });
+        await act(async () => {
+          setThread((prev) => [...prev, message(`tail-${word}`, word)]);
+        });
+      }
+      expect(subscribe.mock.calls.length).toBe(listening);
+      // The one listener still reads the chat on a return.
+      await act(async () => { for (const handler of [...appStateHandlers]) handler("background"); });
+      (api.listMessages as jest.Mock).mockClear();
+      await view.rerender(<RouteProbe routeId="chat-a" />);
+      await act(async () => { for (const handler of [...appStateHandlers]) handler("active"); });
+      await waitFor(() => expect(api.listMessages).toHaveBeenCalledWith("token", "chat-a", { limit: 40 }));
+    } finally {
+      subscribe.mockRestore();
+    }
   });
 
   it("keeps the thread once a turn finishes, so the next open paints it", async () => {

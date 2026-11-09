@@ -4,8 +4,8 @@ import { Platform } from "react-native";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import type { AppleDeleteConsent } from "@/lib/apple-auth";
-import { shareOneAtATime } from "@/lib/shareFile";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { shareOneAtATime } from "@/lib/share/file";
+import { shareFailureKey } from "@/lib/share/unavailable";
 
 const mockExportText = jest.fn();
 const mockShare = jest.fn();

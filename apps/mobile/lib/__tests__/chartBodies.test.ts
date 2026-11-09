@@ -5,7 +5,7 @@
  * card's "Could not render that chart." Then what a phone card needs to read a drawn
  * chart: short labels for big numbers, lines not pinned to zero, legends in the order given.
  */
-import { readChart } from "@/lib/chartSpec";
+import { readChart } from "@/lib/chart/spec";
 
 import { CARD_WIDTH, drawChart, drawnLabels } from "./fixtures/chartPage";
 

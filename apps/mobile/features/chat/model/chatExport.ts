@@ -6,10 +6,10 @@
  */
 import i18n from "@/lib/i18n";
 import type { Message } from "@/lib/api";
-import { presentShareSheet } from "@/lib/share";
-import { isShareCancelled } from "@/lib/shareCancelled";
-import { shareOneAtATime } from "@/lib/shareFile";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { presentShareSheet } from "@/lib/share/text";
+import { isShareCancelled } from "@/lib/share/cancelled";
+import { shareOneAtATime } from "@/lib/share/file";
+import { shareFailureKey } from "@/lib/share/unavailable";
 import { NothingToExportError } from "@/features/chat/model/nothingToExport";
 import { conversationTranscript } from "@/features/chat/model/transcript";
 

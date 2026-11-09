@@ -2,7 +2,7 @@ import {
   classifyOpenStreamTail,
   parseOpenFenceTail,
   parseOpenMathTail,
-} from "@/lib/streamingOpenFence";
+} from "@/lib/fence/openTail";
 
 describe("parseOpenFenceTail", () => {
   it("splits lang and body from an open ``` fence", () => {

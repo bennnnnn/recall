@@ -2,7 +2,7 @@ import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { spokenFormula } from "@/lib/math/spokenFormula";
-import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
+import { stripTrailingFenceCloser } from "@/lib/fence/openTail";
 
 /** Break only independent equation alternatives; each separator stays with
  * its following branch and trailing parameter conditions remain untouched. */

@@ -5,7 +5,7 @@ import { act, render } from "@testing-library/react-native";
 import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { exportConversationAsPdf } from "@/features/chat/model/exportMessagePdf";
 import { api, type Message } from "@/lib/api";
-import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { SharingUnavailableError } from "@/lib/share/unavailable";
 import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/features/chat/drawer/drawer";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
@@ -43,7 +43,7 @@ jest.mock("@/features/chat/model/exportMessagePdf", () => ({
 }));
 
 const mockShare = jest.fn(async (_options: { message: string; title?: string | null }) => {});
-jest.mock("@/lib/share", () => ({ presentShareSheet: (options: { message: string; title?: string | null }) => mockShare(options) }));
+jest.mock("@/lib/share/text", () => ({ presentShareSheet: (options: { message: string; title?: string | null }) => mockShare(options) }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));

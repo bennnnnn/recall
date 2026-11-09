@@ -1,5 +1,5 @@
-import { chartJsToVegaLite } from "@/lib/chartJsSpec";
-import { chartTable, readChart } from "@/lib/chartSpec";
+import { chartJsToVegaLite } from "@/lib/chart/jsSpec";
+import { chartTable, readChart } from "@/lib/chart/spec";
 
 // What a reply to "Graph y = sin(x) and y = cos(x) from 0 to 2π" held: a Chart.js config.
 const CHART_JS_BODY = JSON.stringify({

@@ -107,13 +107,6 @@ const mockChat = {
 };
 const mockRouteLoader = {
   handleFirstReply: mockAsyncNoop,
-  chatTitle: null,
-  setChatTitle: mockNoop,
-  titleGenerating: false,
-  pinned: false,
-  setPinned: mockNoop,
-  archived: false,
-  setArchived: mockNoop,
   chatLoading: false,
   hasMoreOlder: false,
   loadingOlder: false,
@@ -229,7 +222,13 @@ jest.mock("@/features/chat/hooks/useComposerDictation", () => ({ useComposerDict
 jest.mock("@/features/chat/hooks/useChatDraftWarmup", () => ({ useChatDraftWarmup: () => {} }));
 jest.mock("@/features/chat/hooks/useChatMessageList", () => ({ useChatMessageList: () => mockMessageList }));
 jest.mock("@/features/chat/hooks/useChatRegenerate", () => ({ useChatRegenerate: () => mockRegenerate }));
-jest.mock("@/features/chat/hooks/useChatRouteLoader", () => ({ useChatRouteLoader: () => mockRouteLoader }));
+const mockRouteLoaderOptions: { showActionBanner?: unknown; imageGenerating?: boolean; stopGeneration?: () => void }[] = [];
+jest.mock("@/features/chat/hooks/useChatRouteLoader", () => ({
+  useChatRouteLoader: (options: (typeof mockRouteLoaderOptions)[number]) => {
+    mockRouteLoaderOptions.push(options);
+    return mockRouteLoader;
+  },
+}));
 const mockSendOptions: { beforeSend?: () => Promise<void> }[] = [];
 jest.mock("@/features/chat/hooks/useChatSend", () => ({
   useChatSend: (options: { beforeSend?: () => Promise<void> }) => {
@@ -248,7 +247,13 @@ jest.mock("@/features/chat/hooks/useChatErrorHandlers", () => ({
 }));
 jest.mock("@/features/chat/hooks/useQuotaNudge", () => ({ useQuotaNudge: () => mockQuotaNudge }));
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodosOptional: () => null }));
-jest.mock("@/features/chat/hooks/useChatImageGeneration", () => ({ useChatImageGeneration: () => mockImageGen }));
+const mockImageGenOptions: { onOpenUpgrade?: () => void; onOfflineBlocked?: () => void }[] = [];
+jest.mock("@/features/chat/hooks/useChatImageGeneration", () => ({
+  useChatImageGeneration: (options: (typeof mockImageGenOptions)[number]) => {
+    mockImageGenOptions.push(options);
+    return mockImageGen;
+  },
+}));
 
 const { mockEmitKeyboard } = jest.requireMock("react-native-reanimated") as {
   mockEmitKeyboard: (frame: KeyboardFrame) => void;
@@ -601,5 +606,42 @@ describe("ChatScreen under a screen pushed over it", () => {
     back.press();
     expect(closeSheet).toHaveBeenCalledTimes(1);
     jest.restoreAllMocks();
+  });
+});
+
+describe("ChatScreen wiring, with nothing bound after the render", () => {
+  type WiredBody = {
+    composer: { onStop: () => void };
+    sheets: { upgradeVisible: boolean; upgradeSource?: string };
+  };
+  const wiredBody = () => mockBodyProps.mock.calls.at(-1)?.[0] as WiredBody;
+
+  it("hands the route loader the banner and the picture's state as they are", async () => {
+    await render(<HomeScreen />);
+    const options = mockRouteLoaderOptions.at(-1);
+    expect(options?.showActionBanner).toBe(mockChatActions.showActionBanner);
+    expect(options?.imageGenerating).toBe(false);
+  });
+
+  it("stops the picture, the reply and its error with one Stop, from the composer and from the loader", async () => {
+    const cancel = jest.spyOn(mockImageGen, "cancel");
+    const stop = jest.spyOn(mockChat, "stopGeneration");
+    const dismiss = jest.spyOn(mockErrorHandlers, "dismissChatError");
+    try {
+      await render(<HomeScreen />);
+      await act(async () => wiredBody().composer.onStop());
+      expect([cancel, stop, dismiss].map((spy) => spy.mock.calls.length)).toEqual([1, 1, 1]);
+      // The loader's Stop (a deleted chat) is the same one, and stays the same across renders.
+      expect(mockRouteLoaderOptions.at(-1)?.stopGeneration).toBe(wiredBody().composer.onStop);
+    } finally {
+      jest.restoreAllMocks();
+    }
+  });
+
+  it("opens the plans from a picture the plan cannot make", async () => {
+    await render(<HomeScreen />);
+    expect(wiredBody().sheets.upgradeVisible).toBe(false);
+    await act(async () => mockImageGenOptions.at(-1)?.onOpenUpgrade?.());
+    expect(wiredBody().sheets).toMatchObject({ upgradeVisible: true, upgradeSource: "other" });
   });
 });

@@ -3,7 +3,7 @@ import { act, render } from "@testing-library/react-native";
 import { ChatMessagePdf } from "@/features/attachments/components/ChatMessagePdf";
 import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import { serverUnreachableError } from "@/lib/api/deadline";
-import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { SharingUnavailableError } from "@/lib/share/unavailable";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
 

@@ -2,8 +2,8 @@
 
 import { Platform, Share } from "react-native";
 
-import { isShareCancelled } from "@/lib/shareCancelled";
-import { ShareInProgressError, SharingUnavailableError } from "@/lib/shareUnavailable";
+import { isShareCancelled } from "@/lib/share/cancelled";
+import { ShareInProgressError, SharingUnavailableError } from "@/lib/share/unavailable";
 
 type SharingModule = {
   shareAsync: (url: string, options?: { mimeType?: string; UTI?: string; dialogTitle?: string }) => Promise<void>;

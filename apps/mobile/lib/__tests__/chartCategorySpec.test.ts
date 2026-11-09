@@ -1,4 +1,4 @@
-import { categoryChartToVegaLite } from "@/lib/chartCategorySpec";
+import { categoryChartToVegaLite } from "@/lib/chart/categorySpec";
 
 type Spec = Record<string, unknown>;
 const values = (spec: Spec | null): unknown[] => (spec?.data as { values: unknown[] }).values;

@@ -4,7 +4,7 @@
  * To-do screen, which the reply offers as a button (the server writes the fence:
  * apps/api/app/modules/todos/chat_language.py). The fence has no body.
  */
-import { collectClosedFenceBodies, stripLangFence } from "@/lib/mdFenceScan";
+import { collectClosedFenceBodies, stripLangFence } from "@/lib/fence/scan";
 
 const LANG = "todo_link";
 

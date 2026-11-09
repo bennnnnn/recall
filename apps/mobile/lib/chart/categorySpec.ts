@@ -19,8 +19,8 @@ import {
   titleText,
   type JsonRecord,
   type SeriesValue,
-} from "@/lib/chartSeriesSpec";
-import { isJsonRecord as isRecord } from "@/lib/jsonFence";
+} from "@/lib/chart/seriesSpec";
+import { isJsonRecord as isRecord } from "@/lib/fence/json";
 
 const LABEL_KEYS = ["labels", "categories", "x"];
 const AXIS_LABEL_KEYS = ["labels", "categories", "values", "data"];

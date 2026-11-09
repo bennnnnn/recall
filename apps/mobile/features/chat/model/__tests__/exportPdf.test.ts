@@ -2,7 +2,7 @@ import * as Print from "expo-print";
 import { copyAsync, deleteAsync } from "expo-file-system/legacy";
 
 import { pdfFileName, printHtmlToSharedPdf } from "@/features/chat/model/exportPdf";
-import { shareLocalFile } from "@/lib/shareFile";
+import { shareLocalFile } from "@/lib/share/file";
 
 jest.mock("expo-print", () => ({ printToFileAsync: jest.fn() }));
 jest.mock("expo-file-system/legacy", () => ({
@@ -11,7 +11,7 @@ jest.mock("expo-file-system/legacy", () => ({
   deleteAsync: jest.fn(async () => undefined),
   readDirectoryAsync: jest.fn(async () => []),
 }));
-jest.mock("@/lib/shareFile", () => ({ shareLocalFile: jest.fn(async () => undefined) }));
+jest.mock("@/lib/share/file", () => ({ shareLocalFile: jest.fn(async () => undefined) }));
 
 beforeEach(() => {
   jest.clearAllMocks();

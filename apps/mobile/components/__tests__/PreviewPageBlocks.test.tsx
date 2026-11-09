@@ -11,9 +11,9 @@ import { Linking, Platform } from "react-native";
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { Chemistry2DView } from "@/components/rich/ChemistryBlock";
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
-import { CHART_PAGE } from "@/lib/chartPreviewHtml";
+import { CHART_PAGE } from "@/lib/chart/previewHtml";
 import { SMILES_DRAWER_PAGE } from "@/lib/chemistry/smilesDrawerHtml";
-import { MERMAID_PAGE } from "@/lib/mermaidPreviewHtml";
+import { MERMAID_PAGE } from "@/lib/mermaid/previewHtml";
 import type { PreviewPage } from "@/lib/preview/previewPage";
 import {
   forgetPreviewPageFile,

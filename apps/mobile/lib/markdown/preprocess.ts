@@ -49,7 +49,7 @@ import {
 } from "@/lib/markdown/preprocessTables";
 import { retagMathAndDiagramFences } from "@/lib/math/fenceRetag";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 import { isWorkedReply } from "@/lib/markdown/workoutSection";

@@ -12,7 +12,7 @@
  * left to right (`6÷2(1+2)` is 9), `^` binds tighter than a leading minus (`-3^2` is −9)
  * and groups to the right (`2^3^2` is 512).
  */
-import { guard, refuse } from "@/lib/fenceValidate";
+import { guard, refuse } from "@/lib/fence/validate";
 
 export type LiveFunction =
   | "sin" | "cos" | "tan" | "cot" | "sec" | "csc"

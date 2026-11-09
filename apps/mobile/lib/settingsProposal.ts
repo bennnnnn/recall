@@ -1,4 +1,4 @@
-import { collectClosedFenceBodies, stripLangFence } from "@/lib/mdFenceScan";
+import { collectClosedFenceBodies, stripLangFence } from "@/lib/fence/scan";
 
 /** The theme is the one setting a chat card changes; every other one is changed in Settings. */
 type SettingsProposalField = "appearance";

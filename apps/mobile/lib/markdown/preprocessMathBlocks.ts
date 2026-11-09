@@ -1,6 +1,6 @@
 import { looksLikeMarkdownListProse } from "@/lib/markdown/preprocessNormalize";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { applyOutsideFences, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
+import { applyOutsideFences, mapClosedFences, readFenceMarker } from "@/lib/fence/scan";
 
 const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
 const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;

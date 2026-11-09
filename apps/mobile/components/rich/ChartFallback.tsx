@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import type { ChartTable } from "@/lib/chartSpec";
+import type { ChartTable } from "@/lib/chart/spec";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";

@@ -14,7 +14,7 @@ import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/places/
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
 import { parseMessageImages, stripLookupSourceCaption, type ParsedMessageImage } from "@/lib/messageAttachments";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { mapClosedFences } from "@/lib/mdFenceScan";
+import { mapClosedFences } from "@/lib/fence/scan";
 import {
   assistantReplyIsTimeAnswer,
   extractClockTimezone,

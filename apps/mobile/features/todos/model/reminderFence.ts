@@ -1,6 +1,6 @@
 /** Strip server-side ```reminder fences from live chat (DB already strips on persist). */
 
-import { stripLangFence } from "@/lib/mdFenceScan";
+import { stripLangFence } from "@/lib/fence/scan";
 
 // The fence's language is exactly "reminder": a ```reminder_proposal card is drawn, not stripped.
 export function stripReminderFences(content: string): string {

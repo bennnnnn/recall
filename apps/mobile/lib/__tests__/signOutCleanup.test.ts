@@ -14,7 +14,7 @@ import { clearOpenedDocument } from "@/features/attachments/model/openedDocument
 import { clearSavedComposerDrafts } from "@/features/chat/model/composerDraftFile";
 import { Image } from "expo-image";
 import { ensureLocale } from "@/lib/i18n";
-import { resetShareGuard } from "@/lib/shareFile";
+import { resetShareGuard } from "@/lib/share/file";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -43,7 +43,7 @@ jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeD
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
 jest.mock("@/features/attachments/model/attachmentStatusFile", () => ({ clearSettledStatuses: jest.fn() }));
 jest.mock("@/features/attachments/model/openedDocument", () => ({ clearOpenedDocument: jest.fn() }));
-jest.mock("@/lib/shareFile", () => ({ resetShareGuard: jest.fn() }));
+jest.mock("@/lib/share/file", () => ({ resetShareGuard: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearAllCachedChatMessages: jest.fn() }));
 jest.mock("@/features/chat/model/composerDraftFile", () => ({ clearSavedComposerDrafts: jest.fn() }));

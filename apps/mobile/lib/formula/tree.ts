@@ -10,7 +10,7 @@
  * holds both to one result.
  */
 
-import { isJsonRecord } from "@/lib/jsonFence";
+import { isJsonRecord } from "@/lib/fence/json";
 
 const MAX_DEPTH = 32;
 const MAX_NODES = 512;

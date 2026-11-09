@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { FallbackFence } from "@/components/FallbackMarkdown";
-import type { FenceReportName } from "@/lib/fenceReports";
+import type { FenceReportName } from "@/lib/fence/reports";
 import { reportFenceCrash } from "@/lib/sentry";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
@@ -13,7 +13,7 @@ import { IconSize } from "@/ui/icons/sizes";
 
 /**
  * The fence's language and body: a block drawn from new ones starts clean. `fence` names
- * it in a crash report (`lib/fenceReports.ts`); the language and body never leave the phone.
+ * it in a crash report (`lib/fence/reports.ts`); the language and body never leave the phone.
  */
 type Props = { lang: string; content: string; fence: FenceReportName; children: ReactNode };
 

@@ -561,7 +561,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (GitHub `[!WARNING]` / `[!NOTE]` too), key-value, comparison, step lists, and
   email/message/social "copy" cards. EmailCard edits persist into the stored
   ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
-- ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
+- ✅ **Fence ownership** — [fence/registry.ts](apps/mobile/lib/fence/registry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
   set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array` / `steps`,
   chemistry source). Server attaches
@@ -1285,7 +1285,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   renders in the header (bounded/structured, not row-virtualized). Verify
   scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
-  `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
+  `homeUrgentTodos`, `share/text.ts`, and push channel names; translated in all 9 locales.
 - 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**960** keys);
   ~350 non-en values are still English. Structural i18n is complete.
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy`, `/legal/terms` and

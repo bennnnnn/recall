@@ -11,11 +11,11 @@ import {
   keepHardBreak,
   readsAsProse,
 } from "@/lib/markdown/calculationLayoutTail";
-import { isMathFenceLang } from "@/lib/fenceRegistry";
+import { isMathFenceLang } from "@/lib/fence/registry";
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
-import { readFenceMarker } from "@/lib/mdFenceScan";
+import { readFenceMarker } from "@/lib/fence/scan";
 
 const TEXT_COMMANDS = new Set([
   "text",

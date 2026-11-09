@@ -12,7 +12,7 @@ import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { QuizCard } from "@/components/rich/QuizCard";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
-import { CHART_PREVIEW_HEIGHT } from "@/lib/chartPreviewHeight";
+import { CHART_PREVIEW_HEIGHT } from "@/lib/chart/previewHeight";
 import { reportFenceRefused } from "@/lib/sentry";
 
 jest.mock("@/lib/sentry", () => ({ reportFenceRefused: jest.fn() }));

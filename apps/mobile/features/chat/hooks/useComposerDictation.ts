@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
@@ -13,8 +13,8 @@ type Options = {
   user: User | null;
   routeChatId: string | undefined;
   setInput: Dispatch<SetStateAction<string>>;
-  /** Read when needed: the upgrade sheet is wired after this hook runs. */
-  openUpgradeRef: MutableRefObject<((source?: UpgradeSource) => void) | null>;
+  /** Opens the plans: a plan without dictation, or the server's refusal of a take. */
+  openUpgrade: (source: UpgradeSource) => void;
   t: (key: string) => string;
 };
 
@@ -28,7 +28,7 @@ export function useComposerDictation({
   user,
   routeChatId,
   setInput,
-  openUpgradeRef,
+  openUpgrade,
   t,
 }: Options) {
   const composerThread = composerThreadKey(
@@ -51,7 +51,7 @@ export function useComposerDictation({
       setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
     },
     // The server refused: the plan has no voice input (the app's copy was stale).
-    onPlanRequired: () => openUpgradeRef.current?.("voice"),
+    onPlanRequired: () => openUpgrade("voice"),
     t,
   });
 
@@ -67,13 +67,13 @@ export function useComposerDictation({
     if (!voiceRecording && !voiceTranscribing) {
       // Don't record what the plan cannot send; show the plans instead.
       if (!canDictate) {
-        openUpgradeRef.current?.("voice");
+        openUpgrade("voice");
         return;
       }
       voiceCaptureThreadRef.current = composerThreadRef.current;
     }
     void toggleVoiceInput();
-  }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing, openUpgradeRef, composerThreadRef]);
+  }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing, openUpgrade, composerThreadRef]);
 
   return {
     voiceInputAvailable,

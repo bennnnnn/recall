@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
-import type { FenceId } from "@/lib/fenceRegistry";
-import { refusalOf, type FenceRefusal } from "@/lib/fenceReports";
+import type { FenceId } from "@/lib/fence/registry";
+import { refusalOf, type FenceRefusal } from "@/lib/fence/reports";
 import { reportFenceRefused } from "@/lib/sentry";
 
 type RefusalShape = Parameters<typeof refusalOf>[1];

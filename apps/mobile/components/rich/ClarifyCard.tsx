@@ -15,7 +15,7 @@ import {
 } from "@/lib/clarify/clarifyCard";
 import { selection } from "@/lib/haptics";
 import i18n from "@/lib/i18n";
-import { isUnfinishedJson } from "@/lib/jsonFence";
+import { isUnfinishedJson } from "@/lib/fence/json";
 import { plainFenceText } from "@/lib/lesson/lessonFences";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

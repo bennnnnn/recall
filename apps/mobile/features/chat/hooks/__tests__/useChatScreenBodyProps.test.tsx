@@ -53,7 +53,14 @@ const retryChatError = jest.fn();
 const dismissChatError = jest.fn();
 const stopGeneration = jest.fn();
 const toggleVoiceInput = jest.fn(async () => undefined);
+const cancelVoiceInput = jest.fn();
+const openLiveTalk = jest.fn();
+const openMathScanner = jest.fn();
+const handleMathChromeHeight = jest.fn();
+const handleInputFrameExtra = jest.fn();
 const handleHeaderHeightChange = jest.fn();
+const openUpgrade = jest.fn();
+const closeUpgrade = jest.fn();
 const styles = {} as never;
 const listRef = { current: null };
 const menuAnchorRef = { current: null };
@@ -66,10 +73,12 @@ const router = {
 } as never;
 
 function useHarness(streaming: boolean, messages: Message[], replySaving = false) {
-  return useChatScreenBodyProps({
+  const bodyProps = useChatScreenBodyProps({
     styles,
     theme: lightTheme,
     routeChatId: "chat-1",
+    insetsTop: 24,
+    router,
     layout: {
       headerMinimumHeight: 72,
       headerInset: 72,
@@ -79,71 +88,75 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
       restingListBottomPad: 104,
       emptyHeight: 500,
     },
-    listBottomPadRef,
-    actionBanner: null,
-    dismissActionBanner,
-    header: {
-      insetsTop: 24,
-      router,
-      headerTitleLabel: "Trip",
-      titleGenerating: false,
-      chatTitle: "Trip",
-      startNewChat,
-      setMenuVisible,
-      menuOverlayOpen: false,
-      menuAnchorRef,
-    },
-    list: {
+    keyboard: { keyboardLift },
+    scroll: {
       listRef,
-      messages,
+      listBottomPadRef,
+      showScrollToBottom: false,
+      scrollAwayCount: 0,
+      handleScroll,
+      handleScrollEnd,
+    },
+    scrollToLatest,
+    messages,
+    chatTitle: "Trip",
+    routeLoader: {
+      titleGenerating: false,
+      startNewChat,
       hasMoreOlder: false,
       loadingOlder: false,
       newerPage: null,
       chatLoading: false,
-      renderItem,
       loadOlderMessages,
-      handleScroll,
-      handleScrollEnd,
     },
+    messageList: { headerTitleLabel: "Trip", renderItem },
+    chatActions: { setMenuVisible, actionBanner: null, dismissActionBanner },
+    menuOverlayOpen: false,
+    menuAnchorRef,
     handleSend,
-    showScrollToBottom: false,
-    scrollAwayCount: 0,
-    scrollToLatest,
-    attachments: {
-      attachSheetOpen: false,
-      closeAttachSheet,
-      attachPicking: false,
-      pendingAttachment: null,
-      removePendingAttachment,
-      handlePickAttachment,
-      handleAttachmentSheetSelect,
-      mathScannerOpen: false,
-      closeMathScanner,
-      handleMathScanCaptured,
+    wiring: {
+      attachments: {
+        attachSheetOpen: false,
+        closeAttachSheet,
+        attachPicking: false,
+        pendingAttachment: null,
+        removePendingAttachment,
+        handlePickAttachment,
+        handleAttachmentSheetSelect,
+        mathScannerOpen: false,
+        closeMathScanner,
+        handleMathScanCaptured,
+        onOpenMathScanner: openMathScanner,
+        onMathChromeHeightChange: handleMathChromeHeight,
+        onInputFrameExtraChange: handleInputFrameExtra,
+        attachSheetLift: 0,
+      },
+      voice: {
+        voiceAvailable: true,
+        voiceRecording: false,
+        voiceTranscribing: false,
+        voiceMeterLevel: METER,
+        toggleVoiceInput,
+        cancelVoiceInput,
+        onLiveTalkPress: openLiveTalk,
+      },
     },
     quotaNudge: {
       show: false,
       label: "",
       dismiss: quotaDismiss,
     },
-    chatError: null,
-    isPaid: false,
+    errors: { chatError: null, dismissChatError },
     retryChatError,
-    dismissChatError,
-    keyboardLift,
+    upgrade: { visible: false, source: "other", open: openUpgrade, close: closeUpgrade },
+    isPaid: false,
+    isOffline: false,
     streaming,
     replySaving,
     sendBusy: false,
     stopGeneration,
-    isOffline: false,
-    voice: {
-      voiceAvailable: true,
-      voiceRecording: false,
-      voiceTranscribing: false,
-      voiceMeterLevel: METER,
-      toggleVoiceInput,
-    },
   });
+  return { bodyProps };
 }
 
 describe("useChatScreenBodyProps", () => {
@@ -223,6 +236,24 @@ describe("useChatScreenBodyProps", () => {
     expect(updated.composer).toBe(initial.composer);
     expect(updated.chrome).toBe(initial.chrome);
     expect(updated.sheets).toBe(initial.sheets);
+  });
+
+  it("opens the plans as 'quota' from the nudge and 'other' from an error, whatever the press hands it", async () => {
+    const { result } = await renderHook(() => useHarness(false, [message]));
+    const { chrome } = result.current.bodyProps;
+    const press = { nativeEvent: {} };
+    (chrome.onQuotaUpgrade as (event: unknown) => void)(press);
+    expect(quotaDismiss).toHaveBeenCalledTimes(1);
+    expect(openUpgrade).toHaveBeenLastCalledWith("quota");
+    (chrome.onUpgrade as (event: unknown) => void)(press);
+    expect(openUpgrade).toHaveBeenLastCalledWith("other");
+  });
+
+  it("hands the sheets the plans sheet's state and its close", async () => {
+    const { result } = await renderHook(() => useHarness(false, [message]));
+    expect(result.current.bodyProps.sheets).toMatchObject({
+      upgradeVisible: false, upgradeSource: "other", onCloseUpgrade: closeUpgrade,
+    });
   });
 
   it("hides header chrome while the drawer is open without dropping the measured list inset", async () => {

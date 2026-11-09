@@ -20,7 +20,7 @@ from app.modules.chat.chart_bodies import chart_body_draws
 from app.modules.chat.chart_loose import loose_chart_json
 from app.services.md_fence_scan import Fence, block_end, map_fence_blocks
 
-# The langs the phone draws as a chart (``lib/fenceRegistry.ts``).
+# The langs the phone draws as a chart (``lib/fence/registry.ts``).
 CHART_LANGS = frozenset({"chart", "vega", "vega-lite", "plot"})
 
 

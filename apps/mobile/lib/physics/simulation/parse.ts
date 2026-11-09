@@ -24,8 +24,8 @@ import {
   readPoint,
   refuse,
   requirePoint,
-} from "@/lib/fenceValidate";
-import { isJsonRecord } from "@/lib/jsonFence";
+} from "@/lib/fence/validate";
+import { isJsonRecord } from "@/lib/fence/json";
 
 const VECTOR_ROLES: readonly SimulationVectorRole[] = ["force", "result", "measure", "motion"];
 

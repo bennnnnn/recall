@@ -1,7 +1,7 @@
 """A numeric chart turn: what reads as one, and the one chart contract.
 
 The phone draws a ```chart fence with Vega-Lite whose data is written inline
-(``apps/mobile/lib/chartSpec.ts``); anything else shows the chart's data as a table
+(``apps/mobile/lib/chart/spec.ts``); anything else shows the chart's data as a table
 instead. ``CHART_FORMAT_HINT`` names only the shapes it draws. Their examples are
 ``chart_shapes.json``, and the phone's tests draw every one of them
 (``apps/mobile/lib/__tests__/chartShapes.test.ts``), so the hint cannot promise a

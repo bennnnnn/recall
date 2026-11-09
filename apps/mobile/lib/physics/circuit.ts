@@ -14,7 +14,7 @@
  * top of the loop stays straight.
  */
 
-import { guard, optionalText, refuse, requireRecord } from "@/lib/fenceValidate";
+import { guard, optionalText, refuse, requireRecord } from "@/lib/fence/validate";
 
 export type CircuitPartKind =
   | "resistor"

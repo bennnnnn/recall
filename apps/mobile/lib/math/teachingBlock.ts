@@ -1,6 +1,6 @@
 /** Server-owned teaching pictures. The client draws the spec and does not recompute it. */
 
-import { parseJsonRecord } from "@/lib/jsonFence";
+import { parseJsonRecord } from "@/lib/fence/json";
 
 export type TeachingSpec = {
   type: string;

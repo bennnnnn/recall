@@ -7,7 +7,7 @@
  */
 
 import { compileFormula, evaluateFormula, type Formula } from "@/lib/formula/tree";
-import { isJsonRecord } from "@/lib/jsonFence";
+import { isJsonRecord } from "@/lib/fence/json";
 
 const FORMATS = ["money", "percent", "years", "months", "number"] as const;
 export type ValueFormat = (typeof FORMATS)[number];

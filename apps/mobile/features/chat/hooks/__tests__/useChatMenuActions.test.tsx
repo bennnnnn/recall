@@ -17,7 +17,7 @@ jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages
 jest.mock("@/features/chat/model/chatListCache", () => ({ getCachedChat: () => undefined, peekCreatedChat: () => undefined }));
 jest.mock("@/features/chat/model/exportPdf", () => ({ printHtmlToSharedPdf: jest.fn() }));
 const mockShare = jest.fn(async (_options: { message: string; title?: string | null }) => {});
-jest.mock("@/lib/share", () => ({ presentShareSheet: (options: { message: string; title?: string | null }) => mockShare(options) }));
+jest.mock("@/lib/share/text", () => ({ presentShareSheet: (options: { message: string; title?: string | null }) => mockShare(options) }));
 const mockPdf = jest.fn(async (_title: string | null, _messages: unknown[], _onSharing?: () => void) => {});
 jest.mock("@/features/chat/model/exportMessagePdf", () => ({
   exportConversationAsPdf: (title: string | null, messages: unknown[], onSharing?: () => void) => mockPdf(title, messages, onSharing),

@@ -3,9 +3,9 @@
  * carries the fence's registry id, or the kind of block dispatch drew it as, and a reason
  * code: never the tag the reply wrote (it can be any text) and never the body.
  */
-import type { FenceRenderKind } from "@/lib/fenceDispatch";
-import type { FenceId } from "@/lib/fenceRegistry";
-import { isJsonRecord, readJson } from "@/lib/jsonFence";
+import type { FenceRenderKind } from "@/lib/fence/dispatch";
+import type { FenceId } from "@/lib/fence/registry";
+import { isJsonRecord, readJson } from "@/lib/fence/json";
 
 /** A fence as a report names it: its registry id, else the block it was drawn as (`code`, `html`). */
 export type FenceReportName = FenceId | FenceRenderKind;

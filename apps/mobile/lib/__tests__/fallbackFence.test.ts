@@ -1,4 +1,4 @@
-import { classifyFallbackFence } from "@/lib/fallbackFence";
+import { classifyFallbackFence } from "@/lib/fence/fallback";
 
 describe("classifyFallbackFence", () => {
   it("classifies callout fences as callouts with the parsed kind", () => {

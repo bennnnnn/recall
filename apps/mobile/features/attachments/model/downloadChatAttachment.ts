@@ -16,7 +16,7 @@ import {
 } from "@/features/attachments/model/attachmentFileStore";
 import { contentTypeForFileName } from "@/features/attachments/model/gallery";
 import { newShareFile } from "@/lib/accountFiles";
-import { shareLocalFile, shareOneAtATime } from "@/lib/shareFile";
+import { shareLocalFile, shareOneAtATime } from "@/lib/share/file";
 
 /** One native download, shared by every screen that asked for the same URL. */
 type Download = {

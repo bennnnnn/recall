@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Text } from "react-native";
 import { act, render, screen, waitFor } from "@testing-library/react-native";
 
+import { useChatMetadata } from "@/features/chat/hooks/useChatMetadata";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
 import { clearAllCachedChatMessages } from "@/features/chat/model/messageCache";
@@ -41,10 +42,11 @@ const router = { setParams: jest.fn() } as never;
 function Probe({ route, streaming = false }: { route: string; streaming?: boolean }) {
   const [chatId, setChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const metadata = useChatMetadata(chatId);
   useChatRouteLoader({
     token: "token", routeChatId: route, routeHighlightMessage: undefined, router, draft,
     chatId, setChatId, editThread: setMessages, messages, streaming, stopGeneration: jest.fn(),
-    listRef: { current: null }, showActionBanner: jest.fn(), t: (key) => key,
+    listRef: { current: null }, metadata, showActionBanner: jest.fn(), t: (key) => key,
   });
   return <Text testID="thread">{messages.map((m) => m.content).join("|")}</Text>;
 }

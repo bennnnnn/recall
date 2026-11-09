@@ -10,14 +10,14 @@
  * The phone never evaluates a formula; the server turns a formula chart into a
  * verified ```graph.
  */
-import { categoryChartToVegaLite } from "@/lib/chartCategorySpec";
-import { chartJsToVegaLite } from "@/lib/chartJsSpec";
+import { categoryChartToVegaLite } from "@/lib/chart/categorySpec";
+import { chartJsToVegaLite } from "@/lib/chart/jsSpec";
 import {
   parseChartBody,
   seriesChartToVegaLite,
   type JsonRecord,
-} from "@/lib/chartSeriesSpec";
-import { isJsonRecord as isRecord } from "@/lib/jsonFence";
+} from "@/lib/chart/seriesSpec";
+import { isJsonRecord as isRecord } from "@/lib/fence/json";
 
 export type ChartTable = { columns: string[]; rows: string[][] };
 

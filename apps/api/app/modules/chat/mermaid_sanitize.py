@@ -5,7 +5,7 @@ WebView parse-fails. A shape drawn inside the brackets keeps its marks
 outside the quotes: the cylinder ``DB[(Database)]`` is left as it is, and
 ``DB[(Primary (rw))]`` becomes ``DB[("Primary (rw)")]``, not a box labelled
 "(Primary (rw))". Linear scan — no nested regex. Twin of the phone's
-``lib/mermaidSanitize.ts``.
+``lib/mermaid/sanitize.ts``.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@
  * it stays with the chat screen while the renderers load on first use.
  */
 import { FIGURE_TITLE_HEIGHT } from "@/components/rich/figure";
-import { isJsonRecord, readJson } from "@/lib/jsonFence";
+import { isJsonRecord, readJson } from "@/lib/fence/json";
 import { Space } from "@/lib/space";
 
 /** The fixed charts' canvases: a trajectory's plot and a number line's strip. */

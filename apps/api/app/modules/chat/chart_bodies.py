@@ -1,7 +1,7 @@
 """Whether the phone draws a ```chart body: the phone's readers, as the server reads them.
 
 The phone draws Vega-Lite (or Vega) with its data inline and reads three other shapes
-models write (``apps/mobile/lib/chartSpec.ts``): a series of points (and a box plot's
+models write (``apps/mobile/lib/chart/spec.ts``): a series of points (and a box plot's
 series of values), a Chart.js config, and category labels with series of numbers in the
 many spellings models use. The server's check used to pass any body with a list in it,
 so "labels with values of another length" reached the phone and drew "Could not render
@@ -65,7 +65,7 @@ def _loads(text: str) -> Any:
 
 def parse_chart_body(raw: str) -> Any:
     """The JSON in a body, as the phone reads it: prose around the object and anything
-    after its closing brace are dropped (``chartSeriesSpec.ts parseChartBody``)."""
+    after its closing brace are dropped (``chart/seriesSpec.ts parseChartBody``)."""
     whole = _loads(raw)
     if whole is not None:
         return whole

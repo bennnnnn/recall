@@ -2,10 +2,10 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import { shareLocalFile } from "@/lib/shareFile";
+import { shareLocalFile } from "@/lib/share/file";
 
 jest.mock("@/ui/icons/Icon", () => ({ Icon: "Icon" }));
-jest.mock("@/lib/shareFile", () => ({ ...jest.requireActual("@/lib/shareFile"), shareLocalFile: jest.fn() }));
+jest.mock("@/lib/share/file", () => ({ ...jest.requireActual("@/lib/share/file"), shareLocalFile: jest.fn() }));
 const mockWarning = jest.fn();
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ warning: mockWarning }) }));
 jest.mock("@/features/attachments/components/LazyDraftAttachmentViewers", () => {

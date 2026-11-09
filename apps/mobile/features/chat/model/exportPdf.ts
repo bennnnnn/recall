@@ -4,7 +4,7 @@ import * as Print from "expo-print";
 import { copyAsync, deleteAsync } from "expo-file-system/legacy";
 
 import { documentFileName, namedPdfFile } from "@/lib/accountFiles";
-import { shareLocalFile } from "@/lib/shareFile";
+import { shareLocalFile } from "@/lib/share/file";
 
 /** The file name the share sheet shows: the chat's title, safe for any file system. */
 export function pdfFileName(title: string): string {

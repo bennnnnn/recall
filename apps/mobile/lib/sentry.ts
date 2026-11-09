@@ -12,8 +12,8 @@ import type { Breadcrumb, ErrorEvent } from "@sentry/react-native";
 
 import { isServerUnreachable } from "@/lib/api/deadline";
 import { isRequestId } from "@/lib/api/requestId";
-import type { FenceId } from "@/lib/fenceRegistry";
-import type { FenceRefusal, FenceReportName } from "@/lib/fenceReports";
+import type { FenceId } from "@/lib/fence/registry";
+import type { FenceRefusal, FenceReportName } from "@/lib/fence/reports";
 
 type SentrySdk = typeof import("@sentry/react-native");
 
@@ -284,7 +284,7 @@ const fenceCrashAllowed = reportLimit(60_000, 20);
 /**
  * A fence's block threw while it was built or drawn (`renderFence`, `FenceErrorBoundary`).
  * The block falls back either way; this reports it, tagged with the fence's registry id
- * or the kind of block it was drawn as (`lib/fenceReports.ts`), never the tag the reply
+ * or the kind of block it was drawn as (`lib/fence/reports.ts`), never the tag the reply
  * wrote. The error goes without its message, which can quote the fence's body.
  */
 export function reportFenceCrash(
@@ -306,7 +306,7 @@ export function reportFenceCrash(
 const fenceRefusalAllowed = reportLimit(HOUR_MS, 10);
 
 /**
- * The phone would not draw a fence: which one and why (`lib/fenceReports.ts`), nothing
+ * The phone would not draw a fence: which one and why (`lib/fence/reports.ts`), nothing
  * of its body. The block shows its own fallback either way.
  */
 export function reportFenceRefused(fence: FenceId, reason: FenceRefusal): void {

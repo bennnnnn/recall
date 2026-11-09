@@ -1,4 +1,4 @@
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 
 // `1. **Read widely** – Consume diverse books…`: a bold title, a dash, then a sentence.
 // A title that starts with a digit is a date or amount (`**1941** — Germany invades…`):

@@ -1,7 +1,7 @@
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { isWorkedReply, lawHeading, WORKOUT_HEADINGS } from "@/lib/markdown/workoutSection";
-import { applyOutsideFences, fencedLines, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
+import { applyOutsideFences, fencedLines, mapClosedFences, readFenceMarker } from "@/lib/fence/scan";
 
 const DETAILS_FENCE_LANGS = new Set(["details", "collapse", "summary"]);
 const DETAILS_WITH_SUMMARY_RE =

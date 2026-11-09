@@ -2,8 +2,8 @@
 
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import { parseFenceLang } from "@/lib/codeHighlight";
-import { fenceIdForLang, isMathFenceLang } from "@/lib/fenceRegistry";
-import { fenceAfterLine, readFenceMarker } from "@/lib/mdFenceScan";
+import { fenceIdForLang, isMathFenceLang } from "@/lib/fence/registry";
+import { fenceAfterLine, readFenceMarker } from "@/lib/fence/scan";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 import { fenceToCopyText } from "@/lib/markdown/plain";
 import { looksLikePipeRow } from "@/lib/markdown/streamTableHold";
