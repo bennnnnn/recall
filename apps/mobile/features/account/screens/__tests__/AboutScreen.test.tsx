@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { setStringAsync } from "expo-clipboard";
 
 import AboutScreen from "@/features/account/screens/AboutScreen";
 
@@ -7,11 +8,17 @@ const mockReportError = jest.fn();
 const mockConfig: { supportEmail: string | null } = { supportEmail: null };
 
 jest.mock("expo-constants", () => ({ expoConfig: { version: "2.3.4" } }));
+// This build runs an over-the-air update.
+jest.mock("@/lib/appVersion", () => ({
+  ...jest.requireActual("@/lib/appVersion"),
+  appVersion: () => ({ version: "2.3.4", build: null, update: "ab12cd34" }),
+}));
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: { locale: "en" } }),
 }));
-jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
+const mockFeedback = { success: jest.fn() };
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("@/hooks/useModels", () => ({ useModels: () => ({ isPaid: false }) }));
 jest.mock("@/lib/config", () => ({
   get config() {
@@ -60,5 +67,17 @@ it("says so when a legal page cannot be opened", async () => {
   await act(async () => {
     fireEvent.press(view.getByText("terms.title"));
   });
-  expect(mockReportError).toHaveBeenCalledWith(null, "settings.link_failed");
+  expect(mockReportError).toHaveBeenCalledWith(mockFeedback, "settings.link_failed");
+});
+
+// About showed the over-the-air update's internal id as a row of its own.
+it("keeps the update id off the page and copies it with the version on a long press", async () => {
+  const view = await render(<AboutScreen />);
+  expect(view.queryByText("settings.about_update")).toBeNull();
+  expect(view.queryByText("ab12cd34")).toBeNull();
+  await act(async () => {
+    fireEvent(view.getByText("2.3.4"), "longPress");
+  });
+  expect(setStringAsync).toHaveBeenCalledWith("settings.about_version: 2.3.4\nsettings.about_update: ab12cd34");
+  expect(mockFeedback.success).toHaveBeenCalledWith("common.copied");
 });

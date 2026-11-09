@@ -3,6 +3,8 @@ import type { Message } from "@/lib/api/types";
 export type LiveTalkSpeakEvent =
   | { type: "user"; text: string }
   | { type: "assistant"; text: string; sources?: Message["search_sources"] }
+  /** The reply was cut off: its unspoken transcript leaves the thread, as it is never saved. */
+  | { type: "assistant_cut" }
   | {
       type: "done";
       remaining: number;
@@ -59,6 +61,7 @@ export function applyLiveTalkChatEvent(
       "live-talk-model",
     ).map((row) => row.id === ids.assistant && event.sources ? { ...row, search_sources: event.sources } : row);
   }
+  if (event.type === "assistant_cut") return messages.filter((row) => row.id !== ids.assistant);
   if (event.type !== "done") return messages;
   // A late persistence response must replace its placeholders where they
   // already are, not move an old turn below the next live utterance.

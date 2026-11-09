@@ -40,7 +40,7 @@ import { ComposerSendControls } from "@/features/chat/components/ComposerSendCon
 import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
-import { MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
+import { liveAnswerShows, MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
@@ -161,7 +161,7 @@ export const ChatComposer = memo(function ChatComposer({
   const padUnder = math.mathBarOpen ? math.padHeight : 0;
   const mathChromeHeight =
     padUnder +
-    (math.mathBarOpen ? MATH_LIVE_ANSWER_HEIGHT : 0) +
+    (math.mathBarOpen && liveAnswerShows(input) ? MATH_LIVE_ANSWER_HEIGHT : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? COMPOSER_SCAN_HINT_HEIGHT : 0) +
     (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
@@ -464,7 +464,7 @@ export const ChatComposer = memo(function ChatComposer({
               )}
               {stacked ? null : trailingControls}
             </View>
-            {math.mathBarOpen ? <MathLiveAnswer input={input} /> : null}
+            {math.mathBarOpen && liveAnswerShows(input) ? <MathLiveAnswer input={input} /> : null}
             {stacked ? (
               <View style={s.controlsRow} testID="composer-controls-row">
                 {attachButton}

@@ -4,14 +4,20 @@
  */
 import type { SkFont } from "@shopify/react-native-skia";
 
-import { fontRuns, measureRuns, needsFallback } from "@/components/rich/skia/fontRuns";
+import {
+  fontRuns,
+  measureRuns,
+  needsFallback,
+  needsTabular,
+  tabularGlyphs,
+} from "@/components/rich/skia/fontRuns";
 
-/** A stand-in font: draws `chars`, each `advance` wide; glyph 0 is "missing". */
-function fakeFont(chars: string, advance: number): SkFont {
+/** A stand-in font: draws `chars`, each `advance` wide (or as `widths` says); glyph 0 is "missing". */
+function fakeFont(chars: string, advance: number, widths: Record<string, number> = {}): SkFont {
   const font = {
     getGlyphIDs: (text: string) =>
       Array.from(text).map((char) => (chars.includes(char) ? char.codePointAt(0)! : 0)),
-    getGlyphWidths: (ids: number[]) => ids.map(() => advance),
+    getGlyphWidths: (ids: number[]) => ids.map((id) => widths[String.fromCodePoint(id)] ?? advance),
     measureText: (text: string) => ({ x: 0, y: 0, width: Array.from(text).length * advance, height: 11 }),
   };
   return font as unknown as SkFont;
@@ -46,3 +52,27 @@ describe("fontRuns", () => {
     expect(runs[0].font).toBe(mono);
   });
 });
+
+// The system face draws "1" narrower than "0": axis numbers in a column no longer lined up
+// once the figures left the monospace face.
+describe("tabular digits", () => {
+  const proportional = fakeFont("0123456789.", 6, { "1": 4, ".": 3 });
+
+  it("sets each digit of a proportional face in the widest digit's cell", () => {
+    const { glyphs, width } = tabularGlyphs(proportional, "10.5");
+    expect(glyphs.map((glyph) => glyph.pos.x)).toEqual([1, 6, 12, 15]);
+    expect(width).toBe(21);
+    expect(measureRuns("10.5", [proportional])).toBe(21);
+    expect(needsTabular(proportional, "10.5")).toBe(true);
+  });
+
+  it("measures nothing while a label's face has not loaded", () => {
+    expect(measureRuns("10.5", [null, mono])).toBe(0);
+  });
+
+  it("leaves a face whose digits are one width, and a label with no digits, as text", () => {
+    expect(needsTabular(mono, "F = 15 N")).toBe(false);
+    expect(needsTabular(proportional, "m/s")).toBe(false);
+  });
+});
+

@@ -4,12 +4,18 @@
  * parsers that size a scene's placeholder off the chat import graph.
  */
 import React, { Suspense, useEffect, useMemo, useState, type ComponentType } from "react";
-import { ActivityIndicator, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
+import { FIGURE_TITLE_HEIGHT } from "@/components/rich/figure";
+import { graphPlaceholderHeight } from "@/components/rich/graphPlaceholder";
 import { diagramKind } from "@/lib/physics/diagramKind";
 import { SIMULATION_HEIGHT } from "@/lib/physics/simulation/viewport";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { SkeletonBlock } from "@/ui/feedback/SkeletonLoader";
 
-/** The height each block's spinner holds while its chunk loads, close to the drawn card. */
+/** The height each block's placeholder holds while its chunk loads, close to the drawn card. */
 const PLACEHOLDER_HEIGHT = {
   mermaid: 220,
   chart: 350,
@@ -17,7 +23,6 @@ const PLACEHOLDER_HEIGHT = {
   molecule: 240,
   molecule3d: 280,
   geometry: 220,
-  graph: 280,
   clock: 340,
 } as const;
 
@@ -26,16 +31,17 @@ const WEB_PREVIEW_CHROME_HEIGHT = 112;
 const WEB_PREVIEW_LINE_HEIGHT = 20;
 const WEB_PREVIEW_MAX_LINES = 14;
 
+// The figures under a STEM answer: one loader each, shared by the block and the preload.
+const loadSimulationBlock = () => import("@/components/rich/SimulationBlock");
+const loadPhysicsDiagram = () => import("@/components/rich/diagrams/PhysicsDiagram");
+const loadFunctionGraphBlock = () => import("@/components/rich/FunctionGraphBlock");
+
 const SimulationBlockLazy = React.lazy(() =>
-  import("@/components/rich/SimulationBlock").then((m) => ({
-    default: m.SimulationBlock,
-  })),
+  loadSimulationBlock().then((m) => ({ default: m.SimulationBlock })),
 );
 
 const PhysicsDiagramLazy = React.lazy(() =>
-  import("@/components/rich/diagrams/PhysicsDiagram").then((m) => ({
-    default: m.PhysicsDiagram,
-  })),
+  loadPhysicsDiagram().then((m) => ({ default: m.PhysicsDiagram })),
 );
 
 const WebPreviewCodeBlockLazy = React.lazy(() =>
@@ -44,10 +50,24 @@ const WebPreviewCodeBlockLazy = React.lazy(() =>
   })),
 );
 
+/**
+ * The card's own room while its renderer loads, drawn as the kit's quiet skeleton (a title
+ * line over the figure's area), never a bare spinner in an empty gap.
+ */
 function RichLoadPlaceholder({ height }: { height: number }) {
+  const { t } = useTranslation();
+  const titleLine = FIGURE_TITLE_HEIGHT - Space.xs;
+  const area = Math.max(0, height - Space.xs * 3 - titleLine);
   return (
-    <View testID="rich-load-placeholder" style={{ height, alignItems: "center", justifyContent: "center" }}>
-      <ActivityIndicator />
+    <View
+      testID="rich-load-placeholder"
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={t("common.loading")}
+      style={{ height, paddingVertical: Space.xs, gap: Space.xs, alignItems: "center" }}
+    >
+      <SkeletonBlock width="40%" height={titleLine} />
+      <SkeletonBlock height={area} borderRadius={Radius.md} />
     </View>
   );
 }
@@ -55,17 +75,19 @@ function RichLoadPlaceholder({ height }: { height: number }) {
 type ContentBlockProps = { content: string };
 
 /**
- * A block drawn from a fence body, loaded on first use behind a spinner of
- * `height`. The `import()` stays a literal at each call so Metro splits it.
+ * A block drawn from a fence body, loaded on first use behind a placeholder of `height`
+ * (the fence's own, when it can say). The `import()` stays a literal at each call so Metro
+ * splits it.
  */
 function lazyContentBlock(
   load: () => Promise<{ default: ComponentType<ContentBlockProps> }>,
-  height: number,
+  height: number | ((content: string) => number),
 ): ComponentType<ContentBlockProps> {
   const Block = React.lazy(load);
   return function LazyContentBlock({ content }: ContentBlockProps) {
+    const room = useMemo(() => (typeof height === "number" ? height : height(content)), [content]);
     return (
-      <Suspense fallback={<RichLoadPlaceholder height={height} />}>
+      <Suspense fallback={<RichLoadPlaceholder height={room} />}>
         <Block content={content} />
       </Suspense>
     );
@@ -103,11 +125,8 @@ export const LazyGeometryBlock = lazyContentBlock(
 );
 
 export const LazyFunctionGraphBlock = lazyContentBlock(
-  () =>
-    import("@/components/rich/FunctionGraphBlock").then((m) => ({
-      default: m.FunctionGraphBlock,
-    })),
-  PLACEHOLDER_HEIGHT.graph,
+  () => loadFunctionGraphBlock().then((m) => ({ default: m.FunctionGraphBlock })),
+  graphPlaceholderHeight,
 );
 
 export const LazyCircularClockBlock = lazyContentBlock(
@@ -139,12 +158,18 @@ function loadSimulationSizing(): Promise<SimulationSizing> {
 }
 
 /**
- * Loads the sizing parsers ahead of the first scene (the root layout calls this
- * once the launch has settled), so that scene's placeholder is its own height
- * from the start instead of the usual one for a frame.
+ * Loads the figures' renderers and the scene sizing parsers ahead of the first answer that
+ * draws one (the root layout calls this once the launch has settled). A picture then draws
+ * as its reply settles, where it waited for its chunk behind a placeholder; on a
+ * development build that chunk took Metro about 6 s to build the first time.
  */
-export function preloadSimulationSizing(): void {
-  loadSimulationSizing().catch(() => {});
+export function preloadFigures(): void {
+  Promise.all([
+    loadSimulationSizing(),
+    loadSimulationBlock(),
+    loadPhysicsDiagram(),
+    loadFunctionGraphBlock(),
+  ]).catch(() => {});
 }
 
 /** The sizing module once loaded; the first scene of a session asks for it. */

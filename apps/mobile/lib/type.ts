@@ -22,7 +22,8 @@ export const DYNAMIC_TYPE_MAX = 1.5;
  */
 export const DYNAMIC_TYPE_PICKER_MAX = 1.3;
 
-function face(weight: "400" | "500" | "600" | "700"): Pick<TextStyle, "fontFamily" | "fontWeight"> {
+/** The face at one weight; the weight keeps its literal type, so a canvas font can take it too. */
+function face<W extends "400" | "500" | "600" | "700">(weight: W): { fontFamily: string; fontWeight: W } {
   return { fontFamily: UI_FONT_FAMILY, fontWeight: weight };
 }
 

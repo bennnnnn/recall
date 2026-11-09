@@ -100,14 +100,31 @@ describe("models settings", () => {
     expect(mockUpdateUser).toHaveBeenCalledWith({ enabled_models: ["free-chat"] });
   });
 
-  it("keeps the last enabled model protected when Auto is off", async () => {
+  // The one model left on looked pale like a broken control, with no reason given.
+  it("keeps the last enabled model protected when Auto is off, and says why", async () => {
     mockAutoEnabled = false;
-    const { getByRole } = await render(<ModelsSettingsScreen />);
+    const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
 
     expect(getByRole("switch", { name: "Flash" }).props.accessibilityState).toEqual({
       checked: true,
       disabled: true,
     });
+    expect(getByText("settings.model_last_on")).toBeTruthy();
+  });
+
+  it("says why Auto cannot be switched off while no model is on", async () => {
+    mockEnabledModelIds = [];
+    const { getByRole, getByText, queryByText } = await render(<ModelsSettingsScreen />);
+
+    expect(getByRole("switch", { name: "settings.model_auto" }).props.accessibilityState.disabled).toBe(true);
+    expect(getByText("settings.model_auto_needs_model")).toBeTruthy();
+    expect(queryByText("settings.model_auto_summary")).toBeNull();
+  });
+
+  it("gives an unlocked switch no lock reason", async () => {
+    const { queryByText } = await render(<ModelsSettingsScreen />);
+    expect(queryByText("settings.model_last_on")).toBeNull();
+    expect(queryByText("settings.model_auto_needs_model")).toBeNull();
   });
 
   it("preserves degraded metadata and disables an unavailable model", async () => {

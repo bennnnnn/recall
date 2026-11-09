@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { useTranslation } from "react-i18next";
 
 import { getInitials } from "@/lib/profile";
 import { attachmentRequestHeaders, resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
@@ -20,6 +21,7 @@ export function Avatar({
   size?: number;
 }) {
   const theme = useTheme();
+  const { i18n } = useTranslation();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const dim = { width: size, height: size, borderRadius: size / 2 };
   // A photo that fails (deleted, expired, offline) falls back to the initials, not a blank circle.
@@ -42,7 +44,7 @@ export function Avatar({
     <View style={[dim, styles.fallback]}>
       {/* The circle is a fixed size, so its initials are too. */}
       <Text style={[styles.text, { fontSize: size * 0.4 }]} allowFontScaling={false}>
-        {getInitials(name)}
+        {getInitials(name, i18n.language)}
       </Text>
     </View>
   );

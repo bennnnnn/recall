@@ -19,7 +19,7 @@ import { PushNotificationBootstrap } from "@/features/todos/components/PushNotif
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
-import { preloadSimulationSizing } from "@/components/rich/LazyHeavyRich";
+import { preloadFigures } from "@/components/rich/LazyHeavyRich";
 import { useLaunchFonts } from "@/hooks/useLaunchFonts";
 import { sweepOldPickerCopies } from "@/lib/accountFiles";
 import { watchPhoneClock } from "@/lib/datetime/phoneClockSync";
@@ -123,7 +123,7 @@ export default function RootLayout() {
   useEffect(() => {
     return scheduleIdleTask(() => {
       void initMobileSentry();
-      preloadSimulationSizing();
+      preloadFigures();
     });
   }, []);
 

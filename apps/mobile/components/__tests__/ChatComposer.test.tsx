@@ -640,12 +640,19 @@ describe("ChatComposer math keyboard", () => {
   });
   it("reports the open pad's own height for the attachment menu to rise over", async () => {
     const onMathChromeHeightChange = jest.fn();
-    await render(<ChatComposer {...baseProps} onMathChromeHeightChange={onMathChromeHeightChange} />);
+    const { getByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} onMathChromeHeightChange={onMathChromeHeightChange} />
+      </DraftHarness>,
+    );
     expect(onMathChromeHeightChange.mock.calls.at(-1)?.[1]).toBe(0);
     await openMathKeyboard();
-    const [chrome, padHeight] = onMathChromeHeightChange.mock.calls.at(-1) ?? [];
+    const [empty, padHeight] = onMathChromeHeightChange.mock.calls.at(-1) ?? [];
     expect(padHeight).toBeGreaterThan(0);
-    expect(chrome).toBeGreaterThanOrEqual(padHeight + MATH_LIVE_ANSWER_HEIGHT);
+    // The composer opened three lines tall over an empty draft: the answer's line waits.
+    expect(empty).toBe(padHeight);
+    await fireEvent.press(getByTestId("math-key-digit-3"));
+    expect(onMathChromeHeightChange.mock.calls.at(-1)?.[0]).toBeGreaterThanOrEqual(padHeight + MATH_LIVE_ANSWER_HEIGHT);
   });
 
   it("shows the draft's answer as each key lands, and keeps its room between answers", async () => {
@@ -657,6 +664,8 @@ describe("ChatComposer math keyboard", () => {
     );
     expect(queryByTestId("math-live-answer")).toBeNull();
     await openMathKeyboard();
+    // No line under an empty draft: the composer stays one line until the first key.
+    expect(queryByTestId("math-live-answer")).toBeNull();
     type Node = { children: (Node | string)[] };
     const text = (node: Node | string): string =>
       typeof node === "string" ? node : node.children.map(text).join("");
@@ -665,7 +674,6 @@ describe("ChatComposer math keyboard", () => {
     const press = async (...keys: string[]) => {
       for (const key of keys) await fireEvent.press(getByTestId(`math-key-${key}`));
     };
-    expect(answer()).toBe("");
     await press("digit-3", "plus", "digit-1", "times", "digit-2");
     expect(answer()).toBe("= 5");
     await press("plus", "digit-2");

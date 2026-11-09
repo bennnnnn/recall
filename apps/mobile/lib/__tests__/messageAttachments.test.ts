@@ -1,4 +1,5 @@
 import {
+  fileLabelFromContentType,
   isAttachmentBoilerplate,
   isPdfContentType,
   parseMessageImages,
@@ -130,5 +131,19 @@ describe("stripAttachmentMarkers mirrors the server's delete", () => {
   it("is null for a message that never showed it, a mention in prose included", () => {
     expect(stripAttachmentMarkers(`see /attachments/${PHOTO}/file`, PHOTO)).toBeNull();
     expect(stripAttachmentMarkers(`[Image: /attachments/${PHOTO}/file]`, PDF)).toBeNull();
+  });
+});
+
+// "Text file", "CSV file" and "Word document" showed in English in every language.
+describe("fileLabelFromContentType", () => {
+  const t = (key: string) => `t:${key}`;
+  it.each([
+    ["text/plain; charset=utf-8", "t:chat.file_kind_text"],
+    ["text/csv", "t:chat.file_kind_csv"],
+    ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "t:chat.file_kind_word"],
+    ["application/zip", "t:chat.attached_file"],
+    [null, "t:chat.attached_file"],
+  ])("names %s in the app's language", (type, label) => {
+    expect(fileLabelFromContentType(type, t)).toBe(label);
   });
 });

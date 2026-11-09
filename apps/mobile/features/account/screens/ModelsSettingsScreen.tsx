@@ -25,6 +25,16 @@ function sameIdSet(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
+/** A model row's line under its name: why its switch cannot move, or that it is degraded. */
+function modelRowNote(
+  t: (key: string) => string,
+  row: { proLocked: boolean; isLastModel: boolean; degraded: boolean },
+): string | undefined {
+  if (row.proLocked) return t(planNameKey("plus"));
+  if (row.isLastModel) return t("settings.model_last_on");
+  return row.degraded ? t("settings.model_degraded") : undefined;
+}
+
 type DraftPrefs = {
   auto: boolean;
   models: Set<string>;
@@ -42,6 +52,8 @@ export default function ModelsSettingsScreen() {
 
   const effectiveAuto = draft?.auto ?? autoEnabled;
   const effectiveModels = draft?.models ?? modelEnabledSet;
+  // Something must answer: Auto, or at least one model.
+  const autoLocked = effectiveAuto && effectiveModels.size === 0;
 
   useEffect(() => {
     if (!draft) return;
@@ -103,9 +115,10 @@ export default function ModelsSettingsScreen() {
         <SettingsGroup>
           <SettingsSwitchRow
             title={t("settings.model_auto")}
-            subtitle={t("settings.model_auto_summary")}
+            // A switch that cannot move says why, not only by looking pale.
+            subtitle={t(autoLocked ? "settings.model_auto_needs_model" : "settings.model_auto_summary")}
             value={effectiveAuto}
-            disabled={Boolean(savingKey) || (effectiveAuto && effectiveModels.size === 0)}
+            disabled={Boolean(savingKey) || autoLocked}
             busy={savingKey === "auto"}
             onValueChange={toggleAuto}
           />
@@ -143,13 +156,7 @@ export default function ModelsSettingsScreen() {
               <SettingsSwitchRow
                 key={option.id}
                 title={option.label}
-                subtitle={
-                  proLocked
-                    ? t(planNameKey("plus"))
-                    : option.healthy === false
-                      ? t("settings.model_degraded")
-                      : undefined
-                }
+                subtitle={modelRowNote(t, { proLocked, isLastModel, degraded: option.healthy === false })}
                 value={enabled}
                 disabled={Boolean(savingKey) || switchDisabled}
                 busy={savingKey === option.id}

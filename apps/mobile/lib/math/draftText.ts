@@ -5,6 +5,7 @@
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import type { DraftNode } from "@/lib/math/draftNodes";
 import { SCRIPT_RATIO } from "@/lib/math/layout";
+import { latexNameKind } from "@/lib/math/latexNames";
 import { spokenFormula } from "@/lib/math/spokenFormula";
 import { isMostlyProsePaste } from "@/lib/math/pasteNormalize";
 import {
@@ -151,4 +152,82 @@ export function splitBeforeOperator(input: string, run: TextNode): { lead: TextN
   const at = run.start + input.slice(run.start, run.end).lastIndexOf("\\");
   const lead = input.slice(run.start, at).replace(/[$\s]/g, "") ? { ...run, end: at } : null;
   return { lead, operator: { ...run, start: at } };
+}
+
+/** Operations and relations a reply spaces on both sides when they sit between two terms. */
+const SPACED_OPERATOR_NAMES = new Set([
+  "times", "div", "pm", "mp", "cdot", "leq", "geq", "le", "ge", "neq", "ne", "approx", "equiv",
+  "sim", "cong", "to", "in", "notin", "subset", "subseteq", "cup", "cap",
+]);
+const SPACED_OPERATOR_CHARS = new Set(["+", "-", "=", "<", ">"]);
+/** Groups whose words are text, not maths (`\text{x-ray}`): nothing in them is spaced. */
+const TEXT_GROUP_COMMANDS = new Set([
+  "\\text", "\\textrm", "\\textbf", "\\textit", "\\textsf", "\\texttt", "\\textup",
+  "\\textnormal", "\\mathrm", "\\operatorname", "\\mbox",
+]);
+/** After one of these a `-` or `+` is a sign (`(-3`, `x^-1`, `a, -b`), not an operation. */
+const OPENS_TERM = new Set(["(", "[", "{", "\\{", ",", "^", "_"]);
+const DRAFT_TOKEN = /\\[A-Za-z]+|\\.|\s+|./gsu;
+/** A space the renderer keeps at either end of a run, where it trims a plain one (`\,`). */
+const EDGE_SPACE = "\\,";
+
+type DraftToken = {
+  text: string;
+  /** An operation or relation (`+`, `\times`), spaced when a term comes before it. */
+  operator: boolean;
+  /** A command drawn as one symbol (`\pi`, `\times`): a space after it only ends its name. */
+  symbol: boolean;
+};
+
+function draftToken(text: string): DraftToken {
+  const name = /^\\([A-Za-z]+)$/.exec(text)?.[1];
+  const operator = SPACED_OPERATOR_CHARS.has(text) || (name != null && SPACED_OPERATOR_NAMES.has(name));
+  const symbol = name != null && (SPACED_OPERATOR_NAMES.has(name) || latexNameKind(name) === "symbol");
+  return { text, operator, symbol };
+}
+
+/**
+ * A draft's maths as the preview draws it, spaced the way a reply's is. The keys type
+ * `\times ` and `\pi ` with a space that only ends the command and `+` with none, and the
+ * preview draws every space it is given, so `3+1\times 2` read "3+1× 2". An operation
+ * between two terms gets one space each side, while a sign (`-3`, `(-x`) and, with
+ * `tight`, a script's maths stay close; a space that only ended a symbol's name is dropped
+ * (`{}` ends it before a letter: `2\pi{}r` draws "2πr"). `termBefore`: a term (a fraction,
+ * a root) sits just before this run. The draft itself is never changed.
+ */
+export function spacedDraftMath(latex: string, { termBefore = false, tight = false } = {}): string {
+  let out = "";
+  let afterTerm = termBefore;
+  let last: (DraftToken & { spaced: boolean }) | null = null;
+  let space = false;
+  // Each open brace, and whether it stays close: a script (`x^{n+1}`) or a text group.
+  const groups: boolean[] = [];
+  for (const [text] of latex.matchAll(DRAFT_TOKEN)) {
+    if (!text.trim()) {
+      space = true;
+      continue;
+    }
+    const token = draftToken(text);
+    if (text === "{") groups.push(last?.text === "^" || last?.text === "_" || TEXT_GROUP_COMMANDS.has(last?.text ?? ""));
+    if (text === "}") groups.pop();
+    if (token.operator && afterTerm && !tight && !groups.includes(true)) {
+      out = `${out.trimEnd() || EDGE_SPACE}${out.trim() ? " " : ""}${text} `;
+      last = { ...token, spaced: true };
+      afterTerm = false;
+      space = false;
+      continue;
+    }
+    if (space && !last?.spaced) out += last?.symbol ? (/^[A-Za-z]/.test(text) ? "{}" : "") : " ";
+    out += text;
+    last = { ...token, spaced: false };
+    afterTerm = !token.operator && !OPENS_TERM.has(text);
+    space = false;
+  }
+  if (last?.spaced) return `${out.trimEnd()}${EDGE_SPACE}`;
+  return space && last && !last.symbol ? `${out} ` : out;
+}
+
+/** Whether a term (a fraction, a root, a script) ends just before `at` in the draft. */
+export function draftTermBefore(input: string, at: number): boolean {
+  return /[^\s${([]$/.test(input.slice(0, at).trimEnd());
 }

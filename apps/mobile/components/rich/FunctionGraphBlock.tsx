@@ -7,6 +7,7 @@ import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
 import { TrajectoryChart } from "@/components/rich/TrajectoryChart";
 import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
+import { NUMBER_LINE_HEIGHT } from "@/components/rich/graphPlaceholder";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
 import { formatGraphExpr, formatInequalityExpr } from "@/lib/math/graphBlock";
 import { GRAPH_KINDS, parseGraphSpec } from "@/lib/math/graphSpec";
@@ -17,7 +18,6 @@ import { Type } from "@/lib/type";
 
 type Props = { content: string };
 
-const NUMBER_LINE_HEIGHT = 80;
 const GRAPH_BODY = { json: true, kinds: { field: "type", known: GRAPH_KINDS } };
 
 export function FunctionGraphBlock({ content }: Props) {
