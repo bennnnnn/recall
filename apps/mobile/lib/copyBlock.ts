@@ -59,7 +59,7 @@ const SOURCE_LINE = [
  * model tagged (```email, ```linkedin, ```copy) is code only so: "Liebe Kolleg(inn)en", a
  * phone number "+1(555)" or an indented line of a poem kept its card on main and keeps it.
  */
-export function looksLikeSourceCode(content: string): boolean {
+function looksLikeSourceCode(content: string): boolean {
   const lines = content.slice(0, 2000).split("\n").filter((line) => line.trim());
   const source = lines.filter((line) => SOURCE_LINE.some((rule) => rule.test(line))).length;
   return source >= 2 || (source >= 1 && source * 2 > lines.length);
