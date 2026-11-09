@@ -16,6 +16,7 @@ from app.modules.chat.titles import (
     is_casual_opener,
     normalize_chat_title,
     sanitize_manual_chat_title,
+    title_job_payload,
     title_messages,
 )
 from app.services.subject_scan import SCAN_CONFIRMED_PREFIX, SCANNER_CAMERA_PROMPTS
@@ -490,3 +491,107 @@ def test_title_worked_examples_are_titles_the_rules_allow():
         assert len(title) <= 32
         # The example shows the reply as context only: its title is no line of the reply.
         assert title.casefold() not in {line.strip().casefold() for line in reply.split(".")}
+
+
+# The title model named English chats in Spanish (one chat in seven, 2026-11-08) and an Amharic
+# lesson in English, and wrote "User is vegetarian" every time it was told to remember
+# something. The prompt names English outright for English words; after it, only the script
+# and a "User" the user never wrote reject a title: names and loanwords stay.
+@pytest.mark.parametrize(
+    ("raw", "message", "expected"),
+    [
+        ("Learning about photosynthesis", "ስለ ፎቶሲንተሲስ አስተምረኝ", None),
+        ("ስለ ፎቶሲንተሲስ መማር", "ስለ ፎቶሲንተሲስ አስተምረኝ", "ስለ ፎቶሲንተሲስ መማር"),
+        ("Объяснение фотосинтеза", "Explain photosynthesis", None),
+        ("Установка Python на Mac", "Как установить Python на Mac?", "Установка Python на Mac"),
+        (
+            "Cómo hacer pan de masa madre",
+            "¿Cómo hago pan de masa madre?",
+            "Cómo hacer pan de masa madre",
+        ),
+        (
+            "Schrödinger equation explained",
+            "can you explain the schrodinger equation",
+            "Schrödinger equation explained",
+        ),
+        ("Le Chatelier's principle", "explain le chatelier", "Le Chatelier's principle"),
+        ("Las Vegas trip ideas", "plan a weekend in vegas", "Las Vegas trip ideas"),
+        ("User is vegetarian", "Remember that I am vegetarian.", None),
+        ("User loves hiking", "I love hiking", None),
+        ("The user wants a reminder", "Remind me to call mom", None),
+        (
+            "User is not defined error",
+            "Why do I get User is not defined?",
+            "User is not defined error",
+        ),
+        (
+            "User interface design basics",
+            "Explain user interface design",
+            "User interface design basics",
+        ),
+    ],
+)
+def test_finalize_generated_title_keeps_the_message_script(
+    raw: str, message: str, expected: str | None
+):
+    assert finalize_generated_title(raw, message) == expected
+
+
+@pytest.mark.asyncio
+async def test_a_title_about_the_user_names_the_chat_in_the_users_words():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway, "complete_text", new_callable=AsyncMock, return_value="User is vegetarian"
+    ):
+        title = await generate_title(settings, "Remember that I am vegetarian.", "Got it.")
+    assert title == "Remember that I am vegetarian"
+
+
+@pytest.mark.parametrize(
+    ("message", "language"),
+    [
+        ("Remember that I am vegetarian.", "in English."),
+        ("Draw a cat", "in English."),
+        ("python", "in the message's language and script."),
+        ("Quiero aprender guitarra", "in the message's language and script."),
+        ("Necesito ayuda", "in the message's language and script."),
+        ("Me llamo Carlos y vivo en Madrid", "in the message's language and script."),
+        ("¿Cómo hago pan de masa madre?", "in the message's language and script."),
+        ("Como hago un for loop en Python?", "in the message's language and script."),
+        ("ስለ ፎቶሲንተሲስ አስተምረኝ", "in the message's language and script."),
+        (_PHOTO, "in the message's language and script."),
+    ],
+)
+def test_the_title_model_is_told_english_outright_for_english_words(message: str, language: str):
+    assert _chat_turn(title_messages(message, "Reply.")).endswith(language)
+
+
+# The app language decides what words alone can't: German capitalises its nouns, so
+# "Erkläre mir die Photosynthese" shows no German word; "2x + 3 = 7" shows no language.
+@pytest.mark.parametrize(
+    ("message", "locale", "language"),
+    [
+        ("2x + 3 = 7", "en", "in the message's language and script."),
+        ("Explain 2x + 3 = 7", "en", "in English."),
+        ("Erkläre mir die Photosynthese", "de", "in the message's language and script."),
+        ("2x + 3 = 7", "de", "in the message's language and script."),
+        ("Draw a cat", "en", "in English."),
+        ("Draw a cat", None, "in English."),
+    ],
+)
+def test_the_app_language_decides_what_the_words_cannot(
+    message: str, locale: str | None, language: str
+):
+    assert _chat_turn(title_messages(message, "Reply.", locale=locale)).endswith(language)
+
+
+def test_the_title_job_carries_the_app_language_when_known():
+    chat_id, user_id = uuid4(), uuid4()
+    known = title_job_payload(
+        chat_id=chat_id, user_id=user_id, user_message="Hi", assistant_message="Hey", locale="de"
+    )
+    unknown = title_job_payload(
+        chat_id=chat_id, user_id=user_id, user_message="Hi", assistant_message="Hey"
+    )
+    assert known["locale"] == "de"
+    assert "locale" not in unknown

@@ -158,6 +158,7 @@ async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
         payload.get("user_message", ""),
         payload.get("assistant_message", ""),
         user_id=UUID(payload["user_id"]),
+        locale=payload.get("locale"),
     )
     if not applied:
         # No title this time (nothing usable, or the chat already has one): a later

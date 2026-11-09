@@ -33,7 +33,7 @@ def _turn(**overrides: Any) -> StreamContext:
         "user_message_content": "remind me to call mom tomorrow",
         "reserved_tokens": 10,
         "max_output_tokens": 100,
-        "user": SimpleNamespace(id=_USER, memory_enabled=True),
+        "user": SimpleNamespace(id=_USER, memory_enabled=True, locale="en"),
         "assistant_message_id": _ASSISTANT,
     }
     fields.update(overrides)

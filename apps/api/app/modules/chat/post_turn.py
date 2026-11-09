@@ -180,6 +180,7 @@ async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
                 user_id=saved.user_id,
                 user_message=user_message,
                 assistant_message=assistant_message,
+                locale=saved.user.locale if saved.user is not None else None,
             ),
             title_job_key(saved.chat_id),
         )

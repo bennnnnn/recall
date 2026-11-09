@@ -119,10 +119,56 @@ def _other_script(char: str) -> bool:
     return not name.startswith(_NOTATION_SCRIPTS)
 
 
+def in_other_script(text: str) -> bool:
+    """``text`` holds letters of a script that is not Latin or maths notation (Ethiopic,
+    Cyrillic, Arabic, …)."""
+    plain = _MATH.sub(" ", _without_code(text))
+    return sum(map(_other_script, plain)) >= _OTHER_SCRIPT_LETTERS
+
+
+# Everyday English a request writes and the other languages do not, beside the question words
+# above: pronouns and the verbs that ask for something ("Draw a cat", "Help me with this").
+# Words they share stay out: "me" (Spanish, French), "i" (Italian), "plan", "list", "us",
+# "describe" (Spanish), "create" and "compare" (Italian).
+_ENGLISH_REQUEST = frozenset(
+    """
+    i'm i've my mine you your yours we our please thanks about draw write explain make show tell
+    give help remember remind teach suggest translate summarize summarise build check
+    """.split()
+)
+
+
+def has_english_word(text: str) -> bool:
+    """``text`` holds a word only English writes: a question word ("the", "of", "what") or an
+    everyday request's ("my", "please", "draw"). "Quiero aprender guitarra" holds none."""
+    plain = _MATH.sub(" ", _without_code(text))
+    english = _ENGLISH | _ENGLISH_REQUEST
+    return any(match.group().casefold() in english for match in _WORD.finditer(plain))
+
+
+def has_other_language_word(text: str) -> bool:
+    """``text`` holds a word only the app's other languages write, or another script: weak
+    evidence, enough to leave a language open ("Como hago un for loop"), never to call the
+    text another language (``other_language`` asks for more)."""
+    if in_other_script(text):
+        return True
+    plain = _MATH.sub(" ", _without_code(text))
+    for match in _WORD.finditer(plain):
+        word, folded = match.group(), match.group().casefold()
+        # A label ("MIT", "OS") or a name's particle ("El Niño", "le Chatelier") is no
+        # evidence; a lowercase word with a letter English does not write is ("süße":
+        # casefold turns its ß into "ss", so the word is tested, not its folding).
+        if _SYMBOL.fullmatch(word) or folded in _PARTICLES:
+            continue
+        if folded in _FOREIGN or (word.islower() and _FOREIGN_LETTERS.intersection(folded)):
+            return True
+    return False
+
+
 def other_language(text: str) -> bool:
     """``text`` is written in a language other than English, on positive evidence."""
     plain = _MATH.sub(" ", _without_code(text))
-    if sum(map(_other_script, plain)) >= _OTHER_SCRIPT_LETTERS:
+    if in_other_script(text):
         return True
     foreign: list[str] = []
     english = 0
