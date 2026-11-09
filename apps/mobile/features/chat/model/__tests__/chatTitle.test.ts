@@ -82,6 +82,19 @@ describe("chatTitle", () => {
     ['"Trip plan', "Trip plan"],
     ['Trip plan"', "Trip plan"],
     ['"Meeting with "Bob"', 'Meeting with "Bob"'],
+    // Every language's quotes pair: German closes with the mark English opens with.
+    ["Treffen mit \u201eBob\u201c", "Treffen mit \u201eBob\u201c"],
+    ["\u201eBob\u201c", "Bob"],
+    ["R\u00e9union avec \u00abBob\u00bb", "R\u00e9union avec \u00abBob\u00bb"],
+    ["\u00ab Plan \u00bb", "Plan"],
+    ["Plan \u201aB\u2018", "Plan \u201aB\u2018"],
+    ["\u2018Bob\u2019s plan\u2019", "Bob\u2019s plan"],
+    // A quote with no space before it still opens one.
+    ['Re:"Budget"', 'Re:"Budget"'],
+    ['""Double""', "Double"],
+    ['"Hello"', "Hello"],
+    ["\u201cPlan\u201d", "Plan"],
+    ["'Twas the night", "Twas the night"],
   ])("keeps quotes inside a title, strips only wrapping or stray ones: %s", (raw, kept) => {
     expect(sanitizeManualChatTitle(raw)).toBe(kept);
   });
