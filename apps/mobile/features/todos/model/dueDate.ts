@@ -1,5 +1,5 @@
 import i18n from "@/lib/i18n";
-import type { Todo } from "@/lib/api";
+import type { Todo } from "@/lib/api/types";
 import { formatDate } from "@/lib/datetime/format";
 import { localDayKey } from "@/lib/datetime/dayKey";
 
