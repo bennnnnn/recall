@@ -1086,6 +1086,7 @@
   "todos.day_clash_pair": "{{first}} and {{second}} are both at {{time}}",
   "todos.overlap_inline": "Same time as \"{{title}}\"",
   "todos.remove_date": "Remove date",
+  "todos.remove_time": "Remove time",
   "todos.repeat_daily": "Every day",
   "todos.repeat_label": "Repeat",
   "todos.repeat_monthly": "Every month",

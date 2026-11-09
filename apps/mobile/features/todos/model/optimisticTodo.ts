@@ -13,6 +13,9 @@ export function buildOptimisticTodo(fields: {
   content: string;
   topic: string;
   dueAt?: string | null;
+  /** False: a date alone, on `dueDate`. */
+  dueHasTime?: boolean;
+  dueDate?: string | null;
   recurrenceRule?: RecurrenceRule | null;
   sortOrder?: number | null;
 }): Todo {
@@ -23,6 +26,8 @@ export function buildOptimisticTodo(fields: {
     topic: fields.topic,
     checked: false,
     due_at: fields.dueAt ?? null,
+    due_has_time: fields.dueHasTime ?? true,
+    due_date: fields.dueDate ?? null,
     recurrence_rule: fields.recurrenceRule ?? null,
     sort_order: fields.sortOrder ?? null,
     chat_id: null,

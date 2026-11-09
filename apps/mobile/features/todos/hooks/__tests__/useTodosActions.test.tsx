@@ -3,6 +3,7 @@ import { Alert, Linking, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
+import type { TodoDue } from "@/features/todos/model/dueDate";
 import { api, type Todo } from "@/lib/api";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
@@ -55,6 +56,8 @@ function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   };
 }
 
+/** A due date with a time. */
+const timed = (date: Date): TodoDue => ({ date, hasTime: true });
 const setTodos = jest.fn();
 const refresh = jest.fn(async () => undefined);
 
@@ -95,7 +98,7 @@ describe("useTodosActions reminders", () => {
 
     let createPromise: Promise<void> = Promise.resolve();
     await act(async () => {
-      createPromise = actions.handleCreateTodo("Call mom", due, onCreated);
+      createPromise = actions.handleCreateTodo("Call mom", timed(due), onCreated);
       await Promise.resolve();
     });
 
@@ -134,7 +137,7 @@ describe("useTodosActions reminders", () => {
     await act(async () => {
       await actions.handleCreateTodo(
         "Call mom",
-        new Date("2026-08-24T18:00:00.000Z"),
+        timed(new Date("2026-08-24T18:00:00.000Z")),
         onCreated,
       );
     });
@@ -160,6 +163,7 @@ describe("useTodosActions reminders", () => {
 
     expect(api.createTodo).toHaveBeenCalledWith("tok", "Buy milk", "General", {
       dueAt: null,
+      dueHasTime: true,
       recurrenceRule: null,
     });
     const addUpdater = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
@@ -186,7 +190,7 @@ describe("useTodosActions reminders", () => {
       await actions.handleUpdateTodo(
         existing,
         "Package",
-        new Date("2026-08-25T18:00:00.000Z"),
+        timed(new Date("2026-08-25T18:00:00.000Z")),
         "weekly",
       );
     });
@@ -195,6 +199,7 @@ describe("useTodosActions reminders", () => {
       content: "Package",
       topic: "General",
       due_at: "2026-08-25T18:00:00.000Z",
+      due_has_time: true,
       recurrence_rule: "weekly",
     });
 
@@ -238,7 +243,7 @@ describe("useTodosActions reminders", () => {
       actions.openTodoEditor(existing);
     });
     await act(async () => {
-      await actions.handleUpdateTodo(existing, "Parcel", new Date(existing.due_at!), null);
+      await actions.handleUpdateTodo(existing, "Parcel", timed(new Date(existing.due_at!)), null);
     });
     const optimistic = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
     expect(optimistic([existing])[0]).toMatchObject({ content: "Parcel", notify_at: existing.notify_at });
@@ -269,8 +274,60 @@ describe("useTodosActions reminders", () => {
       content: "Package",
       topic: "General",
       due_at: null,
+      due_has_time: true,
       recurrence_rule: null,
     });
+  });
+});
+
+describe("useTodosActions: a date alone", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  });
+
+  it("saves the day with no time and asks for no alerts", async () => {
+    (api.createTodo as jest.Mock).mockResolvedValue(todo({ id: "s1", content: "Pay rent" }));
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    const day = new Date(2026, 10, 10);
+    await act(async () => {
+      await actions.handleCreateTodo("Pay rent", { date: day, hasTime: false }, jest.fn());
+    });
+    expect(mockAllowAlerts).not.toHaveBeenCalled();
+    expect(api.createTodo).toHaveBeenCalledWith("tok", "Pay rent", "General", {
+      dueAt: "2026-11-10T00:00:00",
+      dueHasTime: false,
+      recurrenceRule: null,
+    });
+    const addUpdater = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
+    expect(addUpdater([])[0]).toMatchObject({ due_at: day.toISOString(), due_has_time: false, notify_at: null });
+  });
+
+  it("takes a time off: the day is sent with no time, and the old alert does not stand", async () => {
+    const existing = todo({
+      id: "r4",
+      content: "Pay rent",
+      due_at: new Date(2026, 10, 10, 9, 0).toISOString(),
+      notify_at: new Date(2026, 10, 10, 8, 50).toISOString(),
+    });
+    (api.updateTodo as jest.Mock).mockResolvedValue({ ...existing, due_has_time: false, notify_at: null });
+    await act(async () => {
+      render(<Probe todos={[existing]} />);
+    });
+    await act(async () => {
+      actions.openTodoEditor(existing);
+    });
+    await act(async () => {
+      await actions.handleUpdateTodo(existing, "Pay rent", { date: new Date(2026, 10, 10), hasTime: false }, null);
+    });
+    expect(api.updateTodo).toHaveBeenCalledWith("tok", "r4", expect.objectContaining({
+      due_at: "2026-11-10T00:00:00",
+      due_has_time: false,
+    }));
+    const optimistic = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
+    expect(optimistic([existing])[0]).toMatchObject({ due_has_time: false, notify_at: null });
   });
 });
 
@@ -298,7 +355,7 @@ describe("useTodosActions alerts", () => {
       render(<Probe todos={[]} />);
     });
     await act(async () => {
-      await actions.handleCreateTodo("Call mom", due, jest.fn());
+      await actions.handleCreateTodo("Call mom", timed(due), jest.fn());
       await actions.handleCreateTodo("Buy milk", null, jest.fn());
     });
     expect(order[0]).toBe("ask");
@@ -314,7 +371,7 @@ describe("useTodosActions alerts", () => {
       render(<Probe todos={[]} />);
     });
     await act(async () => {
-      await actions.handleCreateTodo("Call mom", due, jest.fn());
+      await actions.handleCreateTodo("Call mom", timed(due), jest.fn());
     });
     expect(api.createTodo).toHaveBeenCalled();
     const dialog = alertsOffDialog();
@@ -335,7 +392,7 @@ describe("useTodosActions alerts", () => {
       render(<Probe todos={[]} />);
     });
     await act(async () => {
-      await actions.handleCreateTodo("Call mom", due, jest.fn());
+      await actions.handleCreateTodo("Call mom", timed(due), jest.fn());
     });
     expect(api.createTodo).toHaveBeenCalled();
     expect(alertsOffDialog()).toBeUndefined();

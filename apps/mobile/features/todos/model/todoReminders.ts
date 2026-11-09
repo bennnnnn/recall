@@ -6,6 +6,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { formatDate } from "@/lib/datetime/format";
 import i18n from "@/lib/i18n";
 import { shouldSyncLocalTodoReminders } from "@/features/todos/model/todoReminderPush";
+import { isDateOnly } from "@/features/todos/model/dueDate";
 import { AndroidNotificationChannel, notificationSound } from "@/features/notifications/model/notificationChannels";
 import { ensureReminderChannel } from "@/features/notifications/model/pushNotifications";
 
@@ -62,9 +63,13 @@ export function cancelTodoReminder(todoId: string): Promise<void> {
   return enqueue(getSessionGeneration(), (current) => cancelMatching(matchesTodo(todoId), current), false);
 }
 
-/** The instant the server says this to-do's reminder goes out, while it is still to come. */
+/**
+ * The instant the server says this to-do's reminder goes out, while it is still to come. A
+ * date alone has none: nothing alerts for it.
+ */
 function upcomingNotifyAt(todo: Todo, now = Date.now()): Date | null {
   if (todo.checked || todo.id.startsWith("local-") || !todo.due_at || !todo.notify_at) return null;
+  if (isDateOnly(todo)) return null;
   const at = new Date(todo.notify_at);
   return at.getTime() > now ? at : null;
 }

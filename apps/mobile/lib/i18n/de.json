@@ -1039,6 +1039,7 @@
   "todos.proposal_to_list": "Nach {{topic}}",
   "todos.proposal_uncheck": "Wieder öffnen",
   "todos.remove_date": "Datum entfernen",
+  "todos.remove_time": "Uhrzeit entfernen",
   "todos.todo_label": "Aufgabe",
   "todos.todo_placeholder": "Was möchtest du erledigen?",
   "todos.change_due": "Datum ändern",

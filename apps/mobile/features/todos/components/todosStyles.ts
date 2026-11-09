@@ -171,12 +171,6 @@ export function makeTodosStyles(C: Theme) {
     selectionAction: { ...Type.secondary, ...Weight.semibold, color: C.primary },
     selectionDelete: { ...Type.secondary, ...Weight.semibold, color: C.danger },
     selectionDisabled: { color: C.textDisabled },
-    removeDateButton: {
-      minWidth: Space.minTouch,
-      minHeight: Space.minTouch,
-      alignItems: "center",
-      justifyContent: "center",
-    },
     repeatField: {
       flexDirection: "row",
       alignItems: "center",

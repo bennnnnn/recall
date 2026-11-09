@@ -19,4 +19,15 @@ describe("IconButton", () => {
     fireEvent.press(button);
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+
+  it("does nothing when disabled, and says so", async () => {
+    const onPress = jest.fn();
+    const { getByRole } = await render(
+      <IconButton name="close-circle" accessibilityLabel="Remove time" onPress={onPress} disabled />,
+    );
+    const button = getByRole("button");
+    expect(button.props.accessibilityState).toEqual({ disabled: true });
+    await fireEvent.press(button);
+    expect(onPress).not.toHaveBeenCalled();
+  });
 });

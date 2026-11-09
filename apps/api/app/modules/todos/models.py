@@ -53,9 +53,9 @@ class TodoItem(Base):
                 "AND due_at IS NOT NULL"
             ),
         ),
-        # Partial unique on (user_id, lower(content), due_at) for open dated
-        # rows lives in migration 0084 (`uq_todo_open_content_due`) so SQLite
-        # `__table__.create()` fixtures are not bound to a Postgres expression.
+        # Partial unique on (user_id, lower(content), due_at, due_has_time) for
+        # open dated rows lives in migrations 0084 and 0127 (`uq_todo_open_content_due`)
+        # so SQLite `__table__.create()` fixtures are not bound to a Postgres expression.
         Index("ix_todo_user_id", "user_id", "id"),
         CheckConstraint("source IN ('user')", name="ck_todo_items_source"),
     )
@@ -71,6 +71,11 @@ class TodoItem(Base):
     topic: Mapped[str] = mapped_column(String(200), nullable=False, default="General")
     checked: Mapped[bool] = mapped_column(Boolean, default=False)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # False: a date alone, held at the start of its day, with no reminder (due_day.py,
+    # migration 0127). An undated to-do keeps true.
+    due_has_time: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
     recurrence_rule: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notification_sent_at: Mapped[datetime | None] = mapped_column(

@@ -73,8 +73,8 @@ async def test_an_edit_into_a_duplicate_is_a_409_not_a_500() -> None:
 @pytest.mark.parametrize(
     ("rule", "written"),
     [
-        # A repeating to-do stays open, due a week later: the series goes on.
-        ("weekly", {"due_at": _MONDAY + timedelta(days=7)}),
+        # A repeating to-do stays open, due a week later: the series goes on, still timed.
+        ("weekly", {"due_at": _MONDAY + timedelta(days=7), "due_has_time": True}),
         # A one-off to-do is checked.
         (None, {"checked": True}),
     ],

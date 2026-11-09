@@ -114,7 +114,7 @@ describe.each(CASES)("in %s, the app in %s, a %s phone", (zone, language, hourCy
     await list.unmount();
 
     const editor = await render(
-      <TodoDateFields review dueDate={new Date(DUE)} onDueDateChange={noop} repeat={null}
+      <TodoDateFields review due={{ date: new Date(DUE), hasTime: true }} onDueChange={noop} repeat={null}
         onRepeatChange={noop} todos={[]} onOpen={noop} />,
     );
     expect(editor.getByText(expected.date)).toBeTruthy();

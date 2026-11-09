@@ -1,9 +1,10 @@
-import { describeDueAt, toDueAtIso } from "@/features/todos/model/dueDate";
+import { describeDueAt } from "@/features/todos/model/dueDate";
 import { refreshPhoneClock } from "@/lib/datetime/format";
 import type { PhoneClock } from "@/lib/datetime/phoneClock";
 import { ensureLocale } from "@/lib/i18n";
 
 // The engine's zone (the one the day math reads); the hour cycle is the phone's switch.
+const toDueAtIso = (date: Date) => date.toISOString();
 let mockPhone: PhoneClock = { timeZone: undefined, hourCycle: "h12" };
 jest.mock("@/lib/datetime/phoneClock", () => ({ readPhoneClock: () => mockPhone }));
 

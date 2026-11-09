@@ -79,3 +79,16 @@ it("says overdue to a screen reader when the row shows it, and only then", async
   expect(ui.queryByLabelText(`Call the bank, ${time}`)).toBeNull();
   expect(ui.getByRole("button", { name: "Pay rent" })).toBeTruthy();
 });
+
+it("draws a date alone with no time, and overdue only once its day has ended", async () => {
+  const rent = { ...TODO, id: "rent", content: "Pay rent", due_at: new Date(2026, 9, 24).toISOString(), due_has_time: false };
+  const ui = await render(list(new Date(2026, 9, 24, 23, 0), [rent]));
+  expect(ui.getByRole("button", { name: "Pay rent" })).toBeTruthy();
+  expect(ui.queryByTestId("todo-overdue-mark")).toBeNull();
+  expect(ui.queryByText(/\d:\d\d/)).toBeNull();
+
+  await ui.rerender(list(new Date(2026, 9, 25, 8, 0), [rent]));
+  expect(ui.getByRole("button", { name: "Pay rent, todos.row_overdue" })).toBeTruthy();
+  expect(ui.getByTestId("todo-overdue-mark")).toBeTruthy();
+  expect(ui.queryByText(/\d:\d\d/)).toBeNull();
+});

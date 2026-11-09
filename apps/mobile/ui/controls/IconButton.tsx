@@ -15,6 +15,8 @@ type Props = {
   accessibilityLabel: string;
   size?: number;
   color?: string;
+  /** Greyed and inert, as a field's remove button is while its form saves. */
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
@@ -28,6 +30,7 @@ export function IconButton({
   accessibilityLabel,
   size = IconSize.sm,
   color,
+  disabled = false,
   style,
   testID,
 }: Props) {
@@ -37,10 +40,12 @@ export function IconButton({
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
       testID={testID}
-      style={({ pressed }) => [s.hit, pressed && s.pressed, style]}
+      style={({ pressed }) => [s.hit, pressed && !disabled && s.pressed, disabled && s.disabled, style]}
     >
       {icon ?? (name ? <Icon name={name} size={size} color={color} /> : null)}
     </Pressable>
@@ -56,5 +61,6 @@ function makeStyles(_theme: Theme) {
       justifyContent: "center",
     },
     pressed: { opacity: 0.7 },
+    disabled: { opacity: 0.4 },
   });
 }

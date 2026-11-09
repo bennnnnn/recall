@@ -1049,6 +1049,7 @@
   "todos.proposal_to_list": "In {{topic}}",
   "todos.proposal_uncheck": "Riapri",
   "todos.remove_date": "Rimuovi data",
+  "todos.remove_time": "Rimuovi ora",
   "todos.todo_label": "Attività",
   "todos.todo_placeholder": "Cosa devi fare?",
   "todos.change_due": "Modifica data",

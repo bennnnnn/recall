@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import TodoItem
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.actions import _ACTION_RELOAD_LIMIT, REMINDER_TOPIC, apply_todo_actions
+from app.modules.todos.due_day import has_time
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.reminder_fence_parse import ReminderFence
 from app.modules.todos.schemas import RecurrenceRule, TodoActionItem
@@ -66,16 +67,19 @@ def format_schedule_when(
     due_at: datetime,
     user_timezone: str | None,
     repeat: RecurrenceRule | str | None = None,
+    *,
+    has_time: bool = True,
 ) -> str:
+    """The day and clock of a result line, "Thursday, Oct 15, 6:00 PM"; a date alone has
+    no clock, "Thursday, Oct 15"."""
     tz = time_context_service.resolve_timezone(user_timezone)
     due_local = (
         due_at.astimezone(tz) if due_at.tzinfo else due_at.replace(tzinfo=UTC).astimezone(tz)
     )
     hour = due_local.strftime("%I").lstrip("0") or "0"
-    when = (
-        f"{due_local.strftime('%A')}, {due_local.strftime('%b')} {due_local.day}, "
-        f"{hour}:{due_local.strftime('%M')} {due_local.strftime('%p')}"
-    )
+    when = f"{due_local.strftime('%A')}, {due_local.strftime('%b')} {due_local.day}"
+    if has_time:
+        when = f"{when}, {hour}:{due_local.strftime('%M')} {due_local.strftime('%p')}"
     if repeat:
         when = f"{when} · {repeat}"
     return when
@@ -89,13 +93,15 @@ def format_schedule_result(
     repeat: RecurrenceRule | str | None,
     user_timezone: str | None,
     ok: bool,
+    has_time: bool = True,
 ) -> str:
     if not ok:
         verb = _FAIL_VERB.get(action, "update")
         return f"Could not {verb} {title}."
     prefix = _OK_PREFIX.get(action, "Set")
     if action in ("add", "set_due") and due_at is not None:
-        return f"{prefix}: {title} — {format_schedule_when(due_at, user_timezone, repeat)}."
+        when = format_schedule_when(due_at, user_timezone, repeat, has_time=has_time)
+        return f"{prefix}: {title} — {when}."
     return f"{prefix}: {title}."
 
 
@@ -127,7 +133,8 @@ def _existing_open_match(
         matches.append(item)
     if due_at is None:
         return matches[0] if matches else None
-    exact = next((item for item in matches if item.due_at == due_at), None)
+    # A date alone at the same midnight is another to-do: chat's always has a time.
+    exact = next((item for item in matches if item.due_at == due_at and has_time(item)), None)
     if exact is not None:
         return exact
     return next((item for item in matches if item.due_at is None), None)
@@ -156,11 +163,14 @@ async def create_one(state: ReminderWrites, draft: ReminderFence) -> tuple[str, 
                     state.session,
                     match,
                     due_at=due_at,
+                    due_has_time=True,
                     recurrence_rule=draft.repeat,
                     commit=False,
                 )
             else:
-                match = await todos_repo.update(state.session, match, due_at=due_at, commit=False)
+                match = await todos_repo.update(
+                    state.session, match, due_at=due_at, due_has_time=True, commit=False
+                )
         elif draft.repeat is not None and match.recurrence_rule != draft.repeat:
             match = await todos_repo.update(
                 state.session, match, recurrence_rule=draft.repeat, commit=False

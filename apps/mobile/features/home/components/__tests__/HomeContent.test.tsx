@@ -29,6 +29,7 @@ jest.mock("@/features/home/model/homeWelcome", () => ({
 }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/features/todos/model/dueDate", () => ({
+  ...jest.requireActual("@/features/todos/model/dueDate"),
   describeDueAt: () => ({ label: "2d overdue", tone: "overdue" }),
 }));
 jest.mock("@/features/todos/model/homeUrgentTodos", () => ({

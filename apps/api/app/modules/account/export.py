@@ -190,6 +190,8 @@ def _todo_payload(todo: TodoItem) -> dict[str, Any]:
         "topic": todo.topic,
         "checked": todo.checked,
         "due_at": todo.due_at.isoformat() if todo.due_at is not None else None,
+        # False: only due_at's day counts (it holds the start of that day), with no time.
+        "due_has_time": todo.due_has_time,
         "recurrence_rule": _json_safe(todo.recurrence_rule),
         "chat_id": str(todo.chat_id) if todo.chat_id is not None else None,
         "sort_order": todo.sort_order,

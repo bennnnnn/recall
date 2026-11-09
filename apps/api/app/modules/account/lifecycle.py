@@ -52,17 +52,21 @@ async def update_account(
     memory_changed = (
         "memory_enabled" in fields and fields["memory_enabled"] != user.memory_enabled
     ) or ("name" in fields and fields["name"] != user.name)
-    if fields.get("avatar_url"):
+    # Only a PATCH that names a zone reads the old one.
+    new_zone = fields.get("timezone")
+    zones = (user.timezone, new_zone) if isinstance(new_zone, str) and new_zone else None
+    zone_moved = zones is not None and zones[0] != zones[1]
+    if fields.get("avatar_url") or zone_moved:
         try:
-            avatar_url = normalize_avatar_url(fields["avatar_url"])
-            if avatar_url is None:
-                raise ValueError("Choose an uploaded photo that has finished uploading.")
-            attachment_id = UUID(avatar_url.split("/")[2])
-            if not await attachments_service.claim_profile_photo(session, attachment_id, user.id):
-                raise ValueError("Choose an uploaded photo that has finished uploading.")
-            fields["avatar_url"] = avatar_url
+            if fields.get("avatar_url"):
+                fields["avatar_url"] = await _claimed_avatar(session, user, fields["avatar_url"])
             updated = await users_repo.update(session, user, commit=False, **fields)
             user_id = updated.id
+            if zones is not None and zone_moved:
+                # A date alone stays on its day in the new zone, in the same commit.
+                await todos_service.keep_date_only_days(
+                    session, user_id, old_timezone=zones[0], new_timezone=zones[1]
+                )
             await session.commit()
             await user_cache.publish_change(user_id)
             await session.refresh(updated)
@@ -74,6 +78,17 @@ async def update_account(
     if memory_changed:
         await memory_service.invalidate_memory_block(user.id)
     return updated
+
+
+async def _claimed_avatar(session: AsyncSession, user: User, raw: str) -> str:
+    """The uploaded photo's path, claimed as this user's profile photo."""
+    avatar_url = normalize_avatar_url(raw)
+    if avatar_url is None:
+        raise ValueError("Choose an uploaded photo that has finished uploading.")
+    attachment_id = UUID(avatar_url.split("/")[2])
+    if not await attachments_service.claim_profile_photo(session, attachment_id, user.id):
+        raise ValueError("Choose an uploaded photo that has finished uploading.")
+    return avatar_url
 
 
 async def upgrade_to_pro_for_dev(

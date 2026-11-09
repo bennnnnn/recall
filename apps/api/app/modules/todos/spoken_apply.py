@@ -7,12 +7,14 @@ The reply names that saved row. It is not the model's sentence.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.orm import User
+from app.modules.todos.due_day import has_time, local_day, stored_due
 from app.modules.todos.recurrence import is_recurrence_rule
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
@@ -157,6 +159,28 @@ def _a_list(spoken: SpokenReminderChange, prior_assistant: str | None, named: bo
     )
 
 
+def _not_saved(title: str, repeat: RecurrenceRule | None, user_timezone: str | None) -> str:
+    from app.modules.todos.reminder_writes import format_schedule_result
+
+    return format_schedule_result(
+        action="set_due",
+        title=title,
+        due_at=None,
+        repeat=repeat,
+        user_timezone=user_timezone,
+        ok=False,
+    )
+
+
+async def _anchor_zone(session: AsyncSession, item: Any, fallback: str | None) -> str | None:
+    """The zone a date alone is held in: the profile's. The turn's is the phone's, which a
+    flight leaves ahead of the profile for a while, and read there "Friday" became Saturday."""
+    user_id = getattr(item, "user_id", None)
+    user = await session.get(User, user_id) if user_id is not None else None
+    zone = user.timezone if user is not None else None
+    return zone if isinstance(zone, str) and zone else fallback
+
+
 async def _apply_saved_fields(
     session: AsyncSession,
     item: Any,
@@ -170,6 +194,8 @@ async def _apply_saved_fields(
 
     fields: dict[str, Any] = {}
     due = getattr(item, "due_at", None)
+    timed = has_time(item)
+    anchor = user_timezone if timed else await _anchor_zone(session, item, user_timezone)
     repeat = spoken.repeat or _kept_repeat(item)
     if spoken.keep_date:
         retimed = _due_with_clock(
@@ -178,57 +204,40 @@ async def _apply_saved_fields(
             spoken.minute,
             user_timezone=user_timezone,
             repeat=repeat,
+            anchor=anchor,
         )
         if retimed is None:
-            return format_schedule_result(
-                action="set_due",
-                title=title,
-                due_at=None,
-                repeat=repeat,
-                user_timezone=user_timezone,
-                ok=False,
-            ), False
+            return _not_saved(title, repeat, user_timezone), False
         fields["due_at"] = retimed
         due = retimed
+        timed = True
     if spoken.day or spoken.shift_days:
-        moved = _moved_due(item, spoken, user_timezone=user_timezone)
+        moved = _moved_due(item, spoken, user_timezone=user_timezone, anchor=anchor)
         if moved is None:
-            return format_schedule_result(
-                action="set_due",
-                title=title,
-                due_at=None,
-                repeat=repeat,
-                user_timezone=user_timezone,
-                ok=False,
-            ), False
+            return _not_saved(title, repeat, user_timezone), False
         fields["due_at"] = moved
         due = moved
+    if "due_at" in fields:
+        # A clock said gives it a time; a new day alone keeps a date alone without one.
+        fields["due_has_time"] = timed
     if spoken.repeat:
         if not isinstance(due, datetime):
-            return format_schedule_result(
-                action="set_due",
-                title=title,
-                due_at=None,
-                repeat=spoken.repeat,
-                user_timezone=user_timezone,
-                ok=False,
-            ), False
+            return _not_saved(title, spoken.repeat, user_timezone), False
         fields["recurrence_rule"] = spoken.repeat
         repeat = spoken.repeat
     if spoken.topic:
         fields["topic"] = spoken.topic
     if not fields:
-        return format_schedule_result(
-            action="set_due",
-            title=title,
-            due_at=None,
-            repeat=None,
-            user_timezone=user_timezone,
-            ok=False,
-        ), False
+        return _not_saved(title, None, user_timezone), False
     await todos_repo.update(session, item, commit=False, **fields)
+    # A date alone is named by its day where it is held.
+    zone = user_timezone if timed else anchor
     if spoken.topic:
-        when = format_schedule_when(due, user_timezone, repeat) if isinstance(due, datetime) else ""
+        when = (
+            format_schedule_when(due, zone, repeat, has_time=timed)
+            if isinstance(due, datetime)
+            else ""
+        )
         if when:
             return f"Moved: {title} to {spoken.topic} — {when}.", True
         return f"Moved: {title} to {spoken.topic}.", True
@@ -237,15 +246,18 @@ async def _apply_saved_fields(
         title=title,
         due_at=due if isinstance(due, datetime) else None,
         repeat=repeat,
-        user_timezone=user_timezone,
+        user_timezone=zone,
         ok=True,
+        has_time=timed,
     ), True
 
 
 def _moved_due(
-    item: Any, spoken: SpokenReminderChange, *, user_timezone: str | None
+    item: Any, spoken: SpokenReminderChange, *, user_timezone: str | None, anchor: str | None
 ) -> datetime | None:
-    """The saved clock on the named day, or the same day and clock a week on."""
+    """The saved clock on the named day, or the same day and clock a week on. A date alone
+    moves from its day where it is held (``anchor``) and is held at the new day's start
+    there; the named day is the phone's."""
     from app.modules.todos.spoken_when import date_for_day
     from app.services import time_context as time_context_service
 
@@ -254,12 +266,16 @@ def _moved_due(
         return None
     tz = time_context_service.resolve_timezone(user_timezone)
     local = (due if due.tzinfo else due.replace(tzinfo=UTC)).astimezone(tz)
+    if not has_time(item):
+        local = datetime.combine(local_day(due, anchor), time())
     if spoken.shift_days:
-        return local + timedelta(days=spoken.shift_days)
-    day = date_for_day(spoken.day or "", datetime.now(tz))
-    if day is None:
-        return None
-    return local.replace(year=day.year, month=day.month, day=day.day)
+        moved = local + timedelta(days=spoken.shift_days)
+    else:
+        day = date_for_day(spoken.day or "", datetime.now(tz))
+        if day is None:
+            return None
+        moved = local.replace(year=day.year, month=day.month, day=day.day)
+    return moved if has_time(item) else stored_due(moved, anchor, has_time=False)
 
 
 def format_reminder_reading(items: Sequence[Any], user_timezone: str | None) -> str:
@@ -279,7 +295,7 @@ def format_reminder_reading(items: Sequence[Any], user_timezone: str | None) -> 
         due = getattr(item, "due_at", None)
         repeat = _kept_repeat(item)
         if isinstance(due, datetime):
-            when = format_schedule_when(due, user_timezone, repeat)
+            when = format_schedule_when(due, user_timezone, repeat, has_time=has_time(item))
             stamp = due if due.tzinfo else due.replace(tzinfo=UTC)
         else:
             when = "no time"
@@ -315,6 +331,7 @@ def _due_with_clock(
     *,
     user_timezone: str | None,
     repeat: RecurrenceRule | None,
+    anchor: str | None = None,
 ) -> datetime | None:
     from app.modules.todos import spoken_change
     from app.services import time_context as time_context_service
@@ -324,6 +341,9 @@ def _due_with_clock(
         return None
     tz = time_context_service.resolve_timezone(user_timezone)
     local = due.astimezone(tz) if due.tzinfo else due.replace(tzinfo=UTC).astimezone(tz)
+    if not has_time(item):
+        # A date alone's day is where it is held; the clock said is the phone's.
+        local = datetime.combine(local_day(due, anchor), time(), tz)
     retimed = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if retimed <= spoken_change._now(tz):
         retimed += timedelta(days=1)
