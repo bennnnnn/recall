@@ -130,6 +130,7 @@ const VARIANTS: Record<string, string> = {
   // SymPy braces every function's argument; a follow-up copied a degree in a text group.
   "sympy arguments": "So $y = \\ln{\\left(x^{2} + 1 \\right)}$ and $\\int x \\sin{\\left(x \\right)}\\,dx$.",
   "text group command": "What if $\\theta$ was $45^\\text{\\textdegree}$ instead?",
+  "formula of words": "They always satisfy one rule:\n\n$Assets = Liabilities + Equity$\n\nAlways.",
   "unit circle":
     '```arithmetic\n{"type":"unit_circle","degrees":30,"radians":"\\\\frac{\\\\pi}{6}","cosine":"\\\\frac{\\\\sqrt{3}}{2}","sine":"\\\\frac{1}{2}","tangent":"\\\\frac{\\\\sqrt{3}}{3}","plot_x":0.866025,"plot_y":0.5,"answer":"\\\\frac{1}{2}","speech":"30 degrees is the point with cosine \\\\frac{\\\\sqrt{3}}{2} and sine \\\\frac{1}{2}."}\n```',
   "price beside maths": "It costs $5, and $4! = 4 \\times 3 \\times 2 \\times 1 = 24$.",

@@ -59,7 +59,8 @@ function spansInFace(
   return out;
 }
 
-const visible = (text: string) => text.replace(/ /g, "");
+// The pads at a pill's ends go; a no-break space inside short code is the space typed.
+const visible = (text: string) => text.replace(/^\u00a0+|\u00a0+$/g, "").replace(/\u00a0/g, " ");
 
 const ITERATION =
   "- **Iteration 1**: `n` is $2$. `total += n` means `total = total + n`. So, `total` becomes $0 + 2 = 2$.";
@@ -103,8 +104,17 @@ describe("inline code in a reply", () => {
     });
     // Nested Text takes no padding: a no-break space pads each end.
     const kids = snippet.props.children as unknown[];
-    expect(strings(view.toJSON() as Node)).toContain(' name = "john" ');
+    expect(strings(view.toJSON() as Node)).toContain('\u00a0name\u00a0=\u00a0"john"\u00a0');
     expect(kids).toHaveLength(3);
+  });
+
+  it("keeps short code on one line and lets long code wrap at its spaces", async () => {
+    // "+ 1" split over two lines in a lesson's quiz explanation.
+    const long = "for name in names if name.startswith(prefix)";
+    const view = await render(<MarkdownContent content={`The \`+ 1\` is applied, then \`${long}\`.`} />);
+    const [short, wide] = spansInFace(view.toJSON() as Node, CODE_FONT).map(strings);
+    expect(short).toBe(" + 1 ");
+    expect(wide).toBe(` ${long} `);
   });
 
   it("keeps the pill in bold, headings, list items and table cells", async () => {
