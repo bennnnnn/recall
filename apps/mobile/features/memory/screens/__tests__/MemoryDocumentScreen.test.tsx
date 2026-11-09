@@ -143,7 +143,6 @@ const fact = (id: string, text: string) => ({
   type: "project",
   topic: "area:recall",
   text,
-  confidence: 0.9,
   created_at: "2026-08-01T00:00:00Z",
   updated_at: "2026-08-21T00:00:00Z",
 });

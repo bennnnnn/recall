@@ -33,7 +33,6 @@ function fact(id: string) {
     id,
     type: "fact",
     text: `Fact ${id}`,
-    confidence: 0.9,
     created_at: "2026-09-01T00:00:00Z",
     updated_at: "2026-09-01T00:00:00Z",
   };

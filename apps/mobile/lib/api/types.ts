@@ -117,17 +117,16 @@ export type Message = {
   created_at: string;
 };
 
+/** One memory fact. The server also sends its confidence, when it was last confirmed and the
+ * chat it came from by id; the phone shows none of them, so it leaves them out. */
 export type Memory = {
   id: string;
   type: string;
   /** The memory document this fact belongs to (profile, tech-stack, area:recall, …). */
   topic?: string;
   text: string;
-  confidence: number | null;
   status?: "active" | "muted" | "superseded";
   sensitivity?: string | null;
-  last_confirmed_at?: string | null;
-  source_chat_id?: string | null;
   source_chat_title?: string | null;
   created_at: string;
   updated_at: string;
@@ -179,23 +178,21 @@ export type ChatList = {
   archived_next_cursor?: string | null;
 };
 
+/** GET /usage/today. The server also sends the day's input and output tokens, the turn's
+ * context budget and window, and `messages_left`; the phone works out what is left from
+ * the same two counts a turn's `done` carries (`lib/quota.ts`), so it leaves them out. */
 export type Usage = {
   date: string;
-  input_tokens: number;
-  output_tokens: number;
   daily_limit: number;
   used_tokens?: number;
   remaining: number;
-  context_token_budget?: number;
-  recent_message_window?: number;
   /** The day's chat messages: what a plan offers and what the phone shows. */
   messages_used?: number;
   daily_messages?: number;
-  messages_left?: number;
 };
 
-/** One entry of GET /models. The server also sends prices and quota
- * multipliers; the phone neither shows nor keeps them, so it leaves them out. */
+/** One entry of GET /models. The server also sends prices, quota multipliers and
+ * health samples and latency; the phone neither shows nor keeps them, so it leaves them out. */
 export type ModelInfo = {
   id: string;
   label: string;
@@ -204,8 +201,6 @@ export type ModelInfo = {
   plan_access: "free" | "pro";
   available: boolean;
   healthy?: boolean;
-  latency_p50_ms?: number | null;
-  health_samples?: number;
 };
 
 export type AuthResult = {
