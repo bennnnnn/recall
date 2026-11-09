@@ -13,7 +13,7 @@ jest.mock("@/lib/api", () => ({
 let mockGeneration = 1;
 const mockReportUnregisterFailed = jest.fn();
 jest.mock("@/lib/sentry", () => ({
-  reportPushUnregisterFailed: (error: unknown) => mockReportUnregisterFailed(error),
+  reportFailure: (area: string, error: unknown) => mockReportUnregisterFailed(area, error),
 }));
 jest.mock("@/lib/auth", () => ({
   getToken: jest.fn(async () => "tok"),
@@ -181,7 +181,7 @@ describe("push gating on user.push_notifications_enabled", () => {
     const failure = new Error("422");
     unregisterMock.mockRejectedValueOnce(failure);
     await expect(unregisterRemotePushToken("tok")).resolves.toBe(false);
-    expect(mockReportUnregisterFailed).toHaveBeenCalledWith(failure);
+    expect(mockReportUnregisterFailed).toHaveBeenCalledWith("push_unregister", failure);
   });
 
   it("registerRemotePushToken throws when the Expo token cannot be resolved", async () => {

@@ -247,12 +247,29 @@ describe("a native splash call that failed at launch", () => {
   it("names the call it was, and waits for the SDK when it comes before it", async () => {
     const { mod, sdk } = await freshSentry(false);
     const failure = new Error("no splash view");
-    mod.reportLaunchSplashFailed("hide", failure);
+    mod.reportFailure("launch_splash_hide", failure);
     expect(sdk().captureException).not.toHaveBeenCalled();
 
     await mod.initMobileSentry();
-    expect(sdk().captureException).toHaveBeenCalledWith(failure, {
-      tags: { area: "launch_splash", step: "hide" },
-    });
+    const [reported, context] = sdk().captureException.mock.calls[0];
+    expect(reported.message).toBe("launch_splash_hide failed");
+    expect(context.tags).toEqual({ area: "launch_splash_hide", error: "Error" });
   });
+});
+
+describe("the store, read aloud and push reports", () => {
+  // Each was its own reporter that sent the error's text and had no limit; a store outage
+  // reported on every sheet open and every return to the app.
+  it.each(["store", "read_aloud_control", "push_unregister", "launch_splash_set_options"] as const)(
+    "%s goes without the error's text, and once in ten minutes",
+    async (area) => {
+      const { mod, sdk } = await freshSentry();
+      for (let i = 0; i < 5; i += 1) mod.reportFailure(area, new Error(`${PRIVATE} Bearer abc.def.ghi`));
+      expect(sdk().captureException).toHaveBeenCalledTimes(1);
+      const [reported, context] = sdk().captureException.mock.calls[0];
+      expect(reported.message).toBe(`${area} failed`);
+      expect(context.tags.area).toBe(area);
+      expect(JSON.stringify(sdk().captureException.mock.calls)).not.toContain(PRIVATE);
+    },
+  );
 });

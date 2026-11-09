@@ -15,7 +15,7 @@ import { Platform } from "react-native";
 
 import { isExpoGo } from "@/lib/expoRuntime";
 import { createListenerSet } from "@/lib/listenerSet";
-import { reportLaunchSplashFailed } from "@/lib/sentry";
+import { reportFailure } from "@/lib/sentry";
 
 export const SPLASH_MAX_MS = 1_000;
 /** If the app never draws at all (a crash before it), the splash still goes. */
@@ -46,7 +46,7 @@ function hideSplash(): void {
   } catch (error) {
     // Reported, never thrown on: from a frame or a timer React Native takes it as fatal,
     // and a release build would close. The reveal still plays, so it never stays over the app.
-    reportLaunchSplashFailed("hide", error);
+    reportFailure("launch_splash_hide", error);
   }
   if (NATIVE_EXIT_MS > 0) setTimeout(finishExit, NATIVE_EXIT_MS);
   else finishExit();
@@ -72,7 +72,7 @@ function nativeExitMs(): number {
     return 0;
   } catch (error) {
     // This runs as the module loads: a throw here would leave the launch with no splash timers.
-    reportLaunchSplashFailed("set_options", error);
+    reportFailure("launch_splash_set_options", error);
     return ANDROID_NATIVE_FADE_MS;
   }
 }

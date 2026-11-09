@@ -13,7 +13,7 @@ import {
 import { isExpoGo } from "@/lib/expoRuntime";
 import { createValueStore } from "@/lib/listenerSet";
 import type { PaidPlanId, PlanId } from "@/lib/plan";
-import { reportStoreUnavailable } from "@/lib/sentry";
+import { reportFailure } from "@/lib/sentry";
 
 /**
  * RevenueCat entitlement per paid plan. "pro" keeps the single-plan id, so
@@ -94,7 +94,7 @@ async function loadPurchases(): Promise<PurchasesModule | null> {
     return purchasesModule;
   } catch (error) {
     // A configured build without the store's native module: no plan can be bought.
-    reportStoreUnavailable(error);
+    reportFailure("store", error);
     purchasesModule = null;
     return null;
   }
@@ -162,7 +162,7 @@ export async function recheckPendingPurchase(now: number = Date.now()): Promise<
   try {
     settleHeldPurchase(planFromCustomerInfo(await mod.default.getCustomerInfo()));
   } catch (error) {
-    reportStoreUnavailable(error);
+    reportFailure("store", error);
   }
   expireHeldPurchase(now);
 }
@@ -175,6 +175,11 @@ export type PlanOffer = {
 
 const STORE_UNAVAILABLE: PlanOffer = { packages: {}, unavailable: true };
 
+/** A store that answered and sells nothing. The report drops an error's text; its code says which. */
+function storeSellsNothing(code: "no_current_offering" | "no_plan_in_offering"): Error {
+  return Object.assign(new Error(`The store sells no plan: ${code}`), { code });
+}
+
 /**
  * The store's packages for each paid plan in the current offering. A failed read
  * is `unavailable`, never an empty offer that looks like "no products".
@@ -186,12 +191,12 @@ export async function getPlanPackages(): Promise<PlanOffer> {
   try {
     offerings = await mod.default.getOfferings();
   } catch (error) {
-    reportStoreUnavailable(error);
+    reportFailure("store", error);
     return STORE_UNAVAILABLE;
   }
   const offering = offerings.current;
   if (!offering) {
-    reportStoreUnavailable(new Error("The store has no current offering"));
+    reportFailure("store", storeSellsNothing("no_current_offering"));
     return STORE_UNAVAILABLE;
   }
   const found: Partial<Record<PaidPlanId, PlanPackage>> = {};
@@ -216,7 +221,7 @@ export async function getPlanPackages(): Promise<PlanOffer> {
     };
   }
   if (!found.plus && !found.pro) {
-    reportStoreUnavailable(new Error("The store's offering holds no plan"));
+    reportFailure("store", storeSellsNothing("no_plan_in_offering"));
     return STORE_UNAVAILABLE;
   }
   return { packages: found, unavailable: false };
