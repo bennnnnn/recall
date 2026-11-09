@@ -241,7 +241,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         />
         )}
 
-        {selecting ? (
+        {selecting && !detailOpen ? (
           <TodoSelectionBar
             count={selectedIds.length}
             onComplete={() => {
