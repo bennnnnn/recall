@@ -27,8 +27,6 @@ const fetchUsage = fetchTodayUsage as jest.Mock;
 function usage(used: number, limit = 100_000): Usage {
   return {
     date: "2026-10-21",
-    input_tokens: used,
-    output_tokens: 0,
     used_tokens: used,
     daily_limit: limit,
     remaining: limit - used,

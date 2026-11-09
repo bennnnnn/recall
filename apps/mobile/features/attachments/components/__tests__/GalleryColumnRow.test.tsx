@@ -80,14 +80,14 @@ describe("GalleryColumnRow", () => {
         onPress={jest.fn()}
         onLongPress={onLongPress}
         onMissing={jest.fn()}
-        accessibilityActions={[{ name: "share", label: "gallery.share" }]}
+        accessibilityActions={[{ name: "share", label: "common.share" }]}
         onAccessibilityAction={onAccessibilityAction}
       />,
     );
     const row = getByRole("button");
     await fireEvent(row, "longPress", { nativeEvent: { pageX: 12, pageY: 34 } });
     expect(onLongPress).toHaveBeenCalledWith({ x: 12, y: 34 });
-    expect(row.props.accessibilityActions).toEqual([{ name: "share", label: "gallery.share" }]);
+    expect(row.props.accessibilityActions).toEqual([{ name: "share", label: "common.share" }]);
     await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "share" } });
     expect(onAccessibilityAction).toHaveBeenCalled();
   });

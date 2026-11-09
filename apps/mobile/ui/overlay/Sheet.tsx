@@ -32,7 +32,6 @@ type Props = {
   onClose: () => void;
   /** "bottom" anchors to the bottom edge (slide); "center" floats mid-screen (fade). */
   variant?: "bottom" | "center";
-  animation?: "slide" | "fade" | "none";
   /**
    * Lift the sheet above the OS keyboard by its height from the screen's edge
    * (`useKeyboardHeight`), in a Modal or embedded, on both platforms: no window
@@ -41,8 +40,6 @@ type Props = {
    * off-screen.
    */
   keyboardAvoiding?: boolean;
-  /** Reset a keyboard-avoiding sheet to the top when this value changes. */
-  scrollResetKey?: string | number;
   /** Render the grabber handle at the top of a bottom sheet. */
   withHandle?: boolean;
   /** Override the grabber color when using a different sheet surface. */
@@ -69,10 +66,6 @@ type Props = {
   bottomOffset?: number;
   /** Style override for the panel (background, radius, padding). */
   contentContainerStyle?: StyleProp<ViewStyle>;
-  /** iOS only. Fires after the modal has finished leaving, so another sheet can present. */
-  onDismiss?: () => void;
-  /** Fires once the sheet is up, so something can present on top of it (the OS share menu). */
-  onShow?: () => void;
   /**
    * Draw the sheet in the current screen instead of a Modal, so a real choice
    * Modal can open over it without moving this sheet. Android Back still closes
@@ -86,9 +79,7 @@ export function Sheet({
   visible,
   onClose,
   variant = "bottom",
-  animation,
   keyboardAvoiding = false,
-  scrollResetKey,
   withHandle,
   handleColor,
   backdropDismiss = true,
@@ -97,8 +88,6 @@ export function Sheet({
   floating = false,
   bottomOffset = 0,
   contentContainerStyle,
-  onDismiss,
-  onShow,
   embedded = false,
   children,
 }: Props) {
@@ -117,9 +106,7 @@ export function Sheet({
     onClose,
   );
 
-  const resolvedAnimation = reduceMotion
-    ? "none"
-    : (animation ?? (variant === "center" ? "fade" : "slide"));
+  const animation = reduceMotion ? "none" : variant === "center" ? "fade" : "slide";
   const showHandle = withHandle ?? variant === "bottom";
   const keyboardOpen = keyboardAvoiding && keyboardHeight > 0;
   const windowHeight = Dimensions.get("window").height;
@@ -141,20 +128,13 @@ export function Sheet({
     return () => cancelAnimationFrame(frame);
   }, [visible]);
 
-  // An embedded sheet has no Modal to report when it is up.
-  const onShowRef = useRef(onShow);
-  onShowRef.current = onShow;
-  useEffect(() => {
-    if (visible && embedded) onShowRef.current?.();
-  }, [visible, embedded]);
-
   useEffect(() => {
     if (!visible || !keyboardAvoiding) return;
     const frame = requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     });
     return () => cancelAnimationFrame(frame);
-  }, [visible, keyboardAvoiding, scrollResetKey]);
+  }, [visible, keyboardAvoiding]);
 
   const body = keyboardAvoiding ? (
     <ScrollView
@@ -258,10 +238,8 @@ export function Sheet({
     <Modal
       visible={visible}
       transparent
-      animationType={resolvedAnimation}
+      animationType={animation}
       onRequestClose={requestClose}
-      onDismiss={onDismiss}
-      onShow={onShow}
       testID="app-sheet-modal"
     >
       <GestureHandlerRootView style={s.flex}>{frame}</GestureHandlerRootView>

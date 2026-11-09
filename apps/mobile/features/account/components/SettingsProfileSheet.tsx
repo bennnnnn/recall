@@ -93,7 +93,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
           accessibilityState={{ disabled: busy }}
           style={({ pressed }) => [s.cancel, pressed && s.pressed]}
         >
-          <Text style={s.cancelText}>{t("settings.cancel")}</Text>
+          <Text style={s.cancelText}>{t("common.cancel")}</Text>
         </Pressable>
       </View>
     </Sheet>

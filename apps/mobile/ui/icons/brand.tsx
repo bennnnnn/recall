@@ -1,5 +1,4 @@
 import { memo } from "react";
-import type { StyleProp, ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { useTheme } from "@/lib/theme";
@@ -11,7 +10,6 @@ type Props = {
   size?: number;
   /** Ink for one-color marks. Google and Gmail always use their own colors. */
   color?: string;
-  style?: StyleProp<ViewStyle>;
   testID?: string;
 };
 
@@ -28,7 +26,6 @@ export const BrandMark = memo(function BrandMark({
   name,
   size = 20,
   color,
-  style,
   testID,
 }: Props) {
   const theme = useTheme();
@@ -36,7 +33,6 @@ export const BrandMark = memo(function BrandMark({
   const common = {
     width: size,
     height: size,
-    style,
     testID,
     pointerEvents: "none" as const,
   };

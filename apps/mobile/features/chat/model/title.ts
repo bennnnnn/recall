@@ -124,8 +124,9 @@ function readProvisionalTitle(text: string | undefined): ProvisionalTitle | null
   return line ? { line: truncateTitle(line) } : null;
 }
 
-/** Fallback from the first user line (tests). Drawer titles use the topic job. */
-export function provisionalChatTitle(text: string | undefined, t: (key: string) => string): string | null {
+/** The title a first turn reads as, for tests: the drawer titles a line with the topic job,
+ * so the app itself shows only the attachment word (`provisionalAttachmentTitle`). */
+export function provisionalChatTitleForTest(text: string | undefined, t: (key: string) => string): string | null {
   const read = readProvisionalTitle(text);
   if (!read) return null;
   return "line" in read ? read.line : t(ATTACHMENT_TITLE_KEYS[read.attachment]);

@@ -30,7 +30,6 @@ async function open(props: Partial<Parameters<typeof TimePickerDialog>[0]> = {})
     <TimePickerDialog
       visible
       value={{ hour: 21, minute: 11 }}
-      is24Hour={false}
       onConfirm={onConfirm}
       onCancel={onCancel}
       {...props}
@@ -73,14 +72,21 @@ describe("TimePickerDialog", () => {
   });
 
   it("uses the inner ring for 00 and 13–23 on a 24-hour clock", async () => {
-    const { view, onConfirm } = await open({ is24Hour: true, value: { hour: 8, minute: 0 } });
-    expect(view.queryByTestId("time-picker-am", hidden)).toBeNull();
-    expect(view.getByTestId("time-picker-hour", hidden).props.accessibilityLabel).toBe("picker.hour, 08");
-    const dial = view.getByTestId("time-picker-dial", hidden);
-    await fireEvent(dial, "responderGrant", at(60, 60));
-    await fireEvent(dial, "responderRelease", at(60, 60));
-    await fireEvent.press(view.getByTestId("time-picker-ok", hidden));
-    expect(onConfirm).toHaveBeenCalledWith({ hour: 14, minute: 0 });
+    mockPhone = { timeZone: "UTC", hourCycle: "h23" };
+    refreshPhoneClock();
+    try {
+      const { view, onConfirm } = await open({ value: { hour: 8, minute: 0 } });
+      expect(view.queryByTestId("time-picker-am", hidden)).toBeNull();
+      expect(view.getByTestId("time-picker-hour", hidden).props.accessibilityLabel).toBe("picker.hour, 08");
+      const dial = view.getByTestId("time-picker-dial", hidden);
+      await fireEvent(dial, "responderGrant", at(60, 60));
+      await fireEvent(dial, "responderRelease", at(60, 60));
+      await fireEvent.press(view.getByTestId("time-picker-ok", hidden));
+      expect(onConfirm).toHaveBeenCalledWith({ hour: 14, minute: 0 });
+    } finally {
+      mockPhone = { timeZone: "UTC", hourCycle: "h12" };
+      refreshPhoneClock();
+    }
   });
 
   it("speaks the dial's time in the app's language, as its AM/PM boxes read", async () => {
@@ -100,11 +106,11 @@ describe("TimePickerDialog", () => {
   it.each([
     ["h23", true, "21:11"],
     ["h12", false, "9:11 PM"],
-  ] as const)("draws the phone's clock (%s) when no dial is forced", async (hourCycle, is24Hour, spoken) => {
+  ] as const)("draws the phone's clock (%s)", async (hourCycle, is24Hour, spoken) => {
     mockPhone = { timeZone: "UTC", hourCycle };
     refreshPhoneClock();
     try {
-      const { view } = await open({ is24Hour: undefined });
+      const { view } = await open();
       expect(view.queryByTestId("time-picker-am", hidden) == null).toBe(is24Hour);
       const text = view.getByTestId("time-picker-dial", hidden).props.accessibilityValue.text;
       expect(text.replace(/\s/g, " ")).toBe(spoken);

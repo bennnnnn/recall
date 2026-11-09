@@ -135,7 +135,7 @@ beforeEach(() => {
   jest.mocked(api.setArchive).mockResolvedValue({ ...chat, archived: true });
 });
 
-const ROWS = ["chat.share", "chat.export_pdf", "chat.rename", "chat.pin", "chat.archive", "common.delete"];
+const ROWS = ["common.share", "chat.export_pdf", "chat.rename", "chat.pin", "chat.archive", "common.delete"];
 
 it.each(ROWS)("the chat header's ⋮ %s plays one haptic", async (row) => {
   const view = await render(<HeaderMenu />);

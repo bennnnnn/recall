@@ -7,7 +7,7 @@ import { ChipText } from "@/components/rich/ChipText";
 import { QuizCard } from "@/components/rich/QuizCard";
 import { richTextLabel } from "@/components/rich/RichMathBody";
 import { StepList } from "@/components/rich/StepList";
-import { findLatexLeaks } from "@/lib/math/latexLeaks";
+import { findLatexLeaks } from "@/lib/__tests__/support/latexLeaks";
 import { DYNAMIC_TYPE_MAX, Weight } from "@/lib/type";
 
 jest.mock("@/lib/i18n", () => ({

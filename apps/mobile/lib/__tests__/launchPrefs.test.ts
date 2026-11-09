@@ -1,9 +1,9 @@
 import * as SecureStore from "expo-secure-store";
 
-import { resetAccentPreferenceCache } from "@/lib/accentPrefs";
+import { resetAccentPreferenceForTest } from "@/lib/accentPrefs";
 import * as accentRuntime from "@/lib/accentRuntime";
-import { resetAppearancePreferenceCache } from "@/lib/appearancePrefs";
-import { getAppearancePreferenceSnapshot, resetAppearanceRuntime } from "@/lib/appearanceRuntime";
+import { resetAppearancePreferenceForTest } from "@/lib/appearancePrefs";
+import { getAppearancePreferenceSnapshot, resetAppearanceRuntimeForTest } from "@/lib/appearanceRuntime";
 import i18n from "@/lib/i18n";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 
@@ -41,9 +41,9 @@ jest.mock("expo-secure-store", () => ({
 beforeEach(async () => {
   mockSyncFiles.clear();
   jest.clearAllMocks();
-  resetAppearanceRuntime();
-  resetAppearancePreferenceCache();
-  resetAccentPreferenceCache();
+  resetAppearanceRuntimeForTest();
+  resetAppearancePreferenceForTest();
+  resetAccentPreferenceForTest();
   await i18n.changeLanguage("en");
 });
 

@@ -23,7 +23,6 @@ type Props = {
   onClose: () => void;
   /** The row that opened the choices. Without one the menu centers. */
   anchorRef?: RefObject<HostInstance | null>;
-  title?: string;
   /** Locks every choice (e.g. while the last pick saves). */
   disabled?: boolean;
   testID?: string;
@@ -41,7 +40,6 @@ export function SelectMenu({
   onSelect,
   onClose,
   anchorRef,
-  title,
   disabled = false,
   testID,
 }: Props) {
@@ -50,7 +48,6 @@ export function SelectMenu({
       visible={visible}
       onClose={onClose}
       anchorRef={anchorRef}
-      title={title}
       selectable
       testID={testID ?? "select-menu"}
       items={options.map((option) => ({

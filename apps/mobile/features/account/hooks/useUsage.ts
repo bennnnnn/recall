@@ -5,6 +5,7 @@ import { useAccountSession } from "@/contexts/accountSession";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import type { Usage } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { utcDayKey } from "@/lib/datetime/dayKey";
 import {
   fetchTodayUsage,
   getCachedUsage,
@@ -12,6 +13,7 @@ import {
   usageReadAt,
 } from "@/lib/cache/usageCache";
 import { useOnForeground } from "@/lib/foregroundRefresh";
+import { useLatestRef } from "@/lib/latestRef";
 
 type UsageState = {
   account: string | null;
@@ -23,15 +25,14 @@ type UsageState = {
 
 /** A kept value is shown only on the UTC day the server counted it for (`usage/today`). */
 function todayUsage(usage: Usage | null | undefined): Usage | null {
-  return usage?.date === new Date().toISOString().slice(0, 10) ? usage : null;
+  return usage?.date === utcDayKey(new Date()) ? usage : null;
 }
 
 /** Today's usage, kept per account: the hourly token rotation reads nothing again (NET-11). */
 export function useUsage() {
   const { account, getToken } = useAccountSession();
   const generation = getSessionGeneration();
-  const accountRef = useRef(account);
-  accountRef.current = account;
+  const accountRef = useLatestRef(account);
   const mountedRef = useRef(false);
   const requestRef = useRef(0);
   const [state, setState] = useState<UsageState>(() => ({
@@ -74,7 +75,7 @@ export function useUsage() {
     // phone's, a clock a minute fast hid it as an error for that minute before each UTC
     // midnight, and Retry asked again for the same answer.
     setState({ account, generation, usage: data, loading: false, error: !data });
-  }, [account, generation, getToken]);
+  }, [account, generation, getToken, accountRef]);
 
   useFocusEffect(
     useCallback(() => {

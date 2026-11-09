@@ -13,7 +13,7 @@ import {
 } from "@/features/speech/model/readAloudSession";
 
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
-jest.mock("@/lib/sentry", () => ({ reportReadAloudControlFailed: jest.fn() }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
 
 const controls = { pause: jest.fn(), resume: jest.fn(), canPause: true };
 
@@ -104,7 +104,7 @@ it("offers no pause between clips: the clip that ended has no player left", asyn
 });
 
 it("keeps playing, and reports, when a pause fails", async () => {
-  const { reportReadAloudControlFailed } = jest.requireMock("@/lib/sentry");
+  const { reportFailure } = jest.requireMock("@/lib/sentry");
   const failing = { ...controls, pause: jest.fn(() => { throw new Error("released"); }) };
   await act(async () => {
     startReadAloud("m1");
@@ -112,7 +112,8 @@ it("keeps playing, and reports, when a pause fails", async () => {
   });
   expect(() => pauseReadAloud()).not.toThrow();
   expect(readAloudSession.get()?.phase).toBe("playing");
-  expect(reportReadAloudControlFailed).toHaveBeenCalledTimes(1);
+  expect(reportFailure).toHaveBeenCalledTimes(1);
+  expect(reportFailure).toHaveBeenCalledWith("read_aloud_control", expect.any(Error));
 });
 
 it("shows the time heard, and the whole length once the last clip plays", async () => {

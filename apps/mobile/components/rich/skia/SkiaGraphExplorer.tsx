@@ -118,26 +118,22 @@ export function SkiaGraphCanvas({
 
   const chrome = useDerivedValue(
     () => computeChrome(bounds.value, width, height, pad, font, xInPi),
-    [width, height, pad, font, xInPi],
   );
 
   const seriesPaths = SERIES_INDICES.map((i) =>
     // eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
     useDerivedValue(
       () => buildSeriesPath(drawn[i], bounds.value, width, height, pad),
-      [drawn, width, height, pad],
     ),
   );
   const fillPaths = SERIES_INDICES.map((i) =>
     // eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
     useDerivedValue(
       () => buildFillPath(drawn[i], bounds.value, width, height, pad),
-      [drawn, width, height, pad],
     ),
   );
   const markerPath = useDerivedValue(
     () => buildMarkerPath(drawn, bounds.value, width, height, pad),
-    [drawn, width, height, pad],
   );
   const verticalPath = useDerivedValue(() => {
     const path = Skia.PathBuilder.Make();
@@ -146,7 +142,7 @@ export function SkiaGraphCanvas({
     path.moveTo(px, pad);
     path.lineTo(px, height - pad);
     return path.detach();
-  }, [verticalX, width, height, pad]);
+  });
 
   const trace = useDerivedValue(() => {
     if (!traceActive.value) return null;
@@ -159,7 +155,7 @@ export function SkiaGraphCanvas({
       height,
       pad,
     );
-  }, [drawn, width, height, pad]);
+  });
 
   // A tick when the finger takes a curve and at its roots and turning points,
   // never one per sample (a continuous buzz while scrubbing).
@@ -193,7 +189,7 @@ export function SkiaGraphCanvas({
     const x = Math.min(Math.max(t.px + 12, 4), width - w - 4);
     const y = Math.max(t.py - 38, 4);
     return { x, y, w, h, text, visible: true };
-  }, [width]);
+  });
   const calloutX = useDerivedValue(() => callout.value.x);
   const calloutY = useDerivedValue(() => callout.value.y);
   const calloutW = useDerivedValue(() => callout.value.w);

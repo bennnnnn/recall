@@ -30,7 +30,7 @@ export function GalleryItemActionsMenu({
   const entries: Record<GalleryItemAction, MenuEntry> = {
     use: { key: "use", icon: "attach", label: t("gallery.use_in_chat"), onPress: onUseInChat },
     open_chat: { key: "open", icon: "message", label: t("gallery.open_chat"), onPress: onOpenChat },
-    share: { key: "share", icon: "share", label: t("gallery.share"), onPress: onShare },
+    share: { key: "share", icon: "share", label: t("common.share"), onPress: onShare },
     delete: { key: "delete", icon: "trash", label: t("common.delete"), onPress: onDelete, destructive: true },
   };
   const items = galleryItemActions({ chat_id: canOpenChat ? "chat" : null }).map((action) => entries[action]);

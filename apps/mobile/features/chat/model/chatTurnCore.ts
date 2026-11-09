@@ -142,7 +142,7 @@ export function initialChatTurnState(chatId: string | null, session: number): Ch
   };
 }
 
-/** At rest, or the regenerate `regenerate_ui` already opened (the model picker's). */
+/** At rest, or the regenerate `regenerate_ui` already opened (typing shows while the location is read). */
 export function canRegenerate(state: ChatTurnState): boolean {
   return state.phase === "idle" || state.regenerating;
 }

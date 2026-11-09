@@ -20,10 +20,6 @@ type Props = {
   clearAccessibilityLabel?: string;
   clearTestID?: string;
   style?: StyleProp<ViewStyle>;
-  autoFocus?: boolean;
-  autoCapitalize?: TextInputProps["autoCapitalize"];
-  autoCorrect?: boolean;
-  returnKeyType?: TextInputProps["returnKeyType"];
   clearButtonMode?: TextInputProps["clearButtonMode"];
 };
 
@@ -38,10 +34,6 @@ export function SearchField({
   clearAccessibilityLabel,
   clearTestID,
   style,
-  autoFocus,
-  autoCapitalize = "none",
-  autoCorrect = false,
-  returnKeyType = "search",
   clearButtonMode,
 }: Props) {
   const theme = useTheme();
@@ -57,10 +49,10 @@ export function SearchField({
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={theme.textDisabled}
-        autoFocus={autoFocus}
-        autoCapitalize={autoCapitalize}
-        autoCorrect={autoCorrect}
-        returnKeyType={returnKeyType}
+        autoCapitalize="none"
+        autoCorrect={false}
+        spellCheck={false}
+        returnKeyType="search"
         clearButtonMode={clearButtonMode}
       />
       {onClear && value.length > 0 ? (

@@ -71,7 +71,7 @@ export function makeConversationListStyles(theme: Theme) {
       marginBottom: Space.xxs,
       paddingHorizontal: Space.md,
     },
-    // Same primary ink for Learning / Lists / Reminders (and chat rows below).
+    // One icon box for each nav row (To-do, Library), lined up with the chat rows below.
     navIconWrap: {
       width: 22,
       height: 22,

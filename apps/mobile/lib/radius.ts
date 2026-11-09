@@ -17,7 +17,7 @@ export const Radius = {
   xl: 16,
   /** 18 — user message bubbles */
   bubble: 18,
-  /** 20 — large content cards (rich blocks, vocab card) */
+  /** 20 — large content cards (rich blocks) */
   card: 20,
   /** 24 — popover menus */
   menu: 24,

@@ -31,6 +31,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { shareOneAtATime } from "@/lib/shareFile";
 import { libraryActionMessage } from "@/features/attachments/model/attachmentErrors";
 import { confirmDialog } from "@/ui/overlay/dialogs";
+import { useLatestRef } from "@/lib/latestRef";
 
 export function useGalleryLibrary(
   items: AttachmentListItem[],
@@ -52,8 +53,7 @@ export function useGalleryLibrary(
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const attachingRef = useRef(false);
   const deletingRef = useRef(new Set<string>());
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
+  const itemsRef = useLatestRef(items);
   const layoutEditedRef = useRef(false);
   const viewRef = useRef({ focused: true, version: 0 });
   useFocusEffect(useCallback(() => {
@@ -183,7 +183,7 @@ export function useGalleryLibrary(
         deletingRef.current.delete(item.id);
       }
     },
-    [token, removeItem, feedback, t, isCurrent, session],
+    [token, removeItem, feedback, t, isCurrent, session, itemsRef],
   );
 
   const confirmDelete = useCallback(

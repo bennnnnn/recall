@@ -66,7 +66,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/emailDraftFlush.ts",
     "model/emailDraftSanitize.ts",
   ],
-  home: ["components/HomeStarters.tsx", "model/homeOnScreen.ts"],
+  home: ["components/HomeContent.tsx", "model/homeOnScreen.ts"],
   images: [
     "components/ImageGenPlaceholder.tsx",
     "hooks/useImageGeneration.ts",

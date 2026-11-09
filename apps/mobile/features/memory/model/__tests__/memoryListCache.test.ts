@@ -34,7 +34,6 @@ const sample: Memory[] = [
     id: "m1",
     type: "profile",
     text: "Name is Bini.",
-    confidence: 0.9,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
   },

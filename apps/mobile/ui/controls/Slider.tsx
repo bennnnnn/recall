@@ -42,10 +42,7 @@ type Props = {
   step: number;
   /** Every new value while the finger moves (already on the step grid). */
   onChange: (value: number) => void;
-  /** The value when the finger lifts, a tap lands, or a screen-reader step is taken. */
-  onRelease?: (value: number) => void;
   marker?: SliderMarker | null;
-  disabled?: boolean;
   testID?: string;
 };
 
@@ -62,9 +59,7 @@ export function Slider({
   max,
   step,
   onChange,
-  onRelease,
   marker,
-  disabled = false,
   testID = "slider",
 }: Props) {
   const theme = useTheme();
@@ -78,9 +73,9 @@ export function Slider({
   const usableWidth = useSharedValue(usable);
   const dragging = useRef(false);
   // The gesture is built once; its callbacks read the newest props from here.
-  const latest = useRef({ value, min, max, step, onChange, onRelease });
+  const latest = useRef({ value, min, max, step, onChange });
   useEffect(() => {
-    latest.current = { value, min, max, step, onChange, onRelease };
+    latest.current = { value, min, max, step, onChange };
   });
 
   useEffect(() => {
@@ -95,10 +90,8 @@ export function Slider({
   }, []);
 
   const release = useCallback(() => {
-    const current = latest.current;
     dragging.current = false;
     finger.value = -1;
-    current.onRelease?.(current.value);
   }, [finger]);
 
   // A drag that ends, or one the list's scroll takes over, lets go once.
@@ -109,12 +102,11 @@ export function Slider({
   const jump = useCallback((next: number) => {
     const current = latest.current;
     if (next !== current.value) current.onChange(next);
-    current.onRelease?.(next);
   }, []);
 
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
-      .enabled(!disabled)
       .activeOffsetX([-4, 4])
       .failOffsetY([-12, 12])
       .onUpdate((event) => {
@@ -128,7 +120,6 @@ export function Slider({
         runOnJS(finish)();
       });
     const tap = Gesture.Tap()
-      .enabled(!disabled)
       .onEnd((event) => {
         const room = usableWidth.value;
         if (room <= 0) return;
@@ -137,7 +128,8 @@ export function Slider({
         runOnJS(release)();
       });
     return Gesture.Exclusive(pan, tap);
-  }, [disabled, finger, finish, moveTo, release, usableWidth]);
+  }, [finger, finish, moveTo, release, usableWidth]);
+  /* eslint-enable react-hooks/refs */
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: (finger.value >= 0 ? finger.value : at) * usableWidth.value }],
@@ -147,7 +139,6 @@ export function Slider({
   }));
 
   const onA11yAction = (event: AccessibilityActionEvent) => {
-    if (disabled) return;
     const name = event.nativeEvent.actionName;
     if (name !== "increment" && name !== "decrement") return;
     jump(steppedSliderValue(value, name === "increment" ? 1 : -1, min, max, step));
@@ -157,7 +148,7 @@ export function Slider({
   const markerLeft = Math.min(Math.max(0, markerAt - markerWidth / 2), Math.max(0, width - markerWidth));
 
   return (
-    <View style={[s.root, disabled && s.disabled]} testID={testID}>
+    <View style={s.root} testID={testID}>
       <View style={s.header}>
         <Text style={s.label} numberOfLines={1}>
           {label}
@@ -174,7 +165,6 @@ export function Slider({
           accessibilityRole="adjustable"
           accessibilityLabel={label}
           accessibilityValue={{ min, max, now: value, text: valueText }}
-          accessibilityState={{ disabled }}
           accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
           onAccessibilityAction={onA11yAction}
           testID={`${testID}-track`}
@@ -192,7 +182,6 @@ export function Slider({
           <Pressable
             onPress={() => jump(Math.min(max, Math.max(min, marker.value)))}
             onLayout={(event: LayoutChangeEvent) => setMarkerWidth(event.nativeEvent.layout.width)}
-            disabled={disabled}
             hitSlop={8}
             style={({ pressed }) => [s.marker, { left: markerLeft }, pressed && s.pressed]}
             accessibilityRole="button"
@@ -212,7 +201,6 @@ export function Slider({
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     root: { gap: Space.xxs },
-    disabled: { opacity: 0.5 },
     header: { flexDirection: "row", alignItems: "baseline", gap: Space.xs },
     label: { flex: 1, ...Type.secondary, color: t.textSecondary },
     value: { ...Type.label, ...Weight.semibold, color: t.text, fontVariant: ["tabular-nums"] },

@@ -241,7 +241,7 @@ jest.mock("@/features/speech/hooks/useLiveTalk", () => ({ useLiveTalk: () => moc
 jest.mock("@/features/chat/hooks/useDraftChat", () => ({ useDraftChat: () => mockDraft }));
 jest.mock("@/hooks/useModels", () => ({ useModels: () => mockModels }));
 jest.mock("@/contexts/NetworkContext", () => ({ useNetwork: () => ({ isOffline: false }) }));
-jest.mock("@/features/chat/hooks/useChatScreenError", () => ({
+jest.mock("@/features/chat/hooks/useChatErrorHandlers", () => ({
   useChatErrorHandlers: () => mockErrorHandlers,
   useChatErrorRecovery: () => mockNoop,
   useChatStreamLifecycle: () => undefined,

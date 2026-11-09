@@ -1,21 +1,13 @@
 import type { MathKeyboardSymbol } from "@/lib/math/keyboardCatalog";
+import { readGroup } from "@/lib/math/latexGroups";
 
 export type LatexGroup = { open: number; close: number };
 
+/** The `{…}` group at `from`, past any spaces before it. */
 export function readBraceGroup(text: string, from: number): LatexGroup | null {
   let i = from;
   while (i < text.length && text[i] === " ") i += 1;
-  if (text[i] !== "{") return null;
-  const open = i;
-  let depth = 0;
-  for (; i < text.length; i += 1) {
-    if (text[i] === "{") depth += 1;
-    else if (text[i] === "}") {
-      depth -= 1;
-      if (depth === 0) return { open, close: i };
-    }
-  }
-  return null;
+  return readDelimGroup(text, i, "{", "}");
 }
 
 export function findFracSlots(text: string): { num: LatexGroup; den: LatexGroup }[] {
@@ -45,22 +37,15 @@ export function caretInGroup(caret: number, group: LatexGroup): boolean {
   return caret > group.open && caret <= group.close;
 }
 
+/** The group `openCh … closeCh` opening at `openIdx`, as the indices of its two marks. */
 export function readDelimGroup(
   text: string,
   openIdx: number,
   openCh: string,
   closeCh: string,
 ): LatexGroup | null {
-  if (text[openIdx] !== openCh) return null;
-  let depth = 0;
-  for (let i = openIdx; i < text.length; i += 1) {
-    if (text[i] === openCh) depth += 1;
-    else if (text[i] === closeCh) {
-      depth -= 1;
-      if (depth === 0) return { open: openIdx, close: i };
-    }
-  }
-  return null;
+  const group = readGroup(text, openIdx, openCh, closeCh);
+  return group ? { open: openIdx, close: group.next - 1 } : null;
 }
 
 /** Delimiters written as commands, with the glyphs a draft draws for them. */

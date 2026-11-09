@@ -97,7 +97,7 @@ export default function GalleryScreen() {
     () => ({
       use: t("gallery.use_in_chat"),
       open_chat: t("gallery.open_chat"),
-      share: t("gallery.share"),
+      share: t("common.share"),
       delete: t("common.delete"),
     }),
     [t],

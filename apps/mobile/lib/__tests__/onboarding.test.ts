@@ -1,60 +1,68 @@
-jest.mock("@/lib/filePrefs", () => ({
-  prefFilePath: (name: string) => `file:///docs/${name}`,
-  readPrefFile: jest.fn(),
-  writePrefFile: jest.fn(),
+/** The phone's files, as the legacy file system reads and writes them. */
+const mockFiles = new Map<string, string>();
+jest.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "file:///docs/",
+  getInfoAsync: jest.fn(async (path: string) => ({ exists: mockFiles.has(path) })),
+  readAsStringAsync: jest.fn(async (path: string) => mockFiles.get(path) ?? ""),
+  writeAsStringAsync: jest.fn(async (path: string, value: string) => {
+    mockFiles.set(path, value);
+  }),
+  deleteAsync: jest.fn(),
 }));
 
-function load(stored: { value: string | null }) {
-  const prefs = jest.requireMock("@/lib/filePrefs");
-  prefs.readPrefFile.mockImplementation(async () => stored.value);
-  prefs.writePrefFile.mockImplementation(async (_path: string, value: string) => {
-    stored.value = value;
-  });
+const FILE = "file:///docs/recall.onboarded.txt";
+
+function load() {
+  const fs = jest.requireMock<{ readAsStringAsync: jest.Mock; writeAsStringAsync: jest.Mock }>(
+    "expo-file-system/legacy",
+  );
   const onboarding = jest.requireActual<typeof import("@/lib/onboarding")>("@/lib/onboarding");
-  return { ...onboarding, prefs };
+  return { ...onboarding, fs };
 }
 
-beforeEach(() => jest.resetModules());
+beforeEach(() => {
+  jest.resetModules();
+  mockFiles.clear();
+});
 
 it("keeps completed onboarding across module reload", async () => {
-  const stored = { value: null as string | null };
-  await load(stored).setOnboarded();
+  await load().setOnboarded();
+  expect(mockFiles.get(FILE)).toBe("1");
   jest.resetModules();
-  await expect(load(stored).getOnboarded()).resolves.toBe(true);
+  await expect(load().getOnboarded()).resolves.toBe(true);
 });
 
 it("a clear takes precedence over a stored flag", async () => {
-  const stored = { value: "1" as string | null };
-  const first = load(stored);
+  mockFiles.set(FILE, "1");
+  const first = load();
   await expect(first.getOnboarded()).resolves.toBe(true);
   await first.clearOnboarded();
   jest.resetModules();
-  await expect(load(stored).getOnboarded()).resolves.toBe(false);
+  await expect(load().getOnboarded()).resolves.toBe(false);
 });
 
 it("does not restore a flag from a read that completes after sign-out", async () => {
-  const stored = { value: null as string | null };
-  const current = load(stored);
-  let finishRead!: (value: string | null) => void;
-  current.prefs.readPrefFile.mockImplementationOnce(() => new Promise((resolve) => {
+  mockFiles.set(FILE, "1");
+  const current = load();
+  let finishRead!: (value: string) => void;
+  current.fs.readAsStringAsync.mockImplementationOnce(() => new Promise((resolve) => {
     finishRead = resolve;
   }));
   const reading = current.getOnboarded();
   await current.clearOnboarded();
-  finishRead(null);
+  finishRead("1");
   await expect(reading).resolves.toBe(false);
-  expect(stored.value).toBe("0");
+  expect(mockFiles.get(FILE)).toBe("0");
 });
 
 it("serializes completion and sign-out when a disk write is already pending", async () => {
-  const stored = { value: null as string | null };
-  const current = load(stored);
+  const current = load();
   let finishWrite!: () => void;
   const started = new Promise<void>((resolveStarted) => {
-    current.prefs.writePrefFile.mockImplementationOnce(async (_path: string, value: string) => {
+    current.fs.writeAsStringAsync.mockImplementationOnce(async (path: string, value: string) => {
       resolveStarted();
       await new Promise<void>((resolve) => { finishWrite = resolve; });
-      stored.value = value;
+      mockFiles.set(path, value);
     });
   });
   const completing = current.setOnboarded();
@@ -63,5 +71,5 @@ it("serializes completion and sign-out when a disk write is already pending", as
   finishWrite();
   await Promise.all([completing, clearing]);
   jest.resetModules();
-  await expect(load(stored).getOnboarded()).resolves.toBe(false);
+  await expect(load().getOnboarded()).resolves.toBe(false);
 });

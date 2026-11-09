@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { setStringAsync } from "expo-clipboard";
-
+import { copyToClipboard } from "@/lib/clipboard";
 import { notifySuccess } from "@/lib/haptics";
+import { useLatestRef } from "@/lib/latestRef";
 
 /** How long every copy control shows its check after copying. */
 const COPIED_MS = 1500;
@@ -14,8 +14,7 @@ const COPIED_MS = 1500;
 export function useCopyText(onFailed?: () => void) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const failed = useRef(onFailed);
-  failed.current = onFailed;
+  const failed = useLatestRef(onFailed);
 
   useEffect(
     () => () => {
@@ -27,7 +26,7 @@ export function useCopyText(onFailed?: () => void) {
   const copy = useCallback(async (text: string): Promise<boolean> => {
     if (!text.trim()) return false;
     try {
-      await setStringAsync(text);
+      await copyToClipboard(text);
     } catch {
       failed.current?.();
       return false;
@@ -40,7 +39,7 @@ export function useCopyText(onFailed?: () => void) {
       setCopied(false);
     }, COPIED_MS);
     return true;
-  }, []);
+  }, [failed]);
 
   /** Clears the check at once (a sheet opening again). */
   const reset = useCallback(() => {

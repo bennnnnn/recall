@@ -33,8 +33,6 @@ jest.mock("expo-router", () => {
 function usage(used = 12000): Usage {
   return {
     date: new Date().toISOString().slice(0, 10),
-    input_tokens: used,
-    output_tokens: 0,
     used_tokens: used,
     daily_limit: 100000,
     remaining: 100000 - used,

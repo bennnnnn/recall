@@ -27,7 +27,7 @@ describe("GalleryItemActionsMenu", () => {
 
     expect(getByText("gallery.open_chat")).toBeTruthy();
     expect(getByText("gallery.use_in_chat")).toBeTruthy();
-    expect(getByText("gallery.share")).toBeTruthy();
+    expect(getByText("common.share")).toBeTruthy();
     expect(getByText("common.delete")).toBeTruthy();
 
     await fireEvent.press(getByText("gallery.use_in_chat"));
@@ -51,6 +51,6 @@ describe("GalleryItemActionsMenu", () => {
     );
 
     expect(queryByText("gallery.open_chat")).toBeNull();
-    expect(queryByText("gallery.share")).toBeTruthy();
+    expect(queryByText("common.share")).toBeTruthy();
   });
 });

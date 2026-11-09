@@ -16,6 +16,6 @@ export function subscribeAppearancePreference(listener: () => void): () => void 
 }
 
 /** Test helper — reset store between cases. */
-export function resetAppearanceRuntime(): void {
+export function resetAppearanceRuntimeForTest(): void {
   preference.reset();
 }

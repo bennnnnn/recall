@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -17,6 +17,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Props = { draft: EmailDraft };
 
@@ -47,11 +48,9 @@ export function EmailCard({ draft }: Props) {
   const [gmailOpening, setGmailOpening] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const editingRef = useRef(editing);
-  editingRef.current = editing;
+  const editingRef = useLatestRef(editing);
   const [fields, setFields] = useState(() => draftFields(draft));
-  const fieldsRef = useRef(fields);
-  fieldsRef.current = fields;
+  const fieldsRef = useLatestRef(fields);
 
   const draftTo = draft.to;
   const draftSubject = draft.subject;
@@ -60,7 +59,7 @@ export function EmailCard({ draft }: Props) {
   useEffect(() => {
     if (editingRef.current) return;
     setFields(draftFields({ to: draftTo, subject: draftSubject, body: draftBody }));
-  }, [draftTo, draftSubject, draftBody]);
+  }, [draftTo, draftSubject, draftBody, editingRef]);
 
   const currentDraft = useMemo(() => toDraft(fields), [fields]);
   const persistNow = useEmailCardPersist(currentDraft, editing);

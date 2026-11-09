@@ -39,7 +39,7 @@ function read(draft: string): { node: LiveNode; value: LiveValue } | null {
 }
 
 /** The draft's value, or `null` when it is not a calculation. */
-export function liveValue(draft: string): LiveValue | null {
+export function liveValueForTest(draft: string): LiveValue | null {
   return read(draft)?.value ?? null;
 }
 

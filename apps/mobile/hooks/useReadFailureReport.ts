@@ -1,9 +1,10 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import type { FailureReporter } from "@/lib/cache/sessionResource";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
+import { useLatestRef } from "@/lib/latestRef";
 
 /**
  * The warning toast for a failed read whose older rows stay on screen. The
@@ -14,7 +15,6 @@ export function useReadFailureReport(): FailureReporter {
   const feedback = useActionFeedbackOptional();
   const { t } = useTranslation();
   const warn = () => reportRecoverableWarning(feedback, t("common.error"));
-  const latest = useRef(warn);
-  latest.current = warn;
-  return useCallback(() => latest.current(), []);
+  const latest = useLatestRef(warn);
+  return useCallback(() => latest.current(), [latest]);
 }

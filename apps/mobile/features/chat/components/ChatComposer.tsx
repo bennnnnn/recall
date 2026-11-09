@@ -226,7 +226,7 @@ export const ChatComposer = memo(function ChatComposer({
       height,
       bottom: pad > 0 ? -pad : 0,
     };
-  }, [bottomPad, composerExpanded, mathBarOpen]);
+  });
 
   const onToggleMathBar = useCallback(() => {
     if (streaming && !mathBarOpen) return;

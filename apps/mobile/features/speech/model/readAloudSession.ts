@@ -9,7 +9,7 @@
  * fetch the voice, and nothing to stop it once the reply scrolled away.
  */
 import { createValueStore } from "@/lib/listenerSet";
-import { reportReadAloudControlFailed } from "@/lib/sentry";
+import { reportFailure } from "@/lib/sentry";
 
 type ReadAloudPhase = "preparing" | "playing" | "paused";
 
@@ -150,14 +150,18 @@ export function resumeReadAloud(): void {
   update({ phase: "playing", playingSince: current.progress === null ? Date.now() : null });
 }
 
+function reportControlFailed(error: unknown): void {
+  reportFailure("read_aloud_control", error);
+}
+
 /** Run a pause or resume; one that fails is reported and never thrown into the tap. */
 function control(action: () => unknown): boolean {
   try {
     const result = action();
-    if (result instanceof Promise) result.catch(reportReadAloudControlFailed);
+    if (result instanceof Promise) result.catch(reportControlFailed);
     return true;
   } catch (error) {
-    reportReadAloudControlFailed(error);
+    reportControlFailed(error);
     return false;
   }
 }

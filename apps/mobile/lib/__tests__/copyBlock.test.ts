@@ -1,25 +1,27 @@
 import {
   isAnswerLang,
-  isCopyLang,
   draftFenceProseText,
   looksLikeCode,
-  looksLikeDraftInstruction,
   looksLikeExplicitDraftContent,
   looksLikeMathAnswer,
-  looksLikeSendDeliverable,
   shouldRenderAsCopyBlock,
   shouldRenderAsCodeBlock,
+  shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
 import { classifyFence, classifyOpenFencePreview } from "@/lib/fenceDispatch";
+import { isSendableFenceLang } from "@/lib/fenceRegistry";
+import { unwrapNonCodeFences } from "@/lib/markdown/preprocessTables";
 
 const previewsAsAnswer = (lang: string, body: string) => classifyOpenFencePreview(lang, body) === "answer";
 const previewsAsMath = (lang: string, body: string) => classifyOpenFencePreview(lang, body) === "math";
 
 describe("copyBlock heuristics", () => {
-  it("recognizes copy fence languages", () => {
-    expect(isCopyLang("copy")).toBe(true);
-    expect(isCopyLang("EMAIL")).toBe(true);
-    expect(isCopyLang("python")).toBe(false);
+  it("knows the tags of text to send from the fence registry", () => {
+    expect(isSendableFenceLang("copy")).toBe(true);
+    expect(isSendableFenceLang("EMAIL")).toBe(true);
+    expect(isSendableFenceLang("linkedin")).toBe(true);
+    expect(isSendableFenceLang("text")).toBe(false);
+    expect(isSendableFenceLang("python")).toBe(false);
   });
 
   it("detects source code vs prose", () => {
@@ -30,7 +32,6 @@ describe("copyBlock heuristics", () => {
 
   it("routes email drafts to copy block", () => {
     const draft = `Subject: Follow up\n\nHi Alex,\n\nJust checking in.\n\nThanks,\nSam`;
-    expect(looksLikeSendDeliverable(draft)).toBe(true);
     expect(shouldRenderAsCopyBlock("email", draft)).toBe(true);
     expect(shouldRenderAsCodeBlock("email", draft)).toBe(false);
   });
@@ -41,17 +42,43 @@ describe("copyBlock heuristics", () => {
     expect(shouldRenderAsCopyBlock("python", code)).toBe(false);
   });
 
-  it("does not treat advisory prose as copy deliverable", () => {
+  // The tag decides, in every language. English phrase lists ("As a …", "Hi … Thanks,")
+  // made an English draft a card and the same draft in Spanish plain text, and read any
+  // untagged body over 100 characters as advice, so a code snippet unwrapped into prose.
+  it("trusts a ```copy tag as a draft in any language, and reads no untagged prose as one", () => {
     const advice =
       "As a software engineer, Python is a solid choice for prototyping. JavaScript is great for the frontend.";
-    expect(looksLikeSendDeliverable(advice)).toBe(false);
-    expect(shouldRenderAsCopyBlock("copy", advice)).toBe(false);
+    expect(shouldRenderAsCopyBlock("copy", advice)).toBe(true);
+    const english = "Hi Ana,\n\nCould I take Friday off? I have an appointment.\n\nThanks,\nBini";
+    const spanish = "Hola Ana,\n\n¿Puedo tomarme el viernes libre? Tengo una cita.\n\nGracias,\nBini";
+    for (const draft of [english, spanish, advice]) {
+      expect(shouldRenderAsCopyBlock("", draft)).toBe(false);
+      expect(shouldRenderAsPlainProseFence("", draft)).toBe(true);
+      expect(classifyOpenFencePreview("", draft)).toBe("prose");
+    }
+  });
+
+  it("keeps an untagged code snippet a code block, however long", () => {
+    const code =
+      "function add(a, b) {\n  return a + b;\n}\nconst total = add(1, 2);\nconsole.log(total); // prints 3 as expected\n";
+    expect(code.length).toBeGreaterThan(100);
+    expect(looksLikeCode(code)).toBe(true);
+    expect(unwrapNonCodeFences(`\`\`\`\n${code}\`\`\``)).toContain("```");
+    const trace = "Traceback (most recent call last):\n  File \"app.py\", line 42, in profile\n    user_id = session[\"user_id\"]\nKeyError: 'user_id'";
+    expect(unwrapNonCodeFences(`\`\`\`text\n${trace}\n\`\`\``)).toContain("```text");
+  });
+
+  it("keeps a draft that opens on a [Name] placeholder a draft", () => {
+    const bio =
+      "[Name] is a 5th-grade teacher in Seattle with eight years of classroom experience. Outside school, she hikes.";
+    expect(looksLikeCode(bio)).toBe(false);
+    expect(classifyFence("copy", bio).kind).toBe("copy");
+    expect(looksLikeCode('[{"x": 1}, {"x": 2}]')).toBe(true);
   });
 
   it("rejects the leaked screenshot instructions from a draft card", () => {
     const leaked =
       "fence!\n(Or paste their number if SMS and you want it formatted for texting.)";
-    expect(looksLikeDraftInstruction(leaked)).toBe(true);
     expect(looksLikeExplicitDraftContent(leaked)).toBe(false);
     expect(shouldRenderAsCopyBlock("copy", leaked)).toBe(false);
     expect(draftFenceProseText(leaked)).not.toContain("fence!");
@@ -111,7 +138,6 @@ describe("copyBlock heuristics", () => {
 
   it("keeps a real message that naturally starts with 'Let me know if'", () => {
     const draft = "Let me know if you can make dinner at 7. I hope you can join us!";
-    expect(looksLikeDraftInstruction(draft)).toBe(false);
     expect(looksLikeCode(draft)).toBe(false);
     expect(looksLikeExplicitDraftContent(draft)).toBe(true);
     expect(shouldRenderAsCopyBlock("copy", draft)).toBe(true);

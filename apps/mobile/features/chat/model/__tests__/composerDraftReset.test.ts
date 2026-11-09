@@ -1,12 +1,12 @@
 import {
   resetComposerDraftsForAccount,
-  resetComposerDraftResetListeners,
+  resetComposerDraftResetListenersForTest,
   subscribeComposerDraftReset,
 } from "@/features/chat/model/composerDraftReset";
 
 describe("composerDraftReset", () => {
   afterEach(() => {
-    resetComposerDraftResetListeners();
+    resetComposerDraftResetListenersForTest();
   });
 
   it("notifies the mounted composer so sign-out can wipe drafts", () => {

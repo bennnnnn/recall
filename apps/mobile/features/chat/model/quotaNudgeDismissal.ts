@@ -3,13 +3,14 @@
  * acceptable for a conversion nudge (it shows again once in the next session that day).
  * Apart from the hook so sign-out can clear it without importing the auth stack.
  */
+import { utcDayKey } from "@/lib/datetime/dayKey";
 
 let dismissedDate: string | null = null;
 
 function today(): string {
-  // UTC (toISOString) to match the server's UTC-day quota reset: a local date would
-  // dismiss the nudge across a midnight the server has not crossed yet.
-  return new Date().toISOString().slice(0, 10);
+  // The server's UTC day: a local date would dismiss the nudge across a midnight the
+  // server has not crossed yet.
+  return utcDayKey(new Date());
 }
 
 export function dismissQuotaNudgeToday(): void {
