@@ -10,6 +10,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import type { Message } from "@/lib/api";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
+import { reportFailure } from "@/lib/sentry";
 import {
   buildPendingSendAfterCreate,
   type ComposerSendDraft,
@@ -360,6 +361,9 @@ export function useChatSend({
         setSendPhase("preparing");
         try {
           await beforeSend();
+        } catch (error) {
+          // The send goes on, as after a newest page that did not load (that read says so itself).
+          reportFailure("chat_page", error);
         } finally {
           sendInFlightRef.current = false;
         }

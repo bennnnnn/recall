@@ -23,6 +23,11 @@ import {
   resolveClientGeoForQuery,
 } from "@/features/chat/model/resolveClientGeoForQuery";
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
+const mockReportFailure = jest.fn();
+jest.mock("@/lib/sentry", () => ({
+  ...jest.requireActual("@/lib/sentry"),
+  reportFailure: (...args: unknown[]) => mockReportFailure(...args),
+}));
 beforeEach(() => {
   (getSessionGeneration as jest.Mock).mockReturnValue(0);
   dotsUp = true;
@@ -605,6 +610,21 @@ describe("useChatSend", () => {
     });
     expect(sendMessage).toHaveBeenCalledWith("and then?", expect.anything());
     expect(mockSetInput).not.toHaveBeenCalled();
+  });
+
+  it("still sends the text from the tap when going back to the newest page fails", async () => {
+    inputRef.current = "and then?";
+    const failure = new Error("page");
+    const beforeSend = jest.fn(async () => { throw failure; });
+    const sendMessage = sent();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} beforeSend={beforeSend} />);
+    });
+    let went: boolean | undefined;
+    await act(async () => { went = await current.handleSend(); });
+    expect(went).toBe(true);
+    expect(sendMessage).toHaveBeenCalledWith("and then?", expect.anything());
+    expect(mockReportFailure).toHaveBeenCalledWith("chat_page", failure);
   });
 
   it("gives the text back to its chat when another chat opens while the newest page loads", async () => {
