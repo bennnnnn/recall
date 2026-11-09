@@ -36,6 +36,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { SegmentedControl } from "@/ui/controls/SegmentedControl";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Props = { content: string };
 
@@ -139,17 +140,15 @@ export function Molecule3DView({ geom }: { geom: MolGeometry }) {
   const [yaw, setYaw] = useState(0.7);
   const [pitch, setPitch] = useState(0.35);
   const [open, setOpen] = useState(false);
-  const yawRef = useRef(0.7);
-  const pitchRef = useRef(0.35);
+  const yawRef = useLatestRef(yaw);
+  const pitchRef = useLatestRef(pitch);
   const startYaw = useRef(0.7);
   const startPitch = useRef(0.35);
-  yawRef.current = yaw;
-  pitchRef.current = pitch;
 
   const onGrant = useCallback(() => {
     startYaw.current = yawRef.current;
     startPitch.current = pitchRef.current;
-  }, []);
+  }, [pitchRef, yawRef]);
   const onMove = useCallback((translationX: number, translationY: number) => {
     setYaw(startYaw.current + translationX * ROTATE_PER_PX);
     setPitch(

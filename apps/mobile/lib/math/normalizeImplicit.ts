@@ -2,6 +2,7 @@
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
+import { readGroup } from "@/lib/math/latexGroups";
 import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@/lib/math/proseDollars";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
@@ -148,20 +149,9 @@ function wrapMath(expr: string, format?: (expr: string) => string): string {
 function skipBraceGroups(s: string, start: number): number {
   let i = start;
   while (s[i] === "{") {
-    let depth = 0;
-    let j = i;
-    for (; j < s.length; j += 1) {
-      if (s[j] === "{") depth += 1;
-      else if (s[j] === "}") {
-        depth -= 1;
-        if (depth === 0) {
-          j += 1;
-          break;
-        }
-      }
-    }
-    if (depth !== 0) return i; // unbalanced — stop before the broken group
-    i = j;
+    const group = readGroup(s, i);
+    if (!group) return i; // unbalanced — stop before the broken group
+    i = group.next;
   }
   return i;
 }

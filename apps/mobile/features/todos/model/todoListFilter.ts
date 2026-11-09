@@ -1,5 +1,5 @@
 import type { Todo } from "@/lib/api/types";
-import { localDateKey } from "@/features/todos/model/dateKey";
+import { localDayKey } from "@/lib/datetime/dayKey";
 
 export type TodoView = "all" | "open" | "completed" | "today";
 
@@ -11,11 +11,11 @@ export function todosForView(todos: Todo[], view: TodoView, now = new Date()): T
   if (view === "completed") return todos.filter((todo) => todo.checked);
   if (view === "open") return todos.filter((todo) => !todo.checked);
   if (view === "today") {
-    const today = localDateKey(now);
+    const today = localDayKey(now);
     return todos.filter((todo) => {
       if (todo.checked || !todo.due_at) return false;
       const due = new Date(todo.due_at);
-      return Number.isFinite(due.getTime()) && localDateKey(due) <= today;
+      return Number.isFinite(due.getTime()) && localDayKey(due) <= today;
     });
   }
   return todos;

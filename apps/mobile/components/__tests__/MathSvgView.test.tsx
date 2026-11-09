@@ -2,7 +2,7 @@ import { render, waitFor } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
-import { MATH_SVG_EX_PX, MathSvgView } from "@/components/rich/MathSvgView";
+import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathBlock } from "@/components/rich/MathView";
 import { Type } from "@/lib/type";
 import { clearSvgMathCache, setSvgMathRendererForTest } from "@/lib/math/svgMath";
@@ -102,6 +102,9 @@ describe("MathSvgView (real MathJax conversion)", () => {
     expect(mockSvgXml.mock.calls[0][0].xml).toContain("<svg");
   });
 });
+
+/** MathJax's ex (0.442em) at the reply's own text size: display maths is set at it. */
+const MATH_SVG_EX_PX = Type.reading.fontSize * 0.442;
 
 describe("MathSvgView does not stretch a short SVG to minHeight", () => {
   beforeEach(() => {

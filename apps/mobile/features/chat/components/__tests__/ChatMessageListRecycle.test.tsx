@@ -12,7 +12,7 @@ jest.mock("@shopify/flash-list", () => ({
     return null;
   },
 }));
-jest.mock("@/features/home/components/HomeStarters", () => ({ HomeStarters: () => null }));
+jest.mock("@/features/home/components/HomeContent", () => ({ HomeContent: () => null }));
 jest.mock("@/features/chat/components/LastChatCard", () => ({ LastChatCard: () => null }));
 
 const message: Message = { id: "m1", role: "assistant", content: "a graph", model: null, created_at: "t" };

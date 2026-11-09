@@ -31,11 +31,10 @@ export function useOverlayProgress(): SharedValue<number> {
 
 type Props = {
   visible: boolean;
-  /** Scrim tap and Android back. Ignored when `dismissible` is false. */
+  /** Scrim tap and Android back. */
   onRequestClose: () => void;
   /** `wash` softens the page (menus); `dim` darkens it (dialogs, pickers). */
   scrim?: "wash" | "dim";
-  dismissible?: boolean;
   children: ReactNode;
   testID?: string;
 };
@@ -53,7 +52,6 @@ export function Overlay({
   visible,
   onRequestClose,
   scrim = "dim",
-  dismissible = true,
   children,
   testID,
 }: Props) {
@@ -83,7 +81,7 @@ export function Overlay({
   if (!visible && !mounted) return null;
   const closing = !visible;
   const requestClose = () => {
-    if (dismissible && !closing) onRequestClose();
+    if (!closing) onRequestClose();
   };
 
   const layer = (
@@ -102,9 +100,8 @@ export function Overlay({
             scrimStyle,
           ]}
           onPress={requestClose}
-          accessible={dismissible}
-          accessibilityRole={dismissible ? "button" : undefined}
-          accessibilityLabel={dismissible ? t("common.close") : undefined}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.close")}
           testID={testID ? `${testID}-scrim` : "overlay-scrim"}
         />
         <ProgressContext.Provider value={progress}>{children}</ProgressContext.Provider>

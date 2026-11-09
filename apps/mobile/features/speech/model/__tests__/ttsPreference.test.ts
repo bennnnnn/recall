@@ -3,7 +3,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import {
   getTtsModel,
   normalizeTtsModel,
-  resetTtsModelCache,
+  resetTtsModelForTest,
   setTtsModel,
   TTS_DEVICE_MODEL,
   TTS_FAST_MODEL,
@@ -30,7 +30,7 @@ const writeAsStringAsync = FileSystem.writeAsStringAsync as jest.Mock;
 
 describe("ttsPreference", () => {
   beforeEach(() => {
-    resetTtsModelCache();
+    resetTtsModelForTest();
     getInfoAsync.mockReset();
     readAsStringAsync.mockReset();
     writeAsStringAsync.mockReset();

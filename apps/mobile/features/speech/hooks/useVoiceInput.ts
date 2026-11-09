@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSharedValue } from "react-native-reanimated";
 
 import { transcribeSpeech } from "@/lib/api";
@@ -170,7 +170,7 @@ export function useVoiceInput({
     }
   }, [token, stopRecording, onTranscript, onPlanRequired, feedback, t]);
 
-  finishRecordingRef.current = finishRecording;
+  useLayoutEffect(() => { finishRecordingRef.current = finishRecording; }); // the time limit calls it
 
   const cancelVoiceInput = useCallback(() => {
     captureGenRef.current += 1;

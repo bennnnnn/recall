@@ -88,7 +88,7 @@ type Props = {
   footer?: ReactNode;
 };
 
-export function HomeStarters({ composerActive, footer }: Props) {
+export function HomeContent({ composerActive, footer }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();

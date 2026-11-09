@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react-native";
 
-import { HomeStarters } from "@/features/home/components/HomeStarters";
+import { HomeContent } from "@/features/home/components/HomeContent";
 
 // The overdue row reads the to-do context's `now` (useReminderClock), not the moment the
 // to-dos last changed: a reminder that falls due while the app is open shows on Home.
@@ -41,12 +41,12 @@ jest.mock("@/features/todos/model/dueDate", () => ({
 jest.mock("expo-router", () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
 it("shows a reminder as overdue once the clock passes its due time", async () => {
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Hi, Bini")).toBeTruthy();
   expect(view.queryByText("Start anatomy study session")).toBeNull();
 
   mockNow = new Date("2026-10-24T12:06:00.000Z");
-  await view.rerender(<HomeStarters composerActive={false} />);
+  await view.rerender(<HomeContent composerActive={false} />);
 
   expect(await view.findByText("Start anatomy study session")).toBeTruthy();
 });
@@ -58,12 +58,12 @@ it("shows an overdue reminder from its notify_at, after quiet hours, as push doe
     notify_at: "2026-10-25T07:00:00.000Z",
   }];
   mockNow = new Date("2026-10-24T23:45:00.000Z");
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Hi, Bini")).toBeTruthy();
   expect(view.queryByText("Call Sam")).toBeNull();
 
   mockNow = new Date("2026-10-25T07:00:00.000Z");
-  await view.rerender(<HomeStarters composerActive={false} />);
+  await view.rerender(<HomeContent composerActive={false} />);
   expect(await view.findByText("Call Sam")).toBeTruthy();
 });
 
@@ -75,7 +75,7 @@ it("shows the next overdue reminder once the older ones are dismissed, however m
   }));
   mockDismissed = new Set(["todo-6", "todo-5", "todo-4", "todo-3", "todo-2"]);
   mockNow = new Date("2026-10-24T12:00:00.000Z");
-  const view = await render(<HomeStarters composerActive={false} />);
+  const view = await render(<HomeContent composerActive={false} />);
   expect(await view.findByText("Task 1")).toBeTruthy();
   expect(view.queryByText("Task 6")).toBeNull();
 });

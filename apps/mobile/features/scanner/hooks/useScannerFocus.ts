@@ -18,6 +18,7 @@ export function useScannerFocus(cameraRef: RefObject<LiveScannerCameraHandle | n
   // Outside the frame: the frame's own gesture reports taps inside it (`onTap`). The tap
   // area (`ScannerFocusArea`) starts `areaTop` points below the camera view's top.
   const tapGesture = useMemo(
+    // eslint-disable-next-line react-hooks/refs -- the gesture callbacks read refs on touch, not in render
     () => Gesture.Tap().maxDistance(10).runOnJS(true).onEnd((event) => focusAt({ x: event.x, y: event.y + areaTop })),
     [areaTop, focusAt],
   );

@@ -14,6 +14,7 @@ import {
   isRemotePushTrigger,
   todoIdFromNotificationData,
 } from "@/features/todos/model/todoReminderPush";
+import { useLatestRef } from "@/lib/latestRef";
 
 /** Handles push notification taps and configures foreground display. */
 export function PushNotificationBootstrap() {
@@ -23,8 +24,7 @@ export function PushNotificationBootstrap() {
   const authLoading = auth?.loading ?? true;
   const coldStartHandledRef = useRef(false);
   // Read the current route without re-attaching listeners on every nav.
-  const pathnameRef = useRef(pathname);
-  pathnameRef.current = pathname;
+  const pathnameRef = useLatestRef(pathname);
 
   useEffect(() => {
     configurePushNotificationHandler();
@@ -76,7 +76,7 @@ export function PushNotificationBootstrap() {
       responseSub.remove();
       receivedSub.remove();
     };
-  }, [router, authLoading]);
+  }, [router, authLoading, pathnameRef]);
 
   return null;
 }

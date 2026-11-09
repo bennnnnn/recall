@@ -11,6 +11,7 @@ import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
 import { alertDialog, confirmDialog, offerSettings } from "@/ui/overlay/dialogs";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Params = {
   token: string | null;
@@ -36,17 +37,15 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const owner = useMemo(() => ({ session, signedIn, userId,
     mutations: getTodoMutationState(`${session}:${userId ?? ""}`),
   }), [session, signedIn, userId]);
-  const ownerRef = useRef(owner);
-  ownerRef.current = owner;
-  const todosRef = useRef(todos);
-  todosRef.current = todos;
+  const ownerRef = useLatestRef(owner);
+  const todosRef = useLatestRef(todos);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
   const isSameOwner = useCallback(() => owner.signedIn && ownerRef.current === owner &&
-    getSessionGeneration() === owner.session && isCurrentSession(), [owner, isCurrentSession]);
+    getSessionGeneration() === owner.session && isCurrentSession(), [owner, isCurrentSession, ownerRef]);
   const canAct = useCallback(() => mounted.current && isSameOwner() && isCurrentView(),
     [isSameOwner, isCurrentView]);
   const [, redraw] = useState(0);
@@ -76,7 +75,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (!dueIso || (await allowReminderAlerts()) === "on" || !shouldTellAlertsOff()) return;
     void offerSettings("notifications");
   }, []);
-  const latestTodo = useCallback((id: string) => (getTodos?.() ?? todosRef.current).find((item) => item.id === id), [getTodos]);
+  const latestTodo = useCallback((id: string) => (getTodos?.() ?? todosRef.current).find((item) => item.id === id), [getTodos, todosRef]);
   const applyTodos = useCallback((update: (rows: Todo[]) => Todo[]) => {
     if (isSameOwner()) setTodos(update);
   }, [isSameOwner, setTodos]);

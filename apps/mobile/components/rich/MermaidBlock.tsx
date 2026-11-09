@@ -4,7 +4,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/ui/icons/Icon";
 
@@ -14,6 +13,7 @@ import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
+import { copyToClipboard } from "@/lib/clipboard";
 import { CODE_FACE } from "@/lib/fonts";
 import { mermaidTitleKey } from "@/lib/mermaidKind";
 import { MERMAID_MIN_HEIGHT, MERMAID_PREVIEW_HEIGHT } from "@/lib/mermaidPreviewHeight";
@@ -153,7 +153,7 @@ function MermaidActions({
   // The source goes to the clipboard only; mermaid.live opens empty and the
   // user pastes it there.
   const openEditor = useCallback(async () => {
-    await Clipboard.setStringAsync(source);
+    await copyToClipboard(source);
     await WebBrowser.openBrowserAsync("https://mermaid.live/edit");
   }, [source]);
 

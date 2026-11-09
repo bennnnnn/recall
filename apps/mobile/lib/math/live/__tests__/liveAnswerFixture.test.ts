@@ -5,7 +5,7 @@
  * draft that shows no live answer.
  */
 import fixture from "../../../../../../docs/fixtures/live_answer_cases.json";
-import { liveAnswer, liveValue } from "@/lib/math/live/answer";
+import { liveAnswer, liveValueForTest } from "@/lib/math/live/answer";
 
 type Case = { id: string; draft: string; sympy: string | null; value: string | null; why?: string };
 
@@ -18,7 +18,7 @@ function numberOf(value: string): number {
 }
 
 function valueOf(draft: string): number | null {
-  const value = liveValue(draft);
+  const value = liveValueForTest(draft);
   if (!value) return null;
   return value.kind === "approx" ? value.x : Number(value.r.n) / Number(value.r.d);
 }

@@ -24,20 +24,17 @@ import { Type } from "@/lib/type";
 /** MathJax metrics: the SVG viewBox runs 1000 units per em and 1ex ≈ 0.442em (measured). */
 const EX_PER_EM = 0.442;
 
-/**
- * Display maths is set at the reply's own text size, as TeX sets a display at the size of
- * its paragraph: the 20px em the retired KaTeX WebView used drew every display formula a
- * size larger than the inline maths and the words around it. The drawing is then scaled
- * by the reader's text size (Larger Text), as inline maths (`MathText`) and body copy
- * scale: uncapped, and a formula wider than the line scrolls sideways.
- */
-export const MATH_SVG_EX_PX = Type.reading.fontSize * EX_PER_EM;
-
 type Props = {
   latex: string;
   textColor: string;
   minHeight?: number;
-  /** The type size (em) the formula is set at; the reply's text size by default. */
+  /**
+   * The type size (em) the formula is set at; the reply's text size by default, as TeX sets
+   * a display at the size of its paragraph: the 20px em the retired KaTeX WebView used drew
+   * every display formula a size larger than the inline maths and the words around it. The
+   * drawing is then scaled by the reader's text size (Larger Text), as inline maths
+   * (`MathText`) and body copy scale: uncapped, and a formula wider than the line scrolls.
+   */
   em?: number;
   /**
    * `start` sets the formula at the left edge of the text column it sits in, with the

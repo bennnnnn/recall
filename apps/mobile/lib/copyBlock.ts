@@ -1,30 +1,75 @@
-import { fenceIdForLang, fenceSpecForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
+/**
+ * What a fence whose tag leaves it open draws: code, a copy card, a final answer, or prose.
+ * The tag decides first (lib/fenceRegistry.ts); only for no tag, a plain-text one and ```copy
+ * does the body decide, and then by its shape, never by English words: a 9-language app
+ * cannot read "Hi … Regards" or "As a …" as the mark of a draft or of advice. A draft is
+ * tagged (```email, ```message, ```copy …, as the prompt asks); an untagged fence of
+ * prose reads as prose, in every language.
+ */
+import {
+  fenceIdForLang,
+  fenceSpecForLang,
+  isNeverCodeBlockLang,
+  isPlainTextFenceLang,
+  isSendableFenceLang,
+} from "@/lib/fenceRegistry";
 import { markdownToCopyText } from "@/lib/markdown/plain";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/fenceRetag";
 
-const COPY_LANGS = new Set([
-  "copy",
-  "text",
-  "message",
-  "email",
-  "sms",
-  "reply",
-]);
-
-export function isCopyLang(lang: string): boolean {
-  return COPY_LANGS.has(lang.trim().toLowerCase());
+/** Markdown structure (a quote, a heading, a list): written for the reader, not source code. */
+function looksLikeMarkdownProse(content: string): boolean {
+  const sample = content.slice(0, 1600).trim();
+  if (/^\s*>/m.test(sample)) return true;
+  if (/^#{1,6}\s/m.test(sample)) return true;
+  return sample.split("\n").filter((line) => /^[-*•]\s/.test(line.trim())).length >= 2;
 }
 
-/** Fences with no real language tag — usually plain text from the model. */
-function isProseLang(lang: string): boolean {
-  const l = lang.trim().toLowerCase();
-  return !l || l === "clike" || l === "text" || l === "plain";
+/** The app's own words when a maths fence did not draw: never a card to copy or send. */
+function looksLikeFailedDiagram(content: string): boolean {
+  return /^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(content.slice(0, 800).trim());
+}
+
+/**
+ * Sentences, in any language: most of the words sit on lines of six words or more (a
+ * letter's "Hi Ana," and "Thanks," are short), and code's brackets are rare among the
+ * letters. "Bring your ID(s)…" or a line that ends in `;` is still a sentence; only the
+ * strong evidence below makes it code.
+ */
+export function readsAsSentences(content: string): boolean {
+  const lines = content.split("\n").map((line) => line.trim().split(/\s+/).filter(Boolean).length);
+  const words = lines.reduce((sum, count) => sum + count, 0);
+  const inSentences = lines.filter((count) => count >= 6).reduce((sum, count) => sum + count, 0);
+  const letters = content.match(/\p{L}/gu)?.length ?? 0;
+  const marks = content.match(/[{}()[\];=<>]/g)?.length ?? 0;
+  return words > 0 && inSentences * 2 >= words && marks * 40 <= letters;
+}
+
+/** A line no sentence writes: a declaration, an arrow or strict comparison, a print or hook call, a tag, or `;` `{` `}` at its end. */
+const SOURCE_LINE = [
+  /^\s*(def|class|function|import|export|const|var|let|public|private|protected|fn|func|struct|interface|enum|package|SELECT|INSERT|UPDATE|DELETE|CREATE)\s+[\w$.{*]+.*[({=:;]/,
+  /^\s*#include\b/,
+  /=>|===|!==|::|\+\+|&&|\|\|/,
+  /\b(console\.\w+|print|fmt\.Print\w*|System\.out\.\w+|useState|useEffect)\(/,
+  /^\s*<\/?[a-z][\w-]*[\s/>]/,
+  /[;{}]\s*$/,
+];
+
+/**
+ * Source code by strong evidence only: two such lines, or more than half the lines. A draft the
+ * model tagged (```email, ```linkedin, ```copy) is code only so: "Liebe Kolleg(inn)en", a
+ * phone number "+1(555)" or an indented line of a poem kept its card on main and keeps it.
+ */
+function looksLikeSourceCode(content: string): boolean {
+  const lines = content.slice(0, 2000).split("\n").filter((line) => line.trim());
+  const source = lines.filter((line) => SOURCE_LINE.some((rule) => rule.test(line))).length;
+  return source >= 2 || (source >= 1 && source * 2 > lines.length);
 }
 
 /** Heuristic: content is source code, not copy-ready prose. */
 export function looksLikeCode(content: string): boolean {
-  if (looksLikeExplanatoryProse(content)) return false;
+  if (looksLikeMarkdownProse(content)) return false;
   if (looksLikeMathFenceBody(content)) return false;
+  if (readsAsSentences(content)) return looksLikeSourceCode(content);
   const sample = content.slice(0, 2000);
   // Keywords as code spells them: "Class starts at 9" or "Update the wiki" opens
   // a sentence in a message, and read as code it lost the draft its card.
@@ -42,7 +87,8 @@ export function looksLikeCode(content: string): boolean {
     return true;
   }
   if (/^\s{4}\S/m.test(sample) || /^\t+\S/m.test(sample)) return true;
-  if (/^\s*[\[{]/.test(sample) && /[;\}\],]/.test(sample)) return true;
+  // JSON or a literal opens on a bracket and a value; a draft opens on a "[Name]" placeholder.
+  if (/^\s*[\[{]\s*(?:["'{[\d-]|$)/m.test(sample.slice(0, 200)) && /[;\}\],]/.test(sample)) return true;
   if (/^\s*(\/\/|\/\*|#(?!!)|\*)\s/m.test(sample)) return true;
   const mentionsLangPlusPlus = /\bC\+\+/m.test(sample);
   if (
@@ -78,241 +124,25 @@ export function shouldRenderAsCodeBlock(
   lang: string,
   content: string,
 ): boolean {
-  if (looksLikeAssistantMeta(content)) return false;
-  if (looksLikeExplanatoryProse(content)) return false;
-  const l = lang.trim().toLowerCase();
-  if (
-    (l === "copy" ||
-      l === "message" ||
-      l === "email" ||
-      l === "sms" ||
-      l === "reply") &&
-    !looksLikeCode(content)
-  ) {
-    return false;
-  }
+  if (looksLikeFailedDiagram(content)) return false;
+  if (looksLikeMarkdownProse(content)) return false;
+  if (isSendableFenceLang(lang) && !looksLikeSourceCode(content)) return false;
   if (isExplicitCodeLang(lang)) return true;
   return looksLikeCode(content);
 }
 
-/** Educational / explanatory prose — not a copy-and-send deliverable. */
-function looksLikeExplanatoryProse(content: string): boolean {
-  const sample = content.slice(0, 1600).trim();
-  if (/^\s*>/m.test(sample)) return true;
-  if (/^#{1,6}\s/m.test(sample)) return true;
-  if (looksLikeAdvisoryNote(content)) return true;
-  if (
-    /\*\*[^*]+\*\*/.test(sample) &&
-    /(?:in Python|in JavaScript|in TypeScript|these methods|this method|does not modify|do not modify|creates? a new|returns? a new|the following|for example|Note that|Remember that|Keep in mind|are immutable|is immutable)/i.test(
-      sample,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /^[-*•]\s/m.test(sample) &&
-    sample.split("\n").filter((l) => /^[-*•]\s/.test(l.trim())).length >= 2
-  ) {
-    return true;
-  }
-  return false;
-}
-
-/** Recommendations, comparisons, career/stack advice — not paste-and-send text. */
-function hasDefiniteAdvisorySignals(content: string): boolean {
-  const sample = content.slice(0, 1600).trim();
-  if (
-    /^(As a|If you('| a)re|For most|In general|When (choosing|building|learning)|I('| would) (recommend|suggest)|A solid|Good choices|Consider|You might|You('ll| will) (want|find)|Overall,|In practice,)/i.test(
-      sample,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /\b(is|are) a (solid|good|great|strong|reasonable|sensible|practical) (choice|combo|option|stack|pick|approach|fit|set)\b/i.test(
-      sample,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /\bfor (prototyping|production|enterprise|performance|learning|beginners|most (cases|projects|teams)|day-to-day)\b/i.test(
-      sample,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /\b(Python|JavaScript|Java|C\+\+|Rust|Go|TypeScript|Kotlin|Ruby|Swift)\b[\s\S]{0,200}\b(Python|JavaScript|Java|C\+\+|Rust|Go|TypeScript|Kotlin|Ruby|Swift)\b/i.test(
-      sample,
-    )
-  ) {
-    return true;
-  }
-  return false;
-}
-
-/** Recommendations, comparisons, career/stack advice — not paste-and-send text. */
-function looksLikeAdvisoryNote(content: string): boolean {
-  const sample = content.slice(0, 1600).trim();
-  if (hasDefiniteAdvisorySignals(sample)) return true;
-  if (
-    sample.length > 100 &&
-    !emailDraftSignals(content) &&
-    !directMessageSignals(content)
-  ) {
-    return true;
-  }
-  return false;
-}
-
-/** Regex-only — safe to call from advisory/deliverable checks (no mutual recursion). */
-function emailDraftSignals(content: string): boolean {
-  const sample = content.trim();
-  if (/^(To:|Subject:)/im.test(sample)) return true;
-  if (
-    /^(Hi|Hello|Dear|Hey)\b/im.test(sample) &&
-    /\b(Best|Thanks|Regards|Sincerely|Cheers),/im.test(sample)
-  ) {
-    return true;
-  }
-  if (
-    /^(Hi|Hello|Dear)\b/im.test(sample) &&
-    sample.split("\n").filter((l) => l.trim()).length >= 3
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function looksLikeEmailDraft(content: string): boolean {
-  return emailDraftSignals(content);
-}
-
-/** Regex-only — must not call looksLikeAdvisoryNote (was causing stack overflow). */
-function directMessageSignals(content: string): boolean {
-  const sample = content.trim();
-  const words = sample.split(/\s+/).length;
-  if (words > 90) return false;
-  if (
-    /^(please |reminder:|don'?t forget|running late|see you|thanks for|hey |hi )/i.test(
-      sample,
-    )
-  ) {
-    return true;
-  }
-  if (
-    words <= 70 &&
-    /\b(I'll|I'm|we're|you're|your|let me know)\b/i.test(sample) &&
-    !/\b(is a solid|for prototyping|software engineer)\b/i.test(sample)
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function looksLikeDirectMessage(content: string): boolean {
-  return directMessageSignals(content);
-}
-
-/** Paste-and-send wording only — not code, notes, or assistant commentary. */
-export function looksLikeSendDeliverable(content: string): boolean {
-  if (looksLikeCode(content)) return false;
-  if (looksLikeAssistantMeta(content)) return false;
-  if (looksLikeExplanatoryProse(content)) return false;
-  const sample = content.trim();
-  if (/^\s*[>#]/.test(sample)) return false;
-  if (/^#{1,6}\s/m.test(sample)) return false;
-  return looksLikeEmailDraft(content) || looksLikeDirectMessage(content);
-}
-
-/** True when content reads like plain prose (not code). */
-function looksLikeProse(content: string): boolean {
-  if (looksLikeCode(content)) return false;
-  const sample = content.slice(0, 600);
-  if (
-    /^\s*(def |function |class |import |const |let |var |SELECT |#include |package )/im.test(
-      sample,
-    )
-  ) {
-    return false;
-  }
-  if (/^\s*[\[{<]/m.test(sample) && /[;\}]/.test(sample)) return false;
-  return true;
-}
-
-/** Assistant follow-up / disclaimer — not something the user would copy and send. */
-function looksLikeAssistantMeta(content: string): boolean {
-  const sample = content.slice(0, 800).trim();
-  if (
-    /^(I (used|assumed|went with|inferred|based|picked|chose|included)|Based on your (answer|response|input|reply)|If you('d| would) prefer|just tell me (and )?I('ll| will)|let me know if|double-check|feel free to (ask|tell)|happy to (revise|update|adjust)|I can (revise|update|adjust)|Note:|Also, (double-check|if ))/i.test(
-      sample,
-    )
-  ) {
-    return true;
-  }
-  if (/\bI assumed\b/i.test(sample) && /\blet me know\b/i.test(sample))
-    return true;
-  // Math fence validation failures — never a paste-and-send Copy template.
-  if (/^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(sample)) {
-    return true;
-  }
-  return false;
-}
-
-/** Definite drafting instructions/questions that must never become a draft card. */
-export function looksLikeDraftInstruction(content: string): boolean {
-  const sample = content.slice(0, 1200).trim();
-  const compact = sample.replace(/\s+/g, " ");
-  if (!compact) return true;
-  if (/^fence!?\b/i.test(compact)) return true;
-  if (
-    /\b(?:who is this for|what(?:'s| is) the purpose|what would you like (?:it|the (?:message|email|post)) to say|paste (?:their|the) (?:phone )?number|formatted for texting)\b/i.test(
-      compact,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /^(?:i(?:'ll| will) (?:craft|draft|format)|i need (?:the |your |a )?(?:recipient|purpose|tone|details|name|email address|phone number))\b/i.test(
-      compact,
-    )
-  ) {
-    return true;
-  }
-  if (/\bdrop (?:those|these|that) in\b/i.test(compact) && /\bdraft\b/i.test(compact)) {
-    return true;
-  }
-  return false;
-}
-
 /**
- * Explicit model-owned draft tags are authoritative across languages, except
- * for definite code, assistant commentary, or leaked drafting instructions.
- * Requiring English greetings/contractions made Amharic and Spanish copy fall
- * through to a syntax-highlighted CodeBlock.
+ * A tagged draft is the draft, whatever its language, unless its shape says it is not one:
+ * empty, the developer word "fence" leaked into it, a nested fence or a heading (the model
+ * used the tag as an example and swallowed the rest of the reply), or source code.
  */
 export function looksLikeExplicitDraftContent(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return false;
-  if (looksLikeDraftInstruction(trimmed)) return false;
-  // Explicit email/message/social tags are authoritative. Only reject meta
-  // text that unmistakably refers to revising the assistant's own draft;
-  // broad checks such as a leading "Let me know if..." would throw away a
-  // perfectly valid message the user intends to send.
-  if (
-    /^(?:happy to|i can) (?:revise|update|adjust) (?:the |this |it )?(?:tone|length|draft|message|email|post)\b/i.test(
-      trimmed,
-    ) ||
-    (/\bi assumed\b/i.test(trimmed) && /\blet me know\b/i.test(trimmed))
-  ) {
-    return false;
-  }
-  // Nested ```email / ```sms or ATX headings mean the model used a draft
-  // fence as a capability example and swallowed the rest of the reply.
+  if (/^fence!?\b/i.test(trimmed)) return false;
   if (trimmed.includes("```")) return false;
   if (/^#{1,6}\s/m.test(trimmed)) return false;
-  return !looksLikeCode(trimmed);
+  return !looksLikeSourceCode(trimmed);
 }
 
 export function isStructuredDraftLang(lang: string): boolean {
@@ -333,22 +163,14 @@ export function shouldRenderAsPlainProseFence(
   lang: string,
   content: string,
 ): boolean {
-  const l = lang.trim().toLowerCase();
   // An explicit copy tag can contain any language. Keep genuine copy fenced;
-  // unwrap only obvious assistant/meta text so it reads as normal prose.
-  if (l === "copy") {
-    return (
-      !looksLikeExplicitDraftContent(content) || hasDefiniteAdvisorySignals(content)
-    );
-  }
-  if (looksLikeExplanatoryProse(content)) return true;
-  if (looksLikeAssistantMeta(content)) return true;
+  // unwrap only what has no draft's shape so it reads as normal prose.
+  if (fenceIdForLang(lang) === "copy") return !looksLikeExplicitDraftContent(content);
+  if (looksLikeMarkdownProse(content)) return true;
+  if (looksLikeFailedDiagram(content)) return true;
   if (looksLikeCode(content)) return false;
   if (isExplicitCodeLang(lang)) return false;
-  if (isCopyLang(l) || isProseLang(lang)) {
-    return looksLikeProse(content) && !looksLikeSendDeliverable(content);
-  }
-  return false;
+  return isSendableFenceLang(lang) || isPlainTextFenceLang(lang);
 }
 
 // Characters a bare simplified algebraic expression is built from — no
@@ -411,55 +233,27 @@ export function isAnswerLang(lang: string): boolean {
 
 /** Any non-prose fence language tag (python, js, …) → always a code block. */
 export function isExplicitCodeLang(lang: string): boolean {
-  const l = lang.trim().toLowerCase();
-  if (!l) return false;
   // The exclusion list lives in lib/fenceRegistry.ts (`neverCodeBlock`) so it
   // cannot drift from the structured-fence list again.
-  if (isNeverCodeBlockLang(l)) return false;
-  return !isProseLang(l);
+  return !isPlainTextFenceLang(lang) && !isNeverCodeBlockLang(lang);
 }
 
+/** A copy card: text a tagged fence holds to send as it is. An untagged fence is never one. */
 export function shouldRenderAsCopyBlock(
   lang: string,
   content: string,
 ): boolean {
-  const l = lang.trim().toLowerCase();
-  if (looksLikeCode(content)) return false;
-  if (looksLikeDraftInstruction(content)) return false;
+  if (!isSendableFenceLang(lang)) return false;
   if (looksLikeMathAnswer(content)) return false;
-  if (isAnswerLang(lang)) return false;
-  if (isExplicitCodeLang(lang)) return false;
-  if (l === "copy") {
-    return (
-      looksLikeExplicitDraftContent(content) &&
-      !hasDefiniteAdvisorySignals(content)
-    );
-  }
-  if (looksLikeAssistantMeta(content)) return false;
-  if (looksLikeExplanatoryProse(content)) return false;
-  if (
-    l === "copy" ||
-    l === "text" ||
-    l === "message" ||
-    l === "email" ||
-    l === "sms" ||
-    l === "reply"
-  ) {
-    return looksLikeSendDeliverable(content);
-  }
-  return (
-    isProseLang(lang) &&
-    looksLikeProse(content) &&
-    looksLikeSendDeliverable(content)
-  );
+  if (looksLikeFailedDiagram(content)) return false;
+  return looksLikeExplicitDraftContent(content);
 }
 
 /** The i18n key of a copy card's label: an email, a message, or a plain draft. */
 export function copyBlockLabelKey(lang: string): string {
-  switch (lang.trim().toLowerCase()) {
+  switch (fenceIdForLang(lang)) {
     case "email":
       return "rich.email_draft";
-    case "sms":
     case "message":
       return "rich.message_draft";
     default:

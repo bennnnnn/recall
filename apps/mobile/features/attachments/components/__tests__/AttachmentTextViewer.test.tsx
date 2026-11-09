@@ -57,7 +57,7 @@ describe("AttachmentTextViewer", () => {
     );
     const title = getByText("a-very-long-meeting-notes-file.md");
     expect(title.props.ellipsizeMode).toBe("middle");
-    expect(getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: true });
+    expect(getByLabelText("common.share").props.accessibilityState).toMatchObject({ busy: true });
     expect(title.parent).toHaveStyle({ borderBottomWidth: 1, borderBottomColor: mockLightTheme.border });
   });
 

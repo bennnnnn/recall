@@ -25,15 +25,11 @@ type Props = {
   size?: number;
   /** Explicit ink. Omit for the theme text color. */
   color?: string;
-  /** Use the danger ink (red) instead of the default. */
-  danger?: boolean;
   /**
    * Fill the closed shapes (active state: a pressed thumbs-up, a saved
    * bookmark, a playing speaker). Open strokes stay lines.
    */
   filled?: boolean;
-  /** Line weight in on-screen points. Defaults to the shared weight for this size. */
-  strokeWidth?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
@@ -52,15 +48,13 @@ export const Icon = memo(function Icon({
   name,
   size = IconSize.sm,
   color,
-  danger = false,
   filled = false,
-  strokeWidth,
   style,
   testID,
 }: Props) {
   const theme = useTheme();
-  const ink = color ?? (danger ? theme.danger : theme.text);
-  const unitStroke = ((strokeWidth ?? iconStroke(size)) * 24) / size;
+  const ink = color ?? theme.text;
+  const unitStroke = (iconStroke(size) * 24) / size;
   const maskId = `icon-mask-${useId().replace(/[^A-Za-z0-9]/g, "")}`;
   const custom: CustomGlyph | undefined = (CUSTOM_GLYPHS as Partial<Record<string, CustomGlyph>>)[name];
   const nodes = custom ? null : (GLYPHS[name as LucideIconName] as readonly GlyphNode[]);

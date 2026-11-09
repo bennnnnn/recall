@@ -28,6 +28,6 @@ export function shouldTellAlertsOff(): boolean {
 }
 
 /** For tests: tell again. */
-export function resetAlertsOffNotice(): void {
+export function resetAlertsOffNoticeForTest(): void {
   toldAlertsOff = false;
 }

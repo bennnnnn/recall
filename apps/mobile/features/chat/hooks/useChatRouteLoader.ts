@@ -43,7 +43,6 @@ import { useChatPageCacheWriter, type ChatPageSync } from "@/features/chat/hooks
 import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect";
 import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
 import { useLatestRef } from "@/lib/latestRef";
-import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 
 type Router = ReturnType<typeof useRouter>;
@@ -121,11 +120,11 @@ export function useChatRouteLoader({
   const session = getSessionGeneration();
   const signedIn = Boolean(token);
   // Bumped by each new route or account, New chat and unmount: a read from before lands nowhere.
+  // This hook's one view guard: New chat moves it at once, which a view keyed on the route cannot.
   const viewRef = useRef({ version: 0 });
   useLayoutEffect(() => {
     viewRef.current.version += 1;
   }, [session, routeChatId]);
-  const { owns } = useViewOwner(`${session}:${routeChatId}`);
   const activeChatRef = useLatestRef(chatId);
   useEffect(() => subscribeChatChanges((id, patch) => {
     if (session !== getSessionGeneration() || id !== activeChatRef.current || !patch) return;
@@ -223,8 +222,7 @@ export function useChatRouteLoader({
 
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
-      if (!token || session !== getSessionGeneration() || !owns() ||
-          openChatId !== activeChatRef.current || hasMoreNewer) return;
+      if (!token || session !== getSessionGeneration() || openChatId !== activeChatRef.current || hasMoreNewer) return;
       const version = viewRef.current.version;
       const ownerSession = getSessionGeneration();
       const previousMessages = messagesRef.current;
@@ -251,7 +249,7 @@ export function useChatRouteLoader({
         reportFailure("chat_refresh", error); // The messages on screen stay.
       }
     },
-    [token, session, owns, activeChatRef, messagesRef, setChatId, editThread, applyMetadata, turnBusy, hasMoreNewer],
+    [token, session, activeChatRef, messagesRef, setChatId, editThread, applyMetadata, turnBusy, hasMoreNewer],
   );
 
   useEffect(() => {

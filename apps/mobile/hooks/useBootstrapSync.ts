@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
@@ -12,6 +12,7 @@ import { emitAppEvent } from "@/lib/appEvents";
 import { onPhoneClockChange } from "@/lib/datetime/phoneClock";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { trackZoneReport } from "@/lib/zoneReport";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Options = {
   token: string | null;
@@ -44,12 +45,11 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   // Keyed on the sign-in, not the token: the access token refreshes hourly, and each
   // sync reads the newest one from this ref (code-health audit NET-11). On the token,
   // the location sync took a GPS fix and a reverse geocode every hour.
-  const tokenRef = useRef(token);
-  tokenRef.current = token;
+  const tokenRef = useLatestRef(token);
   const signedIn = Boolean(token);
   // The zone the server has: the profile's, or the one its last answer gave.
   const serverZone = useRef(timezone);
-  serverZone.current = timezone;
+  useLayoutEffect(() => { serverZone.current = timezone; });
   const zoneReport = useRef<ZoneReport>({ flight: null, again: false, refused: null, latest: null });
   // The phone's zone, sent the moment it differs from the server's: at sign-in, when the OS
   // reports a change (a new zone while the app runs) and on each return to the foreground
@@ -105,7 +105,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       stopNative();
       stopForeground();
     };
-  }, [signedIn, userId, timezone, setUser]);
+  }, [signedIn, userId, timezone, setUser, tokenRef]);
 
   useEffect(() => {
     if (!signedIn || !userId || !locationEnabled) return;
@@ -131,7 +131,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       if (active()) console.warn("[bootstrap] location sync failed");
     });
     return () => { cancelled = true; };
-  }, [signedIn, userId, location, locationEnabled, setUser]);
+  }, [signedIn, userId, location, locationEnabled, setUser, tokenRef]);
 
   useEffect(() => {
     if (!signedIn || !userId) return;
@@ -163,7 +163,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       cancelled = true;
       cleanup?.();
     };
-  }, [signedIn, userId, pushEnabled, setUser, feedback]);
+  }, [signedIn, userId, pushEnabled, setUser, feedback, tokenRef]);
 
   // RevenueCat is set up once per signed-in user; the plan sync reads the newest token.
   useEffect(() => {
@@ -210,5 +210,5 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       cancelled = true;
       cleanup?.();
     };
-  }, [signedIn, userId, setUser]);
+  }, [signedIn, userId, setUser, tokenRef]);
 }

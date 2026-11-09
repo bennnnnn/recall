@@ -269,7 +269,7 @@ describe("a turn from send to the end", () => {
   });
 
   it.each([
-    ["the model picker's start", [{ type: "regenerate_ui", messages: [bubble] }]],
+    ["Regenerate's start", [{ type: "regenerate_ui", messages: [bubble] }]],
     ["the regenerate itself", [{ type: "regenerate", messages: [bubble] }]],
     ["both, in order", [{ type: "regenerate_ui", messages: [bubble] }, { type: "regenerate", messages: [bubble] }]],
   ] as [string, ChatTurnEvent[]][])("refuses %s while a reply streams, leaving that reply alone", (_label, events) => {
@@ -279,7 +279,7 @@ describe("a turn from send to the end", () => {
     expect(run.state).toMatchObject({ phase: "streaming", buffer: "Half an answer", attempt: 4, regenerating: false });
   });
 
-  it("runs the regenerate the model picker opened", () => {
+  it("runs the regenerate its start opened", () => {
     const old = answer("old", "old answer");
     const run = play(idle(), [{ type: "regenerate_ui", messages: [old] }, { type: "regenerate", messages: [old] }], [old]);
     expect(run.state).toMatchObject({ phase: "streaming", regenerating: true });

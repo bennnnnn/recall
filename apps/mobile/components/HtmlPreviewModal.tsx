@@ -252,7 +252,7 @@ function ShareToolbarItem({ html, theme, styles }: {
     );
   };
   return (
-    <ToolbarItem icon="share" label={t("preview.share")} onPress={onPress} busy={sharing} theme={theme} styles={styles} />
+    <ToolbarItem icon="share" label={t("common.share")} onPress={onPress} busy={sharing} theme={theme} styles={styles} />
   );
 }
 
@@ -322,7 +322,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
           <View style={s.toolbar}>
             <ToolbarItem
               icon="close"
-              label={t("preview.close")}
+              label={t("common.close")}
               onPress={onClose}
               theme={theme}
               styles={s}

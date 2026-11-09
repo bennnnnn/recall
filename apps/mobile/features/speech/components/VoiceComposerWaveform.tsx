@@ -85,7 +85,6 @@ export function VoiceComposerWaveform({
     (next) => {
       meter.value = withTiming(next, { duration: meterMs });
     },
-    [meterMs],
   );
 
   useEffect(() => {

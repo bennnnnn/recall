@@ -8,6 +8,7 @@
  * Device preferences like onboarding (`lib/onboarding.ts`), read from their files each time,
  * so no account's data is kept here.
  */
+import { localDayKey } from "@/lib/datetime/dayKey";
 import { prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
 
 const WELCOME_FILE = "recall.welcome_plans.txt";
@@ -24,10 +25,13 @@ export type OfferMoment = "open" | "chatted";
 
 type Offers = { day: string; shown: number; lastAt: number; creditDay: string };
 
-/** The phone's own calendar day: "first open of the day" is the user's day. */
-function dayOf(now: number): string {
-  const date = new Date(now);
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+/**
+ * A day as `localDayKey` writes it. Files from before it wrote "2026-11-8"; read as written,
+ * that day's offers counted from zero again, and its out-of-credit offer showed twice.
+ */
+function paddedDay(day: string): string {
+  const parts = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(day);
+  return parts ? `${parts[1]}-${parts[2]!.padStart(2, "0")}-${parts[3]!.padStart(2, "0")}` : day;
 }
 
 async function readOffers(): Promise<Offers> {
@@ -36,7 +40,7 @@ async function readOffers(): Promise<Offers> {
   ).split("|");
   const count = (text: string) =>
     Number.isFinite(Number(text)) ? Number(text) : 0;
-  return { day, shown: count(shown), lastAt: count(lastAt), creditDay };
+  return { day: paddedDay(day), shown: count(shown), lastAt: count(lastAt), creditDay: paddedDay(creditDay) };
 }
 
 async function writeOffers(offers: Offers): Promise<void> {
@@ -79,7 +83,7 @@ async function nextPlansOffer(
 ): Promise<PlansOffer | null> {
   const welcome = prefFilePath(WELCOME_FILE);
   const stored = await readOffers();
-  const day = dayOf(now);
+  const day = localDayKey(new Date(now));
   const offers = stored.day === day ? stored : { ...stored, day, shown: 0 };
   if ((await readPrefFile(welcome)) === "1") {
     // Before the first answer, nothing is offered: no plans ahead of any value.
@@ -106,7 +110,7 @@ export function takeOutOfCreditOffer(
 ): Promise<boolean> {
   return inTurn(async () => {
     const offers = await readOffers();
-    const day = dayOf(now);
+    const day = localDayKey(new Date(now));
     if (offers.creditDay === day) return false;
     await writeOffers({ ...offers, creditDay: day });
     return true;

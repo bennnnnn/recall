@@ -119,7 +119,7 @@ export function ExplorerModal({
                     icon="close"
                     onPress={onClose}
                     testID="graph-close"
-                    accessibilityLabel={t("preview.close")}
+                    accessibilityLabel={t("common.close")}
                     style={styles.closeBtn}
                   />
                 </View>

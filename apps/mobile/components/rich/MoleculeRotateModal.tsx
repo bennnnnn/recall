@@ -2,7 +2,7 @@
  * Full-screen rotate surface for a 3D molecule. The inline card stays the
  * entry point; this layer owns the drag so the chat list cannot steal it.
  */
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
@@ -13,6 +13,7 @@ import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { HeaderButton } from "@/ui/controls/HeaderButton";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Size = { width: number; height: number };
 
@@ -30,11 +31,10 @@ export function MoleculeRotateModal({ visible, onClose, onGrant, onMove, childre
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(), []);
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
-  const grantRef = useRef(onGrant);
-  const moveRef = useRef(onMove);
-  grantRef.current = onGrant;
-  moveRef.current = onMove;
+  const grantRef = useLatestRef(onGrant);
+  const moveRef = useLatestRef(onMove);
 
+  /* eslint-disable react-hooks/refs -- the gesture callbacks read refs on touch, not in render */
   const gesture = useMemo(
     () =>
       Gesture.Pan()
@@ -45,7 +45,8 @@ export function MoleculeRotateModal({ visible, onClose, onGrant, onMove, childre
         .onUpdate((event) => {
           moveRef.current(event.translationX, event.translationY);
         }),
-    [],
+    [grantRef, moveRef],
+  /* eslint-enable react-hooks/refs */
   );
 
   return (
@@ -71,7 +72,7 @@ export function MoleculeRotateModal({ visible, onClose, onGrant, onMove, childre
                 icon="close"
                 onPress={onClose}
                 testID="molecule-rotate-close"
-                accessibilityLabel={t("preview.close")}
+                accessibilityLabel={t("common.close")}
               />
             </View>
             <GestureDetector gesture={gesture}>

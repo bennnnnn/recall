@@ -1,7 +1,7 @@
 import i18n from "@/lib/i18n";
 import type { Todo } from "@/lib/api";
 import { formatDate } from "@/lib/datetime/format";
-import { localDateKey } from "@/features/todos/model/dateKey";
+import { localDayKey } from "@/lib/datetime/dayKey";
 
 type DueTone = "overdue" | "today" | "soon" | "later";
 
@@ -44,7 +44,7 @@ export function describeDueAt(iso: string | null | undefined, hasTime = true): {
       tone: "today",
     };
   }
-  if (dayDiff === 1) return { label: i18n.t("calendar.tomorrow_heading"), tone: "soon" };
+  if (dayDiff === 1) return { label: i18n.t("todos.group_tomorrow"), tone: "soon" };
   if (dayDiff <= 7) {
     return {
       label: formatDate(due, "weekdayDate"),
@@ -123,5 +123,5 @@ export function dueFields(due: TodoDue | null): Required<DueFields> {
 export function dueFieldsToSend(due: TodoDue | null, saved?: Todo): Required<DueFields> {
   if (!due || due.hasTime) return dueFields(due);
   if (saved?.due_at && sameDue(dueOfTodo(saved), due)) return { due_at: saved.due_at, due_has_time: false };
-  return { due_at: `${localDateKey(due.date)}T00:00:00`, due_has_time: false };
+  return { due_at: `${localDayKey(due.date)}T00:00:00`, due_has_time: false };
 }

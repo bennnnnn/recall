@@ -167,49 +167,6 @@ export function reportBoundaryError(
 }
 
 /**
- * The app store could not be read when the upgrade sheet opened. The sheet says
- * so and offers a retry; this tells us, since an outage otherwise looks like a
- * store with nothing to sell (code-health audit CLAR-08).
- */
-export function reportStoreUnavailable(error: unknown): void {
-  report((Sentry) => {
-    Sentry.captureException(error, { tags: { area: "store" } });
-  });
-}
-
-/**
- * The native splash refused a call at launch: `hide`, or Android's `setOptions`. The launch
- * goes on (the reveal plays, and Android waits out the native fade instead); this says how
- * often it happens.
- */
-export function reportLaunchSplashFailed(step: "hide" | "set_options", error: unknown): void {
-  report((Sentry) => {
-    Sentry.captureException(error, { tags: { area: "launch_splash", step } });
-  });
-}
-
-/**
- * Pause or resume of a reading aloud failed (a clip's player gone, the phone's voice
- * refusing). The player keeps its state; this says how often it happens.
- */
-export function reportReadAloudControlFailed(error: unknown): void {
-  report((Sentry) => {
-    Sentry.captureException(error, { tags: { area: "read_aloud" } });
-  }, true);
-}
-
-/**
- * Turning push off could not remove this phone's token from the server. The switch
- * still turns off (the account setting stops sends) and the next sync tries again;
- * this says so, since the call failing on every phone once went unseen.
- */
-export function reportPushUnregisterFailed(error: unknown): void {
-  report((Sentry) => {
-    Sentry.captureException(error, { tags: { area: "push_unregister" } });
-  });
-}
-
-/**
  * The stored sign-in was there but was no session (cut short, or not a token
  * pair), so the launch cleared it and opened on sign-in. The event is that fact
  * alone, to count how often it happens: never the record, a token or whose it
@@ -385,8 +342,8 @@ export function reportUnknownLatexCommandName(name: string): void {
 }
 
 /**
- * Where a user's action failed after the screen handled it (a toast, the draft given
- * back, the page on screen kept).
+ * Where something failed after the app handled it (a toast, the draft given back, the
+ * page on screen kept, the launch going on).
  */
 export type FailureArea =
   | "chat_create"
@@ -401,7 +358,23 @@ export type FailureArea =
   | "purchase_restore"
   | "purchase_sync"
   /** The server's half of a sign-out, or the record of one still owed (lib/pendingLogout.ts). */
-  | "sign_out";
+  | "sign_out"
+  /**
+   * The app store could not be read, or sold no plan. The sheet says so and offers a retry;
+   * an outage otherwise looks like a store with nothing to sell (code-health audit CLAR-08).
+   */
+  | "store"
+  /** The native splash refused `hide` at launch; the reveal plays anyway. */
+  | "launch_splash_hide"
+  /** Android's splash refused `setOptions`; the launch waits out the native fade instead. */
+  | "launch_splash_set_options"
+  /** Pause or resume of a reading aloud failed (a clip's player gone, the phone's voice refusing). */
+  | "read_aloud_control"
+  /**
+   * Turning push off could not remove this phone's token from the server. The switch still
+   * turns off and the next sync tries again; the call failing on every phone once went unseen.
+   */
+  | "push_unregister";
 
 /** A handled failure reports once per area and kind every ten minutes, twenty an hour in all. */
 const failureAllowed = reportLimit(10 * 60_000, 20);

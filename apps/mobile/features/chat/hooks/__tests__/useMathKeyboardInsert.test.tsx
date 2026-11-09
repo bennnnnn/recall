@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { fakeAndroidBack } from "@/components/__tests__/support/androidBack";
 import { useMathKeyboardInsert } from "@/features/chat/hooks/useMathKeyboardInsert";
+import { isPadMathDraft } from "@/features/chat/model/padMathDrafts";
 import { MATH_KEYBOARD_SYMBOLS } from "@/lib/math/keyboardSymbols";
 import { clipboardIsImageOnly } from "@/lib/clipboard";
 
@@ -103,18 +104,51 @@ describe("useMathKeyboardInsert", () => {
     expect(result.current.input).toBe("$2 \\times 3$");
   });
 
-  it("resets math editing for another owner even when the draft text is identical", async () => {
+  // A draft saved as the app closed came back as `$\frac{5}{3}$` in the field.
+  it("starts another owner's draft fresh, its maths drawn and the caret after them", async () => {
     const { result, rerender } = await renderHook(
-      ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input: "$x^2$", setInput: jest.fn(), draftRevision }),
+      ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input: "$x^2$ is", setInput: jest.fn(), draftRevision }),
       { initialProps: { draftRevision: 1 } },
     );
     await act(() => result.current.toggleMathBar());
+    await act(() => result.current.moveCaret(1));
     expect(result.current.showMathPreview).toBe(true);
     await rerender({ draftRevision: 2 });
-    expect(result.current.showMathPreview).toBe(false);
+    expect(result.current.showMathPreview).toBe(true);
     expect(result.current.mathBarOpen).toBe(false);
-    expect(result.current.forcedSelection).toBeUndefined();
+    const end = "$x^2$ is".length;
+    expect(result.current.selection).toEqual({ start: end, end });
   });
+
+  // The switch's render still held the pad's preview from the last draft: the next draft,
+  // typed by hand, was marked as the pad's.
+  it("does not mark the next owner's typed draft as the pad's on the switch", async () => {
+    const typed = "The price is $5 and $x$";
+    const { result, rerender } = await renderHook(
+      ({ input, draftRevision }: { input: string; draftRevision: number }) =>
+        useMathKeyboardInsert({ input, setInput: jest.fn(), draftRevision }),
+      { initialProps: { input: "$y^2$", draftRevision: 1 } },
+    );
+    await act(() => result.current.toggleMathBar());
+    expect(result.current.showMathPreview).toBe(true);
+    await rerender({ input: typed, draftRevision: 2 });
+    expect(isPadMathDraft(typed)).toBe(false);
+    expect(result.current.showMathPreview).toBe(false);
+  });
+
+  it.each(["hello", "The price is $5", "$x$ typed by hand"])(
+    "leaves another owner's typed draft %p as text, the phone's caret at its end",
+    async (input) => {
+      const { result, rerender } = await renderHook(
+        ({ draftRevision }: { draftRevision: number }) => useMathKeyboardInsert({ input, setInput: jest.fn(), draftRevision }),
+        { initialProps: { draftRevision: 1 } },
+      );
+      await rerender({ draftRevision: 2 });
+      expect(result.current.showMathPreview).toBe(false);
+      expect(result.current.forcedSelection).toBeUndefined();
+      expect(result.current.selection).toEqual({ start: input.length, end: input.length });
+    },
+  );
 
   it("pins the caret after the last formula when the bar closes", async () => {
     const { result } = await renderHook(() => useHarness("solve $x^2+1$"));

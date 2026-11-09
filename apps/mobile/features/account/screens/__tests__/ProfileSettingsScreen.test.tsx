@@ -100,7 +100,7 @@ it("cancels a profile draft without updating the account", async () => {
     await render(<ProfileSettingsScreen />);
   await fireEvent.press(getByLabelText("settings.edit_profile"));
   await fireEvent.changeText(getByDisplayValue("bini"), "Another name");
-  await fireEvent.press(getByText("settings.cancel"));
+  await fireEvent.press(getByText("common.cancel"));
   expect(queryByTestId("settings-profile-sheet")).toBeNull();
   expect(mockUpdateUser).not.toHaveBeenCalled();
 });
@@ -109,12 +109,12 @@ it("saves a job and clears an age", async () => {
   const view = await render(<ProfileSettingsScreen />);
   await fireEvent.press(view.getByText("settings.job_label"));
   await fireEvent.changeText(view.getByPlaceholderText("settings.job_placeholder"), " Designer ");
-  await fireEvent.press(view.getByLabelText("settings.save"));
+  await fireEvent.press(view.getByLabelText("common.save"));
   await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ job: "Designer" }));
 
   await fireEvent.press(view.getByText("settings.age_label"));
   await fireEvent.changeText(view.getByPlaceholderText("settings.age_placeholder"), "");
-  await fireEvent.press(view.getByLabelText("settings.save"));
+  await fireEvent.press(view.getByLabelText("common.save"));
   await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ age: null }));
 });
 
@@ -122,7 +122,7 @@ it("refuses an age outside 13 to 120 without saving", async () => {
   const view = await render(<ProfileSettingsScreen />);
   await fireEvent.press(view.getByText("settings.age_label"));
   await fireEvent.changeText(view.getByPlaceholderText("settings.age_placeholder"), "9");
-  await fireEvent.press(view.getByLabelText("settings.save"));
+  await fireEvent.press(view.getByLabelText("common.save"));
   expect(Alert.alert).toHaveBeenCalledWith("common.error", "settings.age_invalid");
   expect(mockUpdateUser).not.toHaveBeenCalled();
 });

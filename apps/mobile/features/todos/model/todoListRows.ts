@@ -1,5 +1,5 @@
 import type { Todo } from "@/lib/api";
-import { localDateKey } from "@/features/todos/model/dateKey";
+import { localDayKey } from "@/lib/datetime/dayKey";
 
 export type TodoSection =
   | "overdue"
@@ -45,8 +45,8 @@ export function buildTodoListRows(todos: Todo[], now = new Date()): TodoListRow[
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const todayKey = localDateKey(today);
-  const tomorrowKey = localDateKey(tomorrow);
+  const todayKey = localDayKey(today);
+  const tomorrowKey = localDayKey(tomorrow);
   const overdue: Todo[] = [];
   const todayItems: Todo[] = [];
   const tomorrowItems: Todo[] = [];
@@ -70,7 +70,7 @@ export function buildTodoListRows(todos: Todo[], now = new Date()): TodoListRow[
       continue;
     }
     due.set(todo, at.getTime());
-    const dayKey = localDateKey(at);
+    const dayKey = localDayKey(at);
     if (dayKey < todayKey) overdue.push(todo);
     else if (dayKey === todayKey) todayItems.push(todo);
     else if (dayKey === tomorrowKey) tomorrowItems.push(todo);

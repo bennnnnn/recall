@@ -102,8 +102,10 @@ export function SkeletonList({ count = 6 }: { count?: number }) {
   );
 }
 
+const SKELETON_GRID_ROWS = 4;
+
 /**
- * Square tiles for a grid's first load, laid out like the grid: `size` tiles
+ * Square tiles for a grid's first load, laid out like the grid: four rows of `size` tiles
  * in cells padded by `cellPadding`, the rows inset by `padding`.
  */
 export function SkeletonGrid({
@@ -111,14 +113,12 @@ export function SkeletonGrid({
   size,
   cellPadding,
   padding,
-  rows = 4,
   radius = 6,
 }: {
   columns: number;
   size: number;
   cellPadding: number;
   padding: number;
-  rows?: number;
   radius?: number;
 }) {
   return (
@@ -126,7 +126,7 @@ export function SkeletonGrid({
       style={{ flexDirection: "row", flexWrap: "wrap", paddingHorizontal: padding }}
       testID="skeleton-grid"
     >
-      {Array.from({ length: columns * rows }, (_, i) => (
+      {Array.from({ length: columns * SKELETON_GRID_ROWS }, (_, i) => (
         <View key={i} style={{ padding: cellPadding, width: `${100 / columns}%`, alignItems: "center" }}>
           <SkeletonBlock width={size} height={size} borderRadius={radius} />
         </View>

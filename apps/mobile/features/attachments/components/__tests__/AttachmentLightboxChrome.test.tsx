@@ -35,7 +35,7 @@ it("derives attachment chrome from media theme tokens", async () => {
   } as const;
   const ui = await render(<AttachmentLightboxChrome {...props} />);
 
-  expect(StyleSheet.flatten(ui.getByLabelText("preview.close").props.style))
+  expect(StyleSheet.flatten(ui.getByLabelText("common.close").props.style))
     .toMatchObject({
       backgroundColor: withAlpha(mockLightTheme.onMedia, 0.18),
     });
@@ -85,7 +85,7 @@ it("drops More when it has no rows, and keeps nothing at the bottom", async () =
   );
   expect(ui.queryByLabelText("preview.more_a11y")).toBeNull();
   expect(ui.getByLabelText("common.download")).toBeTruthy();
-  expect(ui.getByRole("button", { name: "preview.share" })).toHaveStyle({
+  expect(ui.getByRole("button", { name: "common.share" })).toHaveStyle({
     backgroundColor: mockLightTheme.onMedia,
   });
 });
@@ -104,6 +104,6 @@ it("spins Share while the file is prepared and blocks Download meanwhile", async
       {...actions}
     />,
   );
-  expect(ui.getByRole("button", { name: "preview.share" }).props.accessibilityState).toEqual({ disabled: true, busy: true });
+  expect(ui.getByRole("button", { name: "common.share" }).props.accessibilityState).toEqual({ disabled: true, busy: true });
   expect(ui.getByLabelText("common.download").props.accessibilityState).toMatchObject({ disabled: true });
 });

@@ -185,8 +185,7 @@ export function rewriteLatexDialects(source: string): string {
   return out;
 }
 
-/** The commands this pass rewrites (the coverage test reads it). */
-export const DIALECT_COMMANDS: ReadonlySet<string> = new Set([
-  ...Object.keys(DIALECTS),
-  ...Object.keys(RENAMES),
-]);
+/** The commands this pass rewrites, for the coverage test (latexCoverage.test.ts). */
+export function dialectCommandsForTest(): string[] {
+  return [...Object.keys(DIALECTS), ...Object.keys(RENAMES)];
+}

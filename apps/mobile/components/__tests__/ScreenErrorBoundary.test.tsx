@@ -9,9 +9,9 @@ import { type Href, Stack, router } from "expo-router";
 import { act, fireEvent, renderRouter, screen } from "expo-router/testing-library";
 
 import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
-import { ACCENT_OPTIONS } from "@/lib/accent";
+import { SCHEME_ACCENTS } from "@/lib/__tests__/support/contrast";
 import { setAccentSnapshot } from "@/lib/accentRuntime";
-import { resetAppearanceRuntime, setAppearancePreferenceSnapshot } from "@/lib/appearanceRuntime";
+import { resetAppearanceRuntimeForTest, setAppearancePreferenceSnapshot } from "@/lib/appearanceRuntime";
 import { reportBoundaryError } from "@/lib/sentry";
 import { themeFor } from "@/lib/theme";
 
@@ -174,7 +174,7 @@ describe("a screen that throws while it renders", () => {
 
 describe("a crash only the root's boundary catches (the chat, the sign-in flow)", () => {
   const resetLook = () => {
-    resetAppearanceRuntime();
+    resetAppearanceRuntimeForTest();
     setAccentSnapshot("indigo");
   };
   beforeEach(resetLook);
@@ -213,9 +213,7 @@ describe("a crash only the root's boundary catches (the chat, the sign-in flow)"
     expect(screen.queryByText("common.screen_error_title")).toBeNull();
   });
 
-  it.each(
-    (["light", "dark"] as const).flatMap((scheme) => ACCENT_OPTIONS.map((accent) => [scheme, accent] as const)),
-  )("paints the page itself in %s mode, %s accent: no stack is left behind it", async (scheme, accent) => {
+  it.each(SCHEME_ACCENTS)("paints the page itself in %s mode, %s accent: no stack is left behind it", async (scheme, accent) => {
     setAppearancePreferenceSnapshot(scheme);
     setAccentSnapshot(accent);
     const theme = themeFor(scheme, accent);

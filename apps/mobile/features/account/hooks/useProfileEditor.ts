@@ -14,6 +14,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { sanitizeDisplayName } from "@/lib/profile";
 import { discardProfilePhoto, pickProfilePhoto } from "@/features/account/model/profilePhoto";
 import { offerSettings } from "@/ui/overlay/dialogs";
+import { useLatestRef } from "@/lib/latestRef";
 
 type Owner = { session: number; userId: string | undefined; signedIn: boolean };
 type Editor = {
@@ -41,8 +42,7 @@ export function useProfileEditor() {
   const userId = user?.id;
   const signedIn = Boolean(token && userId);
   const owner = useMemo(() => ({ session, userId, signedIn }), [session, userId, signedIn]);
-  const ownerRef = useRef(owner);
-  ownerRef.current = owner;
+  const ownerRef = useLatestRef(owner);
   const mounted = useRef(true);
   const [state, setState] = useState(() => emptyEditor(owner, 0));
   const editor = useRef(state);
@@ -67,7 +67,7 @@ export function useProfileEditor() {
   }, [owner, publish]);
 
   const canAct = useCallback(() => mounted.current && owner.signedIn &&
-    ownerRef.current === owner && owner.session === getSessionGeneration(), [owner]);
+    ownerRef.current === owner && owner.session === getSessionGeneration(), [owner, ownerRef]);
   const isCurrent = useCallback((revision: number) => canAct() &&
     editor.current.owner === owner && editor.current.visible &&
     editor.current.revision === revision, [canAct, owner]);

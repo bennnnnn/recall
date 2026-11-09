@@ -59,7 +59,7 @@ export function MermaidFullScreen({ visible, source, title, onClose }: Props) {
           <HeaderButton
             icon="close"
             onPress={onClose}
-            accessibilityLabel={t("preview.close")}
+            accessibilityLabel={t("common.close")}
             testID="mermaid-full-screen-close"
           />
         </View>

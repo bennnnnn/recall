@@ -5,14 +5,14 @@ import { fullEmailText } from "@/features/drafts/model/emailCompose";
 import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlush";
 import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
+import { useLatestRef } from "@/lib/latestRef";
 
 const EMAIL_DRAFT_PERSIST_DEBOUNCE_MS = 600;
 
 export function useEmailCardPersist(currentDraft: EmailDraft, editing: boolean) {
   const save = useEmailDraftSave();
   const messageId = useAssistantMessageId();
-  const draftRef = useRef(currentDraft);
-  draftRef.current = currentDraft;
+  const draftRef = useLatestRef(currentDraft);
   const lastSentRef = useRef(fullEmailText(currentDraft));
   const inFlightRef = useRef<Promise<boolean> | null>(null);
 
@@ -40,7 +40,7 @@ export function useEmailCardPersist(currentDraft: EmailDraft, editing: boolean) 
       void saving.then(() => { inFlightRef.current = null; });
       return saving;
     },
-    [save, messageId],
+    [save, messageId, draftRef],
   );
 
   useEffect(() => {
@@ -49,21 +49,21 @@ export function useEmailCardPersist(currentDraft: EmailDraft, editing: boolean) 
       void persistNow(draftRef.current);
     }, EMAIL_DRAFT_PERSIST_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [currentDraft.to, currentDraft.subject, currentDraft.body, editing, persistNow]);
+  }, [currentDraft.to, currentDraft.subject, currentDraft.body, editing, persistNow, draftRef]);
 
   useEffect(
     () =>
       registerEmailDraftFlusher(async () => {
         return persistNow(draftRef.current);
       }),
-    [persistNow],
+    [persistNow, draftRef],
   );
 
   useEffect(
     () => () => {
       void persistNow(draftRef.current);
     },
-    [persistNow],
+    [persistNow, draftRef],
   );
 
   return persistNow;

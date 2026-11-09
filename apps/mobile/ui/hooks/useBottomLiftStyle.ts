@@ -6,5 +6,5 @@ import { type SharedValue, useAnimatedStyle } from "react-native-reanimated";
  * Apply the style only when there is a lift; without one it moves nothing.
  */
 export function useBottomLiftStyle(lift?: SharedValue<number>) {
-  return useAnimatedStyle(() => ({ transform: [{ translateY: lift ? -lift.value : 0 }] }), [lift]);
+  return useAnimatedStyle(() => ({ transform: [{ translateY: lift ? -lift.value : 0 }] }));
 }

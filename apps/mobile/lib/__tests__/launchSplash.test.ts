@@ -15,7 +15,7 @@ jest.mock("react-native", () => ({
 }));
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockPhone.expoGo }));
 const mockReportSplash = jest.fn();
-jest.mock("@/lib/sentry", () => ({ reportLaunchSplashFailed: mockReportSplash }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: mockReportSplash }));
 
 type LaunchSplash = typeof import("@/lib/launchSplash");
 
@@ -159,7 +159,7 @@ describe("launch splash exit (the reveal starts when the native splash is gone)"
     });
     // Thrown from a frame or a timer, React Native would take it as fatal.
     expect(() => jest.advanceTimersByTime(2_000)).not.toThrow();
-    expect(mockReportSplash).toHaveBeenCalledWith("hide", failure);
+    expect(mockReportSplash).toHaveBeenCalledWith("launch_splash_hide", failure);
     expect(told).toHaveBeenCalledTimes(1);
     expect(splash.launchSplashHidden()).toBe(true);
   });
@@ -172,7 +172,7 @@ describe("launch splash exit (the reveal starts when the native splash is gone)"
     });
     // It runs as the module loads: the module still loads, timers and all.
     const splash = freshSplash();
-    expect(mockReportSplash).toHaveBeenCalledWith("set_options", failure);
+    expect(mockReportSplash).toHaveBeenCalledWith("launch_splash_set_options", failure);
     const told = hideOnce(splash);
     jest.advanceTimersByTime(399);
     expect(told).not.toHaveBeenCalled();

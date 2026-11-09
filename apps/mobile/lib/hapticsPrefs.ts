@@ -3,14 +3,12 @@
  * preference, so a simulator build without Keychain entitlements keeps it.
  */
 
-import { prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
+import { createFilePref } from "@/lib/filePrefs";
 
-const FILE_NAME = "recall.haptics.txt";
+const hapticsPref = createFilePref(
+  "recall.haptics.txt",
+  (raw) => raw?.trim() !== "off",
+  (enabled) => (enabled ? "on" : "off"),
+);
 
-export async function getHapticsPreference(): Promise<boolean> {
-  return (await readPrefFile(prefFilePath(FILE_NAME)))?.trim() !== "off";
-}
-
-export async function setHapticsPreference(enabled: boolean): Promise<void> {
-  await writePrefFile(prefFilePath(FILE_NAME), enabled ? "on" : "off");
-}
+export const { get: getHapticsPreference, set: setHapticsPreference } = hapticsPref;

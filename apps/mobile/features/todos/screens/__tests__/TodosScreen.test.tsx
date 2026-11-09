@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { StyleSheet } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import TodosScreen from "@/features/todos/screens/TodosScreen";
 import { dateOnly, type TodoDue } from "@/features/todos/model/dueDate";
@@ -21,6 +22,7 @@ let mockList: {
 };
 let mockHeader: { onRetry: () => void; showEmpty: boolean };
 let mockOlderCompleted = false;
+let mockEditingTodo: { id: string } | null = null;
 let mockViewMenu: { onView: (view: string) => void };
 const mockOpenTodo = jest.fn();
 const mockCreate = jest.fn();
@@ -91,7 +93,7 @@ jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (p
   mockActionParams = params;
   return {
     busyTodoIds: new Set(),
-    editingTodo: null,
+    editingTodo: mockEditingTodo,
     savingTodo: false,
     handleToggle: jest.fn(),
     openTodoEditor: mockOpenTodo,
@@ -109,7 +111,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ t
 
 beforeEach(() => {
   jest.clearAllMocks(); mockSession++; mockToken = "token-a"; mockFocused = true;
-  mockRouteParams = {}; mockTodos = []; mockOlderCompleted = false;
+  mockRouteParams = {}; mockTodos = []; mockOlderCompleted = false; mockEditingTodo = null;
   mockRefresh.mockResolvedValue();
 });
 
@@ -292,4 +294,15 @@ it("hides the header and the list under the new to-do sheet from a screen reader
   const covered = await header();
   expect(covered.queryByText("todos.menu_today")).toBeNull();
   expect(covered.getByText("todos.menu_today", { includeHiddenElements: true })).toBeTruthy();
+});
+
+// The new to-do sheet's cover kept the screen's flex with the list gone: the open to-do's
+// page got the bottom half, its top half left blank.
+it("gives an open to-do's page the whole screen", async () => {
+  mockTodos = [todoAt("todo-1", 0)];
+  mockEditingTodo = mockTodos[0]!;
+  const ui = await render(<TodosScreen />);
+  const root = ui.toJSON() as { children: { props: { style?: unknown } }[] };
+  const cover = root.children[0]!;
+  expect(StyleSheet.flatten(cover.props.style as never)?.flex).toBeUndefined();
 });

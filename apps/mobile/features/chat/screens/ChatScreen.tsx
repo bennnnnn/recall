@@ -39,7 +39,7 @@ import { useChatSend } from "@/features/chat/hooks/useChatSend";
 import { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
-import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/features/chat/hooks/useChatScreenError";
+import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/features/chat/hooks/useChatErrorHandlers";
 import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
 import { useWelcomePlans } from "@/features/billing/hooks/useWelcomePlans";

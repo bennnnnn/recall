@@ -40,7 +40,7 @@ function EnlargedPhoto({ uri, onClose }: { uri: string; onClose: () => void }) {
         <Pressable
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel={t("preview.close")}
+          accessibilityLabel={t("common.close")}
           testID="composer-image-enlarged"
         >
           <Image

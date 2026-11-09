@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
+import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
 import { COMPOSER_INPUT_LINE_HEIGHT } from "@/features/chat/model/composerLogic";
 import { useHomeOnScreen } from "@/features/home/model/homeOnScreen";
 import { Space } from "@/lib/space";
@@ -83,12 +84,12 @@ export function useComposerPrompt(): string {
  * any language and text size and ends in an ellipsis. Screen readers hear the field's
  * own label instead.
  */
-export function ComposerPlaceholder({ bottom }: { bottom: number }) {
+export function ComposerPlaceholder({ bottom, top = false }: { bottom: number; top?: boolean }) {
   const theme = useTheme();
   const prompt = useComposerPrompt();
   return (
     <View
-      style={[placeholderStyles.box, { bottom }]}
+      style={[placeholderStyles.box, top ? placeholderStyles.top : { bottom }]}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -108,6 +109,8 @@ export function ComposerPlaceholder({ bottom }: { bottom: number }) {
 
 const placeholderStyles = StyleSheet.create({
   box: { position: "absolute", left: 0, right: 0 },
+  // On the math draft's first line, beside its caret (`mathCardStyles`).
+  top: { top: (MATH_DRAFT_PREVIEW_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT) / 2 },
   text: { ...Type.body, lineHeight: COMPOSER_INPUT_LINE_HEIGHT },
 });
 
