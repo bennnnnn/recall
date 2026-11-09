@@ -159,6 +159,7 @@ async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
         payload.get("assistant_message", ""),
         user_id=UUID(payload["user_id"]),
         locale=payload.get("locale"),
+        redis=get_redis_client(),
     )
     if not applied:
         # No title this time (nothing usable, or the chat already has one): a later

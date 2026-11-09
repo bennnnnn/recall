@@ -26,6 +26,7 @@ from app.modules.chat.related_prompts import (
     forget_related_prompts,
     load_related_prompts,
 )
+from app.modules.chat.title_event import await_title
 from app.modules.chat.titles import sanitize_manual_chat_title, title_job_key, title_job_payload
 from app.modules.conversation import history as conversation_history
 from app.modules.conversation import service as conversation_service
@@ -128,6 +129,20 @@ async def get_chat(session: AsyncSession, user: User, chat_id: UUID) -> Chat:
     if chat is None:
         raise ChatsError("Chat not found", status_code=404)
     return chat
+
+
+async def get_chat_awaiting_title(
+    session: AsyncSession, redis: Redis, user: User, chat_id: UUID
+) -> ChatOut:
+    """The chat, with the title the topic job is writing for it waited for (a few seconds,
+    ``title_event``): one request where the phone polled. The wait holds no database
+    connection."""
+    chat = ChatOut.model_validate(await get_chat(session, user, chat_id))
+    if chat.title:
+        return chat
+    await session.rollback()
+    title = await await_title(redis, chat_id)
+    return chat if title is None else ChatOut.model_validate({**chat.model_dump(), "title": title})
 
 
 async def rename_chat(session: AsyncSession, user: User, chat_id: UUID, title: str) -> Chat:

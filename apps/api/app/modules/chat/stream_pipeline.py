@@ -7,6 +7,7 @@ The text comes from ``stream_paths`` (instant reply, tool loop, model stream);
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
+from functools import partial
 from typing import Any
 from uuid import UUID
 
@@ -32,6 +33,7 @@ from app.modules.chat.stream_paths import (
     run_tool_loop_path,
 )
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.title_event import title_event
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
@@ -86,6 +88,10 @@ async def register_and_enqueue_finalize(
         outcome.recalled = ctx.recalled_count
         outcome.memory_hints = list(ctx.memory_hints)
         outcome.context_summarized = ctx.context_summarized
+        # The chat's first reply: the topic job (post_turn._topic_job) titles the chat, and
+        # a socket sends the title after ``done``.
+        if ctx.run_title and ((ctx.user_message_content or "").strip() or assistant_text.strip()):
+            outcome.title_wait = partial(title_event, redis, ctx.chat_id)
         # Settings → Personalization can turn the suggestions, and their model call, off.
         wants_follow_ups = ctx.user is None or ctx.user.follow_up_suggestions_enabled is not False
         outcome.related_task = (

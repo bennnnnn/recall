@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator, Coroutine
+from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import suppress
 from typing import Any, Literal
 
@@ -215,9 +215,13 @@ class DoneEvent(BaseModel):
     completion: Completion | None = None
     # The commit outlived the wait: the client keeps its bubble and refetches.
     persisting: bool = False
+    # A ``title`` event follows on this socket: the phone asks for the chat's title no more.
+    title_pending: bool = False
 
     @classmethod
-    def from_outcome(cls, outcome: TurnOutcome, *, persisting: bool = False) -> DoneEvent:
+    def from_outcome(
+        cls, outcome: TurnOutcome, *, persisting: bool = False, title_follows: bool = False
+    ) -> DoneEvent:
         return cls(
             message_id=None if persisting else outcome.message_id,
             recalled=outcome.recalled,
@@ -231,6 +235,7 @@ class DoneEvent(BaseModel):
             fallback_used=outcome.fallback_used,
             completion=outcome.completion,
             persisting=persisting,
+            title_pending=title_follows and outcome.title_wait is not None and not persisting,
         )
 
     @model_serializer
@@ -270,6 +275,8 @@ class DoneEvent(BaseModel):
             event["completion"] = self.completion
         if self.persisting:
             event["persisting"] = True
+        if self.title_pending:
+            event["title_pending"] = "1"
         return event
 
 
@@ -318,7 +325,9 @@ async def await_finalize_commit(
         return "failed"
 
 
-def settled_turn_event(outcome: TurnOutcome, commit: CommitStatus) -> dict[str, Any]:
+def settled_turn_event(
+    outcome: TurnOutcome, commit: CommitStatus, *, title_follows: bool = False
+) -> dict[str, Any]:
     """The event after ``stream_end``, once the commit wait ends.
 
     ``done`` when the reply committed; ``done`` without its id (``persisting``)
@@ -333,7 +342,9 @@ def settled_turn_event(outcome: TurnOutcome, commit: CommitStatus) -> dict[str, 
             message=REPLY_SAVE_FAILED_MESSAGE,
             code=REPLY_NOT_SAVED_CODE,
         )
-    return DoneEvent.from_outcome(outcome, persisting=commit == "timeout").model_dump()
+    return DoneEvent.from_outcome(
+        outcome, persisting=commit == "timeout", title_follows=title_follows
+    ).model_dump()
 
 
 async def persist_finalize_if_pending(outcome: TurnOutcome) -> None:
@@ -373,6 +384,24 @@ async def take_related_prompts_event(
     if not isinstance(event, dict) or event.get("type") != "related_prompts":
         return None
     return event
+
+
+async def after_done_events(
+    outcome: TurnOutcome, *, title_wanted: Callable[[], bool] | None = None
+) -> AsyncIterator[dict[str, Any]]:
+    """What follows ``done`` on its stream, each as it lands: the follow-up questions, and
+    with ``title_wanted`` a new chat's title (``done`` said so: ``title_pending``), waited
+    for while it says the socket is there. SSE ends without the title, and a phone on it
+    reads the title once (``title_event``)."""
+    waits: list[Coroutine[Any, Any, dict[str, Any] | None]] = []
+    if outcome.related_task is not None:
+        waits.append(take_related_prompts_event(outcome.related_task))
+    if title_wanted is not None and outcome.title_wait is not None:
+        waits.append(outcome.title_wait(title_wanted))
+    for landed in asyncio.as_completed(waits):
+        event = await landed
+        if event is not None:
+            yield event
 
 
 # The socket's per-message and connect limits: coded, so the phone words them.
