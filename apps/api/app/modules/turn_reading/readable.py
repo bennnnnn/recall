@@ -127,12 +127,13 @@ def in_other_script(text: str) -> bool:
 
 
 # Everyday English a request writes and the other languages do not, beside the question words
-# above: pronouns and the verbs that ask for something ("Draw a cat", "Teach me photosynthesis").
+# above: pronouns and the verbs that ask for something ("Draw a cat", "Help me with this").
+# Words they share stay out: "me" (Spanish, French), "i" (Italian), "plan", "list", "us",
+# "describe" (Spanish), "create" and "compare" (Italian).
 _ENGLISH_REQUEST = frozenset(
     """
-    i i'm i've me my mine you your yours we our us please thanks about draw write explain make
-    show tell give help remember remind teach plan suggest describe compare list translate
-    summarize summarise create build fix check
+    i'm i've my mine you your yours we our please thanks about draw write explain make show tell
+    give help remember remind teach suggest translate summarize summarise build check
     """.split()
 )
 

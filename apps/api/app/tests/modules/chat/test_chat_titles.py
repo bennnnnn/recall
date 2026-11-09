@@ -555,6 +555,7 @@ async def test_a_title_about_the_user_names_the_chat_in_the_users_words():
         ("python", "in the message's language and script."),
         ("Quiero aprender guitarra", "in the message's language and script."),
         ("Necesito ayuda", "in the message's language and script."),
+        ("Me llamo Carlos y vivo en Madrid", "in the message's language and script."),
         ("¿Cómo hago pan de masa madre?", "in the message's language and script."),
         ("Como hago un for loop en Python?", "in the message's language and script."),
         ("ስለ ፎቶሲንተሲስ አስተምረኝ", "in the message's language and script."),
