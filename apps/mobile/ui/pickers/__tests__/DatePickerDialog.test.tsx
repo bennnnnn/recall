@@ -1,5 +1,7 @@
 import { fireEvent, render, within, type RenderResult } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
+import { touchTargetHeight } from "@/lib/__tests__/support/touchTarget";
 import { refreshPhoneClock } from "@/lib/datetime/format";
 import type { Weekday } from "@/lib/datetime/phoneClock";
 import { DatePickerDialog } from "../DatePickerDialog";
@@ -74,6 +76,17 @@ describe("DatePickerDialog", () => {
       selected: true,
       disabled: false,
     });
+  });
+
+  // A day's circle alone was the target: 40pt, 32pt on a narrow phone.
+  it("makes each day a 44pt target around a circle that keeps its size", async () => {
+    const { view } = await open();
+    const day = view.getByTestId("date-picker-day-26", hidden);
+    expect(touchTargetHeight(day)).toBeGreaterThanOrEqual(44);
+    const circle = day.children[0] as typeof day;
+    expect(StyleSheet.flatten(circle.props.style)).toEqual(
+      expect.objectContaining({ width: 40, height: 40, borderRadius: 20 }),
+    );
   });
 
   it("returns the picked day with the original time of day", async () => {

@@ -3,8 +3,10 @@
  * ("No Math Problem Fou… 10:42 AM", S23, 2026-11-08).
  */
 import { fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { LastChatCard } from "@/features/chat/components/LastChatCard";
+import { touchTargetHeight } from "@/lib/__tests__/support/touchTarget";
 
 const mockSetParams = jest.fn();
 const mockChat = {
@@ -33,4 +35,16 @@ it("shows the last chat by its title, with no time, and opens it", async () => {
   expect(words).toEqual(["Garden bed of ice plant flowers"]);
   fireEvent.press(card);
   expect(mockSetParams).toHaveBeenCalledWith({ chatId: "chat-1", highlightMessage: undefined });
+});
+
+// One line of 15pt text in 10pt padding drew a 41pt target (iPhone 17 Pro Max, 2026-11-08).
+it("is a 44pt target without growing the pill", async () => {
+  const view = await render(<LastChatCard />);
+  const card = view.getByTestId("home-last-chat");
+  expect(touchTargetHeight(card)).toBeGreaterThanOrEqual(44);
+  // The slop lies inside the card's own wrapper, where Android still delivers the touch.
+  const slop = card.props.hitSlop as { top: number; bottom: number };
+  const wrap = StyleSheet.flatten(card.parent!.props.style);
+  expect(wrap.paddingTop).toBeGreaterThanOrEqual(slop.top);
+  expect(wrap.paddingBottom).toBeGreaterThanOrEqual(slop.bottom);
 });

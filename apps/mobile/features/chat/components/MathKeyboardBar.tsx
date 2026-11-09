@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { StyleSheet, View, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -133,24 +133,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
       testID="math-keyboard-pad"
     >
       <View style={s.tabs}>
-        <FadingHorizontalScroll
-          testID="math-keyboard-tabs"
-          fadeColor={theme.surfaceAlt}
-          style={s.tabScroll}
-          contentContainerStyle={s.tabRow}
-        >
-          {MATH_KEYBOARD_GROUPS.map((id) => (
-            <Chip
-              key={id}
-              variant="filter"
-              label={t(`chat.math_keyboard_group_${id}`)}
-              selected={id === group}
-              onPress={() => onGroupChange(id)}
-              accessibilityRole="tab"
-              testID={`math-keyboard-tab-${id}`}
-            />
-          ))}
-        </FadingHorizontalScroll>
+        <GroupTabs group={group} onGroupChange={onGroupChange} style={s.tabScroll} contentStyle={s.tabRow} />
         <IconButton
           name="clipboard"
           size={IconSize.sm}
@@ -190,6 +173,43 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
     </View>
   );
 });
+
+/** The pad's groups (Basics, Algebra, Greek…): a row of tabs over the keys, faded where more scroll. */
+function GroupTabs({
+  group,
+  onGroupChange,
+  style,
+  contentStyle,
+}: {
+  group: MathKeyboardGroup;
+  onGroupChange: (group: MathKeyboardGroup) => void;
+  style: StyleProp<ViewStyle>;
+  contentStyle: StyleProp<ViewStyle>;
+}) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  return (
+    <FadingHorizontalScroll
+      testID="math-keyboard-tabs"
+      fadeColor={theme.surfaceAlt}
+      style={style}
+      contentContainerStyle={contentStyle}
+      accessibilityRole="tablist"
+    >
+      {MATH_KEYBOARD_GROUPS.map((id) => (
+        <Chip
+          key={id}
+          variant="filter"
+          label={t(`chat.math_keyboard_group_${id}`)}
+          selected={id === group}
+          onPress={() => onGroupChange(id)}
+          accessibilityRole="tab"
+          testID={`math-keyboard-tab-${id}`}
+        />
+      ))}
+    </FadingHorizontalScroll>
+  );
+}
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({

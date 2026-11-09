@@ -122,7 +122,7 @@ export function UserMessageContent({ message, actionsHint }: Props) {
       ) : null}
 
       {showTextBubble ? (
-        <CollapsibleMessageBody collapsible={collapseText} fadeColor={C.userBubble}>
+        <CollapsibleMessageBody messageKey={messageListKey(message)} collapsible={collapseText} fadeColor={C.userBubble}>
           <View
             style={[s.textBubble, hasImages && s.textBubbleBelowImage]}
             accessible={textIsOneElement}

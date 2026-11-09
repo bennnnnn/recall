@@ -33,6 +33,22 @@ describe("ListRow", () => {
     expect(onSwitchChange).toHaveBeenCalledWith(true);
   });
 
+  // The off track was `border`: in dark mode the switch all but vanished (1.4:1 on its row).
+  it("draws an off switch's track in switchOff, on iOS too, around a bg thumb", async () => {
+    const view = await render(<ListRow title="Haptics" switchValue={false} onSwitchChange={jest.fn()} />);
+    const row = view.getByRole("switch", { name: "Haptics" });
+    const [track] = row.queryAll((node) => node.props.onTintColor !== undefined);
+    expect(track!.props).toEqual(
+      expect.objectContaining({
+        tintColor: lightTheme.switchOff,
+        onTintColor: lightTheme.primary,
+        thumbTintColor: lightTheme.bg,
+      }),
+    );
+    // iOS takes no colour for the off track but the switch's own background.
+    expect(track).toHaveStyle({ backgroundColor: lightTheme.switchOff });
+  });
+
   it("shows a spinner instead of the switch while saving", async () => {
     const view = await render(
       <ListRow title="Push" switchValue onSwitchChange={jest.fn()} busy />,

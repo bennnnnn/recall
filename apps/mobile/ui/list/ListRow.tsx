@@ -269,7 +269,9 @@ function RowEnd({
         value={switchValue}
         disabled={disabled}
         thumbColor={theme.bg}
-        trackColor={{ false: theme.border, true: theme.primary }}
+        trackColor={{ false: theme.switchOff, true: theme.primary }}
+        // iOS draws the off track itself and ignores `trackColor.false`; this colours it.
+        ios_backgroundColor={theme.switchOff}
         onValueChange={onSwitchChange}
         pointerEvents="none"
         importantForAccessibility="no-hide-descendants"

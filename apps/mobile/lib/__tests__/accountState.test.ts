@@ -39,6 +39,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   // while no one was signed in is no account's and waits for the next sign-in (openedDocument.ts).
   "features/attachments/model/openedDocument.ts#held": "clearOpenedDocument",
   "features/chat/model/chatListCache.ts#resource": "invalidateChatListCache",
+  "features/chat/model/composerDraftFile.ts#draftsFile": "clearSavedComposerDrafts",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
   "features/chat/model/messageCache.ts#backgroundAt": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#cancelSave": "clearAllCachedChatMessages",

@@ -74,10 +74,16 @@ jest.mock("@/features/todos/components/TodoEditorSheet", () => ({
     // The screen renders two instances: the add sheet (no editTodo prop) and
     // the edit sheet (editTodo, possibly null). Tests observe the add sheet.
     if (!("editTodo" in props)) mockSheet = props;
-    return null;
+    // The add sheet, drawn beside what it covers: a screen reader must still reach it.
+    const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
+    return !("editTodo" in props) && props.visible ? <MockView testID="todo-add-sheet" accessible /> : null;
   },
 }));
-jest.mock("@/features/todos/components/TodosScrollList", () => ({ TodosScrollList: (props: typeof mockList & { listHeader: React.ReactNode }) => { mockList = props; return props.listHeader; } }));
+jest.mock("@/features/todos/components/TodosScrollList", () => ({ TodosScrollList: (props: typeof mockList & { listHeader: React.ReactNode }) => {
+  const { View: MockView } = jest.requireActual("react-native") as typeof import("react-native");
+  mockList = props;
+  return <MockView testID="todos-list" accessible>{props.listHeader}</MockView>;
+} }));
 jest.mock("@/features/todos/components/TodosListHeader", () => ({ TodosListHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
 jest.mock("@/features/todos/components/TodosViewMenu", () => ({ TodosViewMenu: (props: typeof mockViewMenu) => { mockViewMenu = props; return null; } }));
 jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (params: typeof mockActionParams) => {
@@ -261,4 +267,25 @@ it("keeps \"No to-dos yet\" off the page while older completed to-dos are left o
   await render(<TodosScreen />);
   // The view's own empty state shows instead, over "Show older completed".
   expect(mockHeader.showEmpty).toBe(false);
+});
+
+// The new to-do sheet is drawn in the screen, not a Modal: a screen reader still reached the list
+// and the header (back, title, ⋯) under it.
+it("hides the header and the list under the new to-do sheet from a screen reader", async () => {
+  const header = async () => {
+    const options = mockNavigation.setOptions.mock.calls.at(-1)![0] as { headerTitle: () => ReactElement };
+    return render(options.headerTitle());
+  };
+  const ui = await render(<TodosScreen />);
+  expect((await header()).getByText("todos.menu_today")).toBeTruthy();
+  expect(ui.getByTestId("todos-list")).toBeTruthy();
+
+  expect(ui.queryByTestId("todo-add-sheet")).toBeNull();
+  await act(() => { mockAdd.onPress(); });
+  expect(ui.queryByTestId("todos-list")).toBeNull();
+  expect(ui.getByTestId("todos-list", { includeHiddenElements: true })).toBeTruthy();
+  expect(ui.getByTestId("todo-add-sheet")).toBeTruthy();
+  const covered = await header();
+  expect(covered.queryByText("todos.menu_today")).toBeNull();
+  expect(covered.getByText("todos.menu_today", { includeHiddenElements: true })).toBeTruthy();
 });

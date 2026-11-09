@@ -41,10 +41,12 @@ import {
 import { Chat, ChatList } from "@/lib/api";
 import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
+import { isContextFresh } from "@/lib/cache/contextRefresh";
 import { isExpectedReadFailure, type ResourceUpdate } from "@/lib/cache/sessionResource";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
+import { useOnForeground } from "@/lib/foregroundRefresh";
 import { useLatestRef } from "@/lib/latestRef";
 
 type Params = { isDrawerOpen: boolean };
@@ -126,14 +128,14 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     return fetched;
   }, [account, current, applyChatList]);
 
-  const load = useCallback(async (background = false, force = false) => {
+  const load = useCallback(async (background = false, force = false, quiet = false) => {
     const token = getToken();
     if (!account || !token || !current()) return;
     if (!force && isChatListFresh() && hydrateFromCache()) return;
     const loadId = ++loadIdRef.current;
     if (!background) setLoading(true);
     setError(false);
-    const result = await fetchChatList(token, { force, report: reportFailure });
+    const result = await fetchChatList(token, { force, report: quiet ? undefined : reportFailure });
     if (!current() || loadId !== loadIdRef.current) return;
     // A failed read hands back the list already shown (one restored from disk, say): not loaded yet.
     if (result.data) applyChatList(getCachedChatList() ?? result.data, !result.error);
@@ -213,14 +215,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     return () => { cancelled = true; cancelIdle(); };
   }, [account, getToken, isDrawerOpen, current, hydrateFromCache, applyChatList]);
 
-  useEffect(() => {
-    hydrateFromCache();
-    // A list dropped since (an unarchive in Settings) is read again: it was never fetched.
-    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: hasLoadedOnceRef.current && getChatListFetchedAt() != null }) !== "skip") void load();
-  }, [isDrawerOpen, account, load, hydrateFromCache]);
-  // The API back after an outage: the open drawer's chats, read as opening it reads them.
-  const openRef = useLatestRef(isDrawerOpen);
-  useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
+  const openRef = useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef });
 
   const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById } = useListEdits({ account, current, applyChatList, load, openRef });
   const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
@@ -244,6 +239,47 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
     moveChatArchiveState, removeChatFromGroupsById,
   };
+}
+
+type RereadDeps = {
+  isDrawerOpen: boolean;
+  account: string | null;
+  load: (background?: boolean, force?: boolean, quiet?: boolean) => Promise<void>;
+  hydrateFromCache: () => boolean;
+  hasLoadedOnceRef: RefObject<boolean>;
+};
+
+/**
+ * When the drawer reads its list again, besides its own edits: its first open (with the
+ * spinner), each later open once the rows are stale and each return from the background
+ * (behind the rows: another device may have started or renamed a chat), and the API back
+ * after an outage while it is open. A read behind the rows warns of nothing when it fails, as
+ * the closed drawer's warm-up: the user did not ask for it, and the rows stay. Returns whether
+ * the drawer is open, as a ref.
+ */
+function useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef }: RereadDeps) {
+  // A fresh list is not read again; nor, for the same 20 s, is one whose read just failed (an outage
+  // sent one per open).
+  const triedAt = useRef<number | undefined>(undefined);
+  const reread = useCallback(() => {
+    if (isChatListFresh() || isContextFresh(triedAt.current)) return;
+    triedAt.current = Date.now();
+    void load(true, false, true);
+  }, [load]);
+  useEffect(() => {
+    hydrateFromCache();
+    // A list dropped since (an unarchive in Settings) is read again: it was never fetched.
+    const loadedOnce = hasLoadedOnceRef.current && getChatListFetchedAt() != null;
+    const mode = drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: loadedOnce });
+    if (mode === "full") void load();
+    else if (mode === "revalidate") reread();
+  }, [isDrawerOpen, account, load, reread, hydrateFromCache, hasLoadedOnceRef]);
+  // Past FOREGROUND_STALE_MS.chatList; Home's last chat reads this list too.
+  useOnForeground(reread, Boolean(account));
+  // The API back after an outage: the open drawer's chats, read as opening it reads them.
+  const openRef = useLatestRef(isDrawerOpen);
+  useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
+  return openRef;
 }
 
 type ListEditDeps = {

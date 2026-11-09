@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type AccessibilityRole,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type StyleProp,
@@ -41,6 +42,8 @@ type Props = {
   fadeColor?: string;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /** What a screen reader calls the row, such as a tab list. */
+  accessibilityRole?: AccessibilityRole;
   children: ReactNode;
 };
 
@@ -51,6 +54,7 @@ export function FadingHorizontalScroll({
   fadeColor,
   style,
   contentContainerStyle,
+  accessibilityRole,
   children,
 }: Props) {
   const theme = useTheme();
@@ -80,6 +84,7 @@ export function FadingHorizontalScroll({
         keyboardShouldPersistTaps="handled"
         ref={scrollRef}
         testID={testID}
+        accessibilityRole={accessibilityRole}
         horizontal
         nestedScrollEnabled
         directionalLockEnabled

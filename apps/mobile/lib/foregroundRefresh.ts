@@ -12,6 +12,8 @@ import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 export const FOREGROUND_STALE_MS = {
   /** The open chat's newest messages (a turn left running reloads at once). */
   chatMessages: CONTEXT_REFRESH_STALE_MS,
+  /** The drawer's chats (and Home's last chat): another device may have started one. */
+  chatList: CONTEXT_REFRESH_STALE_MS,
   todos: CONTEXT_REFRESH_STALE_MS,
   usage: CONTEXT_REFRESH_STALE_MS,
   models: 5 * 60_000,

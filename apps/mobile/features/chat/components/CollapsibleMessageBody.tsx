@@ -10,6 +10,12 @@ import { Space } from "@/lib/space";
 
 type Props = {
   children: ReactNode;
+  /**
+   * The message shown. A list row is reused for another message and keeps this
+   * component's state: the fold opens only for the message it was opened on, so a
+   * recycled row starts folded.
+   */
+  messageKey: string;
   /** When false, always show full content (short user bubbles). */
   collapsible?: boolean;
   /** Background matched by the fade gradient (defaults to screen bg). */
@@ -18,13 +24,15 @@ type Props = {
 
 export function CollapsibleMessageBody({
   children,
+  messageKey,
   collapsible = true,
   fadeColor,
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [expanded, setExpanded] = useState(false);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const expanded = expandedKey === messageKey;
   const fadeBase = fadeColor ?? theme.bg;
 
   if (!collapsible) {
@@ -45,7 +53,7 @@ export function CollapsibleMessageBody({
       ) : null}
       <Pressable
         style={s.toggle}
-        onPress={() => setExpanded((value) => !value)}
+        onPress={() => setExpandedKey(expanded ? null : messageKey)}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityState={{ expanded }}

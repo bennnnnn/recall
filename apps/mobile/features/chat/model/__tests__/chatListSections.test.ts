@@ -6,6 +6,7 @@ import {
   drawerSectionTitleKey,
   emptyChatList,
   isCollapsibleChatSection,
+  keepLoadedPages,
   PINNED_CHAT_SECTION,
   removeChatFromGroups,
 } from "@/features/chat/model/listSections";
@@ -81,5 +82,47 @@ describe("older chat pages (CLAR-12)", () => {
     const merged = appendArchivedChats(shown, { items: [chat("a"), chat("b")], next_cursor: null });
     expect(merged.archived.map((row) => row.id)).toEqual(["a", "b"]);
     expect(merged.archived_next_cursor).toBeNull();
+  });
+});
+
+describe("keepLoadedPages", () => {
+  const row = (id: string, updated = "2026-01-01T00:00:00Z") =>
+    ({ id, title: id, model: "free-chat", pinned: false, created_at: updated, updated_at: updated });
+  const page1 = { ...emptyChatList(), today: [row("new")], older: [row("b"), row("c")], next_cursor: "after-c" };
+  // The drawer read the first page, then one page of older chats and one of archived chats.
+  const shown = {
+    ...page1,
+    older: [row("b"), row("c"), row("d"), row("e")],
+    next_cursor: null,
+    archived: [row("a1"), row("a2"), row("a3")],
+    archived_next_cursor: "after-a3",
+  };
+
+  it("keeps the older and archived pages read below a first page that still leads into them", () => {
+    const fresh = {
+      ...page1, today: [row("newest", "2026-01-02T00:00:00Z"), row("new")],
+      archived: [row("a1"), row("a2")], archived_next_cursor: "after-a2",
+    };
+    const merged = keepLoadedPages(shown, fresh);
+    expect(merged.today.map((chat) => chat.id)).toEqual(["newest", "new"]);
+    expect(merged.older.map((chat) => chat.id)).toEqual(["b", "c", "d", "e"]);
+    expect(merged.next_cursor).toBeNull();
+    expect(merged.archived.map((chat) => chat.id)).toEqual(["a1", "a2", "a3"]);
+    expect(merged.archived_next_cursor).toBe("after-a3");
+  });
+
+  it("takes a row the first page holds now from the page, not from below", () => {
+    const fresh = { ...page1, today: [row("d", "2026-01-03T00:00:00Z"), row("new")] };
+    const merged = keepLoadedPages(shown, fresh);
+    expect(merged.today.map((chat) => chat.id)).toEqual(["d", "new"]);
+    expect(merged.older.map((chat) => chat.id)).toEqual(["b", "c", "e"]);
+  });
+
+  it("is the first page alone when it no longer leads into the rows below, or holds the whole list", () => {
+    // More new chats than a page: its last row is not one the list holds, and its cursor reads on.
+    const pushed = { ...emptyChatList(), today: [row("n1"), row("n2")], next_cursor: "after-n2" };
+    expect(keepLoadedPages(shown, pushed)).toEqual(pushed);
+    const whole = { ...emptyChatList(), today: [row("new")], older: [row("b")], next_cursor: null };
+    expect(keepLoadedPages(shown, whole)).toEqual(whole);
   });
 });

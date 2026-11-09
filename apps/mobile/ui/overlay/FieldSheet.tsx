@@ -1,8 +1,8 @@
 /**
  * Bottom-sheet editor for one text value: a profile field, custom instructions, a
- * memory. Matches ChatRenameSheet Sheet pattern.
+ * memory. Matches ChatRenameSheet Sheet pattern. Closing it with changed text asks first.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   InputAccessoryView,
   Platform,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { confirmDialog } from "@/ui/overlay/dialogs";
 import { Sheet } from "@/ui/overlay/Sheet";
 import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
 import { TextField } from "@/ui/controls/TextField";
@@ -60,6 +61,26 @@ export function FieldSheet({
   // iOS number-pad has no Return key, so RN mounts a floating Done accessory
   // that duplicates this sheet's Save. An empty accessory replaces it.
   const hideNumberPadDone = Platform.OS === "ios" && numberPad;
+  // The text it opened with, taken as it opens (the caller sets both in one tap).
+  const [opening, setOpening] = useState({ visible, value });
+  if (opening.visible !== visible) setOpening({ visible, value });
+
+  // A tap on the scrim, Back or Cancel threw away a typed paragraph without a word.
+  const close = () => {
+    if (saving) return;
+    if (value.trim() === opening.value.trim()) {
+      onClose();
+      return;
+    }
+    void confirmDialog({
+      title: t("common.discard_changes_title"),
+      confirmLabel: t("common.discard"),
+      cancelLabel: t("common.keep_editing"),
+      destructive: true,
+    }).then((discard) => {
+      if (discard) onClose();
+    });
+  };
 
   return (
     <>
@@ -70,9 +91,7 @@ export function FieldSheet({
       ) : null}
     <Sheet
       visible={visible}
-      onClose={() => {
-        if (!saving) onClose();
-      }}
+      onClose={close}
       variant="bottom"
       keyboardAvoiding
       withHandle={false}
@@ -80,9 +99,7 @@ export function FieldSheet({
     >
       <SheetFormHeader
         title={title}
-        onCancel={() => {
-          if (!saving) onClose();
-        }}
+        onCancel={close}
         onSave={onSave}
         cancelLabel={t("settings.cancel")}
         saveLabel={t("settings.save")}
