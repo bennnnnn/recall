@@ -29,6 +29,7 @@ _ROW_FIELDS = (
     "topic",
     "checked",
     "due_at",
+    "due_has_time",
     "recurrence_rule",
     "sort_order",
     "notification_sent_at",
@@ -43,6 +44,7 @@ _CREATE_FIELDS = (
     "topic",
     "chat_id",
     "due_at",
+    "due_has_time",
     "recurrence_rule",
     "sort_order",
 )
@@ -50,13 +52,14 @@ _CREATE_FIELDS = (
 
 @dataclass
 class PlannedWrite:
-    """One row write. ``due_at``, ``repeat`` and ``topic`` are the row after it."""
+    """One row write. ``due_at``, ``has_time``, ``repeat`` and ``topic`` are the row after it."""
 
     kind: WriteKind
     todo_id: UUID
     title: str
     fields: dict[str, Any] = field(default_factory=dict)
     due_at: datetime | None = None
+    has_time: bool = True
     repeat: str | None = None
     topic: str | None = None
 
@@ -86,6 +89,7 @@ def _find(writes: list[PlannedWrite], kind: WriteKind, todo_id: UUID) -> Planned
 
 def _after(write: PlannedWrite, row: Any) -> None:
     write.due_at = getattr(row, "due_at", None)
+    write.has_time = getattr(row, "due_has_time", None) is not False
     write.repeat = getattr(row, "recurrence_rule", None)
     write.topic = getattr(row, "topic", None)
 

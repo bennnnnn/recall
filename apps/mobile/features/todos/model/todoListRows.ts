@@ -1,5 +1,6 @@
 import type { Todo } from "@/lib/api";
 import { localDayKey } from "@/lib/datetime/dayKey";
+import { dueOfTodo } from "@/features/todos/model/dueDate";
 
 export type TodoSection =
   | "overdue"
@@ -60,12 +61,9 @@ export function buildTodoListRows(todos: Todo[], now = new Date()): TodoListRow[
       completed.push(todo);
       continue;
     }
-    if (!todo.due_at) {
-      anytime.push(todo);
-      continue;
-    }
-    const at = new Date(todo.due_at);
-    if (!Number.isFinite(at.getTime())) {
+    // A date alone is on its own day (`due_date`), first among that day's times.
+    const at = dueOfTodo(todo)?.date;
+    if (!at) {
       anytime.push(todo);
       continue;
     }

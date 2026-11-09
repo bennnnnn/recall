@@ -8,6 +8,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, TypeGuard
 from zoneinfo import ZoneInfo
 
+from app.modules.todos.due_day import start_of_day
+
 RecurrenceRule = Literal["daily", "weekdays", "weekly", "monthly"]
 RECURRENCE_RULES: tuple[RecurrenceRule, ...] = (
     "daily",
@@ -101,6 +103,22 @@ def next_recurring_due(
     if nxt.astimezone(UTC) <= now_local.astimezone(UTC):
         nxt = _step_local(nxt, rule)
     return nxt.astimezone(due_at.tzinfo or _zone(timezone))
+
+
+def next_open_due(
+    due_at: datetime,
+    rule: RecurrenceRule,
+    *,
+    has_time: bool,
+    now: datetime,
+    timezone: str | None,
+) -> datetime:
+    """The occurrence still to come at ``now``: after ``now`` for a time; for a date alone
+    the first day that has not ended, today's included."""
+    if has_time:
+        return next_recurring_due(due_at, rule, now=now, timezone=timezone)
+    before_today = start_of_day(now, timezone) - timedelta(microseconds=1)
+    return next_recurring_due(due_at, rule, now=before_today, timezone=timezone)
 
 
 def completed_fields(

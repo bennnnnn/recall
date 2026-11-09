@@ -91,6 +91,26 @@ back past either. The redeploy uses the blue-green strategy in the current
 traffic. Leave the release command on only when the newer release added no
 migration.
 
+Rolling back past `0127` (to-dos with a date and no time): an earlier image runs on
+the schema, but it does not know `todo_items.due_has_time`. It reads each date-only
+to-do as due at 00:00 on its day, so its push and email schedulers would send every
+open one the night before, at midnight minus the user's lead time, and the phone lists
+them at 12:00 AM. Before redeploying such an image, mark their reminders sent, so that
+image never sends them (the release with `0127` sends none either way):
+
+```sql
+UPDATE todo_items
+SET notification_sent_at = now(), email_sent_at = now()
+WHERE due_has_time = false AND checked = false AND due_at IS NOT NULL;
+```
+
+A date-only to-do the user gives a time later gets its markers cleared with its new
+`due_at`, as any edit of the time does. A repeating one stays on its day for a push user
+(the earlier image moves a repeat on only after it sends), and for anyone else the
+earlier list moves it on and clears its markers, but nothing sends it: push is off for
+them and email skips repeats. The release with `0127` moves each to its next day again on
+the next list read.
+
 After redeploy:
 
 ```bash

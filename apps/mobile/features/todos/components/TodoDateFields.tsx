@@ -6,7 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
-import { defaultDueDate } from "@/features/todos/model/dueDate";
+import { dateOnly, type TodoDue } from "@/features/todos/model/dueDate";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { isSameDay } from "@/lib/datetime/calendarGrid";
 import { formatDate } from "@/lib/datetime/format";
@@ -21,6 +21,7 @@ import { ensureNotificationPermission } from "@/features/todos/model/todoReminde
 import { IconSize } from "@/ui/icons/sizes";
 import { useTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
+import { IconButton } from "@/ui/controls/IconButton";
 import { ListRow } from "@/ui/list/ListRow";
 
 export type SchedulePanel = "date" | "time" | "repeat";
@@ -28,12 +29,13 @@ export type SchedulePanel = "date" | "time" | "repeat";
 const NO_REMINDER: RemindAt = { status: "none" };
 
 /**
- * Date (with year), time, and repeat are separate rows.
- * A to-do can stay undated until the date row is opened.
+ * Date (with year), time, and repeat are separate rows. A to-do can stay undated, or have
+ * a date alone ("—" for its time, and no Remind at); a time makes it a timed one, and the
+ * remove button beside the time makes it a date alone again.
  */
 export function TodoDateFields({
-  dueDate,
-  onDueDateChange,
+  due,
+  onDueChange,
   repeat,
   onRepeatChange,
   todos,
@@ -45,8 +47,8 @@ export function TodoDateFields({
   onChangeLead,
   onOpen,
 }: {
-  dueDate: Date | null;
-  onDueDateChange: (date: Date | null) => void;
+  due: TodoDue | null;
+  onDueChange: (due: TodoDue | null) => void;
   repeat: RecurrenceRule | null;
   onRepeatChange: (rule: RecurrenceRule | null) => void;
   todos: Todo[];
@@ -73,34 +75,34 @@ export function TodoDateFields({
   // then it names its day.
   const remindAtLabel = remindAt.status !== "at"
     ? "—"
-    : formatDate(remindAt.at, dueDate && isSameDay(remindAt.at, dueDate) ? "time" : "weekdayTime");
+    : formatDate(remindAt.at, due && isSameDay(remindAt.at, due.date) ? "time" : "weekdayTime");
   const leadLabel = t("settings.reminder_lead_value", { count: lead });
 
+  // Only a time can share its slot with another reminder.
   const overlap = useMemo(
     () =>
-      dueDate
-        ? findOverlappingReminder(todos, dueDate, excludeId ? { excludeId } : undefined)
+      due?.hasTime
+        ? findOverlappingReminder(todos, due.date, excludeId ? { excludeId } : undefined)
         : null,
-    [todos, dueDate, excludeId],
+    [todos, due, excludeId],
   );
   const repeatLabel = t(repeatMessageKey(repeat));
-  const dateLabel = dueDate ? formatDate(dueDate, "monthDayYear") : t("todos.add_date");
-  const timeLabel = dueDate ? formatDate(dueDate, "time") : "—";
+  const dateLabel = due ? formatDate(due.date, "monthDayYear") : t("todos.add_date");
+  const timeLabel = due?.hasTime ? formatDate(due.date, "time") : "—";
 
+  // Opening a picker changes nothing; a time, which brings a reminder, asks for alerts first.
   const openPanel = (panel: SchedulePanel) => {
     Keyboard.dismiss();
-    if (!dueDate) {
-      onDueDateChange(defaultDueDate());
-      onRepeatChange(null);
-      void ensureNotificationPermission().catch(() => undefined);
-    }
+    if (panel === "time" && !due?.hasTime) void ensureNotificationPermission().catch(() => undefined);
     onOpen(panel);
   };
 
   const removeDate = () => {
-    onDueDateChange(null);
+    onDueChange(null);
     onRepeatChange(null);
   };
+  // The day and repeat stay: a date alone, with no reminder.
+  const removeTime = due?.hasTime ? () => onDueChange(dateOnly(due.date)) : undefined;
 
   if (review) {
     return (
@@ -112,7 +114,7 @@ export function TodoDateFields({
           value={dateLabel}
           disabled={disabled}
           onPress={() => openPanel("date")}
-          accessibilityLabel={dueDate ? t("todos.change_due") : t("todos.add_date")}
+          accessibilityLabel={due ? t("todos.change_due") : t("todos.add_date")}
         />
         <ReviewRow
           icon="clock"
@@ -121,8 +123,10 @@ export function TodoDateFields({
           disabled={disabled}
           onPress={() => openPanel("time")}
           accessibilityLabel={t("todos.time_label")}
+          onRemove={removeTime}
+          removeLabel={t("todos.remove_time")}
         />
-        {dueDate && remindAt.status !== "none" ? (
+        {due && remindAt.status !== "none" ? (
           <ReviewRow
             ref={remindRowRef}
             icon="bell"
@@ -187,35 +191,28 @@ export function TodoDateFields({
           onPress={() => openPanel("date")}
           disabled={disabled}
           accessibilityRole="button"
-          accessibilityLabel={dueDate ? t("todos.change_due") : t("todos.add_date")}
+          accessibilityLabel={due ? t("todos.change_due") : t("todos.add_date")}
         >
           <Icon name="calendar" size={IconSize.sm} color={C.primary} />
           <Text style={s.repeatFieldText}>{dateLabel}</Text>
         </Pressable>
-        {dueDate ? (
-          <Pressable
-            style={s.removeDateButton}
-            onPress={removeDate}
-            disabled={disabled}
-            accessibilityRole="button"
-            accessibilityLabel={t("todos.remove_date")}
-          >
-            <Icon name="close-circle" size={IconSize.md} color={C.textTertiary} />
-          </Pressable>
-        ) : null}
+        {due ? <RemoveButton label={t("todos.remove_date")} disabled={disabled} onPress={removeDate} /> : null}
       </View>
 
       <Text style={[s.formLabel, s.fieldGap]}>{t("todos.time_label")}</Text>
-      <Pressable
-        style={s.repeatField}
-        onPress={() => openPanel("time")}
-        disabled={disabled}
-        accessibilityRole="button"
-        accessibilityLabel={t("todos.time_label")}
-      >
-        <Icon name="clock" size={IconSize.sm} color={C.primary} />
-        <Text style={s.repeatFieldText}>{timeLabel}</Text>
-      </Pressable>
+      <View style={s.dateRow}>
+        <Pressable
+          style={[s.repeatField, s.fieldGrow]}
+          onPress={() => openPanel("time")}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={t("todos.time_label")}
+        >
+          <Icon name="clock" size={IconSize.sm} color={C.primary} />
+          <Text style={s.repeatFieldText}>{timeLabel}</Text>
+        </Pressable>
+        {removeTime ? <RemoveButton label={t("todos.remove_time")} disabled={disabled} onPress={removeTime} /> : null}
+      </View>
 
       <Text style={[s.formLabel, s.fieldGap]}>{t("todos.repeat_label")}</Text>
       <Pressable
@@ -241,6 +238,25 @@ export function TodoDateFields({
   );
 }
 
+/** The circled x beside a field, which takes its value off. */
+function RemoveButton({ label, disabled, onPress }: {
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const C = useTheme();
+  return (
+    <IconButton
+      name="close-circle"
+      size={IconSize.md}
+      color={C.textTertiary}
+      disabled={disabled}
+      onPress={onPress}
+      accessibilityLabel={label}
+    />
+  );
+}
+
 function ReviewRow({
   icon,
   label,
@@ -249,6 +265,8 @@ function ReviewRow({
   inset = false,
   onPress,
   accessibilityLabel,
+  onRemove,
+  removeLabel = "",
   ref,
 }: {
   icon?: "calendar" | "clock" | "bell" | "repeat";
@@ -258,10 +276,14 @@ function ReviewRow({
   inset?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
+  /** A remove button beside the row, not in it: inside, a screen reader would not reach it. */
+  onRemove?: () => void;
+  removeLabel?: string;
   ref?: Ref<HostInstance>;
 }) {
   const C = useTheme();
-  return (
+  const s = useMemo(() => makeTodosStyles(C), [C]);
+  const row = (
     <ListRow
       ref={ref}
       appearance="plain"
@@ -274,6 +296,14 @@ function ReviewRow({
       disabled={disabled}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
+      style={onRemove ? s.fieldGrow : undefined}
     />
+  );
+  if (!onRemove) return row;
+  return (
+    <View style={s.dateRow}>
+      {row}
+      <RemoveButton label={removeLabel} disabled={disabled} onPress={onRemove} />
+    </View>
   );
 }

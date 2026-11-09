@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Any, cast
+from uuid import UUID
 
 from sqlalchemy import and_, case, func, or_, update
 from sqlalchemy.engine import CursorResult
@@ -56,3 +57,25 @@ async def advance_schedules_if_current(
         )
         .execution_options(synchronize_session=False)
     )
+
+
+async def move_due_day_if_current(
+    session: AsyncSession, todo_id: UUID, *, was: datetime, to: datetime
+) -> bool:
+    """Hold one date alone on its day at ``to``; no commit. Whether it moved: one edited
+    since it was read (another ``due_at``, or given a time) is left alone. Holding a date
+    alone on its day is not an edit: ``updated_at``, which dates a completed row, stays."""
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            update(TodoItem)
+            .where(
+                TodoItem.id == todo_id,
+                TodoItem.due_at == was,
+                TodoItem.due_has_time.is_(False),
+            )
+            .values(due_at=to, updated_at=TodoItem.updated_at)
+            .execution_options(synchronize_session=False)
+        ),
+    )
+    return result.rowcount > 0

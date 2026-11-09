@@ -1039,6 +1039,7 @@
   "todos.proposal_to_list": "ወደ {{topic}}",
   "todos.proposal_uncheck": "እንደገና ክፈት",
   "todos.remove_date": "ቀን አስወግድ",
+  "todos.remove_time": "ሰዓት አስወግድ",
   "todos.todo_label": "የሚደረግ",
   "todos.todo_placeholder": "ምን ማድረግ ይፈልጋሉ?",
   "todos.change_due": "ቀን ቀይር",

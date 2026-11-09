@@ -53,6 +53,8 @@ export const todosApi = {
     options?: {
       chatId?: string;
       dueAt?: string | null;
+      /** False: only `dueAt`'s day counts, with no time and no reminder. */
+      dueHasTime?: boolean;
       recurrenceRule?: Todo["recurrence_rule"];
     },
   ) =>
@@ -63,6 +65,7 @@ export const todosApi = {
         topic,
         chat_id: options?.chatId ?? null,
         due_at: options?.dueAt ?? undefined,
+        due_has_time: options?.dueHasTime ?? undefined,
         recurrence_rule: options?.recurrenceRule ?? undefined,
       }),
     }),
@@ -76,6 +79,7 @@ export const todosApi = {
         | "topic"
         | "checked"
         | "due_at"
+        | "due_has_time"
         | "recurrence_rule"
         | "sort_order"
       >

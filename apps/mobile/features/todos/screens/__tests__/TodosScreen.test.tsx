@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { StyleSheet } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import TodosScreen from "@/features/todos/screens/TodosScreen";
+import { dateOnly, type TodoDue } from "@/features/todos/model/dueDate";
 
 let mockSession = 1;
 let mockToken: string | null = "token-a";
@@ -13,7 +14,7 @@ let mockAdd: { onPress: () => void };
 let mockSheet: {
   visible: boolean;
   onClose: () => void;
-  onSave: (content: string, due: Date | null, recurrence: null, topic: string) => void;
+  onSave: (content: string, due: TodoDue | null, recurrence: null, topic: string) => void;
 };
 let mockList: {
   onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[]; view: string;
@@ -232,13 +233,16 @@ it("opens the reminder a due notification points at", async () => {
 
 
 it.each([
-  ["a to-do due in three days", 3, true],
-  ["a to-do due today", 0, false],
-])("after adding %s on Today, says where it went only when Today hides it", async (_name, days, moved) => {
+  ["a to-do due in three days", 3, true, true],
+  ["a to-do due today", 0, true, false],
+  ["a date alone in three days", 3, false, true],
+  ["today's date alone", 0, false, false],
+])("after adding %s on Today, says where it went only when Today hides it", async (_name, days, hasTime, moved) => {
   await render(<TodosScreen />);
   await act(() => { mockAdd.onPress(); });
-  const due = new Date();
-  due.setDate(due.getDate() + days);
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const due = hasTime ? { date, hasTime } : dateOnly(date);
   await act(() => { mockSheet.onSave("Gym", due, null, "General"); });
   const onCreated = mockCreate.mock.calls[0][2] as () => void;
   await act(() => { onCreated(); });

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { Todo } from "@/lib/api";
 import { reminderGoesOutAt } from "@/features/todos/model/reminderBadge";
+import { overdueAt } from "@/features/todos/model/dueDate";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 
 /** Older than this, the clock reads again before it schedules the next change. */
@@ -23,7 +24,8 @@ export function nextReminderChange(todos: Todo[], now: Date): number | null {
   let dated = false;
   for (const todo of todos) {
     const goesOut = reminderGoesOutAt(todo);
-    const dueMs = todo.due_at ? Date.parse(todo.due_at) : NaN;
+    // When it turns overdue: its time, or for a date alone the end of its day.
+    const dueMs = overdueAt(todo) ?? NaN;
     if (goesOut === null || Number.isNaN(dueMs)) continue;
     dated = true;
     for (const at of [goesOut, dueMs]) {

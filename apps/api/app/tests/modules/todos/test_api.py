@@ -197,6 +197,22 @@ async def test_page_keeps_existing_delivery_owner_policy(page_sql, push_enabled,
 
 
 @pytest.mark.asyncio
+async def test_page_moves_a_past_repeating_date_alone_to_today_with_push_on(page_sql):
+    """Push moves a timed repeat on as it goes out; nothing goes out for a date alone, so
+    the list moves it once its day has ended, to today's, still without a time."""
+    sync_session, session, user = page_sql
+    row = _seed(sync_session, user.id, count=1)[0]
+    today = datetime.combine(datetime.now(UTC).date(), datetime.min.time(), UTC)
+    row.due_at = today - timedelta(days=2)
+    row.due_has_time = False
+    row.recurrence_rule = "daily"
+    sync_session.commit()
+    items, _ = await crud.list_todos_page(session, user)
+    assert items[0].due_at == today
+    assert items[0].due_has_time is False
+
+
+@pytest.mark.asyncio
 async def test_catchup_page_returns_concurrent_reschedule_without_overwriting_it(page_sql):
     sync_session, session, user = page_sql
     row = _seed(sync_session, user.id, count=1)[0]

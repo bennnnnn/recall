@@ -299,6 +299,7 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     todo.topic = "General"
     todo.checked = False
     todo.due_at = None
+    todo.due_has_time = True
     todo.chat_id = None
     todo.sort_order = 1
     todo.created_at = datetime(2024, 1, 1)
@@ -345,6 +346,8 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     assert data["chats"][0]["messages"][0]["content"] == "hi"
     assert len(data["memories"]) == 1
     assert data["todos"][0]["content"] == "buy milk"
+    # Whether the date has a time travels with it: a date alone exports as one.
+    assert data["todos"][0]["due_has_time"] is True
     assert "project_id" not in data["todos"][0]
     assert "projects" not in data
     # Nothing hit a cap; the notes say how long attachment links work.

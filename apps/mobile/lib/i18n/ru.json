@@ -1059,6 +1059,7 @@
   "todos.proposal_to_list": "В {{topic}}",
   "todos.proposal_uncheck": "Открыть снова",
   "todos.remove_date": "Удалить дату",
+  "todos.remove_time": "Удалить время",
   "todos.todo_label": "Задача",
   "todos.todo_placeholder": "Что нужно сделать?",
   "todos.change_due": "Изменить дату",

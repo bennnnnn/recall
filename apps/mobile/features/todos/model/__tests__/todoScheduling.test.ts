@@ -38,6 +38,12 @@ beforeEach(async () => {
   await cancelAllTodoReminders();
 });
 
+it("schedules no alert for a date alone, even one a row gave a notify_at", async () => {
+  const dateAlone = { ...todo, id: "t2", due_at: "2099-01-01T05:00:00Z", due_has_time: false };
+  await syncTodoReminders([dateAlone], { remotePush: false });
+  expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+});
+
 it("never requests OS permission from background synchronization", async () => {
   await syncTodoReminders([todo], { remotePush: false });
   expect(ensureNotificationPermission).not.toHaveBeenCalled();

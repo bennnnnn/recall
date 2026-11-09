@@ -279,15 +279,15 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         saving={actions.savingTodo}
         todos={todos}
         onClose={() => { if (isCurrentView()) setEditorOpen(false); }}
-        onSave={(content, dueDate, recurrence, topic) =>
+        onSave={(content, due, recurrence, topic) =>
           void actions.handleCreateTodo(
             content,
-            dueDate,
+            due,
             () => {
               if (!isCurrentView()) return;
               setEditorOpen(false);
               // A to-do the current view would hide: show the view that lists it.
-              const shown = viewForNewTodo(view, dueDate);
+              const shown = viewForNewTodo(view, due?.date ?? null);
               if (shown === view) return;
               setView(shown);
               feedback?.info(t("todos.added_shown_open"));
@@ -314,9 +314,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         leadMinutes={user?.reminder_lead_minutes}
         onChangeLead={(minutes) => updateUser({ reminder_lead_minutes: minutes })}
         onClose={actions.closeTodoEditor}
-        onSave={(content, dueDate, recurrence, topic) => {
+        onSave={(content, due, recurrence, topic) => {
           const target = actions.editingTodo;
-          if (target) void actions.handleUpdateTodo(target, content, dueDate, recurrence, topic);
+          if (target) void actions.handleUpdateTodo(target, content, due, recurrence, topic);
         }}
       />
 
@@ -334,7 +334,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
               const saved = await actions.handleUpdateTodo(
                 current,
                 draft.content,
-                draft.dueDate,
+                draft.due,
                 draft.recurrence,
                 draft.topic,
                 false,

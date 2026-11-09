@@ -141,6 +141,12 @@ export type Todo = {
   topic: string;
   checked: boolean;
   due_at: string | null;
+  /** False: a date alone, with no time and no reminder; `due_at` is the start of that day.
+   * Absent on a row an older server or cache wrote, which has a time. */
+  due_has_time?: boolean;
+  /** A date alone's day ("2026-11-10") on the user's clock, where the server holds it. The
+   * phone shows this day: `due_at` read in the phone's zone can fall on the day before. */
+  due_date?: string | null;
   recurrence_rule?: RecurrenceRule | null;
   sort_order: number | null;
   chat_id: string | null;

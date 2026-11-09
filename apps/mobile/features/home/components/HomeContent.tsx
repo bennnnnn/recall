@@ -7,7 +7,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import type { Todo } from "@/lib/api";
-import { describeDueAt } from "@/features/todos/model/dueDate";
+import { describeDueAt, dueOfTodo } from "@/features/todos/model/dueDate";
 import { homeGreeting } from "@/features/home/model/homeWelcome";
 import { homeOnScreen } from "@/features/home/model/homeOnScreen";
 import { firstOverdueHomeTodo } from "@/features/todos/model/homeUrgentTodos";
@@ -31,7 +31,8 @@ function OverdueReminderRow({
 }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const due = describeDueAt(todo.due_at);
+  const day = dueOfTodo(todo);
+  const due = day && describeDueAt(day.date.toISOString(), day.hasTime);
 
   return (
     <View style={s.urgentBlock}>
