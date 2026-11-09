@@ -11,7 +11,7 @@ import { act, fireEvent, renderRouter, screen } from "expo-router/testing-librar
 import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
 import { SCHEME_ACCENTS } from "@/lib/__tests__/support/contrast";
 import { setAccentSnapshot } from "@/lib/accentRuntime";
-import { resetAppearanceRuntime, setAppearancePreferenceSnapshot } from "@/lib/appearanceRuntime";
+import { resetAppearanceRuntimeForTest, setAppearancePreferenceSnapshot } from "@/lib/appearanceRuntime";
 import { reportBoundaryError } from "@/lib/sentry";
 import { themeFor } from "@/lib/theme";
 
@@ -174,7 +174,7 @@ describe("a screen that throws while it renders", () => {
 
 describe("a crash only the root's boundary catches (the chat, the sign-in flow)", () => {
   const resetLook = () => {
-    resetAppearanceRuntime();
+    resetAppearanceRuntimeForTest();
     setAccentSnapshot("indigo");
   };
   beforeEach(resetLook);

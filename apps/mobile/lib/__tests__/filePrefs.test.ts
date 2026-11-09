@@ -5,7 +5,7 @@
  */
 import * as FileSystem from "expo-file-system/legacy";
 
-import { getAccentPreference, resetAccentPreferenceCache, setAccentPreference } from "@/lib/accentPrefs";
+import { getAccentPreference, resetAccentPreferenceForTest, setAccentPreference } from "@/lib/accentPrefs";
 import { createFilePref } from "@/lib/filePrefs";
 
 /** The phone's files, as the legacy file system reads and writes them. */
@@ -28,7 +28,7 @@ const parseLayout = (raw: string | null) => (raw === "column" ? "column" : "grid
 beforeEach(() => {
   mockFiles.clear();
   jest.clearAllMocks();
-  resetAccentPreferenceCache();
+  resetAccentPreferenceForTest();
 });
 
 describe("createFilePref", () => {

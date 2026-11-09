@@ -18,4 +18,4 @@ export function normalizeTtsModel(raw: string | null | undefined): TtsModelAlias
 
 const ttsModelPref = createFilePref<TtsModelAlias>("recall.tts-model.txt", normalizeTtsModel);
 
-export const { get: getTtsModel, set: setTtsModel, reset: resetTtsModelCache } = ttsModelPref;
+export const { get: getTtsModel, set: setTtsModel, reset: resetTtsModelForTest } = ttsModelPref;

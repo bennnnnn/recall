@@ -1,13 +1,13 @@
 import {
   getStreamingDraft,
   publishStreamingDraft,
-  resetStreamingDraftStore,
+  resetStreamingDraftStoreForTest,
   subscribeStreamingDraft,
 } from "@/features/chat/model/streamingDraftStore";
 
 describe("streamingDraftStore", () => {
   afterEach(() => {
-    resetStreamingDraftStore();
+    resetStreamingDraftStoreForTest();
   });
 
   it("publishes draft updates to subscribers", () => {

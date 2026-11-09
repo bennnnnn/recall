@@ -19,4 +19,4 @@ export function currentSpeechRate(): SpeechRate {
   return ratePref.peek() ?? 1;
 }
 
-export const { get: getSpeechRate, set: setSpeechRate, reset: resetSpeechRateCache } = ratePref;
+export const { get: getSpeechRate, set: setSpeechRate, reset: resetSpeechRateForTest } = ratePref;

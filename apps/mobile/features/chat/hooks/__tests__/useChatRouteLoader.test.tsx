@@ -15,7 +15,7 @@ import {
 } from "@/features/chat/model/messageCache";
 import { OPENED_PAGE_WAIT_MS, whenOpenedPageSettled, withdrawFromOpenedPage } from "@/features/chat/model/openedPage";
 import {
-  resetComposerAttachmentQueue,
+  resetComposerAttachmentQueueForTest,
   takeQueuedComposerAttachment,
 } from "@/features/attachments/model/pendingComposerAttachment";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
@@ -536,7 +536,7 @@ describe("opening a chat", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     await clearAllCachedChatMessages();
-    resetComposerAttachmentQueue();
+    resetComposerAttachmentQueueForTest();
     mockSession = 0;
     mockRevision = 0;
     appStateHandlers.clear();

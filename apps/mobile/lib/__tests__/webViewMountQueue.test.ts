@@ -3,13 +3,13 @@ import {
   isMountGranted,
   releaseMountTicket,
   requestMountTicket,
-  resetWebViewMountQueue,
+  resetWebViewMountQueueForTest,
   subscribeMountQueue,
 } from "@/lib/webViewMountQueue";
 
 describe("webViewMountQueue", () => {
   afterEach(() => {
-    resetWebViewMountQueue();
+    resetWebViewMountQueueForTest();
   });
 
   it("grants tickets immediately up to the concurrency cap", () => {

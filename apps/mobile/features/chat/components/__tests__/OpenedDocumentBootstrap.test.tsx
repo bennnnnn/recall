@@ -11,7 +11,7 @@ import {
 } from "@/features/attachments/model/openedDocument";
 import { copyOpenedDocument } from "@/features/attachments/model/openedDocumentCopy";
 import {
-  resetComposerAttachmentQueue,
+  resetComposerAttachmentQueueForTest,
   takeQueuedComposerAttachment,
 } from "@/features/attachments/model/pendingComposerAttachment";
 import { OpenedDocumentBootstrap } from "@/features/chat/components/OpenedDocumentBootstrap";
@@ -89,7 +89,7 @@ function signIn(generation: number, profileValidated = true) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  resetComposerAttachmentQueue();
+  resetComposerAttachmentQueueForTest();
   signIn(1);
   mockOffline = false;
   mockPathname = "/";

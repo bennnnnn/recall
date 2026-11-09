@@ -13,6 +13,6 @@ export function resetComposerDraftsForAccount(): void {
 }
 
 /** Test helper. */
-export function resetComposerDraftResetListeners(): void {
+export function resetComposerDraftResetListenersForTest(): void {
   listeners.clear();
 }

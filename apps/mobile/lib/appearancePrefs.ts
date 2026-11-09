@@ -21,5 +21,5 @@ export const {
   readSync: readAppearancePreferenceSync,
   get: getAppearancePreference,
   set: setAppearancePreference,
-  reset: resetAppearancePreferenceCache,
+  reset: resetAppearancePreferenceForTest,
 } = appearancePref;

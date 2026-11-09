@@ -2,7 +2,6 @@ import type { Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
-  DROPPED_TURN_MAX_WAIT_MS,
   DROPPED_TURN_POLL_MS,
   DROPPED_TURN_POLLS,
   DROPPED_TURN_PROBE_ROWS,
@@ -112,7 +111,7 @@ describe("pollDroppedTurn", () => {
   it("spreads each wait by a quarter either way", async () => {
     expect(droppedTurnWaitMs(() => 0)).toBe(DROPPED_TURN_POLL_MS * 0.75);
     expect(droppedTurnWaitMs(() => 0.5)).toBe(DROPPED_TURN_POLL_MS);
-    expect(droppedTurnWaitMs(() => 1)).toBe(DROPPED_TURN_MAX_WAIT_MS);
+    expect(droppedTurnWaitMs(() => 1)).toBe(DROPPED_TURN_POLL_MS * 1.25);
     const fetchPage = jest.fn().mockResolvedValue(before);
     const draws = [0, 1, 0.5];
     await pollDroppedTurn({
@@ -127,7 +126,7 @@ describe("pollDroppedTurn", () => {
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValue(before);
     await pollDroppedTurn({ fetchPage, known, stillWaiting: () => true, polls: 3, wait, random: () => 1 });
-    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([DROPPED_TURN_MAX_WAIT_MS, 6_250, DROPPED_TURN_MAX_WAIT_MS]);
+    expect(wait.mock.calls.map(([ms]) => ms)).toEqual([DROPPED_TURN_POLL_MS * 1.25, 6_250, DROPPED_TURN_POLL_MS * 1.25]);
   });
 
   it("polls a server answering 503 Retry-After: 5 for 30 s five times, not fourteen", async () => {

@@ -7,8 +7,8 @@
  * The list is published as docs/fixtures/latex_commands.json so the API can
  * hold its replies to what the phone draws. `pnpm latex-symbols` rewrites it.
  */
-import { DIALECT_COMMANDS, EXTRA_OPERATOR_NAMES } from "@/lib/math/latexDialects";
-import { findLatexLeaks } from "@/lib/math/latexLeaks";
+import { dialectCommandsForTest, EXTRA_OPERATOR_NAMES } from "@/lib/math/latexDialects";
+import { findLatexLeaks } from "@/lib/__tests__/support/latexLeaks";
 import { subscribeUnknownLatexCommands } from "@/lib/math/latexNames";
 import { LATEX_OPERATOR_NAMES, LATEX_SYMBOLS } from "@/lib/math/latexSymbols.generated";
 import { latexToSvgMath } from "@/lib/math/svgMath";
@@ -27,7 +27,7 @@ const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:
 const FIXTURE = join(__dirname, "..", "..", "..", "..", "..", "docs", "fixtures", "latex_commands.json");
 
 const { commands: MATHJAX_COMMANDS, environments: ENVIRONMENTS } = mathJaxCommands();
-const COMMANDS = [...new Set([...MATHJAX_COMMANDS, ...DIALECT_COMMANDS])].sort();
+const COMMANDS = [...new Set([...MATHJAX_COMMANDS, ...dialectCommandsForTest()])].sort();
 
 /** Commands whose arguments are not braced groups. */
 const SAMPLES: Readonly<Record<string, string>> = {

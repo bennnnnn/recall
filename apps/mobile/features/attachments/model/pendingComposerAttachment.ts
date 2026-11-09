@@ -22,4 +22,4 @@ export function subscribeComposerAttachmentQueue(listener: () => void): () => vo
   return listeners.subscribe(listener);
 }
 /** Test helper. */
-export function resetComposerAttachmentQueue(): void { queued = null; }
+export function resetComposerAttachmentQueueForTest(): void { queued = null; }

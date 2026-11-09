@@ -13,4 +13,4 @@ export function readAccentPreferenceSync(): AccentPreference {
   return accentPref.readSync() ?? DEFAULT_ACCENT;
 }
 
-export const { get: getAccentPreference, set: setAccentPreference, reset: resetAccentPreferenceCache } = accentPref;
+export const { get: getAccentPreference, set: setAccentPreference, reset: resetAccentPreferenceForTest } = accentPref;

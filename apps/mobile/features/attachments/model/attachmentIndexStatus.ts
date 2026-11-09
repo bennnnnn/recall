@@ -222,7 +222,7 @@ export function subscribeAttachmentIndexStatus(
 }
 
 /** Test helper — forget every status between cases. */
-export function resetAttachmentIndexStatus(): void {
+export function resetAttachmentIndexStatusForTest(): void {
   pollers.forEach(pause);
   pollers.clear();
   generation = null;

@@ -79,7 +79,7 @@ export function subscribeMountQueue(listener: Listener): () => void {
 }
 
 /** Test-only: reset all state between test cases. */
-export function resetWebViewMountQueue(): void {
+export function resetWebViewMountQueueForTest(): void {
   grantedTickets.clear();
   waitQueue.length = 0;
   nextTicketId = 1;

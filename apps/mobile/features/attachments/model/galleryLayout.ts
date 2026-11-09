@@ -17,4 +17,4 @@ export function peekGalleryLayout(): GalleryLayout {
   return layoutPref.peek() ?? "grid";
 }
 
-export const { get: getGalleryLayout, set: setGalleryLayout, reset: resetGalleryLayoutCache } = layoutPref;
+export const { get: getGalleryLayout, set: setGalleryLayout, reset: resetGalleryLayoutForTest } = layoutPref;
