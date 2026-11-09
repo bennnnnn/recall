@@ -1,5 +1,5 @@
-import { classifyFence } from "@/lib/fenceDispatch";
-import { fenceReportName, refusalOf } from "@/lib/fenceReports";
+import { classifyFence } from "@/lib/fence/dispatch";
+import { fenceReportName, refusalOf } from "@/lib/fence/reports";
 
 describe("refusalOf", () => {
   const kinds = { field: "type", known: ["circle", "sector"] };

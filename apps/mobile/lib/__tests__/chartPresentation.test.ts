@@ -1,4 +1,4 @@
-import { compactLabelExpr, presentChartSpec, withoutTemplateLiterals } from "@/lib/chartPresentation";
+import { compactLabelExpr, presentChartSpec, withoutTemplateLiterals } from "@/lib/chart/presentation";
 
 type Spec = Record<string, unknown>;
 const enc = (spec: Spec): Record<string, Record<string, unknown>> =>

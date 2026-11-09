@@ -4,7 +4,7 @@ import {
   looksLikeCode,
   looksLikeMathAnswer,
 } from "@/lib/copyBlock";
-import { shouldLiftFenceOutOfList } from "@/lib/fenceRegistry";
+import { shouldLiftFenceOutOfList } from "@/lib/fence/registry";
 import { isLoosePipeRow, isTableRow } from "@/lib/markdown/preprocessTables";
 import {
   closeInterruptedMathFences,
@@ -21,7 +21,7 @@ import {
   readFenceMarker,
   readFenceMarkerLoose,
   type OpenFence,
-} from "@/lib/mdFenceScan";
+} from "@/lib/fence/scan";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
 
 /**

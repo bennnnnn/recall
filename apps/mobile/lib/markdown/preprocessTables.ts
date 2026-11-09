@@ -6,10 +6,10 @@ import {
   looksLikeMathAnswer,
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
-import { allowsContentHeuristic } from "@/lib/fenceDispatch";
+import { allowsContentHeuristic } from "@/lib/fence/dispatch";
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { looksLikeMarkdownListProse } from "@/lib/markdown/preprocessNormalize";
-import { closesFence, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
+import { closesFence, mapClosedFences, readFenceMarker } from "@/lib/fence/scan";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
 
 /** A ```markdown / ```md / ```table fence that only holds a pipe table. */

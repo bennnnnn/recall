@@ -24,7 +24,7 @@ import { writeCachedUser } from "@/lib/cachedUser";
 import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { shareFailureKey } from "@/lib/share/unavailable";
 import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function DataControlsScreen() {

@@ -34,8 +34,8 @@ import {
   type AttachmentViewerImage,
 } from "@/features/attachments/model/imageViewer";
 import { useReduceMotion } from "@/lib/reduceMotion";
-import { shareOneAtATime } from "@/lib/shareFile";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { shareOneAtATime } from "@/lib/share/file";
+import { shareFailureKey } from "@/lib/share/unavailable";
 import { useTheme } from "@/lib/theme";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 

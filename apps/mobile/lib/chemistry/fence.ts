@@ -1,5 +1,5 @@
 /** Parse ```smiles / ```chemistry fence bodies into a SMILES string + optional caption. */
-import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences, mapClosedFences } from "@/lib/fence/scan";
 
 const MAX_SMILES_LENGTH = 500;
 

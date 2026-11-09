@@ -8,7 +8,7 @@ import {
 } from "@/features/attachments/model/downloadChatAttachment";
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
-import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { SharingUnavailableError } from "@/lib/share/unavailable";
 import { alertDialog } from "@/ui/overlay/dialogs";
 
 // One object, as the provider keeps it: a new getter per render re-runs every effect.
@@ -404,7 +404,7 @@ describe("AttachmentImageViewer", () => {
       expect(alertDialog).not.toHaveBeenCalled();
     });
 
-    // Android without expo-sharing (lib/shareFile.ts): Share, and Save's share-sheet fallback.
+    // Android without expo-sharing (lib/share/file.ts): Share, and Save's share-sheet fallback.
     it.each([
       ["a share", "common.share", shareChatAttachment],
       ["a save that fell back to sharing", "common.download", saveChatAttachmentToLibrary],

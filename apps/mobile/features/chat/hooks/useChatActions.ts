@@ -8,7 +8,7 @@ import { exportChatAsPdf, shareChatAsText } from "@/features/chat/model/chatExpo
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";
 import { useMessageFeedback } from "@/features/chat/hooks/useMessageFeedback";
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
-import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
+import { replaceFirstClosedFenceBody } from "@/lib/fence/scan";
 import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";

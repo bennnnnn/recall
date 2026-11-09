@@ -1,4 +1,4 @@
-import { isJsonRecord, parseJsonRecord } from "@/lib/jsonFence";
+import { isJsonRecord, parseJsonRecord } from "@/lib/fence/json";
 
 type ArithmeticOperation =
   | "addition"

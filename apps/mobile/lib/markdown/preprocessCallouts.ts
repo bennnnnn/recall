@@ -1,4 +1,4 @@
-import { fencedLines } from "@/lib/mdFenceScan";
+import { fencedLines } from "@/lib/fence/scan";
 import { citationAuthor, splitTrailingAttribution } from "@/lib/richBlocks";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).

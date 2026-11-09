@@ -1,5 +1,5 @@
 import { sanitizeEmailDraft } from "@/features/drafts/model/emailDraftSanitize";
-import { fenceIdForLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang } from "@/lib/fence/registry";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { parseGraphSpec } from "@/lib/math/graphSpec";
 
@@ -41,9 +41,9 @@ const EMAIL_TO_LABEL =
 const EMAIL_SUBJECT_LABEL =
   /^(?:subject|asunto|objet|betreff|oggetto|assunto|тема|konu|ርዕስ|dhimma|主题|件名|제목)\s*:\s*(.+)$/i;
 
-// Which langs are structured now lives in lib/fenceRegistry.ts, alongside the
+// Which langs are structured now lives in lib/fence/registry.ts, alongside the
 // other per-fence behaviour flags, so the lists cannot drift apart again.
-export { isStructuredFenceLang } from "@/lib/fenceRegistry";
+export { isStructuredFenceLang } from "@/lib/fence/registry";
 
 export function parseCalloutKind(lang: string): CalloutKind {
   const l = lang.trim().toLowerCase();

@@ -32,7 +32,7 @@ New chat-loop code belongs in `apps/api/app/modules/chat/`. Quota + prepare lock
 - Feature API slices use the shared request client and compose through `apps/mobile/lib/api.ts`
 - Tokens in `expo-secure-store` only
 - Screens stay dumb; logic in hooks (`useChat*`, `useMemoryDocuments`, auth context)
-- Rich fences: `lib/fenceRegistry.ts` + `components/rich/RichFence.tsx`
+- Rich fences: `lib/fence/registry.ts` + `components/rich/RichFence.tsx`
 
 ## In scope (current)
 

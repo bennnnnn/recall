@@ -28,7 +28,7 @@
  * after the cut must preprocess the same apart as together.
  */
 import { isAnswerLang, isExplicitCodeLang } from "@/lib/copyBlock";
-import { isMathFenceLang, isStructuredFenceLang } from "@/lib/fenceRegistry";
+import { isMathFenceLang, isStructuredFenceLang } from "@/lib/fence/registry";
 import { escapedAt } from "@/lib/markdown/inlineCode";
 import { isWorkedReply, OPENING_HEADINGS } from "@/lib/markdown/workoutSection";
 

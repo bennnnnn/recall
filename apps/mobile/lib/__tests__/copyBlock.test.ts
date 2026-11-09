@@ -8,8 +8,8 @@ import {
   shouldRenderAsCodeBlock,
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
-import { classifyFence, classifyOpenFencePreview } from "@/lib/fenceDispatch";
-import { isSendableFenceLang } from "@/lib/fenceRegistry";
+import { classifyFence, classifyOpenFencePreview } from "@/lib/fence/dispatch";
+import { isSendableFenceLang } from "@/lib/fence/registry";
 import { unwrapNonCodeFences } from "@/lib/markdown/preprocessTables";
 
 const previewsAsAnswer = (lang: string, body: string) => classifyOpenFencePreview(lang, body) === "answer";

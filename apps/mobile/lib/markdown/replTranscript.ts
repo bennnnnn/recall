@@ -9,7 +9,7 @@
  * fences, so a transcript ends where a fence starts.
  */
 
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 
 const PROMPT = /^[ \t]{0,3}>>>(?:[ \t]|$)/;
 

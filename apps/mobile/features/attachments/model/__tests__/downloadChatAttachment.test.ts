@@ -4,8 +4,8 @@ import { shareAsync } from "expo-sharing";
 import { Platform, Share } from "react-native";
 
 import { downloadAttachmentFile } from "@/features/attachments/model/fetchAttachmentBytes";
-import { shareOneAtATime } from "@/lib/shareFile";
-import { ShareInProgressError } from "@/lib/shareUnavailable";
+import { shareOneAtATime } from "@/lib/share/file";
+import { ShareInProgressError } from "@/lib/share/unavailable";
 import {
   ensureLocalAttachmentFile,
   getCachedAttachmentFile,

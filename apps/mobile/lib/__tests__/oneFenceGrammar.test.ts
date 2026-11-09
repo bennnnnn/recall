@@ -1,5 +1,5 @@
 /**
- * Structural guard: code fences are read with one grammar (`lib/mdFenceScan.ts`).
+ * Structural guard: code fences are read with one grammar (`lib/fence/scan.ts`).
  *
  * Line loops flipped a flag on every ``` line, regexes closed a fence on the first
  * ``` anywhere, and seven files wrote the closer rule out again, so a ``` shown inside
@@ -10,7 +10,7 @@
 
 import { appFiles, isTest, readSource, relative } from "@/lib/__tests__/support/sourceFiles";
 
-const OWNER = "lib/mdFenceScan.ts";
+const OWNER = "lib/fence/scan.ts";
 
 /** `file: line` → why that line may read a fence by hand. */
 const ALLOWED: Record<string, string> = {

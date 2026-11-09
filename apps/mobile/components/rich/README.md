@@ -2,12 +2,12 @@
 
 A reply's fenced block (```` ```quiz ````, ```` ```graph ````, ```` ```simulation ````, …) is drawn by
 one block component here. Which tags are fences, and how each one behaves everywhere else in the
-app, is declared once in `lib/fenceRegistry.ts`. Read its header before adding a fence: the set is
+app, is declared once in `lib/fence/registry.ts`. Read its header before adding a fence: the set is
 frozen unless the thing the user sees is truly new.
 
 ## Adding a fence
 
-1. **One row in `FENCES`** (`lib/fenceRegistry.ts`). `FenceId` is read off the table. The row
+1. **One row in `FENCES`** (`lib/fence/registry.ts`). `FenceId` is read off the table. The row
    decides, for every path at once:
    - `langs`: every tag that resolves to it.
    - `structured` / `neverCodeBlock`: whether it reaches the rich renderer, and whether it may
@@ -25,7 +25,7 @@ frozen unless the thing the user sees is truly new.
    validate the body in a pure, unit-tested reader under `lib/<domain>/`, never in the component;
    a body that does not parse never shows as raw JSON. A block that refuses its body says so with
    `useFenceRefused(id, content, refused, shape)`: Sentry gets the fence id and a reason code
-   (`lib/fenceReports.ts`), rate-limited, never the body. A crash while it draws is reported by
+   (`lib/fence/reports.ts`), rate-limited, never the body. A crash while it draws is reported by
    `FenceErrorBoundary`, tagged the same way. A block that pulls in a
    WebView, Skia or a large library is exported lazily from `LazyHeavyRich.tsx` with
    `lazyContentBlock(() => import(...), <placeholder height>)`.
@@ -35,7 +35,7 @@ frozen unless the thing the user sees is truly new.
    fence types without an explicit contract change", the render-slot table): add the new id
    there, plus the reader's unit tests and a render test for the block.
 
-Nothing else lists fences: dispatch (`lib/fenceDispatch.ts`), the open streaming tail, the code
+Nothing else lists fences: dispatch (`lib/fence/dispatch.ts`), the open streaming tail, the code
 card, copy, read aloud and the crash fallback all read the row. Only a fence whose copy and
 spoken text are built from its body (a quiz, an array, an answer) adds that reader to
 `lib/markdown/plain.ts`. A server-owned fence also needs

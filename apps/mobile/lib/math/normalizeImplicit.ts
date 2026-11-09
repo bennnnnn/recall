@@ -4,7 +4,7 @@
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
 import { readGroup } from "@/lib/math/latexGroups";
 import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@/lib/math/proseDollars";
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;

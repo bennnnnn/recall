@@ -1,4 +1,4 @@
-import { mermaidTitleKey } from "@/lib/mermaidKind";
+import { mermaidTitleKey } from "@/lib/mermaid/kind";
 
 describe("mermaidTitleKey", () => {
   it.each([

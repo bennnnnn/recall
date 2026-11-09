@@ -39,7 +39,6 @@ const setInput = jest.fn((next: string | ((prev: string) => string)) => {
   input = typeof next === "function" ? next(input) : next;
 });
 const openUpgrade = jest.fn();
-const openUpgradeRef = { current: openUpgrade };
 const plusUser = { plan: "plus", features: ["speech_transcription"] } as unknown as User;
 const freeUser = { plan: "free", features: [] } as unknown as User;
 let current: ReturnType<typeof useComposerDictation>;
@@ -50,7 +49,7 @@ function Probe({ routeChatId, user = plusUser }: { routeChatId?: string; user?: 
     user,
     routeChatId,
     setInput,
-    openUpgradeRef,
+    openUpgrade,
     t: (key) => key,
   });
   useLayoutEffect(() => { current = result; });

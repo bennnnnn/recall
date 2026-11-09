@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { type AccountDeleteOutcome, useAccountDelete } from "@/hooks/useAccountDelete";
 import { api } from "@/lib/api";
 import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
-import { shareOneAtATime } from "@/lib/shareFile";
+import { shareOneAtATime } from "@/lib/share/file";
 
 type DataControlsProgress = "idle" | "exporting" | "deleting";
 

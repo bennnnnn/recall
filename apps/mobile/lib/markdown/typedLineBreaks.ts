@@ -6,7 +6,7 @@
  * Each single newline in prose becomes a hard break. Blank lines (paragraphs) and fenced
  * code are left as they are.
  */
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 
 const SOFT_BREAK = /([^\n])[ \t]*\n(?=[^\n])/g;
 

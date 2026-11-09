@@ -14,8 +14,8 @@ import type { PendingAttachment } from "@/features/attachments/model/attachments
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { isReadableTextContentType } from "@/features/attachments/model/gallery";
 import { isPdfContentType } from "@/lib/messageAttachments";
-import { shareLocalFile } from "@/lib/shareFile";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { shareLocalFile } from "@/lib/share/file";
+import { shareFailureKey } from "@/lib/share/unavailable";
 import { alertDialog } from "@/ui/overlay/dialogs";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

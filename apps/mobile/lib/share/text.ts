@@ -1,6 +1,6 @@
 import { Platform, Share } from "react-native";
 
-import { isShareCancelled } from "@/lib/shareCancelled";
+import { isShareCancelled } from "@/lib/share/cancelled";
 
 /**
  * Android hands shared text to the next app inside the share intent, which crosses the 1 MB
@@ -19,7 +19,7 @@ async function shareAsTextFile(text: string, title: string): Promise<void> {
   const [fs, { documentFileName, newShareFile }, { shareLocalFile }] = await Promise.all([
     import("expo-file-system/legacy"),
     import("@/lib/accountFiles"),
-    import("@/lib/shareFile"),
+    import("@/lib/share/file"),
   ]);
   const { file } = await newShareFile(documentFileName(title, "txt"));
   await fs.writeAsStringAsync(file, text, { encoding: fs.EncodingType.UTF8 });

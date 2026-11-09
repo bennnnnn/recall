@@ -7,7 +7,7 @@ import {
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
 } from "@/lib/math/text";
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 
 // A backslash immediately followed by an ASCII punctuation character —
 // CommonMark's own escapable set (matches markdown-it's rules_inline/escape.mjs).

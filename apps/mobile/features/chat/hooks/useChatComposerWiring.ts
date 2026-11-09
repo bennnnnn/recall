@@ -19,8 +19,9 @@ type Options = {
   ensureChatId: () => Promise<string | null>;
   editThread: EditThread;
   isOffline: boolean;
-  /** Bound once the render commits (ChatScreen): read when needed. */
-  openUpgradeRef: MutableRefObject<((source?: UpgradeSource) => void) | null>;
+  /** Opens the plans: a plan without dictation or live talk. */
+  openUpgrade: (source: UpgradeSource) => void;
+  /** Bound once the render commits (ChatScreen): useChat calls it before the title poll exists. */
   onFirstReplyRef: MutableRefObject<(id?: string | null) => Promise<void>>;
   t: (key: string) => string;
 };
@@ -31,7 +32,7 @@ type Options = {
  * take. ChatScreen lays them out; this hook wires them (structure ticket ST-08).
  */
 export function useChatComposerWiring({
-  token, user, routeChatId, chatId, send, scroll, ensureChatId, editThread, isOffline, openUpgradeRef,
+  token, user, routeChatId, chatId, send, scroll, ensureChatId, editThread, isOffline, openUpgrade,
   onFirstReplyRef, t,
 }: Options) {
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
@@ -50,7 +51,7 @@ export function useChatComposerWiring({
     voiceMeterLevel,
     toggleVoiceInput: handleToggleVoiceInput,
     cancelVoiceInput,
-  } = useComposerDictation({ token, user, routeChatId, setInput: send.setInput, openUpgradeRef, t });
+  } = useComposerDictation({ token, user, routeChatId, setInput: send.setInput, openUpgrade, t });
 
   // A chat that cannot be made is null: live talk then says so and does not start, since
   // a call with nowhere to save its turns spent minutes and kept nothing.
@@ -61,7 +62,7 @@ export function useChatComposerWiring({
     ensureChatId: ensureLiveTalkChatId,
     editThread,
     isOffline,
-    onUpgrade: () => openUpgradeRef.current?.("live_talk"),
+    onUpgrade: () => openUpgrade("live_talk"),
     onScrollToLatest: scroll.scrollToLatest,
     newMessageCountRef: scroll.newMessageCountRef,
     onFirstReply: (id?: string | null) => {

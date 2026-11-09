@@ -6,7 +6,7 @@ import {
   writeAsStringAsync,
 } from "expo-file-system/legacy";
 
-import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { SharingUnavailableError } from "@/lib/share/unavailable";
 
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "/cache/",
@@ -19,11 +19,11 @@ jest.mock("react-native", () => ({
   Share: { share: jest.fn() },
 }));
 
-jest.mock("@/lib/shareFile", () => ({ shareLocalFile: jest.fn() }));
+jest.mock("@/lib/share/file", () => ({ shareLocalFile: jest.fn() }));
 
 import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
 
-const { shareLocalFile } = jest.requireMock<typeof import("@/lib/shareFile")>("@/lib/shareFile");
+const { shareLocalFile } = jest.requireMock<typeof import("@/lib/share/file")>("@/lib/share/file");
 
 describe("formatExportJsonForShare", () => {
   it("pretty-prints small valid JSON", () => {

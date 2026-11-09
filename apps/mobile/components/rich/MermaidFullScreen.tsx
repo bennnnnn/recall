@@ -10,7 +10,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
-import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaidPreviewHtml";
+import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaid/previewHtml";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";

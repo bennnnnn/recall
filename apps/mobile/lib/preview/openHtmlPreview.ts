@@ -2,7 +2,7 @@ import { writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 import * as WebBrowser from "expo-web-browser";
 import { Linking } from "react-native";
 import { documentFileName, newShareFile } from "@/lib/accountFiles";
-import { shareLocalFile } from "@/lib/shareFile";
+import { shareLocalFile } from "@/lib/share/file";
 import { stripScripts } from "@/lib/preview/htmlScriptStrip";
 import { HTML_EXPORT_CSP, cspMetaTag, injectAtHeadStart } from "@/lib/preview/previewSandbox";
 import type { Theme } from "@/lib/theme";

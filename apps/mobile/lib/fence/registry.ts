@@ -5,7 +5,7 @@
  * maintained language lists — `STRUCTURED_LANGS` in richBlocks.ts, the
  * code-block exclusions and copy-block list in copyBlock.ts, the pre-dispatch
  * lists in markdownFenceRender.tsx, and the crash-path classifier in
- * fallbackFence.ts. They had already drifted: `sources` and `copy` were known
+ * fence/fallback.ts. They had already drifted: `sources` and `copy` were known
  * to copyBlock alone, while 18 langs including `chart`, `mermaid` and `steps`
  * were known only to richBlocks.
  *
@@ -404,7 +404,7 @@ export function fenceIdForLang(lang: string): FenceId | null {
 
 /**
  * Tags that say nothing of the body: none, or one that only means "plain text". With these
- * (and ```copy) the body decides what draws (lib/fenceDispatch.ts).
+ * (and ```copy) the body decides what draws (lib/fence/dispatch.ts).
  */
 const PLAIN_TEXT_LANGS: ReadonlySet<string> = new Set(["", "text", "plain", "clike"]);
 

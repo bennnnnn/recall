@@ -8,8 +8,8 @@
  * it. This reader is lenient where the server already normalised, and strict where a wrong
  * shape would draw a broken card.
  */
-import { parseJsonRecord } from "@/lib/jsonFence";
-import { collectClosedFenceBodies } from "@/lib/mdFenceScan";
+import { parseJsonRecord } from "@/lib/fence/json";
+import { collectClosedFenceBodies } from "@/lib/fence/scan";
 
 export type ClarifyQuestion = {
   id: string;

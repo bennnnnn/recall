@@ -4,7 +4,7 @@
  * instead of Vega-Lite drew "JSON Parse error" in the bubble; both now draw.
  */
 
-import { isJsonRecord as isRecord } from "@/lib/jsonFence";
+import { isJsonRecord as isRecord } from "@/lib/fence/json";
 
 export type JsonRecord = Record<string, unknown>;
 

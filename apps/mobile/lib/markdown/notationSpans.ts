@@ -7,7 +7,7 @@
  * Twin of apps/api/app/modules/chat/notation_spans.py; docs/fixtures/presentation_cases.json
  * holds both to the same output.
  */
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { applyOutsideFences } from "@/lib/fence/scan";
 
 const CHARSET = /^[A-Za-z0-9@+\-[\]()=#%/\\.]+$/;
 const LETTERS = /[A-Za-z]+/g;

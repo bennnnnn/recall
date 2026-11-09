@@ -1,8 +1,8 @@
 import { shareAsync } from "expo-sharing";
 import { Platform, Share } from "react-native";
 
-import { resetShareGuard, shareLocalFile, shareOneAtATime, shareRoute } from "@/lib/shareFile";
-import { ShareInProgressError, shareFailureKey, SharingUnavailableError } from "@/lib/shareUnavailable";
+import { resetShareGuard, shareLocalFile, shareOneAtATime, shareRoute } from "@/lib/share/file";
+import { ShareInProgressError, shareFailureKey, SharingUnavailableError } from "@/lib/share/unavailable";
 
 jest.mock("react-native", () => ({
   Platform: { OS: "ios" },

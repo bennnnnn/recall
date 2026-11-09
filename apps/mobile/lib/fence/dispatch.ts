@@ -27,7 +27,7 @@ import {
   isDataBodyFenceId,
   isMathDiagramLang,
   isPlainTextFenceLang,
-} from "@/lib/fenceRegistry";
+} from "@/lib/fence/registry";
 import {
   isMathFenceInterruptLine,
   looksLikeLatexFence,

@@ -3,7 +3,7 @@
  * read-aloud and a shared chat say what the screen shows and never a quiz's answer.
  */
 
-import { isUnfinishedJson } from "@/lib/jsonFence";
+import { isUnfinishedJson } from "@/lib/fence/json";
 import {
   type ArrayFence,
   arrayText,

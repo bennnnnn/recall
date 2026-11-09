@@ -1,7 +1,7 @@
 import { ApiRequestError, isServiceUnavailable } from "@/lib/api/errorBody";
 import { isServerUnreachable } from "@/lib/api/deadline";
 import { MAX_ATTACHMENT_MEGABYTES } from "@/features/attachments/model/attachmentLimits";
-import { shareFailureKey } from "@/lib/shareUnavailable";
+import { shareFailureKey } from "@/lib/share/unavailable";
 
 /** Why an attachment could not be picked or uploaded. Each reason has one message. */
 export type AttachmentFailure =

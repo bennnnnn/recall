@@ -3,7 +3,7 @@ import {
   CHART_MAX_HEIGHT,
   CHART_MIN_HEIGHT,
   CHART_PREVIEW_HEIGHT,
-} from "@/lib/chartPreviewHeight";
+} from "@/lib/chart/previewHeight";
 
 const {
   clamp: clampChartPreviewHeight,

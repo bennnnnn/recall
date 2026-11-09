@@ -3,7 +3,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import DataControlsScreen from "@/features/account/screens/DataControlsScreen";
 import fixture from "../../../../../../docs/fixtures/error_codes.json";
-import { SharingUnavailableError } from "@/lib/shareUnavailable";
+import { SharingUnavailableError } from "@/lib/share/unavailable";
 import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
 
 const mockUpdateUser = jest.fn();
@@ -178,7 +178,7 @@ it.each([
   await waitFor(() => expect(mockReportError).toHaveBeenCalledWith(null, words));
 });
 
-// A build without expo-sharing on Android (lib/shareFile.ts): an update is the fix, not "failed".
+// A build without expo-sharing on Android (lib/share/file.ts): an update is the fix, not "failed".
 it("says to update the app when this build cannot share the export file", async () => {
   mockConfirm.mockResolvedValue(true);
   mockExport.mockRejectedValueOnce(new SharingUnavailableError());

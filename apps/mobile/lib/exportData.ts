@@ -8,7 +8,7 @@ import { Share } from "react-native";
 
 import { newAccountFile } from "@/lib/accountFiles";
 import { localDayKey } from "@/lib/datetime/dayKey";
-import { shareLocalFile } from "@/lib/shareFile";
+import { shareLocalFile } from "@/lib/share/file";
 
 const EXPORT_TITLE = "recall-export.json";
 

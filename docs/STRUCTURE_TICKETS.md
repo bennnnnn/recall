@@ -62,7 +62,7 @@ Each ticket's PR runs these before and after and shows the diff is empty:
 | Files calling `setMessages` | 10 | 9: `features/chat/hooks/useChat`, `useChatActions`, `useChatPaging`, `useChatRouteLoader`, `useChatSend`, `useRestoreFailedSend`, `features/chat/model/chatTurnEffects`, `features/images/hooks/useImageGeneration`, `features/speech/hooks/useLiveTalk` | |
 | Flat `lib/` files | 155 (about 35 feature code) | 155 | `lib/*.ts(x)` |
 | Phone functions over 100 lines | 121 | 128 | #2157 baseline |
-| Fence lists outside `fenceRegistry` | 4 files | 3: `lib/markdown/document.ts:20-56` (its own `DocumentBlock` union and ids), `lib/markdown/plain.ts:416-420` (quiz, clarify), `lib/fenceDispatch.ts:97` (geometry, graph JSON kinds). `lib/copyBlock.ts` reads the registry. | |
+| Fence lists outside `fenceRegistry` | 4 files | 3: `lib/markdown/document.ts:20-56` (its own `DocumentBlock` union and ids), `lib/markdown/plain.ts:416-420` (quiz, clarify), `lib/fence/dispatch.ts:97` (geometry, graph JSON kinds). `lib/copyBlock.ts` reads the registry. | |
 | mypy strict | core, gateways, billing, todos, memory | the same, plus `models.schemas`, `repositories`, `services.quota`, three attachments files; not chat, math, physics or chemistry (145,460 lines) | `apps/api/pyproject.toml:130` |
 | CI | one pytest job, 45 min | one `test` job, `timeout-minutes: 45`, plain `pytest --cov` with no workers; the STEM and behaviour sweeps run inside it | `.github/workflows/api-ci.yml:55,61,120` |
 
@@ -675,7 +675,7 @@ components get the same props.
 - **Problem:** `lib/` has 155 flat files, about 35 of them feature code (billing, notifications,
   auth, places, chat streaming). Billing, notifications, the maths scanner and the HTML preview
   have no feature folder, so the boundary test can't see them. Three files keep fence lists beside
-  `lib/fenceRegistry.ts` (table above).
+  `lib/fence/registry.ts` (table above).
 - **Change:**
   - Move each feature's files to `features/<name>/` (billing, notifications, scanner, preview,
     places). Leave re-export shims for one release only if a native module path needs it.
@@ -706,7 +706,7 @@ components get the same props.
   `plainReader` (the bodies copy and read-aloud draw with their own reader: worked lines, quiz,
   clarify, array), `inDocument` (a card's label in a shared document, or its copy text) and
   `bareJson` (geometry and graph draw from a ```json fence of their JSON). `plain.ts`,
-  `document.ts` and `fenceDispatch.ts` read them; the renderers stay in their files. Proven
+  `document.ts` and `fence/dispatch.ts` read them; the renderers stay in their files. Proven
   identical on 3,328 replies (the behaviour sweep's plus every such fence the tests use, alone,
   in prose and in a list): 9,890 document, copy and speech outputs and 126 dispatch decisions.
   The other fence-id lists read rows too: the drafts (`draft`: email, message, social), the

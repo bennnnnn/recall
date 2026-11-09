@@ -1,6 +1,6 @@
 /** Parse a server-owned ```chem_scene fence. Invalid JSON draws nothing. */
 
-import { isJsonRecord, parseJsonRecord } from "@/lib/jsonFence";
+import { isJsonRecord, parseJsonRecord } from "@/lib/fence/json";
 
 type BalanceRow = { element: string; left: number; right: number };
 

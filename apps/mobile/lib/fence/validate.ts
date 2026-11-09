@@ -6,7 +6,7 @@
  * fence unreadable (null), never half a picture.
  */
 
-import { isJsonRecord } from "@/lib/jsonFence";
+import { isJsonRecord } from "@/lib/fence/json";
 
 class Refused extends Error {}
 

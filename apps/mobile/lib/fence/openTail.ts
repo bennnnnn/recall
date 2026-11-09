@@ -4,7 +4,7 @@
  * does not re-tokenize a growing open fence every throttle tick.
  */
 
-import { readFenceMarker, type OpenFence } from "@/lib/mdFenceScan";
+import { readFenceMarker, type OpenFence } from "@/lib/fence/scan";
 
 type OpenStreamScan = {
   openFence: OpenFence | null;

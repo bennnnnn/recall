@@ -1,7 +1,7 @@
 /**
  * Chart block — renders ```chart / ```vega / ```vega-lite / ```plot fences
  * inline via WebView + Vega-Embed so the user sees the actual chart, not raw JSON.
- * A body it cannot draw (lib/chartSpec.ts), or one the page drew nothing for, shows
+ * A body it cannot draw (lib/chart/spec.ts), or one the page drew nothing for, shows
  * ChartFallback: a note and the chart's data as a table. The card has no source, copy
  * or editor buttons: its only control is expand, on a chart taller than the card.
  */
@@ -16,9 +16,9 @@ import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { CHART_PAGE, chartPreviewConfig } from "@/lib/chartPreviewHtml";
-import { CHART_HEIGHT_EPSILON_PX, CHART_PREVIEW_HEIGHT } from "@/lib/chartPreviewHeight";
-import { readChart } from "@/lib/chartSpec";
+import { CHART_PAGE, chartPreviewConfig } from "@/lib/chart/previewHtml";
+import { CHART_HEIGHT_EPSILON_PX, CHART_PREVIEW_HEIGHT } from "@/lib/chart/previewHeight";
+import { readChart } from "@/lib/chart/spec";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";

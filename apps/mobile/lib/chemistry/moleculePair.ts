@@ -6,8 +6,8 @@
  * into one ```molecule JSON fence so the UI mounts a single card.
  */
 import { parseChemistryFence, readSmiles } from "@/lib/chemistry/fence";
-import { fenceIdForLang } from "@/lib/fenceRegistry";
-import { scanFences, type FenceSpan } from "@/lib/mdFenceScan";
+import { fenceIdForLang } from "@/lib/fence/registry";
+import { scanFences, type FenceSpan } from "@/lib/fence/scan";
 
 type MoleculeFence = {
   smiles: string;

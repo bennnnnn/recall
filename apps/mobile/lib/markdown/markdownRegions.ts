@@ -5,7 +5,7 @@
  */
 
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
-import { closesFence, readFenceMarker, type OpenFence } from "@/lib/mdFenceScan";
+import { closesFence, readFenceMarker, type OpenFence } from "@/lib/fence/scan";
 
 /** Restaurant price tiers, ($) to ($$$$), are not maths. */
 export const PRICE_TIER = /\(\s*\$+\s*\)/;

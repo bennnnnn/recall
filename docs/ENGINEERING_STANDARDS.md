@@ -73,7 +73,7 @@ designed and a long one can be justified. What CI can check reliably, it checks 
   `docs/fixtures/live_answer_cases.json`.
 - A new subject (biology) is a new module with its own catalog, extractors, solvers, fence and
   STEM corpus folder, plugged in at the existing seams (its adapter in the subject registry,
-  `services/subjects/registry.py`; its step in the subject order; `lib/fenceRegistry.ts`). It
+  `services/subjects/registry.py`; its step in the subject order; `lib/fence/registry.ts`). It
   needs no edits inside another subject.
 
 ## Size and shape
