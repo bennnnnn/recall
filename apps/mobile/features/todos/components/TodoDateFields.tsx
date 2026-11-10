@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type Ref } from "react";
+import { createContext, useContext, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Keyboard, Pressable, Text, View, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -106,7 +106,7 @@ export function TodoDateFields({
   if (review) {
     return (
       <>
-      <View style={s.reviewList}>
+      <ReviewList removeColumn={due != null}>
         <ReviewRow
           icon="calendar"
           label={t("todos.date_label")}
@@ -159,7 +159,7 @@ export function TodoDateFields({
             </Text>
           </View>
         ) : null}
-      </View>
+      </ReviewList>
       <SelectMenu
         visible={remindOpen}
         anchorRef={remindRowRef}
@@ -284,6 +284,7 @@ function ReviewRow({
 }) {
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
+  const column = useContext(RemoveColumn);
   const row = (
     <ListRow
       ref={ref}
@@ -297,14 +298,32 @@ function ReviewRow({
       disabled={disabled}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
-      style={onRemove ? s.fieldGrow : undefined}
+      style={onRemove || column ? s.fieldGrow : undefined}
     />
   );
-  if (!onRemove) return row;
+  if (!onRemove && !column) return row;
   return (
     <View style={s.dateRow}>
       {row}
-      <RemoveButton label={removeLabel} disabled={disabled} onPress={onRemove} />
+      {onRemove
+        ? <RemoveButton label={removeLabel} disabled={disabled} onPress={onRemove} />
+        : <View style={s.removeSlot} />}
     </View>
+  );
+}
+
+/**
+ * Set while a row of the list can show a remove button (the to-do has a date): every row then
+ * keeps that column, empty where it has none, so the values line up down the page.
+ */
+const RemoveColumn = createContext(false);
+
+function ReviewList({ removeColumn, children }: { removeColumn: boolean; children: ReactNode }) {
+  const C = useTheme();
+  const s = useMemo(() => makeTodosStyles(C), [C]);
+  return (
+    <RemoveColumn.Provider value={removeColumn}>
+      <View style={s.reviewList}>{children}</View>
+    </RemoveColumn.Provider>
   );
 }

@@ -143,12 +143,10 @@ export function makeTodosStyles(C: Theme) {
     },
     formLabel: { ...Type.label, color: C.textSecondary },
     fieldGap: { marginTop: Space.md },
-    dateRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-    },
+    dateRow: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     fieldGrow: { flex: 1 },
+    /** The width of a row's remove button, kept empty on rows without one. */
+    removeSlot: { width: Space.minTouch },
     todoRowSelected: { backgroundColor: C.primaryLight },
     olderFooter: {
       alignItems: "center",
