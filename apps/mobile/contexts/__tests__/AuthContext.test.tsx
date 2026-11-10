@@ -173,6 +173,20 @@ it("does not roll back a new account when the previous account's profile update 
   expect(current.user?.id).toBe(userB.id);
 });
 
+it("rejects a failed profile save even when a newer save owns the user by then", async () => {
+  // It resolved, so a place it carried counted as saved though the server never got it
+  // (review, 2026-11-09).
+  await mount();
+  const first = deferred<User>();
+  (api.updateMe as jest.Mock).mockReturnValueOnce(first.promise).mockResolvedValueOnce(userA);
+  let older!: Promise<void>;
+  await act(async () => { older = current.updateUser({ location: "Oakland, CA" }); });
+  await act(async () => { await current.updateUser({ name: "Edited" }); });
+  const outcome = older.then(() => "saved", () => "failed");
+  await act(async () => { first.reject(new Error("offline")); });
+  await expect(outcome).resolves.toBe("failed");
+});
+
 it("keeps the latest sign-in when an older sign-in completes last", async () => {
   await mount();
   const older = deferred<{ access_token: string; refresh_token: string; user: User }>();

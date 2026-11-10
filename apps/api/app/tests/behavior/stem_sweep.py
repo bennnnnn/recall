@@ -425,13 +425,16 @@ def _solution_out_of_place(prose: str, required: int, formula: int) -> bool:
     return at >= 0 and not required < at < formula
 
 
-def check_shape(entry: Entry, reply: str, subject: str = "physics") -> list[Problem]:
-    """A worked reply's sections and notation; maths replies are checked for notation only."""
+def check_shape(
+    entry: Entry, reply: str, subject: str = "physics", written: str | None = None
+) -> list[Problem]:
+    """A worked reply's sections and notation; maths replies are checked for notation only.
+    ``written``: the reply as the solver wrote it, before the finalize passes."""
     problems: list[Problem] = []
     # A formula is headed by its name ("**Constant acceleration formula**"): its Formula.
     prose = as_formula_heading(_prose(reply))
     if subject == "physics":
-        problems.extend(_physics_working(_prose(reply)))
+        problems.extend(_physics_working(_prose(reply), _prose(written or reply)))
     sections = _SECTIONS.get(subject, ())
     positions = [_section_at(prose, names) for names in sections]
     missing = [names[0] for names, at in zip(sections, positions, strict=True) if at < 0]
@@ -459,9 +462,10 @@ _FIRST_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 _ROW = re.compile(r"\$([^$]+)\$")
 
 
-def _physics_working(prose: str) -> list[Problem]:
+def _physics_working(prose: str, written: str) -> list[Problem]:
     """What a learner reads: the law by name, each given once, the arithmetic to its end,
-    one Answer label."""
+    one Answer label. The solver carries the arithmetic to the value (``written``); the
+    saved reply then says that value once, in its card (``worked_lead.drop_restated_step``)."""
     problems: list[Problem] = []
     if "**Formula**" in prose:
         problems.append(Problem("shape", "Formula heading instead of the law's name"))
@@ -478,7 +482,7 @@ def _physics_working(prose: str) -> list[Problem]:
         problems.append(Problem("shape", f"given twice: {', '.join(repeated)}"))
     # Each part's working ends on a value: no operation left in its last row (a unit's "/"
     # is none).
-    for substitution in prose.split("**Substitution**")[1:]:
+    for substitution in written.split("**Substitution**")[1:]:
         rows = _ROW.findall(substitution.split("**Answer", 1)[0])
         last = re.sub(r"\\(?:mathrm|text)\{[^}]*\}", "", rows[-1].split("=")[-1]) if rows else ""
         if re.search(r"\\frac|\\cdot|\\sqrt|\\sin|\\cos|\\tan|[+*/]", last):
@@ -548,7 +552,8 @@ def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
     return kinds, problems
 
 
-def judge(entry: Entry, subject: str, route: Route) -> Outcome:
+def judge(entry: Entry, subject: str, route: Route, written: str = "") -> Outcome:
+    """``route`` judged as the student reads it; ``written`` is its reply before finalizing."""
     outcome = Outcome(entry=entry, route=route, reply=route.instant_text)
     problems = outcome.problems
     if route.photo:
@@ -599,7 +604,7 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
     outcome.got, answer_problems = check_answer(entry, subject, route.instant_text)
     problems.extend(answer_problems)
     if route.subject == subject:
-        problems.extend(check_shape(entry, route.instant_text, subject))
+        problems.extend(check_shape(entry, route.instant_text, subject, written or None))
     problems.extend(Problem("latex", text) for text in latex_problems(route.instant_text))
     outcome.visuals, visual_problems = check_visuals(route.instant_text)
     problems.extend(visual_problems)
@@ -613,11 +618,12 @@ async def run_entry(entry: Entry, subject: str) -> Outcome:
         entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history, locale=entry.locale
     )
     route = await route_case(case)
+    written = route.instant_text
     if route.instant_text:
         # The reply the student reads is the one that saves: the finalize passes held its
         # cards to the verified result, and a question in parts lost every card there.
         route.instant_text = await saved_reply(route)
-    return judge(entry, subject, route)
+    return judge(entry, subject, route, written)
 
 
 async def run(entries: list[Entry], subject: str) -> list[Outcome]:

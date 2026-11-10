@@ -99,6 +99,9 @@ NO_SEARCH_AREAS = {
 # Turns that answer the clarify card before them: they never ask again.
 AFTER_CARD_AREAS = {"clarify answer"}
 STEM_AREAS = {"math", "physics", "chemistry"}
+# A places ask the user's own location answers, whatever other capital it holds ("coffee
+# shops nearby, answer in Spanish"): the near-you list's hint is in the prompt.
+NEAR_USER_AREAS = {"places near user"}
 # Messages with separate requests, and look-alikes that are one request.
 MULTI_AREAS = {"multi"}
 SINGLE_PART_AREAS = {"multi lookalike"}
@@ -151,6 +154,8 @@ LOOKALIKE_HINTS = {
     "forget lookalike": "memory_forget",
     # "How do I stop mentioning my ex in every conversation?" asks for advice.
     "mute lookalike": "memory_mute",
+    # "The best restaurants in Addis Ababa" names its place: no near-you places card.
+    "places lookalike": "local_places",
 }
 # "Fix my code", "is my answer right?", "oh my god": a "my" that names nothing of the
 # user's life (an idiom, or the text the message hands over) reads no personal memory.
@@ -441,7 +446,6 @@ async def _run_entry(entry: Entry) -> Outcome:
             usage={},
             outcome=TurnOutcome(),
             was_cancelled=False,
-            assistant_parts=[entry.reply],
             should_cancel=None,
         )
     outcome.problems = (
@@ -483,6 +487,8 @@ def judge(outcome: Outcome) -> list[str]:
         problems.append("not read as more than one request")
     if entry.area in SINGLE_PART_AREAS and "multi_intent" in route.hints:
         problems.append("split into separate requests")
+    if entry.area in NEAR_USER_AREAS and "local_places" not in route.hints:
+        problems.append("not read as places near the user")
     return problems
 
 

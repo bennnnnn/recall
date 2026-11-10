@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react-native";
 import { MathText } from "@/components/rich/MathText";
 import { FRAC_SIZE_RATIO, layoutMath, SCRIPT_RATIO } from "@/lib/math/layout";
 import { findLayouts, layoutProblems } from "./layoutChecks";
-import { expectFormulaBox } from "./support/mathInk";
+import { expectFormulaBox, readLine, type Element } from "./support/mathInk";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";
@@ -80,6 +80,51 @@ describe("MathText", () => {
     );
     expect(getByTestId("math-upright-run")).toHaveTextContent("m/s²");
     expect(queryByText(/\^/)).toBeNull();
+  });
+
+  it.each([
+    [String.raw`y = \ln{\left(x^{2} + 1 \right)}`, "y = ln(x² + 1)"],
+    [String.raw`\int x \sin{\left(x \right)}\,dx`, "∫ x sin(x) dx"],
+    [String.raw`\sin^{2}{\left(x \right)}`, "sin²(x)"],
+    [String.raw`\left(x^{2} + 1 \right)^{2}`, "(x² + 1)²"],
+  ])("draws SymPy's bracketed argument once, with no space inside: %s", async (latex, drawn) => {
+    // Every function SymPy prints braces its argument: `\ln{\left(…\right)}` drew
+    // "ln((x² + 1 ))", and its `x \right)` a space before the bracket.
+    const { toJSON } = await render(<MathText latex={latex} />);
+    expect(readLine(toJSON() as Element)).toBe(drawn);
+  });
+
+  it("keeps a fraction's braced denominator: `\\frac` takes no function argument", async () => {
+    const { getByTestId } = await render(<MathText latex={String.raw`\frac{1}{\left(x+1\right)}`} />);
+    expect(getByTestId("math-frac")).toBeOnTheScreen();
+  });
+
+  it("draws a formula's subscripts as scripts in an upright run, a unit's ² as its glyph", async () => {
+    // The fallback face's ₆ sat below the line in the answer card's M(C₆H₁₂O₆).
+    const { getAllByTestId, queryByText } = await render(
+      <MathText latex={String.raw`M(\mathrm{C₆H₁₂O₆}) = 180.16\,\mathrm{g/mol}`} />,
+    );
+    const scripts = getAllByTestId("math-script").map((node) => [node.props.children].flat().join(""));
+    expect(scripts).toEqual(["6", "12", "6"]);
+    expect(queryByText(/[₀-₉]/)).toBeNull();
+  });
+
+  it.each([
+    [String.raw`\text{P\&L}`, "P&L"],
+    [String.raw`\text{max\_speed}`, "max_speed"],
+    [String.raw`\text{50\% off}`, "50% off"],
+  ])("draws a text group's escaped mark as the mark: %s", async (latex, drawn) => {
+    // Unescaped, & became an alignment gap ("P L") and _ a subscript.
+    const { getByTestId, queryAllByTestId } = await render(<MathText latex={latex} />);
+    expect(getByTestId("math-upright-run")).toHaveTextContent(drawn);
+    expect(queryAllByTestId("math-script")).toHaveLength(0);
+  });
+
+  it("sets a text group's own commands as their characters", async () => {
+    // A follow-up's `45^\text{\textdegree}` read "45^\textdegree".
+    const { toJSON, queryByText } = await render(<MathText latex={String.raw`45^\text{\textdegree}`} />);
+    expect(queryByText(/textdegree/)).toBeNull();
+    expect(readLine(toJSON() as Element)).toContain("°");
   });
 
   it("does not paint private-use markers when a text subscript has no braces", async () => {

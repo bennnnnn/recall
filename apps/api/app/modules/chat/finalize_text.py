@@ -14,8 +14,10 @@ from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle
 from app.modules.chat.clock_denial import model_denies_clock
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
+from app.modules.chat.json_output import is_json_request
 from app.modules.chat.math_padding import without_math_padding
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
+from app.modules.chat.places_sanitize import sanitize_places_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 from app.modules.chat.proper_case import restore_proper_case
 from app.modules.chat.prose_normalizer import (
@@ -28,7 +30,6 @@ from app.modules.chat.quiz_cards import repair_quiz_fences
 from app.modules.chat.stream_status import announced_if_slow
 from app.modules.images.answer_photo import strip_photo_fences
 from app.services.md_fence_scan import close_unclosed_fences, iter_fences
-from app.services.places_fence import sanitize_places_fences
 from app.services.time_context import correct_weekday_dates, format_shown_clock_answer
 
 if TYPE_CHECKING:
@@ -58,7 +59,13 @@ async def attach_answer_photo(state: FinalizeState) -> str:
 
 
 def add_search_sources(state: FinalizeState) -> str:
-    """Source chips for a searched turn, and the places card for a local search."""
+    """Source chips for a searched turn, and a places card's addresses kept to its pages.
+
+    The places card is the model's alone. The pages are never made into one: a page is a
+    list article as often as a venue, and a card of them showed "RECOMMENDED: 📍 The best
+    things to do…" and "Image 86: A plate of food…" (2026-11-08); the venue list it
+    replaced was cut from under the reply's headings.
+    """
     ctx = state.ctx
     text = state.text
     if not ctx.search_sources:
@@ -68,18 +75,14 @@ def add_search_sources(state: FinalizeState) -> str:
     text = web_search.drop_source_credits(
         web_search.strip_sources_from_text(text), ctx.search_sources
     )
+    text = web_search.keep_given_addresses(
+        text, ctx.search_sources, json_asked=is_json_request(ctx.user_message_content)
+    )
     if state.outcome is not None:
         state.outcome.search_sources = web_search.sources_payload(ctx.search_sources)
     sources_fence = web_search.format_sources_fence(ctx.search_sources)
     if sources_fence and not (state.should_cancel and state.should_cancel()):
         text = f"{text}{sources_fence}".strip()
-    if ctx.local_places and "```places" not in text.lower():
-        text = web_search.strip_duplicate_venue_list(text)
-        places_fence = web_search.format_places_fence(ctx.search_sources)
-        if places_fence and not (state.should_cancel and state.should_cancel()):
-            state.assistant_parts[:] = [text] if text.strip() else []
-            state.assistant_parts.append(places_fence)
-            text = "".join(state.assistant_parts).strip()
     state.committed = text  # done already carries these chips
     return text
 

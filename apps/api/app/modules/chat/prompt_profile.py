@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 
 from app.models.orm import User
-from app.modules.account import profile as profile_service
+from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.writing_kind import is_email_or_message_request
 from app.services import prompt_safety
 
@@ -70,7 +70,7 @@ def format_user_profile_block(
         lines.append(f"- Country: {user.country.strip()}")
     if user.job and user.job.strip():
         lines.append(f"- Job: {user.job.strip()}")
-    location = location_override or profile_service.user_location_label(user)
+    location = location_override or profile_place(user, user.timezone)
     if location:
         lines.append(f"- Location: {location}")
     lines.append(

@@ -13,7 +13,19 @@
  */
 import type { Glyph, SkFont } from "@shopify/react-native-skia";
 
-type FontRun = { text: string; font: SkFont; dx: number };
+import { scriptGlyphBase } from "@/lib/unicodeSupSub";
+
+/**
+ * `script`: the run is a sub- or superscript drawn from its letters (`ₒ` from "o"), small and
+ * off the line, because no face has the script glyph.
+ */
+export type FontRun = { text: string; font: SkFont; dx: number; script?: "sub" | "sup" };
+
+/**
+ * A script's size beside its line, as the maths draws one (`SCRIPT_RATIO`, 0.7). The figures'
+ * faces have digit scripts (R₁) but no letter ones: "dₒ = 30 cm" showed a missing-glyph box.
+ */
+export const SCRIPT_SCALE = 0.7;
 
 const DIGIT = /^[0-9]$/;
 const digitCells = new WeakMap<SkFont, { cell: number; varies: boolean }>();
@@ -65,23 +77,32 @@ export function fontRuns(text: string, fonts: readonly SkFont[]): FontRun[] {
   const runs: FontRun[] = [];
   if (fonts.length === 0) return runs;
   for (const char of Array.from(text)) {
-    const font = fonts.find((candidate) => hasGlyph(candidate, char)) ?? fonts[0];
+    const own = fonts.find((candidate) => hasGlyph(candidate, char));
+    // A script glyph no face has is its letter, set as a script: never a missing glyph.
+    const script = own ? null : scriptGlyphBase(char);
+    const drawn = script ? script.base : char;
+    const font = own ?? fonts.find((candidate) => hasGlyph(candidate, drawn)) ?? fonts[0];
     const last = runs[runs.length - 1];
-    if (last && last.font === font) last.text += char;
-    else runs.push({ text: char, font, dx: 0 });
+    if (last && last.font === font && last.script === script?.kind) last.text += drawn;
+    else runs.push({ text: drawn, font, dx: 0, ...(script ? { script: script.kind } : {}) });
   }
   let dx = 0;
   for (const run of runs) {
     run.dx = dx;
-    dx += tabularGlyphs(run.font, run.text).width;
+    dx += runWidth(run);
   }
   return runs;
 }
 
-/** Whether `text` needs more than its first font. */
+/** A run's advance: a script's letters at the script's size. */
+function runWidth(run: FontRun): number {
+  return tabularGlyphs(run.font, run.text).width * (run.script ? SCRIPT_SCALE : 1);
+}
+
+/** Whether `text` needs more than its first font, or a script drawn from its letters. */
 export function needsFallback(text: string, fonts: readonly SkFont[]): boolean {
   const runs = fontRuns(text, fonts);
-  return runs.length > 1 || (runs.length === 1 && runs[0].font !== fonts[0]);
+  return runs.length > 1 || (runs.length === 1 && (runs[0].font !== fonts[0] || Boolean(runs[0].script)));
 }
 
 /** The width a label takes, as `HaloText` sets it; nothing while its face has not loaded. */
@@ -91,5 +112,5 @@ export function measureRuns(text: string, given: readonly (SkFont | null)[]): nu
   if (!needsFallback(text, fonts)) return tabularGlyphs(fonts[0], text).width;
   const runs = fontRuns(text, fonts);
   const last = runs[runs.length - 1];
-  return last.dx + tabularGlyphs(last.font, last.text).width;
+  return last.dx + runWidth(last);
 }

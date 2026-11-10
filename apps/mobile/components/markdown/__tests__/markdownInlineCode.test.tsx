@@ -107,6 +107,15 @@ describe("inline code in a reply", () => {
     expect(kids).toHaveLength(3);
   });
 
+  it("keeps a chip's own spaces, so a selection copies the code as written", async () => {
+    // No-break spaces kept "+ 1" on one line, but a copied shell command or Python line then
+    // held U+00A0 and failed to run.
+    const view = await render(<MarkdownContent content={"Run `pip install numpy` and add `+ 1`."} />);
+    const [install, plus] = spansInFace(view.toJSON() as Node, CODE_FONT).map(strings);
+    expect(install).toBe("\u00a0pip install numpy\u00a0");
+    expect(plus).toBe("\u00a0+ 1\u00a0");
+  });
+
   it("keeps the pill in bold, headings, list items and table cells", async () => {
     const content = [
       "### Call `print()` once",

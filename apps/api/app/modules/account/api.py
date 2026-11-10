@@ -343,9 +343,13 @@ async def update_me(
     settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
     now = datetime.now(UTC)
-    fields = profile_service.with_location_choice(
-        profile_service.with_ai_data_consent(body.model_dump(exclude_unset=True), now=now),
+    sent = body.model_dump(exclude_unset=True)
+    fields = profile_service.with_location_saved(
+        profile_service.with_location_choice(
+            profile_service.with_ai_data_consent(sent, now=now), now=now
+        ),
         now=now,
+        location_on=bool(sent.get("location_enabled", user.location_enabled)),
     )
     try:
         updated = await account_lifecycle.update_account(session, user, settings, fields)

@@ -21,7 +21,7 @@ _NEWS = re.compile(
 
 
 # Proximity intent — any "near me / nearest / closest …" ask, not a venue-type list.
-_NEARBY_INTENT = re.compile(
+NEARBY_INTENT = re.compile(
     r"\b("
     r"near\s+me|nearby|around\s+here|in\s+(?:this\s+)?town"
     r"|close\s+(?:by|to\s+me)"
@@ -111,7 +111,7 @@ def best_near_phrase(text: str) -> bool:
 
 
 # Implicit nearby intent without saying "near me" (e.g. "where should I eat tonight?").
-_IMPLICIT_LOCAL = re.compile(
+IMPLICIT_LOCAL = re.compile(
     r"\b(?:"
     r"where\s+(?:should|can|do)\s+(?:I|we)\s+(?:eat|get|find|go|stay|park)"
     r"|where\s+to\s+(?:eat|go|get|stay|park)"
@@ -150,21 +150,3 @@ _PROXIMITY_PHRASES = (
     r"\b(?:the\s+)?(?:nearest|closest)\b",
     r"\bbest\b",
 )
-
-
-_STREET_SUFFIX = (
-    r"(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Way|Pl|Place|"
-    r"Ct|Court|Sq|Square|Pkwy|Parkway)"
-)
-
-
-_ADDRESS_RE = re.compile(
-    rf"\b(\d+\s+[\w\s.'#-]{{2,40}}{_STREET_SUFFIX}\b(?:,\s*[\w\s.'-]{{2,30}})?)",
-    re.IGNORECASE,
-)
-
-
-_PRICE_RE = re.compile(r"(?<![\w$])(\$\$\$|\$\$|\$)(?![\w$])")
-
-
-_NUMBERED_VENUE_LINE = re.compile(r"^\s*\d+\.\s+")

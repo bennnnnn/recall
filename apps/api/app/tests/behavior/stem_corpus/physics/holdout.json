@@ -965,5 +965,65 @@
   "prompt": "what time does the train at 60 km/h arrive if it left at 9",
   "expect": "not_physics",
   "note": "schedule; model may ask"
+ },
+ {
+  "id": "h-heat-range-01",
+  "area": "thermal",
+  "prompt": "How much heat is needed to raise 250 g of water from 20 C to 80 C?",
+  "expect": "answer",
+  "answer": [
+   62790.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-heat-range-02",
+  "area": "thermal",
+  "prompt": "How much heat is needed to raise 250 g of water from 20 degrees to 80 degrees?",
+  "expect": "answer",
+  "answer": [
+   62790.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-heat-range-03",
+  "area": "thermal",
+  "prompt": "How much heat does it take to warm 2 kg of water from 15-35 °C?",
+  "expect": "answer",
+  "answer": [
+   167440.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-heat-range-04",
+  "area": "thermal",
+  "prompt": "How much energy is needed to heat 500 g of water from 10 degrees C to 60 degrees C?",
+  "expect": "answer",
+  "answer": [
+   104650.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-heat-range-05",
+  "area": "thermal",
+  "prompt": "How much heat is needed to raise 1 kg of water from 20 to 90 C?",
+  "expect": "answer",
+  "answer": [
+   293020.0,
+   "J"
+  ]
+ },
+ {
+  "id": "h-heat-range-06",
+  "area": "thermal",
+  "prompt": "How much heat warms 400 g of water between 25 and 75 degrees Celsius?",
+  "expect": "answer",
+  "answer": [
+   83720.0,
+   "J"
+  ]
  }
 ]

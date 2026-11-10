@@ -75,6 +75,21 @@ export async function hasLocationPermission(): Promise<boolean> {
 }
 
 /**
+ * The phone does not let Recall read its location now (denied, or turned off in Settings).
+ * Not asked yet, or a build that cannot read it (Expo Go), is not a denial.
+ */
+export async function locationAccessDenied(): Promise<boolean> {
+  if (!canUseDeviceLocation()) return false;
+  try {
+    const Location = await import("expo-location");
+    return (await Location.getForegroundPermissionsAsync()).status === "denied";
+  } catch {
+    console.warn("[location] permission could not be read");
+    return false;
+  }
+}
+
+/**
  * A fix this recent and this precise answers "near me" or "where am I" without
  * a new one. Accuracy is not distance moved: two minutes on foot is a few hundred
  * metres, so a fix taken faster than a brisk walk is not reused at all.

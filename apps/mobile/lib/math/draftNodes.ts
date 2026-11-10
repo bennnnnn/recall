@@ -26,6 +26,9 @@ export type DraftNode =
 /** A node with boxes: everything but plain text. */
 export type DraftTemplate = Exclude<DraftNode, { kind: "text" }>;
 
+/** Commands that only size the bracket after them. */
+const SIZING = new Set(["left", "bigl", "Bigl", "biggl", "Biggl", "big", "Big", "bigg", "Bigg"]);
+
 function cmdAt(text: string, i: number, cmd: string): boolean {
   if (!text.startsWith(cmd, i)) return false;
   const next = text[i + cmd.length];
@@ -119,12 +122,16 @@ function tryGroup(text: string, i: number): Extract<DraftNode, { kind: "group" }
   const body = readDelimGroup(text, i, openCh, closeCh);
   if (!body) return null;
   let start = i;
-  if (openCh === "(" && i > 0 && /[A-Za-z]/.test(text[i - 1]!)) {
+  if (i > 0 && /[A-Za-z]/.test(text[i - 1]!)) {
     let j = i - 1;
     while (j >= 0 && /[A-Za-z]/.test(text[j]!)) j -= 1;
-    if (text[j] === "\\") start = j;
+    const name = text.slice(j + 1, i);
+    if (text[j] === "\\" && (openCh === "(" || SIZING.has(name))) start = j;
   }
-  const open = `${text.slice(start + 1, i)}${openCh}`;
+  // `\left(` is a bracket at the size of what it holds, never the word "left" (a pasted
+  // `\ln\left(x^{2}+1\right)` drew "lnleft(x² + 1)").
+  const name = text.slice(start + 1, i);
+  const open = `${SIZING.has(name) ? "" : name}${openCh}`;
   return { kind: "group", start, end: body.close + 1, open, close: closeCh, body };
 }
 

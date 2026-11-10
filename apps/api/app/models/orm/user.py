@@ -110,6 +110,11 @@ class User(Base):
     location_chosen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # When the phone last saved ``location`` (a fix it read, the same place or a new one).
+    # A turn without a fix of its own reads the saved place only while it is recent.
+    location_saved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     country: Mapped[str | None] = mapped_column(String(64), nullable=True)
     job: Mapped[str | None] = mapped_column(String(128), nullable=True)

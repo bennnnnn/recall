@@ -118,7 +118,6 @@ def _state(reply: str, user_message: str) -> FinalizeState:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
 

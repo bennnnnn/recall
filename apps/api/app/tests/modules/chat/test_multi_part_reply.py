@@ -53,7 +53,6 @@ def _state(text: str, **ctx_fields: Any) -> FinalizeState:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[text],
         should_cancel=None,
     )
 

@@ -1,4 +1,4 @@
-from app.services.places_fence import sanitize_places_fences
+from app.modules.chat.places_sanitize import sanitize_places_fences
 
 
 def test_sanitize_places_rewrites_valid_payload() -> None:

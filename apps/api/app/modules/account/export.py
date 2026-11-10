@@ -75,6 +75,7 @@ _PROFILE_FIELDS = (
     "location",
     "location_enabled",
     "location_chosen_at",
+    "location_saved_at",
     "age",
     "country",
     "job",

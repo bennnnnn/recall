@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -38,6 +39,8 @@ from app.services.locale import locale_system_hint
 from app.tests.fakes import FakeSessionCM, make_user
 from app.tests.modules.chat.chat_test_support import system_prompt
 
+_NOW = datetime(2026, 11, 9, 20, 0, tzinfo=UTC)
+
 
 def test_resolve_client_geo_ignores_client_when_location_disabled():
     user = MagicMock()
@@ -71,6 +74,116 @@ def test_resolve_client_geo_uses_client_when_location_enabled():
     assert geo.client_lat == 37.87
     assert geo.client_lng == -122.27
     assert geo.has_geo_fix is True
+
+
+@pytest.mark.parametrize(
+    "content", ["What's the weather tomorrow?", "best restaurant near me?", "Where am I"]
+)
+def test_resolve_client_geo_uses_the_saved_place_when_the_turn_sends_none(content: str):
+    """The phone sends a fix only when its saved place is old: with Location on, "What's
+    the weather tomorrow?" got "I don't have your location yet" (2026-11-08)."""
+    user = make_user(
+        location_enabled=True,
+        location="San Francisco, CA, United States",
+        location_saved_at=_NOW - timedelta(minutes=20),
+    )
+    geo = resolve_client_geo(
+        user, content, client_location=None, client_latitude=None, client_longitude=None, now=_NOW
+    )
+    assert geo.geo_query is True
+    assert geo.user_location == "San Francisco, CA, United States"
+    assert geo.place_as_of is None
+    assert geo.has_geo_fix is True
+
+
+@pytest.mark.parametrize(
+    "saved_at, used, as_of",
+    [
+        # Saved this morning, asked tonight: the phone's last report, said as such.
+        (_NOW - timedelta(hours=9), True, True),
+        # Past a day, or never dated: not the user's location.
+        (_NOW - timedelta(hours=30), False, False),
+        (None, False, False),
+    ],
+)
+def test_resolve_client_geo_an_old_saved_place_is_no_current_location(
+    saved_at: datetime | None, used: bool, as_of: bool
+):
+    """Saved in San Francisco in the morning, "What's the weather tomorrow?" in New York that
+    evening got San Francisco's forecast as the current place (review, 2026-11-09)."""
+    user = make_user(
+        location_enabled=True, location="San Francisco, CA", location_saved_at=saved_at
+    )
+    for content in ("What's the weather tomorrow?", "Where am I?"):
+        geo = resolve_client_geo(
+            user,
+            content,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            now=_NOW,
+        )
+        assert (geo.user_location == "San Francisco, CA") is used
+        assert geo.has_geo_fix is used
+        assert geo.place_as_of == (saved_at if as_of else None)
+    # A fix the turn brings is current, whatever the profile holds.
+    geo = resolve_client_geo(
+        user,
+        "What's the weather tomorrow?",
+        client_location="New York, NY",
+        client_latitude=None,
+        client_longitude=None,
+        now=_NOW,
+    )
+    assert (geo.user_location, geo.place_as_of) == ("New York, NY", None)
+
+
+@pytest.mark.parametrize("enabled, saved", [(True, ""), (True, None), (False, "Oakland, CA")])
+def test_resolve_client_geo_an_account_with_no_place_has_no_fix(enabled: bool, saved: str | None):
+    user = make_user(location_enabled=enabled, location=saved)
+    geo = resolve_client_geo(
+        user,
+        "What's the weather tomorrow?",
+        client_location=None,
+        client_latitude=None,
+        client_longitude=None,
+    )
+    assert geo.user_location is None
+    assert geo.has_geo_fix is False
+
+
+@pytest.mark.parametrize(
+    "content, near_the_user",
+    [
+        ("What are the best restaurants in Addis Ababa?", False),
+        # A venue or neighbourhood: the user's city still places it, as it always did.
+        ("What's the closest airport to Seattle?", True),
+        ("We're at the Hilton, any restaurants nearby?", True),
+        ("where can I park at the Apple Store", True),
+        ("best tacos near me in the Mission", True),
+        # "Near me in Bole" says where "me" is (review, 2026-11-09).
+        ("coffee shops near me in Bole", False),
+        ("best restaurant near me?", True),
+        # A capital that is no place for the venues (review, 2026-11-09).
+        ("coffee shops nearby, answer in Spanish", True),
+        ("nearest hospital? I'm visiting from Canada", True),
+        ("Where's the nearest train station to get to Boston?", True),
+        ("Where should we eat in January?", True),
+        ("Where to eat at Thanksgiving?", True),
+        ("Where's the nearest hospital? Reply in English", True),
+    ],
+)
+def test_resolve_client_geo_a_question_naming_its_place_is_not_about_the_user(
+    content: str, near_the_user: bool
+):
+    """From San Francisco, "the best restaurants in Addis Ababa" was searched near the phone
+    and listed San Francisco and Los Angeles pages (2026-11-08)."""
+    user = make_user(location_enabled=True, location="San Francisco, CA", location_saved_at=_NOW)
+    geo = resolve_client_geo(
+        user, content, client_location=None, client_latitude=None, client_longitude=None, now=_NOW
+    )
+    assert geo.geo_query is near_the_user
+    assert geo.local_places is near_the_user
 
 
 def test_estimate_tokens_minimum():
@@ -1968,6 +2081,8 @@ def test_format_user_profile_block_includes_fields():
     user.plan = "pro"
     user.location = "London"
     user.location_enabled = True
+    user.location_saved_at = datetime.now(UTC) - timedelta(minutes=5)
+    user.timezone = "Europe/London"
     user.age = 36
     user.country = "United Kingdom"
     user.job = "Mathematician"
@@ -1975,10 +2090,34 @@ def test_format_user_profile_block_includes_fields():
     assert "Ada Lovelace" in block
     assert "ada@example.com" in block
     assert "Plan: pro" in block
-    assert "London" in block
+    assert "- Location: London\n" in block
     assert "Age: 36" in block
     assert "Country: United Kingdom" in block
     assert "Job: Mathematician" in block
+
+
+@pytest.mark.parametrize(
+    "age, shown",
+    [
+        (timedelta(hours=5), "- Location: London (where the phone last reported, at "),
+        (timedelta(hours=30), None),
+        (None, None),
+    ],
+)
+def test_the_profile_block_gives_a_saved_place_under_its_age(
+    age: timedelta | None, shown: str | None
+):
+    """A turn the model answers showed a place a day old as the user's (review, 2026-11-09)."""
+    user = make_user(
+        location="London",
+        location_enabled=True,
+        location_saved_at=None if age is None else datetime.now(UTC) - age,
+    )
+    block = format_user_profile_block(user)
+    if shown is None:
+        assert "Location:" not in block
+    else:
+        assert shown in block
 
 
 def test_format_user_profile_block_omits_email_by_default():

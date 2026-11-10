@@ -33,6 +33,7 @@ def api_user(**kw: Any) -> MagicMock:
     u.location = kw.get("location", None)
     u.location_enabled = kw.get("location_enabled", bool(kw.get("location")))
     u.location_chosen_at = kw.get("location_chosen_at", None)
+    u.location_saved_at = kw.get("location_saved_at", None)
     u.custom_instructions = kw.get("custom_instructions", None)
     u.age = kw.get("age", None)
     u.country = kw.get("country", None)

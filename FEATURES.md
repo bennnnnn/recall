@@ -567,7 +567,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
   set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array` / `steps`,
   chemistry source). Server attaches
-  verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
+  verified `answer` / `graph` / `geometry` and `sources`; a `places` list is the model's,
+  drawn where it wrote it, and keeps only the addresses the search's pages give each
+  place (the pages never become a list themselves). Layout fences
   (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
   only a citation whose last line is `— Name`. `details` / `collapse` / `summary`

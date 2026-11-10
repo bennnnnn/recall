@@ -11,7 +11,14 @@ import { useMemo, type ComponentProps } from "react";
 import { Glyphs, Group, Text as SkiaText, type SkFont } from "@shopify/react-native-skia";
 import { useDerivedValue } from "react-native-reanimated";
 
-import { fontRuns, needsFallback, needsTabular, tabularGlyphs } from "@/components/rich/skia/fontRuns";
+import {
+  fontRuns,
+  needsFallback,
+  needsTabular,
+  SCRIPT_SCALE,
+  tabularGlyphs,
+  type FontRun,
+} from "@/components/rich/skia/fontRuns";
 
 const HALO_WIDTH = 3;
 const HALO_PAINT = { style: "stroke", strokeWidth: HALO_WIDTH, strokeJoin: "round" } as const;
@@ -38,10 +45,8 @@ export function HaloText({ fallbacks, font, ...props }: Props) {
     () => (font ? [font, ...(fallbacks ?? []).filter((face): face is SkFont => face !== null)] : []),
     [fallbacks, font],
   );
-  const split = useMemo(
-    () => fonts.length > 1 && needsFallback(props.text, fonts),
-    [fonts, props.text],
-  );
+  // A second face for what the first lacks, or a script drawn from its letters (`dₒ`).
+  const split = useMemo(() => needsFallback(props.text, fonts), [fonts, props.text]);
   if (!font) return null;
   return split ? <HaloRuns {...props} font={font} fonts={fonts} /> : <HaloLine {...props} font={font} />;
 }
@@ -92,11 +97,32 @@ function HaloRuns({
   return (
     <Group transform={transform}>
       {runs.map((run, index) => (
-        <Ink key={`halo-${index}`} x={run.dx} y={0} text={run.text} font={run.font} color={halo} halo />
+        <RunInk key={`halo-${index}`} run={run} color={halo} halo />
       ))}
       {runs.map((run, index) => (
-        <Ink key={`text-${index}`} x={run.dx} y={0} text={run.text} font={run.font} color={color} />
+        <RunInk key={`text-${index}`} run={run} color={color} />
       ))}
+    </Group>
+  );
+}
+
+/** How far a script's baseline sits from the line's, in ems of its face: down for a
+ * subscript, up for a superscript, as a book sets them. */
+const SCRIPT_SHIFT = { sub: 0.2, sup: -0.4 } as const;
+
+/** One run at its offset; a script run small and off the line. */
+function RunInk({ run, color, halo = false }: { run: FontRun; color: string; halo?: boolean }) {
+  if (!run.script) {
+    return <Ink x={run.dx} y={0} text={run.text} font={run.font} color={color} halo={halo} />;
+  }
+  const transform = [
+    { translateX: run.dx },
+    { translateY: SCRIPT_SHIFT[run.script] * run.font.getSize() },
+    { scale: SCRIPT_SCALE },
+  ];
+  return (
+    <Group transform={transform}>
+      <Ink x={0} y={0} text={run.text} font={run.font} color={color} halo={halo} />
     </Group>
   );
 }

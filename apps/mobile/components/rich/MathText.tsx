@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { useInsideAccessibleElement } from "@/components/rich/accessibleElement";
+import { useMathColumnInset } from "@/components/rich/mathColumn";
 import { inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex, spokenFormula } from "@/lib/math/text";
@@ -137,6 +138,7 @@ export const MathText = memo(function MathText({
   const theme = useTheme();
   const color = textColor ?? theme.text;
   const { fontScale, width: windowWidth } = useWindowDimensions();
+  const inset = useMathColumnInset();
   const styles = useMemo(
     () => makeStyles(theme, textColor, compact, fontSize, fontScale),
     [theme, textColor, compact, fontSize, fontScale],
@@ -160,7 +162,8 @@ export const MathText = memo(function MathText({
   const label = spokenFormula(latex);
   // A short power stays a View so the exponent can rise, without the
   // horizontal scroller that stacked fractions use even when they fit.
-  const scroll = scrollOverflow && (stacked || inlineMathNeedsScroll(contentWidth, windowWidth));
+  const scroll =
+    scrollOverflow && (stacked || inlineMathNeedsScroll(contentWidth, windowWidth - inset));
   // A row of Views leans its last run; one Text leans its own box, below.
   const runs = renderSegments(segments, layout.children, "m", tall && lean ? { ...ctx, leanLast: true } : ctx);
   const last = segments.at(-1);
