@@ -41,6 +41,7 @@ from app.services.problem_followup import (
     replace_given,
     same_quantities,
     with_sentences,
+    written_value,
 )
 from app.services.scaled_followup import scaled_given
 
@@ -402,3 +403,18 @@ _GIVENS = GivenRewriter(
     asked=_asked_dimensions,
     fits=_fits,
 )
+
+
+def changed_physics_problem(problem: str, given: str | None, new: str) -> str | None:
+    """``problem`` with the given of ``new``'s kind put to ``new`` ("10 s" replaces the time;
+    of two masses, the one whose number ``given`` quotes). The unit decides which kind
+    changes: "10 s" never replaces a distance. The rewrite verifies."""
+    value = written_value(new)
+    if value is None:
+        return None
+    rewritten = _GIVENS.replaced(problem, given, *value)
+    if rewritten is None:
+        return None
+    if _held_fixed(problem):
+        return _kept_or_declined(problem, rewritten)
+    return None if _ambiguous(problem, rewritten) else rewritten

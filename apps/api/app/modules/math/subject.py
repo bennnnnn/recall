@@ -57,6 +57,14 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class MathFollowups:
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        # An equation or expression has no units to say which part changes: the part the
+        # read names, written once in the problem, gives way to one of its own kind.
+        if not given or problem.count(given) != 1 or ("=" in given) != ("=" in new):
+            return None
+        rewritten = problem.replace(given, new)
+        return rewritten if rewritten != problem and MATH_SUBJECT.reads(rewritten) else None
+
     def problem(
         self,
         query: str | None,

@@ -594,10 +594,11 @@ def _posed_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
         plain = [text.replace("**", "") for _role, text in exchanges]
         message = next(i for i, text in enumerate(plain, start=1) if case.posed in text)
         pick = PosedPick(
-            kind="solve" if case.posed_changed is None else "change",
+            kind="solve" if case.posed_change is None else "change",
             message=message,
             problem=case.posed,
-            changed=case.posed_changed,
+            given=case.posed_change[0] if case.posed_change else None,
+            new=case.posed_change[1] if case.posed_change else None,
         )
     return patch.object(posed_read, "pick_posed", AsyncMock(return_value=pick))
 

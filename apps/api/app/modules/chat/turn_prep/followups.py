@@ -78,19 +78,28 @@ def resolve_subject_followup(
 
 
 def resolve_posed_followup(
-    content: str, problem: str, reply: str, changed: bool, restated: str | None
+    content: str, problem: str, reply: str, change: tuple[str | None, str | None] | None
 ) -> SubjectFollowup:
     """The follow-up to a problem a model read the line as referring to (``chat.posed_read``):
-    solved whole, as typed. A line that changes one of its values ("what if it took 10 s?")
-    is rewritten by its subject's follow-up readers, as if the user had stated the problem,
-    or else is the read's held restatement of it, solved as typed."""
-    if not changed:
+    solved whole, as typed. A ``change`` (the given as the problem writes it, and the line's
+    new value: "20 seconds", "10 s") is first read by the subject's follow-up readers, as if
+    the user had stated the problem; else the problem's subject puts the new value in place
+    of the one given of its kind, every other given kept, and the rewrite is solved as
+    typed. A change no subject can put in place exactly is no solve."""
+    if change is None:
         return SubjectFollowup(asked=problem)
     stated = [{"role": "user", "content": problem}, {"role": "assistant", "content": reply}]
     rewritten = resolve_subject_followup(content, [*stated, {"role": "user", "content": content}])
-    if rewritten.found or restated is None:
+    given, new = change
+    if rewritten.found or not new:
         return rewritten
-    return SubjectFollowup(asked=restated)
+    from app.modules.chat.turn_prep.reading import subject_of
+
+    subject = subject_of(problem)
+    if subject is None:
+        return rewritten
+    changed = subject_adapter(subject).followups.changed_problem(problem, given, new)
+    return rewritten if changed is None else SubjectFollowup(asked=changed)
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:

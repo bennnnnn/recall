@@ -7,13 +7,13 @@ its LLM classifier never ran in production and are gone.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
-from app.modules.chat.posed_read import posed_for_turn
+from app.modules.chat.posed_read import posed_for_turn, start_posed_read
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
 from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
 from app.modules.chat.turn_prep.followups import (
@@ -25,7 +25,12 @@ from app.modules.chat.turn_prep.followups import (
 from app.modules.chat.turn_prep.instant import location_not_set_reply
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
-from app.modules.chat.turn_prep.reading import ask_turn_readings, plan_of, subject_of
+from app.modules.chat.turn_prep.reading import (
+    ask_turn_readings,
+    plan_of,
+    read_turn_message,
+    subject_of,
+)
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
 from app.modules.chat.worked_render import WorkedLayout
@@ -349,7 +354,7 @@ async def _turn_followup(
     """The earlier problem the line follows up, and what "it" is in "draw it"."""
     # What "it" is: the turn's read, kept since the photo intercept asked it. And the
     # problem "3" or "the area" continues, which a model reads too.
-    recent = request.recent_messages or []
+    recent = reads_window(request)
     referent = await referent_for_turn(settings, request.content, recent)
     continued = await continuation_for_turn(settings, request.content, recent)
     timeout = settings.subject_read_timeout_seconds
@@ -383,11 +388,29 @@ async def _turn_followup(
                 request.content,
                 posed.problem,
                 posed.reply,
-                posed.changed,
-                posed.restated,
+                (posed.given, posed.new) if posed.changed else None,
                 timeout=timeout,
             )
     return followup or SubjectFollowup(), referent
+
+
+def reads_window(request: TurnRequest) -> list[Any]:
+    """The chat the turn's model reads see: a regenerate's window ends with the reply being
+    redone, which is no part of the chat the line answers."""
+    redone = request.omit_message_ids or set()
+    return [row for row in request.recent_messages or [] if getattr(row, "id", None) not in redone]
+
+
+async def read_turn_and_start_reads(request: TurnRequest, settings: Settings) -> None:
+    """The turn's message read in the pool, then the model reads the turn may wait for
+    later started beside the rest of its load (``chat.posed_read``)."""
+    await read_turn_message(
+        request.content,
+        request.recent_messages or [],
+        settings,
+        has_image_attachment=request.has_image_attachment,
+    )
+    start_posed_read(settings, request.content, reads_window(request))
 
 
 def _followup_subject(followup: SubjectFollowup) -> SubjectName | None:

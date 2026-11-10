@@ -4,31 +4,33 @@ Live (2026-11-10) "Give me physics question for grade 7th" got "A car travels 12
 20 seconds. What is its speed?", and "Do it", "How" and "Step by step" after it reached no
 solver: the subjects' follow-up readers look for the problem in the user's own last line,
 and here the assistant had stated it. Typed by the user, the same question gets the worked
-layout and a verified card. So on a short line after a reply, with no subject of its own,
-one small structured read (``referent_read.ask_read``) names the message, the assistant's
-or the user's, that states the problem the line asks to solve or to change ("What if h was
-10 m?", a tapped follow-up question), the problem as written there, and for a change the
-problem restated with it. The restatement is held to the words it came from: its numbers
-are the problem's and the line's, and the line's new value is in it. The quiz guard holds:
-a line that answers a question ("the hypotenuse") asks no solve. With no read, or none
+layout and a verified card. So on a short line with no subject of its own, after a reply
+whose exchange holds a problem a subject reads (the reply's question, or the user's line
+before it), one small structured read (``referent_read.ask_read``) names the message, the
+assistant's or the user's, that states the problem the line asks to solve or to change
+("What if h was 10 m?", a tapped follow-up question), and the problem as written there. A
+change is named, never written: the given that changes and the line's new value, which the
+problem's subject puts in its place (``SubjectFollowups.changed_problem``). The quiz guard
+holds: a line that answers a question ("the hypotenuse") asks no solve. The read starts as
+the turn loads and is awaited only when no reader claimed the line; with no read, or none
 named, the turn is read as before.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
-from collections import Counter
 from collections.abc import Sequence
+from contextvars import ContextVar
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings
-from app.core.readings import keep_for_turn, kept_for_turn
+from app.core.readings import keep_for_turn, kept_for_turn, read_off_loop
 from app.modules.chat.referent_read import ask_read, chat_before
 from app.services.text_normalize import collapse_ws
 
@@ -37,57 +39,62 @@ logger = logging.getLogger(__name__)
 # A line that only refers to a problem: "Do it", "Step by step", "What if it took 10 s?".
 _MAX_WORDS = 12
 _MESSAGE_CHARS = 500
-# Markdown a stated problem may carry: "A car travels **120 meters**".
-_EMPHASIS = re.compile(r"[*_`]+")
-# A value, with its sign when the minus is its own ("y = -2x"); never a subscript ("$T_1$").
+# A reply short enough to be a posed problem; a longer one is read for its exchange's line.
+_REPLY_CHARS = 600
+# Markdown a stated problem may carry: "A car travels **120 meters**"; a subscript stays.
+_EMPHASIS = re.compile(r"\*+|`+|(?<!\w)_+|_+(?!\w)")
 # Sentences after the problem that exclaim: "Give it a try!", "Good luck! \U0001f680".
 _CHEER = re.compile(r"(?<=[.?])(?:\s+[^.?!]*!+[^\w.?]*)+$")
-_NUMBER = re.compile(r"(?:(?<![\w)\]])-)?(?<![_{\d.])\d+(?:\.\d+)?")
-_WORD = re.compile(r"[^\W\d_]+")
-# The words of a restatement its problem and line do not hold: "now", "instead", an article.
-_NEW_WORDS = 0.2
+# LaTeX a line's value may come in: "$T_C = 200\\,\\mathrm{K}$" is "T_C = 200 K".
+_LATEX_WORD = re.compile(r"\\(?:mathrm|text|operatorname)\s*\{([^{}]*)\}")
+_LATEX_SPACE = re.compile(r"\\[,;: !]|\$")
+
 
 _SYSTEM = (
     "The conversation's messages are numbered, the assistant's too. The user's last message "
     "is short. Say what it asks, as kind:\n"
     '- "solve": to solve a problem stated earlier, by the user or posed by the assistant as '
-    "a practice question, a quiz or an example, exactly as it stands: do it, solve it, "
-    "what's the answer, step by step, show the working, and how, even the one word "
-    '"How" alone, which asks how that problem is solved;\n'
+    "a practice question, a quiz or an example, exactly as it stands and asking nothing "
+    "else of it: do it, solve it, what's the answer, step by step, show the working, and "
+    'how, even the one word "How" alone, which asks how that problem is solved;\n'
     '- "change": the same problem with one of its values changed ("what if it took 10 s?", '
-    '"what if the mass was 500 g?"), or asking for another quantity of the same setup '
-    '("how far does it go?");\n'
+    '"what if the mass was 500 g?");\n'
     '- "answer": the user answers a question themselves (a quiz answer, a value they were '
     "asked for, yes or no);\n"
-    '- "other": anything else: why a step works, how one thing affects another, a new '
-    "problem, accepting an offer to do something that is no problem to solve.\n"
+    '- "other": anything else: a question that asks something else of the problem (another '
+    'quantity, "how do I find the x-intercept?" after a y-intercept, "what is the quotient?" '
+    "after a remainder), why a step works, how one thing affects another, a new problem, "
+    "accepting an offer to do something that is no problem to solve.\n"
     "For solve and change, message is the number of the message that states the problem, "
     "and problem is the problem as that message states it, copied word for word, without "
-    "greetings, praise or offers. For change, changed is that problem asked again with the "
-    "change: the new value in place of the one it replaces, or the other quantity asked, "
-    "every other word kept. Otherwise all null. Reply with JSON only, for example "
-    '{"kind": "change", "message": 2, "problem": "A ball falls 20 m. How long does it take?", '
-    '"changed": "A ball falls 45 m. How long does it take?"}.'
+    "greetings, praise or offers. For change, given is the value that changes as the "
+    "problem writes it (20 seconds, 16.0 g of oxygen), or in an equation or expression the "
+    "part it replaces, copied exactly; and new is the new value as the user's line gives "
+    "it, in plain text with its unit (10 s, 32.0 g, 2x). Otherwise all null. Reply with "
+    'JSON only, for example {"kind": "change", "message": 2, "problem": "A ball falls 20 m. '
+    'How long does it take?", "given": "20 m", "new": "45 m"}.'
 )
 
 
 @dataclass(frozen=True)
 class Posed:
-    """The problem a short line refers to, as its message states it. ``changed`` when the
-    line changes one of its values, ``restated`` the problem with it, when the read's
-    restatement holds (``held_restatement``)."""
+    """The problem a short line refers to, as its message states it. A change names the
+    given that changes (``given``) and the line's new value (``new``); the problem's
+    subject puts it in place, or the change is no solve."""
 
     problem: str
     reply: str
     changed: bool = False
-    restated: str | None = None
+    given: str | None = None
+    new: str | None = None
 
 
 class PosedPick(BaseModel):
     kind: Literal["solve", "change", "answer", "other"]
     message: int | None = None
     problem: str | None = Field(default=None, max_length=600)
-    changed: str | None = Field(default=None, max_length=700)
+    given: str | None = Field(default=None, max_length=120)
+    new: str | None = Field(default=None, max_length=60)
 
 
 def _numbered(exchanges: Sequence[tuple[str, str]]) -> str:
@@ -102,6 +109,10 @@ def _plain(text: str) -> str:
     return collapse_ws(_EMPHASIS.sub("", text))
 
 
+def _unlatexed(text: str) -> str:
+    return collapse_ws(_LATEX_SPACE.sub(" ", _LATEX_WORD.sub(r"\1", text))).casefold()
+
+
 def _stated(role: str, message: str, quoted: str | None) -> str | None:
     """The problem as the message states it: the model's copy when it is word for word the
     message's own; else a user's whole message, as typed, and no problem from a reply."""
@@ -113,65 +124,68 @@ def _stated(role: str, message: str, quoted: str | None) -> str | None:
     return whole if role == "user" else None
 
 
-def _numbers(text: str) -> Counter[Decimal]:
-    out: Counter[Decimal] = Counter()
-    for found in _NUMBER.findall(text):
-        try:
-            out[Decimal(found).normalize()] += 1
-        except InvalidOperation:
-            continue
-    return out
+def _line_value(line: str, new: str | None) -> str | None:
+    """The new value as the line gives it: the read's copy only when the line holds it."""
+    value = _unlatexed(new or "")
+    return collapse_ws(new or "") if value and value in _unlatexed(line) else None
 
 
-def held_restatement(problem: str, line: str, restated: str | None) -> str | None:
-    """The read's restatement of ``problem`` with the change ``line`` asks, when it holds to
-    them. Every number in it is the problem's or the line's (a value it worked out itself is
-    no restatement). A line with a value replaces one of the problem's with it ("what if
-    the mass was 20 kg?"; "... if M was 50 g/mol" tacked on changes nothing a solver reads);
-    a line without one asks another quantity, every value kept. And almost every word is
-    theirs. "What if it was 3 times higher?" is left to the subjects' readers, which scale a
-    given; "what if gravity was weaker?" to the model."""
-    if not restated:
-        return None
-    text = _plain(restated)
-    if text.casefold() == _plain(problem).casefold():
-        return None
-    given, asked, have = _numbers(problem), _numbers(line), _numbers(text)
-    if have - (given + asked) or asked - have:
-        return None
-    if (not given - have) if asked else have != given:
-        return None
-    known = {word.casefold() for word in _WORD.findall(f"{problem} {line}")}
-    words = [word.casefold() for word in _WORD.findall(text)]
-    new = sum(word not in known for word in words)
-    return text if words and new <= _NEW_WORDS * len(words) else None
+def holds_a_problem(asked: str | None, reply: str) -> bool:
+    """Whether the exchange before the line holds a problem a subject reads: the reply's own
+    (a practice question it posed) or the user's line it answered. Read in the pool."""
+    from app.modules.chat.turn_prep.reading import subject_of
+
+    if asked and subject_of(asked) is not None:
+        return True
+    plain = _plain(reply)
+    return len(plain) <= _REPLY_CHARS and subject_of(plain) is not None
 
 
 async def pick_posed(settings: Settings, line: str, conversation: str) -> PosedPick | None:
     """The model's read of the problem a short line refers to, or None when there is no read."""
-    return await ask_read(settings, _SYSTEM, line, conversation, PosedPick, max_tokens=400)
+    return await ask_read(settings, _SYSTEM, line, conversation, PosedPick, max_tokens=160)
 
 
 def may_refer_to_a_problem(line: str, recent: Sequence[Any]) -> bool:
-    """A cheap look before any read: a short line right after a reply that states numbers or
-    asks something."""
+    """A cheap look on the loop: a short line right after a reply."""
     words = collapse_ws(line).split()
     if not words or len(words) > _MAX_WORDS:
         return False
     exchanges = chat_before(recent, line)
-    if not exchanges or exchanges[-1][0] != "assistant":
-        return False
-    reply = exchanges[-1][1]
-    return "?" in reply or any(char.isdigit() for char in reply)
+    return bool(exchanges) and exchanges[-1][0] == "assistant"
 
 
 _KEPT = "posed"
 
 
-async def posed_for_turn(settings: Settings, line: str, recent: Sequence[Any]) -> Posed | None:
-    """``read_posed`` once a turn, kept as the other reads are (``core.readings``)."""
+def _key(line: str, recent: Sequence[Any]) -> tuple[str, tuple[tuple[str, str], ...]]:
     # Keyed by the chat too: a run of turns outside a request (the sweep) shares one memo.
-    key = (line, tuple(chat_before(recent, line)))
+    return line, tuple(chat_before(recent, line))
+
+
+# The read started as the turn loaded. Beside the turn's readings, not in them: the
+# readings are copied to the SymPy pool's workers, and a task does not pickle.
+_STARTED: ContextVar[tuple[Any, asyncio.Task[Posed | None]] | None] = ContextVar(
+    "posed_read_started", default=None
+)
+
+
+def start_posed_read(settings: Settings, line: str, recent: Sequence[Any]) -> None:
+    """Start the read as the turn loads, beside its other reads: the turn awaits it only
+    when no subject reader claims the line (``posed_for_turn``), so it adds no wait to a
+    turn that never asks."""
+    if not settings.referent_read_enabled or not may_refer_to_a_problem(line, recent):
+        return
+    task = asyncio.create_task(read_posed(settings, line, recent), name="posed_read")
+    _STARTED.set((_key(line, recent), task))
+
+
+async def posed_for_turn(settings: Settings, line: str, recent: Sequence[Any]) -> Posed | None:
+    """The turn's read: the one started as it loaded, else read now (``core.readings``)."""
+    key = _key(line, recent)
+    started = _STARTED.get()
+    if started is not None and started[0] == key:
+        return await started[1]
     kept = kept_for_turn(_KEPT)
     if isinstance(kept, tuple) and kept[0] == key:
         posed: Posed | None = kept[1]
@@ -183,10 +197,20 @@ async def posed_for_turn(settings: Settings, line: str, recent: Sequence[Any]) -
 
 async def read_posed(settings: Settings, line: str, recent: Sequence[Any]) -> Posed | None:
     """The problem a short line asks to solve or change, as its message states it; None with
-    no read, or when the line answers a question or asks no solve."""
+    no read, after an exchange that holds no problem, or when the line answers a question
+    or asks no solve."""
     if not settings.referent_read_enabled or not may_refer_to_a_problem(line, recent):
         return None
     exchanges = chat_before(recent, line)
+    asked = exchanges[-2][1] if len(exchanges) > 1 and exchanges[-2][0] == "user" else None
+    held = await read_off_loop(
+        holds_a_problem,
+        asked,
+        exchanges[-1][1],
+        timeout=settings.subject_read_timeout_seconds,
+    )
+    if not held:
+        return None
     started = time.perf_counter()
     read = await pick_posed(settings, collapse_ws(line), _numbered(exchanges))
     logger.info("posed read took %.0f ms", (time.perf_counter() - started) * 1000)
@@ -197,10 +221,12 @@ async def read_posed(settings: Settings, line: str, recent: Sequence[Any]) -> Po
     problem = _stated(*exchanges[read.message - 1], read.problem)
     if problem is None:
         return None
-    changed = read.kind == "change"
+    if read.kind == "solve":
+        return Posed(problem=problem, reply=exchanges[-1][1])
     return Posed(
         problem=problem,
         reply=exchanges[-1][1],
-        changed=changed,
-        restated=held_restatement(problem, line, read.changed) if changed else None,
+        changed=True,
+        given=collapse_ws(read.given or "") or None,
+        new=_line_value(line, read.new),
     )

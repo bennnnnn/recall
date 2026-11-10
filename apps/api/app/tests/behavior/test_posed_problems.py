@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from app.services.subjects.registry import SubjectName, subject_adapter
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.decisions import decision_record
 from app.tests.behavior.harness import Route, route_case
@@ -58,40 +59,79 @@ async def test_posed_problem_solved_as_typed(
     assert followed.instant_text == typed.instant_text
 
 
+_CARNOT = "max (Carnot) efficiency of a heat engine working between 500 K and 300 K?"
+_WATER = "how much water if 3.0 g of hydrogen and 16.0 g of oxygen react"
+_CAR = "A car travels 120 meters in 20 seconds. What is its speed?"
+_BALL = "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("question", "reply", "line", "changed", "answer"),
+    ("question", "line", "change", "typed"),
     [
         (
-            "max (Carnot) efficiency of a heat engine working between 500 K and 300 K?",
-            "**Answer**\n\n```answer\n0.4\n```",
+            _CARNOT,
             "What if $T_C = 200\\,\\mathrm{K}$?",
+            ("300 K", "200 K"),
             "max (Carnot) efficiency of a heat engine working between 500 K and 200 K?",
-            "0.6",
         ),
         (
-            "how much water if 3.0 g of hydrogen and 16.0 g of oxygen react",
-            "**Answer**\n\n```answer\nLimiting reagent = O2; 18 g H2O\n```",
-            "What if O₂ mass was 32.0 g?",
+            _WATER,
+            "What if O\u2082 mass was 32.0 g?",
+            ("16.0 g of oxygen", "32.0 g"),
             "how much water if 3.0 g of hydrogen and 32.0 g of oxygen react",
-            "H2",
+        ),
+        # The read names the wrong given: the new value's unit says which one changes, so
+        # "10 seconds" is the time, never the 120 meters, and "5 m/s" the speed, never the
+        # 2 kg (the review of aef64c847 found both accepted as written).
+        (
+            _CAR,
+            "What if it took 10 seconds?",
+            ("120 meters", "10 seconds"),
+            "A car travels 120 meters in 10 seconds. What is its speed?",
+        ),
+        (
+            _BALL,
+            "And if the speed was 5 m/s instead?",
+            ("2 kg", "5 m/s"),
+            "A 2 kg ball moves at 5 m/s. What is its kinetic energy?",
         ),
     ],
 )
-async def test_tapped_what_if_solved_as_typed(
-    question: str, reply: str, line: str, changed: str, answer: str, thread_sympy_executor: None
+async def test_a_named_change_is_solved_as_the_problem_typed_with_it(
+    question: str, line: str, change: tuple[str, str], typed: str, thread_sympy_executor: None
 ) -> None:
-    """A tapped follow-up question changes one value: the problem with it, solved as typed."""
-    typed = await _route(changed)
+    """A tapped follow-up question changes one value: the server puts it in place of the
+    given of its kind and the problem is solved as the user would have typed it."""
+    expected = await _route(typed)
     followed = await _route(
         line,
-        history=(("user", question), ("assistant", reply)),
+        history=(("user", question), ("assistant", "**Answer** worked above.")),
         posed=question,
-        posed_changed=changed,
+        posed_change=change,
     )
-    assert answer in followed.verified_answer
-    assert decision_record(followed)["solver"] == decision_record(typed)["solver"]
-    assert followed.instant_text == typed.instant_text
+    assert expected.solved
+    assert followed.verified_answer == expected.verified_answer
+    assert decision_record(followed)["solver"] == decision_record(expected)["solver"]
+
+
+@pytest.mark.parametrize(
+    ("subject", "problem", "given", "new"),
+    [
+        # No given of the new value's kind, or two the read's quote does not tell apart.
+        ("physics", _CAR, "the time", "10 kg"),
+        ("physics", _CARNOT, "the cold one", "200 K"),
+        # A value tacked on that no given of the problem holds ("if M was 50 g/mol").
+        ("chemistry", "What is the mass of 3.5 mol of H2SO4 in grams", "molar mass", "50 g/mol"),
+        # An expression the problem does not write once.
+        ("math", "solve x^2 + x^2 = 8", "x^2", "x^3"),
+        ("math", "solve 2x + 3 = 7", "2x + 3 = 7", "5"),
+    ],
+)
+def test_a_change_no_subject_puts_in_place_exactly_is_none(
+    subject: SubjectName, problem: str, given: str, new: str
+) -> None:
+    assert subject_adapter(subject).followups.changed_problem(problem, given, new) is None
 
 
 @pytest.mark.asyncio

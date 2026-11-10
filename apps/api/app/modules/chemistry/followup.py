@@ -32,6 +32,7 @@ from app.services.problem_followup import (
     ask_replaced,
     followup_line,
     new_value,
+    written_value,
 )
 from app.services.scaled_followup import scaled_given
 
@@ -187,3 +188,13 @@ def _dimension_of_phrase(phrase: str) -> str | None:
 
 
 _GIVENS = GivenRewriter(CHEMISTRY_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)
+
+
+def changed_chemistry_problem(problem: str, given: str | None, new: str) -> str | None:
+    """``problem`` with the given of ``new``'s kind put to ``new`` ("10 s" replaces the time;
+    of two masses, the one whose number ``given`` quotes). The unit decides which kind
+    changes: "10 s" never replaces a distance. The rewrite verifies."""
+    value = written_value(new)
+    if value is None:
+        return None
+    return _GIVENS.replaced(problem, given, *value)

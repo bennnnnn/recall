@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pickle
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -10,7 +11,10 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.chat import posed_read
-from app.modules.chat.posed_read import Posed, PosedPick, held_restatement, read_posed
+from app.modules.chat.posed_read import Posed, PosedPick, read_posed
+
+# The read asks the subject of the exchange before it in the SymPy pool.
+pytestmark = pytest.mark.usefixtures("thread_sympy_executor")
 
 _CAR = "A car travels 120 meters in 20 seconds. What is its speed?"
 _POSED_CHAT = [
@@ -70,16 +74,34 @@ async def test_no_read_an_answer_or_an_offer_is_no_solve(pick: PosedPick | None)
     assert (await _read("do it", pick))[0] is None
 
 
+_HISTORY_CHAT = [
+    ("user", "When did World War II end?"),
+    ("assistant", "It ended in 1945. Anything else?"),
+]
+
+
 @pytest.mark.parametrize(
     ("line", "pairs"),
     [
-        ("Do it", [("user", "hi"), ("assistant", "Hello! How can I help")]),
         ("Do it", [("user", _CAR)]),
         ("Can you also tell me how fast that is in kilometres per hour and why", _POSED_CHAT),
+        # The review of aef64c847: after a reply with a number and a question but no
+        # problem, every short line waited on the read.
+        *(
+            (line, _HISTORY_CHAT)
+            for line in (
+                "Who was the US president then?",
+                "Tell me a joke",
+                "Translate hello to French",
+                "What's the weather in Paris?",
+                "write a haiku about rain",
+            )
+        ),
+        ("do it", [("user", "help me study"), ("assistant", "Want me to make a study plan?")]),
     ],
 )
 @pytest.mark.asyncio
-async def test_a_line_after_no_reply_that_asks_or_counts_is_not_read(
+async def test_a_line_after_an_exchange_with_no_problem_is_not_read(
     line: str, pairs: list[tuple[str, str]]
 ) -> None:
     posed, model = await _read(line, PosedPick(kind="solve", message=1), pairs)
@@ -88,80 +110,22 @@ async def test_a_line_after_no_reply_that_asks_or_counts_is_not_read(
 
 
 @pytest.mark.asyncio
-async def test_a_change_carries_the_restatement_it_holds_to() -> None:
-    pick = PosedPick(
-        kind="change",
-        message=2,
-        problem=_CAR,
-        changed="A car travels 120 meters in 10 seconds. What is its speed?",
-    )
-    posed, _model = await _read("What if it took 10 s?", pick)
+async def test_a_line_after_a_solved_problem_is_read() -> None:
+    """The exchange's problem may be the user's, the reply its answer (a tapped what-if)."""
+    typed = [("user", _CAR), ("assistant", "**Given** d = 120 m, t = 20 s ... v = 6 m/s")]
+    pick = PosedPick(kind="change", message=1, problem=_CAR, given="20 seconds", new="10 s")
+    posed, model = await _read("What if it took 10 s?", pick, typed)
+    model.assert_awaited_once()
     assert posed == Posed(
-        problem=_CAR,
-        reply=_POSED_CHAT[1][1],
-        changed=True,
-        restated="A car travels 120 meters in 10 seconds. What is its speed?",
+        problem=_CAR, reply=typed[1][1], changed=True, given="20 seconds", new="10 s"
     )
 
 
-_MASS = "What is the mass of 3.5 mol of H2SO4 in grams"
-
-
-@pytest.mark.parametrize(
-    ("problem", "line", "restated", "held"),
-    [
-        # The new value replaces the one it changes.
-        (
-            _MASS,
-            "What if n was 1.5 mol instead?",
-            "What is the mass of 1.5 mol of H2SO4 in grams",
-            True,
-        ),
-        # A subscript is no value: T_1 is the first temperature.
-        (
-            "A gas has a volume of 2 L at 27 C. What volume will it have at 127 C?",
-            "What if $T_1$ was 300 K?",
-            "A gas has a volume of 2 L at 300 K. What volume will it have at 127 C?",
-            True,
-        ),
-        # A sign is part of the value.
-        (
-            "line parallel to y = -2x + 7 through (1, 1)",
-            "What if the line was $y = 2x + 7$?",
-            "line parallel to y = 2x + 7 through (1, 1)",
-            True,
-        ),
-        # Another quantity of the same setup keeps every value.
-        (
-            "what is the y intercept of the line 4x - 2y = 8",
-            "How do I find the x-intercept?",
-            "what is the x intercept of the line 4x - 2y = 8",
-            True,
-        ),
-        # Tacked on, the new value changes nothing a solver reads.
-        (_MASS, "What if M was 50 g/mol?", f"{_MASS} if M was 50 g/mol?", False),
-        # A value worked out by the model is no restatement.
-        (
-            _MASS,
-            "What if it was 3 times more?",
-            "What is the mass of 10.5 mol of H2SO4 in grams",
-            False,
-        ),
-        # No value to put in: "what if gravity was weaker?" is the model's to answer.
-        (_MASS, "What if it was less?", "What is the mass of less H2SO4 in grams", False),
-        # Words neither the problem nor the line holds.
-        (
-            _MASS,
-            "What if n was 1.5 mol?",
-            "Find the volume at standard temperature and pressure of 1.5 mol of H2SO4 gas",
-            False,
-        ),
-        (_MASS, "What if n was 1.5 mol?", _MASS, False),
-        (_MASS, "What if n was 1.5 mol?", None, False),
-    ],
-)
-def test_held_restatement(problem: str, line: str, restated: str | None, held: bool) -> None:
-    assert (held_restatement(problem, line, restated) is not None) is held
+@pytest.mark.asyncio
+async def test_a_new_value_the_line_does_not_give_is_none() -> None:
+    pick = PosedPick(kind="change", message=2, problem=_CAR, given="20 seconds", new="12 s")
+    posed, _model = await _read("What if it took 10 s?", pick)
+    assert posed is not None and posed.new is None
 
 
 @pytest.mark.asyncio
@@ -188,3 +152,45 @@ async def test_the_replys_cheer_after_the_problem_is_left_out() -> None:
     pick = PosedPick(kind="solve", message=2, problem=chat[1][1])
     posed, _model = await _read("what's the answer", pick, chat)
     assert posed is not None and posed.problem == "Solve for x: 3x + 5 = 20."
+
+
+@pytest.mark.asyncio
+async def test_the_read_started_as_the_turn_loads_is_the_one_awaited() -> None:
+    from app.core import readings
+
+    readings.begin_turn()
+    model = AsyncMock(return_value=PosedPick(kind="solve", message=2, problem=_CAR))
+    rows: list[Any] = _rows(_POSED_CHAT)
+    with patch.object(posed_read, "pick_posed", model):
+        posed_read.start_posed_read(Settings(), "Do it", rows)
+        # The turn's readings go to the SymPy pool's worker processes: still picklable.
+        pickle.dumps(readings._MEMO.get())
+        posed = await posed_read.posed_for_turn(Settings(), "Do it", rows)
+    assert posed is not None and posed.problem == _CAR
+    model.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_regenerate_reads_the_chat_without_the_reply_it_redoes() -> None:
+    """The review of aef64c847: regenerating "Do it" showed the read the answer being
+    replaced as the latest reply, so the problem's reply was the old answer."""
+    from typing import cast
+    from uuid import uuid4
+
+    from app.modules.chat.turn_prep.augment import reads_window
+    from app.modules.chat.turn_prep.request import TurnRequest
+
+    rows = [
+        SimpleNamespace(id=uuid4(), role=role, content=content)
+        for role, content in (*_POSED_CHAT, ("user", "Do it"), ("assistant", "6 m/s."))
+    ]
+    request = cast(
+        "TurnRequest",
+        SimpleNamespace(recent_messages=rows, omit_message_ids={rows[-1].id}, content="Do it"),
+    )
+    model = AsyncMock(return_value=PosedPick(kind="solve", message=2, problem=_CAR))
+    with patch.object(posed_read, "pick_posed", model):
+        posed = await read_posed(Settings(), "Do it", reads_window(request))
+    assert posed == Posed(problem=_CAR, reply=_POSED_CHAT[1][1])
+    assert model.await_args is not None
+    assert "6 m/s." not in model.await_args.args[2]

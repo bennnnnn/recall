@@ -54,6 +54,11 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class PhysicsFollowups:
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        from app.modules.physics.followup import changed_physics_problem
+
+        return changed_physics_problem(problem, given, new)
+
     def problem(
         self,
         query: str | None,
