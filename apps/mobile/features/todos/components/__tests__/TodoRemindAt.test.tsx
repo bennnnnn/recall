@@ -8,10 +8,11 @@
  * With quiet hours 22:00-07:00, a to-do due at 23:30 showed 23:20 (due - lead) here while
  * push waited until 07:00.
  */
+import { createRef } from "react";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { TodoDateFields } from "@/features/todos/components/TodoDateFields";
-import { TodoEditorSheet } from "@/features/todos/components/TodoEditorSheet";
+import { TodoEditorSheet, type TodoEditorHandle } from "@/features/todos/components/TodoEditorSheet";
 import { useRemindAt } from "@/features/todos/hooks/useRemindAt";
 import { api, type Todo, type User } from "@/lib/api";
 import { formatDate, refreshPhoneClock } from "@/lib/datetime/format";
@@ -209,5 +210,36 @@ describe("a date alone on the detail page", () => {
     expect(view.getByText("—")).toBeTruthy();
     await advance(1000);
     expect(previews()).toEqual([]);
+  });
+});
+
+describe("taking the date off on the detail page", () => {
+  it("leaves an undated to-do: no time, Remind at or repeat, and leaving saves it so", async () => {
+    const due = new Date(2026, 10, 2, 9, 0);
+    const shown: Todo = { ...savedTodo(due, new Date(2026, 10, 2, 8, 50)), recurrence_rule: "weekly" };
+    const onSave = jest.fn();
+    const ref = createRef<TodoEditorHandle>();
+    const view = await render(
+      <TodoEditorSheet ref={ref} page visible saving={false} todos={[shown]} editTodo={shown} savedTodo={shown}
+        leadMinutes={10} onClose={noop} onSave={onSave} />,
+    );
+    expect(remindAtLabel(view)).toBeDefined();
+    await fireEvent.press(view.getByLabelText("todos.remove_date"));
+    expect(view.getByLabelText("todos.add_date")).toBeTruthy();
+    expect(view.queryByLabelText("todos.remove_date")).toBeNull();
+    expect(view.queryByLabelText("todos.remove_time")).toBeNull();
+    expect(remindAtLabel(view)).toBeUndefined();
+    await act(async () => ref.current?.leave());
+    expect(onSave).toHaveBeenCalledWith("Call Sam", null, null, "Reminders");
+  });
+
+  it("offers no remove button on an undated to-do", async () => {
+    const undated: Todo = { ...savedTodo(new Date(2026, 10, 2), null), due_at: null };
+    const view = await render(
+      <TodoEditorSheet page visible saving={false} todos={[undated]} editTodo={undated} savedTodo={undated}
+        leadMinutes={10} onClose={noop} onSave={noop} />,
+    );
+    expect(view.getByLabelText("todos.add_date")).toBeTruthy();
+    expect(view.queryByLabelText("todos.remove_date")).toBeNull();
   });
 });

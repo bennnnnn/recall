@@ -31,7 +31,8 @@ const NO_REMINDER: RemindAt = { status: "none" };
 /**
  * Date (with year), time, and repeat are separate rows. A to-do can stay undated, or have
  * a date alone ("—" for its time, and no Remind at); a time makes it a timed one, and the
- * remove button beside the time makes it a date alone again.
+ * remove button beside the time makes it a date alone again. The one beside the date makes
+ * it undated: its time, reminder and repeat go with the date.
  */
 export function TodoDateFields({
   due,
@@ -97,10 +98,8 @@ export function TodoDateFields({
     onOpen(panel);
   };
 
-  const removeDate = () => {
-    onDueChange(null);
-    onRepeatChange(null);
-  };
+  // A repeat needs a date: it goes with it.
+  const removeDate = () => { onDueChange(null); onRepeatChange(null); };
   // The day and repeat stay: a date alone, with no reminder.
   const removeTime = due?.hasTime ? () => onDueChange(dateOnly(due.date)) : undefined;
 
@@ -115,6 +114,8 @@ export function TodoDateFields({
           disabled={disabled}
           onPress={() => openPanel("date")}
           accessibilityLabel={due ? t("todos.change_due") : t("todos.add_date")}
+          onRemove={due ? removeDate : undefined}
+          removeLabel={t("todos.remove_date")}
         />
         <ReviewRow
           icon="clock"
