@@ -109,8 +109,10 @@ export function segmentTextWithMath(text: string): TextWithMathSegments {
   }, undefined);
   const segments = { content, parts, runHeight };
 
-  if (parts.length === 1 && parts[0].type === "text") {
-    return { ...segments, layout: "prose", runs: [] };
+  if (parts.every((part) => part.type === "text")) {
+    // A span that reads as words (`$Assets = Liabilities + Equity$`) is text without its
+    // dollars; printed from the source, a formula line alone showed them.
+    return { ...segments, content: parts.map((part) => part.value).join(""), layout: "prose", runs: [] };
   }
   if (parts.some((p) => p.type === "math" && isHeavyInlineMath(p.value))) {
     return { ...segments, layout: "display", runs: mathRuns(parts, isHeavyInlineMath, true) };

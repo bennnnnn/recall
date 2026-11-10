@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
+import { MathColumn } from "@/components/rich/mathColumn";
 import { MathText } from "@/components/rich/MathText";
 import {
   splitStreamCaret,
@@ -330,7 +331,7 @@ function renderWorkingSteps(
               testID="workout-body"
               style={{ gap: Space.xs, marginTop: WORK_GAP, paddingLeft: WORK_INDENT }}
             >
-              {step.lines}
+              <MathColumn inset={WORK_INDENT}>{step.lines}</MathColumn>
             </View>
           ) : null}
         </View>

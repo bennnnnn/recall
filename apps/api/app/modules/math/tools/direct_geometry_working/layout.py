@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable, Mapping
+from fractions import Fraction
 
 from app.modules.math.schemas import GeometryRequest
 from app.services.workout import Workout, formula_heading, math_line, render_workout, solve_for_line
@@ -23,6 +24,29 @@ def number(value: object) -> float | None:
 def display(value: float) -> str:
     """Keep significant decimals while never adding cosmetic trailing zeroes."""
     return format(value, ".12g")
+
+
+# A π multiple is written exactly while it reads at a glance: 32/3 π, never 1234567/89 π.
+_EXACT_DIGITS = 6
+
+
+def exact(value: float) -> Fraction:
+    """A measure as the figure states it, exactly: 2.5 is 5/2."""
+    return Fraction(display(value))
+
+
+def pi_value(head: str, coefficient: Fraction, result: str) -> str:
+    """``V = \\frac{4}{3}\\pi(2)^3`` worked to its exact value, ``\\frac{32}{3}\\pi``, then
+    ``≈`` the card's rounded result. The working shows the value unrounded once; only the
+    card rounds it. A multiple too long to read keeps the substitution alone before ``≈``."""
+    digits = max(len(str(coefficient.numerator)), len(str(coefficient.denominator)))
+    if coefficient <= 0 or digits > _EXACT_DIGITS:
+        return rf"{head} \approx {result}"
+    if coefficient.denominator == 1:
+        multiple = rf"{coefficient.numerator}\pi"
+    else:
+        multiple = rf"\frac{{{coefficient.numerator}}}{{{coefficient.denominator}}}\pi"
+    return rf"{head} = {multiple} \approx {result}"
 
 
 def figure_unit(spec: Mapping[str, object]) -> str:

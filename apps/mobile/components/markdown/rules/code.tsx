@@ -16,12 +16,15 @@ const HEADING_SIZES = {
   heading6: Type.h6.fontSize,
 } as const;
 
-/** Inline code in a heading: the heading's size in the body's 14:16 ratio, not a fixed 14. */
+/** Inline code in a heading of `type` (`heading3`): the heading's size in the body's 14:16
+ * ratio, not a fixed 14. */
+export function headingCodeFontSize(type: keyof typeof HEADING_SIZES): number {
+  return Math.round((HEADING_SIZES[type] * Type.secondary.fontSize) / Type.body.fontSize);
+}
+
 function headingCodeSize(parent: unknown): { fontSize: number } | null {
-  for (const [type, size] of Object.entries(HEADING_SIZES)) {
-    if (parentHasType(parent, type)) {
-      return { fontSize: Math.round((size * Type.secondary.fontSize) / Type.body.fontSize) };
-    }
+  for (const type of Object.keys(HEADING_SIZES) as (keyof typeof HEADING_SIZES)[]) {
+    if (parentHasType(parent, type)) return { fontSize: headingCodeFontSize(type) };
   }
   return null;
 }

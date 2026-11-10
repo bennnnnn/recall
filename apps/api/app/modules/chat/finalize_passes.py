@@ -102,7 +102,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import note_pass, note_pass_failed
 from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
-from app.modules.chat.worked_lead import drop_guessed_lead
+from app.modules.chat.worked_lead import drop_guessed_lead, drop_restated_step
 
 logger = logging.getLogger(__name__)
 
@@ -281,10 +281,11 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("unverified_notes", append_unverified_notes, kind=TEXT),
     FinalizePass("working_check", check_working, kind=TEXT),
     # Once the working's own Answer has become its card: a lead above the working that
-    # guesses or repeats that card goes (a model's "**x = 3**" over its steps).
+    # guesses or repeats that card goes (a model's "**x = 3**" over its steps), and so does
+    # a last line of working that only says the card's value (the answer once, at the end).
     FinalizePass(
         "worked_lead",
-        lambda s: drop_guessed_lead(s.text),
+        lambda s: drop_restated_step(drop_guessed_lead(s.text)),
         kind=TEXT,
         after=frozenset({"working_check"}),
     ),

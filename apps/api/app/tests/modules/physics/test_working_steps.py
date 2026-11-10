@@ -1,4 +1,4 @@
-"""The working reaches the verified answer, and a given in another unit shows its factor."""
+"""The working reaches its value, unrounded, and a given in another unit shows its factor."""
 
 from __future__ import annotations
 
@@ -12,11 +12,27 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
 @pytest.mark.parametrize(
     ("rows", "answer", "carried"),
     [
-        # Worked to the verified answer, which the last row states as verified.
+        # Worked to the value it reaches, unrounded: only the card rounds it (3.47 m/s²).
         (
             [r"a = \frac{27.7778 - 0}{8}"],
             r"3.47\,\mathrm{m/s²}",
-            [r"a = \frac{27.7778 - 0}{8}", r"a = \frac{27.7778}{8}", r"a = 3.47\,\mathrm{m/s²}"],
+            [r"a = \frac{27.7778 - 0}{8}", r"a = \frac{27.7778}{8}", r"a = 3.47223\,\mathrm{m/s²}"],
+        ),
+        # A value that is the card's own closes on it (the saved reply then drops the line).
+        (
+            [r"d_i = \frac{30 \times 10}{30 - 10}"],
+            r"15\,\mathrm{cm}",
+            [
+                r"d_i = \frac{30 \times 10}{30 - 10}",
+                r"d_i = \frac{300}{20}",
+                r"d_i = 15\,\mathrm{cm}",
+            ],
+        ),
+        # Typed constants put the worked value off by more than rounding: the card's value.
+        (
+            [r"v = 7672.4 + 0"],
+            r"7673\,\mathrm{m/s}",
+            [r"v = 7672.4 + 0", r"v = 7673\,\mathrm{m/s}"],
         ),
         # A size with a direction: the working keeps its sign.
         (
@@ -70,11 +86,11 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
             [
                 r"a = \frac{2 \times 9.81}{5 + 2}",
                 r"a = \frac{19.62}{7}",
-                r"a = 2.8\,\mathrm{m/s²}",
+                r"a = 2.80286\,\mathrm{m/s²}",
                 r"T = 5 \times \frac{2 \times 9.81}{5 + 2}",
                 r"T = 5 \times \frac{19.62}{7}",
                 r"T = 5 \times 2.80286",
-                r"T = 14\,\mathrm{N}",
+                r"T = 14.0143\,\mathrm{N}",
             ],
         ),
     ],
