@@ -498,7 +498,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "vant_hoff_factor",
             "solutions",
             "van 't Hoff factor",
-            "i = ΔT / (K b)",
+            "i = ΔT / (K × b)",
             "van 't Hoff factor, i",
             ("i", ""),
             "delta_t/(constant*molality)",

@@ -41,7 +41,7 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, si_factor, to_si
 from app.modules.physics.working import result_symbol_for
-from app.modules.physics.working_steps import carried_to_answer, intent_givens
+from app.modules.physics.working_steps import carried_to_answer, working_units
 from app.services.glyphs import SUPERSCRIPT_SIGNED
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 from app.services.worked_parts import WorkedPart, render_parts
@@ -334,7 +334,9 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
                 for row in carried_to_answer(
                     substitutions,
                     verified.display_answer or verified.canonical_answer,
-                    intent_givens(intent),
+                    working_units(
+                        intent, formulas, verified.display_answer or verified.canonical_answer
+                    ),
                 )
             ),
             formula_heading=law_heading(spec.law_name) if spec is not None else FORMULA,
@@ -393,7 +395,9 @@ def _format_parts(
                 substitution=tuple(
                     math_line(row)
                     for row in carried_to_answer(
-                        part.substitutions, part.display_answer, intent_givens(intent)
+                        part.substitutions,
+                        part.display_answer,
+                        working_units(intent, part.formulas, part.display_answer, part.op),
                     )
                 ),
                 formula_heading=law_heading(spec.law_name) if spec is not None else FORMULA,

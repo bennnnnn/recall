@@ -394,9 +394,11 @@ def _latex(
             )
             or (isinstance(before.op, ast.Pow) and _plugged(before.left, values))
         )
-        # And after a negated number: -0.04 \times 0.1, never "-0.04 0.1".
+        # And after a negated number or a function of numbers: -0.04 \times 0.1 and
+        # \cos(0^\circ) \times 0.64, never "-0.04 0.1" or "\cos(0^\circ) 0.64".
         negated = isinstance(before, ast.UnaryOp) and _plugged(before.operand, values)
-        joined = (_plugged(before, values) or number_fraction or negated) and (
+        called = isinstance(before, ast.Call) and values is not None
+        joined = (_plugged(before, values) or number_fraction or negated or called) and (
             _plugged(follows, values)
             or (values is not None and isinstance(follows, ast.Call))
             or (values is not None and isinstance(follows, ast.BinOp))

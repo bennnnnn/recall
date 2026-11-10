@@ -1,43 +1,44 @@
-"""The units a substituted row's numbers carry, read so the working can show them.
+"""The units a substituted row's numbers carry, read from the law they were put into.
 
-``reduction`` works a substitution down a layer at a time; this reads which unit each of
-its numbers is in. A number is a given's when its value is; a count or a factor (½, 2)
-stays bare. One reading of them is kept: the one whose units go together (a sum of one
-unit, a function of a pure number), end in the answer's dimension, and read the most
-numbers as givens. A worked number carries the unit its operation leaves it in.
+``reduction`` works a substitution down a layer at a time. A number in it stands for the
+law's symbol in the same place: ``\\frac{48 - 8}{10}`` under ``\\frac{v_f - v_i}{t}`` is
+v_f, v_i and t, and carries each one's unit when its value is that symbol's; a number the
+law writes itself (½, the 2 of 2as) stays bare. The value is never matched alone: a 2 m/s
+speed beside a 2 m cliff is told apart by where it stands. A row is labelled only when every
+number is known this way, the units go together (a sum of one unit, a function of a pure
+number) and the row ends in the dimension of the quantity it states; otherwise it stays as
+written. A worked number carries the unit its operation leaves it in.
 """
 
 from __future__ import annotations
 
 import ast
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
-from itertools import product
 from typing import Any
 
 _SUMS = (ast.Add, ast.Sub)
 
 # The attribute a number node carries its unit in (a Pint unit); a pure number has none.
 UNIT = "unit"
-# Factors a law writes as numbers (½, 2 in 2as, 4 in 4πr²): a value that equals a given
-# may still be one of them.
-_FACTORS = frozenset({0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 100.0})
-# Readings tried before a row is called too ambiguous to label.
-_MOST_READINGS = 4096
+# What a law symbol's leaf id starts with, so a symbol never reads as an angle or as π.
+SYMBOL = "$"
 
 
 @dataclass(frozen=True)
 class LeafUnits:
-    """What the numbers of a substituted row are: each given's value with its unit."""
+    """What a substituted row's numbers may stand for, and what the row must end in."""
 
-    # (the value as the row substitutes it, its Pint unit)
-    given: Sequence[tuple[float, Any]]
+    # The law's right sides in its symbols, any of which the row may put numbers into.
+    formulas: Sequence[str]
+    # Each symbol's values as a row may substitute them, with their Pint units.
+    known: Mapping[str, Sequence[tuple[float, Any]]]
     # A unit as it follows a number: ``\\,\\mathrm{m/s}``.
     shown: Callable[[Any], str]
-    # The dimensions the row may end in (a Pint dimensionality; None for a pure number), or
-    # None when any is right: a row that states its own value is checked by that value.
-    answers: Sequence[Any] | None
+    # The dimensions the row's quantity may have, given the value it reaches (a Pint
+    # dimensionality; None for a pure number). None of them: the row stays bare.
+    dimensions: Callable[[float], Collection[Any]]
 
 
 class _Inconsistent(ValueError):
@@ -152,79 +153,92 @@ def _unit_of(node: ast.expr, chosen: dict[int, Any]) -> Any | None:
     return _times(left, right, 1 if isinstance(node.op, ast.Mult) else -1)
 
 
-def _options(value: float, units: LeafUnits) -> list[Any | None]:
-    found: list[Any | None] = []
-    for given, unit in units.given:
-        # A constant may be written to four figures (the electron mass as 9.109e-31 kg).
-        if math.isclose(value, given, rel_tol=1e-4) and unit not in found:
-            found.append(unit)
-    if not found or abs(value) in _FACTORS:
-        found.append(None)
-    return found
-
-
-def _order(tree: ast.expr) -> list[int]:
-    """The nodes of ``tree`` left to right, as the row writes them."""
-    out: list[int] = []
-
-    def visit(node: ast.expr) -> None:
-        if isinstance(node, ast.BinOp):
-            visit(node.left)
-            out.append(id(node))
-            visit(node.right)
-            return
-        out.append(id(node))
-        for child in ast.iter_child_nodes(node):
-            if isinstance(child, ast.expr):
-                visit(child)
-
-    visit(tree)
-    return out
-
-
-def _reaches(unit: Any | None, units: LeafUnits) -> bool:
-    if units.answers is None:
-        return True
-    return (None if unit is None else unit.dimensionality) in units.answers
-
-
-def label(tree: ast.expr, units: LeafUnits) -> bool:
-    """Give each number of ``tree`` its unit, by the one reading of them that is consistent,
-    ends in the answer's dimension, and reads the most numbers as givens; otherwise label
-    nothing.
-
-    A number equal to a given is that given unless its unit would not fit: in
-    ``\\frac{4 + 1 \\cdot 0}{4 + 1}`` the masses are 4 kg and 1 kg, not counts. Of two
-    equal numbers only one of which can be the given (2as with a = 2), the law's factor
-    comes first, so the later one is the given.
-    """
-    leaves = [node for node in ast.walk(tree) if isinstance(node, ast.Constant)]
-    # ``ast.walk`` is breadth first; the tie-break below reads the numbers left to right.
-    order = _order(tree)
-    leaves.sort(key=lambda leaf: order.index(id(leaf)))
-    options = [_options(_exponent_value(leaf), units) for leaf in leaves]
-    if all(option == [None] for option in options):
-        return False
-    best: tuple[int, tuple[bool, ...]] | None = None
-    found: tuple[Any | None, ...] | None = None
-    for count, choice in enumerate(product(*options)):
-        if count >= _MOST_READINGS:
+def _align(law: ast.expr, row: ast.expr, found: dict[int, tuple[str, int]]) -> bool:
+    """Whether ``row`` is ``law`` with numbers put in, noting the symbol each number replaced
+    (and its sign: a written -0.04 under -h_o is h_o = 0.04)."""
+    if isinstance(row, ast.Constant):
+        symbol = _symbol(law)
+        if symbol is not None:
+            found[id(row)] = (symbol, 1)
+            return True
+        if isinstance(law, ast.UnaryOp) and isinstance(law.op, ast.USub):
+            negated = _symbol(law.operand)
+            if negated is not None:
+                found[id(row)] = (negated, -1)
+                return True
+        return isinstance(law, ast.Constant) and _number(law) == _number(row)
+    if isinstance(row, ast.Name):
+        # An angle under its symbol (θ), or π under π.
+        return isinstance(law, ast.Name)
+    if isinstance(row, ast.BinOp) and isinstance(law, ast.BinOp):
+        return (
+            type(row.op) is type(law.op)
+            and _align(law.left, row.left, found)
+            and _align(law.right, row.right, found)
+        )
+    if isinstance(row, ast.UnaryOp) and isinstance(law, ast.UnaryOp):
+        return type(row.op) is type(law.op) and _align(law.operand, row.operand, found)
+    if isinstance(row, ast.Call) and isinstance(law, ast.Call):
+        if not isinstance(row.func, ast.Name) or not isinstance(law.func, ast.Name):
             return False
+        return row.func.id == law.func.id and _align(law.args[0], row.args[0], found)
+    return False
+
+
+def _symbol(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Name) and node.id.startswith(SYMBOL):
+        return node.id[len(SYMBOL) :]
+    return None
+
+
+def _number(node: ast.Constant) -> float:
+    return float(node.value) if isinstance(node.value, int | float) else math.nan
+
+
+def _chosen(
+    row: ast.expr, found: dict[int, tuple[str, int]], units: LeafUnits
+) -> dict[int, Any] | None:
+    """Each number's unit by the symbol it replaced, when its value is that symbol's."""
+    chosen: dict[int, Any] = {}
+    for leaf in ast.walk(row):
+        if not isinstance(leaf, ast.Constant) or id(leaf) not in found:
+            continue
+        symbol, sign = found[id(leaf)]
+        value = sign * _number(leaf)
+        unit = next(
+            (
+                unit
+                for known, unit in units.known.get(symbol, ())
+                # A constant may be written to four figures (the electron mass, 9.109e-31).
+                if math.isclose(value, known, rel_tol=1e-4, abs_tol=1e-12)
+            ),
+            False,
+        )
+        if unit is False:
+            return None
+        chosen[id(leaf)] = _pure(unit)
+    return chosen
+
+
+def label(row: ast.expr, laws: Sequence[ast.expr], units: LeafUnits, value: float) -> bool:
+    """Give each number of ``row`` the unit of the law symbol it replaced, when one law fits
+    it, every number is known, the units go together and the row ends in its quantity's
+    dimension; otherwise label nothing."""
+    for law in laws:
+        found: dict[int, tuple[str, int]] = {}
+        if not _align(law, row, found):
+            continue
+        chosen = _chosen(row, found, units)
+        if chosen is None or all(unit is None for unit in chosen.values()):
+            continue
         try:
-            chosen = {id(leaf): unit for leaf, unit in zip(leaves, choice, strict=True)}
-            reached = _unit_of(tree, chosen)
+            reached = _unit_of(row, chosen)
         except (_Inconsistent, ValueError, TypeError):
             continue
-        if not _reaches(reached, units):
+        if (None if reached is None else reached.dimensionality) not in units.dimensions(value):
             continue
-        labelled = tuple(unit is not None for unit in choice)
-        # More givens first; then the later of two equal numbers is the given.
-        rank = (-sum(labelled), labelled)
-        if best is None or rank < best:
-            best, found = rank, choice
-    if found is None or all(unit is None for unit in found):
-        return False
-    for leaf, unit in zip(leaves, found, strict=True):
-        if unit is not None:
-            setattr(leaf, UNIT, unit)
-    return True
+        for leaf in ast.walk(row):
+            if isinstance(leaf, ast.Constant) and chosen.get(id(leaf)) is not None:
+                setattr(leaf, UNIT, chosen[id(leaf)])
+        return True
+    return False

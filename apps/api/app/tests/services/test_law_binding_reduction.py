@@ -82,36 +82,61 @@ def test_a_row_past_reading_is_left_alone(substituted: str) -> None:
     assert reduce_substitution("x", substituted, latex_given) is None
 
 
-def _units(given: list[tuple[float, str]], answer: str) -> LeafUnits:
+def _units(formula: str, known: dict[str, list[tuple[float, str]]], ends: str) -> LeafUnits:
     ureg = get_unit_registry()
     return LeafUnits(
-        given=[(value, ureg(unit).units) for value, unit in given],
+        formulas=[formula],
+        known={
+            symbol: [(value, ureg(unit).units) for value, unit in readings]
+            for symbol, readings in known.items()
+        },
         shown=lambda unit: rf"\,\mathrm{{{unit:~}}}",
-        answers=[ureg(answer).dimensionality],
+        dimensions=lambda _value: {ureg(ends).dimensionality},
     )
 
 
-def test_every_number_carries_its_unit_down_to_the_answer() -> None:
+def test_every_number_carries_the_unit_of_the_symbol_it_replaced() -> None:
     """The owner's chat of 2026-11-10: a = (48 - 8)/10 had dropped m/s and s."""
-    units = _units([(8.0, "m/s"), (48.0, "m/s"), (10.0, "s")], "m/s^2")
+    units = _units(
+        r"\frac{v_f - v_i}{t}",
+        {"v_f": [(48.0, "m/s")], "v_i": [(8.0, "m/s")], "t": [(10.0, "s")]},
+        "m/s^2",
+    )
     reduction = reduce_substitution("a", r"\frac{48 - 8}{10}", latex_given, units)
     assert reduction is not None
     assert reduction.substituted == r"\frac{48\,\mathrm{m / s} - 8\,\mathrm{m / s}}{10\,\mathrm{s}}"
     assert reduction.rows == (r"a = \frac{40\,\mathrm{m / s}}{10\,\mathrm{s}}",)
-    assert f"{reduction.unit:~}" == "m / s ** 2"
 
 
-def test_a_factor_equal_to_a_given_stays_a_number() -> None:
-    """2as with a = 2 m/s²: the law's 2 comes first, so the later 2 is the given."""
-    units = _units([(2.0, "m/s^2"), (16.0, "m")], "m^2/s^2")
-    reduction = reduce_substitution("v^2", r"2 \times 2 \times 16", latex_given, units)
+def test_a_number_takes_its_place_in_the_law_never_its_value() -> None:
+    """A 2 m/s throw from a 2 m cliff: the 2 under v_0 is the speed, the law's 2 is bare."""
+    units = _units(
+        r"\sqrt{\frac{2h}{g}} v_0",
+        {"v_0": [(2.0, "m/s")], "h": [(2.0, "m")], "g": [(9.81, "m/s^2")]},
+        "m",
+    )
+    reduction = reduce_substitution(
+        "R", r"\sqrt{\frac{2 \times 2}{9.81}} \times 2", latex_given, units
+    )
     assert reduction is not None
-    assert reduction.substituted == r"2 \times 2\,\mathrm{m / s ** 2} \times 16\,\mathrm{m}"
+    assert reduction.substituted == (
+        r"\sqrt{\frac{2 \times 2\,\mathrm{m}}{9.81\,\mathrm{m / s ** 2}}} \times 2\,\mathrm{m / s}"
+    )
 
 
-def test_units_that_do_not_go_together_leave_the_row_bare() -> None:
-    """A metre added to a second has no reading: the row stays as the solver wrote it."""
-    units = _units([(3.0, "m"), (4.0, "s")], "m")
-    reduction = reduce_substitution("x", "3 + 4", latex_given, units)
+def test_a_row_that_does_not_end_in_its_quantity_stays_bare() -> None:
+    """d_b under v²/(2a) with a written as a speed would be a speed, not a distance: bare."""
+    units = _units(r"\frac{v^2}{2a}", {"v": [(10.0, "m/s")], "a": [(10.0, "m/s")]}, "m")
+    reduction = reduce_substitution("d_b", r"\frac{10^2}{2 \times 10}", latex_given, units)
+    assert reduction is not None
+    assert reduction.substituted is None
+
+
+def test_a_number_no_symbol_explains_leaves_the_row_bare() -> None:
+    """A value worked out elsewhere (a flight time) is no given: nothing is guessed."""
+    units = _units(r"v_0 \cos(\theta) t", {"v_0": [(2.0, "m/s")]}, "m")
+    reduction = reduce_substitution(
+        "R", r"2 \times \cos(0^\circ) \times 0.638551", latex_given, units
+    )
     assert reduction is not None
     assert reduction.substituted is None

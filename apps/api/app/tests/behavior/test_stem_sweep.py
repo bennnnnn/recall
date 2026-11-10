@@ -8,7 +8,9 @@ names every question each subject answers and draws, so a change that answers
 one question fewer fails even when it answers another more (a count would stay
 level). A change that answers more records it: ``UPDATE_STEM_SNAPSHOT=1``. The same
 snapshot names every physics and chemistry reply whose Substitution writes a given's number
-without its unit (``working_units``), so none starts to and each fix is recorded. A
+without its unit (``working_units``), so none starts to and each fix is recorded; a row the
+server cannot label for certain stays bare there, since a wrong unit is worse. Every unit a
+reply does print is read back and checked (``labelled_rows``). A
 ``gap`` entry is a known miss: a strict expected failure, so the fix deletes its
 ``gap`` line.
 """
@@ -22,6 +24,7 @@ from pathlib import Path
 import pytest
 
 from app.modules.physics.solvers.motion_scenes import vertical_scene
+from app.tests.behavior.labelled_rows import row_problems
 from app.tests.behavior.stem_sweep import (
     SUBJECT_NAMES,
     Entry,
@@ -80,7 +83,17 @@ def _covered(subject: str, outcomes: list[Outcome]) -> dict[str, list[str]]:
 async def test_stem_coverage_matches_its_snapshot(
     subject: str, thread_sympy_executor: None
 ) -> None:
-    covered = _covered(subject, await run(load(subject), SUBJECT_NAMES[subject]))
+    outcomes = await run(load(subject), SUBJECT_NAMES[subject])
+    # Every unit a reply prints is right: read back from the text, each labelled row's
+    # units go together, make the value it states, and end in its quantity's dimension.
+    wrong = [
+        f"{outcome.entry.id}: {problem}"
+        for outcome in outcomes
+        if subject != "math"
+        for problem in row_problems(outcome.reply)[0]
+    ]
+    assert not wrong, "\n".join(wrong[:20])
+    covered = _covered(subject, outcomes)
     recorded = json.loads(SNAPSHOT.read_text())
     if os.environ.get("UPDATE_STEM_SNAPSHOT") == "1":
         recorded[subject] = covered

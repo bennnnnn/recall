@@ -26,25 +26,9 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import replace
 from typing import Any
 
-from pint.errors import PintError
-
-from app.modules.physics.bodies import SCHOOL_GRAVITY, SEA_LEVEL_PRESSURE
-from app.modules.physics.constants import (
-    BIG_G,
-    BOLTZMANN,
-    COULOMB_K,
-    ELECTRON_MASS,
-    ELEMENTARY_CHARGE,
-    EPSILON_0,
-    GAS_CONSTANT,
-    HBAR,
-    MU_0,
-    PLANCK_H,
-    SPEED_OF_LIGHT,
-)
+from app.modules.physics.catalog import formula_spec, select_formula
 from app.modules.physics.display import (
     ANSWER_FIGURES,
     is_conversion_row,
@@ -52,15 +36,15 @@ from app.modules.physics.display import (
     latex_given,
     latex_unit,
     quantity_number,
-    si_symbol,
 )
 from app.modules.physics.givens import unit_readings
+from app.modules.physics.notation import shown
+from app.modules.physics.row_units import RowUnits, pint_unit, row_units
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, to_si
-from app.services.law_binding.leaf_units import LeafUnits
+from app.modules.physics.solvers.results import PhysicsResult
 from app.services.law_binding.reduction import Reduction, reduce_substitution
+from app.services.law_binding.symbols import plain_symbol
 from app.services.school_rounding import round_figures
-from app.services.solving import SolveServiceError
 from app.services.units import get_unit_registry
 
 # How a verified answer joins its values (solvers/chip.py render_chip_latex).
@@ -144,7 +128,7 @@ def _unrounded(worked: float, shown: str) -> str:
     return f"{written}{shown[number.end() :]}"
 
 
-def _unit_tex(units: LeafUnits | None, reduction: Reduction | None) -> str:
+def _unit_tex(units: RowUnits | None, reduction: Reduction | None) -> str:
     """The unit a reduction's value is shown with, "" when its numbers carry none."""
     if units is None or reduction is None or reduction.unit is None:
         return ""
@@ -194,18 +178,14 @@ def _worked_rows(rows: Sequence[str]) -> list[int]:
 
 
 def carried_to_answer(
-    rows: Sequence[str],
-    latex_answer: str | None,
-    given: Sequence[tuple[float, str]] = (),
+    rows: Sequence[str], latex_answer: str | None, units: RowUnits | None = None
 ) -> list[str]:
     """The solver's rows, each substitution that gives a verified value worked down to it.
 
-    ``given`` is each given's value as the working uses it and its unit (``given_units``):
-    a number of the working that is a given's carries that unit, and a worked number the
-    unit it reduces to.
+    With ``units`` (``working_units``) each number carries the unit of the law symbol it
+    stands for, and each worked number the unit it reduces to.
     """
     parts = answer_parts(latex_answer)
-    units = _leaf_units(given, parts)
     worked = _worked_rows(rows)
     unused = list(parts)
     after: dict[int, list[str]] = {}
@@ -243,136 +223,116 @@ def carried_to_answer(
 
 
 def _labelled(
-    rows: Sequence[str], worked: list[int], units: LeafUnits | None
+    rows: Sequence[str], worked: list[int], units: RowUnits | None
 ) -> tuple[list[str], dict[int, Reduction | None]]:
     """The rows with a unit by every number, in order, and each worked row's reduction.
 
     A value a row works out is known to the rows after it with the unit it reached:
-    ``d = 24 + 75`` adds the thinking and braking distances found above it.
+    ``d = d_r + d_b`` adds the thinking and braking distances found above it.
     """
     shown = list(rows)
     reductions: dict[int, Reduction | None] = {}
     for at, row in enumerate(rows):
+        match = _ROW.match(row)
         if at in worked:
-            match = _ROW.match(row)
             if match is None:
                 continue
             lhs, rhs = match.group("lhs").strip(), match.group("rhs").strip()
-            reduction = reduce_substitution(lhs, rhs, latex_given, units)
+            leaves = units.leaf_units(lhs) if units is not None else None
+            reduction = reduce_substitution(lhs, rhs, latex_given, leaves)
             reductions[at] = reduction
-            if reduction is not None and reduction.substituted is not None:
+            if units is not None and reduction is not None and reduction.substituted:
                 shown[at] = f"{lhs} = {reduction.substituted}"
+                units.learn(lhs, reduction.value, reduction.unit)
         elif units is not None:
             following = rows[at + 1] if at + 1 < len(rows) else None
-            shown[at], reduction = _stated_row(row, units, following)
-            stated = _stated_value(row)
-            if stated is not None:
-                units = replace(units, given=[*units.given, stated])
-        else:
-            continue
-        if units is not None and reduction is not None and reduction.unit is not None:
-            units = replace(units, given=[*units.given, (reduction.value, reduction.unit)])
+            shown[at] = _stated_row(row, units, following, shown[at - 1] if at else None)
     return shown, reductions
 
 
-def _stated_value(row: str) -> tuple[float, Any] | None:
-    """A row that states a value with its unit (``R_s = 5000\\,\\Omega``), as a known for
-    the rows after it."""
-    if not is_value_row(row):
-        return None
+def _stated_row(row: str, units: RowUnits, following: str | None, above: str | None) -> str:
+    """A row that states its value, with its units: ``d_r = 30 \\times 0.8 = 24`` becomes
+    ``d_r = 30\\,\\mathrm{m/s} \\times 0.8\\,\\mathrm{s} = 24\\,\\mathrm{m}``, and
+    ``R_s = 2000 + 3000`` whose value the next row states. A row that only states a value
+    is known to the rows after it, and takes the unit of the row above it that worked it
+    out (``\\frac{1}{R_p} = 0.5`` under a row in Ω⁻¹)."""
+    sides = [side.strip() for side in row.split(" = ")]
+    if is_value_row(row):
+        return _value_row(row, sides, units, above)
+    arithmetic_value: float | None = None
+    if len(sides) == 3:
+        stated = _NUMBER.fullmatch(sides[2])
+        if stated is not None:
+            arithmetic_value = float(stated.group("number")) * 10.0 ** int(
+                stated.group("power") or 0
+            )
+    elif len(sides) == 2 and following is not None and is_value_row(following):
+        arithmetic_value = quantity_number(following)
+    leaves = units.leaf_units(sides[0]) if arithmetic_value is not None else None
+    if leaves is None or arithmetic_value is None:
+        return row
+    reduction = reduce_substitution(sides[0], sides[1], latex_given, leaves)
+    if (
+        reduction is None
+        or not reduction.substituted
+        or not _same(reduction.value, arithmetic_value)
+    ):
+        return row
+    units.learn(sides[0], reduction.value, reduction.unit)
+    if len(sides) == 2:
+        return f"{sides[0]} = {reduction.substituted}"
+    unit = "" if reduction.unit is None else units.stated(sides[0], reduction.unit)
+    return f"{sides[0]} = {reduction.substituted} = {sides[2]}{unit}"
+
+
+def _value_row(row: str, sides: list[str], units: RowUnits, above: str | None) -> str:
     value = quantity_number(row)
-    unit = _answer_unit(row.split(" = ", 1)[1].strip())
-    return None if value is None or unit is None else (value, unit)
+    if value is None:
+        return row
+    unit = _answer_unit(sides[-1])
+    if unit is not None:
+        units.learn(sides[0], value, unit)
+        return row
+    if above is None or not above.startswith(f"{sides[0]} = ") or len(sides) != 2:
+        return row
+    worked = units.known.get(_plain(sides[0]), [])
+    if not worked or not _same(worked[-1][0], value) or worked[-1][1] is None:
+        return row
+    reached = worked[-1][1]
+    if reached.dimensionless:
+        return row
+    return f"{row}{units.shown(reached)}"
 
 
-def _stated_row(row: str, units: LeafUnits, following: str | None) -> tuple[str, Reduction | None]:
-    """``d_r = 30 \\times 0.8 = 24``, a row that states its value, with its units:
-    ``d_r = 30\\,\\mathrm{m/s} \\times 0.8\\,\\mathrm{s} = 24\\,\\mathrm{m}``; or
-    ``R_s = 2000 + 3000`` whose value the next row states. The value checks the reading,
-    so it may end in any dimension (a time on the way to a range)."""
-    sides = row.split(" = ")
-    if len(sides) == 2 and following is not None and is_value_row(following):
-        lhs, arithmetic = (side.strip() for side in sides)
-        next_value = quantity_number(following)
-        reduction = reduce_substitution(lhs, arithmetic, latex_given, replace(units, answers=None))
-        if reduction is None or reduction.substituted is None or next_value is None:
-            return row, None
-        if not _same(reduction.value, next_value):
-            return row, None
-        return f"{lhs} = {reduction.substituted}", reduction
-    stated = _NUMBER.fullmatch(sides[-1].strip()) if len(sides) == 3 else None
-    if stated is None:
-        return row, None
-    lhs, arithmetic, value = (side.strip() for side in sides)
-    reduction = reduce_substitution(lhs, arithmetic, latex_given, replace(units, answers=None))
-    if reduction is None or reduction.substituted is None:
-        return row, None
-    amount = float(stated.group("number")) * 10.0 ** int(stated.group("power") or 0)
-    if not _same(reduction.value, amount):
-        return row, None
-    unit = "" if reduction.unit is None else units.shown(reduction.unit)
-    return f"{lhs} = {reduction.substituted} = {value}{unit}", reduction
-
-
-def intent_givens(intent: PhysicsIntent) -> list[tuple[float, str]]:
-    """``given_units`` of a physics question's stated values."""
-    return given_units(intent.physics_params or {}, intent.physics_units or {})
-
-
-def given_units(params: dict[str, float], units: dict[str, str]) -> list[tuple[float, str]]:
-    """Each dimensional given as a working may use it, with its unit: its SI value in the SI
-    unit, and its value as typed in the unit typed (a solver that works in km and h). A pure
-    number (a count, η, μ) and an angle carry none."""
-    found: list[tuple[float, str]] = []
-    for name, value in params.items():
-        dimension = PARAM_SI_DIMENSIONS.get(name)
-        if dimension in (None, "dimensionless", "revolution / minute") or name.startswith("angle"):
-            continue
-        typed = units.get(name, "")
-        try:
-            si_value = to_si(value, typed, expected_key=name)
-        except SolveServiceError:
-            continue
-        found.append((si_value, si_symbol(dimension)))
-        if typed and not math.isclose(si_value, value):
-            found.append((value, typed))
-    return found
-
-
-# The constants a working writes as numbers, with their units: G in Newton's law of
-# gravitation, k_e in Coulomb's, R in the gas law. Standard gravity is one when the
-# question leaves g unstated.
-_CONSTANTS: tuple[tuple[float, str], ...] = (
-    (SCHOOL_GRAVITY["earth"], "m/s^2"),
-    (BIG_G, "N·m²/kg²"),
-    (COULOMB_K, "N·m²/C²"),
-    (SPEED_OF_LIGHT, "m/s"),
-    (GAS_CONSTANT, "J/(mol·K)"),
-    (PLANCK_H, "J·s"),
-    (HBAR, "J·s"),
-    (ELEMENTARY_CHARGE, "C"),
-    (ELECTRON_MASS, "kg"),
-    (BOLTZMANN, "J/K"),
-    (EPSILON_0, "F/m"),
-    (MU_0, "H/m"),
-    (SEA_LEVEL_PRESSURE, "Pa"),
-)
-# A worked unit by its SI name when it has one: kg·m²/s² is J, kg·m/s² is N. A momentum
-# stays kg·m/s.
-_NAMED = ("N", "J", "W", "Pa", "C", "V", "ohm", "F", "T", "H", "Wb")
-
-
-def _pint_unit(unit: str) -> Any | None:
+def working_units(
+    intent: PhysicsIntent,
+    formulas: Sequence[str],
+    latex_answer: str | None,
+    operation: str | None = None,
+) -> RowUnits:
+    """What ``intent``'s working numbers stand for: its law rows, its givens, the answer."""
+    operation = operation or intent.physics_op or ""
+    rows = list(formulas)
+    spec = formula_spec(operation)
+    if spec is not None:
+        base, lines, _assumptions = select_formula(spec, intent.physics_params or {})
+        rows += [shown(row, operation) for row in (base, *lines) if row]
+    answers: list[tuple[float, Any]] = []
     ureg = get_unit_registry()
-    spelled = unit.replace("²", "^2").replace("³", "^3").replace("⁴", "^4").replace("·", "*")
-    for reading in (*unit_readings(spelled), spelled):
-        try:
-            quantity = ureg(reading)
-        except (PintError, ValueError, AttributeError):
+    for written, value in answer_parts(latex_answer):
+        unit = _answer_unit(written)
+        if unit is None:
+            answers.append((value, ureg.dimensionless))
             continue
-        if hasattr(quantity, "units") and math.isclose(float(quantity.magnitude), 1.0):
-            return quantity.units
-    return None
+        answers.append((float(ureg.Quantity(value, unit).to_base_units().magnitude), unit))
+    return row_units(intent, rows, answers, operation)
+
+
+def result_units(
+    intent: PhysicsIntent, result: PhysicsResult, latex_answer: str | None
+) -> RowUnits:
+    """``working_units`` for a solver's result."""
+    return working_units(intent, result.formulas, latex_answer)
 
 
 # A unit as an answer writes it after its number: \\,\\mathrm{m/s²}, \\,\\Omega, \\,\\%.
@@ -384,49 +344,8 @@ def _answer_unit(shown: str) -> Any | None:
     written = _ANSWER_UNIT.match(shown[number.end() :]) if number else None
     if written is None:
         return None
-    return _pint_unit(written.group("unit") or "ohm")
+    return pint_unit(written.group("unit") or "ohm")
 
 
-def _named(unit: Any) -> str | None:
-    ureg = get_unit_registry()
-    for name in _NAMED:
-        try:
-            if math.isclose(float(ureg.Quantity(1, unit).to(name).magnitude), 1.0):
-                return "Ω" if name == "ohm" else name
-        except (PintError, ValueError, AttributeError):
-            continue
-    return None
-
-
-def _leaf_units(
-    given: Sequence[tuple[float, str]], parts: list[tuple[str, float]]
-) -> LeafUnits | None:
-    if not given:
-        # Without the givens a constant alone would be labelled, beside bare givens.
-        return None
-    readings = [(value, _pint_unit(unit), unit) for value, unit in (*given, *_CONSTANTS)]
-    known = [(value, unit, text) for value, unit, text in readings if unit is not None]
-    if not known or not parts:
-        return None
-    answers = []
-    for written, _value in parts:
-        unit = _answer_unit(written)
-        answers.append(None if unit is None or unit.dimensionless else unit.dimensionality)
-        if unit is not None and not unit.dimensionless:
-            # A law in 1/R or 1/f works out the reciprocal first.
-            answers.append((unit**-1).dimensionality)
-
-    def shown(unit: Any) -> str:
-        # A given's own spelling first (J/(kg·K)), then the SI name (J), else Pint's short
-        # one (m/s²).
-        text = next((text for _value, own, text in known if own == unit), None) or _named(unit)
-        if text is None:
-            text = format(unit, "~").replace(" ** ", "^").replace(" / ", "/").replace(" * ", "·")
-            # 1/Ω is Ω⁻¹, as a book writes a reciprocal unit.
-            if text.startswith("1/") and "/" not in text[2:] and "·" not in text:
-                text = f"{text[2:]}^-1"
-        return latex_unit(text)
-
-    return LeafUnits(
-        given=[(value, unit) for value, unit, _text in known], shown=shown, answers=answers
-    )
+def _plain(symbol: str) -> str:
+    return plain_symbol(symbol)
