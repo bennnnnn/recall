@@ -7,9 +7,10 @@ world cup" in none of three runs. One short call to a fast model reads each mess
 beside the turn's prep, while history and memory load, and answers one question: does the
 answer depend on facts that may have changed, or that a model cannot know as of today?
 Yes, or the user asked for a search, and the read's own query is searched before the
-reply's call, which then answers from the results in one call. No, and the reply is told so
-beside the user's line and still holds the tool (``chat.tool_loop.reply_calls``); no answer
-in time, and the reply's model decides alone. Nothing here raises into a turn.
+reply's call, which then answers from the results in one call. No, and the reply's call
+carries no search tool: the read is the one decider (``chat.tool_loop.reply_calls``). No
+answer in time, and the reply's model holds the tool and decides. Nothing here raises into
+a turn.
 
 In one chat about a hot MacBook Air (2026-11-09) the read saw only the reply before the
 message, sent to it as a chat turn: it answered "Can i just buy another one" by searching

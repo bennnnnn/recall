@@ -2,9 +2,12 @@
 
 Word rules used to decide search, and each one misfired on its look-alikes: "What is
 going on" opening a chat matched a news pattern and was answered with a song. The
-model writing the reply now decides. Every turn it writes carries ``web_search``; it
-answers at once, or calls the tool and answers in a second call that reads the
-results. A reply that needs no search costs nothing more. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
+model writing the reply decided, carrying ``web_search`` on every turn; it answers at
+once, or calls the tool and answers in a second call that reads the results. A fast read
+of the message now decides first (``web_search.live_read``): live, and its query is
+searched before the reply; settled, and the reply carries no ``web_search`` (GPT-6 Luna
+searched how-tos and history it was offered the tool for). Only with no answer from the
+read in time does the reply's model decide. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
 so the model, not a phrase list, decides when a turn reads the user's earlier chats.
 """
 
@@ -24,8 +27,6 @@ from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
-from app.modules.chat.prompt_constants import SETTLED_BY_READ_NOTE
-from app.modules.chat.prompt_inject import append_after_history
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
@@ -228,8 +229,8 @@ async def search_the_live_read(
     """A model read the message beside the prep (``web_search.live_read``). An answer that
     depends on facts that change is searched with the read's own query, so the reply
     answers from the results in one call, and so is one the user asked to search; with no
-    query, the reply's call must search. A read that found nothing that changes is said
-    beside the user's line, and the reply keeps the tool."""
+    query, the reply's call must search. A read that found nothing that changes takes
+    ``web_search`` off the reply's call. With no answer in time, the reply keeps it."""
     if ctx.live_read is not None and not ctx.live_read.done() and on_status is not None:
         # A model is still reading the question: say so rather than show nothing. A search
         # it asks for shows next, with its query ("Searching — …").
@@ -238,7 +239,10 @@ async def search_the_live_read(
     if read is None:
         return
     if not read.searches:
-        ctx.prompt_messages = append_after_history(ctx.prompt_messages, SETTLED_BY_READ_NOTE)
+        # One decider: the read found nothing that changes, so the reply has no search to
+        # make. Told so and still offered the tool, GPT-6 Luna searched how-tos and the way
+        # to a place the chat had named on about one turn in twelve (2026-11-09).
+        ctx.reply_tools = _without_search(ctx.reply_tools)
         return
     if not read.query.strip():
         ctx.reply_requires = REPLY_TOOL
@@ -266,6 +270,9 @@ async def search_the_live_read(
         # The search broke: the reply's model still decides.
         return
     # One search a turn: the reply reads these results and carries no second search.
-    ctx.reply_tools = [
-        tool for tool in ctx.reply_tools if (tool.get("function") or {}).get("name") != REPLY_TOOL
-    ]
+    ctx.reply_tools = _without_search(ctx.reply_tools)
+
+
+def _without_search(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The reply's tools less ``web_search`` (``recall_chats`` stays)."""
+    return [tool for tool in tools if (tool.get("function") or {}).get("name") != REPLY_TOOL]

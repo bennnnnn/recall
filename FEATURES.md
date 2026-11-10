@@ -219,10 +219,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   on) and says whether its answer depends on facts that change (news, scores, prices, rates,
   weather, who holds an office now, the latest or next of anything, whether something is out
   yet) and, if so, the query a person would type, written with the conversation in view. Its
-  query is searched before the reply, which answers from the results in one call. Otherwise
-  the reply's own model call carries `web_search` (`tool_loop/reply_calls.py`,
-  `reply_search_tool_enabled`, on) and may call it; the tool's description says when, and a
-  read that found nothing that changes is said beside the user's line. The read sees the last
+  query is searched before the reply, which answers from the results in one call. When it
+  answers that nothing changes, the reply is offered no `web_search`: the read is the one
+  decider. Only when it gives no answer in time does the reply's own model call carry
+  `web_search` (`tool_loop/reply_calls.py`, `reply_search_tool_enabled`, on) and may call
+  it; the tool's description says when. The read sees the last
   two exchanges, quoted, and is measured on `app/tests/behavior/search_need_corpus.json`. The
   keyword rules that used to decide (about 110 regexes) are gone: "What is going on" opening a
   chat was searched and answered with a song, and "who won the last world cup" was answered

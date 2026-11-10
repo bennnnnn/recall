@@ -17,7 +17,7 @@ user's own life, small talk, follow-ups about the conversation). Three ways to r
 - ``reply``: the reply's own model call, with the turn's real prompt and tools
   (``harness.route_case``), which may call ``web_search`` itself;
 - ``turn``: both, as a turn runs them: the read first, and the reply's call when the read
-  did not search (told the read's answer when it gave one, ``reply_calls``). A turn marked
+  gave no answer (a settled answer takes the tool off the reply's call). A turn marked
   ``regenerate`` is answered again: the reply's model thinks one level more.
 
 Each prints, per run: false searches (searched turns the set says need none) and recall
@@ -192,8 +192,6 @@ async def measure(
 
     from app.core.config import Settings
     from app.models.routing_lanes import ROUTING
-    from app.modules.chat.prompt_constants import SETTLED_BY_READ_NOTE
-    from app.modules.chat.prompt_inject import append_after_history
 
     settings = Settings()
     outcomes = {turn.id: Outcome(turn) for turn in turns}
@@ -210,10 +208,9 @@ async def measure(
                 outcome.unread.append(not answered)
                 # A live read with no query makes the reply's call search.
                 searched, settled = live, answered and not live
-            if mode in {"reply", "turn"} and not searched:
+            # A read that found nothing that changes takes web_search off the reply's call.
+            if mode == "reply" or (mode == "turn" and not searched and not settled):
                 auto, messages, tools = prompts[turn.id]
-                if settled:
-                    messages = append_after_history(messages, SETTLED_BY_READ_NOTE)
                 searched, query = await reply_searches(
                     settings, model or auto, messages, tools, again=turn.regenerate
                 )

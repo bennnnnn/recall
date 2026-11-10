@@ -15,7 +15,6 @@ import pytest
 
 from app.gateways.mcp import registry
 from app.gateways.web_search_gateway import WebSearchHit
-from app.modules.chat.prompt_constants import SETTLED_BY_READ_NOTE
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_paths import run_llm_token_stream, run_tool_loop_path
 from app.modules.chat.tool_loop import live_denial
@@ -520,7 +519,8 @@ def _read(live: bool | None, query: str = "", *, asked: bool = False) -> asyncio
     return asyncio.ensure_future(done())
 
 
-@pytest.mark.parametrize(("live", "requires"), [(True, "web_search"), (False, None), (None, None)])
+# A settled read takes the tool away (``test_a_settled_read_takes_the_search_tool_off_the_reply``).
+@pytest.mark.parametrize(("live", "requires"), [(True, "web_search"), (None, None)])
 @pytest.mark.asyncio
 async def test_a_live_read_without_a_query_makes_the_reply_search_first(
     web_search_tool: dict[str, Any], live: bool | None, requires: str | None
@@ -537,26 +537,31 @@ async def test_a_live_read_without_a_query_makes_the_reply_search_first(
     assert ctx.reply_requires == requires
 
 
-@pytest.mark.parametrize(("live", "noted"), [(False, True), (None, False)])
+@pytest.mark.parametrize(("live", "offered"), [(False, False), (None, True)])
 @pytest.mark.asyncio
-async def test_a_settled_read_is_told_to_the_reply_which_keeps_the_tool(
-    web_search_tool: dict[str, Any], live: bool | None, noted: bool
+async def test_a_settled_read_takes_the_search_tool_off_the_reply(
+    web_search_tool: dict[str, Any], live: bool | None, offered: bool
 ) -> None:
-    """Offered web_search after the read found nothing that changes, GPT-6 Luna still
-    searched how-tos, recipes and settled history on about a third of such turns
-    (2026-11-09): the read's answer goes beside the user's line. A read with no answer in
-    time says nothing, and the reply's model decides alone."""
+    """One decider: told the read found nothing that changes and still offered the tool,
+    GPT-6 Luna searched how-tos and the way to a place the chat had named (2026-11-09).
+    A read with no answer in time leaves the tool to the reply's model."""
     ctx = _context("how do I reset my AirPods")
     ctx.live_read = _read(live)  # type: ignore[assignment]
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     await run_tool_loop_path(
         deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
     )
-    assert ctx.reply_tools == [web_search_tool]
+    assert ctx.reply_tools == ([web_search_tool] if offered else [])
     assert ctx.reply_requires is None
-    note = {"role": "system", "content": SETTLED_BY_READ_NOTE}
-    user = {"role": "user", "content": "how do I reset my AirPods"}
-    assert ctx.prompt_messages == ([note, user] if noted else [user])
+    assert ctx.prompt_messages == [{"role": "user", "content": "how do I reset my AirPods"}]
+
+
+def test_a_settled_read_keeps_recall_chats() -> None:
+    from app.modules.chat.tool_loop.reply_calls import _without_search
+
+    recall = {"type": "function", "function": {"name": "recall_chats"}}
+    search = {"type": "function", "function": {"name": "web_search"}}
+    assert _without_search([search, recall]) == [recall]
 
 
 @pytest.mark.parametrize(("live", "asked"), [(True, False), (False, True)])
