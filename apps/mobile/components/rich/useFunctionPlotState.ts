@@ -103,9 +103,10 @@ function useExplorerPlot(
   const modalWidth = Math.max(1, screenW - insets.left - insets.right);
   const fallbackModalH = Math.max(MODAL_PLOT_MIN, screenH - insets.top - insets.bottom - 200);
   const [modalPlot, setModalPlot] = useState({ width: modalWidth, height: fallbackModalH });
-  // The view's shape is the plot's first laid-out size in this window, kept: the keyboard
+  // The view's shape is the plot's tallest laid-out size in this window: the keyboard
   // shrinks the plot while a function is typed (ExplorerModal), and a view re-made for each
-  // height threw the user's pan and zoom away (review, 2026-11-09).
+  // height threw the user's pan and zoom away. The tallest, not the first: opened while a
+  // keyboard was still closing, the plot's first layout is short (review, 2026-11-09).
   const screen = `${screenW}x${screenH}`;
   const [viewShape, setViewShape] = useState<{ screen: string; width: number; height: number } | null>(null);
   const shape = viewShape?.screen === screen ? viewShape : modalPlot;
@@ -127,7 +128,8 @@ function useExplorerPlot(
     if (w > 0 && h > 0 && (w !== modalPlot.width || h !== modalPlot.height)) {
       setModalPlot({ width: w, height: h });
     }
-    if (w > 0 && h > 0 && viewShape?.screen !== screen) setViewShape({ screen, width: w, height: h });
+    const taller = viewShape?.screen !== screen || h > viewShape.height;
+    if (w > 0 && h > 0 && taller) setViewShape({ screen, width: w, height: h });
   };
   // The Skia explorer pans/zooms on the UI thread against samples taken over
   // an expanded window; viewport.bounds only moves on gesture-end commits.

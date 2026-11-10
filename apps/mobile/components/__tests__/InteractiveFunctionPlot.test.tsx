@@ -206,6 +206,25 @@ describe("InteractiveFunctionPlot", () => {
     expect(result.current.explorer.initialView).toEqual(view);
   });
 
+  it("takes the explorer's view from its tallest plot, not a first one the keyboard shortened", async () => {
+    // Opened while a keyboard was still closing, the plot first laid out short, and the view
+    // kept that shape after the keyboard went: stretched for good (review, 2026-11-09).
+    const { result } = await renderHook(() => useFunctionPlotState(PARABOLA, 300, lightTheme));
+    const layout = (height: number) =>
+      act(async () => {
+        result.current.explorer.onPlotLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width: 360, height } },
+        } as LayoutChangeEvent);
+      });
+    await layout(260);
+    const short = result.current.explorer.initialView;
+    await layout(600);
+    const full = result.current.explorer.initialView;
+    expect(full).not.toEqual(short);
+    await layout(260);
+    expect(result.current.explorer.initialView).toEqual(full);
+  });
+
   it("moves the editor into the explorer while it is open, and back when it closes", async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await plot(PARABOLA);
     expect(queryByTestId("graph-modal-sheet")).toBeNull();
