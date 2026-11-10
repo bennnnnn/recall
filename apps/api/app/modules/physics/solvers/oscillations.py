@@ -250,11 +250,11 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         u_val = 0.5 * k * x * x
         return PhysicsResult(
             answer=(
-                rf"U = \tfrac{{1}}{{2}} k x^2 = 0.5 \cdot {k:g} \cdot "
+                rf"E_p = \tfrac{{1}}{{2}} k x^2 = 0.5 \cdot {k:g} \cdot "
                 rf"{latex_num(x, square=True)} \approx {u_val:.2f} \text{{ J}}"
             ),
-            formulas=(r"U = \tfrac{1}{2} k x^2",),
-            substitutions=(rf"E_s = 0.5 \cdot {k:g} \cdot {latex_num(x, square=True)}",),
+            formulas=(r"E_p = \tfrac{1}{2} k x^2",),
+            substitutions=(rf"E_p = 0.5 \cdot {k:g} \cdot {latex_num(x, square=True)}",),
             quantities=(QuantityResult("", u_val, "J"),),
         )
 

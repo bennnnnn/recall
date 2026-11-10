@@ -25,7 +25,7 @@ _SHAPES = (
     ("disc", 0.5),
     ("disk", 0.5),
 )
-_ROLLING_LINE = r"K = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2,\quad \omega = \frac{v}{r}"
+_ROLLING_LINE = r"E_k = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2,\quad \omega = \frac{v}{r}"
 
 
 def _rolling(shape_k: float, inertia: str, total: str, expression: str) -> FormulaVariant:
@@ -43,15 +43,15 @@ SPECS: tuple[FormulaSpec, ...] = (
         "rolling_body_kinetic_energy",
         "rotation",
         "Rolling kinetic-energy formula",
-        "K",
-        base_latex=r"K = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2",
+        "E_k",
+        base_latex=r"E_k = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2",
         assumptions=("rolling without slipping, so the radius cancels",),
         expression="m*v**2*(1 + shape_k)/2",
         variants=(
-            _rolling(0.4, r"I = \tfrac{2}{5}mr^2", r"K = \tfrac{7}{10}mv^2", "7*m*v**2/10"),
-            _rolling(0.5, r"I = \tfrac{1}{2}mr^2", r"K = \tfrac{3}{4}mv^2", "3*m*v**2/4"),
-            _rolling(1.0, r"I = mr^2", r"K = mv^2", "m*v**2"),
-            _rolling(2 / 3, r"I = \tfrac{2}{3}mr^2", r"K = \tfrac{5}{6}mv^2", "5*m*v**2/6"),
+            _rolling(0.4, r"I = \tfrac{2}{5}mr^2", r"E_k = \tfrac{7}{10}mv^2", "7*m*v**2/10"),
+            _rolling(0.5, r"I = \tfrac{1}{2}mr^2", r"E_k = \tfrac{3}{4}mv^2", "3*m*v**2/4"),
+            _rolling(1.0, r"I = mr^2", r"E_k = mv^2", "m*v**2"),
+            _rolling(2 / 3, r"I = \tfrac{2}{3}mr^2", r"E_k = \tfrac{5}{6}mv^2", "5*m*v**2/6"),
         ),
         variables=(
             var("m", "m", "kilogram"),
@@ -364,8 +364,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "rolling_kinetic_energy",
         "rotation",
         "Rolling kinetic-energy formula",
-        "K",
-        base_latex=r"K = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2",
+        "E_k",
+        base_latex=r"E_k = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2",
         assumptions=("rolling without slipping",),
         variables=(
             var("inertia", "I", "kilogram * meter ** 2"),

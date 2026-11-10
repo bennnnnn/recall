@@ -409,6 +409,11 @@ _BY_OPERATION: dict[tuple[str, str], str] = {
     ("weight_along_slope", "angle"): "angle of the incline",
     ("angled_pull_friction_acceleration", "angle"): "angle of the pull",
     ("torque", "d"): "distance from the pivot",
+    # Two legs walked add to a displacement, asked as s (``Required``).
+    ("displacement_two_legs", "s"): "displacement",
+    # Work is the force times the displacement along it: W = Fs.
+    ("work", "d"): "displacement",
+    ("work_energy_speed", "d"): "displacement",
     ("parallel_plate_capacitance", "d"): "plate separation",
     ("dielectric_parallel_plate", "d"): "plate separation",
     ("plate_field", "d"): "plate separation",

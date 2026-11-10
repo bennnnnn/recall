@@ -2,10 +2,11 @@
 """What a chemistry given stands for, for the line that closes **Given** (``where_line``).
 
 A worked reply lists its givens as symbols (``m = 36 g``), then names them, as physics'
-do: "where m = mass, M(H₂O) = molar mass". A letter means different things across
-laws (``m`` is a mass in grams and a molality in mol/kg, ``M`` a molar mass and a
-molarity), so a meaning is read from the symbol and the unit it is given in together; a
-symbol with no entry for its unit is left unnamed, never guessed.
+do: "where m = mass, M(H₂O) = molar mass". A reply writes a concentration c and a
+molality b, so m stays a mass and M a molar mass. A letter can still mean different things
+across laws (``k`` a rate constant, ``P`` a pressure), so a meaning is read from the symbol
+and the unit it is given in together; a symbol with no entry for its unit is left
+unnamed, never guessed.
 """
 
 from __future__ import annotations
@@ -31,6 +32,8 @@ _MEANINGS: tuple[tuple[str, tuple[str, ...] | None, str], ...] = (
     ("M", ("g/mol",), "molar mass"),
     ("M", _CONCENTRATION, "molarity"),
     ("c", _CONCENTRATION, "concentration"),
+    ("c_a", _CONCENTRATION, "acid concentration"),
+    ("c_b", _CONCENTRATION, "base concentration"),
     ("C", _CONCENTRATION, "concentration"),
     ("V", _VOLUME, "volume"),
     ("T", _TEMPERATURE, "temperature"),
@@ -40,6 +43,9 @@ _MEANINGS: tuple[tuple[str, tuple[str, ...] | None, str], ...] = (
     ("k", ("s⁻¹",), "rate constant"),
     ("N", ("particles", "molecules", "atoms"), "number of particles"),
     ("Nₐ", ("mol⁻¹",), "Avogadro constant"),
+    ("ρ", ("g/L", "g/mL", "g/cm³", "kg/m³"), "density"),
+    ("χ", _ANY, "mole fraction"),
+    ("χᵢ", _ANY, "mole fraction"),
     ("I", ("A",), "current"),
     ("ΔH", _ENERGY, "enthalpy change"),
     ("ΔS", ("J/(mol·K)", "J/K"), "entropy change"),
@@ -53,6 +59,7 @@ _MEANINGS: tuple[tuple[str, tuple[str, ...] | None, str], ...] = (
     ("Kb", _ANY, "base dissociation constant"),
     ("Kf", ("°C·kg/mol",), "freezing-point constant"),
     ("Ksp", _ANY, "solubility product"),
+    ("Kc", _ANY, "equilibrium constant"),
 )
 # "M(H2O) = 18.015 g/mol": the symbol, what it is of, the unit after the first number.
 _GIVEN = re.compile(

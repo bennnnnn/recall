@@ -42,7 +42,7 @@ def _declines(question: str) -> bool:
         ("What is the mass of 2.0 mol of oxygen gas?", "moles_to_mass", "m(O2) = 64 g"),
         ("how many mg is 0.0150 mol of NaOH", "moles_to_mass", "m(NaOH) = 600 mg"),
         # STP is 0 °C and 1 atm.
-        ("What is the density of CO2 at STP in g/L?", "gas_density", "d = 1.963 g/L"),
+        ("What is the density of CO2 at STP in g/L?", "gas_density", "ρ = 1.963 g/L"),
         (
             "What is the molar mass of a gas with a density of 1.25 g/L at STP?",
             "molar_mass_from_density",
@@ -107,7 +107,7 @@ def test_dilution_declines_another_volume(question: str) -> None:
             "25.00 mL of HCl is titrated with 0.1000 M NaOH and it takes 32.45 mL to reach the "
             "endpoint. What is the concentration of the HCl?",
             "titration_concentration",
-            "C₂ = 0.1298 mol/L",
+            "c₂ = 0.1298 mol/L",
         ),
         # H2SO4 neutralizes two NaOH, so it takes half the moles.
         (

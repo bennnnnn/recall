@@ -30,7 +30,7 @@ def test_clausius_solves_the_enthalpy_or_the_missing_pressure() -> None:
 
 
 def test_henry_solves_concentration_pressure_or_the_constant() -> None:
-    assert _answer("Use Henry's law when kH=0.034 and P=2. Find the concentration.") == "C = 0.068"
+    assert _answer("Use Henry's law when kH=0.034 and P=2. Find the concentration.") == "c = 0.068"
     assert _answer("Use Henry's law when C=0.068 and kH=0.034. Find the pressure.") == "P = 2.0"
     assert _answer("Use Henry's law when C=0.068 and P=2. Find kH.") == "kH = 0.034"
 

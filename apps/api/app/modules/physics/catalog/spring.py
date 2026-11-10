@@ -92,7 +92,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "spring_energy",
         "spring",
         "Elastic potential-energy formula",
-        "E_s",
+        "E_p",
         variables=(
             var("k", "k", "newton / meter"),
             var("x", "x", "meter"),

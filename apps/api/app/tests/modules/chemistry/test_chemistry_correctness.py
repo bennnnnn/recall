@@ -466,7 +466,7 @@ def test_half_equivalence_uses_charge_balance_when_ka_is_not_small() -> None:
         "Weak acid strong base titration: Ma=0.01, Va=1 L, Mb=0.01, Vb=0.5 L, Ka=0.1, find pH"
     )
     assert result.answer == "pH = 2.50"
-    assert any("charge balance" in line or "C − [H+]" in line for line in result.substitution)
+    assert any("charge balance" in line or "c − [H+]" in line for line in result.substitution)
 
 
 def test_titration_regions_scale_with_the_amounts() -> None:

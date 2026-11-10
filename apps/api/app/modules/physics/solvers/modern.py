@@ -83,7 +83,7 @@ def _photoelectric_kinetic_energy(intent: PhysicsIntent, p: dict[str, float]) ->
             rf"K_{{max}} = hf - \phi = {PLANCK_H:.7g} \cdot {p['freq']:g} - "
             rf"{p['work_function']:g} \approx {value:.4g} \text{{ J}}"
         ),
-        formulas=(r"K_{max} = hf - \phi",),
+        formulas=(r"E_{k,\max} = hf - \phi",),
         substitutions=(
             rf"K_{{max}} = {PLANCK_H:.7g} \cdot {p['freq']:g} - {p['work_function']:g}",
         ),

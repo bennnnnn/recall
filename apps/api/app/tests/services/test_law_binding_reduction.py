@@ -7,7 +7,9 @@ import math
 import pytest
 
 from app.modules.physics.display import latex_given
+from app.services.law_binding.leaf_units import LeafUnits
 from app.services.law_binding.reduction import reduce_substitution
+from app.services.units import get_unit_registry
 
 
 @pytest.mark.parametrize(
@@ -78,3 +80,63 @@ def test_reduce_substitution(
 )
 def test_a_row_past_reading_is_left_alone(substituted: str) -> None:
     assert reduce_substitution("x", substituted, latex_given) is None
+
+
+def _units(formula: str, known: dict[str, list[tuple[float, str]]], ends: str) -> LeafUnits:
+    ureg = get_unit_registry()
+    return LeafUnits(
+        formulas=[formula],
+        known={
+            symbol: [(value, ureg(unit).units) for value, unit in readings]
+            for symbol, readings in known.items()
+        },
+        shown=lambda unit: rf"\,\mathrm{{{unit:~}}}",
+        dimensions=lambda _value: {ureg(ends).dimensionality},
+    )
+
+
+def test_every_number_carries_the_unit_of_the_symbol_it_replaced() -> None:
+    """The owner's chat of 2026-11-10: a = (48 - 8)/10 had dropped m/s and s."""
+    units = _units(
+        r"\frac{v_f - v_i}{t}",
+        {"v_f": [(48.0, "m/s")], "v_i": [(8.0, "m/s")], "t": [(10.0, "s")]},
+        "m/s^2",
+    )
+    reduction = reduce_substitution("a", r"\frac{48 - 8}{10}", latex_given, units)
+    assert reduction is not None
+    assert reduction.substituted == r"\frac{48\,\mathrm{m / s} - 8\,\mathrm{m / s}}{10\,\mathrm{s}}"
+    assert reduction.rows == (r"a = \frac{40\,\mathrm{m / s}}{10\,\mathrm{s}}",)
+
+
+def test_a_number_takes_its_place_in_the_law_never_its_value() -> None:
+    """A 2 m/s throw from a 2 m cliff: the 2 under v_0 is the speed, the law's 2 is bare."""
+    units = _units(
+        r"\sqrt{\frac{2h}{g}} v_0",
+        {"v_0": [(2.0, "m/s")], "h": [(2.0, "m")], "g": [(9.81, "m/s^2")]},
+        "m",
+    )
+    reduction = reduce_substitution(
+        "R", r"\sqrt{\frac{2 \times 2}{9.81}} \times 2", latex_given, units
+    )
+    assert reduction is not None
+    assert reduction.substituted == (
+        r"\sqrt{\frac{2 \times 2\,\mathrm{m}}{9.81\,\mathrm{m / s ** 2}}} \times 2\,\mathrm{m / s}"
+    )
+
+
+def test_a_row_that_does_not_end_in_its_quantity_stays_bare() -> None:
+    """d_b under v²/(2a) with a written as a speed would be a speed, not a distance: bare."""
+    units = _units(r"\frac{v^2}{2a}", {"v": [(10.0, "m/s")], "a": [(10.0, "m/s")]}, "m")
+    reduction = reduce_substitution("d_b", r"\frac{10^2}{2 \times 10}", latex_given, units)
+    assert reduction is not None
+    assert reduction.substituted is None
+
+
+def test_a_number_no_symbol_explains_leaves_the_row_bare() -> None:
+    """A value worked out elsewhere (a flight time) is no given: nothing is guessed."""
+    units = _units(r"v_0 \cos(\theta) t", {"v_0": [(2.0, "m/s")]}, "m")
+    reduction = reduce_substitution(
+        "R", r"2 \times \cos(0^\circ) \times 0.638551", latex_given, units
+    )
+    assert reduction is not None
+    assert reduction.substituted is None

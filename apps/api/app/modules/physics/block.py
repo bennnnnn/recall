@@ -25,7 +25,7 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.chip import render_quantity, render_quantity_latex
 from app.modules.physics.solvers.results import PartResult, QuantityResult
-from app.modules.physics.working_steps import carried_to_answer
+from app.modules.physics.working_steps import carried_to_answer, result_units
 from app.services.solving import (
     PhysicsPartWorking,
     SolveServiceError,
@@ -226,7 +226,7 @@ def _build_physics_block(
     answer, card = result.answer_value, result.answer_latex
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
-    worked = carried_to_answer(result.substitutions, card)
+    worked = carried_to_answer(result.substitutions, card, result_units(intent, result, card))
     parts = _part_workings(result)
     verified_lines = [
         *([f"Verified law: {law}"] if law else []),

@@ -96,8 +96,8 @@ SPECS: tuple[FormulaSpec, ...] = (
     _moving(
         "relativistic_kinetic_energy",
         "Relativistic kinetic energy",
-        "K",
-        r"K = (\gamma - 1) m c^2, \quad \gamma = \frac{1}{\sqrt{1 - v^2/c^2}}",
+        "E_k",
+        r"E_k = (\gamma - 1) m c^2, \quad \gamma = \frac{1}{\sqrt{1 - v^2/c^2}}",
         f"(1/{_GAMMA} - 1)*m*c_light**2",
         ("relativistic kinetic energy", "kinetic energy"),
         "joule",

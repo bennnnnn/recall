@@ -9,7 +9,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "kinetic_energy",
         "energy",
         "Kinetic-energy formula",
-        "KE",
+        "E_k",
         variables=(
             var("m", "m", "kilogram"),
             var("v", "v", "meter / second"),
@@ -25,7 +25,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "potential_energy",
         "energy",
         "Gravitational potential-energy formula",
-        "PE",
+        "E_p",
         variables=(
             var("g", "g", "meter / second ** 2"),
             var("h", "h", "meter"),
@@ -49,14 +49,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         variants=(
             FormulaVariant(
                 present=frozenset({"angle"}),
-                latex=r"W = Fd\cos\theta",
+                latex=r"W = Fs\cos\theta",
                 assumptions=(),
             ),
         ),
         variables=(
             var("F", "F", "newton"),
             var("angle", r"\theta", dimensionless=True),
-            var("d", "d", "meter"),
+            var("d", "s", "meter"),
         ),
         binding=Binding(
             asks=("work done", "work"),
