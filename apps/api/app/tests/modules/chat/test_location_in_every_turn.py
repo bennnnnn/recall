@@ -73,3 +73,16 @@ def test_the_profile_says_to_use_the_place_while_it_lists_one(
     # A "who am I" answer still never recites it, and the header no longer forbids using it.
     assert "never recite email or location in a general 'who am I' answer" in block
     assert "do not quote email or location" not in block
+
+
+def test_a_travel_answer_is_a_directions_link_wherever_the_place_is_stated() -> None:
+    """ "Can i wolk?" got "1.5 miles, about 30 minutes" to a store across the bay (2026-11-09):
+    the owner's call is a Maps directions link, and no time or distance no source gave."""
+    from app.modules import web_search
+
+    rule = web_search.DIRECTIONS_LINK_RULE
+    assert "https://www.google.com/maps/dir/?api=1&destination=" in rule
+    assert "Write no travel time and no distance" in rule
+    # With the user's place on any turn, and with a distance question's own hint.
+    assert rule in USE_THE_LOCATION
+    assert rule in web_search.GEO_DISTANCE_HINT

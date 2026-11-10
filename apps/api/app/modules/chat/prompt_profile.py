@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from app.models.orm import User
+from app.modules import web_search
 from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.writing_kind import is_email_or_message_request
 from app.services import prompt_safety
@@ -53,7 +54,8 @@ USE_THE_LOCATION = (
     "That location is where the user's phone is (or last reported, as it says). Use it, "
     "without asking, whenever an answer depends on where they are: getting somewhere, walking "
     "or travel time, distance, what is near them, their local weather. Asked where they are, "
-    "say it. Never say you can't see their location while it is given here."
+    "say it. Never say you can't see their location while it is given here. "
+    f"{web_search.DIRECTIONS_LINK_RULE}"
 )
 
 
