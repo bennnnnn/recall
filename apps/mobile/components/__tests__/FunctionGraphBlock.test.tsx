@@ -25,9 +25,9 @@ describe("FunctionGraphBlock", () => {
         [2, 4],
       ],
     });
-    const { getByDisplayValue } = await render(<FunctionGraphBlock content={content} />);
+    const { getByLabelText } = await render(<FunctionGraphBlock content={content} />);
 
-    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_expr_a11y, y = x^2")).toBeOnTheScreen();
   });
 
   it("outlines only the plot, not the surrounding function inputs", async () => {
@@ -73,10 +73,10 @@ describe("FunctionGraphBlock", () => {
         [10, 100],
       ],
     });
-    const { getByDisplayValue, queryByText, toJSON } = await render(
+    const { getByLabelText, queryByText, toJSON } = await render(
       <FunctionGraphBlock content={content} />,
     );
-    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_expr_a11y, y = x^2")).toBeOnTheScreen();
     expect(queryByText("108")).toBeNull();
     expect(queryByText("-12")).toBeNull();
     expect(queryByText("-8")).toBeNull();
@@ -193,12 +193,12 @@ describe("FunctionGraphBlock", () => {
       label: "y = x^2",
       label2: "y = 2x",
     });
-    const { getByDisplayValue, getByTestId, queryByTestId, toJSON } = await render(
+    const { getByLabelText, getByTestId, queryByTestId, toJSON } = await render(
       <FunctionGraphBlock content={content} />,
     );
 
-    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
-    expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_expr_a11y, y = x^2")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_expr_a11y, y = 2*x")).toBeOnTheScreen();
     expect(getByTestId("graph-expand")).toBeOnTheScreen();
     expect(queryByTestId("graph-hide-1")).toBeNull();
     expect(queryByTestId("graph-remove-1")).toBeNull();
@@ -298,12 +298,12 @@ describe("FunctionGraphBlock", () => {
       label: "y = 3*x**2",
       label2: "y = 2*x",
     });
-    const { getByDisplayValue, getByText } = await render(
+    const { getByLabelText, getByText } = await render(
       <FunctionGraphBlock content={content} />,
     );
     expect(getByText("Comparison")).toBeOnTheScreen();
-    expect(getByDisplayValue("y = 3*x^2")).toBeOnTheScreen();
-    expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_expr_a11y, y = 3*x^2")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_expr_a11y, y = 2*x")).toBeOnTheScreen();
   });
 
   it("formats inequality titles including * multiplication", async () => {
@@ -327,6 +327,8 @@ describe("FunctionGraphBlock", () => {
       ],
     });
     const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    // A tap on the curve's maths puts its field in its place.
+    await fireEvent.press(getByTestId("graph-expr-input-math"));
     expect(getByTestId("graph-expr-input").props.placeholder).toBe(
       "rich.graph_expr_placeholder",
     );
@@ -357,7 +359,7 @@ describe("FunctionGraphBlock", () => {
     expect(expandedPlotStyle.borderWidth).toBeGreaterThan(0);
     expect(expandedPlotStyle.borderRadius).toBeGreaterThanOrEqual(12);
     expect(expandedPlotStyle.marginHorizontal).toBe(12);
-    expect(getByTestId("graph-expr-input")).toBeOnTheScreen();
+    expect(getByTestId("graph-expr-input-math")).toBeOnTheScreen();
   });
 
   it("scrolls padded series in the expanded graph and shows a drag handle", async () => {

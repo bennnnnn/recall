@@ -69,10 +69,8 @@ export function ExplorerModal({
   const styles = useMemo(() => makeExplorerModalStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
   const { pan, panStyle } = useSheetPanDismiss(open, reduceMotion, onClose);
-  // A field under the plot is typed into with the keyboard up. No window resizes for it on
-  // Android (edge to edge, a Modal included): the keyboard covered the fields there
-  // (Galaxy S23, 2026-11-09). The sheet lifts its own bottom above the keyboard, so the
-  // plot gives up the height and the series stay in view, on both platforms.
+  // No window resizes for the keyboard on Android, a Modal included: it covered the fields
+  // (S23, 2026-11-09). The sheet lifts its bottom above it; the plot gives up the height.
   const keyboardHeight = useKeyboardHeight(open);
   const skiaViewport = useSkiaGraphViewport({
     width: plot.width,
