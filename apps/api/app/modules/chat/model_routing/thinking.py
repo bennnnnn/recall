@@ -64,7 +64,7 @@ def thinking_level(
     if regenerate or (prior_user and is_answer_dispute(content)):
         return "escalate"
     if read_think is not None:
-        return with_read(read_think)
+        return with_read(read_think, lesson_active=lesson_active)
     hard = message_needs_thinking(
         content,
         prior_user=prior_user,
@@ -75,8 +75,14 @@ def thinking_level(
     return "hard" if hard else "off"
 
 
-def with_read(read_think: bool, level: ThinkingLevel | bool | str = "off") -> ThinkingLevel:
-    """The level once the read has answered: a turn already escalated stays so."""
+def with_read(
+    read_think: bool, level: ThinkingLevel | bool | str = "off", *, lesson_active: bool = False
+) -> ThinkingLevel:
+    """The level once the read has answered: a turn already escalated stays so, and a
+    lesson's step ("next", a practice problem) stays off, on the fast lesson lane, as the
+    word rules keep it (``route``'s "lesson"), whatever the read says."""
     if level == "escalate":
         return "escalate"
+    if lesson_active:
+        return "off"
     return "hard" if read_think else "off"

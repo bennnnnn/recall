@@ -35,6 +35,7 @@ from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
 from app.modules.memory.recall_tool import RECALL_TOOL
+from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search import TurnTavilyBudget, live_read_result
 
 if TYPE_CHECKING:
@@ -288,4 +289,6 @@ def think_from_the_read(ctx: StreamContext) -> None:
         return
     read = task.result()
     if read is not None:
-        ctx.thinking = with_read(read.think, ctx.thinking)
+        # A lesson under way keeps its steps quick (``route``'s "lesson"), as the word rules do.
+        lesson = active_lesson_step(ctx.recent_messages) is not None
+        ctx.thinking = with_read(read.think, ctx.thinking, lesson_active=lesson)

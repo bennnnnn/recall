@@ -9,6 +9,7 @@ or a disputed answer escalates as before.
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -17,8 +18,13 @@ import pytest
 from app.modules.chat.model_routing.thinking import thinking_level, with_read
 from app.modules.chat.tool_loop.reply_calls import think_from_the_read
 from app.modules.chat.turn_prep.context import StreamContext
+from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search.live_read import LiveRead
 
+_LESSON = (
+    "## Lesson 1: What a fraction is\n\nA fraction is a part of a whole: 1/2 is one of two "
+    "equal parts.\n\nWhich is bigger, 1/2 or 1/3?"
+)
 RUNNERS = (
     "Four runners each ran 100 m in 12 s, 13 s, 14 s and 15 s. Calculate their speeds, chart "
     "them, find the fastest and slowest, and say what you conclude about speed and time."
@@ -95,3 +101,33 @@ async def test_the_reply_never_waits_for_a_read_still_running() -> None:
     think_from_the_read(ctx)
     assert ctx.thinking == "off"
     pending.cancel()
+
+
+def test_a_lesson_step_never_thinks_on_the_reads_word() -> None:
+    """A lesson's next step or practice problem stays on the fast lesson lane, thinking off,
+    as the word rules keep it; a regenerate or a dispute still escalates."""
+    assert thinking_level("next", lesson_active=True, read_think=True) == "off"
+    assert thinking_level(RUNNERS, lesson_active=True, read_think=True) == "off"
+    assert thinking_level("next", lesson_active=True, regenerate=True, read_think=True) == (
+        "escalate"
+    )
+    assert with_read(True, "off", lesson_active=True) == "off"
+    assert with_read(True, "escalate", lesson_active=True) == "escalate"
+
+
+@pytest.mark.parametrize(("before", "after"), [("off", "off"), ("escalate", "escalate")])
+@pytest.mark.asyncio
+async def test_the_reply_keeps_a_lessons_level_whatever_the_read_says(
+    before: str, after: str
+) -> None:
+    ctx = _context("next")
+    ctx.recent_messages = [
+        SimpleNamespace(role="user", content="teach me fractions"),
+        SimpleNamespace(role="assistant", content=_LESSON),
+        SimpleNamespace(role="user", content="next"),
+    ]
+    assert active_lesson_step(ctx.recent_messages) == 1
+    ctx.thinking = before
+    ctx.live_read = _done(LiveRead(live=False, think=True))  # type: ignore[assignment]
+    think_from_the_read(ctx)
+    assert ctx.thinking == after
