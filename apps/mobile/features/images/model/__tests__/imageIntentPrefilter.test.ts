@@ -101,6 +101,34 @@ describe("image intent prefilter", () => {
     expect(mightBeImageTurn(text, [], false)).toBe(false);
   });
 
+  // Picture words inside other words, or in a sentence that asks about a picture rather than
+  // for one: each of the first three asked POST /images/intent in the 2026-11-08 feature test.
+  it.each([
+    "How do I make a sourdough starter?",
+    "Teach me photosynthesis",
+    "An object is 30 cm from a convex lens of focal length 10 cm. Where is the image?",
+    "A lens has focal length 15 cm. Where's the image?",
+    "How do I make pasta from scratch?",
+    "What makes a good photographer?",
+    "Explain image processing in Python",
+    "Which picture should I use for my CV?",
+    "I see, thanks",
+    "Nice to see you",
+    "That looks like a good plan",
+    "Write a short story about a painter's apprentice",
+    "photosynthesis vs cellular respiration",
+    "Is the showroom open today?",
+  ])("sends the look-alike %j straight to chat", (text) => {
+    expect(mightBeImageTurn(text, [], false)).toBe(false);
+  });
+
+  // The words alone cannot tell a molecule from an animal: "show me" is the lookup's own
+  // ask, so the server, which reads the subject, judges this one.
+  it("asks about a lookup the subject decides", () => {
+    expect(mightBeImageTurn("Show me the structure of caffeine", [], false)).toBe(true);
+    expect(mightBeImageTurn("Show me a red panda", [], false)).toBe(true);
+  });
+
   it.each([
     "Zeichne mir eine Katze mit Hut und erkläre auch, was ein schwarzes Loch ist",
     "Dibújame un dragón",

@@ -9,7 +9,7 @@ import { useDroppedTurnReconcile } from "@/features/chat/hooks/useDroppedTurnRec
 import { useStreamingDraftPublisher } from "@/features/chat/hooks/useStreamingDraftPublisher";
 import { useThreadEdits } from "@/features/chat/hooks/useThreadEdits";
 import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
-import { headRejectedSend, initialChatTurnState, type ChatTurnEvent } from "@/features/chat/model/chatTurnCore";
+import { headRejectedSend, initialChatTurnState, type ChatTurnEvent, type FirstReply } from "@/features/chat/model/chatTurnCore";
 import { runChatTurnCommands, type ChatTurnEffects } from "@/features/chat/model/chatTurnEffects";
 import { createTurnEffectsSlot } from "@/features/chat/model/turnEffectsSlot";
 import { reduceChatTurn } from "@/features/chat/model/chatTurnState";
@@ -19,8 +19,8 @@ import type { TurnUsage } from "@/features/chat/model/socketReduce";
 import { createStreamCueGate } from "@/features/chat/model/streamFeedback";
 
 type UseChatOptions = {
-  /** Called with the new title when the server sends one after first reply */
-  onFirstReply?: () => void;
+  /** The view's first saved reply: its chat reaches the drawer and gets its title. */
+  onFirstReply?: (reply: FirstReply) => void;
   /** Called when the server or socket reports an error */
   onError?: (message: string, code?: string) => void;
   /** Refresh the to-dos after a turn may have changed them */

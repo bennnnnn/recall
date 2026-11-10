@@ -176,9 +176,14 @@ async def reset_today_usage(
 @router.get("/{chat_id}", response_model=ChatOut)
 async def get_chat(
     chat_id: UUID,
+    wait_for_title: bool = False,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ) -> ChatOut:
+    """``wait_for_title``: a new chat's title, waited for while the topic job writes it."""
+    if wait_for_title:
+        return await chats_service.get_chat_awaiting_title(session, redis, user, chat_id)
     chat = await chats_service.get_chat(session, user, chat_id)
     return ChatOut.model_validate(chat)
 

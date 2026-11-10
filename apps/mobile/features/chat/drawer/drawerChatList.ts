@@ -5,14 +5,15 @@ import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 /** How long a GET /chats response stays fresh for drawer paint / prefetch. */
 export const CHAT_LIST_STALE_MS = CONTEXT_REFRESH_STALE_MS;
 
-/** "full" shows the spinner; "revalidate" reads behind the rows shown, and not while they are fresh. */
+/** "full" shows the spinner; "revalidate" reads behind the rows shown, when a chat changed since. */
 type DrawerChatFetchMode = "skip" | "full" | "revalidate";
 
 /**
  * Opening the sidebar paints from cache after the first load, and reads the list again
- * behind it once that read is older than `CHAT_LIST_STALE_MS`: a chat started on another
- * device never showed until a pull-to-refresh or a relaunch. Closed-drawer idle warm
- * lives in useDrawerChatList.
+ * behind it only when this phone changed a chat since (useDrawerChatList). A chat started on
+ * another device shows on the return to this one (a read once the list is older than
+ * `CHAT_LIST_STALE_MS`), a pull-to-refresh or a relaunch. Closed-drawer idle warm lives in
+ * useDrawerChatList.
  */
 export function drawerChatFetchMode(opts: {
   isDrawerOpen: boolean;

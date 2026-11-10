@@ -21,7 +21,8 @@ import { useChatPageCacheWriter, useChatPageSync } from "@/features/chat/hooks/u
 import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect";
 import { useForegroundRefetch, useSilentRefetchChat } from "@/features/chat/hooks/useChatRefetch";
 import { useChatRouteOpen } from "@/features/chat/hooks/useChatRouteOpen";
-import { useChatTitlePolling } from "@/features/chat/hooks/useChatTitlePolling";
+import { useChatTitle } from "@/features/chat/hooks/useChatTitle";
+import type { FirstReply } from "@/features/chat/model/chatTurnCore";
 import { useLatestRef } from "@/lib/latestRef";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 
@@ -81,7 +82,7 @@ type LeaveOptions = Pick<Options, "routeChatId" | "chatId" | "stopGeneration"> &
   draft: Pick<DraftChat, "discardEmptyChat" | "clearDraftChat">;
   messagesRef: React.RefObject<Message[]>;
   turnBusy: () => boolean;
-  handleFirstReply: () => Promise<void>;
+  handleFirstReply: (explicitChatId?: string | null, reply?: FirstReply) => Promise<void>;
 };
 
 /** Leaves the open chat: its row reaches the drawer, an empty one goes, the draft is dropped. */
@@ -115,7 +116,7 @@ export function useChatRouteLoader({
   const messagesRef = useLatestRef(messages);
   const getFirstUserText = useCallback(() => firstUserText(messagesRef.current), [messagesRef]);
   const { setChatTitle, applyMetadata, resetMetadata } = metadata;
-  const { titleGenerating, pollForTitle, handleFirstReply } = useChatTitlePolling({
+  const { titleGenerating, awaitTitle, handleFirstReply } = useChatTitle({
     token, chatId, setChatTitle, getFirstUserText,
   });
   const [chatLoading, setChatLoading] = useState(false);
@@ -167,7 +168,7 @@ export function useChatRouteLoader({
     refetch: silentRefetchChat });
   useChatRouteOpen({ token, routeChatId, viewRef, draft, messagesRef, setChatId, setChatLoading, setHasMoreOlder,
     editThread, applyMetadata, resetMetadata, clearView, notePageRead, notePageUnmerged, clearPageSync, resetPaging,
-    pollForTitle, startNewChat, showActionBanner, t });
+    awaitTitle, startNewChat, showActionBanner, t });
   useChatPageCacheWriter({
     chatId, routeChatId, messages, busy: streaming, hasMoreOlder, hasMoreNewer, sync: pageSync,
     resync: silentRefetchChat,
@@ -192,6 +193,6 @@ export function useChatRouteLoader({
     highlightedMessageId,
     handleFirstReply,
     startNewChat,
-    pollForTitle,
+    awaitTitle,
   };
 }

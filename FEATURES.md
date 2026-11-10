@@ -97,7 +97,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Chat management reliability** — manual titles survive delayed
   generation; pin/archive updates are atomic; drawer and header changes stay in sync.
   Bulk partial failures preserve successful actions, and stale reads cannot restore
-  deleted chats. Saved history and title polling respect navigation and account changes.
+  deleted chats. Saved history and the wait for a new chat's title respect navigation and
+  account changes. A drawer open shows the list it holds and reads it again (ETag) only after
+  this phone changed a chat: a reply saved, a title, a pin, an archive, a delete.
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
 
@@ -1302,9 +1304,16 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   in-flight so `GET /messages` can wait out a leave. After a socket failure the next sends
   use SSE for 10 s (doubling to 5 min, reset by a reply over the socket, a network change
   or another chat), then the socket again; it used to stay SSE for the rest of the chat.
-- ✅ **Chat socket recovery** — the socket reopens when the user starts to write after the
-  server's idle close, is rebuilt after an access-token refresh, and is replaced on a network
-  change (a reply in flight is probed instead). A send with no `start` within 3 s is probed
+- ✅ **Chat socket per conversation** — a draft's first character (or a send) opens its chat's
+  socket, so the send finds the handshake done, and the conversation's next messages reuse it;
+  once a turn and what follows its `done` (follow-up questions, a new chat's `title`) are in, it
+  closes a minute after that turn while the chat stays on screen, and at once when the user
+  leaves (another chat, To-do, Settings, Library) or the app goes to the background. Reading,
+  opening or switching chats opens none. A send after a token refresh
+  opens one with the new token; a network change closes an idle one and probes a reply in
+  flight. A new chat's title comes on its first reply's socket; with no socket for the turn
+  (SSE, a picture, live talk), or none in the server's wait, from one
+  `GET /chats/{id}?wait_for_title=true`; never by polling. A send with no `start` within 3 s is probed
   (ping/pong); a dead socket's send is replayed over SSE under the message's
   `client_message_id`, which the server runs at most once (`modules/chat/client_message.py`);
   a resend it already took gets `duplicate` and the phone follows the first turn.

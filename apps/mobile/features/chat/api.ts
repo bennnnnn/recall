@@ -90,8 +90,9 @@ export const chatsApi = {
       method: "POST",
       body: JSON.stringify({ model }),
     }),
-  getChat: (token: string, chatId: string) =>
-    request<Chat>(`/chats/${chatId}`, token),
+  /** `waitForTitle`: a new chat's title, which the server waits a few seconds for (one read, no poll). */
+  getChat: (token: string, chatId: string, opts?: { waitForTitle?: boolean }) =>
+    request<Chat>(`/chats/${chatId}${opts?.waitForTitle ? "?wait_for_title=true" : ""}`, token),
   renameChat: (token: string, chatId: string, title: string) =>
     request<Chat>(`/chats/${chatId}`, token, {
       method: "PATCH",

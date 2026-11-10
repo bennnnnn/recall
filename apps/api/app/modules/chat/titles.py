@@ -5,6 +5,8 @@ import logging
 import re
 from uuid import UUID
 
+from redis.asyncio import Redis
+
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.validation import BORING_CHAT_TITLES as BORING_CHAT_TITLES
@@ -20,6 +22,7 @@ from app.modules.attachments.markers import (
     image_attachment_ids_from_text,
     without_attachment_refs,
 )
+from app.modules.chat.title_event import announce_title
 from app.modules.conversation import service as conversation_service
 from app.modules.turn_reading.readable import (
     has_english_word,
@@ -361,11 +364,13 @@ async def generate_chat_title(
     *,
     user_id: UUID,
     locale: str | None = None,
+    redis: Redis | None = None,
 ) -> bool:
     """Title the chat from its first exchange (the ``topic`` job); True when one applied.
 
     False (nothing usable, or the chat already has a title) leaves the job not done,
-    so a later request may try again; the caller says so to the queue.
+    so a later request may try again; the caller says so to the queue. An applied title
+    is announced on ``redis`` for the phone waiting on it (``title_event``).
     """
     if not user_message.strip() or not assistant_message.strip():
         return False
@@ -382,6 +387,8 @@ async def generate_chat_title(
                 session, chat_id, title, user_id=user_id, commit=False
             )
             await session.commit()
+        if applied and redis is not None:
+            await announce_title(redis, chat_id, title)
         return applied
     except Exception:
         _logger.exception("Topic generation failed for chat_id=%s", chat_id)
