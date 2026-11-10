@@ -222,6 +222,8 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/chat/post_turn.py",
         # No "saving is paused" note on an outage. modules/chat/test_prompt_memory.py.
         "modules/chat/prompt_memory.py",
+        # "Draw it"'s read of what "it" is: none, the turn read as before. test_referent_read.py.
+        "modules/chat/referent_read.py",
         # Follow-up questions: none (take_related_prompts_event logs the failure).
         "modules/chat/related_prompts.py",
         # Skips the tool loop: the turn was admitted. modules/chat/test_post_turn_spend.py.

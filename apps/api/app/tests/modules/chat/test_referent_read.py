@@ -102,6 +102,20 @@ async def test_a_slow_model_leaves_the_turn_as_before() -> None:
         assert await read_referent(settings, "Draw it", _rows(_TRIANGLE_CHAT)) is None
 
 
+@pytest.mark.asyncio
+async def test_past_the_spend_cap_no_model_is_asked() -> None:
+    """Past the day's spend cap there is no read: the turn is read as main read it."""
+    model = AsyncMock()
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
+        patch("app.core.redis.get_redis_client", lambda: None),
+        patch("app.gateways.structured_completion.complete_structured", model),
+    ):
+        settings = Settings(mock_llm_enabled=False)
+        assert await read_referent(settings, "Draw it", _rows(_TRIANGLE_CHAT)) is None
+    model.assert_not_awaited()
+
+
 async def _continued(
     line: str, pairs: list[tuple[str, str]], pick: ContinuationPick | None
 ) -> tuple[str | None, AsyncMock]:
