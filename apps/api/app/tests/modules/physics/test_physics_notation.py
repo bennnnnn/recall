@@ -1,5 +1,6 @@
-"""A worked reply writes a British-style school textbook's letters: s is a displacement, d a
-distance, u an initial velocity and v a final one (v = u + at, v² = u² + 2as)."""
+"""Initial and final velocity are shown v_i and v_f wherever a law tells them apart; a
+displacement is s and a distance d, so suvat writes s = v_i t + ½at² and a steady speed
+v = d/t."""
 
 from __future__ import annotations
 
@@ -19,26 +20,34 @@ from app.tests.modules.physics.support import build_verified_physics_block, extr
 @pytest.mark.parametrize(
     "operation, written, expected",
     [
-        ("impulse", "I = m(v_2 - v_1)", "I = m(v - u)"),
+        ("suvat_velocity", "v = u + at", "v_f = v_i + at"),
+        ("suvat_acceleration", r"a = \frac{v - u}{t}", r"a = \frac{v_f - v_i}{t}"),
+        ("suvat_distance", r"s = ut + \tfrac{1}{2}at^2", r"s = v_i t + \tfrac{1}{2}at^2"),
+        ("suvat_distance", r"s = \frac{v^2 - u^2}{2a}", r"s = \frac{v_f^2 - v_i^2}{2a}"),
+        ("suvat_distance", r"s = \int_0^t |u+a\tau|\,d\tau", r"s = \int_0^t |v_i+a\tau|\,d\tau"),
+        ("suvat_time", r"t = \frac{2s}{u + v}", r"t = \frac{2s}{v_i + v_f}"),
+        (
+            "energy_speed_from_moving_start",
+            r"\tfrac{1}{2}mv^2 = \tfrac{1}{2}mu^2 + mgh",
+            r"\tfrac{1}{2}mv_f^2 = \tfrac{1}{2}mv_i^2 + mgh",
+        ),
+        ("impulse", "I = m(v_2 - v_1)", "I = m(v_f - v_i)"),
         (
             "work_energy",
             r"W_{net} = \frac{1}{2}m(v_2^2 - v_1^2)",
-            r"W_{net} = \frac{1}{2}m(v^2 - u^2)",
+            r"W_{net} = \frac{1}{2}m(v_f^2 - v_i^2)",
         ),
-        ("final_velocity", r"v_1',\ v_2'", r"v_1,\ v_2"),
+        ("final_velocity", r"v_1',\ v_2'", r"v_{1f},\ v_{2f}"),
         (
             "final_velocity",
             r"m_1v_1 + m_2v_{2} = (m_1+m_2)v_f",
-            r"m_1u_1 + m_2u_2 = (m_1+m_2)v",
+            r"m_1v_{1i} + m_2v_{2i} = (m_1+m_2)v_f",
         ),
-        ("stopping_distance", r"d_b = \frac{v^2}{2a}", r"d_b = \frac{u^2}{2a}"),
-        ("time_to_peak", r"t_{\text{top}} = \frac{v_0}{g}", r"t_{\text{top}} = \frac{u}{g}"),
-        ("position", r"h = h_0 + v_0 t - \frac{1}{2} g t^2", r"h = h_0 + u t - \frac{1}{2} g t^2"),
-        ("range", r"R = \frac{v_0^2 \sin(2\theta)}{g}", r"R = \frac{u^2 \sin(2\theta)}{g}"),
+        ("stopping_distance", r"d_b = \frac{v^2}{2a}", r"d_b = \frac{v_i^2}{2a}"),
         # Units, words and commands are not symbols.
-        ("impulse", r"v_2 = 14\,\mathrm{m/s}", r"v = 14\,\mathrm{m/s}"),
-        ("impulse", r"v_1 \text{ value}", r"u \text{ value}"),
-        ("stopping_distance", r"\varepsilon \vec{v}", r"\varepsilon \vec{u}"),
+        ("suvat_velocity", r"v = 14\,\mathrm{m/s}", r"v_f = 14\,\mathrm{m/s}"),
+        ("suvat_velocity", r"v \text{ value}", r"v_f \text{ value}"),
+        ("suvat_velocity", r"\varepsilon \vec{u}", r"\varepsilon \vec{v_i}"),
     ],
 )
 def test_shown_writes_initial_and_final_velocity(
@@ -50,14 +59,13 @@ def test_shown_writes_initial_and_final_velocity(
 @pytest.mark.parametrize(
     "operation, written",
     [
-        # The constant-acceleration laws are written in u, v and s already.
-        ("suvat_velocity", "v = u + at"),
-        ("suvat_distance", r"s = ut + \tfrac{1}{2}at^2"),
         # A plain speed has no start or end: v = d/t stays v.
-        ("rate_speed", r"v = \frac{d}{t}"),
+        ("speed", r"v = \frac{d}{t}"),
         ("momentum", "p = mv"),
-        ("mirror_focal_length", r"\frac{1}{f} = \frac{1}{d_o} + \frac{1}{d_i}"),
-        (None, "v = v_0 + at"),
+        # A lens's u and v are distances.
+        ("mirror_focal_length", r"\frac{1}{f} = \frac{1}{u} + \frac{1}{v}"),
+        ("range", r"R = \frac{v_0^2 \sin(2\theta)}{g}"),
+        (None, "v = u + at"),
     ],
 )
 def test_shown_leaves_other_laws_as_written(operation: str | None, written: str) -> None:
@@ -71,18 +79,16 @@ def _catalog_latex(spec: FormulaSpec) -> list[str]:
     return [row for row in rows if row]
 
 
-# What a school book never writes for a start or an end: v_i, v_f, v_0, or a velocity
-# numbered before and after a collision (v_1, v_2 of one body).
-_OLD_SYMBOL = re.compile(r"v_(?:[if0]|\{[if0]\}|\{[12][if]\})(?![A-Za-z0-9}])")
+# A bare u or v, or a before/after v_1 or v_2: what the table renames.
+_OLD_SYMBOL = re.compile(
+    r"(?<![\\A-Za-z])(?:u|v)(?![A-Za-z_{])|v_(?:[12]|\{[12]\})(?![A-Za-z0-9}])"
+)
 
 
-@pytest.mark.parametrize("operation", sorted(CATALOG))
-def test_no_law_shows_v_i_v_f_or_v_0(operation: str) -> None:
-    """Every catalog law, as the reply shows it, keeps to u and v. A law the drag model
-    writes with v_0 (a university course's) is the one exception."""
+@pytest.mark.parametrize("operation", sorted(_SHOWN))
+def test_every_renamed_law_shows_no_old_symbol(operation: str) -> None:
+    """Each operation in the table is a catalog law, and nothing it shows keeps u or v."""
     spec = CATALOG[operation]
-    if spec.kind == "fluids":
-        return
     rows = [shown(row, operation) for row in _catalog_latex(spec)]
     rows.append(shown(spec.result_symbol, operation))
     rows.extend(
@@ -93,19 +99,42 @@ def test_no_law_shows_v_i_v_f_or_v_0(operation: str) -> None:
     assert [row for row in rows if _OLD_SYMBOL.search(row)] == []
 
 
-@pytest.mark.parametrize("operation", sorted(_SHOWN))
-def test_every_renamed_law_is_a_catalog_law(operation: str) -> None:
-    assert operation in CATALOG
-
-
-def _reply(question: str) -> str:
+@pytest.mark.parametrize(
+    "question, rows",
+    [
+        (
+            "A car started from rest and accelerated uniformly and reached a speed of 20m/s "
+            "after 5 s. What is the acceleration?",
+            [
+                r"$v_i = 0\,\mathrm{m/s}$",
+                r"$v_f = 20\,\mathrm{m/s}$",
+                "where $v_i$ = initial velocity, $v_f$ = final velocity, $t$ = time",
+                "$v_f = v_i + at$",
+                r"$a = \frac{v_f - v_i}{t}$",
+            ],
+        ),
+        (
+            "A ball is thrown at 10 m/s and accelerates at 3 m/s^2 over 16 m. "
+            "What is its final velocity?",
+            ["**Required**  \n$v_f$", r"$v_f = \sqrt{v_i^2 + 2as}$", r"$v_f = 14\,\mathrm{m/s}$"],
+        ),
+    ],
+)
+def test_direct_reply_shows_v_i_and_v_f(question: str, rows: list[str]) -> None:
     intent = extract_physics_intent(question)
     assert intent is not None
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     reply = format_direct_physics_working(block)
     assert reply is not None
-    return reply
+    for row in rows:
+        assert row in reply
+    assert "$u" not in reply
+
+
+def test_model_is_told_the_same_notation() -> None:
+    assert PHYSICS_SYMBOLS in physics_prompt_hints(short=False)
+    assert "$v_f = v_i + at$" in PHYSICS_SYMBOLS
 
 
 @pytest.mark.parametrize(
@@ -116,36 +145,15 @@ def _reply(question: str) -> str:
             "A bus travels at 25 m/s. How long does it take to travel 5 km?",
             [r"$d = 5\,\mathrm{km}", "$d$ = distance", r"$v = \frac{d}{t}$"],
         ),
-        # A displacement under constant acceleration is s, from u to v.
+        # A displacement under constant acceleration is s, from v_i to v_f.
         (
             "A car accelerates uniformly from 10 m/s to 30 m/s in 5 s. What is its displacement?",
-            [
-                r"$u = 10\,\mathrm{m/s}$",
-                r"$v = 30\,\mathrm{m/s}$",
-                "where $u$ = initial velocity, $v$ = final velocity, $t$ = time",
-                "**Required**  \n$s$",
-                r"$s = \tfrac{1}{2}(u + v)t$",
-            ],
-        ),
-        (
-            "A car started from rest and accelerated uniformly and reached a speed of 20m/s "
-            "after 5 s. What is the acceleration?",
-            [
-                r"$u = 0\,\mathrm{m/s}$",
-                r"$v = 20\,\mathrm{m/s}$",
-                "$v = u + at$",
-                r"$a = \frac{v - u}{t}$",
-            ],
+            ["**Required**  \n$s$", r"$s = \tfrac{1}{2}(v_i + v_f)t$"],
         ),
         (
             "A ball is thrown at 10 m/s and accelerates at 3 m/s^2 over 16 m. "
             "What is its final velocity?",
-            [
-                "**Required**  \n$v$",
-                r"$s = 16\,\mathrm{m}$",
-                "$s$ = displacement",
-                r"$v = \sqrt{u^2 + 2as}$",
-            ],
+            [r"$s = 16\,\mathrm{m}$", "$s$ = displacement"],
         ),
         # Two legs walked are distances; where they leave you is a displacement.
         (
@@ -155,23 +163,16 @@ def _reply(question: str) -> str:
         # Work is the force times the displacement along it.
         (
             "A force of 20 N pushes a box 5 m along the floor. How much work is done?",
-            [r"$s = 5\,\mathrm{m}$", "$s$ = displacement"],
-        ),
-        # Thrown up: the speed it leaves with is u.
-        (
-            "A ball is thrown vertically upward at 20 m/s. How long does it take to reach the top?",
-            [r"$u = 20\,\mathrm{m/s}$", "$u$ = initial velocity", r"\frac{u}{g}$"],
+            [r"$s = 5\,\mathrm{m}$", "$s$ = displacement", "W = F"],
         ),
     ],
 )
-def test_direct_reply_writes_the_textbook_letters(question: str, rows: list[str]) -> None:
-    reply = _reply(question)
+def test_a_displacement_is_s_and_a_distance_d(question: str, rows: list[str]) -> None:
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    reply = format_direct_physics_working(block)
+    assert reply is not None
     for row in rows:
         assert row in reply
-    assert _OLD_SYMBOL.search(reply) is None
-
-
-def test_model_is_told_the_same_notation() -> None:
-    assert PHYSICS_SYMBOLS in physics_prompt_hints(short=False)
-    assert "$v = u + at$" in PHYSICS_SYMBOLS
-    assert "displacement $s$, distance $d$" in PHYSICS_SYMBOLS

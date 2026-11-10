@@ -1,43 +1,44 @@
 """The symbols a reply shows for a law that tells a starting velocity from a final one.
 
-A reply writes the letters of its students' textbooks (Ethiopian school physics, British
-style): initial velocity u, final velocity v, displacement s and distance d, so
-v = u + at, s = ut + ½at² and v² = u² + 2as. The constant-acceleration laws are
-written that way in the catalog already. Other laws keep the letters the binder, the
-model reader and the solvers name (``v_1`` and ``v_2`` before and after an impulse,
-``v_0`` for a launch, whose subscript 0 tells the binder it is a start), and this table
-is the one place that decides what the reply shows instead: every row a solver stores
-(``working.attach_recorded_working``), and every symbol the direct reply takes from the
-catalog (the givens, their meanings, Required, the law's own lines), pass through
-``shown``. A law not in the table is shown as written; a plain speed (``v = d/t``) has
-no start or end to tell apart.
+A student writes those velocities $v_i$ and $v_f$: $v_f = v_i + at$, not $v = u + at$.
+The catalog and the solvers keep their short letters (``u`` and ``v`` in the
+constant-acceleration laws, ``v_1`` and ``v_2`` for before and after an impulse),
+because those letters are what the binder, the model reader and the solvers name.
+This table is the one place that decides what the reply shows instead: every row a
+solver stores (``working.attach_recorded_working``), and every symbol the direct
+reply takes from the catalog (the givens, their meanings, Required, the law's own
+lines), pass through ``shown``. A law not in the table is shown as written; a plain
+speed (``v = d/t``) has no start or end to tell apart.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
-from app.modules.physics.catalog.vertical import SPECS as VERTICAL
 from app.services.latex_groups import group_end
 
+# Constant acceleration from a starting velocity u to a final velocity v.
+_START_END: Mapping[str, str] = {"u": "v_i", "v": "v_f"}
 # One body before and after: an impulse, the work done on it, a bounce off a wall.
-_BEFORE_AFTER: Mapping[str, str] = {"v_1": "u", "v_2": "v"}
-# Two bodies colliding: each one's velocity before (v_1, v_2) and after (v_1', v_2'),
-# and the one velocity of two that stick together (v_f).
+_BEFORE_AFTER: Mapping[str, str] = {"v_1": "v_i", "v_2": "v_f"}
+# Two bodies colliding: each one's velocity before (v_1, v_2) and after (v_1', v_2').
 _TWO_BODIES: Mapping[str, str] = {
-    "v_1": "u_1",
-    "v_2": "u_2",
-    "v_1'": "v_1",
-    "v_2'": "v_2",
-    "v_f": "v",
+    "v_1": "v_{1i}",
+    "v_2": "v_{2i}",
+    "v_1'": "v_{1f}",
+    "v_2'": "v_{2f}",
 }
 # Braking from a speed v to rest: the speed is where the stop starts.
-_BRAKING_FROM: Mapping[str, str] = {"v": "u"}
-# Thrown up or down, or launched at an angle: the speed it leaves with is u.
-_LAUNCH: Mapping[str, str] = {"v_0": "u"}
+_BRAKING_FROM: Mapping[str, str] = {"v": "v_i"}
 
 _SHOWN: Mapping[str, Mapping[str, str]] = {
+    "suvat_velocity": _START_END,
+    "suvat_distance": _START_END,
+    "suvat_time": _START_END,
+    "suvat_acceleration": _START_END,
+    "suvat_initial_velocity": _START_END,
+    "average_force_from_speeds": _START_END,
+    "energy_speed_from_moving_start": _START_END,
     "impulse": _BEFORE_AFTER,
     "work_energy": _BEFORE_AFTER,
     "momentum_change_rebound": _BEFORE_AFTER,
@@ -45,7 +46,6 @@ _SHOWN: Mapping[str, Mapping[str, str]] = {
     "final_velocity": _TWO_BODIES,
     "collision_energy_lost": _TWO_BODIES,
     "stopping_distance": _BRAKING_FROM,
-    **{spec.id: _LAUNCH for spec in (*VERTICAL, *PROJECTILE)},
 }
 
 # Arguments that are words, not symbols: ``\mathrm{m/s}``, ``\text{ before}``.
@@ -55,7 +55,7 @@ _WORD_ARGUMENTS = frozenset({"text", "mathrm", "textrm", "operatorname", "mbox"}
 def shown(latex: str, operation: str | None) -> str:
     """``latex`` with this law's velocities written as the reply shows them.
 
-    ``I = m(v_2 - v_1)`` becomes ``I = m(v - u)`` and ``v_0 t`` becomes ``u t``; a command
+    ``v = u + at`` becomes ``v_f = v_i + at`` and ``ut`` becomes ``v_i t``; a command
     (``\\tau``, ``\\frac``), a word argument (``\\mathrm{m/s}``) and a number are left
     as they are.
     """

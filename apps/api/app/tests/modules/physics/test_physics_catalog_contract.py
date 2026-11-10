@@ -160,8 +160,8 @@ def test_each_solver_branch_is_in_the_catalog_and_substitutes(
     text = " ".join(result.substitutions)
     assert any(_contains_given(text, value) for name, value in params.items() if name in visible)
     if op == "work_energy" and "v1" not in params:
-        # Shown as u (``notation``): the starting speed of the work done.
-        assert result.substitutions[0].startswith("u")
+        # Shown as v_i (``notation``): the starting speed of the work done.
+        assert result.substitutions[0].startswith("v_i")
 
 
 def test_law_coefficient_strip_keeps_a_plugged_in_number() -> None:

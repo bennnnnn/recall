@@ -215,10 +215,10 @@ def test_elastic_collision_shows_both_universal_formulas_and_substitutions() -> 
     assert reply is not None
     formula = as_formula_heading(reply).split("**Formula**", 1)[1].split("**Substitution**", 1)[0]
     substitution = reply.split("**Substitution**", 1)[1].split("**Answer**", 1)[0]
-    assert r"v_1 = \frac{(m_1-m_2)u_1 + 2m_2u_2}{m_1+m_2}" in formula
-    assert r"v_2 = \frac{(m_2-m_1)u_2 + 2m_1u_1}{m_1+m_2}" in formula
-    assert r"v_1 = \frac{(2-1) \times 3 + 2 \times 1 \times 0}{2+1}" in substitution
-    assert r"v_2 = \frac{(1-2) \times 0 + 2 \times 2 \times 3}{2+1}" in substitution
+    assert r"v_{1f} = \frac{(m_1-m_2)v_{1i} + 2m_2v_{2i}}{m_1+m_2}" in formula
+    assert r"v_{2f} = \frac{(m_2-m_1)v_{2i} + 2m_1v_{1i}}{m_1+m_2}" in formula
+    assert r"v_{1f} = \frac{(2-1) \times 3 + 2 \times 1 \times 0}{2+1}" in substitution
+    assert r"v_{2f} = \frac{(1-2) \times 0 + 2 \times 2 \times 3}{2+1}" in substitution
     assert "1.00" not in reply
     assert "4.00" not in reply
 

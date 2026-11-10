@@ -87,14 +87,14 @@ def test_distance_reply_does_not_call_displacement_an_equivalent_distance_law() 
     assert block is not None
     reply = maybe_direct_physics_reply(block, question)
     assert reply is not None and r"\int_0^t" in reply
-    assert r"$s = ut + \tfrac{1}{2}at^2$" not in reply
+    assert r"$s = v_i t + \tfrac{1}{2}at^2$" not in reply
     question = given + "Find the displacement."
     intent = extract_physics_intent(question)
     assert intent is not None
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     reply = maybe_direct_physics_reply(block, question)
-    assert reply is not None and r"$s = ut + \tfrac{1}{2}at^2$" in reply
+    assert reply is not None and r"$s = v_i t + \tfrac{1}{2}at^2$" in reply
 
 
 @pytest.mark.parametrize(

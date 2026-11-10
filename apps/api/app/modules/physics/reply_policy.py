@@ -57,15 +57,15 @@ PHYSICS_PARTIAL_POLICY = (
 
 
 # The symbols the server's own working shows (``notation`` and the catalog), so a reply the
-# model writes reads the same as one the server writes: the letters of a British-style
-# school textbook, one letter for one quantity in an answer.
+# model writes reads the same as one the server writes: one letter for one quantity in an
+# answer.
 PHYSICS_SYMBOLS = (
-    "Physics notation, as in the student's textbook: initial velocity $u$, final velocity "
-    "$v$, displacement $s$, distance $d$ ($v = u + at$, $s = ut + \\tfrac{1}{2}at^2$, "
-    "$v^2 = u^2 + 2as$; a speed is $v = \\frac{d}{t}$), never $v_i$ or $v_f$. In a "
-    "collision, $u_1$ and $u_2$ before, $v_1$ and $v_2$ after. Kinetic energy $E_k$, "
-    "potential energy $E_p$, work $W = Fs$, impulse $I$, pressure $P$. Never use one letter "
-    "for two quantities in one answer: beside work $W$, write a weight as $mg$."
+    "Physics notation: write a body's initial and final velocity as $v_i$ and $v_f$ "
+    "($v_f = v_i + at$, $v_f^2 = v_i^2 + 2as$), never u and v. In a collision, "
+    "$v_{1i}$ and $v_{2i}$ before, $v_{1f}$ and $v_{2f}$ after. A displacement is $s$ "
+    "and a distance $d$ (a speed is $v = \\frac{d}{t}$). Kinetic energy $E_k$, potential "
+    "energy $E_p$, work $W = Fs$, impulse $I$, pressure $P$. Never use one letter for two "
+    "quantities in one answer: beside work $W$, write a weight as $mg$."
 )
 
 

@@ -48,10 +48,10 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # then the chat's summary named as part of the conversation (SUMMARY_LEAD), then maths' pack
 # saying a shape is never drawn by the model, and so when the app draws none, while code,
 # SVG, HTML or ASCII art the user asks for is theirs (GRAPH_NO_SUBSTITUTE_CLAUSE), then physics'
-# letters as a school textbook writes them (PHYSICS_SYMBOLS: u and v, s and d, E_k).
+# letters as a school textbook writes them (PHYSICS_SYMBOLS: v_i and v_f, s and d, E_k).
 _RULES = 177
-_RULE_GRAMS = 16139
-_RULE_GRAMS_SHA = "0b96cd4204167374"
+_RULE_GRAMS = 16140
+_RULE_GRAMS_SHA = "3e2b2878086af173"
 
 
 def _rules() -> list[str]:
