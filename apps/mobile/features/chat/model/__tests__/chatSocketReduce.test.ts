@@ -251,6 +251,14 @@ describe("chatSocketReduce", () => {
     ]);
   });
 
+  it("reads that a reply's photo follows it, and the photo when it comes", () => {
+    const done = parseChatWsPayload(JSON.stringify({ type: "done", message_id: "m1", photo_pending: "1" }));
+    expect(done).toMatchObject({ type: "done", photo_pending: true });
+    expect(parseChatWsPayload('{"type":"done","message_id":"m1"}')).not.toHaveProperty("photo_pending");
+    const none = parseChatWsPayload('{"type":"answer_photo","message_id":"m1","content":null}');
+    expect(none).toEqual({ type: "answer_photo", message_id: "m1", content: null });
+  });
+
   it("buildDoneMergeInput parses stream metadata", () => {
     const input = buildDoneMergeInput(
       {

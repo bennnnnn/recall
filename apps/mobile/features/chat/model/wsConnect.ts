@@ -37,6 +37,15 @@ export const WS_PROBE_TIMEOUT_MS = 3_000;
 export const WS_FOLLOW_UPS_WAIT_MS = 10_000;
 
 /**
+ * A reply's photo still on its way at `done` (`photo_pending`) comes after it as an
+ * `answer_photo` event: the server gives its search 20 s from the reply's end
+ * (`answer_photo.LATE_PHOTO_SECONDS`). The reply's placeholder waits this long for it. The
+ * socket that carries it is the one kept for the next message while the chat is on screen
+ * (`WS_IDLE_KEEP_MS`); a chat left before it came finds the photo in the saved reply.
+ */
+export const ANSWER_PHOTO_WAIT_MS = 20_000;
+
+/**
  * Once a turn's stream has started (socket or SSE), the longest it may go with
  * nothing. A quiet turn sends a `keepalive` every 15 s, so a longer silence is a
  * dead connection: the phone gives up on the stream and reloads the chat for the

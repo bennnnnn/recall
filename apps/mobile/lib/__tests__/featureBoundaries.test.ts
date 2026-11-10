@@ -68,6 +68,7 @@ const PUBLIC: Record<string, readonly string[]> = {
   ],
   home: ["components/HomeContent.tsx", "model/homeOnScreen.ts"],
   images: [
+    "components/AnswerPhotoPlaceholder.tsx",
     "components/ImageGenPlaceholder.tsx",
     "hooks/useImageGeneration.ts",
     "model/imageGenMessages.ts",

@@ -5,6 +5,7 @@ import {
   WS_RETRY_MAX_MS,
 } from "@/features/chat/model/wsBackoff";
 import {
+  ANSWER_PHOTO_WAIT_MS,
   STREAM_IDLE_TIMEOUT_MS,
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
@@ -378,6 +379,26 @@ describe("ChatWsTransport", () => {
       socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
       expect(socket.close).not.toHaveBeenCalled();
       socket.emit({ type: "title", title: "Heater repair" });
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    // 2026-11-09: the reply's photo was still on its way when the reply went out.
+    it("carries a photo that comes after its reply while the chat is on screen", async () => {
+      const { socket, onPayload } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1", photo_pending: "1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      jest.advanceTimersByTime(ANSWER_PHOTO_WAIT_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "answer_photo", message_id: "m1", content: "[Image: /attachments/p/file]\n\nHi" });
+      expect(onPayload).toHaveBeenLastCalledWith(expect.objectContaining({ type: "answer_photo" }));
+    });
+
+    it("left, is not kept for a photo still on its way: the saved reply carries it", async () => {
+      const { socket, transport } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1", photo_pending: "1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      inView = false;
+      transport.leftView();
       expect(socket.close).toHaveBeenCalledTimes(1);
     });
 

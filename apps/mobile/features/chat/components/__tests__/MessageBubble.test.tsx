@@ -231,6 +231,16 @@ describe("MessageBubble tool status (S7.9)", () => {
     expect(view.getByTestId("progress-checking").props.children).toBe("99");
   });
 
+  // 2026-11-09: "where is Ethiopia" showed "finding a photo", then the reply came without one.
+  it("holds the photo's place above a saved reply whose photo is still on its way", async () => {
+    const pending = { ...assistantMessage, photo_pending_until: Date.now() + 20_000 } as Message;
+    const view = await render(<MessageBubble message={pending} />);
+    expect(view.getByTestId("answer-photo-placeholder")).toBeTruthy();
+    // The photo came (or none did): the reply no longer waits for one.
+    await view.rerender(<MessageBubble message={assistantMessage} />);
+    expect(view.queryByTestId("answer-photo-placeholder")).toBeNull();
+  });
+
   it("shows no progress once the reply has settled", async () => {
     mockHasContent = true;
     const view = await render(
