@@ -49,7 +49,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
 from app.gateways import storage_gateway
 from app.models.orm import Memory, TodoItem, User
-from app.modules.chat import stream_api, stream_events, ws_api, ws_turn
+from app.modules.chat import stream_api, stream_events, title_event, ws_api, ws_turn
 from app.modules.images import search as image_search
 from app.services.quota import tokens as quota_tokens
 
@@ -302,6 +302,9 @@ async def turns(
     # The memory read's wait for its query embedding: past it the read matches by words and
     # counts more round trips than the turn makes (see the module docstring).
     monkeypatch.setenv("MEMORY_QUERY_EMBED_TIMEOUT_SECONDS", "30")
+    # A first reply's socket waits for its title (no topic job runs here), after the counts:
+    # the drain between turns would wait it out.
+    monkeypatch.setattr(title_event, "TITLE_WAIT_SECONDS", 0.05)
     get_settings.cache_clear()
     storage_gateway._gateway_cache = None
     settings = get_settings()

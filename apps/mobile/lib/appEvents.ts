@@ -12,6 +12,8 @@ type AppEvents = {
   attachmentDeleted: { attachmentId: string; chatId: string | null };
   /** A picture saved into a chat (image generation): the gallery reads again. */
   attachmentAdded: { chatId: string };
+  /** A new chat's title came on its first reply's stream; null when the server's wait ran out. */
+  chatTitleArrived: { chatId: string; title: string | null };
   /** Memory changed outside the memory screens (a settings card in a chat). */
   memoryChanged: Record<string, never>;
   /** The server saved a change this device made to these profile fields. */
@@ -25,6 +27,7 @@ const listeners: { [K in AppEventName]: Set<Listener<K>> } = {
   chatsDeleted: new Set(),
   attachmentDeleted: new Set(),
   attachmentAdded: new Set(),
+  chatTitleArrived: new Set(),
   memoryChanged: new Set(),
   userUpdated: new Set(),
 };

@@ -1,46 +1,28 @@
-import { useEffect } from "react";
-import { Keyboard, Platform } from "react-native";
-import { useNavigation } from "expo-router";
-
-import { useAccountSession } from "@/contexts/accountSession";
-import { useComposerDraftActivity } from "@/features/chat/context/ComposerDraftContext";
-import { shouldWarmDraftSocket } from "@/features/chat/model/draftLogic";
+import { useEffect, useRef } from "react";
 
 type Options = {
+  /** The chat the composer writes into: the open one, or the new chat a first character made. */
   chatId: string | null;
-  streaming: boolean;
-  draftChatId: string | null;
+  /** The composer holds a draft (`useComposerDraftActivity`). */
+  composing: boolean;
   connect: () => void | Promise<void>;
 };
 
 /**
- * Opens the chat socket before a send needs it: a draft chat's as soon as the
- * draft exists, and again whenever the user starts to write (the keyboard comes
- * up, or the composer gets its first character). The server closes a socket left
- * idle for five minutes; reopening on intent, not on a timer, keeps that close
- * while the send still finds the socket open. `connect` does nothing when it is.
+ * Opens the chat's socket at a draft's first character, so its send finds the handshake done:
+ * on a slow cellular path the send otherwise waited for it, or fell back to SSE. Typed, not
+ * shown: a chat opened or read opens none, nor one opened with a draft already saved in it.
+ * The socket keeps its idle minute, so a draft left unsent costs one handshake. `connect`
+ * does nothing when a socket is open.
  */
-export function useChatDraftWarmup({ chatId, streaming, draftChatId, connect }: Options) {
-  const { account } = useAccountSession();
-  const composing = useComposerDraftActivity();
-  const navigation = useNavigation();
-
+export function useChatDraftWarmup({ chatId, composing, connect }: Options) {
+  const previous = useRef({ chatId, composing });
   useEffect(() => {
-    if (!shouldWarmDraftSocket({ account, draftChatId, chatId, streaming })) return;
-    void connect();
-  }, [account, draftChatId, chatId, streaming, connect]);
-
-  useEffect(() => {
-    if (composing) void connect();
-  }, [composing, connect]);
-
-  useEffect(() => {
-    const event = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    // Chat stays mounted under To-do, Memory and Settings: a keyboard there is no send
-    // coming, and it opened a socket that then idled for five minutes.
-    const sub = Keyboard.addListener(event, () => {
-      if (navigation.isFocused()) void connect();
-    });
-    return () => sub.remove();
-  }, [connect, navigation]);
+    const before = previous.current;
+    previous.current = { chatId, composing };
+    if (!composing || !chatId) return;
+    // A first character in this chat, or the new chat a first character made.
+    const typed = before.chatId === chatId ? !before.composing : before.chatId === null && before.composing;
+    if (typed) void connect();
+  }, [chatId, composing, connect]);
 }

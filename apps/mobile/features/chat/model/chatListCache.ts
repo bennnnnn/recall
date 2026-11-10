@@ -17,7 +17,7 @@ import {
   type ResourceUpdate,
 } from "@/lib/cache/sessionResource";
 import { CHAT_LIST_STALE_MS } from "@/features/chat/drawer/drawerChatList";
-import { emitAppEvent } from "@/lib/appEvents";
+import { emitAppEvent, onAppEvent } from "@/lib/appEvents";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { tokenSubject } from "@/lib/tokenSubject";
 
@@ -34,6 +34,11 @@ type ListSession = {
    * when that change took away rows a screen shows (Delete all, Archive all).
    */
   dropped?: "rows-kept" | "rows-removed";
+  /** Chats this phone changed (`noteChatListChanged`), and how many of those the last read saw. */
+  changes?: number;
+  changesRead?: number;
+  /** New chats whose title this phone waited for and did not get, each until when it is read for. */
+  untitled?: Map<string, number>;
 };
 
 const LIST = "chats";
@@ -45,6 +50,8 @@ const resource = new SessionResourceCache<typeof LIST, ChatList, ListSession>({
   sessionState: () => ({}),
 });
 resource.subscribe(saveSoon);
+// A picture saved into a chat moved that chat up the list.
+onAppEvent("attachmentAdded", () => noteChatListChanged());
 
 /** The file layer loads expo-file-system: only a restore or a write needs it. */
 const listFile = () => import("@/features/chat/model/chatListFile");
@@ -192,6 +199,43 @@ export function forgetDeletedChat(chatId: string): Promise<void> {
   return invalidateChatListCache();
 }
 
+/**
+ * This phone changed a chat the list shows: a turn it finished (the chat moves up), a title it
+ * received, a pin, an archive, a delete. The drawer reads the list again on its next open; until
+ * then, and with nothing changed, it shows the list it holds (2026-11-08: a GET /chats on every
+ * open, ten in one run, nearly all 304).
+ */
+export function noteChatListChanged(): void {
+  const state = resource.state();
+  state.changes = (state.changes ?? 0) + 1;
+}
+
+/** How long a new chat's missing title keeps the drawer reading the list on each open. */
+const UNTITLED_READ_MS = 2 * 60_000;
+
+/**
+ * A new chat's title did not come (the topic job ran late): each drawer open reads the list
+ * again until the chat's row has one, for two minutes at most. A read made before the title
+ * was written left the row "New chat" for good.
+ */
+export function noteChatTitleMissing(chatId: string): void {
+  const state = resource.state();
+  state.untitled ??= new Map();
+  state.untitled.set(chatId, Date.now() + UNTITLED_READ_MS);
+  noteChatListChanged();
+}
+
+/** A chat changed since the last read of the list began, or a new chat still has no title. */
+export function chatListChangedSinceRead(): boolean {
+  const state = resource.state();
+  if ((state.changes ?? 0) !== (state.changesRead ?? 0)) return true;
+  for (const [chatId, until] of state.untitled ?? []) {
+    if (Date.now() < until && !getCachedChat(chatId)?.title?.trim()) return true;
+    state.untitled?.delete(chatId);
+  }
+  return false;
+}
+
 /** The list was dropped (`invalidateChatListCache`) and is not read since. */
 export function isChatListDropped(): boolean {
   return resource.get(LIST) === undefined && resource.state().dropped !== undefined;
@@ -207,7 +251,11 @@ export async function fetchChatList(
   opts?: { force?: boolean; report?: FailureReporter },
 ): Promise<ResourceResult<ChatList>> {
   const result = await resource.fetch(LIST, token, async () => {
+    const state = resource.state();
+    // A change made while this read runs may not be in it: it stays to read.
+    const changes = state.changes ?? 0;
     const data = await api.listChats(token);
+    state.changesRead = changes;
     const fresh = { ...data, archived: data.archived ?? [] };
     // GET /chats is the first page: the pages this session read below it stay (a restored list's do not).
     const shown = resource.fetchedAt(LIST) === undefined ? undefined : resource.get(LIST);

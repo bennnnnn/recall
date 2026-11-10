@@ -12,6 +12,7 @@ import {
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
 import {
+  chatListChangedSinceRead,
   chatListRowsRemoved,
   fetchChatList,
   fetchMoreArchivedChats,
@@ -20,6 +21,7 @@ import {
   getChatListFetchedAt,
   isChatListDropped,
   isChatListFresh,
+  noteChatListChanged,
   regroupCachedChatList,
   restoreChatList,
   subscribeChatList,
@@ -251,31 +253,38 @@ type RereadDeps = {
 
 /**
  * When the drawer reads its list again, besides its own edits: its first open (with the
- * spinner), each later open once the rows are stale and each return from the background
- * (behind the rows: another device may have started or renamed a chat), and the API back
+ * spinner), a later open only once this phone changed a chat since the last read (a turn it
+ * finished, a title, a pin or archive: `noteChatListChanged`), each return from the background
+ * once the rows are stale (another device may have started or renamed a chat), and the API back
  * after an outage while it is open. A read behind the rows warns of nothing when it fails, as
  * the closed drawer's warm-up: the user did not ask for it, and the rows stay. Returns whether
  * the drawer is open, as a ref.
  */
 function useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef }: RereadDeps) {
-  // A fresh list is not read again; nor, for the same 20 s, is one whose read just failed (an outage
-  // sent one per open).
-  const triedAt = useRef<number | undefined>(undefined);
-  const reread = useCallback(() => {
-    if (isChatListFresh() || isContextFresh(triedAt.current)) return;
-    triedAt.current = Date.now();
-    void load(true, false, true);
+  // A read that just failed is not tried again for 20 s (an outage sent one per open).
+  const failedAt = useRef<number | undefined>(undefined);
+  const readBehind = useCallback((force: boolean) => {
+    if (isContextFresh(failedAt.current)) return;
+    const readAt = getChatListFetchedAt();
+    void load(true, force, true).then(() => {
+      if (getChatListFetchedAt() === readAt) failedAt.current = Date.now();
+    });
   }, [load]);
+  // Past FOREGROUND_STALE_MS.chatList; Home's last chat reads this list too.
+  const rereadStale = useCallback(() => {
+    if (!isChatListFresh()) readBehind(false);
+  }, [readBehind]);
   useEffect(() => {
     hydrateFromCache();
     // A list dropped since (an unarchive in Settings) is read again: it was never fetched.
     const loadedOnce = hasLoadedOnceRef.current && getChatListFetchedAt() != null;
     const mode = drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(account), hasLoadedOnce: loadedOnce });
     if (mode === "full") void load();
-    else if (mode === "revalidate") reread();
-  }, [isDrawerOpen, account, load, reread, hydrateFromCache, hasLoadedOnceRef]);
-  // Past FOREGROUND_STALE_MS.chatList; Home's last chat reads this list too.
-  useOnForeground(reread, Boolean(account));
+    // The rows held are the list unless this phone changed a chat since it was read; then the
+    // read is forced (the change is newer than any fresh copy), with its ETag as the safety net.
+    else if (mode === "revalidate" && chatListChangedSinceRead()) readBehind(true);
+  }, [isDrawerOpen, account, load, readBehind, hydrateFromCache, hasLoadedOnceRef]);
+  useOnForeground(rereadStale, Boolean(account));
   // The API back after an outage: the open drawer's chats, read as opening it reads them.
   const openRef = useLatestRef(isDrawerOpen);
   useReconnectRefresh(() => void load(), { onScreen: () => openRef.current, readAt: getChatListFetchedAt });
@@ -308,6 +317,7 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
   const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
     if (!account || !current()) return;
     applyChatList(updateChatListCache(update) ?? update, false);
+    noteChatListChanged();
     publishChatChange(chatId, patch);
   }, [account, current, applyChatList]);
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
@@ -315,7 +325,9 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
     updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
   }, [updateGroups]);
   const insertChatInGroups = useCallback((chat: Chat) => {
-    updateGroups(chat.id, chat, (prev) => insertChatIntoGroups(prev, chat));
+    // A row with no title yet tells no one its title is gone (the header may already hold it).
+    const { title, ...untitled } = chat;
+    updateGroups(chat.id, title?.trim() ? chat : untitled, (prev) => insertChatIntoGroups(prev, chat));
   }, [updateGroups]);
   const removeChatFromGroupsById = useCallback((chatId: string) => {
     updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));

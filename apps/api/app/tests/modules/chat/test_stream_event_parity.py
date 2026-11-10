@@ -16,6 +16,7 @@ import pytest
 
 from app.modules.chat import stream_events
 from app.modules.chat.stream_events import DoneEvent, StreamEndEvent
+from app.modules.chat.title_event import build_title_event
 from app.modules.chat.turn_outcome import TurnOutcome
 
 _CHAT = Path(__file__).resolve().parents[3] / "modules" / "chat"
@@ -37,6 +38,7 @@ _BUILDERS = {
     ),
     "duplicate": lambda: stream_events.build_duplicate_event(),
     "pong": lambda: stream_events.build_pong_event(),
+    "title": lambda: build_title_event("Fixing a bike chain"),
 }
 
 
@@ -132,9 +134,9 @@ def test_related_prompts_event_shape() -> None:
 
 
 @pytest.mark.parametrize("router", [_WS, _SSE], ids=["ws", "sse"])
-def test_related_prompts_follow_done(router: Path) -> None:
+def test_related_prompts_and_the_title_follow_done(router: Path) -> None:
     source = router.read_text()
-    assert source.rindex("settled_turn_event") < source.rindex("take_related_prompts_event")
+    assert source.rindex("settled_turn_event") < source.rindex("after_done_events")
 
 
 def test_done_omits_complete_completion() -> None:
