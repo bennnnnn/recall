@@ -288,6 +288,16 @@ describe("kept chat pages", () => {
     expect(isCachedChatPageFresh("chat-1", "2026-01-01T00:00:00Z")).toBe(false);
   });
 
+  // Review 2026-11-09: reopened within the stale window, the kept page painted a reply still
+  // waiting for a photo its closed socket would never bring, and nothing read the chat.
+  it("is not fresh while a reply on it waits for its photo", () => {
+    const waiting = [turn(1)[0], { ...turn(1)[1], photo_pending_until: FETCHED + 20_000 }];
+    keepCachedChatPage("chat-1", waiting, false, FETCHED);
+    expect(isCachedChatPageFresh("chat-1", undefined)).toBe(false);
+    keepCachedChatPage("chat-1", turn(1), false, FETCHED);
+    expect(isCachedChatPageFresh("chat-1", undefined)).toBe(true);
+  });
+
   it("is not fresh after the clock is set back", () => {
     keepCachedChatPage("chat-1", turn(1), false, FETCHED, "2026-01-01T00:00:00Z");
     now = FETCHED - 60 * 60_000;

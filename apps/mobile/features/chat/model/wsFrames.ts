@@ -3,6 +3,8 @@
  * frames this phone sends, the server's turn events, and the close codes that decide whether
  * the next send opens a new socket, goes over SSE, or asks the connection check to look.
  */
+import type { ChatWsPayload } from "@/features/chat/model/socketReduce";
+import { ANSWER_PHOTO_WAIT_MS, WS_FOLLOW_UPS_WAIT_MS } from "@/features/chat/model/wsConnect";
 
 /** The server's events of a turn: each one is news that the turn lives. */
 export const WS_TURN_EVENT_TYPES: ReadonlySet<string> = new Set([
@@ -45,6 +47,21 @@ export const UNREAD_CLOSE_CODES: ReadonlySet<number> = new Set([
  * `ws_api._WS_TRY_AGAIN_LATER_CLOSE_CODE`: its Redis down). A deliberate close is none.
  */
 export const OUTAGE_CLOSE_CODES: ReadonlySet<number> = new Set([1006, 1013, 1014]);
+
+/**
+ * What follows a saved reply's `done` on its socket, and until when the socket waits for it
+ * even once its chat is left: the follow-up questions, a new chat's title (`title_pending`),
+ * and a photo that was still on its way (`photo_pending`), which can come up to
+ * `ANSWER_PHOTO_WAIT_MS` after `done`.
+ */
+export function followUpsAfterDone(done: ChatWsPayload, now: number): { due: Set<string>; until: number } {
+  const due = new Set<string>();
+  if (done.message_id) due.add("related_prompts");
+  if (done.message_id && done.title_pending) due.add("title");
+  if (done.message_id && done.photo_pending) due.add("answer_photo");
+  const waitMs = due.has("answer_photo") ? Math.max(WS_FOLLOW_UPS_WAIT_MS, ANSWER_PHOTO_WAIT_MS) : WS_FOLLOW_UPS_WAIT_MS;
+  return { due, until: due.size > 0 ? now + waitMs : 0 };
+}
 
 export type ChatWsAuthFrame = {
   token: string;

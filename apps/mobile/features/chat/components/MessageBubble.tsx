@@ -6,6 +6,7 @@ import { ReminderProposalCard } from "@/features/todos/components/ReminderPropos
 import { TodoLinkButton } from "@/features/todos/components/TodoLinkButton";
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/features/attachments/components/ChatMessageImageStrip";
+import { AnswerPhotoPlaceholder } from "@/features/images/components/AnswerPhotoPlaceholder";
 import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceholder";
 import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/features/chat/components/SearchSourcesStack";
@@ -227,7 +228,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 </View>
               )
             ) : null}
-            {showImages ? <ChatMessageImageStrip images={images} /> : null}
+            {showImages ? <ChatMessageImageStrip images={images} /> : message.photo_pending_until ? <AnswerPhotoPlaceholder until={message.photo_pending_until} /> : null}
             {showLiveClock ? (
               <LazyCircularClockBlock content={clockTimezone} />
             ) : null}

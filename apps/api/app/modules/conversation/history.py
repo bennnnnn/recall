@@ -40,11 +40,21 @@ async def message_in_chat(session: AsyncSession, message_id: UUID, chat_id: UUID
     return await _messages.get_by_id(session, message_id, chat_id)
 
 
-async def message_for_user(
-    session: AsyncSession, message_id: UUID, user_id: UUID
+async def message_to_rewrite(
+    session: AsyncSession, message_id: UUID, chat_id: UUID
 ) -> Message | None:
-    """The message, when it is in one of the user's chats."""
-    return await _messages.get_for_user(session, message_id, user_id)
+    """The message in this chat for a writer that rewrites its text from this read: under
+    its row lock until the commit, so a write that landed first (a late photo put above a
+    reply) is kept, not overwritten."""
+    return await _messages.get_by_id(session, message_id, chat_id, for_update=True)
+
+
+async def message_for_user(
+    session: AsyncSession, message_id: UUID, user_id: UUID, *, for_update: bool = False
+) -> Message | None:
+    """The message, when it is in one of the user's chats; ``for_update`` as
+    ``message_to_rewrite``."""
+    return await _messages.get_for_user(session, message_id, user_id, for_update=for_update)
 
 
 async def user_lines_since(

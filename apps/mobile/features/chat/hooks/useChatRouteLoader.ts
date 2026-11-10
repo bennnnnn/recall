@@ -18,6 +18,7 @@ import { useChatHighlightScroll } from "@/features/chat/hooks/useChatHighlightSc
 import type { ChatMetadata } from "@/features/chat/hooks/useChatMetadata";
 import { useChatPaging } from "@/features/chat/hooks/useChatPaging";
 import { useChatPageCacheWriter, useChatPageSync } from "@/features/chat/hooks/useChatPageCacheWriter";
+import { useChatPendingPhotoRead } from "@/features/chat/hooks/useChatPendingPhotoRead";
 import { useChatPageReconnect } from "@/features/chat/hooks/useChatPageReconnect";
 import { useForegroundRefetch, useSilentRefetchChat } from "@/features/chat/hooks/useChatRefetch";
 import { useChatRouteOpen } from "@/features/chat/hooks/useChatRouteOpen";
@@ -174,6 +175,7 @@ export function useChatRouteLoader({
     resync: silentRefetchChat,
   });
   useChatPageReconnect({ chatId, busy: () => chatLoadingRef.current || turnBusy(), refetch: silentRefetchChat });
+  useChatPendingPhotoRead({ chatId, messages, busy: chatLoading || streaming || imageGenerating, refetch: silentRefetchChat });
 
   const { highlightedMessageId } = useChatHighlightScroll({
     chatLoading, routeChatId, routeHighlightMessage, router, messages, hasMoreOlder, hasMoreNewer,

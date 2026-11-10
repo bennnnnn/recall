@@ -187,7 +187,8 @@ async def _delete_library_attachment(
     # A document's chunks go with its row: the chat may have no indexed file left.
     indexed_in: UUID | None = None
     if message_id is not None:
-        message = await chat_history.message_for_user(session, message_id, user.id)
+        # Under the row lock: its text is rewritten from this read.
+        message = await chat_history.message_for_user(session, message_id, user.id, for_update=True)
         if message is not None:
             if not is_image_content_type(row.content_type):
                 indexed_in = message.chat_id

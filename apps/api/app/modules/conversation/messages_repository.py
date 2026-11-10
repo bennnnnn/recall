@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import NamedTuple
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, and_, exists, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Message
@@ -342,17 +342,29 @@ async def list_assistant_ids_since(
     return list(result.scalars().all())
 
 
-async def get_by_id(session: AsyncSession, message_id: UUID, chat_id: UUID) -> Message | None:
-    result = await session.execute(
-        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
-    )
+def _for_rewrite(query: Select[Message], for_update: bool) -> Select[Message]:
+    """``for_update``: the row locked until the caller's commit, and read afresh over what
+    the session already holds. Every writer that rewrites a message's text from a read of it
+    reads it so: a write that landed first (a late photo put above a reply) is kept, never
+    overwritten by text read before it."""
+    if not for_update:
+        return query
+    return query.with_for_update().execution_options(populate_existing=True)
+
+
+async def get_by_id(
+    session: AsyncSession, message_id: UUID, chat_id: UUID, *, for_update: bool = False
+) -> Message | None:
+    query = select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+    result = await session.execute(_for_rewrite(query, for_update))
     return result.scalar_one_or_none()
 
 
-async def get_for_user(session: AsyncSession, message_id: UUID, user_id: UUID) -> Message | None:
-    result = await session.execute(
-        select(Message).where(Message.id == message_id, Message.user_id == user_id)
-    )
+async def get_for_user(
+    session: AsyncSession, message_id: UUID, user_id: UUID, *, for_update: bool = False
+) -> Message | None:
+    query = select(Message).where(Message.id == message_id, Message.user_id == user_id)
+    result = await session.execute(_for_rewrite(query, for_update))
     return result.scalar_one_or_none()
 
 
@@ -388,6 +400,19 @@ async def update_content(
     else:
         await session.flush()
     return message
+
+
+async def put_above(
+    session: AsyncSession, message_id: UUID, chat_id: UUID, lines: str
+) -> str | None:
+    """Put ``lines`` above the message's text, the row locked so no other write is lost;
+    the new text, or None when the message is gone. Flushes, no commit."""
+    message = await get_by_id(session, message_id, chat_id, for_update=True)
+    if message is None:
+        return None
+    message.content = f"{lines}\n\n{message.content}".strip()
+    await session.flush()
+    return message.content
 
 
 async def set_feedback(

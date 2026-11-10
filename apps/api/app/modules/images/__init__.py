@@ -12,6 +12,8 @@ _MODULE_EXPORTS = (
     "generation",
     "intent",
     "lookup_intent",
+    # Answer photos kept for reuse; the data retention scheduler sweeps the aged ones.
+    "photo_cache",
     "reply_picture",
     "search",
 )

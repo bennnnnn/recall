@@ -583,7 +583,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Ethiopia” → `Ethiopia location map`), the search starts while the text streams, and the
   finished reply carries the photo (`modules/images/answer_photo.py`). Abstract topics,
   code, math, advice and lessons get none. Each photo uses one search from the daily photo
-  limit; a spent limit, a miss or a slow search just leaves the answer without one.
+  limit; a spent limit or a miss just leaves the answer without one. The reply waits 2 s
+  for its photo; one still on its way then follows it: the reply shows a placeholder of
+  the photo's size, and the photo is put on the saved reply and sent after `done` when it
+  lands, up to 20 s from the reply's end (`modules/chat/late_photo.py`); none by then, and
+  the placeholder goes. The same lookup words reuse a photo already found, from a shared stored copy, for
+  30 days (`modules/images/photo_cache.py`): no search, no fetch and no charge. Each lookup
+  logs one line with every step's milliseconds (`answer_photo_lookup`).
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in

@@ -4,13 +4,16 @@ import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
 import type { RejectedSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
 import {
+  applyAnswerPhoto,
   applyRelatedPrompts,
   applyStreamEndModel,
   buildDoneMergeInput,
+  markPhotoPending,
   mergeDoneIntoMessages,
   relatedPromptsFromEvent,
   shouldIgnoreStoppedStreamEvent,
 } from "@/features/chat/model/socketReduce";
+import { ANSWER_PHOTO_WAIT_MS } from "@/features/chat/model/wsConnect";
 import { refusalCode } from "@/features/chat/model/errorMessage";
 import { completionFromDone } from "@/features/chat/model/turnOutcome";
 import { DUPLICATE_TURN_POLLS, duplicateTurnPollMs } from "@/features/chat/model/turnReconcile";
@@ -57,7 +60,10 @@ function onDone(s: ChatTurnState, out: Out, payload: ChatSsePayload, now: number
   s.buffer = "";
   const draft = s.draft;
   s.draft = null;
-  messages(out, (previous) => mergeDoneIntoMessages(previous, buildDoneMergeInput(payload, draft, now, stoppedId)));
+  const done = buildDoneMergeInput(payload, draft, now, stoppedId);
+  // The reply's photo still on its way: a placeholder holds its place (`answer_photo`).
+  const photoUntil = payload.photo_pending ? now + ANSWER_PHOTO_WAIT_MS : undefined;
+  messages(out, (previous) => markPhotoPending(mergeDoneIntoMessages(previous, done), done.messageId, photoUntil));
   if (!s.firstReply) {
     s.firstReply = true;
     out.push({ type: "first_reply", reply: { titleOnStream: payload.title_pending === true } });
@@ -195,6 +201,13 @@ export function applyFrame(
       const messageId = payload.message_id;
       const prompts = relatedPromptsFromEvent(payload);
       if (prompts) messages(out, (previous) => applyRelatedPrompts(previous, messageId, prompts));
+      return;
+    }
+    case "answer_photo": {
+      if (typeof payload.message_id !== "string") return;
+      const messageId = payload.message_id;
+      const content = typeof payload.content === "string" && payload.content.trim() ? payload.content : null;
+      messages(out, (previous) => applyAnswerPhoto(previous, messageId, content));
       return;
     }
     case "title":

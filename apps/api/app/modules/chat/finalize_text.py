@@ -41,7 +41,7 @@ async def attach_answer_photo(state: FinalizeState) -> str:
     """Swap the reply's ```photo fence for the photo found while it streamed.
 
     A linked photo commits the text, so a later failure keeps its marker. A Stop,
-    even one after the last token, does not wait (up to 6s) for the photo.
+    even one after the last token, does not wait (up to 2 s) for the photo.
     """
     ctx = state.ctx
     photo = ctx.answer_photo
