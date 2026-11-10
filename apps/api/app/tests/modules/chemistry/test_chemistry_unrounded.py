@@ -57,3 +57,28 @@ def test_a_value_rounding_leaves_whole_is_said_once_in_the_card() -> None:
     reply = _reply("How many moles are in 18.015 g of water?")
     assert "$n = 1.000\\,\\mathrm{mol}$" not in reply
     assert "n(\\mathrm{H₂O}) = 1.000\\,\\mathrm{mol}" in reply
+
+
+@pytest.mark.parametrize(
+    ("question", "rows"),
+    [
+        # (1.0 mol)(6.0221 x 10^23) ending on 6.017 x 10^23 did not add up: the amount a
+        # later row works with is carried, not rounded to the answer's figures.
+        (
+            "How many atoms are in 12 g of carbon?",
+            (
+                "$N = (0.9991\\,\\mathrm{mol})(6.0221 \\times 10^{23}\\,\\mathrm{mol⁻¹})$",
+                "$N = 6.017 \\times 10^{23}\\,\\mathrm{atoms}$",
+            ),
+        ),
+        (
+            "A first order reaction has a half-life of 25 min. What is the rate constant k?",
+            ("= 0.6931 / 25$", "$k = 0.02773\\,\\mathrm{min⁻¹}$"),
+        ),
+    ],
+)
+def test_the_unrounded_value_is_what_the_rows_above_reach(
+    question: str, rows: tuple[str, str]
+) -> None:
+    reply = _reply(question)
+    assert "  \n".join(rows) in reply

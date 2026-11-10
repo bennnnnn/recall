@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF003 -- a solver row is read as written: ×, −.
+# ruff: noqa: RUF001, RUF002, RUF003 -- a solver row is read as written: ×, −.
 """Exact scan-friendly replies for complete verified chemistry calculations."""
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ class _Rows:
         closing = _closing_row(rows, self.result.answer)
         if closing is not None and self.tex(closing) is not None:
             rows.append(closing)
-        if rows:
+        if rows and not _works_with_rounded(rows[:-1], self.result.unrounded):
             rows[-1] = _unrounded_value(rows[-1], self.result.unrounded)
         return tuple(self.line(row) for row in rows)
 
@@ -116,6 +116,18 @@ def _closing_row(rows: list[str], answer: str) -> str | None:
     if _VALUE.fullmatch(final) or _base(symbol) != _base(asked):
         return None
     return f"{symbol.strip()} = {value}"
+
+
+# A number as a solver writes it: "1.0", "6.0221 × 10^23".
+_NUMBER_TEXT = re.compile(r"-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?")
+
+
+def _works_with_rounded(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> bool:
+    """Whether a row above works with a value rounded to the answer's figures. The value it
+    reaches is then the rounded one's: "(1.0 mol)(6.0221 × 10^23)" ending on 6.017 × 10^23
+    did not add up, so such a working ends rounded too."""
+    rounded = {text for text, _ in unrounded}
+    return any(number in rounded for row in rows for number in _NUMBER_TEXT.findall(row))
 
 
 def _unrounded_value(row: str, unrounded: tuple[tuple[str, str], ...]) -> str:
