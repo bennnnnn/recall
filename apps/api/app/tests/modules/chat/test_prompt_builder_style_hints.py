@@ -84,13 +84,24 @@ def test_rich_turn_injects_universal_format_baseline():
     assert "do not add sections just to look structured" in joined
 
 
+def test_every_turn_is_told_a_figure_is_never_drawn_in_text():
+    """ "I asked for the triangle" (2026-11-09) reached the model with no subject, so no maths
+    pack, and it drew the triangle in slashes inside a ```text block."""
+    from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT
+    from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_SOLVER_HINT
+    from app.services.math_notation import GRAPH_NO_SUBSTITUTE_CLAUSE
+
+    for hint in (MATH_FENCE_SAFETY_HINT, MATH_INTENT_HINT, MATH_SOLVER_HINT):
+        assert GRAPH_NO_SUBSTITUTE_CLAUSE in hint
+
+
 def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
     """4! used to get 'start with n! definition + numbered steps + You can check'
     plus a fun-fact callout. Prompt now matches a one-line identity."""
     from app.modules.math.reply_policy import MATH_INTENT_HINT, SHORT_MATH_SAFETY_HINT
 
     assert "Closed-form" in SHORT_MATH_SAFETY_HINT
-    from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.services.math_notation import GRAPH_NO_SUBSTITUTE_CLAUSE
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in SHORT_MATH_SAFETY_HINT
     assert "$3 + 0 = 3$" in MATH_INTENT_HINT

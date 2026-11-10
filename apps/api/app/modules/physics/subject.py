@@ -16,9 +16,11 @@ from app.modules.physics.followup import (
     PHYSICS_FOLLOWUP_HINT,
     physics_followup_problem,
     physics_followup_whole,
+    shown_physics_problem,
 )
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
+from app.modules.turn_reading.latest_subject import asks_to_see
 from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
 from app.services.subject_hints import SubjectHints
 
@@ -59,7 +61,7 @@ class PhysicsFollowups:
         *,
         blocked: Callable[[str], bool] | None = None,
     ) -> str | None:
-        return physics_followup_problem(query, recent)
+        return physics_followup_problem(query, recent) or shown_physics_problem(query, recent)
 
     def continues(
         self,
@@ -230,6 +232,10 @@ class PhysicsSubject:
     ) -> str | None:
         if not isinstance(verified, VerifiedPhysicsBlock):
             return None
+        if asks_to_see(user_text):
+            from app.modules.physics.fence import scene_reply
+
+            return scene_reply(verified)
         from app.modules.physics.direct import maybe_direct_physics_reply
 
         return maybe_direct_physics_reply(

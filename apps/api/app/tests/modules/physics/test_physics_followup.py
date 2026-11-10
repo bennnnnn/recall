@@ -3,7 +3,12 @@
 import pytest
 
 from app.modules.physics.extract import extract_physics_intent
-from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, _restated, physics_followup_problem
+from app.modules.physics.followup import (
+    PHYSICS_FOLLOWUP_HINT,
+    _restated,
+    physics_followup_problem,
+    shown_physics_problem,
+)
 from app.tests.modules.physics.test_physics_binding import _answer
 
 
@@ -41,6 +46,28 @@ def test_another_quantity_keeps_the_givens_and_changes_the_ask() -> None:
     intent = extract_physics_intent(rewritten)
     assert intent is not None and intent.physics_op == "range"
     assert "20 m/s" in rewritten
+
+
+def test_the_quantity_alone_asks_it_of_the_same_setup() -> None:
+    rewritten = physics_followup_problem("and its range?", _recent(_LAUNCH))
+    assert rewritten is not None
+    intent = extract_physics_intent(rewritten)
+    assert intent is not None and intent.physics_op == "range"
+    assert physics_followup_problem("the weather", _recent(_LAUNCH)) is None
+
+
+def test_draw_it_is_the_latest_physics_problem_again_for_its_scene() -> None:
+    assert shown_physics_problem("draw it", _recent(_LAUNCH)) == _LAUNCH
+    thanked = [*_recent(_LAUNCH), ("user", "thanks"), ("assistant", "Anytime!")]
+    assert shown_physics_problem("can you draw it?", thanked) == _LAUNCH
+    # A question about something else since ends the walk; an older problem is never drawn.
+    moved_on = [
+        *_recent(_LAUNCH),
+        ("user", "What's the capital of France?"),
+        ("assistant", "Paris."),
+    ]
+    assert shown_physics_problem("draw it", moved_on) is None
+    assert shown_physics_problem("explain it", _recent(_LAUNCH)) is None
 
 
 def test_one_changed_given_is_replaced_and_resolved() -> None:

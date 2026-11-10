@@ -13,11 +13,14 @@ produced nothing, so any non-math turn the extractor claims gets that label.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.core.config import Settings
 from app.modules.math.match import graph_expr
 from app.modules.math.tools import extract_math_intent, needs_symbolic_math
+from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import resolve_graph_followup
 from app.modules.math.tools.prompt import NOTHING_TO_GRAPH, build_math_augmentation
 
@@ -137,3 +140,50 @@ async def test_graph_it_with_nothing_to_plot_asks_instead_of_drawing() -> None:
     assert block is NOTHING_TO_GRAPH
     assert NOTHING_TO_GRAPH in block
     assert "ASCII" in block
+
+
+# The owner's chat (2026-11-09): "Draw it" at the end drew sin(x²)cos(x²) from the first line.
+_TRIANGLE_CHAT = [
+    "Differentiate sin(x^2)cos(x^2)",
+    "What if $x^2 = x^3$?",
+    "What if $x^2 = 2x$?",
+    "How does this relate to sin(2x)?",
+    "Triangle are with sides 5, 4,",
+    "3",
+    "The area",
+    "Do it properly",
+]
+
+
+@pytest.mark.parametrize(
+    ("prior", "expected"),
+    [
+        (_TRIANGLE_CHAT, ("Triangle are with sides 5, 4, 3", False)),
+        (["area of a circle with radius 4", "thanks"], ("area of a circle with radius 4", False)),
+        # The newest subject wins, whichever came first.
+        (["area of a triangle with sides 5, 4 and 3", "y = x^2 - 4"], ("graph x**2 - 4", False)),
+        (["y = x^2 - 4", "a rectangle 3 by 5"], ("a rectangle 3 by 5", False)),
+        # A subject that is no curve or shape ends the walk: nothing older is drawn.
+        (["y = 2x + 3", "What's the capital of France?", "thanks"], ("Draw it", True)),
+        # Numbers as the latest subject are the chart's to draw.
+        (["y = 2x + 3", "my marks: math 85, physics 78"], ("Draw it", False)),
+    ],
+)
+def test_draw_it_draws_the_latest_subject_only(
+    prior: list[str], expected: tuple[str, bool]
+) -> None:
+    assert resolve_graph_followup("Draw it", prior) == expected
+
+
+@pytest.mark.asyncio
+async def test_draw_it_after_a_shape_is_its_figure_alone(thread_sympy_executor: None) -> None:
+    _note, verified = await build_math_augmentation(
+        "Draw it", Settings(), needs_math=True, prior_user_messages=_TRIANGLE_CHAT
+    )
+
+    reply = maybe_direct_math_reply(verified, "Draw it")
+    assert reply is not None and reply.startswith("```geometry\n") and reply.count("```") == 2
+    figure = json.loads(reply.removeprefix("```geometry\n").removesuffix("\n```\n"))
+    assert (figure["type"], figure["a"], figure["b"], figure["c"]) == ("triangle_sides", 5, 4, 3)
+    # Only "draw it" is answered with the figure alone; the measure keeps its working.
+    assert maybe_direct_math_reply(verified, "what is its area?") is None

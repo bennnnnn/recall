@@ -3,7 +3,7 @@
 The reply policy is shared by heuristic and tool-result prompts.
 """
 
-from app.services.math_notation import MATH_NOTATION_CLARIFICATION_HINT
+from app.services.math_notation import GRAPH_NO_SUBSTITUTE_CLAUSE, MATH_NOTATION_CLARIFICATION_HINT
 from app.services.workout import MATH_WORKOUT_PROMPT_RULE
 
 MATH_REPLY_POLICY = (
@@ -29,13 +29,6 @@ MATH_REPLY_POLICY = (
     "integration, and every requested part of the problem. When steps are shown, number "
     "each move in that layout. Copy verified formulas; do not recompute them. Inverse "
     "operations are for equations, not a universal teaching method."
-)
-
-# Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
-# when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
-GRAPH_NO_SUBSTITUTE_CLAUSE = (
-    "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
-    "or a Mermaid/flowchart diagram for a function plot."
 )
 
 MATH_INTENT_HINT = (

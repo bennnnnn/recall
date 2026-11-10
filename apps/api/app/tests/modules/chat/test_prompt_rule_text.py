@@ -45,10 +45,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # about, and memory never quoted (NO_SELF_TALK_RULE), then a plan in weeks or months laid out
 # by week or month, not by day (LEARNING_PLAN_HINT), then a **Choose A if** line only when the
 # user asks to pick between named options, and no word about how the search went (READER_NOTE),
-# then the chat's summary named as part of the conversation (SUMMARY_LEAD).
-_RULES = 175
-_RULE_GRAMS = 15966
-_RULE_GRAMS_SHA = "c9fc1ba120307a35"
+# then the chat's summary named as part of the conversation (SUMMARY_LEAD), then a plot never
+# drawn in text and a shape never drawn by the model at all, said plainly when the app draws
+# none, on every turn (GRAPH_NO_SUBSTITUTE_CLAUSE).
+_RULES = 178
+_RULE_GRAMS = 16082
+_RULE_GRAMS_SHA = "b18b5c89b06850d2"
 
 
 def _rules() -> list[str]:

@@ -68,6 +68,7 @@ from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
+from app.modules.math.subject import PIECED_PROBLEM_NOTE
 from app.modules.money.block import (
     MONEY_HEADER,
     MONEY_RATE_MISSING,
@@ -79,7 +80,9 @@ from app.modules.money.block import (
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.services.mcp import setup_mcp_adapters
-from app.services.solving import VerifiedPhysicsBlock
+from app.services.md_fence_scan import iter_fences
+from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+from app.services.subjects.registry import subject_adapter
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 from app.tests.fakes import fake_session
@@ -154,6 +157,8 @@ HINTS: dict[str, str] = {
     "worked": WORKED_BLOCK_CONTRACT,
     # A message that only states the student's results to check: each compared, none reworked.
     "result_check": RESULT_CHECK_CONTRACT,
+    # A line that added to the open maths problem ("3", "the area"): the problem it completes.
+    "pieced_problem": PIECED_PROBLEM_NOTE,
     # The general layout contract, and the compact one a greeting or fragment gets.
     "format_contract": pc.FORMAT_CONTRACT,
     "compact": pc.COMPACT_RESPONSE_FORMAT_HINT,
@@ -213,6 +218,9 @@ class Route:
     history_rag: bool = False
     # The scenes a verified block appends under a model-written reply, as fences.
     server_pictures: str = ""
+    # The picture the turn shows: the instant reply's, or the verified block's under a
+    # model-written reply (``Expect.drawn``).
+    drawn: str = ""
     # What the turn decided, as production records it (``turn_trace``): the trace keeps
     # collecting while the caller runs the reply's finalize step. ``decisions.py`` reads
     # both to diff a change's decisions against main's.
@@ -523,6 +531,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         memory_scope=str(loaded.get("memory_scope") or "") if loaded.get("load_memory") else "",
         history_rag=bool(loaded.get("history_rag")),
         server_pictures=_server_pictures(verified),
+        drawn=_drawn(bundle.instant_reply, verified),
         trace=trace,
         context=ctx,
     )
@@ -537,6 +546,23 @@ def _server_pictures(verified: Any) -> str:
         for spec in specs
         if isinstance(spec, dict) and spec.get("type") in SIMULATION_SPEC_TYPES
     )
+
+
+_PICTURE_FENCES = frozenset({"geometry", "graph", "simulation"})
+
+
+def _drawn(instant: str | None, verified: object) -> str:
+    """The fence of the turn's picture: the instant reply's own, or else the verified
+    block's, which finalize appends under the model's words; "" for none."""
+    if instant:
+        text = instant
+    elif isinstance(verified, VerifiedMathBlock):
+        text = "\n".join(subject_adapter("math").fence.cards(verified))
+    elif isinstance(verified, VerifiedPhysicsBlock):
+        text = "\n".join(subject_adapter("physics").fence.cards(verified))
+    else:
+        return ""
+    return next((fence.lang for fence in iter_fences(text) if fence.lang in _PICTURE_FENCES), "")
 
 
 def mismatches(expect: Expect, route: Route) -> list[str]:
@@ -572,6 +598,7 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
     check("lightweight", expect.lightweight, route.lightweight)
     check("model", expect.model, route.model)
     check("memory", expect.memory, route.memory)
+    check("drawn", expect.drawn, route.drawn)
     if expect.memory_scope is not None and route.memory:
         check("memory_scope", expect.memory_scope, route.memory_scope)
     if expect.answer_photo and "answer_photo" not in route.hints:

@@ -9,8 +9,10 @@ from app.modules.math.response_intent import (
     classify_math_response_intent,
 )
 from app.modules.math.tools.prompt import needs_symbolic_math
+from app.modules.turn_reading.latest_subject import continued_subject, is_fragment, latest_subject
 from app.services.answer_fence import answer_fence_value
 from app.services.number_text import FRACTION_OR_DECIMAL
+from app.services.problem_followup import message_role_content
 from app.services.student_claim import CHECK, CLAIM_LEAD
 
 MATH_FOLLOWUP_HINT = (
@@ -77,6 +79,10 @@ def _referenced_math_problem(
             return None
         if needs_symbolic_math(prior):
             return prior
+        # "The area" after "Triangle with sides 5, 4, 3" stands for the whole problem.
+        whole = continued_problem(prior, recent[:cursor], blocked=blocked)
+        if whole is not None:
+            return whole
         if not classify_math_response_intent(prior).referential:
             return None
         cursor -= 2
@@ -84,18 +90,7 @@ def _referenced_math_problem(
     return None
 
 
-# A lone unknown or value: ``x``, ``$\theta$``, ``5``, ``-2.5``, ``for y``.
-_FRAGMENT_RE = re.compile(
-    r"(?:for\s+)?(?:[a-z\u03b1-\u03c9]|\\[a-z]+|[-+\u2212]?\d+(?:\.\d+)?)\s*[.?!]?",
-    re.IGNORECASE,
-)
 _RELATION_RE = re.compile(r"[=<>≤≥≠]|\\(?:leq|geq|le|ge|lt|gt|neq|ne)(?![a-z])", re.IGNORECASE)
-
-
-def is_fragment(text: str) -> bool:
-    """A lone number or letter (``5``, ``x``, ``for x``): part of the open problem, not one."""
-    cleaned = " ".join(text.strip().strip("$").split())
-    return bool(_FRAGMENT_RE.fullmatch(cleaned))
 
 
 def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str | None:
@@ -104,8 +99,8 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
     ``5`` or ``x`` after ``3x^2 + 3 = 5`` is the same problem, not a new chat.
     Anything else is a message of its own: ``What?`` asks about the last reply
     and ``[4,4]`` is new input, and re-solving ``convert 1 m to cm`` answered
-    neither. Earlier fragments on the same equation are walked past; any
-    other message ends it.
+    neither. The equation is the chat's latest subject: earlier fragments on it are
+    walked past, and a message with a subject of its own ends the walk.
     """
     if not prior_user_messages or not is_fragment(text):
         return None
@@ -113,13 +108,31 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
 
     if is_lightweight_chat_turn(" ".join(text.split())):
         return None
-    for prior in reversed(prior_user_messages):
-        if not prior or not prior.strip() or is_fragment(prior):
-            continue
-        if _RELATION_RE.search(prior) and needs_symbolic_math(prior):
-            return prior
+    subject = latest_subject(prior_user_messages)
+    if subject is None:
         return None
-    return None
+    prior = subject.setup
+    return prior if _RELATION_RE.search(prior) and needs_symbolic_math(prior) else None
+
+
+def _user_lines(recent: Sequence[Any]) -> list[str]:
+    pairs = (message_role_content(message) for message in recent)
+    return [content for role, content in pairs if role == "user" and content and content.strip()]
+
+
+def continued_problem(
+    line: str | None,
+    earlier: Sequence[Any],
+    *,
+    blocked: Callable[[str], bool] | None = None,
+) -> str | None:
+    """The open maths problem ``line`` adds to, whole (``continued_subject``): "3" after
+    "Triangle are with sides 5, 4,", then "The area". Live (2026-11-09) neither was solved,
+    and the model drew the triangle in text."""
+    problem = continued_subject(line, _user_lines(earlier)) if line else None
+    if problem is None or (blocked is not None and blocked(problem)):
+        return None
+    return problem if needs_symbolic_math(problem) else None
 
 
 def is_math_followup(
@@ -390,11 +403,6 @@ _EXPRESSION_LEADS = re.compile(
 )
 
 
-def is_pronoun_math_request(query: str) -> bool:
-    """``simplify it`` / ``now integrate it``: an operation whose object is in the thread."""
-    return _PRONOUN_REQUEST.fullmatch(" ".join(query.split())) is not None
-
-
 # Operations that keep the value of what they act on. After "derivative of
 # x^3" (answer 3x^2), "integrate it" could mean either, so it is not resolved.
 _SAME_VALUE_OPERATIONS = frozenset({"simplify", "expand", "factor"})
@@ -452,18 +460,9 @@ def pronoun_math_problem(
         verb = _PRONOUN_VERBS[verb_word.lower()]
     else:
         verb = "differentiate" if match["noun"].lower() == "derivative" else "integrate"
-    prior: str | None = None
-    for message in reversed(recent):
-        if _message_field(message, "role") != "user":
-            continue
-        content = _message_field(message, "content")
-        if not isinstance(content, str) or not content.strip():
-            return None
-        if is_pronoun_math_request(content):
-            # "simplify it" then "now factor it": the same expression.
-            continue
-        prior = content
-        break
+    # "simplify it" then "now factor it": the same expression, the chat's latest subject.
+    subject = latest_subject(_user_lines(recent))
+    prior = None if subject is None else subject.setup
     if prior is None or (blocked is not None and blocked(prior)):
         return None
     expression = _expression_in(prior)

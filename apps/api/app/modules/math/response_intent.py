@@ -76,7 +76,10 @@ _ANSWER_NOUNS = frozenset(
 )
 _HINT_WORDS = frozenset({"hint", "nudge", "clue"})
 _CHECK_WORDS = frozenset({"check", "correct", "right", "mistake", "wrong", "grade", "mark"})
-_DETAIL_WORDS = frozenset({"detailed", "thorough", "fully", "complete", "comprehensive"})
+# "Do it properly" asks for the full working, as "in detail" does.
+_DETAIL_WORDS = frozenset(
+    {"detailed", "thorough", "fully", "complete", "comprehensive", "properly"}
+)
 _SCHOOL_METHOD_WORDS = frozenset(
     {
         "addition",
@@ -104,6 +107,7 @@ _REFERENTIAL_VOCAB = frozenset(
         "do",
         "explain",
         "example",
+        "fully",
         "examples",
         "get",
         "give",
@@ -119,6 +123,7 @@ _REFERENTIAL_VOCAB = frozenset(
         "only",
         "please",
         "proof",
+        "properly",
         "prove",
         "reason",
         "result",

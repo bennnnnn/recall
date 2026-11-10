@@ -29,6 +29,9 @@ _PLANE_SHAPES: dict[str, GeometryShape] = {
     "parallelogram": "parallelogram",
     "sector": "sector",
 }
+# The shapes whose verified block carries a drawn figure (a solid's has none): "draw it"
+# after one is that figure.
+FIGURE_KINDS = frozenset(_PLANE_SHAPES)
 # What the literal measurement grammars call each quantity a working lays out.
 _QUANTITIES: dict[str, GeometryQuantity] = {
     "area": "area",

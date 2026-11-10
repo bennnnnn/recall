@@ -55,6 +55,7 @@ _LIGHTWEIGHT_CALLERS: dict[str, tuple[int, str]] = {
     "modules/chat/related_questions.py::_asks": (1, "a suggested question"),
     "modules/math/followup.py::open_math_problem": (1, "a fragment against its equation"),
     "modules/speech/live_talk_tools.py::execute_tool": (1, "live talk's spoken query"),
+    "modules/turn_reading/latest_subject.py::leans_on_earlier": (1, "an earlier line in a walk"),
     "modules/turn_reading/personal.py::needs_rich_context": (1, "a reader built on it"),
     "modules/turn_reading/writing.py::_answers_draft_question": (1, "a reader built on it"),
 }

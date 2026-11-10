@@ -11,6 +11,7 @@ import json
 import re
 
 from app.modules.math.tools.direct_fences import solver_fences
+from app.modules.turn_reading.latest_subject import asks_to_see
 from app.services.solving import VerifiedMathBlock
 
 _GEOMETRY_DECLARATION_WORDS = frozenset(
@@ -194,14 +195,29 @@ def _plain_geometry_description(
     return starts_with_shape and (any(char.isdigit() for char in lower) or draw), draw
 
 
+def _drawn_figure(verified: VerifiedMathBlock, user_text: str) -> str | None:
+    """ "Draw it" after a shape: its figure alone, whatever its problem asked. The line names
+    no shape; the graph follow-up read it from the chat's latest subject (2026-11-09)."""
+    fences = solver_fences(verified)
+    if len(fences) != 1 or fences[0].get("type") not in _GEOMETRY_SHAPE_ALIASES:
+        return None
+    if not asks_to_see(user_text):
+        return None
+    return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
+
+
 def nonmeasurement_geometry_reply(verified: VerifiedMathBlock, user_text: str) -> str | None:
     """Clarify a dimension-only shape instead of inventing area/volume.
 
     Explicit draw/show requests are complete as written and return only their
-    solver-owned diagram. The narrow vocabulary check keeps mixed requests on
-    the normal language path.
+    solver-owned diagram, and so does "draw it" after a shape. The narrow
+    vocabulary check keeps mixed requests on the normal language path.
     """
     from app.modules.math.match.literal_geometry import measurement_request
+
+    drawn = _drawn_figure(verified, user_text)
+    if drawn is not None:
+        return drawn
 
     # Never reinterpret an answering block as a draw/clarification request.
     # This also prevents a stale verified measurement from being hidden by a

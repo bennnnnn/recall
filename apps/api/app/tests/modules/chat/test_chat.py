@@ -656,7 +656,7 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "trajectory" not in lower
     assert "physics" not in lower
     assert "simulation" not in lower
-    from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.services.math_notation import GRAPH_NO_SUBSTITUTE_CLAUSE
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_SOLVER_HINT
     # Must not claim bare "are also in scope" without the verified-block gate.

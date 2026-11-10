@@ -73,6 +73,9 @@ class Expect:
     # "self"; see modules/chat/prompt_memory.py).
     memory: bool | None = None
     memory_scope: str | None = None
+    # The picture the turn shows, as its fence: "geometry", "graph", "simulation", or ""
+    # for none. "Draw it" after a triangle is the triangle, never an older curve.
+    drawn: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,6 +147,34 @@ _BEST_COUNTRY = (
         '["🌍 Anywhere","🇪🇺 Europe","🌎 The Americas"]}],"closing":"Compare the strongest '
         'options with practical pros and cons.","submit":"Find my best country"}\n```',
     ),
+)
+
+# The owner's chat (2026-11-09): a derivative and its what-ifs, then a triangle typed in
+# pieces. "Draw it" at the end drew sin(x²)cos(x²) from the first message.
+_TRIANGLE_PIECES = (
+    ("user", "Differentiate sin(x^2)cos(x^2)"),
+    ("assistant", "```answer\nverified: true\n2 x \\cos{\\left(2 x^{2} \\right)}\n```"),
+    ("user", "What if $x^2 = x^3$?"),
+    ("assistant", "Then $x^2 = x^3$ holds for $x = 0$ or $x = 1$."),
+    ("user", "What if $x^2 = 2x$?"),
+    ("assistant", "Then $x = 0$ or $x = 2$."),
+    ("user", "How does this relate to sin(2x)?"),
+    (
+        "assistant",
+        "By $\\sin 2u = 2\\sin u\\cos u$, $\\sin(x^2)\\cos(x^2) = \\tfrac12\\sin(2x^2)$.",
+    ),
+    ("user", "Triangle are with sides 5, 4,"),
+    ("assistant", "What's the third side length? 🔺"),
+)
+_TRIANGLE_THIRD_SIDE = (
+    *_TRIANGLE_PIECES,
+    ("user", "3"),
+    ("assistant", "Sides 3, 4 and 5 make a right triangle."),
+)
+_TRIANGLE_AREA = (
+    *_TRIANGLE_THIRD_SIDE,
+    ("user", "The area"),
+    ("assistant", "```answer\nverified: true\n6\\ \\mathrm{units}^{2}\n```"),
 )
 
 CASES: tuple[Case, ...] = (
@@ -295,6 +326,82 @@ CASES: tuple[Case, ...] = (
         ),
     ),
     Case(
+        "math-fragment-completes-the-problem",
+        "math",
+        "3",
+        # "Triangle are with sides 5, 4," then "3": one triangle, solved and drawn.
+        Expect(solved=True, drawn="geometry", search="no", hints=("pieced_problem",)),
+        "The 3-4-5 triangle drawn, and which of its area, perimeter or angles to work out.",
+        history=_TRIANGLE_PIECES,
+    ),
+    Case(
+        "math-fragment-completes-a-rectangle",
+        "math",
+        "5",
+        # The whole line, "A rectangle 3 by 5", gets the same instant reply.
+        Expect(solved=True, instant="solver", drawn="geometry", search="no"),
+        "The 3 by 5 rectangle drawn, asking whether its area, perimeter or diagonal is wanted.",
+        history=(("user", "A rectangle 3 by"), ("assistant", "3 by what? Send the other side.")),
+    ),
+    Case(
+        "math-quantity-asked-of-the-problem",
+        "math",
+        "The area",
+        Expect(solved=True, drawn="geometry", search="no", hints=("pieced_problem",)),
+        "Area 6 square units, laid out Given / Formula / Answer, with the triangle drawn.",
+        history=_TRIANGLE_THIRD_SIDE,
+    ),
+    Case(
+        "math-do-it-properly",
+        "math",
+        "Do it properly",
+        Expect(solved=True, drawn="geometry", search="no"),
+        "The triangle's area worked in full (Heron's formula or ½ × 3 × 4), with the figure.",
+        history=_TRIANGLE_AREA,
+    ),
+    Case(
+        "math-draw-it-latest-subject",
+        "math",
+        "Draw it",
+        Expect(solved=True, instant="solver", drawn="geometry", search="no"),
+        "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat.",
+        history=(*_TRIANGLE_AREA, ("user", "Do it properly"), ("assistant", "Area = 6.")),
+    ),
+    Case(
+        "math-draw-it-function",
+        "math",
+        "Draw it",
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The parabola y = x² − 4.",
+        history=(("user", "f(x) = x^2 - 4"), ("assistant", "A parabola with roots at ±2.")),
+    ),
+    Case(
+        "math-draw-it-newer-function",
+        "math",
+        "draw it",
+        # The triangle came first; the curve is the chat's latest subject.
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The curve y = x² − 4, not the earlier triangle.",
+        history=(
+            *_TRIANGLE_THIRD_SIDE,
+            ("user", "y = x^2 - 4"),
+            ("assistant", "A parabola with roots at ±2."),
+        ),
+    ),
+    Case(
+        "math-draw-it-new-subject-wins",
+        "math",
+        "draw it",
+        Expect(solved=False, instant="", drawn=""),
+        "Not the line from before the question about Paris: no graph of it.",
+        history=(
+            ("user", "y = 2x + 3"),
+            ("assistant", "A line with slope 2."),
+            ("user", "What's the capital of France?"),
+            ("assistant", "Paris."),
+        ),
+    ),
+    Case(
         "math-percent-thousands",
         "math",
         "what is 20% of 1,000",
@@ -322,6 +429,17 @@ CASES: tuple[Case, ...] = (
         "a ball is dropped from 20 m. how long until it hits the ground?",
         Expect(subject="physics", solved=True, search="no"),
         "About 2.02 s from t = √(2h/g).",
+    ),
+    Case(
+        "physics-draw-it",
+        "physics",
+        "draw it",
+        Expect(solved=True, instant="solver", drawn="simulation", search="no"),
+        "The projectile's path drawn: the scene alone, not the working again.",
+        history=(
+            ("user", "A ball is thrown at 20 m/s at 30 degrees. How far does it go?"),
+            ("assistant", "About 35.3 m."),
+        ),
     ),
     Case(
         "physics-force",
@@ -1473,7 +1591,7 @@ CASES: tuple[Case, ...] = (
         "chart-graph-it-after-marks",
         "format",
         "graph it",
-        Expect(hints=("chart",), subject=NONE, search="ask"),
+        Expect(hints=("chart",), subject=NONE, search="ask", drawn=NONE),
         "A bar chart of the four marks, not a question about which function to graph.",
         history=(
             ("user", "Here are my exam marks: math 85, physics 78, chemistry 92, biology 88"),

@@ -21,6 +21,7 @@ _MODULE_EXPORTS = (
     "conversation",
     "diagrams",
     "format",
+    "latest_subject",
     "length",
     "lesson_flow",
     "locale_cues",

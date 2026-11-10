@@ -13,6 +13,7 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
+    continued_problem,
     is_math_followup,
     math_working_followup_problem,
     offered_equation_problem,
@@ -43,8 +44,9 @@ def _message(role: str, content: str) -> SimpleNamespace:
         ("for x", ["3x^2 + 3 = 5"], True),
         (r"$\theta$", [r"$2\sin(\theta) = 1$"], True),
         ("x", [r"solve $2x+1\leq 7$"], True),
-        # An earlier fragment on the same equation is walked past.
+        # An earlier fragment on the same equation is walked past, and so is small talk.
         ("5", ["3x^2 + 3 = 5", "x"], True),
+        ("x", ["3x^2 + 3 = 5", "thanks"], True),
         ("hi", ["3x^2 + 3 = 5"], False),
         ("2x + 1 = 7", ["3x^2 + 3 = 5"], False),
         # A message in between ends the equation.
@@ -62,6 +64,65 @@ def test_open_math_problem_reopens_only_for_a_fragment(
     text: str, prior: list[str], reopened: bool
 ) -> None:
     assert open_math_problem(text, prior) == (prior[0] if reopened else None)
+
+
+def _thread(*lines: str) -> list[dict[str, str]]:
+    """The user's lines, each answered."""
+    return [
+        message
+        for line in lines
+        for message in ({"role": "user", "content": line}, {"role": "assistant", "content": "Ok."})
+    ]
+
+
+@pytest.mark.parametrize(
+    ("line", "earlier", "problem"),
+    [
+        # Live (2026-11-09): neither "3" nor "The area" was solved, and the model drew the
+        # triangle in text.
+        ("3", ["Triangle are with sides 5, 4,"], "Triangle are with sides 5, 4, 3"),
+        (
+            "The area",
+            ["Triangle are with sides 5, 4,", "3"],
+            "Triangle are with sides 5, 4, 3. The area",
+        ),
+        (
+            "and its perimeter?",
+            ["a rectangle 3 by 5", "the area"],
+            "a rectangle 3 by 5. and its perimeter?",
+        ),
+    ],
+)
+def test_a_line_that_adds_to_the_open_problem_is_the_problem_whole(
+    line: str, earlier: list[str], problem: str
+) -> None:
+    assert continued_problem(line, _thread(*earlier)) == problem
+
+
+@pytest.mark.parametrize(
+    ("line", "earlier"),
+    [
+        # Adds nothing: drawn or solved from the problem as it stands.
+        ("draw it", ["Triangle with sides 5, 4, 3"]),
+        ("3", ["3x^2 + 3 = 5"]),
+        # Not maths, however it is joined.
+        ("the area", ["We're moving to Denver next month"]),
+        ("5", ["My kids are 3, 7,"]),
+        ("its value", ["I bought a used Honda Civic for 9,000 last year,"]),
+    ],
+)
+def test_a_line_that_continues_nothing_maths_reads_is_not_continued(
+    line: str, earlier: list[str]
+) -> None:
+    assert continued_problem(line, _thread(*earlier)) is None
+
+
+def test_do_it_properly_works_the_problem_pieced_together() -> None:
+    recent = _thread("Triangle are with sides 5, 4,", "3", "The area")
+
+    assert math_working_followup_problem("Do it properly", recent) == (
+        "Triangle are with sides 5, 4, 3. The area"
+    )
 
 
 @pytest.mark.parametrize("text", ["$[4,4]$", "What?"])
