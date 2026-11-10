@@ -105,6 +105,9 @@ describe("UserMessageContent math/markdown rendering", () => {
   it.each([
     ["Find the derivative of ln(x^2 + 1)", "Find the derivative of ln(x² + 1)"],
     ["Expand 3(x^2 - 4)", "Expand 3(x² − 4)"],
+    // Two glued groups met as `$$` and broke into a display block.
+    ["Differentiate sin(x^2)cos(x^2)", "Differentiate sin(x²) cos(x²)"],
+    ["Simplify x^2(x^2+1)", "Simplify x²(x²+1)"],
   ])("keeps the brackets that group a sent formula: %s", async (typed, drawn) => {
     // Drawn as "ln x² + 1", the bubble showed another function than the one solved.
     const { toJSON } = await render(<UserMessageContent message={userMessage(typed)} />);

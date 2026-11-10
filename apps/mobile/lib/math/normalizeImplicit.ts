@@ -2,25 +2,18 @@
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
+import { bracePowers, bracketRuns } from "@/lib/math/gluedBrackets";
 import { readGroup } from "@/lib/math/latexGroups";
 import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@/lib/math/proseDollars";
 import { applyOutsideFences } from "@/lib/fence/scan";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
-// A bracketed formula, and the name or number glued to its "(" when there is one (with
-// the caret of a power whose exponent the brackets hold: "e^(x^2 + 1)").
-const MATH_IN_PARENS_RE = /([A-Za-z]+\^?|\d+(?:\.\d+)?\^?)?\(\s*([^()\n]{1,180}?)\s*\)/g;
-// Names whose bracket holds their argument, drawn upright as LaTeX draws them.
-const FUNCTION_HEADS = new Set([
-  "sin", "cos", "tan", "sec", "csc", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh",
-  "tanh", "log", "ln", "lg", "exp",
-]);
 // Line-start ``` fences are skipped via applyOutsideFences (a following
 // ```math is an opener, never a closer). Mid-line ```math is still prose, so
 // a glued `isolate x: ```math` + `\frac` still gets `$...$` wrapping.
 //
 // Display math (`$$...$$`, `\[...\]`) and `\(...\)` stay protected: without
-// that, MATH_IN_PARENS_RE matches the bare `(`/`)` inside `\(...\)` and
+// that, the bracket reader (gluedBrackets.ts) reads the bare `(`/`)` inside `\(...\)` and
 // wrapInlineLatexCommands shatters `\left(\frac{5}{7}\right)^2`.
 const DISPLAY_MATH_SPAN_RE = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)/g;
 
@@ -145,44 +138,27 @@ function uprightJoiningWords(expr: string): string {
 }
 
 function wrapMath(expr: string, format?: (expr: string) => string): string {
-  const inner = uprightJoiningWords(unwrapParens(expr));
+  const inner = uprightJoiningWords(bracePowers(unwrapParens(expr)));
   const body = format ? format(inner) : fixImplicitExponents(inner);
   return `$${body}$`;
 }
 
-/**
- * A bracket glued to what comes before it groups an argument or a factor: "ln(x^2 + 1)",
- * "f(x^2)", "2(x^2 + 1)", ")(x^2)". Its brackets carry meaning and stay; only a bracket
- * set off by a space is a model's math delimiter ("( x^2 = 6 )"). Unwrapped, a sent
- * "ln(x^2 + 1)" drew as "ln x² + 1", another function. A function's name joins the
- * formula, a letter or a number the product; a longer word stays prose beside it. Null
- * leaves a word's bracketed power ("exp^(x + 1)") as written.
- */
-function wrapGrouped(head: string, inner: string, format?: (expr: string) => string): string | null {
-  const joined = uprightJoiningWords(inner.trim());
-  const body = format ? format(joined) : fixImplicitExponents(joined);
-  const term = head.length <= 1 || /^\d/.test(head);
-  if (head.endsWith("^")) {
-    // The brackets hold the exponent; raised, it needs no brackets to stay one.
-    const base = head.slice(0, -1);
-    return base.length <= 1 || /^\d/.test(base) ? `$${base}^{${body}}$` : null;
-  }
-  if (FUNCTION_HEADS.has(head.toLowerCase())) return `$\\${head.toLowerCase()}(${body})$`;
-  return term ? `$${head}(${body})$` : `${head}$(${body})$`;
-}
-
-/** Each bracketed formula in a prose segment as maths, its brackets kept when they group. */
+/** Each bracketed formula in a prose segment as maths (`gluedBrackets.ts`): a delimiter's
+ * inside alone, a glued run whole with the brackets that group it. */
 function wrapBracketedMath(seg: string, format?: (expr: string) => string): string {
-  return seg.replace(
-    MATH_IN_PARENS_RE,
-    (full, head: string | undefined, inner: string, offset: number) => {
-      // A command's name (`\sqrt(`) is the command's: wrapInlineLatexCommands reads it.
-      if (!isMathLike(inner) || seg[offset - 1] === "\\") return full;
-      const glued = head !== undefined || /[)\]}^_]/.test(seg[offset - 1] ?? "");
-      if (!glued) return wrapMath(inner, format);
-      return wrapGrouped(head ?? "", inner, format) ?? full;
-    },
-  );
+  let out = "";
+  let last = 0;
+  for (const run of bracketRuns(seg, isMathLike)) {
+    out += seg.slice(last, run.start);
+    if (run.delimited) {
+      out += wrapMath(run.latex, format);
+    } else {
+      const joined = uprightJoiningWords(run.latex);
+      out += `$${format ? format(joined) : fixImplicitExponents(joined)}$`;
+    }
+    last = run.end;
+  }
+  return out + seg.slice(last);
 }
 
 /** Index just past any {...} groups immediately following `start` (balanced

@@ -1,5 +1,5 @@
 {
-  "about": "Maths a user types as plain text, as the phone draws it in the sent bubble and as the server reads it. The phone (apps/mobile/lib/math/__tests__/userMathsFixture.test.ts) turns each `text` into the markdown its bubble draws (lib/math/normalizeImplicit.ts) and expects `drawn`; the server (apps/api/app/tests/behavior/test_user_maths_fixture.py) reads the maths in `drawn` with its LaTeX path and `typed`, the words of `text` that hold it, with the parser a turn reads a message with, and holds both to one SymPy expression. A bracket glued to a name, a number or a caret groups an argument, a factor or an exponent, and keeps its meaning: \"ln(x^2 + 1)\" once drew as \"ln x² + 1\". A bracket set off by a space is only a delimiter.",
+  "about": "Maths a user types as plain text, as the phone draws it in the sent bubble and as the server reads it. The phone (apps/mobile/lib/math/__tests__/userMathsFixture.test.ts) turns each `text` into the markdown its bubble draws (lib/math/normalizeImplicit.ts) and expects `drawn`; the server (apps/api/app/tests/behavior/test_user_maths_fixture.py) reads the maths in `drawn` with its LaTeX path and `typed`, the words of `text` that hold it, with the parser a turn reads a message with, and holds both to one SymPy expression. A bracket glued to a name, a number or a caret groups an argument, a factor or an exponent, and keeps its meaning: \"ln(x^2 + 1)\" once drew as \"ln x² + 1\". A bracket set off by a space is only a delimiter. A glued run is one formula: a head and its scripts (x^2, log_2), consecutive brackets and a power (\"sin(x^2)cos(x^2)\" once broke into a display block).",
   "cases": [
     {
       "id": "function-argument",
@@ -36,6 +36,66 @@
       "text": "Solve (x^2 = 9) for x",
       "drawn": "Solve $x^2 = 9$ for x",
       "typed": "x^2 = 9"
+    },
+    {
+      "id": "glued-functions",
+      "text": "Differentiate sin(x^2)cos(x^2)",
+      "drawn": "Differentiate $\\sin(x^2)\\cos(x^2)$",
+      "typed": "sin(x^2)cos(x^2)"
+    },
+    {
+      "id": "power-then-function",
+      "text": "Differentiate e^(x^2)sin(x^2)",
+      "drawn": "Differentiate $e^{x^2}\\sin(x^2)$",
+      "typed": "e^(x^2)sin(x^2)"
+    },
+    {
+      "id": "log-product",
+      "text": "Differentiate ln(x^2)cos(x^2)",
+      "drawn": "Differentiate $\\ln(x^2)\\cos(x^2)$",
+      "typed": "ln(x^2)cos(x^2)"
+    },
+    {
+      "id": "scripted-head",
+      "text": "Simplify x^2(x^2+1)",
+      "drawn": "Simplify $x^2(x^2+1)$",
+      "typed": "x^2(x^2+1)"
+    },
+    {
+      "id": "log-base",
+      "text": "Evaluate log_2(x^2)",
+      "drawn": "Evaluate $\\log_2(x^2)$",
+      "typed": "log_2(x^2)"
+    },
+    {
+      "id": "two-factors",
+      "text": "Solve (x^2+1)(x-3) = 0",
+      "drawn": "Solve $(x^2+1)(x-3)$ = 0",
+      "typed": "(x^2+1)(x-3)"
+    },
+    {
+      "id": "bracket-power",
+      "text": "Expand (x^2 + 1)^3",
+      "drawn": "Expand $(x^2 + 1)^3$",
+      "typed": "(x^2 + 1)^3"
+    },
+    {
+      "id": "negative-factor",
+      "text": "Expand -3(x^2+1)",
+      "drawn": "Expand $-3(x^2+1)$",
+      "typed": "-3(x^2+1)"
+    },
+    {
+      "id": "root",
+      "text": "Find sqrt(x^2+1)",
+      "drawn": "Find $\\sqrt{x^2+1}$",
+      "typed": "sqrt(x^2+1)"
+    },
+    {
+      "id": "bracketed-exponent-line",
+      "text": "2^(x+1) = 8",
+      "drawn": "$2^{x+1} = 8$",
+      "typed": "2^(x+1) = 8"
     }
   ]
 }
