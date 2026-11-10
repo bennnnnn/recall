@@ -18,12 +18,10 @@ if TYPE_CHECKING:
         LOCAL_PLACES_FORMAT_HINT,
         WEB_SEARCH_HINT,
         SearchSource,
-        format_places_fence,
         format_search_block,
         format_search_empty_block,
         format_sources_fence,
         sources_payload,
-        strip_duplicate_venue_list,
         strip_sources_from_text,
     )
     from app.modules.web_search.geo_intent import (
@@ -41,6 +39,7 @@ if TYPE_CHECKING:
         live_read_result,
         start_live_read,
     )
+    from app.modules.web_search.place_addresses import keep_given_addresses
     from app.modules.web_search.recency import wants_dated_results
     from app.modules.web_search.search_cache import (
         TurnTavilyBudget,
@@ -63,7 +62,6 @@ _EXPORTS = {
     "asks_about_a_place": "homework",
     "drop_source_credits": "source_credits",
     "format_location_not_set_answer": "geo_intent",
-    "format_places_fence": "formatting",
     "format_search_block": "formatting",
     "format_search_empty_block": "formatting",
     "format_sources_fence": "formatting",
@@ -71,6 +69,7 @@ _EXPORTS = {
     "is_distance_query": "geo_intent",
     "is_geo_query": "geo_intent",
     "is_places_list_query": "geo_intent",
+    "keep_given_addresses": "place_addresses",
     "last_reply": "live_read",
     "live_read_result": "live_read",
     "names_its_place": "geo_intent",
@@ -78,7 +77,6 @@ _EXPORTS = {
     "run_cached_search": "search_cache",
     "sources_payload": "formatting",
     "start_live_read": "live_read",
-    "strip_duplicate_venue_list": "formatting",
     "strip_sources_from_text": "formatting",
     "wants_dated_results": "recency",
 }
@@ -96,7 +94,6 @@ __all__ = [
     "asks_about_a_place",
     "drop_source_credits",
     "format_location_not_set_answer",
-    "format_places_fence",
     "format_search_block",
     "format_search_empty_block",
     "format_sources_fence",
@@ -104,6 +101,7 @@ __all__ = [
     "is_distance_query",
     "is_geo_query",
     "is_places_list_query",
+    "keep_given_addresses",
     "last_reply",
     "live_read_result",
     "names_its_place",
@@ -111,7 +109,6 @@ __all__ = [
     "run_cached_search",
     "sources_payload",
     "start_live_read",
-    "strip_duplicate_venue_list",
     "strip_sources_from_text",
     "wants_dated_results",
 ]

@@ -159,7 +159,6 @@ async def test_each_part_keeps_its_card_in_the_saved_reply() -> None:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[found.direct_text],
         should_cancel=None,
     )
 

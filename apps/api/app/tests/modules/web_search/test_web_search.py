@@ -124,39 +124,8 @@ def test_format_search_block_local_places_links():
     assert '"name"' in block
     assert "Zuni Café (https://www.zunicafe.com)" in block
     assert "Google Maps" in block
-
-
-def test_places_payload_from_hits():
-    from app.modules.web_search.formatting import places_payload_from_hits
-
-    rows = places_payload_from_hits(
-        [
-            WebSearchHit(
-                title="CODE Salon",
-                url="https://www.yelp.com/search?find_desc=Hair+Salons",
-                snippet="123 Market St, San Francisco.",
-            )
-        ]
-    )
-    assert rows[0]["name"] == "CODE Salon"
-    assert rows[0]["url"].startswith("https://www.google.com/maps/search/")
-    assert "CODE" in rows[0]["url"]
-    assert rows[0]["address"] == "123 Market St, San Francisco"
-
-
-def test_places_payload_keeps_direct_venue_url():
-    from app.modules.web_search.formatting import places_payload_from_hits
-
-    rows = places_payload_from_hits(
-        [
-            WebSearchHit(
-                title="CODE Salon",
-                url="https://www.yelp.com/biz/code-salon-san-francisco",
-                snippet="Top rated salon.",
-            )
-        ]
-    )
-    assert rows[0]["url"] == "https://www.yelp.com/biz/code-salon-san-francisco"
+    # A page is no venue: its title never seeds a places list.
+    assert "Starter JSON" not in block
 
 
 def test_format_search_empty_block_local_places():
@@ -298,24 +267,6 @@ def test_mock_search_results_respects_limit():
     assert len(hits) == 1
 
 
-def test_format_places_fence():
-    from app.modules.web_search.formatting import format_places_fence
-
-    fence = format_places_fence(
-        [
-            WebSearchHit(
-                title="Benu",
-                url="https://www.yelp.com/biz/benu",
-                snippet="3 Michelin stars at 22 Hawthorne St ($$$)",
-            )
-        ]
-    )
-    assert fence.startswith("\n\n```places\n")
-    assert "Benu" in fence
-    assert "$$$" in fence
-    assert "22 Hawthorne St" in fence
-
-
 def test_format_search_block_warns_when_location_missing():
     block = format_search_block(
         [WebSearchHit(title="Cafe", url="https://cafe.com", snippet="Nice spot")],
@@ -333,32 +284,11 @@ def test_format_location_not_set_answer_prompts_to_enable():
     assert "Tell me the city" in answer
 
 
-def test_places_payload_extracts_price():
-    from app.modules.web_search.formatting import places_payload_from_hits
-
-    rows = places_payload_from_hits(
-        [
-            WebSearchHit(
-                title="Nopa",
-                url="https://www.nopasf.com",
-                snippet="California cuisine ($$$) — 560 Divisadero St",
-            )
-        ]
-    )
-    assert rows[0]["price"] == "$$$"
-    assert rows[0]["address"] == "560 Divisadero St"
-
-
 def test_post_stream_fences_from_search_hits():
-    """Sources + places fences match what chat appends after streaming."""
+    """The sources fence chat appends after streaming names each page."""
     hits = [
         WebSearchHit(title="Venue", url="https://venue.example", snippet="123 Main St"),
     ]
     sources = format_sources_fence(hits)
-    from app.modules.web_search.formatting import format_places_fence
-
-    places = format_places_fence(hits)
     assert "```sources" in sources
     assert "Venue" in sources
-    assert "```places" in places
-    assert "123 Main St" in places

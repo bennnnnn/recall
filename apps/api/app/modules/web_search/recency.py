@@ -57,13 +57,14 @@ _HISTORY = re.compile(r"\b(?:first|ever|all[- ]time|in history)\b", re.IGNORECAS
 def wants_dated_results(text: str | None) -> bool:
     """A search whose pages must say when they were written: a result, a score, the
     latest, how something stands now, or this year by name. A question about an earlier
-    year, the first or the all-time is history, and a search for places near the user
-    lists places."""
-    from app.modules.web_search.geo_intent import is_geo_query
+    year, the first or the all-time is history, and a search for places lists places, near
+    the user or where the question names: "Where should we eat in Rome tonight?" got a
+    second, dated search of news pages beside the restaurants (2026-11-09)."""
+    from app.modules.web_search.geo_intent import is_geo_query, is_proximity_query
     from app.modules.web_search.patterns import collapse_ws
 
     cleaned = collapse_ws(text or "")
-    if not cleaned or is_geo_query(cleaned):
+    if not cleaned or is_geo_query(cleaned) or is_proximity_query(cleaned):
         return False
     years = {int(year) for year in _YEAR.findall(cleaned)}
     this_year = datetime.now(UTC).year

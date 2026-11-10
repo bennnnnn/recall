@@ -7,11 +7,6 @@ import re
 from typing import TypedDict
 
 from app.gateways.web_search_gateway import WebSearchHit
-from app.modules.web_search.patterns import (
-    _ADDRESS_RE,
-    _NUMBERED_VENUE_LINE,
-    _PRICE_RE,
-)
 from app.modules.web_search.source_dates import (
     local_today,
     mark_dates,
@@ -23,19 +18,6 @@ from app.services.md_fence_scan import (
     iter_fences,
     strip_closed_fences,
 )
-
-
-def _extract_address_from_snippet(snippet: str) -> str | None:
-    match = _ADDRESS_RE.search(snippet)
-    if not match:
-        return None
-    return match.group(1).strip(" ,.")
-
-
-def _extract_price_from_snippet(snippet: str) -> str | None:
-    match = _PRICE_RE.search(snippet)
-    return match.group(1) if match else None
-
 
 WEB_SEARCH_HINT = (
     "Live web search results come as a **Web search results** block just before the "
@@ -123,20 +105,14 @@ def format_search_block(
         note = published_note(hit.published, today, user_timezone) + stale_note(hit.snippet, today)
         lines.append(f"{index}. {hit.title} ({hit.url}) — {note}{snippet}")
     if local_places:
-        seed = places_payload_from_hits(hits)
-        seed_block = ""
-        if seed:
-            seed_block = (
-                "\nStarter JSON (refine name/url/note from snippets; include every real venue):\n"
-                f"```places\n{json.dumps(seed, ensure_ascii=False)}\n```\n"
-            )
+        # No starter list from these pages: a page is an article as often as a venue, and
+        # its title is no place's name.
         lines.append(
             "Required: one-sentence intro, then a ```places fence with JSON array "
             '[{"name":"Venue","url":"https://www.google.com/maps/search/?api=1&query=...",'
             '"note":"optional","address":"street when known","price":"$$"}]. '
             "url must be a Google Maps link to the venue address — never a generic search page. "
             "Do NOT also output a markdown numbered list of venues."
-            f"{seed_block}"
         )
     elif team:
         lines.append(
@@ -167,7 +143,9 @@ LOCAL_PLACES_FORMAT_HINT = (
     '"note":"rating/cuisine","address":"street, city","price":"$$"}]\n'
     "- url MUST open the venue on Google Maps (use address in the query). "
     "Never use generic Yelp/Google search pages.\n"
-    "- address is required when the snippet mentions a street or neighborhood.\n"
+    "- address: the street a result gives that venue itself, never one a list gives the "
+    "entry beside it; leave it out when none does. A neighbourhood in the note is the "
+    "address's own.\n"
     "- price is optional plain text like $, $$, or $$$ — never inside the url field."
 )
 
@@ -185,97 +163,11 @@ GEO_DISTANCE_HINT = (
 )
 
 GEO_ACTIVE_LOCATION_HINT = (
-    "The user's current device location for this nearby/distance query is shown above. "
-    "Use that location in your answer — do not substitute another city from memory or profile."
+    "The user's location for this nearby/distance query is shown above: the phone's, or "
+    "the place it last reported when marked so. Use that location in your answer — do not "
+    "substitute another city from memory or profile. When it is the phone's last report, "
+    "say which place the answer is for."
 )
-
-
-def _is_generic_search_url(url: str) -> bool:
-    lowered = url.strip().lower()
-    if not lowered:
-        return True
-    if "yelp.com/search" in lowered:
-        return True
-    if "google.com/search" in lowered:
-        return True
-    if "bing.com/search" in lowered:
-        return True
-    return False
-
-
-def _maps_url_for_place(name: str, address: str | None = None) -> str:
-    query = name.strip()
-    if address and address.strip():
-        addr = address.strip()
-        if query.lower() not in addr.lower():
-            query = f"{query}, {addr}"
-        else:
-            query = addr
-    from urllib.parse import quote
-
-    return f"https://www.google.com/maps/search/?api=1&query={quote(query)}"
-
-
-def places_payload_from_hits(hits: list[WebSearchHit]) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
-    for hit in hits[:8]:
-        name = hit.title.strip()
-        if not name:
-            continue
-        url = hit.url.strip()
-        snippet = hit.snippet.replace("\n", " ").strip()
-        address = _extract_address_from_snippet(snippet)
-        price = _extract_price_from_snippet(snippet)
-        row: dict[str, str] = {"name": name}
-        note = snippet
-        if price:
-            row["price"] = price
-            note = note.replace(price, "").strip(" ,-\u2013\u2014()")
-        if address:
-            row["address"] = address
-        if note:
-            row["note"] = _sanitize_fence_json_text(note[:160])
-        if url and not _is_generic_search_url(url):
-            row["url"] = url
-        else:
-            row["url"] = _maps_url_for_place(name, address or (snippet[:120] if snippet else None))
-        rows.append(row)
-    return rows
-
-
-def format_places_fence(hits: list[WebSearchHit]) -> str:
-    from app.services.places_fence import parse_places_payload, places_payload_dicts
-
-    payload = places_payload_dicts(parse_places_payload(places_payload_from_hits(hits)))
-    if not payload:
-        return ""
-    return f"\n\n```places\n{json.dumps(payload, ensure_ascii=False)}\n```"
-
-
-def strip_duplicate_venue_list(text: str) -> str:
-    """Drop model-numbered venue lists when the app renders a ```places block."""
-    lines = text.split("\n")
-    out: list[str] = []
-    index = 0
-    while index < len(lines):
-        if _NUMBERED_VENUE_LINE.match(lines[index]):
-            run_end = index
-            count = 0
-            while run_end < len(lines):
-                line = lines[run_end]
-                if _NUMBERED_VENUE_LINE.match(line):
-                    count += 1
-                    run_end += 1
-                elif not line.strip():
-                    run_end += 1
-                else:
-                    break
-            if count >= 2:
-                index = run_end
-                continue
-        out.append(lines[index])
-        index += 1
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
 
 
 _SOURCES_LABEL_RE = re.compile(r"(?:\*\*)?sources(?:\*\*)?\s*:?\s*$", re.IGNORECASE)

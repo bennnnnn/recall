@@ -111,8 +111,6 @@ jest.mock("@/features/chat/hooks/useAssistantMessageContent", () => ({
     showSettingsProposals: false,
     reminderProposals: [],
     showReminderProposals: false,
-    places: [],
-    showPlaces: false,
     images: [],
     showImages: false,
     markdownContent: isUser ? "" : "Assistant reply",

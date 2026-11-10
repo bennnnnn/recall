@@ -20,6 +20,8 @@ export const FOREGROUND_STALE_MS = {
   models: 5 * 60_000,
   /** The device's push token at the server. */
   pushRegistration: 12 * 60 * 60_000,
+  /** The account's saved place (a GPS fix and a reverse geocode): a turn trusts it this long. */
+  location: 60 * 60_000,
   /** The connection check runs on every return: it clears a stale "No internet". */
   connectivity: 0,
 } as const;

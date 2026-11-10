@@ -66,7 +66,6 @@ def _state(reply: str = _REPLY, **ctx_fields: Any) -> FinalizeState:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
 

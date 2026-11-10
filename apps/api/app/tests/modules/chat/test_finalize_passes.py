@@ -54,7 +54,6 @@ def _state(raw: str) -> FinalizeState:
         usage={},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[raw],
         should_cancel=None,
     )
 
@@ -622,7 +621,6 @@ async def test_a_fallback_its_safety_passes_emptied_reaches_done(
         usage={},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[_PLANTED],
         should_cancel=None,
     )
 
@@ -653,7 +651,6 @@ async def test_a_reply_the_passes_emptied_reaches_done(monkeypatch: pytest.Monke
         usage={},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[_PLANTED],
         should_cancel=None,
     )
 

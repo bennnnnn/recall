@@ -335,7 +335,6 @@ async def _settle_reply(
             usage=usage,
             outcome=outcome,
             was_cancelled=accum.was_cancelled,
-            assistant_parts=accum.parts,
             should_cancel=should_cancel,
             user_stopped=user_stopped,
             on_status=on_status,

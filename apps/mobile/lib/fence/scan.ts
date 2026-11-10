@@ -139,7 +139,7 @@ function afterFence(text: string, span: FenceSpan): number {
  * ``replace(body)``, the body with its last line break. CommonMark rules, as ``scanFences``:
  * a ``` line inside a ~~~ block is that block's content (audit DUP-03).
  */
-export function mapClosedLangFence(
+function mapClosedLangFence(
   text: string,
   lang: string,
   replace: (body: string) => string,
@@ -153,10 +153,6 @@ export function mapClosedLangFence(
   }
   pieces.push(text.slice(cursor));
   return pieces.join("");
-}
-
-export function stripClosedLangFence(text: string, lang: string): string {
-  return mapClosedLangFence(text, lang, () => "");
 }
 
 /**

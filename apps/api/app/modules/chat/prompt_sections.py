@@ -23,7 +23,6 @@ from typing import Any
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.modules.account import profile as profile_service
 from app.modules.chat import response_tone as response_tone_service
 from app.modules.chat.clarify_turn import clarify_reply_hint
 from app.modules.chat.continuation_subject import exchange_pairs, is_resume_request
@@ -77,6 +76,7 @@ from app.modules.chat.prompt_profile import (
 )
 from app.modules.chat.prompt_rules import PromptRule
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
+from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
 from app.modules.turn_reading.length import is_brevity_request, reply_length
@@ -220,7 +220,7 @@ def _integrations(turn: PromptTurn) -> list[str]:
         query_text=turn.query_text,
         local_tz=turn.local_tz,
         user_locale=turn.user.locale,
-        location_for_context=turn.prompt_location or profile_service.user_location_label(turn.user),
+        location_for_context=turn.prompt_location or profile_place(turn.user, turn.local_tz),
         prompt_location=turn.prompt_location,
         memory_block=turn.memory_block,
         attachment_rag_block=turn.attachment_rag_block,

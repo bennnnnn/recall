@@ -138,6 +138,9 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
         ),
     }
     with frozen_clock(), ExitStack() as stack:
+        # The phone saved its place a moment ago, as the battery's harness has it.
+        if user.location and user.location_saved_at is None:
+            user.location_saved_at = datetime.now(UTC)
         for target, value in stubs.items():
             stack.enter_context(patch(target, value))
         messages = await build_prompt_messages(

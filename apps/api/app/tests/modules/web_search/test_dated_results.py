@@ -41,6 +41,10 @@ from app.modules.web_search.source_dates import published_note
         ("i already know python, what language next?", False),
         ("explain the current account deficit", False),
         ("restaurants open right now near me", False),
+        # A places question that names its place lists places too (review, 2026-11-09).
+        ("Where should we eat in Rome tonight?", False),
+        ("Best Ethiopian restaurant in DC open right now?", False),
+        ("best bars in Bole this weekend?", False),
         # Second review: words that only look like now, and live asks it missed.
         ("how are credit scores calculated", False),
         ("breaking bad cast", False),

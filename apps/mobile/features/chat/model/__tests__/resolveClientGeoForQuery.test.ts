@@ -16,11 +16,17 @@ jest.mock("@/lib/places/localPlacesQuery", () => ({
   isAmbiguousLocalPlacesQuery: jest.fn(() => false),
 }));
 
+jest.mock("@/lib/syncRecords", () => ({
+  recentSyncAt: jest.fn(async () => null),
+  recordSync: jest.fn(async () => undefined),
+}));
+
 import { Alert, Linking } from "react-native";
 
 import { locationSwitchOf, resolveClientGeoForQuery } from "@/features/chat/model/resolveClientGeoForQuery";
 import { hasLocationPermission, requestDeviceGeo } from "@/lib/deviceLocation";
 import { isGeoQuery } from "@/lib/places/localPlacesQuery";
+import { recentSyncAt, recordSync } from "@/lib/syncRecords";
 
 const t = (key: string) => key;
 const persistLocation = jest.fn().mockResolvedValue(undefined);
@@ -33,6 +39,7 @@ describe("resolveClientGeoForQuery", () => {
     (isGeoQuery as jest.Mock).mockReturnValue(true);
     // The phone has not been asked yet: a geo ask shows the system sheet.
     (hasLocationPermission as jest.Mock).mockResolvedValue(false);
+    (recentSyncAt as jest.Mock).mockResolvedValue(null);
   });
 
   it("BUG FIX regression: shows the OS permission sheet for a switch never chosen (#1058)", async () => {
@@ -172,17 +179,28 @@ describe("resolveClientGeoForQuery", () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it("waits on the profile save only as long as the caller's save does", async () => {
+  it.each([
+    // The switch is on already: the turn goes while its place saves.
+    ["on", { location: "Oakland, CA" }, true],
+    // The server reads a fix only from a user whose Location is on: that save comes first.
+    ["never_chosen", { location: "Oakland, CA", location_enabled: true }, false],
+  ] as const)("with the switch %p, the turn waits for the profile save: %p", async (locationSwitch, patch, goesFirst) => {
     (requestDeviceGeo as jest.Mock).mockResolvedValue({
       status: "granted",
       geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 },
     });
-    // A save the caller does not wait for (location already on) returns nothing to await.
-    const saveInBackground = jest.fn(() => undefined);
-    const result = await resolveClientGeoForQuery("tok", "Best coffee shops near me", t, saveInBackground, "on");
-    // The switch is on already: only its place is kept fresh.
-    expect(saveInBackground).toHaveBeenCalledWith({ location: "Oakland, CA" });
-    expect(result).toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
+    let saved!: () => void;
+    const save = jest.fn(() => new Promise<void>((resolve) => { saved = resolve; }));
+    let done = false;
+    const resolving = resolveClientGeoForQuery("tok", "Best coffee shops near me", t, save, locationSwitch).then((result) => {
+      done = true;
+      return result;
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(save).toHaveBeenCalledWith(patch);
+    expect(done).toBe(goesFirst);
+    saved();
+    await expect(resolving).resolves.toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
   });
 
   describe("the user's Location switch", () => {
@@ -250,6 +268,110 @@ describe("resolveClientGeoForQuery", () => {
       [true, false, "unknown"],
     ])("reads the server's %p (confirmed %p) as %p", (enabled, confirmed, expected) => {
       expect(locationSwitchOf(enabled, confirmed)).toBe(expected);
+    });
+  });
+
+  describe("the place the account saved", () => {
+    // An access token for account "acct-1": the record of its saved place is per account.
+    const token = `h.${btoa(JSON.stringify({ sub: "acct-1" }))}.s`;
+    const oakland = { status: "granted", geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 } };
+
+    it("answers while a fix saved it in the last fifteen minutes: nothing is read, saved or sent", async () => {
+      // A places question with Location on read GPS, reverse-geocoded and saved the
+      // profile every time (2026-11-08); the server reads the saved place instead.
+      (recentSyncAt as jest.Mock).mockResolvedValue(Date.now() - 60_000);
+      (hasLocationPermission as jest.Mock).mockResolvedValue(true);
+      const result = await resolveClientGeoForQuery(token, "What's the best restaurant near me?", t, persistLocation, "on");
+      expect(result).toEqual({ ok: true, clientGeo: null });
+      expect(recentSyncAt).toHaveBeenCalledWith("location", "acct-1", 15 * 60_000);
+      expect(requestDeviceGeo).not.toHaveBeenCalled();
+      expect(persistLocation).not.toHaveBeenCalled();
+    });
+
+    it("older, the phone reads and saves its place again, and notes when", async () => {
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      const result = await resolveClientGeoForQuery(token, "coffee near me", t, persistLocation, "on");
+      expect(result).toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
+      expect(persistLocation).toHaveBeenCalledWith({ location: "Oakland, CA" });
+      expect(recordSync).toHaveBeenCalledWith("location", "acct-1");
+    });
+
+    it.each(["never_chosen", "unknown"] as const)(
+      "with the switch %p, a recent record still asks the phone (the system sheet, #1058)",
+      async (locationSwitch) => {
+        (recentSyncAt as jest.Mock).mockResolvedValue(Date.now() - 60_000);
+        (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+        await resolveClientGeoForQuery(token, "coffee near me", t, persistLocation, locationSwitch);
+        expect(requestDeviceGeo).toHaveBeenCalledWith({ quick: true });
+      },
+    );
+
+    it("notes nothing when the fix saved no place", async () => {
+      (hasLocationPermission as jest.Mock).mockResolvedValue(true);
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      await resolveClientGeoForQuery(token, "coffee near me", t, persistLocation, "unknown");
+      expect(persistLocation).not.toHaveBeenCalled();
+      expect(recordSync).not.toHaveBeenCalled();
+    });
+
+    it("a save that fails in the background neither fails the turn nor counts the place as recent", async () => {
+      // A failed profile save still marked the place fresh, so the next questions read a
+      // place the server never got (review, 2026-11-09).
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+      const failing = jest.fn(() => Promise.reject(new Error("offline")));
+      const result = await resolveClientGeoForQuery(token, "coffee near me", t, failing, "on");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(result).toMatchObject({ ok: true, clientGeo: { label: "Oakland, CA" } });
+      expect(recordSync).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("counts the place as recent only once its save lands", async () => {
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      let saved!: () => void;
+      const save = jest.fn(() => new Promise<void>((resolve) => { saved = resolve; }));
+      await resolveClientGeoForQuery(token, "coffee near me", t, save, "on");
+      expect(recordSync).not.toHaveBeenCalled();
+      saved();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(recordSync).toHaveBeenCalledWith("location", "acct-1");
+    });
+
+    it("counts nothing when the account changed before the save landed", async () => {
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      let saved!: () => void;
+      const save = jest.fn(() => new Promise<void>((resolve) => { saved = resolve; }));
+      await resolveClientGeoForQuery(token, "coffee near me", t, save, "on");
+      mockSessionGeneration += 1;
+      saved();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(recordSync).not.toHaveBeenCalled();
+    });
+
+    it("with Location turned off in iOS Settings, a recent place is not used: the phone is asked", async () => {
+      // The saved place answered for fifteen minutes after the phone stopped letting
+      // Recall read it (review, 2026-11-09).
+      (recentSyncAt as jest.Mock).mockResolvedValue(Date.now() - 60_000);
+      (hasLocationPermission as jest.Mock).mockResolvedValue(false);
+      (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "blocked" });
+      const result = await resolveClientGeoForQuery(token, "What's the weather tomorrow?", t, persistLocation, "on");
+      expect(requestDeviceGeo).toHaveBeenCalled();
+      expect(result).toEqual({ ok: false });
+    });
+
+    it("notes a place name that came after the turn once it is saved", async () => {
+      let named!: (label: string | null) => void;
+      (requestDeviceGeo as jest.Mock).mockResolvedValue({
+        status: "granted",
+        geo: { label: null, latitude: 37.8, longitude: -122.27, lateLabel: new Promise((resolve) => { named = resolve; }) },
+      });
+      await resolveClientGeoForQuery(token, "coffee near me", t, persistLocation, "on");
+      expect(recordSync).not.toHaveBeenCalled();
+      named("Oakland, CA");
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(persistLocation).toHaveBeenCalledWith({ location: "Oakland, CA" });
+      expect(recordSync).toHaveBeenCalledWith("location", "acct-1");
     });
   });
 

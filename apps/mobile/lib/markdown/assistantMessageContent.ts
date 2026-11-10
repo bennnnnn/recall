@@ -10,7 +10,7 @@ import { hasTodoLink, stripTodoLinkFences } from "@/features/todos/model/todoLin
 import type { SearchSource } from "@/lib/api";
 
 import { isLocationQuestion } from "@/lib/places/localPlacesQuery";
-import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/places/placesList";
+import { tagPlacesJsonFences } from "@/lib/places/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
 import { parseMessageImages, stripLookupSourceCaption, type ParsedMessageImage } from "@/lib/messageAttachments";
 import { parseFenceLang } from "@/lib/codeHighlight";
@@ -46,8 +46,6 @@ export type AssistantMessageContent = {
   showReminderProposals: boolean;
   /** A to-do change asked in another language: the Open To-do button (todoLink.ts). */
   showTodoLink: boolean;
-  places: PlaceItem[];
-  showPlaces: boolean;
   images: ParsedMessageImage[];
   showImages: boolean;
   markdownContent: string;
@@ -91,13 +89,15 @@ function stripRetiredFences(text: string): string {
   );
 }
 
+/**
+ * The reply's markdown, its control fences stripped. A ```places list stays where the
+ * model wrote it, streaming and settled alike: RichFence draws it there.
+ */
 function buildMarkdownContent(options: {
   content: string;
   showLiveClock: boolean;
-  showPlaces: boolean;
-  places: PlaceItem[];
 }): string {
-  const { content, showLiveClock, showPlaces, places } = options;
+  const { content, showLiveClock } = options;
 
   // Fence-scoped strips — a reply with no fences skips the regex passes and
   // only normalizes whitespace.
@@ -113,8 +113,7 @@ function buildMarkdownContent(options: {
   text = stripSettingsProposalFences(text);
   text = stripReminderProposalFences(text);
   text = stripTodoLinkFences(text);
-  if (showPlaces) text = stripPlacesContent(text, places);
-  return text;
+  return tagPlacesJsonFences(text);
 }
 
 /** Pure assistant reply display model — fences stripped, rich blocks resolved. */
@@ -162,10 +161,6 @@ export function deriveAssistantMessageContent(
   const showReminderProposals = reminderProposals.length > 0;
   const showTodoLink = !isUser && hasContent && !layoutFrozen && hasTodoLink(content);
 
-  const places =
-    !isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : [];
-  const showPlaces = places.length > 0;
-
   // [Image: …] marker lines only appear in attachment/lookup replies — skip the
   // per-line split+regex scan for the common no-marker reply.
   const parsedImages =
@@ -185,8 +180,6 @@ export function deriveAssistantMessageContent(
   const markdownContent = buildMarkdownContent({
     content: proseForMarkdown,
     showLiveClock,
-    showPlaces,
-    places,
   });
 
   const hasMarkdown = markdownContent.trim().length > 0;
@@ -210,8 +203,6 @@ export function deriveAssistantMessageContent(
     reminderProposals,
     showReminderProposals,
     showTodoLink,
-    places,
-    showPlaces,
     images: parsedImages.images,
     showImages,
     markdownContent,

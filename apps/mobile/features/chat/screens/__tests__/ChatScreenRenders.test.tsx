@@ -188,6 +188,8 @@ const mockAuth = { token: "token", user: null, updateUser: mockAsyncNoop };
 const mockRouter = { push: mockNoop, replace: mockNoop, setParams: mockNoop };
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+// The location switch's module keeps when the account's place was saved, in a file.
+jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: async () => null, recordSync: async () => {} }));
 jest.mock("expo-router", () => ({
   Redirect: () => null,
   useLocalSearchParams: () => ({}),

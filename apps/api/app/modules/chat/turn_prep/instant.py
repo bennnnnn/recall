@@ -18,13 +18,13 @@ from app.core.db import SessionLocal
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
-from app.modules.account import profile as profile_service
 from app.modules.account import settings_proposal as settings_proposal_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat import recurring_pay as recurring_pay_service
 from app.modules.chat.turn_prep.clauses import request_body
 from app.modules.chat.turn_prep.followups import SubjectFollowup
 from app.modules.chat.turn_prep.request import ClientGeoContext, TurnIdentity, TurnRequest
+from app.modules.chat.turn_prep.saved_place import last_report_answer, profile_place
 from app.modules.memory.profile_reply import reply_for_profile_question
 from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
@@ -94,9 +94,10 @@ async def resolve_instant_reply(
         if now_reply is not None:
             return now_reply
     if time_context_service.is_location_question(content):
-        return time_context_service.format_location_answer(
-            identity.geo.user_location, identity.local_tz
-        )
+        geo = identity.geo
+        if geo.user_location and geo.place_as_of is not None:
+            return last_report_answer(geo.user_location, geo.place_as_of, identity.local_tz)
+        return time_context_service.format_location_answer(geo.user_location, identity.local_tz)
     asked = profile_question_to_answer(
         content, _earlier_user_texts(request.recent_messages, content)
     )
@@ -156,7 +157,7 @@ async def _profile_reply(asked: str, identity: TurnIdentity) -> str | None:
     return reply_for_profile_question(
         asked,
         facts,
-        location=profile_service.user_location_label(user),
+        location=profile_place(user, identity.local_tz),
     )
 
 

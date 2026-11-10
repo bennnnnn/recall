@@ -108,7 +108,6 @@ async def _finalize_failed_subject_pass(deps: Any, verified: object, reply: str)
         usage={"input": 4, "output": 8},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
 
@@ -195,7 +194,6 @@ async def test_reminder_finalization_uses_effective_client_timezone(
         usage={"input": 1, "output": 2},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=["I'll help with that."],
         should_cancel=None,
     )
 
@@ -229,7 +227,6 @@ async def test_search_sources_final_content_matches_persisted_text(
         usage={"input": 10, "output": 20},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[prose],
         should_cancel=None,
     )
 
@@ -257,7 +254,6 @@ async def test_a_searched_reply_loses_brackets_crediting_its_sources(
         usage={"input": 10, "output": 20},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[prose],
         should_cancel=None,
     )
 
@@ -278,7 +274,6 @@ async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatc
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=["Plain answer."],
         should_cancel=None,
     )
 
@@ -303,7 +298,6 @@ async def test_cancelled_turn_closes_unclosed_fence(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=True,
-        assistant_parts=[open_fence],
         should_cancel=None,
     )
 
@@ -329,7 +323,6 @@ async def test_truncated_turn_closes_unclosed_fence(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[open_fence],
         should_cancel=None,
     )
 
@@ -355,7 +348,6 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[open_fence],
         should_cancel=None,
     )
 
@@ -380,7 +372,6 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[raw],
         should_cancel=None,
     )
 
@@ -411,7 +402,6 @@ async def test_verified_math_markers_are_stripped_from_final_content(
         usage={"input": 1, "output": 2},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=["ignored"],
         should_cancel=None,
     )
 
@@ -440,7 +430,6 @@ async def test_unverified_math_note_appended_to_final_content(
         usage={"input": 1, "output": 2},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=["The mass is 12 kg."],
         should_cancel=None,
     )
     assert persisted == "The mass is 12 kg."
@@ -466,7 +455,6 @@ async def test_unverified_chemistry_uses_the_chemistry_note(
         usage={"input": 1, "output": 2},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=["The pH is about 6."],
         should_cancel=None,
     )
     assert persisted == "The pH is about 6."
@@ -502,7 +490,6 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
         usage={"input": 0, "output": 8},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[ctx.instant_reply],
         should_cancel=None,
     )
     # The instant reply is the server's own text: it persists with its card marked.
@@ -538,7 +525,6 @@ async def test_paired_direct_reply_keeps_both_answer_fences(
         usage={"input": 0, "output": 0},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
     assert persisted.count("```answer") == 2
@@ -576,7 +562,6 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
         usage={"input": 1, "output": 2},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[invented],
         should_cancel=None,
     )
     assert persisted.count("```answer") == 1
@@ -613,7 +598,6 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
     )
 
@@ -639,7 +623,6 @@ async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) ->
         usage={"input": 4, "output": 8},
         outcome=TurnOutcome(),
         was_cancelled=True,
-        assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
     )
 
@@ -676,7 +659,6 @@ async def test_unverified_working_names_its_first_slip(
         usage={"input": 1, "output": 2},
         outcome=TurnOutcome(),
         was_cancelled=False,
-        assistant_parts=[reply],
         should_cancel=None,
     )
     assert ("Check this step:" in persisted) is noted
@@ -721,7 +703,6 @@ async def _reminder_turn(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=was_cancelled,
-        assistant_parts=[reply],
         should_cancel=None,
     )
     rows = await todos_repo.list_for_user(db_session, user.id, limit=10)
@@ -802,7 +783,6 @@ async def test_a_failed_reminder_pass_keeps_the_finished_text(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[_MERMAID_REPLY],
         should_cancel=None,
     )
 
@@ -837,7 +817,6 @@ async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[PHOTO_REPLY],
         should_cancel=None,
     )
 
@@ -873,7 +852,6 @@ async def test_a_failed_text_pass_keeps_the_source_chips(
         usage={"input": 10, "output": 20},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[prose],
         should_cancel=None,
     )
 
@@ -900,7 +878,6 @@ async def test_a_failed_text_pass_before_any_side_effect_persists_the_raw_reply(
         usage={"input": 4, "output": 8},
         outcome=outcome,
         was_cancelled=False,
-        assistant_parts=[_MERMAID_REPLY],
         should_cancel=None,
     )
 
