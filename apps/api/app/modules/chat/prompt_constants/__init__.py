@@ -50,6 +50,7 @@ from app.modules.chat.prompt_constants.format import (
 )
 from app.modules.chat.prompt_constants.grounding import (
     FACT_GROUNDING_HINT,
+    SETTLED_BY_READ_NOTE,
     WEB_SEARCH_OFF_HINT,
 )
 from app.modules.chat.prompt_constants.learning_plan_contract import learning_plan_contract
@@ -151,6 +152,7 @@ __all__ = [
     "SEQUENCE_FORMAT_HINT",
     "SETTINGS_ASK_REMINDER",
     "SETTINGS_IN_APP_HINT",
+    "SETTLED_BY_READ_NOTE",
     "SHORT_RESPONSE_FORMAT_HINT",
     "STANDING_PREFERENCE_HINT",
     "STATISTICS_PRESENTATION_HINT",

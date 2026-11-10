@@ -11,6 +11,7 @@ transports pass ``default_deps()``.
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
+from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -122,15 +123,18 @@ def _regenerate_images(
 
 
 def _turn_settings(
-    settings: Settings, turn: NewTurn, content: str
+    settings: Settings, user: User, content: str, recent: list[Any]
 ) -> tuple[Settings, asyncio.Task[LiveRead | None] | None]:
     """The user's own switches (web search off) narrow the server's for this turn, and
     the live read starts under them as early as the turn allows, beside the intercepts and
     the prep: does the answer depend on facts that change? (``web_search.live_read``). An
-    intercepted turn leaves it to end on its own timeout."""
-    settings = profile_service.settings_for_user(settings, turn.user)
-    earlier = web_search.last_reply(turn.recent)
-    return settings, web_search.start_live_read(settings, content, earlier=earlier)
+    intercepted turn leaves it to end on its own timeout. ``recent``: the chat before the
+    line, oldest first.
+
+    A line answered again is read the same way: left to the reply's model alone, GPT-6
+    Luna with its thinking raised searched a textbook physics problem (2026-11-09)."""
+    settings = profile_service.settings_for_user(settings, user)
+    return settings, web_search.start_live_read(settings, content, recent=recent)
 
 
 @traced_turn("new")
@@ -185,7 +189,7 @@ async def stream_chat_response(
             chat=chat,
             skip_usage_seed=skip_usage_seed,
         )
-        settings, live_read = _turn_settings(settings, turn, content)
+        settings, live_read = _turn_settings(settings, turn.user, content, turn.recent)
         misses: set[str] = set()
         if not attachment_ids and await intercept_new_turn(
             deps,
@@ -284,7 +288,7 @@ async def stream_regenerate_response(
         )
         if outcome is not None:
             outcome.mark_user_message_saved()  # The message answered again just loaded.
-        settings = profile_service.settings_for_user(settings, turn.user)
+        settings, live_read = _turn_settings(settings, turn.user, turn.content, turn.before_line)
         misses: set[str] = set()
         if await intercept_regenerate(
             deps,
@@ -353,7 +357,7 @@ async def stream_regenerate_response(
             # Regenerating says the answer was not good enough: one level more.
             thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
-        ctx.photo_missed = "photo" in misses
+        ctx.photo_missed, ctx.live_read = "photo" in misses, live_read
         await top_up_reserve_for_prompt(
             res,
             settings=settings,

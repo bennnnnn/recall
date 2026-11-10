@@ -221,7 +221,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   yet) and, if so, the query a person would type, written with the conversation in view. Its
   query is searched before the reply, which answers from the results in one call. Otherwise
   the reply's own model call carries `web_search` (`tool_loop/reply_calls.py`,
-  `reply_search_tool_enabled`, on) and may call it; the tool's description says when. The
+  `reply_search_tool_enabled`, on) and may call it; the tool's description says when, and a
+  read that found nothing that changes is said beside the user's line. The read sees the last
+  two exchanges, quoted, and is measured on `app/tests/behavior/search_need_corpus.json`. The
   keyword rules that used to decide (about 110 regexes) are gone: "What is going on" opening a
   chat was searched and answered with a song, and "who won the last world cup" was answered
   from memory. Measured on 70 live prompts before shipping: greetings, small talk, maths and

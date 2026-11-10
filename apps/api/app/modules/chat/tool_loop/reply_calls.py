@@ -24,6 +24,8 @@ from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
+from app.modules.chat.prompt_constants import SETTLED_BY_READ_NOTE
+from app.modules.chat.prompt_inject import append_after_history
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
@@ -225,13 +227,18 @@ async def search_the_live_read(
 ) -> None:
     """A model read the message beside the prep (``web_search.live_read``). An answer that
     depends on facts that change is searched with the read's own query, so the reply
-    answers from the results in one call; with no query, the reply's call must search."""
+    answers from the results in one call, and so is one the user asked to search; with no
+    query, the reply's call must search. A read that found nothing that changes is said
+    beside the user's line, and the reply keeps the tool."""
     if ctx.live_read is not None and not ctx.live_read.done() and on_status is not None:
         # A model is still reading the question: say so rather than show nothing. A search
         # it asks for shows next, with its query ("Searching — …").
         await on_status("thinking", None)
     read = await live_read_result(ctx.live_read, settings)
     if read is None:
+        return
+    if not read.searches:
+        ctx.prompt_messages = append_after_history(ctx.prompt_messages, SETTLED_BY_READ_NOTE)
         return
     if not read.query.strip():
         ctx.reply_requires = REPLY_TOOL

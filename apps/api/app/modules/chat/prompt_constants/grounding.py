@@ -20,6 +20,18 @@ FACT_GROUNDING_HINT = (
     "figure is not in your memory."
 )
 
+# The turn's read (``web_search.live_read``) answered that nothing in the answer changes.
+# Offered web_search anyway, GPT-6 Luna searched how-tos, recipes, settled history and the
+# way to a place the chat had named on about a third of such turns (2026-11-09,
+# ``tests/behavior/search_need_eval.py``), whatever the tool's description said; told the
+# read's answer beside the user's line, it kept to it far more. The tool stays offered.
+SETTLED_BY_READ_NOTE = (
+    "Before your reply, a model read this message and found that its answer needs no facts "
+    "that change, so do not call web_search for it: answer from what you know and from this "
+    "conversation. The way to a place the conversation named is a map link, not a search. "
+    "Call web_search only if the user asks you to search, look something up or check online."
+)
+
 # The user turned web search off (Settings → Data controls): there is nothing to offer.
 WEB_SEARCH_OFF_HINT = (
     "This user turned web search off in Settings, so you cannot look anything up. For a "
