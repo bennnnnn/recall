@@ -244,8 +244,9 @@ function SeriesRow({
           style={[
             styles.input,
             row.invalid && styles.inputInvalid,
-            latex != null && styles.inputUnderMath,
             !row.visible && styles.dim,
+            // Last: a hidden curve's dim must not bring the text back under its maths.
+            latex != null && styles.inputUnderMath,
           ]}
         />
         {latex != null ? (
@@ -356,9 +357,11 @@ const makeExplorerStyles = (theme: Theme) =>
     inputInvalid: {
       color: theme.danger,
     },
-    // The field stays under the maths, tappable, its own text hidden until it is edited.
+    // The field stays under the maths, tappable, hidden until it is edited. Hidden whole:
+    // Android draws a field's text in a transparent colour anyway, so the plain
+    // `sin(x^2)*cos(x^2)` showed through the typeset maths (Galaxy S23, 2026-11-09).
     inputUnderMath: {
-      color: "transparent",
+      opacity: 0,
     },
     exprMath: {
       ...StyleSheet.absoluteFill,

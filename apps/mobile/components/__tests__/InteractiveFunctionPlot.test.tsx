@@ -96,10 +96,13 @@ describe("InteractiveFunctionPlot", () => {
     const field = getByTestId("graph-expr-input");
     // The field under it keeps the plotting grammar's text, for editing.
     expect(field.props.value).toBe("y = x^2 - 4*x + 3");
-    expect(StyleSheet.flatten(field.props.style).color).toBe("transparent");
+    // Hidden whole: Android draws a field's text in a transparent colour, over the maths.
+    expect(StyleSheet.flatten(field.props.style).opacity).toBe(0);
     await fireEvent(field, "focus");
     expect(queryByTestId("graph-expr-input-math")).toBeNull();
-    expect(StyleSheet.flatten(getByTestId("graph-expr-input").props.style).color).toBe(lightTheme.text);
+    const editing = StyleSheet.flatten(getByTestId("graph-expr-input").props.style);
+    expect(editing.color).toBe(lightTheme.text);
+    expect(editing.opacity).toBeUndefined();
     await fireEvent(getByTestId("graph-expr-input"), "blur");
     expect(getByTestId("graph-expr-input-math")).toBeOnTheScreen();
     // What the plot cannot read stays the text it is, in the danger ink.
@@ -112,10 +115,16 @@ describe("InteractiveFunctionPlot", () => {
     await fireEvent.press(getByTestId("graph-add-function"));
     await fireEvent.changeText(getByTestId("graph-expr-input-1"), "2x");
     expect(getByTestId("graph-expr-input-1").props.value).toBe("2x");
+    // A hidden curve's maths dims; the field under it stays hidden either way, or its text
+    // would show through the maths.
+    const dim = () => StyleSheet.flatten(getByTestId("graph-expr-input-1-math").props.style).opacity;
+    const field = () => StyleSheet.flatten(getByTestId("graph-expr-input-1").props.style).opacity;
     await fireEvent.press(getByTestId("graph-hide-1"));
-    expect(StyleSheet.flatten(getByTestId("graph-expr-input-1").props.style).opacity).toBe(0.4);
+    expect(dim()).toBe(0.4);
+    expect(field()).toBe(0);
     await fireEvent.press(getByTestId("graph-hide-1"));
-    expect(StyleSheet.flatten(getByTestId("graph-expr-input-1").props.style).opacity).toBeUndefined();
+    expect(dim()).toBeUndefined();
+    expect(field()).toBe(0);
     await fireEvent.press(getByTestId("graph-remove-1"));
     expect(queryByTestId("graph-expr-input-1")).toBeNull();
     // The seeded expression is locked: it has no hide or remove buttons.

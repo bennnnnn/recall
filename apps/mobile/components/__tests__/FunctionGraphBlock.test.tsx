@@ -1,5 +1,11 @@
-import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
+import {
+  Keyboard,
+  Platform,
+  StyleSheet,
+  type EmitterSubscription,
+  type KeyboardEvent,
+} from "react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { lightTheme } from "@/lib/theme";
@@ -438,5 +444,41 @@ describe("FunctionGraphBlock", () => {
     await fireEvent.changeText(getByTestId("graph-expr-input-1"), "y < 2x");
     expect(getByTestId("graph-expr-input-1").props.value).toBe("y < 2x");
     expect(getByTestId("graph-shade-1")).toBeOnTheScreen();
+  });
+});
+
+describe("the expanded graph on Android, edge to edge", () => {
+  const handlers = new Map<string, (e?: KeyboardEvent) => void>();
+  const keyboard = (event: "keyboardDidShow" | "keyboardDidHide", height = 0) =>
+    act(async () => {
+      handlers.get(event)?.({
+        endCoordinates: { height, screenX: 0, screenY: 0, width: 0 },
+      } as KeyboardEvent);
+    });
+
+  beforeEach(() => {
+    jest.replaceProperty(Platform, "OS", "android");
+    handlers.clear();
+    jest.spyOn(Keyboard, "addListener").mockImplementation((event, handler) => {
+      handlers.set(event, handler as (e?: KeyboardEvent) => void);
+      return { remove: jest.fn() } as Partial<EmitterSubscription> as EmitterSubscription;
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it("keeps the functions above the keyboard: the sheet lifts its bottom by it", async () => {
+    // No window resizes for the keyboard on Android: it covered the fields (Galaxy S23, 2026-11-09).
+    const content = JSON.stringify({ type: "function", expr: "x**2", points: [[0, 0], [1, 1]] });
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    await fireEvent.press(getByTestId("graph-expand"));
+    const sheet = () => StyleSheet.flatten(getByTestId("graph-modal-sheet").props.style);
+    const closed = sheet().paddingBottom;
+
+    await keyboard("keyboardDidShow", 300);
+    // The keyboard's height from the screen's edge (`useKeyboardHeight`).
+    expect(sheet().paddingBottom).toBe(300);
+
+    await keyboard("keyboardDidHide");
+    expect(sheet().paddingBottom).toBe(closed);
   });
 });
