@@ -304,7 +304,8 @@ def _lane_that_thinks(ctx: StreamContext, settings: Settings) -> None:
     its lane, and so does a model the user picked. The lane it leaves is the first backup."""
     if not ctx.auto_routed or ctx.user is None or ctx.verified_subject is not None:
         return
-    lane = lane_for_think(ctx.model, plan_service.model_pool(ctx.user, settings))
+    pool = plan_service.model_pool(ctx.user, settings)
+    lane = lane_for_think(ctx.model, pool, ctx.unsteady_models)
     if lane is None:
         return
     backups = [alias for alias in ctx.fallback_models if alias not in {lane, ctx.model}]

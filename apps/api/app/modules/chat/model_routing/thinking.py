@@ -95,14 +95,21 @@ def thinks_when_hard(alias: str) -> bool:
     return value in EFFORTS and value != "none"
 
 
-def lane_for_think(model: str, pool: list[str]) -> str | None:
+def lane_for_think(
+    model: str, pool: list[str], unsteady: frozenset[str] = frozenset()
+) -> str | None:
     """Auto's lane for a turn the read says to think on, when it is the maths lane and its
     model cannot think (GLM 5.2 sends no reasoning at "hard"): the pool's smart lane, or
     another of the pool's strong models that can think. None keeps the lane. The everyday
-    lane is not moved: the owner's rule names the maths lane."""
+    lane is not moved: the owner's rule names the maths lane. A model whose breaker is open
+    or half-open (``unsteady``) is never moved to: the turn would wait out its timeout."""
     if model != model_catalog.auto_math_alias() or model not in pool or thinks_when_hard(model):
         return None
     smart = model_catalog.auto_smart_alias()
-    strong = [m for m in pool if model_catalog.get(m).tier in {"smart", "max"} and m != model]
+    strong = [
+        m
+        for m in pool
+        if model_catalog.get(m).tier in {"smart", "max"} and m != model and m not in unsteady
+    ]
     ordered = ([smart] if smart in strong else []) + [m for m in strong if m != smart]
     return next((alias for alias in ordered if thinks_when_hard(alias)), None)

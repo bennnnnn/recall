@@ -102,9 +102,10 @@ class StreamContext:
     recent_messages: list[Any] | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
-    # Recovering models (breaker half-open) among the model and its backups: the
-    # turn tries one only once it claims its probe (``model_health.claim_probe``).
+    # Half-open models among it and its backups: tried once the turn claims a probe.
     probe_models: frozenset[str] = frozenset()
+    # Models whose breaker is open or half-open at the load: no lane moves onto one.
+    unsteady_models: frozenset[str] = frozenset()
     # Work the turn already did without an answer, which its tool loop does not
     # repeat: SymPy ran out of time on its problem; its photo lookup found none.
     solve_timed_out: bool = False
@@ -124,8 +125,7 @@ class StreamContext:
     # finalize and stream teardown await it so the assistant insert cannot
     # commit first and so a failed prompt still keeps what the user sent.
     user_message_persist: asyncio.Task[None] | None = None
-    # Set when the tool loop's generate_image persisted the assistant row —
-    # stream_and_finalize skips the LLM + second insert.
+    # Set when the tool loop's generate_image saved the assistant row: no LLM, no 2nd insert.
     terminal_image_message_id: str | None = None
     terminal_image_content: str | None = None
     terminal_image_model: str | None = None

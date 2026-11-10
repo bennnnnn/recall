@@ -204,3 +204,16 @@ async def test_a_lesson_keeps_its_lane() -> None:
     )
     think_from_the_read(ctx, _SETTINGS)
     assert (ctx.model, ctx.thinking) == ("glm-5.2", "off")
+
+
+@pytest.mark.parametrize("unsteady", [{"smart-chat"}, {"smart-chat", "gpt-6-luna"}])
+def test_the_move_never_goes_to_a_model_whose_breaker_is_open(unsteady: set[str]) -> None:
+    """With DeepSeek's breaker open the turn would wait out its timeout there first."""
+    assert lane_for_think("glm-5.2", _POOL, frozenset(unsteady)) is None
+
+
+@pytest.mark.asyncio
+async def test_an_unsteady_smart_lane_keeps_the_maths_lane() -> None:
+    ctx = _maths_turn(unsteady_models=frozenset({"smart-chat"}))
+    think_from_the_read(ctx, _SETTINGS)
+    assert (ctx.model, ctx.thinking) == ("glm-5.2", "hard")

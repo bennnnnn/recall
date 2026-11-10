@@ -290,4 +290,5 @@ def _stream_context(
     ctx.auto_routed = plan_service.is_auto_enabled(user) and not plan_service.is_explicit_pick(
         turn.model_alias
     )
+    ctx.unsteady_models = bundle.half_open_models | (turn.unhealthy or frozenset())
     return ctx
