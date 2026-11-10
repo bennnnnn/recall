@@ -378,12 +378,8 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         name="clock",
     ),
     PromptSection(lambda t: not t.slim, _integrations, name="integrations"),
-    # "Coffee near me" is a slim turn, yet it needs the place and the places layout.
-    PromptSection(
-        lambda t: t.slim,
-        lambda t: slim_geo_hints(t.settings, t.query_text, t.prompt_location),
-        name="slim_geo",
-    ),
+    # A slim turn: "Coffee near me" needs the place and its layout, "Can I walk?" the place.
+    PromptSection(lambda t: t.slim, slim_geo_hints, name="slim_geo"),
     PromptSection(lambda t: t.slim and t.recall_memory, _slim_memory, name="slim_memory"),
     PromptSection(_gives_advice, _advice, name="advice"),
     PromptSection(_always, memory_notes, name="memory_notes"),

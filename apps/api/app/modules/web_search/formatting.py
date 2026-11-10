@@ -156,10 +156,23 @@ AMBIGUOUS_NEARBY_HINT = (
     "a specific address. No ```places fence and no listing links until they clarify."
 )
 
+# "Can i wolk?" to the nearest Apple Store got "1.5 miles, about 30 minutes" to a store
+# across the bay (2026-11-09): the model has no route to measure. Maps does, from the phone.
+DIRECTIONS_LINK_RULE = (
+    "Asked about getting somewhere (can they walk there, how long to drive, how far, which "
+    "train), give a Google Maps directions link, such as [Walking directions to <place>]"
+    "(https://www.google.com/maps/dir/?api=1&destination=<the place and its address, "
+    "URL-encoded>&travelmode=walking), with travelmode walking, driving, transit or bicycling. "
+    "Leave the origin out when they start from where they are: Maps starts from the phone. "
+    "Write no travel time and no distance (no minutes, hours, miles or km) unless a search "
+    "result in this turn states that number for this route: the link shows the real one, and "
+    "a guess is often wrong. Say whether it is walkable only when that is plain (across a bay, "
+    "between cities); otherwise let the link answer."
+)
+
 GEO_DISTANCE_HINT = (
-    "Distance / travel query: use the user's location and search results. Give concrete "
-    "miles or km and drive/walk time when available. Do NOT use a ```places fence unless "
-    "they also asked to find venues."
+    "Distance / travel query: use the user's location and search results. "
+    f"{DIRECTIONS_LINK_RULE} Do NOT use a ```places fence unless they also asked to find venues."
 )
 
 GEO_ACTIVE_LOCATION_HINT = (
