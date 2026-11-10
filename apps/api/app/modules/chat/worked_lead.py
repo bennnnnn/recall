@@ -296,6 +296,8 @@ def drop_restated_tail(text: str, question: str = "") -> str:
 _MATHS_LINE = re.compile(r"^[^\S\n]*\$(?P<tex>[^$\n]+)\$[^\S\n]*$")
 # A numbered step's own line: "**4. Combine**", "**1. Factor the left side** — Factoring".
 _STEP_LINE = re.compile(r"^[^\S\n]*\*\*\d+\.\s")
+# A heading line, bold alone: "**Solution**", "**Power rule**".
+_BOLD_LINE = re.compile(r"^[^\S\n]*\*\*[^*\n]+\*\*[^\S\n]*$")
 # What a line or a card names before its value: "x", "d_i", "m(nacl)", "\theta"; none ("= 5").
 _NAME = re.compile(r"(?:\\?[^\W\d_][\w\\']*(?:\([^()=]*\))?)?")
 
@@ -310,22 +312,51 @@ def _value_part(flat: str) -> tuple[str, str]:
     return ("=".join(before) if before else ""), value.strip()
 
 
+# A card that holds more than one value (two roots, a list, a ± pair): no one line says it.
+_SEVERAL = re.compile(r"\bor\b|[,;±∓]|\\pm|\\mp", re.IGNORECASE)
+# A group a card sets upright: its unit ("\\mathrm{units}", "\\text{ m}").
+_UPRIGHT = re.compile(r"\\(?:mathrm|text)\{([^{}]*)\}")
+
+
+def _is_unit(rest: str, value: str) -> bool:
+    """``rest``, what the card has after a line's number, is the card's unit: a unit's symbol
+    (cm^2) or a group the card sets upright (units). "\\sqrt3" or "-x" is more value."""
+    rest = rest.strip()
+    upright = {_flat(group).strip() for group in _UPRIGHT.findall(value)}
+    return bool(rest) and (
+        re.sub(r"\^-?\d+$", "", rest) in upright or dimension_of(rest) is not None
+    )
+
+
+def _base_name(name: str) -> str:
+    """``m(nacl)`` → ``m``: what a card names, without what it is of."""
+    return re.sub(r"\([^()]*\)$", "", name.strip())
+
+
 def _says_value(line: str, value: str) -> bool:
-    """``line`` states ``value`` and nothing more: the same, or a name set to its value, the
-    card's unit left off or not ("A ≈ 28.27" says "≈ 28.27 cm²"). A digit more is another
-    value: 29.22 is not 29."""
+    """``line`` states ``value`` and nothing more: the same, or the card's name (or none) set
+    to its value, the card's unit left off or not ("A ≈ 28.27" says "≈ 28.27 cm²"). A digit
+    more is another value (29.22 is not 29), and so is another name (t = 4 for x = 4 m) or
+    more after the number (x = 2 for 2√3). A card of several values says what no one line
+    does: "x = 2 or x = 3" stays above it."""
+    # Read on the card as written (flattened, "2 or" runs together as "2or"), its spacing
+    # commands (\\,) and grouped digits (1{,}200) set aside.
+    if _SEVERAL.search(_LATEX_SPACING.sub(" ", value.replace("{,}", ""))):
+        return False
     said, shown = _flat(line), _flat(value)
     if said == shown:
         return True
     name, right = _value_part(said)
-    card = _value_part(shown)[1]
+    card_name, card = _value_part(shown)
     if not right or _NAME.fullmatch(name.strip()) is None:
+        return False
+    if name.strip() and card_name.strip() and _base_name(name) != _base_name(card_name):
         return False
     if right == card:
         return True
     rest = card[len(right) :] if card.startswith(right) else ""
     bare = _NUMBER.fullmatch(right.removeprefix("-")) is not None
-    return bare and bool(rest) and not rest[0].isdigit() and rest[0] not in ".,"
+    return bare and rest[:1] not in ".," and not rest[:1].isdigit() and _is_unit(rest, value)
 
 
 def _card_value(text: str, start: int, end: int) -> str:
@@ -365,6 +396,16 @@ def _restated_line(tex: str, value: str) -> str | None:
     return tex[:cut].rstrip() if _says_value(f"{first}{tex[cut:]}", value) else None
 
 
+def _step_above(lines: list[str], at: int) -> bool:
+    """Whether another numbered step of working stands above line ``at``, before any heading."""
+    for line in reversed(lines[:at]):
+        if _STEP_LINE.match(line):
+            return True
+        if _BOLD_LINE.match(line):
+            return False
+    return False
+
+
 def _restated_above(lines: list[str], heading: int, value: str) -> dict[int, str | None]:
     """What changes above the Answer heading at ``heading``: the last line of working, dropped
     (None) when it only states ``value`` or cut to before a last link that does, and its
@@ -380,7 +421,9 @@ def _restated_above(lines: list[str], heading: int, value: str) -> dict[int, str
         return {last: lines[last].replace(match.group("tex"), kept, 1).rstrip()}
     above = lines[last - 1]
     if _STEP_LINE.match(above):
-        return {last - 1: None, last: None}
+        # The step goes whole only below another: a section's one step stays, so no Solution
+        # is left empty ("Solve x^2 = 2" saved as a Solution heading over its card).
+        return {last - 1: None, last: None} if _step_above(lines, last - 1) else {}
     # A section's one line ("**Substitution**" over it) stays: the section is never emptied.
     return {last: None} if _MATHS_LINE.match(above) else {}
 

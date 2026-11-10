@@ -324,3 +324,30 @@ def test_a_value_the_card_only_rounds_stays() -> None:
         "m(\\mathrm{NaCl}) = 29\\,\\mathrm{g}"
     )
     assert drop_restated_step(worked) == worked
+
+
+def test_a_sections_only_step_stays() -> None:
+    # Dropped whole, "Solve x^2 = 2" saved as a Solution heading over its card.
+    worked = "**Solution**\n\n**1. Divide both sides by 2**  \n$x = 3$\n\n" + _card("x = 3")
+    assert drop_restated_step(worked) == worked
+
+
+@pytest.mark.parametrize(
+    ("line", "card"),
+    [
+        # More after the number is more value, not a unit.
+        ("x = 2", "x = 2\\sqrt{3}"),
+        ("y = 5", "y = 5 - x"),
+        # Another name.
+        ("t = 4", "x = 4\\,\\mathrm{m}"),
+        # A card of several values: no one line says it, the line with both roots included.
+        ("x = 1", "1 \\text{ or } \\frac{3}{2}"),
+        ("x = 3", "x = 2 \\text{ or } x = 3"),
+        ("x = 2 \\text{ or } x = 3", "x = 2 \\text{ or } x = 3"),
+        ("y = 4", "x = 6, y = 4"),
+        ("x = \\pm \\sqrt{2}", "x = \\pm \\sqrt{2}"),
+    ],
+)
+def test_a_line_saying_another_value_stays(line: str, card: str) -> None:
+    worked = f"**Steps**  \n$x - 1 = 0$  \n${line}$\n\n" + _card(card)
+    assert drop_restated_step(worked) == worked
