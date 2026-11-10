@@ -248,7 +248,7 @@ async def _produce_reply(
     finally:
         if ctx.timing is not None:
             ctx.timing.mark_phase("tool_loop_done")
-    reply_calls.think_from_the_read(ctx)
+    reply_calls.think_from_the_read(ctx, settings)
     if _is_terminal_image(ctx):
         return
     if ctx.instant_reply:

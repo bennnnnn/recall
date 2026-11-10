@@ -264,7 +264,7 @@ def _stream_context(
     if user is None or turn.chat is None or model is None or prior_count is None:
         raise ChatNotFoundError("Turn context incomplete.")
     prior_user, prior_model = last_user_turn(turn.recent_messages)
-    return stream_context_from_bundle(
+    ctx = stream_context_from_bundle(
         bundle,
         user_id=turn.user_id,
         chat_id=turn.chat_id,
@@ -287,3 +287,8 @@ def _stream_context(
             settings=settings,
         ),
     )
+    ctx.auto_routed = plan_service.is_auto_enabled(user) and not plan_service.is_explicit_pick(
+        turn.model_alias
+    )
+    ctx.unsteady_models = bundle.half_open_models | (turn.unhealthy or frozenset())
+    return ctx
