@@ -462,13 +462,13 @@ def test_an_ice_table_reads_a_chain_of_equal_concentrations() -> None:
         (
             "25.0 mL of NaOH is neutralized by 20.0 mL of 0.100 M HCl. "
             "Find the concentration of the NaOH.",
-            "C₂ = 0.0800 mol/L",
+            "c₂ = 0.0800 mol/L",
         ),
         # H2SO4 gives two protons: it neutralizes twice its amount of NaOH.
         (
             "40.0 mL of NaOH is neutralized by 25.0 mL of 0.0500 M H2SO4. "
             "Find the concentration of the NaOH.",
-            "C₂ = 0.0625 mol/L",
+            "c₂ = 0.0625 mol/L",
         ),
     ],
 )

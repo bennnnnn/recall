@@ -75,20 +75,21 @@ def _to_moles(
         return amount, None
     if unit == "g":
         molar = molar_mass(formula)
-        return amount / molar, f"{inp(amount)} / {molar_mass_working(molar)}"
+        return amount / molar, f"{inp(amount)} g / {molar_mass_working(molar)} g/mol"
     if unit == "particles":
-        return amount / AVOGADRO, f"{inp(amount)} / {const(AVOGADRO)}"
+        return amount / AVOGADRO, f"{inp(amount)} / {const(AVOGADRO)} mol⁻¹"
     if unit == "L":
         pressure, temperature = _pressure_temperature(params, "gas amount")
         return (
             pressure * amount / (GAS_R * temperature),
-            f"({inp(pressure)})({inp(amount)}) / (({const(GAS_R)})({inp(temperature)}))",
+            f"({inp(pressure)} atm)({inp(amount)} L) / "
+            f"(({const(GAS_R)} L·atm/(mol·K))({inp(temperature)} K))",
         )
     if unit == "solution":
         molarity = params.get("molarity")
         if molarity is None or molarity < 0:
             raise SolveServiceError("solution amount needs molarity")
-        return molarity * amount, f"({inp(molarity)})({inp(amount)})"
+        return molarity * amount, f"({inp(molarity)} mol/L)({inp(amount)} L)"
     raise SolveServiceError(f"unsupported amount unit {unit}")
 
 
@@ -100,15 +101,16 @@ def _from_moles(
         return moles, "mol", None
     if unit == "g":
         molar = molar_mass(formula)
-        return moles * molar, "g", f"{carried(moles)} × {molar_mass_working(molar)}"
+        return moles * molar, "g", f"{carried(moles)} mol × {molar_mass_working(molar)} g/mol"
     if unit == "particles":
-        return moles * AVOGADRO, "particles", f"{carried(moles)} × {const(AVOGADRO)}"
+        return moles * AVOGADRO, "particles", f"{carried(moles)} mol × {const(AVOGADRO)} mol⁻¹"
     if unit == "L":
         pressure, temperature = _pressure_temperature(params, "gas volume")
         return (
             moles * GAS_R * temperature / pressure,
             "L",
-            f"({carried(moles)})({const(GAS_R)})({inp(temperature)}) / {inp(pressure)}",
+            f"({carried(moles)} mol)({const(GAS_R)} L·atm/(mol·K))({inp(temperature)} K) / "
+            f"{inp(pressure)} atm",
         )
     raise SolveServiceError(f"unsupported result unit {unit}")
 
@@ -143,7 +145,7 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
         f"n({known}) = {known_working} = {carried(moles)} mol"
         if known_working
         else f"n({known}) = {carried(moles)} mol",
-        f"n({target}) = {carried(moles)} × ({product_coeff} / {reactant_coeff}) "
+        f"n({target}) = {carried(moles)} mol × ({product_coeff} / {reactant_coeff}) "
         f"= {carried(product_moles)} mol",
     ]
     if find_working:
@@ -174,7 +176,7 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
                 ),
                 StoichStep(
                     label=f"n({target})",
-                    value=f"{carried(moles)} × ({product_coeff} / {reactant_coeff}) "
+                    value=f"{carried(moles)} mol × ({product_coeff} / {reactant_coeff}) "
                     f"= {carried(product_moles)} mol",
                 ),
                 StoichStep(label=_symbol(find_unit, target), value=value),
@@ -223,16 +225,16 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
             else f"n({formula}) = {carried(moles[formula])} mol"
         )
         steps.append(
-            f"{formula}: {carried(moles[formula])} / {balanced.reactants[formula]} = "
+            f"{formula}: {carried(moles[formula])} mol / {balanced.reactants[formula]} = "
             f"{carried(reaction_units[formula])} reaction units"
         )
     steps.append(f"limiting reagent = {' and '.join(limiting)} (fewest reaction units)")
     steps.append(
-        f"n({target}) = {carried(fewest)} × {product_coeff} = {carried(product_moles)} mol"
+        f"n({target}) = {carried(fewest)} mol × {product_coeff} = {carried(product_moles)} mol"
     )
     steps.append(
-        f"m({target}) = {carried(product_moles)} × {molar_mass_working(product_molar)} "
-        f"= {num(product_mass)} g"
+        f"m({target}) = {carried(product_moles)} mol × {molar_mass_working(product_molar)} "
+        f"g/mol = {num(product_mass)} g"
     )
     for formula, amount in moles.items():
         if formula in limiting:
@@ -242,13 +244,14 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
         if unit == "g":
             molar = molar_mass(formula)
             steps.append(
-                f"excess {formula} = ({carried(amount)} − {carried(used)}) × "
-                f"{molar_mass_working(molar)} "
+                f"excess {formula} = ({carried(amount)} mol − {carried(used)} mol) × "
+                f"{molar_mass_working(molar)} g/mol "
                 f"= {num(leftover * molar)} g"
             )
         else:
             steps.append(
-                f"excess {formula} = {carried(amount)} − {carried(used)} = {num(leftover)} mol"
+                f"excess {formula} = {carried(amount)} mol − {carried(used)} mol "
+                f"= {num(leftover)} mol"
             )
     value = f"{num(product_mass)} g {target}"
     return verified(
@@ -296,10 +299,10 @@ def solve_reaction_percent_yield(intent: ChemistryIntent) -> ChemistryResult:
         *stated("reaction_percent_yield"),
         (
             f"n({known}) = {known_working} = {carried(moles)} mol",
-            f"n({target}) = {carried(moles)} × ({product_coeff} / {reactant_coeff})"
+            f"n({target}) = {carried(moles)} mol × ({product_coeff} / {reactant_coeff})"
             f" = {carried(product_moles)} mol",
-            f"theoretical m({target}) = {carried(product_moles)} × {molar_mass_working(molar)}"
-            f" = {carried(theoretical)} g",
+            f"theoretical m({target}) = {carried(product_moles)} mol × "
+            f"{molar_mass_working(molar)} g/mol = {carried(theoretical)} g",
             f"% yield = ({inp(actual)} g / {carried(theoretical)} g) × 100",
         ),
         f"Percent yield = {value}",

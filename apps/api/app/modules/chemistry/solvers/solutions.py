@@ -34,7 +34,7 @@ def _volume_in_l(value: float, unit: str) -> float:
 
 
 def _stock_concentration(intent: ChemistryIntent) -> ChemistryResult:
-    """M1 = M2 V2 / V1: the stock a dilution starts from."""
+    """c1 = c2 V2 / V1: the stock a dilution starts from."""
     v1 = require(intent, "v1", positive=True)
     m2 = require(intent, "m2", positive=True)
     v2 = require(intent, "v2", positive=True)
@@ -48,7 +48,7 @@ def _stock_concentration(intent: ChemistryIntent) -> ChemistryResult:
     value = f"{num(result)} mol/L"
     substitution: tuple[str, ...]
     if v1_unit == v2_unit:
-        substitution = (f"M1 = ({qty(m2, 'mol/L')})({qty(v2, v2_unit)}) / {qty(v1, v1_unit)}",)
+        substitution = (f"c1 = ({qty(m2, 'mol/L')})({qty(v2, v2_unit)}) / {qty(v1, v1_unit)}",)
     else:
         litres = {"V1": converted_from(v1_l, v1), "V2": converted_from(v2_l, v2)}
         in_litres = tuple(
@@ -58,25 +58,25 @@ def _stock_concentration(intent: ChemistryIntent) -> ChemistryResult:
         )
         substitution = (
             *in_litres,
-            f"M1 = ({qty(m2, 'mol/L')})({litres['V2']} L) / {litres['V1']} L",
+            f"c1 = ({qty(m2, 'mol/L')})({litres['V2']} L) / {litres['V1']} L",
         )
     return verified(
         "Verified dilution",
         (
             f"V1 = {inp(v1)} {v1_unit}",
-            f"M2 = {inp(m2)} mol/L",
+            f"c2 = {inp(m2)} mol/L",
             f"V2 = {inp(v2)} {v2_unit}",
         ),
-        "Stock concentration, M1",
+        "Stock concentration, c1",
         *stated("dilution"),
         substitution,
-        f"M1 = {value}",
+        f"c1 = {value}",
         value,
     )
 
 
 def _stock_volume(intent: ChemistryIntent) -> ChemistryResult:
-    """V1 = M2V2 / M1: the stock a dilution starts from, in the unit asked or V2's."""
+    """V1 = c2V2 / c1: the stock a dilution starts from, in the unit asked or V2's."""
     m1 = require(intent, "m1", positive=True)
     m2 = require(intent, "m2", positive=True)
     v2 = require(intent, "v2", positive=True)
@@ -95,7 +95,7 @@ def _stock_volume(intent: ChemistryIntent) -> ChemistryResult:
         rows.append(f"V1 = {num(in_v2_unit)} {v2_unit} = {value}")
     return verified(
         "Verified dilution",
-        (f"M1 = {inp(m1)} mol/L", f"M2 = {inp(m2)} mol/L", f"V2 = {inp(v2)} {v2_unit}"),
+        (f"c1 = {inp(m1)} mol/L", f"c2 = {inp(m2)} mol/L", f"V2 = {inp(v2)} {v2_unit}"),
         "Volume of the stock solution, V1",
         *stated("dilution"),
         tuple(rows),
@@ -143,9 +143,9 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             )
             answer = f"V2 = {value}"
             given = (
-                f"M1 = {inp(m1)} mol/L",
+                f"c1 = {inp(m1)} mol/L",
                 f"V1 = {inp(v1)} {v1_unit}",
-                f"M2 = {inp(m2)} mol/L",
+                f"c2 = {inp(m2)} mol/L",
             )
         else:
             if v2 <= 0:
@@ -155,11 +155,11 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             v2_l = _volume_in_l(v2, v2_unit)
             result = m1 * v1_l / v2_l
             value = f"{num(result)} mol/L"
-            find = "Final concentration, M2"
-            # M1V1 = M2V2 holds in any one volume unit; two different ones meet in litres.
+            find = "Final concentration, c2"
+            # c1V1 = c2V2 holds in any one volume unit; two different ones meet in litres.
             if v1_unit == v2_unit:
                 substitution = (
-                    f"M2 = ({qty(m1, 'mol/L')})({qty(v1, v1_unit)}) / {qty(v2, v2_unit)}",
+                    f"c2 = ({qty(m1, 'mol/L')})({qty(v1, v1_unit)}) / {qty(v2, v2_unit)}",
                 )
             else:
                 litres = {"V1": converted_from(v1_l, v1), "V2": converted_from(v2_l, v2)}
@@ -170,11 +170,11 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
                 )
                 substitution = (
                     *in_litres,
-                    f"M2 = ({qty(m1, 'mol/L')})({litres['V1']} L) / {litres['V2']} L",
+                    f"c2 = ({qty(m1, 'mol/L')})({litres['V1']} L) / {litres['V2']} L",
                 )
-            answer = f"M2 = {value}"
+            answer = f"c2 = {value}"
             given = (
-                f"M1 = {inp(m1)} mol/L",
+                f"c1 = {inp(m1)} mol/L",
                 f"V1 = {inp(v1)} {v1_unit}",
                 f"V2 = {inp(v2)} {v2_unit}",
             )
@@ -251,7 +251,7 @@ def _molality(intent: ChemistryIntent) -> tuple[float, str, list[str], list[str]
     if stated_molality is not None:
         if stated_molality < 0:
             raise SolveServiceError("colligative inputs must be physically valid")
-        return stated_molality, inp(stated_molality), [f"m = {inp(stated_molality)} mol/kg"], []
+        return stated_molality, inp(stated_molality), [f"b = {inp(stated_molality)} mol/kg"], []
     mass, unit, kilograms = _solvent_kilograms(intent)
     solvent = converted_from(kilograms, mass) if unit != "kg" else inp(mass)
     given = [f"m(solvent) = {inp(mass)} {unit}"]
@@ -262,7 +262,7 @@ def _molality(intent: ChemistryIntent) -> tuple[float, str, list[str], list[str]
             raise SolveServiceError("colligative inputs must be physically valid")
         molality = moles / kilograms
         given.insert(0, f"n(solute) = {inp(moles)} mol")
-        working.append(f"m = {qty(moles, 'mol')} / {solvent} kg = {num(molality)} mol/kg")
+        working.append(f"b = {qty(moles, 'mol')} / {solvent} kg = {num(molality)} mol/kg")
         return molality, num(molality), given, working
     solute = require(intent, "solute_mass", positive=True)
     molar = require(intent, "molar_mass", positive=True)
@@ -273,7 +273,7 @@ def _molality(intent: ChemistryIntent) -> tuple[float, str, list[str], list[str]
     working.extend(
         (
             f"n = {qty(solute, 'g')} / {molar_mass_working(molar)} g/mol = {num(amount)} mol",
-            f"m = {num(amount)} mol / {solvent} kg = {num(molality)} mol/kg",
+            f"b = {num(amount)} mol / {solvent} kg = {num(molality)} mol/kg",
         )
     )
     return molality, num(molality), given, working
@@ -304,11 +304,13 @@ def _colligative(
     # A van 't Hoff factor is a count of particles, never a measurement (1, not 1.00).
     count = str(int(factor)) if factor.is_integer() else inp(factor)
     given = [f"i = {count}", f"{constant_label} = {inp(constant)} °C·kg/mol", *amount_given]
-    working.append(f"{symbol} = ({count})({inp(constant)})({molality_text}) = {change} °C")
+    # Each factor with its unit: (i)(K °C·kg/mol)(b mol/kg).
+    factors = f"({count})({inp(constant)} °C·kg/mol)({molality_text} mol/kg)"
+    working.append(f"{symbol} = {factors} = {change} °C")
     normal = intent.params.get("normal_point")
     if normal is None:
         shown = f"{symbol} = {change} °C"
-        working[-1] = f"{symbol} = ({count})({inp(constant)})({molality_text})"
+        working[-1] = f"{symbol} = {factors}"
         return verified(title, given, symbol, *stated(operation), working, shown, shown)
     # The new point is the solvent's normal point moved by the change: Tb = Tb° + ΔTb.
     point = symbol.removeprefix("Δ")
@@ -369,10 +371,13 @@ def solve_osmotic(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"Π = {num(value)} atm"
     return verified(
         "Verified osmotic pressure",
-        (f"i = {inp(factor)}", f"M = {inp(molarity)} mol/L", f"T = {inp(temperature)} K"),
+        (f"i = {inp(factor)}", f"c = {inp(molarity)} mol/L", f"T = {inp(temperature)} K"),
         "Osmotic pressure",
         *stated("osmotic_pressure"),
-        (f"Π = ({inp(factor)})({inp(molarity)})({const(GAS_R)})({inp(temperature)})",),
+        (
+            f"Π = ({inp(factor)})({inp(molarity)} mol/L)({const(GAS_R)} L·atm/(mol·K))"
+            f"({inp(temperature)} K)",
+        ),
         shown,
         shown,
     )
@@ -388,7 +393,7 @@ def solve_raoult(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"P = {num(fraction * pure)}{suffix}"
     return verified(
         "Verified Raoult's law",
-        (f"X = {inp(fraction)}", f"P° = {inp(pure)}{suffix}"),
+        (f"χ = {inp(fraction)}", f"P° = {inp(pure)}{suffix}"),
         "Vapor pressure",
         *stated("raoult"),
         (f"P = ({inp(fraction)})({inp(pure)})",),

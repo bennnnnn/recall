@@ -144,7 +144,7 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
         balanced = balance_equation(equation)
         product_coeff = balanced.products[target]
         ratios = tuple(
-            f"{name}: {inp(amount)} / {balanced.reactants[name]} = "
+            f"{name}: {inp(amount)} mol / {balanced.reactants[name]} = "
             f"{carried(amount / balanced.reactants[name])} reaction units"
             for name, amount in intent.species.items()
         )
@@ -178,7 +178,7 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
         f"Moles of {target}",
         stated("stoichiometry")[0],
         f"n({target}) = n({known}) × ({p_coeff} / {r_coeff})",
-        (f"n({target}) = {inp(amount)} × ({p_coeff} / {r_coeff})",),
+        (f"n({target}) = {inp(amount)} mol × ({p_coeff} / {r_coeff})",),
         f"n({target}) = {value}",
         value,
     )

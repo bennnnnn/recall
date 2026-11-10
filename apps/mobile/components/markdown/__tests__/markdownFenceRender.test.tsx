@@ -197,11 +197,11 @@ describe("renderFence geometry/graph dispatch", () => {
         [1, 1],
       ],
     });
-    const { getByDisplayValue, getByTestId } = await render(
+    const { getByLabelText, getByTestId } = await render(
       <>{renderFence(node(content, "graph"))}</>,
     );
     await waitFor(() => {
-      expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
+      expect(getByLabelText(/, y = x\^2$/)).toBeOnTheScreen();
       expect(getByTestId("graph-expand")).toBeOnTheScreen();
     });
   });
@@ -226,11 +226,11 @@ describe("renderFence geometry/graph dispatch", () => {
         [1, 0.84],
       ],
     });
-    const { getByDisplayValue, getByTestId } = await render(
+    const { getByLabelText, getByTestId } = await render(
       <>{renderFence(node(content))}</>,
     );
     await waitFor(() => {
-      expect(getByDisplayValue("y = sin(x)")).toBeOnTheScreen();
+      expect(getByLabelText(/, y = sin\(x\)$/)).toBeOnTheScreen();
       expect(getByTestId("graph-expand")).toBeOnTheScreen();
     });
   });

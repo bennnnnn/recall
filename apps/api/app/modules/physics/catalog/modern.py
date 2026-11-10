@@ -139,8 +139,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "photoelectric_kinetic_energy_wavelength",
         "modern",
         "Photoelectric equation",
-        "K_{max}",
-        base_latex=r"K_{max} = \frac{hc}{\lambda} - \phi",
+        r"E_{k,\max}",
+        base_latex=r"E_{k,\max} = \frac{hc}{\lambda} - \phi",
         expression="h_planck*c_light/wavelength - work_function",
         variables=(
             var("wavelength", r"\lambda", "meter"),
@@ -166,8 +166,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "photoelectric_kinetic_energy",
         "modern",
         "Photoelectric equation",
-        "K_{max}",
-        base_latex="K_{max} = hf - \\phi",
+        r"E_{k,\max}",
+        base_latex=r"E_{k,\max} = hf - \phi",
         variables=(
             var("freq", "f", "hertz"),
             var("work_function", r"\phi", "joule"),

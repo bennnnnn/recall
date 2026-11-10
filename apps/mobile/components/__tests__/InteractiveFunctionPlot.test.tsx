@@ -4,10 +4,11 @@
  * explorer, hole markers, the explorer's own plot size, and the Skia canvas
  * with the SVG one standing in while it loads.
  */
-import { act, fireEvent, render } from "@testing-library/react-native";
-import { ScrollView, StyleSheet } from "react-native";
+import { act, fireEvent, render, renderHook } from "@testing-library/react-native";
+import { ScrollView, StyleSheet, type LayoutChangeEvent } from "react-native";
 
 import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
+import { useFunctionPlotState } from "@/components/rich/useFunctionPlotState";
 import { parseGraphSpec, type GraphSpec } from "@/lib/math/graphSpec";
 import { lightTheme } from "@/lib/theme";
 
@@ -51,6 +52,12 @@ function plot(graph: GraphSpec, chartWidth = 300) {
   return render(<InteractiveFunctionPlot spec={graph} chartWidth={chartWidth} styles={STYLES} theme={lightTheme} />);
 }
 
+/** A tap on a curve's maths, as a person edits it: the field takes its place. */
+async function edit(view: Awaited<ReturnType<typeof plot>>, id = "graph-expr-input") {
+  await fireEvent.press(view.getByTestId(`${id}-math`));
+  return view.getByTestId(id);
+}
+
 beforeEach(() => {
   mockSkia = false;
 });
@@ -74,37 +81,44 @@ describe("InteractiveFunctionPlot", () => {
     expect(titled.getByText("Area x²")).toBeOnTheScreen();
     const plain = await plot(spec({ type: "function", expr: "x**2", title: "x**2", points: [[0, 0], [1, 1]] }));
     expect(plain.queryByText("x²")).toBeNull();
-    expect(plain.getByDisplayValue("y = x^2")).toBeOnTheScreen();
+    expect(plain.getByLabelText("rich.graph_expr_a11y, y = x^2")).toBeOnTheScreen();
   });
 
   it("titles a vertical line and offers no editor for it", async () => {
     const { getByText, queryByTestId } = await plot(spec({ type: "vertical", expr: "x = 3", x: 3 }));
     expect(getByText("x = 3")).toBeOnTheScreen();
     expect(queryByTestId("graph-expr-input")).toBeNull();
+    expect(queryByTestId("graph-expr-input-math")).toBeNull();
     expect(queryByTestId("graph-add-function")).toBeNull();
   });
 
-  it("draws the legend as maths over its field, and the plain text while it is edited", async () => {
-    // The legend read `y = x^2 - 4x + 3` in a monospace field (2026-11-06).
-    const { getByTestId, queryByTestId } = await plot(
+  it("draws the legend as maths, and the field in its place while it is edited", async () => {
+    // The legend read `y = x^2 - 4x + 3` in a monospace field (2026-11-06). The field lay
+    // under the maths with its text transparent, which Android drew anyway (S23, 2026-11-09).
+    const view = await plot(
       spec({ type: "function", expr: "x**2 - 4*x + 3", points: [[0, 3], [2, -1], [4, 3]] }),
     );
+    const { getByTestId, queryByTestId } = view;
     const math = getByTestId("graph-expr-input-math");
-    expect(math.props.pointerEvents).toBe("none");
-    // Typeset: a raised 2 and a true minus sign.
+    // Typeset: a raised 2 and a true minus sign; a button a tap or a screen reader reaches.
     expect(math).toHaveTextContent(/y = x2 − 4x \+ 3$/);
-    const field = getByTestId("graph-expr-input");
-    // The field under it keeps the plotting grammar's text, for editing.
-    expect(field.props.value).toBe("y = x^2 - 4*x + 3");
-    expect(StyleSheet.flatten(field.props.style).color).toBe("transparent");
-    await fireEvent(field, "focus");
+    expect(math.props.accessibilityRole).toBe("button");
+    expect(math.props.accessibilityLabel).toBe("rich.graph_expr_a11y, y = x^2 - 4*x + 3");
+    // No field under it, to show through.
+    expect(queryByTestId("graph-expr-input")).toBeNull();
+    const field = await edit(view);
     expect(queryByTestId("graph-expr-input-math")).toBeNull();
-    expect(StyleSheet.flatten(getByTestId("graph-expr-input").props.style).color).toBe(lightTheme.text);
-    await fireEvent(getByTestId("graph-expr-input"), "blur");
+    // The plotting grammar's text, for editing, with the keyboard up at once.
+    expect(field.props.value).toBe("y = x^2 - 4*x + 3");
+    expect(field.props.autoFocus).toBe(true);
+    expect(StyleSheet.flatten(field.props.style).color).toBe(lightTheme.text);
+    await fireEvent(field, "blur");
     expect(getByTestId("graph-expr-input-math")).toBeOnTheScreen();
     // What the plot cannot read stays the text it is, in the danger ink.
-    await fireEvent.changeText(getByTestId("graph-expr-input"), "banana");
+    await fireEvent.changeText(await edit(view), "banana");
+    await fireEvent(getByTestId("graph-expr-input"), "blur");
     expect(queryByTestId("graph-expr-input-math")).toBeNull();
+    expect(StyleSheet.flatten(getByTestId("graph-expr-input").props.style).color).toBe(lightTheme.danger);
   });
 
   it("adds, hides and removes a series in the card", async () => {
@@ -112,10 +126,14 @@ describe("InteractiveFunctionPlot", () => {
     await fireEvent.press(getByTestId("graph-add-function"));
     await fireEvent.changeText(getByTestId("graph-expr-input-1"), "2x");
     expect(getByTestId("graph-expr-input-1").props.value).toBe("2x");
+    // Hidden while it is typed, the field dims; once typed, its maths does.
+    const opacity = (id: string) => StyleSheet.flatten(getByTestId(id).props.style).opacity;
     await fireEvent.press(getByTestId("graph-hide-1"));
-    expect(StyleSheet.flatten(getByTestId("graph-expr-input-1").props.style).opacity).toBe(0.4);
+    expect(opacity("graph-expr-input-1")).toBe(0.4);
+    await fireEvent(getByTestId("graph-expr-input-1"), "blur");
+    expect(opacity("graph-expr-input-1-math")).toBe(0.4);
     await fireEvent.press(getByTestId("graph-hide-1"));
-    expect(StyleSheet.flatten(getByTestId("graph-expr-input-1").props.style).opacity).toBeUndefined();
+    expect(opacity("graph-expr-input-1-math")).toBeUndefined();
     await fireEvent.press(getByTestId("graph-remove-1"));
     expect(queryByTestId("graph-expr-input-1")).toBeNull();
     // The seeded expression is locked: it has no hide or remove buttons.
@@ -129,9 +147,10 @@ describe("InteractiveFunctionPlot", () => {
       points: [[-2, -1], [0, 1], [2, 3]],
       holes: [[1, 2]],
     });
-    const { getByTestId, queryByTestId } = await plot(holed);
+    const view = await plot(holed);
+    const { getByTestId, queryByTestId } = view;
     expect(getByTestId("graph-hole-0")).toBeOnTheScreen();
-    await fireEvent.changeText(getByTestId("graph-expr-input"), "x + 1");
+    await fireEvent.changeText(await edit(view), "x + 1");
     expect(queryByTestId("graph-hole-0")).toBeNull();
   });
 
@@ -150,7 +169,8 @@ describe("InteractiveFunctionPlot", () => {
         { x: "2", y: 1 },
       ],
     });
-    const { getByTestId, queryByTestId, toJSON } = await plot(marked);
+    const view = await plot(marked);
+    const { queryByTestId, toJSON } = view;
     // react-native-svg's text is a native RNSVGTSpan holding `content`.
     const nodes = nodesIn(toJSON());
     const label = (i: number) =>
@@ -165,8 +185,44 @@ describe("InteractiveFunctionPlot", () => {
     expect(label(3)).toBe("(0, 3)");
     // A malformed mark is left out, never the graph.
     expect(queryByTestId("graph-mark-4")).toBeNull();
-    await fireEvent.changeText(getByTestId("graph-expr-input"), "x + 1");
+    await fireEvent.changeText(await edit(view), "x + 1");
     expect(queryByTestId("graph-mark-0")).toBeNull();
+  });
+
+  it("keeps the explorer's view when the keyboard shrinks its plot", async () => {
+    // Re-made for each plot height, the view jumped back to its start when the keyboard came
+    // up to type a function, throwing the user's pan and zoom away (review, 2026-11-09).
+    const { result } = await renderHook(() => useFunctionPlotState(PARABOLA, 300, lightTheme));
+    const layout = (height: number) =>
+      act(async () => {
+        result.current.explorer.onPlotLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width: 360, height } },
+        } as LayoutChangeEvent);
+      });
+    await layout(600);
+    const view = result.current.explorer.initialView;
+    await layout(260);
+    expect(result.current.explorer.plot.height).toBe(260);
+    expect(result.current.explorer.initialView).toEqual(view);
+  });
+
+  it("takes the explorer's view from its tallest plot, not a first one the keyboard shortened", async () => {
+    // Opened while a keyboard was still closing, the plot first laid out short, and the view
+    // kept that shape after the keyboard went: stretched for good (review, 2026-11-09).
+    const { result } = await renderHook(() => useFunctionPlotState(PARABOLA, 300, lightTheme));
+    const layout = (height: number) =>
+      act(async () => {
+        result.current.explorer.onPlotLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width: 360, height } },
+        } as LayoutChangeEvent);
+      });
+    await layout(260);
+    const short = result.current.explorer.initialView;
+    await layout(600);
+    const full = result.current.explorer.initialView;
+    expect(full).not.toEqual(short);
+    await layout(260);
+    expect(result.current.explorer.initialView).toEqual(full);
   });
 
   it("moves the editor into the explorer while it is open, and back when it closes", async () => {
@@ -175,7 +231,7 @@ describe("InteractiveFunctionPlot", () => {
     expect(queryByTestId("graph-series-scroll")).toBeNull();
     await fireEvent.press(getByTestId("graph-expand"));
     expect(getByTestId("graph-modal-sheet")).toBeOnTheScreen();
-    expect(getAllByTestId("graph-expr-input")).toHaveLength(1);
+    expect(getAllByTestId("graph-expr-input-math")).toHaveLength(1);
     expect(getByTestId("graph-series-scroll")).toBeOnTheScreen();
     const sheet = StyleSheet.flatten(getByTestId("graph-modal-sheet").props.style);
     expect(sheet.marginTop).toBe(20);
@@ -183,7 +239,7 @@ describe("InteractiveFunctionPlot", () => {
     expect(sheet.backgroundColor).toBe(lightTheme.elevated);
     await fireEvent.press(getByTestId("graph-close"));
     expect(queryByTestId("graph-modal-sheet")).toBeNull();
-    expect(getByTestId("graph-expr-input")).toBeOnTheScreen();
+    expect(getByTestId("graph-expr-input-math")).toBeOnTheScreen();
     expect(queryByTestId("graph-series-scroll")).toBeNull();
   });
 

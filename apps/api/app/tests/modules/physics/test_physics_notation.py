@@ -1,4 +1,6 @@
-"""Initial and final velocity are shown v_i and v_f wherever a law tells them apart."""
+"""Initial and final velocity are shown v_i and v_f wherever a law tells them apart; a
+displacement is s and a distance d, so suvat writes s = v_i t + ½at² and a steady speed
+v = d/t."""
 
 from __future__ import annotations
 
@@ -10,7 +12,7 @@ from app.core.config import Settings
 from app.modules.physics.catalog import CATALOG, symbol_for
 from app.modules.physics.direct import format_direct_physics_working
 from app.modules.physics.notation import _SHOWN, shown
-from app.modules.physics.reply_policy import PHYSICS_VELOCITY_NOTATION, physics_prompt_hints
+from app.modules.physics.reply_policy import PHYSICS_SYMBOLS, physics_prompt_hints
 from app.services.law_binding.spec import FormulaSpec
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
@@ -29,7 +31,7 @@ from app.tests.modules.physics.support import build_verified_physics_block, extr
             r"\tfrac{1}{2}mv^2 = \tfrac{1}{2}mu^2 + mgh",
             r"\tfrac{1}{2}mv_f^2 = \tfrac{1}{2}mv_i^2 + mgh",
         ),
-        ("impulse", "J = m(v_2 - v_1)", "J = m(v_f - v_i)"),
+        ("impulse", "I = m(v_2 - v_1)", "I = m(v_f - v_i)"),
         (
             "work_energy",
             r"W_{net} = \frac{1}{2}m(v_2^2 - v_1^2)",
@@ -131,5 +133,46 @@ def test_direct_reply_shows_v_i_and_v_f(question: str, rows: list[str]) -> None:
 
 
 def test_model_is_told_the_same_notation() -> None:
-    assert PHYSICS_VELOCITY_NOTATION in physics_prompt_hints(short=False)
-    assert "$v_f = v_i + at$" in PHYSICS_VELOCITY_NOTATION
+    assert PHYSICS_SYMBOLS in physics_prompt_hints(short=False)
+    assert "$v_f = v_i + at$" in PHYSICS_SYMBOLS
+
+
+@pytest.mark.parametrize(
+    "question, rows",
+    [
+        # A distance at a steady speed is d: the bus of 2026-11-10.
+        (
+            "A bus travels at 25 m/s. How long does it take to travel 5 km?",
+            [r"$d = 5\,\mathrm{km}", "$d$ = distance", r"$v = \frac{d}{t}$"],
+        ),
+        # A displacement under constant acceleration is s, from v_i to v_f.
+        (
+            "A car accelerates uniformly from 10 m/s to 30 m/s in 5 s. What is its displacement?",
+            ["**Required**  \n$s$", r"$s = \tfrac{1}{2}(v_i + v_f)t$"],
+        ),
+        (
+            "A ball is thrown at 10 m/s and accelerates at 3 m/s^2 over 16 m. "
+            "What is its final velocity?",
+            [r"$s = 16\,\mathrm{m}$", "$s$ = displacement"],
+        ),
+        # Two legs walked are distances; where they leave you is a displacement.
+        (
+            "A man walks 3 km east and then 4 km north. What is his displacement?",
+            ["**Required**  \n$s$ (displacement)", r"$s = \sqrt{d_1^2 + d_2^2}$"],
+        ),
+        # Work is the force times the displacement along it.
+        (
+            "A force of 20 N pushes a box 5 m along the floor. How much work is done?",
+            [r"$s = 5\,\mathrm{m}$", "$s$ = displacement", "W = F"],
+        ),
+    ],
+)
+def test_a_displacement_is_s_and_a_distance_d(question: str, rows: list[str]) -> None:
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    reply = format_direct_physics_working(block)
+    assert reply is not None
+    for row in rows:
+        assert row in reply

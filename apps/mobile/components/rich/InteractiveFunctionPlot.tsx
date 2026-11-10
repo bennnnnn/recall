@@ -24,6 +24,8 @@ import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 const MODAL_LIST_MAX = 220;
 /** A legend row's text and its maths: one size. */
 const LEGEND_SIZE = 15;
+/** A legend row's height, as maths or as the field that edits it. */
+const LEGEND_ROW_MIN = 28;
 
 type Props = {
   spec: GraphSpec;
@@ -199,9 +201,11 @@ function SeriesList({
 }
 
 /**
- * A curve's row: its colour and its relation, drawn as maths (y = x² − 4x + 3) over the
- * field that edits it. A tap edits the field, which shows the plain text while it has
- * focus; a relation the plot grammar cannot read stays text.
+ * A curve's row: its colour and its relation, drawn as maths (y = x² − 4x + 3). A tap puts
+ * the field that edits it in its place, with the plain text, until it loses focus; a
+ * relation the plot grammar cannot read, or none yet, stays the field. Never the field
+ * under the maths: Android draws a field's text in a transparent colour (both showed,
+ * Galaxy S23, 2026-11-09), and iOS taps and screen readers pass over a field hidden whole.
  */
 function SeriesRow({
   row,
@@ -229,30 +233,37 @@ function SeriesRow({
     <View style={styles.row}>
       <View style={[styles.swatch, { backgroundColor: row.color, opacity: row.visible ? 1 : 0.35 }]} />
       <View style={styles.expr}>
-        <TextInput
-          value={row.expr}
-          onChangeText={onChangeExpr}
-          onFocus={() => setEditing(true)}
-          onBlur={() => setEditing(false)}
-          autoCapitalize="none"
-          autoCorrect={false}
-          spellCheck={false}
-          accessibilityLabel={t("rich.graph_expr_a11y")}
-          testID={inputId}
-          placeholder={t("rich.graph_expr_placeholder")}
-          placeholderTextColor={theme.textSecondary}
-          style={[
-            styles.input,
-            row.invalid && styles.inputInvalid,
-            latex != null && styles.inputUnderMath,
-            !row.visible && styles.dim,
-          ]}
-        />
         {latex != null ? (
-          <View pointerEvents="none" testID={`${inputId}-math`} style={[styles.exprMath, !row.visible && styles.dim]}>
+          <Pressable
+            onPress={() => setEditing(true)}
+            testID={`${inputId}-math`}
+            accessibilityRole="button"
+            accessibilityLabel={`${t("rich.graph_expr_a11y")}, ${row.expr}`}
+            style={[styles.exprMath, !row.visible && styles.dim]}
+          >
             <MathText latex={latex} textColor={theme.text} fontSize={LEGEND_SIZE} />
-          </View>
-        ) : null}
+          </Pressable>
+        ) : (
+          <TextInput
+            value={row.expr}
+            onChangeText={(text) => {
+              setEditing(true);
+              onChangeExpr(text);
+            }}
+            onFocus={() => setEditing(true)}
+            onBlur={() => setEditing(false)}
+            // Opened by a tap on its maths: the keyboard comes up at once.
+            autoFocus={editing}
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            accessibilityLabel={t("rich.graph_expr_a11y")}
+            testID={inputId}
+            placeholder={t("rich.graph_expr_placeholder")}
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.input, row.invalid && styles.inputInvalid, !row.visible && styles.dim]}
+          />
+        )}
         {row.invalid ? (
           <Text style={styles.invalidNote} accessibilityLiveRegion="polite">
             {t("rich.graph_invalid")}
@@ -349,6 +360,7 @@ const makeExplorerStyles = (theme: Theme) =>
     input: {
       margin: 0,
       paddingVertical: 2,
+      minHeight: LEGEND_ROW_MIN,
       ...CODE_FACE,
       fontSize: LEGEND_SIZE,
       color: theme.text,
@@ -356,12 +368,9 @@ const makeExplorerStyles = (theme: Theme) =>
     inputInvalid: {
       color: theme.danger,
     },
-    // The field stays under the maths, tappable, its own text hidden until it is edited.
-    inputUnderMath: {
-      color: "transparent",
-    },
+    // The same height as the field it turns into, so a tap does not move the rows.
     exprMath: {
-      ...StyleSheet.absoluteFill,
+      minHeight: LEGEND_ROW_MIN,
       justifyContent: "center",
       alignItems: "flex-start",
     },

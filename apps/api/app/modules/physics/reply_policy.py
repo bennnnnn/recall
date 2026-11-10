@@ -56,15 +56,19 @@ PHYSICS_PARTIAL_POLICY = (
 )
 
 
-# The symbols the server's own working shows (``notation``), so a reply the model
-# writes reads the same as one the server writes.
-PHYSICS_VELOCITY_NOTATION = (
+# The symbols the server's own working shows (``notation`` and the catalog), so a reply the
+# model writes reads the same as one the server writes: one letter for one quantity in an
+# answer.
+PHYSICS_SYMBOLS = (
     "Physics notation: write a body's initial and final velocity as $v_i$ and $v_f$ "
     "($v_f = v_i + at$, $v_f^2 = v_i^2 + 2as$), never u and v. In a collision, "
-    "$v_{1i}$ and $v_{2i}$ before, $v_{1f}$ and $v_{2f}$ after."
+    "$v_{1i}$ and $v_{2i}$ before, $v_{1f}$ and $v_{2f}$ after. A displacement is $s$ "
+    "and a distance $d$ (a speed is $v = \\frac{d}{t}$). Kinetic energy $E_k$, potential "
+    "energy $E_p$, work $W = Fs$, impulse $I$, pressure $P$. Never use one letter for two "
+    "quantities in one answer: beside work $W$, write a weight as $mg$."
 )
 
 
 def physics_prompt_hints(short: bool) -> tuple[str, ...]:
     """The physics pack: the short one in Short style or on a compact turn."""
-    return (PHYSICS_SHORT_HINT,) if short else (PHYSICS_INTENT_HINT, PHYSICS_VELOCITY_NOTATION)
+    return (PHYSICS_SHORT_HINT,) if short else (PHYSICS_INTENT_HINT, PHYSICS_SYMBOLS)
