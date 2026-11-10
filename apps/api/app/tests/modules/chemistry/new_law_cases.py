@@ -87,7 +87,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
         "particles_to_mass",
         "m = 9.00 g",
     ),
-    ("What is the density of CO2 gas at 1.00 atm and 273 K?", "gas_density", "d = 1.96 g/L"),
+    ("What is the density of CO2 gas at 1.00 atm and 273 K?", "gas_density", "ρ = 1.96 g/L"),
     (
         "A gas has a density of 1.25 g/L at 1.00 atm and 273 K. What is its molar mass?",
         "molar_mass_from_density",
@@ -112,7 +112,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
         "25.0 mL of NaOH is neutralized by 20.0 mL of 0.100 M HCl. "
         "Find the concentration of the NaOH.",
         "titration_concentration",
-        "C₂ = 0.0800 mol/L",
+        "c₂ = 0.0800 mol/L",
     ),
     (
         "Compare the rates of effusion of H2 and O2.",
@@ -296,7 +296,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
         "the second concentration is 0.200 M, and the second volume is 300 mL. "
         "Find the concentration after mixing.",
         "mixture_concentration",
-        "C = 0.400 mol/L",
+        "c = 0.400 mol/L",
     ),
     (
         "Find the entropy change of an ideal gas. n = 1.00 mol, "

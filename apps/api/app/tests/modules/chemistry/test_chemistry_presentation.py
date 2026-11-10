@@ -75,7 +75,7 @@ def test_the_model_prompt_names_the_same_sections() -> None:
         ("What is the molarity of 0.5 mol NaCl in 2.0 L of solution?", ("c = 0.5 mol / 2.0 L",)),
         (
             "50 mL of 2 M HCl is diluted to 200 mL. What is the new concentration?",
-            ("M2 = (2 mol/L)(50 mL) / 200 mL",),
+            ("c2 = (2 mol/L)(50 mL) / 200 mL",),
         ),
         (
             "Find electrochemical Gibbs ΔG for a cell with n=2 and E°=1.1 V",
@@ -148,7 +148,7 @@ def test_a_converted_given_names_the_unit_it_was_typed_in(question: str, row: st
 
 def test_a_repeating_conversion_is_substituted_to_the_typed_figures() -> None:
     result = _solve("Find the density of CO2 gas at 700 mmHg and 298 K.")
-    assert result.substitution[0].startswith("d = (0.921 atm)(44.009 g/mol)")
+    assert result.substitution[0].startswith("ρ = (0.921 atm)(44.009 g/mol)")
 
 
 def test_a_value_two_typed_numbers_explain_is_not_echoed_as_either() -> None:

@@ -29,7 +29,7 @@ from app.services.law_binding.spec import VariableSpec, var
 
 
 def _concentration() -> VariableSpec:
-    return var("concentration", "C", _MOLAR)
+    return var("concentration", "c", _MOLAR)
 
 
 ACID_BASE: tuple[ChemistryLaw, ...] = (
@@ -143,7 +143,7 @@ ACID_BASE: tuple[ChemistryLaw, ...] = (
         ("k_a",),
         "dimensionless",
         (
-            var("concentration", "C", _MOLAR, words=("weak acid",), needs_words=True),
+            var("concentration", "c", _MOLAR, words=("weak acid",), needs_words=True),
             var("ph", "pH", dimensionless=True, words=("p_h",), needs_words=True),
         ),
         cues=("weak acid",),
@@ -280,7 +280,7 @@ SOLUTIONS: tuple[ChemistryLaw, ...] = (
         ("new concentration", "final concentration", "concentration", "molarity"),
         _MOLAR,
         (
-            var("m1", "M1", _MOLAR),
+            var("m1", "c1", _MOLAR),
             var("v1", "V1", "liter"),
             var("v2", "V2", "liter", words=("diluted to", "dilute it to", "final volume", "total")),
         ),
