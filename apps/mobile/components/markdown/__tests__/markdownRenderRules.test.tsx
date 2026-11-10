@@ -1027,6 +1027,27 @@ describe("markdown render rules", () => {
   });
 
   it.each([
+    ["a formula alone", "$120\\text{ m} \\div 20\\text{ s} = 6\\text{ m/s}$\n\n**Answer: 6 meters per second.**"],
+    ["formulas one per line", "$x + 1 = 3$  \n$x = 2$."],
+    ["a raised power alone", "$v^2 = 2as$"],
+  ])("indents %s with a full-width View, never padding on the Text", async (_name, content) => {
+    // On the S23 a paragraph Text with its own left padding measured 1 px wide: the formula
+    // alone above its answer was invisible (2026-11-10). The View takes the indent.
+    const view = await render(<MarkdownContent content={content} />);
+    const host = view.getByTestId("md-working-paragraph");
+    expect(StyleSheet.flatten(host.props.style)).toEqual({ alignSelf: "stretch", paddingLeft: WORK_INDENT });
+    type Node = { type: string; props: { style?: StyleProp<TextStyle> }; children: unknown[] | null };
+    const padded = (node: unknown): boolean => {
+      if (Array.isArray(node)) return node.some(padded);
+      if (!node || typeof node !== "object") return false;
+      const { type, props, children } = node as Node;
+      const pad = (StyleSheet.flatten(props.style)?.paddingLeft ?? 0) as number;
+      return (type === "Text" && pad > 0) || padded(children);
+    };
+    expect(padded(view.toJSON())).toBe(false);
+  });
+
+  it.each([
     ["a sentence with maths in it", "Divide every term by $a$ to get $x$."],
     ["a formula in a list", "- $x = 2$\n- $y = 3$"],
   ])("leaves %s at the margin", async (_name, content) => {

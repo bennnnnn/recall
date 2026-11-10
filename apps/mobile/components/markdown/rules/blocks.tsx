@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { renderBlockquote } from "@/components/markdown/blockquoteRender";
@@ -120,17 +121,21 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
         styles.paragraphRun,
         inListItem && styles.listParagraph,
         runHeight != null && { lineHeight: runHeight },
-        working,
       ],
-      [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph, working],
+      [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph],
     );
     // A compact reply draws its working at the margin (`compactMdStyles`).
     const inset = working && "paddingLeft" in working && typeof working.paddingLeft === "number"
       ? working.paddingLeft
       : 0;
+    // The indent is a View's padding, never the Text's: on Android a paragraph Text with
+    // its own left padding was measured 1 px wide, so a formula alone on its line was
+    // invisible (S23, 2026-11-10: "120 m ÷ 20 s = 6 m/s" above its answer).
     return inset > 0 ? (
       <MathColumn key={node.key} inset={inset}>
-        {paragraph}
+        <View testID="md-working-paragraph" style={[blockStyles.working, { paddingLeft: inset }]}>
+          {paragraph}
+        </View>
       </MathColumn>
     ) : (
       paragraph
@@ -150,3 +155,8 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
     },
   };
 }
+
+const blockStyles = StyleSheet.create({
+  // The reply's full width, whatever its parent aligns: the paragraph inside wraps in it.
+  working: { alignSelf: "stretch" },
+});
