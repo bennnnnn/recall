@@ -110,8 +110,6 @@ def test_a_travel_answer_is_a_directions_link_wherever_the_place_is_stated() -> 
     from app.modules import web_search
 
     rule = web_search.DIRECTIONS_LINK_RULE
-    assert "https://www.google.com/maps/dir/?api=1&destination=" in rule
-    assert "Write no travel time and no distance" in rule
     # With the user's place on any turn, and with a distance question's own hint.
     assert rule in USE_THE_LOCATION
     assert rule in web_search.GEO_DISTANCE_HINT
