@@ -510,16 +510,17 @@ async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
     assert accum.reply_text() == "The Bears won."
 
 
-def _read(live: bool | None, query: str = "") -> asyncio.Future[Any]:
+def _read(live: bool | None, query: str = "", *, asked: bool = False) -> asyncio.Future[Any]:
     from app.modules.web_search.live_read import LiveRead
 
     async def done() -> LiveRead | None:
-        return None if live is None else LiveRead(live=live, query=query)
+        return None if live is None else LiveRead(live=live, query=query, asked=asked)
 
     return asyncio.ensure_future(done())
 
 
-@pytest.mark.parametrize(("live", "requires"), [(True, "web_search"), (False, None), (None, None)])
+# A settled read takes the tool away (``test_a_settled_read_takes_the_search_tool_off_the_reply``).
+@pytest.mark.parametrize(("live", "requires"), [(True, "web_search"), (None, None)])
 @pytest.mark.asyncio
 async def test_a_live_read_without_a_query_makes_the_reply_search_first(
     web_search_tool: dict[str, Any], live: bool | None, requires: str | None
@@ -536,14 +537,43 @@ async def test_a_live_read_without_a_query_makes_the_reply_search_first(
     assert ctx.reply_requires == requires
 
 
+@pytest.mark.parametrize(("live", "offered"), [(False, False), (None, True)])
+@pytest.mark.asyncio
+async def test_a_settled_read_takes_the_search_tool_off_the_reply(
+    web_search_tool: dict[str, Any], live: bool | None, offered: bool
+) -> None:
+    """One decider: told the read found nothing that changes and still offered the tool,
+    GPT-6 Luna searched how-tos and the way to a place the chat had named (2026-11-09).
+    A read with no answer in time leaves the tool to the reply's model."""
+    ctx = _context("how do I reset my AirPods")
+    ctx.live_read = _read(live)  # type: ignore[assignment]
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    await run_tool_loop_path(
+        deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
+    )
+    assert ctx.reply_tools == ([web_search_tool] if offered else [])
+    assert ctx.reply_requires is None
+    assert ctx.prompt_messages == [{"role": "user", "content": "how do I reset my AirPods"}]
+
+
+def test_a_settled_read_keeps_recall_chats() -> None:
+    from app.modules.chat.tool_loop.reply_calls import _without_search
+
+    recall = {"type": "function", "function": {"name": "recall_chats"}}
+    search = {"type": "function", "function": {"name": "web_search"}}
+    assert _without_search([search, recall]) == [recall]
+
+
+@pytest.mark.parametrize(("live", "asked"), [(True, False), (False, True)])
 @pytest.mark.asyncio
 async def test_a_live_read_searches_its_query_before_the_reply(
-    web_search_tool: dict[str, Any],
+    web_search_tool: dict[str, Any], live: bool, asked: bool
 ) -> None:
     """One model call answers: the read's query is searched in the prep, and the reply
-    reads the results with no second search on offer."""
+    reads the results with no second search on offer. So is a search the user asked for,
+    whatever the topic."""
     ctx = _context("who won the last world cup")
-    ctx.live_read = _read(True, "2026 FIFA World Cup winner")  # type: ignore[assignment]
+    ctx.live_read = _read(live, "2026 FIFA World Cup winner", asked=asked)  # type: ignore[assignment]
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     search = AsyncMock(return_value=([_HIT], ["q"]))
     statuses: list[tuple[str, str | None]] = []

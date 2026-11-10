@@ -11,6 +11,8 @@ import json
 import re
 
 from app.modules.math.tools.direct_fences import solver_fences
+from app.modules.math.tools.direct_graph import can_direct_graph
+from app.modules.turn_reading.see_request import asks_for_a_drawing, asks_to_see
 from app.services.solving import VerifiedMathBlock
 
 _GEOMETRY_DECLARATION_WORDS = frozenset(
@@ -194,14 +196,40 @@ def _plain_geometry_description(
     return starts_with_shape and (any(char.isdigit() for char in lower) or draw), draw
 
 
+_CURVES = frozenset({"function", "inequality", "vertical"})
+
+
+def _drawn_figure(verified: VerifiedMathBlock, user_text: str) -> str | None:
+    """ "Draw it" or "show it" after a shape or a curve: its figure alone, whatever its
+    problem asked. The line names neither; the chat's latest subject did (2026-11-09). A
+    show line asks for working too ("show me"), so a curve is checked here, before that,
+    and a shape is drawn alone only when the line asks for a drawing: "Show me that"
+    after a solved triangle is its working (review, 2026-11-10)."""
+    fences = solver_fences(verified)
+    if len(fences) != 1 or not asks_to_see(user_text):
+        return None
+    kind = fences[0].get("type")
+    if kind in _GEOMETRY_SHAPE_ALIASES and asks_for_a_drawing(user_text):
+        language = "geometry"
+    elif kind in _CURVES and can_direct_graph(verified, user_text):
+        language = "graph"
+    else:
+        return None
+    return f"```{language}\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
+
+
 def nonmeasurement_geometry_reply(verified: VerifiedMathBlock, user_text: str) -> str | None:
     """Clarify a dimension-only shape instead of inventing area/volume.
 
     Explicit draw/show requests are complete as written and return only their
-    solver-owned diagram. The narrow vocabulary check keeps mixed requests on
-    the normal language path.
+    solver-owned diagram, and so does "draw it" after a shape. The narrow
+    vocabulary check keeps mixed requests on the normal language path.
     """
     from app.modules.math.match.literal_geometry import measurement_request
+
+    drawn = _drawn_figure(verified, user_text)
+    if drawn is not None:
+        return drawn
 
     # Never reinterpret an answering block as a draw/clarification request.
     # This also prevents a stale verified measurement from being hidden by a

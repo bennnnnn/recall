@@ -219,9 +219,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   on) and says whether its answer depends on facts that change (news, scores, prices, rates,
   weather, who holds an office now, the latest or next of anything, whether something is out
   yet) and, if so, the query a person would type, written with the conversation in view. Its
-  query is searched before the reply, which answers from the results in one call. Otherwise
-  the reply's own model call carries `web_search` (`tool_loop/reply_calls.py`,
-  `reply_search_tool_enabled`, on) and may call it; the tool's description says when. The
+  query is searched before the reply, which answers from the results in one call. When it
+  answers that nothing changes, the reply is offered no `web_search`: the read is the one
+  decider. Only when it gives no answer in time does the reply's own model call carry
+  `web_search` (`tool_loop/reply_calls.py`, `reply_search_tool_enabled`, on) and may call
+  it; the tool's description says when. The read sees the last
+  two exchanges, quoted, and is measured on `app/tests/behavior/search_need_corpus.json`. The
   keyword rules that used to decide (about 110 regexes) are gone: "What is going on" opening a
   chat was searched and answered with a song, and "who won the last world cup" was answered
   from memory. Measured on 70 live prompts before shipping: greetings, small talk, maths and
@@ -844,7 +847,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   keeps it whatever the model wrote: at A few an emoji moves to the front of its label
   and any in a sentence goes; at None they all go unless the user wrote one. There is no response-length setting:
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
-  automatic (`modules/chat/model_routing/thinking.py`). The old `users.response_style` column is
+  automatic (`modules/chat/model_routing/thinking.py`): the turn's live read says whether the
+  answer must be reasoned out first (`think`), the word rules decide when it gives no answer
+  in time, and a regenerate or a disputed answer thinks one level more. The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,

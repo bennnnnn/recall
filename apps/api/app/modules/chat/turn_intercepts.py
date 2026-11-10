@@ -5,24 +5,21 @@ generation (Pro): see ``images.lookup_intent`` for why the two never compete for
 the same words. Either one stores the reply itself and fills the turn's outcome.
 """
 
-import logging
-from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
-from app.core.sympy_executor import run_sympy
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
+from app.modules.chat.referent_read import Referent, referent_for_turn
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.clauses import request_body
-from app.modules.chat.turn_prep.followups import role_content_dicts
 from app.modules.chat.turn_trace import emit_turn_trace
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.generation import ImageGenerationError
@@ -39,9 +36,7 @@ from app.modules.images.lookup_intent import (
 )
 from app.modules.images.reply_picture import ReplyPicture
 from app.modules.images.search import ImageSearchError
-from app.services.subjects.registry import subject_adapter
-
-logger = logging.getLogger(__name__)
+from app.services.subjects.dispatch import asks_a_subject_to_show, subject_shows_it
 
 _IMAGE_SEARCH_MODEL = "image-search-model"
 _IMAGE_GEN_MODEL = "image-gen-model"
@@ -176,30 +171,6 @@ async def try_image_gen_for_turn(
     )
     _record(outcome, asst_msg, _IMAGE_GEN_MODEL)
     return True
-
-
-async def _chemistry_draws_it(settings: Settings, content: str, recent: Sequence[Any]) -> bool:
-    """ "can u show me both" right after a shape answer asks for its molecules, which the
-    chemistry card draws: neither a photo search nor a generated picture takes the line.
-
-    The cheap looks come first, on the line and on the chat's last question, so a photo turn
-    in any other chat ("show me her") never waits on the pool. A pool that cannot read it
-    leaves the line to the photo path and does not decline the turn's other readings.
-    """
-    followups = subject_adapter("chemistry").followups
-    if not settings.chemistry_enabled or not followups.asks_to_see(content, recent):
-        return False
-    try:
-        problem = await run_sympy(
-            followups.shown_problem,
-            content,
-            role_content_dicts(recent),
-            timeout=settings.subject_read_timeout_seconds,
-        )
-    except Exception:
-        logger.info("shape follow-up read gave up; the line stays a photo lookup", exc_info=True)
-        return False
-    return problem is not None
 
 
 async def _recent_rows(
@@ -357,10 +328,13 @@ async def intercept_new_turn(
 ) -> bool:
     """A new message answered by a photo or a picture; True when one stored the reply.
 
-    A lookup that ran and found nothing is added to ``misses`` ("photo").
+    A lookup that ran and found nothing is added to ``misses`` ("photo"). "Show it" is
+    read first: what a model reads as "it" (``referent_read``) may be a subject's to draw.
     """
-    if await _chemistry_draws_it(settings, content, recent_messages):
-        # Drawn by the chemistry card: no photo, no generated picture, no photo tool.
+    referent = await referent_for_turn(settings, content, recent_messages)
+    if await subject_shows_it(settings, content, recent_messages, _problem(referent)):
+        # Shown by a subject (its graph, figure, scene or molecules): no photo, no generated
+        # picture, no photo tool.
         if misses is not None:
             misses.add("photo")
         return False
@@ -396,6 +370,10 @@ async def intercept_new_turn(
     )
 
 
+def _problem(referent: Referent | None) -> str | None:
+    return None if referent is None else referent.problem
+
+
 def _image_regenerate_content(
     deps: ChatTurnDeps, content: str, backup: RegenerateBackup | None
 ) -> str:
@@ -428,11 +406,12 @@ async def intercept_regenerate(
     A lookup that ran and found nothing is added to ``misses`` ("photo").
     """
     replace_id = backup.message_id if backup is not None else None
-    if subject_adapter("chemistry").followups.asks_to_see(content):
+    if asks_a_subject_to_show(content):
         recent = await _recent_rows(
             deps, settings, chat_id=chat_id, recent_messages=None, replace_assistant_id=replace_id
         )
-        if await _chemistry_draws_it(settings, content, recent):
+        referent = await referent_for_turn(settings, content, recent)
+        if await subject_shows_it(settings, content, recent, _problem(referent)):
             if misses is not None:
                 misses.add("photo")
             return False

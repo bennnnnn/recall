@@ -83,6 +83,12 @@ def _scene_fences(verified: VerifiedPhysicsBlock) -> list[str]:
     return fences
 
 
+def scene_reply(verified: VerifiedPhysicsBlock) -> str | None:
+    """ "Draw it" after a physics problem: the solver's pictures alone, or None with none."""
+    fences = _scene_fences(verified)
+    return "\n\n".join(fences) + "\n" if fences else None
+
+
 def solver_cards(verified: VerifiedPhysicsBlock) -> tuple[str, ...]:
     """The fences physics writes for the block: its answer card (each part's, for a
     solve in parts) and its pictures."""

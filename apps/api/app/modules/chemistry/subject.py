@@ -77,7 +77,9 @@ class ChemistryFollowups:
             return False
         return recent is None or could_ask_a_shape(last_question_line(recent))
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
         return shape_followup_problem(line, recent)
 
 

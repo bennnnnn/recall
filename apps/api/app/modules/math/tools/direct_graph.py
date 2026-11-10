@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from app.modules.math.match.literal_plot import literal_number, literal_pair, plot_command_object
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import VerifiedMathBlock
 
 _GRAPH_INTERACTION_WORDS = frozenset(
@@ -219,10 +220,10 @@ def can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
         return False
     from app.modules.math.tools.extract import is_graph_followup
 
-    # Follow-ups ("Plot", "graph it") reuse the verified samples from a prior
+    # Follow-ups ("Plot", "graph it", "show it") reuse the verified samples from a prior
     # message; the current line has no f(x) to string-match. A bare "Plot" has
     # no "plot " prefix, and fell to the model, which wrote out its reasoning.
-    if is_graph_followup(user_text):
+    if is_graph_followup(user_text) or asks_to_see(user_text):
         return True
     if request.lower().startswith("please "):
         request = request[7:].lstrip()

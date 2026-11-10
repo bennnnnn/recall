@@ -14,6 +14,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
+from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
     resolve_subject_followup,
@@ -93,6 +94,7 @@ async def gather_and_inject(
     *,
     instant_reply: str | None,
     money: bool = False,
+    referent: Referent | None = None,
 ) -> Augmentation:
     """Phase B/C for one turn. A turn the gate turns away keeps its prompt as built.
 
@@ -126,9 +128,9 @@ async def gather_and_inject(
     # Phase B: the subject solve. Phase C: inject it before the last user message.
     with subject_adapter("math").solve_timeouts() as timed_out:
         fetched = await _fetch_subject_with_priors(
-            request, identity, settings, redis, prompt_messages, followup, plan
+            request, identity, settings, redis, prompt_messages, followup, plan, referent
         )
-    fetched = _readable_fetch(request, identity, prompt_messages, followup, fetched)
+    fetched = _readable_fetch(request, identity, prompt_messages, followup, fetched, referent)
     return Augmentation(
         prompt_messages=inject_subject_block(prompt_messages, fetched.subject_block),
         verified_subject=fetched.verified,
@@ -147,6 +149,7 @@ def _readable_fetch(
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
     fetched: SubjectFetch,
+    referent: Referent | None = None,
 ) -> SubjectFetch:
     """The fetch held to the whole question it answers (``whole_question``): the message,
     the problem a follow-up solves again, and the earlier lines a terse follow-up borrows
@@ -156,7 +159,7 @@ def _readable_fetch(
     content = request.content
     borrowed: list[str] = []
     if subject_adapter("math").followups.borrows_earlier(content):
-        borrowed = _prompt_prior_user_messages(prompt_messages, content)[-_PRIOR_USER_LINES:]
+        borrowed = _prior_user_lines(request, prompt_messages, referent)
     return whole_question_fetch(
         content,
         fetched,
@@ -232,10 +235,9 @@ async def _fetch_subject_with_priors(
     prompt_messages: list[dict[str, str]],
     followup: SubjectFollowup,
     plan: TurnPlan,
+    referent: Referent | None,
 ) -> SubjectFetch:
-    # Earlier user lines can hold the problem a follow-up refers to. They come from
-    # the prompt's own history: a second read of the messages raced the current line.
-    priors = _prompt_prior_user_messages(prompt_messages, request.content)[-_PRIOR_USER_LINES:]
+    priors = _prior_user_lines(request, prompt_messages, referent)
     return await fetch_subject(
         request.content,
         settings,
@@ -253,6 +255,19 @@ async def _fetch_subject_with_priors(
     )
 
 
+def _prior_user_lines(
+    request: TurnRequest, prompt_messages: list[dict[str, str]], referent: Referent | None
+) -> list[str]:
+    """Earlier user lines can hold the problem a follow-up refers to. They come from the
+    prompt's own history: a second read of the messages raced the current line. When a model
+    read which one "draw it" means (``referent_read``), only that one is read: "graph it"
+    after "What's the capital of France?" draws no older curve. A read that named none is
+    no read: "graph it" to "Want me to graph it?" still finds the curve, however far back."""
+    if referent is not None and referent.problem:
+        return [referent.problem]
+    return _prompt_prior_user_messages(prompt_messages, request.content)[-_PRIOR_USER_LINES:]
+
+
 async def augment_after_prompt(
     request: TurnRequest,
     identity: TurnIdentity,
@@ -264,11 +279,18 @@ async def augment_after_prompt(
 ) -> tuple[Augmentation, str | None]:
     """Phases B and C after the prompt: a follow-up's subject, the verified solve (none for a
     money turn, whose numbers are worked already), and a reply the solve writes itself."""
+    # What "it" is in "draw it": the turn's read, kept since the photo intercept asked it.
+    # And the problem "3" or "the area" continues, which a model reads too.
+    recent = request.recent_messages or []
+    referent = await referent_for_turn(settings, request.content, recent)
+    continued = await continuation_for_turn(settings, request.content, recent)
     followup = (
         await read_off_loop(
             resolve_subject_followup,
             request.content,
             role_content_dicts(prompt_messages),
+            referent.problem if referent is not None else None,
+            continued,
             timeout=settings.subject_read_timeout_seconds,
         )
         or SubjectFollowup()
@@ -286,6 +308,7 @@ async def augment_after_prompt(
         followup,
         instant_reply=instant_reply,
         money=money is not None,
+        referent=referent,
     )
     timing = request.timing
     if timing is not None:

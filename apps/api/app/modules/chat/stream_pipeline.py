@@ -35,6 +35,7 @@ from app.modules.chat.stream_paths import (
 )
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.title_event import title_event
+from app.modules.chat.tool_loop import reply_calls
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
@@ -247,6 +248,7 @@ async def _produce_reply(
     finally:
         if ctx.timing is not None:
             ctx.timing.mark_phase("tool_loop_done")
+    reply_calls.think_from_the_read(ctx)
     if _is_terminal_image(ctx):
         return
     if ctx.instant_reply:

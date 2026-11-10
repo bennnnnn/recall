@@ -21,6 +21,7 @@ from app.modules.physics.kept_property import kept_property_problem
 from app.modules.physics.verified_answers import results as _results
 from app.modules.physics.verified_answers import verified_display as _verified_display
 from app.modules.physics.verified_answers import verifies as _verifies
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import unit_dimension
@@ -134,6 +135,14 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
             return _kept_or_declined(prior, rewritten)
         return None if rewritten is None or _ambiguous(prior, rewritten) else rewritten
     return None if _held_fixed(prior) else _restated(prior, written)
+
+
+def shown_physics_problem(line: str, referent: str | None) -> str | None:
+    """ "Draw it" after a physics problem: the problem a model read as "it"
+    (``chat.referent_read``), solved again for its scene; None when it is no physics."""
+    if not referent or not asks_to_see(line) or not needs_physics(referent):
+        return None
+    return referent
 
 
 # A result that is a property of the object or its medium, not of what is done to it:

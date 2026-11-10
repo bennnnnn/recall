@@ -97,9 +97,9 @@ async def fetch_subject(
     math_user_content = math_followup_problem or subject_text or user_content
     subject_user_content = subject_text or user_content
     subject: SubjectName | None
-    if math_followup_problem is not None or subject_adapter("math").followups.continues_alone(
-        user_content
-    ):
+    # "Draw it" after a projectile is physics' scene: a follow-up a subject resolved from
+    # the chat comes before maths' reading of the line alone.
+    if math_followup_problem is not None:
         subject = "math"
     elif chemistry_followup_problem is not None:
         subject = "chemistry"
@@ -107,6 +107,8 @@ async def fetch_subject(
     elif physics_followup_problem is not None:
         subject = "physics"
         subject_user_content = physics_followup_problem
+    elif subject_adapter("math").followups.continues_alone(user_content):
+        subject = "math"
     else:
         subject = await read_subject(
             subject_user_content,

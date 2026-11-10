@@ -2,9 +2,12 @@
 
 Word rules used to decide search, and each one misfired on its look-alikes: "What is
 going on" opening a chat matched a news pattern and was answered with a song. The
-model writing the reply now decides. Every turn it writes carries ``web_search``; it
-answers at once, or calls the tool and answers in a second call that reads the
-results. A reply that needs no search costs nothing more. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
+model writing the reply decided, carrying ``web_search`` on every turn; it answers at
+once, or calls the tool and answers in a second call that reads the results. A fast read
+of the message now decides first (``web_search.live_read``): live, and its query is
+searched before the reply; settled, and the reply carries no ``web_search`` (GPT-6 Luna
+searched how-tos and history it was offered the tool for). Only with no answer from the
+read in time does the reply's model decide. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
 so the model, not a phrase list, decides when a turn reads the user's earlier chats.
 """
 
@@ -24,6 +27,7 @@ from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
+from app.modules.chat.model_routing.thinking import with_read
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
@@ -31,6 +35,7 @@ from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
 from app.modules.memory.recall_tool import RECALL_TOOL
+from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search import TurnTavilyBudget, live_read_result
 
 if TYPE_CHECKING:
@@ -225,13 +230,21 @@ async def search_the_live_read(
 ) -> None:
     """A model read the message beside the prep (``web_search.live_read``). An answer that
     depends on facts that change is searched with the read's own query, so the reply
-    answers from the results in one call; with no query, the reply's call must search."""
+    answers from the results in one call, and so is one the user asked to search; with no
+    query, the reply's call must search. A read that found nothing that changes takes
+    ``web_search`` off the reply's call. With no answer in time, the reply keeps it."""
     if ctx.live_read is not None and not ctx.live_read.done() and on_status is not None:
         # A model is still reading the question: say so rather than show nothing. A search
         # it asks for shows next, with its query ("Searching — …").
         await on_status("thinking", None)
     read = await live_read_result(ctx.live_read, settings)
     if read is None:
+        return
+    if not read.searches:
+        # One decider: the read found nothing that changes, so the reply has no search to
+        # make. Told so and still offered the tool, GPT-6 Luna searched how-tos and the way
+        # to a place the chat had named on about one turn in twelve (2026-11-09).
+        ctx.reply_tools = _without_search(ctx.reply_tools)
         return
     if not read.query.strip():
         ctx.reply_requires = REPLY_TOOL
@@ -259,6 +272,23 @@ async def search_the_live_read(
         # The search broke: the reply's model still decides.
         return
     # One search a turn: the reply reads these results and carries no second search.
-    ctx.reply_tools = [
-        tool for tool in ctx.reply_tools if (tool.get("function") or {}).get("name") != REPLY_TOOL
-    ]
+    ctx.reply_tools = _without_search(ctx.reply_tools)
+
+
+def _without_search(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The reply's tools less ``web_search`` (``recall_chats`` stays)."""
+    return [tool for tool in tools if (tool.get("function") or {}).get("name") != REPLY_TOOL]
+
+
+def think_from_the_read(ctx: StreamContext) -> None:
+    """The read's answer on thinking (``think``), when it is in by the reply's call. Nothing
+    waits for it here: a turn that offers search waited for the read already
+    (``search_the_live_read``); any other keeps the word rules' level."""
+    task = ctx.live_read
+    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
+        return
+    read = task.result()
+    if read is not None:
+        # A lesson under way keeps its steps quick (``route``'s "lesson"), as the word rules do.
+        lesson = active_lesson_step(ctx.recent_messages) is not None
+        ctx.thinking = with_read(read.think, ctx.thinking, lesson_active=lesson)
