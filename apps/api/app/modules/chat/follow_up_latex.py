@@ -6,7 +6,8 @@ if $\\theta$ was $45^\\text{\\textdegree}$ instead?" (2026-11-08) showed it on t
 command that names one character becomes it (θ, °, ×, ≤), a text group its words and a
 spacing command a space, so a maths span made only of those is text. A span that still needs
 typesetting (``$\\frac{1}{2}$``, ``$1.6\\text{ m/s}^2$``) stays as written for the phone to
-draw, and so does one with no command at all (``$v_f$``, ``$x^2$``).
+draw, and so does one with no command at all (``$v_f$``, ``$x^2$``). Only maths is read:
+prose and code that talk about LaTeX keep their backslashes.
 """
 
 from __future__ import annotations
@@ -54,6 +55,8 @@ _TEXT_GROUP = re.compile(r"\\(?:text|textrm|mathrm|operatorname|mbox)\s*\{([^{}]
 _SPACING = re.compile(r"\\(?:quad|qquad|[,;: ])")
 _COMMAND = re.compile(r"\\([A-Za-z]+)(?![A-Za-z])")
 _MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
+# An inline code span, kept whole (its backticks included) when the question is split on it.
+_CODE_SPAN = re.compile(r"(`+[^`\n]*`+)")
 # What only maths can draw: a script, a group, or a command with no character of its own.
 _TYPESET = re.compile(r"[\\^_{}]")
 
@@ -68,8 +71,9 @@ def _fold(tex: str) -> str:
 
 
 def plain_follow_up(question: str) -> str:
-    """``question`` with each LaTeX command that names a character written as it, and each
-    maths span that then needs no typesetting written as text."""
+    """``question`` with each maths span that needs no typesetting once its commands are
+    the characters they name written as text. Only maths is read: prose and code about LaTeX
+    ("How do I write \\alpha in LaTeX?", ```\\text{}```) keep every backslash."""
     if "\\" not in question:
         return question
 
@@ -80,10 +84,7 @@ def plain_follow_up(question: str) -> str:
         folded = _fold(match.group(1)).strip()
         return match.group(0) if _TYPESET.search(folded) else folded
 
-    pieces: list[str] = []
-    last = 0
-    for match in _MATH_SPAN.finditer(question):
-        pieces += [_fold(question[last : match.start()]), span(match)]
-        last = match.end()
-    pieces.append(_fold(question[last:]))
-    return re.sub(r"[ \t]{2,}", " ", "".join(pieces))
+    pieces = _CODE_SPAN.split(question)
+    # The split keeps each code span at an odd index; only the prose around them holds maths.
+    plain = (piece if at % 2 else _MATH_SPAN.sub(span, piece) for at, piece in enumerate(pieces))
+    return re.sub(r"[ \t]{2,}", " ", "".join(plain))

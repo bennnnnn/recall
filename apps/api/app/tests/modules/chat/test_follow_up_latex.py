@@ -19,7 +19,10 @@ _INCLINE = "A 2 kg block slides down a frictionless 30 degree incline. Find its 
     [
         (r"What if $\theta$ was $45^\text{\textdegree}$ instead?", "What if θ was 45° instead?"),
         (r"What if $\theta = 45^{\circ}$?", "What if θ = 45°?"),
-        (r"What if \theta was 60\% larger?", "What if θ was 60% larger?"),
+        # Prose and code about LaTeX keep their backslashes: only maths is read.
+        (r"How do I write \alpha in LaTeX?", r"How do I write \alpha in LaTeX?"),
+        (r"How do I use \text{} in LaTeX?", r"How do I use \text{} in LaTeX?"),
+        (r"What does `$\theta$` print?", r"What does `$\theta$` print?"),
         (r"What if $m = 2\,\mathrm{kg}$?", "What if m = 2 kg?"),
         (r"What if $x \leq 3$?", "What if x ≤ 3?"),
         # What only maths can draw stays as written, for the phone to typeset.
