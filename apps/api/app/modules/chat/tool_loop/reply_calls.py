@@ -35,6 +35,7 @@ from app.modules.chat.tool_loop.parts import open_parts
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
+from app.modules.chat.turn_trace import current_turn_trace, note_route
 from app.modules.memory.recall_tool import RECALL_TOOL
 from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search import TurnTavilyBudget, live_read_result
@@ -302,11 +303,17 @@ def _lane_that_thinks(ctx: StreamContext, settings: Settings) -> None:
     lane) and no solver verified the answer: a four-part word problem about runners'
     speeds went to GLM 5.2, which sends no reasoning (2026-11-09). A verified solve keeps
     its lane, and so does a model the user picked. The lane it leaves is the first backup."""
-    if not ctx.auto_routed or ctx.user is None or ctx.verified_subject is not None:
+    # Numbers a server path already worked keep their lane: a verified solve (maths,
+    # physics, chemistry, or a tool's, ``_apply_tool_rounds``), and a money turn, whose
+    # calculator card holds them ("4000 on a card at 22% paying 150 a month").
+    worked = ctx.verified_subject is not None or ctx.money is not None
+    if not ctx.auto_routed or ctx.user is None or worked:
         return
     pool = plan_service.model_pool(ctx.user, settings)
     lane = lane_for_think(ctx.model, pool, ctx.unsteady_models)
     if lane is None:
         return
+    trace = current_turn_trace()
+    note_route(f"{(trace.route if trace else None) or 'auto'}-think")
     backups = [alias for alias in ctx.fallback_models if alias not in {lane, ctx.model}]
     ctx.model, ctx.fallback_models = lane, [ctx.model, *backups]

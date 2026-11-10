@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -25,6 +26,7 @@ from app.modules.chat.model_routing.thinking import (
 )
 from app.modules.chat.tool_loop.reply_calls import think_from_the_read
 from app.modules.chat.turn_prep.context import StreamContext
+from app.modules.chat.turn_trace import begin_turn_trace, note_route
 from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search.live_read import LiveRead
 from app.services.solving import VerifiedSolveBlock
@@ -217,3 +219,20 @@ async def test_an_unsteady_smart_lane_keeps_the_maths_lane() -> None:
     ctx = _maths_turn(unsteady_models=frozenset({"smart-chat"}))
     think_from_the_read(ctx, _SETTINGS)
     assert (ctx.model, ctx.thinking) == ("glm-5.2", "hard")
+
+
+@pytest.mark.asyncio
+async def test_a_money_turn_keeps_its_lane() -> None:
+    """ "4000 on a credit card at 22% paying 150 a month": its calculator card holds the
+    numbers the server worked."""
+    ctx = _maths_turn(money=MagicMock(name="money"))
+    think_from_the_read(ctx, _SETTINGS)
+    assert ctx.model == "glm-5.2"
+
+
+@pytest.mark.asyncio
+async def test_the_move_is_in_the_turns_trace() -> None:
+    trace = begin_turn_trace("new")
+    note_route("auto.math")
+    think_from_the_read(_maths_turn(), _SETTINGS)
+    assert trace.route == "auto.math-think"
