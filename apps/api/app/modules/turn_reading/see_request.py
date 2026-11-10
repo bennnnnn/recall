@@ -66,6 +66,15 @@ def see_request_object(line: str) -> str | None:
     return None
 
 
+def asks_for_a_drawing(line: str) -> bool:
+    """A request to see the subject drawn ("draw it", "graph this", "a picture of it"), not
+    only shown: "show me that" after a solve asks for its working (review, 2026-11-10)."""
+    if see_request_object(line) is not None:
+        return True
+    lower = _without_politeness(collapse_ws(line).lower().rstrip(".!?"))
+    return _PICTURE_OF.search(lower) is not None
+
+
 def _shown_object(line: str) -> str | None:
     """What a request to see or be shown names ("it" for "show me a picture of it"), or
     None for a line that is no such request."""

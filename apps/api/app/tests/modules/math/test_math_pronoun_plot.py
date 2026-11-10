@@ -172,4 +172,7 @@ async def test_draw_it_after_a_shape_is_its_figure_alone(thread_sympy_executor: 
     assert reply is not None and reply.startswith("```geometry\n") and reply.count("```") == 2
     figure = json.loads(reply.removeprefix("```geometry\n").removesuffix("\n```\n"))
     assert (figure["type"], figure["a"], figure["b"], figure["c"]) == ("triangle_sides", 5, 4, 3)
-    assert maybe_direct_math_reply(verified, "show it") == reply
+    assert maybe_direct_math_reply(verified, "a picture of it") == reply
+    # "Show me that" after a solve asks for its working, as main gave it (review, 2026-11-10).
+    for shown in ("Show me that", "show it", "show this"):
+        assert maybe_direct_math_reply(verified, shown) != reply

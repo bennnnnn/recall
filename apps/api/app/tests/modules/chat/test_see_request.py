@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.turn_reading.see_request import asks_to_see, see_request_object
+from app.modules.turn_reading.see_request import (
+    asks_for_a_drawing,
+    asks_to_see,
+    see_request_object,
+)
 
 
 @pytest.mark.parametrize(
@@ -53,3 +57,21 @@ def test_a_request_to_see_names_what_it_draws(line: str, named: str | None) -> N
 )
 def test_a_request_to_see_it_names_nothing_of_its_own(line: str, asks: bool) -> None:
     assert asks_to_see(line) is asks
+
+
+@pytest.mark.parametrize(
+    "line, drawing",
+    [
+        ("Draw it", True),
+        ("graph this please", True),
+        ("can you sketch that", True),
+        ("a picture of it", True),
+        ("Show me that", False),
+        ("show it", False),
+        ("can I see it?", False),
+    ],
+)
+def test_a_drawing_is_asked_for_in_drawing_words(line: str, drawing: bool) -> None:
+    """ "Show me that" after a solve asks for the working; only drawing words ask for the
+    figure alone (review, 2026-11-10)."""
+    assert asks_for_a_drawing(line) is drawing
