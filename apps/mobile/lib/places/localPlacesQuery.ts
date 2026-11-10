@@ -314,7 +314,7 @@ function askStart(text: string): number | null {
 
 /**
  * A places ask the user's own location answers (server `finds_places_near_the_user`). One
- * that names its venues' place ("the best restaurants in Addis Ababa", "coffee near me in
+ * that says "in" a named place ("the best restaurants in Addis Ababa", "coffee near me in
  * Bole") is searched there, so the phone reads no GPS for it (`venuePlace`).
  */
 export function findsPlacesNearTheUser(text: string): boolean {

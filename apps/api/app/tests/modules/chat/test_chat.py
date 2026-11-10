@@ -156,7 +156,11 @@ def test_resolve_client_geo_an_account_with_no_place_has_no_fix(enabled: bool, s
     "content, near_the_user",
     [
         ("What are the best restaurants in Addis Ababa?", False),
-        ("What's the closest airport to Seattle?", False),
+        # A venue or neighbourhood: the user's city still places it, as it always did.
+        ("What's the closest airport to Seattle?", True),
+        ("We're at the Hilton, any restaurants nearby?", True),
+        ("where can I park at the Apple Store", True),
+        ("best tacos near me in the Mission", True),
         # "Near me in Bole" says where "me" is (review, 2026-11-09).
         ("coffee shops near me in Bole", False),
         ("best restaurant near me?", True),

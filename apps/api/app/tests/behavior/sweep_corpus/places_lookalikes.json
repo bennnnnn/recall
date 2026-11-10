@@ -25,26 +25,26 @@
  },
  {
   "id": "nmp-004",
-  "area": "places lookalike",
+  "area": "places near user",
   "prompt": "What's the closest airport to Seattle?",
   "reply": "Here are a few well-reviewed places there:\n\n1. **Seattle-Tacoma International (SEA)** — about 14 miles south of downtown\n2. **Paine Field (PAE)** — a smaller airport in Everett\n\nWant me to narrow it down by budget?",
-  "expect": "answer",
+  "expect": "search",
   "location": "San Francisco, CA, United States"
  },
  {
   "id": "nmp-005",
-  "area": "places lookalike",
+  "area": "places near user",
   "prompt": "Where can I get coffee at JFK?",
   "reply": "Here are a few well-reviewed places there:\n\n1. **Blue Bottle (Terminal 4)** — after security\n2. **Joe Coffee (Terminal 5)** — near gate 20\n\nWant me to narrow it down by budget?",
-  "expect": "answer",
+  "expect": "search",
   "location": "San Francisco, CA, United States"
  },
  {
   "id": "nmp-006",
-  "area": "places lookalike",
+  "area": "places near user",
   "prompt": "nearest hospital to Union Square",
   "reply": "Here are a few well-reviewed places there:\n\n1. **NYU Langone** — about 1.5 miles east\n2. **Mount Sinai Beth Israel** — First Avenue at 16th Street\n\nWant me to narrow it down by budget?",
-  "expect": "answer",
+  "expect": "search",
   "location": "San Francisco, CA, United States"
  },
  {
@@ -180,6 +180,54 @@
   "area": "places lookalike",
   "prompt": "best restaurants, cafes and bars in Rome?",
   "reply": "In Rome:\n\n1. **Roscioli** — deli and dining\n2. **Sant'Eustachio** — coffee",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-024",
+  "area": "places near user",
+  "prompt": "We're at the Hilton, any restaurants nearby?",
+  "reply": "Close to the Hilton:\n\n1. **Zuni Café** — Market St\n2. **Nopa** — Divisadero",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-025",
+  "area": "places near user",
+  "prompt": "where can I park at the Apple Store",
+  "reply": "The Sutter-Stockton Garage is the closest, about two blocks from the store.",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-026",
+  "area": "places near user",
+  "prompt": "best tacos near me in the Mission",
+  "reply": "Close to you in the Mission:\n\n1. **La Taqueria** — Mission St\n2. **El Farolito** — 24th St",
+  "expect": "search",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-027",
+  "area": "places lookalike",
+  "prompt": "restaurants near Union Square",
+  "reply": "Around Union Square:\n\n1. **Farallon** — Post St\n2. **Kin Khao** — Mason St",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-028",
+  "area": "places lookalike",
+  "prompt": "a café at the Louvre",
+  "reply": "Café Marly looks over the Louvre's pyramid, and Café Mollien is inside the museum.",
+  "expect": "answer",
+  "location": "San Francisco, CA, United States"
+ },
+ {
+  "id": "nmp-029",
+  "area": "places lookalike",
+  "prompt": "pizza near the Eiffel Tower",
+  "reply": "Close to the tower:\n\n1. **Pizza Chic** — Rue de Mézières\n2. **Il Vino** — Bosquet",
   "expect": "answer",
   "location": "San Francisco, CA, United States"
  }

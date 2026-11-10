@@ -122,11 +122,11 @@ def is_distance_query(text: str) -> bool:
 def finds_places_near_the_user(text: str) -> bool:
     """A places ask the user's own location answers.
 
-    One that names its venues' place is searched there, never near the phone: "What are the
+    One that says "in" a named place is searched there, never near the phone: "What are the
     best restaurants in Addis Ababa?" from San Francisco found a San Francisco to Addis Ababa
     time converter and Los Angeles restaurants (2026-11-08). "Coffee near me in Bole" says
-    where "me" is: Bole, not the phone's city. Which capital is that place is read from the
-    sentence (``venue_place``), not from any capital in it.
+    where "me" is. A venue or neighbourhood ("at the Hilton", "in the Mission") leaves the
+    user's city in the search (``venue_place``).
     """
     return is_proximity_query(text) and venue_place(text) is None
 
