@@ -61,6 +61,8 @@ _SYSTEM = (
     "know); who makes or repairs something\n"
     "- maths, science, writing, code, history and other settled knowledge\n"
     "- where the user is: the app knows their place\n"
+    "- what the user told you or keeps here: their earlier chats, memory, notes, to-dos "
+    "and files, even when they ask you to search or look them up\n"
     "- getting from the user to a place the conversation already named, on foot, by car, "
     "bike, bus or train (can they walk, how to get there, how long, how far): the reply "
     "answers with a map link, which shows the route, its time and the next bus or train; "
@@ -70,8 +72,10 @@ _SYSTEM = (
     "Earlier turns, when given, show what the last message refers to; decide for the last "
     "message.\n\n"
     "Reply with JSON only, three keys in this order: asked is true when the user's last "
-    "message asks you to search, look something up, google it or check online, whatever "
-    "the topic, else false; query is what a person would type into a search engine to "
+    "message asks you to search the web or look up something about the world (a fact, a "
+    "person, a place, a thing), google it or check online, whatever the topic; a search of "
+    "their own chats, memory, notes, to-dos or files is not asked (the app holds those), "
+    "and otherwise asked is false; query is what a person would type into a search engine to "
     "answer the message, standing alone (spell out who or what the conversation is about: "
     "a full name, a product's model, a place), in the message's language, with no month or "
     'year unless the message names one, or "" when live and asked are both false. '
@@ -80,8 +84,10 @@ _SYSTEM = (
 
 
 class LiveRead(BaseModel):
-    # The user asked for a search ("google it", "can you look up …"). Told only that such a
-    # message is live, the read still called "who invented the telephone" settled.
+    # The user asked for a search of the web ("google it", "can you look up …"). Told only
+    # that such a message is live, the read still called "who invented the telephone"
+    # settled. A search of their own chats or memory is not one: its words would go to the
+    # web, and ``recall_chats`` is what they meant.
     asked: bool = False
     query: str = Field(default="", max_length=200)
     live: bool

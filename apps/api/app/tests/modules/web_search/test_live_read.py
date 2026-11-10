@@ -105,7 +105,9 @@ def test_the_read_sees_the_last_two_exchanges_each_cut_short() -> None:
         "where the user is",
         "getting from the user to a place the conversation already named",
         # And what searches whatever the topic: the read's ``asked``.
-        "asked is true when the user's last message asks you to search, look something up",
+        "asked is true when the user's last message asks you to search the web",
+        # Never the user's own words sent to the web: their chats and memory are here.
+        "a search of their own chats, memory, notes, to-dos or files is not asked",
     ],
 )
 def test_the_reads_instructions_name_each_kind(kind: str) -> None:
