@@ -33,12 +33,13 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
+from app.modules.chat import posed_read, prompt_memory, referent_read
 from app.modules.chat import prompt_constants as pc
-from app.modules.chat import prompt_memory, referent_read
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.model_routing.route import last_user_turn
+from app.modules.chat.posed_read import PosedPick
 from app.modules.chat.prompt_constants.clarify import CLARIFY_PICKS_HINT, CLARIFY_UNANSWERED_HINT
 from app.modules.chat.prompt_constants.coding import (
     CODE_DEBUG_HINT,
@@ -446,6 +447,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
         stack.enter_context(_referent_pick(case, rows))
         stack.enter_context(_continuation_pick(case, rows))
+        stack.enter_context(_posed_pick(case, rows))
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub(
@@ -559,7 +561,7 @@ def _referent_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
     named the read has no model, as the battery has none."""
     if case.referent is None:
         return nullcontext()
-    exchanges = referent_read._exchanges(rows, case.prompt)
+    exchanges = referent_read.chat_before(rows, case.prompt)
     _conversation, numbered = referent_read._conversation(exchanges)
     users = [exchanges[index][1] for index in numbered]
     pick = ReferentPick(message=users.index(case.referent) + 1 if case.referent else None)
@@ -570,7 +572,7 @@ def _continuation_pick(case: Case, rows: list[Any]) -> AbstractContextManager[An
     """The model's pick of the problem "3" or "the area" continues (``Case.continues``)."""
     if case.continues is None:
         return nullcontext()
-    exchanges = referent_read._exchanges(rows, case.prompt)
+    exchanges = referent_read.chat_before(rows, case.prompt)
     _conversation, numbered = referent_read._conversation(exchanges)
     users = [exchanges[index][1] for index in numbered]
     pick = (
@@ -579,6 +581,26 @@ def _continuation_pick(case: Case, rows: list[Any]) -> AbstractContextManager[An
         else ContinuationPick(kind="answer")
     )
     return patch.object(referent_read, "pick_continuation", AsyncMock(return_value=pick))
+
+
+def _posed_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
+    """The model's read of the problem "do it" refers to (``Case.posed``)."""
+    if case.posed is None:
+        return nullcontext()
+    if not case.posed:
+        pick = PosedPick(kind="other")
+    else:
+        exchanges = referent_read.chat_before(rows, case.prompt)
+        plain = [text.replace("**", "") for _role, text in exchanges]
+        message = next(i for i, text in enumerate(plain, start=1) if case.posed in text)
+        pick = PosedPick(
+            kind="solve" if case.posed_change is None else "change",
+            message=message,
+            problem=case.posed,
+            given=case.posed_change[0] if case.posed_change else None,
+            new=case.posed_change[1] if case.posed_change else None,
+        )
+    return patch.object(posed_read, "pick_posed", AsyncMock(return_value=pick))
 
 
 def _server_pictures(verified: Any) -> str:

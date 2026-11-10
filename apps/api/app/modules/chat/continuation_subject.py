@@ -236,7 +236,9 @@ def blocks_math_followup(text: str) -> bool:
 def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
     """Re-solve the adjacent chemistry problem when this line only continues it.
 
-    A later math or physics question is its own text, so it does not come back here.
+    A later math or physics question is its own text, so it does not come back here. A line
+    its solver reads nothing in is no problem to solve again: "how" after "Give me a
+    chemistry practice question" asks about the question the reply posed (``posed_read``).
     """
     if not is_pure_continuation(query) or is_new_problem_request(query):
         return None
@@ -245,7 +247,8 @@ def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any])
         return None
     from app.services.subjects.registry import subject_adapter
 
-    return adjacent_problem(recent, subject_adapter("chemistry").asks)
+    chemistry = subject_adapter("chemistry")
+    return adjacent_problem(recent, lambda line: chemistry.asks(line) and chemistry.reads(line))
 
 
 def exchange_pairs(messages: Sequence[Any]) -> tuple[tuple[str, str], ...]:
