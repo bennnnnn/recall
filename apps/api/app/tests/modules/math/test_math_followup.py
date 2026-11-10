@@ -13,7 +13,6 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
-    continued_problem,
     is_math_followup,
     math_working_followup_problem,
     offered_equation_problem,
@@ -63,78 +62,6 @@ def test_open_math_problem_reopens_only_for_a_fragment(
     text: str, prior: list[str], reopened: bool
 ) -> None:
     assert open_math_problem(text, prior) == (prior[0] if reopened else None)
-
-
-def _thread(*turns: tuple[str, str]) -> list[dict[str, str]]:
-    """Each user line with the reply after it."""
-    return [
-        message
-        for line, reply in turns
-        for message in ({"role": "user", "content": line}, {"role": "assistant", "content": reply})
-    ]
-
-
-_TRIANGLE_ASKED = ("Triangle are with sides 5, 4,", "What's the third side length? 🔺")
-_TRIANGLE_DONE = ("3", "Sides 3, 4 and 5 make a right triangle.")
-
-
-@pytest.mark.parametrize(
-    ("line", "earlier", "problem"),
-    [
-        # Live (2026-11-09): neither "3" nor "The area" was solved, and the model drew the
-        # triangle in text.
-        ("3", [_TRIANGLE_ASKED], "Triangle are with sides 5, 4, 3"),
-        (
-            "The area",
-            [_TRIANGLE_ASKED, _TRIANGLE_DONE],
-            "Triangle are with sides 5, 4, 3. The area",
-        ),
-        (
-            "and its perimeter?",
-            [("a rectangle 3 by 5", "A rectangle."), ("the area", "15.")],
-            "a rectangle 3 by 5. and its perimeter?",
-        ),
-    ],
-)
-def test_a_line_that_adds_to_the_open_problem_is_the_problem_whole(
-    line: str, earlier: list[tuple[str, str]], problem: str
-) -> None:
-    assert continued_problem(line, _thread(*earlier)) == problem
-
-
-@pytest.mark.parametrize(
-    ("line", "earlier"),
-    [
-        # A number answers a question: none was asked, or the setup was not left open.
-        ("3", [("Triangle are with sides 5, 4,", "A triangle.")]),
-        ("3", [("3x^2 + 3 = 5", "Solve for which variable?")]),
-        # A quiz or a lesson's question is answered, never re-solved (a local review,
-        # 2026-11-10).
-        ("the hypotenuse", [("a right triangle with legs 3 and 4", "Which side is longest?")]),
-        (
-            "the radius",
-            [
-                ("a circle with radius 4", "## Lesson 2: Circles\n\nWhat is half the diameter?"),
-            ],
-        ),
-        # Not maths, however it is joined; a line in another script asks no quantity.
-        ("the area", [("We're moving to Denver next month", "Exciting!")]),
-        ("5", [("My kids are 3, 7,", "And the youngest?")]),
-        ("面积", [_TRIANGLE_ASKED, _TRIANGLE_DONE]),
-    ],
-)
-def test_a_line_that_continues_nothing_is_not_continued(
-    line: str, earlier: list[tuple[str, str]]
-) -> None:
-    assert continued_problem(line, _thread(*earlier)) is None
-
-
-def test_do_it_properly_works_the_problem_pieced_together() -> None:
-    recent = _thread(_TRIANGLE_ASKED, _TRIANGLE_DONE, ("The area", "6 square units."))
-
-    assert math_working_followup_problem("Do it properly", recent) == (
-        "Triangle are with sides 5, 4, 3. The area"
-    )
 
 
 @pytest.mark.parametrize("text", ["$[4,4]$", "What?"])

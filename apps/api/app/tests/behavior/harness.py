@@ -58,7 +58,7 @@ from app.modules.chat.prompt_constants.writing import (
     SOCIAL_DRAFT_HINT,
 )
 from app.modules.chat.prompt_context import _PromptContextBlocks
-from app.modules.chat.referent_read import ReferentPick, read_referent
+from app.modules.chat.referent_read import ContinuationPick, ReferentPick, read_referent
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.reply_calls import offers_search
 from app.modules.chat.turn_deps import default_deps
@@ -445,6 +445,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
             stack.enter_context(patch(target, value))
 
         stack.enter_context(_referent_pick(case, rows))
+        stack.enter_context(_continuation_pick(case, rows))
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub(
@@ -563,6 +564,21 @@ def _referent_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
     users = [exchanges[index][1] for index in numbered]
     pick = ReferentPick(message=users.index(case.referent) + 1 if case.referent else None)
     return patch.object(referent_read, "pick_referent", AsyncMock(return_value=pick))
+
+
+def _continuation_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
+    """The model's pick of the problem "3" or "the area" continues (``Case.continues``)."""
+    if case.continues is None:
+        return nullcontext()
+    exchanges = referent_read._exchanges(rows, case.prompt)
+    _conversation, numbered = referent_read._conversation(exchanges)
+    users = [exchanges[index][1] for index in numbered]
+    pick = (
+        ContinuationPick(kind="missing_value", message=users.index(case.continues) + 1)
+        if case.continues
+        else ContinuationPick(kind="answer")
+    )
+    return patch.object(referent_read, "pick_continuation", AsyncMock(return_value=pick))
 
 
 def _server_pictures(verified: Any) -> str:

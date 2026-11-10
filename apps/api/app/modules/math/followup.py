@@ -9,10 +9,8 @@ from app.modules.math.response_intent import (
     classify_math_response_intent,
 )
 from app.modules.math.tools.prompt import needs_symbolic_math
-from app.modules.turn_reading.continued_problem import continued_problem_text, is_fragment
 from app.services.answer_fence import answer_fence_value
 from app.services.number_text import FRACTION_OR_DECIMAL
-from app.services.problem_followup import message_role_content
 from app.services.student_claim import CHECK, CLAIM_LEAD
 
 MATH_FOLLOWUP_HINT = (
@@ -79,10 +77,6 @@ def _referenced_math_problem(
             return None
         if needs_symbolic_math(prior):
             return prior
-        # "The area" after "Triangle with sides 5, 4, 3" stands for the whole problem.
-        whole = continued_problem(prior, recent[:cursor], blocked=blocked)
-        if whole is not None:
-            return whole
         if not classify_math_response_intent(prior).referential:
             return None
         cursor -= 2
@@ -90,7 +84,18 @@ def _referenced_math_problem(
     return None
 
 
+# A lone unknown or value: ``x``, ``$\theta$``, ``5``, ``-2.5``, ``for y``.
+_FRAGMENT_RE = re.compile(
+    r"(?:for\s+)?(?:[a-z\u03b1-\u03c9]|\\[a-z]+|[-+\u2212]?\d+(?:\.\d+)?)\s*[.?!]?",
+    re.IGNORECASE,
+)
 _RELATION_RE = re.compile(r"[=<>≤≥≠]|\\(?:leq|geq|le|ge|lt|gt|neq|ne)(?![a-z])", re.IGNORECASE)
+
+
+def is_fragment(text: str) -> bool:
+    """A lone number or letter (``5``, ``x``, ``for x``): part of the open problem, not one."""
+    cleaned = " ".join(text.strip().strip("$").split())
+    return bool(_FRAGMENT_RE.fullmatch(cleaned))
 
 
 def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str | None:
@@ -115,17 +120,6 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
             return prior
         return None
     return None
-
-
-def continued_problem(
-    line: str | None, earlier: Sequence[Any], *, blocked: Callable[[str], bool] | None = None
-) -> str | None:
-    """The open maths problem ``line`` adds to, whole (``turn_reading.continued_problem``)."""
-    pairs = (message_role_content(message) for message in earlier)
-    problem = continued_problem_text(line or "", [(r, t) for r, t in pairs if r and t])
-    if problem is None or (blocked is not None and blocked(problem)):
-        return None
-    return problem if needs_symbolic_math(problem) else None
 
 
 def is_math_followup(

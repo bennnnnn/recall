@@ -98,6 +98,9 @@ class Case:
     # "Draw it" / "show it": the earlier user message the model's read picks as "it"
     # (``chat.referent_read``); "" when it picks none. None: no read, as with no model.
     referent: str | None = None
+    # "3" / "the area": the earlier user message the model's read picks as the problem the
+    # line continues; "" when it picks none. None: no read.
+    continues: str | None = None
 
 
 NO_PHOTO = ""
@@ -355,6 +358,7 @@ CASES: tuple[Case, ...] = (
         Expect(solved=True, drawn="geometry", search="no", hints=("pieced_problem",)),
         "The 3-4-5 triangle drawn, and which of its area, perimeter or angles to work out.",
         history=_TRIANGLE_PIECES,
+        continues="Triangle are with sides 5, 4,",
     ),
     Case(
         "math-fragment-completes-a-rectangle",
@@ -364,6 +368,7 @@ CASES: tuple[Case, ...] = (
         Expect(solved=True, instant="solver", drawn="geometry", search="no"),
         "The 3 by 5 rectangle drawn, asking whether its area, perimeter or diagonal is wanted.",
         history=(("user", "A rectangle 3 by"), ("assistant", "What is the other side's length?")),
+        continues="A rectangle 3 by",
     ),
     Case(
         "math-quantity-asked-of-the-problem",
@@ -372,6 +377,7 @@ CASES: tuple[Case, ...] = (
         Expect(solved=True, drawn="geometry", search="no", hints=("pieced_problem",)),
         "Area 6 square units, laid out Given / Formula / Answer, with the triangle drawn.",
         history=_TRIANGLE_THIRD_SIDE,
+        continues="Triangle are with sides 5, 4,",
     ),
     Case(
         "math-do-it-properly",
@@ -380,6 +386,7 @@ CASES: tuple[Case, ...] = (
         Expect(solved=True, drawn="geometry", search="no"),
         "The triangle's area worked in full (Heron's formula or ½ × 3 × 4), with the figure.",
         history=_TRIANGLE_AREA,
+        gap="no read names the problem a referential line's pieced-together prior continues",
     ),
     Case(
         "math-draw-it-latest-subject",
@@ -437,6 +444,63 @@ CASES: tuple[Case, ...] = (
             referent="f(x)=1/(x-2)",
         )
         for index, follow_up in enumerate(_ABOUT_THE_FUNCTION)
+    ),
+    # A read that names none is no read: the curve is found as main finds it (a re-review,
+    # 2026-11-10: "graph it" to the reply's own offer drew nothing).
+    Case(
+        "math-graph-it-accepts-the-offer",
+        "math",
+        "graph it",
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The parabola the reply offered to graph.",
+        history=(("user", "y = x^2 - 4"), ("assistant", "A parabola. Want me to graph it?")),
+        referent="",
+    ),
+    Case(
+        "math-graph-it-curve-far-back",
+        "math",
+        "graph it",
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The curve from seven exchanges back.",
+        history=(
+            ("user", "y = x^2 - 4"),
+            ("assistant", "A parabola."),
+            *(
+                turn
+                for index in range(6)
+                for turn in (("user", f"and what about point {index}?"), ("assistant", "Ok."))
+            ),
+        ),
+        referent="",
+    ),
+    # "the area" offered as a choice continues the problem; a quiz answer after a tutoring
+    # question and an encouraging paragraph does not (a re-review, 2026-11-10).
+    Case(
+        "math-quantity-picked-from-the-reply",
+        "math",
+        "the area",
+        Expect(solved=True, drawn="geometry", search="no"),
+        "The 3 by 5 rectangle's area, 15, with the figure.",
+        history=(
+            ("user", "a rectangle 3 by 5"),
+            ("assistant", "What would you like to find: the area or the perimeter?"),
+        ),
+        continues="a rectangle 3 by 5",
+    ),
+    Case(
+        "math-quiz-answer-after-encouragement",
+        "math",
+        "the hypotenuse",
+        Expect(solved=False),
+        "Right: the hypotenuse is opposite the right angle. Never the old problem re-solved.",
+        history=(
+            ("user", "a right triangle with legs 3 and 4"),
+            (
+                "assistant",
+                "Which side is opposite the right angle?\n\nTake your time, you're doing great!",
+            ),
+        ),
+        continues="",
     ),
     Case(
         "math-graph-it-with-no-read",

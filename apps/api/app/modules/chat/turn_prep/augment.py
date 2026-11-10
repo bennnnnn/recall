@@ -14,7 +14,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
-from app.modules.chat.referent_read import Referent, referent_for_turn
+from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
     resolve_subject_followup,
@@ -261,9 +261,10 @@ def _prior_user_lines(
     """Earlier user lines can hold the problem a follow-up refers to. They come from the
     prompt's own history: a second read of the messages raced the current line. When a model
     read which one "draw it" means (``referent_read``), only that one is read: "graph it"
-    after "What's the capital of France?" draws no older curve."""
-    if referent is not None:
-        return [referent.problem] if referent.problem else []
+    after "What's the capital of France?" draws no older curve. A read that named none is
+    no read: "graph it" to "Want me to graph it?" still finds the curve, however far back."""
+    if referent is not None and referent.problem:
+        return [referent.problem]
     return _prompt_prior_user_messages(prompt_messages, request.content)[-_PRIOR_USER_LINES:]
 
 
@@ -279,13 +280,17 @@ async def augment_after_prompt(
     """Phases B and C after the prompt: a follow-up's subject, the verified solve (none for a
     money turn, whose numbers are worked already), and a reply the solve writes itself."""
     # What "it" is in "draw it": the turn's read, kept since the photo intercept asked it.
-    referent = await referent_for_turn(settings, request.content, request.recent_messages or [])
+    # And the problem "3" or "the area" continues, which a model reads too.
+    recent = request.recent_messages or []
+    referent = await referent_for_turn(settings, request.content, recent)
+    continued = await continuation_for_turn(settings, request.content, recent)
     followup = (
         await read_off_loop(
             resolve_subject_followup,
             request.content,
             role_content_dicts(prompt_messages),
             referent.problem if referent is not None else None,
+            continued,
             timeout=settings.subject_read_timeout_seconds,
         )
         or SubjectFollowup()

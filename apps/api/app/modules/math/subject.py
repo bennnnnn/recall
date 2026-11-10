@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Literal
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     answer_claim_problem,
-    continued_problem,
     is_math_followup,
     math_working_followup_problem,
     offered_equation_problem,
@@ -69,8 +68,7 @@ class MathFollowups:
         # not a request to re-solve the user's earlier line: the offered equation is solved
         # instead. "check my answer: x = 6" is checked against the open problem, and
         # "simplify it" works on the user's last expression. Alone, each one used to be
-        # solved as typed: ``x = 6`` verified itself and "it" was ``i t``. "3" or "the
-        # area" adds to the open problem, which is solved whole.
+        # solved as typed: ``x = 6`` verified itself and "it" was ``i t``.
         found = math_working_followup_problem(query, recent, blocked=blocked)
         if found is None:
             found = offered_equation_problem(query, recent)
@@ -79,7 +77,6 @@ class MathFollowups:
                 answer_claim_problem(query, recent, blocked=blocked)
                 or pronoun_math_problem(query, recent, blocked=blocked)
                 or restated_math_problem(query, recent, blocked=blocked)
-                or continued_problem(query, recent, blocked=blocked)
             )
         return found
 

@@ -1,6 +1,5 @@
-"""A line that adds to the open problem (``turn_reading.continued_problem``), by the shape of
-the exchange before it: a number answers a question the reply asked, a quantity asks anew
-after a reply that asked nothing."""
+"""The pieces of a problem a model named (``turn_reading.continued_problem``): a number
+completes a list left open, a quantity asked of it is its question."""
 
 from __future__ import annotations
 
@@ -9,7 +8,7 @@ import pytest
 from app.modules.turn_reading.continued_problem import (
     Problem,
     adds_to_problem,
-    continued_problem_text,
+    continue_problem,
     problem_at,
 )
 
@@ -39,34 +38,25 @@ def test_a_line_of_its_own_is_its_own_problem() -> None:
 
 
 @pytest.mark.parametrize(
-    ("line", "earlier", "joined"),
+    ("problem", "line", "joined"),
     [
-        ("3", _PIECES[2:4], "Triangle are with sides 5, 4, 3"),
-        # A question asked anywhere in the reply's last paragraph (a live reply, 2026-11-10).
+        (Problem("Triangle are with sides 5, 4,"), "3", "Triangle are with sides 5, 4, 3"),
+        (Problem("a rectangle 3 by 5"), "the area", "a rectangle 3 by 5. the area"),
         (
-            "3",
-            [
-                ("user", "Triangle are with sides 5, 4,"),
-                ("assistant", "Did you mean the third side? Send it and I'll work it out."),
-            ],
-            "Triangle are with sides 5, 4, 3",
+            Problem("a rectangle 3 by 5", "the area"),
+            "and its perimeter?",
+            "a rectangle 3 by 5. and its perimeter?",
         ),
-        ("The area", _PIECES[2:6], "Triangle are with sides 5, 4, 3. The area"),
-        # A question asked last: the line answers it, it adds nothing.
-        (
-            "the hypotenuse",
-            [("user", "legs 3 and 4"), ("assistant", "Which side is longest?")],
-            None,
-        ),
-        # A number with no question before it, or no list left open.
-        ("3", [("user", "Triangle are with sides 5, 4,"), ("assistant", "A triangle.")], None),
-        ("3", [("user", "Solve 2x + 3 = 7"), ("assistant", "Which method?")], None),
+        # A number with no list left open is no piece of it; nor is a line of its own.
+        (Problem("Solve 2x + 3 = 7"), "3", None),
+        (Problem("a rectangle 3 by 5"), "draw it", None),
     ],
 )
-def test_a_line_joins_only_by_the_exchange_before_it(
-    line: str, earlier: list[tuple[str, str]], joined: str | None
+def test_a_line_is_added_to_a_problem_by_its_shape(
+    problem: Problem, line: str, joined: str | None
 ) -> None:
-    assert continued_problem_text(line, earlier) == joined
+    continued = continue_problem(problem, line)
+    assert (continued.text if continued is not None else None) == joined
 
 
 @pytest.mark.parametrize(

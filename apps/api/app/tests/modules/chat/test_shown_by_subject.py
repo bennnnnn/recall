@@ -161,3 +161,11 @@ def test_show_me_that_after_a_solve_is_its_working_unless_read_as_a_picture(
     assert resolve_subject_followup("Show me that", history, referent or None) == (
         SubjectFollowup(math="Solve 2x + 3 = 7")
     )
+
+
+def test_a_free_users_picture_of_it_keeps_the_composers_upgrade_prompt() -> None:
+    """A user who cannot generate gets main's composer picture, whose generate answers with
+    the upgrade prompt; only a user who can is sent to the chat turn's read."""
+    rows = _rows(("Generate an image of a red sports car", "Here it is."))
+    assert composer_image_intent("a picture of it", rows, can_generate=False).request is not None
+    assert composer_image_intent("a picture of it", rows, can_generate=True).request is None

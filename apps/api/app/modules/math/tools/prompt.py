@@ -192,7 +192,7 @@ def borrows_earlier_lines(text: str) -> bool:
     """Whether ``read_math_request`` may solve ``text`` from the user's earlier lines:
     "graph it" plots the last plottable one, and a fragment ("5", "x") continues the open
     equation. A gate on what the readers read holds those lines to it too."""
-    from app.modules.turn_reading.continued_problem import is_fragment
+    from app.modules.math.followup import is_fragment
 
     return is_graph_followup(text) or is_fragment(text)
 
