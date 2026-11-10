@@ -27,6 +27,7 @@ from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
+from app.modules.chat.model_routing.thinking import with_read
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
@@ -276,3 +277,15 @@ async def search_the_live_read(
 def _without_search(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The reply's tools less ``web_search`` (``recall_chats`` stays)."""
     return [tool for tool in tools if (tool.get("function") or {}).get("name") != REPLY_TOOL]
+
+
+def think_from_the_read(ctx: StreamContext) -> None:
+    """The read's answer on thinking (``think``), when it is in by the reply's call. Nothing
+    waits for it here: a turn that offers search waited for the read already
+    (``search_the_live_read``); any other keeps the word rules' level."""
+    task = ctx.live_read
+    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
+        return
+    read = task.result()
+    if read is not None:
+        ctx.thinking = with_read(read.think, ctx.thinking)

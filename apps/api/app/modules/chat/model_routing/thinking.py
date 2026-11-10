@@ -5,6 +5,11 @@ genuinely hard question gets the cheapest level that thinks (``message_needs
 _thinking``). One level more only when the user pushes back on the answer
 before ("that's wrong", "try again", "that's not what I asked") or regenerates it. The
 catalog turns each level into a value the model supports.
+
+Whether a question is hard is the turn's read's answer (``web_search.live_read``'s
+``think``) when it answers in time: the word rules (a length, a code fence, trigger words,
+the subject lanes) gave a four-part word problem about four runners' speeds no thinking
+(2026-11-09). With no answer, they still decide.
 """
 
 from __future__ import annotations
@@ -52,10 +57,14 @@ def thinking_level(
     lesson_active: bool = False,
     regenerate: bool = False,
     settings: Settings | None = None,
+    read_think: bool | None = None,
 ) -> ThinkingLevel:
-    """The thinking level for this turn; escalation needs an answer to dispute."""
+    """The thinking level for this turn; escalation needs an answer to dispute.
+    ``read_think``: the turn's read said whether to think; None, it gave no answer."""
     if regenerate or (prior_user and is_answer_dispute(content)):
         return "escalate"
+    if read_think is not None:
+        return with_read(read_think)
     hard = message_needs_thinking(
         content,
         prior_user=prior_user,
@@ -64,3 +73,10 @@ def thinking_level(
         settings=settings,
     )
     return "hard" if hard else "off"
+
+
+def with_read(read_think: bool, level: ThinkingLevel | bool | str = "off") -> ThinkingLevel:
+    """The level once the read has answered: a turn already escalated stays so."""
+    if level == "escalate":
+        return "escalate"
+    return "hard" if read_think else "off"

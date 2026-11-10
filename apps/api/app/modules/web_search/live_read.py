@@ -72,15 +72,23 @@ _SYSTEM = (
     "explaining something again, a shorter version\n\n"
     "Earlier turns, when given, show what the last message refers to; decide for the last "
     "message.\n\n"
-    "Reply with JSON only, three keys in this order: asked is true when the user's last "
+    "Separately, think is true when a careful answer must be reasoned out before it is "
+    "written: several dependent steps or parts, a word problem to set up, a proof, a "
+    "comparison or design trade-off to weigh, code to write or debug (why it misbehaves "
+    "counts), a tricky logic puzzle, and a follow-up asking for more of such work (the "
+    "next parts of a problem in the chat). think is false for chat, simple facts, how-to steps, writing or rewording a "
+    "message, a one-step calculation, and a single equation or expression to solve, "
+    "differentiate or simplify (the app's solver checks those).\n\n"
+    "Reply with JSON only, four keys in this order: asked is true when the user's last "
     "message asks you to search the web or look up something about the world (a fact, a "
     "person, a place, a thing), google it or check online, whatever the topic; a search of "
     "their own chats, memory, notes, to-dos or files is not asked (the app holds those), "
     "and otherwise asked is false; query is what a person would type into a search engine to "
     "answer the message, standing alone (spell out who or what the conversation is about: "
     "a full name, a product's model, a place), in the message's language, with no month or "
-    'year unless the message names one, or "" when live and asked are both false. '
-    'Example: {{"asked": false, "query": "World Cup winner", "live": true}}.'
+    'year unless the message names one, or "" when live and asked are both false; live; '
+    'think. Example: {{"asked": false, "query": "World Cup winner", "live": true, '
+    '"think": false}}.'
 )
 
 
@@ -92,6 +100,9 @@ class LiveRead(BaseModel):
     asked: bool = False
     query: str = Field(default="", max_length=200)
     live: bool
+    # The answer must be reasoned out first (``model_routing.thinking``). The word rules
+    # gave a four-part word problem about four runners' speeds no thinking (2026-11-09).
+    think: bool = False
 
     @property
     def searches(self) -> bool:

@@ -847,7 +847,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   keeps it whatever the model wrote: at A few an emoji moves to the front of its label
   and any in a sentence goes; at None they all go unless the user wrote one. There is no response-length setting:
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
-  automatic (`modules/chat/model_routing/thinking.py`). The old `users.response_style` column is
+  automatic (`modules/chat/model_routing/thinking.py`): the turn's live read says whether the
+  answer must be reasoned out first (`think`), the word rules decide when it gives no answer
+  in time, and a regenerate or a disputed answer thinks one level more. The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,

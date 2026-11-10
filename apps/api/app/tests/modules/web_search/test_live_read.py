@@ -108,6 +108,9 @@ def test_the_read_sees_the_last_two_exchanges_each_cut_short() -> None:
         "asked is true when the user's last message asks you to search the web",
         # Never the user's own words sent to the web: their chats and memory are here.
         "a search of their own chats, memory, notes, to-dos or files is not asked",
+        # Whether to think first (``model_routing.thinking``), and what never needs it.
+        "think is true when a careful answer must be reasoned out before it is written",
+        "a single equation or expression to solve, differentiate or simplify",
     ],
 )
 def test_the_reads_instructions_name_each_kind(kind: str) -> None:
