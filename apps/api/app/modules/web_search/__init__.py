@@ -36,7 +36,6 @@ if TYPE_CHECKING:
     from app.modules.web_search.homework import asks_about_a_place
     from app.modules.web_search.live_read import (
         LiveRead,
-        last_reply,
         live_read_result,
         start_live_read,
     )
@@ -72,7 +71,6 @@ _EXPORTS = {
     "is_geo_query": "geo_intent",
     "is_places_list_query": "geo_intent",
     "keep_given_addresses": "place_addresses",
-    "last_reply": "live_read",
     "live_read_result": "live_read",
     "names_its_place": "geo_intent",
     "points_back_in_chat": "turn_query",
@@ -105,7 +103,6 @@ __all__ = [
     "is_geo_query",
     "is_places_list_query",
     "keep_given_addresses",
-    "last_reply",
     "live_read_result",
     "names_its_place",
     "points_back_in_chat",

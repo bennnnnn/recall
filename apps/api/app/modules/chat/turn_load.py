@@ -64,6 +64,14 @@ class RegenerateTurn:
     recent: list[Any]
     unhealthy: frozenset[str] = frozenset()
 
+    @property
+    def before_line(self) -> list[Any]:
+        """The window before the line answered again: no reply being redone, no line."""
+        rows = self.recent
+        if rows and getattr(rows[-1], "role", None) == "assistant":
+            rows = rows[:-1]
+        return rows[:-1] if rows and getattr(rows[-1], "role", None) == "user" else rows
+
 
 async def _prior_count_for_window(
     recent: list[Any],
