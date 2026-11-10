@@ -9,6 +9,7 @@ jest.mock("expo-location", () => ({
   requestForegroundPermissionsAsync: jest.fn(),
   getLastKnownPositionAsync: jest.fn(),
   getCurrentPositionAsync: jest.fn(),
+  hasServicesEnabledAsync: jest.fn(),
   reverseGeocodeAsync: jest.fn(),
 }));
 
@@ -17,6 +18,7 @@ const mocked = Location as unknown as Record<
   | "requestForegroundPermissionsAsync"
   | "getLastKnownPositionAsync"
   | "getCurrentPositionAsync"
+  | "hasServicesEnabledAsync"
   | "reverseGeocodeAsync",
   jest.Mock
 >;
@@ -31,6 +33,7 @@ describe("requestDeviceGeo", () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mocked.getForegroundPermissionsAsync.mockResolvedValue({ status: "granted", canAskAgain: true });
+    mocked.hasServicesEnabledAsync.mockResolvedValue(true);
     mocked.reverseGeocodeAsync.mockResolvedValue(oakland);
   });
   afterEach(() => {
@@ -65,7 +68,7 @@ describe("requestDeviceGeo", () => {
     mocked.getCurrentPositionAsync.mockResolvedValue(at(37.8, -122.27));
     const result = await requestDeviceGeo({ quick: true });
     expect(result).toMatchObject({ status: "granted", geo: { latitude: 37.8 } });
-    expect(mocked.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: 3, mayShowUserSettingsDialog: false });
+    expect(mocked.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: 3, mayShowUserSettingsDialog: true });
   });
 
   it("goes without a fix when none comes within five seconds", async () => {
@@ -102,19 +105,37 @@ describe("requestDeviceGeo", () => {
     expect(mocked.getLastKnownPositionAsync).not.toHaveBeenCalled();
   });
 
-  // Android opens Play services' "Location Accuracy" dialog for a fix unless told not to.
+  // Android opens Play services' "Location Accuracy" / "turn on location" dialog for a fix
+  // unless told not to: only a read the user asked for may show it.
   it.each([
-    ["a chat send", () => requestDeviceGeo({ quick: true })],
-    ["Settings", () => getDeviceLocationLabel()],
-    ["the sync on app open", () => getDeviceLocationLabel({ ask: false })],
-  ])("asks %s's new fix at city accuracy, with no settings dialog", async (_name, read) => {
+    ["a chat send", () => requestDeviceGeo({ quick: true }), true],
+    ["Settings", () => getDeviceLocationLabel(), true],
+    ["the sync on app open", () => getDeviceLocationLabel({ ask: false }), false],
+  ])("asks %s's new fix at city accuracy, settings dialog %p", async (_name, read, dialog) => {
     mocked.getLastKnownPositionAsync.mockResolvedValue(null);
     mocked.getCurrentPositionAsync.mockResolvedValue(at(37.8, -122.27));
     await read();
     expect(mocked.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
     const [options] = mocked.getCurrentPositionAsync.mock.calls[0];
-    expect(options.mayShowUserSettingsDialog).toBe(false);
+    expect(options.mayShowUserSettingsDialog).toBe(dialog);
     expect(options.accuracy).toBeLessThanOrEqual(3);
+  });
+
+  it.each([
+    ["the phone's error code says so", { code: "ERR_LOCATION_SETTINGS_UNSATISFIED" }, true],
+    ["the services read off after the failure", new Error("no provider"), false],
+  ])("goes without a fix, not an error, when location is off: %s", async (_name, failure, enabled) => {
+    // Permission granted, the Location toggle off: "Allow location access" was wrong (review).
+    mocked.getLastKnownPositionAsync.mockResolvedValue(null);
+    mocked.getCurrentPositionAsync.mockRejectedValue(failure);
+    mocked.hasServicesEnabledAsync.mockResolvedValue(enabled);
+    await expect(requestDeviceGeo({ quick: true })).resolves.toEqual({ status: "no_fix" });
+    await expect(requestDeviceGeo()).resolves.toEqual({ status: "no_fix" });
+  });
+
+  it("still reports a fix that failed with location on as an error", async () => {
+    mocked.getCurrentPositionAsync.mockRejectedValue(new Error("native"));
+    await expect(requestDeviceGeo()).resolves.toEqual({ status: "error" });
   });
 
   it.each([

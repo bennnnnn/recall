@@ -149,21 +149,39 @@ async function placeName(
   }
 }
 
+/** The phone's location services are off, or the read failed for want of them. */
+const SERVICES_OFF = /SETTINGS_UNSATISFIED|LOCATION_IS_UNAVAILABLE|LOCATION_UNAVAILABLE/;
+
+/**
+ * A new fix at Balanced, a city or a neighbourhood. `ask`: the user asked for this read,
+ * and Android may offer Play services' one-tap "turn on location" over the app; a read
+ * nobody asked for (the sync on opening) never shows it (a Galaxy S23, 2026-11-10).
+ * Null when location services are off: no fix, not a refusal, so a chat turn still goes.
+ */
+async function newFix(Location: ExpoLocationModule, ask: boolean) {
+  try {
+    return await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+      mayShowUserSettingsDialog: ask,
+    });
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (typeof code === "string" && SERVICES_OFF.test(code)) return null;
+    // A read that cannot tell either is the failure it was (`runWithLocationPermission`).
+    if (!(await Location.hasServicesEnabledAsync())) return null;
+    throw error;
+  }
+}
+
 /**
  * A new fix, or for a `quick` read (a chat send) a recent one when there is
  * one, and null when none comes within `NEW_FIX_TIMEOUT_MS`. A quick read's
  * place name that is slower than `PLACE_NAME_TIMEOUT_MS` comes as `lateLabel`.
  */
-async function readDeviceGeo(Location: ExpoLocationModule, quick: boolean): Promise<DeviceGeo | null> {
-  // Every read here wants a city or a neighbourhood, which Balanced gives. With
-  // Google's Location Accuracy off, Android's default opens Play services'
-  // "Turn on Location Accuracy" dialog over the app before the fix (a Galaxy S23
-  // on opening, 2026-11-10); without it the fix comes from what the phone has.
-  const newFix = () =>
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, mayShowUserSettingsDialog: false });
+async function readDeviceGeo(Location: ExpoLocationModule, quick: boolean, ask: boolean): Promise<DeviceGeo | null> {
   const pos = quick
-    ? (await recentFix(Location)) ?? (await within(newFix(), NEW_FIX_TIMEOUT_MS, null))
-    : await newFix();
+    ? (await recentFix(Location)) ?? (await within(newFix(Location, ask), NEW_FIX_TIMEOUT_MS, null))
+    : await newFix(Location, ask);
   if (!pos) return null;
   const { latitude, longitude } = pos.coords;
   const naming = placeName(Location, latitude, longitude);
@@ -182,7 +200,7 @@ export async function requestDeviceGeo(
   options: { quick?: boolean; ask?: boolean } = {},
 ): Promise<DeviceGeoRequestResult> {
   const result = await runWithLocationPermission(
-    (Location) => readDeviceGeo(Location, options.quick === true),
+    (Location) => readDeviceGeo(Location, options.quick === true, options.ask !== false),
     options.ask !== false,
   );
   if (result.status !== "granted") return { status: result.status };
@@ -191,7 +209,8 @@ export async function requestDeviceGeo(
 
 /**
  * City/region label from device GPS + reverse geocode, or null if unavailable.
- * `ask: false` never shows the permission sheet (see `runWithLocationPermission`).
+ * `ask: false` shows nothing: no permission sheet (`runWithLocationPermission`) and no
+ * "turn on location" dialog (`newFix`).
  */
 export async function getDeviceLocationLabel(options: { ask?: boolean } = {}): Promise<string | null> {
   const result = await requestDeviceGeo({ ask: options.ask });
