@@ -12,6 +12,13 @@ A number the row wrote keeps its spelling in later rows (``299792458`` never tur
 into ``2.99792 \\times 10^{8}``); a worked value is printed as a given is. An angle
 stays in degrees, and an inverse sine gives one. Anything outside that grammar
 returns None: the caller keeps the row as the solver wrote it.
+
+Given ``LeafUnits``, every number carries its unit, and every worked number the unit
+it reduces to: ``\\frac{48\\,\\mathrm{m/s} - 8\\,\\mathrm{m/s}}{10\\,\\mathrm{s}}`` →
+``\\frac{40\\,\\mathrm{m/s}}{10\\,\\mathrm{s}}``. A number is a given's when its value
+is; a count or a factor (½, 2) stays bare. The units are kept only when there is one
+way to read them that is consistent (a sum of one unit, a function of a pure number)
+and ends in the answer's dimension; otherwise the row stays bare, as before.
 """
 
 from __future__ import annotations
@@ -21,8 +28,10 @@ import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.services.law_binding.expression import Notation, _latex
+from app.services.law_binding.leaf_units import UNIT, LeafUnits, carried, label, unit_of_node
 
 _FUNCTIONS = {
     "sin": "sin",
@@ -77,9 +86,17 @@ class _Reading:
         self.angles[name] = radians
         return ast.Name(id=name, ctx=ast.Load())
 
-    def notation(self, number: Callable[[float], str]) -> Notation:
+    def notation(
+        self, number: Callable[[float], str], unit: Callable[[Any], str] | None = None
+    ) -> Notation:
+        def shown_unit(node: ast.Constant) -> str:
+            carried = getattr(node, UNIT, None)
+            return "" if unit is None or carried is None else unit(carried)
+
         return Notation(
-            constants={}, number=lambda value: self.spellings.get(value) or number(value)
+            constants={},
+            number=lambda value: self.spellings.get(value) or number(value),
+            unit=shown_unit,
         )
 
 
@@ -158,7 +175,7 @@ class _Parser:
         kind, value = token
         if kind == "symbol":
             return value in "({["
-        return kind == "number" or (kind == "command" and value not in {"cdot", "times"})
+        return kind == "number" or (kind == "command" and value not in {"cdot", "times", "rvert"})
 
     def _signed(self) -> ast.expr:
         token = self._peek()
@@ -212,6 +229,11 @@ class _Parser:
         if kind == "symbol" and value == "|":
             node = self._sum()
             self._expect("|")
+            return self._call("abs", node)
+        if (kind, value) == ("command", "lvert"):
+            node = self._sum()
+            if self._take() != ("command", "rvert"):
+                raise _Unreadable("expected \\rvert")
             return self._call("abs", node)
         if kind != "command":
             raise _Unreadable(value)
@@ -308,7 +330,13 @@ def _worked(node: ast.expr, reading: _Reading) -> ast.expr:
         raise _Unreadable("operation")
     if isinstance(value, complex) or not math.isfinite(value):
         raise _Unreadable("no real value")
-    return reading.angle(value) if angle else ast.Constant(value=value)
+    if angle:
+        return reading.angle(value)
+    worked = ast.Constant(value=value)
+    unit = carried(node)
+    if unit is not None:
+        setattr(worked, UNIT, unit)
+    return worked
 
 
 _SUMS = (ast.Add, ast.Sub)
@@ -381,10 +409,17 @@ class Reduction:
     value: float
     # The value is an angle, in degrees.
     in_degrees: bool
+    # The substituted side again, each number with its unit (None when none were given).
+    substituted: str | None = None
+    # The unit the value is in, when the numbers carry units (None for a pure number).
+    unit: Any | None = None
 
 
 def reduce_substitution(
-    symbol: str, substituted: str, number: Callable[[float], str]
+    symbol: str,
+    substituted: str,
+    number: Callable[[float], str],
+    units: LeafUnits | None = None,
 ) -> Reduction | None:
     """``\\frac{27.7778 - 0}{8}`` → rows ``a = \\frac{27.7778}{8}`` and the value 3.47222.
 
@@ -394,7 +429,13 @@ def reduce_substitution(
     reading = _Reading()
     try:
         tree = _Parser(substituted, reading).read()
-        notation = reading.notation(number)
+        labelled = units is not None and label(tree, units)
+        notation = reading.notation(number, units.shown if units is not None else None)
+        written = (
+            _latex(tree, {}, reading.angles, notation, frozenset(reading.angles))
+            if labelled
+            else None
+        )
         rows: list[str] = []
         for _ in range(_MOST_STEPS):
             if _leaf(tree):
@@ -409,8 +450,12 @@ def reduce_substitution(
             return None
         degrees = _is_angle(tree, reading)
         value = _value(tree, reading)
-    except (_Unreadable, ValueError, ZeroDivisionError, OverflowError, KeyError):
+    except (_Unreadable, ValueError, TypeError, ZeroDivisionError, OverflowError, KeyError):
         return None
     return Reduction(
-        rows=tuple(rows), value=math.degrees(value) if degrees else value, in_degrees=degrees
+        rows=tuple(rows),
+        value=math.degrees(value) if degrees else value,
+        in_degrees=degrees,
+        substituted=written,
+        unit=unit_of_node(tree) if labelled else None,
     )

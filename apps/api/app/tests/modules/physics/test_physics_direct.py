@@ -185,7 +185,8 @@ def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None
     # No launch height was stated: the working shows no "0 +" for one.
     assert (
         "**Substitution**  \n"
-        r"$H_{max} = \frac{20^2 \sin^2(30^\circ)}{2 \times 9.81}$"
+        r"$H_{max} = \frac{(20\,\mathrm{m/s})^{2} \times \sin^{2}(30^\circ)}"
+        r"{2 \times 9.81\,\mathrm{m/s²}}$"
     ) in working
     assert "0 +" not in working
     assert "```answer\n5.1\\,\\mathrm{m}\n```" in reply
@@ -217,8 +218,15 @@ def test_elastic_collision_shows_both_universal_formulas_and_substitutions() -> 
     substitution = reply.split("**Substitution**", 1)[1].split("**Answer**", 1)[0]
     assert r"v_{1f} = \frac{(m_1-m_2)v_{1i} + 2m_2v_{2i}}{m_1+m_2}" in formula
     assert r"v_{2f} = \frac{(m_2-m_1)v_{2i} + 2m_1v_{1i}}{m_1+m_2}" in formula
-    assert r"v_{1f} = \frac{(2-1) \times 3 + 2 \times 1 \times 0}{2+1}" in substitution
-    assert r"v_{2f} = \frac{(1-2) \times 0 + 2 \times 2 \times 3}{2+1}" in substitution
+    # Each value carries its unit; the 2 of the law stays a number.
+    assert (
+        r"v_{1f} = \frac{(2\,\mathrm{kg} - 1\,\mathrm{kg}) \times 3\,\mathrm{m/s} + 2 \times "
+        r"1\,\mathrm{kg} \times 0\,\mathrm{m/s}}{2\,\mathrm{kg} + 1\,\mathrm{kg}}"
+    ) in substitution
+    assert (
+        r"v_{2f} = \frac{(1\,\mathrm{kg} - 2\,\mathrm{kg}) \times 0\,\mathrm{m/s} + 2 \times "
+        r"2\,\mathrm{kg} \times 3\,\mathrm{m/s}}{2\,\mathrm{kg} + 1\,\mathrm{kg}}"
+    ) in substitution
     assert "1.00" not in reply
     assert "4.00" not in reply
 
@@ -239,16 +247,20 @@ def test_friction_given_uses_the_coefficient_symbol_not_raw_mu() -> None:
 @pytest.mark.parametrize(
     "query,symbol,substitution",
     [
-        ("Find the force on a 5 kg object with acceleration 2 m/s^2.", "F", "F = 5 \\times 2"),
+        (
+            "Find the force on a 5 kg object with acceleration 2 m/s^2.",
+            "F",
+            r"F = 5\,\mathrm{kg} \times 2\,\mathrm{m/s²}",
+        ),
         (
             "Find the acceleration of a 5 kg object under a force of 20 N.",
             "a",
-            r"a = \frac{20}{5}",
+            r"a = \frac{20\,\mathrm{N}}{5\,\mathrm{kg}}",
         ),
         (
             "Find the mass of an object with force 20 N and acceleration 4 m/s^2.",
             "m",
-            r"m = \frac{20}{4}",
+            r"m = \frac{20\,\mathrm{N}}{4\,\mathrm{m/s²}}",
         ),
     ],
 )

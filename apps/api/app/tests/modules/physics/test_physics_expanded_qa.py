@@ -210,7 +210,7 @@ def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> Non
     assert "**Electrical power formula**  \n$P = VI$" in reply
     assert "— the same law for these quantities" in reply
     assert "$P = I^2 R$" in reply
-    assert "**Substitution**  \n$P = 3^{2} \\times 4$" in reply
+    assert "**Substitution**  \n$P = (3\\,\\mathrm{A})^{2} \\times 4\\,\\Omega$" in reply
 
 
 def test_identical_base_law_is_not_repeated_as_an_equivalent_form() -> None:
@@ -281,7 +281,7 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
             "Torque formula",
             r"$\tau = Fd\sin(\theta)$",
             r"$d = \frac{\tau}{F}$",
-            r"$d = \frac{6}{15}$",
+            r"$d = \frac{6\,\mathrm{N·m}}{15\,\mathrm{N}}$",
         ),
         (
             "A converging lens has focal length 10 cm and an object is 30 cm away. Find image distance.",
@@ -290,7 +290,7 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
             r"$\frac{1}{f} = \frac{1}{d_o} + \frac{1}{d_i}$",
             r"$d_i = \frac{d_o f}{d_o - f}$",
             # Given in cm, the working stays in cm.
-            r"$d_i = \frac{30 \times 10}{30 - 10}$",
+            r"$d_i = \frac{30\,\mathrm{cm} \times 10\,\mathrm{cm}}{30\,\mathrm{cm} - 10\,\mathrm{cm}}$",
         ),
         (
             "A 30 kg child sits 2 m from the pivot of a seesaw. Where should a 20 kg child sit to balance it?",
@@ -298,7 +298,7 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
             "Principle of moments",
             r"$F_1d_1 = F_2d_2$",
             r"$d_2 = \frac{m_1 d_1}{m_2}$",
-            r"$d_2 = \frac{30 \times 2}{20}$",
+            r"$d_2 = \frac{30\,\mathrm{kg} \times 2\,\mathrm{m}}{20\,\mathrm{kg}}$",
         ),
         (
             "A 50 N downward force acts 2 m to the left of a pivot. "
@@ -307,7 +307,7 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
             "Principle of moments",
             r"$F_1d_1 = F_2d_2$",
             r"$F_2 = \frac{F_1 d_1}{d_2}$",
-            r"$F_2 = \frac{50 \times 2}{4}$",
+            r"$F_2 = \frac{50\,\mathrm{N} \times 2\,\mathrm{m}}{4\,\mathrm{m}}$",
         ),
         (
             "a 3 N force east and a 4 N force north, what is the resultant",
@@ -315,7 +315,8 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
             "Vector addition and components",
             r"$R = \sqrt{F_1^2 + F_2^2 + 2F_1F_2\cos\phi}$",
             None,
-            r"$R = \sqrt{3^{2} + 4^{2} + 2 \times 3 \times 4\cos(90^\circ)}$",
+            r"$R = \sqrt{(3\,\mathrm{N})^{2} + (4\,\mathrm{N})^{2} + 2 \times 3\,\mathrm{N} "
+            r"\times 4\,\mathrm{N} \times \cos(90^\circ)}$",
         ),
     ],
 )
@@ -353,7 +354,10 @@ def test_impact_speed_uses_height_formula_and_scientific_givens_stay_readable() 
     assert reply is not None
     assert r"$v_{impact}$" in reply
     assert r"$v_{impact} = \sqrt{v_0^2 + 2gh_0}$" in reply
-    assert r"$v_{impact} = \sqrt{(-5)^{2} + 2 \times 9.81 \times 60}$" in reply
+    assert (
+        r"$v_{impact} = \sqrt{(-5\,\mathrm{m/s})^{2} + 2 \times 9.81\,\mathrm{m/s²} "
+        r"\times 60\,\mathrm{m}}$"
+    ) in reply
 
     planet = "Find escape velocity for a planet with M = 5.97e24 kg and R = 6.37e6 m."
     planet_intent = extract_physics_intent(planet)

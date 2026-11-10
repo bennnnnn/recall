@@ -7,7 +7,9 @@ import math
 import pytest
 
 from app.modules.physics.display import latex_given
+from app.services.law_binding.leaf_units import LeafUnits
 from app.services.law_binding.reduction import reduce_substitution
+from app.services.units import get_unit_registry
 
 
 @pytest.mark.parametrize(
@@ -78,3 +80,38 @@ def test_reduce_substitution(
 )
 def test_a_row_past_reading_is_left_alone(substituted: str) -> None:
     assert reduce_substitution("x", substituted, latex_given) is None
+
+
+def _units(given: list[tuple[float, str]], answer: str) -> LeafUnits:
+    ureg = get_unit_registry()
+    return LeafUnits(
+        given=[(value, ureg(unit).units) for value, unit in given],
+        shown=lambda unit: rf"\,\mathrm{{{unit:~}}}",
+        answers=[ureg(answer).dimensionality],
+    )
+
+
+def test_every_number_carries_its_unit_down_to_the_answer() -> None:
+    """The owner's chat of 2026-11-10: a = (48 - 8)/10 had dropped m/s and s."""
+    units = _units([(8.0, "m/s"), (48.0, "m/s"), (10.0, "s")], "m/s^2")
+    reduction = reduce_substitution("a", r"\frac{48 - 8}{10}", latex_given, units)
+    assert reduction is not None
+    assert reduction.substituted == r"\frac{48\,\mathrm{m / s} - 8\,\mathrm{m / s}}{10\,\mathrm{s}}"
+    assert reduction.rows == (r"a = \frac{40\,\mathrm{m / s}}{10\,\mathrm{s}}",)
+    assert f"{reduction.unit:~}" == "m / s ** 2"
+
+
+def test_a_factor_equal_to_a_given_stays_a_number() -> None:
+    """2as with a = 2 m/s²: the law's 2 comes first, so the later 2 is the given."""
+    units = _units([(2.0, "m/s^2"), (16.0, "m")], "m^2/s^2")
+    reduction = reduce_substitution("v^2", r"2 \times 2 \times 16", latex_given, units)
+    assert reduction is not None
+    assert reduction.substituted == r"2 \times 2\,\mathrm{m / s ** 2} \times 16\,\mathrm{m}"
+
+
+def test_units_that_do_not_go_together_leave_the_row_bare() -> None:
+    """A metre added to a second has no reading: the row stays as the solver wrote it."""
+    units = _units([(3.0, "m"), (4.0, "s")], "m")
+    reduction = reduce_substitution("x", "3 + 4", latex_given, units)
+    assert reduction is not None
+    assert reduction.substituted is None

@@ -6,7 +6,9 @@ reply out of shape or a broken picture fails its own test. Questions the solver
 declines, and pictures it does not draw, are coverage: ``stem_snapshot.json``
 names every question each subject answers and draws, so a change that answers
 one question fewer fails even when it answers another more (a count would stay
-level). A change that answers more records it: ``UPDATE_STEM_SNAPSHOT=1``. A
+level). A change that answers more records it: ``UPDATE_STEM_SNAPSHOT=1``. The same
+snapshot names every physics and chemistry reply whose Substitution writes a given's number
+without its unit (``working_units``), so none starts to and each fix is recorded. A
 ``gap`` entry is a known miss: a strict expected failure, so the fix deletes its
 ``gap`` line.
 """
@@ -31,6 +33,7 @@ from app.tests.behavior.stem_sweep import (
     run,
     run_entry,
 )
+from app.tests.behavior.working_units import bare_given_lines
 
 SUBJECTS = ("chemistry", "math", "physics")
 SNAPSHOT = Path(__file__).with_name("stem_snapshot.json")
@@ -57,11 +60,16 @@ async def test_stem_turn_is_never_wrong(
     )
 
 
-def _covered(outcomes: list[Outcome]) -> dict[str, list[str]]:
-    return {
+def _covered(subject: str, outcomes: list[Outcome]) -> dict[str, list[str]]:
+    covered = {
         "answered": sorted(outcome.entry.id for outcome in answered(outcomes)),
         "drawn": sorted(outcome.entry.id for outcome in drawn(outcomes)),
     }
+    if subject != "math":
+        covered["bare_units"] = sorted(
+            outcome.entry.id for outcome in outcomes if bare_given_lines(outcome.reply)
+        )
+    return covered
 
 
 @pytest.mark.asyncio
@@ -72,7 +80,7 @@ def _covered(outcomes: list[Outcome]) -> dict[str, list[str]]:
 async def test_stem_coverage_matches_its_snapshot(
     subject: str, thread_sympy_executor: None
 ) -> None:
-    covered = _covered(await run(load(subject), SUBJECT_NAMES[subject]))
+    covered = _covered(subject, await run(load(subject), SUBJECT_NAMES[subject]))
     recorded = json.loads(SNAPSHOT.read_text())
     if os.environ.get("UPDATE_STEM_SNAPSHOT") == "1":
         recorded[subject] = covered

@@ -58,6 +58,8 @@ class Notation:
     constants: Mapping[str, tuple[float, str]]
     # A given or working value as the substitution prints it.
     number: Callable[[float], str]
+    # The unit a substituted number is printed with (``\,\mathrm{m/s}``), "" for none.
+    unit: Callable[[ast.Constant], str] = lambda _node: ""
 
     def constant(self, name: str) -> tuple[float, str] | None:
         if name == _PI:
@@ -319,7 +321,7 @@ def _latex(
     degrees: frozenset[str] = frozenset(),
 ) -> str:
     if isinstance(node, ast.Constant):
-        return notation.number(_number(node))
+        return notation.number(_number(node)) + notation.unit(node)
     if isinstance(node, ast.Name):
         constant = notation.constant(node.id)
         if constant is not None:
@@ -354,13 +356,23 @@ def _latex(
         bottom = _latex(node.right, symbols, values, notation, degrees)
         return rf"\frac{{{top}}}{{{bottom}}}"
     if isinstance(node.op, ast.Pow):
+        power = _latex(node.right, symbols, values, notation, degrees)
+        # sin²θ as a book writes it: \sin^{2}(30^\circ), never \sin(30^\circ)^{2}.
+        if (
+            isinstance(node.left, ast.Call)
+            and isinstance(node.left.func, ast.Name)
+            and node.left.func.id in {"sin", "cos", "tan"}
+        ):
+            inner = _latex(node.left.args[0], symbols, values, notation, degrees)
+            return f"{_FUNCTION_LATEX[node.left.func.id]}^{{{power}}}({inner})"
         base = _wrapped(node.left, symbols, values, 5, notation, degrees)
         # A plugged value in scientific form carries its own power: 6.371e6
-        # squared is (6.371 \times 10^{6})^{2}, never 6.371 \times 10^{6}^{2}.
+        # squared is (6.371 \times 10^{6})^{2}, never 6.371 \times 10^{6}^{2}. So does
+        # one with its unit: (8\,\mathrm{m/s})^{2} squares the unit too.
         if (
             _plugged(node.left, values)
             and not base.startswith("(")
-            and ("^" in base or "\\times" in base)
+            and ("^" in base or "\\times" in base or "\\mathrm" in base)
         ):
             base = f"({base})"
         return f"{base}^{{{_latex(node.right, symbols, values, notation, degrees)}}}"
@@ -371,7 +383,20 @@ def _latex(
         # function ("1 \\times \\sin(30^\\circ)") or a fraction ("5 \\times \\frac{19.62}{7}",
         # never read as the mixed number 5 19.62/7); symbols are written together.
         follows = _leftmost(node.right)
-        joined = _plugged(_rightmost(node.left), values) and (
+        before = _rightmost(node.left)
+        # A number after a fraction or a power of numbers too: \frac{1}{2} \times 2 and
+        # 3^{2} \times 4, never "½ 2" or "3² 4".
+        number_fraction = isinstance(before, ast.BinOp) and (
+            (
+                isinstance(before.op, ast.Div)
+                and _plugged(before.left, values)
+                and _plugged(before.right, values)
+            )
+            or (isinstance(before.op, ast.Pow) and _plugged(before.left, values))
+        )
+        # And after a negated number: -0.04 \times 0.1, never "-0.04 0.1".
+        negated = isinstance(before, ast.UnaryOp) and _plugged(before.operand, values)
+        joined = (_plugged(before, values) or number_fraction or negated) and (
             _plugged(follows, values)
             or (values is not None and isinstance(follows, ast.Call))
             or (values is not None and isinstance(follows, ast.BinOp))

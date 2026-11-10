@@ -304,11 +304,13 @@ def _colligative(
     # A van 't Hoff factor is a count of particles, never a measurement (1, not 1.00).
     count = str(int(factor)) if factor.is_integer() else inp(factor)
     given = [f"i = {count}", f"{constant_label} = {inp(constant)} °C·kg/mol", *amount_given]
-    working.append(f"{symbol} = ({count})({inp(constant)})({molality_text}) = {change} °C")
+    # Each factor with its unit: (i)(K °C·kg/mol)(b mol/kg).
+    factors = f"({count})({inp(constant)} °C·kg/mol)({molality_text} mol/kg)"
+    working.append(f"{symbol} = {factors} = {change} °C")
     normal = intent.params.get("normal_point")
     if normal is None:
         shown = f"{symbol} = {change} °C"
-        working[-1] = f"{symbol} = ({count})({inp(constant)})({molality_text})"
+        working[-1] = f"{symbol} = {factors}"
         return verified(title, given, symbol, *stated(operation), working, shown, shown)
     # The new point is the solvent's normal point moved by the change: Tb = Tb° + ΔTb.
     point = symbol.removeprefix("Δ")
@@ -372,7 +374,10 @@ def solve_osmotic(intent: ChemistryIntent) -> ChemistryResult:
         (f"i = {inp(factor)}", f"c = {inp(molarity)} mol/L", f"T = {inp(temperature)} K"),
         "Osmotic pressure",
         *stated("osmotic_pressure"),
-        (f"Π = ({inp(factor)})({inp(molarity)})({const(GAS_R)})({inp(temperature)})",),
+        (
+            f"Π = ({inp(factor)})({inp(molarity)} mol/L)({const(GAS_R)} L·atm/(mol·K))"
+            f"({inp(temperature)} K)",
+        ),
         shown,
         shown,
     )
