@@ -130,8 +130,12 @@ class SubjectFollowups(Protocol):
         and, given the chat's recent lines, one of them could be the problem it draws."""
         ...
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        """The problem whose card draws what the line asks to see, read in the pool."""
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
+        """The problem whose card draws what the line asks to see, read in the pool.
+        ``referent``: the earlier message a model read as the "it" the line asks to see
+        (``chat.referent_read``), when the turn read one."""
         ...
 
 

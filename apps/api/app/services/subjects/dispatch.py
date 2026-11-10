@@ -8,20 +8,25 @@ reaches into a subject.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop, reading
+from app.core.sympy_executor import run_sympy
+from app.services.problem_followup import message_role_content
 from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
 from app.services.subjects.order import read_subject_reason
 from app.services.subjects.registry import SubjectName as SubjectName
 from app.services.subjects.registry import SubjectRequest, subject_adapter
 from app.services.worked_parts import parts_in_one_layout
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -276,3 +281,58 @@ def maybe_direct_subject_reply(
         has_image_attachment=has_image_attachment,
         verified_request_text=verified_request_text,
     )
+
+
+# The subjects that show what a line asks to see, in the order they are asked.
+_SHOWING: tuple[SubjectName, ...] = ("chemistry", "math", "physics")
+
+
+def _shows(name: SubjectName, settings: Settings) -> bool:
+    if name == "chemistry":
+        return settings.chemistry_enabled
+    return settings.math_tools_enabled if name == "math" else settings.physics_enabled
+
+
+def asks_a_subject_to_show(line: str) -> bool:
+    """A cheap look, with no chat read: some subject could show what the line asks to see."""
+    return any(subject_adapter(name).followups.asks_to_see(line) for name in _SHOWING)
+
+
+async def subject_shows_it(
+    settings: Settings, line: str, recent: Sequence[Any], referent: str | None = None
+) -> bool:
+    """A line asking to see what the chat is on, which a subject shows: neither a photo
+    search nor a generated picture takes it. "can u show me both" after a shape answer is
+    chemistry's molecules; "show it" or "a picture of it" when the message a model read as
+    "it" (``referent``) is a curve or a shape is maths' graph or figure (live, 2026-11-09,
+    "show it" after sin(x) searched photos for "it"); a projectile is physics' scene.
+
+    The cheap looks come first, on the line and the chat, so a photo turn in any other chat
+    ("show me her") never waits on the pool. A pool that cannot read it leaves the line to
+    the photo path and does not decline the turn's other readings.
+    """
+    turns = [
+        {"role": role, "content": content}
+        for role, content in map(message_role_content, recent)
+        if role is not None and content is not None
+    ]
+    for name in _SHOWING:
+        followups = subject_adapter(name).followups
+        if not _shows(name, settings) or not followups.asks_to_see(line, recent):
+            continue
+        try:
+            problem = await run_sympy(
+                followups.shown_problem,
+                line,
+                turns,
+                referent,
+                timeout=settings.subject_read_timeout_seconds,
+            )
+        except Exception:
+            logger.info(
+                "a shown-problem read gave up; the line stays a photo lookup", exc_info=True
+            )
+            continue
+        if problem is not None:
+            return True
+    return False

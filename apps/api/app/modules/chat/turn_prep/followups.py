@@ -38,8 +38,15 @@ class SubjectFollowup:
 
 
 def resolve_subject_followup(
-    content: str, prompt_messages: list[dict[str, str]]
+    content: str,
+    prompt_messages: list[dict[str, str]],
+    referent: str | None = None,
+    continued: str | None = None,
 ) -> SubjectFollowup:
+    """``referent``: the earlier problem a model read as the "it" of "draw it" or "show it"
+    (``chat.referent_read``). A curve or a shape is drawn by maths, a scene by physics; a
+    maths follow-up of the line's own (the working of the solve before it) comes first.
+    ``continued``: the problem a model read "3" or "the area" as continuing, whole."""
     # build_prompt_messages has already loaded and adjacency-checked the recent
     # exchange; drop the current user row before reading that pair. The turn's own
     # context sits between them, so only the conversation is read.
@@ -48,13 +55,32 @@ def resolve_subject_followup(
         history = history[:-1]
     math = subject_adapter("math").followups.problem(content, history, blocked=blocks_math_followup)
     if math is not None:
+        # "Show me that" after a solve is its working, as before: before any drawing.
         return SubjectFollowup(math=math)
+    if referent is not None:
+        shown = _shown(content, history, referent)
+        if shown.found:
+            return shown
+    if continued is not None and not blocks_math_followup(continued):
+        if subject_adapter("math").asks(continued):
+            return SubjectFollowup(math=continued)
     chemistry = chemistry_working_followup_problem(content, history)
     if chemistry is None:
         chemistry = subject_adapter("chemistry").followups.problem(content, history)
     if chemistry is not None:
         return SubjectFollowup(chemistry=chemistry)
     return SubjectFollowup(physics=subject_adapter("physics").followups.problem(content, history))
+
+
+def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:
+    """What the subject of the earlier problem a line asks to see draws it as."""
+    if not blocks_math_followup(referent):
+        drawn = subject_adapter("math").followups.shown_problem(content, history, referent)
+        if drawn is not None:
+            return SubjectFollowup(math=drawn)
+    return SubjectFollowup(
+        physics=subject_adapter("physics").followups.shown_problem(content, history, referent)
+    )
 
 
 def followup_subject(query_text: str | None, exchange: Sequence[Any]) -> SubjectName | None:

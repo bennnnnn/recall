@@ -53,6 +53,9 @@ class RoutingLanes:
     # the reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash read 8 of 8
     # right in about 0.7s; GPT-6 Luna took over 2s).
     live_read: str
+    # Which earlier message "draw it" or "show it" means (``chat.referent_read``): the turn
+    # waits on it, so the same fast JSON-mode model.
+    referent_read: str
 
 
 ROUTING = RoutingLanes(
@@ -69,4 +72,5 @@ ROUTING = RoutingLanes(
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
     live_read="title-model",
+    referent_read="title-model",
 )

@@ -32,10 +32,17 @@ MATH_REPLY_POLICY = (
 )
 
 # Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
-# when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
+# when SymPy sampling fails, the model otherwise dumps a point table or flowchart, and with
+# no figure from the app "I asked for the triangle" got a triangle of slashes in a ```text
+# block (2026-11-09). Only maths' pack says it: an SVG logo, a CSS circle or a star triangle
+# printed by code is the user's own ask.
 GRAPH_NO_SUBSTITUTE_CLAUSE = (
     "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
-    "or a Mermaid/flowchart diagram for a function plot."
+    "or a Mermaid/flowchart diagram for a function plot. Never draw a geometric shape "
+    "yourself, in characters, a ```chart, Mermaid, SVG or HTML: the app draws shapes from "
+    "a verified math block. When the user asks to see a shape and no verified math block "
+    "is present, say in one sentence that you can't draw it here, then describe it in words. "
+    "Code, SVG, HTML, CSS or ASCII art the user asks for is theirs to have."
 )
 
 MATH_INTENT_HINT = (

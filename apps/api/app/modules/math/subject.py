@@ -29,6 +29,8 @@ from app.modules.math.tools.prompt import (
     build_math_augmentation,
     needs_symbolic_math,
 )
+from app.modules.turn_reading.continued_problem import adds_to_problem
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import SubjectAugmentation, VerifiedMathBlock
 from app.services.subject_hints import SubjectHints
 
@@ -38,6 +40,12 @@ if TYPE_CHECKING:
     from app.services.solving import VerifiedSolveBlock
     from app.services.subjects.registry import SubjectRequest
 
+
+# A line that added to the open problem ("3", "the area"): the problem it completes.
+PIECED_PROBLEM_NOTE = (
+    "The user's last message adds to their earlier ones; read together, the problem this "
+    "turn answers is: "
+)
 
 _HINTS = SubjectHints(
     math_prompt_hints,
@@ -96,10 +104,15 @@ class MathFollowups:
         return borrows_earlier_lines(line)
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
-        return False
+        return asks_to_see(line) and (recent is None or any(recent))
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        return None
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
+        # The curve or the shape of the message read as "it": never a photo of "it".
+        from app.modules.math.tools.graph_followup import drawing_of
+
+        return drawing_of(referent) if referent and asks_to_see(line) else None
 
 
 @dataclass(frozen=True)
@@ -289,15 +302,7 @@ class MathSubject:
         return recording()
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
-        block, math_verified = await build_math_augmentation(
-            request.math_text,
-            settings,
-            has_image_attachment=request.has_image_attachment,
-            image_math_extract=request.image_math_extract,
-            needs_math=True,
-            prior_user_messages=request.prior_user_messages,
-            response_intent_text=request.response_intent_text,
-        )
+        block, math_verified = await self._augmentation(request, settings)
         return SubjectAugmentation(
             subject="math",
             prompt_block=block,
@@ -307,6 +312,24 @@ class MathSubject:
                 block is not None and math_verified is None and block is not NOTHING_TO_GRAPH
             ),
         )
+
+    async def _augmentation(
+        self, request: SubjectRequest, settings: Settings
+    ) -> tuple[str | None, VerifiedMathBlock | None]:
+        block, math_verified = await build_math_augmentation(
+            request.math_text,
+            settings,
+            has_image_attachment=request.has_image_attachment,
+            image_math_extract=request.image_math_extract,
+            needs_math=True,
+            prior_user_messages=request.prior_user_messages,
+            response_intent_text=request.response_intent_text,
+        )
+        line = request.response_intent_text
+        if block is None or line is None or not adds_to_problem(line):
+            return block, math_verified
+        # "3" alone was read as anything but the triangle's third side (2026-11-09).
+        return f"{PIECED_PROBLEM_NOTE}{request.math_text}\n\n{block}", math_verified
 
     def direct_reply(
         self,
@@ -320,6 +343,10 @@ class MathSubject:
             return None
         from app.modules.math.tools.direct import maybe_direct_math_reply
 
+        # "5" after "A rectangle 3 by" asks what the whole problem asks, so the problem is
+        # what the reply's guards read, as physics' ``solved_text`` does.
+        if verified_request_text is not None and adds_to_problem(user_text):
+            user_text = verified_request_text
         return maybe_direct_math_reply(
             verified,
             user_text,

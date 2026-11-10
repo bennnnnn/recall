@@ -35,6 +35,12 @@ class ChatContextSettings(BaseModel):
     history_summary_urgent_pending: int = 3
     summary_max_tokens: int = 800
 
+    # "Draw it", "show it": a fast model reads which earlier message "it" is
+    # (``chat.referent_read``). Off, or no answer in time, and the turn reads the line
+    # as before. Foreground: kept short, no retry.
+    referent_read_enabled: bool = True
+    referent_read_timeout_seconds: float = 2.0
+
     # Claim check — on a searched reply, a claim the sources and the user's messages do not
     # support is cut before it saves (``modules/chat/claim_check.py``). Off: replies as written.
     claim_check_enabled: bool = True
