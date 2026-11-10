@@ -121,6 +121,14 @@ async def update_content(
     return await _messages.update_content(session, message, content, commit=commit)
 
 
+async def put_above_reply(
+    session: AsyncSession, message_id: UUID, chat_id: UUID, lines: str
+) -> str | None:
+    """A saved reply with ``lines`` above its text (a photo that came after it); the new
+    text, or None when the reply is gone. No commit."""
+    return await _messages.put_above(session, message_id, chat_id, lines)
+
+
 async def set_feedback(
     session: AsyncSession, message_id: UUID, chat_id: UUID, feedback: str | None
 ) -> Message | None:

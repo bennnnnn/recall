@@ -21,6 +21,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models import model_catalog
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
+from app.modules.chat.late_photo import follow_late_photo
 from app.modules.chat.post_turn import enqueue_post_turn_jobs
 from app.modules.chat.prompt_inject import conversation_turns
 from app.modules.chat.quality import detect_quality_issues
@@ -120,6 +121,8 @@ async def register_and_enqueue_finalize(
     finalize_db_task.add_done_callback(
         lambda task: log_background_task_failure(task, "Background DB finalization failed")
     )
+    # A photo still on its way follows the saved reply; ``done`` says so (``photo_pending``).
+    follow_late_photo(deps, ctx, finalize_db_task, outcome)
 
     async def run_jobs_after_db() -> None:
         try:
@@ -345,7 +348,17 @@ async def _settle_reply(
         replaced = accum.retracted or accum.rewritten
         if replaced and outcome is not None and outcome.final_content is None:
             outcome.final_content = final_text
-        await await_user_message_persist(ctx)
+        drop_photo = should_cancel is not None and should_cancel()
+        try:
+            await await_user_message_persist(ctx)
+        except BaseException:
+            drop_photo = True
+            raise
+        finally:
+            # A Stop after the text, or no reply to save, drops a photo still on its way, as
+            # a Stop drops one the reply waits for (``attach_answer_photo``).
+            if drop_photo and ctx.answer_photo is not None:
+                ctx.answer_photo.cancel()
         await register_and_enqueue_finalize(
             deps,
             redis,

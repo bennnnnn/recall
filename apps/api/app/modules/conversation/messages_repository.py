@@ -390,6 +390,24 @@ async def update_content(
     return message
 
 
+async def put_above(
+    session: AsyncSession, message_id: UUID, chat_id: UUID, lines: str
+) -> str | None:
+    """Put ``lines`` above the message's text, the row locked so no other write is lost;
+    the new text, or None when the message is gone. Flushes, no commit."""
+    result = await session.execute(
+        select(Message)
+        .where(Message.id == message_id, Message.chat_id == chat_id)
+        .with_for_update()
+    )
+    message = result.scalar_one_or_none()
+    if message is None:
+        return None
+    message.content = f"{lines}\n\n{message.content}".strip()
+    await session.flush()
+    return message.content
+
+
 async def set_feedback(
     session: AsyncSession,
     message_id: UUID,

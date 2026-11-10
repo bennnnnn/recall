@@ -21,6 +21,7 @@ from app.models.schemas.page import Page
 from app.modules.analytics import service as analytics_service
 from app.modules.chat import finalize_registry
 from app.modules.chat.email_fence import rewrite_first_email_fence
+from app.modules.chat.late_photo import drop_late_photos
 from app.modules.chat.related_prompts import (
     RELATED_PROMPTS_TTL_SECONDS,
     forget_related_prompts,
@@ -210,6 +211,7 @@ async def bulk_chats(
     if action == "delete":
         for chat_id in changed:
             conversation_service.forget_chat(chat_id)
+            drop_late_photos(user.id, chat_id)
     return changed
 
 
@@ -227,6 +229,7 @@ async def delete_all_chats(
     except Exception:
         await session.rollback()
         raise
+    drop_late_photos(user.id)
     return count
 
 
@@ -255,6 +258,7 @@ async def delete_chat(
     await session.delete(chat)
     await session.commit()
     conversation_service.forget_chat(chat_id)
+    drop_late_photos(user.id, chat_id)
 
 
 async def today_usage(

@@ -5,12 +5,18 @@ search ("Ethiopia location map", "capybara"). The search starts as soon as
 that fence closes, while the rest of the answer streams. When the reply is
 done the fence becomes the app's ``[Image: …]`` marker, or disappears when
 no photo was found. The phone hides the fence until then.
+
+A search still running when the reply ends is not dropped: the reply goes out
+without the fence, and the photo follows it (``follow``) for up to
+``LATE_PHOTO_SECONDS`` from the reply's end, put above the saved reply by
+``chat/late_photo``.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from uuid import UUID
 
 from app.core.config import Settings
@@ -27,6 +33,10 @@ _QUERY_CHARS = 120
 _WATCH_CHARS = 600
 # The search usually finishes while the answer streams; never hold a reply long.
 _WAIT_SECONDS = 6.0
+# A photo still on its way follows the reply until this long after the reply ended
+# (the wait above included); then its search stops and the reply stays without one.
+# The phone keeps its placeholder a little longer (ANSWER_PHOTO_WAIT_MS, wsConnect.ts).
+LATE_PHOTO_SECONDS = 20.0
 
 
 def _photo_fences(text: str) -> list[tuple[int, int, str]]:
@@ -67,11 +77,19 @@ class AnswerPhoto:
         self._user = user
         self._task: asyncio.Task[list[UUID]] | None = None
         self._watching = True
+        # When the reply went out with its photo still on its way: the search's deadline.
+        self._late_until: float | None = None
+        self._dropped = False
 
     @property
     def watching(self) -> bool:
         """True until the reply's opening is past (or its photo search started)."""
         return self._watching
+
+    @property
+    def late(self) -> bool:
+        """The reply went out while its photo was still being looked up: it ``follow``s."""
+        return self._late_until is not None and not self._dropped
 
     def _start(self, query: str) -> asyncio.Task[list[UUID]]:
         self._task = asyncio.create_task(
@@ -92,37 +110,57 @@ class AnswerPhoto:
             self._watching = False
 
     async def attach(self, content: str) -> tuple[str, list[UUID]]:
-        """The reply with its photo marker in place of the fence, and the photo ids."""
+        """The reply with its photo marker in place of the fence, and the photo ids.
+
+        A search still running after ``_WAIT_SECONDS`` keeps running: the reply goes
+        without the fence and the photo ``follow``s it (``late``).
+        """
         found = _photo_fences(content)
         if not found:
             self.cancel()
             return content, []
         task = self._task or self._start(found[0][2])
         ids: list[UUID] = []
+        reply_ended = time.monotonic()
         try:
             ids = await asyncio.wait_for(asyncio.shield(task), timeout=_WAIT_SECONDS)
         except TimeoutError:
-            # Stopped, not left to finish: a late photo was stored unlinked for the reaper,
-            # after costing a lookup. Its cleanup (bytes, allowance) runs as the reply goes.
-            logger.info("Answer photo took too long; sending the reply without it")
-            task.add_done_callback(_log_late_photo)
+            logger.info("Answer photo is still on its way; the reply goes first")
+            self._late_until = reply_ended + LATE_PHOTO_SECONDS
+        except asyncio.CancelledError:
             task.cancel()
+            raise
         except Exception:
             logger.exception("Answer photo failed")
         marker = "\n".join(image_marker(attachment_id) for attachment_id in ids)
         return _replace_photo_fences(content, marker), ids
 
+    async def follow(self) -> list[UUID]:
+        """The late photo's ids once its search ends; [] when it fails, was dropped, or
+        runs past ``LATE_PHOTO_SECONDS`` (then it is stopped, and its stored bytes and the
+        day's lookup are given back as on any failure)."""
+        task = self._task
+        if task is None or self._late_until is None or self._dropped:
+            return []
+        try:
+            return await asyncio.wait_for(task, timeout=self._late_until - time.monotonic())
+        except TimeoutError:
+            logger.info("Late answer photo ran out of time; the reply stays without it")
+        except asyncio.CancelledError:
+            # The search was dropped (a Stop, a deleted chat); a cancel of this wait goes on.
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise
+        except Exception:
+            logger.exception("Late answer photo failed")
+        return []
+
     def cancel(self) -> None:
-        """Drop a search the reply no longer needs (stopped, failed, or no fence left)."""
+        """Drop a search the reply no longer needs (stopped, failed, no fence left, or
+        its chat deleted)."""
+        self._dropped = True
         if self._task is not None and not self._task.done():
             self._task.cancel()
-
-
-def _log_late_photo(task: asyncio.Task[list[UUID]]) -> None:
-    # A search that finished storing before its cancel arrived leaves an unlinked photo;
-    # the attachment reaper removes it.
-    if not task.cancelled() and task.exception() is not None:
-        logger.warning("Late answer photo failed", exc_info=task.exception())
 
 
 def strip_photo_fences(content: str) -> str:

@@ -77,9 +77,12 @@ async def test_a_slow_photo_does_not_hold_the_reply(monkeypatch):
         content, ids = await photo.attach(REPLY)
         task = photo._task
         assert task is not None
-        # Stopped, not left to store a photo nothing links (it cost a lookup).
+        # Not dropped: the reply goes, and the photo follows it (chat/late_photo.py).
         await asyncio.sleep(0)
-        assert task.cancelled()
+        assert not task.done() and photo.late
+        photo.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        assert task.cancelled() and not photo.late
     assert ids == []
     assert "```photo" not in content
 
