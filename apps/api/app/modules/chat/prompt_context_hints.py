@@ -3,6 +3,8 @@ look up, and the time, memory, files and schedule loaded for it (``prompt_sectio
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules import web_search as web_search_service
@@ -29,21 +31,39 @@ def _geo_hints(query_text: str | None, prompt_location: str | None) -> list[str]
     return parts
 
 
-def slim_geo_hints(
-    settings: Settings,
-    query_text: str | None,
-    prompt_location: str | None,
-    user: User | None = None,
-    local_tz: str | None = None,
-) -> list[str]:
+class SlimTurn(Protocol):
+    """What a slim turn's location line reads (``prompt_sections.PromptTurn``)."""
+
+    @property
+    def settings(self) -> Settings: ...
+    @property
+    def query_text(self) -> str | None: ...
+    @property
+    def prompt_location(self) -> str | None: ...
+    @property
+    def user(self) -> User: ...
+    @property
+    def local_tz(self) -> str: ...
+    @property
+    def lightweight(self) -> bool: ...
+    @property
+    def minimal_personal_context(self) -> bool: ...
+
+
+def slim_geo_hints(turn: SlimTurn) -> list[str]:
     """A slim turn has no profile block, so it states where the user is whenever Location
     gives a place (the turn's fix, else the saved one), whatever the message's wording
-    (``USE_THE_LOCATION``); the places layout hints stay with a location question."""
-    location = prompt_location or (profile_place(user, local_tz) if user is not None else None)
+    (``USE_THE_LOCATION``). A greeting and a "who am I" turn, which share no profile detail,
+    state it only when they ask about a place; the places layout hints go with that too."""
+    query = turn.query_text
+    asks_place = bool(
+        turn.settings.web_search_enabled and query and web_search_service.is_geo_query(query)
+    )
+    if not asks_place and (turn.lightweight or turn.minimal_personal_context):
+        return []
+    location = turn.prompt_location or profile_place(turn.user, turn.local_tz)
     parts = [f"The user's location: {location}. {USE_THE_LOCATION}"] if location else []
-    if settings.web_search_enabled and query_text and web_search_service.is_geo_query(query_text):
-        parts += _geo_hints(query_text, prompt_location)
-    return parts
+    return parts + (_geo_hints(query, turn.prompt_location) if asks_place else [])
 
 
 def lookup_hints(settings: Settings) -> list[str]:
