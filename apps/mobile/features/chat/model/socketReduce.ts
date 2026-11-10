@@ -12,7 +12,8 @@ export type TurnUsage = {
 
 export type ChatWsPayload = {
   type: string;
-  content?: string;
+  /** A token's text; on `answer_photo`, the saved reply with its photo, or null when none came. */
+  content?: string | null;
   message?: string;
   message_id?: string;
   code?: string;
@@ -38,6 +39,8 @@ export type ChatWsPayload = {
   prompts?: unknown;
   /** On `done`: a `title` event follows on this stream (a new chat's first reply). */
   title_pending?: boolean;
+  /** On `done`: the reply's photo was still on its way; an `answer_photo` event follows. */
+  photo_pending?: boolean;
   /** On `title`: the chat's new title, or null when none came in the server's wait. */
   title?: string | null;
 };
@@ -96,6 +99,7 @@ function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
     messages_used: messagesUsed,
     daily_messages: dailyMessages,
     title_pending: titlePending,
+    photo_pending: photoPending,
     ...rest
   } = wire;
   const payload = rest as ChatWsPayload;
@@ -103,6 +107,7 @@ function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
   if (searchSources.length > 0) payload.search_sources = searchSources;
   if (todosChanged === true || todosSync === "1") payload.todos_changed = true;
   if (titlePending === true || titlePending === "1") payload.title_pending = true;
+  if (photoPending === true || photoPending === "1") payload.photo_pending = true;
   const usage = turnUsageFrom(usedTokens, dailyLimit, messagesUsed, dailyMessages);
   if (usage) payload.usage = usage;
   return payload;
@@ -252,6 +257,34 @@ export function mergeDoneIntoMessages(
       generationStopped,
     },
   ];
+}
+
+/** The saved reply's photo is still on its way (`done` said `photo_pending`): its placeholder
+ * shows until `until`, or until the photo comes (`applyAnswerPhoto`). */
+export function markPhotoPending(
+  messages: Message[],
+  messageId: string | undefined,
+  until: number | undefined,
+): Message[] {
+  if (!messageId || until === undefined) return messages;
+  return messages.map((m) => (m.id === messageId ? { ...m, photo_pending_until: until } : m));
+}
+
+/**
+ * A reply's photo that came after it (`answer_photo`): `content` is the saved reply with the
+ * photo above its text, or null when none came. Either way the placeholder goes.
+ */
+export function applyAnswerPhoto(messages: Message[], messageId: string, content: string | null): Message[] {
+  if (!messages.some((m) => m.id === messageId)) return messages;
+  return messages.map((m) =>
+    m.id === messageId
+      ? {
+          ...m,
+          content: content === null ? m.content : stripSearchSourcesFromContent(content),
+          photo_pending_until: undefined,
+        }
+      : m,
+  );
 }
 
 /** Attach follow-up questions from the event that arrives after `done`. */

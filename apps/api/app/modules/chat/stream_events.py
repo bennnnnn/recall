@@ -30,6 +30,7 @@ from app.exceptions import (
     UnknownModelOverrideError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.modules.chat.late_photo import answer_photo_event
 from app.modules.chat.stream_accum import Completion
 from app.modules.chat.turn_outcome import TurnOutcome, TurnUsage
 from app.modules.web_search import SearchSource
@@ -217,6 +218,8 @@ class DoneEvent(BaseModel):
     persisting: bool = False
     # A ``title`` event follows on this socket: the phone asks for the chat's title no more.
     title_pending: bool = False
+    # An ``answer_photo`` event follows: the reply's photo was still on its way.
+    photo_pending: bool = False
 
     @classmethod
     def from_outcome(
@@ -236,6 +239,7 @@ class DoneEvent(BaseModel):
             completion=outcome.completion,
             persisting=persisting,
             title_pending=title_follows and outcome.title_wait is not None and not persisting,
+            photo_pending=outcome.photo_task is not None and not persisting,
         )
 
     @model_serializer
@@ -277,6 +281,8 @@ class DoneEvent(BaseModel):
             event["persisting"] = True
         if self.title_pending:
             event["title_pending"] = "1"
+        if self.photo_pending:
+            event["photo_pending"] = "1"
         return event
 
 
@@ -389,13 +395,16 @@ async def take_related_prompts_event(
 async def after_done_events(
     outcome: TurnOutcome, *, title_wanted: Callable[[], bool] | None = None
 ) -> AsyncIterator[dict[str, Any]]:
-    """What follows ``done`` on its stream, each as it lands: the follow-up questions, and
-    with ``title_wanted`` a new chat's title (``done`` said so: ``title_pending``), waited
-    for while it says the socket is there. SSE ends without the title, and a phone on it
-    reads the title once (``title_event``)."""
+    """What follows ``done`` on its stream, each as it lands: the follow-up questions, a
+    photo that came after the reply (``photo_pending``), and with ``title_wanted`` a new
+    chat's title (``done`` said so: ``title_pending``), waited for while it says the socket
+    is there. SSE ends without the title, and a phone on it reads the title once
+    (``title_event``)."""
     waits: list[Coroutine[Any, Any, dict[str, Any] | None]] = []
     if outcome.related_task is not None:
         waits.append(take_related_prompts_event(outcome.related_task))
+    if outcome.photo_task is not None:
+        waits.append(answer_photo_event(outcome.photo_task))
     if title_wanted is not None and outcome.title_wait is not None:
         waits.append(outcome.title_wait(title_wanted))
     for landed in asyncio.as_completed(waits):

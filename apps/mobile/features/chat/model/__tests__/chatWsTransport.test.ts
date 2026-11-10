@@ -5,6 +5,7 @@ import {
   WS_RETRY_MAX_MS,
 } from "@/features/chat/model/wsBackoff";
 import {
+  ANSWER_PHOTO_WAIT_MS,
   STREAM_IDLE_TIMEOUT_MS,
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
@@ -378,6 +379,44 @@ describe("ChatWsTransport", () => {
       socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
       expect(socket.close).not.toHaveBeenCalled();
       socket.emit({ type: "title", title: "Heater repair" });
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    // 2026-11-09: the reply's photo was still on its way when the reply went out.
+    it("carries a photo that comes after its reply while the chat is on screen", async () => {
+      const { socket, onPayload } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1", photo_pending: "1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      jest.advanceTimersByTime(ANSWER_PHOTO_WAIT_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "answer_photo", message_id: "m1", content: "[Image: /attachments/p/file]\n\nHi" });
+      expect(onPayload).toHaveBeenLastCalledWith(expect.objectContaining({ type: "answer_photo" }));
+    });
+
+    // Review 2026-11-09: left (the background, another screen, a network change), the socket
+    // went once the follow-ups were in, and a photo still on its way was lost with it.
+    it("left, is kept for a photo still on its way past the follow-ups wait, until it comes", async () => {
+      const { socket, transport, onPayload } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1", photo_pending: "1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      inView = false;
+      transport.leftView();
+      jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS);
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.emit({ type: "answer_photo", message_id: "m1", content: "[Image: /attachments/p/file]\n\nHi" });
+      expect(onPayload).toHaveBeenLastCalledWith(expect.objectContaining({ type: "answer_photo" }));
+      expect(socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    it("left, is let go when a photo's wait ends with none", async () => {
+      const { socket, transport } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1", photo_pending: "1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: ["Why?"] });
+      inView = false;
+      transport.leftView();
+      jest.advanceTimersByTime(ANSWER_PHOTO_WAIT_MS - 1);
+      expect(socket.close).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
       expect(socket.close).toHaveBeenCalledTimes(1);
     });
 

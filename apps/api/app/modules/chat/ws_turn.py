@@ -332,9 +332,9 @@ async def run_chat_stream(
 
 
 def schedule_after_done(websocket: WebSocket, outcome: TurnOutcome) -> None:
-    """Send what follows ``done`` (follow-up questions, a new chat's title) as it lands,
-    without holding the next message."""
-    if outcome.related_task is None and outcome.title_wait is None:
+    """Send what follows ``done`` (follow-up questions, a late photo, a new chat's title) as
+    it lands, without holding the next message."""
+    if outcome.related_task is None and outcome.title_wait is None and outcome.photo_task is None:
         return
 
     def connected() -> bool:

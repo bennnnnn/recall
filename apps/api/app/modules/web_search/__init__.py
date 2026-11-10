@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from app.modules.web_search.formatting import (
         AMBIGUOUS_NEARBY_HINT,
+        DIRECTIONS_LINK_RULE,
         GEO_ACTIVE_LOCATION_HINT,
         GEO_DISTANCE_HINT,
         LOCAL_PLACES_FORMAT_HINT,
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
 
 _EXPORTS = {
     "AMBIGUOUS_NEARBY_HINT": "formatting",
+    "DIRECTIONS_LINK_RULE": "formatting",
     "GEO_ACTIVE_LOCATION_HINT": "formatting",
     "GEO_DISTANCE_HINT": "formatting",
     "LOCAL_PLACES_FORMAT_HINT": "formatting",
@@ -83,6 +85,7 @@ _EXPORTS = {
 
 __all__ = [
     "AMBIGUOUS_NEARBY_HINT",
+    "DIRECTIONS_LINK_RULE",
     "GEO_ACTIVE_LOCATION_HINT",
     "GEO_DISTANCE_HINT",
     "LOCAL_PLACES_FORMAT_HINT",

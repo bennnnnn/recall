@@ -7,6 +7,7 @@ import { popLastAssistantMessage } from "@/features/chat/model/regenerateLogic";
 import type { PendingSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
 import { DUPLICATE_TURN_POLLS, duplicateTurnPollMs } from "@/features/chat/model/turnReconcile";
+import { ANSWER_PHOTO_WAIT_MS } from "@/features/chat/model/wsConnect";
 import type { ChatWsTransport } from "@/features/chat/model/wsTransport";
 
 /**
@@ -160,6 +161,36 @@ describe("frames", () => {
     expect(run.messages[0].related_prompts).toEqual(["One?", "Two?", "Three?"]);
     const none = play(idle(), [frame({ type: "related_prompts", prompts: ["Lost?"] }), frame({ type: "related_prompts", message_id: "m-1", prompts: [] })]);
     expect(none.commands).toEqual([]);
+  });
+
+  // 2026-11-09: "where is Ethiopia" showed "finding a photo", then a reply with no photo.
+  it("a photo still on its way at done keeps its placeholder until the photo comes", () => {
+    const text = "Ethiopia lies in the Horn of Africa.";
+    const run = play(streaming({ buffer: text, draft: { content: text } }), [
+      frame({ type: "done", message_id: "m-1", final_content: text, photo_pending: true }),
+    ], [bubble]);
+    expect(run.messages).toEqual([
+      expect.objectContaining({ id: "m-1", content: text, photo_pending_until: NOW + ANSWER_PHOTO_WAIT_MS }),
+    ]);
+    const photo = `[Image: /attachments/p-1/file]\n\n${text}`;
+    const landed = play(run.state, [frame({ type: "answer_photo", message_id: "m-1", content: photo })], run.messages);
+    expect(landed.messages).toEqual([expect.objectContaining({ id: "m-1", content: photo })]);
+    expect(landed.messages[0].photo_pending_until).toBeUndefined();
+  });
+
+  it("no photo came: the placeholder goes and the reply stays as it was", () => {
+    const reply: Message = { ...answer("m-1", "Ethiopia lies in the Horn of Africa."), photo_pending_until: NOW + 5_000 };
+    const run = play(idle(), [frame({ type: "answer_photo", message_id: "m-1", content: null })], [reply]);
+    expect(run.messages).toEqual([expect.objectContaining({ id: "m-1", content: reply.content })]);
+    expect(run.messages[0].photo_pending_until).toBeUndefined();
+    // A photo for a reply no longer on screen changes nothing.
+    const gone = play(idle(), [frame({ type: "answer_photo", message_id: "m-9", content: "[Image: x]" })], [reply]);
+    expect(gone.messages).toEqual([reply]);
+  });
+
+  it("a done with no photo on its way leaves no placeholder", () => {
+    const run = play(streaming(), [frame({ type: "done", message_id: "m-1", final_content: "Hi" })], [bubble]);
+    expect(run.messages[0]).not.toHaveProperty("photo_pending_until");
   });
 });
 

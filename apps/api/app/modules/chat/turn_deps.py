@@ -95,6 +95,10 @@ class MessagesRepo(Protocol):
 
     async def delete_message(self, session: AsyncSession, message: Message) -> None: ...
 
+    async def put_above(
+        self, session: AsyncSession, message_id: UUID, chat_id: UUID, lines: str
+    ) -> str | None: ...
+
 
 class Quota(Protocol):
     """The daily chat budget in Redis, and the global spend cap."""
@@ -338,6 +342,8 @@ class _ConversationMessages:
     get_by_id = staticmethod(conversation_history.message_in_chat)
     get_last_user = staticmethod(conversation_history.last_user_message)
     delete_message = staticmethod(conversation_service.delete_message)
+    # A reply's photo that came after it was saved (``late_photo``).
+    put_above = staticmethod(conversation_service.put_above_reply)
 
 
 # One of each, so two turns' default deps compare equal.
