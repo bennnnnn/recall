@@ -13,7 +13,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
-from app.modules.chat.posed_read import posed_for_turn, start_posed_read
+from app.modules.chat.posed_read import posed_for_turn
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
 from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
 from app.modules.chat.turn_prep.followups import (
@@ -28,7 +28,6 @@ from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
 from app.modules.chat.turn_prep.reading import (
     ask_turn_readings,
     plan_of,
-    read_turn_message,
     subject_of,
 )
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
@@ -286,8 +285,13 @@ async def augment_after_prompt(
 ) -> tuple[Augmentation, str | None]:
     """Phases B and C after the prompt: a follow-up's subject, the verified solve (none for a
     money turn, whose numbers are worked already), and a reply the solve writes itself."""
+    # "thanks", and a bare "ok" or "yes" that answers the reply: no problem to read for.
+    mode = identity.mode
     followup, referent = await _turn_followup(
-        request, settings, prompt_messages, small_talk=identity.mode.lightweight
+        request,
+        settings,
+        prompt_messages,
+        small_talk=mode.lightweight or mode.lightweight_reason == "answers_offer",
     )
     if followup.asked is not None:
         # "Do it" after a posed problem: the turn is the problem, as if typed, and read so,
@@ -399,18 +403,6 @@ def reads_window(request: TurnRequest) -> list[Any]:
     redone, which is no part of the chat the line answers."""
     redone = request.omit_message_ids or set()
     return [row for row in request.recent_messages or [] if getattr(row, "id", None) not in redone]
-
-
-async def read_turn_and_start_reads(request: TurnRequest, settings: Settings) -> None:
-    """The turn's message read in the pool, then the model reads the turn may wait for
-    later started beside the rest of its load (``chat.posed_read``)."""
-    await read_turn_message(
-        request.content,
-        request.recent_messages or [],
-        settings,
-        has_image_attachment=request.has_image_attachment,
-    )
-    start_posed_read(settings, request.content, reads_window(request))
 
 
 def _followup_subject(followup: SubjectFollowup) -> SubjectName | None:

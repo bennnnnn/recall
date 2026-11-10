@@ -18,18 +18,14 @@ from app.models import model_catalog
 from app.models.orm import User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.prompt_builder import PromptStats, build_prompt_messages
-from app.modules.chat.turn_prep.augment import (
-    Augmentation,
-    augment_after_prompt,
-    read_turn_and_start_reads,
-)
+from app.modules.chat.turn_prep.augment import Augmentation, augment_after_prompt
 from app.modules.chat.turn_prep.instant import (
     recurring_pay_reply,
     resolve_instant_reply,
 )
 from app.modules.chat.turn_prep.mode import classify_turn_mode
 from app.modules.chat.turn_prep.money import server_parts, with_money_block
-from app.modules.chat.turn_prep.reading import read_turn
+from app.modules.chat.turn_prep.reading import read_turn, read_turn_message
 from app.modules.chat.turn_prep.request import (
     ClientGeoContext,
     TurnIdentity,
@@ -409,7 +405,12 @@ async def build_stream_prompt_context(
     timing = request.timing
     if timing is not None:
         timing.mark_phase("prepare_start")
-    await read_turn_and_start_reads(request, settings)
+    await read_turn_message(
+        request.content,
+        request.recent_messages or [],
+        settings,
+        has_image_attachment=request.has_image_attachment,
+    )
     identity = await _load_turn_identity(request, settings)
     pay_reply = recurring_pay_reply(request, identity.local_tz)
     if pay_reply is not None:

@@ -11,26 +11,25 @@ assistant's or the user's, that states the problem the line asks to solve or to 
 ("What if h was 10 m?", a tapped follow-up question), and the problem as written there. A
 change is named, never written: the given that changes and the line's new value, which the
 problem's subject puts in its place (``SubjectFollowups.changed_problem``). The quiz guard
-holds: a line that answers a question ("the hypotenuse") asks no solve. The read starts as
-the turn loads and is awaited only when no reader claimed the line; with no read, or none
-named, the turn is read as before.
+holds: a line that answers a question ("the hypotenuse") asks no solve. The read runs only
+where it decides the turn: no reader claimed the line, it is no small talk, and no other
+read found its problem (``turn_prep.augment``); Stop cancels it with the turn. With no read,
+or none named, the turn is read as before.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 import time
 from collections.abc import Sequence
-from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings
-from app.core.readings import keep_for_turn, kept_for_turn, read_off_loop
+from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
 from app.services.text_normalize import collapse_ws
 
@@ -163,29 +162,9 @@ def _key(line: str, recent: Sequence[Any]) -> tuple[str, tuple[tuple[str, str], 
     return line, tuple(chat_before(recent, line))
 
 
-# The read started as the turn loaded. Beside the turn's readings, not in them: the
-# readings are copied to the SymPy pool's workers, and a task does not pickle.
-_STARTED: ContextVar[tuple[Any, asyncio.Task[Posed | None]] | None] = ContextVar(
-    "posed_read_started", default=None
-)
-
-
-def start_posed_read(settings: Settings, line: str, recent: Sequence[Any]) -> None:
-    """Start the read as the turn loads, beside its other reads: the turn awaits it only
-    when no subject reader claims the line (``posed_for_turn``), so it adds no wait to a
-    turn that never asks."""
-    if not settings.referent_read_enabled or not may_refer_to_a_problem(line, recent):
-        return
-    task = asyncio.create_task(read_posed(settings, line, recent), name="posed_read")
-    _STARTED.set((_key(line, recent), task))
-
-
 async def posed_for_turn(settings: Settings, line: str, recent: Sequence[Any]) -> Posed | None:
-    """The turn's read: the one started as it loaded, else read now (``core.readings``)."""
+    """``read_posed`` once a turn, kept as the other reads are (``core.readings``)."""
     key = _key(line, recent)
-    started = _STARTED.get()
-    if started is not None and started[0] == key:
-        return await started[1]
     kept = kept_for_turn(_KEPT)
     if isinstance(kept, tuple) and kept[0] == key:
         posed: Posed | None = kept[1]
@@ -203,7 +182,8 @@ async def read_posed(settings: Settings, line: str, recent: Sequence[Any]) -> Po
         return None
     exchanges = chat_before(recent, line)
     asked = exchanges[-2][1] if len(exchanges) > 1 and exchanges[-2][0] == "user" else None
-    held = await read_off_loop(
+    # A look the turn can do without: a pool that gives up never declines its readings.
+    held = await read_aside(
         holds_a_problem,
         asked,
         exchanges[-1][1],

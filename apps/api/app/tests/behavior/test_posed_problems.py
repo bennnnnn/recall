@@ -139,3 +139,47 @@ async def test_without_a_read_the_posed_problem_is_not_guessed(thread_sympy_exec
     """No model, no read: "Do it" is the model's to answer, as before."""
     history = (("user", _POSED[0][2]), ("assistant", _POSED[0][3]))
     assert not (await _route("Do it", history=history)).solved
+
+
+@pytest.mark.parametrize(
+    ("line", "history"),
+    [
+        ("thanks", (("user", _POSED[0][2]), ("assistant", _POSED[0][3]))),
+        ("ok", (("user", _POSED[0][2]), ("assistant", _POSED[0][3]))),
+        # A reader claims it: the car's time changed, no read needed.
+        ("What if it took 10 s?", (("user", _CAR), ("assistant", "**Answer** 6 m/s"))),
+        # Its own problem.
+        (
+            "A train goes 300 m in 15 s. What is its speed?",
+            (("user", _CAR), ("assistant", "6 m/s")),
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_line_the_turn_answers_without_the_read_makes_no_model_call(
+    line: str, history: tuple[tuple[str, str], ...], thread_sympy_executor: None
+) -> None:
+    """The re-review of 35970e984: the read started on nearly every short line after a
+    reply. It now runs only where it decides the turn."""
+    from unittest.mock import AsyncMock, patch
+
+    from app.modules.chat import posed_read
+
+    model = AsyncMock(return_value=None)
+    with patch.object(posed_read, "pick_posed", model):
+        await _route(line, history=history)
+    model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_do_it_after_a_posed_problem_makes_the_model_call(
+    thread_sympy_executor: None,
+) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    from app.modules.chat import posed_read
+
+    model = AsyncMock(return_value=None)
+    with patch.object(posed_read, "pick_posed", model):
+        await _route("Do it", history=(("user", _POSED[0][2]), ("assistant", _POSED[0][3])))
+    model.assert_awaited_once()

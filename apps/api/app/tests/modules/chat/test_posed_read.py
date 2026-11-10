@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pickle
+import asyncio
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -155,19 +155,45 @@ async def test_the_replys_cheer_after_the_problem_is_left_out() -> None:
 
 
 @pytest.mark.asyncio
-async def test_the_read_started_as_the_turn_loads_is_the_one_awaited() -> None:
+async def test_a_look_at_the_reply_that_gives_up_leaves_the_turns_readings() -> None:
+    """The re-review of 35970e984: the look ran in the turn's own readings, so a pool that
+    gave up on it declined them all and the turn's own solve read nothing."""
     from app.core import readings
 
     readings.begin_turn()
     model = AsyncMock(return_value=PosedPick(kind="solve", message=2, problem=_CAR))
-    rows: list[Any] = _rows(_POSED_CHAT)
-    with patch.object(posed_read, "pick_posed", model):
-        posed_read.start_posed_read(Settings(), "Do it", rows)
-        # The turn's readings go to the SymPy pool's worker processes: still picklable.
-        pickle.dumps(readings._MEMO.get())
-        posed = await posed_read.posed_for_turn(Settings(), "Do it", rows)
-    assert posed is not None and posed.problem == _CAR
-    model.assert_awaited_once()
+    with (
+        patch("app.core.sympy_executor.run_sympy", AsyncMock(side_effect=TimeoutError)),
+        patch.object(posed_read, "pick_posed", model),
+    ):
+        assert await read_posed(Settings(), "Do it", _rows(_POSED_CHAT)) is None
+    model.assert_not_awaited()
+    assert not readings.readings_declined()
+    assert await readings.read_off_loop(len, "abc", timeout=5) == 3
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_the_read() -> None:
+    """The read runs inside the turn: Stop cancelling the turn cancels the model call."""
+    asked = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def slow(*_args: Any) -> PosedPick:
+        asked.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+        raise AssertionError("never answered")
+
+    with patch.object(posed_read, "pick_posed", slow):
+        turn = asyncio.create_task(read_posed(Settings(), "Do it", _rows(_POSED_CHAT)))
+        await asyncio.wait_for(asked.wait(), timeout=5)
+        turn.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await turn
+    assert cancelled.is_set()
 
 
 @pytest.mark.asyncio
