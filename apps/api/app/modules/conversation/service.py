@@ -152,9 +152,14 @@ async def edit_recent_reply(
     for message in await _messages.list_recent(session, chat_id, limit=scan):
         if message.role != "assistant" or containing not in (message.content or ""):
             continue
-        updated = edit(message.content)
-        if updated == message.content:
+        # Edited as it is under its row lock: a write since the scan (a late photo put
+        # above the reply) is kept, not overwritten by the text the scan read.
+        locked = await _messages.get_by_id(session, message.id, chat_id, for_update=True)
+        if locked is None or containing not in (locked.content or ""):
             return False
-        await _messages.update_content(session, message, updated)
+        updated = edit(locked.content)
+        if updated == locked.content:
+            return False
+        await _messages.update_content(session, locked, updated)
         return True
     return False
