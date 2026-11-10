@@ -9,18 +9,6 @@ import { Weight } from "@/lib/type";
 const PAD = " ";
 
 /**
- * Code up to this long keeps together: its spaces do not break, so "+ 1" and
- * "range(1, 6)" never split over two lines. About half a line of 14pt code; a longer
- * span may wrap at its spaces, or it would run past the edge of the reply.
- */
-const UNBROKEN_CODE = 24;
-
-/** `code` with no-break spaces when it is short enough to stay on one line. */
-function unbrokenCode(code: string): string {
-  return code.length <= UNBROKEN_CODE ? code.replace(/ /g, "\u00A0") : code;
-}
-
-/**
  * Inline code drawn as a pill: `style` gives the face and tint (see
  * `inlineCodeTextStyle`). Inside a sentence this is a nested Text, which
  * takes no padding or corner radius on iOS or Android, so the tint is the
@@ -38,7 +26,7 @@ export function InlineCode({
   return (
     <Text style={style} selectable>
       <Text style={styles.pad}>{PAD}</Text>
-      {unbrokenCode(children)}
+      {children}
       <Text style={styles.pad}>{PAD}</Text>
     </Text>
   );

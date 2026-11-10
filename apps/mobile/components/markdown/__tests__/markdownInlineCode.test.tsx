@@ -59,8 +59,7 @@ function spansInFace(
   return out;
 }
 
-// The pads at a pill's ends go; a no-break space inside short code is the space typed.
-const visible = (text: string) => text.replace(/^\u00a0+|\u00a0+$/g, "").replace(/\u00a0/g, " ");
+const visible = (text: string) => text.replace(/ /g, "");
 
 const ITERATION =
   "- **Iteration 1**: `n` is $2$. `total += n` means `total = total + n`. So, `total` becomes $0 + 2 = 2$.";
@@ -104,17 +103,17 @@ describe("inline code in a reply", () => {
     });
     // Nested Text takes no padding: a no-break space pads each end.
     const kids = snippet.props.children as unknown[];
-    expect(strings(view.toJSON() as Node)).toContain('\u00a0name\u00a0=\u00a0"john"\u00a0');
+    expect(strings(view.toJSON() as Node)).toContain(' name = "john" ');
     expect(kids).toHaveLength(3);
   });
 
-  it("keeps short code on one line and lets long code wrap at its spaces", async () => {
-    // "+ 1" split over two lines in a lesson's quiz explanation.
-    const long = "for name in names if name.startswith(prefix)";
-    const view = await render(<MarkdownContent content={`The \`+ 1\` is applied, then \`${long}\`.`} />);
-    const [short, wide] = spansInFace(view.toJSON() as Node, CODE_FONT).map(strings);
-    expect(short).toBe(" + 1 ");
-    expect(wide).toBe(` ${long} `);
+  it("keeps a chip's own spaces, so a selection copies the code as written", async () => {
+    // No-break spaces kept "+ 1" on one line, but a copied shell command or Python line then
+    // held U+00A0 and failed to run.
+    const view = await render(<MarkdownContent content={"Run `pip install numpy` and add `+ 1`."} />);
+    const [install, plus] = spansInFace(view.toJSON() as Node, CODE_FONT).map(strings);
+    expect(install).toBe("\u00a0pip install numpy\u00a0");
+    expect(plus).toBe("\u00a0+ 1\u00a0");
   });
 
   it("keeps the pill in bold, headings, list items and table cells", async () => {
