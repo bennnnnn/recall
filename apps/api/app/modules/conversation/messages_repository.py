@@ -342,7 +342,7 @@ async def list_assistant_ids_since(
     return list(result.scalars().all())
 
 
-def _for_rewrite(query: Select[tuple[Message]], for_update: bool) -> Select[tuple[Message]]:
+def _for_rewrite(query: Select[Message], for_update: bool) -> Select[Message]:
     """``for_update``: the row locked until the caller's commit, and read afresh over what
     the session already holds. Every writer that rewrites a message's text from a read of it
     reads it so: a write that landed first (a late photo put above a reply) is kept, never

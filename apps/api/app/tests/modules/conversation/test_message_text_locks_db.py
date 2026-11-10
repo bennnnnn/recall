@@ -12,7 +12,7 @@ the other writer starts; the other must wait and then edit the text with the pho
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -68,13 +68,13 @@ async def _text(message_id: UUID, chat_id: UUID) -> str:
 
 
 async def _while_the_photo_lands(
-    chat_id: UUID, message_id: UUID, rewrite: Callable[[Any], Awaitable[object]]
+    chat_id: UUID, message_id: UUID, rewrite: Callable[[Any], Coroutine[Any, Any, object]]
 ) -> None:
     """``rewrite`` starts while the photo's write holds the reply's lock, uncommitted."""
     async with SessionLocal() as photo:
         assert await conversation_service.put_above_reply(photo, message_id, chat_id, MARKER)
         async with SessionLocal() as other:
-            writing = asyncio.create_task(rewrite(other))
+            writing: asyncio.Task[object] = asyncio.create_task(rewrite(other))
             await asyncio.sleep(0.3)
             # It waits for the lock instead of acting on the text from before the photo.
             assert not writing.done()
