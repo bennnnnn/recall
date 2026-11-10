@@ -33,3 +33,6 @@ class SearchSettings(BaseModel):
     image_search_enabled: bool = True
     image_search_max_results: int = 3
     image_search_fetch_timeout_seconds: float = 8.0
+    # An answer photo found once is kept in shared storage and reused for the same lookup
+    # this many days (``images.photo_cache``): no search, fetch or charge. 0 turns it off.
+    answer_photo_cache_days: int = 30
