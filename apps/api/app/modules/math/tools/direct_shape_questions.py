@@ -11,6 +11,7 @@ import json
 import re
 
 from app.modules.math.tools.direct_fences import solver_fences
+from app.modules.math.tools.direct_graph import can_direct_graph
 from app.modules.turn_reading.latest_subject import asks_to_see
 from app.services.solving import VerifiedMathBlock
 
@@ -195,15 +196,24 @@ def _plain_geometry_description(
     return starts_with_shape and (any(char.isdigit() for char in lower) or draw), draw
 
 
+_CURVES = frozenset({"function", "inequality", "vertical"})
+
+
 def _drawn_figure(verified: VerifiedMathBlock, user_text: str) -> str | None:
-    """ "Draw it" after a shape: its figure alone, whatever its problem asked. The line names
-    no shape; the graph follow-up read it from the chat's latest subject (2026-11-09)."""
+    """ "Draw it" or "show it" after a shape or a curve: its figure alone, whatever its
+    problem asked. The line names neither; the chat's latest subject did (2026-11-09). A
+    show line asks for working too ("show me"), so a curve is checked here, before that."""
     fences = solver_fences(verified)
-    if len(fences) != 1 or fences[0].get("type") not in _GEOMETRY_SHAPE_ALIASES:
+    if len(fences) != 1 or not asks_to_see(user_text):
         return None
-    if not asks_to_see(user_text):
+    kind = fences[0].get("type")
+    if kind in _GEOMETRY_SHAPE_ALIASES:
+        language = "geometry"
+    elif kind in _CURVES and can_direct_graph(verified, user_text):
+        language = "graph"
+    else:
         return None
-    return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
+    return f"```{language}\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
 
 
 def nonmeasurement_geometry_reply(verified: VerifiedMathBlock, user_text: str) -> str | None:

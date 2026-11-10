@@ -127,13 +127,10 @@ class LatestSubject:
 def latest_subject(user_lines: Sequence[str]) -> LatestSubject | None:
     """The conversation's latest subject from the user's lines, oldest first; None when
     every line leans on an earlier one."""
-    leaning: list[str] = []
-    for line in reversed(user_lines):
-        if leans_on_earlier(line):
-            leaning.append(line)
-            continue
-        return _completed(line, reversed(leaning))
-    return None
+    start = latest_subject_start(user_lines)
+    if start is None:
+        return None
+    return _completed(user_lines[start], user_lines[start + 1 :])
 
 
 def adds_to_subject(line: str) -> bool:
@@ -205,6 +202,50 @@ def see_request_object(line: str) -> str | None:
     return None
 
 
+# "Show it", "show me that", "can I see it", "a picture of it": asked to be shown, in words
+# a photo lookup or a picture request uses too. Live (2026-11-09) "show it" after sin(x)
+# searched photos for "it".
+_SHOW_LEADS = (
+    "show me ",
+    "show us ",
+    "show ",
+    "send me ",
+    "give me ",
+    "let me see ",
+    "can i see ",
+    "could i see ",
+    "may i see ",
+    "i want to see ",
+)
+_PICTURE_OF = re.compile(
+    r"(?:(?:a|an|the) )?(?:picture|photo|image|pic|drawing|diagram|sketch|graph|plot) of "
+)
+
+
+def _shown_object(line: str) -> str | None:
+    """What a request to see or be shown names ("it" for "show me a picture of it"), or
+    None for a line that is no such request."""
+    rest = see_request_object(line)
+    if rest is None:
+        lower = _without_politeness(collapse_ws(line).lower().rstrip(".!?"))
+        rest = next((lower[len(lead) :] for lead in _SHOW_LEADS if lower.startswith(lead)), None)
+        if rest is None and _PICTURE_OF.match(lower) is None:
+            return None
+        rest = lower if rest is None else rest
+    picture = _PICTURE_OF.match(rest)
+    return (rest[picture.end() :] if picture else rest).strip()
+
+
 def asks_to_see(line: str) -> bool:
-    """ "Draw it", "graph this", "Plot": the latest subject, drawn by the subject it is."""
-    return see_request_object(line) in _PRONOUN_OBJECTS
+    """ "Draw it", "graph this", "Plot", "show it", "can I see that?", "a picture of it": the
+    latest subject, shown by the subject it is (or a photo of it when it is a thing)."""
+    return _shown_object(line) in _PRONOUN_OBJECTS
+
+
+def latest_subject_start(user_lines: Sequence[str]) -> int | None:
+    """Where the latest subject starts in ``user_lines``: the index of its line, or None
+    when every line leans on an earlier one."""
+    for index in range(len(user_lines) - 1, -1, -1):
+        if not leans_on_earlier(user_lines[index]):
+            return index
+    return None

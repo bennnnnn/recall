@@ -748,6 +748,47 @@ CASES: tuple[Case, ...] = (
         "A short, warm reply about a rough day; no lookup and no chemistry.",
     ),
     # ── Photos and maps ─────────────────────────────────────────────────────
+    # A photo of "it" is the chat's latest subject: a curve or a shape is drawn, never
+    # searched (2026-11-09: "show it" after sin(x) searched photos for "it").
+    Case(
+        "photo-show-it-after-a-curve",
+        "photos and maps",
+        "show it",
+        Expect(photo=NO_PHOTO, solved=True, instant="solver", drawn="graph"),
+        "The graph of sin(x), never a stock photo.",
+        history=(("user", "sin(x)"), ("assistant", "The sine function.")),
+    ),
+    Case(
+        "photo-picture-of-it-after-a-shape",
+        "photos and maps",
+        "a picture of it",
+        Expect(photo=NO_PHOTO, image_gen=False, solved=True, instant="solver", drawn="geometry"),
+        "The 3-4-5 triangle, never a generated picture.",
+        history=(
+            ("user", "area of a triangle with sides 5, 4 and 3"),
+            ("assistant", "6 square units."),
+        ),
+        pro=True,
+    ),
+    Case(
+        "photo-can-i-see-it-after-a-projectile",
+        "photos and maps",
+        "can I see it?",
+        Expect(photo=NO_PHOTO, solved=True, instant="solver", drawn="simulation"),
+        "The projectile's path drawn.",
+        history=(
+            ("user", "A ball is thrown at 20 m/s at 30 degrees. How far does it go?"),
+            ("assistant", "About 35.3 m."),
+        ),
+    ),
+    Case(
+        "photo-named-after-maths",
+        "photos and maps",
+        "show me a picture of the Eiffel Tower",
+        Expect(photo="Eiffel Tower"),
+        "A real photo of the Eiffel Tower: the maths before names no other thing.",
+        history=(("user", "sin(x)"), ("assistant", "The sine function.")),
+    ),
     Case(
         "photo-landmark",
         "photos and maps",

@@ -167,6 +167,12 @@ def _plottable_graph_source(text: str, intent: MathIntent | None) -> str | None:
     return None
 
 
+def latest_drawing(prior_user_messages: list[str]) -> str | None:
+    """What the chat's latest subject draws as (``graph <curve>`` or its shape), or None."""
+    subject = latest_subject(prior_user_messages)
+    return None if subject is None else _drawn_request(subject.setup)
+
+
 def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> tuple[str, bool]:
     """Rewrite ``graph it`` from the conversation's latest subject, never an older one.
 
@@ -179,7 +185,7 @@ def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> 
     subject = latest_subject(prior_user_messages or [])
     if subject is None:
         return text, True
-    drawn = _drawn_request(subject.setup)
+    drawn = latest_drawing(prior_user_messages or [])
     if drawn is not None:
         return drawn, False
     # Data and no function ("Here are my exam marks: math 85, physics 78", then "graph it")

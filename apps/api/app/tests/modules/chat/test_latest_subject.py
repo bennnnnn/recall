@@ -16,6 +16,7 @@ from app.modules.turn_reading.latest_subject import (
     asks_to_see,
     continued_subject,
     latest_subject,
+    latest_subject_start,
     leans_on_earlier,
     see_request_object,
 )
@@ -172,4 +173,34 @@ def test_a_chat_of_only_leaning_lines_has_no_subject() -> None:
 )
 def test_a_request_to_see_names_what_it_draws(line: str, named: str | None) -> None:
     assert see_request_object(line) == named
-    assert asks_to_see(line) is (named in {"", "it", "this", "that"})
+
+
+@pytest.mark.parametrize(
+    ("line", "asks"),
+    [
+        ("Draw it", True),
+        ("Plot", True),
+        ("show it", True),
+        ("show me that", True),
+        ("can I see it?", True),
+        ("a picture of it", True),
+        ("Show me a photo of it please", True),
+        ("draw a picture of it", True),
+        # A subject of its own, or the working: no request to see "it".
+        ("show me", False),
+        ("show me how", False),
+        ("show me the steps", False),
+        ("show me a picture of the Eiffel Tower", False),
+        ("show it at night", False),
+        ("show that sin(x)^2 + cos(x)^2 = 1", False),
+        ("a picture of a cat", False),
+        ("show me her image", False),
+    ],
+)
+def test_a_request_to_see_it_names_nothing_of_its_own(line: str, asks: bool) -> None:
+    assert asks_to_see(line) is asks
+
+
+def test_the_latest_subject_starts_at_its_own_line() -> None:
+    assert latest_subject_start(["sin(x)", "How tall is the Eiffel Tower?", "thanks"]) == 1
+    assert latest_subject_start(["thanks", "show it"]) is None

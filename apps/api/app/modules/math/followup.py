@@ -115,7 +115,8 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
     return prior if _RELATION_RE.search(prior) and needs_symbolic_math(prior) else None
 
 
-def _user_lines(recent: Sequence[Any]) -> list[str]:
+def user_lines(recent: Sequence[Any]) -> list[str]:
+    """The user's lines of ``recent`` messages, oldest first."""
     pairs = (message_role_content(message) for message in recent)
     return [content for role, content in pairs if role == "user" and content and content.strip()]
 
@@ -129,7 +130,7 @@ def continued_problem(
     """The open maths problem ``line`` adds to, whole (``continued_subject``): "3" after
     "Triangle are with sides 5, 4,", then "The area". Live (2026-11-09) neither was solved,
     and the model drew the triangle in text."""
-    problem = continued_subject(line, _user_lines(earlier)) if line else None
+    problem = continued_subject(line, user_lines(earlier)) if line else None
     if problem is None or (blocked is not None and blocked(problem)):
         return None
     return problem if needs_symbolic_math(problem) else None
@@ -461,7 +462,7 @@ def pronoun_math_problem(
     else:
         verb = "differentiate" if match["noun"].lower() == "derivative" else "integrate"
     # "simplify it" then "now factor it": the same expression, the chat's latest subject.
-    subject = latest_subject(_user_lines(recent))
+    subject = latest_subject(user_lines(recent))
     prior = None if subject is None else subject.setup
     if prior is None or (blocked is not None and blocked(prior)):
         return None

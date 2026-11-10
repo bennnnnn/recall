@@ -82,10 +82,10 @@ class PhysicsFollowups:
         return False
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
-        return False
+        return asks_to_see(line) and (recent is None or any(recent))
 
     def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        return None
+        return shown_physics_problem(line, recent)
 
 
 @dataclass(frozen=True)

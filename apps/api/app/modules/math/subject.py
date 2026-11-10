@@ -23,6 +23,7 @@ from app.modules.math.followup import (
     pronoun_math_problem,
     readable_standalone_answer,
     restated_math_problem,
+    user_lines,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY, math_prompt_hints
 from app.modules.math.tools.prompt import (
@@ -30,7 +31,7 @@ from app.modules.math.tools.prompt import (
     build_math_augmentation,
     needs_symbolic_math,
 )
-from app.modules.turn_reading.latest_subject import adds_to_subject
+from app.modules.turn_reading.latest_subject import adds_to_subject, asks_to_see
 from app.services.solving import SubjectAugmentation, VerifiedMathBlock
 from app.services.subject_hints import SubjectHints
 
@@ -70,6 +71,12 @@ class MathFollowups:
         # "simplify it" works on the user's last expression. Alone, each one used to be
         # solved as typed: ``x = 6`` verified itself and "it" was ``i t``. "3" or "the
         # area" adds to the open problem, which is solved whole.
+        if query and not self.continues_alone(query):
+            # "show it" or "a picture of it" after a curve or a shape: drawn as "draw it" is,
+            # never a photo of "it" (2026-11-09); after anything else, its working as before.
+            shown = self.shown_problem(query, recent)
+            if shown is not None and not (blocked is not None and blocked(shown)):
+                return shown
         found = math_working_followup_problem(query, recent, blocked=blocked)
         if found is None:
             found = offered_equation_problem(query, recent)
@@ -106,10 +113,12 @@ class MathFollowups:
         return borrows_earlier_lines(line)
 
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
-        return False
+        return asks_to_see(line) and (recent is None or any(recent))
 
     def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        return None
+        from app.modules.math.tools.graph_followup import latest_drawing
+
+        return latest_drawing(user_lines(recent)) if asks_to_see(line) else None
 
 
 @dataclass(frozen=True)

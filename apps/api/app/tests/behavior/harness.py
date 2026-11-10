@@ -55,7 +55,7 @@ from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.reply_calls import offers_search
 from app.modules.chat.turn_deps import default_deps
-from app.modules.chat.turn_intercepts import _chemistry_draws_it, reply_picture_prompt
+from app.modules.chat.turn_intercepts import reply_picture_prompt
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
@@ -82,6 +82,7 @@ from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.services.mcp import setup_mcp_adapters
 from app.services.md_fence_scan import iter_fences
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock
+from app.services.subjects.dispatch import subject_shows_it
 from app.services.subjects.registry import subject_adapter
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
@@ -390,7 +391,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
     # "can u show me both" after a shape answer: the intercept lets chemistry draw the
     # molecules before a photo lookup or image generation is asked.
-    drawn = await _chemistry_draws_it(settings, text, rows)
+    drawn = await subject_shows_it(settings, text, rows)
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
     photo = dated_lookup_query(found, datetime.now(UTC).year) if found and not drawn else ""
     image_gen = bool(
