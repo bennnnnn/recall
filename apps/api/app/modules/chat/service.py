@@ -142,7 +142,10 @@ async def get_chat_awaiting_title(
         return chat
     await session.rollback()
     title = await await_title(redis, chat_id)
-    return chat if title is None else ChatOut.model_validate({**chat.model_dump(), "title": title})
+    if title is None:
+        # Written but never announced (the job's Redis write failed): the row has it.
+        return ChatOut.model_validate(await get_chat(session, user, chat_id))
+    return ChatOut.model_validate({**chat.model_dump(), "title": title})
 
 
 async def rename_chat(session: AsyncSession, user: User, chat_id: UUID, title: str) -> Chat:

@@ -184,3 +184,25 @@ def test_get_chat_waits_for_a_new_chats_title_only_when_asked(wait: bool) -> Non
         )
     assert response.status_code == 200
     assert response.json()["title"] == ("Picture of a red panda" if wait else None)
+
+
+def test_get_chat_reads_the_row_again_when_no_title_was_announced() -> None:
+    """The topic job wrote the title, but its announcement failed (Redis): the row has it."""
+    from app.core.deps import get_redis
+
+    chat_id = uuid4()
+    titled = _untitled_chat(chat_id)
+    titled.title = "Written, not announced"
+    app = app_with_user(api_user())
+    app.dependency_overrides[get_redis] = _redis
+    reads = AsyncMock(side_effect=[_untitled_chat(chat_id), titled])
+    with (
+        patch("app.modules.conversation.chats_repository.get_by_id", reads),
+        patch.object(title_event, "TITLE_WAIT_SECONDS", 0.05),
+    ):
+        response = TestClient(app).get(
+            f"/chats/{chat_id}?wait_for_title=true", headers={"Authorization": "Bearer tok"}
+        )
+    assert response.status_code == 200
+    assert response.json()["title"] == "Written, not announced"
+    assert reads.await_count == 2
