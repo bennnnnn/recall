@@ -10,7 +10,7 @@ from dataclasses import dataclass, replace
 from app.core.config import Settings
 from app.core.readings import read_off_loop, reading
 from app.modules.math import solve as math_solve
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE, MATH_REPLY_POLICY
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.response_intent import (
     MathResponseIntent,
@@ -34,7 +34,6 @@ from app.modules.math.tools.image_intent import intent_from_image_extract
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.modules.math.tools.model_readings import image_intent_on_the_page, unchecked_setup
 from app.modules.math.tools.solve_timeouts import note as note_solve_timeout
-from app.services.math_notation import GRAPH_NO_SUBSTITUTE_CLAUSE
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 
@@ -193,7 +192,7 @@ def borrows_earlier_lines(text: str) -> bool:
     """Whether ``read_math_request`` may solve ``text`` from the user's earlier lines:
     "graph it" plots the last plottable one, and a fragment ("5", "x") continues the open
     equation. A gate on what the readers read holds those lines to it too."""
-    from app.modules.turn_reading.latest_subject import is_fragment
+    from app.modules.turn_reading.continued_problem import is_fragment
 
     return is_graph_followup(text) or is_fragment(text)
 

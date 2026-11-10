@@ -12,7 +12,7 @@ import re
 
 from app.modules.math.tools.direct_fences import solver_fences
 from app.modules.math.tools.direct_graph import can_direct_graph
-from app.modules.turn_reading.latest_subject import asks_to_see
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import VerifiedMathBlock
 
 _GEOMETRY_DECLARATION_WORDS = frozenset(

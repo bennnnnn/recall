@@ -37,7 +37,6 @@ from app.modules.images.gen_intent_words import (
     VERBS_DRAW,
     VERBS_IMAGE,
 )
-from app.modules.turn_reading.latest_subject import latest_subject_start
 from app.services.text_normalize import fold_token
 
 _MODALS = frozenset({"can", "can't", "cant", "cannot", "could", "couldn't", "will", "won't"})
@@ -125,13 +124,7 @@ def is_deictic_subject(subject: str) -> bool:
 def _resolve_deictic_subject(direct: str, prior_user_contents: list[str]) -> str:
     if not is_deictic_subject(direct):
         return direct
-    candidates = prior_user_contents
-    if len(direct.split()) == 1:
-        # "a picture of it" names nothing: only the chat's latest subject can be "it"
-        # (``turn_reading.latest_subject``). "that car" names a car asked for earlier.
-        start = latest_subject_start(prior_user_contents)
-        candidates = [] if start is None else prior_user_contents[start:]
-    for prior in reversed(candidates):
+    for prior in reversed(prior_user_contents):
         subject = extract_image_gen_prompt(prior)
         if subject and not is_deictic_subject(subject):
             return subject

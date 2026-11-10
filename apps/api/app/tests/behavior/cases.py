@@ -95,6 +95,9 @@ class Case:
     memory_enabled: bool = True
     # The user's app language: how they write numbers ("1.200" is 1200 in Spanish).
     locale: str = "en"
+    # "Draw it" / "show it": the earlier user message the model's read picks as "it"
+    # (``chat.referent_read``); "" when it picks none. None: no read, as with no model.
+    referent: str | None = None
 
 
 NO_PHOTO = ""
@@ -175,6 +178,25 @@ _TRIANGLE_AREA = (
     *_TRIANGLE_THIRD_SIDE,
     ("user", "The area"),
     ("assistant", "```answer\nverified: true\n6\\ \\mathrm{units}^{2}\n```"),
+)
+
+# A function, then an ordinary follow-up about it: "graph it" is still that function
+# (a local review, 2026-11-10: a word list read each of these as a new subject).
+_RATIONAL = (("user", "f(x)=1/(x-2)"), ("assistant", "A rational function, undefined at x = 2."))
+_ABOUT_THE_FUNCTION = (
+    "what is the domain?",
+    "Where does it cross the x-axis?",
+    "Is it increasing or decreasing?",
+    "what's the slope and intercept",
+    "I don't understand",
+    "wow",
+    "that's wrong",
+)
+_SALES = (
+    ("user", "Sales: Jan 120, Feb 150, Mar 90, Apr 160"),
+    ("assistant", "March dipped, then April recovered."),
+    ("user", "why did March drop?"),
+    ("assistant", "Often a short month or a seasonal lull."),
 )
 
 CASES: tuple[Case, ...] = (
@@ -341,7 +363,7 @@ CASES: tuple[Case, ...] = (
         # The whole line, "A rectangle 3 by 5", gets the same instant reply.
         Expect(solved=True, instant="solver", drawn="geometry", search="no"),
         "The 3 by 5 rectangle drawn, asking whether its area, perimeter or diagonal is wanted.",
-        history=(("user", "A rectangle 3 by"), ("assistant", "3 by what? Send the other side.")),
+        history=(("user", "A rectangle 3 by"), ("assistant", "What is the other side's length?")),
     ),
     Case(
         "math-quantity-asked-of-the-problem",
@@ -366,6 +388,8 @@ CASES: tuple[Case, ...] = (
         Expect(solved=True, instant="solver", drawn="geometry", search="no"),
         "The 3-4-5 triangle. Never the curve sin(x²)cos(x²) from the start of the chat.",
         history=(*_TRIANGLE_AREA, ("user", "Do it properly"), ("assistant", "Area = 6.")),
+        # The model's read names the line the triangle started on; its pieces complete it.
+        referent="Triangle are with sides 5, 4,",
     ),
     Case(
         "math-draw-it-function",
@@ -400,6 +424,62 @@ CASES: tuple[Case, ...] = (
             ("user", "What's the capital of France?"),
             ("assistant", "Paris."),
         ),
+        referent="What's the capital of France?",
+    ),
+    *(
+        Case(
+            f"math-graph-it-after-{index}",
+            "math",
+            "graph it",
+            Expect(solved=True, instant="solver", drawn="graph", search="no"),
+            "The graph of 1/(x - 2), whatever was asked about it in between.",
+            history=(*_RATIONAL, ("user", follow_up), ("assistant", "Here is what I can say.")),
+            referent="f(x)=1/(x-2)",
+        )
+        for index, follow_up in enumerate(_ABOUT_THE_FUNCTION)
+    ),
+    Case(
+        "math-graph-it-with-no-read",
+        "math",
+        "graph it",
+        # The read off or failed: the earlier lines are read back to the first curve.
+        Expect(solved=True, instant="solver", drawn="graph", search="no"),
+        "The graph of 1/(x - 2).",
+        history=(*_RATIONAL, ("user", "what is the domain?"), ("assistant", "x ≠ 2.")),
+    ),
+    Case(
+        "chart-graph-it-after-a-question-about-the-data",
+        "format",
+        "graph it",
+        Expect(hints=("chart",), subject=NONE, drawn=NONE),
+        "A chart of the four months of sales.",
+        history=_SALES,
+        referent="Sales: Jan 120, Feb 150, Mar 90, Apr 160",
+    ),
+    # The model never draws a shape itself on a maths turn; an SVG, CSS or code drawing the
+    # user asks for is theirs (a local review, 2026-11-10).
+    Case(
+        "math-shape-turn-says-no-text-figure",
+        "math",
+        "area of a triangle with sides 5, 4 and 3",
+        Expect(subject="math", solved=True, hints=("no_text_figure",)),
+        "6 square units, the triangle drawn by the app.",
+    ),
+    *(
+        Case(
+            f"code-drawing-asked-{index}",
+            "code",
+            prompt,
+            Expect(no_hints=("no_text_figure",)),
+            "The drawing in the language asked for.",
+        )
+        for index, prompt in enumerate(
+            (
+                "make an SVG logo with a hexagon",
+                "write HTML and CSS that draws a red circle",
+                "write a python program that prints a star triangle",
+            )
+        )
     ),
     Case(
         "math-percent-thousands",
@@ -440,6 +520,7 @@ CASES: tuple[Case, ...] = (
             ("user", "A ball is thrown at 20 m/s at 30 degrees. How far does it go?"),
             ("assistant", "About 35.3 m."),
         ),
+        referent="A ball is thrown at 20 m/s at 30 degrees. How far does it go?",
     ),
     Case(
         "physics-force",
@@ -757,6 +838,7 @@ CASES: tuple[Case, ...] = (
         Expect(photo=NO_PHOTO, solved=True, instant="solver", drawn="graph"),
         "The graph of sin(x), never a stock photo.",
         history=(("user", "sin(x)"), ("assistant", "The sine function.")),
+        referent="sin(x)",
     ),
     Case(
         "photo-picture-of-it-after-a-shape",
@@ -769,6 +851,7 @@ CASES: tuple[Case, ...] = (
             ("assistant", "6 square units."),
         ),
         pro=True,
+        referent="area of a triangle with sides 5, 4 and 3",
     ),
     Case(
         "photo-can-i-see-it-after-a-projectile",
@@ -780,6 +863,7 @@ CASES: tuple[Case, ...] = (
             ("user", "A ball is thrown at 20 m/s at 30 degrees. How far does it go?"),
             ("assistant", "About 35.3 m."),
         ),
+        referent="A ball is thrown at 20 m/s at 30 degrees. How far does it go?",
     ),
     Case(
         "photo-named-after-maths",

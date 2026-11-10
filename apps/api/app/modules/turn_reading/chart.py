@@ -6,7 +6,6 @@ import re
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
-from app.modules.turn_reading.latest_subject import latest_subject
 from app.modules.turn_reading.routing import is_short_confirmation
 from app.services.diagram_kinds import names_diagram_kind, names_idea_curve
 from app.services.prompt_safety import text_before_attachment_markers
@@ -391,6 +390,10 @@ def chart_of_public_facts(text: str) -> bool:
     return bool(named or _FACT_WORDS.search(cleaned))
 
 
+# How far back a chart follow-up looks for the numbers it draws, in user messages.
+_FOLLOWUP_LOOKBACK = 3
+
+
 # "Graph it", "visualize this", "put that in a chart", or the verb alone ("chart").
 _BACK_REFERENCE = re.compile(
     r"\b(?:it|these|those|them|above|(?:this|that)(?!\s+(?:year|month|week|quarter|season|"
@@ -481,14 +484,7 @@ def chart_followup_data(query: str, prior_messages: Sequence[tuple[str, str]] | 
         and typed != cleaned
     ]
     # "Yes" answers the last reply, so only the message that reply answered holds its numbers.
-    # Otherwise they are the chat's latest subject: a message about something else since
-    # ends the walk, and older numbers are never reached.
-    if accepts:
-        candidates = earlier[-1:]
-    else:
-        subject = latest_subject(earlier)
-        candidates = [] if subject is None else [subject.setup]
-    for text in candidates:
+    for text in reversed(earlier[-1:] if accepts else earlier[-_FOLLOWUP_LOOKBACK:]):
         if _holds_data(text):
             return " ".join(text.split())[:600]
     # "Want me to graph it?" after "y = 2x + 3" offers maths' graph of a curve, not a chart.

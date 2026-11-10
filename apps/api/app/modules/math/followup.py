@@ -9,7 +9,7 @@ from app.modules.math.response_intent import (
     classify_math_response_intent,
 )
 from app.modules.math.tools.prompt import needs_symbolic_math
-from app.modules.turn_reading.latest_subject import continued_subject, is_fragment, latest_subject
+from app.modules.turn_reading.continued_problem import continued_problem_text, is_fragment
 from app.services.answer_fence import answer_fence_value
 from app.services.number_text import FRACTION_OR_DECIMAL
 from app.services.problem_followup import message_role_content
@@ -99,8 +99,8 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
     ``5`` or ``x`` after ``3x^2 + 3 = 5`` is the same problem, not a new chat.
     Anything else is a message of its own: ``What?`` asks about the last reply
     and ``[4,4]`` is new input, and re-solving ``convert 1 m to cm`` answered
-    neither. The equation is the chat's latest subject: earlier fragments on it are
-    walked past, and a message with a subject of its own ends the walk.
+    neither. Earlier fragments on the same equation are walked past; any
+    other message ends it.
     """
     if not prior_user_messages or not is_fragment(text):
         return None
@@ -108,29 +108,21 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
 
     if is_lightweight_chat_turn(" ".join(text.split())):
         return None
-    subject = latest_subject(prior_user_messages)
-    if subject is None:
+    for prior in reversed(prior_user_messages):
+        if not prior or not prior.strip() or is_fragment(prior):
+            continue
+        if _RELATION_RE.search(prior) and needs_symbolic_math(prior):
+            return prior
         return None
-    prior = subject.setup
-    return prior if _RELATION_RE.search(prior) and needs_symbolic_math(prior) else None
-
-
-def user_lines(recent: Sequence[Any]) -> list[str]:
-    """The user's lines of ``recent`` messages, oldest first."""
-    pairs = (message_role_content(message) for message in recent)
-    return [content for role, content in pairs if role == "user" and content and content.strip()]
+    return None
 
 
 def continued_problem(
-    line: str | None,
-    earlier: Sequence[Any],
-    *,
-    blocked: Callable[[str], bool] | None = None,
+    line: str | None, earlier: Sequence[Any], *, blocked: Callable[[str], bool] | None = None
 ) -> str | None:
-    """The open maths problem ``line`` adds to, whole (``continued_subject``): "3" after
-    "Triangle are with sides 5, 4,", then "The area". Live (2026-11-09) neither was solved,
-    and the model drew the triangle in text."""
-    problem = continued_subject(line, user_lines(earlier)) if line else None
+    """The open maths problem ``line`` adds to, whole (``turn_reading.continued_problem``)."""
+    pairs = (message_role_content(message) for message in earlier)
+    problem = continued_problem_text(line or "", [(r, t) for r, t in pairs if r and t])
     if problem is None or (blocked is not None and blocked(problem)):
         return None
     return problem if needs_symbolic_math(problem) else None
@@ -404,6 +396,11 @@ _EXPRESSION_LEADS = re.compile(
 )
 
 
+def is_pronoun_math_request(query: str) -> bool:
+    """``simplify it`` / ``now integrate it``: an operation whose object is in the thread."""
+    return _PRONOUN_REQUEST.fullmatch(" ".join(query.split())) is not None
+
+
 # Operations that keep the value of what they act on. After "derivative of
 # x^3" (answer 3x^2), "integrate it" could mean either, so it is not resolved.
 _SAME_VALUE_OPERATIONS = frozenset({"simplify", "expand", "factor"})
@@ -461,9 +458,18 @@ def pronoun_math_problem(
         verb = _PRONOUN_VERBS[verb_word.lower()]
     else:
         verb = "differentiate" if match["noun"].lower() == "derivative" else "integrate"
-    # "simplify it" then "now factor it": the same expression, the chat's latest subject.
-    subject = latest_subject(user_lines(recent))
-    prior = None if subject is None else subject.setup
+    prior: str | None = None
+    for message in reversed(recent):
+        if _message_field(message, "role") != "user":
+            continue
+        content = _message_field(message, "content")
+        if not isinstance(content, str) or not content.strip():
+            return None
+        if is_pronoun_math_request(content):
+            # "simplify it" then "now factor it": the same expression.
+            continue
+        prior = content
+        break
     if prior is None or (blocked is not None and blocked(prior)):
         return None
     expression = _expression_in(prior)

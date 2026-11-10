@@ -1,7 +1,8 @@
-"""Plot follow-ups: "graph it" draws the curve or the shape the chat is on.
+"""Plot follow-ups: "graph it" draws the curve or the shape an earlier message named.
 
-``resolve_graph_followup`` rewrites "plot it" from the conversation's latest subject
-(``turn_reading.latest_subject``); the public surface stays ``app.modules.math.tools.extract``.
+``resolve_graph_followup`` rewrites "plot it" from the prior user messages: the one a
+model read as "it" (``chat.referent_read``) when the turn has that read, else each one
+back to the first plottable; the public surface stays ``app.modules.math.tools.extract``.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.extractors.geometry_request import FIGURE_KINDS
-from app.modules.turn_reading.latest_subject import latest_subject, see_request_object
+from app.modules.turn_reading.see_request import see_request_object
 
 if TYPE_CHECKING:
     from app.modules.math.schemas import MathIntent
@@ -117,7 +118,7 @@ def _bare_function_of_x(text: str) -> str | None:
     return expr if "x" in expr.lower() and _function_of_x(expr) else None
 
 
-def _drawn_request(text: str) -> str | None:
+def drawing_of(text: str) -> str | None:
     """What "draw it" draws of ``text``: ``graph <curve>``, or the shape the geometry solver
     builds from it ("Triangle are with sides 5, 4, 3"), whose figure is the reply."""
     from app.modules.math.tools.extract import extract_math_intent
@@ -125,6 +126,10 @@ def _drawn_request(text: str) -> str | None:
     intent = extract_math_intent(text)
     if intent is not None and intent.kind in FIGURE_KINDS:
         return text
+    return _graph_of(text, intent)
+
+
+def _graph_of(text: str, intent: MathIntent | None) -> str | None:
     source = _plottable_graph_source(text, intent)
     return None if source is None else f"graph {source}"
 
@@ -167,30 +172,24 @@ def _plottable_graph_source(text: str, intent: MathIntent | None) -> str | None:
     return None
 
 
-def latest_drawing(prior_user_messages: list[str]) -> str | None:
-    """What the chat's latest subject draws as (``graph <curve>`` or its shape), or None."""
-    subject = latest_subject(prior_user_messages)
-    return None if subject is None else _drawn_request(subject.setup)
-
-
 def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> tuple[str, bool]:
-    """Rewrite ``graph it`` from the conversation's latest subject, never an older one.
+    """Rewrite ``graph it`` from a prior equation.
 
     Returns ``(content, skip_math)``. ``skip_math`` is True only when this
-    *is* a pronoun follow-up with nothing to draw — caller must not stamp
+    *is* a pronoun follow-up with no plottable prior — caller must not stamp
     *Couldn't verify* (``graph_expr("it")`` looks like math and used to).
     """
     if not is_graph_followup(text):
         return text, False
-    subject = latest_subject(prior_user_messages or [])
-    if subject is None:
-        return text, True
-    drawn = latest_drawing(prior_user_messages or [])
-    if drawn is not None:
-        return drawn, False
+    from app.modules.math.tools.extract import extract_math_intent
+
+    for prior in reversed(prior_user_messages or []):
+        drawn = _graph_of(prior, extract_math_intent(prior))
+        if drawn:
+            return drawn, False
     # Data and no function ("Here are my exam marks: math 85, physics 78", then "graph it")
     # asks for a chart of it, which the chart contract draws; asking for a function to
     # graph was the reply (2026-10-24).
-    if _holds_data(subject.setup):
+    if any(_holds_data(prior) for prior in prior_user_messages or []):
         return text, False
     return text, True

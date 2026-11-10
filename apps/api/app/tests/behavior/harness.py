@@ -12,7 +12,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
-from contextlib import ExitStack, asynccontextmanager, contextmanager
+from contextlib import (
+    AbstractContextManager,
+    ExitStack,
+    asynccontextmanager,
+    contextmanager,
+    nullcontext,
+)
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -28,7 +34,7 @@ from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
 from app.modules.billing import can_use
 from app.modules.chat import prompt_constants as pc
-from app.modules.chat import prompt_memory
+from app.modules.chat import prompt_memory, referent_read
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.json_output import JSON_OUTPUT_HINT
 from app.modules.chat.model_routing import choice as model_choice
@@ -52,6 +58,7 @@ from app.modules.chat.prompt_constants.writing import (
     SOCIAL_DRAFT_HINT,
 )
 from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.referent_read import ReferentPick, read_referent
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.reply_calls import offers_search
 from app.modules.chat.turn_deps import default_deps
@@ -68,6 +75,7 @@ from app.modules.chat.turn_trace import TurnTrace, begin_turn_trace
 from app.modules.images.gen_intent import stem_subject_claims
 from app.modules.images.intent import image_gen_request
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
+from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
 from app.modules.math.subject import PIECED_PROBLEM_NOTE
 from app.modules.money.block import (
     MONEY_HEADER,
@@ -160,6 +168,8 @@ HINTS: dict[str, str] = {
     "result_check": RESULT_CHECK_CONTRACT,
     # A line that added to the open maths problem ("3", "the area"): the problem it completes.
     "pieced_problem": PIECED_PROBLEM_NOTE,
+    # Maths' pack: a plot or a shape is never drawn by the model in text, SVG or a chart.
+    "no_text_figure": GRAPH_NO_SUBSTITUTE_CLAUSE,
     # The general layout contract, and the compact one a greeting or fragment gets.
     "format_contract": pc.FORMAT_CONTRACT,
     "compact": pc.COMPACT_RESPONSE_FORMAT_HINT,
@@ -391,7 +401,11 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
 
     # "can u show me both" after a shape answer: the intercept lets chemistry draw the
     # molecules before a photo lookup or image generation is asked.
-    drawn = await subject_shows_it(settings, text, rows)
+    with _referent_pick(case, rows):
+        referent = await read_referent(settings, text, rows)
+    drawn = await subject_shows_it(
+        settings, text, rows, referent.problem if referent is not None else None
+    )
     found = extract_image_lookup_query(text) if settings.image_search_enabled else None
     photo = dated_lookup_query(found, datetime.now(UTC).year) if found and not drawn else ""
     image_gen = bool(
@@ -430,6 +444,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         def stub(target: str, value: Any) -> None:
             stack.enter_context(patch(target, value))
 
+        stack.enter_context(_referent_pick(case, rows))
         stub("app.modules.chat.turn_prep.instant.SessionLocal", lambda: _Session())
         stub("app.modules.chat.prompt_builder._load_context_blocks", context_blocks)
         stub(
@@ -536,6 +551,18 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         trace=trace,
         context=ctx,
     )
+
+
+def _referent_pick(case: Case, rows: list[Any]) -> AbstractContextManager[Any]:
+    """The model's pick of what "it" is, as the case names it (``Case.referent``); with none
+    named the read has no model, as the battery has none."""
+    if case.referent is None:
+        return nullcontext()
+    exchanges = referent_read._exchanges(rows, case.prompt)
+    _conversation, numbered = referent_read._conversation(exchanges)
+    users = [exchanges[index][1] for index in numbered]
+    pick = ReferentPick(message=users.index(case.referent) + 1 if case.referent else None)
+    return patch.object(referent_read, "pick_referent", AsyncMock(return_value=pick))
 
 
 def _server_pictures(verified: Any) -> str:

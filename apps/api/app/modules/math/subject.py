@@ -23,7 +23,6 @@ from app.modules.math.followup import (
     pronoun_math_problem,
     readable_standalone_answer,
     restated_math_problem,
-    user_lines,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY, math_prompt_hints
 from app.modules.math.tools.prompt import (
@@ -31,7 +30,8 @@ from app.modules.math.tools.prompt import (
     build_math_augmentation,
     needs_symbolic_math,
 )
-from app.modules.turn_reading.latest_subject import adds_to_subject, asks_to_see
+from app.modules.turn_reading.continued_problem import adds_to_problem
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import SubjectAugmentation, VerifiedMathBlock
 from app.services.subject_hints import SubjectHints
 
@@ -71,12 +71,6 @@ class MathFollowups:
         # "simplify it" works on the user's last expression. Alone, each one used to be
         # solved as typed: ``x = 6`` verified itself and "it" was ``i t``. "3" or "the
         # area" adds to the open problem, which is solved whole.
-        if query and not self.continues_alone(query):
-            # "show it" or "a picture of it" after a curve or a shape: drawn as "draw it" is,
-            # never a photo of "it" (2026-11-09); after anything else, its working as before.
-            shown = self.shown_problem(query, recent)
-            if shown is not None and not (blocked is not None and blocked(shown)):
-                return shown
         found = math_working_followup_problem(query, recent, blocked=blocked)
         if found is None:
             found = offered_equation_problem(query, recent)
@@ -115,10 +109,13 @@ class MathFollowups:
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return asks_to_see(line) and (recent is None or any(recent))
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        from app.modules.math.tools.graph_followup import latest_drawing
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
+        # The curve or the shape of the message read as "it": never a photo of "it".
+        from app.modules.math.tools.graph_followup import drawing_of
 
-        return latest_drawing(user_lines(recent)) if asks_to_see(line) else None
+        return drawing_of(referent) if referent and asks_to_see(line) else None
 
 
 @dataclass(frozen=True)
@@ -332,7 +329,7 @@ class MathSubject:
             response_intent_text=request.response_intent_text,
         )
         line = request.response_intent_text
-        if block is None or line is None or not adds_to_subject(line):
+        if block is None or line is None or not adds_to_problem(line):
             return block, math_verified
         # "3" alone was read as anything but the triangle's third side (2026-11-09).
         return f"{PIECED_PROBLEM_NOTE}{request.math_text}\n\n{block}", math_verified
@@ -351,7 +348,7 @@ class MathSubject:
 
         # "5" after "A rectangle 3 by" asks what the whole problem asks, so the problem is
         # what the reply's guards read, as physics' ``solved_text`` does.
-        if verified_request_text is not None and adds_to_subject(user_text):
+        if verified_request_text is not None and adds_to_problem(user_text):
             user_text = verified_request_text
         return maybe_direct_math_reply(
             verified,

@@ -32,6 +32,7 @@ from app.modules.images.gen_intent_thread import (
     prior_user_contents_for_image_gen,
 )
 from app.modules.images.lookup_intent import extract_image_lookup_query, is_reference_subject
+from app.modules.turn_reading.see_request import asks_to_see
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -169,19 +170,18 @@ def composer_image_intent(
     image_attached: bool = False,
     image_search: bool = True,
     chemistry_enabled: bool = True,
-    subject_shows: bool = False,
 ) -> ComposerImageIntent:
     """The chat turn's own reading of a composer send, before it is sent.
 
     A photo lookup and a maths, physics or chemistry turn go to chat. With an image
     attached the chat turn never draws, so an edit of that image ("make it blue")
-    is the composer's to draw, with the attachment as its reference. ``subject_shows``:
-    a subject shows what the line asks to see ("a picture of it" after a curve,
-    ``subjects.dispatch.subject_shows_it``), so the chat turn does, as its intercept does.
+    is the composer's to draw, with the attachment as its reference. A picture of "it"
+    goes to chat too: what "it" is, a model reads there (``chat.referent_read``), and a
+    curve or a shape is drawn, never generated.
     """
     subject = stem_subject(text, chemistry_enabled=chemistry_enabled)
     request: ImageGenRequest | None
-    if subject_shows and not image_attached:
+    if not image_attached and asks_to_see(text):
         return ComposerImageIntent(subject)
     if image_attached:
         rows = list(recent)
@@ -223,7 +223,7 @@ async def composer_intent_for_chat(
             )
     # The subject is the one reading behind this answer that parses with SymPy; read it in
     # the pool, and ``composer_image_intent`` asks it of this request's readings.
-    from app.services.subjects.dispatch import read_subject, subject_shows_it
+    from app.services.subjects.dispatch import read_subject
 
     await read_subject(text, settings)
     return composer_image_intent(
@@ -232,5 +232,4 @@ async def composer_intent_for_chat(
         image_attached=image_attached,
         image_search=settings.image_search_enabled,
         chemistry_enabled=settings.chemistry_enabled,
-        subject_shows=await subject_shows_it(settings, text, recent),
     )

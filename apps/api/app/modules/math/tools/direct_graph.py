@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from app.modules.math.match.literal_plot import literal_number, literal_pair, plot_command_object
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
-from app.modules.turn_reading.latest_subject import asks_to_see
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import VerifiedMathBlock
 
 _GRAPH_INTERACTION_WORDS = frozenset(

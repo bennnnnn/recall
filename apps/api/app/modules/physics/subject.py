@@ -20,7 +20,7 @@ from app.modules.physics.followup import (
 )
 from app.modules.physics.prompt import build_physics_augmentation
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
-from app.modules.turn_reading.latest_subject import asks_to_see
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.solving import SubjectAugmentation, VerifiedPhysicsBlock
 from app.services.subject_hints import SubjectHints
 
@@ -61,7 +61,7 @@ class PhysicsFollowups:
         *,
         blocked: Callable[[str], bool] | None = None,
     ) -> str | None:
-        return physics_followup_problem(query, recent) or shown_physics_problem(query, recent)
+        return physics_followup_problem(query, recent)
 
     def continues(
         self,
@@ -84,8 +84,10 @@ class PhysicsFollowups:
     def asks_to_see(self, line: str, recent: Sequence[Any] | None = None) -> bool:
         return asks_to_see(line) and (recent is None or any(recent))
 
-    def shown_problem(self, line: str, recent: Sequence[Any]) -> str | None:
-        return shown_physics_problem(line, recent)
+    def shown_problem(
+        self, line: str, recent: Sequence[Any], referent: str | None = None
+    ) -> str | None:
+        return shown_physics_problem(line, referent)
 
 
 @dataclass(frozen=True)

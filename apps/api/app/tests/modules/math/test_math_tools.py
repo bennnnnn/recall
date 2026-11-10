@@ -1259,8 +1259,8 @@ def test_garbled_graph_ask_does_not_become_equation() -> None:
 
 
 def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
+    from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
     from app.modules.math.tools.prompt import _unverified_math_note
-    from app.services.math_notation import GRAPH_NO_SUBSTITUTE_CLAUSE
 
     note = _unverified_math_note("graph")
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in note

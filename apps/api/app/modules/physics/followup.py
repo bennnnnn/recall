@@ -21,7 +21,7 @@ from app.modules.physics.kept_property import kept_property_problem
 from app.modules.physics.verified_answers import results as _results
 from app.modules.physics.verified_answers import verified_display as _verified_display
 from app.modules.physics.verified_answers import verifies as _verifies
-from app.modules.turn_reading.latest_subject import asks_to_see, latest_subject
+from app.modules.turn_reading.see_request import asks_to_see
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import unit_dimension
@@ -36,7 +36,6 @@ from app.services.problem_followup import (
     followup_line,
     given_name,
     in_unit,
-    message_role_content,
     new_value,
     remove_given,
     replace_given,
@@ -55,10 +54,7 @@ PHYSICS_FOLLOWUP_HINT = (
     "verified numbers; do not recompute them."
 )
 
-# "what about its speed?", or the quantity alone: "the distance", "and its speed?".
-_ABOUT = re.compile(
-    r"^(?:and )?(?:(?:what|how) about (?:the |its )?|(?:the|its) )(?P<ask>[a-z][a-z ]{0,40}?)\??$"
-)
+_ABOUT = re.compile(r"^(?:and )?what about (?:the |its )?(?P<ask>[a-z][a-z ]{0,40}?)\??$")
 _CHANGED = re.compile(
     r"^(?:but )?(?:what )?if "
     r"(?:it (?:was|were|is) |"
@@ -141,19 +137,12 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     return None if _held_fixed(prior) else _restated(prior, written)
 
 
-def shown_physics_problem(query: str | None, recent: Sequence[Any]) -> str | None:
-    """ "Draw it" after a physics problem: that problem again, whose block draws its scene.
-
-    The problem is the chat's latest subject (``turn_reading.latest_subject``): a line about
-    something else since ends the walk, and an older problem is never reached.
-    """
-    if not query or not asks_to_see(query):
+def shown_physics_problem(line: str, referent: str | None) -> str | None:
+    """ "Draw it" after a physics problem: the problem a model read as "it"
+    (``chat.referent_read``), solved again for its scene; None when it is no physics."""
+    if not referent or not asks_to_see(line) or not needs_physics(referent):
         return None
-    lines = [content for role, content in map(message_role_content, recent) if role == "user"]
-    subject = latest_subject([line for line in lines if line])
-    if subject is None or not needs_physics(subject.problem):
-        return None
-    return subject.problem
+    return referent
 
 
 # A result that is a property of the object or its medium, not of what is done to it:

@@ -228,12 +228,6 @@ _MARKS = ("user", "Here are my exam marks: math 85, physics 78, chemistry 92, bi
             None,
         ),
         ("chart that", [("user", "How many calories in 2 eggs and 1 slice of toast?")], None),
-        # The chat's latest subject only: a question since ends the walk, a "thanks" does not.
-        (
-            "graph it",
-            [_MARKS, ("assistant", "Nice!"), ("user", "What's the capital of France?")],
-            None,
-        ),
         # Only what the user typed: a file's text reaches the model wrapped as untrusted.
         (
             "graph it",

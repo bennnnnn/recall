@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.exceptions import ChatServiceError, SpendCapReachedError, TurnRefusedError
 from app.models.orm import Message, User
 from app.modules.attachments.markers import strip_attachment_from_content
+from app.modules.chat.referent_read import Referent, referent_for_turn
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.stream_status import StreamStatusFn, StreamStatusPhase, clip_status_detail
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -35,7 +36,6 @@ from app.modules.images.lookup_intent import (
 )
 from app.modules.images.reply_picture import ReplyPicture
 from app.modules.images.search import ImageSearchError
-from app.modules.turn_reading.latest_subject import latest_subject_start
 from app.services.subjects.dispatch import asks_a_subject_to_show, subject_shows_it
 
 _IMAGE_SEARCH_MODEL = "image-search-model"
@@ -207,20 +207,8 @@ async def _photo_subject_from_chat(
         settings,
         kind="photo",
         request=content,
-        turns=deps.references.turns_from_rows(_from_latest_subject(recent)),
+        turns=deps.references.turns_from_rows(recent),
     )
-
-
-def _from_latest_subject(recent: list[Any]) -> list[Any]:
-    """The chat from its latest subject's line on (``turn_reading.latest_subject``): "show
-    me that" names that subject, never one a line about something else came after."""
-    users = [
-        index
-        for index, row in enumerate(recent)
-        if getattr(row, "role", None) == "user" and str(getattr(row, "content", "") or "").strip()
-    ]
-    start = latest_subject_start([str(recent[index].content) for index in users])
-    return recent if start is None else recent[users[start] :]
 
 
 async def try_image_lookup_for_turn(
@@ -340,9 +328,11 @@ async def intercept_new_turn(
 ) -> bool:
     """A new message answered by a photo or a picture; True when one stored the reply.
 
-    A lookup that ran and found nothing is added to ``misses`` ("photo").
+    A lookup that ran and found nothing is added to ``misses`` ("photo"). "Show it" is
+    read first: what a model reads as "it" (``referent_read``) may be a subject's to draw.
     """
-    if await subject_shows_it(settings, content, recent_messages):
+    referent = await referent_for_turn(settings, content, recent_messages)
+    if await subject_shows_it(settings, content, recent_messages, _problem(referent)):
         # Shown by a subject (its graph, figure, scene or molecules): no photo, no generated
         # picture, no photo tool.
         if misses is not None:
@@ -378,6 +368,10 @@ async def intercept_new_turn(
         recent_messages=recent_messages,
         on_status=on_status,
     )
+
+
+def _problem(referent: Referent | None) -> str | None:
+    return None if referent is None else referent.problem
 
 
 def _image_regenerate_content(
@@ -416,7 +410,8 @@ async def intercept_regenerate(
         recent = await _recent_rows(
             deps, settings, chat_id=chat_id, recent_messages=None, replace_assistant_id=replace_id
         )
-        if await subject_shows_it(settings, content, recent):
+        referent = await referent_for_turn(settings, content, recent)
+        if await subject_shows_it(settings, content, recent, _problem(referent)):
             if misses is not None:
                 misses.add("photo")
             return False

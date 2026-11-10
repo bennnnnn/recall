@@ -298,12 +298,14 @@ def asks_a_subject_to_show(line: str) -> bool:
     return any(subject_adapter(name).followups.asks_to_see(line) for name in _SHOWING)
 
 
-async def subject_shows_it(settings: Settings, line: str, recent: Sequence[Any]) -> bool:
+async def subject_shows_it(
+    settings: Settings, line: str, recent: Sequence[Any], referent: str | None = None
+) -> bool:
     """A line asking to see what the chat is on, which a subject shows: neither a photo
     search nor a generated picture takes it. "can u show me both" after a shape answer is
-    chemistry's molecules; "show it" or "a picture of it" after a curve or a shape is maths'
-    graph or figure (live, 2026-11-09, "show it" after sin(x) searched photos for "it");
-    after a projectile it is physics' scene.
+    chemistry's molecules; "show it" or "a picture of it" when the message a model read as
+    "it" (``referent``) is a curve or a shape is maths' graph or figure (live, 2026-11-09,
+    "show it" after sin(x) searched photos for "it"); a projectile is physics' scene.
 
     The cheap looks come first, on the line and the chat, so a photo turn in any other chat
     ("show me her") never waits on the pool. A pool that cannot read it leaves the line to
@@ -320,7 +322,11 @@ async def subject_shows_it(settings: Settings, line: str, recent: Sequence[Any])
             continue
         try:
             problem = await run_sympy(
-                followups.shown_problem, line, turns, timeout=settings.subject_read_timeout_seconds
+                followups.shown_problem,
+                line,
+                turns,
+                referent,
+                timeout=settings.subject_read_timeout_seconds,
             )
         except Exception:
             logger.info(
