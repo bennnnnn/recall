@@ -30,9 +30,12 @@ type GeoRun<T> =
 /**
  * Shared permission flow: show the system sheet when the OS still allows it,
  * then run the read. Only `blocked` means the sheet can never appear again.
+ * `ask: false` (a background read, such as the hourly sync on app open) never
+ * shows the sheet: without permission it reads nothing and reports `denied`.
  */
 async function runWithLocationPermission<T>(
   read: (Location: ExpoLocationModule) => Promise<T>,
+  ask = true,
 ): Promise<GeoRun<T>> {
   if (!canUseDeviceLocation()) {
     return { status: "expo_go" };
@@ -45,6 +48,7 @@ async function runWithLocationPermission<T>(
     if (current.status === "granted") {
       return { status: "granted", value: await read(Location) };
     }
+    if (!ask) return { status: "denied" };
 
     // System Allow / Don't Allow sheet — only while the OS still permits it.
     if (current.status === "undetermined" || current.canAskAgain) {
@@ -151,7 +155,12 @@ async function placeName(
  * place name that is slower than `PLACE_NAME_TIMEOUT_MS` comes as `lateLabel`.
  */
 async function readDeviceGeo(Location: ExpoLocationModule, quick: boolean): Promise<DeviceGeo | null> {
-  const newFix = () => Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+  // Every read here wants a city or a neighbourhood, which Balanced gives. With
+  // Google's Location Accuracy off, Android's default opens Play services'
+  // "Turn on Location Accuracy" dialog over the app before the fix (a Galaxy S23
+  // on opening, 2026-11-10); without it the fix comes from what the phone has.
+  const newFix = () =>
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, mayShowUserSettingsDialog: false });
   const pos = quick
     ? (await recentFix(Location)) ?? (await within(newFix(), NEW_FIX_TIMEOUT_MS, null))
     : await newFix();
@@ -169,20 +178,22 @@ async function readDeviceGeo(Location: ExpoLocationModule, quick: boolean): Prom
  * `quick` (a chat send) takes a recent fix and bounds the waits; Settings asks
  * for a new fix and waits for it.
  */
-export async function requestDeviceGeo(options: { quick?: boolean } = {}): Promise<DeviceGeoRequestResult> {
-  const result = await runWithLocationPermission((Location) => readDeviceGeo(Location, options.quick === true));
+export async function requestDeviceGeo(
+  options: { quick?: boolean; ask?: boolean } = {},
+): Promise<DeviceGeoRequestResult> {
+  const result = await runWithLocationPermission(
+    (Location) => readDeviceGeo(Location, options.quick === true),
+    options.ask !== false,
+  );
   if (result.status !== "granted") return { status: result.status };
   return result.value ? { status: "granted", geo: result.value } : { status: "no_fix" };
 }
 
-/** GPS coordinates + optional city/region from reverse geocode. */
-async function getDeviceGeo(): Promise<DeviceGeo | null> {
-  const result = await requestDeviceGeo();
-  return result.status === "granted" ? result.geo : null;
-}
-
-/** City/region label from device GPS + reverse geocode, or null if unavailable. */
-export async function getDeviceLocationLabel(): Promise<string | null> {
-  const geo = await getDeviceGeo();
-  return geo?.label ?? null;
+/**
+ * City/region label from device GPS + reverse geocode, or null if unavailable.
+ * `ask: false` never shows the permission sheet (see `runWithLocationPermission`).
+ */
+export async function getDeviceLocationLabel(options: { ask?: boolean } = {}): Promise<string | null> {
+  const result = await requestDeviceGeo({ ask: options.ask });
+  return result.status === "granted" ? result.geo.label : null;
 }

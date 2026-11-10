@@ -4,7 +4,7 @@ import { getDeviceLocationLabel, hasLocationPermission, requestDeviceGeo } from 
 
 jest.mock("@/lib/expoRuntime", () => ({ canUseDeviceLocation: () => true }));
 jest.mock("expo-location", () => ({
-  Accuracy: { Balanced: 3 },
+  Accuracy: { Lowest: 1, Low: 2, Balanced: 3, High: 4, Highest: 5, BestForNavigation: 6 },
   getForegroundPermissionsAsync: jest.fn(),
   requestForegroundPermissionsAsync: jest.fn(),
   getLastKnownPositionAsync: jest.fn(),
@@ -65,7 +65,7 @@ describe("requestDeviceGeo", () => {
     mocked.getCurrentPositionAsync.mockResolvedValue(at(37.8, -122.27));
     const result = await requestDeviceGeo({ quick: true });
     expect(result).toMatchObject({ status: "granted", geo: { latitude: 37.8 } });
-    expect(mocked.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: 3 });
+    expect(mocked.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: 3, mayShowUserSettingsDialog: false });
   });
 
   it("goes without a fix when none comes within five seconds", async () => {
@@ -100,6 +100,31 @@ describe("requestDeviceGeo", () => {
     mocked.getCurrentPositionAsync.mockResolvedValue(at(37.8, -122.27));
     await expect(getDeviceLocationLabel()).resolves.toBe("Oakland, CA, United States");
     expect(mocked.getLastKnownPositionAsync).not.toHaveBeenCalled();
+  });
+
+  // Android opens Play services' "Location Accuracy" dialog for a fix unless told not to.
+  it.each([
+    ["a chat send", () => requestDeviceGeo({ quick: true })],
+    ["Settings", () => getDeviceLocationLabel()],
+    ["the sync on app open", () => getDeviceLocationLabel({ ask: false })],
+  ])("asks %s's new fix at city accuracy, with no settings dialog", async (_name, read) => {
+    mocked.getLastKnownPositionAsync.mockResolvedValue(null);
+    mocked.getCurrentPositionAsync.mockResolvedValue(at(37.8, -122.27));
+    await read();
+    expect(mocked.getCurrentPositionAsync).toHaveBeenCalledTimes(1);
+    const [options] = mocked.getCurrentPositionAsync.mock.calls[0];
+    expect(options.mayShowUserSettingsDialog).toBe(false);
+    expect(options.accuracy).toBeLessThanOrEqual(3);
+  });
+
+  it.each([
+    [{ status: "undetermined", canAskAgain: true }],
+    [{ status: "denied", canAskAgain: true }],
+  ])("never shows the permission sheet for a read that may not ask (%j)", async (permission) => {
+    mocked.getForegroundPermissionsAsync.mockResolvedValue(permission);
+    await expect(getDeviceLocationLabel({ ask: false })).resolves.toBeNull();
+    expect(mocked.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(mocked.getCurrentPositionAsync).not.toHaveBeenCalled();
   });
 
   it("still reports a refused permission without reading a position", async () => {
