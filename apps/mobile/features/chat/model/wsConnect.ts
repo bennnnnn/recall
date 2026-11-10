@@ -8,13 +8,14 @@
  */
 export const WS_CONNECT_TIMEOUT_MS = 2_500;
 
-/** A socket opened for a send that never went (Stop, the view left) is let go this long after. */
+/** A socket that opens after its chat left the screen is kept this long, for a send already tapped. */
 export const WS_LINGER_MS = 5_000;
 
 /**
- * While its chat is on screen, a socket is kept this long after its last turn ended: the
- * conversation's next message reuses it instead of paying a new handshake (TLS in production)
- * before its first token. Leaving the chat or the app closes it at once.
+ * While its chat is on screen, a socket is kept this long after it opened (a draft's first
+ * character opens it) or its last turn ended: the next message reuses it instead of paying a
+ * new handshake (TLS in production) before its first token. Leaving the chat or the app
+ * closes it at once.
  */
 export const WS_IDLE_KEEP_MS = 60_000;
 

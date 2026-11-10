@@ -3,6 +3,7 @@ import { AccessibilityInfo } from "react-native";
 
 import type { Message } from "@/lib/api";
 import { notifyConsentRequired } from "@/lib/api/consentRefusal";
+import { emitAppEvent } from "@/lib/appEvents";
 import { patchChatGlobal } from "@/features/chat/drawer/drawer";
 import { noteChatListChanged } from "@/features/chat/model/chatListCache";
 import { clearPendingChatTtft, markChatFirstToken } from "@/features/chat/model/latency";
@@ -72,8 +73,11 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       effects.onFirstReply?.(command.reply);
       return;
     case "title":
-      // The drawer's row and the header (useChatMetadata) take it, and the wait for it ends.
-      if (command.chatId && command.title) patchChatGlobal(command.chatId, { title: command.title });
+      // The drawer's row and the header (useChatMetadata) take it; the wait for it ends, and
+      // with none it reads the chat once (useChatTitle).
+      if (!command.chatId) return;
+      if (command.title) patchChatGlobal(command.chatId, { title: command.title });
+      emitAppEvent("chatTitleArrived", { chatId: command.chatId, title: command.title });
       return;
     case "reply_saved":
       noteChatListChanged();

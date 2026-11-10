@@ -28,6 +28,7 @@ import { useChatActions } from "@/features/chat/hooks/useChatActions";
 import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState";
 import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
 import { useChatComposerWiring } from "@/features/chat/hooks/useChatComposerWiring";
+import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
 import { useChatMetadata } from "@/features/chat/hooks/useChatMetadata";
@@ -92,6 +93,7 @@ function ChatScreen() {
     onUsage: quotaNudge.applyTurnUsage,
   });
   const { messages, editThread, streaming, finalizing, stopGeneration } = chat;
+  useChatDraftWarmup({ chatId: draft.activeChatId, composing: composerActive, connect: chat.connect });
   const llmBusy = streaming || finalizing;
 
   const idleComposerBottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);

@@ -3,6 +3,7 @@ import { Text } from "react-native";
 import { act, render, waitFor } from "@testing-library/react-native";
 
 import { useChatTitle } from "@/features/chat/hooks/useChatTitle";
+import { emitAppEvent } from "@/lib/appEvents";
 
 let mockSession = 0;
 let mockRevision = 0;
@@ -16,7 +17,7 @@ jest.mock("@/lib/api", () => ({
 
 jest.mock("@/features/chat/model/chatListCache", () => ({
   getCachedChat: jest.fn(),
-  noteChatListChanged: jest.fn(),
+  noteChatTitleMissing: jest.fn(),
   peekCreatedChat: jest.fn(),
 }));
 
@@ -35,7 +36,7 @@ jest.mock("@/features/chat/drawer/drawer", () => {
 });
 
 import { api } from "@/lib/api";
-import { getCachedChat, noteChatListChanged, peekCreatedChat } from "@/features/chat/model/chatListCache";
+import { getCachedChat, noteChatTitleMissing, peekCreatedChat } from "@/features/chat/model/chatListCache";
 import {
   insertChatGlobal,
   patchChatGlobal,
@@ -58,7 +59,7 @@ const listedChat = getCachedChat as jest.Mock;
 const insertChat = insertChatGlobal as jest.Mock;
 const patchChat = patchChatGlobal as jest.Mock;
 const setGenerating = setChatTitleGenerating as jest.Mock;
-const noteListChanged = noteChatListChanged as jest.Mock;
+const noteListChanged = noteChatTitleMissing as jest.Mock;
 const WAITED = { waitForTitle: true };
 
 const created = {
@@ -159,14 +160,52 @@ describe("useChatTitle", () => {
     expect(setGenerating).toHaveBeenLastCalledWith(null);
   });
 
-  it("stops waiting for a stream title that never came, and reads none", async () => {
+  // Review 2026-11-09: a title the stream never brought was not read at all, and the header
+  // stayed "New chat".
+  it("reads the chat once when the stream title never came", async () => {
     peekCreated.mockReturnValue(created);
+    getChat.mockResolvedValue({ ...created, title: "Late title" });
     await render(<Probe chatId="chat-a" />);
     await act(async () => { void current.handleFirstReply(undefined, { titleOnStream: true }); });
-    await act(async () => { jest.advanceTimersByTime(12_000); });
     expect(getChat).not.toHaveBeenCalled();
-    expect(noteListChanged).toHaveBeenCalledTimes(1);
+    await act(async () => { jest.advanceTimersByTime(12_000); });
+    expect(getChat).toHaveBeenCalledTimes(1);
+    expect(getChat).toHaveBeenCalledWith("tok", "chat-a", WAITED);
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "Late title" });
+    expect(screenTitle).toBe("Late title");
     expect(setGenerating).toHaveBeenLastCalledWith(null);
+  });
+
+  it("ends the stream wait at the frame saying no title came, and reads the chat once", async () => {
+    peekCreated.mockReturnValue(created);
+    getChat.mockResolvedValue({ ...created, title: null });
+    await render(<Probe chatId="chat-a" />);
+    await act(async () => { void current.handleFirstReply(undefined, { titleOnStream: true }); });
+    await act(async () => { emitAppEvent("chatTitleArrived", { chatId: "chat-b", title: null }); });
+    expect(getChat).not.toHaveBeenCalled();
+    await act(async () => { emitAppEvent("chatTitleArrived", { chatId: "chat-a", title: null }); });
+    expect(getChat).toHaveBeenCalledTimes(1);
+    // Still none: the drawer reads it with the list, and "Generating…" goes.
+    expect(noteListChanged).toHaveBeenCalledWith("chat-a");
+    expect(setGenerating).toHaveBeenLastCalledWith(null);
+    await act(async () => { jest.advanceTimersByTime(60_000); });
+    expect(getChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a title frame that lands while the first reply's row is read", async () => {
+    let resolve!: (value: object) => void;
+    getChat.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.handleFirstReply(undefined, { titleOnStream: true }); });
+    await act(async () => {
+      publishChatChange("chat-a", { title: "Heater repair" });
+      resolve({ ...created, title: null });
+      await pending;
+    });
+    expect(insertChat).toHaveBeenCalledWith({ ...created, title: "Heater repair" });
+    expect(screenTitle).toBe("Heater repair");
+    expect(getChat).toHaveBeenCalledTimes(1);
   });
 
   it("does not apply a title from chat A to chat B's header", async () => {

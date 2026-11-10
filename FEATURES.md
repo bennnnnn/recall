@@ -1304,15 +1304,16 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   in-flight so `GET /messages` can wait out a leave. After a socket failure the next sends
   use SSE for 10 s (doubling to 5 min, reset by a reply over the socket, a network change
   or another chat), then the socket again; it used to stay SSE for the rest of the chat.
-- ✅ **Chat socket per conversation** — a send opens its chat's socket and the conversation's
-  next messages reuse it; once a turn and what follows its `done` (follow-up questions, a new
-  chat's `title`) are in, it closes a minute after that turn while the chat stays on screen, and
-  at once when the user leaves (another chat, To-do, Settings, Library) or the app goes to the
-  background. Reading, typing in or switching chats opens none. A send after a token refresh
+- ✅ **Chat socket per conversation** — a draft's first character (or a send) opens its chat's
+  socket, so the send finds the handshake done, and the conversation's next messages reuse it;
+  once a turn and what follows its `done` (follow-up questions, a new chat's `title`) are in, it
+  closes a minute after that turn while the chat stays on screen, and at once when the user
+  leaves (another chat, To-do, Settings, Library) or the app goes to the background. Reading,
+  opening or switching chats opens none. A send after a token refresh
   opens one with the new token; a network change closes an idle one and probes a reply in
-  flight. A new chat's title comes on its first reply's socket (with no socket for the turn,
-  over SSE, for a picture or live talk, from one `GET /chats/{id}?wait_for_title=true`), never
-  by polling. A send with no `start` within 3 s is probed
+  flight. A new chat's title comes on its first reply's socket; with no socket for the turn
+  (SSE, a picture, live talk), or none in the server's wait, from one
+  `GET /chats/{id}?wait_for_title=true`; never by polling. A send with no `start` within 3 s is probed
   (ping/pong); a dead socket's send is replayed over SSE under the message's
   `client_message_id`, which the server runs at most once (`modules/chat/client_message.py`);
   a resend it already took gets `duplicate` and the phone follows the first turn.

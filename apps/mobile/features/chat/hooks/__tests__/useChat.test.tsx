@@ -1545,7 +1545,7 @@ describe("useChat socket while the app is in the background", () => {
     expect(streamChatMessageSse).not.toHaveBeenCalled();
   });
 
-  it("lets a reply in flight finish before releasing the socket", async () => {
+  it("lets a reply in flight, its follow-ups and its title finish before releasing the socket", async () => {
     await render(<Probe chatId="a" />);
     const socket = await openSocket();
     await sendAndStream(socket, "partial");
@@ -1553,12 +1553,27 @@ describe("useChat socket while the app is in the background", () => {
     expect(socket.close).not.toHaveBeenCalled();
     await act(async () => {
       socket.emit({ type: "token", content: " more" });
-      socket.emit({ type: "done", message_id: "saved", final_content: "partial more" });
+      socket.emit({ type: "done", message_id: "saved", final_content: "partial more", title_pending: "1" });
     });
     expect(current.streaming).toBe(false);
     expect(current.messages.some((message) => message.content === "partial more")).toBe(true);
+    // Review 2026-11-09: closed at done, the title and the follow-ups that come after it were lost.
+    await act(async () => { socket.emit({ type: "related_prompts", message_id: "saved", prompts: ["Why?"] }); });
+    expect(socket.close).not.toHaveBeenCalled();
+    await act(async () => { socket.emit({ type: "title", title: "Bridges" }); });
+    expect(current.messages.find((message) => message.id === "saved")?.related_prompts).toEqual(["Why?"]);
     expect(socket.close).toHaveBeenCalledTimes(1);
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("closes a socket done in the background once the follow-ups wait ends, with no idle minute", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket, "partial");
+    await setAppState("background");
+    await act(async () => { socket.emit({ type: "done", message_id: "saved", final_content: "partial" }); });
+    await act(async () => { jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS); });
+    expect(socket.close).toHaveBeenCalledTimes(1);
   });
 
   it("probes the socket a turn kept through the background when the app returns", async () => {
@@ -1882,6 +1897,25 @@ describe("useChat socket recovery", () => {
     await view.rerender(<Probe chatId="a" />);
     await act(async () => { jest.advanceTimersByTime(60_000); });
     expect(FakeSocket.instances).toHaveLength(1);
+  });
+
+  it("keeps the wait for a reply's follow-ups and title through a network switch, then closes", async () => {
+    await render(<Probe chatId="a" />);
+    await network(WIFI);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      socket.emit({ type: "start" });
+      socket.emit({ type: "done", message_id: "saved", final_content: "answer", title_pending: "1" });
+    });
+    await network(CELLULAR);
+    expect(socket.close).not.toHaveBeenCalled();
+    await act(async () => {
+      socket.emit({ type: "related_prompts", message_id: "saved", prompts: ["Why?"] });
+      socket.emit({ type: "title", title: "Bridges" });
+    });
+    // On a path that changed, no idle minute: it goes once what was due is in.
+    expect(socket.close).toHaveBeenCalledTimes(1);
   });
 
   it("closes an idle socket after a network switch and opens none until a send", async () => {

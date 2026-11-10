@@ -35,24 +35,15 @@ type SocketRefs = {
 
 /**
  * When a chat's socket goes with no send to make: the view unmounts, a screen covers the
- * chat (To-do, Settings, Library), the app goes to the background, or the network path
- * changes (a turn in flight is probed instead). Returns what a new transport reads: whether
- * the chat is in view, and the release a frame received in the background runs.
+ * chat (To-do, Settings, Library) or the app goes to the background (it goes once its turn,
+ * follow-up questions and title are in: `leftView`), or the network path changes (a turn in
+ * flight is probed instead). Returns whether the chat is in view, which a transport reads.
  */
 function useSocketLeaves({ wsTransportRef, backoffRef }: SocketRefs) {
   const backgroundedRef = useRef(false);
   /** The chat is the screen on top (no To-do, Settings or Library over it). */
   const inViewRef = useRef(true);
-
-  /** In the background an idle socket only answers the server's keepalive
-   * pings, which wakes the radio every 20 seconds. A turn in flight keeps it
-   * until its done or error; the next send opens a new one. */
-  const releaseIdleInBackground = useCallback(() => {
-    const transport = wsTransportRef.current;
-    if (!backgroundedRef.current || !transport || transport.isTurnActive()) return;
-    wsTransportRef.current = null;
-    transport.close();
-  }, [wsTransportRef]);
+  const inView = useCallback(() => inViewRef.current && !backgroundedRef.current, []);
 
   useEffect(() => {
     return () => {
@@ -71,11 +62,13 @@ function useSocketLeaves({ wsTransportRef, backoffRef }: SocketRefs) {
     };
   }, [wsTransportRef]));
 
+  // In the background an idle socket only answers the server's keepalive pings, which
+  // wakes the radio every 20 seconds.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "background") {
         backgroundedRef.current = true;
-        releaseIdleInBackground();
+        wsTransportRef.current?.leftView();
         return;
       }
       if (state !== "active") return;
@@ -85,12 +78,13 @@ function useSocketLeaves({ wsTransportRef, backoffRef }: SocketRefs) {
       if (kept?.isTurnActive()) kept.probe();
     });
     return () => sub.remove();
-  }, [wsTransportRef, releaseIdleInBackground]);
+  }, [wsTransportRef]);
 
   // Wi-Fi ⇄ cellular, or back online: a socket opened on the old path can be
   // half-open. A turn's socket is probed (dropped if it does not answer); one
-  // with no turn is closed, and the next send opens one on the new path.
-  // Failures on the old path do not hold the new one back.
+  // waiting for a reply's follow-ups and title keeps the wait for them and no more;
+  // an idle one is closed, and the next send opens one on the new path. Failures on
+  // the old path do not hold the new one back.
   useEffect(() => {
     let previous: NetInfoState | null = null;
     return NetInfo.addEventListener((state) => {
@@ -103,12 +97,16 @@ function useSocketLeaves({ wsTransportRef, backoffRef }: SocketRefs) {
         transport.probe();
         return;
       }
+      if (transport && !isQuiet(transport)) {
+        transport.leftView();
+        return;
+      }
       wsTransportRef.current = null;
       transport?.close();
     });
   }, [wsTransportRef, backoffRef]);
 
-  return { inViewRef, releaseIdleInBackground };
+  return inView;
 }
 
 type Options = {
@@ -151,7 +149,7 @@ export function useChatTransport({
   const backoffRef = useRef(createWsBackoff());
   const sseAbortRef = useRef<AbortController | null>(null);
   const sseAbortChatIdRef = useRef<string | null>(null);
-  const { inViewRef, releaseIdleInBackground } = useSocketLeaves({ wsTransportRef, backoffRef });
+  const inView = useSocketLeaves({ wsTransportRef, backoffRef });
   const isCurrentViewRef = useLatestRef(isCurrentView);
   const ttftTurnIdRef = useLatestRef(ttftTurnId);
   const onPayloadRef = useLatestRef(onPayload);
@@ -186,11 +184,10 @@ export function useChatTransport({
         getToken,
         clientTimezone: getDeviceTimezone,
         backoff: backoffRef.current,
-        inView: () => inViewRef.current,
+        inView,
         onPayload: (payload) => {
           if (wsTransportRef.current !== transport) return;
           onPayloadRef.current(chatId, payload, ttftTurnIdRef.current());
-          releaseIdleInBackground();
         },
         onFallback: (signal) => onFallbackRef.current(transport!, signal),
       });
@@ -199,8 +196,7 @@ export function useChatTransport({
     }
     return transport.connect();
   }, [
-    account, chatId, getToken, releaseIdleInBackground, inViewRef, isCurrentViewRef, onFallbackRef, onPayloadRef,
-    ttftTurnIdRef,
+    account, chatId, getToken, inView, isCurrentViewRef, onFallbackRef, onPayloadRef, ttftTurnIdRef,
   ]);
 
   const connect = useCallback((): Promise<void> => {

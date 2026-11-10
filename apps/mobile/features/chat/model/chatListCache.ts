@@ -37,6 +37,8 @@ type ListSession = {
   /** Chats this phone changed (`noteChatListChanged`), and how many of those the last read saw. */
   changes?: number;
   changesRead?: number;
+  /** New chats whose title this phone waited for and did not get, each until when it is read for. */
+  untitled?: Map<string, number>;
 };
 
 const LIST = "chats";
@@ -208,10 +210,30 @@ export function noteChatListChanged(): void {
   state.changes = (state.changes ?? 0) + 1;
 }
 
-/** A chat changed since the last read of the list began (`noteChatListChanged`). */
+/** How long a new chat's missing title keeps the drawer reading the list on each open. */
+const UNTITLED_READ_MS = 2 * 60_000;
+
+/**
+ * A new chat's title did not come (the topic job ran late): each drawer open reads the list
+ * again until the chat's row has one, for two minutes at most. A read made before the title
+ * was written left the row "New chat" for good.
+ */
+export function noteChatTitleMissing(chatId: string): void {
+  const state = resource.state();
+  state.untitled ??= new Map();
+  state.untitled.set(chatId, Date.now() + UNTITLED_READ_MS);
+  noteChatListChanged();
+}
+
+/** A chat changed since the last read of the list began, or a new chat still has no title. */
 export function chatListChangedSinceRead(): boolean {
   const state = resource.state();
-  return (state.changes ?? 0) !== (state.changesRead ?? 0);
+  if ((state.changes ?? 0) !== (state.changesRead ?? 0)) return true;
+  for (const [chatId, until] of state.untitled ?? []) {
+    if (Date.now() < until && !getCachedChat(chatId)?.title?.trim()) return true;
+    state.untitled?.delete(chatId);
+  }
+  return false;
 }
 
 /** The list was dropped (`invalidateChatListCache`) and is not read since. */

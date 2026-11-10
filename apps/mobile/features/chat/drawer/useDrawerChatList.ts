@@ -325,7 +325,9 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
     updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
   }, [updateGroups]);
   const insertChatInGroups = useCallback((chat: Chat) => {
-    updateGroups(chat.id, chat, (prev) => insertChatIntoGroups(prev, chat));
+    // A row with no title yet tells no one its title is gone (the header may already hold it).
+    const { title, ...untitled } = chat;
+    updateGroups(chat.id, title?.trim() ? chat : untitled, (prev) => insertChatIntoGroups(prev, chat));
   }, [updateGroups]);
   const removeChatFromGroupsById = useCallback((chatId: string) => {
     updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));

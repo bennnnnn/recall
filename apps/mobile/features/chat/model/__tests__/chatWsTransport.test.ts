@@ -404,12 +404,73 @@ describe("ChatWsTransport", () => {
       expect(transport.sendMessage(MESSAGE)).toBe(true);
     });
 
-    it("lets go a socket opened for a send that never went (Stop, a left view)", async () => {
-      const { socket } = await openTransport(true);
-      jest.advanceTimersByTime(WS_LINGER_MS - 1);
+    it("keeps a socket a draft opened for the idle minute, and one opened after a left view a moment", async () => {
+      const { socket } = await openTransport(true, () => inView);
+      jest.advanceTimersByTime(WS_IDLE_KEEP_MS - 1);
       expect(socket.close).not.toHaveBeenCalled();
       jest.advanceTimersByTime(1);
       expect(socket.close).toHaveBeenCalledTimes(1);
+      inView = false;
+      const away = await openTransport(true, () => inView);
+      jest.advanceTimersByTime(WS_LINGER_MS);
+      expect(away.socket.close).toHaveBeenCalledTimes(1);
+    });
+
+    // Review 2026-11-09: a socket closed while connecting left its connect unsettled, and
+    // every send after it waited on that connect for good (dots without end).
+    it("left during the handshake, still opens, carries the tapped send, and leaves no connect behind", async () => {
+      const { socket, sockets, transport } = setupTransport(() => inView);
+      let settled = false;
+      void transport.connect().then(() => { settled = true; });
+      inView = false;
+      transport.leftView();
+      expect(socket.close).not.toHaveBeenCalled();
+      socket.open();
+      await Promise.resolve();
+      expect(settled).toBe(true);
+      expect(transport.sendMessage(MESSAGE)).toBe(true);
+      socket.emit({ type: "start" });
+      socket.emit({ type: "done", persisting: true });
+      expect(socket.close).toHaveBeenCalledTimes(1);
+      let later = false;
+      void transport.connect().then(() => { later = true; });
+      expect(sockets).toHaveLength(2);
+      sockets[1].open();
+      await Promise.resolve();
+      expect(later).toBe(true);
+      expect(transport.isOpen()).toBe(true);
+    });
+
+    it("settles a connect whose socket closes before it opens, so the next send starts fresh", async () => {
+      const { socket, sockets, transport } = setupTransport(() => inView);
+      let settled = false;
+      void transport.connect().then(() => { settled = true; });
+      (socket.onclose as (event: { code: number }) => void)({ code: 1006 });
+      await Promise.resolve();
+      expect(settled).toBe(true);
+      jest.advanceTimersByTime(WS_RETRY_MAX_MS);
+      void transport.connect();
+      expect(sockets).toHaveLength(2);
+    });
+
+    it("leaves no release timer behind a socket the server closed during the idle minute", async () => {
+      const { socket, sockets, transport } = await sentTurn();
+      socket.emit({ type: "done", message_id: "m1" });
+      socket.emit({ type: "related_prompts", message_id: "m1", prompts: [] });
+      jest.advanceTimersByTime(30_000);
+      // A deploy closes the kept socket (uvicorn's 1012).
+      (socket.onclose as (event: { code: number }) => void)({ code: 1012 });
+      jest.advanceTimersByTime(WS_IDLE_KEEP_MS / 2 - 200);
+      let settled = false;
+      void transport.connect().then(() => { settled = true; });
+      // The old socket's minute ends while the new one's handshake runs.
+      jest.advanceTimersByTime(1_000);
+      expect(sockets[1].close).not.toHaveBeenCalled();
+      sockets[1].open();
+      await Promise.resolve();
+      expect(settled).toBe(true);
+      expect(transport.isOpen()).toBe(true);
+      expect(transport.sendMessage(MESSAGE)).toBe(true);
     });
   });
 

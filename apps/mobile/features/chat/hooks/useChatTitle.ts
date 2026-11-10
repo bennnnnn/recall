@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
+import { onAppEvent } from "@/lib/appEvents";
 import { useLatestRef } from "@/lib/latestRef";
 import { reportFailure } from "@/lib/sentry";
 import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import type { FirstReply } from "@/features/chat/model/chatTurnCore";
-import { getCachedChat, noteChatListChanged, peekCreatedChat } from "@/features/chat/model/chatListCache";
+import { getCachedChat, noteChatTitleMissing, peekCreatedChat } from "@/features/chat/model/chatListCache";
 import { firstReplyTitlePlan } from "@/features/chat/model/titleRefresh";
 import {
   getChatMutationRevision,
@@ -39,45 +40,54 @@ type WaitContext = {
 };
 
 /**
- * Waits for chat `cid`'s title: from the turn's stream when `onStream`, else from one read.
+ * Waits for chat `cid`'s title: from the turn's stream when `onStream` (its title frame, or the
+ * frame saying the server's wait ran out), then, with none there, from one read that waits.
  * A rename or a delete ends the wait (the drawer says both as it makes them, and the stream's
- * title arrives the same way); a title that did not come is read with the chat list.
+ * title arrives the same way); a title that still did not come is read with the chat list.
  */
 function waitForTitle(tid: string, cid: string, onStream: boolean, ctx: WaitContext): Promise<void> {
   const { waits, ownerSession, isCurrent, ownsHeader } = ctx;
-  let end!: (title: string | null) => void;
-  const arrival = new Promise<string | null>((resolve) => { end = resolve; });
+  let end: (title: string | null) => void = () => {};
+  let timer: ReturnType<typeof setTimeout> | undefined;
   let settled = false;
   const stopListening = subscribeChatChanges((id, patch) => {
     if (id !== cid || (patch !== null && !patch.title?.trim())) return;
     settled = true;
     end(null);
   });
-  const wait: TitleWait = { end, task: Promise.resolve() };
+  const stopHearing = onAppEvent("chatTitleArrived", ({ chatId, title }) => { if (chatId === cid) end(title); });
+  /** One step of the wait: the stream's frame (or its deadline), or one read the server holds. */
+  const arrival = (fromStream: boolean) => new Promise<string | null>((resolve) => {
+    end = resolve;
+    if (fromStream) {
+      timer = setTimeout(() => resolve(null), STREAM_TITLE_WAIT_MS);
+      return;
+    }
+    api.getChat(tid, cid, { waitForTitle: true }).then((chat) => resolve(chat.title ?? null), (error: unknown) => {
+      reportFailure("chat_title", error);
+      resolve(null);
+    });
+  });
+  const wait: TitleWait = { end: (title) => end(title), task: Promise.resolve() };
   waits.set(cid, wait);
   setChatTitleGenerating(cid);
   if (ownsHeader()) ctx.setTitleGenerating(true);
-  const timer = onStream ? setTimeout(() => end(null), STREAM_TITLE_WAIT_MS) : undefined;
-  if (!onStream) {
-    api.getChat(tid, cid, { waitForTitle: true }).then((chat) => end(chat.title ?? null), (error: unknown) => {
-      reportFailure("chat_title", error);
-      end(null);
-    });
-  }
   wait.task = (async () => {
     try {
-      const title = await arrival;
+      let title = await arrival(onStream);
+      // None came on the stream (the topic job ran past the server's wait, or the socket went).
+      if (onStream && !title?.trim() && !settled && isCurrent()) title = await arrival(false);
       if (!isCurrent() || settled) return;
       if (title?.trim()) {
         patchChatGlobal(cid, { title });
         if (ownsHeader()) ctx.setChatTitle(title);
       } else {
-        // Not written yet (or the read failed): the drawer reads it with the list.
-        noteChatListChanged();
+        noteChatTitleMissing(cid);
       }
     } finally {
       clearTimeout(timer);
       stopListening();
+      stopHearing();
       if (ownsHeader()) ctx.setTitleGenerating(false);
       if (ownerSession === getSessionGeneration() && isChatTitleGenerating(cid)) setChatTitleGenerating(null);
       if (waits.get(cid) === wait) waits.delete(cid);
@@ -140,9 +150,19 @@ export function useChatTitle({ token, chatId, setChatTitle, getFirstUserText }: 
       insertChatGlobal(plan.insert);
       if (plan.insert.title && ownsHeader()) setChatTitle(plan.insert.title);
     } else if (plan.fetch) {
+      // A title that lands while the row is read (the turn's frame, a rename) is the chat's
+      // title, not the row's empty one; a delete keeps the row out.
+      let landed: string | undefined;
+      let deleted = false;
+      const stop = subscribeChatChanges((id, patch) => {
+        if (id !== cid) return;
+        if (patch === null) deleted = true;
+        else if (patch.title?.trim()) landed = patch.title;
+      });
       try {
-        const chat = await api.getChat(token, cid);
-        if (!isCurrent()) return;
+        const read = await api.getChat(token, cid);
+        if (deleted || (!landed && !isCurrent()) || !mounted.current || ownerSession !== getSessionGeneration()) return;
+        const chat = landed ? { ...read, title: landed } : read;
         insertChatGlobal(chat);
         if (chat.title?.trim()) {
           if (ownsHeader()) setChatTitle(chat.title);
@@ -152,6 +172,8 @@ export function useChatTitle({ token, chatId, setChatTitle, getFirstUserText }: 
         if (!isCurrent()) return;
         // The drawer's row is best-effort: the list read brings it.
         reportFailure("chat_title", error);
+      } finally {
+        stop();
       }
     }
     if (shouldWait) await awaitTitle(token, cid, reply?.titleOnStream ?? false);
