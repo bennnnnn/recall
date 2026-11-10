@@ -45,10 +45,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # about, and memory never quoted (NO_SELF_TALK_RULE), then a plan in weeks or months laid out
 # by week or month, not by day (LEARNING_PLAN_HINT), then a **Choose A if** line only when the
 # user asks to pick between named options, and no word about how the search went (READER_NOTE),
-# then the chat's summary named as part of the conversation (SUMMARY_LEAD).
+# then the chat's summary named as part of the conversation (SUMMARY_LEAD), then physics'
+# notation as a British-style textbook writes it (PHYSICS_SYMBOLS: u and v, s and d, E_k).
 _RULES = 175
-_RULE_GRAMS = 15966
-_RULE_GRAMS_SHA = "c9fc1ba120307a35"
+_RULE_GRAMS = 16012
+_RULE_GRAMS_SHA = "680032e8c4786013"
 
 
 def _rules() -> list[str]:

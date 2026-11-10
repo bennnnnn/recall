@@ -103,7 +103,7 @@ def test_work_at_an_angle_selects_the_angle_variant() -> None:
     latex, _lines, assumptions = select_formula(
         CATALOG["work"], {"F": 10.0, "d": 2.0, "angle": 60.0}
     )
-    assert latex == r"W = Fd\cos\theta"
+    assert latex == r"W = Fs\cos\theta"
     assert assumptions == ()
 
 

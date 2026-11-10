@@ -352,7 +352,7 @@ def test_impact_speed_uses_height_formula_and_scientific_givens_stay_readable() 
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert r"$v_{impact}$" in reply
-    assert r"$v_{impact} = \sqrt{v_0^2 + 2gh_0}$" in reply
+    assert r"$v_{impact} = \sqrt{u^2 + 2gh_0}$" in reply
     assert r"$v_{impact} = \sqrt{(-5)^{2} + 2 \times 9.81 \times 60}$" in reply
 
     planet = "Find escape velocity for a planet with M = 5.97e24 kg and R = 6.37e6 m."

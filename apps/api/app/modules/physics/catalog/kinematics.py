@@ -307,8 +307,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "displacement_two_legs",
         "kinematics",
         "Displacement",
-        "d",
-        base_latex=r"d = \sqrt{d_1^2 + d_2^2}",
+        # The legs are distances walked; what they add to is a displacement, s.
+        "s",
+        base_latex=r"s = \sqrt{d_1^2 + d_2^2}",
         assumptions=("the two legs are at right angles",),
         variables=(
             var("d1", "d_1", "meter"),

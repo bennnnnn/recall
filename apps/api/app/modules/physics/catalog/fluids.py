@@ -402,8 +402,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "pressure_from_weight",
         "fluids",
         "Pressure",
-        "p",
-        base_latex=r"p = \frac{m g}{A}",
+        "P",
+        base_latex=r"P = \frac{m g}{A}",
         expression="m*g/area",
         variables=(
             var("m", "m", "kilogram"),
@@ -418,13 +418,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # The water's own pressure at a depth: p = rho g h, no atmosphere added.
+    # The water's own pressure at a depth: P = rho g h, no atmosphere added.
     formula(
         "water_pressure_at_depth",
         "fluids",
         "Hydrostatic pressure",
-        "p",
-        base_latex=r"p = \rho g h",
+        "P",
+        base_latex=r"P = \rho g h",
         assumptions=("the pressure due to the water alone, without the atmosphere",),
         expression="rho*g*depth",
         variables=(

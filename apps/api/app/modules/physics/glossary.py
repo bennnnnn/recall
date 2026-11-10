@@ -371,6 +371,8 @@ _MEANINGS: dict[str, str] = {
 _BY_KIND: dict[tuple[str, str], str] = {
     ("projectile", "angle"): "launch angle",
     ("projectile", "h0"): "launch height",
+    # Thrown straight up or down, shown as u (``notation``): a velocity, with its direction.
+    ("kinematics", "v0"): "initial velocity",
     ("friction", "angle"): "angle of the incline",
     ("optics", "angle"): "angle of incidence",
     ("suvat", "d"): "displacement",
@@ -409,6 +411,11 @@ _BY_OPERATION: dict[tuple[str, str], str] = {
     ("weight_along_slope", "angle"): "angle of the incline",
     ("angled_pull_friction_acceleration", "angle"): "angle of the pull",
     ("torque", "d"): "distance from the pivot",
+    # Two legs walked add to a displacement, asked as s (``Required``).
+    ("displacement_two_legs", "s"): "displacement",
+    # Work is the force times the displacement along it: W = Fs.
+    ("work", "d"): "displacement",
+    ("work_energy_speed", "d"): "displacement",
     ("parallel_plate_capacitance", "d"): "plate separation",
     ("dielectric_parallel_plate", "d"): "plate separation",
     ("plate_field", "d"): "plate separation",
@@ -455,7 +462,7 @@ _BY_OPERATION: dict[tuple[str, str], str] = {
     ("refrigerator_cop", "temp_env"): "cold reservoir temperature",
     ("recoil_speed", "v"): "speed of the projectile",
     ("average_force_from_speeds", "v"): "final velocity",
-    # Shown as v_i and v_f (``notation``): the meaning says which end each one is.
+    # Shown as u and v (``notation``): the meaning says which end each one is.
     ("stopping_distance", "v"): "initial speed",
     ("impulse", "v1"): "initial velocity",
     ("impulse", "v2"): "final velocity",

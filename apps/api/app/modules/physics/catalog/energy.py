@@ -239,16 +239,16 @@ SPECS: tuple[FormulaSpec, ...] = (
             requires=("h_drop - h_bounce",),
         ),
     ),
-    # A steady force from rest along a frictionless floor: Fd = ½mv².
+    # A steady force from rest along a frictionless floor: Fs = ½mv².
     formula(
         "work_energy_speed",
         "energy",
         "Work-energy theorem",
         "v",
-        base_latex=r"Fd = \tfrac{1}{2}mv^2",
+        base_latex=r"Fs = \tfrac{1}{2}mv^2",
         assumptions=("from rest, no friction, the force along the motion",),
         expression="sqrt(2*F*d/m)",
-        variables=(var("F", "F", "newton"), var("d", "d", "meter"), var("m", "m", "kilogram")),
+        variables=(var("F", "F", "newton"), var("d", "s", "meter"), var("m", "m", "kilogram")),
         binding=Binding(
             asks=("how fast", "speed", "velocity", "final speed"),
             result=("meter / second",),

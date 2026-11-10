@@ -1,4 +1,4 @@
-"""Momentum solvers: p = mv, impulse J = F dt (or m dv), and 1D collisions.
+"""Momentum solvers: p = mv, impulse I = F dt (or m dv), and 1D collisions.
 
 Inelastic: v = (m1 v1 + m2 v2) / (m1 + m2).
 Elastic: v1' = ((m1 - m2) v1 + 2 m2 v2) / (m1 + m2), and v2' by symmetry.
@@ -72,16 +72,16 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
             v1 = 0.0
             j_val = p["F"] * p["dt"]
             plugged = rf"{p['F']:g} \cdot {p['dt']:g}"
-            answer = rf"J = F \Delta t = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
-            formula = r"J = F \Delta t"
-            substitution = rf"J = {plugged}"
+            answer = rf"I = F \Delta t = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
+            formula = r"I = F \Delta t"
+            substitution = rf"I = {plugged}"
         else:
-            # J = Delta p. Same quantity, same units — N*s and kg*m/s are equal.
+            # I = Delta p. Same quantity, same units — N*s and kg*m/s are equal.
             j_val = p["m"] * (p["v2"] - p["v1"])
             plugged = rf"{p['m']:g} \cdot ({latex_num(p['v2'])} - {latex_num(p['v1'])})"
-            answer = rf"J = m \Delta v = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
-            formula = r"J = m(v_2 - v_1)"
-            substitution = rf"J = {plugged}"
+            answer = rf"I = m \Delta v = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
+            formula = r"I = m(v_2 - v_1)"
+            substitution = rf"I = {plugged}"
         # Against a real initial motion, the size and whether it opposes it.
         # Without one (a force, or a start from rest) the sign is the direction.
         relative = v1 != 0.0
@@ -203,19 +203,19 @@ def _collision_energy_lost(intent: PhysicsIntent, p: dict[str, float]) -> Physic
     g1, g2, s1, s2 = (latex_given(value) for value in (m1, m2, v1, v2))
     substitutions = (
         rf"v_f = \frac{{{g1}\cdot {s1} + {g2}\cdot {s2}}}{{{g1}+{g2}}} = {latex_number(vf)}",
-        rf"KE_i = \tfrac{{1}}{{2}}\cdot {g1}\cdot {latex_num(v1, square=True)} + "
+        rf"E_{{k,i}} = \tfrac{{1}}{{2}}\cdot {g1}\cdot {latex_num(v1, square=True)} + "
         rf"\tfrac{{1}}{{2}}\cdot {g2}\cdot {latex_num(v2, square=True)} = {latex_number(before)}",
-        rf"KE_f = \tfrac{{1}}{{2}}\cdot {latex_number(total)}\cdot "
+        rf"E_{{k,f}} = \tfrac{{1}}{{2}}\cdot {latex_number(total)}\cdot "
         rf"{latex_num(vf, square=True)} = {latex_number(after)}",
-        rf"\Delta KE = {latex_number(before)} - {latex_number(after)} = {latex_number(lost)}",
+        rf"\Delta E_k = {latex_number(before)} - {latex_number(after)} = {latex_number(lost)}",
     )
     return PhysicsResult(
         answer=substitutions[-1],
         formulas=(
             r"v_f = \frac{m_1 v_1 + m_2 v_2}{m_1 + m_2}",
-            r"KE_i = \tfrac{1}{2} m_1 v_1^2 + \tfrac{1}{2} m_2 v_2^2",
-            r"KE_f = \tfrac{1}{2}(m_1 + m_2) v_f^2",
-            r"\Delta KE = KE_i - KE_f",
+            r"E_{k,i} = \tfrac{1}{2} m_1 v_1^2 + \tfrac{1}{2} m_2 v_2^2",
+            r"E_{k,f} = \tfrac{1}{2}(m_1 + m_2) v_f^2",
+            r"\Delta E_k = E_{k,i} - E_{k,f}",
         ),
         substitutions=substitutions,
         quantities=(QuantityResult("", lost, "J"),),

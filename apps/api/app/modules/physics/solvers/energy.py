@@ -1,4 +1,4 @@
-"""Energy solvers: KE = ½ mv², PE = mgh, W = Fd, P = Fv or W/t."""
+"""Energy solvers: Eₖ = ½ mv², Eₚ = mgh, W = Fs, P = Fv or W/t."""
 
 from __future__ import annotations
 
@@ -43,30 +43,30 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         ke_val = 0.5 * p["m"] * p["v"] ** 2
         v_sq = latex_num(p["v"], square=True)
         plugged = rf"\frac{{1}}{{2}} \cdot {p['m']:g} \cdot {v_sq}"
-        answer_latex = rf"KE = \frac{{1}}{{2}} m v^2 = {plugged} \approx {ke_val:.2f} \text{{ J}}"
-        formula = r"KE = \frac{1}{2} m v^2"
-        substitution = rf"KE = {plugged}"
+        answer_latex = rf"E_k = \frac{{1}}{{2}} m v^2 = {plugged} \approx {ke_val:.2f} \text{{ J}}"
+        formula = r"E_k = \frac{1}{2} m v^2"
+        substitution = rf"E_k = {plugged}"
         quantity = QuantityResult("", ke_val, "J")
     elif op == "potential_energy":
         pe_val = p["m"] * g * p["h"]
         plugged = rf"{p['m']:g} \cdot {g:g} \cdot {p['h']:g}"
-        answer_latex = rf"PE = m g h = {plugged} \approx {pe_val:.2f} \text{{ J}}"
-        formula = r"PE = m g h"
-        substitution = rf"PE = {plugged}"
+        answer_latex = rf"E_p = m g h = {plugged} \approx {pe_val:.2f} \text{{ J}}"
+        formula = r"E_p = m g h"
+        substitution = rf"E_p = {plugged}"
         quantity = QuantityResult("", pe_val, "J")
     elif op == "work":
         theta = p.get("angle")
         if theta is None:
             w_val = p["F"] * p["d"]
             plugged = rf"{p['F']:g} \cdot {p['d']:g}"
-            answer_latex = rf"W = F \cdot d = {plugged} \approx {w_val:.2f} \text{{ J}}"
-            formula = r"W = F \cdot d"
+            answer_latex = rf"W = F \cdot s = {plugged} \approx {w_val:.2f} \text{{ J}}"
+            formula = r"W = F \cdot s"
         else:
             w_val = p["F"] * p["d"] * math.cos(theta)
             deg = math.degrees(theta)
             plugged = rf"{p['F']:g} \cdot {p['d']:g} \cdot \cos({deg:g}^\circ)"
-            answer_latex = rf"W = Fd\cos\theta = {plugged} \approx {w_val:.2f} \text{{ J}}"
-            formula = r"W = Fd\cos\theta"
+            answer_latex = rf"W = Fs\cos\theta = {plugged} \approx {w_val:.2f} \text{{ J}}"
+            formula = r"W = Fs\cos\theta"
             work_direction = (math.cos(theta), math.sin(theta))
         substitution = rf"W = {plugged}"
         quantity = QuantityResult("", w_val, "J")
@@ -142,12 +142,15 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
 
 
 def height_scene(mass: float, g: float, height: float) -> list[SimulationBlockSpec]:
-    """A mass at a height above the ground, its weight and the height it is at."""
+    """A mass at a height above the ground, its weight and the height it is at.
+
+    The weight is mg: the answers drawn here (work against gravity, lifting power) write
+    work as W, and one letter never names two quantities in an answer."""
     shown_mass = f"{plain_number(mass, GIVEN_FIGURES)} kg"
     return free_body_scene(
         [
             SimulationVector(
-                anchor=[0.0, height], dx=0.0, dy=-1.0, label=f"W = {plain_number(mass * g)} N"
+                anchor=[0.0, height], dx=0.0, dy=-1.0, label=f"mg = {plain_number(mass * g)} N"
             ),
             SimulationVector(
                 # Clear of the body however tall the climb: the frame and
