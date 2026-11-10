@@ -78,6 +78,8 @@ class Outcome:
     thought: list[bool] = field(default_factory=list)
     seconds: list[float] = field(default_factory=list)
     unread: int = 0
+    # Per run: the read answered (an unanswered run leaves the word rules to decide).
+    answered: list[bool] = field(default_factory=list)
 
 
 async def measure_read(turns: list[ThinkTurn], runs: int) -> tuple[list[Outcome], list[float]]:
@@ -100,6 +102,7 @@ async def measure_read(turns: list[ThinkTurn], runs: int) -> tuple[list[Outcome]
             outcome = outcomes[turn.id]
             outcome.seconds.append(time.monotonic() - started)
             outcome.unread += read is None
+            outcome.answered.append(read is not None)
             outcome.thought.append(bool(read is not None and read.think))
 
     def meter(alias: str, response: object) -> None:

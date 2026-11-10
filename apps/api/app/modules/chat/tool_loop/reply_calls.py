@@ -27,13 +27,15 @@ from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
-from app.modules.chat.model_routing.thinking import with_read
+from app.modules.billing import plan as plan_service
+from app.modules.chat.model_routing.thinking import lane_for_think, with_read
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
+from app.modules.chat.turn_trace import current_turn_trace, note_route
 from app.modules.memory.recall_tool import RECALL_TOOL
 from app.modules.turn_reading.lesson_flow import active_lesson_step
 from app.modules.web_search import TurnTavilyBudget, live_read_result
@@ -280,10 +282,10 @@ def _without_search(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [tool for tool in tools if (tool.get("function") or {}).get("name") != REPLY_TOOL]
 
 
-def think_from_the_read(ctx: StreamContext) -> None:
+def think_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     """The read's answer on thinking (``think``), when it is in by the reply's call. Nothing
     waits for it here: a turn that offers search waited for the read already
-    (``search_the_live_read``); any other keeps the word rules' level."""
+    (``search_the_live_read``); any other keeps the word rules' level and lane."""
     task = ctx.live_read
     if task is None or not task.done() or task.cancelled() or task.exception() is not None:
         return
@@ -292,3 +294,26 @@ def think_from_the_read(ctx: StreamContext) -> None:
         # A lesson under way keeps its steps quick (``route``'s "lesson"), as the word rules do.
         lesson = active_lesson_step(ctx.recent_messages) is not None
         ctx.thinking = with_read(read.think, ctx.thinking, lesson_active=lesson)
+        if ctx.thinking == "hard":
+            _lane_that_thinks(ctx, settings)
+
+
+def _lane_that_thinks(ctx: StreamContext, settings: Settings) -> None:
+    """Auto's lane follows the read's ``think`` when its model cannot think (the maths
+    lane) and no solver verified the answer: a four-part word problem about runners'
+    speeds went to GLM 5.2, which sends no reasoning (2026-11-09). A verified solve keeps
+    its lane, and so does a model the user picked. The lane it leaves is the first backup."""
+    # Numbers a server path already worked keep their lane: a verified solve (maths,
+    # physics, chemistry, or a tool's, ``_apply_tool_rounds``), and a money turn, whose
+    # calculator card holds them ("4000 on a card at 22% paying 150 a month").
+    worked = ctx.verified_subject is not None or ctx.money is not None
+    if not ctx.auto_routed or ctx.user is None or worked:
+        return
+    pool = plan_service.model_pool(ctx.user, settings)
+    lane = lane_for_think(ctx.model, pool, ctx.unsteady_models)
+    if lane is None:
+        return
+    trace = current_turn_trace()
+    note_route(f"{(trace.route if trace else None) or 'auto'}-think")
+    backups = [alias for alias in ctx.fallback_models if alias not in {lane, ctx.model}]
+    ctx.model, ctx.fallback_models = lane, [ctx.model, *backups]
