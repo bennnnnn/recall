@@ -31,8 +31,10 @@ logger = logging.getLogger(__name__)
 _QUERY_CHARS = 120
 # The fence opens the reply; a late one is still honored when the reply ends.
 _WATCH_CHARS = 600
-# The search usually finishes while the answer streams; never hold a reply long.
-_WAIT_SECONDS = 6.0
+# The search usually finishes while the answer streams; never hold a reply long. The owner
+# chose 2 s on 2026-11-09 (it was 6 s): a photo still on its way now follows the reply
+# (``follow``), so a longer hold only delays the reply's buttons and follow-up questions.
+_WAIT_SECONDS = 2.0
 # A photo still on its way follows the reply until this long after the reply ended
 # (the wait above included); then its search stops and the reply stays without one.
 # The phone keeps its placeholder a little longer (ANSWER_PHOTO_WAIT_MS, wsConnect.ts).

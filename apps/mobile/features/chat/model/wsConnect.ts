@@ -39,9 +39,9 @@ export const WS_FOLLOW_UPS_WAIT_MS = 10_000;
 /**
  * A reply's photo still on its way at `done` (`photo_pending`) comes after it as an
  * `answer_photo` event: the server gives its search 20 s from the reply's end
- * (`answer_photo.LATE_PHOTO_SECONDS`). The reply's placeholder waits this long for it. The
- * socket that carries it is the one kept for the next message while the chat is on screen
- * (`WS_IDLE_KEEP_MS`); a chat left before it came finds the photo in the saved reply.
+ * (`answer_photo.LATE_PHOTO_SECONDS`), and `done` comes at least 2 s after that end (the
+ * reply's wait for its photo), so the photo is in by this long after `done`. The reply's
+ * placeholder waits this long for it.
  */
 export const ANSWER_PHOTO_WAIT_MS = 20_000;
 

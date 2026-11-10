@@ -138,8 +138,8 @@ async def _fetch_candidates(
     """The first ``max_images`` usable photos, fetched side by side under one deadline.
 
     One after another, a slow host used its whole 8 s before the next candidate was
-    tried, so an answer photo (which waits 6 s) went out empty even when the next
-    candidate would have arrived at once.
+    tried, so an answer photo (the reply then waited 6 s for it) went out empty even when
+    the next candidate would have arrived at once.
     """
     deadline = settings.image_search_fetch_timeout_seconds
     fetched: list[tuple[bytes, str]] = []
