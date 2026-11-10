@@ -75,9 +75,8 @@ class StreamContext:
     # The UTC day whose chat message this turn took (``TurnResources.message_day``): kept
     # when a reply is saved, given back with ``reserved_tokens`` when none is.
     message_day: date | None = None
-    # Effective timezone for this request (profile preference overridden by
-    # the current client timezone). Finalization must use the same zone that
-    # prompt construction used for relative dates and reminder clocks.
+    # The request's zone (the client's over the profile's): finalize uses the one the prompt
+    # used for relative dates and reminder clocks.
     user_timezone: str | None = None
     # The device location when this turn needs one ("coffee near me"); a
     # search for it names the place.
@@ -85,8 +84,9 @@ class StreamContext:
     # The user's message as its row keeps it, photo markers too: what the chat title reads.
     stored_user_message: str | None = None
     user: User | None = None
-    # Pre-assigned id for the assistant row so `done` can be sent to the client
-    # before the background DB insert commits.
+    # Auto chose ``model`` (no pick named one): its lane may follow the read's ``think``.
+    auto_routed: bool = False
+    # Pre-assigned id for the assistant row so `done` can go before the insert commits.
     assistant_message_id: UUID | None = None
     recalled_count: int = 0
     memory_hints: list[str] = field(default_factory=list)

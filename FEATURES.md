@@ -849,7 +849,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
   automatic (`modules/chat/model_routing/thinking.py`): the turn's live read says whether the
   answer must be reasoned out first (`think`), the word rules decide when it gives no answer
-  in time, and a regenerate or a disputed answer thinks one level more. The old `users.response_style` column is
+  in time, and a regenerate or a disputed answer thinks one level more. On Auto, a question
+  the read says to think on that sits on the maths lane (whose model cannot think) with no
+  solver's verified answer moves to the smart lane, at the reply's call. The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
