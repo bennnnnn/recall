@@ -6,24 +6,26 @@ its LLM classifier never ran in production and are gone.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
+from app.modules.chat.posed_read import posed_for_turn
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
 from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
+    resolve_posed_followup,
     resolve_subject_followup,
     role_content_dicts,
 )
 from app.modules.chat.turn_prep.instant import location_not_set_reply
 from app.modules.chat.turn_prep.mode import _should_augment_web_and_tools
 from app.modules.chat.turn_prep.model_read_shadow import start_model_read_shadow
-from app.modules.chat.turn_prep.reading import plan_of
+from app.modules.chat.turn_prep.reading import ask_turn_readings, plan_of, subject_of
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.chat.whole_question import whole_question_fetch
 from app.modules.chat.worked_render import WorkedLayout
@@ -279,22 +281,23 @@ async def augment_after_prompt(
 ) -> tuple[Augmentation, str | None]:
     """Phases B and C after the prompt: a follow-up's subject, the verified solve (none for a
     money turn, whose numbers are worked already), and a reply the solve writes itself."""
-    # What "it" is in "draw it": the turn's read, kept since the photo intercept asked it.
-    # And the problem "3" or "the area" continues, which a model reads too.
-    recent = request.recent_messages or []
-    referent = await referent_for_turn(settings, request.content, recent)
-    continued = await continuation_for_turn(settings, request.content, recent)
-    followup = (
+    followup, referent = await _turn_followup(
+        request, settings, prompt_messages, small_talk=identity.mode.lightweight
+    )
+    if followup.asked is not None:
+        # "Do it" after a posed problem: the turn is the problem, as if typed, and read so,
+        # in the pool.
+        request = replace(request, content=followup.asked)
         await read_off_loop(
-            resolve_subject_followup,
-            request.content,
-            role_content_dicts(prompt_messages),
-            referent.problem if referent is not None else None,
-            continued,
+            ask_turn_readings,
+            followup.asked,
+            prior_user=None,
+            prior_model=None,
+            lesson_active=False,
+            has_image_attachment=request.has_image_attachment,
+            settings=settings,
             timeout=settings.subject_read_timeout_seconds,
         )
-        or SubjectFollowup()
-    )
     if instant_reply is None:
         instant_reply = location_not_set_reply(
             request.content, identity.geo, followup, role_content_dicts(prompt_messages)
@@ -334,6 +337,57 @@ async def augment_after_prompt(
     ):
         augmented.prompt_messages = with_result_check_contract(augmented.prompt_messages)
     return augmented, instant_reply
+
+
+async def _turn_followup(
+    request: TurnRequest,
+    settings: Settings,
+    prompt_messages: list[dict[str, str]],
+    *,
+    small_talk: bool,
+) -> tuple[SubjectFollowup, Referent | None]:
+    """The earlier problem the line follows up, and what "it" is in "draw it"."""
+    # What "it" is: the turn's read, kept since the photo intercept asked it. And the
+    # problem "3" or "the area" continues, which a model reads too.
+    recent = request.recent_messages or []
+    referent = await referent_for_turn(settings, request.content, recent)
+    continued = await continuation_for_turn(settings, request.content, recent)
+    timeout = settings.subject_read_timeout_seconds
+    followup = await read_off_loop(
+        resolve_subject_followup,
+        request.content,
+        role_content_dicts(prompt_messages),
+        referent.problem if referent is not None else None,
+        continued,
+        timeout=timeout,
+    )
+    if followup is not None and followup.found:
+        return followup, referent
+    # "Do it" after a problem the assistant posed: a model reads which problem, when the
+    # line has no subject of its own and is no "thanks".
+    if (
+        not small_talk
+        and referent is None
+        and continued is None
+        and subject_of(
+            request.content,
+            has_image_attachment=request.has_image_attachment,
+            chemistry_enabled=settings.chemistry_enabled,
+        )
+        is None
+    ):
+        posed = await posed_for_turn(settings, request.content, recent)
+        if posed is not None:
+            followup = await read_off_loop(
+                resolve_posed_followup,
+                request.content,
+                posed.problem,
+                posed.reply,
+                posed.changed,
+                posed.restated,
+                timeout=timeout,
+            )
+    return followup or SubjectFollowup(), referent
 
 
 def _followup_subject(followup: SubjectFollowup) -> SubjectName | None:

@@ -96,13 +96,19 @@ def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str 
     shown = shape_followup_problem(text, recent)
     if shown is not None and _verifies(shown):
         return shown
-    prior = adjacent_problem(recent, is_chemistry_question)
+    # A line the solver reads nothing in ("Give me a chemistry practice question") is no
+    # problem to go back to: the reply after it may have posed one (``chat.posed_read``).
+    prior = adjacent_problem(recent, _solvable)
     adjacent = None if prior is None else _adjacent_problem(prior, text)
     if adjacent is not None:
         return adjacent
     # "what if i only had 16g of o2" changes the reaction it names, past lines with no amount.
     reaction = reaction_followup_problem(text, recent)
     return reaction if reaction is not None and _verifies(reaction) else None
+
+
+def _solvable(line: str) -> bool:
+    return is_chemistry_question(line) and extract_chemistry_intent(line) is not None
 
 
 def _adjacent_problem(prior: str, text: str) -> str | None:

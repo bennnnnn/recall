@@ -97,7 +97,7 @@ def asks_for_a_referent(line: str) -> bool:
     return asks_to_see(line) or subject_adapter("math").followups.continues_alone(line)
 
 
-def _exchanges(recent: Sequence[Any], line: str) -> list[tuple[str, str]]:
+def chat_before(recent: Sequence[Any], line: str) -> list[tuple[str, str]]:
     """The chat before ``line``, oldest first: the turn's own saved line is left out."""
     pairs = [message_role_content(message) for message in recent]
     out = [(role, text) for role, text in pairs if role in {"user", "assistant"} and text]
@@ -121,19 +121,26 @@ def _conversation(exchanges: Sequence[tuple[str, str]]) -> tuple[str, list[int]]
 
 async def pick_referent(settings: Settings, line: str, conversation: str) -> ReferentPick | None:
     """The model's pick of what "it" is, or None when there is no read."""
-    return await _ask(settings, _SYSTEM, line, conversation, ReferentPick)
+    return await ask_read(settings, _SYSTEM, line, conversation, ReferentPick)
 
 
 async def pick_continuation(
     settings: Settings, line: str, conversation: str
 ) -> ContinuationPick | None:
     """The model's read of the problem a short line continues, or None when there is no read."""
-    return await _ask(settings, _CONTINUES_SYSTEM, line, conversation, ContinuationPick)
+    return await ask_read(settings, _CONTINUES_SYSTEM, line, conversation, ContinuationPick)
 
 
-async def _ask[T: BaseModel](
-    settings: Settings, system: str, line: str, conversation: str, schema: type[T]
+async def ask_read[T: BaseModel](
+    settings: Settings,
+    system: str,
+    line: str,
+    conversation: str,
+    schema: type[T],
+    *,
+    max_tokens: int = 30,
 ) -> T | None:
+    """One small structured read of the chat on the fast lane; None when there is none."""
     from app.core.redis import get_redis_client
     from app.gateways.structured_completion import complete_structured
     from app.services import quota as quota_service
@@ -152,7 +159,7 @@ async def _ask[T: BaseModel](
                 },
             ],
             schema=schema,
-            max_tokens=30,
+            max_tokens=max_tokens,
             timeout_seconds=settings.referent_read_timeout_seconds,
             allow_fallback=False,
             quiet_timeout=True,
@@ -185,7 +192,7 @@ async def read_referent(settings: Settings, line: str, recent: Sequence[Any]) ->
     (the line asks for none, the read is off, mocked, failed or too slow)."""
     if not settings.referent_read_enabled or not asks_for_a_referent(line):
         return None
-    exchanges = _exchanges(recent, line)
+    exchanges = chat_before(recent, line)
     conversation, numbered = _conversation(exchanges)
     if not numbered:
         return None
@@ -221,7 +228,7 @@ async def read_continuation(settings: Settings, line: str, recent: Sequence[Any]
     when the model names none (the turn is then read as main read it)."""
     if not settings.referent_read_enabled or not adds_to_problem(line):
         return None
-    exchanges = _exchanges(recent, line)
+    exchanges = chat_before(recent, line)
     if not exchanges or exchanges[-1][0] != "assistant":
         return None
     if lesson_step(exchanges[-1][1]) is not None:

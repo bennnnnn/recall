@@ -101,10 +101,25 @@ class Case:
     # "3" / "the area": the earlier user message the model's read picks as the problem the
     # line continues; "" when it picks none. None: no read.
     continues: str | None = None
+    # "Do it" / "what if it took 10 s?": the problem the model's read names, as a message
+    # (the assistant's too) states it (``chat.posed_read``); "" when it names none ("do it"
+    # to an offer). None: no read. With ``posed_changed``, the line changes it: the read's
+    # restatement of the problem with the change.
+    posed: str | None = None
+    posed_changed: str | None = None
 
 
 NO_PHOTO = ""
 NONE = ""
+
+# A practice question the assistant posed (the owner's chat, 2026-11-10).
+_POSED_CAR_QUESTION = "A car travels 120 meters in 20 seconds. What is its speed?"
+_POSED_CAR = (
+    ("user", "Give me physics question for grade 7th"),
+    ("assistant", "A car travels **120 meters in 20 seconds**. What is its speed? \U0001f697"),
+)
+_CARNOT = "max (Carnot) efficiency of a heat engine working between 500 K and 300 K?"
+_WATER_YIELD = "how much water if 3.0 g of hydrogen and 16.0 g of oxygen react"
 
 # Four mole problems the chat set, before the student's answers to them (2026-11-02).
 _MOLE_PRACTICE = (
@@ -204,6 +219,18 @@ _SALES = (
 
 CASES: tuple[Case, ...] = (
     # ── Math ────────────────────────────────────────────────────────────────
+    Case(
+        "math-posed-whats-the-answer",
+        "math",
+        "what's the answer",
+        Expect(solved=True, instant="solver", search="no"),
+        "x = 5, worked as the equation typed gets it.",
+        history=(
+            ("user", "Give me a maths practice problem"),
+            ("assistant", "Solve for x: 3x + 5 = 20. Give it a try!"),
+        ),
+        posed="Solve for x: 3x + 5 = 20.",
+    ),
     Case(
         "math-linear",
         "math",
@@ -586,6 +613,59 @@ CASES: tuple[Case, ...] = (
         ),
         referent="A ball is thrown at 20 m/s at 30 degrees. How far does it go?",
     ),
+    *(
+        Case(
+            f"physics-posed-{slug}",
+            "physics",
+            line,
+            # The owner's chat (2026-11-10): the question the assistant posed, solved as the
+            # same question typed is, with its worked layout and verified card.
+            Expect(solved=True, instant="solver", search="no"),
+            "Given d = 120 m, t = 20 s; v = d/t; v = 6 m/s, in a verified card.",
+            history=_POSED_CAR,
+            posed=_POSED_CAR_QUESTION,
+        )
+        for slug, line in (
+            ("do-it", "Do it"),
+            ("solve-it", "solve it"),
+            ("how", "How"),
+            ("step-by-step", "Step by step"),
+        )
+    ),
+    Case(
+        "physics-posed-what-if",
+        "physics",
+        "What if it took 10 s?",
+        Expect(solved=True, instant="solver", search="no"),
+        "12 m/s: the posed car question with 10 s, worked as typed.",
+        history=_POSED_CAR,
+        posed=_POSED_CAR_QUESTION,
+        posed_changed="A car travels 120 meters in 10 seconds. What is its speed?",
+    ),
+    Case(
+        "physics-posed-answer-is-no-solve",
+        "physics",
+        "Is it 6 meters per second?",
+        # The student answers the question posed: the model checks it, no solve for them.
+        Expect(solved=False, instant=""),
+        "Checks 6 m/s against 120 m / 20 s and says it is right.",
+        history=_POSED_CAR,
+        posed="",
+    ),
+    Case(
+        "physics-chip-what-if",
+        "physics",
+        "What if $T_C = 200\\,\\mathrm{K}$?",
+        # A tapped follow-up question: the problem solved again with the new value.
+        Expect(solved=True, instant="solver", search="no"),
+        "0.6 (60%): 1 - 200 K / 500 K, worked in full.",
+        history=(
+            ("user", _CARNOT),
+            ("assistant", "**Answer**\n\n```answer\nverified: true\n0.4\\ (\\text{40\\%})\n```"),
+        ),
+        posed=_CARNOT,
+        posed_changed="max (Carnot) efficiency of a heat engine working between 500 K and 200 K?",
+    ),
     Case(
         "physics-force",
         "physics",
@@ -706,6 +786,44 @@ CASES: tuple[Case, ...] = (
         "A short explanation in prose: direction. No worked layout.",
     ),
     # ── Chemistry ───────────────────────────────────────────────────────────
+    Case(
+        "chemistry-posed-solve-it",
+        "chemistry",
+        "solve it",
+        Expect(solved=True, instant="solver", search="no"),
+        "2.0 mol from n = m/M, as the question typed gets it.",
+        history=(
+            ("user", "Give me a chemistry practice question"),
+            ("assistant", "How many moles are in 36 g of water (H2O)? Give it a go!"),
+        ),
+        posed="How many moles are in 36 g of water (H2O)?",
+    ),
+    Case(
+        "chemistry-chip-what-if",
+        "chemistry",
+        "What if O₂ mass was 32.0 g?",
+        Expect(solved=True, instant="solver", search="no"),
+        "H2 is now limiting: 27 g of water, worked in full.",
+        history=(
+            ("user", _WATER_YIELD),
+            ("assistant", "**Answer**\n\n```answer\nLimiting reagent = O2; 18 g H2O\n```"),
+        ),
+        posed=_WATER_YIELD,
+        posed_changed="how much water if 3.0 g of hydrogen and 32.0 g of oxygen react",
+    ),
+    Case(
+        "chemistry-do-it-accepts-an-offer",
+        "chemistry",
+        "do it",
+        # "Do it" to an offer is no problem to solve.
+        Expect(solved=False, instant=""),
+        "Writes the study plan it offered.",
+        history=(
+            ("user", "help me study for my chemistry test"),
+            ("assistant", "Want me to make a study plan for the 2 weeks before it?"),
+        ),
+        posed="",
+    ),
     Case(
         "chem-balance",
         "chemistry",

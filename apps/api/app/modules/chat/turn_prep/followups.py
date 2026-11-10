@@ -26,15 +26,20 @@ from app.services.subjects.registry import SubjectName, subject_adapter
 
 @dataclass(frozen=True)
 class SubjectFollowup:
-    """The problem to solve again; at most one subject is set."""
+    """The problem to solve again; at most one subject is set. ``asked``: a problem the
+    line asks solved whole, as if the user had typed it ("Do it" after the assistant posed
+    "A car travels 120 m in 20 s. What is its speed?"); the turn solves and answers it so."""
 
     math: str | None = None
     chemistry: str | None = None
     physics: str | None = None
+    asked: str | None = None
 
     @property
     def found(self) -> bool:
-        return self.math is not None or self.chemistry is not None or self.physics is not None
+        return any(
+            problem is not None for problem in (self.math, self.chemistry, self.physics, self.asked)
+        )
 
 
 def resolve_subject_followup(
@@ -70,6 +75,22 @@ def resolve_subject_followup(
     if chemistry is not None:
         return SubjectFollowup(chemistry=chemistry)
     return SubjectFollowup(physics=subject_adapter("physics").followups.problem(content, history))
+
+
+def resolve_posed_followup(
+    content: str, problem: str, reply: str, changed: bool, restated: str | None
+) -> SubjectFollowup:
+    """The follow-up to a problem a model read the line as referring to (``chat.posed_read``):
+    solved whole, as typed. A line that changes one of its values ("what if it took 10 s?")
+    is rewritten by its subject's follow-up readers, as if the user had stated the problem,
+    or else is the read's held restatement of it, solved as typed."""
+    if not changed:
+        return SubjectFollowup(asked=problem)
+    stated = [{"role": "user", "content": problem}, {"role": "assistant", "content": reply}]
+    rewritten = resolve_subject_followup(content, [*stated, {"role": "user", "content": content}])
+    if rewritten.found or restated is None:
+        return rewritten
+    return SubjectFollowup(asked=restated)
 
 
 def _shown(content: str, history: Sequence[Any], referent: str) -> SubjectFollowup:
