@@ -156,6 +156,16 @@ async def test_a_check_too_wrong_to_cut_by_keeps_every_chip() -> None:
     assert _chip_urls(out) == [_STORE.url, _UPS.url]
 
 
+async def test_a_reply_longer_than_the_check_read_keeps_every_chip() -> None:
+    """The checker reads the first ``_REPLY_CHARS`` of a reply: a page used only after
+    that is one it never saw, so its "used" can't drop it (Claude review, 2026-11-10)."""
+    long_reply = _NEAREST + "\n\n" + "More detail from the second page. " * 250
+    assert len(long_reply) > claim_check._REPLY_CHARS
+    state = _state(long_reply, [_STORE, _UPS], "Where is the nearest one")
+    out = await _finalize(state, _verdict(used=[1]))
+    assert _chip_urls(out) == [_STORE.url, _UPS.url]
+
+
 async def test_a_turn_the_check_skips_keeps_every_chip() -> None:
     state = _state(_NEAREST, [_STORE, _UPS], "Where is the nearest one")
     state.settings = Settings(claim_check_enabled=False)

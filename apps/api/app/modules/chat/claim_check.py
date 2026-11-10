@@ -419,7 +419,10 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
     if verdict is None:
         return text
     pages = ctx.search_sources[:_MAX_HITS]
-    state.sources_used = pages_used(verdict.used, len(pages), len(ctx.search_sources))
+    # A reply longer than the checker read keeps every chip: a page used past that point
+    # is one it never saw (Claude review, 2026-11-10).
+    if len(text) <= _REPLY_CHARS:
+        state.sources_used = pages_used(verdict.used, len(pages), len(ctx.search_sources))
     if short:
         return text
     claims = [c for c in verdict.unsupported if costs_its_sentence(c.quote, c.kind, pages)]
