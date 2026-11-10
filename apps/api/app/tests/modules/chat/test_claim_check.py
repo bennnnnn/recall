@@ -196,7 +196,7 @@ async def test_no_verdict_or_nothing_flagged_leaves_the_reply_whole(
     [
         _state(search_sources=[]),
         _state(instant_reply="Server text only, not worth checking at all, it is long enough."),
-        _state("Short."),
+        _state("  "),
     ],
 )
 async def test_turns_without_a_search_or_with_server_text_never_ask_the_model(
@@ -207,6 +207,15 @@ async def test_turns_without_a_search_or_with_server_text_never_ask_the_model(
         out = await cut_unsupported_claims(state)
     assert out == state.raw
     ask.assert_not_awaited()
+
+
+async def test_a_short_reply_is_asked_about_but_never_cut() -> None:
+    """Too short to hold a table of claims; the call still reads which pages it used."""
+    state = _state("Cytonn is reinstated (CMA).")
+    ask = _ask(_verdict("Cytonn is reinstated"))
+    with patch.object(claim_check, "complete_structured", ask):
+        assert await cut_unsupported_claims(state) == "Cytonn is reinstated (CMA)."
+    ask.assert_awaited_once()
 
 
 @pytest.mark.parametrize("field", ["verified_subject", "money"])

@@ -33,6 +33,7 @@ from app.services.md_fence_scan import close_unclosed_fences, iter_fences
 from app.services.time_context import correct_weekday_dates, format_shown_clock_answer
 
 if TYPE_CHECKING:
+    from app.gateways.web_search_gateway import WebSearchHit
     from app.modules.chat.finalize_passes import FinalizeState
     from app.modules.chat.turn_prep import StreamContext
 
@@ -59,7 +60,8 @@ async def attach_answer_photo(state: FinalizeState) -> str:
 
 
 def add_search_sources(state: FinalizeState) -> str:
-    """Source chips for a searched turn, and a places card's addresses kept to its pages.
+    """Source chips for the pages a searched reply used, and a places card's addresses kept
+    to all of its pages.
 
     The places card is the model's alone. The pages are never made into one: a page is a
     list article as often as a venue, and a card of them showed "RECOMMENDED: 📍 The best
@@ -78,13 +80,23 @@ def add_search_sources(state: FinalizeState) -> str:
     text = web_search.keep_given_addresses(
         text, ctx.search_sources, json_asked=is_json_request(ctx.user_message_content)
     )
+    chips = _chip_pages(state)
     if state.outcome is not None:
-        state.outcome.search_sources = web_search.sources_payload(ctx.search_sources)
-    sources_fence = web_search.format_sources_fence(ctx.search_sources)
+        state.outcome.search_sources = web_search.sources_payload(chips)
+    sources_fence = web_search.format_sources_fence(chips)
     if sources_fence and not (state.should_cancel and state.should_cancel()):
         text = f"{text}{sources_fence}".strip()
     state.committed = text  # done already carries these chips
     return text
+
+
+def _chip_pages(state: FinalizeState) -> list[WebSearchHit]:
+    """The pages the reply relied on (``claim_check``), or every page when that is not
+    known. A page the reply never used is no source of it, and a reply that used none
+    shows no chips."""
+    pages = state.ctx.search_sources
+    used = state.sources_used
+    return pages if used is None else [pages[i] for i in used if i < len(pages)]
 
 
 def record_instant_usage(state: FinalizeState) -> str:

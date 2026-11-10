@@ -129,6 +129,9 @@ class FinalizeState:
     on_status: StreamStatusFn | None = None
     # Safety passes that raised: whatever commits after them, a fallback runs them again.
     failed_safety: set[str] = field(default_factory=set)
+    # Indexes into ``ctx.search_sources`` of the pages the reply relied on, as the claim
+    # check read them: only those are chips. None: not read, and every page is one.
+    sources_used: list[int] | None = None
 
     @property
     def server_text(self) -> bool:
