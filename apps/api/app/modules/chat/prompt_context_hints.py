@@ -4,8 +4,11 @@ look up, and the time, memory, files and schedule loaded for it (``prompt_sectio
 from __future__ import annotations
 
 from app.core.config import Settings
+from app.models.orm import User
 from app.modules import web_search as web_search_service
 from app.modules.chat.prompt_constants import PHOTO_LOOKUP_HINT
+from app.modules.chat.prompt_profile import USE_THE_LOCATION
+from app.modules.chat.turn_prep.saved_place import profile_place
 from app.services import time_context as time_context_service
 from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
 
@@ -27,15 +30,20 @@ def _geo_hints(query_text: str | None, prompt_location: str | None) -> list[str]
 
 
 def slim_geo_hints(
-    settings: Settings, query_text: str | None, prompt_location: str | None
+    settings: Settings,
+    query_text: str | None,
+    prompt_location: str | None,
+    user: User | None = None,
+    local_tz: str | None = None,
 ) -> list[str]:
-    """A slim turn has no profile block, so it states the location the hints point to."""
-    if not settings.web_search_enabled or not query_text:
-        return []
-    if not web_search_service.is_geo_query(query_text):
-        return []
-    parts = [f"The user's location: {prompt_location}."] if prompt_location else []
-    return parts + _geo_hints(query_text, prompt_location)
+    """A slim turn has no profile block, so it states where the user is whenever Location
+    gives a place (the turn's fix, else the saved one), whatever the message's wording
+    (``USE_THE_LOCATION``); the places layout hints stay with a location question."""
+    location = prompt_location or (profile_place(user, local_tz) if user is not None else None)
+    parts = [f"The user's location: {location}. {USE_THE_LOCATION}"] if location else []
+    if settings.web_search_enabled and query_text and web_search_service.is_geo_query(query_text):
+        parts += _geo_hints(query_text, prompt_location)
+    return parts
 
 
 def lookup_hints(settings: Settings) -> list[str]:
