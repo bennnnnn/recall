@@ -141,6 +141,21 @@ async def test_a_check_that_says_nothing_of_the_pages_keeps_every_chip(verdict: 
     assert _chip_urls(out) == [_STORE.url, _UPS.url, _JOBS.url]
 
 
+async def test_a_check_too_wrong_to_cut_by_keeps_every_chip() -> None:
+    """Live 2026-11-10: a battery price reply kept as written, since the check flagged most
+    of it, still lost every chip to the same verdict's empty "used"."""
+    reply = (
+        "Apple charges $199 to replace a MacBook Air battery out of warranty. "
+        "AppleCare+ covers it at no cost, and a store visit takes about a day."
+    )
+    assert len(reply) >= claim_check._MIN_REPLY_CHARS  # a reply the check may cut
+    flagged = [{"quote": q, "kind": "legal"} for q in reply.split(". ")]
+    state = _state(reply, [_STORE, _UPS], "How much is a MacBook Air battery replacement?")
+    out = await _finalize(state, _verdict(used=[], unsupported=flagged))
+    assert out.startswith(reply)
+    assert _chip_urls(out) == [_STORE.url, _UPS.url]
+
+
 async def test_a_turn_the_check_skips_keeps_every_chip() -> None:
     state = _state(_NEAREST, [_STORE, _UPS], "Where is the nearest one")
     state.settings = Settings(claim_check_enabled=False)

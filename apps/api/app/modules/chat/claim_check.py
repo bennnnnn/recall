@@ -432,6 +432,9 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
     before = _prose_chars(text)
     if before and (before - _prose_chars(cut)) / before > _MAX_CUT_SHARE:
         logger.warning("claim_check flagged most of a reply; left it as written")
+        # A check too wrong to cut by is too wrong to pick chips by: "$199" from the pages
+        # lost every chip under a verdict that flagged most of its reply (2026-11-10).
+        state.sources_used = None
         return text
     topics = "; ".join(dict.fromkeys(c.topic.strip() for c in claims if c.topic))
     logger.info("claim_check cut %d unsupported claim(s): %s", found, topics)
