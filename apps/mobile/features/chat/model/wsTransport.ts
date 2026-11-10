@@ -8,7 +8,6 @@ import {
   WS_ACK_PROBE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
-  WS_FOLLOW_UPS_WAIT_MS,
   WS_IDLE_KEEP_MS,
   WS_LINGER_MS,
   WS_PROBE_TIMEOUT_MS,
@@ -19,6 +18,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { newRequestId, withRequestId } from "@/lib/api/requestId";
 import { noteApiFailure } from "@/lib/sentry";
 import {
+  followUpsAfterDone,
   OUTAGE_CLOSE_CODES,
   RECONNECT_CLOSE_CODES,
   UNREAD_CLOSE_CODES,
@@ -91,9 +91,9 @@ export class ChatWsTransport {
   /** The send went quiet before that answer came: probe as soon as it does. */
   private probeOnPong = false;
   /**
-   * What a saved reply's `done` says follows it on this socket (its follow-up questions, and
-   * a new chat's title when `title_pending`), until then at the latest. Past that, or once
-   * they all came, the socket has nothing left to carry and is let go (`releaseWhenQuiet`).
+   * What a saved reply's `done` says follows it on this socket (its follow-up questions, a new
+   * chat's title, a photo still on its way: `followUpsAfterDone`), until then at the latest.
+   * Past that, or once they all came, the socket is let go (`releaseWhenQuiet`).
    */
   private followUpsUntil = 0;
   private followUpsDue = new Set<string>();
@@ -367,8 +367,8 @@ export class ChatWsTransport {
   }
 
   /**
-   * The turn's last frame. After a saved reply's done the server sends its follow-up questions
-   * and, for a new chat, its title: the socket waits for those (`followUpsUntil`).
+   * The turn's last frame. After a saved reply's done the server sends its follow-up questions,
+   * a new chat's title and a late photo: the socket waits for those (`followUpsUntil`).
    */
   private endTurn(last: ChatWsPayload): void {
     this.turnActive = false;
@@ -376,9 +376,9 @@ export class ChatWsTransport {
     this.clearTurnTimers();
     if (last.type !== "done") return;
     this.backoff.succeed();
-    this.followUpsDue = new Set(last.message_id ? ["related_prompts"] : []);
-    if (last.message_id && last.title_pending) this.followUpsDue.add("title");
-    this.followUpsUntil = this.followUpsDue.size > 0 ? Date.now() + WS_FOLLOW_UPS_WAIT_MS : 0;
+    const after = followUpsAfterDone(last, Date.now());
+    this.followUpsDue = after.due;
+    this.followUpsUntil = after.until;
   }
 
   /**

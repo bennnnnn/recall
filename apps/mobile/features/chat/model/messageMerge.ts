@@ -1,6 +1,7 @@
 import type { Message } from "@/lib/api";
 import { isJsonRecord } from "@/lib/fence/json";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
+import { keepsPendingPhoto } from "@/features/chat/model/latePhoto";
 
 type OrphanFile = {
   uri: string;
@@ -38,13 +39,17 @@ export function drawsSame(prior: Message, next: Message): boolean {
   return prior === next || sameFields(prior, next, "renderKey");
 }
 
-/** The server's row with what only this phone holds for it: its file previews and its list key. */
-function withLocalFields(row: Message, prior: Message): Message {
+/**
+ * The server's row with what only this phone holds for it: its file previews, its list key,
+ * and the wait for a photo still on its way to it (a read before the photo landed keeps it).
+ */
+function withLocalFields(row: Message, prior: Message, now: number): Message {
   const carried: Partial<Message> = {};
   for (const field of LOCAL_FILE_FIELDS) {
     if (row[field] == null && prior[field] != null) carried[field] = prior[field];
   }
   if (row.renderKey == null && prior.renderKey != null) carried.renderKey = prior.renderKey;
+  if (keepsPendingPhoto(prior, row, now)) carried.photo_pending_until = prior.photo_pending_until;
   return Object.keys(carried).length > 0 ? { ...row, ...carried } : row;
 }
 
@@ -53,9 +58,9 @@ function withLocalFields(row: Message, prior: Message): Message {
  * server's copy draws the same, so its memoized bubble does not render (and
  * parse its markdown) again.
  */
-function settleRow(prior: Message | undefined, row: Message): Message {
+function settleRow(prior: Message | undefined, row: Message, now = Date.now()): Message {
   if (!prior) return row;
-  const next = withLocalFields(row, prior);
+  const next = withLocalFields(row, prior, now);
   return drawsSame(prior, next) ? prior : next;
 }
 
