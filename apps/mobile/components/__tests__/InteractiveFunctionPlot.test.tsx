@@ -225,6 +225,26 @@ describe("InteractiveFunctionPlot", () => {
     expect(result.current.explorer.initialView).toEqual(full);
   });
 
+  it("opens the explorer on its fitted window each time, not where the last pinch left it", async () => {
+    // 2026-11-10: the explorer opened zoomed far out, a thin spike, after an earlier pinch.
+    const { result } = await renderHook(() => useFunctionPlotState(PARABOLA, 300, lightTheme));
+    await act(async () => {
+      result.current.explorer.onPlotLayout({
+        nativeEvent: { layout: { x: 0, y: 0, width: 344, height: 480 } },
+      } as LayoutChangeEvent);
+    });
+    const fitted = result.current.explorer.initialView;
+    // The SVG view follows the window fitted to the laid-out plot, as the Skia one does.
+    expect(result.current.explorer.viewport.bounds).toEqual(fitted);
+    await act(async () => { result.current.openExplorer(); });
+    await act(async () => {
+      result.current.explorer.viewport.commitBounds({ xMin: -50, xMax: 50, yMin: -80, yMax: 80 });
+    });
+    await act(async () => { result.current.closeExplorer(); });
+    await act(async () => { result.current.openExplorer(); });
+    expect(result.current.explorer.viewport.bounds).toEqual(fitted);
+  });
+
   it("moves the editor into the explorer while it is open, and back when it closes", async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await plot(PARABOLA);
     expect(queryByTestId("graph-modal-sheet")).toBeNull();

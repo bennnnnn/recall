@@ -6,7 +6,7 @@
   "components/rich/CalculatorBlock.tsx::CalculatorCard": 137,
   "components/rich/CartesianAxes.tsx::CartesianAxes": 159,
   "components/rich/ChemistrySceneBlock.tsx::SceneBody": 117,
-  "components/rich/ExplorerModal.tsx::ExplorerModal": 158,
+  "components/rich/ExplorerModal.tsx::ExplorerModal": 154,
   "components/rich/MermaidBlock.tsx::MermaidBlock": 106,
   "components/rich/NumberLineChart.tsx::SvgNumberLineChart": 123,
   "components/rich/SimulationBlock.tsx::SimulationBlock": 260,
