@@ -20,7 +20,7 @@ from app.modules.chat.continuation_subject import (
     exchange_pairs,
 )
 from app.modules.chat.prompt_inject import conversation_turns
-from app.services.problem_followup import message_role_content
+from app.services.problem_followup import changes_relatively, message_role_content
 from app.services.subjects.registry import SubjectName, subject_adapter
 
 
@@ -91,7 +91,9 @@ def resolve_posed_followup(
     stated = [{"role": "user", "content": problem}, {"role": "assistant", "content": reply}]
     rewritten = resolve_subject_followup(content, [*stated, {"role": "user", "content": content}])
     given, new = change
-    if rewritten.found or not new:
+    # "What if it took 5 s longer?" adds to the time: 25 s, never 5 s. The typed path
+    # declines it the same way, and the model answers.
+    if rewritten.found or not new or changes_relatively(content):
         return rewritten
     from app.modules.chat.turn_prep.reading import subject_of
 

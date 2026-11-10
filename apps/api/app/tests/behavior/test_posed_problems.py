@@ -183,3 +183,29 @@ async def test_do_it_after_a_posed_problem_makes_the_model_call(
     with patch.object(posed_read, "pick_posed", model):
         await _route("Do it", history=(("user", _POSED[0][2]), ("assistant", _POSED[0][3])))
     model.assert_awaited_once()
+
+
+_OHM = "A 4 ohm resistor is connected to a 12 V battery. What is the current?"
+
+
+@pytest.mark.parametrize(
+    ("question", "line", "change"),
+    [
+        (_CAR, "What if it took 5 s longer?", ("20 seconds", "5 s")),
+        (_BALL, "What if it was 10 m/s faster?", ("3 m/s", "10 m/s")),
+        (_OHM, "add another 4 ohm", ("4 ohm", "4 ohm")),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_change_that_adds_to_a_given_is_no_solve(
+    question: str, line: str, change: tuple[str, str], thread_sympy_executor: None
+) -> None:
+    """PR #2407 review: "5 s longer" set the time to 5 s, a verified 24 m/s where 120 m in
+    25 s is 4.8 m/s. A relative change is declined, as the typed path declines it."""
+    followed = await _route(
+        line,
+        history=(("user", question), ("assistant", "**Answer** worked above.")),
+        posed=question,
+        posed_change=change,
+    )
+    assert not followed.solved, followed.verified_answer

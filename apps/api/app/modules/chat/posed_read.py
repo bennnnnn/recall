@@ -42,8 +42,6 @@ _MESSAGE_CHARS = 500
 _REPLY_CHARS = 600
 # Markdown a stated problem may carry: "A car travels **120 meters**"; a subscript stays.
 _EMPHASIS = re.compile(r"\*+|`+|(?<!\w)_+|_+(?!\w)")
-# Sentences after the problem that exclaim: "Give it a try!", "Good luck! \U0001f680".
-_CHEER = re.compile(r"(?<=[.?])(?:\s+[^.?!]*!+[^\w.?]*)+$")
 # LaTeX a line's value may come in: "$T_C = 200\\,\\mathrm{K}$" is "T_C = 200 K".
 _LATEX_WORD = re.compile(r"\\(?:mathrm|text|operatorname)\s*\{([^{}]*)\}")
 _LATEX_SPACE = re.compile(r"\\[,;: !]|\$")
@@ -119,8 +117,19 @@ def _stated(role: str, message: str, quoted: str | None) -> str | None:
     copy = _plain(quoted or "")
     if copy and copy.casefold() in whole.casefold():
         # "Give it a try!" after the question is the reply's cheer, not the problem's.
-        return _CHEER.sub("", copy) or copy
+        return without_cheer(copy)
     return whole if role == "user" else None
+
+
+def without_cheer(text: str) -> str:
+    """The text without the sentences after its last "." or "?" when they exclaim: "Give
+    it a try!", "Good luck! \U0001f680". One pass from the end, never a backtracking match."""
+    cut = max(text.rfind("."), text.rfind("?"))
+    tail = text[cut + 1 :]
+    if cut < 0 or not tail[:1].isspace():
+        return text
+    last_word = max((index for index, char in enumerate(tail) if char.isalnum()), default=-1)
+    return text[: cut + 1] if last_word >= 0 and "!" in tail[last_word:] else text
 
 
 def _line_value(line: str, new: str | None) -> str | None:
