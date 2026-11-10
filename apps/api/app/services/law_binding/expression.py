@@ -379,30 +379,7 @@ def _latex(
     if isinstance(node.op, ast.Mult):
         left = _wrapped(node.left, symbols, values, 2, notation, degrees)
         right = _wrapped(node.right, symbols, values, 2, notation, degrees)
-        # Numbers side by side need \\times (``times_sign``), and so does a number before a
-        # function ("1 \\times \\sin(30^\\circ)") or a fraction ("5 \\times \\frac{19.62}{7}",
-        # never read as the mixed number 5 19.62/7); symbols are written together.
-        follows = _leftmost(node.right)
-        before = _rightmost(node.left)
-        # A number after a fraction or a power of numbers too: \frac{1}{2} \times 2 and
-        # 3^{2} \times 4, never "½ 2" or "3² 4".
-        number_fraction = isinstance(before, ast.BinOp) and (
-            (
-                isinstance(before.op, ast.Div)
-                and _plugged(before.left, values)
-                and _plugged(before.right, values)
-            )
-            or (isinstance(before.op, ast.Pow) and _plugged(before.left, values))
-        )
-        # And after a negated number or a function of numbers: -0.04 \times 0.1 and
-        # \cos(0^\circ) \times 0.64, never "-0.04 0.1" or "\cos(0^\circ) 0.64".
-        negated = isinstance(before, ast.UnaryOp) and _plugged(before.operand, values)
-        called = isinstance(before, ast.Call) and values is not None
-        joined = (_plugged(before, values) or number_fraction or negated or called) and (
-            _plugged(follows, values)
-            or (values is not None and isinstance(follows, ast.Call))
-            or (values is not None and isinstance(follows, ast.BinOp))
-        )
+        joined = _joined(node, values)
         return times(left, right) if joined else f"{left} {right}"
     operator = "+" if isinstance(node.op, ast.Add) else "-"
     left = _latex(node.left, symbols, values, notation, degrees)
@@ -411,6 +388,39 @@ def _latex(
     if _negative_leaf(node.right, values):
         right = f"({right})"
     return f"{left} {operator} {right}"
+
+
+def _joined(node: ast.BinOp, values: Mapping[str, float] | None) -> bool:
+    """Whether a product's two sides need a \\times between them."""
+    # Numbers side by side need \\times (``times_sign``), and so does a number before a
+    # function ("1 \\times \\sin(30^\\circ)") or a fraction ("5 \\times \\frac{19.62}{7}",
+    # never read as the mixed number 5 19.62/7); symbols are written together.
+    follows = _leftmost(node.right)
+    before = _rightmost(node.left)
+    # A number after a fraction or a power of numbers too: \frac{1}{2} \times 2 and
+    # 3^{2} \times 4, never "½ 2" or "3² 4".
+    number_fraction = isinstance(before, ast.BinOp) and (
+        (
+            isinstance(before.op, ast.Div)
+            and _plugged(before.left, values)
+            and _plugged(before.right, values)
+        )
+        or (isinstance(before.op, ast.Pow) and _plugged(before.left, values))
+    )
+    # And after a negated number or a function of numbers: -0.04 \times 0.1 and
+    # \cos(0^\circ) \times 0.64, never "-0.04 0.1" or "\cos(0^\circ) 0.64".
+    negated = isinstance(before, ast.UnaryOp) and _plugged(before.operand, values)
+    called = isinstance(before, ast.Call) and values is not None
+    joined = (_plugged(before, values) or number_fraction or negated or called) and (
+        _plugged(follows, values)
+        or (values is not None and isinstance(follows, ast.Call))
+        or (values is not None and isinstance(follows, ast.BinOp))
+    )
+    # A number after a symbol or a constant left standing (π, e): 2\pi \times 0.05,
+    # never "2\pi 0.05", which reads as one number.
+    named = values is not None and isinstance(before, ast.Name)
+    joined = joined or (named and _plugged(follows, values))
+    return joined
 
 
 def _leftmost(node: ast.expr) -> ast.expr:

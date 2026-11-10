@@ -89,6 +89,25 @@ def test_each_number_carries_its_symbols_unit(question: str, lines: list[str]) -
     assert not any(r"\,\mathrm{J}" in line for line in working if "tau" in line or "F_c" in line)
 
 
+@pytest.mark.parametrize(
+    ("question", "line"),
+    [
+        (
+            "What is the magnetic field 5 cm from a long straight wire carrying 10 A?",
+            r"{2 \pi \times 0.05\,\mathrm{m}}$",
+        ),
+        (
+            "A child sits 2.5 m from the centre of a merry-go-round that turns once every 6 s. "
+            "What is her speed?",
+            r"$v = \frac{2 \pi \times 2.5\,\mathrm{m}}{6\,\mathrm{s}}$",
+        ),
+    ],
+)
+def test_a_number_after_pi_keeps_its_times_sign(question: str, line: str) -> None:
+    """2π then 0.05 m is a product: "2 π 0.05" would read as one number."""
+    assert any(row.endswith(line) for row in _working(question)), _working(question)
+
+
 def test_a_worked_value_states_the_unit_its_quantity_is_in() -> None:
     """1/R_p and the R_p that follows it read in one unit, Ω⁻¹."""
     working = _working(
