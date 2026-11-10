@@ -355,7 +355,7 @@ def cut_claims(text: str, quotes: list[str]) -> tuple[str, int]:
     return map_prose_outside_fences(text, rewrite), len(handled)
 
 
-async def _verdict(state: FinalizeState) -> _Verdict | None:
+async def _verdict(state: FinalizeState, timeout_seconds: float) -> _Verdict | None:
     settings = state.settings
     messages = [
         {"role": "system", "content": _SYSTEM},
@@ -371,7 +371,7 @@ async def _verdict(state: FinalizeState) -> _Verdict | None:
             messages=messages,
             schema=_Verdict,
             max_tokens=600,
-            timeout_seconds=settings.claim_check_timeout_seconds,
+            timeout_seconds=timeout_seconds,
             usage=state.usage,
             allow_fallback=False,
         ),
@@ -408,12 +408,19 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
         or not text.strip()
     ):
         return text
-    verdict = await _verdict(state)
+    short = len(text) < _MIN_REPLY_CHARS
+    settings = state.settings
+    verdict = await _verdict(
+        state,
+        settings.claim_check_short_timeout_seconds
+        if short
+        else settings.claim_check_timeout_seconds,
+    )
     if verdict is None:
         return text
     pages = ctx.search_sources[:_MAX_HITS]
-    state.sources_used = pages_used(verdict.used, len(pages))
-    if len(text) < _MIN_REPLY_CHARS:
+    state.sources_used = pages_used(verdict.used, len(pages), len(ctx.search_sources))
+    if short:
         return text
     claims = [c for c in verdict.unsupported if costs_its_sentence(c.quote, c.kind, pages)]
     if not claims:

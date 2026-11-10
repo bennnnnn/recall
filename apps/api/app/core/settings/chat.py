@@ -45,6 +45,9 @@ class ChatContextSettings(BaseModel):
     # support is cut before it saves (``modules/chat/claim_check.py``). Off: replies as written.
     claim_check_enabled: bool = True
     claim_check_timeout_seconds: float = 8.0
+    # A short reply is only read for its source chips, and `done` waits on it: past this,
+    # every chip stays. Live short checks took at most 2.4 s (2026-11-10).
+    claim_check_short_timeout_seconds: float = 2.5
 
     # Lesson shape — a lesson reply ends with its title and practice card, and a teach-me
     # outline lists its topics and ends on its question; what the model left out is added

@@ -20,7 +20,7 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import web_search as web_search_service
 from app.modules.chat import claim_check
 from app.modules.chat.claim_check import cut_unsupported_claims
-from app.modules.chat.claim_sources import pages_used
+from app.modules.chat.claim_sources import SOURCES_USED_RULE, pages_used
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.finalize_text import add_search_sources
 from app.modules.chat.turn_outcome import TurnOutcome
@@ -157,12 +157,59 @@ def test_page_numbers_are_read_however_the_checker_wrote_them() -> None:
     assert _verdict(used="1, 2").used is None
 
 
-def test_only_pages_the_checker_saw_can_be_chips() -> None:
+def test_numbers_outside_the_pages_name_none_of_them() -> None:
     # Numbered from 1; a number past what it read, or below 1, names no page.
-    assert pages_used([3, 1, 1, 9, 0, -2], seen=8) == [0, 2]
-    assert pages_used(None, seen=8) is None
+    assert pages_used([3, 1, 1, 9, 0, -2], seen=8, total=8) == [0, 2]
+    assert pages_used(None, seen=8, total=8) is None
+    assert pages_used([], seen=8, total=8) == []
+
+
+@pytest.mark.parametrize("used", [[0], [9], [0, 9, -1]])
+def test_a_list_of_only_numbers_outside_the_pages_keeps_every_chip(used: list[int]) -> None:
+    assert pages_used(used, seen=8, total=8) is None
+
+
+def test_pages_the_checker_never_saw_keep_their_chips() -> None:
+    """Hits from several searches merge without a cap; the checker reads the first 8."""
+    assert pages_used([2], seen=8, total=10) == [1, 8, 9]
+    assert pages_used([], seen=8, total=10) == [8, 9]
+
+
+async def test_a_ninth_page_stays_a_chip_after_the_check() -> None:
+    pages = [_UPS] * 8 + [_STORE]
+    state = _state(_NEAREST, pages, "Where is the nearest one")
+    out = await _finalize(state, _verdict(used=[1]))
+    assert _chip_urls(out) == [_UPS.url, _STORE.url]
+
+
+def test_a_number_written_as_a_superscript_never_fails_the_verdict() -> None:
+    """ "²" passes isdigit but not int(): the whole verdict, its cuts too, was lost."""
+    verdict = _verdict(used=["²", "3"], unsupported=[{"quote": "Cytonn is reinstated"}])
+    assert verdict.used == [3]
+    assert len(verdict.unsupported) == 1
+
+
+async def test_a_short_reply_waits_only_briefly_for_its_pages() -> None:
+    state = _state(_WALK, [_CHARITY, _TRAILS], "Can i wolk?")
+    state.settings = Settings(claim_check_short_timeout_seconds=1.5)
+    ask = AsyncMock(return_value=None)
+    with patch.object(claim_check, "complete_structured", ask):
+        out = await cut_unsupported_claims(state)
+    assert out == _WALK
+    assert ask.await_args is not None
+    assert ask.await_args.kwargs["timeout_seconds"] == 1.5
+    assert state.sources_used is None  # past it, every chip stays
+
+
+async def test_a_long_reply_keeps_the_checks_own_deadline() -> None:
+    state = _state(_NEAREST, [_STORE, _UPS], "Where is the nearest one")
+    ask = AsyncMock(return_value=None)
+    with patch.object(claim_check, "complete_structured", ask):
+        await cut_unsupported_claims(state)
+    assert ask.await_args is not None
+    assert ask.await_args.kwargs["timeout_seconds"] == Settings().claim_check_timeout_seconds
 
 
 def test_the_checker_is_asked_which_pages_the_reply_used() -> None:
     assert '"used": [...]' in claim_check._SYSTEM
-    assert "in any wording or language" in claim_check._SYSTEM
+    assert SOURCES_USED_RULE in claim_check._SYSTEM

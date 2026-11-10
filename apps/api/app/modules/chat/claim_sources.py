@@ -39,7 +39,8 @@ def _page_numbers(value: object) -> list[int] | None:
     for item in value:
         if isinstance(item, dict):
             item = next((item[key] for key in _PAGE_KEYS if key in item), None)
-        if isinstance(item, str) and item.strip("[] ").isdigit():
+        # isdecimal, not isdigit: "²" is a digit int() cannot read, and failed the verdict.
+        if isinstance(item, str) and item.strip("[] ").isdecimal():
             item = int(item.strip("[] "))
         if isinstance(item, int) and not isinstance(item, bool):
             numbers.append(item)
@@ -50,9 +51,15 @@ def _page_numbers(value: object) -> list[int] | None:
 PagesUsed = Annotated[list[int] | None, BeforeValidator(_page_numbers)]
 
 
-def pages_used(used: list[int] | None, seen: int) -> list[int] | None:
-    """Indexes of the pages the reply used, in search order; None when not known. A page
-    past the ``seen`` the checker read is one it cannot vouch for."""
+def pages_used(used: list[int] | None, seen: int, total: int) -> list[int] | None:
+    """Indexes of the pages to show as chips, in search order; None when not known.
+
+    The checker reads the first ``seen`` of ``total`` pages; one past those it never saw
+    keeps its chip. A list that names none of the pages it saw, only numbers outside them
+    ([0], or [9] of 8), is a misread, not "used none": every chip stays."""
     if used is None:
         return None
-    return sorted({number - 1 for number in used if 1 <= number <= seen})
+    picked = {number - 1 for number in used if 1 <= number <= seen}
+    if used and not picked:
+        return None
+    return sorted(picked) + list(range(seen, total))
