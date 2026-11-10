@@ -6,6 +6,7 @@ past the reply's wait and nothing logged which step had stalled. The same words 
 again searched Tavily and fetched the photo again.
 """
 
+import asyncio
 import json
 import logging
 from contextlib import ExitStack
@@ -20,6 +21,7 @@ from app.core.config import Settings
 from app.gateways.image_search_gateway import ImageSearchHit
 from app.gateways.storage_gateway import LocalStorageGateway
 from app.modules.attachments import lifecycle
+from app.modules.attachments.service import StoredImage
 from app.modules.images import photo_cache
 from app.modules.images.search import photos_for_answer
 from app.tests.fakes import make_user
@@ -68,6 +70,12 @@ def _entered(stack: ExitStack, patches: dict) -> dict:
 def _stored_key(rows: AsyncMock) -> str:
     assert rows.await_args is not None
     return str(rows.await_args.kwargs["images"][0].storage_key)
+
+
+async def _shared_key(redis, query: str) -> str:
+    """Where the copy kept for ``query`` is, as its record says."""
+    record = await redis.get(f"answer_photo_cache:{photo_cache.lookup_digest(query)}")
+    return str(json.loads(record)["storage_key"])
 
 
 @pytest.fixture
@@ -141,7 +149,7 @@ async def test_the_sweep_deletes_aged_shared_copies_only(gateway, fake_redis):
         _entered(stack, _lookup(gateway, fake_redis))
         await photos_for_answer(SETTINGS, user=make_user(), query="capybara")
         await drain_background_tasks()
-    shared = f"{photo_cache.SHARED_PREFIX}{photo_cache.lookup_digest('capybara')}"
+    shared = await _shared_key(fake_redis, "capybara")
     assert await gateway.read_bytes(shared) == PNG_BYTES
 
     assert await photo_cache.sweep_expired(SETTINGS, gateway, fake_redis) == 0
@@ -153,14 +161,83 @@ async def test_the_sweep_deletes_aged_shared_copies_only(gateway, fake_redis):
     assert await fake_redis.zcard("answer_photo_cache:stored") == 0
 
 
+class RecordFails:
+    """Redis whose SET fails: a copy was written, then its record could not be."""
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    async def set(self, *_args, **_kwargs):
+        raise ConnectionError("redis down")
+
+
+async def test_a_copy_whose_record_failed_is_still_swept(gateway, fake_redis):
+    """Review 2026-11-09: the copy was written before its sweep entry, so a Redis failure
+    in between left an object nothing would ever delete."""
+    photo = StoredImage(uuid4(), "someone/photo", "image/png", len(PNG_BYTES))
+    await gateway.write_bytes("someone/photo", PNG_BYTES)
+    await photo_cache.remember(SETTINGS, gateway, RecordFails(fake_redis), "capybara", photo)
+
+    (name,) = await fake_redis.zrange("answer_photo_cache:stored", 0, -1)
+    assert await gateway.read_bytes(f"{photo_cache.SHARED_PREFIX}{name}") == PNG_BYTES
+    stored_at = await fake_redis.zscore("answer_photo_cache:stored", name)
+    month_on = stored_at + 31 * 24 * 60 * 60
+    assert await photo_cache.sweep_expired(SETTINGS, gateway, fake_redis, now=month_on) == 1
+    assert await gateway.read_bytes(f"{photo_cache.SHARED_PREFIX}{name}") is None
+
+
+class StoredAgainDuringDelete:
+    """Storage where, as the sweep deletes an aged copy, the same words are kept again."""
+
+    def __init__(self, inner, store) -> None:
+        self._inner, self._store = inner, store
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    async def delete_bytes(self, key: str) -> None:
+        await self._inner.delete_bytes(key)
+        await self._store()
+
+
+async def test_the_sweep_leaves_a_copy_of_the_same_words_stored_since(gateway, fake_redis):
+    """Review 2026-11-09: the sweep's delete then remove could take the list entry of a
+    fresh copy of the same words written in between, and that copy was never swept."""
+    await gateway.write_bytes("someone/photo", PNG_BYTES)
+    photo = StoredImage(uuid4(), "someone/photo", "image/png", len(PNG_BYTES))
+    await photo_cache.remember(SETTINGS, gateway, fake_redis, "capybara", photo)
+    aged = await _shared_key(fake_redis, "capybara")
+
+    async def store_again() -> None:
+        await asyncio.sleep(0.002)  # a later millisecond: its own copy
+        await photo_cache.remember(SETTINGS, gateway, fake_redis, "capybara", photo)
+
+    racing = StoredAgainDuringDelete(gateway, store_again)
+    (stored_at,) = [
+        score
+        for _, score in await fake_redis.zrange("answer_photo_cache:stored", 0, -1, withscores=True)
+    ]
+    # The sweep lists the aged copy; the fresh one is stored while it deletes that.
+    month_on = stored_at + 31 * 24 * 60 * 60
+    swept = await photo_cache.sweep_expired(SETTINGS, racing, fake_redis, now=month_on)
+
+    fresh = await _shared_key(fake_redis, "capybara")
+    assert swept == 1 and fresh != aged
+    assert await gateway.read_bytes(aged) is None
+    assert await gateway.read_bytes(fresh) == PNG_BYTES
+    listed = await fake_redis.zrange("answer_photo_cache:stored", 0, -1)
+    assert [f"{photo_cache.SHARED_PREFIX}{name}" for name in listed] == [fresh]
+
+
 async def test_a_shared_copy_gone_from_storage_is_looked_up_again(gateway, fake_redis):
     with ExitStack() as stack:
         mocks = _entered(stack, _lookup(gateway, fake_redis))
         await photos_for_answer(SETTINGS, user=make_user(), query="capybara")
         await drain_background_tasks()
-        await gateway.delete_bytes(
-            f"{photo_cache.SHARED_PREFIX}{photo_cache.lookup_digest('capybara')}"
-        )
+        await gateway.delete_bytes(await _shared_key(fake_redis, "capybara"))
         mocks["search"].reset_mock()
         ids = await photos_for_answer(SETTINGS, user=make_user(), query="capybara")
     assert len(ids) == 1
@@ -182,8 +259,7 @@ async def test_deleting_an_account_removes_its_copy_and_leaves_the_shared_one(ga
         await lifecycle.sweep_user_storage(SETTINGS, leaving.id)
 
     assert await gateway.read_bytes(own_copy) is None
-    shared = f"{photo_cache.SHARED_PREFIX}{photo_cache.lookup_digest('capybara')}"
-    assert await gateway.read_bytes(shared) == PNG_BYTES
+    assert await gateway.read_bytes(await _shared_key(fake_redis, "capybara")) == PNG_BYTES
 
 
 async def test_the_cache_is_off_at_zero_days(gateway, fake_redis):

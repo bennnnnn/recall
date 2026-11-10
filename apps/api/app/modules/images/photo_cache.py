@@ -13,6 +13,11 @@ words, and the record holds only where the copy is (no user, no query). The aske
 attachment is named by the asker's own words, as before. Account deletion removes that
 attachment like any other; the shared copy is no account's and stays until it ages out
 (``sweep_expired``, run by the data retention scheduler).
+
+Each copy is its own object, named by the hash and the time it was stored, and goes on the
+sweep's list before it is written: a copy is never left unlisted (a Redis failure after its
+write), and the sweep removes exactly the entry of the copy it deleted, never that of a
+copy of the same words stored since.
 """
 
 from __future__ import annotations
@@ -35,7 +40,7 @@ logger = logging.getLogger(__name__)
 # Shared copies live here, never under a user's ``{user_id}/`` prefix.
 SHARED_PREFIX = "shared/answer-photos/"
 _RECORD_KEY = "answer_photo_cache:{digest}"
-# Every recorded copy, scored by when it was stored, for the sweep.
+# Every copy written, by its name under ``SHARED_PREFIX``, scored by when it was stored.
 _STORED_INDEX = "answer_photo_cache:stored"
 _DAY_SECONDS = 24 * 60 * 60
 # A copy is deleted this long after its record expired: a lookup that read the record
@@ -127,17 +132,21 @@ async def remember(
 ) -> None:
     """Keep a shared copy of a photo just found for ``query``, and record it.
 
-    Best-effort and off the reply's path: a failure only means the next lookup searches.
+    Listed for the sweep first, then written, then recorded: whatever fails after the
+    listing leaves at most a listed copy the sweep deletes once it ages out. Best-effort
+    and off the reply's path: a failure only means the next lookup searches.
     """
     max_age = _max_age_seconds(settings)
     if not max_age:
         return
     digest = lookup_digest(query)
-    shared_key = f"{SHARED_PREFIX}{digest}"
+    stored_at = time.time()
+    name = f"{digest}-{int(stored_at * 1000)}"
+    shared_key = f"{SHARED_PREFIX}{name}"
     try:
+        await redis.zadd(_STORED_INDEX, {name: stored_at})
         if not await gateway.copy_bytes(photo.storage_key, shared_key):
             return
-        stored_at = time.time()
         record = {
             "storage_key": shared_key,
             "content_type": photo.content_type,
@@ -145,7 +154,6 @@ async def remember(
             "stored_at": stored_at,
         }
         await redis.set(_RECORD_KEY.format(digest=digest), json.dumps(record), ex=max_age)
-        await redis.zadd(_STORED_INDEX, {digest: stored_at})
     except Exception:
         logger.warning("Keeping an answer photo for reuse failed", exc_info=True)
 
@@ -155,24 +163,21 @@ async def sweep_expired(
 ) -> int:
     """Delete shared copies whose record has aged out; how many went.
 
-    A copy stored again since it was listed (the same lookup, after its record expired)
-    keeps its newer time in the index and is left alone.
+    Each entry names one copy, so removing it touches no copy stored since. One whose
+    delete failed stays listed for the next cycle.
     """
     cutoff = (time.time() if now is None else now) - _max_age_seconds(settings)
     cutoff -= _SWEEP_MARGIN_SECONDS
     listed = await redis.zrangebyscore(_STORED_INDEX, "-inf", cutoff, start=0, num=_SWEEP_BATCH)
     deleted = 0
     for member in listed:
-        digest = member.decode() if isinstance(member, bytes) else str(member)
-        stored_at = await redis.zscore(_STORED_INDEX, digest)
-        if stored_at is not None and stored_at > cutoff:
-            continue
+        name = member.decode() if isinstance(member, bytes) else str(member)
         try:
-            await gateway.delete_bytes(f"{SHARED_PREFIX}{digest}")
+            await gateway.delete_bytes(f"{SHARED_PREFIX}{name}")
         except Exception:
             logger.warning("Deleting an aged answer photo failed", exc_info=True)
             continue
-        await redis.zrem(_STORED_INDEX, digest)
+        await redis.zrem(_STORED_INDEX, name)
         deleted += 1
     if deleted:
         logger.info("Answer photo cache swept deleted=%s", deleted)
