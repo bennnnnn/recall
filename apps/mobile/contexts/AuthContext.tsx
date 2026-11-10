@@ -384,9 +384,9 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
       const fields = (Object.keys(patch) as (keyof User)[]).filter((field) => snapshot?.[field] !== updated[field]);
       if (fields.length) emitAppEvent("userUpdated", { fields });
     } catch {
-      if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
-      setCurrentUser(snapshot);
-      setProfileValidated(snapshotValidated);
+      const owns = isCurrent(sessionGeneration) && revision === updateUserGenRef.current;
+      if (owns) { setCurrentUser(snapshot); setProfileValidated(snapshotValidated); }
+      // Failed, whoever owns the user now: no caller may count this save as made.
       throw new Error("update failed");
     }
   }, [token, sessionGeneration, profileValidated, isCurrent, setCurrentUser]);

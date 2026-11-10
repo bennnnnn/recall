@@ -2077,6 +2077,8 @@ def test_format_user_profile_block_includes_fields():
     user.plan = "pro"
     user.location = "London"
     user.location_enabled = True
+    user.location_saved_at = datetime.now(UTC) - timedelta(minutes=5)
+    user.timezone = "Europe/London"
     user.age = 36
     user.country = "United Kingdom"
     user.job = "Mathematician"
@@ -2084,10 +2086,34 @@ def test_format_user_profile_block_includes_fields():
     assert "Ada Lovelace" in block
     assert "ada@example.com" in block
     assert "Plan: pro" in block
-    assert "London" in block
+    assert "- Location: London\n" in block
     assert "Age: 36" in block
     assert "Country: United Kingdom" in block
     assert "Job: Mathematician" in block
+
+
+@pytest.mark.parametrize(
+    "age, shown",
+    [
+        (timedelta(hours=5), "- Location: London (where the phone last reported, at "),
+        (timedelta(hours=30), None),
+        (None, None),
+    ],
+)
+def test_the_profile_block_gives_a_saved_place_under_its_age(
+    age: timedelta | None, shown: str | None
+):
+    """A turn the model answers showed a place a day old as the user's (review, 2026-11-09)."""
+    user = make_user(
+        location="London",
+        location_enabled=True,
+        location_saved_at=None if age is None else datetime.now(UTC) - age,
+    )
+    block = format_user_profile_block(user)
+    if shown is None:
+        assert "Location:" not in block
+    else:
+        assert shown in block
 
 
 def test_format_user_profile_block_omits_email_by_default():

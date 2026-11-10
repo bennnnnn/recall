@@ -224,7 +224,11 @@
       {"text": "nearest ATM, I bank at Chase", "reads": ["proximity", "places_near_user"]},
       {"text": "nearest coffee shop to my hotel", "reads": ["proximity", "places_near_user"]},
       {"text": "Where's the nearest hospital? Reply in English", "reads": ["proximity", "places_near_user"]},
-      {"text": "where should we eat in New York", "reads": ["proximity"]}
+      {"text": "where should we eat in New York", "reads": ["proximity"]},
+      {"text": "best restaurants, caf\u00e9s and bars in Rome?", "reads": ["proximity"]},
+      {"text": "best coffee near me in Z\u00fcrich", "reads": ["proximity"]},
+      {"text": "where should we eat in S\u00e3o Paulo?", "reads": ["proximity"]},
+      {"text": "best food near me, I'm in Z\u00fcrich", "reads": ["proximity"]}
     ],
     "local_weather": [
       {"text": "What's the weather tomorrow?", "reads": ["local_weather"]},

@@ -78,16 +78,24 @@ def with_ai_data_consent(fields: Mapping[str, Any], *, now: datetime) -> dict[st
     return updated
 
 
-def with_location_saved(fields: Mapping[str, Any], *, now: datetime) -> dict[str, Any]:
+def with_location_saved(
+    fields: Mapping[str, Any], *, now: datetime, location_on: bool
+) -> dict[str, Any]:
     """Profile fields to write, with a place the phone sent stamped as saved ``now``.
 
     Only the phone writes ``location``, from a fix it read: sent again unchanged, the place
     is still current. Cleared, it has no time. A turn without a fix of its own trusts the
-    saved place only while it is recent (``chat.turn_prep.request``).
+    saved place only while it is recent (``chat.turn_prep.saved_place``). A place sent while
+    Location is, or ends up, off is not saved: a background save that lands after the user
+    turned Location off would bring their place back, newly dated (review, 2026-11-09).
     """
     updated = dict(fields)
-    if "location" in fields:
-        updated["location_saved_at"] = now if fields.get("location") else None
+    if "location" not in fields:
+        return updated
+    if fields.get("location") and not location_on:
+        del updated["location"]
+        return updated
+    updated["location_saved_at"] = now if fields.get("location") else None
     return updated
 
 

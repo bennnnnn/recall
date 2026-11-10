@@ -87,8 +87,10 @@ function noteSavedPlace(account: string | null): void {
  * lands: a failed one is read again next time.
  */
 async function saveFixPlace(patch: LocationPatch, persist: PersistLocation, account: string | null): Promise<void> {
+  const session = getSessionGeneration();
+  // A save for an account signed out meanwhile resolves without saving anything.
   const saving = persist(patch).then(() => {
-    if (patch.location) noteSavedPlace(account);
+    if (patch.location && session === getSessionGeneration()) noteSavedPlace(account);
   });
   if (patch.location_enabled) return saving;
   saving.catch(() => {

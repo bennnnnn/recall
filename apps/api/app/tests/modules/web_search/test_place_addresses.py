@@ -153,12 +153,63 @@ def test_a_venue_list_fenced_as_json_is_checked_too() -> None:
     out = keep_given_addresses(card, [_LIST_ARTICLE])
     assert out.startswith("Here.\n\n```json\n")
     copra, lunette = json.loads(out.split("```json\n")[1].split("\n```")[0])
-    assert "address" not in copra
-    assert copra["rating"] == 5
+    # Only the address goes: no Maps link is added to JSON (review, 2026-11-09).
+    assert copra == {"name": "Copra", "rating": 5}
     assert lunette["address"] == "725 Columbus Avenue, SF"
     # A ```json fence of anything else is left alone.
     other = '```json\n[{"title": "x", "address": "725 Columbus Avenue"}]\n```'
     assert keep_given_addresses(other, [_LIST_ARTICLE]) == other
+
+
+def test_json_keeps_its_layout_and_json_the_user_asked_for_is_theirs() -> None:
+    rows = [{"name": "Embassy of Ethiopia", "address": "3506 International Dr NW, Washington"}]
+    page = WebSearchHit(title="Embassies", url="https://x.test", snippet="Embassies in Washington.")
+    asked = f"```json\n{json.dumps(rows, indent=2)}\n```\n"
+    # Asked for as JSON, the data is the user's: kept as written.
+    assert keep_given_addresses(asked, [page], json_asked=True) == asked
+    out = keep_given_addresses(asked, [page])
+    assert out == f"```json\n{json.dumps([{'name': 'Embassy of Ethiopia'}], indent=2)}\n```\n"
+
+
+@pytest.mark.parametrize(
+    "snippet, place",
+    [
+        # The next entry of the list, not on the card, owns the address.
+        (
+            "2. Copra. Indian. Japantown. 3. Lunette. Cambodian street food. 725 Columbus Avenue.",
+            {"name": "Copra", "address": "725 Columbus Avenue, San Francisco"},
+        ),
+        # A later sentence gives it to another name, well past the place.
+        (
+            "Copra is our pick for Kerala food. "
+            + "Other spots we love: Nopa, Zuni and State Bird. " * 10
+            + "Tosca Cafe sits at 242 Columbus Ave.",
+            {"name": "Copra", "address": "242 Columbus Ave, San Francisco"},
+        ),
+        # The same house number on another street.
+        (
+            "Dolores Park Cafe, 501 Dolores St.",
+            {"name": "Dolores Park Cafe", "address": "501 18th St"},
+        ),
+    ],
+)
+def test_another_entrys_address_leaves_the_card(snippet: str, place: dict[str, str]) -> None:
+    """Without a fixed limit the test-15 defect came back: Copra kept Lunette's address
+    when Lunette was not on the card (review, 2026-11-09)."""
+    page = WebSearchHit(
+        title="The best restaurants in San Francisco", url="https://x.test", snippet=snippet
+    )
+    assert "address" not in _places(keep_given_addresses(_card(place), [page]))[0]
+
+
+def test_a_directory_line_that_writes_the_address_first_gives_it() -> None:
+    page = WebSearchHit(
+        title="Best coffee",
+        url="https://x.test",
+        snippet="600 Guerrero St — Tartine Bakery. 3610 18th St — Dolores Park Cafe.",
+    )
+    card = _card({"name": "Tartine Bakery", "address": "600 Guerrero St"})
+    assert keep_given_addresses(card, [page]) == card
 
 
 def test_a_maps_link_built_on_a_dropped_address_finds_the_name_in_town() -> None:

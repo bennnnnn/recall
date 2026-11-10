@@ -14,6 +14,7 @@ from app.modules.chat.clarify_card import CLARIFY_FENCE, NEVER_WITH_CARD, settle
 from app.modules.chat.clock_denial import model_denies_clock
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
+from app.modules.chat.json_output import is_json_request
 from app.modules.chat.math_padding import without_math_padding
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.places_sanitize import sanitize_places_fences
@@ -74,7 +75,9 @@ def add_search_sources(state: FinalizeState) -> str:
     text = web_search.drop_source_credits(
         web_search.strip_sources_from_text(text), ctx.search_sources
     )
-    text = web_search.keep_given_addresses(text, ctx.search_sources)
+    text = web_search.keep_given_addresses(
+        text, ctx.search_sources, json_asked=is_json_request(ctx.user_message_content)
+    )
     if state.outcome is not None:
         state.outcome.search_sources = web_search.sources_payload(ctx.search_sources)
     sources_fence = web_search.format_sources_fence(ctx.search_sources)

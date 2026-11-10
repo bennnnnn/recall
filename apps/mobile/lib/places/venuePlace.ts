@@ -18,11 +18,16 @@ function anyCaseOf(words: readonly string[]): string {
   return words.map(anyCase).join("|");
 }
 
-/** A capitalised name, never "I" or "A": only its capital is read as written. */
-const NAME = String.raw`[A-Z](?![\s'\u2019])[\w'\u2019.&-]*(?:\s+[A-Z][\w'\u2019.&-]*)*`;
+/**
+ * A capitalised name, never "I" or "A": only its capital is read as written. Its letters
+ * are any script's, as Python's `\w` reads them ("Zürich", "cafés"): every pattern with one
+ * carries the `u` flag.
+ */
+const WORD = String.raw`[\p{L}\p{N}_'\u2019.&-]`;
+const NAME = String.raw`[A-Z](?![\s'\u2019])${WORD}*(?:\s+[A-Z]${WORD}*)*`;
 const PLACED = new RegExp(
   String.raw`\b(?:${anyCaseOf(["in", "near", "around", "at", "to"])})\s+(?:the\s+)?(${NAME})`,
-  "g",
+  "gu",
 );
 const PURPOSE_FREE = ["me", "my", "our", "your", "us", "the", "a", "an", "this", "that", "here", "there", "where"];
 /** A purpose ends the venue's phrase: "to get to Boston". "To my hotel" does not. */
@@ -30,15 +35,16 @@ const PURPOSE = new RegExp(String.raw`\b${anyCase("to")}\s+(?!(?:${anyCaseOf(PUR
 const SENTENCE_END = /[.?!\n]/g;
 const CLAUSE_END = /[.?!;,:\n]/g;
 /** After a comma, a list that goes on ("restaurants, cafes and bars in Rome") is the same clause. */
-const LIST_GOES_ON = /,\s*(?:[\w'-]+\s+){0,3}?(?:and|or|&)\s/iy;
+const LIST_GOES_ON = /,\s*(?:[\p{L}\p{N}_'-]+\s+){0,3}?(?:and|or|&)\s/iuy;
 const OPENS_WITH_PLACE = new RegExp(
   String.raw`^\s*(?:${anyCaseOf(["in", "at", "near", "around"])})\s+(?:the\s+)?(${NAME})`,
+  "u",
 );
 const USER_IS_AT = new RegExp(
   String.raw`\b(?:I(?:'m|\u2019m|\s+am)|[Ww]e(?:'re|\u2019re|\s+are))\s+` +
     String.raw`(?:(?:now|currently|staying|based|living|here)\s+)?(?:${anyCaseOf(["in", "at"])})\s+(?:the\s+)?` +
     `(${NAME})`,
-  "g",
+  "gu",
 );
 /** Times written with a capital: months, weekdays, parts of the day, holidays. */
 const TIME = new RegExp(

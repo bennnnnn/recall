@@ -356,7 +356,9 @@ class WebSearchFences(Protocol):
 
     def format_sources_fence(self, hits: list[WebSearchHit]) -> str: ...
 
-    def keep_given_addresses(self, text: str, pages: list[WebSearchHit]) -> str: ...
+    def keep_given_addresses(
+        self, text: str, pages: list[WebSearchHit], *, json_asked: bool = False
+    ) -> str: ...
 
 
 @dataclass(frozen=True)

@@ -10,7 +10,7 @@ not read since.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.core.timezone import resolve_timezone
 from app.models.orm import User
@@ -43,6 +43,15 @@ def last_reported_place(location: str, as_of: datetime, timezone: str | None) ->
         f"{location} (where the phone last reported, {_reported_when(as_of, timezone)}; "
         "the user may have moved since, so say it is that place when it matters)"
     )
+
+
+def profile_place(user: User, timezone: str | None) -> str | None:
+    """The user's place as any turn's context gives it, under the same windows: a turn the
+    model answers showed a place a day old as theirs (review, 2026-11-09)."""
+    place, as_of = saved_place(user, datetime.now(UTC))
+    if place is None or as_of is None:
+        return place
+    return last_reported_place(place, as_of, timezone)
 
 
 def last_report_answer(location: str, as_of: datetime, timezone: str | None) -> str:

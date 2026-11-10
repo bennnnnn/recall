@@ -3,7 +3,7 @@ import pytest
 """/auth over HTTP: the signed-in profile, its settings, and dev login."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -128,8 +128,10 @@ def test_me_returns_ai_data_consent_time():
     assert me["ai_data_consent_at"] is None
 
 
-def _patch_capturing_fields(body: dict[str, object]) -> tuple[int, dict[str, object]]:
-    user = api_user()
+def _patch_capturing_fields(
+    body: dict[str, object], user: MagicMock | None = None
+) -> tuple[int, dict[str, object]]:
+    user = user or api_user()
     app = app_with_user(user)
     captured: dict[str, object] = {}
 
@@ -205,11 +207,30 @@ def test_me_patch_refuses_a_null_location_switch():
 
 def test_me_patch_leaves_the_location_choice_alone_otherwise():
     status, captured = _patch_capturing_fields(
-        {"location": "Oakland, CA", "location_chosen_at": "2000-01-01T00:00:00Z"}
+        {"location": "Oakland, CA", "location_chosen_at": "2000-01-01T00:00:00Z"},
+        user=api_user(location_enabled=True),
     )
     assert status == 200
     assert set(captured) == {"location", "location_saved_at"}
     assert captured["location"] == "Oakland, CA"
+
+
+@pytest.mark.parametrize(
+    "switch_on, body, saved",
+    [
+        # A background save that lands after the user turned Location off.
+        (False, {"location": "Oakland, CA"}, False),
+        (True, {"location": "Oakland, CA", "location_enabled": False}, False),
+        # Turning it on with the place, from a switch that was off.
+        (False, {"location": "Oakland, CA", "location_enabled": True}, True),
+    ],
+)
+def test_me_patch_saves_a_place_only_while_location_is_on(switch_on, body, saved):
+    """Review, 2026-11-09: a place sent after the switch went off came back, newly dated."""
+    status, captured = _patch_capturing_fields(body, user=api_user(location_enabled=switch_on))
+    assert status == 200
+    assert ("location" in captured) is saved
+    assert ("location_saved_at" in captured) is saved
 
 
 @pytest.mark.parametrize("place", ["Oakland, CA", None])
@@ -218,7 +239,8 @@ def test_me_patch_dates_the_place_the_phone_saves(place):
     morning answered the weather in New York that evening (review, 2026-11-09)."""
     before = datetime.now(UTC)
     status, captured = _patch_capturing_fields(
-        {"location": place, "location_saved_at": "2000-01-01T00:00:00Z"}
+        {"location": place, "location_saved_at": "2000-01-01T00:00:00Z"},
+        user=api_user(location_enabled=True),
     )
     assert status == 200
     stored = captured["location_saved_at"]

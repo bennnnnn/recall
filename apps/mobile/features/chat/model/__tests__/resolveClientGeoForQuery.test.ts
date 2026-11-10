@@ -338,6 +338,17 @@ describe("resolveClientGeoForQuery", () => {
       expect(recordSync).toHaveBeenCalledWith("location", "acct-1");
     });
 
+    it("counts nothing when the account changed before the save landed", async () => {
+      (requestDeviceGeo as jest.Mock).mockResolvedValue(oakland);
+      let saved!: () => void;
+      const save = jest.fn(() => new Promise<void>((resolve) => { saved = resolve; }));
+      await resolveClientGeoForQuery(token, "coffee near me", t, save, "on");
+      mockSessionGeneration += 1;
+      saved();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(recordSync).not.toHaveBeenCalled();
+    });
+
     it("with Location turned off in iOS Settings, a recent place is not used: the phone is asked", async () => {
       // The saved place answered for fifteen minutes after the phone stopped letting
       // Recall read it (review, 2026-11-09).
