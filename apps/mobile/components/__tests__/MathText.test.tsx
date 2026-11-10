@@ -109,6 +109,17 @@ describe("MathText", () => {
     expect(queryByText(/[₀-₉]/)).toBeNull();
   });
 
+  it.each([
+    [String.raw`\text{P\&L}`, "P&L"],
+    [String.raw`\text{max\_speed}`, "max_speed"],
+    [String.raw`\text{50\% off}`, "50% off"],
+  ])("draws a text group's escaped mark as the mark: %s", async (latex, drawn) => {
+    // Unescaped, & became an alignment gap ("P L") and _ a subscript.
+    const { getByTestId, queryAllByTestId } = await render(<MathText latex={latex} />);
+    expect(getByTestId("math-upright-run")).toHaveTextContent(drawn);
+    expect(queryAllByTestId("math-script")).toHaveLength(0);
+  });
+
   it("sets a text group's own commands as their characters", async () => {
     // A follow-up's `45^\text{\textdegree}` read "45^\textdegree".
     const { toJSON, queryByText } = await render(<MathText latex={String.raw`45^\text{\textdegree}`} />);

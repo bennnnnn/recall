@@ -171,7 +171,7 @@ function textModeSymbols(value: string): string {
     .replace(/\\([A-Za-z]+)(?![A-Za-z]) ?/g, (command, name: string) =>
       latexNameKind(name) === "symbol" ? symbolGlyph(name) : command,
     )
-    .replace(/\\([%&$#_])/g, "$1");
+    .replace(/\\([%$#])/g, "$1");
 }
 
 function preserveNativeUprightRuns(source: string): string {
