@@ -1,12 +1,17 @@
-"""Substitution carried to the answer: the arithmetic a student still has to do, done.
+"""Substitution carried to its value: the arithmetic a student still has to do, done.
 
 A solver stores the substituted law (``a = \\frac{27.7778 - 0}{8}``) and stops. The
-reply works it one layer at a time (``reduce_substitution``) and ends on the
-verified answer itself, never on a number worked here:
+reply works it one layer at a time (``reduce_substitution``) and ends on the value it
+reaches, unrounded, when that value only rounds to the verified answer:
 
     a = \\frac{27.7778 - 0}{8}
     a = \\frac{27.7778}{8}
-    a = 3.47\\,\\mathrm{m/s²}
+    a = 3.47223\\,\\mathrm{m/s²}
+
+and the card states the answer once, rounded (3.47 m/s²). A value already the answer's own
+(15 cm), or one the working's typed constants put off by more than rounding (7672.4 for a
+verified 7673), closes on the verified answer instead, and the saved reply drops that line
+as the card's restatement (``chat/worked_lead.drop_restated_step``).
 
 A row is matched to the answer by value, not by name: "a and T", "50 N at 53.1°" and
 "H_max and R" each have a row per value, and ``|v|`` or ``f_s`` may name it. The middle
@@ -102,6 +107,21 @@ def _named_si(ureg: Any, reading: str) -> tuple[str, float] | None:
         return None
 
 
+def _unrounded(worked: float, shown: str) -> str:
+    """``shown`` (``4.9\\,\\mathrm{m/s²}``) with the worked value in place of its number when
+    the two differ only by the answer's rounding (4.905): the working ends on the value it
+    reached, and only the card rounds it. Otherwise ``shown``."""
+    number = _NUMBER.match(shown)
+    if number is None:
+        return shown
+    digits = len(number.group("number").lstrip("-").replace(".", "").lstrip("0")) or 1
+    stated = float(number.group("number")) * 10.0 ** int(number.group("power") or 0)
+    written = latex_given(worked)
+    if written == number.group(0) or round_figures(worked, digits) != round_figures(stated, digits):
+        return shown
+    return f"{written}{shown[number.end() :]}"
+
+
 def _closing(lhs: str, reduction: Reduction | None, part: tuple[str, float]) -> list[str] | None:
     """The rows after the substitution that end on ``part``, or None when they do not reach it.
 
@@ -116,9 +136,9 @@ def _closing(lhs: str, reduction: Reduction | None, part: tuple[str, float]) -> 
     # A row for 1/R_p ends on R_p, even when the two are equal (two 2 Ω in parallel).
     reciprocal = _RECIPROCAL.fullmatch(lhs)
     if reciprocal is None and _same(reduction.value, verified):
-        return [*middle, f"{lhs} = {shown}"]
+        return [*middle, f"{lhs} = {_unrounded(reduction.value, shown)}"]
     if reciprocal is None and reduction.value < 0 < verified and _same(-reduction.value, verified):
-        return [*middle, f"{lhs} = -{shown}"]
+        return [*middle, f"{lhs} = -{_unrounded(-reduction.value, shown)}"]
     if reciprocal is not None and reduction.value and _same(1 / reduction.value, verified):
         value, of = latex_given(reduction.value), reciprocal.group("of")
         return [*middle, f"{lhs} = {value}", rf"{of} = \frac{{1}}{{{value}}}", f"{of} = {shown}"]

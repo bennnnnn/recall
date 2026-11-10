@@ -1078,6 +1078,37 @@ describe("markdown render rules", () => {
     expect(getByText(title)).toBeOnTheScreen();
   });
 
+  it("keeps the badge on a numbered heading that holds code, the code a chip", async () => {
+    // "### 3. Filtering with `if`" drew as the library's plain "3. Filtering with if".
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"### 3. Filtering with `if`"} />,
+    );
+    expect(within(getByTestId("step-badge")).getByText("3")).toBeOnTheScreen();
+    expect(getByText("Filtering with")).toBeOnTheScreen();
+    expect(within(getByTestId("step-heading")).getByText("if")).toBeOnTheScreen();
+  });
+
+  it("draws a lesson's balance-sheet table, empty header cells and all", async () => {
+    // Its divider got a cell for each non-empty header cell only, so the table showed as a
+    // paragraph of pipes in "Teach me how to read a balance sheet".
+    const table = [
+      "| Assets | | Liabilities & Equity | |",
+      "|---|---|---|---|",
+      "| Cash | 40 | Accounts payable | 25 |",
+    ].join("\n");
+    const { queryByText, getByText } = await render(<MarkdownContent content={table} />);
+    expect(queryByText(/\|/)).toBeNull();
+    expect(getByText("Accounts payable")).toBeOnTheScreen();
+  });
+
+  it("draws a formula of words alone on its line without its dollars", async () => {
+    const { queryByText, getByText } = await render(
+      <MarkdownContent content={"They satisfy one rule:\n\n$Assets = Liabilities + Equity$\n\nAlways."} />,
+    );
+    expect(queryByText(/\$/)).toBeNull();
+    expect(getByText("Assets = Liabilities + Equity")).toBeOnTheScreen();
+  });
+
   it.each([
     ["a heading with no number", "### Start with the standard form"],
     ["a year", "### 2024 results"],

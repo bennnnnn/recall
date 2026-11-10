@@ -30,7 +30,7 @@ def _first_order_rate_constant(intent: ChemistryIntent) -> ChemistryResult:
         (f"t₁/₂ = {inp(half_life)} {time_unit}",),
         "Rate constant, k",
         *stated("first_order_half_life"),
-        (f"k = ln(2) / t₁/₂ = {num(math.log(2))} / {inp(half_life)}",),
+        (f"k = ln(2) / t₁/₂ = {carried(math.log(2))} / {inp(half_life)}",),
         f"k = {value}",
         value,
     )
@@ -52,7 +52,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             (f"k = {inp(rate_constant)} {time_unit}⁻¹",),
             "Half-life, t₁/₂",
             *stated("first_order_half_life"),
-            (f"t₁/₂ = {num(math.log(2))} / {inp(rate_constant)}",),
+            (f"t₁/₂ = {carried(math.log(2))} / {inp(rate_constant)}",),
             f"t₁/₂ = {value}",
             value,
         )

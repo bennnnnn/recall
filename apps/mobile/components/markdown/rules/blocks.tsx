@@ -19,6 +19,7 @@ import type {
   StyleMap,
 } from "@/components/markdown/markdownContentStyles";
 import { wrapInlineChildren } from "@/components/markdown/rules/inline";
+import { MathColumn } from "@/components/rich/mathColumn";
 import { lessonStepParts, renderLessonStep } from "@/components/markdown/rules/lesson";
 import {
   renderWorkoutPart,
@@ -110,7 +111,7 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
       !inListItem && !parentHasType(parent, "blockquote") && formulasOnly(node)
         ? styles.workIndent
         : null;
-    return wrapInlineChildren(
+    const paragraph = wrapInlineChildren(
       node,
       children,
       [
@@ -122,6 +123,17 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
         working,
       ],
       [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph, working],
+    );
+    // A compact reply draws its working at the margin (`compactMdStyles`).
+    const inset = working && "paddingLeft" in working && typeof working.paddingLeft === "number"
+      ? working.paddingLeft
+      : 0;
+    return inset > 0 ? (
+      <MathColumn key={node.key} inset={inset}>
+        {paragraph}
+      </MathColumn>
+    ) : (
+      paragraph
     );
   };
   return {

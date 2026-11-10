@@ -9,7 +9,7 @@ from app.modules.chemistry.catalog import formula_spec
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.sig_figs import numbers_as_written
+from app.modules.chemistry.sig_figs import current, numbers_as_written
 from app.modules.chemistry.solvers.acid_base import (
     solve_acid_base,
     solve_ka_kb,
@@ -299,8 +299,14 @@ def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
     """Dispatch a validated intent to its subject-grouped pure solver."""
     with numbers_as_written(intent):
         result = attach_scene(intent, _solve(intent))
+        written = current()
+        rounded = {} if written is None else written.rounded
     spec = formula_spec(intent.chemistry_op)
-    return replace(result, method=spec is not None and spec.method)
+    return replace(
+        result,
+        method=spec is not None and spec.method,
+        unrounded=tuple((text, worked) for text, worked in rounded.items() if worked is not None),
+    )
 
 
 def _solve(intent: ChemistryIntent) -> ChemistryResult:

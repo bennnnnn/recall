@@ -123,8 +123,12 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    under the header line `notation: chemistry`, so the client draws it as text instead
    of LaTeX. Either way with the green check. Image questions remain on the vision/model
    path because OCR text was not the typed extractor input. Substitution is the
-   formula with the numbers put in, then (as physics') the same symbol equal to the
-   answer's value when the last row stops at an operation.
+   formula with the numbers put in, then (as physics') the same symbol equal to the value it
+   reaches, unrounded: `m = (0.5 mol)(58.440 g/mol)`, then `m = 29.22 g`. Only the card rounds
+   it to the data's figures (`29 g`): `num` notes what rounding took off
+   (`sig_figs.note_rounding`) and the closing row shows it (`direct._unrounded_value`). The
+   answer is said once, at the end: a closing row the card only restates (`n = 2.0 mol` over
+   `2.0 mol`) is dropped when the reply saves (`chat/worked_lead.drop_restated_step`).
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
    structure fences and appends the solver's copies (the card marked `verified: true`).
    Prose whose own final value differs (`pH = 1.00` against `2.00`) gets one line above
@@ -283,7 +287,9 @@ Numbers keep the precision the question was written in (`sig_figs.py`). Extracti
 records how each given was typed, and the solve formats every number from that record:
 
 - **Answers** take the fewest significant figures among the measured givens, kept between
-  2 and 4: `4 g` of H₂ makes `36 g` of water, `4.000 g` makes `35.74 g`. A count (an electron
+  2 and 4: `4 g` of H₂ makes `36 g` of water, `4.000 g` makes `35.74 g`. That is the card's
+  precision; the working's last row is the value unrounded, carried two figures further
+  (`m = 35.74 g` over a card of `36 g`), so a student sees what was rounded. A count (an electron
   number, a van 't Hoff factor, a Hess's-law multiplier) never limits the answer, and a
   Celsius reading counts the figures of its kelvin value (`25 °C` is `298 K`, three).
 - **Trailing zeros are significant**: `pH = 3.00`, `n = 2.0 mol`. The model prompt tells the

@@ -103,6 +103,6 @@ def test_the_moles_of_water_reply_is_laid_out_as_physics() -> None:
     )
     assert (
         "**Substitution**  \n$n = 36\\,\\mathrm{g} / 18.015\\,\\mathrm{g/mol}$  \n"
-        "$n = 2.0\\,\\mathrm{mol}$\n\n**Answer**"
+        "$n = 1.998\\,\\mathrm{mol}$\n\n**Answer**"
     ) in reply
     assert reply.rstrip().endswith("```answer\nn(\\mathrm{H₂O}) = 2.0\\,\\mathrm{mol}\n```")

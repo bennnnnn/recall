@@ -112,6 +112,18 @@ describe("MathDraftPreview", () => {
     expect(getByText("∇")).toBeOnTheScreen();
   });
 
+  it.each([String.raw`$\ln\left(x^{2}+1\right)$`, String.raw`$\left[x+1\right]^{2}$`])(
+    "draws a sized bracket as the bracket, never the word: %s",
+    async (input) => {
+      // A pasted `\ln\left(x^{2}+1\right)` drew "lnleft(x² + 1)".
+      const { queryByText, getByTestId } = await render(
+        <MathDraftPreview input={input} sent showCaret={false} />,
+      );
+      expect(queryByText(/left|right/)).toBeNull();
+      expect(getByTestId("math-draft-preview")).toHaveTextContent(/[([]x/);
+    },
+  );
+
   it("gives a sent bubble no caret targets, which wrapped to an empty line", async () => {
     const sent = await render(<MathDraftPreview input="$x y 7$" sent showCaret={false} />);
     expect(sent.queryByTestId("math-slot-before")).toBeNull();

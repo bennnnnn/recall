@@ -54,14 +54,23 @@ def fixed(value: float, places: int) -> str:
 
 
 def num(value: float) -> str:
-    """A computed value, to the significant figures the question's data carry."""
+    """A computed value, to the significant figures the question's data carry.
+
+    What rounding took off is noted (``sig_figs.note_rounding``): the working shows the value
+    unrounded once, and only the card rounds it."""
     written = sig_figs.current()
     if written is not None and written.additive and written.decimals is not None:
-        return fixed(value, written.decimals)
-    if written is not None and written.figures is not None:
-        return format_number(value, significant=written.figures, keep_zeros=True)
-    return format_number(value)
+        text = fixed(value, written.decimals)
+    elif written is not None and written.figures is not None:
+        text = format_number(value, significant=written.figures, keep_zeros=True)
+    else:
+        return format_number(value)
+    sig_figs.note_rounding(text, carried(value))
+    return text
 
+
+# A value from the element table alone, worked: the table's own six figures (196.967).
+_WORKED_FIGURES = 6
 
 # Figures a carried value keeps beyond the answer's: two, so a line's result does not round
 # twice (3.97 x 18.015 = 71.5 reads as 72; 3.968 x 18.015 = 71.48 rounds to the 71 it is).
@@ -95,7 +104,8 @@ def mean(value: float) -> str:
         return format_number(value)
     text = format_number(value, significant=written.figures, keep_zeros=True)
     if written.decimals is not None and sig_figs.decimals_of(text) > written.decimals:
-        return fixed(value, written.decimals)
+        text = fixed(value, written.decimals)
+    sig_figs.note_rounding(text, carried(value))
     return text
 
 
@@ -108,14 +118,18 @@ def table_num(value: float) -> str:
     written = sig_figs.current()
     if written is not None and written.figures is not None:
         return num(value)
-    return format_number(value, keep_zeros=True)
+    text = format_number(value, keep_zeros=True)
+    sig_figs.note_rounding(text, format_number(value, significant=_WORKED_FIGURES))
+    return text
 
 
 def p_value(value: float) -> str:
     """A pH, pOH or pK: a logarithm, so its precision is decimal places (pH 3.49)."""
     written = sig_figs.current()
     if written is not None and written.decimals is not None:
-        return fixed(value, written.decimals)
+        text = fixed(value, written.decimals)
+        sig_figs.note_rounding(text, fixed(value, written.decimals + _GUARD_FIGURES))
+        return text
     return num(value)
 
 
@@ -218,8 +232,11 @@ def const(value: float) -> str:
 
 
 def molar_mass_text(value: float) -> str:
-    """A molar mass that is the answer, to two decimals by convention (98.07 g/mol)."""
-    return format_molar_mass(value)
+    """A molar mass that is the answer, to two decimals by convention (98.07 g/mol); the
+    working's sum keeps the table's three (98.079)."""
+    text = format_molar_mass(value)
+    sig_figs.note_rounding(text, molar_mass_working(value))
+    return text
 
 
 def molar_mass_working(value: float) -> str:

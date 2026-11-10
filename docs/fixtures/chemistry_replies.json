@@ -7,7 +7,7 @@
     },
     "molar_mass_water": {
       "question": "What is the molar mass of H2O?",
-      "reply": "**Given**  \nFormula = H₂O\n\n**Required**  \n$M$ (molar mass)\n\n**Solution**\n\n**Molar mass from atomic masses formula**  \nM = Σ(nᵢ × atomic massᵢ)\n\n**Substitution**  \n$M = 2(1.008) + 1(15.999)$  \n$M = 18.02\\,\\mathrm{g/mol}$\n\n**Answer**\n\n```answer\nM(\\mathrm{H₂O}) = 18.02\\,\\mathrm{g/mol}\n```\n"
+      "reply": "**Given**  \nFormula = H₂O\n\n**Required**  \n$M$ (molar mass)\n\n**Solution**\n\n**Molar mass from atomic masses formula**  \nM = Σ(nᵢ × atomic massᵢ)\n\n**Substitution**  \n$M = 2(1.008) + 1(15.999)$  \n$M = 18.015\\,\\mathrm{g/mol}$\n\n**Answer**\n\n```answer\nM(\\mathrm{H₂O}) = 18.02\\,\\mathrm{g/mol}\n```\n"
     },
     "balance_ammonia": {
       "question": "Balance N2 + H2 -> NH3",

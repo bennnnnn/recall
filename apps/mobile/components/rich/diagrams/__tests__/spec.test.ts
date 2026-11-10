@@ -184,4 +184,9 @@ describe("diagramTextWidth", () => {
     // A character the table lacks still takes room.
     expect(diagramTextWidth("ж", 1000)).toBeGreaterThan(0);
   });
+
+  it("measures a script letter the face lacks as its letter at the script's size", () => {
+    // d 555, then ₒ drawn as an o (542) at 0.7.
+    expect(diagramTextWidth("dₒ", 1000)).toBeCloseTo(555 + 542 * 0.7, 6);
+  });
 });
