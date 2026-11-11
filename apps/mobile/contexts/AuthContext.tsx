@@ -44,9 +44,9 @@ import { endServerSession, watchPendingLogouts } from "@/lib/pendingLogout";
 import { reportCorruptSessionCleared } from "@/lib/sentry";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { forgetSyncRecords } from "@/lib/syncRecords";
-import { emitAppEvent } from "@/lib/appEvents";
 import { tokenSubject } from "@/lib/tokenSubject";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
+import { useUpdateUser } from "@/contexts/useUpdateUser";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 
 type AuthContextValue = {
@@ -368,28 +368,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     if (isCurrent(sessionGeneration)) setOnboardedState(true);
   }, [sessionGeneration, isCurrent]);
 
-  const updateUser = useCallback(async (patch: Partial<User>) => {
-    if (!token || !isCurrent(sessionGeneration)) return;
-    const revision = ++updateUserGenRef.current;
-    const snapshot = userRef.current;
-    const snapshotValidated = profileValidated;
-    setCurrentUser((previous) => previous ? { ...previous, ...patch } : previous);
-    try {
-      const updated = await api.updateMe(token, patch);
-      if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
-      setCurrentUser(updated);
-      setProfileValidated(true);
-      void writeCachedUser(updated);
-      // Saved now: what the server derives from them (a to-do's notify_at) may read again.
-      const fields = (Object.keys(patch) as (keyof User)[]).filter((field) => snapshot?.[field] !== updated[field]);
-      if (fields.length) emitAppEvent("userUpdated", { fields });
-    } catch {
-      const owns = isCurrent(sessionGeneration) && revision === updateUserGenRef.current;
-      if (owns) { setCurrentUser(snapshot); setProfileValidated(snapshotValidated); }
-      // Failed, whoever owns the user now: no caller may count this save as made.
-      throw new Error("update failed");
-    }
-  }, [token, sessionGeneration, profileValidated, isCurrent, setCurrentUser]);
+  const updateUser = useUpdateUser({
+    token, sessionGeneration, profileValidated, isCurrent, userRef,
+    revisionRef: updateUserGenRef, setCurrentUser, setProfileValidated,
+  });
 
   const mergeUser = useCallback((patch: Partial<User>) => {
     if (!isCurrent(sessionGeneration)) return;

@@ -29,6 +29,8 @@ jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ t
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/features/account/components/settingsUi", () => ({
+  // The real save: it calls the account's updateUser and reports a failure.
+  useSettingSave: jest.requireActual("@/features/account/components/settingsUi").useSettingSave,
   SettingsPage: ({ children }: { children: React.ReactNode }) => children,
   SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
   SettingsSwitchRow: (props: { title: string } & (typeof mockSwitches)[string]) => { mockSwitches[props.title] = props; return null; },
@@ -307,4 +309,28 @@ it("hides the push kinds while push is off", async () => {
   });
   expect(mockSwitches["settings.push_notifications"].value).toBe(false);
   expect(mockSwitches["settings.push_reminders"]).toBeUndefined();
+});
+
+it("starts a new account with email reminders and quiet hours, 10 pm to 7 am, on", async () => {
+  // The owner's defaults (2026-11-11): an account the server has not said otherwise for.
+  await render(<NotificationsSettingsScreen />);
+  expect(mockSwitches["settings.email_reminders"].value).toBe(true);
+  expect(mockSwitches["settings.quiet_hours"].value).toBe(true);
+  expect(mockLinks["settings.quiet_hours_start"].value).toContain("10");
+  expect(mockLinks["settings.quiet_hours_end"].value).toContain("7");
+});
+
+it("saves quick taps on two switches at once, without locking either", async () => {
+  mockUser = { ...mockUser, quiet_hours_enabled: true };
+  mockUpdate.mockReturnValue(new Promise(() => {}));
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => {
+    void mockSwitches["settings.email_reminders"].onValueChange(false);
+    void mockSwitches["settings.quiet_hours"].onValueChange(false);
+  });
+  expect(mockUpdate.mock.calls).toEqual([
+    [{ email_reminders_enabled: false }],
+    [{ quiet_hours_enabled: false }],
+  ]);
+  expect(mockSwitches["settings.email_reminders"].disabled).toBeFalsy();
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { UpgradeSheet } from "@/features/billing/components/UpgradeSheet";
@@ -46,8 +46,6 @@ export default function ModelsSettingsScreen() {
   const { models, isPaid, autoEnabled, modelEnabledSet } = useModels();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const savingRef = useRef(false);
   const feedback = useActionFeedbackOptional();
 
   const effectiveAuto = draft?.auto ?? autoEnabled;
@@ -62,32 +60,28 @@ export default function ModelsSettingsScreen() {
     }
   }, [autoEnabled, modelEnabledSet, draft]);
 
-  const patchPreferences = (auto: boolean, modelIds: Set<string>, key: string) => {
-    if ((!auto && modelIds.size === 0) || savingRef.current) return;
-    savingRef.current = true;
-    setSavingKey(key);
-    const nextModels = new Set(modelIds);
-    setDraft({ auto, models: nextModels });
-    void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) })
-      .catch(() => {
-        setDraft(null);
-        reportRecoverableError(feedback, t("common.error"));
-      })
-      .finally(() => {
-        savingRef.current = false;
-        setSavingKey(null);
-      });
+  // Each tap shows at once and saves; saves run in order (AuthContext.updateUser), so taps
+  // made while one saves are never dropped and the last one is what the account keeps.
+  const patchPreferences = (auto: boolean, modelIds: Set<string>) => {
+    if (!auto && modelIds.size === 0) return;
+    const pending: DraftPrefs = { auto, models: new Set(modelIds) };
+    setDraft(pending);
+    void updateUser({ enabled_models: buildModelPreferences(auto, pending.models) }).catch(() => {
+      // Back to the account's saved switches, unless a later tap has moved them since.
+      setDraft((current) => (current === pending ? null : current));
+      reportRecoverableError(feedback, t("common.error"));
+    });
   };
 
   const toggleAuto = (enabled: boolean) => {
     if (!enabled && effectiveModels.size === 0) return;
-    patchPreferences(enabled, effectiveModels, "auto");
+    patchPreferences(enabled, effectiveModels);
   };
 
   /** With Auto off, every message goes to the first model switched on; this puts `modelId` first. */
   const chooseModelInUse = (modelId: string) => {
     const rest = [...effectiveModels].filter((id) => id !== modelId);
-    patchPreferences(false, new Set([modelId, ...rest]), "in-use");
+    patchPreferences(false, new Set([modelId, ...rest]));
   };
   const usable = models.filter(
     (option) => effectiveModels.has(option.id) && (isPaid || option.plan_access !== "pro"),
@@ -106,7 +100,7 @@ export default function ModelsSettingsScreen() {
     if (enabled) next.add(modelId);
     else next.delete(modelId);
     if (next.size === 0 && !effectiveAuto) return;
-    patchPreferences(effectiveAuto, next, modelId);
+    patchPreferences(effectiveAuto, next);
   };
 
   return (
@@ -118,8 +112,7 @@ export default function ModelsSettingsScreen() {
             // A switch that cannot move says why, not only by looking pale.
             subtitle={t(autoLocked ? "settings.model_auto_needs_model" : "settings.model_auto_summary")}
             value={effectiveAuto}
-            disabled={Boolean(savingKey) || autoLocked}
-            busy={savingKey === "auto"}
+            disabled={autoLocked}
             onValueChange={toggleAuto}
           />
           {!effectiveAuto && inUse ? (
@@ -130,8 +123,6 @@ export default function ModelsSettingsScreen() {
                 value={inUse.label}
                 options={usable.map((option) => ({ key: option.id, label: option.label }))}
                 selectedKey={inUse.id}
-                disabled={Boolean(savingKey)}
-                busy={savingKey === "in-use"}
                 onSelect={chooseModelInUse}
               />
             ) : (
@@ -158,8 +149,7 @@ export default function ModelsSettingsScreen() {
                 title={option.label}
                 subtitle={modelRowNote(t, { proLocked, isLastModel, degraded: option.healthy === false })}
                 value={enabled}
-                disabled={Boolean(savingKey) || switchDisabled}
-                busy={savingKey === option.id}
+                disabled={switchDisabled}
                 onValueChange={(value) => toggleModel(option.id, value)}
               />
             );

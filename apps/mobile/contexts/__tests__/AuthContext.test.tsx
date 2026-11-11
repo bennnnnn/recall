@@ -180,11 +180,41 @@ it("rejects a failed profile save even when a newer save owns the user by then",
   const first = deferred<User>();
   (api.updateMe as jest.Mock).mockReturnValueOnce(first.promise).mockResolvedValueOnce(userA);
   let older!: Promise<void>;
+  let newer!: Promise<void>;
   await act(async () => { older = current.updateUser({ location: "Oakland, CA" }); });
-  await act(async () => { await current.updateUser({ name: "Edited" }); });
+  await act(async () => { newer = current.updateUser({ name: "Edited" }); });
   const outcome = older.then(() => "saved", () => "failed");
-  await act(async () => { first.reject(new Error("offline")); });
+  await act(async () => { first.reject(new Error("offline")); await newer; });
   await expect(outcome).resolves.toBe("failed");
+});
+
+it("shows each save at once and sends them one at a time, in the order they were made", async () => {
+  // The owner's report (2026-11-11): quick taps on two switches did not all land.
+  await mount();
+  const first = deferred<User>();
+  (api.updateMe as jest.Mock)
+    .mockReturnValueOnce(first.promise)
+    .mockResolvedValueOnce({ ...userA, memory_enabled: false, web_search_enabled: false });
+  let saves!: Promise<void[]>;
+  await act(async () => {
+    saves = Promise.all([
+      current.updateUser({ memory_enabled: false }),
+      current.updateUser({ web_search_enabled: false }),
+    ]);
+  });
+  // Both shown already; the second waits for the first's answer before it is sent.
+  expect(current.user?.memory_enabled).toBe(false);
+  expect(current.user?.web_search_enabled).toBe(false);
+  expect((api.updateMe as jest.Mock).mock.calls.map(([, patch]) => patch)).toEqual([{ memory_enabled: false }]);
+  await act(async () => {
+    first.resolve({ ...userA, memory_enabled: false });
+    await saves;
+  });
+  expect((api.updateMe as jest.Mock).mock.calls.map(([, patch]) => patch)).toEqual([
+    { memory_enabled: false },
+    { web_search_enabled: false },
+  ]);
+  expect(current.user?.web_search_enabled).toBe(false);
 });
 
 it("keeps the latest sign-in when an older sign-in completes last", async () => {

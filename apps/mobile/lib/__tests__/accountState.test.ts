@@ -98,7 +98,6 @@ const SCOPED_TO_SESSION = [
   "features/chat/drawer/drawer.ts#chatMutationRevisions",
   "features/chat/drawer/drawer.ts#mutationSession",
   "features/chat/model/pageReads.ts#pageReads",
-  "features/memory/hooks/useMemoryToggle.ts#pending",
   "features/memory/model/memoryDocumentsCache.ts#resource",
   "features/todos/model/todoMutationState.ts#current",
   "lib/api/client.ts#lastRefreshed",

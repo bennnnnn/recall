@@ -61,11 +61,22 @@ def test_me_patch_refuses_an_emoji_level_that_does_not_exist():
     assert r.status_code == 422
 
 
-def test_emoji_use_starts_at_a_few_for_every_account():
+@pytest.mark.parametrize(
+    "column, value, stored",
+    [
+        # The owner's defaults for a new account (2026-11-11, migration 0130).
+        ("response_tone", "professional", "professional"),
+        ("emoji_use", "more", "more"),
+        ("memory_include_sensitive", True, "true"),
+        ("email_reminders_enabled", True, "true"),
+        ("quiet_hours_enabled", True, "true"),
+    ],
+)
+def test_a_new_account_starts_with_the_owners_defaults(column, value, stored):
     from app.models.orm import User
 
-    column = User.__table__.c.emoji_use
-    assert column.default.arg == "some" and column.server_default.arg == "some"
+    col = User.__table__.c[column]
+    assert col.default.arg == value and col.server_default.arg == stored
 
 
 def test_me_patch_invalidates_memory_cache_on_toggle():
