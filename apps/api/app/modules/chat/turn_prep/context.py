@@ -148,7 +148,7 @@ class StreamContext:
     # reply's first call must make when it said live but wrote no query (``web_search``).
     live_read: asyncio.Task[TurnDecision | None] | None = None
     reply_requires: str | None = None
-    # Offered on a second call when the first, with no tool, says it can't see live
+    # Made to search on a second call when the first, with no tool, says it can't see live
     # data (``tool_loop.live_denial``). Empty past the spend cap or after a search.
     denial_retry_tools: list[dict[str, Any]] = field(default_factory=list)
     # The last reply asked with a clarify card: this reply may not ask again.

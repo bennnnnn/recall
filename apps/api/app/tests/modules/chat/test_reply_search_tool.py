@@ -5,7 +5,7 @@ training data, and "What is going on" opening a chat was searched. The model dec
 """
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -13,6 +13,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.gateways.decider_gateway import DeciderAnswer, DeciderReply
 from app.gateways.mcp import registry
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.stream_accum import StreamAccum
@@ -336,45 +337,65 @@ async def test_reply_answers_without_a_search_that_breaks(
 _BEARS = "Perfect. totally unrelated but did the bears win today"
 _DENIAL = "I can't check live scores, so I don't know how the Bears did today."
 _ANSWER = "The Bears beat the Falcons 27-20."
+_DENIALS = {_DENIAL, "Sorry, I can't check live scores!"}
 
 
-@pytest.mark.parametrize(
-    "reply",
-    [
-        _DENIAL,
-        "Sorry, I don't have real-time sports results, so I can't confirm it.",
-        "Good question! I don't have access to live data. Check the NFL app.",
-        "I'm unable to access real-time information right now.",
-        "I can't browse the web, sorry.",
-        # Review: the usual openings.
-        "I'm sorry, but I can't access real-time data.",
-        "Sorry \u2014 I can't check live scores.",
-        "**I can't check live scores**, but ESPN has them.",
-        "Hmm, I can't check live scores right now.",
-        "As an AI, I don't have real-time data.",
-        "I'm not able to check live scores.",
-    ],
-)
-def test_a_live_data_denial_is_read(reply: str) -> None:
-    assert live_denial.denies_live_data(reply)
+def _check(denies: float | Exception) -> AsyncMock:
+    """The Decider as the denial check: one answer, or a failure."""
+    if isinstance(denies, Exception):
+        return AsyncMock(side_effect=denies)
+    answer = DeciderAnswer(type="noul", noul=denies)
+    return AsyncMock(return_value=DeciderReply(answers={"denies": answer}))
 
 
-@pytest.mark.parametrize(
-    "reply",
-    [
-        "Sounds like a long day. Rest up tonight!",
-        "I can't check your calendar, but you could add it to To-do.",
-        "The Bears beat the Patriots 30-24 on Thursday.",
-        # Talk about a denial, not one (review, 2026-10-25).
-        'Some assistants say "I can\'t access real-time data", but Recall can search.',
-        "A good line is: 'I don't have real-time information on that.'",
-        "When I can't check live scores I say so.",
-        # A long answer that mentions live data in passing is an answer.
-        "Here is a long answer. " * 40 + "I can't check live scores.",
-    ],
-)
-def test_other_replies_are_no_denial(reply: str) -> None:
-    assert not live_denial.denies_live_data(reply)
+@pytest.fixture
+def denial_check() -> Iterator[AsyncMock]:
+    """The Decider reads the replies in ``_DENIALS`` as denials, and nothing else."""
+
+    async def decide(_settings: Any, **kwargs: Any) -> DeciderReply:
+        reply = kwargs["state"].split("The assistant's reply: ", 1)[1]
+        answer = DeciderAnswer(type="noul", noul=0.9 if reply in _DENIALS else 0.05)
+        return DeciderReply(answers={"denies": answer})
+
+    check = AsyncMock(side_effect=decide)
+    with patch("app.gateways.decider_gateway.decide", check):
+        yield check
+
+
+@pytest.mark.parametrize(("denies", "retried"), [(0.65, True), (0.4, True), (0.11, False)])
+@pytest.mark.asyncio
+async def test_a_reply_is_a_denial_when_the_check_says_so(denies: float, retried: bool) -> None:
+    """Pro phone test (2026-11-11): "I can't check live rankings from here" mid-sentence in a
+    five-item list went out as it was; a pattern of English openings read it. The Decider
+    reads it now: every denial of 40 labelled replies, in five languages, at 0.65 or more,
+    every other reply at 0.11 or less."""
+    reply = "Here are five of them. I can't check live rankings from here, so this is reputation."
+    with patch("app.gateways.decider_gateway.decide", _check(denies)):
+        assert await live_denial.denies_live_data(_SETTINGS, "Top 5 in Ethiopia", reply) is retried
+
+
+@pytest.mark.asyncio
+async def test_a_check_that_fails_leaves_the_reply() -> None:
+    with patch("app.gateways.decider_gateway.decide", _check(TimeoutError())):
+        assert not await live_denial.denies_live_data(_SETTINGS, _BEARS, _DENIAL)
+
+
+@pytest.mark.asyncio
+async def test_the_check_reads_the_message_and_both_ends_of_a_long_reply() -> None:
+    """A denial leads the answer or closes it as a note; a long list's middle is the list."""
+    check = _check(0.05)
+    reply = "I can't check live data. " + "An item of the list. " * 200 + "Note: check ESPN."
+    with patch("app.gateways.decider_gateway.decide", check):
+        await live_denial.denies_live_data(_SETTINGS, "did the bears win", reply)
+        assert not await live_denial.denies_live_data(_SETTINGS, "hi", "  ")
+    check.assert_awaited_once()
+    assert check.await_args is not None
+    kwargs = check.await_args.kwargs
+    assert kwargs["state"].startswith("The user's message: did the bears win\n\n")
+    assert "I can't check live data." in kwargs["state"]
+    assert kwargs["state"].endswith("Note: check ESPN.")
+    assert len(kwargs["state"]) < 2200
+    assert list(kwargs["questions"]) == ["denies"]
 
 
 def _retry_context(content: str = _BEARS, tool: dict[str, Any] | None = None) -> StreamContext:
@@ -384,27 +405,33 @@ def _retry_context(content: str = _BEARS, tool: dict[str, Any] | None = None) ->
 
 
 @pytest.mark.asyncio
-async def test_a_denial_is_asked_again_with_search_offered(
-    web_search_tool: dict[str, Any],
+async def test_a_denial_is_asked_again_and_must_search(
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
-    """Live (2026-10-25): no tool was offered, and the reply said it couldn't check."""
+    """Live (2026-10-25): no tool was offered, and the reply said it couldn't check. Asked
+    again with the tool only offered, a model could deny again (Pro phone test, 2026-11-11):
+    the second call must search, so its answer has results to give."""
     ctx = _retry_context(tool=web_search_tool)
     llm, seen = _model(([_DENIAL], []), ([], [_SEARCH_CALL]), ([_ANSWER], []))
     accum = StreamAccum()
     with patch(
         "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
     ):
-        await _reply(ctx, llm, accum=accum)
+        streamed = await _reply(ctx, llm, accum=accum)
 
     assert accum.reply_text() == _ANSWER
     assert accum.retracted == _DENIAL
     assert [call["tools"] for call in seen] == [None, [web_search_tool], None]
+    assert [call["require_tool"] for call in seen] == [None, "web_search", None]
     assert [hit.url for hit in ctx.search_sources] == [_HIT.url]
+    # The retry went straight to its search: the break after the denial leads the answer.
+    assert streamed == f"{_DENIAL}\n\n{_ANSWER}"
+    denial_check.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_a_denial_then_text_before_the_search_both_give_way(
-    web_search_tool: dict[str, Any],
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
     ctx = _retry_context(tool=web_search_tool)
     llm, _seen = _model(([_DENIAL], []), (["Let me look."], [_SEARCH_CALL]), ([_ANSWER], []))
@@ -420,23 +447,21 @@ async def test_a_denial_then_text_before_the_search_both_give_way(
 
 
 @pytest.mark.asyncio
-async def test_the_model_may_answer_the_retry_without_searching(
-    web_search_tool: dict[str, Any],
+async def test_a_reply_the_check_passes_is_not_asked_again(
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
+    """Something private the app cannot see is no live fact a search finds."""
     ctx = _retry_context("what's my heart rate right now", web_search_tool)
-    llm, seen = _model(
-        (["I can't access real-time data from your watch."], []),
-        (["Your watch's health app shows it."], []),
-    )
-    accum = StreamAccum()
-    await _reply(ctx, llm, accum=accum)
-    assert accum.reply_text() == "Your watch's health app shows it."
-    assert len(seen) == 2
+    watch = "I can't access real-time data from your watch."
+    llm, seen = _model(([watch], []), (["never asked"], []))
+    assert await _reply(ctx, llm) == watch
+    assert len(seen) == 1
+    denial_check.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_no_retry_without_the_offer_or_for_a_clock_denial(
-    web_search_tool: dict[str, Any],
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
     llm, seen = _model(([_DENIAL], []), (["never asked"], []))
     assert await _reply(_retry_context(), llm) == _DENIAL
@@ -445,11 +470,18 @@ async def test_no_retry_without_the_offer_or_for_a_clock_denial(
     llm, seen = _model(([clock], []), (["never asked"], []))
     assert await _reply(_retry_context("what time is it", web_search_tool), llm) == clock
     assert len(seen) == 1
+    # Small talk asks nothing live.
+    small_talk = _retry_context("thanks!", web_search_tool)
+    small_talk.lightweight_turn = True
+    llm, seen = _model(([_DENIAL], []), (["never asked"], []))
+    assert await _reply(small_talk, llm) == _DENIAL
+    # None of them asks the check: nothing to offer, the clock is the app's, a greeting.
+    denial_check.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_a_stop_during_the_retry_keeps_the_denial_the_phone_drew(
-    web_search_tool: dict[str, Any],
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
     ctx = _retry_context(tool=web_search_tool)
     llm, seen = _model(([_DENIAL], []), (["never drawn"], []))
@@ -467,7 +499,7 @@ async def test_a_stop_during_the_retry_keeps_the_denial_the_phone_drew(
 
 @pytest.mark.asyncio
 async def test_a_failure_during_the_retry_keeps_the_denial(
-    web_search_tool: dict[str, Any],
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
     from app.gateways.litellm_gateway import ModelUnavailableError
 
@@ -501,7 +533,7 @@ def test_a_stop_after_a_retraction_cuts_the_answer_where_the_phone_did() -> None
 
 @pytest.mark.asyncio
 async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
-    web_search_tool: dict[str, Any],
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
     ctx = _retry_context(tool=web_search_tool)
     llm, _seen = _model((["Sorry, I can't check live scores!"], []), (["The Bears won."], []))

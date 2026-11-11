@@ -216,12 +216,20 @@ class _ReplyRound:
     """One model call of the reply: the tools it carries, and what it leaves behind."""
 
     tools: list[dict[str, Any]]
-    # Goes out before the call's first token: a break after a retracted denial.
+    # Goes out before the call's first token: a break after a retracted denial. A retry
+    # that went straight to its search wrote none, and its answer's call takes it on.
     lead: str = ""
     # The tool this call must make: the turn's read said its answer is live.
     require: str | None = None
     meta: dict[str, str] = field(default_factory=dict)
     calls: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _denial_retry(tools: list[dict[str, Any]]) -> _ReplyRound:
+    """The call after a retracted denial: it must search, so the answer it writes has
+    results to give and does not deny again. A break leads it, after the denial the phone
+    drew."""
+    return _ReplyRound(tools=tools, lead="\n\n", require=reply_calls.REPLY_TOOL)
 
 
 async def run_llm_token_stream(
@@ -271,12 +279,14 @@ async def run_llm_token_stream(
                     yield visible
             if resolved := reply_round.meta.get("model_alias"):
                 ctx.model = resolved
-            # "I can't check live scores" with no tool offered: ask again, offering search.
-            if retry_tools and live_denial.asks_again(ctx, reply_round.calls, accum, written):
+            # "I can't check live scores" with no tool offered: ask again (``_denial_retry``).
+            if retry_tools and await live_denial.asks_again(
+                settings, ctx, reply_round.calls, accum, written
+            ):
                 accum.retract(written, shown_from)
                 # A held "!" or "[" was the denial's, never drawn: the new round starts clean.
                 scaffold = ReplyFilter(accum, ctx.worked)
-                reply_round, retry_tools = _ReplyRound(tools=retry_tools, lead="\n\n"), []
+                reply_round, retry_tools = _denial_retry(retry_tools), []
                 continue
             # Only a call that carried tools leads to another: one search a turn.
             if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:
@@ -302,7 +312,7 @@ async def run_llm_token_stream(
             if text_before:
                 accum.retract(written, shown_from)
                 scaffold = ReplyFilter(accum, ctx.worked)
-            reply_round = _ReplyRound(tools=[])
+            reply_round = _ReplyRound(tools=[], lead=reply_round.lead)
         if not accum.was_cancelled and (tail := scaffold.flush()):
             accum.shown.append(tail)
             yield tail
