@@ -144,7 +144,10 @@ def test_is_explicit_pick() -> None:
 
 
 def test_a_json_ask_avoids_a_model_without_json_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    """R4.9: the output format is a routing input; GLM 5.2's JSON mode is unconfirmed."""
+    """R4.9: the output format is a routing input; GLM 5.2's JSON mode is unconfirmed. Held
+    on a maths lane that runs on it, as it did until 2026-11-10."""
+    lanes = replace(model_catalog.ROUTING, math="glm-5.2")
+    monkeypatch.setattr("app.models.model_catalog.ROUTING", lanes)
     ask = "solve x^2 - 4 = 0 and give me the roots as valid JSON"
     pool = [model.id for model in model_catalog.selectable_models()]
     assert routing.resolve_alias_in_pool("auto", "solve x^2 - 4 = 0", pool) == "glm-5.2"

@@ -20,13 +20,14 @@ from app.core import readings
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError
 from app.models.orm import Attachment, Chat, User
-from app.modules import web_search
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
+from app.modules.chat import turn_decision
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
+from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_intercepts import (
     intercept_new_turn,
@@ -60,7 +61,6 @@ from app.modules.chat.turn_resources import (
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import traced_turn
-from app.modules.web_search import LiveRead
 
 logger = logging.getLogger(__name__)
 
@@ -124,17 +124,17 @@ def _regenerate_images(
 
 def _turn_settings(
     settings: Settings, user: User, content: str, recent: list[Any]
-) -> tuple[Settings, asyncio.Task[LiveRead | None] | None]:
+) -> tuple[Settings, asyncio.Task[TurnDecision | None] | None]:
     """The user's own switches (web search off) narrow the server's for this turn, and
-    the live read starts under them as early as the turn allows, beside the intercepts and
-    the prep: does the answer depend on facts that change? (``web_search.live_read``). An
+    the turn's read starts under them as early as the turn allows, beside the intercepts and
+    the prep: how to handle the message, live facts included (``chat.turn_decision``). An
     intercepted turn leaves it to end on its own timeout. ``recent``: the chat before the
     line, oldest first.
 
     A line answered again is read the same way: left to the reply's model alone, GPT-6
     Luna with its thinking raised searched a textbook physics problem (2026-11-09)."""
     settings = profile_service.settings_for_user(settings, user)
-    return settings, web_search.start_live_read(settings, content, recent=recent)
+    return settings, turn_decision.start_turn_decision(settings, content, recent=recent)
 
 
 @traced_turn("new")

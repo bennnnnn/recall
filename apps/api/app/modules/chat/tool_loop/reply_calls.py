@@ -4,7 +4,7 @@ Word rules used to decide search, and each one misfired on its look-alikes: "Wha
 going on" opening a chat matched a news pattern and was answered with a song. The
 model writing the reply decided, carrying ``web_search`` on every turn; it answers at
 once, or calls the tool and answers in a second call that reads the results. A fast read
-of the message now decides first (``web_search.live_read``): live, and its query is
+of the message now decides first (``chat.turn_decision``): live, and its query is
 searched before the reply; settled, and the reply carries no ``web_search`` (GPT-6 Luna
 searched how-tos and history it was offered the tool for). Only with no answer from the
 read in time does the reply's model decide. ``recall_chats`` (``memory.recall_tool``) is offered the same way,
@@ -27,18 +27,15 @@ from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
-from app.modules.billing import plan as plan_service
-from app.modules.chat.model_routing.thinking import lane_for_think, with_read
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_loop.calls import CallRound, execute_calls
 from app.modules.chat.tool_loop.parts import open_parts
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
-from app.modules.chat.turn_trace import current_turn_trace, note_route
+from app.modules.chat.turn_decision import turn_decision_result
 from app.modules.memory.recall_tool import RECALL_TOOL
-from app.modules.turn_reading.lesson_flow import active_lesson_step
-from app.modules.web_search import TurnTavilyBudget, live_read_result
+from app.modules.web_search import TurnTavilyBudget
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
@@ -230,7 +227,7 @@ async def search_the_live_read(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
 ) -> None:
-    """A model read the message beside the prep (``web_search.live_read``). An answer that
+    """A model read the message beside the prep (``chat.turn_decision``). An answer that
     depends on facts that change is searched with the read's own query, so the reply
     answers from the results in one call, and so is one the user asked to search; with no
     query, the reply's call must search. A read that found nothing that changes takes
@@ -239,7 +236,7 @@ async def search_the_live_read(
         # A model is still reading the question: say so rather than show nothing. A search
         # it asks for shows next, with its query ("Searching — …").
         await on_status("thinking", None)
-    read = await live_read_result(ctx.live_read, settings)
+    read = await turn_decision_result(ctx.live_read, settings)
     if read is None:
         return
     if not read.searches:
@@ -280,40 +277,3 @@ async def search_the_live_read(
 def _without_search(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The reply's tools less ``web_search`` (``recall_chats`` stays)."""
     return [tool for tool in tools if (tool.get("function") or {}).get("name") != REPLY_TOOL]
-
-
-def think_from_the_read(ctx: StreamContext, settings: Settings) -> None:
-    """The read's answer on thinking (``think``), when it is in by the reply's call. Nothing
-    waits for it here: a turn that offers search waited for the read already
-    (``search_the_live_read``); any other keeps the word rules' level and lane."""
-    task = ctx.live_read
-    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
-        return
-    read = task.result()
-    if read is not None:
-        # A lesson under way keeps its steps quick (``route``'s "lesson"), as the word rules do.
-        lesson = active_lesson_step(ctx.recent_messages) is not None
-        ctx.thinking = with_read(read.think, ctx.thinking, lesson_active=lesson)
-        if ctx.thinking == "hard":
-            _lane_that_thinks(ctx, settings)
-
-
-def _lane_that_thinks(ctx: StreamContext, settings: Settings) -> None:
-    """Auto's lane follows the read's ``think`` when its model cannot think (the maths
-    lane) and no solver verified the answer: a four-part word problem about runners'
-    speeds went to GLM 5.2, which sends no reasoning (2026-11-09). A verified solve keeps
-    its lane, and so does a model the user picked. The lane it leaves is the first backup."""
-    # Numbers a server path already worked keep their lane: a verified solve (maths,
-    # physics, chemistry, or a tool's, ``_apply_tool_rounds``), and a money turn, whose
-    # calculator card holds them ("4000 on a card at 22% paying 150 a month").
-    worked = ctx.verified_subject is not None or ctx.money is not None
-    if not ctx.auto_routed or ctx.user is None or worked:
-        return
-    pool = plan_service.model_pool(ctx.user, settings)
-    lane = lane_for_think(ctx.model, pool, ctx.unsteady_models)
-    if lane is None:
-        return
-    trace = current_turn_trace()
-    note_route(f"{(trace.route if trace else None) or 'auto'}-think")
-    backups = [alias for alias in ctx.fallback_models if alias not in {lane, ctx.model}]
-    ctx.model, ctx.fallback_models = lane, [ctx.model, *backups]

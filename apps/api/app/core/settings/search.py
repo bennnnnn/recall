@@ -10,9 +10,11 @@ class SearchSettings(BaseModel):
     # The reply's own model call carries the web_search tool (``tool_loop.reply_calls``):
     # the model decides whether to search. A reply that needs none costs nothing.
     reply_search_tool_enabled: bool = True
-    # A fast model reads each message beside the turn's prep and says whether its answer
-    # depends on facts that change (``web_search.live_read``): yes, and its query is
-    # searched before the reply. Off, or no answer in time, and the reply's model decides.
+    # A fast model reads each message beside the turn's prep and says how to handle it
+    # (``chat.turn_decision``): whether its answer depends on facts that change (yes, and its
+    # query is searched before the reply), its subject and effort (Auto's lane and the
+    # thinking, ``chat.decided_turn``), the picture it asks for and how it follows the turn
+    # before. Off, or no answer in time, and the word rules and the reply's model decide.
     live_read_enabled: bool = True
     live_read_timeout_seconds: float = 2.0
     # How long the reply waits for a read still running when the prep is done (it starts

@@ -228,6 +228,8 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/chat/related_prompts.py",
         # Skips the tool loop: the turn was admitted. modules/chat/test_post_turn_spend.py.
         "modules/chat/stream_paths.py",
+        # The turn's read answers None past the cap: modules/chat/test_turn_decision.py.
+        "modules/chat/turn_decision.py",
         # Skips the model reader's shadow read: nothing waits on it. test_model_read_shadow.py.
         "modules/chat/turn_prep/model_read_shadow.py",
         # The chat turn: the socket's and SSE's unavailable frame. test_turn_quota_reserve.py.
@@ -238,7 +240,5 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/images/search.py",
         "modules/memory/api.py",  # memory edits
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
-        # The live read answers None past the cap: modules/web_search/test_live_read.py.
-        "modules/web_search/live_read.py",
         "services/scan_read.py",  # photo scans, every subject
     ]

@@ -1,4 +1,4 @@
-"""A line answered again is read for live facts, as a new one is (``web_search.live_read``).
+"""A line answered again is read for live facts, as a new one is (``chat.turn_decision``).
 
 Regenerating a textbook physics problem (four runners, 100 m, their speeds) searched the
 web (2026-11-09): a regenerate started no read, so the reply's own model decided alone,
@@ -18,7 +18,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
-from app.modules.chat import stream_entry, turn_load
+from app.modules.chat import stream_entry, turn_decision, turn_load
 from app.modules.chat.prompt_builder import PromptStats
 from app.modules.chat.turn_load import RegenerateTurn
 from app.modules.chat.turn_prep.context import TurnPromptBundle
@@ -108,7 +108,7 @@ async def test_a_regenerate_starts_the_read_and_hands_it_to_the_turn() -> None:
         patch(f"{entry}.build_stream_prompt_context", build),
         patch(f"{entry}.top_up_reserve_for_prompt", AsyncMock()),
         patch(f"{entry}.stream_and_finalize", final_stream),
-        patch("app.modules.web_search.start_live_read", start),
+        patch.object(turn_decision, "start_turn_decision", start),
     ):
         tokens = [
             token

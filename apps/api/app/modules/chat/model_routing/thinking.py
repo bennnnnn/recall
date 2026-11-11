@@ -6,10 +6,10 @@ _thinking``). One level more only when the user pushes back on the answer
 before ("that's wrong", "try again", "that's not what I asked") or regenerates it. The
 catalog turns each level into a value the model supports.
 
-Whether a question is hard is the turn's read's answer (``web_search.live_read``'s
-``think``) when it answers in time: the word rules (a length, a code fence, trigger words,
-the subject lanes) gave a four-part word problem about four runners' speeds no thinking
-(2026-11-09). With no answer, they still decide.
+How hard a question is, is the turn's read's answer (``chat.turn_decision``'s effort)
+when it answers in time (``chat.decided_turn``): the word rules (a length, a code fence,
+trigger words, the subject lanes) gave a four-part word problem about four runners' speeds
+no thinking (2026-11-09). With no answer, they still decide, here.
 """
 
 from __future__ import annotations
@@ -58,14 +58,10 @@ def thinking_level(
     lesson_active: bool = False,
     regenerate: bool = False,
     settings: Settings | None = None,
-    read_think: bool | None = None,
 ) -> ThinkingLevel:
-    """The thinking level for this turn; escalation needs an answer to dispute.
-    ``read_think``: the turn's read said whether to think; None, it gave no answer."""
+    """The word rules' thinking level for this turn; escalation needs an answer to dispute."""
     if regenerate or (prior_user and is_answer_dispute(content)):
         return "escalate"
-    if read_think is not None:
-        return with_read(read_think, lesson_active=lesson_active)
     hard = message_needs_thinking(
         content,
         prior_user=prior_user,
@@ -74,19 +70,6 @@ def thinking_level(
         settings=settings,
     )
     return "hard" if hard else "off"
-
-
-def with_read(
-    read_think: bool, level: ThinkingLevel | bool | str = "off", *, lesson_active: bool = False
-) -> ThinkingLevel:
-    """The level once the read has answered: a turn already escalated stays so, and a
-    lesson's step ("next", a practice problem) stays off, on the fast lesson lane, as the
-    word rules keep it (``route``'s "lesson"), whatever the read says."""
-    if level == "escalate":
-        return "escalate"
-    if lesson_active:
-        return "off"
-    return "hard" if read_think else "off"
 
 
 def thinks_when_hard(alias: str) -> bool:
@@ -100,9 +83,10 @@ def lane_for_think(
 ) -> str | None:
     """Auto's lane for a turn the read says to think on, when it is the maths lane and its
     model cannot think (GLM 5.2 sends no reasoning at "hard"): the pool's smart lane, or
-    another of the pool's strong models that can think. None keeps the lane. The everyday
-    lane is not moved: the owner's rule names the maths lane. A model whose breaker is open
-    or half-open (``unsteady``) is never moved to: the turn would wait out its timeout."""
+    another of the pool's strong models that can think. None keeps the lane. A hard
+    everyday question reaches the strong lane by the read's table (``ROUTING.decided``),
+    not here. A model whose breaker is open or half-open (``unsteady``) is never moved to:
+    the turn would wait out its timeout."""
     if model != model_catalog.auto_math_alias() or model not in pool or thinks_when_hard(model):
         return None
     smart = model_catalog.auto_smart_alias()

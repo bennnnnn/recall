@@ -215,7 +215,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
 - ✅ **Web search** — models decide when to search; no word rule does. Two read the message:
-  a fast model reads it as the turn loads (`modules/web_search/live_read.py`, `live_read_enabled`,
+  a fast model reads it as the turn loads (`modules/chat/turn_decision.py`, `live_read_enabled`,
   on) and says whether its answer depends on facts that change (news, scores, prices, rates,
   weather, who holds an office now, the latest or next of anything, whether something is out
   yet) and, if so, the query a person would type, written with the conversation in view. Its
@@ -613,12 +613,28 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 5. Models & routing
 - ✅ **Multiple tiers** — six chat models, none of them coding models. Free: Qwen3.7 Flash
-  (everyday, Auto's fast lane), Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard and
-  maths turns). Paid adds DeepSeek V4.1 Flash (`smart-chat`), GLM 5.2 (Auto's maths lane) and
-  GPT-6 Luna. On Pro, Auto's everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
+  (everyday, Auto's fast lane, and since 2026-11-11 Free's maths lane, `ROUTING.math_free`),
+  Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard everyday turns, and the maths
+  lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, the hard lane and, since
+  2026-11-10, Auto's maths lane, with GLM 5.2 its first backup: `ROUTING.math_backups`), GLM 5.2
+  and GPT-6 Luna. Maths, physics and chemistry no solver verified go to the maths lane, hard
+  ones too. On Pro, Auto's
+  everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
   `entitlements.has_strong_everyday_model`, one switch per plan in `core/settings/plans.py`); it
-  keeps photo turns too. Hard and maths turns keep their lanes on every plan. No OpenRouter-auto
-  “Max” chip.
+  keeps photo turns too. No OpenRouter-auto “Max” chip.
+- ✅ **The decider** — Perplexity's Decider (`modules/chat/decider_read.py`, through
+  `gateways/decider_gateway.py`) answers, as probabilities, each message's subject, effort
+  (none, low, high), the picture it asks to see, how it follows the turn before and whether it
+  needs live facts; the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
+  with Haiku when it is refused) writes the search query and decides when the Decider fails.
+  Maths, physics and chemistry think only when the read calls them hard
+  (measured 2026-11-10). Auto's lane and the thinking level come from it through catalog data
+  (`ROUTING.decided`, `model_routing/decided.py`, applied in `chat/decided_turn.py`): a hard
+  everyday question goes to the strong lane, STEM no solver verified to the maths lane with the
+  worked layout, and each model thinks at the level its catalog entry names for the effort. A
+  verified solve or a money card keeps its lane; the word rules (`model_routing/route.py`)
+  decide only when the read gives no answer in time, and each turn's trace says which
+  (`decision.decided_by`). Measured on the 100-chat check-up of 2026-11-10.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
   design; the composer picker was removed to keep the composer single-purpose). Respected
   per chat turn. With Auto off, every message goes to one model: the screen names it

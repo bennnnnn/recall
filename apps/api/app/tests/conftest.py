@@ -54,7 +54,7 @@ for _provider_key in (
 ):
     os.environ[_provider_key] = ""
 os.environ["WEB_SEARCH_FALLBACK_ENABLED"] = "false"
-# The live read is a model call each turn starts (``web_search.live_read``): a test that
+# The turn's read is a model call each turn starts (``chat.turn_decision``): a test that
 # drives a turn never makes one; the read's own tests set it on a turn by hand.
 os.environ["LIVE_READ_ENABLED"] = "false"
 
