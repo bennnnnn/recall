@@ -205,7 +205,7 @@ async def test_a_guarded_model_holds_a_clean_start_until_the_stream_ends() -> No
         ("glm-5.3-flash", "escalate", True, 4.0),
         # Paid reasoning lanes: their first text, or the reasoning ahead of it.
         ("smart-chat", "hard", True, 8.0),
-        ("glm-5.2", "hard", True, 8.0),
+        ("qwen-3.8-flash", "hard", True, 8.0),
         # The photo lane reads an image first; it is not the everyday lane.
         ("vision-chat", "off", True, None),
         # The last model in the chain is never capped.
@@ -374,8 +374,8 @@ async def test_a_slow_opening_with_a_backup_still_gives_way_at_the_connect_timeo
         chat_stream_first_content_timeout_seconds=30,
     )
     started = time.monotonic()
-    reply = await _reply("smart-chat", ["glm-5.2"], fake, settings)
-    assert reply == "glm-5.2: Inertia resists change."
+    reply = await _reply("smart-chat", ["qwen-3.8-flash"], fake, settings)
+    assert reply == "qwen-3.8-flash: Inertia resists change."
     assert time.monotonic() - started < 2.0
 
 
@@ -438,8 +438,8 @@ async def test_the_only_model_that_answers_nothing_is_tried_once_more() -> None:
 async def test_the_last_backup_is_tried_once_more_and_no_more() -> None:
     fake = _chain(_ready(), _ready(), _ready(), _ready(chunk(content="never asked")))
     with pytest.raises(litellm_gateway.ModelUnavailableError):
-        await _reply("smart-chat", ["glm-5.2"], fake, _fast_caps())
-    assert fake.await_count == 3  # smart-chat, glm-5.2, glm-5.2 again
+        await _reply("smart-chat", ["qwen-3.8-flash"], fake, _fast_caps())
+    assert fake.await_count == 3  # smart-chat, qwen-3.8-flash, qwen-3.8-flash again
 
 
 @pytest.mark.asyncio
@@ -499,7 +499,9 @@ async def test_a_thinking_model_is_not_capped_once_it_streams_reasoning() -> Non
 async def test_a_paid_reasoning_model_streaming_its_reasoning_is_not_abandoned() -> None:
     thinking = [chunk(reasoning="step") for _ in range(6)]
     provider = _ready(*thinking, chunk(content="So x = 4."), delay=0.05)
-    reply = await _reply("smart-chat", ["glm-5.2"], _chain(provider), _fast_caps(), thinking="hard")
+    reply = await _reply(
+        "smart-chat", ["qwen-3.8-flash"], _chain(provider), _fast_caps(), thinking="hard"
+    )
     assert reply == "smart-chat: So x = 4."
 
 
@@ -508,8 +510,8 @@ async def test_a_paid_reasoning_model_streaming_its_reasoning_is_not_abandoned()
 async def test_a_silent_paid_reasoning_model_gives_way_after_its_cap() -> None:
     fake = _chain(FakeStream([]), _ready(chunk(content="So x = 4.")))
     started = time.monotonic()
-    reply = await _reply("smart-chat", ["glm-5.2"], fake, _fast_caps(), thinking="hard")
-    assert reply == "glm-5.2: So x = 4."
+    reply = await _reply("smart-chat", ["qwen-3.8-flash"], fake, _fast_caps(), thinking="hard")
+    assert reply == "qwen-3.8-flash: So x = 4."
     assert time.monotonic() - started < 2.0
 
 
@@ -776,7 +778,7 @@ async def test_a_thinking_status_that_fails_is_not_the_models_failure() -> None:
                 model_alias="smart-chat",
                 messages=[{"role": "user", "content": "hi"}],
                 max_tokens=50,
-                fallback_aliases=["glm-5.2"],
+                fallback_aliases=["qwen-3.8-flash"],
                 on_thinking=broken,
                 attempts=attempts,
             )

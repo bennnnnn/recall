@@ -46,10 +46,17 @@ RESISTORS = (
     "Find the equivalent resistance of 10 ohm and 20 ohm in series, then that combination in "
     "parallel with 30 ohm"
 )
-_POOL = ["free-chat", "smart-chat", "glm-5.3-flash", "glm-5.2", "gpt-6-luna", "qwen-3.7-flash"]
+_POOL = [
+    "free-chat",
+    "smart-chat",
+    "glm-5.3-flash",
+    "qwen-3.8-flash",
+    "gpt-6-luna",
+    "qwen-3.7-flash",
+]
 _FREE_POOL = ["qwen-3.7-flash", "free-chat", "glm-5.3-flash"]
 _FREE_MATHS = (ROUTING.math_free, "glm-5.3-flash")
-_PAID_MATHS = (ROUTING.math, "glm-5.2")
+_PAID_MATHS = (ROUTING.math, "qwen-3.8-flash")
 
 
 def _read(subject: str | None, think: bool | None, hard: bool = False) -> TurnDecision:
@@ -156,7 +163,7 @@ def test_a_stem_lane_falls_back_to_glm(pool: list[str], chain: tuple[str, str]) 
 
 
 def test_a_paid_plan_never_gets_frees_maths_lane() -> None:
-    """With DeepSeek and GLM 5.2 both switched off, a paid STEM turn goes to the strongest
+    """With DeepSeek and Qwen3.8 Flash both switched off, a paid STEM turn goes to the strongest
     model left, not to Free's Qwen lane."""
     pool = [alias for alias in _POOL if alias not in _PAID_MATHS]
     assert decided_lane("maths", "none", pool, math_lane=_PAID_MATHS) == "glm-5.3-flash"
@@ -167,7 +174,7 @@ async def test_a_stem_turn_tries_glm_before_the_rules_model() -> None:
     ctx = _turn(RESISTORS, _read("physics", False))
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.model == ROUTING.math
-    assert ctx.fallback_models == ["glm-5.2", "free-chat", "qwen-3.7-flash"]
+    assert ctx.fallback_models == ["qwen-3.8-flash", "free-chat", "qwen-3.7-flash"]
 
 
 def test_a_lane_never_goes_to_a_model_whose_breaker_is_open() -> None:
@@ -315,9 +322,10 @@ async def test_a_worked_layout_already_set_is_left_alone() -> None:
 
 
 def test_the_maths_lane_moves_to_a_model_that_can_think() -> None:
-    assert not thinks_when_hard("glm-5.2") and thinks_when_hard("smart-chat")
-    with_glm = [m for m in _POOL if m != ROUTING.math] + ["glm-5.2"]
-    assert lane_for_think("qwen-3.7-flash", with_glm) is None
+    assert not thinks_when_hard("qwen-3.7-flash") and thinks_when_hard("smart-chat")
+    assert thinks_when_hard("qwen-3.8-flash")
+    with_qwen = [m for m in _POOL if m != ROUTING.math] + ["qwen-3.8-flash"]
+    assert lane_for_think("qwen-3.7-flash", with_qwen) is None
     assert lane_for_think("smart-chat", _POOL) is None
 
 

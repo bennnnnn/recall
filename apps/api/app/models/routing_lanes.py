@@ -38,8 +38,12 @@ class RoutingLanes:
     # Given/Required layout and solved "How many solutions does $4X^2 + 4 = 6$ have?"
     # (2026-11-10), at the lowest price of the pool (the owner's call, 2026-11-11).
     math_free: str
-    # Each maths lane's first backup, from another company: GLM behind DeepSeek and Qwen,
-    # since an upstream rate limit refuses Qwen at busy hours (the owner's call, 2026-11-11).
+    # Each maths lane's first backup, from another company (the owner's calls, 2026-11-11):
+    # Qwen3.8 Flash behind DeepSeek, in GLM 5.2's place at a fifth of its output price (right
+    # on five unverified STEM questions at every thinking level, 0.8 s to the first word with
+    # thinking off; it reads photos too, but GLM 5.3 Flash read three in a third of the time,
+    # so its vision stays off); GLM 5.3 Flash behind Qwen3.7 Flash, since an upstream rate
+    # limit refuses Qwen at busy hours.
     math_backups: Mapping[str, str]
     # A turn that shows the model a photo, when its own model cannot read one,
     # and the second photo reader (another company) when the first fails.
@@ -93,7 +97,9 @@ ROUTING = RoutingLanes(
     hard="smart-chat",
     math="smart-chat",
     math_free="qwen-3.7-flash",
-    math_backups=MappingProxyType({"smart-chat": "glm-5.2", "qwen-3.7-flash": "glm-5.3-flash"}),
+    math_backups=MappingProxyType(
+        {"smart-chat": "qwen-3.8-flash", "qwen-3.7-flash": "glm-5.3-flash"}
+    ),
     vision="vision-chat",
     vision_backup="fallback-vision-model",
     tool_selectors=("gpt-6-luna", "free-chat"),

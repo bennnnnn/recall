@@ -104,7 +104,7 @@ def test_ordinary_question_turns_thinking_off_for_models_that_allow_it() -> None
     )
     glm = litellm_gateway._litellm_kwargs(
         settings,
-        litellm_gateway.resolve_route("glm-5.2"),
+        litellm_gateway.resolve_route("qwen-3.8-flash"),
         latency_sensitive=True,
         thinking=False,
     )

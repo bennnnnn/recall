@@ -332,7 +332,7 @@ def pick_preferred_tier(preferred: str, pool: list[str]) -> str:
 
 def math_lane_for(user: User, settings: Settings) -> tuple[str, str]:
     """The plan's maths lane and its backup (``ROUTING.math_backups``), by what the plan
-    includes, not by what the user left switched on: DeepSeek then GLM 5.2 on a plan with
+    includes, not by what the user left switched on: DeepSeek then Qwen3.8 Flash on a plan with
     DeepSeek, Qwen3.7 Flash then GLM 5.3 Flash on Free."""
     lane = ROUTING.math if ROUTING.math in allowed_model_ids(user, settings) else ROUTING.math_free
     return lane, ROUTING.math_backups[lane]

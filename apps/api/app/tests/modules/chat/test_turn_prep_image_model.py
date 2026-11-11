@@ -143,7 +143,7 @@ async def test_a_resent_photo_moves_the_turn_and_its_backups_to_image_readers() 
     user = _pro_user()
     bundle = prompt_bundle(
         prompt_messages=[{"role": "user", "content": "and the colour?"}],
-        fallback_models=["glm-5.2"],
+        fallback_models=["qwen-3.8-flash"],
     )
     processed = _attachments()
     processed.user = user

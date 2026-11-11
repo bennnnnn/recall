@@ -82,7 +82,7 @@ def lane_for_think(
     model: str, pool: list[str], unsteady: frozenset[str] = frozenset()
 ) -> str | None:
     """Auto's lane for a turn the read says to think on, when it is the maths lane and its
-    model cannot think (GLM 5.2 sends no reasoning at "hard"): the pool's smart lane, or
+    model cannot think (its catalog sends no reasoning at "hard"): the pool's smart lane, or
     another of the pool's strong models that can think. None keeps the lane. A hard
     everyday question reaches the strong lane by the read's table (``ROUTING.decided``),
     not here. A model whose breaker is open or half-open (``unsteady``) is never moved to:
