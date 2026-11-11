@@ -9,7 +9,10 @@ the rules' (``model_routing.decided``):
   chemistry think only when the read calls them hard);
 - Auto's lane follows the subject and the effort through catalog data;
 - a maths, physics or chemistry calculation no solver verified gets the ```worked block's
-  contract, as one the subject readers recognised does, when the readers missed it.
+  contract, as one the subject readers recognised does, when the readers missed it;
+- an everyday message the read calls an answer to the last reply, or a change to what the
+  conversation is about, gets a note beside it saying so (``FOLLOW_NOTES``): "the
+  language" after "Python the language, or the snake?" was asked back on every try without it.
 
 Numbers a server path already worked keep their lane and their level (a verified solve, a
 money card): the model only presents them. A lesson's step stays quick, a regenerate or a
@@ -29,11 +32,13 @@ from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
+from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
+from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
-from app.modules.chat.turn_trace import note_decision, note_route
+from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
 from app.modules.chat.worked_turn import states_a_quantity, with_worked_contract, worked_layout
-from app.modules.turn_reading.lesson_flow import active_lesson_step
+from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.turn_reading.school_question import is_school_exercise
 
 if TYPE_CHECKING:
@@ -41,6 +46,9 @@ if TYPE_CHECKING:
 
 # The read's subjects the worked layout reads, by the subject readers' names.
 _WORKED_SUBJECTS = {"maths": "math", "physics": "physics", "chemistry": "chemistry"}
+# The subjects whose follow-ups get the read's note. Maths, physics, chemistry and money
+# read their own ("what if it was 30 m/s?" changes the posed problem, ``chat.posed_read``).
+_NOTED_SUBJECTS = frozenset({"everyday", "code"})
 
 
 async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
@@ -59,6 +67,7 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     ctx.thinking = _level(ctx, read)
     _follow_the_lane(ctx, settings, read)
     _worked_layout(ctx, settings, read)
+    _follow_note(ctx, read)
 
 
 async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | None:
@@ -163,3 +172,16 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
     if layout is not None:
         ctx.worked = layout
         ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+
+
+def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
+    """The read's word on how the message leans on the conversation, beside it. A lesson, an
+    outline awaiting a pick and the turn after a clarify card read the reply their own way
+    (``message_notes``)."""
+    note = FOLLOW_NOTES.get(read.follow or "")
+    if note is None or read.subject not in _NOTED_SUBJECTS or ctx.after_card:
+        return
+    if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
+        return
+    note_prompt_rule(f"read.follow_{read.follow}")
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, note)

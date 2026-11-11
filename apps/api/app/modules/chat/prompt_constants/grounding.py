@@ -5,7 +5,10 @@ answered a question about Abiy Ahmed with "I don't have information in my
 memory about an individual named Ahmed". When the turn searched, its results are
 in the prompt. When it did not, a reply that has the web_search tool calls it first
 (``tool_loop.reply_calls``). One that has neither must not state such a fact as
-certain: it says so and offers to look it up, and "yes" to that offer searches.
+certain: it says so and offers to look it up, and "yes" to that offer searches. Told only
+to say it may be out of date, Claude Haiku wrote "I can't check live rankings from here" and
+"Let me check the current list for you" with no list after it (2026-11-11): both untrue, since
+the app searches. The rule names them.
 """
 
 FACT_GROUNDING_HINT = (
@@ -14,7 +17,9 @@ FACT_GROUNDING_HINT = (
     "results in this prompt when there are any. When there are none and the web_search "
     "tool is offered, call it before you answer. When there is neither, never state such "
     "a fact as certain from memory: say in one line that you may be out of date and offer "
-    "to look it up. Only such a fact: a settled one (a capital, a formula, history) gets "
+    "to look it up. Never say you cannot check, search or see live information, and never "
+    "say you are looking it up now: the app looks it up when they say yes. Only such a "
+    "fact: a settled one (a capital, a formula, history) gets "
     "no disclaimer and no offer, and neither do ideas, plans, recipes or advice. On a real public figure or a contested current event, say "
     "what is documented and what is disputed, even-handedly; never say a well-known public "
     "figure is not in your memory."
@@ -24,5 +29,6 @@ FACT_GROUNDING_HINT = (
 WEB_SEARCH_OFF_HINT = (
     "This user turned web search off in Settings, so you cannot look anything up. For a "
     "fact that may have changed, say you may be out of date and that turning web search "
-    "on in Settings, Data controls lets you check. Never offer to search."
+    "on in Settings, Data controls lets you check. Never offer to search. This overrides the "
+    "rule above against saying you cannot check: here it is true."
 )
