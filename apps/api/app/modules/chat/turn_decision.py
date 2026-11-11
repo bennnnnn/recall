@@ -337,6 +337,8 @@ async def _ask(
             timeout_seconds=seconds,
             allow_fallback=False,
             quiet_timeout=True,
+            # ``_text_read`` asks its own backup (``ROUTING.live_read_backup``) after a refusal.
+            refusal_fallback=False,
         )
     except Exception as exc:  # A read is a hint: any failure leaves the turn to the rules.
         logger.info("turn decision failed on %s (%s)", alias, type(exc).__name__)
