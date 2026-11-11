@@ -425,6 +425,18 @@ def _solution_out_of_place(prose: str, required: int, formula: int) -> bool:
     return at >= 0 and not required < at < formula
 
 
+# A procedure's own name heads its rule right under **Solution** ("**Conservation of atoms
+# and charge**", 2026-11-11): the heading in the formula's place is its Method.
+_AFTER_SOLUTION = re.compile(
+    rf"(\*\*{SOLUTION}\*\*\n\n)\*\*"
+    r"(?![(\[])(?!(?:Formula|Method|Substitution|Steps|Working|Answer)\*\*)[^*\n]+\*\*"
+)
+
+
+def _procedure_as_method(prose: str) -> str:
+    return _AFTER_SOLUTION.sub(r"\1**Method**", prose, count=1)
+
+
 def check_shape(
     entry: Entry, reply: str, subject: str = "physics", written: str | None = None
 ) -> list[Problem]:
@@ -433,6 +445,8 @@ def check_shape(
     problems: list[Problem] = []
     # A formula is headed by its name ("**Constant acceleration formula**"): its Formula.
     prose = as_formula_heading(_prose(reply))
+    if subject == "chemistry":
+        prose = _procedure_as_method(prose)
     if subject == "physics":
         problems.extend(_physics_working(_prose(reply), _prose(written or reply)))
     sections = _SECTIONS.get(subject, ())

@@ -67,6 +67,8 @@ def _unit(spelled: str) -> Any:
     """A unit as a reply writes it, read by Pint; raises when it is no unit."""
     text = spelled.replace("²", "^2").replace("³", "^3").replace("⁻¹", "^-1").replace("·", "*")
     text = text.replace("Ω", "ohm").replace("µ", "u").replace("°C", "degC")
+    # A lens's power in dioptres, D: Pint's D is the debye.
+    text = re.sub(r"^D$", "1/m", text)
     # A count of particles is a number: 1.2 × 10²⁴ particles is mol × mol⁻¹.
     text = re.sub(r"\b(?:particles?|atoms?|molecules?)\b", "dimensionless", text)
     return _UREG(text).units
@@ -236,11 +238,14 @@ def row_problems(reply: str) -> tuple[list[str], int]:
     seen: set[str] = set()
     for at, row in enumerate(rows):
         sides = [side.strip() for side in row.split("=")]
-        if not _VALUE.search("=".join(sides[1:])) or len(sides) < 2:
-            continue
-        lhs, rhs = sides[0], sides[1]
+        lhs = sides[0]
+        # The first row of a quantity is its first in the working, labelled or not: the
+        # value a closing row reaches (t = 7.23 × 10¹¹ s after its sum) is no given's.
         first = lhs not in seen
         seen.add(lhs)
+        if not _VALUE.search("=".join(sides[1:])) or len(sides) < 2:
+            continue
+        rhs = sides[1]
         if _stated(rhs) is not None and len(sides) == 2:
             continue
         try:
