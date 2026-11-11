@@ -112,7 +112,8 @@ def test_glued_please_is_equation_not_graph() -> None:
     intent = math_tools.extract_math_intent("2X=6please")
     assert intent is not None
     assert intent.kind == "equation"
-    assert intent.lhs == "2X"
+    # A capital unknown written as algebra reads as x (match/letter_case.py).
+    assert intent.lhs == "2x"
     assert intent.rhs == "6"
 
 

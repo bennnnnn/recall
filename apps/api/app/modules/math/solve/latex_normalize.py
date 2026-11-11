@@ -46,6 +46,8 @@ _LATEX_SYMBOL_SUBS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\\mathrm\{i\}"), "I"),
     (re.compile(r"\\infty"), "oo"),
     (re.compile(r"\\pi\b"), "pi"),
+    # Before \\cdot, which would read ``\\cdots`` as ``*s``: the keyboard's ``3, 7, 11, \\ldots``.
+    (re.compile(r"\\[lc]?dots(?![a-zA-Z])"), "..."),
     (re.compile(r"\\cdot"), "*"),
     (re.compile(r"\\times"), "*"),
     (re.compile(r"\\div"), "/"),
@@ -379,7 +381,9 @@ def normalize_latex_to_sympy(expr: str) -> str:
 
     s = _LATEX_FUNCTION_RE.sub(_func_repl, s)
     for _ in range(8):
-        nxt = _LATEX_FRAC_RE.sub(r"((\1)/(\2))", s)
+        # The keyboard's ``\frac{x^{2}}{2}``: a power's braces inside a fraction hide it
+        # from the fraction pattern until the power is written plain.
+        nxt = _rewrite_latex_braced_scripts(_LATEX_FRAC_RE.sub(r"((\1)/(\2))", s))
         if nxt == s:
             break
         s = nxt
