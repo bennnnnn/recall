@@ -74,11 +74,14 @@ def test_search_off_hint_points_to_the_setting_and_never_offers_a_search():
     assert "Never offer to search" in WEB_SEARCH_OFF_HINT  # safety phrase
 
 
-def test_search_off_may_say_what_the_grounding_rule_forbids_elsewhere():
-    """The grounding rule says never to claim the app can't look something up (Claude Haiku
-    wrote "I can't check live rankings from here" on a Pro phone test, 2026-11-11). With
-    search off it is true, and this note comes after that rule and says so."""
+@pytest.mark.asyncio
+async def test_search_off_comes_after_the_rule_it_overrides():
+    """The grounding rule forbids saying the app can't look something up (Claude Haiku wrote
+    "I can't check live rankings from here" on a Pro phone test, 2026-11-11). With search
+    off it is true: that note overrides "the rule above", so it must come after it."""
     from app.modules.chat.prompt_constants import FACT_GROUNDING_HINT
 
-    assert "Never say you cannot check" in FACT_GROUNDING_HINT
-    assert "overrides the rule above against saying you cannot check" in WEB_SEARCH_OFF_HINT
+    settings = Settings(attachment_rag_enabled=False, chat_history_rag_enabled=False)
+    system = await _system_prompt("who is the president of Kenya", settings, False)
+    assert FACT_GROUNDING_HINT in system and WEB_SEARCH_OFF_HINT in system
+    assert system.index(FACT_GROUNDING_HINT) < system.index(WEB_SEARCH_OFF_HINT)
