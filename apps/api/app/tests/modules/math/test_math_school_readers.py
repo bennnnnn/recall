@@ -409,6 +409,106 @@ def test_needs_symbolic_math_keeps_feature_lookalikes_out(text: str) -> None:
     assert not needs_symbolic_math(text)
 
 
+# The set the count is over: an interval, an inequality on the unknown, a sign word. A
+# count that ignored one was a wrong verified answer (review of 2026-11-10): "how many
+# solutions are there in [0, 5] to x^2 = 4" answered 2.
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("how many solutions does x^2 = 4 have in [0, 5]", "1"),
+        ("how many solutions are there in [0, 5] to x^2 = 4", "1"),
+        ("the number of solutions of x^2 = 4 in [0, 5]", "1"),
+        ("the number of roots of x^2 = 4 in (0, 5)", "1"),
+        ("number of zeros of x^2 - 4 = 0 in [0, 3]", "1"),
+        ("how many zeros of x^2 - 4 = 0 lie in [0, 3]", "1"),
+        ("how many solutions to x^2 = 4 with x in [1,3]", "1"),
+        ("how many solutions to x^2 = 4 where 1 <= x <= 3", "1"),
+        ("how many solutions does x^2 = 4 have in 0 < x < 5", "1"),
+        ("how many solutions does $x^{2} = 4$ have for $0 \\le x \\le 5$", "1"),
+        ("how many solutions does x^2 = 4 have for x > 0", "1"),
+        ("how many roots are there for x^2 = 4 for x > 0", "1"),
+        ("number of real roots of x^2 = 4 for x > 0", "1"),
+        ("number of solutions for x^2 = 4 if x >= 0", "1"),
+        ("how many solutions does x^2 = 4 have where x > 0 and x < 1", "0"),
+        ("how many solutions does x^2 = 4 have between 0 and 5", "1"),
+        ("how many positive solutions does x^2 - x - 6 = 0 have", "1"),
+        ("how many negative real roots does x^3 - x = 0 have", "1"),
+        ("how many solutions of x^2 = 4 are positive", "1"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_solution_count_is_over_the_stated_set(text: str, answer: str) -> None:
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
+
+
+# A value that makes a denominator of the written equation zero is no solution, as the
+# solve card says; "counting multiplicity" counts a repeated root as often as it repeats.
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("the number of solutions of x^2/x = 0", "0"),
+        ("how many solutions does $\\frac{x^{3}}{x} = 0$ have?", "0"),
+        ("how many solutions does $\\frac{x^{2}}{x} = 1$ have?", "1"),
+        ("how many solutions does $\\frac{x^{2} - 4}{x - 2} = 0$ have?", "1"),
+        ("how many solutions does (x^2-1)/(x-1) = 2 have", "0"),
+        ("how many solutions does 1/x = 0 have", "0"),
+        ("how many solutions does x/x = 1 have", r"\text{infinitely many}"),
+        ("how many roots does x^3 - 3x + 2 = 0 have", "2"),
+        ("how many roots does x^3 - 3x + 2 = 0 have counting multiplicity", "3"),
+        ("how many solutions does x^2 + 2x + 1 = 0 have counting multiplicity", "2"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_solution_count_excludes_denominators_and_reads_multiplicity(
+    text: str, answer: str
+) -> None:
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A condition no rule here reads: never a count over all the reals.
+        "how many solutions does x^2 = 2 have in integers",
+        "how many solutions does x^2 = 4 have in the range 0 to 5",
+        "how many solutions of 3x = 6 in mod 5",
+        # The condition is on another letter.
+        "how many solutions does x^2 = 4 have for t > 0",
+        # A root on an end of "between": the count depends on whether the ends count.
+        "how many solutions does x^2 = 4 have between 0 and 2",
+        # Two complex roots: no multiplicity count over the reals alone.
+        "how many roots does x^2 + 1 = 0 have counting multiplicity",
+    ],
+)
+@pytest.mark.asyncio
+async def test_solution_count_declines_conditions_it_cannot_read(text: str) -> None:
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is None or verified.canonical_answer not in {"1", "2"}
+
+
+@pytest.mark.asyncio
+async def test_solution_count_working_shows_the_set_the_denominator_and_a_double_root() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _, interval = await build_math_augmentation(
+        "how many solutions are there in [0, 5] to x^2 = 4", settings
+    )
+    assert interval is not None and interval.worked_reply is not None
+    assert r"x \in \left[0, 5\right]" in interval.worked_reply
+    assert "$x = 2$ — the solution in $\\left[0, 5\\right]$" in interval.worked_reply
+    _, cancelled = await build_math_augmentation("the number of solutions of x^2/x = 0", settings)
+    assert cancelled is not None and cancelled.worked_reply is not None
+    assert "**Given**  \n$\\frac{x^{2}}{x} = 0$" in cancelled.worked_reply
+    assert "$x \\ne 0$ — a denominator cannot be zero" in cancelled.worked_reply
+    assert "x = 0 is excluded" in cancelled.worked_reply
+    _, double = await build_math_augmentation("how many roots does x^3 - 3x + 2 = 0 have", settings)
+    assert double is not None and double.worked_reply is not None
+    assert "$x = 1$ — a double root, counted once" in double.worked_reply
+
+
 @pytest.mark.parametrize(
     "text",
     [

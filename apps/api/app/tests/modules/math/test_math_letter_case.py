@@ -18,6 +18,9 @@ from app.modules.math.match.letter_case import fold_capital_unknowns
         ("find k so that $X^2 + kX + 9 = 0$", "find k so that $x^2 + kx + 9 = 0$"),
         ("if $f(X) = X^{2} + 1$ find f(2)", "if $f(x) = x^{2} + 1$ find f(2)"),
         ("expand $(X+1)^2$", "expand $(x+1)^2$"),
+        # A word with an x or a y in it is no second letter.
+        ("the box holds 2X marbles, yes", "the box holds 2x marbles, yes"),
+        ("why does 4X^2 = 1 have two solutions", "why does 4x^2 = 1 have two solutions"),
         # "x-intercepts" is a word, not a second letter x.
         ("find the x-intercepts of $y = X^2 - 4$", "find the x-intercepts of $y = x^2 - 4$"),
     ],
@@ -32,8 +35,13 @@ def test_fold_capital_unknowns_reads_the_unknown(text: str, folded: str) -> None
         # A random variable beside another capital.
         "P(X = 2) for X ~ B(10, 0.3)",
         "E(X) = 3",
-        # Two letters: x and X may differ.
+        # Two letters: x and X may differ, alone or in a product of letters.
         "x + X^2 = 3",
+        "If xy = 12 and X = 3Y, find X and Y",
+        "Given xy = 6 and X^2 = 4, find X",
+        "solve ax + X^2 = 5 for X",
+        "solve 2xy + X^2 = 1",
+        "integrate X^2 dx",
         # Names and prose.
         "Malcolm X (born 1925)",
         "X-rays of wavelength 0.154 nm strike a crystal",

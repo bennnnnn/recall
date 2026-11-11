@@ -9,6 +9,10 @@ from __future__ import annotations
 import re
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tools.school.equation_features.count_conditions import (
+    CountConditions,
+    read_count_conditions,
+)
 
 FEATURE_OPS = frozenset(
     {
@@ -67,7 +71,8 @@ _FEATURES: tuple[tuple[str, re.Pattern[str]], ...] = (
         "solution_count",
         re.compile(
             r"\b(?:how\s+many|(?:the\s+)?number\s+of)\s+(?:distinct\s+|different\s+)?"
-            r"(?P<real>real\s+)?(?:distinct\s+|different\s+)?(?:solutions?|roots?|zeros?|zeroes?)"
+            r"(?:(?:non-?)?(?:positive|negative)\s+)?(?P<real>real\s+)?(?:distinct\s+|different\s+)?"
+            r"(?:solutions?|roots?|zeros?|zeroes?)"
             r"\s+(?:does|do|will|has|are\s+there(?:\s+(?:to|for|of|in))?|of|to|for|in)\b",
             re.I,
         ),
@@ -187,6 +192,17 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
         return None
     (op,) = ops
     match = next(match for name, match in found if name == op)
+    conditions: CountConditions | None = None
+    if op == "solution_count":
+        # "in [0, 5]", "for x > 0", "positive": the set the count is over, read first.
+        read = read_count_conditions(body)
+        if read is None:
+            return None
+        body, conditions = read
+        recount = dict(_FEATURES)["solution_count"].search(body)
+        if recount is None:
+            return None
+        match = recount
     if op in {"slope", "slope_intercept"} and len(_POINT.findall(body)) >= 2:
         # A slope between two points belongs to the coordinate rules.
         return None
@@ -208,6 +224,8 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
     lhs, rhs = sides
     if not _only_frame_words(body, match):
         return None
+    if conditions is not None:
+        return _count_intent(lhs, rhs, match, conditions)
     return MathIntent(
         kind="arithmetic",
         school_op=f"equation_{op}",
@@ -215,13 +233,48 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
         rhs=rhs,
         point_x=point[0] if point else None,
         point_y=point[1] if point else None,
-        trial_outcome=(
-            match.group("relation").lower()
-            if op == "line_through"
-            else ("real" if op == "solution_count" and match.group("real") else None)
-        ),
+        trial_outcome=match.group("relation").lower() if op == "line_through" else None,
         operation="solve",
     )
+
+
+def _count_intent(
+    lhs: str, rhs: str, match: re.Match[str], conditions: CountConditions
+) -> MathIntent | None:
+    """A count over its conditions: the bounds as a bounded solve carries them
+    (``integral_lower``/``integral_upper``, ``comparator``/``comparator_upper``; ``?`` for
+    "between", either end may count), and what is counted in ``trial_outcome``."""
+    from app.modules.math import solve as math_solve
+
+    if conditions.variable is not None and math_solve.guess_variables(f"{lhs} = {rhs}") != [
+        conditions.variable
+    ]:
+        # "for t > 0" about an equation in x is not a condition on its unknown.
+        return None
+    counted = [
+        word
+        for word, wanted in (
+            ("real", match.group("real")),
+            ("multiplicity", conditions.multiplicity),
+        )
+        if wanted
+    ]
+    return MathIntent(
+        kind="arithmetic",
+        school_op="equation_solution_count",
+        lhs=lhs,
+        rhs=rhs,
+        integral_lower=conditions.lower,
+        integral_upper=conditions.upper,
+        comparator=_end(conditions.lower_closed) if conditions.lower is not None else None,
+        comparator_upper=_end(conditions.upper_closed) if conditions.upper is not None else None,
+        trial_outcome=" ".join(counted) or None,
+        operation="solve",
+    )
+
+
+def _end(closed: bool | None) -> str:
+    return "?" if closed is None else ("<=" if closed else "<")
 
 
 def _no_equals_ok(body: str) -> bool:
