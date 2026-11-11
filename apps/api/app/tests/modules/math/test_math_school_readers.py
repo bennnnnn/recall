@@ -443,6 +443,54 @@ async def test_solution_count_is_over_the_stated_set(text: str, answer: str) -> 
     assert verified.canonical_answer == answer
 
 
+# A bound is read whole, with the parser the equation is read with, and the condition is
+# solved for the unknown: "for x > -2 + 3" was read as x > -2, and "for -x > 0" as x > 0
+# (re-review of 2026-11-10). x^3 - 7x + 6 = 0 has the roots -3, 1 and 2.
+@pytest.mark.parametrize(
+    ("condition", "answer"),
+    [
+        ("for x > -2 + 3", "1"),
+        ("for 0 < x < 1 + 1", "1"),
+        ("for 0 < x <= 1 + 1", "2"),
+        ("for x > 2 - 3", "2"),
+        ("for x < 2^2", "3"),
+        ("for x > 1e3", "0"),
+        ("for -x > 0", "1"),
+        ("for 2x > 3", "1"),
+        ("for x^2 < 4", "1"),
+        ("in [-1 + 1, 2 + 1]", "2"),
+        ("for x > 0 and x < 3", "2"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_solution_count_reads_each_bound_whole(condition: str, answer: str) -> None:
+    text = f"how many solutions does x^3 - 7x + 6 = 0 have {condition}"
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        # Two conditions joined only by a comma: "or" or "and" is not said.
+        "for x < -1, x > 1",
+        # Bounds given backwards.
+        "in [5, 0]",
+        "for 5 < x < 0",
+        # Two intervals, a word in a bound, another letter.
+        "for x^2 > 4",
+        "for x > 2 apples",
+        "for x > y",
+    ],
+)
+@pytest.mark.asyncio
+async def test_solution_count_declines_a_condition_it_cannot_read_whole(condition: str) -> None:
+    text = f"how many solutions does x^3 - 7x + 6 = 0 have {condition}"
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is None or verified.canonical_answer not in {"0", "1", "2", "3"}
+
+
 # A value that makes a denominator of the written equation zero is no solution, as the
 # solve card says; "counting multiplicity" counts a repeated root as often as it repeats.
 @pytest.mark.parametrize(

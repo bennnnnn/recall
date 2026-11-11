@@ -11,6 +11,7 @@ import re
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.school.equation_features.count_conditions import (
     CountConditions,
+    count_region,
     read_count_conditions,
 )
 
@@ -246,10 +247,9 @@ def _count_intent(
     "between", either end may count), and what is counted in ``trial_outcome``."""
     from app.modules.math import solve as math_solve
 
-    if conditions.variable is not None and math_solve.guess_variables(f"{lhs} = {rhs}") != [
-        conditions.variable
-    ]:
-        # "for t > 0" about an equation in x is not a condition on its unknown.
+    unknowns = math_solve.guess_variables(f"{lhs} = {rhs}")
+    region = count_region(conditions, unknowns[0]) if len(unknowns) == 1 else None
+    if region is None:
         return None
     counted = [
         word
@@ -264,10 +264,10 @@ def _count_intent(
         school_op="equation_solution_count",
         lhs=lhs,
         rhs=rhs,
-        integral_lower=conditions.lower,
-        integral_upper=conditions.upper,
-        comparator=_end(conditions.lower_closed) if conditions.lower is not None else None,
-        comparator_upper=_end(conditions.upper_closed) if conditions.upper is not None else None,
+        integral_lower=region.lower,
+        integral_upper=region.upper,
+        comparator=_end(region.lower_closed) if region.lower is not None else None,
+        comparator_upper=_end(region.upper_closed) if region.upper is not None else None,
         trial_outcome=" ".join(counted) or None,
         operation="solve",
     )

@@ -139,5 +139,8 @@
   {"id": "sc7", "area": "trap", "prompt": "how many solutions does $\\frac{x^{3}}{x} = 0$ have?", "expect": "answer", "check": ["regex", "no solution|none|\\b0\\b|zero"]},
   {"id": "sc8", "area": "trap", "prompt": "how many solutions does $\\frac{x^{2} - 4}{x - 2} = 0$ have?", "expect": "answer", "check": ["num", "1"], "note": "x = 2 is excluded, x = -2 stays"},
   {"id": "sc9", "area": "trap", "prompt": "how many roots does x^3 - 3x + 2 = 0 have counting multiplicity", "expect": "answer", "check": ["num", "3"]},
-  {"id": "sc10", "area": "trap", "prompt": "how many solutions does x^2 = 2 have in integers", "expect": "decline", "note": "a set no rule reads: never a count over all the reals"}
+  {"id": "sc10", "area": "trap", "prompt": "how many solutions does x^2 = 2 have in integers", "expect": "decline", "note": "a set no rule reads: never a count over all the reals"},
+  {"id": "sc11", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for x > -2 + 3", "expect": "answer", "check": ["num", "1"], "note": "a bound read whole: x > 1, not x > -2 (it was answered 2)"},
+  {"id": "sc12", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for -x > 0", "expect": "answer", "check": ["num", "1"], "note": "the sign before the letter: x < 0"},
+  {"id": "sc13", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for x < -1, x > 1", "expect": "decline", "note": "two conditions joined by a comma: and or or is not said"}
 ]
