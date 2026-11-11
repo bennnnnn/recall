@@ -4,8 +4,10 @@ picture and follow-up."""
 from __future__ import annotations
 
 import asyncio
+import json
+import re
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, get_args
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -14,7 +16,7 @@ from app.gateways.litellm_gateway import _call_kwargs
 from app.gateways.stream_tool_calls import ToolOffer
 from app.models import model_catalog
 from app.modules.chat import decider_read, turn_decision
-from app.modules.chat.turn_decision import TurnDecision
+from app.modules.chat.turn_decision import Follow, Picture, Subject, TurnDecision
 from app.tests.fakes import isolated_settings
 
 _SETTINGS = isolated_settings(web_search_enabled=True, mcp_tool_loop_enabled=True)
@@ -109,25 +111,22 @@ def test_the_read_sees_the_last_two_exchanges_each_cut_short() -> None:
     assert turn_decision.earlier_turns(None) == []
 
 
-@pytest.mark.parametrize(
-    "kind",
-    [
-        # 2026-11-09, one chat: each of these was searched before a reply that needed none.
-        "whether to repair, replace or buy something",
-        "steps, settings and checks on a phone",
-        "where the user is",
-        "getting from the user to a place the conversation already named",
-        # And what searches whatever the topic: the read's ``asked``.
-        "asked is true when the user's last message asks you to search the web",
-        # Never the user's own words sent to the web: their chats and memory are here.
-        "a search of their own chats, memory, notes, to-dos or files is not asked",
-        # Whether to think first (``model_routing.thinking``), and what never needs it.
-        "think is true when a careful answer must be reasoned out before it is written",
-        "a single equation or expression to solve, differentiate or simplify",
-    ],
-)
-def test_the_reads_instructions_name_each_kind(kind: str) -> None:
-    assert kind in turn_decision.decision_messages("hi", [])[0]["content"]
+def test_the_instructions_ask_for_every_field_in_order() -> None:
+    """The read's example answer holds each field the schema reads, in its order, and parses."""
+    system = turn_decision.decision_messages("hi", [])[0]["content"]
+    example = json.loads(system.split("Example: ")[-1].rstrip(". \n"))
+    assert list(example) == [
+        "asked",
+        "query",
+        "live",
+        "subject",
+        "think",
+        "hard",
+        "picture",
+        "follow",
+    ]
+    assert set(example) <= set(TurnDecision.model_fields)
+    assert TurnDecision.model_validate(example).effort == "none"
 
 
 @pytest.mark.parametrize(
@@ -261,19 +260,13 @@ async def test_a_message_with_nothing_before_it_follows_nothing() -> None:
     assert read is not None and read.follow == "solve"
 
 
-@pytest.mark.parametrize(
-    "kind",
-    [
-        "subject is what the message is about",
-        "gas laws and heat are physics",
-        "hard is true when the reasoning is the work itself",
-        "picture is what the message asks to see",
-        "A map is none",
-        "follow is how the message relates to the earlier turns",
-    ],
-)
-def test_the_instructions_name_each_decision(kind: str) -> None:
-    assert kind in turn_decision.decision_messages("hi", [])[0]["content"]
+def test_the_instructions_name_every_choice_of_every_field() -> None:
+    """A choice the schema takes and the instructions never name is one the read cannot
+    give: each subject, picture and follow-up value is named."""
+    system = turn_decision.decision_messages("hi", [])[0]["content"]
+    for kind in (Subject, Picture, Follow):
+        for value in get_args(kind):
+            assert re.search(rf"\b{value}\b", system), value
 
 
 @pytest.mark.asyncio
@@ -379,3 +372,54 @@ def test_the_deciders_probabilities_set_the_effort(
     assert (read.effort, read.follow) == (effort, "draw")
     assert decider_read.decision_fields(answers, has_earlier=False)["follow"] == "none"  # type: ignore[index]
     assert decider_read.decision_fields({}, has_earlier=False) is None
+
+
+def _slow_text_read(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
+    """The text read as a call that never ends; the list says whether it was stopped."""
+    stopped: list[bool] = []
+
+    async def text_read(*_args: Any) -> TurnDecision | None:
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            stopped.append(True)
+            raise
+        return None
+
+    monkeypatch.setattr(turn_decision, "_text_read", text_read)
+    return stopped
+
+
+@pytest.mark.asyncio
+async def test_an_answer_with_no_search_stops_the_text_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stopped = _slow_text_read(monkeypatch)
+
+    async def decider(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        await asyncio.sleep(0.01)  # The text read is under way by the Decider's answer.
+        return _fields()
+
+    monkeypatch.setattr(decider_read, "decide_turn", decider)
+    assert await turn_decision.read_decision(_SETTINGS, "hi", earlier=[]) is not None
+    await asyncio.sleep(0)
+    assert stopped == [True]
+
+
+@pytest.mark.asyncio
+async def test_a_read_the_reply_gave_up_on_stops_the_text_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reply's wait cancels the read: the text read and its backup stop with it, not
+    billed on (review, 2026-11-10)."""
+    stopped = _slow_text_read(monkeypatch)
+
+    async def slow_decider(*_args: Any, **_kwargs: Any) -> None:
+        await asyncio.sleep(30)
+
+    monkeypatch.setattr(decider_read, "decide_turn", slow_decider)
+    task = asyncio.ensure_future(turn_decision.read_decision(_SETTINGS, "hi", earlier=[]))
+    settings = isolated_settings(live_read_wait_seconds=0.05)
+    assert await turn_decision.turn_decision_result(task, settings) is None
+    await asyncio.sleep(0)
+    assert stopped == [True]

@@ -21,8 +21,16 @@ from .boundary_support import APP_ROOT
 
 _TESTS = APP_ROOT / "tests"
 _PLACEHOLDER = re.compile(r"(?<!\{)\{[A-Za-z_0-9!:.]*\}(?!\})")
-# Literal prompt-copy asserts left; lower this when a change replaces some.
-_PINNED = 98
+# Literal prompt-copy asserts left; lower this when a change replaces some. 107 since the
+# guard reads templates too (2026-11-10): nine asserts on template copy were already there.
+_PINNED = 107
+
+
+def _as_sent(text: str) -> str:
+    """A template as a model reads it: each ``{placeholder}`` filled (with nothing) and each
+    ``{{`` brace single. A test that pinned a template's words went unseen while templates
+    were skipped (the turn's read, 2026-11-10)."""
+    return _PLACEHOLDER.sub("", text).replace("{{", "{").replace("}}", "}")
 
 
 def _prompt_texts() -> list[str]:
@@ -34,8 +42,8 @@ def _prompt_texts() -> list[str]:
         for node in ast.parse(path.read_text()).body:
             value = node.value if isinstance(node, ast.Assign | ast.AnnAssign) else None
             if isinstance(value, ast.Constant) and isinstance(value.value, str):
-                if len(value.value) >= 40 and not _PLACEHOLDER.search(value.value):
-                    texts.append(value.value)
+                if len(value.value) >= 40:
+                    texts.append(_as_sent(value.value))
     return texts
 
 
