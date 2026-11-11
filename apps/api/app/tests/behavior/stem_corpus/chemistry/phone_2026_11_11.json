@@ -1,0 +1,53 @@
+[
+ {
+  "id": "p11-density-ethanol-volume",
+  "area": "density",
+  "prompt": "Ethanol has a density of 0.789 g/mL. What volume does 50.0 g of ethanol occupy?",
+  "expect": "answer",
+  "answers": [[63.37, "mL"]],
+  "shared": "physics",
+  "note": "V = m/ρ = 50.0/0.789; ρ = m/V is physics' law (catalog/fluids.py density)"
+ },
+ {
+  "id": "p11-density-mercury-mass",
+  "area": "density",
+  "prompt": "Mercury has a density of 13.6 g/mL. What is the mass of 25.0 mL of mercury?",
+  "expect": "answer",
+  "answers": [[340, "g"]],
+  "shared": "physics",
+  "note": "m = ρV = 13.6 × 25.0"
+ },
+ {
+  "id": "p11-tex-molarity",
+  "area": "molarity",
+  "prompt": "What is the molarity of a solution with \\(0.50 \\text{ mol}\\) of NaCl dissolved in \\(2.0 \\text{ L}\\) of water?",
+  "expect": "answer",
+  "answers": [[0.25, "M"]],
+  "note": "c = n/V = 0.50/2.0, in LaTeX (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-tex-moles-water",
+  "area": "moles",
+  "prompt": "How many moles are in \\(36.0\\,\\mathrm{g}\\) of \\(\\mathrm{H_2O}\\)?",
+  "expect": "answer",
+  "answers": [[1.998, "mol"]],
+  "note": "n = 36.0/18.015; a formula written \\mathrm{H_2O}"
+ },
+ {
+  "id": "p11-tex-molar-mass-ce",
+  "area": "molar_mass",
+  "prompt": "Calculate the molar mass of \\(\\ce{H2SO4}\\).",
+  "expect": "answer",
+  "answers": [[98.072, "g/mol"]],
+  "note": "2(1.008) + 32.06 + 4(15.999); mhchem's \\ce{}"
+ },
+ {
+  "id": "p11-tex-ph",
+  "area": "ph",
+  "prompt": "What is the pH of a \\(1.0 \\times 10^{-3}\\,\\text{M}\\) HCl solution?",
+  "expect": "answer",
+  "answers": [[3.0, ""]],
+  "abs_tol": 0.02,
+  "note": "pH = −log(1.0 × 10⁻³)"
+ }
+]

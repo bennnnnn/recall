@@ -14,6 +14,7 @@ from app.modules.physics.registry import (
     has_supported_physics_cue,
 )
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.latex_markup import without_markup
 from app.services.number_text import fold_scientific
 from app.services.symbolic_text import (
     _MAX_PHYSICS_REQUEST,
@@ -116,6 +117,8 @@ def needs_physics(text: str) -> bool:
 
     if is_symbolic_physics_request(text):
         return True
+    # A question pasted in LaTeX is read as its plain text: "\\(12.0 \\text{ V}\\)" is 12.0 V.
+    text = without_markup(text)
     if _ERRAND_RE.search(text) is not None:
         return False
     from app.modules.physics.force_pictures import force_picture
@@ -145,10 +148,12 @@ def needs_physics(text: str) -> bool:
     if has_supported_physics_cue(cleaned):
         return True
     # The catalog is a cue too: a question that states one law's inputs and
-    # asks for its result exactly ("the weight of a 70 kg person") is physics.
-    from app.modules.physics.binding import bind_physics_intent
+    # asks for its result exactly ("the weight of a 70 kg person") is physics, and
+    # so is one that states its result and asks an input ("a density of 0.789 g/mL:
+    # what volume does 50 g take up?").
+    from app.modules.physics.binding import bind_physics_intent, bind_solved_for
 
-    if bind_physics_intent(cleaned) is not None:
+    if bind_physics_intent(cleaned) is not None or bind_solved_for(cleaned) is not None:
         return True
     # So is a complete reading of a trip in two stages, a chase, or two legs at
     # right angles, which no single law fits.
@@ -215,6 +220,7 @@ def read_physics_request(text: str) -> PhysicsRequest | None:
     from app.modules.physics.claims import question_without_claims
     from app.modules.physics.request import prepare_physics_request
 
+    text = without_markup(text)
     named = _named_symbol_request(text)
     if named is not None:
         text = named
@@ -231,6 +237,7 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     from app.modules.physics.ask import asked_phrases, has_ask
     from app.modules.physics.request import complete_physics_intent
 
+    text = without_markup(text)
     named = _named_symbol_request(text)
     if named is not None:
         return _extract_physics_intent(named)
@@ -275,7 +282,12 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     # a question from math.
     if not needs_physics(text):
         return None
-    from app.modules.physics.binding import bind_physics_intent
+    from app.modules.physics.binding import bind_physics_intent, bind_solved_for
 
     bound = bind_physics_intent(request.text)
-    return None if bound is None else complete_physics_intent(bound, request)
+    if bound is not None:
+        return complete_physics_intent(bound, request)
+    # A law whose result the question states, solved for the quantity it asks: "400 J of
+    # work with a force of 80 N. How far?" is W = Fs solved for s.
+    solved = bind_solved_for(request.text)
+    return None if solved is None else complete_physics_intent(solved, request)

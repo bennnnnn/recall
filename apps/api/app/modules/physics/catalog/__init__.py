@@ -53,6 +53,7 @@ from app.services.law_binding.spec import (
     FormulaSpec,
     formula,
     matching_variant,
+    result_variable,
     select_formula,
     symbol_for,
     variable_for,
@@ -67,6 +68,7 @@ __all__ = [
     "formula",
     "formula_spec",
     "matching_variant",
+    "result_variable",
     "select_formula",
     "symbol_for",
     "variable_for",
@@ -140,7 +142,9 @@ def check_intent(kind: str, operation: str, params: Iterable[str], units: Iterab
     spec = CATALOG.get(operation)
     if spec is None or spec.kind != kind:
         raise ValueError(f"{kind} does not define {operation}")
-    allowed = {variable.name for variable in spec.variables}
+    # A law solved for one of its inputs is given its own result (``law_binding.inverse``).
+    stated = result_variable(spec)
+    allowed = {variable.name for variable in spec.variables} | ({stated.name} if stated else set())
     given = set(params)
     unknown = given - allowed
     if unknown:

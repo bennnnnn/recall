@@ -30,7 +30,11 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    Every reader (the gate, extraction, the binder, turn context) first reads the text as
    ASCII (`input_text.py`), since a student often copies the app's own typeset reply back:
    `H₂SO₄` is `H2SO4`, `Fe³⁺` is `Fe^3+`, `10⁻³` is `10^-3`, and a hydrate's dot (`.`, `·`,
-   `•`, `*`) is one `·`, so `CuSO4.5H2O` is one formula with its water. A lowercase `ph`
+   `•`, `*`) is one `·`, so `CuSO4.5H2O` is one formula with its water. A question pasted
+   in LaTeX is its plain text first (`services/latex_markup.py`, shared with physics):
+   `\(0.50 \text{ mol}\)` is `0.50 mol`, `\mathrm{H_2SO_4}` and `\ce{H2SO4}` are `H2SO4`,
+   `\ce{Fe^{3+}}` is `Fe^3+`. A density (ρ = m/V) is physics' law, never a second copy
+   here. A lowercase `ph`
    beside its value or before a molar concentration is `pH`, and `=` between two sides of
    formulas is the arrow of an equation the question asks to balance
    (`Al + HCl = AlCl3 + H2`). A question chemistry cannot close is still chemistry's,

@@ -10,8 +10,9 @@ from __future__ import annotations
 import math
 import re
 from decimal import Decimal, InvalidOperation
+from functools import lru_cache
 
-from app.modules.physics.givens import unit_at
+from app.modules.physics.givens import ANGLE, unit_at, unit_dimension
 from app.services.number_text import LITERAL_START, NUMERIC_LITERAL
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST
 
@@ -147,7 +148,82 @@ def normalize_physics_units(text: str) -> str:
         for pattern, replacement in _MACHINE_ABBREVIATIONS:
             normalized = pattern.sub(replacement, normalized)
         normalized = _LENGTH_BEFORE_PLANK.sub(r"\1 long \2", normalized)
-    return normalized
+    return unit_names_as_symbols(normalized)
+
+
+# A number, where a unit written after it may start.
+_NUMBER_END = re.compile(r"\d(?![\d.])")
+# A unit that goes on past its name ("metres per second", "joules/kg") is read whole by
+# the table or not at all: its first word alone is not its symbol.
+_UNIT_GOES_ON = re.compile(r"\s*(?:/|per\b|squared\b|cubed\b|\^)", re.IGNORECASE)
+
+
+def unit_names_as_symbols(text: str) -> str:
+    """A unit named in words after its number, written as its symbol: "30 Newtons" is 30 N.
+
+    The givens scan reads every spelling the unit table lists, but each extractor reads the
+    symbols its own pattern lists, so "a net force of 30 Newtons" had no force for F = ma and
+    "100 grams" no mass for a density (phone test, 2026-11-11). The symbol is the table's
+    own reading of the same unit. A kind every reader reads in words (``_READ_AS_WORDS``),
+    a temperature scale and a name the table has no symbol for are left as written.
+    """
+    pieces: list[str] = []
+    cursor = 0
+    for number in _NUMBER_END.finditer(text):
+        if number.end() <= cursor:
+            continue
+        unit = unit_at(text, number.end())
+        symbol = _symbol_of_name(unit[0]) if unit is not None else None
+        if symbol is None or unit is None:
+            continue
+        start = text.find(unit[0], number.end())
+        end = start + len(unit[0])
+        if _UNIT_GOES_ON.match(text, end):
+            continue
+        pieces.extend((text[cursor:start], symbol))
+        cursor = end
+    return "".join(pieces) + text[cursor:] if pieces else text
+
+
+@lru_cache(maxsize=512)
+def _symbol_of_name(spelling: str) -> str | None:
+    """The symbol the unit table reads as the unit this one word names, or None."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+
+    if not spelling.isalpha() or len(spelling) < 4:
+        return None
+    expression = PHYSICS_UNITS.word(spelling)
+    reading = unit_dimension(expression) if expression is not None else None
+    if (
+        expression is None
+        or reading is None
+        or reading[0] in _READ_AS_WORDS
+        or expression in _TEMPERATURE_SCALES
+    ):
+        return None
+    symbols = [
+        written
+        for table in (PHYSICS_UNITS.symbols, PHYSICS_UNITS.words)
+        for written, read in table.items()
+        if read == expression and _is_symbol(written)
+    ]
+    # The shortest, and of two as short the one a keyboard types: "uC" before "µC".
+    return min(symbols, key=lambda written: (len(written), not written.isascii()), default=None)
+
+
+# Kinds every reader already reads in words, which stay as written: a length, a time and
+# an angle ("20 metres", "5 seconds", "30 degrees"), a count ("500 turns", "20 percent").
+# A temperature scale keeps its name too: "20 °c" is no spelling a reader expects.
+_READ_AS_WORDS = frozenset({"[length]^1", "[time]^1", ANGLE, "dimensionless"})
+_TEMPERATURE_SCALES = frozenset({"degC", "degF"})
+
+
+def _is_symbol(written: str) -> bool:
+    """A unit symbol: "N", "kg", "Hz", "Ω", "µF". A word, however short, is not one: "mol"
+    is read as written by the readers that know it."""
+    if not written.isascii():
+        return True
+    return len(written) <= 2 or not (written.isalpha() and written.islower())
 
 
 # "only 1/16 of a sample": a fraction of something, whose denominator has only

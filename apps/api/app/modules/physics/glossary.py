@@ -9,6 +9,9 @@ says which. ``test_glossary.py`` holds every visible catalog variable to a meani
 
 from __future__ import annotations
 
+from app.modules.physics.catalog import formula_spec
+from app.modules.physics.law_nouns import asked_noun
+
 # The meaning by catalog name. Indexed names (m1, m2, R1…) share one noun so
 # the line can group them: "m₁, m₂ = masses".
 _MEANINGS: dict[str, str] = {
@@ -479,5 +482,15 @@ _BY_OPERATION: dict[tuple[str, str], str] = {
 
 
 def given_meaning(operation: str, kind: str, name: str) -> str | None:
-    """What the given ``name`` stands for in this law, or None when it has no entry."""
-    return _BY_OPERATION.get((operation, name)) or _BY_KIND.get((kind, name)) or _MEANINGS.get(name)
+    """What the given ``name`` stands for in this law, or None when it has no entry.
+
+    A law's own result stated as a given, when the law is solved for another of its
+    quantities, is named by the law's id (``law_binding.inverse``) and means what the law
+    is asked for: "work done", "density".
+    """
+    found = _BY_OPERATION.get((operation, name)) or _BY_KIND.get((kind, name))
+    found = found or _MEANINGS.get(name)
+    if found is None and name == operation:
+        spec = formula_spec(operation)
+        return None if spec is None else asked_noun(spec)
+    return found

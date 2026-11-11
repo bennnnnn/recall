@@ -26,6 +26,39 @@ def _same_unit(left: str, right: str) -> bool:
     return (unit_expression(left) or left) == (unit_expression(right) or right)
 
 
+def _rate_parts(speed_unit: str) -> tuple[str, str] | None:
+    """A speed unit's length and its time, each a spelling the unit table reads.
+
+    "km/h" is km over h as written. A speed written with no slash is read from the table:
+    "miles per hour" and "mph" are mi over h. Split as text, they had no slash, and the
+    train at 60 miles per hour for 4.5 hours was left to the model (2026-11-11).
+    """
+    if "/" in speed_unit:
+        length, time = speed_unit.split("/", 1)
+        return length, time
+    from app.modules.physics.givens import unit_expression
+
+    expression = unit_expression(speed_unit)
+    parts = expression.split(" / ") if expression else []
+    if len(parts) != 2:
+        return None
+    above, below = (_short_spelling(part.strip()) for part in parts)
+    return None if above is None or below is None else (above, below)
+
+
+def _short_spelling(expression: str) -> str | None:
+    """The shortest spelling the unit table reads as this Pint unit: "mile" is "mi"."""
+    from app.modules.physics.givens import PHYSICS_UNITS
+
+    spellings = [
+        spelling
+        for table in (PHYSICS_UNITS.symbols, PHYSICS_UNITS.words)
+        for spelling, read in table.items()
+        if read == expression
+    ]
+    return min(spellings, key=len) if spellings else None
+
+
 def _in_si(value: float, unit: str, si: str) -> tuple[float, str]:
     """The value in the SI unit ``si``; a unit Pint cannot read is refused."""
     from app.modules.physics.givens import unit_expression
@@ -106,6 +139,7 @@ def _distance(params: dict[str, float], units: dict[str, str]) -> PhysicsResult:
     """d = vt; a speed and a time on two clocks (54 km/h for 10 s) are worked in m/s and s."""
     speed, duration = params.get("v"), params.get("t")
     speed_unit, time_unit = units.get("v"), units.get("t")
+    parts = _rate_parts(speed_unit) if speed_unit else None
     if (
         speed is None
         or duration is None
@@ -113,10 +147,10 @@ def _distance(params: dict[str, float], units: dict[str, str]) -> PhysicsResult:
         or time_unit is None
         or speed < 0
         or duration < 0
-        or "/" not in speed_unit
+        or parts is None
     ):
         raise SolveServiceError("distance requires a non-negative speed and time")
-    distance_unit, speed_time_unit = speed_unit.split("/", 1)
+    distance_unit, speed_time_unit = parts
     if not _same_unit(speed_time_unit, time_unit):
         speed, speed_unit = _in_si(speed, speed_unit, "m/s")
         duration, time_unit = _in_si(duration, time_unit, "s")
@@ -136,6 +170,7 @@ def _time(params: dict[str, float], units: dict[str, str]) -> PhysicsResult:
     """t = d/v; a distance and a speed on two rulers (3 km at 2 m/s) are worked in m and m/s."""
     distance, speed = params.get("d"), params.get("v")
     distance_unit, speed_unit = units.get("d"), units.get("v")
+    parts = _rate_parts(speed_unit) if speed_unit else None
     if (
         distance is None
         or speed is None
@@ -143,10 +178,10 @@ def _time(params: dict[str, float], units: dict[str, str]) -> PhysicsResult:
         or speed_unit is None
         or distance < 0
         or speed <= 0
-        or "/" not in speed_unit
+        or parts is None
     ):
         raise SolveServiceError("time requires a non-negative distance and positive speed")
-    speed_distance_unit, answer_unit = speed_unit.split("/", 1)
+    speed_distance_unit, answer_unit = parts
     if not _same_unit(speed_distance_unit, distance_unit):
         distance, distance_unit = _in_si(distance, distance_unit, "m")
         speed, speed_unit = _in_si(speed, speed_unit, "m/s")

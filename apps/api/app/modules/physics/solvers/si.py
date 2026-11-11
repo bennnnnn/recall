@@ -12,11 +12,13 @@ from app.services.solving import SolveServiceError
 
 def _dimensions_from_catalog() -> dict[str, str]:
     """SI dimension of every declared variable. The catalog is the only list."""
-    from app.modules.physics.catalog import CATALOG
+    from app.modules.physics.catalog import CATALOG, result_variable
 
     dims: dict[str, str] = {}
     for spec in CATALOG.values():
-        for variable in spec.variables:
+        # A law's result is an input when the law is solved for another of its quantities.
+        stated = result_variable(spec)
+        for variable in (*spec.variables, *((stated,) if stated else ())):
             dimension = "dimensionless" if variable.dimensionless else variable.dimension
             if not dimension:
                 raise RuntimeError(f"{spec.id}.{variable.name} has no dimension")

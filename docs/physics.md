@@ -39,7 +39,14 @@ flowchart LR
    the head and tail of a long message (4,000 characters in all, up to 20,000). Every
    module-level physics regex is checked for linear time against adversarial text in
    `test_physics_detection_speed.py`.
-2. **Read numbers** (`services/number_text.py`). `2 × 10^-6`, `2x10^-6`, `2·10⁻⁶` and
+2. **Read markup and numbers.** A question pasted in LaTeX is read as its plain text first
+   (`services/latex_markup.py`, shared with chemistry): `\(q_1 = +2.0 \, \mu\text{C}\)`
+   is `q_1 = +2.0 μC`, `\(R_1 = 4.0 \, \Omega\)` is `R_1 = 4.0 Ω`, `\frac{\text{m}}{\text{s}^2}`
+   is `m/s^2`. A text run, a space command, a Greek letter or sign by its command, a braced
+   script, a fraction and a root are written plain; a command it does not know is left as
+   written. The model still sees what the student typed. Unread, five pasted questions
+   whose plain twins were verified went to the model (phone test 2026-11-11).
+   Numbers (`services/number_text.py`): `2 × 10^-6`, `2x10^-6`, `2·10⁻⁶` and
    `2 \times 10^{-6}` are all one number, folded to `2e-6` before anything scans the text.
    Without that, "2 × 10^-6 C" was a charge of −6 C. `numbers.py` then expands every literal
    to a plain decimal, or refuses a malformed one. A number written in words, a scale word
@@ -62,7 +69,8 @@ flowchart LR
    4 km north", answered with its bearing). An extractor's law whose catalog result is not
    the asked quantity gives way to the binder.
    When every extractor declines, the **binder** (`binding.py`) reads the question straight
-   into a catalog operation. Its engine is subject-neutral and shared
+   into a catalog operation, the law's own result or, when the question states that result,
+   whichever of its inputs is asked (below). Its engine is subject-neutral and shared
    (`services/law_binding`: the spec types, the givens scanner, the word windows, `fit`
    and the expression evaluator); physics brings its unit table (`givens.PHYSICS_UNITS`),
    its settings (`binding_values`) and its constants (`constants.py`, named for expressions in
@@ -120,6 +128,25 @@ flowchart LR
      input another value already filled decline ("compressed to 2 L at 300 kPa. Its
      initial pressure was 100 kPa").
 
+   - **Any unknown** (`services/law_binding/inverse.py`). A law written as arithmetic is
+     solved for whichever of its inputs the question asks, from its stated result and the
+     rest: "an engine does 400 J of work with a force of 80 N. How far?" is W = Fs solved
+     for s, and "a density of 2.5 g/mL: the mass of 40 mL?" is m = ρV. The law is named by
+     its result written beside a value of its kind in the law's own words ("400 J of work",
+     "a density of", "the work done on the cart is"), the asked input by its kind. A word
+     of the law elsewhere in the sentence names nothing ("rises in a capillary tube of
+     diameter 1 mm" states no rise), a result at one end of a change is named only by that
+     end's words (Boyle's P₂ by "new pressure", never by "initial pressure"), and a
+     direction another catalog law gives from the same quantities is that law's, with its
+     own checks (F = ma is `net_force`'s, which sets "a spring" aside). SymPy rearranges
+     the law's own expression (one solution, positive quantities, or none), in the SymPy
+     pool with the turn's other readers, once per law and input; the working shows the
+     law, then `Solve for $s$` over the rearranged form. The answer is put back into the
+     law and must give the stated result. Only a question no law answers as its own
+     result is read so. A law solved by hand is not: resonance (n·v/2L) keeps its
+     whole-number and odd-harmonic checks in its solver, so "third harmonic at 150 Hz:
+     the wave speed?" is still the model's.
+
    Anything short of one operation with one way to fill it declines. That includes a value
    no input takes, two values for one input with no word to tell them apart, a value the
    words mark as the asked result ("reaches 18 m/s" when the speed is asked), and an asked
@@ -159,8 +186,8 @@ flowchart LR
      So is the unit the answer is wanted in ("in kWh", "the gauge pressure in psi at a
      depth of 10 m"), kept on `asked_unit`.
 5. **Solve** (`solver.py`, `solvers/`, one module per topic). Pure arithmetic in SI, through
-   Pint (`_params_in_si`). Quadratics use the cancellation-free closed form; there is no SymPy on
-   the request path.
+   Pint (`_params_in_si`). Quadratics use the cancellation-free closed form. The one SymPy
+   step is a law's rearrangement for an asked input (step 3), run in the SymPy pool.
 
    Incline extraction retains equilibrium and kinetic motion direction. Static friction
    is the force needed for equilibrium, bounded by `mu_s*N`; it is not automatically that
@@ -238,8 +265,9 @@ catalog is also the one list of operations: every `PhysicsIntent` is checked aga
   positive, or the law declines;
 - for a law that is plain arithmetic, an `expression` (`"(F - mu*m*g)/m"`), with a variant
   per other input set. `services/law_binding/expression.py` evaluates it by walking a checked tree, and prints
-  the rearranged formula and the substitution from that same tree. Nothing is executed,
-  and nothing calls SymPy.
+  the rearranged formula and the substitution from that same tree. Nothing is executed.
+  The expression is also every other direction of the law: SymPy rearranges it for an
+  asked input (`law_binding.inverse`), so a law needs no second entry for m = F/a.
 
 `test_physics_binding.py` solves every promised input set with sample values and checks the
 result units the binding promised, so a binding cannot promise what its solver refuses.
@@ -327,12 +355,12 @@ The binder reads these laws, beside the extractors' own:
 | Area | Laws |
 |------|------|
 | Motion | SUVAT for v, s, t, a and u, including s = vt − ½at²; d = vt in any units; fall height; horizontal launch; rocket Δv; center of mass of two or three stated point masses |
-| Forces and energy | W = mg on a named body; Atwood; applied force with friction; static-friction sliding threshold on an incline; P = mgh/t; energy-conservation speed; Kepler period; vis-viva speed when the semi-major axis is stated; rotational KE; θ = (ω₀+ω)t/2 |
+| Forces and energy | W = Fs, Eₖ = ½mv², Eₚ = mgh and P = Fv or W/t for any unknown; W = mg on a named body; Atwood; applied force with friction; static-friction sliding threshold on an incline; P = mgh/t; energy-conservation speed; Kepler period; vis-viva speed when the semi-major axis is stated; rotational KE; θ = (ω₀+ω)t/2 |
 | Circuits | Q = It for I; Q = CV for Q, C and V; R = ρL/A; τ = RC; RC charging and discharging; capacitors in series and parallel; ideal-transformer voltage and current; parallel-plate capacitance with a stated dielectric; coaxial capacitance; a spherical capacitor; drift speed; mutual inductance; tan φ = (X_L − X_C)/R; average AC power when the phase angle is stated; quality factor from bandwidth or from series L, C, and R; capacitor energy U = Q²/(2C) and U = QV/2 |
 | Fields | E = V/d between plates; F = qE; W = qV (eV with "in eV"); solenoid B = μ₀NI/L; loop center and toroid B; solenoid self-inductance; cyclotron frequency; Hall voltage; electric and magnetic energy densities; magnetic moment μ = IA and τ = μB sinθ when the angle is stated; force per unit length between two parallel wires; electric dipole field on its axis; skin depth from conductivity or resistivity |
 | Waves and optics | resonance of a string or pipe; speed of sound in an ideal gas from γ, P, and ρ; thin-film thickness for constructive or destructive reflection at normal incidence; Snell for θ₂; diffraction grating angle; lens power; lenses in contact; lens-maker focal length; telescope angular magnification; compound-microscope magnification when the tube length and near point are stated; Rayleigh criterion; mirror f = R/2; magnification m = −v/u; electromagnetic-wave intensity; plane-wave intensity I = P/A; E = cB and B = E/c; Poynting magnitude EB/μ₀; longitudinal rod speed from Young's modulus; shear-wave speed; numerical aperture; grating resolving power R = mN |
 | Thermal | PV = nRT for any unknown; PV = NkT for any unknown; ideal-gas density ρ = PM/(RT); Boyle, Charles, Gay-Lussac and the combined law; Q = mcΔT for any unknown; water mixtures; latent heat; linear, area and volume expansion; isothermal work; mean free path; v_rms, mean and most probable speed; ⟨E_k⟩ = 3/2 kT; diatomic U = 5/2 nRT; adiabatic T V^{γ−1}; Mayer's relation C_p − C_v = R |
-| Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise |
+| Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise; density ρ = m/V for any unknown |
 | Modern | photon momentum; threshold frequency and wavelength; stopping potential; photoelectric KE; fraction and mass remaining; decay constant; activity; mean life; net blackbody power P = εσA(T^4 − T_0^4) |
 | Upper level | hydrogen transitions (λ and ΔE); hydrogen-like levels E = −13.6 Z²/n² eV when Z is stated; Bohr radius; hydrogen-like radius n²a₀/Z; Bohr L = nℏ; L² = ℏ²ℓ(ℓ+1); L_z = mℏ; normal Zeeman shift; pair-production threshold; quantum-oscillator levels; relativistic p, E and K; E² = (pc)² + (mc²)²; velocity addition; Lorentz transformation of one coordinate and of one time; Schwarzschild radius; gravitational time-dilation factor; Boltzmann ratio; S = k ln Ω; energy-time uncertainty; an orbit's period from its height; Fermi energy; Fermi-Dirac and Bose-Einstein occupation; Planck's law as spectral radiance; rectangular-barrier tunneling probability; Drude conductivity; Hall coefficient; nuclear radius R = R₀ A^{1/3}; Hawking temperature; Hawking power; Bekenstein-Hawking entropy; stellar luminosity; flux from a stated luminosity; Hubble's law; critical density; Friedmann Hubble parameter when density, curvature, scale, and Λ are stated; virial K = −U/2; plasma frequency; Debye length; Alfvén speed; sound speed from the bulk modulus; quadratic drag force from C_D; BCS gap; Higgs mass; one-loop strong coupling |
 | Round 3 | light travel time; gravitational force on a body at a named planet's surface; acceleration and net force from two opposing forces; recoil speed; push-off speed of either body; wave frequency from distance, time and wavelength; sound level from an intensity ratio; energy over days from a daily use |
@@ -370,6 +398,17 @@ The binder reads these laws, beside the extractors' own:
 - **Symbols say what they are, across topics.** A lens or mirror's distances are d_o and d_i
   (1/f = 1/d_o + 1/d_i), never u and v, which a student reads as speeds; an energy density
   is u_E or u_B. A symbol is the same in Given, Formula, Substitution and the picture.
+- **A unit named in words** is its symbol before any extractor reads it (`numbers.
+  unit_names_as_symbols`): "30 Newtons" is 30 N, "100 grams" 100 g, "a 12 volt battery"
+  12 V, each the unit table's own reading. An extractor reads the symbols its pattern lists,
+  so "a net force of 30 Newtons" had no force for F = ma. A length, a time, an angle, a
+  count and a temperature scale stay in words, as every reader reads them. A liquid's
+  density in g/mL, g/L or kg/L, and a constant's own unit ("k = 9.0e9 N·m²/C²", "G =
+  6.67e-11 N m²/kg²"), are table spellings: read by its first letter, a stated k was a
+  force of 9e9 N. A stated constant's label (`k`, `k_e`, `G`) is a given, not algebra.
+- **A speed's units are the table's**: "60 miles per hour for 4.5 hours" is mi over h, so
+  d = vt is worked in the question's units (270 mi). Split as text at its slash, a speed
+  written in words had none, and the train went to the model.
 - **Everyday spellings** are read before any extractor: "accelaration", "velocty" and
   "whats"; kph and kmph as km/h; °F, whose change is worked in kelvins, never as a raw
   °F difference; mAh and Ah; weeks; µs and ns; amu, and a bare "u" written

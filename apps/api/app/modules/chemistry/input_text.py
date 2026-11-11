@@ -28,6 +28,7 @@ import re
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
 from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
+from app.services.latex_markup import without_markup
 
 _SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPTS = SUPERSCRIPT_SIGNED
@@ -159,10 +160,14 @@ def _equals_arrow(text: str) -> str:
 
 
 def read_chemistry_text(text: str) -> str:
-    """The student's text with formulas, charges, hydrate dots and pH written in ASCII."""
+    """The student's text with formulas, charges, hydrate dots and pH written in ASCII.
+
+    A question pasted in LaTeX is read as its plain text first (``latex_markup``):
+    "\\(25.0 \\text{ mL}\\)" is 25.0 mL and "\\ce{H2SO4}" is H2SO4.
+    """
     if not text:
         return text
-    text = spell_scripts(text)
+    text = spell_scripts(without_markup(text))
     text = _hydrate_dots(text)
     text = _PH_WORD.sub("pH", text)
     return _equals_arrow(text)

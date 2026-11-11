@@ -4,6 +4,10 @@ The catalog states the law and, for each set of givens, the arithmetic that
 answers it (``u = v - at`` for v, a and t). This solver evaluates that
 arithmetic in SI and prints the formula and the substitution from the same
 expression, so the working is the computation.
+
+A law whose result the question states is solved for the input it asks
+(``law_binding.inverse``): W = Fs with W and F given is s = W/F. The answer is put
+back into the law, and one that does not give the stated result is refused.
 """
 
 from __future__ import annotations
@@ -17,10 +21,20 @@ from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult, solved
 from app.modules.physics.solvers.si import params_in_si
+from app.services.law_binding.inverse import (
+    forward_expression,
+    rearranged,
+    solved_for,
+    solved_input,
+)
+from app.services.law_binding.spec import result_variable
 from app.services.solving import SolveServiceError
 
 if TYPE_CHECKING:
-    from app.services.law_binding.spec import FormulaSpec
+    from app.services.law_binding.spec import FormulaSpec, VariableSpec
+
+# An answer put back into its law gives the stated result to this share.
+_GIVES_BACK = 1e-6
 
 
 def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
@@ -30,43 +44,46 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
     if spec is None or spec.expression is None or spec.binding is None:
         raise SolveServiceError(f"{intent.physics_op} is not an expression operation")
     params = params_in_si(intent)
-    variant = matching_variant(spec, params)
-    expression = spec.expression
-    symbol = spec.result_symbol
-    if variant is not None:
-        expression = variant.expression or expression
-        symbol = variant.result_symbol or symbol
-    try:
-        value = evaluate(expression, params)
-        holds = all(evaluate(condition, params) > 0 for condition in spec.binding.requires)
-    except (KeyError, ValueError, OverflowError) as exc:
-        raise SolveServiceError(f"{spec.id} has no real answer for these givens") from exc
-    if not holds:
-        raise SolveServiceError(f"{spec.id} does not hold for these givens")
-    if not math.isfinite(value):
-        raise SolveServiceError(f"{spec.id} answer is not finite")
+    unknown = solved_input(spec, params)
+    if unknown is not None:
+        law, expression, value = _solve_for_input(spec, unknown, params)
+        symbol = law.result_symbol
+    else:
+        law = spec
+        variant = matching_variant(spec, params)
+        expression = spec.expression
+        symbol = spec.result_symbol
+        if variant is not None:
+            expression = variant.expression or expression
+            symbol = variant.result_symbol or symbol
+        value = _evaluated(spec, expression, params)
+    binding = law.binding
+    if binding is None:  # pragma: no cover - a law solved for an input keeps a binding
+        raise SolveServiceError(f"{spec.id} has no binding")
     detail = None
-    if spec.binding.negative_detail and value < 0:
+    if binding.negative_detail and value < 0:
         value = abs(value)
-        detail = spec.binding.negative_detail
-    elif spec.binding.nonnegative and value < 0:
+        detail = binding.negative_detail
+    elif binding.nonnegative and value < 0:
         raise SolveServiceError(f"{spec.id} gives a negative {symbol} for these givens")
-    if spec.binding.at_most is not None and value > spec.binding.at_most:
-        raise SolveServiceError(f"{spec.id} gives {symbol} above {spec.binding.at_most:g}")
-    symbols = {variable.name: variable.symbol for variable in spec.variables}
+    if binding.at_most is not None and value > binding.at_most:
+        raise SolveServiceError(f"{spec.id} gives {symbol} above {binding.at_most:g}")
+    symbols = {variable.name: variable.symbol for variable in law.variables}
     formula = f"{symbol} = {to_latex(expression, symbols)}"
     substitution = f"{symbol} = {to_latex(expression, symbols, params)}"
-    difference = _stated_temperature_change(intent, params) if spec.id == "heat_energy" else None
-    result_unit = spec.binding.result[0]
-    unit = spec.binding.shown_unit or (
-        "" if result_unit == "dimensionless" else si_symbol(result_unit)
+    difference = (
+        _stated_temperature_change(intent, params)
+        if spec.id == "heat_energy" and unknown is None
+        else None
     )
+    result_unit = binding.result[0]
+    unit = binding.shown_unit or ("" if result_unit == "dimensionless" else si_symbol(result_unit))
     # A law that prints an SI-sized unit of its own ("photons/s", "Bq") is not
     # answered in a like given's unit: a photon rate is not the hertz of a
     # frequency given beside it.
-    own = unit_dimension(unit_expression(unit) or "") if spec.binding.shown_unit else None
+    own = unit_dimension(unit_expression(unit) or "") if binding.shown_unit else None
     own_unit = own is not None and own[1] == 1.0 and own[2] == 0.0
-    shown = None if own_unit else _in_the_givens_unit(spec, intent, result_unit, value)
+    shown = None if own_unit else _in_the_givens_unit(law, intent, result_unit, value)
     if shown is None or shown[1] == unit or math.isclose(shown[0], value):
         # No step to show: the same unit, or only its spelling ("J/kg°C" for J/(kg·K)).
         rows: tuple[str, ...] = (substitution,)
@@ -79,6 +96,77 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         formulas=((difference, formula) if difference else (formula,)),
         substitutions=rows,
     )
+
+
+def drawn_values(
+    intent: PhysicsIntent, params: dict[str, float], value: float, unit: str
+) -> tuple[dict[str, float], float]:
+    """The law's inputs and its result, in SI, as its picture draws them.
+
+    A law solved for one of its inputs is drawn as it is when its result is asked: the
+    answer is that input, and the stated result is the law's value.
+    """
+    from app.modules.physics.catalog import CATALOG
+    from app.modules.physics.solvers.si import to_si
+
+    spec = CATALOG.get(intent.physics_op or "")
+    unknown = solved_input(spec, params) if spec is not None else None
+    stated = result_variable(spec) if spec is not None else None
+    if unknown is None or stated is None:
+        return params, value
+    try:
+        answer = to_si(value, unit, expected_key=unknown.name)
+    except SolveServiceError:
+        return params, value
+    inputs = {name: given for name, given in params.items() if name != stated.name}
+    return {**inputs, unknown.name: answer}, params[stated.name]
+
+
+def _evaluated(spec: FormulaSpec, expression: str, params: dict[str, float]) -> float:
+    """``expression`` at ``params``, where the law holds: each of its ``requires`` comes
+    out positive, and the answer is finite."""
+    try:
+        value = evaluate(expression, params)
+        holds = _holds(spec, params)
+    except (KeyError, ValueError, OverflowError) as exc:
+        raise SolveServiceError(f"{spec.id} has no real answer for these givens") from exc
+    if not holds:
+        raise SolveServiceError(f"{spec.id} does not hold for these givens")
+    if not math.isfinite(value):
+        raise SolveServiceError(f"{spec.id} answer is not finite")
+    return value
+
+
+def _holds(spec: FormulaSpec, values: dict[str, float]) -> bool:
+    requires = spec.binding.requires if spec.binding is not None else ()
+    return all(evaluate(condition, values) > 0 for condition in requires)
+
+
+def _solve_for_input(
+    spec: FormulaSpec, unknown: VariableSpec, params: dict[str, float]
+) -> tuple[FormulaSpec, str, float]:
+    """The law solved for ``unknown`` from its stated result: the law as filled, the
+    rearranged arithmetic, and the answer, which put back into the law gives the result."""
+    law = solved_for(spec, unknown.name)
+    stated = result_variable(spec)
+    if law is None or stated is None:
+        raise SolveServiceError(f"{spec.id} is not solved for {unknown.name}")
+    givens = {name: value for name, value in params.items() if name != stated.name}
+    # The law's form is chosen from its givens, with the asked input among them.
+    forward = forward_expression(spec, {**givens, unknown.name: 1.0})
+    inverse = rearranged(forward, stated.name, unknown.name) if forward else None
+    if forward is None or inverse is None:
+        raise SolveServiceError(f"{spec.id} has no one arithmetic for {unknown.name}")
+    value = _evaluated(law, inverse, params)
+    whole = {**givens, unknown.name: value}
+    try:
+        gives = evaluate(forward, whole)
+        holds = _holds(spec, whole)
+    except (KeyError, ValueError, OverflowError) as exc:
+        raise SolveServiceError(f"{spec.id} has no real answer for these givens") from exc
+    if not holds or not math.isclose(gives, params[stated.name], rel_tol=_GIVES_BACK):
+        raise SolveServiceError(f"{spec.id} solved for {unknown.name} misses its stated result")
+    return law, inverse, value
 
 
 def _stated_temperature_change(intent: PhysicsIntent, params: dict[str, float]) -> str | None:

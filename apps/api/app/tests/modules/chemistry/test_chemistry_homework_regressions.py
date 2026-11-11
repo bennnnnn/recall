@@ -86,6 +86,9 @@ def _right_or_declined(question: str, expected: float, rel: float = 0.01) -> Non
         ("pH 4.5 at 25.0 °C", "pH 4.5 at 25.0 °C"),
         ("2 * 3 = 6", "2 * 3 = 6"),
         ("1.8 x 10^-5", "1.8 x 10^-5"),
+        # A question pasted in LaTeX reads as its plain text (phone test, 2026-11-11).
+        (r"\(0.50 \text{ mol}\) of \(\mathrm{H_2SO_4}\)", "0.50 mol of H2SO4"),
+        (r"\ce{Fe^{3+}} in \(25.0\,\mathrm{mL}\)", "Fe^3+ in 25.0 mL"),
     ],
 )
 def test_read_chemistry_text_spells_scripts_and_hydrate_dots_in_ascii(

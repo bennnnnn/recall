@@ -1,0 +1,295 @@
+[
+ {
+  "id": "p11-net-force-accel",
+  "area": "force",
+  "prompt": "A net force of 30 Newtons is applied to a 6 kg box. What is the acceleration of the box?",
+  "expect": "answer",
+  "answer": [5, "m/s^2"],
+  "note": "a = F/m = 30/6; the force written in words (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-net-force-from-accel",
+  "area": "force",
+  "prompt": "A toy car has a mass of 2 kg and accelerates at a rate of 4 m/s². What net force is acting on it?",
+  "expect": "answer",
+  "answer": [8, "N"],
+  "note": "F = ma = 2 × 4: the same law asked the other way"
+ },
+ {
+  "id": "p11-net-force-kilonewtons",
+  "area": "force",
+  "prompt": "A net force of 2 kilonewtons acts on a 500 kg car. Find its acceleration.",
+  "expect": "answer",
+  "answer": [4, "m/s^2"],
+  "note": "a = 2000/500"
+ },
+ {
+  "id": "p11-net-force-mass",
+  "area": "force",
+  "prompt": "What mass accelerates at 3 m/s² under a net force of 12 newtons?",
+  "expect": "answer",
+  "answer": [4, "kg"],
+  "note": "m = F/a = 12/3"
+ },
+ {
+  "id": "p11-spring-force-lookalike",
+  "area": "force",
+  "prompt": "How much force does a spring exert on a 5 kg mass accelerating at 2 m/s²?",
+  "expect": "decline",
+  "note": "the spring need not be the only force: F = ma answers the net force, which the question does not ask"
+ },
+ {
+  "id": "p11-work-distance",
+  "area": "energy",
+  "prompt": "An engine does 400 Joules of work pushing a cart with a constant force of 80 Newtons. How far did the cart move?",
+  "expect": "answer",
+  "answer": [5, "m"],
+  "note": "W = Fs, so s = W/F = 400/80 (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-work-distance-question-first",
+  "area": "energy",
+  "prompt": "How far does a box move if 150 J of work is done on it by a 30 N push?",
+  "expect": "answer",
+  "answer": [5, "m"],
+  "note": "s = 150/30"
+ },
+ {
+  "id": "p11-work-force",
+  "area": "energy",
+  "prompt": "A machine does 2000 J of work moving a crate 8 m. What force did it apply?",
+  "expect": "answer",
+  "answer": [250, "N"],
+  "note": "F = W/s = 2000/8"
+ },
+ {
+  "id": "p11-work-forward",
+  "area": "energy",
+  "prompt": "How much work does a constant force of 80 newtons do pushing a cart 5 m?",
+  "expect": "answer",
+  "answer": [400, "J"],
+  "note": "W = Fs = 80 × 5: the law asked for its own result"
+ },
+ {
+  "id": "p11-kinetic-mass",
+  "area": "energy",
+  "prompt": "A ball moving at 4 m/s has 40 J of kinetic energy. What is its mass?",
+  "expect": "answer",
+  "answer": [5, "kg"],
+  "note": "E = ½mv², so m = 2E/v² = 80/16"
+ },
+ {
+  "id": "p11-potential-height",
+  "area": "energy",
+  "prompt": "A 2 kg book has 40 J of potential energy. How high is it above the floor?",
+  "expect": "answer",
+  "answer": [2.0387, "m"],
+  "note": "h = E/(mg) = 40/(2 × 9.81)"
+ },
+ {
+  "id": "p11-power-work",
+  "area": "energy",
+  "prompt": "A motor delivers 600 W of power for 10 seconds. How much work does it do?",
+  "expect": "answer",
+  "answer": [6000, "J"],
+  "note": "P = W/t, so W = Pt"
+ },
+ {
+  "id": "p11-power-time",
+  "area": "energy",
+  "prompt": "A motor does 6000 J of work with a power of 600 W. How long does it run?",
+  "expect": "answer",
+  "answer": [10, "s"],
+  "note": "t = W/P = 6000/600"
+ },
+ {
+  "id": "p11-energy-unnamed",
+  "area": "energy",
+  "prompt": "A 2 kg ball has 100 J of energy. How fast is it moving?",
+  "expect": "decline",
+  "note": "energy of no named kind: kinetic is one guess of several"
+ },
+ {
+  "id": "p11-density-grams",
+  "area": "fluids",
+  "prompt": "A solid metal cube has a mass of 100 grams and a volume of 20 cm³. What is the density of the metal?",
+  "expect": "answer",
+  "answer": [5, "g/cm^3"],
+  "note": "ρ = m/V = 100 g / 20 cm³; the mass written in words (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-density-mass",
+  "area": "fluids",
+  "prompt": "A liquid has a density of 2.5 g/mL. If you have 40 mL of this liquid, what is its mass?",
+  "expect": "answer",
+  "answer": [100, "g"],
+  "note": "m = ρV = 2.5 × 40 (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-density-volume",
+  "area": "fluids",
+  "prompt": "A block of wood has a density of 600 kg/m³ and a mass of 3 kg. What is its volume?",
+  "expect": "answer",
+  "answer": [0.005, "m^3"],
+  "note": "V = m/ρ = 3/600"
+ },
+ {
+  "id": "p11-density-gold",
+  "area": "fluids",
+  "prompt": "A gold bar has a volume of 50 cm³ and a density of 19.3 g/cm³. Find its mass.",
+  "expect": "answer",
+  "answer": [965, "g"],
+  "note": "m = 19.3 × 50"
+ },
+ {
+  "id": "p11-density-seawater",
+  "area": "fluids",
+  "prompt": "The density of seawater is 1025 kg/m³. What is the mass of 2 m³ of seawater?",
+  "expect": "answer",
+  "answer": [2050, "kg"],
+  "note": "m = ρV = 1025 × 2"
+ },
+ {
+  "id": "p11-capillary-diameter",
+  "area": "fluids",
+  "prompt": "Water with surface tension 0.072 N/m rises in a capillary tube of diameter 1 mm. Find the height of the rise.",
+  "expect": "decline",
+  "note": "1 mm is the tube's diameter, not the rise: the rise is asked, and the law wants a radius and an angle"
+ },
+ {
+  "id": "p11-train-miles-per-hour",
+  "area": "kinematics",
+  "prompt": "A train moves at a constant speed of 60 miles per hour for 4.5 hours. How far does the train travel?",
+  "expect": "answer",
+  "answer": [270, "mile"],
+  "note": "d = vt = 60 × 4.5, in the question's own units (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-train-mph",
+  "area": "kinematics",
+  "prompt": "A train moves at a constant speed of 60 mph for 4.5 h. How far does the train travel?",
+  "expect": "answer",
+  "answer": [270, "mile"],
+  "note": "d = vt = 60 × 4.5"
+ },
+ {
+  "id": "p11-mph-minutes",
+  "area": "kinematics",
+  "prompt": "A car drives at 50 miles per hour for 30 minutes. How far does it go?",
+  "expect": "answer",
+  "answer": [25, "mile"],
+  "note": "50 mph × 0.5 h; worked in SI, 40 233.6 m"
+ },
+ {
+  "id": "p11-mph-time",
+  "area": "kinematics",
+  "prompt": "How long does it take to drive 270 miles at a steady 60 miles per hour?",
+  "expect": "answer",
+  "answer": [4.5, "hour"],
+  "note": "t = d/v = 270/60"
+ },
+ {
+  "id": "p11-boyle-initial-stated",
+  "area": "thermal",
+  "prompt": "A gas at constant temperature is compressed to 2 L at 300 kPa. Its initial pressure was 100 kPa. What was its initial volume?",
+  "expect": "answer",
+  "answer": [6, "L"],
+  "note": "P₁V₁ = P₂V₂: V₁ = 300 × 2/100; never 0.667 L from 100 kPa read as the final pressure. Declined today: two pressures each named by its end (asked_end)"
+ },
+ {
+  "id": "p11-tex-coulomb",
+  "area": "markup",
+  "prompt": "Two point charges, \\(q_1 = +2.0 \\, \\mu\\text{C}\\) and \\(q_2 = -6.0 \\, \\mu\\text{C}\\), are separated by a distance of \\(0.30 \\text{ m}\\) in a vacuum (\\(k_e \\approx 9.0 \\times 10^9 \\text{ N}\\cdot\\text{m}^2/\\text{C}^2\\)). What is the magnitude of the electrostatic force between them?",
+  "expect": "answer",
+  "answer": [1.2, "N"],
+  "note": "F = k|q₁q₂|/r² = 9.0e9 × 2.0e-6 × 6.0e-6 / 0.09; LaTeX and a stated k (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-stated-k-plain",
+  "area": "markup",
+  "prompt": "Two point charges, q1 = +2.0 μC and q2 = -6.0 μC, are 0.30 m apart (k = 9.0 × 10^9 N·m²/C²). What is the magnitude of the electrostatic force between them?",
+  "expect": "answer",
+  "answer": [1.2, "N"],
+  "note": "the stated Coulomb constant sets the law's own constant; it is no force of 9 × 10⁹ N"
+ },
+ {
+  "id": "p11-tex-carts",
+  "area": "markup",
+  "prompt": "A 3.0 kg cart moving at \\(+4.0 \\text{ m/s}\\) collides head-on and sticks together with a 1.0 kg stationary cart. What is the final velocity of the combined carts immediately after the collision?",
+  "expect": "answer",
+  "answer": [3, "m/s"],
+  "note": "(3.0 × 4.0)/(3.0 + 1.0) (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-tex-parallel",
+  "area": "markup",
+  "prompt": "A \\(12.0 \\text{ V}\\) battery is connected to three resistors in parallel: \\(R_1 = 4.0 \\, \\Omega\\), \\(R_2 = 6.0 \\, \\Omega\\), and \\(R_3 = 12.0 \\, \\Omega\\). What is the total current drawn from the battery?",
+  "expect": "answer",
+  "answer": [6, "A"],
+  "note": "1/R = 1/4 + 1/6 + 1/12 = 1/2, R = 2 Ω, I = 12/2 (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-tex-friction",
+  "area": "markup",
+  "prompt": "A \\(5.0 \\text{ kg}\\) block on a horizontal floor is pushed with a horizontal force of \\(25 \\text{ N}\\). The coefficient of kinetic friction is \\(\\mu_k = 0.30\\). What is the acceleration of the block? (Use \\(g = 9.8 \\text{ m/s}^2\\).)",
+  "expect": "answer",
+  "answer": [2.06, "m/s^2"],
+  "note": "(25 − 0.30 × 5.0 × 9.8)/5.0 (phone test 2026-11-11)"
+ },
+ {
+  "id": "p11-tex-string-harmonic",
+  "area": "markup",
+  "prompt": "A string of length \\(L = 1.2 \\text{ m}\\) vibrates in its third harmonic at a frequency of \\(150 \\text{ Hz}\\). What is the speed of the wave on the string?",
+  "expect": "answer",
+  "answer": [120, "m/s"],
+  "note": "λ = 2L/3 = 0.8 m, v = fλ = 150 × 0.8 (phone test 2026-11-11). Not answered yet: resonance (f = nv/2L) is solved by hand, so it is not solved for the wave speed; its whole-number and odd-harmonic checks have no form in the catalog's arithmetic"
+ },
+ {
+  "id": "p11-tex-cliff",
+  "area": "markup",
+  "prompt": "A ball rolls off a cliff of height \\(45 \\text{ m}\\) with a horizontal speed of \\(12 \\text{ m/s}\\). How far from the base of the cliff does it land? (Use \\(g = 10.0 \\text{ m/s}^2\\).)",
+  "expect": "answer",
+  "answer": [36, "m"],
+  "note": "t = √(2 × 45/10) = 3 s, x = 12 × 3"
+ },
+ {
+  "id": "p11-tex-dollar-spans",
+  "area": "markup",
+  "prompt": "A net force of $25\\,\\mathrm{N}$ acts on a $5.0\\,\\mathrm{kg}$ cart. What is its acceleration?",
+  "expect": "answer",
+  "answer": [5, "m/s^2"],
+  "note": "a = 25/5.0, in dollar spans"
+ },
+ {
+  "id": "p11-tex-display",
+  "area": "markup",
+  "prompt": "\\[ m = 2.0\\,\\mathrm{kg},\\quad v = 3.0\\,\\mathrm{m/s} \\] Find the kinetic energy.",
+  "expect": "answer",
+  "answer": [9, "J"],
+  "note": "½ × 2.0 × 3.0²"
+ },
+ {
+  "id": "p11-tex-density-mass",
+  "area": "markup",
+  "prompt": "A liquid has a density of \\(2.5\\ \\mathrm{g/mL}\\). What is the mass of \\(40\\ \\mathrm{mL}\\) of it?",
+  "expect": "answer",
+  "answer": [100, "g"],
+  "note": "m = ρV = 2.5 × 40"
+ },
+ {
+  "id": "p11-tex-fraction-unit",
+  "area": "markup",
+  "prompt": "A car starts from rest and accelerates at \\(3 \\, \\frac{\\text{m}}{\\text{s}^2}\\) for \\(4 \\text{ s}\\). How fast is it going?",
+  "expect": "answer",
+  "answer": [12, "m/s"],
+  "note": "v = u + at = 0 + 3 × 4; a unit written as a fraction"
+ },
+ {
+  "id": "p11-tex-work-distance",
+  "area": "markup",
+  "prompt": "An engine does \\(400 \\text{ J}\\) of work pushing a cart with a constant force of \\(80 \\text{ N}\\). How far did the cart move?",
+  "expect": "answer",
+  "answer": [5, "m"],
+  "note": "s = W/F, in LaTeX"
+ }
+]
