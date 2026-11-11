@@ -268,6 +268,8 @@ def _count_intent(
         integral_upper=region.upper,
         comparator=_end(region.lower_closed) if region.lower is not None else None,
         comparator_upper=_end(region.upper_closed) if region.upper is not None else None,
+        # The points a condition removes ("x != 2"): the only operands a count has.
+        arithmetic_operands=list(region.excluded) or None,
         trial_outcome=" ".join(counted) or None,
         operation="solve",
     )

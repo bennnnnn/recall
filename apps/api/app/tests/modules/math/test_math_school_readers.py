@@ -491,6 +491,62 @@ async def test_solution_count_declines_a_condition_it_cannot_read_whole(conditio
     assert verified is None or verified.canonical_answer not in {"0", "1", "2", "3"}
 
 
+# A condition is read only from an allowlist: relations (``!=`` removes a point) between
+# short polynomials of degree 4 at most with rational coefficients (third review of
+# 2026-11-10: "x ≠ 2" was dropped, "sin(x) > 0" read as one period, and x^50 held a worker).
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("how many solutions does x^2 = 4 have for x ≠ 2", "1"),
+        ("how many solutions does x^2 = 4 have for x != 2", "1"),
+        ("how many solutions does $x^{2} = 4$ have for $x \\neq 2$", "1"),
+        ("how many solutions does x^2 = 4 have in [0, 5] and x ≠ 2", "0"),
+        ("how many solutions does x^2 = 4 have for x ≠ 2 and x > 0", "0"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_solution_count_removes_the_points_a_condition_excludes(
+    text: str, answer: str
+) -> None:
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "x^50 - 3x^7 + 2 > 0",
+        "x^31 - x^17 + 5x^3 - 1 > 0",
+        "sin(x) > 0",
+        "x > sqrt(2)",
+        "x^2 - 2 > 0",
+        "|x| < 3",
+    ],
+)
+@pytest.mark.wall_clock
+def test_count_region_declines_off_the_allowlist_at_once(condition: str) -> None:
+    import time
+
+    from app.modules.math.tools.school.equation_features.count_conditions import (
+        count_region,
+        read_count_conditions,
+    )
+
+    started = time.monotonic()
+    read = read_count_conditions(f"how many solutions does x^2 = 49 have for {condition}")
+    region = None if read is None else count_region(read[1], "x")
+    assert region is None
+    assert time.monotonic() - started < 0.5
+
+
+@pytest.mark.asyncio
+async def test_a_trig_condition_is_no_count() -> None:
+    text = "how many solutions does x^2 = 49 have for sin(x) > 0"
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is None or verified.canonical_answer not in {"0", "1", "2"}
+
+
 # A value that makes a denominator of the written equation zero is no solution, as the
 # solve card says; "counting multiplicity" counts a repeated root as often as it repeats.
 @pytest.mark.parametrize(

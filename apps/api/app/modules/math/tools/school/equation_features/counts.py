@@ -71,12 +71,15 @@ def solution_count(intent: MathIntent) -> _Counted | None:
 
 
 def _regions(intent: MathIntent) -> list[Any] | None:
-    """The interval asked about, in each reading of its ends ("between 0 and 5": open and
-    closed); [] when the request names none, None when a bound does not parse."""
-    from sympy import Interval, oo
+    """The interval asked about, less the points a condition removes, in each reading of
+    its ends ("between 0 and 5": open and closed); [] when the request names none, None
+    when a bound does not parse."""
+    from sympy import FiniteSet, Interval, S, oo
 
+    removed = FiniteSet(*(parse_side(point, []) for point in intent.arithmetic_operands or []))
     if intent.integral_lower is None and intent.integral_upper is None:
-        return []
+        # "for x != 2" alone: every real number but the points it names.
+        return [S.Reals - removed] if removed else []
     low = -oo if intent.integral_lower is None else parse_side(intent.integral_lower, [])
     high = oo if intent.integral_upper is None else parse_side(intent.integral_upper, [])
     if not (low.is_comparable or low == -oo) or not (high.is_comparable or high == oo):
@@ -86,7 +89,7 @@ def _regions(intent: MathIntent) -> list[Any] | None:
         for comparator in (intent.comparator, intent.comparator_upper)
     ]
     return [
-        Interval(low, high, left_open, right_open)
+        Interval(low, high, left_open, right_open) - removed
         for left_open in ends[0]
         for right_open in ends[1]
     ]
