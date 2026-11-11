@@ -77,6 +77,12 @@ _UNREAD = re.compile(
     re.I,
 )
 _RELATION = re.compile(r"<=|>=|!=|<|>")
+# Any sign of a condition on the unknown: a relation, an interval, "between", a sign word.
+_CONDITION_MARK = re.compile(
+    r"[<>≤≥≠]|!=|\\(?:le|ge|lt|gt|ne)q?(?![A-Za-z])|\bbetween\b.+\band\b"
+    r"|\b(?:non-?)?(?:positive|negative)\b|\b(?:in|on|over|within)\s+[\[(]",
+    re.I,
+)
 # The allowlist's limits: the degree and the length of one side.
 _MAX_DEGREE = 4
 _MAX_SIDE = 40
@@ -105,6 +111,12 @@ class CountRegion:
     lower_closed: bool | None
     upper_closed: bool | None
     excluded: tuple[str, ...] = ()
+
+
+def has_condition(body: str) -> bool:
+    """Whether the request puts a condition on the unknown: a feature rule that reads none
+    would answer another question."""
+    return _CONDITION_MARK.search(body) is not None
 
 
 def read_count_conditions(body: str) -> tuple[str, CountConditions] | None:

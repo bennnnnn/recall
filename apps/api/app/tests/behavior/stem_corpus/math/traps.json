@@ -144,5 +144,7 @@
   {"id": "sc12", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for -x > 0", "expect": "answer", "check": ["num", "1"], "note": "the sign before the letter: x < 0"},
   {"id": "sc13", "area": "trap", "prompt": "how many solutions does x^3 - 7x + 6 = 0 have for x < -1, x > 1", "expect": "decline", "note": "two conditions joined by a comma: and or or is not said"},
   {"id": "sc14", "area": "trap", "prompt": "how many solutions does x^2 = 4 have for x ≠ 2", "expect": "answer", "check": ["num", "1"], "note": "≠ removes a point (it was dropped: 2)"},
-  {"id": "sc15", "area": "trap", "prompt": "how many solutions does x^2 = 49 have for sin(x) > 0", "expect": "decline", "note": "a trig condition is no single interval; it was read as (0, pi)"}
+  {"id": "sc15", "area": "trap", "prompt": "how many solutions does x^2 = 49 have for sin(x) > 0", "expect": "decline", "note": "a trig condition is no single interval; it was read as (0, pi)"},
+  {"id": "sc16", "area": "trap", "prompt": "how many solutions does x^2 = 9 have for x^4 - 5x^2 + 4 <= 0", "expect": "decline", "note": "the count declines its condition; the model's reading certified the condition's set instead"},
+  {"id": "sc17", "area": "trap", "prompt": "how many solutions does x^2 = 4 have for x^4 - 5x^2 + 4 < 0", "expect": "decline"}
 ]

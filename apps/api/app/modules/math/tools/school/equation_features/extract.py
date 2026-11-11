@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import re
 
-from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.tools.school.equation_features.count_conditions import (
     CountConditions,
     count_region,
+    has_condition,
     read_count_conditions,
 )
 
@@ -90,6 +91,13 @@ _PARAMETER = re.compile(
     r"(?P<count>exactly\s+one|only\s+one|one|1|a\s+single|a\s+repeated|a\s+double|"
     r"two\s+equal|equal|repeated|two\s+distinct|2\s+distinct|two\s+different|two|2|no)"
     r"\s+(?:real\s+)?(?:solutions?|roots?|zeros?|zeroes?)(?:\s+in\s+x)?$",
+    re.I,
+)
+# The parameter question in any form: "find k so that x^2 + kx + 9 = 0 has ... solution".
+_PARAMETER_ASK = re.compile(
+    r"^(?:find|determine|calculate|work\s+out|what\s+(?:is|are|must|should))\b"
+    r".*\b(?:so\s+that|such\s+that|for\s+which)\b.*=.*\b(?:has|have)\b"
+    r".*\b(?:solutions?|roots?|zeros?|zeroes?)\b",
     re.I,
 )
 _COUNT_RELATION = {
@@ -180,7 +188,11 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
         return None
     parameter = _PARAMETER.fullmatch(body)
     if parameter is not None:
-        return _parameter_intent(parameter)
+        return _parameter_intent(parameter) or declined_reading("equation_parameter")
+    if _PARAMETER_ASK.match(body):
+        # "find k so that ... has exactly one solution for x > 0": the parameter
+        # question, in a form the rule above does not read. No other path may answer it.
+        return declined_reading("equation_parameter")
     found = [(op, match) for op, pattern in _FEATURES if (match := pattern.search(body))]
     ops = {op for op, _ in found}
     if "slope_intercept" in ops:
@@ -193,17 +205,18 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
         return None
     (op,) = ops
     match = next(match for name, match in found if name == op)
-    conditions: CountConditions | None = None
     if op == "solution_count":
-        # "in [0, 5]", "for x > 0", "positive": the set the count is over, read first.
+        # A count recognised is the turn's question: whatever declines it, no other
+        # path answers it (the model's reading certified a condition's set instead).
+        return _count_reading(body) or declined_reading("equation_solution_count")
+    if has_condition(body):
+        # "the x-intercepts of y = x^2 - 4 for x > 0": no feature rule reads a condition,
+        # and the feature without it answers another question.
         read = read_count_conditions(body)
-        if read is None:
-            return None
-        body, conditions = read
-        recount = dict(_FEATURES)["solution_count"].search(body)
-        if recount is None:
-            return None
-        match = recount
+        again = dict(_FEATURES)[op].search(read[0]) if read is not None else None
+        if read is not None and again is not None and _only_frame_words(read[0], again):
+            return declined_reading(f"equation_{op}")
+        return None
     if op in {"slope", "slope_intercept"} and len(_POINT.findall(body)) >= 2:
         # A slope between two points belongs to the coordinate rules.
         return None
@@ -225,8 +238,6 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
     lhs, rhs = sides
     if not _only_frame_words(body, match):
         return None
-    if conditions is not None:
-        return _count_intent(lhs, rhs, match, conditions)
     return MathIntent(
         kind="arithmetic",
         school_op=f"equation_{op}",
@@ -237,6 +248,22 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
         trial_outcome=match.group("relation").lower() if op == "line_through" else None,
         operation="solve",
     )
+
+
+def _count_reading(body: str) -> MathIntent | None:
+    """A count over the set its conditions name ("in [0, 5]", "for x > 0", "positive"),
+    read first; None when any part does not read."""
+    read = read_count_conditions(body)
+    if read is None:
+        return None
+    body, conditions = read
+    match = dict(_FEATURES)["solution_count"].search(body)
+    if match is None or _NUMBERED_POINT.search(body):
+        return None
+    sides = _one_equation(body, "solution_count")
+    if sides is None or not _only_frame_words(body, match):
+        return None
+    return _count_intent(*sides, match, conditions)
 
 
 def _count_intent(

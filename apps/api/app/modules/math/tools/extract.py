@@ -10,7 +10,7 @@ from app.modules.math.function_calls import functions_dropped
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match.literal_plot import literal_plot_point
 from app.modules.math.request_consumption import request_consumption_complete
-from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas import MathIntent, is_declined
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
@@ -177,6 +177,9 @@ def _numeric_statement(text: str, intent: MathIntent) -> bool:
 @reading(declined=None)
 def extract_math_intent(text: str) -> MathIntent | None:
     intent = _extract_math_intent_any(text)
+    if is_declined(intent):
+        # Recognised and declined: the turn's reading, which nothing else replaces.
+        return intent
     if intent is None or (intent.kind == "graph" and not intent.expr):
         intent = _heard_math_intent(text) or intent
     if intent is None or _numeric_statement(text, intent):
@@ -240,17 +243,29 @@ def _extract_math_intent_any(text: str) -> MathIntent | None:
     if work is not None:
         work._request_text = text.strip()
         return work
+    # A reader that recognised the line and declined it keeps that reading unless another
+    # spelling of the line reads (the keyboard's ``\\cdot`` only reads plain); nothing
+    # after these retries may answer it.
+    declined: list[MathIntent] = []
+
+    def tried(candidate: str) -> MathIntent | None:
+        intent = _extract_math_intent(candidate)
+        if intent is None or not request_consumption_complete(candidate, intent):
+            return None
+        intent._request_text = text.strip()
+        if is_declined(intent):
+            declined.append(intent)
+            return None
+        return intent
+
     # The scanner caption is English plus a confirmed line. Solving the whole
     # caption leaves "I read this as" unconsumed, so a bare equation never
     # verifies. The line after the prefix is the problem.
     from app.services.subject_scan import confirmed_scan_reading
 
     reading = confirmed_scan_reading(normalized)
-    if reading and reading.strip() != normalized.strip():
-        intent = _extract_math_intent(reading)
-        if intent is not None and request_consumption_complete(reading, intent):
-            intent._request_text = text.strip()
-            return intent
+    if reading and reading.strip() != normalized.strip() and (found := tried(reading)):
+        return found
     # The math keyboard's LaTeX (``\int_{0}^{1}…\,dx``, ``\frac{d}{dx}``,
     # ``\binom``, ``30^{\circ}``) in the plain notation the extractors read.
     # A product's ``n=1`` bound reads as an equation, so it goes plain first.
@@ -259,20 +274,16 @@ def _extract_math_intent_any(text: str) -> MathIntent | None:
     if keyboard_bounds_read_first(normalized):
         readings.reverse()
     for candidate in dict.fromkeys(readings):
-        intent = _extract_math_intent(candidate)
-        if intent is not None and request_consumption_complete(candidate, intent):
-            intent._request_text = text.strip()
-            return intent
+        if found := tried(candidate):
+            return found
     # A second sentence can specify the teaching method or output format
     # without changing the mathematical input: ``cos(75°). Use an angle-sum
     # identity``. Give every extractor one shared retry at that sentence
     # boundary instead of teaching each subject a growing list of phrasings.
     presentation_free = _split_response_instruction_sentence(normalized).strip()
     if presentation_free and presentation_free != normalized.strip():
-        intent = _extract_math_intent(presentation_free)
-        if intent is not None and request_consumption_complete(presentation_free, intent):
-            intent._request_text = text.strip()
-            return intent
+        if found := tried(presentation_free):
+            return found
     # "Explain how to solve 2x+3<7" / "show steps for …": the teaching words
     # are response metadata. Some extractors find math inside prose; the
     # stricter ones (inequalities) need them gone. One retry, same grammar.
@@ -280,10 +291,8 @@ def _extract_math_intent_any(text: str) -> MathIntent | None:
 
     stripped = lesson_math_text(normalized)
     if stripped and stripped != normalized.strip() and _bare_math_request(stripped):
-        intent = _extract_math_intent(stripped)
-        if intent is not None and request_consumption_complete(stripped, intent):
-            intent._request_text = text.strip()
-            return intent
+        if found := tried(stripped):
+            return found
     # Chat before the question: "ok cool. what is 2+2" (match/chatter.py). The
     # question alone has no chat left, so this retries once.
     from app.modules.math.match.chatter import question_after_chat
@@ -294,6 +303,8 @@ def _extract_math_intent_any(text: str) -> MathIntent | None:
         if intent is not None:
             intent._request_text = text.strip()
             return intent
+    if declined:
+        return declined[0]
     # A system longer than the solver allows must not fall through to the
     # first free-standing equation and certify that one clause.
     if oversized_system(normalized):
@@ -398,7 +409,11 @@ def _extract_math_intent(text: str) -> MathIntent | None:
         # The math gate may have read the line already: its reads are reused.
         intent = read(extractor, cleaned)
         if intent is not None:
-            if region_question and intent.school_op not in _SOLVED_REGION_OPS:
+            if (
+                region_question
+                and intent.school_op not in _SOLVED_REGION_OPS
+                and not is_declined(intent)
+            ):
                 # A region question the application extractors declined must
                 # not be answered by whichever other extractor recognises half
                 # of it. Declining means a given is missing, not that some

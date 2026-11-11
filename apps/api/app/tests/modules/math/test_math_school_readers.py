@@ -547,6 +547,53 @@ async def test_a_trig_condition_is_no_count() -> None:
     assert verified is None or verified.canonical_answer not in {"0", "1", "2"}
 
 
+# A reader that recognises its question and declines it returns a declined reading: the
+# model's reading, a later reader and the sympy tool may not certify another answer in its
+# place ("how many solutions ... for x^4 - 5x^2 + 4 <= 0" came back as the condition's set).
+_DECLINED_TURNS = [
+    "how many solutions does x^2 = 9 have for x^4 - 5x^2 + 4 <= 0",
+    "how many solutions does x^2 = 4 have for x^4 - 5x^2 + 4 < 0",
+    "how many solutions does x^2 = 4 have for x^2 - 2 > 0",
+    "how many solutions does |x| = 2 have",
+    "how many solutions of 3x = 6 mod 9",
+    "find the vertex of y = x^2 - 4x + 3 for x > 5",
+    "find the x-intercepts of y = x^2 - 4 for x > 0",
+    "find the sum of the roots of x^2 - 5x + 6 = 0 for x > 2",
+    "find k so that x^2 + kx + 9 = 0 has exactly one solution for x > 0",
+    "what is the remainder when x^3 + 2x - 5 is divided by x - 2 for x > 1",
+]
+
+
+@pytest.mark.parametrize("text", _DECLINED_TURNS)
+@pytest.mark.asyncio
+async def test_a_declined_reading_is_never_answered_by_another_path(
+    text: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.modules.math.schemas import is_declined
+    from app.modules.math.tools import prompt
+
+    async def no_model_reading(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("the model's reading ran on a declined turn")
+
+    monkeypatch.setattr(prompt, "_model_math_intent", no_model_reading)
+    reading = extract_math_intent(text)
+    # Declined, or read as the asked question whose solver then declines.
+    assert reading is not None and (is_declined(reading) or reading.school_op is not None)
+    note, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is None
+    assert note is not None and "could not be produced" in note
+
+
+def test_the_sympy_tool_cannot_certify_a_declined_turns_condition() -> None:
+    from app.modules.math.subject import MathTool
+
+    text = "how many solutions does x^2 = 9 have for x^4 - 5x^2 + 4 <= 0"
+    call = {"action": "inequality", "lhs": "x^4 - 5x^2 + 4", "rhs": "0", "comparator": "<="}
+    assert MathTool().call_matches(call, [text]) is None
+    # The same call on a turn that asks for the inequality is the user's own maths.
+    assert MathTool().call_matches(call, ["solve x^4 - 5x^2 + 4 <= 0"]) is not None
+
+
 # A value that makes a denominator of the written equation zero is no solution, as the
 # solve card says; "counting multiplicity" counts a repeated root as often as it repeats.
 @pytest.mark.parametrize(

@@ -10,11 +10,12 @@ import re
 from dataclasses import replace
 from typing import Any
 
-from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.triangle import cos_degrees, cosine_rule_side
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _SIDE_ASKED
+from app.modules.math.tools.school.equation_features.count_conditions import has_condition
 from app.services.number_text import DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
@@ -54,7 +55,12 @@ def extract_algebra_fact_intent(cleaned: str) -> MathIntent | None:
         )
     remainder = _REMAINDER.fullmatch(body)
     if remainder is not None:
-        return _remainder_intent(remainder["dividend"], remainder["divisor"])
+        read = _remainder_intent(remainder["dividend"], remainder["divisor"])
+        if read is None and has_condition(body):
+            # "... divided by x - 2 for x > 1": the remainder was asked, with a condition
+            # no rule here reads; no other path may answer another question for it.
+            return declined_reading("polynomial_remainder")
+        return read
     return _cosine_rule_intent(body)
 
 
