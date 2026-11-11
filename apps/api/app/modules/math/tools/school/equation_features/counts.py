@@ -116,7 +116,7 @@ def _finite(
     regions: list[Any],
     counted: set[str],
 ) -> tuple[str, list[str]] | None:
-    from sympy import CRootOf, S, roots, solveset
+    from sympy import CRootOf, S, oo, roots, solveset
 
     from app.modules.math.solve.root_latex import expr_equal
 
@@ -139,7 +139,10 @@ def _finite(
         return next((m for root, m in multiplicities.items() if expr_equal(root, value)), 1)
 
     candidates = sorted(kept(reals), key=float)
-    if not regions and "real" not in counted and len(candidates) != len(kept(complexes)):
+    # A bound or a sign ("x > 0", "in [0, 5]") says the count is over the reals; points
+    # taken out ("x != 2") alone do not, so complex roots still leave it unread.
+    bounded = any(region.inf != -oo or region.sup != oo for region in regions)
+    if not bounded and "real" not in counted and len(candidates) != len(kept(complexes)):
         return None
     with_multiplicity = "multiplicity" in counted
     counts = {

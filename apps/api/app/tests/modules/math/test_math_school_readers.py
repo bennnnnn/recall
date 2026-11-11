@@ -514,6 +514,25 @@ async def test_solution_count_removes_the_points_a_condition_excludes(
 
 
 @pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Two complex roots and none real: "!= 2" alone does not say which are counted.
+        ("how many solutions does x^2 + 1 = 0 have for x != 2", None),
+        ("how many real solutions does x^2 + 1 = 0 have for x != 2", "0"),
+        # A bound does say it: "x > 0" is about real numbers.
+        ("how many solutions does x^2 + 1 = 0 have for x > 0", "0"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_excluded_points_alone_do_not_make_the_count_real(
+    text: str, answer: str | None
+) -> None:
+    """Claude review on #2409: a bare "x != 2" was taken as "count the real solutions"."""
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert (verified.canonical_answer if verified else None) == answer
+
+
+@pytest.mark.parametrize(
     "condition",
     [
         "x^50 - 3x^7 + 2 > 0",
