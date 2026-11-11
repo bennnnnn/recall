@@ -257,21 +257,34 @@ async def read_decision(
         return _followed(
             await _ask(settings, model_alias, messages, settings.live_read_timeout_seconds), earlier
         )
+
+    text_read = asyncio.create_task(_text_read(settings, messages))
+    try:
+        return await _join(settings, text_read, messages[-1]["content"], earlier)
+    finally:
+        # Whatever ends the read (an answer that needs no query, the reply's wait running
+        # out and cancelling it, an error), the text read and its backup stop being billed.
+        text_read.cancel()
+
+
+async def _join(
+    settings: Settings,
+    text_read: asyncio.Task[TurnDecision | None],
+    state: str,
+    earlier: list[tuple[str, str]],
+) -> TurnDecision | None:
+    """The Decider's read, with the text read's query when it calls the turn live or asked;
+    the text read's own when the Decider gives none."""
     from app.modules.chat.decider_read import decide_turn
 
     started = time.monotonic()
-    text_read = asyncio.create_task(_text_read(settings, messages))
     decided = await decide_turn(
-        settings,
-        messages[-1]["content"],
-        has_earlier=bool(earlier),
-        seconds=settings.live_read_timeout_seconds,
+        settings, state, has_earlier=bool(earlier), seconds=settings.live_read_timeout_seconds
     )
     if decided is None:
         # The Decider gave no answer (refused at once, at busy hours): the text read decides.
         return _followed(await text_read, earlier)
     if not (decided["live"] or decided["asked"]):
-        text_read.cancel()
         return TurnDecision(**decided)
     # The search query is text the Decider cannot write: the text read's, begun beside it.
     left = settings.live_read_timeout_seconds - (time.monotonic() - started)

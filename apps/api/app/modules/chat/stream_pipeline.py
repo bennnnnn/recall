@@ -248,13 +248,14 @@ async def _produce_reply(
     finally:
         if ctx.timing is not None:
             ctx.timing.mark_phase("tool_loop_done")
-    await decide_from_the_read(ctx, settings)
     if _is_terminal_image(ctx):
         return
     if ctx.instant_reply:
         async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):
             yield token
         return
+    # Only a reply still to write takes the read's lane and level.
+    await decide_from_the_read(ctx, settings)
     if settings.image_search_enabled and ctx.user is not None:
         ctx.answer_photo = AnswerPhoto(settings, ctx.user)
     async for token in run_llm_token_stream(

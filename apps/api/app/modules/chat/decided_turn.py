@@ -82,12 +82,21 @@ def _worked(ctx: StreamContext) -> bool:
 
 
 def _lane_may_move(ctx: StreamContext) -> bool:
+    """The one test of whether the read may move Auto's lane, and so whether the turn waits
+    for it. A lesson keeps its quick lane (``route``'s "lesson"), small talk has nothing to
+    move, a photo turn keeps the model that reads it, a JSON ask its model with JSON mode;
+    a regenerate or a dispute keeps its escalation, a model the user picked their pick."""
     return (
         ctx.auto_routed
         and ctx.user is not None
         and not _worked(ctx)
         and ctx.instant_reply is None
+        and not ctx.terminal_image_content
         and ctx.thinking != "escalate"
+        and not ctx.lightweight_turn
+        and active_lesson_step(ctx.recent_messages) is None
+        and not _shows_a_picture(ctx)
+        and not is_json_request(ctx.user_message_content)
     )
 
 
@@ -102,11 +111,8 @@ def _level(ctx: StreamContext, read: TurnDecision) -> bool | str:
 
 
 def _follow_the_lane(ctx: StreamContext, settings: Settings, read: TurnDecision) -> None:
-    """Auto's lane for the read's subject and effort. A turn that shows the model a photo
-    keeps the model that reads it, and a JSON ask the rules' model with JSON mode."""
+    """Auto's lane for the read's subject and effort, where it may move (``_lane_may_move``)."""
     if not _lane_may_move(ctx) or ctx.user is None or read.subject is None:
-        return
-    if _shows_a_picture(ctx) or is_json_request(ctx.user_message_content):
         return
     lane = decided_lane(
         read.subject,

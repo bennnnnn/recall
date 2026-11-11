@@ -210,7 +210,8 @@ async def test_a_lesson_keeps_its_quick_steps(before: str) -> None:
         ],
     )
     await decide_from_the_read(ctx, _SETTINGS)
-    assert ctx.thinking == before
+    # The lesson's quick lane and level stay, as the word rules keep them (``route``).
+    assert (ctx.model, ctx.thinking) == ("free-chat", before)
 
 
 @pytest.mark.asyncio
@@ -302,3 +303,42 @@ async def test_a_low_everyday_question_thinks_on_the_everyday_model() -> None:
     ctx = _turn("How do I fix git push rejected non-fast-forward?", _read("code", True))
     await decide_from_the_read(ctx, _SETTINGS)
     assert (ctx.model, ctx.thinking) == ("free-chat", "hard")
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"lightweight_turn": True},
+        {"user_message_content": "give me the list of the planets as valid JSON"},
+        {"recent_messages": [SimpleNamespace(role="assistant", content=_LESSON)]},
+    ],
+    ids=["small talk", "json ask", "lesson"],
+)
+@pytest.mark.asyncio
+async def test_a_turn_whose_lane_cannot_move_never_waits_for_the_read(
+    fields: dict[str, Any],
+) -> None:
+    """ "thanks!" waited the whole 1.2 s for a read that could change nothing (review,
+    2026-11-10). The wait and the move ask one test (``_lane_may_move``)."""
+    pending: asyncio.Future[Any] = asyncio.get_event_loop().create_future()
+    ctx = _turn("thanks!", None, **fields)
+    ctx.live_read = pending  # type: ignore[assignment]
+    await asyncio.wait_for(
+        decide_from_the_read(ctx, isolated_settings(live_read_wait_seconds=5)), 0.5
+    )
+    assert not pending.done() and ctx.model == "free-chat"
+    pending.cancel()
+
+
+@pytest.mark.asyncio
+async def test_a_photo_turn_never_waits_for_the_read() -> None:
+    photo = [{"type": "text", "text": "what is this?"}, {"type": "image_url", "image_url": {}}]
+    pending: asyncio.Future[Any] = asyncio.get_event_loop().create_future()
+    ctx = _turn("what is this?", None, model="vision-chat")
+    ctx.prompt_messages = [{"role": "user", "content": photo}]
+    ctx.live_read = pending  # type: ignore[assignment]
+    await asyncio.wait_for(
+        decide_from_the_read(ctx, isolated_settings(live_read_wait_seconds=5)), 0.5
+    )
+    assert not pending.done()
+    pending.cancel()
