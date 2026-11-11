@@ -10,7 +10,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
-from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas import MathIntent, is_declined
 from app.modules.math.solve.restated import REWRITES, card_restates
 from app.modules.math.tools.block.algebra import (
     _verified_block_equation,
@@ -134,6 +134,9 @@ def _method_left_out(intent: MathIntent, block: VerifiedMathBlock) -> bool:
 
 
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
+    if is_declined(intent):
+        # A reader's declined_reading: there is nothing to solve.
+        return None
     lines: list[str] = []
 
     try:

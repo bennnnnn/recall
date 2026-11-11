@@ -227,9 +227,16 @@ class MathTool:
         )
 
     def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
+        from app.modules.math.schemas import is_declined
         from app.modules.math.tool_check import matched_user_text
+        from app.modules.math.tools.extract import extract_math_intent
 
-        return matched_user_text(raw_args, user_texts)
+        matched = matched_user_text(raw_args, user_texts)
+        if matched is not None and is_declined(extract_math_intent(matched)):
+            # A reader recognised that message's question and declined it: a call on
+            # a formula in it (a count's condition) answers another question.
+            return None
+        return matched
 
     def draws_curve(self, fence: dict[str, Any] | None) -> bool:
         from app.modules.math.text_plot import is_curve_fence

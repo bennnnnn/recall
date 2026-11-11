@@ -7,6 +7,7 @@ from dataclasses import replace
 
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
+from app.modules.math.tools.school.equation_features.counts import solution_count
 from app.modules.math.tools.school.equation_features.lines import (
     _line_through,
     _slope,
@@ -20,7 +21,6 @@ from app.modules.math.tools.school.equation_features.quadratics import (
     _discriminant,
     _parameter,
     _roots_sum_or_product,
-    _solution_count,
     _vertex,
 )
 from app.modules.math.tools.school.equation_features.sinusoids import _amplitude, _period
@@ -66,5 +66,5 @@ _SOLVERS = {
     "parameter": _parameter,
     "period": _period,
     "amplitude": _amplitude,
-    "solution_count": _solution_count,
+    "solution_count": solution_count,
 }
