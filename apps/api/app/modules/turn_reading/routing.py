@@ -7,6 +7,7 @@ import re
 
 from app.modules.turn_reading.lesson_flow import lesson_step
 from app.services import time_context as time_context_service
+from app.services.md_fence_scan import without_fences
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # Patterns assume input was passed through ``collapse_ws`` (single spaces only).
@@ -140,10 +141,13 @@ def is_short_reply(text: str) -> bool:
 
 
 def prior_looks_like_offer(prior_assistant: str | None) -> bool:
-    """True when the last assistant turn offered to do something or asked a question."""
+    """True when the last assistant turn offered to do something or asked a question, in
+    its prose: a searched reply ending "Do you want more detail on any of these?" is saved
+    with its ```sources list after it, and "Yes" to it was read as small talk and answered
+    with a question (2026-11-11)."""
     if not prior_assistant:
         return False
-    cleaned = collapse_ws(prior_assistant)
+    cleaned = collapse_ws(without_fences(prior_assistant))
     if not cleaned:
         return False
     tail = cleaned[-400:].lower()
