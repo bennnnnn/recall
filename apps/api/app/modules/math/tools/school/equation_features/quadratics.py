@@ -10,11 +10,11 @@ from app.modules.math.tools.school.equation_features.forms import (
     _num,
     _point,
     _quadratic,
-    _sides,
     _Solved,
     _symbols,
     _tex,
 )
+from app.modules.math.tools.school.equation_features.parsing import equation_sides
 from app.services.workout import Workout, math_line
 
 
@@ -112,7 +112,7 @@ def _parameter(intent: MathIntent) -> _Solved | None:
     if name in {"x", "e", "i"}:
         return None
     x, k = _symbols("x", name)
-    lhs, rhs = _sides(intent, ["x", name])
+    lhs, rhs = equation_sides(intent, ["x", name])
     expression = expand(lhs - rhs)
     if not expression.free_symbols <= {x, k} or k not in expression.free_symbols:
         return None
