@@ -1,12 +1,16 @@
 """A worked reply's result comes after its working, never above it: not as a guess
-(2026-10-30), and not said early either (2026-11-07)."""
+(2026-10-30), and not said early either (2026-11-07). The working's own last line, worked
+to its value, stays above the card (2026-11-11)."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
+from app.modules.chat.finalize_passes import FINALIZE_PASSES
 from app.modules.chat.quality import _collect_format_signals
-from app.modules.chat.worked_lead import drop_guessed_lead, drop_restated_step, drop_restated_tail
+from app.modules.chat.worked_lead import drop_guessed_lead, drop_restated_tail
 
 _WORKED = (
     "**Given**\n$m_1 = 160\\ \\text{kg}$\n\n**Formula**\n$E = \\frac{1}{2}Mv^2$\n\n"
@@ -261,93 +265,51 @@ _INTEGRAL = (
     "**4. Combine**  \n$- x \\cos{\\left(x \\right)} + \\sin{\\left(x \\right)} + C$\n\n"
     + _card("- x \\cos{\\left(x \\right)} + \\sin{\\left(x \\right)} + C")
 )
+# The phone test of 2026-11-11: a verified cyclist and a model's train stopped one line short.
+_CYCLIST = (
+    "**Substitution**  \n$v = \\frac{45\\,\\mathrm{km}}{3\\,\\mathrm{h}}$  \n"
+    "$v = 15\\,\\mathrm{km/h}$\n\n" + _card("15\\,\\mathrm{km/h}")
+)
+_TRAIN = "**Substitution**  \n$d = 60 \\times 4.5$  \n$d = 270\\,\\mathrm{mi}$\n\n" + _card(
+    "270\\,\\mathrm{mi}"
+)
+_ROUNDED = "**Substitution**  \n$A = \\pi(3)^2 = 9\\pi \\approx 28.27$\n\n" + _card(
+    "\\approx 28.27\\ \\mathrm{cm}^{2}"
+)
+
+
+def _worked_lead_pass(text: str) -> str:
+    """The ``worked_lead`` finalize pass over ``text``."""
+    step = next(item for item in FINALIZE_PASSES if item.name == "worked_lead")
+    out = step.run(SimpleNamespace(text=text))  # type: ignore[arg-type]
+    assert isinstance(out, str)
+    return out
 
 
 @pytest.mark.parametrize(
-    ("worked", "said", "kept"),
+    ("worked", "last"),
     [
-        # The chain's last link, "= 2x/(x^2 + 1)", over a card of 2x/(x^2 + 1).
-        (_DERIVATIVE, "$= \\frac{2 x}{x^{2} + 1}$", "\\times 2 x$\n\n**Answer**"),
-        # "m = 29.2 g" over "m(NaCl) = 29.2 g": the name set to the card's value.
-        (_NACL, "$m = 29.2\\,\\mathrm{g}$", "\\mathrm{g/mol})$\n\n**Answer**"),
-        # A numbered step that only says the card goes whole.
-        (_INTEGRAL, "**4. Combine**", "\\sin{\\left(x \\right)}$\n\n**Answer**"),
+        (_CYCLIST, "$v = 15\\,\\mathrm{km/h}$"),
+        (_TRAIN, "$d = 270\\,\\mathrm{mi}$"),
+        (_NACL, "$m = 29.2\\,\\mathrm{g}$"),
+        (_DERIVATIVE, "$= \\frac{2 x}{x^{2} + 1}$"),
+        (_INTEGRAL, "**4. Combine**"),
+        (_ROUNDED, "9\\pi \\approx 28.27$"),
     ],
 )
-def test_the_last_line_saying_the_cards_value_goes(worked: str, said: str, kept: str) -> None:
-    # Every worked card in maths, physics and chemistry said its answer twice (2026-11-08).
-    out = drop_restated_step(worked)
-    assert said not in out
-    assert kept in out
-    assert not any(signal.code == "duplicate_answer" for signal in _collect_format_signals(out))
+def test_the_working_ends_on_its_value_above_the_card(worked: str, last: str) -> None:
+    """Textbook form: the last line worked to its value, then the boxed answer. Dropped as
+    the card's restatement from 2026-11-09, the working stopped one step short ("v = 45 km
+    / 3 h", then the card) in the owner's phone test (2026-11-11)."""
+    assert _worked_lead_pass(worked) == worked
+    assert last in worked
+    # The working reaching the card's value is the layout, not an answer said twice.
+    assert not any(signal.code == "duplicate_answer" for signal in _collect_format_signals(worked))
 
 
-@pytest.mark.parametrize(
-    "worked",
-    [
-        # A section's one line stays: it is never left empty.
-        "**Substitution**  \n$a = 4.9\\,\\mathrm{m/s^2}$\n\n" + _card("4.9\\,\\mathrm{m/s^2}"),
-        # Working that says more than the value: arithmetic, or another value.
-        "**Substitution**  \n$a = 2 \\times 3$  \n$a = 9.81 \\times 0.5$\n\n"
-        + _card("4.9\\,\\mathrm{m/s^2}"),
-        "**Steps**  \n$x - 1 = 0$  \n$x = 1.5$\n\n" + _card("x = \\frac{3}{2}"),
-    ],
-)
-def test_working_that_says_more_than_the_card_stays(worked: str) -> None:
-    assert drop_restated_step(worked) == worked
-
-
-@pytest.mark.parametrize(
-    ("worked", "kept"),
-    [
-        # A chain's last link, "≈ 28.27", only says the card; 9π is the value unrounded.
-        (
-            "**Substitution**  \n$A = \\pi(3)^2 = 9\\pi \\approx 28.27$\n\n"
-            + _card("\\approx 28.27\\ \\mathrm{cm}^{2}"),
-            "$A = \\pi(3)^2 = 9\\pi$\n\n**Answer**",
-        ),
-        # The same link on a row of its own, without the card's unit.
-        (
-            "**Substitution**  \n$c = \\sqrt{34}$  \n$c \\approx 5.831$\n\n"
-            + _card("\\approx 5.831\\ \\mathrm{units}"),
-            "$c = \\sqrt{34}$\n\n**Answer**",
-        ),
-    ],
-)
-def test_a_last_link_saying_the_rounded_card_goes(worked: str, kept: str) -> None:
-    assert kept in drop_restated_step(worked)
-
-
-def test_a_value_the_card_only_rounds_stays() -> None:
-    # 29.22 g is what the arithmetic reaches; the card rounds it to 29 g.
-    worked = "**Substitution**  \n$m = (0.5)(58.44)$  \n$m = 29.22\\,\\mathrm{g}$\n\n" + _card(
-        "m(\\mathrm{NaCl}) = 29\\,\\mathrm{g}"
+def test_prose_saying_the_cards_value_again_is_still_flagged() -> None:
+    text = (
+        "**Substitution**  \n$v = 15\\,\\mathrm{km/h}$\n\nSo v is 15\\,\\mathrm{km/h}.\n\n"
+        + _card("15\\,\\mathrm{km/h}")
     )
-    assert drop_restated_step(worked) == worked
-
-
-def test_a_sections_only_step_stays() -> None:
-    # Dropped whole, "Solve x^2 = 2" saved as a Solution heading over its card.
-    worked = "**Solution**\n\n**1. Divide both sides by 2**  \n$x = 3$\n\n" + _card("x = 3")
-    assert drop_restated_step(worked) == worked
-
-
-@pytest.mark.parametrize(
-    ("line", "card"),
-    [
-        # More after the number is more value, not a unit.
-        ("x = 2", "x = 2\\sqrt{3}"),
-        ("y = 5", "y = 5 - x"),
-        # Another name.
-        ("t = 4", "x = 4\\,\\mathrm{m}"),
-        # A card of several values: no one line says it, the line with both roots included.
-        ("x = 1", "1 \\text{ or } \\frac{3}{2}"),
-        ("x = 3", "x = 2 \\text{ or } x = 3"),
-        ("x = 2 \\text{ or } x = 3", "x = 2 \\text{ or } x = 3"),
-        ("y = 4", "x = 6, y = 4"),
-        ("x = \\pm \\sqrt{2}", "x = \\pm \\sqrt{2}"),
-    ],
-)
-def test_a_line_saying_another_value_stays(line: str, card: str) -> None:
-    worked = f"**Steps**  \n$x - 1 = 0$  \n${line}$\n\n" + _card(card)
-    assert drop_restated_step(worked) == worked
+    assert any(signal.code == "duplicate_answer" for signal in _collect_format_signals(text))

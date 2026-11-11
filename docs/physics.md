@@ -346,8 +346,9 @@ The binder reads these laws, beside the extractors' own:
 - **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
   used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. That is the card's
   precision: the Substitution ends on the value it reaches, unrounded, as a working value is
-  printed (`a = 4.905 m/s²` over a card of `4.9 m/s²`; `working_steps._unrounded`), and a
-  value the card only restates is dropped when the reply saves, so the answer is said once. One formatter does
+  printed (`a = 4.905 m/s²` over a card of `4.9 m/s²`; `working_steps._unrounded`), or the
+  card's own value when nothing rounds (`v = 15 km/h` over `15 km/h`), as a textbook closes
+  its working before the boxed answer (2026-11-11). One formatter does
   this, `display.py`; a solver never picks its own format. A 5 rounds up, as a class rounds:
   490.5 N is 491 N (`services/school_rounding.py`, the rule every subject shares).
 - **Givens** are echoed with the figures the user typed, up to six. A given is never rounded

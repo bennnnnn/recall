@@ -126,9 +126,9 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    formula with the numbers put in, then (as physics') the same symbol equal to the value it
    reaches, unrounded: `m = (0.5 mol)(58.440 g/mol)`, then `m = 29.22 g`. Only the card rounds
    it to the data's figures (`29 g`): `num` notes what rounding took off
-   (`sig_figs.note_rounding`) and the closing row shows it (`direct._unrounded_value`). The
-   answer is said once, at the end: a closing row the card only restates (`n = 2.0 mol` over
-   `2.0 mol`) is dropped when the reply saves (`chat/worked_lead.drop_restated_step`).
+   (`sig_figs.note_rounding`) and the closing row shows it (`direct._unrounded_value`). A
+   closing row the card does not round (`n = 2.0 mol` over `2.0 mol`) stays too: the working
+   ends on its value, as a textbook's does, then the card (2026-11-11).
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
    structure fences and appends the solver's copies (the card marked `verified: true`).
    Prose whose own final value differs (`pH = 1.00` against `2.00`) gets one line above

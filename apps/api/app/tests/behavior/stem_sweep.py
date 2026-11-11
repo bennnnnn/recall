@@ -464,8 +464,8 @@ _ROW = re.compile(r"\$([^$]+)\$")
 
 def _physics_working(prose: str, written: str) -> list[Problem]:
     """What a learner reads: the law by name, each given once, the arithmetic to its end,
-    one Answer label. The solver carries the arithmetic to the value (``written``); the
-    saved reply then says that value once, in its card (``worked_lead.drop_restated_step``)."""
+    one Answer label. The solver carries the arithmetic to the value (``written``), and the
+    saved reply keeps that last line above its card, as a textbook does."""
     problems: list[Problem] = []
     if "**Formula**" in prose:
         problems.append(Problem("shape", "Formula heading instead of the law's name"))

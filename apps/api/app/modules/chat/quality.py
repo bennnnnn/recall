@@ -40,6 +40,8 @@ _REFUSAL_PATTERNS = (
 _MIN_RICH_REPLY_CHARS = 40
 
 _JSON_FENCE_LANGS = frozenset({"graph", "geometry", "places", "sources"})
+# A line of a worked reply's working: one formula alone ("$v = 15\\,\\mathrm{km/h}$").
+_WORKING_LINE = re.compile(r"^[^\S\n]*\$[^$\n]+\$[^\S\n]*$", re.MULTILINE)
 _ANSWER_LANGS = frozenset({"answer", "result", "final"})
 _DRAFT_FENCE_LANGS = frozenset(
     {
@@ -153,7 +155,9 @@ def _collect_format_signals(text: str) -> list[QualitySignal]:
         body = answer_fence_value(fence.body)
         if not body:
             continue
-        rest = f"{text[: fence.start]}{text[fence.end :]}"
+        # A line of working ends on the card's value by design (the textbook's last line
+        # above its boxed answer); only prose that says it again is a duplicate.
+        rest = _WORKING_LINE.sub("", f"{text[: fence.start]}{text[fence.end :]}")
         if body in rest:
             signals.append(
                 QualitySignal(
