@@ -31,9 +31,11 @@ _STEM = frozenset({"maths", "physics", "chemistry"})
 
 
 def decided_level(subject: str | None, effort: Effort) -> ThinkingLevel:
-    """The thinking level the read's subject and effort ask for."""
-    if subject in _STEM and effort == "low":
-        return "off"
+    """The thinking level the read's subject and effort ask for. A hard STEM problem (the
+    four runners' speeds, 2026-11-09) thinks at the model's level that thinks, not its
+    most: the answer is the solver's kind of work, laid out step by step."""
+    if subject in _STEM:
+        return "hard" if effort == "high" else "off"
     return _LEVELS[effort]
 
 

@@ -13,12 +13,18 @@ import pytest
 from app.gateways.litellm_gateway import _call_kwargs
 from app.gateways.stream_tool_calls import ToolOffer
 from app.models import model_catalog
-from app.modules.chat import turn_decision
+from app.modules.chat import decider_read, turn_decision
 from app.modules.chat.turn_decision import TurnDecision
 from app.tests.fakes import isolated_settings
 
 _SETTINGS = isolated_settings(web_search_enabled=True, mcp_tool_loop_enabled=True)
 _STRUCTURED = "app.gateways.structured_completion.complete_structured"
+
+
+@pytest.fixture(autouse=True)
+def no_decider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Decider gives no answer unless a test says so: the text read decides."""
+    monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=None))
 
 
 @pytest.fixture(autouse=True)
@@ -260,7 +266,7 @@ async def test_a_message_with_nothing_before_it_follows_nothing() -> None:
     [
         "subject is what the message is about",
         "gas laws and heat are physics",
-        "hard is true when that reasoning is long or deep",
+        "hard is true when the reasoning is the work itself",
         "picture is what the message asks to see",
         "A map is none",
         "follow is how the message relates to the earlier turns",
@@ -268,3 +274,108 @@ async def test_a_message_with_nothing_before_it_follows_nothing() -> None:
 )
 def test_the_instructions_name_each_decision(kind: str) -> None:
     assert kind in turn_decision.decision_messages("hi", [])[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_a_refused_read_asks_the_backup_within_the_budget() -> None:
+    """The read's model was rate-limited upstream on 15-40% of calls (2026-11-10): a refusal
+    comes back at once, and the backup lane reads the message inside the same wait."""
+    from app.models.routing_lanes import ROUTING
+
+    answer = TurnDecision(live=False, subject="maths")
+    ask = AsyncMock(side_effect=[None, answer])
+    with patch(_STRUCTURED, ask):
+        read = await turn_decision.read_decision(_SETTINGS, "solve 2x + 5 = 17", earlier=[])
+    assert read is not None and read.subject == "maths"
+    aliases = [call.kwargs["model_alias"] for call in ask.await_args_list]
+    assert aliases == [ROUTING.live_read, ROUTING.live_read_backup]
+    assert ask.await_args_list[1].kwargs["timeout_seconds"] <= _SETTINGS.live_read_timeout_seconds
+
+
+@pytest.mark.asyncio
+async def test_a_read_with_too_little_budget_left_asks_no_backup() -> None:
+    settings = isolated_settings(live_read_timeout_seconds=0.5)
+    ask = AsyncMock(return_value=None)
+    with patch(_STRUCTURED, ask):
+        assert await turn_decision.read_decision(settings, "hi", earlier=[]) is None
+    assert ask.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_a_measured_model_is_asked_alone() -> None:
+    ask = AsyncMock(return_value=None)
+    with patch(_STRUCTURED, ask):
+        await turn_decision.read_decision(_SETTINGS, "hi", earlier=[], model_alias="gpt-6-luna")
+    assert ask.await_count == 1
+
+
+def _fields(**over: Any) -> dict[str, Any]:
+    base = {
+        "subject": "everyday",
+        "think": False,
+        "hard": False,
+        "picture": "none",
+        "follow": "none",
+        "live": False,
+        "asked": False,
+    }
+    return {**base, **over}
+
+
+@pytest.mark.asyncio
+async def test_the_deciders_answer_is_the_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """It read the decider corpus better than the text read at a third of its time."""
+    monkeypatch.setattr(
+        decider_read, "decide_turn", AsyncMock(return_value=_fields(subject="physics"))
+    )
+    ask = AsyncMock(return_value=TurnDecision(live=False, subject="everyday"))
+    with patch(_STRUCTURED, ask):
+        read = await turn_decision.read_decision(_SETTINGS, "Draw the circuit", earlier=[])
+    assert read is not None and (read.subject, read.effort, read.searches) == (
+        "physics",
+        "none",
+        False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_live_decision_takes_its_query_from_the_text_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Decider writes no text: the search query is the text read's, begun beside it."""
+    monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=_fields(live=True)))
+    ask = AsyncMock(return_value=TurnDecision(live=True, query="World Cup winner"))
+    with patch(_STRUCTURED, ask):
+        read = await turn_decision.read_decision(_SETTINGS, "who won the world cup", earlier=[])
+    assert read is not None and read.searches and read.query == "World Cup winner"
+
+
+@pytest.mark.parametrize(
+    ("subject", "think", "hard", "effort"),
+    [
+        # STEM thinks only when hard: easy textbook problems were read "low" (2026-11-10).
+        ("physics", 0.9, 0.5, "none"),
+        ("maths", 0.9, 0.8, "high"),
+        ("everyday", 0.9, 0.5, "low"),
+        ("everyday", 0.9, 0.97, "high"),
+        ("everyday", 0.2, 0.97, "none"),
+    ],
+)
+def test_the_deciders_probabilities_set_the_effort(
+    subject: str, think: float, hard: float, effort: str
+) -> None:
+    answers = {
+        "subject": {"choice": subject},
+        "think": {"noul": think},
+        "hard": {"noul": hard},
+        "picture": {"choice": "none"},
+        "follow": {"choice": "draw"},
+        "live": {"noul": 0.1},
+        "asked": {"noul": 0.1},
+    }
+    fields = decider_read.decision_fields(answers, has_earlier=True)
+    assert fields is not None
+    read = TurnDecision(**fields)
+    assert (read.effort, read.follow) == (effort, "draw")
+    assert decider_read.decision_fields(answers, has_earlier=False)["follow"] == "none"  # type: ignore[index]
+    assert decider_read.decision_fields({}, has_earlier=False) is None

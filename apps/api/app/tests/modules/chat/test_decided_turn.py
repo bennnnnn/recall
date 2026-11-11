@@ -88,7 +88,7 @@ def _turn(content: str, read: TurnDecision | None, **fields: Any) -> StreamConte
         ("maths", "low", "off"),
         ("physics", "low", "off"),
         ("chemistry", "low", "off"),
-        ("maths", "high", "deep"),
+        ("maths", "high", "hard"),
         ("physics", "none", "off"),
     ],
 )
@@ -294,7 +294,7 @@ async def test_a_hard_stem_problem_still_thinks() -> None:
     """The four runners' speeds (2026-11-09): the read calls it hard, and it thinks."""
     ctx = _turn(RUNNERS, _read("physics", True, True))
     await decide_from_the_read(ctx, _SETTINGS)
-    assert (ctx.model, ctx.thinking) == (ROUTING.math, "deep")
+    assert (ctx.model, ctx.thinking) == (ROUTING.math, "hard")
 
 
 @pytest.mark.asyncio

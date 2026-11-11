@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -42,8 +43,11 @@ _MAX_INPUT_CHARS = 1200
 # Each earlier message the read sees, and how many: the last two exchanges.
 _EARLIER_CHARS = 400
 _EARLIER_MESSAGES = 4
-# Seven short keys: about 45 tokens of JSON.
+# Eight short keys: about 55 tokens of JSON.
 _MAX_TOKENS = 120
+# The backup read is asked only with this much of the budget left: it answers in about 0.7 s
+# (p95 0.82 s on the decider corpus).
+_BACKUP_MIN_SECONDS = 0.8
 
 Subject = Literal["everyday", "maths", "physics", "chemistry", "money", "code"]
 Effort = Literal["none", "low", "high"]
@@ -102,9 +106,11 @@ _SYSTEM = (
     "answers, the same problem again with a value changed, a request to draw or show "
     "something, setting a practice question, and a single equation or expression to "
     "solve, differentiate or simplify (the app's solver checks those).\n"
-    "hard is true when that reasoning is long or deep: a proof of more than a few lines, "
-    "many steps or parts, a decision with many factors and numbers, a system or algorithm "
-    "to design, hard debugging, a puzzle that needs case analysis; false otherwise.\n\n"
+    "hard is true when the reasoning is the work itself: a word problem to set up with "
+    "unknowns or rates, a proof, a problem in several parts, a logic puzzle, a decision "
+    "with many factors and numbers, a system or algorithm to design, hard debugging. hard "
+    "is false for a textbook problem a formula or two answer, a short comparison or plan, "
+    "and short code.\n\n"
     "picture is what the message asks to see: it says draw, sketch, plot, graph, chart, "
     "show me, a picture of, or what something looks like. Otherwise none, even for a "
     "problem a figure would help. graph: a curve, or a chart of data; diagram: a "
@@ -236,7 +242,6 @@ async def read_decision(
         return None
     # Imported here: SymPy pool workers import chat's readers, not the gateway.
     from app.core.redis import get_redis_client
-    from app.gateways.structured_completion import complete_structured
     from app.services import quota as quota_service
 
     try:
@@ -244,24 +249,81 @@ async def read_decision(
         # and the reply's model decide.
         if await quota_service.global_spend_exceeded(get_redis_client(), settings):
             return None
-        read = await complete_structured(
-            settings=settings,
-            model_alias=model_alias or ROUTING.live_read,
-            messages=decision_messages(question, earlier),
-            schema=TurnDecision,
-            max_tokens=_MAX_TOKENS,
-            timeout_seconds=settings.live_read_timeout_seconds,
-            allow_fallback=False,
-            quiet_timeout=True,
-        )
     except Exception as exc:  # A read is a hint: any failure leaves the turn to the rules.
         logger.info("turn decision failed (%s)", type(exc).__name__)
         return None
+    messages = decision_messages(question, earlier)
+    if model_alias is not None:
+        return _followed(
+            await _ask(settings, model_alias, messages, settings.live_read_timeout_seconds), earlier
+        )
+    from app.modules.chat.decider_read import decide_turn
+
+    started = time.monotonic()
+    text_read = asyncio.create_task(_text_read(settings, messages))
+    decided = await decide_turn(
+        settings,
+        messages[-1]["content"],
+        has_earlier=bool(earlier),
+        seconds=settings.live_read_timeout_seconds,
+    )
+    if decided is None:
+        # The Decider gave no answer (refused at once, at busy hours): the text read decides.
+        return _followed(await text_read, earlier)
+    if not (decided["live"] or decided["asked"]):
+        text_read.cancel()
+        return TurnDecision(**decided)
+    # The search query is text the Decider cannot write: the text read's, begun beside it.
+    left = settings.live_read_timeout_seconds - (time.monotonic() - started)
+    try:
+        read = await asyncio.wait_for(text_read, max(0.0, left))
+    except TimeoutError:
+        read = None
+    return TurnDecision(**decided, query=read.query if read is not None else "")
+
+
+async def _text_read(settings: Settings, messages: list[dict[str, str]]) -> TurnDecision | None:
+    """The JSON read by the read's model, and by the backup when it refuses at once."""
+    budget = settings.live_read_timeout_seconds
+    started = time.monotonic()
+    read = await _ask(settings, ROUTING.live_read, messages, budget)
+    left = budget - (time.monotonic() - started)
+    if read is None and left >= _BACKUP_MIN_SECONDS:
+        # The read's model is rate-limited upstream on 15-40% of calls at busy hours, and a
+        # refusal comes back in about 0.3 s: the backup answers within the same budget.
+        read = await _ask(settings, ROUTING.live_read_backup, messages, left)
+    return read
+
+
+def _followed(read: TurnDecision | None, earlier: list[tuple[str, str]]) -> TurnDecision | None:
     if read is not None and not earlier:
         # Nothing came before it: a problem the message states itself ("Solve 3x + 7 = 22")
         # was read as a follow-up asking to solve one.
         read.follow = "none"
     return read
+
+
+async def _ask(
+    settings: Settings, alias: str, messages: list[dict[str, str]], seconds: float
+) -> TurnDecision | None:
+    """One model's read, or None: any failure leaves the turn to the next model or the
+    rules."""
+    from app.gateways.structured_completion import complete_structured
+
+    try:
+        return await complete_structured(
+            settings=settings,
+            model_alias=alias,
+            messages=messages,
+            schema=TurnDecision,
+            max_tokens=_MAX_TOKENS,
+            timeout_seconds=seconds,
+            allow_fallback=False,
+            quiet_timeout=True,
+        )
+    except Exception as exc:  # A read is a hint: any failure leaves the turn to the rules.
+        logger.info("turn decision failed on %s (%s)", alias, type(exc).__name__)
+        return None
 
 
 def start_turn_decision(

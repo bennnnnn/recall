@@ -619,9 +619,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
   `entitlements.has_strong_everyday_model`, one switch per plan in `core/settings/plans.py`); it
   keeps photo turns too. No OpenRouter-auto “Max” chip.
-- ✅ **The decider** — the same fast read that decides search (`modules/chat/turn_decision.py`)
-  says each message's subject, effort (none, low, high), the picture it asks to see and how it
-  follows the turn before. Auto's lane and the thinking level come from it through catalog data
+- ✅ **The decider** — Perplexity's Decider (`modules/chat/decider_read.py`, through
+  `gateways/decider_gateway.py`) answers, as probabilities, each message's subject, effort
+  (none, low, high), the picture it asks to see, how it follows the turn before and whether it
+  needs live facts; the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
+  with Haiku when it is refused) writes the search query and decides when the Decider fails.
+  Maths, physics and chemistry think only when the read calls them hard
+  (`pplx_decider_eval.py`). Auto's lane and the thinking level come from it through catalog data
   (`ROUTING.decided`, `model_routing/decided.py`, applied in `chat/decided_turn.py`): a hard
   everyday question goes to the strong lane, STEM no solver verified to the maths lane with the
   worked layout, and each model thinks at the level its catalog entry names for the effort. A

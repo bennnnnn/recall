@@ -59,6 +59,15 @@ class RoutingLanes:
     # and follow-up. The reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash
     # read 8 of 8 search questions right in about 0.7s; GPT-6 Luna took over 2s).
     live_read: str
+    # The read again when its model refuses at once (an upstream rate limit, 15-40% of calls
+    # at busy hours on 2026-11-10), inside the same wait. Claude Haiku 5.5 read the decider
+    # corpus with the lane's subject on 94% and the effort on 94%, p95 0.82 s; Qwen3.7 Flash
+    # and GPT-6 Luna both failed on 8-16% of calls in the same hour.
+    live_read_backup: str
+    # How to handle a message, answered as probabilities (``chat.decider_read``): subject,
+    # effort, picture, follow-up, live facts. The text read above writes the search query and
+    # answers when it fails.
+    decider: str
     # Which earlier message "draw it" or "show it" means (``chat.referent_read``): the turn
     # waits on it, so the same fast JSON-mode model.
     referent_read: str
@@ -86,6 +95,8 @@ ROUTING = RoutingLanes(
     word_problems="gpt-6-luna",
     math_extract="gpt-6-luna",
     live_read="title-model",
+    live_read_backup="free-chat",
+    decider="decider-model",
     referent_read="title-model",
     decided=MappingProxyType(
         {
