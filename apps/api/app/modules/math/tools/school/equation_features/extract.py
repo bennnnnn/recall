@@ -93,10 +93,16 @@ _PARAMETER = re.compile(
     r"\s+(?:real\s+)?(?:solutions?|roots?|zeros?|zeroes?)(?:\s+in\s+x)?$",
     re.I,
 )
-# The parameter question in any form: "find k so that x^2 + kx + 9 = 0 has ... solution".
+# A count's working solves the equation, so asking to solve it too is answered.
+_SOLVE_WORDS = frozenset({"solve", "it", "them", "they", "find", "list"})
+# The parameter question about how many solutions there are, in any form: "find k so that
+# x^2 + kx + 9 = 0 has exactly one solution ...". "has the solution x = 3" is a value to
+# substitute, which the system path reads, and is not this.
 _PARAMETER_ASK = re.compile(
     r"^(?:find|determine|calculate|work\s+out|what\s+(?:is|are|must|should))\b"
-    r".*\b(?:so\s+that|such\s+that|for\s+which)\b.*=.*\b(?:has|have)\b"
+    r".*\b(?:so\s+that|such\s+that|for\s+which)\b.*=.*\b(?:has|have)\s+"
+    r"(?:exactly\s+|only\s+|precisely\s+)?(?:one|two|three|no|[0-9]|a\s+single|a\s+repeated|"
+    r"a\s+double|equal|repeated|distinct|different|real|infinitely\s+many)\b"
     r".*\b(?:solutions?|roots?|zeros?|zeroes?)\b",
     re.I,
 )
@@ -190,8 +196,8 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
     if parameter is not None:
         return _parameter_intent(parameter) or declined_reading("equation_parameter")
     if _PARAMETER_ASK.match(body):
-        # "find k so that ... has exactly one solution for x > 0": the parameter
-        # question, in a form the rule above does not read. No other path may answer it.
+        # "find k so that ... has exactly one solution for x > 0": a count requirement
+        # in a form the rule above does not read; another path would drop it.
         return declined_reading("equation_parameter")
     found = [(op, match) for op, pattern in _FEATURES if (match := pattern.search(body))]
     ops = {op for op, _ in found}
@@ -206,9 +212,12 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
     (op,) = ops
     match = next(match for name, match in found if name == op)
     if op == "solution_count":
-        # A count recognised is the turn's question: whatever declines it, no other
-        # path answers it (the model's reading certified a condition's set instead).
-        return _count_reading(body) or declined_reading("equation_solution_count")
+        counted = _count_reading(body)
+        if counted is None and has_condition(body):
+            # A count over a set it cannot read: another path would drop the set and
+            # answer another question (the model's reading certified a condition's set).
+            return declined_reading("equation_solution_count")
+        return counted
     if has_condition(body):
         # "the x-intercepts of y = x^2 - 4 for x > 0": no feature rule reads a condition,
         # and the feature without it answers another question.
@@ -261,7 +270,8 @@ def _count_reading(body: str) -> MathIntent | None:
     if match is None or _NUMBERED_POINT.search(body):
         return None
     sides = _one_equation(body, "solution_count")
-    if sides is None or not _only_frame_words(body, match):
+    # "Solve x^2 = 4. How many solutions are there?": the working solves it too.
+    if sides is None or not _only_frame_words(body, match, also=_SOLVE_WORDS):
         return None
     return _count_intent(*sides, match, conditions)
 
@@ -354,8 +364,10 @@ def _before_frame_words(side: str) -> str:
     return " ".join(words)
 
 
-def _only_frame_words(body: str, feature: re.Match[str]) -> bool:
-    """Nothing but the feature, the equation, a point and framing words."""
+def _only_frame_words(
+    body: str, feature: re.Match[str], also: frozenset[str] = frozenset()
+) -> bool:
+    """Nothing but the feature, the equation, a point and framing words (and ``also``)."""
     from app.modules.math.function_names import MATH_FUNCTION_NAMES
 
     rest = body[: feature.start()] + " " + body[feature.end() :]
@@ -365,7 +377,7 @@ def _only_frame_words(body: str, feature: re.Match[str]) -> bool:
         word = re.sub(r"[^a-z]", "", token.lower())
         if len(word) < 2:
             continue
-        if word not in _FRAME_WORDS and word not in MATH_FUNCTION_NAMES:
+        if word not in _FRAME_WORDS and word not in also and word not in MATH_FUNCTION_NAMES:
             return False
     return True
 

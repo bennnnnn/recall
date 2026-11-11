@@ -77,10 +77,12 @@ _UNREAD = re.compile(
     re.I,
 )
 _RELATION = re.compile(r"<=|>=|!=|<|>")
-# Any sign of a condition on the unknown: a relation, an interval, "between", a sign word.
+# Any sign of a condition on the unknown: a relation, an interval, "between", a sign word,
+# a set of numbers or a modulus.
 _CONDITION_MARK = re.compile(
     r"[<>≤≥≠]|!=|\\(?:le|ge|lt|gt|ne)q?(?![A-Za-z])|\bbetween\b.+\band\b"
-    r"|\b(?:non-?)?(?:positive|negative)\b|\b(?:in|on|over|within)\s+[\[(]",
+    r"|\b(?:non-?)?(?:positive|negative)\b|\b(?:in|on|over|within)\s+[\[(]"
+    r"|\b(?:mod|modulo|integers?|natural|whole|rationals?|irrationals?)\b",
     re.I,
 )
 # The allowlist's limits: the degree and the length of one side.

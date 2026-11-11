@@ -584,6 +584,32 @@ async def test_a_declined_reading_is_never_answered_by_another_path(
     assert note is not None and "could not be produced" in note
 
 
+# The marker only where a constraint would be dropped: a value to substitute ("has the
+# solution x = 3") is the system path's, and a count with no condition is read, its
+# working solving the equation the user also asked to solve.
+@pytest.mark.parametrize(
+    ("text", "answer", "shown"),
+    [
+        ("find k so that 2x + k = 7 has the solution x = 3", "k = 1, x = 3", None),
+        ("find c so that x^2 + 6x + c = 0 has x = 1 as a root", "c = -7, x = 1", None),
+        ("Solve x^2 = 4. How many solutions are there?", "2", "$x = \\pm 2$"),
+        ("how many solutions does 2x + 3 = 7 have? solve it", "1", "$x = 2$"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_reading_without_a_dropped_constraint_is_not_declined(
+    text: str, answer: str, shown: str | None
+) -> None:
+    from app.modules.math.schemas import is_declined
+
+    assert not is_declined(extract_math_intent(text))
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
+    if shown is not None:
+        assert verified.worked_reply is not None and shown in verified.worked_reply
+
+
 def test_the_sympy_tool_cannot_certify_a_declined_turns_condition() -> None:
     from app.modules.math.subject import MathTool
 
