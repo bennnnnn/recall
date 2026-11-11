@@ -34,11 +34,6 @@ if TYPE_CHECKING:
         names_its_place,
     )
     from app.modules.web_search.homework import asks_about_a_place
-    from app.modules.web_search.live_read import (
-        LiveRead,
-        live_read_result,
-        start_live_read,
-    )
     from app.modules.web_search.place_addresses import keep_given_addresses
     from app.modules.web_search.recency import wants_dated_results
     from app.modules.web_search.search_cache import (
@@ -55,7 +50,6 @@ _EXPORTS = {
     "GEO_ACTIVE_LOCATION_HINT": "formatting",
     "GEO_DISTANCE_HINT": "formatting",
     "LOCAL_PLACES_FORMAT_HINT": "formatting",
-    "LiveRead": "live_read",
     "SearchSource": "formatting",
     "TurnTavilyBudget": "search_cache",
     "WEB_SEARCH_HINT": "formatting",
@@ -71,12 +65,10 @@ _EXPORTS = {
     "is_geo_query": "geo_intent",
     "is_places_list_query": "geo_intent",
     "keep_given_addresses": "place_addresses",
-    "live_read_result": "live_read",
     "names_its_place": "geo_intent",
     "points_back_in_chat": "turn_query",
     "run_cached_search": "search_cache",
     "sources_payload": "formatting",
-    "start_live_read": "live_read",
     "strip_sources_from_text": "formatting",
     "wants_dated_results": "recency",
 }
@@ -88,7 +80,6 @@ __all__ = [
     "GEO_DISTANCE_HINT",
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
-    "LiveRead",
     "SearchSource",
     "TurnTavilyBudget",
     "WebSearchAdapter",
@@ -103,12 +94,10 @@ __all__ = [
     "is_geo_query",
     "is_places_list_query",
     "keep_given_addresses",
-    "live_read_result",
     "names_its_place",
     "points_back_in_chat",
     "run_cached_search",
     "sources_payload",
-    "start_live_read",
     "strip_sources_from_text",
     "wants_dated_results",
 ]

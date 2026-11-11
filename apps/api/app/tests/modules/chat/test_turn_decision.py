@@ -1,4 +1,5 @@
-"""A model reads whether a message's answer depends on facts that change (``live_read``)."""
+"""A model reads how to handle a message (``turn_decision``): live facts, subject, effort,
+picture and follow-up."""
 
 from __future__ import annotations
 
@@ -12,7 +13,8 @@ import pytest
 from app.gateways.litellm_gateway import _call_kwargs
 from app.gateways.stream_tool_calls import ToolOffer
 from app.models import model_catalog
-from app.modules.web_search import live_read
+from app.modules.chat import turn_decision
+from app.modules.chat.turn_decision import TurnDecision
 from app.tests.fakes import isolated_settings
 
 _SETTINGS = isolated_settings(web_search_enabled=True, mcp_tool_loop_enabled=True)
@@ -31,7 +33,8 @@ async def test_no_read_past_the_spend_cap(monkeypatch: pytest.MonkeyPatch) -> No
     ask = AsyncMock()
     with patch(_STRUCTURED, ask):
         assert (
-            await live_read.read_live(_SETTINGS, "who won the last world cup", earlier=[]) is None
+            await turn_decision.read_decision(_SETTINGS, "who won the last world cup", earlier=[])
+            is None
         )
     ask.assert_not_awaited()
 
@@ -39,9 +42,11 @@ async def test_no_read_past_the_spend_cap(monkeypatch: pytest.MonkeyPatch) -> No
 @pytest.mark.parametrize("live", [True, False])
 @pytest.mark.asyncio
 async def test_the_read_is_the_models_answer(live: bool) -> None:
-    ask = AsyncMock(return_value=live_read.LiveRead(live=live))
+    ask = AsyncMock(return_value=TurnDecision(live=live))
     with patch(_STRUCTURED, ask):
-        read = await live_read.read_live(_SETTINGS, "who won the last world cup", earlier=[])
+        read = await turn_decision.read_decision(
+            _SETTINGS, "who won the last world cup", earlier=[]
+        )
     assert read is not None and read.live is live
     assert ask.await_args is not None
     messages = ask.await_args.kwargs["messages"]
@@ -57,7 +62,7 @@ async def test_a_follow_up_is_read_with_the_turns_before_it_quoted() -> None:
     """After a chat about a MacBook Air's battery, "How much" was searched as an iPhone
     battery's cost when the read saw one reply; and given the chat as turns, a model
     answered the user instead of judging the message."""
-    ask = AsyncMock(return_value=live_read.LiveRead(live=True))
+    ask = AsyncMock(return_value=TurnDecision(live=True))
     recent = [
         SimpleNamespace(role="user", content="Macbook air"),
         SimpleNamespace(role="assistant", content="A MacBook Air has no fan."),
@@ -65,7 +70,9 @@ async def test_a_follow_up_is_read_with_the_turns_before_it_quoted() -> None:
         SimpleNamespace(role="assistant", content="You can, but it's fiddly."),
     ]
     with patch(_STRUCTURED, ask):
-        await live_read.read_live(_SETTINGS, "How much", earlier=live_read.earlier_turns(recent))
+        await turn_decision.read_decision(
+            _SETTINGS, "How much", earlier=turn_decision.earlier_turns(recent)
+        )
     assert ask.await_args is not None
     messages = ask.await_args.kwargs["messages"]
     assert [message["role"] for message in messages] == ["system", "user"]
@@ -87,13 +94,13 @@ def test_the_read_sees_the_last_two_exchanges_each_cut_short() -> None:
         SimpleNamespace(role="assistant", content="   "),
         SimpleNamespace(role="assistant", content="third reply"),
     ]
-    assert live_read.earlier_turns(recent) == [
+    assert turn_decision.earlier_turns(recent) == [
         ("user", "second"),
         ("assistant", "x" * 400),
         ("user", "third"),
         ("assistant", "third reply"),
     ]
-    assert live_read.earlier_turns(None) == []
+    assert turn_decision.earlier_turns(None) == []
 
 
 @pytest.mark.parametrize(
@@ -114,7 +121,7 @@ def test_the_read_sees_the_last_two_exchanges_each_cut_short() -> None:
     ],
 )
 def test_the_reads_instructions_name_each_kind(kind: str) -> None:
-    assert kind in live_read._messages("hi", [])[0]["content"]
+    assert kind in turn_decision.decision_messages("hi", [])[0]["content"]
 
 
 @pytest.mark.parametrize(
@@ -122,7 +129,7 @@ def test_the_reads_instructions_name_each_kind(kind: str) -> None:
     [(True, False, True), (False, True, True), (False, False, False)],
 )
 def test_a_live_answer_or_an_asked_search_searches(live: bool, asked: bool, searches: bool) -> None:
-    assert live_read.LiveRead(live=live, asked=asked).searches is searches
+    assert TurnDecision(live=live, asked=asked).searches is searches
 
 
 @pytest.mark.parametrize("answer", [None, RuntimeError("provider down")])
@@ -134,42 +141,45 @@ async def test_no_read_is_no_answer(answer: Any) -> None:
         else AsyncMock(return_value=None)
     )
     with patch(_STRUCTURED, ask):
-        assert await live_read.read_live(_SETTINGS, "hi", earlier=[]) is None
+        assert await turn_decision.read_decision(_SETTINGS, "hi", earlier=[]) is None
 
 
 @pytest.mark.asyncio
 async def test_an_empty_message_is_never_read() -> None:
     ask = AsyncMock()
     with patch(_STRUCTURED, ask):
-        assert await live_read.read_live(_SETTINGS, "  ", earlier=[]) is None
+        assert await turn_decision.read_decision(_SETTINGS, "  ", earlier=[]) is None
     ask.assert_not_awaited()
 
 
-@pytest.mark.parametrize(
-    "off",
-    [
-        {"live_read_enabled": False},
-        {"web_search_enabled": False},
-        {"reply_search_tool_enabled": False},
-        {"mcp_tool_loop_enabled": False},
-    ],
-)
-def test_no_read_starts_while_search_is_off(off: dict[str, bool]) -> None:
-    settings = isolated_settings(
-        **{"web_search_enabled": True, "mcp_tool_loop_enabled": True, **off}
+def test_no_read_starts_while_it_is_off() -> None:
+    settings = isolated_settings(live_read_enabled=False)
+    assert (
+        turn_decision.start_turn_decision(settings, "who won the last world cup", recent=None)
+        is None
     )
-    assert live_read.start_live_read(settings, "who won the last world cup", recent=None) is None
+
+
+@pytest.mark.asyncio
+async def test_search_off_still_reads_the_turn() -> None:
+    """The lane and the thinking come from the read too, so web search off keeps it."""
+    ask = AsyncMock(return_value=TurnDecision(live=False))
+    settings = isolated_settings(web_search_enabled=False, live_read_enabled=True)
+    with patch(_STRUCTURED, ask):
+        task = turn_decision.start_turn_decision(settings, "solve 2x + 5 = 17", recent=None)
+        assert task is not None
+        assert await task is not None
 
 
 @pytest.mark.asyncio
 async def test_a_slow_read_counts_as_none() -> None:
-    async def slow() -> live_read.LiveRead | None:
+    async def slow() -> TurnDecision | None:
         await asyncio.sleep(5)
-        return live_read.LiveRead(live=True)
+        return TurnDecision(live=True)
 
     settings = isolated_settings(live_read_wait_seconds=0.01)
-    assert await live_read.live_read_result(asyncio.ensure_future(slow()), settings) is None
-    assert await live_read.live_read_result(None, settings) is None
+    assert await turn_decision.turn_decision_result(asyncio.ensure_future(slow()), settings) is None
+    assert await turn_decision.turn_decision_result(None, settings) is None
 
 
 @pytest.mark.parametrize("live", [True, False])
@@ -177,10 +187,10 @@ async def test_a_slow_read_counts_as_none() -> None:
 async def test_the_reads_answer_is_handed_on_live_or_not(live: bool) -> None:
     """A settled answer is handed on too: the reply is told it (``reply_calls``)."""
 
-    async def read() -> live_read.LiveRead | None:
-        return live_read.LiveRead(live=live, query="world cup winner" if live else "")
+    async def read() -> TurnDecision | None:
+        return TurnDecision(live=live, query="world cup winner" if live else "")
 
-    found = await live_read.live_read_result(asyncio.ensure_future(read()), _SETTINGS)
+    found = await turn_decision.turn_decision_result(asyncio.ensure_future(read()), _SETTINGS)
     assert found is not None and found.live is live
 
 
@@ -206,3 +216,55 @@ def test_a_required_tool_is_named_to_the_provider(require: str | None, choice: A
     )
     assert calls is not None
     assert kwargs["tool_choice"] == choice
+
+
+@pytest.mark.parametrize(
+    ("think", "hard", "effort"),
+    [(False, False, "none"), (False, True, "none"), (True, False, "low"), (True, True, "high")],
+)
+def test_the_effort_comes_from_think_and_hard(think: bool, hard: bool, effort: str) -> None:
+    read = TurnDecision.model_validate({"live": False, "think": think, "hard": hard})
+    assert read.effort == effort
+
+
+def test_a_read_with_no_think_has_no_effort() -> None:
+    """The word rules decide the level then (``decided_turn``)."""
+    assert TurnDecision(live=False).effort is None
+
+
+def test_an_odd_field_drops_only_that_field() -> None:
+    """A subject the schema does not name (biology) leaves the search and effort read."""
+    read = TurnDecision.model_validate(
+        {"live": True, "query": "q", "subject": "biology", "think": True, "picture": "map"}
+    )
+    assert (read.live, read.subject, read.effort, read.picture) == (True, None, "low", None)
+
+
+@pytest.mark.asyncio
+async def test_a_message_with_nothing_before_it_follows_nothing() -> None:
+    """Asked "Solve 3x + 7 = 22" alone, the read called it a follow-up asking to solve."""
+    ask = AsyncMock(return_value=TurnDecision(live=False, follow="solve"))
+    with patch(_STRUCTURED, ask):
+        read = await turn_decision.read_decision(_SETTINGS, "Solve 3x + 7 = 22", earlier=[])
+    assert read is not None and read.follow == "none"
+    ask = AsyncMock(return_value=TurnDecision(live=False, follow="solve"))
+    with patch(_STRUCTURED, ask):
+        read = await turn_decision.read_decision(
+            _SETTINGS, "Do it", earlier=[("assistant", "A cart of 12 kg ... What is a?")]
+        )
+    assert read is not None and read.follow == "solve"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "subject is what the message is about",
+        "gas laws and heat are physics",
+        "hard is true when that reasoning is long or deep",
+        "picture is what the message asks to see",
+        "A map is none",
+        "follow is how the message relates to the earlier turns",
+    ],
+)
+def test_the_instructions_name_each_decision(kind: str) -> None:
+    assert kind in turn_decision.decision_messages("hi", [])[0]["content"]

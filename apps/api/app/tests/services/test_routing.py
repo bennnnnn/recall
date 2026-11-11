@@ -12,10 +12,14 @@ from app.modules.chat.model_routing.route import (
     message_needs_thinking,
     resolve_alias_in_pool,
     route_chat_model,
+    routed_chat_model,
 )
 from app.modules.physics import lane as routing_physics
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult
+
+# Auto's maths lane, whichever model runs it (``ROUTING.math``).
+_MATH = model_catalog.auto_math_alias()
 
 
 @pytest.mark.parametrize(
@@ -80,15 +84,14 @@ from app.modules.physics.solver import PhysicsResult
         ("check this out:\n```\nprint(1)\n```", "smart-chat"),
         ("run this:\n```bash\necho hi\n```", "smart-chat"),
         ("what's wrong here:\n```html\n<div></div>\n```", "smart-chat"),
-        # Math / structured turns → the low-latency strong math model (a weak
-        # fast model disagreed with verified results, while R1 repeatedly
-        # returned empty visible streams in live QA).
-        ("solve 2x + 3 = 7", "glm-5.2"),
-        ("graph y = x^2", "glm-5.2"),
-        ("2x+3=7", "glm-5.2"),
-        ("find the area of a circle radius 4", "glm-5.2"),
-        ("integrate x^2 from 0 to 1", "glm-5.2"),
-        ("standard deviation of 1, 2, 3, 4, 5", "glm-5.2"),
+        # Math / structured turns → the maths lane (a weak fast model disagreed with
+        # verified results; ``math_lane_eval`` chose its model).
+        ("solve 2x + 3 = 7", _MATH),
+        ("graph y = x^2", _MATH),
+        ("2x+3=7", _MATH),
+        ("find the area of a circle radius 4", _MATH),
+        ("integrate x^2 from 0 to 1", _MATH),
+        ("standard deviation of 1, 2, 3, 4, 5", _MATH),
         # Verified closed-form arithmetic stays free-chat — R1 used to dump a
         # live Reasoning essay ("the user just wrote 4!") on these.
         ("4!", "qwen-3.7-flash"),
@@ -98,7 +101,7 @@ from app.modules.physics.solver import PhysicsResult
         ("7*8", "qwen-3.7-flash"),
         ("8-8*2", "qwen-3.7-flash"),
         # Arithmetic next to a hard question is not a fast-path whole message.
-        ("what is 1+1 and also graph y = x^2", "glm-5.2"),
+        ("what is 1+1 and also graph y = x^2", _MATH),
         # A recognized physics template stays on the fast model; the verifier
         # owns the number. Homework the templates miss still goes to smart-chat.
         (
@@ -148,7 +151,7 @@ from app.modules.physics.solver import PhysicsResult
         ),
         ("my scores were [90, 85, 77], is that good?", "qwen-3.7-flash"),
         # A matrix stays on the maths lane; writing about a migration stays everyday.
-        ("determinant of [[1,2,3],[0,1,4],[5,6,0]]", "glm-5.2"),
+        ("determinant of [[1,2,3],[0,1,4],[5,6,0]]", _MATH),
         (
             "write a tweet announcing that we finished migrating our whole backend to "
             "postgres, zero downtime",
@@ -228,13 +231,23 @@ def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
 
 def test_route_chat_model_keeps_math_followup_on_low_latency_strong_model() -> None:
     prior = "solve 3x^2 + x^0 = 3"
-    assert route_chat_model("how?", prior_user=prior) == "glm-5.2"
-    assert route_chat_model("Why is x = -1 rejected?", prior_user=prior) == "glm-5.2"
-    assert route_chat_model("How did you factor that?", prior_user=prior) == "glm-5.2"
+    assert routed_chat_model("how?", prior_user=prior) == (_MATH, "inherit_math")
+    assert routed_chat_model("Why is x = -1 rejected?", prior_user=prior)[0] == _MATH
+    assert routed_chat_model("How did you factor that?", prior_user=prior)[0] == _MATH
     assert (
-        route_chat_model("show the next step", prior_user="try again", prior_model="glm-5.2")
-        == "glm-5.2"
+        route_chat_model("show the next step", prior_user="try again", prior_model=_MATH) == _MATH
     )
+
+
+def test_a_follow_up_of_a_hard_turn_on_the_strong_model_is_no_maths() -> None:
+    """With the maths lane on the strong lane's model, a code follow-up after a code turn
+    inherits the strong lane as code, not as maths: maths would think less."""
+    route = routed_chat_model(
+        "now make it handle empty lists",
+        prior_user="write a python function that averages a list",
+        prior_model=model_catalog.auto_smart_alias(),
+    )
+    assert route == (model_catalog.auto_smart_alias(), "inherit_smart")
 
 
 @pytest.mark.parametrize(

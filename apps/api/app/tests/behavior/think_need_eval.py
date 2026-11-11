@@ -10,7 +10,7 @@ Every turn of ``think_need_corpus.json`` is labelled ``think`` (several dependen
 parts, a word problem to set up, a proof, a trade-off, code to write or debug, a logic
 puzzle) or not (chat, simple facts, how-to, writing, a one-step calculation, a line the
 server's solver checks). ``rules`` asks the word rules the turn falls back on
-(``thinking_level`` with no read); ``read`` asks the turn's read (``web_search.live_read``,
+(``thinking_level`` with no read); ``read`` asks the turn's read (``chat.turn_decision``,
 its ``think``). Each prints recall on the think set, false thinking on the rest (and the
 same on the held-out turns, written after the read's wording), the read's latency and its
 cost per turn. The ship rule: recall at least 90%, false thinking
@@ -86,7 +86,7 @@ async def measure_read(turns: list[ThinkTurn], runs: int) -> tuple[list[Outcome]
     """The read's ``think`` on each turn, ``runs`` times, and each call's cost in USD."""
     from app.core.config import Settings
     from app.gateways.llm_spend import response_cost_usd
-    from app.modules.web_search import live_read
+    from app.modules.chat import turn_decision
 
     settings = Settings()
     outcomes = {turn.id: Outcome(turn) for turn in turns}
@@ -97,7 +97,7 @@ async def measure_read(turns: list[ThinkTurn], runs: int) -> tuple[list[Outcome]
         async with gate:
             recent = [SimpleNamespace(role=role, content=text) for role, text in turn.history]
             started = time.monotonic()
-            task = live_read.start_live_read(settings, turn.prompt, recent=recent)
+            task = turn_decision.start_turn_decision(settings, turn.prompt, recent=recent)
             read = await task if task is not None else None
             outcome = outcomes[turn.id]
             outcome.seconds.append(time.monotonic() - started)
@@ -140,6 +140,25 @@ def _means(outcomes: list[Outcome], runs: int) -> str:
     return f"recall {recall:.1%}  false thinking {false:.1%}  precision {precision:.1%}"
 
 
+def answered_rates(outcomes: list[Outcome], runs: int) -> str:
+    """Recall and false thinking over the runs whose read answered: a provider's rate limit
+    or a timeout leaves a run to the word rules, which says nothing about the read."""
+    pairs = [
+        (o.turn.think, o.thought[run])
+        for o in outcomes
+        for run in range(runs)
+        if run < len(o.answered) and o.answered[run]
+    ]
+    if not pairs or len(pairs) == len(outcomes) * runs:
+        return ""
+    hard = [thought for think, thought in pairs if think]
+    plain = [thought for think, thought in pairs if not think]
+    return (
+        f"recall {sum(hard) / max(1, len(hard)):.1%}  "
+        f"false thinking {sum(plain) / max(1, len(plain)):.1%}  ({len(pairs)} reads)"
+    )
+
+
 def report(outcomes: list[Outcome], runs: int, costs: list[float] | None = None) -> str:
     hard = sum(o.turn.think for o in outcomes)
     lines = [f"{len(outcomes)} turns: {hard} need thinking, {len(outcomes) - hard} don't"]
@@ -153,6 +172,9 @@ def report(outcomes: list[Outcome], runs: int, costs: list[float] | None = None)
         f"  mean:  {_means(outcomes, runs)}  "
         f"(ship rule: recall >= {MIN_RECALL:.0%}, false thinking <= {MAX_FALSE_THINKING:.0%})"
     )
+    answered = answered_rates(outcomes, runs)
+    if answered:
+        lines.append(f"  answered reads only: {answered}")
     held = [o for o in outcomes if o.turn.holdout]
     if held and len(held) < len(outcomes):
         lines.append(f"  held-out ({len(held)} turns), mean: {_means(held, runs)}")

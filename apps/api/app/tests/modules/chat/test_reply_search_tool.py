@@ -511,10 +511,10 @@ async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
 
 
 def _read(live: bool | None, query: str = "", *, asked: bool = False) -> asyncio.Future[Any]:
-    from app.modules.web_search.live_read import LiveRead
+    from app.modules.chat.turn_decision import TurnDecision
 
-    async def done() -> LiveRead | None:
-        return None if live is None else LiveRead(live=live, query=query, asked=asked)
+    async def done() -> TurnDecision | None:
+        return None if live is None else TurnDecision(live=live, query=query, asked=asked)
 
     return asyncio.ensure_future(done())
 
@@ -602,11 +602,11 @@ async def test_a_live_read_searches_its_query_before_the_reply(
 
 @pytest.mark.asyncio
 async def test_a_read_still_running_shows_thinking(web_search_tool: dict[str, Any]) -> None:
-    from app.modules.web_search.live_read import LiveRead
+    from app.modules.chat.turn_decision import TurnDecision
 
-    async def slow() -> LiveRead | None:
+    async def slow() -> TurnDecision | None:
         await asyncio.sleep(0.05)
-        return LiveRead(live=False)
+        return TurnDecision(live=False)
 
     ctx = _context("hello there")
     ctx.live_read = asyncio.ensure_future(slow())

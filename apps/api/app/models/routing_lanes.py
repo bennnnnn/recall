@@ -6,7 +6,9 @@ job reads its own lane (``ROUTING.background``). ``test_model_catalog`` checks e
 against the capability its job needs, so a lane can't point at a model that can't do it.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 
 
 @dataclass(frozen=True)
@@ -25,9 +27,13 @@ class RoutingLanes:
     # answers everyday turns carefully at a few times Qwen's price per token.
     everyday_strong: str
     hard: str
-    # Live phone QA repeatedly saw DeepSeek R1 stream hidden reasoning and then
-    # return no visible answer. GLM 5.2 produced the verified worked-math
-    # contract in about two seconds, so Auto math uses this strong tier directly.
+    # Maths, physics and chemistry no solver verified, written as a ```worked block. GLM 5.2
+    # held the block on the harness's prompt but answered the owner's "How many solutions
+    # does $4X^2 + 4 = 6$ have?" with no working (2026-11-10), at four times DeepSeek's cost
+    # a turn; DeepSeek kept the block on 100% of 17 unverified questions at 0.4 s to the
+    # first word with thinking off and 1.9 s at low (``math_lane_eval``). Its thinking
+    # follows the turn's read, question by question. A plan without it (Free) gets its
+    # pool's strongest model of the tier (GLM 5.3 Flash).
     math: str
     # A turn that shows the model a photo, when its own model cannot read one,
     # and the second photo reader (another company) when the first fails.
@@ -49,20 +55,26 @@ class RoutingLanes:
     # candidate (number grounding and SymPy check it). JSON mode.
     word_problems: str
     math_extract: str
-    # Whether a message's answer depends on facts that change (``web_search.live_read``):
-    # the reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash read 8 of 8
-    # right in about 0.7s; GPT-6 Luna took over 2s).
+    # How to handle a message (``chat.turn_decision``): live facts, subject, effort, picture
+    # and follow-up. The reply waits on it, so the fastest JSON-mode model (Qwen3.7 Flash
+    # read 8 of 8 search questions right in about 0.7s; GPT-6 Luna took over 2s).
     live_read: str
     # Which earlier message "draw it" or "show it" means (``chat.referent_read``): the turn
     # waits on it, so the same fast JSON-mode model.
     referent_read: str
+    # Auto's lane for a turn the read decided, by its subject: the lane for effort none, low
+    # and high, one of "everyday", "hard" and "math" above. Data, so routing names no model.
+    # A subject not here (money: its calculator card holds the numbers) keeps the word
+    # rules' lane. A hard everyday question goes to the strong lane on a plan that has it
+    # (the owner's call, 2026-11-10); STEM nothing verified goes to the maths lane.
+    decided: Mapping[str, tuple[str, str, str]]
 
 
 ROUTING = RoutingLanes(
     everyday="qwen-3.7-flash",
     everyday_strong="free-chat",
     hard="smart-chat",
-    math="glm-5.2",
+    math="smart-chat",
     vision="vision-chat",
     vision_backup="fallback-vision-model",
     tool_selectors=("gpt-6-luna", "free-chat"),
@@ -73,4 +85,13 @@ ROUTING = RoutingLanes(
     math_extract="gpt-6-luna",
     live_read="title-model",
     referent_read="title-model",
+    decided=MappingProxyType(
+        {
+            "everyday": ("everyday", "everyday", "hard"),
+            "code": ("everyday", "hard", "hard"),
+            "maths": ("math", "math", "hard"),
+            "physics": ("math", "math", "hard"),
+            "chemistry": ("math", "math", "hard"),
+        }
+    ),
 )

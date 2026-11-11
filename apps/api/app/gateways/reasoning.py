@@ -4,6 +4,8 @@ Each catalog model names one value per level, taken from the efforts OpenRouter
 lists for it (GET /api/v1/models): ``thinking_off`` for an ordinary question,
 ``thinking_on`` for a genuinely hard one, ``thinking_escalate`` when the user
 said the answer was wrong. So a level a model does not support is never sent.
+"deep" is a question the turn's read calls long or hard (``chat.turn_decision``'s
+high effort): the most a turn asks of a model, the escalate value.
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ from typing import Any, Literal
 
 from app.models.model_catalog import ChatModel
 
-ThinkingLevel = Literal["off", "hard", "escalate"]
+ThinkingLevel = Literal["off", "hard", "deep", "escalate"]
 EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh", "max"})
 
 
@@ -22,7 +24,7 @@ def thinking_value(route: ChatModel, thinking: bool | str | None) -> str | None:
         return None
     if thinking is False or thinking == "off":
         return route.thinking_off
-    if thinking == "escalate":
+    if thinking in ("escalate", "deep"):
         return route.thinking_escalate or route.thinking_on
     return route.thinking_on
 

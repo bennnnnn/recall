@@ -13,13 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from app.models import model_catalog
 from app.modules.chat.continuation_subject import (
     blocks_math_followup,
     classify_presentation_subject,
 )
 from app.modules.chat.follow_up_thread import subject_for_related
-from app.modules.chat.model_routing.route import route_chat_model
+from app.modules.chat.model_routing.route import routed_chat_model
 from app.services.subjects.dispatch import detect_subject
 from app.services.text_normalize import collapse_ws
 from app.tests.behavior.cases import CASES
@@ -52,7 +51,7 @@ def test_named_lines_have_one_subject(line: str, subject: str) -> None:
     assert classify_presentation_subject(line) == subject
     assert subject_for_related(line) == subject
     assert blocks_math_followup(line) == (subject != "math")
-    on_math_lane = route_chat_model(line) == model_catalog.auto_math_alias()
+    on_math_lane = _on_maths_lane(line)
     assert on_math_lane == (subject == "math")
 
 
@@ -62,8 +61,13 @@ def test_a_genotype_cross_is_biology_not_a_drawn_square() -> None:
     assert classify_presentation_subject(line) == "biology"
 
 
+def _on_maths_lane(line: str) -> bool:
+    """Routed to the maths lane for its maths: by the route's reason, since the lane may run
+    on the strong lane's model (``ROUTING.math``)."""
+    return routed_chat_model(line)[1] in {"math", "inherit_math"}
+
+
 def test_every_reader_agrees_with_detect_subject() -> None:
-    math_lane = model_catalog.auto_math_alias()
     disagree: list[str] = []
     for line in _corpus():
         subject = detect_subject(line)
@@ -74,6 +78,6 @@ def test_every_reader_agrees_with_detect_subject() -> None:
         collapsed = detect_subject(collapse_ws(line))
         if collapsed is not None and subject_for_related(line) != collapsed:
             disagree.append(f"related: {line}")
-        if subject != "math" and route_chat_model(line) == math_lane:
+        if subject != "math" and _on_maths_lane(line):
             disagree.append(f"maths lane: {line}")
     assert not disagree, "\n".join(disagree[:20])

@@ -2,7 +2,9 @@
 
 When a request uses the ``auto`` alias (or a user whose default model is
 ``auto``), pick a concrete model per message: cheap/fast for simple turns,
-the stronger model for genuinely hard ones. Heuristic only — no extra LLM call.
+the stronger model for genuinely hard ones. These word rules choose as the turn loads;
+the turn's read (``chat.turn_decision``) replaces their choice before the reply when it
+answers in time (``chat.decided_turn``), so they are the fallback.
 
 Routing always respects the caller's allowed model pool (plan + enabled toggles).
 """
@@ -90,6 +92,9 @@ _FOLLOWUP_OBJECT_TOKENS = frozenset(
 )
 
 _LONG_MESSAGE_CHARS = 800
+# The maths lane's reasons (``_routed_line``, ``routed_chat_model``): a solve, not a reason
+# to think, whichever model the lane runs on.
+_MATH_LANE_REASONS = frozenset({"math", "inherit_math"})
 # Any fence opener counts as code, with or without a language tag: an allowlist of
 # languages left a bare fence, or bash, Kotlin or HTML, on the cheap model.
 #
@@ -334,7 +339,12 @@ def routed_chat_model(
         and _should_inherit_smart(content, prior_user, prior_model)
     ):
         math = model_catalog.auto_math_alias()
-        if prior_model == math or _route_current_line(prior_user, settings) == math:
+        # The prior line's own lane, or its model while that is the maths lane alone (when
+        # the maths lane runs on the strong model, its model says nothing of the subject).
+        was_math = _routed_line(prior_user, settings)[1] == "math" or (
+            prior_model == math and math != smart
+        )
+        if was_math:
             return math, "inherit_math"
         return smart, "inherit_smart"
     return preferred, reason
@@ -351,18 +361,17 @@ def message_needs_thinking(
     """True only when this job should spend a reasoning pass.
 
     The same split Auto uses for the strong lane, except the math lane:
-    an equation still uses a strong model, and it does not think first.
+    an equation still uses a strong model, and it does not think first. The maths lane
+    may be the strong lane's model itself (``ROUTING.math``), so its reasons are named.
     """
-    return (
-        route_chat_model(
-            content,
-            prior_user=prior_user,
-            prior_model=prior_model,
-            lesson_active=lesson_active,
-            settings=settings,
-        )
-        == model_catalog.auto_smart_alias()
+    alias, reason = routed_chat_model(
+        content,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
+        settings=settings,
     )
+    return alias == model_catalog.auto_smart_alias() and reason not in _MATH_LANE_REASONS
 
 
 _MODES = frozenset({"auto", "fast", "smart"})
