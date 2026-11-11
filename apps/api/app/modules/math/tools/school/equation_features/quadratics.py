@@ -4,6 +4,9 @@ many solutions a polynomial equation has."""
 
 from __future__ import annotations
 
+import re
+from typing import Any
+
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.school.equation_features.forms import (
     _at,
@@ -16,7 +19,7 @@ from app.modules.math.tools.school.equation_features.forms import (
     _symbols,
     _tex,
 )
-from app.services.workout import Workout, math_line
+from app.services.workout import Workout, math_line, note_from_label
 
 
 def _vertex(intent: MathIntent) -> _Solved | None:
@@ -159,15 +162,22 @@ _MAX_COUNT_DEGREE = 4
 
 
 def _solution_count(intent: MathIntent) -> _Solved | None:
-    """How many solutions one polynomial equation in x has.
+    """How many solutions one polynomial equation in one unknown has, whatever its letter.
 
     Without "real", the count must be the same over the reals and the complex
-    numbers (``x^2 + 1 = 0`` has none or two, so it is declined).
+    numbers (``x^2 + 1 = 0`` has none or two, so it is declined). The working solves the
+    equation, so the student sees the solutions the count is of (``x = \\pm …``).
     """
-    from sympy import Poly, S, solveset
+    from sympy import CRootOf, Poly, S, solveset
 
-    (x,) = _symbols("x")
-    lhs, rhs = _sides(intent, ["x"])
+    from app.modules.math import solve as math_solve
+
+    unknowns = math_solve.guess_variables(f"{intent.lhs} = {intent.rhs}")
+    if len(unknowns) != 1:
+        return None
+    (name,) = unknowns
+    (x,) = _symbols(name)
+    lhs, rhs = _sides(intent, [name])
     expression = lhs - rhs
     if not expression.free_symbols <= {x}:
         return None
@@ -181,19 +191,39 @@ def _solution_count(intent: MathIntent) -> _Solved | None:
         if not real and complexes != S.Complexes:
             return None
         answer = r"\text{infinitely many}"
-        working = r"\text{true for every } x"
+        rows = [
+            *_one_side_rows(lhs, rhs, poly, name),
+            math_line(rf"\text{{true for every }} {name}"),
+        ]
     else:
         if not hasattr(reals, "__len__") or not hasattr(complexes, "__len__"):
             return None
         if not real and len(reals) != len(complexes):
             return None
+        if any(root.has(CRootOf) for root in reals):
+            # Roots no radical writes: the working could not show them.
+            return None
         answer = str(len(reals))
-        listed = r"\varnothing" if not len(reals) else _tex(reals)
-        working = rf"\text{{{'real ' if real else ''}solutions: }} {listed}"
+        if reals:
+            rows = _solving_rows(lhs, rhs, name, sorted(reals, key=float))
+        else:
+            none = r"\text{no real solutions}" if real else r"\text{no solutions}"
+            rows = [*_one_side_rows(lhs, rhs, poly, name), math_line(none)]
+    workout = Workout(
+        given=(math_line(f"{_tex(lhs)} = {_tex(rhs)}"),),
+        find=(math_line(r"\text{number of " + ("real " if real else "") + "solutions}"),),
+        steps=tuple(rows),
+    )
+    return workout, answer, [f"Number of solutions: {answer}"]
+
+
+def _one_side_rows(lhs: Any, rhs: Any, poly: Any, name: str) -> list[str]:
+    """Everything on one side, and a quadratic's discriminant: why there is no solution, or
+    no end to them, when there is nothing to solve for."""
     rows: list[str] = []
     if rhs != 0 or lhs != poly.as_expr():
         constant = poly.degree() == 0 and poly.as_expr() != 0
-        note = "never true, whatever x is" if constant else "everything on one side"
+        note = f"never true, whatever {name} is" if constant else "everything on one side"
         rows.append(math_line(f"{_tex(poly.as_expr())} = 0", note))
     if poly.degree() == 2:
         a, b, c = poly.all_coeffs()
@@ -202,10 +232,37 @@ def _solution_count(intent: MathIntent) -> _Solved | None:
         rows.append(
             math_line(rf"\Delta = b^2 - 4ac = {_num(discriminant)} {sign} 0", "discriminant")
         )
-    rows.append(math_line(working))
-    workout = Workout(
-        given=(math_line(f"{_tex(lhs)} = {_tex(rhs)}"),),
-        find=(math_line(r"\text{number of " + ("real " if real else "") + "solutions}"),),
-        steps=tuple(rows),
-    )
-    return workout, answer, [f"Number of solutions: {answer}"]
+    return rows
+
+
+def _solving_rows(lhs: Any, rhs: Any, name: str, solutions: list[Any]) -> list[str]:
+    """The equation solved: the solve card's own trace, a move on both sides and its
+    "Simplify" read as one row, ending on the solutions themselves."""
+    from app.modules.math.solve.key_steps import equation_key_steps
+    from app.modules.math.solve.root_latex import compact_root_answer_lines
+
+    rows: list[tuple[str, str]] = []
+    branched = solved = False
+    for step in equation_key_steps(lhs, rhs, name):
+        solved = step.label == "Simplify"
+        if step.branch is not None:
+            # One move per factor ("add 2 to both sides of the first equation"):
+            # the result after them is each factor solved.
+            branched = True
+        elif solved and branched:
+            rows.append(("solve each equation", step.formula))
+            branched = False
+        elif solved and rows and "both sides" in rows[-1][0]:
+            rows[-1] = (rows[-1][0], step.formula)
+        else:
+            rows.append((note_from_label(step.label), step.formula))
+    if not solved:
+        # No trace, or one that stops before the values: the solutions, as the solve
+        # card writes them (``\approx`` where a root is only written to six figures).
+        lines = [
+            re.sub(r" = (?=-?\d+\.\d)", r" \\approx ", line, count=1)
+            for line in compact_root_answer_lines(name, solutions)
+        ]
+        first = "the solution" if len(solutions) == 1 else "the solutions"
+        rows.append(("simplify" if rows else first, r" \text{ or } ".join(lines)))
+    return [math_line(formula, note) for note, formula in rows]

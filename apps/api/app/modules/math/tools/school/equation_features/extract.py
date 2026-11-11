@@ -61,12 +61,14 @@ _FEATURES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("slope", re.compile(r"\b(?:the\s+)?(?:slope|gradient)\b", re.I)),
     ("period", re.compile(r"\b(?:the\s+)?period\b", re.I)),
     ("amplitude", re.compile(r"\b(?:the\s+)?amplitude\b", re.I)),
-    # "how many real roots does x^2 + 2x + 5 = 0 have"
+    # "how many real roots does x^2 + 2x + 5 = 0 have", "how many solutions are there to
+    # …", "find the number of real solutions of …"
     (
         "solution_count",
         re.compile(
-            r"\bhow\s+many\s+(?P<real>real\s+)?(?:solutions?|roots?|zeros?|zeroes?)\s+"
-            r"(?:does|do|will)\b",
+            r"\b(?:how\s+many|(?:the\s+)?number\s+of)\s+(?:distinct\s+|different\s+)?"
+            r"(?P<real>real\s+)?(?:distinct\s+|different\s+)?(?:solutions?|roots?|zeros?|zeroes?)"
+            r"\s+(?:does|do|will|has|are\s+there(?:\s+(?:to|for|of|in))?|of|to|for|in)\b",
             re.I,
         ),
     ),

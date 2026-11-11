@@ -328,6 +328,43 @@ async def test_build_math_augmentation_verifies_school_readers(text: str, answer
     assert verified.canonical_answer == answer
 
 
+# How many solutions an equation has, in every form a student sends it: the maths
+# keyboard's ``$…$`` (``\frac``, ``^{2}``, ``\cdot``), a capital or another letter for the
+# unknown, "real" or not, roots, zeros or solutions, any equation form, any degree.
+# "How many solutions does $4X^2 + 4 = 6$ have?" went to the model unverified (2026-11-10).
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("How many solutions does $4X^2 + 4 = 6$ have?", "2"),
+        ("how many real solutions does $4X^{2} + 4 = 6$ have?", "2"),
+        ("How many roots does $X^{2} - 5X + 6 = 0$ have?", "2"),
+        ("how many zeros does $x^{3} - x = 0$ have", "3"),
+        ("how many solutions does $\\frac{x}{2} + 3 = 5$ have?", "1"),
+        ("how many solutions does $\\frac{x^{2}}{2} = 8$ have?", "2"),
+        ("how many solutions does $2 \\cdot x + 1 = 7$ have", "1"),
+        ("how many solutions does 3T + 2 = 8 have", "1"),
+        ("how many solutions does t^2 = 9 have", "2"),
+        ("how many solutions are there to x^2 = 2x", "2"),
+        ("how many real solutions are there for $x^{2} + 1 = 0$", "0"),
+        ("find the number of real roots of x^2 + 2x + 5 = 0", "0"),
+        ("what is the number of solutions of x^4 - 5x^2 + 4 = 0", "4"),
+        ("how many distinct real roots does (x-2)^2 = 0 have", "1"),
+        ("How many solutions does $x^{2} - 6x + 9 = 0$ have?", "1"),
+        ("how many real roots does x^3 = 8 have", "1"),
+        ("how many solutions does $2X + 3 = 2X + 5$ have?", "0"),
+        ("how many solutions does $2(X+1) = 2X + 2$ have?", r"\text{infinitely many}"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_build_math_augmentation_counts_solutions_in_every_form(
+    text: str, answer: str
+) -> None:
+    assert needs_symbolic_math(text)
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -370,6 +407,72 @@ async def test_build_math_augmentation_declines_features_it_cannot_read(text: st
 )
 def test_needs_symbolic_math_keeps_feature_lookalikes_out(text: str) -> None:
     assert not needs_symbolic_math(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "how many solutions does this company offer",
+        "how many roots does a tree have",
+        "how many zeros in a million",
+        "how many zeros are there in the number one billion",
+        "how many real solutions does the climate crisis have",
+    ],
+)
+@pytest.mark.asyncio
+async def test_solution_count_lookalikes_stay_unsolved(text: str) -> None:
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is None
+
+
+@pytest.mark.asyncio
+async def test_solution_count_working_shows_the_solutions() -> None:
+    # The count alone tells a student nothing: the working solves the equation.
+    query = "How many solutions does $4X^2 + 4 = 6$ have?"
+    _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is not None and verified.worked_reply is not None
+    reply = verified.worked_reply
+    assert "**Given**  \n$4 x^{2} + 4 = 6$" in reply
+    assert "$4 x^{2} = 2$ — subtract 4 from both sides" in reply
+    assert "$x = \\pm \\frac{\\sqrt{2}}{2}$ — take the square root of both sides" in reply
+    assert reply.rstrip().endswith("```answer\n2\n```")
+
+
+@pytest.mark.asyncio
+async def test_solution_count_working_lists_roots_it_cannot_trace() -> None:
+    # No factor trace: the roots as the solve card writes them, approximate where so.
+    query = "how many real solutions does x^3 + x + 1 = 0 have"
+    _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is not None and verified.worked_reply is not None
+    assert verified.canonical_answer == "1"
+    assert "$x \\approx -0.682328$ — the solution" in verified.worked_reply
+
+
+# The other school readers, sent from the maths keyboard: a capital unknown, ``$…$``
+# spans, ``\le`` bounds, ``^{2}`` inside ``\frac`` and ``\ldots``.
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("find the vertex of $Y = X^2 - 4X + 3$", r"\left(2, -1\right)"),
+        ("what is the discriminant of $X^2 + 2X + 5$", "b^{2} - 4ac = -16"),
+        ("find the x-intercepts of $y = X^2 - 4$", r"\left(-2, 0\right),\ \left(2, 0\right)"),
+        ("what is the slope intercept form of $2X + Y = 6$", "y = -2x + 6"),
+        ("find the amplitude of $y = 3\\sin(2X)$", "3"),
+        ("find k so that $X^2 + kX + 9 = 0$ has exactly one solution", r"k = -6 \text{ or } k = 6"),
+        ("what is the remainder when $X^3 + 2X - 5$ is divided by $X - 2$", "7"),
+        ("if $f(X) = X^{2} + 1$ find f(2)", "5"),
+        (
+            "solve $\\sin(x) = \\frac{1}{2}$ for $0 \\le x \\le 2\\pi$",
+            r"x = \frac{\pi}{6},\;\frac{5 \pi}{6}",
+        ),
+        ("find the 10th term of the arithmetic sequence $3, 7, 11, \\ldots$", "39"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_school_readers_read_the_maths_keyboard(text: str, answer: str) -> None:
+    _, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
 
 
 @pytest.mark.asyncio

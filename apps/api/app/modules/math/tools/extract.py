@@ -73,6 +73,8 @@ _TRIG_FUNCTION_RE = re.compile(
 )
 _RESTRICTED_TRIG_DOMAIN_RE = re.compile(
     r"[<>\u2264\u2265\u2208\u2102\u2124\u2115\u211a\[\]]"
+    # The keyboard's ``$0 \le x \le 2\pi$`` bounds x as much as ``0 <= x``.
+    r"|\\(?:le|ge|lt|gt|leq|geq|leqslant|geqslant)(?![A-Za-z])"
     r"|\\in\b|\\mathbb\s*\{[CZNQ]\}"
     r"|\b(?:complex|imaginary|integers?|naturals?|rationals?|irrationals?|"
     r"positive|negative|nonnegative|nonpositive|degrees?)\b"
