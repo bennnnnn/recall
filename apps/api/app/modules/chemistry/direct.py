@@ -19,6 +19,7 @@ from app.services.workout import (
     Workout,
     formula_heading,
     math_line,
+    method_heading,
     render_workout,
     text_line,
     where_line,
@@ -71,10 +72,10 @@ class _Rows:
         return math_line(alone) if alone is not None else text_line(self.show(find))
 
     def law(self) -> str:
-        """A law's equation (its name heads it); a procedure's rule written out."""
+        """A law's equation, or a procedure's rule written out; its name heads either."""
         result = self.result
         if result.method:
-            return text_line(f"{result.formula_name}: {self.show(result.formula)}")
+            return text_line(_lower_first(self.show(result.formula), upper=True))
         return self.line(result.formula)
 
     def substitution(self) -> tuple[str, ...]:
@@ -90,11 +91,12 @@ class _Rows:
         return tuple(self.line(row) for row in rows)
 
 
-def _lower_first(text: str) -> str:
-    """ "Amount" → "amount"; an acronym keeps its capitals ("pH", "NMR")."""
+def _lower_first(text: str, *, upper: bool = False) -> str:
+    """ "Amount" → "amount" (``upper``: "count each" → "Count each", a rule on its own line);
+    an acronym keeps its capitals ("pH", "NMR")."""
     if len(text) > 1 and text[1].isupper():
         return text
-    return text[:1].lower() + text[1:]
+    return (text[:1].upper() if upper else text[:1].lower()) + text[1:]
 
 
 def _base(side: str) -> str:
@@ -158,9 +160,13 @@ def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
         given=rows.given(),
         find=(rows.required(),),
         formula=(rows.law(),),
-        # A law's name heads its equation ("Molar mass formula"); a procedure's
-        # rule names itself on its line, under **Formula**.
-        formula_heading=formula_heading(None if result.method else result.formula_name),
+        # A law's name heads its equation ("Molar mass formula"), and a procedure's name its
+        # rule ("Conservation of atoms and charge"), never a bare **Formula** (2026-11-11).
+        formula_heading=(
+            method_heading(result.formula_name)
+            if result.method
+            else formula_heading(result.formula_name)
+        ),
         # A procedure's rows check its rule (an atom tally, a range); they substitute nothing.
         steps=tuple(text_line(show(line)) for line in result.substitution) if result.method else (),
         substitution=() if result.method else rows.substitution(),

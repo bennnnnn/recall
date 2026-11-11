@@ -10,7 +10,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
 from app.modules.chemistry.solvers.display import verified
 from app.services.solving import SolveServiceError, VerifiedSolveBlock
-from app.services.workout import WORKOUT_PROMPT_RULE, formula_heading
+from app.services.workout import WORKOUT_PROMPT_RULE, formula_heading, method_heading
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,12 @@ def _bullet_rows(text: str) -> str:
 def _prompt_text(result: ChemistryResult) -> str:
     given = "\n".join(f"- {item}" for item in result.given)
     substitution = "\n".join(_bullet_rows(item) for item in result.substitution)
-    # A procedure (balancing, a table lookup) has a rule, not an equation: its rows are Steps.
-    # A law's name heads its equation (``formula_heading``): "Molar mass formula".
+    # A procedure (balancing, a table lookup) has a rule, not an equation: its rows are Steps,
+    # under the procedure's name. A law's name heads its equation (``formula_heading``):
+    # "Molar mass formula".
     if result.method:
-        law, rows, law_line = "Formula", "Steps", f"Formula ({result.formula_name})"
+        law = law_line = method_heading(result.formula_name)
+        rows = "Steps"
     else:
         law = law_line = formula_heading(result.formula_name)
         rows = "Substitution"

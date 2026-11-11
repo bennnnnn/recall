@@ -23,7 +23,8 @@ export function isSolutionHeading(text: string): boolean {
 /**
  * The one worked-solution layout the API writes for every subject:
  * **Given**, **Required**, **Solution** (alone, `isSolutionHeading`), the formula under
- * its name ("**Average speed formula**", see `lawHeading`; **Formula** when unnamed),
+ * its name ("**Average speed formula**", see `lawHeading`; a formula with no name follows
+ * **Solution** with no heading of its own since 2026-11-11, **Formula** in older replies),
  * **Substitution** or **Steps**, **Answer** (**Answer (a)** for one part),
  * each a bold heading on its own line followed by one state per line, with
  * the move written as a short note after " — " (`$2x = 8$ — subtract 3`), which the

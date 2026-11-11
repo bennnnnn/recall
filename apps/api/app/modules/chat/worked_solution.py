@@ -69,7 +69,9 @@ class _Record(BaseModel):
 
 class Given(_Record):
     symbol: Symbol
-    value: Tex
+    # Empty for a quantity the question gives as a letter ("a rod of mass M"): it is listed
+    # by what it is, never dropped (``worked_render._as_its_letter``).
+    value: OptionalTex = ""
     unit: Short = ""
     meaning: Words = ""
     # The value in the unit the formula uses, when that differs (``2400\,\mathrm{s}``).
