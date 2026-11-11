@@ -75,9 +75,9 @@ def decided_lane(
 def math_backups(
     subject: str, lane: str, pool: list[str], unsteady: frozenset[str] = frozenset()
 ) -> list[str]:
-    """The model a STEM turn falls back to first when its maths lane fails: GLM behind
-    DeepSeek and behind Qwen (``ROUTING.math_backups``), when the pool has it and its breaker
-    is closed. Other subjects keep the pool's order."""
+    """The model a STEM turn falls back to first when its maths lane fails: Qwen3.8 Flash
+    behind DeepSeek and GLM 5.3 Flash behind Qwen3.7 Flash (``ROUTING.math_backups``), when
+    the pool has it and its breaker is closed. Other subjects keep the pool's order."""
     backup = ROUTING.math_backups.get(lane)
     if subject not in _STEM or backup is None or backup not in pool or backup in unsteady:
         return []

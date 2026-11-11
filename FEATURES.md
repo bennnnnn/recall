@@ -617,7 +617,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard everyday turns, and the maths
   lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, the hard lane and, since
   2026-11-10, Auto's maths lane, with Qwen3.8 Flash its first backup: `ROUTING.math_backups`),
-  Qwen3.8 Flash (`qwen-3.8-flash`, thinking none, minimal to xhigh; it replaced GLM 5.2 on
+  Qwen3.8 Flash (`qwen-3.8-flash`, thinking none, minimal, high; it replaced GLM 5.2 on
   2026-11-11, and stored choices of GLM 5.2 moved to it, migration 0129) and GPT-6 Luna. Maths, physics and chemistry no solver verified go to the maths lane, hard
   ones too. On Pro, Auto's
   everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,

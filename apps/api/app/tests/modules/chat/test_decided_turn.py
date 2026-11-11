@@ -147,9 +147,10 @@ def test_a_plan_without_the_strong_models_gets_its_pools_best() -> None:
 
 
 @pytest.mark.parametrize(("pool", "chain"), [(_POOL, _PAID_MATHS), (_FREE_POOL, _FREE_MATHS)])
-def test_a_stem_lane_falls_back_to_glm(pool: list[str], chain: tuple[str, str]) -> None:
-    """DeepSeek on a paid plan and Qwen on Free each fall back to GLM first; while the lane's
-    breaker is open, or the user switched it off, the turn starts on GLM."""
+def test_a_stem_lane_falls_back_to_its_backup(pool: list[str], chain: tuple[str, str]) -> None:
+    """DeepSeek on a paid plan falls back to Qwen3.8 Flash, Qwen3.7 Flash on Free to GLM 5.3
+    Flash; while the lane's breaker is open, or the user switched it off, the turn starts on
+    the backup."""
     lane, backup = chain
     assert decided_lane("physics", "none", pool, math_lane=chain) == lane
     assert math_backups("physics", lane, pool) == [backup]
@@ -170,7 +171,7 @@ def test_a_paid_plan_never_gets_frees_maths_lane() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_stem_turn_tries_glm_before_the_rules_model() -> None:
+async def test_a_stem_turn_tries_its_backup_before_the_rules_model() -> None:
     ctx = _turn(RESISTORS, _read("physics", False))
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.model == ROUTING.math
