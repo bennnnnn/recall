@@ -287,7 +287,11 @@ async def _join(
     if not (decided["live"] or decided["asked"]):
         return TurnDecision(**decided)
     # The search query is text the Decider cannot write: the text read's, begun beside it.
-    left = settings.live_read_timeout_seconds - (time.monotonic() - started)
+    # It waits no longer than the reply waits for the read, which starts later, so a slow
+    # query never costs the Decider's subject and effort: the read comes back without it
+    # and the reply's call searches (Claude review, 2026-11-11).
+    budget = min(settings.live_read_timeout_seconds, settings.live_read_wait_seconds)
+    left = budget - (time.monotonic() - started)
     try:
         read = await asyncio.wait_for(text_read, max(0.0, left))
     except TimeoutError:

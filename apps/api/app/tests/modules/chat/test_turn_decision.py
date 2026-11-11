@@ -407,6 +407,25 @@ async def test_an_answer_with_no_search_stops_the_text_read(
 
 
 @pytest.mark.asyncio
+async def test_a_slow_query_keeps_the_deciders_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A live answer waits for its query only as long as the reply waits for the read: past
+    that it comes back without one, its subject kept, and the text read stops."""
+    stopped = _slow_text_read(monkeypatch)
+    monkeypatch.setattr(
+        decider_read,
+        "decide_turn",
+        AsyncMock(return_value=_fields(subject="physics", live=True)),
+    )
+    settings = isolated_settings(live_read_wait_seconds=0.2, live_read_timeout_seconds=2.0)
+    task = asyncio.ensure_future(turn_decision.read_decision(settings, "news?", earlier=[]))
+    await asyncio.sleep(0.05)  # The read starts beside the turn's prep; the reply asks later.
+    read = await turn_decision.turn_decision_result(task, settings)
+    assert read is not None and (read.subject, read.searches, read.query) == ("physics", True, "")
+    await asyncio.sleep(0)
+    assert stopped == [True]
+
+
+@pytest.mark.asyncio
 async def test_a_read_the_reply_gave_up_on_stops_the_text_read(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
