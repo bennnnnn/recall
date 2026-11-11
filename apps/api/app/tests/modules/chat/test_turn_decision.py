@@ -374,6 +374,18 @@ def test_the_deciders_probabilities_set_the_effort(
     assert decider_read.decision_fields({}, has_earlier=False) is None
 
 
+def test_the_live_question_judges_the_message_the_conversation_fills_in() -> None:
+    """Pro phone test (2026-11-11): "Top 5 in Ethiopia" right after a search for the world's
+    top universities read 0.14 live, and its "Yes" to "Do you mean the universities?" 0.06:
+    rankings were no fact that changes, and a reply to the assistant's question was judged
+    by its own words. The "follow-up in context" turns of ``search_need_corpus.json`` hold
+    the same words live after one question and settled after another."""
+    live = decider_read.QUESTIONS["live"]["instructions"]
+    assert "rankings" in live
+    assert "once the conversation fills in what it leaves out" in live
+    assert "a yes to the assistant's question asks what that question offered" in live
+
+
 def _slow_text_read(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
     """The text read as a call that never ends; the list says whether it was stopped."""
     stopped: list[bool] = []
