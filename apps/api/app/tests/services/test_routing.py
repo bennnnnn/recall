@@ -85,7 +85,7 @@ _MATH = model_catalog.auto_math_alias()
         ("run this:\n```bash\necho hi\n```", "smart-chat"),
         ("what's wrong here:\n```html\n<div></div>\n```", "smart-chat"),
         # Math / structured turns → the maths lane (a weak fast model disagreed with
-        # verified results; ``math_lane_eval`` chose its model).
+        # verified results; measured 2026-11-10).
         ("solve 2x + 3 = 7", _MATH),
         ("graph y = x^2", _MATH),
         ("2x+3=7", _MATH),

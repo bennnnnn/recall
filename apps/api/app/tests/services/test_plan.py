@@ -315,6 +315,28 @@ def test_pro_hard_and_maths_turns_keep_their_lanes() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        "solve x^2 - 5x + 6 = 0",
+        "A 2 kg block slides down a 30 degree incline with friction coefficient 0.2 and "
+        "then up a spring; explain each energy change",
+    ],
+)
+def test_free_stem_turns_go_to_free_maths_lane(content: str) -> None:
+    """With no read, the word rules send Free's maths and unsolved physics to Qwen3.7 Flash
+    (the owner's call, 2026-11-11)."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    assert model_choice.resolve_user_model(_plan("free"), content, settings) == ROUTING.math_free
+
+
+def test_paid_maths_turns_skip_frees_lane_when_deepseek_is_off() -> None:
+    """A Plus user who switched DeepSeek off gets its backup, GLM 5.2, never Free's Qwen."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    user = _plan("plus", ["auto", "qwen-3.7-flash", "free-chat", "glm-5.2"])
+    assert model_choice.resolve_user_model(user, "solve x^2 - 5x + 6 = 0", settings) == "glm-5.2"
+
+
 def test_pro_everyday_falls_back_when_the_strong_model_is_off_or_failing() -> None:
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     strong = ROUTING.everyday_strong

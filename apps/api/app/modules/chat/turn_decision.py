@@ -19,8 +19,8 @@ reply's call carries no search tool: the read is the one decider
 In one chat about a hot MacBook Air (2026-11-09) the read saw only the reply before the
 message, sent to it as a chat turn: it answered "Can i just buy another one" by searching
 "iPhone 16 price". It now sees the last two exchanges, quoted in one message, so it judges
-the message instead of carrying on the chat. ``tests/behavior/search_need_eval.py``,
-``think_need_eval.py`` and ``decider_eval.py`` measure it on their labelled sets. Nothing
+the message instead of carrying on the chat. ``tests/behavior/search_need_eval.py``
+and ``think_need_eval.py`` measure it on their labelled sets. Nothing
 here raises into a turn.
 """
 

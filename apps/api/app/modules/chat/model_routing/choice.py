@@ -13,6 +13,7 @@ from app.modules.billing.plan import (
     AUTO_ALIAS,
     is_auto_enabled,
     is_explicit_pick,
+    math_lane_for,
     model_pool,
     override_pool,
     pick_cheapest_from_pool,
@@ -50,6 +51,7 @@ def resolve_user_model(
             prior_model=prior_model,
             lesson_active=lesson_active,
             unhealthy=unhealthy,
+            math_lane=math_lane_for(user, settings),
         )
         return _everyday_for_plan(user, settings, routed, pool, unhealthy)
     note_route("single_model" if len(pool) == 1 else "cheapest")

@@ -309,6 +309,13 @@ def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
     assert model_catalog.reads_images(lanes.everyday_strong)
     assert model_catalog.get(lanes.hard).tier in {"smart", "max"}
     assert model_catalog.get(lanes.math).tier in {"smart", "max"}
+    # Free's maths lane is in Free's pool; each maths lane's backup is selectable and runs at
+    # another company, so one provider's outage or rate limit never takes both.
+    assert lanes.math_free in selectable
+    assert set(lanes.math_backups) == {lanes.math, lanes.math_free}
+    for maths_lane, maths_backup in lanes.math_backups.items():
+        assert maths_backup in selectable
+        assert model_catalog.get(maths_lane).provider != model_catalog.get(maths_backup).provider
     vision, backup = model_catalog.get(lanes.vision), model_catalog.get(lanes.vision_backup)
     assert vision.supports_vision and backup.supports_vision
     assert vision.provider != backup.provider

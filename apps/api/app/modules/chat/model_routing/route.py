@@ -19,6 +19,7 @@ from app.models import model_catalog
 from app.modules.billing.plan import (
     pick_cheapest_from_pool,
     pick_fast_from_pool,
+    pick_math_lane,
     pick_preferred_tier,
     pick_smart_from_pool,
 )
@@ -95,6 +96,9 @@ _LONG_MESSAGE_CHARS = 800
 # The maths lane's reasons (``_routed_line``, ``routed_chat_model``): a solve, not a reason
 # to think, whichever model the lane runs on.
 _MATH_LANE_REASONS = frozenset({"math", "inherit_math"})
+# A physics or chemistry question no solver answers: the rules' strong model, which on a
+# plan is its maths lane (the owner's call, 2026-11-11), thinking as the rules say.
+_STEM_REASONS = frozenset({"physics", "chemistry"})
 # Any fence opener counts as code, with or without a language tag: an allowlist of
 # languages left a bare fence, or bash, Kotlin or HTML, on the cheap model.
 #
@@ -387,12 +391,14 @@ def resolve_alias_in_pool(
     prior_model: str | None = None,
     lesson_active: bool = False,
     unhealthy: frozenset[str] = frozenset(),
+    math_lane: tuple[str, str] | None = None,
 ) -> str:
     """Resolve a model mode or alias within an allowed pool.
 
     A concrete alias is the user's pick and passes through. A mode (auto, fast,
     smart) chooses among the pool's healthy models, and for a JSON ask among those
-    with JSON mode (``_usable_pool``).
+    with JSON mode (``_usable_pool``). A STEM turn the rules send to a strong model goes
+    to the plan's maths lane (``math_lane``, billing's ``math_lane_for``).
     """
     if not pool:
         note_route("no_pool")
@@ -415,6 +421,10 @@ def resolve_alias_in_pool(
         settings=settings,
     )
     note_route(f"auto.{reason}")
+    if reason in _MATH_LANE_REASONS or (
+        reason in _STEM_REASONS and preferred != model_catalog.auto_fast_alias()
+    ):
+        return pick_math_lane(math_lane, usable)
     return pick_preferred_tier(preferred, usable)
 
 

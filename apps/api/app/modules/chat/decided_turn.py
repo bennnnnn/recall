@@ -28,7 +28,7 @@ from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.json_output import is_json_request
-from app.modules.chat.model_routing.decided import decided_lane, decided_level
+from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_route
@@ -114,21 +114,22 @@ def _follow_the_lane(ctx: StreamContext, settings: Settings, read: TurnDecision)
     """Auto's lane for the read's subject and effort, where it may move (``_lane_may_move``)."""
     if not _lane_may_move(ctx) or ctx.user is None or read.subject is None:
         return
+    pool = plan_service.model_pool(ctx.user, settings)
     lane = decided_lane(
         read.subject,
         read.effort or "none",
-        plan_service.model_pool(ctx.user, settings),
+        pool,
         unsteady=ctx.unsteady_models,
         strong_everyday=has_strong_everyday_model(ctx.user, settings),
+        math_lane=plan_service.math_lane_for(ctx.user, settings),
     )
     if lane is None:
         return
     note_route(f"read.{read.subject}.{read.effort}")
-    if lane == ctx.model:
-        return
-    # The rules' model is the first backup.
-    backups = [alias for alias in ctx.fallback_models if alias not in {lane, ctx.model}]
-    ctx.model, ctx.fallback_models = lane, [ctx.model, *backups]
+    # A STEM lane's own backup first (GLM), then the rules' model, then the pool's order.
+    first = [*math_backups(read.subject, lane, pool, ctx.unsteady_models), ctx.model]
+    backups = [alias for alias in dict.fromkeys([*first, *ctx.fallback_models]) if alias != lane]
+    ctx.model, ctx.fallback_models = lane, backups
 
 
 def _shows_a_picture(ctx: StreamContext) -> bool:

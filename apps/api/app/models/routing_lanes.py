@@ -31,10 +31,16 @@ class RoutingLanes:
     # held the block on the harness's prompt but answered the owner's "How many solutions
     # does $4X^2 + 4 = 6$ have?" with no working (2026-11-10), at four times DeepSeek's cost
     # a turn; DeepSeek kept the block on 100% of 17 unverified questions at 0.4 s to the
-    # first word with thinking off and 1.9 s at low (``math_lane_eval``). Its thinking
-    # follows the turn's read, question by question. A plan without it (Free) gets its
-    # pool's strongest model of the tier (GLM 5.3 Flash).
+    # first word with thinking off and 1.9 s at low. Its thinking follows the turn's read,
+    # question by question; a hard STEM question stays on this lane and thinks there.
     math: str
+    # The maths lane on a plan without ``math`` (Free): Qwen3.7 Flash kept the owner's
+    # Given/Required layout and solved "How many solutions does $4X^2 + 4 = 6$ have?"
+    # (2026-11-10), at the lowest price of the pool (the owner's call, 2026-11-11).
+    math_free: str
+    # Each maths lane's first backup, from another company: GLM behind DeepSeek and Qwen,
+    # since an upstream rate limit refuses Qwen at busy hours (the owner's call, 2026-11-11).
+    math_backups: Mapping[str, str]
     # A turn that shows the model a photo, when its own model cannot read one,
     # and the second photo reader (another company) when the first fails.
     vision: str
@@ -77,7 +83,7 @@ class RoutingLanes:
     # rules' lane. Only a hard question goes to the strong lane on a plan that has it (the
     # owner's call, 2026-11-10): a low one, code too, stays on the everyday lane and thinks
     # there (a git how-to read as low code waited 7.8 s on DeepSeek). STEM nothing verified
-    # goes to the maths lane.
+    # goes to the maths lane, hard or not (the owner's call, 2026-11-11).
     decided: Mapping[str, tuple[str, str, str]]
 
 
@@ -86,6 +92,8 @@ ROUTING = RoutingLanes(
     everyday_strong="free-chat",
     hard="smart-chat",
     math="smart-chat",
+    math_free="qwen-3.7-flash",
+    math_backups=MappingProxyType({"smart-chat": "glm-5.2", "qwen-3.7-flash": "glm-5.3-flash"}),
     vision="vision-chat",
     vision_backup="fallback-vision-model",
     tool_selectors=("gpt-6-luna", "free-chat"),
@@ -102,9 +110,9 @@ ROUTING = RoutingLanes(
         {
             "everyday": ("everyday", "everyday", "hard"),
             "code": ("everyday", "everyday", "hard"),
-            "maths": ("math", "math", "hard"),
-            "physics": ("math", "math", "hard"),
-            "chemistry": ("math", "math", "hard"),
+            "maths": ("math", "math", "math"),
+            "physics": ("math", "math", "math"),
+            "chemistry": ("math", "math", "math"),
         }
     ),
 )

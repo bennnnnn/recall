@@ -19,7 +19,12 @@ import pytest
 from app.models.orm import User
 from app.models.routing_lanes import ROUTING
 from app.modules.chat.decided_turn import decide_from_the_read
-from app.modules.chat.model_routing.decided import decided_lane, decided_level
+from app.modules.chat.model_routing.decided import (
+    Effort,
+    decided_lane,
+    decided_level,
+    math_backups,
+)
 from app.modules.chat.model_routing.thinking import lane_for_think, thinking_level, thinks_when_hard
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep.context import StreamContext
@@ -43,6 +48,8 @@ RESISTORS = (
 )
 _POOL = ["free-chat", "smart-chat", "glm-5.3-flash", "glm-5.2", "gpt-6-luna", "qwen-3.7-flash"]
 _FREE_POOL = ["qwen-3.7-flash", "free-chat", "glm-5.3-flash"]
+_FREE_MATHS = (ROUTING.math_free, "glm-5.3-flash")
+_PAID_MATHS = (ROUTING.math, "glm-5.2")
 
 
 def _read(subject: str | None, think: bool | None, hard: bool = False) -> TurnDecision:
@@ -108,10 +115,11 @@ def test_the_level_comes_from_the_subject_and_effort(subject: str, effort: Any, 
         # A low code question (E17, a git how-to) stays on the everyday lane, thinking there.
         ("code", "low", "free-chat"),
         ("code", "high", "smart-chat"),
-        # STEM nothing verified: the maths lane, whatever subject the readers missed.
+        # STEM nothing verified: the maths lane, whatever subject the readers missed, hard
+        # or not (the owner's call, 2026-11-11).
         ("maths", "none", ROUTING.math),
         ("physics", "low", ROUTING.math),
-        ("chemistry", "high", "smart-chat"),
+        ("chemistry", "high", ROUTING.math),
         # Money keeps the word rules' lane: its calculator card holds the numbers.
         ("money", "low", None),
     ],
@@ -121,11 +129,45 @@ def test_the_lane_comes_from_the_catalogs_table(subject: str, effort: Any, lane:
 
 
 def test_a_plan_without_the_strong_models_gets_its_pools_best() -> None:
-    """Free's pool has no smart model: its maths and hard questions go to GLM 5.3 Flash, its
-    everyday ones to its everyday model."""
-    assert decided_lane("maths", "low", _FREE_POOL) == "glm-5.3-flash"
+    """Free's pool has no smart model: its STEM questions go to its own maths lane (Qwen3.7
+    Flash, the owner's call, 2026-11-11), hard ones too; its hard everyday questions to GLM
+    5.3 Flash, its everyday ones to its everyday model."""
+    stem: list[tuple[str, Effort]] = [("maths", "low"), ("physics", "none"), ("chemistry", "high")]
+    for subject, effort in stem:
+        assert decided_lane(subject, effort, _FREE_POOL, math_lane=_FREE_MATHS) == ROUTING.math_free
     assert decided_lane("everyday", "high", _FREE_POOL) == "glm-5.3-flash"
     assert decided_lane("everyday", "none", _FREE_POOL) == ROUTING.everyday
+
+
+@pytest.mark.parametrize(("pool", "chain"), [(_POOL, _PAID_MATHS), (_FREE_POOL, _FREE_MATHS)])
+def test_a_stem_lane_falls_back_to_glm(pool: list[str], chain: tuple[str, str]) -> None:
+    """DeepSeek on a paid plan and Qwen on Free each fall back to GLM first; while the lane's
+    breaker is open, or the user switched it off, the turn starts on GLM."""
+    lane, backup = chain
+    assert decided_lane("physics", "none", pool, math_lane=chain) == lane
+    assert math_backups("physics", lane, pool) == [backup]
+    unsteady = frozenset({lane})
+    assert decided_lane("maths", "high", pool, unsteady=unsteady, math_lane=chain) == backup
+    switched_off = [alias for alias in pool if alias != lane]
+    assert decided_lane("chemistry", "low", switched_off, math_lane=chain) == backup
+    assert math_backups("maths", lane, pool, frozenset({backup})) == []
+    # Only STEM: a hard everyday question on DeepSeek keeps the pool's order.
+    assert math_backups("everyday", lane, pool) == []
+
+
+def test_a_paid_plan_never_gets_frees_maths_lane() -> None:
+    """With DeepSeek and GLM 5.2 both switched off, a paid STEM turn goes to the strongest
+    model left, not to Free's Qwen lane."""
+    pool = [alias for alias in _POOL if alias not in _PAID_MATHS]
+    assert decided_lane("maths", "none", pool, math_lane=_PAID_MATHS) == "glm-5.3-flash"
+
+
+@pytest.mark.asyncio
+async def test_a_stem_turn_tries_glm_before_the_rules_model() -> None:
+    ctx = _turn(RESISTORS, _read("physics", False))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.model == ROUTING.math
+    assert ctx.fallback_models == ["glm-5.2", "free-chat", "qwen-3.7-flash"]
 
 
 def test_a_lane_never_goes_to_a_model_whose_breaker_is_open() -> None:

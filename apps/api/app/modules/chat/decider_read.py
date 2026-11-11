@@ -3,7 +3,7 @@
 The Qwen read (``turn_decision``) writes its answers as JSON text: about 1.1 s, with p95
 1.7 s, and upstream rate limits refused 7-40% of its calls on 2026-11-10. The Decider
 answers the same questions as probabilities in 0.33 s (p95 0.71 s), and on the held-out half
-of the decider, think and search corpora (``pplx_decider_eval``) it read the subject on 99%,
+of the check-up, think and search corpora (2026-11-10) it read the subject on 99%,
 the picture on 99%, the follow-up on 95%, the effort on 94%; the think corpus at 100% recall
 with no false thinking; and search at 100% recall, 2.4% false. It writes no text, so a search
 query still comes from the text read. Each yes threshold below was picked on the tuning
@@ -20,12 +20,12 @@ from app.models.routing_lanes import ROUTING
 
 logger = logging.getLogger(__name__)
 
-# Yes thresholds, picked on the tuning half (``pplx_decider_eval``).
+# Yes thresholds, picked on the tuning half.
 _THINK_AT = 0.65
 # Everyday and code: a hard question, the strong lane's (the owner's call, 2026-11-10).
 _HARD_AT = 0.95
 # Maths, physics and chemistry think only when hard: at 0.7 the held-out STEM word problems
-# of the think corpus thought on 94% and the textbook problems of the decider corpus agreed
+# of the think corpus thought on 94% and the check-up's textbook problems agreed
 # with their labels on 93%.
 _STEM_HARD_AT = 0.7
 _LIVE_AT = 0.35

@@ -15,7 +15,7 @@ from typing import Literal
 
 from app.gateways.reasoning import ThinkingLevel
 from app.models.routing_lanes import ROUTING
-from app.modules.billing.plan import pick_preferred_tier
+from app.modules.billing.plan import pick_math_lane, pick_preferred_tier
 from app.modules.chat.model_routing.thinking import lane_for_think
 
 Effort = Literal["none", "low", "high"]
@@ -23,10 +23,10 @@ _EFFORTS: tuple[Effort, ...] = ("none", "low", "high")
 # none answers at once; low takes the model's cheapest level that thinks; high its most.
 _LEVELS: dict[Effort, ThinkingLevel] = {"none": "off", "low": "hard", "high": "deep"}
 # Maths, physics and chemistry think only when the read calls them hard. It called 43% of
-# easy textbook problems "low" (``decider_eval``), and thinking on them took DeepSeek 11.7 s
+# easy textbook problems "low" (2026-11-10), and thinking on them took DeepSeek 11.7 s
 # (C17, atoms in 2 mol of glucose) and 15.5 s (C14) to the first word, live 2026-11-10;
-# with thinking off it kept the worked layout on all 17 unverified questions of
-# ``math_lane_eval`` and was right on 97-100% at 0.4 s.
+# with thinking off it kept the worked layout on all 17 unverified questions tried and
+# was right on 97-100% at 0.4 s.
 _STEM = frozenset({"maths", "physics", "chemistry"})
 
 
@@ -46,12 +46,14 @@ def decided_lane(
     *,
     unsteady: frozenset[str] = frozenset(),
     strong_everyday: bool = False,
+    math_lane: tuple[str, str] | None = None,
 ) -> str | None:
     """Auto's model for the read's subject and effort, from the user's ``pool``; None keeps
     the word rules' lane (a subject the table leaves out, money). A model whose breaker is
     open or half-open (``unsteady``) is passed over while another is left: the turn would
     wait out its timeout. ``strong_everyday``: the plan's everyday lane is the stronger
-    model (Pro, ``entitlements.has_strong_everyday_model``)."""
+    model (Pro, ``entitlements.has_strong_everyday_model``). ``math_lane``: the plan's maths
+    lane and its backup (billing's ``math_lane_for``)."""
     lanes = ROUTING.decided.get(subject)
     if lanes is None or not pool:
         return None
@@ -59,9 +61,24 @@ def decided_lane(
     usable = [alias for alias in pool if alias not in unsteady] or pool
     if lane == "everyday" and strong_everyday and ROUTING.everyday_strong in usable:
         return ROUTING.everyday_strong
-    preferred = {"everyday": ROUTING.everyday, "hard": ROUTING.hard, "math": ROUTING.math}[lane]
-    alias = pick_preferred_tier(preferred, usable)
+    if lane == "math":
+        alias = pick_math_lane(math_lane, usable)
+    else:
+        preferred = {"everyday": ROUTING.everyday, "hard": ROUTING.hard}[lane]
+        alias = pick_preferred_tier(preferred, usable)
     if decided_level(subject, effort) == "off":
         return alias
     # A level that thinks, on the maths lane's model that sends no reasoning.
     return lane_for_think(alias, usable, unsteady) or alias
+
+
+def math_backups(
+    subject: str, lane: str, pool: list[str], unsteady: frozenset[str] = frozenset()
+) -> list[str]:
+    """The model a STEM turn falls back to first when its maths lane fails: GLM behind
+    DeepSeek and behind Qwen (``ROUTING.math_backups``), when the pool has it and its breaker
+    is closed. Other subjects keep the pool's order."""
+    backup = ROUTING.math_backups.get(lane)
+    if subject not in _STEM or backup is None or backup not in pool or backup in unsteady:
+        return []
+    return [backup]

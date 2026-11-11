@@ -287,7 +287,7 @@ CATALOG: tuple[ChatModel, ...] = (
     ),
     # Perplexity's Decider: closed questions answered with probabilities, no text
     # (``gateways.decider_gateway``). The turn's read: it beat the Qwen read on every field of
-    # the decider corpus at 0.33 s p50 (``pplx_decider_eval``). Priced per input token
+    # the 100-chat check-up's turns at 0.33 s p50 (2026-11-10). Priced per input token
     # (it reports its own cost, about $0.00002 a read).
     _or(
         id="decider-model",
