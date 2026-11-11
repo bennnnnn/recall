@@ -22,10 +22,18 @@ Effort = Literal["none", "low", "high"]
 _EFFORTS: tuple[Effort, ...] = ("none", "low", "high")
 # none answers at once; low takes the model's cheapest level that thinks; high its most.
 _LEVELS: dict[Effort, ThinkingLevel] = {"none": "off", "low": "hard", "high": "deep"}
+# Maths, physics and chemistry think only when the read calls them hard. It called 43% of
+# easy textbook problems "low" (``decider_eval``), and thinking on them took DeepSeek 11.7 s
+# (C17, atoms in 2 mol of glucose) and 15.5 s (C14) to the first word, live 2026-11-10;
+# with thinking off it kept the worked layout on all 17 unverified questions of
+# ``math_lane_eval`` and was right on 97-100% at 0.4 s.
+_STEM = frozenset({"maths", "physics", "chemistry"})
 
 
-def decided_level(effort: Effort) -> ThinkingLevel:
-    """The thinking level the read's effort asks for."""
+def decided_level(subject: str | None, effort: Effort) -> ThinkingLevel:
+    """The thinking level the read's subject and effort ask for."""
+    if subject in _STEM and effort == "low":
+        return "off"
     return _LEVELS[effort]
 
 
@@ -51,7 +59,7 @@ def decided_lane(
         return ROUTING.everyday_strong
     preferred = {"everyday": ROUTING.everyday, "hard": ROUTING.hard, "math": ROUTING.math}[lane]
     alias = pick_preferred_tier(preferred, usable)
-    if effort == "none":
+    if decided_level(subject, effort) == "off":
         return alias
     # A level that thinks, on the maths lane's model that sends no reasoning.
     return lane_for_think(alias, usable, unsteady) or alias

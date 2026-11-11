@@ -5,7 +5,8 @@ The turn's lane was chosen by word rules then, and the prep ran beside the read;
 reply's call the read says the subject and how hard the question is. Its answer replaces
 the rules' (``model_routing.decided``):
 
-- the thinking level follows the effort, question by question;
+- the thinking level follows the effort, question by question (maths, physics and
+  chemistry think only when the read calls them hard);
 - Auto's lane follows the subject and the effort through catalog data;
 - a maths, physics or chemistry calculation no solver verified gets the ```worked block's
   contract, as one the subject readers recognised does, when the readers missed it.
@@ -97,7 +98,7 @@ def _level(ctx: StreamContext, read: TurnDecision) -> bool | str:
     if active_lesson_step(ctx.recent_messages) is not None:
         # A lesson under way keeps its steps quick (``route``'s "lesson").
         return "off"
-    return decided_level(read.effort or "none")
+    return decided_level(read.subject, read.effort or "none")
 
 
 def _follow_the_lane(ctx: StreamContext, settings: Settings, read: TurnDecision) -> None:

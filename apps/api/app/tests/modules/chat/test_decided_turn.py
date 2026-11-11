@@ -77,9 +77,23 @@ def _turn(content: str, read: TurnDecision | None, **fields: Any) -> StreamConte
     return ctx
 
 
-@pytest.mark.parametrize(("effort", "level"), [("none", "off"), ("low", "hard"), ("high", "deep")])
-def test_the_effort_sets_the_level(effort: Any, level: str) -> None:
-    assert decided_level(effort) == level
+@pytest.mark.parametrize(
+    ("subject", "effort", "level"),
+    [
+        ("everyday", "none", "off"),
+        ("everyday", "low", "hard"),
+        ("everyday", "high", "deep"),
+        ("code", "low", "hard"),
+        # STEM thinks only when hard: C17 and C14 waited 11.7 s and 15.5 s at "low".
+        ("maths", "low", "off"),
+        ("physics", "low", "off"),
+        ("chemistry", "low", "off"),
+        ("maths", "high", "deep"),
+        ("physics", "none", "off"),
+    ],
+)
+def test_the_level_comes_from_the_subject_and_effort(subject: str, effort: Any, level: str) -> None:
+    assert decided_level(subject, effort) == level
 
 
 @pytest.mark.parametrize(
@@ -91,7 +105,9 @@ def test_the_effort_sets_the_level(effort: Any, level: str) -> None:
         # A hard everyday question goes to the strong lane (the owner's call, 2026-11-10).
         ("everyday", "high", "smart-chat"),
         ("code", "none", "free-chat"),
-        ("code", "low", "smart-chat"),
+        # A low code question (E17, a git how-to) stays on the everyday lane, thinking there.
+        ("code", "low", "free-chat"),
+        ("code", "high", "smart-chat"),
         # STEM nothing verified: the maths lane, whatever subject the readers missed.
         ("maths", "none", ROUTING.math),
         ("physics", "low", ROUTING.math),
@@ -154,7 +170,7 @@ async def test_stem_the_readers_missed_gets_its_lane_and_the_worked_layout() -> 
     the everyday prompt (28 s to the first word)."""
     ctx = _turn(RESISTORS, _read("physics", True), thinking="hard")
     await decide_from_the_read(ctx, _SETTINGS)
-    assert (ctx.model, ctx.thinking) == (ROUTING.math, "hard")
+    assert (ctx.model, ctx.thinking) == (ROUTING.math, "off")
     assert ctx.worked is not None
     assert any("```worked" in str(m.get("content")) for m in ctx.prompt_messages)
 
@@ -271,3 +287,18 @@ async def test_a_digit_that_is_no_value_gets_no_worked_layout(content: str) -> N
     ctx = _turn(content, _read("chemistry", False))
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.worked is None
+
+
+@pytest.mark.asyncio
+async def test_a_hard_stem_problem_still_thinks() -> None:
+    """The four runners' speeds (2026-11-09): the read calls it hard, and it thinks."""
+    ctx = _turn(RUNNERS, _read("physics", True, True))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert (ctx.model, ctx.thinking) == (ROUTING.math, "deep")
+
+
+@pytest.mark.asyncio
+async def test_a_low_everyday_question_thinks_on_the_everyday_model() -> None:
+    ctx = _turn("How do I fix git push rejected non-fast-forward?", _read("code", True))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert (ctx.model, ctx.thinking) == ("free-chat", "hard")

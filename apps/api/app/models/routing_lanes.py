@@ -65,8 +65,10 @@ class RoutingLanes:
     # Auto's lane for a turn the read decided, by its subject: the lane for effort none, low
     # and high, one of "everyday", "hard" and "math" above. Data, so routing names no model.
     # A subject not here (money: its calculator card holds the numbers) keeps the word
-    # rules' lane. A hard everyday question goes to the strong lane on a plan that has it
-    # (the owner's call, 2026-11-10); STEM nothing verified goes to the maths lane.
+    # rules' lane. Only a hard question goes to the strong lane on a plan that has it (the
+    # owner's call, 2026-11-10): a low one, code too, stays on the everyday lane and thinks
+    # there (a git how-to read as low code waited 7.8 s on DeepSeek). STEM nothing verified
+    # goes to the maths lane.
     decided: Mapping[str, tuple[str, str, str]]
 
 
@@ -88,7 +90,7 @@ ROUTING = RoutingLanes(
     decided=MappingProxyType(
         {
             "everyday": ("everyday", "everyday", "hard"),
-            "code": ("everyday", "hard", "hard"),
+            "code": ("everyday", "everyday", "hard"),
             "maths": ("math", "math", "hard"),
             "physics": ("math", "math", "hard"),
             "chemistry": ("math", "math", "hard"),
