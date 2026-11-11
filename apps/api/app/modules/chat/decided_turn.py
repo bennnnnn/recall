@@ -31,8 +31,9 @@ from app.modules.chat.model_routing.decided import decided_lane, decided_level
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_route
-from app.modules.chat.worked_turn import with_worked_contract, worked_layout
+from app.modules.chat.worked_turn import states_a_quantity, with_worked_contract, worked_layout
 from app.modules.turn_reading.lesson_flow import active_lesson_step
+from app.modules.turn_reading.school_question import is_school_exercise
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_prep.context import StreamContext
@@ -139,6 +140,10 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
     if subject is None or ctx.worked is not None or _worked(ctx) or ctx.instant_reply:
         return
     content = ctx.user_message_content
+    # A value to work with, not only a digit: "Name this compound: CH3CH2CH2OH" got a Given
+    # and a Required for its formula (live, 2026-11-10).
+    if not (states_a_quantity(content) or is_school_exercise(content)):
+        return
     layout = worked_layout(
         content,
         subject,

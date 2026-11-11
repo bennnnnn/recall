@@ -260,3 +260,14 @@ def test_the_maths_lane_moves_to_a_model_that_can_think() -> None:
     with_glm = [m for m in _POOL if m != ROUTING.math] + ["glm-5.2"]
     assert lane_for_think("qwen-3.7-flash", with_glm) is None
     assert lane_for_think("smart-chat", _POOL) is None
+
+
+@pytest.mark.parametrize(
+    "content", ["Name this compound: CH3CH2CH2OH", "Give me a practice question for grade 11"]
+)
+@pytest.mark.asyncio
+async def test_a_digit_that_is_no_value_gets_no_worked_layout(content: str) -> None:
+    """Live (2026-11-10): "Name this compound: CH3CH2CH2OH" got a Given and a Required."""
+    ctx = _turn(content, _read("chemistry", False))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is None
