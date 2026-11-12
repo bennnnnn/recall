@@ -6,6 +6,8 @@ import math
 from functools import lru_cache
 from typing import Any
 
+from pint.errors import PintError
+
 from app.modules.physics.bodies import SCHOOL_GRAVITY
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.spec import FormulaSpec
@@ -205,7 +207,8 @@ def _si_sized(unit: str) -> bool:
 
     try:
         base: Any = (1.0 * get_unit_registry()(unit)).to_base_units()
-    except Exception:  # an offset unit (degC) multiplies by nothing; or Pint cannot read it
+    except (PintError, ValueError, TypeError, AttributeError):
+        # An offset unit (degC) multiplies by nothing, and a unit Pint cannot read is no SI.
         return False
     return math.isclose(float(base.magnitude), 1.0, rel_tol=1e-9)
 
