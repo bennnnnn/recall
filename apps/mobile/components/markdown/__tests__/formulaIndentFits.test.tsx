@@ -99,6 +99,23 @@ describe("a display formula of the reply's own", () => {
     // Drawn (or loading) with its own indent: never more than the working column's.
     expect(found.padding.every((p) => p <= WORK_INDENT)).toBe(true);
   });
+
+  it("starts every line of a block of several at one edge", async () => {
+    const view = await render(<MarkdownContent content={`### Expand\n\n$$\nx = 2\n${FACTORIAL.slice(1, -1)}\n$$`} />);
+    const lines = [
+      ...view.queryAllByTestId("math-svg-view"),
+      ...view.queryAllByTestId("math-svg-loading"),
+      ...view.queryAllByTestId("math-svg-fallback"),
+    ];
+    const lefts = lines.map((line) => {
+      const style = [line.props.style].flat(Infinity) as ({ paddingLeft?: number } | false | null)[];
+      return style.reduce((left, s) => (s && typeof s.paddingLeft === "number" ? s.paddingLeft : left), 0);
+    });
+    expect(lines).toHaveLength(2);
+    // The short line starts where the long one does: in from the margin, short of the indent.
+    expect(new Set(lefts).size).toBe(1);
+    expect(lefts[0]).toBeLessThan(WORK_INDENT);
+  });
 });
 
 describe("a line of a worked solution", () => {
@@ -109,6 +126,16 @@ describe("a line of a worked solution", () => {
     const { found, scrolls } = await drawn(worked(SHORT));
     expect(found.margin).toEqual([]);
     expect(scrolls).toBe(false);
+  });
+
+  // Words wrap and a move's note has a row of its own: only the line's formulas are
+  // measured (a local review of this fix, 2026-11-11).
+  it.each([
+    ["words and a short formula", "Since the ball starts from rest and nothing pushes it sideways at all, $u = 0$"],
+    ["a short formula and a long note", "$2x + 3 = 11$ — subtract 3 from both sides of the equation to leave the x alone"],
+  ])("keeps %s in the working column", async (_, line) => {
+    const { found } = await drawn(worked(line));
+    expect(found.margin).toEqual([]);
   });
 
   it("moves a long line left into the indent, by no more than the indent", async () => {

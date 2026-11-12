@@ -3,6 +3,7 @@ import { Dimensions, PixelRatio, View } from "react-native";
 
 import { scaled } from "@/components/rich/mathText/context";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
+import { splitWorkoutNote } from "@/lib/markdown/workoutSection";
 import { fittedIndent, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
@@ -41,25 +42,17 @@ function formulaWidth(latex: string, fontSize: number, fontScale: number): numbe
   return scaled(layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), fontSize).width, fontScale);
 }
 
-/** A word's width is not measured here: about half an em a character is near enough to
- * judge whether a line of working fits. */
-const PROSE_EM_PER_CHAR = 0.5;
-
 /**
- * How far a line of working (prose and ``$…$`` maths, as written) moves left into its
- * column's `indent` so it fits the line before it scrolls; 0 while it fits after the indent.
+ * How far a line of working (words and ``$…$`` maths, as written) moves left into its
+ * column's `indent` so its widest formula fits the line before it scrolls; 0 while it fits
+ * after the indent. Only formulas scroll: words wrap, and a move's note (" — subtract 3")
+ * has a row of its own, so neither is measured.
  */
 export function workingLinePull(line: string, indent: number, fontSize: number): number {
   const fontScale = PixelRatio.getFontScale();
-  const width = splitInlineMath(line).reduce(
-    (sum, part) =>
-      sum +
-      (part.type === "math"
-        ? formulaWidth(part.value, fontSize, fontScale)
-        : part.value.length * PROSE_EM_PER_CHAR * fontSize * fontScale),
-    0,
-  );
-  return indent - fittedIndent(indent, width, Dimensions.get("window").width);
+  const formulas = splitInlineMath(splitWorkoutNote(line).state).filter((part) => part.type === "math");
+  const widest = Math.max(0, ...formulas.map((part) => formulaWidth(part.value, fontSize, fontScale)));
+  return indent - fittedIndent(indent, widest, Dimensions.get("window").width);
 }
 
 /**
