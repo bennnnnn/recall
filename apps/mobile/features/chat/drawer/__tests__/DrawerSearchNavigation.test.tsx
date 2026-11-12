@@ -3,6 +3,7 @@ import { Keyboard, Platform, type KeyboardEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { act, render } from "@testing-library/react-native";
 import { ConversationList } from "@/features/chat/drawer/ConversationList";
+import { FOOTER_CHROME } from "@/features/chat/drawer/conversationListStyles";
 import { api, type SearchResult } from "@/lib/api";
 
 let mockSession = 0;
@@ -129,4 +130,6 @@ it("on Android ends the search results above the keyboard, the navigation bar it
   // The field is at the top now (the owner's layout, 2026-11-11); the results end above the keyboard.
   expect(mockHeader.searchOpen).toBe(true);
   expect(mockList.contentPaddingBottom).toBeGreaterThanOrEqual(252 + NAV_BAR);
+  // The bottom bar is under the keyboard: no room is kept for it above the keyboard.
+  expect(mockList.contentPaddingBottom).toBeLessThan(252 + NAV_BAR + FOOTER_CHROME);
 });

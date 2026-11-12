@@ -216,9 +216,10 @@ export function ConversationList() {
   // Only the top bar (Recall, search) and the bottom bar (account, new chat) are fixed;
   // To-do scrolls with the titles.
   const topInset = insets.top + 8 + TOP_CHROME;
-  // While search types, the keyboard covers the bottom: the results end above it.
+  // While search types, the keyboard covers the bottom bar: the results end just above
+  // the keyboard, not a bar's height higher.
   const searchKeyboard = useKeyboardHeight(searchOpen);
-  const bottomInset = Math.max(insets.bottom + 8, searchKeyboard + 8) + FOOTER_CHROME;
+  const bottomInset = searchKeyboard > 0 ? searchKeyboard + 8 : insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
 

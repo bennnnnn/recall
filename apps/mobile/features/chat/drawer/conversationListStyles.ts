@@ -7,7 +7,8 @@ import type { Theme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 export const TOP_CHROME = 58;
-export const FOOTER_CHROME = 54;
+// The bottom bar over its safe area: 12 above a 44-pt row, and the hairline on top.
+export const FOOTER_CHROME = 57;
 export const FADE_EXTRA = 40;
 
 export function makeConversationListStyles(theme: Theme) {
