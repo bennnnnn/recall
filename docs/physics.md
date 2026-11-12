@@ -218,9 +218,19 @@ flowchart LR
 7. **Respond** (`direct.py`). A complete verified request returns Given / Required / Formula /
    Substitution / Answer without waiting for the model. The law's heading holds its base
    form, then a rearrangement for the unknown as a step: `Solve for $t$`, then
-   `$t = \frac{d}{v}$` (never a "rearranged for" note). A given not in SI is followed by the
-   value the substitution uses (`λ = 500 nm`, then `λ = 5 × 10⁻⁷ m`). A solver that works
-   in the written units (150 km in 2 h) gets no conversion row. A stated result gets one
+   `$t = \frac{d}{v}$` (never a "rearranged for" note). A symbol the law works out from
+   the givens (ΔT = T₂ − T₁) is no unknown solved for: it is the note above the law written
+   in the givens (`with ΔT = T₂ − T₁` over `Q = m c (T₂ − T₁)`), and a form that drops a
+   right angle says so (`with θ = 90°` over `τ = F d`); a form that is the law rearranged
+   follows it with no note (`formula_rows.py`). A step the substitution takes for granted
+   is shown before it: `n = t / T½ = 20 days / 5 days = 4` above `N = 80 / 2⁴`
+   (`law_steps.py`). A given not in SI is followed, on its row, by the value the
+   substitution uses, every side equal: `λ = 500 nm = 500 × 10⁻⁹ m = 5 × 10⁻⁷ m`,
+   `q = 3 µC = 3 × 10⁻⁶ C` (`given_rows.py`; until November 2026 the factor followed the
+   unit, `3 µC × 10⁻⁶`, which read literally is 3 × 10⁻¹² C). A solver that works in the
+   written units (150 km in 2 h, a half-life in grams and days) gets no conversion.
+   **Required** names what is asked (`T (period)`): the glossary's word, the law's own
+   ask, or the word for its symbol in the answer's dimension (`asked_names.py`). A stated result gets one
    line above the working: "Your 19.8 m/s is right." Image questions stay on the model
    path, and so does a reply the verified result is only part of (`parts.py`): a question
    in labelled parts or several questions the result does not all answer ("(a) how long …
@@ -378,10 +388,12 @@ The binder reads these laws, beside the extractors' own:
 
 - **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
   used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. That is the card's
-  precision: the Substitution ends on the value it reaches, unrounded, as a working value is
-  printed (`a = 4.905 m/s²` over a card of `4.9 m/s²`; `working_steps._unrounded`), or the
-  card's own value when nothing rounds (`v = 15 km/h` over `15 km/h`), as a textbook closes
-  its working before the boxed answer (2026-11-11). One formatter does
+  precision: the Substitution's last row states the card's value (`a = 4.9 m/s²` over a
+  card of `4.9 m/s²`), as a textbook closes its working before the boxed answer. A value
+  the working reaches on the way is whole when it ends within six figures (8372, 0.0025)
+  and four figures otherwise (sin 70° = 0.9397, 2π = 6.283; `display.latex_working`).
+  Until November 2026 the last row printed six figures (`31.0357 m` over a card of `31 m`),
+  which read as two answers. One formatter does
   this, `display.py`; a solver never picks its own format. A 5 rounds up, as a class rounds:
   490.5 N is 491 N (`services/school_rounding.py`, the rule every subject shares).
 - **Givens** are echoed with the figures the user typed, up to six. A given is never rounded
