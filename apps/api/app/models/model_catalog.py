@@ -1,7 +1,7 @@
 """Catalog of chat models — the single source of truth for routing, pricing,
 provider, and availability. Adding a provider/model is one entry here. Removing one
-needs no data migration: a saved switch of a dropped alias is off, and a request naming
-it is Auto (``model_removal``).
+needs no data migration: a saved switch of a dropped alias is off, a request naming it is
+Auto, and startup refuses lanes that still name it (``model_removal``).
 
 Chat and image models route through **OpenRouter** using ``OPENROUTER_API_KEY``.
 Voice uses OpenAI directly with ``OPENAI_API_KEY``.
