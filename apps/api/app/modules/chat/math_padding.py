@@ -30,7 +30,7 @@ _MATH_WORD = re.compile(r"[a-z]|sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min",
 _TEX_COMMAND = re.compile(r"\\[A-Za-z]")
 _LABEL = re.compile(r"[_^]\{[^{}]*\}")
 _LONG_WORD = re.compile(r"[A-Za-z]{3,}")
-_FACTORIAL_LEAD = re.compile(r"\d[\d,.]*!\s")
+_FACTORIAL_LEAD = re.compile(r"\d[\d,.]*+!\s")
 
 
 def without_math_padding(text: str) -> str:
