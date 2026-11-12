@@ -272,3 +272,59 @@ def test_a_stated_constant_is_the_one_the_answer_uses() -> None:
     assert answer_number(_answer(text.replace(", with k = 9 × 10^9 N·m²/C²", "")) or "") == (
         pytest.approx(0.599, rel=1e-3)
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A law whose result is in degrees, solved backwards from it: the stated angle reached
+        # the rearranged arithmetic in radians and was read as degrees (review, 2026-11-11).
+        # Glass is n = 1/sin 42° = 1.49; it was 78.2.
+        "The critical angle of glass is 42°. Calculate the refractive index of glass.",
+        "If the critical angle of a medium is 45°, what is its refractive index?",
+        "The critical angle for diamond is 24.4°. What is the refractive index of diamond?",
+        "Light in water strikes the water-air surface. The critical angle is 48.8°. "
+        "What is the refractive index of the water?",
+        # λ = d sin θ / n is 5.88e-7 m; it was 1.1e-8 m.
+        "A diffraction grating with 500 lines per mm gives a second-order bright fringe at an "
+        "angle of 36°. What is the wavelength?",
+        "Light falls on a grating with 300 lines per mm. The first-order maximum is at an angle "
+        "of 10.4°. What is the wavelength?",
+    ],
+)
+def test_a_law_whose_result_is_not_in_si_is_not_solved_backwards(text: str) -> None:
+    assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("operation", "backwards"),
+    [
+        ("critical_angle_to_air", False),  # degrees
+        ("grating_angle", False),
+        ("efficiency_percent", False),  # a percent: 75 % is 0.75 in SI
+        ("work", True),
+        ("density", True),
+    ],
+)
+def test_only_a_law_whose_result_is_in_si_is_solved_backwards(
+    operation: str, backwards: bool
+) -> None:
+    from app.modules.physics.catalog import CATALOG
+    from app.modules.physics.solvers.si import solves_backwards_in_si
+
+    assert solves_backwards_in_si(CATALOG[operation]) is backwards
+
+
+@pytest.mark.parametrize(
+    ("unit", "name", "offset"),
+    [("°C", "temp_change", True), ("degF", "temperature", True), ("°C", "delta_t", False)],
+)
+def test_a_reading_on_an_offset_scale_is_no_size_to_solve_from(
+    unit: str, name: str, offset: bool
+) -> None:
+    from app.modules.physics.schemas import PhysicsIntent
+    from app.modules.physics.solvers.si import stated_on_an_offset_scale
+
+    # Only its units are read: built without the checks a whole intent passes.
+    intent = PhysicsIntent.model_construct(physics_params={name: 10.0}, physics_units={name: unit})
+    assert stated_on_an_offset_scale(intent, name) is offset

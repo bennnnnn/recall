@@ -36,6 +36,7 @@ from app.modules.physics.law_range import holds_its_range
 from app.modules.physics.motion import SPEED_CHANGE_MARKER, constant_speed_laws_hold
 from app.modules.physics.optic_elements import diverging_element, signed_distances
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.si import solves_backwards_in_si
 from app.services.law_binding.fit import (
     Fit,
     Question,
@@ -247,7 +248,8 @@ def _solved_for_the_ask(
         ):
             continue
         solved = solved_for(spec, variable.name)
-        if solved is not None and can_solve_for(spec, variable.name):
+        solves = can_solve_for(spec, variable.name) and solves_backwards_in_si(spec)
+        if solved is not None and solves:
             found.append(solved)
     return found
 

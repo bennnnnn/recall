@@ -20,7 +20,11 @@ from app.modules.physics.expression import evaluate, to_latex
 from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult, solved
-from app.modules.physics.solvers.si import params_in_si
+from app.modules.physics.solvers.si import (
+    params_in_si,
+    solves_backwards_in_si,
+    stated_on_an_offset_scale,
+)
 from app.services.law_binding.inverse import (
     forward_expression,
     inverse_of,
@@ -46,7 +50,7 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
     params = params_in_si(intent)
     unknown = solved_input(spec, params)
     if unknown is not None:
-        law, expression, value = _solve_for_input(spec, unknown, params)
+        law, expression, value = _solve_for_input(spec, unknown, params, intent)
         symbol = law.result_symbol
     else:
         law = spec
@@ -143,7 +147,7 @@ def _holds(spec: FormulaSpec, values: dict[str, float]) -> bool:
 
 
 def _solve_for_input(
-    spec: FormulaSpec, unknown: VariableSpec, params: dict[str, float]
+    spec: FormulaSpec, unknown: VariableSpec, params: dict[str, float], intent: PhysicsIntent
 ) -> tuple[FormulaSpec, str, float]:
     """The law solved for ``unknown`` from its stated result: the law as filled, the
     rearranged arithmetic, and the answer, which put back into the law gives the result."""
@@ -151,6 +155,10 @@ def _solve_for_input(
     stated = result_variable(spec)
     if law is None or stated is None:
         raise SolveServiceError(f"{spec.id} is not solved for {unknown.name}")
+    # The stated result reaches the law in SI: its arithmetic must give the result in SI too,
+    # and a reading on an offset scale is no size to solve from.
+    if not solves_backwards_in_si(spec) or stated_on_an_offset_scale(intent, stated.name):
+        raise SolveServiceError(f"{spec.id} gives {stated.name} in a unit not solved backwards")
     givens = {name: value for name, value in params.items() if name != stated.name}
     # The law's form is chosen from its givens, with the asked input among them.
     forward = forward_expression(spec, {**givens, unknown.name: 1.0})

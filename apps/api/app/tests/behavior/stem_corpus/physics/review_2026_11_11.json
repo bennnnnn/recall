@@ -149,5 +149,33 @@
   "expect": "answer",
   "answer": [0.599, "N"],
   "note": "8.99e9 × 6e-12/0.09; the constant written 1/(4πε₀)"
+ },
+ {
+  "id": "rv11b-critical-angle-index",
+  "area": "units",
+  "prompt": "The critical angle of glass is 42°. Calculate the refractive index of glass.",
+  "expect": "decline",
+  "note": "n = 1/sin 42° = 1.494; solved backwards from 42° in radians read as degrees it was 78.2 (review 2026-11-11). Main declines it too."
+ },
+ {
+  "id": "rv11b-critical-angle-diamond",
+  "area": "units",
+  "prompt": "The critical angle for diamond is 24.4°. What is the refractive index of diamond?",
+  "expect": "decline",
+  "note": "n = 2.42; it was 135"
+ },
+ {
+  "id": "rv11b-grating-wavelength",
+  "area": "units",
+  "prompt": "A diffraction grating with 500 lines per mm gives a second-order bright fringe at an angle of 36°. What is the wavelength?",
+  "expect": "decline",
+  "note": "λ = sin 36° / (2 × 5e5 /m) = 5.88e-7 m; it was 1.1e-8 m"
+ },
+ {
+  "id": "rv11b-grating-first-order",
+  "area": "units",
+  "prompt": "Light falls on a grating with 300 lines per mm. The first-order maximum is at an angle of 10.4°. What is the wavelength?",
+  "expect": "decline",
+  "note": "6.0e-7 m; it was 1.06e-8 m"
  }
 ]
