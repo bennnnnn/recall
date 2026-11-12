@@ -48,7 +48,6 @@ from app.services.law_binding.inverse import form_params
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 from app.services.worked_parts import WorkedPart, render_parts
 from app.services.workout import (
-    FORMULA,
     Workout,
     math_line,
     render_workout,
@@ -344,7 +343,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
                     ),
                 )
             ),
-            formula_heading=law_heading(spec.law_name) if spec is not None else FORMULA,
+            formula_heading=law_heading(spec.law_name) if spec is not None else "",
         )
     )
 
@@ -405,7 +404,7 @@ def _format_parts(
                         working_units(intent, part.formulas, part.display_answer, part.op),
                     )
                 ),
-                formula_heading=law_heading(spec.law_name) if spec is not None else FORMULA,
+                formula_heading=law_heading(spec.law_name) if spec is not None else "",
             ),
             answer_heading=None,
         )

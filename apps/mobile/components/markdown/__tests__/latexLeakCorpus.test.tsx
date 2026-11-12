@@ -149,6 +149,19 @@ const VARIANTS: Record<string, string> = {
     '```quiz\n{"question": "What is $\\\\frac{1}{2} + \\\\frac{1}{4}$?", "options": ["$\\\\frac{3}{4}$", "$\\\\frac{2}{6}$"], "answer": 0, "explanation": "Add the quarters."}\n```',
   "quiz plain body": "```quiz\nSolve $x^2 = 9$ for $x$.\n```",
   "callout": "```tip\nComplete the square: $(x+3)^2 = 16$.\n```",
+  // The phone test of 2026-11-11 (DeepSeek, laid out by the server): maths left bare in a
+  // formula's heading and a move's note, and the heading the server now writes.
+  "worked heading with bare maths": "**Given**  \n$I = \\int_0^1 \\frac{\\ln(1+x)}{1+x^2}\\,dx$  \nwhere $I$ = definite integral\n\n**Required**  \n$I$ (value of the definite integral)\n\n**Solution**\n\n**Substitution x = \\tan t formula**  \n$I = \\int_0^{\\pi/4} \\ln(1+\\tan t)\\,dt$  \n$1+\\tan t = \\frac{\\sqrt{2}\\cos\\left(t-\\frac{\\pi}{4}\\right)}{\\cos t}$ — trigonometric identity  \n$\\int_0^{\\pi/4} \\ln\\cos\\left(t-\\frac{\\pi}{4}\\right)\\,dt = \\int_0^{\\pi/4}\\ln\\cos t\\,dt$ — evenness of \\ln\\cos t\n\n**Substitution**  \n$I = \\frac{\\pi}{8}\\ln 2 + \\int_0^{\\pi/4}\\ln\\cos\\left(t-\\frac{\\pi}{4}\\right)\\,dt - \\int_0^{\\pi/4}\\ln\\cos t\\,dt$  \n$I = \\frac{\\pi}{8}\\ln 2$\n\n**Answer**",
+  "worked notes with bare maths": "**Given**  \n$y(0) = 1$  \n$x = \\pi/3\\,\\mathrm{rad}$  \nwhere $y(0)$ = initial condition, $x$ = point where y is evaluated\n\n**Required**  \n$y(\\pi/3)$ (value of the solution at x = \\pi/3)\n\n**Solution**\n\n**Integrating factor method**  \n$\\frac{dy}{dx} + y\\tan x = \\cos^{3}x$  \n$\\mu = e^{\\int \\tan x\\,dx}$ — Integrating factor  \n$\\mu = \\sec x$  \n$y\\sec x = \\int \\sec x\\cos^{3}x\\,dx$ — multiply through by \\mu = \\sec x  \n$y\\sec x = \\int \\cos^{2}x\\,dx$ — simplify the right-hand side  \n$y\\sec x = \\frac{x}{2} + \\frac{\\sin 2x}{4} + C$ — integrate  \nSolve for $y$  \n$y = \\cos x\\left(\\frac{x}{2} + \\frac{\\sin 2x}{4} + C\\right)$  \n$1 = \\cos 0\\left(0 + 0 + C\\right)$ — apply y(0) = 1  \n$C = 1$ — solve for C\n\n**Substitution**  \n$y = \\cos\\frac{\\pi}{3}\\left(\\frac{\\pi/3}{2} + \\frac{\\sin(2\\pi/3)}{4} + 1\\right)$  \n$y = \\frac{1}{2}\\left(\\frac{\\pi}{6} + \\frac{\\sqrt{3}}{8} + 1\\right)$  \n$y = \\frac{\\pi}{12} + \\frac{\\sqrt{3}}{16} + \\frac{1}{2}$  \n$y = 0.870$\n\n**Answer**",
+  "worked heading ending on maths":
+    "**Solution**\n\n**Substitution $x = \\tan t$**  \n$I = \\int_0^{\\pi/4} \\ln(1+\\tan t)\\,dt$  \n" +
+    "$1+\\tan t = \\frac{\\sqrt{2}\\cos t}{\\cos t}$ — evenness of $\\ln\\cos t$",
+  // A note's maths the server marks as one run, never "$…$$…$" (review, 2026-11-11).
+  "worked note with maths glued to a fraction":
+    "**Solution**\n\n**Rolling without slipping formula**  \n$a = \\frac{g\\sin\\theta}{1 + \\frac{I}{MR^2}}$ — using $I = \\frac{1}{2}MR^2$ for a disc  \n" +
+    "$E = mgh$ — energy goes to $KE = \\frac{1}{2}mv^2$, the price is \\$5",
+  "worked formula with no name":
+    "**Given**  \n$k = 400\\,\\mathrm{N/m}$\n\n**Solution**\n\n$m g h = \\frac{1}{2} k x^{2}$  \nSolve for $x$  \n$x = \\sqrt{\\frac{2 m g h}{k}}$",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",

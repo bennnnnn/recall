@@ -10,8 +10,8 @@ reaches, unrounded, when that value only rounds to the verified answer:
 
 and the card states the answer once, rounded (3.47 m/s²). A value already the answer's own
 (15 cm), or one the working's typed constants put off by more than rounding (7672.4 for a
-verified 7673), closes on the verified answer instead, and the saved reply drops that line
-as the card's restatement (``chat/worked_lead.drop_restated_step``).
+verified 7673), closes on the verified answer instead: the working ends on its value above
+the card, as a textbook's does.
 
 A row is matched to the answer by value, not by name: "a and T", "50 N at 53.1°" and
 "H_max and R" each have a row per value, and ``|v|`` or ``f_s`` may name it. The middle

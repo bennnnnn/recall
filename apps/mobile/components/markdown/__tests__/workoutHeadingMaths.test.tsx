@@ -1,0 +1,151 @@
+/**
+ * A worked reply's headings and notes draw their maths as maths (2026-11-11 phone test):
+ * "**Substitution x = \tan t formula**" showed its dollars and `\tan` as text, because a
+ * heading inside Solution was drawn as plain text. A formula with no name sits under
+ * **Solution**, drawn as working (no rule, the maths column), never under a bare
+ * **Formula**.
+ */
+import { StyleSheet } from "react-native";
+import { render } from "@testing-library/react-native";
+
+import { MarkdownContent } from "@/components/MarkdownContent";
+import { WORK_INDENT } from "@/components/markdown/markdownContentStyles";
+import { findLatexLeaks } from "@/lib/__tests__/support/latexLeaks";
+import { normalizeBoldInlineMath } from "@/lib/markdown/preprocess";
+
+jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
+jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: () => null }));
+
+// The components project has no Node types (see lib/__tests__/licenses.test.ts).
+declare const __dirname: string;
+const { readFileSync } = jest.requireActual<{ readFileSync(path: string, encoding: "utf8"): string }>(
+  "node:fs",
+);
+const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:path");
+const ROOT = join(__dirname, "..", "..", "..", "..", "..");
+
+/** The text a reader sees, the pieces in order. */
+function seen(node: unknown): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(seen).join("");
+  return ((node as { children?: unknown[] }).children ?? []).map(seen).join("");
+}
+
+// The saved reply to "Evaluate ∫₀¹ ln(1+x)/(1+x²) dx" (DeepSeek, 2026-11-11), as stored.
+const SAVED_INTEGRAL = [
+  "**Given**  \n$I = \\int_0^1 \\frac{\\ln(1+x)}{1+x^2}\\,dx$  \nwhere $I$ = definite integral",
+  "**Required**  \n$I$ (value of the definite integral)",
+  "**Solution**",
+  "**Substitution x = \\tan t formula**  \n$I = \\int_0^{\\pi/4} \\ln(1+\\tan t)\\,dt$  \n" +
+    "$\\int_0^{\\pi/4} \\ln\\cos t\\,dt = \\int_0^{\\pi/4}\\ln\\cos t\\,dt$ — evenness of \\ln\\cos t",
+  "**Substitution**  \n$I = \\frac{\\pi}{8}\\ln 2$",
+].join("\n\n");
+
+describe("maths in a worked heading", () => {
+  it.each([
+    ["the saved reply, maths left bare in its heading", SAVED_INTEGRAL],
+    [
+      "the server's layout, the heading ending on its maths",
+      SAVED_INTEGRAL.replace("**Substitution x = \\tan t formula**", "**Substitution $x = \\tan t$**"),
+    ],
+    [
+      "a model's own heading over its lines",
+      "**Given**  \n$m$\n\n**Solution**\n\n**Solve for $v$**\n$v = \\sqrt{\\frac{g}{k}}$",
+    ],
+  ])("is drawn as maths: %s", async (_name, content) => {
+    const screen = await render(<MarkdownContent content={content} />);
+    const text = seen(screen.toJSON());
+    expect(findLatexLeaks(text)).toEqual([]);
+    const headings = screen.getAllByTestId("workout-subheading");
+    expect(headings.length).toBeGreaterThan(0);
+    // The heading's maths is drawn by the maths renderer, a piece of the heading beside
+    // its words, and no source shows in it.
+    const heading = headings[0]!;
+    expect(heading.children.length).toBeGreaterThan(1);
+    expect(seen(heading)).toMatch(/tan\W*t|v/);
+    expect(seen(heading)).not.toMatch(/[$\\]/);
+  });
+
+  it("keeps a plain heading as text", async () => {
+    const screen = await render(
+      <MarkdownContent
+        content={"**Given**  \n$d = 3$\n\n**Solution**\n\n**Average speed formula**  \n$v = \\frac{d}{t}$"}
+      />,
+    );
+    expect(screen.getByTestId("workout-subheading").props.children).toBe("Average speed formula");
+  });
+});
+
+describe("a formula with no name", () => {
+  it("sits under Solution as working: no rule, the maths column, Solve for as a heading", async () => {
+    const content = [
+      "**Given**  \n$k = 400\\,\\mathrm{N/m}$",
+      "**Required**  \n$x$ (maximum compression)",
+      "**Solution**",
+      "$m g h = \\frac{1}{2} k x^{2}$  \nSolve for $x$  \n$x = \\sqrt{\\frac{2 m g h}{k}}$",
+      "**Substitution**  \n$x = 0.71\\,\\mathrm{m}$",
+    ].join("\n\n");
+    const screen = await render(<MarkdownContent content={content} />);
+    expect(screen.queryByText("Formula")).toBeNull();
+    expect(screen.getAllByTestId("workout-heading").map((node) => seen(node))).toEqual([
+      "Given",
+      "Required",
+      "Solution",
+    ]);
+    const bodies = screen.getAllByTestId("workout-body").map((node) => StyleSheet.flatten(node.props.style));
+    // Given and Required behind their rule; Solution's lines at the working column, no rule.
+    expect(bodies[2]!.borderLeftWidth ?? 0).toBe(0);
+    expect(bodies[2]!.paddingLeft).toBe(WORK_INDENT);
+    expect(screen.getAllByTestId("workout-subheading").map((node) => seen(node))).toEqual([
+      "Solve for x",
+      "Substitution",
+    ]);
+  });
+});
+
+describe("a procedure's own name", () => {
+  it("heads its rule in words under Solution, as working", async () => {
+    const fixture = JSON.parse(
+      readFileSync(join(ROOT, "docs", "fixtures", "chemistry_replies.json"), "utf8"),
+    ) as { replies: Record<string, { reply: string }> };
+    const screen = await render(<MarkdownContent content={fixture.replies.balance_ammonia!.reply} />);
+    expect(screen.getAllByTestId("workout-subheading").map((node) => seen(node))).toEqual([
+      "Conservation of atoms and charge",
+      "Steps",
+    ]);
+    // The rule sits in the working column, under its name, like a formula under its law.
+    const rule = screen.getByText(/^Count each element/);
+    expect(rule).toBeOnTheScreen();
+  });
+
+  it("stays a paragraph anywhere but right under Solution", async () => {
+    const screen = await render(
+      <MarkdownContent content={"**Given**  \n$x = 1$\n\n**Note**  \nThe rule holds."} />,
+    );
+    expect(screen.queryAllByTestId("workout-subheading")).toEqual([]);
+  });
+});
+
+describe("bold maths in a worked reply", () => {
+  it.each([
+    "**Substitution $x = \\tan t$**\n$I = 1$",
+    // Still streaming: its lines have not come yet, and it keeps its shape until they do.
+    "**Given**  \n$a = 1$\n\n**Substitution $x = \\tan t$**",
+    "**Given**  \n$a = 1$\n\n**Substitution $x = \\tan t$**\n",
+  ])("keeps a heading line whole, over the lines below it: %s", (heading) => {
+    expect(normalizeBoldInlineMath(heading, true)).toBe(heading);
+  });
+
+  it.each([
+    // Not worked: the maths leaves the bold as before.
+    ["**Answer: $x = 2$**\n$x = 2$", false, "**Answer:** $x = 2$\n$x = 2$"],
+    // Worked, but a line alone with a paragraph after it, or bold that is only maths.
+    ["**Answer: $x = 2$**\n\nSo it holds.", true, "**Answer:** $x = 2$\n\nSo it holds."],
+    ["**$x^2$**\n$x = 2$", true, "$x^2$\n$x = 2$"],
+    // Worked, but in a sentence: not a heading.
+    ["So **the answer is $x = 2$** here.\n$x = 2$", true, "So **the answer is** $x = 2$ here.\n$x = 2$"],
+  ])("unwraps any other bold maths: %s", (text, worked, expected) => {
+    expect(normalizeBoldInlineMath(text, worked)).toBe(expected);
+  });
+});
