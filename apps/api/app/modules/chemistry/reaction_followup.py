@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from app.modules.chemistry.equations import balance_equation, format_balanced
@@ -187,6 +188,17 @@ class _Line:
     asked: re.Match[str] | None
 
 
+@lru_cache(maxsize=128)
+def _line_patterns(formula: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    """The amount line and the ask line for one substance, compiled once per formula rather
+    than on every line (which flushed ``re``'s shared cache)."""
+    substance = rf"(?-i:{re.escape(formula)})(?![A-Za-z0-9])"
+    return (
+        re.compile(rf"{_LEAD}{_IF_HAD}{_AMOUNT}{substance}{_END}", re.IGNORECASE),
+        re.compile(rf"{_LEAD}{_ASK_HEAD}{substance}{_ASK_TAIL}{_END}", re.IGNORECASE),
+    )
+
+
 def _read_line(line: str) -> _Line | None:
     if len(line) > _MAX_LINE:
         return None
@@ -196,9 +208,9 @@ def _read_line(line: str) -> _Line | None:
         return None
     formula = formulas.pop()
     written = with_formulas(line, mentions)
-    substance = rf"(?-i:{re.escape(formula)})(?![A-Za-z0-9])"
-    amount = re.fullmatch(rf"{_LEAD}{_IF_HAD}{_AMOUNT}{substance}{_END}", written, re.IGNORECASE)
-    asked = re.fullmatch(rf"{_LEAD}{_ASK_HEAD}{substance}{_ASK_TAIL}{_END}", written, re.IGNORECASE)
+    amount_line, ask_line = _line_patterns(formula)
+    amount = amount_line.fullmatch(written)
+    asked = ask_line.fullmatch(written)
     if amount is None and (asked is None or not _asks(asked)):
         return None
     return _Line(formula, amount, asked)
