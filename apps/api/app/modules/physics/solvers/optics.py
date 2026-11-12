@@ -195,6 +195,10 @@ def _refractive_index(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
     if math.sin(t2) == 0:
         raise SolveServiceError("the refracted angle cannot be zero")
     n = math.sin(t1) / math.sin(t2)
+    if n < 1:
+        # Light from air bends toward the normal in any medium: an index below 1 means the
+        # angles were read the wrong way round, or the light went the other way.
+        raise SolveServiceError("a refractive index from air is never below 1")
     return PhysicsResult(
         answer=(
             rf"n = \frac{{\sin\theta_1}}{{\sin\theta_2}} = "

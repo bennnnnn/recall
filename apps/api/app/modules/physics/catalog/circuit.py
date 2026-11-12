@@ -309,13 +309,15 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("turns_secondary", "N_s", dimensionless=True, words=("secondary",)),
             var("v_primary", "V_p", "volt"),
         ),
-        binding=bind(
-            ("secondary voltage", "output voltage", "voltage"),
-            "volt",
-            "turns_primary",
-            "turns_secondary",
-            "v_primary",
+        binding=Binding(
+            asks=("secondary voltage", "output voltage", "voltage"),
+            result=("volt",),
+            inputs=(frozenset({"turns_primary", "turns_secondary", "v_primary"}),),
             cues=("transformer",),
+            # "gives an output voltage of 24 V" states V_s: the input voltage asked is
+            # V_p = V_s N_p / N_s, never 24 V read as V_p.
+            result_labels=("output", "secondary voltage", "voltage across the secondary"),
+            nonnegative=True,
         ),
     ),
     formula(

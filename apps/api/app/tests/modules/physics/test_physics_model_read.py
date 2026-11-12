@@ -30,8 +30,9 @@ NOT_READ_BACK = frozenset(
         "impact_speed:angle+g+h0+v0",
         "latent_heat:latent_heat+m+temp_phase",
         "lens_power_sum:p1+p2",
+        # A lift's direction is a phrase ("accelerating upward"), which no read writes back.
         "lift_normal_force:accel+downward+g+m",
-        "lift_normal_force:accel+g+m",
+        "lift_normal_force:accel+g+m+upward",
         "radiation_pressure_absorbed:intensity",
         "radiation_pressure_reflected:intensity",
         "range:angle+g+h0+v0",

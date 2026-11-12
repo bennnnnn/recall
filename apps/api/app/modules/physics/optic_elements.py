@@ -35,6 +35,19 @@ _DIVERGING = re.compile(
     r"|\b(?:wing|side|side[\s-]?view|security|surveillance|blind[\s-]?spot|traffic|road)"
     r"\s+mirrors?\b"
 )
+# The marker the binder's excludes read for light whose stated wavelength is inside the
+# medium, or whose asked one is in air (``binding._with_markers``): the wavelength in a
+# medium, λ/n, starts from the one in a vacuum, and read the other way it divides by n twice.
+LIGHT_INSIDE_MARKER = "lightinside"
+# The asked quantity's place is air or a vacuum: "what is its wavelength in air?".
+_IN_VACUUM = re.compile(r"\bin\s+(?:the\s+|a\s+)?(?:air|vacuum|free\s+space)\b")
+
+
+def asked_in_vacuum(clause: str) -> bool:
+    """The asked clause places what it asks in air or a vacuum."""
+    return _IN_VACUUM.search(clause.lower()) is not None
+
+
 # Only a diverging element forms an upright image smaller than the object.
 _UPRIGHT = re.compile(r"\b(?:virtual|erect|upright)\b")
 _DIMINISHED = re.compile(r"\b(?:diminished|smaller)\b")

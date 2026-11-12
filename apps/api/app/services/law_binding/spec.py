@@ -108,6 +108,10 @@ class Binding:
     # Words before a value that say it is the result itself ("reaches" for a
     # final speed): such a question already states what this operation finds.
     result_words: tuple[str, ...] = ()
+    # Words that label a value as the result itself, written as its label ("a total power
+    # of 3 D", "the secondary voltage of a transformer is 12 V", ``words.labels_as``). An
+    # ask that uses them ("find the total capacitance of a 4 µF ...") labels nothing.
+    result_labels: tuple[str, ...] = ()
     # A negative result is not an answer (a time, a height, a power).
     nonnegative: bool = False
     # A negative result is reported as its size with this note: cooling "releases" heat.

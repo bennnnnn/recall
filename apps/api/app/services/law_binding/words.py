@@ -15,6 +15,19 @@ from app.services.law_binding.spec import Binding, VariableSpec
 from app.services.law_binding.units import UnitTable, unit_dimension
 
 _SENTENCE_BREAK = re.compile(r"[.;?!](?:\s|$)")
+# Words that label a value as what parts add up to, a combination law's result
+# (``Binding.result_labels``): "a total power of 3 D", "an equivalent capacitance of 3 µF".
+# Read as a part, "a total power of 3 D; one lens is 2 D: the other?" was 3 + 2 = 5 D.
+COMBINED_RESULT = (
+    "total",
+    "combined",
+    "combination",
+    "net",
+    "equivalent",
+    "effective",
+    "overall",
+    "resultant",
+)
 _CONNECTOR = re.compile(
     r"[,;:]|\b(?:and|but|while|then|is|are|was|were|it|its|from|at|by|into|until)\b"
     # "50 N to the right" is the value's direction, not a link to the next one.
@@ -30,6 +43,32 @@ _CHANGE_VERBS = {
     "drop": r"drop(?:s|ped|ping)?",
     "fall": r"fall(?:s|en|ing)?",
 }
+
+
+_LABEL_LINK = r"(?:is|was|equals?|equal\s+to|=|:|≈)"
+_LABEL_WORD = r"\s+[^\s\d.,;:?!=]+"
+
+
+@lru_cache(maxsize=256)
+def _label_patterns(phrase: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
+    words = re.escape(phrase)
+    # Its noun and "of" ("a total power of"), or a longer subject and a verb ("the secondary
+    # voltage of a transformer is"). "The total power of two lenses of 2 D" labels a lens.
+    before = re.compile(
+        rf"(?<![\w]){words}(?:(?:{_LABEL_WORD}){{0,2}}?\s*(?:of|{_LABEL_LINK})"
+        rf"|(?:{_LABEL_WORD}){{0,6}}?\s+{_LABEL_LINK})\s*(?:about\s+|approximately\s+)?$"
+    )
+    after = re.compile(rf"\s*(?:the\s+)?{words}(?![\w])")
+    return before, after
+
+
+def labels_as(phrases: tuple[str, ...], before: str, after: str) -> bool:
+    """One of these phrases is the value's label: written just before it ("an equivalent
+    capacitance of 3 µF") or just after it ("a 12 V output")."""
+    return any(
+        _label_patterns(phrase)[0].search(before) or _label_patterns(phrase)[1].match(after)
+        for phrase in phrases
+    )
 
 
 @lru_cache(maxsize=1024)

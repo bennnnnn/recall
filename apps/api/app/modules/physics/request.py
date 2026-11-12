@@ -421,8 +421,8 @@ def complete_physics_intent(
     from app.modules.physics.asked_end_check import answers_the_other_end
     from app.modules.physics.bodies import (
         SCHOOL_GRAVITY,
-        names_body_without_school_gravity,
         orbiting_mass_fills,
+        takes_earths_g_elsewhere,
     )
     from app.modules.physics.catalog import formula_spec
     from app.modules.physics.counted import accounts_for_counted_items, unclear_part_or_count
@@ -451,13 +451,13 @@ def complete_physics_intent(
     # "μ = 0.3 ... Ignore friction."; "the mass of each half", "1 200 kg": not this body's.
     if uses_set_aside_part(params, request.text) or unclear_part_or_count(request.text):
         return None
-    # "On Jupiter" with no g written: Earth's school value would answer another planet.
-    # Only a selection that actually multiplies by g. Horizontal Bernoulli declares
-    # g for its height variant and does not use it.
+    # "On Jupiter" or "on a planet" with no g written: Earth's school g would answer another
+    # planet (``bodies``). Horizontal Bernoulli declares g for its height variant only.
     if (
         uses_g
+        and spec is not None
         and stated_gravity(request.text) is None
-        and names_body_without_school_gravity(request.text.lower())
+        and takes_earths_g_elsewhere(spec, params, request.text.lower())
     ):
         return None
     # Moon and Mars have a school g. A solver that would otherwise fill Earth's

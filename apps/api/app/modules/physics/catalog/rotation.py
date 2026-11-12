@@ -26,6 +26,10 @@ _SHAPES = (
     ("disk", 0.5),
 )
 _ROLLING_LINE = r"E_k = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2,\quad \omega = \frac{v}{r}"
+# A body said to roll spins as well: ½mv² alone is not its kinetic energy, so the
+# translational laws set it aside for the rolling one. "rolls" and "rolled", not "roll",
+# which a roller coaster starts with.
+ROLLING = ("rolls", "rolling", "rolled", "without slipping")
 
 
 def _rolling(shape_k: float, inertia: str, total: str, expression: str) -> FormulaVariant:

@@ -395,25 +395,6 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     formula(
-        "speed_from_kinetic_energy",
-        "energy",
-        "Kinetic energy",
-        "v",
-        base_latex=r"v = \sqrt{\frac{2 E_k}{m}}",
-        expression="sqrt(2*kinetic/m)",
-        variables=(
-            var("kinetic", "E_k", "joule", words=("kinetic",)),
-            var("m", "m", "kilogram"),
-        ),
-        binding=Binding(
-            asks=("how fast", "speed", "velocity"),
-            result=("meter / second",),
-            inputs=(frozenset({"kinetic", "m"}),),
-            cues=("kinetic energy",),
-            nonnegative=True,
-        ),
-    ),
-    formula(
         "work_against_gravity",
         "energy",
         "Work against gravity",

@@ -24,9 +24,11 @@ from dataclasses import dataclass
 from itertools import combinations, product
 
 from app.modules.physics.bodies import orbiting_body_masses
+from app.modules.physics.extractors.friction import friction_coefficient_starts
 from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.set_aside import uses_set_aside_part
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, to_si
 from app.services.law_binding.units import dimension_of
 from app.services.number_text import count_word_pattern, number_word_value
@@ -296,6 +298,9 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
 def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | None:
     """``competing_given`` over several laws applied in turn (``chain_solve``): one may
     use some stated values and the next the rest, so every one must be used by some."""
+    friction = _unused_friction(intents, text)
+    if friction is not None:
+        return friction
     params = [param for intent in intents for param in _params(intent)]
     op = ", ".join(intent.physics_op or "" for intent in intents)
     settings = [match.span() for match in _GRAVITY_SETTING.finditer(text)]
@@ -345,6 +350,30 @@ def competing_given_of(intents: Sequence[PhysicsIntent], text: str) -> Given | N
         )
         return given
     return None
+
+
+# The inputs that are a coefficient of friction.
+_FRICTION_INPUTS = ("mu", "mu_s")
+
+
+def _unused_friction(intents: Sequence[PhysicsIntent], text: str) -> Given | None:
+    """A coefficient of friction the question states that no law of the solve takes.
+
+    A pure number is otherwise a distractor, but a stated μ says friction acts: "a 60 N
+    push with μ = 0.2 gives 1 m/s²" was m = F/a = 60 kg, for 20.3 kg. A question that says
+    to ignore friction (``set_aside``) has none.
+    """
+    if any(
+        name in (intent.physics_params or {}) for intent in intents for name in _FRICTION_INPUTS
+    ):
+        return None
+    starts = friction_coefficient_starts(text)
+    if not starts or uses_set_aside_part(dict.fromkeys(_FRICTION_INPUTS, 0.0), text):
+        return None
+    stated = next((given for given in scan_givens(text) if given.start in starts), None)
+    if stated is not None:
+        logger.info("physics solve declined: a stated coefficient of friction is never used")
+    return stated
 
 
 # A time measured from another event: "1 s after another ball", "1 s before it starts to

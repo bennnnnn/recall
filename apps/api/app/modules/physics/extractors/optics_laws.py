@@ -7,6 +7,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
+from app.modules.physics.binding_values import light_starts_inside
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.unit_patterns import (
@@ -143,8 +144,45 @@ def _critical_angle(cleaned: str) -> PhysicsIntent | None:
     )
 
 
-def _refraction_angles(cleaned: str) -> list[float]:
-    angles = [float(m.group(1)) for m in INCLINE_ANGLE_RE.finditer(cleaned)]
+# What names an angle: "the angle of incidence", "the refracted ray", "is refracted at".
+# "Refractive index" and "index of refraction" name the asked index, not an angle.
+_INCIDENCE_RE = re.compile(r"\binciden", re.IGNORECASE)
+_REFRACTION_RE = re.compile(r"(?<!index of )\brefract(?!ive)", re.IGNORECASE)
+
+
+def _named_as(before: str) -> str | None:
+    """Which angle the words before one name, by the last of them: incidence or refraction."""
+    incidence = max((m.end() for m in _INCIDENCE_RE.finditer(before)), default=-1)
+    refraction = max((m.end() for m in _REFRACTION_RE.finditer(before)), default=-1)
+    if incidence == refraction:
+        return None
+    return "incidence" if incidence > refraction else "refraction"
+
+
+def _incidence_first(cleaned: str, found: list[re.Match[str]]) -> list[float] | None:
+    """The two angles, the angle of incidence first, as their words name them.
+
+    "The angle of refraction is 30° when the angle of incidence is 45°" states refraction
+    first: read in order, the index was sin 30°/sin 45° = 0.707 for 1.41. One angle named
+    names the other; neither named keeps the order stated; both named alike is no reading.
+    """
+    names = [
+        _named_as(cleaned[(found[index - 1].end() if index else 0) : angle.start()])
+        for index, angle in enumerate(found)
+    ]
+    angles = [float(angle.group(1)) for angle in found]
+    if names[0] == names[1] and names[0] is not None:
+        return None
+    if names[0] == "refraction" or names[1] == "incidence":
+        return angles[::-1]
+    return angles
+
+
+def _refraction_angles(cleaned: str) -> list[float] | None:
+    found = list(INCLINE_ANGLE_RE.finditer(cleaned))
+    if len(found) == 2:
+        return _incidence_first(cleaned, found)
+    angles = [float(m.group(1)) for m in found]
     if len(angles) < 2:
         # "bends from 30 to 20 degrees" puts the unit on the second angle only,
         # so the scan above sees one number where the question gave two.
@@ -160,9 +198,16 @@ def _refraction_angles(cleaned: str) -> list[float]:
 
 
 def _refractive_index(cleaned: str) -> PhysicsIntent | None:
-    """The index from Snell's two angles, or from the speed of light in the medium."""
+    """The index from Snell's two angles, or from the speed of light in the medium.
+
+    n = sin i / sin r holds for light that enters the medium from air. Light that leaves
+    the glass for air bends the other way: read as entering it, "30° in the glass, 48.6°
+    in air" was n = 0.667 for 1.50, so a ray that starts inside is not read.
+    """
     index_values = _index_values(cleaned)
     angles = _refraction_angles(cleaned)
+    if angles is None or (len(angles) == 2 and light_starts_inside(cleaned.lower())):
+        return None
     # n = sin(t1) / sin(t2) when both angles are given and the index is not.
     if len(angles) == 2 and not index_values:
         return PhysicsIntent(

@@ -136,6 +136,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=_RELATIVISTIC,
             excludes=("backward", "backwards", "opposite", "rearward", "behind"),
             interchangeable=("v1", "v2"),
+            # A speed an observer measures is the sum already: "Earth measures the probe at
+            # 0.8c" added to the ship's 0.6c was 0.946c, for a probe at 0.385c to the ship.
+            result_words=("measures", "measured", "observes", "observed", "observer", "sees"),
             nonnegative=True,
         ),
     ),

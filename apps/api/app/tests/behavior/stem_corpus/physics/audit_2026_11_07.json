@@ -1622,8 +1622,7 @@
   "area": "guards",
   "prompt": "A 2 kg block moves at 3 × 10^9 m/s. What is its kinetic energy?",
   "expect": "decline",
-  "note": "faster than light: no classical answer",
-  "gap": "no physical-range check: a speed above c goes into a classical law (audit 2026-11-07)"
+  "note": "faster than light: no classical answer; ½mv² holds below 8% of c (review 2026-11-12)"
  },
  {
   "id": "au-negative-resistance",

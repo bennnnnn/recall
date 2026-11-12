@@ -14,8 +14,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.modules.physics.ask_numbers import PURE_NUMBER, STATE_ASK, last_state_ask, pure_number_ask
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES, _UNKNOWN
-from app.modules.physics.givens import ANGLE, unit_at, unit_dimension, unit_readings
+from app.modules.physics.givens import ANGLE, scan_givens, unit_at, unit_dimension, unit_readings
 from app.services.law_binding.ask import ASK_VERBS, SELF_NAMING
 from app.services.law_binding.ask import ask_clause as _verb_ask_clause
 from app.services.law_binding.ask import ask_clauses as _verb_ask_clauses
@@ -89,6 +90,12 @@ def ask_clause(text: str) -> str | None:
     names no verb and no "?" either, and was answered with the fall's time.
     """
     clause = _verb_ask_clause(text)
+    state = last_state_ask(text)
+    if state is not None and (clause is None or state.end() > text.rfind(clause)):
+        # "To which level does it fall?" names no verb the shared reader knows, and "What
+        # energy level does it fall to?" read from its "what" asked for an energy.
+        end = re.search(r"[?!]|\.(?:\s|$)", text[state.start() :])
+        return text[state.start() : state.start() + end.start() if end else len(text)]
     if clause is not None:
         return clause
     where = _WHERE_IMAGE.search(text)
@@ -124,9 +131,10 @@ def _closing_quantity(text: str) -> str | None:
 
 # "Where is the image?" names no question verb the shared reader knows.
 _WHERE_IMAGE = re.compile(r"\bwhere\s+(?:is|will|does|would)\s+(?:the\s+)?image\b", re.IGNORECASE)
-# Every ask, the shared verbs with optics' own: "where is the image and how big is it".
+# Every ask, the shared verbs with physics' own: "where is the image and how big is it".
 _PHYSICS_ASKS = re.compile(
-    rf"{ASK_VERBS.pattern}|{_WHERE_IMAGE.pattern}|\bhow\s+big\b", re.IGNORECASE
+    rf"{STATE_ASK.pattern}|{ASK_VERBS.pattern}|{_WHERE_IMAGE.pattern}|\bhow\s+big\b",
+    re.IGNORECASE,
 )
 _PHYSICS_SELF_NAMING = (
     *SELF_NAMING,
@@ -135,6 +143,11 @@ _PHYSICS_SELF_NAMING = (
     "where does",
     "where would",
     "how big",
+    "which",
+    "what energy level",
+    "what level",
+    "what orbit",
+    "what shell",
 )
 
 
@@ -214,6 +227,12 @@ _VALUE_AFTER = re.compile(
 _ASK_REACH = 60
 # "lens" misses "lenses": the boundary after the singular is the next letter.
 _LENS = re.compile(r"\blens(?:es)?\b|\bdiopt", re.IGNORECASE)
+_LENS_POWER = "[length]^-1"
+
+
+def _states_dioptres(text: str) -> bool:
+    """The question states a value in dioptres, a lens's power."""
+    return any(given.dimension == _LENS_POWER for given in scan_givens(text))
 
 
 # "How long must the runway be?" and "how long is the rope?" ask for a length.
@@ -255,13 +274,16 @@ _HEIGHT_STATED = re.compile(r"\b(?:tall|high|height)\b", re.IGNORECASE)
 
 
 def _dimension(phrase: str, text: str) -> str | None:
+    if phrase == PURE_NUMBER:
+        return _DIMENSIONLESS
     if phrase.lower() in _IMAGE_SIZE:
         if _OPTIC.search(text) is None:
             return None
         return _DIMENSIONLESS if _HEIGHT_STATED.search(text) is None else "[length]^1"
     expression = _QUANTITIES[phrase.lower()]
     if expression == "watt" and _LENS.search(text):
-        return None
+        # Beside lenses stated in dioptres, "the power of the other" is a lens's power.
+        return _LENS_POWER if _states_dioptres(text) else None
     if expression in {ANGLE, _DIMENSIONLESS, _MONEY}:
         return expression
     if expression == _UNKNOWN:
@@ -285,6 +307,9 @@ def asked_phrases(text: str) -> tuple[str, ...]:
 def _asked_nouns(clause: str, text: str) -> list[tuple[str, re.Match[str]]]:
     """The quantities one asked clause lists, each with where it is said."""
     nouns = [noun for noun in QUANTITY.finditer(clause) if not _labels_a_value(clause, noun, text)]
+    counted = pure_number_ask(clause)
+    if counted is not None and (not nouns or counted.start() < nouns[0].start()):
+        nouns = [counted, *(noun for noun in nouns if noun.start() >= counted.end())]
     if not nouns or nouns[0].start() > _ASK_REACH:
         return []
     listed: list[tuple[str, re.Match[str]]] = []
@@ -292,6 +317,10 @@ def _asked_nouns(clause: str, text: str) -> list[tuple[str, re.Match[str]]]:
     for noun in nouns:
         if listed and not _CONNECTOR.fullmatch(clause, previous_end, noun.start()):
             break
+        if noun is counted:
+            listed.append((PURE_NUMBER, noun))
+            previous_end = noun.end()
+            continue
         phrase = re.sub(r"\s+", " ", noun.group().lower())
         if phrase == "how long" and _HOW_LONG_IS_LENGTH.search(clause):
             phrase = "length"

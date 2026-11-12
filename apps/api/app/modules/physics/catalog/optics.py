@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.optic_elements import LIGHT_INSIDE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
@@ -192,28 +193,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             # A convex mirror's focal length is negative; its sign is the
             # convention the question has not stated.
             excludes=("convex", "diverging"),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "lens_power_sum",
-        "optics",
-        "Thin lenses in contact",
-        "P",
-        base_latex=r"P = P_1 + P_2",
-        assumptions=("the lenses are thin and in contact",),
-        expression="p1+p2",
-        variables=(
-            var("p1", "P_1", "1 / meter"),
-            var("p2", "P_2", "1 / meter"),
-        ),
-        binding=Binding(
-            asks=("power", "lens power", "total power"),
-            result=("1 / meter",),
-            inputs=(frozenset({"p1", "p2"}),),
-            cues=("in contact",),
-            interchangeable=("p1", "p2"),
-            excludes=("telescope", "diverging"),  # a concave lens's power is negative
             nonnegative=True,
         ),
     ),
@@ -517,7 +496,17 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter",),
             inputs=(frozenset({"n_index", "wavelength"}),),
             cues=("wavelength",),
-            excludes=("frequency", "speed", "thickness", "film", "slit", "grating"),
+            # "400 nm inside glass: its wavelength in air?" is λ = nλ_n, 600 nm; read as
+            # λ_n = λ/n it was 267 nm.
+            excludes=(
+                "frequency",
+                "speed",
+                "thickness",
+                "film",
+                "slit",
+                "grating",
+                LIGHT_INSIDE_MARKER,
+            ),
             nonnegative=True,
         ),
     ),

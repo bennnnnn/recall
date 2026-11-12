@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from app.modules.physics.ask import SENTENCE
 from app.modules.physics.constants import (
@@ -13,6 +15,9 @@ from app.modules.physics.constants import (
     PROTON_MASS,
 )
 from app.services.text_match import word_index
+
+if TYPE_CHECKING:
+    from app.services.law_binding.spec import FormulaSpec
 
 _BODY_WORDS = re.compile(
     r"\b(?:earth|moon|mars|jupiter|sun|venus|mercury|saturn|uranus|neptune|pluto)\b",
@@ -208,11 +213,36 @@ def orbiting_mass_fills(params: dict[str, float], text: str) -> bool:
 SCHOOL_GRAVITY: dict[str, float] = {"earth": 9.81, "moon": 1.62, "mars": 3.71}
 
 
+# A planet or moon the question leaves unnamed: "on a planet", "another planet", "planet X".
+# Its g is what the question works out or states; Earth's answered "on a planet, a ball
+# dropped from 20 m takes 4 s" with -9.81 m/s² for 2.5 m/s².
+_UNNAMED_BODY = re.compile(
+    r"\b(?:an?|another|some)\s+(?:[a-z-]+\s+){0,2}?(?:planet|moon|exoplanet|asteroid)s?\b"
+    r"|\bplanet\s+[a-z]\b"
+)
+
+
 def names_body_without_school_gravity(lower: str) -> bool:
-    """True when lowercased text names a body whose surface g has no school value."""
-    return any(
+    """True when lowercased text names a body whose surface g has no school value, or a
+    planet or moon it does not name."""
+    return _UNNAMED_BODY.search(lower) is not None or any(
         word_index(lower, name) != -1 for name in BODY_PROPERTIES if name not in SCHOOL_GRAVITY
     )
+
+
+def takes_earths_g_elsewhere(spec: FormulaSpec, params: Mapping[str, float], lower: str) -> bool:
+    """A filled law multiplies by Earth's school g for a body whose g is not Earth's.
+
+    A g the question gives the law ("a field strength of 3.7 N/kg") is its own, and so is
+    the g a law is solved for ("a 1 m pendulum on a planet at 0.4 Hz: its g?").
+    """
+    from app.services.law_binding.inverse import solved_input
+
+    unknown = solved_input(spec, params)
+    if unknown is not None and unknown.name == "g":
+        return False
+    earths = params.get("g", SCHOOL_GRAVITY["earth"]) == SCHOOL_GRAVITY["earth"]
+    return earths and names_body_without_school_gravity(lower)
 
 
 # Charge magnitude (C) of each particle a question names; e is exact in SI.

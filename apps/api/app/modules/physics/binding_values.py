@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.ask import ask_clause
 from app.modules.physics.bodies import (
     SEA_LEVEL_PRESSURE,
     WATER_DENSITY,
@@ -55,10 +56,17 @@ _ENTERS_RE = re.compile(
     r"\b(?:strikes?|striking|hits?|hitting|incident\s+on|falls?\s+on|falling\s+on"
     r"|enters?|entering)\b"
 )
-# Light that starts inside a medium, or comes from a named one, is not from air.
+# Light said to leave a medium: "leaves the glass", "emerges into air".
+_LEAVES = (
+    r"leaves?|leaving|emerges?|emerging|exits?|exiting|escapes?|escaping|out\s+of"
+    r"|into\s+(?:the\s+)?(?:air|vacuum)"
+)
+_LEAVES_RE = re.compile(rf"\b(?:{_LEAVES})\b")
+# Light that starts inside a medium, or comes from a named one, is not from air. Light
+# "travelling in air" starts in air.
 _STARTS_INSIDE_RE = re.compile(
-    r"\b(?:inside|within|internal(?:ly)?|leaves?|leaving|emerges?|emerging|exits?|exiting"
-    r"|escapes?|escaping|out\s+of|into\s+(?:the\s+)?(?:air|vacuum)|travell?ing\s+in|moving\s+in"
+    rf"\b(?:inside|within|internal(?:ly)?|{_LEAVES}"
+    r"|(?:travel\w*|mov(?:es|ing))\s+in(?!\s+(?:(?:the|a)\s+)?(?:air|vacuum)\b)"
     r"|underwater|under\s+water|submerged|beneath|below\s+the\s+surface"
     r"|from\s+(?!(?:(?:a|an|the)\s+)?(?:air|surface|boundary|interface|normal|vacuum"
     r"|horizontal|vertical)\b)(?:a\s+|an\s+|the\s+)?[a-z]+)\b"
@@ -68,6 +76,22 @@ _STARTS_INSIDE_RE = re.compile(
 def light_enters_from_air(lower: str) -> bool:
     """A ray that strikes a medium and is never said to start inside one."""
     return _ENTERS_RE.search(lower) is not None and _STARTS_INSIDE_RE.search(lower) is None
+
+
+def light_starts_inside(text: str) -> bool:
+    """The light is said to start inside a medium: it travels in water, it leaves glass.
+
+    Where the ask puts what it asks ("its wavelength inside the glass") is not where the
+    light starts; light the ask says leaves a medium ("as it emerges into air") does.
+    """
+    lower = text.lower()
+    clause = ask_clause(text)
+    asked_at = -1 if clause is None else lower.rfind(clause.lower())
+    asked_at = len(lower) if asked_at < 0 else asked_at
+    return (
+        _STARTS_INSIDE_RE.search(lower, 0, asked_at) is not None
+        or _LEAVES_RE.search(lower, asked_at) is not None
+    )
 
 
 def si_unit(variable: VariableSpec) -> str:

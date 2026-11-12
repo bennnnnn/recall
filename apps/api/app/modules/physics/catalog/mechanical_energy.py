@@ -7,6 +7,7 @@ time the work.
 
 from __future__ import annotations
 
+from app.modules.physics.catalog.rotation import ROLLING
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
@@ -25,6 +26,11 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("kinetic energy",),
             result=("joule",),
             inputs=(frozenset({"m", "v"}),),
+            # A rolling body's spin carries energy too (``rolling_body_kinetic_energy``).
+            excludes=ROLLING,
+            # Classical only: past 8% of c, ½mv² falls short of the relativistic energy by
+            # half a percent.
+            requires=("0.08*c_light - v",),
             nonnegative=True,
         ),
     ),
@@ -113,6 +119,32 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("watt",),
             inputs=(frozenset({"W", "t"}), frozenset({"F", "v"}), frozenset({"F", "v", "angle"})),
             # A force against the motion gives a negative power: 5 N at -2 m/s is -10 W.
+        ),
+    ),
+    formula(
+        "speed_from_kinetic_energy",
+        "energy",
+        "Kinetic energy",
+        "v",
+        base_latex=r"v = \sqrt{\frac{2 E_k}{m}}",
+        expression="sqrt(2*kinetic/m)",
+        variables=(
+            var("kinetic", "E_k", "joule", words=("kinetic",)),
+            var("m", "m", "kilogram"),
+        ),
+        binding=Binding(
+            asks=("how fast", "speed", "velocity"),
+            result=("meter / second",),
+            inputs=(frozenset({"kinetic", "m"}),),
+            cues=("kinetic energy",),
+            # A rolling body keeps part of its energy as spin: 70 J on a rolling sphere is
+            # 7.07 m/s, and ½mv² said 8.37 m/s (``rolling_body_kinetic_energy``).
+            excludes=ROLLING,
+            # Classical only: past half a percent of the rest energy ½mv² overstates the
+            # speed by more than a third of a percent. An electron with 8.2e-14 J went
+            # 4.24e8 m/s, faster than light, for 2.60e8 m/s.
+            requires=("0.005*m*c_light**2 - kinetic",),
+            nonnegative=True,
         ),
     ),
 )

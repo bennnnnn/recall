@@ -94,7 +94,7 @@
       "why": "Over 500 before the standards; tracked in ES-09"
     },
     "apps/api/app/modules/physics/catalog/energy.py": {
-      "lines": 525,
+      "lines": 506,
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/physics/catalog/magnetism.py": {
@@ -102,7 +102,7 @@
       "why": "Exception: Law catalog; all data"
     },
     "apps/api/app/modules/physics/catalog/optics.py": {
-      "lines": 540,
+      "lines": 529,
       "why": "Exception: One `SPECS` table of law declarations (573 lines of data; wave optics is wave_optics.py)"
     },
     "apps/api/app/modules/physics/catalog/quantum.py": {

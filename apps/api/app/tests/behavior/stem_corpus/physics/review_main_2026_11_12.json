@@ -1,0 +1,720 @@
+[
+ {
+  "id": "rm12-lift-up-scale-mass",
+  "area": "lift",
+  "prompt": "A lift accelerates upward at 2 m/s². A person standing on a scale in it reads 708.6 N. What is the person's mass?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "kg"
+  ],
+  "note": "m = N/(g + a) = 708.6/11.81; m = F/a gave 354.3 kg (review 2026-11-12)"
+ },
+ {
+  "id": "rm12-lift-down-scale-mass",
+  "area": "lift",
+  "prompt": "A lift accelerates downward at 2 m/s². A person standing on a scale in it reads 468.6 N. What is the person's mass?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "kg"
+  ],
+  "note": "m = N/(g - a) = 468.6/7.81; m = F/a gave 234.3 kg"
+ },
+ {
+  "id": "rm12-lift-decelerates-up-mass",
+  "area": "lift",
+  "prompt": "A lift moving upward decelerates at 2 m/s². A person standing on a scale in it reads 468.6 N. What is the person's mass?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "kg"
+  ],
+  "note": "slowing on the way up is a downward acceleration: m = N/(g - a)"
+ },
+ {
+  "id": "rm12-lift-apparent-weight-mass",
+  "area": "lift",
+  "prompt": "In an elevator accelerating upward at 2 m/s², the apparent weight of a passenger is 708.6 N. What is the passenger's mass?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "kg"
+  ],
+  "note": "W = mg with the lift's 2 m/s² as g gave 354.3 kg"
+ },
+ {
+  "id": "rm12-lift-normal-force-mass",
+  "area": "lift",
+  "prompt": "An elevator accelerates upward at 2 m/s² and the normal force on a passenger is 708.6 N. What is the passenger's mass?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12-lift-downward-acceleration-mass",
+  "area": "lift",
+  "prompt": "In a lift with a downward acceleration of 2 m/s², the normal force on a passenger is 468.6 N. What is the passenger's mass?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12-lift-up-reading",
+  "area": "lift",
+  "prompt": "A 60 kg person stands on a scale in a lift accelerating upward at 2 m/s². What does the scale read?",
+  "expect": "answer",
+  "answer": [
+   708.6,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12-lift-down-after-value",
+  "area": "lift",
+  "prompt": "A 60 kg person stands on a scale in a lift accelerating at 2 m/s² downward. What does the scale read?",
+  "expect": "answer",
+  "answer": [
+   468.6,
+   "N"
+  ],
+  "note": "the direction after the value is not read; up was the default and gave 708.6 N"
+ },
+ {
+  "id": "rm12-lift-descending",
+  "area": "lift",
+  "prompt": "A 60 kg person is in a lift that is descending with an acceleration of 2 m/s². What is the normal force on the person?",
+  "expect": "answer",
+  "answer": [
+   468.6,
+   "N"
+  ],
+  "note": "was 708.6 N: no direction read, up taken"
+ },
+ {
+  "id": "rm12-lift-downward-acceleration",
+  "area": "lift",
+  "prompt": "A 60 kg person in a lift with a downward acceleration of 2 m/s². Find the normal force.",
+  "expect": "answer",
+  "answer": [
+   468.6,
+   "N"
+  ],
+  "note": "was 708.6 N"
+ },
+ {
+  "id": "rm12-lift-decelerates-down",
+  "area": "lift",
+  "prompt": "A 60 kg person rides in an elevator moving downward that decelerates at 2 m/s². What is the apparent weight?",
+  "expect": "answer",
+  "answer": [
+   708.6,
+   "N"
+  ],
+  "note": "slowing on the way down is an upward acceleration; W = mg with g = 2 gave 120 N"
+ },
+ {
+  "id": "rm12-rope-lifts-mass",
+  "area": "lift",
+  "prompt": "A crate is lifted by a rope with a tension of 708.6 N, accelerating upward at 2 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   60,
+   "kg"
+  ],
+  "note": "T = m(g + a); m = T/a gave 354.3 kg"
+ },
+ {
+  "id": "rm12-weight-beside-acceleration",
+  "area": "newton",
+  "prompt": "A car accelerates at 2 m/s². Its weight is 9810 N. What is its mass?",
+  "expect": "answer",
+  "answer": [
+   1000,
+   "kg"
+  ],
+  "note": "m = W/g; the car's 2 m/s² as g gave 4905 kg"
+ },
+ {
+  "id": "rm12-tow-rope-mass",
+  "area": "newton",
+  "prompt": "A truck accelerating at 2 m/s² tows a car with a tension of 3000 N in the tow rope. What is the car's mass?",
+  "expect": "answer",
+  "answer": [
+   1500,
+   "kg"
+  ],
+  "note": "a level tow: the rope's pull is the car's net force"
+ },
+ {
+  "id": "rm12-frictionless-mass",
+  "area": "newton",
+  "prompt": "A 400 N force accelerates a trolley at 2 m/s² on a frictionless surface. What is its mass?",
+  "expect": "answer",
+  "answer": [
+   200,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12-moon-weight-mass",
+  "area": "newton",
+  "prompt": "what is the mass of an object whose weight on the moon is 162 N? (g moon = 1.62 m/s^2)",
+  "expect": "answer",
+  "answer": [
+   100,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12-friction-mass",
+  "area": "friction",
+  "prompt": "A 60 N force pushes a box across a floor with μ = 0.2, giving it an acceleration of 1 m/s². What is its mass?",
+  "expect": "answer",
+  "answer": [
+   20.2566,
+   "kg"
+  ],
+  "note": "F - μmg = ma: m = F/(a + μg); m = F/a gave 60 kg"
+ },
+ {
+  "id": "rm12-friction-coefficient-mass",
+  "area": "friction",
+  "prompt": "A 60 N horizontal force pulls a crate with a coefficient of kinetic friction of 0.2. It accelerates at 1 m/s². Find the mass of the crate.",
+  "expect": "answer",
+  "answer": [
+   20.2566,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12-friction-acceleration",
+  "area": "friction",
+  "prompt": "A 60 N force pulls a 20 kg box across a floor where the coefficient of friction is 0.2. What is the acceleration?",
+  "expect": "answer",
+  "answer": [
+   1.038,
+   "m/s^2"
+  ],
+  "note": "the friction law takes the μ"
+ },
+ {
+  "id": "rm12-friction-beside-ke",
+  "area": "friction",
+  "prompt": "A 2 kg box on a floor with μ = 0.3 moves at 3 m/s. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   9,
+   "J"
+  ],
+  "note": "½mv² is right, but a stated μ left unused is declined: friction acts"
+ },
+ {
+  "id": "rm12-planet-g-from-drop",
+  "area": "free_fall",
+  "prompt": "On a planet, a ball dropped from 20 m takes 4 s to land. What is the acceleration due to gravity?",
+  "expect": "answer",
+  "answer": [
+   2.5,
+   "m/s^2"
+  ],
+  "note": "g = 2h/t²; a = -g with Earth's g gave -9.81 m/s²"
+ },
+ {
+  "id": "rm12-planet-fall-time",
+  "area": "free_fall",
+  "prompt": "An astronaut on a planet drops a hammer from 1.2 m. How long does it take to fall?",
+  "expect": "decline",
+  "note": "the planet's g is not given; Earth's gave 0.495 s"
+ },
+ {
+  "id": "rm12-another-planet-fall",
+  "area": "free_fall",
+  "prompt": "On another planet a stone is dropped from 10 m. How long does it take to reach the ground?",
+  "expect": "decline",
+  "note": "no g for an unnamed planet"
+ },
+ {
+  "id": "rm12-moon-fall-time",
+  "area": "free_fall",
+  "prompt": "An astronaut on the Moon drops a hammer from 1.2 m. How long does it take to fall?",
+  "expect": "answer",
+  "answer": [
+   1.21716,
+   "s"
+  ],
+  "note": "the Moon's school g, 1.62 m/s²"
+ },
+ {
+  "id": "rm12-planet-stated-g-weight",
+  "area": "newton",
+  "prompt": "A 2 kg rock sits on a planet where g = 3.7 m/s². What is its weight?",
+  "expect": "answer",
+  "answer": [
+   7.4,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12-planet-falls-at-mass",
+  "area": "newton",
+  "prompt": "On a planet where objects fall at 3.7 m/s², a rock weighs 7.4 N. What is its mass?",
+  "expect": "answer",
+  "answer": [
+   2,
+   "kg"
+  ]
+ },
+ {
+  "id": "rm12-planet-pendulum-g",
+  "area": "oscillations",
+  "prompt": "A 1 m pendulum on a planet has a frequency of 0.4 Hz. What is the acceleration due to gravity?",
+  "expect": "answer",
+  "answer": [
+   6.31655,
+   "m/s^2"
+  ],
+  "note": "g solved for is the question's own"
+ },
+ {
+  "id": "rm12-lens-total-other",
+  "area": "optics",
+  "prompt": "Two thin lenses in contact have a total power of 3 D. One of them has a power of 2 D. What is the power of the other?",
+  "expect": "answer",
+  "answer": [
+   1,
+   "D"
+  ],
+  "note": "P₂ = P - P₁; the sum read as a lens gave 5 D"
+ },
+ {
+  "id": "rm12-lens-combined-negative",
+  "area": "optics",
+  "prompt": "Two lenses in contact have a combined power of +3 D. One lens has a power of -2 D. What is the power of the other lens?",
+  "expect": "answer",
+  "answer": [
+   5,
+   "D"
+  ],
+  "note": "3 - (-2); read as lenses it gave 1 D"
+ },
+ {
+  "id": "rm12-lens-net-other",
+  "area": "optics",
+  "prompt": "A lens combination in contact has a net power of 5 D. One lens is 4 D. What is the power of the second lens?",
+  "expect": "answer",
+  "answer": [
+   1,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12-lens-sum",
+  "area": "optics",
+  "prompt": "Two thin lenses of power 2 D and 4 D are placed in contact. What is the power of the combination?",
+  "expect": "answer",
+  "answer": [
+   6,
+   "D"
+  ]
+ },
+ {
+  "id": "rm12-capacitors-parallel-other",
+  "area": "electricity",
+  "prompt": "Two capacitors in parallel have a total capacitance of 10 μF. One is 4 μF. What is the capacitance of the other?",
+  "expect": "answer",
+  "answer": [
+   6e-06,
+   "F"
+  ],
+  "note": "was 14 μF"
+ },
+ {
+  "id": "rm12-capacitors-series-other",
+  "area": "electricity",
+  "prompt": "Two capacitors in series have an equivalent capacitance of 3 μF. One is 4 μF. What is the other capacitance?",
+  "expect": "answer",
+  "answer": [
+   1.2e-05,
+   "F"
+  ],
+  "note": "1/C₂ = 1/C - 1/C₁; was 1.71 μF"
+ },
+ {
+  "id": "rm12-springs-parallel-other",
+  "area": "springs",
+  "prompt": "Two springs in parallel have a combined spring constant of 500 N/m. One has k = 300 N/m. What is the spring constant of the other?",
+  "expect": "answer",
+  "answer": [
+   200,
+   "N/m"
+  ],
+  "note": "was 800 N/m"
+ },
+ {
+  "id": "rm12-river-resultant-other",
+  "area": "kinematics",
+  "prompt": "A boat crosses a river at right angles to the current. Its resultant speed is 5 m/s and the current flows at 3 m/s. What is the boat's speed relative to the water?",
+  "expect": "answer",
+  "answer": [
+   4,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12-glass-to-air-index",
+  "area": "optics",
+  "prompt": "Light passes from glass into air. The angle of incidence in the glass is 30° and the angle of refraction is 48.6°. What is the refractive index of the glass?",
+  "expect": "answer",
+  "answer": [
+   1.5,
+   ""
+  ],
+  "note": "n = sin 48.6°/sin 30°; read as entering it gave 0.667"
+ },
+ {
+  "id": "rm12-refraction-stated-first",
+  "area": "optics",
+  "prompt": "The angle of refraction is 30° when the angle of incidence is 45°. What is the refractive index of the glass?",
+  "expect": "answer",
+  "answer": [
+   1.41421,
+   ""
+  ],
+  "note": "was 0.707: the angles read in the order stated"
+ },
+ {
+  "id": "rm12-refracted-ray-first",
+  "area": "optics",
+  "prompt": "A ray in air enters water. The refracted ray makes 30° with the normal and the incident ray makes 45°. Find the refractive index.",
+  "expect": "answer",
+  "answer": [
+   1.41421,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-water-to-air-index",
+  "area": "optics",
+  "prompt": "A ray of light leaves water and enters air. The angle in the water is 30° and the angle in the air is 41.7°. What is the refractive index of water?",
+  "expect": "answer",
+  "answer": [
+   1.33046,
+   ""
+  ],
+  "note": "was 0.752"
+ },
+ {
+  "id": "rm12-travelling-in-air-snell",
+  "area": "optics",
+  "prompt": "Light travelling in air strikes a glass block of refractive index 1.5 at 30° to the normal. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   19.4712,
+   "deg"
+  ],
+  "note": "light travelling in air comes from air"
+ },
+ {
+  "id": "rm12-air-to-block-index",
+  "area": "optics",
+  "prompt": "Light passes from air into a block. The angle of incidence is 50°, and the angle of refraction is 30.7°. What is the refractive index of the block?",
+  "expect": "answer",
+  "answer": [
+   1.50045,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-transformer-output-input",
+  "area": "electricity",
+  "prompt": "A transformer has 500 primary turns and 100 secondary turns and gives an output voltage of 24 V. What is the input voltage?",
+  "expect": "answer",
+  "answer": [
+   120,
+   "V"
+  ],
+  "note": "V_p = V_s N_p/N_s; 24 V read as V_p gave 4.8 V"
+ },
+ {
+  "id": "rm12-transformer-secondary-primary",
+  "area": "electricity",
+  "prompt": "A step-down transformer produces a secondary voltage of 12 V. It has 400 turns on the primary and 100 on the secondary. What is the primary voltage?",
+  "expect": "answer",
+  "answer": [
+   48,
+   "V"
+  ],
+  "note": "was 3 V"
+ },
+ {
+  "id": "rm12-transformer-secondary-is",
+  "area": "electricity",
+  "prompt": "The secondary voltage of a transformer is 12 V. The primary coil has 1000 turns and the secondary 50 turns. Find the primary voltage.",
+  "expect": "answer",
+  "answer": [
+   240,
+   "V"
+  ],
+  "note": "was 0.6 V"
+ },
+ {
+  "id": "rm12-transformer-forward",
+  "area": "electricity",
+  "prompt": "A transformer has 100 turns on the primary and 500 turns on the secondary. It is connected to a 240 V supply. What is the output voltage?",
+  "expect": "answer",
+  "answer": [
+   1200,
+   "V"
+  ]
+ },
+ {
+  "id": "rm12-wavelength-inside-to-air",
+  "area": "optics",
+  "prompt": "Light has a wavelength of 400 nm inside glass of refractive index 1.5. What is its wavelength in air?",
+  "expect": "answer",
+  "answer": [
+   600,
+   "nm"
+  ],
+  "note": "λ = nλ_n; λ/n gave 267 nm"
+ },
+ {
+  "id": "rm12-wavelength-inside-to-vacuum",
+  "area": "optics",
+  "prompt": "Inside water (refractive index 1.33) the wavelength of a green light is 400 nm. What is its wavelength in a vacuum?",
+  "expect": "answer",
+  "answer": [
+   532,
+   "nm"
+  ],
+  "note": "was 301 nm"
+ },
+ {
+  "id": "rm12-wavelength-air-to-inside",
+  "area": "optics",
+  "prompt": "Light of wavelength 600 nm in air enters glass of refractive index 1.5. What is its wavelength inside the glass?",
+  "expect": "answer",
+  "answer": [
+   400,
+   "nm"
+  ]
+ },
+ {
+  "id": "rm12-velocity-measured-probe",
+  "area": "relativity",
+  "prompt": "A spaceship moving at 0.6c fires a probe forward. An observer on Earth measures the probe's speed as 0.8c. What is the probe's speed relative to the ship?",
+  "expect": "answer",
+  "answer": [
+   115304800.0,
+   "m/s"
+  ],
+  "note": "u' = (u - v)/(1 - uv/c²) = 0.385c; added it gave 0.946c"
+ },
+ {
+  "id": "rm12-velocity-measured-missile",
+  "area": "relativity",
+  "prompt": "A rocket moving at 0.5c relative to Earth fires a missile forward. An observer on Earth measures the missile's speed as 0.8c. What is the missile's speed relative to the rocket?",
+  "expect": "answer",
+  "answer": [
+   149896200.0,
+   "m/s"
+  ],
+  "note": "0.5c; added it gave 0.929c"
+ },
+ {
+  "id": "rm12-velocity-forward",
+  "area": "relativity",
+  "prompt": "A spaceship moving at 0.6c relative to Earth fires a probe forward at 0.8c relative to the ship. What is the probe's speed relative to Earth?",
+  "expect": "answer",
+  "answer": [
+   283587500.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12-rolling-sphere-speed",
+  "area": "rotation",
+  "prompt": "A solid sphere of mass 2 kg rolls without slipping with a total kinetic energy of 70 J. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   7.07107,
+   "m/s"
+  ],
+  "note": "E = 7mv²/10; ½mv² gave 8.37 m/s"
+ },
+ {
+  "id": "rm12-rolling-hoop-speed",
+  "area": "rotation",
+  "prompt": "A hoop of mass 2 kg rolls without slipping with a total kinetic energy of 70 J. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   5.91608,
+   "m/s"
+  ],
+  "note": "E = mv²"
+ },
+ {
+  "id": "rm12-rolling-cylinder-speed",
+  "area": "rotation",
+  "prompt": "A solid cylinder of mass 2 kg rolls without slipping. Its total kinetic energy is 70 J. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   6.8313,
+   "m/s"
+  ],
+  "note": "E = 3mv²/4"
+ },
+ {
+  "id": "rm12-rolling-ball-speed",
+  "area": "rotation",
+  "prompt": "A ball of mass 2 kg rolls without slipping with a total kinetic energy of 70 J. What is its speed?",
+  "expect": "decline",
+  "note": "a ball may be solid or hollow; ½mv² gave 8.37 m/s"
+ },
+ {
+  "id": "rm12-sliding-block-speed",
+  "area": "energy",
+  "prompt": "A 2 kg block slides with 70 J of kinetic energy. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   8.3666,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12-rolling-sphere-energy",
+  "area": "rotation",
+  "prompt": "A solid sphere of mass 2 kg rolls at 3 m/s without slipping. What is its total kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   12.6,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12-relativistic-ke-speed",
+  "area": "relativity",
+  "prompt": "A particle of mass 9.11 × 10⁻³¹ kg has relativistic kinetic energy 8.2 × 10⁻¹⁴ J. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   259693000.0,
+   "m/s"
+  ],
+  "note": "K = (γ - 1)mc²; ½mv² gave 4.24e8 m/s, faster than light"
+ },
+ {
+  "id": "rm12-fast-particle-ke",
+  "area": "relativity",
+  "prompt": "A particle of mass 9.11 × 10⁻³¹ kg moves at 2.0 × 10⁸ m/s. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   2.80333e-14,
+   "J"
+  ],
+  "note": "(γ - 1)mc²; ½mv² gives 1.82e-14 J"
+ },
+ {
+  "id": "rm12-slow-particle-ke",
+  "area": "energy",
+  "prompt": "A particle of mass 9.11 × 10⁻³¹ kg moves at 2.0 × 10⁵ m/s. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [
+   1.822e-20,
+   "J"
+  ]
+ },
+ {
+  "id": "rm12-slow-particle-speed",
+  "area": "energy",
+  "prompt": "A particle of mass 9.11 × 10⁻³¹ kg has a kinetic energy of 1.6 × 10⁻¹⁷ J. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   5926740.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "rm12-solenoid-turns",
+  "area": "magnetism",
+  "prompt": "A solenoid 20 cm long carries a current of 2 A and produces a magnetic field of 0.01 T. How many turns does it have?",
+  "expect": "answer",
+  "answer": [
+   795.775,
+   ""
+  ],
+  "note": "N = BL/(μ₀I); was the force on a wire, 0.004 N"
+ },
+ {
+  "id": "rm12-solenoid-turns-millitesla",
+  "area": "magnetism",
+  "prompt": "A solenoid 0.5 m long carries 2 A and its field is 5.03 mT. How many turns does it have?",
+  "expect": "answer",
+  "answer": [
+   1000.69,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-wire-force",
+  "area": "magnetism",
+  "prompt": "A wire 20 cm long carries a current of 2 A in a magnetic field of 0.01 T at right angles. What force acts on it?",
+  "expect": "answer",
+  "answer": [
+   0.004,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12-pendulum-count",
+  "area": "oscillations",
+  "prompt": "A pendulum has a period of 2 s. How many oscillations does it make in 1 minute?",
+  "expect": "answer",
+  "answer": [
+   30,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-level-656",
+  "area": "modern",
+  "prompt": "A hydrogen atom emits a photon of wavelength 656 nm when its electron falls from n = 3. To which level does it fall?",
+  "expect": "answer",
+  "answer": [
+   2,
+   ""
+  ],
+  "note": "a quantum number; was the photon's energy, 3.03e-19 J"
+ },
+ {
+  "id": "rm12-level-500",
+  "area": "modern",
+  "prompt": "A hydrogen atom emits a photon of wavelength 500 nm when its electron falls from n = 3. To which level does it fall?",
+  "expect": "decline",
+  "note": "no hydrogen line from n = 3 is 500 nm; was the photon's energy"
+ },
+ {
+  "id": "rm12-level-what-energy-level",
+  "area": "modern",
+  "prompt": "A hydrogen atom emits a 656 nm photon as its electron drops from n = 3. What energy level does the electron fall to?",
+  "expect": "answer",
+  "answer": [
+   2,
+   ""
+  ]
+ },
+ {
+  "id": "rm12-photon-energy",
+  "area": "modern",
+  "prompt": "A hydrogen atom emits a photon of wavelength 656 nm. What is the energy of the photon?",
+  "expect": "answer",
+  "answer": [
+   3.02812e-19,
+   "J"
+  ]
+ }
+]
