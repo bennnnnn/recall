@@ -284,6 +284,23 @@ describe("a turn from send to the end", () => {
     expect(run.state.draft).toEqual({ content: "", status: "reading_files" });
   });
 
+  it("a retract status empties the bubble, and a Stop still counts what was drawn", () => {
+    // The server took back "I can't check live rankings" to search and answer again.
+    const denial = "I can't check live rankings.";
+    const run = play(idle(), [
+      send("Top 5 universities in Ethiopia"),
+      frame({ type: "start" }),
+      frame({ type: "token", content: denial }),
+      frame({ type: "status", phase: "retract" }),
+    ]);
+    expect(run.state.draft).toEqual({ content: "" });
+    expect(run.state.buffer).toBe("");
+    const stopped = play(run.state, [frame({ type: "token", content: "1. Addis" }), { type: "stop" }]);
+    expect(stopped.of("cancel_socket")).toEqual([
+      { type: "cancel_socket", streamedChars: denial.length + "1. Addis".length },
+    ]);
+  });
+
   it("Stop keeps what streamed, ignores late deltas, and a late done names the kept bubble", () => {
     const run = play(idle(), [
       send("hi"),

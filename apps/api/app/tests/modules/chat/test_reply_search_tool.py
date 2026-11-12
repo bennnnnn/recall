@@ -16,10 +16,11 @@ import pytest
 from app.gateways.decider_gateway import DeciderAnswer, DeciderReply
 from app.gateways.mcp import registry
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_paths import run_llm_token_stream, run_tool_loop_path
 from app.modules.chat.tool_loop import live_denial
-from app.modules.chat.tool_loop.reply_calls import ReplyTurn, reply_tools
+from app.modules.chat.tool_loop.reply_calls import ReplyTurn, answered_read, reply_tools
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.web_search import WebSearchAdapter
 from app.tests.fakes import isolated_settings, redis_mock
@@ -338,6 +339,11 @@ _BEARS = "Perfect. totally unrelated but did the bears win today"
 _DENIAL = "I can't check live scores, so I don't know how the Bears did today."
 _ANSWER = "The Bears beat the Falcons 27-20."
 _DENIALS = {_DENIAL, "Sorry, I can't check live scores!"}
+_LESSON_STEP = (
+    "## Lesson 1: What a fraction is\n\nA fraction is a part of a whole.\n\n"
+    "Which is bigger, 1/2 or 1/3?"
+)
+_EMAIL_DRAFT = "```email\nSubject: Rent\n\nHi Mr. Lee,\n\nRent will be late this month.\n```"
 
 
 def _check(denies: float | Exception) -> AsyncMock:
@@ -398,35 +404,119 @@ async def test_the_check_reads_the_message_and_both_ends_of_a_long_reply() -> No
     assert list(kwargs["questions"]) == ["denies"]
 
 
-def _retry_context(content: str = _BEARS, tool: dict[str, Any] | None = None) -> StreamContext:
+def _retry_context(
+    content: str = _BEARS, tool: dict[str, Any] | None = None, *, nearly_live: bool = False
+) -> StreamContext:
     ctx = _context(content)
     ctx.denial_retry_tools = [tool] if tool else []
+    # The turn's read called the answer settled, close to live or not.
+    ctx.live_read = _read(False, odds=0.2 if nearly_live else 0.02)  # type: ignore[assignment]
     return ctx
 
 
+@pytest.mark.parametrize(("nearly_live", "requires"), [(True, "web_search"), (False, None)])
 @pytest.mark.asyncio
-async def test_a_denial_is_asked_again_and_must_search(
-    web_search_tool: dict[str, Any], denial_check: AsyncMock
+async def test_a_denial_is_asked_again_with_search(
+    web_search_tool: dict[str, Any], denial_check: AsyncMock, nearly_live: bool, requires: Any
 ) -> None:
-    """Live (2026-10-25): no tool was offered, and the reply said it couldn't check. Asked
-    again with the tool only offered, a model could deny again (Pro phone test, 2026-11-11):
-    the second call must search, so its answer has results to give."""
-    ctx = _retry_context(tool=web_search_tool)
+    """Live (2026-10-25): no tool was offered, and the reply said it couldn't check. A read
+    close to live makes the second call search, so its answer has results to give (Pro
+    phone test, 2026-11-11); further off it is offered the search with a note that it can,
+    and its model decides: a search sends the conversation's words to the web (review)."""
+    ctx = _retry_context(tool=web_search_tool, nearly_live=nearly_live)
+    await asyncio.sleep(0)  # the read has answered by the reply's first call
+    statuses: list[str] = []
+
+    async def on_status(phase: str, _detail: str | None = None, **_kwargs: Any) -> None:
+        statuses.append(phase)
+
     llm, seen = _model(([_DENIAL], []), ([], [_SEARCH_CALL]), ([_ANSWER], []))
     accum = StreamAccum()
     with patch(
         "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
     ):
-        streamed = await _reply(ctx, llm, accum=accum)
+        streamed = await _reply(ctx, llm, accum=accum, on_status=on_status)
 
     assert accum.reply_text() == _ANSWER
     assert accum.retracted == _DENIAL
     assert [call["tools"] for call in seen] == [None, [web_search_tool], None]
-    assert [call["require_tool"] for call in seen] == [None, "web_search", None]
+    assert [call["require_tool"] for call in seen] == [None, requires, None]
+    noted = [DENIAL_RETRY_NOTE in str(m.get("content")) for m in seen[1]["messages"]]
+    assert any(noted) is (requires is None)
     assert [hit.url for hit in ctx.search_sources] == [_HIT.url]
-    # The retry went straight to its search: the break after the denial leads the answer.
+    # The phone takes the denial down; a client that keeps it gets a break before the answer.
+    assert statuses[:2] == ["composing", "retract"]
     assert streamed == f"{_DENIAL}\n\n{_ANSWER}"
     denial_check.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_stop_while_the_check_runs_keeps_the_reply(
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
+) -> None:
+    """The check takes about 0.3 s after the reply streamed: a Stop in it is a Stop."""
+    ctx = _retry_context(tool=web_search_tool)
+    llm, seen = _model(([_DENIAL], []), (["never asked"], []))
+    accum = StreamAccum()
+    await _reply(ctx, llm, accum=accum, should_cancel=lambda: denial_check.await_count > 0)
+    assert len(seen) == 1 and accum.was_cancelled
+    assert accum.reply_text() == _DENIAL and not accum.retracted
+
+
+def _follow_a_draft(ctx: StreamContext) -> None:
+    ctx.recent_messages = [
+        SimpleNamespace(role="user", content="write an email to my landlord about rent"),
+        SimpleNamespace(role="assistant", content=_EMAIL_DRAFT),
+    ]
+    ctx.user_message_content = "make it shorter"
+
+
+def _set_worked(ctx: StreamContext) -> None:
+    from app.modules.chat.worked_render import WorkedLayout
+
+    ctx.worked = WorkedLayout()
+
+
+@pytest.mark.parametrize(
+    "turn",
+    [
+        lambda ctx: setattr(ctx, "verified_subject", object()),
+        lambda ctx: setattr(ctx, "money", object()),
+        _set_worked,
+        lambda ctx: setattr(ctx, "after_card", True),
+        lambda ctx: setattr(ctx, "lightweight_turn", True),
+        lambda ctx: setattr(
+            ctx, "recent_messages", [SimpleNamespace(role="assistant", content=_LESSON_STEP)]
+        ),
+        lambda ctx: setattr(ctx, "user_message_content", "Text my coach I can't check the score"),
+        lambda ctx: setattr(ctx, "user_message_content", "Translate to Spanish: I can't check it"),
+        _follow_a_draft,
+    ],
+    ids=[
+        "verified",
+        "money",
+        "worked",
+        "after card",
+        "small talk",
+        "lesson",
+        "draft",
+        "translation",
+        "draft follow-up",
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_turn_whose_denial_is_no_live_fact_is_never_checked(
+    web_search_tool: dict[str, Any], denial_check: AsyncMock, turn: Any
+) -> None:
+    """Review (2026-11-11): the check ran on nearly every turn. Numbers a server path
+    worked, a lesson's step, a card's answer and the user's own words to send hold no claim
+    a search could fix; they pay no second Decider call and wait for none."""
+    ctx = _retry_context(tool=web_search_tool)
+    turn(ctx)
+    llm, seen = _model(([_DENIAL], []), (["never asked"], []))
+    assert await _reply(ctx, llm) == _DENIAL
+    assert len(seen) == 1
+    denial_check.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -542,11 +632,15 @@ async def test_a_held_mark_of_the_denial_never_reaches_the_answer(
     assert accum.reply_text() == "The Bears won."
 
 
-def _read(live: bool | None, query: str = "", *, asked: bool = False) -> asyncio.Future[Any]:
+def _read(
+    live: bool | None, query: str = "", *, asked: bool = False, odds: float | None = None
+) -> asyncio.Future[Any]:
     from app.modules.chat.turn_decision import TurnDecision
 
     async def done() -> TurnDecision | None:
-        return None if live is None else TurnDecision(live=live, query=query, asked=asked)
+        if live is None:
+            return None
+        return TurnDecision(live=live, query=query, asked=asked, live_odds=odds)
 
     return asyncio.ensure_future(done())
 
@@ -586,6 +680,51 @@ async def test_a_settled_read_takes_the_search_tool_off_the_reply(
     assert ctx.reply_tools == ([web_search_tool] if offered else [])
     assert ctx.reply_requires is None
     assert ctx.prompt_messages == [{"role": "user", "content": "how do I reset my AirPods"}]
+
+
+@pytest.mark.parametrize(
+    ("live", "odds", "retry", "requires"),
+    [
+        # Settled: a reply that then denies live facts is asked again, offered the search.
+        (False, 0.05, True, None),
+        # Settled, but close to live ("Top 5 universities in Ethiopia" read 0.15): it must.
+        (False, 0.2, True, "web_search"),
+        # The text read gives no odds: offered.
+        (False, None, True, None),
+        # No read in time: the reply held the search itself, and nothing is checked.
+        (None, None, False, None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_only_a_settled_read_lets_a_denial_be_asked_again(
+    web_search_tool: dict[str, Any],
+    live: bool | None,
+    odds: float | None,
+    retry: bool,
+    requires: Any,
+) -> None:
+    ctx = _context("Top 5 universities in Ethiopia")
+    ctx.live_read = _read(live, odds=odds)  # type: ignore[assignment]
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    await run_tool_loop_path(
+        deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
+    )
+    assert ctx.denial_retry_tools == ([web_search_tool] if retry else [])
+    read = answered_read(ctx)
+    assert (read is not None and read.nearly_live) is (requires is not None)
+
+
+@pytest.mark.asyncio
+async def test_a_turn_the_read_never_saw_is_never_checked() -> None:
+    """Small talk carries no search tool, so its read is never waited for: no retry."""
+    ctx = _context("thanks!")
+    ctx.lightweight_turn = True
+    ctx.live_read = _read(False, odds=0.01)  # type: ignore[assignment]
+    deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
+    await run_tool_loop_path(
+        deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
+    )
+    assert ctx.denial_retry_tools == []
 
 
 def test_a_settled_read_keeps_recall_chats() -> None:

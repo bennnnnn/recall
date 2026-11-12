@@ -462,6 +462,9 @@ async def test_the_read_says_how_the_message_leans_on_the_conversation(
     [
         {"after_card": True},
         {"recent_messages": [SimpleNamespace(role="assistant", content=_LESSON)]},
+        # Numbers a server path worked are the reply's to present (review, 2026-11-11).
+        {"verified_subject": VerifiedSolveBlock(text="x = 6", subject="math")},
+        {"money": MagicMock(name="money")},
         {
             "recent_messages": [
                 SimpleNamespace(role="user", content="teach me python"),
@@ -469,13 +472,14 @@ async def test_the_read_says_how_the_message_leans_on_the_conversation(
             ]
         },
     ],
-    ids=["clarify card", "lesson", "outline"],
+    ids=["clarify card", "lesson", "outline", "verified", "money"],
 )
 @pytest.mark.asyncio
 async def test_a_turn_that_reads_its_reply_its_own_way_gets_no_follow_note(
     fields: dict[str, Any],
 ) -> None:
-    """A card's picks, a lesson's answer and an outline's pick have their own notes."""
+    """A card's picks, a lesson's answer and an outline's pick have their own notes, and a
+    server path's numbers their own reply."""
     ctx = _follow_turn("variables", _follow_read("answer"), **fields)
     await decide_from_the_read(ctx, _SETTINGS)
     assert not any(m["content"] in FOLLOW_NOTES.values() for m in ctx.prompt_messages)

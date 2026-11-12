@@ -33,7 +33,7 @@ from app.modules.chat.tool_loop.parts import open_parts
 from app.modules.chat.tool_loop.results import ToolResults
 from app.modules.chat.tool_loop.rounds import first_unanswered_tool_turn
 from app.modules.chat.tool_loop.selection import last_user_content, user_words
-from app.modules.chat.turn_decision import turn_decision_result
+from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.memory.recall_tool import RECALL_TOOL
 from app.modules.web_search import TurnTavilyBudget
 
@@ -77,15 +77,21 @@ def _recall_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
     return [to_tool()] if callable(to_tool) else []
 
 
+def search_switches_on(settings: Settings) -> bool:
+    """Every switch the reply's search needs is on (``web_search_enabled`` carries the
+    user's own once the turn has read it)."""
+    return bool(
+        settings.mcp_tool_loop_enabled
+        and settings.reply_search_tool_enabled
+        and settings.web_search_enabled
+    )
+
+
 def _search_tools(settings: Settings, turn: ReplyTurn) -> list[dict[str, Any]]:
     """``web_search``, or nothing when search is off (``web_search_enabled`` already
     carries the user's switch), a quick reply or a verified solve answered the turn, or
     a search already ran. Whether the turn needs one is the model's call."""
-    if not (
-        settings.mcp_tool_loop_enabled
-        and settings.reply_search_tool_enabled
-        and settings.web_search_enabled
-    ):
+    if not search_switches_on(settings):
         return []
     if turn.lightweight or turn.has_instant_reply or turn.has_search_sources:
         return []
@@ -103,11 +109,7 @@ def offers_search(tools: list[dict[str, Any]]) -> bool:
 
 def web_search_tool(settings: Settings) -> list[dict[str, Any]]:
     """``web_search`` as the reply's call carries it, while its switches are on."""
-    if not (
-        settings.mcp_tool_loop_enabled
-        and settings.reply_search_tool_enabled
-        and settings.web_search_enabled
-    ):
+    if not search_switches_on(settings):
         return []
     adapter = mcp_registry.get(REPLY_TOOL)
     to_tool = getattr(adapter, "to_openai_tool", None)
@@ -226,28 +228,29 @@ async def search_the_live_read(
     *,
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
-) -> None:
+) -> TurnDecision | None:
     """A model read the message beside the prep (``chat.turn_decision``). An answer that
     depends on facts that change is searched with the read's own query, so the reply
     answers from the results in one call, and so is one the user asked to search; with no
     query, the reply's call must search. A read that found nothing that changes takes
-    ``web_search`` off the reply's call. With no answer in time, the reply keeps it."""
+    ``web_search`` off the reply's call. With no answer in time, the reply keeps it. The
+    read, or None when it gave no answer in time."""
     if ctx.live_read is not None and not ctx.live_read.done() and on_status is not None:
         # A model is still reading the question: say so rather than show nothing. A search
         # it asks for shows next, with its query ("Searching — …").
         await on_status("thinking", None)
     read = await turn_decision_result(ctx.live_read, settings)
     if read is None:
-        return
+        return None
     if not read.searches:
         # One decider: the read found nothing that changes, so the reply has no search to
         # make. Told so and still offered the tool, GPT-6 Luna searched how-tos and the way
         # to a place the chat had named on about one turn in twelve (2026-11-09).
         ctx.reply_tools = _without_search(ctx.reply_tools)
-        return
+        return read
     if not read.query.strip():
         ctx.reply_requires = REPLY_TOOL
-        return
+        return read
     call = {
         "id": "live_read",
         "type": "function",
@@ -269,9 +272,18 @@ async def search_the_live_read(
     )
     if ctx.prompt_messages is before:
         # The search broke: the reply's model still decides.
-        return
+        return read
     # One search a turn: the reply reads these results and carries no second search.
     ctx.reply_tools = _without_search(ctx.reply_tools)
+    return read
+
+
+def answered_read(ctx: StreamContext) -> TurnDecision | None:
+    """The turn's read once it has answered; None while it runs, or when it failed."""
+    task = ctx.live_read
+    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
+        return None
+    return task.result()
 
 
 def _without_search(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:

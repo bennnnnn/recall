@@ -29,8 +29,19 @@ _HARD_AT = 0.95
 # with their labels on 93%.
 _STEM_HARD_AT = 0.7
 _LIVE_AT = 0.35
+# Below the line but close to it: a reply that then says it can't check live facts is asked
+# again and made to search (``tool_loop.live_denial``); further off, it is only offered the
+# search. "Top 5 universities in Ethiopia" alone read 0.15 before rankings were named; the
+# settled reads this close are mostly about the user's own place ("is it far?", 0.26).
+NEAR_LIVE_AT = 0.15
 _ASKED_AT = 0.5
 _STEM = frozenset({"maths", "physics", "chemistry"})
+
+# How the live question reads a short follow-up: as the question it stands for (below).
+LIVE_IN_CONTEXT = (
+    "Judge what the last message asks once the conversation fills in what it leaves out "
+    "(a yes to the assistant's question asks what that question offered)."
+)
 
 QUESTIONS: dict[str, dict[str, Any]] = {
     "subject": {
@@ -118,8 +129,7 @@ QUESTIONS: dict[str, dict[str, Any]] = {
             "Does the answer need facts that change, or that a model trained in the past "
             "cannot know as of today: news, results, rankings, the latest of anything, who "
             "holds an office now, prices, weather, schedules, opening hours, places near the "
-            "user? Judge what the last message asks once the conversation fills in what it "
-            "leaves out (a yes to the assistant's question asks what that question offered). "
+            f"user? {LIVE_IN_CONTEXT} "
             "Not advice, how-to, settled knowledge, maths, writing, the user's own life or "
             "chats, getting to a place already named, or work on the conversation itself."
         ),
@@ -166,6 +176,7 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "picture": get("picture", "choice"),
         "follow": get("follow", "choice") if has_earlier else "none",
         "live": max(live, asked) >= _LIVE_AT,
+        "live_odds": max(live, asked),
         "asked": asked >= _ASKED_AT,
     }
 

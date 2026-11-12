@@ -24,6 +24,8 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.modules.chat import tool_loop
 from app.modules.chat.control_tokens import until_control_run
+from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
+from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.stream_health import ReplyHealth, probe_gate
@@ -185,13 +187,14 @@ async def run_tool_loop_path(
     if not gate.needs_loop(settings, ctx.user):
         prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
         ctx.reply_tools = gate.reply_tools(settings, prompt, ctx.user)
-        searches = reply_calls.offers_search(ctx.reply_tools)
-        if searches:
-            await reply_calls.search_the_live_read(
+        read = None
+        if reply_calls.offers_search(ctx.reply_tools):
+            read = await reply_calls.search_the_live_read(
                 settings, redis, ctx, on_status=on_status, should_cancel=should_cancel
             )
-            searches = reply_calls.offers_search(ctx.reply_tools) or bool(ctx.search_sources)
-        if not (searches or gate.has_search_sources or gate.has_instant_reply):
+        # A reply that denies live facts is asked again only where the read called the
+        # answer settled: with no read in time the reply held the search itself.
+        if read is not None and not read.searches:
             ctx.denial_retry_tools = reply_calls.web_search_tool(settings)
         return
     rounds = await tool_loop.run_tool_rounds(
@@ -225,11 +228,22 @@ class _ReplyRound:
     calls: list[dict[str, Any]] = field(default_factory=list)
 
 
-def _denial_retry(tools: list[dict[str, Any]]) -> _ReplyRound:
-    """The call after a retracted denial: it must search, so the answer it writes has
-    results to give and does not deny again. A break leads it, after the denial the phone
-    drew."""
-    return _ReplyRound(tools=tools, lead="\n\n", require=reply_calls.REPLY_TOOL)
+async def _denial_retry(
+    ctx: StreamContext, tools: list[dict[str, Any]], on_status: StreamStatusFn | None
+) -> _ReplyRound:
+    """The call after a retracted denial. The phone takes the denial down (``retract``); a
+    client that keeps it shows a break before the new answer. A read close to live makes
+    the call search, so its answer has results to give; further off it is offered the
+    search with a note that it can look public facts up, and its model decides: a search
+    sends words from the conversation to the web, so a settled read is not overruled on
+    the reply's word alone."""
+    if on_status is not None:
+        await on_status("retract")
+    read = reply_calls.answered_read(ctx)
+    if read is not None and read.nearly_live:
+        return _ReplyRound(tools=tools, lead="\n\n", require=reply_calls.REPLY_TOOL)
+    ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DENIAL_RETRY_NOTE)
+    return _ReplyRound(tools=tools, lead="\n\n")
 
 
 async def run_llm_token_stream(
@@ -281,12 +295,12 @@ async def run_llm_token_stream(
                 ctx.model = resolved
             # "I can't check live scores" with no tool offered: ask again (``_denial_retry``).
             if retry_tools and await live_denial.asks_again(
-                settings, ctx, reply_round.calls, accum, written
+                settings, ctx, reply_round.calls, accum, written, should_cancel
             ):
                 accum.retract(written, shown_from)
                 # A held "!" or "[" was the denial's, never drawn: the new round starts clean.
                 scaffold = ReplyFilter(accum, ctx.worked)
-                reply_round, retry_tools = _denial_retry(retry_tools), []
+                reply_round, retry_tools = await _denial_retry(ctx, retry_tools, on_status), []
                 continue
             # Only a call that carried tools leads to another: one search a turn.
             if not (reply_round.tools and reply_round.calls) or accum.was_cancelled:

@@ -147,16 +147,17 @@ def prior_looks_like_offer(prior_assistant: str | None) -> bool:
     with a question (2026-11-11)."""
     if not prior_assistant:
         return False
+    # A lesson step ends on a check question, even when its options trail it or a card
+    # holds them.
+    if lesson_step(prior_assistant) is not None:
+        return True
     cleaned = collapse_ws(without_fences(prior_assistant))
     if not cleaned:
         return False
     tail = cleaned[-400:].lower()
     if any(phrase in tail for phrase in _OFFER_PHRASES):
         return True
-    if "?" in cleaned[-200:]:
-        return True
-    # A lesson step ends on a check question, even when its options trail it.
-    return lesson_step(prior_assistant) is not None
+    return "?" in cleaned[-200:]
 
 
 # Emoji, flags, joiners ("hi 👋" is "hi"); of U+2300-23FF only the watch, hourglasses, keyboard

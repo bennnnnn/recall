@@ -8,8 +8,13 @@ from typing import Protocol
 from app.core.config import Settings
 from app.models.orm import User
 from app.modules import web_search as web_search_service
-from app.modules.chat.prompt_constants import PHOTO_LOOKUP_HINT
+from app.modules.chat.prompt_constants import (
+    PHOTO_LOOKUP_HINT,
+    SEARCH_UNAVAILABLE_HINT,
+    WEB_SEARCH_OFF_HINT,
+)
 from app.modules.chat.prompt_profile import USE_THE_LOCATION
+from app.modules.chat.tool_loop.reply_calls import search_switches_on
 from app.modules.chat.turn_prep.saved_place import profile_place
 from app.services import time_context as time_context_service
 from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
@@ -74,6 +79,15 @@ def lookup_hints(settings: Settings) -> list[str]:
     if settings.image_search_enabled:
         parts.append(PHOTO_LOOKUP_HINT)
     return parts
+
+
+def search_off_hints(user: User, settings: Settings) -> list[str]:
+    """Nothing can be looked up this turn, so the grounding rule's "the app looks it up when
+    they say yes" is not true: the user's own switch points to Settings; a server switch
+    (``reply_calls.search_switches_on``) offers nothing, and no setting is the reason."""
+    if user.web_search_enabled is False:
+        return [WEB_SEARCH_OFF_HINT]
+    return [] if search_switches_on(settings) else [SEARCH_UNAVAILABLE_HINT]
 
 
 def integration_hints(

@@ -53,11 +53,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # a short message read with the conversation that fills it in and a reply to the assistant's
 # own question taken as its answer (UNCLEAR_MESSAGE_HINT, CONFIRMED_HINT, and FOLLOW_NOTES
 # beside a message the turn's read calls an answer or a change), and no claim that the app
-# cannot look something up unless the user turned web search off (FACT_GROUNDING_HINT,
-# WEB_SEARCH_OFF_HINT).
-_RULES = 179
-_RULE_GRAMS = 16427
-_RULE_GRAMS_SHA = "0759739396858bfd"
+# cannot look public facts up unless search is off, by the user or the server
+# (FACT_GROUNDING_HINT, WEB_SEARCH_OFF_HINT, SEARCH_UNAVAILABLE_HINT), and a reply's second
+# call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE).
+_RULES = 181
+_RULE_GRAMS = 16508
+_RULE_GRAMS_SHA = "b6c2f76248252340"
 
 
 def _rules() -> list[str]:
