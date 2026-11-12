@@ -208,8 +208,9 @@ def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> Non
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert "**Electrical power formula**  \n$P = VI$" in reply
-    assert "— the same law for these quantities" in reply
-    assert "$P = I^2 R$" in reply
+    # The form the substitution uses follows the law with no stock note under it.
+    assert "$P = VI$  \n$P = I^2 R$\n" in reply
+    assert "the same law for these quantities" not in reply
     assert "**Substitution**  \n$P = (3\\,\\mathrm{A})^{2} \\times 4\\,\\Omega$" in reply
 
 

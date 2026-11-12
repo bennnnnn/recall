@@ -18,7 +18,6 @@ from app.modules.physics.asked_names import asked_meaning
 from app.modules.physics.bodies import side_questions
 from app.modules.physics.catalog import (
     formula_spec,
-    select_formula,
     symbol_for,
     variable_for,
     visible_assumptions,
@@ -26,6 +25,7 @@ from app.modules.physics.catalog import (
 from app.modules.physics.claims import claim_verdict, read_claims
 from app.modules.physics.display import is_conversion_row
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.formula_rows import formula_rows
 from app.modules.physics.given_rows import given_value
 from app.modules.physics.glossary import given_meaning
 from app.modules.physics.law_steps import law_steps
@@ -41,14 +41,7 @@ from app.services.latex_markup import without_markup
 from app.services.law_binding.inverse import form_params
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.worked_parts import WorkedPart, render_parts
-from app.services.workout import (
-    Workout,
-    math_line,
-    render_workout,
-    solve_for_line,
-    text_line,
-    where_line,
-)
+from app.services.workout import Workout, math_line, render_workout, text_line, where_line
 
 _EXTRA_REQUEST = re.compile(
     r"\b(?:hint|air resistance|(?<!stokes )(?<!stokes' )drag|wind|"
@@ -164,73 +157,6 @@ def _parameter_symbol(name: str, operation: str) -> str:
     return shown(symbol, operation)
 
 
-# A script of one character with or without braces (v^{2}, v^2), and a function of one
-# argument with or without brackets (\sin(\theta), \sin\theta; \arcsin(\frac{1}{n}),
-# \arcsin\frac{1}{n}), print the same law.
-_BRACED_SCRIPT = re.compile(r"([_^])\{(\\[A-Za-z]+|[A-Za-z0-9])\}")
-_FUNCTION_BRACKET = re.compile(r"\\(?:arcsin|arccos|arctan|sin|cos|tan|ln|log)\(")
-_ONE_ARGUMENT = re.compile(r"\\?[A-Za-z]+(?:_[A-Za-z0-9])?|\\(?:frac|sqrt)(?:\{[^{}]*\})+")
-
-
-def _unbracket_functions(text: str) -> str:
-    """Drop the brackets round a function's argument when the argument is one atom."""
-    out: list[str] = []
-    cursor = 0
-    for match in _FUNCTION_BRACKET.finditer(text):
-        if match.start() < cursor:
-            continue
-        depth, close = 1, match.end()
-        while close < len(text) and depth:
-            depth += {"(": 1, ")": -1}.get(text[close], 0)
-            close += 1
-        inner = text[match.end() : close - 1]
-        if depth == 0 and _ONE_ARGUMENT.fullmatch(inner):
-            out.append(text[cursor : match.end() - 1] + inner)
-            cursor = close
-    return "".join(out) + text[cursor:]
-
-
-def _formula_identity(formula: str) -> str:
-    """Ignore presentation-only differences when comparing laws: spacing,
-    multiplication dots, braces round a one-character script, brackets round a
-    one-atom argument. Torque and centripetal force were each listed twice."""
-    text = formula.replace(r"\cdot", "").replace(r"\times", "").replace(r"\,", "").replace(" ", "")
-    return _unbracket_functions(_BRACED_SCRIPT.sub(r"\1\2", text))
-
-
-def _formula_rows(
-    intent: PhysicsIntent, formulas: list[str], operation: str | None = None
-) -> list[str]:
-    """The governing law's base form, then any rearrangement, as a step: ``Solve for $t$``
-    over the rearranged formula. The law's name is the section's heading (``law_heading``),
-    so no row repeats it. ``operation`` is one part's, in a question in parts."""
-    operation = operation or intent.physics_op or ""
-    spec = formula_spec(operation)
-    params = intent.physics_params or {}
-    base: str | None = None
-    lines: tuple[str, ...] = ()
-    if spec is not None:
-        base, lines, _assumptions = select_formula(spec, form_params(spec, params))
-        base = None if base is None else shown(base, operation)
-        lines = tuple(shown(line, operation) for line in lines)
-    if lines:
-        return [math_line(line) for line in lines]
-    if base is None:
-        return [math_line(formula) for formula in formulas]
-
-    rows = [math_line(base)]
-    base_lhs = base.split(" = ", 1)[0].strip()
-    for formula in formulas:
-        formula_lhs = formula.split(" = ", 1)[0].strip()
-        if _formula_identity(formula) == _formula_identity(base):
-            continue
-        if formula_lhs == base_lhs:
-            rows.append(math_line(formula, "the same law for these quantities"))
-        else:
-            rows.extend((solve_for_line(formula_lhs), math_line(formula)))
-    return rows
-
-
 def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     """Five-section worked layout for a solver-verified instant reply.
 
@@ -279,12 +205,12 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     substitutions = list(verified.physics_substitutions)
     result_symbol = result_symbol_for(intent)
     find_symbol = result_symbol or formulas[0].split(" = ", 1)[0]
-    formula_rows = [*_formula_rows(intent, formulas), *steps.formula]
+    law_rows = [*formula_rows(intent, formulas, find_symbol), *steps.formula]
     answer = verified.display_answer or verified.canonical_answer
     worked = carried_to_answer(substitutions, answer, working_units(intent, formulas, answer))
     spec = formula_spec(intent.physics_op or "")
     if spec is not None:
-        formula_rows.extend(
+        law_rows.extend(
             text_line(f"Assumes {assumption}.")
             for assumption in visible_assumptions(spec, form_params(spec, params))
         )
@@ -298,7 +224,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
                     asked_meaning(operation, find_symbol, _answer_unit(verified.canonical_answer)),
                 ),
             ),
-            formula=tuple(formula_rows),
+            formula=tuple(law_rows),
             substitution=tuple(math_line(row) for row in (*steps.substitution, *worked)),
             formula_heading=law_heading(spec.law_name) if spec is not None else "",
         )
@@ -346,7 +272,7 @@ def _format_parts(
     worked: list[WorkedPart] = []
     for part in verified.physics_parts:
         spec = formula_spec(part.op)
-        rows = _formula_rows(intent, list(part.formulas), part.op)
+        rows = formula_rows(intent, list(part.formulas), part.symbol, part.op)
         if spec is not None:
             params = form_params(spec, intent.physics_params or {})
             rows.extend(text_line(f"Assumes {item}.") for item in visible_assumptions(spec, params))
