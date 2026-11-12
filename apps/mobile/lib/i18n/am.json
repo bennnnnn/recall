@@ -893,7 +893,7 @@
   "settings.memory_count_other": "{{count}} ተቀምጠዋል",
   "settings.memory_desc": "ይህ ሲጠፋ Recall አዳዲስ እውነታዎችን ማስቀመጥ ያቆማል፣ የተቀመጡ እውነታዎችንና ያለፉ ውይይቶችን በመልሶቹ መጠቀምም ያቆማል። የተቀመጡ እውነታዎች እስኪሰርዟቸው ድረስ ይቆያሉ።",
   "settings.memory_include_sensitive": "ስሱ ርዕሶችን አካትት",
-  "settings.memory_include_sensitive_desc": "ይህን ካላበሩት በቀር የጤና፣ የሕግ፣ የገንዘብ እና ተመሳሳይ እውነታዎች አይቀመጡም።",
+  "settings.memory_include_sensitive_desc": "የጤና፣ የሕግ፣ የገንዘብ እና ተመሳሳይ እውነታዎችንም ያስቀምጣል። እንዳይቀመጡ ያጥፉት።",
   "settings.memory_view": "የተቀመጡ ትውስታዎች",
   "settings.model": "ሞዴሎች",
   "settings.model_auto": "ራስ-ሰር",

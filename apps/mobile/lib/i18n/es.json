@@ -902,7 +902,7 @@
   "settings.memory_count_other": "{{count}} guardados",
   "settings.memory_desc": "Si lo desactivas, Recall deja de guardar datos nuevos y de usar los guardados y los chats anteriores en sus respuestas. Lo guardado se queda hasta que lo elimines.",
   "settings.memory_include_sensitive": "Incluir temas sensibles",
-  "settings.memory_include_sensitive_desc": "Los datos de salud, legales, financieros y similares quedan fuera a menos que actives esto.",
+  "settings.memory_include_sensitive_desc": "También guarda datos de salud, legales, financieros y similares. Desactívalo para dejarlos fuera.",
   "settings.memory_view": "Recuerdos guardados",
   "settings.model": "Modelo predeterminado",
   "settings.model_auto": "Automático",

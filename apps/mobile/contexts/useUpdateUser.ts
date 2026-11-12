@@ -1,4 +1,4 @@
-import { useCallback, useState, type MutableRefObject } from "react";
+import { useCallback, useRef, useState, type MutableRefObject } from "react";
 
 import { api, type User } from "@/lib/api";
 import { emitAppEvent } from "@/lib/appEvents";
@@ -50,27 +50,41 @@ export function useUpdateUser({
   setProfileValidated,
 }: Options): (patch: Partial<User>) => Promise<void> {
   const [queue] = useState(createSaveQueue);
+  // What the server last said the user is: read when no save is waiting, then each answer.
+  // A failed last save puts this back, never a snapshot holding an earlier save that failed.
+  const confirmed = useRef<User | null>(null);
+  const waiting = useRef(0);
   return useCallback((patch: Partial<User>) => {
     if (!token || !isCurrent(sessionGeneration)) return Promise.resolve();
     const revision = ++revisionRef.current;
     const snapshot = userRef.current;
     const snapshotValidated = profileValidated;
+    if (waiting.current === 0) confirmed.current = snapshot;
+    waiting.current += 1;
     setCurrentUser((previous) => previous ? { ...previous, ...patch } : previous);
     return queue.run(async () => {
       try {
+        // Signed out while it waited: the next account's saves never queue behind it.
+        if (!isCurrent(sessionGeneration)) throw new Error("signed out");
         const updated = await api.updateMe(token, patch);
-        if (!isCurrent(sessionGeneration) || revision !== revisionRef.current) return;
-        setCurrentUser(updated);
-        setProfileValidated(true);
-        void writeCachedUser(updated);
-        // Saved now: what the server derives from them (a to-do's notify_at) may read again.
+        if (!isCurrent(sessionGeneration)) return;
+        confirmed.current = updated;
+        if (revision === revisionRef.current) {
+          setCurrentUser(updated);
+          setProfileValidated(true);
+          void writeCachedUser(updated);
+        }
+        // Saved now, a later save waiting or not: what the server derives from these fields
+        // (a to-do's notify_at, from quiet hours) may read again.
         const fields = (Object.keys(patch) as (keyof User)[]).filter((field) => snapshot?.[field] !== updated[field]);
         if (fields.length) emitAppEvent("userUpdated", { fields });
       } catch {
         const owns = isCurrent(sessionGeneration) && revision === revisionRef.current;
-        if (owns) { setCurrentUser(snapshot); setProfileValidated(snapshotValidated); }
+        if (owns) { setCurrentUser(confirmed.current ?? snapshot); setProfileValidated(snapshotValidated); }
         // Failed, whoever owns the user now: no caller may count this save as made.
         throw new Error("update failed");
+      } finally {
+        waiting.current -= 1;
       }
     });
   }, [token, sessionGeneration, profileValidated, isCurrent, userRef, revisionRef, setCurrentUser, setProfileValidated, queue]);

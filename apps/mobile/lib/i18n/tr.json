@@ -893,7 +893,7 @@
   "settings.memory_count_other": "{{count}} kayıtlı",
   "settings.memory_desc": "Kapalıyken Recall yeni bilgi kaydetmez, kayıtlı bilgileri ve önceki sohbetleri yanıtlarında kullanmaz. Kayıtlı bilgiler sen silene kadar kalır.",
   "settings.memory_include_sensitive": "Hassas konuları dahil et",
-  "settings.memory_include_sensitive_desc": "Sağlık, hukuk, finans ve benzeri bilgiler, bunu açmadığın sürece dışarıda kalır.",
+  "settings.memory_include_sensitive_desc": "Sağlık, hukuk, finans ve benzeri bilgileri de kaydeder. Bunları dışarıda tutmak için kapat.",
   "settings.memory_view": "Kaydedilen hatıralar",
   "settings.model": "Varsayılan model",
   "settings.model_auto": "Otomatik",

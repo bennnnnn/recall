@@ -763,7 +763,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   chat-history recall cannot bring a deleted fact back.
 - ✅ **Memory toggle** — off means no personal recall: no new learning, no saved facts in
   replies, no chat-history retrieval or indexing, no instant profile answers (saved facts
-  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one
+  remain until deleted). **Include sensitive topics**, on for a new account since 2026-11-11. **Delete and turn off** is one
   API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.

@@ -902,7 +902,7 @@
   "settings.memory_count_other": "{{count}} salvati",
   "settings.memory_desc": "Se è disattivata, Recall smette di salvare nuovi fatti e di usare quelli salvati e le chat passate nelle risposte. I fatti salvati restano finché non li elimini.",
   "settings.memory_include_sensitive": "Includi argomenti sensibili",
-  "settings.memory_include_sensitive_desc": "I fatti su salute, questioni legali, finanze e simili restano esclusi, a meno che non attivi questa opzione.",
+  "settings.memory_include_sensitive_desc": "Salva anche fatti su salute, questioni legali, finanze e simili. Disattivalo per escluderli.",
   "settings.memory_view": "Ricordi salvati",
   "settings.model": "Modello predefinito",
   "settings.model_auto": "Automatico",

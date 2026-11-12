@@ -902,7 +902,7 @@
   "settings.memory_count_other": "{{count}} salvas",
   "settings.memory_desc": "Desativada, a Recall deixa de salvar fatos novos e de usar os salvos e as conversas anteriores nas respostas. Os fatos salvos ficam até você excluí-los.",
   "settings.memory_include_sensitive": "Incluir temas sensíveis",
-  "settings.memory_include_sensitive_desc": "Fatos de saúde, jurídicos, financeiros e similares ficam de fora, a menos que você ative isto.",
+  "settings.memory_include_sensitive_desc": "Também guarda fatos de saúde, jurídicos, financeiros e similares. Desative para deixá-los de fora.",
   "settings.memory_view": "Memórias salvas",
   "settings.model": "Modelo padrão",
   "settings.model_auto": "Automático",

@@ -893,7 +893,7 @@
   "settings.memory_count_other": "{{count}} gespeichert",
   "settings.memory_desc": "Wenn das aus ist, speichert Recall keine neuen Fakten und nutzt gespeicherte Fakten und frühere Chats nicht mehr in Antworten. Gespeicherte Fakten bleiben, bis du sie löschst.",
   "settings.memory_include_sensitive": "Sensible Themen einbeziehen",
-  "settings.memory_include_sensitive_desc": "Fakten zu Gesundheit, Recht, Finanzen und Ähnlichem werden nur gespeichert, wenn du das einschaltest.",
+  "settings.memory_include_sensitive_desc": "Speichert auch Fakten zu Gesundheit, Recht, Finanzen und Ähnlichem. Schalte es aus, um sie auszuschließen.",
   "settings.memory_view": "Gespeicherte Erinnerungen",
   "settings.model": "Standardmodell",
   "settings.model_auto": "Automatisch",

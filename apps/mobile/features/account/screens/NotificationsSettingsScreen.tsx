@@ -168,8 +168,8 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           <SettingsSwitchRow
             title={t("settings.push_notifications")}
             value={pushToggle.value}
-            // Its own flow asks the phone for permission and registers it: one at a time.
-            disabled={busyAction === "push"}
+            // Its permission flow waits for the time rows' saves: held, never a tap that does nothing.
+            disabled={busyAction !== null}
             onValueChange={pushToggle.toggle}
           />
           {pushToggle.value

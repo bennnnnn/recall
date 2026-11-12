@@ -893,7 +893,7 @@
   "settings.memory_count_other": "{{count}} saved",
   "settings.memory_desc": "When this is off, Recall stops saving new facts and stops using saved facts and past chats in replies. Saved facts stay until you delete them.",
   "settings.memory_include_sensitive": "Include sensitive topics",
-  "settings.memory_include_sensitive_desc": "Health, legal, finance, and similar facts stay out unless you turn this on.",
+  "settings.memory_include_sensitive_desc": "Saves health, legal, finance and similar facts too. Turn it off to keep them out.",
   "settings.memory_view": "Saved memories",
   "settings.model": "Models",
   "settings.model_auto": "Auto",

@@ -902,7 +902,7 @@
   "settings.memory_count_other": "{{count}} enregistrés",
   "settings.memory_desc": "Quand c'est désactivé, Recall n'enregistre plus de nouveaux faits et n'utilise plus les faits enregistrés ni les anciennes discussions dans ses réponses. Les faits enregistrés restent jusqu'à ce que vous les supprimiez.",
   "settings.memory_include_sensitive": "Inclure les sujets sensibles",
-  "settings.memory_include_sensitive_desc": "Les faits liés à la santé, au droit, aux finances et similaires sont exclus, sauf si vous activez cette option.",
+  "settings.memory_include_sensitive_desc": "Enregistre aussi les faits liés à la santé, au droit, aux finances et similaires. Désactivez cette option pour les exclure.",
   "settings.memory_view": "Souvenirs enregistrés",
   "settings.model": "Modèle par défaut",
   "settings.model_auto": "Automatique",
