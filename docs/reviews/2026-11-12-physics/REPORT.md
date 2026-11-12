@@ -14,7 +14,7 @@ Anything not measured is marked **not verified**.
 | Is it robust? | **No, and this is the main weakness.** The numbers come from word patterns. 16 of 24 natural rewordings solved (67%), and 0 of 6 non-English questions did (the app ships 9 languages). The decider does not change this: it picks the lane and the layout, not the numbers. | §1.4 |
 | Is the code clean? | **Safe, but heavy.** No resource leaks, almost no dead code, low copy-paste. The weight is elsewhere: about 2,000 hand-written regexes reading English, 13 functions graded F for complexity in physics alone, an extractor order that silently matters, two SymPy cold starts of 0.3–2.7 s on the request path, and one Pint hot spot worth about 45% of read time. | §2 |
 | Add a subject tomorrow? | **It won't "just work."** Wired through the documented seam, a test subject was read correctly, then silently never solved. It took 3 undocumented edits to get a verified card, and about 15 more chat files plus about 17 mobile and locale files for parity. All tests stayed green throughout. | §3.1 |
-| Add or remove a model tomorrow? | PENDING | §3.2 |
+| Add or remove a model tomorrow? | **Adding works**: 3 files (catalog plus 2 guard tests), 4 with Auto routing; no mobile change. **Removing is unsafe**: catalog-only removal fails 25 tests, and users whose saved model was removed can neither send messages nor fix their settings until a data migration rewrites the saved value. A lane naming a removed model causes a `KeyError` at runtime. | §3.2 |
 
 ## How this was tested, and its limits
 
@@ -202,7 +202,70 @@ With the seam files alone, every test in `architecture/`, `test_battery`, `test_
 
 ### 3.2 Models: add one or remove one?
 
-PENDING
+**Adding a model works.** **Removing one is unsafe without a data migration**, and nothing reminds you to write one. Both were tested in a throwaway worktree, nothing committed.
+
+**The layer.**
+- The catalog is one list: `models/model_catalog.py:145-380`.
+- Each entry carries an OpenRouter slug and its capabilities: `supports_vision`, `supports_tools`, `json_mode`, `context_tokens`, `cache_breakpoints`, plan access, thinking levels and quota multiplier.
+- Which model does which job is data: `models/routing_lanes.py:94-124`.
+- The phone keeps no model list; it renders what `/models` returns (`ModelsSettingsScreen.tsx`).
+- Chat goes through one gateway (`gateways/litellm_gateway.py`, `resolve_route` at :74).
+
+#### Experiment A: add a model
+
+I added `mistral-small-4` to the catalog only (fast tier, paid plans, vision, tools and JSON).
+
+| Check | Result |
+|---|---|
+| Shows in `/models`, is pickable on Plus and Pro, and is rejected on Free | ✔ |
+| Joins fallback chains | ✔ `fallbacks for free-chat: ['qwen-3.7-flash', 'mistral-small-4']` |
+| Auto picks it | ✘ only when a lane names it, which needs a 4th file, `routing_lanes.py` |
+| Users with saved model settings get it | ✘ only users with no saved list |
+| Tests | 2 deliberate guards fail (`test_selectable_models_count`, `test_every_thinking_level_is_one_the_model_lists`). After updating them, 1,173 model-related tests pass. Mobile `pnpm typecheck` passes. |
+
+**Cost: 3 files, or 4 with Auto.** One gap: a model from a **new provider company** also needs the privacy policy (`content/privacy_policy.py:49`), the consent text (`onboarding.consent_chats_body` × 9 locales) and `apps/web/src/components/AiConsent.tsx:10` updated. No test ties those to the catalog.
+
+#### Experiment B: remove a model
+
+I removed `glm-5.3-flash` from the catalog only. It was the least coupled choice: it is named only in `math_backups`.
+
+- **25 tests fail** in 10 files.
+- Real behaviour changes: Free-plan hard and code questions move to `free-chat`, and Free's maths backup disappears silently, because `math_backups` still names the removed model and nothing fails.
+- **Users whose saved settings name the removed model, with Auto off, are stuck:**
+  1. The phone sends its first saved model (`apps/mobile/features/chat/hooks/useChatComposerState.ts:15-19`).
+  2. `ChatMessageRequest` rejects it ("Unknown model alias", `model_catalog.py:488`). Over WebSocket that shows as "Invalid message" (`ws_api.py:203`); over SSE it is a 422. New chats fail the same way.
+  3. Fixing it in Settings also fails. The screen sends the whole saved list back (`ModelsSettingsScreen.tsx:65-69`), and `UserUpdate.validate_enabled_models` (`models/schemas/auth.py:221-232`) rejects the dead model before the service-layer cleanup that would drop it. The dead model has no row on screen to switch off.
+  4. The server-side steps were confirmed by a probe test. The phone-side steps come from reading the code (**not run on a device**).
+  - This is why every earlier removal shipped with a migration (`alembic/versions/0108_model_aliases_oct_2026.py`, `0109_trim_model_lineup.py`, `0129_qwen38_replaces_glm52.py`). Nothing in the code or the docs' Model seam row says a migration is required.
+- **Variant B2:** removing `gpt-6-luna` without editing the lanes.
+  - The app still starts, but `tool_selector_aliases()` raises `KeyError`, and it is called outside any `try` at `modules/chat/tool_loop/rounds.py:231`. Whether a higher layer catches it: **not verified**.
+  - The `word_problems` and `math_extract` lanes raise `KeyError` too.
+  - Nothing checks lanes against the catalog at startup; only one test, `test_routing_lanes_point_at_models_that_can_do_their_job`, does.
+
+#### Model names written outside the catalog
+
+| Where | What |
+|---|---|
+| Speech, live talk, images, embeddings | `gateways/speech_gateway.py:22-24, 186` (OpenAI families, `startswith("gpt-4o")`), `openai_speech_gateway.py:37` `"gpt-live-transcribe"`, `modules/speech/service.py:19-22`, `gateways/embedding_gateway.py:59`, `modules/images/generation.py:53` |
+| `"image-search-model"` | Used as a model name (`images/search.py:52`, `search_tool.py:103`, `chat/turn_intercepts.py:41`) but **not in the catalog** |
+| Mobile | `lib/modelCatalogFallback.ts:9-10` hard-codes `free-chat` = "Claude Haiku 5.5", which goes stale if the alias is remapped. Also `features/speech/model/ttsPreference.ts:7-8` and `features/images/hooks/useImageGeneration.ts:181`. |
+| Default | `models/orm/chat.py:76` `default="free-chat"` |
+
+#### Changing provider
+
+Chat, structured output, tools and vision all go through LiteLLM. Embeddings go through LiteLLM by catalog name. Four other paths call providers directly; all stay inside `gateways/`, and no provider SDK is imported anywhere else:
+- images: direct HTTP to OpenRouter (`image_gateway.py:16`);
+- the decider: OpenRouter's alpha API (`decider_gateway.py:20`);
+- speech-to-text and text-to-speech: `api.openai.com` (`speech_gateway.py:15-16`);
+- live talk: OpenAI realtime.
+
+So swapping OpenRouter touches 3 gateways, and speech and live talk depend on OpenAI regardless.
+
+**Fix:**
+1. Make removal safe by default: on read, map any saved model missing from the catalog to Auto or a named replacement. Do this in `UserOut` and before `UserUpdate` validation. Have `ChatMessageRequest` fall back the same way instead of failing with 422/"Invalid message".
+2. Validate `routing_lanes` against the catalog **at startup**, not only in one test.
+3. Put `image-search-model` and the speech, image and embedding names in the catalog.
+4. Derive the provider list in the privacy and consent text from the catalog, or test it against the catalog.
 
 ## 4. Problems in the test harness itself
 
@@ -218,17 +281,25 @@ PENDING
    - Turn on the model-reader shadow that is already built (`model_reader_shadow_enabled`) on a sample of real STEM turns, as `docs/MODEL_READER.md` recommends.
    - Add every reworded miss from §1.4 to the STEM corpus as `gap` entries.
 2. **Let an unsolved physics turn still animate.** When the decider (or `needs_physics`) says physics but no solver verified, let the reply carry a server-built scene from the law the turn names, or relax the blanket `Do NOT emit ```simulation` for kinematics, projectile and orbit scenes the schema can validate.
-3. **Fix D1–D4 in the reply templates** (`physics/direct.py`): write `3 µC = 3 × 10⁻⁶ C`; show only conversions the substitution uses; show `n = t/T½`; replace "Solve for ΔT" and "the same law for these quantities"; round working consistently.
-4. **Remove the two SymPy cold starts** (§2.1 High). Precompute the `rearranged` table, and move the drag proof into a test. Then add the Pint affine cache (about 45% off extract).
-5. **One unit table, one number regex, one layout rule.** Physics and chemistry spellings in `law_binding/units`; `number_text` everywhere; build money's rule from `WORKOUT_PROMPT_RULE`.
-6. Small fixes:
+3. **Make model removal safe** (§3.2):
+   - fall back to Auto from a saved model the catalog no longer has, on read and in request validation;
+   - check the routing lanes against the catalog at startup.
+   Until then, every removal needs a data migration like `0129`.
+4. **Make the subject registry real** (§3.1):
+   - adapter hooks for the finalize pass, the status phase, `enabled` and follow-ups;
+   - chat loops over `SUBJECTS` instead of 43 calls that name a subject;
+   - one completeness test per `SubjectName`.
+5. **Fix D1–D4 in the reply templates** (`physics/direct.py`): write `3 µC = 3 × 10⁻⁶ C`; show only conversions the substitution uses; show `n = t/T½`; replace "Solve for ΔT" and "the same law for these quantities"; round working consistently.
+6. **Remove the two SymPy cold starts** (§2.1 High). Precompute the `rearranged` table, and move the drag proof into a test. Then add the Pint affine cache (about 45% off extract).
+7. **One unit table, one number regex, one layout rule.** Physics and chemistry spellings in `law_binding/units`; `number_text` everywhere; build money's rule from `WORKOUT_PROMPT_RULE`.
+8. Small fixes:
    - `@cache` → `lru_cache(256)` (`math/function_calls.py:173`);
    - log in the three silent catch-alls, and let `chemistry/extract.py` continue past a failing extractor;
    - raise `WorkerBusyError` in `sympy_slots`;
    - delete the two dead constants;
    - word-boundary the lane cues;
    - fix the two harness gaps in §4.
-7. Make extractor ordering explicit (priorities plus tests), then split the F-grade extractors as they're next touched.
+9. Make extractor ordering explicit (priorities plus tests), then split the F-grade extractors as they're next touched.
 
 ## Reproduce
 
