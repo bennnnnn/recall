@@ -116,6 +116,22 @@ describe("a display formula of the reply's own", () => {
     expect(new Set(lefts).size).toBe(1);
     expect(lefts[0]).toBeLessThan(WORK_INDENT);
   });
+
+  it("keeps the block's edge once MathJax has measured a line wider than the estimate", async () => {
+    // The long line's SVG is wider than the native layout guessed: it keeps the shared edge.
+    const svgMath = jest.requireActual<typeof import("@/lib/math/svgMath")>("@/lib/math/svgMath");
+    jest
+      .spyOn(svgMath, "peekSvgMath")
+      .mockImplementation((latex: string) => ({ svg: "<svg/>", widthEx: latex.length > 10 ? 70 : 6, heightEx: 2 }));
+    const view = await render(<MarkdownContent content={`### Expand\n\n$$\nx = 2\n${FACTORIAL.slice(1, -1)}\n$$`} />);
+    const lines = view.queryAllByTestId("math-svg-view");
+    const lefts = lines.map((line) => {
+      const style = [line.props.style].flat(Infinity) as ({ paddingLeft?: number } | false | null)[];
+      return style.reduce((left, s) => (s && typeof s.paddingLeft === "number" ? s.paddingLeft : left), 0);
+    });
+    expect(lines).toHaveLength(2);
+    expect(new Set(lefts).size).toBe(1);
+  });
 });
 
 describe("a line of a worked solution", () => {

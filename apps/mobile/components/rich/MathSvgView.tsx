@@ -48,9 +48,11 @@ type Props = {
    * whole line cannot hold it (``fittedIndent``).
    */
   indent?: number;
+  /** `indent` is already fitted for a block of lines (``MathBlock``): kept as it is. */
+  indentFitted?: boolean;
 };
 
-type FallbackProps = Required<Omit<Props, "minHeight">> & { label: string | undefined };
+type FallbackProps = Required<Omit<Props, "minHeight" | "indentFitted">> & { label: string | undefined };
 
 /** What MathJax could not convert: the same formula in readable native maths. */
 function FallbackMath({ latex, textColor, em, align, label, indent }: FallbackProps) {
@@ -102,6 +104,7 @@ export const MathSvgView = React.memo(function MathSvgView({
   em = Type.reading.fontSize,
   align = "center",
   indent = 0,
+  indentFitted = false,
 }: Props) {
   const { fontScale, width: windowWidth } = useWindowDimensions();
   const exPx = em * EX_PER_EM * fontScale;
@@ -171,7 +174,10 @@ export const MathSvgView = React.memo(function MathSvgView({
   const height = Math.max(1, result.heightEx * exPx);
   return (
     <View
-      style={[styles.wrap, indent > 0 && { paddingLeft: fittedIndent(indent, width, windowWidth) }]}
+      style={[
+        styles.wrap,
+        indent > 0 && { paddingLeft: indentFitted ? indent : fittedIndent(indent, width, windowWidth) },
+      ]}
       testID="math-svg-view"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}

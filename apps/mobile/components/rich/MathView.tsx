@@ -63,6 +63,7 @@ export const MathBlock = React.memo(function MathBlock({
         minHeight={48}
         align="start"
         indent={lineIndent ?? (indent ? WORK_INDENT : 0)}
+        indentFitted={lineIndent !== undefined}
       />
     </View>
   );
