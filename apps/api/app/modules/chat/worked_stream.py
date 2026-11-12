@@ -21,6 +21,7 @@ from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.worked_render import WorkedLayout, render_worked
 from app.modules.chat.worked_solution import RecordModel, assemble, read_record
+from app.modules.chat.worked_text import units_in_working
 from app.services.md_fence_scan import FenceMarker, read_fence_marker
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,8 @@ class WorkedFilter:
             # own lines (it wrote no records).
             return "" if streaming else "\n".join(self._raw).strip()
         try:
-            return render_worked(assemble(self._records), self._layout, streaming=streaming)
+            records = units_in_working(self._records)
+            return render_worked(assemble(records), self._layout, streaming=streaming)
         except Exception:
             logger.exception("worked block failed to render; showing its lines")
             return "" if streaming else "\n".join(self._raw).strip()

@@ -28,7 +28,6 @@ from app.modules.chat.worked_text import (
     names_nothing,
     tidy_symbol,
     tidy_tex,
-    units_in_working,
 )
 from app.modules.chat.worked_units import quantity_tex
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
@@ -397,7 +396,6 @@ def render_worked(
 ) -> str:
     """The solution as a worked reply. ``streaming``: the block is still being written, so
     a line that a later record could change is left out until it cannot."""
-    solution = units_in_working(solution)
     # While the block streams, what is asked waits until the working shows whether the
     # question is in parts: in parts it is lettered, and a drawn line is never rewritten.
     settled = (

@@ -77,7 +77,40 @@ substitution: 54 = 3h \times h
 substitution: h = 3\,\mathrm{cm}
 answer: h | 3 | cm
 ```"""
-BLOCKS = {"painter": PAINTER, "ratio": RATIO, "ages": AGES, "height": HEIGHT}
+# An answer in a unit no given names, after the working that uses it (local review,
+# 2026-11-12): the working drawn before the answer arrives must stay as it was drawn.
+RATE = r"""```worked
+given: v | 60 | km/h | speed
+given: t | 2 | h | time
+required: d | distance
+formula: Distance | d = v \times t
+substitution: d = 60 \times 2 = 120 km
+answer: d | 120 | km
+```
+So the car covers 120 km in two hours."""
+COST = r"""```worked
+given: V | 28 | gal | total paint
+required: W | white pigment
+required: c | cost
+required: c | cost again
+part: a | White pigment
+substitution: W = 12 gal
+answer: W | 12 | gal
+part: b | Cost
+substitution: c = 12 \times 30 = 360 Birr
+answer: c | 360 | Birr
+part: c | Cost again
+substitution: c = 2 \times 180 = 360 Birr
+answer: c | 360 | Birr
+```"""
+BLOCKS = {
+    "painter": PAINTER,
+    "ratio": RATIO,
+    "ages": AGES,
+    "height": HEIGHT,
+    "rate": RATE,
+    "cost": COST,
+}
 
 
 def _laid_out(block: str) -> str:
@@ -99,7 +132,8 @@ def test_no_line_of_these_blocks_shows_latex_source(name: str, block: str) -> No
         # symbol is written as the symbol fields write ``white_pigment``.
         (r"\text{white\_pigment} = 3 \times 4", r"white_{pigment} = 3 \times 4"),
         (r"\text{white\_{pigment}}", r"white_{pigment}"),
-        (r"\mathrm{v\_max}", r"v_{max}"),
+        # An upright group other than \text keeps its letters upright.
+        (r"\mathrm{v\_max}", r"\mathrm{v}_{\mathrm{max}}"),
         (
             r"\frac{\text{total\_paint}}{\text{ratio\_total}}",
             r"\frac{total_{paint}}{ratio_{total}}",
@@ -108,6 +142,19 @@ def test_no_line_of_these_blocks_shows_latex_source(name: str, block: str) -> No
         (r"\text{mass\_of\_salt}", r"\text{mass}_{\text{of salt}}"),
         (r"\text{cost\_per item}", r"\text{cost}_{\text{per}}\text{ item}"),
         (r"\text{total white\_pigment}", r"\text{total white}_{\text{pigment}}"),
+        # A second subscript straight after the first is more of it: one base, one script.
+        (r"\text{rate\_{in}\_{out}}", r"\text{rate}_{\text{in out}}"),
+        # A formula's count is the digits alone, its letters upright (local review).
+        (r"\text{H\_2O}", r"\text{H}_{2}\text{O}"),
+        (r"\mathrm{H\_2O}", r"\mathrm{H}_{2}\mathrm{O}"),
+        (r"\mathrm{CO\_2}", r"\mathrm{CO}_{2}"),
+        (r"\text{v\_1}", r"\text{v}_{1}"),
+        # TeX reads ``H_2O`` as H, subscript 2, then O; a subscript of letters or digits alone
+        # is braced.
+        ("H_2O", "H_2O"),
+        (r"\mathrm{H_2O}", r"\mathrm{H_2O}"),
+        ("x_2y", "x_2y"),
+        ("v_12", "v_{12}"),
         # Bare in maths it is the script the symbol fields write.
         (r"white\_pigment = 12", r"white_{pigment} = 12"),
         ("white_pigment", "white_{pigment}"),
@@ -152,6 +199,11 @@ def test_a_word_symbol_is_one_subscript_in_every_line() -> None:
         (AGES, r"$s = 10\,\mathrm{years}$"),
         (AGES, r"$f = 4 \times 10 = 40\,\mathrm{years}$"),
         # Look-alikes: a letter after a number is a symbol, not a unit.
+        # A unit named only by a record after the line: the line stays as it was drawn.
+        (RATE, r"$d = 60 \times 2 = 120 km$"),
+        (COST, r"$c = 12 \times 30 = 360 Birr$"),
+        # A unit an earlier part's answer named.
+        (COST, r"$c = 2 \times 180 = 360\,\mathrm{Birr}$"),
         (AGES, "$4s + 20 = 2(s + 20)$"),
         (AGES, "$2s = 20$"),
         (HEIGHT, r"$54 = 3h \times h$"),

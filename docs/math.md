@@ -295,10 +295,11 @@ Maths, physics and chemistry share one contract for a reply the model works out 
   `RESULT_CHECK_CONTRACT` has the reply compare each result with the right one instead.
   Headings stay English for every locale, as a verified reply's do; the names, meanings and
   moves are in the reply's language. A word symbol's subscript escaped for text mode
-  (`\text{white\_pigment}`) is the symbol its Required line writes (`white_{pigment}`), and a
-  unit the given and answer records name is set upright after a number in the working
-  (`L = 8 gal` → `8\,\mathrm{gal}`), never a one-letter one (`4s` is 4 times s;
-  `chat/worked_text.py`, 2026-11-12).
+  (`\text{white\_pigment}`) is the symbol its Required line writes (`white_{pigment}`; a count
+  in a formula stays upright: `\mathrm{H}_{2}\mathrm{O}`), and a unit the given and answer
+  records before a line name is set upright after a number in it (`L = 8 gal` →
+  `8\,\mathrm{gal}`), never a one-letter one (`4s` is 4 times s). A later record never changes
+  a line already sent (`chat/worked_text.py`, 2026-11-12).
 - **Not checked:** the value under **Answer** goes in the same card a verified one does,
   marked `verified: false` (`land_answer_card`); the phone draws it in the same solid box
   with no check and no label (`components/rich/AnswerBlock.tsx`; the "Not checked" tag and the
