@@ -162,6 +162,7 @@ describe("inline maths still renders", () => {
     ["Just $5! ($x$ of them)", ["x"], "Just $5! (x of them)"],
     ["Only $5! **Then** $x$ grows.", ["x"], "Only $5! **Then** x grows."],
     ["It was $5! — and $x$ more.", ["x"], "It was $5! — and x more."],
+    ["Today $5! 3 left, then $x$ more.", ["x"], "Today $5! 3 left, then x more."],
   ])("keeps the price and the maths apart in %s", (source, math, text) => {
     const view = seen(source);
     expect(view.math).toEqual(math);

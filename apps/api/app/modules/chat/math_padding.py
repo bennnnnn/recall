@@ -30,6 +30,7 @@ _MATH_WORD = re.compile(r"[a-z]|sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min",
 _TEX_COMMAND = re.compile(r"\\[A-Za-z]")
 _LABEL = re.compile(r"[_^]\{[^{}]*\}")
 _LONG_WORD = re.compile(r"[A-Za-z]{3,}")
+_FACTORIAL_LEAD = re.compile(r"\d[\d,.]*!\s")
 
 
 def without_math_padding(text: str) -> str:
@@ -96,13 +97,19 @@ def _price_body(body: str) -> bool:
         return False
     # A span padded on its left ("$ 4! $") is read without its padding: the space before
     # its closer is padding, not the space after a price's "!" ("$5! $x$").
-    lead = _PRICE_LEAD.match(body.strip() if body[:1].isspace() else body.lstrip())
+    read = body.strip() if body[:1].isspace() else body.lstrip()
+    lead = _PRICE_LEAD.match(read)
     if lead is None:
-        return False
+        # A factorial goes on in maths; one that goes on in words was a price's "!".
+        return _FACTORIAL_LEAD.match(read) is not None and _prose_words(read) >= 2
     word, rest = lead.group(1), lead.group(2) or ""
     if word is None or not _MATH_WORD.fullmatch(word):
         return True
-    return sum(1 for w in _LONG_WORD.findall(rest) if not _MATH_WORD.fullmatch(w)) >= 2
+    return _prose_words(rest) >= 2
+
+
+def _prose_words(text: str) -> int:
+    return sum(1 for w in _LONG_WORD.findall(text) if not _MATH_WORD.fullmatch(w))
 
 
 def _prose(body: str) -> bool:

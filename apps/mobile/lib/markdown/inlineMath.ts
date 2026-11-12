@@ -41,12 +41,23 @@ function priceBody(value: string): boolean {
   if (/\\[A-Za-z]/.test(restoreMathEscapes(value))) return false;
   // A span padded on its left ("$ 4! $") is read without its padding: the space before
   // its closer is padding, not the space after a price's "!" ("$5! $x$").
-  const lead = PRICE_LEAD.exec(/^\s/.test(value) ? value.trim() : value.trimStart());
-  if (!lead) return false;
+  const body = /^\s/.test(value) ? value.trim() : value.trimStart();
+  const lead = PRICE_LEAD.exec(body);
+  // A factorial goes on in maths; one that goes on in words was a price's "!": "Today $5! 3
+  // left, then $x$ more" (a review of the factorial fix).
+  if (!lead) return FACTORIAL_LEAD.test(body) && proseWords(body) >= 2;
   const [, word, rest = ""] = lead;
   if (word === undefined || !MATH_WORD.test(word)) return true;
   // "a" reads as a variable; the prose after it does not.
-  return (rest.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !MATH_WORD.test(w)).length >= 2;
+  return proseWords(rest) >= 2;
+}
+
+/** An amount and "!" with more after it: a factorial, or a price ending its clause. */
+const FACTORIAL_LEAD = /^\d[\d,.]*!\s/;
+
+/** Words of three letters or more that are not maths ("left", "then"; not "sin"). */
+function proseWords(text: string): number {
+  return (text.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !MATH_WORD.test(w)).length;
 }
 
 /** A complete, explicit math span. Currency and escaped dollars stay literal,

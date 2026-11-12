@@ -23,6 +23,8 @@ from app.modules.chat.math_padding import without_math_padding
         ("$ 4! $ ways", "$4!$ ways"),
         ("so $ 4! + 3! $ in all", "so $4! + 3!$ in all"),
         ("so $ 4!  + 3! $ in all", "so $4!  + 3!$ in all"),
+        # A price's "!" before words keeps the price apart from the maths after it.
+        ("Today $5! 3 left, then $ x$ more.", "Today $5! 3 left, then $x$ more."),
     ],
 )
 def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
