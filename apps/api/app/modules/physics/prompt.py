@@ -13,6 +13,7 @@ from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.parts import answers_part_of, asks_count
 from app.modules.physics.reply_policy import PHYSICS_PARTIAL_POLICY, PHYSICS_REPLY_POLICY
 from app.modules.physics.split_parts import solve_in_parts
+from app.services.latex_markup import without_markup
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
 from app.services.workout import PHYSICS_WORKOUT_PARTS_PROMPT, SELF_CHECK_PROMPT_RULE
 
@@ -67,6 +68,8 @@ def solve_physics_request(
             logger.info("symbolic physics model declined", exc_info=True)
             return "failed", None
     intent = extract_physics_intent(user_content)
+    # The parts and asks a LaTeX paste holds are its plain text's (``latex_markup``).
+    user_content = without_markup(user_content)
     block: VerifiedPhysicsBlock | None = None
     if intent is not None:
         try:

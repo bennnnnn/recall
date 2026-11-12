@@ -48,18 +48,6 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     formula(
-        "electric_force",
-        "magnetism",
-        "Coulomb's law",
-        "F_e",
-        base_latex="F_e = k_e \\frac{\\lvert q_1q_2\\rvert}{r^2}",
-        variables=(
-            var("q1", "q_1", "coulomb"),
-            var("q2", "q_2", "coulomb"),
-            var("r", "r", "meter"),
-        ),
-    ),
-    formula(
         "magnetic_flux",
         "magnetism",
         "Magnetic-flux formula",

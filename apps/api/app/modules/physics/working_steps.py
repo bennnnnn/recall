@@ -42,6 +42,7 @@ from app.modules.physics.notation import shown
 from app.modules.physics.row_units import RowUnits, pint_unit, row_units
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.results import PhysicsResult
+from app.services.law_binding.inverse import form_params
 from app.services.law_binding.reduction import Reduction, reduce_substitution
 from app.services.law_binding.symbols import plain_symbol
 from app.services.school_rounding import round_figures
@@ -315,7 +316,9 @@ def working_units(
     rows = list(formulas)
     spec = formula_spec(operation)
     if spec is not None:
-        base, lines, _assumptions = select_formula(spec, intent.physics_params or {})
+        base, lines, _assumptions = select_formula(
+            spec, form_params(spec, intent.physics_params or {})
+        )
         rows += [shown(row, operation) for row in (base, *lines) if row]
     answers: list[tuple[float, Any]] = []
     ureg = get_unit_registry()

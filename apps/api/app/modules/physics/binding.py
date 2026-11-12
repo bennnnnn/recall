@@ -36,17 +36,29 @@ from app.modules.physics.law_range import holds_its_range
 from app.modules.physics.motion import SPEED_CHANGE_MARKER, constant_speed_laws_hold
 from app.modules.physics.optic_elements import diverging_element, signed_distances
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.si import solves_backwards_in_si
 from app.services.law_binding.fit import (
+    Fit,
+    Question,
     Subject,
     admits,
     named_strength,
     only_strongest_fit,
     read_question,
+    variable_kind,
+)
+from app.services.law_binding.inverse import (
+    answered_by_its_own_law,
+    can_solve_for,
+    solved_for,
+    stated_result,
+    stated_strength,
 )
 from app.services.law_binding.model_read import excluded
-from app.services.law_binding.roles import contradicts, counterparts
+from app.services.law_binding.roles import contradicts, counterparts, variable_role
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import dimension_of
+from app.services.law_binding.words import implied_value
 
 # Reading a paste full of numbers would cost every chat turn.
 _MAX_GIVENS = 16
@@ -137,36 +149,116 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     if strongest is None:
         return None
     _, chosen = strongest
+    intent = _intent(chosen.spec, chosen)
+    # An expression law refuses outside its range as it solves; a hand-written one is
+    # checked here, or a level launch with no height would read as a flight from the ground.
+    if intent is None or (
+        chosen.spec.expression is None and not holds_its_range(chosen.spec, intent)
+    ):
+        return None
+    return intent
+
+
+def _intent(spec: FormulaSpec, chosen: Fit) -> PhysicsIntent | None:
+    """The filled law as an intent of the catalog operation ``spec``; None when refused."""
     try:
-        intent = PhysicsIntent(
+        return PhysicsIntent(
             # The catalog's kind is a str; the model validates it against its Literal.
-            kind=chosen.spec.kind,  # type: ignore[arg-type]
-            physics_op=chosen.spec.id,
+            kind=spec.kind,  # type: ignore[arg-type]
+            physics_op=spec.id,
             physics_params=chosen.params,
             physics_units=chosen.units,
         )
     except ValueError:
         return None
-    # An expression law refuses outside its range as it solves; a hand-written one is
-    # checked here, or a level launch with no height would read as a flight from the ground.
-    if chosen.spec.expression is None and not holds_its_range(chosen.spec, intent):
+
+
+def bind_solved_for(text: str) -> PhysicsIntent | None:
+    """The one catalog law whose result the question states, solved for the quantity it
+    asks (``law_binding.inverse``), or None.
+
+    "An engine does 400 J of work with a force of 80 N. How far does the cart move?" states
+    W and asks s: W = Fs solved for s. The law is named by its result, stated in the law's
+    own words ("of work", "a density of"), as an ask names a law the usual way; the asked
+    quantity is the law's one input of the asked kind. Only a question no law answers as its
+    own result is read so (``extract``), so no question answered that way changes.
+    """
+    text = drop_unit_request(text)
+    clause = ask_clause(text)
+    asked = frozenset(asked_dimensions(text))
+    if clause is None or len(asked) != 1 or _SECOND_REQUEST.search(text):
         return None
-    return intent
+    question = read_question(text, clause, PHYSICS_UNITS, max_givens=_MAX_GIVENS, asked=asked)
+    if question is None:
+        return None
+    end = asked_end(text, clause)
+    named = [
+        (spec, solved, strength)
+        for spec, strength in _laws_stating_their_result(text, question)
+        for solved in _solved_for_the_ask(spec, next(iter(asked)), end, question.lower)
+    ]
+    strongest = only_strongest_fit(named, question, PHYSICS_SUBJECT) if named else None
+    if strongest is None:
+        return None
+    spec, chosen = strongest
+    # The law's own id: the reply names the law, its symbols and its picture as ever.
+    return _intent(spec, chosen)
+
+
+def _laws_stating_their_result(text: str, question: Question) -> list[tuple[FormulaSpec, int]]:
+    """Each law solved as arithmetic whose result the question states in the law's own
+    words, with how strongly: the longest of its asks written beside a value of its kind."""
+    lower = text.lower()
+    cue_text = _cue_text(text, lower)
+    only_water = names_only_water(lower)
+    excluded = _with_markers(lower)
+    found = []
+    for spec in _bindable():
+        stated = stated_result(spec)
+        if (
+            stated is None
+            or spec.binding is None
+            or not (only_water or spec.id not in WATER_ONLY)
+            or not admits(spec.binding, excluded, cue_text=cue_text)
+        ):
+            continue
+        strength = stated_strength(stated, question, PHYSICS_UNITS)
+        if strength:
+            found.append((spec, strength))
+    return found
+
+
+def _solved_for_the_ask(
+    spec: FormulaSpec, asked: str, end: AskedEnd | None, lower: str
+) -> list[FormulaSpec]:
+    """The law solved for each of its inputs of the asked kind that SymPy can solve it for.
+
+    An input the words already state ("from rest") is not the one asked, nor is one at the
+    other end of the change from the end the question asks about, nor one another law of
+    the catalog gives from the same quantities (``answered_by_its_own_law``).
+    """
+    found = []
+    for variable in spec.variables:
+        if (
+            not variable.visible
+            or variable_kind(variable) != asked
+            or implied_value(variable, lower) is not None
+            or (end is not None and variable_role(variable) not in (None, end.role))
+            or answered_by_its_own_law(spec, variable, CATALOG.values())
+        ):
+            continue
+        solved = solved_for(spec, variable.name)
+        solves = can_solve_for(spec, variable.name) and solves_backwards_in_si(spec)
+        if solved is not None and solves:
+            found.append(solved)
+    return found
 
 
 def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
     """Every catalog law the asked clause names, with how strongly, as the question's
     own words allow it (its cues, its excludes, water named alone)."""
     lower = text.lower()
-    # "0.8c" is a speed of light: the phrase relativity's cues are written as.
-    cue_text = f"{lower} speed of light" if FRACTION_OF_C.search(lower) else lower
-    # "flies due north … a wind blows from west to east": one direction on each
-    # compass axis is a right angle, the cue the perpendicular laws are written with.
-    if crosswise(lower):
-        cue_text = f"{cue_text} crosswise"
-    # A stated angle is the cue a launch at an angle is written with (``AT_AN_ANGLE``).
-    if states_an_angle(text):
-        cue_text = f"{cue_text} {AT_AN_ANGLE}"
+    cue_text = _cue_text(text, lower)
     only_water = names_only_water(lower)
     # "The mirror is convex": a law that excludes a diverging element excludes it, however
     # the question words it.
@@ -190,6 +282,20 @@ def named_laws(text: str, clause: str) -> list[tuple[FormulaSpec, int]]:
     ]
     end = asked_end(text, clause)
     return named if end is None else _at_the_asked_end(named, end, admitted)
+
+
+def _cue_text(text: str, lower: str) -> str:
+    """The question as the cues read it, with each phrase a cue is read from added."""
+    # "0.8c" is a speed of light: the phrase relativity's cues are written as.
+    cue_text = f"{lower} speed of light" if FRACTION_OF_C.search(lower) else lower
+    # "flies due north … a wind blows from west to east": one direction on each
+    # compass axis is a right angle, the cue the perpendicular laws are written with.
+    if crosswise(lower):
+        cue_text = f"{cue_text} crosswise"
+    # A stated angle is the cue a launch at an angle is written with (``AT_AN_ANGLE``).
+    if states_an_angle(text):
+        cue_text = f"{cue_text} {AT_AN_ANGLE}"
+    return cue_text
 
 
 def _at_the_asked_end(

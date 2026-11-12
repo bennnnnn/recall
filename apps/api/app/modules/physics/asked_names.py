@@ -18,21 +18,12 @@ wrong one.
 
 from __future__ import annotations
 
-import re
-
 from app.modules.physics.catalog import formula_spec
 from app.modules.physics.glossary import given_meaning
+from app.modules.physics.law_nouns import asked_noun
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import unit_dimension
-
-# An ask that is a question or a verb phrase, not the quantity's name: "how far", "reach the
-# top", "accelerate".
-_NOT_A_NOUN = re.compile(
-    r"^(?:how|what|which|when|where|why|is|are|does|do|can|reach|hit|stop|take|land|"
-    r"accelerate|fall|rise|travel|weigh)\b",
-    re.IGNORECASE,
-)
 
 
 def asked_meaning(operation: str, symbol: str, answer_unit: str | None = None) -> str | None:
@@ -50,7 +41,7 @@ def asked_meaning(operation: str, symbol: str, answer_unit: str | None = None) -
     result = _result_dimension(spec, symbol, answer_unit)
     if result is None or _dimension(symbol) in {None, result}:
         return meaning
-    return _asked_noun(spec)
+    return asked_noun(spec)
 
 
 def _own_variable(spec: FormulaSpec, symbol: str) -> str | None:
@@ -83,12 +74,3 @@ def _unit_dimension(unit: str) -> str | None:
         return unit
     reading = unit_dimension(unit)
     return None if reading is None else reading[0]
-
-
-def _asked_noun(spec: FormulaSpec) -> str | None:
-    if spec.binding is None:
-        return None
-    for ask in spec.binding.asks:
-        if not _NOT_A_NOUN.match(ask.strip()):
-            return ask.strip()
-    return None

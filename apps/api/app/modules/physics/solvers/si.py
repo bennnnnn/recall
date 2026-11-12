@@ -3,20 +3,26 @@
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from typing import Any
+
+from pint.errors import PintError
 
 from app.modules.physics.bodies import SCHOOL_GRAVITY
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.spec import FormulaSpec
 from app.services.solving import SolveServiceError
 
 
 def _dimensions_from_catalog() -> dict[str, str]:
     """SI dimension of every declared variable. The catalog is the only list."""
-    from app.modules.physics.catalog import CATALOG
+    from app.modules.physics.catalog import CATALOG, result_variable
 
     dims: dict[str, str] = {}
     for spec in CATALOG.values():
-        for variable in spec.variables:
+        # A law's result is an input when the law is solved for another of its quantities.
+        stated = result_variable(spec)
+        for variable in (*spec.variables, *((stated,) if stated else ())):
             dimension = "dimensionless" if variable.dimensionless else variable.dimension
             if not dimension:
                 raise RuntimeError(f"{spec.id}.{variable.name} has no dimension")
@@ -180,3 +186,38 @@ def params_in_si(intent: PhysicsIntent) -> dict[str, float]:
         else:
             out[key] = to_si(val, unit, expected_key=key)
     return out
+
+
+def solves_backwards_in_si(spec: FormulaSpec) -> bool:
+    """Whether the law can be solved for an input from its stated result, which reaches it in
+    SI: only when its arithmetic gives the result in an SI-sized unit. A law whose result is
+    in degrees, a percent or electronvolts computes it in that unit, so a stated 42° (0.733
+    rad in SI) put into its rearranged arithmetic as 0.733 degrees made a critical angle's
+    refractive index 78.2, not 1.49 (review, 2026-11-11). Main declined these; so does this.
+    """
+    return spec.binding is not None and _si_sized(spec.binding.result[0])
+
+
+@lru_cache(maxsize=256)
+def _si_sized(unit: str) -> bool:
+    """One of ``unit`` is one SI base unit, with no offset (radians, hertz, joules)."""
+    if unit in ("", "dimensionless"):
+        return True
+    from app.services.units import get_unit_registry
+
+    try:
+        base: Any = (1.0 * get_unit_registry()(unit)).to_base_units()
+    except (PintError, ValueError, TypeError, AttributeError):
+        # An offset unit (degC) multiplies by nothing, and a unit Pint cannot read is no SI.
+        return False
+    return math.isclose(float(base.magnitude), 1.0, rel_tol=1e-9)
+
+
+def stated_on_an_offset_scale(intent: PhysicsIntent, name: str) -> bool:
+    """The stated result is a reading in °C or °F, not a difference: in SI it gains 273.15 K,
+    so a change of 10 °C solved backwards was 283.15 K (review, 2026-11-11)."""
+    from app.modules.physics.givens import unit_readings
+
+    unit = (intent.physics_units or {}).get(name, "")
+    readings = unit_readings(unit) if unit else ()
+    return not name.startswith("delta_") and any(reading in _OFFSET_UNITS for reading in readings)

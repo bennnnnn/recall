@@ -6,6 +6,8 @@ technical atmosphere, "in" an inch, "a" a year).
 
 from __future__ import annotations
 
+from app.modules.physics.per_kelvin_units import PER_KELVIN_WORDS
+
 # Spelling -> Pint expression. Single letters are case-sensitive SI symbols;
 # a lowercase "a" is an article and "v" a variable. Longer spellings below are
 # matched without case.
@@ -137,6 +139,7 @@ _SYMBOLS: dict[str, str] = {
 }
 
 _WORDS: dict[str, str] = {
+    **PER_KELVIN_WORDS,
     # A nucleus's mass: "0.003 amu". A bare "u" is read in givens.py.
     "amu": "dalton",
     "atomic mass unit": "dalton",
@@ -169,6 +172,10 @@ _WORDS: dict[str, str] = {
     "kg/m3": "kilogram / meter ** 3",
     "g/cm^3": "gram / centimeter ** 3",
     "g/cm3": "gram / centimeter ** 3",
+    # A liquid's density as a chemistry class writes it: "2.5 g/mL", "1.2 kg/L".
+    "g/ml": "gram / milliliter",
+    "g/l": "gram / liter",
+    "kg/l": "kilogram / liter",
     "kg m^2": "kilogram * meter ** 2",
     "kg·m^2": "kilogram * meter ** 2",
     "kg*m^2": "kilogram * meter ** 2",
@@ -182,36 +189,6 @@ _WORDS: dict[str, str] = {
     "n m": "newton * meter",
     "n·m": "newton * meter",
     "n*m": "newton * meter",
-    "j/kg/k": "joule / kilogram / kelvin",
-    "kj/kg/k": "kilojoule / kilogram / kelvin",
-    "j/mol/k": "joule / mole / kelvin",
-    "j/(kg k)": "joule / kilogram / kelvin",
-    "j/(kg·k)": "joule / kilogram / kelvin",
-    "j/kgk": "joule / kilogram / kelvin",
-    "j/kg·k": "joule / kilogram / kelvin",
-    "j/kg k": "joule / kilogram / kelvin",
-    "j/kg.k": "joule / kilogram / kelvin",
-    "kj/kg·k": "kilojoule / kilogram / kelvin",
-    "j/kg·°c": "joule / kilogram / kelvin",
-    "j/kg °c": "joule / kilogram / kelvin",
-    "j/(kg·°c)": "joule / kilogram / kelvin",
-    "j/kg°c": "joule / kilogram / kelvin",
-    "j/kg/°c": "joule / kilogram / kelvin",
-    "j/(kg °c)": "joule / kilogram / kelvin",
-    "j kg^-1 k^-1": "joule / kilogram / kelvin",
-    "j/g/k": "joule / gram / kelvin",
-    "j/(g k)": "joule / gram / kelvin",
-    "j/(g·k)": "joule / gram / kelvin",
-    "j/gk": "joule / gram / kelvin",
-    "j/g·k": "joule / gram / kelvin",
-    "j/g k": "joule / gram / kelvin",
-    "j/g·°c": "joule / gram / kelvin",
-    "j/g °c": "joule / gram / kelvin",
-    "j/g°c": "joule / gram / kelvin",
-    "j/g/°c": "joule / gram / kelvin",
-    "j/(g °c)": "joule / gram / kelvin",
-    "j/(g·°c)": "joule / gram / kelvin",
-    "j g^-1 k^-1": "joule / gram / kelvin",
     "kj/kg": "kilojoule / kilogram",
     "j/kg": "joule / kilogram",
     # A latent heat per gram, as a chemistry class writes ΔHfus = 334 J/g.
@@ -219,14 +196,12 @@ _WORDS: dict[str, str] = {
     "j/g": "joule / gram",
     "w/m^2": "watt / meter ** 2",
     "s/m": "siemens / meter",
-    "w/m/k": "watt / meter / kelvin",
-    "w/m k": "watt / meter / kelvin",
-    "w/m·k": "watt / meter / kelvin",
-    "w/(m k)": "watt / meter / kelvin",
-    "w/(m·k)": "watt / meter / kelvin",
-    "w/(m*k)": "watt / meter / kelvin",
-    "w m^-1 k^-1": "watt / meter / kelvin",
     "ohm m": "ohm * meter",
+    # A constant's own unit, beside it: "k = 9.0e9 N·m²/C²", once read as a force of 9e9 N.
+    "n m^2/c^2": "newton * meter ** 2 / coulomb ** 2",
+    "nm^2/c^2": "newton * meter ** 2 / coulomb ** 2",
+    "n m^2/kg^2": "newton * meter ** 2 / kilogram ** 2",
+    "nm^2/kg^2": "newton * meter ** 2 / kilogram ** 2",
     "ohm·m": "ohm * meter",
     "ω m": "ohm * meter",
     "ω·m": "ohm * meter",
@@ -328,6 +303,8 @@ _WORDS: dict[str, str] = {
     "years": "year",
     "year": "year",
     "newtons": "newton",
+    "kilonewtons": "kilonewton",
+    "kilonewton": "kilonewton",
     "newton": "newton",
     "joules": "joule",
     "joule": "joule",
