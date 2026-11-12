@@ -41,14 +41,17 @@ def _prompt_text(result: ChemistryResult) -> str:
     # under the procedure's name. A law's name heads its equation (``formula_heading``):
     # "Molar mass formula".
     if result.method:
-        law = law_line = method_heading(result.formula_name)
-        rows = "Steps"
+        law, rows = method_heading(result.formula_name), "Steps"
     else:
-        law = law_line = formula_heading(result.formula_name)
-        rows = "Substitution"
+        law, rows = formula_heading(result.formula_name), "Substitution"
+    # A formula with no name has no heading of its own: the layout names none, and its rows
+    # keep a plain label for the model to read, never one to show (2026-11-11).
+    sections = ("Given", "Required", "Solution", law, rows, "Answer")
+    layout = ", ".join(section for section in sections if section)
+    law_line = law or "Formula"
     return (
         f"[{result.title}]\n"
-        f"Use this visible layout: Given, Required, Solution, {law}, {rows}, Answer. "
+        f"Use this visible layout: {layout}. "
         f"{WORKOUT_PROMPT_RULE} "
         "Do not write a prose wall, "
         "do not recalculate, and copy every verified number exactly: its trailing zeros are "

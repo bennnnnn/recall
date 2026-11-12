@@ -82,19 +82,26 @@ def in_symbols(tex: str) -> bool:
     return _LETTER.search(plain) is not None
 
 
+def _in_words(value: str) -> bool:
+    """A value written in words alone ("at rest", "mass of the rod"). One with a digit is a
+    quantity, its unit written beside it ("20 km", "45 min"), and keeps its row."""
+    return is_prose(value) and not any(char.isdigit() for char in value)
+
+
 def _as_its_letter(given: Given) -> bool:
     """A given the question states as a letter, not a value ("a rod of mass M"): its value
     is its own symbol, or none, or words. It is listed by its meaning, ``$M$ (mass of the
     rod)``, never as "M = M kg" (RLC and rod questions, 2026-11-11)."""
     value = _SPACING.sub("", tidy_tex(given.value))
-    return not value or value == _SPACING.sub("", tidy_symbol(given.symbol)) or is_prose(value)
+    own = value == _SPACING.sub("", tidy_symbol(given.symbol))
+    return not value or own or _in_words(given.value)
 
 
 def _meaning(given: Given) -> str:
     """What a given is, its maths as maths. A value written in words is said too:
     "v_0 | at rest | m/s | initial speed" reads "initial speed, at rest", and with no
     meaning of its own it is the meaning ("M | mass of the rod")."""
-    said = given.value if is_prose(given.value) else ""
+    said = given.value if _in_words(given.value) else ""
     return prose_maths(", ".join(words for words in (given.meaning, said) if words))
 
 

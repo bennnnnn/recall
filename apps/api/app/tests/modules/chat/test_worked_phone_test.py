@@ -232,6 +232,26 @@ def test_a_value_in_words_is_said_beside_its_meaning() -> None:
 
 
 @pytest.mark.parametrize(
+    ("given", "row", "named"),
+    [
+        # A value with a digit is a quantity with its unit in words: its row stays, the
+        # conversion the formula uses with it (review of #2414).
+        (
+            "t | 45 min | | time | 2700\\,\\mathrm{s}",
+            "$t = 45 min = 2700\\,\\mathrm{s}$",
+            "where $t$ = time",
+        ),
+        ("d | 20 km | | distance | 20\\,\\mathrm{km}", "$d = 20 km$", "where $d$ = distance"),
+    ],
+)
+def test_a_value_with_a_digit_keeps_its_row(given: str, row: str, named: str) -> None:
+    laid_out = _laid_out(f"```worked\ngiven: {given}\nanswer: x | 1\n```")
+    assert row in laid_out
+    # The where-line names it once, its value never said there again.
+    assert f"{named}\n" in laid_out
+
+
+@pytest.mark.parametrize(
     ("given", "row"),
     [
         ("m | 1.5e-3 | kg | mass", "$m = 1.5e-3\\,\\mathrm{kg}$"),
