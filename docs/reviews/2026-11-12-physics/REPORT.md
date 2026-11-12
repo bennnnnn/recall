@@ -302,6 +302,36 @@ So swapping OpenRouter touches 3 gateways, and speech and live talk depend on Op
    - fix the two harness gaps in §4.
 9. Make extractor ordering explicit (priorities plus tests), then split the F-grade extractors as they're next touched.
 
+## 6. Fixes applied (same day, offline)
+
+These are all on `claude/recall-physics-review-hlgi1j`. Every change was proven against baselines taken on `2cb3346` before any edit:
+- **Decision diff** (`app.tests.behavior.decisions`): 6,311 battery, sweep and STEM turns.
+- **Reply dump of every server-written STEM reply** (`reply_dump.py`): 2,680 turns.
+- **All CI gates:** ruff, format, file sizes, mypy, vulture, strict typing.
+
+| Area | Commits | Result | Proof |
+|---|---|---|---|
+| Harness (§4) | `d936897` | Unsolved and model-written turns are now judged for their picture | Physics corpus drawn 209/210 → **208/210** (opt-06 never had its picture); the 50 questions 18/18 → **16/18** |
+| Physics speed (§2.1) | `48d2606`…`734e4dd` (7) | Rearrangements are kept as a checked-in table (891 rows; a test re-solves every row against the catalog). The drag proofs moved into a test. A per-unit SI conversion cache. Lane cues read as words. Two dead constants deleted. Silent catch-alls log or catch narrowly. `word_pattern` cache raised to 4096. | Cold critical-angle read **285–299 → 52 ms**. First drag solve **329 → ~2 ms**. Extract median **5.05 → 2.7 ms**; solve **0.85 → 0.29 ms**. No decision and no reply changed. |
+| Physics replies (§1.2 D1–D6) | `71d61ed`…`5688f4d` (6) | `q₁ = 3 µC = 3 × 10⁻⁶ C`. A conversion is shown only when it is used. `n = t/T½` before the decay law. "with ΔT = T₂ − T₁" / "with θ = 90°" replace "Solve for" and "the same law for these quantities". Working to 4 figures, ending on the card's value. Every Required line names its quantity. 20 new template tests. | **0 of 1,660 answer cards changed**, 0 verified values, 0 pictures. 785 replies changed in text only. Critical problems 16 → 16. No decision changed. |
+| Model removal (§3.2) | `31c3d99`…`061f340` (4) | `models/model_removal.py`: saved and requested choices of a removed model fall back to Auto, while real garbage is still refused. The API and the worker refuse to start while a lane names a missing model. `PHOTO_LOOKUP_MODEL` is a named label. The phone's fallback row says "Recall". | Removal of `glm-5.3-flash` re-run for real: startup refused with the lane named. With the lane repointed, `GET /auth/me` 200 → Auto, `PATCH` 200 → cleaned list, a WebSocket send started a turn. No decision changed. |
+| Chemistry / maths / money / pool (§2) | `dbd36f6`…`21bd6e8` (8) | Substance patterns compiled once per set. `_spelling` bounded at 256. `OwnerTurns` raises `WorkerBusyError`. Money's worked rule is built from `WORKOUT_PROMPT_RULE`. A failing chemistry extractor no longer stops the ones after it. Catch-alls log. 13 exact number-regex copies use `number_text`. One geometry shape list. | Chemistry corpus regex compiles **2,052 → 389**, compile share of wall time **7.9% → 0.4%**. No decision changed. 0 of 1,084 chemistry and maths replies changed. |
+| Sizes | `8f64bcc` | Two files that shrank are locked in the ratchet | — |
+
+**Combined branch** (all of the above together, against the baselines):
+- no decision changed (6,311 turns);
+- 0 answer cards, 0 verified values and 0 pictures changed (2,680 STEM turns);
+- 785 replies changed in text (the template fixes);
+- the one problem-list change is opt-06's newly reported missing picture;
+- the 50 questions: 41/44 checked, 16/18 pictured; the template defect phrases now occur 0 times and every Required line is named.
+
+**Not changed, on purpose:**
+- Number patterns whose meaning differs from `number_text` (about 10 private ones and about 80 inline `\d+(?:\.\d+)?`). Swapping them would change what the app reads.
+- `chemistry/request.py`'s copy, which is held by the file-size ratchet.
+- With Auto off, a request naming no model gets the cheapest model in the pool. Changing that would change routing.
+- The F-grade extractor splits (§2.5): a large churn for no user-visible gain. Do them when each file is next touched.
+- Anything that needs a model to judge it: recommendations 1–2 (the model reader gated by the decider, and animating unsolved turns) wait for an OpenRouter key.
+
 ## Reproduce
 
 ```bash
