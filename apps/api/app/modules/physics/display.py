@@ -21,6 +21,9 @@ from app.services.school_rounding import round_figures, trim_zeros
 
 ANSWER_FIGURES = 3
 GIVEN_FIGURES = 6
+# A value the working reaches on its way to the answer that does not end within the
+# givens' six figures: sin 70° is 0.9397, never 0.939693.
+WORKING_FIGURES = 4
 _SCIENTIFIC_BELOW = 1e-3
 _SCIENTIFIC_FROM = 1e5
 _PLAIN_WHOLE_BELOW = 1e7
@@ -90,6 +93,17 @@ def plain_number(value: float, figures: int = ANSWER_FIGURES) -> str:
 def latex_given(value: float) -> str:
     """A given or a working value with the figures the user wrote, up to six."""
     return latex_number(value, GIVEN_FIGURES)
+
+
+def latex_working(value: float) -> str:
+    """A value the working reaches before the answer: whole when it ends within six
+    figures (8372, 0.0025, 1.5 × 10⁻¹¹), else four (0.9397, 304.5, 6.283). The last row
+    states the answer as its card does (``working_steps``)."""
+    if not math.isfinite(value):
+        return str(value)
+    mantissa, exponent = round_figures(value, GIVEN_FIGURES)
+    ends = math.isclose(float(mantissa.scaleb(exponent)), value, rel_tol=1e-9)
+    return latex_number(value, GIVEN_FIGURES if ends else WORKING_FIGURES)
 
 
 def latex_number(value: float, figures: int = ANSWER_FIGURES) -> str:

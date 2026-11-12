@@ -1,4 +1,4 @@
-"""The working reaches its value, unrounded, and a given in another unit shows its factor."""
+"""The working reaches the card's value, and a given in another unit shows its factor."""
 
 from __future__ import annotations
 
@@ -12,11 +12,12 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
 @pytest.mark.parametrize(
     ("rows", "answer", "carried"),
     [
-        # Worked to the value it reaches, unrounded: only the card rounds it (3.47 m/s²).
+        # Worked to the card's value: a last row of six figures over a card of three read
+        # as two answers (review 2026-11-12, D5).
         (
             [r"a = \frac{27.7778 - 0}{8}"],
             r"3.47\,\mathrm{m/s²}",
-            [r"a = \frac{27.7778 - 0}{8}", r"a = \frac{27.7778}{8}", r"a = 3.47223\,\mathrm{m/s²}"],
+            [r"a = \frac{27.7778 - 0}{8}", r"a = \frac{27.7778}{8}", r"a = 3.47\,\mathrm{m/s²}"],
         ),
         # A value that is the card's own closes on it (the saved reply then drops the line).
         (
@@ -45,14 +46,15 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
                 r"F = -5000\,\mathrm{N}",
             ],
         ),
-        # Shown in eV: the SI value, then the answer, on one row.
+        # Shown in eV: the SI value, then the answer, on one row. A value that does not
+        # end within six figures is worked to four.
         (
             [r"E = \frac{6.6261 \times 10^{-34} \times 299792458}{1.2 \times 10^{-6}}"],
             r"1.03\,\mathrm{eV}",
             [
                 r"E = \frac{6.6261 \times 10^{-34} \times 299792458}{1.2 \times 10^{-6}}",
-                r"E = \frac{1.98645 \times 10^{-25}}{1.2 \times 10^{-6}}",
-                r"E = 1.65538 \times 10^{-19}\,\mathrm{J} = 1.03\,\mathrm{eV}",
+                r"E = \frac{1.986 \times 10^{-25}}{1.2 \times 10^{-6}}",
+                r"E = 1.655 \times 10^{-19}\,\mathrm{J} = 1.03\,\mathrm{eV}",
             ],
         ),
         # A law in 1/R: the sum, then its reciprocal.
@@ -61,7 +63,7 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
             r"2\,\Omega",
             [
                 r"\frac{1}{R_p} = \frac{1}{6} + \frac{1}{3}",
-                r"\frac{1}{R_p} = 0.166667 + 0.333333",
+                r"\frac{1}{R_p} = 0.1667 + 0.3333",
                 r"\frac{1}{R_p} = 0.5",
                 r"R_p = \frac{1}{0.5}",
                 r"R_p = 2\,\Omega",
@@ -86,11 +88,11 @@ from app.modules.physics.working_steps import answer_parts, carried_to_answer
             [
                 r"a = \frac{2 \times 9.81}{5 + 2}",
                 r"a = \frac{19.62}{7}",
-                r"a = 2.80286\,\mathrm{m/s²}",
+                r"a = 2.8\,\mathrm{m/s²}",
                 r"T = 5 \times \frac{2 \times 9.81}{5 + 2}",
                 r"T = 5 \times \frac{19.62}{7}",
-                r"T = 5 \times 2.80286",
-                r"T = 14.0143\,\mathrm{N}",
+                r"T = 5 \times 2.803",
+                r"T = 14\,\mathrm{N}",
             ],
         ),
     ],

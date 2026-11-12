@@ -1,17 +1,18 @@
 """Substitution carried to its value: the arithmetic a student still has to do, done.
 
 A solver stores the substituted law (``a = \\frac{27.7778 - 0}{8}``) and stops. The
-reply works it one layer at a time (``reduce_substitution``) and ends on the value it
-reaches, unrounded, when that value only rounds to the verified answer:
+reply works it one layer at a time (``reduce_substitution``), each value it reaches whole
+when it ends within six figures and to four otherwise (``latex_working``), and closes on
+the verified answer as its card states it:
 
     a = \\frac{27.7778 - 0}{8}
     a = \\frac{27.7778}{8}
-    a = 3.47223\\,\\mathrm{m/s²}
+    a = 3.47\\,\\mathrm{m/s²}
 
-and the card states the answer once, rounded (3.47 m/s²). A value already the answer's own
-(15 cm), or one the working's typed constants put off by more than rounding (7672.4 for a
-verified 7673), closes on the verified answer instead: the working ends on its value above
-the card, as a textbook's does.
+A last row of six figures above a card of three (31.0357 m over 31 m) read as two
+answers (review 2026-11-12, D5). A value within the answer's rounding, or one the
+working's typed constants put off by no more than 0.1% (7672.4 for a verified 7673),
+closes on the verified answer the same way.
 
 A row is matched to the answer by value, not by name: "a and T", "50 N at 53.1°" and
 "H_max and R" each have a row per value, and ``|v|`` or ``f_s`` may name it. The middle
@@ -33,8 +34,8 @@ from app.modules.physics.display import (
     ANSWER_FIGURES,
     is_conversion_row,
     is_value_row,
-    latex_given,
     latex_unit,
+    latex_working,
     quantity_number,
 )
 from app.modules.physics.givens import unit_readings
@@ -114,21 +115,6 @@ def _named_si(ureg: Any, reading: str) -> tuple[str, float] | None:
         return None
 
 
-def _unrounded(worked: float, shown: str) -> str:
-    """``shown`` (``4.9\\,\\mathrm{m/s²}``) with the worked value in place of its number when
-    the two differ only by the answer's rounding (4.905): the working ends on the value it
-    reached, and only the card rounds it. Otherwise ``shown``."""
-    number = _NUMBER.match(shown)
-    if number is None:
-        return shown
-    digits = len(number.group("number").lstrip("-").replace(".", "").lstrip("0")) or 1
-    stated = float(number.group("number")) * 10.0 ** int(number.group("power") or 0)
-    written = latex_given(worked)
-    if written == number.group(0) or round_figures(worked, digits) != round_figures(stated, digits):
-        return shown
-    return f"{written}{shown[number.end() :]}"
-
-
 def _unit_tex(units: RowUnits | None, reduction: Reduction | None) -> str:
     """The unit a reduction's value is shown with, "" when its numbers carry none."""
     if units is None or reduction is None or reduction.unit is None:
@@ -152,15 +138,15 @@ def _closing(
     # A row for 1/R_p ends on R_p, even when the two are equal (two 2 Ω in parallel).
     reciprocal = _RECIPROCAL.fullmatch(lhs)
     if reciprocal is None and _same(reduction.value, verified):
-        return [*middle, f"{lhs} = {_unrounded(reduction.value, shown)}"]
+        return [*middle, f"{lhs} = {shown}"]
     if reciprocal is None and reduction.value < 0 < verified and _same(-reduction.value, verified):
-        return [*middle, f"{lhs} = -{_unrounded(-reduction.value, shown)}"]
+        return [*middle, f"{lhs} = -{shown}"]
     if reciprocal is not None and reduction.value and _same(1 / reduction.value, verified):
-        value, of = f"{latex_given(reduction.value)}{unit}", reciprocal.group("of")
+        value, of = f"{latex_working(reduction.value)}{unit}", reciprocal.group("of")
         return [*middle, f"{lhs} = {value}", rf"{of} = \frac{{1}}{{{value}}}", f"{of} = {shown}"]
     si = _in_si(shown)
     if si is not None and si[1] != 1 and _same(reduction.value / si[1], verified):
-        worked = f"{latex_given(reduction.value)}{latex_unit(si[0])}"
+        worked = f"{latex_working(reduction.value)}{latex_unit(si[0])}"
         return [*middle, f"{lhs} = {worked} = {shown}"]
     return None
 
@@ -240,7 +226,7 @@ def _labelled(
                 continue
             lhs, rhs = match.group("lhs").strip(), match.group("rhs").strip()
             leaves = units.leaf_units(lhs) if units is not None else None
-            reduction = reduce_substitution(lhs, rhs, latex_given, leaves)
+            reduction = reduce_substitution(lhs, rhs, latex_working, leaves)
             reductions[at] = reduction
             if units is not None and reduction is not None and reduction.substituted:
                 shown[at] = f"{lhs} = {reduction.substituted}"
@@ -272,7 +258,7 @@ def _stated_row(row: str, units: RowUnits, following: str | None, above: str | N
     leaves = units.leaf_units(sides[0]) if arithmetic_value is not None else None
     if leaves is None or arithmetic_value is None:
         return row
-    reduction = reduce_substitution(sides[0], sides[1], latex_given, leaves)
+    reduction = reduce_substitution(sides[0], sides[1], latex_working, leaves)
     if (
         reduction is None
         or not reduction.substituted
