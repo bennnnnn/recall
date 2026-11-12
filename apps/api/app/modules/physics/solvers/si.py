@@ -91,27 +91,46 @@ def to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
     """
     if not unit:
         return value
+    scale, offset_reading = _si_conversion(unit, expected_key)
+    if offset_reading is None:
+        return value * scale
+    from app.services.units import get_unit_registry
+
+    # Celsius is an offset unit, not a scale factor: `value * ureg("degC")` raises
+    # OffsetUnitCalculusError rather than converting.
+    quantity = get_unit_registry().Quantity(value, offset_reading)
+    return float(quantity.to_base_units().magnitude)
+
+
+@lru_cache(maxsize=2048)
+def _si_conversion(unit: str, expected_key: str | None) -> tuple[float, str | None]:
+    """How ``to_si`` converts ``unit``: ``(scale, None)`` for a unit that scales, the SI
+    value being ``value * scale``, or ``(1.0, reading)`` for a reading on an offset scale
+    (a temperature), which Pint converts value by value.
+
+    Kept per unit: Pint parsed each unit string again for every value, three times for
+    each given, 12 of 33 s over the sweep corpora (review, 2026-11-12).
+    """
     dim_spec = PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
     # A count is a number with a name. Pint reads "turns" as the angle unit
     # (2π rad each), which made 500 solenoid turns 3142.
     if dim_spec == "dimensionless" and unit.strip().lower() in _COUNT_UNITS:
-        return value
+        return 1.0, None
     from app.modules.physics.givens import unit_readings
     from app.services.units import get_unit_registry
 
     ureg = get_unit_registry()
     readings = unit_readings(unit)
+    difference = (expected_key or "").startswith("delta_")
     for index, reading in enumerate(readings):
+        offset_reading = reading if reading in _OFFSET_UNITS and not difference else None
         try:
             if reading in _OFFSET_UNITS:
-                # Celsius is an offset unit, not a scale factor: `value * ureg(
-                # "degC")` raises OffsetUnitCalculusError rather than converting.
-                difference = (expected_key or "").startswith("delta_")
                 quantity = ureg.Quantity(
-                    value, _OFFSET_DIFFERENCES[reading] if difference else reading
+                    1.0, _OFFSET_DIFFERENCES[reading] if difference else reading
                 )
             else:
-                quantity = value * ureg(reading)
+                quantity = 1.0 * ureg(reading)
         except Exception as exc:
             if index + 1 < len(readings):
                 continue
@@ -123,7 +142,9 @@ def to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
             raise SolveServiceError(
                 f"unit {unit} does not match expected dimension for {expected_key}"
             )
-        return float(quantity.to_base_units().magnitude)
+        if offset_reading is not None:
+            return 1.0, offset_reading
+        return float(quantity.to_base_units().magnitude), None
     raise SolveServiceError(f"unsupported unit: {unit}")
 
 
