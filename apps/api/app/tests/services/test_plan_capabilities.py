@@ -148,9 +148,13 @@ def test_a_json_ask_avoids_a_model_without_json_mode(monkeypatch: pytest.MonkeyP
     is unconfirmed (GLM 5.2's, until 2026-11-10) hands a JSON ask to one that has it."""
     lanes = replace(model_catalog.ROUTING, math="qwen-3.8-flash")
     monkeypatch.setattr("app.models.model_catalog.ROUTING", lanes)
-    unconfirmed = replace(model_catalog.get("qwen-3.8-flash"), json_mode=False)
-    by_id = {m.id: m for m in model_catalog.CATALOG} | {"qwen-3.8-flash": unconfirmed}
-    monkeypatch.setattr("app.models.model_catalog._BY_ID", by_id)
+    real_get = model_catalog.get
+    unconfirmed = replace(real_get("qwen-3.8-flash"), json_mode=False)
+    monkeypatch.setattr(
+        model_catalog,
+        "get",
+        lambda model_id: unconfirmed if model_id == "qwen-3.8-flash" else real_get(model_id),
+    )
     ask = "solve x^2 - 4 = 0 and give me the roots as valid JSON"
     pool = [model.id for model in model_catalog.selectable_models()]
     assert routing.resolve_alias_in_pool("auto", "solve x^2 - 4 = 0", pool) == "qwen-3.8-flash"
