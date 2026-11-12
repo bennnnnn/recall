@@ -1,4 +1,3 @@
-# ruff: noqa: RUF002 -- docstrings show the multiplication sign the reader sees.
 """Complete literal physics requests may display their existing verified result.
 
 The stored intent is checked against a fresh extraction of the user text.
@@ -25,27 +24,21 @@ from app.modules.physics.catalog import (
     visible_assumptions,
 )
 from app.modules.physics.claims import claim_verdict, read_claims
-from app.modules.physics.display import (
-    is_conversion_row,
-    latex_factor,
-    latex_given,
-    latex_unit,
-    si_symbol,
-)
+from app.modules.physics.display import is_conversion_row
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.given_rows import given_value
 from app.modules.physics.glossary import given_meaning
 from app.modules.physics.law_titles import law_heading
 from app.modules.physics.notation import shown
 from app.modules.physics.parts import asks_more_than_answered
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
-from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, si_factor, to_si
 from app.modules.physics.working import result_symbol_for
 from app.modules.physics.working_steps import carried_to_answer, working_units
 from app.services.glyphs import SUPERSCRIPT_SIGNED
 from app.services.latex_markup import without_markup
 from app.services.law_binding.inverse import form_params
-from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
+from app.services.solving import VerifiedPhysicsBlock
 from app.services.worked_parts import WorkedPart, render_parts
 from app.services.workout import (
     Workout,
@@ -237,39 +230,6 @@ def _formula_rows(
     return rows
 
 
-def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
-    """The value as written and, when that is not SI, the value the solver used.
-
-    A substitution in SI numbers needs the step that produced them first, on the
-    given's own line with its factor: 500 nm × 10⁻⁹ = 5 × 10⁻⁷ m. A solver that
-    works in the written units (150 km in 2 h) needs none, and neither do angles or
-    rpm, whose formula converts.
-    """
-    written = f"{latex_given(value)}{latex_unit(unit)}"
-    dimension = PARAM_SI_DIMENSIONS.get(name)
-    if (
-        not unit
-        or dimension in (None, "dimensionless", "revolution / minute")
-        or name.startswith("angle")
-        # Written into the arithmetic as typed: "4 µF", not the "4 µF" ending "2.4 µF".
-        or re.search(rf"(?<![\d.]){re.escape(written)}", substitution) is not None
-    ):
-        return written
-    try:
-        si_value = to_si(value, unit, expected_key=name)
-    except SolveServiceError:
-        return written
-    si_unit = si_symbol(dimension)
-    if latex_unit(si_unit) == latex_unit(unit) and math.isclose(si_value, value):
-        return written
-    # The factor that makes the SI value, so the step reads as one: 100 km/h * 1000/3600.
-    # A unit that is SI under another name (N/m² is Pa) has none to show.
-    factor = si_factor(unit, expected_key=name) if value else None
-    scales = factor is not None and not math.isclose(factor[0], factor[1])
-    times = f" {latex_factor(*factor)}" if factor and scales else ""
-    return f"{written}{times} = {latex_given(si_value)}{latex_unit(si_unit)}"
-
-
 def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     """Five-section worked layout for a solver-verified instant reply.
 
@@ -299,7 +259,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
         if variable is not None and not variable.visible:
             continue
         symbol = _parameter_symbol(name, operation)
-        shown = _given_value(name, value, units.get(name, ""), arithmetic)
+        shown = given_value(name, value, units.get(name, ""), arithmetic)
         given_rows.append(f"${symbol} = {shown}$")
         meaning = given_meaning(operation, given_spec.kind if given_spec else "", name)
         if meaning:

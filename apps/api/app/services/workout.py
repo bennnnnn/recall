@@ -403,9 +403,10 @@ _WORKOUT_ONE_EXPRESSION = (
 # A learner reads each step: a converted given says how, the arithmetic reaches the
 # number, and the answer is labelled once.
 _PHYSICS_WORKING = (
-    "A given in a unit that is not SI stays one line, with the factor that converts it: "
-    "`$v = 100\\ \\text{km/h} \\times 1000/3600 = 27.78\\ \\text{m/s}$`, never the "
-    "symbol written twice. Carry **Substitution** one step at a time to the value it "
+    "A given in a unit that is not SI stays one line, with the factor that converts it, "
+    "every side equal: `$v = 100\\ \\text{km/h} = 100 \\times 1000/3600\\ \\text{m/s} = "
+    "27.78\\ \\text{m/s}$`, never the factor after the unit it converts, and never the "
+    "symbol written twice.Carry **Substitution** one step at a time to the value it "
     "reaches, unrounded, with its unit: `$a = \\frac{27.78 - 0}{8}$`, "
     "`$a = \\frac{27.78}{8}$`, `$a = 3.4725\\ \\text{m/s}^2$`. Write **Answer** once, "
     "the value under it rounded (`3.47 m/s²`), never a second `Answer:` line."
