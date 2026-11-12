@@ -46,8 +46,9 @@ def test_asked_meaning_names_the_quantity_its_law_finds(
 @pytest.mark.parametrize(
     ("operation", "symbol", "answer_unit", "meaning"),
     [
-        # A law with no binding: the verified answer's unit says R is not a resistance.
-        ("resultant_force", "R", "N", None),
+        # A law with no binding: the verified answer's unit says R is not a resistance,
+        # and names it by that unit's word for R.
+        ("resultant_force", "R", "N", "resultant force"),
         ("resultant_force", "R", None, "resistance"),
         ("net_force", "F", "N", "force"),
     ],
@@ -84,5 +85,26 @@ def _dimension(unit: str | None) -> str | None:
     return None if reading is None else reading[0]
 
 
-def test_a_symbol_the_glossary_does_not_know_stays_unnamed() -> None:
-    assert asked_meaning("max_height", "H_{max}") is None
+@pytest.mark.parametrize(
+    ("operation", "symbol", "answer_unit", "meaning"),
+    [
+        # A law's own result its glossary has no word for: the word for its dimension.
+        ("max_height", "H_{max}", "m", "maximum height"),
+        ("shm_period", "T", "s", "period"),
+        ("tension", "T", "N", "tension"),
+        ("pressure_at_depth", "P", "Pa", "pressure"),
+        ("torque", r"\tau", "N·m", "torque"),
+        ("electric_force", "F_e", "N", "electric force"),
+        # The law's own ask, when it has one.
+        ("half_life_remaining", "N", "g", "mass remaining"),
+    ],
+)
+def test_a_result_the_glossary_does_not_know_is_named_by_its_dimension(
+    operation: str, symbol: str, answer_unit: str, meaning: str
+) -> None:
+    assert asked_meaning(operation, symbol, answer_unit) == meaning
+
+
+def test_a_symbol_in_another_dimension_stays_unnamed() -> None:
+    # T in metres is no period and no tension: no name is better than a wrong one.
+    assert asked_meaning("shm_period", "T", "m") is None
