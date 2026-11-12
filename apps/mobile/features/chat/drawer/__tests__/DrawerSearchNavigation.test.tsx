@@ -12,9 +12,13 @@ const mockSetParams = jest.fn();
 const mockPush = jest.fn();
 const mockCloseDrawer = jest.fn();
 const mockClearHighlight = jest.fn();
-let mockHeader: { onSettings: () => void };
-let mockFooter: { onOpenSearch: () => void; onSearchChange: (value: string) => void; keyboardHeight: number };
-let mockList: { onOpenChat: (id: string, messageId?: string | null) => void; onOpenSearchResult?: (id: string, messageId?: string | null) => void };
+let mockHeader: { onOpenSearch: () => void; onSearchChange: (value: string) => void; searchOpen: boolean };
+let mockFooter: { onAccount: () => void };
+let mockList: {
+  onOpenChat: (id: string, messageId?: string | null) => void;
+  onOpenSearchResult?: (id: string, messageId?: string | null) => void;
+  contentPaddingBottom: number;
+};
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
 jest.mock("@/contexts/DrawerContext", () => ({ useDrawerOpen: () => mockDrawerOpen }));
@@ -52,15 +56,15 @@ beforeEach(() => {
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 async function search() {
   const view = await render(<ConversationList />);
-  await act(async () => { mockFooter.onOpenSearch(); });
-  await act(async () => { mockFooter.onSearchChange("hello"); });
+  await act(async () => { mockHeader.onOpenSearch(); });
+  await act(async () => { mockHeader.onSearchChange("hello"); });
   await act(async () => { jest.advanceTimersByTime(300); });
   return { view, press: mockList.onOpenSearchResult ?? mockList.onOpenChat };
 }
 
-it("closes the drawer before opening settings from the profile control", async () => {
+it("closes the drawer before opening settings from the account at the bottom", async () => {
   await render(<ConversationList />);
-  await act(async () => { mockHeader.onSettings(); });
+  await act(async () => { mockFooter.onAccount(); });
   expect(mockCloseDrawer).toHaveBeenCalledTimes(1);
   expect(mockPush).toHaveBeenCalledWith("/settings");
   expect(mockCloseDrawer.mock.invocationCallOrder[0]).toBeLessThan(mockPush.mock.invocationCallOrder[0]);
@@ -77,8 +81,8 @@ it("rejects a retained result press immediately after account invalidation", asy
 
 it("rejects a retained result press after its query changes away and back", async () => {
   const { press } = await search();
-  await act(async () => { mockFooter.onSearchChange("different"); });
-  await act(async () => { mockFooter.onSearchChange("hello"); });
+  await act(async () => { mockHeader.onSearchChange("different"); });
+  await act(async () => { mockHeader.onSearchChange("hello"); });
   await act(async () => { press("chat", "message"); });
   expect(mockSetParams).not.toHaveBeenCalled();
 });
@@ -108,7 +112,7 @@ it("clears a previous message highlight when opening a title result", async () =
   expect(mockClearHighlight).toHaveBeenCalledTimes(1);
 });
 
-it("on Android sets the search field on the keyboard, the navigation bar it is measured above included", async () => {
+it("on Android ends the search results above the keyboard, the navigation bar it is measured above included", async () => {
   const NAV_BAR = 48;
   jest.replaceProperty(Platform, "OS", "android");
   jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 0, left: 0, right: 0, bottom: NAV_BAR });
@@ -118,9 +122,11 @@ it("on Android sets the search field on the keyboard, the navigation bar it is m
     return { remove: jest.fn() };
   }) as never);
   await render(<ConversationList />);
-  await act(async () => { mockFooter.onOpenSearch(); });
+  await act(async () => { mockHeader.onOpenSearch(); });
   await act(async () => {
     listeners.get("keyboardDidShow")?.({ endCoordinates: { height: 252, screenX: 0, screenY: 0, width: 0 } } as KeyboardEvent);
   });
-  expect(mockFooter.keyboardHeight).toBe(252 + NAV_BAR);
+  // The field is at the top now (the owner's layout, 2026-11-11); the results end above the keyboard.
+  expect(mockHeader.searchOpen).toBe(true);
+  expect(mockList.contentPaddingBottom).toBeGreaterThanOrEqual(252 + NAV_BAR);
 });
