@@ -1,11 +1,12 @@
 import { type ReactNode, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { ProseAnswer, ScrollingLine } from "@/components/rich/answerLines";
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
+import { italicEdge } from "@/components/rich/mathText/runs";
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import {
   answerReadsAsProse,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/math/answerLayout";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
+import { latexLeanEm } from "@/lib/math/glyphs";
 import { latexHasNestedMathView } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/fence/openTail";
 import { Theme, useTheme } from "@/lib/theme";
@@ -97,7 +99,11 @@ function AnswerFrame({
  */
 export function AnswerBlock({ content, settled = true }: Props) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  // A Text that ends on a formula nested in it is the box its last letter leans out of
+  // (`P = IV` drew its V cut off): it keeps that ink itself, and moves nothing.
+  const endsOn = (latex: string) => italicEdge(latexLeanEm(latex), ANSWER_FONT_SIZE, fontScale, true);
   const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
   const check =
     settled && parsed.verified ? (
@@ -216,7 +222,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
     spokenAnswerValue(parsed.body),
     <>
       {hasInlineMath ? (
-        <Text style={s.answer} selectable>
+        <Text style={[s.answer, parts.at(-1)?.type === "math" ? endsOn(parts.at(-1)!.value) : null]} selectable>
           {parts.map((part, i) =>
             part.type === "math" ? (
               <MathText
@@ -233,7 +239,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
           )}
         </Text>
       ) : (
-        <Text style={s.answer} selectable>
+        <Text style={[s.answer, endsOn(text)]} selectable>
           <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
         </Text>
       )}

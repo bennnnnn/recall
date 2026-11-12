@@ -4,13 +4,14 @@
  * (negated relations, blackboard letters, primes, norms) get their own Text.
  */
 import { type ReactNode } from "react";
-import { Text } from "react-native";
+import { Text, type TextStyle } from "react-native";
 
 import { splitOperatorPads } from "@/lib/math/layout";
 import {
   AMS_ONLY_CHARS,
   BLACKBOARD_LATIN,
-  italicCorrectionEm,
+  isUprightMathWord,
+  italicLeanEm,
   MATH_NOT_GLYPH,
   NEGATED_RELATION,
   NOT_ADVANCE_EM,
@@ -34,38 +35,15 @@ export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean; lean?
 /** A run drawn without padding measures its glyphs at the stylesheet's 16px. */
 const UNPADDED_METRICS: RunMetrics = { em: 16, fontScale: 1 };
 
-/** Named operators are words, not products of variables, so they stay
- * upright in the same way KaTeX renders `sin`, `log`, and `mod`. */
-const UPRIGHT_MATH_WORDS = new Set([
-  "arccos", "arcsin", "arctan", "cos", "cosh", "cot", "csc", "det",
-  "exp", "gcd", "if", "lim", "ln", "log", "max", "min", "mod",
-  "otherwise", "rank", "sec", "sin", "sinh", "tan", "tanh", "where",
-]);
-
 // Latin and Greek letters make separate runs: `\sin\theta` reads "sinθ", and as one run
 // the function name was drawn italic with its angle, a product of four variables.
 const MATH_LETTER_RUN = /[A-Za-z]+|[Ͱ-Ͽ]+/g;
 
-function isUprightWord(value: string): boolean {
-  return UPRIGHT_MATH_WORDS.has(value.toLowerCase());
-}
-
-/** The run ends on an italic letter: a variable, not a digit, a symbol or `sin`. */
-export function endsOnItalicLetter(value: string): boolean {
-  const word = value.match(/(?:[A-Za-z]+|[Ͱ-Ͽ]+)$/)?.[0];
-  return word !== undefined && !isUprightWord(word);
-}
-
-/** How far the run's last glyph leans past its advance, in em: its italic correction when
- * it is an italic letter, else 0. */
-export function italicLeanEm(value: string): number {
-  return endsOnItalicLetter(value) ? italicCorrectionEm(Array.from(value).at(-1) ?? "") : 0;
-}
-
-/** The style that keeps a box's last italic letter whole: room for its lean, and with
- * `give` that room handed back as a negative margin, so the box takes its advance alone. */
-export function italicEdge(value: string, em: number, fontScale: number, give: boolean): object | null {
-  const lean = italicLeanEm(value) * em * fontScale;
+/** The style that keeps a box's last italic letter whole: room for its lean (`leanEm`,
+ * `italicLeanEm`), and with `give` that room handed back as a negative margin, so the box
+ * takes its advance alone. */
+export function italicEdge(leanEm: number, em: number, fontScale: number, give: boolean): TextStyle | null {
+  const lean = leanEm * em * fontScale;
   if (lean <= 0) return null;
   return give ? { paddingRight: lean, marginRight: -lean } : { paddingRight: lean };
 }
@@ -160,7 +138,7 @@ export function renderMathRun(
       }
       const word = match[0];
       children.push(
-        isUprightWord(word) ? word : (
+        isUprightMathWord(word) ? word : (
           <Text
             key={`${pieceKey}-v${variableIndex}`}
             testID="math-variable"

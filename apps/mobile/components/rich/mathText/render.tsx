@@ -11,6 +11,7 @@ import {
   SQRT_LINE_AT_16,
   type MathLayout,
 } from "@/lib/math/layout";
+import { italicLeanEm } from "@/lib/math/glyphs";
 import { attachScripts, type MathSegment } from "@/lib/math/text";
 import { renderAccentMark } from "@/components/rich/mathText/accentMark";
 import {
@@ -73,7 +74,7 @@ function renderStackRow(
     return <View style={rowCtx.styles.fracSideRow}>{children}</View>;
   }
   const last = segments.at(-1);
-  const edge = last?.type === "text" ? italicEdge(last.value, rowCtx.em, rowCtx.fontScale, true) : null;
+  const edge = last?.type === "text" ? italicEdge(italicLeanEm(last.value), rowCtx.em, rowCtx.fontScale, true) : null;
   return <Text style={[textStyle, edge]}>{children}</Text>;
 }
 
@@ -161,8 +162,9 @@ export function renderSegments(
     const key = `${keyPrefix}-${atom.index}`;
     const node = layouts[layoutIndex];
     layoutIndex += 1;
-    // Only a truly last glyph leans: TeX sets a script right against its base.
-    const lean = ctx.leanLast === true && n === atoms.length - 1 && !atom.sup;
+    // A last glyph leans into real room, and so does a base a superscript follows: TeX sets
+    // the superscript after the base's lean, a subscript at its advance (the layout agrees).
+    const lean = (ctx.leanLast === true && n === atoms.length - 1 && !atom.sup) || atom.supLean > 0;
     const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom, lean, edge: ctx.inText !== true };
     leadingAtom = true;
     const rendered = renderOneSegment(atom.segment, node, key, inner, pad, false);

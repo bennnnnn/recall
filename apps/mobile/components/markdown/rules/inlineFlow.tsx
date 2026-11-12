@@ -28,8 +28,8 @@ import {
   useInsideAccessibleElement,
 } from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
-import { italicLeanEm } from "@/components/rich/mathText/runs";
 import { MathBlock } from "@/components/rich/MathView";
+import { latexLeanEm } from "@/lib/math/glyphs";
 import { latexHasNestedMathView, spokenFormula } from "@/lib/math/text";
 
 /** A space between word items, as a share of the font size (a text space is about a quarter em). */
@@ -142,9 +142,7 @@ function collect(node: ReactNode, ctx: Ctx, flow: Flow): void {
 function unitEdge(last: Piece, space: number, fontScale: number): TextStyle | null {
   if (last.kind !== "atom" || last.node.type !== MathText) return null;
   const { latex, fontSize } = last.node.props as { latex: string; fontSize?: number };
-  // The letters a formula ends on, unless they name a command (`\alpha`).
-  const tail = /(\\?)([A-Za-z]+)\s*$/.exec(latex);
-  const lean = tail && !tail[1] ? italicLeanEm(tail[2]!) * (fontSize ?? BODY_FONT_SIZE) * fontScale : 0;
+  const lean = latexLeanEm(latex) * (fontSize ?? BODY_FONT_SIZE) * fontScale;
   return lean > 0 ? { paddingRight: lean, marginRight: space - lean } : null;
 }
 

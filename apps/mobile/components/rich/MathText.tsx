@@ -1,8 +1,8 @@
-import { memo, useContext, useMemo, type ReactNode } from "react";
+import { createContext, memo, useContext, useMemo, type Context, type ReactNode } from "react";
 import {
   ScrollView,
   Text,
-  unstable_TextAncestorContext as TextAncestorContext,
+  unstable_TextAncestorContext,
   useWindowDimensions,
   View,
   type StyleProp,
@@ -23,6 +23,13 @@ import {
   renderSegments,
 } from "@/components/rich/mathText/render";
 import { italicEdge } from "@/components/rich/mathText/runs";
+import { italicLeanEm } from "@/lib/math/glyphs";
+
+/** React Native's own answer to whether a Text is nested in another Text. The export is
+ * unstable: should a release drop it, every formula reads as a box of its own (keeping its
+ * ink, a little wider in a sentence) rather than failing to draw. */
+const TextAncestorContext: Context<boolean> =
+  (unstable_TextAncestorContext as Context<boolean> | undefined) ?? createContext(false);
 
 type Props = {
   latex: string;
@@ -156,7 +163,6 @@ export const MathText = memo(function MathText({
   // Under an accessible parent (an answer card, a grouped paragraph) the parent
   // reads the formula; a focusable box here would be a second TalkBack stop.
   const own = !useInsideAccessibleElement();
-  // React Native's own answer to whether this Text is nested in another Text.
   const inText = useContext(TextAncestorContext);
 
   if (!latex.trim()) return null;
@@ -176,7 +182,7 @@ export const MathText = memo(function MathText({
   // as `F`); nested in a sentence's Text, the words after it are the room.
   const last = segments.at(-1);
   const leanPad = !tall && !inText && last?.type === "text"
-    ? italicEdge(last.value, fontSize, fontScale, !room)
+    ? italicEdge(italicLeanEm(last.value), fontSize, fontScale, !room)
     : null;
 
   // Stacked structures are a View root. Text > Text > View is what iOS lays

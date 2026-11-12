@@ -88,6 +88,38 @@ export function italicCorrectionEm(ch: string): number {
   return ITALIC_CORRECTION_EM[ch] ?? 0;
 }
 
+/** Named operators are words, not products of variables, so they stay
+ * upright in the same way KaTeX renders `sin`, `log`, and `mod`. */
+const UPRIGHT_MATH_WORDS = new Set([
+  "arccos", "arcsin", "arctan", "cos", "cosh", "cot", "csc", "det",
+  "exp", "gcd", "if", "lim", "ln", "log", "max", "min", "mod",
+  "otherwise", "rank", "sec", "sin", "sinh", "tan", "tanh", "where",
+]);
+
+export function isUprightMathWord(value: string): boolean {
+  return UPRIGHT_MATH_WORDS.has(value.toLowerCase());
+}
+
+/** The run ends on an italic letter: a variable, not a digit, a symbol or `sin`. */
+export function endsOnItalicLetter(value: string): boolean {
+  const word = value.match(/(?:[A-Za-z]+|[Ͱ-Ͽ]+)$/)?.[0];
+  return word !== undefined && !isUprightMathWord(word);
+}
+
+/** How far a run's last glyph leans past its advance, in em: its italic correction when
+ * it is an italic letter, else 0. */
+export function italicLeanEm(value: string): number {
+  return endsOnItalicLetter(value) ? italicCorrectionEm(Array.from(value).at(-1) ?? "") : 0;
+}
+
+/** How far a formula's last letter leans, read from its TeX: the letters it ends on,
+ * unless they name a command (`\alpha`). For a host Text that ends on a formula nested
+ * in it, which cannot give its own box room. */
+export function latexLeanEm(latex: string): number {
+  const tail = /(\\?)([A-Za-z]+)\s*$/.exec(latex);
+  return tail && !tail[1] ? italicLeanEm(tail[2]!) : 0;
+}
+
 const WIDE = new Set(["m", "w", "M", "W"]);
 const NARROW = new Set(["i", "l", "I", "j", "f", "t", "r"]);
 

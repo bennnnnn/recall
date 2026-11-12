@@ -14,14 +14,16 @@ import type { JsonNode } from "test-renderer";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { InlineFlow } from "@/components/markdown/rules/inlineFlow";
 import { MathText } from "@/components/rich/MathText";
-import { endsOnItalicLetter, italicLeanEm } from "@/components/rich/mathText/runs";
+import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
-import { italicCorrectionEm } from "@/lib/math/glyphs";
-import { FRAC_SIZE_RATIO } from "@/lib/math/layout";
+import { endsOnItalicLetter, italicCorrectionEm, italicLeanEm, latexLeanEm } from "@/lib/math/glyphs";
+import { FRAC_SIZE_RATIO, layoutMath, measureTextWidth } from "@/lib/math/layout";
+import { parseSimpleLatex } from "@/lib/math/text";
 import { Type } from "@/lib/type";
 
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: () => null }));
+jest.mock("@/components/rich/MathSvgView", () => ({ MathSvgView: () => null }));
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
@@ -135,6 +137,27 @@ describe("a formula that is a box of its own", () => {
     expect(kept[2]!.padding).toBeCloseTo(leanAt("T", 16), 5);
   });
 
+  // TeX sets a superscript after its base's lean and a subscript at the advance (local
+  // review, 2026-11-12: V's lean drawn without that room ran into its exponent).
+  it.each(["V^{2}", "T^{2}", "P^{2}", "W^{3}", "f^{2}", "T_{1}^{2}"])(
+    "gives the base of %s real room before its superscript, as the layout measures it",
+    async (latex) => {
+      const letter = latex[0]!;
+      const edge = edgeOf(await edgesOf(<View><MathText latex={latex} /></View>), letter);
+      expect(edge).toMatchObject({ padding: expect.closeTo(leanAt(letter, 16), 5), margin: 0 });
+      const base = layoutMath(parseSimpleLatex(latex), 16).children[0]!;
+      expect(base.width).toBeCloseTo(measureTextWidth(letter, 16) + leanAt(letter, 16), 5);
+    },
+  );
+
+  it.each(["v_{f}", "T_{1}", "P_{0}"])("sets the subscript of %s at the base's advance", async (latex) => {
+    const letter = latex[0]!;
+    const edge = edgeOf(await edgesOf(<View><MathText latex={latex} /></View>), letter);
+    expect(edge.padding + edge.margin).toBeCloseTo(0, 5);
+    const base = layoutMath(parseSimpleLatex(latex), 16).children[0]!;
+    expect(base.width).toBeCloseTo(measureTextWidth(letter, 16), 5);
+  });
+
   it("ends a stacked formula on a whole letter", async () => {
     const edge = edgeOf(await edgesOf(<View><MathText latex={String.raw`\frac{1}{2}P`} /></View>), "P");
     expect(edge.padding).toBeCloseTo(leanAt("P", 16), 5);
@@ -203,13 +226,23 @@ describe("the composer's italic lean", () => {
     expect(leaning.map((edge) => edge.padding)).toContainEqual(expect.closeTo(leanAt(letter, 16), 5));
   });
 
-  it.each(["$x^{2}$", "$x_{1}$", "$a_{n}$", "$2x^{2}$", "$P_{1}$", "$T^{2}$"])(
+  it.each(["$x^{2}$", "$x_{1}$", "$a_{n}$", "$2x^{2}$", "$P_{1}$", "$T_{0}$"])(
     "sets the script of %s against its letter",
     async (input) => {
       const edges = await draftEdges(input);
       expect(edges.filter((edge) => edge.margin === 0 && edge.padding > 0)).toEqual([]);
     },
   );
+
+  it.each([
+    ["$T^{2}$", "T"],
+    ["$V^{2}$", "V"],
+    ["$P^{n}$", "P"],
+  ])("sets the superscript of %s after its letter's lean", async (input, letter) => {
+    const edges = await draftEdges(input);
+    const leaning = edges.filter((edge) => edge.padding > 0 && edge.margin === 0);
+    expect(leaning.map((edge) => edge.padding)).toEqual([expect.closeTo(leanAt(letter, 16), 5)]);
+  });
 
   it.each(["$x^{n}$", String.raw`$\frac{x}{y}$`, String.raw`$\sqrt{P}$`, String.raw`$\frac{x^{2}}{y}$`, "$(x)$"])(
     "leans no letter inside a box of %s",
@@ -218,4 +251,54 @@ describe("the composer's italic lean", () => {
       expect(edges.filter((edge) => edge.margin === 0 && edge.padding > 0)).toEqual([]);
     },
   );
+});
+
+describe("a Text that holds a formula last", () => {
+  // An answer card draws its value as a Text holding the formula (`P = IV` lost the right
+  // of its V): that Text keeps the ink, and moves nothing.
+  it.each([
+    ["P = IV", "V"],
+    ["P = 5\\,\\mathrm{W} \\text{ or } Y", "Y"],
+  ])("keeps the last letter of the answer %s whole", async (content, letter) => {
+    const edges = await edgesOf(<AnswerBlock content={content} />);
+    const host = edges.find((edge) => edge.margin < 0);
+    expect(host).toMatchObject({ padding: expect.closeTo(leanAt(letter, 20), 5) });
+    expect(host!.padding + host!.margin).toBeCloseTo(0, 5);
+  });
+
+  it.each([
+    ["P = IV", 0.222],
+    [String.raw`x = \alpha`, 0],
+    [String.raw`5\,\mathrm{kg}`, 0],
+    ["x^{2}", 0],
+    [String.raw`a \sin`, 0],
+  ])("reads how far %s leans from its TeX", (latex, em) => {
+    expect(latexLeanEm(latex)).toBeCloseTo(em, 3);
+  });
+});
+
+describe("a React Native without TextAncestorContext", () => {
+  // The export is unstable: without it, useContext(undefined) would throw in every formula.
+  it("still draws a formula, as a box of its own", async () => {
+    let drawn: unknown = null;
+    await jest.isolateModulesAsync(async () => {
+      jest.doMock("react-native", () => {
+        const actual = jest.requireActual<Record<string, unknown>>("react-native");
+        return new Proxy(actual, {
+          get: (target, key) => (key === "unstable_TextAncestorContext" ? undefined : target[key as string]),
+        });
+      });
+      /* eslint-disable @typescript-eslint/no-require-imports -- loaded in the sandbox without the export */
+      const React = require("react");
+      const RN = require("react-native");
+      const { MathText: Isolated } = require("@/components/rich/MathText");
+      const { createRoot } = require("test-renderer");
+      /* eslint-enable @typescript-eslint/no-require-imports */
+      expect(RN.unstable_TextAncestorContext).toBeUndefined();
+      const root = createRoot();
+      await React.act(async () => root.render(React.createElement(RN.View, null, React.createElement(Isolated, { latex: "P" }))));
+      drawn = root.container.children.length;
+    });
+    expect(drawn).toBe(1);
+  });
 });
