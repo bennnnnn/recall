@@ -1,5 +1,5 @@
-import { createContext, type ReactNode, useContext } from "react";
-import { Dimensions, PixelRatio } from "react-native";
+import { createContext, type ReactElement, type ReactNode, useContext } from "react";
+import { Dimensions, PixelRatio, View } from "react-native";
 
 import { scaled } from "@/components/rich/mathText/context";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
@@ -60,4 +60,19 @@ export function workingLinePull(line: string, indent: number, fontSize: number):
     0,
   );
   return indent - fittedIndent(indent, width, Dimensions.get("window").width);
+}
+
+/**
+ * A line of working moved left into its column's `indent` when it would not fit after it
+ * (``workingLinePull``). Its formulas are told the column they now start in, so they scroll
+ * only past the line. A line that fits is returned as it is.
+ */
+export function fitWorkingLine(line: ReactElement, text: string, indent: number, fontSize: number): ReactElement {
+  const pull = workingLinePull(text, indent, fontSize);
+  if (pull <= 0) return line;
+  return (
+    <View key={line.key ?? undefined} style={{ marginLeft: -pull }}>
+      <MathColumn inset={-pull}>{line}</MathColumn>
+    </View>
+  );
 }

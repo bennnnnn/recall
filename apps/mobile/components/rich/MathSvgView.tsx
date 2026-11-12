@@ -50,15 +50,15 @@ type Props = {
   indent?: number;
 };
 
-type FallbackProps = Required<Omit<Props, "minHeight" | "indent">> & { label: string | undefined };
+type FallbackProps = Required<Omit<Props, "minHeight">> & { label: string | undefined };
 
 /** What MathJax could not convert: the same formula in readable native maths. */
-function FallbackMath({ latex, textColor, em, align, label }: FallbackProps) {
+function FallbackMath({ latex, textColor, em, align, label, indent }: FallbackProps) {
   const justify = align === "start" ? styles.alignStart : null;
   const own = label !== undefined;
   return (
     <View
-      style={[styles.wrap, styles.fallbackBox]}
+      style={[styles.wrap, styles.fallbackBox, indent > 0 && { paddingLeft: Space.xxs + indent }]}
       testID="math-svg-fallback"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}
@@ -155,16 +155,13 @@ export const MathSvgView = React.memo(function MathSvgView({
     }
   }, [result, textColor]);
 
-  const indented = indent > 0 ? { paddingLeft: indent } : null;
   if (result === undefined) {
-    return <View style={[styles.wrap, indented, { minHeight }]} testID="math-svg-loading" />;
+    return <View style={[styles.wrap, indent > 0 && { paddingLeft: indent }, { minHeight }]} testID="math-svg-loading" />;
   }
 
   if (result === null || ast == null) {
     return (
-      <View style={indented}>
-        <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} />
-      </View>
+      <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} indent={indent} />
     );
   }
 

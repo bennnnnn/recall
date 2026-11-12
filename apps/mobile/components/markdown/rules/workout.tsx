@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
-import { MathColumn, workingLinePull } from "@/components/rich/mathColumn";
+import { fitWorkingLine, MathColumn } from "@/components/rich/mathColumn";
 import { MathText } from "@/components/rich/MathText";
 import {
   splitStreamCaret,
@@ -293,18 +293,6 @@ function renderWorkingSteps(
 ): React.ReactElement {
   const label = subheadingStyle(styles, t);
   const size = mathSizeOf(styles.body);
-  // A long line moves left into the indent before it scrolls; the others keep the column.
-  const fitted = (index: number): React.ReactElement => {
-    const pull = workingLinePull(splitStreamCaret(section.lines[index] ?? "").text, WORK_INDENT, size);
-    const line = lines[index]!;
-    if (pull <= 0) return line;
-    // Its formulas are told the column they now start in, so they scroll only past the line.
-    return (
-      <View key={`${key}-pull-${index}`} style={{ marginLeft: -pull }}>
-        <MathColumn inset={-pull}>{line}</MathColumn>
-      </View>
-    );
-  };
   const steps: { heading: ReactNode; lines: React.ReactElement[] }[] = [
     {
       heading: (
@@ -318,7 +306,8 @@ function renderWorkingSteps(
   section.lines.forEach((line, index) => {
     const marked = splitStreamCaret(line);
     if (!SOLVE_FOR.test(marked.text.trim())) {
-      steps[steps.length - 1]!.lines.push(fitted(index));
+      // A long line moves left into the indent before it scrolls; the others keep the column.
+      steps[steps.length - 1]!.lines.push(fitWorkingLine(lines[index]!, marked.text, WORK_INDENT, size));
       return;
     }
     steps.push({
