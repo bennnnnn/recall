@@ -277,8 +277,9 @@ So swapping OpenRouter touches 3 gateways, and speech and live talk depend on Op
 
 ## 5. Recommendations, in order
 
-1. **Make the reader less brittle.** This is the biggest user-facing issue (67% reword reach, 0% in other languages).
-   - Turn on the model-reader shadow that is already built (`model_reader_shadow_enabled`) on a sample of real STEM turns, as `docs/MODEL_READER.md` recommends.
+1. **Make the reader less brittle.** This is the biggest user-facing issue (67% reword reach, 0% in other languages). **The decider does not solve this.** It returns multiple-choice probabilities (`subject`, `think`, `hard`, `picture`, `follow`, `live`, `asked`: `chat/decider_read.py`) and "writes no text" (line 8). So it can say "physics, hard", but it cannot produce the operation and the given values a solver needs. Use it as the **gate** for the model reader that already exists (`docs/MODEL_READER.md`): when the decider says maths, physics or chemistry and the pattern reader finds nothing, ask the model reader for `op` plus `givens` with quotes, check the quotes on the server, then solve and draw.
+   - Turn on the shadow (`model_reader_shadow_enabled`) for exactly those turns, and measure agreement on real questions.
+   - Ship it only under the doc's decision rule (its last measurement was 4–19% wrong cards in English).
    - Add every reworded miss from §1.4 to the STEM corpus as `gap` entries.
 2. **Let an unsolved physics turn still animate.** When the decider (or `needs_physics`) says physics but no solver verified, let the reply carry a server-built scene from the law the turn names, or relax the blanket `Do NOT emit ```simulation` for kinematics, projectile and orbit scenes the schema can validate.
 3. **Make model removal safe** (§3.2):
