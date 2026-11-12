@@ -154,8 +154,18 @@ def normalize_physics_units(text: str) -> str:
 # A number, where a unit written after it may start.
 _NUMBER_END = re.compile(r"\d(?![\d.])")
 # A unit that goes on past its name ("metres per second", "joules/kg") is read whole by
-# the table or not at all: its first word alone is not its symbol.
-_UNIT_GOES_ON = re.compile(r"\s*(?:/|per\b|squared\b|cubed\b|\^)", re.IGNORECASE)
+# the table or not at all: its first word alone is not its symbol. A name in the possessive
+# ("2 Newtons' laws") names no unit.
+_UNIT_GOES_ON = re.compile(r"\s*(?:/|per\b|squared\b|cubed\b|\^)|['\u2019]", re.IGNORECASE)
+# What joins two words of one unit: "newton metres", "newton-seconds", "newton·metres".
+_UNIT_JOIN = re.compile(r"[-\u2010\u00b7]")
+
+
+def _another_unit_after(text: str, end: int) -> bool:
+    """Another unit's name follows this one: "30 newton metres" is a torque, one unit of
+    two words, and "30 N metres" read 30 N and a stray word (review 2026-11-11)."""
+    joined = _UNIT_JOIN.match(text, end)
+    return unit_at(text, joined.end() if joined else end) is not None
 
 
 def unit_names_as_symbols(text: str) -> str:
@@ -178,7 +188,7 @@ def unit_names_as_symbols(text: str) -> str:
             continue
         start = text.find(unit[0], number.end())
         end = start + len(unit[0])
-        if _UNIT_GOES_ON.match(text, end):
+        if _UNIT_GOES_ON.match(text, end) or _another_unit_after(text, end):
             continue
         pieces.extend((text[cursor:start], symbol))
         cursor = end

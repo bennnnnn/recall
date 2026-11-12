@@ -33,8 +33,10 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    `•`, `*`) is one `·`, so `CuSO4.5H2O` is one formula with its water. A question pasted
    in LaTeX is its plain text first (`services/latex_markup.py`, shared with physics):
    `\(0.50 \text{ mol}\)` is `0.50 mol`, `\mathrm{H_2SO_4}` and `\ce{H2SO4}` are `H2SO4`,
-   `\ce{Fe^{3+}}` is `Fe^3+`. A density (ρ = m/V) is physics' law, never a second copy
-   here. A lowercase `ph`
+   `\ce{Fe^{3+}}` is `Fe^3+`. A count written as a subscript is part of its formula
+   (`\text{H}_2\text{SO}_4`, `CO_{2}`, `CO_2`), and no reader takes a formula a `_` goes on
+   from: `CO_x` is no CO. A density (ρ = m/V) is physics' law, never a second copy here. A
+   lowercase `ph`
    beside its value or before a molar concentration is `pH`, and `=` between two sides of
    formulas is the arrow of an equation the question asks to balance
    (`Al + HCl = AlCl3 + H2`). A question chemistry cannot close is still chemistry's,

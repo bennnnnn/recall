@@ -103,10 +103,15 @@ _COMMAND = re.compile(r"\\([A-Za-z]+|.)")
 _DELIMITERS = frozenset({"(", ")", "[", "]"})
 # A fraction's part, or a script, that needs no brackets: "1", "m", "s^2", "v_0".
 _SIMPLE = re.compile(r"[\w.°]+(?:[\^_][\w.]+)?")
+# A denominator that needs no brackets: a number or one unit ("s^2", "kg", "cm^3"). Any other
+# keeps its brackets: \frac{1}{4\pi\varepsilon_0} is 1/(4πε_0), never (1/4)πε_0.
+_ONE_TERM = re.compile(r"\d+(?:\.\d+)?|[A-Za-z]{1,3}(?:\^-?\d+)?")
 # A signed power or an ion's charge as a superscript: "s^{-2}" is s^-2, "Fe^{3+}" Fe^3+.
 _CHARGE = re.compile(r"-\d+|\d*[+-]")
 _FORMULA_COUNT = re.compile(r"(?<=[A-Za-z)\]])_(\d+)")
 _SPACE_RUN = re.compile(r"[ \t]{2,}")
+# Three digits that end a group of a number's digits: the "500" of 1\,500.
+_THOUSANDS = re.compile(r"\d{3}(?![\d])")
 _SPACE_BEFORE_MARK = re.compile(r"[ \t]+(?=[,.;:?!)])|(?<=\()[ \t]+")
 
 
@@ -193,7 +198,9 @@ def _command(tex: _Tex, index: int, out: list[str]) -> int:
     if name in _DELIMITERS:
         out.append(" ")
     elif name in _SPACES:
-        out.append(_SPACES[name])
+        # A thin space between digit groups is the thousands of one number: 1\,500 is 1500.
+        thousands = out and out[-1][-1:].isdigit() and _THOUSANDS.match(text, end)
+        out.append("" if thousands else _SPACES[name])
     elif name in _DROPPED:
         pass
     elif name in _MARKS:
@@ -230,11 +237,17 @@ def _command(tex: _Tex, index: int, out: list[str]) -> int:
 def _fraction(tex: _Tex, start: int, at: int, out: list[str]) -> tuple[str, int] | None:
     """``\\frac{a}{b}`` at ``start`` (its groups from ``at``) as a/b, and where it ends."""
     top = tex.group(at)
-    bottom = tex.group(top[1]) if top is not None else None
-    if top is None or bottom is None:
+    if top is None:
         return None
-    parts = [part.strip() for part in (top[0], bottom[0])]
-    shown = [part if _SIMPLE.fullmatch(part) else f"({part})" for part in parts]
+    bottom = tex.group(top[1])
+    if bottom is None:
+        # No denominator: the numerator as read, never read a second time as a bare group.
+        return top
+    numerator, denominator = top[0].strip(), bottom[0].strip()
+    shown = [
+        numerator if _SIMPLE.fullmatch(numerator) else f"({numerator})",
+        denominator if _ONE_TERM.fullmatch(denominator) else f"({denominator})",
+    ]
     fraction = f"{shown[0]}/{shown[1]}"
     # Written against a factor, the fraction is one: "\\frac{1}{2}mv^2" is (1/2)mv^2.
     # Only what is written against it: "3 \\, \\frac{m}{s^2}" is a number and its unit.

@@ -33,9 +33,9 @@ CHEMICAL_FORMULA = (
     r"(?:\^(?:\{\d*[+-]\}|\d*[+-])|\d*[+-])?"
     r"(?:\((?:aq|s|l|g)\))?)"
 )
-# A formula has ended: no letter or digit follows, and no hydrate dot carries it on. A reader
-# that does not take a hydrate declines CuSO4·5H2O instead of reading the CuSO4 of it.
-FORMULA_END = rf"(?![A-Za-z0-9{HYDRATE_DOT}])"
+# A formula has ended: no letter, digit or subscript ("CO_x") follows, and no hydrate dot
+# carries it on. A reader without hydrates declines CuSO4·5H2O, never reading its CuSO4.
+FORMULA_END = rf"(?![A-Za-z0-9_{HYDRATE_DOT}])"
 # A formula with the water (or second salt) of a hydrate: CuSO4·5H2O, Na2CO3·10H2O. The input
 # reader (``input_text``) writes every hydrate dot as this one character.
 SAMPLE_FORMULA = (

@@ -23,7 +23,7 @@ from app.modules.physics.solvers.results import PhysicsResult, QuantityResult, s
 from app.modules.physics.solvers.si import params_in_si
 from app.services.law_binding.inverse import (
     forward_expression,
-    rearranged,
+    inverse_of,
     solved_for,
     solved_input,
 )
@@ -154,7 +154,7 @@ def _solve_for_input(
     givens = {name: value for name, value in params.items() if name != stated.name}
     # The law's form is chosen from its givens, with the asked input among them.
     forward = forward_expression(spec, {**givens, unknown.name: 1.0})
-    inverse = rearranged(forward, stated.name, unknown.name) if forward else None
+    inverse = inverse_of(spec, forward, unknown.name) if forward else None
     if forward is None or inverse is None:
         raise SolveServiceError(f"{spec.id} has no one arithmetic for {unknown.name}")
     value = _evaluated(law, inverse, params)

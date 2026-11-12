@@ -138,7 +138,12 @@ flowchart LR
      diameter 1 mm" states no rise), a result at one end of a change is named only by that
      end's words (Boyle's P₂ by "new pressure", never by "initial pressure"), and a
      direction another catalog law gives from the same quantities is that law's, with its
-     own checks (F = ma is `net_force`'s, which sets "a spring" aside). SymPy rearranges
+     own checks (F = ma is `net_force`'s, which sets "a spring" aside). A question states a
+     result as a size ("gives out 36000 J of heat", "40 N in the opposite direction"), so a
+     law that prints its result as a size (`negative_detail`) is never solved for an input,
+     and any other only when the result's sign changes the answer's sign alone, never its
+     size (`inverse_of`): s = W/F is 5 m however W is signed, while T₂ = T₁ + Q/mc read a
+     block cooling from 80 °C as ending at 120 °C. SymPy rearranges
      the law's own expression (one solution, positive quantities, or none), in the SymPy
      pool with the turn's other readers, once per law and input; the working shows the
      law, then `Solve for $s$` over the rearranged form. The answer is put back into the
@@ -402,10 +407,19 @@ The binder reads these laws, beside the extractors' own:
   unit_names_as_symbols`): "30 Newtons" is 30 N, "100 grams" 100 g, "a 12 volt battery"
   12 V, each the unit table's own reading. An extractor reads the symbols its pattern lists,
   so "a net force of 30 Newtons" had no force for F = ma. A length, a time, an angle, a
-  count and a temperature scale stay in words, as every reader reads them. A liquid's
-  density in g/mL, g/L or kg/L, and a constant's own unit ("k = 9.0e9 N·m²/C²", "G =
-  6.67e-11 N m²/kg²"), are table spellings: read by its first letter, a stated k was a
-  force of 9e9 N. A stated constant's label (`k`, `k_e`, `G`) is a given, not algebra.
+  count and a temperature scale stay in words, as every reader reads them, and so does a
+  unit of two words ("30 newton metres", "6 newton-seconds"): its first word alone was a
+  force of 30 N. A liquid's density in g/mL, g/L or kg/L, and a constant's own unit
+  ("k = 9.0e9 N·m²/C²", "G = 6.67e-11 N m²/kg²"), are table spellings: read by its first
+  letter, a stated k was a force of 9e9 N. A stated constant's label (`k`, `k_e`, `G`) is
+  a given, not algebra.
+- **Thousands grouped by a space** ("1 200 kg") are one number or a count and another
+  (1 and a 200 kg), so the question declines (`counted.unclear_part_or_count`); a LaTeX
+  thin space between digit groups (`1\,500`) is one number.
+- **A stated constant is the one the answer uses**: "k = 9.0e9 N·m²/C²" gives Coulomb's
+  law 0.6 N where CODATA's k gives 0.599 N.
+- **A part of a divided body** ("cut in half: the weight of each half") is not the body the
+  question states, so a solve fed the whole's values declines.
 - **A speed's units are the table's**: "60 miles per hour for 4.5 hours" is mi over h, so
   d = vt is worked in the question's units (270 mi). Split as text at its slash, a speed
   written in words had none, and the train went to the model.

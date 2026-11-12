@@ -41,7 +41,7 @@ _MAX_LOWERCASE = 12
 
 # Tokens are bounded, so a run such as "a1(a1(a1(…" is read in linear time: it was cubic, 8.7 s
 # on 4,000 characters, and the gate reads every turn.
-_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]{0,39})(?![A-Za-z0-9(])")
+_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]{0,39})(?![A-Za-z0-9(_])")
 _LOWERCASE_TOKEN = re.compile(
     rf"(?<![A-Za-z0-9])([a-z][a-z0-9()]{{0,{_MAX_LOWERCASE - 1}}})(?![A-Za-z0-9(])"
 )

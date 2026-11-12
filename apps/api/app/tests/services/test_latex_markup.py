@@ -30,6 +30,14 @@ from app.services.latex_markup import without_markup
         (r"v = \sqrt{2gh}", "v = sqrt(2gh)"),
         # A formula's subscript count and an ion's charge, as chemistry reads them.
         (r"\(\mathrm{H_2SO_4}\), \ce{Fe^{3+}}, \(\mathrm{OH^{-}}\)", "H2SO4, Fe^3+, OH^-"),
+        # A thin space between digit groups is the thousands of one number.
+        (r"\(1\,500\,\text{kg}\), \(2\,\text{kg}\)", "1500 kg, 2 kg"),
+        # A denominator of more than one term keeps its brackets.
+        (r"\frac{1}{4\pi\varepsilon_0}", "1/(4πε_0)"),
+        (r"\frac{v^2}{2a}", "v^2/(2a)"),
+        (r"\frac{\text{g}}{\text{cm}^3}", "g/cm^3"),
+        # A fraction with no denominator is its numerator, read once.
+        (r"\frac{x}", "x"),
         # A prime is a prime: f'(x) is a derivative, never "f" times a group.
         (r"find \(f^{\prime}(x)\) and \(f^{\prime\prime}(x)\)", "find f'(x) and f''(x)"),
     ],
@@ -68,6 +76,9 @@ def test_reading_plain_text_again_changes_nothing() -> None:
         "\\a " + "{" * 19_000,
         "\\text{" * 3000 + "x",
         "\\frac{1}{2} " * 1500,
+        # A fraction with no denominator, nested: its numerator is read once, not twice a level.
+        "\\frac{" * 3300 + "x" + "}" * 3300,
+        ("\\frac{" * 8 + "x" * 50 + "}" * 8 + " ") * 150,
     ],
 )
 def test_a_hostile_paste_of_braces_reads_in_linear_time(hostile: str) -> None:

@@ -17,6 +17,8 @@ from app.services.law_binding.inverse import (
     answered_by_its_own_law,
     can_solve_for,
     form_params,
+    inverse_of,
+    keeps_its_size,
     rearranged,
     solved_for,
     solved_input,
@@ -210,3 +212,50 @@ def test_a_direction_another_law_owns_is_left_to_it() -> None:
     # F = ma is net_force's, with its own checks ("a spring", "centripetal").
     assert answered_by_its_own_law(mass_from_force, force, (mass_from_force, net_force))
     assert not answered_by_its_own_law(mass_from_force, force, (mass_from_force, _WORK))
+
+
+@pytest.mark.parametrize(
+    ("inverse", "result", "keeps"),
+    [
+        # A sign on the stated result signs the answer and no more.
+        ("work/F", "work", True),
+        ("potential_energy/(g*m)", "potential_energy", True),
+        ("2*kinetic_energy/v**2", "kinetic_energy", True),
+        # It moves the answer: T2 = T1 + Q/mc, V2 = V1·exp(W/nRT), v = u + Ft/m.
+        ("heat_energy/(c_heat*m) + temp_initial", "heat_energy", False),
+        ("vol_initial*exp(isothermal_work/(R_gas*moles*temp))", "isothermal_work", False),
+        ("u + force*t/m", "force", False),
+    ],
+)
+def test_an_answer_keeps_its_size_whatever_sign_the_result_is_stated_with(
+    inverse: str, result: str, keeps: bool
+) -> None:
+    assert keeps_its_size(inverse, result) is keeps
+
+
+def test_a_law_whose_result_is_stated_as_a_size_is_never_solved_for_an_input() -> None:
+    heat = formula(
+        "heat_energy",
+        "thermal",
+        "Specific heat",
+        "Q",
+        expression="m*c_heat*(temp_final - temp_initial)",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("c_heat", "c", "joule / kilogram / kelvin"),
+            var("temp_initial", "T_1", "kelvin"),
+            var("temp_final", "T_2", "kelvin"),
+        ),
+        binding=Binding(
+            asks=("heat",),
+            result=("joule",),
+            inputs=(frozenset({"m", "c_heat", "temp_initial", "temp_final"}),),
+            # "Gives out 36000 J" is printed as a size with a note.
+            negative_detail="released",
+        ),
+    )
+    # T₂ = T₁ + Q/mc read +36000 J for a block giving it out: 120 °C for 40 °C.
+    assert not can_solve_for(heat, "temp_final")
+    assert inverse_of(heat, "m*c_heat*(temp_final - temp_initial)", "temp_final") is None
+    # W = Fs keeps its size: s = W/F is 5 m however W is signed.
+    assert inverse_of(_WORK, "F*d", "d") == "work/F"

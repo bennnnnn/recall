@@ -236,6 +236,7 @@ _MEANINGS: dict[str, str] = {
     "proper_length": "proper length",
     "proper_time": "proper time",
     "Q": "charge",
+    "k_coulomb": "Coulomb constant",
     "q1": "charge",
     "q2": "charge",
     "q_cold": "heat to the cold reservoir",

@@ -89,6 +89,11 @@ def _right_or_declined(question: str, expected: float, rel: float = 0.01) -> Non
         # A question pasted in LaTeX reads as its plain text (phone test, 2026-11-11).
         (r"\(0.50 \text{ mol}\) of \(\mathrm{H_2SO_4}\)", "0.50 mol of H2SO4"),
         (r"\ce{Fe^{3+}} in \(25.0\,\mathrm{mL}\)", "Fe^3+ in 25.0 mL"),
+        # A count written as a subscript, outside the text runs or braced (review 2026-11-11).
+        (r"\(\text{H}_2\text{SO}_4\)", "H2SO4"),
+        (r"\(\text{CO}_{2}\)", "CO2"),
+        (r"\(\text{Ca(NO}_3\text{)}_2\)", "Ca(NO3)2"),
+        ("CO_2 and K_a", "CO2 and K_a"),
     ],
 )
 def test_read_chemistry_text_spells_scripts_and_hydrate_dots_in_ascii(
@@ -395,3 +400,33 @@ def test_lookalikes_stay_out_of_chemistry(text: str) -> None:
 
 def test_a_pool_ph_is_chemistry() -> None:
     assert detect_subject("the pool ph is 7.8, is that too high?") == "chemistry"
+
+
+@pytest.mark.parametrize(
+    ("question", "label", "expected"),
+    [
+        (
+            r"What is the mass of \(0.50\,\text{mol}\) of \(\text{H}_2\text{SO}_4\)?",
+            "m(H2SO4)",
+            49.04,
+        ),
+        (r"What is the mass of \(2.5\,\text{mol}\) of \(\text{CO}_{2}\)?", "m(CO2)", 110.0),
+        ("What is the mass of 2.5 mol of CO_2?", "m(CO2)", 110.0),
+        (r"What is the molar mass of \(\text{Ca(NO}_3\text{)}_2\)?", "M(Ca(NO3)2)", 164.09),
+    ],
+)
+def test_a_subscript_count_is_part_of_its_formula(
+    question: str, label: str, expected: float
+) -> None:
+    result = _solve(question)
+    assert result.answer.startswith(label), result.answer
+    assert math.isclose(_value(result.answer), expected, rel_tol=1e-3)
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["What is the mass of 2.5 mol of CO_x?", "What is the molar mass of NO_x?"],
+)
+def test_a_formula_with_a_subscript_still_to_come_is_not_read(question: str) -> None:
+    # CO_x is no formula; read up to its "_", it was CO.
+    assert extract_chemistry_intent(question) is None

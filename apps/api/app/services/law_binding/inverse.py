@@ -208,16 +208,36 @@ def _quantity_kinds(spec: FormulaSpec) -> tuple[str, ...]:
 
 
 def can_solve_for(spec: FormulaSpec, name: str) -> bool:
-    """Whether SymPy rearranges some form of the law that holds ``name`` for it: P = W/t
-    for W, though the law's first form, P = Fv, has no W."""
-    stated = result_variable(spec)
-    if stated is None or spec.binding is None:
+    """Whether some form of the law that holds ``name`` is solved for it (``inverse_of``):
+    P = W/t for W, though the law's first form, P = Fv, has no W."""
+    if spec.binding is None:
         return False
     for inputs in spec.binding.inputs:
         forward = forward_expression(spec, dict.fromkeys(inputs, 1.0)) if name in inputs else None
-        if forward is not None and rearranged(forward, stated.name, name) is not None:
+        if forward is not None and inverse_of(spec, forward, name) is not None:
             return True
     return False
+
+
+def inverse_of(spec: FormulaSpec, forward: str, name: str) -> str | None:
+    """The law's form ``forward`` solved for ``name`` (``rearranged``), when the answer does
+    not hang on a sign the question's words leave out; else None.
+
+    A question states a result as a size: "gives out 36000 J of heat", "3000 J of work is
+    done on the gas", "a 40 N force in the opposite direction". A law whose result has a
+    sign is answered only when that sign changes the answer's sign alone, never its size:
+    s = W/F is 5 m however W is signed. T₂ = T₁ + Q/mc is not: read as +36000 J, an iron
+    block cooling from 80 °C ended at 120 °C. A law that prints its result as a size with
+    a note (``negative_detail``: "releases", "opposing the motion") is never solved so.
+    """
+    stated = result_variable(spec)
+    binding = spec.binding
+    if stated is None or binding is None or binding.negative_detail:
+        return None
+    inverse = rearranged(forward, stated.name, name)
+    if inverse is None or not (binding.nonnegative or keeps_its_size(inverse, stated.name)):
+        return None
+    return inverse
 
 
 def forward_expression(spec: FormulaSpec, params: Mapping[str, float]) -> str | None:
@@ -274,6 +294,29 @@ def rearranged(expression: str, result: str, unknown: str) -> str | None:
     except ExpressionError:
         return None
     return text
+
+
+@lru_cache(maxsize=1024)
+def keeps_its_size(inverse: str, result: str) -> bool:
+    """The answer ``inverse`` gives has the same size whichever sign ``result`` has."""
+    import sympy
+
+    names: dict[str, Any] = {}
+
+    def symbol(name: str) -> Any:
+        if name not in names:
+            names[name] = sympy.Symbol(name, positive=True)
+        return names[name]
+
+    try:
+        answer = _to_sympy(parse(inverse), symbol)
+    except (ExpressionError, ValueError):
+        return False
+    stated = symbol(result)
+    try:
+        return bool(sympy.simplify(answer.subs(stated, -stated) ** 2 - answer**2) == 0)
+    except (TypeError, ValueError):
+        return False
 
 
 def _to_sympy(node: ast.expr, symbol: Any) -> Any:

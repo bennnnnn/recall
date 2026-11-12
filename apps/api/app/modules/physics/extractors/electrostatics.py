@@ -15,7 +15,9 @@ from app.modules.physics.extractors.stated_values import (
     ordered_values,
 )
 from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN
+from app.modules.physics.givens import scan_givens
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.units import dimension_of
 from app.services.text_match import has_equation
 
 _ELECTROSTATICS_CUES = (
@@ -42,6 +44,7 @@ _TWO_EQUAL_CHARGES_RE = re.compile(
 )
 
 _ELECTROSTATICS_CUE_RES: tuple[re.Pattern[str], ...] = (_TWO_CHARGES_RE, _TWO_EQUAL_CHARGES_RE)
+_COULOMB_CONSTANT = dimension_of("newton * meter ** 2 / coulomb ** 2")
 
 
 def _extract_electrostatics_intent(cleaned: str) -> PhysicsIntent | None:
@@ -109,15 +112,18 @@ def _extract_electrostatics_intent(cleaned: str) -> PhysicsIntent | None:
 
     if ("force" not in lower and "coulomb" not in lower) or len(charges) != 2:
         return None
-
+    params = {"q1": charges[0][0], "q2": charges[1][0], "r": separation[0]}
+    units = {"q1": charges[0][1] or "C", "q2": charges[1][1] or "C", "r": separation[1] or "m"}
+    stated = [given for given in scan_givens(cleaned) if given.dimension == _COULOMB_CONSTANT]
+    if len(stated) > 1:
+        return None
+    if stated:
+        # "k = 9.0e9 N·m²/C²": the answer the question works out uses its own constant.
+        params["k_coulomb"], units["k_coulomb"] = stated[0].value, stated[0].unit
     return PhysicsIntent(
         kind="magnetism",
         physics_op="electric_force",
-        physics_params={"q1": charges[0][0], "q2": charges[1][0], "r": separation[0]},
-        physics_units={
-            "q1": charges[0][1] or "C",
-            "q2": charges[1][1] or "C",
-            "r": separation[1] or "m",
-        },
+        physics_params=params,
+        physics_units=units,
         operation="solve",
     )

@@ -7,7 +7,8 @@ context all read ASCII formulas, and a subscript digit used to end a formula: "t
 of H₂SO₄" was answered as the molar mass of H. ``read_chemistry_text`` spells the text once,
 at the input:
 
-- a subscript digit is a digit: ``H₂SO₄`` is ``H2SO4``;
+- a subscript digit is a digit: ``H₂SO₄`` is ``H2SO4``, and so is a count written as a
+  subscript, ``H_2SO_4`` or ``CO_{2}``;
 - a superscript is a charge or an exponent: ``Fe³⁺`` is ``Fe^3+``, ``SO₄²⁻`` is ``SO4^2-``,
   ``OH⁻`` is ``OH-`` and ``10⁻³`` is ``10^-3``;
 - a hydrate's dot is one character: ``CuSO4.5H2O``, ``CuSO4 • 5H2O`` and ``CuSO4*5H2O`` are
@@ -36,6 +37,10 @@ _SUPERSCRIPTS = SUPERSCRIPT_SIGNED
 # followed by a digit is the next term's ("x²-1"), not a charge.
 _SCRIPT_RUN = re.compile(r"([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)([+\-−](?![\d.]))?")
 _TRUE_MINUS = "−"
+
+# A count written as a subscript, braced or not: "H_2SO_4", "CO_{2}", "Ca(NO_3)_2" (a
+# LaTeX paste's ``\text{H}_2\text{SO}_4``). Read as written, "CO_2" was the formula CO.
+_SUBSCRIPT_COUNT = re.compile(r"(?<=[A-Za-z)\]])_\{?(\d+)\}?")
 
 # The canonical hydrate dot. ``formula.parse_formula`` reads it, and a number reader never
 # takes "4.5" out of "CuSO4·5H2O".
@@ -167,7 +172,7 @@ def read_chemistry_text(text: str) -> str:
     """
     if not text:
         return text
-    text = spell_scripts(without_markup(text))
+    text = _SUBSCRIPT_COUNT.sub(r"\1", spell_scripts(without_markup(text)))
     text = _hydrate_dots(text)
     text = _PH_WORD.sub("pH", text)
     return _equals_arrow(text)

@@ -119,6 +119,32 @@ def test_a_law_answers_the_quantity_asked(text: str, operation: str, value: floa
         "A 2 kg ball has 100 J of energy. How fast is it moving?",
         # The law's word is in the sentence but labels no value of its kind.
         "A cart that does work is pushed 400 J by a force of 80 N. How far does it move?",
+        # A result the words state as a size while its sign moves the answer (review
+        # 2026-11-11): 120 °C for 40, 0 °C for 80, 18.2 L for 5.48, 7 m/s for 3.
+        "A 2 kg block of iron cools from 80 °C, giving out 36000 J of heat. What is its final "
+        "temperature? The specific heat capacity of iron is 450 J/kg°C.",
+        "A 2 kg block of iron cools to 40 °C, giving out 36000 J of heat. What was its initial "
+        "temperature? (c = 450 J/kg°C)",
+        "2 mol of an ideal gas at 300 K is compressed isothermally from 10 L. 3000 J of work "
+        "is done on the gas. What is the final volume?",
+        "A 2 kg ball moving at 5 m/s is hit by a bat with an average force of 40 N for 0.1 s "
+        "in the opposite direction. What is its final speed?",
+        "Two forces act on a box in opposite directions. The net force is 10 N and one force "
+        "is 30 N. What is the other force?",
+        # A unit of two words is no unit of its first: 30 N·m, never 30 N and "metres".
+        "A wrench applies a torque of 30 newton metres to a bolt. The wrench is 0.5 m long. "
+        "What force is applied?",
+        "An impulse of 6 newton seconds acts on a 2 kg ball over 0.3 s. What is the change in "
+        "momentum?",
+        "A bat delivers an impulse of 6 newton-seconds over 0.3 s. What is the change in "
+        "momentum of the ball?",
+        # Thousands grouped by a space: 1200 kg or a 1 and a 200 kg.
+        "A car of mass 1 200 kg moves at 20 m/s. What is its kinetic energy?",
+        # The ask is one part of a divided body; the values are the whole's.
+        "A 6 kg block is cut in half. What is the weight of each half?",
+        "An object has a density of 2 g/cm³ and a volume of 3 cm³ and is cut in half. "
+        "What is the mass of each half?",
+        "A 6 kg block is split into three equal pieces. What is the weight of each piece?",
     ],
 )
 def test_a_result_the_words_do_not_state_is_never_solved_for(text: str) -> None:
@@ -170,6 +196,13 @@ def test_a_form_the_givens_choose_is_the_one_rearranged() -> None:
         # A unit that goes on past its name is the table's to read whole, or nobody's.
         ("3 joules per second", "3 joules per second"),
         ("Newton's second law", "Newton's second law"),
+        # So is a unit of two words, joined or not, and a name in the possessive.
+        ("a torque of 30 newton metres", "a torque of 30 newton metres"),
+        ("20 newton-seconds", "20 newton-seconds"),
+        ("5 joule seconds", "5 joule seconds"),
+        ("5 volt amperes", "5 volt amperes"),
+        ("2 Newtons' laws", "2 Newtons' laws"),
+        ("2 newtons of force", "2 N of force"),
     ],
 )
 def test_a_unit_named_in_words_reads_as_its_symbol(written: str, read: str) -> None:
@@ -214,9 +247,28 @@ def test_a_unit_named_in_words_reads_as_its_symbol(written: str, read: str) -> N
             5.0,
         ),
         (r"\[ m = 2.0\,\mathrm{kg},\quad v = 3.0\,\mathrm{m/s} \] Find the kinetic energy.", 9.0),
+        # Thin spaces between digit groups are one number: 1500 kg, never 500.
+        (
+            r"A \(1\,500\,\text{kg}\) car accelerates at \(2\,\text{m/s}^2\). What is the net force?",
+            3000.0,
+        ),
     ],
 )
 def test_a_question_in_latex_reads_as_its_plain_text(text: str, value: float) -> None:
     answer = _answer(text)
     assert answer is not None, text
     assert answer_number(answer) == pytest.approx(value, rel=0.01)
+
+
+def test_a_stated_constant_is_the_one_the_answer_uses() -> None:
+    # k = 9e9, not CODATA's 8.99e9: 0.6 N as the question works it, not 0.599 N.
+    text = (
+        "Two charges q1 = 2 μC and q2 = 3 μC are 0.3 m apart, with k = 9 × 10^9 N·m²/C². "
+        "Find the force."
+    )
+    answer = _answer(text)
+    assert answer is not None
+    assert answer_number(answer) == pytest.approx(0.6, rel=1e-6)
+    assert answer_number(_answer(text.replace(", with k = 9 × 10^9 N·m²/C²", "")) or "") == (
+        pytest.approx(0.599, rel=1e-3)
+    )

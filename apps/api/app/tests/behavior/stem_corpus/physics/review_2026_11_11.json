@@ -1,0 +1,153 @@
+[
+ {
+  "id": "rv11-iron-cools-final",
+  "area": "signs",
+  "prompt": "A 2 kg block of iron cools from 80 °C, giving out 36000 J of heat. What is its final temperature? The specific heat capacity of iron is 450 J/kg°C.",
+  "expect": "answer",
+  "answer": [40, "degC"],
+  "note": "Q = mcΔT with Q = -36000 J: ΔT = -40 °C, so 80 - 40. Read as +36000 J it was 120 °C (review 2026-11-11)"
+ },
+ {
+  "id": "rv11-iron-cools-initial",
+  "area": "signs",
+  "prompt": "A 2 kg block of iron cools to 40 °C, giving out 36000 J of heat. What was its initial temperature? (c = 450 J/kg°C)",
+  "expect": "answer",
+  "answer": [80, "degC"],
+  "note": "40 + 36000/(2 × 450); it was 0 °C with the sign dropped"
+ },
+ {
+  "id": "rv11-iron-absorbs-final",
+  "area": "signs",
+  "prompt": "A 2 kg block of iron at 20 °C absorbs 36000 J of heat. What is its final temperature? (c = 450 J/kg°C)",
+  "expect": "answer",
+  "answer": [60, "degC"],
+  "note": "20 + 36000/(2 × 450): the same law, its heat taken in"
+ },
+ {
+  "id": "rv11-isothermal-compressed",
+  "area": "signs",
+  "prompt": "2 mol of an ideal gas at 300 K is compressed isothermally from 10 L. 3000 J of work is done on the gas. What is the final volume?",
+  "expect": "answer",
+  "answer": [5.48, "L"],
+  "note": "W_by = nRT ln(V2/V1) = -3000 J: V2 = 10 × exp(-3000/(2 × 8.314 × 300)); 18.2 L with the sign dropped"
+ },
+ {
+  "id": "rv11-bat-opposing-force",
+  "area": "signs",
+  "prompt": "A 2 kg ball moving at 5 m/s is hit by a bat with an average force of 40 N for 0.1 s in the opposite direction. What is its final speed?",
+  "expect": "answer",
+  "answer": [3, "m/s"],
+  "note": "v = u + Ft/m = 5 - 40 × 0.1/2; 7 m/s with the force's direction dropped"
+ },
+ {
+  "id": "rv11-opposing-other-force",
+  "area": "signs",
+  "prompt": "Two forces act on a box in opposite directions. The net force is 10 N and one force is 30 N. What is the other force?",
+  "expect": "decline",
+  "note": "20 N or 40 N: the question does not say which way the 30 N acts"
+ },
+ {
+  "id": "rv11-inverted-image-object",
+  "area": "signs",
+  "prompt": "A lens forms an inverted image 4 cm tall with a magnification of -2. How tall is the object?",
+  "expect": "answer",
+  "answer": [2, "cm"],
+  "note": "h_o = h_i/m = (-4)/(-2): the inverted image's height is negative"
+ },
+ {
+  "id": "rv11-torque-newton-metres",
+  "area": "units",
+  "prompt": "A wrench applies a torque of 30 newton metres to a bolt. The wrench is 0.5 m long. What force is applied?",
+  "expect": "answer",
+  "answer": [60, "N"],
+  "note": "F = τ/r = 30/0.5; \"30 N metres\" was a force of 30 N and a torque of 15 N·m"
+ },
+ {
+  "id": "rv11-impulse-newton-seconds",
+  "area": "units",
+  "prompt": "An impulse of 20 newton seconds acts on a 4 kg cart for 2 s. What is the average force?",
+  "expect": "answer",
+  "answer": [10, "N"],
+  "note": "F = J/t = 20/2"
+ },
+ {
+  "id": "rv11-impulse-hyphenated",
+  "area": "units",
+  "prompt": "A bat delivers an impulse of 6 newton-seconds over 0.3 s. What is the change in momentum of the ball?",
+  "expect": "answer",
+  "answer": [6, "N*s"],
+  "note": "Δp = J; 1.8 N·s with the second word dropped"
+ },
+ {
+  "id": "rv11-thousands-space",
+  "area": "units",
+  "prompt": "A car of mass 1 200 kg moves at 20 m/s. What is its kinetic energy?",
+  "expect": "answer",
+  "answer": [240000, "J"],
+  "note": "½ × 1200 × 20²; read as 200 kg it was 40 000 J"
+ },
+ {
+  "id": "rv11-tex-thousands",
+  "area": "markup",
+  "prompt": "A \\(1\\,500\\,\\text{kg}\\) car accelerates at \\(2\\,\\text{m/s}^2\\). What is the net force?",
+  "expect": "answer",
+  "answer": [3000, "N"],
+  "note": "1500 × 2; a thin space between digit groups"
+ },
+ {
+  "id": "rv11-tex-thousands-ke",
+  "area": "markup",
+  "prompt": "A car of mass \\(1\\,500\\,\\text{kg}\\) has a kinetic energy of \\(300\\,\\text{kJ}\\). What is its speed?",
+  "expect": "answer",
+  "answer": [20, "m/s"],
+  "note": "√(2 × 300000/1500)"
+ },
+ {
+  "id": "rv11-each-half-weight",
+  "area": "parts",
+  "prompt": "A 6 kg block is cut in half. What is the weight of each half?",
+  "expect": "answer",
+  "answer": [29.43, "N"],
+  "note": "3 kg × 9.81; the whole block's 58.9 N is not a half's"
+ },
+ {
+  "id": "rv11-each-half-mass",
+  "area": "parts",
+  "prompt": "An object has a density of 2 g/cm³ and a volume of 3 cm³ and is cut in half. What is the mass of each half?",
+  "expect": "answer",
+  "answer": [3, "g"],
+  "note": "2 × 3/2; the whole's 6 g is not a half's"
+ },
+ {
+  "id": "rv11-each-piece-weight",
+  "area": "parts",
+  "prompt": "A 6 kg block is split into three equal pieces. What is the weight of each piece?",
+  "expect": "answer",
+  "answer": [19.62, "N"],
+  "note": "2 kg × 9.81"
+ },
+ {
+  "id": "rv11-identical-blocks-lookalike",
+  "area": "parts",
+  "prompt": "Two identical 3 kg blocks sit on a table. What is the weight of each block?",
+  "expect": "answer",
+  "answer": [29.43, "N"],
+  "note": "each block is 3 kg: 3 × 9.81"
+ },
+ {
+  "id": "rv11-stated-k-used",
+  "area": "markup",
+  "prompt": "Two charges q1 = 2 μC and q2 = 3 μC are 0.3 m apart, with k = 9 × 10^9 N·m²/C². Find the force.",
+  "expect": "answer",
+  "answer": [0.6, "N"],
+  "note": "9e9 × 6e-12/0.09 with the stated k, not CODATA's 8.99e9 (0.599 N)"
+ },
+ {
+  "id": "rv11-tex-coulomb-denominator",
+  "area": "markup",
+  "prompt": "Two point charges of \\(2\\,\\mu\\text{C}\\) and \\(3\\,\\mu\\text{C}\\) are \\(0.3\\,\\text{m}\\) apart. What is the electrostatic force between them? (Use \\(F = \\frac{1}{4\\pi\\varepsilon_0}\\frac{q_1q_2}{r^2}\\).)",
+  "expect": "answer",
+  "answer": [0.599, "N"],
+  "note": "8.99e9 × 6e-12/0.09; the constant written 1/(4πε₀)"
+ }
+]

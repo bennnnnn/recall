@@ -4,7 +4,12 @@
   "area": "density",
   "prompt": "Ethanol has a density of 0.789 g/mL. What volume does 50.0 g of ethanol occupy?",
   "expect": "answer",
-  "answers": [[63.37, "mL"]],
+  "answers": [
+   [
+    63.37,
+    "mL"
+   ]
+  ],
   "shared": "physics",
   "note": "V = m/ρ = 50.0/0.789; ρ = m/V is physics' law (catalog/fluids.py density)"
  },
@@ -13,7 +18,12 @@
   "area": "density",
   "prompt": "Mercury has a density of 13.6 g/mL. What is the mass of 25.0 mL of mercury?",
   "expect": "answer",
-  "answers": [[340, "g"]],
+  "answers": [
+   [
+    340,
+    "g"
+   ]
+  ],
   "shared": "physics",
   "note": "m = ρV = 13.6 × 25.0"
  },
@@ -22,7 +32,12 @@
   "area": "molarity",
   "prompt": "What is the molarity of a solution with \\(0.50 \\text{ mol}\\) of NaCl dissolved in \\(2.0 \\text{ L}\\) of water?",
   "expect": "answer",
-  "answers": [[0.25, "M"]],
+  "answers": [
+   [
+    0.25,
+    "M"
+   ]
+  ],
   "note": "c = n/V = 0.50/2.0, in LaTeX (phone test 2026-11-11)"
  },
  {
@@ -30,7 +45,12 @@
   "area": "moles",
   "prompt": "How many moles are in \\(36.0\\,\\mathrm{g}\\) of \\(\\mathrm{H_2O}\\)?",
   "expect": "answer",
-  "answers": [[1.998, "mol"]],
+  "answers": [
+   [
+    1.998,
+    "mol"
+   ]
+  ],
   "note": "n = 36.0/18.015; a formula written \\mathrm{H_2O}"
  },
  {
@@ -38,7 +58,12 @@
   "area": "molar_mass",
   "prompt": "Calculate the molar mass of \\(\\ce{H2SO4}\\).",
   "expect": "answer",
-  "answers": [[98.072, "g/mol"]],
+  "answers": [
+   [
+    98.072,
+    "g/mol"
+   ]
+  ],
   "note": "2(1.008) + 32.06 + 4(15.999); mhchem's \\ce{}"
  },
  {
@@ -46,8 +71,85 @@
   "area": "ph",
   "prompt": "What is the pH of a \\(1.0 \\times 10^{-3}\\,\\text{M}\\) HCl solution?",
   "expect": "answer",
-  "answers": [[3.0, ""]],
+  "answers": [
+   [
+    3.0,
+    ""
+   ]
+  ],
   "abs_tol": 0.02,
   "note": "pH = −log(1.0 × 10⁻³)"
+ },
+ {
+  "id": "rv11-tex-subscript-outside-text",
+  "area": "moles",
+  "prompt": "What is the mass of \\(0.50\\,\\text{mol}\\) of \\(\\text{H}_2\\text{SO}_4\\)?",
+  "expect": "answer",
+  "answers": [
+   [
+    49.04,
+    "g"
+   ]
+  ],
+  "note": "0.50 × 98.08; the counts sit outside the \\text{} runs, and H_2SO_4 was read as H (0.50 g) (review 2026-11-11)"
+ },
+ {
+  "id": "rv11-tex-subscript-braced",
+  "area": "moles",
+  "prompt": "What is the mass of \\(2.5\\,\\text{mol}\\) of \\(\\text{CO}_{2}\\)?",
+  "expect": "answer",
+  "answers": [
+   [
+    110.0,
+    "g"
+   ]
+  ],
+  "note": "2.5 × 44.01; it was the mass of CO, 70 g"
+ },
+ {
+  "id": "rv11-plain-subscript",
+  "area": "moles",
+  "prompt": "What is the mass of 2.5 mol of CO_2?",
+  "expect": "answer",
+  "answers": [
+   [
+    110.0,
+    "g"
+   ]
+  ],
+  "note": "a count typed as a subscript"
+ },
+ {
+  "id": "rv11-tex-bracket-subscript",
+  "area": "molar_mass",
+  "prompt": "What is the molar mass of \\(\\text{Ca(NO}_3\\text{)}_2\\)?",
+  "expect": "answer",
+  "answers": [
+   [
+    164.09,
+    "g/mol"
+   ]
+  ],
+  "note": "40.078 + 2(14.007) + 6(15.999); it was Ca's 40.08"
+ },
+ {
+  "id": "rv11-tex-thousands-moles",
+  "area": "moles",
+  "prompt": "How many moles are in \\(1\\,000\\,\\text{g}\\) of water?",
+  "expect": "answer",
+  "answers": [
+   [
+    55.51,
+    "mol"
+   ]
+  ],
+  "note": "1000/18.015; a thin space between digit groups"
+ },
+ {
+  "id": "rv11-letter-subscript",
+  "area": "moles",
+  "prompt": "What is the mass of 2.5 mol of CO_x?",
+  "expect": "decline",
+  "note": "CO_x names no one formula: CO is not it"
  }
 ]
