@@ -17,10 +17,11 @@ import pytest
 from app.gateways.decider_gateway import DeciderAnswer, DeciderReply
 from app.gateways.mcp import registry
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.chat import stream_pipeline
 from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_paths import run_llm_token_stream, run_tool_loop_path
-from app.modules.chat.tool_loop import live_denial
+from app.modules.chat.tool_loop import live_denial, reply_calls
 from app.modules.chat.tool_loop.reply_calls import ReplyTurn, answered_read, reply_tools
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.web_search import WebSearchAdapter
@@ -387,6 +388,7 @@ async def test_a_check_that_fails_leaves_the_reply() -> None:
         assert not await live_denial.denies_live_data(_SETTINGS, _BEARS, _DENIAL)
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_the_check_waits_no_longer_than_its_cap() -> None:
     """Review (2026-11-11): the client's timeout bounds each phase of the request, not the
@@ -397,12 +399,10 @@ async def test_the_check_waits_no_longer_than_its_cap() -> None:
         return DeciderReply(answers={"denies": DeciderAnswer(type="noul", noul=0.9)})
 
     started = time.monotonic()
-    with (
-        patch("app.gateways.decider_gateway.decide", slow),
-        patch.object(live_denial, "_CHECK_SECONDS", 0.05),
-    ):
+    with patch("app.gateways.decider_gateway.decide", slow):
         assert not await live_denial.denies_live_data(_SETTINGS, _BEARS, _DENIAL)
-    assert time.monotonic() - started < 1
+    # The 1.2 s cap, not the 5 s answer.
+    assert time.monotonic() - started < 2.5
 
 
 @pytest.mark.asyncio
@@ -586,7 +586,7 @@ async def test_an_answer_after_a_recall_round_is_never_asked_again(
         "function": {"name": "recall_chats", "arguments": '{"query": "the bears"}'},
     }
     llm, seen = _model(([], [recall]), ([_DENIAL], []), (["never asked"], []))
-    with patch("app.modules.chat.tool_loop.reply_calls.answer_into_turn", AsyncMock()):
+    with patch.object(reply_calls, "answer_into_turn", AsyncMock()):
         assert await _reply(ctx, llm) == _DENIAL
     assert len(seen) == 2
     denial_check.assert_not_awaited()
@@ -687,9 +687,9 @@ async def test_a_failure_during_the_retry_keeps_the_denial_and_done_carries_it(
     outcome = TurnOutcome()
     llm = SimpleNamespace(stream_chat_completion=stream_chat_completion)
     with (
-        patch("app.modules.chat.stream_pipeline.run_tool_loop_path", AsyncMock()),
-        patch("app.modules.chat.stream_pipeline.enrich_final_content", enriched),
-        patch("app.modules.chat.stream_pipeline.register_and_enqueue_finalize", saved),
+        patch.object(stream_pipeline, "run_tool_loop_path", AsyncMock()),
+        patch.object(stream_pipeline, "enrich_final_content", enriched),
+        patch.object(stream_pipeline, "register_and_enqueue_finalize", saved),
     ):
         streamed = [
             token
