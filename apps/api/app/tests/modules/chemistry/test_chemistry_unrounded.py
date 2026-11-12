@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.worked_lead import drop_restated_step
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
@@ -20,7 +19,7 @@ def _reply(question: str) -> str:
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
-    return drop_restated_step(format_direct_chemistry_reply(verified))
+    return format_direct_chemistry_reply(verified)
 
 
 @pytest.mark.parametrize(
@@ -51,11 +50,11 @@ def test_the_working_ends_on_the_value_the_card_rounds(
     assert f"```answer\n{card}\n```" in reply
 
 
-def test_a_value_rounding_leaves_whole_is_said_once_in_the_card() -> None:
-    # 18.015 g / 18.015 g/mol is 1.000 mol: nothing rounded, so the working's closing row
-    # was the card again, and goes.
+def test_a_value_rounding_leaves_whole_ends_the_working_above_its_card() -> None:
+    # 18.015 g / 18.015 g/mol is 1.000 mol: nothing rounded, and the working still ends on
+    # its value above the card, as a textbook's does (2026-11-11).
     reply = _reply("How many moles are in 18.015 g of water?")
-    assert "$n = 1.000\\,\\mathrm{mol}$" not in reply
+    assert "$n = 1.000\\,\\mathrm{mol}$\n\n**Answer**" in reply
     assert "n(\\mathrm{H₂O}) = 1.000\\,\\mathrm{mol}" in reply
 
 

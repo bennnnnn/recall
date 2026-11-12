@@ -77,6 +77,9 @@ answer: d_{km} | 0.1 | km
                 symbol="t", value="40", unit="min", meaning="time", converted=r"2400\,\mathrm{s}"
             ),
         ),
+        # A quantity the question gives as a letter: a given with no value (2026-11-11).
+        ("given: M | | | mass of the rod", Given(symbol="M", meaning="mass of the rod")),
+        ("given: v", Given(symbol="v")),
         ("Required: s | displacement", Required(symbol="s", meaning="displacement")),
         ("formula: Ohm's law | V = IR", Formula(name="Ohm's law", tex="V = IR")),
         ("formula: V = IR", Formula(tex="V = IR")),
@@ -105,7 +108,6 @@ def test_read_record_validates_each_kind(line: str, record: object) -> None:
         "",
         "The answer is 2400 m.",
         "given:",
-        "given: v",  # a symbol with no value
         "answer: s |",  # no value
         "formula: Name |",
         "note: something",
@@ -370,7 +372,7 @@ def test_render_writes_a_sentence_in_a_maths_field_as_text() -> None:
     [("a) in cm, b) in km", True), ("length in cm", True), ("\\Delta x", False), ("v_i", False)],
 )
 def test_a_symbol_in_words_is_text(symbol: str, words: bool) -> None:
-    from app.modules.chat.worked_render import names_nothing
+    from app.modules.chat.worked_text import names_nothing
 
     assert names_nothing(symbol) is words
 

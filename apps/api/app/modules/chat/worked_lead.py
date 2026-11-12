@@ -21,14 +21,11 @@ nothing outside its ```worked block, a model still closed with "The car's speed 
 in words the reply or the question already holds, goes; a picture, or a sentence with a
 number or a word of its own (a caveat, a direction the card lacks), stays.
 
-Nor just above them (``drop_restated_step``): every worked card in maths, physics and
-chemistry came after a last line of working that said its value, "$= \\frac{2x}{x^2 + 1}$"
-over a card of 2x/(x² + 1) and "$d_i = 15\\,\\mathrm{cm}$" over 15 cm (the
-``duplicate_answer`` quality flag on ten turns, 2026-11-08). The answer is said once, at the
-end, in the card: that line goes, with or without its unit, and a "≈ 28.27" after the exact
-9π too. A line that differs from the card by rounding is the working's own result, unrounded
-("$m = 29.22\\,\\mathrm{g}$" over a card of 29 g), and stays. A numbered step that only said
-the card goes whole; a section's one line stays, so the section is never left empty.
+The working's own last line stays, worked to its value ("$v = 15\\,\\mathrm{km/h}$" above a
+card of 15 km/h), as a textbook closes its working before the boxed answer. From 2026-11-09
+a pass dropped that line as the card's restatement, so the working stopped one step short
+("v = 45 km / 3 h", then the card) in every subject; the owner's phone test of 2026-11-11
+read that as working left unfinished, and the pass is gone.
 """
 
 from __future__ import annotations
@@ -39,7 +36,6 @@ from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     UNCHECKED_ANSWER_MARKER,
     answer_fence_value,
-    answer_heading,
 )
 from app.services.law_binding.units import dimension_of
 from app.services.md_fence_scan import iter_fences, line_fences
@@ -290,171 +286,3 @@ def drop_restated_tail(text: str, question: str = "") -> str:
     if len(kept) == len(pieces):
         return text
     return "\n\n".join([head, *kept]) + ("\n" if text.endswith("\n") else "")
-
-
-# A line of working that is one formula: "$a = 4.9\,\mathrm{m/s^2}$", with a hard break.
-_MATHS_LINE = re.compile(r"^[^\S\n]*\$(?P<tex>[^$\n]+)\$[^\S\n]*$")
-# A numbered step's own line: "**4. Combine**", "**1. Factor the left side** — Factoring".
-_STEP_LINE = re.compile(r"^[^\S\n]*\*\*\d+\.\s")
-# A heading line, bold alone: "**Solution**", "**Power rule**".
-_BOLD_LINE = re.compile(r"^[^\S\n]*\*\*[^*\n]+\*\*[^\S\n]*$")
-# What a line or a card names before its value: "x", "d_i", "m(nacl)", "\theta"; none ("= 5").
-_NAME = re.compile(r"(?:\\?[^\W\d_][\w\\']*(?:\([^()=]*\))?)?")
-
-
-# "=" or "≈": a line sets its name to a value either way ("A ≈ 28.27").
-_RELATION = re.compile(r"\\approx|≈|=")
-
-
-def _value_part(flat: str) -> tuple[str, str]:
-    """(what is named, its value) on either side of the last relation; no name without one."""
-    *before, value = _RELATION.split(flat)
-    return ("=".join(before) if before else ""), value.strip()
-
-
-# A card that holds more than one value (two roots, a list, a ± pair): no one line says it.
-_SEVERAL = re.compile(r"\bor\b|[,;±∓]|\\pm|\\mp", re.IGNORECASE)
-# A group a card sets upright: its unit ("\\mathrm{units}", "\\text{ m}").
-_UPRIGHT = re.compile(r"\\(?:mathrm|text)\{([^{}]*)\}")
-
-
-def _is_unit(rest: str, value: str) -> bool:
-    """``rest``, what the card has after a line's number, is the card's unit: a unit's symbol
-    (cm^2) or a group the card sets upright (units). "\\sqrt3" or "-x" is more value."""
-    rest = rest.strip()
-    upright = {_flat(group).strip() for group in _UPRIGHT.findall(value)}
-    return bool(rest) and (
-        re.sub(r"\^-?\d+$", "", rest) in upright or dimension_of(rest) is not None
-    )
-
-
-def _base_name(name: str) -> str:
-    """``m(nacl)`` → ``m``: what a card names, without what it is of."""
-    return re.sub(r"\([^()]*\)$", "", name.strip())
-
-
-def _says_value(line: str, value: str) -> bool:
-    """``line`` states ``value`` and nothing more: the same, or the card's name (or none) set
-    to its value, the card's unit left off or not ("A ≈ 28.27" says "≈ 28.27 cm²"). A digit
-    more is another value (29.22 is not 29), and so is another name (t = 4 for x = 4 m) or
-    more after the number (x = 2 for 2√3). A card of several values says what no one line
-    does: "x = 2 or x = 3" stays above it."""
-    # Read on the card as written (flattened, "2 or" runs together as "2or"), its spacing
-    # commands (\\,) and grouped digits (1{,}200) set aside.
-    if _SEVERAL.search(_LATEX_SPACING.sub(" ", value.replace("{,}", ""))):
-        return False
-    said, shown = _flat(line), _flat(value)
-    if said == shown:
-        return True
-    name, right = _value_part(said)
-    card_name, card = _value_part(shown)
-    if not right or _NAME.fullmatch(name.strip()) is None:
-        return False
-    if name.strip() and card_name.strip() and _base_name(name) != _base_name(card_name):
-        return False
-    if right == card:
-        return True
-    rest = card[len(right) :] if card.startswith(right) else ""
-    bare = _NUMBER.fullmatch(right.removeprefix("-")) is not None
-    return bare and rest[:1] not in ".," and not rest[:1].isdigit() and _is_unit(rest, value)
-
-
-def _card_value(text: str, start: int, end: int) -> str:
-    """A card's value: one line, never a card in parts."""
-    lines = [
-        line
-        for line in answer_fence_value(text[start:end]).splitlines()
-        if line.strip() and not _CARD_META.match(line.strip())
-    ]
-    return lines[0] if len(lines) == 1 else ""
-
-
-def _last_link(tex: str) -> int:
-    """Where a chain's last relation starts (``A = \\pi(3)^2 = 9\\pi \\approx 28.27``), or -1
-    for a line with one relation or none. Only relations outside brackets count."""
-    depth, found = 0, []
-    for match in re.finditer(r"\\approx|≈|=|[{(\[]|[})\]]", tex):
-        mark = match.group()
-        if mark in "{([":
-            depth += 1
-        elif mark in "})]":
-            depth -= 1
-        elif depth == 0:
-            found.append(match.start())
-    return found[-1] if len(found) > 1 else -1
-
-
-def _restated_line(tex: str, value: str) -> str | None:
-    """The line without what only says ``value``: "" when the whole line does, the chain up to
-    its last link when that link does ("A = 9π ≈ 28.27" over a card of ≈ 28.27), else None."""
-    if _says_value(tex, value):
-        return ""
-    cut = _last_link(tex)
-    if cut < 0:
-        return None
-    first = _RELATION.split(tex, maxsplit=1)[0]
-    return tex[:cut].rstrip() if _says_value(f"{first}{tex[cut:]}", value) else None
-
-
-def _step_above(lines: list[str], at: int) -> bool:
-    """Whether another numbered step of working stands above line ``at``, before any heading."""
-    for line in reversed(lines[:at]):
-        if _STEP_LINE.match(line):
-            return True
-        if _BOLD_LINE.match(line):
-            return False
-    return False
-
-
-def _restated_above(lines: list[str], heading: int, value: str) -> dict[int, str | None]:
-    """What changes above the Answer heading at ``heading``: the last line of working, dropped
-    (None) when it only states ``value`` or cut to before a last link that does, and its
-    numbered step's own line when that step said nothing else."""
-    last = heading - 1
-    while last >= 0 and not lines[last].strip():
-        last -= 1
-    match = _MATHS_LINE.match(lines[last]) if last > 0 else None
-    kept = None if match is None else _restated_line(match.group("tex"), value)
-    if match is None or kept is None:
-        return {}
-    if kept:
-        return {last: lines[last].replace(match.group("tex"), kept, 1).rstrip()}
-    above = lines[last - 1]
-    if _STEP_LINE.match(above):
-        # The step goes whole only below another: a section's one step stays, so no Solution
-        # is left empty ("Solve x^2 = 2" saved as a Solution heading over its card).
-        return {last - 1: None, last: None} if _step_above(lines, last - 1) else {}
-    # A section's one line ("**Substitution**" over it) stays: the section is never emptied.
-    return {last: None} if _MATHS_LINE.match(above) else {}
-
-
-def drop_restated_step(text: str) -> str:
-    """``text`` without the last line of working above an answer card, or its chain's last
-    link, when that only says the card's value (module docstring)."""
-    lines = text.split("\n")
-    edits: dict[int, str | None] = {}
-    for fence in iter_fences(text):
-        if fence.lang not in ANSWER_FENCE_LANGS or not fence.closed:
-            continue
-        value = _card_value(text, fence.body_start, fence.body_end)
-        opener = text.count("\n", 0, fence.start)
-        heading = opener - 1
-        while heading >= 0 and not lines[heading].strip():
-            heading -= 1
-        if value and heading > 0 and answer_heading(lines[heading]) == "":
-            edits.update(_restated_above(lines, heading, value))
-    if not edits:
-        return text
-    drop = {number for number, line in edits.items() if line is None}
-    kept: list[str] = []
-    for number, line in enumerate(lines):
-        if number in drop:
-            continue
-        line = edits.get(number) or line
-        if number + 1 in drop:
-            # The line that now ends the working ends its block: no hard break after it.
-            line = line.rstrip()
-        if number - 1 in drop and not line.strip() and kept and not kept[-1].strip():
-            continue  # a dropped step leaves one blank line between its neighbours
-        kept.append(line)
-    return "\n".join(kept)

@@ -271,7 +271,34 @@ def _push_off_first(p: dict[str, float], value: float) -> Scenes:
 
 
 def _work_against_gravity(p: dict[str, float], value: float) -> Scenes:
+    """A mass at its height: the work to lift it there, or the energy it has there."""
     return height_scene(p["m"], p["g"], p["h"])
+
+
+def _work(p: dict[str, float], value: float) -> Scenes:
+    """The force along its line and the distance it moves the box."""
+    angle, force, distance = p.get("angle", 0.0), p["F"], p["d"]
+    return free_body_scene(
+        [
+            SimulationVector(
+                anchor=[0.0, 0.0],
+                dx=math.cos(angle),
+                dy=math.sin(angle),
+                label=f"F = {_given(force)} N",
+                role="result",
+            ),
+            SimulationVector(
+                anchor=[0.0, -0.8],
+                dx=distance,
+                dy=0.0,
+                label=f"d = {_given(distance)} m",
+                role="measure",
+            ),
+        ],
+        ground=True,
+        shape="box",
+        alt=f"A {_given(force)} N force moves an object {_given(distance)} m.",
+    )
 
 
 # --- circuits, optics and waves --------------------------------------------------
@@ -363,6 +390,8 @@ _SCENES: dict[str, Callable[[dict[str, float], float], Scenes]] = {
     "push_off_speed": _push_off_second,
     "push_off_speed_first": _push_off_first,
     "work_against_gravity": _work_against_gravity,
+    "potential_energy": _work_against_gravity,
+    "work": _work,
     "current_from_power": _current_from_power,
     "snell_refraction_angle": _snell,
     "critical_angle_to_air": _critical_angle,

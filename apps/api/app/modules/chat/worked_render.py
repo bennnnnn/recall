@@ -2,14 +2,16 @@
 
 Every section goes through ``render_workout`` (``services/workout.py``), the renderer of
 every verified maths, physics and chemistry reply: **Given** (each value on its line, then
-the ``where`` line naming them), **Required**, **Solution**, the formula under its name's
-heading (``formula_heading``: **Average speed formula**; **Formula** with no name),
-``Solve for`` lines, **Substitution** or **Steps**, then **Answer** with the value. A
-question in parts is laid out as a verified one in parts: one Given (a value only some
-parts use lettered by them) and what is asked once, then **Solution** and each part under
-its letter, closed by its own **Answer (a)**, a hairline between parts. The value under
-**Answer** becomes the card in finalize (``chat.finalize_subjects.check_working``), marked
-``verified: false``: no solver checked it.
+the ``where`` line naming them), **Required**, **Solution**, the formula under the heading
+the model gave it (``worked_text.formula_title``: **Conservation of energy**; none, and it
+follows **Solution**), ``Solve for`` lines, **Substitution** or **Steps**, then **Answer**
+with the value. A question in parts is laid out as a verified one in parts: one Given (a
+value only some parts use lettered by them) and what is asked once, then **Solution** and
+each part under its letter, closed by its own **Answer (a)**, a hairline between parts.
+The value under **Answer** becomes the card in finalize
+(``chat.finalize_subjects.check_working``), marked ``verified: false``: no solver checked
+it. The words the model wrote (a heading, a move, what a symbol is) keep their maths as
+maths (``worked_prose.prose_maths``).
 """
 
 from __future__ import annotations
@@ -18,14 +20,20 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.modules.chat.worked_prose import prose_maths
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
-from app.modules.chat.worked_units import currency_first, quantity_tex
-from app.services.times_sign import with_times
+from app.modules.chat.worked_text import (
+    formula_title,
+    is_prose,
+    names_nothing,
+    tidy_symbol,
+    tidy_tex,
+)
+from app.modules.chat.worked_units import quantity_tex
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
     Workout,
-    formula_heading,
     math_line,
     render_workout,
     solve_for_line,
@@ -34,23 +42,12 @@ from app.services.workout import (
 )
 
 _HARD_BREAK = "  \n"
-_BOLD = re.compile(r"\*\*(.+?)\*\*")
-# A note is prose: its LaTeX ("about 1.20\sqrt{gh}") is found again and drawn as maths, and
-# outside it markdown marks go. LaTeX spacing ("a\,b") is a space, and a backslash before
-# anything but a letter ("5\%") goes.
-_NOTE_DELIMITERS = re.compile(r"[$`]")
-_EMPHASIS = re.compile(r"[*_]")
-_TEX_SPACE = re.compile(r"\\[,;:! ]")
-_LONE_BACKSLASH = re.compile(r"\\(?![A-Za-z])")
-# Where a LaTeX run in a note starts: the number or word it is written onto ("1.20\sqrt").
-_TEX_START = re.compile(r"[\w.]*\\[A-Za-z]")
-_LONG_SUBSCRIPT = re.compile(r"_(?![{\\])([A-Za-z0-9]{2,})")
-_NUMBERED = re.compile(r"^([A-Za-z])(\d+)$")
 _UPRIGHT = re.compile(r"\\(?:mathrm|text)|\\[,;! ]")
-# LaTeX syntax or a relation: a field holding any of them is maths.
-_MATH_SYNTAX = re.compile(r"[\\{}^_=<>≤≥≈≠]")
-_WORDS = re.compile(r"[^\W\d_]{2,}")
 _NOT_ALNUM = re.compile(r"[^A-Za-z0-9.]")
+_SPACING = re.compile(r"[\s{}]")
+# A letter outside a command: a value that holds one is written in symbols ("C V_0").
+_COMMAND = re.compile(r"\\[A-Za-z]+")
+_LETTER = re.compile(r"[A-Za-z]")
 
 
 @dataclass(frozen=True)
@@ -61,50 +58,73 @@ class WorkedLayout:
     law_heading: bool = False
 
 
-def tidy_tex(tex: str) -> str:
-    """A subscript of several characters in braces: ``x_final`` → ``x_{final}``; a product
-    written with a dot, with \\times as every reply writes it (``services/times_sign``).
-    Markdown bold a model put in a maths field (``**1.2**``) is dropped: TeX has none. A
-    currency sign after a number goes before it (``worked_units``)."""
-    tex = _BOLD.sub(r"\1", tex.strip())
-    return currency_first(with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex)))
-
-
-def tidy_symbol(symbol: str) -> str:
-    """``m1`` → ``m_1``: a letter numbered by the digits after it, as a subscript."""
-    return tidy_tex(_NUMBERED.sub(r"\1_\2", symbol.strip()))
-
-
-def is_prose(field: str) -> bool:
-    """Words the model put in a maths field ("Let A be the origin"), told by structure:
-    no LaTeX syntax and no relation, and a word of two letters or more. Anything with a
-    backslash, brace, script or relation is maths, so no LaTeX source is ever shown."""
-    return _MATH_SYNTAX.search(field) is None and _WORDS.search(field) is not None
-
-
-def names_nothing(symbol: str) -> bool:
-    """A "symbol" written in words ("length in cm", "a) in cm")."""
-    return " " in symbol.strip() and is_prose(symbol)
-
-
 def _line(tex: str, note: str | None = None) -> str:
-    """One state: maths, or the model's sentence as text."""
-    return text_line(tex, note) if is_prose(tex) else math_line(tidy_tex(tex), note)
+    """One state: maths, or the model's sentence as text; its move's maths drawn as maths."""
+    move = prose_maths(note) if note else None
+    return text_line(prose_maths(tex), move) if is_prose(tex) else math_line(tidy_tex(tex), move)
 
 
 def _plain(tex: str) -> str:
     return _NOT_ALNUM.sub("", _UPRIGHT.sub("", tex)).lower()
 
 
+_UPRIGHT_GROUP = re.compile(r"\\(?:mathrm|text)\s*\{[^{}]*\}")
+# A power of ten in a calculator's spelling: "1.5e-3", "6.022E23".
+_E_NOTATION = re.compile(r"(?<=\d)[eE](?=[-+]?\d)")
+# Euler's number raised to a power: "20e^{-0.5}" is a number; the exponent's own letters
+# ("e^{-t/RC}") still make a value symbolic.
+_EULER = re.compile(r"(?<![A-Za-z\\])e(?=\s*\^)")
+
+
+def in_symbols(tex: str) -> bool:
+    """A value written in letters ("C V_0", "\\frac{1}{2}MR^2"): its units are its
+    symbols', so none is written after it. A command (\\pi, \\times), a unit set upright,
+    a calculator's power of ten or Euler's e is no symbol: "\\pi/3", "2400\\,\\mathrm{s}",
+    "1.5e-3" and "20e^{-0.5}" are numbers."""
+    plain = _E_NOTATION.sub(" ", _COMMAND.sub("", _UPRIGHT_GROUP.sub("", tex)))
+    plain = _EULER.sub(" ", plain)
+    return _LETTER.search(plain) is not None
+
+
+def _in_words(value: str) -> bool:
+    """A value written in words alone ("at rest", "mass of the rod"). One with a digit is a
+    quantity, its unit written beside it ("20 km", "45 min"), and keeps its row."""
+    return is_prose(value) and not any(char.isdigit() for char in value)
+
+
+def _as_its_letter(given: Given) -> bool:
+    """A given the question states as a letter, not a value ("a rod of mass M"): its value
+    is its own symbol, or none, or words. It is listed by its meaning, ``$M$ (mass of the
+    rod)``, never as "M = M kg" (RLC and rod questions, 2026-11-11)."""
+    value = _SPACING.sub("", tidy_tex(given.value))
+    own = value == _SPACING.sub("", tidy_symbol(given.symbol))
+    return not value or own or _in_words(given.value)
+
+
+def _meaning(given: Given) -> str:
+    """What a given is, its maths as maths. A value written in words is said too:
+    "v_0 | at rest | m/s | initial speed" reads "initial speed, at rest", and with no
+    meaning of its own it is the meaning ("M | mass of the rod")."""
+    said = given.value if _in_words(given.value) else ""
+    return prose_maths(", ".join(words for words in (given.meaning, said) if words))
+
+
 def _given_row(given: Given, letters: Sequence[str] | None = None) -> str:
     """The given on its line; one only some parts use carries their letters, as Required's
-    lines do: ``(a) $t = 1\\,\\mathrm{s}$``."""
-    shown = quantity_tex(tidy_tex(given.value), given.unit)
+    lines do: ``(a) $t = 1\\,\\mathrm{s}$``. A given stated as its letter is that letter
+    and what it is, as Required reads: ``$C$ (capacitance)``."""
+    marks = (given.part,) if letters is None and given.part else letters or ()
+    if _as_its_letter(given):
+        meaning = _meaning(given)
+        row = math_line(tidy_symbol(given.symbol))
+        row = f"{row} ({meaning})" if meaning else row
+        return lettered_line(marks, row) if marks else row
+    value = tidy_tex(given.value)
+    shown = quantity_tex(value, "" if in_symbols(value) else given.unit)
     # "500 g = 500 g" says nothing: a conversion to the same value is left out.
     if given.converted and _plain(given.converted) != _plain(shown):
         shown = f"{shown} = {tidy_tex(given.converted)}"
     row = math_line(f"{tidy_symbol(given.symbol)} = {shown}")
-    marks = (given.part,) if letters is None and given.part else letters or ()
     return lettered_line(marks, row) if marks else row
 
 
@@ -115,13 +135,17 @@ def _given_rows(
     letters: Sequence[Sequence[str]] | None = None,
 ) -> tuple[str, ...]:
     """Each given on its line (with ``letters``, each one's parts), then (with ``naming``)
-    the ``where`` line naming them."""
+    the ``where`` line naming the ones with a value (a letter is named on its own line)."""
     rows = [
         _given_row(given, None if letters is None else letters[at])
         for at, given in enumerate(givens)
     ]
     named = where_line(
-        [(tidy_symbol(given.symbol), given.meaning) for given in givens if given.meaning]
+        [
+            (tidy_symbol(given.symbol), _meaning(given))
+            for given in givens
+            if given.meaning and not _as_its_letter(given)
+        ]
     )
     if rows and naming and named:
         rows.append(named)
@@ -278,53 +302,14 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     """The value with its unit in maths, and a note after it in brackets: a short label
     ("east") stays on the card, and a remark ("about 1.20√(gh); option A gives …") goes
     in a sentence under it (``services.remark_after_answer``), its maths drawn as maths."""
-    value = quantity_tex(tidy_tex(answer.value), answer.unit)
+    tex = tidy_tex(answer.value)
+    value = quantity_tex(tex, "" if in_symbols(tex) else answer.unit)
     # A symbol that only repeats the unit ("cm | 10000 | cm") or is a word names nothing.
     named = answer.symbol and answer.symbol != answer.unit and not names_nothing(answer.symbol)
     symbol = tidy_symbol(answer.symbol) if named else ""
     shown = value if layout.law_heading or not symbol else f"{symbol} = {value}"
-    note = _note_text(answer.note)
+    note = prose_maths(answer.note)
     return f"{math_line(shown)} ({note})" if note else math_line(shown)
-
-
-def _note_text(note: str) -> str:
-    r"""``note`` as prose with its maths drawn: "about \frac{v_0}{2}" keeps its subscript,
-    "5\% error" loses its backslash (review of #2303)."""
-    plain = _NOTE_DELIMITERS.sub("", note)
-    return _tex_as_maths(_LONE_BACKSLASH.sub("", _TEX_SPACE.sub(" ", plain))).strip()
-
-
-def _tex_as_maths(note: str) -> str:
-    r"""Each LaTeX run in ``note`` inside ``$…$``: its commands, their brace groups however
-    deep (``\sqrt{\frac{10gh}{7}}`` is one run, review of #2303), and the word characters
-    and powers written onto it. Markdown marks go from the prose between the runs."""
-    out: list[str] = []
-    index = 0
-    while (start := _TEX_START.search(note, index)) is not None:
-        end = _tex_run_end(note, start.end() - 2)
-        out += [_EMPHASIS.sub("", note[index : start.start()]), f"${note[start.start() : end]}$"]
-        index = end
-    return "".join([*out, _EMPHASIS.sub("", note[index:])])
-
-
-def _tex_run_end(text: str, at: int) -> int:
-    """Where the LaTeX run from the backslash at ``at`` ends: past every command, balanced
-    brace group, word character and power that follows."""
-    depth = 0
-    while at < len(text):
-        char = text[at]
-        if char == "{":
-            depth += 1
-        elif char == "}":
-            if depth == 0:
-                break
-            depth -= 1
-        elif depth == 0 and not (
-            char.isalnum() or char in "\\^_" or (char == "." and text[at + 1 : at + 2].isdigit())
-        ):
-            break
-        at += 1
-    return at
 
 
 def _part_body(
@@ -344,7 +329,7 @@ def _part_body(
             substitution=tuple(substitution),
             steps=tuple(steps),
             # The formula's name heads it, never a note on its line.
-            formula_heading=formula_heading(part.formula.name if part.formula else None),
+            formula_heading=formula_title(part.formula.name) if part.formula else None,
         ),
         answer_heading=answer_heading if part.answers else None,
     )
@@ -356,9 +341,9 @@ def _part_body(
 
 def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
     return tuple(
-        text_line(item.symbol, item.meaning or None)
+        text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
         if names_nothing(item.symbol)
-        else math_line(tidy_symbol(item.symbol), item.meaning or None)
+        else math_line(tidy_symbol(item.symbol), prose_maths(item.meaning) or None)
         for item in solution.required
     )
 
@@ -396,7 +381,7 @@ def _asked_by_parts(
         # The record's meaning is its own symbol's: a part finding another ("t" under
         # "v | average speed") is named by its title or by its symbol alone.
         shared = record is not None and (not answered or tidy_symbol(answered) == tidy_symbol(own))
-        meaning = part.title or (record.meaning if record and shared else "")
+        meaning = prose_maths(part.title or (record.meaning if record and shared else ""))
         if symbol:
             rows.append(math_line(tidy_symbol(symbol), meaning or None))
         elif meaning:
@@ -468,8 +453,10 @@ def _render_in_parts(
     last = len(shown) - 1
     parts = [
         WorkedPart(
-            title=part.title
-            or (solution.required[index].meaning if index < len(solution.required) else ""),
+            title=prose_maths(
+                part.title
+                or (solution.required[index].meaning if index < len(solution.required) else "")
+            ),
             working=_part_body(part, layout, ((), ()), None),
             after=_HARD_BREAK.join(_answer_line(answer, layout) for answer in part.answers),
             # The last part's where-line waits, while it streams, until its givens are in.

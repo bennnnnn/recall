@@ -23,6 +23,7 @@ import { wrapInlineChildren } from "@/components/markdown/rules/inline";
 import { formulaLinesIndent, MathColumn } from "@/components/rich/mathColumn";
 import { lessonStepParts, renderLessonStep } from "@/components/markdown/rules/lesson";
 import {
+  followsSolution,
   renderWorkoutPart,
   renderWorkoutSection,
   workoutPartParts,
@@ -95,7 +96,7 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
         mdMath.inlineWrap,
       );
     }
-    const section = workoutSectionParts(node);
+    const section = workoutSectionParts(node, followsSolution(node, parent));
     if (section) {
       return renderWorkoutSection(node.key, section, styles, t);
     }

@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chemistry.block import build_verified_chemistry
+from app.modules.chemistry.block import _prompt_text, build_verified_chemistry
 from app.modules.chemistry.catalog import CATALOG, METHODS
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.solvers import solve_chemistry
+from app.modules.chemistry.solvers.display import verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.workout import as_formula_heading
 
@@ -50,13 +51,32 @@ def test_every_method_is_a_catalog_operation_with_a_rule_not_an_equation() -> No
     ],
 )
 def test_a_procedure_shows_its_rule_and_then_its_steps(question: str, method: bool) -> None:
-    """One layout: a procedure's rule under Formula, a law under its own name's heading
-    ("Molar mass formula"); a procedure's tally under Steps."""
+    """One layout: a procedure's rule under its own name ("Conservation of atoms and
+    charge"), a law under its own name's heading ("Molar mass formula"), never a bare
+    **Formula** (2026-11-11); a procedure's tally under Steps."""
     reply = _reply(question)
-    assert ("**Formula**" in reply) is method
-    assert "**Formula**" in as_formula_heading(reply)
+    assert "**Formula**" not in reply
+    named = reply.split("**Solution**\n\n", 1)[1].split("\n", 1)[0]
+    assert named.startswith("**") and named.rstrip().endswith("**")
+    # A law's heading reads as one to a checker; so does a procedure's that says its kind.
+    assert method or "**Formula**" in as_formula_heading(reply)
     assert ("**Steps**" in reply) is method
     assert ("**Substitution**" in reply) is not method
+
+
+@pytest.mark.parametrize(
+    "name", ["", "Formula", "one two three four five six seven eight nine ten eleven"]
+)
+def test_a_formula_with_no_name_leaves_the_layout_line_clean(name: str) -> None:
+    """Review of #2414: an empty heading read "Solution, , Substitution" and opened the
+    formula's rows with a lone ":". The model reads a plain label; it is told no heading."""
+    result = verified(
+        "Molarity", ("n = 0.5 mol",), "c", name, "c = n / V", ("c = 0.5 / 2",), "0.25 M", "0.25"
+    )
+    prompt = _prompt_text(result)
+    assert "Use this visible layout: Given, Required, Solution, Substitution, Answer." in prompt
+    assert "\nFormula:\n- c = n / V\n" in prompt
+    assert ", ," not in prompt and "\n:" not in prompt
 
 
 def test_the_model_prompt_names_the_same_sections() -> None:
@@ -64,7 +84,10 @@ def test_the_model_prompt_names_the_same_sections() -> None:
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
-    assert "Given, Required, Solution, Formula, Steps, Answer" in verified.prompt_text
+    assert (
+        "Given, Required, Solution, Conservation of atoms and charge, Steps, Answer"
+        in verified.prompt_text
+    )
     assert "\nSteps:\n" in verified.prompt_text
 
 

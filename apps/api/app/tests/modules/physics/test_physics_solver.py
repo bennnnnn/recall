@@ -481,7 +481,7 @@ def test_energy_kinetic() -> None:
         physics_units={"m": "kg", "v": "m/s"},
         operation="solve",
     )
-    result = physics_solver.solve_energy(intent)
+    result = physics_solver.solve_physics(intent)
     # KE = 0.5 * 2 * 10^2 = 100 J
     assert abs(result.quantities[0].value - 100.0) < 0.01
 
@@ -494,7 +494,7 @@ def test_energy_potential() -> None:
         physics_units={"m": "kg", "h": "m", "g": "m/s^2"},
         operation="solve",
     )
-    result = physics_solver.solve_energy(intent)
+    result = physics_solver.solve_physics(intent)
     # PE = m*g*h = 3*9.81*5 = 147.15 J
     expected = 3.0 * 9.81 * 5.0
     assert abs(result.quantities[0].value - expected) < 0.01
@@ -508,9 +508,10 @@ def test_energy_work() -> None:
         physics_units={"F": "N", "d": "m"},
         operation="solve",
     )
-    result = physics_solver.solve_energy(intent)
-    # W = F*d = 10*4 = 40 J
+    result = physics_solver.solve_physics(intent)
+    # W = F*d = 10*4 = 40 J, the catalog's arithmetic; the force and the distance are drawn.
     assert abs(result.quantities[0].value - 40.0) < 0.01
+    assert result.simulation_specs
 
 
 # ---------------------------------------------------------------------------

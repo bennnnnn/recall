@@ -213,11 +213,12 @@ export function ConversationList() {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the profile / new chat row and the search bar are fixed; To-do scrolls with titles.
+  // Only the top bar (Recall, search) and the bottom bar (account, new chat) are fixed;
+  // To-do scrolls with the titles.
   const topInset = insets.top + 8 + TOP_CHROME;
-  // Search types at the bottom: its field rides the keyboard, so the results end above it.
+  // While search types, the keyboard covers the bottom bar: the results end just above it.
   const searchKeyboard = useKeyboardHeight(searchOpen);
-  const bottomInset = Math.max(insets.bottom + 8, searchKeyboard + 8) + FOOTER_CHROME;
+  const bottomInset = searchKeyboard > 0 ? searchKeyboard + 8 : insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
 
@@ -350,8 +351,12 @@ export function ConversationList() {
         styles={s}
         theme={theme}
         paddingTop={insets.top + 8}
-        onNewChat={newChat}
-        onSettings={openSettings}
+        searchOpen={searchOpen}
+        searchQuery={searchQuery}
+        searchInputRef={searchInputRef}
+        onSearchChange={onSearchChange}
+        onOpenSearch={openSearch}
+        onCloseSearch={closeSearch}
         selectionMode={selectionMode}
         selectedCount={selectedCount}
         onExitSelection={exitSelectionMode}
@@ -373,13 +378,8 @@ export function ConversationList() {
           styles={s}
           theme={theme}
           paddingBottom={insets.bottom + 8}
-          keyboardHeight={searchKeyboard}
-          searchOpen={searchOpen}
-          searchQuery={searchQuery}
-          searchInputRef={searchInputRef}
-          onSearchChange={onSearchChange}
-          onOpenSearch={openSearch}
-          onCloseSearch={closeSearch}
+          onAccount={openSettings}
+          onNewChat={newChat}
         />
       )}
 

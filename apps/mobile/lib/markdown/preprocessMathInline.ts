@@ -208,6 +208,21 @@ function opensBefore(text: string, at: number): boolean {
   return false;
 }
 
+/**
+ * Whether the bold at [start, end) is a line of its own with a line under it, or with
+ * nothing under it yet: a heading still streaming keeps its shape until its lines come,
+ * rather than unwrapping and wrapping again (review, 2026-11-11).
+ */
+function headsLines(content: string, start: number, end: number): boolean {
+  const lineStart = content.lastIndexOf("\n", start - 1) + 1;
+  const found = content.indexOf("\n", end);
+  const lineEnd = found < 0 ? content.length : found;
+  if (content.slice(lineStart, start).trim() || content.slice(end, lineEnd).trim()) return false;
+  const below = content.slice(lineEnd + 1);
+  const next = below.split("\n", 1)[0] ?? "";
+  return next.trim() !== "" || below.trim() === "";
+}
+
 /** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters.
 
  * Keep the original span when math sits in the *middle* of the bold (text
@@ -216,13 +231,19 @@ function opensBefore(text: string, at: number): boolean {
  * inline nodes; in a list item those stack vertically as
  * "Slope (" / "m" / "): 3" — the colon-on-its-own-line the user keeps
  * seeing. Trailing-formula bold (``**Answer: $x = 2$**``) still unwraps.
+ *
+ * In a worked reply (`worked`), a bold line of words over the lines below it heads a
+ * section (``**Substitution $x = \tan t$**`` over its working) and keeps its maths: the
+ * workout renderer draws it as maths in the heading (`rules/workoutInline.tsx`). Unwrapped,
+ * the heading lost its line and ran into its working (2026-11-11).
  */
-export function normalizeBoldInlineMath(content: string): string {
-  return content.replace(/\*\*((?:(?!\*\*).)+)\*\*/g, (full, inner: string) => {
+export function normalizeBoldInlineMath(content: string, worked = false): string {
+  return content.replace(/\*\*((?:(?!\*\*).)+)\*\*/g, (full, inner: string, at: number) => {
     if (!/\$[^$\n]+?\$/.test(inner)) return full;
     // A numbered step label (`**1. Power rule on $x^3$**`) keeps its maths: the
     // lesson-step renderer draws it, and unwrapping it drops the step badge.
     if (/^\d+\.\s/.test(inner)) return full;
+    if (worked && headsLines(content, at, at + full.length) && /^[^$\s]/.test(inner)) return full;
     const parts = splitInlineMath(inner);
     if (!parts.some((part) => part.type === "math")) return full;
 

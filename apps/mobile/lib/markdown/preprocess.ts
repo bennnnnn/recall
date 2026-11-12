@@ -92,7 +92,7 @@ export function preprocessMarkdown(
   out = stripBoldListLabelContinuationColons(out);
   out = repairCorruptedPriceTierMarkdown(out);
   out = normalizeImplicitMath(out, mathFormat);
-  out = normalizeBoldInlineMath(out);
+  out = normalizeBoldInlineMath(out, worked);
   // The model often wraps inline math in backticks (`` `$x^2 = 4$` ``), which
   // markdown renders as inline CODE → raw literal `$...$`. Un-wrap backtick-
   // wrapped `$...$` so it renders as math inline with the prose (in sync with

@@ -21,7 +21,7 @@ from app.modules.physics.solvers.momentum import solve_momentum
 from app.modules.physics.solvers.optics import solve_optics
 from app.modules.physics.solvers.oscillations import solve_spring
 from app.modules.physics.solvers.projectile import solve_projectile
-from app.modules.physics.solvers.relation import solve_expression
+from app.modules.physics.solvers.relation import drawn_values, solve_expression
 from app.modules.physics.solvers.results import PhysicsResult
 from app.modules.physics.solvers.rotation import solve_rotation
 from app.modules.physics.solvers.school_extensions import SCHOOL_SOLVERS
@@ -117,7 +117,9 @@ def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     result = attach_recorded_working(solver(intent), intent)
     # A law solved as arithmetic has no solver of its own to draw it.
     if result.quantities and not result.simulation_specs and not result.graph_specs:
-        scene = catalog_scene(intent, params_in_si(intent), result.quantities[0].value)
+        quantity = result.quantities[0]
+        values, value = drawn_values(intent, params_in_si(intent), quantity.value, quantity.unit)
+        scene = catalog_scene(intent, values, value)
         if scene:
             result = replace(result, simulation_specs=scene)
     return result

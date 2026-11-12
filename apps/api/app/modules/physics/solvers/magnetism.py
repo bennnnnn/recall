@@ -141,11 +141,13 @@ def _electric_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
     separation = p["r"]
     if separation <= 0:
         raise SolveServiceError("charge separation must be positive")
-    value = COULOMB_K * abs(p["q1"] * p["q2"]) / separation**2
+    # A constant the question states is the one its answer uses: k = 9.0e9, not 8.99e9.
+    constant = p.get("k_coulomb", COULOMB_K)
+    value = constant * abs(p["q1"] * p["q2"]) / separation**2
     return PhysicsResult(
         answer=(
             rf"F_e = k_e \frac{{\lvert q_1q_2\rvert}}{{r^2}} = "
-            rf"{latex_given(COULOMB_K)} \cdot "
+            rf"{latex_given(constant)} \cdot "
             rf"\frac{{\lvert {latex_given(p['q1'])} \cdot "
             rf"{latex_given(p['q2'])}"
             rf"\rvert}}{{{latex_num(separation, square=True)}}} "
@@ -153,7 +155,7 @@ def _electric_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
         ),
         formulas=(r"F_e = k_e \frac{\lvert q_1q_2\rvert}{r^2}",),
         substitutions=(
-            rf"F_e = {latex_given(COULOMB_K)} \cdot \frac{{\lvert "
+            rf"F_e = {latex_given(constant)} \cdot \frac{{\lvert "
             rf"{latex_given(p['q1'])} \cdot {latex_given(p['q2'])}"
             rf"\rvert}}{{{latex_num(separation, square=True)}}}",
         ),

@@ -10,7 +10,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
 from app.modules.chemistry.solvers.display import verified
 from app.services.solving import SolveServiceError, VerifiedSolveBlock
-from app.services.workout import WORKOUT_PROMPT_RULE, formula_heading
+from app.services.workout import WORKOUT_PROMPT_RULE, formula_heading, method_heading
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +37,21 @@ def _bullet_rows(text: str) -> str:
 def _prompt_text(result: ChemistryResult) -> str:
     given = "\n".join(f"- {item}" for item in result.given)
     substitution = "\n".join(_bullet_rows(item) for item in result.substitution)
-    # A procedure (balancing, a table lookup) has a rule, not an equation: its rows are Steps.
-    # A law's name heads its equation (``formula_heading``): "Molar mass formula".
+    # A procedure (balancing, a table lookup) has a rule, not an equation: its rows are Steps,
+    # under the procedure's name. A law's name heads its equation (``formula_heading``):
+    # "Molar mass formula".
     if result.method:
-        law, rows, law_line = "Formula", "Steps", f"Formula ({result.formula_name})"
+        law, rows = method_heading(result.formula_name), "Steps"
     else:
-        law = law_line = formula_heading(result.formula_name)
-        rows = "Substitution"
+        law, rows = formula_heading(result.formula_name), "Substitution"
+    # A formula with no name has no heading of its own: the layout names none, and its rows
+    # keep a plain label for the model to read, never one to show (2026-11-11).
+    sections = ("Given", "Required", "Solution", law, rows, "Answer")
+    layout = ", ".join(section for section in sections if section)
+    law_line = law or "Formula"
     return (
         f"[{result.title}]\n"
-        f"Use this visible layout: Given, Required, Solution, {law}, {rows}, Answer. "
+        f"Use this visible layout: {layout}. "
         f"{WORKOUT_PROMPT_RULE} "
         "Do not write a prose wall, "
         "do not recalculate, and copy every verified number exactly: its trailing zeros are "

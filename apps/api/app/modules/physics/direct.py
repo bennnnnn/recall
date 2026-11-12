@@ -43,10 +43,11 @@ from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, si_factor, to_si
 from app.modules.physics.working import result_symbol_for
 from app.modules.physics.working_steps import carried_to_answer, working_units
 from app.services.glyphs import SUPERSCRIPT_SIGNED
+from app.services.latex_markup import without_markup
+from app.services.law_binding.inverse import form_params
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 from app.services.worked_parts import WorkedPart, render_parts
 from app.services.workout import (
-    FORMULA,
     Workout,
     math_line,
     render_workout,
@@ -125,11 +126,13 @@ def can_direct_physics(
         return False
     fence = answering[0]
     actual = extract_physics_intent(text)
-    if actual is None or _EXTRA_REQUEST.search(text):
+    # The question as its readers read it: a LaTeX paste is its plain text (``latex_markup``).
+    plain = without_markup(text)
+    if actual is None or _EXTRA_REQUEST.search(plain):
         return False
     if actual.model_dump() != intent.model_dump():
         return False
-    if not _answers_every_ask(text, actual):
+    if not _answers_every_ask(plain, actual):
         return False
     if fence.get("type") == "answer":
         return fence.get("type") == "answer" and fence.get("content") == answer
@@ -213,7 +216,7 @@ def _formula_rows(
     base: str | None = None
     lines: tuple[str, ...] = ()
     if spec is not None:
-        base, lines, _assumptions = select_formula(spec, params)
+        base, lines, _assumptions = select_formula(spec, form_params(spec, params))
         base = None if base is None else shown(base, operation)
         lines = tuple(shown(line, operation) for line in lines)
     if lines:
@@ -316,7 +319,8 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     spec = formula_spec(intent.physics_op or "")
     if spec is not None:
         formula_rows.extend(
-            text_line(f"Assumes {assumption}.") for assumption in visible_assumptions(spec, params)
+            text_line(f"Assumes {assumption}.")
+            for assumption in visible_assumptions(spec, form_params(spec, params))
         )
     return render_workout(
         Workout(
@@ -339,7 +343,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
                     ),
                 )
             ),
-            formula_heading=law_heading(spec.law_name) if spec is not None else FORMULA,
+            formula_heading=law_heading(spec.law_name) if spec is not None else "",
         )
     )
 
@@ -387,7 +391,7 @@ def _format_parts(
         spec = formula_spec(part.op)
         rows = _formula_rows(intent, list(part.formulas), part.op)
         if spec is not None:
-            params = intent.physics_params or {}
+            params = form_params(spec, intent.physics_params or {})
             rows.extend(text_line(f"Assumes {item}.") for item in visible_assumptions(spec, params))
         working = render_workout(
             Workout(
@@ -400,7 +404,7 @@ def _format_parts(
                         working_units(intent, part.formulas, part.display_answer, part.op),
                     )
                 ),
-                formula_heading=law_heading(spec.law_name) if spec is not None else FORMULA,
+                formula_heading=law_heading(spec.law_name) if spec is not None else "",
             ),
             answer_heading=None,
         )
