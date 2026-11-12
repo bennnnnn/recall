@@ -48,6 +48,7 @@ def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
         "Lunch was $5! I paid, so $x$ is mine.",
         "Only $5! $x$ is the count.",
         "It was $5! — and $x$ more.",
+        "Only $5! 10 left, $x$ is mine.",
     ],
 )
 def test_prices_prose_code_and_display_stay(text: str) -> None:

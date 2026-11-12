@@ -143,7 +143,6 @@ describe("inline maths still renders", () => {
     ["$4!  + 3!$ ways", ["4!  + 3!"]],
     ["$4! = 24$", ["4! = 24"]],
     ["Padded: $ 4! $ ways", ["4!"]],
-    ["$3! 2!$", ["3! 2!"]],
   ])("draws %s as maths", (source, math) => {
     expect(seen(source).math).toEqual(math);
   });
@@ -163,6 +162,7 @@ describe("inline maths still renders", () => {
     ["Only $5! **Then** $x$ grows.", ["x"], "Only $5! **Then** x grows."],
     ["It was $5! — and $x$ more.", ["x"], "It was $5! — and x more."],
     ["Today $5! 3 left, then $x$ more.", ["x"], "Today $5! 3 left, then x more."],
+    ["Only $5! 10 left, $x$ is mine.", ["x"], "Only $5! 10 left, x is mine."],
   ])("keeps the price and the maths apart in %s", (source, math, text) => {
     const view = seen(source);
     expect(view.math).toEqual(math);

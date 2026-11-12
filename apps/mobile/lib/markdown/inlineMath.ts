@@ -22,13 +22,13 @@ function dollarOpensPrice(text: string, dollar: number, body: string): boolean {
 /** A variable (`$2 x$`) or a function (`$2 sin x$`) after a leading number. */
 const MATH_WORD = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/i;
 /** An amount, maybe with a scale ("1.5M") or a rate ("30/day"), then a
- * clause break or a word. An exclamation mark and a space end a clause too ("$5! I paid,
- * so $x$", "$5! $x$ is"), unless an operator or a number goes on: then, like an
- * exclamation mark that ends the span, it is a factorial, `$4!$`, `$4! + 3!$` (the
- * owner's phone, 2026-11-11, drew "$4!$" as source). A space is in the set so a run
- * of spaces is read whole. */
+ * clause break or a word. An exclamation mark is a factorial only where the span ends or
+ * maths goes on, an operator or "=": `$4!$`, `$4! + 3!$` (the owner's phone, 2026-11-11,
+ * drew "$4!$" as source). Followed by anything else, a number, a word, a dollar or a
+ * bracket, it ends a price's clause: "$5! 10 left, $x$", "$5! I paid, so $x$". A space is
+ * in the set so a run of spaces is read whole. */
 const PRICE_LEAD =
-  /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!\s+(?![\s=+\-−×÷*/·^<>≤≥≠)\d])|\s+([A-Za-z]+)(.*))/;
+  /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!\s+(?![\s=+\-−×÷*/·^<>≤≥≠)])|\s+([A-Za-z]+)(.*))/;
 
 /**
  * A body that opens with an amount and goes on in words is a price that the
@@ -43,17 +43,12 @@ function priceBody(value: string): boolean {
   // its closer is padding, not the space after a price's "!" ("$5! $x$").
   const body = /^\s/.test(value) ? value.trim() : value.trimStart();
   const lead = PRICE_LEAD.exec(body);
-  // A factorial goes on in maths; one that goes on in words was a price's "!": "Today $5! 3
-  // left, then $x$ more" (a review of the factorial fix).
-  if (!lead) return FACTORIAL_LEAD.test(body) && proseWords(body) >= 2;
+  if (!lead) return false;
   const [, word, rest = ""] = lead;
   if (word === undefined || !MATH_WORD.test(word)) return true;
   // "a" reads as a variable; the prose after it does not.
   return proseWords(rest) >= 2;
 }
-
-/** An amount and "!" with more after it: a factorial, or a price ending its clause. */
-const FACTORIAL_LEAD = /^\d[\d,.]*!\s/;
 
 /** Words of three letters or more that are not maths ("left", "then"; not "sin"). */
 function proseWords(text: string): number {
