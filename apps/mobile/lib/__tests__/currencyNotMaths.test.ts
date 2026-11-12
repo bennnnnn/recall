@@ -132,6 +132,14 @@ describe("inline maths still renders", () => {
     ["$12 + 8 = 20$ dollars", ["12 + 8 = 20"]],
     ["$3 + 4 = 7$, so it costs $7.", ["3 + 4 = 7"]],
     [String.raw`It costs $5, and $4! = 4 \times 3 \times 2 \times 1 = 24$.`, [String.raw`4! = 4 \times 3 \times 2 \times 1 = 24`]],
+    // A factorial is no price ending in "!": the owner's "How" reply showed its Given,
+    // `$4!$`, as source with a dollar each side (2026-11-11).
+    ["**Given**\n\n$4!$", ["4!"]],
+    ["$4!$", ["4!"]],
+    ["$10!$ ways", ["10!"]],
+    ["$4! + 3! = 30$", ["4! + 3! = 30"]],
+    ["$5! = 120$ and $0! = 1$", ["5! = 120", "0! = 1"]],
+    ["So $n!$ grows fast, and $3!$ is $6$.", ["n!", "3!", "6"]],
   ])("draws %s as maths", (source, math) => {
     expect(seen(source).math).toEqual(math);
   });
@@ -142,6 +150,8 @@ describe("inline maths still renders", () => {
     ["Budget $100 a week for $w$ weeks: $100w$.", ["w", "100w"], "Budget $100 a week for w weeks: 100w."],
     ["Rent is $1.5M and $x$ is the share.", ["x"], "Rent is $1.5M and x is the share."],
     ["Pay $30/day for food, then $x$ is left.", ["x"], "Pay $30/day for food, then x is left."],
+    // An exclamation after a price, then words: still a price.
+    ["It costs only $5! Then $x$ doubles.", ["x"], "It costs only $5! Then x doubles."],
   ])("keeps the price and the maths apart in %s", (source, math, text) => {
     const view = seen(source);
     expect(view.math).toEqual(math);

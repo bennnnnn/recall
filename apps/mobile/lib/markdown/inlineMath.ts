@@ -22,8 +22,10 @@ function dollarOpensPrice(text: string, dollar: number, body: string): boolean {
 /** A variable (`$2 x$`) or a function (`$2 sin x$`) after a leading number. */
 const MATH_WORD = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/i;
 /** An amount, maybe with a scale ("1.5M") or a rate ("30/day"), then a
- * clause break or a word. */
-const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:!?](?:\s|$)|\s+([A-Za-z]+)(.*))/;
+ * clause break or a word. An exclamation mark is a clause break only before words
+ * ("$5! Then $x$ doubles"): ending the span or before an operator it is a factorial,
+ * `$4!$` and `$4! + 3!$` (the owner's phone, 2026-11-11, drew "$4!$" as source). */
+const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!?\s+([A-Za-z]+)(.*))/;
 
 /**
  * A body that opens with an amount and goes on in words is a price that the

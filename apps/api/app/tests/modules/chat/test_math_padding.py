@@ -19,6 +19,9 @@ from app.modules.chat.math_padding import without_math_padding
         ("$\\frac{1}{2} $ of it", "$\\frac{1}{2}$ of it"),
         ("$ W_{out} $ is the work", "$W_{out}$ is the work"),
         ("price $5 for $ x$ items", "price $5 for $x$ items"),
+        # A factorial is maths, not a price ending in "!" (the phone's rule, 2026-11-11).
+        ("$ 4! $ ways", "$4!$ ways"),
+        ("so $ 4! + 3! $ in all", "so $4! + 3!$ in all"),
     ],
 )
 def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
