@@ -113,10 +113,9 @@ export const MathSvgView = React.memo(function MathSvgView({
   // an accessible parent (an answer card) the parent reads it instead.
   const own = !useInsideAccessibleElement();
   const label = useMemo(() => (own ? spokenFormula(latex) : undefined), [own, latex]);
-  // The conversion is held with the latex it was made from. A view whose
-  // latex changes (a streaming answer growing, a reused row) never draws the
-  // previous formula's result, not even for one frame: until its own result
-  // arrives it shows the cached one for the new latex, or the loading slot.
+  // The conversion is held with the latex it was made from. A view whose latex changes (a
+  // streaming answer growing, a reused row) never draws the previous formula's result, not
+  // even for one frame: until its own result arrives it shows the cached one or the slot.
   const [loaded, setLoaded] = useState<Loaded>(() => ({
     latex,
     result: peekSvgMath(latex, true),
@@ -143,10 +142,9 @@ export const MathSvgView = React.memo(function MathSvgView({
     };
   }, [latex]);
 
-  // react-native-svg does not resolve currentColor — substitute the theme
-  // color. The parsed tree is kept with the conversion, per color: drawing
-  // the same formula again (a reused row, a re-cut streaming piece) parses
-  // nothing.
+  // react-native-svg does not resolve currentColor — substitute the theme color. The parsed
+  // tree is kept with the conversion, per color: drawing the same formula again (a reused
+  // row, a re-cut streaming piece) parses nothing.
   const ast = useMemo((): JsxAST | null => {
     if (!result) return null;
     try {
@@ -172,12 +170,10 @@ export const MathSvgView = React.memo(function MathSvgView({
   // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
   const width = Math.max(1, result.widthEx * exPx);
   const height = Math.max(1, result.heightEx * exPx);
+  const left = indentFitted ? indent : fittedIndent(indent, width, windowWidth);
   return (
     <View
-      style={[
-        styles.wrap,
-        indent > 0 && { paddingLeft: indentFitted ? indent : fittedIndent(indent, width, windowWidth) },
-      ]}
+      style={[styles.wrap, indent > 0 && { paddingLeft: left }]}
       testID="math-svg-view"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}
