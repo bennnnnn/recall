@@ -1,0 +1,512 @@
+[
+ {
+  "id": "q50-01",
+  "area": "kinematics",
+  "prompt": "A cyclist accelerates uniformly from 4 m/s to 16 m/s over a distance of 60 m. What is her acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "q50-02",
+  "area": "kinematics",
+  "prompt": "A train moving at 30 m/s brakes with a deceleration of 1.5 m/s². How far does it travel before stopping?",
+  "expect": "answer",
+  "answer": [
+   300.0,
+   "m"
+  ]
+ },
+ {
+  "id": "q50-03",
+  "area": "free_fall",
+  "prompt": "a stone is dropped down a well and hits the water 2.5 s later. how deep is the well? ignore the time for the sound",
+  "expect": "answer",
+  "answer": [
+   30.6562,
+   "m"
+  ]
+ },
+ {
+  "id": "q50-04",
+  "area": "projectile",
+  "prompt": "A football is kicked at 18 m/s at 35° above the horizontal on level ground. Find its range.",
+  "expect": "answer",
+  "answer": [
+   31.0357,
+   "m"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "q50-05",
+  "area": "projectile",
+  "prompt": "A ball is launched at 25 m/s at 60 degrees above the horizontal. What maximum height does it reach?",
+  "expect": "answer",
+  "answer": [
+   23.8914,
+   "m"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "q50-06",
+  "area": "projectile",
+  "prompt": "A package is dropped from a plane flying horizontally at 80 m/s at an altitude of 500 m. How far horizontally does it travel before it hits the ground?",
+  "expect": "answer",
+  "answer": [
+   807.71,
+   "m"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "q50-07",
+  "area": "newton",
+  "prompt": "A net force of 45 N acts on a 9 kg box. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   5.0,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "q50-08",
+  "area": "newton",
+  "prompt": "A 1200 kg car accelerates from rest to 20 m/s in 8 s. What average net force acts on it?",
+  "expect": "answer",
+  "answer": [
+   3000.0,
+   "N"
+  ]
+ },
+ {
+  "id": "q50-09",
+  "area": "friction",
+  "prompt": "A 15 kg crate is pushed across a level floor with a horizontal force of 100 N. The coefficient of kinetic friction is 0.4. What is the crate's acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.74267,
+   "m/s^2"
+  ],
+  "visual": "free_body"
+ },
+ {
+  "id": "q50-10",
+  "area": "incline",
+  "prompt": "A 5 kg block slides down a frictionless ramp inclined at 30°. What is its acceleration?",
+  "expect": "answer",
+  "answer": [
+   4.905,
+   "m/s^2"
+  ],
+  "visual": "incline"
+ },
+ {
+  "id": "q50-11",
+  "area": "incline",
+  "prompt": "A block slides down a 25° slope. The coefficient of kinetic friction is 0.2. Find its acceleration.",
+  "expect": "answer",
+  "answer": [
+   2.36771,
+   "m/s^2"
+  ],
+  "visual": "incline"
+ },
+ {
+  "id": "q50-12",
+  "area": "energy",
+  "prompt": "How much kinetic energy does a 0.145 kg baseball moving at 40 m/s have?",
+  "expect": "answer",
+  "answer": [
+   116.0,
+   "J"
+  ]
+ },
+ {
+  "id": "q50-13",
+  "area": "energy",
+  "prompt": "A roller coaster starts from rest at the top of a 45 m hill. Ignoring friction, how fast is it going at the bottom?",
+  "expect": "answer",
+  "answer": [
+   29.7136,
+   "m/s"
+  ]
+ },
+ {
+  "id": "q50-14",
+  "area": "energy",
+  "prompt": "A motor lifts a 200 kg load through 15 m in 12 s. What is its power output?",
+  "expect": "answer",
+  "answer": [
+   2452.5,
+   "W"
+  ]
+ },
+ {
+  "id": "q50-15",
+  "area": "energy",
+  "prompt": "A force of 50 N pulls a sled 20 m along level ground. The rope makes an angle of 30° with the horizontal. How much work is done?",
+  "expect": "answer",
+  "answer": [
+   866.025,
+   "J"
+  ]
+ },
+ {
+  "id": "q50-16",
+  "area": "momentum",
+  "prompt": "A 3 kg cart moving at 4 m/s collides with a stationary 1 kg cart and they stick together. What is their velocity after the collision?",
+  "expect": "answer",
+  "answer": [
+   3.0,
+   "m/s"
+  ],
+  "visual": "collision"
+ },
+ {
+  "id": "q50-17",
+  "area": "momentum",
+  "prompt": "A 0.05 kg bullet leaves a 4 kg rifle at 400 m/s. What is the recoil speed of the rifle?",
+  "expect": "answer",
+  "answer": [
+   5.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "q50-18",
+  "area": "momentum",
+  "prompt": "A 0.4 kg ball hits a wall at 10 m/s and bounces straight back at 8 m/s. What is the magnitude of the impulse on the ball?",
+  "expect": "answer",
+  "answer": [
+   7.2,
+   "N*s"
+  ]
+ },
+ {
+  "id": "q50-19",
+  "area": "circular",
+  "prompt": "A 0.5 kg ball on a string moves in a horizontal circle of radius 0.8 m at 4 m/s. What is the centripetal force on it?",
+  "expect": "answer",
+  "answer": [
+   10.0,
+   "N"
+  ]
+ },
+ {
+  "id": "q50-20",
+  "area": "gravitation",
+  "prompt": "What is the gravitational force between two 1000 kg masses whose centres are 2 m apart?",
+  "expect": "answer",
+  "answer": [
+   1.6685e-05,
+   "N"
+  ]
+ },
+ {
+  "id": "q50-21",
+  "area": "orbit",
+  "prompt": "Find the orbital speed of a satellite 400 km above Earth's surface. Earth's mass is 5.97 × 10^24 kg and its radius is 6371 km.",
+  "expect": "answer",
+  "answer": [
+   7671.03,
+   "m/s"
+  ],
+  "visual": "orbit"
+ },
+ {
+  "id": "q50-22",
+  "area": "shm",
+  "prompt": "A 0.5 kg mass on a spring with k = 200 N/m oscillates. What is its period?",
+  "expect": "answer",
+  "answer": [
+   0.314159,
+   "s"
+  ],
+  "visual": "spring"
+ },
+ {
+  "id": "q50-23",
+  "area": "shm",
+  "prompt": "What is the period of a simple pendulum 2 m long?",
+  "expect": "answer",
+  "answer": [
+   2.83701,
+   "s"
+  ],
+  "visual": "pendulum"
+ },
+ {
+  "id": "q50-24",
+  "area": "forces",
+  "prompt": "A spring stretches 4 cm when a 2 N force is applied. What is its spring constant?",
+  "expect": "answer",
+  "answer": [
+   50.0,
+   "N/m"
+  ]
+ },
+ {
+  "id": "q50-25",
+  "area": "waves",
+  "prompt": "A wave has a frequency of 250 Hz and a wavelength of 1.4 m. What is its speed?",
+  "expect": "answer",
+  "answer": [
+   350.0,
+   "m/s"
+  ],
+  "visual": "wave"
+ },
+ {
+  "id": "q50-26",
+  "area": "waves",
+  "prompt": "My favourite FM station is on 98.5 MHz. How long are its radio waves?",
+  "expect": "answer",
+  "answer": [
+   3.04365,
+   "m"
+  ]
+ },
+ {
+  "id": "q50-27",
+  "area": "optics",
+  "prompt": "Light travels from air into glass with refractive index 1.5. The angle of incidence is 40°. What is the angle of refraction?",
+  "expect": "answer",
+  "answer": [
+   25.374,
+   "degree"
+  ],
+  "visual": "rays"
+ },
+ {
+  "id": "q50-28",
+  "area": "optics",
+  "prompt": "An object is placed 30 cm in front of a converging lens of focal length 10 cm. How far from the lens is the image?",
+  "expect": "answer",
+  "answer": [
+   15.0,
+   "cm"
+  ],
+  "visual": "rays"
+ },
+ {
+  "id": "q50-29",
+  "area": "circuits",
+  "prompt": "A 9 V battery is connected across a 450 Ω resistor. What current flows?",
+  "expect": "answer",
+  "answer": [
+   0.02,
+   "A"
+  ],
+  "visual": "circuit"
+ },
+ {
+  "id": "q50-30",
+  "area": "circuits",
+  "prompt": "Three resistors of 2 Ω, 4 Ω and 6 Ω are connected in series across a 24 V supply. What is the current?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "A"
+  ],
+  "visual": "circuit"
+ },
+ {
+  "id": "q50-31",
+  "area": "circuits",
+  "prompt": "What is the equivalent resistance of a 6 Ω resistor and a 3 Ω resistor connected in parallel?",
+  "expect": "answer",
+  "answer": [
+   2.0,
+   "ohm"
+  ],
+  "visual": "circuit"
+ },
+ {
+  "id": "q50-32",
+  "area": "electricity",
+  "prompt": "A kettle draws 8 A from a 230 V mains supply. What is its power?",
+  "expect": "answer",
+  "answer": [
+   1840.0,
+   "W"
+  ]
+ },
+ {
+  "id": "q50-33",
+  "area": "electrostatics",
+  "prompt": "Two point charges of 3 μC and −5 μC are 0.2 m apart. What is the magnitude of the force between them?",
+  "expect": "answer",
+  "answer": [
+   3.3705,
+   "N"
+  ]
+ },
+ {
+  "id": "q50-34",
+  "area": "magnetism",
+  "prompt": "A wire 0.5 m long carrying a current of 4 A lies at right angles to a 0.3 T magnetic field. What force acts on the wire?",
+  "expect": "answer",
+  "answer": [
+   0.6,
+   "N"
+  ]
+ },
+ {
+  "id": "q50-35",
+  "area": "thermal",
+  "prompt": "How much heat is needed to raise the temperature of 2 kg of water from 20 °C to 80 °C? Take c = 4186 J/(kg·K).",
+  "expect": "answer",
+  "answer": [
+   502320.0,
+   "J"
+  ]
+ },
+ {
+  "id": "q50-36",
+  "area": "thermal",
+  "prompt": "How much energy is needed to melt 0.5 kg of ice at 0 °C? The specific latent heat of fusion of ice is 334 kJ/kg.",
+  "expect": "answer",
+  "answer": [
+   167000.0,
+   "J"
+  ]
+ },
+ {
+  "id": "q50-37",
+  "area": "thermal",
+  "prompt": "A gas at 300 K and 100 kPa is heated to 450 K at constant volume. What is its new pressure?",
+  "expect": "answer",
+  "answer": [
+   150.0,
+   "kPa"
+  ]
+ },
+ {
+  "id": "q50-38",
+  "area": "fluids",
+  "prompt": "What is the water pressure at a depth of 12 m in a lake? The density of water is 1000 kg/m³.",
+  "expect": "answer",
+  "answers": [
+   [
+    117720.0,
+    "Pa"
+   ],
+   [
+    219045.0,
+    "Pa"
+   ]
+  ]
+ },
+ {
+  "id": "q50-39",
+  "area": "fluids",
+  "prompt": "A block with a volume of 0.002 m³ is fully submerged in water. What is the buoyant force on it?",
+  "expect": "answer",
+  "answer": [
+   19.62,
+   "N"
+  ]
+ },
+ {
+  "id": "q50-40",
+  "area": "modern",
+  "prompt": "Find the energy carried by a single photon of green light, wavelength 500 nm.",
+  "expect": "answer",
+  "answer": [
+   3.97295e-19,
+   "J"
+  ]
+ },
+ {
+  "id": "q50-41",
+  "area": "modern",
+  "prompt": "An 80 g sample of a radioactive isotope has a half-life of 5 days. How much of it remains after 20 days?",
+  "expect": "answer",
+  "answer": [
+   5.0,
+   "g"
+  ]
+ },
+ {
+  "id": "q50-42",
+  "area": "kinematics",
+  "prompt": "if i drive 150 km in 1.5 hours whats my average speed in m/s",
+  "expect": "answer",
+  "answer": [
+   27.7778,
+   "m/s"
+  ]
+ },
+ {
+  "id": "q50-43",
+  "area": "torque",
+  "prompt": "A 30 cm spanner is pushed with a force of 40 N at right angles at its end. What torque is produced?",
+  "expect": "answer",
+  "answer": [
+   12.0,
+   "N*m"
+  ]
+ },
+ {
+  "id": "q50-44",
+  "area": "free_fall",
+  "prompt": "A ball is thrown vertically upward at 15 m/s. (a) How high does it go? (b) How long is it before it returns to the thrower's hand?",
+  "expect": "answer",
+  "parts": [
+   [
+    11.46788990825688,
+    "m"
+   ],
+   [
+    3.058103975535168,
+    "s"
+   ]
+  ],
+  "visual": "projectile_motion",
+  "answer": [
+   11.46788990825688,
+   "m"
+  ]
+ },
+ {
+  "id": "q50-45",
+  "area": "concept",
+  "prompt": "Why does a feather fall slower than a hammer on Earth but at the same rate on the Moon?",
+  "expect": "explain"
+ },
+ {
+  "id": "q50-46",
+  "area": "concept",
+  "prompt": "What is the difference between mass and weight?",
+  "expect": "explain"
+ },
+ {
+  "id": "q50-47",
+  "area": "concept",
+  "prompt": "Draw the forces acting on a book resting on a table.",
+  "expect": "explain",
+  "visual": "free_body"
+ },
+ {
+  "id": "q50-48",
+  "area": "guards",
+  "prompt": "A car accelerates for 10 s. How far does it go?",
+  "expect": "decline"
+ },
+ {
+  "id": "q50-49",
+  "area": "guards",
+  "prompt": "A 5 kg box is pushed across a rough floor. What is the friction force on it?",
+  "expect": "decline"
+ },
+ {
+  "id": "q50-50",
+  "area": "lookalike",
+  "prompt": "My phone battery drains really fast at work, any tips to save power?",
+  "expect": "not_subject"
+ }
+]
