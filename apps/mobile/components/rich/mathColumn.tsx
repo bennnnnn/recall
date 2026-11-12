@@ -1,4 +1,11 @@
 import { createContext, type ReactNode, useContext } from "react";
+import { Dimensions, PixelRatio } from "react-native";
+
+import { scaled } from "@/components/rich/mathText/context";
+import { splitInlineMath } from "@/lib/markdown/inlineMath";
+import { fittedIndent, layoutMath } from "@/lib/math/layout";
+import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
+import { parseSimpleLatex } from "@/lib/math/text";
 
 const ColumnInset = createContext(0);
 
@@ -16,4 +23,41 @@ export function MathColumn({ inset, children }: { inset: number; children: React
 /** How far in from the reply's left edge the formula is drawn. */
 export function useMathColumnInset(): number {
   return useContext(ColumnInset);
+}
+
+/**
+ * The indent for working lines that are each one formula (`latexLines`), at the size and
+ * text scale ``MathText`` draws them: `indent` while the widest fits after it, less as it
+ * grows (``fittedIndent``). Read outside a component (a markdown rule), so the window's
+ * size and the text scale are read here, as ``useWindowDimensions`` would give them.
+ */
+export function formulaLinesIndent(latexLines: string[], indent: number, fontSize: number): number {
+  const fontScale = PixelRatio.getFontScale();
+  const widest = Math.max(0, ...latexLines.map((latex) => formulaWidth(latex, fontSize, fontScale)));
+  return fittedIndent(indent, widest, Dimensions.get("window").width);
+}
+
+function formulaWidth(latex: string, fontSize: number, fontScale: number): number {
+  return scaled(layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), fontSize).width, fontScale);
+}
+
+/** A word's width is not measured here: about half an em a character is near enough to
+ * judge whether a line of working fits. */
+const PROSE_EM_PER_CHAR = 0.5;
+
+/**
+ * How far a line of working (prose and ``$…$`` maths, as written) moves left into its
+ * column's `indent` so it fits the line before it scrolls; 0 while it fits after the indent.
+ */
+export function workingLinePull(line: string, indent: number, fontSize: number): number {
+  const fontScale = PixelRatio.getFontScale();
+  const width = splitInlineMath(line).reduce(
+    (sum, part) =>
+      sum +
+      (part.type === "math"
+        ? formulaWidth(part.value, fontSize, fontScale)
+        : part.value.length * PROSE_EM_PER_CHAR * fontSize * fontScale),
+    0,
+  );
+  return indent - fittedIndent(indent, width, Dimensions.get("window").width);
 }

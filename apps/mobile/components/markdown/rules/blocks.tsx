@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { StyleSheet } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { renderBlockquote } from "@/components/markdown/blockquoteRender";
@@ -19,7 +20,7 @@ import type {
   StyleMap,
 } from "@/components/markdown/markdownContentStyles";
 import { wrapInlineChildren } from "@/components/markdown/rules/inline";
-import { MathColumn } from "@/components/rich/mathColumn";
+import { formulaLinesIndent, MathColumn } from "@/components/rich/mathColumn";
 import { lessonStepParts, renderLessonStep } from "@/components/markdown/rules/lesson";
 import {
   renderWorkoutPart,
@@ -27,6 +28,7 @@ import {
   workoutPartParts,
   workoutSectionParts,
 } from "@/components/markdown/rules/workout";
+import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
 import { mathRunLineHeight } from "@/lib/math/text";
 import type { Theme } from "@/lib/theme";
 
@@ -53,13 +55,20 @@ function plainKids(node: AstNode): boolean {
  * working, so it starts in the column a worked solution's lines do (November 2026). A
  * bold formula is a highlighted line, not working; the streaming caret is not part of it.
  */
-function formulasOnly(node: AstNode): boolean {
-  if (!plainKids(node)) return false;
+function formulaLines(node: AstNode): string[] | null {
+  if (!plainKids(node)) return null;
   const lines = splitStreamCaret(astTextWithBreaks(node))
     .text.split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  return lines.length > 0 && lines.every((line) => FORMULA_LINE.test(line));
+  if (lines.length === 0 || !lines.every((line) => FORMULA_LINE.test(line))) return null;
+  return lines.map((line) => line.slice(1, line.lastIndexOf("$")));
+}
+
+/** The paragraph's left padding: the working column's indent (none in a compact reply). */
+function workIndentOf(styles: StyleMap): number {
+  const indent = (StyleSheet.flatten(styles.workIndent) as { paddingLeft?: unknown } | undefined)?.paddingLeft;
+  return typeof indent === "number" ? indent : 0;
 }
 
 export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyles) {
@@ -107,10 +116,10 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
     const runHeight = mathRunLineHeight(raw);
     // A loose list's paragraph: the item gap separates items, not a block gap.
     const inListItem = parentHasType(parent, "list_item");
-    const working =
-      !inListItem && !parentHasType(parent, "blockquote") && formulasOnly(node)
-        ? styles.workIndent
-        : null;
+    const formulas = inListItem || parentHasType(parent, "blockquote") ? null : formulaLines(node);
+    // A long formula takes the indent's room before it scrolls (``formulaLinesIndent``).
+    const inset = formulas ? formulaLinesIndent(formulas, workIndentOf(styles), mathSizeOf(styles.body)) : 0;
+    const working = inset > 0 ? { paddingLeft: inset } : null;
     const paragraph = wrapInlineChildren(
       node,
       children,
@@ -124,10 +133,6 @@ export function blockRules(t: Theme, mdTable: MdTableStyles, mdMath: MdMathStyle
       ],
       [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph, working],
     );
-    // A compact reply draws its working at the margin (`compactMdStyles`).
-    const inset = working && "paddingLeft" in working && typeof working.paddingLeft === "number"
-      ? working.paddingLeft
-      : 0;
     return inset > 0 ? (
       <MathColumn key={node.key} inset={inset}>
         {paragraph}

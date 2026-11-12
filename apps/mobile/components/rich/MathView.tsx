@@ -37,19 +37,26 @@ export const MathBlock = React.memo(function MathBlock({
   const lines = splitMathLines(trimmed);
   if (lines.length > 1) {
     return (
-      <View style={[styles.wrap, indent && styles.indent]}>
+      <View style={styles.wrap}>
         {lines.map((line, i) => (
           // Index disambiguates a restated line (e.g. `x = 4` twice); content
           // alone collides the same way sibling math fences do without tokenIndex.
-          <MathBlock key={`line:${i}:${line}`} latex={line} />
+          <MathBlock key={`line:${i}:${line}`} latex={line} indent={indent} />
         ))}
       </View>
     );
   }
 
+  // The indent is the formula's own: a long one gives it up before it scrolls.
   return (
-    <View style={[styles.wrap, indent && styles.indent]}>
-      <MathSvgView latex={trimmed} textColor={theme.text} minHeight={48} align="start" />
+    <View style={styles.wrap}>
+      <MathSvgView
+        latex={trimmed}
+        textColor={theme.text}
+        minHeight={48}
+        align="start"
+        indent={indent ? WORK_INDENT : 0}
+      />
     </View>
   );
 });
@@ -60,5 +67,4 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     width: "100%",
   },
-  indent: { paddingLeft: WORK_INDENT },
 });

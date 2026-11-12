@@ -134,6 +134,18 @@ export function inlineMathNeedsScroll(contentWidth: number, windowWidth: number)
   return contentWidth > Math.max(180, windowWidth - INLINE_SCROLL_GUTTER);
 }
 
+/**
+ * The working column's indent for a formula `contentWidth` wide: the whole `indent` while
+ * the formula fits after it, less as it grows, and none for a formula only the whole line
+ * holds, which then scrolls. The owner's phone, 2026-11-11: "n! = n × (n−1) × (n−2) × ⋯ × 1"
+ * ran past the right edge and scrolled, with the indent's room empty on its left.
+ */
+export function fittedIndent(indent: number, contentWidth: number, windowWidth: number): number {
+  if (!Number.isFinite(contentWidth) || contentWidth <= 0) return indent;
+  const room = Math.max(180, windowWidth - INLINE_SCROLL_GUTTER);
+  return Math.max(0, Math.min(indent, room - contentWidth));
+}
+
 function px(at16: number, em: number): number {
   return at16 * (em / 16);
 }

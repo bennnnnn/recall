@@ -18,6 +18,7 @@ import {
   MATH_TALL_LINE_HEIGHT,
   spokenFormula,
 } from "@/lib/math/text";
+import { fittedIndent } from "@/lib/math/layout";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
@@ -41,9 +42,15 @@ type Props = {
    * lines around it (a reply); `center` centres it in its box (the answer card).
    */
   align?: "start" | "center";
+  /**
+   * The working column's indent (a reply's own display maths): kept while the formula fits
+   * after it, given up as it grows, so a long formula reaches the right edge only when the
+   * whole line cannot hold it (``fittedIndent``).
+   */
+  indent?: number;
 };
 
-type FallbackProps = Required<Omit<Props, "minHeight">> & { label: string | undefined };
+type FallbackProps = Required<Omit<Props, "minHeight" | "indent">> & { label: string | undefined };
 
 /** What MathJax could not convert: the same formula in readable native maths. */
 function FallbackMath({ latex, textColor, em, align, label }: FallbackProps) {
@@ -94,8 +101,9 @@ export const MathSvgView = React.memo(function MathSvgView({
   minHeight = 48,
   em = Type.reading.fontSize,
   align = "center",
+  indent = 0,
 }: Props) {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width: windowWidth } = useWindowDimensions();
   const exPx = em * EX_PER_EM * fontScale;
   const justify = align === "start" ? styles.alignStart : null;
   // VoiceOver reads the formula as words: an SVG has no text of its own. Under
@@ -147,12 +155,17 @@ export const MathSvgView = React.memo(function MathSvgView({
     }
   }, [result, textColor]);
 
+  const indented = indent > 0 ? { paddingLeft: indent } : null;
   if (result === undefined) {
-    return <View style={[styles.wrap, { minHeight }]} testID="math-svg-loading" />;
+    return <View style={[styles.wrap, indented, { minHeight }]} testID="math-svg-loading" />;
   }
 
   if (result === null || ast == null) {
-    return <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} />;
+    return (
+      <View style={indented}>
+        <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} />
+      </View>
+    );
   }
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
@@ -161,7 +174,7 @@ export const MathSvgView = React.memo(function MathSvgView({
   const height = Math.max(1, result.heightEx * exPx);
   return (
     <View
-      style={styles.wrap}
+      style={[styles.wrap, indent > 0 && { paddingLeft: fittedIndent(indent, width, windowWidth) }]}
       testID="math-svg-view"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}
