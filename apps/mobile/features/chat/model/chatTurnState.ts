@@ -107,11 +107,13 @@ function onStop(s: ChatTurnState, out: Out, now: number): void {
   out.push({ type: "clear_ttft", turnId: s.ttftTurnId });
   s.ttftTurnId = null;
   out.push({ type: "abort_sse" });
-  out.push({ type: "cancel_socket", streamedChars: s.draft ? s.retracted + s.draft.content.length : undefined });
+  out.push({ type: "cancel_socket", streamedChars: s.draft ? s.retracted.length + s.draft.content.length : undefined });
   s.phase = "idle";
   s.sendingMessageId = null;
   const draft = s.draft;
+  const retracted = s.retracted;
   s.buffer = "";
+  s.retracted = "";
   s.draft = null;
   // The server keeps the previous answer until it commits a replacement:
   // a stop with no replacement tokens restores that answer.
@@ -122,8 +124,10 @@ function onStop(s: ChatTurnState, out: Out, now: number): void {
     const streamingMsg = previous.find((m) => m.id === "streaming");
     if (!streamingMsg) return previous;
     const content = draft?.content ?? streamingMsg.content;
-    if (!content.trim()) return restoreAssistantMessage(previous, backup);
-    return keepStreamedBubble(previous, stoppedId, content, draft);
+    if (content.trim()) return keepStreamedBubble(previous, stoppedId, content, draft);
+    // Nothing came in place of a reply the server took back to search: it saves that one.
+    if (retracted.trim()) return keepStreamedBubble(previous, stoppedId, retracted, draft);
+    return restoreAssistantMessage(previous, backup);
   });
   // The server's late `done` reconciles this bubble instead of appending a duplicate.
   s.stoppedStreamedId = stoppedId;

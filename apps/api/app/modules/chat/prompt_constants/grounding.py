@@ -43,7 +43,8 @@ WEB_SEARCH_OFF_HINT = (
 
 # Before the reply's second call, when its first said it could not check live facts and
 # the turn's read had called the answer settled (``stream_paths._denial_retry``): the call
-# is offered web_search, not made to use it.
+# is offered web_search, or made to use it when the read was close to live. Either way it
+# is told it can: a provider may ignore the choice that makes it search.
 DENIAL_RETRY_NOTE = (
     "Your first answer to this message said you could not check current information, and "
     "it was taken back. You can look up public facts: if the answer depends on facts that "

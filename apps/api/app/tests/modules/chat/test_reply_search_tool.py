@@ -5,6 +5,7 @@ training data, and "What is going on" opening a chat was searched. The model dec
 """
 
 import asyncio
+import time
 from collections.abc import AsyncIterator, Iterator
 from types import SimpleNamespace
 from typing import Any
@@ -387,6 +388,24 @@ async def test_a_check_that_fails_leaves_the_reply() -> None:
 
 
 @pytest.mark.asyncio
+async def test_the_check_waits_no_longer_than_its_cap() -> None:
+    """Review (2026-11-11): the client's timeout bounds each phase of the request, not the
+    call, so a slow answer could hold the finished reply past the cap."""
+
+    async def slow(*_args: Any, **_kwargs: Any) -> DeciderReply:
+        await asyncio.sleep(5)
+        return DeciderReply(answers={"denies": DeciderAnswer(type="noul", noul=0.9)})
+
+    started = time.monotonic()
+    with (
+        patch("app.gateways.decider_gateway.decide", slow),
+        patch.object(live_denial, "_CHECK_SECONDS", 0.05),
+    ):
+        assert not await live_denial.denies_live_data(_SETTINGS, _BEARS, _DENIAL)
+    assert time.monotonic() - started < 1
+
+
+@pytest.mark.asyncio
 async def test_the_check_reads_the_message_and_both_ends_of_a_long_reply() -> None:
     """A denial leads the answer or closes it as a note; a long list's middle is the list."""
     check = _check(0.05)
@@ -421,8 +440,9 @@ async def test_a_denial_is_asked_again_with_search(
 ) -> None:
     """Live (2026-10-25): no tool was offered, and the reply said it couldn't check. A read
     close to live makes the second call search, so its answer has results to give (Pro
-    phone test, 2026-11-11); further off it is offered the search with a note that it can,
-    and its model decides: a search sends the conversation's words to the web (review)."""
+    phone test, 2026-11-11); further off it is offered the search and its model decides: a
+    search sends the conversation's words to the web (review). Both are told they can: a
+    provider that ignores the tool choice would otherwise deny again (review, 2026-11-11)."""
     ctx = _retry_context(tool=web_search_tool, nearly_live=nearly_live)
     await asyncio.sleep(0)  # the read has answered by the reply's first call
     statuses: list[str] = []
@@ -441,8 +461,8 @@ async def test_a_denial_is_asked_again_with_search(
     assert accum.retracted == _DENIAL
     assert [call["tools"] for call in seen] == [None, [web_search_tool], None]
     assert [call["require_tool"] for call in seen] == [None, requires, None]
-    noted = [DENIAL_RETRY_NOTE in str(m.get("content")) for m in seen[1]["messages"]]
-    assert any(noted) is (requires is None)
+    assert any(DENIAL_RETRY_NOTE in str(m.get("content")) for m in seen[1]["messages"])
+    assert not any(DENIAL_RETRY_NOTE in str(m.get("content")) for m in seen[0]["messages"])
     assert [hit.url for hit in ctx.search_sources] == [_HIT.url]
     # The phone takes the denial down; a client that keeps it gets a break before the answer.
     assert statuses[:2] == ["composing", "retract"]
@@ -519,6 +539,21 @@ async def test_a_turn_whose_denial_is_no_live_fact_is_never_checked(
     denial_check.assert_not_awaited()
 
 
+def test_a_regenerated_answer_to_a_draft_question_is_never_checked() -> None:
+    """A regenerate keeps its message in the window the turn reads (review, 2026-11-11):
+    read with it, the answer to "What should it say?" was no draft's, and its reply was
+    checked. The turn's own test of a draft follow-up leaves it out."""
+    ctx = _context("the heater broke last night")
+    asked = [
+        SimpleNamespace(role="user", content="write a message to my landlord"),
+        SimpleNamespace(role="assistant", content="Sure. What should it say?"),
+    ]
+    ctx.recent_messages = [*asked, SimpleNamespace(role="user", content=ctx.user_message_content)]
+    assert not live_denial.may_check(ctx)
+    ctx.recent_messages = asked
+    assert not live_denial.may_check(ctx)
+
+
 @pytest.mark.asyncio
 async def test_a_denial_then_text_before_the_search_both_give_way(
     web_search_tool: dict[str, Any], denial_check: AsyncMock
@@ -534,6 +569,27 @@ async def test_a_denial_then_text_before_the_search_both_give_way(
     assert accum.reply_text() == _ANSWER
     # Both were drawn, so a stop's count of drawn text takes both off.
     assert accum.retracted == f"{_DENIAL}\n\nLet me look."
+
+
+@pytest.mark.asyncio
+async def test_an_answer_after_a_recall_round_is_never_asked_again(
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
+) -> None:
+    """Review (2026-11-11): the retry stayed armed through a ``recall_chats`` round, so the
+    answer after it could be retracted and searched, with earlier-chat snippets in the
+    prompt a query could draw from. A tool round's answer has what it asked for."""
+    ctx = _retry_context(tool=web_search_tool)
+    ctx.reply_tools = [{"type": "function", "function": {"name": "recall_chats"}}]
+    recall = {
+        "id": "call_r",
+        "type": "function",
+        "function": {"name": "recall_chats", "arguments": '{"query": "the bears"}'},
+    }
+    llm, seen = _model(([], [recall]), ([_DENIAL], []), (["never asked"], []))
+    with patch("app.modules.chat.tool_loop.reply_calls.answer_into_turn", AsyncMock()):
+        assert await _reply(ctx, llm) == _DENIAL
+    assert len(seen) == 2
+    denial_check.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -570,28 +626,50 @@ async def test_no_retry_without_the_offer_or_for_a_clock_denial(
 
 
 @pytest.mark.asyncio
-async def test_a_stop_during_the_retry_keeps_the_denial_the_phone_drew(
+async def test_a_stop_during_the_retry_saves_the_denial_the_phone_puts_back(
     web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
+    """The phone took the denial down; a Stop with nothing in its place puts it back
+    (``chatTurnState`` ``onStop``), so the server saves it and the phone's count is it."""
     ctx = _retry_context(tool=web_search_tool)
     llm, seen = _model(([_DENIAL], []), (["never drawn"], []))
-    calls = {"n": 0}
-
-    def should_cancel() -> bool:
-        calls["n"] += 1
-        return len(seen) > 1
-
     accum = StreamAccum()
-    await _reply(ctx, llm, accum=accum, should_cancel=should_cancel)
-    assert accum.was_cancelled
-    assert accum.reply_text() == _DENIAL
+    await _reply(ctx, llm, accum=accum, should_cancel=lambda: len(seen) > 1)
+    assert accum.was_cancelled and accum.restored
+    assert accum.reply_text(len(_DENIAL)) == _DENIAL
 
 
 @pytest.mark.asyncio
-async def test_a_failure_during_the_retry_keeps_the_denial(
+async def test_a_stop_before_the_answer_saves_the_text_the_phone_still_shows(
     web_search_tool: dict[str, Any], denial_check: AsyncMock
 ) -> None:
+    """Review (2026-11-11): the retry wrote "Let me look." and searched, and the user
+    stopped before its answer. The phone took the denial down and still shows "Let me
+    look."; the server put both back and saved the denial the phone no longer showed."""
+    ctx = _retry_context(tool=web_search_tool)
+    llm, seen = _model(([_DENIAL], []), (["Let me look."], [_SEARCH_CALL]), (["never"], []))
+    accum = StreamAccum()
+    with patch(
+        "app.modules.web_search.tool.run_cached_search", AsyncMock(return_value=([_HIT], ["q"]))
+    ):
+        await _reply(ctx, llm, accum=accum, should_cancel=lambda: len(seen) > 2)
+    assert accum.was_cancelled and accum.restored
+    drawn = len(_DENIAL) + len("\n\nLet me look.")
+    assert accum.reply_text(drawn) == "Let me look."
+    # Done carries it: the denial is still taken back.
+    assert accum.retracted == _DENIAL
+
+
+@pytest.mark.asyncio
+async def test_a_failure_during_the_retry_keeps_the_denial_and_done_carries_it(
+    web_search_tool: dict[str, Any], denial_check: AsyncMock
+) -> None:
+    """Review (2026-11-11): a provider failure in the retry saved the denial the phone had
+    taken down, and done, which ends the turn as interrupted, said nothing of it: the phone
+    drew an empty reply and a reload the denial."""
     from app.gateways.litellm_gateway import ModelUnavailableError
+    from app.modules.chat.stream_pipeline import stream_and_finalize
+    from app.modules.chat.turn_outcome import TurnOutcome
 
     ctx = _retry_context(tool=web_search_tool)
     first = {"done": False}
@@ -602,13 +680,32 @@ async def test_a_failure_during_the_retry_keeps_the_denial(
         first["done"] = True
         yield _DENIAL
 
-    accum = StreamAccum()
-    with pytest.raises(ModelUnavailableError):
-        await _reply(
-            ctx, SimpleNamespace(stream_chat_completion=stream_chat_completion), accum=accum
-        )
-    # The pipeline finalizes a reply with parts: the denial the phone drew.
-    assert accum.reply_text() == _DENIAL
+    async def enriched(*_args: Any, **kwargs: Any) -> str:
+        return str(kwargs["assistant_text"])
+
+    saved = AsyncMock()
+    outcome = TurnOutcome()
+    llm = SimpleNamespace(stream_chat_completion=stream_chat_completion)
+    with (
+        patch("app.modules.chat.stream_pipeline.run_tool_loop_path", AsyncMock()),
+        patch("app.modules.chat.stream_pipeline.enrich_final_content", enriched),
+        patch("app.modules.chat.stream_pipeline.register_and_enqueue_finalize", saved),
+    ):
+        streamed = [
+            token
+            async for token in stream_and_finalize(
+                turn_deps(llm=llm),
+                redis_mock(),
+                _SETTINGS,
+                ctx,
+                should_cancel=None,
+                outcome=outcome,
+            )
+        ]
+    assert streamed == [_DENIAL]
+    assert saved.await_args is not None and saved.await_args.kwargs["assistant_text"] == _DENIAL
+    assert outcome.completion == "interrupted"
+    assert outcome.final_content == _DENIAL
 
 
 def test_a_stop_after_a_retraction_cuts_the_answer_where_the_phone_did() -> None:
@@ -619,6 +716,31 @@ def test_a_stop_after_a_retraction_cuts_the_answer_where_the_phone_did() -> None
     accum.mark_user_stop()
     drawn = len(_DENIAL) + len("\n\nThe Bears")
     assert accum.reply_text(drawn) == "The Bears"
+
+
+@pytest.mark.parametrize(
+    ("taken", "drawn", "saved"),
+    [
+        # The answer's first words were on their way at the Stop: the phone put the denial
+        # back, and the server cut the answer to nothing and saved none (review, 2026-11-11).
+        ([_DENIAL], len(_DENIAL), _DENIAL),
+        # The phone drew the text before the search, not the answer after it.
+        ([_DENIAL, "\n\nLet me look."], len(_DENIAL) + len("\n\nLet me look."), "Let me look."),
+        (["Let me look."], len("Let me look."), "Let me look."),
+    ],
+)
+def test_a_stop_before_the_answer_was_drawn_saves_what_the_phone_shows(
+    taken: list[str], drawn: int, saved: str
+) -> None:
+    accum = StreamAccum()
+    for text in taken:
+        accum.parts.append(text)
+        accum.shown.append(text)
+        accum.retract(len(accum.parts) - 1, len(accum.shown) - 1)
+    accum.parts.append("\n\nThe Bears beat")
+    accum.shown.append("\n\nThe Bears beat")
+    accum.mark_user_stop()
+    assert accum.reply_text(drawn) == saved
 
 
 @pytest.mark.asyncio

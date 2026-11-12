@@ -45,10 +45,11 @@ export type ChatTurnState = {
   buffer: string;
   draft: StreamingDraft | null;
   /**
-   * Characters this turn drew and the server then took back (a `retract` status): a Stop
-   * reports them with what is on screen, as the server counts everything it sent.
+   * What this turn drew and the server then took back (a `retract` status). A Stop reports
+   * it with what is on screen, as the server counts everything it sent; with nothing on
+   * screen in its place, Stop puts it back, as the server then saves it.
    */
-  retracted: number;
+  retracted: string;
   /** The bubble Stop or an error committed; a late `done` reconciles it in place. */
   stoppedStreamedId: string | null;
   /** Regenerate shows; `regenerateBackup` is the answer it replaces until a new one lands. */
@@ -149,7 +150,7 @@ export function initialChatTurnState(chatId: string | null, session: number): Ch
   return {
     chatId, session, heldEdits: new Map(), phase: "idle", sendingMessageId: null, attempt: 0, pending: null,
     rejected: new Map(),
-    buffer: "", draft: null, retracted: 0, stoppedStreamedId: null, regenerating: false, regenerateBackup: null,
+    buffer: "", draft: null, retracted: "", stoppedStreamedId: null, regenerating: false, regenerateBackup: null,
     ttftTurnId: null, firstReply: false, authFallback: null, earlyDots: null,
   };
 }
@@ -257,6 +258,7 @@ export function openStream(s: ChatTurnState, out: Out, status?: string): void {
   s.phase = "streaming";
   s.sendingMessageId = null;
   s.buffer = "";
+  s.retracted = "";
   s.draft = { content: "", status };
   messages(out, (previous) => withStreamingPlaceholder(previous));
 }

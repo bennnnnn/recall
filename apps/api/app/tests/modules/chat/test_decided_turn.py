@@ -471,8 +471,11 @@ async def test_the_read_says_how_the_message_leans_on_the_conversation(
                 SimpleNamespace(role="assistant", content=_OUTLINE),
             ]
         },
+        # A calculation the subject readers gave the ```worked contract: the block lays it
+        # out, whatever the read calls the subject (review, 2026-11-11).
+        {"worked": WorkedLayout()},
     ],
-    ids=["clarify card", "lesson", "outline", "verified", "money"],
+    ids=["clarify card", "lesson", "verified", "money", "outline", "worked"],
 )
 @pytest.mark.asyncio
 async def test_a_turn_that_reads_its_reply_its_own_way_gets_no_follow_note(

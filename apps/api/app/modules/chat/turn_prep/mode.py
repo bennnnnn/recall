@@ -173,8 +173,9 @@ def prior_user_texts(recent: Sequence[Any], content: str) -> list[str]:
 _DRAFT_HISTORY = 6
 
 
-def _continues_a_draft(recent: Sequence[Any], content: str) -> bool:
-    """ "Email" or "make it shorter" after a draft, or what it says after "what should it say?"."""
+def continues_a_draft(recent: Sequence[Any], content: str) -> bool:
+    """ "Email" or "make it shorter" after a draft, or what it says after "what should it say?".
+    ``recent`` may end with this line already stored (a regenerate keeps it)."""
     prior = [
         (message.role, message.content)
         for message in recent[-(_DRAFT_HISTORY + 1) :]
@@ -233,7 +234,7 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     if not rich_context and not lightweight:
         # A change to a draft needs what the draft had: memory for names, and
         # the profile it is signed with. A slim turn signed it "[Your Name]".
-        rich_context = _continues_a_draft(recent, content)
+        rich_context = continues_a_draft(recent, content)
     advice_memory = (
         (
             is_personal_advice_question(content)

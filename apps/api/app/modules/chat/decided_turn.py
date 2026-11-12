@@ -177,10 +177,13 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
 def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     """The read's word on how the message leans on the conversation, beside it. A lesson, an
     outline awaiting a pick and the turn after a clarify card read the reply their own way
-    (``message_notes``); numbers a server path worked are the reply's to present, whatever
+    (``message_notes``); numbers a server path worked are the reply's to present, and a
+    calculation the subject readers gave the ```worked contract is laid out by it, whatever
     the read calls the subject."""
     note = FOLLOW_NOTES.get(read.follow or "")
-    if note is None or read.subject not in _NOTED_SUBJECTS or ctx.after_card or _worked(ctx):
+    if note is None or read.subject not in _NOTED_SUBJECTS or ctx.after_card:
+        return
+    if _worked(ctx) or ctx.worked is not None:
         return
     if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
         return

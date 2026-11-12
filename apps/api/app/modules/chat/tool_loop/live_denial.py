@@ -24,10 +24,17 @@ cannot see, a quoted denial) at 0.23 or less; a draft or a translation of the us
 words scores high, and its turn is never checked. A read close to live makes the retry
 search; otherwise it is offered the search and its model decides, since a search sends
 words from the conversation to the web.
+
+A travel answer says it cannot check traffic or a route time and gives a Maps link, as the
+directions rule asks (``web_search.DIRECTIONS_LINK_RULE``); "is it far?" reads close to live,
+so such a reply was retracted and a search forced whose query named the user's place and
+route (review, 2026-11-11). The question leaves the way to a place out, as the turn's read
+does; that sentence and the corpus's six travel replies are not measured yet.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -35,11 +42,10 @@ from typing import Any
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
 from app.modules.chat.clock_denial import model_denies_clock
-from app.modules.chat.continuation_subject import exchange_pairs
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.turn_prep.mode import continues_a_draft
 from app.modules.turn_reading.lesson_flow import active_lesson_step
-from app.modules.turn_reading.writing import draft_followup
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.md_fence_scan import without_fences
 
@@ -63,8 +69,10 @@ _QUESTION = {
             "today's facts), or that it is looking something up now instead of answering? Not "
             "when what it cannot see is the user's own: their body, screen or camera, "
             "location, accounts, orders, packages, bookings, messages, files, chats or other "
-            "records. Not when it only says its answer may be out of date or offers to look "
-            "it up, and not when it quotes or talks about such a sentence."
+            "records. Not when what it cannot check is the way to a place: directions, "
+            "distance, traffic or travel time, which a maps link answers. Not when it only "
+            "says its answer may be out of date or offers to look it up, and not when it "
+            "quotes or talks about such a sentence."
         ),
     }
 }
@@ -84,7 +92,7 @@ def may_check(ctx: StreamContext) -> bool:
     content = ctx.user_message_content or ""
     if writing_request_kind(content) is not None:
         return False
-    return draft_followup(content, exchange_pairs(ctx.recent_messages or [])) is None
+    return not continues_a_draft(ctx.recent_messages or [], content)
 
 
 def _quoted(question: str, reply: str) -> str:
@@ -109,13 +117,16 @@ async def denies_live_data(settings: Settings, question: str, reply: str) -> boo
 
     alias = ROUTING.decider
     try:
-        answer = await decide(
-            settings,
-            model=model_catalog.get(alias).model.removeprefix("openrouter/"),
-            state=_quoted(question, reply),
-            questions=_QUESTION,
-            seconds=_CHECK_SECONDS,
-        )
+        # The client's timeout bounds each phase of the request (connect, write, read), not
+        # the call: the cap is the whole wait, as the turn's own read bounds its.
+        async with asyncio.timeout(_CHECK_SECONDS):
+            answer = await decide(
+                settings,
+                model=model_catalog.get(alias).model.removeprefix("openrouter/"),
+                state=_quoted(question, reply),
+                questions=_QUESTION,
+                seconds=_CHECK_SECONDS,
+            )
     except Exception as exc:  # A check is a hint: without it the reply stands.
         logger.info("live denial check failed (%s)", type(exc).__name__)
         return False

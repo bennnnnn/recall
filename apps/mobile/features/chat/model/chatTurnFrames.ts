@@ -154,7 +154,7 @@ export function applyFrame(
       s.sendingMessageId = null;
       s.phase = "streaming";
       s.buffer = "";
-      s.retracted = 0;
+      s.retracted = "";
       // Keep the instant local status instead of blanking it until the first status frame.
       s.draft = {
         content: "",
@@ -170,7 +170,7 @@ export function applyFrame(
       if (payload.phase === "retract") {
         // The server took back what streamed (a reply that said it couldn't check live
         // facts): the bubble empties for the answer that replaces it.
-        s.retracted += s.buffer.length;
+        s.retracted += s.buffer;
         s.buffer = "";
         s.draft = { content: "", search_sources: s.draft?.search_sources };
         return;

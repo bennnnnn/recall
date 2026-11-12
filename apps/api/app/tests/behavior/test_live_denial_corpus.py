@@ -3,8 +3,9 @@
 The check is measured with real model calls (``live_denial_eval``); this holds offline what
 needs none: the set is whole, it holds the look-alikes a review named (a draft, a
 translation, a package or messages the app cannot see, a quoted denial, a long answer that
-mentions one), a draft's words never reach the check, and the turns that are drafts or
-translations never ask it.
+mentions one, a travel answer that gives a Maps link in place of a time it cannot check), a
+draft's words never reach the check, and the turns that are drafts or translations never
+ask it.
 """
 
 from __future__ import annotations
@@ -30,6 +31,9 @@ def test_the_set_is_whole() -> None:
         "talk about denials",
         "long answer",
         "hedge or offer",
+        # "Is it far?" answered "I can't check live traffic; here's the Maps link", as the
+        # directions rule asks: no denial of public facts, and no search names the route.
+        "the way to a place",
     } <= areas
     assert {"other languages", "looking it up now"} <= {r.area for r in REPLIES if r.denies}
 
