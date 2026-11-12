@@ -48,7 +48,7 @@ function formulaWidth(latex: string, fontSize: number, fontScale: number): numbe
  * after the indent. Only formulas scroll: words wrap, and a move's note (" — subtract 3")
  * has a row of its own, so neither is measured.
  */
-export function workingLinePull(line: string, indent: number, fontSize: number): number {
+function workingLinePull(line: string, indent: number, fontSize: number): number {
   const fontScale = PixelRatio.getFontScale();
   const formulas = splitInlineMath(splitWorkoutNote(line).state).filter((part) => part.type === "math");
   const widest = Math.max(0, ...formulas.map((part) => formulaWidth(part.value, fontSize, fontScale)));
