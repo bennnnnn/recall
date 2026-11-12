@@ -143,11 +143,20 @@ function upright(text: string): string {
 }
 
 /** An upright group as drawn: a script inside it (`\mathrm{SO_4^{2-}}`, `\mathrm{H_2O}`) is a
- * real script on the upright letters, as in TeX, never its `_4^{2-}` source. */
+ * real script on the upright letters, as in TeX, never its `_4^{2-}` source. An underscore
+ * escaped for text mode before a brace group (`\text{white\_{pigment}}`) is a script too:
+ * those braces only ever hold one, and drawn as written they read "white_{pigment}". */
 function uprightRuns(value: string): string {
   let out = "";
   let run = "";
   for (let i = 0; i < value.length;) {
+    const escapedScript = value.startsWith("\\_{", i) ? readGroup(value, i + 2) : null;
+    if (escapedScript) {
+      out += upright(run) + "_" + value.slice(i + 2, escapedScript.next);
+      run = "";
+      i = escapedScript.next;
+      continue;
+    }
     if ((value[i] === "_" || value[i] === "^") && value[i - 1] !== "\\" && i + 1 < value.length) {
       const group = value[i + 1] === "{" ? readGroup(value, i + 1) : null;
       const end = group ? group.next : i + 2;
