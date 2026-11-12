@@ -56,7 +56,7 @@
   "features/chat/drawer/ConversationList.tsx::ConversationList": 337,
   "features/chat/drawer/DrawerChatFlashList.tsx::DrawerChatFlashList": 215,
   "features/chat/drawer/DrawerShell.tsx::DrawerShell": 263,
-  "features/chat/drawer/conversationListStyles.ts::makeConversationListStyles": 173,
+  "features/chat/drawer/conversationListStyles.ts::makeConversationListStyles": 171,
   "features/chat/drawer/useDrawerChatList.ts::useDrawerChatList": 162,
   "features/chat/hooks/useChat.ts::useChat": 122,
   "features/chat/hooks/useChatActions.ts::useChatActions": 164,
