@@ -96,6 +96,12 @@ def _word_cue_only(content: str) -> bool:
     )
 
 
+def states_a_quantity(content: str) -> bool:
+    """A number with a unit after it ("36 cm", "10 ohm", "4X"): a value to work with, where a
+    digit inside a formula (CH3CH2CH2OH) or a grade ("grade 11") is none."""
+    return _QUANTITY.search(content) is not None
+
+
 def with_worked_contract(messages: list[dict[str, str]]) -> list[dict[str, str]]:
     """The prompt with the block's contract beside the user's message."""
     note_prompt_rule("subject.worked")

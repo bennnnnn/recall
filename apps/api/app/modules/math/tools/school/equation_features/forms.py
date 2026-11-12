@@ -1,8 +1,8 @@
 """How a feature solver reads the equation, and how it writes numbers in the working.
 
-``_explicit`` reads ``y = F(x)``, ``_linear`` ``ax + by = c`` and ``_quadratic``
-``y = ax^2 + bx + c``; ``_num``, ``_point``, ``_bracket``, ``_at`` and ``_line_tex``
-write the TeX. ``_Solved`` is what every solver returns.
+The sides are read in ``parsing``. ``_explicit`` reads ``y = F(x)``, ``_linear``
+``ax + by = c`` and ``_quadratic`` ``y = ax^2 + bx + c``; ``_num``, ``_point``,
+``_bracket``, ``_at`` and ``_line_tex`` write the TeX. ``_Solved`` is what every solver returns.
 """
 
 from __future__ import annotations
@@ -11,35 +11,22 @@ import re
 from typing import Any
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tools.school.equation_features.parsing import (
+    equation_sides as _sides,
+)
+from app.modules.math.tools.school.equation_features.parsing import (
+    parse_side as _parse,
+)
+from app.modules.math.tools.school.equation_features.parsing import (
+    plain_symbols as _plain,
+)
 from app.services.workout import Workout
-
-
-def _parse(text: str, names: list[str]) -> Any:
-    from app.modules.math import solve as math_solve
-
-    parsed = math_solve.parse_expression(text, names)
-    if isinstance(parsed, tuple):
-        raise ValueError("not one expression")
-    from sympy import nsimplify
-
-    return nsimplify(parsed, rational=True)
 
 
 def _symbols(*names: str) -> tuple[Any, ...]:
     from sympy import Symbol
 
     return tuple(Symbol(name) for name in names)
-
-
-def _plain(expr: Any) -> Any:
-    """The same expression over plain symbols, whatever assumptions the parser set."""
-    from sympy import Symbol
-
-    return expr.xreplace({s: Symbol(str(s)) for s in expr.free_symbols})
-
-
-def _sides(intent: MathIntent, names: list[str]) -> tuple[Any, Any]:
-    return _plain(_parse(intent.lhs or "", names)), _plain(_parse(intent.rhs or "", names))
 
 
 _NAMED_LHS = re.compile(r"^\s*(?:y|[a-z]\s*\(\s*x\s*\))\s*$")

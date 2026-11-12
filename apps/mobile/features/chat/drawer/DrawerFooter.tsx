@@ -1,93 +1,62 @@
-import { Pressable, Text, View, type TextInputInstance } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { Avatar } from "@/components/Avatar";
+import { useAuth } from "@/contexts/AuthContext";
 import { tap } from "@/lib/haptics";
-import { Space } from "@/lib/space";
+import { getDisplayName } from "@/lib/profile";
 import type { Theme } from "@/lib/theme";
-import { SearchField } from "@/ui/controls/SearchField";
+import { Icon } from "@/ui/icons/Icon";
+import { IconSize } from "@/ui/icons/sizes";
 
 import type { ConversationListStyles } from "./conversationListStyles";
-import { IconSize } from "@/ui/icons/sizes";
-import { Icon } from "@/ui/icons/Icon";
 
 type Props = {
   styles: ConversationListStyles;
   theme: Theme;
   paddingBottom: number;
-  /** The open keyboard's height: the open field sits on it. */
-  keyboardHeight: number;
-  searchOpen: boolean;
-  searchQuery: string;
-  searchInputRef: React.RefObject<TextInputInstance | null>;
-  onSearchChange: (text: string) => void;
-  onOpenSearch: () => void;
-  onCloseSearch: () => void;
+  onAccount: () => void;
+  onNewChat: () => void;
 };
 
 /**
- * The drawer's bottom row: one search bar, in reach of the thumb. Tapped, it becomes
- * the field in place, above the keyboard.
+ * The drawer's bottom bar (the owner's layout, 2026-11-11): the account at the left, its
+ * picture and name, which opens Settings; New chat at the right, in reach of the thumb.
  */
-export function DrawerFooter({
-  styles: s,
-  theme,
-  paddingBottom,
-  keyboardHeight,
-  searchOpen,
-  searchQuery,
-  searchInputRef,
-  onSearchChange,
-  onOpenSearch,
-  onCloseSearch,
-}: Props) {
-  const { t } = useTranslation();
-  const lifted = searchOpen && keyboardHeight > 0;
+export function DrawerFooter({ styles: s, theme, paddingBottom, onAccount, onNewChat }: Props) {
+  const { t, i18n } = useTranslation();
+  const { user, token } = useAuth();
+  const name = getDisplayName(user?.name, t("common.you"), i18n.language);
 
   return (
-    <View
-      testID="drawer-footer"
-      style={[s.footer, lifted ? { bottom: keyboardHeight, paddingBottom: Space.xs } : { paddingBottom }]}
-      pointerEvents="box-none"
-    >
-      {searchOpen ? (
-        <SearchField
-          style={s.footerSearch}
-          inputRef={searchInputRef}
-          value={searchQuery}
-          onChangeText={onSearchChange}
-          placeholder={t("search.placeholder")}
-          clearButtonMode="while-editing"
-          trailing={
-            <Pressable
-              hitSlop={{ top: 13, bottom: 13, left: 8, right: 8 }}
-              onPress={() => {
-                tap();
-                onCloseSearch();
-              }}
-              style={s.searchCancel}
-              accessibilityRole="button"
-              accessibilityLabel={t("common.cancel")}
-            >
-              <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
-            </Pressable>
-          }
-        />
-      ) : (
-        <Pressable
-          style={s.searchBar}
-          onPress={() => {
-            tap();
-            onOpenSearch();
-          }}
-          accessibilityRole="search"
-          accessibilityLabel={t("search.open_accessibility")}
-        >
-          <Icon name="search" size={IconSize.sm} color={theme.text} />
-          <Text style={s.searchBarText} numberOfLines={1}>
-            {t("search.placeholder")}
-          </Text>
-        </Pressable>
-      )}
+    <View testID="drawer-footer" style={[s.footer, s.chromeBar, { paddingBottom }]}>
+      <Pressable
+        style={s.accountRow}
+        onPress={() => {
+          tap();
+          onAccount();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={name}
+        accessibilityHint={t("settings.title")}
+      >
+        <Avatar name={user?.name ?? null} uri={user?.avatar_url} token={token} size={32} />
+        <Text style={s.accountName} numberOfLines={1}>
+          {name}
+        </Text>
+      </Pressable>
+      <Pressable
+        style={s.newChatBtn}
+        hitSlop={6}
+        onPress={() => {
+          tap();
+          onNewChat();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.new_chat")}
+      >
+        <Icon name="edit" size={IconSize.md} color={theme.onPrimary} />
+      </Pressable>
     </View>
   );
 }

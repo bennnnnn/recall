@@ -6,7 +6,8 @@ import re
 
 _PARAM_ASSIGN_RE = re.compile(
     r"\b(?:gravity|theta|angle|h_?0|v_?0|omega|mu|rho|delta|"
-    r"[mqxv]_?[12]|[hFmgMRIcRx])\s*=\s*(?=-?\d)",
+    # A constant stated as a given: "k = 9.0e9 N·m²/C²", "k_e = 8.99e9", "G = 6.67e-11".
+    r"[mqxv]_?[12]|k_?e|[hFmgMRIcRxkG])\s*=\s*(?=-?\d)",
     re.IGNORECASE,
 )
 

@@ -20,13 +20,14 @@ WORKED_BLOCK_CONTRACT = (
     "definition, a choice between options, a reminder) is answered as usual, with no "
     "block. A graph, chart or diagram it asks for comes after the block. "
     'Inside the block, one record per line, its fields split by " | ", maths in LaTeX '
-    "without $, units as plain text (m/s, km/h, kg, °C), and words in the language of "
-    "your reply:\n"
-    "given: symbol | value | unit | what it is | the value in the unit the formula needs, "
-    "only when that differs (LaTeX with its unit)\n"
+    "without $, units as plain text (m/s, km/h, kg, °C), one symbol for each quantity in "
+    "every record, and words in the language of your reply:\n"
+    "given: symbol | value | unit (empty for a pure number) | what it is | the value in the "
+    "unit the formula needs, only when that differs (LaTeX with its unit)\n"
     "required: symbol | what is asked\n"
-    'formula: the name of the law or rule, which heads the formula ("Average speed" '
-    "reads Average speed formula) | the formula\n"
+    'formula: the name of the law or rule in words, which heads the formula ("Average speed" '
+    "reads Average speed formula; a name that says what it is stays as it is: Ohm's law, "
+    "Integrating factor method) | the formula\n"
     "solve_for: symbol | the formula rearranged for it\n"
     "step: an equation | the move that reached it (for an equation solved one move at a "
     "time, with no formula)\n"

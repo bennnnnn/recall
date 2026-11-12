@@ -134,6 +134,15 @@ export function inlineMathNeedsScroll(contentWidth: number, windowWidth: number)
   return contentWidth > Math.max(180, windowWidth - INLINE_SCROLL_GUTTER);
 }
 
+/** The working column's indent for a formula `contentWidth` wide: all of `indent` while the
+ * formula fits after it, less as it grows, none when only the whole line holds it (the
+ * owner's phone, 2026-11-11: a factorial ran past the right edge beside an empty indent). */
+export function fittedIndent(indent: number, contentWidth: number, windowWidth: number): number {
+  if (!Number.isFinite(contentWidth) || contentWidth <= 0) return indent;
+  const room = Math.max(180, windowWidth - INLINE_SCROLL_GUTTER);
+  return Math.max(0, Math.min(indent, room - contentWidth));
+}
+
 function px(at16: number, em: number): number {
   return at16 * (em / 16);
 }

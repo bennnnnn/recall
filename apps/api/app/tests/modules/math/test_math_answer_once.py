@@ -1,8 +1,8 @@
-"""A worked maths reply states its rounded answer once, in the card.
+"""A worked maths reply's working ends on its value; the card rounds it once.
 
 A card that rounds (≈ 33.51 cm³) has the value unrounded once in the working, an exact
-multiple of π rather than the substitution alone, and the "≈" link that only said the card
-again goes when the reply saves.
+multiple of π rather than the substitution alone, and the working ends on the value it
+reaches, as a textbook's does (the "≈" link stays since 2026-11-11).
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.worked_lead import drop_restated_step
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
@@ -35,9 +34,8 @@ def _reply(prompt: str) -> str:
     ],
 )
 def test_a_rounded_card_has_its_exact_value_once_in_the_working(prompt: str, exact: str) -> None:
-    # The working's chain ends on the exact value: the "≈ 33.51" link that only says the
-    # card again goes when the reply saves.
-    saved = drop_restated_step(_reply(prompt))
-    working = saved.split("**Substitution**", 1)[1].split("**Answer**", 1)[0]
-    assert f"= {exact}$" in working
-    assert r"\approx" not in working
+    # The working's chain reaches the exact value, then the rounded one the card shows.
+    working = _reply(prompt).split("**Substitution**", 1)[1].split("**Answer**", 1)[0]
+    assert f"= {exact}" in working
+    last = working.strip().splitlines()[-1]
+    assert f"= {exact}" in last and r"\approx" in last

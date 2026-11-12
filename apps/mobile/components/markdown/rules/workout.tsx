@@ -1,8 +1,7 @@
 import { ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
-import { MathColumn } from "@/components/rich/mathColumn";
-import { MathText } from "@/components/rich/MathText";
+import { fitWorkingLine, MathColumn } from "@/components/rich/mathColumn";
 import {
   splitStreamCaret,
   StreamingCursor,
@@ -20,11 +19,11 @@ import {
   WORK_INDENT,
   WORK_RULE,
 } from "@/components/markdown/markdownContentStyles";
-import { mathSizeOf, withGreenTicks } from "@/components/markdown/rules/textWithMath";
+import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
+import { workingHeading, workoutInline } from "@/components/markdown/rules/workoutInline";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
-import { splitInlineMath } from "@/lib/markdown/preprocess";
 import {
   askedLine,
   isAnswerHeading,
@@ -54,6 +53,7 @@ function plainInline(node: AstNode): boolean {
  */
 export function workoutSectionParts(
   node: AstNode,
+  underSolution = false,
 ): { heading: string; lines: string[] } | null {
   const kids = unwrapSingle(node).children ?? [];
   const strong = openingStrong(kids[0]);
@@ -76,11 +76,25 @@ export function workoutSectionParts(
     .filter(Boolean);
   if (!lines.length) return null;
   // A law's own name over its formulas reaches here as one paragraph only in a
-  // worked reply: elsewhere a bold line gets a paragraph of its own.
+  // worked reply: elsewhere a bold line gets a paragraph of its own. **Solution** over
+  // lines heads a formula its writer gave no name, and a name right under **Solution**
+  // heads its rule even in words: a procedure's ("Conservation of atoms and charge").
+  const title = astText(strong);
   const heading =
-    workoutHeading(astText(strong)) ??
-    lawHeading(astText(strong), lines[0] ?? "");
+    workoutHeading(title) ??
+    (isSolutionHeading(title)
+      ? SOLUTION_HEADING
+      : lawHeading(title, lines[0] ?? "", underSolution));
   return heading ? { heading, lines } : null;
+}
+
+/** Whether `node` is the block right after a **Solution** heading alone on its line. */
+export function followsSolution(node: AstNode, parent: unknown): boolean {
+  if (!Array.isArray(parent) || parent.length === 0) return false;
+  const blocks = (parent[0] as AstNode | undefined)?.children ?? [];
+  const at = blocks.indexOf(node);
+  const above = at > 0 ? blocks[at - 1] : undefined;
+  return above?.type === "paragraph" && isSolutionHeading(astText(above));
 }
 
 /** A part label alone on its line in bold: ``**(a) Acceleration**``. */
@@ -92,34 +106,6 @@ export function workoutPartParts(
   if (!strong) return null;
   if (kids.slice(1).some((kid) => astTextWithBreaks(kid).trim())) return null;
   return workoutPart(splitStreamCaret(astText(strong)).text);
-}
-
-/** Prose and ``$...$`` math in one wrapping run, every piece in one colour. */
-function workoutInline(
-  text: string,
-  keyPrefix: string,
-  textStyle: StyleProp<TextStyle>,
-  color: string,
-  tickColor?: string,
-): ReactNode[] {
-  const size = mathSizeOf(textStyle);
-  return splitInlineMath(text).map((part, i) =>
-    part.type === "math" ? (
-      <MathText
-        scrollOverflow
-        key={`${keyPrefix}-m-${i}`}
-        latex={part.value}
-        textColor={color}
-        fontSize={size}
-      />
-    ) : (
-      <Text key={`${keyPrefix}-t-${i}`} style={textStyle} selectable>
-        {tickColor
-          ? withGreenTicks(part.value, tickColor, `${keyPrefix}-${i}`)
-          : part.value}
-      </Text>
-    ),
-  );
 }
 
 /**
@@ -283,6 +269,7 @@ function renderWorkoutLine(
  * Working inside Solution, step by step: the section's own heading over its first lines, and
  * each "Solve for $d$" a heading of its own, bold at the margin, over the lines it reaches. A
  * grey "Solve for" between two equations read as part of the calculation (November 2026).
+ * **Solution** itself heads the lines of a formula with no name, drawn as working too.
  */
 function renderWorkingSteps(
   key: string,
@@ -290,34 +277,22 @@ function renderWorkingSteps(
   lines: React.ReactElement[],
   styles: StyleMap,
   t: Theme,
+  headingID = "workout-subheading",
 ): React.ReactElement {
   const label = subheadingStyle(styles, t);
+  const size = mathSizeOf(styles.body);
   const steps: { heading: ReactNode; lines: React.ReactElement[] }[] = [
-    {
-      heading: (
-        <Text testID="workout-subheading" style={label}>
-          {section.heading}
-        </Text>
-      ),
-      lines: [],
-    },
+    { heading: workingHeading(section.heading, `${key}-heading`, label, t, headingID), lines: [] },
   ];
   section.lines.forEach((line, index) => {
     const marked = splitStreamCaret(line);
     if (!SOLVE_FOR.test(marked.text.trim())) {
-      steps[steps.length - 1]!.lines.push(lines[index]!);
+      // A long line moves left into the indent before it scrolls; the others keep the column.
+      steps[steps.length - 1]!.lines.push(fitWorkingLine(lines[index]!, marked.text, WORK_INDENT, size));
       return;
     }
     steps.push({
-      heading: (
-        <View
-          testID="workout-subheading"
-          style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline" }}
-        >
-          {workoutInline(marked.text.trim(), `${key}-solve-${index}`, label, t.assistantText)}
-          {marked.caret ? <StreamingCursor /> : null}
-        </View>
-      ),
+      heading: workingHeading(line.trim(), `${key}-solve-${index}`, label, t, "workout-subheading"),
       lines: [],
     });
   });
@@ -380,6 +355,9 @@ export function renderWorkoutSection(
   );
   if (working) {
     return renderWorkingSteps(key, section, lines, styles, t);
+  }
+  if (isSolutionHeading(section.heading) && lines.length) {
+    return renderWorkingSteps(key, section, lines, styles, t, "workout-heading");
   }
   const heading = (
     <Text

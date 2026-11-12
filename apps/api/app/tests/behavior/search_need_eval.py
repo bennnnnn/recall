@@ -12,7 +12,7 @@ that change: news, scores, prices, weather, who holds an office, releases, openi
 what is near the user) or not (how-to and settled knowledge, advice, writing, maths, the
 user's own life, small talk, follow-ups about the conversation). Three ways to run it:
 
-- ``read``: the fast model's read beside the prep (``web_search.live_read``), which has
+- ``read``: the fast model's read beside the prep (``chat.turn_decision``), which has
   its query searched before the reply when it says live;
 - ``reply``: the reply's own model call, with the turn's real prompt and tools
   (``harness.route_case``), which may call ``web_search`` itself;
@@ -117,10 +117,10 @@ class Outcome:
 
 async def read_once(settings: Any, turn: Turn) -> tuple[bool, str, float, bool]:
     """The read as a turn starts it: (searches, query, seconds, answered)."""
-    from app.modules.web_search import live_read
+    from app.modules.chat import turn_decision
 
     started = time.monotonic()
-    task = live_read.start_live_read(settings, turn.prompt, recent=recent_rows(turn))
+    task = turn_decision.start_turn_decision(settings, turn.prompt, recent=recent_rows(turn))
     read = await task if task is not None else None
     seconds = time.monotonic() - started
     if read is None:
@@ -192,6 +192,7 @@ async def measure(
 
     from app.core.config import Settings
     from app.models.routing_lanes import ROUTING
+    from app.modules.chat import turn_decision
 
     settings = Settings()
     outcomes = {turn.id: Outcome(turn) for turn in turns}
@@ -222,7 +223,7 @@ async def measure(
     with (
         patch("app.services.quota.global_spend_exceeded", _never_capped),
         patch("app.gateways.llm_spend.meter_model_call", lambda *_args: None),
-        patch("app.modules.web_search.live_read.ROUTING", lanes),
+        patch.object(turn_decision, "ROUTING", lanes),
     ):
         for _ in range(runs):
             await asyncio.gather(*(one(turn) for turn in turns))

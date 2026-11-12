@@ -40,6 +40,21 @@ _SIGN_AFTER_NUMBER = re.compile(
 )
 # Signs written after the amount: a fraction of a currency's unit.
 _WRITTEN_AFTER = frozenset("¢")
+# What a model writes in the unit field of a pure number, a fraction or a count: a dash,
+# or a word for none ("f | \frac{1}{2} | —" drew "½ —", 2026-11-11). A pure number has
+# no unit to show.
+_NO_UNIT = frozenset({"none", "unitless", "dimensionless", "no unit", "no units"})
+# Marks that are a unit on their own, though Unicode files them as punctuation.
+_UNIT_MARKS = frozenset("%\u2030\u2032\u2033'\"")  # %, per mille, prime, double prime
+
+
+def _names_no_unit(text: str) -> bool:
+    """A unit field that holds no unit: a placeholder word, or marks with no letter,
+    digit or symbol in them (a dash or a hyphen)."""
+    # "n/a" in lower case only: "N/A" is newtons per ampere.
+    if text.lower() in _NO_UNIT or text == "n/a":
+        return True
+    return not any(unicodedata.category(char)[0] in "LNS" or char in _UNIT_MARKS for char in text)
 
 
 def unit_tex(unit: str) -> str:
@@ -48,7 +63,7 @@ def unit_tex(unit: str) -> str:
     wrapped = _TEXT_WRAP.match(text)
     if wrapped is not None:
         text = wrapped.group("unit").strip()
-    if not text:
+    if not text or _names_no_unit(text):
         return ""
     if text in _UNIT_SYMBOLS:
         return _UNIT_SYMBOLS[text]

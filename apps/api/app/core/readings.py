@@ -93,6 +93,37 @@ def reading[F: Callable[..., Any]](*, declined: Any = None) -> Callable[[F], F]:
     return wrap
 
 
+async def read_aside[T](
+    fn: Callable[..., T],
+    *args: Any,
+    timeout: float,  # noqa: ASYNC109 - the pool implements it
+    **kwargs: Any,
+) -> T | None:
+    """``read_off_loop`` for a read the turn can do without (``chat.posed_read``'s look at
+    the reply before it): a pool that gives up returns None and the turn's readings stay
+    as they were, never declined, so its own solve still reads its message."""
+    from app.core.sympy_executor import run_sympy
+
+    memo = _MEMO.get()
+    if memo is None:
+        memo = {}
+        _MEMO.set(memo)
+    if _DECLINED in memo:
+        return None
+    try:
+        result: T
+        result, recorded = await run_sympy(
+            _record, fn, args, kwargs, dict(memo), timeout=timeout, lane="reading"
+        )
+    except Exception as exc:
+        logger.info(
+            "reading %s set aside (%s)", getattr(fn, "__qualname__", fn), type(exc).__name__
+        )
+        return None
+    memo.update(recorded)
+    return result
+
+
 def kept_reading[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T | None:
     """The turn's kept reading of ``fn`` at these arguments, or None when it was not read.
 

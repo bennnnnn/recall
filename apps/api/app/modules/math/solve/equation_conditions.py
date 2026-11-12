@@ -14,7 +14,7 @@ from app.modules.math.solve.parse import SolveServiceError, parse_expression
 from app.modules.math.solve.root_latex import expr_equal
 
 
-def _original_domain_conditions(data: EquationInput, sym: Any) -> tuple[list[Any], list[str]]:
+def original_domain_conditions(data: EquationInput, sym: Any) -> tuple[list[Any], list[str]]:
     """Restrictions from the original syntax, before SymPy cancellation."""
     excluded: list[Any] = []
     conditions: list[str] = []

@@ -215,7 +215,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
 - ✅ **Web search** — models decide when to search; no word rule does. Two read the message:
-  a fast model reads it as the turn loads (`modules/web_search/live_read.py`, `live_read_enabled`,
+  a fast model reads it as the turn loads (`modules/chat/turn_decision.py`, `live_read_enabled`,
   on) and says whether its answer depends on facts that change (news, scores, prices, rates,
   weather, who holds an office now, the latest or next of anything, whether something is out
   yet) and, if so, the query a person would type, written with the conversation in view. Its
@@ -613,12 +613,30 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 5. Models & routing
 - ✅ **Multiple tiers** — six chat models, none of them coding models. Free: Qwen3.7 Flash
-  (everyday, Auto's fast lane), Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard and
-  maths turns). Paid adds DeepSeek V4.1 Flash (`smart-chat`), GLM 5.2 (Auto's maths lane) and
-  GPT-6 Luna. On Pro, Auto's everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
+  (everyday, Auto's fast lane, and since 2026-11-11 Free's maths lane, `ROUTING.math_free`),
+  Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard everyday turns, and the maths
+  lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, its October 17 version `deepseek-v4.1-flash-1017`
+  since 2026-11-11, the owner's call; the hard lane and, since
+  2026-11-10, Auto's maths lane, with Qwen3.8 Flash its first backup: `ROUTING.math_backups`),
+  Qwen3.8 Flash (`qwen-3.8-flash`, thinking none, minimal, high; it replaced GLM 5.2 on
+  2026-11-11, and stored choices of GLM 5.2 moved to it, migration 0129) and GPT-6 Luna. Maths, physics and chemistry no solver verified go to the maths lane, hard
+  ones too. On Pro, Auto's
+  everyday turns go to Claude Haiku 5.5 (`ROUTING.everyday_strong`,
   `entitlements.has_strong_everyday_model`, one switch per plan in `core/settings/plans.py`); it
-  keeps photo turns too. Hard and maths turns keep their lanes on every plan. No OpenRouter-auto
-  “Max” chip.
+  keeps photo turns too. No OpenRouter-auto “Max” chip.
+- ✅ **The decider** — Perplexity's Decider (`modules/chat/decider_read.py`, through
+  `gateways/decider_gateway.py`) answers, as probabilities, each message's subject, effort
+  (none, low, high), the picture it asks to see, how it follows the turn before and whether it
+  needs live facts; the text read beside it (`modules/chat/turn_decision.py`, Qwen3.7 Flash
+  with Haiku when it is refused) writes the search query and decides when the Decider fails.
+  Maths, physics and chemistry think only when the read calls them hard
+  (measured 2026-11-10). Auto's lane and the thinking level come from it through catalog data
+  (`ROUTING.decided`, `model_routing/decided.py`, applied in `chat/decided_turn.py`): a hard
+  everyday question goes to the strong lane, STEM no solver verified to the maths lane with the
+  worked layout, and each model thinks at the level its catalog entry names for the effort. A
+  verified solve or a money card keeps its lane; the word rules (`model_routing/route.py`)
+  decide only when the read gives no answer in time, and each turn's trace says which
+  (`decision.decided_by`). Measured on the 100-chat check-up of 2026-11-10.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
   design; the composer picker was removed to keep the composer single-purpose). Respected
   per chat turn. With Auto off, every message goes to one model: the screen names it
@@ -746,7 +764,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   chat-history recall cannot bring a deleted fact back.
 - ✅ **Memory toggle** — off means no personal recall: no new learning, no saved facts in
   replies, no chat-history retrieval or indexing, no instant profile answers (saved facts
-  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one
+  remain until deleted). **Include sensitive topics**, on for a new account since 2026-11-11. **Delete and turn off** is one
   API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.
@@ -840,7 +858,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the device; Haptics off silences every `lib/haptics` call.
 - ✅ **Personalization** — tone labels, emoji and custom instructions. Stored tone ids stay
   `soft` / `casual` / `professional` / `funny`. Emoji (`users.emoji_use`: `off` /
-  `some` / `more`, every account starts at `some`) is the one emoji rule in the prompt
+  `some` / `more`, a new account starts at `more`, "Lots", and the tone at `professional`,
+  the owner's defaults of 2026-11-11, migration 0130) is the one emoji rule in the prompt
   (`modules/chat/response_tone.emoji_hint`): a few lead headings and list labels, never in
   numbers, maths, code, cards, a worked solution, a draft or a painful reply; no tone
   speaks about emoji. The finalize pass `emoji_use` (`modules/chat/emoji_placement.py`)
@@ -849,7 +868,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   each message sets its own ("briefly", "in detail"), and how hard a turn thinks is
   automatic (`modules/chat/model_routing/thinking.py`): the turn's live read says whether the
   answer must be reasoned out first (`think`), the word rules decide when it gives no answer
-  in time, and a regenerate or a disputed answer thinks one level more. The old `users.response_style` column is
+  in time, and a regenerate or a disputed answer thinks one level more. On Auto, a question
+  the read says to think on that sits on the maths lane (whose model cannot think) with no
+  solver's verified answer moves to the smart lane, at the reply's call. The old `users.response_style` column is
   neither read nor returned, and goes in a later release (docs/ROLLBACK.md).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
@@ -894,8 +915,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   The clock is the phone's: it reports its zone the moment it changes (the OS's clock event, each
   return to the foreground). The badge, Home and the editor's Remind at show `notify_at`; for a
   due time the editor has not saved, it asks `GET /todos/reminder-preview`. The phone works out none.
-- ✅ **Email reminders** — opt-in todo-due emails (Resend); Settings
-  toggle; worker scheduler only (welcome + Pro receipt unchanged). Each send of one reminder
+- ✅ **Email reminders** — todo-due emails (Resend), on for a new account since 2026-11-11,
+  as quiet hours (22:00-07:00) and sensitive memory are; Settings toggle; worker scheduler only (welcome + Pro receipt unchanged). Each send of one reminder
   carries the same `Idempotency-Key`, so a resend after a timeout is not mailed twice; an
   address Resend refuses (a 4xx but 429) is not tried again, and a timeout, 429 or 5xx waits
   out a doubling hold (`notifications/send_backoff.py`, Redis) instead of retrying every minute.
@@ -987,7 +1008,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   every paid row. `GET /billing/plans` gives the paywall each plan's features and numbers.
 - ✅ **Plans sheet** — free sees Plus and Pro side by side; Plus sees the step up to Pro; a
   purchase whose server refresh fails says the plan will update (never "purchase failed").
-  Settings → Account shows the plan, live talk minutes left (Pro) and "Upgrade to Pro" (Plus).
+  Settings → Account shows the email, the plan, its own Manage subscription row (paid) and
+  "Upgrade to Pro" (Plus); Usage shows only the messages left today (2026-11-11).
 - ✅ **Dev plan toggle** — the plans sheet shows **Enable Plus / Enable Pro (dev only)**
   (development builds only; `POST /auth/me/pro-dev?plan=`).
 - 🔜 App Store / Play billing polish, promotional offers, family plans.

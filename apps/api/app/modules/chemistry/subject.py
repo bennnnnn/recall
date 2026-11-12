@@ -44,6 +44,11 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class ChemistryFollowups:
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        from app.modules.chemistry.followup import changed_chemistry_problem
+
+        return changed_chemistry_problem(problem, given, new)
+
     def problem(
         self,
         query: str | None,

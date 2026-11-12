@@ -162,7 +162,7 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="smart-chat",
         label="DeepSeek V4.1 Flash",
-        model="deepseek/deepseek-v4.1-flash",
+        model="deepseek/deepseek-v4.1-flash-1017",
         provider="deepseek",
         input_price_per_m=0.15,
         output_price_per_m=0.60,
@@ -194,20 +194,20 @@ CATALOG: tuple[ChatModel, ...] = (
         **_GLM_FLASH,
     ),
     _or(
-        id="glm-5.2",
-        label="GLM 5.2",
-        model="z-ai/glm-5.2",
-        input_price_per_m=0.62,
-        output_price_per_m=2.42,
-        description="Deep reasoning and coding; reads very long documents.",
+        id="qwen-3.8-flash",
+        label="Qwen3.8 Flash",
+        model="qwen/qwen3.8-flash",
+        provider="qwen",
+        input_price_per_m=0.15,
+        output_price_per_m=0.47,
+        description="Step-by-step reasoning for maths and tricky questions.",
         tier="smart",
         quota_multiplier=3.5,
         thinking_off="none",
-        thinking_on="none",
+        thinking_on="minimal",
         thinking_escalate="high",
-        # Text only (GLM's image readers are separate "V" models). JSON mode is
-        # unconfirmed across its providers, so routing does not count on it.
         supports_tools=True,
+        json_mode=True,
         context_tokens=128_000,
     ),
     _or(
@@ -284,6 +284,19 @@ CATALOG: tuple[ChatModel, ...] = (
         thinking_off="none",
         cache_breakpoints=True,
         **_HAIKU,
+    ),
+    # Perplexity's Decider: closed questions answered with probabilities, no text
+    # (``gateways.decider_gateway``). The turn's read: it beat the Qwen read on every field of
+    # the 100-chat check-up's turns at 0.33 s p50 (2026-11-10). Priced per input token
+    # (it reports its own cost, about $0.00002 a read).
+    _or(
+        id="decider-model",
+        label="Decider",
+        model="perplexity/pplx-decider-v1.2",
+        provider="perplexity",
+        input_price_per_m=0.02,
+        output_price_per_m=0.0,
+        selectable=False,
     ),
     _or(
         id="embedding-model",

@@ -138,6 +138,13 @@ class SubjectFollowups(Protocol):
         (``chat.referent_read``), when the turn read one."""
         ...
 
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        """``problem`` with one given put to ``new``, the value a line changes it to ("what
+        if it took 10 s?" is ``new`` "10 s"); ``given`` names which, as a model read it
+        (``chat.posed_read``). None when the subject cannot put it in place exactly. Read
+        in the pool."""
+        ...
+
 
 class SubjectFence(Protocol):
     """How a subject finishes a reply: chat's finalize passes ask it, in their order.

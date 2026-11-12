@@ -374,6 +374,9 @@ async def _verdict(state: FinalizeState, timeout_seconds: float) -> _Verdict | N
             timeout_seconds=timeout_seconds,
             usage=state.usage,
             allow_fallback=False,
+            # It cuts sentences out of a reply: the fallback model was never measured at it,
+            # so a refused check keeps the whole reply, as before.
+            refusal_fallback=False,
         ),
         state.on_status,
         "checking",

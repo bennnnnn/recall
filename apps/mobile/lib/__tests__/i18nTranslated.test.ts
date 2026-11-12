@@ -29,11 +29,7 @@ const KEPT_EVERYWHERE = new Set([
   "app.name", // the product
   "plans.plus", // plan names, as the stores show them
   "plans.pro",
-  "settings.sign_in_apple", // sign-in providers
-  "settings.sign_in_google",
-  "settings.sign_in_dev", // development builds only
   "chat.live_talk_a11y", // Live talk is the feature's name in every locale
-  "settings.live_talk_minutes",
   "upgrade.feature_live_talk_plain",
   "share.attachment_pdf",
   "common.ok",

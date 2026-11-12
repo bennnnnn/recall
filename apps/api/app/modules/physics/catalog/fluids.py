@@ -39,15 +39,24 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("volume", "V", "meter ** 3"),
         ),
     ),
+    # Density is mass over volume, and so a mass or a volume from it (``law_binding.inverse``).
+    # Chemistry's densities are a gas's (PV = nRT); a solid's or a liquid's is this law.
     formula(
         "density",
         "fluids",
         "Density formula",
         "\\rho",
         base_latex="\\rho = \\frac{m}{V}",
+        expression="m/volume",
         variables=(
             var("m", "m", "kilogram"),
             var("volume", "V", "meter ** 3"),
+        ),
+        binding=Binding(
+            asks=("density",),
+            result=("kilogram / meter ** 3",),
+            inputs=(frozenset({"m", "volume"}),),
+            nonnegative=True,
         ),
     ),
     formula(

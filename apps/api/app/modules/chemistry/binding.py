@@ -108,7 +108,7 @@ _SYMBOLS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
 # A hydrate is one substance: CuSO4·5H2O, not CuSO4 beside a stray H2O.
 _FORMULA_TOKEN = re.compile(
     rf"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*(?:{HYDRATE_DOT}\d{{0,2}}[A-Z][A-Za-z0-9()]*)*)"
-    rf"(?![A-Za-z0-9({HYDRATE_DOT}])"
+    rf"(?![A-Za-z0-9(_{HYDRATE_DOT}])"
 )
 # "Iron-56" and "Fe-56" are a mass number. Only a neutron question is rewritten, so a
 # half-life or a binding energy that names the same isotope still reads its own law.

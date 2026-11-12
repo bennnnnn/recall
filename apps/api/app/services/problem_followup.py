@@ -123,6 +123,25 @@ def new_value(line: str) -> tuple[str, str] | None:
     return match.group("value"), match.group("unit")
 
 
+# "10 s", "32.0 g", "200 \u03a9": a value and its unit, written alone.
+_WRITTEN_VALUE = re.compile(
+    r"(?P<value>[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[-+]?\d+)?) ?(?P<unit>\S(?:[^\n]{0,14}\S)?)",
+    re.IGNORECASE,
+)
+
+
+def written_value(text: str) -> tuple[str, str] | None:
+    """``10 s`` → ``("10", "s")``: a value given alone with its unit, as a change names it."""
+    match = _WRITTEN_VALUE.fullmatch(" ".join(text.split()))
+    if match is None or match.group("unit").lower() in _CLOCK_UNITS:
+        return None
+    return match.group("value"), match.group("unit")
+
+
+def _quoted_numbers(text: str) -> set[float]:
+    return {float(number) for number in re.findall(r"\d+(?:\.\d+)?", text)}
+
+
 def scaled_value(value: float, factor: float) -> str:
     """The scaled number as a student would write it: 2 kg doubled is ``4``, not ``4.0``."""
     return f"{value * factor:.6g}"
@@ -299,6 +318,22 @@ class GivenRewriter:
         if rewritten == prior:
             return None
         return rewritten if self.verifies(rewritten) else None
+
+    def replaced(self, prior: str, written: str | None, value: str, unit: str) -> str | None:
+        """The given of ``unit``'s kind put to ``value``: the problem's one given of that
+        kind, or of several the one whose number ``written`` quotes ("300 K" of "between
+        500 K and 300 K"). Every other given stays as written, and the rewrite verifies."""
+        new_dim = self.unit_dimension(" ".join(unit.split()))
+        if new_dim is None or not fully_read(prior):
+            return None
+        matches = self._of_dimension(prior, new_dim)
+        if len(matches) > 1:
+            quoted = _quoted_numbers(written or "")
+            matches = [given for given in matches if given.value in quoted]
+        if len(matches) != 1 or counted(prior, matches[0]) or self._anothers(prior, matches[0]):
+            return None
+        rewritten = replace_given(prior, matches[0], value, " ".join(unit.split()))
+        return rewritten if rewritten != prior and self.verifies(rewritten) else None
 
     def scaled(self, prior: str, scaling: Scaling) -> str | None:
         """``what if the mass doubles``: the one given of that kind, times the factor."""

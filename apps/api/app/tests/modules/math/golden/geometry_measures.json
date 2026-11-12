@@ -87,7 +87,7 @@
     "content": "3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}"
    },
    "canonical_answer": "3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}",
-   "worked_reply": "**Given**  \n$d = 6$  \nwhere $d$ = diagonal\n\n**Required**  \n$s$ (side)\n\n**Solution**\n\n**Pythagorean theorem on half the square formula**  \n$d = s\\sqrt{2}$\n\n**Substitution**  \n$s = \\frac{6}{\\sqrt{2}}$\n\n**Answer**\n\n```answer\n3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}\n```\n"
+   "worked_reply": "**Given**  \n$d = 6$  \nwhere $d$ = diagonal\n\n**Required**  \n$s$ (side)\n\n**Solution**\n\n**Pythagorean theorem on half the square**  \n$d = s\\sqrt{2}$\n\n**Substitution**  \n$s = \\frac{6}{\\sqrt{2}}$\n\n**Answer**\n\n```answer\n3\\sqrt{2} \\approx 4.24\\ \\mathrm{m}\n```\n"
   }
  },
  {
@@ -126,7 +126,7 @@
     "content": "2\\sqrt{3} \\approx 3.46"
    },
    "canonical_answer": "2\\sqrt{3} \\approx 3.46",
-   "worked_reply": "**Given**  \n$s = 2$  \nwhere $s$ = edge\n\n**Required**  \n$d$ (space diagonal)\n\n**Solution**\n\n**Pythagorean theorem in 3D formula**  \n$d = \\sqrt{s^2 + s^2 + s^2} = s\\sqrt{3}$\n\n**Substitution**  \n$d = 2\\sqrt{3}$\n\n**Answer**\n\n```answer\n2\\sqrt{3} \\approx 3.46\n```\n"
+   "worked_reply": "**Given**  \n$s = 2$  \nwhere $s$ = edge\n\n**Required**  \n$d$ (space diagonal)\n\n**Solution**\n\n**Pythagorean theorem in 3D**  \n$d = \\sqrt{s^2 + s^2 + s^2} = s\\sqrt{3}$\n\n**Substitution**  \n$d = 2\\sqrt{3}$\n\n**Answer**\n\n```answer\n2\\sqrt{3} \\approx 3.46\n```\n"
   }
  },
  {
@@ -139,7 +139,7 @@
     "content": "13\\ \\mathrm{cm}"
    },
    "canonical_answer": "13\\ \\mathrm{cm}",
-   "worked_reply": "**Given**  \n$l = 3$  \n$w = 4$  \n$h = 12$\n\n**Required**  \n$d$ (space diagonal)\n\n**Solution**\n\n**Pythagorean theorem in 3D formula**  \n$d = \\sqrt{l^2 + w^2 + h^2}$\n\n**Substitution**  \n$d = \\sqrt{3^2 + 4^2 + 12^2} = \\sqrt{169}$\n\n**Answer**\n\n```answer\n13\\ \\mathrm{cm}\n```\n"
+   "worked_reply": "**Given**  \n$l = 3$  \n$w = 4$  \n$h = 12$\n\n**Required**  \n$d$ (space diagonal)\n\n**Solution**\n\n**Pythagorean theorem in 3D**  \n$d = \\sqrt{l^2 + w^2 + h^2}$\n\n**Substitution**  \n$d = \\sqrt{3^2 + 4^2 + 12^2} = \\sqrt{169}$\n\n**Answer**\n\n```answer\n13\\ \\mathrm{cm}\n```\n"
   }
  },
  {
@@ -165,7 +165,7 @@
     "content": "70^\\circ"
    },
    "canonical_answer": "70^\\circ",
-   "worked_reply": "**Given**  \n$50^\\circ,\\ 60^\\circ$ — two angles\n\n**Required**  \n$x$ (the third angle)\n\n**Solution**\n\n**Formula**  \n$\\text{angles in a triangle} = 180^\\circ$\n\n**Substitution**  \n$x = 180^\\circ - 50^\\circ - 60^\\circ$\n\n**Answer**\n\n```answer\n70^\\circ\n```\n"
+   "worked_reply": "**Given**  \n$50^\\circ,\\ 60^\\circ$ — two angles\n\n**Required**  \n$x$ (the third angle)\n\n**Solution**\n\n$\\text{angles in a triangle} = 180^\\circ$\n\n**Substitution**  \n$x = 180^\\circ - 50^\\circ - 60^\\circ$\n\n**Answer**\n\n```answer\n70^\\circ\n```\n"
   }
  },
  {
@@ -308,7 +308,7 @@
     "content": "y = \\frac{1}{2} x + \\frac{7}{2}"
    },
    "canonical_answer": "y = \\frac{1}{2} x + \\frac{7}{2}",
-   "worked_reply": "**Given**  \n$P = (3, 10)$ — the point  \n$P' = (7, 2)$ — its image\n\n**Required**  \n$\\text{the line of reflection}$\n\n**Solution**\n\n**Formula**  \n$\\text{line of reflection} = \\text{perpendicular bisector of } PP'$ — every point on the mirror is as far from P as from P'\n\n**Through the midpoint, perpendicular formula**  \n$y - y_M = m_{\\perp}(x - x_M)$\n\n**Substitution**  \n$M = \\left(5, 6\\right)$ — midpoint  \n$m = \\frac{2 - 10}{7 - 3} = -2, \\quad m_{\\perp} = \\frac{1}{2}$  \n$y - 6 = \\frac{1}{2}\\left(x - 5\\right)$\n\n**Answer**\n\n```answer\ny = \\frac{1}{2} x + \\frac{7}{2}\n```\n"
+   "worked_reply": "**Given**  \n$P = (3, 10)$ — the point  \n$P' = (7, 2)$ — its image\n\n**Required**  \n$\\text{the line of reflection}$\n\n**Solution**\n\n$\\text{line of reflection} = \\text{perpendicular bisector of } PP'$ — every point on the mirror is as far from P as from P'\n\n**Through the midpoint, perpendicular formula**  \n$y - y_M = m_{\\perp}(x - x_M)$\n\n**Substitution**  \n$M = \\left(5, 6\\right)$ — midpoint  \n$m = \\frac{2 - 10}{7 - 3} = -2, \\quad m_{\\perp} = \\frac{1}{2}$  \n$y - 6 = \\frac{1}{2}\\left(x - 5\\right)$\n\n**Answer**\n\n```answer\ny = \\frac{1}{2} x + \\frac{7}{2}\n```\n"
   }
  },
  {

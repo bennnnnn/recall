@@ -10,8 +10,8 @@ reaches, unrounded, when that value only rounds to the verified answer:
 
 and the card states the answer once, rounded (3.47 m/s²). A value already the answer's own
 (15 cm), or one the working's typed constants put off by more than rounding (7672.4 for a
-verified 7673), closes on the verified answer instead, and the saved reply drops that line
-as the card's restatement (``chat/worked_lead.drop_restated_step``).
+verified 7673), closes on the verified answer instead: the working ends on its value above
+the card, as a textbook's does.
 
 A row is matched to the answer by value, not by name: "a and T", "50 N at 53.1°" and
 "H_max and R" each have a row per value, and ``|v|`` or ``f_s`` may name it. The middle
@@ -42,6 +42,7 @@ from app.modules.physics.notation import shown
 from app.modules.physics.row_units import RowUnits, pint_unit, row_units
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.results import PhysicsResult
+from app.services.law_binding.inverse import form_params
 from app.services.law_binding.reduction import Reduction, reduce_substitution
 from app.services.law_binding.symbols import plain_symbol
 from app.services.school_rounding import round_figures
@@ -315,7 +316,9 @@ def working_units(
     rows = list(formulas)
     spec = formula_spec(operation)
     if spec is not None:
-        base, lines, _assumptions = select_formula(spec, intent.physics_params or {})
+        base, lines, _assumptions = select_formula(
+            spec, form_params(spec, intent.physics_params or {})
+        )
         rows += [shown(row, operation) for row in (base, *lines) if row]
     answers: list[tuple[float, Any]] = []
     ureg = get_unit_registry()

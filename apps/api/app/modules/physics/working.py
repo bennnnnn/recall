@@ -14,6 +14,7 @@ from app.modules.physics.display import typeset_numbers
 from app.modules.physics.notation import shown
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.results import PhysicsResult
+from app.services.law_binding.inverse import solved_input
 from app.services.solving import SolveServiceError
 from app.services.times_sign import with_times
 
@@ -32,6 +33,10 @@ def result_symbol_for(intent: PhysicsIntent) -> str | None:
     if spec is None:
         return None
     params = intent.physics_params or {}
+    # A law given its result is solved for the input it asks (``law_binding.inverse``).
+    unknown = solved_input(spec, params)
+    if unknown is not None:
+        return shown(unknown.symbol, spec.id)
     variant = matching_variant(spec, params)
     if variant is not None and variant.result_symbol:
         return shown(variant.result_symbol, spec.id)

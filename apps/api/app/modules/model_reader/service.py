@@ -53,6 +53,8 @@ async def _ask[T: LawRead | RouteRead](
         usage=usage,
         allow_fallback=False,
         quiet_timeout=True,
+        # A shadow read measures its own model: another's read would be recorded as its.
+        refusal_fallback=False,
     )
 
 

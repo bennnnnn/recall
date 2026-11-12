@@ -28,10 +28,12 @@ __all__ = [
     "is_auto_enabled",
     "is_explicit_pick",
     "is_paid",
+    "math_lane_for",
     "model_pool",
     "override_pool",
     "pick_cheapest_from_pool",
     "pick_fast_from_pool",
+    "pick_math_lane",
     "pick_preferred_tier",
     "pick_smart_from_pool",
     "pick_strongest_from_pool",
@@ -326,3 +328,21 @@ def pick_preferred_tier(preferred: str, pool: list[str]) -> str:
     if preferred_model.tier in {"smart", "max"}:
         return pick_smart_from_pool(pool)
     return pick_fast_from_pool(pool)
+
+
+def math_lane_for(user: User, settings: Settings) -> tuple[str, str]:
+    """The plan's maths lane and its backup (``ROUTING.math_backups``), by what the plan
+    includes, not by what the user left switched on: DeepSeek then Qwen3.8 Flash on a plan with
+    DeepSeek, Qwen3.7 Flash then GLM 5.3 Flash on Free."""
+    lane = ROUTING.math if ROUTING.math in allowed_model_ids(user, settings) else ROUTING.math_free
+    return lane, ROUTING.math_backups[lane]
+
+
+def pick_math_lane(chain: tuple[str, ...] | None, usable: list[str]) -> str:
+    """The first of the plan's maths lane and its backup (``math_lane_for``; None: the paid
+    lane alone) in ``usable``; with neither (switched off or failing), the best of the maths
+    lane's tier."""
+    math = model_catalog.auto_math_alias()
+    return next((alias for alias in chain or (math,) if alias in usable), None) or (
+        pick_preferred_tier(math, usable)
+    )

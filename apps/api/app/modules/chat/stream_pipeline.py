@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models import model_catalog
+from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.finalize_registry import mark_pending_finalize, register_pending_finalize
 from app.modules.chat.late_photo import follow_late_photo
@@ -35,7 +36,6 @@ from app.modules.chat.stream_paths import (
 )
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.title_event import title_event
-from app.modules.chat.tool_loop import reply_calls
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
@@ -248,13 +248,14 @@ async def _produce_reply(
     finally:
         if ctx.timing is not None:
             ctx.timing.mark_phase("tool_loop_done")
-    reply_calls.think_from_the_read(ctx)
     if _is_terminal_image(ctx):
         return
     if ctx.instant_reply:
         async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):
             yield token
         return
+    # Only a reply still to write takes the read's lane and level.
+    await decide_from_the_read(ctx, settings)
     if settings.image_search_enabled and ctx.user is not None:
         ctx.answer_photo = AnswerPhoto(settings, ctx.user)
     async for token in run_llm_token_stream(

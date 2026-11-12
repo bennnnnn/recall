@@ -68,6 +68,9 @@ class TurnTrace:
     # ``model_reader.schemas.ModelRead`` it set when it finished.
     model_read_task: Any = None
     model_read: Any = None
+    # Who decided the lane and the thinking, and what the turn's read said
+    # (``chat.decided_turn``): "read" or "rules", then subject, effort, picture, follow.
+    decision: dict[str, str | None] | None = None
     emitted: bool = False
 
 
@@ -141,6 +144,16 @@ def note_plan(trace: TurnTrace, kinds: Iterable[str], reason: str | None = None)
     (the turn's reading, ``turn_reading.turn``)."""
     trace.plan = tuple(kind for kind in map(_token, kinds) if kind)[:_MAX_NAMES]
     trace.plan_reason = _token(reason)
+
+
+@_quietly
+def note_decision(trace: TurnTrace, decided_by: str, **fields: str | None) -> None:
+    """Who decided the turn's lane and thinking ("read" or "rules"), and the read's answer
+    for each field it gave (``chat.decided_turn``)."""
+    trace.decision = {
+        "decided_by": _token(decided_by),
+        **{name: _token(value) for name, value in fields.items()},
+    }
 
 
 @_quietly
@@ -303,6 +316,8 @@ def turn_record(
         )
         if ctx.timing is not None:
             record.update(ctx.timing.milestones())
+    if trace.decision is not None:
+        record["decision"] = dict(trace.decision)
     shadow = _model_read(trace, record.get("solver"))
     if shadow is not None:
         record["model_read"] = shadow

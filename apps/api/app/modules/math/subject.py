@@ -57,6 +57,14 @@ _HINTS = SubjectHints(
 
 @dataclass(frozen=True)
 class MathFollowups:
+    def changed_problem(self, problem: str, given: str | None, new: str) -> str | None:
+        # An equation or expression has no units to say which part changes: the part the
+        # read names, written once in the problem, gives way to one of its own kind.
+        if not given or problem.count(given) != 1 or ("=" in given) != ("=" in new):
+            return None
+        rewritten = problem.replace(given, new)
+        return rewritten if rewritten != problem and MATH_SUBJECT.reads(rewritten) else None
+
     def problem(
         self,
         query: str | None,
@@ -219,9 +227,16 @@ class MathTool:
         )
 
     def call_matches(self, raw_args: Any, user_texts: list[str]) -> str | None:
+        from app.modules.math.schemas import is_declined
         from app.modules.math.tool_check import matched_user_text
+        from app.modules.math.tools.extract import extract_math_intent
 
-        return matched_user_text(raw_args, user_texts)
+        matched = matched_user_text(raw_args, user_texts)
+        if matched is not None and is_declined(extract_math_intent(matched)):
+            # A reader recognised that message's question and declined it: a call on
+            # a formula in it (a count's condition) answers another question.
+            return None
+        return matched
 
     def draws_curve(self, fence: dict[str, Any] | None) -> bool:
         from app.modules.math.text_plot import is_curve_fence
