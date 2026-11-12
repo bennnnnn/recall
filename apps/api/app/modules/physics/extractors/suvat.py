@@ -55,8 +55,6 @@ _CHANGE = (
     r"(?:(?:ac|de)celerat\w*|brak\w*|speeding\s+up|slowing(?:\s+down)?"
     r"|\d+(?:\.\d+)?\s*(?:s|secs?|seconds?)\b)"
 )
-# A sentence, a decimal point kept inside it.
-_IN_SENTENCE = r"(?:[^.?!]|(?<=\d)\.(?=\d))*?"
 # A verb of the change itself, said before the speed it ends at.
 _CHANGE_VERB = r"\b(?:(?:ac|de)celerat|brak|slow)\w*"
 # A state at a time: "is moving at", "was going", "is doing".

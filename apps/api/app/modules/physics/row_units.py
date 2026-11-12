@@ -63,7 +63,6 @@ _CONSTANTS: dict[str, tuple[float, str]] = {
     "\\mu_0": (MU_0, "H/m"),
     "P_0": (SEA_LEVEL_PRESSURE, "Pa"),
 }
-_ROW = re.compile(r"^(?P<lhs>[^=]+?)\s*=\s*(?P<rhs>.+)$")
 _RECIPROCAL = re.compile(r"\\frac\{1\}\{(?P<of>[^{}]+)\}")
 _BARS = re.compile(r"^(?:\||\\lvert)(?P<of>.+?)(?:\||\\rvert)$")
 
