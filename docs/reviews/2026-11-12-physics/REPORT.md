@@ -13,7 +13,7 @@ Anything not measured is marked **not verified**.
 | Does it animate when it should? | **When the server solves, yes.** 16 of the 18 questions that needed a picture got one, plus 7 more where a picture helped. **When the server can't solve, never.** The model is told `Do NOT emit … simulation`, so those replies are plain text even for a projectile. | §1.3 |
 | Is it robust? | **No, and this is the main weakness.** The numbers come from word patterns. 16 of 24 natural rewordings solved (67%), and 0 of 6 non-English questions did (the app ships 9 languages). The decider does not change this: it picks the lane and the layout, not the numbers. | §1.4 |
 | Is the code clean? | **Safe, but heavy.** No resource leaks, almost no dead code, low copy-paste. The weight is elsewhere: about 2,000 hand-written regexes reading English, 13 functions graded F for complexity in physics alone, an extractor order that silently matters, two SymPy cold starts of 0.3–2.7 s on the request path, and one Pint hot spot worth about 45% of read time. | §2 |
-| Add a subject tomorrow? | PENDING | §3.1 |
+| Add a subject tomorrow? | **It won't "just work."** Wired through the documented seam, a test subject was read correctly, then silently never solved. It took 3 undocumented edits to get a verified card, and about 15 more chat files plus about 17 mobile and locale files for parity. All tests stayed green throughout. | §3.1 |
 | Add or remove a model tomorrow? | PENDING | §3.2 |
 
 ## How this was tested, and its limits
@@ -150,7 +150,55 @@ Copy-paste of whole blocks is low: pylint at ≥8 lines finds **1** hit in about
 
 ### 3.1 Subjects: will a new subject "just work"?
 
-PENDING
+**No.** Solving through the registry works, but chat still calls the subjects by name. A new subject wired through the documented seam is read correctly, then silently never solved. Nothing fails, so nothing warns you.
+
+**The experiment.** In a throwaway worktree, never committed, I added `modules/astronomy/` with one operation, the distance modulus (m − M = 5 log₁₀ d − 5). I wired it exactly as CLAUDE.md's Seams table says: `SubjectName`, a `SUBJECTS` entry, an order step, and a settings flag. Then I sent "What is the distance modulus for a star 100 parsecs away?" through the real offline turn.
+
+| Step | Result | Cause |
+|---|---|---|
+| Before the change | Read as **maths**, unverified | No subject knows the law |
+| Seam files only | Read as `astronomy`, **`solved: False`** | `chat/turn_prep/augment.py:211-217` `_turn_needs` returns only `(needs_math, needs_chem)`, so augmentation is skipped. Calling `build_subject_augmentation` directly does verify it, so the registry part works. |
+| + surprise edit 1 (`augment.py`) | Solved, but the saved reply **lost its answer card**, demoted to plain `m - M = 5.00` | `chat/finalize_subjects.py:149-151` `_math_owns` = "not chemistry and not physics", so maths' fence check ran on the astronomy block |
+| + surprise edit 2 (`_math_owns`) | ✔ `verified: true` card. Physics, maths and chemistry samples unchanged | |
+| + surprise edit 3 | `test_subject_registry.py::test_the_subject_literals_are_the_registrys_names` failed (`Extra items … 'astronomy'`) until `model_reader/schemas.py`'s `Subject` Literal was edited | |
+
+**Still broken after those three edits**, each confirmed by a probe:
+
+| What | Evidence |
+|---|---|
+| The adapter's `hints` never reach the prompt | `prompt_subjects.py:20-26` `SUBJECT_HINTS` is a hand-written dict |
+| Routed as everyday; physics decides its lane | `model_routing/route.py:283-287` asks physics' `fast_lane` about every line that isn't maths |
+| The status phase would raise `KeyError` | `stream_status.py:40-58`: a 3-key dict, indexed with `[subject]`. Dormant only because `prompt_builder.py:82-126`'s if/elif never sets it. mypy passes. |
+| Follow-ups ("what about 200 pc?") never asked | `turn_prep/followups.py:30-48`: `SubjectFollowup` has the fields `math`/`chemistry`/`physics` only |
+| `fence.check/recover/draw/tidy/unverified_note` never called | `finalize_passes.py:259-308`: one hand-written pass per subject |
+| Left out of hand-kept subject sets | `worked_turn.py:35`, `answer_photo_offer.py:27`, the decider's subject choices (`decider_read.py:56-59`), `model_routing/decided.py:30`, `models/routing_lanes.py:119-121`. `model_reader/service.py:82-130` sends any unknown subject down the **chemistry** branch. |
+
+**Where subjects are named outside the registry** (`grep`, verified):
+- 43 `subject_adapter("math"|"physics"|"chemistry")` calls in 16 chat files;
+- only **2** places in chat loop over `SUBJECTS` (`turn_prep/attachments.py:216`, `reading.py:287`);
+- `services/subjects/order.py` threads only `chemistry_enabled` through `detect_subject`, `plan_turn` and `TurnReading`.
+- The architecture tests list three subjects too (`architecture/test_module_direction.py:21`, `test_pure_solvers.py:25`), so a new subject isn't held to the layer rules.
+
+**Mobile is entirely hard-coded:**
+- `features/images/api.ts:22` (subject union);
+- `features/chat/model/turnOutcome.ts:17` `TOOL_PHASES`;
+- `lib/typingPulse.ts:44`;
+- `lib/streamStatusLabel.ts` with `chat.status.<phase>` × 9 locales;
+- the scanner (`lib/scanner/subjects.ts:3`, `ScannerSubjectSwitcher.tsx`, `ScannerSubjectMark.tsx:60-92`, `scanner/model/liveText.ts`, `chat.math_scan_subject_*` × 9 locales);
+- `lib/answerNotation.ts:24`.
+
+**What a real new subject costs today:**
+- **Backend:** the module, 5 seam files, 3 forced edits, and about 15 more chat/service files for feature parity.
+- **Mobile:** about 8 files plus 9 locale files.
+- **Tests:** 3 subject lists.
+
+With the seam files alone, every test in `architecture/`, `test_battery`, `test_stem_sweep` and `test_sweep` passed (5,957 + 1,824 passed). The one test that did fail is the reader-Literal check above.
+
+**Fix (small and mechanical):**
+1. Add `enabled(settings)`, `status_phase` and a finalize hook to `SubjectAdapter`.
+2. Replace the per-subject finalize passes, `SUBJECT_HINTS`, `SubjectFollowup` and `_turn_needs` with loops over `SUBJECTS`.
+3. Pass settings, not `chemistry_enabled`, through `order.py`.
+4. Add **one test that every `SubjectName` has a status phase, hints, a finalize owner, a lane and a decider choice.** Today mypy and all tests pass while each of these is missing.
 
 ### 3.2 Models: add one or remove one?
 
