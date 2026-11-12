@@ -313,3 +313,23 @@ def test_the_phone_test_blocks_stream_without_a_rewrite(block: str) -> None:
     for earlier, later in itertools.pairwise(seen):
         assert later.startswith(earlier)
     assert "".join(accum.shown).strip() == _laid_out(block).strip()
+
+
+@pytest.mark.parametrize(
+    ("tex", "symbolic"),
+    [
+        # Euler's e is a number: its unit is written (Claude review of #2414).
+        ("20e^{-0.5}", False),
+        ("3e^{-2}", False),
+        ("1.5e-3", False),
+        ("\\pi/3", False),
+        # Letters in the exponent, or beside e, are symbols.
+        ("V_0 e^{-t/RC}", True),
+        ("e^{x}", True),
+        ("C V_0", True),
+    ],
+)
+def test_eulers_e_is_a_number_and_its_unit_is_written(tex: str, symbolic: bool) -> None:
+    from app.modules.chat.worked_render import in_symbols
+
+    assert in_symbols(tex) is symbolic

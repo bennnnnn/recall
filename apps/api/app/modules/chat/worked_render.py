@@ -71,14 +71,18 @@ def _plain(tex: str) -> str:
 _UPRIGHT_GROUP = re.compile(r"\\(?:mathrm|text)\s*\{[^{}]*\}")
 # A power of ten in a calculator's spelling: "1.5e-3", "6.022E23".
 _E_NOTATION = re.compile(r"(?<=\d)[eE](?=[-+]?\d)")
+# Euler's number raised to a power: "20e^{-0.5}" is a number; the exponent's own letters
+# ("e^{-t/RC}") still make a value symbolic.
+_EULER = re.compile(r"(?<![A-Za-z\\])e(?=\s*\^)")
 
 
 def in_symbols(tex: str) -> bool:
     """A value written in letters ("C V_0", "\\frac{1}{2}MR^2"): its units are its
-    symbols', so none is written after it. A command (\\pi, \\times), a unit set upright
-    or a calculator's power of ten is no symbol: "\\pi/3", "2400\\,\\mathrm{s}" and
-    "1.5e-3" are numbers."""
+    symbols', so none is written after it. A command (\\pi, \\times), a unit set upright,
+    a calculator's power of ten or Euler's e is no symbol: "\\pi/3", "2400\\,\\mathrm{s}",
+    "1.5e-3" and "20e^{-0.5}" are numbers."""
     plain = _E_NOTATION.sub(" ", _COMMAND.sub("", _UPRIGHT_GROUP.sub("", tex)))
+    plain = _EULER.sub(" ", plain)
     return _LETTER.search(plain) is not None
 
 
