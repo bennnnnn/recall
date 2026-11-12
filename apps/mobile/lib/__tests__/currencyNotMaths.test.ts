@@ -140,6 +140,10 @@ describe("inline maths still renders", () => {
     ["$4! + 3! = 30$", ["4! + 3! = 30"]],
     ["$5! = 120$ and $0! = 1$", ["5! = 120", "0! = 1"]],
     ["So $n!$ grows fast, and $3!$ is $6$.", ["n!", "3!", "6"]],
+    ["$4!  + 3!$ ways", ["4!  + 3!"]],
+    ["$4! = 24$", ["4! = 24"]],
+    ["Padded: $ 4! $ ways", ["4!"]],
+    ["$3! 2!$", ["3! 2!"]],
   ])("draws %s as maths", (source, math) => {
     expect(seen(source).math).toEqual(math);
   });
@@ -150,8 +154,14 @@ describe("inline maths still renders", () => {
     ["Budget $100 a week for $w$ weeks: $100w$.", ["w", "100w"], "Budget $100 a week for w weeks: 100w."],
     ["Rent is $1.5M and $x$ is the share.", ["x"], "Rent is $1.5M and x is the share."],
     ["Pay $30/day for food, then $x$ is left.", ["x"], "Pay $30/day for food, then x is left."],
-    // An exclamation after a price, then words: still a price.
+    // An exclamation after a price, then words: still a price. A one-letter word, a
+    // dollar, a bracket or a dash after it too (review of the factorial fix).
     ["It costs only $5! Then $x$ doubles.", ["x"], "It costs only $5! Then x doubles."],
+    ["Lunch was $5! I paid, so $x$ is mine.", ["x"], "Lunch was $5! I paid, so x is mine."],
+    ["Only $5! $x$ is the count.", ["x"], "Only $5! x is the count."],
+    ["Just $5! ($x$ of them)", ["x"], "Just $5! (x of them)"],
+    ["Only $5! **Then** $x$ grows.", ["x"], "Only $5! **Then** x grows."],
+    ["It was $5! — and $x$ more.", ["x"], "It was $5! — and x more."],
   ])("keeps the price and the maths apart in %s", (source, math, text) => {
     const view = seen(source);
     expect(view.math).toEqual(math);

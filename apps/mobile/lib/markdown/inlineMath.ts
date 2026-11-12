@@ -22,10 +22,13 @@ function dollarOpensPrice(text: string, dollar: number, body: string): boolean {
 /** A variable (`$2 x$`) or a function (`$2 sin x$`) after a leading number. */
 const MATH_WORD = /^[a-z]$|^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min)$/i;
 /** An amount, maybe with a scale ("1.5M") or a rate ("30/day"), then a
- * clause break or a word. An exclamation mark is a clause break only before words
- * ("$5! Then $x$ doubles"): ending the span or before an operator it is a factorial,
- * `$4!$` and `$4! + 3!$` (the owner's phone, 2026-11-11, drew "$4!$" as source). */
-const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!?\s+([A-Za-z]+)(.*))/;
+ * clause break or a word. An exclamation mark and a space end a clause too ("$5! I paid,
+ * so $x$", "$5! $x$ is"), unless an operator or a number goes on: then, like an
+ * exclamation mark that ends the span, it is a factorial, `$4!$`, `$4! + 3!$` (the
+ * owner's phone, 2026-11-11, drew "$4!$" as source). A space is in the set so a run
+ * of spaces is read whole. */
+const PRICE_LEAD =
+  /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!\s+(?![\s=+\-−×÷*/·^<>≤≥≠)\d])|\s+([A-Za-z]+)(.*))/;
 
 /**
  * A body that opens with an amount and goes on in words is a price that the
@@ -36,7 +39,9 @@ const PRICE_LEAD = /^\d[\d,.]*(?:[kKmMbB]|\/[A-Za-z]+)?(?:[;:?](?:\s|$)|!?\s+([A
 function priceBody(value: string): boolean {
   // The live tail has swapped every backslash for a marker by now.
   if (/\\[A-Za-z]/.test(restoreMathEscapes(value))) return false;
-  const lead = PRICE_LEAD.exec(value.trimStart());
+  // A span padded on its left ("$ 4! $") is read without its padding: the space before
+  // its closer is padding, not the space after a price's "!" ("$5! $x$").
+  const lead = PRICE_LEAD.exec(/^\s/.test(value) ? value.trim() : value.trimStart());
   if (!lead) return false;
   const [, word, rest = ""] = lead;
   if (word === undefined || !MATH_WORD.test(word)) return true;

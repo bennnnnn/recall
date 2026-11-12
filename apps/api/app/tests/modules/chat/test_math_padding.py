@@ -22,6 +22,7 @@ from app.modules.chat.math_padding import without_math_padding
         # A factorial is maths, not a price ending in "!" (the phone's rule, 2026-11-11).
         ("$ 4! $ ways", "$4!$ ways"),
         ("so $ 4! + 3! $ in all", "so $4! + 3!$ in all"),
+        ("so $ 4!  + 3! $ in all", "so $4!  + 3!$ in all"),
     ],
 )
 def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
@@ -41,6 +42,10 @@ def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
         "> $ x$ quote",
         "    $ x$ indented code",
         "$x$ and $y$ are fine",
+        # A price ending in "!" and a space keeps its clause (review of the factorial fix).
+        "Lunch was $5! I paid, so $x$ is mine.",
+        "Only $5! $x$ is the count.",
+        "It was $5! — and $x$ more.",
     ],
 )
 def test_prices_prose_code_and_display_stay(text: str) -> None:

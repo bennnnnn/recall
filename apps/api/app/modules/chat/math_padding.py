@@ -18,9 +18,13 @@ from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outsid
 # The phone's rules (inlineMath.ts): a digit or a spaced amount after the closer is a price,
 # a body that opens with an amount and goes on in words is one, and two words of three
 # letters or more (outside a sub- or superscript) are prose. A TeX command makes it maths.
-# An exclamation mark ends a price only before words: `$4!$` is a factorial.
+# An exclamation mark and a space end a price's clause too, unless an operator or a number
+# goes on: then, like one that ends the span, it is a factorial (`$4!$`, `$4! + 3!$`).
 _PRICE_LEAD = re.compile(
-    r"\d[\d,.]*+(?:[kKmMbB]|/[A-Za-z]++)?(?:[;:?](?:\s|$)|!?\s++([A-Za-z]++)(.*))", re.DOTALL
+    r"\d[\d,.]*+(?:[kKmMbB]|/[A-Za-z]++)?"
+    r"(?:[;:?](?:\s|$)|!\s++(?![\s=+\-\u2212\u00d7\u00f7*/\u00b7^<>\u2264\u2265\u2260)\d])"
+    r"|\s++([A-Za-z]++)(.*))",
+    re.DOTALL,
 )
 _MATH_WORD = re.compile(r"[a-z]|sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min", re.IGNORECASE)
 _TEX_COMMAND = re.compile(r"\\[A-Za-z]")
@@ -90,7 +94,9 @@ def _opens_price(line: str, dollar: int, body: str) -> bool:
 def _price_body(body: str) -> bool:
     if _TEX_COMMAND.search(body):
         return False
-    lead = _PRICE_LEAD.match(body.lstrip())
+    # A span padded on its left ("$ 4! $") is read without its padding: the space before
+    # its closer is padding, not the space after a price's "!" ("$5! $x$").
+    lead = _PRICE_LEAD.match(body.strip() if body[:1].isspace() else body.lstrip())
     if lead is None:
         return False
     word, rest = lead.group(1), lead.group(2) or ""
