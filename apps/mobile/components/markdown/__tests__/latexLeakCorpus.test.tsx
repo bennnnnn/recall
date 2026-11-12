@@ -134,6 +134,8 @@ const VARIANTS: Record<string, string> = {
   "unit circle":
     '```arithmetic\n{"type":"unit_circle","degrees":30,"radians":"\\\\frac{\\\\pi}{6}","cosine":"\\\\frac{\\\\sqrt{3}}{2}","sine":"\\\\frac{1}{2}","tangent":"\\\\frac{\\\\sqrt{3}}{3}","plot_x":0.866025,"plot_y":0.5,"answer":"\\\\frac{1}{2}","speech":"30 degrees is the point with cosine \\\\frac{\\\\sqrt{3}}{2} and sine \\\\frac{1}{2}."}\n```',
   "price beside maths": "It costs $5, and $4! = 4 \\times 3 \\times 2 \\times 1 = 24$.",
+  // The owner's "How" reply (2026-11-11): a factorial alone read as a price, drawn "$4!$".
+  "factorial alone": "**Given**\n\n$4!$\n\nSo $4! + 3! = 30$ and $n!$ grows fast.",
   // Money worked with TeX operators and no maths delimiters of its own.
   "price times": "- Hotel: $80 \\times 7 = $560",
   "price cdot": "Total: $80 \\cdot 7 = $560 for the week.",

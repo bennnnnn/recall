@@ -19,6 +19,12 @@ from app.modules.chat.math_padding import without_math_padding
         ("$\\frac{1}{2} $ of it", "$\\frac{1}{2}$ of it"),
         ("$ W_{out} $ is the work", "$W_{out}$ is the work"),
         ("price $5 for $ x$ items", "price $5 for $x$ items"),
+        # A factorial is maths, not a price ending in "!" (the phone's rule, 2026-11-11).
+        ("$ 4! $ ways", "$4!$ ways"),
+        ("so $ 4! + 3! $ in all", "so $4! + 3!$ in all"),
+        ("so $ 4!  + 3! $ in all", "so $4!  + 3!$ in all"),
+        # A price's "!" before words keeps the price apart from the maths after it.
+        ("Today $5! 3 left, then $ x$ more.", "Today $5! 3 left, then $x$ more."),
     ],
 )
 def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
@@ -38,6 +44,11 @@ def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
         "> $ x$ quote",
         "    $ x$ indented code",
         "$x$ and $y$ are fine",
+        # A price ending in "!" and a space keeps its clause (review of the factorial fix).
+        "Lunch was $5! I paid, so $x$ is mine.",
+        "Only $5! $x$ is the count.",
+        "It was $5! — and $x$ more.",
+        "Only $5! 10 left, $x$ is mine.",
     ],
 )
 def test_prices_prose_code_and_display_stay(text: str) -> None:
