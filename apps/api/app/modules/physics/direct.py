@@ -28,6 +28,7 @@ from app.modules.physics.display import is_conversion_row
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.given_rows import given_value
 from app.modules.physics.glossary import given_meaning
+from app.modules.physics.law_steps import law_steps
 from app.modules.physics.law_titles import law_heading
 from app.modules.physics.notation import shown
 from app.modules.physics.parts import asks_more_than_answered
@@ -246,10 +247,13 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     params = intent.physics_params or {}
     units = intent.physics_units or {}
     given_rows: list[str] = []
+    steps = law_steps(intent, verified.physics_substitutions)
     # The arithmetic only: a conversion row restates the answer, and an answer equal to a
     # given (λ = d in Bragg's law at 30°) would read as that given written into the working.
     arithmetic = " ".join(
-        row for row in verified.physics_substitutions if not is_conversion_row(row)
+        row
+        for row in (*steps.substitution, *verified.physics_substitutions)
+        if not is_conversion_row(row)
     )
     operation = intent.physics_op or ""
     given_spec = formula_spec(operation)
@@ -275,7 +279,9 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     substitutions = list(verified.physics_substitutions)
     result_symbol = result_symbol_for(intent)
     find_symbol = result_symbol or formulas[0].split(" = ", 1)[0]
-    formula_rows = _formula_rows(intent, formulas)
+    formula_rows = [*_formula_rows(intent, formulas), *steps.formula]
+    answer = verified.display_answer or verified.canonical_answer
+    worked = carried_to_answer(substitutions, answer, working_units(intent, formulas, answer))
     spec = formula_spec(intent.physics_op or "")
     if spec is not None:
         formula_rows.extend(
@@ -293,16 +299,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
                 ),
             ),
             formula=tuple(formula_rows),
-            substitution=tuple(
-                math_line(row)
-                for row in carried_to_answer(
-                    substitutions,
-                    verified.display_answer or verified.canonical_answer,
-                    working_units(
-                        intent, formulas, verified.display_answer or verified.canonical_answer
-                    ),
-                )
-            ),
+            substitution=tuple(math_line(row) for row in (*steps.substitution, *worked)),
             formula_heading=law_heading(spec.law_name) if spec is not None else "",
         )
     )
