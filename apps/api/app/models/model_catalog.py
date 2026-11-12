@@ -162,7 +162,7 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="smart-chat",
         label="DeepSeek V4.1 Flash",
-        model="deepseek/deepseek-v4.1-flash",
+        model="deepseek/deepseek-v4.1-flash-1017",
         provider="deepseek",
         input_price_per_m=0.15,
         output_price_per_m=0.60,

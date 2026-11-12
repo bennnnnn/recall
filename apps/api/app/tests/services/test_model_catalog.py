@@ -59,7 +59,7 @@ def test_selectable_models_count():
     "alias, slug, input_price, output_price, tier, plan",
     [
         ("qwen-3.7-flash", "qwen/qwen3.7-flash", 0.03, 0.13, "fast", "free"),
-        ("smart-chat", "deepseek/deepseek-v4.1-flash", 0.15, 0.60, "smart", "pro"),
+        ("smart-chat", "deepseek/deepseek-v4.1-flash-1017", 0.15, 0.60, "smart", "pro"),
         ("qwen-3.8-flash", "qwen/qwen3.8-flash", 0.15, 0.47, "smart", "pro"),
         ("gpt-6-luna", "openai/gpt-6-luna", 0.10, 0.50, "fast", "pro"),
     ],
