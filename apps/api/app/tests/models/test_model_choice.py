@@ -1,4 +1,6 @@
-"""A model a request picks is a catalog alias or Auto, in every body that takes one."""
+"""A model a request picks is a catalog alias or Auto, in every body that takes one.
+
+An alias the catalog has dropped reads as Auto (``models/model_removal.py``)."""
 
 from typing import Any
 
@@ -24,9 +26,15 @@ def test_a_known_alias_or_auto_is_taken(body: type[BaseModel], field: str, choic
 
 
 @pytest.mark.parametrize(("body", "field"), _BODIES)
-def test_an_unknown_alias_is_refused(body: type[BaseModel], field: str) -> None:
-    with pytest.raises(ValidationError, match="Unknown model alias: nope"):
-        body.model_validate({field: "nope"})
+def test_an_alias_the_catalog_does_not_have_is_auto(body: type[BaseModel], field: str) -> None:
+    """A model removed since the phone saved it: the message still goes, on Auto."""
+    assert getattr(body.model_validate({field: "nope"}), field) == "auto"
+
+
+@pytest.mark.parametrize(("body", "field"), _BODIES)
+def test_a_name_no_alias_has_is_refused(body: type[BaseModel], field: str) -> None:
+    with pytest.raises(ValidationError, match="Unknown model alias: No pe!"):
+        body.model_validate({field: "No pe!"})
 
 
 @pytest.mark.parametrize(
