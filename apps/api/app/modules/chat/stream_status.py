@@ -30,6 +30,9 @@ StreamStatusPhase = Literal[
     "answer_photo",
     # The step after the reply's text has ended: no label while the reply saves.
     "finishing",
+    # Not a label: the text streamed so far is taken back (a reply that said it couldn't
+    # check live facts, ``tool_loop.live_denial``), a new answer follows and done carries it.
+    "retract",
 ]
 
 # The status line a subject's solve shows, by the registry's names (``SubjectName``): the

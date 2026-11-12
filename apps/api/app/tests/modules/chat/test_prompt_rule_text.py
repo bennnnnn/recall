@@ -49,10 +49,16 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # saying a shape is never drawn by the model, and so when the app draws none, while code,
 # SVG, HTML or ASCII art the user asks for is theirs (GRAPH_NO_SUBSTITUTE_CLAUSE), then physics'
 # letters as a school textbook writes them (PHYSICS_SYMBOLS: v_i and v_f, s and d, E_k), then
-# a formula with no name under **Solution**, never a bare **Formula** (2026-11-11).
-_RULES = 177
-_RULE_GRAMS = 16172
-_RULE_GRAMS_SHA = "9ae153b31437a604"
+# a formula with no name under **Solution**, never a bare **Formula** (2026-11-11), then
+# a short message read with the conversation that fills it in and a reply to the assistant's
+# own question taken as its answer (UNCLEAR_MESSAGE_HINT, CONFIRMED_HINT, and FOLLOW_NOTES
+# beside a message the turn's read calls an answer or a change), and no claim that the app
+# cannot look public facts up unless search is off, by the user or the server
+# (FACT_GROUNDING_HINT, WEB_SEARCH_OFF_HINT, SEARCH_UNAVAILABLE_HINT), and a reply's second
+# call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE).
+_RULES = 181
+_RULE_GRAMS = 16508
+_RULE_GRAMS_SHA = "b6c2f76248252340"
 
 
 def _rules() -> list[str]:

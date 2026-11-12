@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
+from app.modules.chat.decider_read import NEAR_LIVE_AT
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,9 @@ class TurnDecision(BaseModel):
     asked: bool = False
     query: str = Field(default="", max_length=200)
     live: bool
+    # The Decider's probability that the answer needs live facts or a search was asked for;
+    # None from the text read, which answers yes or no.
+    live_odds: float | None = None
     # What the message is about, how hard it is, the picture it asks to see and how it
     # follows the turn before. None: the read gave no usable answer for that field, and the
     # word rules decide it.
@@ -191,6 +195,11 @@ class TurnDecision(BaseModel):
     def searches(self) -> bool:
         """The turn searches before the reply: its answer is live, or the user asked."""
         return self.live or self.asked
+
+    @property
+    def nearly_live(self) -> bool:
+        """Settled, but by the Decider's odds close to live (``decider_read.NEAR_LIVE_AT``)."""
+        return not self.searches and (self.live_odds or 0.0) >= NEAR_LIVE_AT
 
     @model_validator(mode="after")
     def _effort(self) -> TurnDecision:

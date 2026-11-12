@@ -1720,6 +1720,20 @@ _CARD_REPLY = (
 )
 
 
+_SOURCES = (
+    '\n\n```sources\n[{"title": "Edurank: best universities in Ethiopia 2026", "url": '
+    '"https://edurank.org/geo/et/", "snippet": "'
+    + "Addis Ababa University, Jimma University. " * 6
+    + '"}]\n```'
+)
+_FENCED_LESSON = "```lesson\n## Lesson 2: Loops\n\nWhat does range(3) give?\n```"
+_SEARCHED_ANSWER = "1. **Addis Ababa University**\n2. **Jimma University**" + _SOURCES
+_SEARCHED_REPLY = (
+    "1. **Addis Ababa University**\n2. **Jimma University**\n\nDo you want more detail on "
+    "any of these?" + _SOURCES
+)
+
+
 @pytest.mark.parametrize(
     ("last_reply", "text", "reason"),
     [
@@ -1729,6 +1743,12 @@ _CARD_REPLY = (
         # A short reply to a question answers it: never small talk.
         ("Want me to set a reminder for that?", "no", "answers_offer"),
         ("Does that make sense?", "yes", "answers_offer"),
+        # A searched reply is saved with its sources after the question it ends on.
+        (_SEARCHED_REPLY, "yes", "answers_offer"),
+        (_SEARCHED_REPLY, "Yes!", "answers_offer"),
+        (_SEARCHED_ANSWER, "thanks", "social"),
+        # A lesson step held in a card is still a question to answer.
+        (_FENCED_LESSON, "yes", "answers_offer"),
         # After a clarify card the message answers the card, whatever it says.
         (_CARD_REPLY, "ok", "answers_card"),
         (_CARD_REPLY, "Europe please", "not_light"),

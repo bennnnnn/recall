@@ -345,9 +345,9 @@ async def _settle_reply(
             user_stopped=user_stopped,
             on_status=on_status,
         )
-        # The phone drew a first answer this one replaced, or text the reply no longer
-        # starts with: done must carry the text.
-        replaced = accum.retracted or accum.rewritten
+        # The phone drew a first answer this one replaced, text the reply no longer starts
+        # with, or one taken down and then kept: done must carry the text.
+        replaced = accum.retracted or accum.restored or accum.rewritten
         if replaced and outcome is not None and outcome.final_content is None:
             outcome.final_content = final_text
         drop_photo = should_cancel is not None and should_cancel()

@@ -374,6 +374,39 @@ def test_the_deciders_probabilities_set_the_effort(
     assert decider_read.decision_fields({}, has_earlier=False) is None
 
 
+@pytest.mark.parametrize(
+    ("live", "asked", "nearly"),
+    [(0.2, 0.05, True), (0.15, 0.0, True), (0.05, 0.1, False), (0.6, 0.0, False)],
+)
+def test_a_settled_read_close_to_live_says_so(live: float, asked: float, nearly: bool) -> None:
+    """The odds ride on the read, so a reply that then denies live facts is made to search
+    only when the read nearly searched (``tool_loop.live_denial``)."""
+    answers = {
+        "subject": {"choice": "everyday"},
+        "think": {"noul": 0.1},
+        "hard": {"noul": 0.1},
+        "picture": {"choice": "none"},
+        "follow": {"choice": "none"},
+        "live": {"noul": live},
+        "asked": {"noul": asked},
+    }
+    fields = decider_read.decision_fields(answers, has_earlier=False)
+    assert fields is not None
+    read = TurnDecision(**fields)
+    assert read.live_odds == max(live, asked)
+    assert read.nearly_live is nearly
+    assert not TurnDecision(live=False).nearly_live
+
+
+def test_the_live_question_judges_the_message_the_conversation_fills_in() -> None:
+    """Pro phone test (2026-11-11): "Top 5 in Ethiopia" right after a search for the world's
+    top universities read 0.14 live, and its "Yes" to "Do you mean the universities?" 0.06:
+    rankings were no fact that changes, and a reply to the assistant's question was judged
+    by its own words. The "follow-up in context" turns of ``search_need_corpus.json`` hold
+    the same words live after one question and settled after another."""
+    assert decider_read.LIVE_IN_CONTEXT in decider_read.QUESTIONS["live"]["instructions"]
+
+
 def _slow_text_read(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
     """The text read as a call that never ends; the list says whether it was stopped."""
     stopped: list[bool] = []

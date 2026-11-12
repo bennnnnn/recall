@@ -284,6 +284,72 @@ describe("a turn from send to the end", () => {
     expect(run.state.draft).toEqual({ content: "", status: "reading_files" });
   });
 
+  it("a retract status empties the bubble, and a Stop still counts what was drawn", () => {
+    // The server took back "I can't check live rankings" to search and answer again.
+    const denial = "I can't check live rankings.";
+    const run = play(idle(), [
+      send("Top 5 universities in Ethiopia"),
+      frame({ type: "start" }),
+      frame({ type: "token", content: denial }),
+      frame({ type: "status", phase: "retract" }),
+    ]);
+    expect(run.state.draft).toEqual({ content: "" });
+    expect(run.state.buffer).toBe("");
+    const stopped = play(run.state, [frame({ type: "token", content: "1. Addis" }), { type: "stop" }]);
+    expect(stopped.of("cancel_socket")).toEqual([
+      { type: "cancel_socket", streamedChars: denial.length + "1. Addis".length },
+    ]);
+  });
+
+  describe("a reply the server took back, with nothing in its place", () => {
+    // The server keeps the reply it took back when a Stop or a failure leaves nothing in
+    // its place (`StreamAccum.restore_retracted`): the bubble shows what it saves.
+    const denial = "I can't check live rankings.";
+    const retracted: ChatTurnEvent[] = [
+      frame({ type: "start" }),
+      frame({ type: "token", content: denial }),
+      frame({ type: "status", phase: "retract" }),
+      // The retry's search was still running when the user tapped Stop.
+      frame({ type: "status", phase: "searching", detail: "Ethiopia university rankings" }),
+    ];
+
+    it("a Stop puts it back, over the socket or SSE, and the late done names it", () => {
+      const run = play(idle(), [send("Top 5 universities in Ethiopia"), ...retracted, { type: "stop" }]);
+      expect(run.of("cancel_socket")).toEqual([{ type: "cancel_socket", streamedChars: denial.length }]);
+      expect(run.of("abort_sse")).toHaveLength(1);
+      expect(run.messages.at(-1)).toMatchObject({ id: `streamed-${NOW}`, content: denial, generationStopped: true });
+      const done = play(run.state, [
+        frame({ type: "done", message_id: "m-1", final_content: denial, completion: "user_stop" }),
+      ], run.messages);
+      expect(done.messages.at(-1)).toMatchObject({ id: "m-1", content: denial, generationStopped: true });
+    });
+
+    it("a Stop during Regenerate keeps it, not the old answer the server replaced", () => {
+      const old = answer("old", "old answer");
+      const run = play(idle(), [
+        { type: "regenerate_ui", messages: [old] }, { type: "regenerate", messages: [old] }, ...retracted, { type: "stop" },
+      ], [old]);
+      expect(run.messages).toEqual([expect.objectContaining({ content: denial, generationStopped: true })]);
+    });
+
+    it("a failed retry's done brings it back", () => {
+      const run = play(idle(), [
+        send("Top 5 universities in Ethiopia"), ...retracted,
+        frame({ type: "done", message_id: "m-1", final_content: denial, completion: "interrupted" }),
+      ]);
+      expect(run.messages.at(-1)).toMatchObject({ id: "m-1", content: denial, generationStopped: true });
+    });
+
+    it("the next turn's Stop never puts it back", () => {
+      const run = play(idle(), [
+        send("Top 5 universities in Ethiopia"), ...retracted,
+        frame({ type: "done", message_id: "m-1", final_content: "1. Addis Ababa University" }),
+        send("and in Kenya?"), { type: "send_dispatched" }, { type: "stop" },
+      ]);
+      expect(run.messages.map((m) => m.content)).toEqual(["Top 5 universities in Ethiopia", "1. Addis Ababa University", "and in Kenya?"]);
+    });
+  });
+
   it("Stop keeps what streamed, ignores late deltas, and a late done names the kept bubble", () => {
     const run = play(idle(), [
       send("hi"),

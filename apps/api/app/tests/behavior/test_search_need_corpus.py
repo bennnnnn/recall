@@ -56,6 +56,19 @@ def test_the_owners_chat_is_in_it_as_labelled() -> None:
     assert [len(turn.history) for turn in owner] == list(range(0, 2 * len(OWNER_CHAT), 2))
 
 
+def test_a_follow_up_is_live_or_settled_by_what_it_follows() -> None:
+    """Pro phone test (2026-11-11): "Top 5 in Ethiopia" after the world's top universities
+    needs this year's ranking; after the world's tallest mountains it needs nothing new.
+    The same words appear on both sides, so no reading of the words alone can pass."""
+    labels: dict[str, set[bool]] = {}
+    for turn in TURNS:
+        if turn.area == "follow-up in context":
+            labels.setdefault(turn.prompt.casefold(), set()).add(turn.live)
+    assert sum(both == {True, False} for both in labels.values()) >= 6
+    held = [t for t in TURNS if t.area == "follow-up in context" and t.holdout]
+    assert {t.live for t in held} == {True, False}
+
+
 @pytest.mark.parametrize("turn", [t for t in TURNS if t.history], ids=lambda t: t.id)
 def test_a_follow_up_is_read_with_what_it_refers_to(turn: Turn) -> None:
     """A bare "How much" is a MacBook Air battery's cost only to a read that sees the chat."""

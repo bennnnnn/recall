@@ -26,6 +26,7 @@ from app.modules.chat.model_routing.decided import (
     math_backups,
 )
 from app.modules.chat.model_routing.thinking import lane_for_think, thinking_level, thinks_when_hard
+from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_trace import begin_turn_trace
@@ -393,3 +394,95 @@ async def test_a_photo_turn_never_waits_for_the_read() -> None:
     )
     assert not pending.done()
     pending.cancel()
+
+
+_PYTHON_ASK = "Do you mean Python the programming language, or the snake? 🐍"
+_OUTLINE = (
+    "Here's how we could learn Python:\n\n1. Variables\n2. Loops\n3. Functions\n\n"
+    "Where would you like to start?"
+)
+
+
+def _follow_read(follow: str, subject: str = "everyday") -> TurnDecision:
+    return TurnDecision.model_validate(
+        {"live": False, "subject": subject, "think": False, "follow": follow}
+    )
+
+
+def _follow_turn(content: str, read: TurnDecision, **fields: Any) -> StreamContext:
+    ctx = _turn(content, read, **fields)
+    ctx.prompt_messages = [
+        {"role": "system", "content": "rules"},
+        {"role": "user", "content": "is python hard?"},
+        {"role": "assistant", "content": _PYTHON_ASK},
+        {"role": "user", "content": content},
+    ]
+    return ctx
+
+
+@pytest.mark.parametrize(
+    ("follow", "subject", "note"),
+    [
+        # Pro phone test (2026-11-11): Claude Haiku asked "the language" back on every try,
+        # and "Top 5 in Ethiopia" after the world's top universities.
+        ("answer", "everyday", FOLLOW_NOTES["answer"]),
+        ("change", "everyday", FOLLOW_NOTES["change"]),
+        ("answer", "code", FOLLOW_NOTES["answer"]),
+        # A new question, or more on the last answer: nothing to say.
+        ("none", "everyday", None),
+        ("explain", "everyday", None),
+        # Maths, physics, chemistry and money read their own follow-ups.
+        ("change", "maths", None),
+        ("answer", "physics", None),
+        ("change", "money", None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_the_read_says_how_the_message_leans_on_the_conversation(
+    follow: str, subject: str, note: str | None
+) -> None:
+    trace = begin_turn_trace("new")
+    ctx = _follow_turn("the language", _follow_read(follow, subject))
+    await decide_from_the_read(ctx, _SETTINGS)
+    notes = [m["content"] for m in ctx.prompt_messages if m["content"] in FOLLOW_NOTES.values()]
+    assert notes == ([note] if note else [])
+    if note:
+        # Beside the message, after the history: a small model follows the nearest note.
+        assert ctx.prompt_messages[-2:] == [
+            {"role": "system", "content": note},
+            {"role": "user", "content": "the language"},
+        ]
+        assert f"read.follow_{follow}" in trace.prompt_rules
+    else:
+        assert not any(rule.startswith("read.follow") for rule in trace.prompt_rules)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"after_card": True},
+        {"recent_messages": [SimpleNamespace(role="assistant", content=_LESSON)]},
+        # Numbers a server path worked are the reply's to present (review, 2026-11-11).
+        {"verified_subject": VerifiedSolveBlock(text="x = 6", subject="math")},
+        {"money": MagicMock(name="money")},
+        {
+            "recent_messages": [
+                SimpleNamespace(role="user", content="teach me python"),
+                SimpleNamespace(role="assistant", content=_OUTLINE),
+            ]
+        },
+        # A calculation the subject readers gave the ```worked contract: the block lays it
+        # out, whatever the read calls the subject (review, 2026-11-11).
+        {"worked": WorkedLayout()},
+    ],
+    ids=["clarify card", "lesson", "verified", "money", "outline", "worked"],
+)
+@pytest.mark.asyncio
+async def test_a_turn_that_reads_its_reply_its_own_way_gets_no_follow_note(
+    fields: dict[str, Any],
+) -> None:
+    """A card's picks, a lesson's answer and an outline's pick have their own notes, and a
+    server path's numbers their own reply."""
+    ctx = _follow_turn("variables", _follow_read("answer"), **fields)
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert not any(m["content"] in FOLLOW_NOTES.values() for m in ctx.prompt_messages)

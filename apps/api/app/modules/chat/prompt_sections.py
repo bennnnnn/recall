@@ -51,7 +51,6 @@ from app.modules.chat.prompt_constants import (
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
-    WEB_SEARCH_OFF_HINT,
     is_bare_writing_line,
     learning_plan_contract,
     programming_lesson_contract,
@@ -61,7 +60,12 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.conversation import SUMMARY_LEAD
 from app.modules.chat.prompt_constants.multi_part import multi_part_contract
 from app.modules.chat.prompt_constants.reactions import clock_is_relevant
-from app.modules.chat.prompt_context_hints import integration_hints, lookup_hints, slim_geo_hints
+from app.modules.chat.prompt_context_hints import (
+    integration_hints,
+    lookup_hints,
+    search_off_hints,
+    slim_geo_hints,
+)
 from app.modules.chat.prompt_format import (
     _layout_format_hint,
     _style_format_hints,
@@ -343,9 +347,9 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT], name="fact_grounding"
     ),
     PromptSection(
-        # The user's own choice, not a server without search: only then point to Settings.
-        lambda t: not t.lightweight and t.user.web_search_enabled is False,
-        lambda _t: [WEB_SEARCH_OFF_HINT],
+        # Nothing to look up with this turn: say so, never offer (``search_off_hints``).
+        lambda t: not t.lightweight,
+        lambda t: search_off_hints(t.user, t.settings),
         name="web_search_off",
     ),
     PromptSection(lambda t: not t.slim, lambda t: lookup_hints(t.settings), name="lookup_hints"),
