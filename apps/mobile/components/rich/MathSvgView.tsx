@@ -18,6 +18,7 @@ import {
   MATH_TALL_LINE_HEIGHT,
   spokenFormula,
 } from "@/lib/math/text";
+import { fittedIndent } from "@/lib/math/layout";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
@@ -41,17 +42,25 @@ type Props = {
    * lines around it (a reply); `center` centres it in its box (the answer card).
    */
   align?: "start" | "center";
+  /**
+   * The working column's indent (a reply's own display maths): kept while the formula fits
+   * after it, given up as it grows, so a long formula reaches the right edge only when the
+   * whole line cannot hold it (``fittedIndent``).
+   */
+  indent?: number;
+  /** `indent` is already fitted for a block of lines (``MathBlock``): kept as it is. */
+  indentFitted?: boolean;
 };
 
-type FallbackProps = Required<Omit<Props, "minHeight">> & { label: string | undefined };
+type FallbackProps = Required<Omit<Props, "minHeight" | "indentFitted">> & { label: string | undefined };
 
 /** What MathJax could not convert: the same formula in readable native maths. */
-function FallbackMath({ latex, textColor, em, align, label }: FallbackProps) {
+function FallbackMath({ latex, textColor, em, align, label, indent }: FallbackProps) {
   const justify = align === "start" ? styles.alignStart : null;
   const own = label !== undefined;
   return (
     <View
-      style={[styles.wrap, styles.fallbackBox]}
+      style={[styles.wrap, styles.fallbackBox, indent > 0 && { paddingLeft: Space.xxs + indent }]}
       testID="math-svg-fallback"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}
@@ -94,18 +103,19 @@ export const MathSvgView = React.memo(function MathSvgView({
   minHeight = 48,
   em = Type.reading.fontSize,
   align = "center",
+  indent = 0,
+  indentFitted = false,
 }: Props) {
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width: windowWidth } = useWindowDimensions();
   const exPx = em * EX_PER_EM * fontScale;
   const justify = align === "start" ? styles.alignStart : null;
   // VoiceOver reads the formula as words: an SVG has no text of its own. Under
   // an accessible parent (an answer card) the parent reads it instead.
   const own = !useInsideAccessibleElement();
   const label = useMemo(() => (own ? spokenFormula(latex) : undefined), [own, latex]);
-  // The conversion is held with the latex it was made from. A view whose
-  // latex changes (a streaming answer growing, a reused row) never draws the
-  // previous formula's result, not even for one frame: until its own result
-  // arrives it shows the cached one for the new latex, or the loading slot.
+  // The conversion is held with the latex it was made from. A view whose latex changes (a
+  // streaming answer growing, a reused row) never draws the previous formula's result, not
+  // even for one frame: until its own result arrives it shows the cached one or the slot.
   const [loaded, setLoaded] = useState<Loaded>(() => ({
     latex,
     result: peekSvgMath(latex, true),
@@ -132,10 +142,9 @@ export const MathSvgView = React.memo(function MathSvgView({
     };
   }, [latex]);
 
-  // react-native-svg does not resolve currentColor — substitute the theme
-  // color. The parsed tree is kept with the conversion, per color: drawing
-  // the same formula again (a reused row, a re-cut streaming piece) parses
-  // nothing.
+  // react-native-svg does not resolve currentColor — substitute the theme color. The parsed
+  // tree is kept with the conversion, per color: drawing the same formula again (a reused
+  // row, a re-cut streaming piece) parses nothing.
   const ast = useMemo((): JsxAST | null => {
     if (!result) return null;
     try {
@@ -148,20 +157,23 @@ export const MathSvgView = React.memo(function MathSvgView({
   }, [result, textColor]);
 
   if (result === undefined) {
-    return <View style={[styles.wrap, { minHeight }]} testID="math-svg-loading" />;
+    return <View style={[styles.wrap, indent > 0 && { paddingLeft: indent }, { minHeight }]} testID="math-svg-loading" />;
   }
 
   if (result === null || ast == null) {
-    return <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} />;
+    return (
+      <FallbackMath latex={latex} textColor={textColor} em={em} align={align} label={label} indent={indent} />
+    );
   }
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
   // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
   const width = Math.max(1, result.widthEx * exPx);
   const height = Math.max(1, result.heightEx * exPx);
+  const left = indentFitted ? indent : fittedIndent(indent, width, windowWidth);
   return (
     <View
-      style={styles.wrap}
+      style={[styles.wrap, indent > 0 && { paddingLeft: left }]}
       testID="math-svg-view"
       accessible={own}
       accessibilityRole={own ? "text" : undefined}

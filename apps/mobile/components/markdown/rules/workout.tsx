@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
 
-import { MathColumn } from "@/components/rich/mathColumn";
+import { fitWorkingLine, MathColumn } from "@/components/rich/mathColumn";
 import {
   splitStreamCaret,
   StreamingCursor,
@@ -19,6 +19,7 @@ import {
   WORK_INDENT,
   WORK_RULE,
 } from "@/components/markdown/markdownContentStyles";
+import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
 import { workingHeading, workoutInline } from "@/components/markdown/rules/workoutInline";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -279,13 +280,15 @@ function renderWorkingSteps(
   headingID = "workout-subheading",
 ): React.ReactElement {
   const label = subheadingStyle(styles, t);
+  const size = mathSizeOf(styles.body);
   const steps: { heading: ReactNode; lines: React.ReactElement[] }[] = [
     { heading: workingHeading(section.heading, `${key}-heading`, label, t, headingID), lines: [] },
   ];
   section.lines.forEach((line, index) => {
     const marked = splitStreamCaret(line);
     if (!SOLVE_FOR.test(marked.text.trim())) {
-      steps[steps.length - 1]!.lines.push(lines[index]!);
+      // A long line moves left into the indent before it scrolls; the others keep the column.
+      steps[steps.length - 1]!.lines.push(fitWorkingLine(lines[index]!, marked.text, WORK_INDENT, size));
       return;
     }
     steps.push({
