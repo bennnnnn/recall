@@ -41,6 +41,14 @@ _TRUE_MINUS = "−"
 # A count written as a subscript, braced or not: "H_2SO_4", "CO_{2}", "Ca(NO_3)_2" (a
 # LaTeX paste's ``\text{H}_2\text{SO}_4``). Read as written, "CO_2" was the formula CO.
 _SUBSCRIPT_COUNT = re.compile(r"(?<=[A-Za-z)\]])_\{?(\d+)\}?")
+# A count in a maths span of its own or HTML, glued to its formula: "H$_2$SO$_4$",
+# "CO\(_2\)", "CO<sub>2</sub>". Read before the markup, which pads a span with spaces and
+# so took the count off its formula: H$_2$SO$_4$ was H, 48.6 mol for 0.500 (review 2026-11-11).
+_SUBSCRIPT_SPAN = re.compile(
+    r"(?<=[A-Za-z)\]])(?:\$|\\\()\s*_\{?(\d+)\}?\s*(?:\$|\\\))"
+    r"|(?<=[A-Za-z)\]])<sub>\s*(\d+)\s*</sub>",
+    re.IGNORECASE,
+)
 
 # The canonical hydrate dot. ``formula.parse_formula`` reads it, and a number reader never
 # takes "4.5" out of "CuSO4·5H2O".
@@ -172,6 +180,7 @@ def read_chemistry_text(text: str) -> str:
     """
     if not text:
         return text
+    text = _SUBSCRIPT_SPAN.sub(lambda count: count.group(1) or count.group(2), text)
     text = _SUBSCRIPT_COUNT.sub(r"\1", spell_scripts(without_markup(text)))
     text = _hydrate_dots(text)
     text = _PH_WORD.sub("pH", text)

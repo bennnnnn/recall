@@ -151,5 +151,31 @@
   "prompt": "What is the mass of 2.5 mol of CO_x?",
   "expect": "decline",
   "note": "CO_x names no one formula: CO is not it"
+ },
+ {
+  "id": "rv11b-dollar-subscripts",
+  "area": "moles",
+  "prompt": "How many moles are in 49.0 g of H$_2$SO$_4$?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.4996,
+    "mol"
+   ]
+  ],
+  "note": "49.0/98.08; each count in its own $…$ span was read as the formula H, 48.6 mol (review 2026-11-11)"
+ },
+ {
+  "id": "rv11b-html-subscript",
+  "area": "moles",
+  "prompt": "How many moles are in 22 g of CO<sub>2</sub>?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.4999,
+    "mol"
+   ]
+  ],
+  "note": "22/44.01; <sub>2</sub> was dropped and CO read (review 2026-11-11)"
  }
 ]

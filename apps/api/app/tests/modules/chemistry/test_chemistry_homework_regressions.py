@@ -94,6 +94,14 @@ def _right_or_declined(question: str, expected: float, rel: float = 0.01) -> Non
         (r"\(\text{CO}_{2}\)", "CO2"),
         (r"\(\text{Ca(NO}_3\text{)}_2\)", "Ca(NO3)2"),
         ("CO_2 and K_a", "CO2 and K_a"),
+        # A count in a maths span of its own, or HTML, glued to its formula (review 2026-11-11).
+        ("49.0 g of H$_2$SO$_4$", "49.0 g of H2SO4"),
+        ("CO$_{2}$ gas", "CO2 gas"),
+        (r"CO\(_2\) and H\(_2\)SO\(_4\)", "CO2 and H2SO4"),
+        ("Ca(NO$_3$)$_2$", "Ca(NO3)2"),
+        ("CO<sub>2</sub> and H<SUB>2</SUB>O", "CO2 and H2O"),
+        # A lone subscript after a space or a price is no formula's count.
+        ("costs $5 and $_2$ more", "costs $5 and $_2$ more"),
     ],
 )
 def test_read_chemistry_text_spells_scripts_and_hydrate_dots_in_ascii(
