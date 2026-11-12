@@ -16,7 +16,7 @@ from app.modules.chat.model_routing.thinking import is_answer_dispute, thinking_
 # rejects "none" and a disable.
 SUPPORTED: dict[str, frozenset[str]] = {
     "anthropic/claude-haiku-5.5": frozenset({"max", "xhigh", "high", "medium", "low", "none"}),
-    "deepseek/deepseek-v4.1-flash": frozenset({"max", "high", "low", "none"}),
+    "deepseek/deepseek-v4.1-flash-1017": frozenset({"max", "high", "low", "none"}),
     "z-ai/glm-5.3-flash": frozenset({"max", "high", "low"}),
     # Probed 2026-11-11: each answered, none and minimal through xhigh.
     "qwen/qwen3.8-flash": frozenset({"xhigh", "high", "medium", "low", "minimal", "none"}),

@@ -615,7 +615,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Multiple tiers** — six chat models, none of them coding models. Free: Qwen3.7 Flash
   (everyday, Auto's fast lane, and since 2026-11-11 Free's maths lane, `ROUTING.math_free`),
   Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard everyday turns, and the maths
-  lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, the hard lane and, since
+  lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, its October 17 version `deepseek-v4.1-flash-1017`
+  since 2026-11-11, the owner's call; the hard lane and, since
   2026-11-10, Auto's maths lane, with Qwen3.8 Flash its first backup: `ROUTING.math_backups`),
   Qwen3.8 Flash (`qwen-3.8-flash`, thinking none, minimal, high; it replaced GLM 5.2 on
   2026-11-11, and stored choices of GLM 5.2 moved to it, migration 0129) and GPT-6 Luna. Maths, physics and chemistry no solver verified go to the maths lane, hard
