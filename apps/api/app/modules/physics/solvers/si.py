@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from functools import lru_cache
+from tokenize import TokenError
 from typing import Any
 
 from pint.errors import PintError
@@ -175,6 +176,11 @@ def si_factor(unit: str, *, expected_key: str | None = None) -> tuple[float, flo
     return None
 
 
+# What Pint raises for a spelling it cannot split: an unknown unit ("1/m2"), bad syntax
+# ("/k", "g/100 mL", an open bracket), an offset unit ("celsius"), a zero below the line.
+_UNREADABLE = (PintError, ValueError, TypeError, AttributeError, ArithmeticError, TokenError)
+
+
 def _split_scale(ureg: Any, reading: str) -> tuple[float, float] | None:
     """Each unit's own scale, above the line and below it; None if Pint cannot read it."""
     numerator = denominator = 1.0
@@ -185,7 +191,7 @@ def _split_scale(ureg: Any, reading: str) -> tuple[float, float] | None:
                 numerator *= scale**exponent
             else:
                 denominator *= scale ** (-exponent)
-    except Exception:
+    except _UNREADABLE:
         return None
     return numerator, denominator
 
