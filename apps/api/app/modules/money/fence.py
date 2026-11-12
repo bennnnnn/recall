@@ -91,6 +91,9 @@ def _corners_hold(spec: CalculatorSpec, expressions: list[str]) -> bool:
             try:
                 output_value(expression, values)
             except Exception:
+                logger.warning(
+                    "calculator formula %r failed at %r", expression, values, exc_info=True
+                )
                 return False
     return True
 
