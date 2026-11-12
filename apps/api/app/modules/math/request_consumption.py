@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from app.modules.math.function_calls import functions_dropped
 from app.modules.math.schemas import MathIntent, is_declined
+from app.services.number_text import SIGNED_DECIMAL
 
 _ADDITIONAL_OPERATION = re.compile(
     r"\b(?:and|then|also|plus)\s+(?:then\s+)?"
@@ -42,7 +43,7 @@ _MULTIPLE_REQUESTED_STATISTICS = re.compile(
 )
 _LABELED_Z_SCORE_OPERAND = re.compile(
     r"\b(?:mean(?:\s+score)?|standard\s+deviation|std(?:\s+dev)?|stdev)"
-    r"(?:\s+is|\s*=)?\s+[+-]?(?:\d+(?:\.\d+)?|\.\d+)\b",
+    rf"(?:\s+is|\s*=)?\s+{SIGNED_DECIMAL}\b",
     re.IGNORECASE,
 )
 _GRAPH_REQUEST = re.compile(r"\b(?:graph|plot|sketch)\b", re.IGNORECASE)

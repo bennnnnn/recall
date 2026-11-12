@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from app.services.number_text import DECIMAL_LITERAL
+from app.services.number_text import DECIMAL, DECIMAL_LITERAL
 from app.services.text_match import word_index
 
 _DIM_SEPS = ("\u00d7", "by", "x", "*")
@@ -205,7 +205,7 @@ _LINK_WORDS = frozenset(
     triangle rectangle square parallelogram trapezoid trapezium rhombus kite sector figure shape
     """.split()
 )
-_NUMBER = re.compile(r"(?<![\d.,])(?:\d+(?:\.\d+)?|\.\d+)")
+_NUMBER = re.compile(rf"(?<![\d.,]){DECIMAL}")
 # A number that is only the start of a measure: 50√2, 5 root 3, 3π, 1/2, 1½, 2,5, 3 x 10²,
 # 2^3, 4e5.
 _GLUED_AFTER = re.compile(
