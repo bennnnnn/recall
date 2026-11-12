@@ -11,7 +11,7 @@ each part under its letter, closed by its own **Answer (a)**, a hairline between
 The value under **Answer** becomes the card in finalize
 (``chat.finalize_subjects.check_working``), marked ``verified: false``: no solver checked
 it. The words the model wrote (a heading, a move, what a symbol is) keep their maths as
-maths (``worked_text.prose_maths``).
+maths (``worked_prose.prose_maths``).
 """
 
 from __future__ import annotations
@@ -20,12 +20,12 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.modules.chat.worked_prose import prose_maths
 from app.modules.chat.worked_solution import Answer, Given, Part, Step, WorkedSolution
 from app.modules.chat.worked_text import (
     formula_title,
     is_prose,
     names_nothing,
-    prose_maths,
     tidy_symbol,
     tidy_tex,
 )
@@ -69,13 +69,17 @@ def _plain(tex: str) -> str:
 
 
 _UPRIGHT_GROUP = re.compile(r"\\(?:mathrm|text)\s*\{[^{}]*\}")
+# A power of ten in a calculator's spelling: "1.5e-3", "6.022E23".
+_E_NOTATION = re.compile(r"(?<=\d)[eE](?=[-+]?\d)")
 
 
 def in_symbols(tex: str) -> bool:
     """A value written in letters ("C V_0", "\\frac{1}{2}MR^2"): its units are its
-    symbols', so none is written after it. A command (\\pi, \\times) or a unit set
-    upright is no symbol: "\\pi/3" and "2400\\,\\mathrm{s}" are numbers."""
-    return _LETTER.search(_COMMAND.sub("", _UPRIGHT_GROUP.sub("", tex))) is not None
+    symbols', so none is written after it. A command (\\pi, \\times), a unit set upright
+    or a calculator's power of ten is no symbol: "\\pi/3", "2400\\,\\mathrm{s}" and
+    "1.5e-3" are numbers."""
+    plain = _E_NOTATION.sub(" ", _COMMAND.sub("", _UPRIGHT_GROUP.sub("", tex)))
+    return _LETTER.search(plain) is not None
 
 
 def _as_its_letter(given: Given) -> bool:
@@ -87,10 +91,11 @@ def _as_its_letter(given: Given) -> bool:
 
 
 def _meaning(given: Given) -> str:
-    """What a given is, its maths as maths; a letter's value written in words is its
-    meaning when it has none of its own ("M | mass of the rod")."""
-    words = given.meaning or (given.value if is_prose(given.value) else "")
-    return prose_maths(words)
+    """What a given is, its maths as maths. A value written in words is said too:
+    "v_0 | at rest | m/s | initial speed" reads "initial speed, at rest", and with no
+    meaning of its own it is the meaning ("M | mass of the rod")."""
+    said = given.value if is_prose(given.value) else ""
+    return prose_maths(", ".join(words for words in (given.meaning, said) if words))
 
 
 def _given_row(given: Given, letters: Sequence[str] | None = None) -> str:

@@ -16,9 +16,10 @@ import itertools
 import pytest
 
 from app.modules.chat.stream_accum import StreamAccum
+from app.modules.chat.worked_prose import prose_maths
 from app.modules.chat.worked_render import WorkedLayout
 from app.modules.chat.worked_stream import ReplyFilter, WorkedFilter
-from app.modules.chat.worked_text import greek_as_commands, prose_maths
+from app.modules.chat.worked_text import greek_as_commands
 from app.modules.chat.worked_units import unit_tex
 from app.tests.behavior.latex_check import latex_problems
 
@@ -153,7 +154,22 @@ def test_maths_in_the_models_words_is_drawn_as_maths(block: str, shown: str) -> 
         (r"the \Delta x is small", r"the $\Delta x$ is small"),
         (r"speed v_0 at the start", r"speed $v_0$ at the start"),
         (r"f(x) = \sin x on the interval", r"$f(x) = \sin x$ on the interval"),
+        # Letters glued to a fraction are one run with it, never "$…$$…$" (review, 2026-11-11).
+        (r"KE = \frac{1}{2}mv^2", r"$KE = \frac{1}{2}mv^2$"),
+        (r"about \frac{1}{2}MR^2", r"about $\frac{1}{2}MR^2$"),
+        (r"using I = \frac{1}{2}$MR^2$ for a disc", r"using $I = \frac{1}{2}MR^2$ for a disc"),
+        (r"E = mc^2", r"$E = mc^2$"),
+        (r"\int_0^1 x\,dx", r"$\int_0^1 x dx$"),
+        (r"the area A = \pi r^2 of the disc", r"the area $A = \pi r^2$ of the disc"),
+        # Maths the model marked itself stays maths, whichever marks it used.
+        (r"\(F = ma\)", r"$F = ma$"),
+        (r"about $\frac{v_0}{2}$", r"about $\frac{v_0}{2}$"),
+        # A price's dollar is a sign, never the start of maths.
+        ("loan in $", r"loan in \$"),
+        ("subtract the $5 coupon", r"subtract the \$5 coupon"),
         # Look-alikes: a word beside the maths stays a word, and words stay words.
+        (r"between 0 and -\frac{1}{2}", r"between 0 and $-\frac{1}{2}$"),
+        (r"speed = \frac{d}{t}", r"speed = $\frac{d}{t}$"),
         (r"is a \sqrt{2} away", r"is a $\sqrt{2}$ away"),
         (r"\sqrt{2} a lot", r"$\sqrt{2}$ a lot"),
         ("profit_per_sheep in total", "profit per sheep in total"),
@@ -162,7 +178,10 @@ def test_maths_in_the_models_words_is_drawn_as_maths(block: str, shown: str) -> 
     ],
 )
 def test_prose_maths_marks_each_run_of_maths(text: str, shown: str) -> None:
-    assert prose_maths(text) == shown
+    out = prose_maths(text)
+    assert out == shown
+    # The phone reads a "$" right after another as no maths and shows the source.
+    assert "$$" not in out.replace("\\$", "")
 
 
 @pytest.mark.parametrize(
@@ -204,6 +223,23 @@ def test_a_given_stated_as_a_letter_is_listed_by_its_meaning() -> None:
     # A value written in symbols carries its units in them: no unit after it.
     assert "$Q_0 = C V_0$" in given
     assert laid_out.rstrip().endswith("\\right)\\right]$")
+
+
+def test_a_value_in_words_is_said_beside_its_meaning() -> None:
+    """A model's "v_0 | at rest | m/s | initial speed" lost "at rest" (review, 2026-11-11)."""
+    block = "```worked\ngiven: v_0 | at rest | m/s | initial speed\nanswer: v | 3 | m/s\n```"
+    assert "$v_0$ (initial speed, at rest)" in _laid_out(block)
+
+
+@pytest.mark.parametrize(
+    ("given", "row"),
+    [
+        ("m | 1.5e-3 | kg | mass", "$m = 1.5e-3\\,\\mathrm{kg}$"),
+        ("N_A | 6.022E23 | mol^{-1} | Avogadro constant", "$N_A = 6.022E23\\,\\mathrm{mol⁻¹}$"),
+    ],
+)
+def test_a_calculators_power_of_ten_keeps_its_unit(given: str, row: str) -> None:
+    assert row in _laid_out(f"```worked\ngiven: {given}\nanswer: x | 1\n```")
 
 
 def test_letters_with_no_value_are_never_dropped() -> None:

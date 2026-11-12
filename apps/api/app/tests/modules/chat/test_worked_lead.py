@@ -307,6 +307,14 @@ def test_the_working_ends_on_its_value_above_the_card(worked: str, last: str) ->
     assert not any(signal.code == "duplicate_answer" for signal in _collect_format_signals(worked))
 
 
+def test_a_line_of_working_above_the_last_saying_the_card_is_still_flagged() -> None:
+    """Only the working's last line, just above the card, says its value by design."""
+    text = "**Substitution**  \n$v = 15\\,\\mathrm{km/h}$  \n$v = \\frac{45}{3}$\n\n" + _card(
+        "15\\,\\mathrm{km/h}"
+    )
+    assert any(signal.code == "duplicate_answer" for signal in _collect_format_signals(text))
+
+
 def test_prose_saying_the_cards_value_again_is_still_flagged() -> None:
     text = (
         "**Substitution**  \n$v = 15\\,\\mathrm{km/h}$\n\nSo v is 15\\,\\mathrm{km/h}.\n\n"

@@ -41,7 +41,9 @@ _MIN_RICH_REPLY_CHARS = 40
 
 _JSON_FENCE_LANGS = frozenset({"graph", "geometry", "places", "sources"})
 # A line of a worked reply's working: one formula alone ("$v = 15\\,\\mathrm{km/h}$").
-_WORKING_LINE = re.compile(r"^[^\S\n]*\$[^$\n]+\$[^\S\n]*$", re.MULTILINE)
+_WORKING_LINE = re.compile(r"[^\S\n]*\$[^$\n]+\$[^\S\n]*")
+# The heading a card sits under: "**Answer**", "**Answer (a)**".
+_ANSWER_HEADING = re.compile(r"[^\S\n]*\*\*Answer(?: \([a-h]\))?:?\*\*[^\S\n]*")
 _ANSWER_LANGS = frozenset({"answer", "result", "final"})
 _DRAFT_FENCE_LANGS = frozenset(
     {
@@ -130,6 +132,22 @@ def _iter_fences(text: str) -> list[_Fence]:
     ]
 
 
+def _without_closing_line(before: str) -> str:
+    """The text above a card without the working's last line, the one formula alone just
+    above the card's **Answer** heading."""
+    lines = before.split("\n")
+    at = len(lines) - 1
+    while at >= 0 and not lines[at].strip():
+        at -= 1
+    if at >= 0 and _ANSWER_HEADING.fullmatch(lines[at]):
+        at -= 1
+        while at >= 0 and not lines[at].strip():
+            at -= 1
+    if at >= 0 and _WORKING_LINE.fullmatch(lines[at]):
+        del lines[at]
+    return "\n".join(lines)
+
+
 def _collect_format_signals(text: str) -> list[QualitySignal]:
     if not text:
         return []
@@ -155,9 +173,9 @@ def _collect_format_signals(text: str) -> list[QualitySignal]:
         body = answer_fence_value(fence.body)
         if not body:
             continue
-        # A line of working ends on the card's value by design (the textbook's last line
-        # above its boxed answer); only prose that says it again is a duplicate.
-        rest = _WORKING_LINE.sub("", f"{text[: fence.start]}{text[fence.end :]}")
+        # The working's last line ends on the card's value by design (the textbook's line
+        # above its boxed answer); any other line that says it again is a duplicate.
+        rest = f"{_without_closing_line(text[: fence.start])}{text[fence.end :]}"
         if body in rest:
             signals.append(
                 QualitySignal(

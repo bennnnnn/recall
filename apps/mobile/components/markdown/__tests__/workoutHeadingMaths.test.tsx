@@ -16,6 +16,14 @@ import { normalizeBoldInlineMath } from "@/lib/markdown/preprocess";
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: () => null }));
 
+// The components project has no Node types (see lib/__tests__/licenses.test.ts).
+declare const __dirname: string;
+const { readFileSync } = jest.requireActual<{ readFileSync(path: string, encoding: "utf8"): string }>(
+  "node:fs",
+);
+const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:path");
+const ROOT = join(__dirname, "..", "..", "..", "..", "..");
+
 /** The text a reader sees, the pieces in order. */
 function seen(node: unknown): string {
   if (node == null || typeof node === "boolean") return "";
@@ -96,17 +104,44 @@ describe("a formula with no name", () => {
   });
 });
 
+describe("a procedure's own name", () => {
+  it("heads its rule in words under Solution, as working", async () => {
+    const fixture = JSON.parse(
+      readFileSync(join(ROOT, "docs", "fixtures", "chemistry_replies.json"), "utf8"),
+    ) as { replies: Record<string, { reply: string }> };
+    const screen = await render(<MarkdownContent content={fixture.replies.balance_ammonia!.reply} />);
+    expect(screen.getAllByTestId("workout-subheading").map((node) => seen(node))).toEqual([
+      "Conservation of atoms and charge",
+      "Steps",
+    ]);
+    // The rule sits in the working column, under its name, like a formula under its law.
+    const rule = screen.getByText(/^Count each element/);
+    expect(rule).toBeOnTheScreen();
+  });
+
+  it("stays a paragraph anywhere but right under Solution", async () => {
+    const screen = await render(
+      <MarkdownContent content={"**Given**  \n$x = 1$\n\n**Note**  \nThe rule holds."} />,
+    );
+    expect(screen.queryAllByTestId("workout-subheading")).toEqual([]);
+  });
+});
+
 describe("bold maths in a worked reply", () => {
-  it("keeps a heading line whole, over the lines below it", () => {
-    const heading = "**Substitution $x = \\tan t$**\n$I = 1$";
+  it.each([
+    "**Substitution $x = \\tan t$**\n$I = 1$",
+    // Still streaming: its lines have not come yet, and it keeps its shape until they do.
+    "**Given**  \n$a = 1$\n\n**Substitution $x = \\tan t$**",
+    "**Given**  \n$a = 1$\n\n**Substitution $x = \\tan t$**\n",
+  ])("keeps a heading line whole, over the lines below it: %s", (heading) => {
     expect(normalizeBoldInlineMath(heading, true)).toBe(heading);
   });
 
   it.each([
     // Not worked: the maths leaves the bold as before.
     ["**Answer: $x = 2$**\n$x = 2$", false, "**Answer:** $x = 2$\n$x = 2$"],
-    // Worked, but a line alone with nothing under it, or bold that is only maths.
-    ["**Answer: $x = 2$**", true, "**Answer:** $x = 2$"],
+    // Worked, but a line alone with a paragraph after it, or bold that is only maths.
+    ["**Answer: $x = 2$**\n\nSo it holds.", true, "**Answer:** $x = 2$\n\nSo it holds."],
     ["**$x^2$**\n$x = 2$", true, "$x^2$\n$x = 2$"],
     // Worked, but in a sentence: not a heading.
     ["So **the answer is $x = 2$** here.\n$x = 2$", true, "So **the answer is** $x = 2$ here.\n$x = 2$"],

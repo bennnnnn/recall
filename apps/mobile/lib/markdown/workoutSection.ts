@@ -54,14 +54,16 @@ export function isAnswerHeading(heading: string): boolean {
 
 /**
  * A formula's own name heads its section ("**Constant acceleration formula**"), so it
- * is no fixed word: in a worked reply, a short bold line alone over a line of maths.
+ * is no fixed word: in a worked reply, a short bold line alone over a line of maths, or
+ * (`underSolution`) right under **Solution** over any line, as a procedure's name heads its
+ * rule in words ("**Conservation of atoms and charge**", 2026-11-11).
  */
-export function lawHeading(text: string, firstLine: string): string | null {
+export function lawHeading(text: string, firstLine: string, underSolution = false): string | null {
   const heading = text.trim();
   if (!heading || /[.:?!]$/.test(heading) || heading.split(/\s+/).length > 10) return null;
   // A numbered move ("1. Subtract 4 from both sides") and a part are their own blocks.
   if (/^\d+[.)]\s/.test(heading) || workoutPart(heading)) return null;
-  return /^\$/.test(firstLine.trim()) ? heading : null;
+  return underSolution || /^\$/.test(firstLine.trim()) ? heading : null;
 }
 
 const WORKED_LINE_RE = new RegExp(String.raw`^\*\*(?:${OPENING_HEADINGS.join("|")}):?\*\*`);

@@ -52,6 +52,7 @@ function plainInline(node: AstNode): boolean {
  */
 export function workoutSectionParts(
   node: AstNode,
+  underSolution = false,
 ): { heading: string; lines: string[] } | null {
   const kids = unwrapSingle(node).children ?? [];
   const strong = openingStrong(kids[0]);
@@ -75,12 +76,24 @@ export function workoutSectionParts(
   if (!lines.length) return null;
   // A law's own name over its formulas reaches here as one paragraph only in a
   // worked reply: elsewhere a bold line gets a paragraph of its own. **Solution** over
-  // lines heads a formula its writer gave no name (2026-11-11).
+  // lines heads a formula its writer gave no name, and a name right under **Solution**
+  // heads its rule even in words: a procedure's ("Conservation of atoms and charge").
   const title = astText(strong);
   const heading =
     workoutHeading(title) ??
-    (isSolutionHeading(title) ? SOLUTION_HEADING : lawHeading(title, lines[0] ?? ""));
+    (isSolutionHeading(title)
+      ? SOLUTION_HEADING
+      : lawHeading(title, lines[0] ?? "", underSolution));
   return heading ? { heading, lines } : null;
+}
+
+/** Whether `node` is the block right after a **Solution** heading alone on its line. */
+export function followsSolution(node: AstNode, parent: unknown): boolean {
+  if (!Array.isArray(parent) || parent.length === 0) return false;
+  const blocks = (parent[0] as AstNode | undefined)?.children ?? [];
+  const at = blocks.indexOf(node);
+  const above = at > 0 ? blocks[at - 1] : undefined;
+  return above?.type === "paragraph" && isSolutionHeading(astText(above));
 }
 
 /** A part label alone on its line in bold: ``**(a) Acceleration**``. */

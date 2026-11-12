@@ -156,6 +156,10 @@ const VARIANTS: Record<string, string> = {
   "worked heading ending on maths":
     "**Solution**\n\n**Substitution $x = \\tan t$**  \n$I = \\int_0^{\\pi/4} \\ln(1+\\tan t)\\,dt$  \n" +
     "$1+\\tan t = \\frac{\\sqrt{2}\\cos t}{\\cos t}$ — evenness of $\\ln\\cos t$",
+  // A note's maths the server marks as one run, never "$…$$…$" (review, 2026-11-11).
+  "worked note with maths glued to a fraction":
+    "**Solution**\n\n**Rolling without slipping formula**  \n$a = \\frac{g\\sin\\theta}{1 + \\frac{I}{MR^2}}$ — using $I = \\frac{1}{2}MR^2$ for a disc  \n" +
+    "$E = mgh$ — energy goes to $KE = \\frac{1}{2}mv^2$, the price is \\$5",
   "worked formula with no name":
     "**Given**  \n$k = 400\\,\\mathrm{N/m}$\n\n**Solution**\n\n$m g h = \\frac{1}{2} k x^{2}$  \nSolve for $x$  \n$x = \\sqrt{\\frac{2 m g h}{k}}$",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.

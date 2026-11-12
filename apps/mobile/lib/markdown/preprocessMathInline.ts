@@ -208,14 +208,19 @@ function opensBefore(text: string, at: number): boolean {
   return false;
 }
 
-/** Whether the bold at [start, end) is a line of its own with a line under it. */
+/**
+ * Whether the bold at [start, end) is a line of its own with a line under it, or with
+ * nothing under it yet: a heading still streaming keeps its shape until its lines come,
+ * rather than unwrapping and wrapping again (review, 2026-11-11).
+ */
 function headsLines(content: string, start: number, end: number): boolean {
   const lineStart = content.lastIndexOf("\n", start - 1) + 1;
-  const lineEnd = content.indexOf("\n", end);
-  if (content.slice(lineStart, start).trim() || lineEnd < 0) return false;
-  if (content.slice(end, lineEnd).trim()) return false;
-  const next = content.slice(lineEnd + 1).split("\n", 1)[0] ?? "";
-  return next.trim() !== "";
+  const found = content.indexOf("\n", end);
+  const lineEnd = found < 0 ? content.length : found;
+  if (content.slice(lineStart, start).trim() || content.slice(end, lineEnd).trim()) return false;
+  const below = content.slice(lineEnd + 1);
+  const next = below.split("\n", 1)[0] ?? "";
+  return next.trim() !== "" || below.trim() === "";
 }
 
 /** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters.

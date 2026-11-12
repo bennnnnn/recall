@@ -127,7 +127,7 @@ def test_each_part_card_holds_only_its_value() -> None:
 
 def test_a_note_with_nested_maths_is_one_maths_run() -> None:
     """Review of #2303: one level of braces split \\sqrt{\\frac{10gh}{7}} in two."""
-    from app.modules.chat.worked_text import prose_maths
+    from app.modules.chat.worked_prose import prose_maths
 
     assert prose_maths(r"about \sqrt{\frac{10gh}{7}}") == r"about $\sqrt{\frac{10gh}{7}}$"
     assert prose_maths(r"about 1.20\sqrt{gh}; A gives \sqrt{2gh}.") == (
@@ -151,6 +151,6 @@ def test_a_note_with_nested_maths_is_one_maths_run() -> None:
 def test_a_note_keeps_its_maths_and_loses_its_marks(note: str, shown: str) -> None:
     """Review of #2303: marks were stripped before the maths was found, so subscripts went,
     and a backslash before a non-letter showed raw."""
-    from app.modules.chat.worked_text import prose_maths
+    from app.modules.chat.worked_prose import prose_maths
 
     assert prose_maths(note) == shown
