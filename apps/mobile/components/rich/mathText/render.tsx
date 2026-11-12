@@ -21,6 +21,7 @@ import {
   type RenderCtx,
 } from "@/components/rich/mathText/context";
 import {
+  italicEdge,
   renderMathRun,
   renderNonVariableRun,
   type RunPad,
@@ -57,7 +58,8 @@ export function hasTallMath(segments: MathSegment[]): boolean {
   return hasStackedMath(segments) || hasRaisedScript(segments);
 }
 
-/** A run inside a stack: a row of Views when it holds stacked or raised math, else one Text. */
+/** A run inside a stack: a row of Views when it holds stacked or raised math, else one Text,
+ * a box of its own whose last italic letter keeps its ink (`italicEdge`). */
 function renderStackRow(
   segments: MathSegment[],
   layout: MathLayout | undefined,
@@ -65,11 +67,14 @@ function renderStackRow(
   rowCtx: RenderCtx,
   textStyle: object,
 ): ReactNode {
-  const children = renderSegments(segments, layout?.children ?? [], keyPrefix, rowCtx);
-  if (hasTallMath(segments)) {
+  const tall = hasTallMath(segments);
+  const children = renderSegments(segments, layout?.children ?? [], keyPrefix, { ...rowCtx, inText: !tall });
+  if (tall) {
     return <View style={rowCtx.styles.fracSideRow}>{children}</View>;
   }
-  return <Text style={textStyle}>{children}</Text>;
+  const last = segments.at(-1);
+  const edge = last?.type === "text" ? italicEdge(last.value, rowCtx.em, rowCtx.fontScale, true) : null;
+  return <Text style={[textStyle, edge]}>{children}</Text>;
 }
 
 function renderFracSide(
@@ -158,7 +163,7 @@ export function renderSegments(
     layoutIndex += 1;
     // Only a truly last glyph leans: TeX sets a script right against its base.
     const lean = ctx.leanLast === true && n === atoms.length - 1 && !atom.sup;
-    const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom, lean };
+    const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom, lean, edge: ctx.inText !== true };
     leadingAtom = true;
     const rendered = renderOneSegment(atom.segment, node, key, inner, pad, false);
     if (atom.sup && atom.sub) {

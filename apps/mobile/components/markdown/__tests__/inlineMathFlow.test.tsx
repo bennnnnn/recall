@@ -217,23 +217,31 @@ describe("InlineFlow", () => {
   });
 });
 
-/** The right padding of every Text drawn, in tree order. */
-function rightPads(node: unknown): number[] {
-  if (Array.isArray(node)) return node.flatMap(rightPads);
+/** The room after every Text's glyphs, in tree order: its right padding and right margin. */
+function rightRooms(node: unknown): { pad: number; margin: number }[] {
+  if (Array.isArray(node)) return node.flatMap(rightRooms);
   if (node == null || typeof node !== "object") return [];
   const { type, props, children } = node as { type?: string; props?: { style?: StyleProp<TextStyle> }; children?: unknown };
-  const own = type === "Text" ? [StyleSheet.flatten(props?.style)?.paddingRight ?? 0] : [];
-  return [...own.map(Number), ...rightPads(children)];
+  const style = StyleSheet.flatten(props?.style);
+  const own = type === "Text" ? [{ pad: Number(style?.paddingRight ?? 0), margin: Number(style?.marginRight ?? 0) }] : [];
+  return [...own, ...rightRooms(children)];
 }
 
 describe("a formula in prose takes no italic lean", () => {
   // The words after `$v$` give its last letter room: an italic correction there only
-  // widened the gap before "is". Only the composer's draft leans (MathTextItalicLean).
+  // widened the gap before "is". A word of the flow that ends on the formula keeps the
+  // letter's ink out of that gap, which stays a word's gap (MathTextItalicLean); only
+  // the composer's draft takes real room.
   it.each([
     "where $v$ is the speed and $P$ the power.",
     "Light takes $10^2$ s, so $v$ is fast and $P$, the power, is high.",
   ])("draws %s with no room after a letter", async (content) => {
     const { toJSON } = await render(<MarkdownContent content={content} />);
-    expect(rightPads(toJSON()).filter((pad) => pad > 0)).toEqual([]);
+    const rooms = rightRooms(toJSON());
+    const wordGaps = rooms.filter((room) => room.pad === 0 && room.margin > 0).map((room) => room.margin);
+    for (const room of rooms.filter((each) => each.pad > 0)) {
+      const after = room.pad + room.margin;
+      expect(after === 0 || wordGaps.some((gap) => Math.abs(gap - after) < 1e-6)).toBe(true);
+    }
   });
 });

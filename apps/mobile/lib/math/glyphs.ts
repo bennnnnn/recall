@@ -67,6 +67,27 @@ function arrowAdvanceEm(ch: string): number | null {
   return code >= 0x2190 && code <= 0x21ff ? 1 : null;
 }
 
+/**
+ * TeX's italic correction in KaTeX_MathItalic (katex fontMetricsData), in em: how far a
+ * letter's ink leans past its advance. A box that ends on the letter cuts that much of it
+ * off: `P` drew as `F`, and V and Y lean furthest. A letter not listed leans none.
+ */
+const ITALIC_CORRECTION_EM: Record<string, number> = {
+  B: 0.05, C: 0.072, D: 0.028, E: 0.058, F: 0.139, H: 0.081, I: 0.078, J: 0.096, K: 0.072,
+  M: 0.109, N: 0.109, O: 0.028, P: 0.139, R: 0.008, S: 0.058, T: 0.139, U: 0.109, V: 0.222,
+  W: 0.139, X: 0.078, Y: 0.222, Z: 0.072, f: 0.108, g: 0.036, j: 0.057, k: 0.031, l: 0.02,
+  q: 0.036, r: 0.028, v: 0.036, w: 0.027, y: 0.036, z: 0.044,
+  "Γ": 0.139, "Θ": 0.028, "Ξ": 0.076, "Π": 0.081, "Σ": 0.058, "Υ": 0.139, "Ψ": 0.11, "Ω": 0.05,
+  "α": 0.004, "β": 0.053, "γ": 0.056, "δ": 0.038, "ζ": 0.074, "η": 0.036, "θ": 0.028,
+  "ν": 0.064, "ξ": 0.046, "π": 0.036, "ς": 0.08, "σ": 0.036, "τ": 0.113, "υ": 0.036,
+  "ψ": 0.036, "ω": 0.036, "ϖ": 0.028,
+};
+
+/** How far an italic letter's ink leans past its advance, in em (0 for any other glyph). */
+export function italicCorrectionEm(ch: string): number {
+  return ITALIC_CORRECTION_EM[ch] ?? 0;
+}
+
 const WIDE = new Set(["m", "w", "M", "W"]);
 const NARROW = new Set(["i", "l", "I", "j", "f", "t", "r"]);
 

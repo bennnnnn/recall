@@ -10,6 +10,7 @@ import { splitOperatorPads } from "@/lib/math/layout";
 import {
   AMS_ONLY_CHARS,
   BLACKBOARD_LATIN,
+  italicCorrectionEm,
   MATH_NOT_GLYPH,
   NEGATED_RELATION,
   NOT_ADVANCE_EM,
@@ -21,16 +22,14 @@ import {
 type RunMetrics = { em: number; fontScale: number };
 
 /**
- * Operator spacing for a run; `space: false` keeps a script's operators tight. `lean`:
- * the run is the last box of its row, so an italic last letter needs room to lean into.
+ * Operator spacing for a run; `space: false` keeps a script's operators tight. `edge`: the
+ * run's Texts are boxes of their own (children of a View, not nested in a Text), and a box
+ * cuts off the ink an italic letter leans past its advance (`P` drew as `F`), so each that
+ * ends on one keeps its italic correction as padding and gives it back as a negative
+ * margin: the ink is whole and nothing beside it moves. `lean`: the run ends its row, and
+ * its last letter gets that room for real (the composer's draft, whose caret follows).
  */
-export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean; lean?: boolean };
-
-/**
- * TeX's italic correction. An italic letter leans past its advance, and a box that ends
- * on one cuts the lean off: `P` drew as `F`.
- */
-export const ITALIC_LEAN_EM = 0.15;
+export type RunPad = RunMetrics & { leadingAtom: boolean; space?: boolean; lean?: boolean; edge?: boolean };
 
 /** A run drawn without padding measures its glyphs at the stylesheet's 16px. */
 const UNPADDED_METRICS: RunMetrics = { em: 16, fontScale: 1 };
@@ -55,6 +54,20 @@ function isUprightWord(value: string): boolean {
 export function endsOnItalicLetter(value: string): boolean {
   const word = value.match(/(?:[A-Za-z]+|[Ͱ-Ͽ]+)$/)?.[0];
   return word !== undefined && !isUprightWord(word);
+}
+
+/** How far the run's last glyph leans past its advance, in em: its italic correction when
+ * it is an italic letter, else 0. */
+export function italicLeanEm(value: string): number {
+  return endsOnItalicLetter(value) ? italicCorrectionEm(Array.from(value).at(-1) ?? "") : 0;
+}
+
+/** The style that keeps a box's last italic letter whole: room for its lean, and with
+ * `give` that room handed back as a negative margin, so the box takes its advance alone. */
+export function italicEdge(value: string, em: number, fontScale: number, give: boolean): object | null {
+  const lean = italicLeanEm(value) * em * fontScale;
+  if (lean <= 0) return null;
+  return give ? { paddingRight: lean, marginRight: -lean } : { paddingRight: lean };
 }
 
 export function renderNonVariableRun(
@@ -171,13 +184,16 @@ export function renderMathRun(
       );
     }
     // Padding, not margin: nested Text on iOS ignores margin, so the
-    // measured operator space would never appear.
-    const leanEm =
-      pad?.lean && pieceIndex === pieces.length - 1 && endsOnItalicLetter(piece.text) ? ITALIC_LEAN_EM : 0;
+    // measured operator space would never appear. A box's italic edge is the one margin:
+    // only a box takes it. An operator's space after the letter is room enough.
+    const lean = pad?.lean === true && pieceIndex === pieces.length - 1;
+    const edge = !lean && pad?.edge === true && piece.rightEm === 0;
+    const leanPx = pad && (lean || edge) ? italicLeanEm(piece.text) * pad.em * pad.fontScale : 0;
     const margin = pad
       ? {
           paddingLeft: piece.leftEm * pad.em * pad.fontScale,
-          paddingRight: (piece.rightEm + leanEm) * pad.em * pad.fontScale,
+          paddingRight: piece.rightEm * pad.em * pad.fontScale + leanPx,
+          ...(edge && leanPx > 0 ? { marginRight: -leanPx } : null),
         }
       : null;
     return (

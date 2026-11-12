@@ -15,6 +15,7 @@ import {
 import {
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   type StyleProp,
   type TextProps as RNTextProps,
@@ -27,6 +28,7 @@ import {
   useInsideAccessibleElement,
 } from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
+import { italicLeanEm } from "@/components/rich/mathText/runs";
 import { MathBlock } from "@/components/rich/MathView";
 import { latexHasNestedMathView, spokenFormula } from "@/lib/math/text";
 
@@ -132,6 +134,20 @@ function collect(node: ReactNode, ctx: Ctx, flow: Flow): void {
   flow.label.push(latex ? spokenFormula(latex) : node.type === Text ? plainText(props.children) : "");
 }
 
+/**
+ * A unit drawn as one Text is a box, and a formula last in it is nested there, so the
+ * formula cannot keep its own last italic letter's ink (`P` drew as `F`): the unit does,
+ * taking that room out of the gap after it, so the next word stays where it was.
+ */
+function unitEdge(last: Piece, space: number, fontScale: number): TextStyle | null {
+  if (last.kind !== "atom" || last.node.type !== MathText) return null;
+  const { latex, fontSize } = last.node.props as { latex: string; fontSize?: number };
+  // The letters a formula ends on, unless they name a command (`\alpha`).
+  const tail = /(\\?)([A-Za-z]+)\s*$/.exec(latex);
+  const lean = tail && !tail[1] ? italicLeanEm(tail[2]!) * (fontSize ?? BODY_FONT_SIZE) * fontScale : 0;
+  return lean > 0 ? { paddingRight: lean, marginRight: space - lean } : null;
+}
+
 /** Items with no space between them (`(`, a formula, `).`) stay one unbreakable box. */
 function units(pieces: Piece[]): Piece[][] {
   const out: Piece[][] = [];
@@ -153,7 +169,7 @@ function units(pieces: Piece[]): Piece[][] {
   return out;
 }
 
-function renderUnit(unit: Piece[], key: string): ReactNode {
+function renderUnit(unit: Piece[], key: string, fontScale: number): ReactNode {
   const [first] = unit;
   const last = unit[unit.length - 1];
   if (!first || !last) return null;
@@ -171,7 +187,7 @@ function renderUnit(unit: Piece[], key: string): ReactNode {
     : null));
   // `(`, a formula drawn as glyphs and `).` read as one word of Text.
   if (unit.every((piece) => (piece.kind === "word" || piece.kind === "atom") && piece.inText)) {
-    return <Text key={key} style={gap}>{items}</Text>;
+    return <Text key={key} style={[gap, unitEdge(last, space, fontScale)]}>{items}</Text>;
   }
   return <View key={key} style={[styles.unit, gap]}>{items}</View>;
 }
@@ -193,7 +209,8 @@ export function InlineFlow({
   // Under an accessible parent (an answer card) that parent is the element.
   const inside = useInsideAccessibleElement();
   const grouped = !inside && !flow.pressable && label.length > 0;
-  const drawn = units(flow.pieces).map((unit, i) => renderUnit(unit, `w${i}`));
+  const { fontScale } = useWindowDimensions();
+  const drawn = units(flow.pieces).map((unit, i) => renderUnit(unit, `w${i}`, fontScale));
   return (
     <View
       testID={testID}
