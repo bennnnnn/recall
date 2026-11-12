@@ -35,7 +35,7 @@ def test_only_a_model_that_needs_the_mark_gets_it() -> None:
     # The turn's own context and the user turn go as they were, after the mark.
     assert marked[1:] == _PROMPT[1:]
     # A provider that reuses an identical prefix by itself gets the prompt untouched.
-    for alias in ("qwen-3.7-flash", "smart-chat", "glm-5.2", "gpt-6-luna"):
+    for alias in ("qwen-3.7-flash", "smart-chat", "qwen-3.8-flash", "gpt-6-luna"):
         assert with_cache_breakpoint(_PROMPT, model_catalog.get(alias)) is _PROMPT
 
 

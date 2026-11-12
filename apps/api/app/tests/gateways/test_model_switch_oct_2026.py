@@ -295,3 +295,18 @@ def test_trimming_keeps_the_other_switches_in_order() -> None:
     assert trimmed._kept(stored) == ["auto", "glm-5.2", "gpt-6-luna"]
     # A list of only removed models becomes NULL: the plan default, Auto on.
     assert trimmed._kept(["gpt-6-sol", "minimax-m3"]) is None
+
+
+# ── GLM 5.2 replaced by Qwen3.8 Flash (alembic 0129) ───────────────────────────
+
+
+def test_a_stored_glm_52_becomes_qwen_38_in_its_place() -> None:
+    m = _migration("0129_qwen38_replaces_glm52.py")
+    assert m.replaced(["auto", "glm-5.2", "free-chat"]) == ["auto", "qwen-3.8-flash", "free-chat"]
+    # Both switched on: one Qwen3.8 Flash, where the first stood.
+    assert m.replaced(["glm-5.2", "smart-chat", "qwen-3.8-flash"]) == [
+        "qwen-3.8-flash",
+        "smart-chat",
+    ]
+    assert m.NEW in model_catalog.known_ids()
+    assert m.OLD not in model_catalog.known_ids()

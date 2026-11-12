@@ -309,11 +309,11 @@ def test_is_reasoning_alias() -> None:
     from app.models.model_catalog import is_reasoning_alias, quota_multiplier
 
     assert is_reasoning_alias("smart-chat") is True
-    assert is_reasoning_alias("glm-5.2") is True
+    assert is_reasoning_alias("qwen-3.8-flash") is True
     assert is_reasoning_alias("free-chat") is False
     assert quota_multiplier("free-chat") == 1.0
     assert quota_multiplier("smart-chat") == 3.5
-    assert quota_multiplier("glm-5.2") == 3.5
+    assert quota_multiplier("qwen-3.8-flash") == 3.5
 
 
 def test_weighted_reserve_tokens_applies_quota_multiplier() -> None:
@@ -396,12 +396,12 @@ def test_auto_hard_question_picks_strongest_when_smart_tier_absent() -> None:
 
 
 def test_pick_smart_from_pool_prefers_strongest_not_cheapest() -> None:
-    """With several smart models, pick the strongest — not the cheapest
-    (smart-chat would win on price)."""
-    pool = ["smart-chat", "glm-5.2"]
-    assert plan.pick_smart_from_pool(pool) == "glm-5.2"
-    cheap = model_catalog.price_sort_key(model_catalog.get("smart-chat"))
-    dear = model_catalog.price_sort_key(model_catalog.get("glm-5.2"))
+    """With several smart models, pick the strongest (the dearest), not the cheapest
+    (Qwen3.8 Flash would win on price)."""
+    pool = ["qwen-3.8-flash", "smart-chat"]
+    assert plan.pick_smart_from_pool(pool) == "smart-chat"
+    cheap = model_catalog.price_sort_key(model_catalog.get("qwen-3.8-flash"))
+    dear = model_catalog.price_sort_key(model_catalog.get("smart-chat"))
     assert cheap < dear
 
 

@@ -331,10 +331,13 @@ def test_free_stem_turns_go_to_free_maths_lane(content: str) -> None:
 
 
 def test_paid_maths_turns_skip_frees_lane_when_deepseek_is_off() -> None:
-    """A Plus user who switched DeepSeek off gets its backup, GLM 5.2, never Free's Qwen."""
+    """A Plus user who switched DeepSeek off gets its backup, Qwen3.8 Flash, never Free's Qwen3.7."""
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    user = _plan("plus", ["auto", "qwen-3.7-flash", "free-chat", "glm-5.2"])
-    assert model_choice.resolve_user_model(user, "solve x^2 - 5x + 6 = 0", settings) == "glm-5.2"
+    user = _plan("plus", ["auto", "qwen-3.7-flash", "free-chat", "qwen-3.8-flash"])
+    assert (
+        model_choice.resolve_user_model(user, "solve x^2 - 5x + 6 = 0", settings)
+        == "qwen-3.8-flash"
+    )
 
 
 def test_pro_everyday_falls_back_when_the_strong_model_is_off_or_failing() -> None:
