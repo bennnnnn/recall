@@ -111,3 +111,48 @@ describe("the window a graph card opens on", () => {
   });
 });
 
+
+describe("the window the full-screen explorer opens on", () => {
+  /** A Galaxy S23's explorer plot, 344 × 480, and a taller one with no editor rows. */
+  const EXPLORER_ASPECTS = [(344 - 32) / (480 - 32), (344 - 32) / (640 - 32)];
+  const span = (view: GraphView) => [view.xMax - view.xMin, view.yMax - view.yMin];
+
+  it.each(EXPLORER_ASPECTS)("opens y = x² − 4x + 3 on the card's region, filling a plot of aspect %p", (aspect) => {
+    // 2026-11-10: the card showed x from −1 to 4, the explorer a thin spike in ±50.
+    const spec = fn("x^2 - 4x + 3", (x) => x * x - 4 * x + 3);
+    const view = interactiveFunctionBounds(spec, aspect);
+    expect(view.xMin).toBeLessThanOrEqual(-1);
+    expect(view.xMax).toBeGreaterThanOrEqual(4);
+    expect(view.yMin).toBeLessThanOrEqual(-1);
+    expect(view.yMax).toBeGreaterThanOrEqual(6);
+    const [cardX] = span(interactiveFunctionBounds(spec, CARD_ASPECT));
+    const [x, y] = span(view);
+    expect(x).toBeLessThan(cardX * 1.5);
+    // Taller than wide on a tall plot, but never a column of empty grid.
+    expect(y).toBeLessThan(x / aspect + 1e-9);
+  });
+
+  it.each([
+    ["the steep y = x³ − 100x", fn("x^3 - 100x", (x) => x ** 3 - 100 * x), [[5.77, -384.9], [-5.77, 384.9]]],
+    ["the flat y = 0.1x + 2", fn("0.1x + 2", (x) => 0.1 * x + 2), [[0, 2]]],
+  ] as const)("shows what the card shows of %s, no wider", (_name, spec, features) => {
+    const card = interactiveFunctionBounds(spec, CARD_ASPECT);
+    for (const aspect of EXPLORER_ASPECTS) {
+      const view = interactiveFunctionBounds(spec, aspect);
+      for (const point of features) expect(shows(view, point as [number, number])).toBe(true);
+      expect(view.xMin).toBeLessThanOrEqual(card.xMin);
+      expect(view.xMax).toBeGreaterThanOrEqual(card.xMax);
+      expect(span(view)[0]).toBeLessThan(span(card)[0] * 1.5);
+    }
+  });
+
+  it("shows a vertical line off to one side, no wider than the card", () => {
+    const line = { type: "vertical", expr: "x = 8", x: 8, points: [[8, -10], [8, 10]], y_min: -10, y_max: 10 } as GraphSpec;
+    const card = interactiveFunctionBounds(line, CARD_ASPECT);
+    for (const aspect of EXPLORER_ASPECTS) {
+      const view = interactiveFunctionBounds(line, aspect);
+      expect(view.xMax).toBeGreaterThan(8.5);
+      expect(span(view)[0]).toBeLessThan(span(card)[0] * 1.5);
+    }
+  });
+});

@@ -54,7 +54,8 @@ export function useLocationSync({ signedIn, userId, location, locationEnabled, t
         }
         // The server keeps the place between reads; without one, read it now.
         if (recent !== null) return;
-        const place = await getDeviceLocationLabel();
+        // On app open nothing asks: no permission sheet and no settings dialog.
+        const place = await getDeviceLocationLabel({ ask: false });
         if (place && active()) await save(place);
       } finally {
         running = false;

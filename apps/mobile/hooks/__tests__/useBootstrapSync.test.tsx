@@ -214,6 +214,8 @@ describe("location label", () => {
     await returnToApp();
     expect(getDeviceLocationLabel).toHaveBeenCalledTimes(2);
     expect(api.updateMe).toHaveBeenLastCalledWith("a", { location: "New York, NY" });
+    // Opening the app never shows the permission sheet (Android's settings dialog: deviceLocation).
+    for (const args of (getDeviceLocationLabel as jest.Mock).mock.calls) expect(args).toEqual([{ ask: false }]);
   });
 
   it("saves the place even when it has not changed: the server dates the place it reads", async () => {

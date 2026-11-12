@@ -191,7 +191,11 @@ export function useFunctionPlotState(spec: GraphSpec, chartWidth: number, theme:
 
   return {
     open,
-    openExplorer: () => setOpen(true),
+    // Each opening starts on the window fitted to the plot, as the Skia view does (ExplorerModal).
+    openExplorer: () => {
+      explorer.viewport.resetView();
+      setOpen(true);
+    },
     closeExplorer,
     insets,
     skia,

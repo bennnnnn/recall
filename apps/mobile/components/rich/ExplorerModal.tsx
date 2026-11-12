@@ -72,13 +72,9 @@ export function ExplorerModal({
   // No window resizes for the keyboard on Android, a Modal included: it covered the fields
   // (S23, 2026-11-09). The sheet lifts its bottom above it; the plot gives up the height.
   const keyboardHeight = useKeyboardHeight(open);
-  const skiaViewport = useSkiaGraphViewport({
-    width: plot.width,
-    height: plot.height,
-    pad: GRAPH_AXIS_PAD,
-    initialView,
-    onCommit: onCommitBounds,
-  });
+  // Opened again, the explorer starts on its fitted window, not where the last pinch left it.
+  const viewArgs = { initialView, resetKey: open, onCommit: onCommitBounds };
+  const skiaViewport = useSkiaGraphViewport({ width: plot.width, height: plot.height, pad: GRAPH_AXIS_PAD, ...viewArgs });
 
   return (
     <FullScreenModal
