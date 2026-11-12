@@ -3,7 +3,6 @@
   "components/rich/LazyHeavyRich.tsx": 2,
   "contexts/AuthContext.tsx": 3,
   "contexts/ModelsContext.tsx": 1,
-  "features/account/hooks/useLiveTalkMinutes.ts": 1,
   "features/account/hooks/useProfileEditor.ts": 1,
   "features/account/model/profilePhoto.ts": 1,
   "features/account/screens/ArchivedChatsScreen.tsx": 1,

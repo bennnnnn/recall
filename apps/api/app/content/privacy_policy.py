@@ -39,7 +39,7 @@ This policy explains what Recall collects, who receives it, how long it is kept,
 - To write chat titles, save memory, suggest follow-up questions and keep your reminders.
 - To improve response quality via thumbs-up/thumbs-down feedback.
 - To enforce daily usage limits and prevent abuse.
-- To send the reminders you turn on (push or email), a welcome email and purchase receipts.
+- To send your reminders (push or email; each can be turned off in Settings), a welcome email and purchase receipts.
 - To understand product reliability, feature adoption, and subscription conversion, and to fix crashes and errors.
 
 We do not sell your personal data and do not use it for advertising.

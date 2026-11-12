@@ -7,6 +7,7 @@ import {
   SettingsMenuRow,
   SettingsPage,
   SettingsSwitchRow,
+  useSettingSave,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -32,7 +33,6 @@ const DEFAULT_QUIET_END = 420;
 const PUSH_KINDS = [
   { field: "push_reminders_enabled", title: "settings.push_reminders" },
 ] as const satisfies readonly { field: keyof User; title: string }[];
-type PushKindField = (typeof PUSH_KINDS)[number]["field"];
 
 let pending: { session: number; action: string } | null = null;
 const listeners = createListenerSet();
@@ -64,6 +64,11 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     if (pending === request) { pending = null; listeners.emit(); }
   }, []);
   const feedback = useActionFeedbackOptional();
+  // A switch saves at once and in order; a tap on a page another account replaced does nothing.
+  const save = useSettingSave();
+  const saveIfCurrent = useCallback((patch: Partial<User>) => {
+    if (isCurrent()) save(patch);
+  }, [isCurrent, save]);
 
   const reportError = useCallback((key: string) => {
     if (!isCurrent()) return;
@@ -106,7 +111,8 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     }
   }, [isCurrent, user?.reminder_lead_minutes]);
 
-  const quietEnabled = user?.quiet_hours_enabled === true;
+  // Quiet hours and email reminders start on for a new account (the owner's call, 2026-11-11).
+  const quietEnabled = user?.quiet_hours_enabled !== false;
   const quietStart = user?.quiet_hours_start_minute ?? DEFAULT_QUIET_START;
   const quietEnd = user?.quiet_hours_end_minute ?? DEFAULT_QUIET_END;
 
@@ -124,33 +130,6 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     } finally { finish(request); }
   }, [begin, reminderLeadMinutes, updateUser, isCurrent, reportError, finish]);
 
-  const toggleEmailReminders = useCallback(async (enabled: boolean) => {
-    const request = begin("email");
-    if (!request) return;
-    try { await updateUser({ email_reminders_enabled: enabled }); }
-    catch { reportError("common.error"); }
-    finally { finish(request); }
-  }, [begin, updateUser, reportError, finish]);
-
-  const togglePushKind = useCallback(async (field: PushKindField, enabled: boolean) => {
-    const request = begin(field);
-    if (!request) return;
-    try { await updateUser({ [field]: enabled }); }
-    catch { reportError("common.error"); }
-    finally { finish(request); }
-  }, [begin, updateUser, reportError, finish]);
-
-  const toggleQuietHours = useCallback(async (enabled: boolean) => {
-    const request = begin("quiet");
-    if (!request) return;
-    try {
-      await updateUser({ quiet_hours_enabled: enabled });
-    } catch {
-      reportError("common.error");
-    } finally {
-      finish(request);
-    }
-  }, [begin, updateUser, reportError, finish]);
 
   // The dialog keeps its title and time through the closing fade.
   const [quietShown, setQuietShown] = useState<"start" | "end">("start");
@@ -189,6 +168,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           <SettingsSwitchRow
             title={t("settings.push_notifications")}
             value={pushToggle.value}
+            // Its permission flow waits for the time rows' saves: held, never a tap that does nothing.
             disabled={busyAction !== null}
             onValueChange={pushToggle.toggle}
           />
@@ -198,9 +178,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
                   key={kind.field}
                   title={t(kind.title)}
                   value={user?.[kind.field] ?? true}
-                  disabled={busyAction !== null}
-                  busy={busyAction === kind.field}
-                  onValueChange={(v) => void togglePushKind(kind.field, v)}
+                  onValueChange={(v) => saveIfCurrent({ [kind.field]: v })}
                 />
               ))
             : null}
@@ -222,10 +200,8 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           {user?.email_reminders_available === false ? null : (
             <SettingsSwitchRow
               title={t("settings.email_reminders")}
-              value={user?.email_reminders_enabled ?? false}
-              disabled={busyAction !== null}
-              busy={busyAction === "email"}
-              onValueChange={(v) => void toggleEmailReminders(v)}
+              value={user?.email_reminders_enabled !== false}
+              onValueChange={(v) => saveIfCurrent({ email_reminders_enabled: v })}
             />
           )}
         </SettingsGroup>
@@ -234,9 +210,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           <SettingsSwitchRow
             title={t("settings.quiet_hours")}
             value={quietEnabled}
-            disabled={busyAction !== null}
-            busy={busyAction === "quiet"}
-            onValueChange={(v) => void toggleQuietHours(v)}
+            onValueChange={(v) => saveIfCurrent({ quiet_hours_enabled: v })}
           />
           {quietEnabled ? (
             <>

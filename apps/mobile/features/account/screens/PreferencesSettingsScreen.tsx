@@ -8,6 +8,7 @@ import {
   SettingsMenuRow,
   SettingsPage,
   SettingsSwitchRow,
+  useSettingSave,
   useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { useHaptics } from "@/contexts/AppearanceContext";
@@ -26,13 +27,13 @@ export default function PreferencesSettingsScreen() {
   const { user, updateUser } = useAuth();
   const { t } = useTranslation();
   const action = useSettingsAction();
+  const save = useSettingSave();
   const haptics = useHaptics();
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
 
   const selectedTone = normalizeResponseTone(user?.response_tone ?? DEFAULT_RESPONSE_TONE);
   const selectedEmoji = normalizeEmojiUse(user?.emoji_use);
-  const saving = action.busy !== null;
 
   const openInstructions = () => {
     setInstructionsText(user?.custom_instructions ?? "");
@@ -60,31 +61,19 @@ export default function PreferencesSettingsScreen() {
             value={t(`settings.tone_${selectedTone}`)}
             options={RESPONSE_TONE_ORDER.map((key) => ({ key, label: t(`settings.tone_${key}`) }))}
             selectedKey={selectedTone}
-            disabled={saving}
-            busy={action.busy === "tone"}
-            onSelect={(tone) =>
-              void action.run("tone", () => updateUser({ response_tone: tone }))
-            }
+            onSelect={(tone) => save({ response_tone: tone })}
           />
           <SettingsMenuRow
             title={t("settings.emoji")}
             value={t(`settings.emoji_${selectedEmoji}`)}
             options={EMOJI_USE_ORDER.map((key) => ({ key, label: t(`settings.emoji_${key}`) }))}
             selectedKey={selectedEmoji}
-            disabled={saving}
-            busy={action.busy === "emoji"}
-            onSelect={(level) => void action.run("emoji", () => updateUser({ emoji_use: level }))}
+            onSelect={(level) => save({ emoji_use: level })}
           />
           <SettingsSwitchRow
             title={t("settings.follow_up_suggestions")}
             value={user?.follow_up_suggestions_enabled !== false}
-            disabled={saving}
-            busy={action.busy === "follow_ups"}
-            onValueChange={(next) =>
-              void action.run("follow_ups", () =>
-                updateUser({ follow_up_suggestions_enabled: next }),
-              )
-            }
+            onValueChange={(next) => save({ follow_up_suggestions_enabled: next })}
           />
         </SettingsGroup>
         <SettingsGroup>

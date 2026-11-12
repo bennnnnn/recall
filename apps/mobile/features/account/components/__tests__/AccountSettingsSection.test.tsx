@@ -1,3 +1,4 @@
+import { Linking } from "react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { AccountSettingsSection } from "@/features/account/components/AccountSettingsSection";
@@ -18,9 +19,6 @@ jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn(
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: mockUser, token: "tok" }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/features/account/hooks/useUsage", () => ({ useUsage: () => ({ usage: null }) }));
-jest.mock("@/features/account/hooks/useLiveTalkMinutes", () => ({
-  useLiveTalkMinutes: (enabled: boolean) => (enabled ? { remaining: 42, limit: 60 } : null),
-}));
 jest.mock("@/features/billing/components/UpgradeSheet", () => ({
   UpgradeSheet: ({ visible }: { visible: boolean }) => {
     mockUpgradeVisible = visible;
@@ -52,6 +50,20 @@ it("Plus: manages the subscription and offers the step up to Pro", async () => {
   expect(screen.queryByText(/settings\.live_talk_minutes_left/)).toBeNull();
   await fireEvent.press(screen.getByText('settings.plan_upgrade {"plan":"plans.pro"}'));
   expect(mockUpgradeVisible).toBe(true);
+});
+
+it("paid: the plan is named on its own row, and Manage subscription is a row of its own", async () => {
+  const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+  mockUser = { email: "a@b.c", plan: "pro", features: [...PAID, "live_talk"] };
+  const screen = await render(<AccountSettingsSection />);
+  // The email row says who is signed in; how they signed in is not repeated under it.
+  expect(screen.queryByText(/settings\.signed_in_with/)).toBeNull();
+  // Tapping the plan opens nothing; the store opens from its own row.
+  await fireEvent.press(screen.getByText("plans.pro"));
+  expect(openURL).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByText("settings.manage_subscription"));
+  expect(openURL).toHaveBeenCalledTimes(1);
+  openURL.mockRestore();
 });
 
 it("Pro: no upgrade row, and usage is a row that opens its own page", async () => {

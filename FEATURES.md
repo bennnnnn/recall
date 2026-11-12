@@ -764,7 +764,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   chat-history recall cannot bring a deleted fact back.
 - ✅ **Memory toggle** — off means no personal recall: no new learning, no saved facts in
   replies, no chat-history retrieval or indexing, no instant profile answers (saved facts
-  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one
+  remain until deleted). **Include sensitive topics**, on for a new account since 2026-11-11. **Delete and turn off** is one
   API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.
@@ -858,7 +858,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the device; Haptics off silences every `lib/haptics` call.
 - ✅ **Personalization** — tone labels, emoji and custom instructions. Stored tone ids stay
   `soft` / `casual` / `professional` / `funny`. Emoji (`users.emoji_use`: `off` /
-  `some` / `more`, every account starts at `some`) is the one emoji rule in the prompt
+  `some` / `more`, a new account starts at `more`, "Lots", and the tone at `professional`,
+  the owner's defaults of 2026-11-11, migration 0130) is the one emoji rule in the prompt
   (`modules/chat/response_tone.emoji_hint`): a few lead headings and list labels, never in
   numbers, maths, code, cards, a worked solution, a draft or a painful reply; no tone
   speaks about emoji. The finalize pass `emoji_use` (`modules/chat/emoji_placement.py`)
@@ -914,8 +915,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   The clock is the phone's: it reports its zone the moment it changes (the OS's clock event, each
   return to the foreground). The badge, Home and the editor's Remind at show `notify_at`; for a
   due time the editor has not saved, it asks `GET /todos/reminder-preview`. The phone works out none.
-- ✅ **Email reminders** — opt-in todo-due emails (Resend); Settings
-  toggle; worker scheduler only (welcome + Pro receipt unchanged). Each send of one reminder
+- ✅ **Email reminders** — todo-due emails (Resend), on for a new account since 2026-11-11,
+  as quiet hours (22:00-07:00) and sensitive memory are; Settings toggle; worker scheduler only (welcome + Pro receipt unchanged). Each send of one reminder
   carries the same `Idempotency-Key`, so a resend after a timeout is not mailed twice; an
   address Resend refuses (a 4xx but 429) is not tried again, and a timeout, 429 or 5xx waits
   out a doubling hold (`notifications/send_backoff.py`, Redis) instead of retrying every minute.
@@ -1007,7 +1008,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   every paid row. `GET /billing/plans` gives the paywall each plan's features and numbers.
 - ✅ **Plans sheet** — free sees Plus and Pro side by side; Plus sees the step up to Pro; a
   purchase whose server refresh fails says the plan will update (never "purchase failed").
-  Settings → Account shows the plan, live talk minutes left (Pro) and "Upgrade to Pro" (Plus).
+  Settings → Account shows the email, the plan, its own Manage subscription row (paid) and
+  "Upgrade to Pro" (Plus); Usage shows only the messages left today (2026-11-11).
 - ✅ **Dev plan toggle** — the plans sheet shows **Enable Plus / Enable Pro (dev only)**
   (development builds only; `POST /auth/me/pro-dev?plan=`).
 - 🔜 App Store / Play billing polish, promotional offers, family plans.

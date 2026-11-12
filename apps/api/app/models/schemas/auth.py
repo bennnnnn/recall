@@ -46,20 +46,20 @@ class UserOut(BaseModel):
     avatar_url: str | None
     plan: str = "free"
     enabled_models: list[str] | None = None
-    response_tone: str = "casual"
-    emoji_use: str = "some"
+    response_tone: str = "professional"
+    emoji_use: str = "more"
     memory_enabled: bool
     follow_up_suggestions_enabled: bool = True
-    memory_include_sensitive: bool = False
+    memory_include_sensitive: bool = True
     web_search_enabled: bool = True
     # When the user agreed to what is sent to outside AI services; null until then.
     ai_data_consent_at: datetime | None = None
     push_notifications_enabled: bool = True
     push_reminders_enabled: bool = True
     tts_voice: str | None = None
-    email_reminders_enabled: bool = False
+    email_reminders_enabled: bool = True
     reminder_lead_minutes: int = 10
-    quiet_hours_enabled: bool = False
+    quiet_hours_enabled: bool = True
     quiet_hours_start_minute: int = 1320
     quiet_hours_end_minute: int = 420
     locale: str = "en"
