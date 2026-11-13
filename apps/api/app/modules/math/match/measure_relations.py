@@ -41,9 +41,8 @@ _RELATION = re.compile(
     r"|\b(?:subtract(?:s|ed|ing)?|minus|plus|remove[ds]?|cut\s+(?:out|off|away)|hollow"
     r"|shaded|inner|outer|outside|inscribed|circumscribed|combined|together|similar"
     r"|difference)\b"
-    # One shape taken from another, or what remains of it.
-    r"|\b(?:cut\s+(?:from|in|into)|taken\s+(?:away|out|off|from)|left|remaining|remainder"
-    r"|rest\s+of|unshaded)\b"
+    # One shape taken from another; "the remaining angle" of a triangle is no such thing.
+    r"|\b(?:cut\s+(?:from|in|into)|taken\s+(?:away|out|off|from)|unshaded)\b"
     r"|\bin\s+the\s+ratio\b|\b(?:areas|volumes|perimeters|circumferences)\b"
     # The same, said as an operator: "3 * its base", "7 cm - the area of a circle".
     r"|[*\u00d7\u00b7]\s*(?:the|its|their|that|this)\b|\s[-+]\s+(?:the|its|their|that|this|an?)\s",
