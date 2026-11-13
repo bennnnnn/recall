@@ -18,7 +18,9 @@ _LABEL = re.compile(
 )
 _BRACED = r"\{([^{}]*)\}"
 _FRAC = re.compile(r"\\[dt]?frac\s*" + _BRACED + r"\s*" + _BRACED)
-_SQRT_INDEX = re.compile(r"\\sqrt\s*\[\s*([^\]]+?)\s*\]\s*" + _BRACED)
+# The index is words split by space, each run read once: "\sqrt[" and a run of spaces took
+# cubic time as a lazy index beside \s*.
+_SQRT_INDEX = re.compile(r"\\sqrt\s*+\[\s*+([^\]\s]++(?:\s++[^\]\s]++)*+)\s*+\]\s*+" + _BRACED)
 _SQRT = re.compile(r"\\sqrt\s*" + _BRACED)
 _TEXT = re.compile(r"\\(?:text|mathrm|mathbf|mathit|operatorname)\s*" + _BRACED)
 _BLACKBOARD = {"R": "ℝ", "Z": "ℤ", "N": "ℕ", "Q": "ℚ", "C": "ℂ"}

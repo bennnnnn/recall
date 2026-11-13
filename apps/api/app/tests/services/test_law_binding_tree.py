@@ -129,7 +129,7 @@ def _walk(tree: dict[str, Any], values: dict[str, float]) -> float:
 @pytest.mark.parametrize("item", [o for p in PRODUCTS for o in p.outputs], ids=lambda o: o.name)
 def test_every_catalog_tree_walks_to_the_servers_number(item: Any) -> None:
     owner = next(p for p in PRODUCTS if item in p.outputs)
-    values = {name: 1.0 for name in names(item.expression)}
+    values = dict.fromkeys(names(item.expression), 1.0)
     values.update({"rate": 5.0, "apr": 20.0, "payment": 500.0})
     values = {name: values[name] for name in names(item.expression)}
     assert owner.key

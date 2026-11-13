@@ -22,7 +22,10 @@ from app.gateways.stream_tool_calls import StreamedToolCalls
 CALL_OPEN = "<tool_call>"
 CALL_CLOSE = "</tool_call>"
 _ARGUMENT = re.compile(
-    r"<arg_key>\s*([^<]+?)\s*(?:</arg_key>)?\s*<arg_value>(.*?)</arg_value>", re.DOTALL
+    # A key is words split by space, each run of space read one way: written as a lazy group
+    # beside \s*, "<arg_key>" and a run of spaces took cubic time.
+    r"<arg_key>\s*+([^<\s]++(?:\s++[^<\s]++)*+)\s*+(?:</arg_key>)?\s*+<arg_value>(.*?)</arg_value>",
+    re.DOTALL,
 )
 # The longest text held back while a call may still close.
 _MAX_CALL = 8_192

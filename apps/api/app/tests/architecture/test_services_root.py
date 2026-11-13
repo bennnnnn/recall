@@ -57,8 +57,7 @@ def _root_owners() -> dict[str, set[str]]:
             for name in names:
                 if name in roots and me != f"services.{name}":
                     found[name].add(me)
-    for name, importers in found.items():
-        owners[name] = importers
+    owners.update(found)
     return owners
 
 

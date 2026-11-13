@@ -34,11 +34,11 @@ _ITEM_FORMS = (
 )
 _ITEM_SPLIT = re.compile(r"\s?,\s*(?:and\s+)?|\sand\s+", re.IGNORECASE)
 _CHANGE = re.compile(
-    rf"{_PERSON}\s+(?:bought|buy|buys|purchased)\s+(?P<items>.+?)\s*[.;]\s*"
+    rf"{_PERSON}\s+(?:bought|buy|buys|purchased)\s++(?P<items>.*?\S)\s*+[.;]\s*+"
     rf"{_PERSON}\s+(?:paid|pay|pays|gave|gives|handed|hand)\s+(?:the\s+cashier\s+)?"
     rf"(?:with\s+)?(?:an?\s+)?{_PRICE.format('paid')}(?:\s+(?:bill|note))?"
-    rf"\s*[.,;]?\s*(?:how\s+much\s+change\s+(?:do|does|did|will|should|would)\s+{_PERSON}\s+"
-    r"(?:get|receive)(?:\s+back)?|what\s+is\s+the\s+change)\s*[?.!]?\s*",
+    rf"\s*+[.,;]?\s*+(?:how\s+much\s+change\s+(?:do|does|did|will|should|would)\s+{_PERSON}\s+"
+    r"(?:get|receive)(?:\s+back)?|what\s+is\s+the\s+change)\s*+[?.!]?\s*+",
     re.IGNORECASE,
 )
 _MAX_ITEMS = 6

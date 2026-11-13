@@ -14,6 +14,11 @@ _NAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,23}\Z")
 _COMMAND = re.compile(r"([a-z]+)\s+(.+)\Z", re.IGNORECASE | re.DOTALL)
 
 
+# "x from 0 to 2": each part ends on a mark and each run of space is read once (a lazy part
+# beside \s+ took cubic time on "from" and a run of spaces).
+_LIMITS = re.compile(r"(.*?\S)\s++from\s++(.*?\S)\s++to\s++(.+)", re.IGNORECASE)
+
+
 def is_symbolic_physics_request(text: str) -> bool:
     return _PREFIX.match(text) is not None
 
@@ -66,7 +71,7 @@ def parse_symbolic_physics_request(text: str) -> SymbolicPhysicsRequest | None:
             return None
         body, tail = parts
         if operation == "integrate":
-            limits = re.fullmatch(r"(.+?)\s+from\s+(.+?)\s+to\s+(.+)", tail, re.IGNORECASE)
+            limits = _LIMITS.fullmatch(tail)
             if limits is not None:
                 tail = limits[1]
                 bounds = (limits[2].strip(), limits[3].strip())
