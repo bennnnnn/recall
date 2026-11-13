@@ -17,7 +17,8 @@ REVENUECAT_TIMEOUT_SECONDS = 15.0
 
 
 async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] | None:
-    if not secret_key.strip():
+    if not secret_key.strip() or app_user_id.strip(".") == "":
+        # "." and ".." are path steps even encoded: no subscriber is named that.
         return None
     # The id is one path segment, encoded as RevenueCat asks: a "/", "?" or ".." in it may never
     # reach another of its endpoints (CodeQL py/partial-ssrf).

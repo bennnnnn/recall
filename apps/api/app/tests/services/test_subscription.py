@@ -395,3 +395,17 @@ async def test_a_subscriber_id_is_one_url_segment(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(revenuecat_gateway, "get_pooled_client", lambda _timeout: _Client())
     await revenuecat_gateway.fetch_subscriber("sk_test", "../../v2/projects?x=1")
     assert asked == [f"{revenuecat_gateway.REVENUECAT_API}/..%2F..%2Fv2%2Fprojects%3Fx%3D1"]
+
+
+@pytest.mark.parametrize("app_user_id", ["", ".", ".."])
+@pytest.mark.asyncio
+async def test_a_dot_step_is_no_subscriber(
+    monkeypatch: pytest.MonkeyPatch, app_user_id: str
+) -> None:
+    """Review: an id that is exactly ".." still stepped up a path segment once encoded."""
+
+    def no_client(_timeout: float) -> object:
+        raise AssertionError("no request")
+
+    monkeypatch.setattr(revenuecat_gateway, "get_pooled_client", no_client)
+    assert await revenuecat_gateway.fetch_subscriber("sk_test", app_user_id) is None
