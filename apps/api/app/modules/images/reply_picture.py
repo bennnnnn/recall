@@ -143,6 +143,8 @@ class ReplyPicture:
         try:
             return await asyncio.wait_for(asyncio.shield(self._figure), timeout=_WAIT_SECONDS)
         except Exception:
+            # No answer from the read is no figure: the picture is drawn as asked.
+            logger.info("reply picture's figure read failed", exc_info=True)
             return False
 
     async def attach(self, text: str) -> tuple[str, list[UUID]]:

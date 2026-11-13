@@ -19,7 +19,7 @@ from typing import Any
 from app.core.config import get_settings
 from app.modules.math import solve as math_solve
 from app.modules.math.figure.drawing import number_text
-from app.modules.math.figure.grounding import stated_in
+from app.modules.math.figure.grounding import number_value, stated_in
 from app.modules.math.figure.request import FigureRequest
 from app.modules.math.schemas import GraphBlockSpec, GraphSampleInput, NumberLineInterval
 from app.modules.math.schemas.figure import NumberLineMark, PlotPoint, PointsGraphSpec
@@ -30,26 +30,9 @@ _EN_DASH = "\u2013"
 _DEFAULT_RANGE = 10.0
 # A points plot shows at least -5..5 on each axis, and a unit past its farthest point.
 _PLANE_REACH = 5.0
-_NUMBER = re.compile(r"^\s*([+-]?)\s*(\d+(?:\.\d+)?)(?:\s+(\d+)\s*/\s*(\d+)|\s*/\s*(\d+))?\s*$")
 _COMPARATORS = {"≤": "<=", "≥": ">=", "=<": "<=", "=>": ">="}
 # Whole numbers marked one by one: more would crowd the line.
 _MAX_MARKS = 25
-
-
-def number_value(written: str) -> Fraction | None:
-    """'-5/2', '1.5', '2 1/2' as an exact value; None for anything else."""
-    match = _NUMBER.match(written.replace(_MINUS, "-").replace(_EN_DASH, "-"))
-    if match is None:
-        return None
-    sign, whole, top, bottom, denominator = match.groups()
-    value = Fraction(whole)
-    if top is not None and bottom is not None and int(bottom):
-        value += Fraction(int(top), int(bottom))
-    elif denominator is not None:
-        if not int(denominator):
-            return None
-        value = Fraction(whole) / int(denominator)
-    return -value if sign == "-" else value
 
 
 def number_line(request: FigureRequest, texts: list[str]) -> dict[str, object] | None:

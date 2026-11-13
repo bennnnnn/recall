@@ -56,6 +56,8 @@ _ANGLE_WHATS = frozenset({"angle", "apex_angle", "base_angle"})
 _TOLERANCE = 1e-9
 # "1,200" is twelve hundred; a comma between coordinates stays.
 _PAIR = re.compile(r"\(([^()]*[,;][^()]*)\)")
+# One number as a reading writes it: "-5/2", "1.5", "2 1/2".
+_WRITTEN = re.compile(r"^\s*([+-]?)\s*(\d+(?:\.\d+)?)(?:\s+(\d+)\s*/\s*(\d+)|\s*/\s*(\d+))?\s*$")
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")
 
 
@@ -150,6 +152,22 @@ def written_numbers(text: str) -> list[Written]:
     return found
 
 
+def number_value(written: str) -> Fraction | None:
+    """'-5/2', '1.5', '2 1/2' as an exact value; None for anything else."""
+    match = _WRITTEN.match(written.replace("\u2212", "-").replace("\u2013", "-"))
+    if match is None:
+        return None
+    sign, whole, top, bottom, denominator = match.groups()
+    value = Fraction(whole)
+    if top is not None and bottom is not None and int(bottom):
+        value += Fraction(int(top), int(bottom))
+    elif denominator is not None:
+        if not int(denominator):
+            return None
+        value = Fraction(whole) / int(denominator)
+    return -value if sign == "-" else value
+
+
 def _counts(texts: Iterable[str]) -> set[int]:
     """Numbers of sides a polygon's name states ("hexagon": 6)."""
     words = {word for text in texts for word in re.findall(r"[a-z]+", text.lower())}
@@ -203,8 +221,6 @@ def _measures_hold(request: FigureRequest, found: list[Written]) -> bool:
 
 
 def _numbers_hold(request: FigureRequest, found: list[Written]) -> bool:
-    from app.modules.math.figure.coordinate import number_value
-
     for written in request.numbers:
         value = number_value(written)
         if value is None or not _signed(found, float(value)):
