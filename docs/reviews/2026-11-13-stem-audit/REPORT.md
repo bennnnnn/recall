@@ -20,7 +20,7 @@ checked here, and why.
 | Repo test suites: architecture, registry, battery and sweep tests; all three STEM sweeps; mobile typecheck and lint; about 1,200 targeted backend and jest tests run by the sub-audits | **OCR and handwriting accuracy.** Mathpix and the vision model cannot run, so scanner findings come from code paths plus faked gateways. |
 | Fresh benchmarks: 187 new questions with independently worked answers, plus about 300 targeted probes | **Native rendering on a device.** There is no simulator, so it was checked through jest and code reading. **Production concurrency, DB and Redis latency:** no Neon or Redis here. |
 
-The schema-vs-migrations test failed only because it needs Postgres (`test_schema_matches_migrations.py`; environmental, not a defect). Mobile jest: see §F.
+The schema-vs-migrations test failed only because it needs Postgres (`test_schema_matches_migrations.py`; environmental, not a defect). Mobile jest: 783/783 suites passed (§F).
 
 ---
 
@@ -423,7 +423,9 @@ latency were not measurable** (§0).
 
 Lightweight turns are **not** waiting on expensive work: readings have a reserved lane and stayed at 0.21 s under saturation.
 
-**Mobile suites.** Typecheck passed in 44 s and lint in 94 s. For the full jest run, see the commit message or session notes. The sub-audits ran 40 + 11 + 2 targeted suites (482 + 149 + 153 tests) and all passed.
+**Mobile suites.** Typecheck passed in 44 s and lint in 94 s. Full jest (`pnpm jest -w 1`): **783/783 suites, 16,185 passed, 7 skipped**, in 1,699 s on one worker. The 7 skipped are the known phone/server graph-expression differences in `docs/fixtures/graph_expr_cases.json`.
+
+**Backend suites run here.** Architecture, subject registry and completeness, battery and behaviour sweep: 3,987 passed, 4 xfailed, and 1 failed only for lack of Postgres. The sub-audits' targeted backend tests (about 1,200) all passed.
 
 ---
 
