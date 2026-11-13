@@ -315,26 +315,39 @@ def reply_picture_prompt(content: str, settings: Settings) -> str | None:
 
 
 def start_reply_picture(
-    deps: ChatTurnDeps, settings: Settings, *, user: User, chat_id: UUID, content: str
+    deps: ChatTurnDeps,
+    settings: Settings,
+    *,
+    user: User,
+    chat_id: UUID,
+    content: str,
+    read: asyncio.Task[TurnDecision | None] | None = None,
 ) -> ReplyPicture | None:
     """The picture one part of a multi-part message asks for, drawn beside the answer.
 
     "Draw a cat wearing a hat and also explain what a black hole is": the intercept
-    above declines the whole line, so the model answers the rest while this draws.
+    above declines the whole line, so the model answers the rest while this draws. "Draw
+    the cylinder and find its volume" is a maths figure when the turn's read says so: maths
+    draws it, and no painting (nor a line saying none came) goes with the reply.
     """
     prompt = reply_picture_prompt(content, settings)
     if not prompt:
         return None
+    figure = (
+        asyncio.ensure_future(read_asks_for_a_figure(read, settings.live_read_wait_seconds))
+        if read is not None
+        else None
+    )
     # The line saying why not is in the reply's language, which follows the message. The
     # picture part is only recognised in English ("draw …"), so a message no language
     # plainly claims gets an English reply, and an English line under it.
     language = line_language(content, "en")
     if not settings.image_generation_enabled:
-        return ReplyPicture.refused(prompt, "not_available", language)
+        return ReplyPicture.refused(prompt, "not_available", language, figure)
     if not deps.plan.can_use(user, "image_generation", settings):
-        return ReplyPicture.refused(prompt, "not_in_plan", language)
+        return ReplyPicture.refused(prompt, "not_in_plan", language, figure)
     return ReplyPicture.start(
-        settings, user=user, chat_id=chat_id, prompt=prompt, language=language
+        settings, user=user, chat_id=chat_id, prompt=prompt, language=language, figure=figure
     )
 
 

@@ -259,7 +259,7 @@ async def stream_chat_response(
         _attach_reads(ctx, settings, live_read, misses)
         try:
             ctx.reply_picture = start_reply_picture(
-                deps, settings, user=turn.user, chat_id=chat_id, content=content
+                deps, settings, user=turn.user, chat_id=chat_id, content=content, read=live_read
             )
             await top_up_reserve_for_prompt(
                 res, settings=settings, ctx=ctx, daily_limit=turn.daily_limit
@@ -386,7 +386,7 @@ async def stream_regenerate_response(
             daily_limit=deps.quota.daily_limit_for_user(turn.user, settings),
         )
         ctx.reply_picture = start_reply_picture(
-            deps, settings, user=turn.user, chat_id=chat_id, content=turn.content
+            deps, settings, user=turn.user, chat_id=chat_id, content=turn.content, read=live_read
         )
         try:
             async for token in stream_and_finalize(

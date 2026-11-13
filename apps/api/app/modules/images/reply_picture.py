@@ -79,8 +79,16 @@ async def draw_unlinked(settings: Settings, *, user: User, chat_id: UUID, prompt
     return stored.image.attachment_id
 
 
+class _AFigure(Exception):
+    """The turn's read made the picture a maths figure, which maths draws itself."""
+
+
 class ReplyPicture:
-    """One picture for one reply: started with the turn, attached when the reply ends."""
+    """One picture for one reply: started with the turn, attached when the reply ends.
+
+    ``figure`` answers whether the turn's read calls the picture a maths figure ("draw the
+    cylinder and find its volume"): maths draws that from the question's values, so no
+    painting is made (nor a day's picture spent) and no line says one was not."""
 
     def __init__(
         self,
@@ -90,12 +98,14 @@ class ReplyPicture:
         refusal: Reason | None = None,
         locale: str | None = None,
         paid: bool = False,
+        figure: asyncio.Task[bool] | None = None,
     ) -> None:
         self.subject = subject
         self._task = task
         self._refusal = refusal
         self._locale = locale
         self._paid = paid
+        self._figure = figure
 
     @classmethod
     def start(
@@ -106,21 +116,39 @@ class ReplyPicture:
         chat_id: UUID,
         prompt: str,
         language: str | None = None,
+        figure: asyncio.Task[bool] | None = None,
     ) -> ReplyPicture:
-        """Start drawing; a line saying why not is in ``language`` (else the app's)."""
-        task = asyncio.create_task(
-            draw_unlinked(settings, user=user, chat_id=chat_id, prompt=prompt),
-            name="reply_picture",
-        )
-        return cls(prompt, task=task, locale=language or user.locale, paid=is_paid(user))
+        """Start drawing once the read says it is no maths figure; a line saying why not is
+        in ``language`` (else the app's)."""
+
+        async def drawn() -> UUID:
+            if figure is not None and await asyncio.shield(figure):
+                raise _AFigure
+            return await draw_unlinked(settings, user=user, chat_id=chat_id, prompt=prompt)
+
+        task = asyncio.create_task(drawn(), name="reply_picture")
+        locale = language or user.locale
+        return cls(prompt, task=task, locale=locale, paid=is_paid(user), figure=figure)
 
     @classmethod
-    def refused(cls, subject: str, code: str, locale: str | None) -> ReplyPicture:
+    def refused(
+        cls, subject: str, code: str, locale: str | None, figure: asyncio.Task[bool] | None = None
+    ) -> ReplyPicture:
         """The picture cannot be drawn (the plan, drawing off): one line, by generation's code."""
-        return cls(subject, task=None, refusal=reason_for_code(code), locale=locale)
+        return cls(subject, task=None, refusal=reason_for_code(code), locale=locale, figure=figure)
+
+    async def _is_figure(self) -> bool:
+        if self._figure is None or self._figure.cancelled():
+            return False
+        try:
+            return await asyncio.wait_for(asyncio.shield(self._figure), timeout=_WAIT_SECONDS)
+        except Exception:
+            return False
 
     async def attach(self, text: str) -> tuple[str, list[UUID]]:
         """The reply with the picture above it, and its id; or the reply and why not."""
+        if await self._is_figure():
+            return text, []
         if self._task is None:
             return self._with_note(text, self._refusal or "failed"), []
         try:
@@ -129,6 +157,8 @@ class ReplyPicture:
             # A picture finished after the reply saved stays unlinked; the reaper removes it.
             logger.info("Reply picture took too long; the reply goes without it")
             return self._with_note(text, "too_slow"), []
+        except _AFigure:
+            return text, []
         except generation.ImageGenerationError as exc:
             # By its code: the refusal's English (or a provider's words) never goes in.
             return self._with_note(text, reason_for_code(exc.code)), []
@@ -145,3 +175,5 @@ class ReplyPicture:
         """A stopped reply draws nothing: cancelling gives the day's slot back."""
         if self._task is not None and not self._task.done():
             self._task.cancel()
+        if self._figure is not None and not self._figure.done():
+            self._figure.cancel()

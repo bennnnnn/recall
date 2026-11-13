@@ -399,3 +399,28 @@ async def test_settings_card_is_none_for_one_request() -> None:
         await settings_card(_identity(), Settings(), AsyncMock(), plan_turn("switch to dark mode"))
         is None
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("can_use", [True, False])
+async def test_a_maths_figure_is_never_painted_nor_said_to_be_missing(can_use: bool) -> None:
+    """ "Draw the cylinder and find its volume": the turn's read calls it a maths figure,
+    which maths draws from the question's values; no painting, and no line saying none."""
+    from app.modules.chat.turn_decision import TurnDecision
+
+    async def read() -> TurnDecision | None:
+        return TurnDecision(live=False, think=False, subject="maths", picture="diagram")
+
+    drawn = AsyncMock(return_value=uuid4())
+    with patch("app.modules.images.reply_picture.draw_unlinked", drawn):
+        picture = start_reply_picture(
+            _deps(can_use=can_use),
+            Settings(),
+            user=User(id=uuid4(), plan="pro", locale="en"),
+            chat_id=uuid4(),
+            content="draw a cat wearing a hat and also explain what a black hole is",
+            read=asyncio.ensure_future(read()),
+        )
+        assert picture is not None
+        assert await picture.attach("Answer.") == ("Answer.", [])
+    drawn.assert_not_awaited()
