@@ -283,6 +283,16 @@ def maybe_direct_subject_reply(
     )
 
 
+# The order subjects are asked whether they show a line. Any one that shows it settles it,
+# so the answer never depends on the order, but the cost does: each look is a read in the
+# SymPy pool on the path before the model, and the first subject that shows the line saves
+# the reads after it. A "show it" after a curve or a shape is maths' far more often than
+# physics', so maths is asked first and such a line pays one read, not two. Chemistry's
+# molecules ("show me both") come before either. Every subject is here
+# (``test_subject_shows_it_order``).
+SHOWING: tuple[SubjectName, ...] = ("chemistry", "math", "physics")
+
+
 def asks_a_subject_to_show(line: str) -> bool:
     """A cheap look, with no chat read: some subject could show what the line asks to see."""
     return any(adapter.followups.asks_to_see(line) for adapter in SUBJECTS)
@@ -306,8 +316,8 @@ async def subject_shows_it(
         for role, content in map(message_role_content, recent)
         if role is not None and content is not None
     ]
-    # Any subject that shows it settles it, so the order they are asked in decides nothing.
-    for adapter in SUBJECTS:
+    for name in SHOWING:
+        adapter = subject_adapter(name)
         followups = adapter.followups
         if not adapter.enabled(settings) or not followups.asks_to_see(line, recent):
             continue
