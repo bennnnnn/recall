@@ -131,4 +131,17 @@ describe("a server-drawn figure", () => {
     expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(Math.max(...ys) - Math.min(...ys), 0);
     expect(layout.dots).toHaveLength(1);
   });
+
+  it.each([
+    ["an arc sweeping more than a turn", { start: 0, end: 1e6 }],
+    ["an arc starting past a turn", { start: 400, end: 500 }],
+  ])("refuses %s", (_name, range) => {
+    const raw = {
+      type: "figure",
+      shape: "circle_parts",
+      points: [{ name: "O", x: 0, y: 0 }],
+      arcs: [{ center: "O", rx: 3, ry: 3, ...range }],
+    };
+    expect(parseFigure(raw)).toBeNull();
+  });
 });

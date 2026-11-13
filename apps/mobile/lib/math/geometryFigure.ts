@@ -111,6 +111,8 @@ function readArcs(value: unknown, known: Set<string>): FigureArc[] | null {
     const end = row.end === undefined ? 360 : row.end;
     if (!center || !known.has(center) || !finite(row.rx) || !finite(row.ry)) return null;
     if (row.rx <= 0 || row.ry <= 0 || !finite(start) || !finite(end) || end <= start) return null;
+    // As the server bounds them: at most one full turn, from within one turn of 0°.
+    if (start < -360 || start > 360 || end > 720 || end - start > 360) return null;
     out.push({ center, rx: row.rx, ry: row.ry, start, end, dashed: row.dashed === true });
   }
   return out;

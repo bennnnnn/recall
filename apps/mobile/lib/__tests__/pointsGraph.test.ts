@@ -1,4 +1,4 @@
-import { parsePointsGraph, quadrantNumerals } from "@/lib/math/pointsGraph";
+import { parsePointsGraph, pointsChartHeight, quadrantNumerals } from "@/lib/math/pointsGraph";
 
 const G16 = {
   type: "points",
@@ -30,5 +30,20 @@ describe("points on a coordinate plane", () => {
     ["another kind of graph", { ...G16, type: "function" }],
   ])("refuses %s", (_name, raw) => {
     expect(parsePointsGraph(JSON.stringify(raw))).toBeNull();
+  });
+
+  it.each([
+    ["one axis far taller", { ...G16, points: [{ x: 1, y: 60, label: "(1, 60)" }], y_min: -181, y_max: 181 }],
+    ["one axis far wider", { ...G16, points: [{ x: 100, y: 2, label: "(100, 2)" }], x_min: -101, x_max: 101 }],
+  ])("keeps the card a sensible shape with %s", (_name, raw) => {
+    const graph = parsePointsGraph(JSON.stringify(raw));
+    const height = graph ? pointsChartHeight(graph, 330, 16) : 0;
+    expect(height).toBeGreaterThanOrEqual(0.5 * 298 + 32);
+    expect(height).toBeLessThanOrEqual(1.25 * 298 + 32);
+  });
+
+  it("draws a unit as tall as it is wide when that fits", () => {
+    const graph = parsePointsGraph(JSON.stringify(G16));
+    expect(graph && pointsChartHeight(graph, 330, 16)).toBeCloseTo(330);
   });
 });

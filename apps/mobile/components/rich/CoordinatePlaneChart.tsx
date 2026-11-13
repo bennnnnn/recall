@@ -5,7 +5,7 @@ import Svg, { Circle, G, Text as SvgText } from "react-native-svg";
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import { GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import { mapGraphPoint } from "@/lib/math/graphBlock";
-import { quadrantNumerals, type PointsGraph } from "@/lib/math/pointsGraph";
+import { pointsChartHeight, quadrantNumerals, type PointsGraph } from "@/lib/math/pointsGraph";
 import { type Theme } from "@/lib/theme";
 import { Weight } from "@/lib/type";
 
@@ -14,7 +14,7 @@ const LABEL_FONT = 12;
 /** A label's width estimate, for flipping it left near the right edge. */
 const CHAR_EM = 0.6;
 
-/** Lettered points on a coordinate plane, one unit as wide as it is tall. */
+/** Lettered points on a coordinate plane, one unit as wide as it is tall where that fits. */
 export function CoordinatePlaneChart({
   graph,
   width,
@@ -28,8 +28,7 @@ export function CoordinatePlaneChart({
 }) {
   const clipId = useId();
   const bounds = { xMin: graph.xMin, xMax: graph.xMax, yMin: graph.yMin, yMax: graph.yMax };
-  const inner = width - GRAPH_AXIS_PAD * 2;
-  const height = inner * ((graph.yMax - graph.yMin) / (graph.xMax - graph.xMin)) + GRAPH_AXIS_PAD * 2;
+  const height = pointsChartHeight(graph, width, GRAPH_AXIS_PAD);
   const at = (x: number, y: number) => mapGraphPoint(x, y, bounds, width, height, GRAPH_AXIS_PAD);
   return (
     <View style={styles.wrap}>

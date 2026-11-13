@@ -61,3 +61,18 @@ export function quadrantNumerals(graph: PointsGraph): { text: string; x: number;
     { text: "IV", x: xMax / 2, y: yMin / 2 },
   ];
 }
+
+/** The tallest and the flattest a coordinate plane is drawn, as a share of its width. */
+const MAX_ASPECT = 1.25;
+const MIN_ASPECT = 0.5;
+
+/**
+ * The plane's height for ``width``: one unit as tall as it is wide while that keeps the
+ * card a sensible shape; points far up one axis ((1, 60) to (3, 180)) stretch the other
+ * instead of drawing a card 10,000 px tall or 47 px flat.
+ */
+export function pointsChartHeight(graph: PointsGraph, width: number, pad: number): number {
+  const inner = Math.max(width - pad * 2, 1);
+  const square = (graph.yMax - graph.yMin) / (graph.xMax - graph.xMin);
+  return inner * Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, square)) + pad * 2;
+}
