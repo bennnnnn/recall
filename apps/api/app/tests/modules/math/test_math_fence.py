@@ -1081,3 +1081,24 @@ def test_a_model_diagram_with_no_verified_picture_goes_without_a_note() -> None:
     assert "```geometry" not in out
     assert "Could not render" not in out
     assert "Look:" in out and "Done." in out
+
+
+@pytest.mark.parametrize(
+    "model_fence, shown",
+    [
+        # A circle the turn did not draw: no rectangle under its caption (it showed twice).
+        ('{"type":"circle","radius":3}', 1),
+        ('{"type":"rect","width":8,"height":5}', 2),
+    ],
+)
+def test_a_model_shape_takes_only_the_turn_s_picture_of_that_shape(
+    model_fence: str, shown: int
+) -> None:
+    canonical = {"type": "rectangle", "width": 8, "height": 5, "unit": "cm"}
+    content = (
+        '**(a)** The rectangle:\n\n```geometry\n{"type":"rectangle","width":8,"height":5}\n```'
+        f"\n\n**(b)** The other shape:\n\n```geometry\n{model_fence}\n```\n\nDone."
+    )
+    out = validate_math_fences(content, verified=_verified(canonical))
+    assert out.replace(" ", "").count('"type":"rectangle"') == shown
+    assert '"type":"circle"' not in out

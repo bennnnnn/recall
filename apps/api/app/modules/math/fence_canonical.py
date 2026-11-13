@@ -1,8 +1,9 @@
 """Which verified fence of the turn stands in for a solver-owned fence the model wrote.
 
 ``math.fence`` rewrites the model's ```geometry and ```graph fences to the turn's canonical
-ones; this matches them: by type, a graph step to the verified number line, and failing
-those the turn's verified picture of the same kind.
+ones; this matches them: by type and shape, a graph step to the verified number line, and
+failing those, for a fence naming no shape of its own, the turn's verified picture of the
+same kind. A fence naming a shape the turn did not draw has no stand-in, and goes.
 """
 
 from __future__ import annotations
@@ -24,6 +25,9 @@ _GEOMETRY_TYPES = frozenset(
     }
 )
 _GRAPH_TYPES = frozenset({"function", "vertical", "number_line", "trajectory", "inequality"})
+_ALIASES = {"rect": "rectangle", "trapezoid": "trapezium"}
+# Shapes a model's fence may name: one of these that the turn did not draw is dropped.
+_KNOWN = (_GEOMETRY_TYPES | _GRAPH_TYPES | {"points", "trapezium", "rhombus", "kite"}) - {"rect"}
 
 
 def canonical_replacement(
@@ -58,7 +62,7 @@ def canonical_replacement(
         return _same_kind(fences, label)
     data_type = data.get("type")
     for fence in fences:
-        if data_type == fence.get("type"):
+        if data_type == fence.get("type") and _shape(data) in {None, _shape(fence)}:
             return json.dumps(fence, separators=(",", ":"))
     # Model often emits a y=f(x) step for "graph x > 3"; replace any graph
     # fence with the verified number line.
@@ -77,13 +81,34 @@ def canonical_replacement(
             "trajectory",
         }:
             return json.dumps(fence, separators=(",", ":"))
+    for fence in fences:
+        if _shape(data) is not None and _shape(fence) == _shape(data):
+            return json.dumps(fence, separators=(",", ":"))  # a rectangle the server drew
+    if _shape(data) in _KNOWN:
+        # The model drew a shape of its own ("circle" on a turn that drew a rectangle):
+        # no picture of the turn stands in for it.
+        return None
     return _same_kind(fences, label)
 
 
+def _shape(spec: dict[str, object]) -> str | None:
+    """The shape a fence draws: its type, or a figure's shape ("rectangle", "circle_square")."""
+    name = spec.get("shape") if spec.get("type") == "figure" else spec.get("type")
+    if not isinstance(name, str):
+        return None
+    # A triangle by its sides, a right one, an isosceles one: all a triangle.
+    return (
+        "triangle"
+        if name.endswith("triangle") or name == "triangle_sides"
+        else (_ALIASES.get(name, name))
+    )
+
+
 def _same_kind(fences: list[dict[str, object]], label: str | None) -> str | None:
-    """The turn's verified picture of the fence's kind, whatever the model called its own:
+    """The turn's verified picture of the fence's kind, when the model's own names no shape:
     a ```graph the model typed "line" (or wrote unreadably) on a turn that drew y = 2x + 1
-    is that graph, in the model's place."""
+    is that graph, in the model's place. A fence naming another shape is never matched
+    here: a rectangle stood in for a model's circle, under the circle's caption."""
     if label is None:
         return None
     for fence in fences:
