@@ -9,10 +9,11 @@ indented lines are left alone (twin: apps/mobile/lib/markdown/leadLines.ts).
 A worked reply's headings start their own paragraph too, whatever line is above them. A
 model wrote its sections with single breaks ("$3x - 5 < 2x + 4$" then "**Required**"), and
 the phone showed "3x - 5 < 2x + 4 **Required** Solve for x. **Solution**" on one row
-(2026-11-13). In a reply that heads a line **Given** or **Required**, a heading is a bold
-line alone (a section, a formula's name, a part, a bold value) or a section's, a part's or
-a numbered move's bold title with words after it ("**1. Subtract 2x** — subtraction
-property"). A bold label in a sentence ("**Speed:** 3 m/s") is the line it is on, and stays.
+(2026-11-13). In a reply that heads a line **Given** or **Required**, a heading is a
+section's, a part's or a numbered move's bold title ("**1. Subtract 2x** — subtraction
+property") or a bold line alone that reads as a title (a formula's name, a bold value). A
+bold label in a sentence ("**Speed:** 3 m/s"), a bold word inside one and a display
+formula's lines stay as they are.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from app.modules.chat.markdown_regions import map_prose_outside_fences
+from app.modules.chat.markdown_regions import display_math_lines, map_prose_outside_fences
 from app.services.workout import (
     ANSWER,
     FORMULA,
@@ -42,7 +43,7 @@ _BOLD_HEAD = re.compile(r"^\*\*(?P<title>[^*\n]+)\*\*(?P<rest>.*)$")
 _SECTIONS = frozenset({GIVEN, *REQUIRED_HEADINGS, SOLUTION, FORMULA, SUBSTITUTION, STEPS, ANSWER})
 # "Answer (a)", "1. Subtract 4", "2) Divide", "(b) Speed", "Part (c): Time", "d) Distance".
 _TITLE = re.compile(
-    rf"{ANSWER} \([a-h]\)|\d+[.)]\s.*|(?:part\s+\(?[a-h]\)?|\([a-h]\)|[a-h]\))\s*[.:]?\s*\S.*",
+    rf"{ANSWER} \([a-h]\)|\d+[.)]\s.*|(?:part\s+(?:\([a-h]\)|[a-h])|\([a-h]\)|[a-h]\))\s*[.:]?\s*\S.*",
     re.IGNORECASE,
 )
 
@@ -62,25 +63,30 @@ def _opens_with_bold_lead(line: str) -> bool:
 
 
 def _heading(line: str) -> bool:
-    """A worked reply's heading: a bold line alone, or a section's, a part's or a numbered
-    move's bold title with words after it."""
+    """A worked reply's heading: a section's, a part's or a numbered move's bold title (with
+    words after it or none), or another bold line alone that reads as a title: not a word
+    in a sentence ("The force is" / "**larger**" / "than before.") or a sentence itself."""
     bold = _BOLD_HEAD.match(line)
     if bold is None:
         return False
-    if bold.group("rest").strip() in ("", ":"):
-        return True
     title = bold.group("title").strip().removesuffix(":").strip()
-    return title in _SECTIONS or _TITLE.fullmatch(title) is not None
+    if title in _SECTIONS or _TITLE.fullmatch(title) is not None:
+        return True
+    alone = bold.group("rest").strip() in ("", ":")
+    return alone and not title[:1].islower() and not title.endswith((".", "?", "!"))
 
 
 def _separate(prose: str, worked: bool) -> str:
     lines = prose.split("\n")
+    # A line of a display formula is the formula's, never a heading.
+    display = display_math_lines(lines)
     out: list[str] = []
     for index, line in enumerate(lines):
         above = lines[index - 1] if index else ""
-        if (_opens_with_bold_lead(line) and _opens_with_bold_lead(above)) or (
+        breaks = (_opens_with_bold_lead(line) and _opens_with_bold_lead(above)) or (
             worked and above.strip() and _heading(line)
-        ):
+        )
+        if breaks and not display[index]:
             out.append("")
         out.append(line)
     return "\n".join(out)

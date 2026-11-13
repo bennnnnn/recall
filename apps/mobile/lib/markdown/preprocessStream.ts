@@ -346,10 +346,12 @@ export function preprocessMarkdownForStream(
     (raw, workedAbove) => preprocessMarkdown(raw, mathFormat, { ...options, workedAbove }),
   );
   const tail = content.slice(stableLen);
-  // A heading in the tail of a worked reply starts its own paragraph (`separateLeadLines`).
+  // A heading in the tail of a worked reply starts its own paragraph (`separateLeadLines`),
+  // the tail's first line too: its line above is the closed text's last (b12, 2026-11-13).
   const workedAbove = prefix.workedAbove || isWorkedReply(prefix.openRaw);
+  const above = content.slice(0, stableLen - 1).split("\n").pop() ?? "";
   return {
-    prepared: preparedStable + presentStreamTail(tail, presented, workedAbove),
+    prepared: preparedStable + presentStreamTail(tail, presented, workedAbove, above),
     cache: {
       rawStableLen: stableLen,
       preparedStable,

@@ -8,6 +8,10 @@
 import { cleanup, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
+import {
+  preprocessMarkdownForStream,
+  type StreamingPreprocessCache,
+} from "@/lib/markdown/preprocessStream";
 
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: () => null }));
@@ -114,5 +118,30 @@ describe("a worked reply written with single line breaks", () => {
     const plan = await render(<MarkdownContent content={"Here is the plan:\n**Step 1** boil the water."} />);
     expect(seen(plan.toJSON())).toMatch(/Here is the plan: Step 1 boil the water\./);
     await cleanup();
+  });
+});
+
+describe("a worked reply's heading while it streams", () => {
+  const HEADING = /^\*\*(?:Given|Required|Solution|Substitution|Answer|\d+\. [^*]+|[A-Z][a-z]+ [a-z ]+formula)\*\*/;
+
+  // The tail's first line had no line above it inside the tail: "**Required**", typed out,
+  // sat on the row above until its line ended (14 of 89 frames for b12, review 2026-11-13).
+  it.each([INEQUALITY, PRISM, TITLES])("never sits on the row above, at any frame: %#", (reply) => {
+    let cache: StreamingPreprocessCache | null = null;
+    const glued: string[] = [];
+    for (let end = 1; end <= reply.length; end += 3) {
+      const streamed = preprocessMarkdownForStream(reply.slice(0, end), cache);
+      cache = streamed.cache;
+      const lines = streamed.prepared.split("\n");
+      lines.forEach((line, index) => {
+        const above = lines[index - 1] ?? "";
+        // A "###" line is a block of its own: nothing runs into it.
+        const block = above.startsWith("**") || /^#{1,6}\s/.test(above);
+        if (index > 0 && HEADING.test(line) && above.trim() && !block) {
+          glued.push(`${above} / ${line}`);
+        }
+      });
+    }
+    expect(glued).toEqual([]);
   });
 });

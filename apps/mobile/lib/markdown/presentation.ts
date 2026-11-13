@@ -13,7 +13,7 @@ import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
-import { separateLeadLines } from "@/lib/markdown/leadLines";
+import { breaksBefore, separateLeadLines } from "@/lib/markdown/leadLines";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
 import { holdBackPendingTableHeader } from "@/lib/markdown/streamTableHold";
@@ -168,13 +168,25 @@ function presentStreamProse(prose: string, presented: boolean, workedAbove: bool
 /**
  * Repair a streaming tail without scanning an open fence body, and hold back a
  * table header still waiting for its delimiter row. `workedAbove`: the reply
- * before the tail is worked. `presented`
+ * before the tail is worked; `above`: the closed text's last line, the line above the
+ * tail's first, which a heading there starts its own paragraph under (`breaksBefore`,
+ * b12 2026-11-13). `presented`
  * text is the server's saved reply, still in stream layout while its row
  * settles: as in the settled preprocess, its prose stays as saved and only the
  * maths rows the wrap builds are laid out, so settling does not move it.
  */
-export function presentStreamTail(tail: string, presented = false, workedAbove = false): string {
+export function presentStreamTail(
+  tail: string,
+  presented = false,
+  workedAbove = false,
+  above = "",
+): string {
   if (!tail) return tail;
+  const gap = !presented && breaksBefore(above, tail.split("\n", 1)[0]!, workedAbove) ? "\n" : "";
+  return gap + presentOpenTail(tail, presented, workedAbove);
+}
+
+function presentOpenTail(tail: string, presented: boolean, workedAbove: boolean): string {
   const fenceAt = tail.indexOf("```");
   const tildeAt = tail.indexOf("~~~");
   const fence =
