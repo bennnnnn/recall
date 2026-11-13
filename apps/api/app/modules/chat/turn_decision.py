@@ -175,6 +175,9 @@ class TurnDecision(BaseModel):
     effort: Effort | None = None
     picture: Picture | None = None
     follow: Follow | None = None
+    # Whether the reply works a result out, laid out as working (``chat.decided_turn``). The
+    # Decider's alone: None from the text read, and the rules decide.
+    work: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod

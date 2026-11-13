@@ -38,6 +38,11 @@ _LIVE_AT = 0.35
 # settled reads this close are mostly about the user's own place ("is it far?", 0.26).
 NEAR_LIVE_AT = 0.15
 _ASKED_AT = 0.5
+# A result to work out (``work``): on the work-need corpus's tuning half every threshold from
+# 0.3 to 0.6 laid out every calculation and nothing else; at 0.5 the held-out half laid out
+# 18 of 18 calculations and 1 of 18 other questions ("1 newton in base SI units", 0.54),
+# where a number and a subject laid out 77% of them (``tests/behavior/work_need_eval.py``).
+_WORK_AT = 0.5
 # The read's name for each registered subject (``SubjectName``; its choices call maths
 # "maths"). The read's own words for them are the subject question's criteria below, part
 # of its measured prompt; ``tests/services/test_subject_completeness.py`` holds the two and
@@ -144,6 +149,23 @@ QUESTIONS: dict[str, dict[str, Any]] = {
             "chats, getting to a place already named, or work on the conversation itself."
         ),
     },
+    # Whether the reply works a result out, and so is laid out as working (Given, Required,
+    # the steps, the Answer: ``chat.worked_turn``). A digit alone said yes: "Translate the
+    # algebraic expression 7x in different word phrases" got a Given and a Required, with
+    # "phrases" set as a symbol (phone, 2026-11-13).
+    "work": {
+        "type": "noul",
+        "instructions": (
+            "Does the last message ask for a result to be worked out: a value to calculate, "
+            "an equation or inequality to solve, an expression to simplify, expand, factorise "
+            "or differentiate, a unit to convert, an equation to balance, a quantity a "
+            "problem asks for, or the same work again with a value changed? Not for what a "
+            "symbol, number or term means, an expression said in words or words written as "
+            "an expression, a definition, a law or formula stated, a concept or reason "
+            "explained, naming or classifying, a fact to recall, examples, or practice "
+            "questions to set."
+        ),
+    },
     "asked": {
         "type": "noul",
         "instructions": (
@@ -169,6 +191,7 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
     live, asked = get("live", "noul"), get("asked", "noul")
     if subject is None or None in (think, hard, live, asked):
         return None
+    work = get("work", "noul")
     if subject in _STEM:
         # Only the hard ones think; ``model_routing.decided`` gives "high" the model's
         # level that thinks.
@@ -188,6 +211,8 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "live": max(live, asked) >= _LIVE_AT,
         "live_odds": max(live, asked),
         "asked": asked >= _ASKED_AT,
+        # None (unanswered): the rules decide the layout.
+        "work": None if work is None else work >= _WORK_AT,
     }
 
 

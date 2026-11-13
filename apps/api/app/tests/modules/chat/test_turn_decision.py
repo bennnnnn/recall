@@ -475,3 +475,24 @@ async def test_a_read_the_reply_gave_up_on_stops_the_text_read(
     assert await turn_decision.turn_decision_result(task, settings) is None
     await asyncio.sleep(0)
     assert stopped == [True]
+
+
+@pytest.mark.parametrize(
+    ("odds", "work"), [(0.97, True), (0.54, True), (0.21, False), (None, None)]
+)
+def test_the_deciders_work_odds_set_the_layout(odds: float | None, work: bool | None) -> None:
+    """Whether the reply works a result out (``decided_turn``); unanswered, the rules decide."""
+    answers: dict[str, Any] = {
+        "subject": {"choice": "maths"},
+        "think": {"noul": 0.1},
+        "hard": {"noul": 0.1},
+        "picture": {"choice": "none"},
+        "follow": {"choice": "none"},
+        "live": {"noul": 0.0},
+        "asked": {"noul": 0.0},
+    }
+    if odds is not None:
+        answers["work"] = {"noul": odds}
+    fields = decider_read.decision_fields(answers, has_earlier=False)
+    assert fields is not None
+    assert TurnDecision(**fields).work is work

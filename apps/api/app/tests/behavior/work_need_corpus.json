@@ -1,0 +1,852 @@
+[
+ {
+  "id": "work-01",
+  "area": "maths",
+  "work": true,
+  "prompt": "Solve 3x + 7 = 22."
+ },
+ {
+  "id": "work-02",
+  "area": "maths",
+  "work": true,
+  "prompt": "Simplify 4(2x − 3) − 5x."
+ },
+ {
+  "id": "work-03",
+  "area": "maths",
+  "work": true,
+  "prompt": "Expand (x + 4)(x − 2)."
+ },
+ {
+  "id": "work-04",
+  "area": "maths",
+  "work": true,
+  "prompt": "Factorise x² − 9x + 20."
+ },
+ {
+  "id": "work-05",
+  "area": "maths",
+  "work": true,
+  "prompt": "What is 15% of 240?"
+ },
+ {
+  "id": "work-06",
+  "area": "maths",
+  "work": true,
+  "prompt": "Find the area of a triangle with base 12 cm and height 7 cm."
+ },
+ {
+  "id": "work-07",
+  "area": "maths",
+  "work": true,
+  "prompt": "A shirt costs 450 birr after a 10% discount. What was the original price?"
+ },
+ {
+  "id": "work-08",
+  "area": "maths",
+  "work": true,
+  "prompt": "Evaluate 2³ × 5 − 18 ÷ 3."
+ },
+ {
+  "id": "work-09",
+  "area": "maths",
+  "work": true,
+  "prompt": "Convert 3/8 to a decimal."
+ },
+ {
+  "id": "work-10",
+  "area": "maths",
+  "work": true,
+  "prompt": "Find the LCM of 12 and 18."
+ },
+ {
+  "id": "work-11",
+  "area": "maths",
+  "work": true,
+  "prompt": "The angles of a triangle are x, 2x and 3x. Find each angle."
+ },
+ {
+  "id": "work-12",
+  "area": "maths",
+  "work": true,
+  "prompt": "Differentiate y = 3x⁴ − 2x."
+ },
+ {
+  "id": "work-13",
+  "area": "maths",
+  "work": true,
+  "prompt": "Find the slope of the line through (2, 5) and (6, 13)."
+ },
+ {
+  "id": "work-14",
+  "area": "maths",
+  "work": true,
+  "prompt": "What is the mean of 4, 8, 15, 16 and 23?"
+ },
+ {
+  "id": "work-15",
+  "area": "maths",
+  "work": true,
+  "prompt": "Solve 2x + 3 ≥ 7 and show the solution on a number line."
+ },
+ {
+  "id": "work-16",
+  "area": "maths",
+  "work": true,
+  "prompt": "How many sides does a regular polygon with interior angles of 140° have?"
+ },
+ {
+  "id": "work-17",
+  "area": "maths",
+  "work": true,
+  "prompt": "If 5 pens cost 60 birr, how much do 8 pens cost?"
+ },
+ {
+  "id": "work-18",
+  "area": "maths",
+  "work": true,
+  "prompt": "Write 0.000345 in scientific notation."
+ },
+ {
+  "id": "work-19",
+  "area": "maths",
+  "work": true,
+  "prompt": "Find x if 7x = 56."
+ },
+ {
+  "id": "work-20",
+  "area": "maths",
+  "work": true,
+  "prompt": "Seven more than twice a number is 31. Write an equation and find the number."
+ },
+ {
+  "id": "work-21",
+  "area": "maths",
+  "work": true,
+  "prompt": "What is the square root of 196?"
+ },
+ {
+  "id": "work-22",
+  "area": "maths",
+  "work": true,
+  "prompt": "Solve x squared minus four equals zero."
+ },
+ {
+  "id": "work-23",
+  "area": "maths",
+  "work": true,
+  "prompt": "What is half of three quarters?"
+ },
+ {
+  "id": "work-24",
+  "area": "maths",
+  "work": true,
+  "prompt": "Find the area of a quarter circle of radius 8 cm (use 3.14)."
+ },
+ {
+  "id": "work-25",
+  "area": "maths",
+  "work": true,
+  "prompt": "Simplify the ratio 24:36."
+ },
+ {
+  "id": "work-26",
+  "area": "maths",
+  "work": true,
+  "prompt": "A rectangle has a perimeter of 30 cm and a length of 9 cm. Find its width."
+ },
+ {
+  "id": "work-27",
+  "area": "maths",
+  "work": false,
+  "prompt": "Translate the algebraic expression 7x in different word phrases."
+ },
+ {
+  "id": "work-28",
+  "area": "maths",
+  "work": false,
+  "prompt": "Translate the algebraic expression x+10 in different word phrases."
+ },
+ {
+  "id": "work-29",
+  "area": "maths",
+  "work": false,
+  "prompt": "What does the 3 in 3x² mean?"
+ },
+ {
+  "id": "work-30",
+  "area": "maths",
+  "work": false,
+  "prompt": "Is 0 a rational number? Explain."
+ },
+ {
+  "id": "work-31",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is the difference between 2x and x²?"
+ },
+ {
+  "id": "work-32",
+  "area": "maths",
+  "work": false,
+  "prompt": "Write the expression 5(x + 2) in words."
+ },
+ {
+  "id": "work-33",
+  "area": "maths",
+  "work": false,
+  "prompt": "Why is any number to the power 0 equal to 1?"
+ },
+ {
+  "id": "work-34",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is a prime number? Is 1 prime?"
+ },
+ {
+  "id": "work-35",
+  "area": "maths",
+  "work": false,
+  "prompt": "Name the property shown by 3 + 4 = 4 + 3."
+ },
+ {
+  "id": "work-36",
+  "area": "maths",
+  "work": false,
+  "prompt": "What do m and c stand for in y = mx + c?"
+ },
+ {
+  "id": "work-37",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is the formula for the area of a circle?"
+ },
+ {
+  "id": "work-38",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is a 90° angle called?"
+ },
+ {
+  "id": "work-39",
+  "area": "maths",
+  "work": false,
+  "prompt": "Make me 5 practice questions on solving 2-step equations."
+ },
+ {
+  "id": "work-40",
+  "area": "maths",
+  "work": false,
+  "prompt": "How would you say 3/4 out loud in words?"
+ },
+ {
+  "id": "work-41",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is the name of a polygon with 8 sides?"
+ },
+ {
+  "id": "work-42",
+  "area": "maths",
+  "work": false,
+  "prompt": "Which is the usual way to write 5 times x: 5x or x5?"
+ },
+ {
+  "id": "work-43",
+  "area": "maths",
+  "work": false,
+  "prompt": "Explain what the 2 in log₂ 8 means."
+ },
+ {
+  "id": "work-44",
+  "area": "maths",
+  "work": false,
+  "prompt": "How do you solve linear equations in general?"
+ },
+ {
+  "id": "work-45",
+  "area": "maths",
+  "work": false,
+  "prompt": "Write an algebraic expression for 'a number decreased by 6'."
+ },
+ {
+  "id": "work-46",
+  "area": "maths",
+  "work": false,
+  "prompt": "Explain the difference between a ratio like 2:3 and a fraction like 2/3."
+ },
+ {
+  "id": "work-47",
+  "area": "maths",
+  "work": false,
+  "prompt": "Give me a tip for remembering the 9 times table."
+ },
+ {
+  "id": "work-48",
+  "area": "maths",
+  "work": false,
+  "prompt": "What does it mean when a graph of y = 2x passes through the origin?"
+ },
+ {
+  "id": "work-49",
+  "area": "physics",
+  "work": true,
+  "prompt": "A car accelerates from 0 to 20 m/s in 5 s. What is its acceleration?"
+ },
+ {
+  "id": "work-50",
+  "area": "physics",
+  "work": true,
+  "prompt": "What is the weight of a 50 kg box on Earth?"
+ },
+ {
+  "id": "work-51",
+  "area": "physics",
+  "work": true,
+  "prompt": "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
+ },
+ {
+  "id": "work-52",
+  "area": "physics",
+  "work": true,
+  "prompt": "How long does a stone take to fall 20 m?"
+ },
+ {
+  "id": "work-53",
+  "area": "physics",
+  "work": true,
+  "prompt": "Three resistors of 2 Ω, 4 Ω and 6 Ω are in series across 24 V. Find the current."
+ },
+ {
+  "id": "work-54",
+  "area": "physics",
+  "work": true,
+  "prompt": "Convert 72 km/h to m/s."
+ },
+ {
+  "id": "work-55",
+  "area": "physics",
+  "work": true,
+  "prompt": "A wave has a frequency of 50 Hz and a wavelength of 4 m. Find its speed."
+ },
+ {
+  "id": "work-56",
+  "area": "physics",
+  "work": true,
+  "prompt": "A 60 W bulb is on for 5 hours. How much energy does it use in kWh?"
+ },
+ {
+  "id": "work-57",
+  "area": "physics",
+  "work": true,
+  "prompt": "What force is needed to accelerate a 1200 kg car at 3 m/s²?"
+ },
+ {
+  "id": "work-58",
+  "area": "physics",
+  "work": true,
+  "prompt": "A lens has a focal length of 20 cm. What is its power?"
+ },
+ {
+  "id": "work-59",
+  "area": "physics",
+  "work": false,
+  "prompt": "What is Newton's 3rd law?"
+ },
+ {
+  "id": "work-60",
+  "area": "physics",
+  "work": false,
+  "prompt": "Why does a 1 kg feather fall more slowly than a 1 kg stone in air?"
+ },
+ {
+  "id": "work-61",
+  "area": "physics",
+  "work": false,
+  "prompt": "What is the SI unit of force?"
+ },
+ {
+  "id": "work-62",
+  "area": "physics",
+  "work": false,
+  "prompt": "What does the m stand for in F = ma?"
+ },
+ {
+  "id": "work-63",
+  "area": "physics",
+  "work": false,
+  "prompt": "State Ohm's law."
+ },
+ {
+  "id": "work-64",
+  "area": "physics",
+  "work": false,
+  "prompt": "What are the 3 ways heat moves?"
+ },
+ {
+  "id": "work-65",
+  "area": "physics",
+  "work": false,
+  "prompt": "Is g = 9.8 m/s² the same everywhere on Earth? Why?"
+ },
+ {
+  "id": "work-66",
+  "area": "physics",
+  "work": false,
+  "prompt": "Who published the law of universal gravitation in 1687?"
+ },
+ {
+  "id": "work-67",
+  "area": "physics",
+  "work": false,
+  "prompt": "What happens to the current if you double the voltage across a resistor?"
+ },
+ {
+  "id": "work-68",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "How many moles are in 36 g of water?"
+ },
+ {
+  "id": "work-69",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "What is the molar mass of CaCO3?"
+ },
+ {
+  "id": "work-70",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "Balance the equation Fe + O2 → Fe2O3."
+ },
+ {
+  "id": "work-71",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "What is the pH of a 0.01 M HCl solution?"
+ },
+ {
+  "id": "work-72",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "How many grams of NaCl are in 250 mL of a 2 M solution?"
+ },
+ {
+  "id": "work-73",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "What is the percentage of oxygen by mass in H2O?"
+ },
+ {
+  "id": "work-74",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "A gas occupies 2 L at 300 K. What volume does it take at 450 K at constant pressure?"
+ },
+ {
+  "id": "work-75",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "What is the chemical symbol for sodium?"
+ },
+ {
+  "id": "work-76",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "Name this compound: CH3CH2CH2OH."
+ },
+ {
+  "id": "work-77",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "What does the 2 in H2O mean?"
+ },
+ {
+  "id": "work-78",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "How many electrons can the 2nd shell hold?"
+ },
+ {
+  "id": "work-79",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "Explain why the noble gases in group 18 are unreactive."
+ },
+ {
+  "id": "work-80",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "What is the difference between an atom and an ion?"
+ },
+ {
+  "id": "work-81",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "Draw the structure of C6H6."
+ },
+ {
+  "id": "work-82",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "Is CO2 a covalent or an ionic compound?"
+ },
+ {
+  "id": "work-83",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "What does pH 7 mean?"
+ },
+ {
+  "id": "work-84",
+  "area": "follow-up",
+  "work": false,
+  "prompt": "Why did you subtract 5 first?",
+  "history": [
+   [
+    "user",
+    "Solve 2x + 5 = 17."
+   ],
+   [
+    "assistant",
+    "Subtract 5 from both sides: 2x = 12, so x = 6."
+   ]
+  ]
+ },
+ {
+  "id": "work-85",
+  "area": "follow-up",
+  "work": true,
+  "prompt": "Now solve 2x + 5 = 29.",
+  "history": [
+   [
+    "user",
+    "Solve 2x + 5 = 17."
+   ],
+   [
+    "assistant",
+    "Subtract 5 from both sides: 2x = 12, so x = 6."
+   ]
+  ]
+ },
+ {
+  "id": "work-86",
+  "area": "follow-up",
+  "work": true,
+  "prompt": "What if the speed was 6 m/s?",
+  "history": [
+   [
+    "user",
+    "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
+   ],
+   [
+    "assistant",
+    "KE = ½mv² = ½ × 2 × 3² = 9 J."
+   ]
+  ]
+ },
+ {
+  "id": "work-87",
+  "area": "follow-up",
+  "work": false,
+  "prompt": "Now do 3x − 4.",
+  "history": [
+   [
+    "user",
+    "Translate the algebraic expression 7x in different word phrases."
+   ],
+   [
+    "assistant",
+    "Seven times a number; the product of seven and a number; seven multiplied by a number."
+   ]
+  ]
+ },
+ {
+  "id": "work-88",
+  "area": "follow-up",
+  "work": false,
+  "prompt": "What does joule mean?",
+  "history": [
+   [
+    "user",
+    "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
+   ],
+   [
+    "assistant",
+    "KE = ½mv² = ½ × 2 × 3² = 9 J."
+   ]
+  ]
+ },
+ {
+  "id": "work-h01",
+  "area": "maths",
+  "work": true,
+  "prompt": "Find the perimeter of a rectangle 9 m by 4.5 m.",
+  "holdout": true
+ },
+ {
+  "id": "work-h02",
+  "area": "maths",
+  "work": true,
+  "prompt": "Solve for y: 5y − 3 = 2y + 12.",
+  "holdout": true
+ },
+ {
+  "id": "work-h03",
+  "area": "maths",
+  "work": true,
+  "prompt": "What is 3/5 + 1/4?",
+  "holdout": true
+ },
+ {
+  "id": "work-h04",
+  "area": "maths",
+  "work": true,
+  "prompt": "Factor 6x² + 11x − 10.",
+  "holdout": true
+ },
+ {
+  "id": "work-h05",
+  "area": "maths",
+  "work": true,
+  "prompt": "The ratio of boys to girls is 3:5 and there are 40 students. How many are girls?",
+  "holdout": true
+ },
+ {
+  "id": "work-h06",
+  "area": "maths",
+  "work": true,
+  "prompt": "Find the median of 7, 3, 9, 12, 5 and 8.",
+  "holdout": true
+ },
+ {
+  "id": "work-h07",
+  "area": "maths",
+  "work": true,
+  "prompt": "Integrate 6x² from 0 to 2.",
+  "holdout": true
+ },
+ {
+  "id": "work-h08",
+  "area": "maths",
+  "work": true,
+  "prompt": "What is 2.5% of 1,200 birr?",
+  "holdout": true
+ },
+ {
+  "id": "work-h09",
+  "area": "maths",
+  "work": true,
+  "prompt": "A semicircle has a radius of 2.4 cm. What is its area?",
+  "holdout": true
+ },
+ {
+  "id": "work-h10",
+  "area": "maths",
+  "work": true,
+  "prompt": "Simplify -(m + n) + 2(m - 3n).",
+  "holdout": true
+ },
+ {
+  "id": "work-h11",
+  "area": "maths",
+  "work": false,
+  "prompt": "Express the algebraic expression 3y − 4 in words in two ways.",
+  "holdout": true
+ },
+ {
+  "id": "work-h12",
+  "area": "maths",
+  "work": false,
+  "prompt": "What does the exponent 5 in 2⁵ tell you?",
+  "holdout": true
+ },
+ {
+  "id": "work-h13",
+  "area": "maths",
+  "work": false,
+  "prompt": "Is −7 an integer, a whole number, or both?",
+  "holdout": true
+ },
+ {
+  "id": "work-h14",
+  "area": "maths",
+  "work": false,
+  "prompt": "Why can't we divide by 0?",
+  "holdout": true
+ },
+ {
+  "id": "work-h15",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is the 4 in x⁴ called?",
+  "holdout": true
+ },
+ {
+  "id": "work-h16",
+  "area": "maths",
+  "work": false,
+  "prompt": "Write 'twelve less than a number' using algebra.",
+  "holdout": true
+ },
+ {
+  "id": "work-h17",
+  "area": "maths",
+  "work": false,
+  "prompt": "What does the symbol ≥ mean in x ≥ 3?",
+  "holdout": true
+ },
+ {
+  "id": "work-h18",
+  "area": "maths",
+  "work": false,
+  "prompt": "Read the expression 4(a + b) aloud in words.",
+  "holdout": true
+ },
+ {
+  "id": "work-h19",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is the difference between a 30° angle and a 150° angle called?",
+  "holdout": true
+ },
+ {
+  "id": "work-h20",
+  "area": "physics",
+  "work": true,
+  "prompt": "A train travels 180 km in 2.5 hours. What is its average speed?",
+  "holdout": true
+ },
+ {
+  "id": "work-h21",
+  "area": "physics",
+  "work": true,
+  "prompt": "Find the pressure when a 500 N force acts on 0.25 m².",
+  "holdout": true
+ },
+ {
+  "id": "work-h22",
+  "area": "physics",
+  "work": true,
+  "prompt": "A 5 kg mass is lifted 3 m. How much potential energy does it gain?",
+  "holdout": true
+ },
+ {
+  "id": "work-h23",
+  "area": "physics",
+  "work": true,
+  "prompt": "What current flows through a 12 Ω resistor connected to 6 V?",
+  "holdout": true
+ },
+ {
+  "id": "work-h24",
+  "area": "physics",
+  "work": false,
+  "prompt": "What is the difference between speed and velocity?",
+  "holdout": true
+ },
+ {
+  "id": "work-h25",
+  "area": "physics",
+  "work": false,
+  "prompt": "Why do astronauts float in a spacecraft orbiting 400 km up?",
+  "holdout": true
+ },
+ {
+  "id": "work-h26",
+  "area": "physics",
+  "work": false,
+  "prompt": "What is 1 newton in base SI units?",
+  "holdout": true
+ },
+ {
+  "id": "work-h27",
+  "area": "physics",
+  "work": false,
+  "prompt": "Explain the 2nd law of thermodynamics simply.",
+  "holdout": true
+ },
+ {
+  "id": "work-h28",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "Calculate the number of molecules in 2 moles of CO2.",
+  "holdout": true
+ },
+ {
+  "id": "work-h29",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "What mass of O2 is needed to burn 16 g of CH4?",
+  "holdout": true
+ },
+ {
+  "id": "work-h30",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "Find the concentration when 10 g of NaOH is dissolved to make 500 mL of solution.",
+  "holdout": true
+ },
+ {
+  "id": "work-h31",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "What does the subscript 3 in NH3 tell you?",
+  "holdout": true
+ },
+ {
+  "id": "work-h32",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "Why is H2O a liquid at room temperature but H2S a gas?",
+  "holdout": true
+ },
+ {
+  "id": "work-h33",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "Name the element with atomic number 6.",
+  "holdout": true
+ },
+ {
+  "id": "work-h34",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "What is Avogadro's number used for?",
+  "holdout": true
+ },
+ {
+  "id": "work-h35",
+  "area": "follow-up",
+  "work": false,
+  "prompt": "Can you say it another way?",
+  "holdout": true,
+  "history": [
+   [
+    "user",
+    "Translate the algebraic expression x+10 in different word phrases."
+   ],
+   [
+    "assistant",
+    "The sum of a number and ten; ten more than a number."
+   ]
+  ]
+ },
+ {
+  "id": "work-h36",
+  "area": "follow-up",
+  "work": true,
+  "prompt": "And for a 4 kg ball?",
+  "holdout": true,
+  "history": [
+   [
+    "user",
+    "A 2 kg ball moves at 3 m/s. What is its kinetic energy?"
+   ],
+   [
+    "assistant",
+    "KE = ½mv² = ½ × 2 × 3² = 9 J."
+   ]
+  ]
+ }
+]

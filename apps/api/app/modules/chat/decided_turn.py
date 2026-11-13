@@ -9,7 +9,9 @@ the rules' (``model_routing.decided``):
   chemistry think only when the read calls them hard);
 - Auto's lane follows the subject and the effort through catalog data;
 - a maths, physics or chemistry calculation no solver verified gets the ```worked block's
-  contract, as one the subject readers recognised does, when the readers missed it;
+  contract, as one the subject readers recognised does, when the readers missed it; a
+  message the read says works nothing out loses the contract the readers gave it for its
+  number ("Translate the algebraic expression 7x in different word phrases");
 - an everyday message the read calls an answer to the last reply, or a change to what the
   conversation is about, gets a note beside it saying so (``FOLLOW_NOTES``): "the
   language" after "Python the language, or the snake?" was asked back on every try without it.
@@ -38,7 +40,12 @@ from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
-from app.modules.chat.worked_turn import states_a_quantity, with_worked_contract, worked_layout
+from app.modules.chat.worked_turn import (
+    states_a_quantity,
+    with_worked_contract,
+    without_worked_contract,
+    worked_layout,
+)
 from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awaits_pick
 from app.modules.turn_reading.school_question import is_school_exercise
 
@@ -62,6 +69,7 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
         effort=read.effort,
         picture=read.picture,
         follow=read.follow,
+        work=None if read.work is None else ("yes" if read.work else "no"),
     )
     ctx.thinking = _level(ctx, read)
     _follow_the_lane(ctx, settings, read)
@@ -149,17 +157,24 @@ def _shows_a_picture(ctx: StreamContext) -> bool:
 
 
 def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -> None:
-    """The ```worked contract for a calculation the subject readers missed and the read
-    calls maths, physics or chemistry (P16, a resistor problem, 2026-11-10: no reader
-    claimed it, so the everyday prompt answered it)."""
+    """The ```worked contract by the read's ``work``: a calculation the subject readers
+    missed and the read calls maths, physics or chemistry gets it (P16, a resistor problem,
+    2026-11-10: no reader claimed it, so the everyday prompt answered it), and a message
+    that works nothing out loses the one the readers gave it for a number in it."""
+    if _worked(ctx) or ctx.instant_reply:
+        return
+    if read.work is False:
+        _without_worked_layout(ctx)
+        return
     # The read's subject, by the registry's name.
     subject = READ_SUBJECTS.get(read.subject or "")
-    if subject is None or ctx.worked is not None or _worked(ctx) or ctx.instant_reply:
+    if subject is None or ctx.worked is not None:
         return
     content = ctx.user_message_content
-    # A value to work with, not only a digit: "Name this compound: CH3CH2CH2OH" got a Given
-    # and a Required for its formula (live, 2026-11-10).
-    if not (states_a_quantity(content) or is_school_exercise(content)):
+    # With no word from the read on the work, a value to work with, not only a digit: "Name
+    # this compound: CH3CH2CH2OH" got a Given and a Required for its formula (live,
+    # 2026-11-10).
+    if read.work is None and not (states_a_quantity(content) or is_school_exercise(content)):
         return
     layout = worked_layout(
         content,
@@ -172,6 +187,17 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
     if layout is not None:
         ctx.worked = layout
         ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+
+
+def _without_worked_layout(ctx: StreamContext) -> None:
+    """No ```worked contract: the read says the message asks for no result worked out. With
+    one, "Translate the algebraic expression 7x in different word phrases" was answered
+    under a Given and a Required, "phrases" set as a symbol (phone, 2026-11-13)."""
+    if ctx.worked is None:
+        return
+    ctx.worked = None
+    ctx.prompt_messages = without_worked_contract(ctx.prompt_messages)
+    note_prompt_rule("read.not_worked")
 
 
 def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
