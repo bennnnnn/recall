@@ -22,7 +22,7 @@ import { markdownItInstance } from "@/lib/markdown/parser";
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
 import { withTypedLineBreaks } from "@/lib/markdown/typedLineBreaks";
 import { displayMathToInline } from "@/lib/math/solutionBars";
-import { typedScriptsAsMath } from "@/lib/math/typedScripts";
+import { sentScriptsAsMath } from "@/lib/math/typedScripts";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -156,7 +156,7 @@ export function UserMessageContent({ message, actionsHint }: Props) {
 function UserBubbleBody({ content }: { content: string }) {
   // Scripts the student typed in braces or on an operator (`lim_{x→9}`, `∑_{k=1}^{10}`) are
   // drawn as maths; a bare `x^2` is the markdown's own implicit maths.
-  const inline = typedScriptsAsMath(displayMathToInline(content), { plain: false });
+  const inline = sentScriptsAsMath(displayMathToInline(content));
   if (sentMessageShowsMathPreview(inline)) {
     return <MathDraftPreview input={inline} showCaret={false} sent />;
   }
