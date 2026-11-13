@@ -6,6 +6,7 @@ these laws need no other cue; a car at 20 m/s is never answered with the Lorentz
 
 from __future__ import annotations
 
+from app.modules.physics.frames import FRAMES_UNREAD_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _RELATIVISTIC = ("relativistic", "relativity", "speed of light", "lorentz")
@@ -134,7 +135,17 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter / second",),
             inputs=(frozenset({"v1", "v2"}),),
             cues=_RELATIVISTIC,
-            excludes=("backward", "backwards", "opposite", "rearward", "behind"),
+            # A speed stated in the frame the sum is in is the sum already: "Earth measures the
+            # probe at 0.8c" added to the ship's 0.6c was 0.946c, for 0.385c to the ship
+            # (``frames``).
+            excludes=(
+                "backward",
+                "backwards",
+                "opposite",
+                "rearward",
+                "behind",
+                FRAMES_UNREAD_MARKER,
+            ),
             interchangeable=("v1", "v2"),
             nonnegative=True,
         ),

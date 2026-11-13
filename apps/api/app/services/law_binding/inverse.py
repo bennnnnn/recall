@@ -30,6 +30,7 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import replace
 from functools import lru_cache
+from itertools import pairwise
 from typing import Any
 
 from app.services.law_binding.expression import ExpressionError, parse
@@ -207,6 +208,57 @@ def _quantity_kinds(spec: FormulaSpec) -> tuple[str, ...]:
     if not spec.solve_for and spec.binding is not None:
         kinds.extend(dimension_of(unit) for unit in spec.binding.result)
     return tuple(sorted(kind or "" for kind in kinds))
+
+
+def twins(spec: FormulaSpec) -> frozenset[str]:
+    """Inputs that play the same part: interchangeable, of one kind, and the law the same
+    with any two swapped (F = m(u + v)/t in its two speeds), so solving for either is one
+    unknown. Two skaters' masses, filled in order, are not: m₁v₁ = m₂v₂ pairs each with
+    its own speed."""
+    binding = spec.binding
+    names = frozenset(binding.interchangeable) if binding is not None else frozenset()
+    kinds = {variable_kind(v) for v in spec.variables if v.name in names}
+    if len(kinds) != 1 or spec.expression is None or not _symmetric(spec.expression, names):
+        return frozenset()
+    return names
+
+
+def same_part(spec: FormulaSpec) -> frozenset[str]:
+    """The like parts a law combines into a whole of their own kind (P = P₁ + P₂, two
+    capacitors' C): its twins, of the result's kind. Two currents giving a force per metre
+    are no parts of a whole."""
+    parts = twins(spec)
+    binding = spec.binding
+    if not parts or binding is None:
+        return frozenset()
+    kinds = {variable_kind(v) for v in spec.variables if v.name in parts}
+    return parts if kinds <= {dimension_of(unit) for unit in binding.result} else frozenset()
+
+
+@lru_cache(maxsize=256)
+def _symmetric(expression: str, names: frozenset[str]) -> bool:
+    """The arithmetic is unchanged by swapping any two of ``names``."""
+    import sympy
+
+    symbols: dict[str, Any] = {}
+
+    def symbol(name: str) -> Any:
+        if name not in symbols:
+            symbols[name] = sympy.Symbol(name, positive=True)
+        return symbols[name]
+
+    try:
+        law = _to_sympy(parse(expression), symbol)
+    except (ExpressionError, ValueError):
+        return False
+    ordered = sorted(names)
+    for first, second in pairwise(ordered):
+        swapped = law.subs(
+            {symbol(first): symbol(second), symbol(second): symbol(first)}, simultaneous=True
+        )
+        if sympy.simplify(law - swapped) != 0:
+            return False
+    return True
 
 
 def can_solve_for(spec: FormulaSpec, name: str) -> bool:
