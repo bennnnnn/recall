@@ -162,6 +162,18 @@ export function subheadingStyle(styles: StyleMap, t: Theme): StyleProp<TextStyle
   return [styles.body, styles.text, { ...Weight.bold, color: t.assistantText }];
 }
 
+/**
+ * A part's letter, drawn whole before what the part asks: squeezed with the meaning in a
+ * row that does not wrap, Android broke "(c)" as "(c" over ")" (2026-11-13).
+ */
+function partLabelText(label: string, body: StyleProp<TextStyle>): React.ReactElement {
+  return (
+    <Text testID="workout-part-label" style={[body, { flexShrink: 0 }]}>
+      {`${label} `}
+    </Text>
+  );
+}
+
 /** A line's part letter as written ("(c)", "Part (b):") and what follows it. */
 function partLabel(state: string): { label: string; rest: string } | null {
   const line = state.trim();
@@ -198,8 +210,6 @@ function renderWorkoutLine(
   );
   const naming = given && /^where\s/i.test(state);
   const move = !note && SOLVE_FOR.test(state);
-  // A part's letter is drawn whole before what it asks: squeezed with the meaning in a
-  // row that does not wrap, Android broke "(c)" as "(c" over ")" (2026-11-13).
   const part = asked ? partLabel(state) : null;
   // Every line of a worked solution starts at the same left edge: a formula, its
   // substitution, a move and a given read down one column (a centred formula over
@@ -250,11 +260,7 @@ function renderWorkoutLine(
             maxWidth: "100%",
           }}
         >
-          {part ? (
-            <Text testID="workout-part-label" style={[body, { flexShrink: 0 }]}>
-              {`${part.label} `}
-            </Text>
-          ) : null}
+          {part ? partLabelText(part.label, body) : null}
           {workoutInline(
             part ? part.rest : state,
             `${lineKey}-state`,

@@ -118,9 +118,7 @@ export const MathSvgView = React.memo(function MathSvgView({
   indentFitted = false,
   minFit,
 }: Props) {
-  const { fontScale, width: windowWidth } = useWindowDimensions();
-  const [boxWidth, setBoxWidth] = useState(0);
-  const flash = useFlashWhenClipped();
+  const { fontScale } = useWindowDimensions();
   const exPx = em * EX_PER_EM * fontScale;
   const justify = align === "start" ? styles.alignStart : null;
   // VoiceOver reads the formula as words: an SVG has no text of its own. Under
@@ -182,11 +180,37 @@ export const MathSvgView = React.memo(function MathSvgView({
 
   // Intrinsic size. minHeight is only the loading slot: stretching a short
   // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
-  const natural = Math.max(1, result.widthEx * exPx);
-  const left = indentFitted ? indent : fittedIndent(indent, natural, windowWidth);
-  const scale = fitScale(natural, boxWidth - left - 2 * SCROLL_PAD, minFit);
-  const width = natural * scale;
-  const height = Math.max(1, result.heightEx * exPx * scale);
+  return (
+    <SvgDrawing
+      ast={ast}
+      natural={{ width: Math.max(1, result.widthEx * exPx), height: result.heightEx * exPx }}
+      place={{ indent, indentFitted, justify, minFit }}
+      own={own}
+      label={label}
+    />
+  );
+});
+
+type Placement = Required<Pick<Props, "indent" | "indentFitted">> & Pick<Props, "minFit"> & {
+  justify: typeof styles.alignStart | null;
+};
+
+/** The converted drawing in its sideways scroll, at its size or shrunk to its box (`minFit`). */
+function SvgDrawing({ ast, natural, place, own, label }: {
+  ast: JsxAST;
+  natural: { width: number; height: number };
+  place: Placement;
+  own: boolean;
+  label: string | undefined;
+}) {
+  const { width: windowWidth } = useWindowDimensions();
+  const [boxWidth, setBoxWidth] = useState(0);
+  const flash = useFlashWhenClipped();
+  const { indent, indentFitted, justify, minFit } = place;
+  const left = indentFitted ? indent : fittedIndent(indent, natural.width, windowWidth);
+  const scale = fitScale(natural.width, boxWidth - left - 2 * SCROLL_PAD, minFit);
+  const width = natural.width * scale;
+  const height = Math.max(1, natural.height * scale);
   return (
     <View
       style={[styles.wrap, indent > 0 && { paddingLeft: left }]}
@@ -214,7 +238,7 @@ export const MathSvgView = React.memo(function MathSvgView({
       </ScrollView>
     </View>
   );
-});
+}
 
 /** The scroll's own padding at each side (`lineScroll`). */
 const SCROLL_PAD = Space.xs;
