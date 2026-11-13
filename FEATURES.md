@@ -475,7 +475,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   separate problems, each its own setup and question ("A car goes 100 m in 5 s; find its
   speed. A train goes 300 m in 10 s; find its speed."), is planned as one request per
   problem (`turn_prep/problems.py`): each is solved on its own and the reply is one question
-  in parts, its one Given lettered. A comparison ("which is faster?") stays one question.
+  in parts, its one Given holding each value once, a part's letter only on the values of
+  one symbol the problems give apart (a given is data, not a part). A comparison ("which is
+  faster?") stays one question.
   - Trajectory ` ```graph ` fences are for SUVAT (position or velocity against time), a speed
     asked of a fall (`v(t)` beside the fall), and SHM.
   - A projectile or a drop is one labelled ` ```simulation ` scene instead of a path graph. It

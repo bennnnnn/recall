@@ -385,6 +385,62 @@ def test_a_sentence_round_its_maths_is_no_card() -> None:
     assert "```answer" in land_answer_card("**Answer**\n\n$5°$ from the normal", None)
 
 
+@pytest.mark.parametrize(
+    "answer",
+    [
+        # The textbook run (2026-11-13): "slope 2, y-intercept 1. A line from (-3, -5) to (3,
+        # 7)" in the answer's box. More than one sentence is no card.
+        "Slope $2$, $y$-intercept $1$. A line from $(-3, -5)$ to $(3, 7)$.",
+        "The line has slope $2$. It passes through $(0, 1)$.",
+        "La recta tiene pendiente $2$. Pasa por $(0, 1)$.",
+    ],
+)
+def test_an_answer_written_as_a_sentence_is_no_card(answer: str) -> None:
+    reply = f"**Answer**\n{answer}"
+    assert land_answer_card(reply, None) == reply
+
+
+@pytest.mark.parametrize(
+    ("answer", "card"),
+    [
+        ("$c = 15\\ \\text{cm}$", "c = 15\\ \\text{cm}"),
+        ("Total area: $A = 24$", "Total area: $A = 24$"),
+        ("$5°$ from the normal", "$5°$ from the normal"),
+        ("Approximately $4.2$ s", "Approximately $4.2$ s"),
+        ("Speed = 4 m/s", "Speed = $4\\,\\mathrm{m/s}$"),
+    ],
+)
+def test_a_value_keeps_its_card(answer: str, card: str) -> None:
+    landed = land_answer_card(f"**Answer**\n{answer}", None)
+    assert f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card}\n```" in landed
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        # One sentence keeps its card whatever its words, as before (review, 2026-11-13).
+        "The speed is $20$ meters per second",
+        "You need $2.5$ kilograms of flour",
+        "It takes $3$ hours and $20$ minutes",
+        "The tank holds $450$ litres of water",
+        "The angle is $36.9^\\circ$ above the horizontal",
+        "She needs $7$ more cupcakes for the party",
+        "La velocidad es $20$ metros por segundo",
+        "The answer is $\\frac{3}{4}$ of the whole pizza",
+        "Both $3$ and $-2$ satisfy the equation.",
+        "$\\triangle ABC \\cong \\triangle DEF$ by the SAS rule here",
+        "The area is $A = 24$ cm²",
+        "Sum of the angles $= 180°$",
+        "The hypotenuse $c = 15\\ \\text{cm}$",
+        "Roots are $x = 3$ and $x = -2$",
+        "The line has slope $2$ and passes through $(0, 1)$.",
+        "The monthly payment is $386.66.",
+    ],
+)
+def test_a_line_that_states_a_value_keeps_its_card(answer: str) -> None:
+    assert "```answer" in land_answer_card(f"**Answer**\n{answer}", None)
+
+
 def test_an_equation_in_words_keeps_its_card() -> None:
     reply = (
         "**Answer:** Average speed = total distance travelled / total time taken = 1200 metres "

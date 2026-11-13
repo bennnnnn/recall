@@ -366,8 +366,8 @@ def _unlabelled_part(
 def assemble(records: list[RecordModel]) -> WorkedSolution:
     """The records in the order written, as one solution. Before the first ``part``, the
     givens and what is asked are the whole question's, and a formula or working is the
-    first part's, and a given lettered with its part (``given (a):``) keeps its letter in
-    the one Given. After a ``part`` record every record is that part's, its givens too, so a given one part uses is never mixed with another
+    first part's, and a given lettered with its part (``given (a):``, one value of a symbol
+    two parts give apart) keeps its letter. After a ``part`` record every record is that part's, its givens too, so a given one part uses is never mixed with another
     part's; a label written after its part's answer closes that part. A part that holds
     nothing (a label alone) is left out, so the parts shown are lettered in order. With no label,
     a question asking for several things still comes apart at each new law

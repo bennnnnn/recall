@@ -1134,6 +1134,72 @@
       "area": "lead_lines",
       "input": "> **One** a\n> **Two** b",
       "expected": "> **One** a\n> **Two** b"
+    },
+    {
+      "id": "worked-heading-after-maths",
+      "area": "lead_lines",
+      "input": "**Given**  \n$3x - 5 < 2x + 4$\n**Required**  \nSolve for $x$.\n**Solution**\n\n**1. Subtract $2x$ from both sides** — Subtraction property of inequality\n$x - 5 < 4$\n**2. Add $5$ to both sides** — Addition property of inequality\n$x < 9$\n\n**Answer**",
+      "expected": "**Given**  \n$3x - 5 < 2x + 4$\n\n**Required**  \nSolve for $x$.\n\n**Solution**\n\n**1. Subtract $2x$ from both sides** — Subtraction property of inequality\n$x - 5 < 4$\n\n**2. Add $5$ to both sides** — Addition property of inequality\n$x < 9$\n\n**Answer**"
+    },
+    {
+      "id": "worked-heading-after-prose",
+      "area": "lead_lines",
+      "input": "**Given**  \nPrism altitude: $15\\ \\text{cm}$  \nBase area: $24\\ \\text{cm}^2$  \n**Required**  \nTotal surface area\n**Solution**  \n\n**Total surface area formula**  \n$A = 2B + Ph$\n**Substitution**  \n$A = 2(24) + 24(15)$\n$A = 48 + 360$\n**Answer**  \n$\\boxed{408\\ \\text{cm}^2}$",
+      "expected": "**Given**  \nPrism altitude: $15\\ \\text{cm}$  \nBase area: $24\\ \\text{cm}^2$  \n\n**Required**  \nTotal surface area\n\n**Solution**  \n\n**Total surface area formula**  \n$A = 2B + Ph$\n\n**Substitution**  \n$A = 2(24) + 24(15)$\n$A = 48 + 360$\n\n**Answer**  \n$\\boxed{408\\ \\text{cm}^2}$"
+    },
+    {
+      "id": "worked-part-headings",
+      "area": "lead_lines",
+      "input": "**Find**  \n(a) $v$ (speed)\n(b) $t$ (time)\n**(a) Speed after 2 s**\n**Constant acceleration formula**  \n$v = u + at$\n**Answer (a)**  \n$v = 20\\,\\mathrm{m/s}$\n**Part (b): Time to stop**\n$t = 4\\,\\mathrm{s}$",
+      "expected": "**Find**  \n(a) $v$ (speed)\n(b) $t$ (time)\n\n**(a) Speed after 2 s**\n\n**Constant acceleration formula**  \n$v = u + at$\n\n**Answer (a)**  \n$v = 20\\,\\mathrm{m/s}$\n\n**Part (b): Time to stop**\n$t = 4\\,\\mathrm{s}$"
+    },
+    {
+      "id": "worked-section-title-with-words",
+      "area": "lead_lines",
+      "input": "**Given**  \n$m = 2\\,\\mathrm{kg}$, $a = 3\\,\\mathrm{m/s^2}$\n**Required:** the force $F$\n**Answer:** $F = 6\\,\\mathrm{N}$\n**2) Divide both sides by 2** — division\n$x = 4$",
+      "expected": "**Given**  \n$m = 2\\,\\mathrm{kg}$, $a = 3\\,\\mathrm{m/s^2}$\n\n**Required:** the force $F$\n\n**Answer:** $F = 6\\,\\mathrm{N}$\n\n**2) Divide both sides by 2** — division\n$x = 4$"
+    },
+    {
+      "id": "worked-bold-label-stays",
+      "area": "lead_lines",
+      "input": "**Given**  \n$m = 5\\,\\mathrm{kg}$  \n**Speed:** $3\\,\\mathrm{m/s}$\n\nThe value stays\n**positive** for every $x$.",
+      "expected": "**Given**  \n$m = 5\\,\\mathrm{kg}$  \n**Speed:** $3\\,\\mathrm{m/s}$\n\nThe value stays\n**positive** for every $x$."
+    },
+    {
+      "id": "unworked-bold-line-stays",
+      "area": "lead_lines",
+      "input": "Here is the plan:\n**Step 1**\nBoil the water.",
+      "expected": "Here is the plan:\n**Step 1**\nBoil the water."
+    },
+    {
+      "id": "ratio-beside-a-price",
+      "area": "boundaries",
+      "input": "The ratio $2:3$ costs $8, and $9: 12: 15$ is $3: 4: 5$.",
+      "expected": "The ratio $2:3$ costs $8, and $9: 12: 15$ is $3: 4: 5$."
+    },
+    {
+      "id": "price-colon-then-maths",
+      "area": "boundaries",
+      "input": "Total $60: 3 of us, so $x = 20$, and rent is $1,200: 3 roommates.",
+      "expected": "Total $60: 3 of us, so $x = 20$, and rent is $1,200: 3 roommates."
+    },
+    {
+      "id": "worked-display-maths-left-alone",
+      "area": "lead_lines",
+      "input": "**Required**\n$x$\n$$\n**not bold**\n$$\n**Answer**\n$x = 1$",
+      "expected": "**Required**\n$x$\n$$\n**not bold**\n$$\n\n**Answer**\n$x = 1$"
+    },
+    {
+      "id": "worked-heading-after-a-list-or-a-table",
+      "area": "lead_lines",
+      "input": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n**Answer**\n$p = 6$",
+      "expected": "**Given**\n- $m = 2$ kg\n- $v = 3$ m/s\n\n**Required**\n$p$\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n**Answer**\n$p = 6$"
+    },
+    {
+      "id": "worked-lowercase-headings",
+      "area": "lead_lines",
+      "input": "**Given**  \n$pH = 3$\n**pOH from pH**\n$pOH = 14 - pH$\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n**x-intercept**\n$x = 3$",
+      "expected": "**Given**  \n$pH = 3$\n\n**pOH from pH**\n$pOH = 14 - pH$\n\n**de Broglie relation**\n$\\lambda = \\frac{h}{p}$\n\n**x-intercept**\n$x = 3$"
     }
   ]
 }
