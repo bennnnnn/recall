@@ -62,6 +62,7 @@ from app.modules.math.tools.block.solid import _verified_block_solid
 from app.modules.math.tools.block.statistics import _verified_block_statistics
 from app.modules.math.tools.block.word import _verified_block_word_problem
 from app.modules.math.tools.block.work import _verified_block_work_check
+from app.services.asked_value import QUANTITY_NAMES
 from app.services.solving import (
     VerifiedMathBlock as VerifiedMathBlock,
 )
@@ -133,6 +134,12 @@ def _method_left_out(intent: MathIntent, block: VerifiedMathBlock) -> bool:
     return not worked and (calculus or intent.kind in {"limit", "series"})
 
 
+def _asked(intent: MathIntent) -> tuple[str, ...]:
+    """The symbol and names of the measure a shape question asks for."""
+    request = intent.geometry_request
+    return () if request is None else QUANTITY_NAMES.get(request.quantity, ())
+
+
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
     if is_declined(intent):
         # A reader's declined_reading: there is nothing to solve.
@@ -159,6 +166,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             block,
             text=wrap_verified_math(block.text),
             geometry_request=intent.geometry_request,
+            asked=block.asked or _asked(intent),
             plot_point=intent.plot_point,
             read_from_words=not (intent.expr or intent.lhs or intent.system_equations),
             allow_direct=block.allow_direct and not _method_left_out(intent, block),

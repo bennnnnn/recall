@@ -321,9 +321,10 @@ _CARDS = [
     ("Find the area of a circle with radius 3 cm in terms of π.", None),
     ("Find the area of a circle with radius 3 cm. Leave your answer in terms of pi.", None),
     ("Find the volume of a cylinder with radius 3 cm and height 10 cm in terms of π.", None),
-    ("Find the circumference of a circle with radius 7 cm. Use π = 22/7.", None),
-    ("Find the area of a circle with radius 7 cm (take π = 22/7).", None),
-    ("Find the area of a circle with radius 7 cm using π = 3.14.", None),
+    # A stated π is the one the card is worked with (22/7 * 14 = 44, 3.14 * 49 = 153.86).
+    ("Find the circumference of a circle with radius 7 cm. Use π = 22/7.", "44\\ \\mathrm{cm}"),
+    ("Find the area of a circle with radius 7 cm (take π = 22/7).", "154\\ \\mathrm{cm}^{2}"),
+    ("Find the area of a circle with radius 7 cm using π = 3.14.", "153.86\\ \\mathrm{cm}^{2}"),
     ("Find the volume of a cube with side 101 cm.", "1030301\\ \\mathrm{cm}^{3}"),
     ("Find the volume of a cube with side 120 cm.", "1728000\\ \\mathrm{cm}^{3}"),
     ("Find the area of a rectangle 1500 m by 1200 m.", "1800000\\ \\mathrm{m}^{2}"),

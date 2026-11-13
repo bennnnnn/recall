@@ -133,6 +133,7 @@ export function computeSectorLabels(spec: SectorSpec): Record<string, string> {
     angle: spec.labels?.angle ?? `${spec.angle_deg}°`,
     arc_length: measurementLabel(spec.labels?.arc_length, spec.arc_length, unit, "", 2, true),
     area: measurementLabel(spec.labels?.area, spec.area, unit, "²", 2, true),
+    perimeter: measurementLabel(spec.labels?.perimeter, spec.perimeter, unit, "", 2, true),
   };
 }
 

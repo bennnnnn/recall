@@ -242,12 +242,16 @@ def can_direct_verified_math_reply(
         return False
     if not answer or len(answer) > MAX_DIRECT_ANSWER_CHARS:
         return False
+    return all(_carried_by_a_direct_reply(verified, fence) for fence in solver_fences(verified))
+
+
+def _carried_by_a_direct_reply(verified: VerifiedMathBlock, fence: dict[str, object]) -> bool:
+    """A card, a teaching picture, or a worked school reply's own figure (a semicircle
+    drawn as one), which finalize appends under the working."""
     from app.modules.math.schemas.teaching import TEACHING_TYPES
 
-    fences = solver_fences(verified)
-    if not fences:
-        return True
-    return all(fence.get("type") in {"answer", *TEACHING_TYPES} for fence in fences)
+    figures = {"circle", "sector"} if verified.worked_reply is not None else set()
+    return fence.get("type") in {"answer", *TEACHING_TYPES, *figures}
 
 
 def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:

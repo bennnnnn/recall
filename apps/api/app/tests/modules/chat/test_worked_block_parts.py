@@ -120,6 +120,107 @@ def test_two_questions_have_one_given_lettered_by_part(block: str) -> None:
     assert train.rstrip().endswith("$30\\,\\mathrm{m/s}$")
 
 
+# The textbook run (2026-11-13): a pie chart's angles each lettered by a part ("(a) θ_bus =
+# 56°", "(b) θ_cycle = 32°"), and look-alikes: a free fall whose part gives its own time, a
+# conversion graph whose x has a value per part, two separate problems sharing d and t.
+_PIE = (
+    "given: N | 720 | students | total students\n"
+    "given (a): \\theta_{bus} | 56 | ° | bus sector angle\n"
+    "given (b): \\theta_{cycle} | 32 | ° | cycle sector angle\n"
+    "given (b): \\theta_{train} | 48 | ° | train sector angle\n"
+    "required: n_{bus} | students by bus\nrequired: n_{walk} | students walking\n"
+    "part: a | Students by bus\nformula: Pie chart sector count | n = \\frac{\\theta}{360} N\n"
+    "substitution: n_{bus} = 112\nanswer: n_{bus} | 112 | students\n"
+    "part: b | Students walking\nformula: Angles about a point | \\theta_{walk} = 360 - 136\n"
+    "substitution: n_{walk} = 448\nanswer: n_{walk} | 448 | students"
+)
+_CONVERSION = (
+    "given (a): x | 6 | in | length in inches\ngiven (b): x | 10 | in | length in inches\n"
+    "given (c): y | 25 | cm | length in centimetres\n"
+    "required: y | length in centimetres\nrequired: y | length in centimetres\n"
+    "required: x | length in inches\n"
+    "part: a | 6 inches in centimetres\nformula: Conversion | y = 2.54 x\nanswer: y | 15.24 | cm\n"
+    "part: b | 10 inches in centimetres\nformula: Conversion | y = 2.54 x\nanswer: y | 25.4 | cm\n"
+    "part: c | 25 cm in inches\nformula: Conversion | x = \\frac{y}{2.54}\nanswer: x | 9.84 | in"
+)
+_FALL = (
+    "given: h | 20 | m | height\nrequired: v | speed after 1 s\nrequired: t | time to fall\n"
+    "part: a | speed after 1 s\ngiven: t | 1 | s | time\n"
+    "formula: Free fall | v = g t\nanswer: v | 9.8 | m/s\n"
+    "part: b | time to fall\nformula: Free fall | t = \\sqrt{2h/g}\nanswer: t | 2.02 | s"
+)
+_LETTERED_ROW = re.compile(r"^(?:\([a-z](?:, [a-z])*\) )?\$([^$=]+?)\s*=", re.M)
+
+
+def _given_rows_of(text: str) -> list[tuple[str, str]]:
+    """Each value row of the one Given and the symbol it sets."""
+    given = text.partition("**Given**")[2].partition("\n\n")[0]
+    return [(row.group(0), row.group(1).strip()) for row in _LETTERED_ROW.finditer(given)]
+
+
+@pytest.mark.parametrize("block", [_PIE, _CONVERSION, _FALL, CONTRACT, MISLETTERED])
+def test_a_given_carries_a_parts_letter_only_beside_another_value_of_its_symbol(
+    block: str,
+) -> None:
+    text = _laid_out(block)
+    rows = _given_rows_of(text)
+    symbols = [symbol for _row, symbol in rows]
+    assert rows
+    for row, symbol in rows:
+        # A given is data: a letter only tells one symbol's values apart.
+        assert row.startswith("(") == (symbols.count(symbol) > 1), row
+    # What is asked and the parts keep their letters.
+    opening, parts = _opening_and_parts(text)
+    assert re.search(r"^\([a-z]\) ", opening.partition("**Required**")[2], re.M)
+    assert parts[0].lstrip().startswith("**(a) ")
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        # The pie chart as the contract asks it now: every angle a plain `given:`.
+        _PIE.replace("given (a):", "given:").replace("given (b):", "given:"),
+        # As the contract asked before, each angle lettered by its part: a letter the
+        # whole block drops is never drawn, so the stream is never redrawn (review,
+        # 2026-11-13: done replaced the whole reply).
+        _PIE,
+    ],
+)
+def test_lettered_or_not_givens_stream_with_no_letter_and_no_rewrite(block: str) -> None:
+    accum = StreamAccum()
+    reply_filter = ReplyFilter(accum, PHYSICS)
+    for start in range(0, len(block) + 12, 5):
+        if sent := reply_filter.feed(f"```worked\n{block}\n```"[start : start + 5]):
+            accum.shown.append(sent)
+    if tail := reply_filter.flush():
+        accum.shown.append(tail)
+    assert not accum.rewritten
+    rows = _given_rows_of("".join(accum.shown))
+    assert len(rows) == 4 and not any(row.startswith("(") for row, _symbol in rows)
+
+
+def test_a_part_given_lettered_by_the_old_contract_streams_unlettered() -> None:
+    block = (
+        "given: h | 20 | m | height\ngiven (a): t | 1 | s | time\n"
+        "required: v | speed after 1 s\nrequired: t | time to fall\n"
+        "part: a | speed after 1 s\nformula: Free fall | v = g t\nanswer: v | 9.8 | m/s\n"
+        "part: b | time to fall\nformula: Free fall | t = \\sqrt{2h/g}\nanswer: t | 2.02 | s"
+    )
+    accum = StreamAccum()
+    reply_filter = ReplyFilter(accum, PHYSICS)
+    seen: list[str] = []
+    reply = f"```worked\n{block}\n```"
+    for start in range(0, len(reply), 3):
+        if sent := reply_filter.feed(reply[start : start + 3]):
+            accum.shown.append(sent)
+        seen.append("".join(accum.shown))
+    if tail := reply_filter.flush():
+        accum.shown.append(tail)
+    assert not accum.rewritten
+    assert all(later.startswith(earlier) for earlier, later in itertools.pairwise(seen))
+    assert "  \n$t = 1\\,\\mathrm{s}$" in "".join(accum.shown)
+
+
 def test_parts_with_nothing_asked_still_list_what_each_part_finds() -> None:
     # Live: the model wrote the parts with no ``required`` record at all.
     text = _laid_out(CONTRACT.replace(f"{_ASKED}\n", ""))
@@ -180,7 +281,7 @@ def test_a_given_every_part_uses_is_given_once() -> None:
     opening, (first, second) = _opening_and_parts(_laid_out(block))
     assert opening.startswith(
         "**Given**  \n$h = 20\\,\\mathrm{m}$  \n$g = 9.8\\,\\mathrm{m/s²}$  \n"
-        "(a) $t = 1\\,\\mathrm{s}$  \nwhere $h$ = height, $g$ = gravity, $t$ = time\n"
+        "$t = 1\\,\\mathrm{s}$  \nwhere $h$ = height, $g$ = gravity, $t$ = time\n"
     )
     assert "**Given**" not in first + second
 

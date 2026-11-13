@@ -30,7 +30,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from app.services.card_text import card_maths, named_value, without_emphasis
+from app.services.card_text import card_maths, named_value, without_emphasis, wordy
 from app.services.card_value import final_answer_only
 from app.services.md_fence_scan import fence_lang as fence_lang
 from app.services.md_fence_scan import map_closed_fences, read_fence_marker
@@ -310,13 +310,6 @@ def _ends_section(line: str) -> bool:
 _EQUATION_START = re.compile(r"[^\s=]+\s*=")
 _LATEX_COMMAND = re.compile(r"\\[A-Za-z]+")
 _WORD = re.compile(r"[A-Za-z]{3,}")
-_MATH_SPAN = re.compile(r"\$\$.*?\$\$|\$[^$\n]*\$|\\\(.*?\\\)", re.DOTALL)
-
-
-def _wordy(value: str) -> bool:
-    """A paragraph, not a value: over twenty words outside its maths and no equation."""
-    prose = _MATH_SPAN.sub(" ", value[:2000])  # no card holds more; the spans read it once
-    return len(value) > 2000 or ("=" not in _relations(prose) and len(_WORD.findall(prose)) > 20)
 
 
 # Display maths spanning lines: its opener and the closer that ends it.
@@ -455,8 +448,8 @@ def land_answer_card(text: str, verified_body: str | None, *, above: str | None 
         value, said = split_tail(named_value(answer_header_and_value(joined)[1]))
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
-        # A card draws maths; "Paris" under a quiz's Answer, or a paragraph, stays prose.
-        if ("$" not in value and "=" not in _relations(value)) or _wordy(value):
+        # A card draws maths; "Paris" under a quiz's Answer, a paragraph or a sentence stays.
+        if ("$" not in value and "=" not in _relations(value)) or wordy(value):
             return text
         card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card_maths(value)}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.modules.math.match.scan import CALC_OP_SPELLINGS, ddx_cue_at, ddx_expr_after
+from app.modules.math.match.stated_pi import stated_pi
 from app.services.text_normalize import collapse_ws
 
 # Cap before any poly-time regex. CodeQL only treats a const length compare as a
@@ -93,7 +94,9 @@ def _split_response_instruction_sentence(s: str) -> str:
     Requests such as ``... = 7. Show every step`` used to feed the second
     sentence into SymPy, disabling verification and allowing an unrelated
     algebra fallback. Only an explicit response/presentation verb is peeled;
-    decimal points and a second mathematical question remain untouched.
+    decimal points and a second mathematical question remain untouched. "Use 22/7."
+    is not presentation: it is the π the answer is worked with, and peeling it gave a
+    sphere's area with π itself under a card the book answers with 22/7 (2026-11-13).
     """
     lower = s.lower()
     for index, char in enumerate(s):
@@ -101,7 +104,7 @@ def _split_response_instruction_sentence(s: str) -> str:
             continue
         tail = lower[index + 1 :].lstrip()
         if any(tail.startswith(prefix) for prefix in _RESPONSE_SENTENCE_STARTS):
-            return s[:index]
+            return s if stated_pi(tail) is not None else s[:index]
     return s
 
 

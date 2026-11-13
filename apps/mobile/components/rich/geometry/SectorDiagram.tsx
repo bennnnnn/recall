@@ -45,7 +45,15 @@ export function SectorDiagram({
   const cx = (svgW - (maxX - minX)) / 2 - minX;
   const cy = 36 + r;
   const plotBottom = cy + maxY;
-  const svgH = plotBottom + (showLabels ? 62 : 16);
+  // The measures under the figure, one line each: what the server worked, nothing more.
+  const footer = (
+    [
+      ["rich.area", labels.area],
+      ["rich.arc_length", labels.arc_length],
+      ["rich.perimeter", labels.perimeter],
+    ] as const
+  ).filter(([, value]) => value);
+  const svgH = plotBottom + (showLabels ? 62 + 16 * Math.max(0, footer.length - 2) : 16);
   const x1 = cx;
   const y1 = cy - r;
   const x2 = cx + endX;
@@ -100,30 +108,19 @@ export function SectorDiagram({
               {labels.radius}
             </SvgText>
           ) : null}
-          {labels.area ? (
+          {footer.map(([key, value], index) => (
             <SvgText
+              key={key}
               x={svgW / 2}
-              y={plotBottom + 34}
+              y={plotBottom + 34 + 16 * index}
               fill={theme.textSecondary}
               fontSize={12}
               {...Weight.regular}
               textAnchor="middle"
             >
-              {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+              {`${i18n.t(key)}\u00A0${value}`}
             </SvgText>
-          ) : null}
-          {labels.arc_length ? (
-            <SvgText
-              x={svgW / 2}
-              y={plotBottom + (labels.area ? 50 : 34)}
-              fill={theme.textSecondary}
-              fontSize={12}
-              {...Weight.regular}
-              textAnchor="middle"
-            >
-              {`${i18n.t("rich.arc_length")}\u00A0${labels.arc_length}`}
-            </SvgText>
-          ) : null}
+          ))}
         </>
       ) : null}
     </Svg>

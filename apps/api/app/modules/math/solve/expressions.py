@@ -19,7 +19,7 @@ def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
     parse_expression(expr, [variable], real=True)  # the evaluated parse's checks
     # Read as written: evaluated, (-2.5)^(2/3) is already SymPy's complex principal value.
     written = parse_expression(expr, [variable], real=True, evaluate=False)
-    result, book_latex = simplest_form(read_written(written))
+    result, book_latex = simplest_form(read_written(written), written)
     if complex_without_cause(written, result):
         raise SolveServiceError("could not verify: an odd root kept no real value")
     return MathExprResult(result=str(result), latex=book_latex or format_verified_latex(result))

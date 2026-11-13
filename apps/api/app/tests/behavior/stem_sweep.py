@@ -198,6 +198,8 @@ def card_values(reply: str) -> list[tuple[float, str, str]]:
     cards = [text for lang, text in fences(reply) if lang == "answer"]
     for line in (line for card in cards for line in card.splitlines()):
         plain = latex_to_plain(line.replace("\u2212", "-"))
+        # "16π ≈ 50.27 cm²", "≈ 201.06 cm²": an exact form, then its value to a few places.
+        plain = re.sub(r"^.*?\bapprox\s+", "", plain)
         for part in re.split(r"\s+(?:and|at)\s+|;|,\s+(?=[a-zA-Z\\]*\s*=)|\s+/\s+", plain):
             part = re.sub(r"^[^\d-]*=\s*", "", part.strip())  # "R = 62.7 m"
             match = _NUMBER.match(part)

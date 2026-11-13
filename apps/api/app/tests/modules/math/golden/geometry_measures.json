@@ -1,6 +1,6 @@
 [
  {
-  "op": "semicircle",
+  "op": "circle_part",
   "prompt": "Find the perimeter of a semicircle with diameter 10 cm",
   "block": {
    "text": "$r = \\frac{10}{2} = 5$\n$P = \\pi(5) + 2(5)$\nVerified result: 5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}",
@@ -9,7 +9,26 @@
     "content": "5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}"
    },
    "canonical_answer": "5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}",
-   "worked_reply": "**Given**  \n$d = 10$  \nwhere $d$ = diameter\n\n**Required**  \n$P$ (perimeter of the semicircle)\n\n**Solution**\n\n**Curved edge plus the diameter formula**  \n$P = \\pi r + 2r$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$P = \\pi(5) + 2(5)$\n\n**Answer**\n\n```answer\n5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}\n```\n"
+   "canonical_fences": [
+    {
+     "type": "sector",
+     "radius": 5.0,
+     "angle_deg": 180.0,
+     "unit": "cm",
+     "show_labels": true,
+     "perimeter": 25.71,
+     "labels": {
+      "radius": "5 cm",
+      "perimeter": "25.71 cm",
+      "angle": "180°"
+     }
+    }
+   ],
+   "worked_reply": "**Given**  \n$d = 10$  \nwhere $d$ = diameter\n\n**Required**  \n$P$ (perimeter of the semicircle)\n\n**Solution**\n\n**Curved edge plus the diameter formula**  \n$P = \\pi r + 2r$\n\n**Substitution**  \n$r = \\frac{10}{2} = 5$  \n$P = \\pi(5) + 2(5)$\n\n**Answer**\n\n```answer\n5\\pi + 10 \\approx 25.71\\ \\mathrm{cm}\n```\n",
+   "asked": [
+    "P",
+    "perimeter"
+   ]
   }
  },
  {

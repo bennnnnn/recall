@@ -26,7 +26,7 @@ FIXTURE = Path(__file__).with_name("golden") / "geometry_measures.json"
 EXPRESSION_OPS = ("circle_centre_radius", "perpendicular_gradient")
 
 PROMPTS: dict[str, str] = {
-    "semicircle": "Find the perimeter of a semicircle with diameter 10 cm",
+    "circle_part": "Find the perimeter of a semicircle with diameter 10 cm",
     "hemisphere": "volume of a hemisphere with radius 3",
     "circle_from_circumference": "find the radius of a circle with circumference 31.4",
     "circle_from_area": "find the diameter of a circle with area 50",
