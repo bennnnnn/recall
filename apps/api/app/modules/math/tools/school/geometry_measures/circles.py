@@ -376,28 +376,23 @@ def _figure(
     shown_unit = unit or "units"
     square = "²" if field == "area" else ""
     labels = {"radius": f"{r:g} {shown_unit}", field: f"{shown} {shown_unit}{square}"}
+    measures: dict[str, object] = {"radius": r, "unit": shown_unit, field: float(shown)}
     if reading.part == 1:
         given_diameter = reading.size != r
         if given_diameter:
             labels["diameter"] = f"{reading.size:g} {shown_unit}"
-        return CircleGeometryBlockSpec(
-            radius=r,
-            unit=shown_unit,
-            show_diameter=given_diameter,
-            diameter=reading.size if given_diameter else None,
-            show_area=field == "area",
-            show_circumference=field == "circumference",
-            labels=labels,
-            **{field: float(shown)},
-        ).model_dump(exclude_none=True)
+            measures["diameter"] = reading.size
+        circle = {
+            **measures,
+            "show_diameter": given_diameter,
+            "show_area": field == "area",
+            "show_circumference": field == "circumference",
+            "labels": labels,
+        }
+        return CircleGeometryBlockSpec.model_validate(circle).model_dump(exclude_none=True)
     degrees = float(reading.part * 360)
-    return SectorGeometryBlockSpec(
-        radius=r,
-        angle_deg=degrees,
-        unit=shown_unit,
-        labels={**labels, "angle": f"{degrees:g}°"},
-        **{field: float(shown)},
-    ).model_dump(exclude_none=True)
+    sector = {**measures, "angle_deg": degrees, "labels": {**labels, "angle": f"{degrees:g}°"}}
+    return SectorGeometryBlockSpec.model_validate(sector).model_dump(exclude_none=True)
 
 
 _FIGURE_FIELDS = {"A": "area", "C": "circumference", "L": "arc_length", "P": "perimeter"}
