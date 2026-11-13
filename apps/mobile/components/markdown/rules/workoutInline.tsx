@@ -5,6 +5,7 @@ import { MathText } from "@/components/rich/MathText";
 import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
 import { mathSizeOf, withGreenTicks } from "@/components/markdown/rules/textWithMath";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
+import { typedScriptsAsMath } from "@/lib/math/typedScripts";
 import type { Theme } from "@/lib/theme";
 
 /** Prose and ``$...$`` math in one wrapping run, every piece in one colour. */
@@ -16,7 +17,8 @@ export function workoutInline(
   tickColor?: string,
 ): ReactNode[] {
   const size = mathSizeOf(textStyle);
-  return splitInlineMath(text).map((part, i) =>
+  // A power or a limit written in the words ("as x → 5^+") is drawn as one.
+  return splitInlineMath(typedScriptsAsMath(text)).map((part, i) =>
     part.type === "math" ? (
       <MathText
         scrollOverflow
@@ -48,7 +50,7 @@ export function workingHeading(
   testID: string,
 ): ReactNode {
   const marked = splitStreamCaret(text);
-  if (!marked.caret && !marked.text.includes("$")) {
+  if (!marked.caret && !typedScriptsAsMath(marked.text).includes("$")) {
     return (
       <Text testID={testID} style={label}>
         {text}

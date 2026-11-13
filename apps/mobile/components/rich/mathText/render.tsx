@@ -195,11 +195,14 @@ function renderScriptBody(
   const scriptEm = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
   const shift = scriptShift(node, ctx, placed);
   const inner = node?.children[0];
+  // A row, as the formula it hangs on is: a body of several runs (`x→5⁺`, `x + y^2`) stood
+  // its runs in a column, one glyph over the next.
   return (
     <View
       key={key}
       testID="math-script"
       style={{
+        ...ctx.styles.fracSideRow,
         width: scaled(node?.width ?? 0, ctx.fontScale),
         height: scaled(node?.height ?? 0, ctx.fontScale),
         paddingTop: scaled(inner?.padTop ?? 0, ctx.fontScale),
