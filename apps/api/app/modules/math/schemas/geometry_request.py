@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict
 
 from app.modules.math.schemas.geometry import SolidGeometryInput
 from app.modules.math.schemas.operations import SolidShape
 
-GeometryShape = Literal[
+# The flat figures: their verified block carries a drawn figure, a solid's has none.
+PlaneShape = Literal[
     "rectangle",
     "square",
     "triangle",
@@ -19,8 +20,9 @@ GeometryShape = Literal[
     "trapezoid",
     "circle",
     "sector",
-    SolidShape,
 ]
+PLANE_SHAPES: frozenset[PlaneShape] = frozenset(get_args(PlaneShape))
+GeometryShape = Literal[PlaneShape, SolidShape]
 GeometryQuantity = Literal[
     "area",
     "perimeter",

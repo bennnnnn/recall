@@ -37,6 +37,7 @@ from app.modules.images.gen_intent_words import (
     VERBS_DRAW,
     VERBS_IMAGE,
 )
+from app.modules.images.schemas import PHOTO_LOOKUP_MODEL
 from app.services.text_normalize import fold_token
 
 _MODALS = frozenset({"can", "can't", "cant", "cannot", "could", "couldn't", "will", "won't"})
@@ -338,7 +339,7 @@ def image_gen_revision_context(
                 model = row.get("model")
             # Reference-photo lookup is image-only content but must not be
             # treated as an AI-image revision target.
-            if model == "image-search-model":
+            if model == PHOTO_LOOKUP_MODEL:
                 break
             last_assistant_is_image_only = is_image_only_assistant_content(content)
             if not last_assistant_is_image_only:

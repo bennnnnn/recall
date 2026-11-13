@@ -125,7 +125,11 @@ class MathFollowups:
 
 @dataclass(frozen=True)
 class MathFence:
-    """Maths owns every reply chemistry or physics did not verify (chat's finalize passes)."""
+    """Maths finishes its own verified replies and every reply no subject verified (chat's
+    finalize passes)."""
+
+    def owns(self, verified: VerifiedSolveBlock | None) -> bool:
+        return verified is None or verified.subject == "math"
 
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         from app.modules.math.fence import needs_math_fence_validate
@@ -253,10 +257,15 @@ class MathTool:
 class MathSubject:
     name: Literal["math"] = "math"
     hints: SubjectHints = _HINTS
+    # The phone's "Calculating" label.
+    status_phase: str = "calculating"
     followups: MathFollowups = MathFollowups()
     fence: MathFence = MathFence()
     photo: MathPhoto = MathPhoto()
     tool: MathTool = MathTool()
+
+    def enabled(self, settings: Settings) -> bool:
+        return settings.math_tools_enabled
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_symbolic_math(text, has_image_attachment=has_image_attachment)
@@ -273,12 +282,15 @@ class MathSubject:
 
         return not names_beyond(setup, question)
 
-    def fast_lane(self, text: str, *, tools_on: bool) -> bool | None:
+    def fast_lane(self, text: str, *, tools_on: bool, claimed: bool = True) -> bool | None:
         """SymPy already covers these; a reasoning model only writes a CoT essay.
 
         Keep equations / calculus / graphs on the maths lane (False). Bare factorial
-        ("4!") and "what is 1+1" style arithmetic stay on the fast model.
+        ("4!") and "what is 1+1" style arithmetic stay on the fast model. A line maths was
+        not given has no say here.
         """
+        if not claimed:
+            return None
         from app.modules.math.match import (
             bare_arithmetic_expr,
             combinatorics_signal,

@@ -29,6 +29,7 @@ from app.modules.math.tools.request_text import (
     _strip_series_prefix,
     strip_trailing_filler,
 )
+from app.services.number_text import SIGNED_DECIMAL
 
 _WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
 _LEIBNIZ_VARIABLE = re.compile(r"/\s*d\s*([a-zA-Z])\b")
@@ -39,13 +40,11 @@ _HIGHER_LEIBNIZ = re.compile(
     re.IGNORECASE,
 )
 _DERIVATIVE_AT_POINT = re.compile(
-    r"\s+at\s+([a-zA-Z])\s*=\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*$",
+    rf"\s+at\s+([a-zA-Z])\s*=\s*({SIGNED_DECIMAL})\s*$",
     re.IGNORECASE,
 )
 # ``f'(3)``: a derivative asked at a number, in Lagrange's notation.
-_PRIME_AT_NUMBER = re.compile(
-    r"(?<![A-Za-z])[a-zA-Z]'{1,3}\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)"
-)
+_PRIME_AT_NUMBER = re.compile(rf"(?<![A-Za-z])[a-zA-Z]'{{1,3}}\(\s*({SIGNED_DECIMAL})\s*\)")
 _BY_PARTS = re.compile(
     r"^\s*(?:by|using)\s+(?:integration\s+by\s+)?parts\s+"
     r"|\s*,?\s+(?:by|using)\s+(?:integration\s+by\s+)?parts\s*[.?!]?\s*$",

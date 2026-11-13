@@ -588,10 +588,7 @@ def judge(entry: Entry, subject: str, route: Route, written: str = "") -> Outcom
             problems.append(Problem("wrong", f"gave a number to a question with none: {answer}"))
         if entry.visual:
             # "Draw the forces on a box on an incline": no number, still its picture.
-            outcome.visuals, visual_problems = check_visuals(route.server_pictures)
-            problems.extend(visual_problems)
-            if entry.visual not in outcome.visuals:
-                problems.append(Problem("no_visual", f"no {entry.visual} picture"))
+            _judge_pictures(entry, outcome, route.server_pictures)
         return outcome
     if not route.subject:
         problems.append(Problem("missed", f"not read as a {subject} question"))
@@ -606,27 +603,38 @@ def judge(entry: Entry, subject: str, route: Route, written: str = "") -> Outcom
         )
     if not route.solved:
         problems.append(Problem("unsolved", "no verified answer"))
+        # An unsolved turn is judged for its picture too: it draws none of its own, so
+        # one it wanted is missing, never counted as drawn (``drawn``).
+        _judge_pictures(entry, outcome, route.server_pictures)
         return outcome
     if not route.instant_text:
         # Verified, but the model writes the reply around the verified result
-        # (an image question, a law kept off the direct path). Check the result.
+        # (a question in parts, an image question, a law kept off the direct path).
+        # Check the result, and the scenes the server appends under the reply.
         if not route.verified_answer:
             problems.append(Problem("unsolved", "no verified answer"))
+            _judge_pictures(entry, outcome, route.server_pictures)
             return outcome
         card = f"```answer\n{route.verified_answer}\n```\n\n{route.verified_text}"
         outcome.got, answer_problems = check_answer(entry, subject, card, whole=False)
         problems.extend(answer_problems)
+        _judge_pictures(entry, outcome, route.server_pictures)
         return outcome
     outcome.got, answer_problems = check_answer(entry, subject, route.instant_text)
     problems.extend(answer_problems)
     if route.subject == subject:
         problems.extend(check_shape(entry, route.instant_text, subject, written or None))
     problems.extend(Problem("latex", text) for text in latex_problems(route.instant_text))
-    outcome.visuals, visual_problems = check_visuals(route.instant_text)
-    problems.extend(visual_problems)
-    if entry.visual and entry.visual not in outcome.visuals:
-        problems.append(Problem("no_visual", f"no {entry.visual} picture"))
+    _judge_pictures(entry, outcome, route.instant_text)
     return outcome
+
+
+def _judge_pictures(entry: Entry, outcome: Outcome, shown: str) -> None:
+    """The pictures in ``shown`` checked, and the one the entry wants, when missing."""
+    outcome.visuals, visual_problems = check_visuals(shown)
+    outcome.problems.extend(visual_problems)
+    if entry.visual and entry.visual not in outcome.visuals:
+        outcome.problems.append(Problem("no_visual", f"no {entry.visual} picture"))
 
 
 async def run_entry(entry: Entry, subject: str) -> Outcome:

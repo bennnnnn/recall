@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 from app.modules.chemistry.extractors.parsing import (
     _N,
@@ -104,6 +105,12 @@ def extract_mass_chain(text: str) -> ChemistryIntent | None:
     return None
 
 
+@lru_cache(maxsize=128)
+def _how_many(species: str) -> re.Pattern[str]:
+    """ "how many H2O", compiled once per species rather than on every question."""
+    return re.compile(rf"\bhow\s+many\s+{re.escape(species)}\b", re.IGNORECASE)
+
+
 def _amount_ask(text: str) -> AskedQuantity | None:
     """The head that asks an amount: "how much H2O", "what mass of H2O", "find the moles of
     O2". No head, no verified answer: "what is H2O" asks nothing a ratio gives.
@@ -119,7 +126,7 @@ def _amount_ask(text: str) -> AskedQuantity | None:
         single = asked.species is not None and parse_formula(asked.species) == {asked.species: 1}
         return AskedQuantity("particles", asked.species) if single else None
     if asked.unit is None and asked.species is not None:
-        if re.search(rf"\bhow\s+many\s+{re.escape(asked.species)}\b", text, re.IGNORECASE):
+        if _how_many(asked.species).search(text):
             return AskedQuantity("mol", asked.species)
     return asked if asked.unit in _ANSWERED_UNITS else None
 

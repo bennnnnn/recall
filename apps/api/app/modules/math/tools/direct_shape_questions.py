@@ -13,6 +13,7 @@ import re
 from app.modules.math.tools.direct_fences import solver_fences
 from app.modules.math.tools.direct_graph import can_direct_graph
 from app.modules.turn_reading.see_request import asks_for_a_drawing, asks_to_see
+from app.services.number_text import DECIMAL
 from app.services.solving import VerifiedMathBlock
 
 _GEOMETRY_DECLARATION_WORDS = frozenset(
@@ -174,7 +175,7 @@ def _plain_geometry_description(
     draw = any(word in _DRAW_WORDS for word in words)
     if len(_geometry_shape_mentions(lower)) != 1:
         return False, False
-    number_count = len(re.findall(r"(?:\d+(?:\.\d+)?|\.\d+)", lower))
+    number_count = len(re.findall(DECIMAL, lower))
     expected_counts = _GEOMETRY_NUMBER_COUNTS[kind]
     if number_count not in expected_counts and not (draw and number_count == 0):
         return False, False

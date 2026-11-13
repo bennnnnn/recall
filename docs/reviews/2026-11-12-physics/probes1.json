@@ -1,0 +1,15 @@
+{"q06 plane drop (want 807.7 m)": [
+ "A package is dropped from a plane flying horizontally at 80 m/s at an altitude of 500 m. How far horizontally does it travel before it hits the ground?",
+ "A ball is thrown horizontally at 80 m/s from a 500 m high cliff. How far from the base of the cliff does it land?",
+ "A plane flying horizontally at 80 m/s at a height of 500 m releases a package. What horizontal distance does the package travel?",
+ "An object is launched horizontally at 80 m/s from a height of 500 m. Find its horizontal range."],
+ "q21 orbit (want 7671 m/s)": [
+ "Find the orbital speed of a satellite 400 km above Earth's surface. Earth's mass is 5.97 × 10^24 kg and its radius is 6371 km.",
+ "A satellite orbits Earth at a radius of 6771 km. Earth's mass is 5.97 × 10^24 kg. What is its orbital speed?",
+ "What is the orbital speed of a satellite at an altitude of 400 km above the Earth?",
+ "Calculate the speed of a satellite in a circular orbit of radius 6.771 × 10^6 m around Earth (M = 5.97 × 10^24 kg)."],
+ "q26 wavelength (want 3.04 m)": [
+ "My favourite FM station is on 98.5 MHz. How long are its radio waves?",
+ "A radio wave has a frequency of 98.5 MHz. What is its wavelength?",
+ "What is the wavelength of a 98.5 MHz radio wave?",
+ "An FM station broadcasts at 98.5 MHz. Find the wavelength."]}

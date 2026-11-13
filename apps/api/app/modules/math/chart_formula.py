@@ -11,6 +11,7 @@ formula SymPy cannot read leaves a note where the chart was, never a blank card.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from app.modules.math import solve as math_solve
 from app.modules.math.schemas import GraphSampleInput
 from app.modules.math.tools.block import verified_curves
 from app.services.md_fence_scan import iter_fences
+
+logger = logging.getLogger(__name__)
 
 CHART_FENCE_LANGS = ("chart", "vega", "vega-lite", "plot")
 CHART_FAIL_NOTE = "*Could not draw that chart.*"
@@ -69,6 +72,8 @@ def _bound(value: object) -> float | None:
         try:
             number = float(math_solve.parse_expression(value.strip(), []))
         except Exception:
+            # A model-written bound SymPy cannot read or make a number of ("x", "pi/0").
+            logger.debug("chart bound %r is not a number", value, exc_info=True)
             return None
         return number if math.isfinite(number) else None
     return None
@@ -185,6 +190,8 @@ def _sampled_chart(spec: dict[str, Any], chart: _FormulaChart) -> str | None:
                 GraphSampleInput(expr=expr, variable="x", x_min=low, x_max=high, n=_SAMPLES)
             )
         except Exception:
+            # A model-written formula SymPy cannot sample leaves the chart as it was.
+            logger.debug("chart formula %r could not be sampled", expr, exc_info=True)
             return None
         sampled.append({"name": name, "type": "line", "points": sample.points})
     out = {key: value for key, value in spec.items() if key not in ("series", *_FORMULA_KEYS)}

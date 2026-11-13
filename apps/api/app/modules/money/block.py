@@ -15,6 +15,7 @@ from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
 from app.modules.money.standing import term_name
+from app.services.workout import WORKOUT_PROMPT_RULE
 
 # Every money block opens with this: the turn's numbers are the app's.
 MONEY_HEADER = "Money, worked by the app"
@@ -25,17 +26,18 @@ MONEY_REPLY_RULES = (
     "note with today's average rate: do not write your own calculator, scenario table, "
     "chart or market-rate note, and do not state any average or market rate yourself."
 )
-# A lesson's money problem (``worked_problem``): the working a student hands in.
+# A lesson's money problem (``worked_problem``): the working a student hands in, in the
+# layout every subject's worked reply uses (``services/workout.py``: the formula heading
+# names its formula, never a bare **Formula**), with every number the app's.
 MONEY_WORKED_RULES = (
-    "This is a worked problem from a lesson: lay the answer out for the student. **Given**: "
-    "the values from the question. **Formula**: the standard formula the result comes "
-    "from, in LaTeX. **Substitution**: that formula with the given values put in. "
-    "**Answer**: the result, in words that answer the question. Copy every number from "
-    "Inputs and Results exactly; never work out an intermediate value or a result "
-    "yourself. Say which values were assumed. Under your reply the app adds a calculator "
-    "card with sliders and, when it found one, a note with today's average rate: do not "
-    "write your own calculator, scenario table, chart or market-rate note, and do not "
-    "state any average or market rate yourself."
+    "This is a worked problem from a lesson: lay the answer out for the student. "
+    f"{WORKOUT_PROMPT_RULE} The formula is the standard one the result comes from "
+    "(`**Compound interest formula**`), in LaTeX, and **Answer** gives the result in words "
+    "that answer the question. Copy every number from Inputs and Results exactly; never "
+    "work out an intermediate value or a result yourself. Say which values were assumed. "
+    "Under your reply the app adds a calculator card with sliders and, when it found one, "
+    "a note with today's average rate: do not write your own calculator, scenario table, "
+    "chart or market-rate note, and do not state any average or market rate yourself."
 )
 MONEY_FOLLOW_UP = (
     "This message changes the user's earlier request: {changes}. The inputs and results "

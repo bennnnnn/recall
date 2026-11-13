@@ -19,6 +19,7 @@ from app.gateways.mcp.base import ToolContext, ToolResult
 from app.models.schemas.tools import ImageSearchToolInput
 from app.modules.images import search as image_search_service
 from app.modules.images.lookup_intent import names_a_drawing
+from app.modules.images.schemas import PHOTO_LOOKUP_MODEL
 from app.modules.images.tool_result import terminal_image_result
 
 logger = logging.getLogger(__name__)
@@ -100,5 +101,5 @@ class ImageSearchAdapter:
                 "do not invent URLs or write another reply."
             ),
             no_marker="Photo lookup did not produce an attachment marker.",
-            default_model="image-search-model",
+            default_model=PHOTO_LOOKUP_MODEL,
         )

@@ -334,6 +334,30 @@ def test_an_extractor_exception_declines(
 
 
 @pytest.mark.usefixtures("fresh_extraction")
+def test_an_extractor_exception_declines_before_the_readers_after_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A later, less specific reader would verify a reading the extractor that raised was
+    there to take (review of PR #2420): neither it nor the law binder reads the line."""
+    read: list[str] = []
+
+    def broken(_text: str) -> None:
+        raise RuntimeError("balance failed")
+
+    def molar_mass(text: str) -> ChemistryIntent:
+        read.append(text)
+        return ChemistryIntent(kind="amounts", chemistry_op="molar_mass", formula="H2O")
+
+    def binder(text: str) -> None:
+        read.append(text)
+
+    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (broken, molar_mass))
+    monkeypatch.setattr("app.modules.chemistry.extract.bind_chemistry_intent", binder)
+    assert extract_chemistry_intent("Find the molar mass of H2O") is None
+    assert read == []
+
+
+@pytest.mark.usefixtures("fresh_extraction")
 def test_an_extractor_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     def cancelled(_text: str) -> None:
         raise asyncio.CancelledError()
