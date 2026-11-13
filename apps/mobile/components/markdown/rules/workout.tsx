@@ -162,6 +162,14 @@ export function subheadingStyle(styles: StyleMap, t: Theme): StyleProp<TextStyle
   return [styles.body, styles.text, { ...Weight.bold, color: t.assistantText }];
 }
 
+/** A line's part letter as written ("(c)", "Part (b):") and what follows it. */
+function partLabel(state: string): { label: string; rest: string } | null {
+  const line = state.trim();
+  const part = workoutPart(line);
+  if (!part) return null;
+  return { label: line.slice(0, line.length - part.title.length).trimEnd(), rest: part.title };
+}
+
 // "Solve for $t$": a step of the working written as words, drawn as a move.
 const SOLVE_FOR = /^Solve for\s/;
 
@@ -190,6 +198,9 @@ function renderWorkoutLine(
   );
   const naming = given && /^where\s/i.test(state);
   const move = !note && SOLVE_FOR.test(state);
+  // A part's letter is drawn whole before what it asks: squeezed with the meaning in a
+  // row that does not wrap, Android broke "(c)" as "(c" over ")" (2026-11-13).
+  const part = asked ? partLabel(state) : null;
   // Every line of a worked solution starts at the same left edge: a formula, its
   // substitution, a move and a given read down one column (a centred formula over
   // left-aligned substitution lines read as two layouts, November 2026). Words and
@@ -239,8 +250,13 @@ function renderWorkoutLine(
             maxWidth: "100%",
           }}
         >
+          {part ? (
+            <Text testID="workout-part-label" style={[body, { flexShrink: 0 }]}>
+              {`${part.label} `}
+            </Text>
+          ) : null}
           {workoutInline(
-            state,
+            part ? part.rest : state,
             `${lineKey}-state`,
             move ? [noteStyle, { flexShrink: 1 }] : [body, { flexShrink: 1 }],
             move ? t.textSecondary : t.assistantText,
