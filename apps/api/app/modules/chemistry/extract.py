@@ -54,14 +54,15 @@ def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
         try:
             intent = extractor(text)
         except Exception:
-            # A solver call during extract, such as balancing, must not escape into the turn,
-            # nor keep the readers after it from the line: one that raised used to decline
-            # the whole message. CancelledError is a BaseException and still propagates.
+            # A solver call during extract, such as balancing, must not escape into the turn.
+            # The message declines, logged: the extractor that raised is the one the line was
+            # meant for, and a later, less specific reader or the law binder must not verify
+            # a reading of it instead. CancelledError is a BaseException and still propagates.
             logger.exception(
                 "chemistry extractor %s failed",
                 getattr(extractor, "__name__", extractor),
             )
-            continue
+            return None
         if intent is not None:
             return written_numbers(text, intent)
     # No template knew the phrasing: read it into a law in its own words.

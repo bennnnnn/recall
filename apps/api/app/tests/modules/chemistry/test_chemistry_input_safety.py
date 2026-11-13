@@ -321,30 +321,40 @@ def fresh_extraction() -> Iterator[None]:
 
 
 @pytest.mark.usefixtures("fresh_extraction")
-def test_an_extractor_exception_is_logged_and_the_next_extractor_reads(
+def test_an_extractor_exception_declines(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     def broken(_text: str) -> None:
         raise RuntimeError("balance failed")
 
-    def molar_mass(_text: str) -> ChemistryIntent:
-        return ChemistryIntent(kind="amounts", chemistry_op="molar_mass", formula="H2O")
-
-    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (broken, molar_mass))
+    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (broken,))
     with caplog.at_level("ERROR"):
-        intent = extract_chemistry_intent("Find the molar mass of H2O")
-    assert intent is not None and intent.formula == "H2O"
+        assert extract_chemistry_intent("Find the molar mass of water") is None
     assert "chemistry extractor broken failed" in caplog.text
 
 
 @pytest.mark.usefixtures("fresh_extraction")
-def test_an_extractor_exception_alone_declines(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_extractor_exception_declines_before_the_readers_after_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A later, less specific reader would verify a reading the extractor that raised was
+    there to take (review of PR #2420): neither it nor the law binder reads the line."""
+    read: list[str] = []
+
     def broken(_text: str) -> None:
         raise RuntimeError("balance failed")
 
-    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (broken,))
-    monkeypatch.setattr("app.modules.chemistry.extract.bind_chemistry_intent", lambda _t: None)
+    def molar_mass(text: str) -> ChemistryIntent:
+        read.append(text)
+        return ChemistryIntent(kind="amounts", chemistry_op="molar_mass", formula="H2O")
+
+    def binder(text: str) -> None:
+        read.append(text)
+
+    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (broken, molar_mass))
+    monkeypatch.setattr("app.modules.chemistry.extract.bind_chemistry_intent", binder)
     assert extract_chemistry_intent("Find the molar mass of H2O") is None
+    assert read == []
 
 
 @pytest.mark.usefixtures("fresh_extraction")
