@@ -5,9 +5,10 @@ every verified maths, physics and chemistry reply: **Given** (each value on its 
 the ``where`` line naming them), **Required**, **Solution**, the formula under the heading
 the model gave it (``worked_text.formula_title``: **Conservation of energy**; none, and it
 follows **Solution**), ``Solve for`` lines, **Substitution** or **Steps**, then **Answer**
-with the value. A question in parts is laid out as a verified one in parts: one Given (a
-value only some parts use lettered by them) and what is asked once, then **Solution** and
-each part under its letter, closed by its own **Answer (a)**, a hairline between parts.
+with the value. A question in parts is laid out as a verified one in parts: one Given (each
+value once; a part's letter only on the values of one symbol the parts give apart) and what
+is asked once, then **Solution** and each part under its letter, closed by its own
+**Answer (a)**, a hairline between parts.
 The value under **Answer** becomes the card in finalize
 (``chat.finalize_subjects.check_working``), marked ``verified: false``: no solver checked
 it. The words the model wrote (a heading, a move, what a symbol is) keep their maths as
@@ -17,6 +18,7 @@ maths (``worked_prose.prose_maths``).
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -109,11 +111,10 @@ def _meaning(given: Given) -> str:
     return prose_maths(", ".join(words for words in (given.meaning, said) if words))
 
 
-def _given_row(given: Given, letters: Sequence[str] | None = None) -> str:
-    """The given on its line; one only some parts use carries their letters, as Required's
-    lines do: ``(a) $t = 1\\,\\mathrm{s}$``. A given stated as its letter is that letter
-    and what it is, as Required reads: ``$C$ (capacitance)``."""
-    marks = (given.part,) if letters is None and given.part else letters or ()
+def _given_row(given: Given, marks: Sequence[str] = ()) -> str:
+    """The given on its line, with ``marks``, its parts' letters, before it when one symbol
+    has a value per part: ``(a) $d = 100\\,\\mathrm{m}$``. A given stated as its letter is
+    that letter and what it is, as Required reads: ``$C$ (capacitance)``."""
     if _as_its_letter(given):
         meaning = _meaning(given)
         row = math_line(tidy_symbol(given.symbol))
@@ -136,10 +137,7 @@ def _given_rows(
 ) -> tuple[str, ...]:
     """Each given on its line (with ``letters``, each one's parts), then (with ``naming``)
     the ``where`` line naming the ones with a value (a letter is named on its own line)."""
-    rows = [
-        _given_row(given, None if letters is None else letters[at])
-        for at, given in enumerate(givens)
-    ]
+    rows = [_given_row(given, letters[at] if letters else ()) for at, given in enumerate(givens)]
     named = where_line(
         [
             (tidy_symbol(given.symbol), _meaning(given))
@@ -156,7 +154,23 @@ def _given_section(solution: WorkedSolution, *, streaming: bool) -> tuple[str, .
     # While the block streams, the line naming the givens waits until they are all in:
     # one more given would change it, and the phone has drawn what went out.
     complete = not streaming or bool(solution.required or solution.parts)
-    return _given_rows(solution.given, naming=complete)
+    givens = solution.given if complete else _decided(solution.given)
+    return _given_rows(givens, naming=complete, letters=_record_letters(givens))
+
+
+def _decided(givens: Sequence[Given]) -> Sequence[Given]:
+    """The givens drawn while the block streams: those before the first one the model
+    lettered, whose letter shows only if another value of its symbol comes. It and the rows
+    after it wait for every given (the contract writes them first), never redrawn."""
+    lettered = next((at for at, given in enumerate(givens) if given.part), len(givens))
+    return givens[:lettered]
+
+
+def _record_letters(givens: Sequence[Given]) -> list[tuple[str, ...]]:
+    """Each given's letter as its record wrote it, kept only where its symbol has another
+    value too (``_one_given``'s rule, before the parts are known)."""
+    values = Counter(_symbol(given) for given in givens)
+    return [(given.part,) if given.part and values[_symbol(given)] > 1 else () for given in givens]
 
 
 def _started(part: Part) -> bool:
@@ -226,10 +240,12 @@ def _one_given(
     solution: WorkedSolution, parts: Sequence[Part]
 ) -> tuple[list[Given], list[tuple[str, ...]]]:
     """Every given of the question in parts, for its one Given, each with the letters of
-    the parts that use it (none: every part). The whole question's come first, as
-    written, so nothing drawn while the block streamed moves; a given written after a
-    part's label follows, lettered by its part. A given several parts give alike is one
-    line with their letters, and one every part gives has none."""
+    the parts that use it only where its symbol has another value too: a car's $d = 100$
+    and a train's $d = 300$ are told apart by them. A given is data, never a part: a pie
+    chart's angles lettered by the parts that used them read as parts (2026-11-13). The
+    whole question's come first, as written, so nothing drawn while the block streamed
+    moves; a given written after a part's label follows. A given several parts give alike
+    is one line."""
     # Parts are shown lettered in order, whatever letters the model wrote.
     letters = [part_letter(index) for index in range(len(parts))]
     of = {given.part: _part_of(given.part, parts) for given in solution.given if given.part}
@@ -262,10 +278,10 @@ def _one_given(
     def order(mark: str) -> int:
         return letters.index(mark) if mark in letters else len(letters)
 
-    every = set(letters)
+    values = Counter(_symbol(given) for given in kept)
     return kept, [
-        () if set(marks) >= every else tuple(sorted(marks, key=order))
-        for _given, marks in rows.values()
+        tuple(sorted(marks, key=order)) if values[_symbol(given)] > 1 else ()
+        for given, (_given, marks) in zip(kept, rows.values(), strict=True)
     ]
 
 
@@ -441,9 +457,13 @@ def _render_in_parts(
         # end, would land above what was drawn after it.
         unanswered = next((at for at, part in enumerate(shown) if not part.answers), None)
         shown = shown if unanswered is None else shown[: unanswered + 1]
-        # Each given stays where it was written: the whole question's (lettered or not)
-        # in the one Given, one written after a part's label at that part for now.
-        given = _given_rows(solution.given, naming=complete)
+        # Each given stays where it was written: the whole question's in the one Given, one
+        # written after a part's label at that part for now. A lettered one keeps its letter
+        # by the whole block's rule (one symbol's values apart), so the finished block
+        # draws the rows the stream drew.
+        given = _given_rows(
+            solution.given, naming=complete, letters=_record_letters(solution.given)
+        )
         own = [list(part.given) for part in shown]
     else:
         # The whole block: every given in the one Given, none under a part.

@@ -55,10 +55,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # beside a message the turn's read calls an answer or a change), and no claim that the app
 # cannot look public facts up unless search is off, by the user or the server
 # (FACT_GROUNDING_HINT, WEB_SEARCH_OFF_HINT, SEARCH_UNAVAILABLE_HINT), and a reply's second
-# call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE).
+# call told it can, after the first said it couldn't (DENIAL_RETRY_NOTE), then a given that
+# carries no part's letter but where one symbol has a value per part, in the layout a model
+# writes (services/workout._GIVEN_ONCE) and in a ```worked block's records.
 _RULES = 181
-_RULE_GRAMS = 16508
-_RULE_GRAMS_SHA = "b6c2f76248252340"
+_RULE_GRAMS = 16536
+_RULE_GRAMS_SHA = "e915cb4c891c4154"
 
 
 def _rules() -> list[str]:

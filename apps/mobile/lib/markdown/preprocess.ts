@@ -156,7 +156,7 @@ export function preprocessMarkdown(
     breakListItemTitles(
       options.presented
         ? layoutCalculations(out)
-        : presentAssistantMarkdown(out),
+        : presentAssistantMarkdown(out, worked),
     ),
   );
 }

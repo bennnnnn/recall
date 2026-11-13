@@ -122,6 +122,12 @@ function looksLikeBareEquation(line: string): boolean {
   return words.every((w) => MATH_LINE_WORDS.test(w));
 }
 
+/** A word of two letters or more that is not a maths name ("Base", "cm"; not "sin"). */
+function hasProseWord(s: string): boolean {
+  const words = s.replace(/\\[a-zA-Z]+/g, " ").match(/[A-Za-z]{2,}/g) ?? [];
+  return words.some((w) => !MATH_LINE_WORDS.test(w));
+}
+
 function unwrapParens(expr: string): string {
   const s = expr.trim();
   const m = s.match(/^\(\s*([\s\S]+?)\s*\)$/);
@@ -398,15 +404,20 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
   // those prose bullets. A math span that starts with a unary minus, such as
   // `$- x = -2$`, is an equation rather than Markdown list syntax; moving the
   // minus outside the dollars turns it into a visible bullet and changes the
-  // equation to `x = -2`.
+  // equation to `x = -2`. So did `$-2.5 < -0.33 < 0.75 < 1.5$`, an order of
+  // numbers drawn as a bullet and "2.5 < …" (2026-11-13): a minus is a bullet
+  // only with a space after it, as Markdown reads one, and over words.
   out = out.replace(
-    /^(\s*)\$([-*•])\s*(.+?)\s*\$$/,
-    (full, indent: string, mark: string, inner: string) => {
+    /^(\s*)\$([-*•])(\s*)(.+?)\s*\$$/,
+    (full, indent: string, mark: string, space: string, inner: string) => {
       const body = String(inner).trim();
-      // A negative number on its own line (`$-3$`) is maths, not a bullet.
-      if (mark === "-" && /^\d[\d,.]*$/.test(body)) return full;
+      // `$-2.5$`, `$-x < 3$`, `$-\frac{5}{2}$`: a sign glued to what it negates.
+      if (mark === "-" && !space) return full;
       const mathLike =
-        /\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body);
+        /\\[a-zA-Z]+/.test(body) ||
+        /[\^_]/.test(body) ||
+        looksLikeBareEquation(body) ||
+        !hasProseWord(body);
       if (mark === "-" && mathLike) {
         return `${indent}$${mark} ${body}$`;
       }

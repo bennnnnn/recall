@@ -172,6 +172,15 @@ const VARIANTS: Record<string, string> = {
   "worked word symbol":
     "**Required**  \n(a) $white_{pigment}$ (gallons of white pigment)\n\n**Substitution**  \n" +
     "$white_{pigment} = 3 \\times 4$  \n$\\text{cost}_{\\text{per}}\\text{ item} = 12\\,\\mathrm{gal}$",
+  // A ratio's dollars padded inside (the textbook run, 2026-11-13): "$9:" read as a price
+  // left "3: 4: 5$" on screen and set "is the" in maths italics.
+  "padded ratios": "- **Check** — $9: 12: 15 $ is the $ 3: 4: 5$ ratio, so the result fits.",
+  "ratios": "The sides are in the ratio $9: 12: 15$, which is $3: 4: 5$ scaled by $3$.",
+  // A price before a colon and a number stays a price beside the maths after it (review of
+  // the ratio fix, 2026-11-13: the fraction was lost, or drawn as "$frac{1200}{3}").
+  "price colon then a fraction":
+    "Rent is $1,200: 3 roommates each pay $\\frac{1200}{3} = 400$. The bill is $90: 3 of us split it as $\\frac{90}{3}$.",
+  "price colon then an equation": "Total $60: 3 of us, so $x = 20$. Budget $50: 2 shirts at $s$ each.",
   // Known gaps (see KNOWN_GAPS): each is a leak this suite still finds.
   "table abs": "| Expression | Value |\n|---|---|\n| $|x-3|$ | 5 |",
   "bare script": "The area is 25 m^{2}.",
@@ -283,6 +292,12 @@ describe("LaTeX never reaches the screen as source", () => {
     expect(leaks).toEqual([]);
     expect(seen).not.toContain("nosuchcommand");
     expect(unknown).toEqual(["nosuchcommand"]);
+  });
+
+  it("finds a closing dollar a reader would see, never a price's", () => {
+    expect(leaksIn("the 3: 4: 5$ ratio")).not.toEqual([]);
+    expect(leaksIn("so x$, then (a + b)$.")).toHaveLength(2);
+    expect(leaksIn("It costs $5, US$5 or $ 19.20; a ($$) place.")).toEqual([]);
   });
 
   it.each(clean.map((entry) => [entry.id, entry.text]))("%s", async (_id, text) => {
