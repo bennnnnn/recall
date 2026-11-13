@@ -64,7 +64,9 @@ class RoutingLanes:
     titles: str
     # A word problem turned into equations, and the maths read when the rules find none.
     # Both run before the reply's first text, so a fast model; its output is only a
-    # candidate (number grounding and SymPy check it). JSON mode.
+    # candidate (number grounding and SymPy check it). JSON mode. ``math_extract`` also
+    # reads what picture a maths question asks to see (``math.figure.read``), beside the
+    # reply; its numbers are grounded in the question the same way.
     word_problems: str
     math_extract: str
     # How to handle a message (``chat.turn_decision``): live facts, subject, effort, picture

@@ -107,6 +107,9 @@ class Case:
     # the problem writes it and the line's new value, as the read names them.
     posed: str | None = None
     posed_change: tuple[str, str] | None = None
+    # A maths question asking to see a picture: the read's reading of what to draw (its kind
+    # and the values it copied, ``math.figure.read``), as JSON. None: no read.
+    figure: str | None = None
 
 
 NO_PHOTO = ""

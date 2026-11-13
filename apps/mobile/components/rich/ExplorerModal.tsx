@@ -15,7 +15,7 @@ import { SkiaGraphCanvasLazy } from "@/components/rich/skia/SkiaGraphCanvasLazy"
 import { type DrawnSeries, useGraphViewport } from "@/hooks/useInteractiveGraph";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { xAxisInPi } from "@/lib/math/graphFit";
-import { type GraphSpec } from "@/lib/math/graphSpec";
+import { type GraphSpec, graphAxisNames } from "@/lib/math/graphSpec";
 import { defaultInteractiveBounds } from "@/lib/math/graphViewport";
 import { Radius } from "@/lib/radius";
 import { useReduceMotion } from "@/lib/reduceMotion";
@@ -138,8 +138,8 @@ export function ExplorerModal({
                         drawn={drawn}
                         points={points}
                         verticalX={verticalX}
-                        xName={spec.variable ?? "x"}
-                        yName="y"
+                        xName={graphAxisNames(spec).x}
+                        yName={graphAxisNames(spec).y}
                         xInPi={xAxisInPi(spec)}
                         width={plot.width}
                         height={plot.height}

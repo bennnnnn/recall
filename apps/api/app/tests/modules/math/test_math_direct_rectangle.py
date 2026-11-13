@@ -125,14 +125,13 @@ def test_rectangle_direct_requires_complete_literal_request(query: str) -> None:
     assert maybe_direct_math_reply(_rectangle(), query) is None
 
 
-def test_draw_rectangle_returns_only_the_diagram() -> None:
-    intent = extract_math_intent("Draw a rectangle")
-    assert intent is not None
-    verified = _build_verified_block(intent, Settings(math_tools_enabled=True))
-    assert verified is not None
-    reply = maybe_direct_math_reply(verified, "Draw a rectangle")
-    assert reply is not None and reply.startswith("```geometry\n")
-    assert "```answer" not in reply
+def test_draw_rectangle_is_no_instant_6_by_4_rectangle() -> None:
+    # No invented size (textbook run, 2026-11-13): its picture is drawn by math.figure.
+    assert extract_math_intent("Draw a rectangle") is None
+    sized = extract_math_intent("Draw a rectangle 6 cm by 4 cm")
+    assert sized is not None
+    verified = _build_verified_block(sized, Settings(math_tools_enabled=True))
+    assert verified is not None and verified.canonical_fence is not None
 
 
 @pytest.mark.parametrize(

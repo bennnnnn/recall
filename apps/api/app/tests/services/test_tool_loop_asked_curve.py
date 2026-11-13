@@ -137,3 +137,20 @@ def test_a_contraction_is_not_the_follow_ups_formula() -> None:
 )
 def test_a_quoted_formula_keeps_its_letters(args: dict[str, Any], text: str) -> None:
     assert tool_call_matches_user_text(json.dumps(args), [text])
+
+
+@pytest.mark.parametrize(
+    "text, expr, matches",
+    [
+        # "x = 3" is a vertical line, and "-3 to 3" a range: no level line y = 3.
+        ("Draw the line x = 3.", "3", False),
+        ("Draw the graph of y = 2x + 1 for x from -3 to 3.", "3", False),
+        ("Draw y = x^2 and y = 4", "4", True),
+        ("Draw the line y = 3.", "3", True),
+    ],
+)
+def test_a_constant_graphs_only_as_a_level_line_the_user_writes(
+    text: str, expr: str, matches: bool
+) -> None:
+    call = json.dumps({"action": "graph", "expr": expr})
+    assert tool_call_matches_user_text(call, [text]) is matches

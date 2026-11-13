@@ -54,6 +54,7 @@ from typing import Any
 
 import pint
 
+from app.modules.math.schemas.figure import FigureSpec, PointsGraphSpec
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
 from app.services.answer_fence import answer_fence_value
 from app.services.workout import REQUIRED_HEADINGS, SOLUTION, as_formula_heading
@@ -90,6 +91,11 @@ class Entry:
     history: tuple[tuple[str, str], ...] = ()
     shared: str | None = None
     visual: str | None = None
+    # A maths question asking to see a picture: the read's reading of what to draw (as the
+    # read model gives it), and the labels the drawn picture must carry, every one and no
+    # other (a length or an angle the question did not state is an invented one).
+    figure: dict[str, Any] | None = None
+    picture: tuple[str, ...] = ()
     note: str | None = None
     gap: str | None = None
     # The asker's app language, which reads their numbers ("1.200" is 1200 in Spanish).
@@ -145,6 +151,8 @@ def load(subject: str) -> list[Entry]:
                     history=tuple((role, said) for role, said in raw.get("history", [])),
                     shared=raw.get("shared"),
                     visual=raw.get("visual"),
+                    figure=raw.get("figure"),
+                    picture=tuple(raw.get("picture", [])),
                     note=raw.get("note"),
                     gap=raw.get("gap"),
                     locale=raw.get("locale", "en"),
@@ -514,6 +522,51 @@ def _in_bounds(point: list[float], spec: SimulationBlockSpec, slack: float) -> b
     )
 
 
+def _drawn_kind(lang: str, data: dict[str, Any]) -> tuple[str, Problem | None] | None:
+    """A figure, a points plot or another maths shape: its kind, and a problem when it fails
+    the schema the server writes it to."""
+    schemas: dict[str, type[FigureSpec] | type[PointsGraphSpec]] = {
+        "figure": FigureSpec,
+        "points": PointsGraphSpec,
+    }
+    schema = schemas.get(str(data.get("type")))
+    if lang == "graph" and schema is None:
+        return None
+    if lang == "simulation":
+        return None
+    name = f"{lang}:{data.get('type')}"
+    if schema is None:
+        return name, None
+    try:
+        spec = schema.model_validate(data)
+    except Exception as exc:
+        return name, Problem("broken_visual", f"{name} fails its schema: {exc}")
+    return (f"{name}:{spec.shape}" if isinstance(spec, FigureSpec) else name), None
+
+
+def picture_problems(entry: Entry, fence: str) -> list[Problem]:
+    """The drawn picture carries the labels the entry names, and a figure no other."""
+    if not entry.picture:
+        return []
+    found = fences(fence)
+    if not found:
+        return []
+    lang, body = found[0]
+    data = json.loads(body)
+    if data.get("type") == "figure":
+        spec = FigureSpec.model_validate(data)
+        labels = {s.label for s in spec.segments if s.label} | {
+            a.label for a in spec.angles if a.label
+        }
+        if labels != set(entry.picture):
+            return [
+                Problem("wrong", f"picture labelled {sorted(labels)}, not {sorted(entry.picture)}")
+            ]
+        return []
+    missing = [text for text in entry.picture if text not in body]
+    return [Problem("wrong", f"{lang} picture lacks {missing}")] if missing else []
+
+
 def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
     kinds: list[str] = []
     problems: list[Problem] = []
@@ -521,12 +574,18 @@ def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
     # beside a fall says something the scene does not.
     path_graph = False
     for lang, body in fences(reply):
-        if lang not in {"simulation", "graph"}:
+        if lang not in {"simulation", "graph", "geometry"}:
             continue
         try:
             data = json.loads(body)
         except json.JSONDecodeError:
             problems.append(Problem("broken_visual", f"{lang} fence is not JSON"))
+            continue
+        drawn = _drawn_kind(lang, data)
+        if drawn is not None:
+            kind, problem = drawn
+            kinds.append(kind)
+            problems.extend([problem] if problem else [])
             continue
         if lang == "graph":
             kinds.append(f"graph:{data.get('type')}")
@@ -580,13 +639,20 @@ def judge(entry: Entry, subject: str, route: Route, written: str = "") -> Outcom
         if route.subject == subject:
             problems.append(Problem("misread", f"read as a {subject} question"))
         return outcome
+    if entry.figure is not None:
+        # The picture the read asked for, drawn beside the reply, judged once here.
+        kinds, figure_problems = check_visuals(route.figure)
+        outcome.visuals += kinds
+        problems.extend(figure_problems + picture_problems(entry, route.figure))
+        if entry.visual and entry.visual not in kinds:
+            problems.append(Problem("no_visual", f"no {entry.visual} picture"))
     if entry.expect in {"explain", "decline"}:
         if route.instant and route.instant != "solver":
             problems.append(Problem("misread", f"instant {route.instant} reply"))
         if route.solved:
             answer = read_answer(route.instant_text)
             problems.append(Problem("wrong", f"gave a number to a question with none: {answer}"))
-        if entry.visual:
+        if entry.visual and entry.figure is None:
             # "Draw the forces on a box on an incline": no number, still its picture.
             _judge_pictures(entry, outcome, route.server_pictures)
         return outcome
@@ -630,16 +696,25 @@ def judge(entry: Entry, subject: str, route: Route, written: str = "") -> Outcom
 
 
 def _judge_pictures(entry: Entry, outcome: Outcome, shown: str) -> None:
-    """The pictures in ``shown`` checked, and the one the entry wants, when missing."""
-    outcome.visuals, visual_problems = check_visuals(shown)
+    """The pictures in ``shown`` checked, and the one the entry wants, when missing (a
+    figure entry's picture is judged once, where its figure is)."""
+    kinds, visual_problems = check_visuals(shown)
+    outcome.visuals += kinds
     outcome.problems.extend(visual_problems)
-    if entry.visual and entry.visual not in outcome.visuals:
+    if entry.visual and entry.figure is None and entry.visual not in outcome.visuals:
         outcome.problems.append(Problem("no_visual", f"no {entry.visual} picture"))
 
 
 async def run_entry(entry: Entry, subject: str) -> Outcome:
     case = Case(
-        entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history, locale=entry.locale
+        entry.id,
+        entry.area,
+        entry.prompt,
+        Expect(),
+        "",
+        history=entry.history,
+        locale=entry.locale,
+        figure=json.dumps(entry.figure) if entry.figure is not None else None,
     )
     route = await route_case(case)
     written = route.instant_text
