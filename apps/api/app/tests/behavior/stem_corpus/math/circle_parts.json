@@ -31,5 +31,21 @@
   {"id": "cp30", "area": "geometry", "prompt": "Find the circumference of a semicircle of radius 5 cm", "expect": "decline", "note": "its curved edge (5π) or all of it (5π + 10)?"},
   {"id": "cp31", "area": "geometry", "prompt": "We sat in a semicircle around the campfire for an hour", "expect": "not_subject", "note": "a part of a circle in everyday words"},
   {"id": "cp32", "area": "geometry", "prompt": "I ate a quarter of the pizza and half of the salad", "expect": "not_subject", "note": "fractions taken of things, no shape"},
-  {"id": "cp33", "area": "geometry", "prompt": "My locker code is 3.14, use it if you need my notes", "expect": "not_subject", "note": "a number near π told to be used, not π"}
+  {"id": "cp33", "area": "geometry", "prompt": "My locker code is 3.14, use it if you need my notes", "expect": "not_subject", "note": "a number near π told to be used, not π"},
+  {"id": "cp34", "area": "geometry", "prompt": "Find the area of half a circle of radius 3 cm", "expect": "answer", "answer": [14.14, "cm^2"], "note": "9π/2; half a circle said without of"},
+  {"id": "cp35", "area": "geometry", "prompt": "The radius of a circle is 14 cm. Find the area of a quarter of the circle. (use 22/7)", "expect": "answer", "answer": [154, "cm^2"], "note": "1/4 * 22/7 * 196 = 154"},
+  {"id": "cp36", "area": "geometry", "prompt": "Find the area of a semicircle of radius 3½ cm (use 22/7)", "expect": "answer", "answer": [19.25, "cm^2"], "note": "r = 3.5: 1/2 * 22/7 * 12.25 = 19.25; was radius 3 (14.14) with no unit"},
+  {"id": "cp37", "area": "geometry", "prompt": "Find the area of the major sector of radius 7 cm and angle 60°, use 22/7", "expect": "answer", "answer": [128.33, "cm^2"], "note": "300/360 * 22/7 * 49 = 385/3; was the 60° sector's 25.67"},
+  {"id": "cp38", "area": "geometry", "prompt": "Find the area of the major sector of radius 7 cm and angle 60°", "expect": "answer", "answer": [128.28, "cm^2"], "note": "300/360 * π * 49"},
+  {"id": "cp39", "area": "geometry", "prompt": "Find the major arc length of a sector of radius 7 cm and angle 60° (use 22/7)", "expect": "answer", "answer": [36.67, "cm"], "note": "300/360 * 2 * 22/7 * 7 = 110/3; was 7.33"},
+  {"id": "cp40", "area": "geometry", "prompt": "Find the perimeter of the curved part of a semicircle of radius 7 cm (use 22/7)", "expect": "answer", "answer": [22, "cm"], "note": "the curved part is the arc, 22; was 36 with the diameter"},
+  {"id": "cp41", "area": "geometry", "prompt": "Find the area of a circle of radius 8 cm. Use π ≈ 3.1416", "expect": "answer", "answer": [201.06, "cm^2"], "note": "3.1416 * 64 = 201.0624, ≈ 201.06"},
+  {"id": "cp42", "area": "geometry", "prompt": "Find the area of a circle of radius 2.5 m. Use 3.14", "expect": "answer", "answer": [19.625, "m^2"], "note": "3.14 * 6.25 = 19.625 exactly"},
+  {"id": "cp43", "area": "geometry", "prompt": "A quarter circle is cut from a circle of radius 14 cm. Find the area of the part that is left (use 22/7)", "expect": "decline", "note": "616 - 154 = 462; a checked 154 was the quarter (review, 2026-11-13)"},
+  {"id": "cp44", "area": "geometry", "prompt": "A quadrant is taken away from a circle of radius 14 cm. Find the area of the remaining shape", "expect": "decline", "note": "147π ≈ 461.81; a checked 153.94 was the quadrant"},
+  {"id": "cp45", "area": "geometry", "prompt": "Find the perimeter of the semicircle of radius 7 cm (use 22/7), excluding the diameter", "expect": "decline", "note": "22; a checked 36 counted the diameter"},
+  {"id": "cp46", "area": "geometry", "prompt": "Find the area of the semicircle with radius 6 cm and the area of the full circle", "expect": "decline", "note": "two areas, 18π and 36π; one card held the first"},
+  {"id": "cp47", "area": "geometry", "prompt": "Find the area of a circle of radius 7 cm in square metres (use 22/7)", "expect": "decline", "note": "0.0154 m²; a card said 154 cm²"},
+  {"id": "cp48", "area": "geometry", "prompt": "The figure shows a square with a semicircle of radius 7 cm on one side. Find the area of the figure (use 22/7)", "expect": "decline", "note": "196 + 77 = 273; the semicircle's 77 alone is not the figure"},
+  {"id": "cp49", "area": "geometry", "prompt": "Find the area of the region between a quarter circle of radius 10 cm and its chord (use 3.14)", "expect": "decline", "note": "a segment, 78.5 - 50 = 28.5; not the quarter's 78.5"}
 ]

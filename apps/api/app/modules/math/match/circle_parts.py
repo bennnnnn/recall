@@ -31,16 +31,19 @@ _DENOMINATOR_WORDS: dict[str, int] = {
 _ORDINALS = sorted((w for w in _DENOMINATOR_WORDS if w not in {"half", "halves"}), key=len)
 _DENOMINATOR = rf"(?P<den>halves|half|(?:{'|'.join(reversed(_ORDINALS))})s?)"
 _NUMERATOR = rf"(?:(?P<num>a|an|{count_word_pattern(low=1, high=12)}|\d+)[\s-]+)?"
-_GLYPHS = "".join(chr(c) for c in (0xBC, 0xBD, 0xBE, *range(0x2150, 0x215F)))
+# The fraction signs a keyboard types: ½, ¾, ⅓, ⅛ …
+VULGAR_FRACTIONS = "".join(chr(c) for c in (0xBC, 0xBD, 0xBE, *range(0x2150, 0x215F)))
 _FRACTION = (
-    rf"(?:(?P<top>\d+)\s*/\s*(?P<bottom>\d+)|(?P<glyph>[{_GLYPHS}])"
+    rf"(?:(?P<top>\d+)\s*/\s*(?P<bottom>\d+)|(?P<glyph>[{VULGAR_FRACTIONS}])"
     rf"|\b{_NUMERATOR}{_DENOMINATOR})"
 )
 _DETERMINER = r"(?:(?:a|an|the|this|that|one|its|each|given)\s+)?"
 # "quarter circle", "three-quarter-circle", "¾ circle", "semicircle", "semi-circle".
 _BEFORE = re.compile(rf"{_FRACTION}[\s-]*(?=circles?\b)|\bsemi[\s-]*(?=circles?\b)", re.I)
-# "a quarter of a circle", "two thirds of the circle", "1/4 of a circle".
-_OF_CIRCLE = re.compile(rf"{_FRACTION}\s+of\s+{_DETERMINER}(?=circles?\b)", re.I)
+# "a quarter of a circle", "two thirds of the circle", "1/4 of a circle", "half a circle".
+_OF_CIRCLE = re.compile(
+    rf"{_FRACTION}\s+of\s+{_DETERMINER}(?=circles?\b)|\bhalf\s+(?:a|an|the)\s+(?=circle\b)", re.I
+)
 # A quadrant is the circle's quarter.
 _QUADRANT = re.compile(r"\bquadrants?\b(?:\s+of\s+(?:a|an|the|this|that)?\s*(?=circles?\b))?", re.I)
 # "a quarter of the area", "a third of its length": a fraction taken of a measure; "to the
@@ -131,6 +134,24 @@ def other_piece_of_circle(text: str) -> bool:
 def fraction_taken_of(text: str) -> bool:
     """A fraction taken of something ("a quarter of the area", "1/2 of its base")."""
     return _FRACTION_OF.search(text) is not None
+
+
+# The side of a sector or an arc a question names: the major one goes round the rest of the
+# circle from the angle it states, the minor one is that angle's.
+_MAJOR = re.compile(r"\b(?:major|larger|bigger|greater)\s+(?:sectors?|arcs?)\b", re.I)
+_MINOR = re.compile(r"\b(?:minor|smaller|lesser)\s+(?:sectors?|arcs?)\b", re.I)
+
+
+def named_sector_angle(text: str, angle: float | None) -> float | None:
+    """The angle of the sector the question measures: "the major sector" of a 60° angle is
+    the 300° one (its card was the 60° sector's 25.67 cm² for 128.33, 2026-11-13). Naming
+    both sides is no one sector."""
+    major, minor = _MAJOR.search(text) is not None, _MINOR.search(text) is not None
+    if angle is None or (major and minor):
+        return None
+    if (major and angle < 180) or (minor and angle > 180):
+        return 360 - angle
+    return angle
 
 
 def without_circle_part(text: str, part: CirclePart) -> str:

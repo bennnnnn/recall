@@ -23,7 +23,7 @@ from app.modules.math.schemas import CircleGeometryBlockSpec, SectorGeometryBloc
 from app.modules.math.tex_numbers import fraction_tex
 from app.modules.math.tools.school.geometry_measures.working import _approx, _n, _Solved, _unit
 from app.services.number_text import NUMBER_WORDS
-from app.services.school_rounding import format_places, round_figures
+from app.services.school_rounding import format_places, round_figures, trim_zeros
 from app.services.workout import math_line
 
 
@@ -209,8 +209,9 @@ _PART_NAMES = {
     Fraction(1, 4): "quarter circle",
     Fraction(3, 4): "three-quarter circle",
 }
-# A value worked with a stated π is shown in full to this many places; past it, ≈.
-_DECIMAL_PLACES = 4
+# A value worked with a stated π is shown in full to this many places (3.14 x 6.25 = 19.625);
+# past it (3.1416 x 64 = 201.0624), as ≈ to two places.
+_DECIMAL_PLACES = 3
 # A fraction too long to read at a glance is left to its decimal.
 _SHORT_DIGITS = 6
 _THETA = r"\frac{\theta}{360^\circ}"
@@ -243,7 +244,10 @@ class Reading:
             return format(mantissa.scaleb(exponent), "f")
         if self.places >= 0:
             return format_places(value, self.places)
-        return _approx(float(value))
+        # Two places, a 5 rounded up as a class rounds it (19.625 is 19.63), no zero added
+        # to a value that ends sooner (19.6), one kept where the rounding put it (37.70).
+        shown = format_places(value, 2)
+        return trim_zeros(shown) if Fraction(shown) == Fraction(value) else shown
 
 
 def _share(part: Fraction) -> str:
@@ -311,8 +315,8 @@ class _Measure:
             return f"{rounded}{shown}" if same else rf"\approx {rounded}{shown}"
         if exact is not None:
             if _terminating(exact) and round(exact, _DECIMAL_PLACES) == exact:
-                return f"{_n(float(exact))}{shown}"
-            if _short(exact):
+                return f"{trim_zeros(format_places(exact, _DECIMAL_PLACES))}{shown}"
+            if _short(exact) and not _terminating(exact):  # 352/7: a fraction, then ≈
                 return rf"{fraction_tex(exact)} \approx {rounded}{shown}"
             return rf"\approx {rounded}{shown}"
         if not _short(self.coefficient):

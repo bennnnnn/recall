@@ -167,6 +167,39 @@ _CM2 = r"\ \mathrm{cm}^{2}"
          rf"\approx 25.9{_CM}", "circle", None, ("circumference", "25.9 cm")),
         ("Find the area of a semicircle of radius 5 cm to 1 decimal place",
          rf"\frac{{25}}{{2}}\pi \approx 39.3{_CM2}", "sector", 180, ("area", "39.3 cm²")),
+        # From the review (2026-11-13). Half a circle, said without "of": 9π/2 ≈ 14.14.
+        ("Find the area of half a circle of radius 3 cm",
+         rf"\frac{{9}}{{2}}\pi \approx 14.14{_CM2}", "sector", 180, ("area", "14.14 cm²")),
+        # The radius stated of the circle, the part asked after: 1/4 * 22/7 * 196 = 154.
+        ("The radius of a circle is 14 cm. Find the area of a quarter of the circle. (use 22/7)",
+         f"154{_CM2}", "sector", 90, ("area", "154 cm²")),
+        # A mixed number read whole: 1/2 * 22/7 * 3.5² = 19.25 (was radius 3, 14.14, no unit).
+        ("Find the area of a semicircle of radius 3½ cm (use 22/7)",
+         f"19.25{_CM2}", "sector", 180, ("area", "19.25 cm²")),
+        # A unit spelled out: 8π in² for a diameter of 8 inches.
+        ("Find the area of a semi-circle with a diameter of 8 inches",
+         r"8\pi \approx 25.13\ \mathrm{in}^{2}", "sector", 180, ("area", "25.13 in²")),
+        # "in the figure" is no inches: 77, with no unit.
+        ("Find the area of the semicircle with radius 7 in the figure (use 22/7)",
+         "77", "sector", 180, ("area", "77 units²")),
+        # The major sector goes round the rest: 300/360 * 22/7 * 49 = 385/3 ≈ 128.33.
+        ("Find the area of the major sector of radius 7 cm and angle 60°, use 22/7",
+         rf"\frac{{385}}{{3}} \approx 128.33{_CM2}", "sector", 300, ("area", "128.33 cm²")),
+        ("Find the major arc length of a sector of radius 7 cm and angle 60° (use 22/7)",
+         rf"\frac{{110}}{{3}} \approx 36.67{_CM}", "sector", 300, ("arc_length", "36.67 cm")),
+        ("Find the area of the minor sector of radius 7 cm and angle 60° (use 22/7)",
+         rf"\frac{{77}}{{3}} \approx 25.67{_CM2}", "sector", 60, ("area", "25.67 cm²")),
+        # The curved part's perimeter is its arc: 1/2 * 2 * 22/7 * 7 = 22 (was 36).
+        ("Find the perimeter of the curved part of a semicircle of radius 7 cm (use 22/7)",
+         f"22{_CM}", "sector", 180, ("arc_length", "22 cm")),
+        # Past three places, ≈ to two: 3.1416 * 64 = 201.0624 (was "201.062" as if exact).
+        ("Find the area of a circle of radius 8 cm. Use π ≈ 3.1416",
+         rf"\approx 201.06{_CM2}", "circle", None, ("area", "201.06 cm²")),
+        # Exact to three places on the card; the figure rounds a 5 up, 19.63, not 19.62.
+        ("Find the area of a circle of radius 2.5 m. Use 3.14",
+         r"19.625\ \mathrm{m}^{2}", "circle", None, ("area", "19.63 m²")),
+        ("Find the area of a semicircle of radius 7 cm. Use π = 22/7. Round to 2 d.p.",
+         f"77.00{_CM2}", "sector", 180, ("area", "77.00 cm²")),
     ],
 )  # fmt: skip
 def test_part_of_a_circle_is_worked_and_drawn_as_that_part(
@@ -216,6 +249,28 @@ def test_part_of_a_circle_is_worked_and_drawn_as_that_part(
         "Find the volume of a hemisphere of radius 3 cm (use 3.14)",
         # A sector by its angle with a stated π it cannot size: no angle.
         "Find the area of a sector of a circle of radius 6 cm (use 3.14)",
+        # From the review (2026-11-13): a part taken from the whole, or what is left of it.
+        "A quarter circle is cut from a circle of radius 14 cm. Find the area of the part that is left (use 22/7)",
+        "A quadrant is taken away from a circle of radius 14 cm. Find the area of the remaining shape",
+        "A sector of angle 60° is cut from a circle of radius 7 cm. Find the area of the rest of the circle (use 22/7)",
+        "A circle of radius 7 cm is cut into four equal quadrants. Find the area of each quadrant",
+        # A measure narrowed in words, or another region bounded by a chord.
+        "Find the perimeter of the semicircle of radius 7 cm (use 22/7), excluding the diameter",
+        "Find the area of the region between a quarter circle of radius 10 cm and its chord (use 3.14)",
+        # Two things asked: one card answers neither whole.
+        "Find the area of the semicircle with radius 6 cm and the area of the full circle",
+        "Find the area of a quarter circle of radius 8 cm, and use it to find the area of the whole circle",
+        "Find the area of a semicircle of radius 7 cm. Use π = 22/7. Then find the area of the whole circle.",
+        # Another figure beside the part, with no number of its own.
+        "The figure shows a square with a semicircle of radius 7 cm on one side. Find the area of the figure (use 22/7)",
+        # An answer asked in another unit, with π stated and without.
+        "Find the area of a circle of radius 7 cm in square metres (use 22/7)",
+        "Find the area of a circle of radius 7 cm in square metres",
+        # Both sides of a sector named: no one sector.
+        "Find the area of the major sector of a circle with radius 7 cm when the minor sector has angle 60° (use 22/7)",
+        # A mixed number the circle reader does not read.
+        "Find the area of a circle of radius 3½ cm",
+        "Find the area of a semicircle of radius 3 1/2 cm (use 22/7)",
     ],
 )  # fmt: skip
 def test_a_part_or_a_pi_the_solvers_cannot_account_for_is_declined(question: str) -> None:
@@ -230,8 +285,10 @@ def test_a_part_or_a_pi_the_solvers_cannot_account_for_is_declined(question: str
         # A whole circle with π itself stays the circle solver's, unchanged.
         ("Find the area of a circle of radius 8 cm", r"201.06"),
         ("Find the circumference of a circle with diameter 14 cm", r"43.98"),
-        # A sector by its angle with π itself stays the sector solver's.
+        # A sector by its angle with π itself stays the sector solver's, its major side too:
+        # 300/360 * π * 49 ≈ 128.2817 (was the 60° sector's 25.6563).
         ("Find the area of a sector with radius 6 cm and angle 60 degrees", "18.8496"),
+        ("Find the area of the major sector of radius 7 cm and angle 60°", "128.2817"),
     ],
 )
 def test_whole_circles_and_sectors_with_pi_itself_keep_their_solver(

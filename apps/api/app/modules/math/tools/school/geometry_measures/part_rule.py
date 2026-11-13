@@ -13,17 +13,41 @@ back) and the measure, radius or diameter and unit in ``trial_outcome``.
 from __future__ import annotations
 
 import re
+import unicodedata
 from fractions import Fraction
 
-from app.modules.math.match.circle_parts import circle_parts, other_piece_of_circle
+from app.modules.math.match.circle_parts import (
+    VULGAR_FRACTIONS,
+    circle_parts,
+    named_sector_angle,
+    other_piece_of_circle,
+)
+from app.modules.math.match.measure_relations import another_shape_named
 from app.modules.math.match.stated_pi import stated_pi
 from app.modules.math.schemas import MathIntent
 from app.services.number_text import count_word_pattern, number_word_value
+from app.services.unit_text import LENGTH_UNITS
 
 _N = r"(\d+(?:\.\d+)?)"
 _ASKED = re.compile(r"\b(area|perimeter|circumference|arc\s+length)\b", re.I)
+# "radius 3½ cm": a mixed number is read whole. "in" is a unit only where no word follows:
+# "radius 7 in the figure" has no inches.
 _SIZE = re.compile(
-    rf"\b(radius|diameter)\s*(?:of\s+|is\s+|=\s*|:\s*)?{_N}(?:\s*(mm|cm|km|m|in|ft)\b)?", re.I
+    r"\b(?P<kind>radius|diameter)\s*(?:of\s+(?:(?:a|an|the|this|its)\s+)?"
+    r"(?:circle|semi-?circle|quadrant|sector)\s+)?(?:of\s+|is\s+|=\s*|:\s*)?"
+    rf"(?P<whole>\d+(?:\.\d+)?)(?P<part>[{VULGAR_FRACTIONS}])?(?:\s*(?P<unit>mm|cm|km|m|ft"
+    r"|in(?![ \t]*[a-z])|(?:milli|centi|kilo)?met(?:er|re)s?|inch(?:es)?|f(?:oo|ee)t)\b)?",
+    re.I,
+)
+# An answer asked in a unit: "in square metres", "in mm".
+_ASKED_UNIT = re.compile(r"\bin\s+(?:(?:square|sq\.?|cubic)\s+)?([a-z]+)", re.I)
+# The perimeter of the curved part is the arc; one "excluding the diameter" is narrowed in
+# words this rule does not read, and a chord or a segment bounds another region.
+_CURVED = re.compile(r"\bcurved\b", re.I)
+_NARROWED = re.compile(
+    r"\b(?:excluding|excludes?|without|except|not\s+including|apart\s+from|other\s+than"
+    r"|chords?|segments?|between)\b",
+    re.I,
 )
 _CIRCLE = re.compile(r"\bcircle\b", re.I)
 _SECTOR = re.compile(r"\bsectors?\b", re.I)
@@ -39,8 +63,10 @@ _ROUNDING = re.compile(
 _NEAREST = {"whole number": 0, "integer": 0, "tenth": 1, "hundredth": 2, "thousandth": 3}
 # A count or a number the rule has not read: a second shape, a second part, a total.
 _UNREAD = re.compile(rf"\d|\b(?:{count_word_pattern(low=0, high=90)})\b|\bcircles\b", re.I)
-# A measure the rule did not read to its end: "radius 10π", "radius 3/2", "radius 2*3".
-_MORE_AFTER = re.compile(r"\s*(?:[*/^\u00d7\u00b7\u03c0]|\d|pi\b|sqrt|\u221a)", re.I)
+# A measure the rule did not read to its end: "radius 10π", "radius 3/2", "radius 3 1/2".
+_MORE_AFTER = re.compile(
+    rf"\s*(?:[*/^\u00d7\u00b7\u03c0{VULGAR_FRACTIONS}]|\d|pi\b|sqrt|\u221a)", re.I
+)
 
 
 def _rounding(text: str) -> tuple[int, int, tuple[int, int] | None]:
@@ -62,10 +88,28 @@ def _sector_part(text: str, has_pi: bool) -> tuple[Fraction, float, tuple[int, i
     angles = list(_DEGREES.finditer(text))
     if not has_pi or not _SECTOR.search(text) or len(angles) != 1:
         return None
-    angle = Fraction(angles[0].group(1))
-    if not 0 < angle < 360:
+    stated = Fraction(angles[0].group(1))
+    named = named_sector_angle(text, float(stated))  # "the major sector" goes round the rest
+    if named is None or not 0 < named < 360:
         return None
+    angle = stated if named == float(stated) else 360 - stated
     return angle / 360, float(angle), (angles[0].start(), angles[0].end())
+
+
+def _size(found: re.Match[str]) -> float:
+    """``3½`` is 3.5."""
+    glyph = found.group("part")
+    return float(found.group("whole")) + (unicodedata.numeric(glyph) if glyph else 0.0)
+
+
+def _asked_in_another_unit(rest: str, unit: str | None) -> bool:
+    """An answer asked in a unit the size is not in: "in square metres" for 7 cm."""
+    given = LENGTH_UNITS.get((unit or "").lower())
+    for found in _ASKED_UNIT.finditer(rest):
+        asked = LENGTH_UNITS.get(found.group(1).lower())
+        if asked is not None and asked != given:
+            return True
+    return False
 
 
 def circle_part_intent(body: str) -> MathIntent | None:
@@ -78,17 +122,25 @@ def circle_part_intent(body: str) -> MathIntent | None:
     pieces = text if _SECTOR.search(text) is None else _SECTOR.sub("circle", text)
     if len({part.fraction for part in parts}) > 1 or other_piece_of_circle(pieces):
         return None
+    if another_shape_named(text, "circle") or _NARROWED.search(text):
+        return None  # a square beside the semicircle, a perimeter "excluding the diameter"
     sector = None if parts else _sector_part(text, pi is not None)
     if sector is None and _SECTOR.search(text):
         return None  # a sector this rule cannot size is the sector solver's, or no one's
     if not parts and sector is None and (pi is None or _CIRCLE.search(text) is None):
         return None
-    asked = {" ".join(found.lower().split()) for found in _ASKED.findall(text)}
+    # One measure asked once: "the area of the semicircle and the area of the full circle"
+    # asks two, and one card is no answer to both.
+    asked = [" ".join(found.lower().split()) for found in _ASKED.findall(text)]
     sizes = list(_SIZE.finditer(text))
     if len(asked) != 1 or len(sizes) != 1:
         return None
-    quantity = asked.pop()
+    quantity = asked[0]
     whole = not parts and sector is None
+    if _CURVED.search(text):
+        if whole or quantity == "area":
+            return None  # a curved surface, or a whole circle's "curved" edge
+        quantity = "arc length"  # "the perimeter of the curved part" is the arc
     if (quantity == "circumference" and not whole) or (quantity == "arc length" and whole):
         return None  # a semicircle's "circumference": its curved edge, or all of it?
     size = sizes[0]
@@ -101,10 +153,12 @@ def circle_part_intent(body: str) -> MathIntent | None:
     )
     if _UNREAD.search(rest) or _MORE_AFTER.match(text[size.end() :]):
         return None
+    if _asked_in_another_unit(rest, size.group("unit")):
+        return None
     fraction = parts[0].fraction if parts else (sector[0] if sector else Fraction(1))
     stated = pi.value if pi is not None and pi.value is not None else Fraction(0)
     numbers = [
-        float(size.group(2)),
+        _size(size),
         *(float(n) for n in (fraction.numerator, fraction.denominator)),
         *(float(n) for n in (stated.numerator, stated.denominator if stated else 0)),
         float(figures),
@@ -113,7 +167,8 @@ def circle_part_intent(body: str) -> MathIntent | None:
     ]
     # A whole circle's perimeter is its circumference; the arc is a part's curved edge.
     measure = {"circumference": "perimeter", "arc length": "arc"}.get(quantity, quantity)
-    words = [measure, size.group(1).lower(), *([size.group(3).lower()] if size.group(3) else [])]
+    unit = LENGTH_UNITS.get((size.group("unit") or "").lower())  # "metres" is m
+    words = [measure, size.group("kind").lower(), *([unit] if unit else [])]
     return MathIntent(
         kind="arithmetic",
         school_op="geometry_measure:circle_part",
