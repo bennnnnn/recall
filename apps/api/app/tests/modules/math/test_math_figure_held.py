@@ -451,3 +451,20 @@ def test_a_shared_unit_covers_a_bare_length() -> None:
              "measures": [_s(8, what="length"), _s(5, what="width")]}),
     )  # fmt: skip
     assert {s.label for s in spec.segments if s.label} == {"8 cm", "5 cm"}
+
+
+def test_an_integer_question_read_as_an_interval_draws_nothing() -> None:
+    reading = {"kind": "number_line", "inequality": "-3 < n <= 2"}
+    assert _draw("Show the integers n with -3 < n ≤ 2 on a number line.", reading) is None
+
+
+def test_a_parallelogram_height_to_one_of_two_stated_sides_draws_nothing() -> None:
+    question = "Parallelogram ABCD has AB = 8 cm, BC = 5 cm and height 4 cm. Draw it."
+    measures = [_s(8, "AB"), _s(5, "BC"), _s(4, what="height")]
+    reading = {
+        "kind": "polygon",
+        "shape": "parallelogram",
+        "vertices": "ABCD",
+        "measures": measures,
+    }
+    assert _draw(question, _cm(reading)) is None

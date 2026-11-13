@@ -241,6 +241,8 @@ def build_parallelogram(request: FigureRequest, *, rhombus: bool = False) -> Fig
     stated_side = values.side(1, 3) or (None if rhombus else values.take("side", "width", "length"))
     side = stated_side or (base if rhombus else None)
     height = values.take("height")
+    if height is not None and base is not None and stated_side is not None and not rhombus:
+        return None  # the height to which of two stated sides: the question does not say
     lean = _lean(values)
     if values.angles and lean is None:
         return None

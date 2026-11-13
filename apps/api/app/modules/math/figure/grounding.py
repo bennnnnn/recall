@@ -227,7 +227,8 @@ def _implied_right(request: FigureRequest) -> bool:
 
 
 def _measures_hold(request: FigureRequest, found: list[Written]) -> bool:
-    unit = unit_name(request.unit) or request.unit.strip().lower()
+    # A unit this knows no length of ("units") is matched as none.
+    unit = unit_name(request.unit)
     for measure in request.measures:
         if measure.what in _ANGLE_WHATS:
             if abs(measure.value - 90) < _TOLERANCE and _implied_right(request):

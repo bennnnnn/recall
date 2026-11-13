@@ -87,10 +87,12 @@ def _inequality_line(request: FigureRequest, texts: list[str]) -> dict[str, obje
     spec = math_solve.number_line_spec_from_expr(inequality)
     if spec is None:
         return None
+    # Whole numbers marked one by one exactly when the question says its letter is one:
+    # dots for "-2 < x <= 3" or a shaded interval for "the integers n" are both wrong.
+    if request.integers != any(_WHOLE.search(text) for text in texts):
+        return None
     if not request.integers:
         return spec.model_dump()
-    if not any(_WHOLE.search(text) for text in texts):
-        return None  # whole numbers only when the question says its letter is one
     whole: list[tuple[Fraction, str]] = []
     for interval in spec.intervals:
         if interval.start is None or interval.end is None:
