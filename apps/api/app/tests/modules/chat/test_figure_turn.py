@@ -272,9 +272,10 @@ async def test_a_read_still_running_at_finalize_waits_for_no_picture(figure: _Fi
         await asyncio.sleep(5)
         return TurnDecision(live=False, think=False, subject="maths", picture="graph")
 
-    ctx = _ctx(live_read=asyncio.ensure_future(slow()))
+    read = asyncio.ensure_future(slow())
+    ctx = _ctx(live_read=read)
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
     started = asyncio.get_running_loop().time()
     assert await figure_turn.attach_figure(_state(ctx, "Done.")) == "Done."
     assert asyncio.get_running_loop().time() - started < 0.5
-    ctx.live_read.cancel()
+    read.cancel()
