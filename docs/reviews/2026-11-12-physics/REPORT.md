@@ -13,7 +13,7 @@ Anything not measured is marked **not verified**.
 | Does it animate when it should? | **When the server solves, yes.** 16 of the 18 questions that needed a picture got one, plus 7 more where a picture helped. **When the server can't solve, never.** The model is told `Do NOT emit … simulation`, so those replies are plain text even for a projectile. | §1.3 |
 | Is it robust? | **No, and this is the main weakness.** The numbers come from word patterns. 16 of 24 natural rewordings solved (67%), and 0 of 6 non-English questions did (the app ships 9 languages). The decider does not change this: it picks the lane and the layout, not the numbers. | §1.4 |
 | Is the code clean? | **Safe, but heavy.** No resource leaks, almost no dead code, low copy-paste. The weight is elsewhere: about 2,000 hand-written regexes reading English, 13 functions graded F for complexity in physics alone, an extractor order that silently matters, two SymPy cold starts of 0.3–2.7 s on the request path, and one Pint hot spot worth about 45% of read time. | §2 |
-| Add a subject tomorrow? | **It won't "just work."** Wired through the documented seam, a test subject was read correctly, then silently never solved. It took 3 undocumented edits to get a verified card, and about 15 more chat files plus about 17 mobile and locale files for parity. All tests stayed green throughout. | §3.1 |
+| Add a subject tomorrow? | **At review time it would not "just work"**: a test subject wired through the documented seam was read correctly, then silently never solved. **Fixed the same day (§6):** the same test subject now solves with only the seam files plus its adapter, and a completeness test fails if a subject misses something chat asks. A subject the decider, scanner or model reader should know still needs those measured prompts and lists edited, and tests flag each one. | §3.1, §6 |
 | Add or remove a model tomorrow? | **Adding works**: 3 files (catalog plus 2 guard tests), 4 with Auto routing; no mobile change. **Removing is unsafe**: catalog-only removal fails 25 tests, and users whose saved model was removed can neither send messages nor fix their settings until a data migration rewrites the saved value. A lane naming a removed model causes a `KeyError` at runtime. | §3.2 |
 
 ## How this was tested, and its limits
@@ -316,14 +316,23 @@ These are all on `claude/recall-physics-review-hlgi1j`. Every change was proven 
 | Physics replies (§1.2 D1–D6) | `71d61ed`…`5688f4d` (6) | `q₁ = 3 µC = 3 × 10⁻⁶ C`. A conversion is shown only when it is used. `n = t/T½` before the decay law. "with ΔT = T₂ − T₁" / "with θ = 90°" replace "Solve for" and "the same law for these quantities". Working to 4 figures, ending on the card's value. Every Required line names its quantity. 20 new template tests. | **0 of 1,660 answer cards changed**, 0 verified values, 0 pictures. 785 replies changed in text only. Critical problems 16 → 16. No decision changed. |
 | Model removal (§3.2) | `31c3d99`…`061f340` (4) | `models/model_removal.py`: saved and requested choices of a removed model fall back to Auto, while real garbage is still refused. The API and the worker refuse to start while a lane names a missing model. `PHOTO_LOOKUP_MODEL` is a named label. The phone's fallback row says "Recall". | Removal of `glm-5.3-flash` re-run for real: startup refused with the lane named. With the lane repointed, `GET /auth/me` 200 → Auto, `PATCH` 200 → cleaned list, a WebSocket send started a turn. No decision changed. |
 | Chemistry / maths / money / pool (§2) | `dbd36f6`…`21bd6e8` (8) | Substance patterns compiled once per set. `_spelling` bounded at 256. `OwnerTurns` raises `WorkerBusyError`. Money's worked rule is built from `WORKOUT_PROMPT_RULE`. A failing chemistry extractor no longer stops the ones after it. Catch-alls log. 13 exact number-regex copies use `number_text`. One geometry shape list. | Chemistry corpus regex compiles **2,052 → 389**, compile share of wall time **7.9% → 0.4%**. No decision changed. 0 of 1,084 chemistry and maths replies changed. |
+| Subject registry (§3.1) | `b763e94`…`d06e555` (5) | Adapters now declare `enabled`, `status_phase` and `fence.owns`. Chat's `_turn_needs`, status line, finalize ownership (replacing `_math_owns`), per-subject fence passes, `SUBJECT_HINTS`, follow-up prompt sections, Auto's lane and the model reader ask `SUBJECTS` instead of naming subjects. Subject sets derive from `SubjectName`. `test_subject_completeness.py` holds every subject to what chat asks. | Toy astronomy subject wired **only** through the seam files plus its adapter: before `solved: False`; after **`solved: True`, card `verified: true`, m − M = 5.00**. No decision changed. 0 replies changed. **System prompts byte-identical on all 6,311 turns.** Behaviour suites 6,302 passed. |
+| Log privacy | `ae2e23b` | The money catch-all fix had logged the formula and the user's amounts at WARNING; it now logs sizes and slider names | The full suite caught it (`test_log_privacy`, `test_silent_excepts`) |
 | Sizes | `8f64bcc` | Two files that shrank are locked in the ratchet | — |
 
 **Combined branch** (all of the above together, against the baselines):
-- no decision changed (6,311 turns);
+- no decision changed (6,311 turns), and the subject refactor left every system prompt byte-identical;
 - 0 answer cards, 0 verified values and 0 pictures changed (2,680 STEM turns);
 - 785 replies changed in text (the template fixes);
 - the one problem-list change is opt-06's newly reported missing picture;
-- the 50 questions: 41/44 checked, 16/18 pictured; the template defect phrases now occur 0 times and every Required line is named.
+- the 50 questions: 41/44 checked, 16/18 pictured; the template defect phrases now occur 0 times and every Required line is named;
+- **full API suite: 44,018 passed.** The only failures are the 452 tests that need Postgres, the identical list `main` fails here. Behaviour suites: 6,302 passed, 20 expected failures.
+
+**What a new subject still touches** after the refactor:
+- **Required seams:** `SubjectName`, `SUBJECTS`, a step in `order.py`, a settings flag, and `modules/<subject>/subject.py`.
+- **Measured model prompts:** the decider's subject choices (`decider_read.READ_SUBJECTS` and the criteria text), `turn_decision`'s `Subject`, `ROUTING.decided`, `model_reader/schemas.py`, and `services/subject_scan.py`. Tests flag each one.
+- **Optional:** follow-up re-solving (`turn_prep/followups.py`), its own fence passes, a new status phase plus its mobile label, scanner tabs, and a STEM corpus folder.
+- **Left as is:** `order.py` still threads only `chemistry_enabled`; subjects are gated at solve time by `enabled()` instead.
 
 **Not changed, on purpose:**
 - Number patterns whose meaning differs from `number_text` (about 10 private ones and about 80 inline `\d+(?:\.\d+)?`). Swapping them would change what the app reads.
