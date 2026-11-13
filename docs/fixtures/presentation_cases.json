@@ -1134,6 +1134,42 @@
       "area": "lead_lines",
       "input": "> **One** a\n> **Two** b",
       "expected": "> **One** a\n> **Two** b"
+    },
+    {
+      "id": "worked-heading-after-maths",
+      "area": "lead_lines",
+      "input": "**Given**  \n$3x - 5 < 2x + 4$\n**Required**  \nSolve for $x$.\n**Solution**\n\n**1. Subtract $2x$ from both sides** — Subtraction property of inequality\n$x - 5 < 4$\n**2. Add $5$ to both sides** — Addition property of inequality\n$x < 9$\n\n**Answer**",
+      "expected": "**Given**  \n$3x - 5 < 2x + 4$\n\n**Required**  \nSolve for $x$.\n\n**Solution**\n\n**1. Subtract $2x$ from both sides** — Subtraction property of inequality\n$x - 5 < 4$\n\n**2. Add $5$ to both sides** — Addition property of inequality\n$x < 9$\n\n**Answer**"
+    },
+    {
+      "id": "worked-heading-after-prose",
+      "area": "lead_lines",
+      "input": "**Given**  \nPrism altitude: $15\\ \\text{cm}$  \nBase area: $24\\ \\text{cm}^2$  \n**Required**  \nTotal surface area\n**Solution**  \n\n**Total surface area formula**  \n$A = 2B + Ph$\n**Substitution**  \n$A = 2(24) + 24(15)$\n$A = 48 + 360$\n**Answer**  \n$\\boxed{408\\ \\text{cm}^2}$",
+      "expected": "**Given**  \nPrism altitude: $15\\ \\text{cm}$  \nBase area: $24\\ \\text{cm}^2$  \n\n**Required**  \nTotal surface area\n\n**Solution**  \n\n**Total surface area formula**  \n$A = 2B + Ph$\n\n**Substitution**  \n$A = 2(24) + 24(15)$\n$A = 48 + 360$\n\n**Answer**  \n$\\boxed{408\\ \\text{cm}^2}$"
+    },
+    {
+      "id": "worked-part-headings",
+      "area": "lead_lines",
+      "input": "**Find**  \n(a) $v$ (speed)\n(b) $t$ (time)\n**(a) Speed after 2 s**\n**Constant acceleration formula**  \n$v = u + at$\n**Answer (a)**  \n$v = 20\\,\\mathrm{m/s}$\n**Part (b): Time to stop**\n$t = 4\\,\\mathrm{s}$",
+      "expected": "**Find**  \n(a) $v$ (speed)\n(b) $t$ (time)\n\n**(a) Speed after 2 s**\n\n**Constant acceleration formula**  \n$v = u + at$\n\n**Answer (a)**  \n$v = 20\\,\\mathrm{m/s}$\n\n**Part (b): Time to stop**\n$t = 4\\,\\mathrm{s}$"
+    },
+    {
+      "id": "worked-section-title-with-words",
+      "area": "lead_lines",
+      "input": "**Given**  \n$m = 2\\,\\mathrm{kg}$, $a = 3\\,\\mathrm{m/s^2}$\n**Required:** the force $F$\n**Answer:** $F = 6\\,\\mathrm{N}$\n**2) Divide both sides by 2** — division\n$x = 4$",
+      "expected": "**Given**  \n$m = 2\\,\\mathrm{kg}$, $a = 3\\,\\mathrm{m/s^2}$\n\n**Required:** the force $F$\n\n**Answer:** $F = 6\\,\\mathrm{N}$\n\n**2) Divide both sides by 2** — division\n$x = 4$"
+    },
+    {
+      "id": "worked-bold-label-stays",
+      "area": "lead_lines",
+      "input": "**Given**  \n$m = 5\\,\\mathrm{kg}$  \n**Speed:** $3\\,\\mathrm{m/s}$\n\nThe value stays\n**positive** for every $x$.",
+      "expected": "**Given**  \n$m = 5\\,\\mathrm{kg}$  \n**Speed:** $3\\,\\mathrm{m/s}$\n\nThe value stays\n**positive** for every $x$."
+    },
+    {
+      "id": "unworked-bold-line-stays",
+      "area": "lead_lines",
+      "input": "Here is the plan:\n**Step 1**\nBoil the water.",
+      "expected": "Here is the plan:\n**Step 1**\nBoil the water."
     }
   ]
 }

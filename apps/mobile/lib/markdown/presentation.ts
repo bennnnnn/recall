@@ -48,10 +48,13 @@ export function isServerPresentedRow(row: {
   return Number.isFinite(created) && created >= SERVER_PRESENTATION_CUTOVER;
 }
 
-export function presentAssistantMarkdown(text: string): string {
+/** `workedAbove`: the text is a later part of a worked reply (`separateLeadLines`). */
+export function presentAssistantMarkdown(text: string, workedAbove = false): string {
   if (!text) return text;
   return layoutCalculations(
-    repairInlineTokenBoundaries(separateLeadLines(codeNotation(fenceReplTranscripts(text)))),
+    repairInlineTokenBoundaries(
+      separateLeadLines(codeNotation(fenceReplTranscripts(text)), workedAbove),
+    ),
   );
 }
 
@@ -147,12 +150,14 @@ function openMathStart(prose: string): number | null {
  * `\(...\)` / `\[...\]` / `$$` spans. Wrapping a line that is already inside
  * those delimiters inserts a second `$` and clips the formula. An opener
  * that has not closed yet stays raw so a later token can finish it. */
-function presentStreamProse(prose: string, presented: boolean): string {
+function presentStreamProse(prose: string, presented: boolean, workedAbove: boolean): string {
   if (!prose) return prose;
   const openAt = openMathStart(prose);
   const head = openAt == null ? prose : prose.slice(0, openAt);
   const open = openAt == null ? "" : prose.slice(openAt);
-  const present = presented ? layoutCalculations : presentAssistantMarkdown;
+  const present = presented
+    ? layoutCalculations
+    : (text: string) => presentAssistantMarkdown(text, workedAbove);
   // Notation becomes code before the maths wrap can read "(=O)" as maths.
   const wrapped = head
     ? present(normalizeImplicitMath(codeNotation(head)))
@@ -162,12 +167,13 @@ function presentStreamProse(prose: string, presented: boolean): string {
 
 /**
  * Repair a streaming tail without scanning an open fence body, and hold back a
- * table header still waiting for its delimiter row. `presented`
+ * table header still waiting for its delimiter row. `workedAbove`: the reply
+ * before the tail is worked. `presented`
  * text is the server's saved reply, still in stream layout while its row
  * settles: as in the settled preprocess, its prose stays as saved and only the
  * maths rows the wrap builds are laid out, so settling does not move it.
  */
-export function presentStreamTail(tail: string, presented = false): string {
+export function presentStreamTail(tail: string, presented = false, workedAbove = false): string {
   if (!tail) return tail;
   const fenceAt = tail.indexOf("```");
   const tildeAt = tail.indexOf("~~~");
@@ -177,9 +183,9 @@ export function presentStreamTail(tail: string, presented = false): string {
       : tildeAt === -1
         ? fenceAt
         : Math.min(fenceAt, tildeAt);
-  if (fence === -1) return presentStreamProse(holdBackPendingTableHeader(tail), presented);
+  if (fence === -1) return presentStreamProse(holdBackPendingTableHeader(tail), presented, workedAbove);
   if (fence === 0) return tail;
   return (
-    presentStreamProse(tail.slice(0, fence), presented) + tail.slice(fence)
+    presentStreamProse(tail.slice(0, fence), presented, workedAbove) + tail.slice(fence)
   );
 }

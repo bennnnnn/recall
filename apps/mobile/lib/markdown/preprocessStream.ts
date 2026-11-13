@@ -5,6 +5,7 @@ import {
   finishSegmentedPrefix,
   type SegmentedPrefix,
 } from "@/lib/markdown/segmentedPreprocess";
+import { isWorkedReply } from "@/lib/markdown/workoutSection";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
 export type StreamingPreprocessCache = {
@@ -345,8 +346,10 @@ export function preprocessMarkdownForStream(
     (raw, workedAbove) => preprocessMarkdown(raw, mathFormat, { ...options, workedAbove }),
   );
   const tail = content.slice(stableLen);
+  // A heading in the tail of a worked reply starts its own paragraph (`separateLeadLines`).
+  const workedAbove = prefix.workedAbove || isWorkedReply(prefix.openRaw);
   return {
-    prepared: preparedStable + presentStreamTail(tail, presented),
+    prepared: preparedStable + presentStreamTail(tail, presented, workedAbove),
     cache: {
       rawStableLen: stableLen,
       preparedStable,
