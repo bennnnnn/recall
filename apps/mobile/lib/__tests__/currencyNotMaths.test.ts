@@ -143,6 +143,14 @@ describe("inline maths still renders", () => {
     ["$4!  + 3!$ ways", ["4!  + 3!"]],
     ["$4! = 24$", ["4! = 24"]],
     ["Padded: $ 4! $ ways", ["4!"]],
+    // A ratio's colon before a number is maths going on, never the price "$9:" (the
+    // textbook run, 2026-11-13: "$9: 12: 15 $ is the $ 3: 4: 5$" showed two dollars and
+    // set "is the" as maths).
+    ["$9: 12: 15 $ is the $ 3: 4: 5$ ratio", ["9: 12: 15", "3: 4: 5"]],
+    ["$9: 12: 15$ is the $3: 4: 5$ ratio", ["9: 12: 15", "3: 4: 5"]],
+    ["The ratio $2: 3$ of boys", ["2: 3"]],
+    ["by mass $1 : 2 : 3$ here", ["1 : 2 : 3"]],
+    ["sides $ 6:  8: 10 $ match", ["6:  8: 10"]],
   ])("draws %s as maths", (source, math) => {
     expect(seen(source).math).toEqual(math);
   });
@@ -163,6 +171,9 @@ describe("inline maths still renders", () => {
     ["It was $5! — and $x$ more.", ["x"], "It was $5! — and x more."],
     ["Today $5! 3 left, then $x$ more.", ["x"], "Today $5! 3 left, then x more."],
     ["Only $5! 10 left, $x$ is mine.", ["x"], "Only $5! 10 left, x is mine."],
+    // A colon before words still ends a price's clause.
+    ["It cost $9: cheap, and $x$ more.", ["x"], "It cost $9: cheap, and x more."],
+    ["Fees: $10; $y$ each.", ["y"], "Fees: $10; y each."],
   ])("keeps the price and the maths apart in %s", (source, math, text) => {
     const view = seen(source);
     expect(view.math).toEqual(math);

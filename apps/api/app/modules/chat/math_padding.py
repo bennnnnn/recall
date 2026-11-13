@@ -20,9 +20,10 @@ from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outsid
 # letters or more (outside a sub- or superscript) are prose. A TeX command makes it maths.
 # An exclamation mark is a factorial only where the span ends or maths goes on (`$4!$`,
 # `$4! + 3!$`); followed by a number, a word, a dollar or a bracket it ends a price's clause.
+# A colon before a number is a ratio's ("$9: 12: 15$"), and the maths goes on.
 _PRICE_LEAD = re.compile(
     r"\d[\d,.]*+(?:[kKmMbB]|/[A-Za-z]++)?"
-    r"(?:[;:?](?:\s|$)|!\s++(?![\s=+\-\u2212\u00d7\u00f7*/\u00b7^<>\u2264\u2265\u2260)])"
+    r"(?:(?:[;?]|:(?!\s*+\d))(?:\s|$)|!\s++(?![\s=+\-\u2212\u00d7\u00f7*/\u00b7^<>\u2264\u2265\u2260)])"
     r"|\s++([A-Za-z]++)(.*))",
     re.DOTALL,
 )
@@ -63,7 +64,17 @@ def _trim_line(line: str) -> str:
 
 
 def _maths_end(line: str, start: int) -> int | None:
-    """The end of the ``$…$`` maths span opening at ``start``, as the phone pairs it."""
+    """The end of the ``$…$`` maths span opening at ``start``, as the phone pairs it; None
+    for prose between two dollars, which the phone shows as text."""
+    end = maths_pair_end(line, start)
+    if end is None or _prose(line[start + 1 : end - 1]):
+        return None
+    return end
+
+
+def maths_pair_end(line: str, start: int) -> int | None:
+    """The end of the ``$…$`` pair opening at ``start``, as the phone's renderer pairs it
+    (``readInlineMathSpan``): none for a price, an escaped dollar, or a pair across code."""
     if line[start] != "$" or line[start - 1 : start] == "$" or line[start + 1 : start + 2] == "$":
         return None
     if escaped_at(line, start):
@@ -76,7 +87,7 @@ def _maths_end(line: str, start: int) -> int | None:
     body = line[start + 1 : end]
     if not body.strip() or code_span_opens_within(line, start + 1, end):
         return None
-    if _opens_price(line, end, body) or _price_body(body) or _prose(body):
+    if _opens_price(line, end, body) or _price_body(body):
         return None
     return end + 1
 

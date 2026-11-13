@@ -25,6 +25,18 @@ from app.modules.chat.math_padding import without_math_padding
         ("so $ 4!  + 3! $ in all", "so $4!  + 3!$ in all"),
         # A price's "!" before words keeps the price apart from the maths after it.
         ("Today $5! 3 left, then $ x$ more.", "Today $5! 3 left, then $x$ more."),
+        # A ratio's colon before a number is maths going on, not the price "$9:" (the
+        # textbook run, 2026-11-13: its dollars paired round "is the" and one was shown).
+        (
+            "Check: $9: 12: 15 $ is the $ 3: 4: 5$ ratio.",
+            "Check: $9: 12: 15$ is the $3: 4: 5$ ratio.",
+        ),
+        ("the ratio $2: 3 $ of boys", "the ratio $2: 3$ of boys"),
+        ("so $ 1 : 2 : 3 $ by mass", "so $1 : 2 : 3$ by mass"),
+        ("time $ 10:  30 $ then", "time $10:  30$ then"),
+        # A colon before words still ends a price's clause: the maths after it pairs alone.
+        ("It cost $9: cheap, and $ x$ more.", "It cost $9: cheap, and $x$ more."),
+        ("Fees: $10; $ y$ each.", "Fees: $10; $y$ each."),
     ],
 )
 def test_padded_maths_is_trimmed(text: str, trimmed: str) -> None:
