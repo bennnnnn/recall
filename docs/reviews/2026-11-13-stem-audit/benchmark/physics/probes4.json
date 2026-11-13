@@ -1,0 +1,36 @@
+{"dimensional coincidence traps (binder)": [
+ "A satellite orbits 400 km above the Earth's surface with a period of 92 minutes. What is its speed?",
+ "The Earth is 1.5 × 10^11 m from the Sun and takes 365 days to go around it. What is its orbital speed?",
+ "A pendulum 1 m long has a period of 2 s. What is the bob's speed?",
+ "A wave has an amplitude of 0.1 m and a period of 2 s. What is its speed?",
+ "A tsunami has a wavelength of 200 km and a period of 15 minutes. How fast does it travel?",
+ "A 70 kg skydiver falls at a terminal velocity of 55 m/s. What is the drag force on him?",
+ "A charge of 5 C passes through a 10 Ω resistor in 2 s. What is the voltage across it?",
+ "A 2 kg block rests on a 30° incline. What is the normal force on it?",
+ "A heart beats 72 times per minute. What is the period of one beat?",
+ "A boat crosses a 100 m wide river at 2 m/s relative to the water while the current flows at 1.5 m/s. How far downstream does it land?",
+ "A 0.5 kg ball tied to a 1 m string swings in a vertical circle at 5 m/s at the bottom. What is the tension at the bottom?",
+ "A car of mass 1200 kg goes over the top of a hill of radius 40 m at 15 m/s. What is the normal force at the top?",
+ "A 2 kg mass is whirled in a vertical circle of radius 1 m. What is the minimum speed at the top?",
+ "A spring with k = 400 N/m is compressed 0.1 m and launches a 0.2 kg ball. How fast does the ball leave?",
+ "A 3 kg mass moves at 4 m/s. A 5 N force acts on it for 2 s in the direction of motion. What is its final speed?",
+ "A 50 g bullet travelling at 400 m/s embeds itself in a 2 kg wooden block at rest. What is the speed of the block afterwards?",
+ "A 10 kg box is pulled 5 m across the floor by a 50 N force at 30° above the horizontal. How much work is done?",
+ "A ball is thrown horizontally at 15 m/s from a 45 m tall building. How fast is it moving when it hits the ground?",
+ "A ball is thrown at 25 m/s at 40° above the horizontal from the top of a 30 m cliff. How far from the base does it land?"],
+ "units & conversions": [
+ "A car travels at 60 mph for 2 hours. How far does it go in kilometres?",
+ "A 500 g mass is accelerated at 200 cm/s². What net force acts on it?",
+ "A force of 3 N acts on a 250 g toy car. What is its acceleration?",
+ "A camera flash releases 20 J in 2 ms. What is its power?",
+ "A 1.5 V battery drives 300 mA through a bulb. What is the bulb's resistance?",
+ "How much heat raises 500 g of water by 15 °F?",
+ "A train covers 1 mile in 1 minute. What is its speed in km/h?"],
+ "multi-part": [
+ "A 1000 kg car accelerates from rest to 25 m/s in 10 s. (a) What is its acceleration? (b) What net force acts on it? (c) How far does it travel?",
+ "A 4 Ω and a 6 Ω resistor are in series with a 20 V battery. Find (a) the current and (b) the voltage across the 6 Ω resistor.",
+ "A ball is dropped from 20 m. Find the time to fall and the speed on impact."],
+ "symbolic": [
+ "Derive an expression for the range of a projectile launched at speed v at angle θ on level ground.",
+ "Find the period of a simple pendulum of length L in terms of g."]
+}

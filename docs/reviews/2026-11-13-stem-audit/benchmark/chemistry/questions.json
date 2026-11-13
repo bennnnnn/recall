@@ -1,0 +1,644 @@
+[
+ {
+  "id": "au-01",
+  "area": "electron_config",
+  "prompt": "Write the ground-state electron configuration of sulfur.",
+  "expect": "answer",
+  "text": [
+   "1s2 2s2 2p6 3s2 3p4"
+  ],
+  "note": "Z=16"
+ },
+ {
+  "id": "au-02",
+  "area": "electron_config",
+  "prompt": "what's the electron configuration of Fe3+",
+  "expect": "answer",
+  "text": [
+   "3d5"
+  ],
+  "note": "[Ar]3d5; 4s electrons leave first"
+ },
+ {
+  "id": "au-03",
+  "area": "periodic_trend",
+  "prompt": "Which has the larger atomic radius, Na or Cl, and why?",
+  "expect": "explain",
+  "note": "Na"
+ },
+ {
+  "id": "au-04",
+  "area": "periodic_trend",
+  "prompt": "Rank N, O and F by first ionization energy, highest first.",
+  "expect": "explain",
+  "note": "F > N > O"
+ },
+ {
+  "id": "au-05",
+  "area": "bonding",
+  "prompt": "Is the bond in HCl ionic, polar covalent, or nonpolar covalent?",
+  "expect": "explain",
+  "note": "polar covalent, dEN 0.96"
+ },
+ {
+  "id": "au-06",
+  "area": "bonding",
+  "prompt": "How many sigma and pi bonds are in ethyne, C2H2?",
+  "expect": "explain",
+  "note": "3 sigma, 2 pi"
+ },
+ {
+  "id": "au-07",
+  "area": "naming",
+  "prompt": "What is the name of PbO2?",
+  "expect": "answer",
+  "text": [
+   "lead(IV) oxide"
+  ]
+ },
+ {
+  "id": "au-08",
+  "area": "naming",
+  "prompt": "What is the chemical formula for aluminum sulfate?",
+  "expect": "answer",
+  "text": [
+   "Al2(SO4)3"
+  ]
+ },
+ {
+  "id": "au-09",
+  "area": "molar_mass",
+  "prompt": "Calculate the molar mass of Mg3(PO4)2.",
+  "expect": "answer",
+  "answers": [
+   [
+    262.855,
+    "g/mol"
+   ]
+  ]
+ },
+ {
+  "id": "au-10",
+  "area": "balancing",
+  "prompt": "Balance: Al + O2 -> Al2O3",
+  "expect": "answer",
+  "text": [
+   "4Al+3O2->2Al2O3"
+  ]
+ },
+ {
+  "id": "au-11",
+  "area": "balancing",
+  "prompt": "Balance the combustion of butane: C4H10 + O2 -> CO2 + H2O",
+  "expect": "answer",
+  "text": [
+   "2C4H10+13O2->8CO2+10H2O"
+  ]
+ },
+ {
+  "id": "au-12",
+  "area": "redox_acid",
+  "prompt": "Balance in acidic solution: Cr2O7^2- + I- -> Cr3+ + I2",
+  "expect": "answer",
+  "text": [
+   "14H+"
+  ],
+  "note": "Cr2O7 2- + 6I- + 14H+ -> 2Cr3+ + 3I2 + 7H2O"
+ },
+ {
+  "id": "au-13",
+  "area": "redox_base",
+  "prompt": "Balance in basic solution: MnO4- + I- -> MnO2 + I2",
+  "expect": "answer",
+  "text": [
+   "8OH-"
+  ],
+  "note": "2MnO4- + 6I- + 4H2O -> 2MnO2 + 3I2 + 8OH-"
+ },
+ {
+  "id": "au-14",
+  "area": "ionic_balance",
+  "prompt": "Balance: Ag+ + Cu -> Ag + Cu2+",
+  "expect": "answer",
+  "text": [
+   "2Ag++Cu->2Ag+Cu2+"
+  ]
+ },
+ {
+  "id": "au-15",
+  "area": "trap_unbalanceable",
+  "prompt": "Balance H2O -> H2 + CO2",
+  "expect": "decline",
+  "note": "carbon appears only on one side"
+ },
+ {
+  "id": "au-16",
+  "area": "trap_charge",
+  "prompt": "Is Fe3+ + Cu -> Fe2+ + Cu2+ balanced?",
+  "expect": "answer",
+  "text": [
+   "2Fe3+"
+  ],
+  "note": "atoms balance, charge 3 vs 4: 2Fe3+ + Cu -> 2Fe2+ + Cu2+"
+ },
+ {
+  "id": "au-17",
+  "area": "ionic_balance",
+  "prompt": "Balance Fe2+ + Cl2 -> Fe3+ + Cl-",
+  "expect": "answer",
+  "text": [
+   "2Fe2++Cl2->2Fe3++2Cl-"
+  ]
+ },
+ {
+  "id": "au-18",
+  "area": "stoichiometry",
+  "prompt": "How many grams of CO2 are produced when 10.0 g of propane (C3H8) burns completely in excess oxygen?",
+  "expect": "answer",
+  "answers": [
+   [
+    29.940131981767465,
+    "g"
+   ]
+  ]
+ },
+ {
+  "id": "au-19",
+  "area": "moles",
+  "prompt": "How many atoms are in 5.00 g of aluminum?",
+  "expect": "answer",
+  "answers": [
+   [
+    1.1159552219998518e+23,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-20",
+  "area": "molarity",
+  "prompt": "What is the molarity of a solution made by dissolving 4.00 g of NaOH in enough water to make 250 mL of solution?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.40003000225016877,
+    "M"
+   ]
+  ]
+ },
+ {
+  "id": "au-21",
+  "area": "dilution",
+  "prompt": "How many mL of 12.0 M HCl are needed to make 500. mL of 0.150 M HCl?",
+  "expect": "answer",
+  "answers": [
+   [
+    6.25,
+    "mL"
+   ]
+  ]
+ },
+ {
+  "id": "au-22",
+  "area": "limiting",
+  "prompt": "If 5.00 g of H2 reacts with 32.0 g of O2, how many grams of water can form?",
+  "expect": "answer",
+  "answers": [
+   [
+    36.032252015750984,
+    "g"
+   ]
+  ],
+  "note": "O2 limits"
+ },
+ {
+  "id": "au-23",
+  "area": "percent_yield",
+  "prompt": "The theoretical yield of NH3 is 34.0 g but only 25.5 g was collected. What is the percent yield?",
+  "expect": "answer",
+  "answers": [
+   [
+    75.0,
+    "%"
+   ]
+  ]
+ },
+ {
+  "id": "au-24",
+  "area": "ph_strong",
+  "prompt": "What is the pH of 0.0025 M HNO3?",
+  "expect": "answer",
+  "answers": [
+   [
+    2.6020599913279625,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-25",
+  "area": "ph_strong",
+  "prompt": "Find the pH of a 0.015 M Ba(OH)2 solution.",
+  "expect": "answer",
+  "answers": [
+   [
+    12.477121254719663,
+    ""
+   ]
+  ],
+  "note": "2 OH per formula"
+ },
+ {
+  "id": "au-26",
+  "area": "weak_acid",
+  "prompt": "Calculate the pH of 0.20 M HF. Ka = 6.8 x 10^-4.",
+  "expect": "answer",
+  "answers": [
+   [
+    1.9458905039134449,
+    ""
+   ]
+  ],
+  "note": "quadratic 1.946; approx 1.933",
+  "abs_tol": 0.02
+ },
+ {
+  "id": "au-27",
+  "area": "buffer",
+  "prompt": "A buffer contains 0.25 M CH3COOH and 0.40 M CH3COONa. The pKa of acetic acid is 4.74. What is the pH?",
+  "expect": "answer",
+  "answers": [
+   [
+    4.944119982655925,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-28",
+  "area": "poh",
+  "prompt": "What is the pOH of a solution with [OH-] = 3.2 x 10^-5 M?",
+  "expect": "answer",
+  "answers": [
+   [
+    4.494850021680094,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-29",
+  "area": "equilibrium_kc",
+  "prompt": "For N2 + 3H2 ⇌ 2NH3 at equilibrium [N2] = 0.50 M, [H2] = 0.20 M and [NH3] = 0.10 M. Calculate Kc.",
+  "expect": "answer",
+  "answers": [
+   [
+    2.5,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-30",
+  "area": "equilibrium_ice",
+  "prompt": "For H2 + I2 ⇌ 2HI, Kc = 49. If 1.00 mol H2 and 1.00 mol I2 are placed in a 1.00 L flask, what is [HI] at equilibrium?",
+  "expect": "answer",
+  "answers": [
+   [
+    1.5555555555555556,
+    "M"
+   ]
+  ]
+ },
+ {
+  "id": "au-31",
+  "area": "hess",
+  "prompt": "Given C(s) + O2(g) -> CO2(g) ΔH = -393.5 kJ and CO(g) + 1/2 O2(g) -> CO2(g) ΔH = -283.0 kJ, find ΔH for C(s) + 1/2 O2(g) -> CO(g).",
+  "expect": "answer",
+  "answers": [
+   [
+    -110.5,
+    "kJ"
+   ]
+  ]
+ },
+ {
+  "id": "au-32",
+  "area": "calorimetry",
+  "prompt": "How much heat is needed to raise 150 g of water from 20.0 °C to 75.0 °C? (c = 4.184 J/g°C)",
+  "expect": "answer",
+  "answers": [
+   [
+    34518.0,
+    "J"
+   ]
+  ],
+  "shared": "physics"
+ },
+ {
+  "id": "au-33",
+  "area": "kinetics",
+  "prompt": "A first-order reaction has k = 0.0462 min^-1. What is its half-life?",
+  "expect": "answer",
+  "answers": [
+   [
+    15.003185726405743,
+    "min"
+   ]
+  ]
+ },
+ {
+  "id": "au-34",
+  "area": "rate_law",
+  "prompt": "The rate law is rate = k[A]^2[B]. If [A] is tripled and [B] is halved, by what factor does the rate change?",
+  "expect": "answer",
+  "answers": [
+   [
+    4.5,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-35",
+  "area": "oxidation_state",
+  "prompt": "What is the oxidation number of S in Na2S2O3?",
+  "expect": "answer",
+  "text": [
+   "+2"
+  ]
+ },
+ {
+  "id": "au-36",
+  "area": "cell_potential",
+  "prompt": "Calculate E°cell for a galvanic cell made from Mg2+/Mg (-2.37 V) and Ag+/Ag (+0.80 V).",
+  "expect": "answer",
+  "answers": [
+   [
+    3.17,
+    "V"
+   ]
+  ]
+ },
+ {
+  "id": "au-37",
+  "area": "nernst",
+  "prompt": "For Zn + Cu2+ -> Zn2+ + Cu, E° = 1.10 V. Find E at 25 °C when [Zn2+] = 1.0 M and [Cu2+] = 0.010 M.",
+  "expect": "answer",
+  "answers": [
+   [
+    1.0408406503142786,
+    "V"
+   ]
+  ]
+ },
+ {
+  "id": "au-38",
+  "area": "gas_ideal",
+  "prompt": "What volume does 2.50 mol of an ideal gas occupy at 35 °C and 150 kPa?",
+  "expect": "answer",
+  "answers": [
+   [
+    42.70169426227833,
+    "L"
+   ]
+  ]
+ },
+ {
+  "id": "au-39",
+  "area": "gas_combined",
+  "prompt": "A gas occupies 3.00 L at 760 mmHg and 25 °C. What is its volume at 500 mmHg and 100 °C?",
+  "expect": "answer",
+  "answers": [
+   [
+    5.707073620660741,
+    "L"
+   ]
+  ]
+ },
+ {
+  "id": "au-40",
+  "area": "organic_fg",
+  "prompt": "What functional group is in CH3COOCH2CH3?",
+  "expect": "answer",
+  "text": [
+   "ester"
+  ]
+ },
+ {
+  "id": "au-41",
+  "area": "isomers",
+  "prompt": "How many structural isomers does C5H12 have?",
+  "expect": "answer",
+  "answers": [
+   [
+    3,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-42",
+  "area": "vsepr",
+  "prompt": "What is the molecular geometry of SF4?",
+  "expect": "answer",
+  "text": [
+   "seesaw"
+  ]
+ },
+ {
+  "id": "au-43",
+  "area": "colligative",
+  "prompt": "What is the freezing point of a solution of 10.0 g of glucose (C6H12O6) dissolved in 200 g of water? Kf = 1.86 °C/m",
+  "expect": "answer",
+  "answers": [
+   [
+    -0.5162192766269234,
+    "degC"
+   ]
+  ]
+ },
+ {
+  "id": "au-44",
+  "area": "trap_element",
+  "prompt": "What is the molar mass of XeQ4?",
+  "expect": "decline",
+  "note": "Q is not an element"
+ },
+ {
+  "id": "au-45",
+  "area": "sig_figs",
+  "prompt": "How many moles are in 2.0 g of NaCl?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.034223134839151265,
+    "mol"
+   ]
+  ],
+  "note": "0.034 mol to 2 s.f."
+ },
+ {
+  "id": "au-46",
+  "area": "units",
+  "prompt": "What is the molarity of a 9.0 g/L NaCl solution?",
+  "expect": "answer",
+  "answers": [
+   [
+    0.1540041067761807,
+    "M"
+   ]
+  ]
+ },
+ {
+  "id": "au-47",
+  "area": "gas_ideal",
+  "prompt": "A 5.00 L tank holds 0.400 mol of N2 at 27 °C. What is the pressure in kPa?",
+  "expect": "answer",
+  "answers": [
+   [
+    199.64687638341601,
+    "kPa"
+   ]
+  ]
+ },
+ {
+  "id": "au-48",
+  "area": "multi_part",
+  "prompt": "a) What is the molar mass of NH3? b) How many moles are in 34 g of NH3?",
+  "expect": "answer",
+  "answers": [
+   [
+    17.031,
+    "g/mol"
+   ]
+  ],
+  "parts": [
+   [
+    1.9963595795901592,
+    "mol"
+   ]
+  ]
+ },
+ {
+  "id": "au-49",
+  "area": "informal",
+  "prompt": "hw help!! wat is the ph of 0.01 M hcl",
+  "expect": "answer",
+  "answers": [
+   [
+    2.0,
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "au-50",
+  "area": "informal",
+  "prompt": "how many grms of NaCl do i need for 250 ml of a 0.5 molar soln",
+  "expect": "answer",
+  "answers": [
+   [
+    7.305,
+    "g"
+   ]
+  ]
+ },
+ {
+  "id": "au-51",
+  "area": "language",
+  "prompt": "¿Cuál es la masa molar del ácido sulfúrico, H2SO4?",
+  "expect": "answer",
+  "answers": [
+   [
+    98.072,
+    "g/mol"
+   ]
+  ],
+  "locale": "es"
+ },
+ {
+  "id": "au-52",
+  "area": "language",
+  "prompt": "Wie viel Mol sind 88 g CO2?",
+  "expect": "answer",
+  "answers": [
+   [
+    1.9995909927514826,
+    "mol"
+   ]
+  ],
+  "locale": "de"
+ },
+ {
+  "id": "au-53",
+  "area": "lookalike",
+  "prompt": "My chemistry with my girlfriend is great but how do I balance work and dating?",
+  "expect": "not_chemistry"
+ },
+ {
+  "id": "au-54",
+  "area": "unsupported",
+  "prompt": "Explain the SN2 mechanism for bromoethane reacting with hydroxide ion.",
+  "expect": "explain"
+ },
+ {
+  "id": "au-55",
+  "area": "trap_kelvin",
+  "prompt": "A 2.00 L balloon at 20 °C is heated to 40 °C at constant pressure. What is its new volume?",
+  "expect": "answer",
+  "answers": [
+   [
+    2.136448916936722,
+    "L"
+   ]
+  ],
+  "note": "not 4.00 L"
+ },
+ {
+  "id": "au-56",
+  "area": "kinetics",
+  "prompt": "How long does it take for 75% of a first-order reactant to decompose if its half-life is 12 min?",
+  "expect": "answer",
+  "answers": [
+   [
+    24,
+    "min"
+   ]
+  ]
+ },
+ {
+  "id": "au-57",
+  "area": "trap_dilute_base",
+  "prompt": "What is the pH of 5.0 x 10^-8 M NaOH?",
+  "expect": "answer",
+  "answers": [
+   [
+    7.107473318706099,
+    ""
+   ]
+  ],
+  "note": "water autoionization: 7.11; 6.70 naive is wrong (pH<7 for base)",
+  "abs_tol": 0.03
+ },
+ {
+  "id": "au-58",
+  "area": "trap_kw_temp",
+  "prompt": "At 50 °C, Kw = 5.5 x 10^-14. What is the pH of pure water at 50 °C?",
+  "expect": "answer",
+  "answers": [
+   [
+    6.629818655252878,
+    ""
+   ]
+  ],
+  "note": "6.63; 7.00 is the 25 °C assumption"
+ },
+ {
+  "id": "au-59",
+  "area": "trap_nonexistent",
+  "prompt": "What is the molar mass of NaCl3?",
+  "expect": "explain",
+  "note": "not a real compound (Na +1, Cl -1); a molar mass number alone is arithmetic, should flag"
+ }
+]

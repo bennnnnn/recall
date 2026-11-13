@@ -1,0 +1,600 @@
+[
+ {
+  "id": "n-kin-up",
+  "area": "kinematics",
+  "prompt": "A ball is thrown straight up at 14.7 m/s. How long until it comes back down to the thrower's hand?",
+  "expect": "answer",
+  "answer": [
+   2.9969418960244645,
+   "s"
+  ],
+  "visual": "projectile_motion",
+  "trap": "sign/upward"
+ },
+ {
+  "id": "n-kin-kmh-stop",
+  "area": "kinematics",
+  "prompt": "A car travelling at 90 km/h decelerates uniformly at 2.5 m/s² until it stops. How long does it take to stop?",
+  "expect": "answer",
+  "answer": [
+   10.0,
+   "s"
+  ],
+  "trap": "km/h + deceleration sign"
+ },
+ {
+  "id": "n-kin-sprint",
+  "area": "kinematics",
+  "prompt": "A sprinter starts from rest and covers 100 m in 9.8 s with constant acceleration. What is her acceleration?",
+  "expect": "answer",
+  "answer": [
+   2.082465639316951,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "n-kin-mph",
+  "area": "kinematics",
+  "prompt": "A motorbike reaches 45 mph from a standstill in 4 s. Find its average acceleration in metres per second squared.",
+  "expect": "answer",
+  "answer": [
+   5.0292,
+   "m/s^2"
+  ],
+  "trap": "mph"
+ },
+ {
+  "id": "n-kin-cliff-up",
+  "area": "kinematics",
+  "prompt": "A stone is thrown vertically upward at 10 m/s from the edge of a 20 m high cliff. How long does it take to hit the ground at the base of the cliff?",
+  "expect": "answer",
+  "answer": [
+   3.281354523674644,
+   "s"
+  ],
+  "trap": "sign/upward from height"
+ },
+ {
+  "id": "n-kin-river",
+  "area": "relative_motion",
+  "prompt": "A swimmer aims straight across a river, swimming at 1.2 m/s relative to the water, while the river flows at 0.5 m/s. How fast is the swimmer moving relative to the riverbank?",
+  "expect": "answer",
+  "answer": [
+   1.3,
+   "m/s"
+  ],
+  "trap": "reference frame"
+ },
+ {
+  "id": "n-proj-cannon",
+  "area": "projectile",
+  "prompt": "A cannonball is fired at 50 m/s at 60° above the horizontal. What maximum height does it reach?",
+  "expect": "answer",
+  "answer": [
+   95.565749235474,
+   "m"
+  ],
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "n-proj-parts",
+  "area": "projectile",
+  "prompt": "A ball is kicked at 20 m/s at 30° above level ground. (a) How long is it in the air? (b) How far away does it land?",
+  "expect": "answer",
+  "answer": [
+   2.038735983690112,
+   "s"
+  ],
+  "parts": [
+   [
+    2.038735983690112,
+    "s"
+   ],
+   [
+    35.311943069701876,
+    "m"
+   ]
+  ],
+  "trap": "multi-part"
+ },
+ {
+  "id": "n-dyn-brake-force",
+  "area": "dynamics",
+  "prompt": "A 900 kg car slows from 25 m/s to 5 m/s in 4 s. What average braking force acts on it?",
+  "expect": "answer",
+  "answer": [
+   4500.0,
+   "N"
+  ],
+  "trap": "deceleration magnitude"
+ },
+ {
+  "id": "n-dyn-atwood",
+  "area": "dynamics",
+  "prompt": "In an Atwood machine, a 7 kg mass and a 2 kg mass are joined by a light cord over an ideal pulley. Find the magnitude of their acceleration.",
+  "expect": "answer",
+  "answer": [
+   5.45,
+   "m/s^2"
+  ]
+ },
+ {
+  "id": "n-dyn-elevator",
+  "area": "dynamics",
+  "prompt": "An 80 kg man rides a lift that is moving upward but slowing down at 1.5 m/s². What is the normal force of the floor on him?",
+  "expect": "answer",
+  "answer": [
+   664.8000000000001,
+   "N"
+  ],
+  "trap": "reference frame (non-inertial)"
+ },
+ {
+  "id": "n-dyn-sigfig",
+  "area": "dynamics",
+  "prompt": "A 2.50 kg mass is accelerated at 3.0 m/s². What net force acts on it?",
+  "expect": "answer",
+  "answer": [
+   7.5,
+   "N"
+  ],
+  "trap": "sig figs (expect 7.5 N)"
+ },
+ {
+  "id": "n-wep-motor",
+  "area": "energy",
+  "prompt": "A motor lifts a 500 kg load through 12 m in 20 s at constant speed. What power does it develop?",
+  "expect": "answer",
+  "answer": [
+   2943.0,
+   "W"
+  ]
+ },
+ {
+  "id": "n-wep-fall-ke",
+  "area": "energy",
+  "prompt": "A 2 kg ball is dropped from a height of 10 m. What is its kinetic energy just before it hits the ground?",
+  "expect": "answer",
+  "answer": [
+   196.20000000000002,
+   "J"
+  ]
+ },
+ {
+  "id": "n-wep-misspelt",
+  "area": "energy",
+  "prompt": "wat is the kinetic enrgy of a 1000kg car goin 20 m/s",
+  "expect": "answer",
+  "answer": [
+   200000.0,
+   "J"
+  ],
+  "trap": "misspelling"
+ },
+ {
+  "id": "n-wep-eff-impossible",
+  "area": "energy",
+  "prompt": "A pump is fed 2 kJ of electrical energy and delivers 2.5 kJ of useful work to the water. Calculate its efficiency.",
+  "expect": "decline",
+  "trap": "efficiency > 100%"
+ },
+ {
+  "id": "n-mom-elastic",
+  "area": "momentum",
+  "prompt": "A 3 kg trolley at 5 m/s hits a stationary 1 kg trolley in a perfectly elastic head-on collision. What is the 1 kg trolley's speed afterwards?",
+  "expect": "answer",
+  "answer": [
+   7.5,
+   "m/s"
+  ],
+  "visual": "collision"
+ },
+ {
+  "id": "n-mom-kmh-stick",
+  "area": "momentum",
+  "prompt": "A 1500 kg car moving at 72 km/h rear-ends a stationary 1000 kg car and the two lock together. What is their common speed just after the crash?",
+  "expect": "answer",
+  "answer": [
+   12.0,
+   "m/s"
+  ],
+  "trap": "km/h"
+ },
+ {
+  "id": "n-mom-bat",
+  "area": "momentum",
+  "prompt": "A 0.145 kg baseball arrives at 40 m/s and leaves the bat at 50 m/s in the opposite direction. The contact lasts 1.2 ms. What is the average force of the bat on the ball?",
+  "expect": "answer",
+  "answer": [
+   10875.0,
+   "N"
+  ],
+  "trap": "direction reversal + ms"
+ },
+ {
+  "id": "n-circ-string",
+  "area": "circular",
+  "prompt": "A 0.25 kg puck tied to a 0.6 m cord slides in a circle on frictionless ice at 3 m/s. What is the tension in the cord?",
+  "expect": "answer",
+  "answer": [
+   3.75,
+   "N"
+  ]
+ },
+ {
+  "id": "n-circ-curve-kmh",
+  "area": "circular",
+  "prompt": "A car rounds a curve of radius 50 m at 54 km/h. What is its centripetal acceleration?",
+  "expect": "answer",
+  "answer": [
+   4.5,
+   "m/s^2"
+  ],
+  "trap": "km/h"
+ },
+ {
+  "id": "n-grav-two",
+  "area": "gravitation",
+  "prompt": "Two lead spheres of 250 kg and 40 kg have their centres 0.5 m apart. How strongly do they attract each other gravitationally?",
+  "expect": "answer",
+  "answer": [
+   2.6697199999999997e-06,
+   "N"
+  ]
+ },
+ {
+  "id": "n-grav-mars-T",
+  "area": "gravitation",
+  "prompt": "A satellite orbits Mars at a radius of 9400 km. Mars has a mass of 6.42 × 10^23 kg. What is the satellite's orbital period?",
+  "expect": "answer",
+  "answer": [
+   27663.127148031523,
+   "s"
+  ],
+  "visual": "orbit"
+ },
+ {
+  "id": "n-flu-buoy",
+  "area": "fluids",
+  "prompt": "A 0.002 m³ block is fully submerged in seawater of density 1025 kg/m³. What buoyant force acts on it?",
+  "expect": "answer",
+  "answer": [
+   20.110500000000002,
+   "N"
+  ]
+ },
+ {
+  "id": "n-flu-bernoulli",
+  "area": "fluids",
+  "prompt": "Water (density 1000 kg/m³) flows horizontally through a pipe at 2 m/s, and in a narrower section its speed rises to 8 m/s. What is the pressure difference between the two sections?",
+  "expect": "answer",
+  "answer": [
+   30000.0,
+   "Pa"
+  ]
+ },
+ {
+  "id": "n-flu-hg-cgs",
+  "area": "fluids",
+  "prompt": "What pressure does a 76 cm column of mercury exert at its base? The density of mercury is 13.6 g/cm³.",
+  "expect": "answer",
+  "answer": [
+   101396.16,
+   "Pa"
+  ],
+  "trap": "cm and g/cm³"
+ },
+ {
+  "id": "n-th-melt",
+  "area": "thermal",
+  "prompt": "A 250 g block of ice at its melting point is turned entirely into water at 0 °C. If L_f = 3.34 × 10^5 J/kg, how much energy did that take?",
+  "expect": "answer",
+  "answer": [
+   83500.0,
+   "J"
+  ]
+ },
+ {
+  "id": "n-th-conduct",
+  "area": "thermal",
+  "prompt": "A glass window has an area of 1.5 m² and is 4 mm thick. The inside is at 20 °C and the outside at 5 °C, and glass has a thermal conductivity of 0.8 W/(m·K). At what rate does heat flow through it?",
+  "expect": "answer",
+  "answer": [
+   4500.0,
+   "W"
+  ],
+  "trap": "mm"
+ },
+ {
+  "id": "n-th-carnot",
+  "area": "thermal",
+  "prompt": "What is the highest efficiency a heat engine could have running between a hot reservoir at 600 K and a cold one at 27 °C?",
+  "expect": "answer",
+  "answer": [
+   0.49975,
+   ""
+  ],
+  "trap": "°C/K mix, dimensionless"
+ },
+ {
+  "id": "n-th-gas",
+  "area": "thermal",
+  "prompt": "What volume do 2 mol of an ideal gas occupy at 300 K and 101325 Pa?",
+  "expect": "answer",
+  "answer": [
+   0.0492344196476684,
+   "m^3"
+  ]
+ },
+ {
+  "id": "n-wav-doppler",
+  "area": "waves",
+  "prompt": "An ambulance siren emits 700 Hz and moves toward a stationary listener at 25 m/s. The speed of sound is 343 m/s. What frequency does the listener hear?",
+  "expect": "answer",
+  "answer": [
+   755.0314465408806,
+   "Hz"
+  ]
+ },
+ {
+  "id": "n-wav-string",
+  "area": "waves",
+  "prompt": "A wave on a string has a frequency of 50 Hz and a wavelength of 0.4 m. How fast does it travel?",
+  "expect": "answer",
+  "answer": [
+   20.0,
+   "m/s"
+  ]
+ },
+ {
+  "id": "n-opt-diverging",
+  "area": "optics",
+  "prompt": "An object is placed 20 cm in front of a diverging lens with a focal length of 10 cm. Where is the image formed?",
+  "expect": "answer",
+  "answer": [
+   -6.666666666666667,
+   "cm"
+  ],
+  "trap": "sign convention (virtual image)"
+ },
+ {
+  "id": "n-opt-mirror",
+  "area": "optics",
+  "prompt": "A candle is 15 cm from a concave mirror whose focal length is 10 cm. Locate the image.",
+  "expect": "answer",
+  "answer": [
+   30.0,
+   "cm"
+  ]
+ },
+ {
+  "id": "n-opt-critical",
+  "area": "optics",
+  "prompt": "What is the critical angle for light passing from glass with refractive index 1.5 into air?",
+  "expect": "answer",
+  "answer": [
+   41.810314895778596,
+   "degree"
+  ]
+ },
+ {
+  "id": "n-el-parallel",
+  "area": "circuits",
+  "prompt": "Resistors of 12 Ω and 4 Ω are wired in parallel to a 9 V supply. What current flows from the supply?",
+  "expect": "answer",
+  "answer": [
+   3.0,
+   "A"
+  ],
+  "visual": "circuit"
+ },
+ {
+  "id": "n-el-bulb",
+  "area": "circuits",
+  "prompt": "A 100 W lamp is rated for 230 V mains. What is its resistance when lit?",
+  "expect": "answer",
+  "answer": [
+   529.0,
+   "ohm"
+  ]
+ },
+ {
+  "id": "n-el-cap",
+  "area": "circuits",
+  "prompt": "A 470 µF capacitor in a camera flash is charged to 300 V. How much energy does it hold?",
+  "expect": "answer",
+  "answer": [
+   21.15,
+   "J"
+  ]
+ },
+ {
+  "id": "n-mag-electron",
+  "area": "magnetism",
+  "prompt": "An alpha particle with charge 3.2 × 10^-19 C travels at 1.5 × 10^7 m/s at right angles to a 0.8 T magnetic field. What magnetic force does it feel?",
+  "expect": "answer",
+  "answer": [
+   3.84e-12,
+   "N"
+  ]
+ },
+ {
+  "id": "n-mag-wire",
+  "area": "magnetism",
+  "prompt": "A 0.3 m length of wire carries a current of 5 A at right angles to a 0.2 T magnetic field. What force acts on the wire?",
+  "expect": "answer",
+  "answer": [
+   0.3,
+   "N"
+  ]
+ },
+ {
+  "id": "n-ind-coil",
+  "area": "induction",
+  "prompt": "The magnetic flux through a 200-turn coil falls from 0.05 Wb to 0.01 Wb in 0.1 s. What is the average induced emf?",
+  "expect": "answer",
+  "answer": [
+   80.0,
+   "V"
+  ]
+ },
+ {
+  "id": "n-mod-photo",
+  "area": "modern",
+  "prompt": "Light of wavelength 250 nm falls on a metal whose work function is 2.3 eV. What is the maximum kinetic energy of the emitted photoelectrons, in eV?",
+  "expect": "answer",
+  "answer": [
+   2.6593679373280104,
+   "eV"
+  ]
+ },
+ {
+  "id": "n-mod-c14",
+  "area": "modern",
+  "prompt": "Carbon-14 has a half-life of 5730 years. What fraction of the original carbon-14 remains after 17190 years?",
+  "expect": "answer",
+  "answer": [
+   0.125,
+   ""
+  ]
+ },
+ {
+  "id": "n-mod-mc2",
+  "area": "modern",
+  "prompt": "If 5 mg of matter were completely annihilated into energy, how many joules would that release?",
+  "expect": "answer",
+  "answer": [
+   449377589368.4088,
+   "J"
+  ],
+  "trap": "grams"
+ },
+ {
+  "id": "n-rel-dilation",
+  "area": "relativity",
+  "prompt": "A spaceship travels at 0.8c relative to Earth. If 10 years pass on the ship's clock, how much time passes on Earth?",
+  "expect": "answer",
+  "answer": [
+   16.666666666666668,
+   "year"
+  ]
+ },
+ {
+  "id": "n-rel-impossible",
+  "area": "relativity",
+  "prompt": "A spaceship travels at 1.2c. By what factor is its clock slowed?",
+  "expect": "decline",
+  "trap": "speed > c"
+ },
+ {
+  "id": "n-shm-vmax",
+  "area": "shm",
+  "prompt": "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. What is its maximum speed?",
+  "expect": "answer",
+  "answer": [
+   0.3141592653589793,
+   "m/s"
+  ]
+ },
+ {
+  "id": "n-dim-G",
+  "area": "dimensional",
+  "prompt": "Using dimensional analysis, what are the SI base units of the gravitational constant G?",
+  "expect": "explain",
+  "trap": "dimensional analysis (text: m^3 kg^-1 s^-2)"
+ },
+ {
+  "id": "n-trap-negmass",
+  "area": "dynamics",
+  "prompt": "A box with a mass of −5 kg is pushed with a force of 20 N. What is its acceleration?",
+  "expect": "decline",
+  "trap": "negative mass"
+ },
+ {
+  "id": "n-trap-under",
+  "area": "kinematics",
+  "prompt": "A truck speeds up for 8 seconds. What distance does it cover?",
+  "expect": "decline",
+  "trap": "under-specified"
+ },
+ {
+  "id": "n-trap-contradict",
+  "area": "kinematics",
+  "prompt": "A car accelerates uniformly from rest to 20 m/s in 4 s and covers 100 m in that time. What is its acceleration?",
+  "expect": "decline",
+  "trap": "over-determined & contradictory (v/t gives 5 m/s², s=½at² gives 12.5 m/s²)"
+ },
+ {
+  "id": "n-trap-multi-unknown",
+  "area": "kinematics",
+  "prompt": "A car starts from rest and accelerates at 3 m/s² for 4 s. Find its final velocity and the distance it covers.",
+  "expect": "answer",
+  "answer": [
+   12.0,
+   "m/s"
+  ],
+  "parts": [
+   [
+    12.0,
+    "m/s"
+   ],
+   [
+    24.0,
+    "m"
+   ]
+  ],
+  "trap": "two unknowns"
+ },
+ {
+  "id": "n-lang-fr-ke",
+  "area": "energy",
+  "prompt": "Quelle est l'énergie cinétique d'une voiture de 1000 kg qui roule à 20 m/s ?",
+  "expect": "answer",
+  "answer": [
+   200000.0,
+   "J"
+  ],
+  "locale": "fr",
+  "trap": "non-English"
+ },
+ {
+  "id": "n-lang-es-drop",
+  "area": "kinematics",
+  "prompt": "Una pelota se deja caer desde una altura de 45 m. ¿Cuánto tarda en llegar al suelo?",
+  "expect": "answer",
+  "answer": [
+   3.0289126640769135,
+   "s"
+  ],
+  "locale": "es",
+  "trap": "non-English"
+ },
+ {
+  "id": "n-look-run",
+  "area": "lookalike",
+  "prompt": "I ran 5 km in 25 minutes this morning and my legs feel heavy. Any tips for recovery before my next run?",
+  "expect": "not_physics",
+  "trap": "look-alike"
+ },
+ {
+  "id": "n-con-parabola",
+  "area": "conceptual",
+  "prompt": "Why does a projectile follow a parabola?",
+  "expect": "explain",
+  "visual": "projectile_motion"
+ },
+ {
+  "id": "n-con-pendulum",
+  "area": "conceptual",
+  "prompt": "Can you show me how a pendulum swings, and explain why its period doesn't depend on the mass of the bob?",
+  "expect": "explain",
+  "visual": "pendulum"
+ },
+ {
+  "id": "n-con-moon",
+  "area": "conceptual",
+  "prompt": "Why doesn't the Moon fall down onto the Earth? Show me.",
+  "expect": "explain",
+  "visual": "orbit"
+ }
+]

@@ -1,0 +1,26 @@
+===== 'solve log(x-5) = log(2x)' subject= math solved= True instant= solver model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: 'x = -5'
+===== 'solve log_3(x - 8) = log_3(2x)' subject= math solved= True instant= solver model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: 'x = -8'
+===== 'solve ln(x - 4) = ln(1 - x)' subject= math solved= True instant= solver model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: 'x = \\frac{5}{2}'
+===== 'solve sqrt(x-3) = sqrt(1-x)' subject= math solved= True instant= solver model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: 'x = 2'
+===== 'solve x^2 + 1 = 0 over the reals' subject= math solved= True instant= solver model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: 'x = \\pm i'
+===== 'solve x^2 + 4 = 0 for real x' subject= math solved= True instant= solver model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: 'x = \\pm 2 i'
+===== 'use the trapezoidal rule with n = 4 to approximate the integral of x^2 from 0 to 2' subject= math solved= True instant=  model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: '\\frac{8}{3}'
+===== 'use the midpoint rule with n = 2 to approximate the integral of x^2 from 0 to 2' subject= math solved= True instant=  model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: '\\frac{8}{3}'
+===== "apply 1 iteration of newton's method to x^2 - 10 = 0 starting from x0 = 3" subject= math solved= True instant=  model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: 'x \\approx 3.16228'
+===== 'find the lcm and gcd of 12 and 18' subject= math solved= True instant=  model= qwen-3.7-flash search= no
+VERIFIED_ANSWER: '6'
+===== 'find the inverse of the matrix [[2, 1], [5, 3]]' subject=  solved= False instant=  model= qwen-3.7-flash search= ask
+VERIFIED_ANSWER: ''
+===== 'determinant of [[2, 1], [5, 3]]' subject=  solved= False instant=  model= qwen-3.7-flash search= ask
+VERIFIED_ANSWER: ''
+===== 'yo whats 12 squared plus the square root of 81' subject= math solved= False instant=  model= qwen-3.7-flash search= ask
+VERIFIED_ANSWER: ''
