@@ -119,9 +119,10 @@ def _definition(formula: str, base: str, asked: str | None) -> tuple[str, str] |
 
 
 def _why_same(formula: str, base: str, definitions: list[tuple[str, str]]) -> str | None:
-    """What turns the base law into ``formula``, as a note above it: a symbol the law
-    defines from the givens written out (``with ΔT = T₂ − T₁``), or the right angle a
-    sine of θ drops at (``with θ = 90°``). None when it is neither."""
+    """What turns the base law into ``formula``, as a note beside it: a symbol the law
+    defines from the givens written out (``with ΔT = T₂ − T₁``), the right angle a sine of
+    θ drops at (``with θ = 90°``), a hundred times it (``as a percent``) or a symbol of it
+    at 0 (``with h₀ = 0``). None when it is none of these."""
     target = formula_identity(formula)
     for symbol, meaning in definitions:
         if formula_identity(base.replace(symbol, f"({meaning})")) == target:
