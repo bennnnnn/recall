@@ -388,13 +388,11 @@ def test_a_sentence_round_its_maths_is_no_card() -> None:
 @pytest.mark.parametrize(
     "answer",
     [
-        # The textbook run (2026-11-13): a graph's answer in words filled the card. A
-        # sentence its maths only illustrates: no relation, words after the maths.
-        "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$.",
-        "Slope $2$, $y$-intercept $1$, a line from $(-3, -5)$ to $(3, 7)$.",
-        "$(0, 1)$ is where the line crosses the $y$-axis",
-        "The line has slope $2$ and passes through $(0, 1)$.",
-        "Die Gerade hat die Steigung $2$ und schneidet die $y$-Achse bei $(0, 1)$.",
+        # The textbook run (2026-11-13): "slope 2, y-intercept 1. A line from (-3, -5) to (3,
+        # 7)" in the answer's box. More than one sentence is no card.
+        "Slope $2$, $y$-intercept $1$. A line from $(-3, -5)$ to $(3, 7)$.",
+        "The line has slope $2$. It passes through $(0, 1)$.",
+        "La recta tiene pendiente $2$. Pasa por $(0, 1)$.",
     ],
 )
 def test_an_answer_written_as_a_sentence_is_no_card(answer: str) -> None:
@@ -420,22 +418,23 @@ def test_a_value_keeps_its_card(answer: str, card: str) -> None:
 @pytest.mark.parametrize(
     "answer",
     [
-        # A line that states a value keeps its card, its words around it or not (review of
-        # 2026-11-13): an equation or a relation inside the maths or around it, a value
-        # with its unit after a lead, in any language.
+        # One sentence keeps its card whatever its words, as before (review, 2026-11-13).
+        "The speed is $20$ meters per second",
+        "You need $2.5$ kilograms of flour",
+        "It takes $3$ hours and $20$ minutes",
+        "The tank holds $450$ litres of water",
+        "The angle is $36.9^\\circ$ above the horizontal",
+        "She needs $7$ more cupcakes for the party",
+        "La velocidad es $20$ metros por segundo",
+        "The answer is $\\frac{3}{4}$ of the whole pizza",
+        "Both $3$ and $-2$ satisfy the equation.",
+        "$\\triangle ABC \\cong \\triangle DEF$ by the SAS rule here",
         "The area is $A = 24$ cm²",
-        "**The area is $A = 24$ cm²**",
-        "Die Fläche ist $A = 24$ cm²",
         "Sum of the angles $= 180°$",
         "The hypotenuse $c = 15\\ \\text{cm}$",
-        "Maximum height $h = 20$ m",
         "Roots are $x = 3$ and $x = -2$",
-        "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
-        "The speed of the car is about $4.2$ m/s",
-        "Probability of rolling a six is $\\frac{1}{6}$",
-        "$9$ apples and $12$ pears",
-        "Sodium chloride, $\\mathrm{NaCl}$",
-        "The solution is $x < 9$",
+        "The line has slope $2$ and passes through $(0, 1)$.",
+        "The monthly payment is $386.66.",
     ],
 )
 def test_a_line_that_states_a_value_keeps_its_card(answer: str) -> None:

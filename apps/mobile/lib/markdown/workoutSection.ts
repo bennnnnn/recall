@@ -89,30 +89,22 @@ export function splitWorkoutNote(line: string): { state: string; note: string | 
   return { state: line, note: null };
 }
 
-// An answer line's maths, a relation inside it or around it, and a word of a sentence.
-const MATHS = /\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/;
-const RELATION = /[=≈<>≤≥≠]|\\(?:approx|leq?|geq?|neq?|lt|gt|equiv|sim|propto)(?![A-Za-z])/;
-const LONG_WORD = /\p{L}{3,}/gu;
-
-function wordsOutsideMaths(text: string): number {
-  return (text.replace(new RegExp(MATHS.source, "g"), " ").match(LONG_WORD) ?? []).length;
-}
+// An answer line's maths, and a sentence's end before the next sentence's first letter.
+const MATHS = /\$\$[\s\S]*?\$\$|\$[^$\n]*\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g;
+const NEXT_SENTENCE = /[.!?]["'”’)\]]*\s+\p{Lu}/u;
 
 /**
- * A line an answer's box holds: one that states a value, never a sentence its maths only
- * illustrates. "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$." was drawn
- * in the box (2026-11-13). Read by its shape: a sentence has no relation anywhere (`=`, `≈`,
- * `<`, inside the maths or around it), four words or more (of three letters) outside the
- * maths, two of them after the first maths. An equation ("The area is $A = 24$ cm²", "Sum of
- * the angles $= 180°$"), a value with its unit after a lead ("The speed is about $4.2$ m/s")
- * and a short answer in words ("Sodium chloride") are values. Twin: the API's
- * `services/card_text.sentence_answer`, which keeps such a line out of a card.
+ * A line an answer's box holds: one sentence, whatever its words ("The speed is $20$
+ * meters per second"), never more. "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$,
+ * $y$-intercept $1$." was boxed as drawn, its note above it: "slope 2, y-intercept 1. A line
+ * from (−3, −5) to (3, 7)", two sentences (2026-11-13). Maths is never a sentence's end.
+ * Twin: the API's `services/card_text.sentence_answer`, which keeps more than one sentence
+ * out of a card.
  */
 export function isAnswerValue(line: string): boolean {
-  if (RELATION.test(line)) return true;
-  const first = MATHS.exec(line);
-  const after = first ? line.slice(first.index + first[0].length) : line;
-  return wordsOutsideMaths(line) < 4 || wordsOutsideMaths(after) < 2;
+  const { state, note } = splitWorkoutNote(line);
+  const drawn = note ? `${note} ${state}` : line;
+  return !NEXT_SENTENCE.test(drawn.replace(MATHS, "M"));
 }
 
 /**

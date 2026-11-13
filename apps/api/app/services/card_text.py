@@ -17,8 +17,8 @@ with its asterisks showing. Before a model's line becomes a card:
   (``\\mathrm{cm}^{2}``): a triangle's parts came as ``$A = 54\\,\\mathrm{cm²}$`` beside
   ``\\mathrm{cm^2}`` (2026-11-06).
 
-A line in words is no card at all (``wordy``): a paragraph, or a sentence its maths only
-illustrates (``sentence_answer``).
+A line in words is no card at all (``wordy``): a paragraph, or more than one sentence
+(``sentence_answer``).
 """
 
 from __future__ import annotations
@@ -103,12 +103,9 @@ def _unit(unit: str) -> str:
 
 
 _WORD = re.compile(r"[A-Za-z]{3,}")
-# A line that states a relation, inside its maths or around it, states a value.
-_RELATION = re.compile(
-    r"[=\u2248<>\u2264\u2265\u2260]|\\(?:approx|leq?|geq?|neq?|lt|gt|equiv|sim|propto)(?![A-Za-z])"
-)
-# A word of a sentence, in any script (three letters or more).
-_LETTERS = re.compile(r"[^\W\d_]{3,}")
+# A sentence's end, then the next sentence's first letter (closing quotes or brackets
+# between): ". A", "! The".
+_NEXT_SENTENCE = re.compile(r"[.!?][\"'\u201d\u2019)\]]*\s+(\S)")
 
 
 def _relations(text: str) -> str:
@@ -128,16 +125,10 @@ def wordy(value: str) -> bool:
 
 
 def sentence_answer(value: str) -> bool:
-    """A sentence its maths only illustrates, which no card holds: "A line from $(-3, -5)$ to
-    $(3, 7)$ — slope $2$, $y$-intercept $1$." filled one (2026-11-13). Read by its shape: no
-    relation anywhere (``=``, ``≈``, ``<``, inside the maths or around it), four words or more
-    (of three letters) outside the maths, two of them after the first maths. A line that
-    states a value keeps its card: an equation ("The area is $A = 24$ cm²", "Sum of the angles
-    $= 180°$"), a value with its unit after a lead ("The speed is about $4.2$ m/s"), a short
-    answer in words ("Sodium chloride"). Twin: the phone's ``isAnswerValue``."""
-    if _RELATION.search(value):
-        return False
-    first = _MATH.search(value)
-    after = value if first is None else value[first.end() :]
-    words = len(_LETTERS.findall(_MATH.sub(" ", value)))
-    return words >= 4 and len(_LETTERS.findall(_MATH.sub(" ", after))) >= 2
+    """More than one sentence, which no card holds: "slope $2$, $y$-intercept $1$. A line from
+    $(-3, -5)$ to $(3, 7)$" filled one (2026-11-13). One sentence keeps its card whatever its
+    words ("The speed is $20$ meters per second", "Both $3$ and $-2$ satisfy the equation."),
+    and maths is never a sentence's end ("$4.5$", "$x = 3.$"). Twin: the phone's
+    ``isAnswerValue``."""
+    prose = _MATH.sub("M", value)
+    return any(found.group(1).isupper() for found in _NEXT_SENTENCE.finditer(prose))

@@ -94,43 +94,39 @@ describe("lawHeading", () => {
 });
 
 describe("isAnswerValue", () => {
-  // The textbook run (2026-11-13): a graph's answer in words was drawn in the answer box.
-  // A sentence its maths only illustrates: no relation, words after the maths.
+  // The textbook run (2026-11-13): "slope 2, y-intercept 1. A line from (−3, −5) to (3, 7)"
+  // in the answer's box, the line's note drawn above it. More than one sentence is no value.
   it.each([
     "A line from $(-3, -5)$ to $(3, 7)$ — slope $2$, $y$-intercept $1$.",
-    "Slope $2$, $y$-intercept $1$, a line from $(-3, -5)$ to $(3, 7)$.",
-    "$(0, 1)$ is where the line crosses the $y$-axis",
-    "The line has slope $2$ and passes through $(0, 1)$.",
-    "Die Gerade hat die Steigung $2$ und schneidet die $y$-Achse bei $(0, 1)$.",
-    "Only the positive root counts.",
-  ])("reads %s as a sentence", (line) => {
+    String.raw`Slope $2$, $y$-intercept $1$. A line from $(-3, -5)$ to $(3, 7)$.`,
+    String.raw`The line has slope $2$. It passes through $(0, 1)$.`,
+    String.raw`La recta tiene pendiente $2$. Pasa por $(0, 1)$.`,
+  ])("reads %s as more than one sentence", (line) => {
     expect(isAnswerValue(line)).toBe(false);
   });
 
+  // One sentence is a value whatever its words, as before (review, 2026-11-13).
   it.each([
-    "$c = 15\\ \\text{cm}$",
-    "Total area: $A = 24$",
-    "$5°$ from the normal",
-    "Approximately $4.2$ s",
-    "Speed = 4 m/s",
-    "Average speed = total distance / total time = 4 m/s",
-    "Paris",
-    // A line that states a value, its words around it or not (review of 2026-11-13).
-    "The area is $A = 24$ cm²",
-    "**The area is $A = 24$ cm²**",
-    "Die Fläche ist $A = 24$ cm²",
-    "Sum of the angles $= 180°$",
-    "The hypotenuse $c = 15\\ \\text{cm}$",
-    "Maximum height $h = 20$ m",
-    "Roots are $x = 3$ and $x = -2$",
-    "The ball lands $x = 12\\,\\mathrm{m}$ from the wall.",
-    "The speed of the car is about $4.2$ m/s",
-    "$9$ apples and $12$ pears",
-    "The solution is $x < 9$",
+    String.raw`The speed is $20$ meters per second`,
+    String.raw`You need $2.5$ kilograms of flour`,
+    String.raw`It takes $3$ hours and $20$ minutes`,
+    String.raw`The tank holds $450$ litres of water`,
+    String.raw`The angle is $36.9^\circ$ above the horizontal`,
+    String.raw`She needs $7$ more cupcakes for the party`,
+    String.raw`La velocidad es $20$ metros por segundo`,
+    String.raw`The answer is $\frac{3}{4}$ of the whole pizza`,
+    String.raw`Both $3$ and $-2$ satisfy the equation.`,
+    String.raw`$\triangle ABC \cong \triangle DEF$ by the SAS rule here`,
+    String.raw`The area is $A = 24$ cm²`,
+    String.raw`Sum of the angles $= 180°$`,
+    String.raw`The hypotenuse $c = 15\ \text{cm}$`,
+    String.raw`Roots are $x = 3$ and $x = -2$`,
+    String.raw`The line has slope $2$ and passes through $(0, 1)$.`,
+    String.raw`The monthly payment is $386.66.`,
+    "$x = 3$ — the positive root",
+    "Only the positive root counts.",
     "Carbon dioxide",
-    "Sodium chloride",
-    "New York",
-    "Not possible",
+    "Paris",
   ])("reads %s as a value", (line) => {
     expect(isAnswerValue(line)).toBe(true);
   });
