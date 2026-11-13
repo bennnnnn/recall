@@ -1,0 +1,82 @@
+[
+ {
+  "id": "prm12-cube-turns",
+  "area": "lookalike",
+  "prompt": "How many turns does a beginner need to solve a Rubik's cube?",
+  "history": [],
+  "reply": "A beginner's layer-by-layer method usually takes 100 to 150 turns, and a few minutes. Learning the CFOP method later brings it down to about 55 to 60 turns.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-course-level",
+  "area": "lookalike",
+  "prompt": "Which level should I start at in my French course? I did 3 years at school.",
+  "history": [],
+  "reply": "With three years of school French, start at A2 or try the course's placement test: you probably know the basics but will want to refresh grammar before B1.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-heater-level",
+  "area": "lookalike",
+  "prompt": "What level should I set my 2 kW heater to overnight?",
+  "history": [],
+  "reply": "A low setting with the thermostat around 16 to 18 °C is usually enough overnight, and a timer saves a lot: a 2 kW heater on full for 8 hours uses 16 kWh.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-scale-reads",
+  "area": "lookalike",
+  "prompt": "My bathroom scale reads 70 kg after the gym, did I lose weight?",
+  "history": [],
+  "reply": "Probably not much: a workout mostly changes your water weight by a kilogram or so, and that comes back when you drink. Weigh yourself at the same time each morning to see the real trend.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-lenses-total",
+  "area": "lookalike",
+  "prompt": "I have a total of 3 lenses for my camera. Which one is best for portraits?",
+  "history": [],
+  "reply": "For portraits pick the one closest to 85 mm on full frame (about 50 mm on a crop sensor) with the widest aperture, f/1.8 or f/2: it flatters faces and blurs the background.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-amp-output",
+  "area": "lookalike",
+  "prompt": "My amp's output is 24 V. Can I plug in 12 V speakers?",
+  "history": [],
+  "reply": "Speakers are rated in watts and ohms rather than volts, so check that the amp's power per channel is no more than the speakers' rating and that their impedance matches what the amp supports.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-planet-weigh-most",
+  "area": "lookalike",
+  "prompt": "On which planet would a 60 kg person weigh the most?",
+  "history": [],
+  "reply": "Jupiter: its surface gravity is about 24.8 m/s², so a 60 kg person would weigh about 1500 N there, roughly two and a half times their weight on Earth.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-dog-rolls",
+  "area": "lookalike",
+  "prompt": "Our 2 year old dog rolls in the grass every morning at 6. Why?",
+  "history": [],
+  "reply": "Dogs roll in grass to scratch an itch, to pick up interesting smells, or simply because it feels good. If the rolling comes with lots of scratching, check for fleas or dry skin.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-lift-broken",
+  "area": "lookalike",
+  "prompt": "The lift in my building has been broken for 3 days. What can I do?",
+  "history": [],
+  "reply": "Report it in writing to your landlord or building manager and keep a copy. Most tenancy rules require a reasonable repair time, and if anyone in the building needs step-free access, say so: that often speeds things up.",
+  "expect": "answer"
+ },
+ {
+  "id": "prm12-measured-speed",
+  "area": "lookalike",
+  "prompt": "A speed camera measured my car at 0.8 km over the limit. Will I get a fine?",
+  "history": [],
+  "reply": "Most places allow a margin above the limit before a camera issues a fine, often 10% plus a few km/h, so 0.8 km/h over is very unlikely to be fined. Check your local rules to be sure.",
+  "expect": "answer"
+ }
+]

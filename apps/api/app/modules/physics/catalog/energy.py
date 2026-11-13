@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.motion import ROLLING_BODY_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
@@ -381,35 +382,12 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "energy conservation",
                 "conservation of energy",
             ),
-            # Friction takes energy the drop would give: not this law.
+            # Friction takes energy the drop would give, and so does a rolling body's spin.
             excludes=(
-                "rough",
-                "coefficient",
-                "kinetic friction",
-                "friction force",
-                "with friction",
-                "against friction",
-                "μ",
+                ROLLING_BODY_MARKER,
+                *("rough", "coefficient", "kinetic friction", "friction force"),
+                *("with friction", "against friction", "μ"),
             ),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "speed_from_kinetic_energy",
-        "energy",
-        "Kinetic energy",
-        "v",
-        base_latex=r"v = \sqrt{\frac{2 E_k}{m}}",
-        expression="sqrt(2*kinetic/m)",
-        variables=(
-            var("kinetic", "E_k", "joule", words=("kinetic",)),
-            var("m", "m", "kilogram"),
-        ),
-        binding=Binding(
-            asks=("how fast", "speed", "velocity"),
-            result=("meter / second",),
-            inputs=(frozenset({"kinetic", "m"}),),
-            cues=("kinetic energy",),
             nonnegative=True,
         ),
     ),

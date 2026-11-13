@@ -21,7 +21,7 @@ import re
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Iterator
-from functools import cache
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES, names_longest_first
@@ -171,7 +171,8 @@ def _whole_word(spelling: str) -> str:
     return f"{before}(?:{spelling}){after}"
 
 
-@cache
+# Bounded: any word written before "(" reaches here, so the names are the user's own words.
+@lru_cache(maxsize=256)
 def _spelling(name: str) -> re.Pattern[str]:
     """Each way a reading may write ``name``, as whole words: ``sin`` is not in ``arcsin``."""
     function = BY_NAME.get(name)

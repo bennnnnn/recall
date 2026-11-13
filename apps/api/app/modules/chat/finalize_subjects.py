@@ -1,8 +1,8 @@
 """Finalize passes that keep the answer card the server's.
 
 The model's reply is prepared first: it cannot forge the server's check. Then the
-subject that verified the turn checks the reply's fences against its block
-(chemistry and physics by their own ``fence.py``; maths owns every other reply),
+subject whose fence owns the turn's verified block checks the reply's fences against
+it (``registry.fence_owner``: maths finishes every reply no subject verified),
 and the reply gets the notes and the working check an unverified answer needs.
 ``chat/finalize_passes.py`` lists these passes in order.
 """
@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING, TypeGuard
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from app.core import sympy_executor
 from app.modules.chat.simulation_fences import strip_model_simulation_fences
@@ -27,13 +28,14 @@ from app.services.answer_fence import (
 )
 from app.services.part_answer_cards import land_part_answer_cards
 from app.services.part_fences import keep_part_fences
-from app.services.solving import (
-    VerifiedMathBlock,
-    VerifiedPhysicsBlock,
-    VerifiedSolveBlock,
-    strip_verified_solve_markers,
+from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
+from app.services.subjects.registry import (
+    FENCE_FALLBACK,
+    SubjectName,
+    adapter_named,
+    fence_owner,
+    subject_adapter,
 )
-from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -101,59 +103,39 @@ def _check_part_fences(state: FinalizeState) -> str | None:
     return keep_part_fences(state.text, cards)
 
 
-def _chemistry_verified(verified: VerifiedSolveBlock | None) -> bool:
-    return verified is not None and verified.subject == "chemistry"
+def subject_fences(subject: SubjectName) -> Callable[[FinalizeState], str]:
+    """The fence check of a subject whose check runs in the turn (every one but maths, whose
+    pass is ``check_math_fences``): a reply its fence owns, held to its block. Chemistry's
+    formulas and slash-units are no algebra, and the maths rewrite would read them so."""
+
+    def check(state: FinalizeState) -> str:
+        verified = state.ctx.verified_subject
+        if fence_owner(verified).name != subject:
+            return state.text
+        in_parts = _check_part_fences(state)
+        if in_parts is not None:
+            return in_parts
+        # The server never corrects its own text: only model prose can state a value
+        # that differs from the verified one.
+        return subject_adapter(subject).fence.check(
+            state.text, verified, not state.server_text, state.ctx.user_message_content
+        )
+
+    return check
 
 
-def check_chemistry_fences(state: FinalizeState) -> str:
-    """Chemistry answer text is not algebra: the maths rewrite would read its
-    formulas and slash-units as expressions, so chemistry checks its own turns."""
-    verified = state.ctx.verified_subject
-    if not _chemistry_verified(verified):
-        return state.text
-    in_parts = _check_part_fences(state)
-    if in_parts is not None:
-        return in_parts
-    # The server never corrects its own text: only model prose can state a value
-    # that differs from the verified one.
-    return subject_adapter("chemistry").fence.check(
-        state.text, verified, not state.server_text, state.ctx.user_message_content
-    )
+def recover_subject_fences(subject: SubjectName) -> Callable[[FinalizeState], str]:
+    """A subject's fence check failed: its fences closed and made safe, no solver."""
 
+    def recover(state: FinalizeState) -> str:
+        return subject_adapter(subject).fence.recover(state.text, state.ctx.verified_subject)
 
-def recover_chemistry_fences(state: FinalizeState) -> str:
-    return subject_adapter("chemistry").fence.recover(state.text, state.ctx.verified_subject)
-
-
-def _physics_block(state: FinalizeState) -> VerifiedPhysicsBlock | None:
-    verified = state.ctx.verified_subject
-    return verified if isinstance(verified, VerifiedPhysicsBlock) else None
-
-
-def check_physics_fences(state: FinalizeState) -> str:
-    verified = _physics_block(state)
-    if verified is None:
-        return state.text
-    in_parts = _check_part_fences(state)
-    if in_parts is not None:
-        return in_parts
-    return subject_adapter("physics").fence.check(
-        state.text, verified, not state.server_text, state.ctx.user_message_content
-    )
-
-
-def recover_physics_fences(state: FinalizeState) -> str:
-    return subject_adapter("physics").fence.recover(state.text, _physics_block(state))
-
-
-def _math_owns(verified: VerifiedSolveBlock | None) -> TypeGuard[VerifiedMathBlock | None]:
-    """Maths checks every reply chemistry or physics did not verify; the block is maths'."""
-    return not _chemistry_verified(verified) and not isinstance(verified, VerifiedPhysicsBlock)
+    return recover
 
 
 async def check_math_fences(state: FinalizeState) -> str:
     verified = state.ctx.verified_subject
-    if not _math_owns(verified):
+    if fence_owner(verified).name != FENCE_FALLBACK:
         return state.text
     in_parts = _check_part_fences(state)
     if in_parts is not None:
@@ -226,11 +208,13 @@ def mark_server_cards(state: FinalizeState) -> str:
 
 def append_unverified_notes(state: FinalizeState) -> str:
     """Every reply, checked or not, gets the maths note when it needs one: the
-    check mark is the only signal. A declined chemistry solve gets its own."""
+    check mark is the only signal. A declined solve of another subject gets that
+    subject's own (chemistry's; physics states its note in the prompt)."""
     text = subject_adapter("math").fence.unverified_note(state.text)
     ctx = state.ctx
-    if ctx.solver_unverified is True and ctx.unverified_subject == "chemistry":
-        text = subject_adapter("chemistry").fence.unverified_note(text)
+    declined = adapter_named(ctx.unverified_subject)
+    if ctx.solver_unverified is True and declined is not None and declined.name != "math":
+        text = declined.fence.unverified_note(text)
     return text
 
 

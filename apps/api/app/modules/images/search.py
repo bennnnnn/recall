@@ -44,12 +44,12 @@ from app.modules.conversation import history as chat_history
 from app.modules.conversation import turn_record
 from app.modules.images import photo_cache
 from app.modules.images.lookup_clock import LookupClock
+from app.modules.images.schemas import PHOTO_LOOKUP_MODEL
 from app.services import quota as quota_service
 from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
-_IMAGE_SEARCH_MODEL_ALIAS = "image-search-model"
 _USER_MESSAGE_PREFIX = "Show me: "
 _FETCH_MAX_REDIRECTS = 5
 # Wikimedia answers a bare client 403, and Britannica sent "compressed" bytes
@@ -316,7 +316,7 @@ async def search_and_attach_for_chat(
                 user_id=user.id,
                 role="assistant",
                 content=markers,
-                model=_IMAGE_SEARCH_MODEL_ALIAS,
+                model=PHOTO_LOOKUP_MODEL,
             )
             await _add_photo_rows(
                 session, user, stored, label=cleaned, message_id=assistant_message.id

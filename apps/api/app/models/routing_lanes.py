@@ -3,11 +3,13 @@
 ``app.models.model_catalog`` serves Auto's, the photo and the tool lanes
 (``auto_fast_alias``, ``vision_alias``, ``tool_selector_aliases``, ...); a background
 job reads its own lane (``ROUTING.background``). ``test_model_catalog`` checks each lane
-against the capability its job needs, so a lane can't point at a model that can't do it.
+against the capability its job needs, so a lane can't point at a model that can't do it,
+and the API and the worker refuse to start while one names a model the catalog dropped
+(``model_removal.check_routing_lanes``).
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from types import MappingProxyType
 
 
@@ -124,3 +126,28 @@ ROUTING = RoutingLanes(
         }
     ),
 )
+
+
+def lane_aliases(lanes: RoutingLanes) -> tuple[tuple[str, str], ...]:
+    """Every model alias the lanes name, each with where: a lane, a tool selector, a maths
+    lane and its backup. ``decided`` names lanes, not models, so it is not here."""
+    named: list[tuple[str, str]] = []
+    for field in fields(lanes):
+        value = getattr(lanes, field.name)
+        if field.name == "decided":
+            continue
+        if isinstance(value, str):
+            named.append((field.name, value))
+        elif isinstance(value, tuple):
+            named.extend((f"{field.name}[{index}]", alias) for index, alias in enumerate(value))
+        elif isinstance(value, Mapping):
+            for lane, backup in value.items():
+                named.extend(((f"{field.name} key", lane), (f"{field.name}[{lane!r}]", backup)))
+        else:
+            # A new kind of lane field must say how it names models, or the startup check
+            # would read it wrongly: fail at boot with the field named.
+            raise TypeError(
+                f"RoutingLanes.{field.name} is a {type(value).__name__}; lane_aliases reads a "
+                "model alias, a tuple of them or a mapping of them"
+            )
+    return tuple(named)

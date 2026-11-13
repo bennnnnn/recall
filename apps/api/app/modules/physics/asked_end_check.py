@@ -15,10 +15,22 @@ chained law that answers one asked part is held to that part (``chain_solve``).
 
 from __future__ import annotations
 
-from app.modules.physics.ask import asked_end
+from app.modules.physics.ask import asked_end, asks_for_a_part
 from app.modules.physics.catalog import formula_spec
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.inverse import same_part, solved_input
 from app.services.law_binding.roles import binds_the_asked, contradicts
+
+
+def asks_a_part_of(intent: PhysicsIntent, text: str) -> bool:
+    """The question asks one part of a whole ("the power of the other lens") and this law,
+    read forward, adds the parts up: P = P₁ + P₂ answered "together they have 5 D; one is
+    3 D: the other?" with 8 D for 2 D. Solved for a part (``law_binding.inverse``) it
+    answers; the parts it combines are those it takes alike (``same_part``)."""
+    spec = formula_spec(intent.physics_op or "")
+    if spec is None or not same_part(spec) or not asks_for_a_part(text):
+        return False
+    return solved_input(spec, intent.physics_params or {}) is None
 
 
 def answers_the_other_end(intent: PhysicsIntent, text: str, clause: str | None = None) -> bool:

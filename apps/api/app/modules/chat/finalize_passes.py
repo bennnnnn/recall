@@ -47,6 +47,7 @@ from app.modules.chat.finalize_contracts import (
     STOPPED_REPLY_PASSES,
     TEXT,
     PassKind,
+    fences_pass,
 )
 from app.modules.chat.finalize_money import attach_money_card
 from app.modules.chat.finalize_parts import (
@@ -57,9 +58,7 @@ from app.modules.chat.finalize_parts import (
 from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.finalize_subjects import (
     append_unverified_notes,
-    check_chemistry_fences,
     check_math_fences,
-    check_physics_fences,
     check_working,
     draw_formula_charts,
     drop_check_lines,
@@ -67,11 +66,11 @@ from app.modules.chat.finalize_subjects import (
     fallback_text,
     mark_server_cards,
     prepare_model_reply,
-    recover_chemistry_fences,
     recover_math_fences,
-    recover_physics_fences,
+    recover_subject_fences,
     strip_solve_markers,
     strip_text_plots,
+    subject_fences,
 )
 from app.modules.chat.finalize_text import (
     add_search_sources,
@@ -105,6 +104,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import note_pass, note_pass_failed
 from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
 from app.modules.chat.worked_lead import drop_guessed_lead
+from app.services.subjects.registry import FENCE_FALLBACK, SUBJECTS
 
 logger = logging.getLogger(__name__)
 
@@ -259,20 +259,20 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=EFFECT,
         after=frozenset({"answer_photo"}),
     ),
-    FinalizePass(
-        "chemistry_fences",
-        check_chemistry_fences,
-        OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_chemistry_fences),
-        kind=TEXT,
+    # One per subject whose fence check runs in the turn, by name; at most one owns a reply,
+    # so their order changes no reply.
+    *(
+        FinalizePass(
+            fences_pass(adapter.name),
+            subject_fences(adapter.name),
+            OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_subject_fences(adapter.name)),
+            kind=TEXT,
+        )
+        for adapter in sorted(SUBJECTS, key=lambda adapter: adapter.name)
+        if adapter.name != FENCE_FALLBACK
     ),
     FinalizePass(
-        "physics_fences",
-        check_physics_fences,
-        OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_physics_fences),
-        kind=TEXT,
-    ),
-    FinalizePass(
-        "math_fences",
+        fences_pass(FENCE_FALLBACK),
         check_math_fences,
         OnError(log_as=_SUBJECT_FENCES_STEP, rewrite=recover_math_fences),
         kind=EFFECT,  # the status callback: "checking", then "finishing"
@@ -282,7 +282,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         "formula_charts",
         draw_formula_charts,
         kind=TEXT,
-        after=frozenset({"math_fences"}),
+        after=frozenset({fences_pass(FENCE_FALLBACK)}),
     ),
     # The picture a maths question asks to see, drawn from its values beside the reply:
     # after the passes that strip a picture no solver wrote, and a failure keeps the text.

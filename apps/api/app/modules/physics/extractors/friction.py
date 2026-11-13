@@ -68,6 +68,7 @@ _MU_KINETIC_RE = re.compile(
     re.IGNORECASE,
 )
 
+
 _MU_ASK_RE = re.compile(
     r"(?:what|find|calculate|determine|compute)\b[^.?!]{0,40}?"
     r"\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\b"

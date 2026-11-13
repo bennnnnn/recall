@@ -1,4 +1,3 @@
-# ruff: noqa: RUF002 -- docstrings show the multiplication sign the reader sees.
 """Complete literal physics requests may display their existing verified result.
 
 The stored intent is checked against a fresh extraction of the user text.
@@ -19,42 +18,30 @@ from app.modules.physics.asked_names import asked_meaning
 from app.modules.physics.bodies import side_questions
 from app.modules.physics.catalog import (
     formula_spec,
-    select_formula,
     symbol_for,
     variable_for,
     visible_assumptions,
 )
 from app.modules.physics.claims import claim_verdict, read_claims
-from app.modules.physics.display import (
-    is_conversion_row,
-    latex_factor,
-    latex_given,
-    latex_unit,
-    si_symbol,
-)
+from app.modules.physics.display import is_conversion_row
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.formula_rows import formula_rows
+from app.modules.physics.given_rows import given_value
 from app.modules.physics.glossary import given_meaning
+from app.modules.physics.law_steps import law_steps
 from app.modules.physics.law_titles import law_heading
 from app.modules.physics.notation import shown
 from app.modules.physics.parts import asks_more_than_answered
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
-from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS, si_factor, to_si
 from app.modules.physics.working import result_symbol_for
 from app.modules.physics.working_steps import carried_to_answer, working_units
 from app.services.glyphs import SUPERSCRIPT_SIGNED
 from app.services.latex_markup import without_markup
 from app.services.law_binding.inverse import form_params
-from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
+from app.services.solving import VerifiedPhysicsBlock
 from app.services.worked_parts import WorkedPart, render_parts
-from app.services.workout import (
-    Workout,
-    math_line,
-    render_workout,
-    solve_for_line,
-    text_line,
-    where_line,
-)
+from app.services.workout import Workout, math_line, render_workout, text_line, where_line
 
 _EXTRA_REQUEST = re.compile(
     r"\b(?:hint|air resistance|(?<!stokes )(?<!stokes' )drag|wind|"
@@ -170,106 +157,6 @@ def _parameter_symbol(name: str, operation: str) -> str:
     return shown(symbol, operation)
 
 
-# A script of one character with or without braces (v^{2}, v^2), and a function of one
-# argument with or without brackets (\sin(\theta), \sin\theta; \arcsin(\frac{1}{n}),
-# \arcsin\frac{1}{n}), print the same law.
-_BRACED_SCRIPT = re.compile(r"([_^])\{(\\[A-Za-z]+|[A-Za-z0-9])\}")
-_FUNCTION_BRACKET = re.compile(r"\\(?:arcsin|arccos|arctan|sin|cos|tan|ln|log)\(")
-_ONE_ARGUMENT = re.compile(r"\\?[A-Za-z]+(?:_[A-Za-z0-9])?|\\(?:frac|sqrt)(?:\{[^{}]*\})+")
-
-
-def _unbracket_functions(text: str) -> str:
-    """Drop the brackets round a function's argument when the argument is one atom."""
-    out: list[str] = []
-    cursor = 0
-    for match in _FUNCTION_BRACKET.finditer(text):
-        if match.start() < cursor:
-            continue
-        depth, close = 1, match.end()
-        while close < len(text) and depth:
-            depth += {"(": 1, ")": -1}.get(text[close], 0)
-            close += 1
-        inner = text[match.end() : close - 1]
-        if depth == 0 and _ONE_ARGUMENT.fullmatch(inner):
-            out.append(text[cursor : match.end() - 1] + inner)
-            cursor = close
-    return "".join(out) + text[cursor:]
-
-
-def _formula_identity(formula: str) -> str:
-    """Ignore presentation-only differences when comparing laws: spacing,
-    multiplication dots, braces round a one-character script, brackets round a
-    one-atom argument. Torque and centripetal force were each listed twice."""
-    text = formula.replace(r"\cdot", "").replace(r"\times", "").replace(r"\,", "").replace(" ", "")
-    return _unbracket_functions(_BRACED_SCRIPT.sub(r"\1\2", text))
-
-
-def _formula_rows(
-    intent: PhysicsIntent, formulas: list[str], operation: str | None = None
-) -> list[str]:
-    """The governing law's base form, then any rearrangement, as a step: ``Solve for $t$``
-    over the rearranged formula. The law's name is the section's heading (``law_heading``),
-    so no row repeats it. ``operation`` is one part's, in a question in parts."""
-    operation = operation or intent.physics_op or ""
-    spec = formula_spec(operation)
-    params = intent.physics_params or {}
-    base: str | None = None
-    lines: tuple[str, ...] = ()
-    if spec is not None:
-        base, lines, _assumptions = select_formula(spec, form_params(spec, params))
-        base = None if base is None else shown(base, operation)
-        lines = tuple(shown(line, operation) for line in lines)
-    if lines:
-        return [math_line(line) for line in lines]
-    if base is None:
-        return [math_line(formula) for formula in formulas]
-
-    rows = [math_line(base)]
-    base_lhs = base.split(" = ", 1)[0].strip()
-    for formula in formulas:
-        formula_lhs = formula.split(" = ", 1)[0].strip()
-        if _formula_identity(formula) == _formula_identity(base):
-            continue
-        if formula_lhs == base_lhs:
-            rows.append(math_line(formula, "the same law for these quantities"))
-        else:
-            rows.extend((solve_for_line(formula_lhs), math_line(formula)))
-    return rows
-
-
-def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
-    """The value as written and, when that is not SI, the value the solver used.
-
-    A substitution in SI numbers needs the step that produced them first, on the
-    given's own line with its factor: 500 nm × 10⁻⁹ = 5 × 10⁻⁷ m. A solver that
-    works in the written units (150 km in 2 h) needs none, and neither do angles or
-    rpm, whose formula converts.
-    """
-    written = f"{latex_given(value)}{latex_unit(unit)}"
-    dimension = PARAM_SI_DIMENSIONS.get(name)
-    if (
-        not unit
-        or dimension in (None, "dimensionless", "revolution / minute")
-        or name.startswith("angle")
-        # Written into the arithmetic as typed: "4 µF", not the "4 µF" ending "2.4 µF".
-        or re.search(rf"(?<![\d.]){re.escape(written)}", substitution) is not None
-    ):
-        return written
-    try:
-        si_value = to_si(value, unit, expected_key=name)
-    except SolveServiceError:
-        return written
-    si_unit = si_symbol(dimension)
-    if latex_unit(si_unit) == latex_unit(unit) and math.isclose(si_value, value):
-        return written
-    # The factor that makes the SI value, so the step reads as one: 100 km/h * 1000/3600.
-    # A unit that is SI under another name (N/m² is Pa) has none to show.
-    factor = si_factor(unit, expected_key=name) if value else None
-    scales = factor is not None and not math.isclose(factor[0], factor[1])
-    times = f" {latex_factor(*factor)}" if factor and scales else ""
-    return f"{written}{times} = {latex_given(si_value)}{latex_unit(si_unit)}"
-
-
 def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     """Five-section worked layout for a solver-verified instant reply.
 
@@ -286,10 +173,13 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     params = intent.physics_params or {}
     units = intent.physics_units or {}
     given_rows: list[str] = []
+    steps = law_steps(intent, verified.physics_substitutions)
     # The arithmetic only: a conversion row restates the answer, and an answer equal to a
     # given (λ = d in Bragg's law at 30°) would read as that given written into the working.
     arithmetic = " ".join(
-        row for row in verified.physics_substitutions if not is_conversion_row(row)
+        row
+        for row in (*steps.substitution, *verified.physics_substitutions)
+        if not is_conversion_row(row)
     )
     operation = intent.physics_op or ""
     given_spec = formula_spec(operation)
@@ -299,7 +189,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
         if variable is not None and not variable.visible:
             continue
         symbol = _parameter_symbol(name, operation)
-        shown = _given_value(name, value, units.get(name, ""), arithmetic)
+        shown = given_value(name, value, units.get(name, ""), arithmetic)
         given_rows.append(f"${symbol} = {shown}$")
         meaning = given_meaning(operation, given_spec.kind if given_spec else "", name)
         if meaning:
@@ -315,10 +205,12 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     substitutions = list(verified.physics_substitutions)
     result_symbol = result_symbol_for(intent)
     find_symbol = result_symbol or formulas[0].split(" = ", 1)[0]
-    formula_rows = _formula_rows(intent, formulas)
+    law_rows = [*formula_rows(intent, formulas, find_symbol), *steps.formula]
+    answer = verified.display_answer or verified.canonical_answer
+    worked = carried_to_answer(substitutions, answer, working_units(intent, formulas, answer))
     spec = formula_spec(intent.physics_op or "")
     if spec is not None:
-        formula_rows.extend(
+        law_rows.extend(
             text_line(f"Assumes {assumption}.")
             for assumption in visible_assumptions(spec, form_params(spec, params))
         )
@@ -332,17 +224,8 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
                     asked_meaning(operation, find_symbol, _answer_unit(verified.canonical_answer)),
                 ),
             ),
-            formula=tuple(formula_rows),
-            substitution=tuple(
-                math_line(row)
-                for row in carried_to_answer(
-                    substitutions,
-                    verified.display_answer or verified.canonical_answer,
-                    working_units(
-                        intent, formulas, verified.display_answer or verified.canonical_answer
-                    ),
-                )
-            ),
+            formula=tuple(law_rows),
+            substitution=tuple(math_line(row) for row in (*steps.substitution, *worked)),
             formula_heading=law_heading(spec.law_name) if spec is not None else "",
         )
     )
@@ -389,7 +272,7 @@ def _format_parts(
     worked: list[WorkedPart] = []
     for part in verified.physics_parts:
         spec = formula_spec(part.op)
-        rows = _formula_rows(intent, list(part.formulas), part.op)
+        rows = formula_rows(intent, list(part.formulas), part.symbol, part.op)
         if spec is not None:
             params = form_params(spec, intent.physics_params or {})
             rows.extend(text_line(f"Assumes {item}.") for item in visible_assumptions(spec, params))

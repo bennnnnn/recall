@@ -26,11 +26,20 @@ _SHAPES = (
     ("disk", 0.5),
 )
 _ROLLING_LINE = r"E_k = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2,\quad \omega = \frac{v}{r}"
+_DOWN_LINE = r"mgh = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2,\quad \omega = \frac{v}{r}"
 
 
 def _rolling(shape_k: float, inertia: str, total: str, expression: str) -> FormulaVariant:
     return FormulaVariant(
         lines=(_ROLLING_LINE, inertia, total),
+        equals=(("shape_k", shape_k),),
+        expression=expression,
+    )
+
+
+def _rolling_down(shape_k: float, inertia: str, speed: str, expression: str) -> FormulaVariant:
+    return FormulaVariant(
+        lines=(_DOWN_LINE, inertia, speed),
         equals=(("shape_k", shape_k),),
         expression=expression,
     )
@@ -63,6 +72,48 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("total kinetic energy", "kinetic energy", "total energy"),
             result=("joule",),
             inputs=(frozenset({"m", "v", "shape_k"}), frozenset({"m", "v", "r", "shape_k"})),
+            cues=("roll", "rolling"),
+            # The translational or rotational part alone is not the total.
+            excludes=(
+                *("moment of inertia", "rad/s", "slides", "sliding", "slipping and"),
+                *("translational", "rotational"),
+            ),
+            nonnegative=True,
+        ),
+    ),
+    # Rolling down from rest, mgh feeds the spin too: v = √(2gh/(1 + k)). Read as a drop,
+    # √(2gh) gave a solid sphere 6.26 m/s down 2 m for 5.29 m/s.
+    formula(
+        "rolling_drop_speed",
+        "rotation",
+        "Conservation of energy for a rolling body",
+        "v",
+        base_latex=r"v = \sqrt{\frac{2gh}{1 + k}}",
+        assumptions=("it starts from rest and rolls without slipping, so no energy is lost",),
+        expression="sqrt(2*g*h/(1 + shape_k))",
+        variants=(
+            _rolling_down(
+                0.4, r"I = \tfrac{2}{5}mr^2", r"v = \sqrt{\tfrac{10}{7}gh}", "sqrt(10*g*h/7)"
+            ),
+            _rolling_down(
+                0.5, r"I = \tfrac{1}{2}mr^2", r"v = \sqrt{\tfrac{4}{3}gh}", "sqrt(4*g*h/3)"
+            ),
+            _rolling_down(1.0, r"I = mr^2", r"v = \sqrt{gh}", "sqrt(g*h)"),
+            _rolling_down(
+                2 / 3, r"I = \tfrac{2}{3}mr^2", r"v = \sqrt{\tfrac{6}{5}gh}", "sqrt(6*g*h/5)"
+            ),
+        ),
+        variables=(
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("h", "h", "meter"),
+            # The mass cancels, as it does for a drop.
+            var("m", "m", "kilogram"),
+            var("shape_k", "k", dimensionless=True, visible=False, implied=_SHAPES),
+        ),
+        binding=Binding(
+            asks=("speed", "velocity", "how fast"),
+            result=("meter / second",),
+            inputs=(frozenset({"g", "h", "shape_k"}), frozenset({"g", "h", "m", "shape_k"})),
             cues=("roll", "rolling"),
             excludes=("moment of inertia", "rad/s", "slides", "sliding", "slipping and"),
             nonnegative=True,

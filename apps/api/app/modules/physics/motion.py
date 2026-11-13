@@ -71,6 +71,23 @@ _G_SIZED = re.compile(r"(?<![\d.])9\.8\d?\s*(?:m\s*/\s*s|m\s*s|ms)", re.IGNORECA
 
 # The marker the binder's excludes read for a speed that changes (``binding._with_markers``).
 SPEED_CHANGE_MARKER = "speedchange"
+# The marker for a body that spins as it rolls: ½mv² and √(2gh) leave its spin out (a solid
+# sphere rolling down 2 m is 5.29 m/s, not 6.26).
+ROLLING_BODY_MARKER = "rollingbody"
+# A body that can spin, said to roll: a ball, a hoop, a wheel. A car or a trolley "rolling"
+# along a road is moved, not spun, as a whole.
+_ROLLING_BODY_RE = re.compile(
+    r"\bwithout\s+slipping\b"
+    r"|\b(?:sphere|ball|marble|cylinder|disc|disk|hoop|ring|wheel|tyre|tire|can|pipe)s?\b"
+    r"[^.?!]{0,80}?\broll(?:s|ed|ing)?\b(?!\s+off\b)",
+    re.IGNORECASE,
+)
+
+
+def rolling_body(text: str) -> bool:
+    """The question's body spins as it rolls: "a solid sphere rolls down a slope"."""
+    return _ROLLING_BODY_RE.search(text) is not None
+
 
 # An average speed is the whole distance over the whole time, whatever the speed does on the
 # way: "starts from rest and covers 100 m in 12 s, average speed?" is 100 / 12.

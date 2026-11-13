@@ -18,7 +18,7 @@ from app.core.validation import (
     normalize_display_name,
     normalize_locale_code,
 )
-from app.models.model_catalog import validate_user_alias
+from app.models.model_removal import current_choices, requested_choice
 from app.models.schemas.common import EmojiUse, ModelChoice, ResponseTone, UserVoice
 from app.models.schemas.text import UserText
 
@@ -77,6 +77,12 @@ class UserOut(BaseModel):
     created_at: datetime
     google_sub: str | None = Field(default=None, exclude=True)
     apple_sub: str | None = Field(default=None, exclude=True)
+
+    @field_validator("enabled_models")
+    @classmethod
+    def drop_removed_models(cls, value: list[str] | None) -> list[str] | None:
+        """A model the catalog dropped since it was saved is off; with none left, Auto."""
+        return current_choices(value)
 
     @field_validator("location_enabled")
     @classmethod
@@ -221,15 +227,17 @@ class UserUpdate(BaseModel):
     @field_validator("enabled_models")
     @classmethod
     def validate_enabled_models(cls, value: list[str] | None) -> list[str] | None:
+        """The phone sends back the switches it was given: one the catalog has dropped since
+        is left out (``current_choices``), so the rest still save. A name that was never
+        an alias is refused (``requested_choice``)."""
         if value is None:
             return None
-        if not value:
-            raise ValueError("Turn on Auto or at least one model.")
         for entry in value:
-            if entry == "auto":
-                continue
-            validate_user_alias(entry)
-        return value
+            requested_choice(entry)
+        kept = current_choices(value)
+        if not kept:
+            raise ValueError("Turn on Auto or at least one model.")
+        return kept
 
     @field_validator("reminder_lead_minutes")
     @classmethod

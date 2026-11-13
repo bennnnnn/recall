@@ -21,6 +21,33 @@ _DRAG_PROBLEM = (
 )
 
 
+def test_the_drag_closed_forms_satisfy_their_equations_and_limits() -> None:
+    """The textbook formulas the drag solvers print hold: each satisfies its differential
+    equation and its starting speed, and goes to its terminal speed and to free fall."""
+    import sympy as sp
+
+    m, g, k, b, t = sp.symbols("m g k b t", positive=True)
+    v0 = sp.symbols("v0", real=True)
+    fall = (m * g / k) + (v0 - m * g / k) * sp.exp(-(k / m) * t)
+    upward = -(m * g / k) + (v0 + m * g / k) * sp.exp(-(k / m) * t)
+    terminal = sp.sqrt(m * g / b)
+    quad = terminal * sp.tanh(t * sp.sqrt(b * g / m))
+    zero = (
+        sp.diff(fall, t) - (g - (k / m) * fall),
+        fall.subs(t, 0) - v0,
+        sp.limit(fall, t, sp.oo) - m * g / k,
+        sp.limit(fall, k, 0) - (v0 + g * t),
+        sp.diff(upward, t) - (-g - (k / m) * upward),
+        upward.subs(t, 0) - v0,
+        sp.limit(upward, k, 0) - (v0 - g * t),
+        sp.diff(quad, t) - (g - (b / m) * quad**2),
+        quad.subs(t, 0),
+        sp.limit(quad, t, sp.oo) - terminal,
+        sp.limit(quad, b, 0) - g * t,
+    )
+    assert [sp.simplify(expression) for expression in zero] == [0] * len(zero)
+
+
 def test_digit_free_linear_drag_is_physics() -> None:
     text = "A particle of mass m is dropped from rest. The drag force is F = -kv. Solve v(t)."
     assert needs_physics(text) is True

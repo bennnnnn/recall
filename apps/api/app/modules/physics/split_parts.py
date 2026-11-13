@@ -15,6 +15,7 @@ not tell a normal force from a friction, and the friction answered both.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, replace
 
@@ -26,6 +27,8 @@ from app.modules.physics.numbers import normalize_physics_units
 from app.services.law_binding.ask import ASK_VERBS
 from app.services.solving import PhysicsPartWorking, VerifiedPhysicsBlock
 from app.services.workout import PHYSICS_WORKOUT_PARTS_PROMPT
+
+logger = logging.getLogger(__name__)
 
 # "a) What is…", "(b) the moon…", "c. input work": a part's label after a space.
 _LABEL = re.compile(r"(?:^|(?<=[\s,;:.?!]))\(?([a-h])[).]\s", re.IGNORECASE)
@@ -123,6 +126,8 @@ def _solved(text: str, settings: Settings) -> VerifiedPhysicsBlock | None:
     try:
         return build_verified_physics_block(intent, settings)
     except Exception:
+        # The part goes to the model unverified; a solver's bug still reaches the logs.
+        logger.info("physics part block declined: %s", intent.physics_op, exc_info=True)
         return None
 
 

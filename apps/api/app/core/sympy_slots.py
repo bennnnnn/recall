@@ -118,11 +118,16 @@ class OwnerTurns:
             return
         loop = asyncio.get_running_loop()
         deadline = loop.time() + wait_s
+        busy = "SymPy: this user's previous solve is still running"
         while (running := self.running.get(owner)) is not None:
             remaining = deadline - loop.time()
             if remaining <= 0:
-                raise WorkerBusyError("SymPy: this user's previous solve is still running")
-            await asyncio.wait_for(asyncio.shield(running), remaining)
+                raise WorkerBusyError(busy)
+            try:
+                await asyncio.wait_for(asyncio.shield(running), remaining)
+            except TimeoutError as expired:
+                # The wait ran out, not a job: the caller may retry a busy pool later.
+                raise WorkerBusyError(busy) from expired
         self.running[owner] = loop.create_future()
 
     def release(self, owner: str | None) -> None:

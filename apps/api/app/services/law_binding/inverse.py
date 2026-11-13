@@ -12,8 +12,9 @@ So every law written as arithmetic is solved for whichever of its inputs is aske
   of its inputs (``spec.result_variable``) and the asked input is its result. It keeps the
   law's id, so the reply names the law, its symbols and its picture as before;
 - ``rearranged`` is the arithmetic for that input, which SymPy works out from the law's own
-  expression: one solution, in the grammar ``expression`` evaluates, or none. It runs in the
-  SymPy pool with the turn's other readers (Golden Rule 7), once per law and input;
+  expression: one solution, in the grammar ``expression`` evaluates, or none. Every one a
+  catalog law can ask is worked out ahead and kept as data (``rearrangements``); SymPy
+  works out any other in the pool with the turn's readers (Golden Rule 7);
 - ``solved_input`` reads, from an intent's values, which input a solve is for.
 
 The law is named by its result stated in its own words (``stated_strength``), and a
@@ -29,10 +30,12 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import replace
 from functools import lru_cache
+from itertools import pairwise
 from typing import Any
 
 from app.services.law_binding.expression import ExpressionError, parse
 from app.services.law_binding.fit import Question, given_kind, value_end, variable_kind
+from app.services.law_binding.rearrangements import kept_rearrangements, kept_sizes
 from app.services.law_binding.roles import result_role, role_words
 from app.services.law_binding.spec import (
     Binding,
@@ -207,6 +210,57 @@ def _quantity_kinds(spec: FormulaSpec) -> tuple[str, ...]:
     return tuple(sorted(kind or "" for kind in kinds))
 
 
+def twins(spec: FormulaSpec) -> frozenset[str]:
+    """Inputs that play the same part: interchangeable, of one kind, and the law the same
+    with any two swapped (F = m(u + v)/t in its two speeds), so solving for either is one
+    unknown. Two skaters' masses, filled in order, are not: m₁v₁ = m₂v₂ pairs each with
+    its own speed."""
+    binding = spec.binding
+    names = frozenset(binding.interchangeable) if binding is not None else frozenset()
+    kinds = {variable_kind(v) for v in spec.variables if v.name in names}
+    if len(kinds) != 1 or spec.expression is None or not _symmetric(spec.expression, names):
+        return frozenset()
+    return names
+
+
+def same_part(spec: FormulaSpec) -> frozenset[str]:
+    """The like parts a law combines into a whole of their own kind (P = P₁ + P₂, two
+    capacitors' C): its twins, of the result's kind. Two currents giving a force per metre
+    are no parts of a whole."""
+    parts = twins(spec)
+    binding = spec.binding
+    if not parts or binding is None:
+        return frozenset()
+    kinds = {variable_kind(v) for v in spec.variables if v.name in parts}
+    return parts if kinds <= {dimension_of(unit) for unit in binding.result} else frozenset()
+
+
+@lru_cache(maxsize=256)
+def _symmetric(expression: str, names: frozenset[str]) -> bool:
+    """The arithmetic is unchanged by swapping any two of ``names``."""
+    import sympy
+
+    symbols: dict[str, Any] = {}
+
+    def symbol(name: str) -> Any:
+        if name not in symbols:
+            symbols[name] = sympy.Symbol(name, positive=True)
+        return symbols[name]
+
+    try:
+        law = _to_sympy(parse(expression), symbol)
+    except (ExpressionError, ValueError):
+        return False
+    ordered = sorted(names)
+    for first, second in pairwise(ordered):
+        swapped = law.subs(
+            {symbol(first): symbol(second), symbol(second): symbol(first)}, simultaneous=True
+        )
+        if sympy.simplify(law - swapped) != 0:
+            return False
+    return True
+
+
 def can_solve_for(spec: FormulaSpec, name: str) -> bool:
     """Whether some form of the law that holds ``name`` is solved for it (``inverse_of``):
     P = W/t for W, though the law's first form, P = Fv, has no W."""
@@ -262,7 +316,17 @@ def rearranged(expression: str, result: str, unknown: str) -> str | None:
     (``parse``). Every name is taken as positive, as a measured size is: v = sqrt(2E/m),
     never its negative twin. A value that is not positive is the solver's to refuse, when
     the answer put back into the law does not give the stated result.
+
+    A catalog law's is read from the kept table, which holds SymPy's own answer: solving
+    took 0.3 s for most laws and 1.4 s for an angle on an incline, inside a turn's read.
     """
+    kept = kept_rearrangements()
+    key = (expression, result, unknown)
+    return kept[key] if key in kept else sympy_rearranged(expression, result, unknown)
+
+
+def sympy_rearranged(expression: str, result: str, unknown: str) -> str | None:
+    """``rearranged`` as SymPy works it out, for an expression the kept table lacks."""
     import sympy
 
     if not all(_PLACEHOLDER.match(name) for name in (result, unknown)):
@@ -298,7 +362,17 @@ def rearranged(expression: str, result: str, unknown: str) -> str | None:
 
 @lru_cache(maxsize=1024)
 def keeps_its_size(inverse: str, result: str) -> bool:
-    """The answer ``inverse`` gives has the same size whichever sign ``result`` has."""
+    """The answer ``inverse`` gives has the same size whichever sign ``result`` has.
+
+    A catalog law's answer is read from the kept table, as ``rearranged``'s is.
+    """
+    kept = kept_sizes()
+    key = (inverse, result)
+    return kept[key] if key in kept else sympy_keeps_its_size(inverse, result)
+
+
+def sympy_keeps_its_size(inverse: str, result: str) -> bool:
+    """``keeps_its_size`` as SymPy works it out."""
     import sympy
 
     names: dict[str, Any] = {}

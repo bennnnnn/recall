@@ -13,10 +13,13 @@ half; nothing here raises.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
+from app.services.solving import SubjectName
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,14 @@ _LIVE_AT = 0.35
 # settled reads this close are mostly about the user's own place ("is it far?", 0.26).
 NEAR_LIVE_AT = 0.15
 _ASKED_AT = 0.5
-_STEM = frozenset({"maths", "physics", "chemistry"})
+# The read's name for each registered subject (``SubjectName``; its choices call maths
+# "maths"). The read's own words for them are the subject question's criteria below, part
+# of its measured prompt; ``tests/services/test_subject_completeness.py`` holds the two and
+# Auto's lanes for them (``routing_lanes.ROUTING.decided``) to the registry.
+READ_SUBJECTS: Mapping[str, SubjectName] = MappingProxyType(
+    {"maths": "math", "physics": "physics", "chemistry": "chemistry"}
+)
+_STEM = frozenset(READ_SUBJECTS)
 
 # How the live question reads a short follow-up: as the question it stands for (below).
 LIVE_IN_CONTEXT = (

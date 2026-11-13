@@ -13,12 +13,13 @@ from app.modules.math.ode import solve_ode
 from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
+from app.services.number_text import SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, note_from_label, render_workout, text_line
 
 _ODE_START_RE = re.compile(r"dy\s*/\s*dx|d\^?2\s*y\s*/\s*dx\^?2|[A-Za-z]'")
 _ODE_INITIAL_RE = re.compile(
-    r"\b([A-Za-z])\s*\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)\s*=\s*"
-    r"([+-]?(?:\d+(?:\.\d+)?|\.\d+))\b"
+    rf"\b([A-Za-z])\s*\(\s*({SIGNED_DECIMAL})\s*\)\s*=\s*"
+    rf"({SIGNED_DECIMAL})\b"
 )
 
 
