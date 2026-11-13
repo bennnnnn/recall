@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.modules.physics.asked_names import asked_meaning
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.glossary import given_meaning
+from app.modules.physics.law_nouns import named_laws, result_name
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS
 from app.services.law_binding.units import unit_dimension
 
@@ -70,8 +73,8 @@ def test_no_law_names_its_result_with_another_quantitys_word() -> None:
         meaning = asked_meaning(spec.id, symbol)
         if meaning is None or meaning != given_meaning(spec.id, spec.kind, symbol):
             continue
-        # The law's own word for its result ("power" of a lens, in dioptres) is its name.
-        if meaning in spec.binding.asks:
+        # The law's own name for its result ("power" of a lens, in dioptres) is its name.
+        if meaning == result_name(spec):
             continue
         letter = _dimension(PARAM_SI_DIMENSIONS.get(symbol))
         result = _dimension(spec.binding.result[0])
@@ -108,3 +111,79 @@ def test_a_result_the_glossary_does_not_know_is_named_by_its_dimension(
 def test_a_symbol_in_another_dimension_stays_unnamed() -> None:
     # T in metres is no period and no tension: no name is better than a wrong one.
     assert asked_meaning("shm_period", "T", "m") is None
+
+
+@pytest.mark.parametrize(
+    ("operation", "symbol", "answer_unit"),
+    [
+        # Two results on one line: the law's one name fitted only the first (review of
+        # PR #2420: "a, T (acceleration)").
+        ("atwood", r"a,\ T", "m/s²"),
+        ("table_pulley", r"a,\ T", "m/s²"),
+    ],
+)
+def test_a_result_of_several_symbols_names_each(
+    operation: str, symbol: str, answer_unit: str
+) -> None:
+    assert asked_meaning(operation, symbol, answer_unit) == "acceleration, tension"
+
+
+def test_a_result_of_several_symbols_one_has_no_name_for_is_unnamed() -> None:
+    # F_x and F_y have no name in newtons: no name is better than half of one.
+    assert asked_meaning("resolve_force", r"F_x,\ F_y", "N") is None
+
+
+@pytest.mark.parametrize(
+    ("operation", "symbol", "unit", "meaning"),
+    [
+        # A proper noun keeps its capital: the asks a question is matched by are lowercase.
+        ("de_broglie_from_voltage", r"\lambda", "m", "de Broglie wavelength"),
+        ("fermi_energy", "E_F", "J", "Fermi energy"),
+        ("schwarzschild_radius", "r_s", "m", "Schwarzschild radius"),
+        ("hall_voltage", "V_H", "V", "Hall voltage"),
+        ("hall_coefficient", "R_H", "m^3/C", "Hall coefficient"),
+        ("debye_length", r"\lambda_D", "m", "Debye length"),
+        ("friedmann_hubble", "H", "1/s", "Hubble parameter"),
+        ("zeeman_shift", r"\Delta E", "J", "Zeeman shift"),
+        ("poisson_ratio", r"\nu", None, "Poisson's ratio"),
+        ("alfven_speed", "v_A", "m/s", "Alfvén speed"),
+        ("hawking_temperature", "T_H", "K", "Hawking temperature"),
+        ("higgs_mass", "m_H", "kg", "Higgs mass"),
+        # A name says what the quantity is: a rate is no count, a part no bare "component".
+        ("photon_emission_rate", r"\frac{N}{t}", "1/s", "photons emitted per second"),
+        (
+            "weight_along_slope",
+            r"F_{\parallel}",
+            "N",
+            "component of the weight along the slope",
+        ),
+        ("sound_level_from_ratio", "L_2", "dB", "sound level"),
+        ("half_life_fraction", r"\frac{N}{N_0}", None, "fraction remaining"),
+        ("percent_after_half_lives", r"\frac{N}{N_0}", "%", "percentage remaining"),
+        ("floating_fraction", r"\frac{V_{sub}}{V}", None, "fraction submerged"),
+        ("boltzmann_population_ratio", r"\frac{N_2}{N_1}", None, "population ratio"),
+        ("time_to_peak", r"t_{\text{top}}", "s", "time to the top"),
+        ("wavelength_in_medium", r"\lambda_n", "m", "wavelength in the medium"),
+    ],
+)
+def test_a_result_is_named_for_a_reader(
+    operation: str, symbol: str, unit: str | None, meaning: str
+) -> None:
+    assert asked_meaning(operation, symbol, unit) == meaning
+
+
+_PROPER = re.compile(r"(?<=\s)[A-Z][a-zé]+")
+_LOOSE_END = re.compile(r"^(?:to|in|of|at|on|for|from|by)\b|\b(?:to|in|of|at|on|for|from|by)$")
+
+
+@pytest.mark.parametrize("operation", sorted(named_laws()))
+def test_every_result_name_is_written_for_a_reader(operation: str) -> None:
+    spec = CATALOG[operation]
+    name = result_name(spec)
+    assert name and spec.binding is not None
+    # Not a phrase cut from a question ("to the top", "wavelength in").
+    assert not _LOOSE_END.search(name)
+    # A name its law's name capitalises past the first word (Zeeman in "Normal Zeeman
+    # shift") keeps that capital.
+    for proper in _PROPER.findall(spec.law_name):
+        assert proper.lower() not in name.split() or proper in name, (operation, name)

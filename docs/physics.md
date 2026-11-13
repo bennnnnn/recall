@@ -229,8 +229,11 @@ flowchart LR
    `q = 3 µC = 3 × 10⁻⁶ C` (`given_rows.py`; until November 2026 the factor followed the
    unit, `3 µC × 10⁻⁶`, which read literally is 3 × 10⁻¹² C). A solver that works in the
    written units (150 km in 2 h, a half-life in grams and days) gets no conversion.
-   **Required** names what is asked (`T (period)`): the glossary's word, the law's own
-   ask, or the word for its symbol in the answer's dimension (`asked_names.py`). A stated result gets one
+   **Required** names what is asked (`T (period)`): the glossary's word, the name of the
+   law's result (`law_nouns.py`: written for a reader, `de Broglie wavelength`, never the
+   lowercase words a question is matched by), or the word for its symbol in the answer's
+   dimension (`asked_names.py`); a result of several symbols names each (`a, T
+   (acceleration, tension)`). A stated result gets one
    line above the working: "Your 19.8 m/s is right." Image questions stay on the model
    path, and so does a reply the verified result is only part of (`parts.py`): a question
    in labelled parts or several questions the result does not all answer ("(a) how long …

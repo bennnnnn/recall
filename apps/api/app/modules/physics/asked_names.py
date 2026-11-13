@@ -11,11 +11,14 @@ So the symbol is named, in order, by:
 - the law's own variable written with it (a law that solves for one of its inputs);
 - the letter's usual meaning, only when its unit is the result's (the law's binding, or
   the verified answer's unit when the law has none);
-- otherwise the noun the law's binding asks it with ("range", "weight", "moment of inertia").
-The law's own result the glossary has no word for (T, τ, F_e, H_max) is named by that noun
+- otherwise the name of the law's result (``law_nouns``: "range", "weight", "moment of
+  inertia"), written for a reader, never the words a question is matched by.
+The law's own result the glossary has no word for (T, τ, F_e, H_max) is named that way
 too: a bare letter on **Required** beside "a (acceleration)" on the next reply read as a
-gap (review 2026-11-12, D6). Any other symbol the glossary has no meaning for stays
-unnamed: no name is better than a wrong one.
+gap (review 2026-11-12, D6). A result of several symbols ("a, T") names each in its own
+unit ("acceleration, tension"), or none: the law's one name fits only one of them. Any
+other symbol the glossary has no meaning for stays unnamed: no name is better than a
+wrong one.
 """
 
 from __future__ import annotations
@@ -25,7 +28,7 @@ from functools import cache
 
 from app.modules.physics.catalog import formula_spec
 from app.modules.physics.glossary import given_meaning
-from app.modules.physics.law_nouns import asked_noun
+from app.modules.physics.law_nouns import result_name
 from app.modules.physics.notation import shown
 from app.modules.physics.solvers.si import PARAM_SI_DIMENSIONS
 from app.services.law_binding.spec import FormulaSpec
@@ -35,6 +38,8 @@ from app.services.law_binding.units import unit_dimension
 def asked_meaning(operation: str, symbol: str, answer_unit: str | None = None) -> str | None:
     """What ``symbol``, the quantity a reply finds by law ``operation``, stands for."""
     spec = formula_spec(operation)
+    if _SEVERAL.search(symbol):
+        return _each_named(operation, symbol)
     kind = spec.kind if spec is not None else ""
     if spec is None:
         return given_meaning(operation, kind, symbol)
@@ -48,8 +53,24 @@ def asked_meaning(operation: str, symbol: str, answer_unit: str | None = None) -
     elif result is None or _dimension(symbol) in {None, result}:
         return meaning
     else:
-        meaning = asked_noun(spec)
+        meaning = result_name(spec)
     return meaning or _result_words().get((symbol, result or "dimensionless"))
+
+
+# Symbols listed in one result: "a,\ T", "F_x, F_y".
+_SEVERAL = re.compile(r",(?:\\ |\s)*")
+
+
+def _each_named(operation: str, symbols: str) -> str | None:
+    """Each of a result's symbols named in the unit the law gives it ("acceleration,
+    tension"), or None when one of them has no name."""
+    spec = formula_spec(operation)
+    units = spec.binding.result if spec is not None and spec.binding is not None else ()
+    parts = [part.strip() for part in _SEVERAL.split(symbols) if part.strip()]
+    if len(parts) != len(units):
+        return None
+    names = [asked_meaning(operation, part, unit) for part, unit in zip(parts, units, strict=True)]
+    return None if any(name is None for name in names) else ", ".join(filter(None, names))
 
 
 # The words for a law's result its glossary and binding leave unnamed, by the symbol as
@@ -106,16 +127,11 @@ def _result_words() -> dict[tuple[str, str], str]:
     return {(symbol, _unit_dimension(unit) or unit): word for symbol, unit, word in _RESULT_WORDS}
 
 
-# An ask cut from a longer phrase ("to the top", "wavelength in") is no name.
-_PART_PHRASE = re.compile(r"^(?:to|in|of|at|on|for|from|by)\b|\b(?:to|in|of|at|on|for|from|by)$")
-
-
 def _result_noun(spec: FormulaSpec, symbol: str) -> str | None:
-    """The law's word for its own result, when ``symbol`` is that result."""
+    """The name of the law's own result, when ``symbol`` is that result."""
     if symbol not in {spec.result_symbol, shown(spec.result_symbol, spec.id)}:
         return None
-    noun = asked_noun(spec)
-    return None if noun is None or _PART_PHRASE.search(noun) else noun
+    return result_name(spec)
 
 
 def _own_variable(spec: FormulaSpec, symbol: str) -> str | None:
