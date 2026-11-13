@@ -10,6 +10,21 @@
 /** KaTeX `\@not` in KaTeX_Main. Advance matches `=`; ink is the negating slash. */
 export const MATH_NOT_GLYPH = "\uE020";
 export const NOT_ADVANCE_EM = 0.778;
+/** A space or no-break space in KaTeX_Main. */
+const SPACE_ADVANCE_EM = 0.25;
+
+/**
+ * The letterSpacing, in em, that lays the not-slash over the relation after it, and on
+ * Android a no-break space before it. iOS adds a Text's letterSpacing after its glyph, so
+ * minus the slash's advance draws the relation under it. Android puts half before the glyph
+ * and half after: that pull drew the slash half an advance left, on the end of the `=`
+ * ("/="). There the slash takes twice the pull and the space before it gives the advance
+ * back, so both land where iOS draws them and the pair still takes the relation's width.
+ */
+export function notSlashSpacing(android: boolean): { slash: number; lead: number | null } {
+  if (!android) return { slash: -NOT_ADVANCE_EM, lead: null };
+  return { slash: -2 * NOT_ADVANCE_EM, lead: NOT_ADVANCE_EM - SPACE_ADVANCE_EM };
+}
 
 /** Relations KaTeX builds by overlaying MATH_NOT_GLYPH, plus the base advance. */
 export const NEGATED_RELATION: Record<string, { base: string; widthEm: number }> = {

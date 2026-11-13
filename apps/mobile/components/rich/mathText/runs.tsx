@@ -4,7 +4,7 @@
  * (negated relations, blackboard letters, primes, norms) get their own Text.
  */
 import { type ReactNode } from "react";
-import { Text, type TextStyle } from "react-native";
+import { Platform, Text, type TextStyle } from "react-native";
 
 import { splitOperatorPads } from "@/lib/math/layout";
 import {
@@ -14,8 +14,8 @@ import {
   italicLeanEm,
   MATH_NOT_GLYPH,
   NEGATED_RELATION,
-  NOT_ADVANCE_EM,
   NORM_ADVANCE_EM,
+  notSlashSpacing,
   primeRun,
 } from "@/lib/math/glyphs";
 
@@ -57,6 +57,16 @@ export function renderNonVariableRun(
   return Array.from(value).map((ch, i) => renderMathGlyph(ch, `${key}-g${i}`, glyphStyle, metrics));
 }
 
+/**
+ * The letterSpacing, in layout pixels, of one em of the run. iOS sets a Text's letterSpacing
+ * as written, while the text itself grows with the reader's text size; Android grows the
+ * letterSpacing with the text. Scaled again there, a pull meant to lay one glyph on another
+ * missed it at any text size but the default.
+ */
+function letterSpacingPx(metrics: RunMetrics): number {
+  return Platform.OS === "android" ? metrics.em : metrics.em * metrics.fontScale;
+}
+
 function renderMathGlyph(
   ch: string,
   key: string,
@@ -65,10 +75,12 @@ function renderMathGlyph(
 ): ReactNode {
   const negated = NEGATED_RELATION[ch];
   if (negated) {
-    const shift = NOT_ADVANCE_EM * metrics.em * metrics.fontScale;
+    const px = letterSpacingPx(metrics);
+    const spacing = notSlashSpacing(Platform.OS === "android");
     return (
       <Text key={key} testID="math-negated" accessibilityLabel={ch}>
-        <Text style={{ letterSpacing: -shift }}>{MATH_NOT_GLYPH}</Text>
+        {spacing.lead == null ? null : <Text style={{ letterSpacing: spacing.lead * px }}>{"\u00a0"}</Text>}
+        <Text style={{ letterSpacing: spacing.slash * px }}>{MATH_NOT_GLYPH}</Text>
         {negated.base}
       </Text>
     );
@@ -96,7 +108,7 @@ function renderMathGlyph(
   if (ch === "-") return "−";
   if (ch === "·") return "⋅";
   if (ch === "‖") {
-    const pull = (0.8 - NORM_ADVANCE_EM) * metrics.em * metrics.fontScale;
+    const pull = (0.8 - NORM_ADVANCE_EM) * letterSpacingPx(metrics);
     return (
       <Text key={key} testID="math-norm" style={{ letterSpacing: -pull / 2 }}>
         ||
