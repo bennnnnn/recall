@@ -12,6 +12,7 @@ half; nothing here raises.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Mapping
 from types import MappingProxyType
@@ -38,11 +39,15 @@ _LIVE_AT = 0.35
 # settled reads this close are mostly about the user's own place ("is it far?", 0.26).
 NEAR_LIVE_AT = 0.15
 _ASKED_AT = 0.5
-# A result to work out (``work``): on the work-need corpus's tuning half every threshold from
-# 0.3 to 0.6 laid out every calculation and nothing else; at 0.5 the held-out half laid out
-# 18 of 18 calculations and 1 of 18 other questions ("1 newton in base SI units", 0.54),
-# where a number and a subject laid out 77% of them (``tests/behavior/work_need_eval.py``).
+# A result to work out (``WORK_QUESTION``, its own call): on the work-need corpus's tuning
+# half every threshold from 0.3 to 0.7 laid out every calculation and nothing else; at 0.5
+# the held-out half laid out 18 of 18 calculations and 1 of 18 other questions ("1 newton in
+# base SI units", 0.64), where a number and a subject laid out 77% of them
+# (``tests/behavior/work_need_eval.py``).
 _WORK_AT = 0.5
+# How long the turn's read waits for the work question's call once its own is in: both
+# start together and answer in about 0.33 s.
+_WORK_GRACE_SECONDS = 0.25
 # The read's name for each registered subject (``SubjectName``; its choices call maths
 # "maths"). The read's own words for them are the subject question's criteria below, part
 # of its measured prompt; ``tests/services/test_subject_completeness.py`` holds the two and
@@ -149,10 +154,22 @@ QUESTIONS: dict[str, dict[str, Any]] = {
             "chats, getting to a place already named, or work on the conversation itself."
         ),
     },
-    # Whether the reply works a result out, and so is laid out as working (Given, Required,
-    # the steps, the Answer: ``chat.worked_turn``). A digit alone said yes: "Translate the
-    # algebraic expression 7x in different word phrases" got a Given and a Required, with
-    # "phrases" set as a symbol (phone, 2026-11-13).
+    "asked": {
+        "type": "noul",
+        "instructions": (
+            "Does the last message ask to search the web or look something up online "
+            "(google it, check online)? A search of the user's own chats or notes is not."
+        ),
+    },
+}
+
+# Whether the reply works a result out, and so is laid out as working (Given, Required, the
+# steps, the Answer: ``chat.worked_turn``). A digit alone said yes: "Translate the algebraic
+# expression 7x in different word phrases" got a Given and a Required, with "phrases" set as
+# a symbol (phone, 2026-11-13). Asked in a call of its own, beside the turn's: the Decider
+# weighs a call's questions together, and asked among them it moved the measured ``think``
+# (two thinking questions of the think corpus read as plain, 96% recall to 92%).
+WORK_QUESTION: dict[str, dict[str, Any]] = {
     "work": {
         "type": "noul",
         "instructions": (
@@ -164,13 +181,6 @@ QUESTIONS: dict[str, dict[str, Any]] = {
             "an expression, a definition, a law or formula stated, a concept or reason "
             "explained, naming or classifying, a fact to recall, examples, or practice "
             "questions to set."
-        ),
-    },
-    "asked": {
-        "type": "noul",
-        "instructions": (
-            "Does the last message ask to search the web or look something up online "
-            "(google it, check online)? A search of the user's own chats or notes is not."
         ),
     },
 }
@@ -225,16 +235,26 @@ async def decide_turn(
     from app.models import model_catalog
 
     alias = ROUTING.decider
+    model = model_catalog.get(alias).model.removeprefix("openrouter/")
+    work_read = asyncio.create_task(
+        decide(settings, model=model, state=state, questions=WORK_QUESTION, seconds=seconds)
+    )
     try:
         reply = await decide(
-            settings,
-            model=model_catalog.get(alias).model.removeprefix("openrouter/"),
-            state=state,
-            questions=QUESTIONS,
-            seconds=seconds,
+            settings, model=model, state=state, questions=QUESTIONS, seconds=seconds
         )
     except Exception as exc:  # A read is a hint: the text read or the rules decide.
+        work_read.cancel()
         logger.info("decider read failed (%s)", type(exc).__name__)
         return None
     meter_reported_cost(alias, reply.usage.cost)
-    return decision_fields(reply.answers, has_earlier=has_earlier)
+    answers = dict(reply.answers)
+    try:
+        # Begun with the turn's read; waited for only a moment past it.
+        work = await asyncio.wait_for(work_read, _WORK_GRACE_SECONDS)
+    except Exception as exc:  # The layout is left to the rules.
+        logger.info("decider work read failed (%s)", type(exc).__name__)
+    else:
+        meter_reported_cost(alias, work.usage.cost)
+        answers.update(work.answers)
+    return decision_fields(answers, has_earlier=has_earlier)

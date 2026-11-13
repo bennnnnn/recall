@@ -76,7 +76,6 @@ def rules_work(turn: WorkTurn) -> bool:
 class Outcome:
     turn: WorkTurn
     odds: list[float] = field(default_factory=list)
-    subjects: list[str] = field(default_factory=list)
     seconds: list[float] = field(default_factory=list)
 
 
@@ -86,7 +85,7 @@ async def measure_read(turns: list[WorkTurn], runs: int) -> tuple[list[Outcome],
     from app.gateways.decider_gateway import decide
     from app.models import model_catalog
     from app.models.routing_lanes import ROUTING
-    from app.modules.chat.decider_read import QUESTIONS
+    from app.modules.chat.decider_read import WORK_QUESTION
     from app.modules.chat.turn_decision import decision_messages
 
     settings = Settings()
@@ -101,7 +100,7 @@ async def measure_read(turns: list[WorkTurn], runs: int) -> tuple[list[Outcome],
             started = time.monotonic()
             try:
                 reply = await decide(
-                    settings, model=model, state=state, questions=QUESTIONS, seconds=5.0
+                    settings, model=model, state=state, questions=WORK_QUESTION, seconds=5.0
                 )
             except Exception as exc:  # A failed call is counted, never retried.
                 print(f"  unread [{turn.id}] {type(exc).__name__}")
@@ -109,7 +108,6 @@ async def measure_read(turns: list[WorkTurn], runs: int) -> tuple[list[Outcome],
             outcome = outcomes[turn.id]
             outcome.seconds.append(time.monotonic() - started)
             outcome.odds.append(float(reply.answers["work"].noul or 0.0))
-            outcome.subjects.append(str(reply.answers["subject"].choice))
             costs.append(reply.usage.cost)
 
     for _ in range(runs):
@@ -149,9 +147,7 @@ def report(outcomes: list[Outcome], costs: list[float], at: float | None) -> str
             continue
         mean = statistics.mean(o.odds) if o.odds else float("nan")
         mark = "WORK" if o.turn.work else "none"
-        lines.append(
-            f"  {o.turn.id:10} {mark} odds {mean:.2f} {o.subjects[:1]} {o.turn.prompt[:70]!r}"
-        )
+        lines.append(f"  {o.turn.id:10} {mark} odds {mean:.2f} {o.turn.prompt[:70]!r}")
     return "\n".join(lines)
 
 

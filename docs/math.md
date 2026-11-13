@@ -290,7 +290,8 @@ Maths, physics and chemistry share one contract for a reply the model works out 
   written. Which turns ask for it: `modules/chat/worked_turn.py` (nothing verified, a number
   in the message, and a maths, physics or chemistry subject, a school exercise or a science
   question; `worked_layout_enabled`). When the turn's read is in, the Decider's `work`
-  answer has the last word (`chat/decided_turn.py`): a message it says asks for no result
+  answer (asked in a call of its own, which leaves the turn's measured answers as they were)
+  has the last word (`chat/decided_turn.py`): a message it says asks for no result
   worked out loses the block for its number ("Translate the algebraic expression 7x in
   different word phrases" got a Given and a Required, 2026-11-13), measured on
   `tests/behavior/work_need_corpus.json` (`work_need_eval.py`: held out, 18 of 18
