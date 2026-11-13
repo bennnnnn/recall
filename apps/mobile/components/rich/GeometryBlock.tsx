@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CircleDiagram } from "@/components/rich/geometry/CircleDiagram";
+import { FigureDiagram } from "@/components/rich/geometry/FigureDiagram";
 import { ParallelogramDiagram } from "@/components/rich/geometry/ParallelogramDiagram";
 import { RectangleDiagram } from "@/components/rich/geometry/RectangleDiagram";
 import { RightTriangleDiagram } from "@/components/rich/geometry/RightTriangleDiagram";
@@ -45,7 +46,9 @@ export function GeometryBlock({ content }: Props) {
       accessibilityRole={figureLabel.length > 0 ? "image" : undefined}
       accessibilityLabel={figureLabel || undefined}
     >
-      {spec.type === "right_triangle" ? (
+      {spec.type === "figure" ? (
+        <FigureDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      ) : spec.type === "right_triangle" ? (
         <RightTriangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
       ) : spec.type === "triangle" ? (
         <TriangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />

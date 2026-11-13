@@ -116,7 +116,51 @@ export type SectorSpec = {
   labels?: Record<string, string>;
 };
 
+/** A point of a server-drawn figure, in the question's units; `show` draws its name. */
+export type FigurePoint = { name: string; x: number; y: number; show?: boolean; dot?: boolean };
+
+/** A side or line between two named points: a label, dashes, equal-length or parallel marks. */
+export type FigureSegment = {
+  a: string;
+  b: string;
+  label?: string;
+  dashed?: boolean;
+  ticks?: number;
+  arrows?: number;
+  /** Where along the segment its label sits (0.5 its middle). */
+  label_at?: number;
+};
+
+/** An arc of an axis-aligned ellipse about a point, degrees counterclockwise (a circle: rx = ry). */
+export type FigureArc = {
+  center: string;
+  rx: number;
+  ry: number;
+  start: number;
+  end: number;
+  dashed?: boolean;
+};
+
+/** The angle at `at` between the rays to `a` and `b` (under 180°), labelled or a right angle. */
+export type FigureAngle = { at: string; a: string; b: string; label?: string; right?: boolean };
+
+/**
+ * A drawing the server worked out from the question's own values (`math/figure`): any
+ * plane figure, lines and angles, circle parts, a solid or its net. The phone fits it to
+ * the card and places the labels; it never computes a coordinate.
+ */
+export type FigureSpec = {
+  type: "figure";
+  shape: string;
+  points: FigurePoint[];
+  segments: FigureSegment[];
+  arcs: FigureArc[];
+  angles: FigureAngle[];
+  faces: string[][];
+};
+
 export type GeometrySpec =
+  | FigureSpec
   | RectangleSpec
   | TriangleSpec
   | RightTriangleSpec
@@ -127,6 +171,7 @@ export type GeometrySpec =
   | SectorSpec;
 
 const GEOMETRY_KIND_SET: Record<GeometrySpec["type"], true> = {
+  figure: true,
   rectangle: true,
   square: true,
   triangle: true,

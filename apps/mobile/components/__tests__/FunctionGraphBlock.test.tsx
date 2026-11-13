@@ -483,4 +483,40 @@ describe("the expanded graph on Android, edge to edge", () => {
     await keyboard("keyboardDidHide");
     expect(sheet().paddingBottom).toBe(closed);
   });
+
+  it("plots lettered points on a coordinate plane with its quadrants", async () => {
+    const content = JSON.stringify({
+      type: "points",
+      title: "A(2, 3), B(−1, 4)",
+      points: [{ x: 2, y: 3, label: "A(2, 3)" }, { x: -1, y: 4, label: "B(−1, 4)" }],
+      x_min: -5,
+      x_max: 5,
+      y_min: -5,
+      y_max: 5,
+      quadrants: true,
+    });
+    const { toJSON, getByTestId, queryByText } = await render(<FunctionGraphBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(getByTestId("points-graph")).toBeOnTheScreen();
+    expect(tree).toContain("A(2, 3)");
+    expect(tree).toContain("B(−1, 4)");
+    expect(tree).toContain("\"IV\"");
+    expect(queryByText("rich.graph_error")).toBeNull();
+  });
+
+  it("labels the numbers a number line shows as the question writes them", async () => {
+    const content = JSON.stringify({
+      type: "number_line",
+      expr: "−5/2, −1/3, 3/4, 1.5",
+      intervals: [-2.5, -1 / 3, 0.75, 1.5].map((v) => ({ start: v, end: v, start_inclusive: true, end_inclusive: true })),
+      marks: [
+        { x: -2.5, y: 0, label: "−5/2" },
+        { x: -1 / 3, y: 0, label: "−1/3" },
+        { x: 0.75, y: 0, label: "3/4" },
+        { x: 1.5, y: 0, label: "1.5" },
+      ],
+    });
+    const tree = JSON.stringify((await render(<FunctionGraphBlock content={content} />)).toJSON());
+    for (const label of ["−5/2", "−1/3", "3/4", "1.5"]) expect(tree).toContain(label);
+  });
 });
