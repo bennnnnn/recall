@@ -476,6 +476,18 @@ def test_no_laid_out_block_shows_latex_source(block: str) -> None:
         # A record that spaces none of its bars still splits at each.
         ("answer: v|3.33|m/s", Answer(symbol="v", value="3.33", unit="m/s")),
         ("given: v|20|m/s|speed", Given(symbol="v", value="20", unit="m/s", meaning="speed")),
+        # "||" for an empty field, and separators spaced on one side (review, 2026-11-13).
+        ("given: n | 2 || amount of substance", Given(symbol="n", value="2", meaning="amount of substance")),
+        ("answer: n | 4 || to 3 s.f.", Answer(symbol="n", value="4", note="to 3 s.f.")),
+        ("answer: x | 5 ||", Answer(symbol="x", value="5")),
+        (r"given: m | 2 | kg || 2000\,\mathrm{g}", Given(symbol="m", value="2", unit="kg", converted=r"2000\,\mathrm{g}")),
+        ("answer: v |3.33 | m/s", Answer(symbol="v", value="3.33", unit="m/s")),
+        ("answer: v | 3.33|m/s", Answer(symbol="v", value="3.33", unit="m/s")),
+        ("given: v = 20|m/s | speed", Given(symbol="v", value="20", unit="m/s", meaning="speed")),
+        # A value that is all absolute value, and maths bars inside brackets.
+        ("answer: |-5|", Answer(value="|-5|")),
+        (r"answer: S | \{x | x > 0\}", Answer(symbol="S", value=r"\{x | x > 0\}")),
+        ("answer: p | P(A | B) = 0.4", Answer(symbol="p", value="P(A | B) = 0.4")),
     ],
 )  # fmt: skip
 def test_a_bar_inside_the_maths_is_no_field_separator(line: str, record: object) -> None:

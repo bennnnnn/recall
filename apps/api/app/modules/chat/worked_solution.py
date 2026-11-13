@@ -24,6 +24,7 @@ record, or fails, is left out. ``worked_render`` lays the solution out with
 
 from __future__ import annotations
 
+import itertools
 import re
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
@@ -148,17 +149,40 @@ def _unwrapped(value: str) -> str:
 
 
 def _separators(text: str) -> list[int]:
-    """Where a record's fields split: each " | " the contract writes, a bar with space on
-    both sides. A bar against its neighbours is maths, |x|, \\ln|x|, P(A|B), \\left| … :
-    split there, "\\ln|x| + C" lost its x and the card ended at \\ln (2026-11-13). A record
-    that spaces none of its bars ("v|3.33|m/s") splits at every bar, as it did."""
+    """Where a record's fields split: every "|" that is not the maths'. A bar is the maths'
+    inside brackets (P(A|B), \\frac{x|x-5|}{…}, \\{x | x > 0\\}) or as a tight pair around
+    something (|x|, |-5|, \\ln|x|): split there, "\\ln|x| + C" lost its x and the card ended at
+    \\ln (2026-11-13). Every other bar splits, "||" an empty field and "v |3.33" included."""
     bars = [at for at, char in enumerate(text) if char == "|"]
-    spaced = [
-        at
-        for at in bars
-        if (at == 0 or text[at - 1].isspace()) and (at == len(text) - 1 or text[at + 1].isspace())
-    ]
-    return spaced or bars
+    maths = set(_paired_bars(text, bars))
+    depth = 0
+    for at, char in enumerate(text):
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth = max(0, depth - 1)
+        elif char == "|" and depth:
+            maths.add(at)
+    return [at for at in bars if at not in maths]
+
+
+def _paired_bars(text: str, bars: list[int]) -> list[int]:
+    """Bars that close around something: |x|, opened and closed against what they hold. Two
+    bars between words on both sides ("v|3.33|m/s") are a record's separators, written tight."""
+    paired: list[int] = []
+    for opening, closing in itertools.pairwise(bars):
+        inside = text[opening + 1 : closing]
+        before = text[opening - 1] if opening else " "
+        after = text[closing + 1] if closing + 1 < len(text) else " "
+        if (
+            opening not in paired
+            and inside
+            and not inside[0].isspace()
+            and not inside[-1].isspace()
+            and not (before.isalnum() and after.isalnum())
+        ):
+            paired += [opening, closing]
+    return paired
 
 
 def _split(text: str, count: int) -> list[str]:
