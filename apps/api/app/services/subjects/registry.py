@@ -351,16 +351,36 @@ class MoneyPeer(Protocol):
 # Money, the subjects' peer.
 MONEY: MoneyPeer = MONEY_PEER
 
-# The registration: one entry per subject.
+# The registration: one entry per subject. Which subject a line is never follows this order
+# (the subject order does); chat states the subjects' fixed prompt copy in it, which the
+# leak pass joins as listed (``chat.prompt_subjects``).
 SUBJECTS: tuple[SubjectAdapter, ...] = (
-    MATH_SUBJECT,
     PHYSICS_SUBJECT,
+    MATH_SUBJECT,
     CHEMISTRY_SUBJECT,
 )
 
-_BY_NAME: dict[SubjectName, SubjectAdapter] = {adapter.name: adapter for adapter in SUBJECTS}
+_BY_NAME: dict[str, SubjectAdapter] = {adapter.name: adapter for adapter in SUBJECTS}
+
+# The subject that finishes a reply no subject's fence owns: maths holds every unverified
+# reply's answer fences, LaTeX and charts to what it can check (chat's finalize passes).
+FENCE_FALLBACK: SubjectName = "math"
 
 
 def subject_adapter(name: SubjectName) -> SubjectAdapter:
     """The registered adapter of a subject."""
     return _BY_NAME[name]
+
+
+def adapter_named(name: str | None) -> SubjectAdapter | None:
+    """The adapter of a subject named by a string a turn carries, or None for no subject."""
+    return _BY_NAME.get(name) if name is not None else None
+
+
+def fence_owner(verified: VerifiedSolveBlock | None) -> SubjectAdapter:
+    """The subject that finishes a reply whose turn ``verified`` stands for: the one whose
+    fence owns the block (one at most), else maths."""
+    for adapter in SUBJECTS:
+        if adapter.fence.owns(verified):
+            return adapter
+    return _BY_NAME[FENCE_FALLBACK]

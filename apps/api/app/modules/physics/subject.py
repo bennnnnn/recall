@@ -100,7 +100,7 @@ class PhysicsFence:
     """Physics checks the replies it verified (chat's finalize passes)."""
 
     def owns(self, verified: VerifiedSolveBlock | None) -> bool:
-        return verified is not None and verified.subject == "physics"
+        return isinstance(verified, VerifiedPhysicsBlock)
 
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         return True

@@ -108,7 +108,7 @@ from app.services import locale as locale_service
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question
 from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
-from app.services.subjects.registry import SubjectName
+from app.services.subjects.registry import SUBJECTS, SubjectName
 
 
 @dataclass(frozen=True)
@@ -326,6 +326,16 @@ def _social_hint(turn: PromptTurn) -> str:
     return repeated_greeting_hint(run, last_reply)
 
 
+def _followup_section(subject: SubjectName) -> PromptSection:
+    """A turn that only continues ``subject``'s last problem gets its follow-up hints."""
+    hints = SUBJECT_HINTS[subject]
+    return PromptSection(
+        lambda t: t.followup == subject,
+        lambda _t: list(hints.followup),
+        name=f"{subject}_followup",
+    )
+
+
 # What the kind of turn needs, steadiest first so consecutive turns share a long
 # prefix: the length and style the message asks for, the profile (name only on a slim
 # turn, the email on a draft, the device location on a nearby ask), then the chat's
@@ -392,21 +402,8 @@ CONTEXT_SECTIONS: tuple[PromptSection, ...] = (
         lambda t: message_notes(t.query, t.exchange, t.user, t.memory_block),
         name="message_notes",
     ),
-    PromptSection(
-        lambda t: t.followup == "math",
-        lambda _t: list(SUBJECT_HINTS["math"].followup),
-        name="math_followup",
-    ),
-    PromptSection(
-        lambda t: t.followup == "chemistry",
-        lambda _t: list(SUBJECT_HINTS["chemistry"].followup),
-        name="chemistry_followup",
-    ),
-    PromptSection(
-        lambda t: t.followup == "physics",
-        lambda _t: list(SUBJECT_HINTS["physics"].followup),
-        name="physics_followup",
-    ),
+    # A turn that only continues a subject's last problem: that subject's follow-up hints.
+    *(_followup_section(adapter.name) for adapter in SUBJECTS),
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise
     # tempt the model into an unsolicited plan even though no task was asked.

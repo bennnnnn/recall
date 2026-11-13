@@ -22,8 +22,8 @@ from app.core.sympy_executor import run_sympy
 from app.services.problem_followup import message_role_content
 from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
 from app.services.subjects.order import read_subject_reason
-from app.services.subjects.registry import SubjectName as SubjectName
 from app.services.subjects.registry import SUBJECTS, SubjectRequest, subject_adapter
+from app.services.subjects.registry import SubjectName as SubjectName
 from app.services.worked_parts import parts_in_one_layout
 
 logger = logging.getLogger(__name__)
