@@ -156,3 +156,37 @@ describe("the window the full-screen explorer opens on", () => {
     }
   });
 });
+
+
+/** The server's samples across a range the learner named. */
+function over(xMin: number, xMax: number, f: (x: number) => number): [number, number][] {
+  return Array.from({ length: 96 }, (_, i) => {
+    const x = xMin + ((xMax - xMin) * i) / 95;
+    return [x, f(x)] as [number, number];
+  });
+}
+
+describe("a graph over the range the learner named", () => {
+  it.each([
+    ["a reservoir's depth over weeks 0 to 12", "144 - 4x", 0, 12, (x: number) => 144 - 4 * x],
+    ["y = 2x + 1 for x from −3 to 3", "2x + 1", -3, 3, (x: number) => 2 * x + 1],
+    ["a conversion graph to 12 inches", "2.54x", 0, 12, (x: number) => 2.54 * x],
+    ["a taxi fare over 0 to 10 km", "20 + 8x", 0, 10, (x: number) => 20 + 8 * x],
+  ])("shows the whole of %s", (_name, expr, xMin, xMax, f) => {
+    const spec = { type: "function", expr, points: over(xMin, xMax, f), x_min: xMin, x_max: xMax, domain_explicit: true } as GraphSpec;
+    const view = interactiveFunctionBounds(spec, CARD_ASPECT);
+    expect(view.xMin).toBe(xMin);
+    expect(view.xMax).toBe(xMax);
+    for (const [, y] of spec.points) {
+      expect(y).toBeGreaterThanOrEqual(view.yMin);
+      expect(y).toBeLessThanOrEqual(view.yMax);
+    }
+  });
+
+  it("keeps the crop for a curve with a pole across the range", () => {
+    const points = over(-Math.PI, Math.PI, Math.tan).filter(([, y]) => Number.isFinite(y));
+    const spec = { type: "function", expr: "tan(x)", points, x_min: -Math.PI, x_max: Math.PI, domain_explicit: true } as GraphSpec;
+    const view = interactiveFunctionBounds(spec, CARD_ASPECT);
+    expect(view.yMax - view.yMin).toBeLessThan(1000);
+  });
+});
