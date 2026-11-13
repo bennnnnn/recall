@@ -424,3 +424,28 @@ async def test_a_maths_figure_is_never_painted_nor_said_to_be_missing(can_use: b
         assert picture is not None
         assert await picture.attach("Answer.") == ("Answer.", [])
     drawn.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_read_later_than_the_live_wait_still_keeps_a_figure_unpainted() -> None:
+    """A read slower than the 1.2 s live wait let "draw the box" be painted: the picture
+    waits for the read to end."""
+    from app.modules.chat.turn_decision import TurnDecision
+
+    async def slow_read() -> TurnDecision | None:
+        await asyncio.sleep(0.05)
+        return TurnDecision(live=False, think=False, subject="maths", picture="diagram")
+
+    drawn = AsyncMock(return_value=uuid4())
+    with patch("app.modules.images.reply_picture.draw_unlinked", drawn):
+        picture = start_reply_picture(
+            _deps(can_use=True),
+            Settings(live_read_wait_seconds=0.001),
+            user=User(id=uuid4(), plan="pro", locale="en"),
+            chat_id=uuid4(),
+            content="draw a cat wearing a hat and also explain what a black hole is",
+            read=asyncio.ensure_future(slow_read()),
+        )
+        assert picture is not None
+        assert await picture.attach("Answer.") == ("Answer.", [])
+    drawn.assert_not_awaited()
