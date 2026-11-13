@@ -222,7 +222,12 @@ flowchart LR
    the givens (ΔT = T₂ − T₁) is no unknown solved for: it is the note above the law written
    in the givens (`with ΔT = T₂ − T₁` over `Q = m c (T₂ − T₁)`), and a form that drops a
    right angle says so (`with θ = 90°` over `τ = F d`); a form that is the law rearranged
-   follows it with no note (`formula_rows.py`). A step the substitution takes for granted
+   follows it with no note (`formula_rows.py`). Two forms with one left side always read as
+   one law (`law_binding/same_law.py`, both evaluated, never solved): the base written
+   another way (`h = gt²/2` under `h = ½gt²`) is shown once, a hundred times the base says
+   `as a percent`, the base with a symbol at 0 says so (`with h₀ = 0`), and a form that gives
+   another number for the question's givens (a train that stops before the time asked)
+   replaces the base, which does not hold there. A step the substitution takes for granted
    is shown before it: `n = t / T½ = 20 days / 5 days = 4` above `N = 80 / 2⁴`
    (`law_steps.py`). A given not in SI is followed, on its row, by the value the
    substitution uses, every side equal: `λ = 500 nm = 500 × 10⁻⁹ m = 5 × 10⁻⁷ m`,

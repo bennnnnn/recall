@@ -9,18 +9,30 @@ after the base is one of three things, and each reads as what it is:
   unknown solved for, so it is named where the law uses it, ``with ΔT = T₂ − T₁`` over the
   law written in the givens, and its numbers belong to **Substitution**;
 - the same law in the givens' terms: ``τ = F d``, with what makes it the same written
-  above it (``with θ = 90°``), or nothing when it is the law rearranged on its right
-  side (``P = V²/R``). A row that is the base again, spaced or braced differently, goes.
+  beside it (``with θ = 90°``, ``with h₀ = 0``, ``as a percent``), or nothing when it is
+  the law rearranged on its right side (``P = V²/R``). A row that is the base again,
+  written differently (``h = gt²/2`` under ``h = ½gt²``), goes; and when the form gives
+  another number than the base for the question's own givens (a train that stops before
+  the time asked: ``s = v_i²/2|a|``, not ``s = v_i t + ½at²``), the base does not hold
+  there and goes instead (``same_law``).
 """
 
 from __future__ import annotations
 
 import re
 
-from app.modules.physics.catalog import formula_spec, select_formula
+from app.modules.physics.catalog import formula_spec, select_formula, symbol_for
 from app.modules.physics.notation import shown
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.si import params_in_si
 from app.services.law_binding.inverse import form_params
+from app.services.law_binding.same_law import (
+    as_percent,
+    differs_at,
+    same_function,
+    zeroed_symbol,
+)
+from app.services.law_binding.spec import FormulaSpec
 from app.services.workout import math_line, solve_for_line, text_line
 
 # A script of one character with or without braces (v^{2}, v^2), and a function of one
@@ -118,7 +130,22 @@ def _why_same(formula: str, base: str, definitions: list[tuple[str, str]]) -> st
         return r"with $\theta = 90^\circ$"
     if formula_identity(_COSINE.sub("", base)) == target:
         return r"with $\theta = 0^\circ$"
-    return None
+    right, law = " = ".join(_sides(formula)[1:]), _sides(base)[-1]
+    if as_percent(right, law):
+        return "as a percent"
+    zeroed = zeroed_symbol(right, law)
+    return None if zeroed is None else f"with ${zeroed} = 0$"
+
+
+def _givens(spec: FormulaSpec, intent: PhysicsIntent, operation: str) -> dict[str, float]:
+    """The question's givens in SI, by the symbol the law's rows write them with. The
+    solver has already converted these: a reply is only written for a solved request."""
+    givens: dict[str, float] = {}
+    for name, value in params_in_si(intent).items():
+        symbol = symbol_for(spec, name)
+        if symbol is not None:
+            givens[shown(symbol, operation)] = value
+    return givens
 
 
 def formula_rows(
@@ -147,7 +174,8 @@ def formula_rows(
     rows = [math_line(base)]
     base_lhs = base.split(" = ", 1)[0].strip()
     # Every side of a chained base (``v_{max} = A\omega = A\sqrt{\frac{k}{m}}``) is the law.
-    stated = {formula_identity(side) for side in _sides(base)[1:]}
+    base_sides = _sides(base)[1:]
+    stated = {formula_identity(side) for side in base_sides}
     definitions: list[tuple[str, str]] = []
     pending: list[str] = []
     for formula in formulas:
@@ -155,9 +183,21 @@ def formula_rows(
         if formula_identity(formula) == formula_identity(base):
             continue
         if formula_lhs == base_lhs:
-            if formula_identity(" = ".join(_sides(formula)[1:])) in stated:
+            right = " = ".join(_sides(formula)[1:])
+            if formula_identity(right) in stated or any(
+                same_function(right, side) for side in base_sides
+            ):
                 continue
             why = _why_same(formula, base, definitions)
+            base_row = math_line(base)
+            if (
+                why is None
+                and spec is not None
+                and base_row in rows
+                and differs_at(right, base_sides[-1], _givens(spec, intent, operation))
+            ):
+                # The base gives another number here: it does not hold for these givens.
+                rows.remove(base_row)
             # A definition written out on this row is its note, not a line of its own.
             pending = [line for line in pending if why is None or line != _where(why)]
             rows.extend(pending)
@@ -168,9 +208,8 @@ def formula_rows(
         if defined is not None:
             definitions.append(defined)
             pending.append(_where(f"with ${defined[0]} = {defined[1]}$"))
-        elif formula_lhs != asked and not _is_symbol(formula_lhs):
+        elif not _is_symbol(formula_lhs):
             # A balance (``0 = m_1 v_1 - m_2 v_2``) states the law; nothing is solved for.
-            # The asked quantity is solved for whatever its shape (MA, N/N₀).
             rows.append(math_line(formula))
         else:
             rows.extend((solve_for_line(formula_lhs), math_line(formula)))

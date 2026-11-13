@@ -261,6 +261,60 @@ def test_a_balance_is_stated_whatever_its_left_side(lhs: str) -> None:
     assert not any(row.startswith("Solve for") for row in rows)
 
 
-def test_the_asked_quantity_is_solved_for_whatever_its_shape() -> None:
-    rows = formula_rows(_INTERNAL, ["MA = I (R + r)"], "MA")
-    assert "Solve for $MA$" in rows
+def test_a_parts_quadratic_is_stated_even_when_it_names_the_part() -> None:
+    # A part with no result symbol is named by its first formula's left side: a quadratic
+    # in t is still no quantity solved for ("Solve for ½at² + v_i t − s").
+    quadratic = r"\tfrac{1}{2}at^2 + v_i t - s"
+    rows = formula_rows(_INTERNAL, [f"{quadratic} = 0"], quadratic)
+    assert not any(row.startswith("Solve for") for row in rows)
+
+
+def _law_rows(reply: str) -> list[str]:
+    """The law's rows of a one-part reply: between its heading and **Substitution**."""
+    section = reply.split("**Solution**", 1)[1].split("**Substitution**", 1)[0]
+    return [line.strip() for line in section.splitlines() if line.strip().startswith("$")]
+
+
+@pytest.mark.parametrize(
+    ("question", "rows"),
+    [
+        # A hundred times the law is the law as a percent (review of PR #2420).
+        (
+            "What percent of a sample remains after 4 half-lives?",
+            [
+                r"$\frac{N}{N_0} = \left(\frac{1}{2}\right)^{n}$",
+                r"$\frac{N}{N_0} = 100 (\frac{1}{2})^{n}$ — as a percent",
+            ],
+        ),
+        # The law with a symbol at 0 says which.
+        (
+            "A ball is thrown straight up at 20 m/s. What is its maximum height?",
+            [
+                r"$h_{\max} = h_0 + \frac{v_0^2}{2g}$",
+                r"$h_{\max} = \frac{v_0^2}{2g}$ — with $h_0 = 0$",
+            ],
+        ),
+        # The law that does not hold for these givens goes: the train stops at 20 s.
+        (
+            "A train travelling at 30 m/s decelerates at 1.5 m/s². What is its displacement "
+            "after 30 s?",
+            [r"$s = \frac{v_i^2}{2|a|}$"],
+        ),
+        (
+            "A 100 W bulb is on for 5 hours a day. How much energy does it use in 30 days?",
+            [r"$E = P t_{\text{day}} \frac{n_{\text{days}}}{86400}$"],
+        ),
+        # The same law written another way is shown once.
+        (
+            "A ball is dropped from rest. How far does it fall in 2 s?",
+            [r"$h = \tfrac{1}{2}gt^2$"],
+        ),
+        (
+            "A block of wood of density 600 kg/m³ floats in water of density 1000 kg/m³. "
+            "What fraction of it is submerged?",
+            [r"$\frac{V_{sub}}{V} = \frac{\rho_{obj}}{\rho}$"],
+        ),
+    ],
+)
+def test_two_forms_of_one_law_read_as_one(question: str, rows: list[str]) -> None:
+    assert _law_rows(_reply(question)) == rows
