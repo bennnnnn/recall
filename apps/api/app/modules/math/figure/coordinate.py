@@ -84,13 +84,15 @@ def _inequality_line(request: FigureRequest, texts: list[str]) -> dict[str, obje
     solutions marked one by one when only those are asked for."""
     from app.modules.math.tool_check import same_inequalities, written_relations
 
+    # Shown as the read copies it ("-2 < x ≤ 3"), compared in one spelling.
     inequality = request.inequality.replace(_MINUS, "-").replace(_EN_DASH, "-")
-    for raw, plain in _COMPARATORS.items():
-        inequality = inequality.replace(raw, plain)
+    plain = inequality
+    for raw, spelled in _COMPARATORS.items():
+        plain = plain.replace(raw, spelled)
     reference = next(
         (text for text in texts if any(op != "=" for _, op, _ in written_relations(text))), None
     )
-    if reference is None or not same_inequalities(inequality, reference):
+    if reference is None or not same_inequalities(plain, reference):
         return None
     spec = math_solve.number_line_spec_from_expr(inequality)
     if spec is None:
