@@ -116,6 +116,12 @@ class _RequestIdFormatter(logging.Formatter):
             self._style._fmt = self._BASE_FMT
         return super().format(record)
 
+    def formatMessage(self, record: logging.LogRecord) -> str:
+        # A value from a request (a user's text, a header) never starts a forged line: CR and
+        # LF in the message are written escaped, as the JSON formatter writes them. A
+        # traceback, added after the message, keeps its lines.
+        return super().formatMessage(record).replace("\r", "\\r").replace("\n", "\\n")
+
 
 class _JsonFormatter(logging.Formatter):
     """One JSON object per line — production / Fly log drains."""

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from typing import Any
 from unittest.mock import patch
 
@@ -100,3 +101,19 @@ async def test_a_job_s_lines_name_the_job(
             await worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     said = [r.getMessage() for r in caplog.records if r.name == "app.test.job"]
     assert said and "'job_type': 'hello-job'" in said[0] and entry_id in said[0]
+
+
+def test_a_line_from_a_request_never_forges_another_line() -> None:
+    """CodeQL py/log-injection: a newline in a logged value is written escaped, as the JSON
+    formatter writes it; a traceback after the message keeps its lines."""
+    record = logging.LogRecord(
+        "app.chat", logging.ERROR, __file__, 1, "user said %s", ("hi\nERROR forged\r",), None
+    )
+    try:
+        raise ValueError("boom")
+    except ValueError:
+        record.exc_info = sys.exc_info()
+    line = _RequestIdFormatter().format(record)
+    first, *traceback = line.split("\n")
+    assert first.endswith(r"user said hi\nERROR forged\r")
+    assert traceback and traceback[-1] == "ValueError: boom"
