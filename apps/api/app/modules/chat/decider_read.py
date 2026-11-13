@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Any
 
@@ -40,9 +40,10 @@ _LIVE_AT = 0.35
 NEAR_LIVE_AT = 0.15
 _ASKED_AT = 0.5
 # A result to work out (``WORK_QUESTION``, its own call): on the work-need corpus's tuning
-# half every threshold from 0.3 to 0.7 laid out every calculation and nothing else; at 0.5
-# the held-out half laid out 18 of 18 calculations and 1 of 18 other questions ("1 newton in
-# base SI units", 0.64), where a number and a subject laid out 77% of them
+# half every threshold from 0.3 to 0.7 laid out every calculation and nothing else, and 0.5 is
+# that range's middle; held out (69 turns, Spanish, French and Amharic, "explain how to find",
+# follow-ups, a lesson's pick and a quiz answer among them) it laid out 35 of 35 calculations
+# and none of the 34 other questions, where a number and a subject laid out 77% of them
 # (``tests/behavior/work_need_eval.py``).
 _WORK_AT = 0.5
 # How long the turn's read waits for the work question's call once its own is in: both
@@ -227,34 +228,68 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
 
 
 async def decide_turn(
-    settings: Settings, state: str, *, has_earlier: bool, seconds: float
+    settings: Settings,
+    state: str,
+    *,
+    has_earlier: bool,
+    seconds: float,
+    ask_work: bool = False,
 ) -> dict[str, Any] | None:
-    """The Decider's read of ``state`` (the message, its earlier turns quoted), or None."""
+    """The Decider's read of ``state`` (the message, its earlier turns quoted), or None. With
+    ``ask_work`` the work question goes in a call of its own begun beside it, which ends when
+    the read does, whatever ends it (an answer, a failure, the reply's wait, a Stop)."""
     from app.gateways.decider_gateway import decide
     from app.gateways.llm_spend import meter_reported_cost
-    from app.models import model_catalog
 
     alias = ROUTING.decider
-    model = model_catalog.get(alias).model.removeprefix("openrouter/")
-    work_read = asyncio.create_task(
-        decide(settings, model=model, state=state, questions=WORK_QUESTION, seconds=seconds)
-    )
+    work_read: asyncio.Task[Any] | None = None
     try:
+        from app.models import model_catalog
+
+        model = model_catalog.get(alias).model.removeprefix("openrouter/")
+        if ask_work:
+            work_read = asyncio.create_task(
+                decide(settings, model=model, state=state, questions=WORK_QUESTION, seconds=seconds)
+            )
+            work_read.add_done_callback(_metered_work(alias))
         reply = await decide(
             settings, model=model, state=state, questions=QUESTIONS, seconds=seconds
         )
+        meter_reported_cost(alias, reply.usage.cost)
+        answers = dict(reply.answers)
+        if work_read is not None:
+            answers.update(await _work_answers(work_read))
     except Exception as exc:  # A read is a hint: the text read or the rules decide.
-        work_read.cancel()
         logger.info("decider read failed (%s)", type(exc).__name__)
         return None
-    meter_reported_cost(alias, reply.usage.cost)
-    answers = dict(reply.answers)
-    try:
-        # Begun with the turn's read; waited for only a moment past it.
-        work = await asyncio.wait_for(work_read, _WORK_GRACE_SECONDS)
-    except Exception as exc:  # The layout is left to the rules.
-        logger.info("decider work read failed (%s)", type(exc).__name__)
-    else:
-        meter_reported_cost(alias, work.usage.cost)
-        answers.update(work.answers)
+    finally:
+        if work_read is not None and not work_read.done():
+            work_read.cancel()
     return decision_fields(answers, has_earlier=has_earlier)
+
+
+async def _work_answers(work_read: asyncio.Task[Any]) -> dict[str, Any]:
+    """The work call's answers, waited for only a moment past the turn's read; none (the
+    rules lay the turn out) when it is late or failed."""
+    try:
+        reply = await asyncio.wait_for(work_read, _WORK_GRACE_SECONDS)
+    except Exception:
+        return {}
+    return dict(reply.answers)
+
+
+def _metered_work(alias: str) -> Callable[[asyncio.Task[Any]], None]:
+    """Each finished work call metered against the day's spend, and a failed one read (an
+    unread failure is logged as an error by asyncio)."""
+    from app.gateways.llm_spend import meter_reported_cost
+
+    def settle(task: asyncio.Task[Any]) -> None:
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.info("decider work read failed (%s)", type(error).__name__)
+            return
+        meter_reported_cost(alias, task.result().usage.cost)
+
+    return settle

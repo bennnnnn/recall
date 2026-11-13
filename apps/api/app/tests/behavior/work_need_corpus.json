@@ -755,9 +755,10 @@
  {
   "id": "work-h26",
   "area": "physics",
-  "work": false,
+  "work": true,
   "prompt": "What is 1 newton in base SI units?",
-  "holdout": true
+  "holdout": true,
+  "note": "a unit written in base units is a unit to convert (relabelled on review, 2026-11-13)"
  },
  {
   "id": "work-h27",
@@ -846,6 +847,277 @@
    [
     "assistant",
     "KE = ½mv² = ½ × 2 × 3² = 9 J."
+   ]
+  ]
+ },
+ {
+  "id": "work-n01",
+  "area": "maths",
+  "work": true,
+  "prompt": "Explain how to find the area of a trapezium with parallel sides 6 cm and 10 cm and height 4 cm.",
+  "holdout": true
+ },
+ {
+  "id": "work-n02",
+  "area": "maths",
+  "work": true,
+  "prompt": "Show me how to solve 4x − 7 = 13.",
+  "holdout": true
+ },
+ {
+  "id": "work-n03",
+  "area": "physics",
+  "work": true,
+  "prompt": "How do I convert 45 km/h to m/s?",
+  "holdout": true
+ },
+ {
+  "id": "work-n04",
+  "area": "maths",
+  "work": true,
+  "prompt": "Resuelve 2x + 5 = 11.",
+  "holdout": true
+ },
+ {
+  "id": "work-n05",
+  "area": "maths",
+  "work": true,
+  "prompt": "Calcule l'aire d'un cercle de rayon 3 cm.",
+  "holdout": true
+ },
+ {
+  "id": "work-n06",
+  "area": "maths",
+  "work": true,
+  "prompt": "x ን ፈልግ: 3x + 4 = 19",
+  "holdout": true
+ },
+ {
+  "id": "work-n07",
+  "area": "maths",
+  "work": true,
+  "prompt": "A rectangle is 7 m long and 3 m wide. What is its perimeter?",
+  "holdout": true
+ },
+ {
+  "id": "work-n08",
+  "area": "maths",
+  "work": true,
+  "prompt": "If f(x) = x² − 3x, what is f(4)?",
+  "holdout": true
+ },
+ {
+  "id": "work-n09",
+  "area": "physics",
+  "work": true,
+  "prompt": "Convert 2.5 hours into minutes.",
+  "holdout": true
+ },
+ {
+  "id": "work-n10",
+  "area": "chemistry",
+  "work": true,
+  "prompt": "How many moles of CO2 are in 88 g?",
+  "holdout": true
+ },
+ {
+  "id": "work-n11",
+  "area": "physics",
+  "work": true,
+  "prompt": "A car travels at 15 m/s for 8 s. How far does it go?",
+  "holdout": true
+ },
+ {
+  "id": "work-n12",
+  "area": "maths",
+  "work": true,
+  "prompt": "Expand and simplify (2x − 1)² − 4x.",
+  "holdout": true
+ },
+ {
+  "id": "work-n13",
+  "area": "maths",
+  "work": true,
+  "prompt": "Is 221 a prime number? Show your working.",
+  "holdout": true
+ },
+ {
+  "id": "work-n14",
+  "area": "maths",
+  "work": true,
+  "prompt": "Work out 3/4 of 120.",
+  "holdout": true
+ },
+ {
+  "id": "work-n15",
+  "area": "maths",
+  "work": true,
+  "prompt": "Approximate √50 to one decimal place.",
+  "holdout": true
+ },
+ {
+  "id": "work-n16",
+  "area": "follow-up",
+  "work": true,
+  "prompt": "Now do radius 8 cm.",
+  "holdout": true,
+  "history": [
+   [
+    "user",
+    "Find the area of a circle of radius 5 cm."
+   ],
+   [
+    "assistant",
+    "A = πr² = 25π ≈ 78.54 cm²."
+   ]
+  ]
+ },
+ {
+  "id": "work-n17",
+  "area": "maths",
+  "work": false,
+  "prompt": "Explain what the gradient of a line means, using y = 2x + 1 as an example.",
+  "holdout": true
+ },
+ {
+  "id": "work-n18",
+  "area": "maths",
+  "work": false,
+  "prompt": "¿Qué significa el 2 en x²?",
+  "holdout": true
+ },
+ {
+  "id": "work-n19",
+  "area": "maths",
+  "work": false,
+  "prompt": "Que veut dire le symbole ≤ dans x ≤ 4 ?",
+  "holdout": true
+ },
+ {
+  "id": "work-n20",
+  "area": "maths",
+  "work": false,
+  "prompt": "በ 5x ውስጥ 5 ምን ማለት ነው?",
+  "holdout": true
+ },
+ {
+  "id": "work-n21",
+  "area": "maths",
+  "work": false,
+  "prompt": "Why do we flip the inequality sign when we divide by −2?",
+  "holdout": true
+ },
+ {
+  "id": "work-n22",
+  "area": "physics",
+  "work": false,
+  "prompt": "Give me 3 word problems about speed for grade 7.",
+  "holdout": true
+ },
+ {
+  "id": "work-n23",
+  "area": "physics",
+  "work": false,
+  "prompt": "What is the unit of the 9.8 in g = 9.8 m/s²?",
+  "holdout": true
+ },
+ {
+  "id": "work-n24",
+  "area": "maths",
+  "work": false,
+  "prompt": "Who first proved that the angles of a triangle add up to 180°?",
+  "holdout": true
+ },
+ {
+  "id": "work-n25",
+  "area": "chemistry",
+  "work": false,
+  "prompt": "What is the difference between a 1st-order and a 2nd-order reaction?",
+  "holdout": true
+ },
+ {
+  "id": "work-n26",
+  "area": "maths",
+  "work": false,
+  "prompt": "Write the number 4,507 in words.",
+  "holdout": true
+ },
+ {
+  "id": "work-n27",
+  "area": "physics",
+  "work": false,
+  "prompt": "Name the 3 states of matter.",
+  "holdout": true
+ },
+ {
+  "id": "work-n28",
+  "area": "maths",
+  "work": false,
+  "prompt": "Describe the shape of the graph of y = x² in words.",
+  "holdout": true
+ },
+ {
+  "id": "work-n29",
+  "area": "maths",
+  "work": false,
+  "prompt": "What is a 3D shape with 6 square faces called?",
+  "holdout": true
+ },
+ {
+  "id": "work-n30",
+  "area": "maths",
+  "work": false,
+  "prompt": "Translate 'the product of 4 and a number' into algebra.",
+  "holdout": true
+ },
+ {
+  "id": "work-n31",
+  "area": "follow-up",
+  "work": false,
+  "prompt": "Why is it r squared?",
+  "holdout": true,
+  "history": [
+   [
+    "user",
+    "Find the area of a circle of radius 5 cm."
+   ],
+   [
+    "assistant",
+    "A = πr² = 25π ≈ 78.54 cm²."
+   ]
+  ]
+ },
+ {
+  "id": "work-n32",
+  "area": "follow-up",
+  "work": false,
+  "prompt": "2",
+  "holdout": true,
+  "history": [
+   [
+    "user",
+    "Teach me about numbers."
+   ],
+   [
+    "assistant",
+    "Which do you want to learn first: 1) fractions 2) decimals 3) percentages?"
+   ]
+  ]
+ },
+ {
+  "id": "work-n33",
+  "area": "follow-up",
+  "work": false,
+  "prompt": "42",
+  "holdout": true,
+  "history": [
+   [
+    "user",
+    "Quiz me on times tables."
+   ],
+   [
+    "assistant",
+    "Quick check: what is 6 × 7?"
    ]
   ]
  }

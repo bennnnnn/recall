@@ -527,3 +527,26 @@ async def test_stem_the_readers_missed_is_laid_out_as_the_read_says(
     ctx = _turn(RESISTORS, _read("physics", False, work=work))
     await decide_from_the_read(ctx, _SETTINGS)
     assert (ctx.worked is not None) is laid_out
+
+
+@pytest.mark.asyncio
+async def test_a_regenerate_waits_for_the_read_when_its_layout_is_at_stake() -> None:
+    """Its lane and escalation stay, but the 7x question regenerated must not come back under
+    a Given and a Required because the read was still on its way."""
+    loop = asyncio.get_event_loop()
+    pending: asyncio.Future[Any] = loop.create_future()
+    ctx = _turn(_SEVEN_X, None, thinking="escalate", worked=WorkedLayout())
+    ctx.prompt_messages = with_worked_contract(ctx.prompt_messages)
+    ctx.live_read = pending  # type: ignore[assignment]
+    loop.call_later(0.01, pending.set_result, _read("maths", False, work=False))
+    await decide_from_the_read(ctx, isolated_settings(live_read_wait_seconds=1))
+    assert (ctx.worked, ctx.thinking, ctx.model) == (None, "escalate", "free-chat")
+
+
+@pytest.mark.parametrize("content", ["2", "42"])
+@pytest.mark.asyncio
+async def test_the_reads_work_never_adds_a_layout_the_rules_would_not(content: str) -> None:
+    """A lesson's pick or a quiz answer stays plain, whatever the read says of it."""
+    ctx = _turn(content, _read("maths", False, work=True))
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.worked is None

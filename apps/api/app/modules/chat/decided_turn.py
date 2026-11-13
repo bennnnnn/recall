@@ -86,9 +86,15 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
         if task.cancelled() or task.exception() is not None:
             return None
         return task.result()
-    if not _lane_may_move(ctx):
+    if not (_lane_may_move(ctx) or _layout_at_stake(ctx)):
         return None
     return await turn_decision_result(task, settings)
+
+
+def _layout_at_stake(ctx: StreamContext) -> bool:
+    """The readers gave the turn the ```worked contract for its number and nothing verified it:
+    the read's ``work`` may take it away, whatever model or escalation the turn keeps."""
+    return ctx.worked is not None and not _worked(ctx) and ctx.instant_reply is None
 
 
 def _worked(ctx: StreamContext) -> bool:
@@ -157,10 +163,10 @@ def _shows_a_picture(ctx: StreamContext) -> bool:
 
 
 def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -> None:
-    """The ```worked contract by the read's ``work``: a calculation the subject readers
-    missed and the read calls maths, physics or chemistry gets it (P16, a resistor problem,
-    2026-11-10: no reader claimed it, so the everyday prompt answered it), and a message
-    that works nothing out loses the one the readers gave it for a number in it."""
+    """The ```worked contract for a calculation the subject readers missed and the read
+    calls maths, physics or chemistry (P16, a resistor problem, 2026-11-10: no reader
+    claimed it, so the everyday prompt answered it); a message the read says works nothing
+    out gets none, and loses the one the readers gave it for a number in it."""
     if _worked(ctx) or ctx.instant_reply:
         return
     if read.work is False:
@@ -171,10 +177,10 @@ def _worked_layout(ctx: StreamContext, settings: Settings, read: TurnDecision) -
     if subject is None or ctx.worked is not None:
         return
     content = ctx.user_message_content
-    # With no word from the read on the work, a value to work with, not only a digit: "Name
-    # this compound: CH3CH2CH2OH" got a Given and a Required for its formula (live,
-    # 2026-11-10).
-    if read.work is None and not (states_a_quantity(content) or is_school_exercise(content)):
+    # A value to work with, not only a digit: "Name this compound: CH3CH2CH2OH" got a Given
+    # and a Required for its formula (live, 2026-11-10). The read's work only takes a layout
+    # away, never adds one the rules would not: a lesson's pick ("2") stays plain.
+    if not (states_a_quantity(content) or is_school_exercise(content)):
         return
     layout = worked_layout(
         content,
