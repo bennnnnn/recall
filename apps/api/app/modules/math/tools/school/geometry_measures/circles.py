@@ -412,7 +412,8 @@ def circle_part(numbers: list[float], words: list[str]) -> _Solved | None:
     quantity, kind = words[0], words[1]
     unit = words[2] if len(words) > 2 else None
     r, given = _radius(kind, reading.size)
-    measure = _measure(quantity, reading, Fraction(_n(r)))
+    # The radius as the question wrote it: a display form (6 digits) cut 1234.5678 to 1234.57.
+    measure = _measure(quantity, reading, Fraction(repr(r)))
     givens = [given]
     if reading.angle:
         givens.append(math_line(rf"\theta = {_n(reading.angle)}^\circ", "central angle"))

@@ -328,3 +328,22 @@ def test_whole_circles_and_sectors_with_pi_itself_keep_their_solver(
     assert intent is not None and intent.kind in {"circle", "sector"}
     block = _build_verified_block(intent, _SETTINGS)
     assert block is not None and block.canonical_answer == card
+
+
+@pytest.mark.parametrize(
+    ("question", "card"),
+    [
+        # ¼ * 3.14 * 1234.5678² = 1196463.757…; a 6-digit radius (1234.57) gave 1196468.02.
+        ("Find the area of a quarter circle of radius 1234.5678 cm (use 3.14)",
+         rf"\approx 1196463.76{_CM2}"),
+        # ½ * 3.14 * 12.3456789 + 12.3456789 = 31.7283…
+        ("Find the perimeter of a semicircle of diameter 12.3456789 cm (use 3.14)",
+         rf"\approx 31.73{_CM}"),
+    ],
+)  # fmt: skip
+def test_a_part_is_worked_with_the_radius_as_written(question: str, card: str) -> None:
+    """Claude review (#2424): the radius went through a 6-digit display form first."""
+    intent = extract_math_intent(question)
+    assert intent is not None
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None and block.canonical_answer == card
