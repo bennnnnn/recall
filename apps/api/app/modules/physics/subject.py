@@ -184,6 +184,8 @@ class PhysicsSubject:
     photo: PhysicsPhoto = PhysicsPhoto()
     # No model tool of its own.
     tool: None = None
+    # Its pictures come with its solve (a scene, a molecule), never from a separate read.
+    figure: None = None
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_physics(text)

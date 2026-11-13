@@ -6,9 +6,12 @@ Arabic and Chinese characters between the two copies.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import Any, cast
+
 import pytest
 
-from app.modules.chat.repeated_fences import drop_repeated_fences
+from app.modules.chat.repeated_fences import drop_repeated_fences, drop_repeated_pictures
 
 _PIE = (
     '```chart\n{"$schema":"https://vega.github.io/schema/vega-lite/v5.json","data":{"values":'
@@ -62,3 +65,15 @@ def test_stray_lines_in_another_reply_language_are_judged_by_its_script() -> Non
     out = drop_repeated_fences(reply, question)
     assert out.count("```chart") == 1
     assert "娱乐" not in out and "Вот диаграмма." in out
+
+
+@pytest.mark.parametrize("server_text", [False, True])
+def test_a_server_reply_keeps_its_scene_under_each_part(server_text: bool) -> None:
+    """A physics question in two parts gets the same scene under each part's card: the
+    server's pictures are its own; only the model's repeats go."""
+    reply = f"(a) 11.5 m\n\n{_PIE}\n\n(b) 1.53 s\n\n{_PIE}"
+    state: Any = SimpleNamespace(
+        server_text=server_text, text=reply, ctx=SimpleNamespace(user_message_content="")
+    )
+    kept = drop_repeated_pictures(cast(Any, state)).count("```chart")
+    assert kept == (2 if server_text else 1)

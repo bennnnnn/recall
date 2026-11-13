@@ -12,8 +12,12 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
+from typing import TYPE_CHECKING
 
 from app.services.md_fence_scan import Fence, iter_fences
+
+if TYPE_CHECKING:
+    from app.modules.chat.finalize_passes import FinalizeState
 
 # Fences that draw something: a repeat of one is a second copy of the same picture.
 _PICTURE_LANGS = frozenset(
@@ -97,3 +101,11 @@ def drop_repeated_fences(text: str, question: str = "") -> str:
     for start, end, kept in reversed(cuts):
         text = text[:start].rstrip("\n ") + kept + text[end:].lstrip("\n")
     return text.rstrip() + "\n" if text.endswith("\n") else text.rstrip()
+
+
+def drop_repeated_pictures(state: FinalizeState) -> str:
+    """The finalize pass: the model's repeated pictures go; a server reply's pictures (one
+    scene under each part) are its own."""
+    if state.server_text:
+        return state.text
+    return drop_repeated_fences(state.text, state.ctx.user_message_content or "")

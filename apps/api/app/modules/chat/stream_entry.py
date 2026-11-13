@@ -24,6 +24,7 @@ from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
 from app.modules.chat import turn_decision
+from app.modules.chat.figure_turn import start_figure, stop_figure
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
@@ -95,10 +96,29 @@ async def _reserve_new_turn(
     return rows
 
 
-async def _end_new_turn(ctx: StreamContext, chat_id: UUID) -> None:
-    """A turn that failed before its reply saved draws nothing; the user's row still lands."""
+def _attach_reads(
+    ctx: StreamContext,
+    settings: Settings,
+    live_read: asyncio.Task[TurnDecision | None] | None,
+    misses: set[str],
+) -> None:
+    """The turn's read and what the intercepts missed, on the context; the picture a maths
+    question asks to see starts here, beside the reply (``chat.figure_turn``)."""
+    ctx.live_read = live_read
+    ctx.photo_missed = "photo" in misses
+    ctx.figure = start_figure(settings, ctx)
+
+
+def _stop_pictures(ctx: StreamContext) -> None:
+    """A turn that ends before its reply saved draws nothing."""
     if ctx.reply_picture is not None:
         ctx.reply_picture.cancel()
+    stop_figure(ctx)
+
+
+async def _end_new_turn(ctx: StreamContext, chat_id: UUID) -> None:
+    """A turn that failed before its reply saved draws nothing; the user's row still lands."""
+    _stop_pictures(ctx)
     try:
         await await_user_message_persist(ctx)
     except Exception:
@@ -202,6 +222,7 @@ async def stream_chat_response(
             prior_count=turn.prior_count,
             misses=misses,
             on_status=status,
+            read=live_read,
         ):
             await res.refund()
             return
@@ -235,8 +256,7 @@ async def stream_chat_response(
             unhealthy=turn.unhealthy,
             half_open=turn.half_open,
         )
-        ctx.live_read = live_read
-        ctx.photo_missed = "photo" in misses
+        _attach_reads(ctx, settings, live_read, misses)
         try:
             ctx.reply_picture = start_reply_picture(
                 deps, settings, user=turn.user, chat_id=chat_id, content=content
@@ -300,6 +320,7 @@ async def stream_regenerate_response(
             outcome=outcome,
             misses=misses,
             on_status=status,
+            read=live_read,
         ):
             return
         current_image_ids, model = _regenerate_images(turn, settings, model_alias)
@@ -357,7 +378,7 @@ async def stream_regenerate_response(
             # Regenerating says the answer was not good enough: one level more.
             thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
-        ctx.photo_missed, ctx.live_read = "photo" in misses, live_read
+        _attach_reads(ctx, settings, live_read, misses)
         await top_up_reserve_for_prompt(
             res,
             settings=settings,
@@ -381,5 +402,4 @@ async def stream_regenerate_response(
             ):
                 yield token
         finally:
-            if ctx.reply_picture is not None:
-                ctx.reply_picture.cancel()
+            _stop_pictures(ctx)

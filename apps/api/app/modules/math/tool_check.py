@@ -393,6 +393,15 @@ def holds_no_formula(text: str) -> bool:
     return _UserMath(text).empty
 
 
+def writes_formula_in(text: str, variable: str) -> bool:
+    """``text`` writes a formula in ``variable`` ("y = 2x + 1"), not only a relation between
+    stated amounts ("1 inch = 2.54 cm"): a graph of it is held to that formula."""
+    import sympy
+
+    symbol = sympy.Symbol(variable)
+    return any(symbol in expr.free_symbols for expr in _UserMath(text).expressions)
+
+
 def tool_call_matches_user_text(raw_args: str | dict[str, Any], user_texts: list[str]) -> bool:
     """True when the sympy call works on a problem from the user's own messages."""
     return matched_user_text(raw_args, user_texts) is not None

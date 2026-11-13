@@ -250,6 +250,36 @@ class MathTool:
 
 
 @dataclass(frozen=True)
+class MathFigure:
+    """The picture a maths question asks to see, drawn from its own values (``figure``)."""
+
+    async def draw(self, question: str, earlier: Sequence[str], settings: Settings) -> str | None:
+        from app.modules.math.figure.read import draw_figure
+
+        return await draw_figure(question, earlier, settings)
+
+    def shown(self, verified: VerifiedSolveBlock | None) -> bool:
+        from app.modules.math.figure.substitutes import verified_picture
+
+        return verified_picture(verified)
+
+    def whole(self, text: str) -> bool:
+        from app.modules.math.figure.substitutes import holds_whole_picture
+
+        return holds_whole_picture(text)
+
+    def adds_to(self, text: str, fence: str) -> bool:
+        from app.modules.math.figure.substitutes import adds_to
+
+        return adds_to(text, fence)
+
+    def without_substitutes(self, text: str) -> str:
+        from app.modules.math.figure.substitutes import without_substitutes
+
+        return without_substitutes(text)
+
+
+@dataclass(frozen=True)
 class MathSubject:
     name: Literal["math"] = "math"
     hints: SubjectHints = _HINTS
@@ -257,6 +287,7 @@ class MathSubject:
     fence: MathFence = MathFence()
     photo: MathPhoto = MathPhoto()
     tool: MathTool = MathTool()
+    figure: MathFigure = MathFigure()
 
     def asks(self, text: str, *, has_image_attachment: bool = False) -> bool:
         return needs_symbolic_math(text, has_image_attachment=has_image_attachment)

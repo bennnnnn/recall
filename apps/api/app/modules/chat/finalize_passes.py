@@ -37,6 +37,7 @@ from app.core.config import Settings
 from app.modules.chat.claim_check import cut_unsupported_claims
 from app.modules.chat.control_tokens import drop_control_tokens, strip_control_tokens
 from app.modules.chat.emoji_placement import place_reply_emoji
+from app.modules.chat.figure_turn import attach_figure
 from app.modules.chat.finalize_contracts import (
     CARD_PASSES,
     EFFECT,
@@ -92,7 +93,7 @@ from app.modules.chat.lesson_shape import hold_lesson_shape
 from app.modules.chat.meta_notes import unwrap_meta_notes
 from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
-from app.modules.chat.repeated_fences import drop_repeated_fences
+from app.modules.chat.repeated_fences import drop_repeated_pictures
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.search_links import unlink_unretrieved_links
@@ -236,13 +237,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass("generic_closer", strip_generic_closer, kind=TEXT),
     FinalizePass("praise_opener", strip_praise_opener, kind=TEXT),
     FinalizePass("meta_notes", lambda s: unwrap_meta_notes(s.text), kind=TEXT),
-    # The model's picture written twice (a pie chart, stray tokens between the copies).
-    FinalizePass(
-        "repeated_fences",
-        lambda s: drop_repeated_fences(s.text, s.ctx.user_message_content or ""),
-        kind=TEXT,
-    ),
     FinalizePass("prompt_leaks", drop_prompt_leaks_pass, closed=drop_prompt_lines, kind=TEXT),
+    # The model's picture written twice (a pie chart, stray tokens between the copies).
+    FinalizePass("repeated_fences", drop_repeated_pictures, kind=TEXT),
     FinalizePass("self_attribution", lambda s: drop_self_attribution(s.text), kind=TEXT),
     FinalizePass(
         "turn_meta",
@@ -286,6 +283,15 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         draw_formula_charts,
         kind=TEXT,
         after=frozenset({"math_fences"}),
+    ),
+    # The picture a maths question asks to see, drawn from its values beside the reply:
+    # after the passes that strip a picture no solver wrote, and a failure keeps the text.
+    FinalizePass(
+        "figure",
+        attach_figure,
+        OnError(log_as="figure"),
+        kind=EFFECT,  # waits on the picture's model read, and commits the text
+        after=frozenset({"math_fences", "formula_charts"}),
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
     FinalizePass("unverified_notes", append_unverified_notes, kind=TEXT),

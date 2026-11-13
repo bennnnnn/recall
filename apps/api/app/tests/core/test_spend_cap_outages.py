@@ -238,6 +238,8 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/images/generation.py",
         # Photo lookup: the chat's photo turn, and a reply's photo (best-effort, none).
         "modules/images/search.py",
+        # A maths picture's read: no picture, the reply stands. modules/math/test_math_figure.py.
+        "modules/math/figure/read.py",
         "modules/memory/api.py",  # memory edits
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
         "services/scan_read.py",  # photo scans, every subject
