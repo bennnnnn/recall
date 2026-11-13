@@ -46,6 +46,8 @@ function copyUnit(spec: { unit?: string }, row: Record<string, unknown>): void {
 
 /** Copy a value the server stated (an area, a hypotenuse) when it is a finite number. */
 function copyNumber<T extends object>(spec: T, row: Record<string, unknown>, key: keyof T & string): void {
+  // `Number(null)` is 0: a measure the server left out must not draw as "0.00".
+  if (row[key] === null || row[key] === undefined) return;
   const value = Number(row[key]);
   if (Number.isFinite(value)) (spec as Record<string, unknown>)[key] = value;
 }
@@ -203,6 +205,7 @@ function parseSector(row: Record<string, unknown>): SectorSpec | null {
   copyFlag(spec, row, "show_labels");
   copyNumber(spec, row, "arc_length");
   copyNumber(spec, row, "area");
+  copyNumber(spec, row, "perimeter");
   spec.labels = readLabels(row);
   return spec;
 }

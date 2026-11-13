@@ -68,6 +68,61 @@ describe("sector canvas follows its actual swept bounds", () => {
     }
   });
 
+  it("draws a quarter circle as a quarter, labelled with the quarter's own area", async () => {
+    // The server's figure for "the area of the quarter circle of radius 8 cm (use 3.14)":
+    // the whole circle (201.06 cm²) was drawn once.
+    await render(<GeometryBlock content={JSON.stringify({
+      type: "sector", radius: 8, angle_deg: 90, unit: "cm", show_labels: true, area: 50.24,
+      labels: { radius: "8 cm", area: "50.24 cm²", angle: "90°" },
+    })} />);
+    const path = String(mockSvgPath.mock.calls[0][0].d);
+    const numbers = path.match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/g)!.map(Number);
+    const [cx, cy, x1, y1, radius] = numbers;
+    const [x2, y2] = numbers.slice(-2);
+    // From 12 o'clock to 3 o'clock, one short arc, closed by both radii.
+    expect([x1, y1]).toEqual([cx, cy - radius]);
+    expect(x2).toBeCloseTo(cx + radius, 10);
+    expect(y2).toBeCloseTo(cy, 10);
+    expect(path).toMatch(/ 0 0 1 /);
+    expect(path.endsWith("Z")).toBe(true);
+    const texts = mockSvgText.mock.calls.map(([props]) => String(props.children));
+    expect(texts).toContain("Area:\u00A050.24 cm²");
+    expect(texts).toContain("90°");
+    expect(texts.filter((text) => text === "8 cm")).toHaveLength(2);
+    expect(texts.some((text) => text.startsWith("Arc length") || text.includes("201"))).toBe(false);
+  });
+
+  it("labels a part's perimeter under the figure and leaves out what the server did not send", async () => {
+    const { toJSON } = await render(<GeometryBlock content={JSON.stringify({
+      type: "sector", radius: 5, angle_deg: 180, unit: "cm", perimeter: 25.71, area: null,
+      labels: { radius: "5 cm", perimeter: "25.71 cm", angle: "180°" },
+    })} />);
+    const texts = mockSvgText.mock.calls.map(([props]) => String(props.children));
+    expect(texts).toContain("Perimeter:\u00A025.71 cm");
+    // A null measure is absent, never drawn as 0.00.
+    expect(texts.some((text) => text.startsWith("Area") || text.includes("0.00"))).toBe(false);
+    const svg = nodesIn(toJSON()).find((node) => node.type === "RNSVGSvgView")!;
+    const footer = mockSvgText.mock.calls.map(([props]) => props)
+      .find((props) => String(props.children).startsWith("Perimeter"))!;
+    expect(Number(svg.props?.height) - Number(footer.y)).toBe(28);
+  });
+
+  it("stacks three measures under the figure without clipping the last", async () => {
+    const { toJSON } = await render(<GeometryBlock content={JSON.stringify({
+      type: "sector", radius: 4, angle_deg: 90, unit: "cm", area: 12.57, arc_length: 6.28,
+      perimeter: 14.28,
+    })} />);
+    const svg = nodesIn(toJSON()).find((node) => node.type === "RNSVGSvgView")!;
+    const footers = mockSvgText.mock.calls.map(([props]) => props)
+      .filter((props) => /^(Area|Arc length|Perimeter):/.test(String(props.children)));
+    expect(footers.map((props) => String(props.children).split(":")[0]))
+      .toEqual(["Area", "Arc length", "Perimeter"]);
+    const ys = footers.map((props) => Number(props.y));
+    expect(ys[1] - ys[0]).toBe(16);
+    expect(ys[2] - ys[1]).toBe(16);
+    expect(Number(svg.props?.height) - ys[2]).toBe(12);
+  });
+
   it("does not reserve footer space when labels are hidden", async () => {
     const { toJSON } = await render(<GeometryBlock content={JSON.stringify({
       type: "sector", radius: 4, angle_deg: 90, show_labels: false,

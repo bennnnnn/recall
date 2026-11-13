@@ -113,6 +113,8 @@ export type SectorSpec = {
   show_labels?: boolean;
   arc_length?: number;
   area?: number;
+  /** The arc and both radii (a quarter circle's perimeter), when that was asked. */
+  perimeter?: number;
   labels?: Record<string, string>;
 };
 

@@ -327,8 +327,10 @@ flowchart LR
    thing the phone draws a green check for. A reply that answers and then offers more
    ("Want the max height too?") keeps the card and scene; only a reply that asks instead
    of stating any result goes without. A final value in the prose that differs from the
-   verified one (`R = 20.4 m` against `35.3 m`) gets one line above the card: "The
-   verified answer is …". A model-written `simulation` is never shown on a turn without
+   verified one at the precision the reply wrote it (`R = 20.4 m` against `35.3 m`; `20 m/s` agrees with 19.8) stands in a card with no check, and the
+   scene goes: the model was shown the verified result, so the two read the question
+   differently (it was "The verified answer is …" above the card until 2026-11-13). A
+   model-written `simulation` is never shown on a turn without
    a verified physics block.
 
 ## Adding a law

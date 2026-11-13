@@ -112,8 +112,7 @@ def test_definition_mixed_and_transformed_requests_keep_the_language_path(query:
 def test_multiple_shapes_or_conflicting_dimensions_keep_the_language_path(query: str) -> None:
     intent = extract_math_intent(query)
     if intent is None:
-        # "Draw a square and a circle" reads no default sizes any more: the model's turn.
-        return
+        return  # two figures named: no one shape's reading is the question's
     verified = _build_verified_block(intent, _SETTINGS)
     assert verified is not None
     assert maybe_direct_math_reply(verified, query) is None
