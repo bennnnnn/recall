@@ -5,6 +5,7 @@ import { MathText } from "@/components/rich/MathText";
 import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
 import { mathSizeOf, withGreenTicks } from "@/components/markdown/rules/textWithMath";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
+import { workoutPart } from "@/lib/markdown/workoutSection";
 import { typedScriptsAsMath } from "@/lib/math/typedScripts";
 import type { Theme } from "@/lib/theme";
 
@@ -66,4 +67,24 @@ export function workingHeading(
       {marked.caret ? <StreamingCursor /> : null}
     </View>
   );
+}
+
+/**
+ * A part's letter, drawn whole before what the part asks: squeezed with the meaning in a
+ * row that does not wrap, Android broke "(c)" as "(c" over ")" (2026-11-13).
+ */
+export function partLabelText(label: string, body: StyleProp<TextStyle>): React.ReactElement {
+  return (
+    <Text testID="workout-part-label" style={[body, { flexShrink: 0 }]}>
+      {`${label} `}
+    </Text>
+  );
+}
+
+/** A line's part letter as written ("(c)", "Part (b):") and what follows it. */
+export function partLabel(state: string): { label: string; rest: string } | null {
+  const line = state.trim();
+  const part = workoutPart(line);
+  if (!part) return null;
+  return { label: line.slice(0, line.length - part.title.length).trimEnd(), rest: part.title };
 }

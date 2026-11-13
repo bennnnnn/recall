@@ -20,7 +20,12 @@ import {
   WORK_RULE,
 } from "@/components/markdown/markdownContentStyles";
 import { mathSizeOf } from "@/components/markdown/rules/textWithMath";
-import { workingHeading, workoutInline } from "@/components/markdown/rules/workoutInline";
+import {
+  partLabel,
+  partLabelText,
+  workingHeading,
+  workoutInline,
+} from "@/components/markdown/rules/workoutInline";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
@@ -168,26 +173,6 @@ function workoutRule(t: Theme) {
  */
 export function subheadingStyle(styles: StyleMap, t: Theme): StyleProp<TextStyle> {
   return [styles.body, styles.text, { ...Weight.bold, color: t.assistantText }];
-}
-
-/**
- * A part's letter, drawn whole before what the part asks: squeezed with the meaning in a
- * row that does not wrap, Android broke "(c)" as "(c" over ")" (2026-11-13).
- */
-function partLabelText(label: string, body: StyleProp<TextStyle>): React.ReactElement {
-  return (
-    <Text testID="workout-part-label" style={[body, { flexShrink: 0 }]}>
-      {`${label} `}
-    </Text>
-  );
-}
-
-/** A line's part letter as written ("(c)", "Part (b):") and what follows it. */
-function partLabel(state: string): { label: string; rest: string } | null {
-  const line = state.trim();
-  const part = workoutPart(line);
-  if (!part) return null;
-  return { label: line.slice(0, line.length - part.title.length).trimEnd(), rest: part.title };
 }
 
 // "Solve for $t$": a step of the working written as words, drawn as a move.
