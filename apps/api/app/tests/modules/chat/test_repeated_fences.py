@@ -77,3 +77,23 @@ def test_a_server_reply_keeps_its_scene_under_each_part(server_text: bool) -> No
     )
     kept = drop_repeated_pictures(cast(Any, state)).count("```chart")
     assert kept == (2 if server_text else 1)
+
+
+_G = '```geometry\n{"type":"triangle","a":3,"b":4,"c":5}\n```'
+
+
+@pytest.mark.parametrize(
+    "reply, kept",
+    [
+        (f"Here:\n\n{_G}\n\n**Step 1**\n\nA = 6 cm²\n\n{_G}\n\nDone.", ["**Step 1**", "A = 6 cm²"]),
+        (f"{_G}\n\nWith θ = 30° the triangle looks the same:\n\n{_G}", ["θ = 30°"]),
+        (f"### Part (a)\n\n{_G}\n\n### Part (b)\n\n{_G}\n\nThe perimeter is 12.", ["### Part (b)"]),
+        (f"ሶስት ማዕዘኑ ይህ ነው:\n\n{_G}\n\nስለዚህ x = 5 ነው።\n\n{_G}", ["ስለዚህ x = 5 ነው።"]),
+        (f"هذا هو المثلث:\n\n{_G}\n\nإذن المساحة A = 6 سم²\n\n{_G}", ["إذن المساحة A = 6 سم²"]),
+        (f"これが三角形です。\n\n{_G}\n\nこの三角形の面積は6です。\n\n{_G}", ["この三角形の面積は6です。"]),
+    ],
+)  # fmt: skip
+def test_the_reply_s_own_lines_between_copies_stay(reply: str, kept: list[str]) -> None:
+    out = drop_repeated_fences(reply, "Draw the triangle.")
+    assert out.count("```geometry") == 1
+    assert all(line in out for line in kept)
