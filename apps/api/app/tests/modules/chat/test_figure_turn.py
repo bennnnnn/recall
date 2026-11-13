@@ -267,6 +267,7 @@ def test_the_picture_joins_after_the_passes_that_strip_unverified_pictures() -> 
     assert names.index("figure") > names.index("formula_charts")
 
 
+@pytest.mark.wall_clock
 async def test_a_read_still_running_at_finalize_waits_for_no_picture(figure: _Figure) -> None:
     async def slow() -> TurnDecision | None:
         await asyncio.sleep(5)
