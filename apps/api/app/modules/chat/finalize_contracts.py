@@ -4,7 +4,9 @@ follow or precede. Every pass in ``finalize_passes.FINALIZE_PASSES`` declares th
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
+
+from app.services.solving import SubjectName
 
 # "text": the pass only returns the reply (SymPy pool work included). "effect": it writes
 # anything outside the text it returns: ctx/outcome fields, the committed text, usage
@@ -15,8 +17,15 @@ EFFECT: PassKind = "effect"
 # In ``before``: ahead of every other pass.
 EVERY_OTHER = frozenset({"*"})
 
-# The passes that land a subject's answer card under the reply's Answer heading.
-CARD_PASSES = frozenset({"chemistry_fences", "physics_fences", "math_fences", "working_check"})
+
+def fences_pass(subject: str) -> str:
+    """The name of a subject's fence-check pass ("physics_fences")."""
+    return f"{subject}_fences"
+
+
+# The passes that land a subject's answer card under the reply's Answer heading: each
+# subject's fence check, and the working check.
+CARD_PASSES = frozenset({*(fences_pass(name) for name in get_args(SubjectName)), "working_check"})
 # The passes that read the model's fences as it wrote them.
 FENCE_READERS = (CARD_PASSES - {"working_check"}) | {"formula_charts", "chemistry_enrich"}
 # The server's own pictures and chips: added after the model's media is neutralized.

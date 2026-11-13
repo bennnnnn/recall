@@ -11,6 +11,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.services.number_text import DECIMAL
+
 ChemistryKind = Literal[
     "equations",
     "amounts",
@@ -43,7 +45,7 @@ MAX_PARAMS = 40
 MAX_WRITTEN = 32
 MAX_DECIMALS = 6
 # ``written`` only ever holds a number as typed ("1.10", "-0.76", "1.8e-5"), never other text.
-_NUMBER_LITERAL = re.compile(r"-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?")
+_NUMBER_LITERAL = re.compile(rf"-?{DECIMAL}(?:[eE][-+]?\d+)?")
 
 __all__ = ["ChemistryIntent", "ChemistryKind"]
 

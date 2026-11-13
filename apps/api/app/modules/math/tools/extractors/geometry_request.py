@@ -15,20 +15,14 @@ from app.modules.math.match.measure_relations import (
 )
 from app.modules.math.match.units import solid_length_unit
 from app.modules.math.schemas import GeometryRequest, MathIntent, SolidGeometryInput
-from app.modules.math.schemas.geometry_request import GeometryQuantity, GeometryShape
+from app.modules.math.schemas.geometry_request import (
+    PLANE_SHAPES,
+    GeometryQuantity,
+    GeometryShape,
+)
 from app.modules.math.tools.school.geometry_measures import is_geometry_measure
 
-_PLANE_SHAPES: dict[str, GeometryShape] = {
-    "rectangle": "rectangle",
-    "square": "square",
-    "triangle": "triangle",
-    "right_triangle": "right_triangle",
-    "triangle_sides": "triangle_sides",
-    "circle": "circle",
-    "trapezoid": "trapezoid",
-    "parallelogram": "parallelogram",
-    "sector": "sector",
-}
+_PLANE_SHAPES: dict[str, GeometryShape] = {shape: shape for shape in PLANE_SHAPES}
 # The shapes whose verified block carries a drawn figure (a solid's has none): "draw it"
 # after one is that figure.
 FIGURE_KINDS = frozenset(_PLANE_SHAPES)

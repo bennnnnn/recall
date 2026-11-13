@@ -1,13 +1,13 @@
 """Closed forms for linear drag, quadratic drag, and Stokes terminal speed.
 
-The identities are checked by differentiating the textbook formula and taking
-the limits, in this process. Chat already runs physics in the SymPy worker.
+Each closed form satisfies its differential equation, its starting speed and its
+limits: a unit test proves it with SymPy (``test_physics_drag``), once, rather than
+before every solve.
 """
 
 from __future__ import annotations
 
 import math
-from functools import lru_cache
 
 from app.modules.physics.display import latex_number
 from app.modules.physics.schemas import PhysicsIntent
@@ -25,41 +25,6 @@ _QUAD_VT = r"v_{T}=\sqrt{\frac{mg}{b}}"
 _QUAD_LIMIT = r"\lim_{b\to 0}v(t)=gt"
 
 
-@lru_cache(maxsize=1)
-def _drag_identities_hold() -> bool:
-    """Textbook formulas satisfy the ODEs, the rest condition, and the limits."""
-    import sympy as sp
-
-    m, g, k, b, t = sp.symbols("m g k b t", positive=True)
-    v0 = sp.symbols("v0", real=True)
-    fall = (m * g / k) + (v0 - m * g / k) * sp.exp(-(k / m) * t)
-    fall_ode = sp.diff(fall, t) - (g - (k / m) * fall)
-    upward = -(m * g / k) + (v0 + m * g / k) * sp.exp(-(k / m) * t)
-    upward_ode = sp.diff(upward, t) - (-g - (k / m) * upward)
-    terminal = sp.sqrt(m * g / b)
-    quad = terminal * sp.tanh(t * sp.sqrt(b * g / m))
-    quad_ode = sp.diff(quad, t) - (g - (b / m) * quad**2)
-    checks = (
-        sp.simplify(fall_ode) == 0,
-        sp.simplify(fall.subs(t, 0) - v0) == 0,
-        sp.simplify(sp.limit(fall, t, sp.oo) - m * g / k) == 0,
-        sp.simplify(sp.limit(fall, k, 0) - (v0 + g * t)) == 0,
-        sp.simplify(upward_ode) == 0,
-        sp.simplify(upward.subs(t, 0) - v0) == 0,
-        sp.simplify(sp.limit(upward, k, 0) - (v0 - g * t)) == 0,
-        sp.simplify(quad_ode) == 0,
-        sp.simplify(quad.subs(t, 0)) == 0,
-        sp.simplify(sp.limit(quad, t, sp.oo) - terminal) == 0,
-        sp.simplify(sp.limit(quad, b, 0) - g * t) == 0,
-    )
-    return all(checks)
-
-
-def _require_identities() -> None:
-    if not _drag_identities_hold():
-        raise SolveServiceError("drag closed form failed its differential-equation check")
-
-
 def _positive(params: dict[str, float], *keys: str) -> None:
     for key in keys:
         if params.get(key, 0) <= 0:
@@ -72,7 +37,6 @@ def _n(value: float) -> str:
 
 def solve_linear_drag_fall(intent: PhysicsIntent) -> PhysicsResult:
     """Downward positive. From rest, v(t) = (mg/k)(1 - e^{-(k/m)t}) and lim = gt."""
-    _require_identities()
     params = params_in_si(intent)
     show = params.get("show_motion", 0) >= 1 or "t" in params or "v0" in params
     if "m" not in params:
@@ -137,7 +101,6 @@ def _symbolic_terminal_only() -> PhysicsResult:
 
 def solve_linear_drag_upward(intent: PhysicsIntent) -> PhysicsResult:
     """Upward positive. v approaches -mg/k, and the zero-drag limit is v0 - gt."""
-    _require_identities()
     params = params_in_si(intent)
     if "m" not in params:
         card = rf"{_UP_V},\quad {_LINEAR_VT},\quad {_UP_LIMIT}"
@@ -171,7 +134,6 @@ def solve_linear_drag_upward(intent: PhysicsIntent) -> PhysicsResult:
 
 def solve_quadratic_drag_fall(intent: PhysicsIntent) -> PhysicsResult:
     """Downward positive, from rest: v = v_T tanh(gt/v_T), v_T = sqrt(mg/b)."""
-    _require_identities()
     params = params_in_si(intent)
     show = params.get("show_motion", 0) >= 1 or "t" in params
     if "m" not in params:

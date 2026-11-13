@@ -6,7 +6,7 @@ run counts, inside a function too (one under ``if TYPE_CHECKING`` does not), col
 to the components it joins (``modules.<name>``, ``services.<name>``), in four layers:
 
 0. the shared leaves in ``services/``;
-1. the subjects: maths, physics, chemistry;
+1. the subjects: every name in ``SubjectName`` (maths, physics, chemistry);
 2. the product features, and the subjects' registry, order and dispatcher;
 3. chat, which runs a turn over all of them.
 
@@ -16,9 +16,13 @@ below with why it stays; the list only shrinks, and without it the graph has no 
 
 from __future__ import annotations
 
+from typing import get_args
+
+from app.services.solving import SubjectName
+
 from .boundary_support import _import_cycles, _import_graph, _module_imports
 
-_SUBJECTS = frozenset({"math", "physics", "chemistry"})
+_SUBJECTS: frozenset[str] = frozenset(get_args(SubjectName))
 # The subjects' registry, the order between them (ST-05) and the dispatcher that asks them
 # (ST-07, ``services/subjects/``) sit over the subjects they send a message to, under chat.
 # The readers of a message are leaves: they import only services, so a subject may ask

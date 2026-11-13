@@ -2028,8 +2028,7 @@ def _augment_kwargs(**overrides: object) -> dict[str, object]:
         "day_planning": False,
         "ambiguous_nearby": False,
         "rich_context": False,
-        "needs_math": False,
-        "needs_chem": False,
+        "needs_subject": False,
     }
     base.update(overrides)
     return base
@@ -2041,8 +2040,7 @@ def test_should_augment_web_and_tools_skips_slim_casual_without_intent():
 
     assert _should_augment_web_and_tools(**_augment_kwargs()) is False
     assert _should_augment_web_and_tools(**_augment_kwargs(rich_context=True)) is True
-    assert _should_augment_web_and_tools(**_augment_kwargs(needs_math=True)) is True
-    assert _should_augment_web_and_tools(**_augment_kwargs(needs_chem=True)) is True
+    assert _should_augment_web_and_tools(**_augment_kwargs(needs_subject=True)) is True
 
 
 @pytest.mark.asyncio

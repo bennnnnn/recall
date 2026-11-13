@@ -57,7 +57,7 @@ def test_a_speed_written_as_a_power_is_a_speed(spelling: str) -> None:
 
 def test_a_real_conversion_still_shows_its_factor() -> None:
     _, given = _given("Find the force on a 500 g object with acceleration 2 m/s2.")
-    assert r"$m = 500\,\mathrm{g} \times 0.001 = 0.5\,\mathrm{kg}$" in given
+    assert r"$m = 500\,\mathrm{g} = 500 \times 0.001\,\mathrm{kg} = 0.5\,\mathrm{kg}$" in given
 
 
 @pytest.mark.parametrize(

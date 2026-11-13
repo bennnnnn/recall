@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 import sympy
 
-from app.modules.math.function_calls import unread_functions, written_functions
+from app.modules.math.function_calls import _spelling, unread_functions, written_functions
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.function_table import (
     FUNCTIONS,
@@ -126,6 +126,16 @@ def test_unread_functions_finds_what_a_reading_lost(
     text: str, reading: list[str], unread: tuple[str, ...]
 ) -> None:
     assert unread_functions(text, reading) == unread
+
+
+def test_unread_functions_spelling_cache_is_bounded() -> None:
+    """Any word written before "(" is a name to spell, so its cache must not grow with them."""
+    for number in range(1_000):
+        made_up = "blorp" + "".join("bhjkuvwxyz"[int(digit)] for digit in str(number))
+        assert unread_functions(f"solve {made_up}(x) = 3", ["x = 3"]) == (made_up,)
+    info = _spelling.cache_info()
+    assert info.maxsize is not None
+    assert info.currsize <= info.maxsize
 
 
 @pytest.mark.parametrize(

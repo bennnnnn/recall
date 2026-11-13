@@ -7,6 +7,7 @@ import json
 from app.modules.math.followup_what_if import is_part_change
 from app.modules.math.match.leftover_words import leftover_non_math_request
 from app.modules.math.match.scan import closed_request_text
+from app.modules.math.schemas.geometry_request import PLANE_SHAPES
 from app.modules.math.tools.direct_fences import MAX_DIRECT_ANSWER_CHARS, solver_fences
 from app.modules.math.tools.direct_graph import (
     can_direct_graph,
@@ -307,17 +308,7 @@ def _format_direct_math_body(
         if answer:
             return f"```answer\n{display_answer}\n```\n\n{graph_reply}"
         return graph_reply
-    if len(fences) == 1 and fences[0].get("type") in {
-        "rectangle",
-        "square",
-        "triangle",
-        "right_triangle",
-        "triangle_sides",
-        "parallelogram",
-        "trapezoid",
-        "circle",
-        "sector",
-    }:
+    if len(fences) == 1 and fences[0].get("type") in PLANE_SHAPES:
         from app.modules.math.tools.direct_geometry_working import (
             format_direct_geometry_working,
         )

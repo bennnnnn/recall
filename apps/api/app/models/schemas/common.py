@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel
 
-from app.models.model_catalog import validate_user_alias
+from app.models.model_removal import requested_choice
 
 MessageRole = Literal["user", "assistant", "system"]
 
@@ -35,13 +35,9 @@ UserVoice = Literal[
 MessageFeedback = Literal["up", "down"]
 
 
-def _model_choice(value: str) -> str:
-    validate_user_alias(value, allow_auto=True)
-    return value
-
-
-# A model a request picks: a catalog alias, or Auto.
-ModelChoice = Annotated[str, AfterValidator(_model_choice)]
+# A model a request picks: a catalog alias, or Auto. A phone that saved a model the catalog
+# has since dropped still names it; that reads as Auto (``model_removal.requested_choice``).
+ModelChoice = Annotated[str, AfterValidator(requested_choice)]
 
 
 class UsageOut(BaseModel):

@@ -13,7 +13,7 @@ from app.modules.math.match.letter_runs import (
     split_glued_viz_runs,
 )
 from app.modules.math.match.scan import _BARE_COORD, strip_inline_math_delims
-from app.services.number_text import DECIMAL_LITERAL
+from app.services.number_text import DECIMAL, DECIMAL_LITERAL
 
 _GRAPH_PLOT_PREFIXES = ("graph ", "plot ")
 # Plot verbs that must not steal geometry (`draw a triangle`) or Vega
@@ -129,7 +129,7 @@ def _parse_bound(token: str) -> float | None:
 # domain the user wants plotted. Bounds may be plain numbers or pi multiples
 # (``pi``, ``2pi``, ``-pi``). Each pattern captures the two bound tokens.
 _GRAPH_BOUND = (
-    r"-?(?:\d+(?:\.\d+)?|\.\d+)"
+    rf"-?{DECIMAL}"
     r"|-?(?:\d+(?:\.\d+)?\s*\*?\s*)?(?:pi|π)(?:\s*/\s*\d+(?:\.\d+)?)?"
 )
 _DOMAIN_PATTERNS: tuple[re.Pattern[str], ...] = (

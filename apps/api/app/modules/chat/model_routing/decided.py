@@ -16,6 +16,7 @@ from typing import Literal
 from app.gateways.reasoning import ThinkingLevel
 from app.models.routing_lanes import ROUTING
 from app.modules.billing.plan import pick_math_lane, pick_preferred_tier
+from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.model_routing.thinking import lane_for_think
 
 Effort = Literal["none", "low", "high"]
@@ -27,7 +28,7 @@ _LEVELS: dict[Effort, ThinkingLevel] = {"none": "off", "low": "hard", "high": "d
 # (C17, atoms in 2 mol of glucose) and 15.5 s (C14) to the first word, live 2026-11-10;
 # with thinking off it kept the worked layout on all 17 unverified questions tried and
 # was right on 97-100% at 0.4 s.
-_STEM = frozenset({"maths", "physics", "chemistry"})
+_STEM = frozenset(READ_SUBJECTS)
 
 
 def decided_level(subject: str | None, effort: Effort) -> ThinkingLevel:

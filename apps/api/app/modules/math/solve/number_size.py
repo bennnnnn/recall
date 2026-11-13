@@ -8,6 +8,7 @@ tree in logarithms, so the check itself never builds a large number.
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 from typing import Any
@@ -15,6 +16,8 @@ from typing import Any
 from sympy import Add, Basic, Mul, Pow, factorial, parse_expr
 
 from app.services.solving import SolveServiceError
+
+logger = logging.getLogger(__name__)
 
 # More digits than any exact answer a student asks for (1000! has 2,568).
 MAX_EXACT_DIGITS = 10_000
@@ -35,7 +38,9 @@ def reject_huge_numbers(normalized: str, local_dict: dict[str, Any], transformat
             evaluate=False,
         )
     except Exception:
-        return  # the evaluating parse reports the bad syntax
+        # The evaluating parse reports the bad syntax; this check only sizes what parses.
+        logger.debug("size check could not parse %r", normalized, exc_info=True)
+        return
     if isinstance(tree, Basic):
         _digits(tree)
     elif isinstance(tree, tuple):

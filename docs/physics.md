@@ -218,9 +218,27 @@ flowchart LR
 7. **Respond** (`direct.py`). A complete verified request returns Given / Required / Formula /
    Substitution / Answer without waiting for the model. The law's heading holds its base
    form, then a rearrangement for the unknown as a step: `Solve for $t$`, then
-   `$t = \frac{d}{v}$` (never a "rearranged for" note). A given not in SI is followed by the
-   value the substitution uses (`λ = 500 nm`, then `λ = 5 × 10⁻⁷ m`). A solver that works
-   in the written units (150 km in 2 h) gets no conversion row. A stated result gets one
+   `$t = \frac{d}{v}$` (never a "rearranged for" note). A symbol the law works out from
+   the givens (ΔT = T₂ − T₁) is no unknown solved for: it is the note above the law written
+   in the givens (`with ΔT = T₂ − T₁` over `Q = m c (T₂ − T₁)`), and a form that drops a
+   right angle says so (`with θ = 90°` over `τ = F d`); a form that is the law rearranged
+   follows it with no note (`formula_rows.py`). Two forms with one left side always read as
+   one law (`law_binding/same_law.py`, both evaluated, never solved): the base written
+   another way (`h = gt²/2` under `h = ½gt²`) is shown once, a hundred times the base says
+   `as a percent`, the base with a symbol at 0 says so (`with h₀ = 0`), and a form that gives
+   another number for the question's givens (a train that stops before the time asked)
+   replaces the base, which does not hold there. A step the substitution takes for granted
+   is shown before it: `n = t / T½ = 20 days / 5 days = 4` above `N = 80 / 2⁴`
+   (`law_steps.py`). A given not in SI is followed, on its row, by the value the
+   substitution uses, every side equal: `λ = 500 nm = 500 × 10⁻⁹ m = 5 × 10⁻⁷ m`,
+   `q = 3 µC = 3 × 10⁻⁶ C` (`given_rows.py`; until November 2026 the factor followed the
+   unit, `3 µC × 10⁻⁶`, which read literally is 3 × 10⁻¹² C). A solver that works in the
+   written units (150 km in 2 h, a half-life in grams and days) gets no conversion.
+   **Required** names what is asked (`T (period)`): the glossary's word, the name of the
+   law's result (`law_nouns.py`: written for a reader, `de Broglie wavelength`, never the
+   lowercase words a question is matched by), or the word for its symbol in the answer's
+   dimension (`asked_names.py`); a result of several symbols names each (`a, T
+   (acceleration, tension)`). A stated result gets one
    line above the working: "Your 19.8 m/s is right." Image questions stay on the model
    path, and so does a reply the verified result is only part of (`parts.py`): a question
    in labelled parts or several questions the result does not all answer ("(a) how long …
@@ -378,10 +396,14 @@ The binder reads these laws, beside the extractors' own:
 
 - **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
   used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. That is the card's
-  precision: the Substitution ends on the value it reaches, unrounded, as a working value is
-  printed (`a = 4.905 m/s²` over a card of `4.9 m/s²`; `working_steps._unrounded`), or the
-  card's own value when nothing rounds (`v = 15 km/h` over `15 km/h`), as a textbook closes
-  its working before the boxed answer (2026-11-11). One formatter does
+  precision: the Substitution ends on the value it reaches, unrounded (`a = 4.905 m/s²`
+  over a card of `4.9 m/s²`, `R = 31.0357 m` over `31 m`, `R_p = 1.78723 Ω` over `1.79 Ω`;
+  `working_steps._unrounded`), or the card's own value when nothing rounds (`v = 15 km/h`
+  over `15 km/h`), as a textbook closes its working before the boxed answer: only the card
+  rounds (the owner's rule, 2026-11-11, as in maths and chemistry). A value the working
+  reaches on the way is whole when it ends within six figures (8372, 0.0025) and four
+  figures otherwise (sin 70° = 0.9397, 2π = 6.283; `display.latex_working`); until
+  November 2026 those printed six figures (`0.939693`). One formatter does
   this, `display.py`; a solver never picks its own format. A 5 rounds up, as a class rounds:
   490.5 N is 491 N (`services/school_rounding.py`, the rule every subject shares).
 - **Givens** are echoed with the figures the user typed, up to six. A given is never rounded
