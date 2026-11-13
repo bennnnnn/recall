@@ -40,7 +40,12 @@ from app.modules.physics.motion import (
     constant_speed_laws_hold,
     rolling_body,
 )
-from app.modules.physics.net_force import NOT_NET_FORCE_MARKER, others_share_the_force
+from app.modules.physics.net_force import (
+    IN_A_LIFT_MARKER,
+    NOT_NET_FORCE_MARKER,
+    in_a_lift,
+    others_share_the_force,
+)
 from app.modules.physics.optic_elements import (
     LIGHT_INSIDE_MARKER,
     asked_in_vacuum,
@@ -379,8 +384,8 @@ def _with_markers(lower: str) -> str:
     is worded, is marked "diverging", a distance given its sign is marked "signed", a
     speed that changes, however it is said, is marked for the constant-speed laws, light
     that starts inside a medium or is asked about in air for the laws that start from air,
-    a force that is not the net one for m = F/a, and a body that spins as it rolls for the
-    laws of a body that only moves along."""
+    a force that is not the net one for m = F/a, a body in a lift for its weight, and a
+    body that spins as it rolls for the laws of a body that only moves along."""
     if signed_distances(lower):
         lower = f"{lower} signed"
     if not constant_speed_laws_hold(lower):
@@ -390,6 +395,8 @@ def _with_markers(lower: str) -> str:
         lower = f"{lower} {LIGHT_INSIDE_MARKER}"
     if others_share_the_force(lower):
         lower = f"{lower} {NOT_NET_FORCE_MARKER}"
+    if in_a_lift(lower):
+        lower = f"{lower} {IN_A_LIFT_MARKER}"
     if (FRACTION_OF_C.search(lower) or "relativ" in lower) and not adds_speeds_across_frames(lower):
         lower = f"{lower} {FRAMES_UNREAD_MARKER}"
     # A rolling ball's spin is no part of the translational energy a question asks for.

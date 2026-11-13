@@ -1,6 +1,7 @@
 """Verified lift operations: what a lift's floor or scale pushes with as it accelerates.
 
-The laws a lift's reading is not, the weight and m = F/a, set it aside by ``LIFT``.
+The laws a lift's reading is not set it aside: the weight's by ``IN_A_LIFT_MARKER``, m = F/a
+by the other forces it shares the push with (``net_force``).
 """
 
 from __future__ import annotations

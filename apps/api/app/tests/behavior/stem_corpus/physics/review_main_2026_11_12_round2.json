@@ -1430,5 +1430,35 @@
    20.0,
    "m/s"
   ]
+ },
+ {
+  "id": "rm12b-157",
+  "area": "review2",
+  "prompt": "A crane lifts a 200 kg crate. What is its weight?",
+  "expect": "answer",
+  "answer": [
+   1962.0,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-158",
+  "area": "review2",
+  "prompt": "The workers lift a 50 kg box. What is its weight?",
+  "expect": "answer",
+  "answer": [
+   490.5,
+   "N"
+  ]
+ },
+ {
+  "id": "rm12b-159",
+  "area": "review2",
+  "prompt": "A 15 kg bag is lifted onto a shelf. What is its weight?",
+  "expect": "answer",
+  "answer": [
+   147.15,
+   "N"
+  ]
  }
 ]

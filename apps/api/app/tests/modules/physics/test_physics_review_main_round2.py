@@ -14,7 +14,7 @@ from app.modules.physics.bodies import names_another_moon, names_our_moon
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.frames import adds_speeds_across_frames
 from app.modules.physics.motion import rolling_body
-from app.modules.physics.net_force import others_share_the_force
+from app.modules.physics.net_force import in_a_lift, others_share_the_force
 from app.modules.physics.prompt import solve_physics_request
 from app.services.law_binding.inverse import same_part
 from app.tests.modules.physics.support import answer_number
@@ -312,6 +312,10 @@ def test_the_structure_read_still_answers(text: str, value: float) -> None:
             "the top?",
             -9.81,
         ),
+        # "Lift" the verb is no lift a body rides in: it still weighs mg.
+        ("A crane lifts a 200 kg crate. What is its weight?", 1962.0),
+        ("The workers lift a 50 kg box. What is its weight?", 490.5),
+        ("A 15 kg bag is lifted onto a shelf. What is its weight?", 147.15),
     ],
 )
 def test_what_the_first_fixes_declined_answers_again(text: str, value: float) -> None:
@@ -380,3 +384,22 @@ def test_a_push_off_asked_of_the_second_body_still_answers() -> None:
         "at 2 m/s, how fast does the second move?"
     )
     assert _verified(text) == ("push_off_speed", pytest.approx(3.0))
+
+
+@pytest.mark.parametrize(
+    ("lower", "rides"),
+    [
+        ("a 60 kg person stands on a scale in a lift accelerating upward at 2 m/s²", True),
+        ("a 1000 kg lift accelerates upward at 2 m/s²", True),
+        ("a 60 kg person stands in a stationary lift", True),
+        ("in the lift, a man stands on a scale", True),
+        ("an elevator accelerates downward at 2 m/s²", True),
+        ("a crane lifts a 200 kg crate", False),
+        ("the workers lift a 50 kg box", False),
+        ("a pump lifts 500 litres of water", False),
+        ("a crane that lifts a crate", False),
+        ("a 15 kg bag is lifted onto a shelf", False),
+    ],
+)
+def test_a_lift_is_the_car_a_body_rides_in_not_the_verb(lower: str, rides: bool) -> None:
+    assert in_a_lift(lower) is rides

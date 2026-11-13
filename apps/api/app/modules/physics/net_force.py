@@ -21,6 +21,18 @@ from app.services.law_binding.words import word_pattern
 LIFT = ("elevator", "lift")
 # The marker the binder's excludes read (``binding._with_markers``).
 NOT_NET_FORCE_MARKER = "notnetforce"
+# The marker for a lift the body rides in, which the weight's laws exclude.
+IN_A_LIFT_MARKER = "inalift"
+# The car, not the verb: an elevator, or "lift" in a noun phrase ("the lift", "in a
+# stationary lift", "a 1000 kg lift accelerates") that no object follows. "A crane lifts a
+# 200 kg crate" and "the workers lift the box" still weigh mg; read as a word prefix,
+# "lifts" set the weight aside and the question declined.
+_LIFT_CAR = re.compile(
+    r"\belevator"
+    r"|\b(?:a|an|the|this|its|his|her|their|our|my|same|in|inside|into)\s+"
+    r"(?:[\w.\-]+\s+){0,3}?lifts?\b"
+    r"(?!\s+(?:(?:a|an|the|it|them|him|her|his|their|its|up)\b|\d))"
+)
 # Forces that share the net force with one stated beside them.
 _OTHER_FORCES = (
     "weigh",
@@ -76,6 +88,11 @@ def states_net_force(lower: str) -> bool:
 def friction_acts(lower: str) -> bool:
     """A coefficient of friction above zero is stated: μ = 0 says none acts."""
     return any(value > 0 for _start, value in friction_coefficients(lower))
+
+
+def in_a_lift(lower: str) -> bool:
+    """The body rides in a lift or an elevator, whose floor pushes with m(g ± a)."""
+    return _LIFT_CAR.search(lower) is not None
 
 
 def others_share_the_force(lower: str) -> bool:

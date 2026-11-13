@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.net_force import LIFT, NOT_NET_FORCE_MARKER
+from app.modules.physics.net_force import IN_A_LIFT_MARKER, NOT_NET_FORCE_MARKER
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _FORWARD = ("to the right", "right", "east", "eastward", "forward", "forwards", "ahead")
@@ -138,7 +138,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("newton",),
             inputs=(frozenset({"g", "m"}),),
             # A weight read in a lift is its apparent weight, the floor's push.
-            excludes=LIFT,
+            excludes=(IN_A_LIFT_MARKER,),
             nonnegative=True,
         ),
     ),
@@ -155,7 +155,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("kilogram",),
             inputs=(frozenset({"g", "weight"}),),
             cues=("weigh",),
-            excludes=LIFT,
+            excludes=(IN_A_LIFT_MARKER,),
             nonnegative=True,
         ),
     ),
