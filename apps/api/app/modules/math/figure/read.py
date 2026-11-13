@@ -45,8 +45,7 @@ _PROMPT = (
     '- "solid": a cube, a cuboid or box, a prism, a cylinder, a cone, a pyramid or a '
     "sphere, or its net\n"
     '- "number_line": numbers or an inequality shown on a number line\n'
-    '- "function": the graph of a line or a curve y = f(x), a conversion graph, or a '
-    "quantity that changes by the same amount each step\n"
+    '- "function": the graph of a formula the question writes, y = f(x)\n'
     '- "points": points plotted on a coordinate plane\n'
     '- "none": data to chart (a bar graph, pie chart, line graph of recorded values, '
     "pictograph, histogram, tally), a photo, or nothing to draw\n"
@@ -85,9 +84,7 @@ _PROMPT = (
     '- expr: the right side of y = ... ("2x + 1", "2.54x", "144 - 4t") in the '
     'question\'s own letter; variable: that letter ("x", "t"); x_min and x_max: the range '
     'the question states; x_label and y_label: what each axis measures ("inches", '
-    '"centimetres"); pairs: for a quantity the question describes in words, each pair of '
-    'values it states together, as {"x": ..., "y": ...} ("144 m at week 0" is x 0, y 144), '
-    "or [].\n"
+    '"centimetres").\n'
     '- points: [{"name": "A", "x": 2, "y": 3}]; quadrants: true when the question asks '
     "which quadrant.\n"
     "\n"

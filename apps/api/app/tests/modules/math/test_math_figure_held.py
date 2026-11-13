@@ -388,32 +388,66 @@ _TWO_POINTS = (
 
 
 @pytest.mark.parametrize(
-    "question, expr, pairs, drawn",
+    "question, expr",
     [
-        # A rate and one value fix no line the server can check: "falls" read as a rise
-        # drew 144 + 4x. The sign is never read from the words.
-        (_FALLS, "144 - 4x", [(0, 144)], False),
-        (_FALLS, "144 + 4x", [(0, 144)], False),
-        # Two stated pairs fix it: the read's line must pass through both.
-        (_TWO_POINTS, "144 - 4x", [(0, 144), (10, 104)], True),
-        (_TWO_POINTS, "144 + 4x", [(0, 144), (10, 104)], False),
-        (_TWO_POINTS, "144 - 5x", [(0, 144), (10, 104)], False),
-        # A pair the question does not state is no pair of its own.
-        (_TWO_POINTS, "144 - 4.8x", [(0, 144), (10, 96)], False),
+        # "Falls" read as a rise drew 144 + 4x: a line the question only describes in words
+        # has no formula to hold the read's to, whatever it states.
+        (_FALLS, "144 - 4x"),
+        (_FALLS, "144 + 4x"),
+        (_TWO_POINTS, "144 - 4x"),
+        (_TWO_POINTS, "144 + 4x"),
+        ("A candle is 30 cm tall at 6 pm and 18 cm tall at 9 pm. Draw a graph of its height.",
+         "30 - 4x"),
+        ("1 inch = 2.54 cm. Draw a conversion graph from inches to centimetres for 0 to 12 inches.",
+         "2.54x"),
     ],
-)
-def test_a_line_in_words_is_drawn_only_through_the_stated_pairs(
-    question: str, expr: str, pairs: list[tuple[float, float]], drawn: bool
-) -> None:
-    reading = {
-        "kind": "function",
-        "expr": expr,
-        "x_min": 0,
-        "x_max": 12,
-        "pairs": [{"x": x, "y": y} for x, y in pairs],
-    }
-    graph = _draw(question, reading)
-    assert (graph is not None) is drawn
-    if graph is not None:
-        ends = (graph[1]["points"][0][1], graph[1]["points"][-1][1])
-        assert ends == pytest.approx((144.0, 96.0))
+)  # fmt: skip
+def test_a_line_described_only_in_words_is_never_drawn(question: str, expr: str) -> None:
+    assert _draw(question, {"kind": "function", "expr": expr, "x_min": 0, "x_max": 12}) is None
+
+
+@pytest.mark.parametrize(
+    "question, reading",
+    [
+        # Each value with its own unit: a dm, a radian or a gon is never drawn as a cm or a °.
+        ("A rectangle is 2 dm long and 15 cm wide. Draw it.",
+         _cm({"kind": "polygon", "shape": "rectangle",
+              "measures": [_s(2, what="length"), _s(15, what="width")]})),
+        ("Draw an angle of 0.5 rad.",
+         {"kind": "lines", "shape": "angle", "measures": [{"what": "angle", "value": 0.5}]}),
+        ("Draw an angle of 50 gon.",
+         {"kind": "lines", "shape": "angle", "measures": [{"what": "angle", "value": 50}]}),
+        # Two things to draw, one drawn: nothing.
+        ("Draw y = 2x + 1 and the line x = 3.", {"kind": "function", "expr": "2x + 1"}),
+        ("Plot A(1, 3) and draw the line y = x.",
+         {"kind": "points", "points": [{"name": "A", "x": 1, "y": 3}]}),
+        # A point said in words is no pair the question writes.
+        ("Plot the point with x-coordinate 2 and y-coordinate -5.",
+         {"kind": "points", "points": [{"name": "", "x": -5, "y": 2}]}),
+        ("Plot the point with x-coordinate 2 and y-coordinate -5.",
+         {"kind": "points", "points": [{"name": "", "x": 2, "y": -5}]}),
+        # Whole numbers only when the question says its letter is one.
+        ("Show -2 < x ≤ 3 on a number line.",
+         {"kind": "number_line", "inequality": "-2 < x <= 3", "integers": True}),
+        # The kite's axis is where its equal sides meet; named diagonals do not say which.
+        ("Kite ABCD has AB = AD, CB = CD and diagonals AC = 10 cm and BD = 16 cm. Draw it.",
+         _cm({"kind": "polygon", "shape": "kite", "vertices": "ABCD",
+              "measures": [_s(10, "AC", "diagonal"), _s(16, "BD", "diagonal")]})),
+        ("Draw a kite ABCD.", {"kind": "polygon", "shape": "kite", "vertices": "ABCD"}),
+        ("Draw the net of a cone of radius 3 cm, height 4 cm and slant height 6 cm.",
+         _cm({"kind": "solid", "shape": "cone", "parts": ["net"],
+              "measures": [_s(3, what="radius"), _s(4, what="height"),
+                           _s(6, what="slant_height")]})),
+    ],
+)  # fmt: skip
+def test_a_picture_review_two_found_wrong_draws_nothing(question, reading) -> None:
+    assert _draw(question, reading) is None
+
+
+def test_a_shared_unit_covers_a_bare_length() -> None:
+    spec = _figure(
+        "Draw a rectangle 8 by 5 cm.",
+        _cm({"kind": "polygon", "shape": "rectangle",
+             "measures": [_s(8, what="length"), _s(5, what="width")]}),
+    )  # fmt: skip
+    assert {s.label for s in spec.segments if s.label} == {"8 cm", "5 cm"}

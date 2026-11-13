@@ -88,9 +88,6 @@ class FigureRequest(BaseModel):
     y_label: str = Field(default="", max_length=32)
     # Points on a coordinate plane.
     points: list[NamedPoint] = Field(default_factory=list, max_length=12)
-    # A quantity described in words: each pair of values the question states together
-    # ("144 m at week 0": x 0, y 144). Two of them fix its line; the line must pass them all.
-    pairs: list[NamedPoint] = Field(default_factory=list, max_length=6)
     quadrants: bool = False
 
     @field_validator("kind", mode="before")

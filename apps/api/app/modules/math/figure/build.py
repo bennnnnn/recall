@@ -14,7 +14,7 @@ import logging
 from pydantic import ValidationError
 
 from app.modules.math.figure import circles, coordinate, lines, nets, solids
-from app.modules.math.figure.grounding import grounded, with_unit
+from app.modules.math.figure.grounding import grounded, own_texts, with_unit
 from app.modules.math.figure.honest import honours
 from app.modules.math.figure.polygon import build_polygon
 from app.modules.math.figure.request import FigureRequest
@@ -45,6 +45,8 @@ def figure_fence(request: FigureRequest, texts: list[str]) -> str | None:
     request = with_unit(request, texts)
     if request.kind == "none" or not grounded(request, texts):
         return None
+    if request.kind in {"number_line", "points"} and coordinate.writes_a_formula(own_texts(texts)):
+        return None  # the formula beside them would be left out
     try:
         if request.kind == "number_line":
             line = coordinate.number_line(request, texts)

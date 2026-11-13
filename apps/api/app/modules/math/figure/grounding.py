@@ -50,6 +50,15 @@ _LENGTH_UNITS = {
     "yd": "yd", "yard": "yd", "yards": "yd", "mi": "mi", "mile": "mi", "miles": "mi",
 }  # fmt: skip
 _DEGREES = frozenset({"°", "º", "degree", "degrees", "deg"})
+# Units a picture is never drawn in: a value written with one draws nothing ("2 dm" is no
+# "2 cm", "0.5 rad" no 0.5°).
+_OTHER_UNITS = frozenset(
+    {
+        "dm", "decimetre", "decimetres", "decimeter", "decimeters", "hm", "dam", "nm", "um",
+        "rad", "rads", "radian", "radians", "gon", "gons", "grad", "grads", "gradian",
+        "gradians", "mil", "mils", "turn", "turns",
+    }
+)  # fmt: skip
 _SQUARE_WORDS = frozenset({"square", "sq", "cubic", "cu"})
 _ORDINAL_ENDS = frozenset({"st", "nd", "rd", "th"})
 _ANGLE_WHATS = frozenset({"angle", "apex_angle", "base_angle"})
@@ -106,6 +115,8 @@ def _unit_after(text: str, end: int) -> tuple[str, bool]:
         return "deg", False
     if token in _SQUARE_WORDS:
         return "area", False
+    if token in _OTHER_UNITS:
+        return "other", False
     unit = _LENGTH_UNITS.get(token, "")
     if unit:
         return ("area" if power else unit), False
@@ -187,11 +198,19 @@ def _same(written: Fraction, value: float) -> bool:
 
 
 def _length(found: list[Written], value: float, unit: str) -> bool:
-    return any(not w.in_formula and w.unit in {"", unit} and _same(w.value, value) for w in found)
+    """A length written with the reading's unit beside it, or bare when that unit is the
+    one the question writes for all ("8 by 5 cm"); a question writing two units ("2 dm long
+    and 15 cm wide") states each length with its own."""
+    written = {w.unit for w in found} - {"", "deg", "area"}
+    bare = written <= {unit} and (not unit or unit in written)
+    allowed = {unit, ""} if bare else {unit}
+    return any(not w.in_formula and w.unit in allowed and _same(w.value, value) for w in found)
 
 
 def _angle(found: list[Written], value: float) -> bool:
-    return any(not w.in_formula and w.unit in {"", "deg"} and _same(w.value, value) for w in found)
+    """An angle in degrees, or bare when the question writes no other unit of angle."""
+    allowed = {"deg"} if any(w.unit == "other" for w in found) else {"deg", ""}
+    return any(not w.in_formula and w.unit in allowed and _same(w.value, value) for w in found)
 
 
 def _signed(found: list[Written], value: float) -> bool:
@@ -247,16 +266,12 @@ def grounded(request: FigureRequest, texts: Sequence[str]) -> bool:
     bounds = [v for v in (request.x_min, request.x_max) if v is not None]
     if not all((origin and v == 0) or _signed(found, v) for v in bounds):
         return False
-    # A worded line's pairs ("144 m at week 0") are each written, sign and all.
-    if not all(_signed(found, p.x) and _signed(found, p.y) for p in request.pairs):
-        return False
+    # A point is one the question writes as a pair: C(-3, -2) is no (3, -2), though A(2, 3)
+    # writes a 3, and "x-coordinate 2 and y-coordinate -5" is no pair at all.
     pairs = [pair for text in own for pair in _pairs(text)]
-    for point in request.points:
-        if pairs and not any(_same(x, point.x) and _same(y, point.y) for x, y in pairs):
-            return False  # C(-3, -2) is no (3, -2), though A(2, 3) writes a 3
-        if not pairs and not (_signed(found, point.x) and _signed(found, point.y)):
-            return False
-    return True
+    return all(
+        any(_same(x, point.x) and _same(y, point.y) for x, y in pairs) for point in request.points
+    )
 
 
 def _pairs(text: str) -> list[tuple[Fraction, Fraction]]:
@@ -281,7 +296,9 @@ def with_unit(request: FigureRequest, texts: Sequence[str]) -> FigureRequest:
         units = {
             w.unit
             for w in found
-            if not w.in_formula and w.unit not in {"", "deg", "area"} and _same(w.value, value)
+            if not w.in_formula
+            and w.unit not in {"", "deg", "area", "other"}
+            and _same(w.value, value)
         }
         common = units if common is None else common & units
     return (
