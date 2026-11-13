@@ -289,7 +289,15 @@ Maths, physics and chemistry share one contract for a reply the model works out 
   A model that writes no block gets today's reply; a block with no valid record is shown as
   written. Which turns ask for it: `modules/chat/worked_turn.py` (nothing verified, a number
   in the message, and a maths, physics or chemistry subject, a school exercise or a science
-  question; `worked_layout_enabled`). A message that only states the student's own results
+  question; `worked_layout_enabled`). When the turn's read is in, the Decider's `work`
+  answer (asked in a call of its own, which leaves the turn's measured answers as they were)
+  has the last word (`chat/decided_turn.py`): a message it says asks for no result
+  worked out loses the block for its number ("Translate the algebraic expression 7x in
+  different word phrases" got a Given and a Required, 2026-11-13); it only takes the block
+  away, is asked only of a message with a number in it, and a turn whose layout is at stake
+  waits for it. Measured on `tests/behavior/work_need_corpus.json` (`work_need_eval.py`:
+  held out, 35 of 35 calculations laid out and none of 34 other questions, where a number and
+  a subject laid out 77%). A message that only states the student's own results
   and asks whether they are right ("My answers: 1) 1 mol 2) 110 g. Did I get them right?",
   the grammar in `services/student_claim.py`) asks for no new value: it gets no block, and
   `RESULT_CHECK_CONTRACT` has the reply compare each result with the right one instead.

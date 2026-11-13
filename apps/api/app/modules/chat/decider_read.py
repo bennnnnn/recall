@@ -12,8 +12,9 @@ half; nothing here raises.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Any
 
@@ -38,6 +39,16 @@ _LIVE_AT = 0.35
 # settled reads this close are mostly about the user's own place ("is it far?", 0.26).
 NEAR_LIVE_AT = 0.15
 _ASKED_AT = 0.5
+# A result to work out (``WORK_QUESTION``, its own call): on the work-need corpus's tuning
+# half every threshold from 0.3 to 0.7 laid out every calculation and nothing else, and 0.5 is
+# that range's middle; held out (69 turns, Spanish, French and Amharic, "explain how to find",
+# follow-ups, a lesson's pick and a quiz answer among them) it laid out 35 of 35 calculations
+# and none of the 34 other questions, where a number and a subject laid out 77% of them
+# (``tests/behavior/work_need_eval.py``).
+_WORK_AT = 0.5
+# How long the turn's read waits for the work question's call once its own is in: both
+# start together and answer in about 0.33 s.
+_WORK_GRACE_SECONDS = 0.25
 # The read's name for each registered subject (``SubjectName``; its choices call maths
 # "maths"). The read's own words for them are the subject question's criteria below, part
 # of its measured prompt; ``tests/services/test_subject_completeness.py`` holds the two and
@@ -153,6 +164,28 @@ QUESTIONS: dict[str, dict[str, Any]] = {
     },
 }
 
+# Whether the reply works a result out, and so is laid out as working (Given, Required, the
+# steps, the Answer: ``chat.worked_turn``). A digit alone said yes: "Translate the algebraic
+# expression 7x in different word phrases" got a Given and a Required, with "phrases" set as
+# a symbol (phone, 2026-11-13). Asked in a call of its own, beside the turn's: the Decider
+# weighs a call's questions together, and asked among them it moved the measured ``think``
+# (two thinking questions of the think corpus read as plain, 96% recall to 92%).
+WORK_QUESTION: dict[str, dict[str, Any]] = {
+    "work": {
+        "type": "noul",
+        "instructions": (
+            "Does the last message ask for a result to be worked out: a value to calculate, "
+            "an equation or inequality to solve, an expression to simplify, expand, factorise "
+            "or differentiate, a unit to convert, an equation to balance, a quantity a "
+            "problem asks for, or the same work again with a value changed? Not for what a "
+            "symbol, number or term means, an expression said in words or words written as "
+            "an expression, a definition, a law or formula stated, a concept or reason "
+            "explained, naming or classifying, a fact to recall, examples, or practice "
+            "questions to set."
+        ),
+    },
+}
+
 
 def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, Any] | None:
     """The read's fields from the Decider's answers (``DeciderAnswer`` objects or dicts);
@@ -169,6 +202,7 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
     live, asked = get("live", "noul"), get("asked", "noul")
     if subject is None or None in (think, hard, live, asked):
         return None
+    work = get("work", "noul")
     if subject in _STEM:
         # Only the hard ones think; ``model_routing.decided`` gives "high" the model's
         # level that thinks.
@@ -188,28 +222,74 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "live": max(live, asked) >= _LIVE_AT,
         "live_odds": max(live, asked),
         "asked": asked >= _ASKED_AT,
+        # None (unanswered): the rules decide the layout.
+        "work": None if work is None else work >= _WORK_AT,
     }
 
 
 async def decide_turn(
-    settings: Settings, state: str, *, has_earlier: bool, seconds: float
+    settings: Settings,
+    state: str,
+    *,
+    has_earlier: bool,
+    seconds: float,
+    ask_work: bool = False,
 ) -> dict[str, Any] | None:
-    """The Decider's read of ``state`` (the message, its earlier turns quoted), or None."""
+    """The Decider's read of ``state`` (the message, its earlier turns quoted), or None. With
+    ``ask_work`` the work question goes in a call of its own begun beside it, which ends when
+    the read does, whatever ends it (an answer, a failure, the reply's wait, a Stop)."""
     from app.gateways.decider_gateway import decide
     from app.gateways.llm_spend import meter_reported_cost
-    from app.models import model_catalog
 
     alias = ROUTING.decider
+    work_read: asyncio.Task[Any] | None = None
     try:
+        from app.models import model_catalog
+
+        model = model_catalog.get(alias).model.removeprefix("openrouter/")
+        if ask_work:
+            work_read = asyncio.create_task(
+                decide(settings, model=model, state=state, questions=WORK_QUESTION, seconds=seconds)
+            )
+            work_read.add_done_callback(_metered_work(alias))
         reply = await decide(
-            settings,
-            model=model_catalog.get(alias).model.removeprefix("openrouter/"),
-            state=state,
-            questions=QUESTIONS,
-            seconds=seconds,
+            settings, model=model, state=state, questions=QUESTIONS, seconds=seconds
         )
+        meter_reported_cost(alias, reply.usage.cost)
+        answers = dict(reply.answers)
+        if work_read is not None:
+            answers.update(await _work_answers(work_read))
     except Exception as exc:  # A read is a hint: the text read or the rules decide.
         logger.info("decider read failed (%s)", type(exc).__name__)
         return None
-    meter_reported_cost(alias, reply.usage.cost)
-    return decision_fields(reply.answers, has_earlier=has_earlier)
+    finally:
+        if work_read is not None and not work_read.done():
+            work_read.cancel()
+    return decision_fields(answers, has_earlier=has_earlier)
+
+
+async def _work_answers(work_read: asyncio.Task[Any]) -> dict[str, Any]:
+    """The work call's answers, waited for only a moment past the turn's read; none (the
+    rules lay the turn out) when it is late or failed."""
+    try:
+        reply = await asyncio.wait_for(work_read, _WORK_GRACE_SECONDS)
+    except TimeoutError:  # Late: the rules lay the turn out.
+        return {}
+    except Exception as exc:  # Failed: the rules lay the turn out.
+        logger.info("decider work read failed (%s)", type(exc).__name__)
+        return {}
+    return dict(reply.answers)
+
+
+def _metered_work(alias: str) -> Callable[[asyncio.Task[Any]], None]:
+    """Each finished work call metered against the day's spend, and a failed one's error read
+    (asyncio logs an unread one as an error); a failure the turn awaited is logged there."""
+    from app.gateways.llm_spend import meter_reported_cost
+
+    def settle(task: asyncio.Task[Any]) -> None:
+        if task.cancelled():
+            return
+        if task.exception() is None:
+            meter_reported_cost(alias, task.result().usage.cost)
+
+    return settle
