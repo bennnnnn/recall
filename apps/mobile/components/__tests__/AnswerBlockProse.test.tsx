@@ -30,6 +30,13 @@ describe("answerReadsAsProse", () => {
     // Words with no maths, or LaTeX outside the dollars, are not a sentence answer.
     ["the box slides down the slope", false],
     [String.raw`$a = 4.9$ \text{down the slope}`, false],
+    // A value with its meaning in brackets after it: the note is words (2026-11-13).
+    [String.raw`$\lVert \mathbf{a} \rVert = 3.74$ (to 3 s.f.)`, true],
+    ["$0$ (at x=1)", true],
+    ["$decreasing = (-3,1)$ (interval)", true],
+    // A bracket of maths after the value is maths.
+    [String.raw`$y = \frac{1}{x}$ (x ≠ 0)`, false],
+    ["$x = 4$ (2)", false],
   ])("%s → %s", (text, prose) => {
     expect(answerReadsAsProse(text)).toBe(prose);
   });
